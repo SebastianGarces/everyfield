@@ -10,14 +10,7 @@ import {
 import type { EvryActor } from "../../../../packages/evry/src/index.ts";
 import { admin, db, plant, sql } from "../../runtime/support.mts";
 
-// A church's meetings for the meetings adapter suites, made through the native Meetings commands the screens use, so
-// every row is one the app could have written. Dates are church-local (America/Chicago) and placed from the real clock:
-// an upcoming Vision night two days out at the saved venue "Coffee shop", last week's Vision night, the two Vision
-// nights before it (18 attended, then none recorded, then 24 last week), a meeting cancelled today and a team training
-// next week. The native reads compare with the database clock, so the dates must be the real ones.
-
 const ZONE = "America/Chicago";
-/** The church-local date `days` from today. */
 export function localDate(days: number) {
 	const at = new Date(Date.now() + days * 86_400_000);
 	return new Intl.DateTimeFormat("en-CA", { timeZone: ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(
@@ -27,7 +20,6 @@ export function localDate(days: number) {
 const noReminders = async () => undefined;
 const attendance = createAttendanceWriter({ reminders: noReminders });
 
-/** One native meetings command as `who`, expected to succeed. */
 export async function native<T>(
 	who: EvryActor,
 	run: (tx: never, ctx: never, request: unknown) => Promise<{ status: string; value?: T; error?: unknown }>,
@@ -52,7 +44,6 @@ async function person(name: string) {
 		VALUES(${id},${plant},${plant},${name},'other',clock_timestamp(),'prospect','unknown','unknown',500,'live')`);
 	return id;
 }
-/** `n` new prospects, for a finalized attendance count. */
 async function crowd(prefix: string, n: number) {
 	const ids: string[] = [];
 	for (let i = 1; i <= n; i++) ids.push(await person(`${prefix} ${String(i).padStart(2, "0")}`));
@@ -83,7 +74,6 @@ export async function seedMeetings(owner: EvryActor) {
 	});
 	await native(owner, guestsWriter.correctRsvp as never, await guestRevision(vision.id, guests.yes, "confirmed"));
 	await native(owner, guestsWriter.correctRsvp as never, await guestRevision(vision.id, guests.no, "declined"));
-	// The kit: every item checked but two.
 	const kit = await admin.execute(
 		sql`SELECT id,revision::text AS revision,text FROM meeting_kit_item WHERE meeting_id=${vision.id} ORDER BY position`,
 	);
@@ -93,7 +83,6 @@ export async function seedMeetings(owner: EvryActor) {
 			expectedRevision: k.revision,
 			input: { meetingId: vision.id, itemId: k.id, patch: { checked: true } },
 		});
-	// The three Vision nights before it: 18 attended, none recorded, 24 attended.
 	const past = async (days: number, title: string) =>
 		schedule(owner, { type: "vision_meeting", title, date: localDate(days), time: "19:00" });
 	const first = await past(-21, "Vision night");
@@ -101,7 +90,6 @@ export async function seedMeetings(owner: EvryActor) {
 	const last = await past(-7, "Vision night");
 	await finalize(owner, first.id, await crowd("Guest A", 18));
 	await finalize(owner, last.id, await crowd("Guest B", 24));
-	// Last week's guests, invited before the night and not yet marked.
 	for (const p of [guests.maria, guests.alex, guests.casey])
 		await native(owner, guestsWriter.inviteGuest as never, { input: { meetingId: middle.id, personId: p } });
 	const cancelled = await schedule(owner, {

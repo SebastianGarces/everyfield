@@ -10,9 +10,6 @@ import { Problem } from "../board/Problem";
 import { removePerson } from "./actions";
 import { keptText, removedLines } from "./model";
 
-// Removal on request (REQ-MUL-005). The first step says it cannot be undone and how it differs from retiring; nothing
-// changes until the Owner or Admin confirms. The second shows what was removed and what the organization kept and why.
-
 type Person = { personId: string; revision: string; name: string };
 
 export function RemoveDialog({
@@ -41,7 +38,6 @@ export function RemoveDialog({
 		else setProblem(refusalText(answer));
 	};
 
-	// Once removed there is no record to go back to: the dialog stays until the person leaves for the board.
 	const change = (next: boolean) => {
 		if (pending || report) return;
 		setProblem(null);

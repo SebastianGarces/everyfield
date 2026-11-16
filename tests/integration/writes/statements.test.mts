@@ -11,11 +11,6 @@ import { checkBudgets, checkSamples } from "./budgets.mjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
-// CI splits the census into parts. EVF_CENSUS_PART=i/N runs part i of N: part 1 runs the HTTP requests and the native
-// boundaries, and the behavior suites spread over the other parts. A part checks only what its own samples show. Each
-// passing part adds a marker to its counts file that names the scripts and suites it ran. EVF_CENSUS_UNION=<folder>
-// requires each of them exactly once over all N parts, then checks every rule over their counts files, so a skipped suite
-// or a budget that no part measured still fails. Without either variable one run does all of it.
 type Census = { kind: "whole" } | { kind: "part"; index: number; total: number } | { kind: "union"; folder: string };
 type Row = { kind: string; [key: string]: any };
 
@@ -29,7 +24,6 @@ function censusMode(part = process.env.EVF_CENSUS_PART, union = process.env.EVF_
 }
 const census = censusMode();
 
-/** The behavior suites of part `index`: the largest file goes to the part with the fewest bytes, so parts stay even. */
 function partSuites(files: string[], index: number, total: number): string[] {
 	if (total === 1) return files;
 	const parts = Array.from({ length: total - 1 }, () => ({ bytes: 0, files: [] as string[] }));
@@ -50,7 +44,6 @@ const parseRows = (text: string): Row[] =>
 		.filter(Boolean)
 		.map((line) => JSON.parse(line));
 
-/** Everything one census runs, as repository paths: the request and native scripts, then the behavior suites. */
 async function censusUnits(): Promise<string[]> {
 	const patterns = JSON.parse(await readFile(new URL("./suites.json", import.meta.url), "utf8"));
 	return [
@@ -60,7 +53,6 @@ async function censusUnits(): Promise<string[]> {
 	];
 }
 
-/** The rows of every counts file under `folder`: each part of one split exactly once, together running `units` once. */
 async function unionRows(folder: string, units: string[]): Promise<Row[]> {
 	const files = globSync("**/counts.jsonl", { cwd: folder });
 	const rows = (await Promise.all(files.map((file) => readFile(join(folder, file), "utf8")))).flatMap(parseRows);
@@ -83,9 +75,7 @@ async function unionRows(folder: string, units: string[]): Promise<Row[]> {
 	return rows;
 }
 
-/** What one part's samples show alone: each sample within its budget, and reserve never counted at zero. */
 function checkPart(rows: Row[], limits: object) {
-	// BUG-PR193: reserve always issues its one statement, so zero means another request took its count.
 	const reserves = rows.filter(
 		(row) => row.kind === "sample" && row.status !== "threw" && row.name === "identity.budget.reserve",
 	);
@@ -93,7 +83,6 @@ function checkPart(rows: Row[], limits: object) {
 	assert.deepEqual(checkSamples(rows, limits), []);
 }
 
-/** Every rule over the whole census: the part rules, every budget measured, and every declared write exercised. */
 function checkWhole(rows: Row[], limits: object) {
 	checkPart(rows, limits);
 	assert.ok(
@@ -112,7 +101,6 @@ function checkWhole(rows: Row[], limits: object) {
 		assert.ok(covered.has(row.name), "A declared write has no successful real-database exercise: " + row.name);
 }
 
-// pg-pool hands a freed client to a waiting request inside the release of the request before it.
 test("BUG-PR193: a pooled query counts in the request that issued it", { skip: census.kind === "union" }, async () => {
 	const output = join(await mkdtemp(join(tmpdir(), "evf-write-pool-")), "counts.jsonl");
 	process.env.EVF_WRITE_COUNTS = output;
@@ -121,7 +109,6 @@ test("BUG-PR193: a pooled query counts in the request that issued it", { skip: c
 	const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 	observeDatabase({ $client: pool });
 	try {
-		// Three queries on a one-client pool: the second and third queue behind the first, with no sleep needed.
 		await Promise.all(["a", "b", "c"].map((name) => measure(name, () => pool.query("SELECT 1"))));
 	} finally {
 		await pool.end();
@@ -135,7 +122,6 @@ test("BUG-PR193: a pooled query counts in the request that issued it", { skip: c
 	assert.deepEqual(Object.fromEntries(counts), { a: 1, b: 1, c: 1 });
 });
 
-// A listed standalone name its file does not declare would never be measured, so loading that file fails instead.
 test(
 	"INV-census: the load hook refuses a listed standalone name its file does not declare",
 	{ skip: census.kind === "union" },
@@ -155,7 +141,6 @@ test(
 	},
 );
 
-// The budget rules themselves: growth, slack, a write above the pattern without a reason and a page that grows.
 test("INV-census: a budget fails on growth, slack, an unexplained write above six and a growing page", () => {
 	const sample = (name: string, count: number, writes = 1, rollbacks = 0) => ({
 		kind: "sample",
@@ -190,11 +175,9 @@ test("INV-census: a budget fails on growth, slack, an unexplained write above si
 	]);
 });
 
-// F8: a replay through a shared wrapper writes nothing and carries a variant suffix; it still meets its retry budget.
 test("INV-census: a zero-write replay with a suffixed name is held to its operation's retry budget", () => {
 	const save = "people/commitments/index.saveCommitmentDocument";
 	const name = save + ":people/core.withPeopleWrite:" + save;
-	// Two samples from the #251 verifier's census: the first save and its replay.
 	const rows = [
 		{
 			kind: "sample",
@@ -223,9 +206,6 @@ test("INV-census: a zero-write replay with a suffixed name is held to its operat
 	assert.deepEqual(checkBudgets(rows, { [save]: { limit: 6, retry: 10 } }), []);
 });
 
-// WP-087: the union of the parts holds every whole-census rule. A budget that no part measured fails, and so does a
-// missing part, which would otherwise drop its budgets from the check. A suite that no part ran fails even when it
-// measured nothing of its own, and so does a suite that two parts ran.
 test("INV-census: the census union fails on a budget no part measured, a missing part and a skipped suite", async () => {
 	const folder = await mkdtemp(join(tmpdir(), "evf-census-union-"));
 	const sample = (name: string) => ({
@@ -252,7 +232,6 @@ test("INV-census: the census union fails on a budget no part measured, a missing
 	const measured = [sample("people.addNote"), sample("tasks.edit")];
 	await write("part-2", [...measured, marker(2, ["people.test.mts", "tasks.test.mts", "unit.test.mts"])]);
 	assert.deepEqual(checkBudgets(await unionRows(folder, units), limits), []);
-	// unit.test.mts measures nothing, so only the list of suites the part ran shows that it was skipped.
 	await write("part-2", [...measured, marker(2, ["people.test.mts", "tasks.test.mts"])]);
 	await assert.rejects(unionRows(folder, units), /The census parts must run every suite exactly once/);
 	await write("part-2", [
@@ -264,12 +243,9 @@ test("INV-census: the census union fails on a budget no part measured, a missing
 	await assert.rejects(unionRows(folder, units), /The census union needs every part exactly once/);
 });
 
-// One regression checks every budget in limits.json: real HTTP requests on the production build, the native write
-// boundaries and every write the behavior suites run. It records no SQL or parameters.
 test("INV-census: every request and write stays within its statement budget", { timeout: 30 * 60 * 1000 }, async () => {
 	const limits = JSON.parse(await readFile(new URL("./limits.json", import.meta.url), "utf8"));
 	if (census.kind === "union") return checkWhole(await unionRows(census.folder, await censusUnits()), limits);
-	// CI names a folder (EVF_CENSUS_LOGS) and uploads it: these logs and the counts file.
 	const parent = process.env.EVF_CENSUS_LOGS ?? tmpdir();
 	await mkdir(parent, { recursive: true });
 	const directory = await mkdtemp(join(parent, "evf-write-counts-")),
@@ -278,7 +254,6 @@ test("INV-census: every request and write stays within its statement budget", { 
 	const [requestsScript, nativeScript, ...suites] = (await censusUnits()).map((file) => join(root, file));
 	const part = census.kind === "part" ? census : { index: 1, total: 1 };
 	const files = partSuites(suites, part.index, part.total);
-	// What this part ran and passed, as repository paths, for the union to require each exactly once.
 	const ran: string[] = [];
 	const typescript = [
 		process.env.NODE_OPTIONS ?? "",
@@ -288,7 +263,6 @@ test("INV-census: every request and write stays within its statement budget", { 
 	const counted = [...typescript, "--import=" + pathToFileURL(join(root, "tests/integration/writes/counter.mjs")).href];
 	const environment = { ...process.env };
 	delete environment.NODE_TEST_CONTEXT;
-	// Runs one node process with the counts file; answers its exit code and keeps its output as evidence.
 	async function run(label: string, args: string[], nodeOptions: string[]) {
 		const child = spawn(process.execPath, ["--env-file-if-exists=" + join(root, "apps/web/.env.local"), ...args], {
 			cwd: join(root, "packages/domain"),
@@ -312,7 +286,6 @@ test("INV-census: every request and write stays within its statement budget", { 
 		});
 		return { exit, log, evidence: join(directory, label + ".log") };
 	}
-	// HTTP requests and native entry points first, so a missing build or a retired producer fails before the corpus.
 	if (part.index === 1) {
 		const requests = await run("requests", [requestsScript], typescript);
 		assert.equal(

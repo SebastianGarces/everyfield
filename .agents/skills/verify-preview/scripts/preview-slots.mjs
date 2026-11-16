@@ -1,8 +1,3 @@
-// One slot check for every script that starts a portless preview (`bin/dev stack up` and the verify-preview skill's preview.mjs). Portless allows PORTLESS_PREVIEW_LIMIT live previews (D74 keeps it at 4). Before `portless preview up`,
-// ensurePreviewSlot releases previews nobody needs, then waits for a free slot instead of failing the seat.
-//
-// It releases only orphans: previews portless reports as expired or failed, and previews whose project path is gone. It
-// never stops a preview whose project still exists, so it cannot stop a task that is still working.
 import { spawnSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { resolve } from "node:path";
@@ -18,7 +13,6 @@ const portless = (args) => {
   return r;
 };
 
-/** Every preview record portless knows, including removed ones. */
 function previewRecords() {
   const r = portless(["status", "--json"]);
   if (r.status !== 0) throw new Error(`portless preview status failed: ${(r.stderr || r.stdout).trim().slice(0, 200)}`);
@@ -28,7 +22,6 @@ function previewRecords() {
 }
 const isLive = (preview) => !DEAD_STATES.has(preview.state);
 
-/** Release the orphans among `records`. Returns what was released, for the log. */
 function releaseOrphans(records, log, once) {
   const released = [];
   if (!once.gc && records.some((p) => p.state === "failed" || p.state === "expired")) {
@@ -48,11 +41,6 @@ const formatWait = (ms) => (ms < 120_000 ? `${Math.round(ms / 1000)} s` : `${Mat
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms));
 const numberFrom = (value, fallback) => (Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback);
 
-/**
- * Wait until `project` may start a preview. A project that already has a live preview reuses it and never waits.
- * Options override the environment: limit (PORTLESS_PREVIEW_LIMIT), waitMs (EVF_PREVIEW_WAIT_MS), pollMs
- * (EVF_PREVIEW_POLL_MS) and announceMs (EVF_PREVIEW_ANNOUNCE_MS, once a minute by default).
- */
 export async function ensurePreviewSlot({ project, ...opts }) {
   const env = opts.env ?? process.env;
   const limit = opts.limit ?? numberFrom(env.PORTLESS_PREVIEW_LIMIT, DEFAULT_LIMIT);
@@ -70,12 +58,10 @@ export async function ensurePreviewSlot({ project, ...opts }) {
     if (own) return { reused: true, preview: own };
     live = records.filter(isLive);
     if (live.length < limit) return { reused: false, inUse: live.length, limit };
-    // The pool is full: free what nobody needs before anyone waits.
     releaseOrphans(records, log, once);
     records = previewRecords();
     live = records.filter(isLive);
     if (live.length < limit) return { reused: false, inUse: live.length, limit };
-    // Say so before anything else, so even a short bound on a loaded machine prints the status once.
     if (Date.now() - announcedAt >= announceMs) {
       announcedAt = Date.now();
       log(`waiting for a preview slot (${live.length}/${limit} in use)`);
@@ -89,7 +75,6 @@ export async function ensurePreviewSlot({ project, ...opts }) {
   }
 }
 
-// Command line: `node preview-slots.mjs [--project PATH]` waits for a slot. Exit 1 with the message when the wait runs out.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const at = args.indexOf("--project");

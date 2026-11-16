@@ -4,25 +4,14 @@ import { liveResidency, reviewShared } from "../access/pipeline.ts";
 import { seatHeld } from "../access/session.ts";
 import type { Reader } from "./core.ts";
 
-// Connection and sharing milestones (REQ-NTF-009, NTF-009). Approving or ending a plant's connection, and changing what
-// the plant shares, queue one `notification` job for the affiliation in the command's own write statement (D70). The
-// notification worker reads the plan below when the job runs and writes one notice per current plant Owner or Admin.
-// The organization's seat holders are never told (D-795).
-
-/** What happened to the connection: approved, ended, or a change to what the church shares. */
 export const milestone = z.enum(["approved", "ended", "sharing"]);
 export type Milestone = z.infer<typeof milestone>;
-/** The notice category each milestone writes. */
 export const milestoneCategory = {
 	approved: "relationship_milestone",
 	ended: "relationship_milestone",
 	sharing: "sharing_milestone",
 } as const satisfies Record<Milestone, string>;
 
-/**
- * The milestone's `notification` job, as one statement for the command's write (D70). Keyed
- * `affiliation/<occurrence>/<revision>` by the occurrence and the revision it wrote, so a later re-approval queues its own job and a replay never reaches here.
- */
 export function queueMilestoneJob(input: {
 	plantId: string;
 	affiliationId: string;
@@ -36,10 +25,6 @@ export function queueMilestoneJob(input: {
 		ON CONFLICT (kind, subject_record_id, producer_key) DO NOTHING`;
 }
 
-/**
- * Whether a milestone's fact still holds on the row now (D-796): an approval or a sharing change while the connection is
- * active, an end while it is ended. Columns of `affiliation` under the alias `a`.
- */
 const holds = (occurrence: SQLWrapper) =>
 	sql`CASE ${occurrence} WHEN 'ended' THEN a.ended_at IS NOT NULL ELSE a.ended_at IS NULL AND a.accepted_at <= clock_timestamp() END`;
 
@@ -48,7 +33,6 @@ const planRow = z.object({
 	holds: z.boolean(),
 	recipients: z.array(z.uuid()),
 });
-/** What a milestone's notice says. It names the organization and the plant's own committed event, nothing more. */
 function milestoneNotice(occurrence: Milestone, organization: string) {
 	const name = organization.slice(0, 400);
 	return {
@@ -58,12 +42,6 @@ function milestoneNotice(occurrence: Milestone, organization: string) {
 	}[occurrence];
 }
 
-/**
- * The milestone plan as the worker sees it when the job runs: whether the occurrence still holds, its recipients (the
- * plant's current Owner and Admin seat holders, accepted and not ended) and the notice text. Null when the connection is
- * gone, is not this plant's, or has not reached the job's revision. One statement; the caller is the trusted worker for
- * the job's own tenant.
- */
 export async function planMilestoneNotice(
 	db: Reader,
 	plantId: string,
@@ -80,12 +58,6 @@ export async function planMilestoneNotice(
 	return { holds: row.holds, recipients: row.recipients, ...milestoneNotice(input.occurrence, row.organization) };
 }
 
-/**
- * Which milestone notice mail may go out, as a locking SELECT of mail ids over `input` (rows of id, recipient and
- * notice, under the alias `i`): the notice is the recipient's own connection or sharing milestone, the recipient still
- * holds an Owner or Admin seat in the plant, and the occurrence still holds. The notification mail mount runs it with
- * the meeting check in one statement.
- */
 export function relationshipMailGrants(input: SQLWrapper): SQLWrapper {
 	return sql`SELECT i.id FROM ${input}
 		JOIN notice n ON n.id=i.notice AND n.recipient_id=i.recipient AND n.purpose='relationship_decision'
@@ -96,27 +68,13 @@ export function relationshipMailGrants(input: SQLWrapper): SQLWrapper {
 		FOR SHARE OF n, a, s`;
 }
 
-// Residency notices (T-365, D-1414 to D-1416). The director confirming a milestone the linked resident marked done, and
-// the director writing feedback on one of the resident's milestones, each queue one `notification` job in the write's
-// own statement, only while the enrollment's person has a live residency link. The job names that link: the worker
-// writes one notice, owned by the organization, to the link's account while that link is still live, and the mail
-// mount sends its email only while it is. The notice names the milestone and the organization, never the feedback.
-
-/** What the director did: confirmed the resident's milestone, or wrote feedback on it. */
 const residencyOccurrence = z.enum(["confirmation", "feedback"]);
 type ResidencyOccurrence = z.infer<typeof residencyOccurrence>;
-/** The notice category each residency occurrence writes. */
 export const residencyCategory = {
 	confirmation: "residency_confirmation",
 	feedback: "residency_feedback",
 } as const satisfies Record<ResidencyOccurrence, string>;
 
-/**
- * The occurrence's `notification` job, as a CTE body for the director's write statement (D70): one job per row of
- * `from`, which exposes enrollment `x`, milestone `m` and the live link `lk` (with its id), and for feedback the
- * `feedback` id. Keyed by the milestone, the feedback and the link, so a replayed write, which inserts nothing, queues
- * nothing, and a later link never inherits an earlier occurrence.
- */
 export function queueResidencyJob(org: string, from: SQLWrapper, feedback: string | null = null) {
 	const key =
 		feedback === null
@@ -128,7 +86,6 @@ export function queueResidencyJob(org: string, from: SQLWrapper, feedback: strin
 		ON CONFLICT (kind, subject_record_id, producer_key) DO NOTHING`;
 }
 
-/** A residency job key: `residency/<occurrence>/<milestone>[/<feedback>]/<link>`. */
 export function residencyJobOf(key: string) {
 	const [, occurrence, milestone, ...rest] = key.split("/");
 	const parsed = residencyOccurrence.parse(occurrence);
@@ -149,7 +106,6 @@ const residencyRow = z.object({
 	holds: z.boolean(),
 });
 
-/** What a residency notice says: the milestone and the organization, never the feedback's words (D-1414). */
 function residencyNotice(occurrence: ResidencyOccurrence, organization: string, milestone: string) {
 	const church = organization.slice(0, 150);
 	const title = `“${milestone.slice(0, 300)}”`;
@@ -165,12 +121,6 @@ function residencyNotice(occurrence: ResidencyOccurrence, organization: string, 
 	}[occurrence];
 }
 
-/**
- * The residency notice as the worker sees it when the job runs: the organization, the link's account, whether that
- * link is still live (D-1416) and the notice text. Null when the enrollment, milestone or link is not this
- * organization's. One statement that holds the link, so leaving waits for this job's
- * notice and mail, and the mail check after it sees the leave. The caller is the trusted worker for the job's tenant.
- */
 export async function planResidencyNotice(
 	db: Reader,
 	org: string,
@@ -194,11 +144,6 @@ export async function planResidencyNotice(
 	};
 }
 
-/**
- * Which residency notice mail may go out, as a locking SELECT of mail ids over `input` (rows of id, recipient and
- * notice, under the alias `i`): the notice is the recipient's own residency notice and the recipient still holds a live
- * residency link to the organization that owns it (D-1416), in place of a seat.
- */
 export function residencyMailGrants(input: SQLWrapper): SQLWrapper {
 	return sql`SELECT i.id FROM ${input}
 		JOIN notice n ON n.id=i.notice AND n.recipient_id=i.recipient AND n.purpose IN ('residency_confirmation','residency_feedback')
@@ -207,12 +152,6 @@ export function residencyMailGrants(input: SQLWrapper): SQLWrapper {
 		FOR SHARE OF n, l`;
 }
 
-// Kept answers sent for review (T-385, D-1507). The send queues one `notification` job keyed `review/<send>` in its own
-// statement. The worker writes one notice, owned by the organization, to the reviewer's account while the send is
-// shared (reviewShared), and the mail mount sends its email only while it still is. Neither names a question or an
-// answer: only the person, the group name and the sender.
-
-/** The send a review job key names: `review/<send>`. */
 export function reviewJobOf(key: string) {
 	return z.uuid().parse(key.split("/")[1]);
 }
@@ -226,7 +165,6 @@ const reviewRow = z.object({
 	holds: z.boolean(),
 });
 
-/** What the reviewer's notice says: who sent which group for whom, never a question or an answer (D-1507). */
 function reviewNotice(person: string, group: string, sender: string | null) {
 	const name = person.slice(0, 200);
 	return {
@@ -235,11 +173,6 @@ function reviewNotice(person: string, group: string, sender: string | null) {
 	};
 }
 
-/**
- * The review notice as the worker sees it when the job runs: the reviewer's account, whether the send is still shared,
- * and the notice text. Null when the send is not this organization's. One statement that holds the send and the
- * reviewer's seat, so a withdrawal or a seat end waits for this job's notice. The caller is the trusted worker.
- */
 export async function planReviewNotice(db: Reader, org: string, reviewId: string) {
 	const r =
 		await db.execute(sql`SELECT o.kind AS organization_kind, s.account_id AS recipient, p.display_name AS person,
@@ -259,11 +192,6 @@ export async function planReviewNotice(db: Reader, org: string, reviewId: string
 	};
 }
 
-/**
- * Which review notice mail may go out, as a locking SELECT of mail ids over `input` (rows of id, recipient and notice,
- * under the alias `i`): the notice is the recipient's own review notice, the recipient still holds the send's reviewer
- * seat, and the send is still shared.
- */
 export function reviewMailGrants(input: SQLWrapper): SQLWrapper {
 	return sql`SELECT i.id FROM ${input}
 		JOIN notice n ON n.id=i.notice AND n.recipient_id=i.recipient AND n.purpose='answer_review'

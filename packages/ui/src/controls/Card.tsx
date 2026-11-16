@@ -4,7 +4,6 @@ import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
 import { IconButton } from "./Button";
 
-/** The tone pairs for icon circles and callouts: a 100 tint behind a 600 or 700 mark (foundations.md, Color roles). */
 export type Tone = "green" | "blue" | "amber" | "magenta" | "violet" | "teal" | "ink";
 
 const TONE: Record<Tone, string> = {
@@ -17,7 +16,6 @@ const TONE: Record<Tone, string> = {
 	ink: "bg-surface-2 text-ink-2",
 };
 
-/** The text color for a callout label in each tone. */
 const TONE_TEXT: Record<Tone, string> = {
 	green: "text-green-700",
 	blue: "text-blue-600",
@@ -31,10 +29,12 @@ const TONE_TEXT: Record<Tone, string> = {
 export const cardVariants = cva("relative flex min-w-0 flex-col", {
 	variants: {
 		variant: {
-			default: "border border-[var(--ef-card-edge)] bg-surface shadow-card",
-			raised: "border border-[var(--ef-card-edge)] bg-surface-raised shadow-card",
-			flat: "border border-dashed border-line-2 bg-transparent",
-			callout: "rounded-lg border border-line bg-surface-raised px-5 py-[18px] shadow-card",
+			default: "border border-[var(--ef-card-edge)] bg-surface shadow-card [--ef-card-fill:var(--ef-surface)]",
+			raised:
+				"border border-[var(--ef-card-edge)] bg-surface-raised shadow-card [--ef-card-fill:var(--ef-surface-raised)]",
+			flat: "border border-dashed border-line-2 bg-transparent [--ef-card-fill:var(--ef-surface)]",
+			callout:
+				"rounded-lg border border-line bg-surface-raised px-5 py-[18px] shadow-card [--ef-card-bottom:18px] [--ef-card-corner:var(--ef-radius-lg)] [--ef-card-fill:var(--ef-surface-raised)] [--ef-card-x:20px]",
 		},
 		size: { md: "", sm: "" },
 	},
@@ -42,25 +42,25 @@ export const cardVariants = cva("relative flex min-w-0 flex-col", {
 		{
 			variant: ["default", "raised", "flat"],
 			size: "md",
-			className: "rounded-card px-7 py-[26px] max-app-sm:px-5 max-app-sm:py-5",
+			className:
+				"rounded-card px-7 py-[26px] [--ef-card-bottom:26px] [--ef-card-corner:var(--ef-radius-card)] [--ef-card-x:28px] max-app-sm:px-5 max-app-sm:py-5 max-app-sm:[--ef-card-bottom:20px] max-app-sm:[--ef-card-x:20px]",
 		},
-		{ variant: ["default", "raised", "flat"], size: "sm", className: "rounded-lg px-[22px] py-5" },
+		{
+			variant: ["default", "raised", "flat"],
+			size: "sm",
+			className:
+				"rounded-lg px-[22px] py-5 [--ef-card-bottom:20px] [--ef-card-corner:var(--ef-radius-lg)] [--ef-card-x:22px]",
+		},
 	],
 	defaultVariants: { variant: "default", size: "md" },
 });
 
 type CardProps = ComponentPropsWithRef<"div"> &
 	VariantProps<typeof cardVariants> & {
-		/** Callout tone: the label and its icon circle take it. The card itself stays white. */
 		tone?: Tone;
-		/** Render as a section or article (with a heading inside) instead of a div. */
 		as?: "div" | "section" | "article";
 	};
 
-/**
- * A card frame with optional slots (components.md, Card). Use only the slots you need: Header (Title, Description,
- * Actions, Close), Body or ScrollArea, Footer and Inset. variant="callout" with tone is the Callout row.
- */
 export function Card({ variant, size, tone = "amber", as: Comp = "div", className, ...props }: CardProps) {
 	return (
 		<Comp
@@ -76,7 +76,6 @@ export function CardHeader({ className, ...props }: ComponentPropsWithRef<"div">
 	return <div className={cn("mb-5 flex items-start gap-4", className)} {...props} />;
 }
 
-/** The title and description column of a header; it takes the free width. */
 export function CardHeading({ className, ...props }: ComponentPropsWithRef<"div">) {
 	return <div className={cn("min-w-0 flex-1", className)} {...props} />;
 }
@@ -109,7 +108,6 @@ export function CardActions({ className, ...props }: ComponentPropsWithRef<"div"
 	return <div className={cn("flex flex-none items-center gap-2", className)} {...props} />;
 }
 
-/** The close button in a header. `label` names what closes, such as "Dismiss the meeting reminder". */
 export function CardClose({
 	label = "Close",
 	...props
@@ -121,10 +119,6 @@ export function CardBody({ className, ...props }: ComponentPropsWithRef<"div">) 
 	return <div className={cn("min-w-0 flex-1", className)} {...props} />;
 }
 
-/**
- * A scrolling body with the prototype's bottom fade. It is a focusable region so keyboard users can scroll it;
- * `label` names it for screen readers.
- */
 export function CardScrollArea({
 	label,
 	maxHeight = 220,
@@ -158,7 +152,18 @@ export function CardFooter({ plain, className, ...props }: ComponentPropsWithRef
 	);
 }
 
-/** A raised panel inside a card or dialog. */
+export function CardStickyFooter({ className, ...props }: ComponentPropsWithRef<"div">) {
+	return (
+		<div
+			className={cn(
+				"sticky bottom-0 z-[2] -mx-[var(--ef-card-x)] -mb-[var(--ef-card-bottom)] flex flex-wrap items-center justify-between gap-3 rounded-b-[var(--ef-card-corner)] border-t border-line bg-[var(--ef-card-fill)] px-[var(--ef-card-x)] pt-3 pb-[max(12px,env(safe-area-inset-bottom))]",
+				className,
+			)}
+			{...props}
+		/>
+	);
+}
+
 export function CardInset({ className, ...props }: ComponentPropsWithRef<"div">) {
 	return (
 		<div
@@ -168,7 +173,6 @@ export function CardInset({ className, ...props }: ComponentPropsWithRef<"div">)
 	);
 }
 
-/** A round icon tile in a tone, as in card and dialog headers. Decorative. */
 export function CardIcon({
 	icon,
 	tone = "ink",
@@ -195,7 +199,6 @@ export function CardIcon({
 	);
 }
 
-/** Callout label: a small tinted icon circle (or EvryBot) and a short label in the callout's tone. */
 export function CalloutLabel({
 	tone = "amber",
 	icon,

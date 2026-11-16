@@ -2,9 +2,9 @@
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { Combobox, Field, Spinner } from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
+import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ElementType, type KeyboardEvent } from "react";
 import { resolveAudience, searchRecipients } from "./actions.ts";
 import { audienceSize, plural, type Form } from "./composeModel.ts";
 import { audienceGroups, groupLabel, type Audience, type AudienceSummary, type Recipient, type Team } from "./model.ts";
@@ -146,7 +146,7 @@ function Chip({ label, remove, removeLabel }: { label: string; remove?: () => vo
 					type="button"
 					aria-label={removeLabel}
 					onClick={remove}
-					className="grid size-6 cursor-pointer place-items-center rounded-sm text-text-2 hover:bg-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
+					className="grid size-6 place-items-center rounded-sm text-text-2 hover:bg-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
 				>
 					<Icon icon={Cancel01Icon} size={16} />
 				</button>
@@ -242,7 +242,6 @@ function ToField({
 	known: { id: string; displayName: string; email: string }[];
 }) {
 	const id = useId();
-	const input = useRef<HTMLInputElement>(null);
 	const [query, setQuery] = useState("");
 	const [results, setResults] = useState<Recipient[]>([]);
 	const [open, setOpen] = useState(false);
@@ -324,14 +323,17 @@ function ToField({
 	};
 
 	const listId = `${id}-list`;
+	const inputId = `${id}-input`;
+	const Box: ElementType = locked ? "div" : "label";
 	return (
 		<Field label="To" hint="Search by name or by the start of an email name. Pick people to add them.">
 			<div className="relative">
-				{/* A pointer shortcut into the search field, which keeps the keyboard path; the box itself is no control. */}
-				<div
-					role="presentation"
-					onClick={() => input.current?.focus()}
-					className="flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-surface-raised px-3 py-2 shadow-[0_0_0_1px_var(--ef-line-2)] focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]"
+				<Box
+					htmlFor={locked ? undefined : inputId}
+					className={cn(
+						"flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-surface-raised px-3 py-2 shadow-[0_0_0_1px_var(--ef-line-2)] focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
+						!locked && "cursor-text",
+					)}
 				>
 					{visible.map((person) => (
 						<span
@@ -347,11 +349,8 @@ function ToField({
 									type="button"
 									aria-label={`${person.displayName}, details`}
 									aria-describedby={card === person.id ? `${id}-card-${person.id}` : undefined}
-									className="cursor-pointer rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
-									onClick={(event) => {
-										event.stopPropagation();
-										setCard(person.id);
-									}}
+									className="rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
+									onClick={() => setCard(person.id)}
 								>
 									{person.displayName}
 								</button>
@@ -361,11 +360,8 @@ function ToField({
 									<button
 										type="button"
 										aria-label={`Remove ${person.displayName}`}
-										onClick={(event) => {
-											event.stopPropagation();
-											remove(person.id);
-										}}
-										className="grid size-6 cursor-pointer place-items-center rounded-sm text-text-2 hover:bg-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
+										onClick={() => remove(person.id)}
+										className="grid size-6 place-items-center rounded-sm text-text-2 hover:bg-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
 									>
 										<Icon icon={Cancel01Icon} size={16} />
 									</button>
@@ -381,7 +377,7 @@ function ToField({
 									<span className="break-all text-text-2">{person.email ?? "Loading email"}</span>
 									<Link
 										href={`/people/${person.id}`}
-										className="w-fit cursor-pointer font-medium text-ink underline underline-offset-[3px]"
+										className="w-fit font-medium text-ink underline underline-offset-[3px]"
 									>
 										Open person
 									</Link>
@@ -392,18 +388,15 @@ function ToField({
 					{!expanded && people.length > MAX_CHIPS ? (
 						<button
 							type="button"
-							onClick={(event) => {
-								event.stopPropagation();
-								setExpanded(true);
-							}}
-							className="cursor-pointer rounded-md px-2 text-sm font-medium text-ink underline underline-offset-[3px]"
+							onClick={() => setExpanded(true)}
+							className="rounded-md px-2 text-sm font-medium text-ink underline underline-offset-[3px]"
 						>
 							+{people.length - MAX_CHIPS} more
 						</button>
 					) : null}
 					{locked ? null : (
 						<input
-							ref={input}
+							id={inputId}
 							role="combobox"
 							aria-label="Add a person"
 							aria-expanded={open && shown.length > 0}
@@ -422,7 +415,7 @@ function ToField({
 							className="min-w-[160px] flex-1 bg-transparent text-md text-ink outline-none placeholder:text-text-3"
 						/>
 					)}
-				</div>
+				</Box>
 				{open && shown.length > 0 ? (
 					<ul
 						id={listId}
@@ -443,7 +436,7 @@ function ToField({
 										event.preventDefault();
 										if (!disabled) add(person);
 									}}
-									className="flex min-h-[40px] flex-wrap items-center justify-between gap-x-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:cursor-not-allowed aria-disabled:text-text-3 aria-selected:bg-surface-2 [&:not([aria-disabled=true])]:cursor-pointer"
+									className="flex min-h-[40px] flex-wrap items-center justify-between gap-x-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:text-text-3 aria-selected:bg-surface-2"
 								>
 									<span className="min-w-0 truncate">{person.displayName}</span>
 									{/* The reason and its date always show in full; on a narrow screen it wraps below the name. */}

@@ -1,10 +1,3 @@
-// The Overview and feedback evals (T-330) on the scripted model. Each case in overview.cases.json is asked the way the
-// app asks it: a real turn (runTurn) with the real catalog, reads and review cards, for Cedar Creek Church, the
-// acceptance fixture church (setup-church.mts seedOverview), with the database clock pinned to Oct 13, 2026 in America/
-// Chicago. Answers are checked against what Overview itself shows (its own reads and words) and, for MON-01 and CLN-10,
-// against the golden case's approved question, expected answer and must-not. The feedback case is approved and its
-// effect run through the WP-031 queue, then read back through Sent feedback's own read. No paid model, network or
-// recording.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -45,7 +38,6 @@ import {
 	type SetupName,
 } from "./setup-church.mts";
 
-/** The acceptance fixture's today: Tuesday, Oct 13, 2026, 10 AM in America/Chicago. */
 const TODAY = new Date("2026-10-13T15:00:00Z");
 const ACTORS = { owner: "setupOwner", member: "teamLead" } as const satisfies Record<string, SetupName>;
 type Change = { field: string; before: unknown; after: unknown };
@@ -65,7 +57,6 @@ type Case = {
 	approve?: true;
 	retry?: true;
 };
-/** Evry's feedback never asks for or starts a code change (PUB57-006): no review, answer or note offers one. */
 const CODE_WORK = /\b(fix(es|ed)?|branch(es)?|pull requests?|PRs?|code|commits?|merge[sd]?|deploy(s|ed)?)\b/i;
 const regex = (r: string) => {
 	const [, body, flags] = /^\/(.*)\/([a-z]*)$/s.exec(r)!;
@@ -90,7 +81,6 @@ let fixture: Awaited<ReturnType<typeof seedOverview>>;
 let cases: Case[];
 const native: NativePorts = nativePorts();
 const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
-/** The host clock in the database clock's frame, as the prompt states it (deps.now). */
 const shift = TODAY.getTime() - Date.now();
 const now = () => new Date(Date.now() + shift);
 const freshActor = async (session: string) => {
@@ -103,10 +93,7 @@ const noReminders = async () => {
 };
 const rows = async (query: ReturnType<typeof sql>) => (await admin.execute(query)).rows as Record<string, unknown>[];
 
-/** The fixture changes a case names in `given`, applied once before it, in case order. */
 const GIVEN = {
-	// One read fails while the seat still holds: the runtime capability loses its grant on this schema's meeting kit
-	// items, which only the Meetings list reads, so that read errors and every other read still answers.
 	meetingsFail: {
 		async apply() {
 			await admin.execute(sql`REVOKE SELECT ON meeting_kit_item FROM everyfield_runtime`);
@@ -140,7 +127,6 @@ before(async () => {
 });
 after(() => close?.());
 
-/** One turn as the app runs it: submitted, claimed from the queue, run on the scripted model and finished. */
 async function ask(actor: EvryActor, text: string) {
 	const conversationId = (await createConversation(db, actor, { requestKey: randomUUID() })).id;
 	await submitTurn(db, actor, conversationId, { requestKey: randomUUID(), text, references: [] });
@@ -173,7 +159,6 @@ async function ask(actor: EvryActor, text: string) {
 	return { reads, answer, proposals };
 }
 
-/** The trusted approval of the exact revision shown, then the effect run once through the WP-031 queue. */
 async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	await approveProposal(db, actor, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
@@ -189,7 +174,6 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	return outcome;
 }
 
-/** What `/overview` shows the actor now, from its own reads, in its own words (overview/model.ts). */
 async function overview(who: keyof typeof ACTORS) {
 	const authority = (await actorOf(who)).authority;
 	const ok = <T,>(r: { status: string; value?: T }) => (r.status === "ok" ? r.value! : assert.fail("overview read"));
@@ -197,7 +181,6 @@ async function overview(who: keyof typeof ACTORS) {
 	const activity = ok(await dashboardReader.readActivity(db, authority));
 	return { frame, added: activity.entries.filter((e) => e.change.kind === "person_added").map(entryText) };
 }
-/** Sent feedback (`/feedback`) for the Owner: its own native read. */
 const sentFeedback = async () => {
 	const r = await feedbackWriter.listOwn(db, (await actorOf("owner")).authority, {});
 	return r.status === "ok" ? r.value.items : assert.fail("sent feedback read");
@@ -208,9 +191,7 @@ const feedbackWrites = () =>
 		(SELECT count(*)::int FROM audit_event WHERE tenant_id=${ownerAccount} AND action='feedback.received') AS received,
 		(SELECT coalesce(jsonb_agg(kind ORDER BY kind),'[]') FROM job WHERE tenant_id=${ownerAccount}) AS jobs`);
 
-/** What each case shows or changes, read back as Overview and Sent feedback show it. */
 const SETTLED: Record<string, { before?: () => Promise<void>; after?: (answer: string) => Promise<void> }> = {
-	// Overview offers the Owner exactly these three first-week steps, in this order, with these links.
 	"OVW-01": {
 		after: async (answer) => {
 			const { frame } = await overview("owner");
@@ -220,7 +201,6 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: (answer: s
 				assert.ok(answer.includes(`- [${STEP_TEXT[s].title}](${STEP_TEXT[s].action.href})`), s);
 		},
 	},
-	// The six "added to People" entries of Overview's activity in the last month, with the same dates.
 	"OVW-03": {
 		after: async (answer) => {
 			const { added } = await overview("owner");
@@ -232,7 +212,6 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: (answer: s
 			assert.deepEqual(listed, added.slice(0, 6));
 		},
 	},
-	// Each open setup step as Overview words and links it; done steps are not listed.
 	"OVW-04": {
 		after: async (answer) => {
 			const { frame } = await overview("owner");
@@ -245,7 +224,6 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: (answer: s
 			assert.ok(SETUP_STEPS.every((s) => frame.setup.gaps.includes(s) || !answer.includes(STEP_TEXT[s].title)));
 		},
 	},
-	// A Member's Overview offers no action, and neither does Evry.
 	"OVW-06": {
 		after: async () => {
 			const { frame } = await overview("member");
@@ -253,10 +231,8 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: (answer: s
 		},
 	},
 	"FDB-01": {
-		// Nothing is saved and no publication job is queued before approval.
 		before: async () => assert.deepEqual(await feedbackWrites(), [{ feedback: 0, received: 0, jobs: [] }]),
 		after: async () => {
-			// One feedback, one audit row and one publication job, and no other effect, even after a retried approval.
 			assert.deepEqual(await feedbackWrites(), [{ feedback: 1, received: 1, jobs: ["feedback_publication"] }]);
 			const items = await sentFeedback();
 			assert.deepEqual(
@@ -279,7 +255,6 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: (answer: s
 			);
 		},
 	},
-	// Evry's list is Sent feedback's list: the Owner's one item, never Sam's.
 	"FDB-02": {
 		after: async (answer) => {
 			const items = await sentFeedback();
@@ -296,7 +271,6 @@ test("AC:MON-01 AC:CLN-10 AC:PUB57-006 INV-evry-overview: every Overview and fee
 		const undo = typeof applied === "function" ? (applied as () => Promise<unknown>) : undefined;
 		try {
 			if (c.golden) {
-				// The golden case's approved question, word for word, scored against its expected answer and must-not.
 				const g = golden.get(c.golden)!;
 				assert.deepEqual([c.ask, c.expected_answer, c.must_not], [g.question, g.expected_answer, g.must_not], c.id);
 			}
@@ -326,7 +300,6 @@ test("AC:MON-01 AC:CLN-10 AC:PUB57-006 INV-evry-overview: every Overview and fee
 			if (!c.approve) continue;
 			assert.equal(await approveAndRun(actor, proposal), "completed", `${c.id} runs once approved`);
 			if (c.retry) {
-				// Approving the same card again (a double click or a retried request) queues no second effect.
 				await approveProposal(
 					db,
 					actor,
@@ -342,6 +315,5 @@ test("AC:MON-01 AC:CLN-10 AC:PUB57-006 INV-evry-overview: every Overview and fee
 			await undo?.();
 		}
 	}
-	// Every feedback answer and review is free of code work too.
 	assert.ok(cases.filter((c) => c.id.startsWith("FDB")).every((c) => !c.answer.some((a) => CODE_WORK.test(a))));
 });

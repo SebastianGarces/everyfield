@@ -5,12 +5,8 @@ import { Icon } from "@everyfield/ui/foundations";
 import { formatDay } from "../board/model";
 import { REVIEWS_PATH, reviewPath } from "./model";
 
-// The reviewer's Sent for review page and one send (T-385, D-1507). The reviewer reads only the questions sent to them,
-// with the note's current answers. A send that is no longer shared shows no question or answer.
-
 const from = (sender: string | null, sentOn: string) => `From ${sender ?? "former staff"} · ${formatDay(sentOn)}`;
 
-/** Every send to the viewer, newest first. A shared one opens; one that is no longer shared says so. */
 export function ReviewsScreen({ list }: { list: ReviewList }) {
 	return (
 		<div className="flex flex-col gap-5">
@@ -43,7 +39,7 @@ export function ReviewsScreen({ list }: { list: ReviewList }) {
 									{item.shared ? (
 										<IntentLink
 											href={reviewPath(item.id)}
-											className="-mx-3 flex cursor-pointer items-center justify-between gap-4 rounded-md px-3 py-3.5 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
+											className="-mx-3 flex items-center justify-between gap-4 rounded-md px-3 py-3.5 transition-colors hover:bg-surface-2 focus-visible:bg-surface-2"
 										>
 											{body}
 										</IntentLink>
@@ -66,7 +62,6 @@ export function ReviewsScreen({ list }: { list: ReviewList }) {
 	);
 }
 
-/** One send: the chosen questions with their current answers, or that it is no longer shared. */
 export function ReviewScreen({ review }: { review: AnswerReview }) {
 	return (
 		<div className="flex flex-col gap-5">

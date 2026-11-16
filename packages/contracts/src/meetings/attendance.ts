@@ -5,13 +5,8 @@ import { stage } from "../people/values.ts";
 import { assigneeIds, followUpOwner, MAX_ASSIGNEES } from "../tasks/values.ts";
 import { meetingId, meetingType, presence, rsvp } from "./values.ts";
 
-// Attendance, finalization, evaluation and analytics (WP-022). The server derives the church, actor, meeting type,
-// classification, average and every generated task; no body can name them.
-
-/** How a finalized attendee counts: core_group for a committed stage, else first or returning Vision guest. */
 export const classification = z.enum(["first_time", "returning", "core_group"]);
 
-/** The eight Vision factors (REQ-MTG-014), version 1, in their stored order. */
 export const evaluationFactors = [
 	"attendanceScore",
 	"locationScore",
@@ -30,7 +25,6 @@ export const scores = z.strictObject(
 		typeof score
 	>,
 );
-/** The arithmetic mean of the eight scores, rounded to one decimal. */
 export const averageOf = (s: z.infer<typeof scores>) =>
 	Math.round((evaluationFactors.reduce((sum, f) => sum + s[f], 0) / evaluationFactors.length) * 10) / 10;
 
@@ -44,11 +38,8 @@ const target = { meetingId, personId };
 const assignees = assigneeIds.default([]);
 
 export const setAttendanceRequest = create(z.strictObject({ ...target, presence }));
-/** Marks a Person attended; a live Person not yet on the guest list joins it as a walk-in. */
 export const checkInRequest = create(z.strictObject(target));
-/** Presence back to absent; the RSVP, card, inviter and notes stay. */
 export const clearAttendanceRequest = create(z.strictObject(target));
-/** Several presence values in one change: every row is valid or nothing is written. */
 export const captureAttendanceBatchRequest = create(
 	z.strictObject({
 		meetingId,
@@ -59,10 +50,6 @@ export const captureAttendanceBatchRequest = create(
 			.refine((e) => new Set(e.map((x) => x.personId)).size === e.length, "duplicate_entry"),
 	}),
 );
-/**
- * Finalize the reviewed attendee set at the reviewed attendance revision. Unowned generated work is Needs owner.
- * Retrying returns the first answer; a concurrent second finalize sees the first one.
- */
 export const finalizeAttendanceRequest = z.strictObject({
 	requestKey,
 	expectedRevision: revision,
@@ -73,7 +60,6 @@ export const finalizeAttendanceRequest = z.strictObject({
 		evaluationAssigneeIds: assignees,
 	}),
 });
-/** Late additions, removals and same-count replacements of a finalized meeting, by exact identity. */
 export const reconcileAttendanceRequest = z.strictObject({
 	requestKey,
 	expectedRevision: revision,
@@ -84,7 +70,6 @@ export const reconcileAttendanceRequest = z.strictObject({
 		reason: z.string().trim().min(1).max(500),
 	}),
 });
-// The input strips unknown keys, so a client-sent average never reaches the server's computation.
 export const recordEvaluationRequest = z.strictObject({
 	requestKey,
 	input: z.object({
@@ -111,7 +96,6 @@ export const attendanceListRequest = z.strictObject({
 	page: z.int().min(1).max(100_000).default(1),
 	limit: z.int().min(1).max(500).default(100),
 });
-/** A report window over meeting occurrence dates, church-local and inclusive; open ends are unbounded. */
 export const reportRequest = z.strictObject({
 	types: z.array(meetingType).max(4).default(["vision_meeting"]),
 	from: localDate.nullable().default(null),
@@ -132,11 +116,8 @@ export const attendee = z.strictObject({
 	presence,
 	rsvp,
 	hasCard: z.boolean(),
-	/** Set when attendance is finalized; null before. */
 	classification: classification.nullable(),
-	/** The committed stage this classification used, as it was at finalization. */
 	classificationStage: stage.nullable(),
-	/** The earlier attended Vision that made this a returning visit; null for a first Vision. */
 	priorVisionId: meetingId.nullable(),
 });
 const finalized = z.strictObject({ at: instant, revision }).nullable();
@@ -150,7 +131,6 @@ export const attendanceList = z.strictObject({
 	page: z.int().min(1),
 	next: z.int().min(2).nullable(),
 	completeness: z.literal("complete"),
-	/** The viewer may mark attendance: a current Owner or Admin, or the current leader of this team meeting's team. */
 	viewerCanMarkAttendance: z.boolean(),
 });
 const counts = z.strictObject({ first_time: z.int().min(0), returning: z.int().min(0), core_group: z.int().min(0) });
@@ -159,7 +139,6 @@ export const attendanceSummary = z.strictObject({
 	attendanceRevision: revision,
 	finalized,
 	guests: z.int().min(0),
-	/** Attended Persons, each once, including a planter who attended. */
 	attended: z.int().min(0),
 	absent: z.int().min(0),
 	excused: z.int().min(0),
@@ -173,7 +152,6 @@ export const attendanceMutationResult = z.strictObject({
 });
 
 export const generatedWork = z.strictObject({
-	/** The meeting that owes the duty: this one, or a later Vision that a correction made a Person's first. */
 	meetingId,
 	kind: z.enum(["first_vision_follow_up", "meeting_evaluation"]),
 	personId: personId.nullable(),
@@ -181,9 +159,7 @@ export const generatedWork = z.strictObject({
 	taskId: recordId.nullable(),
 	outcome: z.enum(["created", "existing", "closed"]),
 	assigneeIds: z.array(accountId).max(MAX_ASSIGNEES),
-	/** No eligible owner: nobody is assigned or every assignee fails eligibility. The task shows Needs owner. */
 	needsOwner: z.boolean(),
-	/** Each assignee as every screen shows them, with whether they may own it. */
 	owners: z.array(followUpOwner).max(MAX_ASSIGNEES),
 });
 export const finalizationResult = z.strictObject({
@@ -206,7 +182,6 @@ export const finalizationResult = z.strictObject({
 		.max(500),
 	stageChanges: z.array(z.strictObject({ personId, from: stage, to: stage })).max(500),
 	work: z.array(generatedWork).max(1100),
-	/** This meeting's participation rows the change wrote, each at its new revision; empty for a noop. */
 	attendees: z.array(attendee).max(1000),
 });
 
@@ -234,7 +209,6 @@ export const evaluationResult = z.discriminatedUnion("status", [
 export const evaluationMutationResult = z.strictObject({
 	...receipt,
 	evaluation,
-	/** The evaluation task this submission completed; a correction completes nothing. */
 	taskCompleted: z.boolean(),
 });
 export const evaluationHistory = z.strictObject({
@@ -256,13 +230,11 @@ export const evaluationHistory = z.strictObject({
 		.max(1000),
 });
 
-/** A report value that may be missing: unknown is never shown as zero. */
 const known = <T extends z.ZodType>(value: T) =>
 	z.discriminatedUnion("status", [
 		z.strictObject({ status: z.literal("known"), value }),
 		z.strictObject({ status: z.literal("unknown") }),
 	]);
-/** Growth over the previous meeting: unavailable when the previous meeting had no attendees, unknown with none. */
 export const growth = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("known"), difference: z.int(), percent: z.number() }),
 	z.strictObject({ status: z.literal("unavailable"), difference: z.int() }),
@@ -271,13 +243,11 @@ export const growth = z.discriminatedUnion("status", [
 export const evaluationComparison = z.strictObject({
 	meetingId,
 	current: known(z.number()),
-	/** The mean of up to the 50 most recent evaluations of earlier meetings, rounded to one decimal. */
 	baseline: z.discriminatedUnion("status", [
 		z.strictObject({ status: z.literal("known"), value: z.number(), count: z.int().min(1).max(50) }),
 		z.strictObject({ status: z.literal("unknown") }),
 	]),
 	delta: known(z.number()),
-	/** The current evaluation includes a correction. */
 	corrected: z.boolean(),
 });
 const window = z.strictObject({
@@ -299,7 +269,6 @@ export const attendancePoint = z.strictObject({
 export const attendanceTrend = z.strictObject({ window, points: z.array(attendancePoint).max(100) });
 export const summaryStats = z.strictObject({
 	window,
-	/** Meetings held in the window: occurred, not cancelled or voided. */
 	held: z.int().min(0),
 	finalized: z.int().min(0),
 	attendances: z.int().min(0),
@@ -323,7 +292,6 @@ export const taskProgress = z.strictObject({
 export const meetingAnalytics = z.strictObject({
 	meetingId,
 	type: meetingType,
-	/** Unknown until attendance is finalized. */
 	attended: known(z.int().min(0)),
 	classifications: counts.nullable(),
 	growth,

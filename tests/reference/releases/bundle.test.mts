@@ -89,7 +89,6 @@ test("AC:CONTENT50-001 canonical catalogs retain topology, identity and distinct
 		starter.catalogs.launch.map((row) => (Array.isArray(row.tasks) ? row.tasks.length : 0)),
 		[3, 3, 2, 2, 3, 3, 2, 3, 2],
 	);
-	// The Wiki part follows each promoted seed release, so pin determinism rather than one digest.
 	const { bundle, policy, manifestHash } = fixture();
 	assert.equal(fixture().manifestHash, manifestHash);
 	assert.deepEqual(validateBundle(bundle, policy), {

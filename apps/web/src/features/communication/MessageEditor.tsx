@@ -143,7 +143,7 @@ export function MessageEditor({
 										event.preventDefault();
 										insert(field, open.from);
 									}}
-									className="flex cursor-pointer flex-col rounded-sm px-2.5 py-1.5 text-md text-ink aria-selected:bg-surface-2"
+									className="flex flex-col rounded-sm px-2.5 py-1.5 text-md text-ink aria-selected:bg-surface-2"
 								>
 									<span>{field.label}</span>
 									<span className="text-xs text-text-3">{fieldToken(field.key)}</span>
@@ -171,7 +171,7 @@ export function MessageEditor({
 								type="button"
 								disabled={disabled}
 								onClick={() => insert(field)}
-								className="flex w-full cursor-pointer items-baseline justify-between gap-3 rounded-sm px-2 py-1.5 text-left text-md text-ink hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ef-focus)] disabled:cursor-not-allowed disabled:opacity-50"
+								className="flex w-full items-baseline justify-between gap-3 rounded-sm px-2 py-1.5 text-left text-md text-ink hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--ef-focus)] disabled:opacity-50"
 							>
 								<span className="font-medium">{field.label}</span>
 								<span className="truncate text-sm text-text-3">{field.example}</span>

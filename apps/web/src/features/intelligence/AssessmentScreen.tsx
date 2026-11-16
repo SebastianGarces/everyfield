@@ -481,7 +481,7 @@ function LensTile({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 			<p className="mt-auto flex items-center justify-between gap-2 text-xs text-text-3">
 				<span className="font-medium text-ink-2">{QUALITY[lens.quality].label}</span>
 				{lens.points.length ? (
-					<a href="#focus" className="cursor-pointer hover:text-ink">
+					<a href="#focus" className="hover:text-ink">
 						{lens.points.length === 1 ? "1 point cites this" : `${lens.points.length} points cite this`}
 					</a>
 				) : null}
@@ -498,7 +498,7 @@ function LensNote({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 				{lens.attestations.length ? (
 					<>
 						{" "}
-						<Link href="/intelligence/attestations" className="cursor-pointer font-medium text-ink underline">
+						<Link href="/intelligence/attestations" className="font-medium text-ink underline">
 							Answer {lens.attestations.length === 1 ? "the question" : `${lens.attestations.length} questions`}
 						</Link>
 					</>
@@ -530,7 +530,7 @@ function FactButton({ fact: e, onCite }: { fact: EvidenceFact; onCite: (key: str
 	return (
 		<button
 			type="button"
-			className="cursor-pointer text-left hover:text-ink"
+			className="text-left hover:text-ink"
 			data-citation={e.key}
 			onClick={() => onCite(e.key, e.label)}
 		>
@@ -661,10 +661,7 @@ function CitationBody({ view }: { view: CitationView }) {
 						<ul className="mt-1.5 flex flex-col gap-1 text-sm">
 							{view.people.shown.map((p) => (
 								<li key={p.personId}>
-									<Link
-										href={`/people/${p.personId}`}
-										className="inline-flex cursor-pointer items-center gap-1 text-ink underline"
-									>
+									<Link href={`/people/${p.personId}`} className="inline-flex items-center gap-1 text-ink underline">
 										{p.name}
 										<Icon icon={ArrowRight01Icon} size={16} />
 									</Link>
@@ -696,7 +693,7 @@ function CitationBody({ view }: { view: CitationView }) {
 				{view.version.release}, revision {view.version.revision}
 				{view.currentVersion ? "" : " · a newer version has been published since"}
 			</p>
-			<Link href={`/wiki/${view.slug}`} className="cursor-pointer text-sm font-medium text-ink underline">
+			<Link href={`/wiki/${view.slug}`} className="text-sm font-medium text-ink underline">
 				Open the article
 			</Link>
 		</>
@@ -725,7 +722,7 @@ function ColdStart({ view, facts }: { view: AssessmentView; facts: PlantFacts })
 					<ul className="flex flex-col">
 						{steps.map((s) => (
 							<li key={s.title} className="border-t border-line first:border-t-0">
-								<Link href={s.href} className="flex cursor-pointer items-center gap-3 py-3 hover:text-ink">
+								<Link href={s.href} className="flex items-center gap-3 py-3 hover:text-ink">
 									<span className="min-w-0 flex-1">
 										<span className="block font-medium text-ink">{s.title}</span>
 										<span className="block text-sm text-text-2">{s.detail}</span>

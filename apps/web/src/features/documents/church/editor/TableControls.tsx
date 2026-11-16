@@ -99,7 +99,7 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 	const problem = issue(shown);
 	return (
 		<span className="flex flex-wrap items-center gap-2">
-			<label htmlFor={id} className="cursor-pointer text-sm text-text-2">
+			<label htmlFor={id} className="text-sm text-text-2">
 				Blank rows
 			</label>
 			<Tip text={`How many blank rows to write in by hand, ${WRITE_IN.min} to ${WRITE_IN.max}`}>
@@ -256,7 +256,7 @@ export function TableControls({
 							aria-label="Column kind"
 							value={column?.type ?? ""}
 							disabled={can.kind !== null}
-							className="h-9 cursor-pointer rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:cursor-not-allowed disabled:opacity-45"
+							className="h-9 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:opacity-45"
 							onMouseDown={(event) => event.stopPropagation()}
 							onChange={(event) => {
 								const kind = event.target.value as Kind;
@@ -362,11 +362,11 @@ export function TableControls({
 					</Labeled>
 				) : null}
 				<Tip text="Shade every second row">
-					<label htmlFor={zebraId} className="flex cursor-pointer items-center gap-2 text-sm text-text-2">
+					<label htmlFor={zebraId} className="flex items-center gap-2 text-sm text-text-2">
 						<input
 							id={zebraId}
 							type="checkbox"
-							className="size-4 cursor-pointer accent-[var(--ef-ink)]"
+							className="size-4 accent-[var(--ef-ink)]"
 							checked={table.attrs.zebra === true}
 							onMouseDown={keepSelection}
 							onChange={(event) =>

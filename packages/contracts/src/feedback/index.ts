@@ -1,17 +1,11 @@
 import { z } from "zod";
 
-// Product feedback (WP-049A, REQ-ADM-001, REQ-ADM-002, REQ-KNOW-029). The browser sends the category, the words and the
-// details only it can know (page, address, browser, screen, theme). The server adds the church, the role, the app
-// version and the time from the signed-in account, never from the request.
-
 export const feedbackCategory = z.enum(["bug", "suggestion", "question", "other"]);
 export type FeedbackCategory = z.infer<typeof feedbackCategory>;
 export const feedbackStatus = z.enum(["new", "reviewed", "resolved", "dismissed"]);
 export type FeedbackStatus = z.infer<typeof feedbackStatus>;
 
-/** The description's limit after trimming: 1 to 5,000 characters. */
 export const DESCRIPTION_MAX = 5000;
-/** Why a description cannot be sent, or null when it can. The dialog's counter and the server share it. */
 export function descriptionProblem(text: string): "empty" | "too_long" | null {
 	const trimmed = text.trim();
 	if (!trimmed) return "empty";
@@ -20,10 +14,6 @@ export function descriptionProblem(text: string): "empty" | "too_long" | null {
 
 const TOKEN_ROUTES = new Set(["invite", "rsvp", "unsubscribe", "email-preferences", "reset-password", "verify"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/**
- * The internal address to store: the path alone, with no query, fragment or token. A token route's token segment and
- * any long opaque segment that is not a record id become "[token]". Anything that is not an internal path is null.
- */
 export function canonicalAddress(raw: string | null | undefined): string | null {
 	if (!raw) return null;
 	const path = raw.split(/[?#]/, 1)[0]!;
@@ -47,10 +37,6 @@ const text = (max: number) =>
 		.catch(null);
 const dimension = z.number().int().min(1).max(100000).nullable().catch(null);
 
-/**
- * What the dialog sends. A detail the browser cannot give is null. Unknown keys, such as a church or a role, are
- * dropped: those come from the account's own seat on the server.
- */
 export const submitFeedbackRequest = z.object({
 	requestKey: z.uuid(),
 	category: feedbackCategory,
@@ -64,7 +50,6 @@ export const submitFeedbackRequest = z.object({
 });
 export type SubmitFeedbackRequest = z.input<typeof submitFeedbackRequest>;
 
-/** The saved feedback as its author sees it right after sending: what we reply to and the page it came from. */
 export const submittedFeedback = z.object({
 	id: z.uuid(),
 	category: feedbackCategory,
@@ -74,7 +59,6 @@ export const submittedFeedback = z.object({
 });
 export type SubmittedFeedback = z.infer<typeof submittedFeedback>;
 
-/** What the dialog shows before sending: the server's church, role and reply address for the signed-in account. */
 export const sendContext = z.object({
 	church: z.string().nullable(),
 	role: z.string().nullable(),
@@ -82,13 +66,11 @@ export const sendContext = z.object({
 });
 export type SendContext = z.infer<typeof sendContext>;
 
-/** One item of the author's own list: no words, no private details and no triage history (REQ-KNOW-029). */
 export const ownFeedback = z.object({
 	id: z.uuid(),
 	category: feedbackCategory,
 	submittedAt: z.string(),
 	status: feedbackStatus,
-	/** The public issue, once one is published. */
 	publicUrl: z.url().nullable(),
 });
 export type OwnFeedback = z.infer<typeof ownFeedback>;
@@ -98,20 +80,13 @@ export type OwnFeedbackPage = z.infer<typeof ownFeedbackPage>;
 export const listOwnRequest = z.object({ cursor: z.string().max(200).nullable().optional().default(null) });
 export const getOwnStatusRequest = z.object({ feedbackId: z.uuid() });
 
-/**
- * Where the public issue stands. pending: waiting for its first run. publishing: the intent and frozen payload are saved
- * and GitHub was called. unknown: GitHub did not answer; the next run looks for the issue by its reference before any
- * new create. published: the issue exists. held: nothing was published, and only a triager can see why.
- */
 export const publicationState = z.enum(["pending", "publishing", "unknown", "published", "held"]);
 export type PublicationState = z.infer<typeof publicationState>;
 export const heldReason = z.enum(["unsafe_fields", "github_refused", "search_failed", "ambiguous", "unresolved"]);
 export type HeldReason = z.infer<typeof heldReason>;
-/** The operator email in the shared mail ledger: queued or sending, sent, failed, or no answer from the email service. */
 export const operatorMailState = z.enum(["sending", "sent", "failed", "unknown"]);
 export type OperatorMailState = z.infer<typeof operatorMailState>;
 
-/** The private original a triager reads. */
 export const triageFeedback = z.object({
 	id: z.uuid(),
 	category: feedbackCategory,
@@ -131,10 +106,8 @@ export const triageFeedback = z.object({
 		theme: z.enum(["light", "dark"]).nullable(),
 		appVersion: z.string().nullable(),
 	}),
-	/** The public marker the issue and the operator email carry. */
 	reference: z.string(),
 	publication: z.object({ state: publicationState, heldReason: heldReason.nullable(), url: z.url().nullable() }),
-	/** The operator email's state, or null when none is queued yet. */
 	operatorMail: operatorMailState.nullable(),
 });
 export const triagePage = z.object({ items: z.array(triageFeedback).max(PAGE_SIZE), next: z.string().nullable() });
@@ -146,7 +119,6 @@ export const triageListRequest = z.object({
 });
 export const triageGetRequest = z.object({ feedbackId: z.uuid() });
 
-/** One status change in the history: who made it and when. */
 export const triageChange = z.object({
 	from: feedbackStatus,
 	to: feedbackStatus,
@@ -162,10 +134,6 @@ export const changeStatusRequest = z.object({
 	expectedRevision: z.string().regex(/^[1-9]\d{0,18}$/),
 	status: feedbackStatus,
 });
-/**
- * changed: the new status is saved and in the history. unchanged: it already had that status, so nothing is recorded.
- * stale: someone changed it after the triager loaded it; nothing is saved and `status` is the current one.
- */
 export const statusChange = z.object({
 	outcome: z.enum(["changed", "unchanged", "stale"]),
 	status: feedbackStatus,

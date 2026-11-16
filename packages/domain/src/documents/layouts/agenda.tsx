@@ -20,16 +20,11 @@ import { Doc, LETTER, LETTER_MARGIN } from "./shell.tsx";
 
 const AGENDA_SLOT = { w: 150, h: 34 };
 
-/** Rows of the attendee table: the people on the list, then blank write-in rows, at least the approved minimum. */
 function attendeeSlots(people: number) {
 	const total = Math.max(MIN_ATTENDEE_ROWS, people + 2);
 	return total + (total % 2);
 }
 
-/**
- * Operational Letter agenda: header, title, purpose, meta panel, run of show, attendees, actions. The run of show and the
- * attendees come from the meeting when ctx has one; otherwise the sheet is blank write-in rows. Pages grow as needed.
- */
 export function agendaDocument(ctx: Ctx, spec: AgendaSpec) {
 	const { p, theme, meeting } = ctx;
 	const l = theme.letterhead;

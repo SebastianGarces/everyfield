@@ -202,7 +202,7 @@ function CatalogBody({
 										<button
 											type="button"
 											onClick={() => onChoose(k.key)}
-											className="flex w-full cursor-pointer items-start gap-3 rounded-md px-2 py-2.5 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+											className="flex w-full items-start gap-3 rounded-md px-2 py-2.5 text-left hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
 										>
 											<Icon icon={CheckListIcon} size={18} className="mt-0.5 flex-none text-text-3" />
 											<span className="min-w-0 flex-1">

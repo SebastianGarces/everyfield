@@ -63,7 +63,6 @@ function NotLinked() {
 					title="You’re no longer linked to a residency"
 					action={
 						<Button asChild variant="primary">
-							{/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
 							<a href="/home">Back to Discovery</a>
 						</Button>
 					}
@@ -384,10 +383,7 @@ function Reading({ readings, church }: { readings: Enrollment["readings"]; churc
 							return (
 								<li key={r.id} className="py-3 first:pt-0 last:pb-0">
 									{href ? (
-										<Link
-											href={href}
-											className="group flex cursor-pointer items-start gap-3 rounded-md text-sm outline-offset-4"
-										>
+										<Link href={href} className="group flex items-start gap-3 rounded-md text-sm outline-offset-4">
 											{label}
 											<Icon
 												icon={ArrowRight01Icon}

@@ -4,6 +4,7 @@ import { ArrowDown01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Select as SelectPrimitive } from "radix-ui";
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn, Icon } from "../foundations";
+import { unlessReset } from "../foundations/form-reset";
 import { inputBox, inputInvalid, useFieldControl } from "./Field";
 import { usePortalContainer } from "./overlay-portal";
 import { popSurface } from "./Popover";
@@ -16,17 +17,11 @@ type SelectProps = Omit<ComponentPropsWithRef<typeof SelectPrimitive.Root>, "chi
 	invalid?: boolean;
 	id?: string;
 	"aria-label"?: string;
-	/** Draws the chosen option, for example as a StageChip. Defaults to its label. */
 	renderValue?: (option: SelectOption) => ReactNode;
-	/** Draws each option's label, here and in the trigger, for example in its own typeface. Defaults to the label. */
 	renderOption?: (option: SelectOption) => ReactNode;
 	className?: string;
 };
 
-/**
- * Select (components.md): Trigger, Value, Popup and Item, for one choice from a fixed list. Inside a Field the label
- * names the trigger. Space, Enter and the arrow keys open it; typing jumps to an option; Esc closes it.
- */
 export function Select({
 	options,
 	placeholder = "Choose",
@@ -37,6 +32,7 @@ export function Select({
 	className,
 	value,
 	defaultValue,
+	onValueChange,
 	...props
 }: SelectProps) {
 	const container = usePortalContainer();
@@ -44,7 +40,13 @@ export function Select({
 	const isInvalid = control["aria-invalid"] === true;
 	const current = options.find((o) => o.value === (value ?? defaultValue));
 	return (
-		<SelectPrimitive.Root value={value} defaultValue={defaultValue} {...props}>
+		<SelectPrimitive.Root
+			key={value === undefined ? defaultValue : undefined}
+			value={value}
+			defaultValue={defaultValue}
+			onValueChange={unlessReset(onValueChange)}
+			{...props}
+		>
 			<SelectPrimitive.Trigger
 				{...control}
 				aria-label={props["aria-label"]}
@@ -53,7 +55,7 @@ export function Select({
 					isInvalid
 						? inputInvalid
 						: "focus-visible:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none",
-					"cursor-pointer justify-between text-left data-[placeholder]:text-text-3 disabled:cursor-not-allowed disabled:opacity-60",
+					"justify-between text-left data-[placeholder]:text-text-3 disabled:opacity-60",
 					className,
 				)}
 			>
@@ -96,7 +98,7 @@ function SelectItem({
 		<SelectPrimitive.Item
 			value={option.value}
 			disabled={option.disabled}
-			className="relative flex h-[38px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-md text-ink outline-none select-none data-[disabled]:cursor-not-allowed data-[disabled]:opacity-45 transition-[background-color] duration-150 data-[highlighted]:bg-surface-2"
+			className="relative flex h-[38px] items-center gap-2.5 rounded-md px-2.5 text-md text-ink outline-none select-none data-[disabled]:opacity-45 transition-[background-color] duration-150 data-[highlighted]:bg-surface-2"
 		>
 			<SelectPrimitive.ItemText>{render ? render(option) : option.label}</SelectPrimitive.ItemText>
 			<SelectPrimitive.ItemIndicator className="ml-auto">

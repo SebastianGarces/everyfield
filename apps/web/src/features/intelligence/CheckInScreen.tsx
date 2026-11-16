@@ -357,7 +357,7 @@ function Question({
 					<RadioGroup.Item
 						key={level}
 						value={level}
-						className="inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-[7px] rounded-md bg-surface-2 px-3.5 text-[14px] font-medium text-ink-2 transition-[background-color,box-shadow] duration-150 hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] data-[state=checked]:bg-surface-raised data-[state=checked]:text-ink data-[state=checked]:shadow-[inset_0_0_0_1.5px_var(--ef-ink),var(--ef-shadow-raised)] max-app-sm:px-2"
+						className="inline-flex h-10 flex-1 items-center justify-center gap-[7px] rounded-md bg-surface-2 px-3.5 text-[14px] font-medium text-ink-2 transition-[background-color,box-shadow] duration-150 hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] data-[state=checked]:bg-surface-raised data-[state=checked]:text-ink data-[state=checked]:shadow-[inset_0_0_0_1.5px_var(--ef-ink),var(--ef-shadow-raised)] max-app-sm:px-2"
 					>
 						<Dot level={level} className="size-[9px] flex-none rounded-full" />
 						{LEVEL_LABEL[level]}

@@ -1,5 +1,3 @@
-// WP-036 criterion 1: the zod parser for everyfield.doc/1 in packages/contracts ports the retired approach-a prototype.
-// Its schema.json, examples and invalid samples now live in fixtures/format/.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
@@ -133,7 +131,6 @@ test("AC:CASE-DOC-022 a fork records its template, version and hash, freezes its
 	doc.page.footer = null;
 	assert.deepEqual(issues(doc), []);
 	assert.ok(template.body.content.length > 0, "the fork is a copy");
-	// The hash reads the canonical form: key order and editor-only keys do not change it.
 	const reordered = Object.fromEntries(Object.entries(template).reverse());
 	assert.equal(await templateHash(reordered as never), await templateHash({ ...template, _editor: 1 }));
 	assert.notEqual(await templateHash({ ...template, version: 2 }), doc.origin!.hash);

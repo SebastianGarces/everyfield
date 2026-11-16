@@ -2,11 +2,6 @@ import type { LaunchNotices } from "@everyfield/domain/launch";
 import "server-only";
 import type { createNotificationService } from "../jobs/notifications.ts";
 
-/**
- * Launch notifications (NTF-009) through WP-031's notification service: one notice for each of the church's other
- * current Owners and Admins when a person completes a milestone, under each recipient's Launch notification setting.
- * The logical key names the milestone revision, so replaying the same completion adds nothing.
- */
 export function launchNotices(service: ReturnType<typeof createNotificationService>): LaunchNotices {
 	return (tx, done) => {
 		const who = done.actorName || "Someone";

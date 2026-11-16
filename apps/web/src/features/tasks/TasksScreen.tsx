@@ -1209,7 +1209,7 @@ function TaskRow({
 			className="group/row flex flex-wrap items-center gap-x-3.5 rounded-card border-t border-line px-3 py-3.5 first:border-t-0 data-selected:bg-surface-raised data-selected:shadow-[inset_0_0_0_1.5px_var(--ef-ink)] max-app-sm:gap-2 max-app-sm:px-2 [[data-selected]+&]:border-t-transparent"
 		>
 			{selected !== null ? (
-				<label className="-m-3 grid size-11 flex-none cursor-pointer place-items-center">
+				<label className="-m-3 grid size-11 flex-none place-items-center">
 					<Checkbox aria-label={`Select ${task.title}`} checked={selected} onCheckedChange={onSelect} />
 				</label>
 			) : null}
@@ -1220,7 +1220,7 @@ function TaskRow({
 					onClick={onOpen}
 					{...intentHandlers(onWarm)}
 					className={cn(
-						"cursor-pointer rounded-xs text-left font-medium text-ink decoration-text-3 underline-offset-[3px] hover:underline",
+						"rounded-xs text-left font-medium text-ink decoration-text-3 underline-offset-[3px] hover:underline",
 						settled && "text-text-3 line-through",
 					)}
 				>

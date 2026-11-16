@@ -27,8 +27,8 @@ import {
 	UserCheck01Icon,
 	UserMultipleIcon,
 } from "@hugeicons/core-free-icons";
-import { useEffect, useState, type ReactNode } from "react";
-import { cn, EvryBot, Icon, revealDelay } from "../../foundations";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { cn, EvryBot, Icon, revealDelay, useFocusRequest } from "../../foundations";
 import {
 	Button,
 	CalloutLabel,
@@ -40,6 +40,7 @@ import {
 	CardClose,
 	CardDescription,
 	CardFooter,
+	CardStickyFooter,
 	CardHeader,
 	CardHeading,
 	CardInset,
@@ -117,11 +118,6 @@ const GROUPS = [
 	{ value: "feedback", label: "Feedback" },
 ] as const satisfies readonly { value: Group; label: string }[];
 
-/**
- * The controls preview at /design/controls, after the prototype's #/components page: every WP-089 inventory row in
- * its drawn states, with invented sample data. Every control works, so keyboard, focus and the overlay states can
- * be checked in place. Compositions that belong to feature packages are listed at the end with their parts.
- */
 export function ControlsPreview() {
 	const [group, setGroup] = useState<Group>("all");
 	const show = (g: Group) => group === "all" || group === g;
@@ -143,6 +139,7 @@ export function ControlsPreview() {
 				{show("inputs") ? <SelectionSection /> : null}
 				{show("overlays") ? <OverlaysSection /> : null}
 				{show("feedback") ? <FeedbackSection /> : null}
+				{show("surfaces") ? <StickyFooterSection /> : null}
 				{group === "all" ? <CompositionMap /> : null}
 			</div>
 		</ToastProvider>
@@ -385,10 +382,6 @@ function InsightSection() {
 function ButtonsSection() {
 	const [range, setRange] = useState<DateRange>(PRESETS[1]!.range);
 	const [saving, setSaving] = useState(false);
-	const save = () => {
-		setSaving(true);
-		setTimeout(() => setSaving(false), 1600);
-	};
 	return (
 		<Section index={3} title="Buttons" code="<Button variant size icon loading> · <IconButton variant size label>">
 			<Specimen>
@@ -410,9 +403,14 @@ function ButtonsSection() {
 					<Button variant="primary" disabled>
 						Disabled
 					</Button>
-					<Button variant="primary" loading={saving} onClick={save}>
+					<Button variant="primary" loading={saving} onClick={() => setSaving(true)}>
 						{saving ? "Saving" : "Save changes"}
 					</Button>
+					{saving ? (
+						<Button variant="ghost" size="sm" onClick={() => setSaving(false)}>
+							Finish saving
+						</Button>
+					) : null}
 					<Button variant="light">
 						Review 7 guests <Icon icon={ArrowRight01Icon} size={18} />
 					</Button>
@@ -461,115 +459,128 @@ function ButtonsSection() {
 
 const CURSOR_STAGES = STAGES.map((o) => (o.value === "leader" ? { ...o, disabled: true } : o));
 const CURSOR_OWNERS = TAGS.owners.map((o, i) => (i === 1 ? { ...o, disabled: true } : o));
-/** Plain trigger look with no cursor class, so the samples show what the product-root cursor rule gives. */
 const PLAIN = "h-[34px] rounded-sm bg-surface-2 px-3 text-sm font-medium text-ink";
 
-/**
- * Enabled and disabled samples of the clickable controls, so the preview shows the cursor each one gets. The plain
- * triggers use no asChild and no cursor class: the product-root rule gives them a pointer.
- */
 function CursorSamples() {
-	const [view, setView] = useState("grid");
-	const [tab, setTab] = useState("one");
-	const [stage, setStage] = useState("core");
-	const [owner, setOwner] = useState<string[]>([]);
-	const [failed, setFailed] = useState<string[]>([]);
+	return (
+		<Specimen label="Pointer and disabled cursors" className="mt-5">
+			<CursorOverlays />
+			<CursorFields />
+			<CursorChoices />
+		</Specimen>
+	);
+}
+
+function CursorOverlays() {
 	const [paletteError, setPaletteError] = useState(false);
 	const [density, setDensity] = useState("comfortable");
 	return (
-		<Specimen label="Pointer and disabled cursors" className="mt-5">
-			<div className="flex flex-wrap items-center gap-3">
-				<IconButton icon={Edit02Icon} label="Edit (disabled)" disabled />
-				<Menu>
-					<MenuTrigger className={PLAIN}>Plain menu trigger</MenuTrigger>
-					<MenuContent>
-						<MenuRadioGroup value={density} onValueChange={setDensity}>
-							<MenuRadioItem value="comfortable">Comfortable</MenuRadioItem>
-							<MenuRadioItem value="compact">Compact</MenuRadioItem>
-							<MenuRadioItem value="dense" disabled>
-								Dense (disabled)
-							</MenuRadioItem>
-						</MenuRadioGroup>
-					</MenuContent>
-				</Menu>
-				<Dialog>
-					<DialogTrigger className={PLAIN}>Plain dialog trigger</DialogTrigger>
-					<DialogContent>
-						<DialogHeader title="Plain dialog" />
-						<DialogBody>This dialog opens from a trigger without asChild.</DialogBody>
-					</DialogContent>
-				</Dialog>
-				<Popover>
-					<PopoverTrigger className={PLAIN}>Plain popover trigger</PopoverTrigger>
-					<PopoverContent label="Plain popover" className="w-[240px] p-4">
-						<p className="text-sm text-text-2">This pop-over opens from a trigger without asChild.</p>
-					</PopoverContent>
-				</Popover>
-				<Button size="sm" variant="outline" onClick={() => setPaletteError(true)}>
-					Palette with error
-				</Button>
-				<CommandPalette
-					open={paletteError}
-					onOpenChange={setPaletteError}
-					groups={[]}
-					error={{ message: "Search is unavailable.", onRetry: () => setPaletteError(false) }}
+		<div className="flex flex-wrap items-center gap-3">
+			<IconButton icon={Edit02Icon} label="Edit (disabled)" disabled />
+			<Menu>
+				<MenuTrigger className={PLAIN}>Plain menu trigger</MenuTrigger>
+				<MenuContent>
+					<MenuRadioGroup value={density} onValueChange={setDensity}>
+						<MenuRadioItem value="comfortable">Comfortable</MenuRadioItem>
+						<MenuRadioItem value="compact">Compact</MenuRadioItem>
+						<MenuRadioItem value="dense" disabled>
+							Dense (disabled)
+						</MenuRadioItem>
+					</MenuRadioGroup>
+				</MenuContent>
+			</Menu>
+			<Dialog>
+				<DialogTrigger className={PLAIN}>Plain dialog trigger</DialogTrigger>
+				<DialogContent>
+					<DialogHeader title="Plain dialog" />
+					<DialogBody>This dialog opens from a trigger without asChild.</DialogBody>
+				</DialogContent>
+			</Dialog>
+			<Popover>
+				<PopoverTrigger className={PLAIN}>Plain popover trigger</PopoverTrigger>
+				<PopoverContent label="Plain popover" className="w-[240px] p-4">
+					<p className="text-sm text-text-2">This pop-over opens from a trigger without asChild.</p>
+				</PopoverContent>
+			</Popover>
+			<Button size="sm" variant="outline" onClick={() => setPaletteError(true)}>
+				Palette with error
+			</Button>
+			<CommandPalette
+				open={paletteError}
+				onOpenChange={setPaletteError}
+				groups={[]}
+				error={{ message: "Search is unavailable.", onRetry: () => setPaletteError(false) }}
+			/>
+		</div>
+	);
+}
+
+function CursorFields() {
+	const [stage, setStage] = useState("core");
+	const [owner, setOwner] = useState<string[]>([]);
+	const [failed, setFailed] = useState<string[]>([]);
+	return (
+		<div className="mt-5 grid items-start gap-4 app-md:grid-cols-2">
+			<Field label="Stage with a disabled option">
+				<Select value={stage} onValueChange={setStage} options={CURSOR_STAGES} />
+			</Field>
+			<Field label="Stage (disabled)">
+				<Select defaultValue="core" onValueChange={() => {}} options={STAGES} disabled />
+			</Field>
+			<Field label="Owner with a disabled option">
+				<Combobox
+					searchLabel="Search owners"
+					options={CURSOR_OWNERS}
+					value={owner}
+					onValueChange={setOwner}
+					placeholder="Choose an owner"
 				/>
+			</Field>
+			<Field label="Owner that failed to load">
+				<Combobox
+					searchLabel="Search failed owners"
+					options={[]}
+					value={failed}
+					onValueChange={setFailed}
+					placeholder="Choose a failed owner"
+					error={{ message: "Owners did not load.", onRetry: () => {} }}
+				/>
+			</Field>
+		</div>
+	);
+}
+
+function CursorChoices() {
+	const [view, setView] = useState("grid");
+	const [tab, setTab] = useState("one");
+	return (
+		<div className="mt-5 flex flex-wrap items-start gap-x-8 gap-y-4">
+			<Checkbox label="Disabled checkbox" disabled />
+			<div className="min-w-0">
+				<SegmentedControl
+					label="Layout"
+					value={view}
+					onValueChange={setView}
+					options={[
+						{ value: "grid", label: "Grid" },
+						{ value: "rows", label: "Rows" },
+						{ value: "map", label: "Map", disabled: true },
+					]}
+				/>
+				<Tabs value={tab} onValueChange={setTab} className="mt-4">
+					<TabsList aria-label="Sample tabs">
+						<Tab value="one">One</Tab>
+						<Tab value="two">Two</Tab>
+						<Tab value="three" disabled>
+							Three
+						</Tab>
+					</TabsList>
+					<TabsPanel value="one">First tab.</TabsPanel>
+					<TabsPanel value="two">Second tab.</TabsPanel>
+					<TabsPanel value="three">Third tab.</TabsPanel>
+				</Tabs>
 			</div>
-			<div className="mt-5 grid items-start gap-4 app-md:grid-cols-2">
-				<Field label="Stage with a disabled option">
-					<Select value={stage} onValueChange={setStage} options={CURSOR_STAGES} />
-				</Field>
-				<Field label="Stage (disabled)">
-					<Select defaultValue="core" onValueChange={() => {}} options={STAGES} disabled />
-				</Field>
-				<Field label="Owner with a disabled option">
-					<Combobox
-						searchLabel="Search owners"
-						options={CURSOR_OWNERS}
-						value={owner}
-						onValueChange={setOwner}
-						placeholder="Choose an owner"
-					/>
-				</Field>
-				<Field label="Owner that failed to load">
-					<Combobox
-						searchLabel="Search failed owners"
-						options={[]}
-						value={failed}
-						onValueChange={setFailed}
-						placeholder="Choose a failed owner"
-						error={{ message: "Owners did not load.", onRetry: () => {} }}
-					/>
-				</Field>
-			</div>
-			<div className="mt-5 flex flex-wrap items-start gap-x-8 gap-y-4">
-				<Checkbox label="Disabled checkbox" disabled />
-				<div className="min-w-0">
-					<SegmentedControl
-						label="Layout"
-						value={view}
-						onValueChange={setView}
-						options={[
-							{ value: "grid", label: "Grid" },
-							{ value: "rows", label: "Rows" },
-							{ value: "map", label: "Map", disabled: true },
-						]}
-					/>
-					<Tabs value={tab} onValueChange={setTab} className="mt-4">
-						<TabsList aria-label="Sample tabs">
-							<Tab value="one">One</Tab>
-							<Tab value="two">Two</Tab>
-							<Tab value="three" disabled>
-								Three
-							</Tab>
-						</TabsList>
-						<TabsPanel value="one">First tab.</TabsPanel>
-						<TabsPanel value="two">Second tab.</TabsPanel>
-						<TabsPanel value="three">Third tab.</TabsPanel>
-					</Tabs>
-				</div>
-			</div>
-		</Specimen>
+		</div>
 	);
 }
 
@@ -773,23 +784,50 @@ function RowMenu({ name }: { name: string }) {
 	);
 }
 
+let paletteOpen = false;
+const paletteListeners = new Set<() => void>();
+const paletteSnapshot = () => paletteOpen;
+const closedOnServer = () => false;
+function setPaletteOpen(next: boolean) {
+	paletteOpen = next;
+	for (const changed of paletteListeners) changed();
+}
+function togglePaletteOnShortcut(e: KeyboardEvent) {
+	if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+		e.preventDefault();
+		setPaletteOpen(!paletteOpen);
+	}
+}
+function subscribePalette(changed: () => void) {
+	paletteListeners.add(changed);
+	if (paletteListeners.size === 1) window.addEventListener("keydown", togglePaletteOnShortcut);
+	return () => {
+		paletteListeners.delete(changed);
+		if (paletteListeners.size > 0) return;
+		window.removeEventListener("keydown", togglePaletteOnShortcut);
+		paletteOpen = false;
+	};
+}
+
 function OverlaysSection() {
 	const toast = useToast();
-	const [palette, setPalette] = useState(false);
+	const palette = useSyncExternalStore(subscribePalette, paletteSnapshot, closedOnServer);
+	const setPalette = setPaletteOpen;
 	const [guide, setGuide] = useState(false);
-	const [attempts, setAttempts] = useState(0);
+	const [answer, setAnswer] = useState<((hidden: boolean) => void) | null>(null);
+	const hide = () =>
+		new Promise<void>((resolve, reject) =>
+			setAnswer(() => (hidden: boolean) => {
+				setAnswer(null);
+				if (!hidden) {
+					reject(new Error("The article did not hide because the connection dropped. Nothing changed. Try again."));
+					return;
+				}
+				toast({ message: "Article hidden." });
+				resolve();
+			}),
+		);
 	const [offer, setOffer] = useState(true);
-
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-				e.preventDefault();
-				setPalette((o) => !o);
-			}
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, []);
 
 	return (
 		<Section
@@ -874,17 +912,22 @@ function OverlaysSection() {
 								"It leaves the Wiki tree and search for everyone in Harvest Point.",
 								"Reading progress already recorded stays in history.",
 								"Links to it show that it is hidden.",
+								...(answer
+									? [
+											<span key="answer" className="flex flex-wrap items-center gap-2">
+												Preview: answer the request
+												<Button size="sm" variant="secondary" onClick={() => answer(true)}>
+													It hides
+												</Button>
+												<Button size="sm" variant="secondary" onClick={() => answer(false)}>
+													The connection drops
+												</Button>
+											</span>,
+										]
+									: []),
 							]}
 							confirmLabel="Hide article"
-							onConfirm={async () => {
-								await new Promise((r) => setTimeout(r, 900));
-								setAttempts((n) => n + 1);
-								if (attempts === 0)
-									throw new Error(
-										"The article did not hide because the connection dropped. Nothing changed. Try again.",
-									);
-								toast({ message: "Article hidden." });
-							}}
+							onConfirm={hide}
 						/>
 						<Button icon={HelpCircleIcon} onClick={() => setGuide(true)}>
 							Open the guide
@@ -942,7 +985,7 @@ function OverlaysSection() {
 						>
 							<button
 								type="button"
-								className="h-11 cursor-pointer rounded-md px-3 font-medium text-ink underline decoration-dotted underline-offset-4"
+								className="h-11 rounded-md px-3 font-medium text-ink underline decoration-dotted underline-offset-4"
 							>
 								Oct 12 bar
 							</button>
@@ -1109,6 +1152,62 @@ function FeedbackSection() {
 	);
 }
 
+function SpecimenPager() {
+	const [{ page, moves }, setPaging] = useState({ page: 1, moves: 0 });
+	const previous = useFocusRequest<HTMLButtonElement>(page === 2 && moves);
+	const next = useFocusRequest<HTMLButtonElement>(page === 1 && moves);
+	const go = (to: number) => setPaging({ page: to, moves: moves + 1 });
+	return (
+		<CardStickyFooter>
+			<span role="status" className="text-text-3">
+				Page {page} of 2
+			</span>
+			<span className="flex gap-2">
+				<Button ref={previous} size="sm" disabled={page === 1} onClick={() => go(1)}>
+					Previous
+				</Button>
+				<Button ref={next} size="sm" disabled={page === 2} onClick={() => go(2)}>
+					Next
+				</Button>
+			</span>
+		</CardStickyFooter>
+	);
+}
+
+function StickyFooterSection() {
+	const rows = ACTIVITY.slice(0, 6);
+	return (
+		<Section
+			index={8}
+			title="Card sticky footer"
+			code="<CardStickyFooter>"
+			note="A footer on the card's bottom edge that stays in view while a long card scrolls past, such as a list's pager. It takes the card's own padding, corner and fill, so the call site sets no margins."
+		>
+			<div className="grid items-start gap-5 app-md:grid-cols-2">
+				{(["md", "sm"] as const).map((size) => (
+					<Card key={size} size={size} as="section" aria-labelledby={`sticky-${size}`} className="gap-4">
+						<CardTitle id={`sticky-${size}`} size="sm">
+							{size === "md" ? "Recent activity" : "Recent activity, small card"}
+						</CardTitle>
+						<ul className="flex flex-col">
+							{rows.map((a) => (
+								<li key={a.title} className="flex items-center gap-3 py-2.5">
+									<Avatar initials={a.initials} tone={a.tone} />
+									<div className="min-w-0">
+										<p className="truncate text-sm font-medium text-ink">{a.title}</p>
+										<p className="truncate text-xs text-text-3">{a.sub}</p>
+									</div>
+								</li>
+							))}
+						</ul>
+						<SpecimenPager />
+					</Card>
+				))}
+			</div>
+		</Section>
+	);
+}
+
 const COMPOSITIONS: [string, string, string][] = [
 	["Network tabs", "Tabs, Tab count", "WP-047"],
 	["Plant Intelligence tabs", "Tabs, Tab count", "WP-038, WP-044"],
@@ -1125,7 +1224,6 @@ const COMPOSITIONS: [string, string, string][] = [
 	["Private check-in reminder", "Card variant=callout, CardClose", "WP-039"],
 ];
 
-/** Inventory rows in these groups whose content belongs to one feature: the feature composes them from these parts. */
 function CompositionMap() {
 	return (
 		<Section

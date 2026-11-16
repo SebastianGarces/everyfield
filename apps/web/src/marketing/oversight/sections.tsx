@@ -8,7 +8,6 @@ import { StopPath } from "./StopPath";
 
 const O = COPY.shared.oversight_page;
 
-/** The mint icon tile of the #every-plant tiles and the trust cards: a green icon on a light green square. */
 function MintIcon({ icon }: { icon: IconName }) {
 	return (
 		<span aria-hidden="true" className="grid size-[60px] flex-none place-items-center bg-mk-mint text-green-600">
@@ -17,11 +16,6 @@ function MintIcon({ icon }: { icon: IconName }) {
 	);
 }
 
-/**
- * #every-plant (OPS-82): "See how your church plants are doing, one by one and all together." One band on the field
- * photo holds two labelled rows of four tiles: what a sending church sees in one place, then across its church plants.
- * Large mint icons, no app UI.
- */
 export function EveryPlant() {
 	const G = O.gets;
 	return (
@@ -57,11 +51,6 @@ export function EveryPlant() {
 	);
 }
 
-/**
- * #leaders (OPS-82): "Raise the next planters." on the full-bleed marigolds photo (Sebastian's pick). A shade from the top
- * and the bottom keeps the cream text at 4.5:1. Four brand-green stops on one dotted path, with the text under each stop.
- * No EvryBot and no bubble. A full-width photo section: its neighbours take the photo space.
- */
 export function Leaders() {
 	const L = O.leaders;
 	const icons = L.icons.map((ic) => <Icon key={ic} icon={ICONS[ic]} size={40} stroke={1.4} className="size-[44%]" />);
@@ -79,7 +68,6 @@ export function Leaders() {
 					<Display
 						as="h2"
 						id="leaders-title"
-						// Two lines on wide screens, as in the prototype, where the h1 is 2 px larger.
 						className="max-w-[600px] font-display type-display-sm leading-[1.04] mk-lg:type-display-md mk-xl:type-display-lg mk-2xl:type-mk-display-xl"
 					>
 						{L.headline}
@@ -102,7 +90,6 @@ export function Leaders() {
 
 const TRUST_ICONS: IconName[] = ["book", "compass", "eye", "lock"];
 
-/** #trust (OPS-82): "Why you can trust these numbers." Four white cards with mint icon tiles. No UI. */
 export function TrustCards() {
 	const T = O.trust;
 	return (

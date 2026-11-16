@@ -19,20 +19,14 @@ import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
 
-// WP-039 slice 1: private weekly check-ins, through the privateCare operations the /me/check-in actions call and the
-// personal timezone operations Settings calls, on a scratch schema of the development or CI database. The clock is
-// injected so weeks, boundaries and date lines are exact.
-
 let f, care, tz, deletion;
 let now = "2026-10-13T16:00:00.000Z";
 const clock = { now: () => now };
 const refusedBare = refusedWith({ details: {} });
-/** A refusal without its correlation id, to compare two refusals. */
 const bare = (r) => (r.status === "refused" ? { ...r, error: { ...r.error, correlationId: null } } : r);
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const one = async (q) => (await rows(q))[0];
 const root = fileURLToPath(new URL("../../../", import.meta.url));
-/** A database refusal: drizzle wraps the PostgreSQL error, so match its cause. */
 const rejects = (promise, pattern) =>
 	assert.rejects(promise, (e) => {
 		assert.match(String(e.cause?.message ?? e.message), pattern);
@@ -42,7 +36,6 @@ const levels = (spiritual, family, financial, pace) => ({ spiritual, family, fin
 const STEADY = levels("steady", "steady", "steady", "steady");
 const STRAINED = levels("strained", "steady", "strained", "strained");
 
-/** An account with a seat in `w`, its personal zone (null: never confirmed) and its request actor. */
 async function seated(w, role = "admin", zone = "America/Chicago") {
 	const a = await f.account();
 	await f.seat(a, w, role);
@@ -57,18 +50,15 @@ const save = (who, answers, expectedRevision, note = "", requestKey = randomUUID
 const correct = (who, weekId, answers, expectedRevision, note = "", requestKey = randomUUID()) =>
 	care.correct(f.db, who.actor, { requestKey, expectedRevision, input: { weekId, answers, note } });
 const revisionOf = async (who) => ok(await current(who)).revision;
-/** Save `answers` for the week that holds `at`. */
 async function saveAt(who, at, answers = STEADY, note = "") {
 	now = at;
 	return ok(await save(who, answers, await revisionOf(who), note));
 }
-/** Every private-care row of an author. */
 const footprint = (who) =>
 	one(sql`SELECT (SELECT count(*)::int FROM private_calendar WHERE author_id=${who.id}) calendars,
 		(SELECT count(*)::int FROM private_week WHERE author_id=${who.id}) weeks,
 		(SELECT count(*)::int FROM private_week_revision WHERE author_id=${who.id}) revisions,
 		(SELECT revision::text FROM private_calendar WHERE author_id=${who.id}) revision`);
-/** The personal timezone change as Settings runs it: preview, then the confirmed change. */
 const accountCtx = (who) => ({ session: who.session, selected: { kind: "account", id: who.id } });
 async function previewZone(who, timeZone) {
 	return ok(await f.db.transaction((tx) => tz.previewPersonalTimezone(tx, accountCtx(who), { timeZone })));
@@ -122,14 +112,12 @@ after(() => f?.close());
 test("AC:B03-021 with no confirmed personal zone, reads and saves ask for it and insert nothing", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
-	// The church is in UTC and the account has none: neither UTC, the church zone nor a device zone stands in.
 	const a = await seated(w, "admin", null);
 	refusedBare(await current(a), "personal_timezone_confirmation_required");
 	refusedBare(await history(a), "personal_timezone_confirmation_required");
 	refusedBare(await trends(a), "personal_timezone_confirmation_required");
 	refusedBare(await save(a, STEADY, "0"), "personal_timezone_confirmation_required");
 	assert.deepEqual(await footprint(a), { calendars: 0, weeks: 0, revisions: 0, revision: null });
-	// Confirming a zone in Settings is the way through.
 	await changeZone(a, "Europe/London");
 	const read = ok(await current(a));
 	assert.equal(read.zone, "Europe/London");
@@ -178,7 +166,6 @@ test("AC:B03-024 AC:PI-CARE-001 a save changes this week only, a same answer add
 	assert.equal(first.week.answer.note, "Long week.");
 	assert.equal(first.week.startsOn, "2026-10-12");
 	assert.equal(first.week.revisions.length, 1);
-	// A second save in the same week changes that week.
 	const second = ok(await save(a, STEADY, "1"));
 	assert.equal(second.week.id, first.week.id);
 	assert.equal(second.revision, "2");
@@ -189,16 +176,13 @@ test("AC:B03-024 AC:PI-CARE-001 a save changes this week only, a same answer add
 		[STRAINED, STEADY],
 	);
 	assert.deepEqual(await footprint(a), { calendars: 1, weeks: 1, revisions: 2, revision: "2" });
-	// The same answer again: no revision, no new calendar revision.
 	const same = ok(await save(a, STEADY, "2", "   "));
 	assert.equal(same.outcome, "unchanged");
 	assert.equal(same.revision, "2");
 	assert.deepEqual(await footprint(a), { calendars: 1, weeks: 1, revisions: 2, revision: "2" });
-	// A retry of the first request returns the first answer and writes nothing.
 	assert.deepEqual(ok(await save(a, STRAINED, "0", "Long week.", firstKey)), first);
 	refusedBare(await save(a, STEADY, "0", "", firstKey), "idempotency_conflict");
 	assert.deepEqual(await footprint(a), { calendars: 1, weeks: 1, revisions: 2, revision: "2" });
-	// A stale revision changes nothing; bounds are checked before anything runs.
 	refusedBare(await save(a, STRAINED, "1"), "revision_conflict");
 	refusedBare(await save(a, { ...STEADY, pace: "fine" }, "2"), "invalid_input");
 	refusedBare(await save(a, STEADY, "2", "x".repeat(2001)), "invalid_input");
@@ -211,7 +195,6 @@ test("AC:B03-022 AC:PI-CARE-003 AC:B03-024 a zone change keeps the open week unt
 	const w = await f.workspace();
 	const a = await seated(w);
 	const saved = ok(await save(a, STRAINED, "0"));
-	// Two edits across the date line, the second repeated with its request key.
 	await changeZone(a, "Pacific/Auckland");
 	const preview = await previewZone(a, "Pacific/Kiritimati");
 	const key = randomUUID();
@@ -224,7 +207,6 @@ test("AC:B03-022 AC:PI-CARE-003 AC:B03-024 a zone change keeps the open week unt
 	assert.deepEqual(open.week.answer.answers, STRAINED);
 	assert.equal((await footprint(a)).weeks, 1);
 	assert.equal((await footprint(a)).revisions, 1);
-	// Settings shows this boundary first: the first Monday strictly after now in Kiritimati (UTC+14).
 	assert.equal(nextMonday(preview.asOf, "Pacific/Kiritimati"), "2026-10-19");
 	assert.deepEqual(await nextAt(a), { at: "2026-10-18T10:00:00Z", zone: "Pacific/Kiritimati" });
 	now = "2026-10-18T09:59:59.000Z";
@@ -246,14 +228,12 @@ test("AC:B03-022 AC:PI-CARE-003 AC:B03-024 a zone change keeps the open week unt
 		],
 	);
 	assert.equal(page.weeks[1].id, saved.week.id);
-	// Saves 1 and 4, the two zone changes 2 and 3; the replayed change adds none.
 	assert.deepEqual(await footprint(a), { calendars: 1, weeks: 2, revisions: 2, revision: "4" });
 });
 
 test("AC:B03-023 a save and a zone change on one calendar give one accepted change and one conflict", async () => {
 	now = "2026-10-13T16:00:00.000Z";
 	const w = await f.workspace();
-	// The zone change after a save it did not see is refused whole: the account keeps its zone.
 	const a = await seated(w);
 	ok(await save(a, STEADY, "0"));
 	const preview = await previewZone(a, "Pacific/Auckland");
@@ -263,12 +243,10 @@ test("AC:B03-023 a save and a zone change on one calendar give one accepted chan
 		(await one(sql`SELECT personal_timezone FROM account WHERE id=${a.id}`)).personal_timezone,
 		"America/Chicago",
 	);
-	// A save from before a zone change is refused.
 	const b = await seated(w);
 	ok(await save(b, STEADY, "0"));
 	ok(await setZone(b, await previewZone(b, "Pacific/Auckland")));
 	refusedBare(await save(b, STRAINED, "1"), "revision_conflict");
-	// Both at once: exactly one wins.
 	for (let i = 0; i < 4; i++) {
 		const c = await seated(w);
 		ok(await save(c, STEADY, "0"));
@@ -318,7 +296,6 @@ test("AC:B03-026 AC:GAP-PI-041 a correction keeps the week, its zone and author 
 	const past = await saveAt(a, "2026-09-30T17:00:00.000Z", STRAINED, "Tired.");
 	await saveAt(a, "2026-10-13T16:00:00.000Z", STEADY);
 	const page = ok(await history(a));
-	// Oct 5 had no save: it is a week with no answer, and it cannot be corrected.
 	assert.deepEqual(
 		page.weeks.map((x) => [x.startsOn, x.answer?.answers.spiritual ?? null]),
 		[
@@ -343,7 +320,6 @@ test("AC:B03-026 AC:GAP-PI-041 a correction keeps the week, its zone and author 
 			["correction", "steady"],
 		],
 	);
-	// The same correction again adds no revision; a stale one is refused.
 	const same = ok(await correct(a, past.week.id, STEADY, fixed.revision, "Tired."));
 	assert.equal(same.outcome, "unchanged");
 	refusedBare(await correct(a, past.week.id, STRAINED, revision), "revision_conflict");
@@ -355,7 +331,6 @@ test("AC:B03-026 AC:GAP-PI-041 a correction keeps the week, its zone and author 
 	);
 	assert.deepEqual(stored, { author_id: a.id, zone: "America/Chicago", ordinal: 1, starts_on: "2026-09-28" });
 	assert.equal(await audits(), before);
-	// No operation removes a single check-in: the runtime login cannot delete one.
 	await rejects(f.db.execute(sql`DELETE FROM private_week WHERE id=${past.week.id}`), /permission denied/);
 	await rejects(
 		f.db.execute(sql`DELETE FROM private_week_revision WHERE week_id=${past.week.id}`),
@@ -386,7 +361,6 @@ test("AC:B03-035 the strip shows the latest twelve weeks, the thirteenth is on p
 	);
 	assert.deepEqual(ok(await history(a, 3)).weeks, []);
 	assert.equal((await footprint(a)).weeks, 13);
-	// A week with no save shows as unanswered, and a week that is due but has no row yet shows too.
 	const b = await seated(w);
 	await saveAt(b, "2026-09-30T18:00:00.000Z", STRAINED);
 	await saveAt(b, "2026-10-14T18:00:00.000Z", STEADY);
@@ -410,13 +384,11 @@ test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 only 
 	const owner = await seated(w, "owner", "Pacific/Auckland");
 	const member = await seated(w, "member", "America/Chicago");
 	const saved = ok(await save(a, STRAINED, "0", "CARE-CANARY"));
-	// Guessing a week id: the same not_found as a week that does not exist, with nothing in it.
 	for (const other of [b, owner]) {
 		const guessed = await correct(other, saved.week.id, STEADY, "0");
 		const missing = await correct(other, randomUUID(), STEADY, "0");
 		refusedBare(guessed, "not_found");
 		assert.deepEqual(bare(guessed), bare(missing));
-		// Reads answer only for the caller's own calendar: B sees the same as an author with no check-ins.
 		const own = ok(await current(other));
 		assert.equal(own.revision, "0");
 		assert.equal(own.week.id, null);
@@ -425,7 +397,6 @@ test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 only 
 			const text = JSON.stringify(read);
 			assert.ok(!text.includes(saved.week.id) && !text.includes("CARE-CANARY") && !text.includes("strained"), text);
 		}
-		// Naming an author in a request is not a way in: it is refused the same for A and for no one.
 		assert.deepEqual(
 			bare(await current(other, { author: a.id })),
 			bare(await current(other, { author: randomUUID() })),
@@ -440,18 +411,15 @@ test("AC:PI-CARE-001 AC:ROLE43-010 AC:B03-025 AC:TEN-006 AC:TARGET-IDN-031 only 
 			"invalid_input",
 		);
 	}
-	// B's own save writes B's own calendar and leaves A's alone (B03-025: no upsert into A's stream).
 	ok(await save(b, STEADY, "0"));
 	const aRead = ok(await current(a));
 	assert.deepEqual(aRead.week.answer.answers, STRAINED);
 	assert.equal(aRead.week.answer.note, "CARE-CANARY");
 	assert.equal(aRead.revision, "1");
-	// A Member has no check-in at all.
 	refusedBare(await current(member), "access_denied");
 	refusedBare(await save(member, STEADY, "0"), "access_denied");
 	refusedBare(await correct(member, saved.week.id, STEADY, "1"), "access_denied");
 	assert.deepEqual(await footprint(member), { calendars: 0, weeks: 0, revisions: 0, revision: null });
-	// An author whose seat ended reads nothing, though the rows stay theirs.
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${b.id}`);
 	refusedBare(await current(b), "access_denied");
 	refusedBare(await save(b, STRAINED, "1"), "access_denied");
@@ -487,11 +455,9 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 			}),
 		),
 	);
-	// Relink the person to another account, and change the author's role.
 	await f.admin.execute(sql`UPDATE person SET linked_account_id=${b.id} WHERE id=${casey.id}`);
 	await f.admin.execute(sql`UPDATE seat SET role='admin' WHERE account_id=${b.id}`);
 	await f.admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${a.id}`);
-	// The next request of each reads its new role.
 	a.actor = await f.actor(a.session);
 	b.actor = await f.actor(b.session);
 	const after = ok(await current(a));
@@ -503,7 +469,6 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 			UNION SELECT DISTINCT r.author_id FROM private_week_revision r JOIN private_week x ON x.id=r.week_id WHERE x.plant_id=${w.id}`),
 		[{ author_id: a.id }],
 	);
-	// The database refuses a change of author or ordinal, even to its owner.
 	for (const change of [
 		sql`UPDATE private_week SET author_id=${b.id} WHERE id=${saved.week.id}`,
 		sql`UPDATE private_week SET ordinal=2 WHERE id=${saved.week.id}`,
@@ -515,7 +480,6 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 		await rejects(f.admin.execute(change), /immutable_source_evidence/);
 });
 
-/** Counts of every shared record a check-in could feed: jobs, notices, mail, tasks, audit, conversations, PI state. */
 const sideEffects = (w) =>
 	one(sql`SELECT (SELECT count(*)::int FROM job) jobs,(SELECT count(*)::int FROM notice) notices,
 		(SELECT count(*)::int FROM mail) mail,(SELECT count(*)::int FROM task WHERE plant_id=${w.id}) tasks,
@@ -566,7 +530,6 @@ test("AC:AUDIT-004 AC:B03-033 AC:ROLE43-012 the canary and every private field s
 		logged.filter((l) => /CARE-CANARY|strained/.test(l)),
 		[],
 	);
-	// No other table of the schema holds the note, the week id or the week dates of this author.
 	const tables = (
 		await rows(sql`SELECT table_name FROM information_schema.tables WHERE table_schema=${f.schema}
 			AND table_type='BASE TABLE' AND table_name NOT LIKE 'private\\_%' ORDER BY table_name`)
@@ -580,23 +543,18 @@ test("AC:AUDIT-004 AC:B03-033 AC:ROLE43-012 the canary and every private field s
 		if (hit.n) found.push(table);
 	}
 	assert.deepEqual(found, []);
-	// Evry has no private-care tool, read, reviewed write or catalog entry, for the author or anyone.
 	const catalog = readCatalog(evryActor(a.actor));
 	const tools = JSON.stringify({
 		catalog,
 		reads: READ_DOMAINS,
 		generated: JSON.parse(readFileSync(join(root, "docs/catalog/evry-tools.json"), "utf8")),
 	});
-	// Adapters name "private care" only in their exclusion lists; meetings.checkIn is the door check-in of a meeting.
 	assert.deepEqual(
 		tools.replace(/"private care"/g, "").match(/privateCare|private.?care|private_week|weekly check-?in/gi),
 		null,
 	);
-	// Only the intelligence domain names the private tables in source: the everyfield/private-care-scope lint rule
-	// (.oxlintrc.json, apps/web/.oxlintrc.json).
 });
 
-/** A deletion request whose 30-day hold has passed, as the purge worker finds it. */
 async function overdue(requester, subject) {
 	const at = new Date(Date.now() - 31 * 86_400_000),
 		requestId = randomUUID();
@@ -618,7 +576,6 @@ test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 deletion hides the author's c
 	ok(await save(a, STRAINED, "0", "CARE-CANARY"));
 	ok(await save(gone, STRAINED, "0", "CARE-CANARY"));
 	ok(await save(owner, STEADY, "0"));
-	// A personal deletion request hides the author's check-ins at once.
 	const accountRevision = (await one(sql`SELECT revision::text AS r FROM account WHERE id=${a.id}`)).r;
 	ok(
 		await f.db.transaction((tx) =>
@@ -632,9 +589,7 @@ test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 deletion hides the author's c
 	refusedBare(await current(a), "access_denied");
 	refusedBare(await save(a, STEADY, "1"), "access_denied");
 	refusedBare(await correct(a, randomUUID(), STEADY, "1"), "access_denied");
-	// No other Owner or Admin sees or inherits them.
 	assert.equal(ok(await current(owner)).week.answer.note, null);
-	// The purge at the deadline removes them and nothing else.
 	const purge = createLifecycleCleanup(f.admin, {
 		authorize: async () => true,
 		removeOwnedResources: async () => true,
@@ -643,7 +598,6 @@ test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 deletion hides the author's c
 	assert.deepEqual(await footprint(gone), { calendars: 0, weeks: 0, revisions: 0, revision: null });
 	assert.equal((await footprint(owner)).weeks, 1);
 	assert.equal((await footprint(a)).weeks, 1);
-	// A workspace deletion hides every author's check-ins in that church with it.
 	const other = await f.workspace();
 	const o = await seated(other, "owner");
 	ok(await save(o, STEADY, "0"));
@@ -658,7 +612,6 @@ test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 deletion hides the author's c
 		),
 	);
 	refusedBare(await current(o), "access_denied");
-	// The church purge removes every author's check-ins there and leaves other churches alone.
 	const third = await f.workspace();
 	const t = await seated(third, "owner");
 	const stays = await seated(w, "admin");
@@ -667,7 +620,6 @@ test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 deletion hides the author's c
 	assert.equal((await purge(await overdue(t, { kind: "plant", id: third.id }))).status, "purged");
 	assert.deepEqual(await footprint(t), { calendars: 0, weeks: 0, revisions: 0, revision: null });
 	assert.equal((await footprint(stays)).weeks, 1);
-	// Neither deletion's shared records count or name private care.
 	const records =
 		await rows(sql`SELECT a::text AS row FROM audit_event a WHERE a.tenant_id IN (${a.id},${gone.id},${other.id},${third.id})
 		OR a.subject_id IN (${a.id},${gone.id},${other.id},${third.id})`);

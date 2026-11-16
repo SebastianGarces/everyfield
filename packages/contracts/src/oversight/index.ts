@@ -6,21 +6,11 @@ import { health, plantLaunch, publishedSummary, regionArea, releasedAssessment }
 
 export * from "./health.ts";
 
-// Organization oversight (REQ-IDN-023, REQ-IDN-024): what a sending church or network seat reads about the plants that
-// link to it. Every shape here is a name, a locality without street, a phase, a date or a count. No person but the
-// plant's named lead planter, no account id, email, phone or street ever appears.
-
-/** How the plant reaches this organization: its own link, also seen through the named sending churches (D-1093). */
 export const plantProvenance = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("direct") }),
 	z.strictObject({ kind: z.literal("through"), sendingChurches: z.array(z.string().min(1)).min(1) }),
 ]);
 
-/**
- * Where the plant stands on the milestone it uses instead of Launch Sunday (T-388): reached on a plant-local date, not
- * reached yet, no longer offered to it (the organization turned it off or the affiliation ended before it was reached),
- * or withheld while the plant does not share Plant Intelligence findings with this organization.
- */
 export const milestoneProgress = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("withheld") }),
 	z.strictObject({ status: z.literal("not_reached") }),
@@ -28,55 +18,37 @@ export const milestoneProgress = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("reached"), date: localDate }),
 ]);
 export type MilestoneProgress = z.infer<typeof milestoneProgress>;
-/**
- * How the plant ends its gathering phase, as this organization sees it (T-296, T-388): Launch Sunday with its planned
- * date, or the milestone an organization it is affiliated with chose. Never the milestone's description, the plant's
- * note, its history or who recorded anything.
- */
 export const plantPath = z.discriminatedUnion("kind", [
-	/** `date` is the planned Launch Sunday, or null when none is set. */
 	z.strictObject({ kind: z.literal("launch_sunday"), date: localDate.nullable() }),
 	z.strictObject({
 		kind: z.literal("milestone"),
-		/** The name it was reached under once reached, else the organization's name for it now; null once that is gone. */
 		name: z.string().min(1).nullable(),
-		/** This organization's name when it chose the milestone; null for any other organization (D-1547). */
 		chosenBy: z.string().min(1).nullable(),
 		progress: milestoneProgress,
 	}),
 ]);
 export type PlantPath = z.infer<typeof plantPath>;
 
-/** One row of the plant directory (oversight.listPlants). */
 export const plantDirectoryRow = z.strictObject({
 	plantId: tenantId,
 	name: z.string().min(1),
 	city: z.string().nullable(),
 	stateProvince: z.string().nullable(),
 	country: z.string().nullable(),
-	/** The phase the church declared; Everyfield never moves it. */
 	phase: phaseNumber,
 	path: plantPath,
 	provenance: plantProvenance,
-	/** The display name of the Person holding the recorded lead role now, or null when there is none. */
 	leadPlanter: z.string().nullable(),
-	/** The official metro or micro area the plant chose as its reporting Region, or null when unresolved. */
 	region: regionArea.nullable(),
-	/** Limited visibility, Launch readiness, Watch, On track or not yet assessed (oversight.getHealth). */
 	health,
 });
 export type PlantDirectoryRow = z.infer<typeof plantDirectoryRow>;
-/** The organization's own name and the plants linked to it, by name (oversight.listPlants). */
 export const plantDirectory = z.strictObject({
 	organizationName: z.string().min(1),
 	plants: z.array(plantDirectoryRow),
 });
 export type PlantDirectory = z.infer<typeof plantDirectory>;
 
-/**
- * One shared category as the organization sees it: not shared (a choice, never a zero), shared with nothing recorded,
- * shared with counts, or a read that failed.
- */
 const section = <T extends z.ZodType>(counts: T) =>
 	z.discriminatedUnion("status", [
 		z.strictObject({ status: z.literal("withheld") }),
@@ -95,32 +67,25 @@ export const PERSON_STAGES = [
 	"launch_team",
 	"leader",
 ] as const;
-/** Live people, each once, by pipeline stage (a plant's people always have one). */
 export const peopleCounts = z.strictObject({
 	total: count,
 	byStage: z.strictObject(
 		Object.fromEntries(PERSON_STAGES.map((s) => [s, count])) as Record<(typeof PERSON_STAGES)[number], typeof count>,
 	),
 });
-/** Open and overdue top-level tasks; checklist rows, waived and deleted tasks never count. */
 export const taskCounts = z.strictObject({ open: count, overdue: count });
-/** The last held meetings, at most 12, oldest first: each one's local date and attended people. */
 export const meetingCounts = z.strictObject({
-	/** `attended` is null until the meeting's attendance is finalized, as the meeting reports count it. */
 	meetings: z
 		.array(z.strictObject({ date: localDate, attended: count.nullable() }))
 		.min(1)
 		.max(12),
-	/** Average days between consecutive meetings, rounded; null with one meeting. */
 	averageDaysBetween: z.int().min(0).nullable(),
-	/** Attended people summed over the finalized meetings. */
 	attendedTotal: count,
 });
 export const teamCounts = z.strictObject({
 	teams: count,
 	roles: count,
 	rolesFilled: count,
-	/** People assigned required training, and those who have completed it. */
 	trainingAssigned: count,
 	trainingComplete: count,
 });
@@ -137,36 +102,27 @@ export type PlantSections = z.infer<typeof plantSections>;
 export type SectionKey = keyof PlantSections;
 export type Section<K extends SectionKey> = PlantSections[K];
 
-/** One plant as this organization sees it (oversight.getPlant). */
 export const plantView = z.strictObject({
 	plant: plantDirectoryRow,
-	/** The plant's own time zone, for the summary's published day. */
 	timeZone: z.string(),
 	sections: plantSections,
-	/** Launch status, readiness and outcome (oversight.readLaunchReadiness). */
 	launch: plantLaunch,
-	/** The latest published launch summary (organizationLaunchSummary.readPublished), or null. */
 	summary: publishedSummary.nullable(),
-	/** The released Plant Intelligence assessment's structured result (intelligence.releaseAssessmentToOversight). */
 	assessment: releasedAssessment,
 });
 export type PlantView = z.infer<typeof plantView>;
 
-/** One sending church on a network's roster (oversight.listSendingChurches). */
 export const sendingChurchRow = z.strictObject({
 	organizationId: tenantId,
 	name: z.string().min(1),
-	/** Plants linked to both this sending church and the network. */
 	plants: count,
 });
 export const sendingChurchRoster = z.strictObject({
 	churches: z.array(sendingChurchRow),
-	/** Requests from sending churches to this network that are pending and not expired. */
 	pendingInvitations: count,
 });
 export type SendingChurchRoster = z.infer<typeof sendingChurchRoster>;
 
-/** One sending church and the plants linked to both it and the network (oversight.getSendingChurch). */
 export const sendingChurchView = z.strictObject({
 	organizationId: tenantId,
 	name: z.string().min(1),

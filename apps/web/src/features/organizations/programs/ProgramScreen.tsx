@@ -16,6 +16,7 @@ import {
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
+	DialogTrigger,
 	Field,
 	Input,
 	PageHeader,
@@ -24,56 +25,32 @@ import {
 } from "@everyfield/ui/controls";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useActionState, useState, useTransition, type ReactNode } from "react";
 import { formatDay, PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
 import { enroll, publishVersion, rereadProgram, savePlan } from "./actions";
-import { ApplyVersionsDialog } from "./ApplyVersions";
+import { ApplyVersionsDialog, versionReviews } from "./ApplyVersions";
 import { enrollmentHref, KIND, monthRange, programProblem, PROGRAMS_PATH, readingHref, RHYTHM } from "./model";
 import { draftFrom, PlanEditor, planFrom, type PlanDraft } from "./PlanEditor";
 
 const lost = () => ({ status: "lost" as const });
 
-/**
- * One program (REQ-MUL-010, -011). Everyone in the organization reads its plan and who is enrolled. The director edits
- * the draft and publishes it as the next version; an Owner or Admin enrolls people in the published version.
- */
 export function ProgramScreen({ initial, organizationId }: { initial: ProgramDetail; organizationId: string }) {
 	const router = useRouter();
-	const [program, setProgram] = useState(initial);
+	const [local, setLocal] = useState<{ from: ProgramDetail; value: ProgramDetail } | null>(null);
+	const program = local?.from === initial ? local.value : initial;
 	const [view, setView] = useState<"published" | "draft">(initial.published ? "published" : "draft");
-	const [editing, setEditing] = useState<PlanDraft | null>(null);
-	const [dialog, setDialog] = useState<"publish" | "enroll" | "apply" | null>(null);
-	const [selected, setSelected] = useState<string[]>([]);
+	const [editing, setEditing] = useState(false);
 	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
 	const { viewer, published, draft } = program;
 	const shown = view === "draft" ? (draft ?? published) : (published ?? draft);
 	const nextNumber = draft?.number ?? (published?.number ?? 0) + 1;
 
 	async function reread() {
 		const answer = await rereadProgram(program.id).catch(() => null);
-		if (answer?.status === "ok") return (setProgram(answer.value), answer.value);
+		if (answer?.status === "ok") return (setLocal({ from: initial, value: answer.value }), answer.value);
 		router.refresh();
 		return null;
-	}
-
-	async function save() {
-		if (!editing) return;
-		const built = planFrom(editing);
-		if ("problem" in built) return setProblem(built.problem);
-		setSaving(true);
-		setProblem(null);
-		const answer = await savePlan({
-			programId: program.id,
-			expectedRevision: program.revision,
-			plan: built.plan,
-		}).catch(lost);
-		setSaving(false);
-		if (answer.status !== "ok") return setProblem(programProblem(answer));
-		setEditing(null);
-		await reread();
-		setView("draft");
 	}
 
 	const status = published
@@ -99,21 +76,39 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 									icon={Edit02Icon}
 									onClick={() => {
 										setProblem(null);
-										setEditing(draftFrom((draft ?? published)!));
+										setEditing(true);
 									}}
 								>
 									{draft ? "Edit draft" : `Start Version ${nextNumber}`}
 								</Button>
 							) : null}
 							{viewer.director && draft ? (
-								<Button variant="primary" onClick={() => setDialog("publish")}>
-									Publish Version {draft.number}
-								</Button>
+								<ConfirmDialog
+									trigger={<Button variant="primary">Publish Version {draft.number}</Button>}
+									title={`Publish Version ${draft.number}?`}
+									description={
+										published
+											? `Version ${draft.number} becomes the plan for new enrollments. People already enrolled stay on their version.`
+											: "Version 1 becomes the plan, and Owners and Admins can enroll people in it."
+									}
+									confirmLabel="Publish"
+									onConfirm={async () => {
+										const answer = await publishVersion({
+											programId: program.id,
+											expectedRevision: program.revision,
+										}).catch(lost);
+										if (answer.status !== "ok") return setProblem(programProblem(answer));
+										setProblem(null);
+										void reread().then(() => setView("published"));
+									}}
+								/>
 							) : null}
 							{viewer.administrator && published ? (
-								<Button variant="primary" icon={PlusSignIcon} onClick={() => setDialog("enroll")}>
-									Enroll
-								</Button>
+								<EnrollDialog
+									program={program}
+									version={published}
+									onEnrolled={(id) => router.push(enrollmentHref(id))}
+								/>
 							) : null}
 						</>
 					)
@@ -139,24 +134,16 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 					</CardHeader>
 					<CardBody className="flex flex-col gap-5">
 						{editing ? (
-							<>
-								{!draft ? (
-									<p className="text-sm text-text-2">
-										Version {published!.number} stays as it is. Saving starts the draft of Version {nextNumber}, and
-										people already enrolled keep Version {published!.number}.
-									</p>
-								) : null}
-								<PlanEditor value={editing} onChange={setEditing} />
-								<Problem text={problem} />
-								<div className="flex flex-wrap justify-end gap-2">
-									<Button variant="ghost" onClick={() => setEditing(null)} disabled={saving}>
-										Cancel
-									</Button>
-									<Button variant="primary" onClick={save} loading={saving}>
-										Save draft
-									</Button>
-								</div>
-							</>
+							<PlanEditing
+								program={program}
+								nextNumber={nextNumber}
+								onCancel={() => setEditing(false)}
+								onSaved={async () => {
+									setEditing(false);
+									await reread();
+									setView("draft");
+								}}
+							/>
 						) : (
 							<>
 								{published && draft ? (
@@ -175,65 +162,65 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 						)}
 					</CardBody>
 				</Card>
-				<Enrollments
-					program={program}
-					selected={selected}
-					onSelectedChange={setSelected}
-					onApply={() => setDialog("apply")}
-				/>
+				<Enrollments program={program} onApplied={reread} />
 			</div>
-
-			{viewer.director && draft ? (
-				<ConfirmDialog
-					open={dialog === "publish"}
-					onOpenChange={(open) => setDialog(open ? "publish" : null)}
-					title={`Publish Version ${draft.number}?`}
-					description={
-						published
-							? `Version ${draft.number} becomes the plan for new enrollments. People already enrolled stay on their version.`
-							: "Version 1 becomes the plan, and Owners and Admins can enroll people in it."
-					}
-					confirmLabel="Publish"
-					onConfirm={async () => {
-						const answer = await publishVersion({ programId: program.id, expectedRevision: program.revision }).catch(
-							lost,
-						);
-						setDialog(null);
-						if (answer.status !== "ok") return setProblem(programProblem(answer));
-						setProblem(null);
-						await reread();
-						setView("published");
-					}}
-				/>
-			) : null}
-			{viewer.director && published ? (
-				<ApplyVersionsDialog
-					open={dialog === "apply"}
-					programId={program.id}
-					toNumber={published.number}
-					enrollmentIds={selected}
-					onClose={() => setDialog(null)}
-					onApplied={async () => {
-						setDialog(null);
-						setSelected([]);
-						await reread();
-					}}
-				/>
-			) : null}
-			{viewer.administrator && published ? (
-				<EnrollDialog
-					open={dialog === "enroll"}
-					onOpenChange={(open) => setDialog(open ? "enroll" : null)}
-					program={program}
-					version={published}
-					onEnrolled={(id) => router.push(enrollmentHref(id))}
-				/>
-			) : null}
 		</div>
 	);
 }
 
-/** A version's plan as everyone reads it. A reading whose source no longer publishes it shows as unavailable. */
+function PlanEditing({
+	program,
+	nextNumber,
+	onCancel,
+	onSaved,
+}: {
+	program: ProgramDetail;
+	nextNumber: number;
+	onCancel: () => void;
+	onSaved: () => Promise<void>;
+}) {
+	const { published, draft } = program;
+	const [editing, setEditing] = useState<PlanDraft>(() => draftFrom((draft ?? published)!));
+	const [problem, setProblem] = useState<string | null>(null);
+	const [saving, startSaving] = useTransition();
+
+	const save = () => {
+		const built = planFrom(editing);
+		if ("problem" in built) return setProblem(built.problem);
+		startSaving(async () => {
+			setProblem(null);
+			const answer = await savePlan({
+				programId: program.id,
+				expectedRevision: program.revision,
+				plan: built.plan,
+			}).catch(lost);
+			if (answer.status !== "ok") return setProblem(programProblem(answer));
+			await onSaved();
+		});
+	};
+
+	return (
+		<>
+			{!draft ? (
+				<p className="text-sm text-text-2">
+					Version {published!.number} stays as it is. Saving starts the draft of Version {nextNumber}, and people
+					already enrolled keep Version {published!.number}.
+				</p>
+			) : null}
+			<PlanEditor value={editing} onChange={setEditing} />
+			<Problem text={problem} />
+			<div className="flex flex-wrap justify-end gap-2">
+				<Button variant="ghost" onClick={onCancel} disabled={saving}>
+					Cancel
+				</Button>
+				<Button variant="primary" onClick={save} loading={saving}>
+					Save draft
+				</Button>
+			</div>
+		</>
+	);
+}
+
 function PlanView({ version, organizationId }: { version: ProgramVersion; organizationId: string }) {
 	return (
 		<>
@@ -280,7 +267,7 @@ function PlanView({ version, organizationId }: { version: ProgramVersion; organi
 							{r.slug ? (
 								<Link
 									href={readingHref(r.slug, r.source, organizationId)}
-									className="cursor-pointer font-medium [overflow-wrap:anywhere] text-ink underline decoration-line-2 underline-offset-2 hover:decoration-ink"
+									className="font-medium [overflow-wrap:anywhere] text-ink underline decoration-line-2 underline-offset-2 hover:decoration-ink"
 								>
 									{r.title}
 								</Link>
@@ -320,21 +307,13 @@ export function Detail({ term, children }: { term: string; children: ReactNode }
 	);
 }
 
-/**
- * Who is enrolled. The director selects active enrollments on an earlier version and applies the current version to
- * them together (D-1329); an enrollment already on it, or no longer active, can't be selected.
- */
-function Enrollments({
-	program,
-	selected,
-	onSelectedChange,
-	onApply,
-}: {
-	program: ProgramDetail;
-	selected: string[];
-	onSelectedChange: (ids: string[]) => void;
-	onApply: () => void;
-}) {
+function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied: () => Promise<unknown> }) {
+	const [selected, onSelectedChange] = useState<string[]>([]);
+	const [applying, setApplying] = useState(false);
+	const onApply = () => {
+		versionReviews.prefetch(program.id, selected);
+		setApplying(true);
+	};
 	const current = program.published?.number ?? null;
 	const movable = (e: ProgramDetail["enrollments"][number]) =>
 		program.viewer.director && current !== null && e.status === "active" && e.versionNumber < current;
@@ -392,7 +371,7 @@ function Enrollments({
 								<div className="min-w-0 flex-1">
 									<Link
 										href={enrollmentHref(e.id)}
-										className="cursor-pointer font-semibold [overflow-wrap:anywhere] text-ink after:absolute after:inset-0 after:rounded-md hover:underline"
+										className="font-semibold [overflow-wrap:anywhere] text-ink after:absolute after:inset-0 after:rounded-md hover:underline"
 									>
 										{e.name}
 									</Link>
@@ -415,28 +394,54 @@ function Enrollments({
 					</p>
 				)}
 			</CardBody>
+			{program.viewer.director && program.published ? (
+				<ApplyVersionsDialog
+					open={applying}
+					programId={program.id}
+					toNumber={program.published.number}
+					enrollmentIds={selected}
+					onClose={() => setApplying(false)}
+					onApplied={async () => {
+						setApplying(false);
+						onSelectedChange([]);
+						await onApplied();
+					}}
+				/>
+			) : null}
 		</Card>
 	);
 }
 
-/** Enroll a live pipeline person in the published version, at one of its stages (REQ-MUL-011). */
-function EnrollDialog({
-	open,
-	onOpenChange,
-	...form
-}: {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
+function EnrollDialog(form: {
 	program: ProgramDetail;
 	version: ProgramVersion;
 	onEnrolled: (enrollmentId: string) => void;
 }) {
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent size="sm">{open ? <EnrollForm {...form} /> : null}</DialogContent>
+		<Dialog>
+			<DialogTrigger asChild>
+				<Button variant="primary" icon={PlusSignIcon}>
+					Enroll
+				</Button>
+			</DialogTrigger>
+			<DialogContent size="sm">
+				<EnrollForm {...form} />
+			</DialogContent>
 		</Dialog>
 	);
 }
+
+type EnrollState = {
+	values: {
+		personId: string;
+		cohort: string;
+		expectedEndOn: string;
+		stageId: string;
+		meetingDay: string;
+		meetingTime: string;
+	};
+	problem: string | null;
+};
 
 function EnrollForm({
 	program,
@@ -448,55 +453,67 @@ function EnrollForm({
 	onEnrolled: (enrollmentId: string) => void;
 }) {
 	const [enrollmentId] = useState(() => crypto.randomUUID());
-	const [personId, setPersonId] = useState("");
-	const [cohort, setCohort] = useState("");
 	const [startedOn, setStartedOn] = useState<string>(program.today);
-	const [expectedEndOn, setExpectedEndOn] = useState("");
-	const [stageId, setStageId] = useState(version.stages[0]?.id ?? "");
-	const [meetingDay, setMeetingDay] = useState("");
-	const [meetingTime, setMeetingTime] = useState("");
-	const [saving, setSaving] = useState(false);
-	const [problem, setProblem] = useState<string | null>(null);
-
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		const missing = !personId
-			? "Choose who to enroll."
-			: !cohort.trim()
-				? "Name the cohort."
-				: !startedOn || !expectedEndOn
-					? "Enter the start and the expected end."
-					: expectedEndOn < startedOn
-						? "The expected end can’t be before the start."
-						: Boolean(meetingDay) !== Boolean(meetingTime)
-							? "Enter both the day and the time of the next meeting, or neither."
-							: null;
-		if (missing) return setProblem(missing);
-		setSaving(true);
-		setProblem(null);
-		const answer = await enroll({
-			enrollmentId,
-			programId: program.id,
-			personId,
-			cohort: cohort.trim(),
-			startedOn,
-			expectedEndOn,
-			stageId,
-			nextMeetingAt: meetingDay && meetingTime ? `${meetingDay}T${meetingTime}:00` : null,
-		}).catch(lost);
-		setSaving(false);
-		if (answer.status === "refused" && answer.refusal.code === "already_enrolled") {
-			const name = program.people.find((p) => p.personId === personId)?.name ?? "This person";
-			return setProblem(
-				`${name} is already enrolled in ${program.name}. Each person can have one active enrollment per program.`,
-			);
-		}
-		if (answer.status !== "ok") return setProblem(programProblem(answer));
-		onEnrolled(enrollmentId);
-	}
+	const [state, submit, saving] = useActionState(
+		async (_: EnrollState, form: FormData): Promise<EnrollState> => {
+			const values = {
+				personId: String(form.get("personId") ?? ""),
+				cohort: String(form.get("cohort") ?? ""),
+				expectedEndOn: String(form.get("expectedEndOn") ?? ""),
+				stageId: String(form.get("stageId") ?? ""),
+				meetingDay: String(form.get("meetingDay") ?? ""),
+				meetingTime: String(form.get("meetingTime") ?? ""),
+			};
+			const { personId, cohort, expectedEndOn, stageId, meetingDay, meetingTime } = values;
+			const missing = !personId
+				? "Choose who to enroll."
+				: !cohort.trim()
+					? "Name the cohort."
+					: !startedOn || !expectedEndOn
+						? "Enter the start and the expected end."
+						: expectedEndOn < startedOn
+							? "The expected end can’t be before the start."
+							: Boolean(meetingDay) !== Boolean(meetingTime)
+								? "Enter both the day and the time of the next meeting, or neither."
+								: null;
+			if (missing) return { values, problem: missing };
+			const answer = await enroll({
+				enrollmentId,
+				programId: program.id,
+				personId,
+				cohort: cohort.trim(),
+				startedOn,
+				expectedEndOn,
+				stageId,
+				nextMeetingAt: meetingDay && meetingTime ? `${meetingDay}T${meetingTime}:00` : null,
+			}).catch(lost);
+			if (answer.status === "refused" && answer.refusal.code === "already_enrolled") {
+				const name = program.people.find((p) => p.personId === personId)?.name ?? "This person";
+				return {
+					values,
+					problem: `${name} is already enrolled in ${program.name}. Each person can have one active enrollment per program.`,
+				};
+			}
+			if (answer.status !== "ok") return { values, problem: programProblem(answer) };
+			onEnrolled(enrollmentId);
+			return { values, problem: null };
+		},
+		{
+			values: {
+				personId: "",
+				cohort: "",
+				expectedEndOn: "",
+				stageId: version.stages[0]?.id ?? "",
+				meetingDay: "",
+				meetingTime: "",
+			},
+			problem: null,
+		},
+	);
+	const { values } = state;
 
 	return (
-		<form onSubmit={submit} noValidate className="contents">
+		<form action={submit} noValidate className="contents">
 			<DialogHeader
 				title={`Enroll in ${program.name}`}
 				description={`On Version ${version.number}. Their pipeline stage doesn’t change.`}
@@ -504,44 +521,39 @@ function EnrollForm({
 			<DialogBody className="flex flex-col gap-4">
 				<Field label="Person" hint={program.people.length ? undefined : "Add people to the pipeline first."}>
 					<Select
-						value={personId}
-						onValueChange={setPersonId}
+						name="personId"
+						defaultValue={values.personId}
 						placeholder="Choose a pipeline person"
 						options={program.people.map((p) => ({ value: p.personId, label: p.name }))}
 					/>
 				</Field>
 				<Field label="Cohort">
-					<Input value={cohort} onChange={(e) => setCohort(e.target.value)} maxLength={80} placeholder="Fall 2026" />
+					<Input name="cohort" defaultValue={values.cohort} maxLength={80} placeholder="Fall 2026" />
 				</Field>
 				<div className="grid grid-cols-2 gap-3 max-app-sm:grid-cols-1">
 					<Field label="Start">
 						<Input type="date" value={startedOn} onChange={(e) => setStartedOn(e.target.value)} />
 					</Field>
 					<Field label="Expected end">
-						<Input
-							type="date"
-							value={expectedEndOn}
-							min={startedOn}
-							onChange={(e) => setExpectedEndOn(e.target.value)}
-						/>
+						<Input type="date" name="expectedEndOn" defaultValue={values.expectedEndOn} min={startedOn} />
 					</Field>
 				</div>
 				<Field label="Program stage" hint="Separate from their pipeline stage.">
 					<Select
-						value={stageId}
-						onValueChange={setStageId}
+						name="stageId"
+						defaultValue={values.stageId}
 						options={version.stages.map((s) => ({ value: s.id, label: s.label }))}
 					/>
 				</Field>
 				<div className="grid grid-cols-2 gap-3 max-app-sm:grid-cols-1">
 					<Field label="Next meeting" optional hint={`Time in ${program.timezone}.`}>
-						<Input type="date" value={meetingDay} onChange={(e) => setMeetingDay(e.target.value)} />
+						<Input type="date" name="meetingDay" defaultValue={values.meetingDay} />
 					</Field>
 					<Field label="Time" optional>
-						<Input type="time" value={meetingTime} onChange={(e) => setMeetingTime(e.target.value)} />
+						<Input type="time" name="meetingTime" defaultValue={values.meetingTime} />
 					</Field>
 				</div>
-				<Problem text={problem} />
+				<Problem text={saving ? null : state.problem} />
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>
