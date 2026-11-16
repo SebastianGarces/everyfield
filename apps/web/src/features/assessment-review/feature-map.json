@@ -1,0 +1,144 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "assessment-review",
+	"catalog": ["PI-042"],
+	"surfaces": [
+		{
+			"id": "assessment-review.runs",
+			"says": "For an Everyfield team member with assessment review access: the plants held after three failed scheduled assessments in a row, and one failed run's cause, counters and streak, never the plant's facts or draft text. Everyone else sees one closed page.",
+			"routes": ["/assessment-review", "/assessment-review/[runId]"],
+			"catalog": ["PI-042"],
+			"reach": [
+				{
+					"link": "/assessment-review"
+				},
+				{
+					"link": "/assessment-review/{runId}",
+					"fill": {
+						"runId": "a held run's id, from a row of the list"
+					}
+				}
+			],
+			"personas": {
+				"owner": "none",
+				"triage": "none",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "closed",
+					"reach": {
+						"persona": "owner",
+						"open": "/assessment-review",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Assessment review"
+						},
+						{
+							"role": "heading",
+							"name": "Assessment review needs an operator grant"
+						},
+						{
+							"noText": "Nothing is held"
+						}
+					]
+				},
+				{
+					"id": "closed-run",
+					"reach": {
+						"persona": "triage",
+						"open": "/assessment-review/00000000-0000-0000-0000-000000000000",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Assessment run"
+						},
+						{
+							"role": "heading",
+							"name": "Assessment review needs an operator grant"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/assessment-review",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fassessment-review"
+						}
+					]
+				},
+				{
+					"id": "nothing-held",
+					"reach": {
+						"manual": "open /assessment-review as triage, after giving that account the operator grant in the app's database: INSERT INTO platform_grant(account_id, capability) SELECT account_id, 'assessment_operator' FROM platform_grant WHERE capability = 'feedback_triage' (a map step cannot write the database; delete the row afterwards)"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Nothing is held"
+						}
+					]
+				},
+				{
+					"id": "held-run",
+					"reach": {
+						"manual": "needs the operator grant (as for nothing-held) and a plant whose last three scheduled assessments failed, which no seed creates; the list row opens the run"
+					},
+					"expect": [
+						{
+							"role": "list",
+							"name": "Held assessments"
+						},
+						{
+							"role": "heading",
+							"name": "Cause"
+						},
+						{
+							"role": "heading",
+							"name": "Failed in a row"
+						}
+					]
+				},
+				{
+					"id": "no-failed-run",
+					"reach": {
+						"manual": "open /assessment-review/00000000-0000-0000-0000-000000000000 as triage, after giving that account the operator grant in the app's database: INSERT INTO platform_grant(account_id, capability) SELECT account_id, 'assessment_operator' FROM platform_grant WHERE capability = 'feedback_triage' (a map step cannot write the database; delete the row afterwards)"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "There is no failed run here"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "held-for-review",
+					"says": "Three scheduled failures in a row hold a plant for review with the real cause; only an operator reads the list and the run, and the plant keeps its last good assessment.",
+					"catalog": ["PI-042"],
+					"operations": ["intelligence.listRunsForReview", "intelligence.describeRunFailure"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/intelligence/orchestration.test.mts",
+								"name": "AC:PI-CASE-028 three scheduled failures in a row hold the plant for review with the real cause and no plant data; it keeps its last good assessment; a material change runs again"
+							}
+						],
+						"cases": ["PI-CASE-028"]
+					}
+				}
+			]
+		}
+	]
+}
