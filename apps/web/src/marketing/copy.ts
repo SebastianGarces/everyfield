@@ -4,9 +4,6 @@ import raw from "../../../../design/marketing-copy.json";
 import { LIVE_PAGES } from "@/site";
 import { ICONS, type IconName } from "./icons";
 
-// design/marketing-copy.json is the copy authority (task E2 owns it). It is parsed here, at build time,
-// so a shape change fails the build instead of rendering a broken page. Only the fields the live pages read are listed.
-
 const text = z.string().min(1);
 const step = z.object({ title: text, body: text });
 const cta = z.object({ headline: text, body: text, cta_primary: text, cta_secondary: text, note: text.optional() });
@@ -21,7 +18,6 @@ const headBody = z.object({ headline: text, body: text });
 
 const railItem = z.object({ label: text, title: text, short: text });
 const icon = z.enum(Object.keys(ICONS) as [IconName, ...IconName[]]);
-/** [icon, title, body]: an icon card (the Evry and sending cards on home, the #every-plant tiles on /oversight). */
 const iconCard = z.tuple([icon, text, text]);
 const faqItem = z.object({ id: text, q: text, a: text, link: text.optional() });
 
@@ -37,8 +33,6 @@ const journey = z.object({
 	}),
 });
 
-// Copy drafted by task E2 (shared.access_page, privacy_page, terms_page). All three are required:
-// a missing or malformed page fails the build, so no placeholder legal page can be published.
 const fieldCopy = z.object({
 	label: text,
 	optional: z.literal(true).optional(),
@@ -65,7 +59,6 @@ const accessPage = z.object({
 		steps: z.object({ contact: text, plant: text, phase: text, church: text, network: text, more: text }),
 	}),
 	fields: z.record(z.string(), fieldCopy),
-	// A church and a network send the same request; only this field's label and error differ.
 	organization: z.object({
 		church: z.object({ label: text, error: text }),
 		network: z.object({ label: text, error: text }),
@@ -99,7 +92,6 @@ const schema = z.object({
 		nav_cta: text,
 		footer: z.object({
 			headline: text,
-			// / and /oversight use their own footer headline; /access, /privacy and /terms use headline.
 			headline_home_oversight: text,
 			cta: text,
 			columns: z.array(z.object({ title: text, links: z.array(text) })),
@@ -109,7 +101,6 @@ const schema = z.object({
 		oversight_page: z.object({
 			hero,
 			problem: headBody,
-			// #every-plant: two labelled rows of four icon tiles.
 			gets: z.object({
 				headline: text,
 				lead: text,
@@ -135,8 +126,6 @@ const schema = z.object({
 		access_page: accessPage,
 		privacy_page: legalPage,
 		terms_page: legalPage,
-		// Home copy from the OPS-82 prototype (design/everyfield-marketing.html): the hero eyebrow, the phase cards'
-		// headline, the journey path (the four shared.week steps, then these two), the Evry cards and the sending cards.
 		ops82: z.object({
 			hero_eyebrow: text,
 			features_headline: text,
@@ -144,7 +133,6 @@ const schema = z.object({
 				says: z.array(text).length(6),
 				icons: z.array(icon).length(6),
 				steps: z.array(step).length(2),
-				// The note under the cards sets its first sentence in bold.
 				see_first: text.refine((s) => /^[^.]+\. \S/.test(s), "see_first needs a first sentence"),
 			}),
 			evry: z.object({ headline: text, subhead: text, cards: z.array(iconCard).length(3) }),
