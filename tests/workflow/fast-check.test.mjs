@@ -42,13 +42,6 @@ const copyDev = (dir) => {
 	}
 };
 
-/**
- * A small workspace repo with the real bin/dev, scripts, hooks, root package.json and Prettier files, and three packages
- * that lint and typecheck like the real ones: `demo` lints from its folder, `rooted` lints from the root with --config
- * (as contracts and reference do), and `app` typechecks and depends on `demo`. The root lint scripts run with the real
- * .oxlintrc.json and its plugin. node_modules link to this checkout's.
- * main holds a committed file with format and lint errors; the test works on the task branch evf/t-1.
- */
 function fixture({ tools = true } = {}) {
 	const dir = temp("fast-check-"),
 		home = temp("fast-check-home-");
@@ -65,7 +58,6 @@ function fixture({ tools = true } = {}) {
 		GIT_COMMITTER_NAME: "fixture",
 		GIT_COMMITTER_EMAIL: "fixture@everyfield.invalid",
 	};
-	// A seat or CI may set these; the fixture is its own repo, outside CI.
 	for (const key of ["CI", "GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR"]) delete env[key];
 
 	const write = (file, content) => {
@@ -96,7 +88,6 @@ function fixture({ tools = true } = {}) {
 	});
 	const eslintConfig = (ignores) =>
 		`import prettier from "eslint-config-prettier/flat";\nimport tseslint from "typescript-eslint";\nexport default tseslint.config({ ignores: ${JSON.stringify(ignores)} }, ...tseslint.configs.recommended, prettier);\n`;
-	// The real package typecheck scripts run TypeScript 7 (T-216).
 	const tscCheck = "../../node_modules/typescript-7/bin/tsc --noEmit";
 	const manifest = (name, scripts, dependencies = {}) =>
 		JSON.stringify({ name, private: true, type: "module", scripts, dependencies }, null, "\t") + "\n";
@@ -105,7 +96,6 @@ function fixture({ tools = true } = {}) {
 		manifest("@fx/demo", {
 			lint: "eslint --max-warnings=0 .",
 			typecheck: tscCheck,
-			// The bun shadow is never part of fast-check: it would leave this marker and fail.
 			"typecheck:bun": "touch ../../bun-ran; exit 1",
 		}),
 	);
@@ -128,7 +118,6 @@ function fixture({ tools = true } = {}) {
 		symlinkSync(join(repo, "node_modules"), join(dir, "node_modules"));
 		for (const pkg of ["demo", "app", "rooted"])
 			symlinkSync(join(repo, "packages/domain/node_modules"), join(dir, `packages/${pkg}/node_modules`));
-		// The root lint scripts run packages/evry's Oxlint.
 		mkdirSync(join(dir, "packages/evry"));
 		symlinkSync(join(repo, "packages/evry/node_modules"), join(dir, "packages/evry/node_modules"));
 	}
@@ -164,7 +153,6 @@ const PERMISSIONS_MAP = ".agents/skills/formal-permissions/map.json";
 const MAINTAIN = ".agents/skills/maintain-formal-verification/SKILL.md";
 const formalMap = (model, entries) => JSON.stringify({ model, actions: entries, properties: [] }, null, "\t") + "\n";
 
-/** The fixture with this checkout's real permissions map, its model folder and the mapped files it names, on main. */
 function formalFixture() {
 	const fx = fixture();
 	fx.ok("checkout", "-q", "main");
@@ -344,10 +332,8 @@ test("fast-check lints a changed file in tests/{integration,evry,ui,workflow} wi
 	fx.commit({
 		"tests/ui/bad.test.mjs": unused,
 		"tests/integration/bad.test.mts": unused,
-		// The test override: `any` and a rest sibling that drops a field are allowed here.
 		"tests/evry/loose.test.mts": "export const loose: any = 1;\nexport const { id: _id, ...rest } = { id: 1, a: 2 };\n",
 		"tests/workflow/fine.test.mjs": "export const fine = 1;\n",
-		// No root lint script names tests/support.
 		"tests/support/loose.mts": unused,
 	});
 	const { status, step } = fx.check();
@@ -365,7 +351,6 @@ test("fast-check lints a changed file in tests/{integration,evry,ui,workflow} wi
 test("fast-check typechecks a changed tool file with the root typecheck:tools script, beside the package typecheck (T-176)", () => {
 	const fx = fixture();
 	fx.commit({
-		// A fixture tools config: the real one includes scripts the fixture does not copy.
 		"tsconfig.tools.json": `{
 	// Only the fixture's tool folder.
 	"compilerOptions": { "strict": true, "noEmit": true, "module": "nodenext", "types": [] },

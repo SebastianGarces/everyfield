@@ -1,5 +1,3 @@
-// evf reads evf.toml from the base branch and starts each seat with the role's prompt_file. A missing file stops the
-// seat from starting, and a dropped owner class lands work Sebastian asked to approve. Neither shows up until a seat runs.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
@@ -10,7 +8,6 @@ const toml = read("evf.toml");
 
 const ROLES = ["planner", "implementer", "ui", "simplifier", "ideator", "comparer", "prototype-merger", "verifier"];
 
-/** The body of one [role.<name>] table. */
 function role(name) {
 	const start = toml.indexOf(`[role.${name}]\n`);
 	assert.notEqual(start, -1, `evf.toml has [role.${name}]`);

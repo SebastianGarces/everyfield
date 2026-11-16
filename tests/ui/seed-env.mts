@@ -1,11 +1,3 @@
-// The one seeded environment every tests/ui seed shares. A preview reads one apps/web/.env.local, so every seed writes
-// into the same isolated schema on the shared development database (CI's own in the GitHub nightly), with one pair of
-// login roles and one set of identity keys. The first seed creates the schema, applies every migration and writes the
-// env file (git-ignored, mode 0600); later seeds read it back and add their own data. Each seed writes its own fixture;
-// `dropSeed` deletes that fixture and drops the schema, roles and env file once no other seed's fixture still uses the
-// schema. Through the shared test-database guard it refuses every database but the shared development one and, with
-// CI=true and EARLY_ACCESS_TEST_DATABASE=1, CI's disposable `everyfield_ci` (the GitHub nightly's tests/ui job,
-// D-1378).
 import { createDatabase, closeDatabase, type Database } from "../../packages/db/src/client.ts";
 import {
 	createLoginRole,
@@ -23,7 +15,6 @@ import { fileURLToPath } from "node:url";
 import { fixturePath } from "./setup.mjs";
 
 const ENV_FILE = fileURLToPath(new URL("../../apps/web/.env.local", import.meta.url));
-/** Every seed that writes a fixture. The position gives each seed its own loopback block for admission limits. */
 export const SEEDS = ["people", "invitation", "meetings", "evry", "oversight", "pipeline", "launch-evry"] as const;
 export type SeedName = (typeof SEEDS)[number];
 const SCHEMA = /^ui_[a-f0-9]{16}$/;
@@ -43,20 +34,14 @@ type Saved = {
 export type SeedEnvironment = Omit<Saved, "mailKey" | "addressKey"> & {
 	mailKey: Buffer;
 	addressKey: Buffer;
-	/** True when this call created the schema. */
 	fresh: boolean;
 	admin: Database;
 	runtime: Database;
 	authDb: Database;
-	/** The n-th loopback address of this seed's own block, so two seeds never share an admission counter. */
 	loopback(name: SeedName, n: number): string;
 	close(): Promise<void>;
 };
 
-/**
- * The development bucket's settings from the seed's own environment, so the preview can store brand images and saved
- * exports (Download saves one first). None when any is missing; the production bucket is never copied.
- */
 function devStorage(): string[] {
 	const names = ["AWS_BUCKET_NAME", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3", "AWS_REGION"];
 	const bucket = process.env.AWS_BUCKET_NAME;
@@ -64,7 +49,6 @@ function devStorage(): string[] {
 	return names.filter((name) => process.env[name]).map((name) => `${name}=${process.env[name]}`);
 }
 
-/** The environment a previous seed wrote, or null when there is none. Refuses an env file this module did not write. */
 function readSaved(): Saved | null {
 	if (!existsSync(ENV_FILE)) return null;
 	const vars = Object.fromEntries(
@@ -91,7 +75,6 @@ function readSaved(): Saved | null {
 	};
 }
 
-/** Opens the shared environment for `origin`, creating the schema, roles and env file on the first call. */
 export async function openSeedEnvironment(origin: string): Promise<SeedEnvironment> {
 	if (!/^https?:\/\/[a-z0-9.-]+\.localhost(:\d+)?$/.test(origin)) throw Error("Give the local preview URL");
 	const source = testDatabaseUrl();
@@ -111,7 +94,6 @@ export async function openSeedEnvironment(origin: string): Promise<SeedEnvironme
 	};
 	const url = (name: string) => loginUrl(source, name, env.password, env.schema).href;
 	if (!saved) {
-		// The env file first, so a failed creation still leaves what `dropSeed` needs.
 		writeFileSync(
 			ENV_FILE,
 			[
@@ -122,7 +104,6 @@ export async function openSeedEnvironment(origin: string): Promise<SeedEnvironme
 				`IDENTITY_MAIL_KEY=${env.mailKey}`,
 				`IDENTITY_ADDRESS_KEY=${env.addressKey}`,
 				`IDENTITY_MAIL_FROM=security@example.test`,
-				// The Evry UI tests drive the scripted model, never a real one; the model reads it off Vercel only.
 				"EVRY_SCRIPTED_MODEL=1",
 				...devStorage(),
 				"",
@@ -156,7 +137,6 @@ export async function openSeedEnvironment(origin: string): Promise<SeedEnvironme
 	};
 }
 
-/** Writes the fixture of seed `name`, stamped with the schema it belongs to. */
 export function writeFixture(name: SeedName, schema: string, data: Record<string, unknown>): string {
 	const path = fixturePath(name);
 	writeFileSync(path, JSON.stringify({ schema, ...data }, null, "\t"), { mode: 0o600 });
@@ -168,10 +148,6 @@ const fixtureSchema = (name: SeedName): string | null =>
 		? ((JSON.parse(readFileSync(fixturePath(name), "utf8")) as { schema?: string }).schema ?? null)
 		: null;
 
-/**
- * Deletes the fixture of seed `name`. When no other seed's fixture still uses the shared schema, drops the schema and
- * roles and deletes the env file.
- */
 export async function dropSeed(name: SeedName): Promise<{ dropped: string | null; kept: string[] }> {
 	rmSync(fixturePath(name), { force: true });
 	const saved = readSaved();

@@ -1,11 +1,3 @@
-// WP-104/ui slice 2: the client half of the "Logos and images" rules (apps/web/src/features/settings/brand/assets.ts).
-// The fixture brand port stands in for the server and records what each step sends; the server's own refusals
-// (access, conflict, alt text, media type) are proved in tests/integration/branding/branding.test.mts.
-//   AC:CASE-BRD-002: upload and remove a slot; alt text is required on the client and reads the server's words;
-//     the brand swatch follows the draft primary color, or neutral ink with a note.
-//   AC:CASE-BRD-003 (suggest-from-logo): a suggestion changes nothing until the person chooses it.
-//   AC:CASE-BRD-006: the preview places the stored assets.
-//   INV-brand-assets-conflict: finalize sends the revision read when it starts, and a conflict reaches the slot.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
@@ -27,7 +19,6 @@ import type { BrandPort } from "../../../apps/web/src/features/settings/port.ts"
 
 const logo = (type = "image/svg+xml", bytes = 400) => new File([new Uint8Array(bytes)], "logo.svg", { type });
 
-/** The fixture port, refusing the operations in `fault` once, with every call and its argument recorded. */
 function port(options: { fault?: Partial<Record<string, BrandFault>> } = {}) {
 	const faults = new Map(Object.entries(options.fault ?? {}));
 	const calls: [string, unknown][] = [];
@@ -120,7 +111,6 @@ test("AC:CASE-BRD-002 alt text is required: blank text is refused on the client,
 	assert.equal(altProblem("   "), ALT_REQUIRED);
 	assert.equal(altProblem(""), ALT_REQUIRED);
 	assert.equal(altProblem("A logo"), null);
-	// A client that skips its own check is refused at the first step; no bytes are sent.
 	const p = port();
 	const outcome = await uploadAsset(p.brand, { slot: "full_logo", file: logo(), altText: "  ", revision: () => "1" });
 	const error = outcome.ok ? assert.fail("blank alt text uploaded") : outcome.error!;
@@ -145,7 +135,6 @@ test("INV-brand-assets-conflict: finalize sends the revision read when it starts
 		altText: "Mark",
 		revision: () => revision,
 	});
-	// Another save lands while the bytes upload: finalize must carry the revision as it is then.
 	revision = "1";
 	assert.ok((await outcome).ok);
 	assert.equal(
@@ -167,11 +156,9 @@ test("AC:CASE-BRD-003 a suggestion changes nothing until chosen, and a chosen co
 	assert.equal(suggestion?.suggestedPrimary, "#2E7D32");
 	const saved = formOf(kit);
 	assert.deepEqual(patchOf(saved, saved), {});
-	// Choosing sets the draft only; the patch then carries the primary color and nothing else.
 	assert.deepEqual(patchOf({ ...saved, primaryColor: suggestion!.suggestedPrimary }, saved), {
 		primaryColor: "#2E7D32",
 	});
-	// A refused or missing suggestion is never an error.
 	assert.equal(await suggestFor(port({ fault: { suggestColors: "unavailable" } }).brand, "mark"), null);
 });
 

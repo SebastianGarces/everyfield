@@ -1,7 +1,3 @@
-// Person field rules (WP-012/ui) that run in node against the module the screens use.
-//   AC:TARGET-PPL-009: a household join, leave or role change reads in Activity with the household name recorded then,
-//     so a person's history still names a household after it is renamed or deleted; the current membership of the
-//     viewed person comes only from the members list, so after leaving the card shows no household.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -38,7 +34,6 @@ test("AC:TARGET-PPL-009 a person who left reads as in no household, even though 
 });
 
 test("BUG-58bc5acb8: choosing the same refused photo twice reaches the check twice", () => {
-	// A browser picker fires change only when its value differs from the one it holds.
 	const picker = { files: null, value: "" };
 	const checked = [];
 	const choose = (file) => {
