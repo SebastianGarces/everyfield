@@ -1,0 +1,44 @@
+{
+	"no-global-listeners": {
+		"apps/web/src/components/frame/PageScroll.tsx": [
+			{
+				"function": "install",
+				"count": 2,
+				"reason": "The page-scroll owner's two permanent listeners, installed once at module load like the location store's: a capture click that turns a link to a #fragment of this page into a glide the reader can stop, and the reader's wheel, touch, pointer and key input that stops a glide and ends a #fragment hold. Both are page-wide by nature (any link, any input), and the lint knows only the location store and the page-event registry as owners. The same function starts a body MutationObserver the lint does not count: temporary, it waits for the location store to report, once per path change and after the new page is in the DOM, that a new page is showing (link, push, Back and Forward), without depending on an API a supported browser lacks."
+			},
+			{
+				"function": "pageShown",
+				"count": 1,
+				"reason": "The window scroll listener of one #fragment hold, added in the event that starts the hold and removed in releaseHold when reader input, a reader scroll or the next page ends it: it tells the browser's own scroll anchoring from the reader while the hold runs."
+			}
+		]
+	},
+	"no-timers": {
+		"apps/web/src/components/frame/PageScroll.tsx": [
+			{
+				"function": "glideToFragment",
+				"count": 1,
+				"reason": "Starts the in-page anchor glide: a frame-by-frame animation of the window scroll (600 to 800 ms ease in-out by distance) that stops at once on reader input; it replaces CSS smooth scrolling because WebKit cannot stop a native smooth scroll the reader interrupts, so each frame is the animation, not an ordering patch"
+			},
+			{
+				"function": "step",
+				"count": 1,
+				"reason": "The next frame of the same anchor glide; the loop ends when the glide reaches its target, the page changes or the reader scrolls"
+			}
+		]
+	},
+	"no-raw-history": {
+		"apps/web/src/components/frame/PageScroll.tsx": [
+			{
+				"function": "glideToFragment",
+				"count": 2,
+				"reason": "temporary: the anchor and restore reads move to the location store in a follow-up (R-58 in the refactor notes)"
+			},
+			{
+				"function": "pageShown",
+				"count": 1,
+				"reason": "temporary: the anchor and restore reads move to the location store in a follow-up (R-58 in the refactor notes)"
+			}
+		]
+	}
+}

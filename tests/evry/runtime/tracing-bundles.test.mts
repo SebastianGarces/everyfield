@@ -6,16 +6,9 @@ import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { flushTraces, registerTracing, traceTurn } from "../../../packages/evry/src/runtime/trace.ts";
 
-// Next.js bundles instrumentation in its own layer: the routes that flush run another copy of trace.ts and of
-// @opentelemetry/api. The OpenTelemetry global is shared by symbol, so the route copy finds the registered provider
-// wrapped in a ProxyTracerProvider of the instrumentation copy, a class it does not know. On Vercel the flush then found
-// nothing to flush, the function froze before the batch timer fired, and no trace reached Langfuse. This file puts such
-// a foreign proxy in the global and proves the flush still exports the turn's spans.
-
 const require = createRequire(new URL("../../../packages/evry/package.json", import.meta.url));
 type Api = typeof import("@opentelemetry/api");
 
-/** A second, separately loaded copy of @opentelemetry/api, as another bundle layer has. */
 function foreignApi(): Api {
 	const root = require.resolve("@opentelemetry/api").replace(/build\/src\/index\.js$/, "");
 	const ours = Object.keys(require.cache).filter((key) => key.startsWith(root));
@@ -53,7 +46,6 @@ before(async () => {
 	} finally {
 		console.log = log;
 	}
-	// What the route layer sees: the registered provider behind a proxy from the other copy of the API.
 	const ours = require("@opentelemetry/api") as Api;
 	const foreign = foreignApi();
 	const registered = (ours.trace.getTracerProvider() as InstanceType<Api["ProxyTracerProvider"]>).getDelegate();

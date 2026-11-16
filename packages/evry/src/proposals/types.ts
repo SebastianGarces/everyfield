@@ -13,17 +13,8 @@ import type { TaskReminders } from "@everyfield/domain/tasks";
 import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 
-/**
- * The email service and the keys that seal and hash its addresses. Only a reviewed write that reaches the email
- * service uses it; the deployment passes null when it has no mail keys.
- */
 export type MailPort = { transport: DeliveryTransport; keys: DeliveryKeys };
 
-/**
- * The native services a Settings, seat or connection tool calls, built by the deployment with its own mail, job and
- * replan effects, so Evry calls exactly what the Settings screens call. `invitations` builds the invitation service on
- * the connection it is given: the executor passes its own transaction, so the change commits with the proposal outcome.
- */
 export type NativePorts = {
 	invitations(
 		db: Database | Transaction,
@@ -35,42 +26,26 @@ export type NativePorts = {
 	>;
 	account: Pick<NativeAccountProducer<Transaction>, "finalizeAvatar"> &
 		Pick<DeletionProducer<Transaction>, "requestAccountDeletion">;
-	/** The onboarding producer `/onboarding` calls, with the deployment's own receipt mail (T-345). */
 	onboarding: OnboardingProducer<Transaction>;
-	/** The deployed app version the feedback dialog saves with feedback, or null when the host does not say. */
 	appVersion: string | null;
-	/**
-	 * The Launch notifications the Launch plan queues when a person completes a milestone (NTF-009), through the
-	 * deployment's notification service. Left out when the deployment has no mail configuration: a milestone completion
-	 * is then refused rather than saved without telling anyone.
-	 */
 	launchNotices?: LaunchNotices;
 };
 
-/** What a review may read besides the proposal statement itself. */
 export type ReviewContext = { db: Database; mail: MailPort | null; native: NativePorts | null };
 
-/** What a native command needs besides the proposal: the approving session's authority and the native services. */
 export type NativeContext = { authority: RequestActor; ports: NativePorts | null };
 
-/**
- * The owning domain write's saved receipt, or the domain's refusal code. `report` is what the email service confirmed;
- * only a write that reaches the email service has one.
- */
-/** What became of one person a reviewed write reached: changed, or not changed and why. */
 export const personOutcome = z.object({
 	id: z.uuid(),
 	label: z.string(),
 	outcome: z.enum(["changed", "unchanged"]),
 	reason: z.string().optional(),
 });
-/** A reviewed import's receipt when it was saved: the job then writes the rows in the background. */
 export const importOutcome = z.object({
 	status: z.enum(["in_progress", "complete", "partial"]),
 	counts: z.object({ created: z.int(), skipped: z.int(), failed: z.int(), remaining: z.int() }),
 	failed: z.array(z.object({ row: z.int(), reason: z.string() })),
 });
-/** One record as it is now, for a refusal because it changed since the review. */
 export const currentPerson = z.object({ id: z.uuid(), label: z.string(), value: z.string().nullable() });
 type EffectDone = {
 	receiptId?: string;
@@ -79,31 +54,15 @@ type EffectDone = {
 	people?: z.infer<typeof personOutcome>[];
 	import?: z.infer<typeof importOutcome>;
 };
-/** A notification write changes only the approving account's own bell or settings: it has no record to name. */
 type OwnSettingsDone = { own: true };
 export type EffectResult = EffectDone | OwnSettingsDone | { refused: string };
 
-/**
- * A reviewed adapter from one durable operation flagged evry_review to its native domain command. The model may only
- * propose it; a person approves the exact review; the executor runs the native command once under live authority.
- */
 export type ReviewedWrite<I> = {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	/** Current authority decides availability, the same as the native command's role floor. */
 	allowed(actor: EvryActor): boolean;
-	/**
-	 * One SELECT returning `review` (the target and every change, before and after) and `args` (the native command's
-	 * exact arguments, including the target's current revision), or no row when the target is not available. A review
-	 * that must hash addresses first reads them through `context.db`.
-	 */
 	review(actor: EvryActor, input: I, context: ReviewContext): SQL | Promise<SQL | null>;
-	/**
-	 * The native command inside the executor's transaction, for the approving session in the proposal's exact context,
-	 * with the effect key as its request key. The command checks that session's live seat and role itself. A command that
-	 * hands tasks to someone else replans their reminders through `reminders`.
-	 */
 	execute(
 		tx: Transaction,
 		context: PeopleContext,
@@ -112,32 +71,12 @@ export type ReviewedWrite<I> = {
 		reminders: TaskReminders,
 		native: NativeContext,
 	): Promise<EffectResult>;
-	/**
-	 * Set for a write whose native command runs its own write on the pool, through the write gate (the organization
-	 * pipeline and programs, C88 established): it cannot run inside the executor's transaction, which already holds the
-	 * gate. It runs once, in the approval request, under the approving request's live authority, and `execute` is never
-	 * reached. `reason` marks a card on which the person types the reason themselves: the typed text goes to the native
-	 * command only, and Evry never saves it, in the proposal, its receipt or the conversation (REQ-MUL-015).
-	 */
 	approveNow?: {
 		reason: boolean;
 		run(db: Database, authority: RequestActor, args: unknown, reason: string | null): Promise<EffectResult>;
 	};
-	/**
-	 * A fact the review froze that the proposal cannot compare in SQL. The executor runs it inside its transaction on an
-	 * effect's first run only, never on a retry of an effect that already started. Returns a refusal code, or null.
-	 */
 	recheck?(tx: Transaction, context: PeopleContext, args: unknown): Promise<string | null>;
-	/**
-	 * The records a revision_conflict or stale_review refusal shows as they are now: a jsonb array of {id, label, value} read from the
-	 * proposal row `p` (its tenant_id and input), in the same statement that saves the refusal.
-	 */
 	current?(p: SQL): SQL;
-	/**
-	 * The second kind of effect: a step that calls the email service. The executor runs it after `execute` committed
-	 * and before it saves the outcome, never inside a transaction. It runs again, with the same keys, after a crash, so
-	 * each domain command it calls must replay (request key, stored provider key or confirmed answers).
-	 */
 	reach?(
 		db: Database,
 		authority: RequestActor,
@@ -146,10 +85,6 @@ export type ReviewedWrite<I> = {
 		first: EffectDone,
 		mail: MailPort,
 	): Promise<EffectResult>;
-	/**
-	 * Check again after a result the email service has not confirmed: asks it again with a fresh check key and returns
-	 * the new report. Only a write whose report can be unconfirmed has it.
-	 */
 	check?(
 		db: Database,
 		authority: RequestActor,

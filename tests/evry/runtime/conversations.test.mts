@@ -39,7 +39,6 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 	);
 	const c = created.value;
 	assert.equal(c.context, "plant");
-	// Opening Evry again from the launcher or the panel returns the same conversation, not a new thread.
 	assert.equal((await openLatestConversation(db, owner))?.conversation.id, c.id);
 
 	const first = { requestKey: randomUUID(), text: "Show my people.", references: [] };
@@ -50,7 +49,6 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 	assert.deepEqual(await counts(), before, "a repeated submit writes nothing");
 	await refused(() => submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: "Another" }), "run_active");
 
-	// Observing replays saved events and never starts the run.
 	const seen = [];
 	for await (const e of observeConversation(db, owner, c.id, 0, AbortSignal.timeout(400), 50)) seen.push(e);
 	assert.deepEqual(
@@ -100,7 +98,6 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 	);
 	assert.equal(bodies.rows[0]!.n, 0, "audit never holds message text");
 
-	// A follow-up turn in the same conversation is accepted; the conversation is not duplicated.
 	await submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: "What about tomorrow?" });
 	assert.equal((await listConversations(db, owner, {})).total, 1);
 	assert.equal((await listConversations(db, owner, { search: "tomorrow" })).items[0]?.id, c.id);
@@ -126,7 +123,6 @@ test("AC:INH-REGRESSION-FOREIGN-SESSION AC:TEN-002 AC:SEC-02 AC:UI45-006 INV-ten
 		assert.equal(await openLatestConversation(db, other), null);
 	}
 	assert.deepEqual(await counts(), before, "no refused call wrote anything");
-	// An ended seat loses the conversation's context at once: no new turn, no cancel.
 	await cancelTurn(db, owner, c.id);
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${owner.accountId}`);
 	await refused(

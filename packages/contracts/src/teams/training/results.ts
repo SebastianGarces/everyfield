@@ -51,7 +51,6 @@ export const trainingList = z.strictObject({
 const participant = z.strictObject({
 	personId,
 	name: z.string().min(1).max(200),
-	/** A current, compatible earned completion of this program's version; revoked evidence never counts. */
 	complete: z.boolean(),
 });
 export const trainingMatrix = z.strictObject({
@@ -67,7 +66,6 @@ export const trainingMatrix = z.strictObject({
 		)
 		.max(100),
 });
-/** A program's saved required list: only these people count, whoever joined its ministry since. */
 export const requiredParticipants = z.strictObject({
 	programId: recordId,
 	name: programName,
@@ -115,23 +113,19 @@ export const teamFacts = z.strictObject({
 	weights: z.tuple([z.number(), z.number(), z.number()]),
 	composite: z.number().nullable(),
 });
-/** The last completed team meetings the attendance rate covers (at most 4), by their church dates. */
 const window = z.strictObject({
 	meetings: z.int().min(0).max(4),
 	from: localDate.nullable(),
 	to: localDate.nullable(),
 });
-/** A ministry's measured health: its facts, the window they cover and the screen's bands. Unknown is never zero. */
 export const teamHealth = teamFacts.extend({
 	name: z.string().min(1).max(200),
 	window,
-	/** Staffing under 40% is red and under 60% yellow; attendance under 50% is yellow. */
 	staffingBand: z.enum(["red", "yellow", "ok", "unknown"]),
 	attendanceBand: z.enum(["yellow", "ok", "unknown"]),
 });
 export const aggregateHealth = z.strictObject({
 	teams: z.array(teamHealth).max(200),
-	/** Current ministries with a composite; the rest are Unknown and are not averaged in. */
 	measuredTeams: z.int().min(0),
 	totalTeams: z.int().min(0),
 	composite: z.number().nullable(),

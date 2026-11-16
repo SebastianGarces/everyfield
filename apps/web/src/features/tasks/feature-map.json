@@ -1,0 +1,540 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "tasks",
+	"catalog": [
+		"TSK-001",
+		"TSK-002",
+		"TSK-003",
+		"TSK-004",
+		"TSK-005",
+		"TSK-006",
+		"TSK-007",
+		"TSK-008",
+		"TSK-009",
+		"TSK-010",
+		"TSK-014",
+		"TSK-015",
+		"TSK-016"
+	],
+	"surfaces": [
+		{
+			"id": "tasks.list",
+			"says": "The church's tasks: yours or everyone's, searched, filtered and changed in bulk.",
+			"routes": ["/tasks"],
+			"endpoints": ["/tasks/read"],
+			"catalog": ["TSK-001", "TSK-002", "TSK-008", "TSK-014", "TSK-016"],
+			"reach": [
+				{
+					"rail": "Tasks",
+					"personas": ["owner", "admin", "member"]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "write",
+				"signup": "none",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "all",
+					"reach": {
+						"persona": "owner",
+						"open": "/tasks?view=all",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "All tasks"
+						},
+						{
+							"role": "button",
+							"name": "New task"
+						},
+						{
+							"role": "button",
+							"name": "Draft the first-year budget"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/tasks",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "What your Member seat can do"
+						},
+						{
+							"absent": {
+								"role": "button",
+								"name": "New task"
+							}
+						}
+					]
+				},
+				{
+					"id": "seatless",
+					"reach": {
+						"persona": "signup",
+						"open": "/tasks",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Tasks are not part of your seat"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/tasks",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Ftasks"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/tasks/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the list"
+					},
+					"expect": [
+						{
+							"text": "Loading tasks"
+						}
+					]
+				},
+				{
+					"id": "load-failed",
+					"reach": {
+						"manual": "renders only when the list read fails on the server"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load your tasks"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "search",
+					"says": "Searching by title narrows the list and lives in the address.",
+					"catalog": ["TSK-001"],
+					"operations": ["tasks.list"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/tasks/tasks.test.mts",
+								"name": "AC:TARGET-TSK-001 AC:B03-001 AC:B03-002 AC:B03-003 views, stable pages, counts and due state"
+							},
+							{
+								"file": "tests/unit/tasks/model.test.mjs",
+								"name": "AC:TARGET-TSK-001 INV-url: filters live in the address, reset the page and keep their siblings"
+							}
+						],
+						"cases": ["TARGET-TSK-001"],
+						"browser": {
+							"state": "all",
+							"steps": [
+								{
+									"type": "budget",
+									"into": "Search tasks by title"
+								}
+							],
+							"expect": [
+								{
+									"url": "/tasks?view=all&q=budget"
+								},
+								{
+									"role": "button",
+									"name": "Draft the first-year budget"
+								},
+								{
+									"absent": {
+										"role": "button",
+										"name": "Order welcome cards"
+									}
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "create",
+					"says": "New task adds a task with only a title; it joins the list at once.",
+					"catalog": ["TSK-002", "TSK-016"],
+					"operations": ["tasks.create"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/tasks/tasks.test.mts",
+								"name": "AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 create, edit and delete keep a valid task or change nothing"
+							},
+							{
+								"file": "tests/integration/tasks/templates.test.mts",
+								"name": "AC:TARGET-TSK-016 create, edit and import keep the typed text, drop unsafe links and clear an empty description"
+							}
+						],
+						"cases": ["TARGET-TSK-002", "TARGET-TSK-016"],
+						"browser": {
+							"state": "all",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "New task"
+									}
+								},
+								{
+									"type": "Map new task",
+									"into": "Title"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Add task"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Map new task"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "bulk-complete",
+					"says": "Selecting tasks offers Complete and Reschedule for all of them in one write.",
+					"catalog": ["TSK-008"],
+					"operations": ["tasks.bulkComplete", "tasks.bulkReschedule"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/tasks/tasks.test.mts",
+								"name": "AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or none, and never repeat on retry"
+							},
+							{
+								"file": "tests/unit/tasks/model.test.mjs",
+								"name": "AC:TARGET-TSK-008 INV-bulk-actions: complete and reschedule apply only to open tasks"
+							}
+						],
+						"cases": ["TARGET-TSK-008"],
+						"browser": {
+							"state": "all",
+							"steps": [
+								{
+									"click": {
+										"role": "checkbox",
+										"name": "Book the school gym for launch Sunday",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Complete"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Completed",
+									"match": "contains"
+								},
+								{
+									"role": "heading",
+									"name": "Closed",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "reminders",
+					"says": "A due or overdue task reminds each current assignee, and stops once the task is settled.",
+					"catalog": ["TSK-014"],
+					"operations": ["notifications.syncTaskReminders"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/tasks/tasks.test.mts",
+								"name": "AC:TARGET-TSK-014 due and overdue reminders follow the current assignee and stop when settled"
+							},
+							{
+								"file": "tests/integration/tasks/tasks.test.mts",
+								"name": "AC:TARGET-TSK-014 each assignee gets their own reminders, and removing one withdraws only theirs"
+							}
+						],
+						"cases": ["TARGET-TSK-014"]
+					}
+				}
+			]
+		},
+		{
+			"id": "tasks.panel",
+			"says": "One task in a side panel over the list: mark it done or reopen it, its steps, blockers, repeat rule and status history.",
+			"routes": [],
+			"catalog": ["TSK-003", "TSK-005", "TSK-006", "TSK-007", "TSK-015"],
+			"reach": [
+				{
+					"from": "tasks.list",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "button",
+								"name": "Order welcome cards"
+							}
+						},
+						{
+							"expect": {
+								"url": "/tasks?view=all&task={taskId}"
+							}
+						}
+					]
+				},
+				{
+					"link": "/tasks?view=all&task={taskId}",
+					"fill": {
+						"taskId": "the id in an open task panel's address"
+					}
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "write"
+			},
+			"states": [
+				{
+					"id": "open",
+					"reach": {
+						"persona": "owner",
+						"open": "/tasks?view=all",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Order welcome cards"
+								}
+							},
+							{
+								"expect": {
+									"url": "/tasks?view=all&task={taskId}"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Order welcome cards"
+						},
+						{
+							"role": "button",
+							"name": "Mark done"
+						},
+						{
+							"role": "button",
+							"name": "Add a step"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "structure",
+					"says": "The panel holds one level of steps, the tasks this one waits for and a repeat rule that makes the next task.",
+					"catalog": ["TSK-005", "TSK-006", "TSK-007"],
+					"operations": ["tasks.createSubtask", "tasks.replacePrerequisites", "tasks.configureRecurrence"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/tasks/tasks.test.mts",
+								"name": "AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-level tasks with their own assignee and history"
+							},
+							{
+								"file": "tests/integration/tasks/tasks.test.mts",
+								"name": "AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once, and settled or deleted ones stop blocking"
+							},
+							{
+								"file": "tests/integration/tasks/tasks.test.mts",
+								"name": "AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates exactly one next task with a fresh checklist"
+							}
+						],
+						"cases": ["TARGET-TSK-005", "TARGET-TSK-006", "TARGET-TSK-007"],
+						"browser": {
+							"state": "open",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Add a step"
+								},
+								{
+									"role": "button",
+									"name": "Add a task"
+								},
+								{
+									"role": "button",
+									"name": "Make it repeat"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				},
+				{
+					"id": "complete",
+					"says": "Mark done in the task panel closes the task; Reopen takes it back, and both land in its status history.",
+					"catalog": ["TSK-003", "TSK-015"],
+					"operations": ["tasks.complete", "tasks.reopen"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/tasks/tasks.test.mts",
+								"name": "AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per request, reopen and history"
+							}
+						],
+						"cases": ["TARGET-TSK-003", "TARGET-TSK-015"],
+						"browser": {
+							"state": "open",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Mark done"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Reopen"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "tasks.checklists",
+			"says": "The Playbook's checklists by phase, and the offer of the new phase's checklists after a phase move.",
+			"routes": [],
+			"catalog": ["TSK-009", "TSK-010"],
+			"reach": [
+				{
+					"from": "tasks.list",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "button",
+								"name": "Phase checklists"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "none"
+			},
+			"states": [
+				{
+					"id": "browse",
+					"reach": {
+						"persona": "owner",
+						"open": "/tasks?view=all",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Phase checklists"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "dialog",
+							"name": "Phase checklists"
+						},
+						{
+							"text": "Current phase",
+							"match": "contains"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "checklists",
+					"says": "Phase checklists lists the Playbook checklists by phase; an import adds exactly the previewed tasks.",
+					"catalog": ["TSK-009"],
+					"operations": ["tasks.listTemplates", "tasks.previewTemplate", "tasks.importTemplate"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/tasks/templates.test.mts",
+								"name": "AC:TARGET-TSK-009 an Owner or Admin browses all 20 checklists with the current phase; a Member is refused"
+							},
+							{
+								"file": "tests/integration/tasks/templates.test.mts",
+								"name": "AC:TARGET-TSK-009 an import adds exactly the previewed tasks; a retry replays it and a new import adds a second set"
+							}
+						],
+						"cases": ["TARGET-TSK-009"]
+					}
+				},
+				{
+					"id": "phase-offer",
+					"says": "After a real phase move, Tasks offers the new phase's checklists once; accept or decline is answered once.",
+					"catalog": ["TSK-010"],
+					"operations": ["tasks.readPhaseOffer", "tasks.acceptPhaseOffer", "tasks.declinePhaseOffer"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/tasks/templates.test.mts",
+								"name": "AC:PHASE-CASE-006 AC:TARGET-TSK-010 the Owner accepts a subset dated from the move, and the offer is gone"
+							},
+							{
+								"file": "tests/integration/tasks/templates.test.mts",
+								"name": "AC:TARGET-TSK-010 INV-one-answer two devices answer at once: one answer commits and the other reads what it decided"
+							}
+						],
+						"cases": ["TARGET-TSK-010", "PHASE-CASE-006"]
+					}
+				}
+			]
+		}
+	]
+}

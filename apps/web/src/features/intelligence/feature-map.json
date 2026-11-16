@@ -1,0 +1,509 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "intelligence",
+	"catalog": ["PI-014", "PI-015", "PI-024", "PI-029", "PI-034", "PI-038", "PI-039"],
+	"surfaces": [
+		{
+			"id": "intelligence.assessment",
+			"says": "Plant Intelligence: the church's latest assessment, or what to record first while none is prepared.",
+			"routes": ["/intelligence"],
+			"catalog": ["PI-024", "PI-025", "PI-034"],
+			"reach": [
+				{
+					"rail": "Plant Intelligence",
+					"personas": ["owner", "admin"]
+				}
+			],
+			"personas": {
+				"owner": "read",
+				"admin": "read",
+				"member": "none",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "cold-start",
+					"reach": {
+						"persona": "owner",
+						"open": "/intelligence",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Your first assessment hasn't been prepared yet"
+						},
+						{
+							"role": "region",
+							"name": "Next steps from your records"
+						},
+						{
+							"role": "link",
+							"name": "Trends"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/intelligence",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Plant Intelligence is for Owners and Admins"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/intelligence",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fintelligence"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/intelligence/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the page"
+					},
+					"expect": [
+						{
+							"text": "Loading Plant Intelligence"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "cold-start-guidance",
+					"says": "With no assessment yet, the page lists next steps from the church's own records, each a link to where to record it.",
+					"catalog": ["PI-034"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/unit/intelligence/assessment-model.test.mjs",
+								"name": "AC:PI-CASE-025 cold start says not prepared, on its way or couldn't be prepared, never a result"
+							}
+						],
+						"cases": ["PI-CASE-025"],
+						"browser": {
+							"kind": "presence",
+							"state": "cold-start",
+							"steps": [],
+							"expect": [
+								{
+									"role": "region",
+									"name": "Next steps from your records"
+								}
+							]
+						}
+					},
+					"noOperation": "no code is named intelligence.readColdStartGuidance; the page builds its next steps from the facts it reads"
+				}
+			]
+		},
+		{
+			"id": "intelligence.trends",
+			"says": "Trends: the latest twelve complete assessments, newest first.",
+			"routes": ["/intelligence/trends"],
+			"catalog": ["PI-029"],
+			"reach": [
+				{
+					"from": "intelligence.assessment",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Trends"
+							}
+						},
+						{
+							"expect": {
+								"url": "/intelligence/trends"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "read",
+				"admin": "read",
+				"member": "none"
+			},
+			"states": [
+				{
+					"id": "empty",
+					"reach": {
+						"persona": "owner",
+						"open": "/intelligence/trends",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Trends"
+						},
+						{
+							"role": "heading",
+							"name": "No assessments yet"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/intelligence/trends/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the page"
+					},
+					"expect": [
+						{
+							"text": "Loading Plant Intelligence"
+						}
+					]
+				},
+				{
+					"id": "loading-intelligence",
+					"file": "apps/web/src/app/(product)/(frame)/intelligence/loading.tsx",
+					"reach": {
+						"manual": "the Plant Intelligence loading screen of the parent route"
+					},
+					"expect": [
+						{
+							"text": "Loading Plant Intelligence"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "history",
+					"says": "Trends shows each complete assessment, dated; a fact an older one did not have reads Not measured.",
+					"catalog": ["PI-029"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/intelligence/views.test.mts",
+								"name": "trends show the latest twelve complete assessments, newest first and dated; a fact an older snapshot did not have reads Not measured, never zero"
+							}
+						]
+					},
+					"noOperation": "intelligence.readAssessmentHistory is implemented under a shorter name (packages/domain/src/intelligence/assessment.ts:409), a name that differs from the catalog id"
+				}
+			]
+		},
+		{
+			"id": "intelligence.attestations",
+			"says": "Attestations: the seven answers only the church can give, dated and with history, and leadership candidates.",
+			"routes": ["/intelligence/attestations"],
+			"catalog": ["PI-014", "PI-015"],
+			"reach": [
+				{
+					"from": "intelligence.assessment",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Attestations",
+								"match": "contains"
+							}
+						},
+						{
+							"expect": {
+								"url": "/intelligence/attestations"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "none"
+			},
+			"states": [
+				{
+					"id": "unanswered",
+					"reach": {
+						"persona": "owner",
+						"open": "/intelligence/attestations",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "region",
+							"name": "Prayer"
+						},
+						{
+							"text": "Answer"
+						},
+						{
+							"role": "button",
+							"name": "Record a candidate"
+						},
+						{
+							"absent": {
+								"role": "button",
+								"name": "Update",
+								"match": "contains"
+							}
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/intelligence/attestations/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the page"
+					},
+					"expect": [
+						{
+							"text": "Loading the attestations"
+						}
+					]
+				},
+				{
+					"id": "loading-intelligence",
+					"file": "apps/web/src/app/(product)/(frame)/intelligence/loading.tsx",
+					"reach": {
+						"manual": "the Plant Intelligence loading screen of the parent route"
+					},
+					"expect": [
+						{
+							"text": "Loading Plant Intelligence"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "answer",
+					"says": "Answering a signal saves a dated statement; the signal then offers Update.",
+					"catalog": ["PI-015"],
+					"operations": ["signals.attest"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/intelligence/signals.test.mts",
+								"name": "AC:PI-015 AC:REQ-KNOW-050 a signal is answered with its name and date; detail and reference are never required; a retry replays"
+							}
+						],
+						"browser": {
+							"kind": "behavior",
+							"state": "unanswered",
+							"steps": [
+								{
+									"click": {
+										"text": "Answer"
+									}
+								},
+								{
+									"click": {
+										"role": "radio",
+										"name": "Yes"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save answer"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Update",
+									"match": "contains"
+								},
+								{
+									"text": "Answer saved.",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "intelligence.check-in",
+			"says": "My weekly check-in: four private answers each week, only the author sees them, with a twelve-week strip to correct.",
+			"routes": ["/me/check-in"],
+			"catalog": ["PI-038", "PI-039", "PI-040", "PI-041"],
+			"reach": [
+				{
+					"from": "intelligence.assessment",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "button",
+								"name": "account menu",
+								"match": "contains"
+							}
+						},
+						{
+							"click": {
+								"role": "menuitem",
+								"name": "My weekly check-in",
+								"match": "contains"
+							}
+						},
+						{
+							"expect": {
+								"url": "/me/check-in"
+							}
+						}
+					]
+				},
+				{
+					"link": "/me/check-in"
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "none"
+			},
+			"states": [
+				{
+					"id": "this-week",
+					"reach": {
+						"persona": "owner",
+						"open": "/me/check-in",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This week"
+						},
+						{
+							"role": "radiogroup",
+							"name": "Spiritually"
+						},
+						{
+							"role": "button",
+							"name": "Save check-in"
+						},
+						{
+							"role": "heading",
+							"name": "Your last 12 weeks"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/me/check-in",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "The weekly check-in is for Owners and Admins"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/me/check-in/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the page"
+					},
+					"expect": [
+						{
+							"text": "Loading your check-in"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "save-week",
+					"says": "Saving four answers records this week, which then offers a correction in the strip.",
+					"catalog": ["PI-038", "PI-041"],
+					"operations": ["privateCare.save"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/intelligence/care.test.mts",
+								"name": "AC:B03-024 AC:PI-CARE-001 a save changes this week only, a same answer adds nothing and a key replays"
+							},
+							{
+								"file": "tests/integration/intelligence/care.test.mts",
+								"name": "AC:B03-026 AC:GAP-PI-041 a correction keeps the week, its zone and author and the earlier answer"
+							}
+						],
+						"browser": {
+							"kind": "behavior",
+							"state": "this-week",
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "Steady"
+									}
+								},
+								{
+									"press": "Tab"
+								},
+								{
+									"press": "Space"
+								},
+								{
+									"press": "Tab"
+								},
+								{
+									"press": "Space"
+								},
+								{
+									"press": "Tab"
+								},
+								{
+									"press": "Space"
+								},
+								{
+									"type": "Map week note",
+									"into": "A note for yourself"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save check-in"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Saved",
+									"match": "contains"
+								},
+								{
+									"role": "button",
+									"name": "Correct the week of",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}

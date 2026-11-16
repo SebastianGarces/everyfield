@@ -3,8 +3,9 @@
 import { LockKeyIcon, Mail01Icon, UserIcon, WifiDisconnected01Icon } from "@hugeicons/core-free-icons";
 import { accountKind, nativePassword, normalizedEmail, registrationOptions } from "@everyfield/contracts/identity";
 import { Button, Field, Input, Radio, RadioGroup, Skeleton } from "@everyfield/ui/controls";
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import type { z } from "zod";
+import { createRead, useRead } from "../../components/read.tsx";
 import { identityApi, loadPage, type Refusal } from "./api";
 import { AuthFooter, AuthHeading, AuthLink } from "./AuthFrame";
 import { refusalMessage } from "./messages";
@@ -33,23 +34,21 @@ const KINDS: Record<Kind, { label: string; description: string; organization?: s
 };
 const ORDER: Kind[] = ["plant_precreation", "sending_church", "sending_network", "discovery"];
 
-type Loaded = { state: "loading" } | { state: "failed" } | { state: "ready"; options: Options };
+type Loaded = { status: "lost" } | { status: "ok"; options: Options };
 
-/** Registration (accounts.getRegistrationOptions, accounts.register), then the native sign-in that resumes it. */
+const registration = createRead(
+	() =>
+		identityApi
+			.registrationOptions()
+			.then((result): Loaded => (result.ok ? { status: "ok", options: result.value } : { status: "lost" })),
+	{ failed: (): Loaded => ({ status: "lost" }) },
+);
+
 export function RegisterScreen() {
-	const [loaded, setLoaded] = useState<Loaded>({ state: "loading" });
-	const fetchOptions = useCallback(() => {
-		void identityApi.registrationOptions().then((result) => {
-			setLoaded(result.ok ? { state: "ready", options: result.value } : { state: "failed" });
-		});
-	}, []);
-	useEffect(fetchOptions, [fetchOptions]);
-	const retry = () => {
-		setLoaded({ state: "loading" });
-		fetchOptions();
-	};
+	const read = useRead(registration);
+	const loaded = read.value;
 
-	if (loaded.state === "loading")
+	if (loaded === undefined)
 		return (
 			<div aria-busy="true">
 				<span className="sr-only" role="status">
@@ -64,7 +63,7 @@ export function RegisterScreen() {
 				</div>
 			</div>
 		);
-	if (loaded.state === "failed")
+	if (loaded.status === "lost")
 		return (
 			<div role="alert">
 				<Outcome
@@ -72,7 +71,7 @@ export function RegisterScreen() {
 					tone="magenta"
 					title="Sign-up did not load"
 					actions={
-						<Button variant="primary" onClick={retry} className="w-full">
+						<Button variant="primary" onClick={read.retry} className="w-full">
 							Try again
 						</Button>
 					}
@@ -103,22 +102,21 @@ export function RegisterScreen() {
 }
 
 type FieldName = "name" | "email" | "password" | "organizationName";
-type Step = { step: "form" } | { step: "sign_in"; email: string; refusal: Refusal | null };
+type Step = { step: "form" } | { step: "busy" } | { step: "sign_in"; email: string; refusal: Refusal | null };
 
 function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 	const [kind, setKind] = useState<Kind>(kinds[0] ?? "plant_precreation");
 	const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
 	const [refusal, setRefusal] = useState<string | null>(null);
-	const [busy, setBusy] = useState(false);
 	const [step, setStep] = useState<Step>({ step: "form" });
-	// One key for this form, so a resubmit after a lost response is the same request.
-	const [requestKey] = useState(() => crypto.randomUUID());
+	const requestKey = useRef<string | null>(null);
 	const nameRef = useRef<HTMLInputElement>(null);
 	const emailRef = useRef<HTMLInputElement>(null);
 	const passwordRef = useRef<HTMLInputElement>(null);
 	const organizationRef = useRef<HTMLInputElement>(null);
 	const organization = KINDS[kind].organization;
 	const kindLabel = useId();
+	const busy = step.step === "busy";
 
 	async function submit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -146,28 +144,26 @@ function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 			target[first ?? "email"].current?.focus();
 			return;
 		}
-		setBusy(true);
+		setStep({ step: "busy" });
+		requestKey.current ??= crypto.randomUUID();
 		const registered = await identityApi.register({
 			kind,
 			name,
 			email: email.data,
 			password,
-			requestKey,
+			requestKey: requestKey.current,
 			...(organization ? { organizationName } : {}),
 		});
 		if (!registered.ok) {
-			setBusy(false);
+			setStep({ step: "form" });
 			setRefusal(refusalMessage("register", registered.error));
 			return;
 		}
-		// Every accepted registration answers "continue_identity_proof", whether or not the email already had an
-		// account. Signing in with the password just typed is the proof that resumes it (REQ-IDN-030).
 		const signedIn = await identityApi.signIn({ email: email.data, password });
 		if (signedIn.ok) {
 			loadPage(AFTER_SIGN_IN);
 			return;
 		}
-		setBusy(false);
 		const quiet = signedIn.error.code === "invalid_credentials" || signedIn.error.code === "unauthenticated";
 		setStep({ step: "sign_in", email: email.data, refusal: quiet ? null : signedIn.error });
 	}

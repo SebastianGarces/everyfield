@@ -4,24 +4,10 @@ import type { lockedPersonReference } from "./references.ts";
 import type * as request from "./requests.ts";
 import type * as result from "./results.ts";
 
-// Server-only producer interface. Each invocation reads the real session,
-// account, exact current seat/duty, purpose, lifecycle and consent inside Tx.
-// Missing/foreign/inaccessible subjects use the same non-revealing refusal.
-// Queries validate every predicate before querying/counting, search metacharacters
-// literally, and page by number in a stable order (created_at, id).
-// Totals describe full authorized queries, not pages.
-// Note edits lock exact Person/note/kind/original author, never a caller-sent author.
-// Handoff review must account for every current actionable duty; omissions conflict.
-// Mutations lock/CAS, then write facts + history + receipt + required intents
-// atomically. Native and reviewed Evry share this implementation, not cached
-// authority. General reads never imply private intake or organization notes.
 export type PeopleContext = {
 	session: z.infer<typeof sessionId>;
 	selected: Owner;
 };
-// A write carries the same session and selected plant as a read; neither comes
-// from an action body. Assistant review binds exact initiator/owner/effects/revisions;
-// the producer rechecks approval and current authority at execution.
 export type PeopleWriteContext = PeopleContext;
 export type PeopleReply<T> = Reply<T, z.infer<typeof result.peopleError>>;
 export interface PeopleReader<Tx> {
@@ -56,10 +42,6 @@ export interface PeopleReader<Tx> {
 		input: z.infer<typeof request.ownAccountPersonRequest>,
 	): Promise<PeopleReply<z.infer<typeof result.accountLinkResult>>>;
 }
-/**
- * The People commands. A command that hands a person's open tasks to someone else takes `reminders`, the task
- * reminder port, so the tasks' owed reminders follow the new assignee in the same transaction.
- */
 export interface PeopleWriter<Tx, Reminders> {
 	addNote(
 		tx: Tx,
@@ -122,11 +104,6 @@ export interface PeopleWriter<Tx, Reminders> {
 		input: z.infer<typeof request.restorePersonRequest>,
 	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 }
-// Internal collaborators only: no transport/model-selected account or plant.
-// Caller is the authenticated provisioning/seat/attendance transaction. It locks
-// the account/owner and validates eligibility. Exact prior link wins; ambiguous
-// email requires reviewed explicit selection. A unique live account/plant link
-// arbitrates concurrent attempts. Bootstrap is no adult/commitment evidence.
 export interface AccountPersonProducer<Tx> {
 	ensureAccountPerson(
 		tx: Tx,
@@ -137,7 +114,6 @@ export interface AccountPersonProducer<Tx> {
 				| { kind: "resolve" }
 				| { kind: "reviewed_contact"; person: z.infer<typeof lockedPersonReference> }
 				| { kind: "create"; displayName: string }
-				// The caller created the plant in this transaction and holds the account's lock: no Person exists in it yet.
 				| { kind: "first"; displayName: string };
 		},
 	): Promise<PeopleReply<z.infer<typeof result.accountPersonResolution>>>;

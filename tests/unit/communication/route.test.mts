@@ -1,4 +1,3 @@
-// The Messages address: every state parses from its URL and writes back to the same URL (criterion 2).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseRoute, routeHref, type Route } from "../../../apps/web/src/features/communication/model.ts";
