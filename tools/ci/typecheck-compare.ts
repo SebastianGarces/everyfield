@@ -5,16 +5,6 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { outcomeOf, parseDiagnostics, typecheckPackages, type Outcome } from "./typecheck.ts";
 
-/**
- * Time bun check (the `typecheck:bun` scripts), TypeScript 7 (the `typecheck` scripts) and TypeScript 6 (each package's
- * own `typescript`, which lint, Next and the reference build still need) on each typecheck package (T-53, T-252, T-110).
- * Each tool runs with the arguments of its package script, so apps/web reads tsconfig.typecheck.json.
- * `node tools/ci/typecheck-compare.ts [--runs 3] [--package packages/ui]...`
- * Each run records the 1-minute load average before it starts, wall time, CPU time (user + system, children
- * included) and peak resident memory, from /usr/bin/time. ts6 and ts7 run with --incremental false, so every run
- * is a full check, as on a fresh checkout or in GitHub CI.
- */
-
 type Tool = "ts6" | "ts7" | "bun";
 const TOOLS: Tool[] = ["ts6", "ts7", "bun"];
 
@@ -31,7 +21,6 @@ export type Measurement = {
 	errors: number;
 };
 
-/** A package script's arguments after its binary. The typecheck scripts are plain space-separated commands. */
 const argsOf = (script: string): string[] => script.trim().split(/\s+/).slice(1);
 
 function commands(root: string, dir: string): Record<Tool, string[]> {
@@ -40,14 +29,12 @@ function commands(root: string, dir: string): Record<Tool, string[]> {
 	if (!bunScript || !tscScript) throw new Error(`${dir} has no typecheck:bun and typecheck scripts`);
 	const ts6 = join(root, dir, "node_modules/typescript/bin/tsc");
 	const ts7 = join(root, "node_modules/typescript-7/bin/tsc");
-	// The real binary behind the pinned shim, so its own start-up is what is timed.
 	const bun = join(realpathSync(join(root, "node_modules/bun")), "bin/bun.exe");
 	for (const bin of [ts6, ts7, bun]) if (!existsSync(bin)) throw new Error(`missing ${bin}; run pnpm install`);
 	const tsc = [...argsOf(tscScript), "--pretty", "false", "--incremental", "false"];
 	return { ts6: [ts6, ...tsc], ts7: [ts7, ...tsc], bun: [bun, ...argsOf(bunScript)] };
 }
 
-/** Parse /usr/bin/time's report: BSD `-l` gives bytes, GNU `-v` gives kilobytes. */
 export function parseTime(stderr: string): { cpu_s: number; peak_mb: number } {
 	const bsd = stderr.match(/([\d.]+) real\s+([\d.]+) user\s+([\d.]+) sys/);
 	const bsdRss = stderr.match(/(\d+)\s+maximum resident set size/);
@@ -150,7 +137,6 @@ export async function compare(
 					cpu_s: m.cpu_s,
 					peak_mb: m.peak_mb,
 					exit: m.exit,
-					// tsc's 1 and 2 and bun's 1 are all "errors".
 					outcome: outcomeOf(m.exit, false),
 					errors: parseDiagnostics(m.output).length,
 				};
