@@ -1,8 +1,5 @@
-// Time zone and clock words for settings. Pure functions; the clock is always passed in, never read here.
-
 const zoneCache = new Map<string, string>();
 
-/** "Chicago · Central Time" from "America/Chicago". Falls back to the IANA name. */
 export function zoneLabel(zone: string): string {
 	const hit = zoneCache.get(zone);
 	if (hit) return hit;
@@ -22,7 +19,6 @@ export function zoneLabel(zone: string): string {
 }
 
 let zones: string[] | null = null;
-/** Every IANA zone the browser knows, with UTC first. */
 export function allZones(): string[] {
 	if (!zones) {
 		const listed = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [];
@@ -31,7 +27,6 @@ export function allZones(): string[] {
 	return zones;
 }
 
-/** "Mon, Oct 19, 9:00 AM" in the given zone; with `withZone`, "Mon, Oct 19, 9:00 AM CDT". */
 export function formatInstant(instant: string, zone: string, withZone = false): string {
 	return new Intl.DateTimeFormat("en-US", {
 		timeZone: zone,
@@ -44,7 +39,6 @@ export function formatInstant(instant: string, zone: string, withZone = false): 
 	}).format(new Date(instant));
 }
 
-/** "November 14, 2026 at 2:00 PM CST": an exact moment such as a deadline, with its zone. */
 export function formatMoment(instant: string, zone: string): string {
 	const d = new Date(instant);
 	const date = new Intl.DateTimeFormat("en-US", {
@@ -62,7 +56,6 @@ export function formatMoment(instant: string, zone: string): string {
 	return `${date} at ${time}`;
 }
 
-/** "Oct 19" for a LocalDate (YYYY-MM-DD), which has no zone. */
 export function formatLocalDate(date: string): string {
 	const [y, m, d] = date.split("-").map(Number);
 	return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(
@@ -72,16 +65,11 @@ export function formatLocalDate(date: string): string {
 
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
 
-/** "4:00 PM" for an hour 0..23. */
 export function hourLabel(hour: number): string {
 	const h = hour % 12 === 0 ? 12 : hour % 12;
 	return `${h}:00 ${hour < 12 ? "AM" : "PM"}`;
 }
 
-/**
- * The first Monday strictly after `asOf` in `zone`, as a LocalDate. The private check-in week starts there
- * (REQ-IDN-033); the server's exact boundary still decides.
- */
 export function nextMonday(asOf: string, zone: string): string {
 	const parts = new Intl.DateTimeFormat("en-CA", {
 		timeZone: zone,

@@ -13,8 +13,9 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, Dialog, DialogContent, DialogHeader, StatePanel } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
-import { createContext, use, useEffect, useId, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { cn, Icon, useFocusRequest, type IconSvgElement } from "@everyfield/ui/foundations";
+import { createContext, use, useId, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { unsavedMark } from "../../components/save/leave.ts";
 import { offeredSections, SECTION_LABEL } from "./model";
 import type { SectionKey } from "./port";
 import { useDirtySections, useSettings } from "./store";
@@ -52,27 +53,15 @@ type Frame = { requestClose: () => void };
 const FrameContext = createContext<Frame | null>(null);
 
 export type SettingsDialogProps = {
-	/** The section in the URL, or null when settings is closed. */
 	section: SectionKey | null;
-	/** Changes the URL: a section, or null to close and return to the page underneath. */
 	onNavigate: (section: SectionKey | null) => void;
-	/** The link for a section, so each one can be opened in a new tab or shared. */
 	hrefFor: (section: SectionKey) => string;
-	/** Sections drawn by their caller inside this frame, such as Seats (WP-008/ui) and Sharing (WP-007). */
 	slots?: Partial<Record<SectionKey, ReactNode>>;
-	/** Sections that are pages of their own: the nav links to them, and `open` leaves Settings for that page. */
 	pages?: { sections: readonly SectionKey[]; open: (section: SectionKey) => void };
-	/** A deletion was requested: the session ends and the restricted status page takes over. */
 	onDeletionRequested: (status: DeletionStatus | null) => void;
-	/** Header buttons left of Close, such as the Guide: the dialog covers the frame's own Guide button. */
 	headerActions?: ReactNode;
 };
 
-/**
- * SettingsDialog (<SettingsDialog section>): side nav, one section, and a footer for sections with a Save button.
- * Every section has its own URL. Drafts stay while you move between sections; closing with unsaved changes asks
- * before discarding them, also when Back leaves settings (REQ-IDN-010).
- */
 export function SettingsDialog({
 	section,
 	onNavigate,
@@ -87,32 +76,22 @@ export function SettingsDialog({
 	const offered = offeredSections(viewer, [...(Object.keys(slots) as SectionKey[]), ...(pages?.sections ?? [])]);
 	const [shown, setShown] = useState<SectionKey | null>(section);
 	const [confirming, setConfirming] = useState(false);
-	const panel = useRef<HTMLDivElement>(null);
+	const [moves, setMoves] = useState(0);
 	const navLabel = useId();
 
-	// The URL leads. When it closes settings while drafts are unsaved (Back, or a link), keep the last section on
-	// screen and ask; Keep editing puts its URL back. Only a URL change decides this, during render (React's
-	// "adjust state when a prop changes" pattern), so drafts changing alone never close settings.
 	const [urlSection, setUrlSection] = useState(section);
 	if (section !== urlSection) {
 		setUrlSection(section);
-		if (section) setShown(section);
-		else if (dirty.keys.length > 0 && shown) setConfirming(true);
+		if (section) {
+			if (shown && section !== shown) setMoves(moves + 1);
+			setShown(section);
+		} else if (dirty.keys.length > 0 && shown) setConfirming(true);
 		else setShown(null);
 	}
 
-	// When a section change removes the focused control (Back or Forward), focus moves to the current nav link
-	// instead of falling to the page body.
-	useEffect(() => {
-		if (!shown) return;
-		const frame = requestAnimationFrame(() => {
-			const root = panel.current;
-			if (!root || root.contains(document.activeElement)) return;
-			if (document.querySelector("[role=alertdialog]")) return;
-			root.querySelector<HTMLElement>("[data-settings-nav][aria-current=page]")?.focus();
-		});
-		return () => cancelAnimationFrame(frame);
-	}, [shown]);
+	const panel = useFocusRequest<HTMLDivElement>(moves, (root) =>
+		confirming || root.contains(root.ownerDocument.activeElement) ? null : currentNavLink(root),
+	);
 
 	const requestClose = () => {
 		if (dirty.keys.length > 0) setConfirming(true);
@@ -121,9 +100,7 @@ export function SettingsDialog({
 			onNavigate(null);
 		}
 	};
-	// ConfirmDialog also reports "closed" after Discard runs, so Discard marks itself first.
 	const discarded = useRef(false);
-	// The page a nav link asked for while the question about unsaved changes is open.
 	const leavingFor = useRef<SectionKey | null>(null);
 	const keepEditing = (open: boolean) => {
 		if (open) return;
@@ -171,8 +148,7 @@ export function SettingsDialog({
 					size="lg"
 					aria-describedby={undefined}
 					onOpenAutoFocus={(e) => {
-						// Start on the current section's link, so Tab then walks into that section.
-						const link = panel.current?.querySelector<HTMLElement>("[data-settings-nav][aria-current=page]");
+						const link = currentNavLink(e.currentTarget as HTMLElement);
 						if (!link) return;
 						e.preventDefault();
 						link.focus();
@@ -181,6 +157,7 @@ export function SettingsDialog({
 				>
 					<div
 						ref={panel}
+						{...unsavedMark(dirty.keys.length > 0)}
 						className="grid min-h-0 flex-1 grid-cols-[240px_minmax(0,1fr)] max-app-md:grid-cols-[200px_minmax(0,1fr)] max-app-sm:flex max-app-sm:flex-col"
 					>
 						<nav
@@ -233,7 +210,6 @@ export function SettingsDialog({
 						<div className="flex min-h-0 min-w-0 flex-1 flex-col">
 							<DialogHeader
 								title={
-									// The prototype's section title is 26px (the dialog header default is smaller).
 									<span className="font-display text-[26px] leading-[1.15] tracking-[-0.02em]">
 										{current ? SECTION_LABEL[current] : "Settings"}
 									</span>
@@ -279,6 +255,8 @@ export function SettingsDialog({
 	);
 }
 
+const currentNavLink = (root: HTMLElement) => root.querySelector<HTMLElement>("[data-settings-nav][aria-current=page]");
+
 function listNames(names: string[]): string {
 	if (names.length <= 1) return names[0] ?? "this section";
 	return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
@@ -312,10 +290,6 @@ function SectionContent({
 	}
 }
 
-/**
- * The scrolling body of a section. It is a focusable region, so keyboard users can scroll it even when it holds no
- * control (a Member's read-only Sharing on a phone).
- */
 export function SectionBody({ children, className }: { children: ReactNode; className?: string }) {
 	return (
 		<div
@@ -330,10 +304,6 @@ export function SectionBody({ children, className }: { children: ReactNode; clas
 	);
 }
 
-/**
- * One setting: label and description on the left, the control on the right (prototype .set-row). `htmlFor` links
- * the label to a single control; without it the controls form a group named by the label.
- */
 export function SettingRow({
 	label,
 	description,
@@ -378,7 +348,6 @@ export function SettingRow({
 	);
 }
 
-/** A refusal in words, with the support reference and an optional next step. */
 export function SaveError({ message, reference, action }: { message: string; reference?: string; action?: ReactNode }) {
 	return (
 		<div
@@ -395,10 +364,6 @@ export function SaveError({ message, reference, action }: { message: string; ref
 	);
 }
 
-/**
- * The footer of a section with a Save button (prototype .modal-foot). It says when the section has unsaved changes
- * and names other sections that still have some. Cancel closes settings and asks first when anything is unsaved.
- */
 export function SaveFooter({
 	section,
 	dirty,
@@ -408,7 +373,6 @@ export function SaveFooter({
 	label = "Save",
 }: {
 	section: SectionKey;
-	/** The Save button's words, such as "Save order". */
 	label?: string;
 	dirty: boolean;
 	saving: boolean;
@@ -448,7 +412,6 @@ export function SaveFooter({
 	);
 }
 
-/** The footer of a section whose switches save at once. */
 export function AutoSaveFooter() {
 	return (
 		<div className="flex-none border-t border-line bg-surface px-8 py-4 text-sm text-text-3 max-app-sm:px-5">

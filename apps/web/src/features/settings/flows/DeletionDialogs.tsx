@@ -22,7 +22,6 @@ import { useFlows } from "../store";
 type PlantSection = Extract<SectionResult, { section: "plant" }>;
 type AccountSection = Extract<SectionResult, { section: "account" }>;
 
-// REQ-KNOW-074: what deletion cannot reach, said plainly (no promise of instant or total erasure).
 export const OUT_OF_REACH =
 	"Some copies are out of our reach. Emails already accepted for delivery still arrive. File links given out before the request work until they expire a short time later. Other services we use delete their copies on their own schedule. Copies someone downloaded or posted elsewhere stay where they are.";
 
@@ -34,11 +33,6 @@ const WORKSPACE_CONSEQUENCES = [
 	"Each person's own account stays. Their other churches and organizations are not touched.",
 ];
 
-/**
- * Deleting the church workspace (REQ-IDN-026, REQ-KNOW-066): Owner only, and separate from deleting your account.
- * Typing the church name makes the choice deliberate. The request ends this session; the Owner can cancel within 30
- * days from the restricted status page.
- */
 export function WorkspaceDeletionDialog({
 	section,
 	request,
@@ -113,12 +107,6 @@ export function WorkspaceDeletionDialog({
 	);
 }
 
-/**
- * Deleting your own login (REQ-IDN-032): self only. Church-owned records you wrote stay with the church under a
- * minimal attribution; your photo, private check-ins and your own documents follow the account. A refusal is shown in
- * the dialog. A reply that never arrived may still have deleted the login and ended this session, so the restricted
- * deletion page, which reads the request itself, answers it (onRequested with null).
- */
 export function AccountDeletionDialog({
 	section,
 	onRequested,
@@ -163,5 +151,4 @@ export function AccountDeletionDialog({
 	);
 }
 
-/** Outcomes that may hide a committed request: unknown, a lost reply, or a session the request already ended. */
 const UNCERTAIN = new Set(["unknown", "access_denied"]);

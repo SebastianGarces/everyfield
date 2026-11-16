@@ -5,12 +5,6 @@ import type { FlowPort, PersonalTimezonePreview, PersonalTimezoneResult } from "
 import { OFFLINE_REFERENCE, useWrite, type Outcome } from "../save";
 import { zoneLabel } from "../time";
 
-/**
- * Choosing your own time zone (REQ-IDN-033), shared by Settings and the check-in screen so both follow one rule. A
- * choice clears the last preview and asks the server for a new one; the save waits for that preview. A save whose reply
- * is lost is sent once more with the same request key, and the server answers from its record, so it is never applied
- * twice. A `skip` zone (the one already saved) is chosen without asking the server.
- */
 export function usePersonalZoneChoice(
 	calls: Pick<FlowPort, "previewPersonalTimezone" | "setPersonalTimezone">,
 	skip: string | null = null,

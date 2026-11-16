@@ -16,17 +16,12 @@ import { protectedTemplate } from "../../server/jobs/templates.ts";
 import { mailEnv } from "../../server/mail-env.ts";
 import { workspaceDeletionContent } from "./deletion-mail.ts";
 
-// The settings mount's mail (WP-010): the email-change link and the security notices its credential changes queue,
-// and the church workspace deletion notices (T-272), under one rule at enqueue and again when the scheduled runner hands them to the email service. Relative imports, so
-// node tests can import it by path.
-
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
 	IDENTITY_ORIGIN: z.url(),
 	...mailEnv,
 });
 
-/** A workspace deletion notice's key: its kind and request. The recipient account is its tenant. */
 const WORKSPACE_NOTICE = /^workspace-deletion\/(requested|cancelled)\/([0-9a-f-]{36})$/;
 const noticeHolder = z.object({ id: z.uuid(), email: z.string() });
 
@@ -39,10 +34,6 @@ function settingsMailService(v: z.infer<typeof env>, transport?: MailTransport) 
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
 		addressKey,
 		from: v.IDENTITY_MAIL_FROM,
-		// An email-change link goes only to the address of the account's live proof; a security notice only to its
-		// own account. A workspace deletion notice goes only while its request is still in the state it tells of, to
-		// an account that still holds a seat in that church at the address it was queued for, with no personal
-		// deletion of its own pending. Mail whose tenant is a church in deletion stays stopped by the mail service.
 		authorize: async (tx, list) => {
 			const notices = list.flatMap((m) => {
 				const key = WORKSPACE_NOTICE.exec(m.logicalKey);
@@ -95,10 +86,6 @@ function settingsMailService(v: z.infer<typeof env>, transport?: MailTransport) 
 	});
 }
 
-/**
- * The two mail effects the credential producer calls, each queueing its mail in the producer's own writes. Null when
- * the deployment has no identity or mail configuration.
- */
 export function settingsMail():
 	(Pick<CredentialConfig, "deliverVerification" | "securityNotice"> & Pick<DeletionEffects, "workspaceNotice">) | null {
 	const parsed = env.safeParse(process.env);
@@ -149,8 +136,6 @@ export function settingsMail():
 				},
 				writes,
 			),
-		// A service notice: no notice row, so cadence and unsubscribe settings never hold it back; the suppression
-		// list still does.
 		workspaceNotice: async (tx, notice, writes) => {
 			for (const recipient of notice.recipients)
 				await mail.append(
@@ -172,10 +157,6 @@ export function settingsMail():
 	};
 }
 
-/**
- * The scheduled runner's settings mail pass: one bounded batch of this mount's due mail through `transport`, each
- * rechecked under the mount's own rule. Null when the deployment has no configuration for this mount.
- */
 export function settingsMailPass(transport: MailTransport): MailPass | null {
 	const parsed = env.safeParse(process.env);
 	if (!parsed.success) return null;

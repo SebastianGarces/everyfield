@@ -3,7 +3,7 @@
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { Button, Card, CardIcon } from "@everyfield/ui/controls";
 import { LogoMark } from "@everyfield/ui/foundations";
-import { useRef, useState } from "react";
+import { useState, useTransition } from "react";
 import type { CredentialOutcome } from "../port";
 
 const TEXT: Record<CredentialOutcome["status"], { title: string; body: string }> = {
@@ -21,35 +21,27 @@ const TEXT: Record<CredentialOutcome["status"], { title: string; body: string }>
 	},
 };
 
-/**
- * The page the email-change link opens (REQ-IDN-007). It confirms only after a click, so a mail scanner that opens
- * links cannot use it, and it sends the proof once. Confirmation needs the account that asked for the change.
- */
 export function ConfirmEmailScreen({
 	proof,
 	confirm,
 	accountHref,
 }: {
-	/** The link's token; null when the link has none, which reads as a link that does not work. */
 	proof: string | null;
 	confirm: (request: { proof: string }) => Promise<CredentialOutcome>;
 	accountHref: string;
 }) {
 	const [outcome, setOutcome] = useState<CredentialOutcome["status"] | null>(proof ? null : "refused");
-	const [pending, setPending] = useState(false);
-	const sent = useRef(false);
+	const [pending, startConfirm] = useTransition();
 
-	const run = async () => {
-		if (sent.current || !proof) return;
-		sent.current = true;
-		setPending(true);
-		try {
-			setOutcome((await confirm({ proof })).status);
-		} catch {
-			setOutcome("unknown");
-		} finally {
-			setPending(false);
-		}
+	const run = () => {
+		if (pending || outcome || !proof) return;
+		startConfirm(async () => {
+			const status = await confirm({ proof }).then(
+				(reply) => reply.status,
+				(): CredentialOutcome["status"] => "unknown",
+			);
+			setOutcome(status);
+		});
 	};
 
 	const text = outcome ? TEXT[outcome] : null;

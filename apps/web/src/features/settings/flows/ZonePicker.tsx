@@ -4,7 +4,6 @@ import { Combobox, Field } from "@everyfield/ui/controls";
 import { useMemo } from "react";
 import { allZones, zoneLabel } from "../time";
 
-/** A searchable list of IANA time zones. Search matches the city, the zone name and the region. */
 export function ZonePicker({
 	label,
 	value,
