@@ -1,6 +1,3 @@
-// The meeting page's next step (WP-020/ui): the primary action, the header's secondary buttons, the tab the page opens
-// for every row of the spec's next-step table. They run in node against the real module
-// the page uses; no browser.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { defaultTab, nextStep, pickTab } from "../../../apps/web/src/features/meetings/next-step.ts";
@@ -19,7 +16,6 @@ const base = {
 };
 const ask = (over) => nextStep({ ...base, ...over });
 
-// [name, input, primary, secondary, toolbarInvites]
 const TABLE = [
 	["cancelled", { status: "cancelled", checkIn: false }, null, [], false],
 	["planning, no guests", { guestCount: 0 }, "add-guest", ["check-in"], false],
@@ -43,7 +39,6 @@ const TABLE = [
 	],
 	["final, vision, done", { status: "completed", final: true, checkIn: false, evaluationSaved: true }, null, [], false],
 	["final, orientation", { status: "completed", final: true, checkIn: false, vision: false }, null, [], false],
-	// A viewer without write access sees only Start check-in, where main's rule shows it.
 	["read-only, planning, marker", { canWrite: false, canFinalize: false }, null, ["check-in"], false],
 	["read-only, planning, not a marker", { canWrite: false, canFinalize: false, checkIn: false }, null, [], false],
 	[
@@ -53,7 +48,6 @@ const TABLE = [
 		[],
 		false,
 	],
-	// D-562: the team meeting's leader finalizes too, and still sends no invites and records no evaluation.
 	["team leader, planning", { canWrite: false }, null, ["check-in"], false],
 	["team leader, in progress", { canWrite: false, status: "in_progress" }, "check-in", ["finalize"], false],
 	["team leader, completed, not final", { canWrite: false, status: "completed" }, "finalize", ["check-in"], false],
@@ -64,7 +58,6 @@ const TABLE = [
 		[],
 		false,
 	],
-	// Voided or not yet settable: no Finalize, and no Start check-in without the marker rule.
 	["completed and voided", { status: "completed", canSettle: false, checkIn: false }, null, [], false],
 ];
 for (const [name, input, primary, secondary, toolbarInvites] of TABLE) {

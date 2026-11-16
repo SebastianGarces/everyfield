@@ -14,8 +14,6 @@ import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { claimDue, finishJob } from "../../../apps/web/src/server/jobs/queue.ts";
 import { actor, admin, db, people, queries, setup, sql, teardown, work } from "../../evry/runtime/support.mts";
 
-// The scheduled runner as Vercel cron calls it: GET with the CRON_SECRET bearer, on a suite schema of the shared
-// development database. The turns use the scripted model.
 process.env.EVRY_SCRIPTED_MODEL = "1";
 const secret = "cron-" + randomUUID();
 const noReminders = async () => {
@@ -78,21 +76,18 @@ test("INV-executor: the runner refuses a call without the exact bearer and runs 
 
 test("INV-run-recovery: with no page open, the scheduled run closes a turn and an effect whose worker stopped or that no worker took within 60 s, runs due work once, and the effect can be tried again", async () => {
 	const owner = await actor("owner");
-	// Effects: one whose worker stopped, one no worker took in 60 s.
 	const stalled = await approved(owner, "Change Casey's city to Austin");
 	await job(
 		sql`state='claimed',lease_owner='gone',lease_until=clock_timestamp()-interval '1 second',claim_generation=1,attempt_count=1 WHERE ${effectOf(stalled)}`,
 	);
 	const late = await approved(owner, "Change Rivera's city to Naperville");
 	await job(sql`eligible_at=clock_timestamp()-interval '61 seconds' WHERE ${effectOf(late)}`);
-	// Turns: one whose worker stopped (lease ended), one no worker took in 60 s.
 	const stopped = await ask(owner, "Find Casey");
 	await job(
 		sql`state='claimed',lease_owner='gone',lease_until=clock_timestamp()-interval '1 second',claim_generation=1,attempt_count=1 WHERE ${turnOf(stopped)}`,
 	);
 	const unclaimed = await ask(owner, "Find Casey");
 	await job(sql`eligible_at=clock_timestamp()-interval '61 seconds' WHERE ${turnOf(unclaimed)}`);
-	// Due work no request drained: a fresh turn.
 	const fresh = await ask(owner, "Find Casey");
 
 	const first = await run();
@@ -109,12 +104,10 @@ test("INV-run-recovery: with no page open, the scheduled run closes a turn and a
 	for (const id of [stalled, late]) assert.equal((await readReview(db, owner, id)).outcome, "unknown");
 	assert.deepEqual([await city(people.casey), await city(people.alexRivera)], [null, "Chicago"]);
 
-	// A second run finds nothing to close or run: no turn ends twice and no closed job runs later.
 	const second = await run();
 	assert.deepEqual([second.closed, second.effects, second.turns], [{ jobs: 0, runs: 0 }, 0, 0]);
 	assert.equal((await readConversation(db, owner, stopped)).events.filter((e) => e.kind === "status").length, 1);
 
-	// Try again queues a new effect; two overlapping runs execute it exactly once.
 	for (const id of [stalled, late]) assert.equal((await retryUnresolvedEffects(db, owner, id)).retried, true);
 	const [a, b] = await Promise.all([run(), run()]);
 	assert.equal(a.effects + b.effects, 2);
@@ -133,10 +126,7 @@ test("INV-budget: an idle scheduled run sends a fixed number of statements, and 
 	const start = queries.length;
 	await run();
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
-	// closeLostJobs 2 (timeout, close); imports: recoverLease 2, claim 1; expired import files 1; effects claim 1;
-	// turns claim 1; mail-expiry 1 (stale ready mail); mail-callbacks 1 (stored callbacks whose mail has a provider id).
 	assert.equal(sent.length, 10, sent.join("\n---\n"));
-	// A job the runner finishes costs one round trip: the statement bound and the fenced finish in one message.
 	await ask(await actor("owner"), "Find Casey");
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
 	const before = queries.length;

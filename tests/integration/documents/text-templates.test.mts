@@ -1,6 +1,3 @@
-// WP-037, T-205: the text templates. Each is one everyfield.doc/1 file that the library preview, "Save for your church"
-// and a Church Document all render. No database. Exports of a Church Document go through doc-render.ts;
-// doc-render.test.mts and church.test.mts cover them.
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import assert from "node:assert/strict";
@@ -31,7 +28,6 @@ const catalogJson = JSON.parse(
 
 const EDITABLE = ["member-expectations", "launch-team-commitment", "follow-up-letter", "bylaws", "prayer-letter"];
 const file = (id: string) => docTemplateById(id)!;
-/** Every slot node in a body, at any depth. */
 const slotsOf = (nodes: readonly BlockNode[] | undefined): SlotNode[] =>
 	(nodes ?? []).flatMap((node): SlotNode[] =>
 		node.type === "slot"
@@ -76,7 +72,6 @@ describe("AC:DOC-022 Church Document templates", () => {
 		const values = fieldValues(doc);
 		assert.equal(values.church_name, "Harvest Point");
 		assert.equal(values.pastor_name, "[pastor name]");
-		// A merge value that holds a token prints as written: the fallback fills once, from the other fields' sources.
 		const tokened = await libraryDoc(file("bylaws"), { church_name: "{pastor_name}" }, NEUTRAL_THEME, null);
 		assert.equal(fieldValues(tokened).church_name, "{pastor_name}");
 		assert.equal(fieldValues(tokened).church_legal_name, "{pastor_name}");
@@ -89,7 +84,6 @@ describe("AC:DOC-022 Church Document templates", () => {
 			const pdf = (await pdfPages(await renderDocFile(doc, "pdf", NEUTRAL_EXPORT_THEME, created))).join(" ");
 			const word = docxParts(await renderDocFile(doc, "docx", NEUTRAL_EXPORT_THEME, created));
 			const docx = wordText(word["word/document.xml"]!);
-			// The file without its format tag, which names the format (everyfield.doc/1), not the product.
 			const raw = JSON.stringify({ ...file(id), format: null });
 			for (const text of [pdf, docx, raw]) {
 				const bare = text.replace(/church\s+plant/gi, "").match(/.{0,30}\bplant.{0,30}/i);
@@ -115,7 +109,6 @@ describe("AC:DOC-022 Church Document templates", () => {
 
 describe("AC:DOC-016 body model", () => {
 	test("AC:DOC-016 the body never holds the legal notice or the letterhead", () => {
-		// The class prints the legal notice and the kit the letterhead, outside the editable body.
 		for (const id of EDITABLE) {
 			const text = JSON.stringify(file(id).body);
 			assert.equal(text.includes("not legal advice"), false, id);
@@ -139,8 +132,6 @@ describe("AC:DOC-011 text-document layout and fixed previews", () => {
 	});
 
 	test("AC:DOC-011 every library preview keeps its pinned bytes", async () => {
-		// SHA-256 of each preview at RENDER_PROFILE.layout 4 (the hash-all fixture, all values filled). A change of bytes
-		// regenerates these from fixtures/hash-all.mts and bumps RENDER_PROFILE.layout.
 		const pinned: Record<string, string> = {
 			"commitment-card": "97a1714c88898f90acf8fc5b1c44ff102005aa659e0af09d0a650ec8364d803e",
 			"response-card": "886b00c9c4f76b3c5c248fdf1123a7a36b46c091e543b1cfda0a1724db53361e",
