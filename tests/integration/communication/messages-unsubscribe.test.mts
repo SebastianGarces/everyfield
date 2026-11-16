@@ -1,6 +1,3 @@
-// Unsubscribe for Messages to CRM people (T-102, REQ-NTF-016, D-284: "Per church and per person, staff can see it but
-// can't clear it"). Each send goes through the real Messages adapter (deliveryTransport) to a recorded fake of the
-// Resend API. The tokens the tests use are read back from the provider requests, never minted by the test.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
@@ -46,7 +43,6 @@ async function person(church, name, email = `${name.toLowerCase()}-${key().slice
 	return { id, email };
 }
 
-/** Save, review and hand off one message through the real adapter. `mode` is send now or a held schedule. */
 async function send(who, people, { mode = "now", meetingId = null, body = "<p>Hello {{name}}.</p>" } = {}) {
 	const resend = resendRecorder(PRODUCTION);
 	const write = (op, input) =>
@@ -78,7 +74,6 @@ async function send(who, people, { mode = "now", meetingId = null, body = "<p>He
 			keys,
 		);
 	const result = ok(await handOff());
-	// A scheduled email waits in Everyfield; the minute runner hands it off at its send time (T-241).
 	if (mode !== "now") await atSendTime(f.admin, f.db, saved.communicationId, resend.transport, keys);
 	return { id: saved.communicationId, result, resend, handOff };
 }
@@ -97,7 +92,6 @@ const optOutsOf = (personId) =>
 	rows(
 		sql`SELECT id, plant_id, person_id, opted_out_at, undone_at FROM person_email_opt_out WHERE person_id = ${personId}`,
 	);
-/** Unsubscribe the way the person does: with the token their last email carried. */
 async function unsubscribe(church, who) {
 	const sent = await send(church, [who]);
 	return {
@@ -127,7 +121,6 @@ test("AC:CASE-NTF-016 an announcement ends with an Unsubscribe link whose token 
 	const { resend } = await send(ownerA, [ana]);
 	const email = emailFor(resend, ana.email);
 	const { url, token } = linkOf(email);
-	// The visible link is the last thing in both bodies.
 	assert.ok(email.html.indexOf("Hello Ana.") < email.html.indexOf(">Unsubscribe</a>"));
 	assert.equal(email.html.slice(email.html.indexOf(">Unsubscribe</a>")).includes("<a "), false);
 	assert.ok(email.text.endsWith(`\n\n--\nUnsubscribe: ${url}`), email.text);
@@ -135,7 +128,6 @@ test("AC:CASE-NTF-016 an announcement ends with an Unsubscribe link whose token 
 		"List-Unsubscribe": `<${url}/one-click>`,
 		"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
 	});
-	// The token names this church and this person, and nothing about an account.
 	const subkey = createHmac("sha256", ring.current).update("everyfield/messages-opt-out/token").digest();
 	assert.deepEqual(openClaim(subkey, token), {
 		v: 1,
@@ -144,7 +136,6 @@ test("AC:CASE-NTF-016 an announcement ends with an Unsubscribe link whose token 
 		plantId: churchA.id,
 		personId: ana.id,
 	});
-	// The page names the church, never the address.
 	const view = ok(await describeMessagesOptOut(f.db, ring, { token }));
 	assert.deepEqual(view, {
 		churchName: (await rows(sql`SELECT name FROM plant WHERE id = ${churchA.id}`))[0].name,
@@ -183,8 +174,6 @@ test("AC:CASE-NTF-016 a retried handoff sends the same body and headers under th
 	const dee = await person(churchA, "Dee");
 	const first = await send(ownerA, [cy, dee]);
 	const [one] = batches(first.resend);
-	// A handoff whose ledger was lost renders again from the same reviewed message. Every byte the email service
-	// compares under the key comes out the same, so it can answer the retry instead of refusing it as a conflict.
 	await f.admin
 		.execute(sql`WITH m AS (SELECT id FROM mail WHERE logical_key LIKE ${"communication/" + first.id + "/%"}),
 		r AS (SELECT DISTINCT request_id AS id FROM mail_request_member WHERE mail_id IN (SELECT id FROM m)),
@@ -208,7 +197,6 @@ test("AC:CASE-NTF-016 an unsubscribed person is refused like a blocked address o
 	const done = await unsubscribe(ownerA, eve);
 	assert.equal(done.changed, true);
 	assert.ok(done.undoToken);
-	// The church changes Eve's address on her record. The opt-out is hers, not the address's.
 	const [{ revision }] = await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${eve.id}`);
 	const moved = `eve-new-${key().slice(0, 8)}@example.test`;
 	ok(
@@ -269,7 +257,6 @@ test("AC:CASE-NTF-016 one church's opt-out never stops another church's email to
 		[shared],
 	);
 	assert.deepEqual([fromB.result.acceptedCount, fromB.result.unsubscribedCount], [1, 0]);
-	// Church B's own link names church B and its own person.
 	const viewB = ok(await describeMessagesOptOut(f.db, ring, { token: linkOf(emailFor(fromB.resend, shared)).token }));
 	assert.equal(viewB.unsubscribed, false);
 });
@@ -299,7 +286,6 @@ test("AC:CASE-NTF-016 history counts Unsubscribed apart from refused and blocked
 	const all = ok(
 		await f.db.transaction((t) => communicationWriter.getDeliveryTotals(t, ownerA.actor, { communicationId: none.id })),
 	);
-	// Nobody got it because everyone unsubscribed: its own state, not an error or a cancel (T-241).
 	assert.equal(all.state, "unsubscribed");
 	assert.equal(hubLabel[all.state], "Not sent: unsubscribed");
 	assert.deepEqual([all.failed, all.unsubscribed, all.delivered], [0, 2, 0]);
@@ -310,7 +296,6 @@ test("AC:CASE-NTF-016 history counts Unsubscribed apart from refused and blocked
 	);
 	assert.equal(/deliver/i.test(text), false);
 	assert.equal(/deliver/i.test(scheduleText(none.result, "Fri 9:00")), false);
-	// Per recipient, the history names the reason.
 	const recipients = ok(
 		await f.db.transaction((t) =>
 			communicationWriter.listHistoryRecipients(t, ownerA.actor, { communicationId: none.id, limit: 10 }),
@@ -329,7 +314,6 @@ test("AC:CASE-NTF-016 the page changes nothing until the button; one-click needs
 	ok(await describeMessagesOptOut(f.db, ring, { token }));
 	ok(await describeMessagesOptOut(f.db, ring, { token }));
 	assert.equal((await optOutsOf(jo.id)).length, 0, "opening the page changes nothing");
-	// A GET-like or empty one-click post is refused before anything is read.
 	const bare = await oneClick(new Request(`${origin}/unsubscribe/${token}/one-click`, { method: "POST", body: "" }), {
 		params: Promise.resolve({ token }),
 	});
@@ -343,13 +327,11 @@ test("AC:CASE-NTF-016 the page changes nothing until the button; one-click needs
 	assert.equal((await optOutsOf(jo.id)).length, 1);
 	assert.equal(ok(await describeMessagesOptOut(f.db, ring, { token })).unsubscribed, true);
 
-	// After the hour the undo is refused and nothing changes.
 	const late = ok(
 		await undoMessagesOptOut(f.db, ring, () => new Date(Date.now() + HOUR + 60_000), { token: first.undoToken }),
 	);
 	assert.deepEqual([late.changed, late.expired], [false, true]);
 	assert.equal((await optOutsOf(jo.id))[0].undone_at, null);
-	// Inside the hour it lifts the opt-out, once.
 	const undone = ok(await undoMessagesOptOut(f.db, ring, now, { token: first.undoToken }));
 	assert.deepEqual([undone.changed, undone.expired], [true, false]);
 	assert.notEqual((await optOutsOf(jo.id))[0].undone_at, null);
@@ -359,7 +341,6 @@ test("AC:CASE-NTF-016 the page changes nothing until the button; one-click needs
 		sentTo(resent.resend).map((m) => m.to[0]),
 		[jo.email],
 	);
-	// An opt-out older than an hour gets no undo at all.
 	ok(await applyMessagesOptOut(f.db, ring, now, { token }));
 	const stale = ok(await applyMessagesOptOut(f.db, ring, () => new Date(Date.now() + 2 * HOUR), { token }));
 	assert.equal(stale.undoToken, null);
@@ -384,7 +365,6 @@ test("AC:CASE-NTF-016 a forged, tampered, other-key or wrong-purpose token fails
 		refused(await undoMessagesOptOut(f.db, ring, now, { token: t }), "access_denied");
 	}
 	refused(await applyMessagesOptOut(f.db, otherRing, now, { token }), "access_denied");
-	// The disable token cannot undo, and the undo token cannot unsubscribe or open the page.
 	refused(await undoMessagesOptOut(f.db, ring, now, { token }), "access_denied");
 	const applied = ok(await applyMessagesOptOut(f.db, ring, now, { token }));
 	refused(await applyMessagesOptOut(f.db, ring, now, { token: applied.undoToken }), "access_denied");
@@ -392,7 +372,6 @@ test("AC:CASE-NTF-016 a forged, tampered, other-key or wrong-purpose token fails
 	refused(await describeMessagesOptOut(f.db, ring, { token: "" }), "invalid_input");
 	assert.equal((await optOutsOf(kai.id)).length, 1);
 	assert.equal((await optOutsOf(kai.id))[0].undone_at, null);
-	// A key rotation keeps old links working: the old key is still on the ring.
 	const rotated = { current: randomBytes(32), previous: [ring.current] };
 	assert.equal(ok(await describeMessagesOptOut(f.db, rotated, { token })).unsubscribed, true);
 });
@@ -405,7 +384,6 @@ test("AC:CASE-NTF-016 an Owner sees the opt-out and when on the person's record;
 		f.db.transaction((t) => communicationWriter.listForPerson(t, who.actor, { personId: lee.id, limit: 10 }));
 	assert.equal(ok(await history(ownerA)).emailOptOutAt, new Date(row.opted_out_at).toISOString());
 	assert.equal(ok(await history(memberA)).emailOptOutAt, null);
-	// The people writer has no opt-out field, so a staff edit that names one is refused.
 	const [{ revision }] = await rows(sql`SELECT revision::text AS revision FROM person WHERE id = ${lee.id}`);
 	refused(
 		await f.db.transaction((t) =>
@@ -421,7 +399,6 @@ test("AC:CASE-NTF-016 an Owner sees the opt-out and when on the person's record;
 		),
 		"invalid_input",
 	);
-	// The runtime login every staff session uses cannot delete it or rewrite who, which church or when.
 	const attempt = (query) =>
 		f.db.execute(query).then(
 			() => "changed",
@@ -437,7 +414,6 @@ test("AC:CASE-NTF-016 an Owner sees the opt-out and when on the person's record;
 		"42501",
 	);
 	assert.deepEqual(await optOutsOf(lee.id), [row]);
-	// Once undone, the undo stays: nobody can set it back or move it.
 	await f.admin.execute(sql`UPDATE person_email_opt_out SET undone_at = clock_timestamp() WHERE id = ${row.id}`);
 	assert.equal(await attempt(sql`UPDATE person_email_opt_out SET undone_at = NULL WHERE id = ${row.id}`), "23514");
 });
@@ -455,7 +431,6 @@ test("AC:CASE-NTF-016 a merge keeps the survivor unsubscribed when either person
 			),
 		);
 	};
-	// Before any Messages email, so neither Person holds a mail row; the opt-out comes from the person's own token.
 	const pair = async (name) => [await person(churchA, `${name} One`), await person(churchA, `${name} Two`)];
 	const optOut = async (who) =>
 		ok(

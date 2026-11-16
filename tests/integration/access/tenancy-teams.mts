@@ -1,5 +1,3 @@
-// The teams reads of INV-tenancy (tenancy.test.mts), with the teams/responsibilities and teams/training subfolders:
-// church A's ministry, written through the teams writes as its owner, and one case per read.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -16,10 +14,6 @@ import {
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 
-/**
- * The Worship ministry from the setup catalog, renamed with a reason, with a role, a leader, a member, a responsibility
- * and a required training program that Avery completed.
- */
 export async function seedTeams(t) {
 	const { a, MARK, key, ok } = t;
 	const db = t.f.db;
@@ -63,8 +57,6 @@ export async function seedTeams(t) {
 		}),
 	);
 
-	// Raw rows because the shared reference library is installed by the reference release, not by any church write:
-	// the Worship playbook version a ministry's responsibilities are filed under (as responsibilities.test.mts seeds it).
 	const release = randomUUID();
 	const item = randomUUID();
 	const token = randomUUID().replaceAll("-", "");
@@ -110,7 +102,6 @@ export async function seedTeams(t) {
 	);
 }
 
-/** The teams cases for `who`: church B's owner for the tenancy check, church A's owner for the control. */
 export function teamsCases(t, who) {
 	const { a, MARK } = t;
 	const db = t.f.db;
@@ -122,8 +113,6 @@ export function teamsCases(t, who) {
 	const tr = op("trainingReader", trainingReader);
 	const rs = op("responsibilityReader", responsibilityReader);
 	const unavailable = { refused: "unavailable" };
-	// A ministry, program or Person another church owns: the teams reads refuse it as theirs to deny (as the teams
-	// suites assert for a foreign church), where a missing one reads as unavailable.
 	const denied = { refused: "access_denied" };
 	const ministry = { teamId: a.ministry };
 	const catalog = {
@@ -140,7 +129,6 @@ export function teamsCases(t, who) {
 			"listImportTemplates",
 			{},
 			{
-				// The same fixed catalog for every church; church A's own owner reads it unchanged.
 				value: catalog,
 				control: (value) => assert.deepEqual(value, catalog),
 			},
@@ -161,7 +149,6 @@ export function teamsCases(t, who) {
 			"previewTemplateImport",
 			{ selections: [{ teamKey: "worship", roleKeys: [] }] },
 			{
-				// Church B has no Worship ministry yet; church A's own owner sees the one it imported.
 				value: {
 					teams: [{ key: "worship", name: "Worship", exists: false, newRoles: [], existingRoles: [] }],
 					newTeams: 1,
@@ -170,7 +157,6 @@ export function teamsCases(t, who) {
 				control: (value) => assert.equal(value.teams[0].exists, true),
 			},
 		),
-		// The export also carries the generated PDF and SVG of the empty chart.
 		tm("readOrgChartExport", {}, { partial: { format: "pdf", lines: [], nodes: [] } }),
 
 		rs("listResponsibilities", ministry, unavailable),

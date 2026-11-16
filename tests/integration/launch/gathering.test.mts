@@ -8,11 +8,6 @@ import { frozenClock, instant } from "../../../packages/contracts/src/common/ind
 import { createLaunchReader, createLaunchWriter } from "../../../packages/domain/src/launch/index.ts";
 import { createPhaseWriter, phaseReader } from "../../../packages/domain/src/phases/index.ts";
 
-// T-296: a milestone a network or sending church offers ends the gathering phase instead of Launch Sunday. Every
-// write runs through the writer the /launch actions call, every read through the reader the page calls. "Today" is
-// Oct 12, 2026 in Harvest Point's time zone (America/Chicago). Hill Country Network offers "Constituted as a church";
-// Grace Austin, Harvest Point's sending church, offers "First gathering multiplied".
-
 const TODAY = frozenClock(instant.parse("2026-10-12T17:00:00.000Z"));
 const CONSTITUTED = "Constituted as a church";
 const MEANING = "The church adopts its constitution and elects its first leaders.";
@@ -20,7 +15,6 @@ let f, reader, writer, phases;
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const one = async (q) => (await rows(q))[0];
 const key = () => randomUUID();
-/** A refusal with this code and, when given, these details. */
 const refused = (result, code, details = undefined) => {
 	const error = refusal(result, code);
 	if (details !== undefined) assert.deepEqual(error.details, details);
@@ -55,7 +49,6 @@ const clear = async (who, reason) =>
 		expectedRevision: (await plan(who)).revision,
 		input: { reason },
 	});
-/** Every row the milestone path could touch, to prove a switch or a record changed nothing else. */
 const footprint = (w) =>
 	one(sql`SELECT (SELECT count(*)::int FROM task WHERE plant_id=${w.id}) tasks,
 		(SELECT coalesce(jsonb_agg(jsonb_build_object('id',id,'status',status,'revision',revision::text) ORDER BY id),'[]')
@@ -93,7 +86,6 @@ const affiliate = (w, o) =>
 	f.admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,
 		share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 		VALUES(${w.id},${o.id},clock_timestamp()-interval '1 day',false,false,false,false,false,false,false)`);
-/** Harvest Point, affiliated with Hill Country Network (and Grace Austin when `both`), with an Owner, Admin and Member. */
 async function church({ planned = null, both = false } = {}) {
 	const w = await f.workspace("plant");
 	await f.admin.execute(sql`UPDATE plant SET name='Harvest Point', timezone='America/Chicago' WHERE id=${w.id}`);
@@ -138,7 +130,6 @@ test("a church whose network offers a milestone is offered it by name and organi
 	const loner = await seated(alone, "owner");
 	assert.deepEqual(await offers(loner), []);
 	assert.deepEqual((await plan(loner)).path, { kind: "launch_sunday" });
-	// A milestone that is turned off, or offered by an organization the church is not affiliated with, is not offered.
 	await f.admin.execute(sql`UPDATE organization SET gathering_milestone_offered=false WHERE id=${c.hill.id}`);
 	assert.deepEqual(await offers(c.owner), []);
 });
@@ -165,7 +156,6 @@ test("with two offers the Owner picks one; the plan shows it, who chose it and w
 	assert.deepEqual((await plan(c.owner)).path, expected, "it is still there on reload");
 	assert.deepEqual((await plan(c.member)).path, expected, "a Member sees the path too");
 
-	// The same choice again changes nothing and adds no history.
 	const n = await audits(c.w);
 	assert.equal(ok(await useMilestone(c.owner, c.hill)).outcome, "noop");
 	assert.equal(await audits(c.w), n);
@@ -180,13 +170,11 @@ test("with two offers the Owner picks one; the plan shows it, who chose it and w
 	assert.deepEqual(entry.actor, { accountId: c.owner.id, displayName: "Olivia Owner" });
 	assert.match(entry.at, /^\d{4}-\d\d-\d\dT/);
 
-	// Switching to the other organization's milestone is one more switch.
 	ok(await useMilestone(c.admin, c.grace));
 	assert.equal((await plan(c.owner)).path.offered.name, "First gathering multiplied");
 });
 
 test("switching either way creates, deletes or changes no task or readiness milestone and moves no phase", async () => {
-	// Before any launch date: no prep tasks, either way.
 	const fresh = await church();
 	const empty = await footprint(fresh.w);
 	ok(await useMilestone(fresh.owner, fresh.hill));
@@ -196,7 +184,6 @@ test("switching either way creates, deletes or changes no task or readiness mile
 	ok(await useSunday(fresh.owner));
 	assert.equal((await footprint(fresh.w)).tasks, 0);
 
-	// With Launch Sunday set for Oct 30: the 23 prep tasks and 9 milestones stay exactly as they were.
 	const dated = await church({ planned: "2026-10-30" });
 	const was = await footprint(dated.w);
 	assert.equal(was.tasks, 23);
@@ -238,7 +225,6 @@ test("the Owner records the milestone reached on Oct 11 with a note; a later or 
 		date: "2026-10-11",
 		note: "Voted in by all 31 members.",
 	});
-	// Today itself, in the church's time zone, is allowed: Oct 12 in Chicago while it is already Oct 12 in UTC too.
 	const entries = (await journal(c.owner)).length;
 	assert.equal(ok(await record(c.owner, { date: "2026-10-11", note: "Voted in by all 31 members." })).outcome, "noop");
 	assert.equal((await journal(c.owner)).length, entries, "re-saving adds no Launch history entry");
@@ -381,14 +367,12 @@ test("a rename keeps the reached name; a milestone turned off or an ended affili
 	let p = await plan(c.owner);
 	assert.equal(p.path.reached.name, CONSTITUTED, "reached under its old name");
 	assert.equal(p.path.offered.name, "Church constituted");
-	// Turned off after it was reached: the record and its history stay.
 	await f.admin.execute(sql`UPDATE organization SET gathering_milestone_offered=false WHERE id=${c.hill.id}`);
 	p = await plan(c.owner);
 	assert.equal(p.path.offered, null);
 	assert.deepEqual(p.path.reached, { name: CONSTITUTED, date: "2026-10-11", note: null });
 	assert.equal((await journal(c.owner))[0].change.event, "recorded");
 
-	// Turned off before it was reached: no longer offered; it can't be recorded, and Launch Sunday is one switch away.
 	const off = await church();
 	ok(await useMilestone(off.owner, off.hill));
 	await f.admin.execute(sql`UPDATE organization SET gathering_milestone_offered=false WHERE id=${off.hill.id}`);
@@ -400,7 +384,6 @@ test("a rename keeps the reached name; a milestone turned off or an ended affili
 	ok(await useSunday(off.owner));
 	assert.equal((await journal(off.owner))[0].change.milestone, CONSTITUTED);
 
-	// The affiliation ends before it was reached.
 	const ended = await church();
 	ok(await useMilestone(ended.owner, ended.hill));
 	await f.admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE plant_id=${ended.w.id}`);

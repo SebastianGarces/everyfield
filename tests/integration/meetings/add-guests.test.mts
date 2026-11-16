@@ -13,8 +13,6 @@ import {
 import { readPersonPage } from "../../../packages/domain/src/people/index.ts";
 import { ok, refused } from "../../support/fixture.mts";
 
-// T-232: Add guest sends everyone chosen in one meetings.addGuests write, through the native write boundary.
-
 let f, plant, other, owner, member, foreign;
 const attendance = createAttendanceWriter({ reminders: async () => {} });
 const add = (input, requestKey = key(), who = owner) =>
@@ -42,7 +40,6 @@ async function meeting(w = plant) {
 }
 const revision = async (meetingId) =>
 	(await one(sql`SELECT attendance_revision::text AS r FROM meeting WHERE id=${meetingId}`)).r;
-/** Every participation row of the meeting, removed ones too, by Person name. */
 const stored = (meetingId) =>
 	rows(sql`SELECT p.display_name AS name, g.id, g.presence, g.removed_at IS NOT NULL AS removed, g.rsvp,
 		g.inviter_person_id AS inviter FROM participation g JOIN person p ON p.id=g.person_id
@@ -52,7 +49,6 @@ const guestOf = async (meetingId, personId) =>
 	ok(await meetingsReader.listGuests(f.db, owner.actor, { meetingId })).guests.find(
 		(g) => g.person.personId === personId,
 	);
-/** A guest who was marked present and then taken off the list. */
 async function removedWhileAttended(meetingId, personId) {
 	ok(await attend("checkIn", { requestKey: key(), input: { meetingId, personId } }));
 	const g = await guestOf(meetingId, personId);
@@ -98,7 +94,6 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-011 one write adds People and new contacts
 		await person("Dana"),
 		await person("Ember"),
 	];
-	// Casey is already on the list; Dana was marked present and then removed; Ember is archived since the dialog opened.
 	ok(await guestWrite("inviteGuest", { requestKey: key(), input: { meetingId: m, personId: casey } }));
 	await removedWhileAttended(m, dana);
 	const dana0 = (await stored(m)).find((g) => g.name === "Dana");
@@ -128,10 +123,8 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-011 one write adds People and new contacts
 			["Noor", "absent", "pending", null],
 		],
 	);
-	// The current guest is untouched; the restored guest keeps their row and the presence they had.
 	assert.deepEqual(value.guests[1], casey0);
 	assert.equal(value.guests[2].id, dana0.id);
-	// Dana joins attended, so the attendance revision moves once, and the answer carries it.
 	assert.equal(await revision(m), String(BigInt(attendanceBefore) + 1n));
 	assert.equal(value.attendanceRevision, await revision(m));
 	assert.deepEqual(
@@ -145,13 +138,11 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-011 one write adds People and new contacts
 			["Noor", "absent", false],
 		],
 	);
-	// The listed guests are the answer's guests.
 	const listed = ok(await meetingsReader.listGuests(f.db, owner.actor, { meetingId: m })).guests;
 	assert.deepEqual(
 		[...listed].sort((a, b) => a.id.localeCompare(b.id)),
 		[...value.guests].sort((a, b) => a.id.localeCompare(b.id)),
 	);
-	// Each new contact is a prospect Person from this meeting's guest list.
 	const [mara, noor] = value.guests.slice(4).map((g) => g.person.personId);
 	assert.deepEqual(
 		await rows(sql`SELECT display_name, email, stage, source, adult_classification, linked_account_id
@@ -177,7 +168,6 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-011 one write adds People and new contacts
 	);
 	assert.equal(await peopleCount(), people0 + 2);
 
-	// One audit row for the command names each guest change; each new Person's own history starts with its create row.
 	const audit = await rows(sql`SELECT action, kind, subject_type, subject_id, before_value, after_value, metadata,
 		request_key FROM audit_event WHERE command_id=${value.receiptId} ORDER BY subject_type, subject_id`);
 	const command = audit.find((a) => a.subject_type === "meeting");
@@ -212,14 +202,12 @@ test("AC:TARGET-MTG-007 AC:TARGET-MTG-011 one write adds People and new contacts
 		[["activity", "created", "current_account"]],
 	);
 
-	// The lane replays a lost answer with the same key: the first answer, and nobody added twice.
 	const rowsBefore = await stored(m);
 	assert.deepEqual(ok(await add(input, requestKey)), value);
 	assert.deepEqual(await stored(m), rowsBefore);
 	assert.equal(await peopleCount(), people0 + 2);
 	assert.equal(await revision(m), value.attendanceRevision);
 
-	// Everyone chosen is already on the list: nothing changes.
 	const again = ok(await add({ meetingId: m, people: [alex, casey] }));
 	assert.equal(again.outcome, "noop");
 	assert.deepEqual(
@@ -233,26 +221,20 @@ test("AC:TARGET-MTG-007 a refusal for the meeting, the seat or the whole list ad
 	const [alex, blair] = [await person("Alex"), await person("Blair")];
 	const people0 = await peopleCount();
 	const input = (meetingId) => ({ meetingId, people: [alex], contacts: [{ displayName: "Orphan" }] });
-	// A Member may not add guests.
 	refused(await add(input(m), key(), member), "unavailable");
-	// Another church's meeting, and another church's owner on this one.
 	refused(await add(input(await meeting(other))), "unavailable");
 	refused(await add(input(m), key(), foreign), "unavailable");
-	// A deleted meeting.
 	const gone = await meeting();
 	await f.admin.execute(sql`UPDATE meeting SET retired_at=clock_timestamp() WHERE id=${gone}`);
 	refused(await add(input(gone)), "unavailable");
-	// No chosen Person can be added: another church's Person and an archived one.
 	const archived = await person("Archived");
 	await f.admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${archived}`);
 	refused(await add({ meetingId: m, people: [await person("Elsewhere", other), archived] }), "invalid_subject");
-	// An empty or repeated list is refused at the contract.
 	refused(await add({ meetingId: m, people: [], contacts: [] }), "invalid_input");
 	refused(await add({ meetingId: m, people: [alex, alex] }), "invalid_input");
 	assert.deepEqual(await stored(m), []);
 	assert.equal(await peopleCount(), people0 + 1, "only the Archived fixture was made");
 
-	// After finalization an attended guest coming back would change who attended: the whole add refuses.
 	await removedWhileAttended(m, blair);
 	ok(await attend("checkIn", { requestKey: key(), input: { meetingId: m, personId: alex } }));
 	ok(
@@ -269,7 +251,6 @@ test("AC:TARGET-MTG-007 a refusal for the meeting, the seat or the whole list ad
 	assert.equal(await peopleCount(), people1);
 });
 
-// One locked read and one write statement, however many people are chosen (patterns.md: set-based statements).
 test("INV-statements: adding 1 person and adding 6 (some new contacts) send the same statements", async () => {
 	const counted = async (input) => {
 		const start = statements;
@@ -284,8 +265,6 @@ test("INV-statements: adding 1 person and adding 6 (some new contacts) send the 
 	});
 	assert.equal(six, oneGuest);
 	assert.ok(oneGuest <= 6, `${oneGuest} statements`);
-	// A direct caller's own transaction (as Evry's tools run meetings writes): the same answer, a replay of the same key
-	// adds nobody again, and a refusal leaves nothing behind.
 	const direct = (input, requestKey = key()) =>
 		f.db.transaction((t) =>
 			guestsWriter.addGuests(
@@ -311,7 +290,6 @@ test("the operation catalog lists meetings.addGuests as an Owner/Admin command E
 		[added.kind, added.feature_ids, added.authority[0].actors, added.evry, added.model_tool],
 		["command", ["MTG-007", "MTG-011"], ["plant_owner", "plant_admin"], false, false],
 	);
-	// Evry keeps its one-person guest tools.
 	for (const id of ["meetings.inviteGuest", "meetings.createGuestContact"])
 		assert.deepEqual([op(id).evry, op(id).model_tool], [true, true], id);
 });

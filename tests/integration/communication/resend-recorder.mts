@@ -1,15 +1,9 @@
-// A recorded email service for the communication tests: the real Messages adapter (deliveryTransport in
-// apps/web/src/features/communication/mail.ts) talks HTTP to this fake of the Resend email routes, which records
-// every request. Behaviors per email id let a test refuse, drop or answer a cancel or time change, or say that an
-// email already went out.
 import { deliveryTransport } from "../../../apps/web/src/features/communication/mail.ts";
 
 export type Recorded = { method: string; path: string; idempotencyKey: string | null; body: unknown };
 type Held = { id: string; to: string; scheduledAt: string | null; lastEvent: string };
-/** `fail`: the change call answers 500 and the email stays as it was. `drop`: the call throws, as a timeout would. */
 type Fault = "fail" | "drop";
 
-/** `env` is what the adapter's recipient rule reads. A test that sends to any address passes a production one. */
 export function resendRecorder(
 	env: Readonly<Record<string, string | undefined>> = process.env,
 	settle: (ids: readonly string[]) => void = () => {
@@ -90,11 +84,9 @@ export function resendRecorder(
 
 	return {
 		transport,
-		/** The fake Resend API itself, for transports other than the Messages adapter. */
 		fetch: fetchFake as typeof fetch,
 		requests,
 		emails,
-		/** What the next batch call does: accept every message, refuse (422), fail (500) or accept by position. */
 		batch(mode: typeof batch) {
 			batch = mode;
 		},
@@ -102,7 +94,6 @@ export function resendRecorder(
 			if (kind) faults.set(id, kind);
 			else faults.delete(id);
 		},
-		/** The email service sent this email: it can no longer be cancelled or moved. */
 		wentOut(id: string) {
 			emails.get(id)!.lastEvent = "delivered";
 		},
