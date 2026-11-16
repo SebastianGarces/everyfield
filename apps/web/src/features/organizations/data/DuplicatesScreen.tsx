@@ -14,17 +14,13 @@ import {
 	RadioGroup,
 } from "@everyfield/ui/controls";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
 import type { z } from "zod";
 import { blockerText, counted, FIELD_LABEL, fieldText, type Columns } from "../../people/corrections/model";
 import { PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
 import { mergePeople, reviewMerge, undoMerge } from "./actions";
-
-// Possible duplicates for the organization pipeline (REQ-MUL-017), in the planter duplicates review's shape. A pair is
-// a suggestion: opening it changes nothing, and the merge waits until the Owner or Admin picks the record that stays and
-// the value to keep for every field that differs. A merge can be undone while nothing has changed since. A merged pair
-// keeps its card, with the result and the undo, until the page is read again.
 
 type Pairs = z.infer<typeof organizationDuplicatePairs>;
 type Pair = Pairs["items"][number];
@@ -99,98 +95,54 @@ function PairCard({ pair, open, onOpen }: { pair: Pair; open: boolean; onOpen: (
 	);
 }
 
-/** Pick the record that stays, then a value for each differing field; then merge, and undo while nothing changed. */
+const mergeReviews = createRead(
+	(sourceId: string, survivorId: string) =>
+		reviewMerge({ sourceId, survivorId }).catch(() => ({ status: "lost" }) as const),
+	{ failed: () => ({ status: "lost" }) as const },
+);
+
 function MergeReview({ pair }: { pair: Pair }) {
 	const people = [pair.person, pair.with];
 	const [keep, setKeep] = useState<string | null>(null);
-	const [review, setReview] = useState<Review | null>(null);
-	const [choices, setChoices] = useState<Record<string, Side>>({});
-	const [busy, setBusy] = useState(false);
+	const [picked, setPicked] = useState<{ review: Review; choices: Record<string, Side> } | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [merged, setMerged] = useState<Merged | null>(null);
-	const [undone, setUndone] = useState(false);
+	const [busy, startMerge] = useTransition();
+	const sourceId = keep ? people.find((p) => p.id !== keep)!.id : "";
+	const answer = useRead(keep ? mergeReviews : null, sourceId, keep ?? "").value;
+	const review = answer?.status === "ok" ? answer.value : null;
+	const shownProblem = answer && answer.status !== "ok" ? problemText(answer) : problem;
+	const choices = review && picked?.review === review ? picked.choices : {};
 
-	const choose = async (survivorId: string) => {
-		setKeep(survivorId);
-		setReview(null);
-		setChoices({});
+	const choose = (survivorId: string) => {
 		setProblem(null);
-		const sourceId = people.find((p) => p.id !== survivorId)!.id;
-		const answer = await reviewMerge({ sourceId, survivorId }).catch(() => ({ status: "lost" }) as const);
-		if (answer.status === "ok") setReview(answer.value);
-		else setProblem(problemText(answer));
+		mergeReviews.prefetch(people.find((p) => p.id !== survivorId)!.id, survivorId);
+		setKeep(survivorId);
 	};
 
-	if (merged) {
-		const survivor = people.find((p) => p.id === merged.survivorId)!.displayName;
-		const source = people.find((p) => p.id === merged.sourceId)!.displayName;
-		if (undone)
-			return (
-				<Card variant="callout" tone="green">
-					<CalloutLabel tone="green" icon={Tick02Icon}>
-						Merge undone
-					</CalloutLabel>
-					<CalloutText>
-						{survivor} and {source} are back as two records, exactly as they were.
-					</CalloutText>
-				</Card>
-			);
-		return (
-			<div className="flex flex-col gap-3">
-				<Card variant="callout" tone="green">
-					<CalloutLabel tone="green" icon={Tick02Icon}>
-						Merged
-					</CalloutLabel>
-					<CalloutText>
-						{source} is now part of {survivor}: their stage history, enrollments and conversations are on one record.
-					</CalloutText>
-				</Card>
-				<Problem text={problem} />
-				<div className="flex flex-wrap gap-2">
-					<Button variant="primary" asChild>
-						<Link href={`${PIPELINE_PATH}/${merged.survivorId}`}>Open {survivor}</Link>
-					</Button>
-					<Button
-						variant="secondary"
-						loading={busy}
-						onClick={async () => {
-							setBusy(true);
-							setProblem(null);
-							const answer = await undoMerge(crypto.randomUUID(), merged.mergeId).catch(
-								() => ({ status: "lost" }) as const,
-							);
-							setBusy(false);
-							if (answer.status === "ok") setUndone(true);
-							else setProblem(problemText(answer));
-						}}
-					>
-						Undo merge
-					</Button>
-				</div>
-			</div>
-		);
-	}
+	if (merged) return <MergeDone merged={merged} people={people} />;
 
 	const name = (side: Side) => (review ? review[side].displayName : "");
 	const blocked = review ? review.blockers.causes.length > 0 : false;
 	const ready = review !== null && !blocked && review.fields.every((f) => choices[f.field]);
-	const merge = async () => {
+	const merge = () => {
 		if (!review) return;
-		setBusy(true);
-		setProblem(null);
-		const answer = await mergePeople({
-			requestKey: crypto.randomUUID(),
-			input: {
-				sourceId: review.source.personId,
-				survivorId: review.survivor.personId,
-				reviewDigest: review.reviewDigest,
-				fieldChoices: choices,
-			},
-		}).catch(() => ({ status: "lost" }) as const);
-		setBusy(false);
-		if (answer.status === "ok") setMerged(answer.value);
-		else if (answer.status === "refused" && answer.error.code === "merge_blocked") void choose(keep!);
-		else setProblem(problemText(answer));
+		startMerge(async () => {
+			setProblem(null);
+			const answer = await mergePeople({
+				requestKey: crypto.randomUUID(),
+				input: {
+					sourceId: review.source.personId,
+					survivorId: review.survivor.personId,
+					reviewDigest: review.reviewDigest,
+					fieldChoices: choices,
+				},
+			}).catch(() => ({ status: "lost" }) as const);
+			if (answer.status === "ok") setMerged(answer.value);
+			else if (answer.status === "refused" && answer.error.code === "merge_blocked")
+				void mergeReviews.retry(sourceId, keep!);
+			else setProblem(problemText(answer));
+		});
 	};
 
 	return (
@@ -198,12 +150,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 			<fieldset>
 				<legend className="text-sm font-medium text-ink">Which record stays?</legend>
 				<p className="mt-0.5 text-sm text-text-2">The other one becomes part of it.</p>
-				<RadioGroup
-					className="mt-1"
-					value={keep ?? ""}
-					onValueChange={(v) => void choose(v)}
-					aria-label="Record that stays"
-				>
+				<RadioGroup className="mt-1" value={keep ?? ""} onValueChange={choose} aria-label="Record that stays">
 					{people.map((p) => (
 						<Radio key={p.id} value={p.id} label={p.displayName} />
 					))}
@@ -232,7 +179,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 									<legend className="text-sm text-text-2">{FIELD_LABEL[f.field]}</legend>
 									<RadioGroup
 										value={choices[f.field] ?? ""}
-										onValueChange={(v) => setChoices((c) => ({ ...c, [f.field]: v as Side }))}
+										onValueChange={(v) => setPicked({ review, choices: { ...choices, [f.field]: v as Side } })}
 										aria-label={FIELD_LABEL[f.field]}
 									>
 										{(["survivor", "source"] as const).map((side) => (
@@ -260,7 +207,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 							. {name("source")}’s stage history and conversations show on {name("survivor")}’s record.
 						</p>
 					) : null}
-					<Problem text={problem} />
+					<Problem text={shownProblem} />
 					<div>
 						<Button variant="primary" disabled={!ready} loading={busy} onClick={merge}>
 							Merge into {name("survivor")}
@@ -268,8 +215,61 @@ function MergeReview({ pair }: { pair: Pair }) {
 					</div>
 				</>
 			) : (
-				<Problem text={problem} />
+				<Problem text={shownProblem} />
 			)}
+		</div>
+	);
+}
+
+function MergeDone({ merged, people }: { merged: Merged; people: Pair["person"][] }) {
+	const [problem, setProblem] = useState<string | null>(null);
+	const [undone, setUndone] = useState(false);
+	const [busy, startUndo] = useTransition();
+	const survivor = people.find((p) => p.id === merged.survivorId)!.displayName;
+	const source = people.find((p) => p.id === merged.sourceId)!.displayName;
+	if (undone)
+		return (
+			<Card variant="callout" tone="green">
+				<CalloutLabel tone="green" icon={Tick02Icon}>
+					Merge undone
+				</CalloutLabel>
+				<CalloutText>
+					{survivor} and {source} are back as two records, exactly as they were.
+				</CalloutText>
+			</Card>
+		);
+	return (
+		<div className="flex flex-col gap-3">
+			<Card variant="callout" tone="green">
+				<CalloutLabel tone="green" icon={Tick02Icon}>
+					Merged
+				</CalloutLabel>
+				<CalloutText>
+					{source} is now part of {survivor}: their stage history, enrollments and conversations are on one record.
+				</CalloutText>
+			</Card>
+			<Problem text={problem} />
+			<div className="flex flex-wrap gap-2">
+				<Button variant="primary" asChild>
+					<Link href={`${PIPELINE_PATH}/${merged.survivorId}`}>Open {survivor}</Link>
+				</Button>
+				<Button
+					variant="secondary"
+					loading={busy}
+					onClick={() =>
+						startUndo(async () => {
+							setProblem(null);
+							const answer = await undoMerge(crypto.randomUUID(), merged.mergeId).catch(
+								() => ({ status: "lost" }) as const,
+							);
+							if (answer.status === "ok") setUndone(true);
+							else setProblem(problemText(answer));
+						})
+					}
+				>
+					Undo merge
+				</Button>
+			</div>
 		</div>
 	);
 }

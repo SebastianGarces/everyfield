@@ -10,9 +10,6 @@ import {
 	searchReadings,
 } from "@everyfield/domain/organizations";
 
-// Server actions behind the Programs tab, a program and an enrollment. Each one rebuilds the request actor; the domain
-// parses the input and rechecks the seat and the duty. A screen reads again only the record that changed.
-
 export async function createProgram(input: unknown) {
 	return programCall((db, authority) => programWriter.createProgram(db, authority, input));
 }

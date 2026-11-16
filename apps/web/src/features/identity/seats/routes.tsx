@@ -8,9 +8,6 @@ import { readSeats } from "./actions";
 import { parseSeats } from "./model";
 import { SeatsScreen } from "./SeatsScreen";
 
-// /settings/seats (screens.md Settings, Seats and invitations). It sits inside the settings layout's product frame
-// (WP-010) until the settings dialog lands (ruling U2).
-
 export const seatsMetadata: Metadata = { title: "Seats and invitations", robots: { index: false, follow: false } };
 
 export async function SeatsPage() {

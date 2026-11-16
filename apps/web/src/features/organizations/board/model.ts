@@ -1,20 +1,14 @@
 import { STARTER_STAGES, type PipelineBoardQuery, type PipelineRefusal } from "@everyfield/contracts/organizations";
 
-// Shared by the Pipeline page and a person's record: labels, dates, URL filters and refusal copy. No React and no
-// server code.
-
 export const PIPELINE_PATH = "/organization/pipeline";
 
-/** Each stage kind's name: the starter stage's label, and "Other". */
 export const KIND_LABEL: Record<string, string> = Object.fromEntries([...STARTER_STAGES, ["other", "Other"]]);
 
 const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-/** A calendar day (YYYY-MM-DD) as "Oct 17, 2026". The day is already the organization's own. */
 export const formatDay = (value: string) => day.format(new Date(`${value}T00:00:00Z`));
 
 type Search = Record<string, string | string[] | undefined>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-/** The board's filters from the address (D67). Anything unreadable falls back to its default. */
 export function queryFromSearch(search: Search): PipelineBoardQuery {
 	const page = Number(first(search.page));
 	return {
@@ -24,7 +18,6 @@ export function queryFromSearch(search: Search): PipelineBoardQuery {
 		page: Number.isInteger(page) && page >= 1 && page <= 10_000 ? page : 1,
 	};
 }
-/** The address of the board under `query`. A filter change returns to page one, as the caller decides. */
 export function boardHref(query: PipelineBoardQuery) {
 	const params = new URLSearchParams();
 	if (query.view === "retired") params.set("view", "retired");
@@ -35,7 +28,6 @@ export function boardHref(query: PipelineBoardQuery) {
 	return text ? `${PIPELINE_PATH}?${text}` : PIPELINE_PATH;
 }
 
-/** What an `invalid_input` refusal says, by the field it names; a list item's position is dropped (`counts.2.label`). */
 const FIELD_PROBLEM: Record<string, string> = {
 	assessedOn: "The date can’t be after today.",
 	occurredOn: "The date can’t be after today.",
@@ -51,7 +43,6 @@ const FIELD_PROBLEM: Record<string, string> = {
 	responsibleSeatId: "That staff member no longer has a seat here. Choose someone else.",
 };
 
-/** What a refused or lost change tells the person. */
 export function refusalText(answer: { status: "refused"; refusal: PipelineRefusal } | { status: "lost" }) {
 	if (answer.status === "lost") return "We couldn’t reach Everyfield. Nothing was saved. Try again.";
 	const r = answer.refusal;
@@ -69,13 +60,11 @@ export function refusalText(answer: { status: "refused"; refusal: PipelineRefusa
 	}
 }
 
-/** What a person's change says when someone else changed that person first: who, and where they are now. */
 export const changedText = (name: string, stage: string) =>
 	`Someone else changed ${name} while you were working. ${name} is now in ${stage}. Nothing was saved, so check the record, then try again.`;
 
 export const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
-/** The exact changes between the saved stages and the edited list, in the words the review shows (REQ-MUL-008). */
 export function stageChanges(
 	saved: readonly { id: string; label: string }[],
 	rows: readonly { id: string; label: string; kind: string }[],
@@ -89,7 +78,6 @@ export function stageChanges(
 		else if (was.label !== r.label.trim()) changes.push(`Rename “${was.label}” to “${r.label.trim()}”`);
 	}
 	for (const s of saved) if (!kept.has(s.id)) changes.push(`Delete “${s.label}”`);
-	// The order changed when the stages that stay are no longer in their saved order, or a new stage is not last.
 	const savedOrder = saved.filter((s) => kept.has(s.id)).map((s) => s.id);
 	const naturalOrder = [...savedOrder, ...rows.filter((r) => !before.has(r.id)).map((r) => r.id)];
 	if (rows.some((r, i) => r.id !== naturalOrder[i]))
@@ -97,7 +85,6 @@ export function stageChanges(
 	return changes;
 }
 
-/** A goal in words, from its own numbers: "Develop 6 leaders to plant 2 churches by 2028". */
 export function goalHeadline(goal: { leaderTarget: number; plantTarget: number; targetYear: number }) {
 	const leaders = goal.leaderTarget ? `Develop ${plural(goal.leaderTarget, "leader")}` : "";
 	const plants = goal.plantTarget ? `plant ${plural(goal.plantTarget, "church", "churches")}` : "";
@@ -106,7 +93,6 @@ export function goalHeadline(goal: { leaderTarget: number; plantTarget: number; 
 }
 
 const monthName = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
-/** "2026-10" as "Oct"; January also names its year, so a row that crosses a year reads plainly. */
 export const monthLabel = (month: string) => {
 	const name = monthName.format(new Date(`${month}-01T00:00:00Z`));
 	return month.endsWith("-01") ? `${name} ${month.slice(0, 4)}` : name;

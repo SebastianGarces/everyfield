@@ -10,9 +10,6 @@ import { ACCESS_PATH } from "@/site";
 const LINK =
 	"text-mk-on-ink-2 no-underline hover:text-cream hover:underline hover:underline-offset-3 focus-visible:outline-cream";
 
-// Footer links come from shared.footer in design/marketing-copy.json. Only live pages get links: the planters page,
-// the trust page and Evry are not live, so their links are left out, and so is a column left with no links.
-// Contact writes to the team inbox (Revision 8).
 const ROUTES: Record<string, string> = {
 	Overview: "/",
 	"Plant Intelligence": "/#intelligence",
@@ -30,7 +27,6 @@ const columns = footer.columns
 	}))
 	.filter((c) => c.links.length > 0);
 
-/** The ink footer card: mark, headline and request button, the link columns, and the fine print. */
 export function SiteFooter({ headline = footer.headline }: { headline?: string }) {
 	return (
 		<footer className="px-page pt-[clamp(24px,4vw,48px)] pb-page">

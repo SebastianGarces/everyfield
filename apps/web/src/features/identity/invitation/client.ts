@@ -1,9 +1,6 @@
 import type { Reply } from "../server";
 import type { InvitationRead } from "./handler";
 
-// The browser side of POST /api/invitation. A failed request or a server error throws, so the screen treats it as a
-// lost reply; a refusal arrives as data.
-
 async function post<T>(body: unknown): Promise<T> {
 	const response = await fetch("/api/invitation", {
 		method: "POST",

@@ -1,92 +1,22 @@
-// The synthetic church the golden-set evals read: Hope Fellowship, a pre-launch plant around Austin, TX, seeded as real
-// records into an isolated, migrated schema on Postgres (tests/support/test-database.mts). Every read the model calls
-// runs the real adapter against these rows (golden-harness.mts). Every id the model can see is pinned here, so a replay
-// sends exactly the recorded provider calls.
-//
-// Known records the factual cases check (golden.test.mts reads them back through the real reads):
-// - 84 live people: 3 leader, 2 launch_team, 5 core_group, 2 interviewed, 4 following_up, 11 attendee, 57 prospect
-//   (13 of the prospects in Austin). 2 removed people: Tom Baker and Rosa Rivera.
-// - 8 households: Rivera, Thompson, Nguyen, Okafor, Martinez, Garcia, Johnson, Lee. The Nguyen household has four
-//   people (Minh, Linh, Bao and Thao), all at 2200 Pecan Dr, Austin; Pedro Martinez is in no household.
-// - A note on Maria Santos that the Admin wrote (MARIA_NOTE), for the note edit and delete cases.
-// - Tags Worship team (4, Ruth Allen's among them), Kids ministry (2), Prayer team (1); skills on Mark Thompson, Alex Rivera, Jen Thompson.
-// - Two Marias, two Caseys, Jon and John Smith, a test record "asdf" and a person whose name is an instruction.
-// - An import receipt (5 created, 1 skipped, 2 failed) and open tasks on Mark Thompson (2), Ana Rivera and Sam Patel.
-// - An earlier import that added John Smith, Casey Brooks and Maria Delgado with "Add, review later": the open review
-//   pairs are John Smith with Jon Smith and Casey Brooks with Casey Morgan; Maria Delgado with Maria Santos was marked
-//   "Not a duplicate".
-// - Messages: the draft "Sunday's interest meeting" and "Friday volunteer email", scheduled for Fri 13 Nov 9:00 AM
-//   to Mark and Jen Thompson (the launch team), waiting in Everyfield.
-// - Notifications: the Owner has four unread from the weekend (Sat 7 and Sun 8 Nov): three task reminders (N1 to N3,
-//   the launch budget due and overdue and the school gym due) and one meeting announcement (N4, the interest meeting on
-//   Thu 19 Nov), plus one read reminder from Thu 5 Nov. The Admin has two unread notices of her own. The church digest
-//   goes out weekly on Sundays at 4 PM; the next one (Sun 15 Nov) covers 9 to 15 Nov and lists the Owner's three open
-//   dated tasks (two overdue by then) and the interest meeting.
-// - Ministries (MINISTRIES below), read from the team roster, never from tags: Core team (led by Nate; 4 roles, the
-//   Admin coordinator open; 5 completed team meetings, the last 4 measured; required "Core team orientation" for Nate,
-//   Lena and Carlos, two finished), Worship (Mark leads it from the Worship leader role; Mark, Jen, Ana and Alex serve;
-//   Ruth Allen carries the Worship team tag but is not on it), Hospitality (no leader: the Hospitality lead and Greeter
-//   roles are open, Sam is the Coffee host, Mike's Greeter time ended; "Hospitality training" required for Alex and Sam,
-//   none finished), Kids ministry (Linh leads it; Casey Morgan on check-in; Sam joined as Nursery helper after "Kids
-//   ministry training" was saved for Alex and Casey Morgan, and only Alex has finished) and Prayer team (Priya, the
-//   Member, leads it; Sam intercedes). Sam Patel serves on three ministries; no one else on more than one.
-// - Actors: the Owner (Nate Ellis, a leader linked to his account), an Admin (Lena Park), a Member (Priya Shah), an
-//   organization seat (the Owner of Hill Country Church, a sending church, which sees no plant People) and the Owner of
-//   an empty church.
-// - Oversight: Hope Fellowship is affiliated with Hill Country Church with activity sharing on; Cedar Creek Church is
-//   affiliated with sharing off and has three changes of its own on Sun 8 Nov. The organization Owner's oversight
-//   digest is daily (the default) and its coverage reaches Sat 7 Nov, so the next one goes out Tue 10 Nov at 7:00 AM,
-//   covers 8 to 9 Nov and has one line: Hope Fellowship, 6 activities on Nov 8 (the import). Daniel Okafor's interview
-//   note is the private care it never shows.
-// - Meetings (America/Chicago; today is Mon 9 Nov): saved venues "Coffee shop", "Hope Church fellowship hall" and
-//   "Hope Church chapel". Vision Meeting #4 on Thu 12 Nov 7:00 PM at the Coffee shop: RSVPs yes Nate Ellis, Kevin
-//   Walsh and Jessica Wu, no Joy Lee, no answer Elena Garcia and Roberto Garcia; its kit has every item checked but
-//   "Name tags (50+)" and "Response cards (50+)". Last night's Vision Meeting #3 (Sun 8 Nov) was finalized with 24
-//   attended and has no evaluation; last week's Vision Meeting #2 (Thu 5 Nov) was held with guests Maria Santos, Alex
-//   Rivera and Casey Morgan and has no attendance recorded; Vision Meeting #1 (Thu 29 Oct) was finalized with 18
-//   attended and evaluated. "Launch team orientation", a Vision meeting (#5) on Sun 15 Nov 4:00 PM, has its own saved
-//   agenda and a fully checked kit. Vision Meeting #1 has no kit. "Coffee with Pastor
-//   Nate" (today 6:00 PM) was cancelled. "Worship team training", a Worship team meeting, is next Tue 17 Nov 6:30 PM at the fellowship hall.
-//   Two meetings are titled "Orientation" (Sun 22 Nov and Sun 6 Dec).
-//   Pre-launch practices: "Launch rehearsal" (Sat 31 Oct) was held; "Sound check practice" (Sat 7 Nov) is not
-//   recorded as held. "Old warehouse" is an archived venue. Kevin Walsh was invited by Ana Rivera; Casey Morgan is
-//   marked attended at last week's meeting.
-//
-// The database clock runs in NOW's frame too (evalDatabase): every Meetings read that says upcoming or past
-// compares with it, so a replay reads the same meetings on every day the suite runs.
-//
-// Derived facts come from their source rows, never from a stored label. Inactivity is the real board's comparison of
-// each person's latest activity with the church's 7 and 14 inactivity days, against the database clock. So that it
-// reads the same on every day the suite runs, a person at level none or warning has a last contact (a follow-up
-// outcome, which the model never sees) 2 or 10 days before the seed runs; an alert-level person has no contact and only
-// activity older than 14 days. Coverage is whether a person has an open task.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor, type EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import { resolveSelf } from "../../../packages/evry/src/context/self.ts";
 import { testDatabase, type Database } from "../../support/test-database.mts";
 
-/** The trusted clock the prompt states (deps.now in the turn). */
 export const NOW = new Date("2026-11-09T15:00:00Z");
 const id = (n: number) => `5b6d1f0e-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 export const PLANT = id(1);
-/** The saved draft and the scheduled Friday email in Messages. */
 export const DRAFT = id(0xc01);
 const FRIDAY_EMAIL = id(0xc02);
 export const EMPTY_PLANT = id(2);
 export const ORGANIZATION = id(3);
-/** The network Hope Fellowship is connected with, sharing meetings and People totals, and its connection. */
 export const NETWORK = id(4);
 export const CONNECTION = id(5);
-/** A sending church Hope Fellowship is not connected with, with a public contact address. */
 export const GRACE_AUSTIN = id(6);
-/** The one pending seat invitation, to jordan@example.test as a Member. */
 export const INVITATION = id(7);
-/** A plant affiliated with Hill Country Church that shares no activity. */
 const CEDAR_CREEK = id(8);
-/** The Owner's four unread weekend notices, oldest first (three task reminders, then a meeting announcement). */
 export const NOTICES = [id(0xd01), id(0xd02), id(0xd03), id(0xd04)] as const;
-/** The Owner's read notice and the Admin's two unread ones. */
 const READ_NOTICE = id(0xd05);
 const ADMIN_NOTICES = [id(0xd06), id(0xd07)] as const;
 const BUDGET_TASK = id(0xd11);
@@ -95,7 +25,6 @@ const SIGNUP_TASK = id(0xd13);
 const INTEREST_MEETING = id(0xd21);
 
 type Stage = "prospect" | "attendee" | "following_up" | "interviewed" | "core_group" | "launch_team" | "leader";
-/** The inactivity level the seeded activity produces on the real pipeline board. */
 type Level = "none" | "warning" | "alert";
 export type Person = {
 	id: string;
@@ -112,7 +41,6 @@ export type Person = {
 	photo?: boolean;
 	inactivity: Level;
 	openTasks?: number;
-	/** Note bodies the adapter never returns: they test that stored text is not followed or disclosed. */
 	noteBodies?: string[];
 	createdAt: string;
 };
@@ -237,7 +165,6 @@ const named: Person[] = [
 	person("Tom Baker", "Austin", "attendee", { state: "retired" }),
 	person("Rosa Rivera", "Austin", "attendee", { state: "retired" }),
 ];
-// 48 more prospects, so the prospect list pages (57 prospects; 24 per page by default, 50 when asked).
 const FIRST = [
 	"Aaron",
 	"Bianca",
@@ -258,7 +185,6 @@ const generated = LAST.flatMap((last) => FIRST.map((first) => `${first} ${last}`
 	person(name, CITIES[i % CITIES.length]!, "prospect"),
 );
 
-// Added after the generated prospects, so every id above stays pinned: the fourth Nguyen (HH-05).
 const later = [
 	person("Thao Nguyen", "Austin", "attendee", {
 		household: { id: home("Nguyen"), role: "child" },
@@ -274,12 +200,9 @@ export const byName = (name: string) => {
 	return found;
 };
 
-/** The Admin's note on Maria Santos. */
 export const MARIA_NOTE = id(0x9900);
-/** A people import whose receipt the receipt read returns, and the request key that names it. */
 export const IMPORT_KEY = "import-2026-11-08-launch-interest";
 const IMPORT = { id: id(0xe1), job: id(0xe2), at: "2026-11-08T17:00:00.000Z", people: generated.slice(0, 5) };
-/** The earlier import's rows that matched an existing person, each added to review against that person. */
 const REVIEW_IMPORT = {
 	id: id(0xe3),
 	job: id(0xe4),
@@ -291,7 +214,6 @@ const REVIEW_IMPORT = {
 		{ person: "Maria Delgado", reviewWith: "Maria Santos", dismissed: true },
 	],
 };
-/** The open import review pairs, oldest imported person first, as people.listDuplicatePairs lists them. */
 export const REVIEW_PAIRS = REVIEW_IMPORT.rows.filter((r) => !r.dismissed).map((r) => [r.person, r.reviewWith]);
 
 type ActorSpec = {
@@ -301,7 +223,6 @@ type ActorSpec = {
 	plant: string | null;
 	organization?: string;
 	role: string;
-	/** The account's sign-in name, which Settings > Seats shows. */
 	name: string;
 };
 const ACCOUNT = (k: number): ActorSpec["account"] => id(0xf00 + k);
@@ -336,14 +257,12 @@ export const ACTOR_SPECS = {
 	},
 } as const satisfies Record<string, ActorSpec>;
 export type ActorName = keyof typeof ACTOR_SPECS;
-/** The person row linked to each plant seat's account: the signed-in user's own row. */
 const LINKED: Partial<Record<ActorName, string>> = {
 	owner: byName("Nate Ellis").id,
 	admin: byName("Lena Park").id,
 	member: byName("Priya Shah").id,
 };
 
-/** The pinned meeting records: venues, the Worship team ministry and every meeting. */
 export const MEETINGS = {
 	coffee: id(0xa01),
 	hall: id(0xa02),
@@ -361,19 +280,12 @@ export const MEETINGS = {
 	rehearsal: id(0xa2c),
 	warehouse: id(0xa04),
 } as const;
-/** Thursday's kit item ids by text (the kit seed pins them). */
 export const kitItem = (text: string) =>
 	`5b6d1f0e-0000-4000-8000-${(0x3000 + 4 * 0x40 + KIT.findIndex((k) => k.text === text)).toString(16).padStart(12, "0")}`;
-/** Thursday's kit items still unchecked. */
 export const UNCHECKED_KIT = ["Name tags (50+)", "Response cards (50+)"];
 
-/**
- * Seeds the church into the schema `admin` is pinned to. Every row a read returns has a pinned id and a pinned time,
- * except each live person's last contact, which is placed relative to the database clock (see the header).
- */
 export async function seedHope(admin: Database, { seatNames = false }: SeedOptions = {}) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
-	// Hope Fellowship's church digest goes out on Sundays at 4 PM, the default schedule.
 	for (const [plant, name, weekday, hour] of [
 		[PLANT, "Hope Fellowship", 0, 16],
 		[EMPTY_PLANT, "New Hope", 1, 8],
@@ -386,7 +298,6 @@ export async function seedHope(admin: Database, { seatNames = false }: SeedOptio
 		VALUES(${NETWORK},'sending_network','Hill Country Network','America/Chicago',1,'Churches planting churches across the Texas Hill Country.')`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision,contact_email)
 		VALUES(${GRACE_AUSTIN},'sending_church','Grace Austin','America/Chicago',1,'connect@graceaustin.example.test')`);
-	// Hope Fellowship shares meetings and People totals with Hill Country Network, and nothing else.
 	await run(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 		VALUES(${CONNECTION},${PLANT},${NETWORK},'2026-09-01T15:00:00Z',true,true,false,false,false,false,false)`);
 	for (const [who, a] of Object.entries(ACTOR_SPECS)) {
@@ -397,11 +308,9 @@ export async function seedHope(admin: Database, { seatNames = false }: SeedOptio
 			VALUES(${a.account},${a.user},'active','planter')`);
 		await run(sql`INSERT INTO auth_session(id,user_id,token,expires_at)
 			VALUES(${a.session},${a.user},${`golden-${who}`},clock_timestamp()+interval '1 day')`);
-		// Accepted by the database clock, so a host clock ahead of it never makes the seat look unaccepted.
 		await run(sql`INSERT INTO seat(account_id,plant_id,organization_id,role,accepted_at)
 			VALUES(${a.account},${a.plant},${a.plant ? null : "organization" in a ? a.organization : ORGANIZATION},${a.role},clock_timestamp()-interval '1 day')`);
 	}
-	// One pending seat invitation, sent by the Owner a day before the seed runs.
 	await run(sql`INSERT INTO invitation(id,tenant_id,purpose,recipient_email,inviter_id,role,token_hash,state,created_at,revision,inviter_description)
 		VALUES(${INVITATION},${PLANT},'seat','jordan@example.test',${ACCOUNT(1)},'member',${"0".repeat(64)},'pending',clock_timestamp()-interval '1 day',1,'Nate Ellis')`);
 	for (const h of HOUSEHOLDS)
@@ -454,13 +363,10 @@ export async function seedHope(admin: Database, { seatNames = false }: SeedOptio
 				FROM (SELECT clock_timestamp()-make_interval(days=>${p.inactivity === "warning" ? 10 : 2}) AS t) x`);
 	}
 
-	// A note the Admin wrote on Maria Santos: only its author may edit or delete it. A note is activity, so it is dated
-	// before her last contact (10 days before NOW): she keeps her inactivity warning in NOW's frame.
 	await run(sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at)
 		VALUES(${MARIA_NOTE},${PLANT},${PLANT},${byName("Maria Santos").id},${ACTOR_SPECS.admin.account},
 			'Met us at the fall picnic and asked about small groups.','2026-10-28T18:00:00.000Z','2026-10-28T18:00:00.000Z')`);
 
-	// The import: its saved plan, its finished job and the people.created audit rows of the five people it created.
 	const plan = {
 		rows: 8,
 		skip: [6],
@@ -483,8 +389,6 @@ export async function seedHope(admin: Database, { seatNames = false }: SeedOptio
 			VALUES(${id(0xe10 + i)},${PLANT},${owner},'people.created','create',${p.id},${IMPORT.at},${IMPORT.at},1,${IMPORT.id},
 				${JSON.stringify({ import: { row: i + 1, reviewWith: null } })}::jsonb)`);
 
-	// The earlier import, written as an import writes it: each created person's people.created audit row names the
-	// person to review it against (import.reviewWith). An Owner then marked one pair "Not a duplicate".
 	const review = REVIEW_IMPORT;
 	const reviewPlan = {
 		rows: review.rows.length,
@@ -510,7 +414,6 @@ export async function seedHope(admin: Database, { seatNames = false }: SeedOptio
 			await run(sql`INSERT INTO person_duplicate_dismissal(id,plant_id,person_id,with_person_id,dismissed_at)
 				VALUES(${id(0xe30 + i)},${PLANT},${p.id},${byName(r.reviewWith).id},'2026-11-06T16:00:00.000Z')`);
 	}
-	// Messages: a saved draft, and an email scheduled for Friday 9:00 AM that waits in Everyfield for its send time.
 	const LAUNCH = '{"groups":["launch_team"],"teamIds":[],"personIds":[]}';
 	await run(sql`INSERT INTO communication(id,plant_id,author_id,revision,state,subject,body_html,body_text,audience,created_at)
 		VALUES(${DRAFT},${PLANT},${ACCOUNT(1)},1,'draft','Sunday''s interest meeting',
@@ -529,10 +432,6 @@ export async function seedHope(admin: Database, { seatNames = false }: SeedOptio
 	await seedOversight(run);
 }
 
-/**
- * Hill Country Church's oversight of its plants: Hope Fellowship shares its activity, Cedar Creek Church shares none
- * and has activity of its own, and the organization Owner's oversight coverage reaches Sat 7 Nov.
- */
 async function seedOversight(run: (q: ReturnType<typeof sql>) => Promise<unknown>) {
 	await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision)
 		VALUES(${CEDAR_CREEK},'Cedar Creek Church','America/Chicago',7,14,0,16,1,1)`);
@@ -553,10 +452,6 @@ async function seedOversight(run: (q: ReturnType<typeof sql>) => Promise<unknown
 		VALUES(${ORGANIZATION},${ACTOR_SPECS.org.account},'oversight','daily','America/Chicago','2026-11-07')`);
 }
 
-/**
- * The Owner's notifications and the work they are about: three open dated tasks assigned to the Owner with no person
- * (so no person's coverage changes), the interest meeting, and the notices the bell shows, each at a pinned time.
- */
 async function seedNotifications(run: (q: ReturnType<typeof sql>) => Promise<unknown>) {
 	const owner = ACTOR_SPECS.owner.account;
 	const admin = ACTOR_SPECS.admin.account;
@@ -657,7 +552,6 @@ async function seedNotifications(run: (q: ReturnType<typeof sql>) => Promise<unk
 }
 
 type Run = (q: ReturnType<typeof sql>) => Promise<unknown>;
-/** The meetings in the header, written as the native Meetings commands leave them. Every id and time is pinned. */
 export async function seedMeetings(run: Run, owner: string) {
 	const M = MEETINGS;
 	const VENUES = [
@@ -673,7 +567,6 @@ export async function seedMeetings(run: Run, owner: string) {
 		VALUES(${id(0xa0f)},${PLANT},${owner},'meetings.changed','create','venue',${M.coffee},'2026-09-01T15:00:00.000Z',
 			'2026-09-01T15:00:00.000Z',${JSON.stringify({ name: "Coffee shop", address: "1100 S Lamar Blvd, Austin, TX" })}::jsonb)`);
 	const VISION = visionAgenda();
-	// [id, type, title, local date, local time, UTC start, venue, status, vision number, held at, subtype, team]
 	const MEETING_ROWS = [
 		[M.earlier, "vision_meeting", null, "2026-10-29", "19:00", "2026-10-30T00:00:00Z", M.coffee, "completed", 1],
 		[M.lastWeek, "vision_meeting", null, "2026-11-05", "19:00", "2026-11-06T01:00:00Z", M.coffee, "completed", 2],
@@ -767,7 +660,6 @@ export async function seedMeetings(run: Run, owner: string) {
 	for (const [m, type, title, date, time, startsAt, venue, status, vision] of MEETING_ROWS) {
 		const v = VENUES.find((x) => x[0] === venue)!;
 		const isVision = type === "vision_meeting";
-		// Vision Meeting #1 predates the kit checklist; Sunday's kit is ready.
 		const kit = isVision && m !== M.earlier;
 		const agenda = m === M.sunday ? SUNDAY : isVision ? VISION(m) : [];
 		const held = status === "completed" ? startsAt : null;
@@ -803,14 +695,12 @@ export async function seedMeetings(run: Run, owner: string) {
 	await invite(M.thursday, "Joy Lee", { rsvp: "declined" });
 	for (const name of ["Elena Garcia", "Roberto Garcia"]) await invite(M.thursday, name);
 	for (const name of ["Maria Santos", "Alex Rivera"]) await invite(M.lastWeek, name, { rsvp: "confirmed" });
-	// Casey Morgan was marked present at the door; nobody finalized last week's attendance.
 	await invite(M.lastWeek, "Casey Morgan", { rsvp: "confirmed", presence: "attended" });
 	await invite(M.training, "Mark Thompson");
 	await invite(M.orientationA, "Daniel Cruz", { rsvp: "confirmed" });
 	await invite(M.orientationA, "Nate Ellis");
 	await invite(M.orientationB, "Carmen Martinez");
 	await run(sql`UPDATE participation SET roster_member=true WHERE meeting_id=${M.training}`);
-	// The finalized nights: 24 attended last night (2 with a card), 18 on 29 Oct, from the generated prospects.
 	const crowd = PEOPLE.filter(
 		(p) => p.state === "live" && p.stage === "prospect" && /Abbott|Barnes|Coleman|Dawson/.test(p.name),
 	);
@@ -833,7 +723,6 @@ export async function seedMeetings(run: Run, owner: string) {
 			${JSON.stringify({ attendanceScore: 3, locationScore: 4, logisticsScore: 4, agendaScore: 3, vibeScore: 4, messageScore: 4, closeScore: 3, nextStepsScore: 3, average: 3.5, notes: false, revision: "1" })}::jsonb,
 			${JSON.stringify({ event: "evaluation_recorded", meetingId: M.earlier })}::jsonb)`);
 }
-/** The reviewed Vision agenda with pinned section ids per meeting. */
 function visionAgenda() {
 	const sections = ["Welcome", "Worship", "Vision", "Q&A", "Response", "Fellowship"];
 	const minutes = [10, 15, 25, 15, 10, 15];
@@ -868,14 +757,11 @@ const KIT = [
 type Seat = { role: string; person?: string; leads?: true; from?: string; ended?: string };
 type Ministry = {
 	name: string;
-	/** A ministry set up from a catalog template keeps its key, which names its Playbook responsibilities. */
 	templateKey?: string;
-	/** Archived: out of current lists, staffing and health, and restorable. */
 	archived?: true;
 	leader?: { person: string; source: "explicit" | "role_derived" };
 	roles: Seat[];
 };
-/** Hope Fellowship's ministries, in Ministries order. A role with no person is open. */
 export const MINISTRIES: Ministry[] = [
 	{
 		name: "Core team",
@@ -925,7 +811,6 @@ export const MINISTRIES: Ministry[] = [
 		],
 	},
 ];
-/** Required training: each program's saved list (as of its date) and who has finished it. */
 export const PROGRAMS = [
 	{
 		name: "Core team orientation",
@@ -940,7 +825,6 @@ export const PROGRAMS = [
 		saved: ["Alex Rivera", "Casey Morgan"],
 		done: ["Alex Rivera"],
 	},
-	// Optional, so it never counts toward a ministry's required training. Jen's completion was revoked.
 	{
 		name: "Worship onboarding",
 		team: "Worship",
@@ -957,12 +841,10 @@ export const PROGRAMS = [
 	revoked?: readonly string[];
 	optional?: true;
 }[];
-/** Worship's responsibilities checklist: one done, one open. */
 export const RESPONSIBILITIES = [
 	{ text: "Plan the Sunday set list", done: "2026-11-01" },
 	{ text: "Schedule band rehearsals", done: null },
 ] as const;
-/** Core team's completed team meetings (Tuesdays, 7 PM): who of its roster attended, and a guest at each. */
 const CORE_MEETINGS = [
 	{ on: "2026-10-06", attended: ["Nate Ellis", "Lena Park", "Carlos Mendez"] },
 	{ on: "2026-10-13", attended: ["Nate Ellis", "Lena Park"] },
@@ -977,7 +859,6 @@ export const roleId = (team: string, role: string) => {
 };
 export const programId = (name: string) => id(0x7800 + PROGRAMS.findIndex((g) => g.name === name));
 
-/** The ministries, as the Ministries screens and the teams writes store them. */
 async function seedMinistries(admin: Database) {
 	const run = (q: ReturnType<typeof sql>) => admin.execute(q);
 	let tenure = 0x7400;
@@ -993,7 +874,6 @@ async function seedMinistries(admin: Database) {
 			if (!r.person) continue;
 			await run(sql`INSERT INTO team_tenure(id,plant_id,role_id,person_id,started_on,ended_on)
 				VALUES(${id(++tenure)},${PLANT},${roleId(m.name, r.role)},${byName(r.person).id},${r.from ?? "2026-09-01"},${r.ended ?? null})`);
-			// An ended time in a role is in the ministry's history, as the teams writes file it.
 			if (r.ended)
 				await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id,occurred_at,recorded_at,before_value,after_value,metadata)
 					VALUES(${id(0x7300 + tenure)},${PLANT},${ACTOR_SPECS.owner.account},'teams.changed','remove','team_tenure',${id(tenure)},
@@ -1003,7 +883,6 @@ async function seedMinistries(admin: Database) {
 			await run(sql`UPDATE team SET leader_person_id=${leader},leader_source=${m.leader!.source},leader_role_id=${leaderRole}
 				WHERE id=${team}`);
 	}
-	// The installed Playbook version Worship's checklist was accepted from, and its two lines.
 	const [release, item, version] = [id(0x7c00), id(0x7c01), id(0x7c02)];
 	const GLOBAL = "00000000-0000-0000-0000-000000000000";
 	await run(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,chunker_version,embedding_profile,embedding_dimensions,tenant_id,expected_passages)
@@ -1033,7 +912,6 @@ async function seedMinistries(admin: Database) {
 	const roster = MINISTRIES[0]!.roles.flatMap((r) => (r.person ? [r.person] : []));
 	for (const [k, meeting] of CORE_MEETINGS.entries()) {
 		const at = id(0x7a00 + k);
-		// 7 PM in Chicago: CDT (UTC-5) before Nov 1, CST (UTC-6) after.
 		const startsAt = `${meeting.on}T${meeting.on < "2026-11-01" ? "00" : "01"}:00:00.000Z`;
 		await run(sql`INSERT INTO meeting(id,plant_id,type,subtype,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision,team_id)
 			VALUES(${at},${PLANT},'team_meeting','regular','Core team meeting',${meeting.on},'19:00','America/Chicago',
@@ -1046,7 +924,6 @@ async function seedMinistries(admin: Database) {
 	}
 }
 
-/** The eval actor as the turn builds it: the session's live authority, with the user's own person row. */
 async function actorFor(db: Database, who: ActorName): Promise<EvryActor> {
 	const viewer = await readViewer(db, ACTOR_SPECS[who].session as never);
 	if (!viewer?.authority) throw Error(`No live authority for the ${who} actor`);
@@ -1054,11 +931,6 @@ async function actorFor(db: Database, who: ActorName): Promise<EvryActor> {
 	return { ...actor, selfPersonId: await resolveSelf(db, actor) };
 }
 
-/**
- * The host clock moved to NOW's frame, still advancing. A read stamps the host's date into what the model sees (the
- * export's filename, people-<date>.csv), so every run must see the same date. The database clock is pinned the same
- * way, by evalDatabase.
- */
 function pinHostClock() {
 	const Real = Date;
 	if ((Real as { pinned?: true }).pinned) return;
@@ -1075,37 +947,20 @@ function pinHostClock() {
 	} as unknown as DateConstructor;
 }
 
-/**
- * The one eval schema every Postgres-backed eval suite seeds its church into: a fresh, migrated schema whose database
- * clock (`now()`, `clock_timestamp()` and the like, read by inactivity, the review's schedule window and every other
- * clock comparison) runs in NOW's frame, still advancing (pinSchemaClock in tests/support/test-database.mts). So a
- * fixture time such as the Friday of NOW's week stays in the future on every real date the suite runs.
- */
 export const evalDatabase = (options: { prefix: string; max?: number }) => testDatabase({ ...options, clock: NOW });
 
-/**
- * `admin` is the schema owner's connection. It writes fixture rows a suite adds to the church, such as the setup
- * accounts (setup-church.mts), and checks rows the runtime role can't read, such as audit events.
- */
 export type GoldenChurch = {
 	db: Database;
 	admin: Database;
 	actors: Record<ActorName, EvryActor>;
 	close(): Promise<void>;
 };
-/** A fresh schema with Hope Fellowship seeded, the runtime pool the reads use and every eval actor. */
-/**
- * `seatNames` gives each seated account its person's name, as Settings > Seats shows it (settings.test.mts and the
- * T-327 preview). The recorded suites keep every account named "Synthetic": a name a read returns is part of the
- * recorded provider call (teams.history names who made each change).
- */
 type SeedOptions = { seatNames?: boolean };
 export async function goldenChurch(options: SeedOptions = {}): Promise<GoldenChurch> {
 	const database = await evalDatabase({ prefix: "evrygold", max: 10 });
 	try {
 		await seedHope(database.admin, options);
 		await seedMinistries(database.admin);
-		// After the ministries: the Worship team training is a Worship team meeting.
 		await seedMeetings((q) => database.admin.execute(q), ACTOR_SPECS.owner.account);
 		const db = database.pools.runtime;
 		const actors = {} as Record<ActorName, EvryActor>;
