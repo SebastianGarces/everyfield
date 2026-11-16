@@ -5,7 +5,6 @@ export type FieldSources = {
 	churchName: string | null;
 	pastorName: string | null;
 	launchDate: string | null;
-	/** The date of the meeting a render is built from, as the meeting screen words it. */
 	meetingDate?: string | null;
 };
 type ResolvedField = {
@@ -18,7 +17,6 @@ type ResolvedField = {
 type Problem = { ok: false; path: string; problem: string };
 export type ResolvedMerge = Problem | { ok: true; fields: ResolvedField[]; missing: string[]; complete: boolean };
 
-/** Drop blank overrides. Reject the raw map when its values exceed the combined byte cap. */
 export function cleanOverrides(
 	raw: Record<string, string> | undefined,
 ): Problem | { ok: true; values: Record<string, string> } {
@@ -48,7 +46,6 @@ function autoValue(
 	return null;
 }
 
-/** Closed catalog keys only. A blank override is not an override. Unknown auto-fill adds no invented default. */
 export function resolveMerge(
 	template: CatalogTemplate,
 	sources: FieldSources,
@@ -71,7 +68,6 @@ export function resolveMerge(
 			});
 			continue;
 		}
-		// meeting_date has no autoFill in the frozen catalog row; a render from a meeting fills it by key.
 		const filled = autoValue(field.autoFill ?? (field.key === "meeting_date" ? "meeting_date" : undefined), sources);
 		if (filled) {
 			fields.push({

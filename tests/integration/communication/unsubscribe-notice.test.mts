@@ -1,10 +1,3 @@
-// T-242: the staff member who scheduled a Messages email is told in the bell at the moment someone on it unsubscribes
-// (REQ-NTF-016). The notice is written in the opt-out's own statement, so it exists when the unsubscribe answer
-// returns. In-app only (D-680), to the scheduler while they hold a seat in that church (D-681), one per email and per
-// person (D-682), none for an email the email service already held before T-241 (D-683). Since T-260 the entry names
-// the scheduled email it is about as its subject, and the bell and feed link to it (D-731 to D-733).
-// Every email goes through the real Messages adapter to a recorded fake of the Resend API, and staff read the notice
-// through the real feed and bell reads.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -38,7 +31,6 @@ const key = () => randomUUID();
 const now = () => new Date();
 const rows = async (query) => (await f.admin.execute(query)).rows;
 
-/** A church in Chicago time, so the send time in a notice is visibly the church's own. */
 async function church() {
 	const w = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone = ${ZONE} WHERE id = ${w.id}::uuid`);
@@ -59,13 +51,11 @@ async function person(w, name) {
 	return { id, email, name, plantId: w.id };
 }
 
-/** Next week at 15:30 UTC, to the minute. */
 function nextWeek() {
 	const at = new Date(Date.now() + 7 * 86_400_000);
 	at.setUTCHours(15, 30, 0, 0);
 	return at.toISOString();
 }
-/** How the notice must write a send time: the church's zone, "Nov 18, 2026, 9:30 AM". */
 const churchTime = (iso) =>
 	new Intl.DateTimeFormat("en-US", {
 		timeZone: ZONE,
@@ -92,7 +82,6 @@ async function draft(who, people, subject = "Next Sunday") {
 		}),
 	);
 }
-/** Staff schedule a Messages email to `people` for next week through the real writer. */
 async function schedule(who, people, { subject = "Next Sunday", at = nextWeek() } = {}) {
 	const resend = resendRecorder(PRODUCTION);
 	const saved = await draft(who, people, subject);
@@ -115,7 +104,6 @@ async function schedule(who, people, { subject = "Next Sunday", at = nextWeek() 
 	return { id: saved.communicationId, at, resend };
 }
 
-/** The person presses Unsubscribe: the token is the one every Messages email to them carries. */
 const unsubscribe = (who) =>
 	applyMessagesOptOut(f.db, ring, now, {
 		token: messagesOptOutToken(ring, { plantId: who.plantId, personId: who.id }),
@@ -124,7 +112,6 @@ const unsubscribe = (who) =>
 const feed = async (who) => ok(await notifications.readFeed(f.db, who.actor, {})).items;
 const bell = async (who) => ok(await notifications.readUnreadCount(f.db, who.actor, {})).count;
 const ours = async (who) => (await feed(who)).filter((item) => item.category === "scheduled_email_unsubscribe");
-/** Every notice row this category wrote for an account, whether or not the feed shows it. */
 const stored = (who) =>
 	rows(sql`SELECT n.source_record_id AS email, n.tenant_id AS church, n.title, n.safe_body AS body
 		FROM notice n WHERE n.recipient_id = ${who.id}::uuid AND split_part(n.logical_key, '/', 2) = 'scheduled_email_unsubscribe'
@@ -147,7 +134,6 @@ test("AC:CASE-NTF-016 Ana unsubscribes and Sam, who scheduled the email, has one
 	const answer = ok(await unsubscribe(ana));
 	assert.equal(answer.changed, true);
 
-	// Done 2: read straight after the answer, with no runner, job or later minute.
 	assert.equal((await rows(sql`SELECT count(*)::int AS n FROM job`))[0].n, jobsBefore, "no job was queued");
 	assert.equal(await bell(sam), bellBefore + 1);
 	const [newest] = await feed(sam);
@@ -161,7 +147,6 @@ test("AC:CASE-NTF-016 Ana unsubscribes and Sam, who scheduled the email, has one
 	assert.match(expected.body, /Next Sunday”, scheduled for [A-Z][a-z]{2} \d{1,2}, \d{4}, \d{1,2}:30 (AM|PM)\.$/);
 	assert.equal(JSON.stringify(newest).includes(ana.email), false, "the notice never shows Ana's address");
 	assert.deepEqual(await stored(sam), [{ email: email.id, church: w.id, title: expected.title, body: expected.body }]);
-	// T-260 Done 8: the subject is the scheduled email, from the notice's own source record; the domain names no URL.
 	assert.deepEqual(newest.subject, { kind: "communication", id: email.id });
 });
 
@@ -271,7 +256,6 @@ test("AC:CASE-NTF-016 Ana's opt-out from church A tells no one in church B, and 
 	const b = await church();
 	const sam = await staff(a);
 	const bea = await staff(b);
-	// The same human is a Person in each church.
 	const inA = await person(a, "Ana");
 	const inB = await person(b, "Ana");
 	const ben = await person(a, "Ben");
@@ -287,13 +271,11 @@ test("AC:CASE-NTF-016 Ana's opt-out from church A tells no one in church B, and 
 	assert.deepEqual(await stored(bea), [], "church B's scheduler is told nothing");
 	assert.deepEqual(await ours(bea), []);
 	assert.equal((await feed(bea)).length, 0, "church B's seat shows no church A entry");
-	// Church B's email to its own Ana still waits for her.
 	assert.equal(
 		(await rows(sql`SELECT state FROM mail WHERE logical_key = ${"communication/" + fromB.id + "/" + inB.id}`))[0]
 			.state,
 		"scheduled",
 	);
-	// A church A notice moved onto a church B account would still not show: the feed needs a seat in its church.
 	await f.admin.execute(sql`UPDATE notice SET recipient_id = ${bea.id}::uuid
 		WHERE recipient_id = ${sam.id}::uuid AND split_part(logical_key, '/', 2) = 'scheduled_email_unsubscribe'`);
 	assert.deepEqual(await ours(bea), []);
@@ -304,12 +286,9 @@ test("AC:CASE-NTF-016 no notice when Ana is on no waiting scheduled email", asyn
 	const sam = await staff(w);
 	const ana = await person(w, "Ana");
 	const ben = await person(w, "Ben");
-	// Already went out.
 	const went = await schedule(sam, [ana, ben]);
 	await atSendTime(f.admin, f.db, went.id, went.resend.transport, keys);
-	// Still a draft.
 	await draft(sam, [ana, ben]);
-	// Cancelled by staff.
 	const cancelled = await schedule(sam, [ana, ben]);
 	const [{ revision }] = await rows(
 		sql`SELECT revision::text AS revision FROM communication WHERE id = ${cancelled.id}::uuid`,
@@ -322,9 +301,7 @@ test("AC:CASE-NTF-016 no notice when Ana is on no waiting scheduled email", asyn
 			cancelled.resend.transport,
 		),
 	);
-	// Not to Ana.
 	await schedule(sam, [ben]);
-	// Handed to the email service before T-241 (D-683).
 	const held = await schedule(sam, [ana, ben]);
 	await heldAtProvider(f.admin, held.id, held.resend.transport, keys);
 

@@ -10,14 +10,9 @@ const personRow = z.object({
 	displayName: z.string(),
 	email: z.string().nullable(),
 	n: z.number().int(),
-	/** When they unsubscribed from this church's Messages email, or null. */
 	optedOutAt: z.string().nullable(),
 });
 
-/**
- * One set-based audience. Duplicate person ids stay. Paused teams and unknown groups add nobody. Each person carries
- * when they unsubscribed from this church's email; a review still freezes them, and a send refuses them.
- */
 export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
 	const groups = JSON.stringify(audience.groups);
 	const teamIds = JSON.stringify(audience.teamIds);
@@ -110,7 +105,6 @@ export function summarizeAudience(raw: unknown) {
 	});
 }
 
-/** Person ids and addresses a review freezes. Both lists are sorted the same way at schedule and at handoff. */
 export function reviewedParts(raw: unknown): { people: string[]; emails: string[] } {
 	const rows = z
 		.array(personRow)
@@ -122,5 +116,4 @@ export function reviewedParts(raw: unknown): { people: string[]; emails: string[
 	};
 }
 
-/** The people and addresses of one resolved audience: a review saves it, and the schedule compares it. */
 export const recipientsDigest = (raw: unknown) => hash(reviewedParts(raw));
