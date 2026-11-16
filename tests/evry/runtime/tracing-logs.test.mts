@@ -6,11 +6,6 @@ import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
 import { flushTraces, registerTracing, traceTurn } from "../../../packages/evry/src/runtime/trace.ts";
 
-// What tracing writes about itself to the server log, against a local stand-in for Langfuse's OTLP endpoint that answers
-// with `status`. Registration sets process-global OpenTelemetry state, so this file registers once and every later
-// registration finds the first one global.
-
-// The OpenTelemetry API instance Evry registers its diag logger on.
 const { diag } = createRequire(new URL("../../../packages/evry/package.json", import.meta.url))(
 	"@opentelemetry/api",
 ) as typeof import("@opentelemetry/api");
@@ -32,7 +27,6 @@ const secrets = {
 let env: Record<string, string>;
 let host: string;
 
-/** Every line any test here wrote, for the secrets check at the end. */
 const written: string[] = [];
 async function logged<T>(body: () => T | Promise<T>) {
 	const lines: Record<string, unknown>[] = [];

@@ -4,9 +4,8 @@ import type { ComponentPropsWithRef } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
 import { Spinner } from "./Spinner";
 
-/** Button variants from the prototype's .btn (components.md, Button). Text on a hue fill is ink or on-ink, never white. */
 export const buttonVariants = cva(
-	"relative inline-flex flex-none cursor-pointer items-center justify-center gap-2 whitespace-nowrap font-medium select-none transition-[background-color,box-shadow,translate,opacity] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-45 disabled:active:translate-y-0 aria-busy:cursor-progress",
+	"relative inline-flex flex-none items-center justify-center gap-2 whitespace-nowrap font-medium select-none transition-[background-color,box-shadow,translate,opacity] duration-150 active:translate-y-px disabled:opacity-45 disabled:active:translate-y-0",
 	{
 		variants: {
 			variant: {
@@ -40,18 +39,11 @@ export const buttonVariants = cva(
 
 type ButtonProps = ComponentPropsWithRef<"button"> &
 	VariantProps<typeof buttonVariants> & {
-		/** Render the child element (a link) with the button look. */
 		asChild?: boolean;
-		/** A leading icon. Trailing icons go in children. */
 		icon?: IconSvgElement;
-		/** Shows a spinner, keeps the label for width and the accessible name, and blocks repeat clicks. */
 		loading?: boolean;
 	};
 
-/**
- * A button or, with asChild, a link that looks like one. `loading` sets aria-busy and aria-disabled instead of
- * disabled, so the button keeps focus while the request runs.
- */
 export function Button({ variant, size, asChild, icon, loading, className, children, onClick, ...props }: ButtonProps) {
 	const Comp = asChild ? Slot.Root : "button";
 	const iconSize = size === "sm" ? 16 : 18;
@@ -78,7 +70,7 @@ export function Button({ variant, size, asChild, icon, loading, className, child
 }
 
 export const iconButtonVariants = cva(
-	"relative grid flex-none cursor-pointer place-items-center text-ink-2 transition-[background-color,box-shadow] duration-150 disabled:cursor-not-allowed disabled:opacity-45",
+	"relative grid flex-none place-items-center text-ink-2 transition-[background-color,box-shadow] duration-150 disabled:opacity-45",
 	{
 		variants: {
 			variant: {
@@ -96,14 +88,9 @@ export const iconButtonVariants = cva(
 type IconButtonProps = Omit<ComponentPropsWithRef<"button">, "children" | "aria-label"> &
 	VariantProps<typeof iconButtonVariants> & {
 		icon: IconSvgElement;
-		/** The accessible name. Required: an icon alone names nothing. */
 		label: string;
 	};
 
-/**
- * An icon-only button. `label` is its accessible name; wrap it in Tooltip when sighted users need the name too
- * (foundations.md: anything that appears on hover also appears on focus).
- */
 export function IconButton({ icon, label, variant, size, className, ...props }: IconButtonProps) {
 	return (
 		<button

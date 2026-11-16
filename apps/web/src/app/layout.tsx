@@ -16,14 +16,12 @@ export const metadata: Metadata = {
 	openGraph: { siteName: SITE_NAME, type: "website", locale: "en_US" },
 	twitter: { card: "summary_large_image" },
 };
-// Marketing pages are light only, in every browser and system setting (Phase 5 rule): a color-scheme meta and the root style.
 export const viewport: Viewport = THEME_VIEWPORT.light;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
 	return (
 		<html lang="en" className={FONT_VARIABLES} suppressHydrationWarning>
 			<body>
-				{/* oxlint-disable-next-line everyfield/no-inner-html -- Our own constant script sets the reader flags before the first paint; React gives an inline script its code only through this prop. */}
 				<script dangerouslySetInnerHTML={{ __html: READER_INPUT_SCRIPT + ";" + JS_FLAG_SCRIPT }} />
 				{children}
 				<PageScroll />

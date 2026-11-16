@@ -13,7 +13,7 @@ export function RootState({ title, children, actions }: { title: string; childre
 		<div className="flex min-h-dvh flex-col px-page">
 			<LogoSymbols />
 			<header className="mx-auto flex w-full max-w-mk items-center py-6">
-				<Link href="/" className="cursor-pointer rounded-md">
+				<Link href="/" className="rounded-md">
 					<Logo variant="nav" />
 				</Link>
 			</header>

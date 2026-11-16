@@ -1,0 +1,17 @@
+{
+	"packages/db/src/schema/artifacts.ts": 5,
+	"packages/db/src/schema/auth-storage.ts": 2,
+	"packages/db/src/schema/brand-asset.ts": 8,
+	"packages/db/src/schema/catalog-state.ts": 2,
+	"packages/db/src/schema/catalog.ts": 3,
+	"packages/db/src/schema/check-current.ts": 2,
+	"packages/db/src/schema/drift.ts": 2,
+	"packages/db/src/schema/migrate.ts": 10,
+	"packages/db/src/schema/normalize.ts": 2,
+	"packages/db/src/schema/parse-pdf.worker.mjs": 6,
+	"packages/db/src/schema/snapshot.ts": 1,
+	"packages/db/src/schema/storage.ts": 24,
+	"packages/db/src/schema/tables.ts": 76,
+	"packages/db/src/schema/time.ts": 1,
+	"packages/db/src/schema/validate-file.ts": 13
+}

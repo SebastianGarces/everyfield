@@ -1,0 +1,8 @@
+{
+	"tests/unit/documents/editor-schema.test.mts": 25,
+	"tests/unit/documents/labels.test.mts": 3,
+	"tests/unit/documents/merge-too-long.test.mts": 3,
+	"tests/unit/documents/render-key.test.mts": 7,
+	"tests/unit/documents/save-chain.test.mjs": 8,
+	"tests/unit/documents/toolbar-disabled.test.mts": 10
+}

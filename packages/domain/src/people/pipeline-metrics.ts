@@ -33,18 +33,6 @@ type Row = z.infer<typeof row>;
 type Move = { at: number; from: Stage | null; to: Stage | null };
 const known = (v: string | null): Stage | null => stage.safeParse(v).data ?? null;
 
-/**
- * people.readPipelineMetrics (PPL-023): an internal, same-church count of recorded pipeline moves at a frozen asOf. Any
- * live seat of the church reads it; an organization seat or another church gets access_denied. No screen or Evry tool
- * calls it. One statement reads the church's People with the record each one is merged into, and every recorded stage
- * move; the counts are worked out from those rows:
- * - Current stage counts: live canonical People by their stage at asOf.
- * - Transition people: distinct canonical People with at least one exact `from` to `to` move inside the window, so a
- *   repeat after a move back counts once, and a merged record's moves count for the Person it was merged into.
- * - Denominator: the canonical People in `from` when the window opened. It is Unknown when the history cannot rebuild
- *   it: a Person whose records were merged, or a move recorded without its stages. Nobody in `from` is Unknown too, never
- *   a division by zero. The rate is never combined from current counts and historical moves.
- */
 export async function readPipelineMetrics(
 	db: Pick<Database, "execute">,
 	authority: RequestActor,
@@ -82,20 +70,17 @@ SELECT g.ok, pl.timezone,
 	return { status: "ok", value: pipelineMetrics.parse(measure(r, q)) };
 }
 
-/** The counts from the statement's rows. Pure: the same rows and request always give the same answer. */
 function measure(r: Row, q: z.infer<typeof pipelineMetricsRequest>): z.input<typeof pipelineMetrics> {
 	const asOf = Date.parse(q.asOf);
 	const opens = Date.parse(r.opens_at!);
 	const closes = Math.min(Date.parse(r.closes_at!), asOf + 1);
 	const persons = new Map((r.persons ?? []).map((x) => [x.id, x]));
-	// Each record's moves in order. A move saved without its source stage takes it from the move before.
 	const moves = new Map<string, Move[]>();
 	for (const e of r.events ?? []) {
 		const list = moves.get(e.person) ?? [];
 		list.push({ at: Date.parse(e.at), from: known(e.from) ?? list.at(-1)?.to ?? null, to: known(e.to) });
 		moves.set(e.person, list);
 	}
-	/** A record's stage at `t`, or null when its history cannot say. */
 	const stageAt = (id: string, t: number): Stage | null | undefined => {
 		const list = moves.get(id) ?? [];
 		const before = list.filter((m) => m.at <= t).at(-1);
@@ -103,7 +88,6 @@ function measure(r: Row, q: z.infer<typeof pipelineMetricsRequest>): z.input<typ
 		const after = list.find((m) => m.at > t);
 		return after ? after.from : (persons.get(id)?.stage ?? null);
 	};
-	// The live canonical People, and the records folded into each.
 	const groups = new Map<string, string[]>();
 	for (const x of persons.values()) {
 		const head = persons.get(x.canonical);
@@ -130,7 +114,6 @@ function measure(r: Row, q: z.infer<typeof pipelineMetricsRequest>): z.input<typ
 		rebuilt = true;
 	for (const [head, ids] of groups) {
 		if (created(head) >= opens) continue;
-		// A merge folds two histories into one Person: who was in which stage when the window opened is lost.
 		if (ids.filter((id) => moves.has(id)).length > 1) {
 			rebuilt = false;
 			continue;

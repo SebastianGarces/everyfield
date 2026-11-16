@@ -22,27 +22,12 @@ import {
 	trendOf,
 } from "./views.ts";
 
-// Plant Intelligence assessments (WP-041 to WP-043). Nobody runs an assessment by hand: a changed input or reference,
-// seven quiet days, or an Owner's or Admin's request (intelligence.requestRefresh) queues a demand, and the scheduled
-// job (assessment-job.ts) captures one consistent snapshot, drafts outside any transaction and publishes only while
-// its inputs, the reference activation and its own claim are still current. This file holds the drafting budget, the
-// published shape and the plant's reads. Reads call no model.
-
-/** One model call. `feedback` holds the previous draft's violations, so the next draft can correct them. */
 export type DraftCall = { input: c.ModelInput; feedback: c.Violation[]; ordinal: number; maxOutputTokens: number };
 export type DraftReply = { output: unknown; usage: { inputTokens: number; outputTokens: number } };
-/**
- * The model port. Tests and CI use only the scripted drafter (D77); the paid gpt-6-luna drafter runs off production
- * under D77's monthly counter (D92). A drafter makes exactly one dispatch per call: any SDK of a real one sets its own
- * retries to zero (PI-020), because the run's budget owns every dispatch. A busy provider (429 or 5xx) throws
- * ProviderBusy; a refused spend reservation throws ModelUnavailable before the provider sees anything; any other
- * failure is an uncertain call that may still be charged.
- */
 export interface Drafter {
 	readonly id: string;
 	draft(call: DraftCall, signal: AbortSignal): Promise<DraftReply>;
 }
-/** The provider said it is busy (429, or a 5xx), with its Retry-After when it sent one. */
 export class ProviderBusy extends Error {
 	readonly status: number;
 	readonly retryAfterMs: number | null;
@@ -53,7 +38,6 @@ export class ProviderBusy extends Error {
 	}
 }
 
-/** The month's model spend would pass its cap (D77), so the call was never sent. */
 export class ModelUnavailable extends Error {
 	constructor() {
 		super("model_unavailable");
@@ -89,15 +73,12 @@ function scopeOf(authority: RequestActor) {
 }
 export const iso = (v: string) => sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
-/** A bound on the input tokens of one call: a byte-level tokenizer never makes more tokens than the bytes it reads. */
 const inputBound = (call: Omit<DraftCall, "maxOutputTokens">) =>
 	Buffer.byteLength(JSON.stringify({ input: call.input, feedback: call.feedback })) + 512;
-/** Each call may write at most this much, so four uncertain attempts fit the run's 12,000 output tokens. */
 const OUTPUT_PER_CALL = 3000;
 
 export type StoredDraft = { ordinal: number; attempts: number; output: unknown; violations: c.Violation[] };
 export type Usage = { attempts: number; inputTokens: number; outputTokens: number };
-/** A run's drafting so far, as stored with it: a resumed run continues from here within the same budget. */
 export type DraftProgress = { drafts: StoredDraft[]; usage: Usage; pendingAttempts: number };
 export const NO_PROGRESS: DraftProgress = {
 	drafts: [],
@@ -107,18 +88,10 @@ export const NO_PROGRESS: DraftProgress = {
 export type Drafted = {
 	progress: DraftProgress;
 	published: c.DraftOutput | null;
-	/** Why drafting stopped without a clean draft; `busy` waits and resumes, `lost_claim` leaves the run to its new owner. */
 	reason: "invalid_drafts" | "attempts" | "budget" | "busy" | "model_unavailable" | "lost_claim" | null;
 	retryAfterMs: number | null;
 };
 
-/**
- * Up to three drafts, four provider dispatches each, inside the run's 60,000 input and 12,000 output tokens, resuming
- * from `progress`. Every dispatch is counted before it is sent: `reserve` stores the counters with the dispatch charged
- * in full (the most an uncertain call can cost), and a refused reservation (the claim was lost) sends nothing. A busy
- * provider stops drafting so the run can wait; the dispatch it cost stays counted. A refused spend reservation stops
- * drafting with nothing sent. Pure apart from the two ports.
- */
 export async function draftWithin(
 	drafter: Drafter,
 	input: c.ModelInput,
@@ -169,7 +142,6 @@ export async function draftWithin(
 					},
 				};
 			} catch (error) {
-				// The reservation stands: an uncertain call may still be charged.
 				if (error instanceof ProviderBusy) return stop("busy", error.retryAfterMs);
 				if (error instanceof ModelUnavailable) return stop("model_unavailable");
 			}
@@ -186,7 +158,6 @@ export async function draftWithin(
 	return stop("invalid_drafts");
 }
 
-/** The published assessment as stored: the draft plus every citation it uses, resolved from the run input. */
 export function publication(draft: c.DraftOutput, input: c.ModelInput) {
 	const facts = new Map(input.facts.map((f) => [f.key, f]));
 	const passages = new Map(input.passages.map((p) => [p.key, p]));
@@ -201,7 +172,6 @@ export function publication(draft: c.DraftOutput, input: c.ModelInput) {
 	);
 	return { draft, citations };
 }
-/** The insights a published draft writes (PI-023): one per point, in order, with its urgency's stored severity. */
 export function insightsOf(draft: c.DraftOutput) {
 	const points = [
 		{ role: "focus" as const, p: draft.focus },
@@ -211,22 +181,16 @@ export function insightsOf(draft: c.DraftOutput) {
 	return points.map(({ role, p }, ordinal) => ({ ordinal, role, severity: c.SEVERITY[p.urgency], title: p.title }));
 }
 
-/**
- * The plant's scheduled runs that failed in a row, newest first: held for an operator once three did (PI-042). A
- * manual run or any other settled outcome ends the streak. One lateral row: `held` and the streak's run ids.
- */
 export const heldSql = (plant: SQL) => sql`(SELECT count(*)=${c.HELD_AFTER_FAILURES}::int
 	AND coalesce(bool_and(x.outcome IN ('failed','degraded') AND x.demand<>'manual'),false) AS held
 	FROM (SELECT r.outcome,r.demand FROM assessment_run r WHERE r.plant_id=${plant}
 		AND r.outcome NOT IN ('superseded','pending','deferred') ORDER BY r.captured_at DESC,r.id DESC
 		LIMIT ${c.HELD_AFTER_FAILURES}::int) x)`;
-/** A plant whose account or deletion hides it: no demand, run or publication for it. */
 export const plantHidden = (plant: SQL) => sql`EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=${plant}
 	AND w.kind='plant' AND w.state NOT IN ('active','cancelled'))`;
 const openJob = (plant: SQL) => sql`EXISTS(SELECT FROM job j WHERE j.kind='assessment' AND j.subject_record_id=${plant}
 	AND j.state IN ('ready','claimed','retry_wait'))`;
 
-/** The newest work since the current assessment, as the planter reads it. */
 function newestOf(r: z.infer<typeof readRow>): c.NewestRun | null {
 	const n = r.newest && r.newest.newer ? r.newest : null;
 	if (r.open)
@@ -244,11 +208,6 @@ export function createAssessments(config: { clock?: Clock } = {}) {
 	const now = () =>
 		config.clock ? sql`${new Date(config.clock.now()).toISOString()}::timestamptz` : sql`clock_timestamp()`;
 	return {
-		/**
-		 * intelligence.requestRefresh: an Owner or Admin asks for a fresh assessment of their plant. It queues one demand
-		 * for the scheduled job with its audit row, in one statement; the browser names the request id, so a repeated
-		 * request queues one run. A refused request queues nothing.
-		 */
 		async requestRefresh(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = c.requestRefreshRequest.safeParse(raw);
@@ -269,12 +228,6 @@ SELECT (SELECT ok FROM gate) AS ok`);
 			});
 		},
 
-		/**
-		 * intelligence.readAssessment: the latest published assessment (by publication instant and id) with its insights,
-		 * its delta and its real age, and the state of any newer work: being prepared, waiting for the provider, couldn't
-		 * be finished, or held for an operator. Pending, deferred, failed or superseded work never replaces it. The
-		 * measured facts are read separately (intelligence.readFacts). One statement, no model call.
-		 */
 		async readAssessment(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
 			return settle(async () => {
 				if (!c.readAssessmentRequest.safeParse(raw).success) deny("invalid_input");
@@ -317,12 +270,6 @@ SELECT (SELECT ok FROM gate) AS ok,
 			});
 		},
 
-		/**
-		 * intelligence.markAssessmentSeen: an Owner's or Admin's explicit open of one of the plant's published runs. Their
-		 * first open is recorded once, with its intelligence.assessment_opened audit row; the plant's earliest open
-		 * releases the run to its organizations before the 72 hours pass (PI-032). Rendering never calls this, and an
-		 * organization seat or a Member is refused. One statement.
-		 */
 		async markAssessmentSeen(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = c.markSeenRequest.safeParse(raw);
@@ -345,13 +292,6 @@ SELECT (SELECT ok FROM gate) AS ok,EXISTS(SELECT FROM r) AS found,EXISTS(SELECT 
 			});
 		},
 
-		/**
-		 * intelligence.submitFeedback: the reader's own rating of one point of one of the plant's published runs, useful
-		 * or not useful, with an optional comment (blank means none). It replaces only the reader's own earlier rating of
-		 * that point, is bound to the run's rubric version, and never changes the run, its insights or the rubric. A
-		 * change writes one intelligence.feedback_saved audit row naming the changed fields, never the comment; the same
-		 * rating and comment again write nothing. One statement.
-		 */
 		async submitFeedback(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = c.submitFeedbackRequest.safeParse(raw);
@@ -401,11 +341,6 @@ SELECT (SELECT ok FROM gate) AS ok,EXISTS(SELECT FROM i) AS found,
 			});
 		},
 
-		/**
-		 * intelligence.readAssessmentHistory: the plant's latest twelve published runs, newest first, each with its as-of,
-		 * the date it was measured on, the phase it assessed and the trend facts its own original snapshot held. A fact
-		 * the snapshot did not have reads Not measured, never zero. One statement, no model call.
-		 */
 		async readHistory(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
 			return settle(async () => {
 				if (!c.readAssessmentHistoryRequest.safeParse(raw).success) deny("invalid_input");
@@ -438,14 +373,6 @@ SELECT (SELECT ok FROM gate) AS ok,(SELECT coalesce(json_agg(json_build_object('
 			});
 		},
 
-		/**
-		 * intelligence.resolveCitation: one citation of one of the plant's runs. A fact resolves against the run's own fact
-		 * snapshot, whether a point cited it or a tile or criterion shows it as evidence; a passage against the exact
-		 * revision the run read, which must still hash to the cited text. A network's or sending church's own article
-		 * resolves only while the plant still shares the Wiki with that organization: its text never leaves the statement
-		 * otherwise. The people a fact counted link only while they are still live in the plant: a removed or merged-away
-		 * person is counted without a name or link (PI-026). One statement, no model call.
-		 */
 		async resolveCitation(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = c.resolveCitationRequest.safeParse(raw);
@@ -477,11 +404,6 @@ SELECT (SELECT ok FROM gate) AS ok,(SELECT cite FROM c) AS cite,(SELECT facts FR
 			});
 		},
 
-		/**
-		 * intelligence.listRunsForReview: for a platform operator with a current assessment_operator grant, every plant
-		 * held after three failed scheduled runs, each with its newest failed run's cause, counters and final-draft rules.
-		 * Never the plant's facts, the model input or any draft's words. One statement.
-		 */
 		async listRunsForReview(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
 			return settle(async () => {
 				if (!c.listRunsForReviewRequest.safeParse(raw).success) deny("invalid_input");
@@ -497,11 +419,6 @@ SELECT (SELECT ok FROM gate) AS ok,
 			});
 		},
 
-		/**
-		 * intelligence.describeRunFailure: one run that did not publish, for a platform operator: the real cause
-		 * (provider, output check with the final draft's rules, budget, persistence, deadline or guidance), its counters
-		 * and the plant's failed streak, and no raw plant data, model input or output. One statement.
-		 */
 		async describeRunFailure(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = c.describeRunFailureRequest.safeParse(raw);
@@ -520,12 +437,10 @@ SELECT (SELECT ok FROM gate) AS ok,(SELECT ${reviewJson} FROM r) AS run`);
 }
 export type Assessments = ReturnType<typeof createAssessments>;
 
-/** platformAdmin.authorize for assessment review: the caller's own live account holds a current operator grant. */
 const operator = (authority: RequestActor): SQL =>
 	sql`(${liveRead({ session: authority.session, owner: { kind: "account", id: authority.actor.accountId } })}
 	AND EXISTS(SELECT FROM platform_grant g WHERE g.account_id=${authority.actor.accountId}::uuid
 	AND g.capability='assessment_operator' AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp())))`;
-/** A run as the operator reads it: counters, reason and the final draft's rules only. `r` is the run, `r.plant_name`. */
 const reviewJson = sql`json_build_object('runId',r.id,'plantName',r.plant_name,'demand',r.demand,'asOf',${iso("r.as_of")},
 	'settledAt',${iso("r.settled_at")},'outcome',r.outcome,'reason',r.reason,
 	'violations',(SELECT coalesce(json_agg(json_build_object('rule',v->>'rule','where',v->>'where')),'[]'::json)
@@ -550,7 +465,6 @@ const storedReview = z.object({
 	outputTokens: z.int(),
 	streak: z.array(z.object({ runId: z.string(), settledAt: z.string(), reason: c.runReason.nullable() })).nullable(),
 });
-/** The cause an operator reads for each reason a run did not publish; guidance covers the rest. */
 const CAUSE: Partial<Record<c.RunReason, c.FailureCause>> = {
 	invalid_drafts: "output_check",
 	attempts: "provider",
@@ -664,11 +578,6 @@ const citationRow = z.object({
 	people: c.citationView.options[0].shape.people.nullable(),
 	current_release: z.string().nullable(),
 });
-/**
- * The people a fact counted, as a JSON array of person refs from snapshot `c.facts`: the counted adults, the people who
- * need classifying, the disengaged, the prayer leaders or everyone across the ministry responsibilities. Other facts
- * count no person.
- */
 function countedPeople(key: string): SQL {
 	const f = sql`c.facts`;
 	if (["committedAdults.status", "committedAdults.count", "committedAdults.atLeast"].includes(key))
@@ -689,14 +598,8 @@ const storedFact = z.object({
 	value: c.factEntry.shape.value,
 });
 
-/**
- * A stored citation checked against its source now: verified, can't be verified, or no longer available. A key no
- * point cited is any fact of the run's snapshot, or not found.
- */
 function checkCitation(key: string, r: z.infer<typeof citationRow>): c.CitationView | null {
 	if (!r.cite || r.cite.kind === "fact") {
-		// A fact resolves against the run's own stored snapshot, not the live facts: the snapshot never changes, so
-		// "can't be verified" here means a corrupt or tampered row, never that the plant's facts moved on since.
 		const snapshot = c.plantFacts.safeParse(r.facts);
 		const fact = snapshot.success ? c.factCatalog(snapshot.data).find((f) => f.key === key) : undefined;
 		if (!snapshot.success || !fact) return r.cite ? { status: "unverifiable", key } : null;
@@ -720,7 +623,6 @@ function checkCitation(key: string, r: z.infer<typeof citationRow>): c.CitationV
 	const cite = storedPassage.safeParse(r.cite);
 	if (!cite.success) return { status: "unverifiable", key };
 	const p = cite.data;
-	// Only a global passage, or an organization's article the plant still reaches, ever has a source row here.
 	if (!r.source) return p.sourceKind === "global" ? { status: "unverifiable", key } : { status: "unavailable", key };
 	const section = sectionsOf(r.source.content_type, r.source.body).find((s) => s.section === p.section);
 	if (!section || textHash(section.text) !== p.textHash || section.text !== p.text)

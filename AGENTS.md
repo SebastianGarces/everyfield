@@ -44,9 +44,16 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 - Prove actual behavior. Tooling checks establish tooling behavior, not application acceptance.
 - Keep screenshots, traces and temporary verification scripts outside the repository.
 - Encode repeated corrections in a type, lint rule or test before adding written rules.
-- Every clickable element shows `cursor-pointer`: buttons, links, tabs, menu items, clickable rows, chips,
-  labelled checkboxes and radios, icon buttons. `packages/ui` primitives apply it, not call sites.
-  Disabled controls keep `cursor-not-allowed`.
+- Lint rules state the code rules, not comments: no comments, no effects, at most four state hooks per component or
+  hook, no timers in product code (`scripts/lint/everyfield-plugin.mjs`). A real exception is a survivor in
+  `scripts/lint/survivors/<area>.json` with its reason, and it waits for Sebastian. Never add to
+  `scripts/lint/baseline/`; after cleaning a file run `node scripts/lint/baseline.mjs --shrink`.
+- A feature's code lives in `apps/web/src/features/<feature>/`. Import another feature only through a file its
+  `scripts/lint/boundaries/` list makes public; `everyfield/feature-boundaries` enforces the layers (D95).
+- Every clickable element shows the pointer cursor through one base-layer rule in `packages/ui/src/controls/controls.css`,
+  keyed on semantics: links, native controls, toggle labels and the ARIA widget roles. It also gives disabled controls
+  `not-allowed` and busy ones `progress`. `everyfield/clickable-host` refuses a click handler on an element that is not
+  a control, and `everyfield/no-cursor-utility` refuses call-site cursor classes.
 - Every Evry adapter operation or catalog tool you add or change ships with recorded eval cases in
   `tests/evry/evals/`; the rule is in `.agents/skills/test-standard/SKILL.md`.
 - Put shared workflow rules in `evf.toml`, a role prompt or a skill, never a second host-specific hook.
@@ -80,6 +87,9 @@ Each `[role.*]` in `evf.toml` and the role notes its `.agents/role-prompts/<role
 | PR visual examples | `.agents/skills/pr/SKILL.md` |
 | Debugging | `.agents/skills/debug-with-traces/SKILL.md` |
 | Decisions | `.agents/skills/decisions/SKILL.md` |
+| Formal check for a new high-cost subsystem (permissions, billing) | `.agents/skills/create-formal-verification-skill/SKILL.md` |
+| Permissions model, its TLC check and conformance test | `.agents/skills/formal-permissions/SKILL.md` |
+| A diff touches a path in a formal `map.json` | `.agents/skills/maintain-formal-verification/SKILL.md` |
 | Previews | `.agents/skills/portless-preview/SKILL.md`, then the Everyfield rules in "Shared preview service" of `verify-preview` |
 | UI quality | better-interface and the better-* suite |
 | Browser runs, preview stack, logs | `bin/dev help` |

@@ -2,12 +2,13 @@
 // network. The tracked pre-push hook (tools/git-hooks/pre-push) runs it; GitHub CI's full run over the whole repo stays
 // required. Each step reads its scope from the script it stands in for, so it follows them when they change: the root
 // `format:check` globs, each workspace package's `lint` and `typecheck` scripts, the root lint scripts the root `lint`
-// runs with `pnpm run`, the root `typecheck:tools` script and its tsconfig's `include`, and pnpm-workspace.yaml.
+// runs with `pnpm run`, the root `typecheck:tools` script and its tsconfig's `include`, and pnpm-workspace.yaml. The
+// `formal` step reads every `.agents/skills/formal-*/map.json` (D-1586).
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
 import { extname, join, matchesGlob, relative, resolve, sep } from "node:path";
 
-export type StepName = "format" | "lint" | "typecheck";
+export type StepName = "format" | "lint" | "typecheck" | "formal";
 export type Step = {
 	name: StepName;
 	status: "passed" | "failed" | "skipped";
@@ -23,7 +24,7 @@ export type Report = { ok: boolean; base: { ref: string; sha: string }; files: s
 
 export class FastCheckError extends Error {}
 
-type Linter = { tool: "oxlint" | "eslint"; bin: string; config?: string };
+type Linter = { tool: "oxlint" | "eslint"; bin: string; config?: string; args: string[] };
 /** A package's lint: Oxlint first, then ESLint for the rules Oxlint lacks (T-43), each one optional, over the same roots. */
 type Lint = { cwd: string; linters: Linter[]; roots: string[] };
 type Pkg = { name: string; dir: string; lint?: Lint; typecheck: boolean };
@@ -71,7 +72,11 @@ function parseLint(dir: string, script: string | undefined): Lint | undefined {
 		const [bin, ...args] = part.split(/\s+/);
 		const tool = /(^|\/)(oxlint|eslint)$/.exec(bin ?? "")?.[2] as Linter["tool"] | undefined;
 		if (!bin || !tool) break;
-		const linter: Linter = { tool, bin: bin === tool ? join(dir, "node_modules/.bin", tool) : resolve(cwd, bin) };
+		const linter: Linter = {
+			tool,
+			bin: bin === tool ? join(dir, "node_modules/.bin", tool) : resolve(cwd, bin),
+			args,
+		};
 		const roots: string[] = [];
 		for (let at = 0; at < args.length; at++) {
 			const arg = args[at]!;
@@ -122,6 +127,16 @@ function workspacePackages(root: string): Pkg[] {
 			};
 		});
 }
+
+export type LintRun = Linter & { name: string; cwd: string; roots: string[] };
+
+export function lintRuns(root: string): LintRun[] {
+	return [...workspacePackages(root), ...rootLints(root)].flatMap(({ name, lint }) =>
+		(lint?.linters ?? []).map((linter) => ({ ...linter, name, cwd: lint!.cwd, roots: lint!.roots })),
+	);
+}
+
+export const oxlintRuns = (root: string) => lintRuns(root).filter((run) => run.tool === "oxlint");
 
 type Ran = { status: number | null; stdout: string; stderr: string; missing: boolean };
 const run = (cwd: string, bin: string, args: string[]) =>
@@ -396,6 +411,75 @@ async function typecheckPackages(root: string, packages: Pkg[], changed: string[
 	return { name: "typecheck", status: "failed", ms, files, fix: rerun, detail: (lines.join("\n") || output).trim() };
 }
 
+const MAINTAIN = ".agents/skills/maintain-formal-verification/SKILL.md";
+const TRAILER = "Formal-model: unchanged";
+
+/** Each formal map (.agents/skills/formal-<subsystem>/map.json): its code files and its model folder. */
+function formalMaps(root: string): { map: string; model: string; files: Set<string> }[] {
+	return globSync(".agents/skills/formal-*/map.json", { cwd: root })
+		.sort()
+		.map((map) => {
+			const parsed: Record<string, unknown> = JSON.parse(readFileSync(join(root, map), "utf8"));
+			const model = String(parsed.model ?? "").replace(/\/+$/, "");
+			if (!model) throw new FastCheckError(`${map} names no "model" folder.`);
+			// Actions, rules and properties each list the code they stand for as `code: [{ file, function }]`.
+			const entries = Object.values(parsed).flatMap((value) => (Array.isArray(value) ? value : []));
+			const files = new Set<string>(
+				entries.flatMap((entry: { code?: { file?: unknown }[] }) =>
+					(entry?.code ?? []).flatMap((code) => (typeof code?.file === "string" ? [code.file] : [])),
+				),
+			);
+			return { map, model, files };
+		});
+}
+
+/** Fails a branch that changes a mapped code file, deleted and renamed ones included, without changing that map or
+ * its model folder, unless a branch commit carries the `Formal-model: unchanged` trailer. Reads only git and the maps. */
+async function formal(root: string, sha: string): Promise<Step> {
+	const started = Date.now();
+	const maps = formalMaps(root);
+	if (!maps.length) return skipped("formal", "No .agents/skills/formal-*/map.json in the repo.");
+	// --no-renames lists a rename as its old and new path, so moving a mapped file counts as touching it.
+	const touched = (git(root, ["diff", "--name-only", "-z", "--no-renames", sha, "HEAD"]) ?? "")
+		.split("\0")
+		.filter(Boolean);
+	const drifted = maps.flatMap(({ map, model, files }) => {
+		const mapped = touched.filter((file) => files.has(file));
+		const kept = touched.some((file) => file === map || file.startsWith(model + "/"));
+		return mapped.length && !kept ? [{ map, model, mapped }] : [];
+	});
+	if (!drifted.length) return { name: "formal", status: "passed", ms: Date.now() - started, files: [] };
+	const trailed = (
+		git(root, ["log", `--format=%H %(trailers:key=Formal-model,valueonly,separator=%x2C)`, `${sha}..HEAD`]) ?? ""
+	)
+		.split("\n")
+		.map((line) => line.split(" "))
+		.find(([, value]) => value?.split(",").some((v) => v.trim() === "unchanged"))?.[0];
+	const files = [...new Set(drifted.flatMap(({ mapped }) => mapped))];
+	if (trailed)
+		return {
+			name: "formal",
+			status: "passed",
+			ms: Date.now() - started,
+			files: [],
+			detail: `${files.length} mapped file(s) changed; the ${TRAILER} trailer in commit ${trailed.slice(0, 9)} records the model still holds.`,
+		};
+	return {
+		name: "formal",
+		status: "failed",
+		ms: Date.now() - started,
+		files,
+		fix: MAINTAIN,
+		detail: [
+			...drifted.map(
+				({ map, model, mapped }) =>
+					`${mapped.join(", ")}: mapped in ${map} (model ${model}/), and the branch changes neither the map nor the model.`,
+			),
+			`Update the model or map as ${MAINTAIN} says, or, when the behavior did not change, add the trailer "${TRAILER}" to a branch commit.`,
+		].join("\n"),
+	};
+}
+
 export async function fastCheck(root: string, baseRef?: string): Promise<Report> {
 	const started = Date.now();
 	const { ref, sha, files } = changedFiles(root, baseRef);
@@ -404,6 +488,7 @@ export async function fastCheck(root: string, baseRef?: string): Promise<Report>
 		format(root, files),
 		lint(root, [...packages, ...rootLints(root)], files),
 		typecheck(root, packages, files),
+		formal(root, sha),
 	]);
 	return {
 		ok: steps.every((step) => step.status !== "failed"),
@@ -420,7 +505,8 @@ export function render(report: Report): string {
 	];
 	for (const step of report.steps) {
 		const time = step.status === "skipped" ? "" : ` ${step.ms} ms`;
-		lines.push(`${step.name.padEnd(10)}${step.status}${time}${step.status === "skipped" ? `: ${step.detail}` : ""}`);
+		const note = step.status !== "failed" && step.detail ? `: ${step.detail}` : "";
+		lines.push(`${step.name.padEnd(10)}${step.status}${time}${note}`);
 		if (step.status !== "failed") continue;
 		for (const file of step.files) lines.push(`  ${file}`);
 		if (step.detail)

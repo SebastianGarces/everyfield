@@ -1,0 +1,7 @@
+{
+	"public": {
+		"actions.ts": "correctTenure, which the people corrections screen calls",
+		"model.ts": "team day and problem texts that the people corrections screen shows",
+		"server.ts": "readMinistries, which meetings actions read"
+	}
+}

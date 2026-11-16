@@ -1,0 +1,7 @@
+{
+	"packages/contracts/src/intelligence/assessment.ts": 61,
+	"packages/contracts/src/intelligence/facts.ts": 45,
+	"packages/contracts/src/intelligence/index.ts": 14,
+	"packages/contracts/src/intelligence/signals.ts": 30,
+	"packages/contracts/src/intelligence/views.ts": 20
+}

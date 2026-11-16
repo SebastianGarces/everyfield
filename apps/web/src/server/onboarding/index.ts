@@ -10,11 +10,6 @@ import { createOnboardingProducer, withOnboardingWrite, readOnboardingEntry } fr
 import { getViewer } from "../request-context";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 
-// The onboarding mount (WP-009/ui R2). The screens reach it only through the server actions in
-// features/onboarding/actions.ts. The session comes from the identity mount, the plant from the seat service, and
-// every write goes through the WP-009/api producer in one transaction. Writes queue mail; the scheduled runner sends
-// it with onboardingMailPass.
-
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
 type Reply = { status: "ok"; value: unknown } | { status: "refused"; error: z.infer<typeof c.onboardingError> };
 
@@ -44,10 +39,6 @@ function onboardingMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	});
 }
 
-/**
- * The scheduled runner's onboarding mail pass: one bounded batch of this mount's due mail through `transport`, each
- * rechecked under the mount's own rule. Null when the deployment has no configuration for this mount.
- */
 export function onboardingMailPass(transport: MailTransport): MailPass | null {
 	const v = env.safeParse(process.env);
 	if (!v.success) return null;
@@ -90,7 +81,6 @@ function create(v: z.infer<typeof env>) {
 	});
 	return { db, producer, origin: v.IDENTITY_ORIGIN };
 }
-/** The onboarding producer and its database; null when the deployment has no identity or mail configuration. */
 export function onboardingMount() {
 	const v = env.safeParse(process.env);
 	if (!v.success) return null;
@@ -111,7 +101,6 @@ const refusal = (code: "unavailable" | "invalid_input"): Reply => ({
 	error: c.onboardingError.parse({ code, details: {}, correlationId: crypto.randomUUID(), retry: "never" }),
 });
 
-/** Run one onboarding command for the signed-in account. Input is parsed here; the producer rechecks every authority. */
 export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> {
 	const m = onboardingMount();
 	if (!m) return refusal("unavailable");
@@ -141,7 +130,6 @@ export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> 
 			return q.success ? run(account, (tx) => p.convertDiscovery(tx, account, q.data)) : refusal("invalid_input");
 		}
 	}
-	// Setup commands act on the account's own plant seat, never on a plant named by the browser.
 	const context = s.authority?.actor.context;
 	if (context?.kind !== "seat" || context.owner.kind !== "plant") return refusal("unavailable");
 	const plant = write(context.owner);

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { observeIntersection } from "@everyfield/ui/foundations";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { buttonClass } from "../ButtonLink";
 import { cn } from "../cn";
 
@@ -11,22 +12,13 @@ type Which = "inflow" | "pill";
 type Props = {
 	links: NavLink[];
 	cta: NavLink;
-	/** Server-rendered pieces, passed in so their SVG stays out of the client bundle. */
 	logo: ReactNode;
 	pillLogo: ReactNode;
 	arrow: ReactNode;
 	menuIcon: ReactNode;
 };
 
-/**
- * The site header in two copies: the in-flow header at the top of the page and the floating pill that slides in once
- * the in-flow header has scrolled out of view. Exactly one is exposed to assistive tech at a time (the other is inert
- * and aria-hidden), so there is one banner and one Main nav. While focus is inside the in-flow header it stays the
- * exposed one, even after it scrolls away; once focus leaves, the pill takes over. Below 1121 px each copy has its own
- * menu: Escape closes it and returns focus to its toggle, and a link click closes it.
- */
 export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) {
-	const inflowRef = useRef<HTMLElement>(null);
 	const inflowToggle = useRef<HTMLButtonElement>(null);
 	const pillToggle = useRef<HTMLButtonElement>(null);
 	const pillOnRef = useRef(false);
@@ -34,24 +26,18 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 	const [focusInHeader, setFocusInHeader] = useState(false);
 	const [open, setOpen] = useState<Which | null>(null);
 
-	// The pill shows once the in-flow header is entirely above the viewport. An IntersectionObserver reports that
-	// change; nothing runs per scroll frame and nothing reads layout.
-	useEffect(() => {
-		const header = inflowRef.current;
-		if (!header) return;
-		const io = new IntersectionObserver(([entry]) => {
-			const on = !entry!.isIntersecting;
-			if (on === pillOnRef.current) return;
-			pillOnRef.current = on;
-			setPillOn(on);
-			// A menu belongs to the bar that showed it; switching bars closes it.
-			setOpen(null);
-		});
-		io.observe(header);
-		return () => io.disconnect();
-	}, []);
+	const watchHeader = useMemo(
+		() =>
+			observeIntersection<HTMLElement>((entry) => {
+				const on = !entry.isIntersecting;
+				if (on === pillOnRef.current) return;
+				pillOnRef.current = on;
+				setPillOn(on);
+				setOpen(null);
+			}),
+		[],
+	);
 
-	// Escape closes the open menu and returns focus to its toggle. Listens only while a menu is open.
 	useEffect(() => {
 		if (!open) return;
 		const onKey = (e: KeyboardEvent) => {
@@ -64,34 +50,27 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 	}, [open]);
 
 	const pillLive = pillOn && !focusInHeader;
-	const onBlur = () =>
-		requestAnimationFrame(() => setFocusInHeader(!!inflowRef.current?.contains(document.activeElement)));
-	const bar = (which: Which) => (
-		<NavBar
-			which={which}
-			links={links}
-			cta={cta}
-			logo={which === "pill" ? pillLogo : logo}
-			arrow={arrow}
-			menuIcon={menuIcon}
-			open={open === which}
-			toggleRef={which === "pill" ? pillToggle : inflowToggle}
-			onToggle={() => setOpen((o) => (o === which ? null : which))}
-			onLinkClick={() => setOpen(null)}
-		/>
-	);
+	const toggle = (which: Which) => setOpen((o) => (o === which ? null : which));
+	const shared = { links, cta, arrow, menuIcon, onLinkClick: () => setOpen(null) };
 
 	return (
 		<>
 			<header
-				ref={inflowRef}
+				ref={watchHeader}
 				className="relative z-50"
 				inert={pillLive}
 				aria-hidden={pillLive || undefined}
 				onFocus={() => setFocusInHeader(true)}
-				onBlur={onBlur}
+				onBlur={(e) => setFocusInHeader(e.currentTarget.contains(e.relatedTarget) || !document.hasFocus())}
 			>
-				{bar("inflow")}
+				<NavBar
+					{...shared}
+					which="inflow"
+					logo={logo}
+					open={open === "inflow"}
+					toggleRef={inflowToggle}
+					onToggle={() => toggle("inflow")}
+				/>
 			</header>
 			<header
 				data-on={pillOn}
@@ -99,18 +78,22 @@ export function SiteNav({ links, cta, logo, pillLogo, arrow, menuIcon }: Props) 
 				aria-hidden={!pillLive || undefined}
 				className={cn(
 					"fixed inset-x-0 top-3 z-60 mx-auto w-full max-w-mk rounded-nav bg-white shadow-mk-pill will-change-[transform,opacity]",
-					// Slides down 360 ms with the hero ease-out; transform and opacity only. Hidden, it waits for the slide to end
-					// before it turns invisible.
 					"invisible opacity-0 [transform:translate3d(0,calc(-100%_-_16px),0)]",
 					"[transition:transform_.36s_var(--ease-mk-out),opacity_.36s_var(--ease-mk-out),visibility_0s_linear_.36s]",
 					"data-[on=true]:visible data-[on=true]:opacity-100 data-[on=true]:[transform:none]",
 					"data-[on=true]:[transition:transform_.36s_var(--ease-mk-out),opacity_.36s_var(--ease-mk-out),visibility_0s_linear_0s]",
 					"motion-reduce:[transition:none] motion-reduce:data-[on=true]:[transition:none]",
-					// Phones: the pill floats inside the page margin and clear of the notch (E8).
 					"max-mk-sm:top-[calc(12px_+_env(safe-area-inset-top))] max-mk-sm:right-[max(var(--spacing-page),env(safe-area-inset-right))] max-mk-sm:left-[max(var(--spacing-page),env(safe-area-inset-left))] max-mk-sm:w-auto",
 				)}
 			>
-				{bar("pill")}
+				<NavBar
+					{...shared}
+					which="pill"
+					logo={pillLogo}
+					open={open === "pill"}
+					toggleRef={pillToggle}
+					onToggle={() => toggle("pill")}
+				/>
 			</header>
 		</>
 	);
@@ -148,7 +131,6 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 		<div
 			className={cn(
 				"mx-auto flex max-w-mk items-center gap-7 px-page max-mk-sm:gap-3",
-				// The pill's last control sits as far from the right edge as from the top and bottom: (60 - 44) / 2.
 				pill ? "h-[60px] pr-2 max-mk-sm:h-14 max-mk-sm:pr-[7px]" : "h-[70px] max-mk-sm:h-16",
 			)}
 		>
@@ -168,7 +150,6 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					</Link>
 				))}
 				{pill ? null : (
-					// Phones (440 px and below) have no room for the request button in the header, so the menu carries it.
 					<Link
 						href={cta.href}
 						aria-current={cta.current ? "page" : undefined}
@@ -196,7 +177,7 @@ function NavBar({ which, links, cta, logo, arrow, menuIcon, open, toggleRef, onT
 					aria-controls={menuId}
 					onClick={onToggle}
 					className={cn(
-						"hidden cursor-pointer place-items-center rounded-nav-item border-0 bg-cream text-ink hover:bg-mk-surface-3 max-mk-nav:grid",
+						"hidden place-items-center rounded-nav-item border-0 bg-cream text-ink hover:bg-mk-surface-3 max-mk-nav:grid",
 						pill ? "size-11 max-mk-sm:size-[42px]" : "size-[42px]",
 					)}
 				>

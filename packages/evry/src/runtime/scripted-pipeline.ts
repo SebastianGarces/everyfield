@@ -3,12 +3,6 @@ import { randomUUID } from "node:crypto";
 import { dayText } from "../adapters/pipeline/reads/index.ts";
 import { PIPELINE_RULES } from "../context/compile.ts";
 
-// The scripted model's pipeline and program requests (WP-101), for local previews and tests only. It answers through
-// the same tools a model gets: it reads the pipeline as the user's Pipeline page shows it, drafts a program plan, and
-// proposes a stage move or a program that the user reviews. A request the tools never serve (logging a conversation,
-// reading notes, ranking people) gets the product's own reply from the system prompt (compile.ts), quoted only when the
-// prompt holds it, so the evals test the text the real model is given.
-
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind?: string; id: string; label: string; fields: Record<string, unknown> };
 type Output = Record<string, unknown> & { rows?: Row[]; facts?: Record<string, unknown> };
@@ -51,7 +45,6 @@ const QUOTED = `["'\u2018\u201c]([^"'\u2019\u201d]+)["'\u2019\u201d]`;
 const RHYTHM_TEXT = { weekly: "weekly", every_two_weeks: "every two weeks", monthly: "monthly" } as const;
 type Rhythm = keyof typeof RHYTHM_TEXT;
 
-/** The program a request names ("the residency", "our apprenticeship"), among the programs read. */
 function programNamed(rows: Row[], hint: string) {
 	const words = hint
 		.toLowerCase()
@@ -59,10 +52,8 @@ function programNamed(rows: Row[], hint: string) {
 		.filter((w) => w && !["the", "our", "my", "a", "of", "program", "plan"].includes(w));
 	return rows.find((r) => words.every((w) => r.label.toLowerCase().includes(w) || r.fields.kind === w));
 }
-/** The organization a request names as the program's owner ("Grace Austin's residency"), if any. */
 const ownerNamed = (hint: string) => /^(?:the )?([A-Z][\w-]*(?: [A-Z][\w-]*)*)'s\b/.exec(hint.trim())?.[1];
 
-/** One version of a program read (development.readProgram): its plan as the model drafts from it. */
 function versionPlan(detail: Output, which: "published" | "draft") {
 	const facts = detail.facts ?? {};
 	const number = facts[`${which}Version`];
@@ -88,7 +79,6 @@ function versionPlan(detail: Output, which: "published" | "draft") {
 }
 type Plan = NonNullable<ReturnType<typeof versionPlan>>;
 
-/** The plan with the changes the request asks for, or null when it asks for none Evry understands. */
 function edited(base: Plan, ask: string): Plan | null {
 	const plan: Plan = { ...base, milestones: [...base.milestones] };
 	let changed = false;
@@ -118,7 +108,6 @@ const planText = (plan: Plan, name?: string) =>
 		plan.readings.join("; ") || "none"
 	}.`;
 
-/** The pipeline answer for the user's seat: names by stage, or counts per stage only. */
 function boardText(out: Output) {
 	const facts = out.facts ?? {};
 	const rows = out.rows ?? [];
@@ -152,7 +141,6 @@ function staleText(out: Output) {
 	return `${head} How it was measured: ${String(facts.measured)}`;
 }
 
-/** A plan of `months` months: three stages over the length and five starter milestones. */
 function draft(months: number, kind: "apprenticeship" | "residency") {
 	const q = Math.max(1, Math.round(months / 4));
 	const t = Math.max(q, Math.round((3 * months) / 4));
@@ -180,7 +168,6 @@ const draftText = (plan: ReturnType<typeof draft>) =>
 		.map((s) => `${s.label} (months ${s.minMonths}–${s.maxMonths})`)
 		.join(", ")}. Milestones:\n${plan.milestones.map((m, i) => `${i + 1}. ${m.title}`).join("\n")}`;
 
-/** One step of a pipeline or program request, or null when it is none. */
 export function pipelineStep(options: LanguageModelV4CallOptions, text: string): LanguageModelV4Content[] | null {
 	const tools = JSON.stringify(options.tools ?? []);
 	const offers = (operation: string) => tools.includes(`"${operation}"`);
@@ -218,7 +205,6 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 		return null;
 	if (last?.error) return say(`I couldn't do that (${String(last.error)}).`);
 
-	// A program's next version: read the programs, then the one named, then propose the changed plan for its director.
 	const programs = outputs.findLast((o) => o.operation === "development.readProgram" && !o.facts?.programId);
 	const detail = outputs.findLast((o) => o.operation === "development.readProgram" && o.facts?.programId);
 	const hint = next?.[1] ?? shown?.[1];
@@ -282,10 +268,8 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 			},
 		});
 	}
-	// Publishing, enrolling and applying versions are done on the program's page in Programs.
 	if (PUBLISH.test(text)) return rule(PIPELINE_RULES.programNative);
 
-	// Never in Evry: conversations, notes and milestones are logged in the app; notes and rankings are never read.
 	if (LOG.test(text)) return rule(PIPELINE_RULES.nativeOnly);
 	if (JUDGE.test(text)) return rule(PIPELINE_RULES.noJudgment);
 
@@ -334,7 +318,6 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 		});
 	}
 
-	// Another organization's pipeline, or a person who may be in one: only this organization's own pipeline is read.
 	const other = OTHER_PIPELINE.exec(text)?.[1];
 	if (other && !/^(?:our|my)$/i.test(other)) {
 		if (!board) return readBoard();

@@ -1,6 +1,3 @@
-// The native services Evry's seat, Settings, sharing, connection, account, organization and setup tools call, built the way
-// the web app's mounts build them (apps/web/src/server/evry/native.ts), for tests: the email outbox is a list, and
-// replan, cleanup and purge jobs go to the real queue.
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
@@ -18,13 +15,11 @@ import {
 import type { NativePorts } from "../../../packages/evry/src/index.ts";
 import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 
-/** The native services; every email they queue is pushed to `mail`. */
 export function nativePorts(mail: { to: string; purpose: string }[] = []): NativePorts {
 	const organizationEffects = {
 		async invitation(_tx: unknown, input: { recipientEmail: string }) {
 			mail.push({ to: input.recipientEmail, purpose: "relationship_invitation" });
 		},
-		// As the web app's organization mount: ending or changing a link stops queued digest work that read the old grant.
 		invalidate: (_tx: unknown, input: { sourceId: string }) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`,
 	};
@@ -47,7 +42,6 @@ export function nativePorts(mail: { to: string; purpose: string }[] = []): Nativ
 		suppression: async () => "clear",
 	});
 	const timezones = timezoneOperations(effects);
-	// The cleanup and purge jobs go to the real queue, as the Settings mount queues them.
 	const avatar = avatarOperations({
 		queue: (tx, i) =>
 			queueJobs(tx as never, [
@@ -96,7 +90,6 @@ export function nativePorts(mail: { to: string; purpose: string }[] = []): Nativ
 			setPlantTimezone: timezones.setPlantTimezone,
 		},
 		account: { finalizeAvatar: avatar.finalizeAvatar, requestAccountDeletion: deletion.requestAccountDeletion },
-		// As the web app's onboarding mount (T-345): the receipt goes to the outbox with the change.
 		onboarding: createOnboardingProducer({
 			relationships: async (_tx, inputs) => {
 				for (const i of inputs) mail.push({ to: i.relationshipId, purpose: i.kind });
@@ -108,7 +101,6 @@ export function nativePorts(mail: { to: string; purpose: string }[] = []): Nativ
 				});
 			},
 		}),
-		// A local build names no version, as the feedback dialog's server does then.
 		appVersion: null,
 	};
 }

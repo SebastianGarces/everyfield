@@ -1,0 +1,5 @@
+{
+	"tests/unit/meetings/model.test.mjs": 2,
+	"tests/unit/meetings/next-card.test.mjs": 8,
+	"tests/unit/meetings/status-view.test.mjs": 2
+}

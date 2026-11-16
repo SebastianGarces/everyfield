@@ -14,17 +14,13 @@ type ListProps = {
 	options: ComboboxOption[];
 	value: string[];
 	onSelect: (value: string) => void;
-	/** Placeholder of the search box, such as "Search stages". */
 	searchLabel: string;
 	multiple: boolean;
-	/** Options are still arriving: shows a spinner row instead of "No matches". */
 	loading?: boolean;
-	/** Options failed to load: shows the message and a retry action instead of an empty list. */
 	error?: { message: string; onRetry: () => void };
 	emptyText?: string;
 };
 
-/** The searchable option list shared by Combobox and FilterChip (cmdk: arrow keys move, Enter selects, typing filters). */
 function OptionList({
 	options,
 	value,
@@ -52,7 +48,7 @@ function OptionList({
 						<button
 							type="button"
 							onClick={error.onRetry}
-							className="cursor-pointer rounded-xs font-medium text-ink underline underline-offset-[3px]"
+							className="rounded-xs font-medium text-ink underline underline-offset-[3px]"
 						>
 							Try again
 						</button>
@@ -78,7 +74,7 @@ function OptionList({
 									keywords={o.description ? [o.description] : undefined}
 									disabled={o.disabled}
 									onSelect={() => onSelect(o.value)}
-									className="relative flex min-h-[38px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-md text-ink transition-[background-color] duration-150 select-none data-[disabled=true]:cursor-not-allowed data-[disabled=true]:opacity-45 data-[selected=true]:bg-surface-2"
+									className="relative flex min-h-[38px] items-center gap-2.5 rounded-md px-2.5 py-1.5 text-md text-ink transition-[background-color] duration-150 select-none data-[disabled=true]:opacity-45 data-[selected=true]:bg-surface-2"
 								>
 									{multiple ? (
 										<span
@@ -107,13 +103,11 @@ function OptionList({
 
 type ComboboxProps = Omit<ListProps, "onSelect" | "multiple"> & {
 	onValueChange: (value: string[]) => void;
-	/** Several values (filters) or one. A single choice closes the list when picked. */
 	multiple?: boolean;
 	placeholder?: string;
 	invalid?: boolean;
 	id?: string;
 	className?: string;
-	/** The list opened or closed. A form that saves once per pick session commits when it closes. */
 	onOpenChange?: (open: boolean) => void;
 };
 
@@ -122,10 +116,6 @@ function toggle(value: string[], v: string, multiple: boolean) {
 	return value.includes(v) ? value.filter((x) => x !== v) : [...value, v];
 }
 
-/**
- * Combobox (components.md): an input-style trigger that opens a searchable list. Use it for long lists; use Select for
- * short fixed ones. Inside a Field the label names the trigger.
- */
 export function Combobox({
 	options,
 	value,
@@ -158,7 +148,7 @@ export function Combobox({
 					control["aria-invalid"]
 						? inputInvalid
 						: "focus-visible:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none",
-					"cursor-pointer justify-between text-left",
+					"justify-between text-left",
 					className,
 				)}
 			>
@@ -187,17 +177,11 @@ export function Combobox({
 }
 
 type FilterChipProps = Omit<ComboboxProps, "placeholder" | "invalid" | "id" | "className" | "onOpenChange"> & {
-	/** The filter's name ("Stage"). */
 	label: string;
 	icon?: IconSvgElement;
-	/** Shown when nothing is chosen ("Any"). */
 	anyText?: string;
 };
 
-/**
- * FilterChip (components.md, Combobox / filter chip): a toolbar chip that opens a searchable list. With a value it is
- * active (orange) and shows a Remove button that clears it. The chip and Remove are separate buttons, each named.
- */
 export function FilterChip({
 	label,
 	icon,
@@ -223,10 +207,7 @@ export function FilterChip({
 		>
 			<Popover open={open} onOpenChange={setOpen}>
 				<PopoverTrigger
-					className={cn(
-						"inline-flex h-full cursor-pointer items-center gap-2 rounded-md pl-3.5",
-						active ? "pr-1.5" : "pr-3.5",
-					)}
+					className={cn("inline-flex h-full items-center gap-2 rounded-md pl-3.5", active ? "pr-1.5" : "pr-3.5")}
 				>
 					{icon ? <Icon icon={icon} size={16} /> : null}
 					{label}
@@ -251,7 +232,7 @@ export function FilterChip({
 					type="button"
 					aria-label={`Remove ${label} filter`}
 					onClick={() => onValueChange([])}
-					className="mr-1 grid size-8 cursor-pointer place-items-center rounded-md text-amber-600 transition-[background-color] hover:bg-[color-mix(in_srgb,var(--ef-amber-500)_18%,transparent)]"
+					className="mr-1 grid size-8 place-items-center rounded-md text-amber-600 transition-[background-color] hover:bg-[color-mix(in_srgb,var(--ef-amber-500)_18%,transparent)]"
 				>
 					<Icon icon={Cancel01Icon} size={16} />
 				</button>

@@ -1,5 +1,3 @@
-// DOC-020, D-107: a sending network's Owner or Admin writes its statement of faith through the one organization
-// profile write. A church row cannot hold one, and every other seat is refused.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
@@ -18,7 +16,6 @@ const readBack = async (actor: S.Actor, organization: unknown) => {
 	if (profile.status !== "available") throw Error("profile unavailable");
 	return profile;
 };
-/** The database's own check refuses the row. */
 const checkFails = (error: { cause?: { constraint?: string } }) =>
 	error.cause?.constraint === "organization_statement_of_faith";
 const TEXT = "We hold to these words.\n\nA second paragraph,\nwith a line break.";
@@ -49,7 +46,6 @@ test("AC:DOC-020 a network's Owner and Admin save, change and clear its statemen
 	assert.equal(profile.profile.statementOfFaith, "Changed words.");
 	assert.equal(profile.revision, "3");
 
-	// The existing revision check holds.
 	await assert.rejects(
 		S.call(
 			"organizations.updateProfile",
@@ -60,7 +56,6 @@ test("AC:DOC-020 a network's Owner and Admin save, change and clear its statemen
 	);
 	assert.equal((await statementOf(network.id)).s, "Changed words.");
 
-	// Whitespace-only text is a clear.
 	await S.call(
 		"organizations.updateProfile",
 		ownerSeat,
@@ -82,7 +77,6 @@ test("AC:DOC-020 a network's Owner and Admin save, change and clear its statemen
 	);
 	assert.deepEqual(await statementOf(network.id), { s: null, r: "6" }, "null clears too");
 
-	// Each change is audited through the profile envelope.
 	const events = await S.db.execute(
 		sql`SELECT action, after_value->>'statement_of_faith' AS after FROM audit_event WHERE subject_id=${sql.param(network.id)} ORDER BY recorded_at, id`,
 	);
@@ -136,7 +130,6 @@ test("AC:DOC-020 a sending church row cannot store a statement of faith", async 
 		S.db.execute(sql`UPDATE organization SET statement_of_faith='Ours.' WHERE id=${sql.param(church.id)}`),
 		checkFails,
 	);
-	// A church's profile reads with no statement, and saving its other fields still works.
 	await S.call(
 		"organizations.updateProfile",
 		ownerSeat,

@@ -67,7 +67,7 @@ export function ChurchBranding({
 						{access === "no-kit" ? (
 							<span>
 								Your church has no brand kit yet, so documents use the plain Everyfield look.{" "}
-								<Link href="/settings/brand" className="cursor-pointer font-medium text-ink underline">
+								<Link href="/settings/brand" className="font-medium text-ink underline">
 									Set up the brand kit
 								</Link>
 							</span>

@@ -10,19 +10,13 @@ export type ToastTone = "success" | "info" | "error";
 export type ToastInput = {
 	message: ReactNode;
 	tone?: ToastTone;
-	/**
-	 * One follow-up action, such as "View task". Never "Undo": records are corrected with history, not undone
-	 * (design/handoff/README.md). `altText` tells screen reader users how to reach the same action elsewhere.
-	 */
 	action?: { label: string; altText: string; onSelect: () => void };
-	/** Milliseconds before it closes. Hover and focus pause it. Errors stay until closed. */
 	duration?: number;
 };
 
-type ToastItem = ToastInput & { id: number };
+type ToastItem = ToastInput & { id: number; open: boolean };
 const ToastContext = createContext<((toast: ToastInput) => void) | null>(null);
 
-/** Shows a toast. Needs a ToastProvider above it. */
 export function useToast(): (toast: ToastInput) => void {
 	const show = use(ToastContext);
 	if (!show) throw new Error("useToast needs a ToastProvider above it.");
@@ -34,25 +28,29 @@ const ICON_TONE = { success: "text-green-300", info: "text-blue-300", error: "te
 
 let nextId = 0;
 
-/**
- * Toast (components.md): Icon, Message and Action, at the bottom center. Success and info toasts are polite status
- * messages; error toasts are assertive and stay until closed. F8 moves focus to the toast region. Swipe right closes.
- */
 export function ToastProvider({ children }: { children: ReactNode }) {
 	const [toasts, setToasts] = useState<ToastItem[]>([]);
-	const show = useCallback((toast: ToastInput) => setToasts((all) => [...all, { ...toast, id: ++nextId }]), []);
+	const show = useCallback(
+		(toast: ToastInput) => setToasts((all) => [...all.filter((t) => t.open), { ...toast, id: ++nextId, open: true }]),
+		[],
+	);
+	const close = (id: number) => setToasts((all) => all.map((t) => (t.id === id ? { ...t, open: false } : t)));
 	const remove = (id: number) => setToasts((all) => all.filter((t) => t.id !== id));
 
 	return (
 		<ToastContext value={show}>
 			<ToastPrimitive.Provider swipeDirection="right" label="Notifications">
 				{children}
-				{toasts.map(({ id, message, tone = "success", action, duration }) => (
+				{toasts.map(({ id, open, message, tone = "success", action, duration }) => (
 					<ToastPrimitive.Root
 						key={id}
+						open={open}
 						type={tone === "error" ? "foreground" : "background"}
 						duration={duration ?? (tone === "error" ? Infinity : 5000)}
-						onOpenChange={(open) => !open && setTimeout(() => remove(id), 200)}
+						onOpenChange={(next) => !next && close(id)}
+						onAnimationEnd={(event) => {
+							if (event.target === event.currentTarget && event.currentTarget.dataset.state === "closed") remove(id);
+						}}
 						className="ef-toast flex w-full items-center gap-3 rounded-card bg-ink py-3 pr-3 pl-4 text-md text-on-ink shadow-pop"
 					>
 						<span
@@ -67,7 +65,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 								<button
 									type="button"
 									onClick={action.onSelect}
-									className="h-8 flex-none cursor-pointer rounded-sm bg-on-ink-soft px-2.5 text-sm font-medium text-on-ink transition-[background-color] hover:bg-[color-mix(in_srgb,var(--ef-on-ink)_20%,transparent)]"
+									className="h-8 flex-none rounded-sm bg-on-ink-soft px-2.5 text-sm font-medium text-on-ink transition-[background-color] hover:bg-[color-mix(in_srgb,var(--ef-on-ink)_20%,transparent)]"
 								>
 									{action.label}
 								</button>
@@ -75,7 +73,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 						) : null}
 						<ToastPrimitive.Close
 							aria-label="Close"
-							className="grid size-8 flex-none cursor-pointer place-items-center rounded-sm text-on-ink opacity-80 transition-[opacity,background-color] hover:bg-on-ink-soft hover:opacity-100"
+							className="grid size-8 flex-none place-items-center rounded-sm text-on-ink opacity-80 transition-[opacity,background-color] hover:bg-on-ink-soft hover:opacity-100"
 						>
 							<Icon icon={Cancel01Icon} size={16} />
 						</ToastPrimitive.Close>

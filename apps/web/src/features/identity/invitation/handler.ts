@@ -5,14 +5,8 @@ import { z } from "zod";
 import { invitationService } from "@/server/invitations";
 import { answer, refused, type Reply } from "../server";
 
-// POST /api/invitation, the invitation page's only door to the WP-008/api invitation service (rulings U1, D54). The
-// proof travels in the request body, never in an address or a server-function argument, so no request log, framework
-// trace or development function log holds it. Every call re-reads the session from the cookie.
-
 export type InvitationRead = {
-	/** The domain's own observation of the proof. Invalid, unrelated, expired, revoked and used proofs all read the same. */
 	description: unknown;
-	/** Who is looking on this device. Never says anything about the invited address. */
 	session: "signed_out" | "pending_domain" | "active" | "unavailable";
 };
 
@@ -39,7 +33,6 @@ async function read(proof: string): Promise<InvitationRead> {
 	};
 }
 
-/** seats.acceptInvitation or residency.respondInvitation for the signed-in account. The domain checks everything. */
 async function asSelf(call: (sessionId: string) => Promise<unknown>): Promise<Reply> {
 	const session = await getViewer();
 	if (!session) return refused("unavailable");
@@ -48,7 +41,6 @@ async function asSelf(call: (sessionId: string) => Promise<unknown>): Promise<Re
 }
 
 export async function invitationRoute(incoming: Request): Promise<Response> {
-	// A route handler has no built-in cross-site guard: only this site's own pages may call it.
 	const origin = process.env.IDENTITY_ORIGIN;
 	if (!origin || incoming.headers.get("origin") !== new URL(origin).origin) return json(refused("access_denied"), 403);
 	if (incoming.headers.get("content-type")?.split(";")[0] !== "application/json")

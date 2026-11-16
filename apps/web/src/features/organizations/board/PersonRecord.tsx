@@ -22,7 +22,7 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useActionState, useState, useTransition, type FormEvent, type ReactNode } from "react";
 import {
 	addNote,
 	editNote,
@@ -45,11 +45,6 @@ type Record = PipelinePersonRecord;
 type Answer = Awaited<ReturnType<typeof movePerson>>;
 type Failure = Exclude<Answer, { status: "ok" }>;
 
-/**
- * One pipeline person (REQ-MUL-001, -008, -009). Owners and Admins edit, move with a reason, record an outside
- * assessment, retire and restore; the person's responsible staff read the record and write notes. A change reads the
- * record again, so history shows the server's own entry.
- */
 export function PersonRecord({
 	initial,
 	stages,
@@ -61,25 +56,21 @@ export function PersonRecord({
 	staff: PipelineBoard["staff"];
 	organization: string;
 }) {
-	const [record, setRecord] = useState(initial);
+	const [local, setLocal] = useState<{ from: Record; value: Record } | null>(null);
+	const record = local?.from === initial ? local.value : initial;
 	const [dialog, setDialog] = useState<"edit" | "move" | "assessment" | "retire" | "restore" | "remove" | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 	const admin = record.audience === "administrator";
 
-	/** Reads the record again and shows it; the fresh record, or null when the read failed. */
 	async function latest() {
 		const answer = await readPerson(record.personId).catch(() => null);
 		if (answer?.status !== "ok") return null;
-		setRecord(answer.value);
+		setLocal({ from: initial, value: answer.value });
 		return answer.value;
 	}
 	async function reread() {
 		await latest();
 	}
-	/**
-	 * Runs a change; on success closes its dialog and reads the record again. A failure is returned for the form. When
-	 * someone else changed the person first, the record is read again and the answer names their stage now.
-	 */
 	async function change(run: () => Promise<Answer | Failure>): Promise<string | null> {
 		const answer = await run().catch((): Failure => ({ status: "lost" }));
 		if (answer.status === "refused" && answer.refusal.code === "conflict") {
@@ -246,7 +237,6 @@ function Detail({ term, children }: { term: string; children: ReactNode }) {
 	);
 }
 
-/** What a history entry says happened. A send for review names who sent it and to whom, never its questions. */
 function historyTitle(h: Record["history"][number]) {
 	switch (h.kind) {
 		case "placed":
@@ -270,7 +260,6 @@ function historyTitle(h: Record["history"][number]) {
 	}
 }
 
-/** Every move with who made it, the day and the reason, under the stage names of that day. */
 function History({ record }: { record: Record }) {
 	return (
 		<Card>
@@ -314,7 +303,8 @@ function MoveDialog({
 	);
 }
 
-/** Any stage but the current one, and a reason, which is required. Not continuing is a stage like any other. */
+type MoveState = { error: string | null; problem: string | null; stageId: string; reason: string };
+
 function MoveForm({
 	record,
 	stages,
@@ -325,39 +315,35 @@ function MoveForm({
 	onSubmit: (stageId: string, reason: string) => Promise<string | null>;
 }) {
 	const choices = stages.filter((s) => s.id !== record.stage.id);
-	const [stageId, setStageId] = useState(choices[0]?.id ?? "");
-	const [reason, setReason] = useState("");
-	const [error, setError] = useState<string | null>(null);
-	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		if (!reason.trim()) {
-			setError("Give a reason for this move.");
-			return;
-		}
-		setError(null);
-		setSaving(true);
-		const failed = await onSubmit(stageId, reason.trim());
-		setSaving(false);
-		setProblem(failed);
-		if (!failed) setReason("");
-	}
+	const [state, move, saving] = useActionState(
+		async (_: MoveState, form: FormData): Promise<MoveState> => {
+			const stageId = String(form.get("stageId") ?? "");
+			const typed = String(form.get("reason") ?? "");
+			if (!typed.trim()) return { error: "Give a reason for this move.", problem: null, stageId, reason: typed };
+			const problem = await onSubmit(stageId, typed.trim());
+			return { error: null, problem, stageId, reason: problem ? typed : "" };
+		},
+		{ error: null, problem: null, stageId: choices[0]?.id ?? "", reason: "" },
+	);
 	return (
-		<form onSubmit={submit} noValidate className="contents">
+		<form action={move} noValidate className="contents">
 			<DialogHeader title={`Move ${record.name}`} description={`Now at ${record.stage.label}.`} />
 			<DialogBody className="flex flex-col gap-4">
 				<Field label="Move to">
 					<Select
-						value={stageId}
-						onValueChange={setStageId}
+						name="stageId"
+						defaultValue={state.stageId}
 						options={choices.map((s) => ({ value: s.id, label: s.label }))}
 					/>
 				</Field>
-				<Field label="Reason" error={error ?? undefined} hint="Staff with access to this record see it in the history.">
-					<Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} />
+				<Field
+					label="Reason"
+					error={saving ? undefined : (state.error ?? undefined)}
+					hint="Staff with access to this record see it in the history."
+				>
+					<Textarea name="reason" defaultValue={state.reason} rows={3} maxLength={1000} />
 				</Field>
-				<Problem text={problem} />
+				<Problem text={state.problem} />
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>
@@ -368,7 +354,8 @@ function MoveForm({
 	);
 }
 
-/** Only that an outside assessment happened, when and who ran it. There is no field for its result. */
+type AssessmentState = { errors: { on?: string; by?: string }; problem: string | null };
+
 function AssessmentDialog({
 	open,
 	onOpenChange,
@@ -382,37 +369,33 @@ function AssessmentDialog({
 }) {
 	const [on, setOn] = useState("");
 	const [by, setBy] = useState("");
-	const [errors, setErrors] = useState<{ on?: string; by?: string }>({});
-	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		const next = {
-			on: !on ? "Enter the date." : on > asOf ? "The date can’t be after today." : undefined,
-			by: by.trim() ? undefined : "Enter who ran it.",
-		};
-		setErrors(next);
-		if (next.on || next.by) return;
-		setSaving(true);
-		setProblem(await onSubmit(on, by.trim()));
-		setSaving(false);
-	}
+	const [state, submit, saving] = useActionState(
+		async (last: AssessmentState): Promise<AssessmentState> => {
+			const errors = {
+				on: !on ? "Enter the date." : on > asOf ? "The date can’t be after today." : undefined,
+				by: by.trim() ? undefined : "Enter who ran it.",
+			};
+			if (errors.on || errors.by) return { errors, problem: last.problem };
+			return { errors, problem: await onSubmit(on, by.trim()) };
+		},
+		{ errors: {}, problem: null },
+	);
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent size="sm">
-				<form onSubmit={submit} noValidate className="contents">
+				<form action={submit} noValidate className="contents">
 					<DialogHeader
 						title="Record an outside assessment"
 						description="Record that it happened, when, and who ran it. Everyfield doesn’t keep results, scores or ratings."
 					/>
 					<DialogBody className="flex flex-col gap-4">
-						<Field label="Date" error={errors.on}>
+						<Field label="Date" error={state.errors.on}>
 							<Input type="date" value={on} max={asOf} onChange={(e) => setOn(e.target.value)} />
 						</Field>
-						<Field label="Who ran it" error={errors.by} hint="For example, Send Network assessment retreat.">
+						<Field label="Who ran it" error={state.errors.by} hint="For example, Send Network assessment retreat.">
 							<Input value={by} onChange={(e) => setBy(e.target.value)} maxLength={200} />
 						</Field>
-						<Problem text={problem} />
+						<Problem text={state.problem} />
 					</DialogBody>
 					<DialogFooter>
 						<Button type="submit" variant="primary" loading={saving}>
@@ -425,10 +408,6 @@ function AssessmentDialog({
 	);
 }
 
-/**
- * Private staff notes (REQ-MUL-009): read by Owners, Admins and the person's responsible staff. Only the author edits
- * or removes their note; a removed note shows who removed it and when, with no text.
- */
 function Notes({
 	record,
 	staff,
@@ -502,7 +481,6 @@ function Notes({
 									<NoteItem
 										note={n}
 										editable={canWrite && n.mine}
-										// Only an Owner or Admin sends kept answers for review, and only while the person is live (T-385).
 										review={record.audience === "administrator" && canWrite ? { person: record.name, staff } : null}
 										canWithdraw={record.audience === "administrator"}
 										onChanged={onChanged}
@@ -519,7 +497,6 @@ function Notes({
 	);
 }
 
-/** The note author's account photo where this organization may see it (REQ-IDN-006), else their initials. */
 function NoteAuthorAvatar({ note }: { note: Record["notes"][number] }) {
 	return (
 		<Avatar
@@ -540,11 +517,8 @@ function NoteItem({
 	onChanged,
 }: {
 	note: Extract<Record["notes"][number], { state: "current" }>;
-	/** The author's own note on a live person: only then can it change (REQ-MUL-009). */
 	editable: boolean;
-	/** What sending kept answers for review needs, for an Owner or Admin on a live person; null otherwise. */
 	review: { person: string; staff: PipelineBoard["staff"] } | null;
-	/** An Owner or Admin withdraws a send, even from a retired person. */
 	canWithdraw: boolean;
 	onChanged: () => Promise<void>;
 }) {
@@ -552,20 +526,19 @@ function NoteItem({
 	const [sending, setSending] = useState(false);
 	const sendable = review !== null && note.questions !== null;
 	const [text, setText] = useState(note.body);
-	const [removing, setRemoving] = useState(false);
 	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
-	async function save(event: FormEvent) {
+	const [saving, startSaving] = useTransition();
+	function save(event: FormEvent) {
 		event.preventDefault();
 		if (!text.trim()) return;
-		setSaving(true);
-		const answer = await editNote({ noteId: note.id, expectedRevision: note.revision, body: text.trim() }).catch(
-			(): Failure => ({ status: "lost" }),
-		);
-		setSaving(false);
-		if (answer.status !== "ok") return setProblem(refusalText(answer));
-		setEditing(false);
-		await onChanged();
+		startSaving(async () => {
+			const answer = await editNote({ noteId: note.id, expectedRevision: note.revision, body: text.trim() }).catch(
+				(): Failure => ({ status: "lost" }),
+			);
+			if (answer.status !== "ok") return setProblem(refusalText(answer));
+			setEditing(false);
+			await onChanged();
+		});
 	}
 	const meta = `${note.author ?? "Former staff"} · ${formatDay(note.writtenOn)}${note.editedOn ? ` · edited ${formatDay(note.editedOn)}` : ""}`;
 	return (
@@ -608,9 +581,23 @@ function NoteItem({
 								<Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
 									Edit
 								</Button>
-								<Button variant="ghost" size="sm" onClick={() => setRemoving(true)}>
-									Remove
-								</Button>
+								<ConfirmDialog
+									trigger={
+										<Button variant="ghost" size="sm">
+											Remove
+										</Button>
+									}
+									title="Remove this note?"
+									description="The text is deleted. Others who can read notes will see that you removed a note, and when."
+									confirmLabel="Remove note"
+									onConfirm={async () => {
+										const answer = await removeNote({ noteId: note.id, expectedRevision: note.revision }).catch(
+											(): Failure => ({ status: "lost" }),
+										);
+										if (answer.status !== "ok") setProblem(refusalText(answer));
+										else await onChanged();
+									}}
+								/>
 							</>
 						) : null}
 					</span>
@@ -632,20 +619,6 @@ function NoteItem({
 				/>
 			) : null}
 			{problem ? <p className="text-sm text-magenta-600">{problem}</p> : null}
-			<ConfirmDialog
-				open={removing}
-				onOpenChange={setRemoving}
-				title="Remove this note?"
-				description="The text is deleted. Others who can read notes will see that you removed a note, and when."
-				confirmLabel="Remove note"
-				onConfirm={async () => {
-					const answer = await removeNote({ noteId: note.id, expectedRevision: note.revision }).catch((): Failure => ({
-						status: "lost",
-					}));
-					if (answer.status !== "ok") setProblem(refusalText(answer));
-					else await onChanged();
-				}}
-			/>
 		</article>
 	);
 }

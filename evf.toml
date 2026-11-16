@@ -139,6 +139,11 @@ name = "workflow-gates"
 paths = [
   ".github/",
   ".claude/settings.json",
+  "scripts/lint/survivors/",
+  "scripts/lint/exemptions.json",
+  "scripts/lint/check-comments.mjs",
+  "scripts/lint/lint-scripts.json",
+  "scripts/lint/boundaries/_layout.json",
 ]
 outcome = "owner"
 quote = "Yes, keep my OK on all five, including CI and agent settings"

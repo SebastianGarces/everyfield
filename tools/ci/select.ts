@@ -107,6 +107,22 @@ export const RULES: readonly Rule[] = [
 		tests: ["tests/workflow/role-prompts.test.mjs"],
 	},
 	{ name: "dev command", paths: ["bin/dev"], tests: ["tests/workflow/dev.test.mjs"] },
+	// bin/dev formal reads the models, the maps and every mapped code file as text (T-398, D93).
+	{
+		name: "formal checks",
+		paths: [
+			"formal/**",
+			"tools/formal/**",
+			".agents/skills/formal-*/**",
+			"packages/domain/src/access/session.ts",
+			"packages/domain/src/identity/**",
+			"packages/contracts/src/identity/**",
+			// T-399: the map names People's seat check and the conformance and replay tests.
+			"packages/domain/src/people/core.ts",
+			"tests/integration/access/formal-*.test.mts",
+		],
+		tests: ["tests/workflow/formal.test.ts"],
+	},
 	{ name: "QA command", paths: ["bin/qa"], suites: ["tools-qa"] },
 	// T-396: its tests live in the QA suite, which CI already runs, and share its throwaway Postgres.
 	{ name: "production identity setup", paths: ["bin/prod-identity", "tools/prod-identity/**"], suites: ["tools-qa"] },
@@ -123,6 +139,12 @@ export const RULES: readonly Rule[] = [
 		tests: ["tests/workflow/evry-evals-coverage.test.mjs"],
 	},
 	{ name: "web app under a dev server", paths: ["apps/web/**"], tests: ["tests/workflow/server-logs.test.mjs"] },
+	{
+		name: "lint rules and their baselines",
+		paths: ["scripts/lint/**", "tools/.oxlintrc.json"],
+		checks: ["lint"],
+		tests: ["tests/workflow/lint-rules.test.mjs"],
+	},
 	{
 		name: "lint rule coverage",
 		paths: ["scripts/lint-rule-coverage.mjs"],

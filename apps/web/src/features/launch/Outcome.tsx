@@ -363,7 +363,7 @@ function Guests({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Pl
 						<li key={g.guestId}>
 							<Link
 								href={`/people/${encodeURIComponent(g.personId)}`}
-								className="inline-flex cursor-pointer items-center rounded-pill bg-surface-2 px-3 py-1 text-sm text-ink hover:underline"
+								className="inline-flex items-center rounded-pill bg-surface-2 px-3 py-1 text-sm text-ink hover:underline"
 							>
 								{g.displayName}
 							</Link>

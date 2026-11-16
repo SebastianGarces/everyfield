@@ -222,7 +222,6 @@ test("AC:CASE-COM-002 AC:CASE-COM-003 detail keeps the sealed delivery address",
 	refused(await read(owner, "listForPerson", { personId: randomUUID() }), "not_found");
 	refused(await read(owner, "getDetail", { id: randomUUID() }, keys), "not_found");
 
-	// A message written before the HTML editor has no stored HTML: detail returns its plain text exactly as stored.
 	const legacy = await message({ subject: "LEGACY-PLAIN" });
 	await f.admin.execute(
 		sql`UPDATE communication SET body_html = NULL, body_text = 'Line one' || chr(10) || 'Line two' WHERE id = ${legacy}`,
@@ -333,7 +332,6 @@ test("AC:CASE-COM-009 AC:CASE-COM-003 AC:CASE-COM-012 reviewed resend keeps deli
 	assert.equal(copy.body_html, "<p>Please read</p>");
 	assert.equal(copy.template_source, `lineage:${id}`);
 	assert.deepEqual(copy.audience.personIds, [alex]);
-	// The reviewed copy is locked: its subject and body cannot be edited, and it cannot be deleted as a draft.
 	const copyRevision = (
 		await rows(sql`SELECT revision::text AS r FROM communication WHERE id = ${created.communicationId}`)
 	)[0].r;
@@ -595,7 +593,6 @@ test("AC:CASE-COM-002 meeting tracking lists a person emailed by two of the meet
 	const meet = await meeting("Tracked twice");
 	const invite = await message({ meeting: meet, subject: "Invitation" });
 	const reminder = await message({ meeting: meet, subject: "Reminder" });
-	// The reminder's mail is the later one by its own created_at, set in the row.
 	await mail(invite, twice, "twice@example.test", { state: "sent", sentHours: 30, createdHours: 30 });
 	await mail(invite, once, "once@example.test", { state: "sent", sentHours: 30, createdHours: 30, delivered: true });
 	await mail(reminder, twice, "twice@example.test", { state: "sent", sentHours: 2, createdHours: 2, delivered: true });

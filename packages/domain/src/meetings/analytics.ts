@@ -8,16 +8,8 @@ import type { MeetingsReply } from "@everyfield/contracts/meetings";
 import { deny, one, parse, read, type Reader } from "./core.ts";
 import { displayTitle } from "./rows.ts";
 
-// Attendance reads, the evaluation and its history, and the meeting reports (REQ-MTG-010/014/015/016). Each read is
-// one statement whose first part is the reader's live access (C13, C27, C32: live_session, no locks). Reports read
-// every meeting in their window in that one statement; they may pass one second on a large church and say so.
-
 const date = z.coerce.date();
 
-/**
- * Parses the request, then runs `query` (over plant `plant`) only while the reader's session, seat, role and lifecycle
- * are live in the same statement; a reader who lost access, or a missing meeting, reads nothing.
- */
 function gated<S extends z.ZodType, T>(
 	db: Reader,
 	authority: RequestActor,
@@ -29,7 +21,6 @@ function gated<S extends z.ZodType, T>(
 ): Promise<MeetingsReply<T>> {
 	return read(authority, async (v) => {
 		const input = parse(schema, raw);
-		// The live role decides what a privileged field shows, not the role the viewer lookup saw (C13).
 		const { row, admin: live } = await one(db, v, query(sql`${v.plantId}::uuid`, input), admin);
 		if (!row) deny();
 		return body(row, input, { admin: live });
@@ -38,14 +29,9 @@ function gated<S extends z.ZodType, T>(
 const meeting = (plant: SQL, meetingId: string) =>
 	sql`m.plant_id = ${plant} AND m.id = ${meetingId}::uuid AND m.retired_at IS NULL`;
 const here = sql`coalesce(m.actual_occurrence_at, m.starts_at)`;
-/**
- * A meeting of alias `alias` that counts in reports: not deleted, its occurrence not voided and not cancelled. Every
- * report read that counts meetings uses it; a read of attended Persons adds that the meeting is finalized.
- */
 const counted = (alias: string) =>
 	sql.raw(`${alias}.retired_at IS NULL AND ${alias}.occurrence_voided_at IS NULL AND ${alias}.status <> 'cancelled'`);
 const at = (alias: string) => sql.raw(`coalesce(${alias}.actual_occurrence_at, ${alias}.starts_at)`);
-/** Attended Persons of meeting alias `m`, each once, with their finalized classification. */
 const tally = sql`(SELECT json_build_object('attended', count(DISTINCT g.person_id),
 	'first_time', count(DISTINCT g.person_id) FILTER (WHERE g.classification = 'first_time'),
 	'returning', count(DISTINCT g.person_id) FILTER (WHERE g.classification = 'returning'),
@@ -62,12 +48,10 @@ const counts = (t: z.infer<typeof tallyRow>) => ({
 	returning: t.returning,
 	core_group: t.core_group,
 });
-/** Earlier evaluations of the same type: strictly before this meeting's instant, never itself, the 50 most recent. */
 const baselineSql = sql`(SELECT coalesce(json_agg(e.evaluation_scores), '[]') FROM (SELECT o.evaluation_scores
 	FROM meeting o WHERE o.plant_id = m.plant_id AND o.type = m.type AND o.evaluation_scores IS NOT NULL
 	AND ${counted("o")} AND o.id <> m.id AND ${at("o")} < ${here}
 	ORDER BY ${at("o")} DESC, o.id DESC LIMIT 50) e)`;
-/** The previous finalized meeting of the same type, by occurrence: its attended count, or null when none. */
 const previousSql = sql`(SELECT (SELECT count(DISTINCT g.person_id) FROM participation g WHERE g.meeting_id = o.id
 	AND g.presence = 'attended' AND g.removed_at IS NULL)::int FROM meeting o WHERE o.plant_id = m.plant_id
 	AND o.type = m.type AND o.finalized_at IS NOT NULL AND ${counted("o")}
@@ -100,12 +84,7 @@ const progress = (meetingId: string, p: z.infer<typeof progressRow>) =>
 			: null,
 	});
 
-/** Tenths of a point: exact arithmetic for rounded averages. */
 const tenths = (scores: readonly number[]) => Math.round((scores.reduce((a, b) => a + b, 0) * 10) / scores.length);
-/**
- * REQ-MTG-016: the baseline is the mean of the earlier meetings' rounded averages, rounded to one decimal; the delta is
- * the current rounded average minus that rounded baseline. No earlier evaluation leaves both unknown, never zero.
- */
 function compare(meetingId: string, current: number[] | null, earlier: number[][], corrected: boolean) {
 	const now = current ? tenths(current) : null;
 	const base = earlier.length ? Math.round(earlier.map(tenths).reduce((a, b) => a + b, 0) / earlier.length) : null;
@@ -117,7 +96,6 @@ function compare(meetingId: string, current: number[] | null, earlier: number[][
 		corrected,
 	});
 }
-/** Growth over the previous meeting: unknown without one, unavailable (not infinite) after a meeting of zero. */
 function growthOf(attended: number, previous: number | null) {
 	if (previous === null) return { status: "unknown" as const };
 	if (previous === 0) return { status: "unavailable" as const, difference: attended };
@@ -148,10 +126,6 @@ const point = (p: z.infer<typeof pointRow>) => ({
 });
 const pointColumns = sql`m.id, m.type, m.title, m.vision_number, ${here} AS occurred_at, m.local_date::text AS local_date`;
 
-/**
- * The attendance list of meeting alias `m`, as columns: its revisions, whether `accountId` leads its team, and one page
- * of its current guests. listAttendance and the meeting page's one guest read (meetingsReader.pageGuests) share it.
- */
 export const attendanceColumns = (i: z.infer<typeof c.attendanceListRequest>, accountId: string) =>
 	sql`m.attendance_revision::text AS attendance_revision, m.finalized_at,
 				(m.type = 'team_meeting' AND EXISTS (SELECT FROM team t JOIN person lp ON lp.id = t.leader_person_id
@@ -167,7 +141,6 @@ export const attendanceColumns = (i: z.infer<typeof c.attendanceListRequest>, ac
 					row_number() OVER (ORDER BY p.display_name, g.id) AS n
 					FROM participation g JOIN person p ON p.id = g.person_id WHERE g.meeting_id = m.id AND g.removed_at IS NULL
 					ORDER BY p.display_name, g.id LIMIT ${i.limit} OFFSET ${(i.page - 1) * i.limit}) x) AS items`;
-/** The attendance list from the row of attendanceColumns. */
 export function attendanceValue(
 	row: Record<string, unknown>,
 	i: z.infer<typeof c.attendanceListRequest>,
@@ -198,11 +171,6 @@ export function attendanceValue(
 }
 
 export const attendanceReader = {
-	/**
-	 * The guest list with presence and finalized classification, by name; members read it too. It also says whether the
-	 * viewer may mark attendance here, by the write's rule: a live Owner or Admin, or the live current leader of this
-	 * team meeting's team (REQ-MTG-010, C74, C79). The write still decides; this only lets the screen show the controls.
-	 */
 	async listAttendance(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,
@@ -215,7 +183,6 @@ export const attendanceReader = {
 			(row, i, viewer) => attendanceValue(row, i, viewer),
 		);
 	},
-	/** Presence and classification counts of the current guest list; attended Persons count once. */
 	async attendanceSummary(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,
@@ -252,7 +219,6 @@ export const attendanceReader = {
 			},
 		);
 	},
-	/** The Vision evaluation; notes only for Owner and Admin. */
 	async getEvaluation(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,
@@ -269,7 +235,6 @@ export const attendanceReader = {
 			},
 		);
 	},
-	/** The original evaluation and every correction, oldest first, from audit history. */
 	async evaluationHistory(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,
@@ -317,7 +282,6 @@ export const attendanceReader = {
 			},
 		);
 	},
-	/** Report: evaluation averages across meetings in the window, oldest first. */
 	async evaluationTrend(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,
@@ -339,7 +303,6 @@ export const attendanceReader = {
 				}),
 		);
 	},
-	/** This meeting's evaluation against the baseline of earlier evaluations (REQ-MTG-016). */
 	async compareEvaluation(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,
@@ -362,7 +325,6 @@ export const attendanceReader = {
 			},
 		);
 	},
-	/** Report: attended Persons per finalized meeting with new versus returning and growth, oldest first. */
 	async attendanceTrend(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,
@@ -389,7 +351,6 @@ export const attendanceReader = {
 				}),
 		);
 	},
-	/** Report: totals for the window. Averages without a finalized or evaluated meeting are unknown, not zero. */
 	async summaryStats(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,
@@ -441,7 +402,6 @@ export const attendanceReader = {
 			},
 		);
 	},
-	/** The follow-ups and evaluation task this meeting generated, by state. */
 	async linkedTaskProgress(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,
@@ -453,7 +413,6 @@ export const attendanceReader = {
 			(row, i) => progress(i.meetingId, progressRow.parse(row.progress)),
 		);
 	},
-	/** One meeting's analytics: attendance, growth, evaluation comparison and generated work. */
 	async readAnalytics(db: Reader, authority: RequestActor, raw: unknown) {
 		return gated(
 			db,

@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-// @ts-expect-error plain ESM script with no types
 import {
 	assertDevelopmentDatabase,
 	composeEnv,

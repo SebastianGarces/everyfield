@@ -9,12 +9,6 @@ import { authorizeInvitationMail, createInvitationService, type InvitationConfig
 import { accountPersonProducer } from "@everyfield/domain/people";
 import { createMailService, MAIL_PASSES, runDueMail, type MailTransport } from "../jobs/mail";
 
-// The invitation mount (WP-008/ui ruling U1). It builds the shipped WP-008/api invitation service once, with the real
-// WP-011 Person producer in the same transaction. The identity mount passes it to registration (invitation-origin
-// sign-up and resume); the invitation and seat screens call it through features/identity server actions only.
-// Mail is enqueued under the domain's own authorizeInvitationMail rule. The scheduled runner sends it with
-// runDueInvitationMail, which rechecks the same rule just before the handoff (WP-028).
-
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
 	IDENTITY_ORIGIN: z.url(),
@@ -22,7 +16,6 @@ const env = z.object({
 	...mailEnv,
 });
 
-/** Invitation mail keys: the invitation itself and the receipt after acceptance (authorizeInvitationMail). */
 export const INVITATION_MAIL = MAIL_PASSES.mail;
 
 function invitationMail(v: z.infer<typeof env>, transport?: MailTransport) {
@@ -38,10 +31,6 @@ function invitationMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	});
 }
 
-/**
- * Sends one bounded batch of due invitation mail through `transport`, or returns 0 when the deployment has no identity
- * configuration. Invitation mail is required mail: no email preference stops it, only an active bounce block.
- */
 export function runDueInvitationMail(transport: MailTransport, limit: number, until: number): Promise<number> {
 	const parsed = env.safeParse(process.env);
 	if (!parsed.success) return Promise.resolve(0);
@@ -56,7 +45,6 @@ export function runDueInvitationMail(transport: MailTransport, limit: number, un
 
 let service: ReturnType<typeof createInvitationService> | undefined;
 
-/** The invitation service, or null when the deployment has no identity configuration. */
 export function invitationService(): ReturnType<typeof createInvitationService> | null {
 	if (service) return service;
 	const config = invitationConfig();
@@ -65,10 +53,6 @@ export function invitationService(): ReturnType<typeof createInvitationService> 
 	return service;
 }
 
-/**
- * The same invitation service on another connection: Evry's executor passes its own transaction, so an approved
- * invitation, its audit row and its email commit with the proposal outcome. Null without identity configuration.
- */
 export function invitationServiceOn(db: Database | Transaction): ReturnType<typeof createInvitationService> | null {
 	const config = invitationConfig();
 	return config && createInvitationService({ ...config, db: db as Database });
@@ -86,16 +70,13 @@ function invitationConfig(): InvitationConfig | null {
 	configured = {
 		db,
 		origin: v.IDENTITY_ORIGIN,
-		// The per-address invitation budget key. It is derived from the identity secret, so it never leaves the server.
 		budgetSecret: createHmac("sha256", v.IDENTITY_SECRET).update("invitation-budget").digest("hex"),
 		people: accountPersonProducer,
-		// The same address hash the mail service writes and the bounce callback blocks (WP-028).
 		addressBlocked: (email) => {
 			const hash = createHmac("sha256", addressKey).update(email.trim().toLowerCase()).digest("hex");
 			return sql`EXISTS (SELECT 1 FROM suppression WHERE address_hash = ${hash} AND cleared_at IS NULL)`;
 		},
 		enqueueMail: (tx, m, command) => {
-			// Invitations belong to a plant or an organization; no other owner ever sends one.
 			if (m.owner.kind === "global") throw new Error("unavailable");
 			return mail.append(
 				tx,

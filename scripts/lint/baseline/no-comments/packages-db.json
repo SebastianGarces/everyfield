@@ -1,0 +1,8 @@
+{
+	"packages/db/scripts/generate.ts": 3,
+	"packages/db/scripts/reset-dev.ts": 2,
+	"packages/db/src/client.ts": 4,
+	"packages/db/src/columns.ts": 1,
+	"packages/db/src/development.ts": 6,
+	"packages/db/src/query.ts": 2
+}

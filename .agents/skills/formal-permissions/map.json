@@ -1,0 +1,399 @@
+{
+	"model": "formal/permissions",
+	"generated": ["formal/permissions/outcomes.json", "formal/permissions/traces.json"],
+	"tests": ["tests/integration/access/formal-permissions.test.mts", "tests/integration/access/formal-replay.test.mts"],
+	"actions": [
+		{
+			"name": "SignIn",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/service.ts",
+					"function": "handle"
+				}
+			],
+			"ids": ["REQ-IDN-001"]
+		},
+		{
+			"name": "EndSession",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/service.ts",
+					"function": "handle"
+				},
+				{
+					"file": "packages/db/migrations/0022_live_session.sql",
+					"function": "live_session"
+				}
+			],
+			"ids": ["REQ-IDN-001", "REQ-IDN-029"]
+		},
+		{
+			"name": "SeatAction",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/seats.ts",
+					"function": "mutation"
+				},
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "writeAsAdministrator"
+				},
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "lockWriteAuthority"
+				},
+				{
+					"file": "packages/db/migrations/0007_invitation_privileges.sql",
+					"function": "revoke_removed_seat_sessions"
+				}
+			],
+			"ids": ["REQ-IDN-019", "REQ-IDN-029", "D70"]
+		},
+		{
+			"name": "Invite",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "invite"
+				},
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "writeAsAdministrator"
+				}
+			],
+			"ids": ["REQ-IDN-017"]
+		},
+		{
+			"name": "Revoke",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "change"
+				},
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "pending"
+				}
+			],
+			"ids": ["REQ-IDN-017"]
+		},
+		{
+			"name": "Expire",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "expires"
+				},
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "current"
+				}
+			],
+			"ids": ["REQ-IDN-017"]
+		},
+		{
+			"name": "Accept",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "accept"
+				},
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "lockForWrite"
+				},
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "current"
+				}
+			],
+			"ids": ["REQ-IDN-017", "REQ-IDN-005"]
+		},
+		{
+			"name": "Resolve",
+			"code": [
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "resolveActor"
+				},
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "readRequestViewer"
+				}
+			],
+			"ids": ["REQ-IDN-029", "D59"]
+		},
+		{
+			"name": "Run",
+			"code": [
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "liveRead"
+				},
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "liveAccess"
+				},
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "liveRows"
+				},
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "writeAuthority"
+				}
+			],
+			"ids": ["REQ-IDN-029", "C13", "D70"]
+		}
+	],
+	"rules": [
+		{
+			"name": "MayChangeSeat",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/seats.ts",
+					"function": "mutation"
+				},
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "writeAsAdministrator"
+				}
+			],
+			"ids": ["REQ-IDN-019"]
+		},
+		{
+			"name": "MayInvite",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "invite"
+				},
+				{
+					"file": "packages/contracts/src/identity/invitations.ts",
+					"function": "ordinarySeatRole"
+				}
+			],
+			"ids": ["REQ-IDN-017"]
+		},
+		{
+			"name": "MayRevoke",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "change"
+				}
+			],
+			"ids": ["REQ-IDN-017"]
+		},
+		{
+			"name": "MayAccept",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "accept"
+				},
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "current"
+				}
+			],
+			"ids": ["REQ-IDN-017"]
+		},
+		{
+			"name": "ResolveAdmits",
+			"code": [
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "actorOf"
+				},
+				{
+					"file": "packages/domain/src/people/core.ts",
+					"function": "seated"
+				},
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "list"
+				},
+				{
+					"file": "packages/domain/src/identity/seats.ts",
+					"function": "list"
+				}
+			],
+			"ids": ["REQ-IDN-029", "D59"]
+		},
+		{
+			"name": "LiveCheck",
+			"code": [
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "liveRead"
+				},
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "writeAuthority"
+				}
+			],
+			"ids": ["C13", "D70"]
+		}
+	],
+	"properties": [
+		{
+			"name": "TypeOK",
+			"code": [
+				{
+					"file": "packages/db/migrations/0002_baseline.sql",
+					"function": "seat_uq_0"
+				}
+			],
+			"ids": ["REQ-IDN-005"]
+		},
+		{
+			"name": "OneLiveSeatPerAccount",
+			"code": [
+				{
+					"file": "packages/db/migrations/0002_baseline.sql",
+					"function": "seat_uq_0"
+				}
+			],
+			"ids": ["REQ-IDN-005"]
+		},
+		{
+			"name": "OneLiveOwner",
+			"code": [
+				{
+					"file": "packages/db/migrations/0002_baseline.sql",
+					"function": "seat_uq_1"
+				},
+				{
+					"file": "packages/db/migrations/0002_baseline.sql",
+					"function": "seat_uq_2"
+				}
+			],
+			"ids": ["REQ-IDN-029"]
+		},
+		{
+			"name": "OwnerSeatFixed",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/seats.ts",
+					"function": "mutation"
+				}
+			],
+			"ids": ["REQ-IDN-019", "REQ-IDN-029"]
+		},
+		{
+			"name": "NoInvitationGrantsOwner",
+			"code": [
+				{
+					"file": "packages/contracts/src/identity/invitations.ts",
+					"function": "ordinarySeatRole"
+				},
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "accept"
+				}
+			],
+			"ids": ["REQ-IDN-017"]
+		},
+		{
+			"name": "OnlyAdministratorsChangeSeats",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "writeAsAdministrator"
+				},
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "lockWriteAuthority"
+				}
+			],
+			"ids": ["REQ-IDN-019", "REQ-IDN-029"]
+		},
+		{
+			"name": "NoActionOnEndedSeat",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/seats.ts",
+					"function": "mutation"
+				}
+			],
+			"ids": ["REQ-IDN-019"]
+		},
+		{
+			"name": "TenantAccessNeedsSeat",
+			"code": [
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "liveRead"
+				},
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "writeAuthority"
+				}
+			],
+			"ids": ["REQ-IDN-005", "C13"]
+		},
+		{
+			"name": "StatementSeesLiveAccess",
+			"code": [
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "liveRead"
+				},
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "liveRows"
+				}
+			],
+			"ids": ["C13", "REQ-IDN-029"]
+		},
+		{
+			"name": "NoChangeWithoutAccess",
+			"code": [
+				{
+					"file": "packages/domain/src/access/session.ts",
+					"function": "writeAuthority"
+				}
+			],
+			"ids": ["D70", "REQ-IDN-029"]
+		},
+		{
+			"name": "InvitationAcceptedOnce",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "accept"
+				},
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "current"
+				}
+			],
+			"ids": ["REQ-IDN-017"]
+		},
+		{
+			"name": "AcceptOnlyPending",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "accept"
+				},
+				{
+					"file": "packages/domain/src/identity/invitation-core.ts",
+					"function": "current"
+				}
+			],
+			"ids": ["REQ-IDN-017"]
+		},
+		{
+			"name": "OneSeatPerAcceptance",
+			"code": [
+				{
+					"file": "packages/domain/src/identity/invitations.ts",
+					"function": "accept"
+				}
+			],
+			"ids": ["REQ-IDN-017"]
+		}
+	]
+}

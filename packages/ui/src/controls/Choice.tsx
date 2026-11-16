@@ -3,8 +3,8 @@
 import { Checkbox as CheckboxPrimitive, RadioGroup as RadioPrimitive, Switch as SwitchPrimitive } from "radix-ui";
 import { useId, type ComponentPropsWithRef, type ReactNode } from "react";
 import { cn } from "../foundations";
+import { unlessReset } from "../foundations/form-reset";
 
-/** The label and optional description next to a checkbox, radio or switch. Clicking the label toggles the control. */
 function ChoiceLabel({
 	htmlFor,
 	label,
@@ -20,7 +20,9 @@ function ChoiceLabel({
 		<span className="min-w-0 flex-1">
 			<label
 				htmlFor={htmlFor}
-				className={cn("font-medium text-ink", disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer")}
+				data-toggle-label
+				data-disabled={disabled ? "" : undefined}
+				className={cn("font-medium text-ink", disabled && "opacity-60")}
 			>
 				{label}
 			</label>
@@ -30,24 +32,29 @@ function ChoiceLabel({
 }
 
 type CheckboxProps = Omit<ComponentPropsWithRef<typeof CheckboxPrimitive.Root>, "children"> & {
-	/** Visible label. Without one, pass aria-label (a row-selection box in a table). */
 	label?: ReactNode;
 	description?: ReactNode;
 	shape?: "square" | "round";
 };
 
-/**
- * Checkbox (components.md): checked, unchecked or mixed ("indeterminate"), square or round. 20px box inside a 44px
- * target when it has a label, because the label is part of the hit area.
- */
-export function Checkbox({ label, description, shape = "square", id, className, ...props }: CheckboxProps) {
+export function Checkbox({
+	label,
+	description,
+	shape = "square",
+	id,
+	className,
+	onCheckedChange,
+	...props
+}: CheckboxProps) {
 	const auto = useId();
 	const boxId = id ?? auto;
 	const box = (
 		<CheckboxPrimitive.Root
+			key={props.checked === undefined ? String(props.defaultChecked) : undefined}
 			id={boxId}
+			onCheckedChange={unlessReset(onCheckedChange)}
 			className={cn(
-				"group/check grid size-5 flex-none cursor-pointer place-items-center bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-150 hover:shadow-[inset_0_0_0_1.5px_var(--ef-ink-2)] disabled:cursor-not-allowed disabled:opacity-45 data-[state=checked]:bg-ink data-[state=checked]:shadow-none data-[state=indeterminate]:bg-ink data-[state=indeterminate]:shadow-none",
+				"group/check grid size-5 flex-none place-items-center bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-150 hover:shadow-[inset_0_0_0_1.5px_var(--ef-ink-2)] disabled:opacity-45 data-[state=checked]:bg-ink data-[state=checked]:shadow-none data-[state=indeterminate]:bg-ink data-[state=indeterminate]:shadow-none",
 				shape === "round" ? "rounded-full" : "rounded-xs",
 				!label && className,
 			)}
@@ -86,15 +93,17 @@ export function Checkbox({ label, description, shape = "square", id, className, 
 	);
 }
 
-/** RadioGroup (components.md): a labelled group; arrow keys move the choice, Tab enters and leaves the group. */
 export function RadioGroup({
 	className,
 	orientation = "vertical",
+	onValueChange,
 	...props
 }: ComponentPropsWithRef<typeof RadioPrimitive.Root>) {
 	return (
 		<RadioPrimitive.Root
+			key={props.value === undefined ? props.defaultValue : undefined}
 			orientation={orientation}
+			onValueChange={unlessReset(onValueChange)}
 			className={cn("flex gap-x-6", orientation === "vertical" && "flex-col", className)}
 			{...props}
 		/>
@@ -113,7 +122,7 @@ export function Radio({ label, description, id, className, ...props }: RadioProp
 		<div className={cn("flex min-h-11 items-start gap-3 py-3", className)}>
 			<RadioPrimitive.Item
 				id={itemId}
-				className="size-5 flex-none cursor-pointer rounded-full bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)] transition-[box-shadow] duration-150 hover:shadow-[inset_0_0_0_1.5px_var(--ef-ink-2)] disabled:cursor-not-allowed disabled:opacity-45 data-[state=checked]:shadow-[inset_0_0_0_6px_var(--ef-ink)]"
+				className="size-5 flex-none rounded-full bg-surface-raised shadow-[inset_0_0_0_1.5px_var(--ef-text-3)] transition-[box-shadow] duration-150 hover:shadow-[inset_0_0_0_1.5px_var(--ef-ink-2)] disabled:opacity-45 data-[state=checked]:shadow-[inset_0_0_0_6px_var(--ef-ink)]"
 				{...props}
 			/>
 			<ChoiceLabel htmlFor={itemId} label={label} description={description} disabled={props.disabled} />
@@ -124,22 +133,19 @@ export function Radio({ label, description, id, className, ...props }: RadioProp
 type SwitchProps = Omit<ComponentPropsWithRef<typeof SwitchPrimitive.Root>, "children"> & {
 	label?: ReactNode;
 	description?: ReactNode;
-	/** green (default) or blue for the on state. */
 	tone?: "green" | "blue";
 };
 
-/**
- * Switch (components.md): a settings toggle that takes effect at once. With a label it is a full row: label and
- * description on the left, the switch on the right.
- */
-export function Switch({ label, description, tone = "green", id, className, ...props }: SwitchProps) {
+export function Switch({ label, description, tone = "green", id, className, onCheckedChange, ...props }: SwitchProps) {
 	const auto = useId();
 	const switchId = id ?? auto;
 	const control = (
 		<SwitchPrimitive.Root
+			key={props.checked === undefined ? String(props.defaultChecked) : undefined}
 			id={switchId}
+			onCheckedChange={unlessReset(onCheckedChange)}
 			className={cn(
-				"relative h-7 w-12 flex-none cursor-pointer rounded-pill bg-[var(--ef-switch-off)] p-0 shadow-[inset_0_0_0_1px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-45",
+				"relative h-7 w-12 flex-none rounded-pill bg-[var(--ef-switch-off)] p-0 shadow-[inset_0_0_0_1px_var(--ef-text-3)] transition-[background-color,box-shadow] duration-200 disabled:opacity-45",
 				tone === "blue"
 					? "data-[state=checked]:bg-blue-500 data-[state=checked]:shadow-[inset_0_0_0_1px_var(--ef-blue-600)]"
 					: "data-[state=checked]:bg-green-500 data-[state=checked]:shadow-[inset_0_0_0_1px_var(--ef-green-700)]",
