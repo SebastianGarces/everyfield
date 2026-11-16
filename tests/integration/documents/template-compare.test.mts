@@ -1,13 +1,3 @@
-// T-19 "Compare with template": a Church Document beside the current version of its template, and accepting changes
-// as one new revision. The pure compare runs without a database; the read and the accept run on a fresh schema of the
-// shared development database. Template version 2 exists only in this file: no repo template file changes.
-//   Criterion 2: each edit (a deleted paragraph, a reworded heading, a new margin) is listed once, with its mark.
-//   Criterion 3: a fresh document has no differences.
-//   Criterion 4: a merge field compares by key, so a value-only difference is not listed.
-//   Criteria 5, 6, 7, 9, 14: accepting some changes of a version 2 makes one revision with the exact body and origin.
-//   Criterion 10: the legal notice is never a difference, and accept all keeps it in the PDF and the Word file.
-//   Criterion 11: an accept from a stale compare is a conflict and writes nothing.
-//   Criterion 12: a Member is refused; a blank document and a gone template have nothing to compare with.
 import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -35,16 +25,11 @@ import { randomUUID } from "node:crypto";
 const POLICY = "conflict-of-interest-policy";
 const v1 = docTemplateById(POLICY)!;
 
-/** Through the editor and back, as a Save stores it: the editor writes every default attribute. */
 const throughEditor = (doc) =>
 	documentFrom(doc, editorSchema().nodeFromJSON(editorContent(doc)).toJSON() as Record<string, unknown>);
 const para = (text) => ({ type: "paragraph", content: [{ type: "text", text }] });
 const shape = (differences) => differences.map((d) => [d.id, d.part, d.kind]);
 
-/**
- * The test-only version 2 of the policy: block 4 ("Purpose") is reworded, block 5 (its paragraph) is gone, and a new
- * paragraph after block 7 prints a field the version 1 document does not have.
- */
 function versionTwo() {
 	const v2 = structuredClone(v1);
 	v2.version = 2;
@@ -69,7 +54,6 @@ function versionTwo() {
 	return docTemplate.parse(v2);
 }
 
-/** The built-in templates with `next` as the policy's current version, published beside the stored ones. */
 async function withVersion(next) {
 	const hash = await templateHash(next);
 	return {
@@ -106,7 +90,6 @@ describe("INV-template-compare: compare a document with its template (no databas
 	});
 
 	test("INV-template-compare: a block that spells out its default attributes equals one that leaves them out", async () => {
-		// The editor writes the defaults once a person picks a style and picks the default back (Lead, then Body).
 		const fork = await forkTemplate(v1);
 		const at = fork.body.content.findIndex((block) => block.type === "paragraph" && !block.attrs);
 		assert.notEqual(at, -1, "the template has a paragraph with no attrs");
@@ -136,8 +119,6 @@ describe("INV-template-compare: compare a document with its template (no databas
 		assert.deepEqual(compareWithTemplate(all, v1), []);
 	});
 });
-
-// ---------------------------------------------------------------- the read and the accept, on the database
 
 const database = await fixture({ prefix: "t19cmp", plant: { name: "Harvest Point" } });
 const { admin } = database;
@@ -182,7 +163,6 @@ const file = async (who, documentId, format, revision?) =>
 		),
 	);
 const pdfText = async (f) => (await pdfPages(Buffer.from(f.bytes, "base64"))).join(" ").replace(/\s+/g, " ");
-/** The words of the Word file: its body, headers and footers. */
 const docxText = (f) =>
 	Object.entries(docxParts(Buffer.from(f.bytes, "base64")))
 		.filter(([name]) => /^word\/(document|header\d*|footer\d*)\.xml$/.test(name))
@@ -201,7 +181,6 @@ const revisionCount = async (id) =>
 	);
 
 before(async () => {
-	// Harvest Point has a senior pastor, so the pastor field prints the church's value; Other Church has none.
 	const pastor = randomUUID();
 	const team = randomUUID();
 	const role = randomUUID();
@@ -237,7 +216,6 @@ describe("INV-template-compare: compare and accept on a Church Document", { conc
 		const v2 = versionTwo();
 		const templates = await withVersion(v2);
 		const doc = await create(OWNER, POLICY);
-		// The church's own edit: its lead paragraph.
 		const edited = structuredClone(doc.body);
 		edited.body.content[3] = para("Our board keeps this policy so every decision serves the church.");
 		const r2 = ok(await save(OWNER, doc.id, "1", throughEditor(edited)));
@@ -257,7 +235,6 @@ describe("INV-template-compare: compare and accept on a Church Document", { conc
 			[3, "body", "template-only"],
 		]);
 		assert.equal(found.differences[1].template.content[0].text, "Why this policy exists");
-		// The new field shows what it would print: the church's pastor, never a raw key or a blank.
 		assert.equal(found.values.pastor_name, "Pastor Ada");
 		assert.equal(found.values.church_name, "Harvest Point");
 
@@ -277,7 +254,6 @@ describe("INV-template-compare: compare and accept on a Church Document", { conc
 		);
 		assert.equal(accepted.revision, "3");
 		assert.equal(accepted.templateVersion, 2);
-		// The document's own blocks, with the reworded heading, the new paragraph and without the removed one.
 		const expected = structuredClone(r2.body.body.content);
 		expected[4] = v2.body.content[4];
 		expected.splice(7, 0, v2.body.content[6]);
@@ -293,7 +269,6 @@ describe("INV-template-compare: compare and accept on a Church Document", { conc
 			church_legal_name: "Harvest Point",
 			pastor_name: "Pastor Ada",
 		});
-		// The revision records the template version; the row keeps the version and values it was made with.
 		const row = await documentRow(doc.id);
 		assert.equal(row.template_version, 1);
 		assert.equal(row.revision, "3");
@@ -309,7 +284,6 @@ describe("INV-template-compare: compare and accept on a Church Document", { conc
 			"the library shows the version the document page shows",
 		);
 
-		// Exactly one new revision; the earlier ones are unchanged and still render the same file.
 		assert.deepEqual(
 			(await history(MEMBER, doc.id)).revisions.map((r) => r.number),
 			[1, 2, 3],
@@ -318,7 +292,6 @@ describe("INV-template-compare: compare and accept on a Church Document", { conc
 		assert.deepEqual(await revisionBody(doc.id, 2), rev2Body);
 		assert.equal((await file(MEMBER, doc.id, "pdf", 1)).digest, rev1Pdf.digest);
 
-		// Criterion 8: the PDF and the Word file print the accepted content and the church's value.
 		const pdf = await pdfText(await file(MEMBER, doc.id, "pdf"));
 		const word = docxText(await file(MEMBER, doc.id, "docx"));
 		for (const text of [pdf, word]) {
@@ -328,7 +301,6 @@ describe("INV-template-compare: compare and accept on a Church Document", { conc
 			assert.ok(!text.includes("pastor_name"), "no raw key prints");
 		}
 
-		// Criterion 7: the document is current, and compare still lists the difference the church kept.
 		assert.equal(await templateStatus(accepted.body, templates), "current");
 		const again = ok(await compare(OWNER, doc.id, templates));
 		assert.equal(again.behind, false);
@@ -397,7 +369,6 @@ describe("INV-template-compare: compare and accept on a Church Document", { conc
 		ok(await save(ADMIN, doc.id, "1", edited));
 		const found = ok(await compare(ADMIN, doc.id));
 		assert.equal(found.revision, "2");
-		// Another tab saves revision 3 after the compare opened.
 		ok(await save(OWNER, doc.id, "2", { ...edited, title: "Saved elsewhere" }));
 		const request = {
 			documentId: doc.id,
@@ -409,10 +380,8 @@ describe("INV-template-compare: compare and accept on a Church Document", { conc
 		};
 		refused(await accept(ADMIN, request), "conflict");
 		assert.equal(await revisionCount(doc.id), 3);
-		// A compare made for another template version is a conflict too.
 		const stale = { ...request, expectedRevision: "3", templateHash: `sha256:${"0".repeat(64)}` };
 		refused(await accept(ADMIN, stale), "conflict");
-		// A number the compare does not have is refused as invalid.
 		const reloaded = ok(await compare(ADMIN, doc.id));
 		refused(
 			await accept(ADMIN, { ...request, expectedRevision: "3", key: reloaded.keys.all, accept: [99] }),

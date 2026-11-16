@@ -13,14 +13,11 @@ import {
 import { trainingReader, trainingWriter } from "../../../../../packages/domain/src/teams/index.ts";
 import { fixture, ok, refused } from "../../../../support/fixture.mts";
 
-// SCHEMA-010: a reviewed merge of P2 into P1 inverts only while its post-merge state is the one Unmerge reviewed. The
-// schema's clock runs from the case's instant (2026-10-13T16:00:00Z, America/Chicago).
 const database = await fixture({ prefix: "wp092unm", clock: new Date("2026-10-13T16:00:00.000Z") });
 const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant()).id;
-// A: Admin of P. B: Admin of another church Q.
 const A = database.actors.admin;
 const B = await database.actor({ kind: "plant", id: Q }, "admin");
 const ctx = (actor = A) => ({ session: actor.session, selected: { kind: "plant", id: actor === B ? Q : P } });
@@ -52,7 +49,6 @@ async function card(personId, occurredOn) {
 		),
 	).commitment;
 }
-/** One required training both people are on, so the merge meets a training collision. */
 async function sharedTraining(personIds) {
 	const program = ok(
 		await tx((t) =>
@@ -74,7 +70,6 @@ async function sharedTraining(personIds) {
 		),
 	);
 }
-/** A delivered or unknown provider effect: email to P1 the provider took and may already have delivered. */
 async function delivery(personId, state) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO mail(id,tenant_id,recipient_person_id,purpose,logical_key,payload_hash,audience_hash,
@@ -94,7 +89,6 @@ async function merge(sourceId, survivorId) {
 		),
 	);
 }
-/** Unmerge against the reviewed post-merge state the preview shows `actor`. */
 async function unmerge(mergeId, actor = A) {
 	const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(actor), { mergeId })));
 	return tx((t) =>
@@ -106,28 +100,22 @@ async function unmerge(mergeId, actor = A) {
 	);
 }
 
-/** The merged pair as the database holds it: which Person is current, and the merge record. */
 const reference = async (p1, p2, mergeId) =>
 	one(sql`SELECT (SELECT state FROM person WHERE id=${p2}) AS p2_state,
  (SELECT merged_into_person_id FROM person WHERE id=${p2}) AS p2_merged_into,
  (SELECT state FROM person WHERE id=${p1}) AS p1_state,
  (SELECT unmerged_at IS NOT NULL FROM person_merge WHERE id=${mergeId}) AS unmerged`);
-/** Every provider-facing row: a provider undo or resend shows as a new or changed row here. */
 const provider = async (mailId) =>
 	one(sql`SELECT (SELECT count(*)::int FROM mail) AS mail,(SELECT count(*)::int FROM mail_attempt) AS attempts,
  (SELECT count(*)::int FROM mail_request) AS requests,(SELECT count(*)::int FROM job WHERE kind='mail') AS jobs,
  (SELECT to_jsonb(m) FROM mail m WHERE m.id=${mailId}) AS effect`);
-/** Who holds each training assignment of the pair, and its state. */
 const assignments = async (p1, p2) =>
 	rows(sql`SELECT CASE person_id WHEN ${p1}::uuid THEN 'P1' ELSE 'P2' END AS owner,state FROM training_assignment
  WHERE person_id IN (${p1}::uuid,${p2}::uuid) ORDER BY 1,2`);
-/** Inverse receipts: the audit rows an Unmerge writes for its survivor. */
 const inverseReceipts = async (p1) =>
 	(await one(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${p1} AND action='people.unmerged'`)).n;
 
 test("AC:SCHEMA-010 guarded Unmerge refuses a changed post-merge state, keeps P1 current and undoes or resends no mail", async () => {
-	// P2 duplicates P1: both are on one required training and each holds a commitment card (training and card collisions),
-	// and P1 already has an email the provider accepted with an unknown outcome.
 	const p1 = await person("Jordan Lee"),
 		p2 = await person("Jordan L.");
 	await sharedTraining([p1, p2]);
@@ -142,13 +130,11 @@ test("AC:SCHEMA-010 guarded Unmerge refuses a changed post-merge state, keeps P1
 		unmerged: false,
 	});
 	assert.equal((await one(sql`SELECT person_id FROM commitment WHERE id=${moved.id}`)).person_id, p1);
-	// The training collision: P2's assignment moved to P1 and ended, so P1 holds the one active assignment.
 	assert.deepEqual(await assignments(p1, p2), [
 		{ owner: "P1", state: "active" },
 		{ owner: "P1", state: "removed" },
 	]);
 
-	// A moved row changes after the reviewed post-merge state: the card P2 brought is corrected on P1.
 	ok(
 		await tx(async (t) =>
 			recordCorrections.correctPersonRecord(t, ctx(), {
@@ -167,7 +153,6 @@ test("AC:SCHEMA-010 guarded Unmerge refuses a changed post-merge state, keeps P1
 	const effects = await provider(mail);
 	const error = refused(await unmerge(merged.mergeId), "inverse_conflict");
 	assert.deepEqual(error.details.causes, ["references_changed"]);
-	// P1 stays the current reference; no inverse receipt, provider undo or resend.
 	assert.deepEqual(await reference(p1, p2, merged.mergeId), {
 		p2_state: "merged",
 		p2_merged_into: p1,
@@ -189,7 +174,6 @@ test("AC:SCHEMA-010 clean-poststate-can-inverse: an unchanged post-merge state i
 	const merged = await merge(p2, p1);
 	const effects = await provider(mail);
 
-	// An Admin of another church Q cannot preview or Unmerge P's merge, and P's state is unchanged.
 	refused(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(B), { mergeId: merged.mergeId })));
 	refused(
 		await tx((t) =>
@@ -208,7 +192,6 @@ test("AC:SCHEMA-010 clean-poststate-can-inverse: an unchanged post-merge state i
 	});
 	assert.equal(await inverseReceipts(p1), 0);
 
-	// Nothing changed since the reviewed post-merge state: Unmerge restores P2 as the current reference.
 	assert.equal(ok(await unmerge(merged.mergeId)).outcome, "changed");
 	assert.deepEqual(await reference(p1, p2, merged.mergeId), {
 		p2_state: "live",
