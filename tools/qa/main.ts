@@ -27,7 +27,6 @@ function main(args: string[]): number {
 		console.log(HELP);
 		return 0;
 	}
-	// `--test-recipients <list>` or `--test-recipients=<list>`, once, after the branch.
 	let recipients: string[] = [];
 	if (sub === "up" && rest.length) {
 		const [flag, ...value] = rest[0]!.split("=");

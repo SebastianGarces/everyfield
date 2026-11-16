@@ -1,5 +1,3 @@
-// `bin/dev nightly schedule install|status|uninstall` (T-104): a launchd user agent that runs `bin/dev nightly` from the
-// main checkout at 03:30 local time on this Mac (D-347). launchd runs a missed calendar job when the Mac next wakes.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, userInfo } from "node:os";
@@ -15,18 +13,14 @@ export type PlistInput = {
 	label: string;
 	hour: number;
 	minute: number;
-	/** The main checkout: the job runs its `bin/dev nightly` from there. */
 	checkout: string;
-	/** The PATH the job runs with. */
 	path: string;
-	/** stdout and stderr both append here. */
 	log: string;
 };
 
 const xml = (s: string) =>
 	s.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 
-/** The agent's plist. No RunAtLoad and no KeepAlive: it runs only at the calendar time. */
 export function plist({ label, hour, minute, checkout, path, log }: PlistInput): string {
 	return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -62,20 +56,16 @@ export function plist({ label, hour, minute, checkout, path, log }: PlistInput):
 `;
 }
 
-/** A command runner shaped like `launchctl`: tests pass a fake. */
 export type Launchctl = (args: readonly string[]) => { status: number; output: string };
 
 export type ScheduleDeps = {
-	/** ~/Library/LaunchAgents. */
 	agentsDir: string;
 	uid: number;
-	/** The CI home that holds nightly.jsonl and the job's log. */
 	home: string;
 	checkout: string;
 	path: string;
 	launchctl: Launchctl;
 	log: (line: string) => void;
-	/** Blocks for `ms`; bootout finishes asynchronously, so install waits for it. */
 	sleep: (ms: number) => void;
 };
 
@@ -85,7 +75,6 @@ const time = `${String(HOUR).padStart(2, "0")}:${String(MINUTE).padStart(2, "0")
 
 const loaded = (d: ScheduleDeps) => d.launchctl(["print", `gui/${d.uid}/${LABEL}`]).status === 0;
 
-/** Boots out a loaded agent and waits until launchd has let it go. True when one was loaded. */
 function bootout(d: ScheduleDeps): boolean {
 	if (!loaded(d)) return false;
 	d.launchctl(["bootout", `gui/${d.uid}/${LABEL}`]);
@@ -96,7 +85,6 @@ function bootout(d: ScheduleDeps): boolean {
 	return true;
 }
 
-/** Writes the plist and (re)loads it. Running it again replaces the one agent. */
 export function install(d: ScheduleDeps): number {
 	const file = plistPath(d.agentsDir);
 	mkdirSync(d.agentsDir, { recursive: true });
@@ -114,7 +102,6 @@ export function install(d: ScheduleDeps): number {
 	return 0;
 }
 
-/** The last nightly_result or nightly_skipped line, or null. */
 export function lastRecord(home: string): string | null {
 	const file = nightlyLog(home);
 	if (!existsSync(file)) return null;
@@ -123,9 +110,7 @@ export function lastRecord(home: string): string | null {
 		try {
 			const { type } = JSON.parse(line) as { type?: string };
 			if (type === "nightly_result" || type === "nightly_skipped") return line;
-		} catch {
-			// A torn line from a killed run says nothing.
-		}
+		} catch {}
 	}
 	return null;
 }
@@ -156,18 +141,11 @@ export function uninstall(d: ScheduleDeps): number {
 	return 0;
 }
 
-// ---- The real machine. ----
-
 const which = (command: string) => {
 	const r = spawnSync("/bin/sh", ["-c", `command -v ${command}`], { encoding: "utf8" });
 	return r.status === 0 ? r.stdout.trim() : null;
 };
 
-/**
- * The dirs of node and every tool `bin/dev nightly` calls, then the system dirs. node is the one on PATH (a stable link
- * such as /opt/homebrew/bin/node that survives an upgrade; bin/dev falls back to nvm when it is older than 24), else
- * the node running now.
- */
 export function jobPath(found: (command: string) => string | null = which, node = process.execPath): string {
 	const dirs = [dirname(found("node") ?? node)];
 	for (const tool of ["pnpm", "corepack", "gh", "portless", "git"]) {
@@ -200,7 +178,6 @@ function realDeps(root: string): ScheduleDeps {
 	};
 }
 
-/** `bin/dev nightly schedule <action>`. */
 export function scheduleCommand(args: string[], root: string): number | null {
 	const [name, ...rest] = args;
 	const actions = { install, status, uninstall };
