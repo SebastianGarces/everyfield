@@ -7,7 +7,6 @@ export async function verifyCheckout(
 	root: URL,
 	expectedCatalogSha256: string,
 ): Promise<{ ok: boolean; issues: { code: string; path: string }[] }> {
-	// WP-001 deliberately reports catalog identity; consumers must compare their reviewed expectation.
 	if (!/^[a-f0-9]{64}$/.test(expectedCatalogSha256))
 		throw Error("Catalog SHA-256 required: pass the reviewed catalog digest");
 	const { verifySources } = await import("../verify.mjs");

@@ -72,7 +72,7 @@ type NavItem = { label: string; href: string };
 type ShellNav = (viewer: unknown) => { main: readonly NavItem[]; pages: readonly NavItem[] };
 
 export type BasePending = { routes: string[] } | { skip: string } | { error: string };
-export type CheckOptions = { base: BasePending; ci: boolean };
+export type CheckOptions = { base: BasePending; ci: boolean; changed?: string[] };
 export type CheckResult = { problems: string[]; summary: string };
 
 export function validate(schema: Schema, value: Json, root: Schema, at = ""): string[] {
@@ -249,7 +249,10 @@ export function sourceStrings(source: string, jsx: boolean): string[] {
 }
 
 const SOURCE_FILE = /\.(tsx?|mts)$/;
-const isTest = (f: string) => /\.test\.|\.d\.ts$/.test(f);
+export const isTest = (f: string) => /\.test\.|\.d\.ts$/.test(f);
+export const featureOf = (file: string) =>
+	file.startsWith(`${FEATURES_DIR}/`) ? (/^([^/]+)\//.exec(file.slice(FEATURES_DIR.length + 1))?.[1] ?? null) : null;
+export const featureMapFile = (feature: string) => `${FEATURES_DIR}/${feature}/feature-map.json`;
 
 function stringsOf(root: string, files: string[]): Set<string> {
 	return new Set(files.flatMap((f) => sourceStrings(readFileSync(join(root, f), "utf8"), f.endsWith(".tsx"))));
@@ -512,6 +515,29 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 		problems.push(
 			`${PENDING_FILE}: cannot read the pending list at the merge base with origin/main: ${options.base.error}`,
 		);
+	if (options.changed) {
+		const routeOf = new Map(routes.map((r) => [r.file, r] as const));
+		const unmapped = new Map<string, string[]>();
+		for (const file of options.changed) {
+			const route = routeOf.get(file);
+			if (route && pending.includes(route.url))
+				problems.push(
+					`${file}: this branch changes ${route.url}, which is still in ${PENDING_FILE}; map its surface in its feature's feature-map.json and remove the route from the pending list`,
+				);
+			const feature = featureOf(file);
+			if (
+				feature &&
+				!isTest(file) &&
+				existsSync(join(root, FEATURES_DIR, feature)) &&
+				!existsSync(join(root, featureMapFile(feature)))
+			)
+				unmapped.set(feature, [...(unmapped.get(feature) ?? []), file]);
+		}
+		for (const [feature, files] of unmapped)
+			problems.push(
+				`${FEATURES_DIR}/${feature}/: this branch changes ${files.join(", ")}, but feature "${feature}" has no feature-map.json; add ${featureMapFile(feature)} with at least the surface this change touches`,
+			);
+	}
 
 	const code = codeCorpus(root);
 	const catalog = readJson(root, "docs/catalog/index.json") as Record<string, Json>;
@@ -1053,6 +1079,21 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"example `/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there;",
 		"a map for a polling page should wait on its next check instead (`wait --text`, `wait --url`).",
 		"",
+		"## Changing a feature, and the review proof",
+		"",
+		"On a branch the check also reads the files changed since the merge base with origin/main. A change to a page or",
+		"handler file whose route is still pending fails until that route's surface is mapped and the route leaves the",
+		"pending list. A change to a non-test file under `apps/web/src/features/<feature>/` fails while the feature has no",
+		"`feature-map.json`. A partial map is enough: map the surface you touch and leave the feature's other routes pending.",
+		"",
+		"Every review of app code carries proof of the real app. The verifier reaches each changed surface as its map says,",
+		"takes agent-browser screenshots at 390 and 1440 px (or a recording) into `<evidence>/proof/<surface-id>/` and runs",
+		"`pnpm review-proof --base <merge-base> --evidence <dir> [--head <checkout>] <surface-id>...`. It derives the",
+		"surfaces the diff needs: each changed mapped route's surface, one proved surface per changed mapped feature, and one",
+		"for any other product code under `apps/web/` or `packages/*/src/`. It refuses a missing width, a PNG that is not",
+		"exactly 390 or 1440 px wide and an unknown surface id, and prints each proved surface's map entry as the review's",
+		"Proof table. A diff of only tooling, docs, tests or agent instructions needs no app proof.",
+		"",
 	].join("\n");
 }
 
@@ -1079,15 +1120,31 @@ export function writeDocs(root: string): string[] {
 	return [];
 }
 
-export function basePendingFromGit(root: string, ref = "origin/main"): BasePending {
-	const git = (...args: string[]) =>
+const gitIn =
+	(root: string) =>
+	(...args: string[]) =>
 		execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-	let base: string;
+
+function mergeBase(root: string, ref = "origin/main"): string | null {
 	try {
-		base = git("merge-base", "HEAD", ref);
+		return gitIn(root)("merge-base", "HEAD", ref);
 	} catch {
-		return { error: `git merge-base HEAD ${ref} failed (is ${ref} fetched?)` };
+		return null;
 	}
+}
+
+export function changedFiles(root: string, base: string, head?: string): string[] {
+	const git = gitIn(root);
+	const lines = (text: string) => text.split("\n").filter(Boolean);
+	const diff = lines(git("diff", "--name-only", "--no-renames", base, ...(head ? [head] : [])));
+	const untracked = head ? [] : lines(git("ls-files", "--others", "--exclude-standard"));
+	return [...new Set([...diff, ...untracked])].sort();
+}
+
+export function basePendingFromGit(root: string, ref = "origin/main"): BasePending {
+	const git = gitIn(root);
+	const base = mergeBase(root, ref);
+	if (!base) return { error: `git merge-base HEAD ${ref} failed (is ${ref} fetched?)` };
 	try {
 		const files = git("ls-tree", "-r", "--name-only", base, "--", "apps/web").split("\n");
 		if (files.includes(PENDING_FILE))
@@ -1121,10 +1178,13 @@ if (import.meta.main) {
 	} else if (command === undefined || command === "--check") {
 		const base = basePendingFromGit(root);
 		const ci = process.env.CI === "true";
-		const { problems, summary } = await checkFeatureMaps(root, { base, ci });
+		const at = mergeBase(root);
+		const changed = at ? changedFiles(root, at) : undefined;
+		const { problems, summary } = await checkFeatureMaps(root, { base, ci, changed });
 		for (const p of problems) console.error(p);
 		if ("skip" in base) console.log(`feature-maps: pending-list growth not checked: ${base.skip}`);
 		if ("error" in base && !ci) console.log(`feature-maps: pending-list growth not checked: ${base.error}`);
+		if (!changed) console.log("feature-maps: changed routes and features not checked: no merge base with origin/main");
 		if (problems.length) {
 			console.error(`feature-maps: ${problems.length} problem(s).`);
 			process.exit(1);

@@ -21,10 +21,8 @@ import {
 	venuePatchFields,
 } from "./values.ts";
 
-// No owner, account, creator, actor, Vision number or authority in any body: the server derives them.
 const create = <T extends z.ZodType>(input: T) => z.strictObject({ requestKey, input });
 
-/** A new meeting's location: none, an active saved venue (its name and address are copied), or a venue created with it. */
 export const venueChoice = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("none") }),
 	z.strictObject({ kind: z.literal("existing"), venueId }),
@@ -32,10 +30,6 @@ export const venueChoice = z.discriminatedUnion("kind", [
 ]);
 const optionalText = (max: number) => z.string().trim().max(max).nullable().optional();
 
-/**
- * A team meeting names one ministry; its guest list starts as a copy of that ministry's people (REQ-MTG-007). Only a
- * team meeting carries a subtype (REQ-TEAM-013).
- */
 export const scheduleMeetingRequest = create(
 	z
 		.strictObject({
@@ -61,7 +55,6 @@ export const scheduleMeetingRequest = create(
 			message: "subtype_only_for_team_meeting",
 		}),
 );
-// Type and team are fixed at creation, so an edit cannot name them.
 export const editMeetingRequest = commandEnvelope(
 	z.strictObject({
 		meetingId,
@@ -90,11 +83,9 @@ export const correctPracticeRequest = commandEnvelope(
 		})
 		.refine((v) => (v.state === "completed") === (v.occurredAt !== undefined), "occurred_at_with_completed"),
 );
-/** Void marks an invalid held occurrence; restoring clears the void. Archiving a genuine one is delete. */
 export const correctOccurrenceRequest = commandEnvelope(z.strictObject({ meetingId, voided: z.boolean(), reason }));
 export const replaceAgendaRequest = commandEnvelope(z.strictObject({ meetingId, sections: agenda }));
 export const populateKitRequest = commandEnvelope(z.strictObject({ meetingId }));
-/** The expected revision is the item's own. */
 export const updateKitItemRequest = commandEnvelope(
 	z.strictObject({
 		meetingId,
@@ -114,7 +105,6 @@ export const inviteGuestRequest = create(
 		.strictObject({ meetingId, personId, inviterPersonId: personId.nullable().default(null) })
 		.refine((v) => v.inviterPersonId !== v.personId, "self_inviter"),
 );
-/** Guest writes below name the guest by Person; the expected revision is the guest row's. */
 const guest = { meetingId, personId };
 export const removeGuestRequest = commandEnvelope(z.strictObject(guest));
 export const setInviterRequest = commandEnvelope(
@@ -122,7 +112,6 @@ export const setInviterRequest = commandEnvelope(
 		.strictObject({ ...guest, inviterPersonId: personId.nullable() })
 		.refine((v) => v.inviterPersonId !== v.personId, "self_inviter"),
 );
-/** Null resets the answer to Pending. */
 export const correctRsvpRequest = commandEnvelope(z.strictObject({ ...guest, rsvp: rsvpAnswer.nullable() }));
 export const saveOwnRsvpRequest = create(z.strictObject({ meetingId, rsvp: rsvpAnswer }));
 const contactFields = {
@@ -136,10 +125,6 @@ export const createGuestContactRequest = create(
 	z.strictObject({ ...contact, attendance: z.enum(["attended", "not_recorded"]).default("not_recorded") }),
 );
 export const createWalkInContactRequest = create(z.strictObject(contact));
-/**
- * Everyone chosen in one Add guest submit, as one write: People already in this church, and new contacts made as
- * prospects from this meeting's guest list (REQ-MTG-007, REQ-MTG-011). Nobody here gets an inviter.
- */
 export const addGuestsRequest = create(
 	z
 		.strictObject({
@@ -162,10 +147,6 @@ export const recordCardRequest = commandEnvelope(
 	}),
 );
 export const clearCardRequest = commandEnvelope(z.strictObject({ ...guest, reason }));
-/**
- * The reviewed update of a team meeting's guest list from its ministry: exactly the people the preview named. A list
- * that no longer matches the ministry is refused as a conflict, so nothing changes that the person did not review.
- */
 const reviewedPeople = z
 	.array(personId)
 	.max(500)
@@ -190,11 +171,9 @@ export const restoreVenueRequest = commandEnvelope(z.strictObject({ venueId }));
 
 export const listMeetingsRequest = z.strictObject({
 	window: meetingWindow.default("all"),
-	// An empty list means every type. Repeated values count once.
 	types: z.array(meetingType).max(8).default([]),
 	statuses: z.array(meetingStatus).max(10).default([]),
 	preparation: preparation.default("any"),
-	/** One ministry's team meetings, archived ministries included. */
 	teamId: recordId.optional(),
 	...pageInput,
 });

@@ -1,5 +1,3 @@
-// T-396: the production identity setup (tools/prod-identity/setup.ts), run as Sebastian runs it, against a migrated
-// throwaway Postgres in Docker with a stub `vercel` first on PATH. No test touches Neon or Vercel.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -26,14 +24,12 @@ const pg = createRequire(join(source, "packages/db/package.json"))("pg");
 
 let db: QuietDatabase;
 let dir: string;
-/** Every line any run printed: no generated value or admin password may appear in it. */
 const printed: string[] = [];
 
 before(() => {
 	db = startQuietDatabase(source, "prod-identity");
 	dir = realpathSync(mkdtempSync(join(tmpdir(), "prod-identity-")));
 	mkdirSync(join(dir, "bin"));
-	// The stub keeps each environment's names in a JSON file and logs every call's argv and stdin apart.
 	writeFileSync(
 		join(dir, "bin/vercel"),
 		`#!${process.execPath}
@@ -109,7 +105,6 @@ const vercelCalls = () =>
 				.split("\n")
 				.map((l) => JSON.parse(l) as string[])
 		: [];
-/** The values the commands file handed the stub on stdin, by setting name (the last one wins). */
 const handed = () =>
 	Object.fromEntries(
 		readFileSync(join(dir, "values.jsonl"), "utf8")
@@ -215,14 +210,12 @@ test("apply creates the three logins, writes the commands file, and a second app
 	runCommands();
 	const values = handed();
 	assert.equal(values.IDENTITY_ORIGIN, ORIGIN);
-	// No value travelled in an argv.
 	for (const [name, value] of Object.entries(values))
 		if (name !== "IDENTITY_ORIGIN")
 			assert.ok(
 				vercelCalls().every((a) => !a.some((x) => x.includes(value))),
 				name,
 			);
-	// Each URL connects as the app connects and reads a table its group is granted.
 	const asApp = async () => {
 		assert.deepEqual(
 			await query(
@@ -250,12 +243,10 @@ test("apply creates the three logins, writes the commands file, and a second app
 	};
 	await asApp();
 
-	// A waiting commands file blocks a rerun.
 	const blocked = run(["--apply", "--confirm", "127.0.0.1", "--out", OUT()]);
 	assert.equal(blocked.code, 1);
 	assert.match(blocked.out, /A commands file from an earlier run is waiting/);
 
-	// Once run and deleted, a second apply re-asserts the grants and changes no password or key.
 	rmSync(OUT());
 	const again = run(["--apply", "--confirm", "127.0.0.1", "--out", OUT()]);
 	assert.equal(again.code, 0, again.out);
@@ -269,7 +260,6 @@ test("apply creates the three logins, writes the commands file, and a second app
 	);
 	await asApp();
 
-	// A login whose URL Vercel lacks cannot be kept: its password is gone, so only --rotate-passwords proceeds.
 	writeFileSync(
 		join(dir, "production.json"),
 		JSON.stringify(
@@ -303,7 +293,6 @@ test("apply creates the three logins, writes the commands file, and a second app
 	assert.equal(fresh.IDENTITY_SECRET, values.IDENTITY_SECRET);
 	rmSync(OUT());
 
-	// No value or password reached any terminal output, here or in the tests above.
 	const secrets = [...new Set([...Object.values(values), ...Object.values(fresh)])].filter((v) => v !== ORIGIN);
 	secrets.push(new URL(db.adminUrl).password);
 	for (const s of secrets) for (const out of printed) assert.ok(!out.includes(s), "a value reached the terminal");

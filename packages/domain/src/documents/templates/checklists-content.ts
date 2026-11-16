@@ -1,6 +1,5 @@
 export type ChecklistTeam = { id: string; name: string; tasks: string[] };
 
-/** Six teams, five tasks each. Owners, times and team leads are filled in by the church. */
 export const CHECKLIST_TEAMS: ChecklistTeam[] = [
 	{
 		id: "setup",

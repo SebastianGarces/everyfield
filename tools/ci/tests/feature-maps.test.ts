@@ -1,140 +1,16 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
-import { basePendingFromGit, checkFeatureMaps, writeDocs, type BasePending } from "../feature-maps.ts";
-
-const SCHEMA = fileURLToPath(new URL("../../../apps/web/feature-map.schema.json", import.meta.url));
-const TEST_NAME = "AC:CASE-THING-1 an Owner opens a thing";
-const MAP = "apps/web/src/features/things/feature-map.json";
-
-const thingsMap = () => ({
-	feature: "things",
-	catalog: ["THG-001"],
-	surfaces: [
-		{
-			id: "things.list",
-			says: "Every thing of the church.",
-			routes: ["/things"],
-			reach: [{ rail: "Things", personas: ["owner", "admin"] } as Record<string, unknown>],
-			personas: { owner: "write", admin: "read", visitor: "none" } as Record<string, string>,
-			states: [
-				{
-					id: "populated",
-					reach: { persona: "owner", open: "/things", seed: "qa" } as Record<string, unknown>,
-					expect: [{ role: "heading", name: "All things" }] as Record<string, unknown>[],
-				},
-				{
-					id: "loading",
-					file: "apps/web/src/app/(product)/things/loading.tsx",
-					reach: { manual: "only while the server renders" } as Record<string, unknown>,
-					expect: [{ text: "Loading things" }],
-				},
-			],
-			behaviors: [
-				{
-					id: "open",
-					says: "An Owner opens a thing from the list.",
-					catalog: ["THG-001"],
-					operations: ["things.open"] as string[],
-					noOperation: undefined as string | undefined,
-					proof: {
-						tests: [{ file: "tests/integration/things.test.mts", name: TEST_NAME }],
-						cases: ["CASE-THING-1"],
-						browser: {
-							kind: "behavior",
-							state: "populated",
-							steps: [{ click: { role: "button", name: "Open thing" } }] as Record<string, unknown>[],
-							expect: [{ text: "The Gym", match: "contains" }] as Record<string, unknown>[],
-						},
-					},
-				},
-			],
-		},
-	],
-});
-type ThingsMap = ReturnType<typeof thingsMap>;
-
-function fixture(): string {
-	const root = mkdtempSync(join(tmpdir(), "feature-maps-"));
-	const put = (file: string, content: string | object) => {
-		mkdirSync(dirname(join(root, file)), { recursive: true });
-		writeFileSync(join(root, file), typeof content === "string" ? content : JSON.stringify(content, null, "\t"));
-	};
-	put("apps/web/feature-map.schema.json", "");
-	copyFileSync(SCHEMA, join(root, "apps/web/feature-map.schema.json"));
-	put("apps/web/feature-maps.pending.json", { routes: ["/later"] });
-	put(
-		"apps/web/src/app/(product)/things/page.tsx",
-		'export { ThingsPage as default } from "@/features/things/routes";\n',
-	);
-	put(
-		"apps/web/src/app/(product)/things/loading.tsx",
-		'export { ThingsLoading as default } from "@/features/things/routes";\n',
-	);
-	put("apps/web/src/app/(product)/later/page.tsx", "export default function Later() {}\n");
-	put(
-		"apps/web/src/features/things/routes.tsx",
-		"export const ThingsPage = () => (\n\t<>\n\t\t<h1>All things</h1>\n\t\t<button>Open thing</button>\n\t\t<p>Loading things</p>\n\t</>\n);\n// Close the thing\n",
-	);
-	put(MAP, thingsMap());
-	put(
-		"apps/web/src/features/shell/nav.ts",
-		'export const shellNav = (viewer: { context: string }) => ({ main: viewer.context === "plant" ? [{ label: "Things", href: "/things" }] : [{ label: "Wiki", href: "/wiki" }], pages: [] });\n',
-	);
-	put(
-		"packages/core/src/things.ts",
-		'export const OPS = ["things.open"];\nexport const delivery = { thing_link: `${origin}/things/${id}` };\n',
-	);
-	put("docs/catalog/index.json", {
-		feature_source: "docs/catalog/features.json",
-		operation_source: "docs/catalog/operations.json",
-		requirement_files: ["docs/catalog/requirements/things.json"],
-		case_files: ["docs/acceptance/things.json"],
-	});
-	put("docs/catalog/features.json", [{ id: "THG-001" }, { id: "OTH-001" }]);
-	put("docs/catalog/operations.json", {
-		operations: [
-			{ id: "things.open", feature_ids: ["THG-001"] },
-			{ id: "things.close", feature_ids: ["THG-001"] },
-			{ id: "other.make", feature_ids: ["OTH-001"] },
-		],
-	});
-	put("packages/core/src/other.ts", 'export const MORE = ["other.make"];\n');
-	put("docs/catalog/requirements/things.json", { requirements: [{ id: "REQ-THG-001", text: "Things open." }] });
-	put("docs/acceptance/things.json", { cases: [{ id: "CASE-THING-1" }, { id: "CASE-THING-2" }] });
-	put(
-		"tools/qa/qa-guard.ts",
-		'export const QA_LOGINS = {\n\towner: "delivered+qa-owner@resend.dev",\n\tadmin: "delivered+qa-admin@resend.dev",\n} as const;\n',
-	);
-	put(
-		"tools/qa/qa-seed.ts",
-		[
-			'const PLACES = ["The Gym"];',
-			'const owner = await account("Olive Owner", QA_LOGINS.owner);',
-			'const helper = await account("Ada Admin", QA_LOGINS.admin);',
-			'const plantId = await church(CHURCH, "Austin", owner, QA_LOGINS.owner, "");',
-			'for (const [accountId, role, name] of [[helper, "admin", "Ada Admin"]]) {}',
-			"",
-		].join("\n"),
-	);
-	put("tools/qa/personas.json", {
-		owner: { says: "Olive Owner, the Owner", context: "plant", role: "owner", seed: "qa" },
-		admin: { says: "Ada Admin, an Admin", context: "plant", role: "admin", seed: "qa" },
-		visitor: { says: "Nobody", context: "signed-out" },
-	});
-	put("tests/integration/things.test.mts", `test(${JSON.stringify(TEST_NAME)}, () => {});\n`);
-	assert.deepEqual(writeDocs(root), []);
-	return root;
-}
+import { basePendingFromGit, changedFiles, checkFeatureMaps, writeDocs, type BasePending } from "../feature-maps.ts";
+import { fixture, MAP, put, type ThingsMap } from "./feature-map-fixture.ts";
 
 const NO_BASE: BasePending = { skip: "fixture" };
-async function problems(root: string, base: BasePending = { routes: ["/later"] }, ci = true) {
+async function problems(root: string, base: BasePending = { routes: ["/later"] }, ci = true, changed?: string[]) {
 	try {
-		return (await checkFeatureMaps(root, { base, ci })).problems;
+		return (await checkFeatureMaps(root, { base, ci, changed })).problems;
 	} finally {
 		rmSync(root, { recursive: true, force: true });
 	}
@@ -439,4 +315,68 @@ test("INV-feature-maps: an absent observable names something that must not be on
 	assert.deepEqual(await problems(root), [
 		at(`things.list#open: no string literal or JSX text in ${scope} equals "Shut thing"`),
 	]);
+});
+
+const LATER = "apps/web/src/app/(product)/later/page.tsx";
+const BASE: BasePending = { routes: ["/later"] };
+
+test("INV-feature-maps: a branch that changes a pending route's file fails, naming the route, until a map owns that route", async () => {
+	assert.deepEqual(await problems(fixture(), BASE, true, [LATER]), [
+		`${LATER}: this branch changes /later, which is still in apps/web/feature-maps.pending.json; map its surface in its feature's feature-map.json and remove the route from the pending list`,
+	]);
+	const root = fixture();
+	put(root, "apps/web/feature-maps.pending.json", { routes: [] });
+	editMap(root, (map) => {
+		const later = structuredClone(surface(map));
+		later.id = "things.later";
+		later.routes = ["/later"];
+		later.reach = [{ link: "/later" }];
+		later.states = [later.states[0]!];
+		later.behaviors = [];
+		map.surfaces.push(later);
+	});
+	assert.deepEqual(await problems(root, BASE, true, [LATER]), []);
+});
+
+test("INV-feature-maps: a branch that changes a non-test file of a feature with no map fails, naming the feature; tests, mapped features and other paths pass", async () => {
+	const root = fixture();
+	put(root, "apps/web/src/features/stuff/list.tsx", "export const List = () => null;\n");
+	put(root, "apps/web/src/features/stuff/list.test.ts", "\n");
+	assert.deepEqual(
+		await problems(root, BASE, true, [
+			"apps/web/src/features/stuff/list.tsx",
+			"apps/web/src/features/stuff/list.test.ts",
+			"apps/web/src/features/things/routes.tsx",
+			"packages/core/src/things.ts",
+			"tools/ci/feature-maps.ts",
+			"docs/feature-maps/README.md",
+		]),
+		[
+			'apps/web/src/features/stuff/: this branch changes apps/web/src/features/stuff/list.tsx, but feature "stuff" has no feature-map.json; add apps/web/src/features/stuff/feature-map.json with at least the surface this change touches',
+		],
+	);
+	const tests = fixture();
+	put(tests, "apps/web/src/features/stuff/list.test.ts", "\n");
+	assert.deepEqual(await problems(tests, BASE, true, ["apps/web/src/features/stuff/list.test.ts"]), []);
+});
+
+test("INV-feature-maps: the changed files are the diff from the merge base to the work tree, with untracked files, or to a given head", () => {
+	const repo = mkdtempSync(join(tmpdir(), "feature-maps-diff-"));
+	const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, encoding: "utf8", stdio: "pipe" });
+	try {
+		git("init", "-q", "-b", "main");
+		put(repo, "a.txt", "a\n");
+		put(repo, "b.txt", "b\n");
+		git("add", "-A");
+		git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-qm", "base");
+		const base = git("rev-parse", "HEAD").trim();
+		git("mv", "b.txt", "c.txt");
+		git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-qm", "move");
+		put(repo, "a.txt", "changed\n");
+		put(repo, "new.txt", "n\n");
+		assert.deepEqual(changedFiles(repo, base), ["a.txt", "b.txt", "c.txt", "new.txt"]);
+		assert.deepEqual(changedFiles(repo, base, "HEAD"), ["b.txt", "c.txt"]);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
 });

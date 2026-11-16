@@ -1,18 +1,16 @@
 "use client";
 
-import { useInView, useMotionValue, useTransform, type MotionValue } from "motion/react";
-import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { observeSize, prefersReducedMotion, type NodeRef } from "@everyfield/ui/foundations";
+import { motionValue, useMotionValue, useTransform, type MotionValue } from "motion/react";
+import { useCallback, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { PlaybackGlyph } from "@/components/kit/kit";
 import { back, bump, clamp, inOut, out, P, sine, transformOf } from "@/components/motion/curves";
 import { DoneButton } from "@/components/motion/DoneButton";
 import { FxProvider, TargetProvider, useT } from "@/components/motion/fx";
 import { m } from "@/components/motion/m";
-import { MText, PanelClockProvider, useReduced, useText, useTicker, useTo } from "@/components/motion/scene";
+import { MText, PanelClockProvider, useReduced, useText, useTo } from "@/components/motion/scene";
+import { joinRefs, onPageStateChange, reducedMotionTurns, runFrames } from "../playback";
 
-/* ---------- Timing (Revision 8 table: the one place to tune the hero loop; ms) ----------
-   Five cards share one grid cell and crossfade. The person's chip glides from a hidden slot in each card to the next.
-   Every style is a pure function of the loop time t. Reduced motion renders the final frame (STILL) once.
-   HeroAnimation.tsx renders the cards on the server; this module runs the clock and the moving parts. */
 const TM = {
 	act: 1.5,
 	hold: [1700, 1800, 1800, 1800, 3000],
@@ -42,18 +40,16 @@ let LOOP = 0;
 	}
 	LOOP = SC[4]![1] + TM.seam;
 }
-const STILL = A[4]! + 1400 * TM.act; /* final frame: the person in the core group, highlight on */
+const STILL = A[4]! + 1400 * TM.act;
+const STILL_T = motionValue(STILL);
 const at = (i: number, ms: number) => A[i]! + ms * TM.act;
 const d = (ms: number) => ms * TM.act;
-/** Card 0 also covers the loop seam. */
 const seam = (i: number, v: number) => (i === 0 && v >= LOOP - 300 ? v - LOOP : v);
 const join = (v: number) => inOut(P(v, at(4, 500), d(520)));
-/** Scene 5 meter counts (Attendee, Following up, Core group) before the person moves, out of FULL. */
 const ROWS = [41, 23, 34] as const;
 const FULL = 50;
 
 const FX = {
-	/** One scene card: in 380 ms ease-out with an 8 px lift, out 250 ms sine (6 px up). */
 	card: (v: number, i: number) => {
 		const u = seam(i, v),
 			[a, b] = SC[i]!;
@@ -61,7 +57,6 @@ const FX = {
 			pout = sine(P(u, b, TM.cardOut));
 		return [0, (1 - pin) * 8 - pout * 6, 1, pin * (1 - pout)];
 	},
-	/** A card child that staggers in: 90 ms after the card, then 75 ms apart. n = card * 10 + child. */
 	st: (v: number, n: number) => {
 		const i = Math.floor(n / 10),
 			k = n % 10,
@@ -86,7 +81,6 @@ const FX = {
 		const p = P(v, at(3, k * 260), d(340));
 		return [0, 0, 0.4 + 0.6 * back(p), clamp(p * 2.5)];
 	},
-	/** Scene 5: the bars fill, the person joins the core group (one out of Following up, one into Core group). */
 	meter: (v: number, k: number) => {
 		const p = out(P(v, at(4, k * 90), d(650))),
 			j = join(v);
@@ -98,43 +92,34 @@ const FX = {
 
 type Pos = { x: number; y: number };
 
-/**
- * The home hero's stage: one clock for the five cards, the slot geometry for the person's chip, and the pause button. The loop
- * runs only while the stage is on screen and not paused; reduced motion shows the last scene and no pause button.
- */
 export function HeroStage({ label, chip, children }: { label: string; chip: ReactNode; children: ReactNode }) {
-	const root = useRef<HTMLDivElement>(null);
-	const stage = useRef<HTMLDivElement>(null);
 	const slots = useRef<(HTMLElement | null)[]>([]);
 	const t = useMotionValue(0);
-	// Slot positions live in a ref; measured bumps a counter so the chip transform recomputes even while paused.
 	const pos = useRef<Pos[]>([]);
 	const measured = useMotionValue(0);
 	const [paused, setPaused] = useState(false);
+	const [seen, setSeen] = useState(false);
 	const reduced = useReduced();
-	const seen = useInView(stage);
 	const run = seen && !paused && reduced === false;
+	const [loop] = useState(() => createLoop(t));
 
-	useEffect(() => {
-		if (reduced) t.set(STILL);
-	}, [reduced, t]);
-	useTicker(run, (dt) => t.set((t.get() + dt) % LOOP));
+	const stage = useCallback(
+		(node: HTMLDivElement | null) =>
+			joinRefs<HTMLDivElement>(
+				loop.observe(setSeen),
+				observeSize(
+					(st) => {
+						pos.current = slots.current.map((s) => offsetIn(s, st));
+						measured.set(measured.get() + 1);
+					},
+					{ fonts: true },
+				),
+			)(node),
+		[loop, measured],
+	);
 
-	// Slot positions inside the stage, measured when the stage resizes and when the fonts arrive (never per frame).
-	useEffect(() => {
-		const st = stage.current;
-		if (!st) return;
-		const measure = () => {
-			pos.current = slots.current.map((s) => offsetIn(s, st));
-			measured.set(measured.get() + 1);
-		};
-		const ro = new ResizeObserver(measure);
-		ro.observe(st);
-		void document.fonts.ready.then(measure);
-		return () => ro.disconnect();
-	}, [measured]);
-
-	const clock = useMemo(() => ({ t, since: t, stagger: 0 }), [t]);
+	const shown = reduced ? STILL_T : t;
+	const clock = useMemo(() => ({ t: shown, since: shown, stagger: 0 }), [shown]);
 	const register = useMemo(
 		() => (name: string) => (el: HTMLElement | null) => {
 			slots.current[+name.slice(1)] = el;
@@ -143,7 +128,7 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 	);
 
 	return (
-		<div ref={root} className="relative mx-auto max-w-[1180px]" data-idle={run ? undefined : ""}>
+		<div className="relative mx-auto max-w-[1180px]" data-idle={run ? undefined : ""}>
 			<div
 				ref={stage}
 				role="img"
@@ -156,7 +141,7 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 							<TargetProvider value={register}>{children}</TargetProvider>
 						</FxProvider>
 					</PanelClockProvider>
-					<Live t={t} pos={pos} measured={measured}>
+					<Live t={shown} pos={pos} measured={measured}>
 						{chip}
 					</Live>
 				</div>
@@ -164,7 +149,10 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 			<button
 				type="button"
 				aria-label={paused ? "Play animation" : "Pause animation"}
-				onClick={() => setPaused((p) => !p)}
+				onClick={() => {
+					setPaused(!paused);
+					loop.pause(!paused);
+				}}
 				className="absolute bottom-3.5 left-1/2 z-7 -ml-[17px] grid size-[34px] place-items-center rounded-sm border-0 bg-transparent text-ink hover:bg-white/35 motion-reduce:hidden"
 			>
 				<PlaybackGlyph paused={paused} />
@@ -173,7 +161,56 @@ export function HeroStage({ label, chip, children }: { label: string; chip: Reac
 	);
 }
 
-/** Position of el inside stop, from the offset chain (layout is clean in a ResizeObserver callback). */
+function createLoop(t: MotionValue<number>) {
+	const state = { seen: false, paused: false };
+	let stop: (() => void) | undefined;
+	let turns = reducedMotionTurns();
+	const halt = () => {
+		stop?.();
+		stop = undefined;
+	};
+	const sync = () => {
+		const reduced = prefersReducedMotion();
+		if (reduced || turns !== reducedMotionTurns()) t.set(STILL);
+		turns = reducedMotionTurns();
+		const run = state.seen && !state.paused && !reduced;
+		if (run && !stop) stop = runFrames((dt) => t.set((t.get() + dt) % LOOP));
+		if (!run) halt();
+	};
+	return {
+		pause(paused: boolean) {
+			state.paused = paused;
+			sync();
+		},
+		observe(onSeen: (seen: boolean) => void): NodeRef<HTMLDivElement> {
+			return (node) => {
+				if (!node) return;
+				let release: (() => void) | undefined;
+				const observer = new IntersectionObserver((entries) => {
+					for (const entry of entries) {
+						onSeen(entry.isIntersecting);
+						state.seen = entry.isIntersecting;
+						if (entry.isIntersecting) release ??= onPageStateChange(sync);
+						else {
+							release?.();
+							release = undefined;
+						}
+						sync();
+					}
+				});
+				observer.observe(node);
+				return () => {
+					observer.disconnect();
+					release?.();
+					release = undefined;
+					state.seen = false;
+					halt();
+				};
+			};
+		},
+	};
+}
+
 function offsetIn(el: HTMLElement | null, stop: HTMLElement): Pos {
 	let x = 0,
 		y = 0;
@@ -185,7 +222,6 @@ function offsetIn(el: HTMLElement | null, stop: HTMLElement): Pos {
 	return { x, y };
 }
 
-/** Scene 1: the name is typed, then fades as the chip pops out of the field. */
 export function TypedName({ name }: { name: string }) {
 	const t = useT();
 	const text = useText(t, (v) => name.slice(0, Math.floor(P(v, at(0, 0), d(1050)) * name.length)));
@@ -198,7 +234,6 @@ export function TypedName({ name }: { name: string }) {
 		</m.span>
 	);
 }
-/** Scene 3: Evry types the title of the follow-up task. */
 export function Typed({ text: title }: { text: string }) {
 	const t = useT();
 	const text = useText(t, (v) => title.slice(0, Math.floor(P(v, at(2, 350), d(1350)) * title.length)));
@@ -208,12 +243,6 @@ export function Typed({ text: title }: { text: string }) {
 		</Caret>
 	);
 }
-/**
- * Typed text with its caret: a 1.5 px stripe drawn as a background at the end of the text (1 px after it). The text box
- * only grows from a fixed start, so typing moves nothing (an inline caret element moved with every letter: a layout
- * shift each time). The stripe blinks with a CSS animation; show() hides it. The stripe's padding is cancelled by an
- * equal negative margin, so the caret takes no line space and the text wraps exactly as the prototype's text did.
- */
 function Caret({
 	t,
 	show,
@@ -236,12 +265,10 @@ function Caret({
 	);
 }
 
-/** Scene 3's confirm button: the hero plays the confirm steps 1.5 times slower, with a longer press. */
 export function ApproveButton() {
 	return <DoneButton t={useT()} at={at(2, 1820)} scale={TM.act} press={330} label="Approve task" done="Added" />;
 }
 
-/** A two-number roll (the count changes by one): the column moves up half its height. p: fx id of the progress. */
 export function Roll({ a, b, p }: { a: number; b: number; p: "guests" | "join" }) {
 	const f = FX[p];
 	const transform = useTransform(useT(), (v) => "translate3d(0," + (-50 * f(v)).toFixed(3) + "%,0)");
@@ -255,7 +282,6 @@ export function Roll({ a, b, p }: { a: number; b: number; p: "guests" | "join" }
 	);
 }
 
-/** The person's chip: pops in, then glides between the slots with a small lift, and fades at the loop seam. */
 function Live({
 	t,
 	pos,

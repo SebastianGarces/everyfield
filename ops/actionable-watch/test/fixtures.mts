@@ -1,7 +1,3 @@
-// Raw `evf status --json` fixtures shaped like evf 2.0.0 output, with every volatile field present.
-// `agents` follows evf's `agents_of` (crates/evf-store/src/overview.rs): each open decision first adds a
-// `needs_you` row (task may be null, no `run` or `step` keys) and hides that task's own row. The real,
-// redacted capture lives in status-open-decision.json.
 export const NOW = 1_794_122_077_675;
 
 export type Task = {
@@ -133,7 +129,6 @@ export function rawStatus(
 	};
 }
 
-/** evf's row per open decision, one per task (the first one), shaped exactly as `agents_of` writes it. */
 function needsYou(decisions: Record<string, unknown>[], now: number) {
 	const seen = new Set<unknown>();
 	return decisions
@@ -150,7 +145,6 @@ function needsYou(decisions: Record<string, unknown>[], now: number) {
 		}));
 }
 
-/** One running task with a live seat: the common idle-but-busy baseline. */
 export const running = (o: Parameters<typeof rawStatus>[0] = {}) =>
 	rawStatus({ tasks: [{ id: 1 }], agents: [{ task: 1, run: 10 }], seats: [{ task: 1, run: 10 }], ...o });
 

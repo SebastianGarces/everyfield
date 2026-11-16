@@ -1,0 +1,11 @@
+{
+	"no-raw-history": {
+		"apps/web/src/marketing/sections/FaqItem.tsx": [
+			{
+				"function": null,
+				"count": 1,
+				"reason": "temporary: the useLocationHash import moves to the location store once it reads the hash (R-58)"
+			}
+		]
+	}
+}

@@ -5,15 +5,8 @@ import type { Database } from "@everyfield/db/client";
 import "server-only";
 import { hash, stableId } from "./hash.ts";
 
-// reference.installMessageTemplates (REF-006): registers the seven global system message templates as global reference
-// items, one per entry of the approved reference source. The source is the preserved original catalog, pinned by its
-// SHA-256; its bytes never change. The approved copy a church reads and forks lives in
-// @everyfield/contracts/communication, so an install never writes a subject or body and never touches a church's
-// fork. The identities match the Wiki starter install (`mail_template:<name>`), so both producers name the same seven.
-
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 
-/** The one approved source: the original system template catalog, preserved byte for byte. */
 const approvedMessageTemplateSource = {
 	path: "docs/reference/communication-system-templates.ts",
 	sha256: "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba",
@@ -35,19 +28,16 @@ const command = z.strictObject({
 type MessageTemplateCaller = z.infer<typeof caller>;
 
 export interface MessageTemplateDependencies {
-	/** The source's bytes by repository path; throws when the source is unavailable. */
 	readSource?: (path: string) => Promise<Uint8Array>;
 }
 
 const repository = new URL("../../../", import.meta.url);
 const readRepositoryFile = (path: string) => readFile(new URL(path, repository));
 
-/** Each catalog entry's name, in order: the entries of `SYSTEM_TEMPLATES` open with `name: "<identity>",`. */
 function templateNames(source: string): string[] {
 	return [...source.matchAll(/^ {4}name: "([^"]+)",$/gm)].map((m) => m[1]!);
 }
 
-/** An active reference publisher with a live session: the same gate the Wiki install reads. */
 const publisher = (c: MessageTemplateCaller) => sql`SELECT a.id FROM account a
 	JOIN platform_grant g ON g.account_id = a.id AND g.capability = 'reference_publish' AND g.revoked_at IS NULL
 		AND (g.expires_at IS NULL OR g.expires_at > clock_timestamp())
@@ -57,11 +47,6 @@ const publisher = (c: MessageTemplateCaller) => sql`SELECT a.id FROM account a
 
 export function messageTemplateInstaller(db: Database, deps: MessageTemplateDependencies = {}) {
 	const readSource = deps.readSource ?? readRepositoryFile;
-	/**
-	 * Installs the seven system templates from the approved source. A second install of the same source writes nothing.
-	 * Refused before any source read for a caller who is not a reference publisher; an unavailable or changed source
-	 * writes nothing and leaves what an earlier install committed.
-	 */
 	async function installMessageTemplates(callerInput: unknown, input: unknown) {
 		const who = caller.safeParse(callerInput);
 		const parsed = command.safeParse(input);
@@ -74,10 +59,8 @@ export function messageTemplateInstaller(db: Database, deps: MessageTemplateDepe
 		const digest = hash(bytes);
 		if (digest !== parsed.data.source.sha256 || digest !== approvedMessageTemplateSource.sha256)
 			throw new MessageTemplateRefusal("digest_conflict");
-		// The pinned digest fixes the source, so its seven names need no further check.
 		const names = templateNames(Buffer.from(bytes).toString("utf8"));
 		const items = names.map((name) => ({ id: stableId(`mail_template:${name}`), key: name }));
-		// One statement: the publisher gate again, the missing items, and how many of the seven are now installed.
 		const written = await db.execute(sql`WITH gate AS (${publisher(who.data)} FOR SHARE OF a),
 			ins AS (
 				INSERT INTO reference_item (id, kind, canonical_key, tenant_id)
