@@ -74,7 +74,6 @@ test("AC:CONTENT50-001 AC:REF-CASE-002 AC:REF-CASE-003 AC:REF-CASE-004 AC:REF-CA
 	assert.equal(i.milestones.flatMap((m) => m.tasks).length, 23);
 	assert.equal(i.milestones[8].key, "promotion.partner_churches");
 	assert.equal(i.milestones[8].tasks[1], "Confirm the partner organization's role in the service");
-	// Whole-file verification must include every registered original and derived source.
 	for (const file of report.files) {
 		const bytes = await readFile(resolve(root, file.path));
 		await writeFile(resolve(root, file.path), Buffer.concat([bytes, Buffer.from("\n")]));

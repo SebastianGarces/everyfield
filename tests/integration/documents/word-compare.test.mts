@@ -1,8 +1,3 @@
-// T-82 word marks inside a changed block: the pure word compare beside the block compare. No database.
-//   node --test tests/integration/documents/word-compare.test.mts
-//   Criterion 10: exact removed, added and kept runs for a reworded sentence, a list with one changed item,
-//   whitespace-only and punctuation changes, merge fields as units, formatting-only changes and the fall-back.
-//   Criteria 2, 3, 5, 6, 7 through the same table: headings, title and footer, settings, columns, fields.
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import {
@@ -28,7 +23,6 @@ const box = (fill: string, text: string) => ({ type: "box", attrs: { fill }, con
 const body = (document: BlockNode, template: BlockNode) =>
 	wordChanges({ id: 0, part: "body", kind: "changed", document, template });
 
-/** A side's runs as compact strings: "=kept", "-removed", "+added". */
 const read = (side: WordChanges & { show: "words" }, which: "document" | "template") =>
 	side[which].map((line) =>
 		line.map((run) => `${run.op === "kept" ? "=" : run.op === "removed" ? "-" : "+"}${run.text}`),
@@ -50,7 +44,6 @@ describe("INV-word-compare: the word compare", () => {
 			template: [["=We meet every Sunday at the ", "+new community center", "= for worship and prayer."]],
 			notes: [],
 		});
-		// Offsets count the line as the editor does, so a mark covers exactly the run.
 		const w = changes as WordChanges & { show: "words" };
 		assert.deepEqual(
 			w.document[0]!.map((run) => [run.from, run.to]),
@@ -86,7 +79,6 @@ describe("INV-word-compare: the word compare", () => {
 		});
 		assert.deepEqual(body(h(2, "Our values"), h(3, "Our values")), { show: "notes", notes: ["settings"] });
 		assert.deepEqual(body(box("muted", "Note"), box("accent", "Note")), { show: "notes", notes: ["settings"] });
-		// Words and a setting both changed: the words are marked and the note still says so.
 		assert.deepEqual(words(body(h(2, "Our values"), h(3, "Your values"))).notes, ["settings"]);
 	});
 
@@ -97,7 +89,6 @@ describe("INV-word-compare: the word compare", () => {
 			notes: [],
 		});
 		assert.deepEqual(body(p(t("Come  and see.")), p(t("Come and see."))), { show: "notes", notes: ["spacing"] });
-		// An inserted phrase is marked from its first word to its last, not from the space before it.
 		assert.deepEqual(words(body(p(t("Come and see.")), p(t("Come and see for yourself.")))), {
 			document: [["=Come and see."]],
 			template: [["=Come and see ", "+for yourself", "=."]],
@@ -129,10 +120,8 @@ describe("INV-word-compare: the word compare", () => {
 			template: [["+You are invited", "= to {church.name} this Sunday."]],
 			notes: [],
 		});
-		// The field takes one place in the editor's count.
 		const w = changes as WordChanges & { show: "words" };
 		assert.deepEqual(w.document[0]!.at(-1), { op: "kept", text: " to {church.name} this Sunday.", from: 7, to: 25 });
-		// Two different fields: the field is replaced whole, never split.
 		assert.deepEqual(words(body(p(t("Led by "), field("pastor.name")), p(t("Led by "), field("church.name")))), {
 			document: [["=Led by ", "-{pastor.name}"]],
 			template: [["=Led by ", "+{church.name}"]],

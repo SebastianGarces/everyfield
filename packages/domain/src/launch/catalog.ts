@@ -1,10 +1,5 @@
 import type { Area } from "@everyfield/contracts/launch";
 
-// The nine Launch Playbook readiness milestones and their 23 prep tasks (LCH-003), as fixed data. Titles, descriptions
-// and keys are those of docs/reference/launch-milestone-templates.ts, counted in docs/reference/launch-template-inventory.json;
-// tests/integration/launch/launch.test.mts compares them. Code matches on `key`, never on a title. A prep task's seed
-// identity is `<milestone key>/<n>`, its place in the milestone, starting at 1.
-
 type MilestoneTemplate = {
 	key: string;
 	area: Area;
@@ -114,7 +109,6 @@ const MILESTONES: readonly MilestoneTemplate[] = [
 	},
 ];
 
-/** Every milestone and prep task as seed rows: one entry per milestone, its position and its keyed tasks. */
 export const SEED = MILESTONES.map((m, i) => ({
 	...m,
 	position: i + 1,

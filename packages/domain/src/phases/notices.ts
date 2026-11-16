@@ -4,11 +4,6 @@ import "server-only";
 import { z } from "zod";
 import { seatHeld } from "../access/session.ts";
 
-/**
- * The mail a phase-advance notice may send: its notice is the recipient's own phase notice, its source is an actual
- * forward move, the recipient's organization is still connected to that plant and the recipient still holds an accepted
- * Owner or Admin seat there (NTF-009). One statement, locking the notice and the seat.
- */
 export async function authorizePhaseNotices(
 	tx: Transaction,
 	mail: readonly { id: string; recipient: string | null; notice: string | null }[],

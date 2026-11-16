@@ -118,7 +118,6 @@ test("INV-identity: normalized login and reset budgets reserve concurrently, suc
 });
 
 test("INV-identity: a rate-limited refusal names the end of the budget window it hit", async () => {
-	/** Minutes from the database clock to the refusal's retryAt. */
 	const minutesOut = async (response: Response) => {
 		assert.equal(response.status, 429);
 		const body = (await response.json()) as { code: string; details: { retryAt: string } };
@@ -132,15 +131,12 @@ test("INV-identity: a rate-limited refusal names the end of the budget window it
 	f.setIp("127.0.0.31");
 	await register(f, "window@example.test");
 	f.setIp(null);
-	// Five wrong passwords spend the login budget: the sixth attempt may pass in 15 minutes, not 60.
 	for (let n = 0; n < 5; n++) assert.equal((await signIn(f, "window@example.test", "Wrong-password-1")).status, 401);
 	near(await minutesOut(await signIn(f, "window@example.test", "Wrong-password-1")), 15);
-	// Three reset requests spend the reset budget: the fourth may pass in 60 minutes.
 	f.setIp("127.0.0.32");
 	for (let n = 0; n < 3; n++)
 		assert.equal((await f.req("request-password-reset", { email: "window-reset@example.test" })).status, 200);
 	near(await minutesOut(await f.req("request-password-reset", { email: "window-reset@example.test" })), 60);
-	// Three registrations from one address spend the registration budget: 60 minutes.
 	f.setIp("127.0.0.33");
 	for (let n = 0; n < 3; n++) await f.req("register", {});
 	near(await minutesOut(await f.req("register", {})), 60);
@@ -297,7 +293,6 @@ test("AC:TARGET-IDN-001 INV-nonenumeration: sign-in refuses a wrong password and
 	await f.db
 		.execute(querySql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until)
     VALUES('account',${s.accountId},1,'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
-	// The correct password of a deleting account opens nothing.
 	const blocked = await signIn(f, "enum@example.test");
 	assert.deepEqual(await refusal(blocked), [401, "", { code: "unauthenticated", details: {}, retry: "never" }]);
 });
