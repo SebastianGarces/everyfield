@@ -14,10 +14,6 @@ import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { ok } from "../../support/fixture.mts";
 
-// REQ-IDN-032: a requested deletion finishes on its own. The account or church requests deletion through the real
-// settings operation; once the cancellation deadline has passed, the every-minute scheduled run claims the purge job and
-// purges on the cleanup login. Runs on a suite schema of the shared development (or disposable CI) database, with three
-// logins (runtime, cleanup, auth) and a synthetic private bucket.
 const database = await testDatabase({
 	prefix: "t128",
 	roles: { runtime: ["runtime"], cleanup: ["cleanup"], auth: ["auth"] },
@@ -30,7 +26,6 @@ const secret = randomBytes(40).toString("hex"),
 	cron = "cron-" + randomUUID();
 const ingress = new Map();
 
-// The private bucket: deletes succeed unless `failing` says the provider times out.
 const objects = new Map();
 let failing = 0;
 const storage = {
@@ -85,7 +80,6 @@ before(async () => {
 		effects: { replan: async () => {} },
 		suppression: async () => "unavailable",
 		avatarCleanup: { queue: (tx) => queueJobs(tx, []) },
-		// As the settings mount queues it (apps/web/src/features/settings/server.ts).
 		deletion: {
 			queue: (tx, i) =>
 				queueJobs(tx, [
@@ -98,7 +92,6 @@ before(async () => {
 						eligibleAt: i.eligibleAt,
 					},
 				]),
-			// Notice mail is covered by workspace-deletion-mail.test.mts.
 			workspaceNotice: async () => {},
 		},
 		credentials,
@@ -117,7 +110,6 @@ before(async () => {
 after(database.close);
 
 const signIn = (a) => signInAuth.api.signInEmail({ body: { email: a.email, password: a.password }, asResponse: true });
-/** A signed-up account with a password and a live session, as Better Auth creates it. */
 async function member() {
 	const email = randomUUID() + "@example.test",
 		password = "Initial secret 2468!";
@@ -138,10 +130,6 @@ async function member() {
 	ingress.set(s.session.id, request);
 	return { id, user: signed.user.id, email, password, session: s.session.id };
 }
-/**
- * One private file the tenant owns, with its bytes in the bucket. It is referenced as a live file is (an account's
- * avatar, or a church person's photo), so the scheduled orphan sweep leaves it for the purge.
- */
 async function file(tenant) {
 	const [account] = await admin.select({ id: t.account.id }).from(t.account).where(eq(t.account.id, tenant));
 	const id = randomUUID(),
@@ -182,17 +170,12 @@ const jobOf = async (witness) =>
 			.from(t.job)
 			.where(sql`${t.job.kind}='lifecycle_purge' AND ${t.job.subject_record_id}=${witness}`)
 	)[0];
-/**
- * The 30 days pass: the request and its purge job move back, as if made 31 days ago. The witness clock is immutable
- * (trigger witness_clock), so the suite's schema owner lifts that trigger for this one update only.
- */
 async function graceEnds(witness) {
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`ALTER TABLE lifecycle_witness DISABLE TRIGGER witness_clock`);
 		await tx.execute(
 			sql`UPDATE lifecycle_witness SET requested_at=requested_at-interval '31 days',cancel_until=cancel_until-interval '31 days' WHERE id=${witness}`,
 		);
-		// Deferred checks on the row run now, so the trigger can return.
 		await tx.execute(sql`SET CONSTRAINTS ALL IMMEDIATE`);
 		await tx.execute(sql`ALTER TABLE lifecycle_witness ENABLE TRIGGER witness_clock`);
 		await tx.execute(
@@ -210,13 +193,11 @@ test("AC:TARGET-IDN-032 after Delete my account and the grace period, a schedule
 		await db.transaction((tx) => api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }, "1"))),
 	);
 	assert.equal(pending.status, "pending_deletion");
-	// Before the purge the password opens the restricted deletion page for this request.
 	const opened = await openDeletion(a);
 	assert.equal(opened.status, "ok", JSON.stringify(opened));
 	assert.equal(opened.value.requestId, pending.requestId);
 	const w = await witnessOf(a.id);
 
-	// Inside the grace period a tick leaves the request and its job alone.
 	const early = await run();
 	assert.equal(early.purged, 0);
 	assert.equal((await witnessOf(a.id)).state, "pending_deletion");
@@ -236,13 +217,11 @@ test("AC:TARGET-IDN-032 after Delete my account and the grace period, a schedule
 	assert.equal(objects.has(avatar.key), false);
 	assert.equal((await admin.select().from(t.file_object).where(eq(t.file_object.id, avatar.id)))[0].state, "purged");
 
-	// The old email and password no longer sign in, and the deletion page asks for proof again.
 	const rejected = await signIn(a);
 	assert.notEqual(rejected.status, 200);
 	assert.deepEqual(await openDeletion(a), { status: "refused", code: "proof_invalid" });
 	assert.equal(await readViewer(db, a.session), null);
 
-	// A later tick finds nothing more to purge.
 	assert.equal((await run()).purged, 0);
 });
 
@@ -267,7 +246,6 @@ test("AC:TARGET-IDN-032 a removal the provider does not confirm keeps the accoun
 	assert.equal(objects.has(kept.key), true);
 	assert.deepEqual(await openDeletion(a), { status: "refused", code: "proof_invalid" });
 
-	// Not yet due: the retry waits for its backoff.
 	assert.equal((await run()).purged, 0);
 	assert.equal((await jobOf(w.id)).state, "retry_wait");
 
@@ -291,7 +269,6 @@ test("AC:TARGET-IDN-032 a cancelled request's purge job is superseded and purges
 	const request = { subject: opened.subject, requestId: opened.requestId };
 	ok(await db.transaction((tx) => api.cancelAccountDeletion(tx, opened.session, command(request, pending.revision))));
 	const w = await witnessOf(a.id);
-	// The job still comes due at the original deadline.
 	await admin.execute(
 		sql`UPDATE job SET eligible_at=eligible_at-interval '31 days' WHERE kind='lifecycle_purge' AND subject_record_id=${w.id}`,
 	);
@@ -335,7 +312,6 @@ test("AC:TARGET-IDN-032 AC:DEL58-005 a workspace deletion purges through the sam
 	assert.equal((await jobOf(w.id)).state, "succeeded");
 	assert.equal((await admin.select().from(t.person).where(eq(t.person.plant_id, deleted.p.id))).length, 0);
 	assert.equal(objects.has(doomed.key), false);
-	// The unrelated church keeps its name, its people and its file.
 	const [survivor] = await admin.select().from(t.plant).where(eq(t.plant.id, other.p.id));
 	assert.equal(survivor.name, "Harvest Point");
 	assert.ok((await admin.select().from(t.person).where(eq(t.person.plant_id, other.p.id))).length > 0);

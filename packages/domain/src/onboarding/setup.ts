@@ -77,7 +77,6 @@ async function assignLead(
 			.returning();
 	}
 	if (team!.leader_person_id && team!.leader_person_id !== personId) deny("conflict");
-	// A role created just now has no holder to read.
 	const tenures =
 		selection.kind === "minimal_role"
 			? []
@@ -112,14 +111,7 @@ async function assignLead(
 			.where(eq(t.team.id, team!.id));
 	return { teamId: team!.id, roleId: role!.id, personId };
 }
-/**
- * The optional Senior pastor fill (REQ-IDN-014): the planter's lead role becomes the Leadership template's Senior pastor
- * role. A missing Leadership ministry or role is created with only that role, so no other template role or ministry
- * appears. A role another person holds is kept: the answer is null and the planter's own lead role applies instead. A
- * leader the ministry already has stays its leader.
- */
 async function fillSeniorPastor(tx: Tx, plantId: string, personId: string) {
-	// One locking read: the Leadership template ministry, its Senior pastor role and who holds that role now.
 	const found = await tx.execute(sql`SELECT t.id AS "teamId", t.leader_person_id AS "leaderId", r.id AS "roleId",
 			h.person_id AS "holderId"
 		FROM team t
@@ -231,7 +223,6 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 			if (cx.kind === "replay") return c.journeyResult.parse(cx.value);
 			revision(q.expectedRevision, a.plant.revision);
 			if (q.input.journey.answer === "existing") {
-				// The one declaration writer (phases.declare): an empty `declared` means the slot or an ordinary move is used.
 				const { rows } = await tx.execute(sql`WITH src AS (SELECT id,phase FROM plant WHERE id=${a.plant.id}::uuid),
  ${declaration(sql`src`, q.input.journey.phase, cx.id)},
  moved AS (UPDATE plant p SET phase=d.to_phase FROM declared d WHERE p.id=d.plant_id) SELECT d.id FROM declared d`);
@@ -310,10 +301,6 @@ export const setup: Pick<OnboardingProducer<Tx>, "answerLead" | "declareJourney"
 	},
 };
 
-/**
- * The read context plantEntry needs. A plain request context takes the bound write's authority for the same session,
- * or one unlocked viewer read of it, and must select the plant that authority's seat holds.
- */
 async function readContext(tx: Tx, ctx: Context) {
 	if (ctx instanceof OnboardingReadContext) return ctx;
 	const bound = requestWrite(tx);
@@ -326,7 +313,6 @@ async function readContext(tx: Tx, ctx: Context) {
 	if (read.selected.kind !== ctx.selected.kind || read.selected.id !== ctx.selected.id) deny();
 	return read;
 }
-/** The resume reply from its facts. */
 function resumeFrom(f: {
 	plant: { kind: "plant"; id: string };
 	revision: string;
@@ -338,7 +324,6 @@ function resumeFrom(f: {
 		"lead" | "journey" | "launch" | "people_step" | "completed_material_revision"
 	>;
 	scheduledLaunchDate: string | null;
-	/** The launch row's revision, or "1" while the plant has no launch row (the first planned date expects "1"). */
 	scheduleRevision: string;
 	extraPeople: boolean;
 	reading: z.infer<typeof c.foundationReading>;
@@ -404,18 +389,12 @@ const entryRow = z.object({
 		}),
 	),
 });
-/**
- * A plant Owner's onboarding entry as one statement, no transaction: the same facts the separate reads give (the
- * account, plant and setup rows, the launch date and its revision, recorded core values, the creation result, other
- * People and the foundation reading of the current Owner and Admin lead) and the plant's name for the heading.
- */
 export async function plantEntry(tx: Pick<Tx, "execute">, ctx: OnboardingReadContext) {
 	const a = ctx.authority.actor;
 	if (a.status !== "active" || a.context.kind !== "seat" || a.context.role !== "owner" || ctx.selected.kind !== "plant")
 		deny();
 	const plantId = ctx.selected.id;
 	const none = "00000000-0000-0000-0000-000000000000";
-	// The Owner seat must still be live when the facts are read: otherwise the statement returns no row (C13).
 	const live = liveRead({ ...liveAccess(ctx.authority), role: "owner" });
 	const result = await tx.execute(sql`WITH acct AS (SELECT id FROM account WHERE id=${a.accountId}::uuid),
  pl AS (SELECT * FROM plant WHERE id=${plantId}::uuid),

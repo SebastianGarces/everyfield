@@ -5,10 +5,6 @@ const tuples = (rows: SQL[]) => sql.join(rows, sql`, `);
 
 export type OfferLine = { id: string; key: string; text: string; sortOrder: number; active: boolean };
 
-/**
- * One source line per team, across catalog versions. A removed or edited line is already stored,
- * so a later version does not insert it again.
- */
 export function insertOfferLines(
 	plantId: string,
 	teamId: string,

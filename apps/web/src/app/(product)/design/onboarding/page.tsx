@@ -4,7 +4,6 @@ import { Suspense } from "react";
 
 export const metadata = { title: "Onboarding" };
 
-// The onboarding screens on the fixture API (WP-009/ui R8). The /design layout returns 404 in production.
 export default function OnboardingPreviewPage() {
 	return (
 		<Suspense>

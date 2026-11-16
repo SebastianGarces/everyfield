@@ -14,7 +14,6 @@ const html = (body: string) =>
 		},
 	});
 
-/** Dev outbox: `/api/dev/outbox` lists recorded sends with their headers, `?id=` shows one with its exact rendered HTML. 404 elsewhere. */
 export async function GET(request: Request) {
 	if (!captureAllowed(process.env)) return new Response(null, { status: 404 });
 	const entries = await readOutbox();

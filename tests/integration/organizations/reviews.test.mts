@@ -30,12 +30,6 @@ import {
 	createNotificationWorker,
 } from "../../../apps/web/src/server/jobs/notification-worker.ts";
 
-// Kept answers sent for review (T-385, D-1507, D-1509) against a migrated database. Grace Austin, America/Chicago:
-// Dana is the Owner, Luis an Admin, Ana and Ben Members with no duty, Pat a Member who is Jordan's responsible staff.
-// Jordan Reyes is imported from applications.xlsx, so his kept-answers note holds "Describe your calling", "Spouse's
-// name", "Statement of faith" and "Ordination history" (with the form's other kept columns). Dana sends the two
-// credentialing questions to Ben as "Credentialing questions".
-
 const database = await fixture({ prefix: "answerreview", max: 6 });
 const { admin } = database;
 const db = database.pools.runtime;
@@ -102,7 +96,6 @@ const sendsOf = async (reviewId: string) =>
 		)
 	).rows[0] as { sends: number; audits: number; jobs: number };
 
-// The notification worker and the notice mail pass, with an outbox in place of the email service.
 const outbox: MailPayload[] = [];
 const feed = createNotificationProducer({ optOutKeys: { current: randomBytes(32) } });
 let mail: ReturnType<typeof createMailService>;
@@ -142,7 +135,6 @@ before(async () => {
 	});
 	worker = createNotificationWorker({ mail, origin: ORIGIN });
 
-	// Jordan and Sam come from applications.xlsx with Pat as their responsible staff.
 	const bytes = new Uint8Array(readFileSync(new URL("./import-files/applications.xlsx", import.meta.url)));
 	const p = ok(
 		await previewPipelineImport(db, await authority(dana), {
@@ -191,7 +183,6 @@ test("only an Owner or Admin sends kept answers, and only from a kept-answers no
 	]);
 	const plain = (await record(dana)).notes.find((n) => n.id === ordinaryNote)!;
 	assert.equal(plain.state === "current" && plain.questions, null);
-	// Pat reads the note as Jordan's responsible staff, but cannot send it; Ana and Ben cannot either.
 	assert.deepEqual((await keptNote(pat)).questions?.length, 8);
 	for (const a of [pat, ana, ben]) assert.deepEqual(refusal(await send(a)), { code: "unavailable" });
 	assert.deepEqual(refusal(await send(dana, { noteId: ordinaryNote })), { code: "unavailable" });
@@ -199,7 +190,6 @@ test("only an Owner or Admin sends kept answers, and only from a kept-answers no
 		code: "invalid_input",
 		field: "questions",
 	});
-	// The reviewer is a current seat of Grace Austin: not another organization's.
 	assert.deepEqual(refusal(await send(dana, { reviewerSeatId: hillSeat })), {
 		code: "invalid_input",
 		field: "reviewerSeatId",
@@ -218,7 +208,6 @@ test("sending twice with one ID makes one send, shown on the note", async () => 
 	assert.deepEqual(first, { reviewId });
 	assert.deepEqual(second, { reviewId });
 	assert.deepEqual(await sendsOf(reviewId), { sends: 1, audits: 1, jobs: 1 });
-	// The same ID for a different send is a conflict, and writes nothing.
 	assert.deepEqual(refusal(await send(dana, { reviewId, groupName: "Other" })), { code: "conflict" });
 	assert.deepEqual(await sendsOf(reviewId), { sends: 1, audits: 1, jobs: 1 });
 	const kept = await keptNote(luis);
@@ -249,7 +238,6 @@ test("Ben gets one notice and one email naming Jordan, the group and Dana, with 
 	assert.ok(email.text.includes(`${ORIGIN}/organization/reviews/${reviewId}`), email.text);
 	for (const text of [JSON.stringify(entries), email.subject, email.text])
 		for (const secret of [FAITH, ORDINATION, CALLING, ...CHOSEN]) assert.ok(!text.includes(secret), text);
-	// Nobody else in Grace Austin is told.
 	for (const a of [dana, luis, pat]) {
 		const theirs = ok(await feed.readFeedPage(db, await authority(a), {}));
 		assert.equal(theirs.feed.items.filter((i) => i.category === "answer_review").length, 0);
@@ -274,11 +262,9 @@ test("only Ben reads the send: the chosen questions with their answers and nothi
 		(await list(ben)).items.map((i) => [i.id, i.person, i.groupName, i.sender, i.shared]),
 		[[reviewId, "Jordan Reyes", GROUP, "Dana", true]],
 	);
-	// Luis (not the reviewer), Ana, Pat and Hill Country Network's Owner cannot read it.
 	for (const a of [luis, ana, pat, hillOwner])
 		assert.deepEqual(refusal(await open(a, reviewId)), { code: "unavailable" });
 	for (const a of [luis, ana, pat, hillOwner]) assert.deepEqual((await list(a)).items, []);
-	// Ben still has no access to Jordan's record.
 	assert.deepEqual(refusal(await readPipelinePersonRecord(db, await authority(ben), { personId: jordan })), {
 		code: "unavailable",
 	});
@@ -330,7 +316,6 @@ test("withdrawal: Ben sees the send as no longer shared, with no question or ans
 	);
 	assert.deepEqual((await keptNote(dana)).reviews, []);
 	assert.deepEqual(refusal(await withdraw(pat, reviewId)), { code: "unavailable" });
-	// Ben's notice leaves the bell with the send.
 	const page = ok(await feed.readFeedPage(db, await authority(ben), {}));
 	assert.equal(page.feed.items.filter((i) => i.category === "answer_review").length, 0);
 
@@ -340,7 +325,6 @@ test("withdrawal: Ben sees the send as no longer shared, with no question or ans
 		{ id: history[0]!.id, on: asOf, actor: "Dana", kind: "review_withdrawn" },
 		{ id: history[1]!.id, on: asOf, actor: "Dana", kind: "review_sent", reviewer: "Ben" },
 	]);
-	// The audit rows hold ids, actor and change kind only.
 	const rows = (
 		await admin.execute(
 			sql`SELECT kind,actor_id,subject_id,metadata FROM audit_event WHERE metadata->>'reviewId'=${reviewId} ORDER BY occurred_at`,
@@ -353,8 +337,6 @@ test("withdrawal: Ben sees the send as no longer shared, with no question or ans
 });
 
 test("an ended seat, the note's removal and Jordan's removal on request each stop sharing", async () => {
-	// Ben's seat ends: he cannot read anything of Grace Austin. When he holds a new seat there, the send to his old seat
-	// shows as no longer shared.
 	const toOldSeat = ok(await send(dana)).reviewId;
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${benSeat}::uuid`);
 	assert.deepEqual(refusal(await open(ben, toOldSeat)), { code: "unavailable" });
@@ -363,14 +345,12 @@ test("an ended seat, the note's removal and Jordan's removal on request each sto
 	benSeat = await seatOf(ben, grace);
 	assert.deepEqual(ok(await open(ben, toOldSeat)).shared, false);
 
-	// Dana removes the note.
 	const beforeRemoval = ok(await send(dana)).reviewId;
 	assert.equal(ok(await open(ben, beforeRemoval)).shared, true);
 	const kept = await keptNote(dana);
 	ok(await pipelineWriter.removeNote(db, await authority(dana), { noteId, expectedRevision: kept.revision }));
 	assert.deepEqual(ok(await open(ben, beforeRemoval)).shared, false);
 
-	// Sam's answers go to Ben, then Sam is removed on request: the send stays, with no name and no text.
 	const samNote = (await record(dana, sam)).notes[0]!.id;
 	const samReview = ok(await send(dana, { noteId: samNote, questions: ["Statement of faith"] })).reviewId;
 	assert.deepEqual((ok(await open(ben, samReview)) as { answers: unknown }).answers, [

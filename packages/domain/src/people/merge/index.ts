@@ -35,7 +35,6 @@ import {
 
 type Field = z.infer<typeof c.mergeField>;
 type Kind = z.infer<typeof c.referenceKind>;
-/** The Person columns each reviewable field covers. */
 const columns: Record<Field, readonly string[]> = {
 	displayName: ["display_name"],
 	firstName: ["first_name"],
@@ -63,7 +62,6 @@ const factsRow = z.object({
 	commitment_effective_on: z.string().nullable(),
 	household_id: z.uuid().nullable(),
 	commitment_inputs: commitmentInputs,
-	/** The programs an organization person is enrolled in, in any status. */
 	enrollment_programs: z.array(z.uuid()),
 	refs: z.unknown(),
 });
@@ -79,10 +77,6 @@ export function parseFacts(raw: unknown): Facts | null {
 	delete values.commitment_inputs;
 	return { ...row, refs: parseReferences(row.refs), values, commitment: commitment_inputs };
 }
-/**
- * One Person with every tracked reference, read in the statement that holds `gate`. Removed organization people are
- * missing, like every other People read.
- */
 export const factsOf = (id: SQL, owner: string | SQL) =>
 	sql`(SELECT to_jsonb(p)||jsonb_build_object('revision',p.revision::text,'pipeline_position',p.pipeline_position::text,
  'refs',${referencesOf(sql`p.id`, owner)},
@@ -90,11 +84,6 @@ export const factsOf = (id: SQL, owner: string | SQL) =>
   WHERE e.person_id=p.id AND e.organization_id=p.tenant_id),'commitment_inputs',${commitmentInputsJson(sql`p.id`, sql`${owner}::uuid`)}) FROM person p WHERE p.id=${id} AND p.tenant_id=${owner}::uuid
  AND NOT EXISTS(SELECT FROM organization_person_removal w WHERE w.person_record_id=p.id AND w.organization_id=p.tenant_id))`;
 
-/**
- * The hash of an exact set of references, independent of read order. Commitment changes are left out: each one also
- * moves its Person's revision, which the review and Unmerge already compare, and merges reviewed before the change
- * table existed keep a digest without them (C100).
- */
 export const referencesDigest = (refs: readonly Reference[]) =>
 	hash(
 		refs
@@ -105,11 +94,6 @@ export const referencesDigest = (refs: readonly Reference[]) =>
 
 const order = c.stage.options;
 
-/**
- * The whole merge decision as one pure function of the two Persons and the reviewer's choices, shared by the review and
- * the merge so both say the same thing (REQ-PPL-025): differing fields, the survivor's new values and the prior values
- * Unmerge restores, the stage and commitment the survivor keeps, the references that move and any blockers.
- */
 function plan(
 	kind: "plant" | "organization",
 	source: Facts,
@@ -134,8 +118,6 @@ function plan(
 			set.stage = result;
 			if (!sameColumn(survivor.stage!, result)) set.pipeline_position = freshPosition(survivor.id);
 		}
-		// REQ-PPL-026 (C100): all the source's history shows on the survivor, so its commitment is the one function over
-		// both Persons' valid cards and dated changes.
 		commitment = commitmentOf({
 			cards: [...survivor.commitment.cards, ...source.commitment.cards],
 			changes: [...survivor.commitment.changes, ...source.commitment.changes],
@@ -149,8 +131,6 @@ function plan(
 	const byKind = new Map<Kind, Reference[]>();
 	for (const ref of source.refs) byKind.set(ref.kind, [...(byKind.get(ref.kind) ?? []), ref]);
 	const held = new Set(survivor.refs.filter((x) => x.kind === "tag").map((x) => x.id));
-	// A Person has one current candidate attestation, and is a Launch Sunday guest once. When the survivor holds one, the
-	// source's stays on the source as history, and Unmerge finds it still there (WP-039, WP-046).
 	const keptOf = (k: Kind) => (survivor.refs.some((x) => x.kind === k) ? (byKind.get(k) ?? []).map((x) => x.id) : []);
 	const keptAttestations = keptOf("attestation");
 	const keptGuests = keptOf("launch_guest");
@@ -180,7 +160,6 @@ function plan(
 		stage,
 		commitment,
 		byKind,
-		// Tags the survivor already holds are dropped from the source instead of duplicated.
 		droppedTags: (byKind.get("tag") ?? []).filter((x) => held.has(x.id)).map((x) => x.id),
 		keptAttestations,
 		keptGuests,
@@ -200,7 +179,6 @@ async function readPair(tx: Tx, owner: string, input: { sourceId: string; surviv
 	const row = z.object({ allowed: z.boolean(), source: z.unknown(), survivor: z.unknown() }).parse(result.rows[0]);
 	const source = parseFacts(row.source),
 		survivor = parseFacts(row.survivor);
-	// A missing, foreign or not-live Person reads like any inaccessible one.
 	if (!row.allowed || !source || !survivor || source.state !== "live" || survivor.state !== "live") deny();
 	return { source, survivor };
 }
@@ -209,15 +187,9 @@ const ownerKind = (ctx: Pick<Context, "selected">) => {
 	return ctx.selected.kind;
 };
 
-/**
- * The SQL that moves one kind of reference from `from` to `to`; Unmerge passes the rows the merge moved. A moved row
- * gets a new revision, so a form reviewed against its old owner is refused.
- */
 export function moveRefs(owner: string, k: Kind, ids: string[], from: string, to: string): SQLWrapper {
 	const e = registrationOf(k);
 	if (k === "training_assignment") {
-		// The destination's active episode for that program stays. This row ends in the same update.
-		// The partial unique index does not raise, and the revision moves once.
 		return sql`UPDATE ${sql.identifier(e.table)} SET ${sql.identifier(e.column)}=${to}::uuid,
  state=CASE WHEN clash.hit THEN 'removed' ELSE state END,
  ended_on=CASE WHEN clash.hit THEN (clock_timestamp() AT TIME ZONE (SELECT timezone FROM plant WHERE id=${owner}::uuid))::date ELSE ended_on END,
@@ -245,7 +217,6 @@ export function updatePerson(owner: string, id: string, set: Record<string, unkn
  WHERE id=${id}::uuid AND tenant_id=${owner}::uuid`;
 }
 export const peopleMerge = {
-	/** people.getMergeReview: everything a merge would change, its blockers and the digest of the reviewed state. */
 	async getMergeReview(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			const kind = ownerKind(ctx);
@@ -270,11 +241,6 @@ export const peopleMerge = {
 			});
 		});
 	},
-	/**
-	 * people.mergePeople and orgPeople.merge (REQ-PPL-017, 025, MUL-017): with both Persons locked in UUID order, the
-	 * reviewed state must be exactly the current one. Then one statement moves every registered reference, retires the
-	 * source into the survivor, applies the chosen fields, records the merge for Unmerge and appends one audit row.
-	 */
 	async mergePeople(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
 			const kind = ownerKind(ctx);
@@ -324,7 +290,6 @@ export const peopleMerge = {
 						});
 					}
 					audit.writes.push(updatePerson(owner, source.id, sourceSet));
-					// The survivor's revision always moves on, so any later merge or edit is visible to Unmerge.
 					audit.writes.push(updatePerson(owner, survivor.id, p.set));
 					if (kind === "plant")
 						audit.writes.push(
@@ -332,7 +297,6 @@ export const peopleMerge = {
 						);
 					const sourceRevision = String(BigInt(source.revision) + 1n),
 						survivorRevision = String(BigInt(survivor.revision) + 1n);
-					// What the survivor holds after the merge; Unmerge proceeds only while it is unchanged.
 					const after = [
 						...survivor.refs,
 						...source.refs
@@ -364,7 +328,6 @@ export const peopleMerge = {
 						action: "people.merged",
 						before: { revision: survivor.revision },
 						after: { revision: survivorRevision },
-						// Audit names the merge and both Persons; the field values stay in person_merge (audit.md).
 						metadata: {
 							event: "person_merged",
 							recordId: mergeId,
@@ -376,13 +339,10 @@ export const peopleMerge = {
 			);
 		});
 	},
-	/** people.mergedPersonDestination: where a merged Person's links lead. Any reader of the church may follow it. */
 	async mergedPersonDestination(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			const kind = ownerKind(ctx);
 			const input = parse(c.mergedPersonDestinationRequest, raw);
-			// Any reader of the church may follow a merged Person. In an organization only Owners and Admins read every
-			// Person, so only they follow one; a Member's per-Person pipeline access does not reach merged identities.
 			const gate = kind === "plant" ? (await authorizeRead(tx, ctx)).gate : adminRead(ctx);
 			const result = await tx.execute(sql`SELECT p.state,coalesce(p.merged_into_person_id,p.id) AS destination,
  (SELECT m.id FROM person_merge m WHERE m.source_id=p.id AND m.tenant_id=p.tenant_id AND m.unmerged_at IS NULL) AS merge_id
@@ -400,16 +360,10 @@ export const peopleMerge = {
 			});
 		});
 	},
-	/**
-	 * orgPeople.findDuplicates (MUL-017): live people of the organization that share a normalized email, phone or name
-	 * with one Person. Hints for a human to review; never an identity decision or a chosen survivor.
-	 */
 	async findDuplicates(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			if (ctx.selected.kind !== "organization") deny();
 			const input = parse(c.organizationDuplicatesRequest, raw);
-			// The live session, seat, Owner or Admin role and lifecycle check is inside both statements (C13), so no
-			// separate actor lookup runs.
 			const gate = adminRead(ctx);
 			const result = await tx.execute(sql`SELECT p.display_name,p.email,p.phone FROM person p WHERE ${gate}
  AND p.id=${input.personId}::uuid AND p.tenant_id=${ctx.selected.id}::uuid AND p.state='live'
