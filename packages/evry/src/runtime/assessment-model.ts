@@ -7,12 +7,6 @@ import { EvryRefusal } from "../context/errors.ts";
 import { paidModel, type Spend } from "./model.ts";
 import { inputTokenBound, meteredModel } from "./spend.ts";
 
-// The paid assessment drafter (WP-042) and the paid graded language judge (PI-036), on the approved paid model (D92:
-// gpt-6-luna under D77's monthly counter and cap). Every call reserves its worst case in model_spend before the provider
-// sees it and settles to the reported usage (spend.ts). A request carries only the run's model input and the previous
-// draft's violations, or the draft being graded: never a person, a note, a score or a check-in. The draft check stays
-// the authority: a reply that is not JSON goes to it as text, and it rejects it as the wrong shape.
-
 const DRAFT_SYSTEM = `You write a short launch-progress assessment for a church planter, as JSON only.
 The user message is JSON: "input" holds the plant's phase, today's date, measured facts (key, label, value, status) and methodology passages (key, title, section, text); "feedback" lists the rules the previous draft broke, if any. Fix every one of them.
 Reply with one JSON object and nothing else:
@@ -40,7 +34,6 @@ List every hype phrase and every pressure phrase as a failure, quoting the exact
 A gentle suggested next step is not pressure, even when it is phrased as an imperative ("Review the remaining roles", "Fill the open responsibilities"). A plain statement of fact is not hype. List nothing that is not hype or pressure; an empty list is the right answer for a calm draft.
 Reply with exactly: {"plain": int, "warm": int, "useful": int, "failures": [{"rule": "hype"|"pressure", "quote": string}]}`;
 
-/** The judge's verdict on one draft: a grade in the languageGrade contract, or a judge failure, never a silent pass. */
 export type JudgeResult = { status: "graded"; grade: c.LanguageGrade } | { status: "judge_failed"; detail: string };
 export type LanguageJudge = (draft: c.DraftOutput, signal?: AbortSignal) => Promise<JudgeResult>;
 
@@ -52,7 +45,6 @@ function retryAfterMs(headers: Record<string, string> | undefined) {
 	return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : null;
 }
 
-/** One provider dispatch with a JSON reply, its text and reported usage. Maps refusals and busy replies to the port. */
 async function dispatch(
 	model: LanguageModelV4,
 	system: string,
@@ -91,7 +83,6 @@ const parsed = (text: string): unknown => {
 	}
 };
 
-/** The drafter on `model` (already metered). A call that reports no usage counts its whole bound in the run budget. */
 export function assessmentDrafter(model: LanguageModelV4, id: string): Drafter {
 	return {
 		id,
@@ -109,7 +100,6 @@ export function assessmentDrafter(model: LanguageModelV4, id: string): Drafter {
 	};
 }
 
-/** The graded language judge on `model` (already metered). Any reply outside the contract is a judge failure. */
 export function languageJudge(model: LanguageModelV4): LanguageJudge {
 	return async (draft, signal = AbortSignal.timeout(JUDGE_MS)) => {
 		let text: string;
@@ -127,16 +117,11 @@ export function languageJudge(model: LanguageModelV4): LanguageJudge {
 	};
 }
 
-/** The drafter and judge on one metered `model`; `charged()` is what they committed to the month's counter so far. */
 export function meteredAssessment(db: Database, model: LanguageModelV4, id: string, spend: Spend) {
 	const meter = meteredModel(db, model, spend);
 	return { id, drafter: assessmentDrafter(meter.model, id), judge: languageJudge(meter.model), charged: meter.charged };
 }
 
-/**
- * The paid drafter and judge when the environment names an approved paid model (EVRY_MODEL, OPENAI_API_KEY), metered
- * on `db`'s model_spend, or null. EVRY_SCRIPTED_MODEL=1 always wins, on any deployment, so a test never pays.
- */
 export function paidAssessment(db: Database, env: Record<string, string | undefined> = process.env) {
 	if (env.EVRY_SCRIPTED_MODEL === "1") return null;
 	const paid = paidModel(env);

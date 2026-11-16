@@ -1,4 +1,5 @@
 import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
+import { existsSync, readFileSync } from "node:fs";
 import { area, commentsExempt, ratchet, repoPath, sqlMarkers } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
@@ -481,6 +482,7 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 });
 
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
+export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
 const HISTORY_MEMBERS = new Set(["pushState", "replaceState", "onpopstate"]);
 const HISTORY_STRINGS = new Set(["pushState", "replaceState", "popstate", "onpopstate", "currententrychange"]);
@@ -497,22 +499,100 @@ const isHost = (node, context, names) =>
 const isHistory = (node, context) =>
 	isHost(node, context, new Set(["history"])) ||
 	(memberName(node) === "history" && isHost(node.object, context, GLOBAL_HOSTS));
+const LINK_VALUE_ENTRY = /path: "(\/[^"]+)",\s*part: "(query|fragment)",\s*param: (?:null|"([^"]+)")/g;
+const LINK_REGISTRY = new URL(`../../${ONE_TIME_LINK}`, import.meta.url);
+const LINK_VALUES = [
+	...(existsSync(LINK_REGISTRY) ? readFileSync(LINK_REGISTRY, "utf8") : "").matchAll(LINK_VALUE_ENTRY),
+].map(([, path, part, param]) => ({ path, part, param }));
+const carriesLinkValue = (text) =>
+	LINK_VALUES.some(({ path, part, param }) => {
+		if (!text.startsWith(path) || !/^[?#]/.test(text.slice(path.length))) return false;
+		const [beforeHash, ...hash] = text.split("#");
+		if (part === "fragment") return hash.length > 0;
+		return new RegExp(`[?&]${param}=`).test(beforeHash);
+	});
+const isLocation = (node, context) =>
+	isHost(node, context, new Set(["location"])) ||
+	(memberName(node) === "location" && isHost(node.object, context, new Set([...GLOBAL_HOSTS, "document"])));
 const isNavigation = (node, context) =>
 	isHost(node, context, new Set(["navigation"])) ||
 	(memberName(node) === "navigation" && isHost(node.object, context, GLOBAL_HOSTS));
 
+const PLACEHOLDER = "\u0000";
+const ORIGIN = /^(?:\u0000+|[a-z][a-z\d+.-]*:\/\/[^/?#]*|\/\/[^/?#]*)(?=\/)/i;
+const queryText = (names) => [...names].map((name) => `${name}=${PLACEHOLDER}`).join("&");
+const initNames = (node) => {
+	if (node?.type === "ObjectExpression")
+		return node.properties.flatMap((p) => (p.type === "Property" ? [keyName(p.key, p.computed) ?? PLACEHOLDER] : []));
+	if (node?.type === "ArrayExpression")
+		return node.elements.flatMap((e) =>
+			e?.type === "ArrayExpression" ? [stringValue(e.elements[0]) ?? PLACEHOLDER] : [],
+		);
+	return [];
+};
+const isNew = (node, name) =>
+	node?.type === "NewExpression" && node.callee.type === "Identifier" && node.callee.name === name;
+const isAddressRoot = (node) =>
+	!(node.parent?.type === "BinaryExpression" && node.parent.operator === "+") &&
+	node.parent?.type !== "TemplateLiteral";
+const MAIL_BUILDERS = /^apps\/web\/src\/server\//;
+
 const noRawHistory = ratcheted("no-raw-history", (context, push) => {
-	if (repoPath(context.filename) === LOCATION_STORE) return {};
+	const path = repoPath(context.filename);
+	if ([LOCATION_STORE, ONE_TIME_LINK].includes(path)) return {};
 	const report = (node, word) =>
 		push({
 			node,
 			fn: enclosingName(node),
-			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, react to Back and Forward with an address rule or onTraversal, so every reader sees the same address in the same event.`,
+			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, read a one-time link value with useOneTimeLinkValue, react to Back and Forward with an address rule or onTraversal, so every reader sees the same address in the same event.`,
 		});
+	const queries = new Map();
+	const urls = new Map();
+	const addresses = [];
+	const builds = [];
+	const addressText = (node) => {
+		if (node.type === "Literal") return typeof node.value === "string" ? node.value : PLACEHOLDER;
+		if (node.type === "TemplateLiteral")
+			return node.quasis
+				.map((q, i) => (i ? addressText(node.expressions[i - 1]) : "") + (q.value.cooked ?? ""))
+				.join("");
+		if (node.type === "BinaryExpression" && node.operator === "+")
+			return addressText(node.left) + addressText(node.right);
+		if (node.type === "Identifier" && queries.has(node.name)) return queryText(queries.get(node.name));
+		if (node.type === "CallExpression" && memberName(node.callee) === "toString")
+			return addressText(node.callee.object);
+		if (isNew(node, "URLSearchParams")) return queryText(initNames(node.arguments[0]));
+		return PLACEHOLDER;
+	};
+	const linkAddress = (node, text) => {
+		if (MAIL_BUILDERS.test(path)) return;
+		if (carriesLinkValue(text.replace(ORIGIN, "")))
+			report(node, "an in-app address with a one-time link value (only an emailed link may carry one)");
+	};
+	const objectAddress = (node) => {
+		const parts = new Map(
+			node.properties.flatMap((p) => (p.type === "Property" ? [[keyName(p.key, p.computed), p.value]] : [])),
+		);
+		const pathname = parts.get("pathname");
+		if (!pathname) return null;
+		const query = parts.get("query") ?? parts.get("searchParams");
+		const names = query ? (query.type === "ObjectExpression" ? initNames(query) : [PLACEHOLDER]) : [];
+		const search = parts.get("search") ? addressText(parts.get("search")) : "";
+		const hash = parts.get("hash") ? `#${addressText(parts.get("hash"))}` : "";
+		return `${addressText(pathname)}${names.length ? `?${queryText(names)}` : search}${hash}`;
+	};
+	const urlWrite = (node, name, text) => {
+		const url = urls.get(name);
+		if (!url) return;
+		url.text += text;
+		builds.push({ node, text: url.text });
+	};
+	const urlOf = (node) => (node?.type === "Identifier" && urls.has(node.name) ? node.name : null);
 	return {
 		MemberExpression(node) {
 			const name = memberName(node);
 			if (name && HISTORY_MEMBERS.has(name)) return report(node, name);
+			if (name === "hash" && isLocation(node.object, context)) return report(node, "location.hash");
 			if (node.computed && name === null && isHistory(node.object, context)) return report(node, "history[...]");
 			if (isNavigation(node, context) || isNavigation(node.object, context)) report(node, "the Navigation API");
 		},
@@ -524,10 +604,56 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 		Literal(node) {
 			const value = stringValue(node);
 			if (value && HISTORY_STRINGS.has(value) && memberName(node.parent) === null) report(node, value);
+			if (typeof node.value === "string" && isAddressRoot(node)) addresses.push(node);
 		},
 		TemplateLiteral(node) {
 			const value = stringValue(node);
 			if (value && HISTORY_STRINGS.has(value)) report(node, value);
+			if (isAddressRoot(node)) addresses.push(node);
+		},
+		BinaryExpression(node) {
+			if (node.operator === "+" && isAddressRoot(node)) addresses.push(node);
+		},
+		ObjectExpression(node) {
+			builds.push({ node, object: true });
+		},
+		NewExpression(node) {
+			const target = node.parent?.type === "VariableDeclarator" ? node.parent.id : null;
+			if (target?.type !== "Identifier") return;
+			if (isNew(node, "URLSearchParams")) queries.set(target.name, new Set(initNames(node.arguments[0])));
+			if (isNew(node, "URL") && node.arguments[0])
+				urls.set(target.name, { text: addressText(node.arguments[0]).replace(ORIGIN, "") });
+		},
+		CallExpression(node) {
+			const method = memberName(node.callee);
+			if (method !== "set" && method !== "append") return;
+			const param = stringValue(node.arguments[0]) ?? PLACEHOLDER;
+			const owner = node.callee.object;
+			if (owner.type === "Identifier" && queries.has(owner.name)) queries.get(owner.name).add(param);
+			const url = memberName(owner) === "searchParams" ? urlOf(owner.object) : null;
+			if (url) urlWrite(node, url, `${urls.get(url).text.includes("?") ? "&" : "?"}${param}=${PLACEHOLDER}`);
+		},
+		AssignmentExpression(node) {
+			const part = memberName(node.left);
+			const url = urlOf(node.left.object);
+			if (!url || (part !== "hash" && part !== "search")) return;
+			const text = addressText(node.right);
+			urlWrite(node, url, part === "hash" ? `#${text.replace(/^#/, "")}` : `?${text.replace(/^\?/, "")}`);
+		},
+		ImportSpecifier(node) {
+			if (keyName(node.imported, false) === "useLocationHash") report(node, "useLocationHash");
+		},
+		VariableDeclarator(node) {
+			if (node.id.type !== "ObjectPattern" || !isLocation(node.init, context)) return;
+			for (const p of node.id.properties)
+				if (p.type === "Property" && keyName(p.key, p.computed) === "hash") report(p, "location.hash");
+		},
+		"Program:exit"() {
+			for (const node of addresses) linkAddress(node, addressText(node));
+			for (const build of builds) {
+				const text = build.object ? objectAddress(build.node) : build.text;
+				if (text !== null) linkAddress(build.node, text);
+			}
 		},
 	};
 });
@@ -537,7 +663,7 @@ const LISTENER_MEMBERS = new Set(["addEventListener", "removeEventListener"]);
 const LISTENER_HOSTS = new Set([...GLOBAL_HOSTS, "document"]);
 const HOST_MEMBERS = new Set(["document", "body", "documentElement", "ownerDocument", "defaultView", "visualViewport"]);
 const ON_HANDLER = /^on[a-z]+$/;
-const REGISTRY_WORDS = new Set(["onTraversal", "addAddressRule"]);
+const REGISTRY_WORDS = new Set(["onTraversal", "onNavigation", "addAddressRule"]);
 
 function isJsxRef(fn) {
 	let node = fn.parent;
@@ -552,7 +678,7 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 		push({
 			node,
 			fn: enclosingName(node),
-			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts and the unsaved-work warning go through ${PAGE_EVENTS} (data-shortcut on the form or control, data-unsaved on the form). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
+			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts, the unsaved-work warning, the leave hold and the last write when the page is hidden go through ${PAGE_EVENTS} (shortcutMark on the form or control, unsavedMark or leaveHoldMark on the form, leaveBeaconMark on the element that holds the write). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
 		});
 	const isGlobalHost = (node) =>
 		isHost(node, context, LISTENER_HOSTS) ||
@@ -588,7 +714,7 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 			const fn = nearestFunction(node);
 			const owner = fn && functionName(fn);
 			if (fn && (isJsxRef(fn) || (owner && /^([A-Z]|use[A-Z0-9])/.test(owner))))
-				report(node, "onTraversal registered for a component's lifetime");
+				report(node, `${name} registered for a component's lifetime`);
 		},
 	};
 });
@@ -696,7 +822,7 @@ const readLoader = {
 	create(context) {
 		return {
 			CallExpression(node) {
-				if (node.callee.type !== "Identifier" || node.callee.name !== "createRead") return;
+				if (node.callee.type !== "Identifier" || !["createRead", "useLocalRead"].includes(node.callee.name)) return;
 				const loader = node.arguments[0];
 				if (!loader || loader.type === "Identifier") return;
 				const fine =
@@ -707,7 +833,7 @@ const readLoader = {
 					context.report({
 						node: loader,
 						message:
-							"A createRead loader only loads its key: one call of a server read or fetch, optionally mapped with then/catch/finally arrows that return a value. Anything else (marking read, navigation, focus, a timer, a write) would run once per key when the first reader subscribes, a mount hook with no cleanup.",
+							"A createRead or useLocalRead loader only loads its key: one call of a server read or fetch, optionally mapped with then/catch/finally arrows that return a value. Anything else (marking read, navigation, focus, a timer, a write) would run once per key when the first reader subscribes, a mount hook with no cleanup.",
 					});
 			},
 		};

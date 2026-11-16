@@ -1,12 +1,6 @@
 import type { HeroDemo } from "../hero/HeroAnimation";
 import type { MondayDemo } from "../visuals/MondayOverview";
 
-// Demo data of the home page, as in the approved OPS-82 prototype (design/everyfield-marketing.html): Harvest Point
-// Church, planter Daniel, a spring 2027 launch. Rachel Mitchell signed on Oct 6; vision meeting #12 is on Oct 12, where
-// Emily Carter checks in; her follow-up task for Jen Park is due Oct 14. Evry creates follow-up tasks for people and
-// never writes to the congregation.
-
-/** The hero's cards: Emily Carter goes from the interest form to the core group (34 to 35). */
 export const HERO: HeroDemo = {
 	meeting: { title: "Vision meeting #12", sub: "Sun, Oct 12 · 6:00 PM" },
 	task: {
