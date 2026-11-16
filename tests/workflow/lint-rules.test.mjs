@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,11 +44,8 @@ function sandbox(files = {}, lintData = {}) {
 	temps.push(dir);
 	for (const config of CONFIGS)
 		put(dir, config, { ...JSON.parse(readFileSync(join(repo, config), "utf8")), jsPlugins: [PLUGIN] });
-	put(
-		dir,
-		"scripts/lint/exemptions.json",
-		JSON.parse(readFileSync(join(repo, "scripts/lint/exemptions.json"), "utf8")),
-	);
+	for (const data of ["exemptions.json", "boundaries/_layout.json"])
+		put(dir, `scripts/lint/${data}`, JSON.parse(readFileSync(join(repo, "scripts/lint", data), "utf8")));
 	put(dir, "package.json", { scripts: SCRIPTS });
 	put(dir, "scripts/lint/lint-scripts.json", { "package.json": SCRIPTS });
 	put(dir, "pnpm-workspace.yaml", "packages: []\n");
@@ -183,15 +189,212 @@ export function Row({ on }) {
 			<li role="option" aria-selected onClick={on} onKeyDown={on}>a</li>
 			<div role="presentation" onClick={on} className={\`p-2 hover:cursor-default \${on}\`} />
 			<button onClick={on} className="cursor-grab cursor-progress">b</button>
+			<a href="/x" onClick={on}>c</a>
+			<a onClick={on}>d</a>
+			<label onClick={on}>
+				<input type="text" />
+			</label>
 		</ul>
 	);
 }
 `;
 	assert.deepEqual(lint({ "apps/web/src/features/x/Row.tsx": source, "packages/ui/src/Row.tsx": source }), [
 		"apps/web/src/features/x/Row.tsx:1 no-cursor-utility",
+		"apps/web/src/features/x/Row.tsx:10 clickable-host",
 		"apps/web/src/features/x/Row.tsx:6 clickable-host",
 		"apps/web/src/features/x/Row.tsx:6 no-cursor-utility",
+		"apps/web/src/features/x/Row.tsx:9 clickable-host",
+		"packages/ui/src/Row.tsx:1 no-cursor-utility",
+		"packages/ui/src/Row.tsx:6 no-cursor-utility",
 	]);
+});
+
+test("INV-lint: history writes, popstate and the Navigation API are reported outside the location store, in every spelling", () => {
+	const source = `export function go(mode, href) {
+	window.history.pushState(null, "", href);
+	history.replaceState(null, "", href);
+	window.history[mode === "push" ? "pushState" : "replaceState"](null, "", href);
+	onTraversal("popstate");
+	window.onpopstate = null;
+	const { pushState } = window.history;
+	listen(\`popstate\`);
+	history["push" + "State"](null, "", href);
+	window.navigation.navigate(href);
+	navigation.addEventListener("navigate", go);
+	return pushState;
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/go.ts": source, "apps/web/src/components/location.ts": source }),
+		[
+			"apps/web/src/features/x/go.ts:2 no-raw-history",
+			"apps/web/src/features/x/go.ts:3 no-raw-history",
+			"apps/web/src/features/x/go.ts:4 no-raw-history",
+			"apps/web/src/features/x/go.ts:4 no-raw-history",
+			"apps/web/src/features/x/go.ts:4 no-raw-history",
+			"apps/web/src/features/x/go.ts:5 no-raw-history",
+			"apps/web/src/features/x/go.ts:6 no-raw-history",
+			"apps/web/src/features/x/go.ts:6 no-global-listeners",
+			"apps/web/src/features/x/go.ts:7 no-raw-history",
+			"apps/web/src/features/x/go.ts:8 no-raw-history",
+			"apps/web/src/features/x/go.ts:9 no-raw-history",
+			"apps/web/src/features/x/go.ts:10 no-raw-history",
+			"apps/web/src/features/x/go.ts:10 no-raw-history",
+			"apps/web/src/features/x/go.ts:11 no-raw-history",
+		].sort(),
+	);
+});
+
+test("INV-lint: window and document listeners are reported outside the location store and the page-event registry", () => {
+	const source = `export function mount(node, run) {
+	window.addEventListener("keydown", run);
+	document.removeEventListener("click", run);
+	const add = globalThis.addEventListener;
+	addEventListener("beforeunload", run);
+	window.document.addEventListener("click", run);
+	node.addEventListener("click", run);
+	const w = window;
+	w.addEventListener("resize", run);
+	document.body.addEventListener("click", run);
+	const { addEventListener: listen } = window;
+	window.onresize = run;
+	document.onclick = run;
+	node.ownerDocument.addEventListener("keydown", run);
+	window.visualViewport.addEventListener("resize", run);
+	return [add, listen];
+}
+`;
+	const registries = `import { addAddressRule, onTraversal } from "../../components/location.ts";
+addAddressRule("ok", () => null);
+export function Screen() {
+	addAddressRule("bad", () => null);
+	const go = () => onTraversal(() => {});
+	return <button ref={(node) => (node ? onTraversal(() => {}) : undefined)} onClick={go} />;
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/mount.ts": source,
+			"apps/web/src/features/x/Screen.tsx": registries,
+			"apps/web/src/components/save/leave.ts": source,
+			"apps/web/src/components/location.ts": source,
+		}),
+		[
+			...[2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15].map(
+				(line) => `apps/web/src/features/x/mount.ts:${line} no-global-listeners`,
+			),
+			"apps/web/src/features/x/Screen.tsx:4 no-global-listeners",
+			"apps/web/src/features/x/Screen.tsx:6 no-global-listeners",
+		].sort(),
+	);
+});
+
+test("INV-lint: zustand is reached only through store files and the store helper, never at module level", () => {
+	const store = `import { createStore } from "zustand/vanilla";
+export const shared = createStore()(() => ({}));
+export const createPanelStore = () => createStore()(() => ({}));
+`;
+	const evasions = `import { createStore as make } from "zustand/vanilla";
+import * as z from "zustand/vanilla";
+export { createStore } from "zustand/vanilla";
+export const a = make()(() => ({}));
+export const b = z.createStore()(() => ({}));
+export const c = (() => make()(() => ({})))();
+export const createOtherStore = () => make()(() => ({}));
+const alias = make;
+export const d = alias()(() => ({}));
+export const e = createOtherStore();
+`;
+	const component = `import { create } from "zustand";
+import { createStore } from "zustand/vanilla";
+import { persist } from "zustand/middleware";
+import { useStore } from "zustand";
+import { createPanelStore } from "./Panel.store.ts";
+import * as Panel from "./Panel.store.ts";
+export const used = [create, createStore, persist, useStore];
+export const viaSpace = Panel.createPanelStore();
+export const shared = createPanelStore();
+export function Panel() {
+	return createPanelStore();
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/Panel.store.ts": store,
+			"apps/web/src/features/x/Other.store.ts": evasions,
+			"apps/web/src/features/x/Panel.tsx": component,
+			"apps/web/src/components/store.ts": `import { useStore } from "zustand";\nexport { useShallow } from "zustand/react/shallow";\nexport { useStore };\n`,
+		}),
+		[
+			"apps/web/src/features/x/Other.store.ts:3 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:4 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:5 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:6 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:9 zustand-shape",
+			"apps/web/src/features/x/Other.store.ts:10 zustand-shape",
+			"apps/web/src/features/x/Panel.store.ts:2 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:1 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:2 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:3 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:4 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:8 zustand-shape",
+			"apps/web/src/features/x/Panel.tsx:9 zustand-shape",
+		].sort(),
+	);
+});
+
+test("INV-lint: a createRead loader only loads its key: a call of a read, optionally mapped, and nothing else", () => {
+	const source = `import { createRead } from "../../components/read.tsx";
+import { loadThing, markSeen } from "./actions.ts";
+export const a = createRead((id) => loadThing(id), { failed: () => null });
+export const b = createRead((id) => fetch("/x?id=" + id).then((r) => r.json()), { failed: () => null });
+export const c = createRead(() => loadThing().catch(() => null), { failed: () => null });
+export const d = createRead(async (id) => { markSeen(id); return loadThing(id); }, { failed: () => null });
+export const e = createRead(loadThing, { failed: () => null });
+export const f = createRead((id) => (markSeen(id), loadThing(id)), { failed: () => null });
+export const g = createRead((id) => loadThing(id).then((r) => { markSeen(id); return r; }), { failed: () => null });
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/reads.ts": source }), [
+		"apps/web/src/features/x/reads.ts:6 read-loader",
+		"apps/web/src/features/x/reads.ts:8 read-loader",
+		"apps/web/src/features/x/reads.ts:9 read-loader",
+	]);
+});
+
+function cursorRuleSelectors(css, cursor) {
+	const rule = css.match(new RegExp(`(:where\\((?:[^{}])*?)\\{\\s*cursor:\\s*${cursor};`));
+	assert.ok(rule, `controls.css has a :where() rule that sets cursor: ${cursor}`);
+	const text = rule[1].slice(":where(".length);
+	const items = [];
+	let depth = 0;
+	let start = 0;
+	for (let i = 0; i < text.length && depth >= 0; i++) {
+		if (text[i] === "(") depth++;
+		else if (text[i] === ")") depth--;
+		if ((text[i] === "," && depth === 0) || depth < 0) {
+			items.push(text.slice(start, i).trim());
+			start = i + 1;
+		}
+	}
+	return items;
+}
+
+test("INV-cursor: the base pointer rule covers exactly the hosts and roles clickable-host accepts, plus labels, which take no handler", async () => {
+	const { INTERACTIVE_HOSTS, INTERACTIVE_ROLES } = await import(PLUGIN);
+	const css = readFileSync(join(repo, "packages/ui/src/controls/controls.css"), "utf8");
+	const hostOf = (item) => item.match(/^[a-z]+(?:\[href\])?/)?.[0];
+	const roleOf = (item) => item.match(/^\[role="([a-z]+)"\]$/)?.[1];
+	const pointer = cursorRuleSelectors(css, "pointer");
+	const pointerHosts = [...new Set(pointer.map(hostOf).filter(Boolean))].sort();
+	assert.deepEqual(pointerHosts, [...INTERACTIVE_HOSTS, "label"].sort());
+	assert.deepEqual(pointer.map(roleOf).filter(Boolean).sort(), [...INTERACTIVE_ROLES].sort());
+	const disabled = cursorRuleSelectors(css, "not-allowed");
+	const disabledHosts = new Set(disabled.map(hostOf).filter(Boolean));
+	assert.deepEqual(
+		INTERACTIVE_HOSTS.filter((host) => !disabledHosts.has(host)),
+		[],
+	);
+	assert.deepEqual(disabled.map(roleOf).filter(Boolean).sort(), [...INTERACTIVE_ROLES].sort());
 });
 
 test("INV-lint: a baseline allows its count, refuses growth and refuses a stale entry; a survivor covers only its function", () => {
@@ -213,6 +416,129 @@ test("INV-lint: a baseline allows its count, refuses growth and refuses a stale 
 	});
 	assert.deepEqual(lint({ [path]: effects(1) }, survivor("Panel")), []);
 	assert.deepEqual(lint({ [path]: effects(1) }, survivor("Other")), [`${path}:1 no-effects`, `${path}:3 no-effects`]);
+});
+
+const BOUNDARY_DATA = {
+	"boundaries/_layout.json": {
+		layers: { contracts: [], domain: ["contracts"] },
+		compositionFeatures: { shell: "the product frame composes every feature" },
+		compositionRoots: { "apps/web/src/server/jobs/scheduled.ts": "the scheduler runs every feature's step" },
+		exceptions: [],
+		platformFolders: { jobs: "jobs every feature schedules through" },
+		thickRoutes: {},
+		packages: {
+			domain: { kernel: { access: "the authority kernel every module checks with" }, entries: ["index.ts"] },
+		},
+	},
+	"boundaries/apps-web-features-tasks.json": { public: { "model.ts": "task texts other features show" } },
+	"boundaries/packages-domain.json": { public: ["people/core.ts"] },
+};
+
+test("INV-lint: imports across feature, route, platform and package boundaries are reported unless they go through a public file", () => {
+	const files = {
+		"packages/domain/package.json": { name: "@everyfield/domain", exports: { "./people": "./src/people/index.ts" } },
+		"packages/contracts/package.json": { name: "@everyfield/contracts", exports: { ".": "./src/index.ts" } },
+		"apps/web/src/features/tasks/model.ts": "export const a = 1;\n",
+		"apps/web/src/features/tasks/private.ts": "export const b = 1;\n",
+		"apps/web/src/features/shell/Frame.tsx": "export const d = 1;\n",
+		"apps/web/src/features/shared/dates.ts": `import { a } from "../tasks/model";\nexport const c = a;\n`,
+		"apps/web/src/features/people/Panel.tsx": `import { a } from "../tasks/model";
+import { b } from "@/features/tasks/private";
+import { c } from "../shared/dates";
+import { d } from "../shell/Frame";
+import { e } from "@everyfield/domain/people/internal";
+import type { F } from "../../app/x/page";
+export const all: F[] = [a, b, c, d, e];
+`,
+		"apps/web/src/app/x/page.tsx": `import { a } from "@/features/tasks/model";
+import { all } from "@/features/people/Panel";
+export const dynamic = "force-dynamic";
+export default function Page() {
+	return [a, all];
+}
+`,
+		"apps/web/src/features/people/Hidden.ts": `type T = typeof import("@/features/tasks/private");
+import legacy = require("../tasks/private");
+export const load = () => import(\`@/features/tasks/private\`);
+export const typed: T | typeof legacy | null = null;
+`,
+		"apps/web/src/app/x/helpers.tsx": `import { a } from "@/features/tasks/model";\nimport { all } from "@/features/people/Panel";\nexport const both = [a, all];\n`,
+		"apps/web/src/app/x/opengraph-image.tsx": `import { a } from "@/features/tasks/model";\nimport { all } from "@/features/people/Panel";\nexport default function Image() {\n\treturn [a, all];\n}\n`,
+		"apps/web/src/server/jobs/mail.ts": `import { a } from "../../features/tasks/model";\nexport const m = a;\n`,
+		"apps/web/src/server/jobs/scheduled.ts": `import { a } from "../../features/tasks/model";\nexport const s = a;\n`,
+		"apps/web/src/server/tasks/index.ts": "export const t = 1;\n",
+		"packages/domain/src/people/core.ts": `import { a } from "../../../../apps/web/src/features/tasks/model";
+import { contract } from "@everyfield/contracts";
+export const core = [a, contract];
+`,
+		"packages/domain/src/people/rows.ts": "export const q = 1;\n",
+		"packages/domain/src/access/session.ts": "export const s = 1;\n",
+		"packages/contracts/src/index.ts": `import { core } from "@everyfield/domain/people";\nexport const contract = core;\n`,
+		"packages/domain/src/tasks/writes.ts": `import { core } from "../people/core";
+import { q } from "../people/rows";
+import { s } from "../access/session";
+import { contract } from "../../../contracts/src/index";
+export const w = [core, q, s, contract];
+`,
+	};
+	assert.deepEqual(
+		lint(files, BOUNDARY_DATA),
+		[
+			"apps/web/src/app/x/helpers.tsx:1",
+			"apps/web/src/app/x/helpers.tsx:2",
+			"apps/web/src/app/x/opengraph-image.tsx:2",
+			"apps/web/src/app/x/page.tsx:2",
+			"apps/web/src/app/x/page.tsx:4",
+			"apps/web/src/features/people/Hidden.ts:1",
+			"apps/web/src/features/people/Hidden.ts:2",
+			"apps/web/src/features/people/Hidden.ts:3",
+			"apps/web/src/features/people/Panel.tsx:2",
+			"apps/web/src/features/people/Panel.tsx:4",
+			"apps/web/src/features/people/Panel.tsx:5",
+			"apps/web/src/features/people/Panel.tsx:6",
+			"apps/web/src/features/shared/dates.ts:1",
+			"apps/web/src/server/jobs/mail.ts:1",
+			"apps/web/src/server/tasks/index.ts:1",
+			"packages/contracts/src/index.ts:1",
+			"packages/domain/src/people/core.ts:1",
+			"packages/domain/src/tasks/writes.ts:2",
+			"packages/domain/src/tasks/writes.ts:4",
+		].map((at) => `${at} feature-boundaries`),
+	);
+});
+
+test("INV-lint: the boundary data check refuses a public entry that names nothing, a kernel outside the layout file and a package dependency its layer forbids", () => {
+	const dir = sandbox(
+		{
+			"apps/web/src/features/tasks/model.ts": "export const a = 1;\n",
+			"packages/domain/src/index.ts": "export {};\n",
+			"packages/domain/package.json": {
+				name: "@everyfield/domain",
+				dependencies: { "@everyfield/contracts": "workspace:*" },
+			},
+			"packages/contracts/package.json": {
+				name: "@everyfield/contracts",
+				dependencies: { "@everyfield/domain": "workspace:*" },
+			},
+		},
+		{
+			...BOUNDARY_DATA,
+			"boundaries/packages-domain.json": { kernel: { tasks: "a kernel outside the gated layout file" }, public: [] },
+			"boundaries/apps-web-features-tasks.json": { public: { "gone.ts": "a file that was moved away" } },
+		},
+	);
+	const ran = spawnSync(process.execPath, [join(repo, "scripts/lint/check-boundaries.mjs")], {
+		cwd: dir,
+		encoding: "utf8",
+		env: env(dir),
+	});
+	assert.equal(ran.status, 1);
+	assert.match(ran.stderr, /apps-web-features-tasks\.json public gone\.ts: names nothing/);
+	assert.match(ran.stderr, /packages-domain\.json: unknown key kernel/);
+	assert.match(
+		ran.stderr,
+		/packages\/contracts\/package\.json depends on @everyfield\/domain, which .* does not allow/,
+	);
 });
 
 function check(dir, args = [], extra = {}) {
@@ -360,6 +686,31 @@ test("INV-lint: in CI the growth check compares with main, through HEAD^1 or, fo
 	const direct = ci("main");
 	assert.match(direct, /the first parent of the pull_request commit/);
 	assert.match(direct, /check-comments: passed/);
+});
+
+test("INV-lint: baseline --shrink moves a renamed file's entries to its new path and area, and the growth check accepts them", () => {
+	const effect = `import { useEffect } from "react";\nexport function Panel() {\n\tuseEffect(() => {});\n}\n`;
+	const dir = sandbox(
+		{ "packages/ui/src/Panel.tsx": effect },
+		{ "baseline/no-effects/packages-ui.json": { "packages/ui/src/Panel.tsx": 1 } },
+	);
+	git(dir, "init", "-q", "-b", "main");
+	const base = commitAll(dir, "base");
+	mkdirSync(join(dir, "packages/ui/src/controls"));
+	git(dir, "mv", "packages/ui/src/Panel.tsx", "packages/ui/src/controls/Panel.tsx");
+	const shrink = spawnSync(process.execPath, [join(repo, "scripts/lint/baseline.mjs"), "--shrink", "--base", base], {
+		cwd: dir,
+		encoding: "utf8",
+		env: env(dir),
+	});
+	assert.equal(shrink.status, 0, shrink.stderr);
+	const baseline = join(dir, "scripts/lint/baseline/no-effects");
+	assert.deepEqual(JSON.parse(readFileSync(join(baseline, "packages-ui-controls.json"), "utf8")), {
+		"packages/ui/src/controls/Panel.tsx": 1,
+	});
+	assert.equal(existsSync(join(baseline, "packages-ui.json")), false);
+	commitAll(dir, "move");
+	assert.match(check(dir, ["--base", base]).out, /check-comments: passed/);
 });
 
 const configFails = (edit, pattern) => {

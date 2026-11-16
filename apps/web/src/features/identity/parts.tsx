@@ -12,7 +12,6 @@ import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useState, type ComponentPropsWithRef, type ReactNode } from "react";
 import { AuthHeading } from "./AuthFrame";
 
-/** A password Input with a Show/Hide button. The button keeps its own name, so the field label stays "Password". */
 export function PasswordInput(props: Omit<ComponentPropsWithRef<typeof Input>, "type" | "icon" | "trailing">) {
 	const [shown, setShown] = useState(false);
 	return (
@@ -27,7 +26,7 @@ export function PasswordInput(props: Omit<ComponentPropsWithRef<typeof Input>, "
 					type="button"
 					aria-pressed={shown}
 					onClick={() => setShown((v) => !v)}
-					className="-mr-2 grid size-9 flex-none cursor-pointer place-items-center rounded-sm text-text-2 transition-[background-color] duration-150 hover:bg-hover hover:text-ink"
+					className="-mr-2 grid size-9 flex-none place-items-center rounded-sm text-text-2 transition-[background-color] duration-150 hover:bg-hover hover:text-ink"
 				>
 					<Icon icon={shown ? ViewOffSlashIcon : ViewIcon} size={18} />
 					<span className="sr-only">Show password</span>
@@ -37,10 +36,6 @@ export function PasswordInput(props: Omit<ComponentPropsWithRef<typeof Input>, "
 	);
 }
 
-/**
- * The form-level message above a submit button. A refusal is an alert, so a screen reader hears it when it appears;
- * a confirmation is a polite status. The region stays mounted and empty until there is something to say.
- */
 export function FormMessage({ tone, children }: { tone: "error" | "success"; children: ReactNode }) {
 	return (
 		<div role={tone === "error" ? "alert" : "status"} className="empty:hidden">
@@ -59,7 +54,6 @@ export function FormMessage({ tone, children }: { tone: "error" | "success"; chi
 	);
 }
 
-/** A finished step: an icon tile, the heading, its explanation and the next actions. */
 export function Outcome({
 	icon,
 	tone,

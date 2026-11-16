@@ -40,7 +40,6 @@ const profileRow = z.object({
 	revision,
 });
 export interface GeographyReference {
-	// Producer resolves a checksum-pinned official dataset, never a guessed location.
 	candidates(
 		tx: Transaction,
 		input: {
@@ -182,8 +181,6 @@ export function profileOperations(
 	};
 }
 
-// The profile section and native organization operation share protected-field
-// validation, CAS, no-op handling and one audit consequence.
 export async function applyOrganizationProfile(
 	tx: Transaction,
 	c: Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>,
@@ -211,7 +208,6 @@ export async function applyOrganizationProfile(
 		statementOfFaith: "statement_of_faith",
 	} as const;
 	const patch: Partial<typeof tables.organization.$inferInsert> = {};
-	// The milestone the organization offers its plants (T-296) is one value stored in three columns.
 	const { gatheringMilestone: milestone, ...plain } = input;
 	if (milestone) {
 		const now = {
@@ -237,7 +233,6 @@ export async function applyOrganizationProfile(
 			.parse(raw);
 		const field = fields[key];
 		if (row[field] === value) continue;
-		// D-107: only a sending network writes a statement of faith. The database refuses it on a church row too.
 		if (field === "statement_of_faith" && stored.kind !== "sending_network") refuse();
 		if (field === "name") patch.name = z.string().parse(value);
 		else patch[field] = value;

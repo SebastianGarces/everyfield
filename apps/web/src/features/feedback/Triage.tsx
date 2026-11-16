@@ -298,7 +298,7 @@ function PublicIssue({ item, setup }: { item: TriageDetail; setup: PublicationSe
 								href={item.publication.url}
 								target="_blank"
 								rel="noreferrer"
-								className="cursor-pointer font-medium text-ink underline underline-offset-2 [overflow-wrap:anywhere]"
+								className="font-medium text-ink underline underline-offset-2 [overflow-wrap:anywhere]"
 							>
 								{item.publication.url.replace(/^https:\/\//, "")}
 							</a>

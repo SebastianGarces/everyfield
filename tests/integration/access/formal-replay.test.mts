@@ -1,11 +1,3 @@
-// The permissions model's trace replay (T-399). `bin/dev formal` has TLC generate random behaviors of
-// formal/permissions/Permissions.tla from a fixed seed and writes them to formal/permissions/traces.json. This test
-// seeds the model's starting state for each behavior, runs every step through the real operation that
-// .agents/skills/formal-permissions/map.json maps its action to, and after each step compares what the code did, and
-// the state it left in Postgres, with the model. The first disagreement stops that behavior and fails with both sides.
-//
-// FORMAL_TRACES=<dir> replays <dir>/permissions/traces.json instead, a fresh set from
-// `bin/dev formal --traces <dir> [--seed <n>]`. .agents/skills/formal-permissions/SKILL.md says how.
 import "../platform/setup.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
@@ -37,7 +29,6 @@ const traces = JSON.parse(readFileSync(source, "utf8")) as Traces;
 const ORIGIN = "http://replay.example.test";
 const SECRET = randomBytes(32).toString("hex");
 const PASSWORD = "Replay-pass-1";
-/** The display name of each Person a replayed tenant write creates, so the write's effect is countable. */
 const WRITTEN = "Replay write";
 
 let fx: Awaited<ReturnType<typeof fixture>>;
@@ -45,9 +36,7 @@ let seats: ReturnType<typeof createSeatService>;
 let invitations: ReturnType<typeof createInvitationService>;
 let identity: ReturnType<typeof createIdentityService>;
 let passwordHash: string;
-/** Each invitation's proof, read from the mail the invite sent. */
 const proofs = new Map<string, string>();
-/** No seat the replay removes holds a dated task, so a reminder replan would be a bug. */
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
@@ -85,10 +74,8 @@ after(async () => {
 	await fx?.close();
 });
 
-/** The cookie Better Auth sets for a session token: the token signed with the auth secret. */
 const sessionCookie = (token: string) =>
 	`better-auth.session_token=${encodeURIComponent(`${token}.${createHmac("sha256", SECRET).update(token).digest("base64")}`)}`;
-/** A POST to the identity service, as the browser sends it. */
 const post = (path: string, body: unknown, cookie?: string) =>
 	identity.handle(
 		new Request(`${ORIGIN}/api/auth/${path}`, {
@@ -109,9 +96,7 @@ const command = (expectedRevision: string, input: Record<string, unknown>) => ({
 });
 const rows = async (query: ReturnType<typeof sql>) => (await fx.admin.execute(query)).rows as Record<string, any>[];
 
-/** What the code did with a step: allowed, admitted or refused, with the refusal's code. */
 type Outcome = string;
-/** Runs an operation; a domain refusal or a contract that rejects the input is a refusal, anything else fails. */
 async function outcome(run: () => Promise<unknown>, success = "allowed"): Promise<Outcome> {
 	try {
 		const result = (await run()) as { status?: string; error?: { code?: string } } | undefined;
@@ -124,10 +109,6 @@ async function outcome(run: () => Promise<unknown>, success = "allowed"): Promis
 	}
 }
 
-/**
- * One behavior's world: the model's starting state seeded through the fixture, and which row stands for each model
- * seat, session, invitation and request.
- */
 class World {
 	plants = new Map<string, Workspace>();
 	accounts = new Map<string, Actor>();
@@ -135,9 +116,7 @@ class World {
 	sessions = new Map<string, { id: string; cookie: string }>();
 	invitations = new Map<string, string>();
 	requests = new Map<string, RequestActor>();
-	/** Each mapped seat's revision after the last step. */
 	revisions = new Map<string, string>();
-	/** Each plant's count of replayed writes after the last step. */
 	writes = new Map<string, number>();
 
 	static async seed(init: Entries) {
@@ -195,7 +174,6 @@ class World {
 	liveSessions = new Set<string>();
 	invitationRow: Record<string, any> | undefined;
 	written = new Map<string, number>();
-	/** Reads the rows the model's state stands for. */
 	async observe() {
 		const ids = [...this.accounts.values()].map((a) => a.id);
 		const users = [...this.accounts.values()].map((a) => a.user);
@@ -225,7 +203,6 @@ class World {
 		);
 		this.written = new Map(counts.map((r) => [r.id, r.n]));
 	}
-	/** Maps each model seat or session a step brought into use to the one new row for its account. */
 	adopt(model: Entries) {
 		for (const [key, s] of Object.entries(model.seats!)) {
 			if (seatOf(s).state === "unused" || this.seats.has(key)) continue;
@@ -234,7 +211,6 @@ class World {
 			if (fresh.length === 1) this.seats.set(key, fresh[0]!.id);
 		}
 	}
-	/** The model's state and the code's, field by field, after a step. */
 	fields(model: Entries, before: Entries) {
 		const out: { field: string; model: string; code: string }[] = [];
 		const wsName = (plant: string | null) =>
@@ -291,7 +267,6 @@ class World {
 		}
 		return out;
 	}
-	/** Remembers this step's revisions and write counts, for the next step's "changed". */
 	settle() {
 		this.revisions = new Map(this.seatRows.map((r) => [r.id, r.revision]));
 		this.writes = new Map(this.written);
@@ -304,7 +279,6 @@ class Unresolved extends Error {
 }
 const seatOf = (v: Value) => v as { state: string; ws: string; role: string; rev: number };
 
-/** The real operation for each model action (map.json), returning what the code did. */
 const handlers: Record<string, (world: World, args: Record<string, string>) => Promise<Outcome>> = {
 	async SignIn(world, { session }) {
 		const actor = world.account(session);
@@ -360,7 +334,6 @@ const handlers: Record<string, (world: World, args: Record<string, string>) => P
 			invitations.revoke(await world.authority(session), command(i!.revision, { invitationId: id })),
 		);
 	},
-	// 30 days pass for the invitation: its dates move back, so `current` sees it as 30 days old.
 	async Expire(world, { invitation }) {
 		await fx.admin.execute(
 			sql`UPDATE invitation SET created_at=created_at-interval '30 days', resent_at=resent_at-interval '30 days'
@@ -396,7 +369,6 @@ const handlers: Record<string, (world: World, args: Record<string, string>) => P
 	},
 };
 
-/** The model's state after a step: the state before with the entries the step changed. */
 function apply(state: Entries, step: Step): Entries {
 	const next = structuredClone(state);
 	for (const [name, changed] of Object.entries(step.after)) Object.assign((next[name] ??= {}), changed);

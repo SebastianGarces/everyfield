@@ -1,3 +1,4 @@
+import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
 import { area, commentsExempt, ratchet, repoPath, sqlMarkers } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
@@ -10,7 +11,12 @@ const text = (node) =>
 		: node.type === "TemplateElement"
 			? (node.value.cooked ?? node.value.raw)
 			: null;
-const literalArgument = (node) => (node?.type === "Literal" && typeof node.value === "string" ? node.value : null);
+const literalArgument = (node) =>
+	node?.type === "Literal" && typeof node.value === "string"
+		? node.value
+		: node?.type === "TemplateLiteral" && node.expressions.length === 0
+			? node.quasis[0].value.cooked
+			: null;
 const isRequire = (node) => node.callee.type === "Identifier" && node.callee.name === "require";
 
 function moduleSources(report) {
@@ -25,6 +31,15 @@ function moduleSources(report) {
 		},
 		CallExpression: (node) => {
 			const name = isRequire(node) ? literalArgument(node.arguments[0]) : null;
+			if (name !== null) report(node, name);
+		},
+		TSImportType: (node) => {
+			const name = literalArgument(node.source ?? node.argument?.literal);
+			if (name !== null) report(node, name);
+		},
+		TSImportEqualsDeclaration: (node) => {
+			const reference = node.moduleReference;
+			const name = reference.type === "TSExternalModuleReference" ? literalArgument(reference.expression) : null;
 			if (name !== null) report(node, name);
 		},
 	};
@@ -127,7 +142,7 @@ const REACT_DOM = new Set(["react-dom"]);
 const TIMER_MODULES = new Set(["timers", "node:timers", "timers/promises", "node:timers/promises"]);
 const FUNCTIONS = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 
-export const INTERACTIVE_HOSTS = ["a", "button", "input", "label", "option", "select", "summary"];
+export const INTERACTIVE_HOSTS = ["a[href]", "area[href]", "button", "input", "option", "select", "summary"];
 export const INTERACTIVE_ROLES = [
 	"button",
 	"checkbox",
@@ -465,6 +480,240 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 	);
 });
 
+export const LOCATION_STORE = "apps/web/src/components/location.ts";
+export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
+const HISTORY_MEMBERS = new Set(["pushState", "replaceState", "onpopstate"]);
+const HISTORY_STRINGS = new Set(["pushState", "replaceState", "popstate", "onpopstate", "currententrychange"]);
+const GLOBAL_HOSTS = new Set(["window", "globalThis", "self"]);
+
+const stringValue = (node) =>
+	node?.type === "Literal" && typeof node.value === "string"
+		? node.value
+		: node?.type === "TemplateLiteral" && node.expressions.length === 0
+			? (node.quasis[0]?.value.cooked ?? null)
+			: null;
+const isHost = (node, context, names) =>
+	node?.type === "Identifier" && names.has(node.name) && !declared(context, node);
+const isHistory = (node, context) =>
+	isHost(node, context, new Set(["history"])) ||
+	(memberName(node) === "history" && isHost(node.object, context, GLOBAL_HOSTS));
+const isNavigation = (node, context) =>
+	isHost(node, context, new Set(["navigation"])) ||
+	(memberName(node) === "navigation" && isHost(node.object, context, GLOBAL_HOSTS));
+
+const noRawHistory = ratcheted("no-raw-history", (context, push) => {
+	if (repoPath(context.filename) === LOCATION_STORE) return {};
+	const report = (node, word) =>
+		push({
+			node,
+			fn: enclosingName(node),
+			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, react to Back and Forward with an address rule or onTraversal, so every reader sees the same address in the same event.`,
+		});
+	return {
+		MemberExpression(node) {
+			const name = memberName(node);
+			if (name && HISTORY_MEMBERS.has(name)) return report(node, name);
+			if (node.computed && name === null && isHistory(node.object, context)) return report(node, "history[...]");
+			if (isNavigation(node, context) || isNavigation(node.object, context)) report(node, "the Navigation API");
+		},
+		Property(node) {
+			if (node.parent?.type !== "ObjectPattern") return;
+			const name = keyName(node.key, node.computed);
+			if (name && HISTORY_MEMBERS.has(name)) report(node, name);
+		},
+		Literal(node) {
+			const value = stringValue(node);
+			if (value && HISTORY_STRINGS.has(value) && memberName(node.parent) === null) report(node, value);
+		},
+		TemplateLiteral(node) {
+			const value = stringValue(node);
+			if (value && HISTORY_STRINGS.has(value)) report(node, value);
+		},
+	};
+});
+
+const GLOBAL_LISTENER_OWNERS = new Set([LOCATION_STORE, PAGE_EVENTS]);
+const LISTENER_MEMBERS = new Set(["addEventListener", "removeEventListener"]);
+const LISTENER_HOSTS = new Set([...GLOBAL_HOSTS, "document"]);
+const HOST_MEMBERS = new Set(["document", "body", "documentElement", "ownerDocument", "defaultView", "visualViewport"]);
+const ON_HANDLER = /^on[a-z]+$/;
+const REGISTRY_WORDS = new Set(["onTraversal", "addAddressRule"]);
+
+function isJsxRef(fn) {
+	let node = fn.parent;
+	if (node?.type === "JSXExpressionContainer") node = node.parent;
+	return node?.type === "JSXAttribute" && node.name.name === "ref";
+}
+
+const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
+	if (GLOBAL_LISTENER_OWNERS.has(repoPath(context.filename))) return {};
+	const aliases = new Set();
+	const report = (node, name) =>
+		push({
+			node,
+			fn: enclosingName(node),
+			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts and the unsaved-work warning go through ${PAGE_EVENTS} (data-shortcut on the form or control, data-unsaved on the form). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
+		});
+	const isGlobalHost = (node) =>
+		isHost(node, context, LISTENER_HOSTS) ||
+		(node?.type === "Identifier" && aliases.has(node.name)) ||
+		HOST_MEMBERS.has(memberName(node) ?? "");
+	return {
+		VariableDeclarator(node) {
+			if (node.id.type === "Identifier" && isGlobalHost(node.init)) aliases.add(node.id.name);
+			if (node.id.type !== "ObjectPattern" || !isGlobalHost(node.init)) return;
+			for (const p of node.id.properties) {
+				const name = p.type === "Property" ? keyName(p.key, p.computed) : null;
+				if (name && (LISTENER_MEMBERS.has(name) || ON_HANDLER.test(name))) report(p, name);
+			}
+		},
+		MemberExpression(node) {
+			const name = memberName(node);
+			if (!name || !(LISTENER_MEMBERS.has(name) || ON_HANDLER.test(name))) return;
+			if (isGlobalHost(node.object)) report(node, `${name} on window or document`);
+		},
+		Identifier(node) {
+			if (node.name !== "addEventListener" || !isValueReference(node) || declared(context, node)) return;
+			if (node.parent?.type === "MemberExpression" && node.parent.property === node) return;
+			report(node, "addEventListener");
+		},
+		CallExpression(node) {
+			const name = node.callee.type === "Identifier" ? node.callee.name : memberName(node.callee);
+			if (!REGISTRY_WORDS.has(name)) return;
+			if (name === "addAddressRule") {
+				if (!atModuleLevel(node))
+					report(node, "addAddressRule outside module scope (it would add a rule on every render)");
+				return;
+			}
+			const fn = nearestFunction(node);
+			const owner = fn && functionName(fn);
+			if (fn && (isJsxRef(fn) || (owner && /^([A-Z]|use[A-Z0-9])/.test(owner))))
+				report(node, "onTraversal registered for a component's lifetime");
+		},
+	};
+});
+
+export const STORE_HELPER = "apps/web/src/components/store.ts";
+export const MODULE_STORES = ["apps/web/src/features/meetings/deletions.store.ts"];
+const ZUSTAND = /^zustand(?:\/|$)/;
+const STORE_FACTORY = /^create\w*Store$/;
+
+function atModuleLevel(node) {
+	for (let p = node.parent; p; p = p.parent) {
+		if (!FUNCTIONS.has(p.type)) continue;
+		const call = p.parent;
+		const iife = call?.type === "CallExpression" && call.callee === p;
+		if (!iife) return false;
+	}
+	return true;
+}
+
+const zustandShape = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		const storeFile = path.endsWith(".store.ts");
+		const report = (node, message) => context.report({ node, message });
+		const allowed = (source) =>
+			source === "zustand/vanilla"
+				? storeFile
+				: path === STORE_HELPER && (source === "zustand" || source === "zustand/react/shallow");
+		const factories = new Set();
+		const spaces = new Set();
+		const storeSpaces = new Set();
+		const sources = moduleSources((node, source) => {
+			if (!ZUSTAND.test(source)) return;
+			if ((node.type === "ExportNamedDeclaration" || node.type === "ExportAllDeclaration") && path !== STORE_HELPER)
+				return report(
+					node,
+					`${source} is not re-exported. Import it where it is used: store files take createStore from zustand/vanilla; components use ${STORE_HELPER}.`,
+				);
+			if (!allowed(source))
+				report(
+					node,
+					`${source} is not imported here. A store file (<Component>.store.ts) imports createStore from zustand/vanilla only; components read it through useLocalStore, useStore and storeContext from ${STORE_HELPER}. No module-level create(), no middleware.`,
+				);
+		});
+		const isFactory = (callee) =>
+			(callee?.type === "Identifier" && factories.has(callee.name)) ||
+			(callee?.type === "MemberExpression" &&
+				callee.object.type === "Identifier" &&
+				((spaces.has(callee.object.name) && memberName(callee) === "createStore") ||
+					(storeSpaces.has(callee.object.name) && STORE_FACTORY.test(memberName(callee) ?? ""))));
+		return {
+			...sources,
+			ImportDeclaration(node) {
+				sources.ImportDeclaration(node);
+				const source = node.source.value;
+				const vanilla = source === "zustand/vanilla";
+				const storeModule = /\.store(\.ts)?$/.test(source);
+				if (!vanilla && !storeModule) return;
+				for (const spec of node.specifiers) {
+					if (spec.type === "ImportNamespaceSpecifier") (vanilla ? spaces : storeSpaces).add(spec.local.name);
+					else if (spec.type === "ImportSpecifier") {
+						const name = nameOf(spec.imported);
+						if ((vanilla && name === "createStore") || (storeModule && STORE_FACTORY.test(name)))
+							factories.add(spec.local.name);
+					}
+				}
+			},
+			VariableDeclarator(node) {
+				if (node.id.type !== "Identifier") return;
+				if (node.init?.type === "Identifier" && factories.has(node.init.name)) factories.add(node.id.name);
+				if (storeFile && STORE_FACTORY.test(node.id.name)) factories.add(node.id.name);
+			},
+			FunctionDeclaration(node) {
+				if (storeFile && node.id && STORE_FACTORY.test(node.id.name)) factories.add(node.id.name);
+			},
+			CallExpression(node) {
+				sources.CallExpression(node);
+				if (MODULE_STORES.includes(path) || !isFactory(node.callee) || !atModuleLevel(node)) return;
+				report(
+					node,
+					"A store is created per component instance: export a create<Name>Store(init) function and call it from useLocalStore. A module-level store is shared by every request during server rendering.",
+				);
+			},
+		};
+	},
+};
+
+const CHAIN = new Set(["then", "catch", "finally"]);
+const mapsOnly = (fn) =>
+	fn === undefined ||
+	((fn.type === "ArrowFunctionExpression" || fn.type === "Identifier") && fn.body?.type !== "BlockStatement");
+
+function loadsOnly(node) {
+	let call = node;
+	while (call?.type === "CallExpression" && CHAIN.has(memberName(call.callee) ?? "")) {
+		if (!call.arguments.every(mapsOnly)) return false;
+		call = call.callee.object;
+	}
+	return call?.type === "CallExpression" && call.callee.type !== "SequenceExpression";
+}
+
+const readLoader = {
+	meta: { type: "problem" },
+	create(context) {
+		return {
+			CallExpression(node) {
+				if (node.callee.type !== "Identifier" || node.callee.name !== "createRead") return;
+				const loader = node.arguments[0];
+				if (!loader || loader.type === "Identifier") return;
+				const fine =
+					(loader.type === "ArrowFunctionExpression" || loader.type === "FunctionExpression") &&
+					loader.body.type !== "BlockStatement" &&
+					loadsOnly(loader.body);
+				if (!fine)
+					context.report({
+						node: loader,
+						message:
+							"A createRead loader only loads its key: one call of a server read or fetch, optionally mapped with then/catch/finally arrows that return a value. Anything else (marking read, navigation, focus, a timer, a write) would run once per key when the first reader subscribes, a mount hook with no cleanup.",
+					});
+			},
+		};
+	},
+};
+
 const BUNDLER_IGNORE = /^\s*(?:webpackIgnore|turbopackIgnore):\s*true\s*$/;
 const DIRECTIVE =
 	/^\s*(?:@ts-|\/\s*<|(?:eslint|oxlint)-(?:disable|enable)|eslint-env\b|globals?\s|(?:biome|prettier)-ignore|[#@]__|(?:c8|istanbul|v8|node:coverage)\s+ignore|@jsx)/;
@@ -495,19 +744,27 @@ const noComments = ratcheted("no-comments", (context, push) => {
 	};
 });
 
-const literalRole = (element) => {
-	const role = element.attributes.find((a) => a.type === "JSXAttribute" && a.name.name === "role");
-	if (!role) return undefined;
-	const value = role.value?.type === "JSXExpressionContainer" ? role.value.expression : role.value;
+const literalAttribute = (element, name) => {
+	const attribute = element.attributes.find((a) => a.type === "JSXAttribute" && a.name.name === name);
+	if (!attribute) return undefined;
+	const value = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : attribute.value;
 	return value?.type === "Literal" && typeof value.value === "string" ? value.value : null;
+};
+
+const acceptsHost = (host, element) => {
+	const [, tag, required] = host.match(/^([a-z]+)(?:\[([a-z-]+)\])?$/);
+	return (
+		element.name.name === tag &&
+		(!required || element.attributes.some((a) => a.type === "JSXAttribute" && a.name.name === required))
+	);
 };
 
 const clickableHost = ratcheted("clickable-host", (context, push) => ({
 	JSXOpeningElement(node) {
 		if (node.name.type !== "JSXIdentifier" || !/^[a-z]/.test(node.name.name)) return;
-		if (INTERACTIVE_HOSTS.includes(node.name.name)) return;
+		if (INTERACTIVE_HOSTS.some((host) => acceptsHost(host, node))) return;
 		const handler = node.attributes.find((a) => a.type === "JSXAttribute" && POINTER_HANDLERS.has(a.name.name));
-		if (!handler || INTERACTIVE_ROLES.includes(literalRole(node))) return;
+		if (!handler || INTERACTIVE_ROLES.includes(literalAttribute(node, "role"))) return;
 		push({
 			node: handler,
 			fn: enclosingName(node),
@@ -602,6 +859,26 @@ const noCursorUtility = ratcheted("no-cursor-utility", (context, push) => {
 	};
 });
 
+const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
+	const from = repoPath(context.filename);
+	const imports = [];
+	const found = (node, [, message]) => push({ node, fn: null, message });
+	return {
+		...moduleSources((node, spec) => {
+			imports.push([node, spec]);
+			const problem = importProblem(from, spec);
+			if (problem) found(node, problem);
+		}),
+		Program(program) {
+			for (const [node, ...problem] of fileProblems(from, program)) found(node, problem);
+		},
+		"Program:exit"() {
+			const [node, ...problem] = routeFeatures(from, imports) ?? [];
+			if (node) found(node, problem);
+		},
+	};
+});
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -615,6 +892,11 @@ export default {
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"no-cursor-utility": noCursorUtility,
+		"no-raw-history": noRawHistory,
+		"no-global-listeners": noGlobalListeners,
+		"zustand-shape": zustandShape,
+		"read-loader": readLoader,
+		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
 	},
 };

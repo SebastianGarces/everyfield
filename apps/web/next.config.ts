@@ -3,40 +3,24 @@ import { BODY_JSON_MAX, IMPORT_BYTES_MAX } from "@everyfield/contracts/documents
 import type { NextConfig } from "next";
 
 const config: NextConfig = {
-	// The marketing copy lives in design/marketing-copy.json at the repository root.
 	turbopack: { root: path.join(import.meta.dirname, "../..") },
 	outputFileTracingRoot: path.join(import.meta.dirname, "../.."),
-	// The reference loader and the document fonts read these files at run time through a computed path, which the tracer cannot see.
-	// A literal `new URL` does not help: in a page chunk Turbopack turns it into a public /_next/static URL (WP-032).
-	// tests/reference/server-trace.test.mjs fails the build check when a route that bundles the loader drops them.
 	outputFileTracingIncludes: {
 		"/**": [
 			"../../packages/reference/src/freeze.json",
 			"../../packages/reference/src/artifacts.json",
-			// The document fonts, read the same way (packages/domain/src/documents/fonts.ts).
 			"../../packages/domain/src/documents/fonts/*.ttf",
 		],
 	},
-	// The CI app job's `Types` step checks every package with `pnpm typecheck` (tsc, T-216) on every run that builds, and
-	// the required `ci` check needs both, so the build skips its own pass over the same types (T-43: a third of the
-	// build's time).
 	typescript: { ignoreBuildErrors: true },
 	poweredByHeader: false,
-	// `next dev` prints each server action call with its arguments, which carry passwords and proofs (BUG-PR199), and
-	// each request URL with its query. An email opt-out, Messages unsubscribe or RSVP path carries its token (REQ-NTF-012,
-	// REQ-NTF-016, REQ-COM-010), and the confirm-email, verify-email and reset-password links carry theirs as
-	// `?token=`, also inside the encoded `returnTo` of the sign-in redirect a signed-out confirm-email visit gets. None of
-	// those requests is logged. The invitation link keeps its proof in the fragment, which no request carries (D54).
 	logging: {
 		serverFunctions: false,
 		incomingRequests: {
 			ignore: [/\/email-preferences\//, /\/unsubscribe\//, /\/rsvp\//, /(?:[?&]|%3F|%26)token(?:=|%3D)/i],
 		},
 	},
-	// Marketing photos (next/image, static imports): AVIF first, WebP fallback, one quality, and a year of cache for the
-	// optimized copies (their URLs carry the content hash of the source file).
 	images: { formats: ["image/avif", "image/webp"], qualities: [70], minimumCacheTTL: 31536000 },
-	// Forme's WASM layout engine runs from node_modules: bundling it builds a renderer that returns 0 pages (WP-036/api).
 	serverExternalPackages: ["@formepdf/core", "@formepdf/react"],
 	transpilePackages: [
 		"@everyfield/domain",
@@ -45,25 +29,12 @@ const config: NextConfig = {
 		"@everyfield/evry",
 		"@everyfield/contracts",
 	],
-	// The Hugeicons free set is one barrel of about 6,000 icons; this rewrites its imports to the icons in use.
-	// `evf verify` sets the worker count from its budget (OPS-151); with it unset, as in GitHub CI, Next picks its default.
 	experimental: {
 		optimizePackageImports: ["@hugeicons/core-free-icons"],
-		// The largest valid server action is a Church Document or written-document save: a body of at most BODY_JSON_MAX
-		// JSON characters, at most 3 UTF-8 bytes each, plus the title and the action's request envelope (64 KiB). Next's
-		// default of 1 MB refused saves the editor allows. A file import is not an action: it posts raw bytes to its own
-		// route (/documents/written/import).
-		// It also covers a person photo, sent to its action as form data up to PHOTO_MAX_BYTES (3 MiB, REQ-PPL-005, peo-51).
 		serverActions: { bodySizeLimit: 3 * BODY_JSON_MAX + 64 * 1024 },
-		// The proxy (src/proxy.ts) runs on /documents/* and buffers at most this much of a request body, cutting the rest.
-		// An import of IMPORT_BYTES_MAX passes whole, and a file just over it still reaches the import route, which
-		// counts its bytes and answers with the stated limit.
 		proxyClientMaxBodySize: IMPORT_BYTES_MAX + 64 * 1024,
 		...(process.env.EVF_NEXT_WORKERS ? { cpus: Number(process.env.EVF_NEXT_WORKERS) } : {}),
 	},
-	// Every response refuses framing and MIME sniffing and sends a cross-origin Referer as the origin only. The invitation
-	// page handles a proof (WP-008/ui ruling D54): no Referer leaves it. Its rule comes after the global one, because Next
-	// sends the last matching value of a header.
 	async headers() {
 		return [
 			{

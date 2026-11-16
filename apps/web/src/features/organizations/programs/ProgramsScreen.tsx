@@ -6,10 +6,6 @@ import { formatDay, plural } from "../board/model";
 import { PipelineTabs } from "../board/PipelineTabs";
 import { KIND, programHref, programStatus, PROGRAMS_PATH } from "./model";
 
-/**
- * The Programs tab (REQ-MUL-010): the organization's apprenticeships and residencies with their director, status and
- * active enrollments, and Active residents (REQ-MUL-007). Owners and Admins start a new program here.
- */
 export function ProgramsScreen({ list }: { list: ProgramList }) {
 	const create = list.administrator ? (
 		<Button asChild variant="primary" icon={PlusSignIcon}>
@@ -48,7 +44,7 @@ export function ProgramsScreen({ list }: { list: ProgramList }) {
 										<h2 className="min-w-0 font-body text-base font-semibold tracking-normal text-ink">
 											<Link
 												href={programHref(p.id)}
-												className="cursor-pointer [overflow-wrap:anywhere] after:absolute after:inset-0 after:rounded-card hover:underline"
+												className="[overflow-wrap:anywhere] after:absolute after:inset-0 after:rounded-card hover:underline"
 											>
 												{p.name}
 											</Link>

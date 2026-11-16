@@ -21,22 +21,20 @@ import type { z } from "zod";
 import { changeStatus } from "./actions.ts";
 import {
 	leavesCommitted,
-	runSave,
 	skippedStages,
 	STAGE_KEY,
 	STAGE_LABEL,
 	STAGES,
 	type ColumnValue,
-	type PersonStore,
 	type StageValue,
 } from "./model.ts";
-import { FormProblem, fresh, problemOf, useStore, useWarnings } from "./parts.tsx";
+import { runSave, type PersonStore } from "./person.store.ts";
+import { FormProblem, fresh, problemOf, usePersonState, useWarnings } from "./parts.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Warnings = z.infer<typeof people.statusWarningsResult>;
 type Moved = Extract<Awaited<ReturnType<typeof changeStatus>>, { status: "ok" }>["value"];
 export type StageDraft = { stage: StageValue | null; reason: string };
-/** Drafts of different forms share one store; each form reads its own slot and knows its own shape. */
 export type PersonDraft = unknown;
 
 const WARNING: Record<Warnings["warnings"][number], string> = {
@@ -46,11 +44,6 @@ const WARNING: Record<Warnings["warnings"][number], string> = {
 	open_duties: "This person has open follow-up work.",
 };
 
-/**
- * Change stage (REQ-PPL-006): one command from the profile and the pipeline. It shows recorded-evidence warnings and the
- * stages a move skips, asks for a reason, and when a person leaves core group, launch team or leader it lists every
- * open duty that will need an owner. Warnings guide; they never block (hardGate is false).
- */
 export function StageDialog({
 	open,
 	onOpenChange,
@@ -64,36 +57,25 @@ export function StageDialog({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	store: PersonStore<PlantPerson, PersonDraft>;
-	/** A stage chosen before the dialog opened, such as a pipeline drop. */
 	target?: StageValue;
-	/** The pipeline column the person is in now, so the answer also brings that column's new order and revision. */
 	from?: ColumnValue;
-	/**
-	 * The move as it goes: the person at the new stage when sent; the saved person and the touched columns' saved order
-	 * when answered; null if refused.
-	 */
 	onStage?: (person: PlantPerson | null, columns?: Moved["columns"]) => void;
-	/** After a saved move: the saved person, the stage they left and the write's receipt, for the Activity entry. */
 	onDone?: (moved: Moved & { from: StageValue }) => void;
-	/** The move was refused because the person changed elsewhere: the caller reads the latest copy (D68). */
 	onConflict: () => void;
 }) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const person = state.saved;
 	const pending = state.pending === "stage";
 	const draft = (state.drafts.stage as StageDraft | undefined) ?? { stage: target ?? null, reason: "" };
-	// Read once when the dialog opens and again after a conflict, never because this dialog's own save changed the
-	// person's revision (D68: the warnings request was repeating after every move).
 	const [round, setRound] = useState(0);
 	const warnings = useWarnings(person.id, round);
 	const [touched, setTouched] = useState(false);
 
-	const set = (patch: Partial<StageDraft>) =>
-		store.dispatch({ type: "edit", slot: "stage", draft: { ...draft, ...patch } });
+	const set = (patch: Partial<StageDraft>) => store.getState().actions.edit("stage", { ...draft, ...patch });
 	const close = (next: boolean) => {
 		if (pending) return;
 		if (!next) {
-			store.dispatch({ type: "discard", slot: "stage" });
+			store.getState().actions.discard("stage");
 			setTouched(false);
 		}
 		onOpenChange(next);

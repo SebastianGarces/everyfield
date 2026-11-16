@@ -1,37 +1,92 @@
-/* Shared controls, surfaces and overlays (WP-089). Loaded by apps/web/src/styles/marketing.css after product.css, in the
-   same single Tailwind build. Components use Tailwind utilities and tokens; this file holds only what utilities cannot
-   express: the gradient card layers, the light-token island, overlay motion and the skeleton shimmer.
-   Every rule is scoped to [data-product-root], so marketing pages never match. Overlays portal into the product root
-   (overlay-portal.tsx), so they match too.
-   Pointer cursor rule (S2 task 29b): Tailwind v4 Preflight gives a native <button> the default cursor, so raw buttons
-   and Radix triggers without asChild showed an arrow. The @layer base rule below restores pointer (enabled) and
-   not-allowed (disabled). It sits in the base layer so a component utility (cursor-progress) still wins. */
-
 @layer base {
-	[data-product-root]
-		:is(
-			button,
-			summary,
-			[role="button"],
-			[role="tab"],
-			[role="menuitem"],
-			[role="menuitemradio"],
-			[role="menuitemcheckbox"],
-			[role="option"],
-			[role="switch"],
+	:where(
+		a[href],
+		area[href],
+		button,
+		summary,
+		select,
+		option,
+		input:is(
+			[type="checkbox"],
+			[type="radio"],
+			[type="file"],
+			[type="range"],
+			[type="color"],
+			[type="submit"],
+			[type="reset"],
+			[type="button"],
+			[type="image"]
+		),
+		label:has(
+			input:is([type="checkbox"], [type="radio"], [type="file"]),
 			[role="checkbox"],
-			[role="radio"]
-		) {
+			[role="radio"],
+			[role="switch"]
+		),
+		label[data-toggle-label],
+		[role="button"],
+		[role="link"],
+		[role="tab"],
+		[role="menuitem"],
+		[role="menuitemcheckbox"],
+		[role="menuitemradio"],
+		[role="option"],
+		[role="checkbox"],
+		[role="radio"],
+		[role="switch"],
+		[role="treeitem"]
+	) {
 		cursor: pointer;
-		&:is(:disabled, [aria-disabled="true"], [data-disabled]) {
-			cursor: not-allowed;
-		}
+	}
+	::file-selector-button {
+		cursor: pointer;
+	}
+	::-webkit-calendar-picker-indicator {
+		cursor: pointer;
+	}
+	:where(
+		a[href],
+		area[href],
+		button,
+		summary,
+		select,
+		option,
+		input,
+		textarea,
+		label:has(
+			input:is([type="checkbox"], [type="radio"], [type="file"]),
+			[role="checkbox"],
+			[role="radio"],
+			[role="switch"]
+		),
+		label[data-toggle-label],
+		[role="button"],
+		[role="link"],
+		[role="tab"],
+		[role="menuitem"],
+		[role="menuitemcheckbox"],
+		[role="menuitemradio"],
+		[role="option"],
+		[role="checkbox"],
+		[role="radio"],
+		[role="switch"],
+		[role="treeitem"]
+	):where(:disabled, [aria-disabled="true"], [data-disabled]:not([data-disabled="false"]), label:has(:disabled)) {
+		cursor: not-allowed;
+	}
+	:where([aria-busy="true"], label:has([aria-busy="true"])):where(
+		button,
+		a[href],
+		label,
+		[role="button"],
+		[role="checkbox"],
+		[role="option"]
+	) {
+		cursor: progress;
 	}
 }
 
 @layer components {
-	/* InsightCard (foundations.md, Gradient cards): base color, a blurred OKLCH mesh in ::before and film grain in
-     ::after. The tone sets --g-base and --g1 to --g5 from the --ef-grad-* tokens. */
 	[data-product-root] .ef-insight {
 		background: var(--g-base);
 		isolation: isolate;
@@ -98,9 +153,6 @@
 		mix-blend-mode: overlay;
 	}
 
-	/* The light-token island. Gradient cards look the same in both themes and carry ink text, so in dark mode the
-     neutral tokens inside them keep their light values (foundations.md; WP-088 ruling R7 hands this to WP-089).
-     The values are the light :root values of design/handoff/tokens.css. The per-card --on variables are ink too. */
 	[data-product-root] .ef-light-island {
 		--on: var(--ef-ink);
 		--on-2: rgb(from var(--ef-ink) r g b / 0.74);
@@ -131,28 +183,24 @@
 		--ef-shadow-raised: 0 1px 2px rgba(24, 29, 25, 0.06), 0 4px 12px -4px rgba(24, 29, 25, 0.1);
 		color-scheme: light;
 	}
-	/* On a gradient card the focus ring is ink (foundations.md, Accessibility). */
 	[data-product-root]
 		.ef-light-island
 		:is(a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])):focus-visible {
 		outline-color: var(--ef-ink);
 	}
 
-	/* Card scroll area: fades out at the bottom like the prototype's .card-scroll. */
 	[data-product-root] .ef-scroll-fade {
 		mask-image: linear-gradient(to bottom, #000 85%, transparent);
 		scrollbar-width: thin;
 		scrollbar-color: var(--ef-line-2) transparent;
 	}
 
-	/* Skeleton shimmer. Reduced motion keeps the still placeholder. */
 	[data-product-root] .ef-skel {
 		background: linear-gradient(90deg, var(--ef-surface-2), var(--ef-surface-3), var(--ef-surface-2));
 		background-size: 200% 100%;
 		animation: ef-shimmer 1.4s infinite;
 	}
 
-	/* Overlay motion: pop-overs and menus drop in 6px and scale from .98 (the prototype's float-pop); dialogs fade; the scrim fades; sheets slide in from the right; toasts rise. Exit runs the same keyframes backwards. */
 	[data-product-root] .ef-pop[data-state="open"] {
 		animation: ef-pop-in 0.2s var(--ef-slide-ease) both;
 	}
@@ -197,8 +245,6 @@
 	}
 }
 
-/* Buttons on a gradient card (the prototype's .insight[data-on="ink"] .btn rules). Unlayered on purpose: these must
-   beat the Button utilities, which sit in the utilities layer. */
 [data-product-root] .ef-light-island [data-variant="light"] {
 	background: var(--ef-ink);
 	color: var(--ef-cream);

@@ -17,9 +17,7 @@ import {
 	changedFields,
 	listRequest,
 	parseQuery,
-	PersonStore,
 	querySearch,
-	runSave,
 	withFilters,
 	pageCount,
 	rangeText,
@@ -27,6 +25,7 @@ import {
 	withEntry,
 	pairsToReview,
 } from "../../../apps/web/src/features/people/model.ts";
+import { createPersonStore, runSave, withServer } from "../../../apps/web/src/features/people/person.store.ts";
 
 const person = (revision, extra = {}) => ({ id: "p1", revision, displayName: "Maria Santos", ...extra });
 const keys = () => {
@@ -40,7 +39,7 @@ const deferred = () => {
 };
 
 test("INV-one-save: a second save for the same person does not start while one runs", async () => {
-	const store = new PersonStore(person("4"));
+	const store = createPersonStore(person("4"));
 	const answer = deferred();
 	const sent = [];
 	const call = (key) => {
@@ -52,23 +51,23 @@ test("INV-one-save: a second save for the same person does not start while one r
 	const second = runSave(store, "stage", { b: 2 }, call, { fresh: keys(), toPerson: (p) => p });
 	assert.deepEqual(sent, ["key-1"], "exactly one request went to the server");
 	assert.equal(await second, null, "the second save is refused synchronously");
-	assert.equal(store.get().pending, "profile");
+	assert.equal(store.getState().pending, "profile");
 	answer.resolve({ status: "ok", value: person("5") });
 	await first;
-	assert.equal(store.get().pending, null);
-	assert.equal(store.get().saved.revision, "5");
+	assert.equal(store.getState().pending, null);
+	assert.equal(store.getState().saved.revision, "5");
 	// With the first finished, the next save may start.
 	const third = await runSave(store, "stage", { b: 2 }, async () => ({ status: "ok", value: person("6") }), {
 		fresh: keys(),
 		toPerson: (p) => p,
 	});
 	assert.equal(third.status, "ok");
-	assert.equal(store.get().saved.revision, "6");
+	assert.equal(store.getState().saved.revision, "6");
 });
 
 test("INV-draft-kept: refusal and lost answers keep the draft; success clears it; edits during a save are ignored", async () => {
-	const store = new PersonStore(person("4"));
-	store.dispatch({ type: "edit", slot: "note", draft: { body: "Called on Tuesday" } });
+	const store = createPersonStore(person("4"));
+	store.getState().actions.edit("note", { body: "Called on Tuesday" });
 
 	const refused = await runSave(
 		store,
@@ -80,8 +79,8 @@ test("INV-draft-kept: refusal and lost answers keep the draft; success clears it
 		},
 	);
 	assert.equal(refused.status, "refused");
-	assert.deepEqual(store.get().drafts.note, { body: "Called on Tuesday" });
-	assert.equal(store.get().errors.note, "conflict");
+	assert.deepEqual(store.getState().drafts.note, { body: "Called on Tuesday" });
+	assert.equal(store.getState().errors.note, "conflict");
 
 	const lost = await runSave(
 		store,
@@ -93,25 +92,25 @@ test("INV-draft-kept: refusal and lost answers keep the draft; success clears it
 		{ fresh: keys() },
 	);
 	assert.equal(lost.status, "lost");
-	assert.deepEqual(store.get().drafts.note, { body: "Called on Tuesday" });
-	assert.equal(store.get().errors.note, "lost");
+	assert.deepEqual(store.getState().drafts.note, { body: "Called on Tuesday" });
+	assert.equal(store.getState().errors.note, "lost");
 
 	const answer = deferred();
 	const running = runSave(store, "note", { body: "Called on Tuesday" }, () => answer.promise, {
 		fresh: keys(),
 		toPerson: (p) => p,
 	});
-	store.dispatch({ type: "edit", slot: "note", draft: { body: "typed while saving" } });
-	store.dispatch({ type: "discard", slot: "note" });
-	assert.deepEqual(store.get().drafts.note, { body: "Called on Tuesday" }, "the sent draft stays while it saves");
+	store.getState().actions.edit("note", { body: "typed while saving" });
+	store.getState().actions.discard("note");
+	assert.deepEqual(store.getState().drafts.note, { body: "Called on Tuesday" }, "the sent draft stays while it saves");
 	answer.resolve({ status: "ok", value: person("5") });
 	await running;
-	assert.equal(store.get().drafts.note, undefined, "success clears the draft");
-	assert.equal(store.get().errors.note, undefined);
+	assert.equal(store.getState().drafts.note, undefined, "success clears the draft");
+	assert.equal(store.getState().errors.note, undefined);
 });
 
 test("INV-request-key: a lost answer retries with the same key; refusal or a changed payload gets a new key", async () => {
-	const store = new PersonStore(person("4"));
+	const store = createPersonStore(person("4"));
 	const fresh = keys();
 	const sent = [];
 	const reply = (status) => async (key) => {
@@ -134,19 +133,35 @@ test("INV-request-key: a lost answer retries with the same key; refusal or a cha
 });
 
 test("INV-revision: server props and answers never move the saved person back to an older revision", async () => {
-	const store = new PersonStore(person("9", { displayName: "New" }));
-	store.dispatch({ type: "server", person: person("8", { displayName: "Old" }) });
-	assert.equal(store.get().saved.displayName, "New");
-	store.dispatch({ type: "server", person: person("10", { displayName: "Newer" }) });
-	assert.equal(store.get().saved.displayName, "Newer");
+	const store = createPersonStore(person("9", { displayName: "New" }));
+	store.getState().actions.server(person("8", { displayName: "Old" }));
+	assert.equal(store.getState().saved.displayName, "New");
+	store.getState().actions.server(person("10", { displayName: "Newer" }));
+	assert.equal(store.getState().saved.displayName, "Newer");
 	await runSave(store, "profile", {}, async () => ({ status: "ok", value: person("9", { displayName: "Stale" }) }), {
 		fresh: keys(),
 		toPerson: (p) => p,
 	});
-	assert.equal(store.get().saved.displayName, "Newer");
+	assert.equal(store.getState().saved.displayName, "Newer");
 	// Decimal revisions compare as numbers: "10" is newer than "9".
-	store.dispatch({ type: "server", person: person("9", { displayName: "Nine" }) });
-	assert.equal(store.get().saved.revision, "10");
+	store.getState().actions.server(person("9", { displayName: "Nine" }));
+	assert.equal(store.getState().saved.revision, "10");
+	const page = createPersonStore(person("9", { displayName: "Saved here" }));
+	assert.equal(withServer(page, person("8", { displayName: "Old prop" })).getState().saved.displayName, "Saved here");
+	const shown = withServer(page, person("10", { displayName: "Newer prop" }));
+	assert.equal(shown.getState().saved.displayName, "Newer prop", "a newer server prop wins");
+	await runSave(shown, "profile", {}, async () => ({ status: "ok", value: person("11", { displayName: "Answer" }) }), {
+		fresh: keys(),
+		toPerson: (p) => p,
+	});
+	assert.equal(shown.getState().saved.displayName, "Answer", "an answer newer than the prop wins over it");
+	const before = createPersonStore(person("9", { displayName: "Shown" }));
+	const refreshed = withServer(before, person("9", { displayName: "Renamed elsewhere" }));
+	assert.equal(
+		refreshed.getState().saved.displayName,
+		"Renamed elsewhere",
+		"a refresh with the same revision shows its content",
+	);
 });
 
 test("INV-edit-patch: edit profile sends only the fields that changed", () => {

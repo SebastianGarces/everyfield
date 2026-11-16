@@ -248,7 +248,7 @@ function PreparationNotice({ plan }: { plan: Plan }) {
 			<CalloutText className="text-md">
 				{daysText(p.daysToLaunch)}, with {gap}. A sending church or network you share Plant Intelligence findings and
 				Ministry teams with sees this too.{" "}
-				<Link href="/ministries" className="cursor-pointer font-medium text-ink underline underline-offset-[3px]">
+				<Link href="/ministries" className="font-medium text-ink underline underline-offset-[3px]">
 					Open Ministry teams
 				</Link>
 			</CalloutText>
@@ -585,7 +585,7 @@ function MilestoneRow({
 				aria-expanded={open}
 				aria-controls={panel}
 				onClick={onOpen}
-				className="grid w-full cursor-pointer grid-cols-[24px_minmax(0,1fr)_auto_20px] items-center gap-3.5 rounded-card px-3 py-3.5 text-left max-app-sm:grid-cols-[24px_minmax(0,1fr)_20px]"
+				className="grid w-full grid-cols-[24px_minmax(0,1fr)_auto_20px] items-center gap-3.5 rounded-card px-3 py-3.5 text-left max-app-sm:grid-cols-[24px_minmax(0,1fr)_20px]"
 			>
 				<StateMark m={m} />
 				<span className="min-w-0">
@@ -705,10 +705,7 @@ function TaskRow({
 			<div className="min-w-0 flex-1">
 				<Link
 					href={`/tasks?task=${encodeURIComponent(task.id)}`}
-					className={cn(
-						"cursor-pointer text-ink hover:underline",
-						task.status === "complete" && "text-text-3 line-through",
-					)}
+					className={cn("text-ink hover:underline", task.status === "complete" && "text-text-3 line-through")}
 				>
 					{task.title}
 				</Link>

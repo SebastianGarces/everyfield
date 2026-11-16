@@ -20,7 +20,7 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
+import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
 import { useEffect, useRef, useState } from "react";
 import { addWalkIn, reloadCheckIn, setPresence, settleAttendance } from "./actions.ts";
 import {
@@ -107,7 +107,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	// The effect depends on the guest alone, so a render never restarts the timer or the scroll.
 	useEffect(() => {
 		if (!arrived) return;
-		const calm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		const calm = prefersReducedMotion();
 		list.current
 			?.querySelector(`[data-guest="${CSS.escape(arrived)}"]`)
 			?.scrollIntoView({ block: "center", behavior: calm ? "instant" : "smooth" });
@@ -410,7 +410,7 @@ function Row({
 			aria-disabled={disabled || saving || undefined}
 			onClick={() => !saving && !disabled && onToggle()}
 			className={cn(
-				"flex min-h-14 w-full cursor-pointer items-center gap-3.5 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus aria-disabled:cursor-not-allowed aria-disabled:hover:bg-transparent motion-reduce:transition-none",
+				"flex min-h-14 w-full items-center gap-3.5 px-4 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus aria-disabled:hover:bg-transparent motion-reduce:transition-none",
 				highlight && "bg-surface-2",
 			)}
 		>

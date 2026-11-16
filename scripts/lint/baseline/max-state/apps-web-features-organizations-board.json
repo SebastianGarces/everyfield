@@ -1,9 +1,0 @@
-{
-	"apps/web/src/features/organizations/board/Conversations.tsx": 2,
-	"apps/web/src/features/organizations/board/GoalsArea.tsx": 7,
-	"apps/web/src/features/organizations/board/PersonDialog.tsx": 5,
-	"apps/web/src/features/organizations/board/PersonRecord.tsx": 4,
-	"apps/web/src/features/organizations/board/PipelineScreen.tsx": 1,
-	"apps/web/src/features/organizations/board/SendForReview.tsx": 2,
-	"apps/web/src/features/organizations/board/StageEditor.tsx": 1
-}

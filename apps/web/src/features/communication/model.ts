@@ -1,7 +1,3 @@
-// The shapes the Messages screens share. They match the WP-027 contract results. This module imports only a contract
-// type and `@everyfield/contracts/communication/values`, which loads no sanitizer; the client's preview (preview.ts)
-// imports the contract renderer, which runs the sanitizer in the browser.
-
 import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
 import { audienceGroups } from "@everyfield/contracts/communication/values";
 
@@ -67,7 +63,6 @@ export type Template = {
 };
 
 export type Team = { id: string; name: string };
-/** `unsubscribedAt`: when they unsubscribed from this church's Messages email. They cannot be added then. */
 export type Recipient = { id: string; displayName: string; email: string | null; unsubscribedAt: string | null };
 export type AudienceSummary = {
 	resolvedDistinctPeople: number;
@@ -76,7 +71,6 @@ export type AudienceSummary = {
 	duplicateAddressesRemoved: number;
 	recipients: { id: string; displayName: string; email: string }[];
 	complete: boolean;
-	/** People who unsubscribed from this church's email. Not in eligibleRecipients; they get nothing. */
 	unsubscribedExclusions: { id: string; displayName: string; unsubscribedAt: string }[];
 };
 
@@ -84,13 +78,11 @@ export type PageData = {
 	templates: Template[];
 	teams: Team[];
 	churchName: string;
-	/** The app origin, for the RSVP preview link. */
 	origin: string;
 };
 
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
-/** What the person can do about a refusal. The code stays the server's word. */
 function refusalText(code: string): string {
 	switch (code) {
 		case "access_denied":
@@ -120,7 +112,6 @@ function refusalText(code: string): string {
 	}
 }
 
-/** A system template is code. Its id is not a church row, so a draft stores the source key instead. */
 export function templateBinding(template: Template): { templateId: string | null; templateSource: string | null } {
 	if (template.origin === "system") return { templateId: null, templateSource: template.sourceKey };
 	return { templateId: template.templateId, templateSource: template.sourceKey };
@@ -143,11 +134,9 @@ export type DeliveryReport = {
 	acceptedCount: number;
 	rejectedCount: number;
 	unknownCount: number;
-	/** Refused by Everyfield because the person unsubscribed from this church's email. Not in rejectedCount. */
 	unsubscribedCount: number;
 };
 
-/** Per recipient, what the email service confirmed for a cancel or time change. */
 type ProviderTally = { confirmedCount: number; sentCount: number; openCount: number };
 export type CancelReport = ProviderTally & { scheduledCancel: "reconcile" | "confirmed" | "none" };
 export type ReplaceReport = { replacementAllowed: boolean };
@@ -160,17 +149,14 @@ type Restore = { at: string; actorName: string | null; reason: string };
 export type SuppressionReport = { address: string; active: boolean; restores: Restore[] };
 export type RestoreReport = { suppressionClears: number };
 
-/** The counts every handoff result names. */
 const counts = (report: DeliveryReport) =>
 	`Accepted ${report.acceptedCount}. Refused ${report.rejectedCount}. No answer ${report.unknownCount}.` +
 	unsubscribedNote(report.unsubscribedCount);
 
 const people = (n: number) => (n === 1 ? "1 person" : `${n} people`);
 
-/** The count of people who unsubscribed from this church's email, when there are any. */
 export const unsubscribedNote = (count: number) => (count > 0 ? ` Unsubscribed ${count}.` : "");
 
-/** Why nobody got it: the email service refused them, they unsubscribed from this church's email, or both. */
 export function refusedAllText(unsubscribed: number, refused: number): string {
 	if (unsubscribed === 0) return `The email service refused all ${refused}.`;
 	if (refused === 0) return "Every recipient unsubscribed from this church's email.";
@@ -180,7 +166,6 @@ export function refusedAllText(unsubscribed: number, refused: number): string {
 const refusedAll = (report: DeliveryReport, outcome: "sent" | "scheduled") =>
 	`Not ${outcome}. ${refusedAllText(report.unsubscribedCount, report.rejectedCount)}`;
 
-/** A send-now result. Acceptance is not arrival, and an answer that never came is not a success. */
 export function deliveryText(report: DeliveryReport): string {
 	if (report.acceptedCount > 0) return `The email service accepted it and sends it now. ${counts(report)}`;
 	if (report.unknownCount > 0)
@@ -188,10 +173,6 @@ export function deliveryText(report: DeliveryReport): string {
 	return `${refusedAll(report, "sent")} ${counts(report)} The message stays saved in Messages.`;
 }
 
-/**
- * A scheduled handoff result. Everyfield keeps a scheduled email until its send time, so "Scheduled" counts the people
- * it goes to then; anyone who unsubscribes before then gets nothing. "Not scheduled" is a refusal for everyone.
- */
 export function scheduleText(report: DeliveryReport, when: string): string {
 	if (report.acceptedCount > 0)
 		return `Scheduled for ${when}. It goes to ${people(report.acceptedCount)} then.${unsubscribedNote(report.unsubscribedCount)}`;
@@ -201,7 +182,6 @@ export function scheduleText(report: DeliveryReport, when: string): string {
 }
 
 const wentOut = (count: number) => `${count} already went out and cannot be recalled.`;
-/** The note a not-confirmed cancel or time change adds when some email already went out, else nothing. */
 export const sentNote = (count: number) => (count > 0 ? ` ${wentOut(count)}` : "");
 
 export function cancelText(report: CancelReport): string {
@@ -209,7 +189,6 @@ export function cancelText(report: CancelReport): string {
 	const sent = sentNote(report.sentCount);
 	if (report.scheduledCancel === "reconcile")
 		return `Cancel not confirmed. Confirmed ${report.confirmedCount}. Not confirmed ${report.openCount}.${sent} Check again to ask the email service.`;
-	// Email that already went out leads: the message is not cancelled while any of it went out (criterion 7).
 	if (report.sentCount > 0)
 		return report.confirmedCount === 0
 			? `${wentOut(report.sentCount)} Nothing was cancelled.`
@@ -310,7 +289,6 @@ export type DeliveryTotals = {
 	bounced: number;
 	failed: number;
 	suppressed: number;
-	/** Refused because the person unsubscribed from this church's email. Not in failed. */
 	unsubscribed: number;
 	unknown: number;
 	cancelled: number;
@@ -340,9 +318,7 @@ export type MessageDetail = {
 	bodyHtml: string | null;
 	bodyText: string | null;
 	meetingId: string | null;
-	/** The time the email service holds once it holds the message, else the saved time. */
 	scheduledAt: string | null;
-	/** A requested time the email service has not confirmed for every recipient. */
 	requestedAt: string | null;
 	sentAt: string | null;
 	senderName: string | null;
@@ -399,7 +375,6 @@ export type ContactRow = {
 export type PersonHistory = HistoryPage & {
 	personId: string;
 	lastConfirmedContactAt: string | null;
-	/** When the person unsubscribed from this church's email. Only an Owner or Admin sees it. */
 	emailOptOutAt: string | null;
 	contacts: ContactRow[];
 };
@@ -408,7 +383,6 @@ export type MeetingHistory = HistoryPage & { meetingId: string };
 
 export type TrackingRow = { personId: string; name: string; deliveryStatus: string };
 
-/** Delivered divided by reachable. A zero reachable count has no rate. */
 export function rateText(delivered: number, reachable: number, rate: number | null): string {
 	if (rate === null || reachable === 0) return "No reachable recipients, so there is no delivery rate.";
 	const percent = new Intl.NumberFormat(undefined, { style: "percent", maximumFractionDigits: 1 }).format(rate);
@@ -425,7 +399,6 @@ export type MeetingContext = {
 	guests: { id: string; displayName: string }[];
 };
 
-/** What one Send now or Schedule did. `report` is null when the email was saved but the handoff did not finish. */
 export type HandoffResult = {
 	communicationId: string;
 	revision: string;
@@ -437,7 +410,6 @@ export type HandoffResult = {
 export const scheduledNotSentText =
 	"The email is saved, but the email service did not receive it. Open it from Messages to send it again.";
 
-/** The Messages address. Every state the page can show is one of these. */
 export type Route =
 	| { kind: "history"; message: string | null; meeting: string | null; person: string | null }
 	| { kind: "compose"; id: string | "new"; step: Step; handoff: Handoff | null }
@@ -449,7 +421,6 @@ export type Handoff = { meeting: string; template: string | null; recipients: "g
 
 type Query = Record<string, string | null | undefined>;
 
-/** Reads the address. Unknown values fall back to the history list. */
 export function parseRoute(q: Query): Route {
 	const step = steps.find((value) => value === q.step) ?? "who";
 	if (q.compose) return { kind: "compose", id: q.compose, step, handoff: null };
@@ -466,7 +437,6 @@ export function parseRoute(q: Query): Route {
 	return { kind: "history", message: q.message ?? null, meeting: q.meeting ?? null, person: q.person ?? null };
 }
 
-/** The address for a route. It round-trips with parseRoute. */
 export function routeHref(route: Route): string {
 	const params = new URLSearchParams();
 	if (route.kind === "compose") {

@@ -1,5 +1,3 @@
-// WP-036 slice 4: the table rules the editor and the renderers share (packages/contracts) and the table actions the
-// editor runs on them (apps/web). No browser, no database.
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -138,7 +136,6 @@ test("INV-doc-table: a column a formula reads, and a budget's last text column, 
 	assert.equal(formula.kind, "A formula column keeps its kind.");
 	assert.equal(formula.removeColumn, null);
 	assert.equal(tableIssue(removeColumn(t, 2)), null);
-	// A column added inside a formula's sum range would join the sum: the control says so.
 	const summed: TableNode = {
 		...newGrid(),
 		attrs: {
@@ -162,7 +159,6 @@ test("INV-doc-table: a line item goes before its category total, a category befo
 	assert.equal(roles(item)[other + 1], "item");
 	assert.equal(roles(item)[other + 2], "subtotal");
 	const next = addCategory(t, other);
-	// The new category sits right after Income's total and before the Expenses category.
 	const group = roles(next).indexOf("group", other);
 	assert.deepEqual(roles(next).slice(group, group + 4), ["group", "item", "subtotal", "group"]);
 	assert.equal(roles(next).at(-1), "total");
@@ -213,7 +209,6 @@ test("INV-doc-table: Remove row is off on the last row of a table with no header
 	assert.match(availability(one, { row: 0, col: 1 }).removeRow ?? "", /keeps at least one row/);
 	const blank = { ...checklist, attrs: { ...checklist.attrs, writeInRows: 1 }, content: [] };
 	assert.match(availability(blank, { row: null, col: null, blank: true }).removeRow ?? "", /keeps at least one row/);
-	// A header stays on the page, so the same table can lose its last row.
 	const grid = newGrid();
 	assert.equal(
 		availability({ ...grid, attrs: { ...grid.attrs, writeInRows: 1 } }, { row: null, col: 0, blank: true }).removeRow,

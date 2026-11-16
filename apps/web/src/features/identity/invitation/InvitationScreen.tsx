@@ -19,22 +19,15 @@ import {
 } from "@everyfield/contracts/identity";
 import { Button, ConfirmDialog, Field, Input, Skeleton } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import {
-	useCallback,
-	useEffect,
-	useLayoutEffect,
-	useRef,
-	useState,
-	useSyncExternalStore,
-	type FormEvent,
-	type ReactNode,
-} from "react";
+import { useCallback, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
+import { addAddressRule, currentAddress } from "../../../components/location.ts";
 import { NotAvailable } from "../../access/AccessStates";
 import { Refusal, useIntent, useLoad } from "../../organizations/intent";
 import { ProblemLine } from "../../organizations/parts";
 import { ResidencyDisclosure } from "../../organizations/Residency";
 import { identityApi, loadPage } from "../api";
 import { AuthFooter, AuthHeading } from "../AuthFrame";
+import { useLinkSecretLeavesAddress } from "../link";
 import { refusalMessage } from "../messages";
 import { FormMessage, Outcome, PasswordInput } from "../parts";
 import { AFTER_SIGN_IN, SignInForm } from "../SignInScreen";
@@ -51,36 +44,22 @@ import {
 } from "./model";
 import { FullPageLink } from "@/components/native";
 
-// /invitation, the link in a seat or residency invitation email (REQ-IDN-017, REQ-MUL-004). The page reads the proof,
-// removes it from the address bar and keeps it in this tab. It shows who invited whom to what (REQ-IDN-003), then
-// lets the invited person create an account or sign in, and accept or decline. Every proof the domain will not
-// honour (unknown, expired, withdrawn, replaced or used) shows the same NotAvailable state.
-
 const PAGE = "/invitation";
 
 type Session = Awaited<ReturnType<typeof readInvitation>>["session"];
 type Read = { description: ReturnType<typeof invitationDescriptionResult.parse>; session: Session };
 
-/**
- * Another invitation link opened in this same tab only changes the fragment: the page does not load again. Each new
- * fragment is kept and cleaned at once, and the screen follows the new proof.
- */
-function followFragment(notify: () => void) {
-	const changed = () => {
-		tabStore.keepProof();
-		notify();
-	};
-	window.addEventListener("hashchange", changed);
-	return () => window.removeEventListener("hashchange", changed);
-}
+addAddressRule("invitation-proof", (to) =>
+	to.pathname === PAGE && tabStore.keepProof() ? to.pathname + to.search : null,
+);
+
+const takeFragmentProof = () => (tabStore.keepProof() ? currentAddress() : null);
 
 export function InvitationScreen() {
-	// The fragment never reaches the server; after sign-in the page opens without it, and this tab kept it.
-	const proof = useSyncExternalStore(followFragment, tabStore.proof, () => undefined);
-	useLayoutEffect(() => tabStore.keepProof(), []);
+	const proof = useSyncExternalStore(tabStore.onProof, tabStore.proof, () => undefined);
+	useLinkSecretLeavesAddress(takeFragmentProof);
 	if (proof === undefined) return <Loading />;
 	if (!proof) return <Unavailable />;
-	// A new proof is a new invitation: its reads, answers and choices start fresh.
 	return <InvitationFor key={proof} proof={proof} />;
 }
 
@@ -89,8 +68,9 @@ function InvitationFor({ proof }: { proof: string }) {
 		const r = await readInvitation(proof);
 		return { description: invitationDescriptionResult.parse(r.description), session: r.session };
 	}, [proof]);
-	const { state, reload, refreshing } = useLoad(fetch, "The invitation did not load");
+	const { state, reload, update, refreshing } = useLoad(fetch, "The invitation did not load");
 	const [held, setHeld] = useState<Held | null>(() => tabStore.held(proof));
+	const [joining, setJoining] = useState<string | null>(() => tabStore.joining());
 
 	if (state.status === "loading") return <Loading />;
 	if (state.status === "error")
@@ -112,7 +92,6 @@ function InvitationFor({ proof }: { proof: string }) {
 		);
 	if (state.status !== "ready") return <Loading />;
 	const { description, session } = state.data;
-	// An answer was sent from this tab and never confirmed. Resend that exact command before anything else.
 	if (held)
 		return (
 			<Unconfirmed
@@ -140,18 +119,30 @@ function InvitationFor({ proof }: { proof: string }) {
 				Everyfield could not check your sign-in. Try again in a few minutes.
 			</Outcome>
 		);
-	if (session === "signed_out") return <SignedOut description={description} proof={proof} />;
-	return description.subject.purpose === "seat" ? (
-		<SeatAnswer description={description} proof={proof} refreshing={refreshing} onRefused={reload} onHeld={setHeld} />
-	) : (
-		<ResidentAnswer
-			description={description}
-			proof={proof}
-			refreshing={refreshing}
-			onRefused={reload}
-			onHeld={setHeld}
-		/>
-	);
+	const joined = async (email: string): Promise<Read | null> => {
+		tabStore.setJoining(email);
+		setJoining(email);
+		try {
+			const fresh = await fetch();
+			update(() => fresh);
+			return fresh;
+		} catch {
+			reload();
+			return null;
+		}
+	};
+	const signedIn = session !== "signed_out";
+	const answer = {
+		description,
+		proof,
+		refreshing,
+		onRefused: reload,
+		onHeld: setHeld,
+		joining,
+	};
+	if (description.subject.purpose === "seat") return <SeatFlow {...answer} signedIn={signedIn} onJoined={joined} />;
+	if (!signedIn) return <SignedOut description={description} proof={proof} onJoined={joined} />;
+	return <ResidentAnswer {...answer} />;
 }
 
 function Loading() {
@@ -179,7 +170,6 @@ function Unavailable() {
 	);
 }
 
-/** The blue notice from the prototype's sign-in screen: who invited you, to what, and until when. */
 function Notice({ description }: { description: Description }) {
 	const s = description.subject;
 	return (
@@ -211,8 +201,15 @@ function Notice({ description }: { description: Description }) {
 type Mode = { mode: "join" } | { mode: "sign_in"; email: string; afterRegister: boolean };
 type FieldName = "name" | "email" | "password";
 
-/** Signed out: create the account the invitation names, or sign in to an existing one (REQ-IDN-030). */
-function SignedOut({ description, proof }: { description: Description; proof: string }) {
+function SignedOut({
+	description,
+	proof,
+	onJoined,
+}: {
+	description: Description;
+	proof: string;
+	onJoined: (email: string) => void;
+}) {
 	const [mode, setMode] = useState<Mode>({ mode: "join" });
 	const seat = description.subject.purpose === "seat";
 	const label = seat ? "join" : "continue";
@@ -247,6 +244,7 @@ function SignedOut({ description, proof }: { description: Description; proof: st
 			<JoinForm
 				proof={proof}
 				submitLabel={`Create account and ${label}`}
+				onJoined={onJoined}
 				onSignInNeeded={(email) => setMode({ mode: "sign_in", email, afterRegister: true })}
 			/>
 			<AuthFooter>
@@ -263,22 +261,22 @@ function SignedOut({ description, proof }: { description: Description; proof: st
 	);
 }
 
-const INLINE =
-	"cursor-pointer rounded-md font-semibold text-ink underline-offset-4 hover:underline disabled:cursor-not-allowed disabled:opacity-60";
+const INLINE = "rounded-md font-semibold text-ink underline-offset-4 hover:underline disabled:opacity-60";
 
 function JoinForm({
 	proof,
 	submitLabel,
+	onJoined,
 	onSignInNeeded,
 }: {
 	proof: string;
 	submitLabel: string;
+	onJoined: (email: string) => void;
 	onSignInNeeded: (email: string) => void;
 }) {
 	const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
 	const [refusal, setRefusal] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
-	// One key for this form, so a resubmit after a lost response is the same registration.
 	const [requestKey] = useState(() => crypto.randomUUID());
 	const nameRef = useRef<HTMLInputElement>(null);
 	const emailRef = useRef<HTMLInputElement>(null);
@@ -321,12 +319,9 @@ function JoinForm({
 			setRefusal(refusalMessage("register", registered.error));
 			return;
 		}
-		// Registration answers the same whether or not the address already had an account. Signing in with the password
-		// just typed is the proof that continues; anything else asks for that account's own password.
 		const signedIn = await identityApi.signIn({ email: email.data, password });
 		if (signedIn.ok) {
-			tabStore.setJoining(email.data);
-			loadPage(PAGE);
+			onJoined(email.data);
 			return;
 		}
 		setBusy(false);
@@ -361,7 +356,6 @@ function JoinForm({
 	);
 }
 
-/** A refusal of an answer. The domain gives one code for every reason a claim fails, so the words stay general. */
 function refusedText(code: string | null): string {
 	if (code === "temporary") return "Someone is changing this invitation right now. Try again in a moment.";
 	return "This invitation cannot be accepted with this account. Sign in with the account for the invited address, and confirm that address first.";
@@ -373,7 +367,6 @@ async function sendSeat(command: SeatCommand) {
 	return seatInvitationAcceptedResult.parse(reply.value);
 }
 
-/** The answer, or `already_linked` when this account accepted the invitation in another tab first. */
 async function sendResident(command: ResidentCommand): Promise<ResidentDone> {
 	const reply = await respondResidentInvitation(command);
 	if (reply.status === "refused" && reply.code === "already_linked") return { status: "already_linked" };
@@ -381,7 +374,6 @@ async function sendResident(command: ResidentCommand): Promise<ResidentDone> {
 	return residentInvitationDecisionResult.parse(reply.value);
 }
 
-/** Keeps the command in this tab while it is unconfirmed, so a reload can resend it unchanged. */
 function holding<C, T>(store: (command: C) => void, send: (command: C) => Promise<T>) {
 	return async (command: C) => {
 		store(command);
@@ -413,41 +405,50 @@ function SignOutLine() {
 type AnswerProps = {
 	description: Description;
 	proof: string;
-	/** The description is being read again; a command built from it now could be stale. */
 	refreshing: boolean;
 	onRefused: () => void;
 	onHeld: (held: Held) => void;
+	joining: string | null;
 };
 
-/** A signed-in account accepts a seat (seats.acceptInvitation). Account creation from this page accepts at once. */
-function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: AnswerProps) {
+type SeatAccepted = ReturnType<typeof seatInvitationAcceptedResult.parse>;
+
+function SeatFlow({
+	description,
+	proof,
+	refreshing,
+	onRefused,
+	onHeld,
+	joining,
+	signedIn,
+	onJoined,
+}: AnswerProps & { signedIn: boolean; onJoined: (email: string) => Promise<Read | null> }) {
 	const intent = useIntent<SeatCommand>("seat-accept");
-	const [done, setDone] = useState<ReturnType<typeof seatInvitationAcceptedResult.parse> | null>(null);
-	const [joining] = useState(() => tabStore.joining());
-	const started = useRef(false);
-	const [attempts, setAttempts] = useState(0);
-	// Set once a claim from a just-created account is refused; the confirm step then stays until the seat is ready.
-	const [confirming, setConfirming] = useState(false);
+	const [done, setDone] = useState<SeatAccepted | null>(null);
+	const [confirm, setConfirm] = useState<{ tries: number } | null>(null);
+	const link = useConfirmationLink();
 	const role = description.subject.purpose === "seat" ? description.subject.role : "member";
 
-	const accept = useCallback(async () => {
-		setAttempts((n) => n + 1);
+	async function accept(asJoining: string | null, to: Description = description) {
+		setConfirm((c) => c && { tries: c.tries + 1 });
 		const result = await intent.run(
-			description.invitationId,
+			to.invitationId,
 			(requestKey) =>
 				acceptSeatInvitationRequest.parse({
 					requestKey,
-					expectedRevision: description.revision,
-					input: { invitationId: description.invitationId, proof },
+					expectedRevision: to.revision,
+					input: { invitationId: to.invitationId, proof },
 				}),
 			holding(
-				(command: SeatCommand) =>
-					tabStore.hold({ proof, workspaceName: description.workspaceName, kind: "seat", command }),
+				(command: SeatCommand) => tabStore.hold({ proof, workspaceName: to.workspaceName, kind: "seat", command }),
 				async (command: SeatCommand) => {
 					try {
 						return await sendSeat(command);
 					} catch (e) {
-						if (e instanceof Refusal && e.code !== "temporary" && joining) setConfirming(true);
+						if (e instanceof Refusal && e.code !== "temporary" && asJoining) {
+							if (!confirm) void link.send(asJoining);
+							setConfirm((c) => c ?? { tries: 1 });
+						}
 						throw e;
 					}
 				},
@@ -465,16 +466,24 @@ function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: Answe
 			onRefused();
 		}
 		if (result.problem === "unknown") onHeld(tabStore.held(proof)!);
-	}, [intent, description, proof, joining, onRefused, onHeld]);
+	}
 
-	// The person already chose "Create account and join"; their first signed-in view accepts for them once.
-	useEffect(() => {
-		if (joining && !started.current) {
-			started.current = true;
-			void accept();
-		}
-	}, [joining, accept]);
-
+	if (!signedIn)
+		return (
+			<SignedOut
+				description={description}
+				proof={proof}
+				onJoined={async (email) => {
+					const fresh = await onJoined(email);
+					if (
+						fresh?.description.status === "pending" &&
+						fresh.session !== "signed_out" &&
+						fresh.session !== "unavailable"
+					)
+						void accept(email, fresh.description);
+				}}
+			/>
+		);
 	if (done)
 		return (
 			<Outcome
@@ -490,13 +499,15 @@ function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: Answe
 				Your {ROLE_TEXT[done.seat.role].name} seat is ready. {ROLE_TEXT[done.seat.role].detail}
 			</Outcome>
 		);
-	if (joining && confirming)
+	if (joining && confirm)
 		return (
 			<ConfirmEmail
 				email={joining}
 				busy={intent.pending !== null || refreshing}
-				stillRefused={attempts > 1 && intent.problem === "refused"}
-				onContinue={() => void accept()}
+				stillRefused={confirm.tries > 1 && intent.problem === "refused"}
+				sent={link.sent}
+				onSend={() => void link.send(joining)}
+				onContinue={() => void accept(joining)}
 			/>
 		);
 
@@ -512,7 +523,7 @@ function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: Answe
 				className="mt-6 w-full"
 				loading={intent.pending !== null}
 				disabled={refreshing}
-				onClick={() => void accept()}
+				onClick={() => void accept(joining)}
 			>
 				Accept and join
 			</Button>
@@ -521,23 +532,23 @@ function SeatAnswer({ description, proof, refreshing, onRefused, onHeld }: Answe
 	);
 }
 
-/**
- * A new account cannot claim until its address is confirmed. The link goes to the address typed on this page; the
- * answer is the same whether or not that address has an account.
- */
+type LinkSent = "idle" | "sending" | "sent" | "failed";
+
 function ConfirmEmail({
 	email,
 	busy,
 	stillRefused,
+	sent,
+	onSend,
 	onContinue,
 }: {
 	email: string;
 	busy: boolean;
-	/** Continue was tried after the link went out and the claim was still refused. */
 	stillRefused: boolean;
+	sent: LinkSent;
+	onSend: () => void;
 	onContinue: () => void;
 }) {
-	const { sent, send } = useConfirmationLink(email, true);
 	return (
 		<Outcome
 			icon={MailValidation01Icon}
@@ -556,7 +567,7 @@ function ConfirmEmail({
 					<Button variant="primary" className="w-full" loading={busy} onClick={onContinue}>
 						Continue
 					</Button>
-					<Button variant="ghost" className="w-full" loading={sent === "sending"} onClick={() => void send()}>
+					<Button variant="ghost" className="w-full" loading={sent === "sending"} onClick={onSend}>
 						Send the link again
 					</Button>
 				</>
@@ -567,27 +578,18 @@ function ConfirmEmail({
 	);
 }
 
-/** Sends a confirmation link to the address typed on this page, once on open when `auto` is set. */
-function useConfirmationLink(email: string, auto: boolean) {
-	const [sent, setSent] = useState<"idle" | "sending" | "sent" | "failed">("idle");
-	const send = useCallback(async () => {
+function useConfirmationLink() {
+	const [sent, setSent] = useState<LinkSent>("idle");
+	const send = async (email: string) => {
 		setSent("sending");
 		const r = await identityApi.sendVerification(email);
 		setSent(r.ok ? "sent" : "failed");
-	}, [email]);
-	const once = useRef(false);
-	useEffect(() => {
-		if (auto && !once.current) {
-			once.current = true;
-			void send();
-		}
-	}, [auto, send]);
+	};
 	return { sent, send };
 }
 
-/** For an account this page just created: its address must be confirmed before it can link. */
 function ConfirmHint({ email }: { email: string }) {
-	const { sent, send } = useConfirmationLink(email, false);
+	const { sent, send } = useConfirmationLink();
 	return (
 		<div className="mt-3 flex flex-col gap-3">
 			<FormMessage tone="success">
@@ -596,7 +598,7 @@ function ConfirmHint({ email }: { email: string }) {
 			<FormMessage tone="error">
 				{sent === "failed" ? "The link was not sent. Check your connection and try again." : null}
 			</FormMessage>
-			<Button variant="secondary" loading={sent === "sending"} onClick={() => void send()}>
+			<Button variant="secondary" loading={sent === "sending"} onClick={() => void send(email)}>
 				Send a confirmation link to {email}
 			</Button>
 		</div>
@@ -605,15 +607,9 @@ function ConfirmHint({ email }: { email: string }) {
 
 type ResidentDone = ReturnType<typeof residentInvitationDecisionResult.parse> | { status: "already_linked" };
 
-/**
- * A signed-in account answers a residency invitation (residency.respondInvitation, REQ-MUL-004). The WP-007/ui
- * ResidencyDisclosure collects the sharing, unchecked by default, and its chosen value goes into the command exactly
- * as the component hands it over (ruling D51). Accepting never gives a seat; declining leaves the account unchanged.
- */
-function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld }: AnswerProps) {
+function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld, joining }: AnswerProps) {
 	const intent = useIntent<ResidentCommand>("resident-answer");
 	const [done, setDone] = useState<ResidentDone | null>(null);
-	const [joining] = useState(() => tabStore.joining());
 
 	const answer = async (
 		input:
@@ -656,7 +652,6 @@ function ResidentAnswer({ description, proof, refreshing, onRefused, onHeld }: A
 			<p className="sr-only" role="status">
 				{refreshing ? "Checking the invitation again" : ""}
 			</p>
-			{/* While the invitation is read again or an answer is on its way, the choices and buttons wait. */}
 			<div inert={locked} aria-busy={locked} className={locked ? "opacity-70" : undefined}>
 				<ResidencyDisclosure
 					organizationName={description.workspaceName}
@@ -728,7 +723,6 @@ function ResidentOutcome({ done, organizationName }: { done: ResidentDone; organ
 			actions={
 				<>
 					<Button asChild variant="primary" className="w-full">
-						{/* A full load, so the page and its navigation read the residency this answer just created. */}
 						<a href="/my-residency">Open My residency</a>
 					</Button>
 					<Button asChild variant="secondary" className="w-full">
@@ -743,10 +737,6 @@ function ResidentOutcome({ done, organizationName }: { done: ResidentDone; organ
 	);
 }
 
-/**
- * An answer left this tab and no reply came back. Its outcome is unknown, so the page resends that exact command:
- * the server returns the saved result when the first one landed, and makes no second change.
- */
 function Unconfirmed({ held, onSettled }: { held: Held; onSettled: () => void }) {
 	const intent = useIntent<SeatCommand | ResidentCommand>("held");
 	const [done, setDone] = useState<ReactNode>(null);

@@ -1,0 +1,9 @@
+{
+	"public": {
+		"PlanMeetingDialog.tsx": "the plan-meeting dialog the overview and teams open",
+		"dialogs.tsx": "PersonPicker, the people search picker teams reuse",
+		"model.ts": "meeting labels and texts that the overview and teams show",
+		"parts.tsx": "MeetingStatusBadge, which the teams meetings card shows",
+		"server.ts": "plantViewer and read, the meeting server entry teams and communication use"
+	}
+}

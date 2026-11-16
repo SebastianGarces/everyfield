@@ -40,11 +40,21 @@ const SURVIVORS = "scripts/lint/survivors";
 const CONFIGS = {
 	".oxlintrc.json": {
 		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],
-		"packages/*/src/**": ["no-timers"],
+		"packages/*/src/**": ["no-timers", "feature-boundaries"],
+		"packages/ui/src/**": ["no-cursor-utility"],
 	},
 	"apps/web/.oxlintrc.json": {
 		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],
-		"src/**": ["no-timers", "clickable-host", "no-cursor-utility"],
+		"src/**": [
+			"no-timers",
+			"clickable-host",
+			"no-cursor-utility",
+			"no-raw-history",
+			"no-global-listeners",
+			"zustand-shape",
+			"read-loader",
+			"feature-boundaries",
+		],
 	},
 	"tools/.oxlintrc.json": { "*": ["no-comments", "no-effects", "max-state"] },
 };
@@ -252,7 +262,7 @@ function ensureHistory() {
 	git(["fetch", "--quiet", "--no-tags", "--unshallow", "origin", "+refs/heads/main:refs/remotes/origin/main"]);
 }
 
-function resolveBase(argv) {
+export function resolveBase(argv) {
 	const given = argv.indexOf("--base");
 	if (given !== -1) return { ref: argv[given + 1], how: `--base ${argv[given + 1]}` };
 	if (process.env.GITHUB_ACTIONS === "true") {
@@ -315,7 +325,7 @@ function survivorsAt(ref) {
 	return byRule;
 }
 
-function renamesSince(ref) {
+export function renamesSince(ref) {
 	const fields = git(["diff", "--find-renames", "--name-status", "-z", ref]).split("\0");
 	const from = {};
 	for (let i = 0; i < fields.length - 1;) {
