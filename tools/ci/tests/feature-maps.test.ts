@@ -116,7 +116,7 @@ test("INV-feature-maps: an operation missing from the catalog, never named in co
 	assert.deepEqual(await problems(root), [
 		at("things.list#open: operation things.share is not in docs/catalog/operations.json"),
 		at(
-			"things.list#open: operation things.close is neither quoted nor declared in packages/*/src or apps/web/src/server",
+			"things.list#open: operation things.close is neither quoted nor declared in packages/*/src, apps/web/src/server or apps/web/src/features",
 		),
 		at("things.list#open: operation other.make serves OTH-001, none of the behavior's catalog THG-001"),
 	]);
@@ -133,6 +133,30 @@ test("INV-feature-maps: an operation id with more than one dot, as the catalog w
 	});
 	assert.deepEqual(await problems(root), [
 		at("things.list#open: operation things.pins.set is not in docs/catalog/operations.json"),
+	]);
+});
+
+test("INV-feature-maps: an operation declared in a feature folder counts; one named only in a comment or a test does not", async () => {
+	const root = fixture();
+	const operations = JSON.parse(readFileSync(join(root, "docs/catalog/operations.json"), "utf8"));
+	operations.operations.push({ id: "things.pin", feature_ids: ["THG-001"] });
+	writeFileSync(join(root, "docs/catalog/operations.json"), JSON.stringify(operations));
+	writeFileSync(
+		join(root, "apps/web/src/features/things/pin.ts"),
+		"export async function pin(id: string) {\n\treturn id;\n}\n",
+	);
+	writeFileSync(
+		join(root, "packages/core/src/close.ts"),
+		"/** What `things.close` returns. */\n// function close() {}\nexport const CLOSED = 1;\n",
+	);
+	writeFileSync(join(root, "apps/web/src/features/things/close.test.ts"), 'export const OPS = ["things.close"];\n');
+	editMap(root, (map) => {
+		behavior(map).operations = ["things.open", "things.pin", "things.close"];
+	});
+	assert.deepEqual(await problems(root), [
+		at(
+			"things.list#open: operation things.close is neither quoted nor declared in packages/*/src, apps/web/src/server or apps/web/src/features",
+		),
 	]);
 });
 
@@ -272,7 +296,9 @@ test("INV-feature-maps: an email reach must name a template key in code that bui
 		surface(map).reach.push({ link: "/things/{id}", email: "thing_link", fill: { id: "the id" } });
 	});
 	assert.deepEqual(await problems(root), [
-		at('things.list reach 2: no file in packages/*/src or apps/web/src/server names email "link" and builds /things'),
+		at(
+			'things.list reach 2: no file in packages/*/src, apps/web/src/server or apps/web/src/features names email "link" and builds /things',
+		),
 	]);
 });
 
