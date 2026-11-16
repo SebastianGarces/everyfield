@@ -1,7 +1,3 @@
-// Scheduled Messages email in tests (T-241). A scheduled email waits in Everyfield until its send time, and the minute
-// runner hands it to the email service then. `atSendTime` moves the clock to the send time for one message and runs the
-// runner. `heldAtProvider` hands a waiting email to the email service with its send time, the way every scheduled email
-// went before T-241, so the cancel and time-change paths for those emails stay covered.
 import { sql } from "../../../packages/db/src/query.ts";
 import type { Database } from "../../../packages/db/src/client.ts";
 import {
@@ -14,7 +10,6 @@ import { scheduledMessages } from "../../../apps/web/src/server/jobs/scheduled.t
 
 const like = (communicationId: string) => `communication/${communicationId}/%`;
 
-/** The send time comes for this message: its waiting recipients are due now. Then one minute-runner pass runs. */
 export async function atSendTime(
 	admin: Database,
 	db: Database,
@@ -27,15 +22,10 @@ export async function atSendTime(
 	return minuteRunner(db, transport, keys);
 }
 
-/** One pass of the minute runner's Messages work, as the cron route runs it, bounded by its limit, not a clock. */
 export async function minuteRunner(db: Database, transport: DeliveryTransport, keys: DeliveryKeys) {
 	return scheduledMessages(db, transport, keys)(20, Infinity);
 }
 
-/**
- * Hand this message's waiting recipients to the email service with the send time, and store each answer, as the
- * scheduled handoff did before T-241. Returns how many it accepted.
- */
 export async function heldAtProvider(
 	admin: Database,
 	communicationId: string,
