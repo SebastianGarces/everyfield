@@ -1,8 +1,0 @@
-{
-	"apps/web/src/app/apple-icon.tsx": 1,
-	"apps/web/src/app/fonts.ts": 3,
-	"apps/web/src/app/global-error.tsx": 2,
-	"apps/web/src/app/layout.tsx": 1,
-	"apps/web/src/app/robots.ts": 3,
-	"apps/web/src/app/viewport.ts": 1
-}
