@@ -4,7 +4,7 @@ import { Add01Icon, Cancel01Icon, Link04Icon, RepeatIcon } from "@hugeicons/core
 import { Button, Field, IconButton, Input, SearchInput, Select, Spinner } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, createDebouncer, focusIfLost, Icon, useFocusRequest } from "@everyfield/ui/foundations";
-import { useCallback, useEffect, useEffectEvent, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import type { Wait } from "../../components/save/model.ts";
 import { prerequisiteCandidates } from "./fetch.ts";
@@ -40,23 +40,17 @@ export function Section({ title, action, children }: { title: string; action?: R
 	);
 }
 
-function useInlineForm<T extends HTMLElement>(onClose: () => void): (node: T | null) => void {
-	const form = useRef<T | null>(null);
-	const close = useEffectEvent(onClose);
-	useEffect(() => {
-		const onKey = (e: KeyboardEvent) => {
-			if (e.key !== "Escape" || !form.current?.contains(document.activeElement)) return;
-			e.stopPropagation();
-			close();
-		};
-		window.addEventListener("keydown", onKey, true);
-		return () => window.removeEventListener("keydown", onKey, true);
-	}, []);
-	return useCallback((node: T | null) => {
-		form.current = node;
-		if (node && !node.contains(document.activeElement))
-			(node.querySelector<HTMLElement>("[data-first]") ?? node.querySelector<HTMLElement>("input, button"))?.focus();
-	}, []);
+function focusInlineForm(node: HTMLElement | null) {
+	if (node && !node.contains(document.activeElement))
+		(node.querySelector<HTMLElement>("[data-first]") ?? node.querySelector<HTMLElement>("input, button"))?.focus();
+}
+
+export function closeInlineFormOnEscape(event: KeyboardEvent) {
+	const target = event.target instanceof Element ? event.target : null;
+	const close = target?.closest("[data-inline-form]")?.querySelector<HTMLElement>("[data-inline-close]");
+	if (!close) return;
+	event.preventDefault();
+	close.click();
 }
 function useFormCloses() {
 	const [closes, setCloses] = useState(0);
@@ -186,7 +180,6 @@ function AddStep({
 	const [touched, setTouched] = useState(false);
 	const [seats, setSeats] = useState<{ value: string; label: string }[] | "loading" | "failed" | null>(null);
 	const input = useRef<HTMLInputElement>(null);
-	const form = useInlineForm<HTMLFormElement>(onClose);
 	const warm = () => {
 		if (seats !== null && seats !== "failed") return;
 		setSeats("loading");
@@ -223,7 +216,13 @@ function AddStep({
 		input.current?.focus();
 	};
 	return (
-		<form ref={form} onSubmit={submit} className="flex flex-col gap-3 rounded-md bg-surface p-3" noValidate>
+		<form
+			ref={focusInlineForm}
+			data-inline-form=""
+			onSubmit={submit}
+			className="flex flex-col gap-3 rounded-md bg-surface p-3"
+			noValidate
+		>
 			<Field
 				label="New step"
 				error={touched && !title.trim() ? "Say what the step is." : null}
@@ -261,7 +260,7 @@ function AddStep({
 				</span>
 			) : null}
 			<div className="flex justify-end gap-2">
-				<Button variant="ghost" size="sm" onClick={onClose}>
+				<Button variant="ghost" size="sm" data-inline-close="" onClick={onClose}>
 					Done adding
 				</Button>
 				<Button variant="primary" size="sm" type="submit" icon={Add01Icon}>
@@ -400,7 +399,6 @@ function PrerequisiteEditor({
 	onSave: (items: Prerequisite[]) => void;
 }) {
 	const [chosen, setChosen] = useState(initial);
-	const form = useInlineForm<HTMLDivElement>(onCancel);
 	const [search, setSearch] = useState("");
 	const [{ run: afterPause, cancel, cancelOnDetach }] = useState(() => createDebouncer(250));
 	const read = useRead(candidates, taskId, search);
@@ -414,7 +412,7 @@ function PrerequisiteEditor({
 	const full = chosen.length >= 50;
 	const changed = chosen.length !== initial.length || chosen.some((p, i) => initial[i]?.id !== p.id);
 	return (
-		<div ref={form} className="flex flex-col gap-3 rounded-md bg-surface p-3">
+		<div ref={focusInlineForm} data-inline-form="" className="flex flex-col gap-3 rounded-md bg-surface p-3">
 			{chosen.length ? (
 				<ul aria-label="Tasks it waits for">
 					{chosen.map((p) => (
@@ -488,7 +486,7 @@ function PrerequisiteEditor({
 				{full ? <p className="px-1 text-sm text-text-3">A task can wait for at most 50 others.</p> : null}
 			</div>
 			<div className="flex justify-end gap-2">
-				<Button variant="ghost" size="sm" onClick={onCancel}>
+				<Button variant="ghost" size="sm" data-inline-close="" onClick={onCancel}>
 					Cancel
 				</Button>
 				<Button variant="primary" size="sm" disabled={!changed} onClick={() => onSave(chosen)}>
@@ -603,7 +601,6 @@ function RepeatEditor({
 	onSave: (rule: Rule | null) => void;
 }) {
 	const [d, setD] = useState(initial);
-	const form = useInlineForm<HTMLFormElement>(onCancel);
 	const until = useRef<HTMLInputElement>(null);
 	const [touched, setTouched] = useState(false);
 	const set = (patch: Partial<RuleDraft>) => setD((x) => ({ ...x, ...patch }));
@@ -621,7 +618,13 @@ function RepeatEditor({
 	};
 	const repeats = d.frequency !== NEVER;
 	return (
-		<form ref={form} onSubmit={submit} className="flex flex-col gap-3 rounded-md bg-surface p-3" noValidate>
+		<form
+			ref={focusInlineForm}
+			data-inline-form=""
+			onSubmit={submit}
+			className="flex flex-col gap-3 rounded-md bg-surface p-3"
+			noValidate
+		>
 			<Field label="How often">
 				<Select
 					value={d.frequency}
@@ -663,7 +666,7 @@ function RepeatEditor({
 				<p className="text-sm text-text-2">No more occurrences are added. Earlier ones and their history stay.</p>
 			)}
 			<div className="flex justify-end gap-2">
-				<Button variant="ghost" size="sm" onClick={onCancel}>
+				<Button variant="ghost" size="sm" data-inline-close="" onClick={onCancel}>
 					Cancel
 				</Button>
 				<Button variant="primary" size="sm" type="submit">
