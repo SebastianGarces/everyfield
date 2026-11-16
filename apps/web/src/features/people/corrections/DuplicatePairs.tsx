@@ -15,7 +15,8 @@ import {
 	IntentLink,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { onNavigation } from "../../../components/location.ts";
 import { sendTwice, type Outcome } from "../../../components/save/model.ts";
 import { dismissPair, restorePair, type PairChange } from "./actions.ts";
 import {
@@ -41,9 +42,15 @@ const send: Record<PairAction, (input: unknown) => Promise<Outcome<PairChange>>>
 let returned: string | null = null;
 export const leaveConfirmation = (text: string) => {
 	returned = text;
-};
-const consumeConfirmation = () => {
-	returned = null;
+	let toList = true;
+	const stop = onNavigation((to) => {
+		if (toList && to === "/people/duplicates") {
+			toList = false;
+			return;
+		}
+		stop();
+		returned = null;
+	});
 };
 
 function usePairs<P extends Pair>(items: readonly P[], action: PairAction) {
@@ -67,7 +74,6 @@ function usePairs<P extends Pair>(items: readonly P[], action: PairAction) {
 export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 	const { shown, notice, run, said } = usePairs(pairs.items, "dismiss");
 	const [confirmation] = useState(() => returned);
-	useEffect(consumeConfirmation, []);
 	const count = shown.length;
 	return (
 		<>
