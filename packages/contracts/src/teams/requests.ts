@@ -24,7 +24,6 @@ export const createTeamRequest = z.strictObject({
 		state: teamState.optional(),
 	}),
 });
-/** The reason for a change is optional. A blank or whitespace-only reason means a plain edit entry in the history. */
 const editReason = z
 	.string()
 	.max(500)
@@ -58,10 +57,6 @@ export const assignRoleRequest = commandEnvelope(z.strictObject({ roleId: record
 export const endMembershipRequest = commandEnvelope(z.strictObject({ teamId: recordId, personId }));
 export const reactivateMembershipRequest = commandEnvelope(z.strictObject({ roleId: recordId, personId }));
 export const appointLeaderRequest = commandEnvelope(z.strictObject({ teamId: recordId, personId }));
-/**
- * Fixes the recorded dates of one ministry role a person held or holds; the expected revision is the tenure's. A role
- * held now keeps no end date: ending it is leaving the ministry. A reason is required and stays in the history.
- */
 export const correctTenureRequest = commandEnvelope(
 	z
 		.strictObject({
@@ -99,18 +94,12 @@ export const listLeaderCandidatesRequest = z.strictObject({
 export const orgChartRequest = z.strictObject({ includeArchived: z.boolean().optional() });
 export const orgChartExportRequest = z.strictObject({ includeArchived: z.boolean().optional() });
 
-/** One ministry with its roles and current people. */
 export const getTeamRequest = z.strictObject({ teamId: recordId });
-/** Current ministry people, by name and optionally in one ministry. */
 export const searchMembersRequest = z.strictObject({
 	q: z.string().trim().min(1).max(80).optional(),
 	teamId: recordId.optional(),
 });
-/** Every current ministry's staffing and leader, and the church's totals. */
 export const staffingSummaryRequest = z.strictObject({});
-/** People serving on at least `minTeams` distinct current ministries (default 2, the advisory overload line). */
 export const personTeamCountsRequest = z.strictObject({ minTeams: z.int().min(1).max(20).optional() });
-/** What an import of the chosen catalog ministries and roles would add; nothing is created. */
 export const previewTemplateImportRequest = z.strictObject({ selections: z.array(selection).min(1).max(20) });
-/** A role a person holds, ended: the person leaves that one role and keeps the rest. */
 export const removeRoleRequest = commandEnvelope(z.strictObject({ roleId: recordId, personId }));

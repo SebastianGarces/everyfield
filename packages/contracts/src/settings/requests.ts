@@ -52,8 +52,6 @@ export const saveSectionRequest = commandEnvelope(
 		}),
 	]),
 );
-// The envelope's expectedRevision is the relationship revision for affiliation
-// writes, the exact section revision otherwise. No caller account/role/origin.
 export const updatePlantProfileRequest = commandEnvelope(z.strictObject({ plant: plantOwner, patch: profilePatch }));
 export const setDigestScheduleRequest = commandEnvelope(
 	z.strictObject({ plant: plantOwner, schedule: digestSchedule }),
@@ -70,8 +68,6 @@ export const requestAvatarUpload = z.strictObject({
 		.min(1)
 		.max(3 * 1024 * 1024),
 });
-// Upload handle names server-owned staging state; keys/URLs/MIME attestations
-// from the client never substitute for server byte/type verification.
 export const finalizeAvatarRequest = commandEnvelope(z.strictObject({ uploadId: recordId }));
 export const removeAvatarRequest = commandEnvelope(z.strictObject({}));
 export const getAvatarRequest = z.strictObject({ versionId: recordId });
@@ -79,7 +75,6 @@ export const requestAccountDeletion = commandEnvelope(z.strictObject({ confirmed
 export const requestWorkspaceDeletion = commandEnvelope(
 	z.strictObject({ plant: plantOwner, confirmed: z.literal(true) }),
 );
-// One church form submission: up to three changes of different kinds, one write, one audit row and one request key.
 export const saveChurchRequest = commandEnvelope(
 	z
 		.strictObject({ plant: plantOwner, changes: z.array(plantChange).min(1).max(3) })
