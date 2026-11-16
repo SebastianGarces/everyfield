@@ -6,7 +6,7 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 100 of 136. Not yet mapped: 36, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 121 of 136. Not yet mapped: 15, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
@@ -15,200 +15,234 @@ flowchart LR
   subgraph f0["access"]
     f0s0["access.design-preview"]
   end
-  subgraph f1["communication"]
-    f1s0["communication.messages"]
-    f1s1["communication.compose"]
-    f1s2["communication.templates"]
-    f1s3["communication.unsubscribe"]
+  subgraph f1["assessment-review"]
+    f1s0["assessment-review.runs"]
   end
-  subgraph f2["documents"]
-    f2s0["documents.library"]
-    f2s1["documents.church-library"]
-    f2s2["documents.church-document"]
-    f2s3["documents.written"]
-    f2s4["documents.template-picker-preview"]
+  subgraph f2["boundaries"]
+    f2s0["boundaries.not-found"]
+    f2s1["boundaries.error"]
   end
-  subgraph f3["feedback"]
-    f3s0["feedback.dialog"]
-    f3s1["feedback.own"]
-    f3s2["feedback.triage"]
+  subgraph f3["communication"]
+    f3s0["communication.messages"]
+    f3s1["communication.compose"]
+    f3s2["communication.templates"]
+    f3s3["communication.unsubscribe"]
   end
-  subgraph f4["followups"]
-    f4s0["followups.list"]
-    f4s1["followups.call"]
+  subgraph f4["documents"]
+    f4s0["documents.library"]
+    f4s1["documents.church-library"]
+    f4s2["documents.church-document"]
+    f4s3["documents.written"]
+    f4s4["documents.template-picker-preview"]
   end
-  subgraph f5["identity"]
-    f5s0["identity.signin"]
-    f5s1["identity.home"]
-    f5s2["identity.register"]
-    f5s3["identity.recover"]
-    f5s4["identity.reset"]
-    f5s5["identity.verify-email"]
-    f5s6["identity.invitation"]
-    f5s7["identity.seats"]
+  subgraph f5["evry"]
+    f5s0["evry.panel"]
+    f5s1["evry.review"]
   end
-  subgraph f6["intelligence"]
-    f6s0["intelligence.assessment"]
-    f6s1["intelligence.trends"]
-    f6s2["intelligence.attestations"]
-    f6s3["intelligence.check-in"]
+  subgraph f6["feedback"]
+    f6s0["feedback.dialog"]
+    f6s1["feedback.own"]
+    f6s2["feedback.triage"]
   end
-  subgraph f7["launch"]
-    f7s0["launch.plan"]
-    f7s1["launch.progress"]
+  subgraph f7["followups"]
+    f7s0["followups.list"]
+    f7s1["followups.call"]
   end
-  subgraph f8["meetings"]
-    f8s0["meetings.list"]
-    f8s1["meetings.detail"]
-    f8s2["meetings.check-in"]
-    f8s3["meetings.rsvp"]
+  subgraph f8["identity"]
+    f8s0["identity.signin"]
+    f8s1["identity.home"]
+    f8s2["identity.register"]
+    f8s3["identity.recover"]
+    f8s4["identity.reset"]
+    f8s5["identity.verify-email"]
+    f8s6["identity.invitation"]
+    f8s7["identity.seats"]
   end
-  subgraph f9["notifications"]
-    f9s0["notifications.feed"]
-    f9s1["notifications.email-preferences"]
+  subgraph f9["intelligence"]
+    f9s0["intelligence.assessment"]
+    f9s1["intelligence.trends"]
+    f9s2["intelligence.attestations"]
+    f9s3["intelligence.check-in"]
   end
-  subgraph f10["organizations"]
-    f10s0["organizations.pipeline"]
-    f10s1["organizations.person"]
-    f10s2["organizations.duplicates"]
-    f10s3["organizations.import"]
-    f10s4["organizations.programs"]
-    f10s5["organizations.enrollment"]
-    f10s6["organizations.reviews"]
-    f10s7["organizations.sharing"]
-    f10s8["organizations.respond"]
-    f10s9["organizations.design-preview"]
+  subgraph f10["launch"]
+    f10s0["launch.plan"]
+    f10s1["launch.progress"]
   end
-  subgraph f11["oversight"]
-    f11s0["oversight.plants"]
-    f11s1["oversight.sending-churches"]
-    f11s2["oversight.intelligence"]
+  subgraph f11["meetings"]
+    f11s0["meetings.list"]
+    f11s1["meetings.detail"]
+    f11s2["meetings.check-in"]
+    f11s3["meetings.rsvp"]
   end
-  subgraph f12["overview"]
-    f12s0["overview.home"]
+  subgraph f12["notifications"]
+    f12s0["notifications.feed"]
+    f12s1["notifications.email-preferences"]
   end
-  subgraph f13["people"]
-    f13s0["people.list"]
-    f13s1["people.person"]
-    f13s2["people.duplicates"]
-    f13s3["people.import"]
+  subgraph f13["onboarding"]
+    f13s0["onboarding.setup"]
+    f13s1["onboarding.steps"]
+    f13s2["onboarding.design-preview"]
   end
-  subgraph f14["phases"]
-    f14s0["phases.journey"]
+  subgraph f14["organizations"]
+    f14s0["organizations.pipeline"]
+    f14s1["organizations.person"]
+    f14s2["organizations.duplicates"]
+    f14s3["organizations.import"]
+    f14s4["organizations.programs"]
+    f14s5["organizations.enrollment"]
+    f14s6["organizations.reviews"]
+    f14s7["organizations.sharing"]
+    f14s8["organizations.respond"]
+    f14s9["organizations.design-preview"]
   end
-  subgraph f15["residency"]
-    f15s0["residency.home"]
+  subgraph f15["oversight"]
+    f15s0["oversight.plants"]
+    f15s1["oversight.sending-churches"]
+    f15s2["oversight.intelligence"]
   end
-  subgraph f16["settings"]
-    f16s0["settings.dialog"]
-    f16s1["settings.account"]
-    f16s2["settings.brand"]
-    f16s3["settings.restricted"]
-    f16s4["settings.design-preview"]
+  subgraph f16["overview"]
+    f16s0["overview.home"]
   end
-  subgraph f17["tasks"]
-    f17s0["tasks.list"]
-    f17s1["tasks.panel"]
-    f17s2["tasks.checklists"]
+  subgraph f17["people"]
+    f17s0["people.list"]
+    f17s1["people.person"]
+    f17s2["people.duplicates"]
+    f17s3["people.import"]
   end
-  subgraph f18["teams"]
-    f18s0["teams.list"]
-    f18s1["teams.ministry"]
+  subgraph f18["phases"]
+    f18s0["phases.journey"]
   end
-  subgraph f19["wiki"]
-    f19s0["wiki.reader"]
-    f19s1["wiki.article"]
+  subgraph f19["residency"]
+    f19s0["residency.home"]
+  end
+  subgraph f20["settings"]
+    f20s0["settings.dialog"]
+    f20s1["settings.account"]
+    f20s2["settings.brand"]
+    f20s3["settings.restricted"]
+    f20s4["settings.design-preview"]
+  end
+  subgraph f21["shell"]
+    f21s0["shell.frame"]
+    f21s1["shell.design-preview"]
+  end
+  subgraph f22["tasks"]
+    f22s0["tasks.list"]
+    f22s1["tasks.panel"]
+    f22s2["tasks.checklists"]
+  end
+  subgraph f23["teams"]
+    f23s0["teams.list"]
+    f23s1["teams.ministry"]
+  end
+  subgraph f24["wiki"]
+    f24s0["wiki.reader"]
+    f24s1["wiki.article"]
   end
   links -.-> f0s0
-  rail -- "Messages" --> f1s0
   links -.-> f1s0
-  f1s0 --> f1s1
-  f1s0 --> f1s2
-  links -.-> f1s3
-  rail -- "Documents" --> f2s0
-  f2s0 --> f2s1
-  f2s1 --> f2s2
-  links -.-> f2s2
-  f2s0 --> f2s3
-  links -.-> f2s4
-  f1s0 --> f3s0
-  links -.-> f3s1
-  links -.-> f3s2
-  f17s0 --> f4s0
+  links -.-> f2s0
+  links -.-> f2s1
+  rail -- "Messages" --> f3s0
+  links -.-> f3s0
+  f3s0 --> f3s1
+  f3s0 --> f3s2
+  links -.-> f3s3
+  rail -- "Documents" --> f4s0
   f4s0 --> f4s1
-  links -.-> f4s1
-  links -.-> f5s0
-  links -.-> f5s1
-  f5s0 --> f5s2
-  links -.-> f5s3
-  links -.-> f5s4
-  links -.-> f5s5
-  links -.-> f5s6
-  f13s0 --> f5s7
-  links -.-> f5s7
-  rail -- "Plant Intelligence" --> f6s0
-  f6s0 --> f6s1
-  f6s0 --> f6s2
-  f6s0 --> f6s3
-  links -.-> f6s3
-  rail -- "Launch" --> f7s0
-  f12s0 --> f7s0
+  f4s1 --> f4s2
+  links -.-> f4s2
+  f4s0 --> f4s3
+  links -.-> f4s4
+  f16s0 --> f5s0
+  f5s0 --> f5s1
+  f3s0 --> f6s0
+  links -.-> f6s1
+  links -.-> f6s2
+  f22s0 --> f7s0
+  f7s0 --> f7s1
   links -.-> f7s1
-  rail -- "Meetings" --> f8s0
-  f8s0 --> f8s1
+  links -.-> f8s0
   links -.-> f8s1
-  f8s1 --> f8s2
-  links -.-> f8s2
+  f8s0 --> f8s2
   links -.-> f8s3
-  rail -- "Notifications" --> f9s0
-  f12s0 --> f9s0
-  links -.-> f9s1
-  rail -- "Pipeline" --> f10s0
-  f10s0 --> f10s1
-  f10s0 --> f10s2
-  f10s0 --> f10s3
-  f10s0 --> f10s4
-  f10s4 --> f10s5
-  rail -- "Sent for review" --> f10s6
-  rail -- "Sharing" --> f10s7
-  rail -- "Connections" --> f10s7
-  links -.-> f10s8
-  links -.-> f10s9
-  rail -- "Plants" --> f11s0
+  links -.-> f8s4
+  links -.-> f8s5
+  links -.-> f8s6
+  f17s0 --> f8s7
+  links -.-> f8s7
+  rail -- "Plant Intelligence" --> f9s0
+  f9s0 --> f9s1
+  f9s0 --> f9s2
+  f9s0 --> f9s3
+  links -.-> f9s3
+  rail -- "Launch" --> f10s0
+  f16s0 --> f10s0
+  links -.-> f10s1
+  rail -- "Meetings" --> f11s0
   f11s0 --> f11s1
-  f11s0 --> f11s2
-  rail -- "Overview" --> f12s0
-  links -.-> f12s0
-  rail -- "People" --> f13s0
+  links -.-> f11s1
+  f11s1 --> f11s2
+  links -.-> f11s2
+  links -.-> f11s3
+  rail -- "Notifications" --> f12s0
+  f16s0 --> f12s0
+  links -.-> f12s1
+  f16s0 --> f13s0
+  links -.-> f13s0
   f13s0 --> f13s1
-  links -.-> f13s1
   links -.-> f13s2
-  f13s0 --> f13s3
-  links -.-> f14s0
-  rail -- "My residency" --> f15s0
-  f1s0 --> f16s0
+  rail -- "Pipeline" --> f14s0
+  f14s0 --> f14s1
+  f14s0 --> f14s2
+  f14s0 --> f14s3
+  f14s0 --> f14s4
+  f14s4 --> f14s5
+  rail -- "Sent for review" --> f14s6
+  rail -- "Sharing" --> f14s7
+  rail -- "Connections" --> f14s7
+  links -.-> f14s8
+  links -.-> f14s9
+  rail -- "Plants" --> f15s0
+  f15s0 --> f15s1
+  f15s0 --> f15s2
+  rail -- "Overview" --> f16s0
   links -.-> f16s0
-  f16s0 --> f16s1
-  f16s0 --> f16s2
-  links -.-> f16s3
-  links -.-> f16s4
-  rail -- "Tasks" --> f17s0
+  rail -- "People" --> f17s0
   f17s0 --> f17s1
   links -.-> f17s1
-  f17s0 --> f17s2
-  rail -- "Ministries" --> f18s0
-  f18s0 --> f18s1
-  links -.-> f18s1
-  rail -- "Wiki" --> f19s0
-  links -.-> f19s0
-  f19s0 --> f19s1
+  links -.-> f17s2
+  f17s0 --> f17s3
+  links -.-> f18s0
+  rail -- "My residency" --> f19s0
+  f3s0 --> f20s0
+  links -.-> f20s0
+  f20s0 --> f20s1
+  f20s0 --> f20s2
+  links -.-> f20s3
+  links -.-> f20s4
+  links -.-> f21s0
+  links -.-> f21s1
+  rail -- "Tasks" --> f22s0
+  f22s0 --> f22s1
+  links -.-> f22s1
+  f22s0 --> f22s2
+  rail -- "Ministries" --> f23s0
+  f23s0 --> f23s1
+  links -.-> f23s1
+  rail -- "Wiki" --> f24s0
+  links -.-> f24s0
+  f24s0 --> f24s1
 ```
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
 |---|---|---|---|---|---|---|
 | [access](access.md) | [`apps/web/src/features/access/feature-map.json`](../../apps/web/src/features/access/feature-map.json) | 1 | 1 | 0 | 0 | 0 |
+| [assessment-review](assessment-review.md) | [`apps/web/src/features/assessment-review/feature-map.json`](../../apps/web/src/features/assessment-review/feature-map.json) | 1 | 2 | 1 | 0 | 0 |
+| [boundaries](boundaries.md) | [`apps/web/src/features/boundaries/feature-map.json`](../../apps/web/src/features/boundaries/feature-map.json) | 2 | 0 | 0 | 0 | 0 |
 | [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 4 | 8 | 8 | 0 |
 | [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 11 | 9 | 6 | 3 |
+| [evry](evry.md) | [`apps/web/src/features/evry/feature-map.json`](../../apps/web/src/features/evry/feature-map.json) | 2 | 15 | 5 | 2 | 1 |
 | [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 4 | 3 | 3 | 0 |
 | [followups](followups.md) | [`apps/web/src/features/followups/feature-map.json`](../../apps/web/src/features/followups/feature-map.json) | 2 | 3 | 5 | 3 | 1 |
 | [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 10 | 11 | 4 | 1 |
@@ -216,6 +250,7 @@ flowchart LR
 | [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 1 | 5 | 3 | 1 |
 | [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 5 | 10 | 4 | 4 |
 | [notifications](notifications.md) | [`apps/web/src/features/notifications/feature-map.json`](../../apps/web/src/features/notifications/feature-map.json) | 2 | 4 | 5 | 0 | 1 |
+| [onboarding](onboarding.md) | [`apps/web/src/features/onboarding/feature-map.json`](../../apps/web/src/features/onboarding/feature-map.json) | 3 | 2 | 5 | 3 | 1 |
 | [organizations](organizations.md) | [`apps/web/src/features/organizations/feature-map.json`](../../apps/web/src/features/organizations/feature-map.json) | 10 | 17 | 18 | 11 | 3 |
 | [oversight](oversight.md) | [`apps/web/src/features/oversight/feature-map.json`](../../apps/web/src/features/oversight/feature-map.json) | 3 | 5 | 4 | 3 | 0 |
 | [overview](overview.md) | [`apps/web/src/features/overview/feature-map.json`](../../apps/web/src/features/overview/feature-map.json) | 1 | 1 | 4 | 1 | 1 |
@@ -223,6 +258,7 @@ flowchart LR
 | [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
 | [residency](residency.md) | [`apps/web/src/features/residency/feature-map.json`](../../apps/web/src/features/residency/feature-map.json) | 1 | 2 | 2 | 1 | 0 |
 | [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 9 | 7 | 5 | 2 |
+| [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 2 | 2 | 0 | 0 | 0 |
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
 | [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 2 | 4 | 3 | 1 |
 | [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 2 | 6 | 3 | 1 |
