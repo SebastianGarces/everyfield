@@ -1,9 +1,3 @@
-// Journey screen rules (WP-038) that a silent break would turn into a wrong card or a lost message. They run in node
-// against the module the screen uses; no browser.
-//   INV-phase-optimistic: a move or declaration shows at once as one pending entry, and the server's entry replaces it.
-//   AC:PHASE-CASE-002 a conflict names the phase the church is in now.
-//   AC:PHASE-CASE-003 the same phase shows no pending move.
-//   AC:PHASE-CASE-009 each reason problem has its own message next to the field.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -47,7 +41,6 @@ test("INV-phase-optimistic: a move shows at once as one pending entry, and the s
 		occurredAt: at,
 	});
 	const confirmed = { ...shown, id: "4d1f5a7e-1d1e-4d0e-8e3b-0f6c1c2b3a44" };
-	// The screen applies the server's answer to the journey from before the move, so no pending entry remains.
 	const after = withEntry(journey, { phase: 4, revision: "8", declarable: false }, confirmed);
 	assert.deepEqual(after, { state: { phase: 4, revision: "8", declarable: false }, entries: [created, confirmed] });
 });

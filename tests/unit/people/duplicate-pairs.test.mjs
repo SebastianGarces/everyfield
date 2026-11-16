@@ -1,6 +1,3 @@
-// T-263 (D-789): "Not a duplicate" on the duplicates list and Restore in the Dismissed view. The row leaves at once; a
-// saved answer keeps it gone, and a refused or lost answer puts it back in its place with a notice that says nothing
-// changed or that it may have saved. Run in node against the real module the list uses; no browser.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -26,7 +23,6 @@ test("a saved dismiss keeps the row gone", () => {
 	const saved = pairAnswered(sent, key, "dismiss", { status: "ok", value: { outcome: "changed" } });
 	assert.deepEqual(shown(saved), ["p1", "p3"]);
 	assert.deepEqual(saved.notices, {});
-	// A repeat that changed nothing is still a saved answer.
 	assert.deepEqual(shown(pairAnswered(sent, key, "dismiss", { status: "ok", value: { outcome: "noop" } })), [
 		"p1",
 		"p3",
@@ -44,7 +40,6 @@ test("a refused dismiss puts the row back in its place and says nothing changed"
 		pairNotice("restore", { status: "refused", code: "unavailable" }),
 		"Nothing changed. The pair was not restored. Try again.",
 	);
-	// Trying again clears the notice while the new answer is awaited.
 	assert.deepEqual(pairSent(s, key).notices, {});
 });
 
