@@ -136,12 +136,6 @@ export function audit(
 export function accountOwner(accountId: string): Owner {
 	return owner.parse({ kind: "account", id: accountId });
 }
-/**
- * C13: one notifications access check as a condition. `account` holds an accepted, current seat in `tenant` (a plant or
- * an organization; Owner or Admin when `admin`), the account is active, and no lifecycle witness hides the account, the
- * seat or the tenant. With `session`, that session is also live and is the account's own: a request's caller. Without
- * it, the check is for a recipient a worker sends to.
- */
 export function seatAccess(input: { account: string; tenant: string; admin?: boolean; session?: string }): SQL {
 	return sql`EXISTS (SELECT FROM seat s JOIN account a ON a.id = s.account_id
 		WHERE s.account_id = ${input.account}::uuid AND (s.plant_id = ${input.tenant}::uuid OR s.organization_id = ${input.tenant}::uuid)
@@ -168,11 +162,6 @@ export function selfSql(session: string, accountId: string): SQL {
 const quoted = (list: readonly string[]) => list.map((category) => `'${category}'`).join(",");
 const categories = quoted(notificationCategory.options);
 const residency = quoted(residencyCategories);
-/**
- * Rows the signed-in recipient may see in the feed, the bell, and mark. A residency notice shows only while the
- * recipient's residency link to the organization that owns it is live (D-1416); every other notice only while they hold
- * a current seat there, and answers to review only while the send is still shared with them (T-385).
- */
 export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timestamp()`): SQL {
 	return sql`n.cancelled_at IS NULL AND n.archived_at IS NULL AND ${eligible}
 		AND n.recipient_id = (SELECT account_id FROM me)
@@ -200,14 +189,12 @@ export function overdueSql(asOf: string): SQL {
 export function jsonValue(value: unknown): unknown {
 	return typeof value === "string" ? JSON.parse(value) : value;
 }
-/** One notification write: its request schema, its operation name, its result and its body. */
 export type NotificationCommand<S extends z.ZodType<{ requestKey: string }>, T> = {
 	schema: S;
 	operation: string;
 	result: z.ZodType<T>;
 	body(tx: Tx, cmd: Command, input: z.output<S>, authority: RequestActor): Promise<T>;
 };
-/** The write as its own native write (D70), for the selected owner. */
 export async function runWrite<S extends z.ZodType<{ requestKey: string }>, T>(
 	db: Database,
 	authority: RequestActor,
@@ -226,10 +213,6 @@ export async function runWrite<S extends z.ZodType<{ requestKey: string }>, T>(
 		return refusal(error);
 	}
 }
-/**
- * The same write inside a caller's transaction whose write gate already holds the approving session's account and seat
- * (RequestActor.claimWrite): an approved Evry review. The account is the gate's own, never one the caller names.
- */
 export async function runLockedWrite<S extends z.ZodType<{ requestKey: string }>, T>(
 	tx: Tx,
 	raw: unknown,

@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-// The early access request contract. One module for both sides:
-// - the forms (client) use FIELDS and validateAccessRequest for instant field errors;
-// - the server action parses the same schema, so the rules cannot drift.
-// Field rules come from the Phase 4 decision "Form data" in the spec.
-
 const ACCESS_KINDS = ["planter", "network"] as const;
 export type AccessRequestKind = (typeof ACCESS_KINDS)[number];
 
@@ -18,10 +13,8 @@ export const PHASES = [
 	"6 · Post-launch",
 ] as const;
 
-/** The honeypot field. People never see it; a value means a bot and receives a fake success. */
 export const HONEYPOT = "website";
 
-/** Longest accepted value per field, in characters. The page puts these into the "too long" message. */
 export const FIELD_MAX = {
 	name: 120,
 	email: 254,
@@ -75,23 +68,15 @@ const networkSchema = z.object({
 
 const SCHEMAS = { planter: planterSchema, network: networkSchema } as const;
 
-/** What the form sends: every field as the raw string the person typed. */
 export type AccessRequestFields<K extends AccessRequestKind = AccessRequestKind> = {
 	[F in keyof z.input<(typeof SCHEMAS)[K]>]?: string;
 };
-/** A parsed, normalized request (trimmed, email lower-cased, empty optional fields removed). */
 export type AccessRequest =
 	{ kind: "planter"; data: z.output<typeof planterSchema> } | { kind: "network"; data: z.output<typeof networkSchema> };
 
-/** Error codes; the page maps each code to copy. */
 export type FieldErrorCode = "required" | "email" | "number" | "too_long";
 export type FieldErrors = Partial<Record<string, FieldErrorCode>>;
 
-/**
- * What the server action answers (coordinator ruling, 2026-10-14). A duplicate within 24 hours and a filled
- * honeypot both answer "received", so no answer reveals whether an email address was used before.
- * "unavailable" means storage or mail failed; the page shows the contact fallback and never claims success.
- */
 export type AccessRequestResult =
 	| { status: "received" }
 	| { status: "invalid"; fieldErrors: FieldErrors }
@@ -103,7 +88,6 @@ const isCode = (s: string): s is FieldErrorCode => CODES.includes(s);
 
 export type Validation = { ok: true; request: AccessRequest } | { ok: false; fieldErrors: FieldErrors };
 
-/** Parses one submission. Used by the form before sending and by the server action on arrival. */
 export function validateAccessRequest(kind: AccessRequestKind, fields: Record<string, unknown>): Validation {
 	if (kind === "planter") {
 		const r = planterSchema.safeParse(fields);
@@ -120,7 +104,6 @@ function toFieldErrors(error: z.ZodError): FieldErrors {
 	for (const issue of error.issues) {
 		const key = String(issue.path[0] ?? "");
 		if (!key || fieldErrors[key]) continue;
-		// A missing or non-string value reports zod's own message; treat it as "required".
 		fieldErrors[key] = isCode(issue.message) ? issue.message : "required";
 	}
 	return fieldErrors;
