@@ -15,11 +15,6 @@ import { pipelineImportWriter, previewPipelineImport } from "../../../packages/d
 import { readPipelineExport } from "../../../packages/domain/src/organizations/data.ts";
 import { APPLICATIONS, csvOf } from "./import-files/data.mts";
 
-// Importing pipeline people from a CSV or a form's Excel export (T-363) against a migrated database. Grace Austin,
-// America/Chicago: Dana is the Owner, Luis an Admin, Ana and Ben Members with no duty. Casey Lee is already in the
-// pipeline with casey@example.test. applications.xlsx is a Microsoft Forms export holding Jordan Reyes, Sam Ortiz and a
-// second application from Casey; applications-v2.xlsx has the same titles in another order.
-
 const database = await fixture({ prefix: "pipelineimport", max: 6 });
 const { admin } = database;
 const db = database.pools.runtime;
@@ -145,7 +140,6 @@ test("columns match fields by title; unmatched questions are kept as answers and
 			["ID", "answer", false],
 			["Start time", "answer", false],
 			["Completion time", "answer", false],
-			// The form's own Email and Name columns lose to the better titled questions, which take the fields.
 			["Email", "skip", false],
 			["Name", "skip", false],
 			["Full name", "name", false],
@@ -170,7 +164,6 @@ test("columns match fields by title; unmatched questions are kept as answers and
 		code: "invalid_input",
 		field: "columns.10",
 	});
-	// An import that keeps it is refused too, and adds no one.
 	const before = await livePeople(grace);
 	const kept = { ...p, columns: p.columns.map((c, i) => ({ ...c, choice: i === 10 ? "answer" : c.choice })) };
 	assert.deepEqual(
@@ -182,7 +175,6 @@ test("columns match fields by title; unmatched questions are kept as answers and
 		{ code: "invalid_input", field: "columns.10" },
 	);
 	assert.equal(await livePeople(grace), before);
-	// A field takes one column.
 	const twice = p.columns.map((c) => c.choice);
 	twice[4] = "name";
 	assert.deepEqual(refusal(await preview(dana, "applications.xlsx", file("applications.xlsx"), twice)), {
@@ -222,7 +214,6 @@ test("rows are ready, invalid with a reason, or possible duplicates of the pipel
 			[4, "duplicate", [], [3]],
 		],
 	);
-	// Every possible duplicate is the person's to decide: an import without a choice for each one is refused.
 	const stage = await stageId("Potential leader");
 	assert.deepEqual(
 		refusal(await run(dana, "rows.csv", csv, p, { stageId: stage, duplicates: [{ row: 3, choice: "add" }] })),
@@ -246,7 +237,6 @@ let jordan: string;
 test("Dana imports applications.xlsx: Jordan and Sam join the chosen stage, Casey is skipped and unchanged", async () => {
 	const caseyBefore = ok(await readPipelinePersonRecord(db, await authority(dana), { personId: casey }));
 	const caseyNotes = await notesOf(casey);
-	// Dana changes one column's choice before importing: the form's ID is not worth keeping.
 	const first = await previewed(dana, "applications.xlsx", file("applications.xlsx"));
 	const columns = first.columns.map((c) => (c.title === "ID" ? "skip" : c.choice));
 	const p = await previewed(dana, "applications.xlsx", file("applications.xlsx"), columns);
@@ -274,11 +264,9 @@ test("Dana imports applications.xlsx: Jordan and Sam join the chosen stage, Case
 			["Sam Ortiz", "sam@example.test", "Luis"],
 		],
 	);
-	// Nothing about the existing Casey Lee changed.
 	assert.deepEqual(ok(await readPipelinePersonRecord(db, await authority(dana), { personId: casey })), caseyBefore);
 	assert.deepEqual(await notesOf(casey), caseyNotes);
 
-	// Jordan's history says he was imported, by Dana, today; his kept answers are one note by Dana.
 	const record = ok(await readPipelinePersonRecord(db, await authority(dana), { personId: jordan }));
 	assert.deepEqual(
 		record.history.map((h) => [h.kind, h.actor, h.on, "to" in h ? h.to : null]),
@@ -308,23 +296,19 @@ test("Dana imports applications.xlsx: Jordan and Sam join the chosen stage, Case
 			],
 		],
 	);
-	// Sam's empty answers are left out.
 	const sam = result.added[1]!.personId;
 	assert.doesNotMatch((await notesOf(sam))[0]!.body, /Spouse's name|Phone number/);
 
-	// The note has the ordinary note audience: Luis (an Admin, and responsible) reads it; Ben and Ana see no record.
 	const luisView = ok(await readPipelinePersonRecord(db, await authority(luis), { personId: jordan }));
 	assert.equal(luisView.notes.length, 1);
 	for (const who of [ben, ana])
 		assert.deepEqual(refusal(await readPipelinePersonRecord(db, await authority(who), { personId: jordan })), {
 			code: "unavailable",
 		});
-	// The pipeline export leaves the note out like any note.
 	const exported = ok(await readPipelineExport(db, await authority(dana)));
 	assert.match(exported.text, /Jordan Reyes/);
 	assert.doesNotMatch(exported.text, /East Austin|Maria Reyes/);
 
-	// The same reviewed import again (a double click or a retry) answers the same and adds no one.
 	const count = await livePeople(grace);
 	const again = ok(
 		await run(dana, "applications.xlsx", file("applications.xlsx"), p, {
@@ -337,7 +321,6 @@ test("Dana imports applications.xlsx: Jordan and Sam join the chosen stage, Case
 	assert.deepEqual(again, result);
 	assert.equal(await livePeople(grace), count);
 	assert.equal((await notesOf(jordan)).length, 1);
-	// The same import id with other choices is refused.
 	assert.deepEqual(
 		refusal(
 			await run(dana, "applications.xlsx", file("applications.xlsx"), p, {
@@ -357,7 +340,6 @@ test("the import refuses a file that differs from the reviewed one, and a review
 	const count = await livePeople(grace);
 	const changed = text("Full name,Email address\r\nMorgan Hale,morgan@example.test\r\nEve Stone,eve@example.test\r\n");
 	assert.deepEqual(refusal(await run(dana, "one.csv", changed, p, { stageId: stage })), { code: "file_changed" });
-	// Someone adds Morgan by hand after the preview: the reviewed findings no longer hold.
 	ok(
 		await pipelineWriter.addPerson(db, await authority(luis), {
 			personId: randomUUID(),
@@ -390,7 +372,6 @@ test("an export with the same titles in another order lines up with Dana's choic
 		[
 			["Favorite verse", "answer"],
 			["Full name", "name"],
-			// Remembered from Dana's import: the form's own Email column was skipped.
 			["Email", "skip"],
 		],
 	);
@@ -446,7 +427,6 @@ test("Ben, Ana and another organization's Owner cannot preview or import Grace A
 			{ code: "unavailable" },
 		);
 	}
-	// Hill Country's Owner sees neither Grace's people as duplicates nor Grace's remembered choices.
 	const theirs = await previewed(hillOwner, "applications.xlsx", bytes);
 	assert.equal(choiceByTitle(theirs).ID, "answer");
 	assert.deepEqual(
@@ -457,7 +437,6 @@ test("Ben, Ana and another organization's Owner cannot preview or import Grace A
 			["ready", []],
 		],
 	);
-	// Naming Grace's stage from Hill Country adds no one to Grace.
 	assert.deepEqual(refusal(await run(hillOwner, "applications.xlsx", bytes, theirs, { stageId: stage })), {
 		code: "invalid_input",
 		field: "stageId",
@@ -483,7 +462,6 @@ test("a UTF-8 CSV with a BOM, CRLF, quoted commas and multi-line answers imports
 		const people = [];
 		for (const a of result.added) {
 			const r = ok(await readPipelinePersonRecord(db, await authority(owner), { personId: a.personId }));
-			// The note's first line names the file; everything after it is the answers.
 			people.push([
 				r.name,
 				r.email,

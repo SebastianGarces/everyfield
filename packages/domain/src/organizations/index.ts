@@ -9,9 +9,6 @@ import type { GeographyReference } from "./profile.ts";
 import { profileOperations } from "./profile.ts";
 import { relationshipCommands } from "./relationships.ts";
 import { sharingOperations } from "./sharing.ts";
-// Native server adapter. Call inside one transaction; errors must roll it back.
-// Required collaborators persist their intents on this exact connection. They
-// cannot call providers here. Evry's reviewed admission remains its adapter's job.
 export function createOrganizationAdapter(
 	effects: OrganizationEffects,
 	geography: GeographyReference,

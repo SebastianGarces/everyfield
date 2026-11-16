@@ -6,9 +6,6 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
-// Product feedback (WP-049A): the author sends feedback with private page and device details and lists its status; a
-// triager with the feedback_triage platform grant, and nobody else, reads the private original and moves its status.
-
 const database = await fixture({ prefix: "fdbk", plant: { name: "Harvest Point" } });
 const { admin } = database;
 const db = database.pools.runtime;
@@ -42,12 +39,10 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 		screenWidth: 1440,
 		screenHeight: 900,
 		theme: null,
-		// Forged trusted details: the server ignores them.
 		church: "Forged Church",
 		role: "Admin",
 		appVersion: "forged",
 	};
-	// The dialog lists the church and role the server will store, and the address we reply to.
 	assert.deepEqual(ok(await feedbackWriter.getSendContext(db, await authority(daniel))), {
 		church: "Harvest Point",
 		role: "Owner",
@@ -57,7 +52,6 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 	assert.equal(sent.page, "Documents");
 	assert.equal(sent.replyTo, daniel.email);
 	assert.equal(sent.category, "bug");
-	// The connection drops and the dialog sends the same feedback again: the same answer, one row, one audit row.
 	const again = ok(await feedbackWriter.submit(db, await authority(daniel), input, server));
 	assert.deepEqual(again, sent);
 	const saved = await rowsOf(
@@ -101,7 +95,6 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 		["feedback.received"],
 	);
 
-	// A token route's token never reaches the row either, and details the browser could not give stay null.
 	const bare = ok(await send(daniel, { description: "Link broke", address: "/invite/abcdefghijklmnopqrstuvwxyz0123" }));
 	const [stored] = await rowsOf(
 		sql`SELECT page_label, page_address, browser, screen_width, theme FROM feedback WHERE id=${bare.id}::uuid`,
@@ -111,7 +104,6 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 		{ page_label: null, page_address: "/invite/[token]", browser: null, screen_width: null, theme: null },
 	);
 
-	// An empty, blank or over-long description is refused and nothing is saved.
 	const before = (await rowsOf(sql`SELECT count(*)::int AS n FROM feedback`))[0]!.n;
 	for (const description of ["", "     ", "x".repeat(5001)])
 		refused(await send(daniel, { description }), "invalid_input");
@@ -137,11 +129,9 @@ test("AC:CASE-ADM-001 AC:PUB57-002 INV-privacy: the author lists only their own 
 		{ ...listed[0], id: "", submittedAt: "" },
 		{ id: "", category: "question", submittedAt: "", status: "new", publicUrl: null },
 	);
-	// Newest first.
 	const times = listed.map((i: any) => i.submittedAt);
 	assert.deepEqual(times, [...times].sort().reverse());
 
-	// Another account asking for this feedback's status gets the same answer as for an id that does not exist.
 	const mine = ok(await feedbackWriter.getOwnStatus(db, await authority(author), { feedbackId: ids[0] }));
 	assert.equal(mine.id, ids[0]);
 	refused(await feedbackWriter.getOwnStatus(db, await authority(other), { feedbackId: ids[0] }), "unavailable");
@@ -187,7 +177,6 @@ test("AC:CASE-ADM-002 AC:PUB57-002 a triager filters, moves a status with histor
 	const own = ok(await feedbackWriter.getOwnStatus(db, await authority(daniel), { feedbackId: sent.id }));
 	assert.equal(own.status, "reviewed");
 
-	// Another triager's view from revision 1 is stale: nothing is overwritten and the answer names the current status.
 	const stale = ok(
 		await feedbackWriter["admin.changeStatus"](db, t, {
 			feedbackId: sent.id,
@@ -196,7 +185,6 @@ test("AC:CASE-ADM-002 AC:PUB57-002 a triager filters, moves a status with histor
 		}),
 	);
 	assert.deepEqual(stale, { outcome: "stale", status: "reviewed", revision: "2" });
-	// Setting the status it already has records nothing, even from a stale view.
 	const same = ok(
 		await feedbackWriter["admin.changeStatus"](db, t, {
 			feedbackId: sent.id,

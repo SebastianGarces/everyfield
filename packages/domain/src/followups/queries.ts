@@ -26,12 +26,6 @@ function reader(authority: RequestActor, admin = false) {
 	if (admin && !administers(viewer)) refuse("unavailable");
 	return viewer;
 }
-/**
- * The church's open follow-up tasks with a live Person, as rows a caller filters further. `owners` holds each assignee
- * with whether they may own it (the shared owner view); `assignee_ids` is every assignee and `owner_ids` only the
- * eligible ones. A follow-up with no eligible assignee needs an owner in every tally and filter (D-a, REQ-TSK-012);
- * each ineligible assignee keeps its name and warning.
- */
 const duties = (plant: SQL, where: SQL = sql`true`) => sql`SELECT d.*,
 	(SELECT coalesce(array_agg((o->>'accountId')::uuid),'{}') FROM jsonb_array_elements(d.owners) o) AS assignee_ids,
 	(SELECT coalesce(array_agg((o->>'accountId')::uuid),'{}') FROM jsonb_array_elements(d.owners) o
@@ -51,28 +45,17 @@ const duties = (plant: SQL, where: SQL = sql`true`) => sql`SELECT d.*,
 	FROM task t JOIN plant pl ON pl.id=t.plant_id
 	JOIN person p ON p.id=t.person_id AND p.tenant_id=t.plant_id AND p.state='live'
 	WHERE t.plant_id=${plant} AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN} AND ${where}) d`;
-/**
- * Plant `plant`'s open follow-ups that are overdue now, and those of them that need an owner, as JSON
- * `{ overdue, unowned }`: the Follow-ups screen's own Overdue (overdueAt) and Needs owner, read by Network
- * Intelligence (NIR-04, D-1422). Undated follow-ups are never overdue; completed and no-longer-needed ones are not open.
- */
 export const overdueFollowUpsJson = (plant: SQL) => sql`(SELECT json_build_object('overdue', count(*)::int,
 	'unowned', (count(*) FILTER (WHERE cardinality(d.owner_ids)=0))::int) FROM (${duties(plant)}) d
 	WHERE CASE d.due_kind WHEN 'timed' THEN clock_timestamp() > d.due_at
 		WHEN 'date_only' THEN clock_timestamp() >= d.due_key ELSE false END)`;
-/** A duty row as JSON, with its owner view and origin. Same statement, no extra round trip. */
 const dutyJson = (d: SQL) => sql`to_jsonb(${d})`;
 const dutyOrder = (d: SQL) => sql`${d}.due_key NULLS LAST, ${d}.id`;
-/**
- * Accounts that still hold open follow-ups they can no longer own, with how many: where a handoff starts. An
- * ineligible assignee counts whether or not a co-assignee is eligible (REQ-TSK-013).
- */
 const formerTally = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('accountId',x.id,'displayName',
 	coalesce(x.name,''),'open',x.n) ORDER BY lower(x.name), x.id),'[]') FROM (SELECT u.id,
 	(SELECT display_name FROM seat_identity(u.id)) AS name, count(*)::int AS n FROM duty d
 	CROSS JOIN LATERAL (SELECT (o->>'accountId')::uuid AS id FROM jsonb_array_elements(d.owners) o
 		WHERE (o->>'eligible')='false') u GROUP BY u.id) x)`;
-/** Open follow-ups for each eligible assignee: a follow-up counts once under each of them. */
 const ownerTally = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('accountId',x.id,'displayName',
 	coalesce(x.name,''),'open',x.n) ORDER BY lower(x.name), x.id),'[]') FROM (SELECT u.id,
 	(SELECT display_name FROM seat_identity(u.id)) AS name, count(*)::int AS n FROM duty d
@@ -145,7 +128,6 @@ const actorOf = (a: { actor_id: string | null; name: string | null } | null) =>
 	a?.actor_id
 		? { kind: "account" as const, accountId: a.actor_id, displayName: a.name }
 		: { kind: "former_account" as const };
-// The first audit row of an entry made it; a later supersede or remove row withdrew it.
 const event = (row: SQL, where: SQL, order: SQL) => sql`(SELECT jsonb_build_object('actor_id',a.actor_id,'name',
 	(SELECT display_name FROM seat_identity(a.actor_id)),'reason',a.reason) FROM audit_event a
 	WHERE a.tenant_id=${row}.plant_id AND a.subject_id=${row}.id AND ${where} ORDER BY ${order} LIMIT 1)`;
@@ -177,17 +159,12 @@ const obligationRow = z.object({
 });
 
 export const followUpReader = {
-	/**
-	 * A Person's contact log, newest first, with corrected and withdrawn entries kept, and the latest effective
-	 * contacted instant (REQ-MTG-022). A retired Person keeps their history. Any seat. One statement.
-	 */
 	async listContactHistory(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readAnswer(async () => {
 			const viewer = reader(authority),
 				v = parse(c.listContactHistoryRequest, raw);
 			const plant = sql`${viewer.plantId}::uuid`,
 				person = sql`${v.personId}::uuid`;
-			// With a task: the entries recorded on it, or finished along with it by one contact.
 			const onTask = (x: SQL) =>
 				v.taskId ? sql`AND (${x}.task_id=${v.taskId}::uuid OR ${v.taskId}::uuid=ANY(${x}.also_task_ids))` : sql``;
 			const found = await gated(
@@ -249,16 +226,11 @@ export const followUpReader = {
 			});
 		});
 	},
-	/**
-	 * Generated meeting duties with their current state, owner, completing outcome, contact fact and 48-hour measure at
-	 * asOf (REQ-MTG-021). A waived duty stays no_longer_needed through task edits and deletion. Any seat. One statement.
-	 */
 	async readObligations(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readAnswer(async () => {
 			const viewer = reader(authority),
 				v = parse(c.readObligationsRequest, raw);
 			const asOf = v.asOf ?? now();
-			// An outcome is evidence for the duty it was recorded on and for those one contact finished with it.
 			const evidence = sql`(x.obligation_id=o.id OR (x.person_id=o.person_id AND t.id=ANY(x.also_task_ids)))`;
 			const filters = [
 				v.personId ? sql`o.person_id=${v.personId}::uuid` : null,
@@ -332,11 +304,6 @@ export const followUpReader = {
 			});
 		});
 	},
-	/**
-	 * Assignment coverage by Person (REQ-TSK-012): each live contact not yet committed, and anyone with an open
-	 * follow-up, with their open follow-ups and whether they are owned, need an owner or have no explicit duty.
-	 * Uncovered is not urgent work: no due date or urgency is invented. Owner/Admin. One statement.
-	 */
 	async followUpCoverage(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readAnswer(async () => {
 			const viewer = reader(authority, true),
@@ -399,10 +366,6 @@ export const followUpReader = {
 			});
 		});
 	},
-	/**
-	 * Open follow-ups by current owner (REQ-TSK-012): one page of duties, the owners with their open counts and how
-	 * many need an owner. A stored assignee who lost eligibility reads as Needs owner. Any seat. One statement.
-	 */
 	async listFollowUpOwners(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readAnswer(async () => {
 			const viewer = reader(authority),
@@ -438,10 +401,6 @@ export const followUpReader = {
 			});
 		});
 	},
-	/**
-	 * Preview a handoff (REQ-TSK-013): the account's open follow-ups with their revisions, whether it is still eligible
-	 * or holds the Owner seat, and the current eligible recipients. Changes nothing. Owner/Admin. One statement.
-	 */
 	async planHandoff(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readAnswer(async () => {
 			const viewer = reader(authority, true),
@@ -467,7 +426,6 @@ export const followUpReader = {
 				true,
 			);
 			const [head, ...rows] = found;
-			// Only an account that has held a seat in this church can be the source; others reveal nothing.
 			if (!head || Number(head.ord) !== 0) refuse("unavailable");
 			const plan = z
 				.object({

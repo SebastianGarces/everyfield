@@ -13,7 +13,6 @@ const database = await testDatabase({ prefix: "wp030" });
 const { admin } = database;
 const db = database.pools.runtime;
 const clock = { at: new Date("2026-10-23T15:00:00Z") };
-// Visibility and cancel use the database clock, not this injected producer clock.
 const notYetEligible = new Date(Date.now() + 86_400_000).toISOString();
 const optOutKey = randomBytes(32);
 const api = createNotificationProducer({ optOutKey, now: () => clock.at });
@@ -179,7 +178,6 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		false,
 	);
 	assert.equal(ok(await api.readUnreadCount(db, reader, {})).count, 60);
-	// The feed page reads the same first page, the unread count of its filter and the mark revision in one statement.
 	const page = ok(await api.readFeedPage(db, reader, {}));
 	assert.deepEqual(page.feed, first);
 	assert.equal(page.unread, 60);
@@ -602,13 +600,11 @@ test("AC:CASE-NTF-003 each feed entry names its subject page's record, digests a
 		oversight_digest: null,
 		phase_milestone: null,
 	});
-	// The subject adds nothing to the item set: every entry, newest first, and the same unread count.
 	assert.deepEqual(
 		feed.items.map((item) => item.id),
 		[...Object.values(ids)].reverse(),
 	);
 	assert.equal(ok(await api.readUnreadCount(db, reader, {})).count, rows.length);
-	// Following a linked entry marks that entry read and no other.
 	assert.deepEqual(ok(await api.markRead(db, reader, command({ noticeId: ids.task_due }))).markedIds, [ids.task_due]);
 	const later = ok(await api.readFeed(db, reader, {}));
 	assert.deepEqual(
@@ -682,7 +678,6 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 	);
 	const feed = ok(await api.readFeed(db, reader, {}));
 	assert.deepEqual(feed.items.map((item) => item.title).sort(), ["Meaningful update", "Typo"]);
-	// T-260 Done 6: each review entry opens the published global article it names, by that revision's slug.
 	assert.deepEqual(Object.fromEntries(feed.items.map((item) => [item.title, item.subject])), {
 		Typo: { kind: "article", id: article, slug: "typo" },
 		"Meaningful update": { kind: "article", id: article, slug: "update" },
@@ -750,7 +745,6 @@ test("AC:RECOVERY-DELETE-001 a lifecycle witness hides the audience, receipt and
 			statement_timestamp()+interval '720 hours')`);
 		return () => admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${id}`);
 	};
-	// A church with its Owner, and a network the church is linked to, with its Owner.
 	const church = await plant("Witnessed");
 	const planter = await identity(church);
 	const network = await organization("sending_network", "Witness Network");
@@ -781,7 +775,6 @@ test("AC:RECOVERY-DELETE-001 a lifecycle witness hides the audience, receipt and
 	};
 	for (const read of [...Object.values(plantReads), ...Object.values(networkReads)]) ok(await read());
 
-	// The church is pending deletion: its reads refuse, and the network's digest no longer counts it.
 	let clear = await witness("plant", church.id);
 	try {
 		for (const [name, read] of Object.entries(plantReads)) refused(await read(), "access_denied", name);
@@ -793,7 +786,6 @@ test("AC:RECOVERY-DELETE-001 a lifecycle witness hides the audience, receipt and
 	}
 	assert.deepEqual(ok(await networkReads.oversightDigest()).plants, [church.id]);
 
-	// The network Owner's own account is pending deletion: every one of their reads refuses.
 	clear = await witness("account", overseer.id);
 	try {
 		for (const [name, read] of Object.entries(networkReads)) refused(await read(), "access_denied", name);

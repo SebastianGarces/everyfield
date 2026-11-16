@@ -1,6 +1,3 @@
-// The branding reads of INV-tenancy (tenancy.test.mts): church A's saved brand kit with a ready logo, written through
-// the branding writes as its owner, and one case per read. The cases read through the test's throwing storage; only
-// the seed's upload saves bytes.
 import assert from "node:assert/strict";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import {
@@ -11,7 +8,6 @@ import {
 	uploadBrandAsset,
 } from "../../../packages/domain/src/branding/index.ts";
 
-/** Private storage for the seed's upload, as a local fake of the object store (as the branding suite uses). */
 const seedStorage = {
 	bucket: "tenancy-brand-seed",
 	client: {
@@ -27,7 +23,6 @@ const seedStorage = {
 		},
 	},
 };
-// A flat #2E7D32 block on a transparent canvas, as the branding suite's logo.
 const logo = await sharp({
 	create: { width: 200, height: 120, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
 })
@@ -45,7 +40,6 @@ const noAssets = Object.fromEntries(
 	["full_logo", "full_logo_dark", "mark", "mark_dark", "cover_photo", "signature"].map((slot) => [slot, null]),
 );
 
-/** Church A's owner saves a kit, then requests, uploads and finalizes a full logo into it. */
 export async function seedBranding(t) {
 	const { a, MARK, ok } = t;
 	const owner = t.ownerA.actor;
@@ -83,7 +77,6 @@ export function brandingCases(t, who) {
 	const r = (name, run, expected) => [`branding:brandReader.${name}`, { run, expected }];
 	return [
 		r("get", () => brandReader.get(db, who.actor, {}), {
-			// Church B saved no kit, so it gets the default kit.
 			value: {
 				primaryColor: null,
 				accentColor: null,
@@ -101,7 +94,6 @@ export function brandingCases(t, who) {
 			},
 		}),
 		r("resolveTheme", () => brandReader.resolveTheme(db, who.actor, { documentClass: "formal/legal" }), {
-			// Church B's own neutral theme, named for church B (the fixture's plant name).
 			value: {
 				kind: "everyfield-neutral",
 				churchName: "Synthetic plant",
@@ -123,16 +115,13 @@ export function brandingCases(t, who) {
 			},
 		}),
 		r("suggestColors", () => brandReader.suggestColors(db, who.actor, { assetKind: "full_logo" }, storage), {
-			// Church B's own kit has no logo in the slot, so the read refuses before any storage read.
 			refused: "unavailable",
-			// Church A's colors come from the logo's bytes in private storage, which stays the throwing fake here.
 			control: null,
 		}),
 		[
 			"branding:readBrandAsset",
 			{
 				run: () => readBrandAsset(db, storage, who.actor, a.brandAsset),
-				// The bytes are in private storage, which stays the throwing fake here.
 				expected: { refused: "unavailable", control: null },
 			},
 		],
@@ -142,7 +131,6 @@ export function brandingCases(t, who) {
 				run: () => readBrandAssetIfChanged(db, storage, who.actor, a.brandAsset, () => true),
 				expected: {
 					refused: "unavailable",
-					// The caller holds the current version, so church A gets the stored hash with no storage read.
 					control: (value) => assert.deepEqual(value, { sha256: a.brandSha, mediaType: "image/png", bytes: null }),
 				},
 			},

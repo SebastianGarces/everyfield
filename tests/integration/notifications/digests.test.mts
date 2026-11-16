@@ -18,10 +18,6 @@ import { closeDatabase, createDatabase } from "../../../packages/db/src/client.t
 import { db as admin, runtime, runtimeSettings, setup, teardown } from "../jobs/support.mts";
 import { seeds } from "../../support/fixture.mts";
 
-// The church digest (NTF-007) and the oversight digest (NTF-008) as the scheduled runner delivers them: GET with the
-// CRON_SECRET bearer and a clock the test moves, on a suite schema of the shared development database. Each scenario
-// owns its own church or organization, so their digests never mix. The mail worker dispatches through a fake provider.
-
 const secret = "cron-" + randomUUID();
 const clock = { at: new Date() };
 const sent: { to: string; subject: string; text: string; headers?: Readonly<Record<string, string>> }[] = [];
@@ -30,10 +26,8 @@ let worker: ReturnType<typeof createDigestWorker>;
 let tick: (request: Request) => Promise<Response>;
 const optOutKey = randomBytes(32);
 const feedApi = createNotificationProducer({ optOutKey });
-/** A second runtime pool whose statements the budget test counts. */
 const counted = { db: null as unknown as typeof runtime, queries: [] as string[] };
 
-/** One scheduled run at `at` (UTC). */
 async function run(at: string) {
 	clock.at = new Date(at);
 	const response = await tick(
@@ -98,7 +92,6 @@ async function person(name: string, prefs: Record<string, boolean | "daily" | "w
 	await admin.execute(
 		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${user},${randomUUID()},clock_timestamp()+interval '1 day')`,
 	);
-	// prefs: "<category>:<channel>" → enabled, or "<category>:cadence" → daily/weekly.
 	for (const [key, value] of Object.entries(prefs)) {
 		const [category, channel] = key.split(":");
 		if (channel === "cadence")
@@ -138,7 +131,6 @@ async function link(organization: string, plant: string, shareActivity: boolean)
 		VALUES(${plant},${organization},now(),false,false,false,false,false,${shareActivity},false) RETURNING id`);
 	return r.rows[0]!.id as string;
 }
-/** `n` audited changes in the plant at `at`, each carrying private text no digest may show. */
 async function activity(plant: string, at: string, n = 1) {
 	for (let i = 0; i < n; i++)
 		await admin.execute(sql`INSERT INTO audit_event(tenant_id,actor_token,action,kind,subject_type,subject_id,occurred_at,reason,metadata)
@@ -168,7 +160,6 @@ const mails = async (recipient: string) =>
 			sql`SELECT id,purpose,state FROM mail WHERE recipient_account_id=${recipient} ORDER BY created_at`,
 		)
 	).rows as { id: string; purpose: string; state: string }[];
-/** What the bell and the Notifications page read for the signed-in person, Digest entries only. */
 async function feed(who: { session: string }, category: "planter_digest" | "oversight_digest") {
 	const actor = await RequestActor.resolve(runtime, sessionId.parse(who.session));
 	assert.ok(actor instanceof RequestActor);
@@ -178,7 +169,6 @@ async function feed(who: { session: string }, category: "planter_digest" | "over
 		r as { value: { items: { title: string; body: string | null; category: string; dueLocalDate: string | null }[] } }
 	).value.items;
 }
-/** Dispatch every due mail job through the fake provider, as the mail worker will. */
 async function dispatchAll() {
 	for (let claim = (await claimDue(runtime, ["mail"]))[0]; claim; claim = (await claimDue(runtime, ["mail"]))[0])
 		await mail.dispatch(claim);
@@ -219,7 +209,6 @@ test("AC:CASE-NTF-007 the digest names an untitled meeting as the app does, for 
 const PRIVATE = ["Maria", "Lopez", "PRIVATE", "Hello", "$250", "note"];
 
 test("AC:NOTIFY47-004 the church digest reaches the bell and email at the church's Monday 08:00 in Sydney, not before, and an empty church gets nothing", async () => {
-	// Sydney is ahead of the server's zone: Monday 2026-10-26 08:00 AEDT is Sunday 21:00 UTC.
 	const zone = "Australia/Sydney";
 	const harvest = await church("Harvest Church", zone, { weekday: 1, hour: 8 });
 	const quiet = await church("Quiet Church", zone, { weekday: 1, hour: 8 });
@@ -233,7 +222,6 @@ test("AC:NOTIFY47-004 the church digest reaches the bell and email at the church
 	await seat(both.id, { plant: harvest });
 	await seat(bellOnly.id, { plant: harvest }, "admin");
 	await seat(empty.id, { plant: quiet });
-	// Shared tasks: each assignee's digest lists them (F07b).
 	const team = [both.id, bellOnly.id];
 	await task(harvest, team, "Book the venue", "2026-10-24");
 	await task(harvest, team, "Send the launch letter", "2026-10-30");
@@ -241,13 +229,11 @@ test("AC:NOTIFY47-004 the church digest reaches the bell and email at the church
 	await task(harvest, team, "Done already", "2026-10-25", "complete");
 	await meeting(harvest, "Launch team dinner", "2026-10-29", "2026-10-29T08:00:00Z", zone);
 
-	// 07:59 local: the planner starts coverage; nothing is sent.
 	await run("2026-10-25T20:59:00Z");
 	for (const who of [both, bellOnly, empty]) {
 		assert.deepEqual(await notices(who.id), [], "nothing before 08:00 local");
 		assert.deepEqual(await mails(who.id), []);
 	}
-	// 08:00 local: one digest each.
 	const due = await run("2026-10-25T21:00:00Z");
 	assert.equal(due.digests, 2);
 	const expected = {
@@ -260,14 +246,12 @@ test("AC:NOTIFY47-004 the church digest reaches the bell and email at the church
 	};
 	for (const who of [both, bellOnly]) {
 		const [entry] = await feed(who, "planter_digest");
-		// A digest has no due date: the entry shows no "Due" label.
 		assert.deepEqual(
 			entry && { title: entry.title, body: entry.body, category: entry.category, due: entry.dueLocalDate },
 			{ ...expected, category: "planter_digest", due: null },
 		);
 		assert.equal((await notices(who.id)).length, 1);
 	}
-	// Criterion 2: email on → one planter_digest intent with the same items; email off → none, the bell still shows it.
 	assert.deepEqual(
 		(await mails(both.id)).map((m) => m.purpose),
 		["planter_digest"],
@@ -277,10 +261,8 @@ test("AC:NOTIFY47-004 the church digest reaches the bell and email at the church
 	const email = sent.find((m) => m.to === both.email);
 	assert.equal(email?.subject, expected.title);
 	for (const line of expected.body.split(/(?<=\.) /)) assert.ok(email?.text.includes(line), line);
-	// Criterion 3: no open items → no bell entry and no email.
 	assert.deepEqual(await notices(empty.id), []);
 	assert.deepEqual(await mails(empty.id), []);
-	// Criterion 9: the same slot again, and two overlapping runs, add nothing.
 	await run("2026-10-25T21:05:00Z");
 	await Promise.all([run("2026-10-25T21:06:00Z"), run("2026-10-25T21:06:00Z")]);
 	assert.equal((await notices(both.id)).length, 1);
@@ -294,16 +276,13 @@ test("AC:CASE-NTF-008 AC:NOTIFY47-005 the 07:00 oversight digest shows the shari
 	const private_ = await church("Hidden Hollow Church", zone, { weekday: 0, hour: 16 });
 	await link(network, sharing, true);
 	await link(network, private_, false);
-	const owner = await person("olive"); // never saved an oversight choice
+	const owner = await person("olive");
 	const admin2 = await person("omar", { "oversight_digest:email": true });
 	await seat(owner.id, { organization: network });
 	await seat(admin2.id, { organization: network }, "admin");
-	// 06:59 Chicago on Wednesday 2026-10-28: coverage starts at Monday the 26th.
 	await run("2026-10-28T11:59:00Z");
-	// Tuesday the 27th, local: two changes in the sharing plant, three in the other.
 	await activity(sharing, "2026-10-27T15:00:00Z", 2);
 	await activity(private_, "2026-10-27T16:00:00Z", 3);
-	// Criterion 9: two overlapping runs at 07:00, then a third.
 	await Promise.all([run("2026-10-28T12:00:00Z"), run("2026-10-28T12:00:00Z")]);
 	await run("2026-10-28T12:01:00Z");
 	const title = "Oversight digest: 2 activities, Oct 27, 2026";
@@ -318,7 +297,6 @@ test("AC:CASE-NTF-008 AC:NOTIFY47-005 the 07:00 oversight digest shows the shari
 		for (const text of [items[0]!.title, items[0]!.body!])
 			for (const word of [...PRIVATE, "Hidden Hollow", "3 activities"]) assert.ok(!text.includes(word), word);
 	}
-	// Criterion 8: no saved choice → bell only; email turned on → the email too. The opt-out page agrees.
 	assert.deepEqual(await mails(owner.id), []);
 	const token = issueEmailOptOutToken(optOutKey, {
 		purpose: "disable",
@@ -354,9 +332,8 @@ test("AC:CASE-NTF-008 an organization without a saved zone gets its digest at 07
 	await seat(lead.id, { organization: utc });
 	await seat(quiet.id, { organization: silent });
 	await run("2026-10-27T12:00:00Z");
-	// 23:30 UTC on the 27th is still the 27th in UTC (and the 27th in Los Angeles too: only the organization's zone counts).
 	await activity(plant, "2026-10-27T23:30:00Z", 1);
-	await activity(plant, "2026-10-28T00:30:00Z", 4); // the 28th in UTC: the next day's digest
+	await activity(plant, "2026-10-28T00:30:00Z", 4);
 	await run("2026-10-28T06:59:00Z");
 	assert.deepEqual(await notices(lead.id), [], "nothing before 07:00 UTC");
 	await run("2026-10-28T07:00:00Z");
@@ -364,7 +341,6 @@ test("AC:CASE-NTF-008 an organization without a saved zone gets its digest at 07
 		(await notices(lead.id)).map((n) => [n.title, n.safe_body]),
 		[["Oversight digest: 1 activity, Oct 27, 2026", "Dockside Church: 1 activity on Oct 27, 2026."]],
 	);
-	// Criterion 6: linked plants with no activity in the period → no bell entry, no email.
 	assert.deepEqual(await notices(quiet.id), []);
 	assert.deepEqual(await mails(quiet.id), []);
 });
@@ -385,7 +361,6 @@ test("AC:CASE-NTF-008 a plant that stops sharing after the digest was queued con
 	await seat(p.id, { organization: pair });
 	await run("2026-10-29T12:00:00Z");
 	for (const plant of [alone, leaving, staying]) await activity(plant, "2026-10-29T15:00:00Z", 2);
-	// The planner queues the 07:00 digests; before the worker compiles them, two plants withdraw.
 	await planDigests(runtime, "2026-10-30T07:00:00.000Z");
 	const queued = await admin.execute(
 		sql`SELECT count(*)::int AS n FROM job WHERE kind='digest' AND state='ready' AND subject_record_id IN (${s.id},${p.id})`,
@@ -439,13 +414,11 @@ test("AC:CASE-NTF-008 after three missed daily slots one catch-up digest covers 
 	const closedLink = await link(network, closed, true);
 	const reader = await person("cam");
 	await seat(reader.id, { organization: network });
-	// Tuesday 2026-10-20 07:30 Chicago: coverage starts at Monday the 19th.
 	await run("2026-10-20T12:30:00Z");
 	for (const day of ["2026-10-20", "2026-10-21", "2026-10-22"]) {
 		await activity(open, `${day}T15:00:00Z`);
 		await activity(closed, `${day}T15:00:00Z`);
 	}
-	// The runner is down on the 21st, 22nd and 23rd. Meanwhile one plant stops sharing.
 	await admin.execute(sql`UPDATE affiliation SET share_activity=false,revision=revision+1 WHERE id=${closedLink}`);
 	await run("2026-10-23T12:30:00Z");
 	assert.deepEqual(
@@ -475,7 +448,6 @@ test("AC:CASE-NTF-008 a person who lost their seat or whose account is no longer
 	await activity(plant, "2026-10-29T15:00:00Z");
 	await admin.execute(sql`UPDATE seat SET ended_at=now() WHERE account_id=${left.id}`);
 	await admin.execute(sql`UPDATE account SET registration_state='pending_domain' WHERE id=${inactive.id}`);
-	// Liz's job is queued while she still holds her seat; it ends before the worker runs.
 	await planDigests(runtime, "2026-10-30T07:00:00.000Z");
 	await admin.execute(sql`UPDATE seat SET ended_at=now() WHERE account_id=${late.id}`);
 	await worker.run(runtime, "2026-10-30T07:00:00.000Z");
@@ -490,7 +462,6 @@ test("INV-budget: one delivered digest sends a fixed number of statements, howev
 	const [before, at] = ["2026-10-30T08:00:00.000Z", "2026-10-31T09:00:00.000Z"];
 	const counts: number[] = [];
 	for (const items of [1, 12]) {
-		// Deliver what other scenarios owe at this time first, so the measured run claims this church's job.
 		await planDigests(runtime, at);
 		await worker.run(runtime, at, 100);
 		const plant = await church(`Budget ${items}`, "UTC", { weekday: 0, hour: 9, cadence: "daily" });
@@ -504,7 +475,6 @@ test("INV-budget: one delivered digest sends a fixed number of statements, howev
 		counts.push(counted.queries.length - start);
 		assert.equal((await notices(who.id)).length, 1);
 	}
-	// claim 1; BEGIN, timeout, claim fence, recipient read, compile, write, finish, COMMIT 8.
 	assert.deepEqual(counts, [9, 9]);
 });
 
@@ -518,7 +488,6 @@ test("AC:CASE-NTF-007 AC:CASE-NTF-008 each digest email carries the Unsubscribe 
 	await seat(planter.id, { plant });
 	await seat(overseer.id, { organization: network });
 	await task(plant, planter.id, "Print the flyers", "2026-10-30");
-	// 06:59 UTC on Monday 2026-11-02: coverage starts for both digests.
 	await run("2026-11-02T06:59:00Z");
 	await activity(linked, "2026-11-01T15:00:00Z", 2);
 	await run("2026-11-02T08:00:00Z");
@@ -545,8 +514,6 @@ test("AC:CASE-NTF-007 AC:CASE-NTF-008 each digest email carries the Unsubscribe 
 		assert.equal(described.status, "ok", JSON.stringify(described));
 		assert.equal((described as { value: { category: string } }).value.category, category, who.email);
 	}
-	// One-click from the church digest's header: the church digest stops emailing and its bell entry keeps coming. No
-	// other category changes, and the oversight digest still emails.
 	const off = await feedApi.applyEmailOptOut(runtime, { token: token(church_) });
 	assert.equal(off.status, "ok", JSON.stringify(off));
 	const prefs = await admin.execute(
@@ -562,7 +529,6 @@ test("AC:CASE-NTF-007 AC:CASE-NTF-008 each digest email carries the Unsubscribe 
 	assert.equal(emails(planter).length, 1);
 	assert.equal((await notices(planter.id)).length, 2);
 	assert.equal(emails(overseer).length, 2);
-	// One-click from the latest oversight email stops that digest too; its bell entry keeps coming.
 	const off2 = await feedApi.applyEmailOptOut(runtime, { token: token(emails(overseer).at(-1)) });
 	assert.equal(off2.status, "ok", JSON.stringify(off2));
 	await activity(linked, "2026-11-03T15:00:00Z", 1);

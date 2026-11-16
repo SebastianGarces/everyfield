@@ -1,4 +1,3 @@
-// WP-036/api, T-205: the Forme renderer, the theme and the 13 library templates. No database: it renders real bytes.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -53,11 +52,9 @@ const FULL = {
 	launch_date: "Sunday, April 11, 2027",
 };
 const NEUTRAL_VALUES = { church_name: CHURCH };
-// Each library template with its facts: from its template file, else its code layout in the registry.
 const LIBRARY = (await library()).templates.map((template) => ({ id: template.id, ...template.facts }));
 const pdfs = LIBRARY.filter((entry) => entry.format === "pdf");
 const factsOf = (id: string) => LIBRARY.find((entry) => entry.id === id)!;
-/** One library PDF laid out with its contrast log. */
 async function contrastRows(id: string, values: Record<string, string>, theme: typeof NEUTRAL_THEME) {
 	const file = docTemplateById(id);
 	if (file) {
@@ -95,8 +92,6 @@ const tagsOf = async (bytes: Buffer) => {
 
 describe("INV-doc-engine: api engine", () => {
 	test("AC:DOC-006 the library and docs/catalog/document-templates.json agree on id, class and format", async () => {
-		// The existing templates, then the text templates with a file and no reference row, which "Save for your church"
-		// prints too.
 		const authored = ["bylaws", "prayer-letter"];
 		const existing = catalogJson.templates.filter((t: { source: string }) => t.source === "existing");
 		const rows = [...existing, ...authored.map((id) => catalogJson.templates.find((t: { id: string }) => t.id === id))];
@@ -104,12 +99,10 @@ describe("INV-doc-engine: api engine", () => {
 		for (const row of rows) {
 			const facts = factsOf(row.id);
 			assert.equal(facts.documentClass, row.class, row.id);
-			// The catalog lists Word for the three editable templates (OPS-79). The library offers the first listed format.
 			assert.equal(facts.format, row.formats[0], row.id);
 		}
 		assert.equal(pdfs.length, 11);
 		assert.deepEqual(LIBRARY.filter((e) => e.format === "xlsx").map(ink), ["first-year-budget", "budget-worksheet"]);
-		// D-922: only the templates with no template file keep a code layout.
 		assert.deepEqual(REGISTRY.map(ink), [
 			"response-card",
 			"vision-meeting-agenda",
@@ -127,7 +120,6 @@ describe("INV-doc-engine: api engine", () => {
 	test("AC:DOC-007 the template view carries class, page size, page count and fillable", async () => {
 		const loaded = await library();
 		const view = (id: string) => templateView(loaded.templates.find((t) => t.id === id)!);
-		// The commitment card prints four to a Letter sheet (its template file); the response card is one card a page.
 		assert.deepEqual(view("commitment-card").pageSize, { width: 612, height: 792 });
 		assert.deepEqual(view("response-card").pageSize, { width: 306, height: 396 });
 		assert.deepEqual(view("vision-meeting-agenda").pageSize, { width: 612, height: 792 });
@@ -218,7 +210,6 @@ describe("INV-doc-engine: api engine", () => {
 	test("AC:DOC-002 no PDF holds a wall-clock date or a random id", async () => {
 		const first = new Map<string, Awaited<ReturnType<typeof renderTemplatePdf>>>();
 		for (const entry of pdfs) first.set(entry.id, await renderTemplatePdf(entry, FULL));
-		// The second render runs a day later by the clock: a date in the bytes would change the digest.
 		mock.timers.enable({ apis: ["Date"], now: Date.now() + 86_400_000 });
 		try {
 			for (const entry of pdfs) {
@@ -268,8 +259,6 @@ describe("INV-doc-engine: api engine", () => {
 				);
 			}
 		}
-		// T-205: the sign-in sheet's template file has write-in fields for the meeting date and number, filled on paper, so
-		// a library merge value for either one leaves the same blank field.
 		const withValues = await renderTemplatePdf({ id: "guest-sign-in-sheet" }, FULL);
 		const blank = await renderTemplatePdf({ id: "guest-sign-in-sheet" }, NEUTRAL_VALUES);
 		assert.deepEqual(
@@ -287,7 +276,6 @@ describe("INV-doc-engine: api engine", () => {
 		for (const entry of pdfs) {
 			const out = await renderTemplatePdf(entry, FULL, sampleKit());
 			const { doc, tags } = await tagsOf(out.bytes);
-			// The commitment card's template file heads each card with an H2 ("My commitment") under the church name.
 			assert.ok(tags.has(entry.id === "commitment-card" ? "H2" : "H1"), `${entry.id} has no heading`);
 			if (
 				!["commitment-card", "response-card"].includes(entry.id) &&
@@ -305,7 +293,6 @@ describe("INV-doc-engine: api engine", () => {
 			assert.ok(doc.getTitle()?.includes(CHURCH), entry.id);
 			assert.ok(doc.catalog.get(PDFName.of("MarkInfo")), entry.id);
 			assert.ok(out.bytes.includes("Harborlight Church logo"), `${entry.id} lacks logo alt text`);
-			// PDF/UA 7.18.4: each widget has a StructParent and each Form tag holds one object reference.
 			const widgets = doc
 				.getForm()
 				.getFields()
@@ -368,7 +355,6 @@ describe("INV-doc-engine: api engine", () => {
 		for (const team of ["Kids", "Connections", "Prayer"]) assert.ok(checklists.text[1]!.includes(team), team);
 		const card = await renderTemplatePdf({ id: "commitment-card" }, NEUTRAL_VALUES);
 		for (const line of ["My commitment", "GROW", "PRAY", "GIVE"]) assert.ok(card.text[0]!.includes(line), line);
-		// An agenda with no meeting is the blank sheet: no invented segment text (WP-036/api, agendas from the meeting).
 		for (const id of ["vision-meeting-agenda", "board-meeting-agenda"]) {
 			const blank = await renderTemplatePdf({ id }, FULL);
 			const text = blank.text[0]!.join(" ");
@@ -425,7 +411,6 @@ describe("INV-doc-engine: api engine", () => {
 			monthly.getCell(6, c).value = 500;
 			monthly.getCell(13, c).value = 700;
 		}
-		// LibreOffice trusts cached results in an Excel file, so a filled copy drops them and forces a real recalculation.
 		book.eachSheet((sheet) =>
 			sheet.eachRow((row) =>
 				row.eachCell((cell) => {
@@ -471,7 +456,6 @@ async function xlsxBytes(kind: "first-year-budget" | "budget-worksheet") {
 }
 
 test("BUG-PR551: a template render that throws reaches the caller as render_failed with the error as its cause", async () => {
-	// T-126: render.ts dropped the cause, so a failed library render logged "render_failed" with nothing behind it.
 	const boom = new Error("the theme could not be read");
 	const theme = new Proxy({} as typeof NEUTRAL_THEME, {
 		get() {

@@ -39,7 +39,6 @@ const noticeInput = z.strictObject({
 	eligibleAt: z.iso.datetime(),
 	title: z.string().min(1).max(500),
 	text: z.string().max(10_000),
-	/** The email's text when it says more than the notice, such as the link to the page it is about. */
 	mailText: z.string().min(1).max(10_000).optional(),
 	operation: z.uuid().nullable(),
 });
@@ -84,29 +83,19 @@ const policy = {
 		purpose: "reference_update",
 		source: "article_editor_state",
 	},
-	// A linked resident's own residency (T-365): the source is the enrollment, the key names the milestone.
 	residency_confirmation: {
 		category: "residency",
 		purpose: "residency_confirmation",
 		source: "development_enrollment",
 	},
 	residency_feedback: { category: "residency", purpose: "residency_feedback", source: "development_enrollment" },
-	// Kept answers sent to a staff member for review (T-385): the source is the send.
 	answer_review: { category: "review", purpose: "answer_review", source: "answer_review" },
-	// Written with the Messages opt-out itself (T-242), never through this queue.
 	scheduled_email_unsubscribe: { category: "communication", purpose: "communication_unsubscribed", source: null },
 } as const;
 export function createNotificationService(config: {
 	mail: ReturnType<typeof createMailService>;
 	eligible: (tx: Transaction, input: readonly NoticeInput[]) => Promise<readonly ({ address: string | null } | null)[]>;
 }) {
-	/**
-	 * Writes each notice, with its email, once per recipient and logical key. A task, meeting or launch source must be at
-	 * the notice's revision. An affiliation notice names the revision its occurrence wrote, which a later change to the
-	 * connection (a sharing change after an approval) moves past without cancelling it; its worker checks that the
-	 * occurrence still holds. A residency notice names its enrollment; its worker checks that the resident's link holds. A
-	 * review notice names its send; its worker checks that the send is still shared.
-	 */
 	async function enqueueMany(tx: Transaction, inputs: readonly NoticeInput[]) {
 		const values = inputs.map((input) => noticeInput.parse(input));
 		const data = values.map((v, n) => {
@@ -270,27 +259,15 @@ export function createNotificationService(config: {
 		return result;
 	}
 
-	/**
-	 * Replace the owed due and overdue reminders of one or more tasks of one plant in at most two statements, whatever
-	 * the number of tasks: one locked read (sources, delivered slots, assignees, preferences, seats and deletion
-	 * barriers), then one write that cancels the notices, mail and jobs a task no longer owes and inserts the planned
-	 * notices with their mail. A task at another revision is stale and refuses the whole sync. An open task keeps the
-	 * notices of its current revision and gets its future slots; a closed one loses every owed notice. The read checks
-	 * what mail.enqueueMany and the task mail authority check for a new notice, under the same locks, so the write
-	 * queues the mail directly. Actual task producers run this in the mutation transaction, after their new revision.
-	 */
 	async function syncTaskReminders(
 		tx: Transaction,
 		inputs: readonly {
 			base: Omit<NoticeInput, "category" | "occurrence" | "eligibleAt" | "recipient" | "title">;
-			/** The notice title of each reminder slot: the due reminder and the overdue one read differently. */
 			titles: Record<ReturnType<typeof taskReminderTimes>[number]["slot"], string>;
-			/** Every assignee of the task: each gets their own due and overdue notices (REQ-TSK-014). */
 			recipients: readonly string[];
 			due: Parameters<typeof taskReminderTimes>[0];
 			open: boolean;
 			asOf: string;
-			/** A task this write created has no notices yet: nothing to check, replace or cancel. */
 			created?: boolean;
 		}[],
 	) {
@@ -340,8 +317,6 @@ export function createNotificationService(config: {
 				category: v.category,
 				key,
 			}));
-			// A slot that reached its recipient under an earlier revision (shown in the inbox or handed to mail) is never
-			// planned again after a reschedule (REQ-TSK-014: at most once per assignee). The current revision's notices replay.
 			const read =
 				await tx.execute(sql`WITH ${src}, cand AS MATERIALIZED (SELECT * FROM jsonb_to_recordset(${JSON.stringify(cand)}::jsonb) i(n int,source uuid,revision bigint,recipient uuid,category text,key text)),
 	    reached AS MATERIALIZED (SELECT DISTINCT n.source_record_id AS source,n.recipient_id AS recipient,split_part(n.logical_key,'/',2) AS category
@@ -442,8 +417,6 @@ export function createNotificationService(config: {
 			eligible: v.eligibleAt,
 			archived: inApp ? null : now,
 		}));
-		// One statement: the cancellations see the notices and mail this statement cancels through their CTEs, because
-		// every part of a statement reads the same snapshot.
 		const write =
 			await tx.execute(sql`WITH ${src}, cancelled AS (UPDATE notice n SET cancelled_at=coalesce(n.cancelled_at,clock_timestamp()) FROM src i
 	      WHERE n.tenant_id=${tenant} AND n.source_record_id=i.id AND (NOT i.preserve OR n.source_revision<>i.revision)
@@ -465,14 +438,12 @@ export function createNotificationService(config: {
 			.object({ locked: z.number().int(), notices: z.number().int(), mail: z.number().int() })
 			.parse(write.rows[0]);
 		if (done.locked !== sourceCount) throw Error("notification_source_stale");
-		// Only a racing sync of the same task revision can hold a planned key; its notice and mail differ from these.
 		if (done.notices !== notices.length) throw Error("notification_identity_conflict");
 		if (done.mail !== mail.length) throw Error("mail_identity_conflict");
 		return output;
 	}
 	return { enqueue, enqueueMany, syncTaskReminders };
 }
-// A Discovery receipt deliberately has no plant or inbox anchor.
 export async function sendDiscoveryAssociationReceipt(
 	tx: Transaction,
 	mail: ReturnType<typeof createMailService>,
@@ -524,7 +495,6 @@ export async function sendDiscoveryAssociationReceipt(
 	);
 }
 
-/** One durable notice batch for all links changed by a discovery conversion. */
 export async function sendOnboardingRelationships(
 	tx: Transaction,
 	inputs: readonly import("@everyfield/domain/organizations").RelationshipNotice[],
@@ -554,7 +524,6 @@ export async function sendOnboardingRelationships(
 			return {
 				owner: { kind: "account", id: recipient },
 				purpose: i.pair.kind === "discovery" ? "discovery_receipt" : "relationship_receipt",
-				// Under the onboarding mount's own key, so the organizations mail pass never claims a receipt.
 				logicalKey: "onboarding/relationship/" + i.eventId + "/" + recipient,
 				recipient,
 				address,

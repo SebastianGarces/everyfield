@@ -30,18 +30,13 @@ import {
 	type Tx,
 } from "./core.ts";
 export interface AvatarCleanup {
-	/** The cleanup job for one avatar file, as an insert the caller adds to its own write statement (D70). */
 	queue(tx: Tx, input: { accountId: string; fileId: string; eligibleAt: string }): SQLWrapper;
 }
-// The replay record holds nothing: personal settings audit never keeps the photo reference. A replay has the same
-// request, so the reply is rebuilt from it.
 const resultRecord = z.strictObject({});
-/** The 15 minutes a staged upload stays open for its bytes and its finalize. */
 const STAGING_MS = 15 * 60_000;
 export function avatarOperations(
 	cleanup: AvatarCleanup,
 ): Pick<NativeAccountProducer<Tx>, "requestAvatarUpload" | "getAvatar" | "finalizeAvatar" | "removeAvatar"> {
-	/** The account's avatar reference changes from `before` to `after`: the account row, the old file's cleanup and the audit entry. */
 	async function change(s: Tx, c: NewCommand, account: typeof t.account.$inferSelect, after: string | null) {
 		const before = account.avatar_object_id;
 		if (before === after) return;
@@ -51,7 +46,6 @@ export function avatarOperations(
 				.set({ avatar_object_id: after, revision: sql`${t.account.revision}+1` })
 				.where(eq(t.account.id, account.id)),
 		);
-		// The old bytes are unreferenced once this commits; cleanup may start at once.
 		if (before)
 			c.writes.push(cleanup.queue(s, { accountId: account.id, fileId: before, eligibleAt: new Date().toISOString() }));
 		const event = await appendEvent(
@@ -66,8 +60,6 @@ export function avatarOperations(
 		auditChange(c, event, "account", { avatar: before }, { avatar: after });
 	}
 	return {
-		// The staged file and its orphan cleanup commit in one statement, so a later failed upload or finalize leaves
-		// no file without cleanup.
 		requestAvatarUpload: (tx, ctx, raw) =>
 			reply(tx, async (s) => {
 				const input = parse(q.requestAvatarUpload, raw);
@@ -95,7 +87,6 @@ export function avatarOperations(
 			reply(tx, async (s) => {
 				const v = parse(q.getAvatarRequest, raw);
 				const a = await self(s, ctx, "read");
-				// The account's composite avatar foreign key already binds this reference to its tenant.
 				if (a.account.avatar_object_id !== v.versionId) deny();
 				const [file] = await s
 					.select({ id: t.file_object.id })
@@ -122,7 +113,6 @@ export function avatarOperations(
 				});
 				if (c.kind === "replay") return saved;
 				revision(v.expectedRevision, a.account.revision);
-				// The account's own uploaded, verified and unexpired file, locked until the reference commits.
 				const [f] = await s
 					.select({ id: t.file_object.id })
 					.from(t.file_object)
@@ -155,16 +145,11 @@ export function avatarOperations(
 			}),
 	};
 }
-/**
- * This context's own account, when the session is live, the account is fully registered and no lifecycle witness
- * hides it, in one statement. The upload is a write, so it keeps the share locks of access_session.
- */
 function liveSelf(ctx: SettingsContext) {
 	if (ctx.selected.kind !== "account") return sql`false`;
 	const account = ctx.selected.id;
 	return sql<boolean>`(${t.account.id}=${account}::uuid AND EXISTS(SELECT FROM access_session(${ctx.session}::uuid) x WHERE x.account_id=${account}::uuid AND x.registration_state='active') AND ${writeVisibility(account, ctx.selected)})`;
 }
-/** The upload's authorizer: only the live account's own staged file. */
 function uploadAuthorization(ctx: SettingsContext): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		const [a] = await tx.select({ id: t.account.id }).from(t.account).where(liveSelf(ctx));
@@ -172,13 +157,6 @@ function uploadAuthorization(ctx: SettingsContext): ResourceAuthorizer {
 		return { kind: "account", actorId: a.id };
 	};
 }
-/**
- * The read rule of an account photo (REQ-IDN-006), as one condition on the version: the session is live and is the
- * context's own account, which is active and not hidden, and the version is the account's current photo as its own
- * account sees it, or as the people of a workspace where the viewer holds a live, unhidden seat see it: the account
- * holds a seat there too (workspaceAvatar) or in a workspace that a current plant affiliation links to it
- * (oversightAvatar). Lock-free (C27).
- */
 function avatarReadable(ctx: SettingsContext, account: string, version: string) {
 	if (ctx.selected.kind !== "account") return sql<boolean>`false`;
 	return sql<boolean>`EXISTS(SELECT FROM live_session(${ctx.session}::uuid) av_i WHERE av_i.account_id=${ctx.selected.id}::uuid
@@ -192,7 +170,6 @@ function avatarReadable(ctx: SettingsContext, account: string, version: string) 
 					OR ${oversightAvatar(sql`${account}::uuid`, sql`coalesce(av_v.plant_id,av_v.organization_id)`, sql`${version}::uuid`)}))
 		))`;
 }
-/** The byte read's authorizer: the requested account's own photo file, readable by this viewer now. */
 function readAuthorization(ctx: SettingsContext, accountId: string, versionId: string): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		if (intent !== "read" || file.id !== versionId || file.tenant_id !== accountId || file.purpose !== "avatar")
@@ -205,13 +182,11 @@ function readAuthorization(ctx: SettingsContext, accountId: string, versionId: s
 		return r?.viewer ? { kind: "account", actorId: r.viewer } : null;
 	};
 }
-/** The allowed type the bytes start with; the full check decodes them. */
 function signature(bytes: Uint8Array) {
 	if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
 	if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
 	return "image/webp";
 }
-// Called by the native byte adapter, before the reference-finalizing transaction.
 export async function uploadAvatar(
 	db: Database,
 	storage: PrivateStorage,
@@ -219,11 +194,9 @@ export async function uploadAvatar(
 	raw: { uploadId: string; bytes: Uint8Array },
 ) {
 	const id = parse(z.uuid(), raw.uploadId);
-	// The bytes are decoded first; the staged upload must then have their exact type and size.
 	const mediaType = signature(raw.bytes);
 	await validateAvatar(raw.bytes, mediaType);
 	const digest = createHash("sha256").update(raw.bytes).digest("hex");
-	// One statement: the live account's own pending upload of this type and size records the verified bytes.
 	const [file] = await db
 		.update(t.file_object)
 		.set({ byte_count: String(raw.bytes.length), sha256: digest })
@@ -247,10 +220,6 @@ export async function uploadAvatar(
 		uploadKey: file.upload_key,
 	});
 }
-/**
- * The bytes of one account photo version for the viewer whose own account context `ctx` is, or the storage layer's "unavailable" when the read rule
- * refuses it, the version is not current or the file is missing: every refusal looks the same.
- */
 export async function readAvatar(
 	db: Database,
 	storage: PrivateStorage,

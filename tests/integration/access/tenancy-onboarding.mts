@@ -1,20 +1,14 @@
-// The onboarding read of INV-tenancy (tenancy.test.mts): readOnboardingEntry for a plant Owner. The shared churches are
-// raw fixture rows with no onboarding setup, so each church's owner here is a planter who created that church through
-// the real onboarding producer, as tests/integration/onboarding/onboarding.test.mts does.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { createOnboardingProducer, readOnboardingEntry } from "../../../packages/domain/src/onboarding/index.ts";
 
-// The producer's mail and relationship ports as local fakes that send nothing; no notice is read back here.
 const producer = createOnboardingProducer({ relationships: async () => {}, enqueue: async () => {} });
 const planters = {};
 
-/** A planter account and the church it creates through onboarding: church A's carries MARK, church B's does not. */
 async function planter(t, name) {
 	const { f, key, ok } = t;
 	const p = { id: key(), user: key(), session: key() };
-	// Raw rows because an account is registered through the outside authentication service, as the onboarding tests seed it.
 	await f.admin.execute(sql`INSERT INTO auth_user(id,name,email,email_verified)
 		VALUES(${p.user},'Synthetic',${`${p.user}@example.test`},true)`);
 	await f.admin.execute(sql`INSERT INTO account(id,auth_user_id,registration_kind,registration_state)
@@ -39,7 +33,6 @@ export async function seedOnboarding(t) {
 	planters.b = await planter(t, "Beta onboarding church");
 }
 
-/** The resume of a church just created through onboarding, with no step taken yet. */
 const fresh = (plant) => ({
 	status: "available",
 	plant: { kind: "plant", id: plant.id },
@@ -58,7 +51,6 @@ const fresh = (plant) => ({
 	values: "missing",
 });
 
-/** The entry a planter's church just created through onboarding answers with. */
 const entryOf = (p) => ({ kind: "plant", plantName: p.name, resume: fresh(p.plant) });
 
 export function onboardingCases(t, who) {

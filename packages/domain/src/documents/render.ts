@@ -9,17 +9,12 @@ import type { Ctx } from "./layouts/blocks.tsx";
 import { contentSnapshot } from "./templates/registry.ts";
 import { makePalette, themeTokensDigest, type RenderClass, type RenderTheme } from "./theme.ts";
 
-/**
- * Exact pins of the engine packages (see packages/domain/package.json) and a layout revision. A test compares the
- * pins with package.json. Bump `layout` when a layout file changes bytes without changing the registry content.
- */
 export const RENDER_PROFILE = {
 	engine: "forme",
 	packages: { "@formepdf/core": "0.29.0", "@formepdf/react": "0.29.0", "pdf-lib": "1.17.1" },
 	layout: 4,
 } as const;
 
-/** The largest file one render may give, in bytes. */
 export const ARTIFACT_MAX = 8 * 1024 * 1024;
 
 export class RenderFailed extends Error {
@@ -28,12 +23,10 @@ export class RenderFailed extends Error {
 	}
 }
 
-/** The version of a render engine over one content snapshot. Saved records keep the version they were made with. */
 export function engineVersionOf(content: unknown) {
 	return hash({ profile: RENDER_PROFILE, fonts: fontDigests(), theme: themeTokensDigest(), content });
 }
 let engineVersion: ReturnType<typeof engineVersionOf> | undefined;
-/** The version of this process's engine: its pins, fonts, tokens and template content never change while it runs. */
 export function renderEngineVersion() {
 	engineVersion ??= engineVersionOf(contentSnapshot());
 	return engineVersion;
@@ -60,12 +53,10 @@ export function finish(bytes: Uint8Array) {
 export type PdfRender = {
 	bytes: Buffer;
 	pages: number;
-	/** The text lines of each page, as laid out. */
 	text: string[][];
 	fields: { name: string; type: "Sig" | "Tx" | "Btn"; tooltip: string }[];
 };
 
-/** Lay out a Forme document element, then finish the form (tooltips, signature fields, /DR). */
 export async function renderPdfElement(element: unknown): Promise<PdfRender> {
 	const laid = await renderDocumentWithLayout(element as never);
 	const text = laid.layout.pages.map((page) => {
