@@ -166,7 +166,7 @@
 					"says": "The plant view shows Limited visibility, readiness and a released assessment only, never On track from silence.",
 					"catalog": ["PI-031"],
 					"operations": [],
-					"noOperation": "the plant view reads health inside its own read; oversight.getHealth and readLaunchReadiness name no code",
+					"noOperation": "the plant view reads health inside its own read; `oversight.getHealth` and `oversight.readLaunchReadiness` name no code",
 					"proof": {
 						"tests": [
 							{

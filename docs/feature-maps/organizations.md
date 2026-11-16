@@ -179,7 +179,7 @@ agent-browser find role heading text --name "Add a sending goal" --exact
 
 Export opens the pipeline export; the tests prove the file holds contact, stage history and programs and says what and when.
 
-- No operation: the export is loadPipelineExport; the catalog's orgPeople.export is marked not built
+- No operation: the export is `loadPipelineExport`; the catalog's `orgPeople.export` is marked not built
 - Catalog: MUL-005
 - Cases: ADR1-005
 - Test: `tests/integration/organizations/data.test.mts`: `AC:ADR1-005 INV-privacy: the export holds contact, stage history, programs, enrollments and completions, and says what and when`
@@ -229,7 +229,7 @@ agent-browser find role heading text --name "Notes" --exact
 
 Move stage needs a reason; the move and its reason show in the history after a reload.
 
-- No operation: the move is pipelineWriter.movePerson; the catalog's pipeline.moveStage names no code
+- No operation: the move is `pipelineWriter.movePerson`; the catalog's `pipeline.moveStage` names no code
 - Catalog: MUL-008
 - Cases: ADR1-008
 - Test: `tests/integration/organizations/pipeline.test.mts`: `AC:ADR1-008 a move needs a reason, and the history shows who moved the person, when and why`
@@ -379,7 +379,7 @@ agent-browser find role heading text --name "This page is not available" --exact
 
 A one-row CSV imports one new person into the first stage; the pipeline search then finds them.
 
-- No operation: the pipeline import is pipelineImportWriter.importPeople, which docs/catalog/operations.json does not list
+- No operation: the pipeline import is `pipelineImportWriter.importPeople`, which `docs/catalog/operations.json` does not list
 - Catalog: MUL-001
 - Test: `tests/integration/organizations/import.test.mts`: `a UTF-8 CSV with a BOM, CRLF, quoted commas and multi-line answers imports like the Excel file`
 - Test: `tests/integration/organizations/import.test.mts`: `Dana imports applications.xlsx: Jordan and Sam join the chosen stage, Casey is skipped and unchanged`
@@ -583,7 +583,7 @@ agent-browser find role heading text --name "This page is not available" --exact
 
 The receiving seat reads only the chosen questions and their answers; a withdrawn send shows as no longer shared.
 
-- No operation: the answer-review reads and sends are not listed in docs/catalog/operations.json
+- No operation: the answer-review reads and sends are not listed in `docs/catalog/operations.json`
 - Catalog: MUL-002
 - Test: `tests/integration/organizations/reviews.test.mts`: `only Ben reads the send: the chosen questions with their answers and nothing else`
 - Test: `tests/integration/organizations/reviews.test.mts`: `withdrawal: Ben sees the send as no longer shared, with no question or answer, and history records both`

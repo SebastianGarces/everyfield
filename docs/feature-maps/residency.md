@@ -80,7 +80,7 @@ agent-browser wait --text "Waiting for"
 
 A reading opens only from the resident's own list; the QA residency has no reading, so the tests prove it.
 
-- No operation: the reading is loadResidentReading; the catalog's residency.resolveReading names no code
+- No operation: the reading is `loadResidentReading`; the catalog's `residency.resolveReading` names no code
 - Catalog: MUL-014
 - Cases: ADR1-014
 - Test: `tests/integration/organizations/residency.test.mts`: `AC:ADR1-014 church reading opens only from Casey's own list; another church article does not; unpublished reads unavailable`

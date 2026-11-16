@@ -107,7 +107,7 @@ agent-browser find role heading text --name "Harvest Point (QA)" --exact
 
 The plant view shows Limited visibility, readiness and a released assessment only, never On track from silence.
 
-- No operation: the plant view reads health inside its own read; oversight.getHealth and readLaunchReadiness name no code
+- No operation: the plant view reads health inside its own read; `oversight.getHealth` and `oversight.readLaunchReadiness` name no code
 - Catalog: PI-031
 - Test: `tests/integration/oversight/health.test.mts`: `the home shows Limited visibility, Launch readiness and no concern, never On track from silence`
 - Test: `tests/integration/oversight/health.test.mts`: `the plant view shows Launch status and readiness, then the recorded outcome`

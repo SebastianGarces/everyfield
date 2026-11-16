@@ -229,7 +229,7 @@
 					"says": "Export opens the pipeline export; the tests prove the file holds contact, stage history and programs and says what and when.",
 					"catalog": ["MUL-005"],
 					"operations": [],
-					"noOperation": "the export is loadPipelineExport; the catalog's orgPeople.export is marked not built",
+					"noOperation": "the export is `loadPipelineExport`; the catalog's `orgPeople.export` is marked not built",
 					"proof": {
 						"tests": [
 							{
@@ -336,7 +336,7 @@
 					"says": "Move stage needs a reason; the move and its reason show in the history after a reload.",
 					"catalog": ["MUL-008"],
 					"operations": [],
-					"noOperation": "the move is pipelineWriter.movePerson; the catalog's pipeline.moveStage names no code",
+					"noOperation": "the move is `pipelineWriter.movePerson`; the catalog's `pipeline.moveStage` names no code",
 					"proof": {
 						"tests": [
 							{
@@ -635,7 +635,7 @@
 					"says": "A one-row CSV imports one new person into the first stage; the pipeline search then finds them.",
 					"catalog": ["MUL-001"],
 					"operations": [],
-					"noOperation": "the pipeline import is pipelineImportWriter.importPeople, which docs/catalog/operations.json does not list",
+					"noOperation": "the pipeline import is `pipelineImportWriter.importPeople`, which `docs/catalog/operations.json` does not list",
 					"proof": {
 						"tests": [
 							{
@@ -1070,7 +1070,7 @@
 					"says": "The receiving seat reads only the chosen questions and their answers; a withdrawn send shows as no longer shared.",
 					"catalog": ["MUL-002"],
 					"operations": [],
-					"noOperation": "the answer-review reads and sends are not listed in docs/catalog/operations.json",
+					"noOperation": "the answer-review reads and sends are not listed in `docs/catalog/operations.json`",
 					"proof": {
 						"tests": [
 							{
