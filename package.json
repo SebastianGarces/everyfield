@@ -23,6 +23,7 @@
 		"test:logs": "node --test ${EVF_NODE_TEST_FLAGS:-} tests/workflow/server-logs.test.mjs",
 		"test:ui": "node --test --test-concurrency=1 'tests/ui/**/*.test.mjs'",
 		"feature-maps": "node tools/ci/feature-maps.ts --check",
+		"review-proof": "node tools/ci/review-proof.ts",
 		"format": "prettier --write \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
 		"format:check": "prettier --check \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""
 	},
