@@ -1,11 +1,8 @@
-# D34: source references, design and frozen migrations retain their bytes.
 /docs/
 /design/
 /packages/db/migrations/
-# Fixtures moved from the retired design/doc-format prototype keep their bytes (T-220).
 /tests/integration/documents/fixtures/format/
 
-# Generated source and frozen reference projections.
 **/*.generated.*
 **/generated/**
 **/next-env.d.ts
@@ -14,12 +11,10 @@ packages/reference/src/freeze.json
 **/*.lock.json
 skills-lock.json
 
-# Image approvals hash these exact source bytes alongside the generated assets.
 apps/web/scripts/render-share-images.mjs
 apps/web/scripts/render-mesh-images.mjs
 apps/web/src/marketing/logo-symbols.ts
 
-# Dependencies, build outputs and lockfiles.
 **/node_modules/
 **/.next/
 **/dist/

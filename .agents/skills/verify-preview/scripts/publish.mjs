@@ -1,16 +1,4 @@
 #!/usr/bin/env node
-// Upload a verification evidence folder to the dedicated Tigris evidence bucket with public-read links.
-// Usage: node publish.mjs <evidence-dir> --task <task-id>
-//        node publish.mjs --delete <task-id>[/<prefix>]   delete one task's evidence, or one upload
-//        (the "prefix" value in published.json is accepted as it is)
-// Key layout: evf-evidence/<task-id>/<random 32-hex prefix>/<file>.
-// Bucket: EVF_EVIDENCE_BUCKET (default everyfield-evidence). Objects are public-read; listing is refused,
-// so each link needs its random 128-bit prefix. Credentials: only the evidence env file, EVF_EVIDENCE_ENV
-// (default ~/.config/everyfield/evidence.env), which holds a key with Editor on the evidence bucket only.
-// It never opens .env.prod. Before any upload or delete it proves the key is evidence-only: listing the
-// everyfield and everyfield-dev buckets must return 403. Only four AWS_* keys are read; no value is printed.
-// Upload refuses a text file that contains any value from the evidence env file or the main checkout's dev env files.
-// It runs only as the committed file inside a checkout of this repository, never as a copy or an edited file.
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
@@ -47,7 +35,6 @@ const KEYS = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_ENDPOINT_URL_S3
 const BUCKET = process.env.EVF_EVIDENCE_BUCKET ?? "everyfield-evidence";
 const PROTECTED = ["everyfield", "everyfield-dev"];
 const ENV_FILE = resolve(process.env.EVF_EVIDENCE_ENV ?? join(homedir(), ".config/everyfield/evidence.env"));
-// Every env file read goes through here, so a path or symlink that resolves to .env.prod is refused unopened.
 const envValues = (file) => {
   if (basename(realpathSync(file)).startsWith(".env.prod")) throw new Error(`Refused: ${file} resolves to a production env file. Use the evidence env file and dev env files only.`);
   return Object.fromEntries(readFileSync(file, "utf8").split("\n").flatMap((line) => {
@@ -114,7 +101,6 @@ if (deleting) {
 const files = (function walk(d) {
   return readdirSync(d).flatMap((n) => (statSync(join(d, n)).isDirectory() ? walk(join(d, n)) : [join(d, n)]));
 })(dir).map((f) => relative(dir, f)).filter((f) => !/^(published\.json|index\.html)$/.test(f) && !f.split("/").some((p) => p.startsWith(".")));
-// Read or write only real files inside the folder: a symlink out of it, for example to .env.prod, is refused unopened.
 const inside = realpathSync(dir) + sep;
 for (const f of files) {
   const real = realpathSync(join(dir, f));
@@ -124,8 +110,6 @@ for (const f of ["index.html", "published.json"]) {
   if (lstatSync(join(dir, f), { throwIfNoEntry: false })?.isSymbolicLink()) throw new Error(`Refused: ${f} in the evidence folder is a symlink. Delete it; publish.mjs writes this file itself.`);
 }
 
-// A gallery page so the PR comment needs one link: before and after side by side, then every file,
-// one section per folder, with images inline (lazy, uncropped, click opens full size) and other files as links.
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const read = (f) => (existsSync(join(dir, f)) ? JSON.parse(readFileSync(join(dir, f), "utf8")) : null);
 const ui = read("ui-results.json");
@@ -154,7 +138,6 @@ ${rows ? `<table><tr><th>Shot</th><th>Before (main)</th><th>After (branch)</th><
 <h2>Files</h2>
 ${sections}`);
 
-// Refuse to publish any local env value (credentials, tokens, connection strings) found in a text file.
 const secrets = [ENV_FILE, ...DEV_ENV.map((f) => join(root, f))].filter(existsSync)
   .flatMap((f) => Object.values(envValues(f))).filter((v) => v.length >= 12);
 const leaks = [...files, "index.html"].filter((f) => !/\.(png|jpg|webm|mp4|zip)$/.test(f)).filter((f) => {
