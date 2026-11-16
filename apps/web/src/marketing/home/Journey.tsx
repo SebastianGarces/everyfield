@@ -5,11 +5,6 @@ import { ICONS } from "../icons";
 import { Backdrop } from "../photo/Backdrop";
 import { JourneyPath } from "./journey-fx";
 
-/**
- * "Reach, gather, follow up, commit." (OPS-82): the four week steps and two Plant Intelligence steps on one path of six
- * stops over the field photo. EvryBot walks the path and says one line at each stop; the six cards below say what each
- * stop is. #intelligence lands here too. The markup renders here; journey-fx.tsx moves the walker.
- */
 export function JourneySection() {
 	const W = COPY.shared.week,
 		J = COPY.shared.ops82.journey;
@@ -19,7 +14,6 @@ export function JourneySection() {
 		say: J.says[i]!,
 		icon: <Icon icon={ICONS[J.icons[i]!]} size={40} stroke={1.4} className="size-[44%]" />,
 	}));
-	// The first sentence of the note is bold.
 	const [, lead = "", rest = ""] = /^([^.]+\.)(.*)$/s.exec(J.see_first) ?? [];
 	return (
 		<JourneyPath

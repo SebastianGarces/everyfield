@@ -1,23 +1,9 @@
 "use client";
 
-import { cancelFrame, frame, useTransform, type MotionValue } from "motion/react";
-import { useDocumentHidden, useReducedMotion } from "@everyfield/ui/foundations";
-import { createContext, useCallback, useContext, useEffect, useEffectEvent, type ReactNode } from "react";
+import { frame, useTransform, type MotionValue } from "motion/react";
+import { useReducedMotion } from "@everyfield/ui/foundations";
+import { createContext, useCallback, useContext, type ReactNode } from "react";
 import { transformOf, type Frame } from "./curves";
-
-export function useTicker(run: boolean, step: (dt: number) => void) {
-	const onStep = useEffectEvent(step);
-	useEffect(() => {
-		if (!run) return;
-		let last = performance.now();
-		const tick = ({ timestamp }: { timestamp: number }) => {
-			onStep(Math.max(0, Math.min(timestamp - last, 50)));
-			last = timestamp;
-		};
-		frame.update(tick, true);
-		return () => cancelFrame(tick);
-	}, [run]);
-}
 
 export function useTo(t: MotionValue<number>, f: (t: number) => Frame) {
 	const transform = useTransform(t, (v) => {
@@ -72,5 +58,3 @@ export function MText({
 }
 
 export const useReduced = useReducedMotion;
-
-export const useTabHidden = useDocumentHidden;
