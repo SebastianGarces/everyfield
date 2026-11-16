@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ensurePreviewSlot } from "../../.agents/skills/verify-preview/scripts/preview-slots.mjs";
 
-// OPS-72: previews wait for a free slot. A fake `portless` keeps its previews in a JSON file.
 function slotFixture(t) {
 	const root = realpathSync(mkdtempSync(join(tmpdir(), "preview-slots-")));
 	const state = join(root, "portless-state.json");

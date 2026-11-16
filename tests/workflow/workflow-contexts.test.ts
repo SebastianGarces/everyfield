@@ -1,6 +1,3 @@
-// T-370: GitHub rejects a whole workflow file whose `${{ runner.* }}` sits where the runner context is unavailable
-// (a workflow's or job's `env`, `runs-on`, a job's `if`, ...), and then runs none of its jobs. This guard reads every
-// .github/workflows/*.yml and allows the runner context only inside a step, the one place these workflows use it.
 import assert from "node:assert/strict";
 import { globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -9,7 +6,6 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
-/** Each line whose `${{ }}` expression reads the runner context outside a `steps:` block, as "line N". */
 function runnerContextMisuse(text: string): string[] {
 	const found: string[] = [];
 	let stepsIndent = -1;

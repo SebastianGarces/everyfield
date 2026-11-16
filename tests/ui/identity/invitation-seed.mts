@@ -1,12 +1,3 @@
-// Seeds the sign-in landing accounts on the shared development database (WP-005/ui). It opens the shared tests/ui seed
-// environment (tests/ui/seed-env.mts: one isolated schema, login roles and apps/web/.env.local per worktree), signs up
-// real accounts through the identity service and creates churches through the onboarding producer.
-//
-//   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/identity/invitation-seed.mts up <preview-url>
-//   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/identity/invitation-seed.mts down
-//
-// `up` writes the landing accounts tests/ui/identity/landing.test.mjs signs in with to $INVITATION_UI_FIXTURE (default
-// /tmp/everyfield-invitation-ui.json). `down` deletes it and drops the shared schema when no other seed still uses it.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
@@ -39,7 +30,6 @@ async function up(origin: string) {
 				...(body === undefined ? {} : { body: JSON.stringify(body) }),
 			}),
 		);
-	// A verified account. `active` accounts already belong somewhere; `pending_domain` ones have not finished sign-up.
 	async function account(name: string, email: string, state: "active" | "pending_domain") {
 		ip++;
 		const r = await call("register", {
@@ -80,7 +70,6 @@ async function up(origin: string) {
 		if (made.status !== "ok") throw Error("createPlant " + name + ": " + JSON.stringify(made));
 		return (made.value as { plant: { kind: "plant"; id: string } }).plant;
 	};
-	// Landing rule accounts (WP-005): an owner whose setup is finished, an owner whose setup is not, and a new account.
 	const finished = await account("Fiona Finished", "finished@landing.example.test", "active");
 	const finishedPlant = await churchOf(finished, "Finished Church");
 	await admin.execute(sql`UPDATE plant SET onboarding_completed_at=clock_timestamp() WHERE id=${finishedPlant.id}`);

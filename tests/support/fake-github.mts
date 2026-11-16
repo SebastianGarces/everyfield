@@ -1,11 +1,6 @@
 import { createServer, type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 
-// A fake GitHub REST API for the feedback publisher, on a local port: it answers only the two calls the publisher may
-// make (create an issue, search issues) and records every request exactly as it arrived, so a test can read what
-// "GitHub" received. Nothing here reaches github.com. A test can delay or drop a reply after the issue is made, fail
-// the search, rename a repository or close an issue.
-
 export type FakeIssue = {
 	repositoryId: number;
 	number: number;
@@ -21,11 +16,8 @@ export async function fakeGitHub(repositories: Record<string, number>) {
 	const issues: FakeIssue[] = [];
 	const requests: FakeRequest[] = [];
 	const behavior = {
-		/** Milliseconds to wait after making the issue and before answering: past the client's timeout, the reply is lost. */
 		createReplyDelayMs: 0,
-		/** The search answers this status instead of results. */
 		searchStatus: 200,
-		/** The create answers this status and makes nothing, when set. */
 		createStatus: null as number | null,
 	};
 	const read = (request: IncomingMessage) =>
@@ -90,7 +82,6 @@ export async function fakeGitHub(repositories: Record<string, number>) {
 		issues,
 		requests,
 		behavior,
-		/** Renames a repository: its id and issues stay, its old name stops answering. */
 		rename(from: string, to: string) {
 			const id = names.get(from)!;
 			names.delete(from);
