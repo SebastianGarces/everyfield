@@ -31,17 +31,13 @@ import {
 	signCommitmentDocument,
 } from "../../../../packages/domain/src/people/index.ts";
 
-// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
-// here would be a bug.
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
 
-// Four Cs assessments, interviews and commitments through their public operations on a scratch schema.
 const database = await fixture({ prefix: "wp014" });
 const { admin, schema } = database;
 const db = database.pools.runtime;
-// A church-local date `n` days before today.
 const day = (n) => new Date(Date.parse(today + "T12:00:00Z") - n * 86_400_000).toISOString().slice(0, 10);
 
 const plants = [database.tenant.id, (await database.plant()).id],
@@ -51,7 +47,6 @@ const plants = [database.tenant.id, (await database.plant()).id],
 		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
 		database.actors.admin,
 	];
-// 0: plant A owner, 1: plant A member, 2: plant B admin, 3: plant A admin.
 const today = (
 	await database.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`)
 ).rows[0].d;
@@ -66,7 +61,6 @@ const stageOf = async (id) => (await rows(sql`SELECT stage FROM person WHERE id=
 const feed = async (personId) =>
 	ok(await tx((t) => peopleReader.getActivities(t, ctx(), { personId }))).items.filter((a) => a.recordId);
 const audits = (personId) =>
-	// Every column, the stored retry reply included: privacy checks read the whole audit row.
 	rows(
 		sql`SELECT * FROM audit_event WHERE subject_id=${sql.param(personId)} AND command_id=id ORDER BY occurred_at,id`,
 	);
@@ -138,7 +132,6 @@ test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-IN
 		ok(await tx((t) => peopleReader.getStatusWarnings(t, ctx(), { personId: alex.id }))).warnings;
 	assert.ok((await warnings()).includes("assessment_not_recorded"));
 
-	// Four scores of 1 total 4; a request that sends its own total is refused and records nothing.
 	const first = ok(await assess(alex.id, day(3), 1));
 	assert.equal(first.assessment.total, 4);
 	assert.deepEqual(first.person, { personId: alex.id, stage: "prospect", revision: alex.revision, stageChange: null });
@@ -154,7 +147,6 @@ test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-IN
 		}),
 	);
 	refused(forged, "invalid_input");
-	// A retry returns the first result; a later-recorded entry with an earlier date is history, not latest.
 	const retryKey = key();
 	const late = ok(await assess(alex.id, day(40), 5, 3, retryKey));
 	assert.deepEqual(ok(await assess(alex.id, day(40), 5, 3, retryKey)), late);
@@ -174,18 +166,15 @@ test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-IN
 	);
 	assert.deepEqual(history.items[1].actor, { kind: "current_account", accountId: actors[3].id });
 	assert.equal(history.items[0].committed.notes, "Private lens note");
-	// Advisory only: recording never moves the stage, and the warning clears.
 	assert.equal(await stageOf(alex.id), "prospect");
 	assert.ok(!(await warnings()).includes("assessment_not_recorded"));
 
-	// Members and other churches see no qualification record and cannot record one.
 	refused(await tx((t) => assessments.getAssessments(t, ctx(1), { personId: alex.id })));
 	refused(await tx((t) => assessments.getAssessments(t, ctx(2), { personId: alex.id })));
 	refused(await assess(alex.id, day(2), 3, 1));
 	refused(await assess(alex.id, day(2), 3, 2));
 	assert.equal(await count("four_cs", alex.id), 2);
 
-	// History shows each assessment; platform audit never holds a score or a note.
 	assert.deepEqual(
 		(await feed(alex.id)).map((a) => [a.action, a.recordId]),
 		[
@@ -195,7 +184,6 @@ test("AC:GAP-PPL-012 AC:TARGET-PPL-012 AC:GAP-PPL-006 AC:PERSONREF-ASSESSMENT-IN
 	);
 	assert.ok(!JSON.stringify(await audits(alex.id)).match(/score|Private lens note/));
 
-	// A retired Person keeps its history and takes no new record.
 	await retire(alex.id);
 	assert.equal(ok(await tx((t) => assessments.getAssessments(t, ctx(), { personId: alex.id }))).total, 2);
 	refused(await assess(alex.id, day(1)));
@@ -217,13 +205,11 @@ test("AC:GAP-PPL-013 AC:TARGET-PPL-013 AC:GAP-PPL-006 interviews: any result adv
 			["leader", null, "leader"],
 		);
 		assert.equal((await rows(sql`SELECT count(*)::int n FROM task WHERE person_id=${sql.param(early.id)}`))[0].n, 0);
-		// The stage advance is in the same history entry as the interview.
 		assert.deepEqual(
 			(await feed(early.id)).map((a) => [a.action, a.stage]),
 			[["interview_recorded", { from: "prospect", to: "interviewed" }]],
 		);
 	}
-	// A backdated second interview is history; the latest is by interview date.
 	const alex = await person("Alex Backdated", "attendee");
 	const current = ok(await interview(alex.id, "follow_up", day(2))).interview;
 	const older = ok(await interview(alex.id, "qualified", day(30))).interview;
@@ -240,10 +226,7 @@ const png = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
 	"base64",
 );
-/** A private bucket: browser PUTs keep their bytes; download links are signed locally by the real AWS signer. */
 function privateStorage() {
-	// What a browser PUT with a signed URL leaves in the bucket, the server's reads of it and an optional hook while
-	// the server reads it back.
 	const uploads = new Map();
 	const reads = { during: null, count: 0 };
 	const signer = new S3Client({
@@ -273,7 +256,6 @@ function privateStorage() {
 	};
 	return { bucket: "synthetic-only", client: signer, uploads, reads };
 }
-/** The request's resolved viewer, as the app passes it to a write. */
 const authorityOf = (who) => db.transaction((t) => RequestActor.resolve(t, actors[who].session));
 
 test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: card and Core Group together; dated withdrawal and reactivation keep stage and first acquisition; corrections with history", async () => {
@@ -298,11 +280,9 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 			}),
 		);
 
-	// A witness from another church is refused.
 	refused(await card({ occurredOn: day(5), witness: { personId: foreign.id } }));
 	assert.equal(await count("commitment", alex.id), 0);
 
-	// The card, the Core Group advance and the active commitment come back together; a retry adds nothing.
 	const requestKey = key();
 	const input = { occurredOn: day(5), witness: { personId: casey.id }, notes: "Signed after class" };
 	const saved = ok(await card(input, requestKey));
@@ -324,7 +304,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		],
 	);
 	assert.equal(await count("commitment", alex.id), 1);
-	// Renaming the witness changes the names the history shows, never the saved card or its retry.
 	ok(
 		await tx(async (t) =>
 			people.updatePerson(t, ctx(), {
@@ -339,7 +318,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		[casey.id]: "Casey Morgan",
 	});
 
-	// A stale withdrawal is a conflict and records nothing; a current one keeps the stage and the first acquisition.
 	const withdraw = (expectedRevision, effectiveOn = day(2), personId = alex.id) =>
 		tx((t) =>
 			commitments.withdrawCommitment(t, ctx(), {
@@ -364,11 +342,9 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		occurredOn: day(5),
 		evidenceId: saved.commitment.id,
 	});
-	// An older signature recorded later cannot override the withdrawal.
 	const oldKey = key();
 	const old = ok(await card({ occurredOn: day(9), kind: "launch_team" }, oldKey));
 	assert.equal(old.current.state, "withdrawn");
-	// Reactivation restores the current commitment without a new acquisition.
 	const reactivated = ok(
 		await tx((t) =>
 			commitments.reactivateCommitment(t, ctx(), {
@@ -390,7 +366,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	);
 	assert.equal(await stageOf(alex.id), "core_group");
 
-	// A repeat launch-team card on a Leader keeps the stage.
 	const repeat = ok(
 		await tx((t) =>
 			commitments.createCommitment(t, ctx(), {
@@ -401,7 +376,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	);
 	assert.deepEqual([repeat.person.stage, repeat.person.stageChange], ["leader", null]);
 
-	// Correcting the invalid earliest card's date moves the first acquisition, with old, new, actor and reason.
 	const corrected = ok(
 		await correct(old.commitment.id, old.commitment.revision, { action: "correct", occurredOn: day(3) }),
 	);
@@ -421,8 +395,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		],
 		["people.corrected", "Wrong date entered", day(9), day(3)],
 	);
-	// BUG-R2-1: a correction to the values the card already has changes nothing: no card revision, no Person revision
-	// and no history entry, and the correction history still reads.
 	const unchanged = await commitmentsOf();
 	const same = ok(
 		await correct(old.commitment.id, "2", { action: "correct", occurredOn: day(3), kind: "launch_team" }),
@@ -434,12 +406,10 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		history.items.map((i) => i.recordId),
 		[old.commitment.id],
 	);
-	// Voiding every valid card leaves the current commitment unknown and no acquisition; stage stays.
 	for (const id of [old.commitment.id, saved.commitment.id]) {
 		const k = (await commitmentsOf()).items.find((i) => i.id === id);
 		ok(await correct(id, k.revision, { action: "void" }, "Never signed"));
 	}
-	// A retry of the original create still returns the card as it was saved, after its correction and void.
 	assert.deepEqual(ok(await card({ occurredOn: day(9), kind: "launch_team" }, oldKey)), old);
 	const voided = await commitmentsOf();
 	assert.deepEqual(
@@ -456,7 +426,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 			["commitment_recorded", { from: "prospect", to: "core_group" }],
 		],
 	);
-	// Withdrawal and reactivation show in history too; no audit row holds a note or witness detail.
 	const actions = (await audits(alex.id)).map((a) => a.metadata?.event).filter(Boolean);
 	assert.deepEqual(
 		actions.filter((a) => a === "commitment_withdrawn" || a === "commitment_reactivated"),
@@ -466,8 +435,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 		!JSON.stringify([...(await audits(alex.id)), ...(await audits(casey.id))]).match(/Signed after class|Pastor Lee/),
 	);
 
-	// BUG-R2-4: the commitment's effective date follows the card that made it active. Correcting that card's date
-	// moves it; voiding that card falls back to the earliest other valid card, or to the withdrawal it ended.
 	const pat = await person("Pat Moved");
 	const since = async () => {
 		const { state, effectiveOn } = (await commitmentsOf(pat.id)).current;
@@ -479,14 +446,11 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	ok(await card({ occurredOn: day(4) }, key(), pat.id));
 	ok(await correct(first.commitment.id, "2", { action: "void" }, "Never signed"));
 	assert.deepEqual(await since(), ["active", day(4)]);
-	// A withdrawal after the remaining card's date is accepted.
 	ok(await withdraw((await commitmentsOf(pat.id)).current.personRevision, day(3), pat.id));
 	const back = ok(await card({ occurredOn: day(1) }, key(), pat.id));
 	assert.deepEqual(await since(), ["active", day(1)]);
 	ok(await correct(back.commitment.id, "1", { action: "void" }, "Never signed"));
 	assert.deepEqual(await since(), ["withdrawn", day(3)]);
-	// BUG-R2-4 (verifier, 618ddc7): an explicit reactivation is not a card. Voiding a repeat card signed on the
-	// reactivation date keeps the reactivation.
 	const quinn = await person("Quinn Rejoined");
 	const quinnSince = async () => {
 		const { state, effectiveOn } = (await commitmentsOf(quinn.id)).current;
@@ -507,7 +471,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: c
 	ok(await correct(repeatCard.commitment.id, "1", { action: "void" }, "Never signed"));
 	assert.deepEqual(await quinnSince(), ["active", day(6)]);
 
-	// Another church reads no commitments.
 	refused(await tx((t) => commitments.getCommitments(t, ctx(2), { personId: alex.id })));
 });
 
@@ -520,7 +483,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 		).person;
 	const sign = (who, personId, bytes, mime) =>
 		signCommitmentDocument(db, storage, ctx(who), actors[who].id, { personId, mime, byteLength: bytes.length });
-	// The browser's PUT: the bucket keeps the bytes under the signed key with the signed type.
 	const keyOf = (uploadId) => `private/${plants[0]}/${uploadId}`;
 	const put = (signed, bytes) =>
 		storage.uploads.set(keyOf(signed.uploadId), { bytes, type: signed.headers["content-type"] });
@@ -531,8 +493,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 		});
 	const stateOf = async (id) => (await rows(sql`SELECT state FROM file_object WHERE id=${sql.param(id)}`))[0].state;
 
-	// Only a live Owner or Admin of the Person's church can sign, and only up to 10 MiB. The card's document is a PNG:
-	// the census runs this suite with loader flags that a PDF parse worker inherits (the PDF check has its own test).
 	const document = png;
 	refused(await sign(1, sam.id, document, "image/png"));
 	refused(await sign(0, foreign.id, document, "image/png"));
@@ -544,7 +504,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 		}),
 		"invalid_input",
 	);
-	// The URL binds the exact key, type and length, writes once and works for five minutes.
 	const signed = ok(await sign(0, sam.id, document, "image/png"));
 	const url = new URL(signed.url);
 	assert.ok(url.pathname.endsWith("/" + keyOf(signed.uploadId)), url.pathname);
@@ -563,12 +522,9 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 	});
 	assert.equal(await stateOf(signed.uploadId), "pending");
 
-	// Nothing in the bucket yet: the save is refused and records nothing.
 	refused(await save(0, signed.uploadId));
 	put(signed, document);
 
-	// A sign-out that lands while the server checks the uploaded bytes refuses the save. The upload stays pending, so a
-	// live Owner or Admin can still save the same upload.
 	const signOut = async () => {
 		storage.reads.during = null;
 		await admin.execute(sql`DELETE FROM auth_session WHERE id=${sql.param(actors[0].session)}`);
@@ -589,9 +545,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 			sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${sql.param(actors[0].session)},${sql.param(actors[0].user)},${sql.param(randomUUID())},clock_timestamp()+interval '1 day') ON CONFLICT (id) DO NOTHING`,
 		);
 	}
-	// A refused card never uses up its upload: a foreign witness or a future date leaves it pending for the corrected
-	// save. BUG-R2-6: a future date names its reason, so the card can say which field to fix. F4c: these inputs need no
-	// file bytes, so their refusals come before the server reads the bucket.
 	const before = storage.reads.count;
 	refused(await save(0, signed.uploadId, { witness: { personId: foreign.id } }));
 	refused(await save(0, signed.uploadId, { witness: { personId: sam.id } }), "invalid_subject");
@@ -600,14 +553,11 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 	assert.deepEqual(future.error.details, { reason: "future_date" });
 	assert.equal(storage.reads.count, before);
 	assert.deepEqual([await stateOf(signed.uploadId), await count("commitment", sam.id)], ["pending", 0]);
-	// A member and another church cannot save it. BUG-R2-5: a member's save is refused before the server reads the
-	// bucket.
 	const reads = storage.reads.count;
 	refused(await save(1, signed.uploadId));
 	assert.equal(storage.reads.count, reads);
 	refused(await save(2, signed.uploadId));
 
-	// The card, the document, the Core Group advance and the active commitment, in the established reply shape.
 	const requestKey = key();
 	const input = { witness: { personId: witness.id }, notes: "Signed at the picnic" };
 	const auditsBefore = (await rows(sql`SELECT count(*)::int n FROM audit_event`))[0].n;
@@ -638,7 +588,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 			"changed",
 		],
 	);
-	// One audit row for the whole action, and the history and Activity read it as any card.
 	assert.equal((await rows(sql`SELECT count(*)::int n FROM audit_event`))[0].n, auditsBefore + 1);
 	assert.equal(await stateOf(signed.uploadId), "ready");
 	const history = ok(await tx((t) => commitments.getCommitments(t, ctx(), { personId: sam.id })));
@@ -648,15 +597,12 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 		[["commitment_recorded", saved.commitment.id, { from: "prospect", to: "core_group" }]],
 	);
 	assert.ok(!JSON.stringify(await audits(sam.id)).match(/Signed at the picnic|image\/png/));
-	// A retry with the same request key returns the same reply and writes nothing; the upload attaches to one card only.
 	assert.deepEqual(ok(await save(3, signed.uploadId, input, requestKey)), saved);
 	refused(await save(3, signed.uploadId, input));
 	assert.equal(await count("commitment", sam.id), 1);
 
-	// An Owner or Admin gets a five-minute link to that exact object; a member, another church or an ended seat gets none.
 	const link = ok(await getCommitmentDownload(db, storage, ctx(), { commitmentId: saved.commitment.id }));
 	assert.ok(link.url.includes(keyOf(signed.uploadId)) && link.expiresInSeconds === 300, link.url);
-	// The link expires 300 s after the signing date it carries, read back from the URL, not from the wall clock.
 	const signedQuery = new URL(link.url).searchParams;
 	assert.equal(signedQuery.get("X-Amz-Expires"), "300");
 	const signedAt = Date.parse(
@@ -670,7 +616,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 	refused(await getCommitmentDownload(db, storage, ctx(3), { commitmentId: saved.commitment.id }));
 	await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(actors[3].id)}`);
 
-	// Bytes that are not a real PDF are refused and stay pending for their cleanup. BUG-R2-6: the refusal names the file.
 	const fake = Buffer.from("%PDF-1.7 not really a document");
 	const bad = ok(await sign(0, sam.id, fake, "application/pdf"));
 	put(bad, fake);
@@ -679,8 +624,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 	assert.deepEqual(unreadable.error.details, { reason: "unreadable_document" });
 	assert.deepEqual([await stateOf(bad.uploadId), await count("commitment", sam.id)], ["pending", 1]);
 
-	// BUG-193 (C36): once one card holds a document, later cards still attach their own new uploads, and the cleanup
-	// check sees only attached objects as referenced.
 	const unattached = async (id) =>
 		(await rows(sql`SELECT file_is_referenced(${sql.param(id)}::uuid) AS r`))[0].r === false;
 	const later = [];
@@ -700,8 +643,6 @@ test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:PROVIDER48-002 AC:PROVIDER48-003 the b
 });
 
 test("INV-commitment (C100): after every command sequence the cached commitment equals the one function of the valid cards and dated changes", async () => {
-	// Each step names a Person by letter. Expected values come from the rules: the earliest valid signed date starts the
-	// commitment, a withdrawal ends it, only a later card or an explicit reactivation restarts it.
 	const cases = [
 		{
 			name: "late-recorded earlier card moves the start date",
@@ -828,7 +769,6 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 				["legacy", "a"],
 				["merge backfill", 2],
 				["unmerge", "a"],
-				// The inner merge stays refused after the outer one is undone, as on main: both Persons changed since.
 				["unmerge refused", "b"],
 			],
 			expect: { a: ["active", 20], b: ["withdrawn", 5] },
@@ -836,7 +776,6 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 	];
 	const merged = new Map(),
 		everyone = [],
-		// People made stale by hand, until a merge or Unmerge recomputes them.
 		edited = new Set();
 	for (const { name, steps, expect } of cases) {
 		const people = {},
@@ -913,13 +852,11 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 					),
 				);
 			} else if (op === "stale") {
-				// A value cached by main before C100: the first recorded card's date.
 				await admin.execute(sql`UPDATE person SET commitment_state='active',commitment_effective_on=${sql.param(day(b))}
  WHERE id=${sql.param(people[a])}`);
 				edited.add(people[a]);
 				continue;
 			} else if (op === "legacy") {
-				// The merge as main recorded it: its moved list names no commitment change.
 				await admin.execute(sql`UPDATE person_merge SET moved=moved-'commitment_change'
  WHERE id=${sql.param(merged.get(people[a]))}`);
 				continue;
@@ -932,7 +869,6 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 				const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(), { mergeId })));
 				assert.deepEqual(preview.conflicts, ["source_changed", "survivor_changed", "references_changed"], at);
 			}
-			// The invariant: every live Person's cache equals the function of its inputs, after every step.
 			if (op === "unmerge") edited.clear();
 			for (const personId of Object.values(people).filter((id) => !edited.has(id))) {
 				const [row] = await rows(sql`SELECT p.state,p.commitment_state,p.commitment_effective_on::text AS on,
@@ -950,8 +886,6 @@ test("INV-commitment (C100): after every command sequence the cached commitment 
 			assert.deepEqual([s, effectiveOn], [state, n === null ? null : day(n)], name);
 		}
 	}
-	// C101: db:migrate's one-time backfill makes stale caches (written before C100) equal the function. It changes only
-	// the rows that differ, in batches, and a rerun does nothing.
 	const [late, corrected] = everyone;
 	await admin.execute(
 		sql`UPDATE person SET commitment_state='unknown',commitment_effective_on=NULL WHERE id=${sql.param(late)}`,
@@ -990,7 +924,6 @@ test("INV-concurrency: a save that meets a held lock waits the established way a
 		}),
 	);
 	storage.uploads.set(`private/${plants[0]}/${signed.uploadId}`, { bytes: png, type: "image/png" });
-	// Another writer moves Lee to the Launch Team and holds the row until it commits.
 	let release;
 	const held = new Promise((r) => (release = r));
 	let locked;
@@ -1009,13 +942,10 @@ test("INV-concurrency: a save that meets a held lock waits the established way a
 	release();
 	await other;
 	const saved = ok(await saving);
-	// The save saw the committed Launch Team stage: no move back to Core Group, and its revision follows the other write.
 	assert.deepEqual(
 		[saved.person.stage, saved.person.stageChange, saved.person.revision, await stageOf(lee.id)],
 		["launch_team", null, String(BigInt(lee.revision) + 2n), "launch_team"],
 	);
-	// A row the save only reads, not locks: an account deletion recorded by a writer that holds the account row. The
-	// save never reads it from a snapshot older than that writer's commit, so it is refused and attaches nothing.
 	const next = ok(
 		await signCommitmentDocument(db, storage, ctx(3), actors[3].id, {
 			personId: lee.id,
@@ -1024,7 +954,6 @@ test("INV-concurrency: a save that meets a held lock waits the established way a
 		}),
 	);
 	storage.uploads.set(`private/${plants[0]}/${next.uploadId}`, { bytes: png, type: "image/png" });
-	// The request resolved its viewer before the deletion started.
 	const deleting3 = await authorityOf(3);
 	let commit;
 	const committed = new Promise((r) => (commit = r));
@@ -1077,7 +1006,6 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 	} finally {
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(actors[3].id)}`);
 	}
-	// A seat demoted to member reads nothing either.
 	await admin.execute(sql`UPDATE seat SET role='member' WHERE account_id=${sql.param(actors[3].id)}`);
 	try {
 		for (const [name, read] of Object.entries(reads))
@@ -1113,7 +1041,6 @@ test("INV-reads (C22, C32): assessment, interview and commitment reads hold no l
 		for (const [op, run] of reads(c))
 			await tx(async (t) => {
 				ok(await run(t));
-				// The read's transaction is still open: a sign-out or session refresh must not wait for it.
 				try {
 					await admin.transaction(async (a) => {
 						await a.execute(sql`SET LOCAL lock_timeout='250ms'`);

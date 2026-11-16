@@ -2,11 +2,6 @@ import type { TaskReminders } from "@everyfield/domain/tasks";
 import "server-only";
 import type { createNotificationService } from "../jobs/notifications.ts";
 
-/**
- * Task writes reach WP-031's reminder sync through this port (REQ-TSK-014), all tasks of one write in one call. An
- * open, dated, assigned task gets its due and overdue notices for each current assignee and revision; any other task
- * loses its owed notices. Delivered slots stay delivered, and a past slot is never planned again.
- */
 export function taskReminders(notifications: ReturnType<typeof createNotificationService>): TaskReminders {
 	return (tx, sources) => {
 		const asOf = new Date().toISOString();

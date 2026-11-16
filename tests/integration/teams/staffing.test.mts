@@ -1,5 +1,3 @@
-// The church-wide teams reads Evry answers from (T-320): staffing counted by role slots and by people apart, leaders
-// that can't be read, distinct current ministries per person, a saved required training list and one role ended alone.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
@@ -116,7 +114,6 @@ test("INV-counts: one person in several roles and ministries counts once per min
 		[["Sam Patel", 3, ["Hospitality", "Kids ministry", "Worship"]]],
 	);
 	const summary = await read<Summary>(teamsReader.staffingSummary as never, {});
-	// Alex and Sam serve; Sam's four roles count once among the people.
 	assert.deepEqual([summary.filledRoles, summary.people], [5, 2]);
 	assert.equal(summary.teams.find((t) => t.name === "Kids ministry")!.people, 1);
 });
@@ -135,7 +132,6 @@ test("INV-leader: a leader recorded on a person who can't be read now is unavail
 		(t) => t.name === "Prayer",
 	)!;
 	assert.deepEqual([before.leaderStatus, before.leaderName], ["appointed", "Tom Baker"]);
-	// The stored leader stays on the ministry while the person's record is no longer live in this church.
 	await admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${lead}`);
 	const after = (await read<Summary>(teamsReader.staffingSummary as never, {})).teams.find((t) => t.name === "Prayer")!;
 	assert.deepEqual([after.leaderStatus, after.leaderName], ["unavailable", null]);
@@ -226,10 +222,8 @@ test("INV-counts: the church's health averages only measured ministries and name
 		composite: number | null;
 		teams: { window: { meetings: number } }[];
 	}>(trainingReader.readAggregateHealth as never, {});
-	// No ministry has a completed team meeting, so none is measured: Unknown, never zero.
 	assert.deepEqual([health.measuredTeams, health.totalTeams, health.composite], [0, 4, null]);
 	assert.ok(health.teams.every((t) => t.window.meetings === 0));
-	// One ministry's own health read gives the same facts as its row in the church's.
 	const kidsHealth = await read<{ teamId: string }>(trainingReader.readHealth as never, { teamId: kids });
 	assert.deepEqual(
 		kidsHealth,

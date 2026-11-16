@@ -1,7 +1,3 @@
-// Fails when product code sets a fixed-pixel corner (rounded-[12px], rounded-t-[4px]). Corners come from the --corner-*
-// tokens (foundations.md, Shape: all square), through rounded-xs|sm|md|lg|card|pill. rounded-full is for circles only:
-// avatars, status dots, radios and spinners. The marketing paths are R3's and are not checked yet.
-// Run from apps/web: `node scripts/check-corners.mjs`.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";

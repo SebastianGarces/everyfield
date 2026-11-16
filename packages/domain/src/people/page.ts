@@ -33,14 +33,9 @@ import { activitiesJson, activityFeed, peopleReader } from "./queries.ts";
 import { personSkills, personSkillsJson, personTags, personTagsJson } from "./tags-skills/index.ts";
 import { personTenures, personTenuresJson } from "../teams/reads.ts";
 
-/**
- * The parts the person page reads with the person and its first Activity page. Each is null when not asked for.
- * `records` is the page size of the first 4 C's, interview and commitment page.
- */
 export type PersonPageParts = { fields?: boolean; records?: number; duplicates?: boolean };
 
 const ok = <T>(value: T): PeopleReply<T> => ({ status: "ok", value });
-/** A part that its own read would refuse reads as null, so the rest of the page still shows. */
 function part<T>(read: () => T): T | null {
 	try {
 		return read();
@@ -50,13 +45,6 @@ function part<T>(read: () => T): T | null {
 	}
 }
 
-/**
- * The person page: the person, its first Activity page, its account link and, for a merged person, its survivor. On
- * request it adds the person's tags, skills, household and photo, the 4 C's, interviews and commitments (an Owner or
- * Admin's page) and duplicate hints (a live person). The request's cached viewer of a church reads all of it in one
- * statement with the live access check (C13, C27) inside it, on the pool or in the caller's transaction. Any other
- * context resolves its actor first, in a transaction.
- */
 export async function readPersonPage(
 	db: Database | Tx,
 	ctx: Context,
@@ -96,7 +84,6 @@ export async function readPersonPage(
 
 const personJson = (alias: SQL) =>
 	sql`to_jsonb(${alias})||jsonb_build_object('revision',${alias}.revision::text,'pipeline_position',${alias}.pipeline_position::text,'plant_today',${plantTodaySql(sql`${alias}.plant_id`)})`;
-/** The Person row with the field columns the page's photo and household read. */
 const pagePerson = personRow.extend({ household_id: z.uuid().nullable(), photo_object_id: z.uuid().nullable() });
 const pageRow = z.object({
 	person: z.unknown(),
@@ -127,11 +114,6 @@ const evidence = (raw: unknown): Evidence[] =>
 const link = (p: { id: string; linked_account_id: string | null }) =>
 	c.accountLinkResult.parse(p.linked_account_id ? { status: "linked", personId: p.id } : { status: "unlinked" });
 
-/**
- * The church person page in one statement. The live access check guards the Person row, so every part comes from a
- * Person this reader may read in the same snapshot; the 4 C's, interviews and commitments also need a live Owner or
- * Admin. A missing, removed or unreadable Person returns no row and reads as unavailable.
- */
 async function plantPage(
 	db: Database | Tx,
 	ctx: Context,
@@ -181,7 +163,6 @@ async function plantPage(
 				tags: part(() => (p.plant_id === plant ? personTags(row.tags) : deny())),
 				skills: part(() => (p.plant_id === plant ? personSkills(row.skills) : deny())),
 				household: part(() => (p.plant_id === plant ? personHousehold(p.household_id, row.household) : deny())),
-				// A retired or merged Person's photo is unavailable (REQ-PPL-005); the page then shows the initials.
 				photo: c.personPhotoResult.parse(
 					p.plant_id === plant && p.state === "live" && p.photo_object_id
 						? { status: "available", personId: p.id, versionId: p.photo_object_id }
@@ -208,7 +189,6 @@ async function plantPage(
 		fields,
 		records: recordParts,
 		duplicates: parts.duplicates && p.state === "live" ? part(() => personDuplicates(row.duplicates)) : null,
-		/** The person's ministry roles, now and before (REQ-TEAM-006), with the field parts. */
 		ministries: parts.fields && p.plant_id === plant ? personTenures(row.ministries) : null,
 	};
 }

@@ -1,7 +1,3 @@
-// Network Intelligence rule patterns NIR-04 (follow-up ownership), NIR-05 (genuine-acquisition momentum) and NIR-06
-// (required-training coordination) beside NIR-03, as a network seat reads them (rubric cases NEX-012 to NEX-018). The
-// Hill Country example: Harvest Point (Round Rock, Austin metro), Oak Cliff Church (Dallas metro), Eastside Commons
-// (Austin metro) and Mueller Fellowship (Austin, does not share findings). Dates count from today in each plant's zone.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -64,7 +60,6 @@ async function plant(name: string, city: string) {
 		timezone='America/Chicago' WHERE id=${p.id}`);
 	return p;
 }
-/** The plant's own Owner saves its reporting Region from the offered candidates. */
 async function place(p: Owner, city: string) {
 	const owner = await S.identity(p, "owner");
 	const a = await as(owner);
@@ -95,14 +90,12 @@ async function person(
 		${o.adult ?? "unknown"},'unknown','1','live',clock_timestamp(),${o.account ?? null})`);
 	return id;
 }
-/** An account that may own follow-ups in `p`: a seat and a linked, committed Person. */
 async function ownerAccount(p: Owner, name: string) {
 	const seat = await S.identity(p, "admin");
 	await person(p, name, { account: seat.account });
 	return seat.account;
 }
 type FollowUp = { due: number | null; status?: string; owner?: string };
-/** A follow-up about `who`, due `due` plant-local days from today (null: undated), open unless `status` says. */
 async function followUp(p: Owner, who: string, f: FollowUp) {
 	const id = randomUUID();
 	await S.db.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,
@@ -113,7 +106,6 @@ async function followUp(p: Owner, who: string, f: FollowUp) {
 		await S.db.execute(sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${p.id},${id},${f.owner})`);
 	return id;
 }
-/** An adult whose first commitment card was signed `days` plant-local days ago. */
 async function acquired(p: Owner, name: string, days: number, adult: "adult" | "unknown" = "adult") {
 	const id = await person(p, name, { adult });
 	await S.db.execute(sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at)
@@ -121,7 +113,6 @@ async function acquired(p: Owner, name: string, days: number, adult: "adult" | "
 	return id;
 }
 let programs = 0;
-/** `total` saved required obligations of `p`, `complete` of them complete, one program each. */
 async function obligations(p: Owner, total: number, complete: number) {
 	const who = await person(p, "Trainee " + total);
 	const ids: string[] = [];
@@ -151,7 +142,6 @@ const find = <T extends IntelligencePattern["theme"]>(g: IntelligenceGroup, them
 const names = (p: IntelligencePattern | null) => p?.plants.map((x) => x.name) ?? null;
 const results = (g: IntelligenceGroup, rule: keyof typeof RULES) =>
 	g.rows.map((r) => [r.name, r.status === "shared" ? r.results[rule] : r.status]);
-/** The run's calendar date in the organization's zone, as the NIR-05 sentence says it. */
 const asOfLabel = (v: IntelligenceView) =>
 	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: v.timeZone }).format(new Date(v.run!.ranAt));
 
@@ -181,7 +171,6 @@ before(async () => {
 	await link(EC, N, SHARING);
 	await link(MF, N, ["people", "meetings", "tasks", "ministry_teams"]);
 
-	// Harvest Point: 2 overdue follow-ups, 1 with no owner, plus some that are never overdue.
 	const hpOwner = await ownerAccount(HP, "Hank Owner");
 	const hpPerson = await person(HP, "Private Visitor");
 	await followUp(HP, hpPerson, { due: -3 });
@@ -190,7 +179,6 @@ before(async () => {
 	await followUp(HP, hpPerson, { due: -5, status: "complete" });
 	await followUp(HP, hpPerson, { due: -5, status: "no_longer_needed" });
 	await followUp(HP, hpPerson, { due: null });
-	// Oak Cliff: 3 overdue, 2 with no owner. Eastside: one owned and not yet due. Mueller has some but does not share.
 	ocOwner = await ownerAccount(OC, "Olive Owner");
 	const ocPerson = await person(OC, "Private Guest");
 	ocUnowned = [await followUp(OC, ocPerson, { due: -2 }), await followUp(OC, ocPerson, { due: -7 })];
@@ -199,7 +187,6 @@ before(async () => {
 	await followUp(EC, ecPerson, { due: 3, owner: await ownerAccount(EC, "Erin Owner") });
 	await followUp(MF, await person(MF, "Private Neighbor"), { due: -2 });
 
-	// Growth: Harvest Point's newest first-time committed adult 24 days ago, Oak Cliff's 26 (one withdrew later).
 	await acquired(HP, "Private Adult A", 60);
 	await acquired(HP, "Private Adult B", 24);
 	const withdrawn = await acquired(OC, "Private Adult C", 26);
@@ -208,7 +195,6 @@ before(async () => {
 	await acquired(EC, "Private Adult D", 20);
 	await acquired(MF, "Private Adult E", 30);
 
-	// Required training: Harvest Point 3 saved, 1 complete; Oak Cliff 4, 2 complete; Eastside every one complete.
 	hpAssignments = await obligations(HP, 3, 1);
 	await obligations(OC, 4, 2);
 	await obligations(EC, 2, 2);
@@ -285,7 +271,6 @@ test("NIR-04, NIR-05 and NIR-06 name the two qualifying plants in the rubric's w
 		evidence: "From 3 plants with required-training evidence available.",
 	});
 
-	// Every rule's pattern cites the Everyfield network rubric with its own rule id, never the plant rubric.
 	assert.deepEqual(
 		g!.patterns.map((p) => p.citation),
 		(["NIR-04", "NIR-05", "NIR-06"] as const).map((rule) => ({
@@ -295,7 +280,6 @@ test("NIR-04, NIR-05 and NIR-06 name the two qualifying plants in the rubric's w
 		})),
 	);
 
-	// One short result per rule and plant, in name order; Not shared carries nothing but its name and link.
 	assert.deepEqual(
 		g!.rows.map((r) => (r.status === "shared" ? [r.name, r.results] : [r.name, r.status])),
 		[
@@ -310,7 +294,6 @@ test("NIR-04, NIR-05 and NIR-06 name the two qualifying plants in the rubric's w
 		"plantId",
 		"status",
 	]);
-	// No person, person id, task title, training program or per-plant count leaves the server.
 	const payload = JSON.stringify(view);
 	assert.doesNotMatch(payload, /Private|Hank|Olive|Erin|Trainee|Call /);
 	const people = await S.db.execute(sql`SELECT id FROM person WHERE plant_id IN (${HP.id},${OC.id},${EC.id},${MF.id})`);
@@ -349,12 +332,10 @@ test("growth themes keep their boundaries; an unclassified newer signer is Unkno
 		await link(p, net, SHARING);
 		await acquired(p, "Private " + name, days);
 	}
-	// Old known date, but an unclassified person signed after it: the clock cannot prove a slowdown.
 	const unsure = await plant("Unsure", "Austin");
 	await link(unsure, net, SHARING);
 	await acquired(unsure, "Private Old Adult", 40);
 	await acquired(unsure, "Private Unclassified", 5, "unknown");
-	// A plant that shares findings but not People: Unknown for NIR-05 whatever its dates.
 	const quiet = await plant("Quiet", "Austin");
 	await link(quiet, net, ["meetings", "tasks", "ministry_teams", "findings"]);
 	await acquired(quiet, "Private Quiet Adult", 30);
@@ -380,12 +361,10 @@ test("growth themes keep their boundaries; an unclassified newer signer is Unkno
 		`2 plants show growth has stalled in their available first-adult-acquisition evidence as of ${asOfLabel(view)}.`,
 	]);
 	assert.equal(patternText(stalled).evidence, "From 5 plants with first-adult-acquisition evidence available.");
-	// Oak Cliff's adult withdrew after signing 26 days ago: the signing date still counts (main network, above).
 	assert.deepEqual(results((await read(admin)).groups[0]!, "NIR-05")[3], ["Oak Cliff Church", "slowed"]);
 });
 
 test("one unowned plant gives no unowned line; zero overdue is observed; a missing category is Unknown", async () => {
-	// Oak Cliff's two unowned follow-ups get an owner: only Harvest Point still has an unowned one.
 	for (const task of ocUnowned)
 		await S.db.execute(sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${OC.id},${task},${ocOwner})`);
 	const run = await refresh(admin);
@@ -396,7 +375,6 @@ test("one unowned plant gives no unowned line; zero overdue is observed; a missi
 		"2 plants have 5 recorded overdue follow-up obligations in the available shared evidence.",
 	]);
 
-	// Each category off in turn: that rule reads Unknown for Oak Cliff in this run and the earlier ones.
 	for (const [category, rule, theme] of [
 		["tasks", "NIR-04", "overdue_followup"],
 		["meetings", "NIR-04", "overdue_followup"],
@@ -410,7 +388,6 @@ test("one unowned plant gives no unowned line; zero overdue is observed; a missi
 			assert.equal(find(group, theme), null, `${category} off: no ${theme}`);
 			assert.equal(group.patterns.length, 2, `${category} off: the other rules stay`);
 		}
-		// A run taken while it is off stores nothing for that rule, so turning it back on does not bring it back.
 		const off = await refresh(admin);
 		await share(ocLink, category, true);
 		assert.equal(results((await read(admin, "portfolio", off)).groups[0]!, rule)[3]![1], "unknown");
@@ -435,7 +412,6 @@ test("no required training is Unknown, all complete is clear, and a later assign
 	]);
 	assert.equal(find(g, "required_training"), null);
 
-	// Harvest Point's assignment ends after the first run: that run's numbers stay as they were.
 	const before = find((await read(admin, "portfolio", firstRun)).groups[0]!, "required_training");
 	assert.equal(before?.applicable, 7);
 	await S.db.execute(
@@ -446,7 +422,6 @@ test("no required training is Unknown, all complete is clear, and a later assign
 });
 
 test("a run from before these rules reads NIR-03 as before and Unknown for the rest, and findings off empties every run", async () => {
-	// A run as T-303 stored it: preparation counts and location only.
 	const old = randomUUID();
 	await S.db.execute(sql`INSERT INTO network_intelligence_run(id,organization_id,rubric_version,ran_at)
 		VALUES(${old},${N.id},'everyfield-network/v1',clock_timestamp()-interval '1 day')`);
