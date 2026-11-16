@@ -50,13 +50,11 @@ import { listMessages } from "../../../packages/evry/src/adapters/communication/
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { measure } from "./counter.mjs";
 
-// Exercise the outer request boundary too; the existing suites also cover tool producers and races.
 const f = await fixture();
 try {
 	const s = await f.setup(),
 		actor = await f.actor(s.sender.session);
 	const run = (name, body) => measure("native.people." + name, () => withPeopleWrite(f.db, actor, body));
-	// The Evry read of drafts and scheduled messages: one statement in the read transaction, however many messages match.
 	await measure("communication.list", () =>
 		f.db.transaction((tx) => listMessages.invoke(tx, evryActor(actor), { state: "scheduled" })),
 	);
@@ -66,18 +64,12 @@ try {
 	);
 	assert.equal(created.status, "ok");
 	if (created.status !== "ok") throw Error("create_refused");
-	// A lost reply: the same request again. The first attempt's write meets the stored key, and one read answers the
-	// stored reply without a transaction (RT-6b).
 	const replayed = await run("createPerson:replay", (tx, ctx) =>
 		peopleWriter.createPerson(tx, ctx, { requestKey: createKey, input: { displayName: "Synthetic native" } }),
 	);
 	assert.deepEqual(JSON.parse(JSON.stringify(replayed)), JSON.parse(JSON.stringify(created)));
-	// The single-statement writes also run their two fallbacks (RT-3): a lost reply with the same request key, and a
-	// first attempt that finds the church row locked by another writer and then succeeds the established way.
 	const same = (a, b) => assert.deepEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)));
 	const plantId = actor.actor.context.owner.id;
-	// Another writer holds the church row. The write's first attempt fails at once on its NOWAIT lock; the established
-	// run then waits for the gate's lock, and the holder lets go only once a backend waits on it.
 	const whileChurchBusy = async (body) => {
 		let held, release;
 		const locked = new Promise((resolve) => (held = resolve)),
@@ -134,8 +126,6 @@ try {
 		addNote(randomUUID(), await currentRevision(created.value.person.id), "Synthetic note while busy"),
 	);
 	assert.equal(busyNote.status, "ok", JSON.stringify(busyNote));
-	// Each busy write ran the established way after its first attempt: the counter saw the retry. Each replay read its
-	// stored answer instead, with no transaction (RT-6b). Every other first attempt committed on its own.
 	const singles = (await readFile(process.env.EVF_WRITE_COUNTS, "utf8"))
 		.trim()
 		.split("\n")
@@ -149,8 +139,6 @@ try {
 		"only the two busy writes ran a transaction",
 	);
 
-	// WP-012 people fields, as the web mount runs them: writes in withPeopleWrite, reads in one read transaction with the
-	// request's actor. Reads and writes whose work could grow with rows run at two sizes and must use the same count.
 	const view = (name, body) =>
 		measure("native.people." + name, () => f.db.transaction((tx) => body(tx, new PeopleReadContext(actor))));
 	const value = (result) => {
@@ -409,8 +397,6 @@ try {
 			}),
 		),
 	);
-	// WP-014 records, as the web mount runs them. Each write and read runs on a Person with one record and on a Person
-	// with three, and must use the same statement count.
 	const today = (
 		await f.db.execute(
 			sql`SELECT (clock_timestamp() AT TIME ZONE timezone)::date::text AS d FROM plant WHERE id=${plantContext0.selected.id}`,
@@ -485,7 +471,6 @@ try {
 		value(await view("getAssessments", (tx, ctx) => assessments.getAssessments(tx, ctx, { personId })));
 		value(await view("getInterviews", (tx, ctx) => interviews.getInterviews(tx, ctx, { personId })));
 		const held = value(await view("getCommitments", (tx, ctx) => commitments.getCommitments(tx, ctx, { personId })));
-		// The Person page reads all three histories with the person, its fields and hints in one statement (RT-5).
 		const { records } = value(
 			await view("personPage", (tx, ctx) =>
 				readPersonPage(tx, ctx, { personId }, 50, { fields: true, records: 10, duplicates: true }),
@@ -537,9 +522,6 @@ try {
 		"correctCommitmentLifecycle",
 	])
 		await fixed(name);
-	// RT-2 design B, then a signed link to the exact object: sign is one statement, the browser puts the bytes, and the
-	// save is createCommitment's native write. The URL is signed locally by the real AWS signer; the fake bucket answers
-	// the save's read.
 	const bucket = {
 		bucket: storage.bucket,
 		client: Object.assign(
@@ -584,8 +566,6 @@ try {
 		300,
 	);
 
-	// WP-013 people CSV: preview, the import request, its job, the receipt and the export each use the same statements at
-	// two sizes.
 	for (const [n, tag] of [
 		[2, "a"],
 		[40, "b"],
@@ -616,7 +596,6 @@ try {
 		);
 		assert.equal(receipt.counts.created, n);
 		value(await view("exportPeople", (tx, ctx) => peopleCsv.exportPeople(tx, ctx, {})));
-		// The duplicates list (T-193) reads every flagged pair in one statement, however many people there are.
 		value(await view("listDuplicatePairs", (tx, ctx) => listDuplicatePairs(tx, ctx)));
 	}
 	for (const name of [
@@ -628,8 +607,6 @@ try {
 		"listDuplicatePairs",
 	])
 		await fixed(name);
-	// WP-015 merge, Unmerge and record corrections at the native boundary. Each runs on a pair whose source holds one
-	// skill and on a pair whose source holds twenty, and must use the same statement count.
 	for (const size of [1, 20]) {
 		const pair = [];
 		for (const name of ["Merge survivor " + size, "Merge source " + size])
@@ -651,7 +628,6 @@ try {
 				),
 			);
 		const ids = { sourceId: merging.id, survivorId: kept.id };
-		// The duplicates page reads both people and the review in its own transaction (WP-015/ui).
 		const page = value(
 			await view("duplicatePair", async (tx, ctx) => ({
 				status: "ok",
@@ -677,7 +653,6 @@ try {
 			await view("previewUnmerge", (tx, ctx) => peopleUnmerge.previewUnmerge(tx, ctx, { mergeId: merged.mergeId })),
 		);
 		assert.deepEqual(preview.conflicts, []);
-		// The Unmerge dialog reads the preview and both names in one transaction (WP-015/ui).
 		value(await view("unmergeView", (tx, ctx) => readUnmerge(tx, ctx, merged.mergeId)));
 		value(
 			await run("unmergePeople", (tx, ctx) =>
@@ -723,7 +698,6 @@ try {
 				recordCorrections.listRecordCorrections(tx, ctx, { personId: merging.id }),
 			),
 		);
-		// The correction dialog reads the three histories and the corrections in one transaction (WP-015/ui).
 		value(await view("correctionRecords", (tx, ctx) => readRecords(tx, ctx, merging.id)));
 	}
 	for (const name of [
@@ -739,7 +713,6 @@ try {
 		"correctionRecords",
 	])
 		await fixed(name);
-	// Meetings at the native boundary: the bound actor, one replay check, one locked read and one write statement.
 	const meetingWrite = (name, body) => measure("native.meetings." + name, () => withMeetingsWrite(f.db, actor, body));
 	const scheduled = await meetingWrite("schedule", (tx, ctx) =>
 		meetingsWriter.schedule(tx, ctx, {
@@ -757,14 +730,11 @@ try {
 	const answered = await meetingWrite("correctRsvp", (tx, ctx) =>
 		guestsWriter.correctRsvp(tx, ctx, {
 			requestKey: randomUUID(),
-			// The guest row the schedule created.
 			expectedRevision: "1",
 			input: { meetingId: scheduled.value.meeting.id, personId: created.value.person.id, rsvp: "confirmed" },
 		}),
 	);
 	assert.equal(answered.status, "ok");
-	// WP-022 at the same boundary: finalizing a held Vision with Needs-owner work and recording its evaluation. Unowned
-	// tasks owe no reminders, so the reminder port must not run.
 	const attendance = createAttendanceWriter({
 		reminders: async () => {
 			throw Error("unexpected_reminders");
@@ -802,8 +772,6 @@ try {
 		}),
 	);
 	assert.equal(evaluated.status, "ok");
-	// WP-022 with owned work: a Vision held an hour ago, finalized with an assigned follow-up and evaluation whose
-	// due and overdue notices are still in the future, through the real WP-031 reminder port.
 	const planned = createNotificationService({
 		mail: createMailService({
 			db: f.db,
@@ -816,8 +784,6 @@ try {
 				lookup: async () => ({ kind: "accepted", id: "synthetic-provider" }),
 			},
 		}),
-		// The production recipient lookup and mail authorization, as the tasks mount runs them; only the mail transport
-		// is synthetic.
 		async eligible(tx, inputs) {
 			const found = await reminderRecipients(
 				tx,
@@ -833,12 +799,10 @@ try {
 		.execute(sql`INSERT INTO meeting(id,plant_id,type,local_date,local_time,timezone,starts_at,resolver_version,
 		status,attendance_revision) VALUES(${recent},${s.w.id},'vision_meeting',${heldAt.slice(0, 10)},'00:00','UTC',
 		${heldAt},'1','completed',1)`);
-	// A Person with no earlier Vision, so the meeting owes them an owned first-Vision follow-up.
 	const newcomer = randomUUID();
 	await f.admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at) VALUES(${newcomer},${s.w.id},${s.w.id},'Newcomer','other',
 		'prospect','unknown','unknown',0,'live',clock_timestamp())`);
-	// A follow-up owner needs a committed Person linked to their account (REQ-TSK-012).
 	await f.admin.execute(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at,linked_account_id) VALUES(${s.w.id},${s.w.id},'Sender Person',
 		'other','core_group','unknown','unknown',0,'live',clock_timestamp(),${s.sender.id})`);
@@ -857,8 +821,6 @@ try {
 		),
 	);
 	assert.equal(owned.status, "ok", JSON.stringify(owned));
-	// Completing the assigned evaluation task cancels its future notices; reconciling to nobody closes the follow-ups,
-	// owned (notices cancelled) and unowned (no reminder work).
 	const attendanceWrite = (name, reminders, body) =>
 		measure("native.meetings." + name, () =>
 			withMeetingsWrite(f.db, actor, (tx, ctx) => body(createAttendanceWriter({ reminders }), tx, ctx)),
@@ -934,7 +896,6 @@ try {
 	const unused = async () => {
 		throw Error("unexpected_profile_collaborator");
 	};
-	// Each effect is rows the command runs inside its one write statement (D70); the mount does the same.
 	const proofs = new Map();
 	const organizations = createOrganizationAdapter(
 		{
@@ -976,7 +937,6 @@ try {
 		organizations["organizations.getProfile"](tx, orgActor.session, org.w, { organization: org.w }),
 	);
 	assert.equal(orgProfile.profile.name, "Native organization");
-	// Relationship writes at the native boundary: the write gate, one locked read, one replay check, one write statement.
 	const pair = { kind: "plant", subject: s.w, organization: org.w };
 	const linked = await f.db.execute(
 		sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings) VALUES(${s.w.id},${org.w.id},clock_timestamp(),true,true,true,true,true,true,true) RETURNING id`,
@@ -1062,7 +1022,6 @@ try {
 	);
 	assert.equal(profile.status, "ok");
 	if (profile.status !== "ok") throw Error("profile_refused");
-	// One church submission with two changes is one write: one audit row naming both, under one request key.
 	const churchKey = randomUUID();
 	const church = await measure("settings.saveChurch", () =>
 		withSettingsWrite(f.db, actor, plantContext, (tx) =>
@@ -1086,7 +1045,6 @@ try {
 	);
 	assert.equal(churchAudit.rows.length, 1);
 	assert.deepEqual(Object.keys(churchAudit.rows[0].metadata.diff).sort(), ["alertDays", "city", "warningDays"]);
-	// Each open seat's deletion notice joins the witness write, as the settings mount queues it.
 	const noticeMail = createMailService({
 		db: f.db,
 		encryptionKey: randomBytes(32),

@@ -209,8 +209,6 @@ test("BUG-PR127: statement timeout rolls back every handoff and permits exact re
 			handoffs: [{ kind: "assign", dutyId: duty, expectedRevision: "1", recipientAccountId: s.sender.id }],
 		},
 	};
-	// A real Postgres statement cancel (57014, as a statement deadline raises) after the writes, not a fake thrown
-	// error: the receipt insert waits on a row this test holds, and the test cancels it once Postgres shows it waiting.
 	await f.admin.execute(sql`CREATE TABLE stall_gate(id int PRIMARY KEY)`);
 	await f.admin.execute(sql`INSERT INTO stall_gate VALUES(1)`);
 	await f.admin.execute(
@@ -398,7 +396,6 @@ test("INV-pages INV-request-page: a page past the end reads the last page; revok
 		})),
 	);
 	let viewer;
-	// The People viewer as the request context composes it: the session's viewer and its own Person.
 	const readPeople = async (id) => {
 		const v = await readViewer(f.db, sessionId.parse(id));
 		return v?.authority ? peopleViewer(v.authority, v.person) : null;
@@ -420,7 +417,6 @@ test("INV-pages INV-request-page: a page past the end reads the last page; revok
 		ids.slice(0, 24),
 	);
 	assert.equal(list.data.page.total, 25);
-	// D67: a page number past the end reads the last page of the same filtered list, and names that page.
 	const beyond = await pageRead((tx, ctx) =>
 		readPeoplePage(tx, ctx, parseQuery(new URLSearchParams("q=Request+Person&page=9999"))),
 	);
@@ -433,8 +429,6 @@ test("INV-pages INV-request-page: a page past the end reads the last page; revok
 	assert.equal(person.status, "ok");
 	assert.equal(person.value.found.person.displayName, "Request Person 00");
 	assert.deepEqual(person.value.link, { status: "ok", value: { status: "linked", personId: ids[0] } });
-	// A read snapshot can never authorize a later write. The writer must recheck
-	// its session/seat inside the mutation transaction even with this context.
 	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, seat));
 	const stale = Object.assign(new PeopleReadContext(viewer.authority), {});
 	const changed = await f.db.transaction((tx) =>

@@ -17,11 +17,6 @@ import { peopleMerge } from "../../../packages/domain/src/people/merge/index.ts"
 import { peopleUnmerge } from "../../../packages/domain/src/people/unmerge/index.ts";
 import { listOrganizationDuplicatePairs } from "../../../packages/domain/src/people/duplicates.ts";
 
-// Pipeline export, removal on request and duplicate merge (REQ-MUL-005, REQ-MUL-017) against a migrated database.
-// Grace Austin, America/Chicago: Dana is the Owner, Ana (Member) directs the residency, Ben (Member) has no duty.
-// Casey Lee is a linked resident who shares milestone progress only; Jordan Reyes is unlinked; "Casey L." is a second
-// record with Casey's email.
-
 const database = await fixture({ prefix: "pipelinedata", max: 6 });
 const { admin } = database;
 const db = database.pools.runtime;
@@ -56,7 +51,6 @@ const rows = async (q: ReturnType<typeof sql>) => (await admin.execute(q)).rows 
 const exported = async (a: Actor = dana) => ok(await readPipelineExport(db, await authority(a)));
 const record = async (personId: string) => ok(await readPipelinePersonRecord(db, await authority(dana), { personId }));
 const tx = <T,>(body: (t: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>) => db.transaction(body);
-/** The CSV's data rows after its header, as records of column to value. */
 function table(text: string) {
 	const lines = text.replace(/^﻿/, "").split("\r\n");
 	const start = lines.findIndex((l) => l.startsWith("record,person_id,"));
@@ -127,7 +121,6 @@ before(async () => {
 			}),
 		);
 
-	// Two programs Ana directs, published, with Casey and Jordan in the residency and Jordan also an apprentice.
 	const plan = (handsOn: boolean) => ({
 		rhythm: "monthly",
 		expectedMonths: 12,
@@ -192,7 +185,6 @@ before(async () => {
 			body: "FEEDBACK-SECRET",
 		}),
 	);
-	// Then Casey's link: she accepted a residency invitation and shares milestone progress, not foundations progress.
 	const affiliation = randomUUID(),
 		invitation = randomUUID();
 	link = randomUUID();
@@ -206,7 +198,6 @@ before(async () => {
 	 accepted_at,consent_revision,revision,share_foundations,share_milestones)
 	 VALUES(${link},${grace.id},${casey},${caseyAccount.id},${affiliation},${invitation},clock_timestamp(),1,1,false,true)`);
 	await admin.execute(sql`UPDATE person SET linked_account_id=${caseyAccount.id} WHERE id=${casey}`);
-	// Casey also marked "Lead a small group" done herself: a resident-sourced mark, unlike Ana's recorded one.
 	await admin.execute(sql`INSERT INTO enrollment_milestone(id,organization_id,enrollment_id,version_id,milestone_id,source,
 	 completed_on,recorder_id) SELECT ${randomUUID()},e.organization_id,e.id,e.version_id,${milestones[1]!.id},'resident',
 	 ${today}::date,${caseyAccount.id} FROM development_enrollment e WHERE e.id=${enrollments.casey}`);
@@ -260,7 +251,6 @@ test("AC:ADR1-005 INV-privacy: the export holds contact, stage history, programs
 			["Jordan Reyes", "Write a church planting prospectus", today],
 		],
 	);
-	// No note, move reason, conversation note or feedback body, and nothing from Casey's own account.
 	for (const secret of [
 		"NOTE-SECRET",
 		"REASON-SECRET",
@@ -279,7 +269,6 @@ test("AC:ADR1-005 INV-privacy: after Casey stops sharing milestone progress the 
 	const now = table((await exported()).text);
 	const marks = (t: typeof now) =>
 		t.filter((r) => r.record === "milestone_completed").map((r) => `${r.name}: ${r.milestone}`);
-	// Only Casey's own mark drops; the one Ana recorded for Grace Austin always exports.
 	assert.deepEqual(
 		[marks(before), marks(now)],
 		[
@@ -291,7 +280,6 @@ test("AC:ADR1-005 INV-privacy: after Casey stops sharing milestone progress the 
 			["Casey Lee: Write a church planting prospectus", "Jordan Reyes: Write a church planting prospectus"],
 		],
 	);
-	// Everything else Grace Austin recorded about Casey is still there.
 	const caseyRows = (t: typeof now) => t.filter((r) => r.person_id === casey && r.record !== "milestone_completed");
 	assert.deepEqual(caseyRows(now), caseyRows(before));
 	await admin.execute(sql`UPDATE residency_link SET share_milestones=true,revision=revision+1 WHERE id=${link}`);
@@ -336,7 +324,6 @@ test("INV-tenancy: another organization's Owner exports, lists pairs and removes
 		assert.ok(!text.includes(value), value);
 	const own = { session: owner.session, selected: hope };
 	assert.deepEqual(ok(await tx((t) => listOrganizationDuplicatePairs(t, own as never))).items, []);
-	// Naming Grace Austin as the selected organization does not lend Hope's Owner a seat there.
 	assert.equal((await tx((t) => listOrganizationDuplicatePairs(t, ctx(owner) as never))).status, "refused");
 	refusedWith(
 		await pipelineDataWriter.removePerson(db, await authority(owner), { personId: jordan, expectedRevision: "1" }),
@@ -345,7 +332,6 @@ test("INV-tenancy: another organization's Owner exports, lists pairs and removes
 	assert.equal((await rows(sql`SELECT state FROM person WHERE id=${jordan}`))[0]!.state, "live");
 });
 
-/** Both records as their record pages, the person rows and the enrollment owners show them. */
 async function snapshot() {
 	const pages = await Promise.all([casey, caseyL].map(record));
 	const people = await rows(sql`SELECT id,display_name,email,state,merged_into_person_id,linked_account_id FROM person
@@ -383,13 +369,11 @@ test("AC:ADR1-017 Casey Lee and Casey L. are suggested by email; collisions refu
 			}),
 		);
 
-	// Linked to a different account: the pair can't be merged, and nothing changes.
 	await admin.execute(sql`UPDATE person SET linked_account_id=${other.id} WHERE id=${caseyL}`);
 	let r = await review();
 	assert.deepEqual(r.blockers.causes, ["linked_account_collision"]);
 	refusedWith(await merge(r.reviewDigest), "merge_blocked");
 	await admin.execute(sql`UPDATE person SET linked_account_id=NULL WHERE id=${caseyL}`);
-	// Both enrolled in the same program: refused too.
 	await admin.execute(sql`UPDATE development_enrollment SET program_id=${residency},version_id=(SELECT version_id FROM
 	 development_enrollment WHERE id=${enrollments.casey}),current_stage_id=(SELECT current_stage_id FROM development_enrollment
 	 WHERE id=${enrollments.casey}) WHERE id=${enrollments.caseyL}`);
@@ -401,7 +385,6 @@ test("AC:ADR1-017 Casey Lee and Casey L. are suggested by email; collisions refu
 	 development_enrollment WHERE id=${enrollments.jordanApprentice}) WHERE id=${enrollments.caseyL}`);
 	assert.deepEqual(await snapshot(), original);
 
-	// Dana keeps Casey Lee and her own email; Casey L.'s history, enrollment and conversation join Casey Lee's record.
 	r = await review();
 	assert.deepEqual(r.blockers.causes, []);
 	assert.deepEqual(
@@ -425,7 +408,6 @@ test("AC:ADR1-017 Casey Lee and Casey L. are suggested by email; collisions refu
 		0,
 	);
 
-	// Undo before anything else changes: both records come back exactly as they were.
 	const preview = ok(await tx((t) => peopleUnmerge.previewUnmerge(t, ctx(dana) as never, { mergeId: merged.mergeId })));
 	ok(
 		await tx((t) =>
@@ -443,7 +425,6 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 	const goals = ok(await readPipelineGoals(db, await authority(dana)));
 	const kind = (g: typeof goals, k: string) => g.kinds.find((x) => x.kind === k)?.count ?? 0;
 	const talks = (g: typeof goals) => g.conversations.months.reduce((n, m) => n + m.count, 0);
-	// His apprenticeship finished: that completion is a fact the church keeps, without his name.
 	await admin.execute(
 		sql`UPDATE development_enrollment SET status='completed' WHERE id=${enrollments.jordanApprentice}`,
 	);
@@ -477,7 +458,6 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 		],
 		attribution: "Former participant",
 	});
-	// Gone from the board, search, his record, the enrollment picker, the goal counts and the next export.
 	const board = ok(await readPipelineBoard(db, await authority(dana), {}));
 	assert.equal(
 		board.stages.flatMap((s) => s.people).some((p) => p.personId === jordan),
@@ -506,7 +486,6 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 	assert.equal(file.text.includes("Jordan"), false);
 	assert.equal(file.text.includes(jordan), false);
 	assert.equal(file.people, 2);
-	// What stays: the scrubbed person row, the completed enrollment, a body-free audit trail and the removal record.
 	assert.deepEqual(await rows(sql`SELECT display_name,email,state,linked_account_id FROM person WHERE id=${jordan}`), [
 		{ display_name: "Former participant", email: null, state: "retired", linked_account_id: null },
 	]);
@@ -522,7 +501,6 @@ test("AC:ADR1-005 INV-privacy: removing Jordan on request keeps only what Grace 
 		await rows(sql`SELECT requested_by FROM organization_person_removal WHERE person_record_id=${jordan}`),
 		[{ requested_by: dana.id }],
 	);
-	// A second request finds no one to remove.
 	refusedWith(
 		await pipelineDataWriter.removePerson(db, await authority(dana), { personId: jordan, expectedRevision: revision }),
 		"unavailable",
@@ -543,7 +521,6 @@ test("AC:ADR1-005 INV-privacy: removing linked Casey ends her link at once and l
 		}),
 	);
 	assert.deepEqual([report.removed.residencyLinkEnded, report.removed.notes, report.removed.feedback], [true, 1, 1]);
-	// My residency reads links by account: Casey has none now. Her account, sign-in and name are as they were.
 	assert.deepEqual(await residency(), []);
 	assert.deepEqual(
 		await rows(
@@ -614,7 +591,6 @@ test("AC:ADR1-005 AC:ADR1-017 INV-privacy: removing a person also removes the du
 		}),
 	);
 	assert.deepEqual([report.removed.mergedRecords, report.removed.conversations, report.removed.stageMoves], [1, 1, 2]);
-	// Both records are scrubbed and witnessed; nothing of either is left on the pipeline, in a merge or in the audit trail.
 	assert.deepEqual(
 		await rows(sql`SELECT display_name,email,state,merged_into_person_id FROM person WHERE id IN (${riley},${rileyP})`),
 		[0, 1].map(() => ({
@@ -638,7 +614,6 @@ test("AC:ADR1-005 AC:ADR1-017 INV-privacy: removing a person also removes the du
 		 AND (actor_id IS NOT NULL OR before_value IS NOT NULL OR after_value IS NOT NULL OR reason IS NOT NULL)`,
 	])
 		assert.deepEqual(await rows(q), [{ n: 0 }]);
-	// Out of the goal counts, the board, the duplicates list and the export.
 	assert.equal(await talks(), talksBefore - 1);
 	assert.equal(
 		ok(await readPipelineBoard(db, await authority(dana), { q: "riley" })).stages.flatMap((s) => s.people).length,

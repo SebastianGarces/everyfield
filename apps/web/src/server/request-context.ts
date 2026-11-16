@@ -9,21 +9,12 @@ import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { requestAuth } from "./identity";
 
-// Better Auth's own session read: two statements (session row, then user row). The request viewer calls it only when
-// the session needs Better Auth's own handling: a missing or expired session (Better Auth deletes it and clears the
-// cookie) or a session due for its expiry extension. The cookie comes from cookies(), which includes the cookies a
-// server action set: after a password change replaces the session, the page that action renders must read the new
-// session, not the revoked one in the request's Cookie header.
 const getSession = cache(async () => {
 	const request = new Headers(await headers());
 	request.set("cookie", (await cookies()).toString());
 	return requestAuth().api.getSession({ headers: request });
 });
 
-/**
- * One identity, actor and own-Person observation shared by every mount in this request: one statement reads the
- * session, its user and the viewer (RT-1). Cookie cache stays off (D64), so a revoked session fails on the next request.
- */
 export const getViewer = cache(async () => {
 	const db = requestDatabase();
 	if (!db) return null;
@@ -43,12 +34,10 @@ export const getViewer = cache(async () => {
 	if (!token) return unauthenticated;
 	const found = await readRequestViewer(db, token);
 	if (!found) {
-		// Let Better Auth delete an expired session and clear its cookie, as before.
 		await getSession();
 		return unauthenticated;
 	}
 	let expiresAt = found.session.expiresAt;
-	// Better Auth extends a session once updateAge has passed since its last extension, unless it is not remembered.
 	const { expiresIn, updateAge } = auth.sessionConfig;
 	if (
 		expiresAt.valueOf() - (expiresIn - updateAge) * 1000 <= Date.now() &&

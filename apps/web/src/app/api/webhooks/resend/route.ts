@@ -7,7 +7,6 @@ import { verifyCallback } from "../../../../server/platform/webhook";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** Read at most 16 KB, verify the provider signature once, then hand those verified bytes to the mail applier. */
 export async function resendWebhook(
 	request: Request,
 	resolveDb: () => Database | null,

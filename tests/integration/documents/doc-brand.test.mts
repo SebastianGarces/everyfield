@@ -1,5 +1,3 @@
-// WP-036 slice 3: what the PDF paints for one document (the palette and the brand-kit images), and the format's image
-// node printing the kit's own assets: `logo` the full logo, `mark` the mark, `photo` the cover photo. No database.
 import assert from "node:assert/strict";
 import test from "node:test";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
@@ -43,7 +41,6 @@ test("AC:CASE-BRD-006 the brand of a document is the palette the PDF paints, and
 		assert.equal(themed.palette[key], palette[key], key);
 	assert.equal(themed.palette.on.primary, palette.onPrimary);
 	assert.equal(themed.palette.on.accent, palette.onAccent);
-	// Every token the format has maps to a swatch color the renderer's own table gives.
 	for (const token of ["ink", "muted-text", "primary", "accent", "muted", "border"] as const)
 		assert.equal(tokenColor(palette, token), themed.palette[token === "muted-text" ? "mutedText" : token]);
 	assert.deepEqual(themed.assets, {
@@ -51,7 +48,6 @@ test("AC:CASE-BRD-006 the brand of a document is the palette the PDF paints, and
 		mark: null,
 		photo: { fileId: "22222222-2222-4222-8222-222222222222", alt: "Cover" },
 	});
-	// With church branding off, or with no kit or no primary color, the neutral theme paints and no church image shows.
 	const neutral = makePalette(NEUTRAL_EXPORT_THEME.render);
 	for (const brand of [
 		documentBrand(kit(), false),
@@ -130,7 +126,6 @@ test("AC:CASE-BRD-006 an image node prints the full logo, the mark or the cover 
 		);
 });
 
-// documents/doc-3: on a mid-tone fill neither white nor the ink reaches 4.5:1, so text on it falls back to black.
 const MID_TONES = ["#E53935", "#E91E63", "#D9534F"] as const;
 const INK = makePalette(NEUTRAL_EXPORT_THEME.render).ink;
 
@@ -141,7 +136,6 @@ test("AC:CASE-BRD-003 text on a mid-tone brand fill reaches 4.5:1", () => {
 		assert.equal(on, "#000000", fill);
 		assert.ok(ratio(on, fill) >= MIN_BODY, `${on} on ${fill} is ${ratio(on, fill).toFixed(2)}:1`);
 	}
-	// A fill white or the ink already clears keeps that color.
 	assert.equal(textOn("#1F4E6B", INK), "#FFFFFF");
 	assert.equal(textOn("#F4F1EA", INK), INK);
 });

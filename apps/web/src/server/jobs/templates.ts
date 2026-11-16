@@ -7,7 +7,6 @@ const purpose = z.enum([
 	"seat_invitation",
 	"relationship_invitation",
 ]);
-// Callers select only the purpose and a server-created link, never a template body.
 export function protectedTemplate(input: { purpose: z.infer<typeof purpose>; url: string }, publicOrigin: string) {
 	const p = purpose.parse(input.purpose),
 		url = new URL(input.url),

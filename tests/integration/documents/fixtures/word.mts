@@ -1,5 +1,3 @@
-// Hand-built Word files for the import tests: a zip of the named parts, stored unless an entry asks to deflate, so each
-// test states the exact XML Word would write and the reader sees nothing else.
 import { crc32, deflateRawSync } from "node:zlib";
 
 export function storedZip(entries) {
@@ -25,7 +23,6 @@ const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main
 const R = 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 const HYPERLINK = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 
-/** One Word paragraph: `props` is the inside of its w:pPr, `runs` its runs (a string is one text run). */
 export const p = (runs = [], props = "") =>
 	`<w:p>${props ? `<w:pPr>${props}</w:pPr>` : ""}${[runs]
 		.flat()
@@ -37,31 +34,24 @@ export const numbered = (numId, runs, ilvl = 0) =>
 export const link = (id, text) => `<w:hyperlink r:id="${id}"><w:r><w:t>${text}</w:t></w:r></w:hyperlink>`;
 export const br = "<w:r><w:br/></w:r>";
 export const tab = "<w:r><w:tab/></w:r>";
-/** A run holding a text box around `inner`, with the fallback copy Word writes beside it. */
 export const textBox = (inner) =>
 	`<w:r><mc:AlternateContent xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"><mc:Choice Requires="wps"><w:drawing><wps:txbx><w:txbxContent>${inner}</w:txbxContent></wps:txbx></w:drawing></mc:Choice><mc:Fallback><w:pict><v:textbox><w:txbxContent>${inner}</w:txbxContent></v:textbox></w:pict></mc:Fallback></mc:AlternateContent></w:r>`;
 
-/** A Word table: `rows` are its rows' XML, `props` the inside of its w:tblPr. */
 export const table = (rows, props = "") =>
 	`<w:tbl>${props ? `<w:tblPr>${props}</w:tblPr>` : ""}<w:tblGrid/>${rows.join("")}</w:tbl>`;
-/** A table row: `props` is the inside of its w:trPr. */
 export const row = (cells, props = "") => `<w:tr>${props ? `<w:trPr>${props}</w:trPr>` : ""}${cells.join("")}</w:tr>`;
-/** A row Word repeats as the header row at the top of each page; `value` is its w:tblHeader w:val, if any. */
 export const headerRow = (cells, value) =>
 	row(cells, value === undefined ? "<w:tblHeader/>" : `<w:tblHeader w:val="${value}"/>`);
-/** A table cell: each string in `blocks` is one paragraph of text unless it is XML already; `props` is its w:tcPr. */
 export const cell = (blocks = "", props = "") =>
 	`<w:tc>${props ? `<w:tcPr>${props}</w:tcPr>` : ""}${[blocks]
 		.flat()
 		.map((block) => (block.startsWith("<") ? block : p(block)))
 		.join("")}</w:tc>`;
 
-/** A paragraph style; `inner` holds its basedOn, pPr and the rest. */
 export const style = (id, name, inner = "") =>
 	`<w:style w:type="paragraph" w:styleId="${id}"><w:name w:val="${name}"/>${inner}</w:style>`;
 export const styles = (...list) => `<?xml version="1.0"?><w:styles ${W}>${list.join("")}</w:styles>`;
 
-/** A numbering part: each list is [numId, formats by level], one abstract definition for each. */
 export const numbering = (...lists) =>
 	`<?xml version="1.0"?><w:numbering ${W}>` +
 	lists
@@ -75,7 +65,6 @@ export const numbering = (...lists) =>
 	lists.map(([numId], i) => `<w:num w:numId="${numId}"><w:abstractNumId w:val="${i}"/></w:num>`).join("") +
 	"</w:numbering>";
 
-/** Relationships of the main part: each is [id, target, external?]. */
 export const rels = (...list) =>
 	`<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${list
 		.map(
@@ -84,7 +73,6 @@ export const rels = (...list) =>
 		)
 		.join("")}</Relationships>`;
 
-/** A .docx file's bytes: the body's paragraphs, with each optional part only when given (a string is the part's XML). */
 export function word(body, parts = {}) {
 	const entries = [
 		{
@@ -102,11 +90,6 @@ const OFFICE = "http://schemas.openxmlformats.org/officeDocument/2006/relationsh
 const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
 const PKG = 'xmlns="http://schemas.openxmlformats.org/package/2006/relationships"';
 
-/**
- * A .docx with the parts, relationships and deflated entries macOS `textutil -convert docx` writes (seen on
- * macOS 27): the document part's relationships climb to `../docProps/meta.xml`, and each run carries `w:sz-cs`. Each
- * string in `paragraphs` is the inside of one paragraph's run. `documentRels` replaces the document part's relationships.
- */
 export function textutilWord(paragraphs, documentRels) {
 	const run = (inner) =>
 		`<w:p><w:pPr></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Helvetica Light" w:hAnsi="Helvetica Light" w:cs="Helvetica Light"/><w:sz w:val="24"/><w:sz-cs w:val="24"/></w:rPr>${inner}</w:r></w:p>`;

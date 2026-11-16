@@ -19,8 +19,6 @@ import {
 	personFields as fields,
 } from "../../../packages/domain/src/people/index.ts";
 
-// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
-// here would be a bug.
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
@@ -29,7 +27,6 @@ const database = await fixture({ prefix: "wp011", max: 6, plant: { timezone: "Am
 const { admin } = database;
 const db = database.pools.runtime;
 let queries = [];
-/** Runs before each statement is sent, for tests that commit another change at an exact point of a write. */
 let beforeSend = null;
 
 const plants = [database.tenant.id, (await database.plant({ timezone: "America/New_York" })).id],
@@ -82,11 +79,9 @@ after(async () => {
 	await database.close();
 });
 
-/** A new account with one accepted seat, and the viewer a request resolves for it before any later change (D59). */
 async function seatedReader(role, selected) {
 	const a = await database.actor(null, role, { account: { registration_kind: "planter" } });
 	const seat = await database.seat(a, selected, role);
-	// The request's viewer lookup, before the change lands (D59).
 	const reader = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, a.session)));
 	return { ...a, seat, selected, reader };
 }
@@ -202,10 +197,8 @@ test("AC:TARGET-PPL-001 literal search, tag intersection, full totals and page n
 	assert.equal(second.items.length, 1);
 	assert.notEqual(second.items[0].id, page.items[0].id);
 	assert.equal(second.next, null);
-	// D67: a page past the end is an empty page with the full total, never a refusal.
 	const beyond = ok(await tx((t) => read.listPeople(t, ctx(1), { ...req, page: 3 })));
 	assert.deepEqual([beyond.items, beyond.total, beyond.next], [[], 2, null]);
-	// The church comes from the session, so another church's page 2 never shows these people.
 	const other = ok(await tx((t) => read.listPeople(t, ctx(2, { kind: "plant", id: plants[1] }), { ...req, page: 2 })));
 	assert.deepEqual([other.items, other.total], [[], 0]);
 	refused(await tx((t) => read.listPeople(t, ctx(), { search: "Literal", privateNote: "CANARY" })), "invalid_input");
@@ -264,7 +257,6 @@ test("BUG-PR110: activity pages retain microseconds across equal timestamp keys"
 		await admin.execute(
 			sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at) VALUES(${id},${plants[0]},${plants[0]},${p.id},${actors[0].id},'Microsecond note','2026-10-01T12:00:00.654321Z','2026-10-01T12:00:00.654321Z')`,
 		);
-	// Newest first: equal times fall back to the ID, descending.
 	const newest = [...ids].reverse();
 	const first = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id, kinds: ["note"], limit: 24 })));
 	assert.deepEqual(
@@ -289,7 +281,6 @@ test("AC:TARGET-PPL-008 person Activity is newest first and pages continue with 
 		id: randomUUID(),
 		at: new Date(Date.UTC(2026, 9, 1, 12, i)).toISOString(),
 	}));
-	// Written out of order: the read orders by event time, not by insertion.
 	for (const n of [...notes].sort(() => Math.random() - 0.5))
 		await admin.execute(
 			sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at) VALUES(${n.id},${plants[0]},${plants[0]},${p.id},${actors[0].id},'Note',${n.at},${n.at})`,
@@ -312,7 +303,6 @@ test("AC:TARGET-PPL-008 person Activity is newest first and pages continue with 
 	const all = [...first.items, ...second.items].map((a) => a.id);
 	assert.equal(new Set(all).size, 30);
 	assert.deepEqual(all, newest);
-	// A new edit is the newest event, so the person page's first page shows it on top.
 	const edited = ok(
 		await tx((t) =>
 			write.updatePerson(t, ctx(), {
@@ -370,8 +360,6 @@ test("AC:TARGET-PPL-004 AC:ROLE43-003 exact account links, ambiguous contact sel
 		).rows[0].n,
 		1,
 	);
-	// RT-6a: a "first" selection reads nothing, so on a plant that already has the account's Person the unique live
-	// link refuses a second one instead of creating it.
 	await assert.rejects(
 		tx((t) => accounts.ensureAccountPerson(t, { ...input, selection: { kind: "first", displayName: "Second" } })),
 	);
@@ -532,7 +520,6 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	p = result.person;
 	assert.equal(p.stage, "leader");
 	assert.deepEqual(p.commitment, { state: "unknown" });
-	// Activity shows the change as its newest entry, from the old stage to the new one.
 	const [changed] = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id }))).items;
 	assert.deepEqual([changed.kind, changed.from, changed.to], ["stage_changed", "prospect", "leader"]);
 	const noop = ok(
@@ -608,7 +595,6 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 		),
 	);
 	assert.deepEqual(retired.needsOwner, [duty]);
-	// D-d: the duty is about the Person, not held by the leaving account, so needs_owner clears the whole set.
 	assert.equal((await admin.execute(sql`SELECT 1 FROM task_assignee WHERE task_id=${sql.param(duty)}`)).rows.length, 0);
 	assert.equal(retired.person.lifecycle.state, "retired");
 	assert.deepEqual(
@@ -647,7 +633,6 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	const pipeline = ok(await tx((t) => read.getPipelineData(t, ctx(1), {})));
 	assert.equal(pipeline.groups.length, 5);
 	assert.ok(pipeline.groups.find((g) => g.column === "core_group").cards.some((card) => card.person.id === p.id));
-	// A person outside the named column is refused, never moved (D68: a move names one person).
 	refused(
 		await tx((t) =>
 			write.reorderPipeline(t, ctx(), {
@@ -674,7 +659,6 @@ test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, c
 	);
 });
 
-/** The person's revision as stored now. */
 const storedRevision = async (personId) =>
 	(await admin.execute(sql`SELECT revision::text AS revision FROM person WHERE id=${personId}::uuid`)).rows[0].revision;
 
@@ -689,7 +673,6 @@ test("AC:TARGET-PPL-008 original author and exact note revisions preserve occurr
 			}),
 		),
 	);
-	// Each note change answers with the person's new revision, so the next save on the page needs no reread.
 	assert.equal(added.personRevision, await storedRevision(p.id));
 	assert.notEqual(added.personRevision, p.revision);
 	const assertNoteFeed = async (kind) => {
@@ -797,7 +780,6 @@ test("AC:CA014 BUG-37313a5c7 explicit adult classification retains genuine histo
 			}),
 		),
 	);
-	// The answer is the person as saved: the new classification, the current commitment and the new revision.
 	assert.deepEqual(
 		[result.person.adultClassification, result.person.adultClassificationSource, result.person.commitment.state],
 		["adult", "recorded", "active"],
@@ -821,7 +803,6 @@ test("AC:CA014 BUG-37313a5c7 explicit adult classification retains genuine histo
 	);
 	assert.deepEqual([corrected.person.adultClassification, corrected.person.commitment.state], ["unknown", "active"]);
 	assert.equal(corrected.person.revision, await storedRevision(p.id));
-	// Classification creates no commitment: the historical acquisition stays the first one.
 	assert.deepEqual(
 		(
 			await admin.execute(
@@ -834,7 +815,6 @@ test("AC:CA014 BUG-37313a5c7 explicit adult classification retains genuine histo
 		(await admin.execute(sql`SELECT signed_on FROM commitment WHERE id=${sql.param(commitment)}`)).rows[0].signed_on,
 		before,
 	);
-	// BUG-church-date: the church's own today bounds the date. Kiritimati (UTC+14) is often already tomorrow in UTC.
 	await admin.execute(sql`UPDATE plant SET timezone='Pacific/Kiritimati' WHERE id=${plants[0]}::uuid`);
 	try {
 		const { today, tomorrow } = (
@@ -921,8 +901,6 @@ test("BUG-PR124 INV-pipeline: native moves place one person, persist and retry o
 	refused(await tx((t) => write.reorderPipeline(t, ctx(), { ...order, requestKey: randomUUID() })), "conflict");
 	const refreshedPipeline = ok(await tx((t) => read.getPipelineData(t, ctx(), { stages: ["leader"] })));
 	assert.equal(refreshedPipeline.groups.find((g) => g.column === "prospect").revision, String(Number(seen) + 1));
-	// BUG-124: a later move lands (another tab's or actor's); a replay of the first move then answers with the column as
-	// it stands now, the later order and its matching revision, as the reorder action reads it in the same transaction.
 	ok(
 		await tx((t) =>
 			write.reorderPipeline(t, ctx(), {
@@ -943,7 +921,6 @@ test("BUG-PR124 INV-pipeline: native moves place one person, persist and retry o
 		[replay.column.personIds, replay.column.revision],
 		[[all[0], last, ...all.slice(1, -1)], String(Number(seen) + 2)],
 	);
-	// The next move sent with the replay's revision saves.
 	ok(
 		await tx((t) =>
 			write.reorderPipeline(t, ctx(), {
@@ -957,7 +934,6 @@ test("BUG-PR124 INV-pipeline: native moves place one person, persist and retry o
 
 test("AC:TARGET-PPL-007 INV-stale-view: joining or leaving a column refuses a move from the older view", async () => {
 	const revision = async (column) => (await tx(async (t) => (await readColumnOrders(t, ctx(), [column]))[0])).revision;
-	// A move with the given column revision; refused when the column changed since that view (verifier finding on 93cf953).
 	const moveWith = (rev, personId, afterId) =>
 		tx((t) =>
 			write.reorderPipeline(t, ctx(), {
@@ -969,11 +945,9 @@ test("AC:TARGET-PPL-007 INV-stale-view: joining or leaving a column refuses a mo
 	const a = await create("Stale A", { stage: "following_up" });
 	const b = await create("Stale B", { stage: "following_up" });
 	const c = await create("Stale C", { stage: "following_up" });
-	// Create: someone joins the column.
 	let seen = await revision("following_up");
 	await create("Stale D", { stage: "following_up" });
 	refused(await moveWith(seen, a.id, c.id), "conflict");
-	// Stage change: B leaves for attendee; both columns move on, so a view of either is outdated.
 	seen = await revision("following_up");
 	const attendeeSeen = await revision("attendee");
 	const moved = ok(
@@ -992,7 +966,6 @@ test("AC:TARGET-PPL-007 INV-stale-view: joining or leaving a column refuses a mo
 	);
 	assert.notEqual(await revision("attendee"), attendeeSeen, "the column B joined moves on");
 	refused(await moveWith(seen, a.id, c.id), "conflict");
-	// Retire and restore: C leaves, then comes back.
 	seen = await revision("following_up");
 	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: c.id }))).reviewRevision;
 	const retired = ok(
@@ -1021,9 +994,7 @@ test("AC:TARGET-PPL-007 INV-stale-view: joining or leaving a column refuses a mo
 		),
 	);
 	refused(await moveWith(seen, a.id, null), "conflict");
-	// The current view saves.
 	ok(await moveWith(await revision("following_up"), a.id, null));
-	// A change inside the committed column (core group to leader) keeps that column's order and revision.
 	const core = await create("Stale core", { stage: "core_group" });
 	const coreSeen = await revision("core_group");
 	ok(
@@ -1088,9 +1059,7 @@ test("BUG-25b8ac319: full People pages and pipeline use fixed database round tri
 	t.diagnostic(JSON.stringify(counts));
 	assert.deepEqual(counts.list, [5, 5, 5]);
 	assert.deepEqual(counts.card, counts.list);
-	// BEGIN, column revisions, one window over all columns, commitment, duties, COMMIT.
 	assert.deepEqual(counts.pipeline, [6, 6, 6]);
-	// "Show more" names its column and reads one page of it with the same fixed statement count.
 	queries = [];
 	const more = ok(
 		await tx((t) =>
@@ -1108,7 +1077,6 @@ test("BUG-25b8ac319: full People pages and pipeline use fixed database round tri
 		more.groups.filter((g) => g.column !== "prospect").map((g) => [g.cards, g.total, g.next]),
 		Array.from({ length: 4 }, () => [[], null, null]),
 	);
-	// A page past the end is empty and still reports the column total (D67).
 	const past = ok(await tx((t) => read.getPipelineData(t, ctx(), { search: "Batch regression", limit: 25, page: 9 })));
 	assert.deepEqual(
 		past.groups.map((g) => [g.column, g.cards.length, g.total, g.next]),
@@ -1142,8 +1110,6 @@ test("BUG-25b8ac319: full People pages and pipeline use fixed database round tri
 	const overdue = randomUUID();
 	await admin.execute(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date,person_id)
 		VALUES(${overdue},${plants[0]},'Call','follow_up','medium','not_started',clock_timestamp(),'date_only','2000-01-01',${ids[1]})`);
-	// The page's own boundary (D59): one resolved actor, then the pipeline read with known commitments stays within
-	// BEGIN, column revisions, one window over the read columns, commitment evidence, duties, COMMIT.
 	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
 	const viewer = new PeopleReadContext(authority);
 	for (const column of [undefined, "prospect"]) {
@@ -1164,7 +1130,6 @@ test("BUG-25b8ac319: full People pages and pipeline use fixed database round tri
 		person: projected.items[0],
 		activeParentDuties: duties.map((id) => ({ id, dueOn: null, warning: "missing_due_date" })),
 		coverage: "covered",
-		// Created on October 1 with no later activity: past the church's alert days (REQ-PPL-007).
 		inactivity: { lastActivityAt: "2026-10-01T12:00:00.123Z", level: "alert" },
 	});
 	assert.deepEqual(cards[1].activeParentDuties, [{ id: overdue, dueOn: "2000-01-01", warning: "overdue" }]);
@@ -1179,15 +1144,11 @@ test("BUG-25b8ac319: full People pages and pipeline use fixed database round tri
 
 test("AC:TARGET-PPL-007 INV-move-round-trips: a pipeline move is one transaction with a constant round-trip count", async (t) => {
 	const ids = Array.from({ length: 10 }, () => randomUUID()).sort();
-	// No cleanup: the disposable schema is dropped after the suite.
-	// People with keys 1, 2, 3, ... in id order, as the writer leaves a column.
 	const insert = (some, from) =>
 		admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at)
 			SELECT id,${plants[0]}::uuid,${plants[0]}::uuid,'Move regression','other','interviewed','unknown','unknown',${from}::int + n,'live',clock_timestamp()
 			FROM unnest(${sql.param(some)}::uuid[]) WITH ORDINALITY AS t(id, n)`);
-	// Every audit row in the schema: the move must add exactly one, whatever its subject (D70).
 	const history = async () => (await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event`)).rows[0].n;
-	// The reorder action: the producer's command plus one column read, in one transaction.
 	const move = async (personId, afterId) => {
 		const column = await tx(async (t) => (await readColumnOrders(t, ctx(), ["interviewed"]))[0]);
 		const rows = await history();
@@ -1218,8 +1179,6 @@ test("AC:TARGET-PPL-007 INV-move-round-trips: a pipeline move is one transaction
 	assert.equal(many.count, few.count, "a move in a column of 10 costs the same as in a column of 3");
 	assert.deepEqual([few.history, many.history], [1, 1], "a move changes one person and writes one audit event");
 	assert.equal(few.count, 10, `reorder round trips: ${few.count}`);
-	// Legacy ties: 30 people who all share key 0, as every person had before migration 0015. After the migration a move
-	// between any two neighbours still changes exactly one row and writes one audit event.
 	const legacy = Array.from({ length: 20 }, () => randomUUID()).sort();
 	ids.push(...legacy);
 	await insert(legacy, 0);
@@ -1257,8 +1216,6 @@ test("AC:TARGET-PPL-007 INV-move-round-trips: a pipeline move is one transaction
 	assert.deepEqual(changedRows, [mover], "exactly one row changed");
 	assert.equal(legacyMove.history, 1, "one audit event");
 	assert.equal(legacyMove.count, few.count, "the same statements in a column of 30");
-	// 200 alternating moves into the same gap (verifier repro on 38c508f failed at move 59): each move halves the gap,
-	// lands strictly between its neighbours, changes exactly one row and writes one audit event.
 	const [top, m1, m2] = legacyMove.order;
 	let keys = await positions();
 	for (let i = 0; i < 200; i++) {
@@ -1276,7 +1233,6 @@ test("AC:TARGET-PPL-007 INV-move-round-trips: a pipeline move is one transaction
 		keys = now;
 	}
 	const [first] = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Move regression", limit: 1 }))).items;
-	// The stage-change action: the producer's command plus the target column's saved order, in one transaction.
 	const moved = ok(
 		await tx(async (t) => {
 			const done = await write.changeStatus(
@@ -1310,7 +1266,6 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 			}),
 		),
 	);
-	// The page reads with the request's cached viewer on the pool, as the web does: one statement for every part.
 	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
 	queries = [];
 	const page = ok(
@@ -1336,7 +1291,6 @@ test("INV-reads: the person page and the status warnings use a fixed number of s
 	const warningStatements = queries.length;
 	assert.deepEqual(warnings.warnings, ["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded"]);
 	assert.deepEqual(warnings.openDuties, []);
-	// Status warnings: BEGIN, actor, person, warnings, COMMIT.
 	assert.equal(warningStatements, 5, `status warnings: ${warningStatements} statements`);
 	assert.equal(
 		queries.some((q) => /for\s+(update|share)/i.test(q)),
@@ -1401,9 +1355,7 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 		admin.execute(
 			sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,plant_id,request_revision,state,witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${kind},${subject}::uuid,CASE WHEN ${kind}='plant' THEN ${subject}::uuid END,1,'pending_deletion',1,'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`,
 		);
-	// Each change lands after the viewer lookup, as in a request that already resolved its actor.
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${removed.seat}`);
-	// The actor's seat ends and a new one starts: the request's actor named the old seat.
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${reseated.seat}`);
 	await admin.execute(
 		sql`INSERT INTO seat(account_id,plant_id,role,accepted_at) VALUES(${reseated.id},${plant},'member',clock_timestamp())`,
@@ -1423,7 +1375,6 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 	await expectRefused(reseated, "seat replaced:", plantReads(reseated.reader));
 	await expectRefused(signedOut, "session expired:", plantReads(signedOut.reader));
 	await expectRefused(held, "account on hold:", plantReads(held.reader));
-	// A demoted organization Admin keeps no Admin-wide read of a person they have no duty for.
 	await expectRefused(demoted, "Admin demoted:", orgReads(demoted.reader));
 	await hold("plant", plant);
 	made.push(plant);
@@ -1434,7 +1385,6 @@ test("INV-tenancy (C13): a seat ended, signed out, held or demoted after the vie
 test("INV-reads (C22): a People read holds no lock on the reader's session, so sign-out never waits for it", async () => {
 	const p = await create("C22 session lock");
 	const viewer = new PeopleReadContext(await tx((t) => RequestActor.resolve(t, actors[0].session)));
-	// An organization Member's person read resolves its pipeline duties in the read itself.
 	const member = await seatedReader("member", {
 		kind: "organization",
 		id: organization,
@@ -1444,8 +1394,6 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 	await admin.execute(
 		sql`INSERT INTO person(id,tenant_id,organization_id,display_name,source,state,created_at,revision) VALUES(${orgPerson},${organization},${organization},'C22 organization person','other','live',clock_timestamp(),1)`,
 	);
-	// Every People read operation, with the request's cached viewer and with a plain { session, selected } context (as
-	// the photo route sends), which resolves its actor inside the read.
 	const plantReads = (c) => [
 		["listPeople", (t) => read.listPeople(t, c, {})],
 		["getPipelineData", (t) => read.getPipelineData(t, c, {})],
@@ -1463,8 +1411,6 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 		["getHouseholdMembers", (t) => fields.getHouseholdMembers(t, c, { personId: p.id })],
 		["getPersonPhoto", (t) => fields.getPersonPhoto(t, c, { personId: p.id })],
 	];
-	// An organization Member has no pipeline duty for this person, so person reads refuse after resolving duties in the
-	// read itself; they must still not lock the session on the way. An organization Owner reads every person.
 	const orgReads = (c, person) => [
 		["getPerson", (t) => read.getPerson(t, c, { personId: orgPerson }), person],
 		["readPersonPage", (t) => readPersonPage(t, c, { personId: orgPerson }, 50), person],
@@ -1483,7 +1429,6 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 	for (const [op, run, expected = "ok"] of reads)
 		await tx(async (t) => {
 			assert.equal((await run(t)).status, expected, op);
-			// The read's transaction is still open: a sign-out or session refresh must not wait for it.
 			try {
 				await admin.transaction(async (a) => {
 					await a.execute(sql`SET LOCAL lock_timeout='250ms'`);
@@ -1498,8 +1443,6 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 	assert.deepEqual(waited, []);
 });
 
-// RT-3: a native People write sends no BEGIN, gate or request-key read on its first attempt. Its final statement checks
-// the actor's seat and repeats its reads with their locks, so these must hold with no explicit transaction.
 test("INV-revocation INV-idempotency: a native write checks the seat in its own statement, and a retry replays", async () => {
 	const p = await create("Native write");
 	const seated = await seatedReader("admin", { kind: "plant", id: plants[0] });
@@ -1512,7 +1455,6 @@ test("INV-revocation INV-idempotency: a native write checks the seat in its own 
 				input: { personId: p.id, patch: { displayName } },
 			}),
 		);
-	// The seat ends after the request resolved its viewer: the write changes nothing.
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${seated.seat}`);
 	try {
 		refused(await rename(randomUUID(), "Too late"));
@@ -1520,7 +1462,6 @@ test("INV-revocation INV-idempotency: a native write checks the seat in its own 
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE id=${seated.seat}`);
 	}
 	assert.equal(ok(await tx((t) => read.getPerson(t, ctx(), { personId: p.id }))).person.displayName, "Native write");
-	// A lost reply: the same request again returns the first answer and writes nothing more.
 	const key = randomUUID();
 	const audits = async () =>
 		(await admin.execute(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id=${p.id}::uuid`)).rows[0].n;
@@ -1530,7 +1471,6 @@ test("INV-revocation INV-idempotency: a native write checks the seat in its own 
 	assert.deepEqual(json(ok(await rename(key, "Renamed once"))), json(first));
 	assert.equal(await audits(), before);
 	refused(await rename(key, "Another name"), "conflict");
-	// RT-6b: the replay reads its stored answer without the gate, but with the actor's live access: no seat, no answer.
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${seated.seat}`);
 	try {
 		refused(await rename(key, "Renamed once"));
@@ -1545,7 +1485,6 @@ test("INV-concurrency: a change committed while a native write is in flight is n
 	let release, changed;
 	const held = new Promise((resolve) => (release = resolve)),
 		ready = new Promise((resolve) => (changed = resolve));
-	// Another writer changes the Person and keeps its row lock until the native write has read the old row.
 	const other = admin.transaction(async (b) => {
 		await b.execute(sql`UPDATE person SET display_name='Other', revision=revision+1 WHERE id=${p.id}::uuid`);
 		changed();
@@ -1560,7 +1499,6 @@ test("INV-concurrency: a change committed while a native write is in flight is n
 			input: { personId: p.id, patch: { displayName: "Mine" } },
 		}),
 	);
-	// The native write's final statement waits for the other writer's row lock.
 	await waitingOnLock(db);
 	assert.ok(
 		queries.some((q) => q.startsWith("/* evf:final */")),
@@ -1577,14 +1515,12 @@ test("INV-date: an assessment runs in the gate's transaction, so a church time z
 	const authority = await tx((t) => RequestActor.resolve(t, actors[0].session));
 	const zone = (name) => admin.execute(sql`UPDATE plant SET timezone=${name} WHERE id=${plants[0]}::uuid`);
 	const lens = { score: 1, notes: null };
-	// Kiritimati (UTC+14) is always at least one day ahead of Pago Pago (UTC-11).
 	await zone("Pacific/Kiritimati");
 	let changed = null;
 	try {
 		const day = (
 			await admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'Pacific/Kiritimati')::date::text AS d`)
 		).rows[0].d;
-		// The change starts after the assessment read its subject, while its transaction holds the church row.
 		beforeSend = async (text) => {
 			if (!text.startsWith("/* evf:final */")) return;
 			beforeSend = null;
@@ -1616,10 +1552,7 @@ test("INV-date: an assessment runs in the gate's transaction, so a church time z
 	}
 });
 
-// REQ-PPL-026: adult or child comes from the birth date when there is one (Sebastian, Oct 30 2026: "Set adult or child
-// automatically from the birth date"). The 18 threshold and "birth date wins" are Jonah's rule.
 const BOUNDARIES = [
-	// [birth date, plant-local today, expected, why]
 	["2008-06-16", "2026-06-15", "child", "the day before the 18th birthday"],
 	["2008-06-15", "2026-06-15", "adult", "the 18th birthday"],
 	["2008-06-15", "2026-06-16", "adult", "the day after the 18th birthday"],
@@ -1641,7 +1574,6 @@ test("INV-adult: one rule in TypeScript and in SQL, over the same boundary cases
 		).rows[0];
 		assert.equal(row.value, expected, `SQL: ${why}`);
 	}
-	// Without a birth date the manual value stands, and the source says which one it is.
 	for (const manual of ["adult", "child", "unknown"]) {
 		assert.deepEqual(effectiveAdult(null, manual, null), {
 			value: manual,
@@ -1658,7 +1590,6 @@ test("INV-adult: one rule in TypeScript and in SQL, over the same boundary cases
 });
 
 test("INV-adult: the plant-local date decides, not the UTC date", async () => {
-	// 2026-06-15T03:00Z is still June 14 in Chicago and already June 15 in UTC. The 18th birthday is June 15.
 	const instant = "2026-06-15T03:00:00Z";
 	const day = async (zone) =>
 		(await admin.execute(sql`SELECT (${instant}::timestamptz AT TIME ZONE ${zone})::date::text AS day`)).rows[0].day;
@@ -1672,7 +1603,6 @@ test("INV-adult: the plant-local date decides, not the UTC date", async () => {
 		)
 	).rows[0];
 	assert.equal(row.value, "child");
-	// The read uses the plant's own zone, as plantTodaySql says.
 	const today = (
 		await admin.execute(
 			sql`SELECT ${plantTodaySql(sql`${plants[0]}::uuid`)} AS day, (clock_timestamp() AT TIME ZONE 'America/New_York')::date::text AS expected`,
@@ -1681,7 +1611,6 @@ test("INV-adult: the plant-local date decides, not the UTC date", async () => {
 	assert.equal(today.day, today.expected);
 });
 
-/** A date `years` before the plant's current date, moved by `days`, as the plant's calendar says it. */
 async function daysFromBirthday(years, days = 0) {
 	return (
 		await admin.execute(
@@ -1719,7 +1648,6 @@ test("AC:REQ-PPL-026 the birth date decides adult or child and wins over a manua
 	assert.equal(recorded.person.adultClassification, "child");
 	let p = (await tx((t) => read.getPerson(t, ctx(), { personId: p0.id }))).value.person;
 	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["child", "recorded"]);
-	// Thirty years old by the birth date: the manual "child" no longer applies, at once.
 	p = await setBirth(p, await daysFromBirthday(30));
 	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["adult", "birth_date"]);
 	const stored = async () =>
@@ -1735,7 +1663,6 @@ test("AC:REQ-PPL-026 the birth date decides adult or child and wins over a manua
 	assert.equal(await events(), 1, "the manual history stays");
 	const feed = ok(await tx((t) => read.getActivities(t, ctx(), { personId: p.id })));
 	assert.ok(feed.items.some((a) => a.kind === "activity" && a.action === "classification_recorded"));
-	// A record or correction is refused while a birth date exists.
 	for (const [method, expectedRevision] of [
 		["recordAdultClassification", p.revision],
 		["correctAdultClassification", p.revision],
@@ -1750,17 +1677,14 @@ test("AC:REQ-PPL-026 the birth date decides adult or child and wins over a manua
 			),
 			"birth_date_decides",
 		);
-	// Removing the birth date makes the last recorded value effective again.
 	p = await setBirth(p, null);
 	assert.deepEqual([p.adultClassification, p.adultClassificationSource], ["child", "recorded"]);
-	// A birth date on create, with an adult classification the date contradicts: accepted, and the date wins.
 	const both = await create("Both given", { adultClassification: "child", birthDate: await daysFromBirthday(40) });
 	assert.deepEqual([both.adultClassification, both.adultClassificationSource], ["adult", "birth_date"]);
 });
 
 test("AC:REQ-PPL-026 adult or child dated after the church's today is refused with reason future_date", async () => {
 	const p = await create("Dated tomorrow");
-	// Three days ahead is after the church's today in every time zone.
 	const ahead = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
 	for (const method of ["recordAdultClassification", "correctAdultClassification"])
 		rejected(
@@ -1834,7 +1758,6 @@ test("AC:REQ-PPL-026 a derived adult is only an input to a count: the commitment
 		sql`UPDATE person SET commitment_state='active' WHERE id=ANY(${sql.param([people.adultCommitted.id, people.childCommitted.id])}::uuid[])`,
 	);
 	const items = ok(await tx((t) => read.listPeople(t, ctx(), { search: "Count " }))).items;
-	// The count a reader makes: an effective adult with a currently active commitment.
 	const counted = items.filter((p) => p.adultClassification === "adult" && p.commitment.state === "active");
 	assert.deepEqual(
 		counted.map((p) => p.displayName),
