@@ -1,7 +1,0 @@
-{
-	"apps/web/src/features/people/corrections/DuplicatePairs.tsx": 1,
-	"apps/web/src/features/people/corrections/DuplicatesScreen.tsx": 1,
-	"apps/web/src/features/people/corrections/EditRecordDialog.tsx": 2,
-	"apps/web/src/features/people/corrections/UnmergeDialog.tsx": 2,
-	"apps/web/src/features/people/corrections/parts.tsx": 1
-}
