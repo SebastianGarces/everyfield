@@ -251,7 +251,8 @@ defect shows a bug that is not fixed yet: it passes while the bug is there, and 
 behaves as the map says. It checks: every route belongs to one surface or the shrink-only pending list; route
 files import only their own feature; every `loading`, `error` and `not-found` file is a declared state; test
 names exist exactly; cases are `AC:` markers in those tests; operations are in the catalog, serve the behavior's
-catalog features and are quoted or declared in code; email links name a template that builds that path; rail
+catalog features and are quoted or declared, comments and tests excluded, in `packages/*/src`,
+`apps/web/src/server` or a feature folder; email links name a template that builds that path; rail
 reaches agree with `shellNav` both ways for every persona; personas are QA seed logins whose name, context, role
 and residency link match what the seed creates; a behavior proof checks more than the address after it acts;
 on a surface that polls, a waiting check follows every open, click, press and upload; and every name, label
