@@ -12,8 +12,6 @@ import {
 } from "../../../packages/domain/src/organizations/reads.ts";
 import { fixture, key } from "../identity/invitations-support.mts";
 
-// C13: every organization read checks the request actor's live access in its own statement. A read made with a
-// RequestActor resolved before its seat ended, or before its session ended, returns no tenant data.
 let f;
 before(async () => {
 	f = await fixture();
@@ -31,12 +29,10 @@ const viewerOf = (authority, kind) => ({
 	access: liveAccess(authority),
 });
 
-/** Each read with the answer it gives a live viewer, and the answer that holds no tenant data. */
 async function answers(db, viewer, ids) {
 	return {
 		namesFor: await namesFor(db, viewer, [ids.subject]),
 		pendingFor: (await pendingFor(db, viewer)).map((p) => p.invitationId),
-		// The pages ask for targets only for a viewer who can manage, which a resident never is.
 		targetsFor: viewer.kind === "account" ? [] : (await targetsFor(db, viewer, new Set())).map((r) => r.name),
 		subjectFacts: await subjectFacts(db, viewer),
 		residencyLinks: (await residencyLinks(db, viewer)).map((l) => l.linkId),

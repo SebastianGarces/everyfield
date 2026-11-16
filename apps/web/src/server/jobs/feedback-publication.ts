@@ -8,28 +8,17 @@ import type { HeldReason } from "@everyfield/contracts/feedback";
 import type { IssueClient, IssueLink } from "./github.ts";
 import { claimDue, finishClaim, lockClaim, recoverLease, type Claim } from "./queue.ts";
 
-// The feedback publication worker (REQ-ADM-003). feedback.submit queues one feedback_publication job with the feedback;
-// the scheduled runner claims it here. The public issue is the closed serializer's title and body and nothing else.
-// Before GitHub is called, the intent, the frozen payload with its hash and the target repository are saved. A call
-// without a clear answer leaves the feedback "unknown"; the next run first searches that same stored repository for
-// the reference, and creates an issue only when the search shows none. A failed or ambiguous search holds it for the
-// triager. Publication never reads or changes the status triage sets, and never reads GitHub's issue state back.
-
-/** Queues the operator email inside the statement that settles the publication: the CTEs of the shared mail ledger. */
 export type OperatorMail = (notice: OperatorNotice) => SQL;
 export type OperatorNotice = {
 	tenant: string;
 	feedbackId: string;
 	reference: string;
-	/** The frozen public issue, or null when the fields were not safe to publish. */
 	issue: PublicIssue | null;
 	url: string | null;
 };
 export type PublicationConfig = {
-	/** The repository a new intent targets. A feedback with an intent keeps the repository it saved. */
 	repository: { id: string; name: string };
 	issues: IssueClient;
-	/** Null when no operator inbox is configured: then no operator email is queued. */
 	operatorMail: OperatorMail | null;
 };
 
@@ -52,7 +41,6 @@ const ACTION = {
 	unknown: "feedback.publication_unknown",
 } as const;
 
-/** Saves the intent, frozen payload, hash and target repository with its audit row, before any call. One statement. */
 async function intend(tx: Transaction, f: Feedback, issue: PublicIssue, repository: PublicationConfig["repository"]) {
 	const r = await tx.execute(sql`WITH upd AS (
  UPDATE feedback SET publication_state='publishing', publication_payload=${JSON.stringify(issue)}::jsonb,
@@ -66,10 +54,6 @@ async function intend(tx: Transaction, f: Feedback, issue: PublicIssue, reposito
 	if (r.rows[0]?.n !== 1) throw Error("feedback_publication_changed");
 }
 
-/**
- * Records the outcome with its audit row and, once it is settled (published or held), queues the operator email in the
- * same statement. One statement.
- */
 async function settle(tx: Transaction, f: Feedback, outcome: Outcome, mail: OperatorMail | null) {
 	const set =
 		outcome.state === "published"
@@ -108,7 +92,6 @@ async function settle(tx: Transaction, f: Feedback, outcome: Outcome, mail: Oper
 
 type Step = { f: Feedback; issue: PublicIssue; repository: string; reconcile: boolean };
 
-/** Under the claim and the feedback's row lock: settles what needs no call, or saves the intent and says what to call. */
 async function prepare(tx: Transaction, claim: Claim, config: PublicationConfig): Promise<Step | null> {
 	if (claim.kind !== "feedback_publication" || !(await lockClaim(tx, claim))) return null;
 	const found = await tx.execute(sql`SELECT id, account_id, category, page_address, reference, publication_state,
@@ -133,7 +116,6 @@ async function prepare(tx: Transaction, claim: Claim, config: PublicationConfig)
 		await intend(tx, f, issue, config.repository);
 		return { f: { ...f, publication_payload: issue }, issue, repository: config.repository.name, reconcile: false };
 	}
-	// An earlier call may have created the issue: look in the repository the intent saved, never today's.
 	return { f, issue: f.publication_payload!, repository: f.repository_name!, reconcile: true };
 }
 
@@ -147,7 +129,6 @@ async function call(step: Step, claim: Claim, issues: IssueClient): Promise<Outc
 	const created = await issues.create(step.repository, step.issue);
 	if (created.kind === "created") return { state: "published", issue: created.issue };
 	if (created.kind === "refused") return { state: "held", reason: "github_refused" };
-	// No answer. With attempts left, the next run reconciles; on the last one it stays held for the triager.
 	return claim.attempt_count >= claim.max_attempts ? { state: "held", reason: "unresolved" } : { state: "unknown" };
 }
 
@@ -166,10 +147,6 @@ async function publish(db: Database, claim: Claim, config: PublicationConfig) {
 	});
 }
 
-/**
- * One bounded batch of feedback publication: returns expired leases to the queue, then claims and publishes due
- * feedback one at a time, starting none after `until`. Returns how many it claimed.
- */
 export async function runDueFeedbackPublication(
 	db: Database,
 	config: PublicationConfig,
@@ -182,7 +159,6 @@ export async function runDueFeedbackPublication(
 		const [claim] = await claimDue(db, ["feedback_publication"], 1);
 		if (!claim) break;
 		claimed++;
-		// A failed run keeps its lease; lease recovery returns it to the queue. No error text: it can carry values.
 		await publish(db, claim, config).catch(() =>
 			console.error(JSON.stringify({ component: "feedback-publication", outcome: "error" })),
 		);

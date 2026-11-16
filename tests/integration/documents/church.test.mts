@@ -34,7 +34,6 @@ const sha = (text) => createHash("sha256").update(text).digest("hex");
 
 class MemoryClient extends S3Client {
 	objects = new Map();
-	/** Runs before the next object write, once: a race test holds one export at the bucket here. */
 	beforePut = null;
 	constructor() {
 		super({
@@ -200,13 +199,11 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			revisions: before.revisions + 1,
 			audits: before.audits + 1,
 		});
-		// The stored revision is the document, byte for byte.
 		const [row] = await rowsOf(
 			sql`SELECT r.body, r.content_hash FROM document_revision r WHERE r.document_id = ${doc.id}::uuid`,
 		);
 		assert.deepEqual(JSON.parse(row.body), doc.body);
 		assert.equal(row.content_hash, sha(row.body));
-		// The same request key returns the same document and writes once.
 		const again = ok(await create(ADMIN, "conflict-of-interest-policy", "wp036-policy"));
 		assert.deepEqual(again, doc);
 		assert.deepEqual(await counts(), after);
@@ -251,7 +248,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		broken.body.content.push({ type: "paragraph", content: [{ type: "field", attrs: { key: "pastor_name" } }] });
 		const fault = refused(await save(ADMIN, doc.id, "1", broken), "invalid_input");
 		assert.match(fault.details.issues[0].problem, /the merge field "pastor_name" is not declared in "fields"/);
-		// A total is computed: a typed amount on a budget's subtotal row is refused.
 		const typedTotal = structuredClone(state.budget.body);
 		const ledger = typedTotal.body.content.find((n) => n.type === "table");
 		const subtotal = ledger.content.find((r) => r.attrs?.role === "subtotal");
@@ -279,11 +275,8 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 
 	test("AC:DOC-016 a body the editor builds saves as one revision; a Member's save writes nothing", async () => {
 		const doc = state.policy;
-		// The editor holds the body in its own schema and builds the stored document with documentFrom. Edit it the way
-		// the toolbar does (a tag, a link, a hard break, a page break) and save what comes out.
 		const schema = editorSchema();
 		const json: any = schema.nodeFromJSON(editorContent(doc.body)).toJSON();
-		// The page footer is the last child of the editor's document, so the new blocks go in before it.
 		const body = json.content.at(-1)?.type === "pageFooter" ? json.content.slice(0, -1) : json.content;
 		const tail = json.content.at(-1)?.type === "pageFooter" ? [json.content.at(-1)] : [];
 		json.content = [
@@ -319,9 +312,7 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		assert.equal(saved.revision, String(Number(doc.revision) + 1));
 		assert.deepEqual(saved.body, edited);
 		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
-		// Each face the saved revision's PDF names embeds that face's own font program, not the regular one.
 		const faces = await pdfFontFaces(bytesFrom(ok(await fileOf(MEMBER, doc.id, "pdf", Number(saved.revision)))));
-		// BaseFont "DMSans-Bold-Italic" is the font program whose own name table says family "DM Sans", style "Bold Italic".
 		const named = faces.map((f) => [f.baseFont, `${f.family.replace(/ 14pt$/, "")} ${f.style}`]);
 		for (const [baseFont, held] of named) {
 			const [family, ...style] = baseFont.split("-");
@@ -347,14 +338,12 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		assert.deepEqual(church.assets, { logo: null, mark: null, photo: null }, "this kit has no images");
 		assert.equal(edit.brands.plain.palette.themed, false, "the plain look is the Everyfield-neutral theme");
 		assert.deepEqual(edit.brands.plain.assets, { logo: null, mark: null, photo: null });
-		// T-17: the church's current value of each merge field Insert offers; a field with no value now is left out.
 		assert.deepEqual(edit.mergeValues, {
 			church_name: "Harvest Point",
 			pastor_name: "Pastor Ada",
 			church_tagline: "A church for the whole city.",
 			contact_line: "harvestpoint.church  ·  (555) 010-0100",
 		});
-		// T-80: the editor read also says where the document stands against its template.
 		assert.ok(["current", "behind"].includes(edit.template));
 		const { brands: _brands, mergeValues: _values, template: _template, ...document } = edit;
 		assert.deepEqual(
@@ -390,14 +379,12 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		};
 		const BLANK = "Not filled in yet. Your church or its sending network adds this text. It stays blank until then.";
 
-		// An empty section that was not deleted prints the marked blank, never default text.
 		const empty = ok(await save(ADMIN, doc.id, doc.revision, withSlot()));
 		let out = await texts(empty.revision);
 		for (const text of [out.pdf, out.word]) {
 			assert.match(text, /statement of faith/i);
 			assert.ok(text.includes(BLANK), "the marked blank prints");
 		}
-		// Filled, it prints the church's statement in that section.
 		doc = empty;
 		const filled = ok(
 			await save(
@@ -417,7 +404,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			out.word.includes(STATEMENT) && !out.word.includes(BLANK),
 			"the Word file prints the statement, no blank",
 		);
-		// Deleted, neither file has the section, its label or a blank; the text after it follows straight on.
 		doc = filled;
 		const gone = ok(await save(ADMIN, doc.id, doc.revision, original));
 		out = await texts(gone.revision);
@@ -429,10 +415,8 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			assert.ok(!text.includes(STATEMENT) && !text.includes(BLANK), `the ${name} has no section and no blank`);
 			assert.match(text, /left the room\. (08 )?Yearly statement/, `the ${name} runs straight on to the next heading`);
 		}
-		// The revision saved before the delete keeps its section.
 		assert.ok((await texts(filled.revision)).word.includes(STATEMENT), "the earlier revision still prints it");
 
-		// History lists every revision with who saved it (the auth user's name).
 		const history = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
 		const last = history.revisions.slice(-3);
 		assert.deepEqual(
@@ -466,7 +450,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		assert.deepEqual(await pdfPages(bytesFrom(pdf)), ["Template, not legal advice"]);
 		const word = docxParts(bytesFrom(ok(await fileOf(MEMBER, doc.id, "docx"))));
 		assert.equal(wordText(word["word/footer1.xml"]), "Template, not legal advice");
-		// The earlier revision still prints its own text.
 		assert.match(await policyText(ok(await fileOf(MEMBER, doc.id, "pdf", 2))), /Adopted on a Tuesday\./);
 		state.policy = saved;
 	});
@@ -513,7 +496,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			"access_denied",
 		);
 		assert.deepEqual(await counts(), before, "nothing is written");
-		// Another church plant's seat cannot see the document at all.
 		refused(await documentsWriter.readChurch(db, await authority(OTHER), { documentId: budget.id }), "unavailable");
 		refused(await fileOf(OTHER, budget.id, "pdf"), "unavailable");
 		assert.deepEqual(ok(await documentsWriter.listChurch(db, await authority(OTHER), {})).documents, []);
@@ -550,7 +532,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: sign.id, expectedRevision: "1" }),
 			"unavailable",
 		);
-		// BUG: a deleted document was still exported and its revisions still read by anyone who kept its id.
 		refused(await exportDoc(MEMBER, sign.id, 1, "pdf", "wp036-export-after-delete"), "unavailable");
 		refused(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: sign.id }), "unavailable");
 		refused(
@@ -584,7 +565,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			};
 		};
 
-		// 1. An unfilled slot reads back with its label and no content: the data the editor's marked blank needs.
 		const blank = ok(await save(OWNER, doc.id, doc.revision, withBody([para(BEFORE), blankSlot, para(AFTER)])));
 		assert.equal(blank.revision, "2");
 		const read = ok(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: doc.id }));
@@ -595,7 +575,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		);
 		assert.deepEqual(two.body, read.body);
 
-		// 5. Anyone who reads it exports a visible, labelled blank and never default or doctrinal wording.
 		const empty = await files(MEMBER, 2, "doc020-blank");
 		for (const text of [empty.pdf, empty.docx]) {
 			assert.match(text, /statement of faith/i);
@@ -603,7 +582,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			assert.equal(DOCTRINAL.test(text), false, `doctrinal words: ${DOCTRINAL.exec(text)?.[0]}`);
 		}
 
-		// 2. The church's own statement prints under the label, with no blank note.
 		const filled = ok(await save(OWNER, doc.id, "2", withBody([para(BEFORE), filledSlot, para(AFTER)])));
 		assert.equal(filled.revision, "3");
 		const own = await files(OWNER, 3, "doc020-filled");
@@ -612,7 +590,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			assert.equal(text.includes(SLOT_BLANK_NOTE), false);
 		}
 
-		// 3. Deleting the slot saves as one new revision; its files hold no label, no blank and no frame.
 		const before = await counts();
 		const deleted = ok(await save(OWNER, doc.id, "3", withBody([para(BEFORE), para(AFTER)])));
 		assert.equal(deleted.revision, "4");
@@ -628,7 +605,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		const tables = (xml) => (xml.match(/<w:tbl>/g) ?? []).length;
 		assert.equal(tables(gone.xml), tables(own.xml) - 1, "the slot's frame is gone from the Word file");
 
-		// 4. The earlier revisions keep the slot in history and still export it as they were saved.
 		const three = ok(
 			await documentsWriter["history.get"](db, await authority(MEMBER), { documentId: doc.id, revision: 3 }),
 		);
@@ -685,7 +661,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		assert.notEqual(plain.digest, pdf.digest);
 		assert.equal(ok(await fileOf(MEMBER, doc.id, "pdf")).digest, plain.digest, "the preview follows the toggle");
 	});
-	// T-54: a Download saves one export (D-78); the page lists the saved exports and a list download is the stored bytes.
 	const listExports = async (who, documentId) => documentsWriter.listExports(db, await authority(who), { documentId });
 	const exportFile = async (who, documentId, exportId) =>
 		documentsWriter.readExportFile(db, await authority(who), { documentId, exportId }, storage);
@@ -693,7 +668,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		documentsWriter.deleteExport(db, await authority(who), { documentId, exportId });
 	const exportDeletes = (id) =>
 		countOf("audit_event", `WHERE action = 'documents.export_deleted' AND subject_id = '${id}'::uuid`);
-	/** The object cleanup jobs a deleted export queued for its stored file. */
 	const cleanups = (id) =>
 		rowsOf(
 			sql`SELECT j.subject_record_id::text AS object_id, j.state FROM job j
@@ -760,7 +734,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		const file = ok(await exportFile(MEMBER, doc.id, pdf.id));
 		assert.equal(sha256(bytesFrom(file)), pdf.digest, "the saved export keeps its first bytes, not a new render");
 		assert.deepEqual(bytesFrom(file), await bytesOf(pdf), "they are the stored object, byte for byte");
-		// Put the kit color back, so the later suites see the kit the theme test set.
 		const changed = ok(await brandReader.get(db, owner, {}));
 		ok(
 			await brandWriter.saveSettings(db, owner, {
@@ -798,7 +771,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		assert.deepEqual(ok(await deleteExport(OWNER, doc.id, pdf.id)), { exportId: pdf.id, deleted: true });
 		assert.equal(await exportDeletes(pdf.id), 1, "one audit row");
 		assert.equal(await exportDeletes(word.id), 1);
-		// The stored file is released in the same statement: one cleanup job each, which the worker runs once the row is gone.
 		assert.deepEqual(await cleanups(pdf.id), [{ object_id: pdfObject, state: "ready" }], "one cleanup job");
 		assert.deepEqual(await cleanups(word.id), [{ object_id: wordObject, state: "ready" }]);
 		assert.deepEqual(await counts(), { ...before, generated: before.generated - 2, audits: before.audits + 2 });
@@ -811,7 +783,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 
 	test("AC:DOC-023 a render failure saves no export and leaves the list unchanged", async () => {
 		const { doc } = state.saved;
-		// A revision whose stored body cannot render, written beside the editor's revisions.
 		await admin.execute(
 			sql`INSERT INTO document_revision (id, tenant_id, document_id, version_number, body, content_hash, published_at, recorded_at)
 				VALUES (${randomUUID()}::uuid, ${P}::uuid, ${doc.id}::uuid, 99, 'not a document', ${sha("not a document")}, clock_timestamp(), clock_timestamp())`,
@@ -823,7 +794,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		assert.deepEqual(ok(await listExports(MEMBER, doc.id)).exports, []);
 	});
 
-	// T-189 (Nora, Nov 10, 2026): once a Church Document is deleted, none of its saved exports can be downloaded.
 	test("AC:DOC-023 a deleted Church Document's saved exports download for no seat and list nothing; its seats are told it was deleted", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t189-policy"));
 		const pdf = ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t189-pdf"));
@@ -849,7 +819,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 				assert.equal(JSON.stringify(listed).includes(pdf.id), false, "no export row comes back");
 				assert.equal(JSON.stringify(listed).includes(word.id), false);
 			}
-			// Outside the church plant the deleted document answers as an unknown id does.
 			for (const [deleted, unknown] of [
 				[await exportFile(OTHER, doc.id, pdf.id), await exportFile(OTHER, randomUUID(), randomUUID())],
 				[await listExports(OTHER, doc.id), await listExports(OTHER, randomUUID())],
@@ -867,7 +836,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		assert.ok(await bytesOf(pdf), "the stored file is kept; only access is blocked");
 	});
 
-	// Sebastian, 2026-11-04: "No, keep Save for your church alongside editable documents".
 	const TEXT_TEMPLATES = [
 		"member-expectations",
 		"launch-team-commitment",
@@ -896,7 +864,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			assert.equal(after.revisions, before.revisions, templateId);
 			assert.equal(after.generated, before.generated + 1, `${templateId} stores one saved file`);
 			assert.equal(after.files, before.files + 1, templateId);
-			// The same request key gives the same file and stores nothing more.
 			const again = ok(
 				await documentsWriter.generate(
 					db,
@@ -926,7 +893,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			const text = (await pdfPages(bytesFrom(ok(await fileOf(OWNER, doc.id, "pdf"))))).join(" ");
 			assert.ok(text.includes("Harvest Point"), `${templateId} prints the church name`);
 			assert.ok(!text.includes("{church_name}"), templateId);
-			// Editable: the Owner saves an edited body as revision 2.
 			const edited = structuredClone(doc.body);
 			edited.body.content.push({ type: "paragraph", content: [{ type: "text", text: "Edited by the church." }] });
 			assert.equal(ok(await save(OWNER, doc.id, "1", edited)).revision, "2", templateId);
@@ -935,7 +901,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		}
 	});
 
-	// D-129 (Sebastian, 2026-11-08): the Bylaws "Statement of faith" slot carries the key T-84 fills from the network.
 	test("AC:CASE-DOC-020-EDIT a Church Document from Bylaws keeps the keyed Statement of faith slot; Save and the export print the marked blank", async () => {
 		const doc = ok(await create(OWNER, "bylaws", "d129-bylaws"));
 		const slots = doc.body.body.content.filter((n) => n.type === "slot");
@@ -977,7 +942,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 	test("AC:CASE-DOC-023 an older revision exports its own content once, keeps its bytes and refuses a revision it lacks", async () => {
 		const owner = await authority(OWNER);
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t83-policy"));
-		// Revision 2 rewrites the first line of text, so its first words are only in revision 1; revision 3 adds a line.
 		const second = structuredClone(doc.body);
 		const firstText = (function find(node) {
 			if (node.type === "text" && node.text.trim().split(/\s+/).length >= 3) return node;
@@ -1029,7 +993,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		);
 		assert.equal(listed[1].downloadName, "conflict-of-interest-policy-revision-1.pdf");
 
-		// A kit change, the branding switch and a new revision later, the list download is still the first bytes.
 		const kit = ok(await brandReader.get(db, owner, {}));
 		ok(
 			await brandWriter.saveSettings(db, owner, { expectedRevision: kit.revision, patch: { primaryColor: "#2E7A1F" } }),
@@ -1043,7 +1006,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		assert.equal(sha256(bytesFrom(ok(await exportFile(OWNER, doc.id, word.id)))), word.digest);
 		assert.notEqual(ok(await fileOf(MEMBER, doc.id, "pdf", 1)).digest, saved.digest, "a fresh render differs now");
 
-		// A revision the document lacks, and another church plant's document, are not found and save nothing.
 		const counted = await counts();
 		refused(await exportDoc(OWNER, doc.id, 42, "pdf", "t83-missing"), "unavailable");
 		refused(await exportDoc(OTHER, doc.id, 1, "pdf", "t83-foreign"), "unavailable");
@@ -1057,9 +1019,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		);
 	});
 
-	// The double click above races by timing alone. This one fixes the order CI met on #758, the most statements the
-	// later export can send: it claims the stored file first and waits at the bucket while its rival finalizes that
-	// file and saves the export. The census then measures that worst case on every run.
 	test("INV-idempotency: a double export whose later caller claimed the stored file first saves one export", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "race-claim-policy"));
 		const before = await counts();
@@ -1119,7 +1078,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			"each revision names the person who saved it",
 		);
 
-		// Revision 4's saver is seated only in another church plant, and revision 5's account is gone.
 		await admin.execute(
 			sql`UPDATE document_revision SET author_account_id = ${actors[OTHER].id}::uuid
 				WHERE document_id = ${doc.id}::uuid AND version_number = 4`,
@@ -1127,7 +1085,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		await admin.execute(
 			sql`UPDATE document_revision SET author_account_id = NULL WHERE document_id = ${doc.id}::uuid AND version_number = 5`,
 		);
-		// The Admin's seat here ends, so revision 2, which they saved, reads as a former member.
 		await admin.execute(
 			sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${actors[ADMIN].id}::uuid AND plant_id = ${P}::uuid`,
 		);
@@ -1161,7 +1118,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t117-many"));
 		const list = async () =>
 			ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
-		// Copies of revision 1 numbered from..to, written beside it as saves would be.
 		const addRevisions = (from, to) =>
 			admin.execute(
 				sql`INSERT INTO document_revision (tenant_id, document_id, version_number, body, content_hash, recorded_at)
@@ -1197,7 +1153,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			);
 		const setBy = async (who, useChurchBranding) =>
 			documentsWriter.setBranding(db, await authority(who), { documentId: doc.id, useChurchBranding });
-		// A new document starts with church branding on, and a Member's read carries the value too.
 		assert.equal((await forEdit()).useChurchBranding, true);
 		assert.equal((await read(MEMBER)).useChurchBranding, true);
 		assert.equal(ok(await exportDoc(OWNER, doc.id, 1, "pdf", "t55-branded-pdf")).theme.kind, "church");
@@ -1219,7 +1174,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		assert.equal(word["word/styles.xml"].includes("1F4E79"), false, "no church color in the Word file");
 		assert.equal(word["word/document.xml"].includes("Harvest Point Church logo"), false, "no church logo");
 
-		// A Member can't change it: the write is refused and the stored value and the audit stay.
 		const held = await counts();
 		refused(await setBy(MEMBER, true), "access_denied");
 		assert.equal((await read(OWNER)).useChurchBranding, false);
@@ -1239,7 +1193,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		});
 		assert.ok(docxParts(bytesFrom(ok(await fileOf(OWNER, doc.id, "docx", 1))))["word/styles.xml"].includes("1F4E79"));
 
-		// A deleted document refuses the switch with the page's "not available" message.
 		ok(await documentsWriter.deleteChurch(db, await authority(OWNER), { documentId: doc.id, expectedRevision: "1" }));
 		refused(await setBy(OWNER, false), "unavailable");
 		assert.equal(refusedWith("unavailable").message, "This is not available any more. Reload the page.");
@@ -1256,7 +1209,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 	test("AC:DOC-002 each revision offers its own formats; Excel for a revision without a budget table is refused before any asset read", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t124-policy"));
 		assert.deepEqual(doc.formats, ["pdf", "docx"]);
-		// Revision 2 adds the budget template's ledger table, as the editor's save does (Excel joins the export list).
 		const withTable = structuredClone(doc.body);
 		withTable.body.content.push(structuredClone(ledgerTables(docTemplateById("budget-worksheet").body)[0]));
 		withTable.exports = [...withTable.exports, "xlsx"];
@@ -1274,7 +1226,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		);
 		assert.deepEqual(one.formats, ["pdf", "docx"]);
 
-		// A save that takes the table away stops offering Excel on that revision only.
 		ok(await save(OWNER, doc.id, "2", { ...doc.body, exports: ["pdf", "docx"] }));
 		const after = ok(await documentsWriter["history.list"](db, await authority(MEMBER), { documentId: doc.id }));
 		assert.deepEqual(
@@ -1286,7 +1237,6 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 			],
 		);
 
-		// The policy prints the church logo, so a branded render reads that asset from storage; count those reads.
 		const send = client.send.bind(client);
 		let reads = 0;
 		client.send = (command) => {

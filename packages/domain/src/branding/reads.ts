@@ -13,7 +13,6 @@ import { resolveDocumentTheme } from "./theme.ts";
 const row = z.object({ ok: z.boolean().nullable(), row: z.record(z.string(), z.unknown()).nullable() });
 
 export const brandReader = {
-	/** The saved kit, or the default kit. One statement, however many assets the kit has. */
 	async get(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -27,7 +26,6 @@ export const brandReader = {
 		});
 	},
 
-	/** Colors from the church plant's own ready asset in one slot. */
 	async suggestColors(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -50,7 +48,6 @@ export const brandReader = {
 		});
 	},
 
-	/** The theme for one document class. Any active seat of the church plant resolves it (C13). */
 	async resolveTheme(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const scope = scopeOf(authority);

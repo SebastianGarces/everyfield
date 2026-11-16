@@ -13,10 +13,6 @@ import { testDatabase } from "../../../../support/test-database.mts";
 import { seeds } from "../../../../support/fixture.mts";
 import { dropTarget, freezeClock, objectStore, operator, schemaExists, snapshot, type Store } from "./support.mts";
 
-// The rehearsal's refusals: only a verified restricted recovery operator for this operation, in the isolated test
-// environment, with an isolated target, gets past the first check, and nothing is read or written before it. A
-// missing, stale or unreadable current witness refuses with the subject still hidden: the image's own lifecycle rows
-// never stand in for it. Church P has admin A pending deletion since 2026-10-13T16:00:00Z.
 const NOW = new Date("2026-10-14T16:00:00.000Z");
 const database = await testDatabase({ prefix: "wp092ref", clock: NOW });
 const { admin, schema } = database;
@@ -32,7 +28,6 @@ before(async () => {
 		requester_opaque_id, request_revision, state, requested_at, cancel_until, witness_checkpoint, cleanup_state)
 		VALUES ('account', ${a.id}::uuid, ${a.id}::uuid, ${randomUUID()}::uuid, ${a.id}::uuid, ${a.id}::uuid, 1,
 		'pending_deletion', '2026-10-13T16:00:00Z', '2026-11-12T16:00:00Z', 1, 'not_started')`);
-	// A journal copy taken before the witness moved on: older than the snapshot below.
 	stale = await readCurrentManifest(admin);
 	await admin.execute(
 		sql`UPDATE lifecycle_witness SET witness_checkpoint=witness_checkpoint+1 WHERE opaque_subject_id=${a.id}::uuid`,
@@ -44,7 +39,6 @@ after(async () => {
 	await database.close();
 });
 
-/** One rehearsal with `overrides`, counting reads of the current manifest. */
 async function rehearse(overrides: Record<string, unknown> = {}, targetSchema?: string) {
 	const target = targetSchema ?? `${schema}_r${targets.length}`;
 	targets.push(target);
@@ -87,7 +81,6 @@ test("only a verified recovery operator capability with an isolated target gets 
 			assert.equal(store.size, 0);
 			if (target !== schema) assert.equal(created, false);
 		});
-	// The source schema is untouched: its witness is still the live pending one.
 	const { rows } = await admin.execute(sql`SELECT state FROM lifecycle_witness WHERE opaque_subject_id=${a.id}::uuid`);
 	assert.equal(rows[0]!.state, "pending_deletion");
 });
@@ -114,7 +107,6 @@ test("an uncertain current witness refuses, the subject stays hidden and service
 			assert.equal(result.restore_success, false);
 			assert.equal(result.service_opened, false);
 			assert.equal(result.customer_data_gate, "blocked");
-			// Nothing was restored, so nothing of A can be read from a target.
 			assert.equal(created, false);
 			assert.equal(store.size, 0);
 		});
@@ -124,7 +116,6 @@ test("the restricted CLI refuses a rehearsal without its control with the generi
 	const cli = fileURLToPath(new URL("../../../../../ops/maintenance/cli.mts", import.meta.url));
 	const dir = await mkdtemp(join(tmpdir(), "wp092-cli-"));
 	try {
-		// A control file anyone may read is refused like a missing one.
 		const open = join(dir, "control.json");
 		await writeFile(open, JSON.stringify({ version: 1 }), { mode: 0o644 });
 		for (const args of [

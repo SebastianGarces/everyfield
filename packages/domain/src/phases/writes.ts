@@ -11,7 +11,6 @@ import { auditTransaction } from "../operations/writes.ts";
 import { declarable, deny, entryJson, entryOf, parse, scopeOf, settle, type Scope } from "./core.ts";
 import { declaration } from "./declaration.ts";
 
-/** A committed forward move and the current Owners and Admins of each connected sending church or network. */
 type PhaseAdvance = {
 	plantName: string;
 	transitionId: string;
@@ -24,20 +23,16 @@ type PhaseAdvance = {
 		address: string;
 	}[];
 };
-/** Queues the phase-advance notices in the move's transaction (NTF-009): the notification service's port. */
 export type PhaseNotices = (tx: Transaction, advance: PhaseAdvance) => Promise<unknown>;
 
-/** The stored answer of an earlier request with this key, read in the write statement. */
 const priorKey = (scope: Scope, requestKey: string) =>
 	sql`prior AS (SELECT a.request_identity,a.result FROM audit_event a WHERE a.tenant_id=${scope.plantId}::uuid AND a.request_key=${requestKey})`;
-/** The plant row locked for the change, unless the key already has an answer or the seat no longer may change it. */
 const locked = (scope: Scope) =>
 	sql`cur AS (SELECT p.id,p.name,p.phase,p.revision FROM plant p WHERE p.id=${scope.plantId}::uuid AND (SELECT ok FROM gate)
  AND NOT EXISTS(SELECT FROM prior) FOR UPDATE)`;
 const priorRow = z.object({ request_identity: z.unknown(), result: z.unknown() }).nullable();
 const outcomeRow = z.object({ ok: z.boolean().nullable(), result: z.unknown().nullable(), prior: priorRow });
 
-/** The request's identity, kept on its audit row: a retry with the same key and the same request replays it. */
 function identityOf(
 	scope: Scope,
 	operation: "phases.declare" | "phases.transition",
@@ -51,7 +46,6 @@ function identityOf(
 		digest: hash({ operation, expectedRevision: q.expectedRevision, input: q.input }),
 	});
 }
-/** A stored answer for this key: the same request replays it; another request with the key is refused. */
 function replay(prior: NonNullable<z.infer<typeof priorRow>>, identity: RequestIdentity) {
 	const stored = requestIdentity.safeParse(prior.request_identity);
 	if (
@@ -63,10 +57,6 @@ function replay(prior: NonNullable<z.infer<typeof priorRow>>, identity: RequestI
 		deny("idempotency_conflict");
 	return prior.result;
 }
-/**
- * Why a change wrote nothing, read once after the refusal: a stored answer for the key (a concurrent same-key request
- * won), no live Owner or Admin seat, a used declaration slot, or a newer revision than the one reviewed.
- */
 async function refusal(db: Pick<Database, "execute">, scope: Scope, requestKey: string) {
 	const { rows } = await db.execute(sql`WITH ${priorKey(scope, requestKey)}
  SELECT ${scope.admin} AS ok,(SELECT to_jsonb(prior) FROM prior) AS prior,p.phase,p.revision::text AS revision,
@@ -112,11 +102,6 @@ const recipientRow = z.object({
 
 export function createPhaseWriter(config: { notices: PhaseNotices }) {
 	return {
-		/**
-		 * phases.declare (PHASE-001): once per plant, where it already was when it joined. One statement, no transaction:
-		 * the live Owner or Admin seat, the locked plant at the reviewed revision, the declaration row, the plant's phase
-		 * and revision and the audit row that keeps the answer for the request key.
-		 */
 		async declare(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
@@ -148,12 +133,6 @@ export function createPhaseWriter(config: { notices: PhaseNotices }) {
 			});
 		},
 
-		/**
-		 * phases.transition (PHASE-002, PHASE-003): a reasoned move to any phase 0 to 6, from the reviewed revision. The
-		 * server reads `from` from the locked plant. The same phase records a noop receipt and changes nothing else. One
-		 * transaction: the move statement (transition row, plant phase and revision, audit row with the answer), then its
-		 * consequences. A failed consequence rolls the move back.
-		 */
 		async transition(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
@@ -162,8 +141,6 @@ export function createPhaseWriter(config: { notices: PhaseNotices }) {
 				if (!checked.ok) deny("invalid_reason", { problem: checked.problem });
 				const identity = identityOf(scope, "phases.transition", q);
 				const to = q.input.toPhase;
-				// Two requests with one key can both reach a same-phase receipt: auditTransaction reruns the second, which then
-				// meets the stored key and replays it.
 				const answer = await auditTransaction(db, async (tx) => {
 					const op = randomUUID();
 					const { rows } =
@@ -204,9 +181,6 @@ export function createPhaseWriter(config: { notices: PhaseNotices }) {
 					if (r.prior) return transitionAnswer(replay(r.prior, identity));
 					if (!r.result) return null;
 					const answer = transitionAnswer(r.result);
-					// phases.appendConsequences (PHASE-005, NTF-009): the audit row above is the move's one phase.changed
-					// record. The statement reads recipients only for a forward move, a skip included, so a backward move,
-					// a noop and a replay queue no notice, and no move requests an assessment.
 					if (answer.outcome === "moved" && r.recipients.length)
 						await config.notices(tx, {
 							plantName: r.plant_name ?? "",

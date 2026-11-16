@@ -1,7 +1,0 @@
-{
-	"tests/integration/oversight/health.test.mts": 25,
-	"tests/integration/oversight/intelligence-rules.test.mts": 25,
-	"tests/integration/oversight/locations.test.mts": 22,
-	"tests/integration/oversight/milestone.test.mts": 16,
-	"tests/integration/oversight/oversight.test.mts": 25
-}
