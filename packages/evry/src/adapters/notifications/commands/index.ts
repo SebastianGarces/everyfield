@@ -15,14 +15,6 @@ import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { inPlant, organizationOwnerOrAdmin } from "../reads/index.ts";
 
-// The Notifications reviewed writes (WP-082). Each one changes only the signed-in account's own bell or settings: no
-// input names an account, and the native command runs for the approving session's own account. Each review is one
-// SELECT under the proposal's statement that reads the account's current state through the bell's own visibility rule
-// and saves the native command's exact arguments with the account revision it saw. On approval the executor runs the
-// native command once inside its transaction, with the effect key as its request key, so a second approval or a
-// retry replays the first answer instead of writing again. Marking read never completes or changes a task (NTF-003).
-
-/** One reviewed write: `review` selects the review and `args`; `run` is the native command on the executor's gate. */
 function reviewed<I>(spec: {
 	operation: string;
 	description: string;
@@ -44,10 +36,8 @@ function reviewed<I>(spec: {
 	};
 }
 
-/** The signed-in account (`me`, the bell's own rule) and its current revision, which every native write checks. */
 const me = (actor: EvryActor) => selfSql(actor.session, actor.accountId);
 const revision = sql`(SELECT a.revision::text FROM account a WHERE a.id=(SELECT account_id FROM me))`;
-/** The account's unread notices, as the bell shows them, as `n`; the church's zone names their local time. */
 const unread = (ids: string[] | null) =>
 	sql`SELECT n.id,n.title,split_part(n.logical_key,'/',2) AS category,n.eligible_at,
 			to_char(n.eligible_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS at
@@ -55,17 +45,11 @@ const unread = (ids: string[] | null) =>
 			${ids ? sql`AND n.id=ANY(${sql.param(ids)}::uuid[])` : sql``}`;
 const zone = (actor: EvryActor) => sql`(SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid)`;
 
-/**
- * The categories Settings > Notifications offers in a church. Launch milestones send nothing yet (D-762), the
- * oversight digest and answers to review (T-385) belong to an organization, and the residency categories reach only a linked resident, who holds
- * no seat in a church (T-365).
- */
 const settable = notificationCategory.exclude(["launch_milestone", ...organizationCategories, ...residencyCategories]);
 const choice = z
 	.strictObject({ category: settable, channel: z.enum(["email", "in_app"]), enabled: z.boolean() })
 	.refine((c) => notificationChannels(c.category).includes(c.channel), "This category has no email channel.");
 
-/** The installed Notifications reviewed writes, keyed by operation. */
 export const NOTIFICATION_COMMANDS = {
 	"notifications.markSelectedRead": reviewed({
 		operation: "notifications.markSelectedRead",
@@ -74,7 +58,6 @@ export const NOTIFICATION_COMMANDS = {
 		input: z.strictObject({ noticeIds: z.array(z.uuid()).min(1).max(50) }),
 		allowed: inPlant,
 		review(actor, value) {
-			// Only the account's own unread notices among the ids: another account's id, or one already read, drops out.
 			return sql`WITH ${me(actor)}, n AS (${unread(value.noticeIds)})
 			SELECT jsonb_build_object('target','null'::jsonb,'changes',(SELECT jsonb_agg(jsonb_build_object('field','notice',
 					'before',jsonb_build_object('id',n.id,'title',n.title,'category',n.category,'at',n.at,'zone',${zone(actor)}),
@@ -92,7 +75,6 @@ export const NOTIFICATION_COMMANDS = {
 		input: z.strictObject({}),
 		allowed: inPlant,
 		review(actor) {
-			// The cutoff is the newest unread notice the review counted, so the approval marks exactly what it showed.
 			return sql`WITH ${me(actor)}, n AS (${unread(null)})
 			SELECT jsonb_build_object('target','null'::jsonb,'changes',jsonb_build_array(
 					jsonb_build_object('field','unread','before',x.count,'after',0))) AS review,
@@ -115,7 +97,6 @@ export const NOTIFICATION_COMMANDS = {
 		}),
 		allowed: inPlant,
 		review(actor, value) {
-			// Every channel of each category asked about, so the review also says which ones stay as they are.
 			const asked = new Map(value.choices.map((c) => [`${c.category}:${c.channel}`, c.enabled]));
 			const rows = [...new Set(value.choices.map((c) => c.category))].flatMap((category) =>
 				notificationChannels(category).map((channel) => ({
