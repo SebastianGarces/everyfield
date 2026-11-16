@@ -26,7 +26,8 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useLocalStore, useStore } from "../../components/store.ts";
 import { DialogNotice, SaveNotice, useRowLanes, type RowSave, type SaveIntent } from "../../components/save/parts.tsx";
 import { loadMeetingFollowUps } from "../followups/fetch.ts";
 import { preferredOwners } from "../followups/model.ts";
@@ -56,26 +57,13 @@ import {
 	type Scores,
 } from "./model.ts";
 import { Problem } from "./parts.tsx";
-
-// Attendance, finalization and the Vision evaluation on the meeting page (WP-022). Every save shows its change at once.
-// A form closes as it saves and opens again with what was entered when the server refuses. A lost answer is sent once
-// more with the same request key; when that answer is lost too, the page reads what is saved instead of guessing.
+import { choiceOf, chosenOf, createSettleStore, selectUnchanged } from "./SettleForm.store.ts";
 
 type Who = { personId: string; displayName: string };
 type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status: "ok" }>["value"];
 
-/**
- * A trigger held by a save in flight or unknown (C68). It stays focusable, so focus can return to it when its dialog
- * closes, but it starts nothing; it looks like a disabled button.
- */
 export const HELD = "aria-disabled:opacity-45 aria-disabled:active:translate-y-0";
 
-/**
- * Presence saves, one save lane per person (components/save useRowLanes, C68): marking people at the door never waits
- * for anyone else's answer, and one person takes no other change while their save is on its way or unknown. The row
- * shows the new presence at once and keeps it until the server answers; a lost answer is sent once more with the same
- * key, then Check again sends it again. A refusal puts the row back and says why.
- */
 export function usePresence({
 	meetingId,
 	onSaved,
@@ -87,7 +75,6 @@ export function usePresence({
 }) {
 	const toast = useToast();
 	const lanes = useRowLanes(problemText);
-	// The presence each person asked for last; shown while their save is on its way or unknown.
 	const [asked] = useState(() => new Map<string, Presence>());
 	function set(who: Who, presence: Presence) {
 		if (lanes.stateOf(who.personId)) return;
@@ -105,15 +92,12 @@ export function usePresence({
 	return {
 		set,
 		lanes,
-		/** The save state of one person, or undefined when they take changes. */
 		stateOf: lanes.stateOf,
-		/** Guests as the person sees them: a save on its way or unknown shows what was asked. */
 		shown: <G extends { person: { personId: string | null }; presence: Presence }>(list: G[]) =>
 			list.map((g) => {
 				const id = g.person.personId;
 				return id && lanes.stateOf(id) ? { ...g, presence: asked.get(id) ?? g.presence } : g;
 			}),
-		/** A presence save is on its way or unknown: the attended set is not settled, so finalizing waits. */
 		busy: lanes.busy,
 	};
 }
@@ -125,10 +109,6 @@ const classified = (a: Attendance | null) => {
 	return out;
 };
 
-/**
- * Attendance (REQ-MTG-010, REQ-MTG-012, REQ-MTG-016): who came, and once final, how each person counts and the work
- * it created. Unknown stays unknown: before finalizing there is no classification and no growth.
- */
 export function AttendanceCard({
 	meeting: m,
 	attendance,
@@ -140,16 +120,12 @@ export function AttendanceCard({
 	onSettle,
 	onPrefetch,
 }: {
-	/** The page header already offers Finalize attendance; the card leaves its own button out. */
 	headerFinalize?: boolean;
 	meeting: Detail;
 	attendance: Attendance | null;
 	analytics: Analytics | null;
-	/** Finalize and correct: an Owner, an Admin or the team meeting's current leader (REQ-MTG-010, D-562). */
 	canSettle: boolean;
-	/** The finalize and correction lane: while its save is on its way or unknown, nothing here starts another. */
 	lane: SaveIntent<SettleEditing>;
-	/** Presence saves are on their way or unknown; finalizing waits for them. */
 	blocked: boolean;
 	onSettle: (mode: "finalize" | "reconcile") => void;
 	onPrefetch: () => void;
@@ -165,7 +141,6 @@ export function AttendanceCard({
 	const excused = attendance.items.filter((x) => x.presence === "excused").length;
 	const final = attendance.finalized;
 	const counts = classified(attendance);
-	// A meeting can be finalized at any time, unless it is cancelled or voided.
 	const open = m.status !== "cancelled" && !m.occurrence.voidedAt;
 	const vision = m.type === "vision_meeting";
 	const intent = { onPointerEnter: onPrefetch, onFocus: onPrefetch, onTouchStart: onPrefetch };
@@ -254,7 +229,6 @@ export function AttendanceCard({
 	);
 }
 
-/** Growth over the previous meeting of this type. Unavailable after a meeting nobody attended; unknown says nothing. */
 function Growth({ analytics }: { analytics: Analytics | null }) {
 	const g = analytics?.growth;
 	if (!g || g.status === "unknown") return null;
@@ -276,7 +250,6 @@ function Growth({ analytics }: { analytics: Analytics | null }) {
 }
 const deltaPeople = (d: number) => `${d > 0 ? "+" : d < 0 ? "−" : ""}${peopleText(Math.abs(d))}`;
 
-/** The work finalizing created: follow-up calls and the evaluation task, and what still needs an owner. */
 function Work({ tasks }: { tasks: Analytics["tasks"] }) {
 	const f = tasks.followUps;
 	const e = tasks.evaluation;
@@ -313,13 +286,6 @@ function Work({ tasks }: { tasks: Analytics["tasks"] }) {
 	);
 }
 
-// -------------------------------------------------------------------------------------------------------------
-// Finalize and correct
-
-/**
- * Reads both lists of people the pickers offer on the first sign of intent to finalize (pointer, touch or keyboard
- * focus on the button), so the dialog opens with its choices ready.
- */
 export function warmSeats() {
 	void warmAssignees("any");
 	void warmAssignees("committed_follow_up");
@@ -331,14 +297,8 @@ export type SettleInput = {
 	evaluationAssigneeIds: string[];
 	reason: string;
 };
-/** The open finalize or correction form, with what was chosen when a refusal opens it again. */
 export type SettleEditing = { mode: "finalize" | "reconcile"; input: SettleInput | null; problem?: string };
 
-/**
- * Finalize attendance (REQ-MTG-012, REQ-MTG-020) or correct it after it is final. The review names the exact people
- * and what finalizing creates; the result names what it created. A correction is reviewed by identity: who is added,
- * who is removed, and why.
- */
 export function SettleDialog({
 	open,
 	mode,
@@ -357,14 +317,11 @@ export function SettleDialog({
 	meeting: Detail;
 	guests: Guest[];
 	attendance: Attendance;
-	/** The first sign of intent to open the dialog: warm the pickers' lists. */
 	onSeats: () => void;
 	initial: SettleInput | null;
-	/** Why the last finalize or correction was refused, in words. */
 	problem: string | undefined;
 	onClose: () => void;
 	onSubmit: (input: SettleInput) => void;
-	/** The review was refused as out of date: handled like a refused submit of these choices (reload, then review). */
 	onConflict: (input: SettleInput) => void;
 }) {
 	return (
@@ -400,87 +357,41 @@ function SettleForm({
 	onConflict,
 }: Omit<Parameters<typeof SettleDialog>[0], "open">) {
 	const current: string[] = attendedOf(attendance).map((a) => a.person.personId);
-	const [ids, setIds] = useState<string[]>(initial?.attendeeIds ?? current);
-	const [followUp, setFollowUpValue] = useState<string[]>(initial?.followUpAssigneeIds ?? []);
-	// Finalize starts at Needs owner: no one is picked for the person. Correct attendance starts at the owners most of
-	// the meeting's open follow-ups already have (D-e), unless the person already chose.
-	const [chose, setChose] = useState(initial !== null);
-	const setFollowUp = (v: string[]) => {
-		setChose(true);
-		setFollowUpValue(v);
-	};
-	useEffect(() => {
-		if (mode !== "reconcile" || chose) return;
-		let live = true;
-		void loadMeetingFollowUps(meeting.id).then((r) => {
-			const current = r.status === "ok" ? preferredOwners(r.value.items) : [];
-			if (live && current.length) setFollowUpValue(current);
-		});
-		return () => {
-			live = false;
-		};
-	}, [mode, meeting.id, chose]);
-	const [evaluation, setEvaluation] = useState<string[]>(initial?.evaluationAssigneeIds ?? []);
-	const [reason, setReason] = useState(initial?.reason ?? "");
+	const store = useLocalStore(() =>
+		createSettleStore({
+			mode,
+			meetingId: meeting.id,
+			current,
+			initial,
+			port: {
+				preview: (choice) => previewSettlement(mode, attendance.attendanceRevision, choice),
+				followUpOwners: () =>
+					loadMeetingFollowUps(meeting.id).then((r) => (r.status === "ok" ? preferredOwners(r.value.items) : [])),
+				conflict: onConflict,
+			},
+		}),
+	);
+	const s = useStore(store, (state) => state);
+	const { ids, followUp, evaluation, reason, touched, actions } = s;
+	const holdPreview = useCallback((node: HTMLFormElement | null) => store.getState().actions.hold(node), [store]);
 	const listRef = useRef<HTMLFieldSetElement>(null);
 	const reasonRef = useRef<HTMLTextAreaElement>(null);
-	const [touched, setTouched] = useState(false);
 	const vision = meeting.type === "vision_meeting";
 	const reconcile = mode === "reconcile";
 	const name = new Map<string, string>(attendance.items.map((a) => [a.person.personId, a.person.displayName]));
 	for (const g of guests) name.set(g.person.personId, g.person.displayName);
 	const added = ids.filter((id) => !current.includes(id));
 	const removed = current.filter((id) => !ids.includes(id));
-	const unchanged = reconcile && added.length === 0 && removed.length === 0;
+	const unchanged = selectUnchanged(s, mode, current);
 	const reasonMissing = reconcile && reason.trim() === "";
-	// Everyone who could count: the guest list, then anyone attended who is no longer on it.
 	const choices = [
 		...guests.filter((g) => g.person.state === "live" || current.includes(g.person.personId)).map((g) => g.person),
 		...attendance.items.filter((a) => !guests.some((g) => g.id === a.guestId)).map((a) => a.person),
 	];
-	// The exact effects of these choices, from the real command run and rolled back on the server (C73). A change of
-	// people or owners asks again after a short pause; an answer for older choices is never shown.
-	const choice = {
-		meetingId: meeting.id,
-		attendeeIds: [...ids].sort(),
-		followUpAssigneeIds: [...followUp].sort(),
-		...(reconcile ? { reason: "Review" } : { evaluationAssigneeIds: [...evaluation].sort() }),
-	};
-	const choiceKey = JSON.stringify(choice);
-	const [attempt, setAttempt] = useState(0);
-	const [got, setGot] = useState<{ key: string; attempt: number; value: Outcome<Finalization> } | null>(null);
+	const choiceKey = JSON.stringify(choiceOf(s, meeting.id, mode));
 	const retryRef = useRef<HTMLButtonElement>(null);
-	// The choices as they stand, for a review refused as out of date.
-	const chosen: SettleInput = {
-		attendeeIds: ids,
-		followUpAssigneeIds: followUp,
-		evaluationAssigneeIds: evaluation,
-		reason: reason.trim(),
-	};
-	const conflictRef = useRef(() => onConflict(chosen));
-	useEffect(() => {
-		conflictRef.current = () => onConflict(chosen);
-	});
-	useEffect(() => {
-		if (unchanged) return;
-		let live = true;
-		const t = setTimeout(() => {
-			previewSettlement(mode, attendance.attendanceRevision, JSON.parse(choiceKey))
-				.catch(() => ({ status: "lost" }) as const)
-				.then((value) => {
-					if (!live) return;
-					// A newer attendance revision: Try again would send the same old one, so read the page again.
-					if (value.status === "refused" && value.code === "conflict") return conflictRef.current();
-					setGot({ key: choiceKey, attempt, value });
-				});
-		}, 250);
-		return () => {
-			live = false;
-			clearTimeout(t);
-		};
-	}, [choiceKey, attempt, mode, attendance.attendanceRevision, unchanged]);
-	const settled = got !== null && got.key === choiceKey && got.attempt === attempt;
-	const effects: Outcome<Finalization> = settled ? got.value : { status: "lost" };
+	const settled = s.effects !== null && s.effects.key === choiceKey;
+	const effects: Outcome<Finalization> = settled && s.effects ? s.effects.value : { status: "lost" };
 	const owner = (
 		label: string,
 		value: string[],
@@ -499,20 +410,25 @@ function SettleForm({
 		</Field>
 	);
 	return (
-		<DialogContent size="md" onOpenAutoFocus={onSeats}>
+		<DialogContent
+			size="md"
+			onOpenAutoFocus={() => {
+				onSeats();
+				actions.start();
+			}}
+		>
 			<form
+				ref={holdPreview}
 				noValidate
 				className="contents"
 				onSubmit={(e) => {
 					e.preventDefault();
-					setTouched(true);
-					// Focus goes to the first thing to fix (F5): who attended, then the reason.
+					actions.touch();
 					if (unchanged) return listRef.current?.querySelector<HTMLElement>('button[role="checkbox"]')?.focus();
 					if (reasonMissing) return reasonRef.current?.focus();
-					// Confirm only what the review shows: the exact effects of these choices (C73).
 					if (!settled) return;
 					if (effects.status !== "ok") return retryRef.current?.focus();
-					onSubmit(chosen);
+					onSubmit(chosenOf(s));
 				}}
 			>
 				<DialogHeader
@@ -535,9 +451,7 @@ function SettleForm({
 											added.includes(p.personId) ? "Added" : removed.includes(p.personId) ? "Removed" : undefined
 										}
 										checked={ids.includes(p.personId)}
-										onCheckedChange={(on) =>
-											setIds((all) => (on ? [...all, p.personId] : all.filter((x) => x !== p.personId)))
-										}
+										onCheckedChange={(on) => actions.toggle(p.personId, on === true)}
 										className="py-2"
 									/>
 								))}
@@ -577,13 +491,7 @@ function SettleForm({
 										? "The list of what this creates did not load. Nothing was changed."
 										: problemText(effects.code)}
 								</p>
-								<Button
-									ref={retryRef}
-									variant="secondary"
-									size="sm"
-									type="button"
-									onClick={() => setAttempt((n) => n + 1)}
-								>
+								<Button ref={retryRef} variant="secondary" size="sm" type="button" onClick={actions.retry}>
 									Try again
 								</Button>
 							</div>
@@ -600,7 +508,7 @@ function SettleForm({
 							{owner(
 								"Follow-up calls go to",
 								followUp,
-								setFollowUp,
+								actions.pickFollowUp,
 								reconcile
 									? "Only calls for people you add. Up to 10 people."
 									: "Only people who can own follow-ups, up to 10. Or leave it, and assign them later in Tasks.",
@@ -611,7 +519,7 @@ function SettleForm({
 								: owner(
 										"Evaluation task goes to",
 										evaluation,
-										setEvaluation,
+										actions.pickEvaluation,
 										"Someone who was there. Up to 10 people.",
 										"any",
 									)}
@@ -626,7 +534,7 @@ function SettleForm({
 							<Textarea
 								ref={reasonRef}
 								value={reason}
-								onChange={(e) => setReason(e.target.value)}
+								onChange={(e) => actions.write(e.target.value)}
 								maxLength={500}
 								rows={2}
 							/>
@@ -652,7 +560,6 @@ const plusDays = (localDate: string, days: number) => {
 	return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 };
 
-/** The review's exact list: every follow-up call with its person, due day and owner, every advance and the task. */
 function effectLines(
 	r: Finalization,
 	meeting: Detail,
@@ -661,7 +568,6 @@ function effectLines(
 ): string[] {
 	if (r.outcome === "noop") return ["Attendance is already final with these people. Nothing changes."];
 	const who = (id: string | null) => (id && name.get(id)) || "someone no longer on the list";
-	// The same words as every other screen: a follow-up's owner with why they cannot own it, when they cannot.
 	const owned = (w: Finalization["work"][number]) =>
 		w.owners.length
 			? `Owner: ${w.owners.map((o) => (w.kind === "first_vision_follow_up" ? ownerText(o) : o.displayName)).join(", ")}`
@@ -695,7 +601,6 @@ function effectLines(
 	return lines;
 }
 
-/** One sentence for the result of a finalize or correction: what it created and what needs an owner. */
 export function settledText(r: Finalization, title: string, mode: "finalize" | "reconcile") {
 	const follow = r.work.filter((w) => w.kind === "first_vision_follow_up");
 	const created = follow.filter((w) => w.outcome === "created").length;
@@ -714,7 +619,6 @@ export function settledText(r: Finalization, title: string, mode: "finalize" | "
 	return parts.filter(Boolean).join(" ");
 }
 
-/** The attendance list after a finalize or correction: the exact attended set and each person's classification. */
 export function attendanceAfter(a: Attendance, r: Finalization): Attendance {
 	const by = new Map(r.classifications.map((c) => [c.personId, c]));
 	return {
@@ -732,14 +636,6 @@ export function attendanceAfter(a: Attendance, r: Finalization): Attendance {
 	};
 }
 
-// -------------------------------------------------------------------------------------------------------------
-// Vision evaluation
-
-/**
- * The Vision evaluation (REQ-MTG-014, REQ-MTG-015, REQ-MTG-016): eight human scores from 1 to 5, their average and
- * how it compares with the earlier meetings. It opens once attendance is final, because finalizing creates the task
- * the evaluation completes.
- */
 export function EvaluationCard({
 	evaluation,
 	analytics,
@@ -752,13 +648,11 @@ export function EvaluationCard({
 	onHistory,
 	onPrefetchHistory,
 }: {
-	/** The page header already offers Record evaluation; the card leaves its own button out. */
 	headerRecord?: boolean;
 	evaluation: ShownEvaluation | null;
 	analytics: Analytics | null;
 	finalized: boolean;
 	canWrite: boolean;
-	/** The evaluation lane: while its save is on its way or unknown, nothing here starts another. */
 	lane: SaveIntent<EvaluationEditing>;
 	onRecord: () => void;
 	onCorrect: () => void;
@@ -875,7 +769,6 @@ export function EvaluationCard({
 	);
 }
 
-/** This evaluation against the average of up to 50 earlier ones. With none earlier, it says so instead of a 0. */
 function Comparison({ compare }: { compare: Analytics["evaluation"] }) {
 	if (!compare) return null;
 	if (compare.baseline.status === "unknown" || compare.delta.status === "unknown")
@@ -896,7 +789,6 @@ function Comparison({ compare }: { compare: Analytics["evaluation"] }) {
 	);
 }
 
-/** A score from 1 to 5 as a bar; the number is written beside it, so the bar only repeats it. */
 function ScoreBar({ score }: { score: number }) {
 	const tone = score >= 4 ? "bg-green-500" : score === 3 ? "bg-blue-500" : "bg-amber-500";
 	return (
@@ -907,15 +799,9 @@ function ScoreBar({ score }: { score: number }) {
 }
 
 export type EvaluationInput = { scores: Partial<Scores>; notes: string; reason: string };
-/** The open evaluation form, with what was entered when a refusal opens it again. */
 export type EvaluationEditing = { input: EvaluationInput | null; problem?: string };
-/** What the evaluation card shows: the saved evaluation, or the scores asked for while their save is on its way. */
 export type ShownEvaluation = Pick<Evaluation, "scores" | "average" | "notes" | "evaluatedOn" | "corrections">;
 
-/**
- * Record or correct the evaluation. The average shows as the scores are chosen; the server computes the one it keeps.
- * A correction sends only what changed, with a reason, at the revision the person saw.
- */
 export function EvaluationDialog({
 	open,
 	evaluation,
@@ -930,9 +816,7 @@ export function EvaluationDialog({
 	evaluation: Evaluation | null;
 	title: string;
 	initial: EvaluationInput | null;
-	/** Why the last save was refused, in words. */
 	problem: string | undefined;
-	/** The named problems of that refusal; each shows on its field. */
 	issues: readonly Issue[];
 	onClose: () => void;
 	onSubmit: (input: EvaluationInput) => void;
@@ -988,7 +872,6 @@ function EvaluationForm({
 						first.current?.querySelector<HTMLElement>(`[data-factor="${missing[0]!.key}"] button`)?.focus();
 						return;
 					}
-					// Focus goes to the first thing to fix (F5): a score to change, then the reason.
 					if (correcting && !changed)
 						return first.current?.querySelector<HTMLElement>('[role="radio"][aria-checked="true"]')?.focus();
 					if (correcting && reason.trim() === "") return reasonRef.current?.focus();
@@ -1086,10 +969,6 @@ function EvaluationForm({
 
 type History = Extract<Awaited<ReturnType<typeof evaluationHistory>>, { status: "ok" }>["value"];
 
-/**
- * The evaluation's history, read when the person shows intent to open it. Each entry names what changed, the average
- * before and after, and the reason.
- */
 export function useEvaluationHistory(meetingId: string) {
 	const [got, setGot] = useState<{ revision: string; value: Outcome<History> } | null>(null);
 	const asked = useRef<string | null>(null);
@@ -1174,10 +1053,6 @@ export function HistoryDialog({
 	);
 }
 
-// -------------------------------------------------------------------------------------------------------------
-// Small parts used by the guest list and the check-in screen
-
-/** A guest's presence and, once final, how they counted. */
 export function PresenceCell({
 	presence,
 	classification,
@@ -1186,7 +1061,6 @@ export function PresenceCell({
 }: {
 	presence: Presence;
 	classification: Classification | null;
-	/** Before attendance is final, absent only means nobody marked them yet. */
 	final: boolean;
 	state: RowSave | undefined;
 }) {
