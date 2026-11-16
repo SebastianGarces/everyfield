@@ -10,20 +10,12 @@ import type { EvryActor } from "./actor.ts";
 import { scrub } from "./errors.ts";
 import { LIMITS } from "./limits.ts";
 
-/** The fixed answer to requests for pastoral or Biblical counsel, prayers or spiritual judgments of a person. */
 export const PASTORAL_BOUNDARY =
 	"I help with the church planting work recorded in Everyfield. I can't give pastoral or Biblical counsel, write prayers, or judge whether someone is spiritually ready. Your church's leaders are the right people for that.";
 
 const requestKind = z.object({ kind: z.enum(["application", "capabilities", "pastoral_boundary"]) });
 export type RequestKind = z.infer<typeof requestKind>["kind"];
 
-/**
- * evry.classifyRequest: the model sorts the request before any application tool can run. A request for pastoral or
- * Biblical counsel, a prayer or a spiritual judgment of a person gets the fixed boundary answer and no tool call. Text
- * that only mentions prayer as data, such as a task titled "Pray for the launch", is application work. The call sits
- * before the first token of every turn, so it runs without reasoning: on the labelled set in tests/evry/evals that
- * keeps every label and saves a quarter of its time. The answer is about 14 tokens.
- */
 export async function classifyRequest(model: LanguageModelV4, text: string, signal: AbortSignal) {
 	const { output, usage } = await generateText({
 		model,
@@ -40,10 +32,6 @@ export async function classifyRequest(model: LanguageModelV4, text: string, sign
 	return { kind: output.kind, usage };
 }
 
-/**
- * What Evry never does as a tool, each with the reply that points to where it is done (T-327). Sign-in, password, email
- * and session changes need the person's own confirmation in Settings, and only the Owner deletes the church, natively.
- */
 const SETTINGS_ONLY = [
 	{
 		request: "Change password",
@@ -66,28 +54,16 @@ const SETTINGS_ONLY = [
 	},
 ] as const;
 
-/**
- * What an account with no church seat can't reach (T-345), with the reply that says so. The scripted model quotes it, so
- * the evals test the words the real model gets.
- */
 const NEEDS_A_CHURCH =
 	"Finish setup first: People, meetings, teams, tasks and other church records need a seat in a church, and this account has none yet. I can help you start a church, or set up a Discovery space to explore first.";
-/** What an account context never reaches (T-345): another account's setup or Discovery space, or a church's records. */
 const OWN_SPACE_ONLY =
 	"I can only work with your own setup and Discovery space. I can't see or change another person's Discovery space or another church's records, so nothing changed.";
-/** Who may answer a church's setup (T-345): the native setup commands take only that Owner. */
 const SETUP_RULE = "Only the Owner who is setting up this church can answer its setup questions or finish its setup.";
-/** Who sets who leads a church and its teams (IDN-014, D-1395): the reply when a seat may not answer the lead question. */
 const LEAD_RULE =
 	"Who leads this church and its teams is set by an Owner or Admin, so I can't answer the lead question for you.";
 
-/**
- * What a week answer can't cover yet (T-330, D-1437): Evry has no read of the task list or follow-up obligations until
- * T-318. The scripted model quotes it, so the evals test the words the real model gets.
- */
 const WEEK_COVERAGE =
 	"Not covered yet: I can't read your task list or follow-up obligations, so this isn't everything due this week. Open [Tasks](/tasks) for them.";
-/** How a church seat's week answer and feedback work (T-330): sourced, unranked, honest about gaps; feedback only informs. */
 function churchRule(actor: EvryActor) {
 	if (actor.contextKind !== "plant" || actor.role === null) return "";
 	return [
@@ -97,27 +73,17 @@ function churchRule(actor: EvryActor) {
 	].join("\n");
 }
 
-/**
- * What an organization seat's pipeline tools never do (WP-101, REQ-MUL-015), with the reply for each. The scripted
- * model quotes them, so the evals test the words the real model gets.
- */
 export const PIPELINE_RULES = {
-	/** Conversations, notes, assessments, milestones and move reasons are recorded only in the app. */
 	nativeOnly:
 		"Leadership conversations are logged on the Pipeline page, not here, and so are notes, assessments and milestone completions. Open [Pipeline](/organization/pipeline) and log it on the person's record. Nothing was logged.",
-	/** No note, feedback or reason reaches the model, and Evry judges no one. */
 	noJudgment:
 		"I can't read or summarize staff notes or feedback, rank people, or judge anyone's calling or readiness to plant. I can list the people in each stage, or show who hasn't moved in six months.",
-	/** Only the organization's own pipeline is readable. */
 	ownPipeline:
 		"I can only see your own organization's pipeline, so I can't show anything from another organization's pipeline.",
-	/** Only the organization's own programs are readable. */
 	ownPrograms:
 		"I can only see your own organization's programs, so I can't show or draft anything from another organization's programs.",
-	/** Publishing, enrolling, applying a version, milestones and feedback happen only in Programs. */
 	programNative:
 		"Versions are published on the program's page in Programs, not here, and so are enrollments, moving enrolled people to a newer version, milestones and feedback. Open [Programs](/organization/pipeline/programs) and do it on the program's page. Nothing was published.",
-	/** Only a program's current director edits its plan, whatever their role. */
 	directorOnly: "Only a program's current director edits its plan, as its page in Programs shows.",
 } as const;
 function pipelineRules() {
@@ -132,24 +98,15 @@ function pipelineRules() {
 	].join("\n");
 }
 
-/**
- * What a church seat's Launch tools never do (WP-075, WP-076), with the reply for each. The scripted model quotes them,
- * so the evals test the words the real model gets.
- */
 export const LAUNCH_RULES = {
-	/** The date, the outcome, the debrief and the summary are an Owner's or Admin's, as on the Launch plan. */
 	ownerOnly:
 		"Only an Owner or Admin can change the Launch plan: move or postpone Launch Sunday, mark a milestone complete or reopen it, record or correct its numbers, name its guests, or submit the debrief or publish the summary. Nothing was prepared.",
-	/** Nothing in the app records a launch-team goal, and a network's sending goals are not the church's. */
 	noGoal:
 		"Your church hasn't recorded a launch-team goal in Everyfield, so I have no goal to compare it with. I don't use a sending church's or network's goals in its place.",
-	/** History is the only record of the past: it says what changed, not how readiness stood. */
 	historyOnly:
 		"Launch history records what changed, not how readiness stood at an earlier time, so I can't say more about last week than these changes.",
-	/** The plan could not be read: never say there is no launch. */
 	unloaded:
 		"I couldn't load the Launch plan just now, so I can't answer that. Try again in a moment, or open [Launch](/launch).",
-	/** guest_data_entered and debrief_done have no manual checkbox, on the Launch plan or here (LCH-004). */
 	derived:
 		"Guest data entered and Debrief done follow the submitted debrief, so they can't be checked off by hand. Nothing was prepared.",
 } as const;
@@ -169,7 +126,6 @@ function launchRules() {
 	].join("\n");
 }
 
-/** Who may make the changes a seat's tools leave out, so a refusal names the role instead of guessing. */
 function roleRule(actor: EvryActor) {
 	if (actor.role === null)
 		return actor.contextKind === "account"
@@ -186,7 +142,6 @@ function roleRule(actor: EvryActor) {
 	return `The user's role here is ${actor.role}. When the user asks for a change none of your tools offers, prepare nothing and say who can make it: Only an Owner or Admin can ${scope}.${setup}`;
 }
 
-/** Describes what the current catalog actually allows, so the answer follows authority rather than a fixed phrase. */
 export function describeCatalog(catalog: Catalog) {
 	const reads = catalog.domains.flatMap((d) => d.operations.map((o) => o.description));
 	const writes = catalog.reviewedWrites.map((w) => w.description);
@@ -194,9 +149,6 @@ export function describeCatalog(catalog: Catalog) {
 		? ["In this context I can:", ...reads.map((r) => "- " + r), "- Pick rows from a result I already showed you."]
 		: ["In this context I have no application reads available yet."];
 	if (writes.length) lines.push("I can also prepare these changes for your review:", ...writes.map((w) => "- " + w));
-	// A seat that reads but may not change records (a church Member) is told who can, instead of a review it can't use.
-	// Its own notifications are not church records: a Member may change those and still no record. An organization
-	// seat has no church records here, so it is told only what it may do.
 	const recordWrites = catalog.reviewedWrites.filter((w) => !w.operation.startsWith("notifications."));
 	if (catalog.context === "plant" && reads.length && !recordWrites.length)
 		lines.push(
@@ -210,11 +162,6 @@ export function describeCatalog(catalog: Catalog) {
 	return lines.join("\n");
 }
 
-/**
- * evry.resolveReferences: page context and entity references are hints. Each one is read again under the actor's
- * current authority in one statement; a stale, foreign, retired or guessed reference is dropped, never used as
- * permission. At most 64.
- */
 export async function resolveReferences(
 	db: Database,
 	actor: EvryActor,
@@ -227,7 +174,6 @@ export async function resolveReferences(
 		id: r.id,
 		label: r.label,
 	}));
-	// An attached photo is the actor's own staged account photo upload that is still ready and unused.
 	const photos = [...new Set(bounded.filter((r) => r.kind === "photo").map((r) => r.id))];
 	const attached = photos.length
 		? (
@@ -240,15 +186,8 @@ export async function resolveReferences(
 }
 
 const estimate = (text: string) => Math.ceil(text.length / 4);
-/** Estimated tokens of the read and selection tool definitions the model also receives. */
 const TOOL_ALLOWANCE = 1_000;
 
-/**
- * evry.compileContext: the bounded model input for one turn. At most 24 recent messages within 32,000 estimated
- * tokens, at most 64 verified references, the trusted clock and the current catalog. Earlier read results are not
- * replayed: a later turn reads again under current authority, so a revoked source's body never returns. Summaries and
- * history are context, never authority.
- */
 export function compileContext(input: {
 	actor: EvryActor;
 	catalog: Catalog;
@@ -256,10 +195,6 @@ export function compileContext(input: {
 	text: string;
 	references: readonly { kind: "person" | "photo"; id: string; label: string }[];
 	now: Date;
-	/**
-	 * The Settings-only replies and the role rule (T-327). Only the recorded eval suites leave them out, with the T-327
-	 * tools, so their recorded provider calls stay unchanged until the next recording (ruling D-1137).
-	 */
 	settingsGuidance?: boolean;
 }) {
 	const turns: ModelMessage[] = [];
@@ -295,8 +230,6 @@ export function compileContext(input: {
 	]
 		.filter(Boolean)
 		.join("\n\n");
-	// The whole prompt fits the context budget: system text, references, tool definitions and every message. At most 24
-	// messages reach the model, the new one included.
 	const current: ModelMessage = { role: "user", content: scrub(input.text) };
 	const size = (messages: readonly ModelMessage[]) =>
 		estimate(system) + TOOL_ALLOWANCE + estimate(messages.map((m) => String(m.content)).join("\n"));
