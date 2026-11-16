@@ -26,6 +26,8 @@ import type { Node as PMNode } from "@tiptap/pm/model";
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { writeAddress } from "../../../components/location.ts";
+import { SAVE_SHORTCUT, shortcutMark } from "../../../components/save/leave.ts";
 import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
 import { clean } from "../church/editor/document-json.ts";
 import "../church/editor/editor.css";
@@ -45,16 +47,9 @@ import { documentProblem, type WrittenView } from "../model.ts";
 import { SaveChain } from "../save-chain.ts";
 import { CopiedNote, SECTION, TextRevisionNote } from "./notes.tsx";
 
-// A plain native document in the Church Document editor's toolbar and paper (D-208), with the prose tools and T-16's
-// table editor in its plain form (T-100): no page setup, merge fields, slots, template compare, branding, preview or
-// export (D-211). Save sends the title and the editor's body node with the expected revision; the domain parses the
-// body again.
-
 const EMPTY: DocNode = { type: "doc", content: [{ type: "paragraph" }] };
 
-/** A stored body as the editor holds it: a table's amount and check box cells are the editor's value cells. */
 const toEditor = (body: DocNode) => ({ ...body, content: blocksToEditor(body.content ?? []) });
-/** The editor's document as the stored body node. */
 const fromEditor = (doc: PMNode): DocNode => {
 	const json = clean(doc.toJSON()) as DocNode;
 	return json.content ? { ...json, content: blocksFromEditor(json.content) as DocNode["content"] } : json;
@@ -67,7 +62,6 @@ function fileFormat(file: File): "text" | "docx" | null {
 	return null;
 }
 
-/** Sends the file's raw bytes to the import route (a server action caps its body far below the import limit). */
 async function importWritten(file: File, params: Record<string, string>): Promise<DocumentOutcome<WrittenView>> {
 	try {
 		const response = await fetch(`/documents/written/import?${new URLSearchParams(params)}`, {
@@ -78,7 +72,6 @@ async function importWritten(file: File, params: Record<string, string>): Promis
 		if (!response.ok) return { status: "lost" };
 		return (await response.json()) as DocumentOutcome<WrittenView>;
 	} catch {
-		// A call that never reached the server, or an answer that is not the route's, reads as a lost answer.
 		return { status: "lost" };
 	}
 }
@@ -90,14 +83,11 @@ export default function NativeEditor({
 	scope,
 	canStore,
 }: {
-	/** Null for a new document: the first save creates it. */
 	doc: WrittenView | null;
 	scope: "church" | "account";
 	canStore: boolean;
 }) {
 	const router = useRouter();
-	// The last saved state and the shown title, as state for the page and as refs for the leave guard and Save, which
-	// read them at the moment of a click.
 	const first: Saved = {
 		id: doc?.id ?? null,
 		revision: doc?.revision ?? "0",
@@ -166,7 +156,6 @@ export default function NativeEditor({
 		editor.on("update", sync);
 		return () => void editor.off("update", sync);
 	}, [editor, isSaved]);
-	// A new document starts with the cursor in its title.
 	useEffect(() => {
 		if (!doc) titleInput.current?.focus();
 	}, [doc]);
@@ -181,13 +170,11 @@ export default function NativeEditor({
 					? { kind: "dirty" }
 					: { kind: "saved" };
 
-	/** The page's address names the document once the first save or import created it. */
 	const created = (id: string) => {
 		if (savedRef.current.id) return;
-		window.history.replaceState(window.history.state, "", `/documents/written/${id}`);
+		writeAddress(`/documents/written/${id}`, { replace: true });
 	};
 
-	/** One save of the document as it is now. The caller has checked that no save is in flight. */
 	const saveNow = useCallback((): Promise<boolean> => {
 		if (!editor) return Promise.resolve(false);
 		const current = editor.state.doc;
@@ -203,7 +190,6 @@ export default function NativeEditor({
 		setNote(null);
 		const base = savedRef.current;
 		return saves.start(async () => {
-			// A call that never reached the server (no connection, a refused body) reads as a lost answer, not a hang.
 			const result = await saveOwnedDocument({
 				title: nextTitle,
 				body,
@@ -234,25 +220,11 @@ export default function NativeEditor({
 		});
 	}, [editor, saves]);
 
-	/** Saves the document on screen, after any save in flight (SaveChain.save). */
 	const save = useCallback(async (): Promise<boolean> => {
 		if (!editor) return false;
 		return saves.save(() => isSaved(editor.state.doc) && titleRef.current.trim() === savedRef.current.title, saveNow);
 	}, [editor, isSaved, saveNow, saves]);
 
-	// Cmd/Ctrl+S saves from anywhere on the page, and the browser's own Save dialog stays closed.
-	useEffect(() => {
-		const onKey = (event: KeyboardEvent) => {
-			if ((event.metaKey || event.ctrlKey) && !event.altKey && event.key.toLowerCase() === "s") {
-				event.preventDefault();
-				void save();
-			}
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [save]);
-
-	// A change that would break a table does not happen. The note says why, until the next change or cursor move.
 	const [refused, setRefused] = useState(false);
 	useEffect(() => {
 		if (!editor) return;
@@ -310,7 +282,6 @@ export default function NativeEditor({
 			importKey.current = null;
 			const value = result.value;
 			created(value.id);
-			// The imported file is the saved revision now: text as paragraphs, a Word file with its headings, lists, links and tables.
 			editor.chain().setMeta("addToHistory", false).setContent(toEditor(value.body)).run();
 			savedDoc.current = editor.state.doc;
 			setBodyChanged(false);
@@ -399,7 +370,6 @@ export default function NativeEditor({
 				</div>
 				<div className="flex w-full max-w-[816px] flex-wrap items-center justify-between gap-x-4 gap-y-2 self-center">
 					{conflict ? (
-						// A retry would meet the same newer version, so a conflict offers the reload instead.
 						<p role="status" aria-live="polite" className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm">
 							<span className="text-magenta-600 text-pretty">Not saved. {phase.reason}</span>
 							<Button variant="outline" size="sm" icon={Refresh01Icon} onClick={reload}>
@@ -413,7 +383,15 @@ export default function NativeEditor({
 							New document. Nothing is saved yet.
 						</p>
 					)}
-					<div className="flex flex-wrap items-center gap-2">
+					<form
+						className="flex flex-wrap items-center gap-2"
+						{...shortcutMark(SAVE_SHORTCUT)}
+						onSubmit={(event) => {
+							event.preventDefault();
+							const fromButton = (event.nativeEvent as SubmitEvent).submitter !== null;
+							void save().then((ok) => ok && fromButton && editor?.view.focus());
+						}}
+					>
 						<Button
 							variant="secondary"
 							size="sm"
@@ -459,11 +437,11 @@ export default function NativeEditor({
 							icon={FloppyDiskIcon}
 							loading={busy}
 							disabled={!changed && phase.kind !== "failed"}
-							onClick={() => void save().then((ok) => ok && editor?.view.focus())}
+							type="submit"
 						>
 							Save
 						</Button>
-					</div>
+					</form>
 				</div>
 				{changed && saved.id ? (
 					<p className="w-full max-w-[816px] self-center text-sm text-text-2">
