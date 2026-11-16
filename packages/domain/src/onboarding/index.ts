@@ -19,7 +19,6 @@ export function createOnboardingProducer(effects: OnboardingEffects): Onboarding
 				parse(c.getDiscoveryProfileRequest, raw);
 				if (ctx.selected.kind !== "account") deny();
 				const a = await actor(tx, ctx);
-				// A request read checks its live access again in the statement that reads the profile (C13).
 				const [d] = await tx
 					.select()
 					.from(t.discovery)

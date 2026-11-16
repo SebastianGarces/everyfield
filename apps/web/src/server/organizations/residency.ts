@@ -7,10 +7,6 @@ import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
 import type { ProgramAnswer } from "./programs";
 
-// The My residency mount (WP-100). The resident acts as their own account, never a seat: pages and actions take the
-// request's one actor (D59), and every read and write rechecks the live residency link inside its own statement.
-
-/** The signed-in account's request actor, "signed_out", or null when there is no active session. */
 export async function residentActor(): Promise<RequestActor | "signed_out" | null> {
 	const v = await getViewer();
 	if (!v) return null;
@@ -18,7 +14,6 @@ export async function residentActor(): Promise<RequestActor | "signed_out" | nul
 	return v.status === "active" && v.authority ? v.authority : null;
 }
 
-/** One residency read or write as the request's account. A database failure reads as "lost", never a crash. */
 export async function residentCall<T>(
 	run: (db: Database, authority: RequestActor) => Promise<ProgramReply<T>>,
 	authority?: RequestActor,

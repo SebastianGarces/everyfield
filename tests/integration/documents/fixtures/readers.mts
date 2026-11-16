@@ -1,5 +1,3 @@
-// Readers that are independent of the writers under test: pdf.js reads a PDF, Python's zipfile and ElementTree read a
-// Word file, and LibreOffice opens it when the machine has it.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -17,7 +15,6 @@ type PdfJs = {
 };
 let pdfjs: PdfJs | undefined;
 
-/** The text of each page of a PDF, in reading order. */
 export async function pdfPages(bytes: Uint8Array): Promise<string[]> {
 	if (!pdfjs) {
 		const base = "../../../../packages/db/node_modules/pdfjs-dist/legacy/build/";
@@ -55,13 +52,11 @@ for name in z.namelist():
 json.dump(out, sys.stdout)
 `;
 
-/** Every part of a Word file by name. A part that is not well-formed XML, or a bad ZIP, throws. */
 export function docxParts(bytes: Uint8Array): Record<string, string> {
 	const out = execFileSync("python3", ["-I", "-c", SCRIPT], { input: Buffer.from(bytes), maxBuffer: 64 * 1024 * 1024 });
 	return JSON.parse(out.toString("utf8"));
 }
 
-/** Plain text of one XML part: the w:t runs, with a space between paragraphs and table cells. */
 export function wordText(xml: string): string {
 	return xml
 		.replace(/<\/w:p>/g, " ")
@@ -85,21 +80,14 @@ for name in z.namelist():
 json.dump(out, sys.stdout)
 `;
 
-/** The SHA-256 of each picture in a Word file, by part name. */
 export function docxMedia(bytes: Uint8Array): Record<string, string> {
 	const out = execFileSync("python3", ["-I", "-c", MEDIA], { input: Buffer.from(bytes), maxBuffer: 64 * 1024 * 1024 });
 	return JSON.parse(out.toString("utf8"));
 }
 
 let soffice: boolean | undefined;
-/** True when LibreOffice's `soffice` runs on this machine. */
 const hasSoffice = () => (soffice ??= spawnSync("soffice", ["--version"], { stdio: "ignore" }).status === 0);
 
-/**
- * A check that opens a file in LibreOffice. Without `soffice` it skips, except where `REQUIRE_SOFFICE=1`: the CI step that
- * installs LibreOffice sets it, so there the check runs and fails instead of passing while it covers less than it
- * claims. Other CI jobs (the db census) run these files without LibreOffice and skip.
- */
 export function sofficeTest(name: string, fn: () => Promise<void>) {
 	const required = process.env.REQUIRE_SOFFICE === "1";
 	return test(name, { skip: !required && !hasSoffice() && "LibreOffice is not installed" }, async () => {
@@ -108,7 +96,6 @@ export function sofficeTest(name: string, fn: () => Promise<void>) {
 	});
 }
 
-/** LibreOffice converts the Word file to PDF; the result is that PDF's bytes. */
 export function sofficeToPdf(docx: Uint8Array): Buffer {
 	const dir = mkdtempSync(join(tmpdir(), "wp037-soffice-"));
 	const input = join(dir, "in.docx");
@@ -124,10 +111,6 @@ export function sofficeToPdf(docx: Uint8Array): Buffer {
 	return readFileSync(join(dir, "in.pdf"));
 }
 
-/**
- * Each embedded TrueType font of a PDF: the name the PDF gives it (BaseFont, subset prefix removed) and the family and
- * style the font program's own `name` table holds. A face that prints the wrong file shows here as a name mismatch.
- */
 export async function pdfFontFaces(bytes: Uint8Array): Promise<{ baseFont: string; family: string; style: string }[]> {
 	const { PDFDocument, PDFDict, PDFName, PDFRawStream } =
 		await import("../../../../packages/domain/node_modules/pdf-lib/cjs/index.js");
@@ -152,7 +135,6 @@ export async function pdfFontFaces(bytes: Uint8Array): Promise<{ baseFont: strin
 	return faces;
 }
 
-/** Name IDs 1 (family) and 2 (subfamily) of a TrueType font, from its Windows or Mac records. */
 function nameTable(font: Buffer): Record<number, string> {
 	const out: Record<number, string> = {};
 	const tables = font.readUInt16BE(4);
@@ -176,7 +158,6 @@ function nameTable(font: Buffer): Record<number, string> {
 	return out;
 }
 
-/** The decoded content-stream operators of every page of a PDF, as text, with the ExtGState dictionaries they name. */
 export async function pdfOperators(bytes: Uint8Array): Promise<string> {
 	const { PDFDocument, PDFArray, PDFRawStream, decodePDFRawStream } =
 		await import("../../../../packages/domain/node_modules/pdf-lib/cjs/index.js");

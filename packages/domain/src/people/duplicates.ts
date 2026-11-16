@@ -18,16 +18,11 @@ import {
 	type WriteContext,
 } from "./core.ts";
 
-/**
- * The normalized contact signals that duplicate hints and the CSV import both match on: a lowercased email and the
- * digits of a phone. An empty or short signal is ignored, so it never matches everyone.
- */
 export function contactSignals(v: { email?: string | null; phone?: string | null }) {
 	const email = v.email?.trim().toLowerCase() ?? "";
 	const phone = v.phone?.replace(/\D/g, "") ?? "";
 	return { email: email.includes("@") ? email : null, phone: phone.length >= 7 ? phone : null };
 }
-/** The same normalization applied to a stored Person `p`, for set-based equality lookups. */
 export const personEmail = sql`lower(btrim(p.email))`;
 export const personPhone = sql`regexp_replace(coalesce(p.phone,''),'\\D','','g')`;
 const personName = sql`lower(regexp_replace(btrim(p.display_name),'\\s+',' ','g'))`;
@@ -43,11 +38,6 @@ const found = z.object({
 		z.object({ id: z.uuid(), displayName: z.string(), email: z.boolean(), phone: z.boolean(), name: z.boolean() }),
 	),
 });
-/**
- * The duplicate hints for one set of contact facts among the live people of one church or organization, in one
- * statement with the caller's live access check (`gate`) inside it. Shared by people.checkForDuplicates and
- * orgPeople.findDuplicates, so both match the same way.
- */
 export async function matchPeople(
 	tx: Tx,
 	owner: string,
@@ -64,10 +54,6 @@ export async function matchPeople(
 	if (!row.allowed) deny();
 	return duplicateHints(row.people);
 }
-/**
- * The matching live people as one JSON array, a scalar subquery inside the caller's statement and its live access check.
- * The signals are SQL text values; a null signal matches nothing.
- */
 function matchJson(owner: string, signal: { email: SQL; phone: SQL; name: SQL }, exclude: SQL) {
 	return sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',m.id,'displayName',m.display_name,
  'email',m.e,'phone',m.ph,'name',m.n) ORDER BY m.exact DESC,m.created_at,m.id) FROM (
@@ -88,11 +74,6 @@ function duplicateHints(people: z.infer<typeof found>["people"]) {
 	}));
 	return c.duplicateHints.parse({ items, completeness: people.length > LIMIT ? "partial" : "complete" });
 }
-/**
- * The duplicate hints for the outer `person` row itself, among the other live people of its church, as one JSON array:
- * the person page reads them in its own statement. Its contact signals are normalized in SQL as `contactSignals` and
- * `nameSignal` normalize them in TypeScript.
- */
 export const personDuplicatesJson = (owner: string) => {
 	const trim = (v: SQL) => sql`regexp_replace(${v},'^\\s+|\\s+$','','g')`;
 	const email = sql`lower(${trim(sql`person.email`)})`;
@@ -109,11 +90,6 @@ export const personDuplicatesJson = (owner: string) => {
 	);
 };
 export const personDuplicates = (raw: unknown) => duplicateHints(found.shape.people.parse(raw));
-/**
- * people.checkForDuplicates (REQ-PPL-016): live people of this church who share a normalized email or phone (an exact
- * hint) or the same name (a potential hint). Hints only: they never prove identity or merge anyone. Equality lookups,
- * so wildcard characters match only themselves. One statement, with the lock-free live access check inside it.
- */
 export async function checkForDuplicates(tx: Tx, ctx: Context, raw: unknown) {
 	return readReply(async () => {
 		if (ctx.selected.kind !== "plant") deny();
@@ -134,20 +110,11 @@ const pairRows = z.object({
 		}),
 	),
 });
-/** The import flagged person `p` to review against `m`: its people.created audit row names `m` (`import.reviewWith`). */
 const flagged = sql`EXISTS(SELECT FROM audit_event e WHERE e.tenant_id=p.tenant_id AND e.subject_id=p.id
  AND e.action='people.created' AND jsonb_typeof(e.metadata->'import'->'reviewWith')='string'
  AND lower(e.metadata->'import'->>'reviewWith')=m.id::text)`;
-/** An Owner or Admin marked the pair of `p` and `m` "Not a duplicate" (D-789). */
 const dismissed = sql`EXISTS(SELECT FROM person_duplicate_dismissal d WHERE d.plant_id=p.tenant_id AND d.person_id=p.id
  AND d.with_person_id=m.id)`;
-/**
- * people.listDuplicatePairs (REQ-PPL-018): the pairs a CSV import added with "Add, review later", read from each imported
- * person's people.created audit row (`import.reviewWith`), so imports made before this read show too. A pair shows
- * while both people are live in this church and nobody marked it "Not a duplicate": a merge or retirement of either
- * one removes it, and so does a dismissal until it is restored (D-789). Oldest first, the first 100. One statement,
- * with the live Owner or Admin check inside it (C13).
- */
 export async function listDuplicatePairs(tx: Tx, ctx: Context) {
 	return readReply(async () => {
 		if (ctx.selected.kind !== "plant") deny();
@@ -175,11 +142,6 @@ export async function listDuplicatePairs(tx: Tx, ctx: Context) {
 const organizationPairRows = pairRows.extend({
 	pairs: z.array(pairRows.shape.pairs.element.extend({ shared: z.array(z.enum(["email", "phone"])) })),
 });
-/**
- * orgPeople.listDuplicatePairs (REQ-MUL-017): every pair of the organization's live, unremoved people who share a
- * normalized email or phone, each pair once, oldest first, the first 100. Suggestions for an Owner or Admin to review;
- * nothing here merges anyone or picks the record that stays. One statement, with the live Owner or Admin check inside.
- */
 export async function listOrganizationDuplicatePairs(tx: Tx, ctx: Context) {
 	return readReply(async () => {
 		if (ctx.selected.kind !== "organization") deny();
@@ -213,12 +175,6 @@ const listedRow = z.object({
 	allowed: z.boolean(),
 	listed: z.object({ personId: z.uuid(), withPersonId: z.uuid() }).nullable(),
 });
-/**
- * Whether `a` and `b` are a listed pair (one people.listDuplicatePairs shows) in either order, and in which direction:
- * the imported person first, as the dismissal row and people.dismissDuplicatePair take it (D-789). Null when the import
- * flagged neither order, either person is not live here, or the pair was dismissed. One statement, with the live Owner
- * or Admin check inside it (C13). The duplicate review reads it in its own transaction.
- */
 export async function listedDuplicatePair(tx: Tx, ctx: Context, pair: { a: string; b: string }) {
 	return readReply(async () => {
 		if (ctx.selected.kind !== "plant") deny();
@@ -248,11 +204,6 @@ const dismissedRows = z.object({
 		}),
 	),
 });
-/**
- * people.listDismissedDuplicatePairs (D-790): the pairs an Owner or Admin marked "Not a duplicate" whose two people are
- * both still live, newest first, the first 100. Who dismissed each pair comes from its latest dismiss audit row, so an
- * account the purge scrubbed reads as unnamed. One statement, with the live Owner or Admin check inside it (C13).
- */
 export async function listDismissedDuplicatePairs(tx: Tx, ctx: Context) {
 	return readReply(async () => {
 		if (ctx.selected.kind !== "plant") deny();
@@ -283,13 +234,6 @@ export async function listDismissedDuplicatePairs(tx: Tx, ctx: Context) {
 }
 
 const changeRow = z.object({ found: z.boolean(), changed: z.boolean() });
-/**
- * Dismiss or restore one listed pair (D-789). It runs in the write gate's transaction, which holds the Owner or Admin
- * seat and the church until COMMIT. Its one statement locks both people, checks that the import flagged the pair and
- * both are still live, changes the dismissal row and writes the audit row only when the row changed. A repeat (a double
- * click, a second tab) changes nothing, writes no audit row and answers "noop". A pair on neither list is refused as
- * pair_unavailable, with nothing written.
- */
 function pairWrite(change: "dismiss" | "restore", tx: Tx, ctx: WriteContext, raw: unknown) {
 	return reply(tx, async () => {
 		if (ctx.selected.kind !== "plant") deny();
@@ -321,11 +265,9 @@ function pairWrite(change: "dismiss" | "restore", tx: Tx, ctx: WriteContext, raw
 		return c.duplicatePairChange.parse({ outcome: row.changed ? "changed" : "noop" });
 	});
 }
-/** people.dismissDuplicatePair: "Not a duplicate" takes a listed pair off the list and into the Dismissed view. */
 export async function dismissDuplicatePair(tx: Tx, ctx: WriteContext, raw: unknown) {
 	return pairWrite("dismiss", tx, ctx, raw);
 }
-/** people.restoreDuplicatePair: Restore puts a dismissed pair back on the list, in its import order. */
 export async function restoreDuplicatePair(tx: Tx, ctx: WriteContext, raw: unknown) {
 	return pairWrite("restore", tx, ctx, raw);
 }

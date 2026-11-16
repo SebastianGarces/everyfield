@@ -5,7 +5,6 @@ import "server-only";
 import { z } from "zod";
 
 const date = z.coerce.date();
-/** One meeting with the counts its summary shows. Every meeting read and every write's fact read uses these columns. */
 export const meetingColumns = sql`m.id, m.plant_id, m.revision::text AS revision, m.type, m.subtype, m.status, m.title,
 	m.notes, m.local_date::text AS local_date, to_char(m.local_time, 'HH24:MI') AS local_time, m.timezone, m.starts_at,
 	m.vision_number, m.venue_id, m.venue_name, m.venue_address, m.agenda, m.agenda_version, m.kit_version,
@@ -99,7 +98,6 @@ export function detail(m: MeetingRow): z.infer<typeof c.meetingDetail> {
 		retiredAt: m.retired_at?.toISOString() ?? null,
 	});
 }
-/** The audited facts of a meeting: what a change records as before and after. */
 export const facts = (m: MeetingRow) => ({
 	title: m.title,
 	notes: m.notes,
