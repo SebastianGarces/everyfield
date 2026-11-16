@@ -71,7 +71,6 @@ export async function readReply<T>(body: () => Promise<T>): Promise<TaskReply<T>
 		return refused(error);
 	}
 }
-/** A tool or test caller without a bound native request gets its own savepoint, so a refusal rolls back alone. */
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<TaskReply<T>> {
 	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	return readReply(() => auditSavepoint(tx, body));
@@ -82,7 +81,6 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	return r.data;
 }
 
-/** The native request owns rollback: bind the verified actor once, then run the command in the same transaction. */
 export async function withTaskWrite<T>(
 	db: Database,
 	authority: RequestActor,
@@ -91,7 +89,6 @@ export async function withTaskWrite<T>(
 	const selected = authority.actor.context.owner;
 	return readReply(() =>
 		nativeWrite(db, authority, selected, async (tx) => {
-			// Every write of this module reads other rows, counts or the church's settings (C88).
 			await declareWrite(tx, "established");
 			const result = await body(tx, { session: authority.session, selected });
 			if (result.status === "refused") throw new TaskRefusal(result.error.code, result.error.details);
@@ -102,7 +99,6 @@ export async function withTaskWrite<T>(
 
 export type Viewer = { accountId: string; plantId: string; role: "owner" | "admin" | "member" };
 export type Reader = Viewer & { session: string; seatId: string; owner: Owner };
-/** The reader's plant seat as the request's verified actor saw it; reads add no statement for it (D59/D60). */
 export function readerOf(authority: RequestActor): Reader {
 	const a = authority.actor;
 	if (a.context.kind !== "seat" || a.context.owner.kind !== "plant") deny();
@@ -116,7 +112,6 @@ export function readerOf(authority: RequestActor): Reader {
 	};
 }
 type Writer = Viewer & { zone: z.infer<typeof timeZone> };
-/** Locks the actor's authority for this transaction once; a bound native request reuses its lock. */
 async function writerOf(tx: Tx, context: TaskContext): Promise<Writer> {
 	const bound = await lockedWrite(tx);
 	const write =
@@ -136,9 +131,7 @@ export const administers = (v: Viewer) => v.role !== "member";
 export { hash };
 
 export type Command = AuditWrite & { actor: Writer };
-/** Any command that may append task changes: a task command, or another domain's command that generates tasks. */
 export type AuditCommand = AuditWrite & { actor: { accountId: string; plantId: string } };
-/** Every task and follow-up write name. The wrapper declares each write established (C88), so one declaration decides the path. */
 type TaskWrite =
 	| "followups.correctOutcome"
 	| "followups.recordOutcome"
@@ -163,11 +156,6 @@ type TaskWrite =
 	| "tasks.replacePrerequisites"
 	| "tasks.setSubtaskCompletion"
 	| "tasks.waive";
-/**
- * One retry-safe command (D70): the request key replays the stored answer, the body queues its changes and audit rows
- * on the command, and finishAudit runs them in one statement. `after` runs in the same transaction once the changes
- * are visible, for consequences that read them (reminder sync).
- */
 export async function command<T>(
 	tx: Tx,
 	context: TaskContext,
@@ -193,7 +181,6 @@ export async function command<T>(
 	return result.value;
 }
 
-/** A task audit row. The command's first row carries the request key and stored answer. */
 export function auditRow(
 	cmd: AuditCommand,
 	entry: {
@@ -208,7 +195,6 @@ export function auditRow(
 		reason?: string | null;
 	},
 ) {
-	// Generated work appends to another domain's command, whose own row keeps the command ID.
 	const first = entry.source !== "generated" && !cmd.events.some((e) => e.id === cmd.id);
 	cmd.events.push({
 		id: first ? cmd.id : randomUUID(),
@@ -228,7 +214,6 @@ export function auditRow(
 	});
 }
 
-/** The fields whose values differ, before and after. */
 export function changes(before: Record<string, unknown>, after: Record<string, unknown>) {
 	const keys = Object.keys(after).filter((k) => JSON.stringify(before[k] ?? null) !== JSON.stringify(after[k] ?? null));
 	return {

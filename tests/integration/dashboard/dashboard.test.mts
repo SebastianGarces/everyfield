@@ -7,9 +7,6 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { afterSignIn, landingFor } from "../../../packages/contracts/src/identity/navigation.ts";
 import { dashboardReader, dashboardWriter } from "../../../packages/domain/src/dashboard/index.ts";
 
-// Overview (ADM-004, ADM-005) against a migrated database. Harvest Point (America/Chicago) with its Owner, Admin and
-// Member. Rows are seeded the way their writers store them; times come from the database clock.
-
 const database = await fixture({
 	prefix: "dashboard",
 	max: 6,
@@ -45,7 +42,6 @@ async function person(
 		random()*1000,${columns.state ?? "live"},${columns.linked ?? null},${columns.created ?? sql`clock_timestamp()`},1)`);
 	return id;
 }
-/** A task assigned to `assignee`, due `days` church-local days from today (negative is past). */
 async function task(plant: string, assignee: string | null, days: number, status = "not_started", title = "A task") {
 	const id = randomUUID();
 	await run(sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,completed_at,due_kind,due_date)
@@ -66,7 +62,6 @@ async function meeting(plant: string, status: string, extra: { voided?: boolean;
 		${extra.voided ? sql`clock_timestamp()` : null})`);
 	return id;
 }
-/** An audit row as its writer stores it, `ago` minutes before now. */
 async function audit(row: {
 	actor: string | null;
 	action: string;
@@ -84,7 +79,6 @@ async function audit(row: {
 }
 
 test("AC:CASE-ADM-004 home comes from the seat and the saved setup, never from the address", async () => {
-	// A Discovery account with no seat lands on its own onboarding page, and no church is created for it.
 	const discovery = await database.actor(null);
 	const plants = await one(sql`SELECT count(*)::int AS n FROM plant`);
 	const none = await dashboardReader.resolveHome(db, await authority(discovery));
@@ -92,33 +86,26 @@ test("AC:CASE-ADM-004 home comes from the seat and the saved setup, never from t
 	assert.equal(landingFor({ status: "active", plant: none }), "/onboarding");
 	assert.deepEqual(await one(sql`SELECT count(*)::int AS n FROM plant`), plants);
 
-	// A church whose setup is saved complete lands on Overview.
 	const done = await dashboardReader.resolveHome(db, await authority(actors.owner));
 	assert.equal(done, "complete");
 	assert.equal(landingFor({ status: "active", plant: done }), "/overview");
 
-	// An unfinished church returns to setup, whatever the address claims.
 	const unfinished = await database.plant({ name: "Eastside", onboarding_completed_at: null });
 	const planter = await database.actor(unfinished, "owner");
 	const home = await dashboardReader.resolveHome(db, await authority(planter));
 	assert.equal(home, "incomplete");
 	for (const returnTo of ["/overview", "/overview?setup=done", "/people", "/home?returnTo=%2Fpeople"])
 		assert.equal(landingFor({ status: "active", plant: home, returnTo }), "/onboarding");
-	// Only a proof the account itself holds comes first, such as its seat invitation.
 	assert.equal(landingFor({ status: "active", plant: home, returnTo: "/invitation" }), "/invitation");
-	// A finished church follows a safe returnTo, but never one back to the landing route, which would loop.
 	assert.equal(landingFor({ status: "active", plant: done, returnTo: "/people" }), "/people");
 	assert.equal(landingFor({ status: "active", plant: done, returnTo: "/home" }), "/overview");
-	// Sign-in always loads the landing route, carrying the returnTo for landingFor to decide.
 	assert.equal(afterSignIn("/people?x=1"), "/home?returnTo=%2Fpeople%3Fx%3D1");
 	assert.equal(afterSignIn("https://evil.example"), "/home");
 
-	// A sending church's seat goes to its organization home.
 	const church = await database.organization("sending_church");
 	const reader = await database.actor(church, "owner");
 	assert.equal(await dashboardReader.resolveHome(db, await authority(reader)), "organization");
 	assert.equal(landingFor({ status: "active", plant: "organization" }), "/network");
-	// An organization seat has no plant dashboard to read.
 	refused(await dashboardReader.readMetrics(db, await authority(reader)), "access_denied");
 	refused(await dashboardReader.readAvailableActions(db, await authority(reader)), "access_denied");
 });
@@ -128,19 +115,15 @@ test("AC:CASE-ADM-005 four counts: recruited without the church's own logins, li
 	const owner = await database.actor(w, "owner");
 	const other = await database.actor(w, "admin");
 	const member = await database.actor(w, "member");
-	// 30 People in core group, launch team or leader; 2 of them are the church's own logins. A former login whose seat
-	// ended is recruited like anyone else.
 	await person(w.id, { stage: "core_group", linked: owner.id });
 	await person(w.id, { stage: "leader", linked: other.id });
 	const former = await database.actor(w, "member");
 	await run(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${former.id}`);
 	await person(w.id, { stage: "core_group", linked: former.id });
 	for (let i = 0; i < 27; i++) await person(w.id, { stage: ["core_group", "launch_team", "leader"][i % 3] });
-	// 110 more live People in earlier stages (140 live in all), and People that are not counted at all.
 	for (let i = 0; i < 110; i++) await person(w.id, { stage: i % 2 ? "prospect" : "attendee" });
 	await person(w.id, { stage: "core_group", state: "retired" });
 	await person(w.id, { stage: "leader", state: "merged" });
-	// 3 overdue tasks for the Owner, 5 for the Admin, and Owner tasks that are not overdue.
 	for (let i = 0; i < 3; i++) await task(w.id, owner.id, -2 - i);
 	for (let i = 0; i < 5; i++) await task(w.id, other.id, -3);
 	await task(w.id, owner.id, 0);
@@ -149,9 +132,7 @@ test("AC:CASE-ADM-005 four counts: recruited without the church's own logins, li
 	await task(w.id, owner.id, -5, "no_longer_needed");
 	const deleted = await task(w.id, owner.id, -5);
 	await run(sql`UPDATE task SET deleted_at=clock_timestamp() WHERE id=${deleted}`);
-	// The Member has one overdue task of their own.
 	await task(w.id, member.id, -1);
-	// 4 held Vision Meetings; a planned one, a voided one, a deleted one and a held orientation are not counted.
 	for (let i = 0; i < 4; i++) await meeting(w.id, "completed");
 	await meeting(w.id, "planning");
 	await meeting(w.id, "completed", { voided: true });
@@ -169,7 +150,6 @@ test("AC:CASE-ADM-005 four counts: recruited without the church's own logins, li
 	assert.equal(seen.myOverdueTasks, 1);
 	assert.equal(seen.recruited, 28);
 
-	// Quick actions come from the live seat: every one for an Owner, none for a Member.
 	const owners = ok(await dashboardReader.readAvailableActions(db, await authority(owner)));
 	assert.deepEqual(owners.actions, ["add_person", "import_people", "plan_meeting"]);
 	assert.equal(owners.role, "owner");
@@ -178,7 +158,6 @@ test("AC:CASE-ADM-005 four counts: recruited without the church's own logins, li
 	assert.deepEqual(members.prompts, []);
 	assert.equal(members.role, "member");
 
-	// A seat that ended reads nothing, not zeros.
 	const ended = await authority(member);
 	await run(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${member.id}`);
 	refused(await dashboardReader.readMetrics(db, ended), "access_denied");
@@ -193,7 +172,6 @@ test("AC:CASE-ADM-005 the activity feed: 20 newest, who and when, corrections as
 	const done = await task(P, owner, -1, "complete", "Call James");
 	const removed = await task(P, owner, -1, "complete", "Deleted task");
 	await run(sql`UPDATE task SET deleted_at=clock_timestamp() WHERE id=${removed}`);
-	// Old rows first: 25 people added long ago, so only the newest 20 entries show.
 	for (let i = 0; i < 25; i++)
 		await audit({
 			actor: owner,
@@ -255,7 +233,6 @@ test("AC:CASE-ADM-005 the activity feed: 20 newest, who and when, corrections as
 		ago: 4,
 		after: { phase: 2 },
 	});
-	// Attendance on the held meeting corrected later: a correction of that meeting, not a new meeting.
 	await audit({
 		actor: actors.admin.id,
 		action: "meetings.finalized",
@@ -265,7 +242,6 @@ test("AC:CASE-ADM-005 the activity feed: 20 newest, who and when, corrections as
 		ago: 3,
 		metadata: { event: "attendance_reconciled" },
 	});
-	// Noise the feed never shows: a no-op and a seat change.
 	await audit({ actor: owner, action: "people.created", kind: "noop", subjectType: "person", subject: maria, ago: 2 });
 	await audit({ actor: owner, action: "settings.changed", kind: "edit", subjectType: "plant", subject: P, ago: 1 });
 
@@ -291,7 +267,6 @@ test("AC:CASE-ADM-005 the activity feed: 20 newest, who and when, corrections as
 		[...times].sort((a, b) => b - a),
 	);
 
-	// A Member sees the same feed without the phase change, which only Owners and Admins can open.
 	const members = ok(await dashboardReader.readActivity(db, await authority(actors.member)));
 	assert.deepEqual(
 		members.entries.slice(0, 5).map((e) => e.change.kind),
@@ -306,7 +281,6 @@ test("AC:CASE-ADM-005 a dismissed prompt stays dismissed for that person and cha
 	const other = await database.actor(w, "admin");
 	const member = await database.actor(w, "member");
 	await person(w.id, { stage: "core_group", linked: owner.id });
-	// A church created today is in its first week: its phase journey starts with today's creation.
 	const op = randomUUID();
 	await run(sql`INSERT INTO audit_event(id,tenant_id,actor_id,action,kind,subject_type,subject_id)
 		VALUES(${op},${w.id},${owner.id},'phase.created','create','plant',${w.id})`);
@@ -319,13 +293,11 @@ test("AC:CASE-ADM-005 a dismissed prompt stays dismissed for that person and cha
 		gaps: ["add_people", "plan_vision_meeting", "set_launch_date"],
 	});
 	assert.deepEqual(before.prompts, ["import_people"]);
-	// Only the church's own login is a Person: the first-week numbers are real zeros.
 	const metrics = ok(await dashboardReader.readMetrics(db, await authority(owner)));
 	assert.deepEqual(metrics, { recruited: 0, people: 1, myOverdueTasks: 0, visionMeetings: 0 });
 
 	const dismissed = ok(await dashboardWriter.dismissPrompt(db, await authority(owner), { prompt: "import_people" }));
 	assert.deepEqual(dismissed, { outcome: "changed", prompt: "import_people" });
-	// Saved on the server: a second dismissal writes nothing, and every later read (any browser) still hides it.
 	assert.deepEqual(ok(await dashboardWriter.dismissPrompt(db, await authority(owner), { prompt: "import_people" })), {
 		outcome: "noop",
 		prompt: "import_people",
@@ -338,13 +310,11 @@ test("AC:CASE-ADM-005 a dismissed prompt stays dismissed for that person and cha
 		dismissed: ["import_people"],
 	});
 	assert.deepEqual(ok(await dashboardReader.readSetupGaps(db, await authority(owner))), before.setup);
-	// The dismissal is this person's: another Admin still sees the prompt.
 	assert.deepEqual(ok(await dashboardReader.readAvailableActions(db, await authority(other))).prompts, [
 		"import_people",
 	]);
 	assert.deepEqual(ok(await dashboardReader.readPromptState(db, await authority(member))), { dismissed: [] });
 	refused(await dashboardWriter.dismissPrompt(db, await authority(owner), { prompt: "anything" }), "invalid_input");
-	// The audit row names the field and the prompt only.
 	const row = await one(sql`SELECT action,kind,subject_type,before_value,after_value,metadata FROM audit_event
 		WHERE tenant_id=${w.id} AND action='settings.changed'`);
 	assert.deepEqual(row, {

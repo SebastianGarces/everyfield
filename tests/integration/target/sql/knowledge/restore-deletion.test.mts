@@ -28,12 +28,6 @@ import {
 	type Store,
 } from "./support.mts";
 
-// ORG55-008 and DEL58-008: account A of church P asks to delete on 2026-10-13T16:00:00Z, so it can cancel until
-// 2026-11-12T16:00:00Z. The live purge fails once at 2026-11-20T15:00:00Z (a file delete is unconfirmed) and completes
-// on the retry at 16:00, so every copy holding A expires at 2026-11-27T16:00:00Z. A snapshot cut on 2026-11-19 (A
-// pending) is restored in an isolated rehearsal: the current witness, read from the live schema, decides what A's
-// restored rows show, never the image's own pending witness. The database clock and the host clock stand at each
-// named instant in turn.
 const REQUESTED = new Date("2026-10-13T16:00:00.000Z");
 const SNAPSHOT_AT = new Date("2026-11-19T16:00:00.000Z");
 const FIRST_PURGE = new Date("2026-11-20T15:00:00.000Z");
@@ -70,7 +64,6 @@ const live: Store = new Map();
 const targets: string[] = [];
 
 let a, subject, requestId, avatar, cancelUntil, image;
-/** Freezes the database and host clocks at `at`. */
 async function at(when: Date) {
 	await freezeClock(admin, schema, when);
 	mock.timers.setTime(when.getTime());
@@ -82,7 +75,6 @@ before(async () => {
 	const plant = await seed.plant({ name: "Harvest Point" });
 	a = await seed.actor(plant, "admin", { email: "alex@example.test" });
 	subject = { kind: "account" as const, id: a.id };
-	// A's private content: a feedback body and an avatar file.
 	const actor = await RequestActor.resolve(db, a.session);
 	assert.ok(actor instanceof RequestActor);
 	ok(
@@ -112,7 +104,6 @@ before(async () => {
 	await at(SNAPSHOT_AT);
 	image = await snapshot(admin, live, { createdAt: SNAPSHOT_AT });
 
-	// The live purge: the first file delete is unconfirmed, the retry an hour later removes the bytes.
 	let attempts = 0;
 	const purge = createLifecycleCleanup(cleanup, {
 		authorize: async () => true,
@@ -137,7 +128,6 @@ after(async () => {
 	await database.close();
 });
 
-/** One rehearsal at `when` of `copy`, into a fresh target and its own empty object store. */
 async function rehearse(when: Date, copy) {
 	await at(when);
 	const target = `${schema}_r${targets.length}`;
@@ -150,7 +140,6 @@ async function rehearse(when: Date, copy) {
 	return { result, store, target };
 }
 
-/** Whether any of A's private content is in the target: its feedback body, its email or its avatar bytes. */
 async function privateVisible(target: string, store: Store) {
 	if (!(await schemaExists(admin, target))) return store.size > 0;
 	const at = (table: string) => sql.raw(`${target}.${table}`);
@@ -163,7 +152,6 @@ async function privateVisible(target: string, store: Store) {
 	return row!.bodies > 0 || row!.email === a.email || store.has(avatar.key);
 }
 
-/** A's cancel through the restored image, with fresh proof of its original login: the domain's answer. */
 async function cancelThrough(target: string) {
 	const pool = database.connect("admin", { schema: target, max: 1 });
 	const proof = await pool.transaction((tx) =>
@@ -199,11 +187,9 @@ test("AC:ORG55-008 a restore from before the purge keeps A hidden, with the copy
 			assert.equal(result.service_opened, false);
 			assert.equal(result.customer_data_gate, "blocked");
 			assert.equal(await privateVisible(target, store), false);
-			// The image held A pending; the target holds the current witness.
 			const w = await witnessIn(target);
 			assert.equal(w.state, "purged");
 			assert.equal(new Date(w.copy_expires_at).toISOString(), "2026-11-27T16:00:00.000Z");
-			// No app login reaches the target: A's restored session reads nothing.
 			const runtime = database.connect("runtime", { schema: target, max: 1 });
 			await assert.rejects(readViewer(runtime, a.session));
 			assert.equal(await closedTo(runtime, target), true);
@@ -230,8 +216,6 @@ test("AC:ORG55-008 a restore from before the purge keeps A hidden, with the copy
 });
 
 test("AC:DEL58-008 a recopy after the purge never resets the copy expiry, and the restored subject stays hidden", async (step) => {
-	// The old image, recopied on 2026-11-26: once carrying the image's own subject list (A was pending then, with no
-	// copy expiry), once claiming a fresh seven-day expiry for A.
 	const recopy = {
 		...image,
 		manifest: { ...image.manifest, createdAt: RECOPY_AT.toISOString(), expiresAt: "2026-12-03T16:00:00.000Z" },
@@ -245,7 +229,6 @@ test("AC:DEL58-008 a recopy after the purge never resets the copy expiry, and th
 		await at(RECOPY_AT);
 		const original = new Map([[a.id, "2026-11-27T16:00:00.000Z"]]);
 		assert.throws(() => validateCandidate(reset.manifest, RECOPY_AT, original), /subject_expired_or_reset/);
-		// Without the current witness's original expiry the same manifest would pass.
 		assert.equal(validateCandidate(reset.manifest, RECOPY_AT).effectiveExpiresAt, "2026-12-03T16:00:00.000Z");
 		const refused = await rehearse(RESTORE_AT, reset);
 		assert.equal(refused.result.refusal, "subject_expired_or_reset");
@@ -264,7 +247,6 @@ test("AC:DEL58-008 a recopy after the purge never resets the copy expiry, and th
 		};
 		assert.deepEqual(outcome, { copy_expiry: "2026-11-27T16:00:00Z", restored_visible: false, cancel_allowed: false });
 		assert.equal(cancel.error.code, "deadline_passed");
-		// The target keeps the original expiry, not the recopy's date.
 		assert.equal(w.state, "purged");
 		assert.equal(new Date(w.copy_expires_at).toISOString(), "2026-11-27T16:00:00.000Z");
 		assert.equal(result.service_opened, false);

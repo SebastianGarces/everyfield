@@ -37,7 +37,6 @@ const historyRow = z.object({
 const actorOf = (e: { actorId: string | null; actorName: string | null }) =>
 	e.actorId && e.actorName !== null ? { accountId: e.actorId, displayName: e.actorName } : null;
 
-/** Launch Sunday held, from the first recording of the outcome: the date is the current one, corrections included. */
 function launchEntry(l: NonNullable<z.infer<typeof historyRow>["launch"]>): c.JourneyEntry {
 	return c.journeyEntry.parse({
 		kind: "launch_sunday",
@@ -47,7 +46,6 @@ function launchEntry(l: NonNullable<z.infer<typeof historyRow>["launch"]>): c.Jo
 		occurredAt: l.occurredAt,
 	});
 }
-/** The gathering milestone reached (T-296), from its latest recording: the date and name are the current record's. */
 function gatheringEntry(g: NonNullable<z.infer<typeof historyRow>["gathering"]>): c.JourneyEntry {
 	return c.journeyEntry.parse({
 		kind: "gathering",
@@ -60,12 +58,6 @@ function gatheringEntry(g: NonNullable<z.infer<typeof historyRow>["gathering"]>)
 }
 
 export const phaseReader = {
-	/**
-	 * phases.readHistory (PHASE-007): the current phase and the journey in the order it happened, creation, declaration,
-	 * moves, Launch Sunday held (WP-046) and a gathering milestone reached (T-296), each its own entry and never a made-up move. Rows are only ever appended, so a later correction is a new entry. Noop receipts are not moves and stay
-	 * out. Each entry's actor is the account on its command's audit row; creation's command belongs to the founding
-	 * account. One statement whose live Owner or Admin check gates every row it returns (C13, PHASE-CASE-007).
-	 */
 	async readHistory(db: Pick<Database, "execute">, authority: RequestActor) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
