@@ -16,7 +16,6 @@ flowchart LR
   s0 -.- s0_st3(("nothing-held (manual)"))
   s0 -.- s0_st4(("held-run (manual)"))
   s0 -.- s0_st5(("no-failed-run (manual)"))
-  s0 -.- s0_st6(("load-failed (manual)"))
   s0 --- s0_b0["held-for-review<br/>tests + cases"]
 ```
 
@@ -67,7 +66,6 @@ agent-browser wait --url "**/signin?returnTo=%2Fassessment-review"
 - **nothing-held**: heading "Nothing is held". Not scripted: open /assessment-review as triage, after giving that account the operator grant in the app's database: INSERT INTO platform_grant(account_id, capability) SELECT account_id, 'assessment_operator' FROM platform_grant WHERE capability = 'feedback_triage' (a map step cannot write the database; delete the row afterwards).
 - **held-run**: list "Held assessments"; heading "Cause"; heading "Failed in a row". Not scripted: needs the operator grant (as for nothing-held) and a plant whose last three scheduled assessments failed, which no seed creates; the list row opens the run.
 - **no-failed-run**: heading "There is no failed run here". Not scripted: open /assessment-review/00000000-0000-0000-0000-000000000000 as triage, after giving that account the operator grant in the app's database: INSERT INTO platform_grant(account_id, capability) SELECT account_id, 'assessment_operator' FROM platform_grant WHERE capability = 'feedback_triage' (a map step cannot write the database; delete the row afterwards).
-- **load-failed**: heading "Held assessments did not load". Not scripted: stop the app's database (on a proof slot, docker stop its Postgres) and open /assessment-review signed in; the run page says This run did not load instead.
 
 #### assessment-review.runs#held-for-review
 

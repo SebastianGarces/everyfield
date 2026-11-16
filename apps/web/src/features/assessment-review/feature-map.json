@@ -120,18 +120,6 @@
 							"name": "There is no failed run here"
 						}
 					]
-				},
-				{
-					"id": "load-failed",
-					"reach": {
-						"manual": "stop the app's database (on a proof slot, docker stop its Postgres) and open /assessment-review signed in; the run page says This run did not load instead"
-					},
-					"expect": [
-						{
-							"role": "heading",
-							"name": "Held assessments did not load"
-						}
-					]
 				}
 			],
 			"behaviors": [
