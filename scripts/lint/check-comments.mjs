@@ -45,7 +45,16 @@ const CONFIGS = {
 	},
 	"apps/web/.oxlintrc.json": {
 		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],
-		"src/**": ["no-timers", "clickable-host", "no-cursor-utility", "feature-boundaries"],
+		"src/**": [
+			"no-timers",
+			"clickable-host",
+			"no-cursor-utility",
+			"no-raw-history",
+			"no-global-listeners",
+			"zustand-shape",
+			"read-loader",
+			"feature-boundaries",
+		],
 	},
 	"tools/.oxlintrc.json": { "*": ["no-comments", "no-effects", "max-state"] },
 };
