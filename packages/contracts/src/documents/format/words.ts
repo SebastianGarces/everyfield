@@ -1,40 +1,21 @@
-// Word marks inside a "Changed" item of "Compare with template" (T-82). The block compare (compare.ts) decides what
-// differs and what Accept takes; this only says which words of each side differ, so a person can read the change.
-// Pure. Each side's text is cut into words, spaces, single punctuation characters and inline atoms (a merge field is
-// one unit, by key), the two unit lists are aligned by a longest common subsequence, and the result is given per
-// text line (a paragraph, a heading, one list item's paragraph) with offsets the editor can draw on.
 import { sameKey, type DocDifference } from "./compare.ts";
 import type { Region } from "./types.ts";
 
-/**
- * One run of one side's line. `from` and `to` count the line's inline content as the editor does: one per character
- * of text and one per inline atom (a merge field, a line break, a page number).
- */
 export type WordRun = { op: "kept" | "removed" | "added"; text: string; from: number; to: number };
-/** What changed beside the words, in words: the marks on the text, the spaces, or a block's settings. */
 export type ChangeNote = "formatting" | "spacing" | "settings";
-/**
- * `words`: each side's lines in reading order, each a list of runs; the document's side has kept and removed runs,
- * the template's side kept and added runs. `notes`: no word differs, only what the notes name. `whole`: the sides do
- * not pair line by line or share too few words, so each reads best whole.
- */
 export type WordChanges =
 	| { show: "words"; document: WordRun[][]; template: WordRun[][]; notes: ChangeNote[] }
 	| { show: "notes"; notes: ChangeNote[] }
 	| { show: "whole" };
 
 type Rec = { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: unknown[]; content?: Rec[] };
-/** One unit of a line: `match` compares, `text` shows, `size` is its length in the editor's count. */
 type Unit = { match: string; text: string; size: number; word: boolean };
-/** A text line: its units and, to tell formatting apart, its text runs with their marks. */
 type Line = { units: Unit[]; exact: string; marked: string };
 
-/** Below this share of words kept, the two versions read better whole than as a mix of marks. */
 const MIN_KEPT = 0.4;
 const INLINE_BLOCKS = new Set(["paragraph", "heading"]);
 const SPACE = /^\s+$/u;
 
-/** A string cut into words, runs of space and single other characters. */
 function cut(text: string): Unit[] {
 	return (text.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*|\s+|[^\s\p{L}\p{N}]/gu) ?? []).map((part) => ({
 		match: SPACE.test(part) ? " " : part,
@@ -69,7 +50,6 @@ function lineOf(content: readonly Rec[] | undefined): Line {
 	return { units, exact, marked: JSON.stringify(joinRuns(marked)) };
 }
 
-/** Adjacent text runs with the same marks read as one, so how the editor splits them does not count. */
 function joinRuns(runs: unknown[]) {
 	const out: unknown[] = [];
 	for (const run of runs) {
@@ -81,10 +61,6 @@ function joinRuns(runs: unknown[]) {
 	return out;
 }
 
-/**
- * A block's text lines in reading order and its shape: every node above the text, by type and attributes. A table
- * has no lines: its rows and value cells are not drawn as text lines, so it is compared whole.
- */
 function walk(nodes: readonly Rec[]): { lines: Line[]; shape: string[]; settings: string[]; table: boolean } {
 	const out = { lines: [] as Line[], shape: [] as string[], settings: [] as string[], table: false };
 	const visit = (node: Rec, depth: number) => {
@@ -101,10 +77,8 @@ function walk(nodes: readonly Rec[]): { lines: Line[]; shape: string[]; settings
 	return out;
 }
 
-/** One aligned unit. A kept unit has its template twin, which may differ in spacing ("  " kept against " "). */
 type Op = { op: "kept"; unit: Unit; twin: Unit } | { op: "removed" | "added"; unit: Unit };
 
-/** The two lines' units aligned: the longest common subsequence, removed units before added ones at each gap. */
 function diff(a: readonly Unit[], b: readonly Unit[]): Op[] {
 	const n = a.length;
 	const m = b.length;
@@ -123,10 +97,6 @@ function diff(a: readonly Unit[], b: readonly Unit[]): Op[] {
 	return absorbSpaces(ops);
 }
 
-/**
- * A kept space between two changes reads as part of them: "quick brown" to "slow red" marks the phrase, not two
- * words with an unmarked space between. Within each changed stretch the removed units come before the added ones.
- */
 function absorbSpaces(ops: readonly Op[]): Op[] {
 	const out: Op[] = [];
 	let stretch: Op[] = [];
@@ -151,10 +121,6 @@ function absorbSpaces(ops: readonly Op[]): Op[] {
 	return out;
 }
 
-/**
- * One side's runs of a line: its own units, kept or changed, joined and placed. A space at either end of a changed
- * stretch reads as kept, so a mark starts and ends on a word.
- */
 function runs(ops: readonly Op[], side: "removed" | "added"): WordRun[] {
 	const own = ops
 		.filter((op) => op.op === "kept" || op.op === side)
@@ -166,7 +132,6 @@ function runs(ops: readonly Op[], side: "removed" | "added"): WordRun[] {
 		while (changed(start - 1) && !own[start - 1]!.unit.word) start--;
 		let end = k;
 		while (changed(end + 1) && !own[end + 1]!.unit.word) end++;
-		// Only spaces from here to a stretch's edge are peeled; a space between two marked words stays marked.
 		if (!changed(start - 1) || !changed(end + 1)) for (let i = start; i <= end; i++) own[i]!.op = "kept";
 		k = end;
 	}
@@ -183,7 +148,6 @@ function runs(ops: readonly Op[], side: "removed" | "added"): WordRun[] {
 	return out;
 }
 
-/** The word marks of two versions of the same part, each a list of blocks or a plain string (the title). */
 function compareSides(mine: readonly Rec[] | string, theirs: readonly Rec[] | string): WordChanges {
 	const blocks = (side: readonly Rec[] | string) =>
 		typeof side === "string" ? [{ type: "paragraph", content: [{ type: "text", text: side }] }] : side;
@@ -213,18 +177,12 @@ function compareSides(mine: readonly Rec[] | string, theirs: readonly Rec[] | st
 	};
 }
 
-/**
- * The word marks of a "Changed" item (or one changed in the template and in the document): its title, header,
- * footer or body block. Null when the item has no two sides to compare, or is the page setup, which lists its
- * settings in words.
- */
 export function wordChanges(d: DocDifference): WordChanges | null {
 	if (d.document === null || d.template === null || d.part === "page") return null;
 	if (d.part === "title") return compareSides(d.document, d.template);
 	if (d.part === "body") return compareSides([d.document as Rec], [d.template as Rec]);
 	const region = (r: Region) => r.content as unknown as Rec[];
 	const sides = compareSides(region(d.document), region(d.template));
-	// Which pages a header prints on is a setting of the region.
 	if (d.document.pages === d.template.pages || sides.show === "whole") return sides;
 	return { ...sides, notes: [...new Set([...sides.notes, "settings" as const])] };
 }

@@ -5,10 +5,8 @@ import { recordId } from "../common/values.ts";
 export const meetingId = recordId;
 export const venueId = recordId;
 export const meetingType = z.enum(["vision_meeting", "orientation", "team_meeting", "prelaunch_practice"]);
-/** A team meeting's kind (REQ-TEAM-013); other meeting types have none. */
 export const meetingSubtype = z.enum(["regular", "training", "planning", "special", "rehearsal"]);
 export const meetingStatus = z.enum(["planning", "ready", "in_progress", "completed", "cancelled"]);
-/** The statuses in which a meeting still takes RSVP answers: before it is completed or cancelled. */
 export const answeringStatuses: readonly z.infer<typeof meetingStatus>[] = ["planning", "ready", "in_progress"];
 export const meetingWindow = z.enum(["upcoming", "past", "all"]);
 export const preparation = z.enum(["complete", "incomplete", "any"]);
@@ -21,7 +19,6 @@ export const kitCategory = z.enum(["essential", "materials", "setup", "av", "org
 export const reminderSlot = z.enum(["announcement", "day_7", "day_3", "day_1"]);
 export const reason = z.string().trim().min(1).max(2000);
 
-/** Explicit status changes. Completing a practice goes through completePractice, which records when it was held. */
 export const statusTransitions: Readonly<
 	Record<z.infer<typeof meetingStatus>, readonly z.infer<typeof meetingStatus>[]>
 > = {
@@ -32,7 +29,6 @@ export const statusTransitions: Readonly<
 	cancelled: ["planning"],
 };
 
-/** A wall-clock entry in the church's zone. A fold needs the chosen offset; a gap is refused. */
 export const enteredTime = {
 	date: localDate,
 	time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
@@ -40,7 +36,6 @@ export const enteredTime = {
 };
 
 const shortText = (max: number) => z.string().trim().max(max);
-/** Venue facts as an edit names them: only the fields sent change. */
 export const venuePatchFields = {
 	name: z.string().trim().min(1).max(120),
 	address: z.string().trim().min(1).max(500),
@@ -51,7 +46,6 @@ export const venuePatchFields = {
 	capacity: z.int().min(1).max(100_000).nullable(),
 	notes: shortText(2000).nullable(),
 };
-/** Venue facts for a new venue: optional facts start empty. */
 export const venueFields = {
 	...venuePatchFields,
 	contactName: venuePatchFields.contactName.default(null),
@@ -72,7 +66,6 @@ export const agenda = z
 	.max(40)
 	.refine((sections) => new Set(sections.map((s) => s.id)).size === sections.length, "duplicate_section_id");
 
-/** The reviewed Vision agenda, copied with fresh section IDs into each new Vision meeting. */
 export const visionAgenda = {
 	version: 1,
 	sections: [
@@ -85,7 +78,6 @@ export const visionAgenda = {
 	],
 } as const;
 
-/** The reviewed Vision kit (Wiki article "The Vision Meeting Kit", checklist section), seeded once per Vision meeting. */
 export const visionKit = {
 	version: 1,
 	items: [
