@@ -29,19 +29,12 @@ const templateSchema = z.strictObject({
 	mergeFields: z.array(mergeField).max(20),
 });
 export type CatalogTemplate = z.infer<typeof templateSchema>;
-/** A library template with its facts: from its template file when it has one, else its registry entry. */
 export type LibraryTemplate = CatalogTemplate & { facts: LibraryFacts };
 
-/**
- * Template files with no frozen reference row (Bylaws, Prayer Letter). They join the library under Administrative, so
- * "Save for your church" makes a file of them too (Sebastian, 2026-11-04: keep both paths).
- */
 const FILE_ONLY = ["bylaws", "prayer-letter"];
 
-/** The library merge fields a file's fields fill from: the church and pastor names. */
 const AUTO_FILL: Record<string, string> = { "church.name": "church_name", "church.pastor": "pastor_name" };
 
-/** The keys of every field node in a template file: its body, header and footer. */
 function fieldRefs(node: unknown, out = new Set<string>()): Set<string> {
 	if (Array.isArray(node)) for (const child of node) fieldRefs(child, out);
 	else if (node && typeof node === "object") {
@@ -52,11 +45,6 @@ function fieldRefs(node: unknown, out = new Set<string>()): Set<string> {
 	return out;
 }
 
-/**
- * The library merge keys a template file prints: its fields keyed and sourced as a church or pastor name, when the page
- * shows them. The church name always shows (a logo with no image prints it); any other only where a field node places
- * it. The library offers no input whose value a render drops.
- */
 function fileFills(file: DocTemplate) {
 	const placed = fieldRefs([file.page, file.body]).add("church_name");
 	return new Set(
@@ -68,10 +56,6 @@ function fileFills(file: DocTemplate) {
 
 let loaded: ReturnType<typeof loadLibrary> | undefined;
 
-/**
- * The template library: the frozen reference rows and the template files with no row. Read once per process; a failed
- * read is not kept, so the next call tries again.
- */
 export function library() {
 	loaded ??= loadLibrary().catch((error: unknown) => {
 		loaded = undefined;
@@ -86,14 +70,11 @@ async function loadLibrary() {
 	const withFacts = async (template: CatalogTemplate): Promise<LibraryTemplate> => {
 		const facts = await libraryFacts(template.id);
 		if (!facts) throw new Error(`Template ${template.id} has no template file and no registry entry.`);
-		// A template file prints only the merge values it declares, so the library offers no other input for it.
 		const file = docTemplateById(template.id);
 		const fills = file && fileFills(file);
 		const mergeFields = fills ? template.mergeFields.filter((field) => fills.has(field.key)) : template.mergeFields;
 		return { ...template, mergeFields, formats: [facts.format], pageCount: facts.pageCount, facts };
 	};
-	// The frozen reference row gives identity and merge fields (those its template file prints, when it has one); the
-	// template file or the registry gives the rest.
 	const rows = z.array(templateSchema).parse(starter.catalogs.documents);
 	const files = FILE_ONLY.filter((id) => !rows.some((row) => row.id === id)).map((id): CatalogTemplate => {
 		const file = docTemplateById(id);

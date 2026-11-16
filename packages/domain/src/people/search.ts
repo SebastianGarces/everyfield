@@ -4,16 +4,6 @@ import * as tables from "@everyfield/db/tables";
 import { z } from "zod";
 import { authorizeRead, deny, readReply, type Context, type Tx } from "./core.ts";
 
-/**
- * The one person-search rule, used by the REQ-MTG pickers and the Compose recipient search. Each whitespace-separated
- * query word must match the start of a name word or the start of a word of the email local part. Name words split on
- * spaces, hyphens and apostrophes (`'` and `’`), in the stored name and in the query word alike (D-434), so "brien" and
- * "o'brien" both find "O'Brien"; the local part splits on `.`, `_`, `-` and `+`. A word that starts the whole address (a typed email)
- * also matches. The email domain never matches, because every match is anchored at the start of the address or of a
- * name word. Case and diacritics are ignored through a fixed Latin translate(), because a migration and a new
- * extension fall outside this rule. A query of phone characters with 3 or more digits also matches people whose phone
- * digits contain those digits.
- */
 const FOLD: readonly [string, string][] = [
 	["àáâãäåāăą", "a"],
 	["çćč", "c"],
@@ -40,7 +30,6 @@ const nameWords = (value: SQL) =>
 	sql`' ' || translate(${value},${NAME_SEPARATORS}::text,${" ".repeat(NAME_SEPARATORS.length)}::text)`;
 const PHONE_QUERY = /^[\d\s+\-().]+$/;
 
-/** SQL true when the person (display name, email, phone columns of `person`) matches the query. Empty query: no one. */
 export function personSearchMatch(query: string): SQL {
 	const words = query.trim().split(/\s+/).filter(Boolean).slice(0, SEARCH_WORDS);
 	if (!words.length) return sql`false`;
@@ -68,10 +57,6 @@ const row = z.object({
 });
 export type PersonHit = { id: string; name: string; detail: string };
 
-/**
- * Live people of this church that match the query, at most `limit`, in one statement that also carries the live access
- * check (C13): a reader who lost access gets a refusal, not an empty list.
- */
 export async function searchPeople(tx: Tx, ctx: Context, query: string, limit = 8) {
 	return readReply(async (): Promise<PersonHit[]> => {
 		if (ctx.selected.kind !== "plant") deny();

@@ -16,10 +16,6 @@ import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
 
-// Public feedback issues and the operator email (WP-049B, REQ-ADM-003): each feedback becomes one short public issue
-// that names only its kind and an allowlisted area, through a fake GitHub on a local port, and the configured inbox
-// gets one email with the same safe summary through the shared mail ledger. Nothing private leaves Everyfield.
-
 const database = await fixture({ prefix: "fdpb", plant: { name: "Harvest Point" } });
 const { admin } = database;
 const db = database.pools.runtime;
@@ -89,10 +85,8 @@ async function send(input: Record<string, unknown> = {}) {
 const row = async (id: string) => (await rowsOf(sql`SELECT * FROM feedback WHERE id=${id}::uuid`))[0]!;
 const triage = async (id: string) =>
 	ok(await feedbackWriter["admin.get"](db, await authority(triager), { feedbackId: id }));
-/** The publication run as the cron route mounts it, with the fake GitHub configured. */
 const publishRun = (env: Record<string, string | undefined> = configured) =>
 	feedbackPublicationMount(db, env)!(10, Date.now() + 30_000);
-/** A run whose GitHub calls end after 300 ms, so a slow reply counts as lost. */
 const quickRun = (repository = { id: "10", name: REPO }) =>
 	runDueFeedbackPublication(
 		db,
@@ -104,7 +98,6 @@ const quickRun = (repository = { id: "10", name: REPO }) =>
 		10,
 		Date.now() + 30_000,
 	);
-/** Makes a waiting retry due now, as the backoff would after five minutes. */
 const due = (id: string) =>
 	admin.execute(sql`UPDATE job SET next_attempt_at=clock_timestamp() WHERE subject_record_id=${id}::uuid`);
 async function mailRun(transport?: MailTransport) {
@@ -145,7 +138,6 @@ test("AC:CASE-ADM-003 with no repository configured nothing reaches GitHub or th
 	assert.equal((await triage(sent.id)).publication.state, "pending");
 	assert.deepEqual(await mailRun(), []);
 
-	// Configured: the next run publishes it, once.
 	assert.equal(await publishRun(), 1);
 	assert.equal(github.issues.length, 1);
 	assert.equal((await row(sent.id)).publication_state, "published");
@@ -160,7 +152,6 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 	assert.match(reference, /^FB-[0-9A-F]{12}$/);
 	assert.equal(reference.toLowerCase().includes(sent.id.slice(0, 8)), false);
 
-	// What the fake GitHub received: one create, with exactly a title and a body.
 	const received = github.requests.slice(before);
 	assert.deepEqual(
 		received.map((r) => [r.method, r.path]),
@@ -174,7 +165,6 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 	for (const canary of [...CANARIES, daniel.email, sent.id, "/documents"])
 		assert.equal(outbound.includes(canary), false, canary);
 
-	// The destination is stored as GitHub answered it, with the repository the intent targeted.
 	const issue = github.issues.at(-1)!;
 	assert.deepEqual(
 		{
@@ -201,7 +191,6 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 		["feedback.received", "feedback.publication_intended", "feedback.published"],
 	);
 
-	// The team email: one, to the configured inbox, with the same safe summary and the public link.
 	const mail = (await mailRun()).filter((m) => m.text.includes(reference));
 	assert.equal(mail.length, 1);
 	assert.equal(mail[0]!.to, INBOX);
@@ -215,7 +204,6 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 	assert.equal((await triage(sent.id)).operatorMail, "sent");
 	assert.deepEqual((await triage(sent.id)).publication, { state: "published", heldReason: null, url: issue.url });
 
-	// Daniel's own list and item show the link; another account still sees nothing of it.
 	const own = ok(await feedbackWriter.listOwn(db, await authority(daniel), {}));
 	assert.equal(own.items.find((i: { id: string }) => i.id === sent.id).publicUrl, issue.url);
 	assert.equal(
@@ -248,7 +236,6 @@ test("each category has its own fixed title and sentence, and a private or forge
 		null,
 	])
 		assert.deepEqual(publicIssue({ category: "bug", address, reference }), application, String(address));
-	// Outside the approved list: nothing to publish.
 	for (const input of [
 		{ category: "bug", address: "/admin-secret", reference },
 		{ category: "rant", address: "/documents", reference },
@@ -269,7 +256,6 @@ test("AC:PUB57-004 AC:FDB56-004 feedback from a private page names Application, 
 	);
 	assert.equal(JSON.stringify(bodies).includes("Ruth"), false);
 
-	// The off-list address: no GitHub call, held for the triager, and the team email says only that.
 	const held = await row(forged.id);
 	assert.deepEqual(
 		[held.publication_state, held.held_reason, held.publication_payload],
@@ -302,7 +288,6 @@ test("AC:FDB56-001 AC:CASE-ADM-003 a lost GitHub reply is unknown, and the next 
 	assert.equal((await triage(sent.id)).publication.state, "unknown");
 	assert.equal(github.issues.filter((i) => i.body.includes(lost.reference)).length, 1);
 
-	// The configured repository changes before the retry: the retry still searches the repository the intent saved.
 	await due(sent.id);
 	const before = github.requests.length;
 	assert.equal(await quickRun({ id: "20", name: "everyfield-test/feedback-next" }), 1);
@@ -318,7 +303,6 @@ test("AC:FDB56-001 AC:CASE-ADM-003 a lost GitHub reply is unknown, and the next 
 	);
 	assert.equal(github.issues.filter((i) => i.body.includes(lost.reference)).length, 1);
 
-	// The repository is renamed and the configuration moves on: the old feedback keeps its original link.
 	github.rename(REPO, "everyfield-test/feedback-renamed");
 	await publishRun({ ...configured, FEEDBACK_GITHUB_REPOSITORY: "everyfield-test/feedback-renamed" });
 	const own = ok(await feedbackWriter.getOwnStatus(db, await authority(daniel), { feedbackId: sent.id }));
@@ -327,7 +311,6 @@ test("AC:FDB56-001 AC:CASE-ADM-003 a lost GitHub reply is unknown, and the next 
 });
 
 test("AC:FDB56-001 a create with no answer and no issue is created once on the retry, and a failed search holds it", async () => {
-	// GitHub answers 503 and makes nothing: unknown, then the retry's search shows none and it creates one.
 	const none = await send();
 	github.behavior.createStatus = 503;
 	await quickRun();
@@ -339,7 +322,6 @@ test("AC:FDB56-001 a create with no answer and no issue is created once on the r
 	assert.equal((await row(none.id)).publication_state, "published");
 	assert.equal(github.issues.filter((i) => i.body.includes(waiting.reference)).length, 1);
 
-	// The reply is lost, and the retry's search fails: it stays held, and no second issue is made.
 	const lost = await send();
 	github.behavior.createReplyDelayMs = 1_000;
 	await quickRun();
@@ -353,7 +335,6 @@ test("AC:FDB56-001 a create with no answer and no issue is created once on the r
 	assert.equal(github.issues.filter((i) => i.body.includes(held.reference)).length, 1);
 	assert.deepEqual((await triage(lost.id)).publication, { state: "held", heldReason: "search_failed", url: null });
 
-	// Two issues carry one reference: ambiguous, held.
 	const twice = await send();
 	github.behavior.createReplyDelayMs = 1_000;
 	await quickRun();
@@ -397,7 +378,6 @@ test("AC:PUB57-006 instructions in feedback start nothing, and closing the issue
 	await due(sent.id);
 	await publishRun();
 	await mailRun();
-	// The only calls ever sent to GitHub are issue creates and reference searches.
 	for (const r of github.requests)
 		assert.ok(
 			(r.method === "POST" && /^\/repos\/[^/]+\/[^/]+\/issues$/.test(r.path)) ||

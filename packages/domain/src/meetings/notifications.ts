@@ -14,10 +14,6 @@ import { seatHeld } from "../access/session.ts";
 import type { Reader } from "./core.ts";
 import { displayTitle, meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
 
-/**
- * Reminder slots for one meeting (REQ-MTG-018, REQ-TSK-018): 7, 3 and 1 civil days before, at the same church wall
- * clock, through the shared automatic resolver. The announcement goes out when the meeting is scheduled.
- */
 function reminderTimes(m: Pick<MeetingRow, "local_date" | "local_time" | "timezone">) {
 	const zone = timeZone.parse(m.timezone);
 	return ([7, 3, 1] as const).map((days) => {
@@ -27,21 +23,12 @@ function reminderTimes(m: Pick<MeetingRow, "local_date" | "local_time" | "timezo
 		return { slot: `day_${days}` as const, at: resolved.occurrence.instant };
 	});
 }
-/** Whether the meeting still wants messages: scheduled, current and not yet started. */
 const live = (m: Pick<MeetingRow, "status" | "retired_at" | "starts_at">, asOf: Date) =>
 	["planning", "ready"].includes(m.status) && m.retired_at === null && m.starts_at > asOf;
 
-/** A slot's job key: the announcement has one per meeting; a reminder's names the start it counts back from. */
 const slotKey = (m: Pick<MeetingRow, "starts_at">, slot: z.infer<typeof c.reminderSlot>) =>
 	slot === "announcement" ? "meeting/announcement" : `meeting/${slot}/${m.starts_at.toISOString()}`;
 
-/**
- * The meeting's notification jobs after a change, as statements for the command's one write (D70, NTF-006). Every write
- * that moves the meeting's revision runs it. One job per logical slot; a moved meeting gets new slot keys and the old
- * ones are superseded before they send. A slot already sent (or given up) is never queued again; a waiting one takes
- * the new revision, which the worker checks, so a job is stale only when a later write has not reached it. The audience
- * is read when the job runs, so a removed guest or a CRM-only contact never receives a queued message.
- */
 export function syncReminderJobs(m: MeetingRow, asOf: Date): SQLWrapper[] {
 	const wanted = live(m, asOf)
 		? [
@@ -77,14 +64,6 @@ const planRow = meetingRow.extend({
 	reminder_recipients: z.array(z.uuid()),
 	announcement_recipients: z.array(z.uuid()),
 });
-/**
- * The meeting's notification plan as the job worker sees it (meetings.planNotifications): each slot's time, whether it
- * is still planned, already passed or suppressed, and its current audience. A reminder slot stays planned through its
- * own time and passes once the next slot (for the last one, the meeting) is due, so a late run sends only the latest
- * owed reminder (D-763); a meeting that stopped, moved to history or started suppresses every slot. Reminders go to the creator and to guests
- * whose live Person links an account with a seat here; the announcement goes to the linked Core Group. Contact
- * addresses never make a recipient. One statement; the caller is the trusted worker for the job's own tenant.
- */
 export async function planNotifications(db: Reader, plantId: string, raw: z.input<typeof c.planNotificationsRequest>) {
 	const input = c.planNotificationsRequest.parse(raw);
 	const r = await db.execute(sql`WITH seated AS (
@@ -131,7 +110,6 @@ export async function planNotifications(db: Reader, plantId: string, raw: z.inpu
 }
 
 const heading = { announcement: "New meeting", day_7: "In 7 days", day_3: "In 3 days", day_1: "Tomorrow" } as const;
-/** The meeting's local date and time as a reader sees it, for example "Tuesday, March 10 at 9:00 AM". */
 function when(m: Pick<MeetingRow, "local_date" | "local_time">) {
 	const day = new Date(`${m.local_date}T00:00:00Z`).toLocaleDateString("en-US", {
 		timeZone: "UTC",
@@ -143,10 +121,6 @@ function when(m: Pick<MeetingRow, "local_date" | "local_time">) {
 	const [h, min] = m.local_time.split(":").map(Number) as [number, number];
 	return `${day} at ${((h + 11) % 12) + 1}:${String(min).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
-/**
- * What a planned slot's notice says, from the meeting's current facts: its name, local date and time and place, never
- * a guest or a contact. Null when the meeting is gone. One statement; the caller is the trusted worker for the tenant.
- */
 export async function meetingNotice(
 	db: Reader,
 	plantId: string,
@@ -164,12 +138,6 @@ export async function meetingNotice(
 	};
 }
 
-/**
- * Which meeting notice mail may go out (NTF-006), as a locking SELECT of mail ids over `input` (rows of id, recipient
- * and notice, under the alias `i`): the notice is the recipient's own meeting announcement or reminder, its meeting is
- * still at the revision it was written for, still scheduled and not started, and the recipient still holds an accepted
- * seat in the church. It locks the notice, the meeting and the seat.
- */
 export function meetingMailGrants(input: SQLWrapper): SQLWrapper {
 	return sql`SELECT i.id FROM ${input}
 		JOIN notice n ON n.id=i.notice AND n.recipient_id=i.recipient AND n.purpose IN ('meeting_invitation','meeting_reminder')

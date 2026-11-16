@@ -15,9 +15,6 @@ import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, refused, seeds } from "../../../../support/fixture.mts";
 import { freezeClock, operator, readyFile, snapshot, type Store } from "./support.mts";
 
-// BKT60-002: church P (admin A on session-A) has one saved document D over a ready private file, and member B has a
-// deletion subject whose copy expires 2026-10-20T16:00:00Z. On 2026-10-13T16:00:00Z the restricted backup context
-// copies the snapshot of that day; on 2026-10-19T16:00:00Z it recopies the old copy.
 const NOW = new Date("2026-10-13T16:00:00.000Z");
 const RECOPY = new Date("2026-10-19T16:00:00.000Z");
 const SUBJECT_EXPIRY = "2026-10-20T16:00:00Z";
@@ -38,7 +35,6 @@ const db = database.pools.runtime;
 const seed = seeds(admin);
 const live: Store = new Map();
 
-/** The app's private object store, as the documents suites fake it; it holds `live`'s bytes. */
 class MemoryClient extends S3Client {
 	constructor() {
 		super({
@@ -56,7 +52,6 @@ class MemoryClient extends S3Client {
 }
 const storage = { bucket: "synthetic-only", client: new MemoryClient() };
 
-/** The private backup store: a map the test can read and change, counting writes. */
 const backup = new Map<string, Buffer>();
 let writes = 0;
 const store: BackupStore = {
@@ -73,7 +68,6 @@ let plant, a, actor, documentId: string, subject: string, plain;
 before(async () => {
 	mock.timers.enable({ apis: ["Date"], now: NOW.getTime() });
 	await freezeClock(admin, schema, NOW);
-	// The restricted backup key, and a second key standing in for an app or build key, each in a private file.
 	dir = await mkdtemp(join(tmpdir(), "wp092-copy-"));
 	kek = randomBytes(32);
 	keyFile = join(dir, "backup.key");
@@ -155,7 +149,6 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 			[{ id: plain.manifest.objects[0].id, sha256: sha256(DOCUMENT), bytes: DOCUMENT.length }],
 		);
 		assert.equal(checked.manifest.database.sha256, sha256(plain.image));
-		// No plaintext of the image or the document is in any stored object.
 		const stored = [...backup.entries()].filter(([key]) => key.startsWith(location));
 		assert.deepEqual(stored.map(([key]) => key.slice(location.length + 1)).sort(), [
 			"database",
@@ -192,7 +185,6 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 			backup.set(key, change(Buffer.from(original)));
 			try {
 				await assert.rejects(openEncryptedCopy(store, location, keyFile), { message: "copy_unreadable" }, key);
-				// A recopy of the changed copy writes nothing.
 				const before = writes;
 				const recopy = await copyAt(RECOPY, { source: { copy: location } });
 				assert.deepEqual(recopy, { copy_encrypted: false, refusal: "copy_unreadable", location: null });
@@ -211,7 +203,6 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 		await tamper(`${location}/manifest.json`, (b) =>
 			Buffer.from(b.toString("utf8").replace(plain.manifest.database.sha256, "a".repeat(64))),
 		);
-		// A key file anyone may read is not the restricted key.
 		const open = join(dir, "open.key");
 		await writeFile(open, kek, { mode: 0o644 });
 		await assert.rejects(openEncryptedCopy(store, location, open), { message: "key_unavailable" });
@@ -232,7 +223,6 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 			const checked = validateCandidate(manifest, RECOPY);
 			assert.deepEqual(checked.manifest.subjects, [{ id: subject, expiresAt: SUBJECT_EXPIRY }]);
 			assert.equal(checked.effectiveExpiresAt, "2026-10-20T16:00:00.000Z");
-			// The recopy opens with the restricted key to the same bytes.
 			const opened = await openEncryptedCopy(store, recopy.location, keyFile);
 			assert.deepEqual(opened.image, plain.image);
 		},
@@ -261,13 +251,10 @@ test("AC:BKT60-002 a dated encrypted DB-plus-bytes copy whose key only the restr
 	});
 
 	await step.test("A's ordinary app path reaches neither the copy nor its key", async () => {
-		// A downloads D through documents.download, so the path works for an ordinary document.
 		mock.timers.setTime(NOW.getTime());
 		ok(await documentsWriter.download(db, actor, { documentId }, storage));
-		// No copy artifact is a document A can be issued.
 		for (const id of [plain.manifest.database.id, location.split("/")[2]!, result.key_version])
 			refused(await documentsWriter.download(db, actor, { documentId: id }, storage));
-		// The app's store and environment hold no copy bytes and no backup key.
 		for (const bytes of live.values()) assert.equal(Buffer.from(bytes).indexOf(backup.get(`${location}/key`)!), -1);
 		const env = Object.values(process.env).join("\n");
 		for (const form of [kek.toString("hex"), kek.toString("base64"), kek.toString("base64url")])

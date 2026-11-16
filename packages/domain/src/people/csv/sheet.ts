@@ -3,10 +3,6 @@ import ExcelJS from "exceljs";
 import { Refusal } from "../core.ts";
 import { parseCsv } from "./format.ts";
 
-// One table of text from an uploaded spreadsheet: a UTF-8 CSV through the People CSV parser, or the first worksheet of
-// an Excel (.xlsx) file, such as a Microsoft Forms export. Every cell is plain text; a formula is kept as its text with
-// its leading "=", never evaluated. Line ends inside a cell read as "\n" either way, so the same answers read the same.
-
 export type SheetLimits = { bytes: number; rows: number; columns: number };
 export type SheetProblem = PipelineImportFileProblem;
 export class SheetRefused extends Error {
@@ -20,10 +16,8 @@ const refuse = (problem: SheetProblem): never => {
 	throw new SheetRefused(problem);
 };
 
-/** The header's titles and each data row's cells, as many as the header has, plus any extra cells that hold text. */
 export type Sheet = { header: string[]; rows: string[][] };
 
-/** The file's format from its name: only .csv and .xlsx are read. */
 function sheetFormat(fileName: string): "csv" | "xlsx" | null {
 	const ext = /\.([^.]+)$/.exec(fileName.trim().toLowerCase())?.[1];
 	return ext === "csv" ? "csv" : ext === "xlsx" ? "xlsx" : null;
@@ -34,7 +28,6 @@ export async function readSheet(bytes: Uint8Array, fileName: string, limits: She
 	if (bytes.length > limits.bytes) refuse("file_too_large");
 	if (bytes.length === 0) refuse("file_empty");
 	const table = format === "csv" ? readCsv(bytes, limits) : await readXlsx(bytes, limits);
-	// Trailing empty header cells are not columns; a header with no title at all is no header.
 	const [first, ...rest] = table;
 	if (!first) refuse("file_empty");
 	let width = first!.length;
@@ -52,7 +45,6 @@ const lines = (value: string) => value.replace(/\r\n?/g, "\n");
 function readCsv(bytes: Uint8Array, limits: SheetLimits): string[][] {
 	let text: string;
 	try {
-		// A leading byte order mark is removed; bytes that are not UTF-8 text are refused.
 		text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 	} catch {
 		return refuse("file_unreadable");
@@ -60,7 +52,6 @@ function readCsv(bytes: Uint8Array, limits: SheetLimits): string[][] {
 	if (text.includes("\0")) refuse("file_unreadable");
 	if (text.trim() === "") refuse("file_empty");
 	try {
-		// The header and one record past the limit, so a file over it is refused as soon as the parser sees it.
 		return parseCsv(text, limits.rows + 2).map((r) => r.fields.map(lines));
 	} catch (error) {
 		if (error instanceof Refusal) return refuse(error.code === "row_limit_exceeded" ? "row_limit" : "file_unreadable");
@@ -68,11 +59,9 @@ function readCsv(bytes: Uint8Array, limits: SheetLimits): string[][] {
 	}
 }
 
-/** Uncompressed bytes an .xlsx may hold, by its own central directory, before any part is inflated. */
 const EXPANDED_MAX = 64 * 1024 * 1024;
 const EOCD = 0x06054b50,
 	CENTRAL = 0x02014b50;
-/** The sum of the uncompressed sizes the zip declares, or null when it has no readable central directory. */
 function declaredSize(b: Uint8Array): number | null {
 	const u16 = (o: number) => b[o]! | (b[o + 1]! << 8);
 	const u32 = (o: number) => (u16(o) | (u16(o + 2) << 16)) >>> 0;
@@ -107,7 +96,6 @@ async function readXlsx(bytes: Uint8Array, limits: SheetLimits): Promise<string[
 	sheet!.eachRow({ includeEmpty: false }, (row) => {
 		const cells: string[] = [];
 		row.eachCell({ includeEmpty: true }, (cell, column) => {
-			// A formula, shared or not, as the text typed in the cell.
 			cells[column - 1] = cell.type === ExcelJS.ValueType.Formula ? "=" + cell.formula : cellText(cell.value);
 		});
 		table.push(Array.from(cells, (v) => v ?? ""));
@@ -115,14 +103,12 @@ async function readXlsx(bytes: Uint8Array, limits: SheetLimits): Promise<string[
 	return table;
 }
 
-/** A cell as the text a person sees typed in it. */
 function cellText(value: ExcelJS.CellValue): string {
 	if (value === null || value === undefined) return "";
 	if (typeof value === "string") return lines(value);
 	if (typeof value === "number") return String(value);
 	if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
 	if (value instanceof Date) {
-		// Excel stores a local time with no zone, which exceljs reads as UTC: show it as written.
 		const iso = value.toISOString();
 		return iso.endsWith("T00:00:00.000Z") ? iso.slice(0, 10) : iso.slice(0, 16).replace("T", " ");
 	}
