@@ -1,30 +1,21 @@
-// The qa-test-* Postgres containers the QA tests start (tools/qa/tests/fixtures.ts) and the sweep `bin/dev check` runs
-// first (T-356). Each container carries labels naming its owning process, so the sweep can tell a live run's database
-// from one whose run died without cleaning up. It touches nothing but containers named qa-test-*.
 import { spawnSync } from "node:child_process";
 
 export const PREFIX = "qa-test-";
 export const LABELS = {
-	/** The owning test process. */
 	pid: "everyfield.qa-test.owner-pid",
-	/** That process's start time as `ps` prints it, which tells a reused PID apart. */
 	start: "everyfield.qa-test.owner-start",
-	/** When the container started, as an ISO time. */
 	started: "everyfield.qa-test.started",
 } as const;
 export const AGE_ENV = "EVERYFIELD_QA_SWEEP_MINUTES";
 const DEFAULT_MINUTES = 120;
 
-/** `ps` pads its start times ("Thu Jan  1 00:00:00 2026   "), so they compare with single spaces. */
 const spaced = (text: string) => text.trim().replace(/\s+/g, " ");
 
-/** The start time `ps` reports for a live process, or null when no such process runs. */
 export function processStart(pid: number): string | null {
 	const r = spawnSync("ps", ["-o", "lstart=", "-p", String(pid)], { encoding: "utf8" });
 	return r.status === 0 && r.stdout.trim() ? spaced(r.stdout) : null;
 }
 
-/** `docker run` label arguments naming this process as the owner. */
 export function ownerLabels(): string[] {
 	const start = processStart(process.pid);
 	if (!start) throw new Error(`ps cannot read this process's start time (pid ${process.pid}).`);
@@ -38,11 +29,6 @@ export function ownerLabels(): string[] {
 type Inspected = { Id: string; Name: string; Created: string; Config: { Labels: Record<string, string> | null } };
 export type Swept = { name: string; ageMinutes: number; reason: string };
 
-/**
- * Removes qa-test-* containers, running or stopped, with their anonymous volumes, that are older than the threshold and
- * whose owner is not alive. A container without owner labels is unowned. Returns what it removed, and why it stopped
- * early when it did.
- */
 export function sweep(env = process.env): { removed: Swept[]; skipped?: string } {
 	const raw = env[AGE_ENV];
 	const minutes = raw === undefined || raw === "" ? DEFAULT_MINUTES : Number(raw);
@@ -65,7 +51,6 @@ export function sweep(env = process.env): { removed: Swept[]; skipped?: string }
 		removed: Swept[] = [];
 	for (const c of containers) {
 		const name = c.Name.replace(/^\//, "");
-		// Docker's name filter matches anywhere in the name.
 		if (!name.startsWith(PREFIX)) continue;
 		const labels = c.Config.Labels ?? {};
 		const started = Date.parse(labels[LABELS.started] ?? c.Created);
@@ -87,7 +72,6 @@ export function sweep(env = process.env): { removed: Swept[]; skipped?: string }
 	return { removed };
 }
 
-/** The sweep as `bin/dev check` runs it: one line per removal, one line when skipped, never a failure. */
 export function sweepCommand(log: (line: string) => void = console.error, env = process.env): void {
 	let result: ReturnType<typeof sweep>;
 	try {

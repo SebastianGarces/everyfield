@@ -4,14 +4,10 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node
 import { constants, homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
-// Every process a browser run starts inherits this variable, also the browsers that leave its
-// process group (Playwright and the agent-browser daemon start their own groups). Cleanup finds
-// them by this token: by what the run started, never by a process name.
 const TAG = "EVF_BROWSER_RUN";
 const AGENT_BROWSER_DIR = join(homedir(), ".agent-browser");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Live processes, other than this one, whose environment carries TAG=token. */
 export function taggedProcesses(token: string): number[] {
 	const needle = `${TAG}=${token}`;
 	let pids: number[];
@@ -22,12 +18,11 @@ export function taggedProcesses(token: string): number[] {
 				try {
 					return readFileSync(`/proc/${d}/environ`, "utf8").split("\0").includes(needle);
 				} catch {
-					return false; // exited or not ours
+					return false;
 				}
 			})
 			.map(Number);
 	} else {
-		// macOS appends the environment of the caller's own processes to the command.
 		const ps = spawnSync("ps", ["-A", "-wwE", "-o", "pid=,command="], { encoding: "utf8", maxBuffer: 256 << 20 });
 		const match = new RegExp(`\\s${needle}(\\s|$)`);
 		pids = ps.stdout
@@ -41,9 +36,7 @@ export function taggedProcesses(token: string): number[] {
 function signal(pid: number, sig: NodeJS.Signals): void {
 	try {
 		process.kill(pid, sig);
-	} catch {
-		// already gone
-	}
+	} catch {}
 }
 
 async function stopTagged(token: string): Promise<number[]> {
@@ -61,11 +54,6 @@ async function stopTagged(token: string): Promise<number[]> {
 
 export type BrowserRunOptions = { timeoutSeconds: number; session?: string };
 
-/**
- * Run a browser check in its own process group with a timeout. Afterwards, on success, failure,
- * timeout or a signal to this process, close its agent-browser session, stop every process it started
- * and delete its temporary directory (Playwright profiles live there through TMPDIR).
- */
 export async function browserRun(argv: string[], opts: BrowserRunOptions): Promise<number> {
 	const token = randomBytes(8).toString("hex"),
 		tmp = mkdtempSync(join(tmpdir(), "browser-run-")),
@@ -98,13 +86,11 @@ export async function browserRun(argv: string[], opts: BrowserRunOptions): Promi
 		child.on("exit", (code, sig) => resolve(code ?? 128 + (sig ? constants.signals[sig] : 0)));
 	});
 	clearTimeout(timer);
-	if (child.pid) signal(-child.pid, "SIGTERM"); // anything still in the run's own group
+	if (child.pid) signal(-child.pid, "SIGTERM");
 
-	// Let agent-browser save and close its session before the processes get a signal.
 	if (existsSync(join(AGENT_BROWSER_DIR, `${session}.pid`)))
 		spawnSync("agent-browser", ["--session", session, "close"], { env, stdio: "ignore", timeout: 15000 });
 	const left = await stopTagged(token);
-	// A generated session belongs to this run alone; remove its state files (config, target, ...).
 	if (!opts.session && existsSync(AGENT_BROWSER_DIR))
 		for (const f of readdirSync(AGENT_BROWSER_DIR))
 			if (f.startsWith(`${session}.`)) rmSync(join(AGENT_BROWSER_DIR, f), { force: true });
