@@ -6,113 +6,182 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 41 of 136. Not yet mapped: 95, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 75 of 136. Not yet mapped: 61, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
   rail(["rail"])
   links(["links and email"])
-  subgraph f0["followups"]
-    f0s0["followups.list"]
-    f0s1["followups.call"]
+  subgraph f0["communication"]
+    f0s0["communication.messages"]
+    f0s1["communication.compose"]
+    f0s2["communication.templates"]
+    f0s3["communication.unsubscribe"]
   end
-  subgraph f1["identity"]
-    f1s0["identity.signin"]
-    f1s1["identity.home"]
-    f1s2["identity.register"]
-    f1s3["identity.recover"]
-    f1s4["identity.reset"]
-    f1s5["identity.verify-email"]
-    f1s6["identity.invitation"]
-    f1s7["identity.seats"]
+  subgraph f1["documents"]
+    f1s0["documents.library"]
+    f1s1["documents.church-library"]
+    f1s2["documents.church-document"]
+    f1s3["documents.written"]
+    f1s4["documents.template-picker-preview"]
   end
-  subgraph f2["launch"]
-    f2s0["launch.plan"]
-    f2s1["launch.progress"]
+  subgraph f2["feedback"]
+    f2s0["feedback.dialog"]
+    f2s1["feedback.own"]
+    f2s2["feedback.triage"]
   end
-  subgraph f3["meetings"]
-    f3s0["meetings.list"]
-    f3s1["meetings.detail"]
-    f3s2["meetings.check-in"]
-    f3s3["meetings.rsvp"]
+  subgraph f3["followups"]
+    f3s0["followups.list"]
+    f3s1["followups.call"]
   end
-  subgraph f4["notifications"]
-    f4s0["notifications.feed"]
-    f4s1["notifications.email-preferences"]
+  subgraph f4["identity"]
+    f4s0["identity.signin"]
+    f4s1["identity.home"]
+    f4s2["identity.register"]
+    f4s3["identity.recover"]
+    f4s4["identity.reset"]
+    f4s5["identity.verify-email"]
+    f4s6["identity.invitation"]
+    f4s7["identity.seats"]
   end
-  subgraph f5["overview"]
-    f5s0["overview.home"]
+  subgraph f5["intelligence"]
+    f5s0["intelligence.assessment"]
+    f5s1["intelligence.trends"]
+    f5s2["intelligence.attestations"]
+    f5s3["intelligence.check-in"]
   end
-  subgraph f6["people"]
-    f6s0["people.list"]
-    f6s1["people.person"]
-    f6s2["people.duplicates"]
-    f6s3["people.import"]
+  subgraph f6["launch"]
+    f6s0["launch.plan"]
+    f6s1["launch.progress"]
   end
-  subgraph f7["phases"]
-    f7s0["phases.journey"]
+  subgraph f7["meetings"]
+    f7s0["meetings.list"]
+    f7s1["meetings.detail"]
+    f7s2["meetings.check-in"]
+    f7s3["meetings.rsvp"]
   end
-  subgraph f8["tasks"]
-    f8s0["tasks.list"]
-    f8s1["tasks.panel"]
-    f8s2["tasks.checklists"]
+  subgraph f8["notifications"]
+    f8s0["notifications.feed"]
+    f8s1["notifications.email-preferences"]
   end
-  subgraph f9["wiki"]
-    f9s0["wiki.reader"]
-    f9s1["wiki.article"]
+  subgraph f9["overview"]
+    f9s0["overview.home"]
   end
-  f8s0 --> f0s0
+  subgraph f10["people"]
+    f10s0["people.list"]
+    f10s1["people.person"]
+    f10s2["people.duplicates"]
+    f10s3["people.import"]
+  end
+  subgraph f11["phases"]
+    f11s0["phases.journey"]
+  end
+  subgraph f12["settings"]
+    f12s0["settings.dialog"]
+    f12s1["settings.account"]
+    f12s2["settings.brand"]
+    f12s3["settings.restricted"]
+    f12s4["settings.design-preview"]
+  end
+  subgraph f13["tasks"]
+    f13s0["tasks.list"]
+    f13s1["tasks.panel"]
+    f13s2["tasks.checklists"]
+  end
+  subgraph f14["teams"]
+    f14s0["teams.list"]
+    f14s1["teams.ministry"]
+  end
+  subgraph f15["wiki"]
+    f15s0["wiki.reader"]
+    f15s1["wiki.article"]
+  end
+  rail -- "Messages" --> f0s0
+  links -.-> f0s0
   f0s0 --> f0s1
-  links -.-> f0s1
-  links -.-> f1s0
-  links -.-> f1s1
-  f1s0 --> f1s2
-  links -.-> f1s3
+  f0s0 --> f0s2
+  links -.-> f0s3
+  rail -- "Documents" --> f1s0
+  f1s0 --> f1s1
+  f1s1 --> f1s2
+  links -.-> f1s2
+  f1s0 --> f1s3
   links -.-> f1s4
-  links -.-> f1s5
-  links -.-> f1s6
-  f6s0 --> f1s7
-  links -.-> f1s7
-  rail -- "Launch" --> f2s0
-  f5s0 --> f2s0
+  f0s0 --> f2s0
   links -.-> f2s1
-  rail -- "Meetings" --> f3s0
+  links -.-> f2s2
+  f13s0 --> f3s0
   f3s0 --> f3s1
   links -.-> f3s1
-  f3s1 --> f3s2
-  links -.-> f3s2
-  links -.-> f3s3
-  rail -- "Notifications" --> f4s0
-  f5s0 --> f4s0
+  links -.-> f4s0
   links -.-> f4s1
-  rail -- "Overview" --> f5s0
-  links -.-> f5s0
-  rail -- "People" --> f6s0
-  f6s0 --> f6s1
+  f4s0 --> f4s2
+  links -.-> f4s3
+  links -.-> f4s4
+  links -.-> f4s5
+  links -.-> f4s6
+  f10s0 --> f4s7
+  links -.-> f4s7
+  rail -- "Plant Intelligence" --> f5s0
+  f5s0 --> f5s1
+  f5s0 --> f5s2
+  f5s0 --> f5s3
+  links -.-> f5s3
+  rail -- "Launch" --> f6s0
+  f9s0 --> f6s0
   links -.-> f6s1
-  links -.-> f6s2
-  f6s0 --> f6s3
-  links -.-> f7s0
-  rail -- "Tasks" --> f8s0
-  f8s0 --> f8s1
+  rail -- "Meetings" --> f7s0
+  f7s0 --> f7s1
+  links -.-> f7s1
+  f7s1 --> f7s2
+  links -.-> f7s2
+  links -.-> f7s3
+  rail -- "Notifications" --> f8s0
+  f9s0 --> f8s0
   links -.-> f8s1
-  f8s0 --> f8s2
-  rail -- "Wiki" --> f9s0
+  rail -- "Overview" --> f9s0
   links -.-> f9s0
-  f9s0 --> f9s1
+  rail -- "People" --> f10s0
+  f10s0 --> f10s1
+  links -.-> f10s1
+  links -.-> f10s2
+  f10s0 --> f10s3
+  links -.-> f11s0
+  f0s0 --> f12s0
+  links -.-> f12s0
+  f12s0 --> f12s1
+  f12s0 --> f12s2
+  links -.-> f12s3
+  links -.-> f12s4
+  rail -- "Tasks" --> f13s0
+  f13s0 --> f13s1
+  links -.-> f13s1
+  f13s0 --> f13s2
+  rail -- "Ministries" --> f14s0
+  f14s0 --> f14s1
+  links -.-> f14s1
+  rail -- "Wiki" --> f15s0
+  links -.-> f15s0
+  f15s0 --> f15s1
 ```
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
 |---|---|---|---|---|---|---|
+| [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 4 | 8 | 8 | 0 |
+| [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 11 | 9 | 6 | 3 |
+| [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 4 | 3 | 3 | 0 |
 | [followups](followups.md) | [`apps/web/src/features/followups/feature-map.json`](../../apps/web/src/features/followups/feature-map.json) | 2 | 3 | 5 | 3 | 1 |
 | [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 10 | 11 | 4 | 1 |
+| [intelligence](intelligence.md) | [`apps/web/src/features/intelligence/feature-map.json`](../../apps/web/src/features/intelligence/feature-map.json) | 4 | 4 | 4 | 2 | 1 |
 | [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 1 | 5 | 3 | 1 |
 | [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 5 | 10 | 4 | 4 |
 | [notifications](notifications.md) | [`apps/web/src/features/notifications/feature-map.json`](../../apps/web/src/features/notifications/feature-map.json) | 2 | 4 | 5 | 0 | 1 |
 | [overview](overview.md) | [`apps/web/src/features/overview/feature-map.json`](../../apps/web/src/features/overview/feature-map.json) | 1 | 1 | 4 | 1 | 1 |
 | [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 4 | 12 | 11 | 6 | 2 |
 | [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
+| [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 9 | 7 | 5 | 2 |
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
+| [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 2 | 4 | 3 | 1 |
 | [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 2 | 6 | 3 | 1 |
 
 ## Become a persona
@@ -123,7 +192,7 @@ local proof slot or a QA preview (`bin/qa`). Sign in at `/signin` with the perso
 [`tools/qa/qa-guard.ts`](../../tools/qa/qa-guard.ts); a proof slot's `login --persona <id>` sets the same session cookie.
 In commands, `$ORIGIN` is the app's address, `$REPO` the checkout, and `<QA_LOGINS.x>` and `<QA_PASSWORD>` are
 values from that file. Each step that opens, clicks, presses or uploads is followed by a network-idle wait, so the page
-has hydrated and the next check sees the result.
+has hydrated and the next check sees the result, except on a surface marked Polls (below).
 A state marked setup creates its own data first; run its setup once per fresh seed. A setup and a behavior proof
 that perform the same action (for example setting Launch Sunday) use up each other's starting state: run each
 once per fresh seed, and after either has run, start the other state at its last `open`. A state marked known
@@ -146,10 +215,11 @@ defect shows a bug that is not fixed yet: it passes while the bug is there, and 
 behaves as the map says. It checks: every route belongs to one surface or the shrink-only pending list; route
 files import only their own feature; every `loading`, `error` and `not-found` file is a declared state; test
 names exist exactly; cases are `AC:` markers in those tests; operations are in the catalog, serve the behavior's
-catalog features and are quoted or declared in code; email links name a template that builds that path; rail
+catalog features and are quoted or declared, comments and tests excluded, in `packages/*/src`,
+`apps/web/src/server` or a feature folder; email links name a template that builds that path; rail
 reaches agree with `shellNav` both ways for every persona; personas are QA seed logins whose name, context, role
 and residency link match what the seed creates; a behavior proof checks more than the address after it acts;
-and every name, label
+on a surface that polls, a waiting check follows every open, click, press and upload; and every name, label
 and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the
 feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was
 typed earlier in the same steps.
@@ -161,7 +231,10 @@ It cannot catch, and only running the browser steps catches:
 - whether a persona really has the access the map gives it, or a state's checks also pass on another screen;
 - whether the seed data the steps name is in the state the steps expect (each run needs a fresh seed);
 - a real test name that tests something other than the behavior it is listed under;
-- an absent check that passes only because a modal dialog hides the page behind it.
+- an absent check that passes only because a modal dialog hides the page behind it;
+- a page that keeps fetching but whose surface does not set `polls`, so its steps still wait on network idle;
+- on a surface that polls, a waiting check that already held before the action (a URL it was already on, or text
+  already on the page), which waits for nothing.
 
 What a map cannot express: a state has one persona, and its setup can only open, click, type, press and upload,
 with names from its own feature, `packages/ui/src`, the shell and the QA seed. So a setup cannot switch persona
@@ -170,9 +243,11 @@ behavior that needs either is proven by its tests only.
 
 A browser proof marked presence only shows that the control is there; the listed tests prove the outcome.
 
-The network-idle wait suits these pages, which go quiet after each action. On a page that keeps fetching (for
-example `/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there;
-a map for a polling page should wait on its next check instead (`wait --text`, `wait --url`).
+The network-idle wait suits pages that go quiet after each action. On a page that keeps fetching (for example
+`/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there. Such a
+surface sets `polls` to say what keeps fetching: its commands get no network-idle wait, and the checker requires the
+check after each open, click, press or upload to be one that waits (a URL, `noText`, or `contains` text, printed as
+`wait --url`, `wait --fn` and `wait --text`).
 
 ## Changing a feature, and the review proof
 
