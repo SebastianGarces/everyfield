@@ -1,6 +1,3 @@
-// BUG-T130: an Owner saves a planned launch date as often as they like, and a reply lost to a dropped connection reads
-// as "not sure it saved", keeps the request key and leaves the step as it was. These tests drive the real port
-// (createPort, runCommand); the design preview's fixture API stands in for the server. No browser needed.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -25,7 +22,6 @@ let keys = 0;
 const newKey = () => `key-${++keys}`;
 const signIn = () => assert.fail("no reload here is signed out");
 
-/** A planned date on the launch step, with the phase answer it saves with. */
 function planned(c, date) {
 	c.set(editDrafts(c.get(), { journey: { answer: "unsure" }, launch: { answer: "planned", date } }));
 	c.set(setView(c.get(), "launch"));
@@ -81,13 +77,11 @@ test("BUG-58bc5acb8: a reply that arrived but is malformed still reads as unavai
 			assert.equal(reply.error.code, "unavailable");
 			assert.equal(reply.error.retry, "never");
 		}
-	// An entry reply that arrived malformed is still the unavailable entry, not offline.
 	const port = createPort({ entry: async () => ({ kind: "nope" }), command: offline });
 	assert.deepEqual(await port.entry(), { kind: "entry", entry: { kind: "elsewhere", reason: "unavailable" } });
 });
 
 test("BUG-58bc5acb8: a dropped connection keeps the step, drafts and request key; the retry replays instead of saving twice", async () => {
-	// The server saves, then the connection drops before the reply arrives and stays down for the reload.
 	const server = createFixturePort("created", { delay: 0 });
 	let drop = "command";
 	const port = createPort({

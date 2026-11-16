@@ -1,5 +1,3 @@
-// Settings > Notifications offers a choice only for a category something sends. Nothing writes launch milestones yet
-// (D-762), so that row stays hidden even when the account has stored choices for it. No browser needed.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { notificationCategory } from "../../../packages/contracts/src/settings/values.ts";

@@ -28,14 +28,8 @@ const storageEnv = z.object({
 	AWS_ENDPOINT_URL_S3: z.url(),
 	AWS_REGION: z.string().min(1).default("auto"),
 });
-/** The production bucket. Only a Vercel production deployment may use it; development, tests and previews use their own. */
 const PRODUCTION_BUCKET = "everyfield";
-/**
- * The private bucket from the deployment's AWS_* settings, or null when they are absent: photo and document calls are
- * then refused and everything else works. A production bucket outside production throws, so the server does not start.
- */
 export function privateStorageFrom(env: Record<string, string | undefined>): PrivateStorage | null {
-	// The bucket name alone decides: a production bucket with incomplete settings is still refused.
 	if (env.AWS_BUCKET_NAME === PRODUCTION_BUCKET && env.VERCEL_ENV !== "production")
 		throw new Error(`The "${PRODUCTION_BUCKET}" bucket is for production only. Set AWS_BUCKET_NAME to everyfield-dev.`);
 	const parsed = storageEnv.safeParse(env);
@@ -51,20 +45,14 @@ export function privateStorageFrom(env: Record<string, string | undefined>): Pri
 		}),
 	};
 }
-// Next bundles server start (instrumentation) and request code as separate module graphs, each with its own copy of this
-// module. The process's bucket and its privacy checks live on globalThis, so the check server start runs is the one
-// every request reuses (RT-6c).
 type Shared = { configured?: PrivateStorage | null; checks: WeakMap<PrivateStorage, Promise<void>> };
 const SHARED: unique symbol = Symbol.for("everyfield.db.privateStorage");
 const shared: Shared = ((globalThis as { [SHARED]?: Shared })[SHARED] ??= { checks: new WeakMap() });
-/** This process's private bucket, read once from process.env. */
 export function privateStorage(): PrivateStorage | null {
 	if (shared.configured === undefined) shared.configured = privateStorageFrom(process.env);
 	return shared.configured;
 }
 export type FileIdentity = Pick<FileObjectRow, "id" | "tenant_id" | "purpose">;
-// Native producers supply fresh current resource/session/lifecycle checks in this transaction.
-// This trusted server callback is never a request field, bearer witness or persisted grant.
 export type FileAuthorization =
 	{ kind: "account"; actorId: string } | { kind: "system"; cause: "native_file_upload" | "object_cleanup" };
 export type ResourceAuthorizer = (
@@ -100,7 +88,6 @@ export async function putPrivateObject(
 	authorize: ResourceAuthorizer,
 	input: { tenantId: string; purpose: FilePurpose; mediaType: string; bytes: Uint8Array; uploadKey: string },
 ) {
-	// uploadKey is the owning native effect/receipt's stable key, never an object path.
 	if (!input.uploadKey.trim() || input.uploadKey.length > 200) throw new Error("invalid_upload_key");
 	await assertPrivateBucket(storage);
 	if (!input.bytes.length || input.bytes.length > 10 * 1024 * 1024) throw new Error("invalid_file");
@@ -148,7 +135,6 @@ export async function putPrivateObject(
 		return current;
 	});
 	if (file.state === "ready") return { id: file.id };
-	// Provider calls hold no SQL locks. Lost responses retry the same immutable key.
 	try {
 		await storage.client.send(
 			new PutObjectCommand({
@@ -215,13 +201,7 @@ export async function putPrivateObject(
 		return { id: file.id };
 	});
 }
-// Direct uploads (RT-2, design B): the browser puts the bytes straight into the private bucket with a short signed URL,
-// and the save reads them back to check them. No SQL runs here, so no lock is held during any bucket call.
 
-/**
- * The bucket's privacy, checked once per process and bucket instead of once per upload. Server start runs it, so no
- * upload waits for it. A failed check is retried.
- */
 export function assertPrivateBucket(storage: PrivateStorage): Promise<void> {
 	const privateChecks = shared.checks;
 	const known = privateChecks.get(storage);
@@ -237,13 +217,7 @@ export function assertPrivateBucket(storage: PrivateStorage): Promise<void> {
 	check.catch(() => privateChecks.delete(storage));
 	return check;
 }
-/** How long a signed upload URL works. The pending file row lives longer (15 minutes), so the save can follow. */
 const UPLOAD_URL_SECONDS = 300;
-/**
- * A five-minute PUT URL for one exact key, content type and length. If-None-Match makes the object write-once, so a
- * second PUT to the same URL gets 412. Signed locally: no network call after the first privacy check. The browser must
- * send the returned headers unchanged; a body of another length or type is refused by the bucket.
- */
 export async function signPrivatePut(storage: PrivateStorage, key: string, mediaType: string, byteLength: number) {
 	await assertPrivateBucket(storage);
 	const issuedAt = new Date();
@@ -269,15 +243,10 @@ export async function signPrivatePut(storage: PrivateStorage, key: string, media
 		expiresAt: new Date(issuedAt.getTime() + UPLOAD_URL_SECONDS * 1000).toISOString(),
 	};
 }
-/** An uploaded object's bytes and stored type, or null when it is missing, larger than `maxBytes` or incomplete. */
 export async function readPrivateObject(storage: PrivateStorage, key: string, maxBytes: number) {
 	const object = await readPrivateUpload(storage, key, maxBytes);
 	return typeof object === "string" ? null : object;
 }
-/**
- * An uploaded object's bytes and stored type, "too_large" when the bucket holds more than `maxBytes` (its body is never
- * read), or "missing" when it is absent or arrives incomplete.
- */
 export async function readPrivateUpload(
 	storage: PrivateStorage,
 	key: string,
@@ -299,10 +268,6 @@ export async function readAuthorizedObject(
 ): Promise<Uint8Array> {
 	return fetchAuthorized(db, storage, authorize, await authorized(db, authorize, id, "read"));
 }
-/**
- * The authorized file's stored SHA-256 and media type from the authorizing statement, and its bytes only when `current`
- * says the caller does not hold that version. `bytes` is null when the caller's copy is current: no storage read runs.
- */
 export async function readAuthorizedObjectIfChanged(
 	db: Database,
 	storage: PrivateStorage,
@@ -311,13 +276,11 @@ export async function readAuthorizedObjectIfChanged(
 	current: (sha256: string) => boolean,
 ): Promise<{ sha256: string; mediaType: string; bytes: Uint8Array | null }> {
 	const file = await authorized(db, authorize, id, "read");
-	// A ready file always has its SHA-256 (file_object_ck_4).
 	if (!file.sha256) throw unavailable();
 	const stored = { sha256: file.sha256, mediaType: file.media_type };
 	if (current(file.sha256)) return { ...stored, bytes: null };
 	return { ...stored, bytes: await fetchAuthorized(db, storage, authorize, file) };
 }
-/** One storage read of an authorized file, checked against its stored size and SHA-256, then authorized again. */
 async function fetchAuthorized(
 	db: Database,
 	storage: PrivateStorage,
@@ -330,7 +293,6 @@ async function fetchAuthorized(
 	if (!result.Body || result.ContentLength !== Number(file.byte_count)) throw unavailable();
 	const bytes = await result.Body.transformToByteArray();
 	if (bytes.length !== Number(file.byte_count) || hash(bytes) !== file.sha256) throw unavailable();
-	// Revocation while bytes are in flight must still deny delivery.
 	await authorized(db, authorize, file.id, "read");
 	return bytes;
 }
@@ -385,13 +347,12 @@ export async function deleteUnreferencedObject(
 		return { file, generation };
 	});
 	try {
-		// Bounded, so a hung provider cannot hold a scheduled run; a timeout leaves the claim for the retry.
 		await storage.client.send(new DeleteObjectCommand({ Bucket: storage.bucket, Key: claimed.file.opaque_key }), {
 			abortSignal: AbortSignal.timeout(10_000),
 		});
 	} catch {
 		return { status: "unknown" as const };
-	} // Retained claim is retried with the same immutable key.
+	}
 	const result = await db
 		.update(file_object)
 		.set({ state: "purged", purged_at: sql`clock_timestamp()`, revision: sql`${file_object.revision}+1` })

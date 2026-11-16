@@ -1,9 +1,3 @@
-// OPS-102: every Evry adapter operation and catalog tool ships with recorded eval cases. Operations are discovered from
-// the adapter source (reads and commands) and catalog tools from packages/evry/src/catalog/catalog.ts, never from a
-// hand-kept list. This is the only test that asserts operation coverage. An operation is covered when a case object in
-// tests/evry/evals/*.cases.json has "operation": "<name>". The baseline lists operations uncovered today and only
-// shrinks (rule: .agents/skills/test-standard/SKILL.md). Discovery is held to what the package itself registers: its
-// read domains, its reviewed writes and the catalog's exported tool names. No database, env, network or build.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
@@ -12,11 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const root = new URL("../../", import.meta.url);
 const path = (relative) => fileURLToPath(new URL(relative, root));
-// One name per operation, with two or more dotted parts, like people.listPeople or notifications.digestCadence.set.
 const NAME = "[a-z][A-Za-z]*(?:\\.[a-z][A-Za-z]*)+";
 
-// An operation is a string in an `operation: "x.y",` property or a factory call such as `readHousehold("x.y")`
-// inside an exported declaration. A union type (`"a" | "b"`) and non-exported helpers add nothing by themselves.
 function discoverOperations() {
 	const found = new Set();
 	const adapters = path("packages/evry/src/adapters/");
@@ -40,14 +31,11 @@ function discoverOperations() {
 	return [...found].sort();
 }
 
-// A catalog tool is an exported `"evry.x"` string constant in catalog.ts, such as SELECT_RETURNED_ROWS.
 function discoverCatalogTools() {
 	const source = readFileSync(path("packages/evry/src/catalog/catalog.ts"), "utf8");
 	return [...source.matchAll(/^export const \w+\s*=\s*"(evry\.[a-z][A-Za-z]*)"/gm)].map((m) => m[1]).sort();
 }
 
-// What the package registers: every read adapter in READ_DOMAINS, every reviewed write in REVIEWED_WRITES and every
-// exported "evry.…" string in catalog.ts. The package needs the react-server condition, so a child process reads it.
 function registered() {
 	const script = `
 		const catalog = await import(${JSON.stringify(path("packages/evry/src/catalog/catalog.ts"))});
