@@ -1,4 +1,3 @@
-// Stable reference choices only. The plant owner explicitly maps actual roles; names grant nothing.
 export const methodologyResponsibilities = [
 	{ key: "worship", templateRole: { team: "worship", role: "worship_leader" } },
 	{ key: "children", templateRole: { team: "childrens_ministry", role: "childrens_ministry_director" } },

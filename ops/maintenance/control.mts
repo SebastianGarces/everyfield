@@ -30,7 +30,6 @@ const control = z.strictObject({
 		})
 		.optional(),
 });
-/** A regular, non-symlink file of the current OS user with no group or other permissions, at most `limit` bytes. */
 export async function readPrivateBytes(path, limit = 1024 * 1024) {
 	const info = await lstat(path);
 	if (

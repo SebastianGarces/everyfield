@@ -1,50 +1,38 @@
 "use client";
 
 import { Button } from "@everyfield/ui/controls";
-import { useRef, useState } from "react";
-import { setFeedback } from "./actions.ts";
+import { useOptimistic, useState, useTransition } from "react";
+import { setFeedback, type FeedbackResult } from "./actions.ts";
 
-const EMPTY = "";
+type Vote = "helpful" | "unhelpful";
 
-export function ArticleFeedback({ articleId, vote }: { articleId: string; vote: "helpful" | "unhelpful" | null }) {
-	const [current, setCurrent] = useState(vote);
-	const [message, setMessage] = useState(EMPTY);
-	const [pending, setPending] = useState<"helpful" | "unhelpful" | null>(null);
-	const lock = useRef(false);
+function refusal(result: Exclude<FeedbackResult, { status: "ok" }>): string {
+	if (result.status === "conflict") return "Reload the page, then try again.";
+	if (result.status === "denied") return "You cannot rate this article.";
+	return "That rating did not save. Try again.";
+}
 
-	async function choose(next: "helpful" | "unhelpful") {
-		if (lock.current || next === current) return;
-		lock.current = true;
-		const previous = current;
-		setCurrent(next);
-		setPending(next);
-		setMessage(EMPTY);
-		try {
-			const result = await setFeedback({
-				requestKey: crypto.randomUUID(),
-				articleId,
-				vote: next,
-			});
-			if (result.status === "ok") {
-				setCurrent(result.vote);
-				setMessage(result.vote === "helpful" ? "Marked as helpful." : "Marked as unhelpful.");
+export function ArticleFeedback({ articleId, vote }: { articleId: string; vote: Vote | null }) {
+	const [saved, setSaved] = useState(vote);
+	const [current, showVote] = useOptimistic(saved);
+	const [message, setMessage] = useState("");
+	const [pending, startVote] = useTransition();
+
+	function choose(next: Vote) {
+		if (pending || next === current) return;
+		setMessage("");
+		startVote(async () => {
+			showVote(next);
+			const result = await setFeedback({ requestKey: crypto.randomUUID(), articleId, vote: next }).catch(
+				(): FeedbackResult => ({ status: "lost" }),
+			);
+			if (result.status !== "ok") {
+				setMessage(refusal(result));
 				return;
 			}
-			setCurrent(previous);
-			setMessage(
-				result.status === "conflict"
-					? "Reload the page, then try again."
-					: result.status === "denied"
-						? "You cannot rate this article."
-						: "That rating did not save. Try again.",
-			);
-		} catch {
-			setCurrent(previous);
-			setMessage("That rating did not save. Try again.");
-		} finally {
-			setPending(null);
-			lock.current = false;
-		}
+			setSaved(result.vote);
+			setMessage(result.vote === "helpful" ? "Marked as helpful." : "Marked as unhelpful.");
+		});
 	}
 
 	return (
@@ -56,18 +44,18 @@ export function ArticleFeedback({ articleId, vote }: { articleId: string; vote: 
 				<Button
 					variant={current === "helpful" ? "primary" : "outline"}
 					aria-pressed={current === "helpful"}
-					loading={pending === "helpful"}
-					disabled={pending !== null && pending !== "helpful"}
-					onClick={() => void choose("helpful")}
+					loading={pending && current === "helpful"}
+					disabled={pending && current !== "helpful"}
+					onClick={() => choose("helpful")}
 				>
 					Helpful
 				</Button>
 				<Button
 					variant={current === "unhelpful" ? "primary" : "outline"}
 					aria-pressed={current === "unhelpful"}
-					loading={pending === "unhelpful"}
-					disabled={pending !== null && pending !== "unhelpful"}
-					onClick={() => void choose("unhelpful")}
+					loading={pending && current === "unhelpful"}
+					disabled={pending && current !== "unhelpful"}
+					onClick={() => choose("unhelpful")}
 				>
 					Unhelpful
 				</Button>

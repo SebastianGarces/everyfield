@@ -1,0 +1,425 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "followups",
+	"catalog": ["TSK-004", "TSK-011", "TSK-012", "TSK-013", "PPL-022"],
+	"surfaces": [
+		{
+			"id": "followups.list",
+			"says": "Who reaches out to whom: every contact with its follow-up and owners, the ones with none, and a handoff when an owner leaves.",
+			"routes": ["/tasks/follow-ups"],
+			"endpoints": ["/follow-ups/read"],
+			"catalog": ["TSK-012", "TSK-013", "PPL-022"],
+			"reach": [
+				{
+					"from": "tasks.list",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Follow-ups"
+							}
+						},
+						{
+							"expect": {
+								"url": "/tasks/follow-ups"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "all",
+					"reach": {
+						"persona": "owner",
+						"open": "/tasks/follow-ups",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Follow-ups"
+						},
+						{
+							"role": "button",
+							"name": "Hand off follow-ups"
+						},
+						{
+							"role": "link",
+							"name": "James Okafor"
+						}
+					]
+				},
+				{
+					"id": "uncovered",
+					"reach": {
+						"persona": "owner",
+						"open": "/tasks/follow-ups?show=uncovered",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "link",
+							"name": "David Kim"
+						},
+						{
+							"role": "button",
+							"name": "Add follow-up"
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "James Okafor"
+							}
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/tasks/follow-ups",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Your follow-ups"
+						},
+						{
+							"noText": "Hand off follow-ups"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/tasks/follow-ups",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Ftasks%2Ffollow-ups"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/tasks/follow-ups/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the follow-ups"
+					},
+					"expect": [
+						{
+							"text": "Loading follow-ups"
+						}
+					]
+				},
+				{
+					"id": "tasks-loading",
+					"file": "apps/web/src/app/(product)/(frame)/tasks/loading.tsx",
+					"reach": {
+						"manual": "shows while a page outside Tasks opens this route, before the follow-ups boundary takes over"
+					},
+					"expect": [
+						{
+							"noText": "Hand off follow-ups"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "filter",
+					"says": "No follow-up shows only the contacts nobody is following up, and the choice lives in the address.",
+					"catalog": ["TSK-012", "PPL-022"],
+					"operations": ["tasks.followUpCoverage"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/followups/followups.test.mts",
+								"name": "AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligible account owns a follow-up; uncovered contacts are not urgent work"
+							}
+						],
+						"cases": ["TARGET-TSK-012", "TARGET-PPL-022"],
+						"browser": {
+							"state": "all",
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "No follow-up",
+										"match": "contains"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/tasks/follow-ups?show=uncovered"
+								},
+								{
+									"role": "link",
+									"name": "David Kim"
+								},
+								{
+									"absent": {
+										"role": "link",
+										"name": "James Okafor"
+									}
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "add",
+					"says": "Add follow-up gives a contact a follow-up, owned or marked Needs owner, and the contact leaves No follow-up.",
+					"catalog": ["TSK-012", "PPL-022"],
+					"operations": ["tasks.createFollowUp"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/followups/followups.test.mts",
+								"name": "AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owner who cannot own one"
+							},
+							{
+								"file": "tests/unit/followups/model.test.mjs",
+								"name": "AC:TARGET-TSK-012 AC:TARGET-TSK-013 owner totals follow confirmed assignments, new follow-ups and handoffs"
+							}
+						],
+						"cases": ["TARGET-TSK-012"],
+						"browser": {
+							"state": "uncovered",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Add follow-up"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Add follow-up"
+									}
+								}
+							],
+							"expect": [
+								{
+									"absent": {
+										"role": "link",
+										"name": "David Kim"
+									}
+								},
+								{
+									"role": "link",
+									"name": "Kim Wu"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "handoff",
+					"says": "Hand off follow-ups moves a leaving owner's open follow-ups, after review, to someone who can own them.",
+					"catalog": ["TSK-013"],
+					"operations": ["tasks.planHandoff", "tasks.executeHandoff"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/followups/followups.test.mts",
+								"name": "AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or nothing; reads cost one statement"
+							},
+							{
+								"file": "tests/integration/followups/followups.test.mts",
+								"name": "AC:TARGET-TSK-013 a handoff swaps only the leaving owner, and a contact finishes only the follow-ups the Member holds"
+							}
+						],
+						"cases": ["TARGET-TSK-013"],
+						"browser": {
+							"state": "all",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Hand off follow-ups"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "dialog",
+									"name": "Hand off follow-ups"
+								},
+								{
+									"role": "combobox",
+									"name": "Whose follow-ups"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "followups.call",
+			"says": "One follow-up as a call screen: who to reach, how it went, and the contact log it adds to.",
+			"routes": ["/follow-ups/[taskId]"],
+			"catalog": ["TSK-004", "TSK-011", "TSK-012"],
+			"reach": [
+				{
+					"from": "followups.list",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "radio",
+								"name": "Owned"
+							}
+						},
+						{
+							"click": {
+								"role": "link",
+								"name": "Follow up with",
+								"match": "contains"
+							}
+						},
+						{
+							"expect": {
+								"url": "/follow-ups/{taskId}"
+							}
+						}
+					]
+				},
+				{
+					"link": "/follow-ups/{taskId}",
+					"fill": {
+						"taskId": "the id in a follow-up row's link"
+					}
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "write"
+			},
+			"states": [
+				{
+					"id": "open",
+					"reach": {
+						"persona": "owner",
+						"open": "/tasks/follow-ups?show=owned",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Follow up with",
+									"match": "contains"
+								}
+							},
+							{
+								"expect": {
+									"url": "/follow-ups/{taskId}"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "James Okafor"
+						},
+						{
+							"role": "heading",
+							"name": "How did it go?"
+						},
+						{
+							"role": "radio",
+							"name": "Tried, no contact"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "record",
+					"says": "Saving how it went adds an entry to the contact log; only a contacted outcome counts as contact.",
+					"catalog": ["TSK-004", "TSK-011"],
+					"operations": ["followups.recordOutcome", "followups.correctOutcome"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/followups/followups.test.mts",
+								"name": "AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an effective contacted outcome is contact; corrections keep history"
+							},
+							{
+								"file": "tests/unit/followups/model.test.mjs",
+								"name": "AC:TARGET-TSK-004 no longer needed never completes, and a standalone contact never completes a task"
+							}
+						],
+						"cases": ["TARGET-MTG-022", "TARGET-TSK-004"],
+						"browser": {
+							"state": "open",
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "Tried, no contact"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Record another try"
+								},
+								{
+									"role": "link",
+									"name": "Contact log"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "obligations",
+					"says": "A Vision meeting's guests get a follow-up due two days later and a 48-hour window measured from the meeting start.",
+					"catalog": ["TSK-011"],
+					"operations": ["followups.readObligations", "tasks.ensureMeetingObligations"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/followups/followups.test.mts",
+								"name": "AC:TARGET-MTG-021 AC:TARGET-TSK-011 AC:TARGET-TSK-017 AC:TARGET-MTG-020 AC:ROLE43-015 AC:TARGET-TSK-004 obligations measure 48 hours at a frozen asOf, separate from contact and waiver"
+							},
+							{
+								"file": "tests/integration/followups/followups.test.mts",
+								"name": "AC:B03-004 AC:B03-005 INV-dates: due day is meeting day plus two; the 48-hour window is exact elapsed time"
+							}
+						],
+						"cases": ["TARGET-TSK-011", "TARGET-MTG-021"]
+					}
+				}
+			]
+		}
+	]
+}

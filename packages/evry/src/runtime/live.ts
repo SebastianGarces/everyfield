@@ -1,11 +1,5 @@
-// The in-process live path (WP-051): the running turn publishes each text delta here at once, and observers in the same
-// process deliver it without waiting for the database. The database stays the durable record (the turn saves its events
-// off the model read loop); a worker in another process simply has no room here, and its observers read the database.
-// The registry hangs off globalThis so the route bundle and the worker bundle share it.
-
 type Waiter = () => void;
 
-/** One conversation's running turn: all its text so far, and who waits for more. */
 class LiveRoom {
 	turnId: string | null = null;
 	text = "";
@@ -32,7 +26,6 @@ class LiveRoom {
 		this.wake();
 		this.release();
 	}
-	/** Resolves at the next change, or when `signal` aborts. */
 	next(signal: AbortSignal): Promise<void> {
 		return new Promise((resolve) => {
 			const done = () => {
@@ -57,7 +50,6 @@ class LiveRoom {
 const KEY = Symbol.for("everyfield.evry.live");
 const rooms = ((globalThis as Record<symbol, unknown>)[KEY] ??= new Map<string, LiveRoom>()) as Map<string, LiveRoom>;
 
-/** The conversation's live room, created when first needed. */
 export const liveRoom = (conversationId: string) => {
 	let room = rooms.get(conversationId);
 	if (!room) rooms.set(conversationId, (room = new LiveRoom(conversationId, rooms)));

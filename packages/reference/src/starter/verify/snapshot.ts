@@ -188,7 +188,6 @@ export function checkSnapshot(snapshot: ApprovedSnapshot): void {
 		throw new WikiRefusal("incomplete_candidate", "discovery_article");
 }
 
-/** Load the pinned Wiki source. Only `approvedWiki` is installed; a test may pass an earlier pin. */
 export async function loadApprovedSnapshot(
 	root = repoRoot(),
 	source: WikiSource = approvedWiki,

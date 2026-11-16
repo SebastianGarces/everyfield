@@ -5,7 +5,6 @@ function object(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-// Parse without compilation/evaluation. The grammar is closed to one reviewed inert component.
 export function safeMdx(body: string, slugs: ReadonlySet<string>): boolean {
 	if (Buffer.byteLength(body) > 1_000_000) return false;
 	try {
@@ -28,7 +27,6 @@ export function safeMdx(body: string, slugs: ReadonlySet<string>): boolean {
 			if (node.type === "link" || node.type === "definition" || node.type === "image") {
 				if (!safeHref.safeParse(node.url).success || typeof node.url !== "string") return false;
 				if (node.url.startsWith("/wiki/") && !slugs.has(node.url.slice(6).split("#")[0]!)) return false;
-				// Remote media is not an approved native or global component.
 				if (node.type === "image") return false;
 			}
 			return !Array.isArray(node.children) || node.children.every(visit);

@@ -3,16 +3,10 @@ import { cn } from "@/components/cn";
 import { ICONS, type IconName } from "../icons";
 
 const SIZE = {
-	// The phase cards and the Evry cards: 72 px, 60 px on the phase cards at 560 px and narrower (the caller adds it).
 	lg: "size-[72px] [&_svg]:size-[34px]",
-	// The sending tiles.
 	md: "size-14 [&_svg]:size-7",
 } as const;
 
-/**
- * The frosted icon box (OPS-82): a cream icon on a blurred, translucent ink square over a photo. It holds no app UI.
- * Decorative: the card around it carries the text.
- */
 export function FrostIcon({
 	icon,
 	size = "lg",
