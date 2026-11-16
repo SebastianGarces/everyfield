@@ -1,22 +1,17 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useLocationHash } from "@everyfield/ui/foundations";
+import { useState, type ReactNode } from "react";
 import { cn } from "@/components/cn";
 
-/**
- * One FAQ question (Revision 26): a button that opens its answer; several can be open at once. A link to #faq-<id> opens
- * that answer (on load and on a hash change). The answer's height animates with grid rows, as in the prototype.
- */
 export function FaqItem({ id, q, children }: { id: string; q: string; children: ReactNode }) {
+	const hash = useLocationHash();
 	const [open, setOpen] = useState(false);
-	useEffect(() => {
-		const fromHash = () => {
-			if (decodeURIComponent(location.hash.slice(1)) === id) setOpen(true);
-		};
-		fromHash();
-		window.addEventListener("hashchange", fromHash);
-		return () => window.removeEventListener("hashchange", fromHash);
-	}, [id]);
+	const [shownHash, setShownHash] = useState("");
+	if (hash !== shownHash) {
+		setShownHash(hash);
+		if (decodeURIComponent(hash.slice(1)) === id) setOpen(true);
+	}
 	return (
 		<div id={id} className="group/faq border-t border-mk-line last:border-b" data-open={open || undefined}>
 			<h3 className="m-0 [font:inherit]">

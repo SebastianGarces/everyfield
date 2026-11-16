@@ -1,6 +1,3 @@
-// The GitHub nightly's formal replay job: the verdict the driver gives a green replay, a disagreement, a crashed or
-// empty replay, an unreachable database and a failed generation (real node:test runs over throwaway files stand in for
-// the replay), the exact lines it prints, and the job in nightly.yml.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -12,7 +9,6 @@ import { type FormalDeps, nightlyFormal, type Run } from "../../scripts/nightly-
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
-/** node:test over throwaway files with these bodies, in an otherwise empty folder: its exit status and output. */
 function nodeTest(t: { after(fn: () => void): void }, bodies: string[]): Run {
 	const dir = mkdtempSync(join(tmpdir(), "evf-nightly-formal-"));
 	t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -32,7 +28,6 @@ function nodeTest(t: { after(fn: () => void): void }, bodies: string[]): Run {
 	}
 }
 
-/** The replay test's failure text: what the public log must never carry (D-1588). */
 const DETAIL = [
 	'Behavior 2 of 3 (seed 7, /runner/nightly-formal/traces/permissions/traces.json) disagrees at step 4 of 6: Run {\\"request\\":\\"r1\\",\\"kind\\":\\"adminRead\\"}',
 	"  result                         refused  admitted   <- differs",
@@ -97,7 +92,6 @@ test("T-401 a green replay passes and prints the seed, the counts and full cover
 test("T-401 traces that leave out a model action still replay and the gap is noted, not failed (D-1589)", async (t) => {
 	const green = nodeTest(t, ['test("b1", () => {});']);
 	const r = await run({
-		// bin/dev formal --traces exits 1 on a gap, after writing the file.
 		generate: async () => ({
 			status: 1,
 			output: "  the traces leave out: Expire, SeatAction remove. Try another seed.\n  wrote x\n",

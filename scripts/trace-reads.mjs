@@ -1,8 +1,3 @@
-// Preloaded by the GitHub nightly's coverage run (scripts/nightly.ts, T-41, T-216) through NODE_OPTIONS, so every child
-// process loads it too. V8 coverage sees only the modules a test executes; a test that reads a file as text, or lists a
-// directory, would look as if it never touched it, and selection would skip it. This records every path the process
-// reads or lists through node:fs into TRACE_READS_DIR/<pid>.txt, one absolute path per line, with directories ending
-// in "/". It changes no behavior: each wrapper calls the original with the same arguments.
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { join, resolve } from "node:path";
@@ -15,9 +10,7 @@ if (dir) {
 		try {
 			const path = target instanceof URL ? fileURLToPath(target) : typeof target === "string" ? resolve(target) : null;
 			if (path) seen.add(isDir ? path.replace(/\/*$/, "/") : path);
-		} catch {
-			// A path we cannot name is one the test did not read from the repository.
-		}
+		} catch {}
 	};
 	const wrap = (owner, name, isDir) => {
 		const original = owner[name];
@@ -38,8 +31,6 @@ if (dir) {
 		if (!seen.size) return;
 		try {
 			fs.writeFileSync(join(dir, `${process.pid}.txt`), [...seen].join("\n") + "\n", { flag: "a" });
-		} catch {
-			// The run's own directory is gone; the map loses this process, and its paths fall back to the rules.
-		}
+		} catch {}
 	});
 }

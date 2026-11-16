@@ -1,6 +1,4 @@
 import "server-only";
-// Supported Better Auth field mappings for the baseline's app-owned physical tables.
-// WP-005 supplies credential policy, delivery and app-domain acceptance.
 export const authStorage = {
 	user: {
 		modelName: "auth_user",

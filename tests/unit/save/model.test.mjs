@@ -1,11 +1,7 @@
-// The shared save lane every card uses (components/save, C58, C65, C68, C69). A silent break would save a change
-// twice after a lost answer, say "not saved" for a change the server kept, or let two saves on one card race. These
-// tests drive the real lane in node with a fake server: each `send` records the request key it was given.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { SaveLane } from "../../../apps/web/src/components/save/model.ts";
 
-/** A lane with numbered keys and the lines it reports, plus a fake server answering from `replies` in order. */
 function setup({ busy = () => false } = {}) {
 	let n = 0;
 	const reports = [];
@@ -52,7 +48,6 @@ test("INV-request-key (C58, C97): Check again sends the same key; a new intent w
 	assert.equal(lane.get().notice, null);
 	await lane.save({ ...spec, send: server([ok("row-2")]) });
 	assert.deepEqual(sent, ["k1", "k1", "k1", "k2"]);
-	// An upload that replays on its own (C97) is sent once per attempt by the lane.
 	const upload = setup();
 	await upload.lane.save({ what: "Card", replay: false, send: upload.server([lost]), ok: () => {} });
 	assert.deepEqual(upload.sent, ["k1"]);
@@ -62,7 +57,6 @@ test("INV-no-false-refusal (C58, C65) BUG-31d611e R1-2: only a server answer say
 	const { lane, server } = setup();
 	await lane.save({ what: "Leaders", done: "added", send: server([lost, lost]), ok: () => {} });
 	assert.equal(lane.get().notice.tone, "unknown");
-	// Check again while another save to the person runs: the shared lane refuses to start it, so nothing was sent.
 	const shared = setup();
 	let first = true;
 	await shared.lane.save({
@@ -74,7 +68,6 @@ test("INV-no-false-refusal (C58, C65) BUG-31d611e R1-2: only a server answer say
 	shared.lane.get().notice.check();
 	await new Promise((r) => setTimeout(r, 0));
 	assert.equal(shared.lane.get().notice.tone, "unknown", "nothing was sent, so the first request may be saved");
-	// A server refusal is the only way to "not saved"; the reason is in words and the notice can be dismissed.
 	const refused = setup();
 	const codes = [];
 	await refused.lane.save({
@@ -102,13 +95,11 @@ test("INV-form-intent (C58): a refusal reopens its form with the values and its 
 	await lane.save({
 		what: "A",
 		form: { draft: "A" },
-		// The server's reason names the field (F4b, R2-6); the form shows it, not the generic code.
 		send: server([{ status: "refused", code: "invalid_input", reason: "future_date" }]),
 		ok: () => {},
 	});
 	assert.deepEqual(lane.get().editing, { draft: "A", problem: "future_date" });
 	assert.equal(lane.get().notice, null);
-	// A newer form opened while A was saving: A's refusal never replaces it; the card says why A was not saved.
 	let answer;
 	const slow = () => new Promise((r) => (answer = r));
 	const pending = lane.save({ what: "A", form: { draft: "A" }, send: slow, ok: () => {} });
@@ -139,7 +130,6 @@ test("INV-one-save-per-card (C68, C69): nothing starts while a save is in flight
 	assert.equal(lane.wait(), "unknown");
 	await lane.save({ what: "C", send: server([ok(1)]), ok: () => {} });
 	assert.deepEqual(sent, ["k1", "k1"], "C sent nothing while A is unknown");
-	// Another card's save to the same person (the person store) also holds this card.
 	const shared = setup({ busy: () => busy });
 	busy = true;
 	assert.equal(shared.lane.wait(), "saving");

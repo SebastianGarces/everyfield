@@ -2,7 +2,6 @@ import { hash } from "../../hash.ts";
 import { approvedWiki } from "../manifest/approved.ts";
 import { openAiWikiEmbedding, type WikiEmbedFetch } from "./openai.ts";
 
-// Local stand-in for a model. Values are float32 so the checksum matches the stored vector.
 export function localEmbedding(text: string): number[] {
 	const digest = hash(text);
 	const values: number[] = [];
@@ -26,7 +25,6 @@ export interface ResolvedWikiEmbedding {
 	embedMany?: WikiEmbedMany;
 }
 
-// A present OPENAI_API_KEY is not an opt-in. Tests inject embed and stay on the local provider.
 export function resolveWikiEmbedding(
 	env: Record<string, string | undefined>,
 	deps: {
