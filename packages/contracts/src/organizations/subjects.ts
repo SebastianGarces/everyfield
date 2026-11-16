@@ -18,7 +18,6 @@ export const networkOwner = organizationOwner.transform((value, ctx) => {
 	ctx.addIssue({ code: "custom", message: "Expected a sending network" });
 	return z.NEVER;
 });
-// These are exact endpoints, never a graph of inherited grants.
 export const relationshipPair = z.discriminatedUnion("kind", [
 	z
 		.strictObject({ kind: z.literal("plant"), subject: plantOwner, organization: organizationOwner })
@@ -30,7 +29,6 @@ export const relationshipPair = z.discriminatedUnion("kind", [
 ]);
 export type RelationshipPair = z.infer<typeof relationshipPair>;
 
-// Names follow REQ-IDN-022. SQL column mapping belongs to the API producer.
 export const sharingCategory = z.enum([
 	"people",
 	"meetings",
@@ -51,8 +49,6 @@ export const sharingChoices = z.strictObject({
 });
 export const residentChoices = z.strictObject({ shareFoundations: z.boolean(), shareMilestones: z.boolean() });
 
-// Scope identifies requested endpoints only. The API still authorizes current
-// subjects and organization seats; an endpoint match never grants access.
 export const relationshipHistoryScope = z.union([
 	z.strictObject({ plant: plantOwner }),
 	z.strictObject({ sendingChurch: sendingChurchOwner }),

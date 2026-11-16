@@ -2,9 +2,9 @@
 	"no-raw-history": {
 		"apps/web/src/marketing/sections/FaqItem.tsx": [
 			{
-				"function": "fromHash",
+				"function": null,
 				"count": 1,
-				"reason": "pre-existing on main in owner-gated marketing code; removed by #853 (refactor/area-marketing), which reads the hash through useLocationHash"
+				"reason": "temporary: the useLocationHash import moves to the location store once it reads the hash (R-58)"
 			}
 		]
 	}

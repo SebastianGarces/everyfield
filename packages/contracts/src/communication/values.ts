@@ -2,14 +2,9 @@ import { z } from "zod";
 import { meetingTemplateTypes, templateCategories } from "./catalog.ts";
 
 export const communicationStates = ["draft", "reviewed", "scheduled"] as const;
-/**
- * The most emails one email-service call takes (REQ-COM-005). A Messages handoff freezes its audience in ordered batches
- * of at most this many, each its own request under its own key; the Resend adapter's batch answer is held to it too.
- */
 export const MAIL_BATCH_LIMIT = 100;
 export const audienceGroups = ["core_group", "launch_team", "leaders", "prospects", "all"] as const;
 
-/** A closed group token is a string. An unknown token matches nobody. */
 export const audienceInput = z.strictObject({
 	groups: z.array(z.string().trim().min(1).max(80)).max(20).default([]),
 	teamIds: z.array(z.uuid()).max(200).default([]),
@@ -17,7 +12,6 @@ export const audienceInput = z.strictObject({
 });
 export type AudienceInput = z.infer<typeof audienceInput>;
 
-/** Left out keeps the stored value (undefined); null or blank clears it (null). */
 const optionalText = (max: number) =>
 	z
 		.string()
@@ -44,7 +38,6 @@ export const templateDraft = z.strictObject({
 });
 export type TemplateDraft = z.infer<typeof templateDraft>;
 
-/** An incomplete draft may omit subject and body. `scheduledAt` is not part of a draft. */
 export const draftInput = z.strictObject({
 	communicationId: z.uuid().optional(),
 	subject: optionalText(500),

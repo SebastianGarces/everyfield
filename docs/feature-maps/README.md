@@ -111,3 +111,18 @@ A browser proof marked presence only shows that the control is there; the listed
 The network-idle wait suits these pages, which go quiet after each action. On a page that keeps fetching (for
 example `/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there;
 a map for a polling page should wait on its next check instead (`wait --text`, `wait --url`).
+
+## Changing a feature, and the review proof
+
+On a branch the check also reads the files changed since the merge base with origin/main. A change to a page or
+handler file whose route is still pending fails until that route's surface is mapped and the route leaves the
+pending list. A change to a non-test file under `apps/web/src/features/<feature>/` fails while the feature has no
+`feature-map.json`. A partial map is enough: map the surface you touch and leave the feature's other routes pending.
+
+Every review of app code carries proof of the real app. The verifier reaches each changed surface as its map says,
+takes agent-browser screenshots at 390 and 1440 px (or a recording) into `<evidence>/proof/<surface-id>/` and runs
+`pnpm review-proof --base <merge-base> --evidence <dir> [--head <checkout>] <surface-id>...`. It derives the
+surfaces the diff needs: each changed mapped route's surface, one proved surface per changed mapped feature, and one
+for any other product code under `apps/web/` or `packages/*/src/`. It refuses a missing width, a PNG that is not
+exactly 390 or 1440 px wide and an unknown surface id, and prints each proved surface's map entry as the review's
+Proof table. A diff of only tooling, docs, tests or agent instructions needs no app proof.

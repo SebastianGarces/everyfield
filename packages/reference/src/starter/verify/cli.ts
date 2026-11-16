@@ -1,8 +1,3 @@
-// Installs and activates the pinned Wiki (approved.ts) on one database. Rerunning it is a no-op once that version is active.
-//   development: corepack pnpm --filter @everyfield/reference wiki:install [--schema <ui_schema>]
-//   production (operator only): corepack pnpm --filter @everyfield/reference wiki:install --production --operator <account-id>
-// Development targets only the shared development database or the disposable CI one, and provisions a synthetic
-// publisher. Production requires both flags and an operator account that already holds the reference_publish grant.
 import { randomBytes, randomUUID } from "node:crypto";
 import { parseArgs } from "node:util";
 import { createDatabase, closeDatabase } from "@everyfield/db/client";
@@ -29,7 +24,6 @@ try {
 	fail("Set DATABASE_URL. No setting values are printed.");
 }
 const development = developmentHosts.has(target.hostname);
-// The disposable CI database, under the same guard tests/reference/starter/living.db.mts uses.
 const localCi =
 	process.env.CI === "true" &&
 	process.env.EARLY_ACCESS_TEST_DATABASE === "1" &&
@@ -47,7 +41,6 @@ if (values.schema && !/^ui_[a-f0-9]{16}$/.test(values.schema))
 	fail("--schema takes a tests/ui seed schema (ui_<hex>).");
 if (values.operator && !/^[0-9a-f-]{36}$/i.test(values.operator)) fail("--operator takes an account id.");
 
-/** The publisher account: the named operator, or in development one synthetic account that holds the grant. */
 async function publisher(db: Database): Promise<{ actorId: string; userId: string }> {
 	if (values.operator) {
 		const selected = await db.execute(sql`SELECT id, auth_user_id FROM account WHERE id = ${values.operator}::uuid`);
@@ -87,7 +80,6 @@ try {
 		);
 	} else {
 		const operator = await publisher(db);
-		// A ten-minute session for this run only, so the service's live-session check holds. Deleted below.
 		sessionId = randomUUID();
 		await db.execute(sql`INSERT INTO auth_session(id, user_id, token, expires_at)
 			VALUES (${sessionId}::uuid, ${operator.userId}::uuid, ${randomBytes(32).toString("hex")}, now() + interval '10 minutes')`);

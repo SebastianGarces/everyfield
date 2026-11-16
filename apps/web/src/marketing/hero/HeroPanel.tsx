@@ -9,30 +9,19 @@ import { Backdrop } from "../photo/Backdrop";
 import type { HeroPhoto } from "../photo/photos";
 
 type Props = {
-	/** A small all-caps line above the headline (home: "Church planting software"). */
 	eyebrow?: string;
 	headline: string;
 	subhead: string;
 	primary: { label: string; href: string };
 	secondary?: { label: string; href: string };
-	/** One line under the buttons: what happens after the primary button. */
 	note?: string;
-	/** The product visual under the buttons. */
 	children: ReactNode;
-	/** "dashboard" (/oversight, Revision 24): a wider lead, and the band is a window of fixed height onto a large
-	 *  dashboard that runs to the panel's bottom edge. */
 	band?: "dashboard";
-	/** The page's hero photo (foundations.md: home = wildflowers, /oversight = bluebells). The page's only preloaded image. */
 	photo: HeroPhoto;
 };
 
 const arrow = <Icon icon={ArrowRight02Icon} size={17} />;
 
-/**
- * The page hero (Revision 3): one panel with a treated photo, which fades up from the page (the fade style, 2026-10-20 rebrand).
- * It is wider than the page column: 8 to 24 px window margins, and at most the nav width plus 56 px on each side (Revision 23).
- * Headline, lead and buttons are centred in ink on the faded top; the product visual sits on the photo below them.
- */
 export function HeroPanel({ eyebrow, headline, subhead, primary, secondary, note, children, band, photo }: Props) {
 	const dash = band === "dashboard";
 	return (

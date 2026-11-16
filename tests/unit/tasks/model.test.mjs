@@ -1,21 +1,3 @@
-// Tasks screen rules (WP-024/ui) that a silent break would turn into a wrong list, a double write or a deadline saved
-// at the wrong instant. They run in node against the real module the screens use; no browser.
-//   AC:TARGET-TSK-001 INV-url (D67): view, search, filters, sort and page live in the address; a change goes back to
-//     page one and keeps the sibling filters; values outside the closed lists are ignored.
-//   AC:B03-008 AC:B03-009 AC:TARGET-TSK-018: a deadline is sent as church-local wall time, with the chosen offset only
-//     after the person picks one occurrence of a repeated time; a missing day or time is caught before any request.
-//   INV-counts: a confirmed change moves one task between tallies; a deleted task only leaves.
-//   AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it matches the query (view, search, status,
-//     priority, category, link, due kind, team), as the server's scope would.
-//   AC:TARGET-TSK-006 INV-blocking (WP-025/ui, BUG #196 review): a prerequisite that is done, no longer needed or
-//     deleted stops holding its waiting task back, a reopened one holds it again, and other changes leave it alone.
-//   AC:TARGET-TSK-006 INV-badge-reads (BUG #196 round 3): only the newest badge read for the list still on screen
-//     applies; a newer read or a new list ends older reads and their retries; opening a task panel does not.
-//   BUG-31d611e R4-2: a refused edit opens again on the newest copy of the task with only the person's own changes on
-//     top. Request keys, replays and one save per card are the shared save lane's (tests/unit/save/model.test.mjs).
-//   INV-optimistic: changes in flight show at once (new task first, edit applied, delete hidden, status shown) and the
-//     confirmed rows stand when they fall away. AC:TARGET-TSK-005 (WP-025/ui): the same holds for a task's steps: a new
-//     step shows under its own task, a removed one hides and a tick shows.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -45,7 +27,6 @@ import {
 const parse = (s) => parseQuery(new URLSearchParams(s));
 
 test("BUG-PR551 (people/peo-18): a team id the contract refuses lists every team and keeps the rest of the address", () => {
-	// A loose uuid test accepts both; the contract's recordId refuses version nibble 0 and variant c.
 	for (const team of ["0b6c3f1e-2a7d-0c3b-9f5e-1d2c3b4a5f60", "0b6c3f1e-2a7d-4c3b-cf5e-1d2c3b4a5f60"]) {
 		const q = parse(`team=${team}&status=blocked&q=call&page=2`);
 		assert.equal(q.teamId, null, team);
@@ -76,7 +57,6 @@ test("AC:TARGET-TSK-001 INV-url: filters live in the address, reset the page and
 		querySearch(next),
 		"?view=all&q=call&status=blocked&priority=high&category=follow_up&relation=person&sort=title",
 	);
-	// The Team filter (My and All) joins the others and survives a sibling change.
 	const team = "0b6c3f1e-2a7d-4c3b-9f5e-1d2c3b4a5f60";
 	const withTeam = withFilters(q, { teamId: team });
 	assert.equal(listRequest(withTeam).teamId, team);
@@ -84,12 +64,10 @@ test("AC:TARGET-TSK-001 INV-url: filters live in the address, reset the page and
 	assert.equal(parse(querySearch(withTeam).slice(1)).teamId, team);
 	assert.equal(parse("team=not-a-uuid").teamId, null);
 	assert.equal(parse(`team=${team.toUpperCase()}`).teamId, team, "an upper-case id reads as the same team");
-	// No status in the address is the open list; status=any is every status. Both survive a round trip.
 	assert.deepEqual(parse("").statuses, ["not_started", "in_progress", "blocked"]);
 	assert.equal(querySearch(parse("")), "");
 	assert.deepEqual(parse("status=any").statuses, []);
 	assert.equal(querySearch(parse("status=any")), "?status=any");
-	// Values outside the closed lists are ignored rather than sent to the server.
 	assert.deepEqual(listRequest(parse("view=team&status=lost&priority=x&sort=owner&page=-2&relation=facility")), {
 		...listRequest(parse("")),
 	});
@@ -108,7 +86,6 @@ test("AC:B03-008 AC:B03-009 AC:TARGET-TSK-018: a deadline is church wall time wi
 		ok: true,
 		due: { kind: "local_date", date: "2026-03-08" },
 	});
-	// B03-007: no day or time falls back to today or the epoch; the form asks for it.
 	assert.deepEqual(dueInputOf({ kind: "local_date", date: "", time: "" }), { ok: false, field: "date" });
 	assert.deepEqual(dueInputOf({ kind: "resolved_instant", date: "2026-03-08", time: "" }), {
 		ok: false,
@@ -161,7 +138,6 @@ test("INV-optimistic: changes in flight show at once; the confirmed rows stand w
 		],
 	);
 	assert.deepEqual(shownRows(items, NO_PENDING), items);
-	// Steps (AC:TARGET-TSK-005): one parent's changes never show under another parent.
 	const steps = [row("s1"), row("s2"), row("s3")];
 	let q = withChange(NO_PENDING, { kind: "step", parentId: "p", step: row("pending:s", { title: "Bring napkins" }) });
 	q = withChange(q, { kind: "step", parentId: "other", step: row("pending:o") });
@@ -202,7 +178,6 @@ test("AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it
 		"Mine excludes Ruth's task",
 	);
 	assert.equal(matches(parse("view=all&q=order"), task({ assignees: [] }), me), true);
-	// Mine holds a task with several assignees when I am one of them.
 	assert.equal(
 		matches(
 			q,
@@ -234,7 +209,6 @@ test("AC:TARGET-TSK-001 INV-membership: a saved task joins the list only when it
 });
 
 test("BUG-31d611e R4-2: a refused edit opens again on the newest task with only the person's changes", () => {
-	// Admin A opened the task at revision 4 and changed the title; Admin B saved a description and a new assignee.
 	const seen = {
 		title: "Call Kim",
 		description: "",
@@ -249,7 +223,6 @@ test("BUG-31d611e R4-2: a refused edit opens again on the newest task with only 
 		assigneeIds: ["b2"],
 		due: { kind: "undated", date: "", time: "" },
 	});
-	// A field both changed keeps the person's value: they see it and may change it before saving again.
 	assert.deepEqual(rebase({ ...mine, assigneeIds: ["c3"] }, seen, latest).assigneeIds, ["c3"]);
 });
 
@@ -305,11 +278,9 @@ test("AC:TARGET-TSK-001 INV-owner-label: an owner shows by name, also the signed
 	const otherMember = { displayName: "Aisha Bello" };
 	assert.equal(ownerLabel(signedIn), "Dana Reyes", "the signed-in owner");
 	assert.equal(ownerLabel(otherMember), "Aisha Bello", "another member");
-	// Every empty name reads the same: the signed-in person, another seat and a former member (REQ-TSK-001).
 	assert.equal(ownerLabel({ displayName: "  " }), "Unnamed member", "a member with no name");
 	assert.equal(ownerLabel({ displayName: "" }), "Unnamed member", "a former member whose deleted account has no name");
 	assert.equal(ownerLabel(null), "Needs owner", "no owner");
-	// The task row and the assignee summary read an empty name the same way as the panel and the picker.
 	assert.deepEqual(assigneeNames([{ displayName: "Ana Lee" }, { displayName: " " }]), ["Ana Lee", "Unnamed member"]);
 	assert.equal(assigneeSummary([{ displayName: "" }, { displayName: "Ana Lee" }]), "Unnamed member +1");
 });
@@ -359,7 +330,6 @@ test("BUG-PR551 (messages/com-21): an owner_ineligible refusal forgets the cache
 
 test("BUG-PR551 (messages/com-21): every chosen assignee is held in the picker, a draft-only one too, with the warning they earn", () => {
 	const viewer = "acc-viewer";
-	// A new follow-up starts with the viewer, who is on no task yet.
 	assert.deepEqual(heldAssignees([viewer], { [viewer]: "Daniel Reyes" }, [], []), [
 		{ accountId: viewer, displayName: "Daniel Reyes", warning: null },
 	]);
@@ -373,7 +343,6 @@ test("BUG-PR551 (messages/com-21): every chosen assignee is held in the picker, 
 			["Daniel Reyes", "Can't own follow-ups now"],
 		],
 	);
-	// A refused draft keeps who the refusal named when it opens again on the task.
 	const mine = { assigneeIds: [viewer], ineligible: viewer };
 	assert.equal(rebase(mine, { assigneeIds: [viewer] }, { assigneeIds: [viewer] }).ineligible, viewer);
 });

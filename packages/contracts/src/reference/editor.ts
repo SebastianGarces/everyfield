@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Data only. Renderers must use text nodes and checked hrefs, never HTML/MDX evaluation.
 export const safeHref = z
 	.string()
 	.max(2048)
@@ -42,7 +41,6 @@ export const editorDocument = z
 	.refine((value) => new TextEncoder().encode(JSON.stringify(value)).length <= 1_000_000, "Document too large");
 export type EditorDocument = z.infer<typeof editorDocument>;
 
-// Word extraction belongs to the bounded server parser. This boundary accepts its plain text only.
 export function importExtractedText(text: string): EditorDocument {
 	return editorDocument.parse({
 		format: "everyfield-editor-v1",
