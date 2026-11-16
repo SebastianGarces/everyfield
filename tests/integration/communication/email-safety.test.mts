@@ -1,6 +1,3 @@
-// WP-029: outside production, email reaches approved test recipients only. Every other address goes to the capture
-// outbox and never appears in a request to Resend, with or without a key. The real writers and transports run here
-// against the recording fake of Resend. Nothing calls Resend. The CI db job runs this file.
 import test, { after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { setImmediate } from "node:timers/promises";
@@ -53,11 +50,9 @@ const ready = { keys, apiKey: "re_test_key" };
 const message = (to, subject = "Hello") => ({ to, subject, html: `<p>${subject}</p>`, text: subject });
 const signal = () => AbortSignal.timeout(5_000);
 const key = () => randomUUID();
-/** True when any request the recorder saw holds the address anywhere: path, header key or body. */
 const holds = (requests, address) => JSON.stringify(requests).toLowerCase().includes(address.toLowerCase());
 const outboxTo = async () => (await readOutbox()).map((entry) => entry.to);
 
-/** Runs `body` with these process variables and restores them, for the code that reads process.env itself. */
 async function withProcessEnv(values, body) {
 	const saved = Object.fromEntries(Object.keys(values).map((name) => [name, process.env[name]]));
 	const assign = (next) => {
@@ -74,12 +69,10 @@ async function withProcessEnv(values, body) {
 	}
 }
 
-// Each test reads an empty outbox, so one test's captures never prove another's.
 beforeEach(() => {
 	process.env.EVERYFIELD_DEV_OUTBOX = mkdtempSync(join(tmpdir(), "wp029-outbox-"));
 });
 
-// The database starts only for a test that asks for it. The rule and text tests run without one.
 let world = null;
 async function database() {
 	if (world) return world;
@@ -101,7 +94,6 @@ after(async () => {
 	await world.f.close();
 });
 
-/** A person added through the same writer the screens call, with the address a tester typed. */
 async function person(email) {
 	const { f, owner } = await database();
 	const created = ok(
@@ -154,7 +146,6 @@ async function reviewed(op, sent, transport) {
 	);
 }
 const sendNow = async (people, transport) => reviewed("sendReviewed", await held(people), transport);
-/** Schedule, then the send time comes: the minute runner hands it to the email service then (T-241). */
 const handOff = async (people, transport) => {
 	const message = await held(people);
 	const report = await reviewed("handOffScheduled", message, transport);
@@ -162,7 +153,6 @@ const handOff = async (people, transport) => {
 	await atSendTime(f.admin, f.db, message.id, transport, keys);
 	return { message, report };
 };
-/** A scheduled email the email service holds with its send time, as before T-241. */
 const heldHandOff = async (people, transport) => {
 	const message = await held(people);
 	const report = await reviewed("handOffScheduled", message, transport);
@@ -190,7 +180,6 @@ async function providerIds(id) {
 	return rows;
 }
 
-/** One queued invitation to `address`, sent by the real scheduled worker through the real queued transport. */
 async function queuedInvitation(address, env, request) {
 	const { f } = await database();
 	const s = await f.setup("plant");
@@ -251,9 +240,6 @@ function countingFetch() {
 	return { calls, request };
 }
 
-// The rule's purity (no value import, require, process, fetch, await or Date) is the everyfield/pure-module lint rule
-// in .oxlintrc.json. Each sender refusing an unapproved address: WP-029-4, WP-029-8 and WP-029-14 (mail.ts), WP-029-9
-// (server/jobs/resend.ts) and WP-029-10 (early access).
 test("INV-email-safety: the rule reads only its two arguments", () => {
 	const read = [];
 	const env = new Proxy(
@@ -414,13 +400,11 @@ test("INV-email-safety: cancel and time change pick capture or Resend from the m
 		[`PATCH /emails/${provider}`, `POST /emails/${provider}/cancel`],
 	);
 
-	// A capture id with no key and a Resend id with no key: neither one needs the key to pick its path.
 	const noKey = deliveryTransport({ keys, apiKey: null }, resend.fetch, () => {}, PREVIEW);
 	assert.deepEqual(await noKey.reschedule([first], later, signal()), [{ outcome: "done" }]);
 	assert.deepEqual(await noKey.cancel(["re-unknown"], signal()), [{ outcome: "unknown" }]);
 	assert.deepEqual(resend.take(), []);
 
-	// The whole write path: the Messages screen's cancel of a held captured message.
 	const typed = await person("real.cancel@example.com");
 	const { message: message_ } = await heldHandOff([typed], resend.transport);
 	const { f, owner } = await database();
@@ -443,8 +427,6 @@ test("INV-email-safety: cancel and time change pick capture or Resend from the m
 
 test("INV-email-safety: refusals and capture faults never reach the provider", async () => {
 	const realFetch = globalThis.fetch;
-	// The domain list settles through promise jobs only (no body stream), so one event-loop turn after the fetch
-	// settles it: the wait is on the read, not on a clock.
 	let fetched = 0;
 	globalThis.fetch = async () => {
 		fetched++;
@@ -485,7 +467,6 @@ test("INV-email-safety: refusals and capture faults never reach the provider", a
 		assert.deepEqual(resend.take(), [], name);
 	}
 
-	// The outbox folder is a file, so each capture write fails.
 	const blocked = join(process.env.EVERYFIELD_DEV_OUTBOX, "a-file");
 	writeFileSync(blocked, "");
 	await withProcessEnv({ EVERYFIELD_DEV_OUTBOX: blocked }, async () => {
@@ -509,7 +490,6 @@ test("INV-email-safety: refusals and capture faults never reach the provider", a
 		assert.deepEqual(resend.take(), []);
 	});
 
-	// The no-answer switch stops a batch with a captured message before any POST.
 	writeFileSync(join(process.env.EVERYFIELD_DEV_OUTBOX, NO_ANSWER_FILE), "");
 	const quiet = resendRecorder(PREVIEW, () => {});
 	assert.deepEqual(
@@ -542,7 +522,6 @@ test("INV-email-safety: queued invitation mail captures a typed address, sends a
 	const transport = queuedMailTransport(ready, resend.fetch, PREVIEW);
 	assert.deepEqual(await transport.lookup(typed.id, signal()), { kind: "accepted", id: typed.id });
 	assert.deepEqual(resend.take(), [], "a capture id never asks Resend");
-	// A replay under the stored key answers with the first capture and writes no second email.
 	const { rows } = await (
 		await database()
 	).f.admin.execute(sql`SELECT r.provider_key AS key FROM mail m
@@ -566,7 +545,6 @@ test("INV-email-safety: the guard is inside createResendTransport.send", async (
 	assert.deepEqual(resend.take(), []);
 	assert.deepEqual(await outboxTo(), [TYPED]);
 
-	// A future worker passes no environment: the default reads process.env at the call.
 	const worker = createResendTransport("re_test_key", resend.fetch);
 	await withProcessEnv({ VERCEL_ENV: "preview" }, () => worker.send(payload, key(), signal()));
 	await withProcessEnv({ VERCEL_ENV: undefined }, () => worker.send(payload, key(), signal()));
@@ -587,8 +565,6 @@ test("INV-email-safety: early access with a recipient that is not approved calls
 		assert.equal(rows[0].n, 1, "the reservation row stays");
 	}
 
-	// The check reads the stored payload, not the current setting. The same request comes back after the setting
-	// changed to an approved address, and the stored recipient still gets no request.
 	const fields = planter(`stored-${key().slice(0, 8)}@example.org`);
 	const stored = countingFetch();
 	for (const to of ["owner@example.org", APPROVED]) {
@@ -640,7 +616,6 @@ test("INV-email-safety: production sends the typed address on all four paths, wi
 	assert.equal((await transactional("real.prod.reset@example.com", resend.transport)).deliveryStatus, "accepted");
 	assert.deepEqual(resend.take()[0].body[0].to, ["real.prod.reset@example.com"]);
 
-	// The exact batch request.
 	const batchKey = key();
 	await resend.transport.send({ key: batchKey, messages: [message(TYPED)], scheduledAt: null }, signal());
 	assert.deepEqual(resend.take(), [
@@ -652,7 +627,6 @@ test("INV-email-safety: production sends the typed address on all four paths, wi
 		},
 	]);
 
-	// The exact queued request, by the real worker and directly.
 	const invited = await queuedInvitation("real.invited@example.com", PRODUCTION, resend.fetch);
 	const [queuedCall] = resend.take();
 	assert.equal(queuedCall.body.to, "real.invited@example.com");
@@ -662,7 +636,6 @@ test("INV-email-safety: production sends the typed address on all four paths, wi
 	await queuedMailTransport(ready, resend.fetch, PRODUCTION).send(payload, queuedKey, signal());
 	assert.deepEqual(resend.take(), [{ method: "POST", path: "/emails", idempotencyKey: queuedKey, body: payload }]);
 
-	// The exact early access request.
 	const early = countingFetch();
 	const { result, email } = await earlyAccess(
 		earlyEnv("owner@example.org", { VERCEL_ENV: "production" }),
@@ -789,7 +762,6 @@ test("a password-reset request reaches the capture outbox within one runner tick
 			IDENTITY_MAIL_FROM: "security@resend.dev",
 		},
 		async () => {
-			// The identity service as the identity mount builds it: its mail goes to the mount's queue.
 			const delivery: (() => Promise<void>)[] = [];
 			const identity = createIdentityService({
 				db: f.db,
@@ -813,7 +785,6 @@ test("a password-reset request reaches the capture outbox within one runner tick
 			for (const work of delivery) await work();
 			assert.deepEqual(await outboxTo(), [], "the request only queues the email");
 
-			// One tick, with the deployment's capture transport (no provider key) for the identity pass.
 			const cron = "cron-" + randomUUID();
 			const tick = await scheduledJobs({
 				secret: cron,

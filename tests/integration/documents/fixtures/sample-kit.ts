@@ -1,5 +1,3 @@
-// The sample brand kit for review renders and tests. A fictional church. It is passed straight to the renderer;
-// WP-104 owns stored kits. The logo paths come from the WP-036/ui prototype.
 import { readFileSync } from "node:fs";
 import type { RenderTheme, ThemeImage } from "../../../../packages/domain/src/documents/theme.ts";
 
@@ -53,5 +51,4 @@ export function sampleKit(primary = "#1F4E6B", accent = "#E3A21A", name = "harbo
 		},
 	};
 }
-/** Stress kit: a yellow primary with about 1.4:1 contrast on white. */
 export const lowContrastKit = () => sampleKit("#F5D90A", "#FFE866", "harborlight-low");

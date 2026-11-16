@@ -1,5 +1,3 @@
-// T-156: the organization editor keeps tables, callouts, diagrams and code as read-only blocks, and a one-character
-// edit saves on every seed article. No database: the model is the pure code the editor runs.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -28,7 +26,6 @@ const articles = seed.articles.filter((article) => article.content);
 const fixedKinds = new Set(["table", "callout", "code", "diagram"]);
 const fixed = (blocks: ReturnType<typeof markdownBlocks>) => blocks.filter((block) => fixedKinds.has(block.kind));
 
-/** The first editable block with text, with one character added. */
 function editOne(blocks: EditorBlock[]): EditorBlock[] {
 	const index = blocks.findIndex((block) => block.kind !== "fixed" && block.text.trim());
 	assert.ok(index >= 0);
@@ -53,7 +50,6 @@ test("AC:CASE-WIKI-001 a one-character edit then save passes the contract on eve
 			input: { articleId: randomUUID(), organizationId: randomUUID(), body },
 		});
 		assert.ok(command.success, `${article.slug}: ${command.error?.message}`);
-		// The published copy renders the same tables, callouts, code and diagrams as the seed.
 		assert.deepEqual(fixed(articleBlocks("safe_nodes", body)), fixed(markdownBlocks(content)), article.slug);
 		tables += markdownBlocks(content).filter((block) => block.kind === "table").length;
 	}
@@ -111,9 +107,7 @@ test("AC:CASE-WIKI-001 the editor shows tables, callouts, diagrams and code read
 		{ kind: "heading", level: 2, text: "Planx", id: "planx" },
 		{ kind: "paragraph", text: "Intro text." },
 	]);
-	// The saved document opens in the editor as the same blocks.
 	assert.deepEqual(editorBlocksFromBody("safe_nodes", saved), editOne(blocks));
-	// Visible text, not JSON, counts toward the cap.
 	assert.ok(visibleBodyLength(saved) < saved.length / 2);
 });
 
