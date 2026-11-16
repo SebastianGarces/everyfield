@@ -1,0 +1,17 @@
+{
+	"public": {
+		"AccountMenu.tsx": "the account menu the shell composes into the frame",
+		"ProductSettings.tsx": "useProductSettings, the settings dialog state the shell owns",
+		"SettingsDialog.tsx": "SaveError is imported by the intelligence check-in until it moves to settings/save.ts",
+		"actions.ts": "settings server actions that Evry photo upload and the intelligence check-in call",
+		"flows/ZonePicker.tsx": "the time zone picker the intelligence check-in reuses",
+		"flows/avatarBytes.ts": "the avatar upload bytes step Evry photo attach reuses",
+		"flows/usePersonalZoneChoice.ts": "the personal time zone choice hook the intelligence check-in reuses",
+		"model.ts": "CATEGORY_TEXT and firstSection, which Evry, notifications and the shell read",
+		"opener.tsx": "SettingsOpener, useOpenSettings and useSettingsLink, which the shell and wiki use to open settings",
+		"port.ts": "the SectionSeed and SettingsViewer types the shell passes to settings",
+		"routes.tsx": "sectionSeed, which the shell layout computes for the settings dialog",
+		"save.ts": "OFFLINE_REFERENCE and the Refusal type the intelligence check-in reuses",
+		"server.ts": "settingsViewerOf and settingsCommands, the settings server entry for the shell and Evry"
+	}
+}
