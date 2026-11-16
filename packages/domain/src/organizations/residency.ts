@@ -11,32 +11,19 @@ import { declareWrite, lockedWrite, nativeWrite } from "../operations/writes.ts"
 import { GLOBAL } from "../wiki/core.ts";
 import { answer, parse, refuse, type Executor } from "./seat.ts";
 
-// My residency (REQ-MUL-013, WP-100): a linked resident's own projection of the residency their sending church runs.
-// The resident reads it from their own account, never from a seat, and only while the link is live (liveResidency):
-// leaving or an ended link removes it on the next request. Each read is one statement with the account's live check
-// inside it (C13). It selects only resident-facing fields: no pipeline stage, stage moves, staff notes, outside
-// assessment or inactivity flag ever enters these statements.
-
 type Reply<T> = C.ProgramReply<T>;
 
-/** The resident's own account, or null for a seat or any other actor. */
 function residentOf(authority: RequestActor) {
 	const context = authority.actor.context;
 	if (context.kind !== "account" || context.owner.kind !== "account") return null;
 	return { accountId: context.owner.id, live: liveRead(liveAccess(authority)) };
 }
 
-/** The account's live residency link `l`, newest first, when the account's access is live (`g.allowed`). */
 const linkCte = (account: string) => sql`l AS (SELECT l.* FROM residency_link l JOIN g ON g.allowed
  WHERE l.account_id=${account}::uuid AND ${liveResidency} ORDER BY l.accepted_at DESC,l.id LIMIT 1)`;
 
 const MINUTE = `'YYYY-MM-DD"T"HH24:MI:SS'`;
 
-/**
- * The resident's view of their residency: the program, the program stage and next meeting of each active enrollment,
- * the milestones with their completion and the director's feedback on this enrollment, the reading list, and the
- * resident's own sharing choices. The next meeting is in the resident's personal time zone, else the church's.
- */
 export async function readMyResidency(db: Executor, authority: RequestActor): Promise<Reply<C.MyResidency>> {
 	return answer<C.MyResidency, C.ProgramRefusal>(async () => {
 		const me = residentOf(authority);
@@ -96,11 +83,6 @@ FROM g`);
 	});
 }
 
-/**
- * One church-owned item of the resident's reading list: the church's current published version of that article,
- * only while it is on an active enrollment's version and the church still publishes it. Linking grants no other
- * access to the church's library (REQ-MUL-014). One statement.
- */
 export async function readResidentReading(
 	db: Executor,
 	authority: RequestActor,
@@ -124,12 +106,6 @@ SELECT (SELECT jsonb_build_object('title',c.title,'organizationName',o.name,'con
 	});
 }
 
-/**
- * The resident marks one of their own milestones done today, in the church's time zone (REQ-MUL-012). It then waits
- * for the director's confirmation. The established path (C88): the first statement locks the enrollment and the live
- * link; the second writes the mark with its body-free audit row in the church's own audit. A milestone already
- * recorded or marked, on any version (matched by lineage), stays as it was.
- */
 async function markMilestone(db: Database, authority: RequestActor, raw: unknown) {
 	return answer<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(async () => {
 		const input = parse(C.markMilestoneRequest, raw);
@@ -172,5 +148,4 @@ SELECT EXISTS(SELECT FROM c) AS added`);
 	});
 }
 
-/** Every resident write. The statement census measures each one as `residency.<name>`. */
 export const residentWriter = { markMilestone };

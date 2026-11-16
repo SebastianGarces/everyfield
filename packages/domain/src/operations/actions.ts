@@ -1,4 +1,3 @@
-/** Closed domain change families. Operation names belong only to retry identity. */
 export function writeAction(operation: string): string {
 	const [domain, verb = ""] = operation.split(".");
 	if (domain === "people") return "people.updated";
@@ -46,9 +45,6 @@ export function writeAction(operation: string): string {
 		if (verb === "bookmarks") return "wiki.bookmark_changed";
 		if (verb === "reading") return "wiki.reading_recorded";
 		if (verb === "feedback") return "feedback.received";
-		// The audit check has no wiki.draft and no upstream action.
-		// Draft add/edit and upstream review record wiki.published.
-		// Hide records wiki.hidden. The stored result carries the real state.
 		if (operation === "wiki.organizationArticles.hide") return "wiki.hidden";
 		if (
 			operation === "wiki.organizationArticles.publish" ||

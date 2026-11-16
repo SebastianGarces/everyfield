@@ -662,7 +662,6 @@ test("AC:TARGET-TEAM-006 an archived ministry no longer counts toward how many m
 			input: { teamId: old.id },
 		}),
 	);
-	// The tenure on the archived ministry stays open.
 	assert.equal(
 		await count(
 			sql`SELECT count(*)::int AS n FROM team_tenure tn JOIN team_role r ON r.id = tn.role_id
@@ -676,7 +675,6 @@ test("AC:TARGET-TEAM-006 an archived ministry no longer counts toward how many m
 	assert.equal(placed.warning, null);
 });
 
-/** Each object's byte offset in the xref table points at that object, and startxref points at the table. */
 function assertXref(pdf) {
 	const bytes = Buffer.from(pdf, "latin1");
 	assert.equal(Buffer.byteLength(pdf), bytes.length, "the PDF is plain ASCII");
@@ -702,7 +700,6 @@ function assertXref(pdf) {
 	for (const [, length, stream] of pdf.matchAll(/<< \/Length (\d+) >>\nstream\n([\s\S]*?)\nendstream/g))
 		assert.equal(Buffer.byteLength(stream), Number(length));
 }
-/** Every page's text lines with their baselines, read back from the PDF content streams. */
 function pdfPages(pdf) {
 	return [...pdf.matchAll(/stream\n([\s\S]*?)\nendstream/g)].map(([, stream]) => {
 		const [, top] = /50 (\d+) Td/.exec(stream);
@@ -731,7 +728,6 @@ test("AC:TARGET-TEAM-012 the chart PDF writes Latin-1 names in WinAnsi and the e
 	assert.equal(/[^\x00-\x7f]/.test(exported.pdf), false, "no raw non-ASCII bytes");
 	assert.equal(exported.svg.includes("Ministerio de José"), true);
 	assertXref(exported.pdf);
-	// WinAnsi's own high characters keep their byte; anything outside WinAnsi is a visible "?".
 	const pdf = drawingPdf(["“Café” – €5 (ok) \\ 漢 😀"]);
 	assert.equal(pdf.includes("(\\223Caf\\351\\224 \\226 \\2005 \\(ok\\) \\\\ ? ?) Tj"), true, pdf);
 	assertXref(pdf);
@@ -769,7 +765,6 @@ test("AC:TARGET-TEAM-012 a chart of 60 ministries fits every line inside the PDF
 });
 
 test("AC:TARGET-TEAM-012 an archived Leadership template ministry is never the root of the chart", async () => {
-	// Own the setup: importing the Leadership template again is a no-op when it is already here.
 	ok(await init({ expectedVersion: "2", mode: "import", selections: [{ teamKey: "leadership", roleKeys: [] }] }));
 	const root = (await admin.execute(sql`SELECT id FROM team WHERE plant_id=${P} AND template_key='leadership'`)).rows[0]
 		.id;
@@ -781,7 +776,6 @@ test("AC:TARGET-TEAM-012 an archived Leadership template ministry is never the r
 		}),
 	);
 	try {
-		// The data Sebastian saw: only the template Leadership is archived, and a custom "Leadership" is live.
 		const custom = await makeTeam("Leadership");
 		const archivedRoot = ok(await teamsReader.readOrgChart(db, await viewer(), { includeArchived: true })).nodes;
 		assert.equal(archivedRoot.find((node) => node.id === root).parentId, null);
@@ -824,7 +818,6 @@ test("AC:TARGET-TEAM-002 one edit keeps an optional reason in the history", asyn
 	await edit({ name: "Reason desk three" });
 	await edit({ name: "Reason desk three" });
 	const found = await entries();
-	// The repeated edit changed nothing, so it adds no entry; the team's creation is the oldest.
 	assert.deepEqual(
 		found.map((entry) => entry.kind),
 		["edit", "edit", "edit", "create"],

@@ -8,12 +8,8 @@ import { liveAccess, liveRead, type RequestActor } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import { declareWrite, lockedWrite, nativeWrite, WriteUnavailable } from "../operations/writes.ts";
 
-// What the organization pipeline and its development programs share: the viewer's seat with its live check (C13),
-// refusals as replies, and one write in the gate's transaction (C88, established) with a body-free audit row.
-
 export type Executor = Pick<Transaction, "execute">;
 
-/** Any organization refusal: the pipeline's or a program's. Each module's replies name their own. */
 type Refusal = C.PipelineRefusal | C.ProgramRefusal | C.PipelineImportRefusal;
 
 class Refused extends Error {
@@ -27,7 +23,6 @@ export function refuse(refusal: Refusal = { code: "unavailable" }): never {
 	throw new Refused(refusal);
 }
 
-/** The request actor's organization seat, or null for any other actor. */
 export function seatOf(authority: RequestActor) {
 	const context = authority.actor.context;
 	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
@@ -36,13 +31,11 @@ export function seatOf(authority: RequestActor) {
 		seatId: context.seatId,
 		administrator: context.role !== "member",
 		accountId: authority.actor.accountId,
-		// The seat is still live with the same role: a role change after the request's lookup reads nothing (C13).
 		live: liveRead({ ...liveAccess(authority), role: context.role }),
 	};
 }
 
 type Reply<T, R> = { status: "ok"; value: T } | { status: "refused"; refusal: R };
-/** Runs a read or write; a refusal thrown inside becomes the reply. `R` is the module's own refusal type. */
 export async function answer<T, R extends Refusal = C.PipelineRefusal>(body: () => Promise<T>): Promise<Reply<T, R>> {
 	try {
 		return { status: "ok", value: await body() };
@@ -64,9 +57,7 @@ export type Writer = {
 	seatId: string;
 	administrator: boolean;
 	actor: string;
-	/** An audit row for this write: body-free, with IDs, actor, change kind and revisions only (REQ-MUL-002). */
 	audit: (a: {
-		/** SQL when the statement writes one row per subject, such as `gen_random_uuid()`. */
 		id?: string | SQL;
 		action: string;
 		kind: string;
@@ -74,15 +65,10 @@ export type Writer = {
 		subjectType?: string;
 		before?: SQL;
 		after?: SQL;
-		/** Body-free metadata; SQL when it holds a value the statement reads, such as a corrected day's old value. */
 		metadata?: object | SQL;
 	}) => SQL;
 };
 
-/**
- * One pipeline write in the gate's transaction (C88, established): the gate locks the actor's seat and the
- * organization, so the command's reads see every committed write before it, and the command runs as that seat.
- */
 export async function write<T, R extends Refusal = C.PipelineRefusal>(
 	db: Database,
 	authority: RequestActor,
@@ -119,15 +105,10 @@ export async function write<T, R extends Refusal = C.PipelineRefusal>(
 	);
 }
 
-/** One row of a write statement's answer. */
 export async function one<S extends z.ZodType>(w: Writer, schema: S, statement: SQL): Promise<z.output<S>> {
 	return schema.parse((await w.tx.execute(statement)).rows[0]);
 }
 
-/**
- * Active residents (REQ-MUL-007): distinct live people of the organization with at least one active enrollment in a
- * residency-kind program. An apprenticeship enrollment or a pipeline stage labeled Resident alone does not count.
- */
 export const activeResidents = (org: string) =>
 	sql`(SELECT count(DISTINCT e.person_id) FROM development_enrollment e JOIN development_program p ON p.id=e.program_id
    AND p.organization_id=e.organization_id JOIN person x ON x.id=e.person_id AND x.tenant_id=e.organization_id

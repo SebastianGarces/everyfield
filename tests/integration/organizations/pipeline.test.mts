@@ -26,10 +26,6 @@ const {
 	saveStages: savePipelineStages,
 } = pipelineWriter;
 
-// The organization pipeline (REQ-MUL-001, -002, -008, -009) against a migrated database: Grace Austin's Owner Dana,
-// Admin Luis and Members Ana (responsible for Casey) and Ben (responsible for no one), and Hill Country Network as a
-// separate organization.
-
 const database = await fixture({ prefix: "pipeline", max: 6 });
 const { admin } = database;
 const db = database.pools.runtime;
@@ -95,7 +91,6 @@ test("an empty pipeline shows the five starter stages in order and nobody in the
 			["Not continuing", "not_continuing", 0, 0],
 		],
 	);
-	// The responsible-staff picker offers the organization's current seats only.
 	assert.deepEqual(b.staff.map((s) => s.name).sort(), ["Ana", "Ben", "Dana", "Luis"]);
 });
 
@@ -111,7 +106,6 @@ test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsib
 		}),
 	);
 	assert.deepEqual(added, { personId: casey, revision: "1", outcome: "changed" });
-	// A repeated request adds nobody else.
 	const again = ok(
 		await addPipelinePerson(db, await authority(dana), {
 			personId: casey,
@@ -129,7 +123,6 @@ test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsib
 		potential.people.map((p) => [p.name, p.email, p.responsible?.name]),
 		[["Casey Lee", "casey@example.test", "Ana"]],
 	);
-	// A seat of another organization cannot be named responsible.
 	const hillSeat = await seatOf(hillOwner.id, hill.id);
 	refusedWith(
 		await addPipelinePerson(db, await authority(dana), {
@@ -141,14 +134,12 @@ test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsib
 		}),
 		"invalid_input",
 	);
-	// Hill Country Network has its own pipeline, without Casey, and cannot open Casey.
 	const other = await board(hillOwner);
 	assert.deepEqual(
 		other.stages.map((s) => s.count),
 		[0, 0, 0, 0, 0],
 	);
 	refusedWith(await record(hillOwner, casey), "unavailable");
-	// Casey is in no plant's People.
 	const plantOwner = database.actors.owner;
 	const plant = await db.transaction((t) =>
 		peopleReader.listPeople(
@@ -179,7 +170,6 @@ test("AC:ADR1-001 an Owner edits a person's name, email and responsible staff", 
 		[r.name, r.email, r.responsible?.name, r.revision],
 		["Casey Lee-Park", null, "Luis", edited.revision],
 	);
-	// A stale revision is refused.
 	refusedWith(
 		await editPipelinePerson(db, await authority(dana), {
 			personId: casey,
@@ -234,7 +224,6 @@ test("AC:ADR1-008 a move needs a reason, and the history shows who moved the per
 		reason: "Started leading a small group",
 	});
 	assert.deepEqual(moved.history.at(-1)!.kind, "placed");
-	// Central audit holds no reason (REQ-MUL-002).
 	const audit = await admin.execute(
 		sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${grace.id}::uuid
 		 AND (coalesce(reason,'') ILIKE '%small group%' OR metadata::text ILIKE '%small group%'
@@ -248,9 +237,7 @@ test("AC:ADR1-008 stage edits rename, add and reorder; history keeps the label o
 	const stages = b.stages.map((s) => ({ id: s.id, label: s.label, kind: s.kind, expectedRevision: s.revision }));
 	const intern = randomUUID();
 	const renamed = stages.map((s) => (s.label === "Potential leader" ? { ...s, label: "ICNU conversation had" } : s));
-	// Intern, an Apprentice kind, goes first; the rest keep their order.
 	const next = [{ id: intern, label: "Intern", kind: "apprentice", expectedRevision: null }, ...renamed];
-	// Only an Owner or Admin edits stages.
 	refusedWith(await savePipelineStages(db, await authority(ana), { stages: next, removed: [] }), "unavailable");
 	ok(await savePipelineStages(db, await authority(dana), { stages: next, removed: [] }));
 	const saved = await board(dana);
@@ -263,7 +250,6 @@ test("AC:ADR1-008 stage edits rename, add and reorder; history keeps the label o
 		history.filter((h) => h.kind === "moved").map((h) => [h.from, h.to]),
 		[["Potential leader", "Apprentice"]],
 	);
-	// Apprentice holds Casey: removing it is refused and nothing changes.
 	const current = saved.stages.map((s) => ({ id: s.id, label: s.label, kind: s.kind, expectedRevision: s.revision }));
 	const apprentice = current.find((s) => s.label === "Apprentice")!;
 	const refused = await savePipelineStages(db, await authority(dana), {
@@ -278,7 +264,6 @@ test("AC:ADR1-008 stage edits rename, add and reorder; history keeps the label o
 		(await board(dana)).stages.map((s) => s.label),
 		saved.stages.map((s) => s.label),
 	);
-	// An empty stage can go.
 	const internNow = current.find((s) => s.label === "Intern")!;
 	ok(
 		await savePipelineStages(db, await authority(dana), {
@@ -317,7 +302,6 @@ test("AC:ADR1-008 Not continuing is an ordinary move", async () => {
 
 test("AC:ADR1-008 an outside assessment records only that it happened, when and by whom", async () => {
 	const r = ok(await record(luis, casey));
-	// No result, score or rating field exists.
 	refusedWith(
 		await recordPipelineAssessment(db, await authority(luis), {
 			personId: casey,
@@ -328,7 +312,6 @@ test("AC:ADR1-008 an outside assessment records only that it happened, when and 
 		}),
 		"invalid_input",
 	);
-	// Not a day after today.
 	refusedWith(
 		await recordPipelineAssessment(db, await authority(luis), {
 			personId: casey,
@@ -363,7 +346,6 @@ test("AC:ADR1-008 the six-month filter finds people with no stage move since, as
 			stageId: stageId(b, "Resident"),
 		}),
 	);
-	// Jordan's placement happened more than six months ago; Casey's last move two weeks ago.
 	await admin.execute(sql`UPDATE audit_event a SET occurred_at=clock_timestamp()-interval '190 days' FROM pipeline_stage_move m
 	 JOIN pipeline_person pp ON pp.id=m.pipeline_person_id WHERE a.id=m.id AND pp.person_id=${jordan}::uuid`);
 	await admin.execute(sql`UPDATE audit_event a SET occurred_at=clock_timestamp()-interval '16 days' FROM pipeline_stage_move m
@@ -430,7 +412,6 @@ test("AC:ADR1-002 AC:ADR1-009 responsible staff see their own people and notes, 
 		body: "Jordan is weighing a move to Dallas",
 	});
 	refusedWith(await record(ana, jordan), "unavailable");
-	// Ana's search finds nothing from a note she cannot read.
 	assert.deepEqual(
 		(await board(ana, { q: "Dallas" })).stages.flatMap((s) => s.people),
 		[],
@@ -457,7 +438,6 @@ test("AC:ADR1-009 a note is read by Owner, Admin and responsible staff only, and
 			[["Casey asked about Austin seminary", "Ana", reader === ana]],
 		);
 	}
-	// Search finds the note's word for a reader and nothing for Ben.
 	assert.deepEqual(
 		(await board(dana, { q: "seminary" })).stages.flatMap((s) => s.people.map((p) => p.name)),
 		["Casey Lee"],
@@ -485,7 +465,6 @@ test("AC:ADR1-009 a note is read by Owner, Admin and responsible staff only, and
 		(await board(dana, { q: "seminary" })).stages.flatMap((s) => s.people),
 		[],
 	);
-	// The body never reached central audit.
 	const audit = await admin.execute(
 		sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${grace.id}::uuid AND metadata::text ILIKE '%seminary%'`,
 	);
@@ -512,19 +491,16 @@ test("AC:ADR1-001 retiring takes a person off the board and counts; restoring pu
 	const kept = ok(await record(dana, jordan));
 	assert.equal(kept.retired, true);
 	assert.deepEqual(kept.history[0]!.kind, "retired");
-	// Luis, Jordan's responsible staff and an Admin, still reads him; a retired person is never in a Member's view.
 	ok(await restorePipelinePerson(db, await authority(dana), { personId: jordan, expectedRevision: kept.revision }));
 	const restored = await board(dana);
 	assert.equal(restored.stages.find((s) => s.label === "Resident")!.count, resident.count);
 	assert.deepEqual(names(restored).Resident, ["Jordan Reyes"]);
 });
 
-// T-277: a note's author shows their account photo by the workspace rule (REQ-IDN-006). Last, since it ends Ana's seat.
 const PNG = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
 	"base64",
 );
-/** A private bucket fake holding the photo bytes the byte read asks for. */
 const photoObjects = new Map<string, Buffer>();
 const photoStorage = {
 	bucket: "synthetic-only",
@@ -538,7 +514,6 @@ const photoStorage = {
 		},
 	},
 };
-/** The account's photo is now a new version, as Settings' finalize leaves it. */
 async function setAvatar(a: Actor) {
 	const versionId = randomUUID();
 	const key = `private/${a.id}/${versionId}`;
@@ -549,7 +524,6 @@ async function setAvatar(a: Actor) {
 	await admin.execute(sql`UPDATE account SET avatar_object_id=${versionId} WHERE id=${a.id}`);
 	return { accountId: a.id, versionId };
 }
-/** What Dana's session gets for one photo version: "bytes", or "refused" for every refusal. */
 const photoRead = (photo: { accountId: string; versionId: string }) =>
 	readAvatar(
 		db,
@@ -560,12 +534,10 @@ const photoRead = (photo: { accountId: string; versionId: string }) =>
 		(bytes) => (Buffer.from(bytes).equals(PNG) ? "bytes" : "wrong bytes"),
 		(error: Error) => (error.message === "unavailable" ? "refused" : error.message),
 	);
-/** Each note on Casey as the reader sees it: its state, author and photo reference. */
 const noteAuthors = async (reader: Actor) =>
 	ok(await record(reader, casey)).notes.map((n) => [n.state, n.author, n.avatar]);
 
 test("AC:TARGET-IDN-006 a note's author shows their account photo while it is visible in the organization, else initials", async () => {
-	// The earlier test left Ana's removed note on Casey; she adds a current one. With no photo, both carry none.
 	ok(
 		await addPipelineNote(db, await authority(ana), {
 			personId: casey,
@@ -578,7 +550,6 @@ test("AC:TARGET-IDN-006 a note's author shows their account photo while it is vi
 		["removed", "Ana", null],
 	]);
 
-	// With a photo, Dana, Luis and Ana herself see it on the current and the removed note, and Dana loads its bytes.
 	const photo = await setAvatar(ana);
 	for (const reader of [dana, luis, ana])
 		assert.deepEqual(await noteAuthors(reader), [
@@ -587,7 +558,6 @@ test("AC:TARGET-IDN-006 a note's author shows their account photo while it is vi
 		]);
 	assert.equal(await photoRead(photo), "bytes");
 
-	// Ana's seat ends: the next read shows her name with no photo, and the photo she had no longer loads for Dana.
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${anaSeat}::uuid`);
 	assert.deepEqual(await noteAuthors(dana), [
 		["current", "Ana", null],
@@ -595,7 +565,6 @@ test("AC:TARGET-IDN-006 a note's author shows their account photo while it is vi
 	]);
 	assert.equal(await photoRead(photo), "refused");
 
-	// Luis's note shows his photo until a lifecycle witness hides his account (a deletion request).
 	ok(
 		await addPipelineNote(db, await authority(luis), {
 			personId: casey,
@@ -614,7 +583,6 @@ test("AC:TARGET-IDN-006 a note's author shows their account photo while it is vi
 		["removed", "Ana", null],
 	]);
 
-	// A note whose author no longer resolves reads as Former staff with no photo.
 	await admin.execute(
 		sql`UPDATE person_note SET author_id=NULL WHERE tenant_id=${grace.id}::uuid AND person_id=${casey}::uuid`,
 	);
@@ -624,6 +592,5 @@ test("AC:TARGET-IDN-006 a note's author shows their account photo while it is vi
 		["removed", null, null],
 	]);
 
-	// Another organization reads no note and no photo of Grace Austin's people.
 	refusedWith(await record(hillOwner, casey), "unavailable");
 });

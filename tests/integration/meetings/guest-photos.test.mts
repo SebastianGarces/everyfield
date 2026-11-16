@@ -7,15 +7,10 @@ import { guestsWriter, meetingsReader, withMeetingsWrite } from "../../../packag
 import { readAvatar } from "../../../packages/domain/src/settings/index.ts";
 import { ok } from "../../support/fixture.mts";
 
-// T-274: a meeting's guest list shows each guest's photo as the People list does (REQ-PPL-005, REQ-IDN-006). A live
-// guest's own People photo wins; otherwise the photo of the account the guest links to, while that account holds a
-// live seat in this church. Everyone else keeps the initials, and the payload names no photo for them.
-
 let f, plant, other, owner, member;
 const key = () => randomUUID();
 const PNG = Buffer.from("synthetic photo bytes");
 const objects = new Map();
-/** A private bucket that holds the bytes of every photo this file stores. */
 const storage = {
 	bucket: "synthetic-only",
 	client: {
@@ -30,7 +25,6 @@ const storage = {
 	},
 };
 
-/** A ready private file of `purpose` owned by `tenant`; its id is the photo version. */
 async function file(tenant, purpose) {
 	const id = randomUUID(),
 		opaque = `private/${tenant}/${randomUUID()}`;
@@ -40,7 +34,6 @@ async function file(tenant, purpose) {
 		${PNG.length},${createHash("sha256").update(PNG).digest("hex")},'ready',${id},0)`);
 	return id;
 }
-/** The account's photo is now a new version, as Settings' finalize leaves it. */
 async function setAvatar(a) {
 	const versionId = await file(a.id, "avatar");
 	await f.admin.execute(sql`UPDATE account SET avatar_object_id=${versionId} WHERE id=${a.id}`);
@@ -69,7 +62,6 @@ const invite = (meetingId, personId) =>
 	withMeetingsWrite(f.db, owner.actor, (tx, ctx) =>
 		guestsWriter.inviteGuest(tx, ctx, { requestKey: key(), input: { meetingId, personId } }),
 	);
-/** The guest list as `who` reads it: each guest's name and photo, and the list itself. */
 async function photos(meetingId, who = member) {
 	const list = ok(await meetingsReader.listGuests(f.db, who.actor, { meetingId }));
 	const name = new Map(list.guests.map((g) => [g.person.personId, g.person.displayName]));
@@ -113,7 +105,6 @@ test("AC:TARGET-IDN-006: the guest list names the photo each guest shows, and on
 	for (const id of Object.values(guests)) ok(await invite(m, id));
 	const crm = await file(plant.id, "person_photo");
 	await f.admin.execute(sql`UPDATE person SET photo_object_id=${crm} WHERE id=${guests.Own}`);
-	// A retired or merged guest stays on the list, with the initials.
 	await f.admin.execute(
 		sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${guests.Retired}`,
 	);
@@ -127,10 +118,8 @@ test("AC:TARGET-IDN-006: the guest list names the photo each guest shows, and on
 		Holder: { kind: "account", ...holderPhoto },
 		Own: { kind: "person", personId: guests.Own, versionId: crm },
 	});
-	// The Owner reads the same photos, and the meeting page's one read carries the same list.
 	assert.deepEqual((await photos(m, owner)).byName, byName);
 	assert.deepEqual(ok(await meetingsReader.pageGuests(f.db, member.actor, { meetingId: m })).guests, list);
-	// Every account photo offered is one the photo route serves this viewer (workspaceAvatar on both sides).
 	const served = await readAvatar(
 		f.db,
 		storage,
@@ -138,7 +127,6 @@ test("AC:TARGET-IDN-006: the guest list names the photo each guest shows, and on
 		holderPhoto,
 	);
 	assert.ok(Buffer.from(served).equals(PNG));
-	// The payload names photos by person or account and version only: no storage key or bearer URL.
 	assert.doesNotMatch(JSON.stringify(list), /private\/|https?:/);
 });
 

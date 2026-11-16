@@ -9,19 +9,8 @@ import { liveResidency } from "../access/pipeline.ts";
 import { workspaceAvatar } from "../settings/photo-visibility.ts";
 import { activeResidents, answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
 
-// The organization pipeline (REQ-MUL-001, -002, -008, -009). An Owner or Admin reads and changes everyone; a seat named
-// responsible staff reads those people and their notes and writes notes; any other seat reads counts per stage only.
-// Each read is one statement with the live access check inside it (C13). Each write runs the established way (C88):
-// the gate locks the organization, so every write for it queues, and the change and its body-free audit row go in one
-// statement. A move's reason and the stage labels at that moment live in pipeline_stage_move, whose id is the move's
-// audit event; central audit never holds a reason or a note body (REQ-MUL-002).
-
 const PAGE = 24;
 
-/**
- * The starter stages (REQ-MUL-008) with IDs derived from the organization, so a board read can show them before
- * anything is saved, and the first write that needs them inserts the same rows (once: a repeat conflicts on the ID).
- */
 function starterStages(organizationId: string) {
 	return C.STARTER_STAGES.map(([kind, label], position) => {
 		const h = createHash("sha256").update(`pipeline-stage:${organizationId}:${kind}`).digest("hex");
@@ -30,7 +19,6 @@ function starterStages(organizationId: string) {
 	});
 }
 export const startersJson = (organizationId: string) => JSON.stringify(starterStages(organizationId));
-/** Inserts the starter stages for an organization that has none saved yet; a repeat inserts nothing. */
 export const insertStarters = (
 	o: string,
 ) => sql`INSERT INTO pipeline_stage (id,organization_id,stable_kind,label,position,revision)
@@ -57,10 +45,6 @@ const boardRow = z.object({
 	retired: z.coerce.number(),
 });
 
-/**
- * The Pipeline page: the stages in order with their counts, and the people the viewer may see, 24 per stage per page
- * (D67), under the URL's filters. A counts-only viewer gets no person, no search and no filter. One statement.
- */
 export async function readPipelineBoard(db: Executor, authority: RequestActor, raw: unknown) {
 	return answer(async () => {
 		const seat = seatOf(authority) ?? refuse();
@@ -124,7 +108,6 @@ FROM g`);
 			audience: row.audience,
 			organizationName: row.name,
 			asOf: row.as_of,
-			// A counts-only viewer has no search and no inactivity filter, so nothing about a person leaks through one.
 			query: counts ? { ...query, q: "", stale: false, view: "board" } : query,
 			stages: row.stages.map((s) => ({ ...s, matching: counts ? 0 : s.matching, people: counts ? [] : s.people })),
 			pages: counts ? 1 : pages,
@@ -203,12 +186,6 @@ const recordRow = z.object({
 	),
 });
 
-/**
- * One pipeline person's record: details, history (with the stage labels as they were) and notes. History and
- * conversations include those of the records merged into this one (REQ-MUL-017), which keep them where they were. An Owner or Admin
- * reads anyone, live or retired; the responsible staff member reads the live people they are responsible for. Anyone
- * else gets `unavailable`, the same answer as for a person who does not exist. One statement.
- */
 export async function readPipelinePersonRecord(db: Executor, authority: RequestActor, raw: unknown) {
 	return answer(async () => {
 		const seat = seatOf(authority) ?? refuse();
@@ -368,15 +345,6 @@ const goalsRow = z.object({
 	residents: z.coerce.number(),
 });
 
-/**
- * The goals area of the Pipeline page for any seat of the organization (REQ-MUL-007, -009): its sending goals, each with
- * its chosen counts; its own live people counted once each by the fixed kind of their current stage, so a rename never
- * changes a count; and its leadership conversations by month and quarter of their day, ending today in the
- * organization's time zone. A chosen count is the distinct live people of this organization with a move or first
- * placement into a stage of its kind, dated by the move's audit row in the organization's time zone, from the goal's
- * counting-from day through today: a person who moved on still counts (D-1262). No name or note is in it. Plants sent
- * stays unavailable until commissioning arrives (ADR-001 stage 3). One statement.
- */
 export async function readPipelineGoals(db: Executor, authority: RequestActor) {
 	return answer(async () => {
 		const seat = seatOf(authority) ?? refuse();
@@ -437,13 +405,11 @@ FROM g`);
 	});
 }
 
-/** A seat that may be named responsible: current in this organization (REQ-MUL-002). */
 export const eligibleSeat = (w: Writer, seat: string | null) =>
 	sql`(${seat}::uuid IS NULL OR EXISTS(SELECT FROM seat s WHERE s.id=${seat}::uuid AND s.organization_id=${w.organization}::uuid
  AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()))`;
 
 const changed = z.object({ found: z.boolean(), current: z.string().nullable(), revision: z.string().nullable() });
-/** The answer to a change: the new revision, `conflict` for a stale one, `unavailable` for a person not found. */
 function settle(row: z.infer<typeof changed>, expected: string) {
 	if (!row.found) refuse();
 	if (row.revision) return { revision: row.revision };
@@ -451,7 +417,6 @@ function settle(row: z.infer<typeof changed>, expected: string) {
 	return { revision: row.current };
 }
 
-/** Adds a person to the pipeline at a stage, with an optional email and responsible staff member. Owner or Admin. */
 function addPerson(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.addPipelinePersonRequest, raw);
@@ -481,7 +446,6 @@ SELECT EXISTS(SELECT FROM dest) AS stage,(SELECT seat FROM ok) AS seat,EXISTS(SE
  (SELECT pp.revision::text FROM pipeline_person pp WHERE pp.person_id=${input.personId}::uuid AND pp.organization_id=${o}::uuid) AS existing`,
 		);
 		if (row.added) return { personId: input.personId, revision: "1", outcome: "changed" as const };
-		// A repeat of a request that already added this person answers as it did.
 		if (row.existing) return { personId: input.personId, revision: row.existing, outcome: "noop" as const };
 		if (!row.stage) refuse({ code: "invalid_input", field: "stageId" });
 		if (!row.seat) refuse({ code: "invalid_input", field: "responsibleSeatId" });
@@ -489,13 +453,11 @@ SELECT EXISTS(SELECT FROM dest) AS stage,(SELECT seat FROM ok) AS seat,EXISTS(SE
 	});
 }
 
-/** The live pipeline person row `x`, locked, for the person a write names. */
 const target = (w: Writer, person: string, state = "live") =>
 	sql`SELECT pp.id,pp.person_id,pp.stage_id,pp.revision FROM pipeline_person pp JOIN person p ON p.id=pp.person_id
  AND p.tenant_id=pp.organization_id WHERE pp.organization_id=${w.organization}::uuid AND pp.person_id=${person}::uuid
  AND p.state=${state} FOR UPDATE OF pp,p`;
 
-/** Changes a person's name, email and responsible staff. Owner or Admin. */
 function editPerson(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.editPipelinePersonRequest, raw);
@@ -517,10 +479,6 @@ SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,
 	});
 }
 
-/**
- * Moves a person to another stage with a reason. Owner or Admin: a person does it, never a rule (REQ-MUL-008). The
- * move row keeps both stages' labels as they are now. A move to the person's own stage changes nothing.
- */
 function movePerson(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.movePipelinePersonRequest, raw);
@@ -547,10 +505,6 @@ SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,
 	});
 }
 
-/**
- * Records that an outside assessment happened, on a day no later than today in the organization's time zone, and who
- * ran it. The request has no outcome field and the row has no outcome column (REQ-MUL-008). Owner or Admin.
- */
 function recordAssessment(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.recordAssessmentRequest, raw);
@@ -572,10 +526,6 @@ SELECT EXISTS(SELECT FROM x) AS found,(SELECT revision::text FROM x) AS current,
 	});
 }
 
-/**
- * Retires a live person or restores a retired one. Retiring keeps the stage and history; the person leaves the board,
- * the counts and every picker until restored, back at the same stage (REQ-MUL-001). Owner or Admin.
- */
 function lifecycle(change: "retire" | "restore") {
 	return (db: Database, authority: RequestActor, raw: unknown) =>
 		write(db, authority, true, async (w) => {
@@ -607,10 +557,6 @@ const stageRows = z.array(
 		held: z.coerce.number(),
 	}),
 );
-/**
- * Saves the reviewed stage list (REQ-MUL-008): renames, new stages, order and removals, all or nothing. A stage that
- * still holds a person, live or retired, cannot be removed. An existing stage keeps its kind. Owner or Admin.
- */
 function saveStages(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.saveStagesRequest, raw);
@@ -631,7 +577,6 @@ function saveStages(db: Database, authority: RequestActor, raw: unknown) {
 			refuse({ code: "invalid_input", field: "stages" });
 		const labels = input.stages.map((s) => s.label.toLowerCase());
 		if (new Set(labels).size !== labels.length) refuse({ code: "invalid_input", field: "label" });
-		// The editor must have seen every current stage, each at the revision it holds now.
 		if (current.some((s) => !listed.has(s.id) && !removed.has(s.id))) refuse({ code: "conflict" });
 		for (const s of input.removed) {
 			const now = byId.get(s.id);
@@ -677,17 +622,12 @@ SELECT 1`);
 	});
 }
 
-/** Whether the writer may read and write notes on the live person `x`: an Owner or Admin, or their responsible staff. */
 const noteDuty = (w: Writer) => sql`(${w.administrator} OR x.responsible_seat_id=${w.seatId}::uuid)`;
 const noteTarget = (w: Writer, person: SQL) =>
 	sql`SELECT pp.id,pp.person_id,pp.responsible_seat_id FROM pipeline_person pp JOIN person p ON p.id=pp.person_id
  AND p.tenant_id=pp.organization_id WHERE pp.organization_id=${w.organization}::uuid AND pp.person_id=${person}
  AND p.state='live' FOR SHARE OF pp,p`;
 
-/**
- * Adds a note to a person the writer is responsible for, or to anyone for an Owner or Admin (REQ-MUL-009). The browser
- * names the note's ID, so a repeated request adds no second note.
- */
 function addNote(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, false, async (w) => {
 		const input = parse(C.addPipelineNoteRequest, raw);
@@ -711,10 +651,6 @@ SELECT EXISTS(SELECT FROM x WHERE ${noteDuty(w)}) AS allowed,EXISTS(SELECT FROM 
 	});
 }
 
-/**
- * Edits or removes a note. Only its author may, and only while they still hold the duty to read it (REQ-MUL-009).
- * Removal clears the body; the note's author and day remain as "Note removed".
- */
 function noteChange(change: "edit" | "remove") {
 	return (db: Database, authority: RequestActor, raw: unknown) =>
 		write(db, authority, false, async (w) => {
@@ -737,12 +673,6 @@ SELECT EXISTS(SELECT FROM n,x WHERE ${noteDuty(w)}) AS found,(SELECT revision::t
 		});
 }
 
-/**
- * Adds a sending goal (no expected revision; the browser names its ID, so a repeat adds no second goal) or changes one
- * (REQ-MUL-007), with its counting-from day and chosen counts (D-1263, D-1264). It touches only the goal: no person
- * moves and no stage changes. The audit row holds IDs, the day and the counted kinds, never a label or the reason.
- * Owner or Admin; at most 50 goals.
- */
 function saveGoal(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.saveGoalRequest, raw);
@@ -750,7 +680,6 @@ function saveGoal(db: Database, authority: RequestActor, raw: unknown) {
 		const adding = input.expectedRevision === null;
 		const counts = JSON.stringify(input.counts);
 		const kinds = JSON.stringify(input.counts.map((c) => c.kind));
-		// Without a day, a new goal counts from today and a saved one keeps its day.
 		const from = (fallback: SQL) => sql`coalesce(${input.countingFrom}::date,${fallback})`;
 		const values = sql`(${input.leaderTarget}::int,${input.plantTarget}::int,${input.targetYear}::int,${input.rationale}::text,${from(sql`cur.counting_from`)},${counts}::jsonb)`;
 		const metadata = (fields: SQL) =>
@@ -791,7 +720,6 @@ SELECT (SELECT revision::text FROM cur) AS current,coalesce((SELECT revision::te
 		);
 		if (row.revision) return { goalId: input.goalId, revision: row.revision, outcome: "changed" as const };
 		if (!row.past) refuse({ code: "invalid_input", field: "countingFrom" });
-		// A repeated add, or a change to the values the goal already has, answers with the goal as it is.
 		if (row.current && (adding || row.current === input.expectedRevision))
 			return { goalId: input.goalId, revision: row.current, outcome: "noop" as const };
 		if (adding && !row.room) refuse({ code: "invalid_input", field: "goals" });
@@ -800,16 +728,10 @@ SELECT (SELECT revision::text FROM cur) AS current,coalesce((SELECT revision::te
 	});
 }
 
-/** The organization's today, and whether `day` is not after it: a conversation's day is never in the future. */
 const notFuture = (w: Writer, day: string) =>
 	sql`SELECT ${day}::date<=(clock_timestamp() AT TIME ZONE o.timezone)::date AS past FROM organization o
  WHERE o.id=${w.organization}::uuid`;
 
-/**
- * Logs a leadership conversation the writer had with a live person they may see: an Owner or Admin with anyone, other
- * staff with the people they are responsible for (REQ-MUL-009). The writer's seat is who met them. Human only: no
- * Evry tool calls this. The browser names the conversation's ID, so a repeat logs it once.
- */
 function logConversation(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, false, async (w) => {
 		const input = parse(C.logConversationRequest, raw);
@@ -834,10 +756,6 @@ SELECT EXISTS(SELECT FROM x WHERE ${noteDuty(w)}) AS allowed,coalesce((SELECT pa
 	});
 }
 
-/**
- * Corrects a conversation's day or note, by anyone who may log one with that person now. The audit row keeps the old
- * and new day, never the note (REQ-MUL-009); counts follow the new day.
- */
 function correctConversation(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, false, async (w) => {
 		const input = parse(C.correctConversationRequest, raw);
@@ -872,7 +790,6 @@ SELECT EXISTS(SELECT FROM cv,x WHERE ${noteDuty(w)}) AS found,(SELECT revision::
 	});
 }
 
-/** Every pipeline write. The statement census measures each one as `pipeline.<name>`. */
 export const pipelineWriter = {
 	addPerson,
 	editPerson,
