@@ -3,10 +3,6 @@ const { execFileSync } = require('node:child_process');
 const { readFileSync } = require('node:fs');
 const { resolve } = require('node:path');
 
-// Internal issues stay separate from the public FB publisher and its privacy boundary.
-// The repository is public and issue forms add P0/P1 labels for any author, so only issues
-// opened by a trusted person or by the fail-forward reporter (GitHub Actions bot) can reach
-// the desk. The bot's author_association is NONE, so it is matched by its numeric ID.
 const TRUSTED_ASSOCIATIONS = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 const ACTIONS_BOT_ID = 41898282;
 function trusted(issue) {
