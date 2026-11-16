@@ -3,18 +3,12 @@ import type { z } from "zod";
 import type { Attendance, Attendee, Detail, Guest, Rsvp } from "./model.ts";
 import type { MeetingPageData } from "./server.ts";
 
-// The meeting page's optimistic changes. A write projects its change here at once; the page shows it in every place it
-// appears (guest row, RSVP counts, own answer, card summary, agenda). When the write ends, the projection drops and
-// the confirmed data (or the unchanged data after a failure) shows instead.
-
 export type CardEntry = z.infer<typeof c.card>;
 
-/** A guest row as the page knows it before the server answers: no ID, revision, link or actions until it is saved. */
 export const PENDING = "pending-";
 export type PendingGuest = Omit<Guest, "id" | "revision" | "person" | "inviter"> & {
 	id: `${typeof PENDING}${string}`;
 	revision: null;
-	/** Someone new has no Person yet. */
 	person: { personId: string | null; displayName: string; state: "live" };
 	inviter: { personId: string; displayName: string; state: "live" } | null;
 };
@@ -32,12 +26,10 @@ export type Change =
 	| { kind: "own"; rsvp: Rsvp }
 	| { kind: "guest"; guest: GuestRow }
 	| { kind: "removeGuest"; guestId: string }
-	/** A reviewed update from the ministry: the people it adds, and the guests it takes off by Person. */
 	| { kind: "roster"; add: PendingGuest[]; removePersonIds: string[] }
 	| { kind: "card"; personId: string; card: CardEntry | null }
 	| { kind: "agenda"; agenda: Detail["agenda"] };
 
-/** The guest list and the attendance list after a presence answer: each confirmed row and the new revision. */
 export function withAttendees<V extends { guests: Guest[] | null; attendance: Attendance | null }>(
 	v: V,
 	attendees: Attendee[],
@@ -62,7 +54,6 @@ export function withAttendees<V extends { guests: Guest[] | null; attendance: At
 		},
 	};
 }
-/** The page after a guest answer: the attendance revision it returned, so the next attendance save is current. */
 export function withAttendanceRevision<V extends { attendance: Attendance | null }>(
 	v: V,
 	revision: string | undefined,
@@ -71,7 +62,6 @@ export function withAttendanceRevision<V extends { attendance: Attendance | null
 		? { ...v, attendance: { ...v.attendance, attendanceRevision: revision as Attendance["attendanceRevision"] } }
 		: v;
 }
-/** A guest row as an attendance row before finalization: no classification yet. */
 export const attendeeOf = (g: Guest): Attendee =>
 	({
 		guestId: g.id,

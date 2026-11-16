@@ -5,8 +5,6 @@ import type { Status } from "@everyfield/ui/display";
 import type { z } from "zod";
 import { MONTHS } from "../shared/dates.ts";
 
-// Words, filters and dates for the meetings screens. Pure functions only: the server and the browser both import this.
-
 export type MeetingType = z.infer<typeof c.meetingType>;
 export type MeetingStatus = z.infer<typeof c.meetingStatus>;
 export type Summary = z.infer<typeof c.meetingSummary>;
@@ -27,27 +25,22 @@ export type Factor = keyof Scores;
 export type Classification = z.infer<typeof c.classification>;
 export type Finalization = z.infer<typeof c.finalizationResult>;
 
-/** A server action's answer. "lost" means no answer arrived: the same request key may be sent again. */
 export type Outcome<T> =
 	| { status: "ok"; value: T }
 	| { status: "refused"; code: string; choices?: { instant: string; offsetSeconds: number }[]; issues?: Issue[] }
 	| { status: "lost" };
 
-/** One named problem of a refused request: where it is (`input.reason`) and what is wrong (the server's words). */
 export type Issue = { path: string; problem: string };
 
-/** Where each issue of a refused evaluation or correction shows: under a factor, a field, or in the dialog. */
 export type EvaluationIssues = {
 	scores: Partial<Record<Factor, string>>;
 	notes?: string;
 	reason?: string;
-	/** Problems with no field in the form, each in a sentence. */
 	dialog: string[];
 };
 
 const GENERIC = "Some details are not valid. Check them and try again.";
 
-/** Maps the issues of a refused evaluation or correction onto the form's fields (REQ-MTG-014, REQ-MTG-015). */
 export function evaluationIssues(issues: readonly Issue[]): EvaluationIssues {
 	const out: EvaluationIssues = { scores: {}, dialog: [] };
 	for (const { path } of issues) {
@@ -73,7 +66,6 @@ export const TYPE_LABEL: Record<MeetingType, string> = {
 	team_meeting: "Team meeting",
 	prelaunch_practice: "Pre-launch practice",
 };
-/** Short labels for filters. */
 export const TYPE_SHORT: Record<MeetingType, string> = {
 	vision_meeting: "Vision",
 	orientation: "Orientation",
@@ -102,26 +94,16 @@ const STATUS_TONE: Record<MeetingStatus, Status> = {
 	completed: "unknown",
 	cancelled: "risk",
 };
-/**
- * What a meeting's status reads as on screen. Status changes stay explicit (REQ-MTG-002), so a meeting whose start has
- * passed while it is still planning or ready reads "Not closed": its organizer has yet to set what happened. Every
- * other meeting reads its stored status. The stored status, the API and the Status filter are unchanged.
- */
 export function statusView(status: MeetingStatus, startsAt: string, now: string): { label: string; tone: Status } {
 	if ((status === "planning" || status === "ready") && Date.parse(startsAt) < Date.parse(now))
 		return { label: "Not closed", tone: "attention" };
 	return { label: STATUS_LABEL[status], tone: STATUS_TONE[status] };
 }
-/**
- * The statuses the Status menu offers from here. A practice is completed only by marking it held, and a completed
- * practice moves only through Mark as not held, so neither offers a plain status move (the producer refuses both).
- */
 export function statusMoves(type: MeetingType, status: MeetingStatus): readonly MeetingStatus[] {
 	if (type === "prelaunch_practice")
 		return status === "completed" ? [] : statusTransitions[status].filter((to) => to !== "completed");
 	return statusTransitions[status];
 }
-/** The menu words for moving to each status. */
 export const STATUS_ACTION: Record<MeetingStatus, string> = {
 	planning: "Back to planning",
 	ready: "Mark as ready",
@@ -162,9 +144,6 @@ export const KIT_CATEGORY_LABEL = {
 	organization: "Organization",
 } as const;
 
-// -------------------------------------------------------------------------------------------------------------
-// Attendance and evaluation (WP-022).
-
 export const PRESENCE_LABEL: Record<Presence, string> = { attended: "Attended", excused: "Excused", absent: "Absent" };
 export const PRESENCE_TONE: Record<Presence, Status> = { attended: "positive", excused: "measured", absent: "unknown" };
 export const CLASSIFICATION_LABEL: Record<Classification, string> = {
@@ -173,7 +152,6 @@ export const CLASSIFICATION_LABEL: Record<Classification, string> = {
 	core_group: "Core group",
 };
 
-/** The eight Vision factors (REQ-MTG-014) in their stored order, with the question each one asks. */
 export const FACTORS: { key: Factor; label: string; hint: string }[] = [
 	{ key: "attendanceScore", label: "Attendance", hint: "The core group invited people actively" },
 	{ key: "locationScore", label: "Location", hint: "Easy to find, welcoming and free of distractions" },
@@ -184,17 +162,10 @@ export const FACTORS: { key: Factor; label: string; hint: string }[] = [
 	{ key: "closeScore", label: "Close", hint: "A strong call that did not pressure anyone" },
 	{ key: "nextStepsScore", label: "Next steps", hint: "Clear dates and details" },
 ];
-/** One decimal, always: "4.0", never "4". */
 export const scoreText = (n: number) => n.toFixed(1);
-/** "+0.4", "−0.3", "0.0". */
 export const deltaText = (n: number) => (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n).toFixed(1);
 
-/** People in a count: "1 person", "3 people". */
 export const peopleText = (n: number) => `${n} ${n === 1 ? "person" : "people"}`;
-
-// -------------------------------------------------------------------------------------------------------------
-// The list address. Filters live in the URL; a filter change returns to page one. Unknown or repeated values fall back
-// to the documented default (REQ-MTG-001), so an old or hand-made link never errors.
 
 export const WINDOWS = ["all", "upcoming", "past"] as const;
 export type Window = (typeof WINDOWS)[number];
@@ -237,7 +208,6 @@ export function listRequest(q: MeetingsQuery) {
 	};
 }
 
-/** The Next card's read: the soonest upcoming meeting still on, so a cancelled or completed one never shows as Next. */
 export const NEXT_REQUEST = {
 	window: "upcoming",
 	statuses: ["planning", "ready", "in_progress"],
@@ -247,37 +217,26 @@ export const NEXT_REQUEST = {
 export const isFiltered = (q: MeetingsQuery) => q.window !== "all" || q.type !== null || q.status !== null;
 export const pageCount = (total: number) => Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-// -------------------------------------------------------------------------------------------------------------
-// Dates. A meeting's date and time are the church's wall clock (localDate, localTime in its zone). They are formatted
-// from those strings, never through the browser's zone, so the server and the browser print the same words.
-
 const LONG_DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 function parts(localDate: string) {
 	const [y, m, d] = localDate.split("-").map(Number) as [number, number, number];
 	return { y, m, d, weekday: new Date(Date.UTC(y, m - 1, d)).getUTCDay() };
 }
 
-/** "Sunday, Oct 12". */
 export function longDateText(localDate: string): string {
 	const { m, d, weekday } = parts(localDate);
 	return `${LONG_DAYS[weekday]}, ${MONTHS[m - 1]} ${d}`;
 }
 
-/** "Sun Oct 12 · 6:30 pm". */
 export function whenText(m: { localDate: string; localTime: string }, thisYear?: number): string {
 	return `${dateText(m.localDate, thisYear)} · ${timeText(m.localTime)}`;
 }
 
-/** The civil date (yyyy-mm-dd) of an instant in a time zone. */
 function civilDate(instant: string, zone: string): string {
 	return new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
 		new Date(instant),
 	);
 }
-/**
- * "today", "tomorrow", "in 4 days", "in 3 weeks": civil days in the meeting's zone, from the page's render time to the
- * meeting's local date. A meeting later today reads "today" however many hours away it is.
- */
 export function untilText(m: { localDate: string; zone: string }, now: string): string {
 	const day = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
 	const days = Math.round(day(m.localDate) - day(civilDate(now, m.zone)));
@@ -287,15 +246,11 @@ export function untilText(m: { localDate: string; zone: string }, now: string): 
 	return `in ${Math.round(days / 7)} weeks`;
 }
 
-/** RSVP counts from the guest list. */
 export function rsvpCounts(guests: readonly Pick<Guest, "rsvp">[]) {
 	const out = { confirmed: 0, declined: 0, pending: 0 };
 	for (const g of guests) out[g.rsvp]++;
 	return out;
 }
-
-// -------------------------------------------------------------------------------------------------------------
-// Problems in words. A refusal never says more than the viewer may know: missing, foreign and deleted read the same.
 
 export function problemText(code: string): string {
 	switch (code) {
