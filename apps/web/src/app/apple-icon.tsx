@@ -6,7 +6,6 @@ if (!mark?.box || !mark.paths) throw new Error("logo-symbols.ts: symbol #ef-symb
 const MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${mark.box}">${mark.paths.replaceAll("currentColor", "#181D19")}</svg>`;
 const MARK = `data:image/svg+xml;base64,${Buffer.from(MARK_SVG).toString("base64")}`;
 
-// The footer's symbol tile (SiteFooter): the ink symbol on new-growth green. iOS rounds the corners itself.
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
 
