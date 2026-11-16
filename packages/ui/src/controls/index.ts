@@ -9,6 +9,7 @@ export {
 	CardClose,
 	CardDescription,
 	CardFooter,
+	CardStickyFooter,
 	CardHeader,
 	CardHeading,
 	CardIcon,

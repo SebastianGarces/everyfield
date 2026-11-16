@@ -1,5 +1,3 @@
-// Ministry Edit and template setup (WP-017/ui, T21): a reason is not a change.
-//   INV-reason-alone: a save with only a reason sends no request and says nothing was saved; no history row is written.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -27,7 +25,6 @@ test("INV-reason-alone: a reason is not a change", () => {
 	for (const [edit, plan] of cases) assert.equal(planTeamEdit(was, edit), plan);
 });
 
-// WP-017: the ministry history names a role date correction and a leader who left; old Corrected entries still read.
 test("INV-history-titles: role date corrections, removed leaders and old corrections read in words", () => {
 	const entry = (kind, extra = {}) => ({
 		id: "x",
@@ -50,7 +47,6 @@ test("INV-history-titles: role date corrections, removed leaders and old correct
 	assert.equal(shownValue("endedOn", null), "None");
 });
 
-// T-45 (Nora QA 2026-11-04): role changes read as role changes, and a field that did not change has no line.
 test("INV-history-roles: role entries say what happened to the role", () => {
 	const entry = (kind, subject, extra = {}) => ({
 		id: "x",
@@ -90,7 +86,6 @@ test("INV-history-same-value: a Created entry has no Description: None → None 
 		{ label: "State", from: "None", to: "Forming" },
 		{ label: "Archived", from: "None", to: "No" },
 	]);
-	// No line reads the same before and after, whatever the field.
 	const edited = {
 		...created,
 		kind: "edit",

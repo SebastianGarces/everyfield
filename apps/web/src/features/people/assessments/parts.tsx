@@ -7,7 +7,6 @@ import type { Outcome } from "../../../components/save/model.ts";
 import { problemText } from "../parts.tsx";
 import { withCorrections, withRecord } from "./model.ts";
 
-/** Why a record was not saved, or may not be, in words. `busy` means another change to this person is still saving. */
 export function recordProblem(code: string): string {
 	switch (code) {
 		case "busy":
@@ -27,10 +26,6 @@ export function recordProblem(code: string): string {
 	}
 }
 
-/**
- * One required choice from a few (a score, a rating), as a labelled segmented group. A missing choice marks the group
- * invalid, so the form's focus step lands on its first option.
- */
 export function ChoiceField<V extends string>({
 	label,
 	value,
@@ -47,7 +42,6 @@ export function ChoiceField<V extends string>({
 	aside?: ReactNode;
 }) {
 	const id = useId();
-	// The group names itself (with its error); the visible label repeats that name for sighted readers.
 	return (
 		<div className="flex min-w-0 flex-col gap-1.5">
 			<div className="flex items-center justify-between gap-3">
@@ -79,7 +73,6 @@ export function ChoiceField<V extends string>({
 	);
 }
 
-/** "Show earlier" under a history: reads the next page and adds it below. */
 export function ShowEarlier({ loading, failed, onClick }: { loading: boolean; failed: boolean; onClick: () => void }) {
 	return (
 		<div className="mt-2 flex flex-wrap items-center gap-3">
@@ -93,7 +86,6 @@ export function ShowEarlier({ loading, failed, onClick }: { loading: boolean; fa
 	);
 }
 
-/** Who recorded an entry: "you", or a team member without naming another account. */
 export function recorder(actor: { kind: string; accountId?: string }, accountId: string): string {
 	if (actor.kind === "current_account") return actor.accountId === accountId ? "you" : "a team member";
 	return "a former team member";
@@ -102,15 +94,9 @@ export function recorder(actor: { kind: string; accountId?: string }, accountId:
 type Page<R> = { items: R[]; next: number | null; total: number };
 type Dated = { id: string; occurredOn: string; recordedAt: string };
 
-/**
- * A record history, latest first: the first page from the person page, later pages on "Show earlier", and records
- * this page saved. A page that arrives after a save never removes or replaces that record: pages only add the records
- * they bring, and a record already shown keeps its place.
- */
 export function useHistory<R extends Dated & { revision: string }>(
 	initial: Page<R> | null,
 	load: (page: number) => Promise<Outcome<Page<R>>>,
-	/** Records saved elsewhere on the page (corrections); each replaces the shown copy of that record when newer. */
 	pushed: readonly R[] = [],
 ) {
 	const [page, setPage] = useState<Page<R>>(initial ?? { items: [], next: null, total: 0 });

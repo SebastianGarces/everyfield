@@ -16,8 +16,8 @@ import {
 	SegmentedControl,
 	Select,
 } from "@everyfield/ui/controls";
-import { cn, Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState } from "react";
+import { cn, Icon, useFocusRequest } from "@everyfield/ui/foundations";
+import { useRef, useState } from "react";
 import { Problem, Stat, StepHeading, Steps, UploadStep } from "../../people/import-export/ImportSteps";
 import { PIPELINE_PATH } from "../board/model";
 import {
@@ -39,15 +39,10 @@ import {
 	type Row,
 } from "./model";
 
-// Import pipeline people from a CSV or a form's Excel export (T-363): upload, review the columns and rows, import, then
-// the result. The chosen bytes stay in memory; the preview and the import each send them, and the server reads them
-// itself. A column change asks the server again, so every row's state is the server's. Possible duplicates start with no
-// choice: the person picks Skip or Add anyway on each (REQ-MUL-017).
-
 type Stages = PipelineBoard["stages"];
 type Staff = PipelineBoard["staff"];
 type State =
-	| { step: "upload"; checking: File | null; error: Notice | null }
+	| { step: "upload"; checking: File | null; error: Notice | null; again?: true }
 	| { step: "review"; review: Review }
 	| { step: "import"; review: Review }
 	| { step: "done"; review: Review; result: Result };
@@ -64,23 +59,20 @@ async function send<T>(path: string, file: File, request: object): Promise<Answe
 		return { status: "lost" };
 	}
 }
+const problemOrHeading = (step: HTMLElement) =>
+	step.querySelector<HTMLElement>("[data-import-problem]") ?? step.querySelector<HTMLElement>("h2[tabindex]");
 const previewOf = (file: File, columns: PipelineColumnChoice[] | null) => send<Preview>("preview", file, { columns });
 
 export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff: Staff }) {
 	const [state, setState] = useState<State>({ step: "upload", checking: null, error: null });
 	const heading = useRef<HTMLHeadingElement>(null);
-	const first = useRef(true);
-	useEffect(() => {
-		if (first.current) {
-			first.current = false;
-			return;
-		}
-		(document.querySelector<HTMLElement>("[data-import-problem]") ?? heading.current)?.focus();
-	}, [state.step]);
+	const arrival = useFocusRequest<HTMLDivElement>(
+		state.step !== "upload" || state.again ? state.step : null,
+		problemOrHeading,
+	);
 
 	const check = async (picked: File) => {
 		setState({ step: "upload", checking: picked, error: null });
-		// The bytes are read once, so the import sends the file that was checked even if the one on disk changes.
 		const file = new File([await picked.arrayBuffer()], picked.name, { type: picked.type });
 		const got = await previewOf(file, null);
 		if (got.status !== "ok") return setState({ step: "upload", checking: null, error: refusalNotice(got) });
@@ -100,7 +92,6 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 	};
 
 	const update = (review: Review) => setState({ step: "review", review });
-	/** A column's new choice: the server reads the rows again with it. Decisions stay on rows still flagged. */
 	const choose = async (review: Review, index: number, choice: PipelineColumnChoice) => {
 		const columns = review.preview.columns.map((c, i) => (i === index ? choice : c.choice));
 		update({ ...review, checking: true, problem: null });
@@ -125,7 +116,6 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 		update(revised(review, { preview: got.value, decisions: new Map(), checking: false }));
 	};
 
-	/** Every press of Import for this review sends its one import id, so a retry after a lost reply adds no one twice. */
 	const run = async (review: Review) => {
 		setState({ step: "import", review });
 		setState(afterImport(review, await send<Result>("save", review.file, importRequest(review))));
@@ -137,7 +127,7 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 	const adding = review
 		? review.preview.counts.ready + duplicates.filter((r) => review.decisions.get(r.row) === "add").length
 		: 0;
-	const startOver = () => setState({ step: "upload", checking: null, error: null });
+	const startOver = () => setState({ step: "upload", checking: null, error: null, again: true });
 
 	return (
 		<>
@@ -176,39 +166,41 @@ export function PipelineImportScreen({ stages, staff }: { stages: Stages; staff:
 				}
 			/>
 			<Steps current={state.step} />
-			{state.step === "upload" ? (
-				<UploadStep
-					heading={heading}
-					checking={state.checking}
-					error={state.error}
-					onFile={check}
-					kind={{
-						title: "Choose a file",
-						accept: ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-						prompt: "Drop a CSV or Excel file here, or choose one",
-						limits: "CSV or Excel (.xlsx), up to 5 MB and 2,000 rows",
-						inputLabel: "Choose a CSV or Excel file",
-					}}
-					aside={<FormsCard />}
-				/>
-			) : state.step === "review" ? (
-				<ReviewStep
-					heading={heading}
-					review={state.review}
-					stages={stages}
-					staff={staff}
-					onChange={update}
-					onChoose={(i, c) => void choose(state.review, i, c)}
-					onRecheck={() => void recheck(state.review)}
-				/>
-			) : state.step === "import" ? (
-				<Card className="gap-3" aria-busy="true">
-					<StepHeading heading={heading}>Importing people</StepHeading>
-					<p className="text-text-2">Adding {plural(adding, "person", "people")} to your pipeline…</p>
-				</Card>
-			) : (
-				<DoneStep heading={heading} review={state.review} result={state.result} onStartOver={startOver} />
-			)}
+			<div ref={arrival} className="contents">
+				{state.step === "upload" ? (
+					<UploadStep
+						heading={heading}
+						checking={state.checking}
+						error={state.error}
+						onFile={check}
+						kind={{
+							title: "Choose a file",
+							accept: ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+							prompt: "Drop a CSV or Excel file here, or choose one",
+							limits: "CSV or Excel (.xlsx), up to 5 MB and 2,000 rows",
+							inputLabel: "Choose a CSV or Excel file",
+						}}
+						aside={<FormsCard />}
+					/>
+				) : state.step === "review" ? (
+					<ReviewStep
+						heading={heading}
+						review={state.review}
+						stages={stages}
+						staff={staff}
+						onChange={update}
+						onChoose={(i, c) => void choose(state.review, i, c)}
+						onRecheck={() => void recheck(state.review)}
+					/>
+				) : state.step === "import" ? (
+					<Card className="gap-3" aria-busy="true">
+						<StepHeading heading={heading}>Importing people</StepHeading>
+						<p className="text-text-2">Adding {plural(adding, "person", "people")} to your pipeline…</p>
+					</Card>
+				) : (
+					<DoneStep heading={heading} review={state.review} result={state.result} onStartOver={startOver} />
+				)}
+			</div>
 		</>
 	);
 }

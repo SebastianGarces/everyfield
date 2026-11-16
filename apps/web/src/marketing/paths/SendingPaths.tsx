@@ -9,13 +9,8 @@ import type { PhotoName } from "../photo/photos";
 import { PathsCycle } from "./PathsCycle";
 
 type Paths = Copy["shared"]["oversight_page"]["paths"];
-/* One photo per sending path; the product cards on them are white. */
 const PHOTOS: PhotoName[] = ["reeds", "lupins", "swirl"];
 
-/**
- * /oversight, Revision 28: the sending paths. One display sentence over one large card; PathsCycle moves both. The panes
- * and the three product cards are rendered here. The block rises in as one (Revision 16: it follows the phases rail).
- */
 export function SendingPaths({ p }: { p: Paths }) {
 	const S = p.states;
 	const sentence =

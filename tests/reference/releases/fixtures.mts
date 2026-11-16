@@ -9,12 +9,10 @@ export const wiki = await loadApprovedSnapshot();
 const freeze = JSON.parse(
 	await readFile(new URL("../../../packages/reference/src/freeze.json", import.meta.url), "utf8"),
 );
-// The catalog digest is an operation input, not a frozen value, so fixtures name a synthetic reviewed digest.
 export const identities = {
 	sourceManifestSha256: freeze.sourceManifestSha256 as string,
 	catalogSha256: hash("synthetic-reviewed-catalog-v1"),
 };
-// Explicit synthetic profile. No provider call or model semantics are claimed.
 export const profile = {
 	chunker: "fixed-codepoints-1200-v1",
 	model: "synthetic-reference-proof-v1",

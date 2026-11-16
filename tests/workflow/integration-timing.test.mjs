@@ -1,6 +1,3 @@
-// T-261: no real sleep, clock poll or wall-clock assertion under tests/integration (test-standard, "Pick the layer").
-// T-249 removed them; this guard keeps them out. It matches shapes in the source, not data flow: a clock read that
-// places seeded data passes, and so does any word in a comment or string, except pg_sleep, which lives in SQL strings.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,10 +8,6 @@ const repo = fileURLToPath(new URL("../../", import.meta.url));
 const ROOT = "tests/integration";
 const SOURCE = /\.(mts|mjs|ts|js)$/;
 
-/**
- * The only real-time uses the test standard allows. Each is bound to its file and to the source lines it hits today,
- * so another sleep or clock read in the same file still fails. A new entry needs the owner's agreement.
- */
 const EXEMPT = {
 	"tests/integration/identity/timing.production.mts": {
 		why: "the production latency proof: its pg_sleep stall, performance.now timings and polling deadline are the measurement",
@@ -71,20 +64,15 @@ const RULE_TEXT = {
 	"clock subtraction": "subtracting the wall clock measures elapsed real time",
 };
 
-/**
- * Two views of `source`, the same length with the same newlines: `code` blanks comments, strings, template text and
- * regex literals; `sql` blanks only comments.
- */
 function lex(source) {
 	const code = [...source];
 	const sql = [...source];
 	const n = source.length;
 	const blankCode = (i) => source[i] !== "\n" && (code[i] = " ");
 	const blankBoth = (i) => source[i] !== "\n" && (code[i] = sql[i] = " ");
-	const templates = []; // brace depth inside each open `${`
-	let prev = ""; // the last code token, to tell a regex literal from division
+	const templates = [];
+	let prev = "";
 	let i = 0;
-	// Template text from i up to its closing backtick or the next `${`.
 	const templateText = () => {
 		while (i < n) {
 			if (source[i] === "\\") {
@@ -153,7 +141,6 @@ function lex(source) {
 	return { code: code.join(""), sql: sql.join("") };
 }
 
-/** The index just past the bracket that closes the one at `open` in `code`. */
 function closing(code, open) {
 	const pair = { "(": ")", "{": "}", "[": "]" };
 	const stack = [];
@@ -168,7 +155,6 @@ const CLOCK = String.raw`(?:Date|performance)\.now\s*\(\s*\)`;
 const CLOCK_READ = String.raw`(?:${CLOCK}|\bnew\s+Date\s*\(\s*\))(?:\.\w+\s*\(\s*\))?`;
 const READS_CLOCK = new RegExp(CLOCK_READ);
 const COMPARES_CLOCK = new RegExp(String.raw`(?<![=<>])[<>]=?\s*${CLOCK_READ}|${CLOCK_READ}\s*[<>](?![<>])`);
-/** Whether a loop body checks the clock: compares a clock read, or reads it in an `if` test. */
 function checksClock(body) {
 	if (COMPARES_CLOCK.test(body)) return true;
 	for (const match of body.matchAll(/\bif\s*\(/g)) {
@@ -177,7 +163,6 @@ function checksClock(body) {
 	}
 	return false;
 }
-/** Whether a `for` head has a test (`init; test; update`) rather than iterating (`of`, `in`). */
 function counting(head) {
 	let depth = 0;
 	for (const c of head) {
@@ -192,7 +177,6 @@ const PATTERNS = [
 	["sleep", /\bsleep\s*\(/g, "code"],
 	["pg_sleep", /\bpg_sleep(?:_for|_until)?\s*\(/g, "sql"],
 	["performance.now", /\bperformance\.now\s*\(/g, "code"],
-	// `<`, `<=`, `>`, `>=` on either side of a clock read; `=>`, `<<` and `>>` are not comparisons.
 	[
 		"clock comparison",
 		new RegExp(String.raw`(?<=(?<![=<>])[<>]=?\s*)${CLOCK}|${CLOCK}(?=\s*[<>](?![<>]))`, "g"),
@@ -201,7 +185,6 @@ const PATTERNS = [
 	["clock subtraction", new RegExp(String.raw`(?<=[\w$)\]]\s*-\s*)${CLOCK}`, "g"), "code"],
 ];
 
-/** Every real-time shape in one file's source, as `{ line, rule }` in source order. */
 function scan(source) {
 	const views = lex(source);
 	const { code } = views;
@@ -215,8 +198,6 @@ function scan(source) {
 		for (const clock of args.matchAll(new RegExp(CLOCK, "g")))
 			found.push({ at: open + clock.index, rule: "clock assertion" });
 	}
-	// A loop polls when its condition reads the clock or its body checks it. A body that only stamps rows with the
-	// time it runs, such as `created_at: new Date()`, seeds data and passes.
 	for (const match of code.matchAll(/\b(while|for)\s*\(|\bdo\s*\{/g)) {
 		const open = match.index + match[0].length - 1;
 		let head = "";
@@ -235,7 +216,6 @@ function scan(source) {
 		.map(({ at, rule }) => ({ line: lineOf(at), rule }));
 }
 
-/** The findings no exemption covers, and the exemptions no finding uses, across `files` (`{ path, source }`). */
 function check(files, exempt = EXEMPT) {
 	const violations = [];
 	const stale = [];
@@ -279,24 +259,24 @@ test("T-261: no file under tests/integration sleeps, polls the clock or asserts 
 
 test("T-261: the scanner names each real wait and wall-clock assertion by line and rule", () => {
 	const source = [
-		/* 1 */ "await new Promise((r) => setTimeout(r, 100));",
-		/* 2 */ "const watchdog = setInterval(() => controller.abort(), 5000);",
-		/* 3 */ "await sleep(250);",
-		/* 4 */ "await db.execute(sql`SELECT pg_sleep(0.2)`);",
-		/* 5 */ "const started = performance.now();",
-		/* 6 */ "while (Date.now() < deadline) await tick();",
-		/* 7 */ "for (;;) {",
-		/* 8 */ "  if (new Date() > until) break;",
-		/* 9 */ "}",
-		/* 10 */ "do { await tick(); } while (!done && clock());",
-		/* 11 */ "assert.ok(expiresAt - Date.now() <= 300000);",
-		/* 12 */ "const wait = retryAt - Date.now();",
-		/* 13 */ "assert.equal(Math.round(Date.now() / 1000), stamp);",
-		/* 14 */ "if (Date.now() >= cutoff) fail();",
-		/* 15 */ "const late = 0 > performance.now();",
-		/* 16 */ "do {",
-		/* 17 */ "  attempts++;",
-		/* 18 */ "} while (Date.now() - start < 1000);",
+		"await new Promise((r) => setTimeout(r, 100));",
+		"const watchdog = setInterval(() => controller.abort(), 5000);",
+		"await sleep(250);",
+		"await db.execute(sql`SELECT pg_sleep(0.2)`);",
+		"const started = performance.now();",
+		"while (Date.now() < deadline) await tick();",
+		"for (;;) {",
+		"  if (new Date() > until) break;",
+		"}",
+		"do { await tick(); } while (!done && clock());",
+		"assert.ok(expiresAt - Date.now() <= 300000);",
+		"const wait = retryAt - Date.now();",
+		"assert.equal(Math.round(Date.now() / 1000), stamp);",
+		"if (Date.now() >= cutoff) fail();",
+		"const late = 0 > performance.now();",
+		"do {",
+		"  attempts++;",
+		"} while (Date.now() - start < 1000);",
 	].join("\n");
 	assert.deepEqual(scan(source), [
 		{ line: 1, rule: "timer" },
@@ -344,7 +324,6 @@ test("T-261: seeded times, mock timers, waitingOnLock and words in comments or s
 		"const half = total / 2, slept = `${(Date.now() - 0) && name}`;",
 	].join("\n");
 	assert.deepEqual(scan(source), []);
-	// A template expression is code, not string text.
 	assert.deepEqual(scan("const t = `${retryAt - Date.now()}`;"), [{ line: 1, rule: "clock subtraction" }]);
 });
 

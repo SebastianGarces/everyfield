@@ -37,7 +37,6 @@ describe("INV-watch-io: command allowlist", () => {
 		assert.match(COMMANDS["evf-status"].bin, /\/\.cargo\/bin\/evf$/);
 		assert.deepEqual(COMMANDS["evf-status"].args, ["status", "--json"]);
 		assert.equal(COMMANDS["gh-main-ci"].bin, "/opt/homebrew/bin/gh");
-		// D-588: main's push runs and its nightly schedule runs; --branch main alone keeps PR runs out.
 		assert.deepEqual(COMMANDS["gh-main-ci"].args, [
 			"run",
 			"list",
@@ -132,11 +131,11 @@ describe("INV-watch-io: files", () => {
 		assert.ok(again);
 		await again.release();
 
-		await writeFile(path, "999999 1000\n"); // dead pid
+		await writeFile(path, "999999 1000\n");
 		const overDead = await acquireLock(path, 2000);
 		assert.ok(overDead);
 		await overDead.release();
-		await writeFile(path, `${process.pid} 0\n`); // live pid, far too old
+		await writeFile(path, `${process.pid} 0\n`);
 		const overStale = await acquireLock(path, 11 * 60_000);
 		assert.ok(overStale);
 		await overStale.release();
@@ -213,7 +212,7 @@ describe("INV-watch-io: transport", () => {
 		const now = 10 * 3_600_000;
 		let calls = 0;
 		const t: Transport = { mode: "webhook", capped: true, send: async () => (calls++, fail("http_500", true)) };
-		const old = Array.from({ length: 30 }, (_, i) => now - 3_600_000 - i); // outside the rolling hour
+		const old = Array.from({ length: 30 }, (_, i) => now - 3_600_000 - i);
 		const recent = Array.from({ length: WEBHOOK_SENDS_PER_HOUR - 1 }, (_, i) => now - 1000 - i);
 		const d = await deliver(t, payload, { sleep: async () => {}, cap: { sends: [...old, ...recent], now: () => now } });
 		assert.equal(calls, 1, "one POST fits under the cap, the retry does not");
@@ -251,7 +250,6 @@ describe("INV-watch-io: webhook config", () => {
 		const link = join(await tmp(), "link.json");
 		await symlink(await writeConfig(await tmp(), good), link);
 		cases.push([link, "webhook_config_unreadable"]);
-		// A file owned by someone else: root's /etc/hosts. Running as root makes it ours, so skip then.
 		if (process.getuid?.() !== 0) cases.push(["/etc/hosts", "webhook_config_not_owner"]);
 		for (const [path, code] of cases) assert.deepEqual(await readWebhookConfig(path), { ok: false, code }, code);
 	});
@@ -327,7 +325,6 @@ describe("INV-watch-io: webhook send", () => {
 			assert.equal(req.path, "/routines/abc/trigger?x=1");
 			assert.equal(req.headers.authorization, "Bearer the-key");
 			assert.equal(req.headers["content-type"], "application/json");
-			// Node adds only the protocol headers; the watcher adds nothing else (no user agent, no cookies).
 			assert.deepEqual(Object.keys(req.headers).sort(), [
 				"authorization",
 				"connection",
@@ -391,7 +388,7 @@ describe("INV-watch-io: webhook send", () => {
 	test("INV-watch-io: a connect error is retried in the poll; a bad certificate is not", async () => {
 		const routine = await fakeRoutine([200]);
 		const origin = routine.origin;
-		await routine.close(); // nothing listens on that port now
+		await routine.close();
 		const path = await writeConfig(await tmp(), { url: `${origin}/hook`, key: "k" });
 		const t = createTransport("webhook", async () => {}, { configPath: path });
 		assert.ok(t.ok);
@@ -433,7 +430,6 @@ describe("INV-watch-io: webhook send", () => {
 	});
 });
 
-/** The README's `plutil` lines that switch ProgramArguments.3: to webhook, then back to dry-run. */
 const readmeSwitches = (readme: string) =>
 	readme
 		.split("\n")
@@ -479,7 +475,6 @@ describe("INV-watch-io: install docs", () => {
 		assert.doesNotMatch(readme, /pending the contract/);
 	});
 
-	// plutil ships with macOS only; CI runs on Linux, where this one test is skipped and every other runs.
 	test(
 		"INV-watch-io: README switch and rollback lines flip the transport on a copy of the plist",
 		{

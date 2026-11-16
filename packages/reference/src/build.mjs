@@ -12,7 +12,6 @@ const manifestBytes = await readFile(new URL("docs/reference/manifest.json", roo
 const sourceManifestSha256 = hash(manifestBytes);
 const manifest = JSON.parse(manifestBytes.toString("utf8"));
 if (write) {
-	// A reviewed catalog identity is an operation input, never an implicit refreeze or a stored value.
 	const index = process.argv.indexOf("--catalog-sha256");
 	const expected = index === -1 ? undefined : process.argv[index + 1];
 	if (!/^[a-f0-9]{64}$/.test(expected)) throw Error("Catalog SHA-256 required: pass --catalog-sha256 <digest>");
@@ -32,7 +31,6 @@ const sources = await Promise.all(
 		return { path: f.path, sha256: f.sha256, body: bytes.toString("utf8") };
 	}),
 );
-// Extract only literals, never evaluate historical code or resolve its imports.
 function literal(node) {
 	if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
 	if (ts.isNumericLiteral(node)) return Number(node.text);

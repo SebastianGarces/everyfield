@@ -71,15 +71,9 @@ export async function verifySchemaDrift(
 		throw Error("Custom migration drift: deferred keys, triggers, functions, role attributes or privileges differ");
 }
 
-// UUID links and Kit's rename notes identify generation events; the supported definitions must agree.
 export const definitions = (snapshot: Record<string, unknown>): Record<string, unknown> =>
 	Object.fromEntries(Object.entries(snapshot).filter(([key]) => !["id", "prevId", "_meta"].includes(key)));
 
-/**
- * Kit's diff base: the declared schema after every migration in the folder. All migrations
- * share one snapshot file, migrations/meta/current.json, which two branches change in separate hunks
- * unless they change the same table (D78).
- */
 export async function currentSnapshot(): Promise<Record<string, unknown>> {
 	return definitions(JSON.parse(await readFile(new URL("meta/current.json", migrationDirectory), "utf8")));
 }

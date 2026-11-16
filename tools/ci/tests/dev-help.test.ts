@@ -1,5 +1,3 @@
-// T-180: `bin/dev help` names exactly the checks `bin/dev check` runs (CHECKS).
-// A check added to CHECKS, or one dropped from the help, fails here until the help says so.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
@@ -17,7 +15,6 @@ function help(): string {
 	return run.stdout;
 }
 
-/** The comma-separated names after `<label>:` on the help line that starts with it. */
 function listed(text: string, label: string): string[] {
 	const line = text.split("\n").find((row) => row.trimStart().startsWith(`${label}:`));
 	assert.ok(line, `bin/dev help has no "${label}:" line`);

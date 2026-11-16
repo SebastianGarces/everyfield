@@ -8,7 +8,6 @@ import { findPlanIds } from "../test-names.ts";
 
 const tool = resolve(import.meta.dirname, "../test-names.ts");
 
-/** A git repository holding the given tracked files. */
 function repo(files: Record<string, string>) {
 	const root = mkdtempSync(join(tmpdir(), "test-names-"));
 	execFileSync("git", ["init", "--quiet", root]);
