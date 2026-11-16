@@ -1,0 +1,8 @@
+{
+	"public": {
+		"FactsSection.tsx": "the facts section the phases journey page embeds",
+		"IntelligenceTabs.tsx": "the intelligence tabs the phases journey page embeds",
+		"assessment-model.ts": "assessment labels and texts that oversight and the overview show",
+		"path.ts": "evryOff, which the shell reads to hide Evry on the private check-in"
+	}
+}

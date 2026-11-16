@@ -1,0 +1,10 @@
+{
+	"public": {
+		"AuthFrame.tsx": "the auth page frame that access states and the connection response reuse",
+		"SessionActions.tsx": "sign-out and switch-account actions that access, onboarding and settings reuse",
+		"SignInScreen.tsx": "AFTER_SIGN_IN, the path access states and church documents send people to after sign-in",
+		"api.ts": "the identity client API (loadPage, identityApi) that onboarding and settings call",
+		"parts.tsx": "FormMessage and PasswordInput, form parts the account deletion screen reuses",
+		"server.ts": "the answer and refused reply helpers that organization actions use"
+	}
+}
