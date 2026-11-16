@@ -7,10 +7,6 @@ import test, { after, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 
-// T-284: an Owner or Admin lists the church plant's archived Church Documents and restores one. Restore is the reverse
-// of archive only: the document returns to the library and every read and write with its revisions and saved exports
-// as they were. It never brings back a deleted document.
-
 const database = await fixture({ prefix: "t284rest", plant: { name: "Harvest Point" } });
 const { admin } = database;
 const db = database.pools.runtime;
@@ -69,7 +65,6 @@ const rowsOf = async (query) => (await admin.execute(query)).rows;
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const bytesFrom = (file) => Buffer.from(file.bytes, "base64");
 
-/** Everything both church plants have stored: every document row, revision, saved export and audit row, as one hash. */
 const stored = async () => {
 	const parts = await Promise.all([
 		rowsOf(sql`SELECT * FROM document ORDER BY id`),
@@ -138,7 +133,6 @@ const downloadSha = async (who, documentId, exportId) =>
 		bytesFrom(ok(await documentsWriter.readExportFile(db, await authority(who), { documentId, exportId }, storage))),
 	);
 
-/** What a reader sees of a document's history and saved exports: revisions, export list and each export's SHA-256. */
 const snapshot = async (who, doc) => {
 	const actor = await authority(who);
 	const read = ok(await documentsWriter.readChurch(db, actor, { documentId: doc.id }));
@@ -248,7 +242,6 @@ describe("AC:DOC-022 archived Church Documents list and restore", { concurrency:
 		await archive(ADMIN, doc);
 		const archived = await snapshot(OWNER, doc);
 		assert.deepEqual(archived, initial, "archive changes no revision and no saved export");
-		// An export made while it is archived is saved too, and stays after the restore.
 		await exportDoc(MEMBER, doc.id, 2, "pdf");
 		const during = await snapshot(OWNER, doc);
 		assert.equal(during.exports.length, 3);
@@ -261,7 +254,6 @@ describe("AC:DOC-022 archived Church Documents list and restore", { concurrency:
 		}
 		assert.equal((await archivedIds(OWNER)).includes(doc.id), false, "it leaves the archived list");
 
-		// It is a document of the library again: the editor reads it, and it saves, brands, exports and updates a template.
 		const owner = await authority(OWNER);
 		const read = ok(await documentsWriter.readChurchForEdit(db, owner, { documentId: doc.id }));
 		assert.equal(read.revision, "2");

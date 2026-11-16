@@ -73,7 +73,6 @@ export function selectedOwner(authority: RequestActor): Owner {
 	const context = authority.actor.context;
 	return context.kind === "seat" ? context.owner : accountOwner(authority.actor.accountId);
 }
-/** Session account, live seat and role in one condition (C13). */
 export function meSql(authority: RequestActor, selected: Owner, admin = false): SQL {
 	const context = authority.actor.context;
 	const aligned = context.kind === "seat" && sameOwner(context.owner, selected);
@@ -121,10 +120,6 @@ export async function runWrite<T>(
 ): Promise<WikiReply<T>> {
 	try {
 		const value = await nativeWrite(db, authority, selected, async (tx) => {
-			// declareWrite starts the gate. lockedWrite repeats that lock and ends a stored-answer run.
-			// The locked row lives on the actor the gate checked. Do not read it back through requestWrite:
-			// a production bundle can load that map from a second copy of the session module, so the read
-			// is empty after a successful lock and the write refuses a live actor.
 			await declareWrite(tx, "established");
 			await lockedWrite(tx);
 			const actorId = authority.actor.accountId;

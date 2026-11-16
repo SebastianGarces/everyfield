@@ -97,11 +97,6 @@ export function sharingOperations(
 	};
 }
 
-/**
- * What each of a plant's live connections can see, for the plant's own seat: one statement on the pool with the
- * request actor (D59), keyed by relationship id. An Owner or Admin gets the choices and the consent revision a change
- * must carry; a Member sees that Owners and Admins choose. `organization` narrows the read to one connection.
- */
 export async function readPlantSharing(db: Reader, authority: RequestActor, organization?: string) {
 	const actor = authority.actor,
 		selected = actor.context.owner;
@@ -132,13 +127,6 @@ export async function readPlantSharing(db: Reader, authority: RequestActor, orga
 	return out;
 }
 
-// Native review disclosure. Re-read before approving; this observation grants no
-// authority and never overwrites the exact pair's persisted consent on rejoin.
-/**
- * What an organization would see if this plant connects with it: the pair's saved choices when it was connected
- * before, otherwise the first-invitation defaults. One statement: the plant's live Owner or Admin seat (C13), both
- * endpoints live, and the exact pair's link. Only a plant has a disclosure; any other pair answers unavailable.
- */
 export async function readSharingDisclosure(
 	tx: Transaction,
 	session: z.infer<typeof sessionId>,
@@ -195,8 +183,6 @@ const disclosureRow = z.object({
 	shared_findings: z.boolean().nullable(),
 });
 
-// Both privacy and settings use one locked revision update, audit, invalidation and milestone job.
-// Caller has freshly checked the exact pair and both CAS revisions.
 export async function applySharingMutation(
 	tx: Transaction,
 	a: NonNullable<Awaited<ReturnType<typeof loadAffiliation>>>,
@@ -209,7 +195,6 @@ export async function applySharingMutation(
 	for (const category of Q.sharingChoices.keyof().options)
 		if (before[category] !== nextChoices[category]) patch[columns[category]] = nextChoices[category];
 	if (!Object.keys(patch).length) return { changed: false, events: [] as string[], current: a };
-	// The caller holds the row lock, so the change, the audit row and the side effects run in its one write statement.
 	c.writes.push(
 		tx
 			.update(tables.affiliation)
@@ -223,7 +208,6 @@ export async function applySharingMutation(
 	const next = String(BigInt(a.revision) + 1n);
 	const event = await appendEvent(tx, c, a.id, "preference", "sharing.changed", a.revision, next);
 	invalidate(tx, effects, c, pairOf(a), a.id, next);
-	// Sharing belongs to a plant's connection only: both callers checked the plant side.
 	if (a.plant_id)
 		c.writes.push(
 			queueMilestoneJob({ plantId: a.plant_id, affiliationId: a.id, occurrence: "sharing", revision: next }),

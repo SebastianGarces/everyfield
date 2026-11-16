@@ -29,10 +29,6 @@ import {
 	type Writer,
 } from "./core.ts";
 
-// Attendance, finalization, evaluation and attendee notes (WP-022). Each command is one meetings command (D70): the
-// locked actor, the request key, one locked fact read, then one write statement with the change and its audit rows.
-// Generated tasks join that statement through WP-024's producers; their reminders sync once after it.
-
 type Presence = z.infer<typeof c.presence>;
 type Classification = z.infer<typeof c.classification>;
 type Stage = z.infer<typeof personStage>;
@@ -65,7 +61,6 @@ const personRow = z.object({
 	pipeline_position: z.string().nullable(),
 	display_name: z.string(),
 });
-/** Another meeting's attended row whose first-or-returning answer depends on this meeting (late history). */
 const laterRow = guestRow.omit({ display_name: true, person_state: true, rsvp: true, has_card: true }).extend({
 	meeting_id: z.uuid(),
 	follow_up: z.uuid().nullable(),
@@ -101,7 +96,6 @@ const factsRow = z.object({
 	earlier: z.record(z.string(), z.uuid()),
 	later: z.array(laterRow),
 	obligations: z.array(obligationRow),
-	// Settling only: WP-024's producer facts and the locked tasks of these People's follow-ups.
 	obligation_facts: z.unknown(),
 	tasks: z.unknown(),
 });
@@ -109,15 +103,9 @@ type Facts = z.infer<typeof factsRow>;
 
 const occurrence = sql`coalesce(o.actual_occurrence_at, o.starts_at)`;
 const here = sql`coalesce(m.actual_occurrence_at, m.starts_at)`;
-/** An attended row on a finalized, unvoided meeting of the same type: real attendance history. */
 const attendedOn = sql`g.presence = 'attended' AND g.removed_at IS NULL AND o.type = m.type
 	AND o.finalized_at IS NOT NULL AND o.occurrence_voided_at IS NULL AND g.plant_id = m.plant_id`;
 
-/**
- * The meeting (row lock), its guests (row locks), the named People and the attendance history that decides first or
- * returning, in one statement. A wait for the meeting lock leaves the statement's older snapshot in the subqueries;
- * the fresh meeting revision then differs from the snapshot's and the read runs once more under the lock it holds.
- */
 async function lockAttendance(
 	tx: Tx,
 	w: Writer,
@@ -127,7 +115,6 @@ async function lockAttendance(
 ) {
 	const forUpdate = settling !== null;
 	const ids = sql`${sql.param([...personIds])}::uuid[]`;
-	// Parameters, not the outer alias `m`: these expressions also run inside the task producers' own queries.
 	const plant = sql`${w.plant.id}::uuid`,
 		meeting = sql`${meetingId}::uuid`;
 	const subjects = sql`(SELECT unnest(${ids}) UNION SELECT s.person_id FROM participation s
@@ -185,7 +172,6 @@ async function lockAttendance(
 						sql`ARRAY(SELECT ${meeting} UNION SELECT s.meeting_id FROM participation s WHERE s.plant_id = ${plant}
 							AND s.person_id IN ${subjects})`,
 						sql`ARRAY${subjects}`,
-						// The input's assignees and the owners of the locked duties below, so settle builds each owner view once.
 						sql`ARRAY(SELECT unnest(${sql.param([...settling.assignees])}::uuid[])
 							UNION SELECT ta.account_id FROM task t JOIN obligation b ON b.id = t.obligation_id
 							JOIN task_assignee ta ON ta.task_id = t.id
@@ -206,15 +192,12 @@ async function lockAttendance(
 		if (!r.rows[0]) deny();
 		const f = factsRow.parse(r.rows[0]);
 		if (f.snapshot_revision === f.attendance_revision || attempt > 0) {
-			// REQ-MTG-010 (D-562): only an Owner or Admin, or the current leader of this team meeting's ministry, records,
-			// finalizes and corrects attendance. Any other Member is refused.
 			if (!w.admin && !f.leads) deny();
 			return f;
 		}
 	}
 }
 
-/** WP-024's producers refuse in their own terms; a meetings command answers in its contract's codes. */
 async function generated<T>(body: () => Promise<T>): Promise<T> {
 	try {
 		return await body();
@@ -243,7 +226,6 @@ export const attendee = (g: GuestRow) =>
 		classificationStage: g.classification_stage,
 		priorVisionId: g.prior_vision_id,
 	});
-/** Every named Person that would start a new row must be a live Person of this church; otherwise nothing is written. */
 function requireLive(f: Facts, ids: readonly string[]) {
 	const live = new Set(f.people.filter((p) => p.state === "live").map((p) => p.id));
 	const bad = ids.filter((id) => !live.has(id));
@@ -251,7 +233,6 @@ function requireLive(f: Facts, ids: readonly string[]) {
 }
 
 type RowWrite = Omit<GuestRow, "display_name" | "person_state" | "rsvp" | "has_card">;
-/** All participation changes of a command in one UPDATE, fenced by the revision each row was read at. */
 function updateRows(plantId: string, rows: readonly RowWrite[]): SQL {
 	const values = rows.map((r) => ({
 		id: r.id,
@@ -275,7 +256,6 @@ function updateRows(plantId: string, rows: readonly RowWrite[]): SQL {
 			classification_as_of timestamptz, prior_vision_id uuid, actual_occurrence_at timestamptz)
 		WHERE g.id = v.id AND g.revision = v.revision AND g.plant_id = ${plantId}::uuid`;
 }
-/** New guest rows with the same full snapshot shape updateRows writes, so an insert never drops a classification. */
 function insertRows(plantId: string, meetingId: string, rows: readonly RowWrite[]) {
 	const values = rows.map((r) => ({
 		id: r.id,
@@ -304,11 +284,6 @@ const bumpAttendance = (f: Facts, finalize: boolean) =>
 		WHERE id = ${f.id}::uuid AND attendance_revision = ${f.attendance_revision}::bigint`;
 const nextRevision = (r: string) => String(BigInt(r) + 1n);
 
-/**
- * Draft presence for some guests (REQ-MTG-010). A live Person not on the list joins it when marked attended (a
- * walk-in); a Person who is neither a guest nor live refuses the whole change. RSVP, card, inviter and notes stay.
- * Finalized attendance changes only through reconcileAttendance.
- */
 async function setPresence(
 	tx: Tx,
 	w: Writer,
@@ -402,13 +377,6 @@ async function setPresence(
 	};
 }
 
-/**
- * Finalize or reconcile (REQ-MTG-012, REQ-MTG-020): the exact attended set, each newly attended Person's
- * classification snapshot, the prospect→attendee advance of a first Vision attendance (REQ-PPL-020), first-Vision
- * follow-ups and the evaluation task, and the source-corrected close of follow-ups that no longer apply. All of it joins
- * one write statement with the audit rows, or nothing changes. Later meetings that this meeting now precedes are
- * reclassified as returning and lose their open first-Vision follow-up.
- */
 async function settle(
 	tx: Tx,
 	w: Writer,
@@ -435,21 +403,17 @@ async function settle(
 		removed = current.filter((id) => !finalSet.has(id));
 	const same = !added.length && !removed.length;
 	if (mode === "reconcile" && !f.finalized_at) deny("status_transition");
-	// An unchanged finalize, also a concurrent second one, shows the earlier result without a new change.
 	const noop = f.finalized_at !== null && same;
 	if (mode === "finalize" && f.finalized_at && !same) deny("status_transition");
 	if (!noop && f.attendance_revision !== input.expectedRevision) deny("conflict");
-	// Newly attended People must be live Persons of this church now; finalized history keeps everyone else.
 	const fresh = mode === "finalize" && !f.finalized_at ? [...input.attendeeIds] : added;
 	if (!noop) requireLive(f, fresh);
 
 	const people = new Map(f.people.map((p) => [p.id, p]));
 	const byPerson = new Map(f.guests.map((g) => [g.person_id, g]));
 	const occurredAt = f.occurred_at;
-	// This meeting's rows, written whole, so the result returns each one with its new revision.
 	const rows: GuestRow[] = [],
 		inserts: GuestRow[] = [];
-	// The result parses these with the contract below.
 	const classifications: z.input<typeof c.finalizationResult>["classifications"] = [];
 	const stageChanges: { personId: string; from: Stage; to: Stage; revision: string; position: string }[] = [];
 	const closing = new Set<string>();
@@ -505,10 +469,8 @@ async function settle(
 				from: "prospect",
 				to: "attendee",
 				revision: p!.revision,
-				// Into another pipeline column: the person goes to its end with a fresh key (D68).
 				position: freshPosition(personId),
 			});
-		// A Person who now has an earlier attended Vision no longer owes a first-Vision follow-up here.
 		if (vision && prior && obligations.get(personId)) closing.add(obligations.get(personId)!.id);
 	}
 	for (const personId of removed) {
@@ -517,8 +479,6 @@ async function settle(
 		const o = obligations.get(personId);
 		if (vision && o) closing.add(o.id);
 	}
-	// Later meetings this one now precedes, or no longer precedes. A later meeting that becomes a Person's first Vision
-	// owes that Person's follow-up, created in the same producer call; a duty that exists already stays as it is.
 	const laterRows: RowWrite[] = [];
 	const laterWork = new Map<string, { origin: { at: string; date: string; zone: string }; personIds: string[] }>();
 	for (const l of f.later) {
@@ -577,19 +537,12 @@ async function settle(
 				});
 		}
 	}
-	// Generated work: a follow-up for each live first-Vision attendee and the evaluation task, even with no attendees.
-	// An existing duty keeps its task and owner, so it is named without an assignee to check again.
 	const work: z.infer<typeof c.generatedWork>[] = [];
 	const after: (() => Promise<unknown>)[] = [];
 	const known = (id: string) => f.obligations.find((o) => o.id === id);
-	// The real owner of each existing duty: this meeting's duties and the locked follow-up tasks of the People involved,
-	// which include later meetings' follow-ups.
 	const owners = new Map<string, string[]>(f.obligations.map((o) => [o.id, o.assignee_ids]));
 	for (const t of lockedTasks.parse(f.tasks ?? [])) owners.set(t.obligation_id, idsOf(t.assignees));
 	const ownerOf = (id: string) => owners.get(id) ?? [];
-	// What every screen shows for an owner (REQ-TSK-012): the stored assignee with whether they may own the work.
-	// Built once per assignee from the producer facts the lock statement read: a follow-up owner follows REQ-TSK-012,
-	// an evaluation owner needs only a seat.
 	const ownerFacts = obligationFactsRow.pick({ seats: true, names: true, reasons: true }).parse(f.obligation_facts);
 	const viewOf = (id: string, kind: "follow_up" | "evaluation"): z.infer<typeof followUpOwner> => {
 		const reason =
@@ -601,7 +554,6 @@ async function settle(
 			reason,
 		});
 	};
-	/** The generated work's owner fields: each assignee's view, and Needs owner when none may own it (D-a). */
 	const ownersOf = (ids: readonly string[], kind: "follow_up" | "evaluation") => {
 		const owners = sortPeople(ids.map((id) => viewOf(id, kind)));
 		return { assigneeIds: owners.map((o) => o.accountId), needsOwner: !owners.some((o) => o.eligible), owners };
@@ -758,7 +710,6 @@ const evaluationFacts = z.object({
 	now: date,
 });
 type EvaluationFacts = z.infer<typeof evaluationFacts>;
-/** The meeting's evaluation, its evaluator and correction count from audit history, and its evaluation duty. */
 export const evaluationColumns = sql`m.id, m.type, m.status, m.finalized_at IS NOT NULL AS finalized,
 	m.local_date::text AS local_date, (clock_timestamp() AT TIME ZONE m.timezone)::date::text AS today,
 	m.evaluation_scores AS scores, m.evaluation_notes AS notes, m.evaluated_on::text AS evaluated_on, m.evaluated_at,
@@ -787,7 +738,6 @@ export function evaluationOf(e: EvaluationFacts, notes: boolean): z.infer<typeof
 	});
 }
 export const parseEvaluationFacts = (row: unknown) => evaluationFacts.parse(row);
-/** The evaluation facts and the evaluation task (row lock), in one statement. */
 async function lockEvaluation(tx: Tx, w: Writer, meetingId: string) {
 	const r = await tx.execute(sql`SELECT ${evaluationColumns}, ${managedTasks(
 		w.plant.id,
@@ -800,7 +750,6 @@ async function lockEvaluation(tx: Tx, w: Writer, meetingId: string) {
 }
 const scoreArray = (s: z.infer<typeof c.scores>) => sql`${sql.param(c.evaluationFactors.map((k) => s[k]))}::int[]`;
 
-/** The attendance, finalization, evaluation and attendee-note commands. `reminders` is WP-031's task reminder port. */
 export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 	const presence = <S extends z.ZodType<{ requestKey: string; input: { meetingId: string } }>>(
 		operation: MeetingWrite,
@@ -878,10 +827,6 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 		),
 		finalizeAttendance: settlement("finalize"),
 		reconcileAttendance: settlement("reconcile"),
-		/**
-		 * The one human Vision evaluation (REQ-MTG-014): eight scores, the server's average, the evaluator and instant in
-		 * history, and completion of the evaluation task in the same statement. A second submission sees the first.
-		 */
 		async recordEvaluation(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.recordEvaluationRequest, raw);
@@ -908,8 +853,6 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 							metadata: { event: "evaluation_recorded" },
 						};
 					if (!e.finalized || e.status === "cancelled") deny("status_transition");
-					// The window binds a date the client sends. The server's own default (today in the meeting's zone) always
-					// saves: finalize accepts a meeting before its local date, so it may be evaluated before it too.
 					const on = i.evaluatedOn ?? e.today;
 					if (i.evaluatedOn && (on > e.today || on < e.local_date))
 						deny("invalid_input", { issues: [{ path: "input.evaluatedOn", problem: "outside_meeting_to_today" }] });
@@ -955,7 +898,6 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 						action: "meetings.changed",
 						kind: "create",
 						before: null,
-						// Scores and their average are meeting facts; note text stays out of history (audit.md).
 						after: { ...evaluation.scores, average: evaluation.average, notes: i.notes !== null, revision: "1" },
 						metadata: { event: "evaluation_recorded" },
 					};
@@ -964,10 +906,6 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 				return value;
 			});
 		},
-		/**
-		 * A reviewed correction (REQ-MTG-015): only the changed factors or notes, the reviewed revision and a reason. It
-		 * appends old and new values to history, recomputes the average and never completes or reopens a task.
-		 */
 		async correctEvaluation(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.correctEvaluationRequest, raw);
@@ -1026,10 +964,6 @@ export function createAttendanceWriter(deps: { reminders: TaskReminders }) {
 				});
 			});
 		},
-		/**
-		 * An Owner or Admin note on a Person who attended this meeting (REQ-MTG-017). The server derives the meeting type
-		 * and link from the attended guest row; the note joins the Person's history with its author and instant.
-		 */
 		async addAttendeeNote(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.addAttendeeNoteRequest, raw);

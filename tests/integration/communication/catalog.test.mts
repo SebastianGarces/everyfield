@@ -11,7 +11,6 @@ const rsvpKeys = new Set([
 	"team-meeting-invitation",
 ]);
 
-// Identity of the seven system templates. Copy may change; these may not.
 const pinned = [
 	["vision-meeting-invitation", "Vision meeting invitation", "meeting_invitation", "vision_meeting"],
 	["vision-meeting-reminder", "Vision meeting reminder", "meeting_reminder", null],

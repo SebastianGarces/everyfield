@@ -1,7 +1,3 @@
-// Plant Intelligence assessments that stay current (WP-043): demand from durable state, the scheduled tick with the
-// scripted drafter only, the fenced publication and the planter's read. "The planter opens Plant Intelligence and sees
-// X" is intelligence.readAssessment called as that planter. Each test drives real native writes and the real tick
-// (or the same job functions the tick calls), and moves a test clock instead of waiting.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { AsyncResource } from "node:async_hooks";
@@ -30,10 +26,6 @@ const clock = { now: () => new Date(clockMs).toISOString() as never };
 const job = createAssessmentJob({ clock });
 const assessments = createAssessments({ clock });
 const secret = "cron-" + randomUUID();
-/**
- * The scripted drafter. A `during` hook stands for another request that happens while the draft is in flight, so it runs
- * in the test's own context, not inside the worker's (the statement census counts each separately).
- */
 const scripted = (options: Parameters<typeof scriptedAssessmentDrafter>[0] = {}) =>
 	scriptedAssessmentDrafter(options.during ? { ...options, during: AsyncResource.bind(options.during) } : options);
 
@@ -43,7 +35,6 @@ before(async () => {
 });
 after(() => c0?.database.close());
 
-/** The real scheduled runner at the test clock, with the scripted drafter. */
 async function tick(drafter = scripted()) {
 	const run = scheduledJobs({
 		secret,
@@ -72,7 +63,6 @@ const jobs = (p: { id: string }) =>
 	c0.rows(sql`SELECT producer_key,state,error_code,next_attempt_at FROM job WHERE kind='assessment'
 		AND subject_record_id=${p.id} ORDER BY eligible_at,id`);
 const iso = (ms: number) => new Date(ms).toISOString();
-/** A plant whose first assessment is published, and the clock back at real time. */
 async function assessed(name: string, options = {}) {
 	clockMs = Date.now();
 	const p = await c0.harvest(name, options);
@@ -82,7 +72,6 @@ async function assessed(name: string, options = {}) {
 	return p;
 }
 const invalid = () => scripted({ script: (d) => ({ ...d, focus: { ...d.focus, citations: [] } }) });
-/** Every other plant's demand runs too; these keep each test's assertions to its own plant. */
 const drain = () => runAssessmentBatch(job, c0.db, scripted(), 50);
 
 test("a never-assessed plant: the next tick queues its first assessment unasked; until it publishes the read says being prepared, then it shows the first assessment with its as-of", async () => {
@@ -135,7 +124,6 @@ test("a new committed adult publishes a new assessment dated after the change; t
 		{ key: "committedAdults.count", label: "Committed adults", before: 30, after: 31 },
 	);
 
-	// A failed write: a commitment for a person who does not exist is refused and writes nothing.
 	const failed = await c0.db.transaction((t) =>
 		commitments.createCommitment(
 			t as never,
@@ -147,7 +135,6 @@ test("a new committed adult publishes a new assessment dated after the change; t
 		),
 	);
 	assert.equal(failed.status, "refused");
-	// An exact retry of the write that already landed, and a real no-op and an unrelated field.
 	const person = ok(
 		await c0.db.transaction((t) =>
 			peopleWriter.createPerson(
@@ -243,7 +230,6 @@ test("AC:ASMT-001 after eight quiet days with skipped ticks the next tick publis
 	clockMs += 3 * DAY;
 	await tick();
 	assert.equal((await runs(p)).length, start, "three quiet days owe nothing");
-	// Days four to seven: no tick ran at all. Day eight's tick still owes the refresh.
 	clockMs += 5 * DAY;
 	await tick();
 	await drain();
@@ -267,7 +253,6 @@ test("AC:ASMT-005 a failed output check and a busy provider leave the previous a
 	assert.deepEqual([v.current!.runId, v.current!.asOf, v.current!.ageDays], [prior.runId, prior.asOf, 2]);
 	assert.deepEqual(v.newest, { state: "failed", retryAt: null, grounding: "grounded" });
 
-	// 429 with Retry-After 90 s: deferred to exactly that instant.
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	const busy = scripted({ busy: [{ status: 429, retryAfterSeconds: 90 }] });
 	await runAssessmentBatch(job, c0.db, busy, 1);
@@ -287,7 +272,6 @@ test("AC:ASMT-005 a failed output check and a busy provider leave the previous a
 	assert.deepEqual([resumed.outcome, resumed.attempts], ["published", 2]);
 	assert.equal(busy.calls.length, 2, "one dispatch per call: the busy one and the one that published");
 
-	// A 503 whose wait would pass the run's deadline fails it as a deadline, never later.
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	await runAssessmentBatch(
 		job,
@@ -544,8 +528,6 @@ test("publication writes the result, its insights by severity, the delta and the
 		sql`CREATE TRIGGER t299_fail BEFORE UPDATE ON job FOR EACH ROW WHEN (NEW.state='succeeded' AND NEW.kind='assessment')
 			EXECUTE FUNCTION t299_fail()`,
 	];
-	// The insights fail, then the audit row, then the job's end. A failing audit row also stops the failure record, so
-	// that run stays pending for a later claim; the other two record a persistence failure.
 	const expected = [
 		["failed", "persistence"],
 		["pending", null],
