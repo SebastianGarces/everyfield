@@ -8,9 +8,6 @@ import { editPath, isCrawler, parseSource, splitWikiPath, wikiReturn } from "./m
 import { WikiScreen } from "./screen.tsx";
 import { loadPreview, loadWiki } from "./server.ts";
 
-// /wiki stays outside the product frame so a crawler never receives the signed-in shell.
-// A person gets that frame from here, after the preview check.
-
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
 function one(value: string | string[] | undefined): string | undefined {
