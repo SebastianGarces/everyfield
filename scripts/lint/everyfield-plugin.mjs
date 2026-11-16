@@ -519,14 +519,22 @@ const isNavigation = (node, context) =>
 	(memberName(node) === "navigation" && isHost(node.object, context, GLOBAL_HOSTS));
 
 const PLACEHOLDER = "\u0000";
-const addressText = (node) => {
-	if (node.type === "Literal") return typeof node.value === "string" ? node.value : PLACEHOLDER;
-	if (node.type === "TemplateLiteral")
-		return node.quasis.map((q, i) => (i ? PLACEHOLDER : "") + (q.value.cooked ?? "")).join("");
-	if (node.type === "BinaryExpression" && node.operator === "+")
-		return addressText(node.left) + addressText(node.right);
-	return PLACEHOLDER;
+const ORIGIN = /^(?:\u0000+|[a-z][a-z\d+.-]*:\/\/[^/?#]*|\/\/[^/?#]*)(?=\/)/i;
+const queryText = (names) => [...names].map((name) => `${name}=${PLACEHOLDER}`).join("&");
+const initNames = (node) => {
+	if (node?.type === "ObjectExpression")
+		return node.properties.flatMap((p) => (p.type === "Property" ? [keyName(p.key, p.computed) ?? PLACEHOLDER] : []));
+	if (node?.type === "ArrayExpression")
+		return node.elements.flatMap((e) =>
+			e?.type === "ArrayExpression" ? [stringValue(e.elements[0]) ?? PLACEHOLDER] : [],
+		);
+	return [];
 };
+const isNew = (node, name) =>
+	node?.type === "NewExpression" && node.callee.type === "Identifier" && node.callee.name === name;
+const isAddressRoot = (node) =>
+	!(node.parent?.type === "BinaryExpression" && node.parent.operator === "+") &&
+	node.parent?.type !== "TemplateLiteral";
 const MAIL_BUILDERS = /^apps\/web\/src\/server\//;
 
 const noRawHistory = ratcheted("no-raw-history", (context, push) => {
@@ -538,12 +546,48 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 			fn: enclosingName(node),
 			message: `${word} outside ${LOCATION_STORE}: the address has one owner. Write it with writeAddress, read it with usePath or useAddress, read a one-time link value with useOneTimeLinkValue, react to Back and Forward with an address rule or onTraversal, so every reader sees the same address in the same event.`,
 		});
+	const queries = new Map();
+	const urls = new Map();
+	const addresses = [];
+	const builds = [];
+	const addressText = (node) => {
+		if (node.type === "Literal") return typeof node.value === "string" ? node.value : PLACEHOLDER;
+		if (node.type === "TemplateLiteral")
+			return node.quasis
+				.map((q, i) => (i ? addressText(node.expressions[i - 1]) : "") + (q.value.cooked ?? ""))
+				.join("");
+		if (node.type === "BinaryExpression" && node.operator === "+")
+			return addressText(node.left) + addressText(node.right);
+		if (node.type === "Identifier" && queries.has(node.name)) return queryText(queries.get(node.name));
+		if (node.type === "CallExpression" && memberName(node.callee) === "toString")
+			return addressText(node.callee.object);
+		if (isNew(node, "URLSearchParams")) return queryText(initNames(node.arguments[0]));
+		return PLACEHOLDER;
+	};
 	const linkAddress = (node, text) => {
 		if (MAIL_BUILDERS.test(path)) return;
-		const address = text.startsWith(PLACEHOLDER + "/") ? text.slice(1) : text;
-		if (carriesLinkValue(address))
+		if (carriesLinkValue(text.replace(ORIGIN, "")))
 			report(node, "an in-app address with a one-time link value (only an emailed link may carry one)");
 	};
+	const objectAddress = (node) => {
+		const parts = new Map(
+			node.properties.flatMap((p) => (p.type === "Property" ? [[keyName(p.key, p.computed), p.value]] : [])),
+		);
+		const pathname = parts.get("pathname");
+		if (!pathname) return null;
+		const query = parts.get("query") ?? parts.get("searchParams");
+		const names = query ? (query.type === "ObjectExpression" ? initNames(query) : [PLACEHOLDER]) : [];
+		const search = parts.get("search") ? addressText(parts.get("search")) : "";
+		const hash = parts.get("hash") ? `#${addressText(parts.get("hash"))}` : "";
+		return `${addressText(pathname)}${names.length ? `?${queryText(names)}` : search}${hash}`;
+	};
+	const urlWrite = (node, name, text) => {
+		const url = urls.get(name);
+		if (!url) return;
+		url.text += text;
+		builds.push({ node, text: url.text });
+	};
+	const urlOf = (node) => (node?.type === "Identifier" && urls.has(node.name) ? node.name : null);
 	return {
 		MemberExpression(node) {
 			const name = memberName(node);
@@ -560,16 +604,41 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 		Literal(node) {
 			const value = stringValue(node);
 			if (value && HISTORY_STRINGS.has(value) && memberName(node.parent) === null) report(node, value);
-			if (node.parent?.type !== "BinaryExpression" && typeof node.value === "string") linkAddress(node, node.value);
+			if (typeof node.value === "string" && isAddressRoot(node)) addresses.push(node);
 		},
 		TemplateLiteral(node) {
 			const value = stringValue(node);
 			if (value && HISTORY_STRINGS.has(value)) report(node, value);
-			if (node.parent?.type !== "BinaryExpression") linkAddress(node, addressText(node));
+			if (isAddressRoot(node)) addresses.push(node);
 		},
 		BinaryExpression(node) {
-			if (node.operator === "+" && !(node.parent?.type === "BinaryExpression" && node.parent.operator === "+"))
-				linkAddress(node, addressText(node));
+			if (node.operator === "+" && isAddressRoot(node)) addresses.push(node);
+		},
+		ObjectExpression(node) {
+			builds.push({ node, object: true });
+		},
+		NewExpression(node) {
+			const target = node.parent?.type === "VariableDeclarator" ? node.parent.id : null;
+			if (target?.type !== "Identifier") return;
+			if (isNew(node, "URLSearchParams")) queries.set(target.name, new Set(initNames(node.arguments[0])));
+			if (isNew(node, "URL") && node.arguments[0])
+				urls.set(target.name, { text: addressText(node.arguments[0]).replace(ORIGIN, "") });
+		},
+		CallExpression(node) {
+			const method = memberName(node.callee);
+			if (method !== "set" && method !== "append") return;
+			const param = stringValue(node.arguments[0]) ?? PLACEHOLDER;
+			const owner = node.callee.object;
+			if (owner.type === "Identifier" && queries.has(owner.name)) queries.get(owner.name).add(param);
+			const url = memberName(owner) === "searchParams" ? urlOf(owner.object) : null;
+			if (url) urlWrite(node, url, `${urls.get(url).text.includes("?") ? "&" : "?"}${param}=${PLACEHOLDER}`);
+		},
+		AssignmentExpression(node) {
+			const part = memberName(node.left);
+			const url = urlOf(node.left.object);
+			if (!url || (part !== "hash" && part !== "search")) return;
+			const text = addressText(node.right);
+			urlWrite(node, url, part === "hash" ? `#${text.replace(/^#/, "")}` : `?${text.replace(/^\?/, "")}`);
 		},
 		ImportSpecifier(node) {
 			if (keyName(node.imported, false) === "useLocationHash") report(node, "useLocationHash");
@@ -578,6 +647,13 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 			if (node.id.type !== "ObjectPattern" || !isLocation(node.init, context)) return;
 			for (const p of node.id.properties)
 				if (p.type === "Property" && keyName(p.key, p.computed) === "hash") report(p, "location.hash");
+		},
+		"Program:exit"() {
+			for (const node of addresses) linkAddress(node, addressText(node));
+			for (const build of builds) {
+				const text = build.object ? objectAddress(build.node) : build.text;
+				if (text !== null) linkAddress(build.node, text);
+			}
 		},
 	};
 });
@@ -604,10 +680,23 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 			fn: enclosingName(node),
 			message: `${name}: page-wide events have one owner each. Address changes go through ${LOCATION_STORE} (an address rule registered at module scope, or onTraversal started from an event); shortcuts, the unsaved-work warning, the leave hold and the last write when the page is hidden go through ${PAGE_EVENTS} (shortcutMark on the form or control, unsavedMark or leaveHoldMark on the form, leaveBeaconMark on the element that holds the write). A listener tied to a component's lifetime is an effect: it needs a survivor entry.`,
 		});
-	const isGlobalHost = (node) =>
-		isHost(node, context, LISTENER_HOSTS) ||
-		(node?.type === "Identifier" && aliases.has(node.name)) ||
-		HOST_MEMBERS.has(memberName(node) ?? "");
+	const isGlobalHost = (node) => {
+		if (node?.type === "ConditionalExpression") return isGlobalHost(node.consequent) || isGlobalHost(node.alternate);
+		if (node?.type === "LogicalExpression") return isGlobalHost(node.left) || isGlobalHost(node.right);
+		if (node?.type === "SequenceExpression") return isGlobalHost(node.expressions.at(-1));
+		if (node?.type === "ChainExpression") return isGlobalHost(node.expression);
+		if (
+			node?.type === "TSAsExpression" ||
+			node?.type === "TSNonNullExpression" ||
+			node?.type === "TSSatisfiesExpression"
+		)
+			return isGlobalHost(node.expression);
+		return (
+			isHost(node, context, LISTENER_HOSTS) ||
+			(node?.type === "Identifier" && aliases.has(node.name)) ||
+			HOST_MEMBERS.has(memberName(node) ?? "")
+		);
+	};
 	return {
 		VariableDeclarator(node) {
 			if (node.id.type === "Identifier" && isGlobalHost(node.init)) aliases.add(node.id.name);
@@ -616,6 +705,9 @@ const noGlobalListeners = ratcheted("no-global-listeners", (context, push) => {
 				const name = p.type === "Property" ? keyName(p.key, p.computed) : null;
 				if (name && (LISTENER_MEMBERS.has(name) || ON_HANDLER.test(name))) report(p, name);
 			}
+		},
+		AssignmentExpression(node) {
+			if (node.left.type === "Identifier" && isGlobalHost(node.right)) aliases.add(node.left.name);
 		},
 		MemberExpression(node) {
 			const name = memberName(node);

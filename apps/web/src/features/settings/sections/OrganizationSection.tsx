@@ -27,7 +27,6 @@ const FIELDS = [
 	"contactPhone",
 	"statementOfFaith",
 ] as const;
-/** The milestone offered to the organization's plants (T-296) is edited as three form fields and saved as one value. */
 type Form = Record<(typeof FIELDS)[number] | "gatheringName" | "gatheringDescription", string> & {
 	gatheringOffered: boolean;
 };
@@ -68,12 +67,6 @@ function validateOrganization(form: Form): Partial<Record<keyof Form, string>> {
 	return errors;
 }
 
-/**
- * The organization profile for a sending church or network (REQ-IDN-026): its own Owner or Admin edits name,
- * locality, description and contact. A network also writes its statement of faith, which fills the doctrinal section
- * of Church Documents its churches create from a template (DOC-020, D-107). The kind and identity are not editable here, and nothing here transfers or
- * deletes the organization.
- */
 export function OrganizationSection() {
 	const { viewer } = useSettings();
 	if (viewer.context !== "organization") return null;
@@ -81,7 +74,13 @@ export function OrganizationSection() {
 }
 
 function OrganizationLoaded({ organization, admin }: { organization: OrganizationOwner; admin: boolean }) {
-	const { state, replace, reload } = useSection({ section: "organization", organization });
+	const { state, replace, reload } = useSection(
+		{ section: "organization", organization },
+		{
+			key: "organization",
+			formOf: (section) => (section.values.status === "available" ? formOf(section.values) : undefined),
+		},
+	);
 	return (
 		<LoadableView
 			state={state}
@@ -296,7 +295,6 @@ function OrganizationForm({
 	);
 }
 
-/** An organization Member reads the profile and the milestone offered to its plants, with nothing to change. */
 function OrganizationView({ values }: { values: Available }) {
 	const p = values.profile;
 	const g = p.gatheringMilestone;

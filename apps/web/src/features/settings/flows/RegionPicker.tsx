@@ -15,33 +15,27 @@ import {
 	RadioGroup,
 	Skeleton,
 } from "@everyfield/ui/controls";
-import { useEffect, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { useRead } from "../../../components/read.tsx";
 import type { Locality, RegionRead, RegionSuggestion } from "../port";
 import { newRequestKey } from "../port";
 import { SaveError } from "../SettingsDialog";
-import { useSettings } from "../store";
-
-// The church's reporting Region (WP-047b, REQ-PI-044): an official OMB 23-01 metro or micro area. The planter types
-// their city and state; the official list suggests the area that names it as a principal city. A place several areas
-// match is never resolved for them: they choose, or leave it unresolved. Sending churches and networks see the city,
-// state and Region, never the street, and cannot set or change it.
+import { useReads, useSettings } from "../store";
 
 type Ready = Extract<RegionRead, { status: "ok" }>;
 const UNRESOLVED = "unresolved";
 
-/** The Region row of the church settings: the saved area and, for an Owner or Admin, the picker. */
+const SAVE_PROBLEM = {
+	conflict: "Your church's settings changed since you opened this. Close it and try again.",
+	refused: "The Region wasn't saved. Only Owners and Admins can change it, and only to an area the list offers.",
+	lost: "Everyfield could not be reached, so the Region may not have saved. Close this and check the Region shown.",
+} as const;
+
 export function ReportingRegion({ onSaved }: { onSaved: () => void }) {
-	const { port } = useSettings();
-	const [read, setRead] = useState<RegionRead | null>(null);
-	const [session, setSession] = useState(0);
-	const [open, setOpen] = useState(false);
-	useEffect(() => {
-		let live = true;
-		void port.region.read().then((r) => live && setRead(r));
-		return () => {
-			live = false;
-		};
-	}, [port, session]);
+	const reads = useReads();
+	const region = useRead(reads.region);
+	const [openWith, setOpenWith] = useState<string | null>(null);
+	const read = region.value;
 
 	if (!read) return <Skeleton shape="block" height={44} />;
 	if (read.status !== "ok")
@@ -56,21 +50,29 @@ export function ReportingRegion({ onSaved }: { onSaved: () => void }) {
 				{read.region ? regionLabel(read.region) : "Not set"}
 			</span>
 			{read.canEdit ? (
-				<Button size="sm" variant="secondary" onClick={() => setOpen(true)} disabled={!read.referenceVersionId}>
+				<Button
+					size="sm"
+					variant="secondary"
+					onClick={() => {
+						reads.regionMatches.prefetch(read.locality);
+						setOpenWith(newRequestKey("region"));
+					}}
+					disabled={!read.referenceVersionId}
+				>
 					{read.region ? "Change Region" : "Choose Region"}
 				</Button>
 			) : (
 				<span className="text-sm text-text-3">Owners and Admins can change it.</span>
 			)}
-			{open ? (
+			{openWith ? (
 				<RegionDialog
-					key={session}
+					key={openWith}
+					requestKey={openWith}
 					read={read}
-					onClose={() => setOpen(false)}
+					onClose={() => setOpenWith(null)}
 					onSaved={() => {
-						setOpen(false);
-						setRead(null);
-						setSession((n) => n + 1);
+						setOpenWith(null);
+						region.retry();
 						onSaved();
 					}}
 				/>
@@ -79,57 +81,76 @@ export function ReportingRegion({ onSaved }: { onSaved: () => void }) {
 	);
 }
 
-function RegionDialog({ read, onClose, onSaved }: { read: Ready; onClose: () => void; onSaved: () => void }) {
+function suggestedChoice(found: RegionSuggestion[], saved: Ready["region"]): string | null {
+	if (found.length === 1) return found[0]!.regionItemId;
+	if (found.length === 0) return UNRESOLVED;
+	return found.find((c) => c.area.code === saved?.code)?.regionItemId ?? null;
+}
+
+function RegionDialog({
+	requestKey,
+	read,
+	onClose,
+	onSaved,
+}: {
+	requestKey: string;
+	read: Ready;
+	onClose: () => void;
+	onSaved: () => void;
+}) {
 	const { port } = useSettings();
+	const reads = useReads();
 	const [place, setPlace] = useState<Locality>(read.locality);
-	const [found, setFound] = useState<RegionSuggestion[] | null>(null);
-	const [choice, setChoice] = useState<string | null>(null);
-	const [busy, setBusy] = useState(false);
+	const [asked, setAsked] = useState<Locality | null>(read.locality);
+	const [choice, setChoice] = useState<string | null | undefined>(undefined);
 	const [problem, setProblem] = useState<string | null>(null);
-	const [key] = useState(() => newRequestKey("region"));
+	const [busy, startSave] = useTransition();
+	const lookup = useRef<Promise<unknown> | null>(null);
+	const matches = useRead(asked ? reads.regionMatches : null, asked ?? read.locality);
+	const found = asked && matches.value ? matches.value : null;
+	const lookupFailed = asked !== null && matches.status === "ready" && matches.value === null;
+	const chosen = found ? (choice === undefined ? suggestedChoice(found, read.region) : choice) : null;
 
-	const find = async (where: Locality) => {
+	const find = () => {
 		setProblem(null);
-		const r = await port.region.suggest(where);
-		if (!r) return setProblem("We couldn't look up areas. Try again in a moment.");
-		setFound(r);
-		// One official match is suggested; several are never chosen for the planter.
-		setChoice(
-			r.length === 1
-				? r[0]!.regionItemId
-				: r.length === 0
-					? UNRESOLVED
-					: (r.find((c) => c.area.code === read.region?.code)?.regionItemId ?? null),
-		);
+		setChoice(undefined);
+		if (asked) {
+			const shown = matches.value;
+			const answer = reads.regionMatches.refresh(asked);
+			lookup.current = answer;
+			void answer.then((next) => {
+				if (lookup.current !== answer || next !== null || !shown) return;
+				reads.regionMatches.patch(() => shown, asked);
+				setProblem("We couldn't look up areas. Try again in a moment.");
+			});
+		} else {
+			lookup.current = null;
+			reads.regionMatches.prefetch(place);
+			setAsked(place);
+		}
 	};
-	useEffect(() => {
-		void find(read.locality);
-		// Look up the saved place once when the dialog opens.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
 	const set = (k: keyof Locality) => (e: React.ChangeEvent<HTMLInputElement>) => {
+		lookup.current = null;
 		setPlace({ ...place, [k]: e.target.value });
-		setFound(null);
-		setChoice(null);
+		setAsked(null);
+		setChoice(undefined);
 	};
-	const save = async () => {
-		if (!choice || !read.referenceVersionId) return;
-		setBusy(true);
-		const r = await port.region.save({
-			requestKey: key,
-			expectedRevision: read.revision,
-			locality: place,
-			referenceVersionId: read.referenceVersionId,
-			regionItemId: choice === UNRESOLVED ? null : choice,
+	const save = () => {
+		const referenceVersionId = read.referenceVersionId;
+		if (!chosen || !referenceVersionId) return;
+		startSave(async () => {
+			const r = await port.region
+				.save({
+					requestKey,
+					expectedRevision: read.revision,
+					locality: place,
+					referenceVersionId,
+					regionItemId: chosen === UNRESOLVED ? null : chosen,
+				})
+				.catch(() => ({ status: "lost" }) as const);
+			if (r.status === "ok") return onSaved();
+			setProblem(SAVE_PROBLEM[r.status]);
 		});
-		setBusy(false);
-		if (r.status === "ok") return onSaved();
-		setProblem(
-			r.status === "conflict"
-				? "Your church's settings changed since you opened this. Close it and try again."
-				: "The Region wasn't saved. Only Owners and Admins can change it, and only to an area the list offers.",
-		);
 	};
 
 	return (
@@ -154,7 +175,7 @@ function RegionDialog({ read, onClose, onSaved }: { read: Ready; onClose: () => 
 						</Field>
 					</div>
 					<div className="mt-3">
-						<Button size="sm" variant="secondary" onClick={() => void find(place)}>
+						<Button size="sm" variant="secondary" onClick={find}>
 							Find areas
 						</Button>
 					</div>
@@ -167,7 +188,7 @@ function RegionDialog({ read, onClose, onSaved }: { read: Ready; onClose: () => 
 										? "This place matches more than one area. Choose the one your church is in."
 										: "No official area lists this place as a principal city. You can leave the Region unresolved."}
 							</p>
-							<RadioGroup aria-label="Reporting Region" value={choice ?? ""} onValueChange={setChoice}>
+							<RadioGroup aria-label="Reporting Region" value={chosen ?? ""} onValueChange={setChoice}>
 								{found.map((c) => (
 									<Radio key={c.regionItemId} value={c.regionItemId} label={regionLabel(c.area)} />
 								))}
@@ -179,13 +200,15 @@ function RegionDialog({ read, onClose, onSaved }: { read: Ready; onClose: () => 
 							</RadioGroup>
 						</div>
 					) : null}
-					{problem ? <SaveError message={problem} /> : null}
+					{problem || lookupFailed ? (
+						<SaveError message={problem ?? "We couldn't look up areas. Try again in a moment."} />
+					) : null}
 				</DialogBody>
 				<DialogFooter>
 					<Button variant="secondary" onClick={onClose}>
 						Cancel
 					</Button>
-					<Button variant="primary" onClick={() => void save()} disabled={!choice || busy}>
+					<Button variant="primary" onClick={save} disabled={!chosen || busy}>
 						{busy ? "Saving…" : "Save Region"}
 					</Button>
 				</DialogFooter>

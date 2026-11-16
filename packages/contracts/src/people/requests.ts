@@ -13,7 +13,6 @@ import {
 	stage,
 } from "./values.ts";
 
-// No owner, account link, creator, storage key, authority or approval in bodies.
 export const createPersonRequest = z.strictObject({
 	requestKey,
 	input: z.strictObject({
@@ -48,7 +47,6 @@ export const updatePersonRequest = commandEnvelope(
 	}),
 );
 export const personRequest = z.strictObject({ personId });
-/** The people whose current photos a screen asks for: at most one page of rows. */
 export const personPhotosRequest = z.strictObject({ personIds: z.array(personId).max(100) });
 export const ownAccountPersonRequest = z.strictObject({});
 export const listPeopleRequest = z.strictObject({
@@ -63,7 +61,6 @@ export const listPeopleRequest = z.strictObject({
 	commitment: z.enum(["active", "withdrawn", "unknown", "any"]).default("any"),
 	archived: z.enum(["exclude", "include", "only"]).default("exclude"),
 	sort: z.literal("created_at_id").default("created_at_id"),
-	// Pipeline only: "Show more" names the one column it reads.
 	column: pipelineColumn.optional(),
 });
 export const activityRequest = z.strictObject({
@@ -95,8 +92,6 @@ export const restorePersonRequest = commandEnvelope(z.strictObject({ personId })
 export const classifyAdultRequest = commandEnvelope(
 	z.strictObject({ personId, classification: adultClassification, occurredOn: localDate, reason: longText }),
 );
-// Places one person in a pipeline column: right after `afterId`, or first when it is null. The expected revision is the
-// column's, so a move against an order that changed meanwhile is refused (REQ-PPL-007).
 export const reorderPipelineRequest = commandEnvelope(
 	z
 		.strictObject({
@@ -107,11 +102,8 @@ export const reorderPipelineRequest = commandEnvelope(
 		.refine((v) => v.afterId !== v.personId),
 );
 
-// Organization identity never carries plant recruitment or commitment fields.
 export const createOrganizationPersonRequest = z.strictObject({ requestKey, input: z.strictObject(contactFields) });
-/** One pair on the duplicates list: the person an import added with "Add, review later" and the person it may duplicate. */
 export const duplicatePairRequest = z.strictObject({ personId, withPersonId: personId });
-/** Contact facts to check for likely duplicates before a create. Empty and short signals are ignored. */
 export const duplicateCheckRequest = z.strictObject({
 	displayName: z.string().max(255).optional(),
 	email: z.string().max(320).optional(),

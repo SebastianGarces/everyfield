@@ -1,9 +1,0 @@
-{
-	"tools/wiki/drafts.ts": 12,
-	"tools/wiki/main.ts": 4,
-	"tools/wiki/mdx.ts": 6,
-	"tools/wiki/pr-images.ts": 2,
-	"tools/wiki/render.ts": 3,
-	"tools/wiki/tests/diagram.test.ts": 32,
-	"tools/wiki/tests/drafts.test.ts": 1
-}

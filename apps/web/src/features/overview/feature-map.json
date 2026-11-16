@@ -1,0 +1,227 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "overview",
+	"catalog": ["ADM-004", "ADM-005", "LCH-008", "PPL-002"],
+	"surfaces": [
+		{
+			"id": "overview.home",
+			"says": "A seated church's home: the first week's steps, four key numbers, recent changes, the Launch Sunday card and quick actions.",
+			"routes": ["/overview"],
+			"catalog": ["ADM-004", "ADM-005", "LCH-008"],
+			"reach": [
+				{
+					"rail": "Overview",
+					"personas": ["owner", "admin", "member"]
+				},
+				{
+					"link": "/overview"
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read",
+				"signup": "none",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "owner",
+					"reach": {
+						"persona": "owner",
+						"open": "/overview",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Your first week"
+						},
+						{
+							"role": "region",
+							"name": "Key numbers"
+						},
+						{
+							"role": "heading",
+							"name": "Recent changes"
+						},
+						{
+							"role": "heading",
+							"name": "Quick actions"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/overview",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "region",
+							"name": "Key numbers"
+						},
+						{
+							"noText": "Quick actions"
+						}
+					]
+				},
+				{
+					"id": "no-church",
+					"reach": {
+						"persona": "signup",
+						"open": "/overview",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/onboarding?step=church"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/overview",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Foverview"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/overview/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders Overview"
+					},
+					"expect": [
+						{
+							"text": "Loading your overview"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "numbers-and-activity",
+					"says": "Recruited, People, My overdue tasks and Vision Meetings count what the church holds; Recent changes shows the newest twenty.",
+					"catalog": ["ADM-005"],
+					"operations": ["dashboard.metrics", "dashboard.activity"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/dashboard/dashboard.test.mts",
+								"name": "AC:CASE-ADM-005 four counts: recruited without the church's own logins, live People, my overdue, held Vision Meetings"
+							},
+							{
+								"file": "tests/integration/dashboard/dashboard.test.mts",
+								"name": "AC:CASE-ADM-005 the activity feed: 20 newest, who and when, corrections as corrections, only what the viewer can open"
+							},
+							{
+								"file": "tests/unit/overview/cards.test.mts",
+								"name": "AC:CASE-ADM-005 a card whose read failed says so, with no zero or empty feed in its place"
+							}
+						],
+						"cases": ["CASE-ADM-005"],
+						"browser": {
+							"state": "owner",
+							"steps": [],
+							"expect": [
+								{
+									"role": "link",
+									"name": "My overdue tasks",
+									"match": "contains"
+								},
+								{
+									"role": "link",
+									"name": "added to People",
+									"match": "contains"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				},
+				{
+					"id": "add-person",
+					"says": "Quick action Add person creates a Person from a name alone and opens their page.",
+					"catalog": ["ADM-005", "PPL-002"],
+					"operations": ["people.createPerson"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/people/people.test.mts",
+								"name": "AC:TARGET-PPL-002 AC:LAUNCH46-003 AC:SEC-02 AC:TEN-002 minimal contact, explicit null, current tenancy and atomic retry"
+							}
+						],
+						"cases": ["TARGET-PPL-002"],
+						"browser": {
+							"state": "owner",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Add person"
+									}
+								},
+								{
+									"type": "Map Overview Person",
+									"into": "Name"
+								},
+								{
+									"press": "Enter"
+								}
+							],
+							"expect": [
+								{
+									"url": "/people/{personId}"
+								},
+								{
+									"role": "heading",
+									"name": "Map Overview Person"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "home-routing",
+					"says": "A seat lands here only when its church's setup is done; an account with no church goes to onboarding.",
+					"catalog": ["ADM-004"],
+					"operations": ["dashboard.resolveHome"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/dashboard/dashboard.test.mts",
+								"name": "AC:CASE-ADM-004 home comes from the seat and the saved setup, never from the address"
+							}
+						],
+						"cases": ["CASE-ADM-004"]
+					}
+				},
+				{
+					"id": "dismiss-prompt",
+					"says": "After the first week, an optional prompt can be dismissed for this person in every browser, changing no number.",
+					"catalog": ["ADM-005"],
+					"operations": ["dashboard.promptState"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/dashboard/dashboard.test.mts",
+								"name": "AC:CASE-ADM-005 a dismissed prompt stays dismissed for that person and changes no number or setup step"
+							}
+						],
+						"cases": ["CASE-ADM-005"]
+					}
+				}
+			]
+		}
+	]
+}

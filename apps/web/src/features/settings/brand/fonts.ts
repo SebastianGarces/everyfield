@@ -12,10 +12,6 @@ import {
 	Work_Sans,
 } from "next/font/google";
 
-// The curated brand fonts (FONTS in the branding contract), each loaded in its own face so every option and every
-// preview renders in its own typeface. `preload: false`: a face downloads only when the Brand kit section draws text
-// in it, so no other page pays for them. next/font hosts the files itself; there is no font upload. next/font reads
-// each call statically, so each loader is its own const with literal options.
 const dmSerifDisplay = DM_Serif_Display({ weight: "400", subsets: ["latin"], display: "swap", preload: false });
 const playfairDisplay = Playfair_Display({ subsets: ["latin"], display: "swap", preload: false });
 const lora = Lora({ subsets: ["latin"], display: "swap", preload: false });
@@ -40,7 +36,6 @@ const FAMILY: Record<FontId, string> = {
 	"Nunito Sans": nunitoSans.style.fontFamily,
 };
 
-/** The CSS font-family of a brand font id. A theme's web-safe stack (email) is not an id and passes through. */
 export function familyOf(font: string): string {
 	return font in FAMILY ? FAMILY[font as FontId] : font;
 }

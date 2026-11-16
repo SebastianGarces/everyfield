@@ -42,11 +42,6 @@ export type Data =
 	{ kind: "coverage"; coverage: Coverage; owners: Account[] | null } | { kind: "mine"; owners: Owners };
 type Row = Coverage["items"][number];
 
-/**
- * Follow-up assignments (REQ-TSK-012, REQ-TSK-013). Owners and Admins see each contact's coverage: owned, Needs owner,
- * or no follow-up at all, which is not late work and shows no invented date. They assign, add a follow-up and hand off
- * an account's follow-ups. A Member sees the follow-ups they own.
- */
 export function FollowUpsScreen({ data, filter }: { data: Data; filter: Filter }) {
 	return (
 		<>
@@ -66,15 +61,17 @@ export function FollowUpsScreen({ data, filter }: { data: Data; filter: Filter }
 }
 
 function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Account[] | null; filter: Filter }) {
-	// The page brought the eligible owners: Assign and Add follow-up use them without another read.
 	useState(() => owners && seedOwners(owners));
 	const router = useRouter();
 	const path = usePathname();
-	const [rows, setRows] = useState<Row[]>(coverage.items);
-	const [totals, setTotals] = useState<Totals>(coverage);
-	const [moved, setMoved] = useState("");
+	const [view, setView] = useState<{ rows: Row[]; totals: Totals; moved: string }>({
+		rows: coverage.items,
+		totals: coverage,
+		moved: "",
+	});
+	const { rows, totals, moved } = view;
+	const setRows = (change: (rows: Row[]) => Row[]) => setView((v) => ({ ...v, rows: change(v.rows) }));
 	const [adding, setAdding] = useState<Row["person"] | null>(null);
-	const [handoffOpen, setHandoffOpen] = useState(false);
 	const opener = useOpener();
 	const lane = useSaveIntent({ explain: problemText });
 	const go = (show: Filter, page = 1) => {
@@ -83,7 +80,6 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 		if (page > 1) q.set("page", String(page));
 		router.push(`${path}${q.size ? `?${q}` : ""}`);
 	};
-	/** A follow-up as shown in its contact's row: at once, from an answer, or back after a refusal. */
 	const change = (d: DutyItem) =>
 		setRows((all) =>
 			all.map((r) => {
@@ -94,31 +90,24 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 				return { ...r, duties, coverage: coverageOf(duties) };
 			}),
 		);
-	/**
-	 * After the server confirmed a change: the totals follow it, and a contact that no longer matches the chosen view
-	 * leaves the list, with a status line that says where it went.
-	 */
 	function confirmed(moves: Parameters<typeof totalsAfter>[1]) {
-		setTotals((t) => totalsAfter(t, moves));
-		if (filter === "any") return;
-		setRows((all) => {
-			const gone = all.filter((r) => coverageOf(r.duties) !== filter);
-			if (gone.length)
-				setMoved(
-					`${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(gone[0]!.duties)]}.`,
-				);
-			return all.filter((r) => coverageOf(r.duties) === filter);
+		setView((v) => {
+			const totals = totalsAfter(v.totals, moves);
+			if (filter === "any") return { ...v, totals };
+			const gone = v.rows.filter((r) => coverageOf(r.duties) !== filter);
+			return {
+				totals,
+				rows: v.rows.filter((r) => coverageOf(r.duties) === filter),
+				moved: gone.length
+					? `${gone.map((r) => r.person.label).join(", ")} moved to ${COVERAGE_LABEL[coverageOf(gone[0]!.duties)]}.`
+					: v.moved,
+			};
 		});
 	}
-	/**
-	 * After a refusal because a row was out of date: this view's rows, revisions and totals as the server has them now
-	 * (C58 rule 6). A failed read leaves the screen as it is; the refusal notice already says what happened.
-	 */
 	async function reload() {
 		const r = await loadCoverage(filter, coverage.page);
 		if (r.status !== "ok") return;
-		setRows(r.value.items);
-		setTotals(r.value);
+		setView((v) => ({ ...v, rows: r.value.items, totals: r.value }));
 	}
 	const handoff = useHandoff((r, plan) => {
 		forgetOwners();
@@ -130,7 +119,6 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					revisions.has(d.taskId)
 						? {
 								...d,
-								// D-d: the recipient takes the source's place; when it already holds the follow-up, the source leaves.
 								owners: [
 									...d.owners.filter((o) => o.accountId !== plan.from.accountId && o.accountId !== r.to.accountId),
 									{ ...r.to, eligible: true, reason: null },
@@ -165,7 +153,8 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 						icon={ArrowDataTransferHorizontalIcon}
 						onClick={(e) => {
 							opener.mark(e);
-							setHandoffOpen(true);
+							prefetchSeats();
+							handoff.start();
 						}}
 						{...warmOn(prefetchSeats)}
 					>
@@ -188,7 +177,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 						className="max-app-sm:w-full"
 					/>
 					<SaveNotice {...lane.noticeProps} dialogOpen={adding !== null} className="" />
-					<SaveNotice {...handoff.lane.noticeProps} dialogOpen={handoffOpen} className="" />
+					<SaveNotice {...handoff.lane.noticeProps} dialogOpen={handoff.open} className="" />
 					<p role="status" className="text-sm text-text-2 empty:hidden">
 						{moved}
 					</p>
@@ -232,6 +221,7 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 												disabled={lane.wait !== null}
 												onClick={(e) => {
 													opener.mark(e);
+													prefetchOwners();
 													setAdding(r.person);
 												}}
 												{...warmOn(prefetchOwners)}
@@ -322,8 +312,8 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 											disabled={handoff.lane.wait !== null}
 											onClick={(e) => {
 												opener.mark(e);
+												prefetchSeats();
 												handoff.start(o.accountId);
-												setHandoffOpen(true);
 											}}
 											{...warmOn(prefetchSeats)}
 										>
@@ -353,22 +343,18 @@ function Coverage({ coverage, owners, filter }: { coverage: Coverage; owners: Ac
 					}}
 				/>
 			) : null}
-			{handoffOpen ? (
+			{handoff.open ? (
 				<HandoffDialog
 					returnFocus={opener.returnFocus}
 					h={handoff}
 					former={totals.formerOwners}
-					onClose={() => {
-						setHandoffOpen(false);
-						handoff.closed();
-					}}
+					onClose={handoff.close}
 				/>
 			) : null}
 		</>
 	);
 }
 
-/** The follow-ups a Member owns, 50 to a page, with the pages in the address (D67). */
 function Mine({ owners }: { owners: Owners }) {
 	const router = useRouter();
 	const path = usePathname();

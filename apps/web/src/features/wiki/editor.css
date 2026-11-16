@@ -1,0 +1,3 @@
+html:has([data-wiki-editor]) {
+	scroll-padding-bottom: 128px;
+}

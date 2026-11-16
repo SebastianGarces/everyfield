@@ -46,14 +46,6 @@ import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../propos
 
 type TeamsContext = Parameters<typeof teamsWriter.create>[1];
 
-// The Ministries reviewed writes (WP-070). Each review is one SELECT under the proposal's statement: it reads the
-// ministry, role, program or responsibility live in the actor's church, shows every change with its value before and
-// after (names, never ids) and saves the native command's exact arguments with the revision the review showed. On
-// approval the executor runs the owning native teams command once, for the approving session, with the effect key as
-// its request key: the command checks the seat and the role again, refuses anything that changed
-// since the review (conflict, occupied, unavailable) and writes its audit row with the change. Assigning someone to a
-// role never grants an account or a seat, and Evry never records a training completion nobody reported.
-
 const admin = (actor: EvryActor) => actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 const plant = (actor: EvryActor) => sql`${actor.owner.id}::uuid`;
 const json = (value: unknown) => sql`${JSON.stringify(value ?? null)}::jsonb`;
@@ -71,22 +63,17 @@ const teamTarget = sql`jsonb_build_object('kind','team','id',t.id,'label',t.name
 const roleTarget = sql`jsonb_build_object('kind','role','id',r.id,'label',r.name||' · '||t.name)`;
 const programTarget = sql`jsonb_build_object('kind','training','id',g.id,'label',g.name)`;
 const lineTarget = sql`jsonb_build_object('kind','responsibility','id',l.id,'label',left(l.text,120))`;
-/** The ministry `t` in the actor's church. */
 const ministry = (actor: EvryActor, teamId: string) =>
 	sql`FROM team t WHERE t.id=${teamId}::uuid AND t.plant_id=${plant(actor)}`;
-/** The role `r` of ministry `t` in the actor's church. */
 const roleIn = (actor: EvryActor, roleId: string) =>
 	sql`FROM team_role r JOIN team t ON t.id=r.team_id AND t.plant_id=r.plant_id
 		WHERE r.id=${roleId}::uuid AND r.plant_id=${plant(actor)}`;
-/** The live person `p` in the actor's church. */
 const livePerson = (actor: EvryActor, personId: string) =>
 	sql`JOIN person p ON p.id=${personId}::uuid AND p.tenant_id=${plant(actor)} AND p.state='live'`;
-/** The current holder of role `r`, by name. */
 const holder = sql`(SELECT op.display_name FROM team_tenure tn JOIN person op ON op.id=tn.person_id
 	WHERE tn.role_id=r.id AND tn.ended_on IS NULL ORDER BY tn.started_on DESC LIMIT 1)`;
 const holderId = sql`(SELECT tn.person_id FROM team_tenure tn WHERE tn.role_id=r.id AND tn.ended_on IS NULL
 	ORDER BY tn.started_on DESC LIMIT 1)`;
-/** A domain receipt's revision, where the result names one; the outcome still says what happened. */
 function receipt(value: Record<string, unknown>): { receiptId: string; revision: string } {
 	const nested = ["team", "role", "program", "meeting", "assignment"]
 		.map((k) => (value[k] as { revision?: unknown } | undefined)?.revision)
@@ -94,13 +81,6 @@ function receipt(value: Record<string, unknown>): { receiptId: string; revision:
 	return { receiptId: String(value.receiptId), revision: String(value.revision ?? nested ?? "1") };
 }
 
-/**
- * One reviewed write: `review` selects the review and `args` (the native request without its request key); `run` is
- * the native command. Evry offers every ministry write to an Owner or Admin only: a Member's assistant reads and never
- * prepares changes, though a ministry's own leader may make some of them on the Ministries screens.
- */
-// Exported so the writes below sit in an exported chunk: the eval coverage guard (tests/workflow/evry-evals-coverage
-// .test.mjs) finds each `operation:` only after a file's first export.
 export function reviewed<I, R extends z.ZodType>(spec: {
 	operation: string;
 	description: string;
@@ -133,7 +113,6 @@ const name = z.string().trim().min(1).max(200);
 const text = z.string().trim().min(1).max(2000);
 const date = z.iso.date();
 
-/** Ministry facts a create or edit names, each with its before value from `t` (null for a new ministry). */
 const teamFields = (value: Record<string, unknown>, before: (column: string) => SQL) =>
 	Object.entries({ name: "name", description: "description", state: "state" }).flatMap(([field, column]) =>
 		value[field] === undefined ? [] : [change(field, before(column), json(value[field]))],
@@ -248,7 +227,6 @@ const retireRole = reviewed({
 	run: (tx, c, r) => teamsWriter.retireRole(tx, c, r),
 });
 
-/** Placing person `p` in role `r`: refused on the card when someone else holds it. Grants no account or seat. */
 const placement = (actor: EvryActor, value: { roleId: string; personId: string }, target: SQL, shown: SQL) =>
 	sql`SELECT ${review(
 		target,
@@ -357,7 +335,6 @@ const selection = z.strictObject({
 	teamKey: z.string().trim().min(1).max(80).describe("A template key from teams.listImportTemplates"),
 	roleKeys: z.array(z.string().trim().min(1).max(80)).max(20),
 });
-/** Catalog names for the chosen keys; the native command refuses an unknown key. */
 const catalogNames = (selections: { teamKey: string; roleKeys: string[] }[]) => ({
 	teams: selections.map((s) => s.teamKey).join(", "),
 	roles: selections.flatMap((s) => s.roleKeys).join(", ") || null,
@@ -436,7 +413,6 @@ const offerResponsibilities = reviewed({
 		selected: z.array(z.string().trim().min(1).max(80)).max(20),
 	}),
 	async review(actor, value, context) {
-		// The offer binds the exact preview the user saw: its catalog version and digest, read under live authority.
 		const preview = await responsibilityReader.previewResponsibilities(context.db, actor.authority, {
 			teamId: value.teamId,
 		});
@@ -469,7 +445,6 @@ const addResponsibility = reviewed({
 	run: (tx, c, r) => responsibilityWriter.addResponsibility(tx, c, r),
 });
 
-/** The live responsibility `l` of ministry `t` in the actor's church. */
 const line = (actor: EvryActor, id: string) =>
 	sql`FROM responsibility l JOIN team t ON t.id=l.team_id AND t.plant_id=l.plant_id
 		WHERE l.id=${id}::uuid AND l.plant_id=${plant(actor)} AND l.removed_at IS NULL`;
@@ -525,7 +500,6 @@ const createProgram = reviewed({
 	run: (tx, c, r) => trainingWriter.createProgram(tx, c, r),
 });
 
-/** The training program `g` in the actor's church, not archived. */
 const programIn = (actor: EvryActor, id: string) =>
 	sql`FROM training_program g WHERE g.id=${id}::uuid AND g.plant_id=${plant(actor)} AND g.archived_at IS NULL`;
 
@@ -551,7 +525,6 @@ const setRequiredTrainingParticipants = reviewed({
 	description: `Propose saving a training program's exact required list: these people, and no one else. Joining the ministry later never adds anyone.`,
 	input: z.strictObject({ programId, personIds: z.array(personId).max(100) }),
 	async review(actor, value, context) {
-		// The list binds the exact people the review shows, by the native preview's digest of their current records.
 		const preview = await trainingReader.readRequiredTrainingPreview(context.db, actor.authority, value);
 		if (preview.status !== "ok") return null;
 		const names = (ids: SQL) =>
@@ -568,7 +541,6 @@ const setRequiredTrainingParticipants = reviewed({
 	run: (tx, c, r) => trainingWriter.setRequiredTrainingParticipants(tx, c, r),
 });
 
-/** One person's completion of program `g`, as the user reported it, on the date they gave. */
 const completion = (
 	actor: EvryActor,
 	value: { programId: string; personId: string; earnedOn: string },
@@ -629,7 +601,6 @@ const recompleteTraining = reviewed({
 	run: (tx, c, r) => trainingWriter.recompleteTraining(tx, c, r),
 });
 
-/** The installed Ministries reviewed writes, keyed by operation. */
 export const TEAMS_COMMANDS = {
 	"teams.create": create,
 	"teams.edit": edit,

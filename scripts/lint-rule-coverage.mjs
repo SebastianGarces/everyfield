@@ -1,13 +1,3 @@
-// Which tool enforces each lint rule the packages had on before Oxlint took its share (T-43).
-//
-//   node scripts/lint-rule-coverage.mjs                  prints the coverage list
-//   node scripts/lint-rule-coverage.mjs --write-baseline records the rules on in the ESLint configs, without the
-//                                                         eslint-plugin-oxlint layer, in tests/workflow/lint-rules-baseline.json
-//
-// The baseline holds every rule that was on for at least one file each package lints. After the change a rule is
-// enforced by ESLint when it is still on there for some file, or by Oxlint when the package's .oxlintrc.json turns it
-// on (read through eslint-plugin-oxlint, which maps Oxlint's rules to their ESLint names). Anything else is missing,
-// and tests/workflow/lint-rule-coverage.test.mjs fails on it.
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -19,14 +9,10 @@ export const baselineFile = join(root, "tests/workflow/lint-rules-baseline.json"
 const lintable = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"]);
 const severities = { 0: "off", 1: "warn", 2: "error", off: "off", warn: "warn", error: "error" };
 
-// Oxlint runs the React compiler with fixed, valid options. These two rules only report invalid compiler options and
-// an invalid gating setup, both read from the rule's options, so they have nothing to check when the old config gave
-// them none and Oxlint runs the compiler rules in their place.
 const compilerOptionRules = ["react-hooks/config", "react-hooks/gating"];
 
 export const packages = () => ["apps/web", ...readdirSync(join(root, "packages")).map((name) => `packages/${name}`)];
 
-/** Reads a package's lint script: where it runs and what its ESLint and Oxlint steps lint. */
 function lintSetup(pkg) {
 	const script = JSON.parse(readFileSync(join(root, pkg, "package.json"), "utf8")).scripts?.lint;
 	if (!script) return null;
@@ -57,13 +43,11 @@ const requireFrom = (pkg, name) => {
 	throw new Error(`cannot load ${name} for ${pkg}`);
 };
 
-/** The rules on for at least one linted file, each with its strictest severity and the options it had. */
 async function eslintRules(pkg, setup, { withoutOxlint }) {
 	const { ESLint } = requireFrom(pkg, "eslint");
 	let config = (await import(pathToFileURL(setup.eslint.config).href)).default;
 	config = (await config).flat();
 	if (withoutOxlint) config = config.filter((entry) => !entry.name?.startsWith("oxlint/"));
-	// The working directory is the base path ESLint gives a config, as the lint script runs it.
 	const eslint = new ESLint({ cwd: setup.cwd, overrideConfigFile: true, baseConfig: config });
 	const files = execFileSync("git", ["ls-files", "-co", "--exclude-standard", "--", ...setup.eslint.paths], {
 		cwd: setup.cwd,
@@ -86,7 +70,6 @@ async function eslintRules(pkg, setup, { withoutOxlint }) {
 	return Object.fromEntries(Object.entries(rules).sort(([a], [b]) => a.localeCompare(b)));
 }
 
-/** The ESLint names of the rules a package's Oxlint config turns on. */
 function oxlintRules(pkg, setup) {
 	if (!setup.oxlint) return new Set();
 	const { buildFromOxlintConfigFile } = requireFrom(pkg, "eslint-plugin-oxlint");
@@ -104,7 +87,6 @@ export async function writeBaseline() {
 	return baseline;
 }
 
-/** For each package, each baseline rule and the tool that enforces it now: "eslint", "oxlint" or "missing". */
 export async function coverage(baseline = JSON.parse(readFileSync(baselineFile, "utf8"))) {
 	const result = {};
 	for (const [pkg, oldRules] of Object.entries(baseline)) {

@@ -14,57 +14,31 @@ import {
 	Spinner,
 	StatePanel,
 } from "@everyfield/ui/controls";
-import { useEffect, useState } from "react";
 import { HANDOFF_LIMIT } from "@everyfield/contracts/followups";
 import { executeHandoff } from "./actions.ts";
 import { DutyFacts } from "./duties.tsx";
-import { loadPlan, prefetchSeats } from "./fetch.ts";
-import {
-	keepSelection,
-	problemText,
-	type Account,
-	type HandoffPlan,
-	type HandoffResult,
-	type Outcome,
-} from "./model.ts";
+import { loadPlan, seatList } from "./fetch.ts";
+import { createHandoffStore, planOf } from "./HandoffDialog.store.ts";
+import { problemText, type Account, type HandoffPlan, type HandoffResult } from "./model.ts";
+import { useRead } from "../../components/read.tsx";
 import { DialogNotice, NoticeInDialog, SaveButton, useSaveIntent } from "../../components/save/parts.tsx";
+import { useLocalStore, useStore } from "../../components/store.ts";
 
 type Seat = { accountId: string; displayName: string; role: string };
 
-/**
- * The handoff's state and its save lane (REQ-TSK-013), held by the page, not the dialog. Closing the dialog while a
- * move is saving or its result is unknown keeps the lane, the selection and Check again on the page (C58, C68): only a
- * server answer settles it. A plain Cancel with nothing pending changes nothing and starts the next opening afresh.
- */
 export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => void) {
-	const [seats, setSeats] = useState<Outcome<{ items: Seat[] }> | null>(null);
-	const [from, setFrom] = useState("");
-	const [plan, setPlan] = useState<Outcome<HandoffPlan> | null>(null);
-	const [selected, setSelected] = useState<Set<string>>(new Set());
-	const [to, setTo] = useState("");
-	const [toError, setToError] = useState<string | null>(null);
-	const [result, setResult] = useState<HandoffResult | null>(null);
+	const store = useLocalStore(() => createHandoffStore({ loadPlan }));
+	const { open, from, plan, selected, to, toError, result, actions } = useStore(store, (s) => s);
 	const lane = useSaveIntent({ explain: problemText });
 
-	/** Reads the preview. `keep` keeps the person's selection and recipient for follow-ups still in it. */
-	async function preview(account: string, keep: boolean) {
-		if (!keep) setPlan(null);
-		const r = await loadPlan(account);
-		setPlan(r);
-		if (r.status !== "ok") return;
-		const open = r.value.duties;
-		setSelected((s) => (keep ? keepSelection(s, open) : new Set(open.slice(0, HANDOFF_LIMIT).map((d) => d.taskId))));
-		setTo((t) => (keep && r.value.recipients.some((x) => x.accountId === t) ? t : ""));
-	}
-
-	const p = plan?.status === "ok" ? plan.value : null;
+	const p = planOf({ plan });
 	const chosen = p ? p.duties.filter((d) => selected.has(d.taskId)) : [];
 	const recipient = p?.recipients.find((r) => r.accountId === to);
 
 	async function submit() {
 		if (!p) return;
-		if (!recipient) return setToError("Choose who takes these follow-ups.");
-		setToError(null);
+		if (!recipient) return actions.refuse("Choose who takes these follow-ups.");
+		actions.refuse(null);
 		const input = {
 			fromAccountId: p.from.accountId,
 			toAccountId: recipient.accountId,
@@ -74,69 +48,49 @@ export function useHandoff(onMoved: (r: HandoffResult, plan: HandoffPlan) => voi
 			what: `Moving ${input.items.length} follow-up${input.items.length === 1 ? "" : "s"}`,
 			send: (key) => executeHandoff(key, input),
 			ok: (value) => {
-				setResult(value);
+				actions.settle(value);
 				onMoved(value, p);
 			},
-			// Out of date or the recipient lost eligibility: read the preview again and keep the person's own choices.
 			refused: async (code) => {
-				if (code === "conflict" || code === "handoff_target_ineligible") await preview(p.from.accountId, true);
+				if (code === "conflict" || code === "handoff_target_ineligible") await actions.preview(p.from.accountId, true);
 			},
 		});
 	}
-	/** Opens the review for one account, as the "Waiting for a handoff" list does. */
-	function start(account: string) {
+	function start(account?: string) {
+		actions.show(true);
+		if (account === undefined || lane.notice || lane.wait) return;
+		actions.settle(null);
+		actions.choose(account);
+		void actions.preview(account, false);
+	}
+	function close() {
+		actions.show(false);
 		if (lane.notice || lane.wait) return;
-		setResult(null);
-		setFrom(account);
-		void preview(account, false);
+		actions.reset();
 	}
-	/** Opens the dialog: the seats come from the intent prefetch, read again only when that copy is old or failed. */
-	function opened() {
-		void prefetchSeats().then(setSeats);
-	}
-	/** Closes the dialog. With nothing saving, unknown or refused, the next opening starts afresh (Cancel changes nothing). */
-	function closed() {
-		if (lane.notice || lane.wait) return;
-		setFrom("");
-		setPlan(null);
-		setSelected(new Set());
-		setTo("");
-		setToError(null);
-		setResult(null);
-	}
-	const sourceName =
-		p?.from.displayName ??
-		(seats?.status === "ok" ? (seats.value.items.find((s) => s.accountId === from)?.displayName ?? null) : null);
 	return {
-		seats,
+		open,
 		from,
-		setFrom,
+		setFrom: actions.choose,
 		plan,
 		p,
 		selected,
-		setSelected,
+		setSelected: actions.select,
 		to,
-		setTo,
+		setTo: actions.give,
 		toError,
 		result,
-		setResult,
+		setResult: actions.settle,
 		lane,
 		chosen,
-		preview,
+		preview: actions.preview,
 		submit,
-		opened,
-		closed,
-		sourceName,
 		start,
+		close,
 	};
 }
 export type Handoff = ReturnType<typeof useHandoff>;
 
-/**
- * Hand an account's open follow-ups to an eligible owner (REQ-TSK-013). Choose whose follow-ups, review them and the
- * recipient, then move up to 100 at once, all or nothing. Cancel changes nothing; follow-ups left behind read as Needs
- * owner while their stored owner cannot own them. The save's notice shows inside the dialog while it is open.
- */
 export function HandoffDialog({
 	h,
 	former,
@@ -144,15 +98,16 @@ export function HandoffDialog({
 	returnFocus,
 }: {
 	h: Handoff;
-	/** Focus back to the button that opened the dialog (useOpener). */
 	returnFocus?: (e: Event) => void;
-	/** Accounts that still hold open follow-ups they can no longer own, including ones whose seat ended. */
 	former: readonly (Account & { open: number })[];
 	onClose: () => void;
 }) {
-	const { seats, from, setFrom, plan, p, selected, setSelected, to, setTo, toError, result, setResult, lane } = h;
-	const { chosen, preview, submit, sourceName } = h;
-	useEffect(h.opened, []); // eslint-disable-line react-hooks/exhaustive-deps
+	const { from, setFrom, plan, p, selected, setSelected, to, setTo, toError, result, setResult, lane } = h;
+	const { chosen, preview, submit } = h;
+	const seats = useRead(seatList).value ?? null;
+	const sourceName =
+		p?.from.displayName ??
+		(seats?.status === "ok" ? (seats.value.items.find((s) => s.accountId === from)?.displayName ?? null) : null);
 	return (
 		<NoticeInDialog {...lane.noticeProps}>
 			<Dialog open onOpenChange={(next) => !next && onClose()}>
@@ -189,7 +144,7 @@ export function HandoffDialog({
 								<>
 									<Field label="Whose follow-ups">
 										<Select
-											value={from || undefined}
+											value={from}
 											onValueChange={(v) => {
 												setFrom(v);
 												void preview(v, false);
@@ -226,7 +181,7 @@ export function HandoffDialog({
 											}
 										>
 											<Select
-												value={to || undefined}
+												value={to}
 												onValueChange={setTo}
 												placeholder="Choose a person"
 												options={p.recipients.map((r) => ({ value: r.accountId, label: r.displayName }))}
@@ -336,10 +291,6 @@ function Review({
 	);
 }
 
-/**
- * Whose follow-ups can move: everyone who can no longer own the follow-ups they hold, including an account whose seat
- * ended, first, then every current seat (a demoted one included).
- */
 function sourceOptions(seats: readonly Seat[], former: readonly (Account & { open: number })[]) {
 	const left = former.map((f) => ({
 		value: f.accountId,

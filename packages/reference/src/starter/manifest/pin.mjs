@@ -1,5 +1,3 @@
-// Pins the app's approved Wiki source to the living seed. `--check` fails on drift; `--write` updates approved.ts.
-// Run after `bin/wiki promote` so the promoted version reaches the app's next Wiki install.
 import { createHash } from "node:crypto";
 import { readFile, writeFile } from "node:fs/promises";
 

@@ -1,5 +1,3 @@
-// T-356: every qa-test-* container a QA test starts goes when its run ends, and `bin/dev check`'s sweep removes the
-// orphans of runs that died, never a live run's database or another container.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
@@ -9,10 +7,8 @@ import { join } from "node:path";
 import { AGE_ENV, LABELS, processStart, sweep, sweepCommand } from "../containers.ts";
 
 const MINUTE = 60_000;
-/** A pid no process holds any more. */
 const deadPid = spawnSync("true").pid;
 
-/** A `docker` on PATH that answers ps, inspect and rm from a JSON state file, as Docker's CLI does. */
 function fakeDocker(containers: { name: string; ageMinutes: number; owner?: [number, string] | null }[], down = false) {
 	const dir = mkdtempSync(join(tmpdir(), "qa-fake-docker-"));
 	const state = join(dir, "state.json");
@@ -79,7 +75,6 @@ test("INV-qa-containers: the sweep removes old orphans only, and never a live ru
 		`qa-test sweep removed qa-test-reused-pid, 180 min old: its owning run (pid ${process.pid}, started Thu Jan  1 00:00:00 2026) is gone`,
 	]);
 
-	// The threshold comes from the environment.
 	assert.deepEqual(sweep({ ...docker.env, [AGE_ENV]: "20" }), {
 		removed: [
 			{
@@ -112,10 +107,6 @@ test("INV-qa-containers: without Docker or its daemon the sweep says it skipped,
 const exists = (name: string) =>
 	spawnSync("docker", ["ps", "-a", "-q", "--filter", `name=^/${name}$`], { encoding: "utf8" }).stdout.trim() !== "";
 
-/**
- * Runs the child QA test process and resolves with it once its database is up and named. Its stdin is a pipe from this
- * process, so a waiting child ends when this test process does.
- */
 function child(mode: "fail" | "wait" | "parent") {
 	const p = spawn(process.execPath, [join(import.meta.dirname, "fixtures/quiet-database-child.ts"), mode], {
 		stdio: ["pipe", "pipe", "pipe"],
@@ -136,7 +127,6 @@ function child(mode: "fail" | "wait" | "parent") {
 	return { p, container, exited };
 }
 
-/** Whether the container still exists once removal had time to finish: after a signal, removal starts at death. */
 async function remains(name: string) {
 	for (let waited = 0; exists(name) && waited < 15_000; waited += 250) await new Promise((r) => setTimeout(r, 250));
 	return exists(name);
@@ -147,7 +137,6 @@ test("INV-qa-containers: a QA database goes when its test process fails, is inte
 		const run = child("fail");
 		const name = await run.container;
 		assert.equal(await run.exited, 1);
-		// Removed before the process was gone, not after.
 		assert.equal(exists(name), false);
 	});
 	for (const signal of ["SIGINT", "SIGTERM", "SIGKILL"] as const)
@@ -164,7 +153,6 @@ test("INV-qa-containers: a QA database goes when its test process fails, is inte
 			assert.equal(await run.exited, signal);
 			assert.equal(await remains(name), false);
 		});
-	// The orphan of an interrupted check: the test process that started the waiting child dies, by any signal.
 	await t.test("its parent killed", async () => {
 		const run = child("parent");
 		const name = await run.container;

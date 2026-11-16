@@ -206,6 +206,16 @@ test("INV-leave: an in-app link or a sign-out from a page holding unsaved work w
 	assert.equal(click(link).defaultPrevented, false, "nothing unsaved: the link is not held");
 });
 
+test("INV-leave: an action the person already chose to leave by runs at once from a page holding unsaved work, with no question from the page or the browser", () => {
+	page = [new FakeForm("form", leave.leaveHoldMark(true))];
+	routerTransitionStarted("/documents/written/3", "push");
+	let reloaded = 0;
+	leave.leaveNow(() => reloaded++);
+	assert.equal(reloaded, 1);
+	assert.equal(leave.leaveRequestNow(), null);
+	assert.equal(dispatch("beforeunload", null, {}).defaultPrevented, false);
+});
+
 test("INV-leave: when the page is hidden, each marked beacon goes out once with keepalive", async () => {
 	page = [
 		new FakeElement("article", leave.leaveBeaconMark({ url: "/api/wiki/progress", body: { fraction: "0.62" } })),

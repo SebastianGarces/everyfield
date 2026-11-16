@@ -1,10 +1,3 @@
-// ops.readiness: the before-customer-data gate report (docs/architecture/recovery.md, "Before-customer-data gate";
-// runbook.json "observability.readiness"). It reads only the evidence handed to it (a private evidence file on the
-// CLI) and names each kind of evidence still missing: cost approval, the restricted host schedule, key exclusion from
-// ordinary app/build/preview access, and a coherent restore that proved live recovery. A restore rehearsal never proves
-// live recovery, so it never counts. No network, provider, spend or configuration call. WP-058 closes the gate with live
-// evidence; in this slice the gate never reads ready and the build gate never rests on backup. Only the restricted CLI
-// and tests import this file.
 import { createRequire } from "node:module";
 const require = createRequire(new URL("../../packages/domain/package.json", import.meta.url));
 const { z } = require("zod");
@@ -17,7 +10,6 @@ const capability = z.strictObject({
 	environment: z.literal("isolated-test"),
 });
 const at = z.iso.datetime();
-/** What each kind of evidence must state to count as supplied. Anything else counts as missing. */
 const EVIDENCE = {
 	cost_approval: z.looseObject({
 		approved: z.literal(true),
@@ -38,9 +30,7 @@ export type ReadinessReport =
 			refusal: null;
 			customer_data_gate: "blocked";
 			build_gate_from_backup: false;
-			/** The evidence still missing, in a fixed order. */
 			missing: EvidenceItem[];
-			/** Supplied evidence is a claim; no live check of it runs here. */
 			live_evidence_verified: false;
 			checked_at: string;
 	  }

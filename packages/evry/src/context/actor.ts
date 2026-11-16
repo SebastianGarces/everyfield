@@ -1,13 +1,8 @@
 import type { RequestActor } from "@everyfield/domain/access";
 import type { Owner } from "@everyfield/contracts/common";
 
-/** The four exact contexts a conversation can belong to. */
 export type ContextKind = "account" | "plant" | "sending_church" | "sending_network";
 
-/**
- * The verified conversation owner for one request or one turn: the account, its session, the exact context and the
- * current role. Built only from a RequestActor, which the domain builds from a live session.
- */
 export type EvryActor = {
 	readonly authority: RequestActor;
 	readonly accountId: string;
@@ -15,9 +10,7 @@ export type EvryActor = {
 	readonly owner: Exclude<Owner, { kind: "global" }>;
 	readonly contextKind: ContextKind;
 	readonly role: "owner" | "admin" | "member" | null;
-	/** The seat that grants the context; null in the account context. */
 	readonly seatId: string | null;
-	/** The actor's own live person row in this church, resolved once per turn (self.ts); null when there is none. */
 	readonly selfPersonId: string | null;
 };
 
@@ -36,7 +29,6 @@ export function evryActor(authority: RequestActor): EvryActor {
 	};
 }
 
-/** The same account still holds the same exact context. A different context needs an explicit choice, never a fallback. */
 export function sameContext(a: EvryActor, b: EvryActor) {
 	return a.accountId === b.accountId && a.owner.kind === b.owner.kind && a.owner.id === b.owner.id;
 }

@@ -8,11 +8,6 @@ import { familyOf } from "./fonts";
 import { themeOf, type BrandForm } from "./model";
 import { NativeImage } from "@/components/native";
 
-// The live preview (REQ-BRD-006, REQ-DOC-017): one miniature page per document class. Every rule on it comes from the
-// theme that resolveDocumentTheme returns for the unsaved draft, the function the server resolves with, so no class
-// rule is written here. Text uses theme.colors.ink or theme.colors.heading only; a brand color appears as a rule or a
-// fill, with the text color the PDF prints on that fill (textOn, the renderer's rule) on it. Logos are fixed-size slots with the church name in type.
-
 const CLASSES: { value: DocumentClass; label: string }[] = [
 	{ value: "formal/legal", label: "Formal/legal" },
 	{ value: "outward-facing", label: "Outward-facing" },
@@ -20,11 +15,9 @@ const CLASSES: { value: DocumentClass; label: string }[] = [
 	{ value: "email", label: "Email" },
 ];
 
-/** The sheet is drawn at this many pixels per millimetre of the printed page, so a slot keeps its real proportions. */
 const PX_PER_MM = 1.7;
 const PAPER = "white";
 
-/** The route that serves a stored asset to this screen (port.brand.assetSrc). */
 const AssetSrc = createContext<(fileId: string) => string>(() => "");
 
 export function BrandPreview({
@@ -91,10 +84,6 @@ const heading = (theme: DocumentTheme): CSSProperties => ({
 
 type Image = { fileId: string; alt: string };
 
-/**
- * A logo slot: fixed height (and width or max width). The church's uploaded image fills it when the theme places one
- * there; otherwise the church name is set in type. No Everyfield logo is ever drawn.
- */
 function LogoSlot({
 	theme,
 	image,
@@ -132,7 +121,6 @@ function LogoSlot({
 	);
 }
 
-/** Text lines standing for body copy. They are ink at low weight, never a brand color. */
 function Lines({ widths }: { widths: number[] }) {
 	return (
 		<div className="flex flex-col gap-[5px]" aria-hidden="true">
@@ -207,7 +195,6 @@ function Formal({ theme, layout }: { theme: DocumentTheme; layout: Layout<"forma
 
 function Outward({ theme, layout }: { theme: DocumentTheme; layout: Layout<"outward-facing"> }) {
 	const src = use(AssetSrc);
-	// The cover band is the primary color, or the neutral rule color in the neutral theme. Text on it is derived.
 	const band = theme.colors.rule;
 	const stripe = theme.colors.accent ?? theme.colors.rule;
 	const { contact } = layout;

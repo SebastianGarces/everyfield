@@ -2,9 +2,6 @@ import { bodyToTextResult, textToBody } from "./body.ts";
 import { fieldProblem, fieldProblemText, usableKeys } from "./fields.ts";
 import { emptyAudience, type Audience, type Draft, type DraftState, type Template } from "./model.ts";
 
-// The compose form and what it needs to be saved, checked and shown. Pure, so the step rules are testable.
-
-/** A person on the To field. A null name means the draft stored only the id and the audience read has not named them yet. */
 type PersonRef = { id: string; displayName: string | null; email: string | null };
 
 export type Form = {
@@ -12,11 +9,9 @@ export type Form = {
 	revision: string | null;
 	state: DraftState | "new";
 	subject: string;
-	/** The typed message. The stored body is textToBody(text). */
 	text: string;
 	audience: Audience;
 	people: PersonRef[];
-	/** The template shown in the picker: a template id, or "none". */
 	templateKey: string;
 	templateId: string | null;
 	templateSource: string | null;
@@ -67,7 +62,6 @@ export function formFrom(draft: Draft, templates: readonly Template[], known: re
 	};
 }
 
-/** The saveDraft input for a form. */
 export function draftPayload(form: Form) {
 	const body = textToBody(form.text);
 	return {
@@ -84,7 +78,6 @@ export function draftPayload(form: Form) {
 export const audienceSize = (audience: Audience) =>
 	audience.groups.length + audience.teamIds.length + audience.personIds.length;
 
-/** Why Write cannot move on, or null. The first issue of the subject and field rules comes first. */
 export function writeReason(
 	form: Form,
 	hasMeeting: boolean,
@@ -98,7 +91,6 @@ export function writeReason(
 		const text = fieldProblemText(problem);
 		return { reason: text, body: text };
 	}
-	// An empty field is named in the footer only. A red error on a fresh form would scold before anyone typed.
 	if (!form.subject.trim()) return { reason: "Enter a subject." };
 	if (!form.text.trim()) return { reason: "Write the message." };
 	return null;

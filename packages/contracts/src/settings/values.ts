@@ -16,8 +16,6 @@ export const plantProfile = z.strictObject({
 export const inactivity = z
 	.strictObject({ warningDays: z.int().min(1), alertDays: z.int().max(365) })
 	.refine((v) => v.warningDays < v.alertDays, { message: "warning_must_precede_alert" });
-// Plant schedule OFF differs from recipient daily/weekly cadence. It does not
-// override an account's explicit category/channel preference.
 export const digestSchedule = z.discriminatedUnion("cadence", [
 	z.strictObject({ cadence: z.literal("off") }),
 	z.strictObject({ cadence: z.literal("daily"), hour: z.int().min(0).max(23) }),
@@ -28,8 +26,6 @@ export const timezonePreference = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("unconfirmed") }),
 	z.strictObject({ status: z.literal("confirmed"), timeZone, revision }),
 ]);
-// A closed, nonempty patch preserves every omitted exact-pair choice, including
-// shared_findings. SQL policy/revision locking stays with WP-007's producer.
 export const affiliationPatch = z
 	.strictObject({
 		people: z.boolean().optional(),
@@ -55,8 +51,6 @@ export function applyAffiliationPatch(
 		shared_findings: patch.shared_findings ?? stored.shared_findings,
 	};
 }
-// WP-030 owns delivery and current audience eligibility. These DTOs carry only
-// its registered choices, never grants, private-care data or arbitrary rules.
 export const notificationCategory = z.enum([
 	"task_due",
 	"task_overdue",
@@ -74,35 +68,17 @@ export const notificationCategory = z.enum([
 	"residency_feedback",
 	"answer_review",
 ]);
-/**
- * Categories a linked resident receives from their sending church's residency (T-365, D-1415): the director confirmed a
- * milestone they marked done, or wrote feedback on one of their milestones. Every other category needs a seat.
- */
 export const residencyCategories = ["residency_confirmation", "residency_feedback"] as const;
-/**
- * Categories only an organization seat receives: its own oversight digest, and kept answers an Owner or Admin sent the
- * seat to review (T-385). A church never offers them.
- */
 export const organizationCategories = ["oversight_digest", "answer_review"] as const;
-/**
- * Categories that live in the bell only: a Wiki review request, and a person who unsubscribed from a Messages email
- * the account scheduled (T-242, D-680). They have no email channel to choose.
- */
 export const inAppOnlyCategories = ["wiki_upstream_review", "scheduled_email_unsubscribe"] as const;
-/** The channels a category offers: every reader, writer and setting row uses this one rule. */
 export function notificationChannels(category: z.infer<typeof notificationCategory>): readonly ("email" | "in_app")[] {
 	return (inAppOnlyCategories as readonly string[]).includes(category) ? ["in_app"] : ["email", "in_app"];
 }
-/**
- * A channel's state for a person who never saved a choice. Every reader and every sender uses this one rule. The
- * church digest goes by email only; the oversight digest goes to the bell only (WP-030 decision D-a).
- */
 export function defaultChannelEnabled(category: z.infer<typeof notificationCategory>, channel: "email" | "in_app") {
 	if (category === "planter_digest") return channel === "email";
 	if (category === "oversight_digest") return channel === "in_app";
 	return true;
 }
-/** A person's digest cadence before they save one: weekly for the church digest, daily for oversight (D-b). */
 export const defaultDigestCadence = { planter_digest: "weekly", oversight_digest: "daily" } as const;
 export const notificationChoice = z.union([
 	z.strictObject({
@@ -118,8 +94,6 @@ export const notificationPatch = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("oversight_cadence"), cadence: z.enum(["daily", "weekly"]) }),
 ]);
 export const notificationSettings = z.strictObject({
-	// Ten ordinary categories have two channels; the in-app-only ones have one.
-	// Unique pairs therefore cap this closed matrix without a redundant limit.
 	choices: z
 		.array(notificationChoice)
 		.refine((v) => new Set(v.map((c) => `${c.category}:${c.channel}`)).size === v.length),
