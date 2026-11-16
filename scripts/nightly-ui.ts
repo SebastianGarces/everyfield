@@ -1,31 +1,14 @@
-// The GitHub nightly's tests/ui job (T-301): the browser set over a seeded production build of this checkout, on the
-// runner's own throwaway Postgres (DATABASE_URL to `everyfield_ci`, with CI=true and EARLY_ACCESS_TEST_DATABASE=1).
-// Run `pnpm build` first. Each command is one workflow step, so each engine reports on its own:
-//   node scripts/nightly-ui.ts up <dir>         every tests/ui seed `up` for ORIGIN, then `next start` there, which
-//                                                reads the apps/web/.env.local the seeds wrote; it keeps running
-//   node scripts/nightly-ui.ts test <engine> <dir>   every tests/ui/**/*.test.mjs with UI_ENGINE=<engine>; exits 1 on a
-//                                                failing, cancelled or missing test, or when no test passed
-//   node scripts/nightly-ui.ts down <dir>       stops the server and runs every seed `down`
-// <dir> collects server.log, <engine>.log and the mail outbox for the failure artifact; fixtures/ holds the seeds'
-// fixtures (session cookies), which the artifact leaves out. The preview runs the scripted Evry model (the seeds' env
-// file sets it) and the dev mail capture (no provider key, no VERCEL_ENV), as `bin/dev nightly`'s preview does.
 import { spawn, spawnSync } from "node:child_process";
 import { createWriteStream, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ENGINES, type Engine, seedsOf, TSX, uiTestFiles } from "./nightly.ts";
 
-/** The origin the server answers at. The seeds accept only *.localhost; the workflow maps this name to 127.0.0.1. */
 export const ORIGIN = "http://nightly.localhost:3000";
 const PORT = "3000";
 
-/** One engine's run, from node:test's last summary. */
 export type EngineRun = { tests: number; passed: number; failed: number; cancelled: number; skipped: number };
 
-/**
- * node:test's last summary in `output` (spec `ℹ` or tap `#` lines), and why the run is not green: no summary (it
- * crashed), no test, a failed or cancelled test, or no passing test (every test skipped). A null reason means green.
- */
 export function engineVerdict(output: string): { run: EngineRun | null; reason: string | null } {
 	const last = (name: string) => {
 		const value = [...output.matchAll(new RegExp(`^(?:ℹ|#) ${name} (\\d+)\\s*$`, "gm"))].at(-1)?.[1];
@@ -55,12 +38,10 @@ export function engineVerdict(output: string): { run: EngineRun | null; reason: 
 
 export type UiDeps = {
 	files: () => string[];
-	/** Runs node:test over `files` with `engine` and returns its whole output. */
 	test: (files: string[], engine: Engine) => Promise<string>;
 	log: (line: string) => void;
 };
 
-/** One engine's step: 0 only when every file ran and the verdict is green. */
 export async function uiTest(engine: Engine, deps: UiDeps): Promise<number> {
 	const files = deps.files();
 	if (!files.length) {
@@ -75,14 +56,11 @@ export async function uiTest(engine: Engine, deps: UiDeps): Promise<number> {
 	return reason ? 1 : 0;
 }
 
-// ---- The real runner: node, next and the seeds in this checkout. ----
-
 const root = fileURLToPath(new URL("..", import.meta.url));
 const fixtureEnv = (dir: string) =>
 	Object.fromEntries(
 		seedsOf(root).map(({ name }) => [`${name.toUpperCase()}_UI_FIXTURE`, join(dir, "fixtures", `${name}.json`)]),
 	);
-/** The settings the server, the seeds and the tests share: one fixture folder and one mail outbox. */
 const shared = (dir: string): NodeJS.ProcessEnv => {
 	const { NODE_TEST_CONTEXT: _, ...env } = process.env;
 	return { ...env, ...fixtureEnv(dir), EVERYFIELD_DEV_OUTBOX: join(dir, "outbox") };
@@ -103,7 +81,6 @@ function seed(dir: string, action: "up" | "down") {
 
 const pidFile = (dir: string) => join(dir, "server.pid");
 
-/** `next start` on the build, in its own process group, logging to server.log; resolves once it answers. */
 async function startServer(dir: string) {
 	const log = openSync(join(dir, "server.log"), "a");
 	const server = spawn(
@@ -138,13 +115,10 @@ function stopServer(dir: string) {
 	if (!existsSync(pidFile(dir))) return;
 	try {
 		process.kill(-Number(readFileSync(pidFile(dir), "utf8")), "SIGTERM");
-	} catch {
-		// Already gone.
-	}
+	} catch {}
 	rmSync(pidFile(dir));
 }
 
-/** node:test over `files`, streamed to this step's log and to <dir>/<engine>.log. */
 function runTests(dir: string, files: string[], engine: Engine): Promise<string> {
 	const out = createWriteStream(join(dir, `${engine}.log`));
 	const child = spawn(process.execPath, ["--test", "--test-concurrency=1", ...files], {
