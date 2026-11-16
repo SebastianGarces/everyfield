@@ -273,7 +273,7 @@ agent-browser wait --text "passes text"
 
 Choose file uploads a logo or image with its alt text; the stored file is a private, trimmed copy that only this church plant's Owner and Admin can load. The tests prove the upload; the browser proof shows the control.
 
-- Operations: brand.uploadAsset
+- No operation: the upload is `brandWriter.requestUpload` then `brandWriter.finalizeUpload`; no code names the catalog's `brand.uploadAsset` since comments were removed
 - Catalog: BRD-002
 - Cases: CASE-BRD-002
 - Test: `tests/integration/branding/branding.test.mts`: `AC:CASE-BRD-002 alt-text-required and unsupported types refuse before anything is stored`

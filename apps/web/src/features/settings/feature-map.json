@@ -480,7 +480,8 @@
 					"id": "logo",
 					"says": "Choose file uploads a logo or image with its alt text; the stored file is a private, trimmed copy that only this church plant's Owner and Admin can load. The tests prove the upload; the browser proof shows the control.",
 					"catalog": ["BRD-002"],
-					"operations": ["brand.uploadAsset"],
+					"operations": [],
+					"noOperation": "the upload is `brandWriter.requestUpload` then `brandWriter.finalizeUpload`; no code names the catalog's `brand.uploadAsset` since comments were removed",
 					"proof": {
 						"tests": [
 							{
