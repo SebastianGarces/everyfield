@@ -23,12 +23,7 @@ import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
 import { makePalette, tokenColor, type RenderTheme, type ThemeImage } from "./theme.ts";
 import { zip, type ZipEntry } from "./zip.ts";
 
-// The Word file of one everyfield.doc/1 document: a tree walker over the same nodes the PDF renderer walks. Prose maps
-// to w:p and w:r. Word has no side-by-side blocks, panels or tiles, so columns and boxes are borderless or shaded
-// tables, and a tiled sheet is a table of fixed-height cells. Headers and footers are Word headers and footers with
-// PAGE and NUMPAGES fields. Same document, same theme, same bytes.
-
-const TW = 20; // twips per point
+const TW = 20;
 const EMU_PER_PT = 12700;
 const NUM_BULLET = 1;
 const NUM_FIRST_LIST = 10;
@@ -38,9 +33,7 @@ type W = DocxCtx & {
 	doc: EveryfieldDoc;
 	theme: RenderTheme;
 	values: Record<string, string>;
-	/** The text width of the current place, in twips. */
 	width: number;
-	/** The fill under the current place, for text on a colored panel. */
 	fill: string | null;
 	part: Part;
 	lists: number[];
@@ -49,7 +42,6 @@ type W = DocxCtx & {
 	drawings: { n: number };
 };
 
-// Text on a fill takes the color the PDF and the workbook pick for it (textOn), whatever palette token the fill is.
 const onFill = (w: W) => (w.fill && w.fill !== w.p.muted ? textOn(w.fill, w.p.ink) : null);
 
 type RunStyle = {
@@ -86,7 +78,6 @@ function rel(part: Part, type: string, target: string, external = false) {
 	return id;
 }
 
-/** Text as runs, each bracketed placeholder ([date], [number]) a run shaded with the placeholder fill, as in the PDF. */
 function marked(w: W, text: string, o: RunStyle) {
 	return placeholderParts(text)
 		.map((part) =>
@@ -97,7 +88,6 @@ function marked(w: W, text: string, o: RunStyle) {
 		.join("");
 }
 
-/** Inline nodes as runs. Marks map to Word run properties; a link is a w:hyperlink; a tag is a shaded caps run. */
 function runs(w: W, content: readonly InlineNode[] | undefined, base: RunStyle): string {
 	return (content ?? [])
 		.map((node) => {
@@ -191,7 +181,6 @@ function list(w: W, items: { content: ParagraphNode[] }[], ordered: boolean) {
 		.join("");
 }
 
-/** A table with given column widths (twips) and rows of cell XML. */
 function grid(
 	widths: number[],
 	rows: {
@@ -205,7 +194,7 @@ function grid(
 	o: {
 		borders: string;
 		caption: string;
-		/** A full-page sheet: the paragraph after the table takes no room. */ sheet?: boolean;
+		sheet?: boolean;
 	},
 ) {
 	const total = widths.reduce((s, x) => s + x, 0);
@@ -267,7 +256,6 @@ function image(w: W, node: Extract<BlockNode, { type: "image" }>) {
 	if (source && source.mediaType !== "image/svg+xml")
 		return para(picture(w, source, width, a.height, a.source === "photo"), jc(a.align));
 	if (a.source === "photo") return "";
-	// No logo: the church name is set in type, as in the PDF logo slot.
 	return para(
 		run(w.values.church_name ?? "", { font: w.fonts.heading, size: 18, color: onFill(w) ?? w.p.ink }),
 		jc(a.align),
@@ -328,7 +316,6 @@ function divider(w: W, node: Extract<BlockNode, { type: "divider" }>) {
 function table(w: W, node: TableNode) {
 	const a = attrsOf(node);
 	const cols = a.columns;
-	// The shared rule works in points; Word wants twips.
 	const widths = columnWidths(cols, w.width / TW).map((pt) => Math.floor(pt * TW));
 	const computed = computeTable(node);
 	const anyValue = (node.content ?? []).some((row) =>
@@ -459,7 +446,6 @@ function numbering(w: W) {
 	return `${HEAD}<w:numbering ${NS}><w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="singleLevel"/>${lvl("bullet", "•")}</w:abstractNum><w:abstractNum w:abstractNumId="3"><w:multiLevelType w:val="singleLevel"/>${lvl("decimal", "%1.")}</w:abstractNum>${nums.join("")}</w:numbering>`;
 }
 
-/** A tiled sheet as one table: each cell is one card at the tile size, with the header, body and footer. */
 function tiled(w: W) {
 	const page = w.doc.page;
 	const tile = page.tile!;
@@ -478,7 +464,6 @@ function tiled(w: W) {
 		].join("");
 	const rows = Array.from({ length: tile.down }, () => ({
 		cells: Array.from({ length: tile.across }, card),
-		// One point under the tile height leaves room for the tiny paragraph Word requires after a table.
 		height: Math.floor(tb.height * TW) - TW,
 		exact: true,
 	}));
@@ -496,7 +481,6 @@ const regionBlocks = (w: W, region: Region | null | undefined) => (region ? bloc
 const noticePara = (w: W) =>
 	para(run(LEGAL_NOTICE, { bold: true, size: 9, color: w.p.ink }), '<w:spacing w:before="60" w:after="0"/>');
 
-/** One header or footer part. The footer of a formal/legal document ends with the legal notice. */
 function regionPart(w: W, which: "header" | "footer", region: Region | null) {
 	const part: Part = { rels: [], images: [] };
 	const inner = { ...w, part };
@@ -506,13 +490,11 @@ function regionPart(w: W, which: "header" | "footer", region: Region | null) {
 	return { xml: `${HEAD}<w:${tag} ${NS}>${content}${notice || (content ? "" : para(""))}</w:${tag}>`, part };
 }
 
-/** The Word file for one document or template. The theme names the fonts and colors; images come from it. */
 export function renderDocDocx(
 	source: EveryfieldDoc,
 	theme: { render: RenderTheme; fonts: { heading: string; body: string } },
 	created: Date,
 ): Buffer {
-	// Conditional text resolves first, as for the PDF: a block left out leaves no empty paragraph behind.
 	const doc = printedDoc(source);
 	const size = pageBox(doc.page);
 	if (!size) throw new Error("the page has no size");
@@ -535,8 +517,6 @@ export function renderDocDocx(
 	};
 	const body = doc.page.tile ? tiled(w) : blocks(w, doc.body.content ?? []);
 
-	// Header and footer parts by `pages`. A "first" or "rest" region turns on Word's different-first-page setting;
-	// then each region has a default part (later pages) and a first-page part.
 	const regions = { header: doc.page.header ?? null, footer: doc.page.footer ?? null };
 	const titlePg = !doc.page.tile && Object.values(regions).some((reg) => reg && reg.pages !== "all");
 	const parts: { name: string; type: "header" | "footer"; kind: "default" | "first"; xml: string; part: Part }[] = [];
