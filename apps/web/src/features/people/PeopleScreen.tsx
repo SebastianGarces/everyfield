@@ -26,6 +26,7 @@ import {
 	SearchInput,
 	SegmentedControl,
 	StatePanel,
+	CardStickyFooter,
 } from "@everyfield/ui/controls";
 import { Avatar, DataTable, Pagination, PersonCard, StageChip, StatusBadge, type Column } from "@everyfield/ui/display";
 import { createDebouncer, Icon } from "@everyfield/ui/foundations";
@@ -399,12 +400,12 @@ function Pager({
 	go: (q: PeopleQuery) => void;
 }) {
 	return (
-		<div className="sticky bottom-0 z-[2] -mx-7 -mb-[26px] flex flex-wrap items-center justify-between gap-3 rounded-b-card border-t border-line bg-surface px-7 pt-3 pb-[max(12px,env(safe-area-inset-bottom))] max-app-sm:-mx-5 max-app-sm:-mb-5 max-app-sm:px-5">
+		<CardStickyFooter>
 			<span className="text-text-3" role="status">
 				{rangeText(query, shown, total)}
 			</span>
 			<Pagination page={query.page} pageCount={pageCount(total)} onPageChange={(n) => go({ ...query, page: n })} />
-		</div>
+		</CardStickyFooter>
 	);
 }
 
