@@ -1,8 +1,3 @@
-// T-241: unsubscribing stops Messages email that is already scheduled (REQ-NTF-016, D-284: "Per church and per person,
-// staff can see it but can't clear it"). A scheduled email waits in Everyfield and the minute runner hands it to the
-// email service at its send time, so an opt-out before then always wins, even when the email service cannot be
-// reached. An email the email service already holds (scheduled before T-241) is cancelled there by the runner.
-// Every email goes through the real Messages adapter to a recorded fake of the Resend API.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -39,7 +34,6 @@ async function person(church, name, email = `${name.toLowerCase()}-${key().slice
 	return { id, email, name };
 }
 
-/** Staff schedule a Messages email to `people` for `at` (next week by default) through the real writer. */
 async function schedule(who, people, resend, at = new Date(Date.now() + 7 * DAY).toISOString()) {
 	const write = (op, input) =>
 		withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
@@ -77,7 +71,6 @@ const sentTo = (resend) =>
 		.filter((r) => r.path === "/emails/batch" && r.method === "POST")
 		.flatMap((r) => r.body.map((m) => m.to[0]));
 
-/** Unsubscribe the way the person does: with the Unsubscribe token from an email this church sent them. */
 async function unsubscribe(church, who) {
 	const resend = resendRecorder(PRODUCTION);
 	const sent = await schedule(church, [who], resend);
@@ -122,7 +115,6 @@ test("AC:CASE-NTF-016 Ana unsubscribes after the email is scheduled; at the send
 
 	await unsubscribe(ownerA, ana);
 
-	// Done 2: before it goes out, Ana is marked and the recipient count leaves her out.
 	const before = await shown(ownerA, message.id);
 	assert.equal(before.item.state, "scheduled");
 	assert.equal(statusOf(before, ana), "unsubscribed");
@@ -134,16 +126,13 @@ test("AC:CASE-NTF-016 Ana unsubscribes after the email is scheduled; at the send
 	assert.equal(before.totals.reachable, 2);
 	assert.equal(before.item.reachable, 2);
 	assert.equal(before.totals.unsubscribed, 1);
-	// Nothing was handed to the email service yet, and a skip is not an answer from it.
 	assert.equal(before.totals.attempted, 0);
 	assert.deepEqual(before.totals.outcomes, []);
 
-	// Done 1: at the send time Ben and Cy get it, Ana gets nothing.
 	await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
 	assert.deepEqual(sentTo(resend).sort(), [ben.email, cy.email].sort());
 	assert.equal(sentTo(resend).includes(ana.email), false);
 
-	// Done 3: after it went out, Ana is skipped because she unsubscribed, and no failure or bounce counts her.
 	const after_ = await shown(ownerA, message.id);
 	assert.equal(after_.item.state, "sending");
 	assert.equal(statusOf(after_, ana), "unsubscribed");
@@ -180,7 +169,6 @@ test("AC:CASE-NTF-016 an email the email service already held before this change
 
 	await unsubscribe(ownerA, ana);
 	resend.take();
-	// The email service cannot be reached the first minute: nothing changes and the next minute asks again.
 	resend.fault(anaEmail, "fail");
 	await minuteRunner(f.db, resend.transport, keys);
 	assert.deepEqual(
@@ -199,7 +187,6 @@ test("AC:CASE-NTF-016 an email the email service already held before this change
 	assert.equal(statusOf(view, ana), "unsubscribed");
 	assert.equal(view.item.state, "scheduled");
 	assert.deepEqual([view.totals.failed, view.totals.unsubscribed, view.totals.reachable], [0, 1, 1]);
-	// A later minute asks nothing more.
 	resend.take();
 	await minuteRunner(f.db, resend.transport, keys);
 	assert.deepEqual(
@@ -273,7 +260,6 @@ test("AC:CASE-NTF-016 after Ana unsubscribes, compose shows her as unsubscribed 
 		audience.recipients.map((r) => r.id),
 		[ben.id],
 	);
-	// In a group too: everyone in the church.
 	const everyone = ok(await read(ownerA, "readAudience", { groups: ["all"], teamIds: [], personIds: [] }));
 	assert.ok(everyone.unsubscribedExclusions.some((p) => p.id === ana.id));
 	assert.equal(
@@ -281,7 +267,6 @@ test("AC:CASE-NTF-016 after Ana unsubscribes, compose shows her as unsubscribed 
 		false,
 	);
 
-	// Forced in by id, the schedule and the send refuse her and send Ben.
 	const resend = resendRecorder(PRODUCTION);
 	const forced = await schedule(ownerA, [ana, ben], resend);
 	assert.deepEqual([forced.report.acceptedCount, forced.report.unsubscribedCount], [1, 1]);
@@ -291,7 +276,6 @@ test("AC:CASE-NTF-016 after Ana unsubscribes, compose shows her as unsubscribed 
 		await rows(sql`SELECT state, refusal FROM mail WHERE logical_key = ${"communication/" + forced.id + "/" + ana.id}`),
 		[{ state: "refused", refusal: "unsubscribed" }],
 	);
-	// No staff path clears it: the opt-out is still current after all of this.
 	assert.equal(ok(await read(ownerA, "listForPerson", { personId: ana.id })).emailOptOutAt, at);
 });
 
@@ -300,10 +284,8 @@ test("AC:CASE-NTF-016 Ana unsubscribes one minute before the send while the emai
 	const ben = await person(churchA, "Ben");
 	const resend = resendRecorder(PRODUCTION);
 	const message = await schedule(ownerA, [ana, ben], resend);
-	// The send time is one minute away.
 	await f.admin.execute(sql`UPDATE mail SET scheduled_at = clock_timestamp() + interval '1 minute'
 		WHERE logical_key LIKE ${"communication/" + message.id + "/%"} AND state = 'scheduled'`);
-	// The email service can't be reached for a cancel or a time change: every such call fails or is rate limited.
 	const cancels = [];
 	const down = {
 		...resend.transport,
@@ -321,7 +303,6 @@ test("AC:CASE-NTF-016 Ana unsubscribes one minute before the send while the emai
 	assert.deepEqual(sentTo(resend), [ben.email]);
 	assert.deepEqual(cancels, [], "no cancel was needed: the email service never had Ana's email");
 
-	// Her own undo inside the hour does not bring the skipped email back.
 	const undone = ok(await undoMessagesOptOut(f.db, ring, now, { token: optOut.undoToken }));
 	assert.equal(undone.changed, true);
 	await minuteRunner(f.db, down, keys);
@@ -340,8 +321,6 @@ test("AC:CASE-NTF-016 the runner checks the opt-out itself at the send time, inc
 	const ben = await person(churchA, "Ben");
 	const resend = resendRecorder(PRODUCTION);
 	const message = await schedule(ownerA, [ana, ben], resend);
-	// The opt-out reaches the runner without the opt-out writer's mark: a person who unsubscribed earlier is merged
-	// into Ana after the email was scheduled.
 	await f.admin.execute(sql`INSERT INTO person_email_opt_out (plant_id, person_id) VALUES (${churchA.id}, ${old.id})`);
 	await f.admin.execute(
 		sql`UPDATE person SET merged_into_person_id = ${ana.id}, state = 'merged' WHERE id = ${old.id}`,

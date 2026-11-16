@@ -23,7 +23,6 @@ before(async () => {
 });
 after(() => f?.close());
 
-// People reads have their own 42-path check in tests/integration/people/people.test.mts.
 test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lock on the reader's session, so sign-out never waits for them", async () => {
 	const plant = await f.workspace(),
 		org = await f.workspace("sending_church");
@@ -52,7 +51,6 @@ test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lo
 	);
 	const evry = evryActor(owner.actor);
 	const conversation = await createConversation(f.db, evry, { requestKey: randomUUID(), title: "C22" });
-	// A resident's own residency link in a sending network.
 	const s = await f.setup("sending_network"),
 		resident = await f.resident(s.w),
 		i = await f.invitation(s, resident);
@@ -68,7 +66,6 @@ test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lo
 	const section = (who, request) => (tx) =>
 		settings.getSection(tx, { authority: who.actor, principal }, request).then(ok);
 	const tasks = (op, input?) => (tx) => taskReader[op](tx, owner.actor, input).then(ok);
-	// Each read runs inside an open transaction, where a session lock would last until COMMIT.
 	const reads: [string, (tx) => Promise<unknown>][] = [
 		["tasks get", tasks("get", { taskId: task.id })],
 		["tasks list", tasks("list", {})],
@@ -104,7 +101,6 @@ test("INV-reads (C22, C27): Tasks, Settings, Evry and residency reads hold no lo
 	for (const [name, read] of reads)
 		await f.db.transaction(async (tx) => {
 			assert.ok(await read(tx), name);
-			// The read's transaction is still open: a sign-out or session refresh must not wait for it.
 			try {
 				await f.admin.transaction(async (a) => {
 					await a.execute(sql`SET LOCAL lock_timeout='250ms'`);

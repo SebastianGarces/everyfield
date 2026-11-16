@@ -8,7 +8,6 @@ import { and, eq, isNull, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import { assigneesOf, assignedCount, insertTasks } from "../task-assignees.mts";
 let f;
-// The text of every statement this test's runtime pool sends.
 const sent = [];
 before(async () => {
 	f = await fixture();
@@ -53,7 +52,6 @@ test("AC:TARGET-IDN-017 AC:TARGET-IDN-003 AC:ROLE43-006 ordinary invitation hide
 	assert.equal(JSON.stringify(i.result).includes(i.proof), false);
 	assert.deepEqual(await f.invitations.invite(await f.actor(s.sender.session), i.command), i.result);
 
-	// INV-proof-fragment (D54): the mailed link carries the proof only after #, which no browser request sends.
 	const sent = f.effects.findLast((e) => e.text.includes(i.proof) || e.text.includes(encodeURIComponent(i.proof)));
 	assert.match(sent.text, /\/invitation#proof=\S+/);
 	assert.doesNotMatch(sent.text, /[?&]proof=/);
@@ -137,7 +135,6 @@ test("AC:TEN-005 AC:SEC-02 AC:AUTH-002 INV-claim: wrong mailbox unverified accou
 	});
 	await denied(f.invitations.accept(s.recipient.session, i.claim));
 	assert.equal(await count(t.seat, eq(t.seat.account_id, s.recipient.id)), 0);
-	// RT-6a: the workspace's deletion witness, read by the command's admission check after the root lock, also refuses.
 	const s2 = await f.setup(),
 		i2 = await f.invitation(s2);
 	await f.admin.insert(t.lifecycle_witness).values({
@@ -156,13 +153,11 @@ test("AC:TEN-005 AC:SEC-02 AC:AUTH-002 INV-claim: wrong mailbox unverified accou
 	await denied(f.invitations.accept(s2.recipient.session, i2.claim));
 	assert.equal(await count(t.seat, eq(t.seat.account_id, s2.recipient.id)), 0);
 });
-// RT-6a verifier finding: the expiry check uses the database time after the wait for the workspace root lock.
 test("INV-expiry: an accept or resume that waits on the workspace lock past expiry refuses", async () => {
 	for (const via of ["accept", "resume"] as const) {
 		const s = await f.setup(),
 			i = await f.invitation(s),
 			id = i.result.invitation.invitationId;
-		// The invitation expires 2.5 seconds from now, by the database clock.
 		await f.admin.execute(
 			sql`UPDATE invitation SET created_at=clock_timestamp()-interval '720 hours'+interval '2.5 seconds' WHERE id=${id}`,
 		);
@@ -186,8 +181,6 @@ test("INV-expiry: an accept or resume that waits on the workspace lock past expi
 				true,
 				`${via} must wait for the workspace root lock`,
 			);
-			// Exempt from the no-sleep rule (test-standard, owner ruling D-704): the claim reads and locks the invitation
-			// before this wait, so only elapsed time shows the expiry check uses the clock read after the root lock (RT-6a).
 			await new Promise((resolve) => setTimeout(resolve, 3000));
 		});
 		const result = await claim;
@@ -485,7 +478,6 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 		},
 	]);
 	const target = { seatId: a.seat.seatId };
-	// Only an Owner or Admin of the seat's own workspace reads it; a Member and another workspace's Owner do not.
 	await denied(f.seats.readRemoval(s.recipient.session, s.w, target));
 	await denied(f.seats.readRemoval(other.sender.session, s.w, target));
 	await denied(f.seats.readRemoval(other.sender.session, other.w, target));
@@ -497,7 +489,6 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 		review.recipients.map((r) => r.accountId),
 		[s.sender.id],
 	);
-	// The review is exactly what remove needs: handing off each listed duty succeeds at once.
 	const result = await f.seats.remove(
 		await f.actor(s.sender.session),
 		s.w,
@@ -521,7 +512,6 @@ test("AC:TARGET-IDN-019 INV-removal-review: the review names exactly the duties 
 	await denied(f.seats.readRemoval(s.sender.session, s.w, target));
 });
 
-/** Runs `body` and returns its result with the text of every statement it sent. */
 async function statements(body) {
 	const start = sent.length;
 	return { result: await body(), sent: sent.slice(start) };
@@ -543,7 +533,6 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 			cleanup_state: "not_started",
 			...values,
 		});
-	// Each of these active seats is not a recipient remove would accept.
 	await member("pending_domain");
 	const future = await member(),
 		ended = await member(),
@@ -566,7 +555,6 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 		cancel_until: new Date(requested.getTime() + 30 * 86400000),
 	});
 	await witness({ kind: "seat", opaque_subject_id: blockedSeat.seat, seat_id: blockedSeat.seat });
-	// An active witness does not block.
 	await witness({ kind: "seat", opaque_subject_id: witnessed.seat, seat_id: witnessed.seat, state: "active" });
 	const review = () => statements(() => f.seats.readRemoval(s.sender.session, s.w, { seatId }));
 	const few = await review();
@@ -581,7 +569,6 @@ test("AC:TARGET-IDN-019 INV-removal-review-recipients: only eligible seats are o
 		]),
 	);
 	assert.equal(few.result.recipients[0].displayName, "Synthetic person");
-	// Four more eligible members cost no extra statement.
 	const more = [];
 	for (let n = 0; n < 4; n++) more.push(await member());
 	const many = await review();
@@ -606,7 +593,6 @@ test("AC:TARGET-IDN-019 INV-removal-linked: a task with a linked obligation is o
 		a = await f.invitations.accept(s.recipient.session, i.claim),
 		[linked, settled] = [key(), key()],
 		[open, closed] = [key(), key()];
-	// Each evaluation comes from its own meeting.
 	for (const id of [linked, settled]) {
 		const meeting = key();
 		await f.admin.execute(
@@ -643,7 +629,6 @@ test("AC:TARGET-IDN-019 INV-removal-linked: a task with a linked obligation is o
 			obligation_id: settled,
 		},
 	]);
-	// The open task and its obligation are one reviewed duty; the completed task's obligation is not a duty.
 	const review = await f.seats.readRemoval(s.sender.session, s.w, { seatId: a.seat.seatId });
 	assert.deepEqual(
 		review.duties.map((d) => [d.dutyId, d.kind]),
@@ -664,7 +649,6 @@ test("AC:TARGET-IDN-019 INV-removal-linked: a task with a linked obligation is o
 		noReminders,
 	);
 	assert.deepEqual(result.duties, [{ status: "moved", dutyId: open, recipientAccountId: s.sender.id }]);
-	// The task carries the owner; the obligation keeps no second one.
 	assert.deepEqual(await assigneesOf(f.admin, open), [s.sender.id]);
 	const [kept] = await f.admin.select().from(t.task).where(eq(t.task.id, closed));
 	assert.equal(kept.status, "complete");
@@ -748,7 +732,6 @@ test("AC:TARGET-IDN-002 AC:TARGET-IDN-003 AC:TARGET-IDN-030 AC:SEC-03 native inv
 	});
 	assert.deepEqual(await unrelated.json(), { status: "continue_identity_proof" });
 	assert.equal(await count(t.auth_user, eq(t.auth_user.email, address)), 0);
-	// Existing addressed account takes the same public path; no cookie or grant is returned.
 	const duplicate = await send({
 		kind: "invitation",
 		name: "Synthetic",
@@ -840,12 +823,10 @@ test("AC:ROLE43-006 INV-settings-member INV-invitations: pending and Member acto
 test("INV-invite-revision: a stale workspace revision refuses as conflict, a duplicate pending invitation stays unavailable", async () => {
 	const s = await f.setup(),
 		i = await f.invitation(s);
-	// The same address again at the current revision: the duplicate keeps its own code.
 	await denied(
 		f.invitations.invite(await f.actor(s.sender.session), { ...i.command, requestKey: key() }),
 		"invitation_unavailable",
 	);
-	// Another tab saved the church settings, so the page's revision is behind.
 	await f.admin.update(t.plant).set({ revision: "2" }).where(eq(t.plant.id, s.w.id));
 	const before = await count(t.invitation, eq(t.invitation.tenant_id, s.w.id));
 	await denied(
@@ -877,11 +858,9 @@ test("AC:ROLE43-006 C13: seats.list and invitations.list read nothing for an act
 	);
 	assert.equal((await f.invitations.list(appointed, { workspace: s.w })).items.length, 1);
 	assert.equal((await f.seats.list(appointed, { workspace: s.w })).items.length, 2);
-	// Demoted after the request resolved its actor: the roster stays readable, the invitations do not.
 	await f.admin.update(t.seat).set({ role: "member" }).where(eq(t.seat.id, adminSeat));
 	await denied(f.invitations.list(appointed, { workspace: s.w }));
 	assert.equal((await f.seats.list(appointed, { workspace: s.w })).items.length, 2);
-	// Seat ended after the request resolved its actor: both reads refuse with the same RequestActor.
 	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, adminSeat));
 	await denied(f.seats.list(appointed, { workspace: s.w }));
 	await f.admin

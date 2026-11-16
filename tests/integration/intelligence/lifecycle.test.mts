@@ -1,9 +1,3 @@
-// Deletion and seat removal against Plant Intelligence and Network Intelligence (TEN-007, SCHEMA-011, MW-CASE-023).
-// Each test drives the real operations: account.requestDeletion and churches.requestWorkspaceDeletion with their
-// restricted cancel (settings/deletion.ts), the lifecycle purge worker on the cleanup login, privacy.setSharing,
-// seats.remove after its removal review, and the assessment sweep and job with the scripted drafter. "P's Owner sees X"
-// is intelligence.readAssessment as that Owner; "S1 sees X" is organizationIntelligence.read (the portfolio level),
-// .readLocations (the region level) or .readHistory (an earlier run) as S1's director.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { AsyncResource } from "node:async_hooks";
@@ -37,11 +31,9 @@ let clockMs = Date.now();
 const clock = { now: () => new Date(clockMs).toISOString() as never };
 const job = createAssessmentJob({ clock });
 const assessments = createAssessments({ clock });
-/** The scripted drafter; a `during` hook runs in the test's own context, not inside the worker's. */
 const scripted = (options: Parameters<typeof scriptedAssessmentDrafter>[0] = {}) =>
 	scriptedAssessmentDrafter(options.during ? { ...options, during: AsyncResource.bind(options.during) } : options);
 const deletion = deletionOperations({
-	// As the settings mount queues it (apps/web/src/features/settings/server.ts).
 	queue: (tx, i) =>
 		queueJobs(tx, [
 			{
@@ -53,16 +45,13 @@ const deletion = deletionOperations({
 				eligibleAt: i.eligibleAt,
 			},
 		]),
-	// Notice mail is covered by tests/integration/settings/workspace-deletion-mail.test.mts.
 	workspaceNotice: async () => {},
 });
-// The sharing change's cache invalidation is covered by the organizations suites; here it adds no write.
 const sharing = sharingOperations({
 	invitation: async () => {},
 	invalidate: () => sql`UPDATE job SET state=state WHERE false`,
 });
 let seats: ReturnType<typeof createSeatService>;
-/** The purge worker's private bucket: none of these churches holds a file. */
 const storage = { bucket: "synthetic-only", client: { send: async () => ({}) } };
 
 before(async () => {
@@ -79,7 +68,6 @@ const command = (input: unknown, expectedRevision: string, requestKey: string = 
 	expectedRevision,
 	requestKey,
 });
-/** Publishes the plant's next assessment and has its Owner open it, so its organizations see it at once. */
 async function publish(p: Plant) {
 	clockMs = Date.now();
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
@@ -91,12 +79,10 @@ async function publish(p: Plant) {
 }
 const portfolio = (name: string) => c0.portfolio(name, publish);
 const current = async (p: { actor: RequestActor }) => ok(await assessments.readAssessment(c0.db, p.actor, {})).current;
-/** What S1's director reads: the latest run at `level`, or the run `runId`. */
 const network = (s: Portfolio, level: "portfolio" | "region" = "portfolio", runId: string | null = null) =>
 	readIntelligence(c0.db, s.director, { level, runId });
 const rowsOf = (view: Awaited<ReturnType<typeof network>>) => view!.groups.flatMap((g) => g.rows);
 const count = async (q: ReturnType<typeof sql>) => Number((await c0.one(q)).n);
-/** P's lifecycle witness, its instants as Dates (null while unset). */
 async function witness(p: { id: string }) {
 	const w =
 		await c0.one(sql`SELECT state,request_id,request_revision::text AS request_revision,requested_at,cancel_until,
@@ -105,7 +91,6 @@ async function witness(p: { id: string }) {
 		w[k] = w[k] === null ? null : new Date(w[k]);
 	return w;
 }
-/** A new sign-in of P's Owner: a deletion request ends every session of the church. */
 async function signIn(p: Plant): Promise<Plant> {
 	const session = randomUUID();
 	await c0.admin.execute(sql`INSERT INTO auth_session(id,user_id,token,expires_at)
@@ -125,7 +110,6 @@ async function requestDeletion(p: Plant) {
 		),
 	);
 }
-/** The Owner proves who they are on the deletion page and cancels the request named by `pending`. */
 async function cancel(p: Plant, pending: { subject: unknown; requestId: string; revision: string }) {
 	const request = { subject: pending.subject, requestId: pending.requestId };
 	const handle = await c0.db.transaction((tx) =>
@@ -138,7 +122,6 @@ async function cancel(p: Plant, pending: { subject: unknown; requestId: string; 
 		deletion.cancelWorkspaceDeletion(tx, handle, command(request, pending.revision) as never),
 	);
 }
-/** The plant Owner turns one sharing category with S1 on or off (privacy.setSharing). */
 async function share(s: Portfolio, p: Plant, category: string, enabled: boolean) {
 	const a = await c0.one(sql`SELECT revision::text AS revision,consent_revision::text AS consent FROM affiliation
 		WHERE id=${p.affiliation}`);
@@ -162,10 +145,6 @@ async function share(s: Portfolio, p: Plant, category: string, enabled: boolean)
 		),
 	);
 }
-/**
- * The 30 days pass: the request and its purge job move back, as if made 31 days ago. The witness clock is immutable
- * (trigger witness_clock), so the suite's schema owner lifts that trigger for this one update only.
- */
 async function graceEnds(w: { id: string }) {
 	await c0.admin.transaction(async (tx) => {
 		await tx.execute(sql`ALTER TABLE lifecycle_witness DISABLE TRIGGER witness_clock`);
@@ -177,9 +156,7 @@ async function graceEnds(w: { id: string }) {
 			AND subject_record_id=${w.id}`);
 	});
 }
-/** The every-minute purge worker on the cleanup login; answers how many subjects it purged. */
 const purge = () => runDuePurges(c0.db, (c0.database.pools as Record<string, any>).cleanup, storage as never, 10);
-/** P's open-or-finished change demands: what a sweep queued for it. */
 const changeDemands = (p: { id: string }) =>
 	c0.rows(sql`SELECT producer_key FROM job WHERE kind='assessment' AND subject_record_id=${p.id}
 		AND producer_key LIKE 'change/%' ORDER BY eligible_at,id`);
@@ -213,7 +190,6 @@ test("AC:TEN-007 after A's account deletion and its purge, P keeps A's shared re
 	assert.equal(await purge(), 1);
 	assert.equal((await c0.one(sql`SELECT state FROM lifecycle_witness WHERE id=${w.id}`)).state, "purged");
 
-	// P's shared records stay; what names A now is the removed account, whose login and name are gone.
 	const r = s.records;
 	assert.equal(await count(sql`SELECT count(*) AS n FROM person WHERE id=${r.contact} AND state='live'`), 1);
 	assert.equal(await count(sql`SELECT count(*) AS n FROM training_credit WHERE id=${r.credit}`), 1);
@@ -228,14 +204,12 @@ test("AC:TEN-007 after A's account deletion and its purge, P keeps A's shared re
 			AND actor_id IS NULL AND actor_token IS NOT NULL`)) > 0,
 		"the Person's history stays with an opaque actor",
 	);
-	// A's private check-in, its weeks and its words are gone; P's Owner's own check-in stays.
 	assert.equal(await count(sql`SELECT count(*) AS n FROM private_calendar WHERE author_id=${a.id}`), 0);
 	assert.equal(await count(sql`SELECT count(*) AS n FROM private_week WHERE author_id=${a.id}`), 0);
 	assert.equal(await count(sql`SELECT count(*) AS n FROM private_calendar WHERE author_id=${p.owner.id}`), 1);
 	const words = await c0.rows(sql`SELECT 1 FROM private_week_revision WHERE note LIKE ${"%" + CANARY + "-alex%"}`);
 	assert.equal(words.length, 0);
 
-	// Plant Intelligence and Network Intelligence read as before; no organization deletion exists.
 	assert.deepEqual(await current(p), before.p);
 	assert.deepEqual(await network(s), before.network);
 	assert.equal(
@@ -251,7 +225,6 @@ test("AC:SCHEMA-011 a workspace deletion request denies P at once, hides it from
 	const s = await portfolio("Request Fence");
 	const { q } = s;
 	let p = s.p;
-	// P narrows its grant before the request: S1 keeps P's findings, not the concerns that rest on people.
 	await share(s, p, "people", false);
 	const later = randomUUID();
 	ok(await requestIntelligenceRefresh(c0.db, s.director, { runId: later }));
@@ -263,14 +236,12 @@ test("AC:SCHEMA-011 a workspace deletion request denies P at once, hides it from
 	const shownBefore = rowsOf(before.latest).find((r) => r.plantId === p.id)!;
 	assert.equal(shownBefore.status, "shared");
 	const r0 = await current(p);
-	// Reader feedback on both results and a pending refresh of P.
 	ok(await assessments.submitFeedback(c0.db, p.actor, { runId: r0!.runId, ordinal: 1, rating: "useful", comment: "" }));
 	const runsBefore = await count(sql`SELECT count(*) AS n FROM assessment_run WHERE plant_id=${p.id}`);
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 
 	const pending = await requestDeletion(p);
 	assert.equal(pending.status, "pending_deletion");
-	// Right away: P's own seats are signed out and an actor still holding the old session reads nothing.
 	assert.deepEqual(await RequestActor.resolve(c0.db, p.owner.session as never), { status: "unavailable" });
 	assert.notEqual((await assessments.readAssessment(c0.db, p.actor, {})).status, "ok");
 	for (const view of [await network(s), await network(s, "portfolio", s.runId), await network(s, "region")]) {
@@ -282,7 +253,6 @@ test("AC:SCHEMA-011 a workspace deletion request denies P at once, hides it from
 			[q.id],
 		);
 	}
-	// The pending job was cancelled with the request; a run of the job queue publishes nothing for P.
 	await runAssessmentBatch(job, c0.db, scripted(), 20);
 	assert.equal(await count(sql`SELECT count(*) AS n FROM assessment_run WHERE plant_id=${p.id}`), runsBefore);
 	assert.deepEqual(
@@ -291,7 +261,6 @@ test("AC:SCHEMA-011 a workspace deletion request denies P at once, hides it from
 		[{ state: "cancelled" }],
 	);
 
-	// The Owner cancels: a new sign-in reads P again, and S1 sees exactly what it saw before under the live grant.
 	ok(await cancel(p, pending));
 	p = await signIn(p);
 	assert.deepEqual(await current(p), r0);
@@ -319,7 +288,6 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 		}),
 	);
 
-	// P's Owner turns findings off for S1, then asks to delete P; the cancel brings P back without S1's grant.
 	await share(s, p, "shared_findings", false);
 	const first = await requestDeletion(p);
 	const w1 = await witness(p);
@@ -336,11 +304,9 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 		assert.equal(row.status, "not_shared", "Limited visibility under the revoked grant");
 		assert.equal(JSON.stringify(view).includes(r0!.runId), false);
 	}
-	// While P shares no findings, S1's next run counts Q alone.
 	const qOnly = randomUUID();
 	ok(await requestIntelligenceRefresh(c0.db, s.director, { runId: qOnly }));
 
-	// A second request, its own id and revision; a cancel at the fence is refused and changes nothing.
 	const second = await requestDeletion(p);
 	assert.notEqual(second.requestId, first.requestId);
 	const w3 = await witness(p);
@@ -354,7 +320,6 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 	refused(await cancel(p, second), "deadline_passed");
 	assert.deepEqual(await witness(p), fenced);
 
-	// What the purge must leave: Q's assessment, S1, the run Q fed alone, and an account outside P.
 	const q0 = await current(q);
 	const kept = async () => ({
 		organization: await c0.one(sql`SELECT to_jsonb(o) AS row FROM organization o WHERE o.id=${s.s1.id}`),
@@ -378,7 +343,6 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 	for (const table of ["assessment_run", "assessment_insight", "assessment_feedback", "assessment_seen"])
 		assert.equal(await count(sql`SELECT count(*) AS n FROM ${sql.raw(table)} WHERE plant_id=${p.id}`), 0, table);
 	assert.equal(await count(sql`SELECT count(*) AS n FROM network_intelligence_plant WHERE plant_id=${p.id}`), 0);
-	// Every run P fed goes whole: its other contributors and its feedback too. Only S1's refresh receipts stay.
 	for (const run of fedRuns) {
 		assert.equal(await count(sql`SELECT count(*) AS n FROM network_intelligence_run WHERE id=${run}`), 0);
 		assert.equal(await count(sql`SELECT count(*) AS n FROM network_intelligence_plant WHERE run_id=${run}`), 0);
@@ -393,7 +357,6 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 		0,
 		"no organization deletion",
 	);
-	// S1 can recompute: its next run counts Q only.
 	const after = randomUUID();
 	ok(await requestIntelligenceRefresh(c0.db, s.director, { runId: after }));
 	assert.deepEqual(await c0.rows(sql`SELECT plant_id FROM network_intelligence_plant WHERE run_id=${after}`), [
@@ -404,7 +367,6 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 		[q.id],
 	);
 
-	// No later write moves the purged clocks: not the same request, not a recopy under a new id, not a restore.
 	const refusedWrite = (set: ReturnType<typeof sql>) =>
 		assert.rejects(c0.admin.execute(sql`UPDATE lifecycle_witness SET ${set} WHERE id=${purged.id}`), (e: any) =>
 			/immutable_lifecycle_clock/.test(e.cause?.message ?? e.message),
@@ -421,7 +383,6 @@ test("AC:SCHEMA-011 AC:TEN-007 a cancel under a separately revoked grant revives
 	assert.deepEqual(await witness(p), purged);
 });
 
-/** The removal review Admin A reads, and the removal it confirms: Seat-B's one follow-up needs an owner. */
 async function removal(s: Portfolio, requestKey: string = randomUUID()) {
 	const owner = { kind: "plant" as const, id: s.p.id };
 	const review = await seats.readRemoval(s.a.session, owner, { seatId: s.seatB.seatId });
@@ -449,7 +410,6 @@ const eligible = async (s: Portfolio) =>
 	(await c0.one(sql`SELECT ${eligibleOwner(sql`${s.seatB.id}::uuid`, sql`${s.p.id}::uuid`)} AS ok`)).ok as boolean;
 const seatOf = (s: Portfolio) =>
 	c0.one(sql`SELECT ended_at,revision::text AS revision FROM seat WHERE id=${s.seatB.seatId}`);
-/** P's Seat-B account still has an open Admin seat beside its linked Leader Person: the Discovery lead-reader rule. */
 const leadAdmin = async (s: Portfolio) =>
 	(
 		await c0.one(sql`SELECT EXISTS(SELECT FROM person e JOIN seat x ON x.account_id=e.linked_account_id
@@ -501,7 +461,6 @@ test("AC:MW-CASE-023 Admin A removes Seat-B with no wakeup: R0 stays current, th
 	const r0 = (await current(p))!;
 	const r0Row = await c0.one(sql`SELECT source_revision FROM assessment_run WHERE id=${r0.runId}`);
 	const s1 = await network(s);
-	// Nothing changed since R0: a sweep queues no change demand for P.
 	await job.scheduleAssessments(c0.db, 500);
 	assert.deepEqual(await changeDemands(p), []);
 	assert.deepEqual([await eligible(s), await leadAdmin(s)], [true, true]);
@@ -512,16 +471,13 @@ test("AC:MW-CASE-023 Admin A removes Seat-B with no wakeup: R0 stays current, th
 	assert.notEqual((await seatOf(s)).ended_at, null);
 	assert.deepEqual([await eligible(s), await leadAdmin(s)], [false, false]);
 	assert.deepEqual(await c0.rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${s.seatB.task}`), []);
-	// No wakeup reaches the assessment job: R0 is still what P's Owner reads.
 	assert.equal((await current(p))!.runId, r0.runId);
-	// The audit row names P and carries no private care.
 	const [event] = await c0.rows(sql`SELECT tenant_id,to_jsonb(e)::text AS body FROM audit_event e
 		WHERE e.action='membership.ended' AND e.subject_id=${s.seatB.seatId}`);
 	assert.equal(event!.tenant_id, p.id);
 	assert.equal(event!.body.includes(CANARY), false);
 	assert.equal(/strained|struggling/i.test(event!.body), false);
 
-	// The sweep alone finds the change; its run captures a source revision other than R0's.
 	clockMs = Date.now();
 	await job.scheduleAssessments(c0.db, 500);
 	const demands = await changeDemands(p);
@@ -533,7 +489,6 @@ test("AC:MW-CASE-023 Admin A removes Seat-B with no wakeup: R0 stays current, th
 	assert.notEqual(run.source_revision, r0Row.source_revision);
 	assert.deepEqual(await network(s), s1, "S1's results are unchanged");
 
-	// The same removal again replays its outcome and writes nothing more.
 	const jobs = await count(sql`SELECT count(*) AS n FROM job WHERE kind='assessment' AND subject_record_id=${p.id}`);
 	const audits = await count(sql`SELECT count(*) AS n FROM audit_event WHERE tenant_id=${p.id}`);
 	assert.deepEqual(await removeSeat(s, cmd), removed);
@@ -555,7 +510,6 @@ test("AC:MW-CASE-023 a run captured before P's input moved, and a run whose clai
 		c0.rows(sql`SELECT id,outcome,reason,source_revision,demand_key FROM assessment_run WHERE plant_id=${p.id}
 			ORDER BY captured_at,id`);
 
-	// Stale input: the draft is in flight when a record changes, so the captured source revision is no longer live.
 	let changed = false;
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	await runAssessmentBatch(
@@ -574,12 +528,9 @@ test("AC:MW-CASE-023 a run captured before P's input moved, and a run whose clai
 	assert.deepEqual([stale.outcome, stale.reason], ["superseded", "changed_input"]);
 	assert.notEqual(stale.source_revision, (await captureFacts(c0.db, p.id, null))!.sourceRevision);
 	assert.equal((await current(p))!.runId, r0.runId);
-	// Its follow-up demand is left queued: settle it away so the next claim is the takeover's.
 	await c0.admin.execute(sql`UPDATE job SET state='cancelled',finished_at=clock_timestamp() WHERE kind='assessment'
 		AND subject_record_id=${p.id} AND state='ready'`);
 
-	// Stale claim: the first worker's lease runs out mid-draft and a second worker takes the job over (a newer claim
-	// generation), finds the input moved again and settles the run superseded; the first worker's publication is fenced.
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	let replaced = false;
 	const second = scripted({ during: async () => void (await c0.committed(p, "Joined During Takeover", 0)) });

@@ -219,8 +219,6 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 		sql`SELECT count(*)::int AS n,bool_and(e.tenant_id IN (coalesce(a.plant_id,a.account_id,a.sending_church_id),a.organization_id)) AS owned,bool_and(NOT(e.metadata ?| ARRAY['body','email','notes'])) AS safe FROM audit_event h JOIN audit_event e ON e.id=h.id JOIN affiliation a ON a.id=e.subject_id WHERE h.subject_id=${sql.param(a.relationship.id)}`,
 	);
 	assert.deepEqual(audit.rows, [{ n: 2, owned: true, safe: true }]);
-	// The approval and the end each queued one milestone job, keyed by the revision they wrote (T-267). The replayed
-	// approval and end, and the end of a link already ended, queued nothing more.
 	const jobs = async () =>
 		(
 			await S.db.execute(
@@ -241,7 +239,6 @@ test("AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:A
 		rejoined = await approve(j, oa);
 	assert.equal(rejoined.relationship.id, a.relationship.id);
 	assert.equal(rejoined.relationship.revision, "3");
-	// A later re-approval queues its own job; the refused approvals above queued none.
 	assert.deepEqual(await jobs(), [
 		job("affiliation/approved/1", "1"),
 		job("affiliation/ended/2", "2"),
@@ -256,7 +253,6 @@ test("INV-relationships: invitation rotation, duplicate intents, decline, revoke
 		i = await invite(pa, o, oa.email),
 		old = S.proofs.get(i.invitationId);
 	await assert.rejects(invite(pa, o, oa.email), /pending_invitation/);
-	// BUG-wp007-writes: the same address for another organization while one request waits is a refusal, not a database error.
 	await assert.rejects(invite(pa, await S.tenant("sending_network"), oa.email), /address_pending/);
 	await assert.rejects(
 		S.call("associations.resendInvitation", pa, S.command({ invitationId: i.invitationId })),
@@ -316,7 +312,6 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 	assert.equal(shown.status, "pending");
 	if (shown.status !== "pending") throw Error();
 	assert.equal(shown.invitationId, i.invitationId);
-	// INV-reads: the respond page reads the request with the observed actor, in a fixed number of statements, no lock.
 	const statements: string[] = [];
 	let recording = false;
 	const instrumented = new WeakSet<object>();
@@ -396,8 +391,6 @@ test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that l
 });
 
 test("INV-lock-order: a subject-side write and the organization ending that link at the same time both finish", async (t) => {
-	// The organization's gate holds the organization while the subject's command runs. On the old order the subject
-	// locked the link, then waited for the organization, and the end deadlocked waiting for the link (40P01).
 	const rows = [
 		{
 			name: "the plant ends the link too",

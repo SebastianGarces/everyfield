@@ -12,17 +12,12 @@ import { auditRow, deny, parse, type AuditCommand, type Tx } from "./core.ts";
 import { managedTaskRows, managedTasks, storageKind, storedKind, type TaskRow } from "./queries.ts";
 import { audited, insertTasks, newTask, reminderChange, setStatus, syncAll, type TaskReminders } from "./writes.ts";
 
-// Generated work for finalized meetings (REQ-TSK-017). The caller is the meeting domain's own reviewed command: it
-// holds the meeting row locks and passes its audit command, so obligations, tasks and audit rows commit in its one
-// write statement, or not at all. After that statement the caller runs `after` for reminders.
 const meetingObligations = z.strictObject({
 	meetingId: recordId,
-	// The captured origin: the actual occurrence instant and the meeting's church-local date and zone.
 	origin: z.strictObject({ at: instant, date: localDate, zone: timeZone }),
 	followUps: z.array(z.strictObject({ personId, assigneeIds: c.assigneeIds })).max(500),
 	evaluation: z.strictObject({ assigneeIds: c.assigneeIds }).nullable(),
 });
-/** One meeting's duties, or several: a correction of one meeting can owe a follow-up on a later one (REQ-MTG-020). */
 export const ensureMeetingObligationsInput = z
 	.strictObject({ meetings: z.array(meetingObligations).min(1).max(501) })
 	.refine((v) => new Set(v.meetings.map((m) => m.meetingId)).size === v.meetings.length, "duplicate_meeting");
@@ -41,18 +36,11 @@ export const obligationFactsRow = z.object({
 	existing: z.array(existingRow),
 	people: z.record(z.string(), z.string()),
 	seats: z.array(z.string()),
-	// The display name of each named assignee, whether or not the seat is current.
 	names: z.record(z.string(), z.string()),
-	// Why each named assignee cannot own a follow-up, or null when it can (REQ-TSK-012).
 	reasons: z.record(z.string(), z.string().nullable()),
 	zone: timeZone,
 });
 const asArray = (ids: readonly string[]) => sql`${sql.param([...ids])}::uuid[]`;
-/**
- * What ensureMeetingObligations reads, as one SQL expression a caller can put in its own locked fact read so the
- * producer adds no statement: the meetings, their existing duties, the live People and the seated assignees named by
- * the uuid[] expressions, and the plant's zone.
- */
 export function obligationFacts(plantId: string, meetings: SQL, people: SQL, assignees: SQL): SQL {
 	return sql`jsonb_build_object(
 		'meetings', (SELECT coalesce(jsonb_object_agg(id, jsonb_build_object('title',title,'type',type,'vision_number',vision_number)),'{}')
@@ -72,12 +60,6 @@ export function obligationFacts(plantId: string, meetings: SQL, people: SQL, ass
 		'zone', (SELECT timezone FROM plant WHERE id=${plantId}::uuid))`;
 }
 
-/**
- * One obligation per meeting, Person and kind, and one per meeting for its evaluation. An obligation that exists already
- * is never given a new task, so a retry, a deleted task or a waiver never regenerates work. Unowned work is null:
- * Needs owner. Implements tasks.ensureObligation and tasks.ensureMeetingObligations. With `facts` read by the caller
- * (obligationFacts, covering every named meeting, Person and assignee), it adds no statement; without, one read.
- */
 export async function ensureMeetingObligations(
 	tx: Tx,
 	cmd: AuditCommand,
@@ -105,10 +87,8 @@ export async function ensureMeetingObligations(
 				)
 			).rows[0]?.facts,
 	);
-	// An assignee must hold a current seat; an invalid choice refuses instead of silently becoming Needs owner.
 	const unseated = assignees.find((a) => !row.seats.includes(a));
 	if (unseated) deny("invalid_subject", { accountId: unseated });
-	// A follow-up owner must also be a committed Person's account; an evaluation keeps the seated rule.
 	for (const m of v.meetings)
 		for (const f of m.followUps) {
 			const bad = f.assigneeIds.find((a) => row.reasons[a] !== null);
@@ -225,7 +205,6 @@ export async function ensureMeetingObligations(
 				source: "generated",
 			});
 	}
-	// Every generated task's reminders go to WP-031 in one call: a fixed statement count for any batch size.
 	const changes = created.map((t) => reminderChange(plant, null, t)).filter((s) => s !== undefined);
 	return {
 		value: results,
@@ -240,14 +219,6 @@ export const applyManagedStatusInput = z.strictObject({
 	status: c.taskStatus,
 	reason: z.string().trim().min(1).max(500).nullable().default(null),
 });
-/**
- * Settle or reopen the live tasks of generated duties inside the caller's reviewed command, for example completing the
- * evaluation task when the evaluation is recorded, or closing the follow-ups of attendees a reconcile removed
- * (tasks.applyManagedStatus, tasks.settleManagedEvaluation). A waived duty stays waived: only an explicit reopen of
- * that task clears it. A deleted task stays deleted. Closing never undoes performed work: a completed task stays
- * complete. One read statement for any number of duties, or none when the caller read `locked` with managedTasks in its
- * own locked fact read; the changes join the caller's write statement.
- */
 export async function applyManagedStatus(
 	tx: Tx,
 	cmd: AuditCommand,

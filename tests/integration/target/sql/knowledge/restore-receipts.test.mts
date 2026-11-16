@@ -15,11 +15,6 @@ import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, seeds } from "../../../../support/fixture.mts";
 import { closedTo, dropTarget, freezeClock, objectStore, operator, snapshot, type Store } from "./support.mts";
 
-// REC59-006: an old image of church P holds admin A active, a mail to A still pending and member B's feedback not yet
-// published. Since then the provider accepted that mail, B's feedback became public issue 7, and A asked to delete
-// (2026-09-06T15:00:00Z) and was purged at its deadline, so every copy holding A expired at 2026-10-13T15:00:00Z. The
-// image's latest dated copy is restored at 2026-10-13T16:00:00Z. The current witness and receipts come from the live
-// schema; the fake mail service and issue tracker count every call the target could make.
 const IMAGE_AT = new Date("2026-09-06T12:00:00.000Z");
 const REQUESTED = new Date("2026-09-06T15:00:00.000Z");
 const PURGED = new Date("2026-10-06T15:00:00.000Z");
@@ -51,7 +46,6 @@ const api = deletionOperations({
 });
 const targets: string[] = [];
 
-/** The fake email service and issue tracker: every call counts. */
 const transport = {
 	sends: 0,
 	async send(batch) {
@@ -110,14 +104,12 @@ before(async () => {
 		'{"subject":"Your week"}'::jsonb, 'h', 'pending', clock_timestamp())`);
 	image = await snapshot(admin, new Map(), { createdAt: IMAGE_AT });
 
-	// Since the image: the provider accepted the mail, and B's feedback became public issue 7.
 	await admin.execute(sql`UPDATE mail SET state='accepted', provider_message_id='prov-accepted-1',
 		accepted_at=clock_timestamp() WHERE id=${mailId}::uuid`);
 	await admin.execute(sql`UPDATE feedback SET publication_state='published', publication_payload='{"title":"t","body":"b"}',
 		publication_hash='h7', repository_id=10, repository_name='everyfield-test/feedback', issue_number=7,
 		issue_url='https://example.test/issues/7', published_at=clock_timestamp() WHERE id=${issueOf}::uuid`);
 
-	// A's deletion: requested, then purged at its deadline.
 	await at(REQUESTED);
 	const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
 	const subject = { kind: "account" as const, id: a.id };
@@ -168,9 +160,7 @@ test("AC:REC59-006 an old copy restores no expired body and replays no mail or i
 	assert.equal(result.restore_success, true, JSON.stringify(result));
 	assert.equal(result.service_opened, false);
 
-	// The target's job runner, mail pass and issue publisher, run as the app would: no login of theirs reaches it.
 	const runtime = database.connect("runtime", { schema: target, max: 1 });
-	// Each batch may start work until 30 s past the frozen restore instant.
 	const until = RESTORE_AT.getTime() + 30_000;
 	assert.equal(await closedTo(runtime, target), true);
 	await assert.rejects(runDueScheduled(runtime, transport, {} as never, 10, until));
@@ -206,7 +196,6 @@ test("AC:REC59-006 an old copy restores no expired body and replays no mail or i
 		expiry_reset: new Date(restoredWitness!.copy_expires_at).toISOString() !== "2026-10-13T15:00:00.000Z",
 	};
 	assert.deepEqual(outcome, { restored_body: null, new_mail: 0, new_issues: 0, expiry_reset: false });
-	// The restored rows match the current receipts instead of the image's pending ones.
 	assert.deepEqual(
 		{ state: restoredMail!.state, provider_message_id: restoredMail!.provider_message_id },
 		{ state: liveMail!.state, provider_message_id: liveMail!.provider_message_id },
