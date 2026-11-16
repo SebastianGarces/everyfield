@@ -23,12 +23,6 @@ import { database } from "../database";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 import { getViewer } from "../request-context";
 
-// The organization mount (WP-007/ui ruling D11). Screens reach it only through features/organizations/actions.ts.
-// The session comes from the identity mount and the workspace from the seat service; every command runs through the
-// WP-007/api adapter in one transaction, which rechecks all authority. Commands queue mail and notices; the scheduled
-// runner sends the relationship mail with organizationMailPass. Domain reads supply names, waiting requests and
-// residency links for the viewer's scope.
-
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
 	IDENTITY_ORIGIN: z.url(),
@@ -37,10 +31,8 @@ const env = z.object({
 
 export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: string };
 export type Mount = NonNullable<ReturnType<typeof current>>;
-/** The domain refuses by throwing a short code (`refuse()` in core.ts); anything else is not a refusal. */
 const REFUSAL_CODE = /^[a-z_]{3,40}$/;
 
-/** The day an invitation stops working, as the mail prints it: a long date in UTC, labelled UTC. */
 const expiryDay = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
 
 function organizationMail(v: z.infer<typeof env>, transport?: MailTransport) {
@@ -49,17 +41,12 @@ function organizationMail(v: z.infer<typeof env>, transport?: MailTransport) {
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
 		addressKey: Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex"),
 		from: v.IDENTITY_MAIL_FROM,
-		// A relationship invitation goes to the typed address only; nothing else is sent from this mount.
 		authorize: async (_tx, mail) =>
 			new Set(mail.filter((m) => m.purpose === "relationship_invitation" && m.recipient === null).map((m) => m.id)),
 		transport,
 	});
 }
 
-/**
- * The scheduled runner's relationship mail pass: one bounded batch of this mount's due mail through `transport`, each
- * rechecked under the mount's own rule. Null when the deployment has no configuration for this mount.
- */
 export function organizationMailPass(transport: MailTransport): MailPass | null {
 	const v = env.safeParse(process.env);
 	if (!v.success) return null;
@@ -72,7 +59,6 @@ let mount: ReturnType<typeof create> | undefined;
 function create(v: z.infer<typeof env>) {
 	const db: Database = database(v.IDENTITY_DATABASE_URL);
 	const mail = organizationMail(v);
-	// Each effect is one or more rows the command runs inside its single write statement (D70).
 	const effects: OrganizationEffects = {
 		async invitation(tx, input, writes) {
 			if (input.owner.kind === "global") throw new Error("unavailable");
@@ -97,16 +83,12 @@ function create(v: z.infer<typeof env>) {
 			);
 		},
 		invalidate(_tx, input) {
-			// Ending or changing a link stops queued work that read the old grant (REQ-IDN-021).
 			return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
 		},
 	};
-	// The plant settings Region picker saves through organizations.correctReportingLocation; the official OMB 23-01
-	// list decides which areas a place may pick (WP-047b).
 	const adapter = createOrganizationAdapter(effects, geographyReference);
 	return { db, adapter, effects, seats: createSeatService(db), origin: v.IDENTITY_ORIGIN };
 }
-/** The organization adapter and effects, shared with the settings mount (WP-010). Null when the env is incomplete. */
 export function current() {
 	const v = env.safeParse(process.env);
 	if (!v.success) return null;
@@ -115,7 +97,6 @@ export function current() {
 }
 
 export type { Viewer } from "@everyfield/domain/organizations";
-/** Who is asking, from the session and the one current seat. Seatless accounts count only with a Discovery profile. */
 export async function viewerOf(): Promise<
 	| { kind: "signed_out" }
 	| { kind: "unavailable" }
@@ -156,19 +137,13 @@ export async function viewerOf(): Promise<
 	};
 }
 
-/**
- * The signed-in viewer's residency links with their consent, read once per request: the product frame (My residency
- * in the navigation, WP-100) and the Sharing page's residency cards share one statement.
- */
 export const ownResidencyLinks = cache(async () => {
 	const who = await viewerOf();
 	return who.kind === "viewer" ? residencyLinks(who.mount.db, who.viewer) : [];
 });
 
-/** The owner a residency operation runs as: the resident's own account. */
 export const residentOwner = (viewer: Viewer) => owner.parse({ kind: "account", id: viewer.accountId });
 
-/** The domain's refusal code, or rethrow. */
 function refusalOf(e: unknown): Reply<never> {
 	if (e instanceof z.ZodError) return { status: "refused", code: "invalid_input" };
 	const code = e instanceof Error && REFUSAL_CODE.test(e.message) ? e.message : null;
@@ -176,10 +151,6 @@ function refusalOf(e: unknown): Reply<never> {
 	throw e;
 }
 
-/**
- * One command in one transaction with the request actor bound to it (D70). The caller names the concrete adapter
- * method, so the input and output types are the operation's own.
- */
 export async function command<T>(
 	m: Mount,
 	authority: RequestActor,
@@ -197,7 +168,6 @@ export async function command<T>(
 	}
 }
 
-/** One read in one short transaction without write binding or locks (D59). */
 export async function query<T>(
 	m: Mount,
 	authority: RequestActor,
@@ -217,7 +187,6 @@ export async function query<T>(
 	}
 }
 
-/** The history scope of this viewer: its plant, its organization, or its own Discovery account. */
 export function scopeOf(viewer: Viewer) {
 	const s = viewer.selected;
 	if (s.kind === "plant") return C.relationshipHistoryScope.parse({ plant: s });
@@ -230,11 +199,6 @@ export async function disclosureFor(m: Mount, authority: RequestActor, viewer: V
 	return reply.status === "ok" && !("status" in reply.value) ? reply.value : null;
 }
 
-/**
- * The request behind an emailed link (rulings D10, D48). The domain's readAnswerableInvitation applies the shipped
- * authorizedReceiver rule and every answer check before any detail leaves; this mount adds none of its own. Anything
- * else is `null`, the one shared refusal.
- */
 export async function invitationFor(
 	m: Mount,
 	authority: RequestActor,
