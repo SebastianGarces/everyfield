@@ -22,10 +22,6 @@ import {
 	type TreeModel,
 } from "./model.ts";
 
-// Wiki pages reach the WP-034 producer here. Three reads are not on that contract: the reading-row revision,
-// which bookmark and progress must send back, organization names, and which of the listed articles this account
-// has completed. Each select uses only this signed-in account, and only ids the producer already returned.
-
 type Producer = ReturnType<typeof createWikiProducer>;
 type Mount = { db: Database; producer: Producer };
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
@@ -53,7 +49,6 @@ export function plantContext(actor: RequestActor): { plantId?: string; canOrder:
 	return { plantId: context.owner.id, canOrder: context.role === "owner" || context.role === "admin" };
 }
 
-/** Organization Owner or Admin. The seat owner kind is only a sending church or a sending network. */
 export function editorContext(actor: RequestActor): { organizationId: string } | null {
 	const context = actor.actor.context;
 	if (context.kind !== "seat" || context.owner.kind !== "organization") return null;
@@ -70,7 +65,6 @@ type StoredEditor = {
 	currentType: "safe_mdx" | "safe_nodes" | null;
 };
 
-/** Editor revision. The draft read does not return it, and a write must send it back. */
 async function editorRevision(mount: Mount, organizationId: string, articleId: string): Promise<StoredEditor | "lost"> {
 	const draft = alias(article_revision, "wiki_draft_revision");
 	const current = alias(article_revision, "wiki_current_revision");
@@ -116,7 +110,6 @@ async function editorRevision(mount: Mount, organizationId: string, articleId: s
 	}
 }
 
-/** The reading row revision. "0" means this account has no row yet. */
 async function readingRevision(actor: RequestActor, articleId: string): Promise<string> {
 	const mount = wikiMount();
 	if (!mount) return "0";
@@ -133,7 +126,6 @@ async function readingRevision(actor: RequestActor, articleId: string): Promise<
 	}
 }
 
-/** Completed articles among the ids on this page. The stats operation covers discovery slugs only. */
 async function completedIds(actor: RequestActor, articleIds: string[]): Promise<Set<string>> {
 	const mount = wikiMount();
 	if (!mount || articleIds.length === 0) return new Set();
@@ -169,7 +161,6 @@ export async function organizationNames(ids: string[]): Promise<Map<string, stri
 
 export type Preview = { crawler: boolean; allowed: boolean; title: string | null; excerpt: string | null };
 
-/** The crawler preview, read once per request: the page's metadata and its body share it (React's request cache). */
 export const loadPreview = cache(async (path: string, userAgent: string): Promise<Preview | null> => {
 	const mount = wikiMount();
 	if (!mount) return null;
@@ -214,11 +205,9 @@ type ArticleView = {
 	readingRevision: string;
 	plantId?: string;
 	canOrder: boolean;
-	/** The stored source order, read only for an Owner or Admin; null when it could not be read. */
 	order: SourceOrder | null;
 	block: ArticleBlock;
 	version: ArticleVersion | null;
-	/** Two church copies have no order: an Owner or Admin is asked to choose one. The text below is the fallback. */
 	orderPrompt: boolean;
 	related: { articleId: string; title: string; href: string }[];
 };
@@ -251,7 +240,6 @@ type WikiDraft = {
 	baselineContentType: string;
 };
 
-/** The reader's current helpful or unhelpful vote on an article; a failed read shows no vote. */
 async function feedbackVote(
 	mount: NonNullable<ReturnType<typeof wikiMount>>,
 	actor: Parameters<typeof plantContext>[0],
@@ -268,7 +256,6 @@ async function feedbackVote(
 	}
 }
 
-/** The plant's source order in reading order, for "Set as preferred"; a failed read offers no item. */
 async function sourceOrder(
 	mount: NonNullable<ReturnType<typeof wikiMount>>,
 	actor: Parameters<typeof plantContext>[0],
@@ -295,7 +282,6 @@ export async function loadWiki(
 	const seat = plantContext(actor);
 	const editor = editorContext(actor);
 	try {
-		// The home's resume card is the most recent article, so the recent list answers both.
 		const [nav, recent, marks, recommended] = await Promise.all([
 			mount.producer.navigation(mount.db, actor, { source: { kind: "current" } }),
 			slug ? Promise.resolve(null) : mount.producer.readingRecent(mount.db, actor, {}),
@@ -307,7 +293,6 @@ export async function loadWiki(
 		const hit = slug
 			? nav.value.groups.flatMap((group) => group.articles).find((item) => item.slug === slug)
 			: undefined;
-		// What the reader finished and the article in both sources do not depend on each other: read them together.
 		const [read, currentRead, sourceRead] = await Promise.all([
 			completedIds(actor, visibleIds),
 			hit ? articleOf(mount, actor, hit.articleId, { kind: "current" }) : null,
@@ -377,7 +362,6 @@ export async function loadWiki(
 						: shown.body == null
 							? "denied"
 							: null;
-			// The source names, the reading revision and the reader's own feedback vote are independent reads.
 			const [names, revision, vote, order] = await Promise.all([
 				organizationNames([
 					preferred.sourceId,
@@ -542,11 +526,6 @@ export async function runSearch(
 	}
 }
 
-/**
- * POST /api/wiki/progress: the reading progress a page saves while it unloads. A server action's fetch dies with the
- * page, so the article client sends this one with `keepalive`. Same-origin only; the producer parses the input and
- * checks the session and the article as it does for the action.
- */
 export async function progressRoute(request: Request): Promise<Response> {
 	if (request.headers.get("sec-fetch-site") !== "same-origin") return new Response(null, { status: 403 });
 	const text = await request.text();
@@ -572,7 +551,6 @@ export async function progressRoute(request: Request): Promise<Response> {
 		});
 		return new Response(null, { status: reply.status === "ok" && !reply.value.errorCode ? 204 : 409 });
 	} catch (error) {
-		// A malformed body fails the producer's parse.
 		console.error(JSON.stringify({ component: "wiki", outcome: "progress-beacon-failed", error: String(error) }));
 		return new Response(null, { status: 400 });
 	}
