@@ -20,7 +20,6 @@ import {
 } from "./core.ts";
 import { meetingColumns, meetingRow, plantMeeting, type MeetingRow } from "./rows.ts";
 
-/** One guest with the Person and inviter it names. Lists and every guest write read these columns. */
 export const guestColumns = sql`g.id, g.revision::text AS revision, coalesce(g.rsvp, 'pending') AS rsvp, g.rsvp_source,
 	g.rsvp_at, g.presence, g.card_response, g.card_notes, g.card_occurred_at, g.card_recorded_at, g.removed_at,
 	g.rsvp_token_open, g.inviter_person_id,
@@ -77,10 +76,6 @@ export const card = (g: GuestRow, notes: boolean) =>
 				revision: g.revision,
 			});
 
-/**
- * The meeting (shared lock) and the named guest (row lock) in one statement, with the command's extra facts. The
- * Person is a parameter or, for an own reply, the session account's own live Person in this church.
- */
 async function lockGuest(tx: Tx, w: Writer, meetingId: string, person: SQL, extra: SQL = sql`NULL::json`) {
 	const r = await tx.execute(sql`SELECT ${meetingColumns},
 			(SELECT row_to_json(x) FROM (SELECT ${guestColumns} WHERE g.meeting_id = m.id AND g.person_id = ${person}
@@ -99,11 +94,6 @@ async function lockGuest(tx: Tx, w: Writer, meetingId: string, person: SQL, extr
 		now: z.coerce.date().parse(row.now),
 	};
 }
-/**
- * A guest write that puts an attended Person on the current list or takes one off changes the attended set. Before
- * finalization it moves the attendance revision, so a finalize reviewed earlier conflicts; after finalization only
- * reconcileAttendance changes that set, with its classifications and follow-ups (REQ-MTG-012, REQ-MTG-020).
- */
 function changeAttended(audit: AuditWrite, meetingId: string, finalized: boolean, attendance: string) {
 	if (finalized) deny("status_transition");
 	audit.writes.push(
@@ -120,7 +110,6 @@ const expected = (g: GuestRow, revision: string) => {
 };
 const personState = (id: string | null) =>
 	sql`(SELECT state FROM person WHERE id = ${id}::uuid AND tenant_id = m.plant_id FOR SHARE)`;
-/** Whether the inviter's own chain of inviters on this meeting reaches the guest: a referral cycle. */
 const cycle = (meetingId: string, personId: string, inviterId: string | null) =>
 	sql`EXISTS (WITH RECURSIVE chain(pid) AS (
 		SELECT inviter_person_id FROM participation WHERE meeting_id = ${meetingId}::uuid AND person_id = ${inviterId}::uuid AND removed_at IS NULL
@@ -137,11 +126,9 @@ function guestChange<T>(
 ): Change<T> {
 	return { value, subject: g.id, subjectType: "participation", meetingId: m.id, ...rest };
 }
-/** The guest as written, with the meeting's attendance revision after the change (moved only by changeAttended). */
 const answer = (receiptId: string, outcome: "changed" | "noop", g: GuestRow, attendanceRevision: string) =>
 	c.guestMutationResult.parse({ receiptId, outcome, guest: guest(g), attendanceRevision });
 
-/** Sets the one canonical RSVP and closes the guest's open token, so an old link cannot overwrite it (REQ-MTG-008/009). */
 function setRsvp(g: GuestRow, rsvp: z.infer<typeof c.rsvp>, source: z.infer<typeof c.rsvpSource>, now: Date) {
 	const at = rsvp === "pending" ? null : now.toISOString();
 	return {
@@ -159,7 +146,6 @@ function setRsvp(g: GuestRow, rsvp: z.infer<typeof c.rsvp>, source: z.infer<type
 }
 
 export const guestsWriter = {
-	/** Adds an existing live Person as a guest, invited and absent; inviting a current guest again changes nothing. */
 	async inviteGuest(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.inviteGuestRequest, raw);
@@ -189,7 +175,6 @@ export const guestsWriter = {
 						outcome: "noop",
 					});
 				if (f.person !== "live" || (inviterPersonId && f.inviter !== "live") || f.cycle) deny("invalid_subject");
-				// A restored guest keeps the presence it had when removed.
 				const attendanceAfter =
 					g?.presence === "attended" ? changeAttended(audit, m.id, finalized, attendance) : attendance;
 				const id = g?.id ?? randomUUID();
@@ -231,13 +216,6 @@ export const guestsWriter = {
 			});
 		});
 	},
-	/**
-	 * Everyone chosen in one Add guest submit, in one write whose statements do not grow with the list. Each Person keeps
-	 * inviteGuest's rules: a current guest is a no-op, a removed guest comes back with the presence they had, and a
-	 * Person no longer live in this church is not added and is named in notAdded. Each new contact is made as
-	 * createGuestContact makes one. A refusal for the meeting (no seat, retired, or an attended guest coming back after
-	 * finalization) adds nobody; so does a list where no chosen Person can be added.
-	 */
 	async addGuests(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.addGuestsRequest, raw);
@@ -306,7 +284,6 @@ export const guestsWriter = {
 					),
 				);
 				const fresh = made.map((p) => newGuest(randomUUID(), p.id, p.display_name, "absent"));
-				// A guest who comes back already marked present changes who attended (REQ-MTG-012): the revision moves once.
 				const attendanceRevision = restored.some((g) => g.presence === "attended")
 					? changeAttended(audit, m.id, f.finalized, f.attendance)
 					: f.attendance;
@@ -323,7 +300,6 @@ export const guestsWriter = {
 						FROM unnest(${sql.param(inserted.map((g) => g.id))}::uuid[],
 							${sql.param(inserted.map((g) => g.person_id))}::uuid[],
 							${sql.param(inserted.map((g) => g.presence))}::text[]) AS v(id, person_id, presence)`);
-				// The new Person's own history starts as createGuestContact's does: one People create row each.
 				for (const [n, p] of made.entries())
 					audit.events.push({
 						id: randomUUID(),
@@ -365,10 +341,6 @@ export const guestsWriter = {
 			});
 		});
 	},
-	/**
-	 * Takes a guest off the current list and clears the current card; the row, its history, notes and follow-up stay.
-	 * Reminders read the current list when they run, and the guest's open token closes.
-	 */
 	async removeGuest(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.removeGuestRequest, raw);
@@ -412,7 +384,6 @@ export const guestsWriter = {
 			});
 		});
 	},
-	/** Records who invited the guest: a live Person of this church, never the guest or a referral cycle (REQ-MTG-019). */
 	async setInviter(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.setInviterRequest, raw);
@@ -462,7 +433,6 @@ export const guestsWriter = {
 			});
 		});
 	},
-	/** Owner/Admin sets Confirmed or Declined, or resets to Pending; attendance, cards and contacts stay as they are. */
 	async correctRsvp(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.correctRsvpRequest, raw);
@@ -490,10 +460,6 @@ export const guestsWriter = {
 			});
 		});
 	},
-	/**
-	 * The signed-in member answers for their own account-linked live Person on this guest list. No caller-sent Person or
-	 * account: the statement finds the guest from the session's account.
-	 */
 	async saveOwnRsvp(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.saveOwnRsvpRequest, raw);
@@ -534,7 +500,6 @@ export const guestsWriter = {
 	},
 	createGuestContact: contact("meetings.createGuestContact", c.createGuestContactRequest),
 	createWalkInContact: contact("meetings.createWalkInContact", c.createWalkInContactRequest),
-	/** Owner/Admin records or corrects the one Vision response card of a guest. */
 	async recordCard(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.recordCardRequest, raw);
@@ -570,7 +535,6 @@ export const guestsWriter = {
 					{
 						action: "meetings.response_recorded",
 						kind: g.card_response ? "correct" : "create",
-						// Prayer and question notes stay out of history; only whether there were any.
 						before: { response: g.card_response, notes: g.card_notes !== null },
 						after: { response, notes: notes !== null },
 					},
@@ -578,7 +542,6 @@ export const guestsWriter = {
 			});
 		});
 	},
-	/** Clears the card back to no card, which reads as unknown; history keeps the correction. */
 	async clearCard(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.clearCardRequest, raw);
@@ -617,7 +580,6 @@ export const guestsWriter = {
 	},
 };
 
-/** A guest row that is new on this meeting's list: pending, with no inviter, card or open link. */
 const newGuest = (id: string, personId: string, name: string, presence: GuestRow["presence"]): GuestRow => ({
 	id,
 	revision: "1",
@@ -639,11 +601,6 @@ const newGuest = (id: string, personId: string, name: string, presence: GuestRow
 	inviter_state: null,
 });
 
-/**
- * A new named contact and its guest row in one write (REQ-MTG-011): the People minimal create (prospect, from a meeting
- * guest list, no surname, account, adulthood or commitment), then the guest, absent or attended. A failed or foreign
- * meeting refuses before anything is written, so no orphan contact remains. One audit row names the new Person.
- */
 function contact(
 	operation: "meetings.createGuestContact" | "meetings.createWalkInContact",
 	schema: typeof c.createGuestContactRequest | typeof c.createWalkInContactRequest,
@@ -709,7 +666,6 @@ function contact(
 					action: "people.created",
 					kind: "create",
 					before: null,
-					// The People create shape (D70): the after revision and the new Person's fields.
 					revision: { before: null, after: person.revision },
 					after: personChanges(undefined, person).after,
 					metadata: { guestId: id, attended },

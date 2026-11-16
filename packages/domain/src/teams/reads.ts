@@ -38,7 +38,6 @@ const teamJson = sql`json_build_object(
 		JOIN person p ON p.id = tn.person_id AND p.state = 'live'
 		WHERE r.team_id = t.id AND tn.ended_on IS NULL AND r.retired_at IS NULL))`;
 
-/** A person's current ministry role: an open tenure in a role not retired, in a ministry not archived, of a live person. */
 const current = sql`tn.ended_on IS NULL AND r.retired_at IS NULL AND t.archived_at IS NULL AND p.state = 'live'`;
 const roleJson = sql`json_build_object(
 	'id', r.id, 'teamId', r.team_id, 'revision', r.revision::text, 'name', r.name,
@@ -59,7 +58,6 @@ const staffing = z.object({
 });
 
 export const teamsReader = {
-	/** Catalog only. This read inserts nothing. */
 	async listImportTemplates(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			parse(z.object({}).strict(), raw ?? {});
@@ -75,7 +73,6 @@ export const teamsReader = {
 			});
 		});
 	},
-	/** One ministry: the team with its leader, its roles with their occupants and its current people. One statement. */
 	async get(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.getTeamRequest, raw);
@@ -96,10 +93,6 @@ export const teamsReader = {
 			});
 		});
 	},
-	/**
-	 * Current ministry people, matched by name and optionally in one ministry, one row per role held, ordered by name.
-	 * The first 200 are returned; past them the result says it is partial.
-	 */
 	async searchMembers(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.searchMembersRequest, raw);
@@ -125,11 +118,6 @@ export const teamsReader = {
 			});
 		});
 	},
-	/**
-	 * Every current (not archived) ministry's staffing: role slots, filled and open, the distinct people serving and its
-	 * leader, plus the church's totals, where a person in several roles or ministries counts once. A leader recorded on a
-	 * person whose record can't be read now is "unavailable", never "none". One statement.
-	 */
 	async staffingSummary(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			parse(c.staffingSummaryRequest, raw ?? {});
@@ -165,10 +153,6 @@ export const teamsReader = {
 			return c.staffingSummary.parse({ ...totals, teams: totals.teams.map((t) => c.staffingRow.parse(t)) });
 		});
 	},
-	/**
-	 * People serving on at least `minTeams` distinct current ministries, most first. Several roles in one ministry count
-	 * once. An advisory count only: nothing limits how many ministries a person serves on.
-	 */
 	async personTeamCounts(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.personTeamCountsRequest, raw ?? {});
@@ -189,10 +173,6 @@ export const teamsReader = {
 			return c.personTeamCounts.parse({ minTeams, people: found.people });
 		});
 	},
-	/**
-	 * What importing the chosen catalog ministries and roles would add, against the church's current structure: a
-	 * ministry already imported (same template key) and a role it already has stay as they are. Creates nothing.
-	 */
 	async previewTemplateImport(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.previewTemplateImportRequest, raw);
@@ -245,12 +225,6 @@ export const teamsReader = {
 			});
 		});
 	},
-	/**
-	 * A ministry's history: changes filed under the ministry, under any of its roles (added, edited, retired) and
-	 * under any person's time in one of its roles (filled, refilled). Roles a setup template added stay in the
-	 * ministry's own Created entry. A role entry names the role as that change recorded it, else as it is named now.
-	 * Training rows filed under the ministry's id carry their own subject type and stay out.
-	 */
 	async listHistory(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.teamHistoryRequest, raw);
@@ -282,7 +256,6 @@ export const teamsReader = {
 					) ORDER BY a.occurred_at DESC, a.id DESC)
 					FROM (SELECT e.*, s.subject FROM audit_event e
 						JOIN subjects s ON s.id = e.subject_id AND (e.subject_type = s.stored
-							-- Seat removal files the leader leaving under the team id with no subject type, stored as 'record'.
 							OR (s.subject = 'ministry' AND e.subject_type = 'record' AND e.kind = 'leader_change'))
 						WHERE e.tenant_id = ${plant} AND e.kind <> 'noop'
 							AND NOT (s.subject = 'role' AND e.request_identity->>'operation' IS NOT DISTINCT FROM 'teams.initialize')
@@ -335,7 +308,6 @@ export const teamsReader = {
 			});
 		});
 	},
-	/** The ministry's current revision and nothing else: one statement, for a stale write to retry with. */
 	async readRevision(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.teamRevisionRequest, raw);
@@ -417,10 +389,6 @@ export const teamsReader = {
 	},
 };
 
-/**
- * Every ministry role a person holds or held in the church, current ones first, then by start date, newest first. A
- * part of the person page's own statement as well as its own read.
- */
 export const personTenuresJson = (personId: SQL, plantId: SQL) =>
 	sql`coalesce((SELECT json_agg(json_build_object(
 		'tenureId', tn.id, 'revision', tn.revision::text,
@@ -454,7 +422,6 @@ function memberQuery(plantId: string, teamId: string) {
 	return sql`SELECT (SELECT plant_id FROM team WHERE id = ${teamId}::uuid) AS owner,
 		(${memberList(plantId, teamId, true)}) AS members, (${memberList(plantId, teamId, false)}) AS history`;
 }
-/** A ministry's current people (open) or its ended tenures, one row per role. */
 function memberList(plantId: string, teamId: string, open: boolean) {
 	return sql`SELECT coalesce((SELECT json_agg(json_build_object(
 		'personId', p.id, 'name', p.display_name, 'roleId', r.id, 'roleName', r.name,

@@ -10,7 +10,6 @@ import {
 } from "@everyfield/contracts/branding";
 import { contrastOnWhite, DOCUMENT_INK, textOn } from "./color.ts";
 
-/** Body text in every class and theme. Never a brand color. */
 const INK = "#1A1A1A";
 const NEUTRAL_RULE = "#9CA3AF";
 const NEUTRAL_FILL = "#E5E7EB";
@@ -25,7 +24,6 @@ const stackOf = (id: string) => (FONTS.find((font) => font.id === id)?.style ===
 function layoutFor(documentClass: DocumentClass, name: string, kit: BrandKitData | null, colors: Colors): ThemeLayout {
 	const asset = (slot: keyof BrandKitData["assets"]) => kit?.assets[slot] ?? null;
 	const { fill } = colors;
-	// The text on a fill is the color the PDF prints there: the renderer's rule with the renderer's ink.
 	const fillText = textOn(fill, DOCUMENT_INK);
 	switch (documentClass) {
 		case "formal/legal":
@@ -70,12 +68,6 @@ function layoutFor(documentClass: DocumentClass, name: string, kit: BrandKitData
 	}
 }
 
-/**
- * The one place that picks the church theme or the Everyfield-neutral theme. Pure: no I/O. The neutral theme sets the
- * church plant name in type, has no logo and uses the same fixed slot sizes. A brand color under 3:1 against the white
- * page never colors text: neutral ink replaces it, and the color appears only on rules and fills with the derived text
- * color on the fill.
- */
 export function resolveDocumentTheme(
 	church: ThemeChurch,
 	documentClass: DocumentClass,

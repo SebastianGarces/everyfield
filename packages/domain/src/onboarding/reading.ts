@@ -6,7 +6,6 @@ import { owner } from "@everyfield/contracts/common";
 import foundations from "../../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import type { Tx } from "./core.ts";
 
-/** The foundation articles' ids, for a read that selects their readings. */
 export const foundationArticles = foundations.articles.map((a) => a.id);
 async function readingRows(tx: Tx, accounts: readonly string[]) {
 	const rows = await tx
@@ -44,7 +43,6 @@ async function readingRows(tx: Tx, accounts: readonly string[]) {
 		);
 	return rows;
 }
-/** One completed reading with its published source, from readingRows or the one-statement entry read. */
 export type ReadingRow = {
 	reading: { account_id: string; article_id: string; completed_fraction: string | null; completed_at: Date | null };
 	source: { id: string; tenant_id: string; revision_number: number | string };
@@ -73,7 +71,6 @@ export async function ownReading(tx: Tx, accountId: string) {
 	return readingValue(accountId, await readingRows(tx, [accountId]));
 }
 
-/** The plant's foundation reading from its current Owner and Admin lead candidates and their completed readings. */
 export function readingFrom(
 	plantId: string,
 	candidates: readonly { accountId: string; role: string; personId: string | null; lead: boolean }[],
