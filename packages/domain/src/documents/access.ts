@@ -78,7 +78,6 @@ export function plantViewer(authority: RequestActor): PlantViewer | null {
 	};
 }
 
-/** Account-level live check. A seat is not required. The session and the claimed account match in this statement. */
 export async function accountOpen(db: Reader, authority: RequestActor) {
 	const accountId = authority.actor.accountId;
 	const found = await db.execute(sql`SELECT EXISTS(SELECT FROM live_session(${authority.session}::uuid) i
@@ -92,11 +91,8 @@ export type PlantRead =
 	| { open: false }
 	| { open: true; subjectOk: false }
 	| ({ open: true; subjectOk: true } & PlantFacts & {
-				/** The live meeting named as the subject, with its agenda and list; null for no meeting or a retired one. */
 				meeting: MeetingRead | null;
-				/** The sending network's statement of faith (D-108), read with the plant (D-417), or null. */
 				statement: string | null;
-				/** The plant's saved brand kit, or null when it has none (BRD-001 reset removes the row). */
 				kit: BrandKitData | null;
 			});
 
@@ -106,7 +102,6 @@ function asText(value: unknown) {
 	return null;
 }
 
-/** The display name of the plant's current senior pastor, or null: a scalar subquery for a SELECT list. */
 export const seniorPastorName = (plantId: string) =>
 	sql`SELECT pe.display_name FROM team_tenure tt
 		JOIN team_role tr ON tr.id=tt.role_id AND tr.plant_id=${plantId}::uuid
@@ -117,11 +112,6 @@ export const seniorPastorName = (plantId: string) =>
 		ORDER BY tt.started_on, pe.id
 		LIMIT 1`;
 
-/**
- * One statement. Names stay null unless the live session, the claimed account, the seat, and the subject all match.
- * launch_date comes from the launch row, not from a plant column. The network's statement of faith is read here too, so
- * a preview or a saved file prints the text as it stands when the action runs (D-109, D-417).
- */
 export async function readPlant(
 	db: Reader,
 	viewer: PlantViewer,

@@ -52,7 +52,6 @@ function mailFor(request: AccessRequest, env: NodeJS.ProcessEnv) {
 	});
 }
 
-/** The public operation. Only PostgreSQL and the Resend HTTP boundary perform effects. */
 export async function receiveAccessRequest(
 	kind: unknown,
 	fields: unknown,
@@ -62,7 +61,6 @@ export async function receiveAccessRequest(
 	if (!isAccessKind(kind) || typeof fields !== "object" || fields === null || Array.isArray(fields)) {
 		return { status: "invalid", fieldErrors: {} };
 	}
-	// Bots get the same receipt even if the other fields are missing or invalid.
 	if (HONEYPOT in fields && typeof fields[HONEYPOT] === "string" && fields[HONEYPOT] !== "") {
 		return { status: "received" };
 	}
@@ -85,10 +83,8 @@ export async function receiveAccessRequest(
 			db,
 		);
 		if (reservation.status !== "deliver") return reservation;
-		// Resend deduplicates for 24h. Never blindly resend an unresolved older request.
 		if (Date.now() - reservation.createdAt.getTime() >= 23 * 60 * 60 * 1000) return { status: "unavailable" };
 		const payload = mailSchema.parse(reservation.payload);
-		// Outside production a recipient that is not approved gets no request, and the visitor sees no receipt.
 		if (!payload.to.every((address) => mailRecipientAllowed(env, address))) return { status: "unavailable" };
 		const response = await (dependencies.fetch ?? fetch)("https://api.resend.com/emails", {
 			method: "POST",
@@ -105,7 +101,6 @@ export async function receiveAccessRequest(
 		await recordAccessMail(reservation.id, receipt.id, db);
 		return { status: "received" };
 	} catch {
-		// Never log provider errors or payloads: they can contain credentials or personal data.
 		return { status: "unavailable" };
 	}
 }

@@ -3,17 +3,14 @@ import type { Token } from "@everyfield/contracts/documents";
 import { hash } from "../operations/canonical.ts";
 import { legible, MIN_BODY, MIN_NONTEXT, textOn } from "./contrast.ts";
 
-/** The document classes that carry a layout here. Email has no PDF or XLSX. */
 export type RenderClass = Exclude<DocumentClass, "email">;
 
-/** Only embedded families can print. A church font choice maps to one of these. */
 type DocumentFont = "DM Sans" | "DM Serif Display";
 
 export type ThemeImage = {
 	bytes: Uint8Array;
 	mediaType: "image/svg+xml" | "image/png" | "image/jpeg";
 	alt: string;
-	/** Width divided by height. */
 	aspect: number;
 };
 export type Letterhead = {
@@ -25,7 +22,6 @@ export type Letterhead = {
 	web?: string;
 };
 
-/** What the renderer paints: colors, fonts and brand images. Only the two colors are required. The branding resolver (`resolveDocumentTheme` in `branding/theme.ts`) picks church or neutral. */
 export type RenderTheme = {
 	name: string;
 	primary: string;
@@ -35,12 +31,10 @@ export type RenderTheme = {
 	logo?: ThemeImage;
 	tagline?: string;
 	photo?: ThemeImage;
-	/** The brand kit's own assets for the format's image node: `logo` is the full logo, `mark` the mark, `photo` the cover photo. */
 	images?: { logo?: ThemeImage; mark?: ThemeImage; photo?: ThemeImage };
 	letterhead?: Letterhead;
 };
 
-/** The Everyfield-neutral theme: ink in the primary slots and --ef-green-600 as the accent. No logo, no photo. */
 export const NEUTRAL_THEME: RenderTheme = {
 	name: "everyfield-neutral",
 	primary: "#181D19",
@@ -51,7 +45,6 @@ export const NEUTRAL_THEME: RenderTheme = {
 
 const px = (n: number) => +(n * 0.75).toFixed(2);
 
-/** Source tokens: CSS px of design/handoff/tokens.css become pt at 96 dpi. Hashed into the render engine version. */
 const TOKENS = {
 	ink: "#181D19",
 	white: "#FFFFFF",
@@ -78,15 +71,11 @@ export type Palette = {
 	accent: string;
 	onPrimary: string;
 	onAccent: string;
-	/** Primary as text or a heavy rule on white: the brand color when it clears 4.5:1, else a derived shade. */
 	primaryText: string;
-	/** Accent as a line on white: clears 3:1. */
 	accentLine: string;
-	/** True for any theme but the neutral one. Neutral checkboxes are ink; a brand kit uses its accent line. */
 	brand: boolean;
 };
 
-/** Text and line colors derive from the two theme colors by WCAG ratio. */
 export function makePalette(theme: RenderTheme): Palette {
 	const { ink, white, muted, mutedText, border, fieldBorder } = TOKENS;
 	return {
@@ -106,7 +95,6 @@ export function makePalette(theme: RenderTheme): Palette {
 	};
 }
 
-/** The color a document token names on this palette; `none` is no color. */
 export function tokenColor(p: Palette, token: Token): string | null {
 	switch (token) {
 		case "none":
@@ -126,7 +114,6 @@ export function tokenColor(p: Palette, token: Token): string | null {
 	}
 }
 
-/** A stable digest of the theme tokens, hashed into the render engine version. */
 export function themeTokensDigest() {
 	return hash({ tokens: TOKENS, neutral: NEUTRAL_THEME });
 }

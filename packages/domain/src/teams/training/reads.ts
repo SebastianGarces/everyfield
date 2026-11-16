@@ -6,7 +6,6 @@ import type { RequestActor } from "../../access/session.ts";
 import { deny, parse, read, type Reader } from "../core.ts";
 import { owner, row, unique } from "../reads.ts";
 import { rosterDigest } from "./digest.ts";
-/** The latest credit of person `a.person_id` matches program `g` at its current version: that training is complete. */
 export const compatible = sql`(SELECT c.kind = 'earned' AND c.version = g.version
 	FROM training_credit c
 	WHERE c.plant_id = g.plant_id AND c.program_id = g.id AND c.person_id = a.person_id
@@ -68,15 +67,12 @@ function facts(plantId: string, teamId: SQL) {
 			WHERE a.plant_id = ${plantId}::uuid AND a.state = 'active') train`;
 }
 
-/** The program `g`'s saved, active assignments of live people, as `a`. */
 const saved = sql`FROM training_assignment a
 	JOIN person p ON p.id = a.person_id AND p.tenant_id = a.plant_id AND p.state = 'live'
 	WHERE a.program_id = g.id AND a.plant_id = g.plant_id AND a.state = 'active'`;
-/** The program `g`'s saved people by name, each with a current compatible completion or not. */
 const participants = sql`coalesce((SELECT json_agg(json_build_object('personId', p.id, 'name', p.display_name,
 	'complete', coalesce(${compatible}, false)) ORDER BY p.display_name, p.id) ${saved}), '[]'::json)`;
 
-/** Without a ministry, every program; with one, that ministry's own and the church-wide ones (team_id null). */
 const ownOrChurchWide = (teamId: string | undefined) =>
 	teamId === undefined ? sql`true` : sql`(g.team_id = ${teamId}::uuid OR g.team_id IS NULL)`;
 
@@ -150,10 +146,6 @@ export const trainingReader = {
 			return c.trainingMatrix.parse({ programs: found.programs });
 		});
 	},
-	/**
-	 * A program's saved required people, each with whether they hold a current compatible completion. Only the saved
-	 * list counts: someone who joined the ministry after it was saved is not on it until a person adds them.
-	 */
 	async readRequiredTrainingParticipants(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.requiredParticipantsRequest, raw);
@@ -243,7 +235,6 @@ export const trainingReader = {
 			return c.trainingHistory.parse({ personId: input.personId, credits: found.credits });
 		});
 	},
-	/** One ministry's measured health: its facts, the meeting window they cover and the bands the screen uses. */
 	async readHealth(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.staffingFactsRequest, raw);
@@ -256,10 +247,6 @@ export const trainingReader = {
 			return health(input.teamId, found);
 		});
 	},
-	/**
-	 * Every current (not archived) ministry's health, and the church's composite: the mean of the measured ministries
-	 * only, with their count. An Unknown ministry is never averaged in as zero.
-	 */
 	async readAggregateHealth(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			parse(c.aggregateHealthRequest, raw ?? {});
