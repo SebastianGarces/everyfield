@@ -9,11 +9,6 @@ import { createFacts } from "../../../packages/domain/src/intelligence/index.ts"
 import { createLaunchReader, createLaunchWriter } from "../../../packages/domain/src/launch/index.ts";
 import { readCatalog, readReadiness } from "../../../packages/domain/src/phases/index.ts";
 
-// Phase 5's "First service held" in the facts the Change phase advisory and Plant Intelligence read (D-1532). A
-// milestone-path church counts the milestone it recorded reached through the /launch writer; a Launch Sunday church
-// counts the Launch Sunday it recorded held. "Today" is Oct 12, 2026 in Harvest Point's time zone (America/Chicago);
-// Hill Country Network offers "Constituted as a church".
-
 const TODAY = frozenClock(instant.parse("2026-10-12T17:00:00.000Z"));
 const CONSTITUTED = "Constituted as a church";
 let f, reader, writer, facts, catalog;
@@ -21,7 +16,6 @@ const one = async (q) => (await f.admin.execute(q)).rows[0];
 const key = () => randomUUID();
 const revision = async (who) => ok(await reader.readPlan(f.db, who.actor)).plan.revision;
 const read = async (who) => ok(await facts.readFacts(f.db, who.actor, {}));
-/** The Phase 5 advisory rows as Change phase shows them, from the facts the Owner reads. */
 const phase5 = async (who) =>
 	Object.fromEntries(
 		readReadiness(catalog, (await read(who)).criteria)
@@ -60,7 +54,6 @@ const clear = async (who) =>
 			input: { reason: "Recorded on the wrong church" },
 		}),
 	);
-/** Every row reading readiness could write, and the phase it could move. */
 const footprint = (w) =>
 	one(sql`SELECT (SELECT count(*)::int FROM task WHERE plant_id=${w.id}) tasks,
 		(SELECT count(*)::int FROM meeting WHERE plant_id=${w.id}) meetings,
@@ -78,7 +71,6 @@ async function seated(w, role) {
 	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
 }
-/** Harvest Point in Phase 5, affiliated with Hill Country Network, which offers "Constituted as a church". */
 async function church() {
 	const w = await f.workspace("plant");
 	await f.admin.execute(sql`UPDATE plant SET name='Harvest Point',timezone='America/Chicago',phase=5 WHERE id=${w.id}`);
@@ -104,7 +96,6 @@ test("a milestone recorded reached is First service held; correcting, clearing a
 	const c = await church();
 	await choose(c.owner, c.hill);
 	const chosen = await read(c.owner);
-	// Chosen but not reached is Unknown, never Not met.
 	assert.equal(chosen.criteria.first_service_complete, "unknown");
 	assert.deepEqual(chosen.firstService, { path: "milestone", status: "unknown", milestone: null, heldOn: null });
 	assert.deepEqual(await phase5(c.owner), {
@@ -168,7 +159,6 @@ test("facts read for a day before the reached date read Unknown", async () => {
 	await record(c.owner, "2026-10-11");
 	const at = async (iso) =>
 		ok(await createFacts({ clock: frozenClock(instant.parse(iso)) }).readFacts(f.db, c.owner.actor, {}));
-	// 23:00 UTC on Oct 10 is still Oct 10 in Chicago; 06:00 UTC on Oct 11 is Oct 11 there.
 	const before = await at("2026-10-10T23:00:00.000Z");
 	assert.deepEqual([before.today, before.criteria.first_service_complete], ["2026-10-10", "unknown"]);
 	const on = await at("2026-10-11T06:00:00.000Z");
@@ -220,7 +210,6 @@ test("one plant's milestone never counts for another, and reading readiness writ
 	assert.equal((await phase5(other.owner)).first_service_complete, "unknown");
 	assert.deepEqual({ reached: await footprint(reached.w), other: await footprint(other.w) }, was);
 	assert.equal(was.reached.phase, 5);
-	// A church with no affiliation offering a milestone stays on Launch Sunday and reads Unknown with nothing recorded.
 	const alone = await f.workspace("plant");
 	const owner = await seated(alone, "owner");
 	assert.deepEqual((await read(owner)).firstService, { path: "launch_sunday", status: "unknown", heldOn: null });
