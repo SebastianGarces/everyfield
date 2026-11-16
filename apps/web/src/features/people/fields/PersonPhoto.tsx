@@ -17,18 +17,17 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar, initials } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { z } from "zod";
 import { SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
-import { throughStore, type PersonStore } from "../model.ts";
-import { problemText, useStore } from "../parts.tsx";
+import { throughStore, type PersonStore } from "../person.store.ts";
+import { problemText, usePersonState } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import { readPhoto, removePhoto, uploadPhoto, type PhotoSaved } from "./actions.ts";
 import { photoProblem, photoSrc, takeFile, type PhotoResult } from "./model.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-/** The words for a refused photo change. */
 function photoRefusal(code: string): string {
 	switch (code) {
 		case "busy":
@@ -42,13 +41,6 @@ function photoRefusal(code: string): string {
 	}
 }
 
-/**
- * The person's photo in the page header (REQ-PPL-005). The image comes only from the app's own route for the exact
- * version. Owners and Admins add, replace or remove it from the photo menu. A new photo shows at once from the chosen
- * file; the old one stays saved until the new one is. Changes save through a save lane (components/save) in the person
- * store: a lost answer is replayed with the same key, an answer that stays unknown offers Check again, and only a
- * server answer says the photo was not saved. The photo has no card, so its notice opens under it.
- */
 export function PersonPhoto({
 	store,
 	person,
@@ -62,48 +54,30 @@ export function PersonPhoto({
 	person: PlantPerson;
 	initial: PhotoResult;
 	canEdit: boolean;
-	/** Private photo storage is configured for this deployment. */
 	enabled: boolean;
 	onSaved: (receipt: Receipt) => void;
-	/** The person changed elsewhere: read the person again. */
 	onConflict: () => void;
 }) {
 	const toast = useToast();
-	// Another change to this person is saving: the photo waits, and Check again waits for it (C65, C68).
-	useStore(store);
+	usePersonState(store);
 	const lane = useSaveIntent<{ problem?: string }>({
 		explain: photoRefusal,
-		busy: () => store.get().pending !== null,
+		busy: () => store.getState().pending !== null,
 	});
 	const input = useRef<HTMLInputElement>(null);
 	const [photo, setPhoto] = useState(initial);
 	const [preview, setPreview] = useState<string | null>(null);
 	const [busy, setBusy] = useState<"upload" | "remove" | null>(null);
-	useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
-	// The saved photo shows only once its bytes have loaded; until then, or if the route refuses, the initials stay, so
-	// the header never shows a broken image (REQ-PPL-005).
 	const saved = photoSrc(photo);
-	const [loaded, setLoaded] = useState<string | null>(null);
-	useEffect(() => {
-		if (!saved) return;
-		let live = true;
-		const img = new Image();
-		img.onload = () => live && setLoaded(saved);
-		img.src = saved;
-		return () => {
-			live = false;
-		};
-	}, [saved]);
-	const src = busy === "remove" ? undefined : (preview ?? (saved && loaded === saved ? saved : undefined));
+	const src = busy === "remove" ? undefined : (preview ?? saved ?? undefined);
 	const label = src ? `Photo of ${person.displayName}` : person.displayName;
 
 	const through = throughStore(
 		store,
 		"photo",
-		(v: PhotoSaved) => ({ ...store.get().saved, revision: v.personRevision }) as PlantPerson,
+		(v: PhotoSaved) => ({ ...store.getState().saved, revision: v.personRevision }) as PlantPerson,
 	);
-	/** A conflict: the person or the photo changed elsewhere, so the page reads the person and the photo again. */
 	const refused = async (code: string) => {
 		if (code !== "conflict") return;
 		onConflict();
@@ -111,13 +85,18 @@ export function PersonPhoto({
 		if (r?.status === "ok") setPhoto(r.value);
 	};
 
+	function drop(local: string) {
+		setPreview((p) => (p === local ? null : p));
+		URL.revokeObjectURL(local);
+	}
+
 	async function upload(file: File) {
 		const problem = photoProblem(file);
 		if (problem) return toast({ tone: "error", message: problem });
 		const local = URL.createObjectURL(file);
 		setPreview(local);
 		setBusy("upload");
-		const revision = store.get().saved.revision;
+		const revision = store.getState().saved.revision;
 		let settled = false;
 		await lane.save({
 			what: "The photo",
@@ -135,22 +114,21 @@ export function PersonPhoto({
 				settled = true;
 				setPhoto(value.photo);
 				onSaved(value.receipt);
-				// Keep the chosen file on screen until the saved version has loaded, so the header never flashes empty.
 				const saved = photoSrc(value.photo);
-				if (!saved) return setPreview(null);
+				if (!saved) return drop(local);
 				const img = new Image();
-				img.onload = img.onerror = () => setPreview((p) => (p === local ? null : p));
+				img.onload = img.onerror = () => drop(local);
 				img.src = saved;
 				toast({ tone: "success", message: "Photo saved." });
 			},
 		});
 		setBusy(null);
-		if (!settled) setPreview(null);
+		if (!settled) drop(local);
 	}
 
 	async function remove() {
 		setBusy("remove");
-		const revision = store.get().saved.revision;
+		const revision = store.getState().saved.revision;
 		await lane.save({
 			what: "The photo",
 			done: "removed",
@@ -165,8 +143,6 @@ export function PersonPhoto({
 		setBusy(null);
 	}
 
-	// Inside the photo button the initials are the placeholder picture of the person, like the photo with alt="": they
-	// are drawn as generated content, so the button's only label is its name ("Add photo of …", WCAG 2.5.3).
 	const avatar = (
 		<Avatar name={person.displayName} label={label} src={src} size="xl" decorative={canEdit}>
 			{canEdit ? (
@@ -241,7 +217,6 @@ export function PersonPhoto({
 			<PopoverContent
 				label="Photo"
 				className="w-[340px] p-0"
-				// The notice is an assertive live region: it is read out where it is, without taking focus from the page.
 				onOpenAutoFocus={(e) => e.preventDefault()}
 				onInteractOutside={(e) => e.preventDefault()}
 				onEscapeKeyDown={() => lane.dismiss()}
