@@ -1,6 +1,5 @@
 {
 	"apps/web/src/features/settings/AccountMenu.tsx": 2,
-	"apps/web/src/features/settings/ProductSettings.tsx": 14,
 	"apps/web/src/features/settings/SettingsDialog.tsx": 23,
 	"apps/web/src/features/settings/actions.ts": 19,
 	"apps/web/src/features/settings/deletion-mail.ts": 4,
