@@ -14,8 +14,6 @@ import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, refusedWith, seeds } from "../../../../support/fixture.mts";
 import { freezeClock } from "./support.mts";
 
-// DEL58-003: the account deletion request delete-A was made at 2026-10-13T16:00:00Z, so its cancel deadline is
-// 2026-11-12T16:00:00Z. The schema's clock starts in that frame and each step freezes it at the case's instant.
 const REQUESTED = new Date("2026-10-13T16:00:00.000Z");
 const DEADLINE = new Date("2026-11-12T16:00:00.000Z");
 const BEFORE = new Date("2026-11-12T15:59:59.999Z");
@@ -47,7 +45,6 @@ before(async () => {
 });
 after(() => database.close());
 
-/** Admin A of P with delete-A pending, suspended the way a request suspends it: every session of A is gone. */
 async function pendingDeletion() {
 	const a = await seed.actor(plant, "admin");
 	const requestId = randomUUID();
@@ -72,16 +69,11 @@ async function pendingDeletion() {
 	return { a, subject: { kind: "account" as const, id: a.id }, requestId, witness: w.id };
 }
 
-/** The restricted status-and-cancel session, minted from fresh proof of A's original login at `at`. */
 const restricted = (a, subject, requestId, at: Date) =>
 	admin.transaction((tx) =>
 		issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({ accountId: a.id, provenAt: at })),
 	);
 
-/**
- * Whether A can reach ordinary church or personal data: every ordinary read resolves a live auth session to a viewer
- * first. The restricted handle is no auth session, so A reaches ordinary data only through a session of its own.
- */
 async function ordinary(a) {
 	const sessions = await admin
 		.select({ id: t.auth_session.id })
@@ -102,7 +94,6 @@ test("AC:DEL58-003 the restricted session cancels only the current request, and 
 			const { a, subject, requestId, witness } = await pendingDeletion();
 			const proof = await restricted(a, subject, requestId, BEFORE);
 			const status = ok(await db.transaction((tx) => api.getAccountDeletionStatus(tx, proof, { subject, requestId })));
-			// The status read is all the restricted session sees: the request, never a name, email or church record.
 			assert.deepEqual(status, {
 				status: "pending_deletion",
 				subject,
@@ -122,7 +113,6 @@ test("AC:DEL58-003 the restricted session cancels only the current request, and 
 			assert.equal(cancelled.cancelledAt, BEFORE.toISOString());
 			assert.equal((await witnessOf(witness)).state, "cancelled");
 
-			// A signs in again and makes a newer request; the older request's proof cannot cancel either request.
 			const session = randomUUID();
 			await admin.insert(t.auth_session).values({
 				id: session,

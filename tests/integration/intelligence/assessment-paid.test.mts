@@ -1,7 +1,3 @@
-// The paid assessment drafter and language judge (D92) on a fake LanguageModel provider: no network, no paid call.
-// Every provider call reserves its worst case in the month's model_spend row before the provider sees it and settles to
-// the reported usage; a refused reservation sends nothing and stores a model_unavailable run; a real draft goes through
-// the same check and budget as a scripted one; the request holds only the run's model input.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { AsyncResource } from "node:async_hooks";
@@ -23,10 +19,8 @@ import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "./assessment-church.mts";
 
 type Reply = { text: string; usage?: { input: number; output: number } } | Error;
-/** A LanguageModelV4 that answers from `reply` and keeps every request it was sent; `during` runs inside each call. */
 function fakeProvider(reply: (params: LanguageModelV4CallOptions, n: number) => Reply, during?: () => Promise<void>) {
 	const requests: LanguageModelV4CallOptions[] = [];
-	// Bound to the test's context, so its reads count as the test's, not the worker's (the statement census).
 	const hook = during && AsyncResource.bind(during);
 	const model: LanguageModelV4 = {
 		specificationVersion: "v4",
@@ -54,7 +48,6 @@ function fakeProvider(reply: (params: LanguageModelV4CallOptions, n: number) => 
 	};
 	return { model, requests };
 }
-/** The run input a request carried, read back from its user message. */
 const sent = (params: LanguageModelV4CallOptions) => {
 	const user = params.prompt.find((m) => m.role === "user")!;
 	return JSON.parse((user.content[0] as { text: string }).text);
@@ -155,13 +148,11 @@ test("AC:PI-CASE-013 a real draft that invents a number is rejected and its viol
 	assert.deepEqual(sent(fake.requests[1]!).feedback, r.drafts[0].violations, "draft 2 was sent draft 1's violations");
 	assert.match((await view(p)).current.focus.body + JSON.stringify(r.result), /30 committed adults/);
 
-	// Three drafts that all invent: nothing publishes, and the earlier assessment stays current.
 	const before = (await view(p)).current;
 	const always = fakeProvider((params) => ({ text: invent(params), usage: { input: 900, output: 400 } }));
 	const failed = await run(p, metered(always.model).drafter);
 	assert.deepEqual([failed.outcome, failed.reason, failed.drafts.length], ["failed", "invalid_drafts", 3]);
 	assert.deepEqual((await view(p)).current, before);
-	// A reply that is not JSON is a draft of the wrong shape, checked like any other.
 	const prose = fakeProvider((params, n) => ({
 		text: n === 1 ? "Here is your assessment." : JSON.stringify(grounded(params)),
 	}));
