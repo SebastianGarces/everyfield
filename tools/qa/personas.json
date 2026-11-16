@@ -8,6 +8,11 @@
 		"context": "organization",
 		"seed": "qa"
 	},
+	"graceDirector": {
+		"says": "Ana Ruiz, the residency director at Grace Austin (QA), a Member seat",
+		"context": "organization",
+		"seed": "qa"
+	},
 	"hillOwner": {
 		"says": "Ruth Calder, Owner of Hill Country Network (QA), which Grace Austin (QA) is linked to",
 		"context": "organization",

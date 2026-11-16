@@ -11,13 +11,14 @@
 			"reach": [
 				{
 					"rail": "Plants",
-					"personas": ["network", "graceOwner", "hillOwner"]
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
 				}
 			],
 			"personas": {
 				"network": "read",
 				"graceOwner": "read",
 				"hillOwner": "read",
+				"graceDirector": "read",
 				"owner": "none",
 				"resident": "none"
 			},
@@ -166,7 +167,7 @@
 					"says": "The plant view shows Limited visibility, readiness and a released assessment only, never On track from silence.",
 					"catalog": ["PI-031"],
 					"operations": [],
-					"noOperation": "the plant view reads health inside its own read; `oversight.getHealth` and `oversight.readLaunchReadiness` name no code",
+					"noOperation": "the catalog records `oversight.getHealth` and `oversight.readLaunchReadiness` as hand-written inside `oversight.listPlants` and `oversight.getPlant`, and no code quotes their ids",
 					"proof": {
 						"tests": [
 							{
@@ -351,6 +352,7 @@
 				"network": "write",
 				"graceOwner": "write",
 				"hillOwner": "write",
+				"graceDirector": "read",
 				"owner": "none"
 			},
 			"states": [

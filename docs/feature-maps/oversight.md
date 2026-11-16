@@ -34,12 +34,12 @@ flowchart LR
 An organization's plant directory and each linked plant's view: phase, Launch Sunday, readiness, health and what the plant shares.
 
 - Routes: `/network`, `/network/plants/[plantId]`
-- Personas: `network` read, `graceOwner` read, `hillOwner` read, `owner` none, `resident` none
+- Personas: `network` read, `graceOwner` read, `hillOwner` read, `graceDirector` read, `owner` none, `resident` none
 - Catalog: IDN-023, PI-031
 
 Reach:
 
-- Rail "Plants" for `network`, `graceOwner`, `hillOwner`
+- Rail "Plants" for `network`, `graceOwner`, `hillOwner`, `graceDirector`
 
 States:
 
@@ -107,7 +107,7 @@ agent-browser find role heading text --name "Harvest Point (QA)" --exact
 
 The plant view shows Limited visibility, readiness and a released assessment only, never On track from silence.
 
-- No operation: the plant view reads health inside its own read; `oversight.getHealth` and `oversight.readLaunchReadiness` name no code
+- No operation: the catalog records `oversight.getHealth` and `oversight.readLaunchReadiness` as hand-written inside `oversight.listPlants` and `oversight.getPlant`, and no code quotes their ids
 - Catalog: PI-031
 - Test: `tests/integration/oversight/health.test.mts`: `the home shows Limited visibility, Launch readiness and no concern, never On track from silence`
 - Test: `tests/integration/oversight/health.test.mts`: `the plant view shows Launch status and readiness, then the recorded outcome`
@@ -184,7 +184,7 @@ agent-browser wait --text "Plants linked to both"
 Network Intelligence: patterns across the plants that share findings, by Region, State, Country and the whole portfolio, run on Refresh.
 
 - Routes: `/network/intelligence`
-- Personas: `network` write, `graceOwner` write, `hillOwner` write, `owner` none
+- Personas: `network` write, `graceOwner` write, `hillOwner` write, `graceDirector` read, `owner` none
 - Catalog: PI-043, PI-044
 
 Reach:

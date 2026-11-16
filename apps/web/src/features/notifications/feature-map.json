@@ -12,7 +12,7 @@
 			"reach": [
 				{
 					"rail": "Notifications",
-					"personas": ["network", "graceOwner", "hillOwner"]
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
 				},
 				{
 					"from": "overview.home",
@@ -45,6 +45,7 @@
 				"network": "write",
 				"graceOwner": "write",
 				"hillOwner": "write",
+				"graceDirector": "write",
 				"visitor": "none"
 			},
 			"states": [

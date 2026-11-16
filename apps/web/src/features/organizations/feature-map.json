@@ -29,13 +29,14 @@
 			"reach": [
 				{
 					"rail": "Pipeline",
-					"personas": ["network", "graceOwner", "hillOwner"]
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
 				}
 			],
 			"personas": {
 				"graceOwner": "write",
 				"network": "write",
 				"hillOwner": "write",
+				"graceDirector": "read",
 				"resident": "none",
 				"owner": "none",
 				"visitor": "none"
@@ -721,6 +722,7 @@
 				"graceOwner": "write",
 				"network": "write",
 				"hillOwner": "write",
+				"graceDirector": "write",
 				"resident": "none"
 			},
 			"states": [
@@ -793,6 +795,39 @@
 							"name": "Casey Lee"
 						}
 					]
+				},
+				{
+					"id": "director",
+					"reach": {
+						"persona": "graceDirector",
+						"open": "/organization/pipeline/programs",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Church planting residency"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Church planting residency"
+						},
+						{
+							"role": "button",
+							"name": "Start Version",
+							"match": "contains"
+						},
+						{
+							"absent": {
+								"role": "button",
+								"name": "Enroll"
+							}
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -842,7 +877,8 @@
 								},
 								{
 									"expect": {
-										"url": "/organization/pipeline/programs/{programId}"
+										"role": "heading",
+										"name": "Map residency check"
 									}
 								},
 								{
@@ -861,9 +897,9 @@
 				},
 				{
 					"id": "publish",
-					"says": "Only the program's director publishes a version, so the Owner persona cannot; the tests prove Version 1 is published today.",
+					"says": "The program's director starts the next version, saves its draft and publishes it; after a reload the draft is gone and the version after it can start.",
 					"catalog": ["MUL-010"],
-					"operations": ["development.publishVersion"],
+					"operations": ["development.saveProgram", "development.publishVersion"],
 					"proof": {
 						"tests": [
 							{
@@ -871,7 +907,58 @@
 								"name": "AC:ADR1-010 only the current director publishes; Version 1 is published today"
 							}
 						],
-						"cases": ["ADR1-010"]
+						"cases": ["ADR1-010"],
+						"browser": {
+							"state": "director",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Start Version",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save draft"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Publish Version",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Publish"
+									}
+								},
+								{
+									"open": "/organization/pipeline/programs"
+								},
+								{
+									"click": {
+										"role": "link",
+										"name": "Church planting residency"
+									}
+								}
+							],
+							"expect": [
+								{
+									"noText": "Draft of Version"
+								},
+								{
+									"role": "button",
+									"name": "Start Version",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
 					}
 				},
 				{
@@ -990,11 +1077,15 @@
 			"behaviors": [
 				{
 					"id": "confirm-milestone",
-					"says": "The director records and confirms a milestone in one step; the director is no QA persona, so the tests prove it.",
+					"says": "The director confirms a milestone the resident marked done, or records and confirms one in a step for an enrollee with no linked account. The seed's only enrollee is linked, so Confirm needs the resident to mark first (another persona), and the tests prove both.",
 					"catalog": ["MUL-012"],
 					"operations": ["development.confirmMilestone"],
 					"proof": {
 						"tests": [
+							{
+								"file": "tests/integration/organizations/residency.test.mts",
+								"name": "AC:ADR1-012 Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record Casey's milestones in one step"
+							},
 							{
 								"file": "tests/integration/organizations/programs.test.mts",
 								"name": "AC:ADR1-012 the director records and confirms Casey's milestone in one step; nothing else changes"
@@ -1013,13 +1104,14 @@
 			"reach": [
 				{
 					"rail": "Sent for review",
-					"personas": ["network", "graceOwner", "hillOwner"]
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
 				}
 			],
 			"personas": {
 				"graceOwner": "read",
 				"network": "read",
 				"hillOwner": "read",
+				"graceDirector": "read",
 				"resident": "none"
 			},
 			"states": [
@@ -1094,11 +1186,11 @@
 			"reach": [
 				{
 					"rail": "Sharing",
-					"personas": ["network", "graceOwner", "hillOwner"]
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
 				},
 				{
 					"rail": "Connections",
-					"personas": ["network", "graceOwner", "hillOwner"]
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
 				}
 			],
 			"personas": {
@@ -1106,6 +1198,7 @@
 				"network": "write",
 				"graceOwner": "write",
 				"hillOwner": "write",
+				"graceDirector": "read",
 				"resident": "write",
 				"signup": "none"
 			},
@@ -1264,11 +1357,23 @@
 										"name": "Withdraw",
 										"match": "contains"
 									}
+								},
+								{
+									"expect": {
+										"noText": "Waiting for a reply"
+									}
+								},
+								{
+									"open": "/settings/sharing"
 								}
 							],
 							"expect": [
 								{
 									"noText": "Waiting for a reply"
+								},
+								{
+									"role": "button",
+									"name": "Connect"
 								}
 							],
 							"kind": "behavior"
@@ -1438,11 +1543,19 @@
 			"behaviors": [
 				{
 					"id": "accept",
-					"says": "The addressed Owner or Admin accepts once; a wrong account, an expired proof or a revoked invitation is refused.",
+					"says": "The addressed Owner or Admin accepts once and a retry returns the same result; the wrong side, a Member, a wrong proof, expiry, an initiator whose seat ended and a revoked invitation are refused.",
 					"catalog": ["IDN-020"],
 					"operations": ["associations.respondInvitation"],
 					"proof": {
 						"tests": [
+							{
+								"file": "tests/integration/organizations/relationships.test.mts",
+								"name": "AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 AC:ORG55-002 AC:ORG55-003 AC:GAP-IDN-027 AC:TARGET-IDN-021 AC:TARGET-IDN-027 ending one pair keeps other links, content and minimal history"
+							},
+							{
+								"file": "tests/integration/organizations/relationships.test.mts",
+								"name": "INV-relationships: invitation rotation, duplicate intents, decline, revoke and rolling limit preserve token boundaries"
+							},
 							{
 								"file": "tests/integration/organizations/relationships.test.mts",
 								"name": "AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, Member, proof, expiry and revoked initiator cannot approve"

@@ -38,8 +38,9 @@ flowchart LR
   s4 -.- s4_st0(("list"))
   s4 -.- s4_st1(("empty"))
   s4 -.- s4_st2(("program"))
+  s4 -.- s4_st3(("director"))
   s4 --- s4_b0["create-draft<br/>tests + cases + browser behavior"]
-  s4 --- s4_b1["publish<br/>tests + cases"]
+  s4 --- s4_b1["publish<br/>tests + cases + browser behavior"]
   s4 --- s4_b2["enroll<br/>tests + cases + browser presence"]
   s5["organizations.enrollment<br/>/organization/pipeline/programs/enrollments/[enrollmentId]"]
   s4 -- "link #quot;Church planting residency#quot;, then link #quot;Casey Lee#quot;" --> s5
@@ -81,12 +82,12 @@ A sending church's or network's pipeline board: one column per stage, search and
 
 - Routes: `/organization/pipeline`
 - Endpoints: `/organization/pipeline/export`
-- Personas: `graceOwner` write, `network` write, `hillOwner` write, `resident` none, `owner` none, `visitor` none
+- Personas: `graceOwner` write, `network` write, `hillOwner` write, `graceDirector` read, `resident` none, `owner` none, `visitor` none
 - Catalog: MUL-001, MUL-005, MUL-007, MUL-008
 
 Reach:
 
-- Rail "Pipeline" for `network`, `graceOwner`, `hillOwner`
+- Rail "Pipeline" for `network`, `graceOwner`, `hillOwner`, `graceDirector`
 
 States:
 
@@ -404,7 +405,7 @@ agent-browser find role link text --name "Map Import Applicant" --exact
 The Programs tab: the organization's residencies and apprenticeships, a new program from the template or blank, and each program's plan and enrolled people.
 
 - Routes: `/organization/pipeline/programs`, `/organization/pipeline/programs/new`, `/organization/pipeline/programs/[programId]`
-- Personas: `graceOwner` write, `network` write, `hillOwner` write, `resident` none
+- Personas: `graceOwner` write, `network` write, `hillOwner` write, `graceDirector` write, `resident` none
 - Catalog: MUL-010, MUL-011
 
 Reach:
@@ -450,6 +451,18 @@ agent-browser find role button text --name "Enroll" --exact
 agent-browser find role link text --name "Casey Lee" --exact
 ```
 
+- **director**: heading "Church planting residency"; button containing "Start Version"; no button "Enroll". As `graceDirector`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/organization/pipeline/programs"
+agent-browser wait --load networkidle
+agent-browser find role link click --name "Church planting residency" --exact
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Church planting residency" --exact
+agent-browser find role button text --name "Start Version"
+! agent-browser find role button text --name "Enroll" --exact
+```
+
 #### organizations.programs#create-draft
 
 An Owner starts a residency from the template with a director; it saves as the draft of Version 1 and joins the list.
@@ -470,7 +483,7 @@ agent-browser find role option click --name "Ana Ruiz" --exact
 agent-browser wait --load networkidle
 agent-browser find role button click --name "Save draft" --exact
 agent-browser wait --load networkidle
-agent-browser wait --url "**/organization/pipeline/programs/*"
+agent-browser find role heading text --name "Map residency check" --exact
 agent-browser open "$ORIGIN/organization/pipeline/programs"
 agent-browser wait --load networkidle
 agent-browser find role link text --name "Map residency check" --exact
@@ -478,12 +491,30 @@ agent-browser find role link text --name "Map residency check" --exact
 
 #### organizations.programs#publish
 
-Only the program's director publishes a version, so the Owner persona cannot; the tests prove Version 1 is published today.
+The program's director starts the next version, saves its draft and publishes it; after a reload the draft is gone and the version after it can start.
 
-- Operations: development.publishVersion
+- Operations: development.saveProgram, development.publishVersion
 - Catalog: MUL-010
 - Cases: ADR1-010
 - Test: `tests/integration/organizations/programs.test.mts`: `AC:ADR1-010 only the current director publishes; Version 1 is published today`
+- Browser, behavior proof (acts and checks the result), from state director:
+
+```bash
+agent-browser find role button click --name "Start Version"
+agent-browser wait --load networkidle
+agent-browser find role button click --name "Save draft" --exact
+agent-browser wait --load networkidle
+agent-browser find role button click --name "Publish Version"
+agent-browser wait --load networkidle
+agent-browser find role button click --name "Publish" --exact
+agent-browser wait --load networkidle
+agent-browser open "$ORIGIN/organization/pipeline/programs"
+agent-browser wait --load networkidle
+agent-browser find role link click --name "Church planting residency" --exact
+agent-browser wait --load networkidle
+agent-browser wait --fn "!document.body.innerText.includes(\"Draft of Version\")"
+agent-browser find role button text --name "Start Version"
+```
 
 #### organizations.programs#enroll
 
@@ -540,11 +571,12 @@ agent-browser find text "Clear outline and a warm close. Next time, slow down in
 
 #### organizations.enrollment#confirm-milestone
 
-The director records and confirms a milestone in one step; the director is no QA persona, so the tests prove it.
+The director confirms a milestone the resident marked done, or records and confirms one in a step for an enrollee with no linked account. The seed's only enrollee is linked, so Confirm needs the resident to mark first (another persona), and the tests prove both.
 
 - Operations: development.confirmMilestone
 - Catalog: MUL-012
 - Cases: ADR1-012
+- Test: `tests/integration/organizations/residency.test.mts`: `AC:ADR1-012 Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record Casey's milestones in one step`
 - Test: `tests/integration/organizations/programs.test.mts`: `AC:ADR1-012 the director records and confirms Casey's milestone in one step; nothing else changes`
 
 ### organizations.reviews
@@ -552,12 +584,12 @@ The director records and confirms a milestone in one step; the director is no QA
 Sent for review: kept answers an Owner or Admin sent to this seat, and each send's chosen questions.
 
 - Routes: `/organization/reviews`, `/organization/reviews/[reviewId]`
-- Personas: `graceOwner` read, `network` read, `hillOwner` read, `resident` none
+- Personas: `graceOwner` read, `network` read, `hillOwner` read, `graceDirector` read, `resident` none
 - Catalog: MUL-002
 
 Reach:
 
-- Rail "Sent for review" for `network`, `graceOwner`, `hillOwner`
+- Rail "Sent for review" for `network`, `graceOwner`, `hillOwner`, `graceDirector`
 
 States:
 
@@ -593,13 +625,13 @@ The receiving seat reads only the chosen questions and their answers; a withdraw
 Sharing and privacy: connections and what each one sees, pipeline totals, and a resident's residency choices.
 
 - Routes: `/settings/sharing`
-- Personas: `owner` write, `network` write, `graceOwner` write, `hillOwner` write, `resident` write, `signup` none
+- Personas: `owner` write, `network` write, `graceOwner` write, `hillOwner` write, `graceDirector` read, `resident` write, `signup` none
 - Catalog: IDN-020, IDN-022, MUL-003, MUL-016
 
 Reach:
 
-- Rail "Sharing" for `network`, `graceOwner`, `hillOwner`
-- Rail "Connections" for `network`, `graceOwner`, `hillOwner`
+- Rail "Sharing" for `network`, `graceOwner`, `hillOwner`, `graceDirector`
+- Rail "Connections" for `network`, `graceOwner`, `hillOwner`, `graceDirector`
 
 States:
 
@@ -673,6 +705,10 @@ agent-browser find role heading text --name "Waiting for a reply" --exact
 agent-browser find role button click --name "Withdraw"
 agent-browser wait --load networkidle
 agent-browser wait --fn "!document.body.innerText.includes(\"Waiting for a reply\")"
+agent-browser open "$ORIGIN/settings/sharing"
+agent-browser wait --load networkidle
+agent-browser wait --fn "!document.body.innerText.includes(\"Waiting for a reply\")"
+agent-browser find role button text --name "Connect" --exact
 ```
 
 #### organizations.sharing#pipeline-totals
@@ -750,11 +786,13 @@ agent-browser find role heading text --name "This page is not available" --exact
 
 #### organizations.respond#accept
 
-The addressed Owner or Admin accepts once; a wrong account, an expired proof or a revoked invitation is refused.
+The addressed Owner or Admin accepts once and a retry returns the same result; the wrong side, a Member, a wrong proof, expiry, an initiator whose seat ended and a revoked invitation are refused.
 
 - Operations: associations.respondInvitation
 - Catalog: IDN-020
 - Cases: TARGET-IDN-020
+- Test: `tests/integration/organizations/relationships.test.mts`: `AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 AC:ORG55-002 AC:ORG55-003 AC:GAP-IDN-027 AC:TARGET-IDN-021 AC:TARGET-IDN-027 ending one pair keeps other links, content and minimal history`
+- Test: `tests/integration/organizations/relationships.test.mts`: `INV-relationships: invitation rotation, duplicate intents, decline, revoke and rolling limit preserve token boundaries`
 - Test: `tests/integration/organizations/relationships.test.mts`: `AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, Member, proof, expiry and revoked initiator cannot approve`
 - Test: `tests/unit/organizations/invitation-proof.test.mts`: `the route answers the read as the page did: signed out, unavailable or the request`
 

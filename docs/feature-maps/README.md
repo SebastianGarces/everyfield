@@ -216,7 +216,7 @@ flowchart LR
 | [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 1 | 5 | 3 | 1 |
 | [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 5 | 10 | 4 | 4 |
 | [notifications](notifications.md) | [`apps/web/src/features/notifications/feature-map.json`](../../apps/web/src/features/notifications/feature-map.json) | 2 | 4 | 5 | 0 | 1 |
-| [organizations](organizations.md) | [`apps/web/src/features/organizations/feature-map.json`](../../apps/web/src/features/organizations/feature-map.json) | 10 | 17 | 18 | 10 | 3 |
+| [organizations](organizations.md) | [`apps/web/src/features/organizations/feature-map.json`](../../apps/web/src/features/organizations/feature-map.json) | 10 | 17 | 18 | 11 | 3 |
 | [oversight](oversight.md) | [`apps/web/src/features/oversight/feature-map.json`](../../apps/web/src/features/oversight/feature-map.json) | 3 | 5 | 4 | 3 | 0 |
 | [overview](overview.md) | [`apps/web/src/features/overview/feature-map.json`](../../apps/web/src/features/overview/feature-map.json) | 1 | 1 | 4 | 1 | 1 |
 | [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 4 | 12 | 11 | 6 | 2 |
@@ -248,6 +248,7 @@ defect shows a bug that is not fixed yet: it passes while the bug is there, and 
 | `member` | plant member | Ruth Allen, Member of Harvest Point (QA) | `QA_LOGINS.member` and `QA_PASSWORD` |
 | `network` | organization | Marcus Bell, Admin of Harvest Network (QA) | `QA_LOGINS.network` and `QA_PASSWORD` |
 | `graceOwner` | organization | Dana Brooks, Owner of Grace Austin (QA), a sending church with a pipeline and a residency | `QA_LOGINS.graceOwner` and `QA_PASSWORD` |
+| `graceDirector` | organization | Ana Ruiz, the residency director at Grace Austin (QA), a Member seat | `QA_LOGINS.graceDirector` and `QA_PASSWORD` |
 | `hillOwner` | organization | Ruth Calder, Owner of Hill Country Network (QA), which Grace Austin (QA) is linked to | `QA_LOGINS.hillOwner` and `QA_PASSWORD` |
 | `resident` | account, residency linked | Casey Lee, a seatless account linked to a sending church's residency | `QA_LOGINS.resident` and `QA_PASSWORD` |
 | `signup` | account | Hannah Cole, a verified sign-up with no church yet | `QA_LOGINS.signup` and `QA_PASSWORD` |
