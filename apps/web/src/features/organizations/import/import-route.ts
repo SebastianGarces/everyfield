@@ -5,15 +5,9 @@ import { pipelineActor } from "@/server/organizations/pipeline";
 import { pipelineImportLimits } from "@everyfield/contracts/organizations";
 import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
 
-// POST /organization/pipeline/import/preview and /organization/pipeline/import/save (T-363) with multipart form data:
-// `file`, the chosen file, and `request`, the JSON of everything else. A server action caps its body at the host's
-// action limit, so the file goes to its own routes, as the Word import does. The server reads the bytes itself each
-// time; the browser never sends parsed rows. Every reply is JSON: ok, refused with the refusal, or lost.
-
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const reply = (body: unknown) => Response.json(body, { headers: NO_STORE });
 const tooLarge = () => reply({ status: "refused", refusal: { code: "file_refused", problem: "file_too_large" } });
-/** The file plus the form's envelope and the request JSON. */
 const BODY_MAX = pipelineImportLimits.bytes + 256 * 1024;
 
 async function handle(request: Request, step: "preview" | "save") {

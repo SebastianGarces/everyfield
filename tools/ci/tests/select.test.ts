@@ -1,5 +1,3 @@
-// T-41: what `selectChecks` runs for a change, and the reachability lint over this checkout. CI_SELECT_MODULE swaps in
-// another select.ts, which select-sabotage.test.ts uses to prove these cases catch a broken selection.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
@@ -62,7 +60,6 @@ const map = {
 		"ops/actionable-watch/test/io.test.mts": ["ops/actionable-watch/io.mts", "ops/actionable-watch/observe.mts"],
 		"ops/actionable-watch/test/observe.test.mts": ["ops/actionable-watch/observe.mts"],
 		"tests/workflow/dev.test.mjs": ["scripts/browser.ts", "scripts/dev.ts"],
-		// What a map built before the read tracer holds: V8 coverage alone sees nothing these tests read as text.
 		"tests/workflow/evry-evals-coverage.test.mjs": [],
 		"tests/workflow/nightly.test.ts": ["scripts/nightly.ts"],
 		"tests/workflow/role-prompts.test.mjs": [],
@@ -74,7 +71,6 @@ const map = {
 	},
 };
 
-/** The checks and tests that run, each with its reason; everything else must be skipped with the stated reason. */
 function assertSelected(
 	s: Selection,
 	want: { checks: Record<string, string>; tests: Record<string, string>; filters?: string[] },
@@ -104,7 +100,6 @@ function assertSelected(
 	assert.deepEqual(s.packageFilters, want.filters ?? []);
 }
 
-/** Everything runs, for exactly `reasons`. */
 function assertFull(s: Selection, reasons: string[]) {
 	const why = `full run: ${reasons.join("; ")}`;
 	assert.deepEqual(s, {
@@ -375,7 +370,6 @@ test("INV-ci-select: reachability lint: every selectable test file and configure
 	});
 	assert.equal(listed.status, 0);
 	assert.deepEqual(unreachable(listed.stdout.split("\0").filter(Boolean)), []);
-	// The lint can see each kind of gap.
 	assert.deepEqual(
 		unreachable([
 			"tools/ci/tests/new.test.mjs",

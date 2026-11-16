@@ -1,8 +1,3 @@
-// OPS-125 test probe: one private-care call as the QA owner on a seeded quiet database, through the same writer the
-// check-in screen calls. It opens a session row for the owner, runs the call, prints the reply as JSON and removes the
-// session. Run with tsx and --conditions=react-server; DATABASE_URL names the quiet database.
-//   probe.ts '{"op":"history","page":1}'
-//   probe.ts '{"op":"correct","request":{...}}'
 import { randomBytes } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase, createDatabase } from "../../../packages/db/src/client.ts";

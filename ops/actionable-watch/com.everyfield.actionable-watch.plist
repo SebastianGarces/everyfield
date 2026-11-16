@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<!-- Template. The README's install step replaces __NODE__ and __HOME__ and writes the result to
-     ~/Library/LaunchAgents/com.everyfield.actionable-watch.plist. One poll per run; launchd owns cadence. -->
 <plist version="1.0">
 <dict>
 	<key>Label</key>

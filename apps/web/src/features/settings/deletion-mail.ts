@@ -1,9 +1,5 @@
 import type { WorkspaceDeletionNotice } from "@everyfield/domain/settings";
 
-// The church workspace deletion notices (T-272): one email per open seat, rendered from the request's own facts. No
-// copy carries a sign-in token, a signed URL or a link into church pages.
-
-/** The stored cancel deadline in one zone, to the minute, with the zone named: "December 12, 2026 at 3:04 PM (UTC)". */
 export function deadline(at: string, timeZone: string) {
 	const text = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeStyle: "short", timeZone }).format(
 		new Date(at),
@@ -11,10 +7,6 @@ export function deadline(at: string, timeZone: string) {
 	return `${text} (${timeZone})`;
 }
 
-/**
- * The subject and text for one recipient. The deadline is in the recipient's personal time zone, or the church's when
- * they have not set one.
- */
 export function workspaceDeletionContent(
 	notice: WorkspaceDeletionNotice,
 	recipient: WorkspaceDeletionNotice["recipients"][number],

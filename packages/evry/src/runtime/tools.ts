@@ -9,10 +9,6 @@ import { allowedWrites, everyOperation, type Offered, type Proposal } from "../p
 
 type ModelReply = Record<string, unknown>;
 
-/**
- * The model's read tools for this actor: one per domain, whose closed operation discriminator holds only the operations
- * the actor may use now. `run` executes one chosen operation.
- */
 export function readTools(actor: EvryActor, run: ToolHandlers["read"], offered: Offered = everyOperation): ToolSet {
 	const tools: ToolSet = {};
 	for (const [domain, adapters] of Object.entries(READ_DOMAINS)) {
@@ -34,22 +30,12 @@ export function readTools(actor: EvryActor, run: ToolHandlers["read"], offered: 
 	return tools;
 }
 
-/** What a turn does when the model calls one of its tools. Each handler returns what the model reads back. */
 export type ToolHandlers = {
-	/** Runs one read the actor may use now. */
 	read(adapter: ReadAdapter<unknown>, input: unknown): Promise<ModelReply>;
-	/** Re-selects person rows by id from a result this conversation already returned. */
 	select(call: { resultId: number; ids: string[] }): Promise<ModelReply>;
-	/** Prepares the exact review of one reviewed write; nothing changes until a person approves it. */
 	propose(call: { operation: string; input: unknown }): Promise<ModelReply>;
 };
 
-/**
- * The model's tools for this actor, the one definition the turn (turn.ts) and the recorded evals both use: one bounded
- * read tool per domain, whose closed operation discriminator holds only the operations the actor may use now;
- * select_returned_rows when the actor has a read; propose_change when the actor has a reviewed write. Approvals,
- * execution, code, network, files and SQL are never model tools.
- */
 export function modelTools(actor: EvryActor, handlers: ToolHandlers, offered: Offered = everyOperation): ToolSet {
 	const tools = readTools(actor, handlers.read, offered);
 	if (readCatalog(actor, offered).selection.length)
@@ -62,7 +48,6 @@ export function modelTools(actor: EvryActor, handlers: ToolHandlers, offered: Of
 			}),
 			execute: async (call) => handlers.select(call),
 		});
-	// A reviewed write is only proposed here: the review card is saved and a person approves it in the app.
 	const writes = allowedWrites(actor, offered);
 	if (writes.length) {
 		const options = writes.map((w) => z.strictObject({ operation: z.literal(w.operation), input: w.input }));
@@ -75,7 +60,6 @@ export function modelTools(actor: EvryActor, handlers: ToolHandlers, offered: Of
 	return tools;
 }
 
-/** The model sees the rows' safe fields, the exact total and the paging facts, bounded to one content section. */
 export function resultForModel(resultId: number, result: SourceResult): ModelReply {
 	const value = { resultId, ...result };
 	const json = scrub(JSON.stringify(value));
@@ -88,10 +72,6 @@ export function resultForModel(resultId: number, result: SourceResult): ModelRep
 	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
 }
 
-/**
- * What the model reads back for a prepared review: the card's id, its expiry, the reviewed fields on their row and each
- * other person the change reaches with what changes for them.
- */
 export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "review">): ModelReply {
 	const target = proposal.review.target;
 	const people = (proposal.review.people ?? []).map((p) => ({
@@ -106,9 +86,6 @@ export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "
 				proposalId: proposal.id,
 				status: "awaiting_approval",
 				expiresAt: proposal.expiresAt,
-				// The reviewed fields live in their source row, so a later model call withholds them with the row once the
-				// target is no longer available (withLiveRows in turn.ts).
-				// A note's stored text stays out of what the model reads, as in every read (the card shows it).
 				rows: target
 					? [
 							{

@@ -1,0 +1,295 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "notifications",
+	"catalog": ["NTF-003", "NTF-007", "NTF-008", "NTF-009", "NTF-012"],
+	"surfaces": [
+		{
+			"id": "notifications.feed",
+			"says": "The account's own notifications, newest first, with All and Unread, a category filter and mark as read; the rail bell shows the latest few.",
+			"routes": ["/notifications"],
+			"endpoints": ["/notifications/read"],
+			"catalog": ["NTF-003", "NTF-008", "NTF-009"],
+			"reach": [
+				{
+					"rail": "Notifications",
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
+				},
+				{
+					"from": "overview.home",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "button",
+								"name": "Notifications"
+							}
+						},
+						{
+							"click": {
+								"role": "link",
+								"name": "See all notifications"
+							}
+						},
+						{
+							"expect": {
+								"url": "/notifications"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "write",
+				"network": "write",
+				"graceOwner": "write",
+				"hillOwner": "write",
+				"graceDirector": "write",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "empty",
+					"reach": {
+						"persona": "owner",
+						"open": "/notifications",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "No notifications yet"
+						},
+						{
+							"role": "radio",
+							"name": "Unread",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "unread",
+					"reach": {
+						"manual": "needs a notice from another persona, which no seed holds: as owner, complete a milestone on /launch, then sign in as admin; or move the phase forward on /intelligence/journey, then sign in as network"
+					},
+					"expect": [
+						{
+							"role": "button",
+							"name": "Unread:",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Mark all read"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/notifications",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fnotifications"
+						}
+					]
+				},
+				{
+					"id": "load-failed",
+					"reach": {
+						"manual": "renders only when the feed read fails on the server"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load your notifications"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "unread-filter",
+					"says": "Unread switches the feed to unread entries only; on the seed's empty feed this shows only the view switching.",
+					"catalog": ["NTF-003"],
+					"operations": ["notifications.feed"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/notifications/notifications.test.mts",
+								"name": "AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay inside one recipient"
+							}
+						],
+						"cases": ["CASE-NTF-003"],
+						"browser": {
+							"state": "empty",
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "Unread",
+										"match": "contains"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "You are all caught up"
+								},
+								{
+									"absent": {
+										"role": "heading",
+										"name": "No notifications yet"
+									}
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				},
+				{
+					"id": "mark-read",
+					"says": "Opening or marking an entry reads it; Mark all read reads everything shown, only for this account.",
+					"catalog": ["NTF-003"],
+					"operations": ["notifications.markRead", "notifications.markAllVisibleRead"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/notifications/notifications.test.mts",
+								"name": "AC:CASE-NTF-003 each feed entry names its subject page's record, digests and phases name none, and the entries are the same"
+							},
+							{
+								"file": "tests/unit/notifications/links.test.mts",
+								"name": "AC:CASE-NTF-003 a linked entry is one link read or unread; an unlinked one is a button, then text"
+							}
+						],
+						"cases": ["CASE-NTF-003"]
+					}
+				},
+				{
+					"id": "milestones",
+					"says": "A forward phase move, a completed Launch milestone and sharing changes reach the right Owners, Admins and organizations once.",
+					"catalog": ["NTF-009"],
+					"operations": [],
+					"noOperation": "the catalog's notifications.emitPhaseMilestone and notifications.emitLaunchMilestone are quoted only in packages/db/src/schema/annotations.json, not in code",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/notifications/milestones.test.mts",
+								"name": "AC:CASE-NTF-009 AC:NOTIFY47-005 the scheduled tick tells the plant's Owners and Admins of an approval, a sharing change and an end, in the bell and by email"
+							},
+							{
+								"file": "tests/integration/phases/phases.test.mts",
+								"name": "AC:CASE-NTF-009 a forward move notifies each connected organization once; declaration, backward and noop do not"
+							}
+						],
+						"cases": ["CASE-NTF-009"]
+					}
+				},
+				{
+					"id": "digests",
+					"says": "The church digest and the oversight digest arrive at their local hour, in the bell and by email when chosen.",
+					"catalog": ["NTF-007", "NTF-008"],
+					"operations": [],
+					"noOperation": "the catalog's notifications.generateOwedOversightDigests is quoted only in packages/db/src/schema/annotations.json, not in code",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/notifications/digests.test.mts",
+								"name": "AC:NOTIFY47-004 the church digest reaches the bell and email at the church's Monday 08:00 in Sydney, not before, and an empty church gets nothing"
+							},
+							{
+								"file": "tests/integration/notifications/digests.test.mts",
+								"name": "AC:CASE-NTF-008 AC:NOTIFY47-005 the 07:00 oversight digest shows the sharing plant's counts and dates only, in the bell by default and by email when chosen"
+							}
+						],
+						"cases": ["CASE-NTF-008"]
+					}
+				}
+			]
+		},
+		{
+			"id": "notifications.email-preferences",
+			"says": "The page an optional email's Unsubscribe link opens: no sign-in, it turns that one category's email off and can undo it.",
+			"routes": ["/email-preferences/[token]"],
+			"endpoints": ["/email-preferences/[token]/one-click"],
+			"catalog": ["NTF-012"],
+			"reach": [
+				{
+					"link": "/email-preferences/{token}",
+					"email": "notification",
+					"fill": {
+						"token": "the token in an optional email's Unsubscribe link"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "write"
+			},
+			"states": [
+				{
+					"id": "invalid",
+					"reach": {
+						"persona": "visitor",
+						"open": "/email-preferences/not-a-token",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This link does not work"
+						},
+						{
+							"role": "link",
+							"name": "Open notification settings"
+						}
+					]
+				},
+				{
+					"id": "open",
+					"reach": {
+						"manual": "needs a real token, which only a sent optional email carries"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Stop emails about",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Turn off these emails"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "opt-out",
+					"says": "The link turns off email for its own category only, a one-click request does the same, and undo restores it.",
+					"catalog": ["NTF-012"],
+					"operations": [],
+					"noOperation": "the producer's `describeEmailOptOut`, `applyEmailOptOut` and `undoEmailOptOut` (packages/domain/src/notifications/index.ts) are object properties named without the notifications. prefix, which the checker does not read",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/notifications/digests.test.mts",
+								"name": "AC:CASE-NTF-007 AC:CASE-NTF-008 each digest email carries the Unsubscribe link and headers of its own digest, and unsubscribing stops that digest only"
+							},
+							{
+								"file": "tests/integration/notifications/notifications.test.mts",
+								"name": "AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-IDN-012 preferences do not send mail or change another account"
+							}
+						],
+						"cases": ["CASE-NTF-012", "CASE-NTF-007"]
+					}
+				}
+			]
+		}
+	]
+}

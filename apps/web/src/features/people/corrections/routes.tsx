@@ -19,12 +19,6 @@ const dismissedCrumbs = [
 	{ label: "Dismissed" },
 ];
 
-/**
- * /people/duplicates?person=<id>&with=<id>[&keep=<id>]: one pair of possible duplicates, reviewed side by side.
- * Owners and Admins review and merge; a Member sees why the page is closed to them. Without a pair the page lists the
- * pairs CSV imports flagged with "Add, review later", each with Review and "Not a duplicate". ?view=dismissed lists the
- * pairs marked "Not a duplicate", each with Restore (D-790).
- */
 export async function DuplicatesPage({
 	searchParams,
 }: {

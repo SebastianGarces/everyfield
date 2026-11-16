@@ -11,7 +11,6 @@ const PORT: DeletionPort = {
 	cancel: cancelAccountDeletion,
 };
 
-/** The product's restricted deletion page for your own account (/account-deletion). */
 export function AccountDeletionScreen({
 	initial,
 	requestedUntil,

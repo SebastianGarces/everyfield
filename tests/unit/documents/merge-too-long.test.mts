@@ -1,6 +1,3 @@
-// T-126: the library shows the 16 KB size text only for the server's merge-size refusal. The screen used to look for
-// "16" in the refusal's words, so any other invalid input that mentioned 16 showed the size text. It now reads the
-// refusal's path. The domain's own refusal is used here, so a change to its path breaks this test.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MERGE_TOO_LONG, mergeTooLong } from "../../../apps/web/src/features/documents/model.ts";

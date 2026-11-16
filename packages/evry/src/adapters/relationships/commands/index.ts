@@ -6,17 +6,8 @@ import { committed, nativeWrite, notes, plantAdmin } from "../../native.ts";
 import { COLUMN } from "../../sharing/commands/index.ts";
 import { SHARING_CATEGORIES, SHARING_CATEGORY_LABEL } from "../../../catalog/labels.ts";
 
-// The church's connections with a sending church or network: asking one to connect and ending a connection, through
-// the same native commands the Settings connections screen runs. Nothing is shared with an organization until it
-// accepts; ending a connection stops what the church shares at once.
-
 const KIND_TEXT = { sending_church: "sending church", sending_network: "network" } as const;
 
-/**
- * Asking one organization to connect. The organization is found by its exact name among the sending churches and
- * networks the church may ask (not itself, not one it is already connected to). The invitation goes to the address the
- * user gives, or else to the organization's contact address; with neither, the review says what is missing.
- */
 export const invite = nativeWrite({
 	operation: "associations.invite",
 	description:
@@ -42,7 +33,6 @@ export const invite = nativeWrite({
 			subject: { kind: "plant" as const, id: actor.owner.id },
 			organization: { kind: "organization" as const, id: organization.id, organizationKind: organization.kind },
 		};
-		// What the organization would see once it accepts: the exact pair's saved choices, or the first-time defaults.
 		const disclosure = await db.transaction(async (tx) => {
 			actor.authority.observe(tx);
 			return readSharingDisclosure(tx, actor.session as never, actor.owner, pair);
@@ -80,7 +70,6 @@ export const invite = nativeWrite({
 	},
 });
 
-/** Ending a live connection: the review says which categories stop being shared. */
 export const end = nativeWrite({
 	operation: "associations.end",
 	description:
@@ -112,5 +101,4 @@ export const end = nativeWrite({
 	},
 });
 
-/** The installed connection reviewed writes, keyed by operation. */
 export const RELATIONSHIP_COMMANDS = { "associations.invite": invite, "associations.end": end } as const;

@@ -1,0 +1,1634 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "organizations",
+	"catalog": [
+		"IDN-020",
+		"IDN-022",
+		"MUL-001",
+		"MUL-002",
+		"MUL-003",
+		"MUL-004",
+		"MUL-005",
+		"MUL-007",
+		"MUL-008",
+		"MUL-009",
+		"MUL-010",
+		"MUL-011",
+		"MUL-012",
+		"MUL-014",
+		"MUL-016",
+		"MUL-017"
+	],
+	"surfaces": [
+		{
+			"id": "organizations.pipeline",
+			"says": "A sending church's or network's pipeline board: one column per stage, search and the six-month filter in the address, goals, Add person and Export.",
+			"routes": ["/organization/pipeline"],
+			"endpoints": ["/organization/pipeline/export"],
+			"catalog": ["MUL-001", "MUL-005", "MUL-007", "MUL-008"],
+			"reach": [
+				{
+					"rail": "Pipeline",
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
+				}
+			],
+			"personas": {
+				"graceOwner": "write",
+				"network": "write",
+				"hillOwner": "write",
+				"graceDirector": "read",
+				"resident": "none",
+				"owner": "none",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "board",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/organization/pipeline",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Pipeline"
+						},
+						{
+							"role": "link",
+							"name": "Casey Lee"
+						},
+						{
+							"role": "link",
+							"name": "Jordan Reyes"
+						},
+						{
+							"role": "region",
+							"name": "Sending goals and leadership conversations"
+						}
+					]
+				},
+				{
+					"id": "empty",
+					"reach": {
+						"persona": "network",
+						"open": "/organization/pipeline",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "No one in your pipeline yet"
+						},
+						{
+							"role": "region",
+							"name": "Potential leader"
+						}
+					]
+				},
+				{
+					"id": "not-available",
+					"reach": {
+						"persona": "resident",
+						"open": "/organization/pipeline",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "add-person",
+					"says": "An Owner or Admin adds a person with only a name; they join the first stage and stay after a reload.",
+					"catalog": ["MUL-001"],
+					"operations": ["orgPeople.create"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/pipeline.test.mts",
+								"name": "AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsible staff; nobody outside the organization sees them"
+							}
+						],
+						"cases": ["ADR1-001", "ADR1-002"],
+						"browser": {
+							"state": "board",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Add person"
+									}
+								},
+								{
+									"type": "Map Pipeline Person",
+									"into": "Name"
+								},
+								{
+									"press": "Enter"
+								},
+								{
+									"open": "/organization/pipeline"
+								}
+							],
+							"expect": [
+								{
+									"role": "link",
+									"name": "Map Pipeline Person"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "search",
+					"says": "Search the pipeline, then Enter, narrows the board to matching people and keeps the term in the address.",
+					"catalog": ["MUL-008"],
+					"operations": ["pipeline.listPeople"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/unit/organizations/pipeline-model.test.mts",
+								"name": "the board's filters round-trip through the address, and anything unreadable falls back"
+							},
+							{
+								"file": "tests/integration/organizations/pipeline.test.mts",
+								"name": "AC:ADR1-002 AC:ADR1-009 responsible staff see their own people and notes, and nothing of anyone else's"
+							}
+						],
+						"cases": ["ADR1-009"],
+						"browser": {
+							"state": "board",
+							"steps": [
+								{
+									"type": "Casey",
+									"into": "Search the pipeline"
+								},
+								{
+									"press": "Enter"
+								}
+							],
+							"expect": [
+								{
+									"url": "/organization/pipeline?q=Casey"
+								},
+								{
+									"role": "link",
+									"name": "Casey Lee"
+								},
+								{
+									"absent": {
+										"role": "link",
+										"name": "Jordan Reyes"
+									}
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "goals",
+					"says": "Add goal opens the sending goal form; the tests prove a saved goal reads back and moves nobody.",
+					"catalog": ["MUL-007"],
+					"operations": ["pipeline.saveGoal"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/goals.test.mts",
+								"name": "AC:ADR1-007 an Owner adds and edits goals; a negative target is refused; saving a goal moves nobody"
+							}
+						],
+						"cases": ["ADR1-007"],
+						"browser": {
+							"state": "board",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Add goal"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Add a sending goal"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				},
+				{
+					"id": "export",
+					"says": "Export opens the pipeline export; the tests prove the file holds contact, stage history and programs and says what and when.",
+					"catalog": ["MUL-005"],
+					"operations": [],
+					"noOperation": "the export is `loadPipelineExport`; the catalog's `orgPeople.export` is marked not built",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/data.test.mts",
+								"name": "AC:ADR1-005 INV-privacy: the export holds contact, stage history, programs, enrollments and completions, and says what and when"
+							}
+						],
+						"cases": ["ADR1-005"],
+						"browser": {
+							"state": "board",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Export"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Export pipeline"
+								},
+								{
+									"role": "button",
+									"name": "Download CSV"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "organizations.person",
+			"says": "One pipeline person's record: details, stage history, the Everyfield account link, leadership conversations and staff notes.",
+			"routes": ["/organization/pipeline/[personId]"],
+			"catalog": ["MUL-002", "MUL-004", "MUL-008", "MUL-009"],
+			"reach": [
+				{
+					"from": "organizations.pipeline",
+					"persona": "graceOwner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Jordan Reyes"
+							}
+						},
+						{
+							"expect": {
+								"url": "/organization/pipeline/{personId}"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"graceOwner": "write",
+				"network": "write",
+				"hillOwner": "write",
+				"resident": "none"
+			},
+			"states": [
+				{
+					"id": "record",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/organization/pipeline",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Jordan Reyes"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Jordan Reyes"
+						},
+						{
+							"role": "button",
+							"name": "Move stage"
+						},
+						{
+							"role": "button",
+							"name": "Log conversation"
+						},
+						{
+							"role": "heading",
+							"name": "Notes"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "move-stage",
+					"says": "Move stage needs a reason; the move and its reason show in the history after a reload.",
+					"catalog": ["MUL-008"],
+					"operations": [],
+					"noOperation": "the move is `pipelineWriter.movePerson`; the catalog's `pipeline.moveStage` names no code",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/pipeline.test.mts",
+								"name": "AC:ADR1-008 a move needs a reason, and the history shows who moved the person, when and why"
+							}
+						],
+						"cases": ["ADR1-008"],
+						"browser": {
+							"state": "record",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Move stage"
+									}
+								},
+								{
+									"type": "Map move check",
+									"into": "Reason"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Move"
+									}
+								},
+								{
+									"open": "/organization/pipeline"
+								},
+								{
+									"click": {
+										"role": "link",
+										"name": "Jordan Reyes"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Map move check",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "add-note",
+					"says": "A staff note saves on the record and is still there after a reload.",
+					"catalog": ["MUL-009"],
+					"operations": ["orgPeople.addNote"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/pipeline.test.mts",
+								"name": "AC:ADR1-009 a note is read by Owner, Admin and responsible staff only, and only its author edits or removes it"
+							}
+						],
+						"cases": ["ADR1-009"],
+						"browser": {
+							"state": "record",
+							"steps": [
+								{
+									"type": "Map note check",
+									"into": "Add a note"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Add note"
+									}
+								},
+								{
+									"open": "/organization/pipeline"
+								},
+								{
+									"click": {
+										"role": "link",
+										"name": "Jordan Reyes"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Map note check",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "invite-to-link",
+					"says": "Invite to link account emails the person a residency link; the record shows the invitation pending.",
+					"catalog": ["MUL-004"],
+					"operations": ["residency.invite"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/residency.test.mts",
+								"name": "AC:ADR1-004 an Admin invites Casey to link; the record shows it pending with its date; revoking kills the emailed link"
+							}
+						],
+						"cases": ["ADR1-004"],
+						"browser": {
+							"state": "record",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Invite to link account"
+									}
+								},
+								{
+									"open": "/organization/pipeline"
+								},
+								{
+									"click": {
+										"role": "link",
+										"name": "Jordan Reyes"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Invitation pending",
+									"match": "contains"
+								},
+								{
+									"role": "button",
+									"name": "Revoke"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "organizations.duplicates",
+			"says": "Possible duplicates in the pipeline, for an Owner or Admin to merge or keep apart.",
+			"routes": ["/organization/pipeline/duplicates"],
+			"catalog": ["MUL-017"],
+			"reach": [
+				{
+					"from": "organizations.pipeline",
+					"persona": "graceOwner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Possible duplicates"
+							}
+						},
+						{
+							"expect": {
+								"url": "/organization/pipeline/duplicates"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"graceOwner": "write",
+				"network": "write",
+				"hillOwner": "write",
+				"resident": "none"
+			},
+			"states": [
+				{
+					"id": "none",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/organization/pipeline/duplicates",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Possible duplicates"
+						},
+						{
+							"role": "heading",
+							"name": "No possible duplicates"
+						}
+					]
+				},
+				{
+					"id": "not-available",
+					"reach": {
+						"persona": "resident",
+						"open": "/organization/pipeline/duplicates",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "merge",
+					"says": "A suggested pair merges into one person and Unmerge restores both; the QA seed holds no pair, so the tests prove it.",
+					"catalog": ["MUL-017"],
+					"operations": ["orgPeople.findDuplicates", "orgPeople.merge", "orgPeople.unmerge"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/data.test.mts",
+								"name": "AC:ADR1-017 Casey Lee and Casey L. are suggested by email; collisions refuse; merge joins them and undo restores both"
+							}
+						],
+						"cases": ["ADR1-017"]
+					}
+				}
+			]
+		},
+		{
+			"id": "organizations.import",
+			"says": "Import people into the pipeline from a CSV or a form's Excel export: upload, review columns and rows, import, done.",
+			"routes": ["/organization/pipeline/import"],
+			"endpoints": ["/organization/pipeline/import/preview", "/organization/pipeline/import/save"],
+			"catalog": ["MUL-001"],
+			"reach": [
+				{
+					"from": "organizations.pipeline",
+					"persona": "graceOwner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Import"
+							}
+						},
+						{
+							"expect": {
+								"url": "/organization/pipeline/import"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"graceOwner": "write",
+				"network": "write",
+				"hillOwner": "write",
+				"resident": "none"
+			},
+			"states": [
+				{
+					"id": "choose-file",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/organization/pipeline/import",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Import people"
+						},
+						{
+							"role": "heading",
+							"name": "Choose a file"
+						},
+						{
+							"role": "button",
+							"name": "Choose a CSV or Excel file"
+						}
+					]
+				},
+				{
+					"id": "not-available",
+					"reach": {
+						"persona": "resident",
+						"open": "/organization/pipeline/import",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "import",
+					"says": "A one-row CSV imports one new person into the first stage; the pipeline search then finds them.",
+					"catalog": ["MUL-001"],
+					"operations": [],
+					"noOperation": "the pipeline import is `pipelineImportWriter.importPeople`, which `docs/catalog/operations.json` does not list",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/import.test.mts",
+								"name": "a UTF-8 CSV with a BOM, CRLF, quoted commas and multi-line answers imports like the Excel file"
+							},
+							{
+								"file": "tests/integration/organizations/import.test.mts",
+								"name": "Dana imports applications.xlsx: Jordan and Sam join the chosen stage, Casey is skipped and unchanged"
+							}
+						],
+						"browser": {
+							"state": "choose-file",
+							"steps": [
+								{
+									"upload": "tools/qa/fixtures/pipeline-applicant.csv"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Import",
+										"match": "contains"
+									}
+								},
+								{
+									"expect": {
+										"text": "in your pipeline now",
+										"match": "contains"
+									}
+								},
+								{
+									"open": "/organization/pipeline"
+								},
+								{
+									"type": "Map Import Applicant",
+									"into": "Search the pipeline"
+								},
+								{
+									"press": "Enter"
+								}
+							],
+							"expect": [
+								{
+									"role": "link",
+									"name": "Map Import Applicant"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "organizations.programs",
+			"says": "The Programs tab: the organization's residencies and apprenticeships, a new program from the template or blank, and each program's plan and enrolled people.",
+			"routes": [
+				"/organization/pipeline/programs",
+				"/organization/pipeline/programs/new",
+				"/organization/pipeline/programs/[programId]"
+			],
+			"catalog": ["MUL-010", "MUL-011"],
+			"reach": [
+				{
+					"from": "organizations.pipeline",
+					"persona": "graceOwner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Programs"
+							}
+						},
+						{
+							"expect": {
+								"url": "/organization/pipeline/programs"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"graceOwner": "write",
+				"network": "write",
+				"hillOwner": "write",
+				"graceDirector": "write",
+				"resident": "none"
+			},
+			"states": [
+				{
+					"id": "list",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/organization/pipeline/programs",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "link",
+							"name": "Church planting residency"
+						},
+						{
+							"role": "link",
+							"name": "New program"
+						},
+						{
+							"role": "region",
+							"name": "Active residents"
+						}
+					]
+				},
+				{
+					"id": "empty",
+					"reach": {
+						"persona": "network",
+						"open": "/organization/pipeline/programs",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "No programs yet"
+						},
+						{
+							"role": "link",
+							"name": "New program"
+						}
+					]
+				},
+				{
+					"id": "program",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/organization/pipeline/programs",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Church planting residency"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Church planting residency"
+						},
+						{
+							"role": "button",
+							"name": "Enroll"
+						},
+						{
+							"role": "link",
+							"name": "Casey Lee"
+						}
+					]
+				},
+				{
+					"id": "director",
+					"reach": {
+						"persona": "graceDirector",
+						"open": "/organization/pipeline/programs",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Church planting residency"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Church planting residency"
+						},
+						{
+							"role": "button",
+							"name": "Start Version",
+							"match": "contains"
+						},
+						{
+							"absent": {
+								"role": "button",
+								"name": "Enroll"
+							}
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "create-draft",
+					"says": "An Owner starts a residency from the template with a director; it saves as the draft of Version 1 and joins the list.",
+					"catalog": ["MUL-010"],
+					"operations": ["development.saveProgram"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/programs.test.mts",
+								"name": "AC:ADR1-010 an Owner starts a residency from the template with Ana as director; a Member cannot create one"
+							}
+						],
+						"cases": ["ADR1-010"],
+						"browser": {
+							"state": "list",
+							"steps": [
+								{
+									"click": {
+										"role": "link",
+										"name": "New program"
+									}
+								},
+								{
+									"type": "Map residency check",
+									"into": "Name"
+								},
+								{
+									"click": {
+										"role": "combobox",
+										"name": "Director"
+									}
+								},
+								{
+									"click": {
+										"role": "option",
+										"name": "Ana Ruiz"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save draft"
+									}
+								},
+								{
+									"expect": {
+										"role": "heading",
+										"name": "Map residency check"
+									}
+								},
+								{
+									"open": "/organization/pipeline/programs"
+								}
+							],
+							"expect": [
+								{
+									"role": "link",
+									"name": "Map residency check"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "publish",
+					"says": "The program's director starts the next version, saves its draft and publishes it; after a reload the draft is gone and the version after it can start.",
+					"catalog": ["MUL-010"],
+					"operations": ["development.saveProgram", "development.publishVersion"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/programs.test.mts",
+								"name": "AC:ADR1-010 only the current director publishes; Version 1 is published today"
+							}
+						],
+						"cases": ["ADR1-010"],
+						"browser": {
+							"state": "director",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Start Version",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save draft"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Publish Version",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Publish"
+									}
+								},
+								{
+									"open": "/organization/pipeline/programs"
+								},
+								{
+									"click": {
+										"role": "link",
+										"name": "Church planting residency"
+									}
+								}
+							],
+							"expect": [
+								{
+									"noText": "Draft of Version"
+								},
+								{
+									"role": "button",
+									"name": "Start Version",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "enroll",
+					"says": "Enroll opens the enrollment form; the tests prove the person joins on the current version and their pipeline stage stays.",
+					"catalog": ["MUL-011"],
+					"operations": ["development.enroll"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/programs.test.mts",
+								"name": "AC:ADR1-011 an Owner enrolls Casey; the pipeline stage stays; a second active enrollment in the same program is refused"
+							}
+						],
+						"cases": ["ADR1-011"],
+						"browser": {
+							"state": "program",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Enroll"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Enroll in",
+									"match": "contains"
+								},
+								{
+									"role": "combobox",
+									"name": "Person"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "organizations.enrollment",
+			"says": "One person's enrollment: cohort, stage, plan version, what the resident shares, milestones and feedback.",
+			"routes": ["/organization/pipeline/programs/enrollments/[enrollmentId]"],
+			"catalog": ["MUL-011", "MUL-012"],
+			"reach": [
+				{
+					"from": "organizations.programs",
+					"persona": "graceOwner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Church planting residency"
+							}
+						},
+						{
+							"click": {
+								"role": "link",
+								"name": "Casey Lee"
+							}
+						},
+						{
+							"expect": {
+								"url": "/organization/pipeline/programs/enrollments/{enrollmentId}"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"graceOwner": "read",
+				"network": "read",
+				"hillOwner": "read",
+				"resident": "none"
+			},
+			"states": [
+				{
+					"id": "enrollment",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/organization/pipeline/programs",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Church planting residency"
+								}
+							},
+							{
+								"click": {
+									"role": "link",
+									"name": "Casey Lee"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Casey Lee"
+						},
+						{
+							"role": "heading",
+							"name": "Enrollment"
+						},
+						{
+							"text": "Clear outline and a warm close. Next time, slow down in the second point."
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "confirm-milestone",
+					"says": "The director confirms a milestone the resident marked done, or records and confirms one in a step for an enrollee with no linked account. The seed's only enrollee is linked, so Confirm needs the resident to mark first (another persona), and the tests prove both.",
+					"catalog": ["MUL-012"],
+					"operations": ["development.confirmMilestone"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/residency.test.mts",
+								"name": "AC:ADR1-012 Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record Casey's milestones in one step"
+							},
+							{
+								"file": "tests/integration/organizations/programs.test.mts",
+								"name": "AC:ADR1-012 the director records and confirms Casey's milestone in one step; nothing else changes"
+							}
+						],
+						"cases": ["ADR1-012"]
+					}
+				}
+			]
+		},
+		{
+			"id": "organizations.reviews",
+			"says": "Sent for review: kept answers an Owner or Admin sent to this seat, and each send's chosen questions.",
+			"routes": ["/organization/reviews", "/organization/reviews/[reviewId]"],
+			"catalog": ["MUL-002"],
+			"reach": [
+				{
+					"rail": "Sent for review",
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
+				}
+			],
+			"personas": {
+				"graceOwner": "read",
+				"network": "read",
+				"hillOwner": "read",
+				"graceDirector": "read",
+				"resident": "none"
+			},
+			"states": [
+				{
+					"id": "empty",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/organization/reviews",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Nothing sent to you yet"
+						}
+					]
+				},
+				{
+					"id": "not-available",
+					"reach": {
+						"persona": "resident",
+						"open": "/organization/reviews",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
+						}
+					]
+				},
+				{
+					"id": "send",
+					"reach": {
+						"manual": "the QA seed sends no kept answers, and only the receiving seat reads a send, so a send needs one persona to send and another to read"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Sent for review"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "read-send",
+					"says": "The receiving seat reads only the chosen questions and their answers; a withdrawn send shows as no longer shared.",
+					"catalog": ["MUL-002"],
+					"operations": [],
+					"noOperation": "the answer-review reads and sends are not listed in `docs/catalog/operations.json`",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/reviews.test.mts",
+								"name": "only Ben reads the send: the chosen questions with their answers and nothing else"
+							},
+							{
+								"file": "tests/integration/organizations/reviews.test.mts",
+								"name": "withdrawal: Ben sees the send as no longer shared, with no question or answer, and history records both"
+							}
+						]
+					}
+				}
+			]
+		},
+		{
+			"id": "organizations.sharing",
+			"says": "Sharing and privacy: connections and what each one sees, pipeline totals, and a resident's residency choices.",
+			"routes": ["/settings/sharing"],
+			"catalog": ["IDN-020", "IDN-022", "MUL-003", "MUL-016"],
+			"reach": [
+				{
+					"rail": "Sharing",
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
+				},
+				{
+					"rail": "Connections",
+					"personas": ["network", "graceOwner", "hillOwner", "graceDirector"]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"network": "write",
+				"graceOwner": "write",
+				"hillOwner": "write",
+				"graceDirector": "read",
+				"resident": "write",
+				"signup": "none"
+			},
+			"states": [
+				{
+					"id": "church",
+					"reach": {
+						"persona": "owner",
+						"open": "/settings/sharing",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "region",
+							"name": "Connections"
+						},
+						{
+							"role": "button",
+							"name": "Connect"
+						},
+						{
+							"role": "switch",
+							"name": "Share",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "network",
+					"reach": {
+						"persona": "network",
+						"open": "/settings/sharing",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "region",
+							"name": "Connected churches"
+						},
+						{
+							"role": "region",
+							"name": "Pipeline totals from churches"
+						}
+					]
+				},
+				{
+					"id": "sending-church",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/settings/sharing",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "region",
+							"name": "Connected churches"
+						},
+						{
+							"role": "switch",
+							"name": "Share pipeline totals with",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "resident",
+					"reach": {
+						"persona": "resident",
+						"open": "/settings/sharing",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "region",
+							"name": "Residency with",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Leave residency"
+						}
+					]
+				},
+				{
+					"id": "not-available",
+					"reach": {
+						"persona": "signup",
+						"open": "/settings/sharing",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "invite",
+					"says": "Connect sends an invitation that waits for a reply; Withdraw takes it back.",
+					"catalog": ["IDN-020"],
+					"operations": ["associations.invite", "associations.revokeInvitation"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/relationships.test.mts",
+								"name": "INV-relationships: invitation rotation, duplicate intents, decline, revoke and rolling limit preserve token boundaries"
+							}
+						],
+						"browser": {
+							"state": "sending-church",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Connect"
+									}
+								},
+								{
+									"click": {
+										"role": "combobox",
+										"name": "Organization"
+									}
+								},
+								{
+									"click": {
+										"role": "option",
+										"name": "Harvest Network (QA)",
+										"match": "contains"
+									}
+								},
+								{
+									"type": "$login:network",
+									"into": "Their Owner or Admin's email"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Send invitation"
+									}
+								},
+								{
+									"open": "/settings/sharing"
+								},
+								{
+									"expect": {
+										"role": "heading",
+										"name": "Waiting for a reply"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Withdraw",
+										"match": "contains"
+									}
+								},
+								{
+									"expect": {
+										"noText": "Waiting for a reply"
+									}
+								},
+								{
+									"open": "/settings/sharing"
+								}
+							],
+							"expect": [
+								{
+									"noText": "Waiting for a reply"
+								},
+								{
+									"role": "button",
+									"name": "Connect"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "pipeline-totals",
+					"says": "A sending church turns pipeline totals for its network off and on; each choice holds after a reload.",
+					"catalog": ["MUL-016"],
+					"operations": ["pipelineSharing.setConsent"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/consent.test.mts",
+								"name": "AC:ADR1-016 pipeline consent defaults off and requires two distinct currently eligible churches"
+							}
+						],
+						"cases": ["ADR1-016"],
+						"browser": {
+							"state": "sending-church",
+							"steps": [
+								{
+									"click": {
+										"role": "switch",
+										"name": "Share pipeline totals with",
+										"match": "contains"
+									}
+								},
+								{
+									"open": "/settings/sharing"
+								},
+								{
+									"expect": {
+										"text": "Not shared"
+									}
+								},
+								{
+									"click": {
+										"role": "switch",
+										"name": "Share pipeline totals with",
+										"match": "contains"
+									}
+								},
+								{
+									"open": "/settings/sharing"
+								}
+							],
+							"expect": [
+								{
+									"noText": "Not shared"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "resident-foundations",
+					"says": "A resident shares foundation progress with the sending church; My residency then shows it shared.",
+					"catalog": ["MUL-003", "MUL-014"],
+					"operations": ["residency.setSharing"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/residency.test.mts",
+								"name": "AC:ADR1-014 foundations: not shared, then a count of the six once Casey shares them, never her reading rows"
+							}
+						],
+						"cases": ["ADR1-014"],
+						"browser": {
+							"state": "resident",
+							"steps": [
+								{
+									"click": {
+										"role": "switch",
+										"name": "Foundation progress",
+										"match": "contains"
+									}
+								},
+								{
+									"open": "/my-residency"
+								},
+								{
+									"expect": {
+										"noText": "Not shared"
+									}
+								},
+								{
+									"open": "/settings/sharing"
+								},
+								{
+									"click": {
+										"role": "switch",
+										"name": "Foundation progress",
+										"match": "contains"
+									}
+								},
+								{
+									"open": "/my-residency"
+								}
+							],
+							"expect": [
+								{
+									"text": "Not shared",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "organizations.respond",
+			"says": "The page a connection invitation opens: the addressed Owner or Admin reads the request and accepts or declines it.",
+			"routes": ["/connections/respond"],
+			"endpoints": ["/api/connections/invitation"],
+			"catalog": ["IDN-020"],
+			"reach": [
+				{
+					"link": "/connections/respond?invitation={invitationId}#{proof}",
+					"fill": {
+						"invitationId": "the invitation's id",
+						"proof": "the proof in the invitation email"
+					},
+					"email": "relationship_invitation"
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"network": "write",
+				"graceOwner": "write",
+				"hillOwner": "write",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "no-invitation",
+					"reach": {
+						"persona": "owner",
+						"open": "/connections/respond",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
+						}
+					]
+				},
+				{
+					"id": "request",
+					"reach": {
+						"manual": "the invitation's link reaches only the addressed account's mail, and the QA seed keeps no unanswered invitation, so one persona invites and another opens the link"
+					},
+					"expect": [
+						{
+							"role": "button",
+							"name": "Accept",
+							"match": "contains"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "accept",
+					"says": "The addressed Owner or Admin accepts once and a retry returns the same result; the wrong side, a Member, a wrong proof, expiry, an initiator whose seat ended and a revoked invitation are refused.",
+					"catalog": ["IDN-020"],
+					"operations": ["associations.respondInvitation"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/relationships.test.mts",
+								"name": "AC:AF-010 AC:AF-014 AC:AF-015 AC:AF-020 AC:AF-021 AC:AF-022 AC:AF-023 AC:AF-024 AC:AF-025 AC:AF-026 AC:AF-031 AC:AF-034 AC:AF-040 AC:AF-041 AC:ORG55-002 AC:ORG55-003 AC:GAP-IDN-027 AC:TARGET-IDN-021 AC:TARGET-IDN-027 ending one pair keeps other links, content and minimal history"
+							},
+							{
+								"file": "tests/integration/organizations/relationships.test.mts",
+								"name": "INV-relationships: invitation rotation, duplicate intents, decline, revoke and rolling limit preserve token boundaries"
+							},
+							{
+								"file": "tests/integration/organizations/relationships.test.mts",
+								"name": "AC:AF-016 AC:AF-017 AC:AF-019 AC:ROLE43-016 AC:TARGET-IDN-020 wrong side, Member, proof, expiry and revoked initiator cannot approve"
+							},
+							{
+								"file": "tests/unit/organizations/invitation-proof.test.mts",
+								"name": "the route answers the read as the page did: signed out, unavailable or the request"
+							}
+						],
+						"cases": ["TARGET-IDN-020"]
+					}
+				}
+			]
+		},
+		{
+			"id": "organizations.design-preview",
+			"says": "Design previews of the connection, residency and pipeline-sharing screens, with sample data and no database.",
+			"routes": ["/design/organizations/[flow]"],
+			"reach": [
+				{
+					"link": "/design/organizations/{flow}",
+					"fill": {
+						"flow": "connections, organization, invitation, residency, pipeline or notices"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "connections",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/organizations/connections",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Sharing and privacy"
+						},
+						{
+							"role": "heading",
+							"name": "Waiting for a reply"
+						},
+						{
+							"role": "radiogroup",
+							"name": "Scenario"
+						}
+					]
+				},
+				{
+					"id": "pipeline",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/organizations/pipeline",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "switch",
+							"name": "Share pipeline totals with",
+							"match": "contains"
+						},
+						{
+							"role": "radiogroup",
+							"name": "Preview as"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		}
+	]
+}

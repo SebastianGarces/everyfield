@@ -1,8 +1,6 @@
 import type { ProgramKind, ProgramRefusal, ProgramRhythm } from "@everyfield/contracts/organizations";
 import { PIPELINE_PATH } from "../board/model";
 
-// Shared by the program screens: addresses, labels, dates and refusal copy. No React and no server code.
-
 export const PROGRAMS_PATH = `${PIPELINE_PATH}/programs`;
 export const programHref = (id: string) => `${PROGRAMS_PATH}/${id}`;
 export const enrollmentHref = (id: string) => `${PROGRAMS_PATH}/enrollments/${id}`;
@@ -14,13 +12,11 @@ export const RHYTHM: Record<ProgramRhythm, string> = {
 	monthly: "Monthly",
 };
 
-/** A stage's month range, as "2 to 3 months". */
 export function monthRange(min: number, max: number) {
 	if (min === max) return `${min} ${min === 1 ? "month" : "months"}`;
 	return `${min} to ${max} months`;
 }
 
-/** The status a program list or header shows: the published version, a draft, or both. */
 export function programStatus(p: { publishedNumber: number | null; draft: boolean }) {
 	if (p.publishedNumber === null) return "Draft";
 	return p.draft
@@ -28,7 +24,6 @@ export function programStatus(p: { publishedNumber: number | null; draft: boolea
 		: `Version ${p.publishedNumber} published`;
 }
 
-/** A Wiki reading's address: the organization's own version, or the global library's. */
 export function readingHref(slug: string, source: "global" | "organization", organizationId: string) {
 	const path = `/wiki/${slug
 		.split("/")
@@ -38,12 +33,10 @@ export function readingHref(slug: string, source: "global" | "organization", org
 }
 
 const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "UTC" });
-/** A wall-clock time (YYYY-MM-DDTHH:MM:SS) in its own zone, as "Oct 20, 2026 at 7:00 PM". */
 export function formatMeeting(at: string, day: (value: string) => string) {
 	return `${day(at.slice(0, 10))} at ${time.format(new Date(`${at}Z`))}`;
 }
 
-/** What a refused or lost change tells the person. */
 export function programProblem(answer: { status: "refused"; refusal: ProgramRefusal } | { status: "lost" }) {
 	if (answer.status === "lost") return "We couldn’t reach Everyfield. Nothing was saved. Try again.";
 	const r = answer.refusal;

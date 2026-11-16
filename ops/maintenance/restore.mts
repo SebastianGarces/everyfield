@@ -1,10 +1,3 @@
-// maintenance.restoreWithCurrentManifest: the restricted restore rehearsal (docs/architecture/recovery.md, "Coherent
-// restore and targets"). It restores a snapshot (a database image and its object bytes, described by the external
-// manifest validateCandidate checks) into a fresh schema of the throwaway Postgres and a fake object store. No app role
-// can reach that schema, and nothing here sends mail, publishes an issue or runs a job. The current deletion and access
-// witnesses, and the mail and issue receipts, come from outside the image (readCurrentManifest over the live schema) and
-// win over the image's own rows; a missing, stale or unreadable witness refuses. Service never opens and the
-// customer-data gate stays blocked: G-RECOVERY is open. Only the restricted CLI and tests import this file.
 import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { sql } from "../../packages/db/src/query.ts";
@@ -17,7 +10,6 @@ const { z } = require("zod");
 export const OPERATION = "maintenance.restoreWithCurrentManifest";
 const IDENTIFIER = /^[a-z][a-z0-9_]{0,62}$/;
 const HOUR = 3_600_000;
-/** The internal targets for an ordinary mistake with live providers: one hour lost, four hours to recover. */
 const TARGET = { lossHours: 1, restoreHours: 4 };
 
 const capability = z.strictObject({
@@ -38,7 +30,6 @@ const witness = z.looseObject({
 	cancel_until: z.string().nullable(),
 	copy_expires_at: z.string().nullable(),
 });
-/** The current facts outside the image: every lifecycle witness, and the mail and public issue receipts. */
 const currentManifest = z.strictObject({
 	version: z.literal(1),
 	checkpoint: count,
@@ -54,7 +45,6 @@ const currentManifest = z.strictObject({
 	),
 	issues: z.array(z.looseObject({ id: z.uuid(), publication_state: z.string() })),
 });
-/** A database image: every table of the schema but its migration ledger, as rows. */
 export const imageSchema = z.strictObject({
 	version: z.literal(1),
 	tables: z.record(z.string().regex(IDENTIFIER), z.array(z.record(z.string(), z.unknown()))),
@@ -62,24 +52,17 @@ export const imageSchema = z.strictObject({
 
 export type Snapshot = { manifest: unknown; image: Buffer; objects: ReadonlyMap<string, Uint8Array> };
 export type RestoreDeps = {
-	/** The owner pool of the throwaway Postgres. */
 	admin: Database;
-	/** The live schema. Never a target. */
 	source: string;
-	/** A fresh schema name for the target. */
 	targetSchema: string;
-	/** The target's fake object store; verified bytes only, after the database restored. */
 	objects: { put(key: string, bytes: Uint8Array): Promise<void> };
-	/** The drill clock: read once at the start and once at the verified end. */
 	clock: () => Date;
 };
 export type RestoreInput = {
 	capability: unknown;
 	target: unknown;
 	snapshot: Snapshot;
-	/** Reads the current manifest from outside the image; null when there is none. */
 	current: () => Promise<unknown>;
-	/** When the mistake happened, to measure the recovery point and time. */
 	incidentAt?: Date;
 };
 export type Refusal =
@@ -109,13 +92,10 @@ export type RestoreSubject = {
 export type RestoreResult = {
 	restore_success: boolean;
 	refusal: Refusal | null;
-	/** The id of the file that failed, never its bytes. */
 	file: string | null;
-	/** The closed target schema, kept for inspection after a verified restore; null otherwise. */
 	target: string | null;
 	service_opened: false;
 	customer_data_gate: "blocked";
-	/** Deletion subjects as the current witness states them. */
 	subjects: RestoreSubject[];
 	observed_loss_hours: number | null;
 	observed_restore_hours: number | null;
@@ -139,13 +119,11 @@ const MANIFEST_REFUSALS = new Set([
 	"duplicate_manifest_identity",
 	"subject_expired_or_reset",
 ]);
-/** Mail that may still reach a provider, and publications that may still reach the issue tracker. */
 const OPEN_MAIL = sql.raw(`('pending','dispatched','unknown','accepted','scheduled')`);
 const OPEN_ISSUE = sql.raw(`('pending','publishing','unknown')`);
 const ids = (rows: { id: string }[]) =>
 	sql`(SELECT x::uuid FROM json_array_elements_text(${JSON.stringify(rows.map((r) => r.id))}::json) x)`;
 
-/** The current manifest of the live schema `db` is pinned to: witnesses with their checkpoint, and receipts. */
 export async function readCurrentManifest(db: Database): Promise<unknown> {
 	const { rows } = await db.execute(sql`SELECT json_build_object(
  'version', 1,
@@ -160,7 +138,6 @@ export async function readCurrentManifest(db: Database): Promise<unknown> {
 	return rows[0]?.current ?? null;
 }
 
-/** The schema version a manifest names: the hash of the ordered migration files. */
 export async function schemaVersion() {
 	return sha256(Buffer.from(JSON.stringify(await migrationArtifact())));
 }
@@ -180,14 +157,12 @@ export async function restoreWithCurrentManifest(deps: RestoreDeps, input: Resto
 		internal_target_met: false,
 		customer_SLA: null,
 	});
-	// Authority and target first: a refusal here reads and writes nothing.
 	if (!capability.safeParse(input.capability).success) return refuse("operator_unavailable");
 	const target = deps.targetSchema;
 	if (input.target !== "isolated" || !IDENTIFIER.test(target) || target === deps.source)
 		return refuse("target_not_isolated");
 	const startedAt = deps.clock();
 
-	// The current witnesses, from outside the image. Never the image's own lifecycle rows.
 	let current: ReturnType<typeof currentManifest.parse>;
 	try {
 		const raw = await input.current();
@@ -206,7 +181,6 @@ export async function restoreWithCurrentManifest(deps: RestoreDeps, input: Resto
 			copy_expiry: instant(w.copy_expires_at),
 		}));
 
-	// The copy: valid, unexpired, and no subject expiry later than the current witness's original one.
 	const originalExpiries = new Map(
 		current.witnesses.filter((w) => w.copy_expires_at).map((w) => [w.opaque_subject_id, w.copy_expires_at!]),
 	);
@@ -228,7 +202,6 @@ export async function restoreWithCurrentManifest(deps: RestoreDeps, input: Resto
 		return refuse("database_mismatch", manifest.database.id);
 	}
 
-	// The current journal must have seen at least what the copy saw, subject by subject.
 	if (current.checkpoint < BigInt(manifest.witnessCheckpoint)) return refuse("witness_stale");
 	const live = new Map(current.witnesses.map((w) => [`${w.kind}/${w.opaque_subject_id}`, w]));
 	for (const old of tables.lifecycle_witness ?? []) {
@@ -246,7 +219,6 @@ export async function restoreWithCurrentManifest(deps: RestoreDeps, input: Resto
 	try {
 		await pinClock(admin, target, startedAt);
 		await migrate(admin, target);
-		// Users and jobs off: no app login can reach the target at all.
 		await admin.execute(
 			sql.raw(`REVOKE ALL ON SCHEMA ${target} FROM PUBLIC, everyfield_runtime, everyfield_auth, everyfield_cleanup`),
 		);
@@ -257,7 +229,6 @@ export async function restoreWithCurrentManifest(deps: RestoreDeps, input: Resto
 			await reconcile(tx, current);
 			await applyWitnesses(tx, current.witnesses);
 			await unreconciled(tx, current);
-			// Every ready file the restored database points at needs its exact bytes in the copy.
 			const ready = await tx.execute<{ id: string; opaque_key: string; sha256: string; byte_count: string }>(
 				sql`SELECT id, opaque_key, sha256, byte_count::text FROM file_object WHERE state='ready' ORDER BY id`,
 			);
@@ -295,7 +266,6 @@ export async function restoreWithCurrentManifest(deps: RestoreDeps, input: Resto
 
 type Tx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-/** The target's database clock reads the drill clock, still advancing (as test-database.mts pins a test schema). */
 async function pinClock(admin: Database, target: string, at: Date) {
 	const { rows } = await admin.execute<{ shift: string }>(
 		sql`SELECT (${at.toISOString()}::timestamptz - pg_catalog.clock_timestamp())::text AS shift`,
@@ -312,7 +282,6 @@ async function pinClock(admin: Database, target: string, at: Date) {
 		);
 }
 
-/** Replaces every table of the migrated target with the image's rows, triggers and foreign keys off. */
 async function load(tx: Tx, target: string, tables: Record<string, Record<string, unknown>[]>) {
 	const present = (
 		await tx.execute<{ name: string }>(sql`SELECT c.relname AS name FROM pg_class c
@@ -336,7 +305,6 @@ async function load(tx: Tx, target: string, tables: Record<string, Record<string
 	}
 }
 
-/** Open mail and issue rows take the current receipt: a send or issue that already happened is never replayed. */
 async function reconcile(tx: Tx, current: ReturnType<typeof currentManifest.parse>) {
 	await tx.execute(sql`UPDATE mail m SET state=r.state, provider_message_id=r.provider_message_id,
 		accepted_at=r.accepted_at, sent_at=r.sent_at
@@ -350,11 +318,6 @@ async function reconcile(tx: Tx, current: ReturnType<typeof currentManifest.pars
 		WHERE f.id=r.id AND f.publication_state IN ${OPEN_ISSUE}`);
 }
 
-/**
- * The current witnesses replace the image's, then take effect the way the live system applies them: a pending subject
- * is suspended, and a purging or purged one is purged again in the target, its files marked purged, before its witness
- * returns to the current purge and copy-expiry instants.
- */
 async function applyWitnesses(tx: Tx, witnesses: ReturnType<typeof witness.parse>[]) {
 	const purging = witnesses.filter((w) => w.state === "purging" || w.state === "purged");
 	const rows = witnesses.map((w) => ({
@@ -376,7 +339,6 @@ async function applyWitnesses(tx: Tx, witnesses: ReturnType<typeof witness.parse
 		await tx.execute(
 			sql`SELECT settings_purge_content(${w.id}::uuid, ${w.request_id}::uuid, ${String(w.request_revision)}::bigint)`,
 		);
-		// As the live cleanup moves a file: ready or failed to cleanup, then purged.
 		for (const state of ["cleanup", "purged"])
 			await tx.execute(sql`UPDATE file_object SET state=${state},
 				purged_at=CASE WHEN ${state}='purged' THEN coalesce(purged_at, clock_timestamp()) END
@@ -389,7 +351,6 @@ async function applyWitnesses(tx: Tx, witnesses: ReturnType<typeof witness.parse
 			WHERE id=${w.id}::uuid`);
 }
 
-/** After the witnesses, no open mail or publication may remain that the current receipts do not account for. */
 async function unreconciled(tx: Tx, current: ReturnType<typeof currentManifest.parse>) {
 	const { rows } = await tx.execute<{ open: boolean }>(sql`SELECT
 		EXISTS(SELECT FROM mail WHERE state IN ${OPEN_MAIL} AND id NOT IN ${ids(current.mail)})
