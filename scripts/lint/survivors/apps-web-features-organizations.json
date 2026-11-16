@@ -1,0 +1,11 @@
+{
+	"no-effects": {
+		"apps/web/src/features/organizations/RealRespond.tsx": [
+			{
+				"function": "RealRespond",
+				"count": 1,
+				"reason": "Temporary, waiting for a shared follow-up. The emailed connection link carries a one-time value in its address, and the page must take it out of the address as soon as it has arrived. No event marks that arrival, the server cannot see that part of the address, and an address rule runs only on later writes and on Back or Forward. Taking it out later, in the submit event, would leave it in the address for the whole visit. The replacement is a shared pre-hydration step that the root layout runs, which this slice may not add."
+			}
+		]
+	}
+}

@@ -8,11 +8,6 @@ import type { ReactNode } from "react";
 
 type Reviewed = VersionReview["added"][number];
 
-/**
- * What applying the program's current version changes for one person (REQ-MUL-011): what is added, removed and
- * changed, the finished milestones that carry over, and their stage on the new version. The single apply on an
- * enrollment and the apply to several people on the program both show it.
- */
 export function ReviewParts({
 	review,
 	stageId,
@@ -22,7 +17,6 @@ export function ReviewParts({
 	review: VersionReview;
 	stageId: string;
 	onStageChange: (stageId: string) => void;
-	/** h4 when the parts sit under a heading of their own, such as the person's name. */
 	heading?: "h3" | "h4";
 }) {
 	const { name } = review;
@@ -90,7 +84,6 @@ export function ReviewParts({
 	);
 }
 
-/** One part of the review: a heading with its count, then each item, or a line saying there is none. */
 function ReviewList({
 	heading: Heading,
 	title,
@@ -126,7 +119,6 @@ function ReviewList({
 	);
 }
 
-/** A milestone's wording in one version: its title, kind and description. */
 function Wording({ m, label, note }: { m: Reviewed; label?: string; note?: string }) {
 	return (
 		<div className="flex min-w-0 flex-col gap-0.5">

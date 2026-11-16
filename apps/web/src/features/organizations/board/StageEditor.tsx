@@ -13,7 +13,7 @@ import {
 	Input,
 	Select,
 } from "@everyfield/ui/controls";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { saveStages } from "./actions";
 import { KIND_LABEL, plural, refusalText, stageChanges } from "./model";
 import { Problem } from "./Problem";
@@ -21,10 +21,6 @@ import { Problem } from "./Problem";
 type Stage = PipelineBoard["stages"][number];
 type Row = { id: string; label: string; kind: string; revision: string | null; count: number };
 
-/**
- * Owners and Admins rename, add, reorder and delete stages, then review exactly what will change before anything
- * saves. A stage that still has people cannot be deleted; the editor says so at the moment someone tries.
- */
 export function StageEditor({
 	open,
 	onOpenChange,
@@ -49,7 +45,7 @@ function Editor({ stages, onSaved }: { stages: Stage[]; onSaved: () => void }) {
 	);
 	const [blocked, setBlocked] = useState<string | null>(null);
 	const [step, setStep] = useState<"edit" | "review">("edit");
-	const [saving, setSaving] = useState(false);
+	const [saving, startSaving] = useTransition();
 	const [problem, setProblem] = useState<string | null>(null);
 	const changes = stageChanges(stages, rows);
 	const labels = rows.map((r) => r.label.trim().toLowerCase());
@@ -73,18 +69,17 @@ function Editor({ stages, onSaved }: { stages: Stage[]; onSaved: () => void }) {
 		setRows((all) => all.filter((r) => r.id !== row.id));
 	};
 
-	async function save() {
-		setSaving(true);
-		setProblem(null);
-		const kept = new Set(rows.map((r) => r.id));
-		const answer = await saveStages({
-			stages: rows.map((r) => ({ id: r.id, label: r.label.trim(), kind: r.kind, expectedRevision: r.revision })),
-			removed: stages.filter((s) => !kept.has(s.id)).map((s) => ({ id: s.id, expectedRevision: s.revision })),
-		}).catch(() => ({ status: "lost" as const }));
-		setSaving(false);
-		if (answer.status === "ok") onSaved();
-		else setProblem(refusalText(answer));
-	}
+	const save = () =>
+		startSaving(async () => {
+			setProblem(null);
+			const kept = new Set(rows.map((r) => r.id));
+			const answer = await saveStages({
+				stages: rows.map((r) => ({ id: r.id, label: r.label.trim(), kind: r.kind, expectedRevision: r.revision })),
+				removed: stages.filter((s) => !kept.has(s.id)).map((s) => ({ id: s.id, expectedRevision: s.revision })),
+			}).catch(() => ({ status: "lost" as const }));
+			if (answer.status === "ok") onSaved();
+			else setProblem(refusalText(answer));
+		});
 
 	if (step === "review")
 		return (
