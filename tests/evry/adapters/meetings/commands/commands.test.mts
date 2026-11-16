@@ -18,10 +18,6 @@ import { meetingsWriter } from "../../../../../packages/domain/src/meetings/inde
 import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../../runtime/support.mts";
 import { localDate, native, seedMeetings, type Seeded } from "../support.mts";
 
-// The Meetings reviewed writes end to end: a turn proposes, the review shows the exact change and everything it
-// generates, nothing changes before Approve, and the approval runs the native command once under the approver's
-// current authority. A review whose target changed since, or an approver who lost the authority, is refused.
-
 let owner: EvryActor, seeded: Seeded;
 before(async () => {
 	await setup();
@@ -30,7 +26,6 @@ before(async () => {
 });
 after(teardown);
 
-/** A running turn in a new conversation: the only place a proposal can be prepared. */
 async function turn(who: EvryActor) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
 	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
@@ -45,7 +40,6 @@ async function turn(who: EvryActor) {
 	return (operation: string, input: unknown) => prepareProposal(db, who, lease, c.id, { operation, input });
 }
 const reminders: unknown[] = [];
-/** Approve the exact revision shown, then run the effect once through the WP-031 queue. */
 async function approveAndRun(who: EvryActor, proposal: Proposal) {
 	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
@@ -95,7 +89,6 @@ test("INV-meetings-schedule: a meeting is scheduled at the reviewed church-local
 });
 
 test("INV-meetings-walk-in: a walk-in named only Luis is reviewed with the meeting and duplicate hints, and recorded as attended after Approve", async () => {
-	// Another Luis is already in People: the review names that possible duplicate (a same-name hint, never proof).
 	const earlier = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		VALUES(${earlier},${plant},${plant},'Luis','other',clock_timestamp(),'attendee','unknown','unknown',900,'live')`);
@@ -268,7 +261,6 @@ test("AC:B02-016 INV-meetings-practice: a reviewed practice is completed once; a
 	assert.equal(outcome, "completed");
 	assert.equal(await completions(), 1);
 	assert.equal(await audits(proposal.id), 1, "one completion receipt");
-	// A second review prepared before a correction is refused at execution and changes nothing.
 	const again = await (
 		await turn(owner)
 	)("meetings.correctPracticeOccurrence", {

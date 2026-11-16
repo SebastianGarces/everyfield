@@ -1,6 +1,3 @@
-// The scripted stand-in model (local previews and tests) picks its page size from whole words: "every" or "all" ask
-// for 100, "N at a time" asks for N, and anything else asks for the 24-row page. A word that only contains "all", such
-// as "call", must not select the 100-row page. No database: the model is called the way the runtime calls it.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
@@ -21,7 +18,6 @@ test("INV-scripted-model: the scripted model asks people.listPeople for the page
 	assert.deepEqual(await firstRead("Show me all people"), page({ limit: 100 }));
 	assert.deepEqual(await firstRead("Show me every person and their members"), page({ limit: 100 }));
 	assert.deepEqual(await firstRead("Show me people 10 at a time"), page({ limit: 10 }));
-	// "everyone" is a whole word; the 24-row page is the default.
 	assert.deepEqual(await firstRead("List everyone"), page({ limit: 24 }));
 });
 

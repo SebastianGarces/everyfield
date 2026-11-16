@@ -7,10 +7,6 @@ import { read } from "../server.ts";
 import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "./server.ts";
 
-// GET /people/{personId}/photo/{versionId}: the exact photo version of a live person, for a reader who can see that
-// person now (REQ-PPL-005). There is no storage link. Every request rechecks the session, seat and person: a browser
-// that already holds this version revalidates with its ETag and gets 304 after a one-statement check, never stale access.
-
 const params = z.object({ personId: z.uuid(), versionId: z.uuid() });
 const gone = () => new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
 

@@ -41,7 +41,7 @@ import { ActivityCard, type Activities, type EntryFields, type Item } from "./Ac
 import { CLASSIFICATION_LABEL, SOURCE_LABEL, STAGE_KEY, STAGE_LABEL, withEntry } from "./model.ts";
 import type { Outcome } from "../../components/save/model.ts";
 import { ClassificationDialog, EditProfileDialog, RestoreDialog, RetireDialog } from "./PersonDialogs.tsx";
-import { LocalDay, usePersonStore, When } from "./parts.tsx";
+import { LocalDay, prefetchWarnings, usePersonStore, When } from "./parts.tsx";
 import { StageDialog, type PersonDraft } from "./StageDialog.tsx";
 import { HouseholdCard } from "./fields/HouseholdCard.tsx";
 import type { HouseholdResult, PersonFields } from "./fields/model.ts";
@@ -53,7 +53,7 @@ import type { PersonRecords } from "./assessments/model.ts";
 import { RecordsSection, type CorrectedRecord } from "./assessments/RecordsSection.tsx";
 import { EditRecordDialog } from "./corrections/EditRecordDialog.tsx";
 import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
-import { recordsIntent } from "./corrections/intent.ts";
+import { recordsIntent, recordsRead, unmergeRead } from "./corrections/intent.ts";
 import type { DuplicateHints as Hints } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
 import { loadPersonPage, type PersonPage, type Unmerged } from "./corrections/actions.ts";
@@ -65,13 +65,6 @@ import type { PersonFollowUps as FollowUpsData } from "../followups/server.ts";
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Open = "stage" | "profile" | "classify" | "retire" | "restore" | "correct" | { unmerge: string } | null;
 
-/**
- * Person (REQ-PPL-002/003/004/006/008). The header says who and where in the pipeline; Owners and Admins change the
- * stage, edit the profile, record adult or child and retire or restore. Every change goes through one store, so only one
- * runs at a time and each uses the latest saved revision. A saved change shows from its answer: the store takes the
- * saved person and Activity adds the new entry, with no page reload. A refusal because this page was out of date
- * reads this person again, and nothing else.
- */
 export function PersonScreen({
 	person,
 	activities,
@@ -91,28 +84,18 @@ export function PersonScreen({
 }: {
 	person: PlantPerson;
 	activities: Outcome<Activities>;
-	/** The person has a live Everyfield account link (never which account). */
 	linked: boolean;
-	/** The person is the viewer's own account person. */
 	isYou: boolean;
 	survivor: { id: string; name: string } | null;
 	accountId: string;
 	canWrite: boolean;
-	/** Tags, skills, household and photo (WP-012). Null for a person they do not apply to. */
 	fields: PersonFields | null;
-	/** The 4 C's, interviews and commitments (WP-014). Null for a viewer who is not an Owner or Admin. */
 	records: PersonRecords | null;
-	/** Follow-ups, Vision follow-ups and the contact log (WP-023). Null for a person they do not apply to. */
 	followUps: FollowUpsData | null;
-	/** Photos can be added (private storage is configured and the photo UI has shipped). */
 	photosEnabled: boolean;
-	/** Private storage is configured, so a commitment card can carry its signed document. */
 	documentsEnabled: boolean;
-	/** Possible duplicates of this live person (WP-015). Null when they do not apply or could not be read. */
 	duplicates?: Hints | null;
-	/** The page opened from a link to a person who was merged into this one. */
 	followedMerge?: boolean;
-	/** The person's ministry roles, now and before (WP-017). Null for a person they do not apply to. */
 	ministries?: ComponentProps<typeof MinistryRoles>["initial"] | null;
 }) {
 	const [store, state] = usePersonStore<PlantPerson, PersonDraft>(person);
@@ -129,42 +112,31 @@ export function PersonScreen({
 			...fields,
 		} as Item);
 	};
-	// The page parts the server read. An Unmerge replaces them with its authoritative result; `generation` restarts the
-	// cards that hold their own copy, so none keeps a record or tag that moved back to the other person.
 	const [parts, setParts] = useState({
 		fields: initialFields,
 		records: initialRecords,
 		duplicates: initialDuplicates,
 		generation: 0,
+		household: initialFields?.household ?? null,
+		corrected: [] as CorrectedRecord[],
 	});
-	const { fields, records, duplicates, generation } = parts;
-	const [household, setHousehold] = useState<HouseholdResult | null>(initialFields?.household ?? null);
-	/** A saved tag, skill or photo change: Activity records it as a change to the person's details. */
+	const { fields, records, duplicates, generation, household, corrected } = parts;
+	const setHousehold = (next: HouseholdResult | null) => setParts((old) => ({ ...old, household: next }));
 	const changed = (receipt: Receipt) => saved(receipt, { kind: "activity", action: "updated" });
 	const householdName = household?.status === "available" ? household.household.name : null;
 	async function reload() {
 		const r = await reloadPerson(person.id).catch(() => null);
 		if (r?.status !== "ok") return;
-		store.dispatch({ type: "server", person: r.value.person });
+		store.getState().actions.server(r.value.person);
 		if (r.value.activities) setHistory({ status: "ok", value: r.value.activities });
 	}
-	// The person as shown: the saved person, plus a change the screen expects while it saves (the household address
-	// copied onto this person). It falls back to the saved person when that change is refused.
 	const [p, expectPerson] = useOptimistic(state.saved, (saved, patch: Partial<PlantPerson>) => ({
 		...saved,
 		...patch,
 	}));
 	const [open, setOpen] = useState<Open>(null);
-	/** The page parts did not read again after an Unmerge: say so, and offer the reload that shows them. */
 	const [stale, setStale] = useState(false);
-	/** The page as the Unmerge left it, read while the Unmerge dialog is still open and shown when it closes (C80). */
 	const fresh = useRef<{ receipt: Receipt | null; page: PersonPage | null } | null>(null);
-	/**
-	 * After an Unmerge the records, tags, skills, household and hints on this page may belong to the other person again.
-	 * The Unmerge answer carries the page as the Unmerge left it (C84); an Unmerge found to have run after a lost answer
-	 * reads it here. The dialog stays open until the page is in hand, so nothing on the page can start behind it, and it
-	 * says itself when the page did not read (C80).
-	 */
 	async function readAfterUnmerge(done: Unmerged | null): Promise<boolean> {
 		let page = done ? done.page : null;
 		if (!done) {
@@ -174,7 +146,6 @@ export function PersonScreen({
 		fresh.current = { receipt: done?.receipt ?? fresh.current?.receipt ?? null, page };
 		return page !== null;
 	}
-	/** The Unmerge dialog closed: show what it read, or keep the page and say it is out of date. */
 	function closeUnmerge() {
 		const got = fresh.current;
 		fresh.current = null;
@@ -183,21 +154,19 @@ export function PersonScreen({
 		if (got.receipt) saved(got.receipt, { kind: "activity", action: "person_unmerged" });
 		const page = got.page;
 		if (!page) return setStale(true);
-		store.dispatch({ type: "server", person: page.person });
+		store.getState().actions.server(page.person);
 		if (page.activities) setHistory({ status: "ok", value: page.activities });
 		setParts((old) => ({
 			fields: page.fields,
 			records: page.records,
 			duplicates: page.duplicates,
 			generation: old.generation + 1,
+			household: page.fields?.household ?? null,
+			corrected: [],
 		}));
-		setHousehold(page.fields?.household ?? null);
-		setCorrected([]);
 		setStale(false);
 	}
 
-	/** Every record Edit a record saved on this page, the newest per record, so each card shows its edited values. */
-	const [corrected, setCorrected] = useState<CorrectedRecord[]>([]);
 	const busy = state.pending !== null;
 	const lifecycle = p.lifecycle;
 	const live = lifecycle.state === "live";
@@ -251,7 +220,15 @@ export function PersonScreen({
 				<div className="flex max-w-full min-w-0 flex-wrap items-center gap-2.5">
 					{canWrite && live ? (
 						<>
-							<Button variant="primary" icon={UserCheck01Icon} disabled={busy} onClick={() => setOpen("stage")}>
+							<Button
+								variant="primary"
+								icon={UserCheck01Icon}
+								disabled={busy}
+								onClick={() => {
+									prefetchWarnings(p.id);
+									setOpen("stage");
+								}}
+							>
 								Change stage
 							</Button>
 							<Menu>
@@ -262,7 +239,14 @@ export function PersonScreen({
 									<MenuItem icon={Edit02Icon} onSelect={() => setOpen("profile")}>
 										Edit profile
 									</MenuItem>
-									<MenuItem icon={FileEditIcon} onSelect={() => setOpen("correct")} {...recordsIntent(p.id)}>
+									<MenuItem
+										icon={FileEditIcon}
+										onSelect={() => {
+											recordsRead.prefetch(p.id);
+											setOpen("correct");
+										}}
+										{...recordsIntent(p.id)}
+									>
 										Edit a record
 									</MenuItem>
 									{p.birthDate ? null : (
@@ -271,7 +255,14 @@ export function PersonScreen({
 										</MenuItem>
 									)}
 									<MenuSeparator />
-									<MenuItem icon={Delete02Icon} danger onSelect={() => setOpen("retire")}>
+									<MenuItem
+										icon={Delete02Icon}
+										danger
+										onSelect={() => {
+											prefetchWarnings(p.id);
+											setOpen("retire");
+										}}
+									>
 										Retire person
 									</MenuItem>
 								</MenuContent>
@@ -383,7 +374,14 @@ export function PersonScreen({
 								onConflict={reload}
 								accountId={accountId}
 								canWrite={canWrite}
-								onUnmerge={canWrite ? (mergeId) => setOpen({ unmerge: mergeId }) : undefined}
+								onUnmerge={
+									canWrite
+										? (mergeId) => {
+												unmergeRead.prefetch(mergeId);
+												setOpen({ unmerge: mergeId });
+											}
+										: undefined
+								}
 							/>
 						</div>
 						<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">
@@ -582,7 +580,10 @@ export function PersonScreen({
 							accountId={accountId}
 							onClose={close}
 							onEdited={(receipt, next) => {
-								setCorrected((all) => [...all.filter((c) => c.record.id !== next.record.id), next]);
+								setParts((old) => ({
+									...old,
+									corrected: [...old.corrected.filter((c) => c.record.id !== next.record.id), next],
+								}));
 								if (receipt)
 									saved(receipt, {
 										kind: "activity",
