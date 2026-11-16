@@ -64,7 +64,7 @@ test("INV-debounce: only the last call runs, once; cancel, flush and detaching i
 
 	debouncer.run(() => ran.push("d"));
 	debouncer.cancel();
-	const detach = debouncer.ref(null);
+	const detach = debouncer.cancelOnDetach(null);
 	debouncer.run(() => ran.push("e"));
 	detach();
 	mock.timers.tick(1000);
