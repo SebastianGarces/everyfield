@@ -22,9 +22,6 @@ import { personRow } from "../../../catalog/person-row.ts";
 import { ownerOrAdmin } from "../commands/index.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
-// The People read tools: each calls the native People read that screens use, under the same domain authority, whose
-// statements carry the lock-free live access check (C13, C27). Only the safe identifying fields a person sees in the
-// list reach the model.
 type PlantPerson = { id: string; displayName: string; city?: string | null; stage: string };
 const row = (actor: EvryActor, p: PlantPerson) =>
 	personRow(actor, p.id, p.displayName, { city: p.city ?? null, stage: p.stage });
@@ -79,7 +76,6 @@ export const getPerson: ReadAdapter<z.infer<typeof personInput>> = {
 	allowed: inPlant,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
 		const reply = await peopleReader.getPerson(tx, new PeopleReadContext(actor.authority), personRequest.parse(input));
-		// A foreign, retired or guessed id reads the same as one that never existed.
 		const found = reply.status === "ok" && reply.value.status === "available" ? reply.value.person : null;
 		return one("people.getPerson", found && "stage" in found ? [row(actor, found)] : [], ["private care"]);
 	},
@@ -97,8 +93,6 @@ export const getPersonPhoto: ReadAdapter<z.infer<typeof personInput>> = {
 			new PeopleReadContext(actor.authority),
 			personFieldsRequest.parse(input),
 		);
-		// The photo stays a private object: the result names its version for the app's own route, never bytes, a
-		// storage key or a link. A foreign, retired or guessed id reads the same as one that never existed.
 		if (reply.status !== "ok") return one("people.getPersonPhoto", [], []);
 		const photo = reply.value;
 		const fields = { photo: photo.status, versionId: photo.status === "available" ? photo.versionId : null };
@@ -123,7 +117,6 @@ export const checkForDuplicates: ReadAdapter<z.infer<typeof duplicateCheckReques
 			rows: items.map((h) =>
 				personRow(actor, h.personId, h.displayName, { match: h.match, signals: h.signals.join(",") }),
 			),
-			// Hints are bounded; past the bound only the first ones are known, never a false exhaustive total.
 			total: completeness === "complete" ? items.length : null,
 			page: 1,
 			next: null,
@@ -152,7 +145,6 @@ export const listDuplicatePairs: ReadAdapter<Record<string, never>> = {
 					mayDuplicate: pair.with.displayName,
 				}),
 			),
-			// The domain lists the first 100 pairs; past them only those are known, never a false exhaustive total.
 			total: completeness === "complete" ? items.length : null,
 			page: 1,
 			next: null,
@@ -162,7 +154,6 @@ export const listDuplicatePairs: ReadAdapter<Record<string, never>> = {
 	},
 };
 
-/** The installed People read tools, in catalog order. */
 export const PEOPLE_READS = [listPeople, getPerson, getPersonPhoto, checkForDuplicates, listDuplicatePairs] as const;
 
 const verifiedRow = z.object({
@@ -171,12 +162,6 @@ const verifiedRow = z.object({
 	city: z.string().nullable(),
 	stage: z.string(),
 });
-/**
- * The live people of the actor's church among these ids, in the given order, with the same safe fields a list row has.
- * One statement for any number of ids, with the lock-free live access check (C27) in it, so a reference or a selection
- * never outlives the access that returned it and a sign-out or seat end never waits for it. Foreign, retired and
- * guessed ids drop out.
- */
 export async function verifyPeople(
 	db: Pick<Database, "execute">,
 	actor: EvryActor,

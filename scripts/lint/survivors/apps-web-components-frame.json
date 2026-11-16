@@ -26,5 +26,19 @@
 				"reason": "The next frame of the same anchor glide; the loop ends when the glide reaches its target, the page changes or the reader scrolls"
 			}
 		]
+	},
+	"no-raw-history": {
+		"apps/web/src/components/frame/PageScroll.tsx": [
+			{
+				"function": "glideToFragment",
+				"count": 2,
+				"reason": "temporary: the anchor and restore reads move to the location store in a follow-up (R-58 in the refactor notes)"
+			},
+			{
+				"function": "pageShown",
+				"count": 1,
+				"reason": "temporary: the anchor and restore reads move to the location store in a follow-up (R-58 in the refactor notes)"
+			}
+		]
 	}
 }

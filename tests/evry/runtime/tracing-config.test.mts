@@ -2,11 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { flushTraces, registerTracing } from "../../../packages/evry/src/runtime/trace.ts";
 
-// The configurations tracing refuses. Nothing here ever registers, so every case starts from the same empty process.
-
 const keys = { LANGFUSE_PUBLIC_KEY: "pk-lf-config", LANGFUSE_SECRET_KEY: "sk-lf-config" };
 
-/** Runs `body` and returns its result with every line it wrote to the console, parsed. */
 async function logged<T>(body: () => T | Promise<T>) {
 	const lines: Record<string, unknown>[] = [];
 	const { log, error } = console;
@@ -17,7 +14,6 @@ async function logged<T>(body: () => T | Promise<T>) {
 		Object.assign(console, { log, error });
 	}
 }
-/** A flush writes only for a registered provider, so a silent flush that resolves means nothing was registered. */
 const registered = async () => (await logged(flushTraces)).lines.length > 0;
 
 test("INV-tracing: missing Langfuse keys write one tracing_disabled line with the SDK's default host and register nothing", async () => {

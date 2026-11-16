@@ -1,17 +1,3 @@
-// The household evals: labelled requests (households.cases.json) scored against the real model's recorded streams
-// (households.recorded.json). The model gets Evry's real system prompt and read tools, and every read it calls runs the
-// real adapter through invokeRead against a small church seeded on Postgres (small-church.mts): one household, "Okafor
-// household" in North Ridgeville, OH, with James Okafor as Head and Ruth Allen as Spouse, read by a plant Owner. It runs
-// in @everyfield/evry's test:db. A recording is keyed by the exact call the provider receives, so a changed prompt,
-// tool list, limit or read result has no recording and fails here until it is scored again on the real model (with the
-// database variables of README.md in the shell):
-//
-//   EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/households.test.mts
-//
-// Recording makes a few small paid calls (G-SPEND, approved by Sebastian on Oct 31 4:02 PM ET). CI replays the file.
-//   AC:EVRY-CONTEXT-BOUNDS tool selection: each request picks the household operation of its case, with sensible input.
-//   Answer correctness: the answer to "what households do we have?" names the household, says there is 1 and does not
-//   say a row was withheld or is unavailable. The rubric scores each point.
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -102,7 +88,6 @@ test("AC:EVRY-CONTEXT-BOUNDS household requests pick the household operation wit
 		}
 		if (c.rubric) {
 			answered++;
-			// The scored points of the answer to "what households do we have?".
 			const points = {
 				namesHousehold: /Okafor/.test(answer),
 				saysCount:

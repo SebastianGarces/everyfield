@@ -5,9 +5,6 @@ import type { ReadAdapter } from "../../../../../packages/evry/src/catalog/types
 import { actor, db, setup, teardown } from "../../../runtime/support.mts";
 import { localDate, seedMeetings, type Seeded } from "../support.mts";
 
-// The Meetings read tools against real records the native commands wrote, read the way a turn reads them (invokeRead)
-// under each actor's live authority.
-
 let owner: EvryActor, member: EvryActor, seeded: Seeded;
 before(async () => {
 	await setup();

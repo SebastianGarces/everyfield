@@ -16,24 +16,17 @@ import { privateStorage } from "@everyfield/db/schema";
 import { leave } from "./leave.ts";
 import { peopleContext } from "./server.ts";
 
-// Server actions for the person fields (REQ-PPL-005, 009, 010, 011). Each parses the browser's input with the WP-012
-// contract, runs one producer write in one transaction and answers with what changed, so the screen updates from the
-// answer and never reloads the page. A write that changes the Person (household membership, address propagation, photo)
-// also answers with the Person as saved, read in the same transaction, so the page's next save sends the new revision.
-
 type PlantPerson = z.infer<typeof c.plantPerson>;
 type Tx = Transaction;
 type PersonId = z.infer<typeof c.personRequest>["personId"];
 type Ctx = PeopleWriteContext;
 
-/** The Person as saved by this transaction's write, which just changed this live plant Person. */
 async function savedPerson(tx: Tx, ctx: Ctx, personId: PersonId): Promise<PeopleReply<PlantPerson>> {
 	const r = await peopleReader.getPerson(tx, ctx, { personId });
 	if (r.status !== "ok") return r;
 	if (r.value.status !== "available" || !("stage" in r.value.person)) throw new Error("written person not readable");
 	return { status: "ok", value: r.value.person };
 }
-/** Runs a Person-changing write and reads the Person after it, in the same transaction. */
 async function andPerson<T>(
 	tx: Tx,
 	ctx: Ctx,
@@ -45,8 +38,6 @@ async function andPerson<T>(
 	return person.status === "ok" ? { status: "ok", value: { value: done.value, person: person.value } } : person;
 }
 
-// Tags (REQ-PPL-010).
-
 export async function listChurchTags(): Promise<Outcome<ChurchTag[]>> {
 	return boundary(c.listTagsRequest, {}, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => f.listTags(tx, ctx, request)), (r) => r.items),
@@ -57,10 +48,6 @@ const addTagInput = z.union([
 	z.strictObject({ personId: c.personFieldsRequest.shape.personId, tagId: z.uuid() }),
 	z.strictObject({ personId: c.personFieldsRequest.shape.personId, name: c.tagName }),
 ]);
-/**
- * Puts a tag on a person: an existing church tag by ID, or a new name. A new name creates the church tag and assigns
- * it in one transaction; a name that matches an existing tag (case and outer spaces aside) uses that tag.
- */
 export async function addPersonTag(
 	requestKey: string,
 	input: unknown,
@@ -125,15 +112,12 @@ export async function deleteChurchTag(
 	);
 }
 
-// Skills (REQ-PPL-011).
-
 type SkillsSaved = { skills: Skill[]; receipt: Receipt };
 const skillsSaved = (r: { skills: Skill[]; receiptId: string; outcome: "changed" | "noop" }): SkillsSaved => ({
 	skills: r.skills,
 	receipt: receipt(r),
 });
 
-/** The person's skills as saved now: a refused edit or removal reads them again, so the next try starts from them. */
 export async function readSkills(personId: string): Promise<Outcome<Skill[]>> {
 	return boundary(c.personFieldsRequest, { personId }, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => f.getPersonSkills(tx, ctx, request)), (r) => r.skills),
@@ -166,13 +150,6 @@ export async function removeSkill(
 	);
 }
 
-// Households (REQ-PPL-009).
-
-/**
- * A membership change: the household as it is now for this person, and the receipt. `person` is the Person as saved,
- * read in the same transaction, only after leaving; otherwise the answer's member row already carries this person's
- * new revision and address, so no second read is spent on it.
- */
 export type MembershipSaved = { household: HouseholdResult; person: PlantPerson | null; receipt: Receipt };
 type HouseholdAnswer = z.infer<typeof c.householdMutationResult>;
 const membershipSaved = (r: { value: HouseholdAnswer; person?: PlantPerson }): MembershipSaved => ({
@@ -188,7 +165,6 @@ export async function findHouseholds(search: string, page = 1): Promise<Outcome<
 	);
 }
 
-/** The person's household as it is now: the household card reads it again after a household change is refused. */
 export async function readHousehold(personId: string): Promise<Outcome<HouseholdResult>> {
 	return boundary(c.personFieldsRequest, { personId }, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => f.getHousehold(tx, ctx, request)), (r) => r),
@@ -227,13 +203,8 @@ export async function setHouseholdRole(
 
 const leaveInput = z.strictObject({
 	personId: c.personFieldsRequest.shape.personId,
-	// Delete the household once this person has left it, when they were its last member.
 	deleteEmpty: z.boolean(),
 });
-/**
- * Takes a person out of their household; their own address stays. When they were the last member and the screen asks
- * for it, the empty household is deleted in the same transaction, so a refusal leaves both as they were.
- */
 export async function leaveHousehold(
 	requestKey: string,
 	expectedRevision: string,
@@ -258,10 +229,6 @@ export async function updateHousehold(
 	);
 }
 
-/**
- * Copies the household address over every member shown in the reviewed preview, all at once. The household revision and
- * each member's revision come from that preview; a change to any of them refuses the whole copy.
- */
 export async function propagateAddress(
 	requestKey: string,
 	expectedRevision: string,
@@ -275,8 +242,6 @@ export async function propagateAddress(
 	);
 }
 
-// Photo (REQ-PPL-005).
-
 export type PhotoSaved = { photo: PhotoResult; personRevision: string; receipt: Receipt };
 const photoForm = z.object({
 	requestKey,
@@ -284,17 +249,11 @@ const photoForm = z.object({
 	personId: c.personFieldsRequest.shape.personId,
 	file: z.instanceof(File),
 });
-/** Deletes the bytes of the photo an ok photo change released, after the response. Only a saved change schedules it. */
 function drainAfter<T>(saved: Outcome<T>): Outcome<T> {
 	if (saved.status === "ok") drainObjectCleanup();
 	return saved;
 }
 
-/**
- * Stores a new photo for a person: ask for an upload, send the verified bytes to the private bucket, then point the
- * Person at that exact version. Until the last step succeeds the person keeps the photo they had (REQ-PPL-005). The
- * request key names the upload, so a replay after a lost answer reuses the stored bytes and answers the saved change.
- */
 export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> {
 	const parsed = photoForm.safeParse(Object.fromEntries(form));
 	if (!parsed.success) return invalid;
@@ -334,7 +293,6 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 	});
 }
 
-/** The person's photo as saved now: a refused photo change reads it again, so the header shows the current one. */
 export async function readPhoto(personId: string): Promise<Outcome<PhotoResult>> {
 	return boundary(c.personFieldsRequest, { personId }, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => f.getPersonPhoto(tx, ctx, request)), (r) => r),
