@@ -265,6 +265,46 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 	);
 });
 
+test("INV-lint: an in-app address carrying a one-time link value is reported when it names an origin, or is built with URL, URLSearchParams or a pathname object", () => {
+	const source = `export function links(proof) {
+	const absolute = ["https://everyfield.app/invitation#proof=" + proof, "//everyfield.app/reset-password?token=1", "https://everyfield.app/reset-password?step=2"];
+	const reset = new URL("/reset-password", window.location.origin);
+	reset.searchParams.set("token", proof);
+	const verify = new URL("https://everyfield.app/verify-email");
+	verify.search = \`?token=\${proof}\`;
+	const invite = new URL(\`\${origin}/invitation\`);
+	invite.hash = \`proof=\${proof}\`;
+	const query = new URLSearchParams({ token: proof });
+	const later = new URLSearchParams();
+	later.append("token", proof);
+	const step = new URLSearchParams({ step: "2" });
+	const built = ["/reset-password?" + query, \`/verify-email?\${later.toString()}\`, \`/reset-password?\${new URLSearchParams([["token", proof]])}\`, "/reset-password?" + step];
+	const pages = [{ pathname: "/verify-email", query: { token: proof } }, { pathname: "/invitation", hash: proof }, { pathname: "/reset-password", query: { step: 2 } }];
+	const other = new URL("/documents", origin);
+	other.searchParams.set("token", proof);
+	return [absolute, reset, verify, invite, built, pages, other];
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/links.ts": source,
+			"apps/web/src/server/mail/links.ts": source,
+		}),
+		[
+			"apps/web/src/features/x/links.ts:2 no-raw-history",
+			"apps/web/src/features/x/links.ts:2 no-raw-history",
+			"apps/web/src/features/x/links.ts:4 no-raw-history",
+			"apps/web/src/features/x/links.ts:6 no-raw-history",
+			"apps/web/src/features/x/links.ts:8 no-raw-history",
+			"apps/web/src/features/x/links.ts:13 no-raw-history",
+			"apps/web/src/features/x/links.ts:13 no-raw-history",
+			"apps/web/src/features/x/links.ts:13 no-raw-history",
+			"apps/web/src/features/x/links.ts:14 no-raw-history",
+			"apps/web/src/features/x/links.ts:14 no-raw-history",
+		].sort(),
+	);
+});
+
 test("INV-lint: window and document listeners, and onTraversal or onNavigation held for a component's lifetime, are reported outside the location store and the page-event registry", () => {
 	const source = `export function mount(node, run) {
 	window.addEventListener("keydown", run);
