@@ -25,7 +25,6 @@ import {
 import { WriteUnavailable, auditSavepoint, auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 
 export type Tx = Transaction;
-/** A read-only request observation (D59): its session and owner derive from one verified authority. */
 export class OnboardingReadContext {
 	readonly authority: RequestActor;
 	readonly selected: OnboardingContext["selected"];
@@ -56,11 +55,9 @@ export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<Onboardi
 	if (requestWrite(tx)) return { status: "ok", value: await body() };
 	return recover(async () => ({ status: "ok", value: await auditSavepoint(tx, async () => body()) }));
 }
-/** A read changes nothing, so it needs no savepoint. */
 export async function readReply<T>(body: () => Promise<T>): Promise<OnboardingReply<T>> {
 	return recover(async () => ({ status: "ok", value: await body() }));
 }
-/** Postgres lock_not_available (a lock_timeout) and query_canceled (a statement_timeout): the same request may pass later. */
 const MOMENTARY = new Set(["55P03", "57014"]);
 function momentary(error: unknown): boolean {
 	for (let e = error, depth = 0; e instanceof Error && depth < 5; e = e.cause, depth++)
@@ -97,8 +94,6 @@ async function recover<T>(body: () => Promise<OnboardingReply<T>>): Promise<Onbo
 		};
 	});
 }
-// Account is the shared arbiter with first-seat acceptance. Take its row lock
-// before currentActor acquires lifecycle/seat share locks.
 export async function actor(tx: Tx, ctx: Context, allowPending = false, write = false) {
 	const bound = requestWrite(tx);
 	if (
@@ -122,8 +117,6 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false, write = 
 		return locked;
 	}
 	if (ctx instanceof OnboardingReadContext) {
-		// The request already verified this actor: one statement reads the rows a read needs, without locks, while the
-		// actor still holds this access (C13).
 		const a = ctx.authority.actor;
 		if (ctx.selected.kind === "account" && ctx.selected.id !== a.accountId) deny();
 		const plantId = ctx.selected.kind === "plant" ? ctx.selected.id : null;
@@ -174,7 +167,6 @@ export async function plantOwner(tx: Tx, ctx: Context, write = true) {
 		ctx.selected.kind !== "plant"
 	)
 		deny();
-	// A write holds the locked rows from its authority; a read observes them without locks.
 	const plant = a.plant ?? (await tx.select().from(t.plant).where(eq(t.plant.id, ctx.selected.id)))[0];
 	const setup =
 		a.setup ?? (await tx.select().from(t.onboarding_setup).where(eq(t.onboarding_setup.plant_id, ctx.selected.id)))[0];
@@ -245,7 +237,6 @@ export async function finish<T>(tx: Tx, c: NewCommand, schema: z.ZodType<T>, res
 	await finishAudit(tx, c, c.identity, value);
 	return value;
 }
-/** The command's one plant write: its own columns, both revisions, and the statement clock for its saved times. */
 export async function bump(
 	tx: Tx,
 	id: string,
@@ -273,7 +264,6 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	return result.data;
 }
 
-/** The request owns rollback; native writes need no nested savepoint. */
 export async function withOnboardingWrite<T>(
 	db: Database,
 	authority: RequestActor | undefined,

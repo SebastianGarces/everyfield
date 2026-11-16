@@ -1,5 +1,3 @@
-// The one Forme renderer for everyfield.doc/1. It walks the tree and maps each node to the parts in blocks.tsx, so a
-// template has no layout code of its own. Same tree, same theme, same bytes.
 import type {
 	BlockNode,
 	BoxNode,
@@ -29,46 +27,33 @@ import { LEGAL_NOTICE } from "@everyfield/contracts/documents";
 import { Box, Cellfield, Field, LogoSlot, PhotoSlot, type Ctx } from "./blocks.tsx";
 import { Doc } from "./shell.tsx";
 
-/** The content box under which headings use the compact scale (a card): 5 in. */
 const COMPACT_WIDTH = 360;
 
-/** The render state of one place in the tree: the width it has, the color under it and the form-name suffix. */
 type R = Ctx & {
 	doc: EveryfieldDoc;
 	width: number;
 	bg: string;
 	compact: boolean;
-	/** `_t1` to `_tN` on a tiled sheet, so each card's form fields have their own names. */
 	suffix: string;
-	/** The box height every write-in in one row of columns shares, so the row's boxes line up. */
 	fieldHeight?: number;
-	/** Where each table checkbox sits in its row: measured offsets, or `probe` to mark them for measuring. */
 	checks: CheckOffsets | "probe";
-	/** Shared by every place: form names in use and the heading numbers. */
 	run: { names: Set<string>; h2: number; h3: number; tables: number };
 };
 
-/** Vertical space between blocks: half on the compact (card) scale. */
 const space = (r: R, value: number) => (r.compact ? value / 2 : value);
 
-// ---------------------------------------------------------------- colors
-
-/** Strong and quiet text on a background: the palette's own tones on white or muted, the legible one on a fill. */
 function inkOn(r: R) {
 	const { p } = r;
 	if (r.bg === p.white || r.bg === p.muted) return { strong: p.ink, quiet: p.mutedText, accent: p.primaryText };
 	const on = textOn(r.bg, p.ink);
 	return { strong: on, quiet: on, accent: on };
 }
-/** A line color on the current background: a token, made legible as a line when it is the brand color on white. */
 function lineColor(r: R, token: Token) {
 	const color = tokenColor(r.p, token);
 	if (!color) return null;
 	if (token === "accent" && r.bg === r.p.white) return r.p.brand ? r.p.accentLine : color;
 	return color;
 }
-
-// ---------------------------------------------------------------- inline runs
 
 type Base = { size: number; weight: 400 | 500 | 700; color: string; use: string; figures?: boolean };
 
@@ -82,7 +67,6 @@ function name(r: R, raw: string) {
 const pageNumberText = (format: "page" | "page-of-total") =>
 	format === "page" ? "Page {{pageNumber}}" : "Page {{pageNumber}} of {{totalPages}}";
 
-/** The text of one inline node: a field prints its value, a page number its counter. */
 function inlineText(r: R, node: InlineNode): string {
 	switch (node.type) {
 		case "text":
@@ -112,7 +96,6 @@ function markStyle(r: R, marks: readonly Mark[] | undefined, base: Base): { styl
 	return href ? { style, href } : { style };
 }
 
-/** Nested Text runs for marks. A run with no mark is a plain string. */
 function runs(r: R, content: readonly InlineNode[] | undefined, base: Base): ReactNode[] {
 	return (content ?? []).map((node, i) => {
 		const value = inlineText(r, node);
@@ -137,10 +120,8 @@ function textStyle(r: R, base: Base, extra: Style = {}): Style {
 	};
 }
 
-/** The width of a tag tile, so the text after GROW, PRAY and GIVE starts at one place in each row. */
 const TAG_WIDTH = 42;
 
-/** A tag mark prints as a small caps label on an accent tile, like GROW, PRAY and GIVE on the card. */
 function tagTile(r: R, text: string, key: number) {
 	const { p } = r;
 	return (
@@ -177,10 +158,6 @@ function tagTile(r: R, text: string, key: number) {
 const hasTag = (content: readonly InlineNode[] | undefined) =>
 	(content ?? []).some((n) => n.type === "text" && n.marks?.some((m) => m.type === "tag"));
 
-/**
- * One line of inline content in a given text style. Content with tag marks lays out as a row: each tag run is a tile and
- * the text between tiles wraps in the width left over.
- */
 function line(r: R, content: readonly InlineNode[] | undefined, base: Base, extra: Style = {}, width = r.width) {
 	if (!hasTag(content)) {
 		const parts = runs(r, content, base);
@@ -213,8 +190,6 @@ function line(r: R, content: readonly InlineNode[] | undefined, base: Base, extr
 }
 const trimStart = (nodes: InlineNode[]) =>
 	nodes.map((n, i) => (i === 0 && n.type === "text" ? { ...n, text: n.text.replace(/^\s+/, "") || " " } : n));
-
-// ---------------------------------------------------------------- blocks
 
 const PARAGRAPH = {
 	body: { size: SIZE.base, weight: 400, quiet: false, caps: false, lineHeight: 1.5, gap: SP[2] },
@@ -455,8 +430,6 @@ function box(r: R, node: BoxNode, key: number) {
 function image(r: R, node: ImageNode, key: number) {
 	const a = attrsOf(node);
 	const width = Math.min(a.width, r.width);
-	// A church theme carries the brand kit's own assets (the full logo, the mark, the cover photo); any other theme has
-	// the one class logo and no photo.
 	const asset = r.theme.images ? r.theme.images[a.source] : a.source === "photo" ? r.theme.photo : r.theme.logo;
 	const slot =
 		a.source === "photo" ? (
@@ -528,20 +501,11 @@ function slot(r: R, node: SlotNode, key: number) {
 	);
 }
 
-// ---------------------------------------------------------------- tables
-
-/**
- * How far down its cell each table checkbox moves to sit in the middle of its row, by `<table>:<row>`. Forme 0.29 puts a
- * cell's content at the cell's top whatever the style, so a measuring layout (`probe`) reads each row's height first.
- */
 export type CheckOffsets = ReadonlyMap<string, number>;
-/** The bookmark a measuring layout puts on each table checkbox. It lays out as a mark with no height of its own. */
 export const CHECK_MARK = "everyfield-check:";
-/** The side of a table checkbox, in points. */
 export const CHECK_SIZE = 12;
 const checkKey = (r: R, row: number) => `${r.run.tables}:${row}`;
 
-/** True when the body holds a table with a checkbox column, so its rows need measuring. */
 export function hasCheckColumn(doc: EveryfieldDoc) {
 	const walk = (nodes: readonly BlockNode[] | undefined): boolean =>
 		(nodes ?? []).some(
@@ -705,9 +669,6 @@ function table(r: R, node: TableNode, key: number) {
 	);
 }
 
-// ---------------------------------------------------------------- the block list
-
-/** The size of a block's text, for the keep-with-next rule. */
 const textSize = (node: BlockNode): number => JSON.stringify(node).length;
 
 function block(r: R, node: BlockNode, key: number): ReactNode {
@@ -745,10 +706,6 @@ function block(r: R, node: BlockNode, key: number): ReactNode {
 	}
 }
 
-/**
- * True at the name of a letter's sign-off: the body ends with a spacer, a body paragraph (the name) and a small one
- * (the church). The name prints bold, as a signature line does.
- */
 function signOff(nodes: readonly BlockNode[], i: number) {
 	const [gap, name, under] = [nodes[i - 1], nodes[i], nodes[i + 1]];
 	return (
@@ -761,7 +718,6 @@ function signOff(nodes: readonly BlockNode[], i: number) {
 	);
 }
 
-/** A block list. A heading never ends a page: it travels with a short block that follows it. */
 function blocks(r: R, nodes: readonly BlockNode[], nested = false): ReactNode[] {
 	const out: ReactNode[] = [];
 	for (let i = 0; i < nodes.length; i++) {
@@ -790,8 +746,6 @@ function blocks(r: R, nodes: readonly BlockNode[], nested = false): ReactNode[] 
 	return out;
 }
 
-// ---------------------------------------------------------------- page setup
-
 function notice(r: R) {
 	if (r.doc.class !== "formal/legal") return null;
 	return (
@@ -807,11 +761,9 @@ function notice(r: R) {
 	);
 }
 
-/** True when inline content prints something: non-blank text, a filled field or a page number. */
 const printsInline = (r: R, content: readonly InlineNode[] | undefined) =>
 	(content ?? []).some((n) => n.type === "pageNumber" || inlineText(r, n).trim() !== "");
 
-/** True when blocks print something a reader sees. A divider or a spacer alone prints nothing. */
 function printsAny(r: R, nodes: readonly BlockNode[]): boolean {
 	return nodes.some((node) => {
 		switch (node.type) {
@@ -837,11 +789,6 @@ function printsAny(r: R, nodes: readonly BlockNode[]): boolean {
 	});
 }
 
-/**
- * Header and footer content. The class's fixed parts (the legal notice) close the footer. A region that prints nothing
- * (its fields are empty) is left out with its dividers, and so is a line in it that prints nothing. A flowing page's
- * footer sits under a rule, as a letterhead does, unless its own content opens with a divider.
- */
 function region(r: R, which: "header" | "footer", reg: Region | null | undefined) {
 	const nodes =
 		reg && printsAny(r, reg.content)
@@ -870,7 +817,6 @@ function region(r: R, which: "header" | "footer", reg: Region | null | undefined
 	);
 }
 
-/** Trim marks at each tile edge and corner of a tiled sheet. */
 function cutMarks(p: Palette, w: number, h: number, across: number, down: number) {
 	const tw = w / across;
 	const th = h / down;
@@ -898,14 +844,8 @@ function cutMarks(p: Palette, w: number, h: number, across: number, down: number
 	);
 }
 
-/**
- * How far a card's body clip reaches past the card's content box on each side, in points. A border is stroked on its
- * box's edge, so half the stroke lies outside a box that fills the content width; this keeps that half (borders here
- * are at most 1.5 pt) while the content width stays the same.
- */
 const STROKE_BLEED = 2;
 
-/** One tiled sheet: the header, body and footer repeat in each tile, each tile clips its content. */
 function tiledPage(r: R, size: { width: number; height: number }) {
 	const page = r.doc.page;
 	const tile = page.tile!;
@@ -971,17 +911,10 @@ function tiledPage(r: R, size: { width: number; height: number }) {
 	);
 }
 
-/** The marker a probe layout puts on each top-level body element, so the split point can be read back. */
 export const PROBE_MARK = "everyfield-block:";
 
-/**
- * How a flowing document lays out. `single`: one Forme page run with the `all` regions (and the `first` regions as
- * repeated ones, to measure page 1). `probe` is that layout with a marker on each top-level body element. `split`:
- * the body elements before `at` run with the `first` regions, the rest start a new page with the `rest` regions.
- */
 export type FlowMode = { kind: "single" } | { kind: "probe" } | { kind: "split"; at: number };
 
-/** A flowing document: the header and footer repeat by `pages`, the body flows from page to page. */
 function flowPages(r: R, size: { width: number; height: number }, mode: FlowMode) {
 	const page = r.doc.page;
 	const body = blocks(r, r.doc.body.content ?? []);
@@ -1012,14 +945,9 @@ function flowPages(r: R, size: { width: number; height: number }, mode: FlowMode
 	return run("first", body, 0);
 }
 
-/** True when a region prints on only the first page or only the later pages, so the layout needs a probe. */
 export const needsSplit = (doc: EveryfieldDoc) =>
 	!doc.page.tile && [doc.page.header, doc.page.footer].some((reg) => reg && reg.pages !== "all");
 
-/**
- * The Forme element for one document or template. `ctx.values` holds the field values (doc-values.ts). The class adds
- * its fixed parts: a formal/legal document prints "Template, not legal advice" on every page, even when wiped.
- */
 export function docElement(
 	ctx: Ctx,
 	doc: EveryfieldDoc,

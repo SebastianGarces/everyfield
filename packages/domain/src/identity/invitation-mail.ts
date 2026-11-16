@@ -3,7 +3,6 @@ import type { Transaction } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { z } from "zod";
 
-/** Frozen mail intent, checked in bulk both at enqueue and immediately before handoff. */
 export async function authorizeInvitationMail(
 	tx: Transaction,
 	mail: readonly {

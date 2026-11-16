@@ -49,10 +49,6 @@ type OwnedRow = {
 	revision_id: string;
 };
 
-/**
- * True when a stored revision body has text: a native body node with a non-blank text node, or a pre-change text
- * revision that is not blank. A body of empty blocks has none, so it never counts as core values or as a copy source.
- */
 const hasText = (body: ReturnType<typeof sql.raw>) =>
 	sql`(CASE WHEN left(${body}, 1) = '{' AND pg_input_is_valid(${body}, 'jsonb')
 		THEN jsonb_path_exists(${body}::jsonb, '$.**.text ? (@ like_regex "[^[:space:]]")')
@@ -139,7 +135,6 @@ const generatedWriter = {
 			);
 			if (!plant.open) deny();
 			if (!plant.subjectOk) deny("invalid_subject");
-			// The preview's own resolve and render, so the file holds the bytes the preview showed for this subject.
 			const done = forSubject(loaded, template, input.format, cleaned.values, scope.tenantId, plant, input.meetingId);
 			const resolved = done.merge;
 			const inputs = resolved.fields.map((field) => ({ key: field.key, value: field.value, source: field.source }));
@@ -170,8 +165,6 @@ const generatedWriter = {
 			if (prior?.same) return generatedFrom(prior, scope.tenantId, template.id);
 			if (prior) deny("conflict");
 			if (!resolved.complete) rejectInput("overrides", "A required merge field is empty.");
-			// D-109, D-418: the network's statement and the brand kit print as they stand now and are not inputs, so a replay
-			// on the same key returns the file saved earlier.
 			const bytes = await done.render(db, storage, authority);
 			if (!bytes) rejectInput("overrides", "A required merge field is empty.");
 			if (bytes.length > ARTIFACT_MAX) deny("render_failed");
@@ -338,7 +331,6 @@ const generatedWriter = {
 			);
 			if (found[0]?.ok !== true && found.length > 0) deny();
 			if (found.length === 0) deny();
-			// One parse of the page checks every row once.
 			return c.ownedDocumentPage.parse({
 				documents: found
 					.filter((row) => row.id)
@@ -359,7 +351,6 @@ const generatedWriter = {
 	},
 
 	read: readOwnedDocument,
-	/** The catalog's name for `read` (D-878): the same operation, kept so its catalog entry and tenancy case hold. */
 	getAuthorized: readOwnedDocument,
 
 	createFromTemplate: churchWriter.createFromTemplate,
@@ -400,7 +391,6 @@ const generatedWriter = {
 				LIMIT 1`,
 			);
 			if (!found[0] || found[0].ok !== true) deny();
-			// The evidence is the plain text of the body: lines in reading order, never the stored JSON.
 			const text = found[0].body ? c.nativeText(c.readNative(found[0].body).body) : "";
 			if (!found[0].id || !text) return c.coreValuesEvidence.parse({ documentId: null, text: null });
 			return c.coreValuesEvidence.parse({ documentId: found[0].id, text });
@@ -460,8 +450,6 @@ const generatedWriter = {
 				if (error instanceof ImportRejected) rejectInput("bytes", error.message);
 				throw error;
 			}
-			// Text lands as one paragraph for each line, a Word file with its headings, lists and links. Either passes the
-			// same native body rules as any save before anything is written.
 			const parsed = c.nativeBody.safeParse(read);
 			if (!parsed.success) rejectInput("bytes", "This file is too large for one document.");
 			const body = JSON.stringify(parsed.data);
@@ -501,13 +489,6 @@ const generatedWriter = {
 		});
 	},
 
-	/**
-	 * Use for this church: an Owner or Admin copies the current revision of one of their own account documents into one
-	 * new church document. The original does not change, and a later edit of it does not reach the copy. One statement
-	 * checks the seat, the source and the request key, writes the copy and its `documents.copied` audit row. The same
-	 * key returns the same copy; a key used for another source is a conflict. Two racing attempts with one key meet the
-	 * unique audit key: the loser runs the statement once more and finds the winner's copy.
-	 */
 	async useForChurch(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.useForChurchRequest, raw);
@@ -545,10 +526,6 @@ const generatedWriter = {
 		});
 	},
 
-	/**
-	 * What Use for this church offers: the Owner's or Admin's own account documents that are not archived and have
-	 * text, newest first, without their bodies. One statement; the seat check is in it.
-	 */
 	async listCopySources(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			parse(c.listCopySourcesRequest, raw);
@@ -595,11 +572,6 @@ const generatedWriter = {
 		});
 	},
 
-	/**
-	 * Purges up to 20 stored files nothing references once their staging window has passed. A file stays `ready` and
-	 * unreferenced between its upload and the write that refers to it (a saved export, a brand asset before Save), so a
-	 * file inside its window is never a candidate; the scheduled runner calls this every minute (D-879).
-	 */
 	async reconcileOrphans(db: Database, storage: PrivateStorage | null) {
 		return settle(async () => {
 			if (!storage) deny();
@@ -654,11 +626,6 @@ async function readOwned(db: Database, authority: RequestActor, raw: unknown) {
 	return ownedFrom(found[0], scope.tenantId);
 }
 
-/**
- * The copy statement. A request key already on a `documents.copied` audit row of this church plant answers with that
- * copy (`prior_*`) and writes nothing. Otherwise the source must be the actor's own live native or core-values
- * document, its current revision the one the request names, with text; the copy is a plain native document.
- */
 async function copyForChurch(db: Database, scope: Scope, input: z.output<typeof c.useForChurchRequest>) {
 	const docId = randomUUID();
 	const revId = randomUUID();
@@ -1008,10 +975,6 @@ type GeneratedDocument = z.infer<typeof c.generatedDocument>;
 type GeneratedHistory = z.infer<typeof c.generatedHistory>;
 type OwnedDocument = z.infer<typeof c.ownedDocument>;
 
-/**
- * `documents.history.list` and `documents.history.get`: the revisions of a Church Document when the request names a
- * document (and a revision), the saved files of the church plant otherwise.
- */
 function historyList(db: Database, authority: RequestActor, raw: { documentId: string }): Reply<c.ChurchRevisionList>;
 function historyList(db: Database, authority: RequestActor, raw: unknown): Reply<GeneratedHistory>;
 function historyList(db: Database, authority: RequestActor, raw: unknown) {
@@ -1031,13 +994,6 @@ function historyGet(db: Database, authority: RequestActor, raw: unknown) {
 	return generatedWriter["history.get"](db, authority, raw);
 }
 
-/**
- * `documents.saveNative`: a title and a native body node save a plain native document; a request without a title saves
- * a Church Document, whose parser accepts only an everyfield.doc/1 document and refuses an old block list with
- * invalid_input. The stored kind decides what each may change: the plain save's statement writes only a native or
- * core-values document and the Church Document save's only a Church Document, so a save on the other kind writes
- * nothing (D-224).
- */
 function saveNative(
 	db: Database,
 	authority: RequestActor,
