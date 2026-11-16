@@ -203,7 +203,6 @@ test("INV-wiki: each published upstream change yields only an in-app notice, no 
 	);
 	const article = randomUUID(),
 		state = randomUUID();
-	// A globally owned article is a registered record; the editable state stays in the exact org.
 	await db.execute(
 		querySql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${querySql.param(article)},'article',${querySql.param("synthetic-" + article)},'00000000-0000-0000-0000-000000000000')`,
 	);

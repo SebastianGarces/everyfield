@@ -1,4 +1,3 @@
-// WP-034/api criteria 1 to 8: the Guide excerpt cut rules on the seeded corpus and on built text. No database.
 import { test } from "node:test";
 import { checks } from "./excerpt-checks.mjs";
 

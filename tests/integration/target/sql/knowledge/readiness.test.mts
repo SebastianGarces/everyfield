@@ -13,8 +13,6 @@ import { testDatabase } from "../../../../support/test-database.mts";
 import { seeds } from "../../../../support/fixture.mts";
 import { dropTarget, freezeClock, objectStore, operator, snapshot } from "./support.mts";
 
-// BKT60-004: before any customer data (no customer rows, backup not configured, cost not approved), a verified scoped
-// operator asks ops.readiness at 2026-10-13T16:00:00Z. Church P with admin A on session-A is synthetic setup only.
 const NOW = new Date("2026-10-13T16:00:00.000Z");
 const scoped = {
 	authority: "explicit_scoped_operator",
@@ -22,7 +20,6 @@ const scoped = {
 	operation_ids: ["ops.readiness"],
 	environment: "isolated-test",
 } as const;
-/** Evidence of each kind in the shape ops.readiness counts. */
 const supplied = {
 	cost_approval: {
 		approved: true,
@@ -66,7 +63,6 @@ test("only a verified explicit scoped operator capability for ops.readiness gets
 });
 
 test("AC:BKT60-004 the before-customer-data gate stays blocked while cost, host schedule, key exclusion or coherent restore evidence is missing", async (step) => {
-	// No customer rows: the synthetic church holds no people.
 	const { rows } = await admin.execute<{ n: number }>(sql`SELECT count(*)::int AS n FROM person`);
 	assert.equal(rows[0]!.n, 0);
 
@@ -118,7 +114,6 @@ test("AC:BKT60-004 the before-customer-data gate stays blocked while cost, host 
 			const report = readiness({ capability: scoped, evidence, now: NOW });
 			assert.equal(report.refusal === null && report.customer_data_gate, "blocked");
 			assert.deepEqual(report.refusal === null && report.missing, ["coherent_restore"]);
-			// The offline candidate check's own verdict does not count either.
 			const offline = {
 				...supplied,
 				coherent_restore: { liveRecoveryProven: false, verified_at: "2026-10-13T16:00:00Z" },

@@ -1,5 +1,3 @@
-// The meetings reads of INV-tenancy (tenancy.test.mts): church A's meetings, written through the meetings writes as its
-// owner, and one case per read. `t` is the shared context the test builds in its `before`.
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
 import {
@@ -15,11 +13,9 @@ import {
 	withMeetingsWrite,
 } from "../../../packages/domain/src/meetings/index.ts";
 
-/** The reminder sync port (WP-031) as a local fake that plans nothing: no reminder is read back here. */
 export const planNoReminders = async () => {};
 const attendance = createAttendanceWriter({ reminders: planNoReminders });
 
-/** A Vision night held a month ago with a venue, guests, an RSVP, a card, attendance and an evaluation. */
 export async function seedMeetings(t) {
 	const { a, MARK, key, ok, occurredOn } = t;
 	const meet = (body) => withMeetingsWrite(t.f.db, t.ownerA.actor, body);
@@ -54,7 +50,6 @@ export async function seedMeetings(t) {
 			}),
 		),
 	);
-	// Avery is linked to church A's owner, so the owner answers as Avery.
 	ok(
 		await meet((tx, c) =>
 			guestsWriter.saveOwnRsvp(tx, c, { requestKey: key(), input: { meetingId: a.vision, rsvp: "confirmed" } }),
@@ -73,7 +68,6 @@ export async function seedMeetings(t) {
 	const { attendanceRevision } = ok(
 		await attendanceReader.listAttendance(t.f.db, t.ownerA.actor, { meetingId: a.vision }),
 	);
-	// Blair is a first-time Vision guest, so finalizing generates Blair's follow-up obligation (the followups seed).
 	ok(
 		await meet((tx, c) =>
 			attendance.finalizeAttendance(tx, c, {
@@ -115,7 +109,6 @@ export async function seedMeetings(t) {
 	);
 }
 
-/** The meetings cases for `who`: church B's owner for the tenancy check, church A's owner for the control. */
 export function meetingsCases(t, who) {
 	const { a, MARK, key } = t;
 	const db = t.f.db;
@@ -124,10 +117,8 @@ export function meetingsCases(t, who) {
 	const v = (name, run, expected) => [`meetings:venuesReader.${name}`, { run, expected }];
 	const meeting = { meetingId: a.vision };
 	const unavailable = { refused: "unavailable" };
-	// A reply may name the meeting the caller asked for; church A's control must show more of church A than that.
 	const gone = { ...unavailable, echo: [a.vision] };
 	const vision = { types: ["vision_meeting"], from: null, to: null };
-	// The meeting church B's preview names, read before and after: a rolled-back write leaves it as it was.
 	const visionRow = async () =>
 		(
 			await t.rows(
@@ -139,12 +130,10 @@ export function meetingsCases(t, who) {
 		m("get", () => meetingsReader.get(db, who.actor, meeting), { value: { status: "unavailable" }, echo: [a.vision] }),
 		m("hasHistory", () => meetingsReader.hasHistory(db, who.actor, {}), {
 			value: { hasHistory: false, types: [] },
-			// The answer is one flag: church A's own owner sees its meetings exist.
 			control: (value) => assert.deepEqual(value, { hasHistory: true, types: [] }),
 		}),
 		m("readAgenda", () => meetingsReader.readAgenda(db, who.actor, meeting), {
 			...gone,
-			// The Vision agenda's sections, as scheduling gave church A's meeting.
 			control: (value) => assert.equal(value.sections[0].title, "Welcome"),
 		}),
 		m("listKit", () => meetingsReader.listKit(db, who.actor, meeting), gone),
@@ -152,7 +141,6 @@ export function meetingsCases(t, who) {
 		m("listCards", () => meetingsReader.listCards(db, who.actor, meeting), gone),
 		m("cardBreakdown", () => meetingsReader.cardBreakdown(db, who.actor, meeting), {
 			...gone,
-			// Counts only: two attended, Blair with an interested card.
 			control: (value) =>
 				assert.partialDeepStrictEqual(value, { attended: { total: 2, withCard: 1, responses: { interested: 1 } } }),
 		}),
@@ -166,7 +154,6 @@ export function meetingsCases(t, who) {
 		at("listAttendance", () => attendanceReader.listAttendance(db, who.actor, meeting), gone),
 		at("attendanceSummary", () => attendanceReader.attendanceSummary(db, who.actor, meeting), {
 			...gone,
-			// Counts only: three guests, Avery (core group) and Blair (first time) attended.
 			control: (value) =>
 				assert.partialDeepStrictEqual(value, {
 					guests: 3,
@@ -178,7 +165,6 @@ export function meetingsCases(t, who) {
 		at("evaluationHistory", () => attendanceReader.evaluationHistory(db, who.actor, meeting), gone),
 		at("compareEvaluation", () => attendanceReader.compareEvaluation(db, who.actor, meeting), {
 			...gone,
-			// Scores only: the evaluation church A recorded.
 			control: (value) => assert.deepEqual(value.current, { status: "known", value: 4 }),
 		}),
 		at("linkedTaskProgress", () => attendanceReader.linkedTaskProgress(db, who.actor, meeting), gone),
@@ -201,8 +187,6 @@ export function meetingsCases(t, who) {
 				returning: 0,
 				averageEvaluation: { status: "unknown" },
 			},
-			// Counts only: church A's own owner counts its finalized, evaluated Vision night (the communication cases'
-			// meeting row is held too, but never finalized).
 			control: (value) =>
 				assert.partialDeepStrictEqual(value, {
 					held: 2,
@@ -227,14 +211,12 @@ export function meetingsCases(t, who) {
 		}),
 		v("history", () => venuesReader.history(db, who.actor, { venueId: a.venue }), {
 			value: { venueId: a.venue, items: [], page: 1, next: null },
-			// The answer names the venue the caller asked for.
 			echo: [a.venue],
 		}),
 
 		[
 			"meetings:previewMeetingsWrite",
 			{
-				// A meetings write run once and rolled back (C73): church B's edit of church A's meeting, then the row unchanged.
 				run: async () => {
 					const before = await visionRow();
 					const reply = await previewMeetingsWrite(db, who.actor, (tx, c) =>

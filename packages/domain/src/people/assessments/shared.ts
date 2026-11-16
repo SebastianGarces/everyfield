@@ -22,14 +22,8 @@ const subjectRow = z.object({
 	extra: z.unknown(),
 });
 export type Subject = z.infer<typeof subjectRow>;
-/** Today's date in the time zone of the church row `pl`, the one source of "today" for recorded events. */
 export const churchToday = sql`(clock_timestamp() AT TIME ZONE pl.timezone)::date::text`;
 
-/**
- * The live plant Person a record names (by ID, or a subquery such as a card's Person), locked for the write, with the church-local date and the database time the
- * record keeps as its recorded instant. `extra` is a scalar subquery read in the same round trip (a witness, an upload).
- * Retirement and merge lock the same row, so a new record never names a retired Person (REQ-PPL-024).
- */
 export async function subject(
 	tx: Tx,
 	ctx: Pick<Context, "selected">,
@@ -47,30 +41,19 @@ export async function subject(
 	if (p.state !== "live") deny();
 	return p;
 }
-/** A recorded event happened on or before today in the church's time zone. */
 export function notFuture(p: Pick<Subject, "today">, date: string) {
 	if (date > p.today) deny("invalid_input", { reason: "future_date" });
 }
 
-/**
- * C13, C32: the live Owner or Admin read check, inside each statement that returns these records. live_session takes no
- * lock, so a sign-out never waits for a running read.
- */
 export const adminRead = (ctx: Pick<Context, "session" | "selected">) =>
 	liveRead({ session: ctx.session, owner: ctx.selected }, true);
 
 const order = c.stage.options;
-/**
- * REQ-PPL-020: an interview moves an earlier stage to interviewed and a commitment to core_group. An advanced stage
- * stays; only the stage command moves people back. Returns the Person columns to set and the change to report.
- */
 export function advance(p: Subject, target: Stage) {
 	if (order.indexOf(p.stage) >= order.indexOf(target)) return { set: {}, change: null };
-	// Into another pipeline column: the person goes to its end with a fresh key (D68).
 	const position = sameColumn(p.stage, target) ? p.pipeline_position : freshPosition(p.id);
 	return { set: { stage: target, pipeline_position: position }, change: { from: p.stage, to: target } };
 }
-/** One Person update with the advance and any commitment change; the revision moves on only when something changed. */
 export function personUpdate(
 	tx: Tx,
 	plant: string,
@@ -90,15 +73,9 @@ export function personUpdate(
 export const nextRevision = (p: Subject, set: object) =>
 	Object.keys(set).length ? String(BigInt(p.revision) + 1n) : p.revision;
 
-/** The audit metadata of one record event: never scores, criteria, results, notes or document details (audit.md). */
 export const recordEvent = (event: string, recordId?: string): Record<string, string> =>
 	recordId ? { event, recordId } : { event };
 
-/**
- * The original recorder of a record, from its Person's audit history: the `people.recorded` event that names it. A
- * deleted account shows as a token local to the church and the record. A record moved by a merge keeps its recorder:
- * the event still names the merged Person.
- */
 export const recorderSql = (alias: string) =>
 	sql.raw(`(SELECT a.actor_id FROM audit_event a WHERE a.tenant_id=${alias}.plant_id AND a.subject_id IN (SELECT ${alias}.person_id
  UNION ALL SELECT m.id FROM person m WHERE m.merged_into_person_id=${alias}.person_id AND m.tenant_id=${alias}.plant_id)
@@ -110,10 +87,6 @@ export function attribution(plant: string, recordId: string, actorId: string | n
 }
 
 export type HistoryPage = { page: number; limit: number };
-/**
- * One Person's records as one JSON value: one page latest first, the latest record and the total. A scalar expression
- * over the Person alias `p`. `row` builds one record's JSON from alias `r`; `order` sorts alias `r`.
- */
 export function historyJson(
 	plant: string,
 	input: HistoryPage,
@@ -134,17 +107,12 @@ const historyRow = z.object({
 	items: z.array(z.unknown()),
 	latest: z.unknown(),
 });
-/** The page of a `historyJson` value. */
 export function history(plant: string, input: HistoryPage, raw: unknown) {
 	const { total, items, latest, extra } = historyRow.parse(raw);
 	return { plant, total, items, latest, extra, next: input.page * input.limit < total ? input.page + 1 : null };
 }
 export type History = ReturnType<typeof history>;
 
-/**
- * One Person's records in one statement: the live reader check (C13, Owner and Admin only), the Person and its
- * `historyJson`.
- */
 export async function readHistory(
 	tx: Tx,
 	ctx: Context,
@@ -159,14 +127,9 @@ export async function readHistory(
 	return history(plant, input, result.rows[0].h);
 }
 
-/**
- * The reply central audit keeps for a retry: everything except the private record (scores, criteria, notes, witness,
- * document), which audit must never hold (audit.md). It names the record instead.
- */
 export function receiptOf(value: Record<string, unknown>, field: string, recordId: string) {
 	return { ...Object.fromEntries(Object.entries(value).filter(([k]) => k !== field)), recordId };
 }
-/** A retry rebuilds the private part of its reply from the record itself, under the write's own authority. */
 export async function replayed(
 	tx: Tx,
 	plant: string,

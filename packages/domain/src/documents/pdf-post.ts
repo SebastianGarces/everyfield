@@ -1,6 +1,5 @@
 import { PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, PDFRef, PDFString } from "pdf-lib";
 
-/** Tooltip text for a field name. Names follow the layout files: `team_task_n`, `present_n` and plain keys. */
 const KNOWN: Record<string, string> = {
 	full_name: "Full name",
 	contact: "Email address or phone number",
@@ -46,17 +45,10 @@ function tooltipFor(name: string) {
 }
 const title = (s: string) => s.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 
-/** A card sheet repeats each card's fields with a `_t<n>` suffix per card; the field is the same one without it. */
 const unsuffixed = (name: string) => name.replace(/_t\d+$/, "");
 
-/** Names that become signature fields (/FT /Sig): every place a person signs. */
 const isSignature = (name: string) => name === "signature" || name.endsWith("_signature");
 
-/**
- * Forme 0.29 has no tooltip prop and no signature field. After layout, each widget gets /TU, each signature
- * name becomes a /Sig field, and the AcroForm gets a /DR font entry that points at the embedded DM Sans.
- * `updateMetadata: false` keeps the creation and modification dates out, so the bytes stay deterministic.
- */
 export async function finishForm(pdf: Uint8Array) {
 	const doc = await PDFDocument.load(pdf, { updateMetadata: false });
 	const form = doc.getForm();
@@ -91,7 +83,6 @@ export async function finishForm(pdf: Uint8Array) {
 	};
 }
 
-/** The first embedded DM Sans font object in the page resources. */
 function embeddedBodyFont(doc: PDFDocument): PDFRef | null {
 	for (const page of doc.getPages()) {
 		const resources = page.node.Resources();
@@ -107,11 +98,6 @@ function embeddedBodyFont(doc: PDFDocument): PDFRef | null {
 	return null;
 }
 
-/**
- * PDF/UA 7.18.4: a Form tag holds one object reference to its widget annotation. Forme 0.29 tags each field as a
- * Form element over marked content and leaves the widget unlinked. Both lists are in reading order, so the n-th
- * Form element and the n-th widget pair up; the pass does nothing when the counts differ.
- */
 function linkWidgetsToForms(doc: PDFDocument) {
 	const root = doc.catalog.lookup(PDFName.of("StructTreeRoot"));
 	if (!(root instanceof PDFDict)) return;
