@@ -2,7 +2,7 @@ export type Debouncer = {
 	run(fn: () => void): void;
 	cancel(): void;
 	flush(): void;
-	ref(node: Element | null): () => void;
+	cancelOnDetach(node: Element | null): () => void;
 };
 
 export function createDebouncer(ms: number): Debouncer {
@@ -26,6 +26,6 @@ export function createDebouncer(ms: number): Debouncer {
 		},
 		cancel,
 		flush,
-		ref: () => cancel,
+		cancelOnDetach: () => cancel,
 	};
 }
