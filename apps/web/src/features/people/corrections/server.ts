@@ -18,16 +18,11 @@ import {
 import type { z } from "zod";
 import { defaultSurvivor, fieldText, type Households, type ListedPair, type MergeField } from "./model.ts";
 
-// The reads behind the duplicate review, Unmerge preview and record corrections. Each one runs inside the caller's single
-// read transaction (people/server.ts read()), so a screen read is one transaction with the reads it needs, never one
-// request per part. They take the transaction, so the statement census can count them (tests/integration/writes).
-
 type Review = z.infer<typeof c.mergeReview>;
 type PersonResult = z.infer<typeof c.personResult>;
 type PersonId = z.infer<typeof c.personRequest>["personId"];
 export type PairQuery = { person: PersonId; with: PersonId; keep: PersonId | null };
 type Photos = Partial<Record<"source" | "survivor", string>>;
-/** The duplicates page for one pair of people. */
 export type PairView =
 	| {
 			kind: "ready";
@@ -35,23 +30,15 @@ export type PairView =
 			households: Households;
 			photos: Photos;
 			added: Record<string, string>;
-			/** Set when the pair is on /people/duplicates, so the review offers "Not a duplicate": imported person first. */
 			listed: ListedPair | null;
 	  }
-	/** One of them was already merged into the other: show the result and the way back, never a second review. */
 	| { kind: "merged"; source: { id: string; name: string }; survivor: { id: string; name: string } }
-	/** Missing, retired, in another church or the same person twice: nothing to review. */
 	| { kind: "unavailable" }
 	| { kind: "failed" };
 
 const available = (r: { status: string; value?: PersonResult }) =>
 	r.status === "ok" && r.value?.status === "available" ? r.value.person : null;
 
-/**
- * The review of `person` and `with`, with the person in `keep` (or the default, see defaultSurvivor) as the survivor.
- * Reads both people, the merge review, whether an import listed the pair (in either order) and, only when those fields
- * differ, the two households' names and photos.
- */
 export async function readPair(tx: Transaction, ctx: PeopleContext, q: PairQuery): Promise<PairView> {
 	if (q.person === q.with) return { kind: "unavailable" };
 	const a = available(await peopleReader.getPerson(tx, ctx, { personId: q.person }));
@@ -75,7 +62,6 @@ export async function readPair(tx: Transaction, ctx: PeopleContext, q: PairQuery
 		survivor === a.id ? { sourceId: b.id, survivorId: a.id } : { sourceId: a.id, survivorId: b.id };
 	let r = await peopleMerge.getMergeReview(tx, ctx, order(first));
 	if (r.status !== "ok") return { kind: "unavailable" };
-	// The linked person must survive: without an explicit choice, open the review the merge can actually run.
 	if (!explicit && r.value.source.linkedAccount && !r.value.survivor.linkedAccount) {
 		r = await peopleMerge.getMergeReview(tx, ctx, order(r.value.source.personId));
 		if (r.status !== "ok") return { kind: "unavailable" };
@@ -112,16 +98,12 @@ export async function readPair(tx: Transaction, ctx: PeopleContext, q: PairQuery
 	};
 }
 
-/** Duplicate hints for one live plant person (REQ-PPL-016), read with the person page. Hints only. */
 export type DuplicateHints = z.infer<typeof c.duplicateHints>;
-/** The pairs CSV imports flagged with "Add, review later" whose two people are both still live (REQ-PPL-018). */
 export type DuplicatePairs = z.infer<typeof c.duplicatePairs>;
 export const readPairs = (tx: Transaction, ctx: PeopleContext) => listDuplicatePairs(tx, ctx);
-/** The pairs marked "Not a duplicate" whose two people are both still live, for the Dismissed view (D-790). */
 export type DismissedPairs = z.infer<typeof c.dismissedDuplicatePairs>;
 export const readDismissedPairs = (tx: Transaction, ctx: PeopleContext) => listDismissedDuplicatePairs(tx, ctx);
 
-/** The Unmerge preview with both people's names, in one transaction. */
 export async function readUnmerge(tx: Transaction, ctx: PeopleContext, mergeId: string) {
 	const r = await peopleUnmerge.previewUnmerge(tx, ctx, { mergeId });
 	if (r.status !== "ok") return r;
@@ -136,10 +118,6 @@ export async function readUnmerge(tx: Transaction, ctx: PeopleContext, mergeId: 
 }
 export type UnmergeView = Extract<Awaited<ReturnType<typeof readUnmerge>>, { status: "ok" }>["value"];
 
-/**
- * Everything the correction dialog shows for one person, in one transaction: their assessments, interviews and cards
- * (latest first, the first 100 of each) and every correction already made to them.
- */
 export async function readRecords(tx: Transaction, ctx: PeopleContext, personId: PersonId) {
 	const request = { personId, limit: 100 };
 	const a = await assessments.getAssessments(tx, ctx, request);

@@ -1,15 +1,3 @@
-// The pipeline fixture (WP-101), the acceptance fixture for the pipeline evals, seeded next to Hope Fellowship
-// (golden-church.mts) on its Grace Austin and Hill Country Network organizations (America/Chicago). Grace Austin has an
-// Owner (Dana Brooks), an Admin (Luis Ortega) and two Members: Ana Ruiz, who directs the residency and is responsible
-// for Casey Lee, and Ben Carter, who is responsible for no one. Its pipeline: Jordan Reyes, placed in Potential leader
-// 190 days ago and never moved since; Casey Lee, placed 100 days ago and moved to Apprentice 14 days ago, with a note
-// from Ana; and Sam Patel, placed in Potential leader 30 days ago. Hill Country Network's own pipeline has only Morgan
-// Diaz, placed 200 days ago; its Owner is Ruth Calder (golden-church.mts). Every placement and move is made by the native
-// pipeline writer, then dated relative to the database clock, as the Pipeline page's own tests do. Ana directs
-// "Church planting residency" (seedResidency): Version 1 is published, weekly over 18 months with the residency
-// template's four stages and three milestones and one Wiki reading, and Casey Lee is enrolled on it and has finished
-// "Start a small group and raise a replacement". The program, its publish, the enrollment and the milestone go through
-// the native program writer; only the reading's Wiki article is raw rows, as no public write creates one here.
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
@@ -34,13 +22,11 @@ export const PIPELINE_SPECS = {
 	ana: spec(3, "Ana Ruiz", "member"),
 	ben: spec(4, "Ben Carter", "member"),
 } as const;
-/** The Grace Austin seats, and Hill Country Network's Owner from the golden church. */
 export type PipelineName = keyof typeof PIPELINE_SPECS | "hill";
 export const sessionOf = (who: PipelineName) =>
 	who === "hill" ? ACTOR_SPECS.network.session : PIPELINE_SPECS[who].session;
 
 export const PEOPLE = { jordan: id(0xa101), casey: id(0xa102), sam: id(0xa103), morgan: id(0xa104) } as const;
-/** Ana's note on Casey: staff-only text that no Evry read may return. */
 export const ANA_NOTE = "Casey is steady with the youth group; we talked through the Austin plant timeline.";
 
 function ok<T>(reply: { status: string; value?: T; refusal?: unknown }): T {
@@ -48,16 +34,10 @@ function ok<T>(reply: { status: string; value?: T; refusal?: unknown }): T {
 	return reply.value as T;
 }
 
-/** The residency's one reading: an article Grace Austin publishes in its own Wiki. */
 export const RESIDENCY_READING = "Planting a church that plants churches";
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 type Executor = Pick<Database, "execute">;
 
-/**
- * Seeds "Church planting residency" in organization `organization`, directed by the seat `director` signs in with:
- * Version 1 published with one reading, and `enrollee` enrolled on it with its first milestone finished. `owner` and
- * `director` resolve the Owner's and the director's authority. Returns the program's id.
- */
 export async function seedResidency(
 	admin: Executor,
 	runtime: Database,
@@ -69,7 +49,6 @@ export async function seedResidency(
 		enrollee: string;
 	},
 ) {
-	// The reading: Grace Austin's own published version of an article.
 	const [section, article, revision] = [randomUUID(), randomUUID(), randomUUID()];
 	await admin.execute(
 		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${section},'section',${`residency/${section}`},${GLOBAL})`,
@@ -131,7 +110,6 @@ export async function seedResidency(
 	return { programId, enrollmentId };
 }
 
-/** Seeds the Grace Austin seats into the schema `admin` writes, then both pipelines through the native writer. */
 export async function seedPipeline(admin: Database, runtime: Database) {
 	for (const [who, a] of Object.entries(PIPELINE_SPECS)) {
 		await admin.execute(
@@ -195,7 +173,6 @@ export async function seedPipeline(admin: Database, runtime: Database) {
 		}),
 	);
 	await add("hill", PEOPLE.morgan, "Morgan Diaz", hill["Potential leader"]!, null);
-	// Each placement and move dated as the example has it, relative to the database clock.
 	const age = (person: string, organization: string, days: number, first: boolean) =>
 		admin.execute(sql`UPDATE audit_event a SET occurred_at=clock_timestamp()-make_interval(days=>${days})
 			FROM pipeline_stage_move m JOIN pipeline_person pp ON pp.id=m.pipeline_person_id

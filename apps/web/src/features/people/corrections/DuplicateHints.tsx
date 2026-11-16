@@ -6,11 +6,6 @@ import { cn } from "@everyfield/ui/foundations";
 import { listText, pairHref } from "./model.ts";
 import type { DuplicateHints as Hints } from "./server.ts";
 
-/**
- * Possible duplicates of this person (REQ-PPL-016): people who share a normalized email or phone, or the same name.
- * Hints only, never proof of identity. Owners and Admins open the side-by-side review from here; Members see the hint
- * and the other person's page. Nothing shows when there is no hint.
- */
 export function DuplicateHints({ personId, hints, canReview }: { personId: string; hints: Hints; canReview: boolean }) {
 	if (!hints.items.length) return null;
 	return (
