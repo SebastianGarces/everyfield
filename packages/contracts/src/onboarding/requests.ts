@@ -8,8 +8,6 @@ import { phaseNumber } from "../phases/index.ts";
 const name = z.string().trim().min(1).max(200);
 const localityPart = z.string().trim().max(200).nullable().optional();
 export const locality = z.strictObject({ city: localityPart, stateProvince: localityPart, country: localityPart });
-// Confirmation belongs to the account owner. No resident prefill, organization
-// actor, phase, inferred geography, readiness or seat-transfer input exists.
 export const plantBasics = z.strictObject({ name, locality: locality.optional(), confirmed: z.literal(true) });
 export const createPlantRequest = commandEnvelope(plantBasics);
 export const createDiscoveryRequest = commandEnvelope(z.strictObject({}));
@@ -37,8 +35,6 @@ export const convertDiscoveryRequest = commandEnvelope(
 			),
 	}),
 );
-// References are a proposal only. WP-037 rechecks private self ownership and
-// target authority and copies the exact revision; creation never copies bodies.
 export const documentCarryForwardProposal = z.strictObject({
 	documentId: recordId,
 	revisionId: recordId,
@@ -67,7 +63,6 @@ export const answerLeadRequest = commandEnvelope(
 		z.strictObject({
 			answer: z.literal("yes"),
 			assignment: leadAssignmentSelection,
-			// The optional Senior pastor fill: the lead role becomes Leadership's vacant Senior pastor role. Off by default.
 			seniorPastor: z.boolean().default(false),
 		}),
 		z.strictObject({ answer: z.literal("no") }),
@@ -80,7 +75,6 @@ export const journeyAnswer = z.discriminatedUnion("answer", [
 	z.strictObject({ answer: z.literal("discerning") }),
 	z.strictObject({ answer: z.literal("skip") }),
 ]);
-// no_date and skip preserve any current schedule. Clearing is not onboarding.
 export const launchAnswer = z.discriminatedUnion("answer", [
 	z.strictObject({ answer: z.literal("planned"), date: localDate, expectedScheduleRevision: revision }),
 	z.strictObject({ answer: z.literal("no_date") }),

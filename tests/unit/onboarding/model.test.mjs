@@ -1,15 +1,3 @@
-// INV-onboarding-model: the onboarding rules (apps/web/src/features/onboarding/model.ts) over random interleavings of
-// edits, Continue (also twice), Back, step jumps, a second person's change and server replies that accept, refuse
-// for a stale revision, fail for a moment or arrive after the person moved on. A small server below keeps the WP-009
-// API rules the screens depend on. After every step:
-//   1. at most one request is on the wire, so a second Continue never sends a second request;
-//   2. a retry of the same payload after a temporary failure reuses its request key; any other payload gets a new one;
-//   3. the facts the screen shows equal the server's facts after every reply (they come only from replies);
-//   4. a journey request carries a phase only for an explicit existing-phase choice: not sure, discerning and skip
-//      never become Phase 0, and the actual phase stays where creation put it;
-//   5. nothing is sent once a phase is declared (journey) or a lead role assigned (lead), and finish stamps once;
-//   6. after creation, Your church never offers the basics form again, and a second creation is never sent.
-// No browser needed.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -42,7 +30,6 @@ function rng(seed) {
 	};
 }
 
-/** The server: replay by request key, revision checks, once-only declaration and completion. */
 function server() {
 	const s = {
 		created: false,
@@ -87,7 +74,6 @@ function server() {
 		if (cmd.expectedRevision !== s.resume.revision) return { refused: "conflict" };
 		if (op === "declareJourney") {
 			const { journey, launch } = cmd.input;
-			// The schedule CAS: a planned date sends the launch revision it read; the first date writes revision 1.
 			if (launch.answer === "planned" && launch.expectedScheduleRevision !== s.resume.scheduleRevision)
 				return { refused: "conflict" };
 			if (journey.answer === "existing") {
@@ -176,8 +162,8 @@ function run(seed) {
 	const srv = server();
 	let state = initialState(srv.entry(), null);
 	let keys = 0;
-	let wire = null; // { op, cmd, fault }
-	let lastTemporary = null; // { op, digest, requestKey } of a payload that failed for a moment
+	let wire = null;
+	let lastTemporary = null;
 	const sentJourneys = [];
 	const facts = () => (state.entry.kind === "plant" ? state.entry.resume : null);
 
@@ -209,7 +195,6 @@ function run(seed) {
 			reply.status === "refused" && reply.error.retry === "same_request"
 				? { op, digest, requestKey: cmd.requestKey }
 				: null;
-		// After an accepted reply or a reload the screen holds exactly the server facts.
 		if ((reply.status === "ok" || fresh) && state.entry.kind === "plant" && srv.resume) {
 			const shown = facts();
 			for (const key of [
@@ -231,7 +216,7 @@ function run(seed) {
 		if (wire && roll < 0.35) deliver();
 		else if (roll < 0.45) state = setView(state, pick(VIEWS));
 		else if (roll < 0.5 && srv.resume) {
-			srv.resume.revision = String(Number(srv.resume.revision) + 1); // another tab saved something
+			srv.resume.revision = String(Number(srv.resume.revision) + 1);
 		} else if (roll < 0.55) state = reload(state, srv.entry());
 		else if (state.entry.kind === "start") {
 			state = editDrafts(state, {
@@ -307,8 +292,6 @@ test("INV-onboarding-model: a pending account creates only what it registered fo
 	});
 });
 
-// WP-017 (REQ-IDN-014): the Senior pastor fill is off by default, only a Yes carries it, and the finish summary says
-// which role the planter holds and why a fill was skipped.
 test("INV-senior-pastor-fill: off by default, sent only with Yes, and summarized in words", () => {
 	const sent = (seniorPastor) => ({
 		answer: "yes",
@@ -332,8 +315,6 @@ test("INV-senior-pastor-fill: off by default, sent only with Yes, and summarized
 	assert.equal(skippedFill({ answer: "no", savedAt: "" }), null);
 });
 
-// BUG-T65 (Nora QA 2026-11-05 Ask C): a network Admin or a sending-church director reaches the organization screen, and the
-// address bar never shows a church-setup step for it. Screens with steps keep theirs, so planter routing is unchanged.
 test("BUG-58bc5acb8: an organization login's onboarding address carries no church step; planter steps keep theirs", () => {
 	for (const requested of [null, "church", "journey"]) {
 		const organization = initialState({ kind: "elsewhere", reason: "organization" }, requested);

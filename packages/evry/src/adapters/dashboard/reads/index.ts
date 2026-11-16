@@ -15,25 +15,17 @@ import { phaseText } from "../../../catalog/labels.ts";
 import { localWhen, TYPE_LABEL } from "../../meetings/shared.ts";
 import { plantSeat } from "../../native.ts";
 
-// Overview through Evry (WP-083): the same dashboardReader calls `/overview` makes, with the same server-side role rules,
-// each worded and linked as Overview words and links it (apps/web/src/features/overview/model.ts; the overview suite
-// holds these words to that file). Overview's prompt state reaches Evry only through availableActions, and choosing a
-// home page stays native.
-
-/** Each first-week step as Overview's checklist says it, with the action an Owner or Admin takes on it. */
 const STEP: Record<SetupStep, { title: string; action: string; href: string }> = {
 	add_people: { title: "Add the people you already know", action: "Import", href: "/people/import" },
 	plan_vision_meeting: { title: "Plan your first Vision Meeting", action: "Plan", href: "/meetings" },
 	invite_team: { title: "Invite your spouse or co-leader", action: "Invite", href: "/settings/seats" },
 	set_launch_date: { title: "Set Launch Sunday", action: "Set date", href: "/launch" },
 };
-/** The optional prompt's title, which Overview shows for its step after the first week. */
 const PROMPT_TITLE: Record<PromptKey, string> = {
 	import_people: "Import your people",
 	invite_team: "Invite your team",
 };
 const PROMPT_OF = Object.fromEntries(PROMPTS.map((p) => [PROMPT_STEP[p], p])) as Partial<Record<SetupStep, PromptKey>>;
-/** Each count's card on Overview, with the list it opens. */
 const METRIC = {
 	recruited: { label: "Recruited", href: "/people?stage=core_group&stage=launch_team&stage=leader" },
 	people: { label: "People", href: "/people" },
@@ -52,7 +44,6 @@ const result = (operation: string, rows: SourceRow[], facts: SourceResult["facts
 	exclusions: [],
 	facts,
 });
-/** A refusal: the seat no longer reads this church's Overview. Nothing from it is shown. */
 const denied = (operation: string): SourceResult => ({
 	operation,
 	status: "not_found",
@@ -65,11 +56,6 @@ const denied = (operation: string): SourceResult => ({
 });
 const valueOf = <T>(reply: DashboardReply<T>) => (reply.status === "ok" ? reply.value : null);
 
-/**
- * The next steps Overview's Get started card offers this seat now (overview/client.tsx GetStarted): in the first week,
- * each open step whose prompt this person did not dismiss; after it, the steps of the prompts still showing. Only an
- * Owner or Admin has an action on a step, so a Member is offered none.
- */
 function nextSteps(frame: OverviewFrame, plantId: string): SourceRow[] {
 	if (frame.role === "member") return [];
 	const shown = SETUP_STEPS.filter((s) => {
@@ -85,7 +71,6 @@ function nextSteps(frame: OverviewFrame, plantId: string): SourceRow[] {
 	}));
 }
 
-/** One activity entry as Overview's Recent changes card says it, with its church-local day and the item it opens. */
 function entryRow(e: ActivityEntry, zone: string, self: string | null): SourceRow {
 	const c = e.change;
 	const meeting = (m: { title: string | null; meetingType: string }) => m.title || TYPE_LABEL[m.meetingType];
@@ -127,13 +112,11 @@ function entryRow(e: ActivityEntry, zone: string, self: string | null): SourceRo
 		label,
 		fields: {
 			change: c.kind,
-			// The church-local day it happened, and when in words.
 			date: new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(new Date(e.at)),
 			when: localWhen(e.at, zone),
 			by: e.actor?.displayName ?? "Everyfield",
 			personId,
 			href,
-			// The signed-in user's own person record (added when they set up the church), as person rows mark it.
 			...(personId !== null && personId === self ? { you: true } : {}),
 		},
 	};

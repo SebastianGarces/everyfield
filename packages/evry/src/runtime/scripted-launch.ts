@@ -4,14 +4,6 @@ import { GUEST_NAME_MAX } from "@everyfield/contracts/launch";
 import { launchDay } from "../adapters/launch/reads/index.ts";
 import { LAUNCH_RULES } from "../context/compile.ts";
 
-// The scripted model's Launch requests (WP-075, WP-076), for local previews and tests only. It answers through the same
-// tools a model gets: the countdown, milestones, history and Launch Sunday as the Launch plan reads them, and review
-// cards for a date move, a postponement, Launch Sunday's numbers, the debrief and the summary, and for completing or
-// reopening a milestone it finds by name on the Launch plan (T-382). Every number it says is
-// one a launch read returned. A reply the tools never serve (a seat that may not change the plan, a launch-team goal
-// nothing records) is the product's own sentence from the system prompt (compile.ts), quoted only when the prompt
-// holds it, so the evals test the text the real model is given.
-
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind?: string; id: string; label: string; fields: Record<string, unknown> };
 type Output = Record<string, unknown> & {
@@ -40,7 +32,6 @@ function turnOutputs(prompt: Prompt): Output[] {
 		);
 }
 const systemText = (prompt: Prompt) => prompt.flatMap((m) => (m.role === "system" ? [m.content] : [])).join("\n");
-/** Evry's last answer before the current user message: a guest question it asked (T-383). */
 function lastAssistantText(prompt: Prompt) {
 	const start = prompt.findLastIndex((m) => m.role === "user");
 	for (let i = start - 1; i >= 0; i--) {
@@ -63,16 +54,12 @@ const POSTPONE = /\bpostpone\b.*\blaunch\b|\blaunch\b.*\bpostpone/i;
 const RECORD = /\brecord\b.*\b(?:launch|attendance)\b/i;
 const SUBMIT = /\bsubmit\b.*\bdebrief\b/i;
 const PUBLISH = /\b(?:publish|share)\b.*\bsummary\b/i;
-/** "mark the venue milestone complete", "complete the venue milestone": the milestone's name as the user said it. */
 const COMPLETE =
 	/^(?:please\s+)?(?:mark|check off|complete)\s+(?:the\s+|our\s+)?(.+?)(?:\s+milestone)?(?:\s+(?:as\s+)?(?:complete|completed|done))?\s*[.!?]?$/i;
 const REOPEN = /^(?:please\s+)?(?:reopen|re-open|uncheck)\s+(?:the\s+|our\s+)?(.+?)(?:\s+milestone)?\s*[.!?]?$/i;
-/** "add Sam Ortiz, Jo Kim and Lee Park as launch guests": the names as the user typed them (T-383). */
 const GUEST_ADD =
 	/^(?:please\s+)?(?:add|name)\s+(.*?)\s*\bas\s+(?:a\s+|our\s+)?(?:first[- ]time\s+)?launch(?:\s+sunday)?\s+guests?\s*[.!?]?$/i;
-/** "add Maria Lopez as a new person", after Evry asked which match a guest is. */
 const GUEST_NEW = /^(?:please\s+)?(?:add|name)\s+(.+?)\s+as\s+a\s+new\s+person\b/i;
-/** "the first one", "pick 2": which of the People Evry listed for a guest name. */
 const GUEST_PICK =
 	/^(?:please\s+)?(?:(?:pick|choose|use|link|add|it's|its|it is)\s+)?(?:the\s+)?(first|second|third|fourth|fifth|sixth|seventh|eighth|existing|[1-8])(?:\s+(?:one|person))?\s*[.!]?$/i;
 const ORDINAL: Record<string, number> = {
@@ -86,21 +73,16 @@ const ORDINAL: Record<string, number> = {
 	seventh: 6,
 	eighth: 7,
 };
-/** The guest name Evry last listed People for: the question a pick answers. */
 const ASKED_GUEST = /People already (?:has|have) [^*]*matching \*\*(.+?)\*\*:/g;
-/** "correct launch attendance to 162, we miscounted the overflow room" (T-383). */
 const CORRECT = /^(?:please\s+)?(?:correct|fix)\b.*\blaunch\b/i;
 const NOT_RECORDED_GUESTS =
 	"Launch Sunday isn't recorded on the Launch plan yet, so no guests can be named. Record it first. I prepared nothing.";
-/** The two milestones a submitted debrief decides (LCH-004): named by the user as the Launch plan shows them. */
 const DERIVED = /\bguest data\b|\bdebrief\b/i;
-/** Words a user may call a milestone by that its title doesn't use. */
 const ALIASES: Record<string, string> = {
 	venue: "worship center",
 	fasting: "prayer and fasting",
 };
 
-/** The milestone rows of a workspace read whose title has every word of `name`, as the user said it. */
 function matching(out: Output, name: string) {
 	const said = name.toLowerCase().replace(/[^a-z0-9 ]/g, " ");
 	const words = said
@@ -116,7 +98,6 @@ function matching(out: Output, name: string) {
 }
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-/** "march 14" or "Mar 14, 2027" as a church-local date: the next such day on or after `today` when no year is given. */
 function dateOn(words: string, today: string): string | null {
 	const m = /^([a-z]+)\.? (\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{4}))?$/i.exec(words.trim());
 	const month = m ? MONTHS.indexOf(m[1]!.slice(0, 3).toLowerCase()) : -1;
@@ -127,7 +108,6 @@ function dateOn(words: string, today: string): string | null {
 	const year = Number(today.slice(0, 4));
 	return iso(year) >= today ? iso(year) : iso(year + 1);
 }
-/** The user's reason as given: the words after the date or the request, without the joining comma or "because". */
 const reasonOf = (rest: string) =>
 	rest
 		.trim()
@@ -137,7 +117,6 @@ const reasonOf = (rest: string) =>
 		.trim() || null;
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-/** "Nov 8" or "Nov 8, 2026" as a church-local date: the latest such day on or before `today` when no year is given. */
 function pastDateOn(words: string, today: string): string | null {
 	const next = dateOn(words, today);
 	if (!next || /\d{4}\s*$/.test(words.trim()) || next <= today) return next;
@@ -152,7 +131,6 @@ const UNKNOWN = (field: string) =>
 	);
 const DATE_HELD =
 	/\b(?:date|held|happened|was on)\b(?:\s+(?:to|as|on|was))?\s+([a-z]+\.? \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?)/i;
-/** What a correction names: each field the user gave, its new value, and their reason as given. */
 function correctionOf(text: string, today: string) {
 	const held = DATE_HELD.exec(text);
 	const rest = held ? text.replace(held[1]!, "") : text;
@@ -172,7 +150,6 @@ function correctionOf(text: string, today: string) {
 }
 const countSaid = (n: unknown) => (n === null ? "Not recorded" : String(n));
 
-/** The countdown as the Launch plan says it, from the read's own facts. */
 function countdownText(f: Record<string, unknown>) {
 	switch (f.countdown) {
 		case "none":
@@ -256,11 +233,9 @@ function journalText(out: Output, system: string) {
 	return `Since ${typeof since === "string" ? launchDay(since) : "then"}, Launch history shows:\n${lines.join("\n")}\n\n${quoted.trim()}`.trim();
 }
 
-/** The day `days` before a church-local date. */
 const before = (day: string, days: number) =>
 	new Date(Date.parse(`${day}T12:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
 
-/** A summary drafted from what the Launch plan recorded, for the planter to review word for word. */
 function summaryFrom(f: Record<string, unknown>) {
 	const counts = [
 		typeof f.attendance === "number" ? `${f.attendance} people attended` : null,
@@ -269,7 +244,6 @@ function summaryFrom(f: Record<string, unknown>) {
 	return `We launched on ${String(f.actualDate)}.${counts.length ? ` ${counts.join(", and ")}.` : ""} Thank you for praying for us and sending us.`;
 }
 
-/** One step of a Launch request, or null when it is none. */
 export function launchStep(options: LanguageModelV4CallOptions, text: string): LanguageModelV4Content[] | null {
 	const tools = JSON.stringify(options.tools ?? []);
 	const offers = (operation: string) => tools.includes(`"${operation}"`);
@@ -309,7 +283,6 @@ export function launchStep(options: LanguageModelV4CallOptions, text: string): L
 	};
 	if (!Object.values(asked).some(Boolean)) return null;
 	if (last?.error) return say(`I couldn't do that (${String(last.error)}).`);
-	// A launch read that could not load the plan: never an answer that there is no launch.
 	if (last?.facts?.loaded === false) return rule(LAUNCH_RULES.unloaded);
 	const writes =
 		asked.move || asked.postpone || asked.record || asked.submit || asked.publish || asked.guest || asked.correct;
@@ -428,10 +401,6 @@ const strip = (name: string) =>
 		.trim()
 		.replace(/^["“”']+|["“”']+$/g, "")
 		.trim();
-/**
- * Naming Launch Sunday guests (T-383): one launch.readDebrief per typed name with its People matches, then a card for
- * each name nothing matches. A name with matches gets no card: Evry lists them and asks, and only the user picks.
- */
 function guestStep(
 	outputs: Output[],
 	guest: RegExpExecArray | null,
@@ -503,10 +472,6 @@ function guestStep(
 	);
 }
 
-/**
- * Correcting Launch Sunday's recorded outcome (T-383): read it, then a card with only the fields the user named and
- * their reason. A request the Launch plan would refuse gets its words and no card.
- */
 function correctStep(outputs: Output[], text: string): LanguageModelV4Content[] {
 	const debrief = outputs.findLast((o) => o.operation === "launch.readDebrief");
 	if (!debrief) return call("launch_read", { operation: "launch.readDebrief", input: {} });
@@ -557,7 +522,6 @@ const CORRECTED: Record<string, string> = {
 	decisions: "decisions",
 };
 
-/** What Evry says once a milestone card is prepared, from the workspace read it was found in. */
 function milestoneProposed(completing: boolean, m: Row | undefined) {
 	const wait = "Nothing changes until you approve it.";
 	const label = m?.label ?? "the milestone";
@@ -570,7 +534,6 @@ function milestoneProposed(completing: boolean, m: Row | undefined) {
 	return `I prepared a review card to mark **${label}** complete.${tasks}${review} ${wait}`;
 }
 
-/** What Evry says once a review card is prepared: what it shows, and that nothing changes before approval. */
 function proposedText(asked: Record<string, boolean>, out: Output) {
 	const [plan] = (out.rows ?? []) as Row[];
 	const changes = (plan?.fields.changes ?? []) as { field: string; before: unknown; after: unknown }[];

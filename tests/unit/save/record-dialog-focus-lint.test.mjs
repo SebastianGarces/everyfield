@@ -1,7 +1,3 @@
-// BUG-249 (F4b): RecordDialog alone sets the opening focus in its onOpenAutoFocus handler. A field with a bare autoFocus
-// inside its content takes the focus first and breaks the refusal focus, the Tab trap and the Escape return; #247's
-// meeting forms brought it back once. The web lint refuses it. This runs the real apps/web ESLint config on fixtures;
-// `pnpm lint` applies the same rule to every source file.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";

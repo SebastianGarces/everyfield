@@ -1,16 +1,3 @@
-// People screen rules (WP-011/ui) that a silent break would turn into a double write, a lost draft, a stale overwrite
-// or a list link that shows the wrong page. They run in node against the real module the screens use; no browser.
-//   INV-one-save: one person runs one save at a time, decided synchronously, so a double click sends one request.
-//   INV-draft-kept: a draft clears only when its save succeeds; a refusal or lost answer keeps it and says why.
-//   INV-request-key: a retry after a lost answer reuses the key (the server replays); a refusal or a changed payload
-//     gets a new key.
-//   INV-revision: an older revision never replaces a newer saved person.
-//   INV-activity-entry: a saved change shows in Activity from its answer: a new entry joins the top (newest first),
-//     a known entry is replaced in place, and that holds while older pages are still unloaded.
-//   INV-pairs-count (D-846, D-847): the People header links to the pairs to review as "N to review in Duplicates",
-//     "100+ …" past the read's first 100, and shows nothing with no pair or no read (a Member's page).
-//   AC:TARGET-PPL-001 INV-url (D67): filters, search, view and page number live in the address; a change goes back to
-//     page one and keeps the sibling filters; values outside the closed lists are ignored.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -47,7 +34,6 @@ test("INV-one-save: a second save for the same person does not start while one r
 		return answer.promise;
 	};
 	const first = runSave(store, "profile", { a: 1 }, call, { fresh: keys(), toPerson: (p) => p });
-	// Not awaited: with the guard gone, the second save would wait on the same unanswered server call.
 	const second = runSave(store, "stage", { b: 2 }, call, { fresh: keys(), toPerson: (p) => p });
 	assert.deepEqual(sent, ["key-1"], "exactly one request went to the server");
 	assert.equal(await second, null, "the second save is refused synchronously");
@@ -56,7 +42,6 @@ test("INV-one-save: a second save for the same person does not start while one r
 	await first;
 	assert.equal(store.getState().pending, null);
 	assert.equal(store.getState().saved.revision, "5");
-	// With the first finished, the next save may start.
 	const third = await runSave(store, "stage", { b: 2 }, async () => ({ status: "ok", value: person("6") }), {
 		fresh: keys(),
 		toPerson: (p) => p,
@@ -143,7 +128,6 @@ test("INV-revision: server props and answers never move the saved person back to
 		toPerson: (p) => p,
 	});
 	assert.equal(store.getState().saved.displayName, "Newer");
-	// Decimal revisions compare as numbers: "10" is newer than "9".
 	store.getState().actions.server(person("9", { displayName: "Nine" }));
 	assert.equal(store.getState().saved.revision, "10");
 	const page = createPersonStore(person("9", { displayName: "Saved here" }));
@@ -183,7 +167,6 @@ test("AC:TARGET-PPL-001 INV-url: the page number lives in the address; a filter 
 	assert.deepEqual([changed.search, changed.stages, changed.classification], ["ana", ["attendee", "leader"], "adult"]);
 	assert.equal(querySearch(changed), "?q=ana&stage=attendee%2Cleader&source=event&adult=adult");
 	assert.equal(rangeText(changed, 1, 1), "Showing 1 of 1 person");
-	// The pipeline has no page number; each column loads its own pages.
 	assert.equal(
 		querySearch({ ...q, view: "pipeline" }),
 		"?view=pipeline&q=ana&stage=attendee%2Cleader&source=website&adult=adult",
@@ -208,7 +191,6 @@ test("AC:TARGET-PPL-001 INV-tags: repeated tag ids stay in the address and ask f
 	assert.equal(querySearch(withFilters(q, { tags: [] })), "");
 });
 
-// Ids a loose uuid test accepts and the contract's recordId refuses: version nibble 0, and variant c.
 const VERSION_0 = "0b0f6a7e-1d6f-0f7e-8c35-5b8f5c0f4d21",
 	VARIANT_C = "0b0f6a7e-1d6f-4f7e-cc35-5b8f5c0f4d21";
 test("BUG-PR551 (people/peo-18): a tag id the contract refuses drops out of the address and the valid tag stays", () => {
@@ -219,21 +201,17 @@ test("BUG-PR551 (people/peo-18): a tag id the contract refuses drops out of the 
 
 test("AC:TARGET-PPL-007 INV-move-revisions: after reorder, away and back, a card keeps its newest revision and the saved order", () => {
 	const card = (id, stage, revision) => ({ person: { id, stage, revision } });
-	// The server copy: A and B follow up, C attends.
 	const following = [card("A", "following_up", "1"), card("B", "following_up", "1")];
 	const attending = [card("C", "attendee", "1")];
 	const view = (column, loaded, moved, answer) =>
 		columnCards(column, loaded, moved, answer).map((c) => `${c.person.id}@${c.person.revision}`);
-	// 1. Reorder: B up. The answer gives both people revision 2.
 	let answer = { revision: "2", personIds: ["B", "A"], personRevisions: { A: "2", B: "2" } };
 	const moved = new Map();
 	assert.deepEqual(view("following_up", following, moved, answer), ["B@2", "A@2"]);
-	// 2. B to attendee: the stage answer is B at 3, in the attendee column's saved order.
 	moved.set("B", card("B", "attendee", "3"));
 	const attendee = { revision: "1", personIds: ["C", "B"], personRevisions: { C: "1", B: "3" } };
 	assert.deepEqual(view("following_up", following, moved, answer), ["A@2"]);
 	assert.deepEqual(view("attendee", attending, moved, attendee), ["C@1", "B@3"]);
-	// 3. B back: B is at 4. The reorder answer still says B@2; the newer revision wins.
 	moved.set("B", card("B", "following_up", "4"));
 	answer = { revision: "2", personIds: ["A", "B"], personRevisions: { A: "2", B: "4" } };
 	assert.deepEqual(view("following_up", following, moved, answer), ["A@2", "B@4"]);
@@ -241,10 +219,8 @@ test("AC:TARGET-PPL-007 INV-move-revisions: after reorder, away and back, a card
 		"A@2",
 		"B@4",
 	]);
-	// 4. The next move of B sends revision 4, not the reorder's 2 (the verifier's false "changed" refusal).
 	const b = columnCards("following_up", following, moved, answer).find((c) => c.person.id === "B");
 	assert.equal(b.person.revision, "4");
-	// A pending reorder shows its own order first; people it does not list keep their place after it.
 	assert.deepEqual(
 		columnCards("following_up", following, moved, answer, ["B"]).map((c) => c.person.id),
 		["B", "A"],
@@ -262,8 +238,6 @@ test("INV-activity-entry: a saved change joins the top, replaces its own entry, 
 	assert.deepEqual(withEntry({ status: "lost" }, added), { status: "lost" });
 });
 
-// AC:TARGET-PPL-018 D-516: "Add, review later" needs a Person to pair the row with, an existing match or the earlier
-// row it repeats while that row imports. Without one the import refuses the whole file, so the screen drops the choice.
 test('AC:TARGET-PPL-018 a repeat of a skipped row loses "Add, review later"; other duplicates keep it', async () => {
 	const { canReview, withReviewTargets } = await import("../../../apps/web/src/features/people/import-export/model.ts");
 	const row = (n, of, existing = []) => ({
@@ -282,7 +256,6 @@ test('AC:TARGET-PPL-018 a repeat of a skipped row loses "Add, review later"; oth
 		[false, false, false, true, true, false],
 		"a target is an existing match or an earlier row that is not skipped",
 	);
-	// Skipping row 1 turns row 2's review into "Add new"; row 4 (row 3 imports) and row 5 (existing match) keep theirs.
 	const all = choices(
 		[1, "skip"],
 		[2, "create_and_review"],

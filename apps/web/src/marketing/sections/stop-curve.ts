@@ -1,10 +1,5 @@
 export type Pt = { x: number; y: number };
 
-/**
- * The dotted path of a photo band (the OPS-82 prototype's pthLayout): one smooth curve with horizontal tangents through
- * the stop centres. It enters 20 px left of the band, 18 px under the first stop, and leaves 20 px right of it, 18 px
- * over the last stop. Returns the path commands: the move, then one curve per point, so `slice(0, i + 2)` ends at stop i.
- */
 export function stopCurve(stops: Pt[], width: number): string[] {
 	const first = stops[0]!,
 		last = stops[stops.length - 1]!;
@@ -19,5 +14,4 @@ export function stopCurve(stops: Pt[], width: number): string[] {
 	return d;
 }
 
-/** The stops sit at the centres of n equal columns across the band. */
 export const stopLeft = (i: number, n: number) => `${((100 / n) * (i + 0.5)).toFixed(3)}%`;

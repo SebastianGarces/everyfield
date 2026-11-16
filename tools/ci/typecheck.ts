@@ -2,25 +2,14 @@ import { spawn } from "node:child_process";
 import { globSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-/**
- * `pnpm typecheck`: each package's `typecheck` script, which runs TypeScript 7 (`tsc --noEmit`), then the root
- * `typecheck:tools` script over the tool folders (tsconfig.tools.json, T-176). It prints every package's diagnostics and
- * exits 1 when any package has type errors, or its checker is missing, crashes or times out, or typecheck:tools fails.
- * GitHub CI's `Types` step runs it on every pull request. `pnpm typecheck:bun` runs each package's `typecheck:bun` (the
- * pinned `bun check`, T-110, D-961) the same way, without typecheck:tools: the GitHub nightly runs it as the bun shadow
- * until T-53 decides bun's fate (T-216). The helpers below also serve typecheck-compare.ts and typecheck-corpus.ts.
- */
-
 export type Diagnostic = { file: string; line: number; code: string };
 
-/** How one checker run ended. tsc exits 1 or 2 on type errors and bun check exits 1: all of them are "errors". */
 export type Outcome = "pass" | "errors" | "crash" | "timeout" | "missing";
 
 export function outcomeOf(code: number | null, timedOut: boolean): Outcome {
 	if (timedOut) return "timeout";
 	if (code === 0) return "pass";
 	if (code === 1 || code === 2) return "errors";
-	// The shell's "not found" and "not executable".
 	if (code === 126 || code === 127) return "missing";
 	return "crash";
 }
@@ -29,7 +18,6 @@ const ANSI = /\x1b\[[0-9;]*m/g;
 const LOCATED = /^(.+?)\((\d+),\d+\): error (TS\d+):/;
 const GLOBAL = /^error (TS\d+):/;
 
-/** The error lines of `tsc --pretty false` or `bun check --no-pretty`. Continuation lines carry no location. */
 export function parseDiagnostics(text: string): Diagnostic[] {
 	const found: Diagnostic[] = [];
 	for (const raw of text.split(/\r?\n/)) {
@@ -46,7 +34,6 @@ export function parseDiagnostics(text: string): Diagnostic[] {
 
 export const diagnosticKey = (d: Diagnostic): string => `${d.file}:${d.line}:${d.code}`;
 
-/** Diagnostics one side reports more often than the other, compared by file, line and code. */
 export function diffDiagnostics(tsc: Diagnostic[], bun: Diagnostic[]): Array<Diagnostic & { only: "tsc" | "bun" }> {
 	const counts = new Map<string, { d: Diagnostic; n: number }>();
 	for (const d of tsc) {
@@ -67,7 +54,6 @@ export function diffDiagnostics(tsc: Diagnostic[], bun: Diagnostic[]): Array<Dia
 
 export type WorkspacePackage = { dir: string; scripts: Record<string, string> };
 
-/** The workspace packages with the named script (`typecheck` by default), the set `pnpm -r --if-present` runs. */
 export function typecheckPackages(root: string, script = "typecheck"): WorkspacePackage[] {
 	return globSync(["apps/*/package.json", "packages/*/package.json"], { cwd: root })
 		.sort()
@@ -86,7 +72,6 @@ export type ScriptRun = {
 	outcome: Outcome;
 };
 
-/** Run a package script as pnpm would, in its own process group so that a timeout stops every child. */
 export function runScript(script: string, cwd: string, timeoutMs: number): Promise<ScriptRun> {
 	const started = performance.now();
 	return new Promise((done) => {
@@ -99,9 +84,7 @@ export function runScript(script: string, cwd: string, timeoutMs: number): Promi
 			timedOut = true;
 			try {
 				if (child.pid) process.kill(-child.pid, "SIGKILL");
-			} catch {
-				// The group has already gone.
-			}
+			} catch {}
 		}, timeoutMs);
 		const finish = (code: number | null) => {
 			clearTimeout(timer);
@@ -116,7 +99,6 @@ export function runScript(script: string, cwd: string, timeoutMs: number): Promi
 	});
 }
 
-/** The root `typecheck:tools` script, streamed to this process. Resolves to its exit code, or 0 when there is none. */
 function typecheckTools(root: string): Promise<number> {
 	const script: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["typecheck:tools"];
 	if (typeof script !== "string") return Promise.resolve(0);
@@ -133,10 +115,8 @@ function typecheckTools(root: string): Promise<number> {
 	});
 }
 
-/** The scripts this runner knows: `typecheck` (tsc, then typecheck:tools) and `typecheck:bun` (the bun shadow). */
 export type TypecheckScript = "typecheck" | "typecheck:bun";
 
-/** Run every package's `script` in turn and resolve to the exit code: 0 only when every package passed. */
 export async function typecheck(root: string, script: TypecheckScript = "typecheck"): Promise<number> {
 	const packages = typecheckPackages(root, script);
 	if (!packages.length) {

@@ -28,15 +28,12 @@ export const plantPerson = z
 		source: recruitmentSource,
 		sourceDetails: z.string().max(5000).nullable(),
 		summaryNotes: z.string().max(5000).nullable(),
-		/** The effective value: derived from the birth date when there is one, else the recorded value. */
 		adultClassification,
 		adultClassificationSource,
 		birthDate: localDate.nullable(),
 		commitment: currentCommitment,
 	})
 	.refine((v) => v.lifecycle.state !== "merged" || v.lifecycle.survivorId !== v.id);
-// General/model projection. Protected organization notes have their own native
-// access contract and never appear here, even for a reader who can read them.
 export const organizationPerson = z
 	.strictObject({ ...identityFields, owner: organizationOwner })
 	.refine((v) => v.lifecycle.state !== "merged" || v.lifecycle.survivorId !== v.id);
@@ -45,24 +42,17 @@ export const personResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("unavailable") }),
 	z.strictObject({ status: z.literal("available"), person: personProjection }),
 ]);
-/**
- * The photo a list row shows: a live person's own People photo (REQ-PPL-005), else the photo of the account the person
- * links to while that account holds a live seat in this church (REQ-IDN-006). Each names only its route's version.
- */
 export const listPhoto = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("person"), personId, versionId: recordId }),
 	z.strictObject({ kind: z.literal("account"), accountId, versionId: recordId }),
 ]);
-/** The app's own route for a list photo's exact version. Never a storage key or bearer URL. */
 export function listPhotoRoute(photo: z.infer<typeof listPhoto>): string {
 	return photo.kind === "person"
 		? `/people/${photo.personId}/photo/${photo.versionId}`
 		: avatarRoute({ accountId: photo.accountId, versionId: photo.versionId });
 }
-/** One person's list photo. A person with none has no entry. */
 export const personPhoto = z.strictObject({ personId, photo: listPhoto });
 export type PersonPhoto = z.infer<typeof personPhoto>;
-/** The current photos of the people a screen already shows, as the People list would show them. */
 export const personPhotos = z.strictObject({ photos: z.array(personPhoto).max(100) });
 export const peoplePage = z
 	.strictObject({
@@ -86,7 +76,6 @@ const pipelineCard = z.strictObject({
 		)
 		.max(100),
 	coverage: z.enum(["covered", "uncovered"]),
-	// No recorded activity for longer than the church's warning or alert days in Settings (REQ-PPL-007).
 	inactivity: z.strictObject({ lastActivityAt: instant, level: z.enum(["none", "warning", "alert"]) }),
 });
 export const pipelineResult = z
@@ -124,7 +113,6 @@ export const statusWarningsResult = z.strictObject({
 	warnings: z
 		.array(z.enum(["assessment_not_recorded", "interview_not_recorded", "commitment_not_recorded", "open_duties"]))
 		.max(4),
-	// Soft recorded-evidence guidance, never invented qualification or private detail.
 	allowedStages: z
 		.array(stage)
 		.length(7)
@@ -133,7 +121,6 @@ export const statusWarningsResult = z.strictObject({
 	reviewRevision: revision,
 	openDuties: z.array(z.strictObject({ id: recordId, revision })).max(100),
 });
-// No account IDs on another Person's profile or directory result.
 export const accountLinkResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("unavailable") }),
 	z.strictObject({ status: z.literal("linked"), personId }),
@@ -149,13 +136,10 @@ export const noteMutationResult = z.strictObject({
 	receiptId: operationId,
 	noteId: recordId,
 	revision,
-	// The person's revision after the note change: a note moves the person revision on.
 	personRevision: revision,
 	outcome: z.enum(["changed", "noop"]),
 });
 export const plantPersonMutationResult = personMutationResult.extend({ person: plantPerson });
-// A verified email may propose candidates but never selects a human identity.
-// This output belongs only to the owning authenticated provisioning workflow.
 export const accountPersonResolution = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("linked"), personId }),
 	z.strictObject({ status: z.literal("needs_selection"), candidatePersonIds: z.array(personId).min(1).max(100) }),
@@ -192,22 +176,16 @@ export const activity = z.discriminatedUnion("kind", [
 			"duplicate_dismissed",
 			"duplicate_restored",
 		]),
-		// An assessment, interview or commitment event names its record; the stage advance it caused shows with it.
 		recordId: recordId.optional(),
 		stage: z.strictObject({ from: stage, to: stage }).optional(),
-		// A household join, leave or role change: the membership before and after, with the household name recorded
-		// then, so the history still names a household after it is deleted (REQ-PPL-009).
 		household: z.strictObject({ from: householdMembership.nullable(), to: householdMembership.nullable() }).optional(),
-		// A pair marked "Not a duplicate" or restored names the other person, by their current name (D-844, D-845).
 		withPerson: z.strictObject({ id: personId, displayName: z.string() }).optional(),
 	}),
 	z.strictObject({
 		...activityBase,
 		kind: z.literal("follow_up"),
 		outcome: z.enum(["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"]),
-		// Null for a manual follow-up or a contact recorded with no task: only generated duties have one (REQ-TSK-012).
 		obligationId: recordId.nullable(),
-		// How the contact happened and its note, when one was recorded (REQ-MTG-022).
 		channel: z.enum(["email", "in_person", "other", "phone", "text", "video"]).nullable(),
 		notes: z.string().nullable(),
 	}),
@@ -222,8 +200,6 @@ export const activitiesResult = z.strictObject({
 type SafeError = (typeof safeError.options)[number];
 type GenericInvalidInput = Extract<SafeError, { shape: { code: z.ZodLiteral<"invalid_input"> } }>;
 export const peopleError = z.discriminatedUnion("code", [
-	// A record's input names its reason where a person can fix one field: a date after today in the church's time zone, or
-	// a document file that is not a readable PDF, JPG or PNG, or an adult or child record for a person whose birth date decides it.
 	defineSafeError(
 		"invalid_input",
 		{ reason: z.enum(["future_date", "unreadable_document", "birth_date_decides"]).optional() },
@@ -235,15 +211,10 @@ export const peopleError = z.discriminatedUnion("code", [
 	defineSafeError("unsupported_field", {}, "never"),
 	defineSafeError("use_reviewed_unmerge", {}, "refresh"),
 	defineSafeError("source_unavailable", {}, "same_request"),
-	// A dismiss or restore named a pair that is not on the list: one of them was merged or retired, or no import flagged it.
 	defineSafeError("pair_unavailable", {}, "refresh"),
 	...csvError,
 	...mergeErrors,
 ]);
-/**
- * people.listDuplicatePairs: the pairs a CSV import added with "Add, review later" whose two people are both still
- * live, oldest first. `person` is the imported person, `with` the person it may duplicate.
- */
 export const duplicatePairs = z.strictObject({
 	items: z
 		.array(
@@ -256,10 +227,6 @@ export const duplicatePairs = z.strictObject({
 	completeness: z.enum(["complete", "partial"]),
 });
 const pairPerson = z.strictObject({ id: personId, displayName: z.string() });
-/**
- * Possible duplicates among an organization's live people (REQ-MUL-017): pairs that share a normalized email or phone,
- * with what they share. Suggestions only: nothing about a pair proves identity or picks the record that stays.
- */
 export const organizationDuplicatePairs = z.strictObject({
 	items: z
 		.array(
@@ -275,11 +242,6 @@ export const organizationDuplicatePairs = z.strictObject({
 		.max(100),
 	completeness: z.enum(["complete", "partial"]),
 });
-/**
- * people.listDismissedDuplicatePairs: the listed pairs an Owner or Admin marked "Not a duplicate" whose two people are
- * both still live, newest first, with who dismissed each one (null once that account is deleted) and when. `zone` is the
- * church's time zone, the one the dates show in.
- */
 export const dismissedDuplicatePairs = z.strictObject({
 	zone: z.string(),
 	items: z
@@ -294,9 +256,7 @@ export const dismissedDuplicatePairs = z.strictObject({
 		.max(100),
 	completeness: z.enum(["complete", "partial"]),
 });
-/** people.dismissDuplicatePair and people.restoreDuplicatePair: "noop" when the pair was already in that state. */
 export const duplicatePairChange = z.strictObject({ outcome: z.enum(["changed", "noop"]) });
-/** Duplicate hints: an exact hint shares an email or phone, a potential hint only a name. Never proof of identity. */
 export const duplicateHints = z.strictObject({
 	items: z
 		.array(

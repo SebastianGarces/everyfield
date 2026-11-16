@@ -23,14 +23,11 @@ const article = z.object({
 	status: z.literal("published"),
 	related_article_slugs: z.array(z.string()),
 });
-// Checkout packaging is an explicit release operation. Pure catalog construction below
-// consumes already reviewed data and does not turn unrelated documentation edits into a unit gate.
 export async function packageCheckout(root: URL, expectedCatalogSha256: string): Promise<ReferenceEntry[]> {
 	const report = await verifyCheckout(root, expectedCatalogSha256);
 	if (!report.ok) throw Error(report.issues[0]!.code);
 	return packageStarter(await loadStarter(), await loadApprovedSnapshot(root));
 }
-/** Frozen reference sources and catalogs, plus the Wiki rows of the approved living seed. */
 export function packageStarter(starter: Starter, wiki: ApprovedSnapshot): ReferenceEntry[] {
 	const source = (path: string) => {
 		const row = starter.sources.find((s) => s.path === "docs/reference/" + path);
@@ -61,7 +58,6 @@ export function packageStarter(starter: Starter, wiki: ApprovedSnapshot): Refere
 			...extra,
 		});
 	}
-	// The bootstrap files stay in the frozen inventory as provenance only. The Wiki rows come from `wiki`.
 	for (const s of starter.sources) {
 		const file = s.path.slice("docs/reference/".length);
 		if (file.startsWith("bootstrap/")) continue;
@@ -159,7 +155,6 @@ export interface ValidationPolicy {
 		discoveryIds: readonly string[];
 	};
 	editorial: { approved: boolean; originalAvailable: boolean; conflicts: readonly string[] };
-	// The approved snapshot install stores no derived passages. A later rebuild supplies them.
 	deferDerivatives?: boolean;
 }
 export interface ValidationReport {

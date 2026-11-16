@@ -24,7 +24,6 @@ test("INV-identity: safe navigation rejects authority changes and expired-sessio
 		"/a/..//evil.test",
 		"/path\nnext",
 		"/%0d%0aLocation:evil",
-		// INV-boundary: double-encoded backslash and newline stay refused.
 		"/%255cforeign",
 		"/%250aheader",
 	]) {
@@ -44,12 +43,10 @@ test("AC:TARGET-IDN-028 AC:CASE-ADM-004 landingFor sends a finished seat to a sa
 	assert.equal(landingFor({ status: "active", plant: "incomplete" }), "/onboarding");
 	assert.equal(landingFor({ status: "active", plant: "none" }), "/onboarding");
 	assert.equal(landingFor(done), "/overview");
-	// An unfinished church or account goes back to setup whatever the address asks for (ADM-004).
 	for (const returnTo of ["/overview", "/overview?setup=done", "/people", "/home"]) {
 		assert.equal(landingFor({ status: "active", plant: "incomplete", returnTo }), "/onboarding", returnTo);
 		assert.equal(landingFor({ status: "pending_domain", plant: "none", returnTo }), "/onboarding", returnTo);
 	}
-	// An organization seat lands on its plants, not on church setup (WP-047a); a returnTo still wins.
 	assert.equal(landingFor({ status: "active", plant: "organization" }), "/network");
 	assert.equal(landingFor({ status: "active", plant: "organization", returnTo: "/notifications" }), "/notifications");
 	assert.equal(landingFor({ ...done, returnTo: null }), "/overview");
