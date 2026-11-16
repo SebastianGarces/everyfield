@@ -116,7 +116,7 @@ test("INV-feature-maps: an operation missing from the catalog, never named in co
 	assert.deepEqual(await problems(root), [
 		at("things.list#open: operation things.share is not in docs/catalog/operations.json"),
 		at(
-			"things.list#open: operation things.close is neither quoted nor declared in packages/*/src or apps/web/src/server",
+			"things.list#open: operation things.close is neither quoted nor declared in packages/*/src, apps/web/src/server or apps/web/src/features",
 		),
 		at("things.list#open: operation other.make serves OTH-001, none of the behavior's catalog THG-001"),
 	]);
@@ -133,6 +133,30 @@ test("INV-feature-maps: an operation id with more than one dot, as the catalog w
 	});
 	assert.deepEqual(await problems(root), [
 		at("things.list#open: operation things.pins.set is not in docs/catalog/operations.json"),
+	]);
+});
+
+test("INV-feature-maps: an operation declared in a feature folder counts; one named only in a comment or a test does not", async () => {
+	const root = fixture();
+	const operations = JSON.parse(readFileSync(join(root, "docs/catalog/operations.json"), "utf8"));
+	operations.operations.push({ id: "things.pin", feature_ids: ["THG-001"] });
+	writeFileSync(join(root, "docs/catalog/operations.json"), JSON.stringify(operations));
+	writeFileSync(
+		join(root, "apps/web/src/features/things/pin.ts"),
+		"export async function pin(id: string) {\n\treturn id;\n}\n",
+	);
+	writeFileSync(
+		join(root, "packages/core/src/close.ts"),
+		"/** What `things.close` returns. */\n// function close() {}\nexport const CLOSED = 1;\n",
+	);
+	writeFileSync(join(root, "apps/web/src/features/things/close.test.ts"), 'export const OPS = ["things.close"];\n');
+	editMap(root, (map) => {
+		behavior(map).operations = ["things.open", "things.pin", "things.close"];
+	});
+	assert.deepEqual(await problems(root), [
+		at(
+			"things.list#open: operation things.close is neither quoted nor declared in packages/*/src, apps/web/src/server or apps/web/src/features",
+		),
 	]);
 });
 
@@ -272,7 +296,9 @@ test("INV-feature-maps: an email reach must name a template key in code that bui
 		surface(map).reach.push({ link: "/things/{id}", email: "thing_link", fill: { id: "the id" } });
 	});
 	assert.deepEqual(await problems(root), [
-		at('things.list reach 2: no file in packages/*/src or apps/web/src/server names email "link" and builds /things'),
+		at(
+			'things.list reach 2: no file in packages/*/src, apps/web/src/server or apps/web/src/features names email "link" and builds /things',
+		),
 	]);
 });
 
@@ -315,6 +341,54 @@ test("INV-feature-maps: an absent observable names something that must not be on
 	assert.deepEqual(await problems(root), [
 		at(`things.list#open: no string literal or JSX text in ${scope} equals "Shut thing"`),
 	]);
+});
+
+test("INV-feature-maps: on a surface that polls, every action is followed by a check that waits", async () => {
+	const root = fixture();
+	editMap(root, (map) => {
+		Object.assign(surface(map), { polls: "the previews keep fetching" });
+		surface(map).states[0]!.expect = [
+			{ text: "All things", match: "contains" },
+			{ role: "heading", name: "All things" },
+		];
+		behavior(map).proof.browser.steps.push({ click: { role: "button", name: "Open thing" } });
+	});
+	assert.deepEqual(await problems(root), [
+		at('things.list#open: things.list polls, so "click" needs a waiting check before the next step'),
+	]);
+	const fixed = fixture();
+	editMap(fixed, (map) => {
+		Object.assign(surface(map), { polls: "the previews keep fetching" });
+		surface(map).states[0]!.expect = [{ role: "heading", name: "All things" }];
+	});
+	assert.deepEqual(await problems(fixed), [
+		at(
+			'things.list state populated: things.list polls, so the check after "open" must wait (URL, noText or contains text)',
+		),
+	]);
+});
+
+test("INV-feature-maps: a rail item whose own static route is still pending is not charged to a dynamic route beside it", async () => {
+	const root = fixture();
+	for (const dir of ["[thingId]", "special"]) {
+		mkdirSync(join(root, `apps/web/src/app/(product)/things/${dir}`), { recursive: true });
+		writeFileSync(
+			join(root, `apps/web/src/app/(product)/things/${dir}/page.tsx`),
+			'export { ThingsPage as default } from "@/features/things/routes";\n',
+		);
+	}
+	writeFileSync(
+		join(root, "apps/web/feature-maps.pending.json"),
+		JSON.stringify({ routes: ["/later", "/things/special"] }),
+	);
+	writeFileSync(
+		join(root, "apps/web/src/features/shell/nav.ts"),
+		'export const shellNav = (viewer: { context: string }) => ({ main: viewer.context === "plant" ? [{ label: "Things", href: "/things" }, { label: "Special", href: "/things/special" }] : [{ label: "Wiki", href: "/wiki" }], pages: [] });\n',
+	);
+	editMap(root, (map) => {
+		surface(map).routes.push("/things/[thingId]");
+	});
+	assert.deepEqual(await problems(root, { routes: ["/later", "/things/special"] }), []);
 });
 
 const LATER = "apps/web/src/app/(product)/later/page.tsx";

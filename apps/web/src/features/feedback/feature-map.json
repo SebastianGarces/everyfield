@@ -1,0 +1,456 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "feedback",
+	"catalog": ["ADM-001", "ADM-002"],
+	"surfaces": [
+		{
+			"id": "feedback.dialog",
+			"says": "Send feedback, from every signed-in page: a type and what would make it better, saved with the page it came from.",
+			"routes": [],
+			"catalog": ["ADM-001"],
+			"reach": [
+				{
+					"from": "communication.messages",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "button",
+								"name": "Send feedback"
+							}
+						},
+						{
+							"expect": {
+								"role": "dialog",
+								"name": "Send feedback"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "write",
+				"resident": "write",
+				"signup": "write",
+				"triage": "write",
+				"network": "write"
+			},
+			"states": [
+				{
+					"id": "open",
+					"reach": {
+						"persona": "owner",
+						"open": "/feedback",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Send feedback"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "dialog",
+							"name": "Send feedback"
+						},
+						{
+							"role": "radio",
+							"name": "Idea"
+						},
+						{
+							"role": "textbox",
+							"name": "What would make this better?"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "send",
+					"says": "Send saves the feedback as the author's own; Sent feedback then lists it.",
+					"catalog": ["ADM-001"],
+					"operations": ["feedback.submit", "feedback.listOwn"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/feedback/feedback.test.mts",
+								"name": "AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat, strips the address and saves a resend once"
+							},
+							{
+								"file": "tests/integration/feedback/feedback.test.mts",
+								"name": "AC:CASE-ADM-001 AC:PUB57-002 INV-privacy: the author lists only their own feedback, 25 at a time, without private details"
+							}
+						],
+						"cases": ["CASE-ADM-001"],
+						"browser": {
+							"kind": "behavior",
+							"state": "open",
+							"steps": [
+								{
+									"type": "Map feedback idea",
+									"into": "What would make this better?"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Send"
+									}
+								},
+								{
+									"expect": {
+										"role": "heading",
+										"name": "Thank you",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Done"
+									}
+								},
+								{
+									"open": "/feedback"
+								}
+							],
+							"expect": [
+								{
+									"role": "link",
+									"name": "Idea"
+								},
+								{
+									"absent": {
+										"role": "heading",
+										"name": "You have not sent feedback yet"
+									}
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "feedback.own",
+			"says": "Sent feedback: what you sent with Send feedback and where each one stands.",
+			"routes": ["/feedback", "/feedback/[feedbackId]"],
+			"catalog": ["ADM-001"],
+			"reach": [
+				{
+					"link": "/feedback"
+				}
+			],
+			"personas": {
+				"owner": "read",
+				"admin": "read",
+				"member": "read",
+				"resident": "read",
+				"signup": "read",
+				"triage": "read",
+				"network": "read",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "empty",
+					"reach": {
+						"persona": "owner",
+						"open": "/feedback",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Sent feedback"
+						},
+						{
+							"role": "heading",
+							"name": "You have not sent feedback yet"
+						}
+					]
+				},
+				{
+					"id": "sent",
+					"reach": {
+						"persona": "member",
+						"setup": [
+							{
+								"open": "/feedback"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Send feedback"
+								}
+							},
+							{
+								"type": "Map member idea",
+								"into": "What would make this better?"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Send"
+								}
+							},
+							{
+								"expect": {
+									"role": "heading",
+									"name": "Thank you",
+									"match": "contains"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Done"
+								}
+							}
+						],
+						"open": "/feedback"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Sent feedback"
+						},
+						{
+							"role": "link",
+							"name": "Idea"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/feedback",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Ffeedback"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "open-own",
+					"says": "Opening one shows its type, when it was sent, its status and its public issue, without the private details.",
+					"catalog": ["ADM-001"],
+					"operations": ["feedback.getOwnStatus"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/feedback/feedback.test.mts",
+								"name": "AC:CASE-ADM-001 AC:PUB57-002 INV-privacy: the author lists only their own feedback, 25 at a time, without private details"
+							}
+						],
+						"cases": ["CASE-ADM-001"],
+						"browser": {
+							"kind": "behavior",
+							"state": "sent",
+							"steps": [
+								{
+									"click": {
+										"role": "link",
+										"name": "Idea"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/feedback/{feedbackId}"
+								},
+								{
+									"role": "heading",
+									"name": "Feedback"
+								},
+								{
+									"role": "link",
+									"name": "Sent feedback"
+								},
+								{
+									"text": "None yet"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "feedback.triage",
+			"says": "Feedback triage: everyone's feedback, filtered by status and type, for an account with the triage grant.",
+			"routes": ["/feedback/triage", "/feedback/triage/[feedbackId]"],
+			"catalog": ["ADM-002"],
+			"reach": [
+				{
+					"link": "/feedback/triage"
+				},
+				{
+					"link": "/feedback/triage/{feedbackId}",
+					"fill": {
+						"feedbackId": "the id in a triage row's link"
+					}
+				}
+			],
+			"personas": {
+				"triage": "write",
+				"owner": "none",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "list",
+					"reach": {
+						"persona": "triage",
+						"setup": [
+							{
+								"open": "/feedback"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Send feedback"
+								}
+							},
+							{
+								"type": "Map triage idea",
+								"into": "What would make this better?"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Send"
+								}
+							},
+							{
+								"expect": {
+									"role": "heading",
+									"name": "Thank you",
+									"match": "contains"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Done"
+								}
+							}
+						],
+						"open": "/feedback/triage"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Feedback triage"
+						},
+						{
+							"role": "radiogroup",
+							"name": "Status"
+						},
+						{
+							"role": "link",
+							"name": "Map triage idea",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "no-grant",
+					"reach": {
+						"persona": "owner",
+						"open": "/feedback/triage",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Feedback triage needs a triage grant"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/feedback/triage",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Ffeedback%2Ftriage"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "change-status",
+					"says": "A triager moves feedback to Reviewed, Resolved or Dismissed, and History names each move.",
+					"catalog": ["ADM-002"],
+					"operations": ["feedback.admin.changeStatus"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/feedback/feedback.test.mts",
+								"name": "AC:CASE-ADM-002 AC:PUB57-002 a triager filters, moves a status with history, and never overwrites a newer change"
+							},
+							{
+								"file": "tests/integration/feedback/feedback.test.mts",
+								"name": "AC:CASE-ADM-002 INV-privacy: an Owner without a current triage grant reads and changes no one's feedback"
+							}
+						],
+						"cases": ["CASE-ADM-002"],
+						"browser": {
+							"kind": "behavior",
+							"state": "list",
+							"steps": [
+								{
+									"click": {
+										"role": "link",
+										"name": "Map triage idea",
+										"match": "contains"
+									}
+								},
+								{
+									"expect": {
+										"url": "/feedback/triage/{feedbackId}"
+									}
+								},
+								{
+									"click": {
+										"role": "radio",
+										"name": "Reviewed"
+									}
+								},
+								{
+									"expect": {
+										"noText": "No status changes yet. It arrived as New."
+									}
+								},
+								{
+									"open": "/feedback/triage?status=reviewed"
+								}
+							],
+							"expect": [
+								{
+									"role": "link",
+									"name": "Map triage idea",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}

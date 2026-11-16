@@ -1,0 +1,816 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "communication",
+	"catalog": ["COM-001", "COM-002", "COM-003", "COM-004", "COM-007", "COM-012", "IDN-012", "NTF-011", "NTF-016"],
+	"surfaces": [
+		{
+			"id": "communication.messages",
+			"says": "Messages: the church's sent and draft email, each message's delivery, and your own address.",
+			"routes": ["/communication"],
+			"catalog": ["COM-001", "COM-002", "NTF-011"],
+			"reach": [
+				{
+					"rail": "Messages",
+					"personas": ["owner", "admin", "member"]
+				},
+				{
+					"link": "/communication?message={communicationId}",
+					"fill": {
+						"communicationId": "the id a message row writes into the address"
+					}
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read",
+				"triage": "none",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "history",
+					"reach": {
+						"persona": "owner",
+						"open": "/communication",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "History"
+						},
+						{
+							"role": "button",
+							"name": "New message"
+						},
+						{
+							"role": "button",
+							"name": "QA delivery check",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/communication",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "You can read messages. An Owner or Admin writes, schedules, and saves a follow-up."
+						},
+						{
+							"absent": {
+								"role": "button",
+								"name": "New message"
+							}
+						}
+					]
+				},
+				{
+					"id": "no-seat",
+					"reach": {
+						"persona": "triage",
+						"open": "/communication",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Messages are not part of your seat"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/communication",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fcommunication"
+						}
+					]
+				},
+				{
+					"id": "address",
+					"reach": {
+						"persona": "admin",
+						"open": "/communication?view=address",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Your address"
+						},
+						{
+							"role": "button",
+							"name": "Restore this address"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "open-message",
+					"says": "Choosing a message in History opens its delivery, recipients and preview beside the list.",
+					"catalog": ["COM-001", "COM-002"],
+					"operations": ["communication.get"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/ui-reads.test.mts",
+								"name": "AC:CASE-COM-001 history items and detail carry scheduled time, sent time and sender name"
+							},
+							{
+								"file": "tests/integration/communication/history.test.mts",
+								"name": "AC:CASE-COM-002 AC:CASE-COM-003 detail keeps the sealed delivery address"
+							}
+						],
+						"cases": ["CASE-COM-001", "CASE-COM-002"],
+						"browser": {
+							"kind": "behavior",
+							"state": "history",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "QA delivery check",
+										"match": "contains"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/communication?message={communicationId}"
+								},
+								{
+									"role": "heading",
+									"name": "QA delivery check"
+								},
+								{
+									"role": "heading",
+									"name": "Recipients"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "search",
+					"says": "Searching History by subject or message keeps only the messages that match.",
+					"catalog": ["COM-001"],
+					"operations": ["communication.list"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/history.test.mts",
+								"name": "INV-history-search: history search for an ampersand phrase matches the message body and subject as typed"
+							},
+							{
+								"file": "tests/integration/communication/history.test.mts",
+								"name": "AC:CASE-COM-001 AC:MAIL51-008 history keeps a zero rate and hides private text"
+							}
+						],
+						"cases": ["CASE-COM-001"],
+						"browser": {
+							"kind": "behavior",
+							"state": "history",
+							"steps": [
+								{
+									"type": "QA delivery",
+									"into": "Subject or message"
+								}
+							],
+							"expect": [
+								{
+									"noText": "Welcome to Harvest Point"
+								},
+								{
+									"text": "QA delivery check",
+									"match": "contains"
+								},
+								{
+									"role": "button",
+									"name": "QA delivery check",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "restore-address",
+					"says": "An Owner or Admin whose own address bounced restores it with a reason, and Past restores lists it.",
+					"catalog": ["IDN-012", "NTF-011"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/restores.test.mts",
+								"name": "AC:CASE-NTF-011 Your address lists each past restore of the viewer's own address, newest first, in fixed statements"
+							}
+						],
+						"cases": ["CASE-NTF-011"],
+						"browser": {
+							"kind": "behavior",
+							"state": "address",
+							"steps": [
+								{
+									"type": "Map restore check",
+									"into": "Reason"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Restore this address"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "This address can receive email again. No new email was sent."
+								},
+								{
+									"text": "Map restore check"
+								}
+							]
+						}
+					},
+					"noOperation": "emailSuppression.requestRestore is implemented as a property of the communication writer (packages/domain/src/communication/writer.ts:350), which the checker does not take for a declaration"
+				}
+			]
+		},
+		{
+			"id": "communication.compose",
+			"says": "New message: Who, Write, then Review and send, each step in the address, ending in Send now or a schedule.",
+			"routes": [],
+			"endpoints": ["/api/dev/outbox"],
+			"catalog": ["COM-003", "COM-004", "COM-012"],
+			"reach": [
+				{
+					"from": "communication.messages",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "button",
+								"name": "New message"
+							}
+						},
+						{
+							"expect": {
+								"url": "/communication?compose=new&step=who"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "none"
+			},
+			"states": [
+				{
+					"id": "who",
+					"reach": {
+						"persona": "owner",
+						"open": "/communication?compose=new&step=who",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Who is this for?"
+						},
+						{
+							"role": "combobox",
+							"name": "Add a person"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "send-now",
+					"says": "Send now mails each recipient once; the proof slot's capture outbox (/api/dev/outbox) shows the mail.",
+					"catalog": ["COM-003", "COM-004", "COM-012"],
+					"operations": ["communication.saveDraft", "communication.scheduleReviewed"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/ui-reads.test.mts",
+								"name": "AC:CASE-COM-012 the real Send now chain sends once for a double confirm"
+							},
+							{
+								"file": "tests/integration/communication/ui-reads.test.mts",
+								"name": "AC:CASE-COM-004 recipient search matches word prefixes of the name and the email local part, never the domain"
+							},
+							{
+								"file": "tests/unit/communication/capture.test.mts",
+								"name": "AC:CASE-COM-003 a development server records each send and calls no provider"
+							}
+						],
+						"cases": ["CASE-COM-012", "CASE-COM-004", "CASE-COM-003"],
+						"browser": {
+							"kind": "behavior",
+							"state": "who",
+							"steps": [
+								{
+									"type": "Maria",
+									"into": "Add a person"
+								},
+								{
+									"expect": {
+										"text": "Maria Santos",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "option",
+										"name": "Maria Santos",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Next"
+									}
+								},
+								{
+									"type": "Map send check",
+									"into": "Subject"
+								},
+								{
+									"type": "Hello from the map.",
+									"into": "Message"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Next"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Send now to",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Send now"
+									}
+								},
+								{
+									"expect": {
+										"url": "/communication?message={communicationId}"
+									}
+								},
+								{
+									"open": "/api/dev/outbox"
+								}
+							],
+							"expect": [
+								{
+									"role": "link",
+									"name": "Map send check"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "save-draft",
+					"says": "Save draft keeps an unsent message; History lists it as a draft to open again.",
+					"catalog": ["COM-012"],
+					"operations": ["communication.saveDraft", "communication.listDrafts"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/communication.test.mts",
+								"name": "AC:CASE-COM-012 AC:CASE-COM-003 drafts save and a reviewed schedule stays inside thirty days"
+							},
+							{
+								"file": "tests/integration/communication/communication.test.mts",
+								"name": "AC:CASE-COM-012 a draft update that leaves out the subject keeps the stored subject; null clears it"
+							}
+						],
+						"cases": ["CASE-COM-012"],
+						"browser": {
+							"kind": "behavior",
+							"state": "who",
+							"steps": [
+								{
+									"type": "Maria",
+									"into": "Add a person"
+								},
+								{
+									"expect": {
+										"text": "Maria Santos",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "option",
+										"name": "Maria Santos",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Next"
+									}
+								},
+								{
+									"type": "Map draft check",
+									"into": "Subject"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save draft"
+									}
+								},
+								{
+									"open": "/communication"
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Map draft check",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "communication.templates",
+			"says": "Templates: the seven system emails and the church's own; a system template is forked to change a copy.",
+			"routes": [],
+			"catalog": ["COM-007"],
+			"reach": [
+				{
+					"from": "communication.messages",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "radio",
+								"name": "Templates"
+							}
+						},
+						{
+							"expect": {
+								"url": "/communication?view=templates"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read"
+			},
+			"states": [
+				{
+					"id": "list",
+					"reach": {
+						"persona": "owner",
+						"open": "/communication?view=templates",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "System"
+						},
+						{
+							"role": "heading",
+							"name": "Your church"
+						},
+						{
+							"role": "button",
+							"name": "New template"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "create",
+					"says": "New template saves a church template that the Your church list then shows.",
+					"catalog": ["COM-007"],
+					"operations": ["communication.templates.create"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/communication.test.mts",
+								"name": "AC:CASE-COM-007 a plant fork replaces one system source and keeps referenced history"
+							}
+						],
+						"cases": ["CASE-COM-007"],
+						"browser": {
+							"kind": "behavior",
+							"state": "list",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "New template"
+									}
+								},
+								{
+									"type": "Map welcome",
+									"into": "Name"
+								},
+								{
+									"type": "Welcome from the map",
+									"into": "Subject"
+								},
+								{
+									"type": "Glad you came.",
+									"into": "Message"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save template"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Back to templates"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Map welcome",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "fork",
+					"says": "Fork template makes an editable church copy of a system template.",
+					"catalog": ["COM-007"],
+					"operations": ["communication.templates.fork"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/communication.test.mts",
+								"name": "AC:CASE-COM-007 a plant fork replaces one system source and keeps referenced history"
+							},
+							{
+								"file": "tests/integration/communication/communication.test.mts",
+								"name": "AC:CASE-COM-007 forking a source whose church fork is archived brings the fork back with its edits"
+							}
+						],
+						"cases": ["CASE-COM-007"],
+						"browser": {
+							"kind": "behavior",
+							"state": "list",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "System template",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Fork template"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Back to templates"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Church copy",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "communication.unsubscribe",
+			"says": "The public page a Messages email's Unsubscribe link opens: one button stops that church's email, with an hour to undo.",
+			"routes": ["/unsubscribe/[token]"],
+			"endpoints": ["/unsubscribe/[token]/one-click"],
+			"catalog": ["NTF-016"],
+			"reach": [
+				{
+					"link": "/unsubscribe/{token}",
+					"email": "unsubscribeUrl",
+					"fill": {
+						"token": "the token in the Unsubscribe link of a Messages email"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "write",
+				"owner": "write"
+			},
+			"states": [
+				{
+					"id": "invalid",
+					"reach": {
+						"persona": "visitor",
+						"open": "/unsubscribe/not-a-token",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This link does not work"
+						}
+					]
+				},
+				{
+					"id": "open",
+					"reach": {
+						"persona": "owner",
+						"setup": [
+							{
+								"open": "/communication?compose=new&step=who"
+							},
+							{
+								"type": "Maria",
+								"into": "Add a person"
+							},
+							{
+								"expect": {
+									"text": "Maria Santos",
+									"match": "contains"
+								}
+							},
+							{
+								"click": {
+									"role": "option",
+									"name": "Maria Santos",
+									"match": "contains"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Next"
+								}
+							},
+							{
+								"type": "Map unsubscribe check",
+								"into": "Subject"
+							},
+							{
+								"type": "Hello from the map.",
+								"into": "Message"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Next"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Send now to",
+									"match": "contains"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Send now"
+								}
+							},
+							{
+								"expect": {
+									"url": "/communication?message={communicationId}"
+								}
+							}
+						],
+						"open": "/api/dev/outbox",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Map unsubscribe check"
+								}
+							},
+							{
+								"click": {
+									"role": "link",
+									"name": "Unsubscribe"
+								}
+							},
+							{
+								"expect": {
+									"url": "/unsubscribe/{token}"
+								}
+							}
+						]
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Stop email from",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Unsubscribe"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "unsubscribe-and-undo",
+					"says": "Unsubscribe stops this church's Messages email to the person, and Undo within the hour takes it back.",
+					"catalog": ["NTF-016"],
+					"operations": ["communication.applyMessagesOptOut", "communication.undoMessagesOptOut"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/messages-unsubscribe.test.mts",
+								"name": "AC:CASE-NTF-016 the page changes nothing until the button; one-click needs its form body; undo works for one hour and is refused after it"
+							},
+							{
+								"file": "tests/integration/communication/messages-unsubscribe.test.mts",
+								"name": "AC:CASE-NTF-016 a forged, tampered, other-key or wrong-purpose token fails closed and changes nothing"
+							}
+						],
+						"cases": ["CASE-NTF-016"],
+						"browser": {
+							"kind": "behavior",
+							"state": "open",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Unsubscribe"
+									}
+								},
+								{
+									"expect": {
+										"role": "heading",
+										"name": "You will no longer get email from",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Undo"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "You will get email from",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}
