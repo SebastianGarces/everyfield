@@ -6,10 +6,6 @@ import "server-only";
 import { z } from "zod";
 import { displayTitle } from "../meetings/rows.ts";
 
-/**
- * Where task `t` came from, as JSON: the meeting whose duty generated it, else who added it. Two follow-ups for one
- * person read differently on every screen.
- */
 export const originJson = (
 	t: SQL,
 ) => sql`(SELECT jsonb_build_object('meeting_id', m.id, 'title', m.title, 'type', m.type,

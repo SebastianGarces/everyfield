@@ -18,18 +18,13 @@ import { RESPONSE_CARD, type CardSpec } from "./card-content.ts";
 import { CHECKLIST_TEAMS } from "./checklists-content.ts";
 import { DOC_TEMPLATES } from "../doc-templates.ts";
 
-// The library templates that have no everyfield.doc/1 file keep a code layout here (D-922). A library template with
-// a file, `templates/<id>.json`, renders from that file alone and has no entry here.
-
 type PageSize = { width: number; height: number };
-/** What the library says about one template: its one format, class, page and outline, and the field names it holds. */
 export type LibraryFacts = {
 	format: "pdf" | "xlsx";
 	documentClass: RenderClass;
 	pageSize: PageSize | null;
 	pageCount: number;
 	outline: string[];
-	/** Field names a render with no merge values (except the church name) holds, in no set order. */
 	fields: string[];
 };
 type Base = LibraryFacts & { id: string };
@@ -57,8 +52,6 @@ const agendaEntry = (id: string, spec: AgendaSpec): PdfEntry => ({
 	pageSize: LETTER,
 	pageCount: 1,
 	outline: ["Run of show", "Attendees", "Follow-up actions"],
-	// The blank sheet. A render from a meeting holds the same meta and action fields; its run of show and attendee
-	// rows come from the meeting, so only the blank rows are listed.
 	fields: [
 		"meeting_date",
 		"meeting_time",
@@ -103,7 +96,6 @@ export const REGISTRY: RegistryEntry[] = [
 ];
 export const entryFor = (id: string) => REGISTRY.find((entry) => entry.id === id);
 
-/** Every string and number the templates print, as plain data. Hashed into the render engine version. */
 export function contentSnapshot() {
 	return {
 		registry: REGISTRY.map(({ id, format, documentClass, pageSize, pageCount, outline, fields }) => ({

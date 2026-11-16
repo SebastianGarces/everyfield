@@ -55,7 +55,6 @@ export function identityAuth(config: {
 			sendVerificationEmail: async ({ user, token }) => config.deliver(user, "email_verification", token),
 		},
 		advanced: { database: { generateId: () => randomUUID() }, trustedProxyHeaders: false },
-		// All exposed calls pass the shared SQL budget before reaching this instance.
 		rateLimit: { enabled: false },
 		logger: { disabled: true },
 	});
