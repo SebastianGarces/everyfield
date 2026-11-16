@@ -56,6 +56,12 @@ export function leavePage(go: () => void): void {
 	});
 }
 
+export function leaveNow(go: () => void): void {
+	released = true;
+	dropRequest();
+	go();
+}
+
 const subscribeRequest = (reader: () => void) => {
 	requestReaders.add(reader);
 	return () => void requestReaders.delete(reader);
