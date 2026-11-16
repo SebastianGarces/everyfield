@@ -1,9 +1,3 @@
-// The Launch evals (WP-075, WP-076) on the scripted model. Each case in launch.cases.json is asked the way the app asks
-// it: a real turn (runTurn) with the real catalog, reads and review cards, for Hope Fellowship's Owner, Admin and Member
-// (golden-church.mts) with the Launch fixture (launch-church.mts). A case with `approve` is then approved the way the
-// card approves it and its effect runs once through the WP-031 queue with the native Launch writer; its check reads the
-// result back through the Launch plan's own reads. Effects run with the Launch plan's own milestone notifications
-// (NTF-009), as the deployment passes them. No paid model, network or recording.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -73,7 +67,6 @@ type Case = {
 	criterion: number;
 	setup?:
 		"scheduled" | "unloadable" | "launched" | "guests" | "milestones" | "needsReview" | "guestMatch" | "outcomeNote";
-	/** Asked in the previous case's conversation, as the user's reply to it. */
 	continue?: true;
 	actor: LaunchName;
 	ask: string;
@@ -81,7 +74,6 @@ type Case = {
 	answer?: string[];
 	absent?: string[];
 	proposal?: Expected;
-	/** Each card of a turn that makes several, in order; approved one at a time. */
 	proposals?: Expected[];
 	approve?: true;
 	outcome?: "completed" | "refused";
@@ -90,7 +82,6 @@ const { cases } = JSON.parse(readFileSync(new URL("./launch.cases.json", import.
 	cases: Case[];
 };
 
-/** The next church-local date of a month and day on or after today, as the scripted model reads "march 14". */
 function next(month: number, d: number) {
 	const t = today();
 	const at = (y: number) => `${y}-${String(month).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -110,7 +101,6 @@ const monthDay = (d: string, year: boolean) =>
 		...(year && { year: "numeric" as const }),
 		timeZone: "UTC",
 	}).format(new Date(`${d}T12:00:00Z`));
-/** A case's text with its dates filled in: {said:N}, {day:N}, {md:N} ("Nov 9"), {mdy:N} and the named dates. */
 const fill = (text: string) =>
 	text
 		.replace(/\{md:(-?\d+)\}/g, (_, n) => monthDay(day(Number(n)), false))
@@ -123,7 +113,6 @@ const filled = <T,>(value: T): T => JSON.parse(fill(JSON.stringify(value))) as T
 let close: () => Promise<void>;
 let db: Database;
 let admin: Database;
-/** The native services an effect gets: only the Launch notifications, through WP-031's notification service. */
 let native: NativePorts;
 const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
 const noReminders: TaskReminders = async () => undefined;
@@ -158,7 +147,6 @@ before(async () => {
 });
 after(() => close?.());
 
-/** One turn as the app runs it: submitted, claimed from the queue, run on the scripted model and finished. */
 async function ask(actor: EvryActor, conversationId: string, text: string) {
 	await submitTurn(db, actor, conversationId, { requestKey: randomUUID(), text, references: [] });
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
@@ -190,7 +178,6 @@ async function ask(actor: EvryActor, conversationId: string, text: string) {
 	return { reads, answer, proposals };
 }
 
-/** The trusted approval of the exact revision shown, then the effect run once through the WP-031 queue. */
 async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	await approveProposal(db, actor, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
@@ -206,7 +193,6 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	return outcome;
 }
 
-/** Every prep task's due date, assignees and status, and the church's phase: what a date change never touches. */
 const untouched = async () =>
 	(
 		await admin.execute(sql`SELECT (SELECT jsonb_agg(jsonb_build_array(k.id,k.due_date,k.status,
@@ -224,7 +210,6 @@ const journal = async () =>
 		value: { entries: { actor: { displayName: string } | null; change: Record<string, unknown> }[] };
 	};
 const doneCount = async () => (await planOf(db)).milestones.filter((m) => m.completion && !m.needsReview).length;
-/** The Launch milestone notifications each seat has: the Owner's and the Admin's (NTF-009). */
 const notices = async () => {
 	const n = async (who: "owner" | "admin") =>
 		Number(
@@ -235,18 +220,15 @@ const notices = async () => {
 		);
 	return { owner: await n("owner"), admin: await n("admin") };
 };
-/** The venue milestone's completion as the Launch plan shows it: who, and whether it needs review. */
 const venueState = async () => {
 	const m = await venueOf(db);
 	return { by: m.completion?.by?.displayName ?? null, needsReview: m.needsReview };
 };
-/** The venue milestone's history entries, oldest first: each completion and reopening. */
 const venueHistory = async () =>
 	(await journal()).value.entries
 		.filter((e) => e.change.kind === "milestone" && e.change.title === VENUE_TITLE)
 		.map((e) => `${String(e.change.event)} by ${e.actor?.displayName}`)
 		.reverse();
-/** The venue milestone and its four tasks as a stale or changed card shows them now. */
 const venueNow = async (milestone: string, statuses: string[]) => {
 	const m = await venueOf(db);
 	return [
@@ -259,7 +241,6 @@ const venueNow = async (milestone: string, statuses: string[]) => {
 	];
 };
 
-/** What naming a guest or correcting the outcome must keep: the outcome, the named guests and the debrief's answers. */
 const outcomeNow = async () => {
 	const p = await planOf(db);
 	return {
@@ -275,16 +256,13 @@ const outcomeNow = async () => {
 	};
 };
 const namedGuests = async () => ((await planOf(db)).guests.named ?? []).map((g) => g.displayName).sort();
-/** The guest and outcome history entries. Their times mix the eval clocks, so a case finds its entry by content. */
 const entriesOf = async (kind: "guest" | "outcome") =>
 	(await journal()).value.entries.filter((e) => e.change.kind === kind);
-/** The live People of a name, with what else is filled in on them. */
 const peopleNamed = async (name: string) =>
 	(
 		await admin.execute(sql`SELECT id,email,phone,street,city,birth_date FROM person WHERE plant_id=${PLANT}
 			AND state='live' AND display_name=${name} ORDER BY created_at,id`)
 	).rows;
-/** A card the Launch plan would refuse: it carries the refusal, and approving it is refused. */
 async function refused(operation: string, input: unknown, refusal: string) {
 	const owner = await actorOf("owner");
 	const card = await propose(owner, operation, input);
@@ -294,7 +272,6 @@ async function refused(operation: string, input: unknown, refusal: string) {
 		code: "review_closed",
 	});
 }
-/** Before Launch Sunday is recorded, neither card can be approved (T-383 criteria 4 and 7). */
 async function notRecordedRefusals() {
 	const before = await outcomeNow();
 	await refused(
@@ -309,7 +286,6 @@ async function notRecordedRefusals() {
 	);
 	assert.deepEqual(await outcomeNow(), before, "nothing changed");
 }
-/** A guest card the Launch plan would refuse: no name, a name over 255 characters, a Person already named (criterion 4). */
 async function guestRefusals() {
 	const before = await outcomeNow();
 	const people = await livePeople();
@@ -326,11 +302,9 @@ async function guestRefusals() {
 		{ personId: sam!.id },
 		"Sam Ortiz is already named as a Launch Sunday guest.",
 	);
-	// A Person who isn't a live Person of this church gets no card at all.
 	assert.equal(await propose(await actorOf("owner"), "launch.addGuestAttendance", { personId: randomUUID() }), null);
 	assert.deepEqual([await outcomeNow(), await livePeople()], [before, people], "nothing changed");
 }
-/** Correction cards the Launch plan would refuse, each with its words (criterion 7). */
 async function correctionRefusals() {
 	const before = await outcomeNow();
 	const people = await livePeople();
@@ -369,7 +343,6 @@ async function correctionRefusals() {
 	assert.deepEqual([await outcomeNow(), await livePeople()], [before, people], "nothing changed");
 }
 
-/** A running turn in a new conversation, the only place a proposal can be prepared, held while one is prepared. */
 async function propose(who: EvryActor, operation: string, input: unknown) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
 	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
@@ -386,7 +359,6 @@ async function propose(who: EvryActor, operation: string, input: unknown) {
 	return proposal;
 }
 
-/** Refusals the Launch plan makes, made on the card (D-1091): a move with no reason, or one over 2,000 characters. */
 async function refusals() {
 	const owner = await actorOf("owner");
 	const before = (await planOf(db)).launch;
@@ -408,7 +380,6 @@ async function refusals() {
 			code: "review_closed",
 		});
 	}
-	// The native command refuses the same reasons, so a reason that reached the executor some other way saves nothing.
 	for (const input of [
 		{ date: day(40), reason: null },
 		{ date: day(40), reason: "z".repeat(NOTE_MAX + 1) },
@@ -426,18 +397,15 @@ async function refusals() {
 	assert.deepEqual((await planOf(db)).launch, before, "nothing changed");
 }
 
-/** What each case shows or changes, read back as the Launch plan shows it. */
 const SETTLED: Record<
 	string,
 	{
 		before?: (p?: Proposal) => Promise<void>;
 		after?: (p?: Proposal) => Promise<void>;
-		/** After each card of a turn that makes several is approved, in order. */
 		each?: (n: number, p: Proposal) => Promise<void>;
 	}
 > = {
 	"LAU-02": {
-		// The same countdown the Launch plan shows, from its church-local date today.
 		after: async () => {
 			const plan = await planOf(db);
 			assert.deepEqual(countdown(plan.launch, plan.today), { kind: "ahead", days: 28, window: true });
@@ -445,12 +413,10 @@ const SETTLED: Record<
 		},
 	},
 	"LAU-04": {
-		// No read or answer marked anything complete.
 		after: async () => assert.equal(await doneCount(), COMPLETED.length),
 	},
 	"LAU-09": {
 		before: async (p) => {
-			// Nothing changes before approval, and a Member's direct approval of the Owner's card is refused.
 			assert.equal((await planOf(db)).launch?.targetDate, day(28));
 			await assert.rejects(
 				approveProposal(db, await actorOf("member"), p!.id, { revision: p!.revision, digest: p!.digest }, null),
@@ -461,7 +427,6 @@ const SETTLED: Record<
 		},
 		after: async () => {
 			assert.equal((await planOf(db)).launch?.targetDate, DATES.mar14);
-			// History rows here carry the eval database's pinned clock, so the move is found by its date, not its place.
 			const move = (await journal()).value.entries.find((e) => e.change.to === DATES.mar14);
 			assert.deepEqual(
 				[move?.actor?.displayName, move?.change],
@@ -478,7 +443,6 @@ const SETTLED: Record<
 		},
 	},
 	"LAU-11": {
-		// The Owner moves the date on the Launch plan in another session while the card waits.
 		before: async () => {
 			const plan = await planOf(db);
 			assert.equal(
@@ -532,7 +496,6 @@ const SETTLED: Record<
 	},
 	"LAU-21": {
 		before: async (p) => {
-			// Nothing changes before approval, and a Member's direct approval of the Owner's card is refused.
 			assert.deepEqual(await venueState(), { by: null, needsReview: false });
 			await assert.rejects(
 				approveProposal(db, await actorOf("member"), p!.id, { revision: p!.revision, digest: p!.digest }, null),
@@ -546,14 +509,12 @@ const SETTLED: Record<
 			assert.deepEqual(await venueState(), { by: "Nate Ellis", needsReview: false });
 			assert.deepEqual(await untouched(), kept.untouched, "prep tasks are unchanged");
 			assert.deepEqual((await venueHistory()).slice(-1), ["completed by Nate Ellis"]);
-			// The other Owners and Admins are told once; the approving Owner is not.
 			const n = kept.notices!;
 			assert.deepEqual(await notices(), { owner: n.owner, admin: n.admin + 1 });
 		},
 	},
 	"LAU-22": {
 		after: async () => {
-			// A completion that changes nothing can't be approved, so no one is told again.
 			const card = (await propose(await actorOf("owner"), "launch.completeMilestone", {
 				milestoneId: (await venueOf(db)).id,
 			}))!;
@@ -572,14 +533,12 @@ const SETTLED: Record<
 		},
 		after: async () => {
 			assert.deepEqual(await venueState(), { by: null, needsReview: false });
-			// The earlier completion stays in history, no task changes and a reopen tells no one.
 			assert.deepEqual((await venueHistory()).slice(-2), ["completed by Nate Ellis", "reopened by Nate Ellis"]);
 			assert.deepEqual(await untouched(), kept.untouched, "prep tasks are unchanged");
 			assert.deepEqual(await notices(), kept.notices);
 		},
 	},
 	"LAU-25": {
-		// The Admin completes a linked task in Tasks while the card waits.
 		before: async () => {
 			kept.notices = await notices();
 			await setVenueTask(db, "admin", 2, "complete");
@@ -601,7 +560,6 @@ const SETTLED: Record<
 		},
 	},
 	"LAU-27": {
-		// The Owner reopens the milestone on the Launch plan in another session while the card waits.
 		before: async () => setVenue(db, "owner", "reopen"),
 		after: async (p) => {
 			const card = await readReview(db, await actorOf("owner"), p!.id);
@@ -643,14 +601,12 @@ const SETTLED: Record<
 		},
 		after: async () => {
 			assert.deepEqual(await venueState(), { by: "Lena Park", needsReview: false });
-			// The Admin approved it: the Owner is told, and the Admin is not.
 			assert.deepEqual(await notices(), { owner: kept.notices!.owner + 1, admin: kept.notices!.admin });
 		},
 	},
 	"LAU-38": { after: notRecordedRefusals },
 	"LAU-39": {
 		before: async (p) => {
-			// Nothing changes before approval, and a Member's direct approval of the Owner's card is refused.
 			await assert.rejects(
 				approveProposal(db, await actorOf("member"), p!.id, { revision: p!.revision, digest: p!.digest }, null),
 				{ code: "not_found" },
@@ -712,7 +668,6 @@ const SETTLED: Record<
 		before: async () => {
 			kept.guests = await namedGuests();
 		},
-		// Approving one card names only that guest.
 		each: async (n) =>
 			assert.deepEqual(await namedGuests(), [...kept.guests!, ...["Jo Kim", "Lee Park"].slice(0, n + 1)].sort()),
 	},
@@ -767,7 +722,6 @@ const SETTLED: Record<
 	},
 	"LAU-57": { after: correctionRefusals },
 	"LAU-58": {
-		// The Owner corrects attendance on the Launch plan in another session while the card waits.
 		before: async () => correctOnPlan(db, "owner", 158, "Recounted on the Launch plan."),
 		after: async (p) => {
 			const card = await readReview(db, await actorOf("owner"), p!.id);
@@ -790,13 +744,11 @@ const SETTLED: Record<
 			const entry = (await entriesOf("outcome")).find((e) => e.change.reason === "one more from the nursery");
 			assert.equal(entry?.actor?.displayName, "Lena Park");
 			assert.equal((await outcomeNow()).outcome?.attendance, 166);
-			// No correction or count created a Person.
 			assert.equal(await livePeople(), kept.people);
 		},
 	},
 	"LAU-19": {
 		after: async (p) => {
-			// The published summary is the card's text, word for word.
 			const shown = p!.review.changes.find((c) => c.field === "summary")?.after;
 			assert.equal((await planOf(db)).summary?.published[0]?.body, shown);
 		},
@@ -810,7 +762,6 @@ const kept: {
 	guests?: string[];
 } = {};
 
-/** Makes the Launch plan unreadable for one case: its table is renamed and put back after. */
 async function unloadable(body: () => Promise<void>) {
 	await admin.execute(sql`ALTER TABLE launch RENAME TO launch_unloadable`);
 	try {
@@ -896,7 +847,6 @@ test("INV-evry-launch-tools: only an Owner or Admin may propose a Launch change,
 		const text = JSON.stringify(Object.values(all).map((t) => t.description));
 		for (const op of ["launch.ensureReadiness", "pipeline.readGoals"])
 			assert.ok(!text.includes(op), `${who} has no ${op}`);
-		// A milestone is completed or reopened only on a card the person approves: never by a read.
 		const proposes = JSON.stringify(all.propose_change?.description ?? "");
 		for (const op of [
 			"launch.completeMilestone",
@@ -905,8 +855,6 @@ test("INV-evry-launch-tools: only an Owner or Admin may propose a Launch change,
 			"launch.correctOutcome",
 		])
 			assert.equal(proposes.includes(op), who !== "member", `${who} ${op}`);
-		// Guests are named and the outcome corrected on a card the person approves or on the Launch plan (T-383), and
-		// recording counts still creates no person (INH-LAUNCH-05).
 		assert.match(
 			JSON.stringify(all.launch_read!.description),
 			/Guests are named, and the recorded outcome is corrected, only by a person: on a review card they approve \(launch.addGuestAttendance, launch.correctOutcome\) or on the Launch plan/,
@@ -925,7 +873,6 @@ test("INV-evry-launch-tools: only an Owner or Admin may propose a Launch change,
 			),
 		);
 	}
-	// The system prompt's Launch replies are the ones the scripted model quotes.
 	assert.ok(LAUNCH_RULES.ownerOnly.startsWith("Only an Owner or Admin can change the Launch plan"));
 	assert.equal(LINKED_TASK, "Send the press release to local media");
 });

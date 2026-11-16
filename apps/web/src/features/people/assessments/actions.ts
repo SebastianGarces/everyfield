@@ -27,11 +27,6 @@ import type {
 } from "./model.ts";
 import { HISTORY_PAGE } from "./server.ts";
 
-// Server actions for the 4 C's, interviews and commitments (REQ-PPL-012, 013, 014, 026). Each parses the browser's input
-// with the WP-014 contract, runs one producer write in one transaction and answers with what changed, so the page shows
-// the record, the stage and the Activity entry from the answer and never reloads. A database failure reads as "lost":
-// the browser sends the same request key again, and the producer returns the first result instead of acting twice.
-
 type RecordedPerson = z.infer<typeof c.recordedPerson>;
 export type AssessmentSaved = { assessment: Assessment; person: RecordedPerson; receipt: Receipt };
 export type InterviewSaved = { interview: Interview; person: RecordedPerson; receipt: Receipt };
@@ -75,10 +70,6 @@ export async function recordCommitment(requestKey: string, input: unknown): Prom
 	);
 }
 
-/**
- * Design B, step 1 (RT-2): a five-minute URL that puts this one file straight into the private bucket. The browser sends
- * the file's exact bytes to `url` with `headers` and then calls saveCommitmentWithDocument. No bytes reach this server.
- */
 export async function signCommitmentUpload(
 	input: unknown,
 ): Promise<Outcome<z.infer<typeof c.commitmentDocumentUpload>>> {
@@ -97,11 +88,6 @@ export async function signCommitmentUpload(
 	});
 }
 
-/**
- * Design B, step 2 (RT-2): the card with the document the browser uploaded, saved by the same write as recordCommitment
- * after the server has checked the file. A lost answer is retried with the same request key; the first saved card
- * answers.
- */
 export async function saveCommitmentWithDocument(
 	requestKey: string,
 	input: unknown,
@@ -124,7 +110,6 @@ const lost = (error: unknown) => {
 	return { status: "failed" } as const;
 };
 
-/** Withdraws or reactivates the person's commitment on a date. The stage stays (REQ-PPL-014). */
 export async function changeCommitment(
 	change: "withdraw" | "reactivate",
 	requestKey: string,
@@ -144,10 +129,6 @@ export async function changeCommitment(
 	);
 }
 
-/**
- * Corrects one card's date or kind, or voids it. A correction can move the first acquisition and the current state
- * (REQ-PPL-026), and its answer names neither, so the first history page is read again in the same transaction.
- */
 export async function correctCommitment(
 	requestKey: string,
 	expectedRevision: string,
@@ -172,8 +153,6 @@ export async function correctCommitment(
 	);
 }
 
-// History pages after the first, which loads with the person page.
-
 export async function loadAssessments(personId: string, page: number): Promise<Outcome<Assessments>> {
 	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => assessments.getAssessments(tx, ctx, request)), (r) => r),
@@ -190,7 +169,6 @@ export async function loadCommitments(personId: string, page: number): Promise<O
 	);
 }
 
-/** Live people of this church whose name, email or phone match: the witness a card can name (REQ-PPL-014). */
 export async function findWitnesses(search: string): Promise<Outcome<{ id: string; name: string; detail: string }[]>> {
 	return boundary(c.listPeopleRequest, { search, limit: 8 }, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => peopleReader.listPeople(tx, ctx, request)), (r) =>
