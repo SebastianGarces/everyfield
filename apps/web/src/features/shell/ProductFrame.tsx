@@ -1,27 +1,6 @@
 "use client";
 
-import {
-	BookOpen01Icon,
-	BookOpen02Icon,
-	Calendar03Icon,
-	ChartLineData01Icon,
-	DashboardSquare01Icon,
-	File02Icon,
-	FileSearchIcon,
-	HierarchyIcon,
-	Link01Icon,
-	Mail01Icon,
-	Mortarboard01Icon,
-	Notification03Icon,
-	MessageEdit01Icon,
-	Route01Icon,
-	Settings02Icon,
-	StartUp02Icon,
-	ShieldUserIcon,
-	Task01Icon,
-	UserGroupIcon,
-	UserMultipleIcon,
-} from "@hugeicons/core-free-icons";
+import { BookOpen02Icon, MessageEdit01Icon, Settings02Icon } from "@hugeicons/core-free-icons";
 import { DASHBOARD_HOME, LANDING_ROUTE, ORGANIZATION_HOME } from "@everyfield/contracts/identity";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
@@ -36,118 +15,13 @@ import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
 import { SettingsOpener } from "../settings/opener";
+import { shellNav } from "./nav.ts";
 import { Residency, useResidency, type ResidencyState } from "./residency.ts";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "../people/server.ts";
 import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 
-// The product frame around People, Meetings, Messages, Tasks, Ministries, Wiki, Documents and Settings. Only destinations that
-// exist are in the navigation. The full product navigation and command palette come from their own packages and
-// replace these when they ship. The bell
-// opens the notification drop-down (WP-030). Send feedback (WP-049) opens its dialog over the current page. Settings sits
-// at the bottom of the rail and in the user menu behind the name button (screens.md, Overlays).
-
-// Overview (WP-048) is a church plant's home: every seat of a plant has it.
-const OVERVIEW = {
-	kind: "link",
-	key: "overview",
-	label: "Overview",
-	href: DASHBOARD_HOME,
-	icon: DashboardSquare01Icon,
-	prefetch: false,
-} as const;
-const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
-// Meetings is a dynamic page; it loads when chosen, not whenever the frame renders.
-const MEETINGS = {
-	kind: "link",
-	key: "meetings",
-	label: "Meetings",
-	href: "/meetings",
-	icon: Calendar03Icon,
-	prefetch: false,
-} as const;
-const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
-// Messages is a dynamic page. It loads when chosen, not whenever the frame renders.
-const MESSAGES = {
-	kind: "link",
-	key: "messages",
-	label: "Messages",
-	href: "/communication",
-	icon: Mail01Icon,
-	prefetch: false,
-} as const;
-// Ministries (WP-017) loads when chosen, like Meetings.
-const MINISTRIES = {
-	kind: "link",
-	key: "ministries",
-	label: "Ministries",
-	href: "/ministries",
-	icon: UserGroupIcon,
-	prefetch: false,
-} as const;
-const WIKI = { kind: "link", key: "wiki", label: "Wiki", href: "/wiki", icon: BookOpen01Icon } as const;
-// Documents is a secondary rail page. It loads when chosen, not whenever the frame renders.
-const DOCUMENTS = {
-	kind: "link",
-	key: "documents",
-	label: "Documents",
-	href: "/documents",
-	icon: File02Icon,
-	prefetch: false,
-} as const;
-// Plant Intelligence (WP-038: the phase journey) is for a plant's Owners and Admins. It loads when chosen.
-const INTELLIGENCE = {
-	kind: "link",
-	key: "intelligence",
-	label: "Plant Intelligence",
-	href: "/intelligence",
-	icon: ChartLineData01Icon,
-	prefetch: false,
-} as const;
-// The Launch plan (WP-045) is for every seat of a church plant: Members read it and work their own prep tasks.
-const LAUNCH = {
-	kind: "link",
-	key: "launch",
-	label: "Launch",
-	href: "/launch",
-	icon: StartUp02Icon,
-	prefetch: false,
-} as const;
-// A sending church or network seat (WP-047a): its plants, its connections and what it shares, its notifications and
-// Settings. No planter page appears. Connections and Sharing are the one /settings/sharing page (D-1097).
-const PLANTS = { kind: "link", key: "plants", label: "Plants", href: "/network", icon: HierarchyIcon } as const;
-const ORGANIZATION_PAGES = [
-	{ kind: "link", key: "connections", label: "Connections", href: "/settings/sharing#connections", icon: Link01Icon },
-	{ kind: "link", key: "sharing", label: "Sharing", href: "/settings/sharing", icon: ShieldUserIcon },
-	{ kind: "link", key: "notifications", label: "Notifications", href: "/notifications", icon: Notification03Icon },
-] as const;
-// An organization's Pipeline (WP-098a): the people a sending church or network develops toward planting.
-const PIPELINE = {
-	kind: "link",
-	key: "pipeline",
-	label: "Pipeline",
-	href: "/organization/pipeline",
-	icon: Route01Icon,
-	prefetch: false,
-} as const;
-// Sent for review (T-385): the kept answers an Owner or Admin sent this organization seat to read.
-const REVIEWS = {
-	kind: "link",
-	key: "reviews",
-	label: "Sent for review",
-	href: "/organization/reviews",
-	icon: FileSearchIcon,
-	prefetch: false,
-} as const;
-// My residency (WP-100): a seatless account linked to a sending church's residency, only while the link is live.
-const MY_RESIDENCY = {
-	kind: "link",
-	key: "my-residency",
-	label: "My residency",
-	href: "/my-residency",
-	icon: Mortarboard01Icon,
-} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -228,7 +102,6 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const [feedback, setFeedback] = useState(false);
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	const { linked } = useResidency();
-	// A seatless account has no People, Meetings, Messages, Tasks or Ministries; while linked, it has My residency.
 	const account = !settings || settings.context === "account";
 	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
@@ -260,33 +133,26 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 		onSelect: () => setFeedback(true),
 	} as const;
 	const organization = settings?.context === "organization";
-	const nav: ShellNav = organization
-		? { main: [PLANTS, PIPELINE, REVIEWS], pages: ORGANIZATION_PAGES, tools: [feedbackAction, settingsLink] }
-		: {
-				main: account
-					? linked
-						? [MY_RESIDENCY, WIKI]
-						: [WIKI]
-					: [OVERVIEW, PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-				pages:
-					settings?.context !== "plant"
-						? [DOCUMENTS]
-						: role !== "member"
-							? [LAUNCH, INTELLIGENCE, DOCUMENTS]
-							: [LAUNCH, DOCUMENTS],
-				tools: [
-					feedbackAction,
-					{
-						kind: "action",
-						key: "guide",
-						label: "Guide",
-						icon: BookOpen02Icon,
-						onSelect: () => wiki?.toggleGuide(),
-						expanded: wiki?.guideOpen,
-					},
-					settingsLink,
-				],
-			};
+	const rail = shellNav(
+		organization
+			? { context: "organization" }
+			: settings?.context === "plant"
+				? { context: "plant", role: settings.role }
+				: { context: "account", residencyLinked: linked },
+	);
+	const guide = {
+		kind: "action",
+		key: "guide",
+		label: "Guide",
+		icon: BookOpen02Icon,
+		onSelect: () => wiki?.toggleGuide(),
+		expanded: wiki?.guideOpen,
+	} as const;
+	const nav: ShellNav = {
+		main: rail.main,
+		pages: rail.pages,
+		tools: rail.guide ? [feedbackAction, guide, settingsLink] : [feedbackAction, settingsLink],
+	};
 	const later = (what: string) => () => toast({ message: `${what} is not available yet.`, tone: "info" });
 	const seat = role ? `${ROLE[role]} seat` : "";
 	return (
