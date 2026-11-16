@@ -44,8 +44,8 @@ test("AC:TARGET-PPL-026 a new card sets the first commitment only when it is ear
 });
 
 test("INV-request-key (C58, review F4): Check again sends the same key; a new intent with the same answers gets its own", async () => {
-	const { PersonStore, runSave } = await import("../../../apps/web/src/features/people/model.ts");
-	const store = new PersonStore({ id: "p1", revision: "1" });
+	const { createPersonStore, runSave } = await import("../../../apps/web/src/features/people/person.store.ts");
+	const store = createPersonStore({ id: "p1", revision: "1" });
 	const fresh = () => "slot-key";
 	const same = { personId: "p1", occurredOn: "2026-10-01", committed: { score: 3, notes: "same" } };
 	const sent = [];

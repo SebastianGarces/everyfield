@@ -15,9 +15,6 @@ import {
 import { useState } from "react";
 import { PIPELINE_PATH, plural } from "../board/model";
 
-// Export the whole pipeline as CSV (REQ-MUL-005), in the People export's shape: the dialog says what the file holds and
-// leaves out before the download and how many people it has after it. One request per Download press.
-
 type State =
 	| { kind: "ready" }
 	| { kind: "exporting" }
@@ -39,12 +36,16 @@ export function ExportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 			const blob = await res.blob();
 			const filename = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "pipeline.csv";
 			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = filename;
-			a.click();
-			setTimeout(() => URL.revokeObjectURL(url), 30_000);
-			setState({ kind: "done", filename, people: Number(res.headers.get("x-export-people") ?? 0) });
+			const link = document.createElement("a");
+			link.href = url;
+			link.download = filename;
+			link.click();
+			URL.revokeObjectURL(url);
+			setState({
+				kind: "done",
+				filename,
+				people: Number(res.headers.get("x-export-people") ?? 0),
+			});
 		} catch {
 			setState({ kind: "failed", denied: false });
 		}

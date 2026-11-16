@@ -39,7 +39,6 @@ import {
 type Draft = { name: string; category: SkillCategory | ""; proficiency: Proficiency | "none"; notes: string };
 type Editing = { skill: Skill | null; draft: Draft; problem?: string };
 type Change = { put: Skill } | { remove: string };
-/** The words for a refused skill change. */
 const skillProblem = (code: string) =>
 	code === "conflict"
 		? "This skill changed while you were working. The latest skills show now. Check them and try again."
@@ -52,13 +51,6 @@ const draftOf = (s: Skill): Draft => ({
 	notes: s.notes ?? "",
 });
 
-/**
- * Skills and gifts (REQ-PPL-011), grouped by category in the requirement's order. A change shows at once while it saves
- * through the card's save lane (components/save): one save at a time, its own request key, one replay after a lost
- * answer and Check again when the answer stays unknown, so a retry never adds a second skill. A refused add or edit
- * opens the form again with the text kept; a conflict reads the skills again. These are recorded facts: they never
- * stand in for the Gifted interview criterion or say a person is called or ready.
- */
 export function SkillsCard({
 	personId,
 	personName,
@@ -68,7 +60,6 @@ export function SkillsCard({
 }: {
 	personId: string;
 	personName: string;
-	/** Null when skills did not load. */
 	initial: Skill[] | null;
 	canEdit: boolean;
 	onSaved: (receipt: Receipt) => void;
@@ -86,7 +77,6 @@ export function SkillsCard({
 		setSkills(value.skills);
 		onSaved(value.receipt);
 	};
-	/** A conflict: another change moved a skill on, so the card shows the skills as saved now. */
 	const reload = async (code: string) => {
 		if (code !== "conflict") return;
 		const r = await readSkills(personId).catch(() => null);
@@ -214,7 +204,6 @@ function SkillRow({
 }: {
 	skill: Skill;
 	canEdit: boolean;
-	/** The card's last save is in flight or unknown (C68): no other change can start. */
 	wait: Wait;
 	onEdit: () => void;
 	onRemove: () => void;
