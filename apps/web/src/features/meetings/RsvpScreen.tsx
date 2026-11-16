@@ -15,12 +15,6 @@ type View = z.infer<typeof c.rsvpTokenView>;
 type Open = Extract<View, { meeting: unknown }>;
 type Answer = "confirmed" | "declined";
 
-/**
- * The public RSVP page (COM-010, REQ-MTG-009), opened from an invitation email on a phone. It shows only the meeting
- * basics and the guest's own answer. Opening it never answers: only a tap does, and the link closes after one answer.
- * When the answer's reply is lost, or the link says it is already closed, the page reads the link once and shows the
- * answer the server kept (C58, R3-5); it never asks to tap again for an answer that may be saved.
- */
 export function RsvpScreen({ token, view }: { token: string; view: View }) {
 	if (view.state === "unavailable")
 		return (
@@ -39,15 +33,12 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 		rsvp: view.rsvp,
 	});
 	const [optimistic, show] = useOptimistic(saved);
-	/** A refusal code, "not_recorded" (the read found no answer) or "unknown" (the read failed too: Check again). */
 	const [problem, setProblem] = useState<string | null>(null);
-	/** The answer whose result is unknown. It stays on screen, and nothing else can be sent, until Check again. */
 	const [asked, setAsked] = useState<Answer | null>(null);
 	const shown = asked ? { state: "answered" as const, rsvp: asked } : optimistic;
 	const [pending, startTransition] = useTransition();
 	const { meeting: m, guestFirstName: name } = view;
 
-	/** Reads what the link holds now and shows it. The optimistic answer stays on screen while this runs. */
 	async function settle() {
 		const r = await readRsvpLink(token).catch(() => ({ status: "lost" }) as const);
 		if (r.status !== "ok") return setProblem("unknown");
@@ -64,7 +55,6 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 			const r = await answerRsvp(token, rsvp).catch(() => ({ status: "lost" }) as const);
 			if (r.status === "ok") return startTransition(() => setSaved({ state: "answered", rsvp }));
 			if (r.status === "refused" && r.code !== "token_closed") return setProblem(r.code);
-			// The reply was lost, or the link is closed (perhaps by this same answer): the link's record decides.
 			setAsked(rsvp);
 			await settle();
 		});
@@ -179,7 +169,6 @@ function Invitation({ token, view }: { token: string; view: Open }) {
 	);
 }
 
-/** What the link page says when an answer did not settle. Other codes use the shared words. */
 const LINK_PROBLEM: Record<string, string> = {
 	not_recorded: "Your answer did not reach us. Choose again.",
 	unknown:
