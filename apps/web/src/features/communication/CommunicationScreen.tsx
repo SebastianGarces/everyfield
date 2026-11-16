@@ -4,7 +4,7 @@ import { Add01Icon } from "@hugeicons/core-free-icons";
 import { Button, PageHeader, SegmentedControl } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { addAddressRule, useAddress, writeAddress } from "../../components/location.ts";
-import { Address } from "./Address.tsx";
+import { Address, ownSuppression } from "./Address.tsx";
 import { Compose } from "./Compose.tsx";
 import { History } from "./HistoryPanel.tsx";
 import { parseRoute, routeHref, type PageData, type Route, type Step, type Template } from "./model.ts";
@@ -39,6 +39,7 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 
 	const openSection = (value: Section) => {
 		setBanner(null);
+		if (value === "address") ownSuppression.prefetch();
 		go(
 			value === "templates"
 				? { kind: "templates", template: null }
