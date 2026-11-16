@@ -1,0 +1,11 @@
+{
+	"no-effects": {
+		"apps/web/src/features/tasks/fresh.tsx": [
+			{
+				"function": "Fresh",
+				"count": 1,
+				"reason": "Synchronizes a Tasks page with Next's own back/forward cache, which shows a page read before a follow-up outcome was saved again after Back; the effect records when each page answer first showed and refreshes a held one. Invalidating in the outcome actions reverses ruling D-827 and doubles the save's statements (7 back to 14), reading the Tasks list on the client rewrites the page, and a rule on the location store's permanent popstate listener runs before Next restores the page, so a refresh there refreshes the page being left and running after the restore would need a timer."
+			}
+		]
+	}
+}
