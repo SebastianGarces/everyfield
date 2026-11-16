@@ -19,7 +19,6 @@ import { personPhoto } from "../people/results.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
 const occurrence = z.strictObject({ instant, offsetSeconds: z.int() });
-/** Every refusal a meetings operation can return. Missing, foreign and inaccessible records share "unavailable". */
 export const meetingsError = z.discriminatedUnion("code", [
 	defineSafeError("invalid_input", { issues: z.array(issue).max(50) }, "never"),
 	defineSafeError("unavailable", {}, "never"),
@@ -29,17 +28,14 @@ export const meetingsError = z.discriminatedUnion("code", [
 		"never",
 	),
 	defineSafeError("conflict", {}, "refresh"),
-	// The chosen follow-up owner is not a current eligible follow-up owner (REQ-TSK-012).
 	defineSafeError("owner_ineligible", { accountId: accountId.optional() }, "refresh"),
 	defineSafeError("venue_archived", {}, "never"),
-	// A team meeting's ministry is archived or not in this church.
 	defineSafeError("team_unavailable", {}, "never"),
 	defineSafeError("wrong_meeting_type", {}, "never"),
 	defineSafeError("status_transition", {}, "never"),
 	defineSafeError("nonexistent_local_time", {}, "never"),
 	defineSafeError("ambiguous_local_time", { choices: z.array(occurrence).min(2).max(2) }, "never"),
 	defineSafeError("token_closed", {}, "never"),
-	// A required write failed in the database; nothing of the command was kept, and the same request may be retried.
 	defineSafeError("required_write_failed", {}, "same_request"),
 ]);
 export type MeetingsError = z.infer<typeof meetingsError>;
@@ -51,10 +47,8 @@ export const meetingSummary = z.strictObject({
 	id: meetingId,
 	revision,
 	type: meetingType,
-	/** A team meeting's ministry, by its current name; other meetings have none. */
 	team: z.strictObject({ id: recordId, name: z.string() }).nullable(),
 	status: meetingStatus,
-	/** The one title every screen shows: the entered title, or the type with its Vision number. */
 	displayTitle: z.string().min(1),
 	title: z.string().nullable(),
 	startsAt: instant,
@@ -65,7 +59,6 @@ export const meetingSummary = z.strictObject({
 	venue: copiedVenue.nullable(),
 	guestCount: z.int().min(0),
 	confirmedCount: z.int().min(0),
-	/** Vision kit readiness; other types have no kit. */
 	preparation: z.enum(["complete", "incomplete", "not_applicable"]),
 });
 export const meetingPage = z.strictObject({
@@ -83,7 +76,6 @@ export const agendaResult = z.strictObject({
 });
 export const meetingDetail = z.strictObject({
 	...meetingSummary.shape,
-	/** A team meeting's subtype when one was chosen; other meetings have none. */
 	subtype: meetingSubtype.nullable(),
 	notes: z.string().nullable(),
 	agenda: agendaResult,
@@ -100,7 +92,6 @@ export const historyResult = z.strictObject({ hasHistory: z.boolean(), types: z.
 export const completedPractices = z.strictObject({
 	meetingIds: z.array(meetingId),
 	count: z.int().min(0),
-	/** Three distinct held practices meet the Launch criterion; more still meet it. */
 	criterion: z.enum(["met", "not_met"]),
 });
 
@@ -123,16 +114,9 @@ export const guest = z.strictObject({
 export const guestList = z.strictObject({
 	meetingId,
 	guests: z.array(guest).max(1000),
-	/** Owners and Admins only: when a guest first opened an email of this meeting. Not an RSVP and not attendance. */
 	emailOpens: z.array(z.strictObject({ personId, openedAt: instant })).max(1000),
-	/** Each guest's photo as the People list shows it (REQ-PPL-005, REQ-IDN-006). A guest with none has no entry. */
 	photos: z.array(personPhoto).max(1000),
 });
-/**
- * What an update from the ministry would change on a team meeting's guest list: live people serving now who are not
- * guests, and guests the ministry copy added who no longer serve. A guest added by hand is never removed; a guest
- * already marked present is kept and named as kept.
- */
 export const rosterPreview = z.strictObject({
 	meetingId,
 	team: z.strictObject({ id: recordId, name: z.string() }),
@@ -146,14 +130,9 @@ export const rosterUpdateResult = z.strictObject({
 	added: z.array(guest).max(500),
 	removedPersonIds: z.array(personId).max(500),
 });
-/** The meeting's attendance revision after the change: an attended guest joining or leaving the list moves it. */
 const attendanceRevision = revision;
 export const guestMutationResult = z.strictObject({ ...receipt, guest, attendanceRevision });
 export const guestContactResult = z.strictObject({ ...receipt, guest, personCreated: z.boolean(), attendanceRevision });
-/**
- * Everyone an Add guest submit put on the list, already listed ones included: the chosen People in the order sent,
- * then the new contacts. notAdded names the chosen People who are no longer live in this church.
- */
 export const addGuestsResult = z.strictObject({
 	...receipt,
 	meetingId,
@@ -168,11 +147,9 @@ export const ownRsvp = z.strictObject({
 	responseAllowed: z.boolean(),
 	revision,
 });
-/** What a public RSVP link may disclose: the invitation's meeting basics and the guest's own answer. */
 export const rsvpTokenView = z.discriminatedUnion("state", [
 	z.strictObject({ state: z.literal("unavailable") }),
 	z.strictObject({
-		/** closed: the meeting is cancelled or completed and takes no more answers. */
 		state: z.enum(["pending", "answered", "expired", "closed"]),
 		meeting: z.strictObject({
 			displayTitle: z.string(),
@@ -186,7 +163,6 @@ export const rsvpTokenView = z.discriminatedUnion("state", [
 		rsvp,
 	}),
 ]);
-/** A link answer always records the response and closes the link. */
 export const rsvpTokenAnswer = z.strictObject({ rsvp });
 
 export const kitItem = z.strictObject({
@@ -218,7 +194,6 @@ export const card = z.strictObject({
 	guestId: recordId,
 	personId,
 	response: cardResponse,
-	/** Prayer and question notes: only Owner/Admin reads see them. */
 	notes: z.string().nullable(),
 	occurredAt: instant,
 	recordedAt: instant,
@@ -227,7 +202,6 @@ export const card = z.strictObject({
 });
 export const cardList = z.strictObject({ meetingId, cards: z.array(card).max(1000) });
 const breakdown = z.record(cardResponse, z.int().min(0));
-/** Attended guests are the denominator; cards from absent guests are reported apart. No card is unknown, not negative. */
 export const cardBreakdown = z.strictObject({
 	meetingId,
 	attended: z.strictObject({

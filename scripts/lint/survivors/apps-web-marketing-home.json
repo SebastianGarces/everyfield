@@ -1,0 +1,21 @@
+{
+	"no-timers": {
+		"apps/web/src/marketing/home/journey-fx.tsx": [
+			{
+				"function": "arrive",
+				"count": 2,
+				"reason": "EvryBot's mood at each stop of the home journey: it talks for 1.3 s after arriving, then smiles for 1.6 s when the line is about a task, then goes idle. The two waits are the choreography the visitor sees, not an ordering patch; a new arrival clears them, and reduced motion skips them."
+			},
+			{
+				"function": "walk",
+				"count": 1,
+				"reason": "Starts EvryBot's walk between two stops, the product behavior the visitor watches: it follows the measured curved trail frame by frame (getPointAtLength, 0.7 to 1.7 s by distance) and the walked line grows under it. motion's animate() would express the same tween but adds about 22 KB gzip of JavaScript to the landing page, which never loads that engine otherwise."
+			},
+			{
+				"function": "frame",
+				"count": 1,
+				"reason": "The next frame of the same walk; the loop ends on arrival, on a new walk, on a relayout, or when the band unmounts (its ref cancels the frame and the mood timer)."
+			}
+		]
+	}
+}

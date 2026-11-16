@@ -6,20 +6,13 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { change, nativeWrite, notes, plantAdmin, target } from "../../native.ts";
 
-// The seat reviewed writes: invite someone, resend or revoke a pending invitation, change a seat's role and remove a
-// seat. Each runs the seat or invitation command the Settings > Seats screen runs, on the executor's transaction, so
-// the change, its audit row and the invitation email in the outbox commit with the proposal outcome.
-
-/** A seat role a person can be given: the Owner is never invited, changed or removed here. */
 const ordinaryRole = z.enum(["admin", "member"]);
 const plant = (actor: EvryActor) => sql`FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`;
 const church = target("church", sql`pl.id`, sql`pl.name`);
 const ROLE_TEXT = { admin: "an Admin", member: "a Member" } as const;
-/** A pending seat invitation of this church that has not lapsed, as `i`. */
 const invitation = (actor: EvryActor, id: string) =>
 	sql`FROM invitation i WHERE i.id=${id}::uuid AND i.tenant_id=${actor.owner.id}::uuid AND i.purpose='seat'
 		AND i.state='pending' AND i.created_at>clock_timestamp()-interval '720 hours'`;
-/** A live ordinary seat of this church with its holder's name, as `s` and `n`. */
 const seat = (actor: EvryActor, id: string) =>
 	sql`FROM seat s CROSS JOIN LATERAL seat_identity(s.account_id) n WHERE s.id=${id}::uuid AND s.plant_id=${actor.owner.id}::uuid
 		AND s.ended_at IS NULL AND s.role IN ('admin','member')`;
@@ -103,10 +96,6 @@ export const changeOrdinaryRole = nativeWrite({
 	},
 });
 
-/**
- * The open tasks the seat's holder is assigned in this church, each handed back as "needs an owner" at the revision the
- * review saw: the same duties seats.remove locks and checks, so a task is never handed off unreviewed.
- */
 const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','needs_owner','dutyId',t.id,'expectedRevision',t.revision::text) ORDER BY t.id),'[]'::jsonb)
 	FROM task t WHERE t.plant_id=s.plant_id AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id AND ta.account_id=s.account_id)
 		AND t.deleted_at IS NULL AND t.status NOT IN ('complete','no_longer_needed'))`;
@@ -135,7 +124,6 @@ export const remove = nativeWrite({
 	},
 });
 
-/** The installed seat reviewed writes, keyed by operation. */
 export const SEAT_COMMANDS = {
 	"seats.invite": invite,
 	"seats.resendInvitation": resendInvitation,

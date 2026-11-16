@@ -1,6 +1,3 @@
-// Pure rules of the duplicate review, merge, Unmerge and record correction screens (WP-015/ui). No React and no server
-// code, so the rules run the same in the browser, on the server and in node tests.
-
 import { sendTwice, type Outcome } from "../../../components/save/model.ts";
 import { CLASSIFICATION_LABEL, SOURCE_LABEL, type ClassificationValue, type SourceValue } from "../model.ts";
 
@@ -36,7 +33,6 @@ export const FIELD_LABEL: Record<MergeField, string> = {
 	photo: "Photo",
 };
 
-/** The reference kinds a merge review counts (the registry in packages/domain/src/people/person-reference-registry). */
 export type ReferenceKind =
 	| "tag"
 	| "skill"
@@ -71,7 +67,6 @@ export type ReferenceKind =
 	| "training_credit"
 	| "answer_review";
 
-/** What each kind is called in a count: "2 notes". The singular is used for one. */
 const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	tag: ["tag", "tags"],
 	skill: ["skill", "skills"],
@@ -107,9 +102,7 @@ const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	answer_review: ["answer send for review", "answer sends for review"],
 };
 export const counted = (kind: ReferenceKind, count: number) => `${count} ${KIND_LABEL[kind][count === 1 ? 0 : 1]}`;
-/** A kind as a list heading: "Notes". */
 export const kindTitle = (kind: ReferenceKind) => KIND_LABEL[kind][1].replace(/^./, (c) => c.toUpperCase());
-/** "notes, tasks and emails": the plural names of `kinds`, for a sentence. */
 const kindList = (kinds: readonly ReferenceKind[]) => listText(kinds.map((k) => KIND_LABEL[k][1]));
 export function listText(items: readonly string[]): string {
 	if (items.length <= 1) return items[0] ?? "";
@@ -118,7 +111,6 @@ export function listText(items: readonly string[]): string {
 
 type Treatment = "move" | "deduplicate" | "keep" | "block";
 export type Reference = { kind: ReferenceKind; count: number; treatment: Treatment };
-/** The review's references split by what the merge does with them. */
 export function referenceGroups(refs: readonly Reference[]) {
 	return {
 		moves: refs.filter((r) => r.treatment === "move" || r.treatment === "deduplicate"),
@@ -127,15 +119,10 @@ export function referenceGroups(refs: readonly Reference[]) {
 	};
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Field values. A review field holds the Person columns it covers, as the database holds them.
-
 export type Columns = Record<string, unknown>;
-/** Names of the households in the review, by household ID (read only when the household field differs). */
 export type Households = Record<string, string>;
 const text = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
 
-/** A field value in words, or null when that side has none. */
 export function fieldText(field: MergeField, v: Columns, households: Households = {}): string | null {
 	switch (field) {
 		case "displayName":
@@ -179,10 +166,6 @@ export function fieldText(field: MergeField, v: Columns, households: Households 
 	}
 }
 
-/**
- * The side each differing field starts on. The survivor's value stays unless it is empty and the source has one, so a
- * merge never drops a known email or phone by default. The reviewer can still choose either side for every field.
- */
 export function defaultChoices(
 	fields: readonly { field: MergeField; source: Columns; survivor: Columns }[],
 ): Partial<Record<MergeField, Side>> {
@@ -192,17 +175,12 @@ export function defaultChoices(
 			fieldText(f.field, f.survivor) === null && fieldText(f.field, f.source) !== null ? "source" : "survivor";
 	return out;
 }
-/** The request's field choices: only fields taken from the source; a field left out keeps the survivor's value. */
 export function sourceChoices(choices: Partial<Record<MergeField, Side>>): Partial<Record<MergeField, "source">> {
 	const out: Partial<Record<MergeField, "source">> = {};
 	for (const f of MERGE_FIELDS) if (choices[f] === "source") out[f] = "source";
 	return out;
 }
 
-/**
- * Which of two people stays when the address does not say: the one with an Everyfield account (a linked person must
- * survive), otherwise the one added first.
- */
 export function defaultSurvivor(
 	a: { id: string; createdAt: string; linked: boolean },
 	b: { id: string; createdAt: string; linked: boolean },
@@ -211,37 +189,27 @@ export function defaultSurvivor(
 	return a.createdAt <= b.createdAt ? a.id : b.id;
 }
 
-/** The duplicates page address for a pair. `keep` names the person who stays; without it the default applies. */
 export function pairHref(personId: string, withId: string, keep?: string): string {
 	const q = new URLSearchParams({ person: personId, with: withId });
 	if (keep) q.set("keep", keep);
 	return `/people/duplicates?${q.toString()}`;
 }
-/** The Dismissed view: the pairs marked "Not a duplicate", each with Restore (D-790). */
 export const DISMISSED_HREF = "/people/duplicates?view=dismissed";
-
-// ---------------------------------------------------------------------------------------------------------------
-// "Not a duplicate" on the list and Restore in the Dismissed view (D-789). The row leaves at once; a refused or lost
-// answer puts it back where it was with a notice that says what happened. A repeat writes nothing, so Try again is safe.
 
 export type PairAction = "dismiss" | "restore";
 export const pairKey = (p: { person: { id: string }; with: { id: string } }) => `${p.person.id}:${p.with.id}`;
-/** The rows sent away and not answered yet or saved (`gone`), and each row's notice after a failed answer. */
 export type PairState = { gone: readonly string[]; notices: Readonly<Record<string, string>> };
 export const pairsAtStart: PairState = { gone: [], notices: {} };
 
-/** The row leaves the list as its action is sent; its earlier notice goes with it. */
 export function pairSent(s: PairState, key: string): PairState {
 	const notices = { ...s.notices };
 	delete notices[key];
 	return { gone: s.gone.includes(key) ? s.gone : [...s.gone, key], notices };
 }
-/** A saved answer keeps the row gone. Any other answer puts it back in its place with its notice. */
 export function pairAnswered(s: PairState, key: string, action: PairAction, answer: Outcome<unknown>): PairState {
 	if (answer.status === "ok") return s;
 	return { gone: s.gone.filter((k) => k !== key), notices: { ...s.notices, [key]: pairNotice(action, answer) } };
 }
-/** The rows still shown, in their original order. */
 export const pairsShown = <P extends { person: { id: string }; with: { id: string } }>(
 	items: readonly P[],
 	s: PairState,
@@ -259,13 +227,7 @@ export function pairNotice(action: PairAction, answer: Exclude<Outcome<unknown>,
 		: "Nothing changed. The pair was not restored. Try again.";
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// "Not a duplicate" on the side-by-side review of a listed pair (T-268). It dismisses the listed direction (the imported
-// person first, whichever order the address names them in), then the screen returns to the list. A refusal keeps the
-// reviewer on the review, which reads again to show where the people stand; a lost answer says it may have saved.
-
 export type ListedPair = { personId: string; withPersonId: string };
-/** What the review does after its dismiss: back to the list, or stay with a notice and maybe read the pair again. */
 export type ReviewDismissed = { next: "list" } | { next: "review"; reread: boolean; text: string };
 
 export function reviewDismissed(answer: Outcome<unknown>): ReviewDismissed {
@@ -289,10 +251,6 @@ export function reviewDismissed(answer: Outcome<unknown>): ReviewDismissed {
 	};
 }
 
-/**
- * One review's "Not a duplicate". The write sets a state, so a lost answer is sent once more as it is. While one is in
- * flight another call sends nothing and answers null, so a double click dismisses once.
- */
 export function reviewDismiss(send: (input: ListedPair) => Promise<Outcome<unknown>>) {
 	let pending = false;
 	return async (listed: ListedPair): Promise<ReviewDismissed | null> => {
@@ -305,11 +263,7 @@ export function reviewDismiss(send: (input: ListedPair) => Promise<Outcome<unkno
 		}
 	};
 }
-/** The list's confirmation after a dismiss from the review: both people, imported person first. */
 export const notDuplicateText = (person: string, other: string) => `${person} and ${other} marked not a duplicate.`;
-
-// ---------------------------------------------------------------------------------------------------------------
-// Refusals in words. Each names a cause the person can act on.
 
 export type Blocker = "linked_account_collision" | "linked_source" | "unregistered_reference" | "enrollment_collision";
 export function blockerText(cause: Blocker, names: { source: string; survivor: string }, kinds: ReferenceKind[]) {
@@ -338,9 +292,6 @@ export function conflictText(cause: InverseConflict, names: { source: string; su
 			return `${names.survivor} has records that are new, moved or corrected since the merge, or was merged again.`;
 	}
 }
-
-// ---------------------------------------------------------------------------------------------------------------
-// Record corrections (REQ-PPL-015). A correction sends only the fields the person changed.
 
 export const LENSES = ["committed", "compelled", "contagious", "courageous"] as const;
 export type Lens = (typeof LENSES)[number];
@@ -381,11 +332,9 @@ export type InterviewValues = { occurredOn: string; result: InterviewResult; nex
 export type CommitmentValues = { notes: string | null };
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-/** Empty text is no text: a cleared note saves as null, as the record holds it. */
 const clean = (s: string | null) => (s && s.trim() ? s.trim() : null);
 const cleanPart = <T extends { notes: string | null }>(v: T): T => ({ ...v, notes: clean(v.notes) });
 
-/** The changed parts of a correction form, in the request's shape; empty when nothing changed. */
 export function assessmentChanges(base: AssessmentValues, draft: AssessmentValues) {
 	const out: Partial<AssessmentValues> = {};
 	if (draft.occurredOn !== base.occurredOn) out.occurredOn = draft.occurredOn;
@@ -403,10 +352,8 @@ export function interviewChanges(base: InterviewValues, draft: InterviewValues) 
 export function commitmentChanges(base: CommitmentValues, draft: CommitmentValues) {
 	return clean(draft.notes) !== clean(base.notes) ? { notes: clean(draft.notes) } : {};
 }
-/** The 4 C's total, as the server computes it: the sum of the four scores. */
 export const totalOf = (v: Record<Lens, ScoreValue>) => LENSES.reduce((sum, l) => sum + v[l].score, 0);
 
-/** A corrected field's name in words, as the history lists it. */
 export function correctedFieldLabel(field: string): string {
 	if (field === "occurredOn") return "Date";
 	if (field === "nextSteps") return "Next steps";
@@ -418,7 +365,6 @@ export function correctedFieldLabel(field: string): string {
 	if (field in CRITERION_LABEL) return CRITERION_LABEL[field as Criterion];
 	return field.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
 }
-/** A corrected value in words: a score, a rating with notes, a result or plain text. */
 export function correctedValueText(v: unknown): string {
 	if (v === null || v === undefined || v === "") return "None";
 	if (typeof v === "string") return v in RESULT_LABEL ? RESULT_LABEL[v as InterviewResult] : v;
@@ -438,10 +384,6 @@ export function correctedValueText(v: unknown): string {
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-/**
- * What is wrong with a role date correction before anything is sent, by field (REQ-TEAM-006). Empty when it can save.
- * A role held now has no end date to correct.
- */
 export function roleDateProblems(f: {
 	role: { endedOn: string | null };
 	startedOn: string;

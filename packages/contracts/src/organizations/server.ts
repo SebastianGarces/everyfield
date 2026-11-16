@@ -28,21 +28,6 @@ export interface OrganizationOperations {
 		typeof R.pipelineAggregateAccessResult
 	>;
 }
-// Implement only in server-only code. Tx is the producer's actual transaction.
-// Re-read session, lifecycle, exact typed endpoint/current seat or self link,
-// revisions and consent inside it. Native/Evry use identical domain inputs;
-// trusted reviewed effects and original-address proof admission stay separate.
-// History reads authorize their whole requested scope and each returned pair.
-// Protected end reasons are withheld for Member and purpose-limited readers
-// regardless of existence; only an entitled reader receives recorded text.
-// First acceptance discloses exact-org defaults; rejoin preserves saved choices.
-// Commit facts+history+safe audit+receipt+required notice/invalidation intents
-// together. Replays return originals. Provider calls run after commit. Expiry,
-// invite limits/cooldown and all live revocation fences are API responsibilities.
-// Resident revoke applies to every derived read/history/job/byte/model path;
-// genuine independently org-owned enrollment facts survive consent withdrawal.
-// Aggregate check counts distinct currently eligible churches, never rows or the
-// network's own pipeline; delivery/filtering/history remain deferred to stage 4.
 export type OrganizationAdapter<Tx> = {
 	[K in keyof OrganizationOperations]: (
 		tx: Tx,

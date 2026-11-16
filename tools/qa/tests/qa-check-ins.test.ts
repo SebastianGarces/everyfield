@@ -13,9 +13,6 @@ import {
 	type QuietDatabase,
 } from "./fixtures.ts";
 
-// OPS-125: the QA seed gives the QA owner 13 answered past check-in weeks. Each test reads the seeded quiet database
-// through the private-care writer as the owner (qa-care-probe.ts), the way the check-in screen reads it.
-
 const ZONE = "America/New_York";
 const OWNER = "delivered+qa-owner@resend.dev";
 const PASSWORD = "qa-role-password-0123";
@@ -32,14 +29,12 @@ type Week = {
 };
 type Page = { zone: string; revision: string; page: number; pageCount: number; weeks: Week[] };
 
-/** The local date of `at` in the owner's zone. */
 const localDay = (at: Date | string) =>
 	new Intl.DateTimeFormat("en-CA", { timeZone: ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(
 		new Date(at),
 	);
 const addDays = (day: string, n: number) =>
 	new Date(Date.parse(`${day}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-/** Monday of this week in the owner's zone. */
 function thisMonday() {
 	const today = localDay(new Date());
 	const weekday = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
@@ -52,7 +47,6 @@ type Shared = {
 	query: (text: string, values?: unknown[]) => Promise<Record<string, unknown>[]>;
 };
 let shared: Promise<Shared> | undefined;
-/** One quiet database for this file, seeded once. Started by the first test that needs it. */
 function seeded(): Promise<Shared> {
 	shared ??= (async () => {
 		const db = startQuietDatabase(source, "qa-check-ins");
@@ -87,7 +81,6 @@ async function history(page: number): Promise<Page> {
 	assert.equal(reply.status, "ok", JSON.stringify(reply));
 	return reply.value as Page;
 }
-/** Every week, newest first: both history pages. */
 async function allWeeks() {
 	const [first, second] = [await history(1), await history(2)];
 	return { first, second, weeks: [...first.weeks, ...second.weeks] };
@@ -111,7 +104,6 @@ test("INV-qa-seed: the QA owner has a confirmed zone and 13 answered past weeks 
 	assert.equal(open!.startsOn, monday);
 	assert.equal(open!.current, true);
 	assert.equal(open!.answer, null);
-	// One week for each Monday from 13 weeks ago to last week, newest first, with no gap.
 	assert.deepEqual(
 		past.map((w) => w.startsOn),
 		Array.from({ length: 13 }, (_, i) => addDays(monday, -7 * (i + 1))),
@@ -128,7 +120,7 @@ test("INV-qa-seed: the QA owner has a confirmed zone and 13 answered past weeks 
 
 test("INV-qa-seed: the Pace run of 3 Strained or Struggling weeks ends last week, after a Steady week", async () => {
 	const { weeks } = await allWeeks();
-	const past = weeks.slice(1).reverse(); // oldest first
+	const past = weeks.slice(1).reverse();
 	const pace = past.map((w) => w.answer!.answers.pace);
 	const run = pace.slice(-3);
 	assert.ok(run.every(nonSteady), `last three Pace answers: ${run}`);
@@ -228,7 +220,6 @@ test("INV-qa-seed: a rerun writes nothing, and a branch without the history gets
 	assert.equal(again.stdout.trim(), "QA seed: the branch is already complete.");
 	assert.deepEqual(await counts(), complete);
 
-	// The rest of the QA data stays; the check-in history goes.
 	await query("DELETE FROM private_week_revision");
 	await query("DELETE FROM private_week");
 	await query("DELETE FROM private_calendar");
@@ -242,7 +233,6 @@ test("INV-qa-seed: a rerun writes nothing, and a branch without the history gets
 	assert.deepEqual(await counts(), filled);
 });
 
-/** No app or package file in `repo` imports tools/qa/. */
 function checkNoToolingImports(repo: string) {
 	const importers: string[] = [];
 	const walk = (dir: string) => {

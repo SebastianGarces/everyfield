@@ -1,5 +1,3 @@
-// Paid calls run only when the caller opts in. This module does not read the key until embedMany runs.
-
 const MODEL = "text-embedding-3-small";
 const PROFILE = "openai-text-embedding-3-small";
 const DIMENSIONS = 1536;

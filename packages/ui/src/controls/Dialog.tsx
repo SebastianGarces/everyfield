@@ -3,7 +3,8 @@
 import { Alert02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { AlertDialog, Dialog as DialogPrimitive } from "radix-ui";
 import { useState, type ComponentPropsWithRef, type ReactNode, type Ref } from "react";
-import { cn, Icon, type IconSvgElement } from "../foundations";
+import { cn, type IconSvgElement } from "../foundations";
+import { InlineAlert } from "./Alert";
 import { Button, IconButton } from "./Button";
 import { CardIcon, type Tone } from "./Card";
 import { usePortalContainer, useReturnFocus } from "./overlay-portal";
@@ -171,14 +172,7 @@ export function ConfirmDialog({
 							</ul>
 						</div>
 					) : null}
-					<div aria-live="assertive" className="px-7 empty:hidden max-app-sm:px-5">
-						{error ? (
-							<p className="mt-4 flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-								<Icon icon={Alert02Icon} size={16} className="mt-px" />
-								{error}
-							</p>
-						) : null}
-					</div>
+					<InlineAlert className="px-7 pt-4 max-app-sm:px-5">{error}</InlineAlert>
 					<div className="flex flex-none flex-wrap items-center justify-end gap-2.5 px-7 pt-6 pb-[26px] max-app-sm:px-5 max-app-sm:pb-5 max-app-sm:*:flex-1">
 						<AlertDialog.Cancel asChild>
 							<Button variant="secondary" disabled={pending}>
@@ -207,6 +201,7 @@ type SheetProps = {
 	children: ReactNode;
 	className?: string;
 	onOpenAutoFocus?: (event: Event) => void;
+	onEscapeKeyDown?: (event: KeyboardEvent) => void;
 	bodyRef?: Ref<HTMLDivElement>;
 };
 
@@ -222,6 +217,7 @@ export function Sheet({
 	children,
 	className,
 	onOpenAutoFocus,
+	onEscapeKeyDown,
 	bodyRef,
 }: SheetProps) {
 	const container = usePortalContainer();
@@ -234,6 +230,7 @@ export function Sheet({
 				<DialogPrimitive.Content
 					aria-modal={modal ? "true" : undefined}
 					{...focus}
+					onEscapeKeyDown={onEscapeKeyDown}
 					onInteractOutside={modal ? undefined : (e) => e.preventDefault()}
 					className={cn(
 						"ef-sheet fixed top-3 right-3 bottom-3 z-50 flex w-[420px] max-w-[calc(100vw-24px)] flex-col rounded-card bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-0 max-app-sm:right-0 max-app-sm:bottom-0 max-app-sm:w-full max-app-sm:max-w-none max-app-sm:rounded-none",

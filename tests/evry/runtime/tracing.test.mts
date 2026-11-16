@@ -15,7 +15,6 @@ import {
 import { registerTracing } from "../../../packages/evry/src/runtime/trace.ts";
 import { actor, admin, db, people, setup, sql, teardown, work } from "./support.mts";
 
-// A local stand-in for Langfuse's OTLP endpoint: it records every exported span, or hangs to act as an outage.
 type Span = { traceId: string; name: string; attributes: { key: string; value: { stringValue?: string } }[] };
 const spans: Span[] = [];
 const hung: ServerResponse[] = [];
@@ -69,7 +68,6 @@ test("INV-privacy C64: one Evry turn sends one Langfuse trace with the queue, ac
 
 	const traceId = createHash("sha256").update(turnId).digest("hex").slice(0, 32);
 	assert.deepEqual([...new Set(spans.map((s) => s.traceId))], [traceId], "one trace, keyed by the turn");
-	// The spans Evry owns, exactly; the AI SDK adds its own model and tool spans to the same trace under names it owns.
 	const evry = new Set([
 		"evry turn",
 		"queue wait",
@@ -104,7 +102,6 @@ test("INV-privacy C64: one Evry turn sends one Langfuse trace with the queue, ac
 	assert.match(attribute("first text saved", "langfuse.observation.metadata.submitToFirstTextMs") ?? "", /^\d+$/);
 	assert.match(attribute("first SSE delivery", "langfuse.observation.metadata.submitToFirstSseMs") ?? "", /^\d+$/);
 
-	// Full text: the request, the tool result and the answer as the model saw them; scrubbed and private values never.
 	const sent = JSON.stringify(spans);
 	for (const seen of ["Find Casey", "Casey Reed", "[removed]"]) assert.ok(sent.includes(seen), seen);
 	for (const secret of ["sk-live-abcdefghijklmnopqrstuvwx", "casey@example.test", "sk-lf-test"])
@@ -117,7 +114,6 @@ test("INV-tracing: a Langfuse outage never fails or holds a turn", async () => {
 	assert.equal(await work(), "succeeded");
 	const flushed = flushTraces();
 	while (!hung.length) await sleep(10);
-	// The export hangs while the next turn runs and saves its end.
 	const { owner, conversationId } = await ask("Find Casey");
 	assert.equal(await work(), "succeeded");
 	const { events } = await readConversation(db, owner, conversationId);

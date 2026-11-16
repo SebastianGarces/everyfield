@@ -1,12 +1,3 @@
-// OPS-127 test helper: opens Wiki articles as the QA owner through the Wiki domain reader, the code the Wiki screen
-// calls, and prints what it returns as JSON. The test runs it in its own process because the domain needs the
-// react-server condition:
-//
-//   DATABASE_URL=<admin URL> QA_ROLE_PASSWORD=<seed password> \
-//     node --conditions=react-server --import tsx tools/qa/tests/qa-wiki-reader.ts '<requests JSON>'
-//
-// Each request is { articleId, source? }. The helper opens a session for the owner, reads as the seed's runtime login
-// and removes the session again. It never prints a connection string.
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase, createDatabase } from "../../../packages/db/src/client.ts";

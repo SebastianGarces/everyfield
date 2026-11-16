@@ -25,11 +25,6 @@ import { dayText, problemText } from "../../teams/model.ts";
 type Role = z.infer<typeof c.assignmentRow>;
 type Form = { role: Role; startedOn: string; endedOn: string; reason: string; problem?: string };
 
-/**
- * The person's ministry roles, now and before (REQ-TEAM-006). An Owner or Admin can correct a role's recorded start or
- * end date with a reason; the row shows the new dates at once, keeps them when the save is confirmed and goes back with
- * the reason when it is refused. The ministry's history names the old and new dates, the reason and who made it.
- */
 export function MinistryRoles({ initial, canCorrect }: { initial: Role[]; canCorrect: boolean }) {
 	const toast = useToast();
 	const [roles, setRoles] = useState(initial);
@@ -135,7 +130,6 @@ function DatesDialog({
 	onSubmit: (f: Form) => boolean;
 }) {
 	const [f, setF] = useState(form);
-	// A form a refusal opened again shows its problems at once; a new one after its first submit.
 	const [touched, setTouched] = useState(form.problem !== undefined);
 	const ended = f.role.endedOn !== null;
 	const problems = touched ? roleDateProblems(f) : {};

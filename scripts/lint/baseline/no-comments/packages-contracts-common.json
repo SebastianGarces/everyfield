@@ -1,6 +1,0 @@
-{
-	"packages/contracts/src/common/links.ts": 4,
-	"packages/contracts/src/common/meeting-text.ts": 10,
-	"packages/contracts/src/common/time.ts": 6,
-	"packages/contracts/src/common/values.ts": 8
-}

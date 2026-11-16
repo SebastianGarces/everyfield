@@ -1,4 +1,3 @@
-// Only trusted workflow code runs here. Failure logs and event text are issue data.
 const LABELS = [
   ['P0', 'b60205', 'Main or production broken; fix immediately'],
   ['P1', 'd93f0b', 'Core workflow broken with a workaround; fix next'],
@@ -20,7 +19,6 @@ async function labels(github, repo) {
   }
 }
 
-// Prevent pings, HTML and fences in external logs from becoming issue markup.
 function clean(value) {
   return String(value || 'No log excerpt was supplied by the provider.')
     .replace(/\x1b\[[0-9;]*m/g, '').replace(/@/g, '@\u200b')
@@ -29,23 +27,16 @@ function clean(value) {
 function excerpt(value) {
   return clean(value).split('\n').slice(-35).join('\n').slice(-6000);
 }
-// A job log ends with post-job cleanup, so its last lines rarely hold the error. End the
-// excerpt at the first ##[error] annotation (the failing step) and keep the lines before it.
 function logExcerpt(log, chars) {
   const lines = clean(log).split('\n');
   const error = lines.findIndex(line => line.includes('##[error]'));
   const end = error === -1 ? lines.length : error + 1;
   return lines.slice(Math.max(0, end - 200), end).join('\n').slice(-chars);
 }
-// GitHub caps an issue body at 65,536 characters. The job sections share DETAIL_BUDGET, which
-// leaves room for the marker, commit, links and closing text around them. Each job's log share
-// is split evenly; the section header (name, link, failed steps) is bounded separately.
 const DETAIL_BUDGET = 60000;
 const LOG_BUDGET = 48000;
 const MORE_RESERVE = 200;
 
-// The workflows whose runs on main report an incident, each with its own: a green run of one never closes the
-// other's. Push CI checks each landed commit; the nightly (T-216) is the full run behind local test selection.
 const WORKFLOWS = {
   '.github/workflows/ci.yml': { source: 'ci', events: ['push'], name: 'CI', recovered: 'Main CI' },
   '.github/workflows/nightly.yml': { source: 'nightly', events: ['schedule', 'workflow_dispatch'], name: 'Nightly', recovered: 'The nightly on main' },
@@ -58,8 +49,6 @@ function incident(source, options) {
   };
 }
 
-// A workflow is green again on main (OPS-52). Close its open incident when the green commit contains the failed one,
-// so a late success for an older commit never closes a newer failure.
 async function recover({ github, context, core }, run, workflow, options) {
   const repo = context.repo;
   const { marker, anchorName } = incident(workflow.source, options);
@@ -110,7 +99,6 @@ module.exports = async function report({ github, context, core }, options = {}) 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         log = await response.text();
       } catch (error) {
-        // An issue must still be filed when a provider has expired or withheld its logs.
         log = `Job log unavailable (${error.status || error.message}); open the job link.`;
       }
       const steps = job.steps.filter(step => step.conclusion === 'failure').map(step => clean(step.name).slice(0, 100)).join(', ').slice(0, 300);
@@ -129,7 +117,6 @@ module.exports = async function report({ github, context, core }, options = {}) 
     const { deployment: deploy, deployment_status: status } = context.payload;
     if (!['failure', 'error'].includes(status.state) || deploy.environment?.toLowerCase() !== 'production' ||
         deploy.creator?.id !== 35613825 || status.creator?.id !== 35613825) return;
-    // Vercel sends a SHA in ref and sets production_environment=false even for Production.
     const comparison = await github.rest.repos.compareCommitsWithBasehead({ ...repo, basehead: `${deploy.sha}...${branch}` });
     if (!['ahead', 'identical'].includes(comparison.data.status)) return;
     source = 'production'; sha = deploy.sha; title = 'Vercel production deployment failed';
@@ -139,8 +126,6 @@ module.exports = async function report({ github, context, core }, options = {}) 
 
   await labels(github, repo);
   const { marker, anchorName } = incident(source, options);
-  // Issue lists can lag behind creation. Keep the incident number on a directly-read label.
-  // A reserved/unknown creation fails closed instead of opening a second issue after a crash.
   let anchor;
   try { anchor = (await github.rest.issues.getLabel({ ...repo, name: anchorName })).data; }
   catch (error) {

@@ -1,11 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 
-// The scripted model's setup and Discovery requests (T-345), for local previews and tests only. It answers through the
-// same tools a model gets: it reads where setup stands, then proposes a change the user reviews. A request no tool
-// offers gets the product's own reply from the system prompt (compile.ts), so the evals test the text the real model is
-// given, not text written here.
-
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind?: string; id: string; label: string; fields: Record<string, unknown> };
 type Output = Record<string, unknown> & { rows?: Row[]; facts?: Record<string, unknown> };
@@ -16,7 +11,6 @@ const call = (toolName: string, input: unknown): LanguageModelV4Content[] => [
 const say = (text: string): LanguageModelV4Content[] => [{ type: "text", text }];
 const propose = (operation: string, input: unknown) => call("propose_change", { operation, input });
 
-/** The JSON tool results of the current turn, oldest first (everything after the last user message). */
 function turnOutputs(prompt: Prompt): Output[] {
 	const start = prompt.findLastIndex((m) => m.role === "user");
 	return prompt
@@ -30,10 +24,6 @@ function turnOutputs(prompt: Prompt): Output[] {
 		);
 }
 const systemText = (prompt: Prompt) => prompt.flatMap((m) => (m.role === "system" ? [m.content] : [])).join("\n");
-/**
- * The system prompt's reply that starts with `start`, quoted whole: its sentence, or with `line` the rest of its line.
- * Null when the prompt has none.
- */
 function quote(prompt: Prompt, start: string, line = false) {
 	const system = systemText(prompt);
 	const at = system.indexOf(start);
@@ -65,7 +55,6 @@ const OTHERS_SPACE = /\b(?!my\b)\w+'s discovery space\b/i;
 const HISTORY = /\b(?:what happened to|where(?:'s| is)) my discovery space\b/i;
 const CHURCH_RECORDS = /\b(?:people|person|meetings?|teams?|ministr(?:y|ies)|tasks?|households?|messages?)\b/i;
 
-/** The setup steps as the user reads them: saved steps with their answers, then the open ones. */
 function stepsText(out: Output) {
 	const rows = out.rows ?? [];
 	const saved = rows.filter((r) => r.fields.status === "saved").map((r) => `${r.label} (${String(r.fields.answer)})`);
@@ -79,13 +68,11 @@ function stepsText(out: Output) {
 	].join(" ");
 }
 
-/** One step of a setup or Discovery request, or null when it is none. */
 export function onboardingStep(options: LanguageModelV4CallOptions, text: string): LanguageModelV4Content[] | null {
 	const tools = JSON.stringify(options.tools ?? []);
 	const offers = (operation: string) => tools.includes(`"${operation}"`);
 	const outputs = turnOutputs(options.prompt);
 	const last = outputs.at(-1);
-	// A prepared review: the settings step answers it (the card is the answer).
 	if (last && typeof last.proposalId === "string") return null;
 	const resume = outputs.findLast((o) => o.operation === "onboarding.getResume");
 	const profile = outputs.findLast((o) => o.operation === "discovery.getProfile");
@@ -113,10 +100,8 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 	if (!known && !EXPLORE.test(text) && !PROFILE.test(text) && !accountAsk) return null;
 	if (last?.error) return say(`I couldn't prepare that (${String(last.error)}).`);
 
-	// An account with no church seat: start a church, explore first, or read and convert its Discovery space.
 	if (account) {
 		const readProfile = () => call("onboarding_read", { operation: "discovery.getProfile", input: {} });
-		// Another person's space is never read or changed: every tool here works on the signed-in account's own.
 		if (OTHERS_SPACE.test(text)) return quote(options.prompt, "I can only work with your own setup", true);
 		const convert = CONVERT.exec(text);
 		if (convert && offers("discovery.convertToPlant")) {
@@ -143,7 +128,6 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 		}
 		if (PROFILE.test(text) && offers("discovery.getProfile")) {
 			if (!profile) return readProfile();
-			// No Discovery space is inferred from a missing seat: an account without one is offered a new one.
 			if (profile.status !== "available")
 				return offers("discovery.create")
 					? [
@@ -166,7 +150,6 @@ export function onboardingStep(options: LanguageModelV4CallOptions, text: string
 		return null;
 	}
 
-	// A church seat: its setup. Asking to start or convert a church again finds the church this account already holds.
 	if (NEW_CHURCH.test(text) || CONVERT.test(text)) {
 		if (!offers("onboarding.getResume"))
 			return say("You already have a church seat, so there is no new church to start.");

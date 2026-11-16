@@ -1,6 +1,3 @@
-// Check-in screen rules (WP-039) that a silent break would turn into a wrong strip or a lost answer. They run in node
-// against the module the screen uses; no browser.
-// WP-039 criteria 2, 5, 10 and 12, and the T-64 and T-66 fixes.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { evryOff } from "../../../apps/web/src/features/intelligence/path.ts";
@@ -55,7 +52,6 @@ test("INV-checkin: the strip shows a save at once, then the confirmed week; a re
 	assert.deepEqual(optimistic.weeks[0].answer.answers, STRAINED);
 	assert.equal(optimistic.weeks[0].answer.note, null);
 	assert.deepEqual(optimistic.weeks[1], past);
-	// The original page is unchanged, so a refusal can put it back.
 	assert.equal(before.weeks[0].answer, null);
 	const confirmed = { ...open, id: "00000000-0000-4000-8000-000000000002", answer: optimistic.weeks[0].answer };
 	const after = withResult(optimistic, { outcome: "saved", revision: "4", week: confirmed });
@@ -88,7 +84,6 @@ test("INV-checkin: a corrected week says when and what changed; this week and sk
 test("BUG-58bc5acb8: the button saves an unsaved week, changes a saved one and corrects an earlier one", () => {
 	const open = week(2, "2026-10-12", null, [], true);
 	assert.equal(submitLabel(open, false), "Save check-in");
-	// While the first save is in flight the strip shows the answer, but the server has no row yet.
 	const optimistic = withAnswer(page([open]), open, STEADY, "").weeks[0];
 	assert.equal(submitLabel(optimistic, false), "Save check-in");
 	const saved = week(2, "2026-10-12", STEADY, [rev(1, "save", STEADY)], true);
@@ -98,15 +93,11 @@ test("BUG-58bc5acb8: the button saves an unsaved week, changes a saved one and c
 	assert.equal(submitLabel(week(1, "2026-10-05", null), true), "Save correction");
 });
 
-// T-66: the zone step previews the week the check-in opens on: the Monday of the week that holds now in the chosen zone.
 test("BUG-58bc5acb8: weekStartIn is the Monday of the week that holds the instant in the chosen zone", () => {
-	// Sunday 23:30 in Chicago is already Monday in UTC and in Tokyo.
 	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "America/Chicago"), "2026-11-02");
 	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "UTC"), "2026-11-09");
 	assert.equal(weekStartIn("2026-11-09T05:30:00.000Z", "Asia/Tokyo"), "2026-11-09");
-	// A Monday at local midnight is its own week; the instant before it is the week before.
 	assert.equal(weekStartIn("2026-11-09T06:00:00.000Z", "America/Chicago"), "2026-11-09");
 	assert.equal(weekStartIn("2026-11-09T05:59:59.999Z", "America/Chicago"), "2026-11-02");
-	// Across a month and year end.
 	assert.equal(weekStartIn("2027-01-01T12:00:00.000Z", "Europe/London"), "2026-12-28");
 });
