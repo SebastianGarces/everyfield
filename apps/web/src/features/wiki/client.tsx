@@ -23,8 +23,21 @@ import {
 } from "@everyfield/ui/controls";
 import { Tag, Toc, WikiSourceBar, type WikiPhase, WikiTree } from "@everyfield/ui/display";
 import Link from "next/link";
+import { createDebouncer, observeHeadings } from "@everyfield/ui/foundations";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { createContext, use, useEffect, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import {
+	createContext,
+	use,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+	useTransition,
+	type ReactNode,
+} from "react";
+import { createRead, useRead } from "../../components/read.tsx";
+import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
 import {
 	downloadPdf,
 	loadGuide,
@@ -34,18 +47,20 @@ import {
 	saveProgress,
 	saveSourceOrder,
 	searchWiki,
-	type ExportResult,
 	type GuideResult,
 	type OrderSave,
 	type SearchResult,
-	type WriteResult,
 } from "./actions.ts";
+import {
+	createArticleSessionStore,
+	type SessionPort,
+	type SessionSeed,
+	type SessionStore,
+} from "./ArticleSession.store.ts";
 import { useOpenSettings, useSettingsLink } from "../settings/opener.tsx";
 import { ARTICLE_FIXED, BELOW_WIDE_ONLY, GRID, GRID_FIXED, RAIL_FIXED, RAIL_STICKY, RAIL_TOC_PAD } from "./layout.ts";
 import {
 	type ArticleVersion,
-	fractionText,
-	pdfFilename,
 	PHASE_NAME,
 	preferredOrder,
 	snippetParts,
@@ -60,11 +75,11 @@ export function useWikiChrome() {
 	return use(Chrome);
 }
 
-/** Guide and wiki search, mounted once on the product frame. Guide never records a reading. */
 export function WikiChrome({ children }: { children: ReactNode }) {
-	const [search, setSearch] = useState(false);
-	const [guide, setGuide] = useState(false);
 	const pathname = usePathname();
+	const [searchPath, setSearchPath] = useState<string | null>(null);
+	const [guide, setGuide] = useState(false);
+	if (searchPath !== null && searchPath !== pathname) setSearchPath(null);
 	useEffect(() => {
 		const onKey = (event: KeyboardEvent) => {
 			if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
@@ -72,17 +87,26 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 			const target = event.target;
 			if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable=true]")) return;
 			event.preventDefault();
-			setSearch(true);
+			setSearchPath(pathname);
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, [pathname]);
+	const chrome = useMemo(
+		() => ({
+			openSearch: () => setSearchPath(pathname),
+			toggleGuide: () => {
+				if (!guide) guides.refresh(pathname);
+				setGuide(!guide);
+			},
+			guideOpen: guide,
+		}),
+		[pathname, guide],
+	);
 	return (
-		<Chrome
-			value={{ openSearch: () => setSearch(true), toggleGuide: () => setGuide((open) => !open), guideOpen: guide }}
-		>
+		<Chrome value={chrome}>
 			{children}
-			<SearchDialog open={search} onOpenChange={setSearch} />
+			<SearchDialog open={searchPath === pathname} onOpenChange={(next) => setSearchPath(next ? pathname : null)} />
 			<GuideSheet open={guide} onOpenChange={setGuide} />
 		</Chrome>
 	);
@@ -120,57 +144,31 @@ const PHASES = [
 
 const SEARCH_DELAY_MS = 250;
 
+const searches = createRead(
+	(text: string, phase: string, page: number, source: string | null) =>
+		searchWiki(text, phase === "all" ? null : Number(phase), page, source),
+	{ failed: (): SearchResult => ({ status: "lost" }) },
+);
+
+type Asked = { text: string; phase: string; page: number; source: string | null };
+
 function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-	const params = useSearchParams();
-	const source = params.get("source");
-	const pathname = usePathname();
-	const route = useRef(pathname);
+	const source = useSearchParams().get("source");
 	const [query, setQuery] = useState("");
-	const [phase, setPhase] = useState("all");
-	const [page, setPage] = useState(1);
-	const [result, setResult] = useState<SearchResult | null>(null);
-	const [pending, setPending] = useState(false);
-	const field = useRef<HTMLInputElement>(null);
-	const sequence = useRef(0);
-	const timer = useRef(0);
+	const [asked, setAsked] = useState<Asked>({ text: "", phase: "all", page: 1, source: null });
+	const [pause] = useState(() => createDebouncer(SEARCH_DELAY_MS));
+	const found = useRead(asked.text ? searches : null, asked.text, asked.phase, asked.page, asked.source);
+	const [shown, setShown] = useState<{ page: number; result: SearchResult } | null>(null);
+	const latest = !asked.text ? null : found.value ? { page: asked.page, result: found.value } : shown;
+	if (latest?.result !== shown?.result) setShown(latest);
+	const pending = query.trim() !== asked.text || found.status === "loading";
+	const field = useRef<HTMLInputElement | null>(null);
 
-	useEffect(() => {
-		if (route.current === pathname) return;
-		route.current = pathname;
-		onOpenChange(false);
-	}, [pathname, onOpenChange]);
-
-	useEffect(() => () => window.clearTimeout(timer.current), []);
-
-	/** Run one search. Only the newest request may write its result. */
-	async function run(text: string, phaseValue: string, nextPage: number) {
-		window.clearTimeout(timer.current);
-		const id = ++sequence.current;
-		const trimmed = text.trim();
-		if (!trimmed) {
-			setResult(null);
-			setPending(false);
-			return;
-		}
-		setPending(true);
-		let found: SearchResult;
-		try {
-			found = await searchWiki(trimmed, phaseValue === "all" ? null : Number(phaseValue), nextPage, source);
-		} catch {
-			found = { status: "lost" };
-		}
-		if (id !== sequence.current) return;
-		setResult(found);
-		setPage(nextPage);
-		setPending(false);
-	}
-
-	function schedule(text: string, phaseValue: string) {
-		window.clearTimeout(timer.current);
-		// Supersede any request in flight while the delay runs.
-		sequence.current += 1;
-		setPending(true);
-		timer.current = window.setTimeout(() => void run(text, phaseValue, 1), SEARCH_DELAY_MS);
+	function ask(text: string, phase: string, page: number) {
+		pause.cancel();
+		const next = { text: text.trim(), phase, page, source };
+		if (next.text) void searches.refresh(next.text, next.phase, next.page, next.source);
+		setAsked(next);
 	}
 
 	return (
@@ -188,7 +186,7 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 						className="flex flex-col gap-3"
 						onSubmit={(event) => {
 							event.preventDefault();
-							void run(query, phase, 1);
+							ask(query, asked.phase, 1);
 						}}
 					>
 						<SearchInput
@@ -198,24 +196,22 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 							placeholder="Search the wiki"
 							aria-label="Search words"
 							onChange={(event) => {
-								setQuery(event.target.value);
-								schedule(event.target.value, phase);
+								const text = event.target.value;
+								setQuery(text);
+								pause.run(() => ask(text, asked.phase, 1));
 							}}
 						/>
 						<Select
 							aria-label="Phase"
-							value={phase}
+							value={asked.phase}
 							options={PHASES}
-							onValueChange={(next) => {
-								setPhase(next);
-								void run(query, next, 1);
-							}}
+							onValueChange={(next) => ask(query, next, 1)}
 							className="w-[240px]"
 						/>
 					</form>
-					<SearchBody result={result} pending={pending} query={query.trim()} />
-					{result?.status === "results" && result.nextPage ? (
-						<Button variant="secondary" onClick={() => void run(query, phase, page + 1)} loading={pending}>
+					<SearchBody result={shown?.result ?? null} pending={pending} query={query.trim()} />
+					{shown?.result.status === "results" && shown.result.nextPage ? (
+						<Button variant="secondary" onClick={() => ask(query, asked.phase, shown.page + 1)} loading={pending}>
 							Next page
 						</Button>
 					) : null}
@@ -225,7 +221,6 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 	);
 }
 
-/** Shows the pending line whenever a search runs, also while the previous hits stay on screen. */
 function SearchBody({ result, pending, query }: { result: SearchResult | null; pending: boolean; query: string }) {
 	if (!query || (!result && !pending)) return <p className="text-text-2">Type a word to search the wiki.</p>;
 	if (!result) return <p className="text-text-2">Searching.</p>;
@@ -302,11 +297,8 @@ function Snippet({ text }: { text: string }) {
 	);
 }
 
-/**
- * The Guide inside a modal dialog that covers the frame's Guide button (Settings). Its panel renders inside the
- * dialog's React tree, so using the panel does not count as a click outside the dialog.
- */
 export function SettingsGuide() {
+	const pathname = usePathname();
 	const [open, setOpen] = useState(false);
 	return (
 		<>
@@ -315,30 +307,22 @@ export function SettingsGuide() {
 				label="Guide"
 				size="sm"
 				aria-expanded={open}
-				onClick={() => setOpen((value) => !value)}
+				onClick={() => {
+					if (!open) guides.refresh(pathname);
+					setOpen(!open);
+				}}
 			/>
 			<GuideSheet open={open} onOpenChange={setOpen} />
 		</>
 	);
 }
 
+const guides = createRead((path: string) => loadGuide(path), {
+	failed: (): GuideResult => ({ status: "unavailable" }),
+});
+
 function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-	const pathname = usePathname();
-	const [result, setResult] = useState<{ path: string; value: GuideResult } | null>(null);
-	useEffect(() => {
-		if (!open) return;
-		let live = true;
-		// A rejected call (offline) shows the same text as a guide the server could not read.
-		void loadGuide(pathname)
-			.catch((): GuideResult => ({ status: "unavailable" }))
-			.then((next) => {
-				if (live) setResult({ path: pathname, value: next });
-			});
-		return () => {
-			live = false;
-		};
-	}, [open, pathname]);
-	const shown = result?.path === pathname ? result.value : null;
+	const guide = useRead(open ? guides : null, usePathname());
 	return (
 		<Sheet
 			open={open}
@@ -347,7 +331,7 @@ function GuideSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (open
 			description="A short note for this page."
 			modal={false}
 		>
-			<GuideBody result={shown} />
+			<GuideBody result={guide.value ?? null} />
 		</Sheet>
 	);
 }
@@ -357,7 +341,6 @@ function GuideBody({ result }: { result: GuideResult | null }) {
 	if (result.status === "missing") return <p>No guide for this page.</p>;
 	if (result.status === "denied") return <p>Sign in to read the guide.</p>;
 	if (result.status === "unavailable") return <p>The guide could not be loaded. Try again.</p>;
-	// The domain cut (sectionExcerpt) ends a mid-sentence cut with its own ellipsis, so the excerpt shows as it comes.
 	return (
 		<article className="flex flex-col gap-4">
 			<header>
@@ -380,29 +363,11 @@ function GuideBody({ result }: { result: GuideResult | null }) {
 	);
 }
 
-type ArticleProps = {
-	articleId: string;
-	slug: string;
-	source: string | null;
-	readingRevision: string;
-	plantId?: string;
-	bookmarked: boolean;
-	observedFraction: string;
-	completed: boolean;
-	updated: boolean;
-	children: ReactNode;
-};
-
 type Session = {
-	marked: boolean;
-	percent: string;
-	done: boolean;
-	updated: boolean;
-	note: string;
-	busy: "pdf" | "print" | null;
-	toggleBookmark: () => void;
-	pdf: () => void;
-	print: () => void;
+	store: SessionStore;
+	exporting: boolean;
+	exportAs: (kind: "pdf" | "print") => void;
+	track: (column: HTMLElement | null) => (() => void) | undefined;
 };
 
 const SessionContext = createContext<Session | null>(null);
@@ -413,215 +378,55 @@ function useSession(): Session {
 	return session;
 }
 
-/** The scroll container of the article column. Below 1280px it does not scroll and the window does. */
-const ARTICLE_SCROLL_ID = "wiki-scroll";
+const SESSION_PORT: SessionPort = { recordView: recordArticleView, saveProgress, saveBookmark, downloadPdf, printCopy };
 
-/** The article column when it is the scroll container (1280px and up), else null and the window scrolls. */
-function scrollColumn(): HTMLElement | null {
-	const column = document.getElementById(ARTICLE_SCROLL_ID);
-	return column && getComputedStyle(column).overflowY !== "visible" ? column : null;
-}
-
-/** Coarse progress steps: each quarter, past the 0.80 completion line, and the end of the article. */
-function progressStep(fraction: number): number {
-	return [0.25, 0.5, 0.75, 1].filter((step) => fraction >= step).length + (fraction > 0.8 ? 1 : 0);
-}
-
-/**
- * One article's reading state: the open record, scroll progress, the bookmark and the print and PDF writes.
- * Mount it with the article id as key, so a new article starts from its own state.
- */
-export function ArticleSession({ children, ...props }: ArticleProps) {
-	const revision = useRef(props.readingRevision);
-	const chain = useRef<Promise<WriteResult | void>>(Promise.resolve());
-	const seen = useRef(Number(props.observedFraction) || 0);
-	// The furthest point already sent. Progress writes go out only at coarse steps and on leaving.
-	const sent = useRef(seen.current);
-	const viewKey = useRef(crypto.randomUUID());
-	// Strict mode runs this effect twice. Record one view per article.
-	const recorded = useRef<string | null>(null);
-	const bookmarkKey = useRef(crypto.randomUUID());
-	const [marked, setMarked] = useState(props.bookmarked);
-	const [percent, setPercent] = useState(props.observedFraction);
-	const [done, setDone] = useState(props.completed);
-	const [updated, setUpdated] = useState(props.updated);
-	const [note, setNote] = useState("");
-	const [fallback, setFallback] = useState<string | null>(null);
-	const [busy, setBusy] = useState<"pdf" | "print" | null>(null);
-
-	function enqueue(task: (rev: string) => Promise<WriteResult>) {
-		chain.current = chain.current.then(async (): Promise<WriteResult> => {
-			// A thrown write (network failure) must not reject the chain: that would stop every later write.
-			const result = await task(revision.current).catch((): WriteResult => ({ status: "lost" }));
-			if (result.status === "ok") {
-				revision.current = result.revision;
-				setMarked(result.bookmarked);
-				// The label follows the reader between the coarse saves, so a saved result never lowers it.
-				setPercent(fractionText(Math.max(Number(result.observedFraction) || 0, seen.current)));
-				setDone(result.completed);
-				if (result.updated) setUpdated(true);
-				setNote("");
-			} else if (result.status === "conflict") setNote("Reload the page, then try again.");
-			else if (result.status === "denied") setNote("You cannot change this article.");
-			else setNote("That did not save. Try again.");
-			return result;
-		});
-		return chain.current;
-	}
-
+export function ArticleSession({ children, ...seed }: SessionSeed & { children: ReactNode }) {
+	const store = useLocalStore(() => createArticleSessionStore(seed, SESSION_PORT));
+	const [exporting, startExport] = useTransition();
 	useEffect(() => {
-		if (recorded.current !== props.articleId) {
-			recorded.current = props.articleId;
-			viewKey.current = crypto.randomUUID();
-			void enqueue(() =>
-				recordArticleView({ requestKey: viewKey.current, articleId: props.articleId, plantId: props.plantId }),
-			);
-		}
-		const article = document.getElementById("wiki-article");
-		const column = scrollColumn();
-		if (!article) return;
-		let timer = 0;
-		const save = () => {
-			if (seen.current <= sent.current) return;
-			sent.current = seen.current;
-			const fraction = fractionText(seen.current);
-			void enqueue(() =>
-				saveProgress({ requestKey: crypto.randomUUID(), articleId: props.articleId, plantId: props.plantId }, fraction),
-			);
-		};
-		// Progress is the share of the article above the bottom edge of what the reader sees. That edge is the
-		// article column's, or the window’s below 1280px, where the column does not scroll.
-		const measure = () => {
-			const total = article.scrollHeight;
-			if (total <= 0) return;
-			const rect = article.getBoundingClientRect();
-			const edge = column ? column.getBoundingClientRect().bottom : window.innerHeight;
-			const visible = Math.min(total, Math.max(0, edge - rect.top));
-			const next = Math.min(1, visible / total);
-			const reached = next >= 0.995 ? 1 : next;
-			if (reached <= seen.current) return;
-			seen.current = reached;
-			setPercent(fractionText(reached));
-			if (progressStep(reached) > progressStep(sent.current)) save();
-		};
-		const onScroll = () => {
-			window.clearTimeout(timer);
-			timer = window.setTimeout(measure, 500);
-		};
-		measure();
-		const target: Element | Window = column ?? window;
-		target.addEventListener("scroll", onScroll, { passive: true });
-		window.addEventListener("resize", onScroll);
-		// Leaving the page saves the furthest point read since the last step. A server action's fetch dies with the
-		// page, so this one is a keepalive request. Leaving the article inside the app saves through the action below.
-		const leave = () => {
-			if (seen.current <= sent.current) return;
-			sent.current = seen.current;
-			void fetch("/api/wiki/progress", {
-				method: "POST",
-				keepalive: true,
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({
-					requestKey: crypto.randomUUID(),
-					articleId: props.articleId,
-					fraction: fractionText(seen.current),
-					...(props.plantId ? { plantId: props.plantId } : {}),
-				}),
-			}).catch(() => undefined);
-		};
-		window.addEventListener("pagehide", leave);
-		return () => {
-			target.removeEventListener("scroll", onScroll);
-			window.removeEventListener("resize", onScroll);
-			window.removeEventListener("pagehide", leave);
-			window.clearTimeout(timer);
-			save();
-		};
-		// Record the open once per article.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [props.articleId]);
-
-	async function toggleBookmark() {
-		const desired = !marked;
-		setMarked(desired);
-		const result = await enqueue((rev) =>
-			saveBookmark({ requestKey: bookmarkKey.current, expectedRevision: rev, articleId: props.articleId }, desired),
-		);
-		if (!result || result.status !== "ok") setMarked(!desired);
-		else bookmarkKey.current = crypto.randomUUID();
-	}
-
-	async function pdf() {
-		setBusy("pdf");
-		setFallback(null);
-		// A rejected call (offline) is a lost export: the buttons come back and the reader sees why.
-		const result = await downloadPdf(props.articleId, props.source).catch((): ExportResult => ({ status: "lost" }));
-		setBusy(null);
-		if (result.status === "pdf") {
-			saveFile(pdfFilename(props.slug), result.bytes);
-			return;
-		}
-		if (result.status === "print" && result.fallback) {
-			setFallback(result.html);
-			setNote("The PDF font failed. You can print the article instead.");
-			return;
-		}
-		setNote(result.status === "denied" ? "You cannot download this article." : "The PDF could not be made. Try again.");
-	}
-
-	async function printArticle() {
-		setBusy("print");
-		const result = fallback
-			? { status: "print" as const, html: fallback, fallback: true }
-			: await printCopy(props.articleId, props.source).catch((): ExportResult => ({ status: "lost" }));
-		setBusy(null);
-		if (result.status === "print") {
-			if (!openPrint(result.html)) setNote("Allow pop-up windows to print this article.");
-			return;
-		}
-		setNote(result.status === "denied" ? "You cannot print this article." : "Print could not be prepared. Try again.");
-	}
-
-	return (
-		<SessionContext
-			value={{
-				marked,
-				percent,
-				done,
-				updated,
-				note,
-				busy,
-				toggleBookmark: () => void toggleBookmark(),
-				pdf: () => void pdf(),
-				print: () => void printArticle(),
-			}}
-		>
-			{children}
-		</SessionContext>
+		store.getState().actions.recordView();
+	}, [store]);
+	const track = useCallback(
+		(column: HTMLElement | null) => (column ? store.getState().actions.track(column) : undefined),
+		[store],
 	);
+	const session = useMemo(
+		() => ({
+			store,
+			exporting,
+			track,
+			exportAs: (kind: "pdf" | "print") => startExport(() => store.getState().actions[kind]()),
+		}),
+		[store, exporting, track],
+	);
+	return <SessionContext value={session}>{children}</SessionContext>;
 }
 
-/** Bookmark, download and print: one row of equal buttons beside the search field. */
 export function ArticleTools() {
-	const { marked, busy, toggleBookmark, pdf, print } = useSession();
+	const { store, exporting, exportAs } = useSession();
+	const marked = useStore(store, (state) => state.marked);
+	const { toggleBookmark } = useStore(store, (state) => state.actions);
 	return (
 		<>
 			<IconButton
 				icon={Bookmark02Icon}
 				label={marked ? "Remove bookmark" : "Bookmark"}
 				aria-pressed={marked}
-				onClick={toggleBookmark}
+				onClick={() => void toggleBookmark()}
 				className="aria-pressed:bg-ink aria-pressed:text-on-ink aria-pressed:shadow-none aria-pressed:hover:bg-ink-2 aria-pressed:[&_svg]:fill-current"
 			/>
-			<IconButton icon={Download01Icon} label="Download PDF" onClick={pdf} disabled={busy !== null} />
-			<IconButton icon={PrinterIcon} label="Print" onClick={print} disabled={busy !== null} />
+			<IconButton icon={Download01Icon} label="Download PDF" onClick={() => exportAs("pdf")} disabled={exporting} />
+			<IconButton icon={PrinterIcon} label="Print" onClick={() => exportAs("print")} disabled={exporting} />
 		</>
 	);
 }
 
-/** The meta line under the title: read status, the credit, the update flag and the status note. */
 export function ReadStatus({ credit, version }: { credit: string | null; version: ArticleVersion | null }) {
-	const { percent, done, updated, note } = useSession();
+	const { store } = useSession();
+	const { percent, done, updated, note } = useStore(
+		store,
+		useShallow(({ percent, done, updated, note }) => ({ percent, done, updated, note })),
+	);
 	const text = `${Math.round(Math.min(1, Math.max(0, Number(percent) || 0)) * 100)}% read`;
 	return (
 		<span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 align-middle">
@@ -651,27 +456,6 @@ export function ReadStatus({ credit, version }: { credit: string | null; version
 	);
 }
 
-function saveFile(filename: string, bytes: string) {
-	const binary = atob(bytes);
-	const data = new Uint8Array(binary.length);
-	for (let index = 0; index < binary.length; index += 1) data[index] = binary.charCodeAt(index);
-	const url = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
-	const link = document.createElement("a");
-	link.href = url;
-	link.download = filename;
-	link.click();
-	URL.revokeObjectURL(url);
-}
-
-function openPrint(html: string): boolean {
-	const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
-	const popup = window.open(url);
-	if (!popup) return false;
-	popup.addEventListener("load", () => popup.print());
-	return true;
-}
-
-/** What the last "Set as preferred" said, on the article it was chosen from. */
 type Said = { path: string } & (
 	| { saved: { name: string; list: "churches" | "networks"; id: string } }
 	| { refused: Exclude<OrderSave, { status: "ok" }> }
@@ -709,7 +493,6 @@ export function SourceBar({
 	const openSettings = useOpenSettings();
 	const [said, setSaid] = useState<Said | null>(null);
 	const [saving, setSaving] = useState(false);
-	// The article reloads inside this transition, so the status line waits for the version the save chose.
 	const [loading, startLoading] = useTransition();
 	const hrefFor = (id: string) => {
 		const params = new URLSearchParams(search.toString());
@@ -737,7 +520,6 @@ export function SourceBar({
 			return;
 		}
 		setSaid({ path: pathname, saved: { name, list: change.list, id: currentId } });
-		// The preferred source now opens without ?source=, in the default bar.
 		const params = new URLSearchParams(search.toString());
 		params.delete("source");
 		const query = params.toString();
@@ -777,13 +559,11 @@ export function SourceBar({
 					: undefined
 			}
 			status={canOrder ? status : undefined}
-			// The order is set in Settings, opened over this article so Escape and Back return here.
 			onSettings={canOrder ? () => (openSettings ? openSettings("wiki") : router.push("/settings/wiki")) : undefined}
 		/>
 	);
 }
 
-/** The Owner's way from an article to the church's Wiki source order in Settings, opened over the article. */
 export function OrderSettingsButton({ children }: { children: ReactNode }) {
 	const link = useSettingsLink("wiki");
 	return (
@@ -793,90 +573,49 @@ export function OrderSettingsButton({ children }: { children: ReactNode }) {
 	);
 }
 
-/** Thin scrollbar in theme colors. Each column reserves its gutter so text never shifts when a bar appears. */
 const SCROLL =
 	"overscroll-contain [scrollbar-color:var(--ef-line-2)_transparent] [scrollbar-gutter:stable] [scrollbar-width:thin]";
 
-/** A side column: it scrolls on its own when the layout is fixed, else it sticks below the app bar. */
 const RAIL = `${RAIL_FIXED} ${SCROLL}`;
 
-/** The heading nearest the top of the article column (the window below 1280px) is the current one. */
-function useCurrentHeading(ids: string[]): string | undefined {
-	const [current, setCurrent] = useState<string | undefined>(ids[0]);
-	const key = ids.join("|");
-	useEffect(() => {
-		const list = key ? key.split("|") : [];
-		if (!list.length) return;
-		const column = scrollColumn();
-		const update = () => {
-			// Below 1280px the window scrolls and headings stop under the sticky app bar.
-			const top = column ? column.getBoundingClientRect().top + 24 : 120;
-			let found = list[0];
-			for (const id of list) {
-				const el = document.getElementById(id);
-				if (el && el.getBoundingClientRect().top <= top) found = id;
-			}
-			setCurrent(found);
-		};
-		update();
-		const target: Element | Window = column ?? window;
-		target.addEventListener("scroll", update, { passive: true });
-		return () => target.removeEventListener("scroll", update);
-	}, [key]);
-	return current;
+const ARTICLE_SCROLL_ID = "wiki-scroll";
+
+function scrollColumn(): HTMLElement | null {
+	const column = document.getElementById(ARTICLE_SCROLL_ID);
+	return column && getComputedStyle(column).overflowY !== "visible" ? column : null;
 }
 
-export function TocRail({ items }: { items: { id: string; label: string; level?: 2 | 3 }[] }) {
-	const current = useCurrentHeading(items.map((item) => item.id));
-	if (!items.length) return null;
-	return <Toc items={items} current={current} />;
-}
+type Heading = { id: string; label: string; level?: 2 | 3 };
 
-/** Where the sidenav was scrolled to. It outlives the page mount, so a click on a link keeps the place. */
 let sidenavTop = 0;
 
-/**
- * The reading columns. From 1280px up and with `fixed`, the page header above stays put and the sidenav, the article
- * and the contents list each scroll on their own. Below 1280px the page scrolls as one.
- */
-export function ArticleColumns({
+function keepSidenavPlace(el: HTMLDivElement | null) {
+	if (!el) return;
+	el.scrollTop = sidenavTop;
+	const current = el.querySelector<HTMLElement>('[aria-current="page"]');
+	if (current) {
+		const box = el.getBoundingClientRect();
+		const link = current.getBoundingClientRect();
+		if (link.top < box.top) el.scrollTop += link.top - box.top;
+		else if (link.bottom > box.bottom) el.scrollTop += link.bottom - box.bottom;
+	}
+	sidenavTop = el.scrollTop;
+}
+
+type Groups = { name: string; items: { id: string; title: string; href: string; read?: boolean }[] }[];
+
+function ArticleTree({
 	phases,
 	more,
 	currentId,
-	toc,
-	children,
 	meter,
-	fixed,
 }: {
 	phases: WikiPhase[];
-	more: { name: string; items: { id: string; title: string; href: string; read?: boolean }[] }[];
+	more: Groups;
 	currentId?: string;
-	toc: ReactNode;
-	children: ReactNode;
 	meter: ReactNode;
-	fixed: boolean;
 }) {
-	const pathname = usePathname();
-	const [openPath, setOpenPath] = useState<string | null>(null);
-	const open = openPath === pathname;
-	const side = useRef<HTMLDivElement>(null);
-	// Each article is a new page mount, so the article column starts at its top. The sidenav takes back the place it had
-	// and shows the current link when that link is out of view.
-	useLayoutEffect(() => {
-		const el = side.current;
-		if (!el) return;
-		el.scrollTop = sidenavTop;
-		// Set scrollTop directly: scrollIntoView moves Chromium's focus start point and breaks the first Tab.
-		const current = el.querySelector<HTMLElement>('[aria-current="page"]');
-		if (current) {
-			const box = el.getBoundingClientRect();
-			const link = current.getBoundingClientRect();
-			if (link.top < box.top) el.scrollTop += link.top - box.top;
-			else if (link.bottom > box.bottom) el.scrollTop += link.bottom - box.bottom;
-		}
-		sidenavTop = el.scrollTop;
-	}, []);
-	const tree = () => (
+	return (
 		<div className="flex flex-col gap-4">
 			{phases.length ? <WikiTree phases={phases} currentId={currentId} linkAs={Link} /> : null}
 			{more.map((group) => (
@@ -906,6 +645,40 @@ export function ArticleColumns({
 			{meter}
 		</div>
 	);
+}
+
+export function ArticleColumns({
+	phases,
+	more,
+	currentId,
+	headings,
+	children,
+	meter,
+	fixed,
+}: {
+	phases: WikiPhase[];
+	more: Groups;
+	currentId?: string;
+	headings: Heading[];
+	children: ReactNode;
+	meter: ReactNode;
+	fixed: boolean;
+}) {
+	const pathname = usePathname();
+	const session = use(SessionContext);
+	const [openPath, setOpenPath] = useState<string | null>(null);
+	const open = openPath === pathname;
+	const [heading, setHeading] = useState(headings[0]?.id);
+	const ids = headings.map((item) => item.id).join("|");
+	const watchHeadings = useMemo(
+		() =>
+			observeHeadings(ids ? ids.split("|") : [], setHeading, {
+				root: () => scrollColumn(),
+				offset: (root) => (root ? 24 : 120),
+			}),
+		[ids],
+	);
+	const toc = headings.length ? <Toc items={headings} current={heading} /> : null;
 	return (
 		<>
 			<div className={`mb-4 ${BELOW_WIDE_ONLY}`}>
@@ -916,20 +689,23 @@ export function ArticleColumns({
 			<Dialog open={open} onOpenChange={(next) => setOpenPath(next ? pathname : null)}>
 				<DialogContent>
 					<DialogHeader title="Articles" />
-					<DialogBody>{tree()}</DialogBody>
+					<DialogBody>
+						<ArticleTree phases={phases} more={more} currentId={currentId} meter={meter} />
+					</DialogBody>
 				</DialogContent>
 			</Dialog>
 			<div className={fixed ? GRID_FIXED : GRID}>
 				<div
-					ref={side}
+					ref={keepSidenavPlace}
 					onScroll={(event) => {
 						sidenavTop = event.currentTarget.scrollTop;
 					}}
 					className={fixed ? RAIL : RAIL_STICKY}
 				>
-					{tree()}
+					<ArticleTree phases={phases} more={more} currentId={currentId} meter={meter} />
 				</div>
 				<div
+					ref={session?.track}
 					id={fixed ? ARTICLE_SCROLL_ID : undefined}
 					tabIndex={fixed ? 0 : undefined}
 					aria-label={fixed ? "Article" : undefined}
@@ -938,7 +714,9 @@ export function ArticleColumns({
 					<div className={`mb-6 ${BELOW_WIDE_ONLY}`}>{toc}</div>
 					{children}
 				</div>
-				<div className={fixed ? `${RAIL} ${RAIL_TOC_PAD}` : RAIL_STICKY}>{toc}</div>
+				<div ref={watchHeadings} className={fixed ? `${RAIL} ${RAIL_TOC_PAD}` : RAIL_STICKY}>
+					{toc}
+				</div>
 			</div>
 		</>
 	);
