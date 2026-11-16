@@ -1,13 +1,3 @@
-// WP-036 slice 2: the editor's free parts and its schema. No browser, no database.
-//   AC:CASE-DOC-016: the plain document editor (OPS-87) holds a native body unchanged and has no template-only node.
-//   AC:DOC-EDIT-FREE: every Tiptap package the workspace installs is MIT; no @tiptap-pro package. The private-registry
-//   check is scripts/lint/check-repo-files.mjs, which `pnpm lint` runs.
-//   AC:DOC-EDIT-SCHEMA: the editor's extensions hold the body of a fork of each built-in template unchanged.
-//   BUG-T20: conditional text (the `if` node) loads and reads back unchanged; the editor refuses it where the format does.
-//   BUG-T123: Insert never offers columns under a column, and a paste under a column brings no columns node in.
-//   BUG-T50: a color swatch is named by its readable name, never by its raw token (Nora QA Nov 4, #420 criterion 13).
-//   AC:CASE-DOC-016 (T-100): a plain document holds T-16's table in its plain set; Insert adds the plain table and
-//   checklist rows and never a budget; a pasted Church Document table is reduced so the editor JSON stays a native body.
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -37,7 +27,6 @@ import { fieldValues, frozenData } from "../../../packages/domain/src/documents/
 const ROOT = join(import.meta.dirname, "../../..");
 const readJson = (path: string) => JSON.parse(readFileSync(path, "utf8")) as Record<string, any>;
 
-/** Every workspace package.json: the root, apps/* and packages/*. */
 function workspacePackages() {
 	const dirs = [ROOT, ...["apps", "packages"].flatMap((d) => readdirSync(join(ROOT, d)).map((n) => join(ROOT, d, n)))];
 	return dirs.filter((d) => existsSync(join(d, "package.json")));
@@ -90,7 +79,6 @@ test("AC:CASE-DOC-020-EDIT a slot (a doctrinal section, in no built-in template)
 test("BUG-9ff6b1a67: each color token of the format has a swatch with its own readable name, never the raw token", () => {
 	const tokens = FORMAT_SCHEMA.tokens.color as readonly (keyof typeof TOKEN_NAMES)[];
 	assert.deepEqual([...TOKENS], [...tokens], "one swatch for each color token, in the format's order");
-	// A readable name is capitalized words, so a raw token such as "ink" or "muted-text" never passes.
 	const unreadable = tokens.filter((token) => !/^[A-Z][a-z]*( [a-z]+)*$/.test(TOKEN_NAMES[token] ?? ""));
 	assert.deepEqual(unreadable, []);
 	assert.equal(new Set(tokens.map((token) => TOKEN_NAMES[token])).size, tokens.length, "no two swatches share a name");
@@ -111,7 +99,6 @@ test("BUG-64ca105ce: a commitment card with a stored empty contact_line shows no
 	const values = fieldValues(empty);
 	assert.equal(values.contact_line, "");
 	assert.ok(!Object.values(values).some((v) => /\[contact line\]/i.test(v)));
-	// A brand kit with a contact line prints it; a field with no value and no fallback still shows its label in brackets.
 	const filled = await forkTemplate(card, {
 		data: frozenData(card.fields, { ...sources, contactLine: "harborcity.church  ·  (555) 010-0199" }).data,
 	});
@@ -225,7 +212,6 @@ test("AC:CASE-DOC-016: the plain document editor holds a native body unchanged, 
 	assert.equal(native.marks.tag, undefined);
 });
 
-// BUG-T123: a body with a box in a column, a plain column and a body paragraph, each holding one marked word.
 const para = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] });
 const layoutBody = {
 	type: "doc",
@@ -240,7 +226,6 @@ const layoutBody = {
 		para("inbody"),
 	],
 };
-/** The editor state with the cursor at the end of the word. */
 function caretIn(word: string) {
 	const doc = schema.nodeFromJSON(layoutBody);
 	let at = -1;
@@ -273,7 +258,6 @@ test("BUG-58bc5acb8: a pasted columns node under a column gives way to its block
 		DOC_TEMPLATES.find((t) => t.id === "commitment-card")!,
 		{ data: {} },
 	);
-	// The copied content: a whole columns node, as a slice of a source document.
 	const source = schema.nodeFromJSON({
 		type: "doc",
 		content: [
@@ -299,14 +283,11 @@ test("BUG-58bc5acb8: a pasted columns node under a column gives way to its block
 		const doc = documentFrom(fork, after.toJSON());
 		assert.equal(docDocument.safeParse(doc).success, true, `the document saves after a paste at ${word}`);
 		if (word === "inbox") {
-			// Without the transform the paste lands a columns node in the box, which Save refuses.
 			assert.equal(columnsUnderColumn(raw.doc), true);
 			assert.equal(docDocument.safeParse(documentFrom(fork, raw.doc.toJSON())).success, false);
 		}
 	}
-	// A slice copied from inside a column, open through columns and column, pastes as its text.
 	const state = caretIn("inbox");
-	// Copied from inside "left" to inside "boxed": with its columns parent, as the editor copies, and as bare columns.
 	for (const open of [source.slice(4, source.content.size - 4, true), source.slice(4, source.content.size - 4)]) {
 		const after = state.apply(state.tr.replaceSelection(pastedSlice(open, state))).doc;
 		after.check();
@@ -314,13 +295,11 @@ test("BUG-58bc5acb8: a pasted columns node under a column gives way to its block
 		assert.match(after.textContent, /ftrightbox/);
 		assert.equal(docDocument.safeParse(documentFrom(fork, after.toJSON())).success, true);
 	}
-	// Outside a column a pasted columns node stays.
 	const body = caretIn("inbody");
 	const kept = pastedSlice(whole, body);
 	assert.equal(kept.content.firstChild?.type.name, "columns");
 });
 
-// T-100: a plain body with a table of every column kind, marks in a cell, stripes and a checklist.
 const cell = (text?: string, marks?: unknown[]) =>
 	text ? { type: "cell", content: [{ type: "text", text, ...(marks ? { marks } : {}) }] } : { type: "cell" };
 const everyKind = {
@@ -370,7 +349,6 @@ const plainWithTables = {
 	content: [{ type: "paragraph", content: [{ type: "text", text: "Setup" }] }, everyKind, checklist],
 };
 
-/** The plain editor's document as the stored body node, as NativeEditor saves it. */
 const storedOf = (doc: Doc) => {
 	const json = clean(doc.toJSON()) as { content?: unknown[] };
 	return { ...json, content: blocksFromEditor(json.content ?? []) };
@@ -429,7 +407,6 @@ test("AC:CASE-DOC-016: a pasted budget, header color or write-in table is reduce
 		type: "doc",
 		content: [{ type: "paragraph", content: [{ type: "text", text: "Hi" }] }],
 	});
-	// What the plain schema parses from a Church Document's clipboard: T-16's table with every attribute it has.
 	const copied = (table: unknown) => {
 		const source = native.nodeFromJSON({ type: "doc", content: blocksToEditor([table]) });
 		return source.slice(0, source.content.size);
@@ -443,7 +420,6 @@ test("AC:CASE-DOC-016: a pasted budget, header color or write-in table is reduce
 		const body = storedOf(after);
 		assert.equal(nativeBody.safeParse(body).success, true, JSON.stringify(body));
 	}
-	// The budget keeps what each cell showed: its labels and amounts, totals included, in plain rows.
 	const after = paste(budget);
 	const table = (
 		storedOf(after).content as { type: string; content?: { content: { attrs?: { value?: number } }[] }[] }[]
@@ -452,7 +428,6 @@ test("AC:CASE-DOC-016: a pasted budget, header color or write-in table is reduce
 		table.content!.map((row) => row.content[1]!.attrs?.value ?? null),
 		[null, 500, 500, 500],
 	);
-	// Write-in rows become typed rows: the checklist's row and its two blank rows.
 	const fromWriteIns = paste(writeIns);
 	const rows = (storedOf(fromWriteIns).content as { type: string; content?: unknown[] }[]).find(
 		(n) => n.type === "table",

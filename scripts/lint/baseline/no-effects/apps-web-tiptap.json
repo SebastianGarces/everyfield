@@ -1,0 +1,7 @@
+{
+	"apps/web/src/features/documents/church/editor/tiptap/primitives/toolbar.tsx": 3,
+	"apps/web/src/features/documents/church/editor/tiptap/ui/link-popover.tsx": 1,
+	"apps/web/src/features/documents/church/editor/tiptap/ui/use-link-popover.ts": 2,
+	"apps/web/src/features/documents/church/editor/tiptap/ui/use-undo-redo.ts": 1,
+	"apps/web/src/features/documents/church/editor/tiptap/use-menu-navigation.ts": 2
+}

@@ -10,15 +10,6 @@ import type { EffectResult, NativePorts, ReviewContext, ReviewedWrite } from "..
 import { plantAdmin } from "../../native.ts";
 import { launchDay } from "../reads/index.ts";
 
-// The Launch reviewed writes (WP-076). The model only proposes; a person approves the exact card. Each review reads
-// the plan through the Launch plan's own read and saves the native command's request with the revision it showed. On
-// approval the executor runs that same command once, in its transaction, under the approving session's live seat, with
-// the effect key as the request key; a plan that changed since refuses (conflict) and the card shows Launch Sunday as it
-// is now. None of them moves a prep task, the church's phase or sends anything (INH-LAUNCH-04). Only naming a guest by a
-// typed name creates a Person, with only that name (T-383, LCH-007); no count ever creates one (INH-LAUNCH-05).
-// Owners and Admins only, as on the Launch plan. Completing a milestone (T-382) notifies the church's other Owners and
-// Admins through the deployment's Launch notices, as the Launch plan does; no other write here notifies anyone.
-
 const reader = createLaunchReader();
 const writer = createLaunchWriter({ notices: async () => undefined });
 
@@ -26,7 +17,6 @@ type Change = { field: string; before: unknown; after: unknown };
 type Prepared = { label?: string; changes: Change[]; notes?: string[]; refusal?: string | null; args: object };
 const TARGET_LABEL = "Launch plan";
 
-/** The words the Launch plan uses for a refused reason (launch/model.ts NOTE_MESSAGE). */
 const NOTE_REFUSAL: Record<c.NoteProblem, string> = {
 	empty: "A reason is needed. Tell Evry why, and it stays in the Launch history.",
 	too_long: "Keep the reason to 2,000 characters or fewer.",
@@ -42,7 +32,6 @@ const DEBRIEF_REFUSAL: Record<c.DebriefProblem, string> = {
 	count_out_of_range: "Use a whole number from 1 to 1,000,000.",
 	too_long: "Keep each answer to 10,000 characters or fewer.",
 };
-/** Launch Sunday as the plan states it now. */
 const plannedText = (plan: c.Plan) =>
 	plan.launch?.status === "postponed"
 		? "Postponed"
@@ -53,18 +42,11 @@ const guestAnswer = (a: Pick<c.DebriefAnswers, "missingNames" | "missingCount">)
 	a.missingNames === "yes" ? `Yes, ${a.missingCount ?? "?"}` : a.missingNames === "no" ? "No" : null;
 const UNCHANGED = "Prep task due dates, assignees and statuses stay as they are, and so does the church's phase.";
 
-/**
- * One Launch reviewed write. `prepare` decides the card from the plan as the Launch plan reads it now; `run` is the
- * native command. The review is one SELECT of literal values: the plan was read just before, under the same live seat
- * that prepareProposal checks again in its own statement.
- */
 function launchWrite<I, L = undefined>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	/** A record the card names besides the plan, read first under the same seat; null when it is not available. */
 	lookup?(db: Database, actor: EvryActor, input: I): Promise<L | null>;
-	/** The card, or null when what it would change is not on the plan. */
 	prepare(plan: c.Plan, input: I, found: L): Prepared | null;
 	run(
 		tx: Database,
@@ -73,7 +55,6 @@ function launchWrite<I, L = undefined>(spec: {
 		key: string,
 		ports: NativePorts | null,
 	): Promise<EffectResult>;
-	/** The records a refusal shows as they are now: Launch Sunday unless the write names others. */
 	current?: (p: SQL) => SQL;
 }): ReviewedWrite<I> {
 	return {
@@ -98,7 +79,6 @@ function launchWrite<I, L = undefined>(spec: {
 			return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(p.args)}::jsonb AS args`;
 		},
 		async execute(tx, _context, args, effectKey, _reminders, native) {
-			// The Launch commands open their own transaction; inside the executor's it is a savepoint of it.
 			return spec.run(
 				tx as unknown as Database,
 				native.authority,
@@ -110,7 +90,6 @@ function launchWrite<I, L = undefined>(spec: {
 		current: spec.current ?? launchSundayNow,
 	};
 }
-/** A plan that changed since the review: Launch Sunday as it is now. */
 const launchSundayNow = (
 	p: SQL,
 ) => sql`(SELECT jsonb_build_array(jsonb_build_object('id',${p}.tenant_id,'label','Launch Sunday',
@@ -118,7 +97,6 @@ const launchSundayNow = (
 				WHEN l.target_date IS NULL THEN 'No date set' ELSE trim(to_char(l.target_date,'Dy, Mon FMDD, YYYY')) END))
 			FROM plant x LEFT JOIN launch l ON l.plant_id=x.id WHERE x.id=${p}.tenant_id)`;
 
-/** A native Launch reply as an effect result: the plan's new revision, or the domain's refusal code. */
 const settled = (reply: c.LaunchReply<c.PlanResult>): EffectResult =>
 	reply.status === "ok" ? { revision: reply.value.plan.revision } : { refused: reply.error.code };
 
@@ -194,20 +172,16 @@ const EMPTY_ANSWERS: c.DebriefAnswers = {
 	missingNames: null,
 	missingCount: null,
 };
-/** The debrief version a write starts from: the draft being written, else the latest submission, else empty. */
 const baseAnswers = (plan: c.Plan) => plan.debrief?.draft?.answers ?? plan.debrief?.submitted?.answers ?? EMPTY_ANSWERS;
-/** The fence of the draft the page would hold: its id and revision, or none and "0". */
 const draftFence = (draft: { id: string; revision: string } | null | undefined) => ({
 	draftId: draft?.id ?? null,
 	expectedRevision: draft?.revision ?? "0",
 });
 
 const outcomeInput = z.strictObject({
-	/** The church-local date Launch Sunday happened (YYYY-MM-DD); the planned date when left out and not after today. */
 	actualDate: localDate.optional(),
 	attendance: count.nullable(),
 	decisions: count.nullable().optional(),
-	/** Guests who came but were not entered by name: 0 answers the debrief's guest question No. */
 	guestsNotNamed: count.nullable().optional(),
 });
 export const recordOutcome = launchWrite({
@@ -266,7 +240,6 @@ export const recordOutcome = launchWrite({
 			.parse(args);
 		const recorded = settled(await writer.recordOutcome(db, authority, { ...a.record, requestKey: key }));
 		if ("refused" in recorded || !a.debrief) return recorded;
-		// The guest answer is saved as the debrief draft in the same transaction: a refusal undoes the outcome too.
 		const { expectedRevision, ...input } = a.debrief;
 		return settled(
 			await writer.saveDebriefDraft(db, authority, { requestKey: `${key}:debrief`, expectedRevision, input }),
@@ -281,7 +254,6 @@ const debriefInput = z.strictObject({
 	operations: answer,
 	followUpPlan: answer,
 	supportNeeded: answer,
-	/** The guest question: guests not entered by name; 0 is No. Left out keeps the draft's answer. */
 	guestsNotNamed: count.nullable().optional(),
 });
 export const submitDebrief = launchWrite({
@@ -356,17 +328,11 @@ export const publishDebriefSummary = launchWrite({
 	},
 });
 
-/** A milestone as the Launch plan marks it: complete, needs review (a task complete at completion was reopened), or not. */
 const milestoneState = (m: c.Milestone) =>
 	!m.completion ? "Not complete" : m.needsReview ? "Needs review" : "Complete";
 const OPEN_TASK = (t: c.PrepTask) => t.status !== "complete" && t.status !== "no_longer_needed";
-/** The day of an instant in the church's time zone, as the Launch plan's history says it: "Oct 10, 2026". */
 const dayIn = (at: string, timeZone: string) =>
 	new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(new Date(at));
-/**
- * A milestone card refused because the milestone or its linked tasks changed since the review: the milestone and each
- * of its live linked prep tasks as they are now, as the Launch plan lists them (LCH-004 stale_review).
- */
 const milestoneNow = (p: SQL) => sql`(SELECT jsonb_build_array(jsonb_build_object('id',m.id,'label',m.title,'value',
 	CASE WHEN m.completed_at IS NULL THEN 'Not complete' WHEN EXISTS(SELECT FROM task r WHERE r.id=ANY(m.completed_task_ids)
 		AND r.plant_id=m.plant_id AND r.deleted_at IS NULL AND r.status NOT IN ('complete','no_longer_needed'))
@@ -379,7 +345,6 @@ const milestoneNow = (p: SQL) => sql`(SELECT jsonb_build_array(jsonb_build_objec
 	FROM launch_milestone m WHERE m.id=(${p}.input->'input'->>'milestoneId')::uuid AND m.plant_id=${p}.tenant_id)`;
 
 const milestoneInput = z.strictObject({
-	/** The milestone row's id from launch.readWorkspace. */
 	milestoneId: z.uuid(),
 });
 type MilestoneInput = z.infer<typeof milestoneInput>;
@@ -414,7 +379,6 @@ export const completeMilestone = launchWrite({
 		};
 	},
 	async run(db, authority, args, key, ports) {
-		// The Launch plan tells the church's other Owners and Admins; a server that can't tell them saves nothing.
 		const notices = ports?.launchNotices;
 		if (!notices) return { refused: "source_unavailable" };
 		const w = createLaunchWriter({ notices });
@@ -447,17 +411,13 @@ export const reopenMilestone = launchWrite({
 	current: milestoneNow,
 });
 
-/** A count as the Launch plan says it: an empty one is Not recorded, and 0 is 0. */
 const countShown = (n: number | null) => (n === null ? "Not recorded" : n);
 const KEPT_COUNTS = "Attendance, decisions and the debrief's guest answer stay as they are.";
 const NOT_RECORDED = "Launch Sunday isn't recorded yet. Record it first, then name its guests.";
 
-/** A Person the user picked as a guest, as the Launch plan's guest picker shows them: their name and email or phone. */
 type Picked = { id: string; displayName: string; detail: string };
 const guestInput = z.union([
-	/** A live Person of the church the user picked from launch.readDebrief's guestName matches. */
 	z.strictObject({ personId: z.uuid() }),
-	/** A new Person with only this name. */
 	z.strictObject({ displayName: z.string().max(c.GUEST_NAME_MAX * 4) }),
 ]);
 type GuestInput = z.infer<typeof guestInput>;
@@ -530,18 +490,13 @@ const FIELD_WORDS: Record<OutcomeField, string> = {
 	decisions: "decisions",
 };
 const correctionInput = z.strictObject({
-	/** The church-local date Launch Sunday was actually held (YYYY-MM-DD). Left out keeps the recorded date. */
 	actualDate: localDate.optional(),
-	/** Left out keeps the recorded count; null is Not recorded, which is not 0. */
 	attendance: z.int().nullable().optional(),
 	decisions: z.int().nullable().optional(),
-	/** Why it is corrected, in the user's own words (needed, at most 2,000 characters). */
 	reason: z.string().max(4000),
 });
-/** A stable id for one outcome field of the church `x`, shaped as a version 4 uuid like every other card row. */
 const fieldId = (field: string) =>
 	sql.raw(`overlay(overlay(md5(x.id::text||':${field}') placing '4' from 13) placing '8' from 17)::uuid`);
-/** A recorded outcome as Launch Sunday's correction card shows it now: each field as the Launch plan says it. */
 const outcomeNow = (p: SQL) => sql`(SELECT jsonb_build_array(
 	jsonb_build_object('id',${fieldId("actualDate")},'label','Date held','value',
 		CASE WHEN l.actual_date IS NULL THEN 'Not recorded' ELSE trim(to_char(l.actual_date,'Dy, Mon FMDD, YYYY')) END),
@@ -605,7 +560,6 @@ export const correctOutcome = launchWrite({
 	},
 	async run(db, authority, args, key) {
 		const { expectedRevision, input } = args as { expectedRevision: string; input: Record<string, unknown> };
-		// The outcome note stays as recorded: it is read here, never through Evry, and a plan changed since is refused.
 		const plan = await reader.readPlan(db, authority);
 		if (plan.status !== "ok") return { refused: plan.error.code };
 		const note = plan.value.plan.outcome?.note ?? null;
@@ -616,7 +570,6 @@ export const correctOutcome = launchWrite({
 	current: outcomeNow,
 });
 
-/** The installed Launch reviewed writes, keyed by operation. */
 export const LAUNCH_COMMANDS = {
 	"launch.schedule": schedule,
 	"launch.postpone": postpone,

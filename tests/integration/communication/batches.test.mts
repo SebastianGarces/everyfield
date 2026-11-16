@@ -1,8 +1,3 @@
-// T-228 (REQ-COM-005): a Messages email to more than 100 people goes to all of them. The handoff freezes the audience in
-// person-id order as batches of at most 100, each its own mail_request with its own members, request hash, provider key
-// and attempt. Send now, the minute runner and reconcile hand off every batch; cancel, time change, replace and the
-// counts read every batch; a retry reuses each batch's stored key and frozen bytes. The statement count of each
-// operation is the same for 1 batch and for 3: only provider calls grow.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -46,7 +41,6 @@ before(async () => {
 });
 after(() => f?.close());
 
-/** A scheduled message to `n` new live people with an address each. `people` is their ids in person-id order. */
 async function message(n: number, tag = "Batch") {
 	const created =
 		await rows(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,stage,adult_classification,
@@ -77,11 +71,6 @@ async function message(n: number, tag = "Batch") {
 }
 
 type Sent = { key: string; messages: readonly DeliveryMessage[]; scheduledAt: string | null };
-/**
- * A fake email service that keeps every call. `answer` decides each send by its 1-based call number; by default it
- * accepts every email with an id made from the key. Like the real one, a repeat of a key it accepted answers with
- * those ids and sends nothing new.
- */
 function carrier(answer?: (call: number, batch: Sent) => DeliveryBatch | Promise<DeliveryBatch>) {
 	const sends: Sent[] = [];
 	const cancels: string[][] = [];
@@ -122,7 +111,6 @@ const request = (communicationId: string, revision: string) => ({
 const sendNow = (m, transport, op = "sendReviewed") =>
 	communicationWriter[op](f.db, owner.actor, request(m.id, m.revision), transport, keys);
 
-/** The message's frozen requests in batch order (person-id order), each with its members by position. */
 async function batchesOf(communicationId: string) {
 	const found = await rows(sql`SELECT r.id, r.provider_key, r.request_hash, a.outcome AS attempt,
 		jsonb_agg(jsonb_build_object('person', m.recipient_person_id, 'state', m.state, 'provider', m.provider_message_id,
@@ -145,7 +133,6 @@ async function batchesOf(communicationId: string) {
 		}[],
 	}));
 }
-/** The email the handoff froze for one mail row, as the email service gets it. */
 async function frozenEmail(mailId: string) {
 	const [row] = await rows(
 		sql`SELECT tenant_id, frozen_payload, recipient_address_encrypted FROM mail WHERE id = ${mailId}`,
@@ -158,16 +145,10 @@ async function frozenEmail(mailId: string) {
 		html: body.html,
 	};
 }
-/**
- * Start a Send now whose second provider call never answers, as if the run stopped there, and wait until it is made.
- * A handoff that makes no second call fails here instead of waiting forever.
- */
 async function stopAtSecondCall(m, fake: { transport: DeliveryTransport; sends: Sent[] }) {
 	const run = sendNow(m, fake.transport).then((reply) => {
 		throw new Error(`the handoff finished without a second call: ${JSON.stringify(reply)}`);
 	});
-	// Wait on the second call itself, not on a count of event-loop turns: freezing 250 rows can take longer than any
-	// fixed number of turns on a loaded runner.
 	const send = fake.transport.send.bind(fake.transport);
 	const second = new Promise<void>((resolve) => {
 		fake.transport.send = (batch) => {
@@ -201,7 +182,6 @@ test("INV-message-batches: Send now to 250 people freezes 3 batches of 100, 100 
 		fake.sends.map((call) => [call.key, call.messages.length]),
 		batches.map((batch) => [batch.provider_key, batch.members.length]),
 	);
-	// Each call carries exactly its batch's frozen emails, in member order.
 	for (const [index, batch] of batches.entries()) {
 		const frozen = await Promise.all(batch.members.map((row) => frozenEmail(row.id)));
 		assert.deepEqual(
@@ -318,7 +298,6 @@ test("INV-message-batches: a lost second batch leaves only its 100 recipients un
 
 test("INV-message-batches: a retry reuses every batch's stored key and frozen bytes: a stopped run resumes, an unknown batch is asked again under its key, an expired one never resent", async () => {
 	const m = await message(250, "Resume");
-	// The run stops after the first batch: the second call never answers, so nothing of this run is stored.
 	const stopped = carrier((call, batch) => (call === 1 ? stopped.ids(batch) : new Promise<DeliveryBatch>(() => {})));
 	await stopAtSecondCall(m, stopped);
 	const frozen = await batchesOf(m.id);
@@ -326,8 +305,6 @@ test("INV-message-batches: a retry reuses every batch's stored key and frozen by
 		frozen.map((batch) => states(batch.members)),
 		[["dispatched"], ["dispatched"], ["dispatched"]],
 	);
-	// The retry hands off every batch under the key and bytes frozen the first time; the email service's idempotency
-	// on that key answers the first batch with the ids it already gave, so nobody gets it twice.
 	const retry = carrier();
 	const resumed = ok(await sendNow(m, retry.transport, "dispatchAttempt"));
 	assert.deepEqual(
@@ -343,13 +320,10 @@ test("INV-message-batches: a retry reuses every batch's stored key and frozen by
 		frozen.map((batch) => [batch.id, batch.provider_key, batch.request_hash]),
 		"never regrouped, re-frozen or given a new key",
 	);
-	// Every batch is answered now: another retry makes no call.
 	const quiet = carrier();
 	ok(await sendNow(m, quiet.transport, "dispatchAttempt"));
 	assert.deepEqual(quiet.sends, []);
 
-	// A batch answered with unknown is asked again with the same request under its own key, which the email service
-	// answers with its first result; the answered batches are not sent again.
 	const u = await message(250, "Reconcile");
 	const lossy = carrier((call, batch) => (call === 2 ? { outcome: "unknown" } : lossy.ids(batch)));
 	ok(await sendNow(u, lossy.transport));
@@ -365,7 +339,6 @@ test("INV-message-batches: a retry reuses every batch's stored key and frozen by
 	assert.equal(reconciled.unknownCount, 0);
 	assert.equal(reconciled.acceptedCount, 250);
 
-	// Past the 23 h 55 min window from first handoff, a batch never answered is never sent again.
 	const late = await message(250, "Late");
 	const lateStop = carrier((call, batch) => (call === 1 ? lateStop.ids(batch) : new Promise<DeliveryBatch>(() => {})));
 	await stopAtSecondCall(late, lateStop);
@@ -378,7 +351,6 @@ test("INV-message-batches: a retry reuses every batch's stored key and frozen by
 	assert.deepEqual(expired.sends, []);
 });
 
-/** Make `count` recipients of a batch held at the email service with the old send time, as before T-241. */
 async function holdAtProvider(members: { id: string }[], tag: string) {
 	const held = members.map((row, i) => ({ id: row.id, provider: `${tag}-${i}` }));
 	await f.admin
@@ -417,7 +389,6 @@ test("INV-message-batches: cancel and replace read every batch: waiting recipien
 	);
 	assert.equal(fake.sends.length, 0);
 
-	// Replace is allowed once no batch holds anyone and nothing went out.
 	const clean = await message(250, "Replace");
 	ok(await sendNow(clean, fake.transport, "handOffScheduled"));
 	await holdAtProvider((await batchesOf(clean.id))[1]!.members.slice(0, 1), "second");
@@ -469,7 +440,6 @@ test("INV-message-batches: a time change moves the waiting recipients of every b
 	);
 });
 
-/** The database a delivery operation is given, counting the statements it sends. */
 function counting(db: Database) {
 	const counter = { n: 0 };
 	const wrapped = new Proxy(db, {
@@ -494,7 +464,6 @@ test("INV-message-batches: every delivery operation sends as many statements for
 			ok(await call(db));
 			counts[name] = counter.n;
 		};
-		// Send now with every batch answered unknown, then a retry and a reconcile that ask again for each batch.
 		const now = await message(n, "Census");
 		const lost = carrier(() => ({ outcome: "unknown" }));
 		const call = (op: string, m) => (db: Database) =>
@@ -503,7 +472,6 @@ test("INV-message-batches: every delivery operation sends as many statements for
 		await run("dispatchAttempt", call("dispatchAttempt", now));
 		await run("reconcileProviderOutcome", call("reconcileProviderOutcome", now));
 		assert.equal(lost.sends.length, 3 * Math.ceil(n / 100));
-		// A scheduled handoff with one held recipient in the last batch, then a time change, a cancel and a replace.
 		const held = await message(n, "Held");
 		await run("handOffScheduled", call("handOffScheduled", held));
 		const batches = await batchesOf(held.id);

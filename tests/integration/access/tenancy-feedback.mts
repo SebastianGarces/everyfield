@@ -1,5 +1,3 @@
-// The feedback reads of INV-tenancy (tenancy.test.mts): church A's owner sends feedback with marked words and page, and
-// church B's owner asks for it by id, lists their own and tries the triage reads with no triage grant.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { authorizeTriage, feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
@@ -21,7 +19,6 @@ export function feedbackCases(t, who) {
 		[
 			name("getSendContext"),
 			{
-				// It takes no ids: the caller's own church, role and address.
 				run: () => feedbackWriter.getSendContext(t.f.db, who.actor),
 				expected: {
 					check: (value) => assert.equal(value.replyTo, who.email),
@@ -43,7 +40,6 @@ export function feedbackCases(t, who) {
 				expected: { refused: "unavailable", control: (value) => assert.equal(value.id, sent) },
 			},
 		],
-		// No church owner holds a triage grant, so church A's owner is refused too: there is no control.
 		[
 			name("admin.list"),
 			{

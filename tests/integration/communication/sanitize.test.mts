@@ -74,7 +74,6 @@ test("AC:COM-010 the email layout is inline-styled tables around the rendered bo
 	assert.ok(html.includes("<h1 style="));
 	const body = html.slice(html.indexOf("<h1"), html.indexOf('</td></tr><tr><td align="center"'));
 	assert.ok(body.includes("data-rsvp-button"));
-	// Author markup is still sanitized and the church name is escaped.
 	const hostile = renderEmailHtml("<script>alert(1)</script><p onclick=x>Hi</p>", {}, { churchName: "<b>Bad</b>" });
 	assert.equal(/<script|onclick|<b>Bad/.test(hostile), false);
 });

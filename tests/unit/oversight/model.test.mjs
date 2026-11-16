@@ -1,5 +1,3 @@
-// The organization oversight pages' words (apps/web/src/features/oversight/model.ts): what a directory row and a plant
-// page say for each provenance, lead and launch state, and the sending church's own heading.
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -39,7 +37,6 @@ test("a milestone-path row is labelled Milestone with its progress, never read a
 	});
 	assert.equal(pathText(milestone({ status: "not_reached" })).detail, "Not reached yet");
 	assert.equal(pathText(milestone({ status: "withdrawn" })).detail, "No longer offered");
-	// Without findings shared, neither a date nor "Not reached yet".
 	assert.equal(pathText(milestone({ status: "withheld" })).detail, null);
 
 	assert.equal(chosenText(milestone({ status: "not_reached" }), "Harvest Point"), "chosen by Hill Country Network");
@@ -68,7 +65,6 @@ test("AC:TARGET-IDN-023 how a plant is linked, its locality, phase and Launch Su
 	assert.equal(locality({ city: null, stateProvince: null, country: "US" }), "US");
 	assert.equal(phaseLabel(3), "3 · Training");
 	assert.equal(launchLabel(null), "Not set");
-	// A plant-local date shows as that date in every time zone, never the day before.
 	assert.equal(launchLabel("2027-03-14"), "Mar 14, 2027");
 });
 
@@ -77,7 +73,6 @@ test("AC:TARGET-IDN-024 a sending church's home heading never says network", () 
 	assert.doesNotMatch(HOME_HEADING.sending_church, /network/i);
 });
 
-/** Every string a value holds, however deep. */
 const stringsOf = (value) => (typeof value === "string" ? [value] : Object.values(value).flatMap((v) => stringsOf(v)));
 
 test("a sending church's Intelligence page and view switch use its own name and never say network", () => {
@@ -87,7 +82,6 @@ test("a sending church's Intelligence page and view switch use its own name and 
 	assert.equal(words.notRun, "Grace Austin Intelligence hasn't run yet");
 	assert.equal(words.refused, "Only Owners and Admins can refresh Grace Austin Intelligence.");
 	assert.equal(words.failed, "We couldn't run Grace Austin Intelligence. Nothing was changed. Try again in a moment.");
-	// The callout still says what the rubric reads and that it never names a person or ranks plants.
 	assert.match(words.howItWorks, /^Everyfield's rubric v1 reads only counts and dates each plant shares with you/);
 	assert.match(words.howItWorks, /It never names a person, ranks or scores plants\./);
 	assert.deepEqual(
@@ -136,7 +130,6 @@ test("AC:TARGET-IDN-023 a plant shares what it shares, empty included; not share
 	);
 });
 
-// WP-047b: the near-launch rule (network rubric NIR-03) and the home's health value, as every screen reads them.
 import {
 	followUpResult,
 	growthResult,
@@ -157,7 +150,6 @@ test("a near Launch Sunday alone is no concern; a recorded role or training gap 
 	assert.equal(nearLaunch(prep({ daysToLaunch: 31, unfilledRoles: 1 })), "clear");
 	assert.equal(nearLaunch(prep({ daysToLaunch: -1, unfilledRoles: 1 })), "clear");
 	assert.equal(nearLaunch(prep({ launched: true, daysToLaunch: null, unfilledRoles: 3 })), "clear");
-	// Missing evidence is Unknown, never a zero.
 	assert.equal(nearLaunch(prep({ daysToLaunch: null })), "unknown");
 	assert.equal(nearLaunch(prep({ unfilledRoles: null })), "unknown");
 	assert.equal(nearLaunch(prep({ unfilledRoles: null, outstandingTraining: 1 })), "gap");
@@ -203,7 +195,6 @@ test("the pattern uses the rubric's NIR-03 wording, and a Not shared row says no
 	assert.equal(gapText(prep({})), null);
 });
 
-// T-372: NIR-04 to NIR-06 per plant. Zero is observed; missing evidence and nothing assigned are Unknown.
 const counts = (c) => ({
 	overdueFollowUps: null,
 	unownedFollowUps: null,

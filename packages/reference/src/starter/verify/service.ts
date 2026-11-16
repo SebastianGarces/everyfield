@@ -64,7 +64,6 @@ export interface WikiCaller {
 }
 export interface WikiDependencies {
 	root?: URL;
-	/** The pinned source to install. Defaults to the living seed; a rollback test passes an earlier pin. */
 	source?: WikiSource;
 	loadSnapshot?: () => Promise<ApprovedSnapshot>;
 	embed?: WikiEmbedder;

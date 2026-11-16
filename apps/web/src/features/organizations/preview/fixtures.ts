@@ -13,10 +13,6 @@ import type {
 	Run,
 } from "../port";
 
-// Invented sample data for /design/organizations. Every reply goes through the contract parser, so a fixture that
-// the real API could not return fails here first. The product routes use the real WP-007/api mount instead
-// (server/organizations); these fixtures serve the /design previews only.
-
 export const ORGANIZATION_FLOWS = [
 	"connections",
 	"organization",
@@ -41,7 +37,6 @@ export const SCENARIO_LABEL: Record<Scenario, string> = {
 	refused: "Server refuses",
 };
 
-/** The controls each flow uses, so the preview never shows a switch that changes nothing. */
 export const FLOW_CONTROLS: Record<OrganizationFlow, { viewer: boolean; scenarios: readonly Scenario[] }> = {
 	connections: { viewer: true, scenarios: SCENARIOS },
 	organization: { viewer: true, scenarios: SCENARIOS },
@@ -95,7 +90,6 @@ const READS = new Set<OperationName>([
 	"pipelineSharing.readConsent",
 ]);
 const days = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const item = (
 	p: RelationshipPair,
@@ -106,7 +100,6 @@ const item = (
 	recordedAt = at,
 ) => ({ id: nextId(), pair: p, event, at, actor, reason, recordedAt });
 
-/** Invite targets for the plant: one never connected (all on), one connected before (earlier choices). */
 export const PLANT_TARGETS: InviteTarget[] = [
 	{ pair: pair(PLANT, CEDAR), name: NAMES[CEDAR.id]! },
 	{ pair: pair(PLANT, HILL), name: NAMES[HILL.id]! },
@@ -141,15 +134,12 @@ const DISCLOSURES: Record<string, unknown> = {
 	},
 };
 async function sampleDisclosure(p: RelationshipPair): Promise<Disclosure | null> {
-	await wait(300);
 	const raw = DISCLOSURES[p.organization.id];
 	return raw ? C.sharingDisclosure.parse(raw) : null;
 }
 
-/** A stateful sample backend for one preview visit. `side` picks whose connections are listed. */
 export function createBackend(side: "subject" | "organization", viewer: Viewer, scenario: Scenario) {
 	const entitled = viewer === "owner";
-	// Every read in the first second fails, so the error shows even when development mode loads twice.
 	const failUntil = scenario === "load-failed" ? Date.now() + 1000 : 0;
 	const dropped = new Set<OperationName>();
 	const scope = side === "subject" ? { plant: PLANT } : { organization: AUSTIN };
@@ -237,7 +227,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 
 	const PAGE = 4;
 	async function read(after: string | null) {
-		await wait(350);
 		if (Date.now() < failUntil) throw new TypeError("Failed to fetch");
 		const start = after === null ? 0 : events.findIndex((e) => e.id === after) + 1;
 		const page = events.slice(start, start + PAGE);
@@ -252,7 +241,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		}) as History;
 	}
 
-	// "refused" keeps the waiting request too, so its refused resend and withdraw can be seen.
 	let pending: Invitation[] =
 		(scenario === "connected" || scenario === "refused") && side === "subject"
 			? [
@@ -267,7 +255,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				]
 			: [];
 
-	// Per-connection sharing choices, keyed by relationship ID (REQ-IDN-022).
 	const consent = new Map<string, { revision: number; choices: Record<string, boolean> }>();
 	const consentOf = (id: string) => {
 		if (!consent.has(id))
@@ -292,14 +279,9 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 	};
 	let pipeline = { revision: 2, share: false };
 
-	// Commands are idempotent by request key, as the API is: a repeated key returns the first result and changes
-	// nothing. "Reply lost once" commits the first command of each kind and then drops its reply.
-	// The API hashes the whole command: the same key with any other input is refused as request_conflict.
 	const replies = new Map<string, { body: string; reply: unknown }>();
-	/** The address each request sent in this visit went to; a request leaves `pending` when it is answered or withdrawn. */
 	const addresses = new Map<string, string>();
 	const run = (async (operation: OperationName, input: unknown) => {
-		await wait(450);
 		if (READS.has(operation)) return answer(operation, input);
 		const key = `${operation}:${(input as { requestKey: string }).requestKey}`;
 		const body = JSON.stringify(input);
@@ -321,7 +303,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				const p = command.input.pair as RelationshipPair;
 				if (refuse) throw new Refusal("invitation_limit");
 				if (pending.some((i) => i.pair.organization.id === p.organization.id)) throw new Refusal("pending_invitation");
-				// As the API does: one waiting request per subject and address, whichever organization it went to.
 				const email = command.input.recipientEmail as string;
 				if (pending.some((i) => addresses.get(i.invitationId) === email)) throw new Refusal("address_pending");
 				const made = C.invitationResult.parse({
@@ -342,7 +323,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				const next = C.invitationResult.parse({
 					...original,
 					revision: String(Number(original.revision) + 1),
-					// As the API does: a resend sends a fresh link and keeps the original expiry.
 					expiresAt: original.expiresAt,
 				});
 				pending = pending.map((i) => (i.invitationId === next.invitationId ? next : i));
@@ -356,7 +336,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 			}
 			case "associations.end": {
 				const index = active.findIndex((r) => r.relationship.id === command.input.relationshipId);
-				// An end for a link that is no longer active is refused, so a retry with a new key would show it.
 				if (refuse || index < 0) return C.mutationResult.parse({ status: "unavailable" });
 				const [row] = active.splice(index, 1);
 				events.unshift(
@@ -441,7 +420,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				);
 			case "residency.setSharing":
 				if (refuse) return C.mutationResult.parse({ status: "unavailable" });
-				// The link revision runs ahead of the consent revision, so a command that mixes them up is refused.
 				if ((input as { expectedRevision: string }).expectedRevision !== String(residency.revision + 10))
 					throw new Refusal("stale_revision");
 				residency = {
@@ -491,17 +469,14 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		sharing: (await run("privacy.getSharing", C.readSharingRequest.parse(request))) as z.infer<typeof C.sharingResult>,
 		relationshipRevision: active.find((r) => r.relationship.id === relationshipId)?.relationship.revision ?? "0",
 	});
-	// "Server refuses": the first disclosure read fails, so Send must wait for a retry.
 	let disclosureFails = scenario === "refused";
 	const readDisclosure = async (p: RelationshipPair) => {
 		if (disclosureFails) {
 			disclosureFails = false;
-			await wait(300);
 			throw new TypeError("Failed to fetch");
 		}
 		return sampleDisclosure(p);
 	};
-	// The real actions answer an end with the history and a save with the sharing as saved, in the same request.
 	const end = async (command: z.infer<typeof C.endRelationshipRequest>) => {
 		const r = (await run("associations.end", command)) as z.infer<typeof C.mutationResult>;
 		return r.status === "committed" ? read(null) : null;
@@ -537,7 +512,6 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 	};
 }
 
-/** The request the recipient opened from the emailed link (WP-008 owns the link landing). */
 export const INVITATION: Invitation = C.invitationResult.parse({
 	status: "pending",
 	invitationId: uuid(60),

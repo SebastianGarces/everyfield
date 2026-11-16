@@ -17,11 +17,6 @@ import { entryFor, type LibraryFacts } from "./templates/registry.ts";
 import { NEUTRAL_THEME, type RenderTheme } from "./theme.ts";
 import { buildFirstYearBudget, buildLedgerWorkbook } from "./xlsx.ts";
 
-// The template library ("Save for your church" and its preview). A library template with an everyfield.doc/1 file
-// renders from that file through the Church Document renderer, so an unedited Church Document made from it prints the
-// same pages. The templates with no file render from their code layout in the registry (D-922).
-
-/** The library's one format of a template file: the first it exports. */
 function libraryFormat(template: DocTemplate): LibraryFacts["format"] {
 	const format = template.exports[0];
 	if (format !== "pdf" && format !== "xlsx")
@@ -29,7 +24,6 @@ function libraryFormat(template: DocTemplate): LibraryFacts["format"] {
 	return format;
 }
 
-/** The text of every heading in the file, in body order, without its merge fields. */
 function headings(nodes: readonly BlockNode[] | undefined, out: string[] = []) {
 	for (const node of nodes ?? []) {
 		if (node.type === "heading") {
@@ -50,7 +44,6 @@ async function docFacts(template: DocTemplate): Promise<LibraryFacts> {
 	const base = { documentClass: template.class, outline: outline.length ? outline : [template.title] };
 	if (format === "xlsx")
 		return { ...base, format, pageSize: null, pageCount: ledgerTables(template.body).length, fields: [] };
-	// The page count and field names are what the file prints with its sample values.
 	const pdf = await renderDocPdf(template);
 	const { width, height } = sheetOf(template.page);
 	return {
@@ -62,10 +55,6 @@ async function docFacts(template: DocTemplate): Promise<LibraryFacts> {
 	};
 }
 
-/**
- * What the library says about one template: from its file when it has one, read from one render of it, else from its
- * registry entry. `library()` reads it once per process.
- */
 export function libraryFacts(id: string): Promise<LibraryFacts> | undefined {
 	const template = docTemplateById(id);
 	if (template) return docFacts(template);
@@ -73,11 +62,6 @@ export function libraryFacts(id: string): Promise<LibraryFacts> | undefined {
 	return entry && Promise.resolve(entry);
 }
 
-/**
- * The document a library render prints: the template file with the merge values an unedited Church Document of the
- * same church freezes (the church and pastor names, and the brand kit's legal name, tagline and contact line as the
- * theme carries them; else each field's fallback) and the network's statement of faith in its slot.
- */
 export async function libraryDoc(
 	template: DocTemplate,
 	values: Record<string, string>,
@@ -90,14 +74,12 @@ export async function libraryDoc(
 		pastorName: values.pastor_name ?? null,
 		tagline: theme.tagline ?? null,
 		legalName: l?.legalName ?? null,
-		// The contact line a Church Document freezes from the kit: website, phone and email.
 		contactLine: [l?.web, l?.phone, l?.email].filter(Boolean).join("  ·  ") || null,
 		meetingDate: null,
 	});
 	return fillStatementSlots(await forkTemplate(template, { id: template.id, data }), statement);
 }
 
-/** A render whose failure is a RenderFailed. */
 async function rendering<T>(render: () => Promise<T>): Promise<T> {
 	try {
 		return await render();
@@ -117,11 +99,6 @@ const unsafeMeeting = (m: AgendaMeeting) =>
 		...m.attendees.flatMap((a) => [a.name, a.role ?? ""]),
 	].some(unsafe);
 
-/**
- * A library template's PDF with its layout details. The theme is an input; the default is the Everyfield-neutral theme.
- * The network's statement of faith fills a template's `statement-of-faith` slot; null leaves the marked blank. A
- * meeting prints only on an agenda.
- */
 export async function renderTemplatePdf(
 	template: Pick<CatalogTemplate, "id">,
 	values: Record<string, string>,
@@ -155,10 +132,6 @@ const valuesOf = (resolved: Extract<ResolvedMerge, { ok: true }>) => {
 	return values;
 };
 
-/**
- * Null when a required field is missing. Bytes come only from the template file or registry, the resolved fields and
- * the network's statement of faith, read when the action runs (D-109, D-417).
- */
 export async function renderPreview(
 	template: LibraryTemplate,
 	format: "pdf" | "docx" | "xlsx",

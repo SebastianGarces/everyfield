@@ -98,7 +98,6 @@ const commitmentJson = sql`jsonb_build_object('id',r.id,'person_id',r.person_id,
  'byte_count',(SELECT f.byte_count FROM file_object f WHERE f.id=r.object_id),'voided_at',r.voided_at)`;
 const latestFirst = sql`r.signed_on DESC,r.recorded_at DESC,r.id DESC`;
 
-/** A retried create returns the card as saved: revision 1, its original date and kind, not voided. */
 function asSaved(replay: Record<string, unknown>) {
 	const { card, ...rest } = z
 		.looseObject({ card: z.object({ occurredOn: z.string(), kind: c.commitmentKind }), commitment: z.looseObject({}) })
@@ -109,12 +108,10 @@ type State = Subject["commitment_state"];
 const status = (state: State, effectiveOn: string | null, personRevision: string) =>
 	c.commitmentStatus.parse({ state, effectiveOn, personRevision });
 const currentOf = (p: Subject) => ({ state: p.commitment_state, effectiveOn: p.commitment_effective_on });
-/** The Person's commitment columns that cache `next`, if it differs from what they hold. */
 const cacheOf = (p: Subject, next: CurrentCommitment) =>
 	next.state !== p.commitment_state || next.effectiveOn !== p.commitment_effective_on
 		? { commitment_state: next.state, commitment_effective_on: next.effectiveOn }
 		: {};
-/** The card being corrected and its Person's commitment inputs, read with the locked Person. */
 const cardRow = z.object({
 	id: z.uuid(),
 	person_id: z.uuid(),
@@ -124,7 +121,6 @@ const cardRow = z.object({
 	voided: z.boolean(),
 	inputs: commitmentInputs,
 });
-/** The commitment inputs of the subject Person, read with it. */
 const inputsOf = (person: SQL, plant: string) => commitmentInputsJson(person, sql`${plant}::uuid`);
 
 async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn" | "active") {
@@ -145,7 +141,6 @@ async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn
 					return { value, subject: p.id, action: "people.updated", outcome: "noop" };
 				}
 				if (current.state !== from) deny("invalid_subject");
-				// A dated change happens after the state it ends began, and not in the future. Stage never changes.
 				notFuture(p, effectiveOn);
 				if (effectiveOn < (current.effectiveOn ?? "")) deny("invalid_input");
 				const kind = to === "withdrawn" ? "withdrawn" : "reactivated";
@@ -153,7 +148,6 @@ async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn
 					...inputs,
 					changes: [...inputs.changes, { id: receiptId, kind, on: effectiveOn, at: Number.POSITIVE_INFINITY }],
 				});
-				// A card signed after this date already makes the commitment active again: the change would not take effect.
 				if (next.state !== to) deny("invalid_input");
 				const set = cacheOf(p, next);
 				audit.writes.push(
@@ -182,10 +176,6 @@ async function lifecycle(tx: Tx, ctx: WriteContext, raw: unknown, to: "withdrawn
 	});
 }
 
-/**
- * A commitment document the server read back from the private bucket and verified (saveCommitmentDocument): its
- * upload, type, size and hash. Only a checked document attaches to a card.
- */
 type CheckedDocument = {
 	uploadId: string;
 	mediaType: z.infer<typeof c.commitmentMime>;
@@ -195,13 +185,8 @@ type CheckedDocument = {
 
 type CardInput = z.output<typeof c.createCommitmentRequest>["input"];
 const witnessOf = (k: CardInput) => (k.witness && "personId" in k.witness ? k.witness.personId : null);
-/** The witness's name when it is a live Person of this church, else NULL (also for no witness). */
 const liveWitness = (witnessId: string | null, plant: string) =>
 	sql`(SELECT w.display_name FROM person w WHERE w.id=${witnessId}::uuid AND w.tenant_id=${plant}::uuid AND w.plant_id=${plant}::uuid AND w.state='live')`;
-/**
- * The card's rules that need no document bytes: the witness is not the Person, the date is not in the church's future
- * and a named Person witness is live in this church (`witness` from liveWitness). Refusals keep their reasons.
- */
 function checkCard(k: CardInput, today: string, witness: string | null) {
 	const witnessId = witnessOf(k);
 	if (witnessId === k.personId) deny("invalid_subject");
@@ -210,15 +195,9 @@ function checkCard(k: CardInput, today: string, witness: string | null) {
 }
 
 export const commitments = {
-	/**
-	 * REQ-PPL-014: the card, its witness and checked document, the Core Group advance of an earlier stage and the
-	 * commitment state change are one write with one audit row. A missing, expired or already attached upload, a foreign
-	 * witness or a future date records nothing and leaves the upload pending.
-	 */
 	async createCommitment(tx: Tx, ctx: WriteContext, raw: unknown, document: CheckedDocument | null = null) {
 		return reply(tx, async () => {
 			const plant = plantId(ctx);
-			// A document's request names its upload, so a retry with another upload is a conflict, not a replay.
 			const input = parse(document ? c.saveCommitmentDocumentRequest : c.createCommitmentRequest, raw);
 			let fresh: unknown;
 			const stored = await mutation<unknown>(
@@ -230,7 +209,6 @@ export const commitments = {
 					const k = input.input;
 					const witnessId = witnessOf(k);
 					const external = k.witness && "external" in k.witness ? k.witness.external : null;
-					// The upload row stays locked until COMMIT, so no other save or cleanup can take it meanwhile.
 					const p = await subject(
 						tx,
 						ctx,
@@ -250,7 +228,6 @@ export const commitments = {
 						.object({ witness: z.string().nullable(), upload: z.uuid().nullable(), commitment: commitmentInputs })
 						.parse(p.extra);
 					checkCard(k, p.today, found.witness);
-					// Only this church's own pending upload.
 					if (document && !found.upload) deny();
 					const id = randomUUID();
 					const step = advance(p, "core_group");
@@ -260,7 +237,6 @@ export const commitments = {
 					if (document)
 						audit.writes.push(sql`UPDATE file_object SET state='ready',byte_count=${String(document.byteCount)}::bigint,
  sha256=${document.sha256}::text,revision=revision+1 WHERE id=${document.uploadId}::uuid AND tenant_id=${plant}::uuid`);
-					// The card follows the upload's update: its trigger requires a ready object.
 					audit.writes.push(
 						sql`INSERT INTO commitment(id,plant_id,person_id,kind,signed_on,recorded_at,witness_person_id,external_witness,object_id,notes)
  SELECT ${id}::uuid,${plant}::uuid,${p.id}::uuid,${k.kind}::text,${k.occurredOn}::date,${p.now.toISOString()}::timestamptz,
@@ -293,8 +269,6 @@ export const commitments = {
 					};
 					fresh = value;
 					return {
-						// The card's original date and kind stay in the receipt (the correction history holds them too), so a retry
-						// after a correction or void still returns the card as it was saved.
 						value: { ...receiptOf(value, "commitment", id), card: { occurredOn: k.occurredOn, kind: k.kind } },
 						subject: p.id,
 						action: "people.recorded",
@@ -304,7 +278,6 @@ export const commitments = {
 					};
 				},
 			);
-			// A retry rebuilds the private record from its row; central audit holds only the receipt.
 			return c.commitmentMutationResult.parse(
 				fresh ??
 					asSaved(await replayed(tx, plant, stored, "commitment", sql`commitment`, commitmentJson, commitmentView)),
@@ -317,12 +290,6 @@ export const commitments = {
 	async reactivateCommitment(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return lifecycle(tx, ctx, raw, "active");
 	},
-	/**
-	 * REQ-PPL-015 and REQ-PPL-026: correct a card's signed date or kind, or void a card that was never genuine, with a
-	 * reason and its old and new values in the history. First acquisition and the current commitment follow the valid
-	 * cards and the dated withdrawals and reactivations (commitmentOf). A correction to the values the card already has
-	 * changes nothing. Stage never changes.
-	 */
 	async correctCommitmentLifecycle(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
 			const plant = plantId(ctx);
@@ -402,7 +369,6 @@ export const commitments = {
 	},
 };
 
-/** One Person's card page and current commitment as one JSON value over the Person alias `p`, for this read or the person page's. */
 export const commitmentsJson = (plant: string, input: HistoryPage) =>
 	historyJson(
 		plant,
@@ -427,7 +393,6 @@ export function commitmentsOf(personId: string, h: History) {
 	const extra = currentRow.parse(h.extra);
 	return c.commitmentsResult.parse({
 		personId,
-		// The Person's columns cache commitmentOf over the valid cards and dated changes; every input write keeps them.
 		current: status(extra.state, extra.effective_on, extra.revision),
 		firstAcquisition: extra.first
 			? { status: "known", occurredOn: extra.first.on, evidenceId: extra.first.id }
@@ -440,10 +405,6 @@ export function commitmentsOf(personId: string, h: History) {
 	});
 }
 
-/**
- * Current authority to read one commitment document: an Owner or Admin whose session, seat and lifecycle are live in
- * the same statement as the exact card that holds the object (C13, C27).
- */
 function documentAuthority(ctx: PeopleContext, commitmentId: string): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		if (intent !== "read" || file.purpose !== "commitment" || file.tenant_id !== ctx.selected.id) return null;
@@ -462,10 +423,6 @@ function documentAuthority(ctx: PeopleContext, commitmentId: string): ResourceAu
 	};
 }
 
-/**
- * REQ-KNOW-080: a five-minute signed link to the exact document object, issued only after the live authority check and
- * checked again after signing. A link already issued may work until it expires; no new link outlives revoked access.
- */
 export async function getCommitmentDownload(db: Database, storage: PrivateStorage, ctx: PeopleContext, raw: unknown) {
 	return readReply(async () => {
 		const plant = plantId(ctx);
@@ -485,23 +442,12 @@ export async function getCommitmentDownload(db: Database, storage: PrivateStorag
 	});
 }
 
-// RT-2 design B: the browser puts a commitment document straight into the private bucket; the card is saved with it
-// through createCommitment. The bytes never pass through our server on the way in, and no SQL runs while they move.
-
-/** A document's object key: the church comes from the verified viewer, so another church's upload cannot be named. */
 const documentKey = (plant: string, uploadId: string) => `private/${plant}/${uploadId}`;
-/** A live Owner or Admin seat of this church for exactly this request's actor, in the statement that writes (D70). */
 const documentWriter = (ctx: PeopleContext, actorId: string, plant: string) =>
 	sql`EXISTS(SELECT FROM access_session(${ctx.session}::uuid) i JOIN seat s ON s.account_id=i.account_id
  WHERE i.account_id=${actorId}::uuid AND i.registration_state='active' AND s.plant_id=${plant}::uuid AND s.ended_at IS NULL
  AND s.accepted_at<=clock_timestamp() AND s.role<>'member' AND ${writeVisibility(sql`i.account_id`, ctx.selected)})`;
 
-/**
- * Sign a commitment document upload (REQ-PPL-014): one statement checks the live Owner or Admin and the live Person,
- * inserts the pending upload and queues its orphan cleanup. The PUT URL is signed locally for the exact key, type and
- * length, works for five minutes and writes once. A PDF also warms this process's parse worker for the save.
- * The pending row decides nothing: the save checks authority again, so this statement takes no locks of its own.
- */
 export async function signCommitmentDocument(
 	db: Database,
 	storage: PrivateStorage,
@@ -533,13 +479,6 @@ export async function signCommitmentDocument(
 }
 
 const earlyRow = z.object({ today: z.string(), witness: z.string().nullable(), attached: z.boolean() });
-/**
- * Save a commitment card with the document the browser put into the bucket (RT-2 design B, REQ-PPL-014). The request's
- * viewer must be an Owner or Admin, and the card's inputs must pass checkCard, before the server reads the bucket.
- * With no transaction open, the server reads the object back and checks its type, size and content; then
- * createCommitment saves the card and attaches the upload
- * through the shared native write (D70, C88), which checks live authority again and answers a retry from its key.
- */
 export async function saveCommitmentDocument(
 	db: Database,
 	storage: PrivateStorage,
@@ -552,8 +491,6 @@ export async function saveCommitmentDocument(
 		authorizeCachedWrite(ctx);
 		const plant = plantId(ctx);
 		const uploadId = request.input.documentUploadId;
-		// F4c: one statement checks the inputs that need no bytes, so a refused card costs no bucket read. A retry of a
-		// saved card (its upload already attached) skips them: the write answers it from its key.
 		const [early] = (
 			await db.execute(sql`SELECT ${churchToday} AS today,${liveWitness(witnessOf(request.input), plant)} AS witness,
  EXISTS(SELECT FROM file_object f WHERE f.id=${uploadId}::uuid AND f.tenant_id=${plant}::uuid AND file_is_referenced(f.id)) AS attached
@@ -563,7 +500,6 @@ export async function saveCommitmentDocument(
 		if (!early.attached) checkCard(request.input, early.today, early.witness);
 		const object = await readPrivateObject(storage, documentKey(plant, uploadId), c.COMMITMENT_MAX_BYTES);
 		const mime = c.commitmentMime.safeParse(object?.mediaType);
-		// Not uploaded (or not completely): nothing to save. A retry of a saved card still finds its object.
 		if (!object || !mime.success) deny();
 		await validateCommitment(object.bytes, mime.data).catch(() =>
 			deny("invalid_input", { reason: "unreadable_document" }),

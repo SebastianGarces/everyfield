@@ -27,10 +27,6 @@ export interface InvitationConfig {
 	origin: string;
 	budgetSecret: string;
 	enqueueMail(tx: Transaction, input: InvitationMail, command: d.Command): Promise<string>;
-	/**
-	 * A boolean SQL expression: mail to this address is blocked after an earlier bounce or complaint. The invite's
-	 * budget statement reads it, so a blocked invite reserves and sends nothing at no extra statement.
-	 */
 	addressBlocked(email: string): SQL;
 	people: Pick<AccountPersonProducer<Transaction>, "ensureAccountPerson">;
 }
@@ -54,7 +50,6 @@ const listRow = z.object({
 	resent_at: z.coerce.date().nullable(),
 	workspace_name: z.string().nullable(),
 });
-/** The fields a pending invitation's description reads. */
 type Listed = Pick<
 	d.Invitation,
 	| "id"
@@ -98,8 +93,6 @@ export function createInvitationService(config: InvitationConfig) {
 	async function mail(tx: Transaction, i: d.Invitation, cmd: d.Command, proof: string) {
 		const { selected, name } = await d.workspace(tx, i.tenant_id),
 			url = new URL("/invitation", origin);
-		// The proof travels in the fragment, which browsers never send, so no request address, log or trace holds it
-		// (ruling D54).
 		url.hash = new URLSearchParams({ proof }).toString();
 		return enqueue(tx, cmd, {
 			owner: selected,
@@ -134,14 +127,10 @@ export function createInvitationService(config: InvitationConfig) {
 		if (!p) d.refuse();
 		return p;
 	}
-	// Person lifecycle writers lock the Person before its invitation rows.
 	async function lockSourcePerson(
 		tx: Transaction,
 		source: Pick<d.Invitation, "purpose" | "tenant_id" | "resident_person_id">,
 	) {
-		// The organization root first, share-locked, then the Person: the order every organization write takes through
-		// its write gate (root, then Person), so an acceptance and a revoke or retirement at the same moment queue instead
-		// of deadlocking. The root lock is an InitPlan of the filter, which runs before the row lock above the scan.
 		if (source.purpose === "residency_link" && source.resident_person_id)
 			await tx.execute(sql`WITH r AS MATERIALIZED (SELECT x.id FROM organization x WHERE x.id=${source.tenant_id}::uuid FOR SHARE)
  SELECT p.id FROM person p WHERE p.id=${source.resident_person_id}::uuid AND p.tenant_id=${source.tenant_id}::uuid
@@ -177,7 +166,6 @@ export function createInvitationService(config: InvitationConfig) {
 			const inviter = bound.principal;
 			const cmd = await d.begin(tx, selected, a.accountId, resident ? "residency.invite" : "seats.invite", v);
 			if (cmd.kind === "replay") return c.invitationSentResult.parse(cmd.result);
-			// The workspace changed since the page read its revision: the page reloads, unlike a duplicate invitation.
 			if (v.expectedRevision !== (bound.plant?.revision ?? bound.organization?.revision)) d.refuse("conflict");
 			if ("personId" in v.input && (await activePerson(tx, selected.id, v.input.personId)).linked_account_id)
 				d.refuse();
@@ -208,13 +196,11 @@ export function createInvitationService(config: InvitationConfig) {
 			return d.finish(tx, cmd, () => c.invitationSentResult.parse({ invitation }));
 		});
 	}
-	/** The pending invitations of a workspace in one statement without a transaction, for an Owner or Admin. */
 	async function list(authority: RequestActor, raw: unknown) {
 		const v = c.listInvitationsRequest.parse(raw),
 			a = authority.actor;
 		if (a.context.kind !== "seat" || a.context.role === "member" || !sameOwner(a.context.owner, v.workspace))
 			d.refuse();
-		// The caller must still hold an Owner or Admin seat here when the list is read, in the same statement (C13).
 		const found = await liveRows(
 			config.db,
 			liveRead(liveAccess(authority), true),
@@ -328,13 +314,6 @@ export function createInvitationService(config: InvitationConfig) {
 			);
 		});
 	}
-	/**
-	 * seats.acceptInvitation and residency.respondInvitation, on the established path (C88): every check depends on other
-	 * rows (the session, the workspace, the account's seats and links), so it runs in a transaction. The locks keep their
-	 * order (the workspace seat lock, the account, the source Person, the invitation, the workspace root, the account's
-	 * seats and links); the changes and their audit rows go in the final statement. `resume` finds the invitation by its
-	 * proof in the same first statement.
-	 */
 	async function accept(
 		session: string,
 		raw: unknown,
@@ -380,7 +359,6 @@ export function createInvitationService(config: InvitationConfig) {
 				return resident
 					? c.residentInvitationDecisionResult.parse(cmd.result)
 					: c.seatInvitationAcceptedResult.parse(cmd.result);
-			// A second tab of the account that accepted (another request key) learns it is linked, nothing more.
 			if (resident && i.state === "accepted" && i.accepted_account_id === a.account_id) {
 				const [live] = await tx
 					.select({ id: t.residency_link.id })
@@ -462,8 +440,6 @@ export function createInvitationService(config: InvitationConfig) {
 					if (blocked.length) d.refuse();
 					const id = randomUUID(),
 						choices = decision.choices;
-					// One final statement: the link's insert (its trigger checks the locked Person is live), then the Person's
-					// account link, which depends on the inserted link so it runs after it.
 					cmd.writes.push(
 						tx.insert(t.residency_link).values({
 							id,
@@ -501,7 +477,6 @@ export function createInvitationService(config: InvitationConfig) {
 				}
 			} else {
 				if (!i.role || (selected.kind !== "plant" && selected.kind !== "organization")) d.refuse();
-				// The account's active seats, then its active links, locked in that order in one statement.
 				const held =
 					await tx.execute(sql`WITH s AS MATERIALIZED (SELECT id FROM seat WHERE account_id=${a.account_id}::uuid
  AND ended_at IS NULL FOR UPDATE), f AS MATERIALIZED (SELECT id FROM affiliation WHERE account_id=${a.account_id}::uuid

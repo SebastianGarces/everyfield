@@ -5,7 +5,7 @@ import { parseMarkdown, type Inline } from "./markdown.ts";
 // Written with createElement so the unit tests load it in node, without a JSX build.
 
 const CODE = "rounded-sm bg-surface-2 px-1 py-0.5 font-mono text-[0.9em] text-ink";
-const LINK = "cursor-pointer text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]";
+const LINK = "text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]";
 
 function pieces(parts: Inline[]): ReactNode[] {
 	return parts.map((part, key) => {

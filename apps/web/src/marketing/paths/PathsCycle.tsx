@@ -1,86 +1,65 @@
 "use client";
 
-import { useReduced, useTabHidden } from "@/components/motion/scene";
+import { useReduced } from "@/components/motion/scene";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
-import { useInView } from "motion/react";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { observeSize } from "@everyfield/ui/foundations";
+import { useCallback, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { PlaybackGlyph } from "@/components/kit/kit";
 import { Backdrop } from "../photo/Backdrop";
 import type { PhotoName } from "../photo/photos";
+import { createAutoplay, joinRefs } from "../playback";
 
 type Props = {
-	/** The whole sentence for screen readers ("Sent by a church, a network through a church or a network. Seen in one place."). */
 	sentence: string;
 	lead: string;
 	tail: string;
 	phrases: string[];
-	/** Per state: the text pane, the product card (server-rendered) and the photo behind the card. */
 	panes: ReactNode[];
 	apps: ReactNode[];
 	photos: PhotoName[];
 };
 
-/* Revision 28: one timer moves the phrase and the card together every STEP ms, only while 30 % of the block is on screen
-   and the tab is visible. */
 const STEP = 5500;
 const EASE = "cubic-bezier(.65,0,.35,1)";
 
-/**
- * The /oversight sending paths: "Sent by <phrase>. Seen in one place." over one large card. The phrase rolls up one line,
- * its highlight takes the new phrase's width, the line stays centred, and the card crossfades, all over .7 s.
- *
- * No layout shift (the prototype animated the highlight's width, which moved the whole line ~50 times a roll): the
- * phrase slot always has the width of the widest phrase, so nothing is laid out again. Every moving part is a transform
- * transition on the same .7 s curve, so the roll runs on the compositor and paints nothing:
- * - The line is recentred and the period moves with translateX.
- * - The highlight's visible width wk is a window: the slot is a rounded window at the widest width, and an inner rounded
- *   window of the same size slides left by (widest - wk) while its content slides back by the same amount. Their
- *   intersection is the prototype's clip, inset(0 (widest - wk) 0 0 round .2em), at every frame.
- * - Each phrase is centred in the painted highlight: its offset is (wk - its width) / 2, also linear in wk.
- * Phrase widths are measured once per resize. Reduced motion: no auto advance and no transitions; the control shows
- * the next state.
- */
 export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos }: Props) {
 	const reduced = useReduced();
-	const run = useRef<HTMLDivElement>(null);
 	const items = useRef<(HTMLSpanElement | null)[]>([]);
 	const dot = useRef<HTMLSpanElement>(null);
 	const [k, setK] = useState(0);
 	const [paused, setPaused] = useState(false);
 	const [w, setW] = useState<{ items: number[]; max: number; dot: number } | null>(null);
-	const seen = useInView(run, { amount: 0.3 });
+	const [autoplay] = useState(() => createAutoplay(STEP));
 	const n = phrases.length;
 
-	const measure = useCallback(() => {
-		const ws = items.current.map((e) => e?.offsetWidth ?? 0);
-		const next = {
-			items: ws,
-			max: Math.max(...ws),
-			dot: dot.current?.offsetWidth ?? 0,
-		};
-		setW((c) => (c && c.max === next.max && c.dot === next.dot && c.items.join() === next.items.join() ? c : next));
-	}, []);
-	useEffect(() => {
-		const r = run.current;
-		if (!r) return;
-		const ro = new ResizeObserver(measure);
-		ro.observe(r);
-		void document.fonts.ready.then(measure);
-		return () => ro.disconnect();
-	}, [measure]);
-
-	// A hidden tab stops the timer, as in the prototype; a full step starts again when the tab shows.
-	const hidden = useTabHidden();
-	useEffect(() => {
-		if (!seen || paused || reduced || hidden) return;
-		const id = setTimeout(() => setK((c) => (c + 1) % n), STEP);
-		return () => clearTimeout(id);
-	}, [seen, paused, reduced, hidden, k, n]);
+	const run = useCallback(
+		(node: HTMLDivElement | null) =>
+			joinRefs<HTMLDivElement>(
+				observeSize(
+					() => {
+						const ws = items.current.map((e) => e?.offsetWidth ?? 0);
+						const next = {
+							items: ws,
+							max: Math.max(...ws),
+							dot: dot.current?.offsetWidth ?? 0,
+						};
+						setW((c) =>
+							c && c.max === next.max && c.dot === next.dot && c.items.join() === next.items.join() ? c : next,
+						);
+					},
+					{ fonts: true },
+				),
+				autoplay.observe(() => {
+					setK((c) => (c + 1) % n);
+					autoplay.restart();
+				}, 0.3),
+			)(node),
+		[autoplay, n],
+	);
 
 	const wk = w ? w.items[k]! : 0;
-	// Before the first measurement (server HTML) the slot shows the widest phrase with its full highlight and the period after it.
 	const vars = (
 		w
 			? {
@@ -179,9 +158,15 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 					aria-label={
 						reduced ? "Show the next sending path" : paused ? "Play the sending paths" : "Pause the sending paths"
 					}
-					onClick={() => (reduced ? setK((c) => (c + 1) % n) : setPaused((p) => !p))}
-					// 34 px as in the prototype; the ring around it (before:) makes the hit area 44 px.
-					className="absolute right-4 bottom-4 z-2 grid size-[34px] cursor-pointer place-items-center rounded-full border-0 bg-mk-ink-46 text-cream before:absolute before:-inset-[5px] before:content-[''] hover:bg-mk-ink-66 focus-visible:outline-cream max-mk-sm:right-3 max-mk-sm:bottom-3"
+					onClick={() => {
+						if (reduced) {
+							setK((c) => (c + 1) % n);
+							return;
+						}
+						setPaused(!paused);
+						autoplay.hold("paused", !paused);
+					}}
+					className="absolute right-4 bottom-4 z-2 grid size-[34px] place-items-center rounded-full border-0 bg-mk-ink-46 text-cream before:absolute before:-inset-[5px] before:content-[''] hover:bg-mk-ink-66 focus-visible:outline-cream max-mk-sm:right-3 max-mk-sm:bottom-3"
 				>
 					{reduced ? <Icon icon={ArrowRight02Icon} size={14} /> : <PlaybackGlyph paused={paused} />}
 				</button>
@@ -190,7 +175,6 @@ export function PathsCycle({ sentence, lead, tail, phrases, panes, apps, photos 
 	);
 }
 
-/** Revision 28 crossfade: out over the first 40 % (.28 s ease-in), in over the last 50 % (.35 s ease-out after .35 s). */
 function Fade({
 	on,
 	reduced,

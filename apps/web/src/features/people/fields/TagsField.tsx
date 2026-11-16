@@ -12,19 +12,12 @@ import { PersonLink } from "../parts.tsx";
 import { addPersonTag, listChurchTags, removePersonTag } from "./actions.ts";
 import { ManageTagsDialog } from "./ManageTagsDialog.tsx";
 import { tagLook, type ChurchTag, type PersonTag } from "./model.ts";
-import { tagProblem } from "./ManageTagsDialog.tsx";
+import { churchTags, tagProblem } from "./ManageTagsDialog.tsx";
 
 type Change = { add: PersonTag } | { remove: string };
 const byName = (a: { name: string }, b: { name: string }) =>
 	a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 
-/**
- * A person's tags (REQ-PPL-010), at the foot of Details as in the prototype. Each tag opens People filtered by it.
- * Owners and Admins add a church tag or a new one from the picker and remove one with its x. The chip shows at once
- * while it saves through the card's save lane (components/save), which the church tags dialog shares: one save at a
- * time, a lost answer replayed with the same key, Check again while it stays unknown. A refusal rolls the chip back and
- * says why. A repeated add or remove changes nothing and adds no Activity.
- */
 export function TagsField({
 	personId,
 	personName,
@@ -34,7 +27,6 @@ export function TagsField({
 }: {
 	personId: string;
 	personName: string;
-	/** Null when the tags did not load. */
 	initial: PersonTag[] | null;
 	canEdit: boolean;
 	onSaved: (receipt: Receipt) => void;
@@ -52,10 +44,6 @@ export function TagsField({
 	const loading = useRef(false);
 	const lane = useSaveIntent<{ problem?: string }>({ explain: tagProblem });
 
-	/**
-	 * Reads the church's tags each time the picker opens, so names and counts are current; the last list stays on screen
-	 * while the new one arrives. Focus that returns to Add tag after the picker or the manager closes reads nothing.
-	 */
 	function warm() {
 		if (loading.current) return;
 		loading.current = true;
@@ -66,7 +54,6 @@ export function TagsField({
 				setChurch(r);
 			});
 	}
-	/** This person's saved change moves the tag's count in the open picker by one. */
 	const count = (tagId: string, by: 1 | -1) =>
 		setChurch((c) =>
 			c?.status === "ok"
@@ -147,6 +134,7 @@ export function TagsField({
 								onCreate={(name) => add({ name })}
 								onManage={() => {
 									setOpen(false);
+									churchTags.prefetch();
 									setManaging(true);
 								}}
 							/>
@@ -161,7 +149,6 @@ export function TagsField({
 							onOpenChange={setManaging}
 							onChurchTags={(all) => {
 								setChurch({ status: "ok", value: all });
-								// A rename, recolor or delete shows on this person's chips at once.
 								setTags((mine) =>
 									mine.flatMap((t) => {
 										const now = all.find((a) => a.id === t.id);
@@ -177,10 +164,6 @@ export function TagsField({
 	);
 }
 
-/**
- * One tag as a chip: its color, a link to People filtered by it (prefetched on intent, like person links) and, for
- * editors, a 24 px remove button.
- */
 function TagChip({ tag, onRemove, wait = null }: { tag: PersonTag; onRemove?: () => void; wait?: Wait }) {
 	const look = tagLook(tag.color);
 	const pending = tag.id.startsWith("new:");
@@ -208,7 +191,7 @@ function TagChip({ tag, onRemove, wait = null }: { tag: PersonTag; onRemove?: ()
 					onClick={onRemove}
 					disabled={wait !== null}
 					aria-label={`Remove tag ${tag.name}`}
-					className="mr-0.5 grid size-6 flex-none cursor-pointer place-items-center rounded-sm opacity-70 transition-[opacity,background-color] duration-150 hover:bg-black/5 hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/10"
+					className="mr-0.5 grid size-6 flex-none place-items-center rounded-sm opacity-70 transition-[opacity,background-color] duration-150 hover:bg-black/5 hover:opacity-100 disabled:opacity-40 dark:hover:bg-white/10"
 				>
 					<Icon icon={Cancel01Icon} size={16} />
 				</button>
@@ -217,10 +200,6 @@ function TagChip({ tag, onRemove, wait = null }: { tag: PersonTag; onRemove?: ()
 	);
 }
 
-/**
- * The tag picker: search the church's tags, toggle one on or off, or create the typed name. Arrow keys move between
- * options; Enter in the search box picks the only match or creates the name.
- */
 function TagPicker({
 	church,
 	chosen,
@@ -232,7 +211,6 @@ function TagPicker({
 }: {
 	church: Outcome<ChurchTag[]> | null;
 	chosen: PersonTag[];
-	/** The card's last save is in flight or unknown (C68): no tag can change until it settles. */
 	wait: Wait;
 	onToggle: (tag: PersonTag) => void;
 	onCreate: (name: string) => void;
@@ -245,7 +223,6 @@ function TagPicker({
 	const all = church?.status === "ok" ? church.value : [];
 	const matches = all.filter((t) => t.name.toLowerCase().includes(term.toLowerCase()));
 	const exact = all.some((t) => t.name.trim().toLowerCase() === term.toLowerCase());
-	// The server matches names by case and outer spaces, so a name typed before the list arrives is still safe to create.
 	const canCreate = term.length > 0 && term.length <= 100 && !exact;
 
 	const options = () => [...(list.current?.querySelectorAll<HTMLButtonElement>("[data-option]") ?? [])];
@@ -290,11 +267,7 @@ function TagPicker({
 				) : church.status !== "ok" ? (
 					<li role="alert" className="flex flex-col items-start gap-2 px-2.5 py-3 text-sm text-text-2">
 						<span>The church&apos;s tags did not load.</span>
-						<button
-							type="button"
-							onClick={onRetry}
-							className="cursor-pointer font-medium text-ink underline underline-offset-[3px]"
-						>
+						<button type="button" onClick={onRetry} className="font-medium text-ink underline underline-offset-[3px]">
 							Try again
 						</button>
 					</li>
@@ -312,7 +285,7 @@ function TagPicker({
 										disabled={wait !== null}
 										onClick={() => onToggle({ id: t.id, name: t.name, color: t.color })}
 										onKeyDown={(e) => move(e, i)}
-										className="flex min-h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-md text-ink transition-[background-color] duration-150 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+										className="flex min-h-[38px] w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-md text-ink transition-[background-color] duration-150 hover:bg-surface-2 disabled:opacity-50"
 									>
 										<span
 											aria-hidden="true"
@@ -360,7 +333,7 @@ function TagPicker({
 								setQuery("");
 							}}
 							onKeyDown={(e) => move(e, matches.length)}
-							className="flex min-h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-md text-ink transition-[background-color] duration-150 hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
+							className="flex min-h-[38px] w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-md text-ink transition-[background-color] duration-150 hover:bg-surface-2 disabled:opacity-50"
 						>
 							<Icon icon={Add01Icon} size={18} className="text-text-2" />
 							<span className="min-w-0 truncate">
@@ -374,7 +347,7 @@ function TagPicker({
 				<button
 					type="button"
 					onClick={onManage}
-					className="flex min-h-[38px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-text-2 transition-[background-color] duration-150 hover:bg-surface-2"
+					className="flex min-h-[38px] w-full items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-text-2 transition-[background-color] duration-150 hover:bg-surface-2"
 				>
 					<Icon icon={Settings01Icon} size={18} />
 					Manage church tags

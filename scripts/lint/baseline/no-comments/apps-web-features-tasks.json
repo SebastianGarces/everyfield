@@ -1,0 +1,19 @@
+{
+	"apps/web/src/features/tasks/AssigneePicker.tsx": 7,
+	"apps/web/src/features/tasks/PhaseOffer.tsx": 9,
+	"apps/web/src/features/tasks/TaskDialog.tsx": 20,
+	"apps/web/src/features/tasks/TaskSheet.tsx": 13,
+	"apps/web/src/features/tasks/TasksScreen.tsx": 73,
+	"apps/web/src/features/tasks/Templates.tsx": 8,
+	"apps/web/src/features/tasks/actions.ts": 20,
+	"apps/web/src/features/tasks/bulk.tsx": 12,
+	"apps/web/src/features/tasks/description.ts": 7,
+	"apps/web/src/features/tasks/fetch.ts": 10,
+	"apps/web/src/features/tasks/fresh.tsx": 9,
+	"apps/web/src/features/tasks/model.ts": 69,
+	"apps/web/src/features/tasks/parts.tsx": 14,
+	"apps/web/src/features/tasks/read.ts": 7,
+	"apps/web/src/features/tasks/routes.tsx": 3,
+	"apps/web/src/features/tasks/server.ts": 10,
+	"apps/web/src/features/tasks/structure.tsx": 18
+}

@@ -48,10 +48,6 @@ const householdRow = z.object({
 type Household = z.infer<typeof householdRow>;
 type Member = z.infer<typeof memberRow>;
 
-/**
- * One household with its live members as one JSON value; retired members are history, not membership. A scalar
- * subquery, so a write reads it in the same round trip as its Person (`id` may name the outer `person`).
- */
 const householdJson = (plant: string, id: SQL) =>
 	sql`(SELECT jsonb_build_object('id',h.id,'name',h.name,'revision',h.revision::text,'street',h.street,'city',h.city,
  'state_province',h.state_province,'postal_code',h.postal_code,'country',h.country,'members',
@@ -85,12 +81,9 @@ function view(h: Household) {
 		})),
 	});
 }
-/** One Person's household, as a scalar subquery read with the Person row (it names the outer `person`). */
 export const personHouseholdJson = (plant: string) => householdJson(plant, sql`person.household_id`);
-/** The household of `personHouseholdJson`, or none for a Person without one. */
 export const personHousehold = (householdId: string | null, raw: unknown) =>
 	householdId ? view(household(raw)) : f.householdResult.parse({ status: "none" });
-/** The Person row after it joins: a person without a meaningful address takes the household's (REQ-PPL-009). */
 function joined(p: PersonFacts, h: Address, role: Role): Member {
 	return {
 		id: p.id,
@@ -112,7 +105,6 @@ function householdTouched(tx: Tx, plant: string, id: string) {
 		.set({ revision: sql`${tables.household.revision}+1` })
 		.where(and(eq(tables.household.id, id), eq(tables.household.plant_id, plant)));
 }
-/** A Person's history records its membership as one value, so the activity feed can show every join, leave and role. */
 const membership = (household: { id: string; name: string } | null, role: Role | null) => ({
 	membership: household && role ? { householdId: household.id, name: household.name, role } : null,
 });
@@ -126,7 +118,6 @@ export const households = {
 			const input = parse(f.listHouseholdsRequest, raw);
 			const { gate } = await authorizeRead(tx, ctx);
 			const term = input.search?.toLowerCase() ?? "";
-			// A refused reader gets the seed row only, so an empty page and a refusal stay distinct.
 			const result = await tx.execute(sql`SELECT g.allowed,x.* FROM (SELECT ${gate} AS allowed) g
  LEFT JOIN LATERAL (SELECT h.id,h.name,h.revision::text AS revision,h.street,h.city,h.state_province,
  h.postal_code,h.country,(SELECT count(*) FROM person p WHERE p.household_id=h.id AND p.tenant_id=h.plant_id AND p.state='live')::int AS members,
@@ -161,7 +152,6 @@ export const households = {
 			return personHousehold(p.household_id, p.extra);
 		});
 	},
-	// The preview for address propagation: the exact live members and the household revision.
 	async getHouseholdMembers(tx: Tx, ctx: Context, raw: unknown) {
 		return households.getHousehold(tx, ctx, raw);
 	},
@@ -227,7 +217,6 @@ export const households = {
 						const value: HouseholdValue = { result: view(h), outcome: "noop", receiptId };
 						return { value, subject: h.id, subjectType: "household", action: "people.updated", outcome: "noop" };
 					}
-					// Editing the household never rewrites its members' own addresses; propagation is deliberate.
 					const after = { ...h, ...set, revision: next(h.revision) };
 					audit.writes.push(
 						tx
@@ -262,8 +251,6 @@ export const households = {
 					const h = await readHousehold(tx, plant, input.input.householdId);
 					expectRevision(h.revision, input.expectedRevision);
 					if (h.members.length) deny("conflict");
-					// Retired members leave the current household in the same statement that deletes it; their own history keeps the
-					// household they joined.
 					audit.writes.push(
 						tx
 							.update(tables.person)
@@ -303,7 +290,6 @@ export const households = {
 						const value: HouseholdValue = { result: view(h), outcome: "noop", receiptId };
 						return { value, subject: p.id, action: "people.updated", outcome: "noop" };
 					}
-					// One current household per person: leave the other one first.
 					if (p.household_id) deny("invalid_subject");
 					const member = joined(p, h, role);
 					audit.writes.push(
@@ -336,7 +322,6 @@ export const households = {
 						return { value, subject: p.id, action: "people.updated", outcome: "noop" };
 					}
 					const h = household(p.extra);
-					// Leaving keeps the person's own address.
 					audit.writes.push(
 						personUpdate(tx, plant, p, { household_id: null, household_role: null }),
 						householdTouched(tx, plant, h.id),
@@ -394,7 +379,6 @@ export const households = {
 				await mutation<unknown>(tx, ctx, "people.propagateAddress", input, async (_actor, receiptId, audit) => {
 					const h = await readHousehold(tx, plant, input.input.householdId);
 					expectRevision(h.revision, input.expectedRevision);
-					// The reviewed preview must still be the exact live membership; otherwise nothing is written.
 					const reviewed = new Map<string, string>(input.input.members.map((m) => [m.personId, m.revision]));
 					if (reviewed.size !== h.members.length || h.members.some((m) => reviewed.get(m.id) !== m.revision))
 						deny("conflict");

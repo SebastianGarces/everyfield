@@ -34,7 +34,7 @@ const KIND_LABEL: Record<OwnedView["kind"], string | null> = {
 };
 
 const ROW =
-	"flex min-h-11 w-full cursor-pointer flex-wrap items-center justify-between gap-2 rounded-md bg-surface-raised px-4 py-3 text-left shadow-[0_0_0_1px_var(--ef-line)] transition-shadow duration-150 hover:bg-surface focus-visible:shadow-[0_0_0_2px_var(--ef-ink),0_0_0_5px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60";
+	"flex min-h-11 w-full flex-wrap items-center justify-between gap-2 rounded-md bg-surface-raised px-4 py-3 text-left shadow-[0_0_0_1px_var(--ef-line)] transition-shadow duration-150 hover:bg-surface focus-visible:shadow-[0_0_0_2px_var(--ef-ink),0_0_0_5px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none disabled:opacity-60";
 
 export function NativeDocuments({ written, canEdit }: { written: Scope; canEdit: boolean }) {
 	const [documents, setDocuments] = useState<OwnedView[] | null>(null);

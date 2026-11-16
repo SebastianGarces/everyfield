@@ -2,7 +2,6 @@ import { z } from "zod";
 import { accountId, owner, personId, recordId, revision, role } from "../common/values.ts";
 import { instant } from "../common/time.ts";
 
-// Narrow the C0 parser rather than copying its owner shapes or refinements.
 export const tenantOwner = owner.transform((value, ctx) => {
 	if (value.kind === "plant" || value.kind === "organization") return value;
 	ctx.addIssue({ code: "custom", message: "Expected a tenant owner" });
@@ -23,8 +22,6 @@ const context = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("seat"), owner: tenantOwner, seatId: recordId, role, revision }),
 ]);
 
-// This is a bounded observation, not authority that can be saved or replayed.
-// Inconsistent/duplicate current seats must yield unavailable in the API loader.
 export const currentActorResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("unavailable") }),
 	z.strictObject({ status: z.literal("pending_domain"), accountId }),
@@ -34,8 +31,6 @@ export const currentActorResult = z.discriminatedUnion("status", [
 ]);
 export type CurrentActorResult = z.infer<typeof currentActorResult>;
 
-// Fixed duty projections, not configurable permission rows. Multiple current
-// duties may coexist; directing alone cannot imply responsible-staff notes.
 export const pipelineDuty = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("organization_administration"), canReadStaffNotes: z.literal(true) }),
 	z.strictObject({ kind: z.literal("responsible_staff"), canReadStaffNotes: z.literal(true) }),
@@ -56,8 +51,6 @@ export const pipelineAccessResult = z.discriminatedUnion("status", [
 ]);
 export type PipelineAccessResult = z.infer<typeof pipelineAccessResult>;
 
-// A seatless resident receives only their own link identity here. Later product
-// producers add reviewed self projections, never internal pipeline row spreads.
 export const ownResidencyProjection = z.strictObject({
 	organization: organizationOwner,
 	personId,
@@ -65,8 +58,6 @@ export const ownResidencyProjection = z.strictObject({
 	revision,
 });
 
-// Protected native-only output of orgPeople.readNotes, after exact live duty
-// checks. These bodies are absent from all general/model/export results above.
 export const organizationNotesResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("unavailable") }),
 	z.strictObject({

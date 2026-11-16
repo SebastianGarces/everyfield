@@ -38,7 +38,6 @@ import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield
 import * as c from "@everyfield/contracts/people";
 
 export type Tx = Transaction;
-/** A read-only request observation. Its owner and session derive from one native authority. */
 export class PeopleReadContext {
 	readonly authority: RequestActor;
 	constructor(authority: RequestActor) {
@@ -66,7 +65,6 @@ export function deny(code: Refusal["code"] = "unavailable", details?: object): n
 	throw new Refusal(code, details);
 }
 function refused(error: Refusal): PeopleReply<never> {
-	// Each refusal code declares its own retry eligibility.
 	const retry = c.peopleError.options.find((o) => o.shape.code.value === error.code)!.shape.retry.value;
 	return {
 		status: "refused",
@@ -98,10 +96,6 @@ export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleRe
 	}
 }
 
-/**
- * reply for a producer whose refusals all come before its one write statement: a refusal leaves nothing to roll back
- * and a database error aborts the caller's transaction either way, so it needs no savepoint.
- */
 export async function replyWithoutSavepoint<T>(tx: Tx, body: () => Promise<T>): Promise<PeopleReply<T>> {
 	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	try {
@@ -113,7 +107,6 @@ export async function replyWithoutSavepoint<T>(tx: Tx, body: () => Promise<T>): 
 	}
 }
 
-/** The native request owns rollback, so a successful write needs no nested savepoint. */
 export async function withPeopleWrite<T>(
 	db: Database,
 	authority: RequestActor,
@@ -151,21 +144,12 @@ function seated(context: Context, actor: Awaited<ReturnType<typeof currentActor>
 	if (write && !isAdministrator(actor)) deny();
 	return { ...actor, context: seat };
 }
-/**
- * The actor a read resolved and the live access check (C13, C22) each of its statements repeats. An organization Admin
- * reads every person, so the check keeps that Admin role; any other reader's role does not change what it reads.
- */
 export async function authorizeRead(tx: Tx, context: Context) {
 	return readGate(context, await authorize(tx, context));
 }
-/**
- * The request's cached viewer may write: no statement. A write that first does costly work outside its transaction
- * (reading a file back from the bucket) refuses a Member here; the write checks live authority again (C13).
- */
 export function authorizeCachedWrite(context: PeopleReadContext) {
 	return seated(context, context.authority.actor, true);
 }
-/** `authorizeRead` for the request's cached viewer, which needs no statement and so no transaction. */
 export function authorizeCachedRead(context: PeopleReadContext) {
 	return readGate(context, seated(context, context.authority.actor, false));
 }
@@ -176,7 +160,6 @@ function readGate(context: Context, actor: ActiveActor) {
 		gate: liveRead({ session: context.session, owner: context.selected, seatId: actor.context.seatId }, admin),
 	};
 }
-/** A write's statements need no read gate: its locked authority holds until COMMIT (D70). */
 export const lockedWrite = sql`true`;
 export async function lockOwner(tx: Tx, context: Context) {
 	const locked = boundWrite(tx);
@@ -212,16 +195,13 @@ export const personRow = z.object({
 	linked_account_id: z.uuid().nullable(),
 	revision,
 	pipeline_position: z.string().nullable(),
-	/** The plant-local current date, read with the row so the adult or child value needs no statement of its own. */
 	plant_today: z.string().nullable().optional(),
 });
-/** Every Person column and the plant-local current date, for a read that projects the row. */
 export const personColumns = {
 	...getTableColumns(tables.person),
 	plant_today: sql<string | null>`${plantTodaySql(sql`${tables.person.plant_id}`)}`.as("plant_today"),
 };
 export type Person = z.infer<typeof personRow>;
-/** One Person row. A write passes `true` and locks it for update; a read passes its C13 gate and takes no lock. */
 export async function person(
 	tx: Tx,
 	context: Pick<Context, "selected">,
@@ -239,7 +219,6 @@ export async function person(
 				unremoved(tx),
 			),
 		);
-	// A native write's first attempt reads without the lock; its final statement repeats the read with the lock.
 	const checked = lock === true ? await checkedRead(tx, query.getSQL(), sql`FOR UPDATE OF ${tables.person}`) : null;
 	if (checked) {
 		if (!checked[0]) deny();
@@ -249,7 +228,6 @@ export async function person(
 	if (!rows[0]!) deny();
 	return personRow.parse(rows[0]!);
 }
-/** The Person is not removed from its organization (C13). */
 const unremoved = (tx: Tx) =>
 	notExists(
 		tx
@@ -262,7 +240,6 @@ const unremoved = (tx: Tx) =>
 				),
 			),
 	);
-/** The reader's authority over one Person. Pass the actor a reader already resolved to avoid a second lookup. */
 export async function canReadPerson(tx: Tx, context: Context, p: Person, actor?: ActiveActor) {
 	const a = actor ?? (await authorize(tx, context));
 	if (context.selected.kind === "organization" && !isAdministrator(a)) {
@@ -279,7 +256,6 @@ export async function project(tx: Tx, context: Context, p: Person, gate: SQL) {
 export async function projectPeople(tx: Tx, context: Context, rows: Person[], gate: SQL) {
 	const people = await withToday(tx, context, rows);
 	const known = context.selected.kind === "plant" && people.some((p) => p.commitment_state !== "unknown");
-	// Commitment evidence is another row: a native write that answers with it runs in the gate's transaction (C88).
 	if (known) await declareWrite(tx, "established");
 	const evidence = known
 		? await tx
@@ -306,7 +282,6 @@ export async function projectPeople(tx: Tx, context: Context, rows: Person[], ga
 		: [];
 	return projectWith(context, people, evidence);
 }
-/** A new or just-updated row has no plant-local date yet; one statement reads it, and only for a person with a birth date. */
 async function withToday(tx: Tx, context: Context, people: Person[]) {
 	if (context.selected.kind !== "plant" || !people.some((p) => p.birth_date && p.plant_today === undefined))
 		return people;
@@ -317,7 +292,6 @@ async function withToday(tx: Tx, context: Context, people: Person[]) {
 		.where(eq(tables.plant.id, context.selected.id))) as [{ today: string }];
 	return people.map((p) => ({ ...p, plant_today: p.plant_today ?? today }));
 }
-/** The commitment card a plant Person's projection names: the latest valid one. */
 export type Evidence = {
 	person_id: string;
 	id: string;
@@ -325,11 +299,9 @@ export type Evidence = {
 	signed_on: string;
 	revision: string;
 };
-/** The latest valid card of one Person (`person` may name an outer row) as one JSON value, for a read that projects it in its own statement. */
 export const evidenceJson = (plant: string, person: SQL) =>
 	sql`(SELECT jsonb_build_object('person_id',k.person_id,'id',k.id,'kind',k.kind,'signed_on',k.signed_on::text,'revision',k.revision::text)
  FROM commitment k WHERE k.plant_id=${plant}::uuid AND k.person_id=${person} AND k.voided_at IS NULL ORDER BY k.signed_on DESC,k.id DESC LIMIT 1)`;
-/** People projected with the cards their caller already read. */
 export function projectWith(context: Pick<Context, "selected">, people: Person[], evidence: Evidence[]) {
 	const byPerson = new Map(evidence.map((e) => [e.person_id, e]));
 	return people.map((p) => {
@@ -416,7 +388,6 @@ function contactPatch(patch: object) {
 		Object.entries(contactValues(patch)).map(([key, value]) => [key, sql`${sql.param(value)}`]),
 	);
 }
-/** The locked fact supplies the reply; the change and audit append together. */
 export async function patchPerson(
 	tx: Tx,
 	ctx: Pick<Context, "selected">,
@@ -456,11 +427,6 @@ export function personChanges(before?: Revisioned, after?: Revisioned) {
 	};
 }
 
-/**
- * Each People write's path (C88, operations/writes.ts). "single" only where every check is on the Person row the
- * final statement locks again: creating a Person (no read), editing its contact fields and adding a note to it. Every
- * other write reads another row, a count or the church's settings and runs in the gate's transaction.
- */
 const peopleWritePaths = {
 	"orgPeople.merge": "established",
 	"orgPeople.unmerge": "established",
@@ -505,7 +471,6 @@ const peopleWritePaths = {
 export type PeopleWrite = keyof typeof peopleWritePaths;
 
 export type Mutation = { requestKey: string; expectedRevision?: string };
-/** The fact a write changed: a Person, or another revisioned people fact such as a tag or household. */
 export type Revisioned = { revision: string };
 export async function mutation<T>(
 	tx: Tx,
@@ -525,11 +490,9 @@ export async function mutation<T>(
 		subjectType?: "tag" | "household" | "person_skill";
 		reason?: string | null;
 		outcome?: "changed" | "noop";
-		// Bounded audit metadata, such as the record an assessment, interview or commitment event names.
 		metadata?: Record<string, string>;
 	}>,
 ): Promise<unknown> {
-	// An organization's note reads the reader's pipeline duties, another row: it runs in the gate's transaction.
 	await declareWrite(tx, context.selected.kind === "organization" ? "established" : peopleWritePaths[name]);
 	await lockOwner(tx, context);
 	const note = ["people.addNote", "people.editNote", "people.deleteNote"].includes(name);
@@ -540,7 +503,6 @@ export async function mutation<T>(
 		const access = await readPipelinePerson(tx, context.session, context.selected, { personId: subject });
 		if (access.status !== "allowed" || !access.duties.some((d) => d.canReadStaffNotes)) deny();
 	}
-	// Native digest bytes are persisted; keep already committed retry keys stable.
 	const digest = hash({ name, input, origin: { kind: "native" } });
 	const identity = requestIdentity.parse({
 		owner: context.selected,
@@ -553,7 +515,6 @@ export async function mutation<T>(
 	if (claim.kind === "conflict") deny("conflict");
 	if (claim.kind === "unavailable") deny();
 	if (claim.kind === "replay") {
-		// Only an organization removes people from its view; a plant replay has nothing to check.
 		if (
 			context.selected.kind === "organization" &&
 			(

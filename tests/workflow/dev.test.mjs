@@ -34,8 +34,6 @@ const alive = (pid) => {
 
 test("BUG-ops8-browser-run: bin/dev browser run leaves no browser process or temporary profile after a pass, a throw or a timeout", () => {
 	const dir = realpathSync(mkdtempSync(join(tmpdir(), "dev-browser-test-")));
-	// A stand-in browser binary: Node under a Playwright-style path. Real browsers start their own process group, so a
-	// group kill alone misses them.
 	const bin = join(dir, "ms-playwright/chromium_headless_shell-0/chrome-headless-shell");
 	mkdirSync(join(bin, ".."), { recursive: true });
 	symlinkSync(process.execPath, bin);
@@ -59,9 +57,6 @@ if (mode === "hang") setInterval(() => {}, 1000);
 `,
 	);
 	try {
-		// T-262: a pass and a throw end on their own, so their bound only stops a broken run and a loaded machine meets it.
-		// The hang must outlast its 3 s bound, and before that only start Node, spawn and write one file: under six
-		// parallel full checks that took well under 1 s.
 		for (const [mode, expected, timeout] of [
 			["pass", 0, "120"],
 			["throw", 1, "120"],
@@ -85,7 +80,6 @@ if (mode === "hang") setInterval(() => {}, 1000);
 	}
 });
 
-// Fake only the external Portless executable, as stack.test.mjs does.
 const fake = `#!/usr/bin/env node
 const fs = require('node:fs');
 const args = process.argv.slice(2);

@@ -24,11 +24,6 @@ export class ImportRejected extends Error {
 	}
 }
 
-/**
- * UTF-8 text or a modern Word document, as a native body: text lands as one paragraph for each line, a Word file keeps
- * its headings, lists, links and tables. Legacy Word, macros and remote targets are refused. The caller still checks the body
- * against the format rules.
- */
 export function readImport(bytes: Uint8Array, format: "text" | "docx"): DocNode {
 	if (bytes.length > IMPORT_BYTES_MAX) throw new ImportRejected(IMPORT_TOO_LARGE);
 	if (isOle(bytes)) throw new ImportRejected("Legacy Word documents are not accepted.");
@@ -118,8 +113,6 @@ function unzip(bytes: Uint8Array, started: number) {
 	return entries;
 }
 
-/** Inflates one entry, stopping at the size its header declares: the 40 MiB cap counts declared sizes, so an entry
- * that inflates past its own declaration is refused before the extra bytes are allocated. */
 function inflate(raw: Buffer, declared: number) {
 	try {
 		return inflateRawSync(raw, { maxOutputLength: Math.max(1, declared) });
@@ -135,14 +128,11 @@ function refuseName(name: string) {
 		throw new ImportRejected("The Word file is not a valid document.");
 }
 
-/** The folder of the part a relationships file belongs to: `word/_rels/document.xml.rels` is `word/document.xml`'s, so
- * its targets resolve from `word/`; the package's own `_rels/.rels` resolves from the root. */
 function sourceDir(relsName: string) {
 	const at = relsName.lastIndexOf("_rels/");
 	return relsName.slice(0, Math.max(0, at)).split("/").filter(Boolean);
 }
 
-/** Whether a part target stays inside the package once resolved from `dir` (OPC part names, ECMA-376 part 2 9.3). */
 function insidePackage(target: string, dir: readonly string[]) {
 	const path = target.startsWith("/") ? [] : [...dir];
 	for (const part of target.split(/[?#]/, 1)[0]!.split("/")) {
@@ -155,14 +145,11 @@ function insidePackage(target: string, dir: readonly string[]) {
 }
 
 function refuseExternal(xml: string, dir: readonly string[]) {
-	// Self-closing or not: readLinks reads both forms, so both are checked.
 	const tags = xml.match(/<Relationship\b[^>]*>/gi) ?? [];
 	for (const tag of tags) {
 		const external = attr(tag, "TargetMode")?.toLowerCase() === "external";
 		const target = attr(tag, "Target") ?? "";
 		const type = (attr(tag, "Type") ?? "").toLowerCase();
-		// A part target may climb to a sibling folder (textutil links `../docProps/meta.xml`) but not out of the package.
-		// An external target is not a part, so any `..` in it points at the disk around the file.
 		const outside = external ? target.split("/").includes("..") : !insidePackage(target, dir);
 		if (outside || target.toLowerCase().startsWith("file:"))
 			throw new ImportRejected("The Word file points outside the document.");
@@ -175,11 +162,6 @@ function attr(tag: string, name: string) {
 	const found = new RegExp(String.raw`\b${name}\s*=\s*"([^"]*)"`, "i").exec(tag);
 	return found?.[1] ?? null;
 }
-
-// The Word structure the import keeps (T-99): headings by style name or outline level, bulleted and numbered lists from
-// numbering.xml, links to safe addresses and line breaks; and (T-111) tables as plain native tables of text columns.
-// Everything else stays a paragraph. Each part is read with
-// bounded regular expressions, so a malformed or missing part leaves its paragraphs plain instead of throwing.
 
 type Style = {
 	name: string;
@@ -211,7 +193,6 @@ const LIST_MAX = Math.min(
 );
 const CHAIN_MAX = 20;
 const LABEL_MAX = FORMAT_SCHEMA.nodes.table!.attrs.columns!.of!.props!.label!.max ?? 80;
-/** Word's on/off values that mean off (ECMA-376 ST_OnOff). */
 const OFF = new Set(["0", "false", "off"]);
 const val = (body: string, tag: string) => {
 	const found = new RegExp(String.raw`<w:${tag}\b[^>]*?\bw:val\s*=\s*"([^"]*)"`).exec(body);
@@ -222,7 +203,6 @@ const int = (value: string | null) => {
 	return Number.isInteger(n) && n >= 0 ? n : null;
 };
 
-/** The paragraph styles by id: name, parent, outline level and the numbering each sets. Drops each style's change record. */
 function readStyles(xml: string | undefined) {
 	const styles = new Map<string, Style>();
 	for (const found of (xml ?? "").matchAll(/<w:style\b([^>]*)>([\s\S]*?)<\/w:style>/g)) {
@@ -239,7 +219,6 @@ function readStyles(xml: string | undefined) {
 	return styles;
 }
 
-/** A style and the styles it is based on, nearest first, cycle-safe. */
 function* chain(styles: Map<string, Style>, id: string | null) {
 	const seen = new Set<string>();
 	for (let at = id; at !== null && !seen.has(at) && seen.size < CHAIN_MAX;) {
@@ -251,10 +230,6 @@ function* chain(styles: Map<string, Style>, id: string | null) {
 	}
 }
 
-/**
- * Word levels 1 to 9 by style name ("heading 2") or outline level (0 is level 1). Levels 4 to 9 read as level 3; outline
- * level 9 is Word's body text, not a heading.
- */
 const capped = (level: number) => Math.min(level, 3) as 1 | 2 | 3;
 function headingOf(styles: Map<string, Style>, open: Open): 1 | 2 | 3 | null {
 	if (open.outline !== null) return open.outline <= 8 ? capped(open.outline + 1) : null;
@@ -266,7 +241,6 @@ function headingOf(styles: Map<string, Style>, open: Open): 1 | 2 | 3 | null {
 	return null;
 }
 
-/** Each numbering instance's top-level format: its override, else its abstract definition's level 0. */
 function readNumbering(xml: string | undefined, styles: Map<string, Style>): Numbering {
 	const levels = (body: string) => {
 		const out = new Map<number, string>();
@@ -293,7 +267,6 @@ function readNumbering(xml: string | undefined, styles: Map<string, Style>): Num
 		const num = nums.get(numId);
 		if (!num) return null;
 		const abstract = num.abstract === null ? undefined : abstracts.get(num.abstract);
-		// A list defined by a numbering style takes its levels from the numbering that style sets.
 		if (abstract && !abstract.levels.size && abstract.link && hops < 2)
 			for (const style of chain(styles, abstract.link))
 				if (style.numId && style.numId !== numId) return format(style.numId, hops + 1);
@@ -302,7 +275,6 @@ function readNumbering(xml: string | undefined, styles: Map<string, Style>): Num
 	return (numId) => format(numId, 0);
 }
 
-/** The document's hyperlink relationships whose address passes the native link rule. */
 function readLinks(xml: string | undefined) {
 	const links = new Map<string, string>();
 	for (const [tag] of (xml ?? "").matchAll(/<Relationship\b[^>]*>/gi)) {
@@ -316,10 +288,6 @@ function readLinks(xml: string | undefined) {
 	return links;
 }
 
-/**
- * The list a numbered paragraph belongs to. Its kind is the numbering instance's top level, whatever the paragraph's
- * own level, so numbered steps with bulleted sub-points stay one numbered list.
- */
 function listOf(word: Word, open: Open) {
 	let numId = open.numId;
 	for (const style of chain(word.styles, open.style)) numId ??= style.numId;
@@ -328,7 +296,6 @@ function listOf(word: Word, open: Open) {
 	return kind ? { kind, numId } : null;
 }
 
-/** Runs of text with the same link join into one text node; a link mark holds its exact address. */
 function inlineNodes(inline: Inline[]) {
 	const out: Node[] = [];
 	let href: string | null = null;
@@ -345,12 +312,9 @@ function inlineNodes(inline: Inline[]) {
 	return out;
 }
 
-/** One Word table cell as read: the grid columns it spans, whether it continues a vertical merge, and its runs, with a
- * hardBreak wherever a paragraph or line break ends a piece of its text. */
 type WordCell = { span: number; continued: boolean; items: Inline[] };
 type WordRow = { header: boolean; cells: WordCell[] };
 
-/** A cell's runs as one line: pieces of text join with a single space and the ends are trimmed. */
 function cellLine(items: Inline[]) {
 	const out: (Inline & { type: "text" })[] = [];
 	let gap = false;
@@ -368,11 +332,6 @@ function cellLine(items: Inline[]) {
 	return out;
 }
 
-/**
- * A Word table as native tables (T-111 rulings a to d): text columns as wide as the widest row, a header from Word's
- * marked first row when every label fits, and at most the format's row limit per table. Null when the table is wider
- * than the format allows or has no cells, so its paragraphs stay as they are.
- */
 function wordTables(rows: WordRow[]): Node[] | null {
 	const width = rows.reduce(
 		(most, row) =>
@@ -420,13 +379,6 @@ function wordTables(rows: WordRow[]): Node[] | null {
 	return tables;
 }
 
-/**
- * The body of a Word document. Paragraphs in the body keep their heading level or list; paragraphs in tables and text
- * boxes stay plain. A text box inside a paragraph lands after the paragraph's text before it, so no text moves. A table
- * in the body (not in a text box) is read twice: its paragraphs land as plain paragraphs, and its rows and cells are
- * collected; when it closes, a table the format can hold replaces those paragraphs. A table nested in a cell adds its
- * text to that cell.
- */
 function wordBody(xml: string, word: Word): DocNode {
 	const blocks: Node[] = [];
 	const stack: Open[] = [];
@@ -481,7 +433,6 @@ function wordBody(xml: string, word: Word): DocNode {
 			add({ type: "text", text: decodeEntities(xml.slice(textFrom, found.index)), href: links.at(-1) ?? null });
 			inText = false;
 		}
-		// The fallback copy of a drawing repeats its text box, and a change record repeats old properties.
 		if (/^(mc:Fallback|w:(p|r|tc|tr|tbl)PrChange)$/.test(name)) {
 			if (!selfClosing) skipDepth += closing ? -1 : 1;
 			continue;
@@ -564,10 +515,8 @@ function wordBody(xml: string, word: Word): DocNode {
 			inText = true;
 			textFrom = found.index + found[0].length;
 		} else if (name === "w:br" || name === "w:cr") add({ type: "hardBreak" });
-		// A tab in a run reads as a space; a tab stop in w:pPr is caught above.
 		else if (name === "w:tab") add({ type: "text", text: " ", href: links.at(-1) ?? null });
 	}
-	// Text and paragraphs the file never closes still land, so no text is lost.
 	if (inText) add({ type: "text", text: decodeEntities(xml.slice(textFrom)), href: links.at(-1) ?? null });
 	while (stack.length) {
 		const open = stack.pop()!;
@@ -579,7 +528,6 @@ function wordBody(xml: string, word: Word): DocNode {
 }
 
 const NAMED: Record<string, string> = { lt: "<", gt: ">", quot: '"', apos: "'", amp: "&" };
-/** A code point XML 1.0 allows in a document (its Char production). */
 const xmlChar = (n: number) =>
 	n === 0x9 ||
 	n === 0xa ||
@@ -588,8 +536,6 @@ const xmlChar = (n: number) =>
 	(n >= 0xe000 && n <= 0xfffd) ||
 	(n >= 0x10000 && n <= 0x10ffff);
 
-/** The five named entities and `&#N;` / `&#xN;` references, in one pass so `&amp;#38;` stays `&#38;`. A reference to a
- * character XML forbids stays as written. */
 function decodeEntities(value: string) {
 	return value.replace(/&(?:#(\d{1,7})|#x([0-9a-fA-F]{1,6})|(lt|gt|quot|apos|amp));/g, (whole, dec, hex, named) => {
 		if (named) return NAMED[named]!;

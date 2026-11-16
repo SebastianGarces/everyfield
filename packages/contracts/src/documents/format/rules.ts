@@ -1,13 +1,7 @@
-// Ported from the retired approach-a prototype (fixtures in tests/integration/documents/fixtures/format/): the
-// validator, the table math, the canonical form and forking.
-// The schema (schema.ts) says which nodes, attributes and children exist. This file adds the rules a content model
-// cannot say: declared fields, table shape, formulas, unique write-in keys and page fit. Every message is the
-// design module's message, so a file that fails there fails here with the same words.
 import { FORMAT_SCHEMA } from "./schema.ts";
 import type { AnyNode, DocDocument, DocTemplate, FormatSchema, PageSetup, TableNode, ValueSpec } from "./types.ts";
 
 const SLUG = /^[a-z][a-z0-9-]{0,79}$/;
-/** A field or write-in key: a lowercase letter, then letters, digits or underscores, 60 at most. */
 export const KEY = /^[a-z][a-z0-9_]{0,59}$/;
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 const NUMERIC = new Set(["number", "money"]);
@@ -16,7 +10,6 @@ type Rec = { [key: string]: unknown };
 const isRec = (value: unknown): value is Rec => !!value && typeof value === "object" && !Array.isArray(value);
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
-/** Points of a page box, after size and orientation. */
 export function pageBox(page: Pick<PageSetup, "size" | "width" | "height" | "orientation">, schema = FORMAT_SCHEMA) {
 	const base =
 		page.size === "custom"
@@ -28,7 +21,6 @@ export function pageBox(page: Pick<PageSetup, "size" | "width" | "height" | "ori
 	return page.orientation === "landscape" ? { width: base.height, height: base.width } : { ...base };
 }
 
-/** The size of one tile (a card) in points, or the page content box when the page is not tiled. */
 export function tileBox(page: PageSetup, schema = FORMAT_SCHEMA) {
 	const box = pageBox(page, schema);
 	if (!box) return null;
@@ -39,8 +31,6 @@ export function tileBox(page: PageSetup, schema = FORMAT_SCHEMA) {
 	return { width: w / page.tile.across, height: h / page.tile.down };
 }
 
-// ---------------------------------------------------------------- formulas
-
 export type Formula =
 	| { op: "num"; v: number }
 	| { op: "col"; id: string }
@@ -49,7 +39,6 @@ export type Formula =
 	| { op: "+" | "-" | "*" | "/"; a: Formula; b: Formula };
 type Token = { t: "num"; v: number } | { t: "id"; v: string } | { t: "-" | "+" | "*" | "/" | "(" | ")" | ":" };
 
-/** A column formula: numbers, column ids to the left, + - * / ( ) and sum(first:last). */
 export function parseFormula(source: string): Formula {
 	const tokens: Token[] = [];
 	const re = /\s*(?:(\d+(?:\.\d+)?)|([a-z][a-z0-9_]*)|([-+*/():]))/y;
@@ -119,7 +108,6 @@ export function parseFormula(source: string): Formula {
 	return tree;
 }
 
-/** Column ids a formula reads. A sum range expands to every column from first to last, in table order. */
 function formulaRefs(tree: Formula, columnIds: string[]) {
 	const out: string[] = [];
 	const walk = (n: Formula) => {
@@ -141,15 +129,11 @@ function formulaRefs(tree: Formula, columnIds: string[]) {
 }
 
 type FormulaDep = {
-	/** The formula column. */
 	column: TableNode["attrs"]["columns"][number];
-	/** Every column id the formula reads, a sum range expanded. */
 	reads: string[];
-	/** The column index spans of its sum ranges: a column added inside one would join the sum. */
 	spans: [number, number][];
 };
 
-/** What each formula column of a table reads. A formula that does not parse reads nothing. */
 export function formulaDeps(columns: TableNode["attrs"]["columns"]): FormulaDep[] {
 	const ids = columns.map((c) => c.id);
 	const out: FormulaDep[] = [];
@@ -205,11 +189,6 @@ function evalTree(n: Formula, get: (id: string) => number, columnIds: string[]):
 	}
 }
 
-/**
- * The numbers a table shows. Item rows read their typed values and compute formula columns. A subtotal row adds the item
- * rows of its category (since the last group row). A total row adds every category so far, with each group's sign.
- * Returns one array per row, with a number or null for each column (null: the cell prints no number).
- */
 export function computeTable(table: TableNode): (number | null)[][] {
 	const cols = table.attrs.columns;
 	const ids = cols.map((c) => c.id);
@@ -273,16 +252,12 @@ export function computeTable(table: TableNode): (number | null)[][] {
 			out.push(cols.map((c, ci) => (numericCol(c) ? (groupSum[ci] ?? 0) : null)));
 			continue;
 		}
-		// total: every group so far, the open one included, each with its sign.
 		const all = openGroup ? [...groups, { sign: groupSign, sum: groupSum }] : groups;
 		out.push(cols.map((c, ci) => (numericCol(c) ? all.reduce((s, g) => s + g.sign * (g.sum[ci] ?? 0), 0) : null)));
 	}
 	return out;
 }
 
-// ---------------------------------------------------------------- canonical form and hash input
-
-/** JSON with sorted keys and no editor-only keys (those that start with "_"). The template hash reads this. */
 function canonical(value: unknown): string {
 	if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
 	if (isRec(value)) {
@@ -294,8 +269,6 @@ function canonical(value: unknown): string {
 	return JSON.stringify(value);
 }
 
-// ---------------------------------------------------------------- validation
-
 type Ctx = {
 	schema: FormatSchema;
 	fail: (path: string, message: string) => void;
@@ -305,7 +278,6 @@ type Ctx = {
 	fieldRefs: { key: unknown; path: string; list?: boolean }[];
 	ledgers: number;
 	region: string | null;
-	/** The node types around the node being checked, outermost first. */
 	ancestors: string[];
 };
 
@@ -321,7 +293,6 @@ const newCtx = (schema: FormatSchema, fail: Ctx["fail"]): Ctx => ({
 	ancestors: [],
 });
 
-/** The first fault the format finds in one table, or null. The editor asks this before it applies a change to a table. */
 export function tableIssue(table: TableNode, schema = FORMAT_SCHEMA): string | null {
 	const errors: string[] = [];
 	const node = table as unknown as Rec;
@@ -334,7 +305,6 @@ export function tableIssue(table: TableNode, schema = FORMAT_SCHEMA): string | n
 	return errors[0] ?? null;
 }
 
-/** Validate one document or template. Returns every fault found, each as "<path>: <message>". */
 export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; errors: string[] } {
 	const errors: string[] = [];
 	const fail = (path: string, message: string) => errors.push(`${path}: ${message}`);
@@ -346,7 +316,6 @@ export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; e
 	checkObject(doc, schema.envelope, "(root)", ctx, true);
 	if (errors.length && (!doc.page || !doc.body)) return { ok: false, errors };
 
-	// Envelope rules.
 	for (const [i, f] of list(doc.fields).entries()) {
 		if (!isRec(f)) continue;
 		if (ctx.fields.has(f.key)) fail(`fields[${i}]`, `the field key "${String(f.key)}" is declared twice`);
@@ -364,7 +333,6 @@ export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; e
 		for (const key of Object.keys(doc.data))
 			if (!ctx.fields.has(key)) fail(`data.${key}`, `the value "${key}" has no declared field`);
 
-	// Page rules.
 	const page = doc.page;
 	if (isRec(page)) {
 		if (page.size === "custom" && (typeof page.width !== "number" || typeof page.height !== "number"))
@@ -392,7 +360,6 @@ export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; e
 		}
 	}
 
-	// Body.
 	if (isRec(doc.body)) {
 		if (doc.body.type !== "doc") fail("body", `the body is a "doc" node, not "${String(doc.body.type)}"`);
 		else checkNode(doc.body, "body", ctx, ["root"]);
@@ -410,14 +377,12 @@ export function validate(doc: unknown, schema = FORMAT_SCHEMA): { ok: boolean; e
 		fail("exports", "XLSX export needs at least one ledger table (a budget) in the body");
 	if (ctx.nodes > schema.limits.nodes)
 		fail("body", `the document holds ${ctx.nodes} nodes; the limit is ${schema.limits.nodes}`);
-	// The limit counts UTF-16 code units of the JSON (string length), not UTF-8 bytes; the words are the prototype's.
 	const bytes = JSON.stringify(doc).length;
 	if (bytes > schema.limits.jsonBytes)
 		fail("(root)", `the document is ${bytes} bytes; the limit is ${schema.limits.jsonBytes}`);
 	return { ok: errors.length === 0, errors };
 }
 
-/** `tileBox` on a page that has not passed its own checks yet: numbers only, else no box. */
 function safeTileBox(page: Rec, schema: FormatSchema) {
 	const m = page.margin as Rec;
 	const tile = isRec(page.tile) ? page.tile : null;
@@ -458,7 +423,6 @@ function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], den
 	const known = new Set(["type", "attrs", "content", ...(spec.text ? ["text", "marks"] : [])]);
 	for (const k of Object.keys(node)) if (!known.has(k)) fail(where, `unknown key "${k}" on a ${type} node`);
 
-	// Attributes: a missing attribute with a default takes it; one without a default is required.
 	const attrs: Rec = isRec(node.attrs) ? node.attrs : {};
 	if (node.attrs !== undefined && !isRec(node.attrs)) fail(where, "attrs must be an object");
 	for (const k of Object.keys(attrs))
@@ -516,7 +480,6 @@ function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], den
 		}
 	}
 
-	// Node rules the content model cannot say.
 	if (type === "field") ctx.fieldRefs.push({ key: attrs.key, path: where });
 	if (type === "pageNumber" && !ctx.region) fail(where, "a page number can sit only in the page header or footer");
 	if (type === "writeIn" && typeof attrs.key === "string") {
@@ -534,7 +497,6 @@ function checkNode(node: unknown, path: string, ctx: Ctx, allowed: string[], den
 	}
 }
 
-/** The rules of conditional text: where it sits, what it holds, and a condition on a declared field that fits its type. */
 function checkCondition(node: Rec, attrs: Rec, where: string, ctx: Ctx) {
 	const { fail } = ctx;
 	if (ctx.region) fail(where, `conditional text cannot sit in the page ${ctx.region}; it prints in the body only`);
@@ -702,14 +664,13 @@ function checkValue(value: unknown, spec: ValueSpec, path: string, ctx: Ctx) {
 			return;
 		case "blocks":
 			if (!Array.isArray(value)) fail(path, "must be a list of blocks");
-			return; // the nodes are checked by the page rules, with the region set.
+			return;
 		case "node":
 			if (!value || typeof value !== "object") fail(path, "must be a node");
-			return; // the body is checked by checkNode.
+			return;
 	}
 }
 
-/** What the format says about one attribute value of a node type, in its words, or null when the value is fine. */
 export function attrIssue(node: string, attribute: string, value: unknown): string | null {
 	const spec = FORMAT_SCHEMA.nodes[node]?.attrs[attribute];
 	if (!spec) return null;
@@ -742,11 +703,8 @@ function checkObject(value: unknown, props: Record<string, ValueSpec>, path: str
 	}
 }
 
-// ---------------------------------------------------------------- attribute defaults
-
 type AttrsOf<N> = N extends { attrs?: infer A } ? Required<NonNullable<A>> : never;
 
-/** A node's attributes with the schema defaults filled in. The validator has already checked the stored ones. */
 export function attrsOf<N extends AnyNode>(node: N): AttrsOf<N> {
 	const spec = FORMAT_SCHEMA.nodes[node.type];
 	const out: Rec = {};
@@ -754,19 +712,12 @@ export function attrsOf<N extends AnyNode>(node: N): AttrsOf<N> {
 	return { ...out, ...("attrs" in node ? node.attrs : {}) } as AttrsOf<N>;
 }
 
-// ---------------------------------------------------------------- templates and documents
-
-/** sha256 of a template's canonical JSON, as "sha256:<hex>". A document records it as its origin hash. */
 export async function templateHash(template: DocTemplate) {
 	const bytes = new TextEncoder().encode(canonical(template));
 	const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
 	return `sha256:${[...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
-/**
- * Fork: a new document from a template. The document is a full copy of the template's page and body, so it never follows
- * later template changes. It records which template version it came from and freezes the merge values it was made with.
- */
 export async function forkTemplate(
 	template: DocTemplate,
 	{ id, data = {} }: { id?: string; data?: Record<string, unknown> } = {},
@@ -792,11 +743,6 @@ export async function forkTemplate(
 	};
 }
 
-/**
- * Save as template: a church's own template from one of its documents. The template is a full copy of the document's
- * page, fields and body. It drops `origin` and `data`, so a document made from it freezes the church's details anew.
- * `version` is 1 for a new template and one more for each update.
- */
 export function templateFromDocument(
 	doc: DocDocument,
 	{ id, title, description, version }: { id: string; title: string; description?: string; version: number },

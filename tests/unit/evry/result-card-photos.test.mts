@@ -1,7 +1,3 @@
-// T-274 Done 4-5 (REQ-IDN-006): an Evry result card draws each person row's photo from the photos the panel read for
-// it now, never from the saved result. A person row without one, and every household, tag, skill, activity or file
-// row, keeps its initials or icon. It renders the real ResultCard in node, with no browser and no database. It runs
-// from packages/domain's test:unit: tsx --tsconfig ../../tests/unit/render.tsconfig.json --test <this file>.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
@@ -46,12 +42,9 @@ const images = (html: string) => [...html.matchAll(/<img[^>]*src="([^"]+)"/g)].m
 
 test("AC:TARGET-IDN-006: a person row shows the photo read for it now; other rows keep initials", () => {
 	const saved = result("people.listPeople", [person(LINKED, "Linked Holder"), person(PLAIN, "Plain Person")]);
-	// The saved result carries no photo: the card shows only what the panel read.
 	assert.doesNotMatch(JSON.stringify(saved), /photo|avatar|versionId/i);
 	const first = `/api/accounts/${LINKED}/avatar/44444444-4444-4444-8444-444444444444`;
 	assert.deepEqual(images(render("people.listPeople", saved, { [LINKED]: first })), [first]);
-	// Reopened after the photo was replaced, the same saved result shows the new version; after it was removed or
-	// the seat ended, the initials.
 	const replaced = `/api/accounts/${LINKED}/avatar/55555555-5555-4555-8555-555555555555`;
 	assert.deepEqual(images(render("people.listPeople", saved, { [LINKED]: replaced })), [replaced]);
 	const html = render("people.listPeople", saved, {});
@@ -65,6 +58,5 @@ test("household rows keep their icon, and member rows of a household card show t
 		{ kind: "household", id: H, label: "Okafor household", fields: { memberCount: "2", city: null } },
 		{ kind: "person", id: LINKED, label: "Linked Holder", fields: { role: "head", householdId: H } },
 	]);
-	// A photo keyed by the household's id is never drawn: only person rows ask for one.
 	assert.deepEqual(images(render("people.getHousehold", saved, { [LINKED]: photo, [H]: "/not-a-photo" })), [photo]);
 });

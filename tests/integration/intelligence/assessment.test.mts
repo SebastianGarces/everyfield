@@ -1,7 +1,3 @@
-// Plant Intelligence assessments through the operations the Plant Intelligence screen will call (WP-041 to WP-043): an
-// Owner's intelligence.requestRefresh run by the assessment job with the scripted drafter only,
-// intelligence.readAssessment and intelligence.resolveCitation.
-// One synthetic church on a scratch schema; the tests run in order and share its plants and reference releases.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -31,7 +27,6 @@ before(async () => {
 });
 after(() => c?.database.close());
 
-/** An Owner's fresh-assessment request, run by the job: the run as its outcome, reason and drafts. */
 async function run(p, drafter = scriptedAssessmentDrafter(), requestId = randomUUID()) {
 	ok(await assessments.requestRefresh(c.db, p.actor, { requestId }));
 	await runAssessmentBatch(job, c.db, drafter, 20);
@@ -103,12 +98,10 @@ test("AC:PI-CASE-018 every citation of a Phase 1 assessment opens the exact fact
 			assert.ok([1, null].includes(opened.phase), `${key} is Phase 1 or general guidance`);
 			assert.equal(opened.version.release, "methodology-2026.10");
 			assert.equal(opened.currentVersion, true);
-			// The section is its heading, or null for the article's opening text; the text is the exact cited text.
 			const stored = (await c.one(sql`SELECT result FROM assessment_run WHERE id=${runId}`)).result.citations[key];
 			assert.deepEqual([opened.slug, opened.section, opened.text], [stored.slug, stored.section, stored.text]);
 		}
 	}
-	// The exact values the facts recorded, with the two people who fill the roles, each linked while still live.
 	const holders = await c.rows(sql`SELECT id AS "personId",display_name AS name FROM person WHERE plant_id=${H.id}
 		AND display_name IN ('Adult 04','Adult 05') ORDER BY display_name`);
 	assert.deepEqual(await cite(H, runId, "coverage.filled"), {
@@ -175,13 +168,11 @@ test("AC:PI-CASE-018 a citation whose stored passage or fact no longer matches r
 	const [key, passage] = Object.entries(old.citations as Record<string, any>).find(
 		([, v]) => v.kind === "passage" && v.sourceKind === "global",
 	);
-	// Revisions are frozen by a trigger; the edit goes around it, as a corrupted or replaced source would.
 	await c.admin.transaction(async (tx) => {
 		await tx.execute(sql`SET LOCAL session_replication_role = replica`);
 		await tx.execute(sql`UPDATE article_revision SET body=body||' Edited later.' WHERE id=${passage.revisionId}`);
 	});
 	assert.deepEqual(await cite(H, firstRun, key), { status: "unverifiable", key });
-	// A run's snapshot is frozen by a trigger too; this edit goes around it the same way.
 	await c.admin.transaction(async (tx) => {
 		await tx.execute(sql`SET LOCAL session_replication_role = replica`);
 		await tx.execute(
@@ -235,7 +226,6 @@ test("AC:PI-CASE-011 a network article cited before the plant left the network r
 	const gone = await cite(H, runId, key);
 	assert.deepEqual(gone, { status: "unavailable", key });
 	assert.doesNotMatch(JSON.stringify(gone), /coach|follow up/i);
-	// A new run no longer finds the network's article at all.
 	const after = (await stored((await run(H)).runId)).model_input.passages;
 	assert.ok(!after.some((p) => p.sourceKind === "network"));
 });
@@ -255,7 +245,6 @@ test("a network director cannot open a plant's assessment or its citations; a Me
 	const member = await c.database.actor(H, "member");
 	const asMember = (await RequestActor.resolve(c.db, member.session as never)) as RequestActor;
 	assert.equal(refusedCode(await assessments.readAssessment(c.db, asMember, {})), "access_denied");
-	// Another plant's Owner cannot open this plant's run by id.
 	assert.equal(
 		refusedCode(await assessments.resolveCitation(c.db, T.actor, { runId: firstRun, key: "coverage.filled" })),
 		"not_found",

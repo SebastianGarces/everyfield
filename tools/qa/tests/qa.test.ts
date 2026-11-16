@@ -28,7 +28,6 @@ import {
 } from "./fixtures.ts";
 import { DEV_ENDPOINT, PROD_ENDPOINT, QA_LOGINS, QA_PASSWORD, seedRefusal } from "../qa-guard.ts";
 
-// Sentinels the stubbed CLIs emit or receive. None may reach qa's output, its store or any file it leaves behind.
 const NEON_PASSWORD = "npg_SentinelNeonPassword01";
 const BYPASS = "sentinel-bypass-secret-0f1e2d3c";
 const API_KEY = "re_sentinel_resend_key_99";
@@ -40,13 +39,10 @@ const BRANCHES = [
 	{ id: "br-main", name: "main" },
 ];
 
-/** The length of a `qa drive` "minute" in the tests, and how far into it a call starts (2 s of a real minute). */
 const TEST_MINUTE = 1_000;
 const TEST_OFFSET = Math.round(TEST_MINUTE / 30);
 
-/** A git repo with one feature branch, stub neonctl, vercel and corepack first on PATH, and a private TMPDIR. */
 function setup(endpoints = [DEV, PROD], seedPath = "tools/qa/qa-seed.ts") {
-	// The real path, as git prints it (macOS puts the temporary folder behind /var -> /private/var).
 	const dir = realpathSync(mkdtempSync(join(tmpdir(), "qa-test-"))),
 		root = join(dir, "repo"),
 		bin = join(dir, "bin"),
@@ -89,7 +85,6 @@ else if (a[0] === "branches" && a[1] === "create") {
 else if (a[0] === "connection-string") console.log(a.includes("--pooled") ? ${JSON.stringify(cs.replace("-a1.", "-a1-pooler."))} : ${JSON.stringify(cs)});
 else process.exit(9);`,
 	);
-	// corepack prints the database URL it got, as a leaky migration would; a FAIL_MIGRATE file makes it fail.
 	stub(
 		"corepack",
 		`if (a.includes("--frozen-lockfile")) process.exit(0);
@@ -166,9 +161,6 @@ else if ((a[0] === "alias" && a[1] === "rm") || a[0] === "remove") {
 	const main = ["--disable-warning=ExperimentalWarning", join(source, "tools/qa/main.ts")];
 	const qa = (...args: string[]) =>
 		spawnSync(process.execPath, [...main, ...args], { cwd: root, encoding: "utf8", env });
-	// T-289: `qa drive` as Jonah runs it in a terminal, with a one-second "minute"; its stdout and stderr go to a file.
-	// Its tick log holds each minute it plans and each call it starts, so a test reads the schedule apart from how late a
-	// starved process runs or how long calls take to answer.
 	const hosts: ChildProcess[] = [];
 	const drive = () => {
 		const out = join(dir, `drive-${hosts.length}.out`),
@@ -182,14 +174,11 @@ else if ((a[0] === "alias" && a[1] === "rm") || a[0] === "remove") {
 		const exited = new Promise<number | null>((res) => child.on("exit", (code) => res(code)));
 		const entries = () =>
 			(existsSync(tickLog) ? readFileSync(tickLog, "utf8").trim().split("\n") : []).map((l) => l.split(" "));
-		/** Each minute the host planned: when it planned it and when that minute's calls are due. */
 		const plans = () => entries().flatMap(([at, kind, due]) => (kind === "next" ? [{ at: +at!, due: +due! }] : []));
-		/** Each call of preview `id` the host started, in order: when, and the planned minute it is for ("now" at pickup). */
 		const ticks = (id: string): { at: number; due: number | "now" }[] =>
 			entries().flatMap(([at, kind, of, due]) =>
 				kind === "call" && of === id ? [{ at: +at!, due: due === "now" ? ("now" as const) : +due! }] : [],
 			);
-		/** When each of the host's scan passes, a separate timer in the same process, started. */
 		const scans = () => entries().flatMap(([at, kind]) => (kind === "scan" ? [+at!] : []));
 		return { child, exited, output: () => readFileSync(out, "utf8"), plans, ticks, scans };
 	};
@@ -204,7 +193,6 @@ else if ((a[0] === "alias" && a[1] === "rm") || a[0] === "remove") {
 		}
 	};
 	const stubState = <T>(f: string): T => JSON.parse(readFileSync(join(state, f), "utf8"));
-	// Stop any qa drive a test did not stop itself.
 	const done = () => {
 		for (const host of hosts) if (host.exitCode === null && host.signalCode === null) host.kill("SIGKILL");
 		rmSync(dir, { recursive: true, force: true });
@@ -212,7 +200,6 @@ else if ((a[0] === "alias" && a[1] === "rm") || a[0] === "remove") {
 	return { dir, root, temp, state, qa, drive, calls, stubState, done };
 }
 
-/** Every file under `dir`, with its bytes as text. */
 function files(dir: string): Array<[string, string]> {
 	return readdirSync(dir, { recursive: true, withFileTypes: false })
 		.map((rel) => join(dir, String(rel)))
@@ -231,7 +218,6 @@ test("INV-qa-preview: qa up refuses before it creates anything when the parent i
 			assert.equal(r.status, 1, r.stdout);
 			assert.match(r.stderr, /refused before creating anything/);
 			assert.match(r.stderr, reason);
-			// Reads only: no branch create, no install, no deploy, no record.
 			assert.deepEqual(
 				s.calls("neonctl").map((c) => c.slice(0, 2)),
 				[
@@ -258,7 +244,6 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 		assert.ok(id, up.stdout);
 		assert.equal(url, `https://everyfield-${id}.vercel.app`);
 
-		// Neon branch off development, the branch's own migrate and seed, then a preview deploy aliased to the URL.
 		assert.ok(s.calls("neonctl").some((c) => c.join(" ").startsWith(`branches create --name ${id} --parent br-dev`)));
 		assert.deepEqual(
 			s.calls("corepack").map((c) => c.slice(0, 2)),
@@ -284,9 +269,7 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 		]);
 		assert.equal(env.IDENTITY_ORIGIN, url);
 		assert.equal(new URL(env.IDENTITY_DATABASE_URL!).username, "evf_qa_runtime");
-		// The cron's job pool sends a startup option that Neon's pooler refuses, so the runtime login is direct.
 		assert.match(new URL(env.IDENTITY_DATABASE_URL!).hostname, /^ep-qa-branch-a1\./);
-		// T-51: the seed ran with the preview's own mail keys, so its suppression and mail rows match on the preview.
 		const seedKeys = s.stubState<Record<string, string>>("seed-keys.json");
 		assert.deepEqual(seedKeys, {
 			IDENTITY_MAIL_KEY: env.IDENTITY_MAIL_KEY,
@@ -297,7 +280,6 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 		assert.match(new URL(env.DATABASE_URL!).hostname, /^ep-qa-branch-a1-pooler\./);
 		assert.ok(s.calls("vercel").some((c) => c.includes("--target") && c.includes("preview")));
 		assert.ok(!s.calls("vercel").some((c) => c.includes("--prod") || c.includes("production")));
-		// T-255: without --test-recipients nothing extra is approved, and the shared environments are never touched.
 		assert.ok(!s.calls("vercel").some((c) => c[0] === "env"));
 		assert.deepEqual(s.stubState("seed-recipients.json"), { QA_TEST_RECIPIENTS: null });
 		assert.match(up.stderr, /Real mail on this preview reaches no extra address: only delivered\+\.\.\.@resend\.dev\./);
@@ -323,7 +305,6 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 		assert.equal(s.calls("neonctl").filter((c) => c[1] === "delete").length, 1);
 		assert.equal(s.qa("list").stdout.trim(), "No open QA previews.");
 
-		// Every secret that passed through: Neon, the generated role password and identity keys, bypass, API key.
 		const secrets = [
 			NEON_PASSWORD,
 			BYPASS,
@@ -360,7 +341,6 @@ test("INV-qa-preview: qa down approves Vercel removals by name and finishes a pr
 		const id = /^QA preview (qa-\S+)$/.exec(up.stdout.trim().split("\n")[0]!)?.[1];
 		assert.ok(id, up.stdout);
 		const deployment = "https://everyfield-abc123-team.vercel.app";
-		// Half removed: the alias and the deployment went by hand; the driver, Neon branch and record remain.
 		writeFileSync(join(s.state, "alias.json"), "{}");
 		writeFileSync(join(s.state, "removed"), deployment);
 
@@ -387,7 +367,6 @@ test("INV-qa-preview: a failed qa up shows redacted output and removes the Neon 
 	} finally {
 		s.done();
 	}
-	// T-51: a seed that fails and prints the mail keys it got shows them masked, and nothing is deployed.
 	const seeded = setup();
 	try {
 		writeFileSync(join(seeded.state, "FAIL_SEED"), "");
@@ -442,7 +421,6 @@ test("INV-qa-preview: a previews file with a key an older qa wrote still loads, 
 		url: "https://everyfield-qa-main-b24e.vercel.app",
 		deployment: "https://d1.vercel.app",
 		created_at: "2026-11-05T12:00:00.000Z",
-		// T-289: a per-preview driver's pid, as qa before qa drive wrote it, reads harmlessly.
 		driver_pid: 999_999,
 	};
 	const file = join(s.root, ".git/qa/previews.json");
@@ -491,7 +469,6 @@ test("INV-qa-seed: the QA seed refuses production, the shared development branch
 		[{ DATABASE_URL: "postgres://u:p@127.0.0.1:1/qa", NODE_ENV: "production" }, /NODE_ENV is production/],
 		[{}, /DATABASE_URL is not set/],
 	] as const) {
-		// Each refusal comes before any connection: these hosts do not answer, and the run ends at once with exit 2.
 		const r = runSeed({ ...env, QA_ROLE_PASSWORD: "x".repeat(20) });
 		assert.equal(r.status, 2, r.stderr);
 		assert.match(r.stderr, /QA seed refused: /);
@@ -504,7 +481,6 @@ const ROLE_PASSWORD = "qa-role-password-0123";
 const started: QuietDatabase[] = [];
 after(() => started.forEach(stopQuietDatabase));
 
-/** A quiet database with one-statement query, per-table row counts and the seed run against it. */
 function quiet(tag: string) {
 	const db = startQuietDatabase(source, tag);
 	started.push(db);
@@ -536,20 +512,17 @@ function quiet(tag: string) {
 	return { db, query, counts, env, seed };
 }
 
-/** What each QA login sees through the domain reads the screens use (fixtures/qa-probe.ts). */
 function probe(env: Record<string, string>) {
 	const r = tsxRun(["tools/qa/tests/fixtures/qa-probe.ts"], env);
 	assert.equal(r.status, 0, r.stderr);
 	return JSON.parse(r.stdout) as Record<string, any>;
 }
 
-/** One fresh database for every seed test: the refusal, the first run, the second run and what the logins see. */
 let freshRun: ReturnType<typeof seedFresh> | undefined;
 const fresh = () => (freshRun ??= seedFresh());
 async function seedFresh() {
 	const q = quiet("qa-seed");
 	const before = await q.counts();
-	// The refusal leaves the database as it was.
 	assert.equal(runSeed({ ...q.env, NODE_ENV: "production", QA_ROLE_PASSWORD: "x".repeat(20) }).status, 2);
 	assert.deepEqual(await q.counts(), before);
 	const first = q.seed();
@@ -564,14 +537,12 @@ const ORGS = {
 	grace: "Grace Austin (QA)",
 	hill: "Hill Country Network (QA)",
 };
-/** Each organization the church's Owner connected, and the login that accepted. */
 const ACCEPTED_BY: Record<string, string> = {
 	[ORGS.grace]: QA_LOGINS.graceOwner,
 	[ORGS.sending]: QA_LOGINS.sending,
 	[ORGS.network]: QA_LOGINS.network,
 	[ORGS.hill]: QA_LOGINS.hillOwner,
 };
-/** T-312's logins, in QA_LOGINS order. */
 const T312_LOGINS = [
 	QA_LOGINS.graceOwner,
 	QA_LOGINS.graceAdmin,
@@ -581,7 +552,6 @@ const T312_LOGINS = [
 	QA_LOGINS.resident,
 	QA_LOGINS.hillOwner,
 ];
-/** The parts of T-312's multiplication example, in the order the seed names them. */
 const MULTIPLICATION = [
 	...T312_LOGINS.map((login) => `login ${login}`),
 	ORGS.grace,
@@ -615,14 +585,9 @@ const MULTIPLICATION = [
 	`connection ${ORGS.grace}`,
 	`connection ${ORGS.hill}`,
 ].join(", ");
-/** The mail parts of the 2026-11-04 cases, in the order the seed names them. */
 const NOV4_MAIL =
 	"suppressed address of Leo Pratt, message QA delivery check, suppressed admin address, past restore of the admin address";
 
-/**
- * A church's rows without what the 2026-11-04 parts add or change on an older branch: Owen Price's seat and Person, the
- * delivery message, and the church's material revision, which each new Person moves on. `before` names the old seats.
- */
 function oldRows(rows: Array<Record<string, unknown>>, before: Array<Record<string, unknown>>) {
 	const row = (r: Record<string, unknown>) => r.row as Record<string, unknown>;
 	const seats = new Set(before.filter((r) => r.t === "seat").map((r) => row(r).account_id));
@@ -635,7 +600,6 @@ function oldRows(rows: Array<Record<string, unknown>>, before: Array<Record<stri
 		)
 		.map((r) => (r.t === "plant" ? { ...r, row: { ...row(r), material_revision: null } } : r));
 }
-/** The owner's last seeded check-in week (OPS-125's history), and every note the history carries. */
 const LAST_WEEK = {
 	answers: { spiritual: "steady", family: "strained", financial: "steady", pace: "strained" },
 	note: "Still busy. Took one evening off.",
@@ -654,7 +618,6 @@ test("INV-qa-seed: the QA seed fills a fresh database, and a second run changes 
 	assert.equal(second, "QA seed: the branch is already complete.");
 	assert.deepEqual(after, seeded);
 
-	// The test church and its data, from the requirement: each role, and rows in every planter area.
 	assert.deepEqual(
 		await query(`SELECT u.email, s.role FROM seat s JOIN account a ON a.id = s.account_id
 			JOIN auth_user u ON u.id = a.auth_user_id JOIN plant p ON p.id = s.plant_id
@@ -719,7 +682,6 @@ test("INV-qa-seed: sixteen QA logins; the seed makes both organization logins ve
 			},
 		],
 	);
-	// The probe signs in with QA_PASSWORD through the identity service, then reads the session its cookie names.
 	for (const login of ["network", "sending"]) {
 		assert.equal(seen[login].signedIn, "signed_in");
 		assert.equal(seen[login].session, "active");
@@ -755,7 +717,6 @@ test("INV-qa-seed: the network login holds an admin seat and the sending-church 
 			},
 		],
 	);
-	// OPS-127's Grace Fellowship (QA) shares the wiki and has no login. T-312 adds Grace Austin (QA) and Hill Country.
 	assert.deepEqual(await query("SELECT name, kind FROM organization WHERE name LIKE '%(QA)' ORDER BY name"), [
 		{ name: ORGS.grace, kind: "sending_church" },
 		{ name: ORGS.sending, kind: "sending_church" },
@@ -763,7 +724,6 @@ test("INV-qa-seed: the network login holds an admin seat and the sending-church 
 		{ name: ORGS.network, kind: "sending_network" },
 		{ name: ORGS.hill, kind: "sending_network" },
 	]);
-	// The session each login gets selects its organization seat.
 	assert.deepEqual(seen.network.context, {
 		kind: "seat",
 		role: "admin",
@@ -778,9 +738,6 @@ test("INV-qa-seed: the network login holds an admin seat and the sending-church 
 
 test("INV-qa-seed: each organization has one active connection to the church, made by invitation and acceptance, with the build's defaults", async () => {
 	const { query } = await fresh();
-	// Each link names the invitation it came from. The request went to the organization login's own address and was
-	// answered by that login. Acceptance wrote the approval event. The sharing choices are the ones acceptance applies
-	// to a plant pair (packages/domain/src/organizations/relationships.ts), and nothing changed them since.
 	assert.deepEqual(
 		await query(`SELECT o.name, i.purpose, i.state, i.recipient_email, u.email AS accepted_by, f.revision::text,
 			f.consent_revision::text, f.share_people, f.share_meetings, f.share_tasks, f.share_ministry_teams, f.share_wiki,
@@ -811,7 +768,6 @@ test("INV-qa-seed: each organization has one active connection to the church, ma
 			};
 		}),
 	);
-	// The church Owner made each request through associations.invite.
 	assert.deepEqual(
 		await query(`SELECT u.email, count(*)::int AS n FROM audit_event e JOIN account a ON a.id = e.actor_id
 			JOIN auth_user u ON u.id = a.auth_user_id JOIN invitation i ON i.id = e.subject_id
@@ -832,7 +788,6 @@ test("INV-qa-seed: the sharing-page reads list Harvest Point (QA) for the networ
 
 test("INV-qa-seed: the seed writes the Owner's check-ins through the private-care writer, and he reads them back as his own", async () => {
 	const { query, seen } = await fresh();
-	// OPS-125's history is the Owner's check-in data: 13 answered past weeks, all his, all in the church.
 	assert.deepEqual(
 		await query(`SELECT u.email, p.name, count(*)::int AS weeks, max(w.ordinal) AS last FROM private_week w
 			JOIN account a ON a.id = w.author_id JOIN auth_user u ON u.id = a.auth_user_id JOIN plant p ON p.id = w.plant_id
@@ -846,7 +801,6 @@ test("INV-qa-seed: the seed writes the Owner's check-ins through the private-car
 	assert.equal(seen.owner.selected.kind, "plant");
 	assert.equal(seen.owner.checkIn.status, "ok");
 	assert.equal(seen.owner.checkIn.value.week.current, true);
-	// Newest first: this week stays open (OPS-125), and last week is the Owner's own answer.
 	const [open, last] = seen.owner.history.value.weeks;
 	assert.deepEqual([open.ordinal, open.current, open.answer], [14, true, null]);
 	assert.deepEqual([last.ordinal, last.answer.answers, last.answer.note], [13, LAST_WEEK.answers, LAST_WEEK.note]);
@@ -874,14 +828,11 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 	assert.equal(second, "QA seed: the branch is already complete.");
 	assert.deepEqual(after, seeded);
 
-	// A branch seeded by the OPS-106 seed, the version before this task, then seeded again by this one.
 	const old = quiet("qa-seed-old");
 	const dir = mkdtempSync(join(tmpdir(), "qa-test-old-")),
 		script = join(dir, "qa-seed.mts");
 	try {
-		// The OPS-106 seed as commit 1e5fa559 left it. A file, not `git show`: CI checks out one commit.
 		const shown = readFileSync(join(source, "tools/qa/tests/fixtures/qa-seed-ops106.ts.txt"), "utf8");
-		// It runs against today's domain, which takes a native body as the everyfield.doc/1 node (D-209), not text.
 		const welcome = '"Welcome to Harvest Point. We meet Sundays at 10 AM at Travis Elementary."';
 		assert.ok(shown.includes(`body: ${welcome}`), "the old seed's document body");
 		writeFileSync(
@@ -898,7 +849,6 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
-	// Every row of the three current logins' church, as the old seed left it.
 	const church = () =>
 		old.query(`WITH p AS (SELECT id FROM plant WHERE name = 'Harvest Point (QA)')
 			SELECT t, row FROM (SELECT 'plant' AS t, to_jsonb(x) AS row FROM plant x WHERE x.id IN (SELECT id FROM p)
@@ -918,7 +868,6 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 		beforeLogins = await logins();
 	assert.equal(beforeLogins.length, 3);
 
-	// The OPS-127 wiki cases came after OPS-106 too. Their article titles depend on the database's wiki release.
 	const upgrade = old
 		.seed()
 		.split(/wiki copies of [^,]+, wiki revision of [^,]+, wiki reading, wiki church versions of [^,]+/);
@@ -933,7 +882,6 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 			"sending church Grace Fellowship (QA), affiliation with Grace Fellowship (QA), ",
 		", owner timezone, 13 check-in weeks.",
 	]);
-	// The 2026-11-04 parts add Owen Price's seat and Person and the delivery message; every older row stays as it was.
 	assert.deepEqual(oldRows(await church(), beforeChurch), oldRows(beforeChurch, beforeChurch));
 	assert.deepEqual(
 		(await logins()).filter(
@@ -955,7 +903,6 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 	const upgraded = await old.counts();
 	assert.equal(old.seed(), "QA seed: the branch is already complete.");
 	assert.deepEqual(await old.counts(), upgraded);
-	// The upgraded branch now looks as a fresh one does to both organization logins.
 	const seen = probe(old.env);
 	assert.deepEqual(seen.network.connections, [
 		{ kind: "plant", subject: "Harvest Point (QA)", organization: ORGS.network },
@@ -1016,9 +963,6 @@ test("INV-qa-runbook: the runbook's login table lists exactly the QA logins and 
 		assert.ok(section.replace(/\s+/g, " ").includes(words), words);
 });
 
-// Nora QA 2026-11-04 (T-51): a removable Member seat, a sign-up login, a refused recipient, the Admin's suppressed
-// address with a past restore. The wiki order case is in qa-wiki.test.ts.
-
 test("INV-qa-seed: a second Member, Owen Price, holds a seat on the church and signs in to it; Ruth Allen's seat is unchanged", async () => {
 	const { query, seen } = await fresh();
 	assert.deepEqual(
@@ -1071,7 +1015,6 @@ test("INV-qa-seed: the sign-up login is verified, holds no seat or organization,
 test("INV-qa-seed: the sent delivery message has one refused recipient, counted as failed and not delivered", async () => {
 	const { seen } = await fresh();
 	assert.equal(seen.delivery.recipients.status, "ok");
-	// The seed sealed each address under the keys the preview gets, so the Owner's read opens it.
 	assert.deepEqual(
 		seen.delivery.recipients.value.items
 			.map((r: { name: string; deliveryStatus: string; deliveryAddress: string }) => [
@@ -1122,9 +1065,6 @@ test("INV-qa-seed: the first run names each new part once; the second writes not
 	assert.deepEqual(after, seeded);
 });
 
-// T-255: real test inboxes on one deployment, and a second church that shares a person with the first.
-
-/** Placeholder addresses only: the repository never holds a real inbox. */
 const ANA = "ana.qa@example.com",
 	OTHER = "second.qa@example.org";
 
@@ -1135,13 +1075,11 @@ test("INV-qa-preview: --test-recipients sets EMAIL_TEST_RECIPIENTS on that one d
 		assert.equal(up.status, 0, up.stderr);
 		const [idLine, url] = up.stdout.trim().split("\n");
 		const id = idLine!.replace("QA preview ", "");
-		// The per-deployment -e flag, next to the other per-deployment settings.
 		const env = s.stubState<Record<string, string>>("deploy-env.json");
 		assert.equal(env.EMAIL_TEST_RECIPIENTS, `${ANA},${OTHER}`);
 		assert.equal(env.IDENTITY_ORIGIN, url);
 		const deploy = s.calls("vercel").find((c) => c[0] === "deploy")!;
 		assert.equal(deploy[deploy.indexOf(`EMAIL_TEST_RECIPIENTS=${ANA},${OTHER}`) - 1], "-e");
-		// Nothing changes the shared Preview or Production environment.
 		assert.deepEqual(
 			s
 				.calls("vercel")
@@ -1150,12 +1088,10 @@ test("INV-qa-preview: --test-recipients sets EMAIL_TEST_RECIPIENTS on that one d
 			["deploy", "alias"],
 		);
 		assert.deepEqual(s.stubState("seed-recipients.json"), { QA_TEST_RECIPIENTS: `${ANA},${OTHER}` });
-		// The lead reads which extra addresses get real mail, after the URL. No secret is printed.
 		const line = `Real mail on this preview also reaches: ${ANA}, ${OTHER}. Ana Lee uses ${ANA} in both churches.`;
 		assert.ok(up.stderr.includes(line), up.stderr);
 		for (const [k, v] of Object.entries(env))
 			if (!["IDENTITY_ORIGIN", "EMAIL_TEST_RECIPIENTS"].includes(k)) assert.ok(!(up.stdout + up.stderr).includes(v), k);
-		// The record and the list hold no address.
 		const stored = readFileSync(join(s.root, ".git/qa/previews.json"), "utf8");
 		assert.ok(!stored.includes("example."), stored);
 		assert.match(
@@ -1167,7 +1103,6 @@ test("INV-qa-preview: --test-recipients sets EMAIL_TEST_RECIPIENTS on that one d
 	}
 });
 
-/** `qa drive`'s calls of the stubbed `vercel curl`, in order. */
 const cronCalls = (state: string) =>
 	existsSync(join(state, "cron-calls.log"))
 		? readFileSync(join(state, "cron-calls.log"), "utf8")
@@ -1186,22 +1121,12 @@ const cronCalls = (state: string) =>
 		: [];
 
 const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
-/** Waits until `ready` holds, for at most `ms`; `what` names the failure. */
 async function until(ready: () => boolean, what = "not ready", ms = 10_000): Promise<void> {
 	for (let waited = 0; !ready(); waited += 50) {
 		if (waited > ms) assert.fail(`${what} within ${ms} ms`);
 		await sleep(50);
 	}
 }
-/**
- * Once a minute, on the host's own schedule: each minute it plans is the next minute's start plus the offset, a preview's
- * first call starts at once, and from then on it gets exactly one call for every planned minute, never before that
- * minute starts. A minute's calls may start late only because the host's process was not running: its scan timer, due
- * every fifth of a minute, then passes at most once (in a timer batch that started before the minute was due) between
- * the minute's due time and its calls, since any later batch runs the earlier-due minute first. Two calls in a minute,
- * a planned minute without its call, a call ahead of its minute or a host whose timer waits past its minute while it
- * keeps scanning fail; a starved host does not.
- */
 function assertOnceAMinute(
 	host: {
 		plans: () => { at: number; due: number }[];
@@ -1218,7 +1143,6 @@ function assertOnceAMinute(
 			(p.due - TEST_OFFSET) % TEST_MINUTE === 0 && p.at < p.due && p.due <= p.at + TEST_MINUTE,
 			`at ${p.at} the host planned its next minute for ${p.due}, not the next minute's start`,
 		);
-	// Each plan after the first is made when the minute before it fires.
 	for (const [p, fired] of plans.slice(0, -1).map((p, i) => [p, plans[i + 1]!.at] as const)) {
 		const waiting = scans.filter((at) => at > p.due && at < fired).length;
 		assert.ok(
@@ -1228,7 +1152,6 @@ function assertOnceAMinute(
 	}
 	assert.equal(pickup?.due, "now", `${id}'s first call did not start at once`);
 	for (const c of calls)
-		// Timers may fire a millisecond before Date.now() reaches their due time, so the bound is the minute's start.
 		assert.ok(
 			typeof c.due === "number" && c.at >= c.due - TEST_OFFSET,
 			`${id} got a call at ${c.at}, before its minute ${c.due} began`,
@@ -1240,7 +1163,6 @@ function assertOnceAMinute(
 const lines = (file: string) => (existsSync(file) ? readFileSync(file, "utf8").trim().split("\n").filter(Boolean) : []);
 const okLines = (file: string) => lines(file).filter((l) => / ok: HTTP 200 \{"status":"ok","messages":1\}$/.test(l));
 const upId = (up: { stdout: string }) => up.stdout.split("\n")[0]!.replace("QA preview ", "");
-/** The cron secret qa up set on that preview's deployment, from the stub's latest deploy. */
 const deploySecret = (s: ReturnType<typeof setup>) =>
 	s.stubState<Record<string, string>>("deploy-env.json").CRON_SECRET!;
 
@@ -1255,7 +1177,6 @@ test("INV-qa-cron: qa up writes the cron secret to a private file and starts no 
 		assert.equal(statSync(secretFile).mode & 0o777, 0o600);
 		assert.ok(!readFileSync(join(s.root, ".git/qa/previews.json"), "utf8").includes(deploySecret(s)));
 		assert.ok(!(up.stdout + up.stderr).includes(deploySecret(s)), "the cron secret was printed");
-		// No host runs, so nothing calls the route and the last line says how to start one outside a seat.
 		assert.equal(
 			up.stderr.trim().split("\n").pop(),
 			`Scheduled sends: off until you run, outside a seat: cd '${s.root}' && bin/qa drive`,
@@ -1278,7 +1199,6 @@ test("INV-qa-cron: qa drive calls every preview each minute, picks up new ones, 
 		assert.equal(first.status, 0, first.stderr);
 		const a = upId(first),
 			secretA = deploySecret(s);
-		// qa drive starts after the first preview and before the second, which qa up adds while it runs.
 		const host = s.drive();
 		const logA = join(s.root, `.git/qa/${a}.cron.log`);
 		await until(() => okLines(logA).length >= 1);
@@ -1288,15 +1208,12 @@ test("INV-qa-cron: qa drive calls every preview each minute, picks up new ones, 
 			secretB = deploySecret(s),
 			logB = join(s.root, `.git/qa/${b}.cron.log`);
 		const pid = host.child.pid!;
-		// qa up waited for the host's first call of the new preview and names the host and the log.
 		assert.equal(
 			second.stderr.trim().split("\n").pop(),
 			`Scheduled sends: on. qa drive (pid ${pid}) calls /api/cron/jobs on https://everyfield-abc123-team.vercel.app every minute until bin/qa down. Log: ${logB}`,
 		);
 		assert.match(lines(logB)[0]!, new RegExp(`started: qa drive pid ${pid}, /api/cron/jobs every minute on https://`));
 
-		// Both qa up processes have exited; the host alone keeps calling both previews, one call a minute each, and every
-		// call it starts is answered and logged once.
 		const [startA, startB] = [host.ticks(a).length, host.ticks(b).length];
 		await until(
 			() => host.ticks(a).length >= startA + 4 && host.ticks(b).length >= startB + 4,
@@ -1308,7 +1225,6 @@ test("INV-qa-cron: qa drive calls every preview each minute, picks up new ones, 
 		] as const) {
 			const started = host.ticks(id).length;
 			await until(() => okLines(log).length >= started, `${log} did not log the ${started} calls the host started`);
-			// Read the log before the ticks: a correct host never has more answered calls than calls it started.
 			const answered = okLines(log).length;
 			assert.ok(answered <= host.ticks(id).length, `${log} has ${answered} answers for ${started} calls`);
 			assertOnceAMinute(host, id);
@@ -1323,14 +1239,12 @@ test("INV-qa-cron: qa drive calls every preview each minute, picks up new ones, 
 			cronCalls(s.state).filter((c) => c.authorization === `Authorization: Bearer ${secret}\n`).length;
 		assert.ok(callsOf(secretA) >= 4 && callsOf(secretB) >= 4);
 
-		// qa down on one preview: the host logs stopped for it and keeps calling the other.
 		const down = s.qa("down", a);
 		assert.equal(down.status, 0, down.stderr);
 		assert.equal(down.stdout.trim(), `Removed QA preview ${a}: scheduled sends, alias, deployment, Neon branch ${a}.`);
 		assert.match(host.output(), new RegExp(`qa drive: stopped ${a}: bin/qa down removed the preview`));
 		assert.ok(!existsSync(logA), "qa down removed the log");
 		assert.ok(!existsSync(join(s.root, `.git/qa/${a}.cron-secret`)), "qa down removed the cron secret");
-		// From here the host starts no call of the removed preview, while the other gains two answered calls.
 		const [ticksA, ticksB] = [host.ticks(a).length, host.ticks(b).length];
 		await until(
 			() => host.ticks(b).length >= ticksB + 2 && okLines(logB).length >= ticksB + 2,
@@ -1341,7 +1255,6 @@ test("INV-qa-cron: qa drive calls every preview each minute, picks up new ones, 
 		assert.ok(!existsSync(logA), "the host wrote to the removed preview's log");
 		assertOnceAMinute(host, b);
 
-		// No secret in the records, the logs, the host's output or any file but the open preview's own 0600 secret file.
 		const secretFile = join(s.root, `.git/qa/${b}.cron-secret`);
 		assert.equal(statSync(secretFile).mode & 0o777, 0o600);
 		const seen = [
@@ -1353,7 +1266,6 @@ test("INV-qa-cron: qa drive calls every preview each minute, picks up new ones, 
 		for (const [where, text] of seen)
 			for (const secret of [secretA, secretB]) assert.ok(!text.includes(secret), `a cron secret reached ${where}`);
 
-		// SIGTERM: stopped in the driven preview's log, the header files and lock removed, exit 0.
 		host.child.kill("SIGTERM");
 		assert.equal(await host.exited, 0);
 		assert.match(lines(logB).at(-1)!, / stopped: qa drive ended \(SIGTERM\)$/);
@@ -1377,11 +1289,9 @@ test("INV-qa-cron: one qa drive per repository; a second refuses with the pid, a
 		assert.match(two.output(), new RegExp(`qa drive already runs for this repository \\(pid ${one.child.pid}\\)`));
 		assert.equal(readFileSync(lock, "utf8").trim(), String(one.child.pid), "the refused host touched the lock");
 
-		// A host killed outright leaves its lock; the next start replaces it.
 		one.child.kill("SIGKILL");
 		await one.exited;
 		assert.ok(existsSync(lock));
-		// The host takes its lock before it handles signals; its first line says both are in place.
 		const three = s.drive();
 		await until(() => new RegExp(`pid ${three.child.pid} calls`).test(three.output()));
 		assert.equal(readFileSync(lock, "utf8").trim(), String(three.child.pid));
@@ -1457,7 +1367,6 @@ test("INV-qa-preview: a bad --test-recipients list exits 2 and says what to fix 
 	}
 });
 
-/** What the two church Owners see (fixtures/qa-churches-probe.ts). */
 function churches(env: Record<string, string>) {
 	const r = tsxRun(["tools/qa/tests/fixtures/qa-churches-probe.ts"], env);
 	assert.equal(r.status, 0, r.stderr);
@@ -1465,7 +1374,6 @@ function churches(env: Record<string, string>) {
 }
 
 let givenRun: Promise<{ first: string; seen: Record<string, any>; query: (sql: string) => Promise<any[]> }> | undefined;
-/** A second fresh database, seeded with two test recipients as `bin/qa up --test-recipients` passes them. */
 const given = () =>
 	(givenRun ??= (async () => {
 		const q = quiet("qa-seed-given");
@@ -1494,7 +1402,6 @@ test("INV-qa-seed: Riverside (QA) is a church plant with its own Owner login, wh
 			},
 		],
 	);
-	// A plant, not an organization: no sending church or network carries the name.
 	assert.deepEqual(await query("SELECT count(*)::int AS n FROM organization WHERE name = 'Riverside (QA)'"), [
 		{ n: 0 },
 	]);
@@ -1514,7 +1421,6 @@ test("INV-qa-seed: with no test recipients, Ana Lee is in both churches at her r
 		seen.riverside.people.filter((p: any) => p.name !== "Rachel Moss"),
 		[ana],
 	);
-	// Neither Owner reads the other church's people: the read refuses, as for any church the login has no seat in.
 	assert.deepEqual(seen.owner.other, { refused: "unavailable" });
 	assert.deepEqual(seen.riverside.other, { refused: "unavailable" });
 	assert.ok(!seen.owner.people.some((p: any) => p.name === "Rachel Moss"));
@@ -1533,7 +1439,6 @@ test("INV-qa-seed: given test recipients, Ana Lee has the first address in both 
 		seen.riverside.people.filter((p: any) => p.name !== "Rachel Moss"),
 		[ana],
 	);
-	// Every other seeded person keeps a resend.dev address, and the second given address is only an approved recipient.
 	assert.deepEqual(
 		await query(`SELECT p.display_name, pl.name AS church, p.email FROM person p JOIN plant pl ON pl.id = p.plant_id
 			WHERE p.email NOT LIKE 'delivered+%@resend.dev' ORDER BY 2, 1`),
@@ -1544,9 +1449,6 @@ test("INV-qa-seed: given test recipients, Ana Lee has the first address in both 
 	);
 	assert.deepEqual([seen.owner.other, seen.riverside.other], [{ refused: "unavailable" }, { refused: "unavailable" }]);
 });
-
-// T-312: the multiplication example. Grace Austin (QA)'s staff, its linked resident Casey Lee, Hill Country Network
-// (QA)'s Owner and Harvest Point (QA)'s planter, each through the domain reads the screens use (fixtures/qa-probe.ts).
 
 const CASEY_NOTE = "Casey is steady with the youth group. We talked through the Austin plant timeline.";
 const JORDAN_NOTES = [
@@ -1608,7 +1510,6 @@ test("INV-qa-seed: each Grace Austin (QA) and Hill Country login holds its seat 
 
 test("INV-qa-seed: Casey linked through the residency invitation and shares milestone progress, not foundations", async () => {
 	const { query, seen } = await fresh();
-	// Luis invited her; she accepted with her own login. The link is live and names Casey's pipeline person.
 	assert.deepEqual(
 		await query(`SELECT i.state, inviter.email AS invited_by, accepter.email AS accepted_by, l.share_milestones,
 			l.share_foundations, l.ended_at IS NULL AS live, p.display_name
@@ -1629,8 +1530,6 @@ test("INV-qa-seed: Casey linked through the residency invitation and shares mile
 			},
 		],
 	);
-	// My residency: Ana recorded the hands-on milestone before the link, Casey marked the vision one after it, and Ana
-	// confirmed it. Casey reads Ana's feedback and no pipeline board.
 	assert.deepEqual(seen.resident.residency, {
 		status: "linked",
 		organizationName: ORGS.grace,
@@ -1669,7 +1568,6 @@ test("INV-privacy: each Grace Austin (QA) login reads only the pipeline its role
 	const casey = { notes: [CASEY_NOTE], conversations: 1, residency: "linked" };
 	const jordan = { notes: JORDAN_NOTES, conversations: 1, residency: "not_linked" };
 	const goals = { goals: [GOAL], conversations: 2 };
-	// Dana and Luis: everyone, every note, the feedback and Casey's shared progress.
 	for (const login of ["graceOwner", "graceAdmin"])
 		assert.deepEqual(
 			{ ...seen[login], signedIn: undefined, session: undefined, context: undefined },
@@ -1684,15 +1582,12 @@ test("INV-privacy: each Grace Austin (QA) login reads only the pipeline its role
 			},
 			login,
 		);
-	// Ana: Casey only, her own note and Casey's shared milestones; no Jordan, no Dee's or Dana's notes.
 	assert.deepEqual(seen.graceDirector.board, { audience: "responsible", count: 2, people: ["Casey Lee"] });
 	assert.deepEqual(seen.graceDirector.records, { casey, jordan: refused, morgan: refused });
 	assert.deepEqual(seen.graceDirector.enrollment, enrollment);
-	// Dee: Jordan and Jordan's notes only.
 	assert.deepEqual(seen.graceStaff.board, { audience: "responsible", count: 2, people: ["Jordan Reyes"] });
 	assert.deepEqual(seen.graceStaff.records, { casey: refused, jordan, morgan: refused });
 	assert.deepEqual(seen.graceStaff.enrollment, refused);
-	// Ben: counts only.
 	assert.deepEqual(seen.graceMember.board, { audience: "counts", count: 2, people: [] });
 	assert.deepEqual(seen.graceMember.goals, goals);
 	assert.deepEqual(seen.graceMember.records, { casey: refused, jordan: refused, morgan: refused });
@@ -1701,7 +1596,6 @@ test("INV-privacy: each Grace Austin (QA) login reads only the pipeline its role
 
 test("INV-privacy: Hill Country's Owner sees none of Grace Austin's pipeline with totals shared, and Harvest Point's planter sees neither", async () => {
 	const { query, seen } = await fresh();
-	// Grace Austin is connected to Hill Country Network by Dana's request and Ruth's acceptance, and shares totals.
 	assert.deepEqual(
 		await query(`SELECT i.purpose, i.recipient_email, s.share_pipeline_totals, f.ended_at IS NULL AS live
 			FROM affiliation f JOIN organization c ON c.id = f.sending_church_id JOIN organization n ON n.id = f.organization_id
@@ -1718,12 +1612,10 @@ test("INV-privacy: Hill Country's Owner sees none of Grace Austin's pipeline wit
 		morgan: { notes: [], conversations: 0, residency: "not_linked" },
 	});
 	assert.deepEqual(hill.enrollment, refused);
-	// One sharing church is below the two-church minimum, so the network gets no totals either.
 	assert.deepEqual(hill.aggregate, { allowed: false, minimumContributors: 2 });
 	const shown = JSON.stringify(hill);
 	for (const part of ["Casey Lee", "Jordan Reyes", GOAL, CASEY_NOTE, ...JORDAN_NOTES, FEEDBACK])
 		assert.ok(!shown.includes(part), part);
-	// Daniel Reyes, Harvest Point (QA)'s planter, is connected to both and reads neither pipeline nor the residency.
 	assert.deepEqual(seen.owner.pipeline, {
 		board: refused,
 		goals: refused,

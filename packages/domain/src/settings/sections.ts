@@ -58,9 +58,7 @@ export interface SectionDependencies {
 	effects: SettingsEffects;
 	suppression(db: Reader, email: string): Promise<"clear" | "suppressed" | "unavailable">;
 }
-/** The account's own name, email and verification, as the request's Better Auth session lookup read them. */
 export type Principal = { display_name: string; email: string; verified: boolean };
-/** The request's verified viewer (D60): its actor and the user row its session lookup already read. */
 export type SectionViewer = { authority: RequestActor; principal: Principal };
 type Viewer = { actor: Actor; principal: Principal; session: string };
 function accountValue(a: { account: typeof t.account.$inferSelect; principal: Principal }) {
@@ -76,12 +74,6 @@ function accountValue(a: { account: typeof t.account.$inferSelect; principal: Pr
 		personalTimezone: preference(a.account),
 	});
 }
-/**
- * The viewer's authority, checked again inside the statement that reads the section (C13), without a session lock
- * (C27): the session is live, no lifecycle witness hides the account, the owner or the seat, and for a plant or
- * organization the viewer's seat is still open with the same role. A viewer that lost any of these since the request
- * began reads no row and is refused.
- */
 function live(v: Viewer, owner: Owner) {
 	const c = v.actor.context;
 	if (owner.kind === "account") return liveRead({ session: v.session, owner });
@@ -90,7 +82,6 @@ function live(v: Viewer, owner: Owner) {
 		: sql<boolean>`false`;
 }
 const own = (v: Viewer): Owner => ({ kind: "account", id: v.actor.accountId });
-/** The viewer's own plant when its seat there is Owner or Admin; any other viewer is refused. */
 function administeredPlant(v: Viewer, plant: Owner) {
 	const c = v.actor.context;
 	if (c.kind !== "seat" || c.role === "member" || c.owner.kind !== "plant" || !sameOwner(c.owner, plant)) deny();
@@ -121,7 +112,6 @@ function plantValue(r: typeof t.plant.$inferSelect, p: Extract<q.GetSectionReque
 		},
 	});
 }
-/** The account's notification choices (the one preference read) and the suppression lookup. */
 async function notifications(db: Reader, deps: SectionDependencies, v: Viewer) {
 	const read = await readPreferences(db, v);
 	if (!read) deny();
@@ -137,10 +127,6 @@ async function notifications(db: Reader, deps: SectionDependencies, v: Viewer) {
 	};
 }
 export function sectionOperations(deps: SectionDependencies): Operations {
-	/**
-	 * One section as this viewer may see it, in one statement; notifications add the suppression lookup. The
-	 * account's own sections belong to its account, every other section to the plant or organization of its seat.
-	 */
 	async function read(db: Reader, v: Viewer, r: q.GetSectionRequest): Promise<q.SectionResult> {
 		const owner = v.actor.context.owner;
 		switch (r.section) {
@@ -189,8 +175,6 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 				};
 			}
 			case "affiliations": {
-				// The plant sees its own choices (Owner and Admin) or that they choose (Member); the organization sees
-				// what the plant shares with it.
 				const side = sameOwner(owner, r.organization) ? "organization" : sameOwner(owner, r.plant) ? "plant" : deny();
 				const [a] = await loadAffiliations(
 					db,
@@ -219,10 +203,6 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 			}
 		}
 	}
-	/**
-	 * One section save. A church submission (`church`) carries up to three plant changes and is still one command:
-	 * one plant update, one audit row naming every changed field, one request key.
-	 */
 	async function save(
 		tx: Tx,
 		ctx: WriteContext,
@@ -259,7 +239,6 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 			deny();
 		const c = await begin(tx, ctx, a.account.id, name, church ?? v);
 		if (c.kind === "replay") {
-			// Replay receipts never restore stale projections or bypass current scope.
 			const old = q.savedSectionResult.parse(c.value);
 			const current = await read(tx, viewer, requestFor(i));
 			return q.savedSectionResult.parse({ ...old, current });
@@ -267,7 +246,6 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 		let changed = false;
 		let current: q.SectionResult;
 		const events: string[] = [];
-		// The section's fields before and after, so the audit row can name what changed.
 		let diff: { before: Record<string, unknown>; after: Record<string, unknown> } | null = null;
 		switch (i.section) {
 			case "account": {
@@ -540,10 +518,8 @@ type Operations = Pick<
 	SettingsProducer<Tx>,
 	"saveSection" | "saveChurch" | "updatePlantProfile" | "setDigestSchedule"
 > & {
-	/** A section read on the pool with the request's verified viewer: no transaction and no second actor lookup. */
 	getSection(db: Reader, viewer: SectionViewer, raw: unknown): Promise<SettingsReply<q.SectionResult>>;
 };
-/** The plant columns one church change sets. Fields the change leaves out keep their stored value. */
 function plantPatch(change: q.PlantChange): Partial<typeof t.plant.$inferInsert> {
 	switch (change.kind) {
 		case "profile": {
@@ -569,7 +545,6 @@ function plantPatch(change: q.PlantChange): Partial<typeof t.plant.$inferInsert>
 		}
 	}
 }
-/** A church section as flat audit fields: the profile fields, the inactivity days and the digest schedule. */
 function plantFields(section: Extract<q.SectionResult, { section: "plant" }>): Record<string, unknown> {
 	const v = section.values;
 	return { ...v.profile, warningDays: v.inactivity.warningDays, alertDays: v.inactivity.alertDays, digest: v.digest };

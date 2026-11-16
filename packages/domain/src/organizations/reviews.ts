@@ -8,17 +8,6 @@ import type { RequestActor } from "../access/session.ts";
 import { eligibleSeat } from "./pipeline.ts";
 import { answer, one, parse, refuse, seatOf, write, type Executor } from "./seat.ts";
 
-// Kept answers sent for review (T-385, D-1507, D-1509, D-1511). An Owner or Admin sends some questions of a pipeline
-// import's kept-answers note, under a group name, to a current seat of the same organization. The send holds the
-// question titles only; its reviewer reads the note's live answers to them while the send is shared (reviewShared) and
-// reads nothing else of the person. Each write runs the established way with a body-free audit row (ids, actor and
-// change kind); the send also queues the reviewer's notification job, keyed `review/<send>`, in the same statement.
-
-/**
- * Each kept question's answer in a kept-answers note body, as the import wrote it ("Answers from …", then each question
- * title on its own line after a blank line, with its answer below) and as its author may have edited it since. A
- * question whose title line the note no longer holds, or whose answer is now empty, has none.
- */
 function keptAnswers(body: string, questions: readonly string[]): Map<string, string> {
 	const titles = new Set(questions);
 	const lines = body.split("\n");
@@ -47,12 +36,6 @@ const prior = z.object({
 	questions: z.array(z.string()),
 });
 
-/**
- * Sends the chosen questions of a kept-answers note to a current seat of the organization, under a group name. The
- * note must be live with kept answers that hold every chosen question, on a live pipeline person. The browser names the
- * send's ID: a repeat of the same send answers as the first did and writes nothing, and the same ID for another send
- * is a conflict. Owner or Admin.
- */
 async function sendAnswers(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.sendAnswersRequest, raw);
@@ -106,10 +89,6 @@ SELECT EXISTS(SELECT FROM n) AS found,EXISTS(SELECT FROM q) AS questions,${eligi
 	});
 }
 
-/**
- * Withdraws a send: its reviewer no longer reads it, and their notice and its email stop. A repeat changes nothing.
- * Owner or Admin.
- */
 async function withdrawReview(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.withdrawReviewRequest, raw);
@@ -131,7 +110,6 @@ SELECT EXISTS(SELECT FROM x) AS found`,
 
 export const reviewWriter = { sendAnswers, withdrawReview };
 
-/** The sends to the viewer's account in this organization, newest first, under `r`, with its person `p`. */
 const mine = (organization: string, accountId: string) => sql`answer_review r
  JOIN seat s ON s.id=r.reviewer_seat_id AND s.organization_id=r.organization_id
  JOIN person p ON p.id=r.person_id AND p.tenant_id=r.organization_id
@@ -155,11 +133,6 @@ const sendOf = (s: z.infer<typeof sendRow>) => ({
 	sentOn: s.sent_on,
 });
 
-/**
- * The viewer's Sent for review page: every send to them in this organization, newest first, with the person, group
- * name, sender and day. A send is shared only while reviewShared holds for the seat the viewer holds now. Any current
- * seat. One statement.
- */
 export async function readAnswerReviews(db: Executor, authority: RequestActor) {
 	return answer(async () => {
 		const seat = seatOf(authority) ?? refuse();
@@ -174,11 +147,6 @@ SELECT g.allowed,coalesce((SELECT jsonb_agg(x ORDER BY x.at DESC,x.id DESC) FROM
 	});
 }
 
-/**
- * One send as its reviewer opens it: the chosen questions in the note's order with the note's current answers, or
- * null for a question the note no longer holds. Not shared: the send without any question. Anyone but the send's
- * reviewer gets `unavailable`, as for a send that does not exist. One statement.
- */
 export async function readAnswerReview(db: Executor, authority: RequestActor, raw: unknown) {
 	return answer(async () => {
 		const seat = seatOf(authority) ?? refuse();

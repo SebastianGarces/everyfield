@@ -25,7 +25,6 @@ const wiki = (cwd: string, ...args: string[]) => {
 	return { status: result.status, output: result.stdout + result.stderr };
 };
 
-/** A repository whose main holds the real seed, and a branch `drafts` that adds one article draft. */
 async function fixture(draft: Record<string, unknown> = {}) {
 	const dir = realpathSync(await mkdtemp(join(tmpdir(), "wiki-drafts-")));
 	const seed = join(dir, "docs/reference/wiki");

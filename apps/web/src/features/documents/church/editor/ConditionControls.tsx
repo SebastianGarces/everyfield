@@ -18,7 +18,7 @@ import { BUTTON_ICON } from "./tiptap/styles.ts";
 // that Undo reverses, and the block's label on the page follows it at once.
 
 const SELECT =
-	"h-9 max-w-full min-w-0 cursor-pointer rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:cursor-not-allowed disabled:opacity-45";
+	"h-9 max-w-full min-w-0 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:opacity-45";
 
 /** The format's attributes for a condition: no `value` unless the test is "is more than". */
 const attrsFor = (c: Condition) => ({ field: c.field, test: c.test, value: c.value });
@@ -34,7 +34,7 @@ function ValueField({ editor, target, condition }: { editor: Editor; target: Tar
 	const problem = draft !== null && shown === draft && parsed && "problem" in parsed ? parsed.problem : null;
 	return (
 		<span className="flex flex-wrap items-center gap-2">
-			<label htmlFor={id} className="cursor-pointer text-sm text-text-2">
+			<label htmlFor={id} className="text-sm text-text-2">
 				Number
 			</label>
 			<Tip text="Prints when the field is more than this whole number">

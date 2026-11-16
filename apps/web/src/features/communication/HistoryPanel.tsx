@@ -218,7 +218,7 @@ function MessageButton({
 			type="button"
 			aria-current={selected ? "true" : undefined}
 			onClick={() => onSelect(item)}
-			className="flex min-h-[72px] w-full cursor-pointer flex-col items-start gap-1 rounded-md px-3 py-2.5 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] aria-[current=true]:bg-surface-2"
+			className="flex min-h-[72px] w-full flex-col items-start gap-1 rounded-md px-3 py-2.5 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] aria-[current=true]:bg-surface-2"
 		>
 			<span className="flex w-full items-center justify-between gap-2">
 				<span className="min-w-0 truncate font-medium text-ink">{item.subject?.trim() || "No subject"}</span>
