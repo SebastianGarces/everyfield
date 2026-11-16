@@ -1,0 +1,424 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "evry",
+	"catalog": [
+		"EVR-003",
+		"EVR-005",
+		"EVR-008",
+		"EVR-011",
+		"EVR-012",
+		"EVR-013",
+		"EVR-014",
+		"EVR-021",
+		"EVR-025",
+		"EVR-029"
+	],
+	"surfaces": [
+		{
+			"id": "evry.panel",
+			"says": "The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations.",
+			"routes": [],
+			"endpoints": [
+				"/api/evry/catalog",
+				"/api/evry/open",
+				"/api/evry/conversations",
+				"/api/evry/conversations/[id]",
+				"/api/evry/conversations/[id]/turns",
+				"/api/evry/conversations/[id]/stream",
+				"/api/evry/conversations/[id]/cancel",
+				"/api/evry/conversations/[id]/retry"
+			],
+			"catalog": ["EVR-003", "EVR-005", "EVR-008", "EVR-021", "EVR-029"],
+			"reach": [
+				{
+					"from": "overview.home",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "button",
+								"name": "Ask Evry"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"member": "write",
+				"network": "write",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "new-chat",
+					"reach": {
+						"persona": "owner",
+						"open": "/overview",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Ask Evry"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "History"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "New chat"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Ask Evry"
+						},
+						{
+							"role": "button",
+							"name": "List the people in this church"
+						},
+						{
+							"role": "textbox",
+							"name": "Message Evry"
+						}
+					]
+				},
+				{
+					"id": "history",
+					"reach": {
+						"persona": "owner",
+						"open": "/overview",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Ask Evry"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "History"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "History"
+						},
+						{
+							"role": "searchbox",
+							"name": "Search conversations"
+						},
+						{
+							"role": "button",
+							"name": "New chat"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/overview",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Ask Evry"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "textbox",
+							"name": "Message Evry"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "ask-and-read",
+					"says": "A question runs one turn in the signed-in person's own conversation; what Evry read comes back as a card of linked rows from this church only.",
+					"catalog": ["EVR-003", "EVR-005", "EVR-008"],
+					"operations": ["evry.submitTurn", "evry.invokeRead"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/runtime/conversations.test.mts",
+								"name": "AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY-CANCEL AC:INH-CROSS-08 one private conversation, one turn per request key, one active run, cancel and explicit retry"
+							},
+							{
+								"file": "tests/evry/runtime/conversations.test.mts",
+								"name": "AC:INH-REGRESSION-FOREIGN-SESSION AC:TEN-002 AC:SEC-02 AC:UI45-006 INV-tenancy: another account or context cannot read, stream, append, cancel or continue a conversation"
+							}
+						],
+						"cases": ["UI45-001"],
+						"browser": {
+							"kind": "behavior",
+							"state": "new-chat",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "List the people in this church"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "region",
+									"name": "People",
+									"match": "contains"
+								},
+								{
+									"absent": {
+										"role": "heading",
+										"name": "Ask Evry"
+									}
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "stop-and-retry",
+					"says": "Stop ends a running turn and keeps what was written; Try again reruns only the last turn that did not finish, and a change that did not confirm can be retried once.",
+					"catalog": ["EVR-013", "EVR-021", "EVR-029"],
+					"operations": ["evry.cancelTurn", "evry.retryTurn", "evry.retryUnresolvedEffects"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/runtime/conversations.test.mts",
+								"name": "AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY-CANCEL AC:INH-CROSS-08 one private conversation, one turn per request key, one active run, cancel and explicit retry"
+							},
+							{
+								"file": "tests/evry/runtime/streaming.test.mts",
+								"name": "INV-stream-stop INV-stream-end: Stop keeps the partial text and ends the stream promptly"
+							},
+							{
+								"file": "tests/evry/execution/proposals.test.mts",
+								"name": "INV-effect-recovery: an approved effect that no worker took within 60 s reads as unconfirmed, not as saving; Try again's job is claimed first and runs it once"
+							}
+						],
+						"cases": ["EVRY-RETRY-CANCEL"]
+					}
+				}
+			]
+		},
+		{
+			"id": "evry.review",
+			"says": "A change Evry prepared, shown in the panel as Review before saving with the exact old and new values: Approve runs it once, Revise replaces it, Cancel ends it. Nothing changes until you approve.",
+			"routes": [],
+			"endpoints": [
+				"/api/evry/proposals/[id]",
+				"/api/evry/proposals/[id]/approve",
+				"/api/evry/proposals/[id]/revise",
+				"/api/evry/proposals/[id]/cancel",
+				"/api/evry/proposals/[id]/check",
+				"/api/evry/proposals/[id]/retry",
+				"/api/evry/proposals/[id]/photo"
+			],
+			"catalog": ["EVR-011", "EVR-012", "EVR-013", "EVR-014", "EVR-025"],
+			"reach": [
+				{
+					"from": "evry.panel",
+					"persona": "owner",
+					"path": [
+						{
+							"type": "Change Maria's city to Dallas",
+							"into": "Message Evry"
+						},
+						{
+							"click": {
+								"role": "button",
+								"name": "Send",
+								"match": "exact"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"member": "write",
+				"network": "write",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "new-chat",
+					"reach": {
+						"persona": "owner",
+						"open": "/overview",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Ask Evry"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "History"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "New chat"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Ask Evry"
+						},
+						{
+							"role": "button",
+							"name": "List the people in this church"
+						},
+						{
+							"role": "textbox",
+							"name": "Message Evry"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "approve-change",
+					"says": "A change Evry prepares shows as Review before saving with the exact old and new values; Approve runs it once and the page it changed shows the new value.",
+					"catalog": ["EVR-012", "EVR-013", "EVR-014"],
+					"operations": ["evry.approveProposal", "evry.executeProposal"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/execution/proposals.test.mts",
+								"name": "AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSION-TEMPLATE-EDIT AC:INH-REGRESSION-CONFIRM-REPLAY AC:UI45-005 AC:AUDIT-002 INV-budget: nothing changes until the exact current revision is approved; then the change runs once with its own audit row"
+							},
+							{
+								"file": "tests/ui/evry/review.test.mjs",
+								"name": "AC:INH-REGRESSION-CONFIRM-REPLAY INV-approve-runs-once: a first approval saves its change without any other request; its replay saves nothing again"
+							}
+						],
+						"cases": ["UI45-004"],
+						"browser": {
+							"kind": "behavior",
+							"state": "new-chat",
+							"steps": [
+								{
+									"type": "Change Maria's city to Dallas",
+									"into": "Message Evry"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Send",
+										"match": "exact"
+									}
+								},
+								{
+									"expect": {
+										"role": "heading",
+										"name": "Review before saving"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Approve"
+									}
+								},
+								{
+									"expect": {
+										"text": "Approved by you"
+									}
+								},
+								{
+									"open": "/people"
+								},
+								{
+									"click": {
+										"role": "link",
+										"name": "Maria Santos"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Dallas"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "revise-or-cancel",
+					"says": "Revise replaces the prepared change and voids the earlier approval; Cancel ends it with nothing saved.",
+					"catalog": ["EVR-011", "EVR-012"],
+					"operations": ["evry.reviseProposal", "evry.cancelProposal"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/ui/evry/review.test.mjs",
+								"name": "AC:UI45-002 AC:INH-REGRESSION-CONFIRM-REPLAY INV-lost-approval: a revised change saves once (${engine})"
+							},
+							{
+								"file": "tests/evry/execution/proposals.test.mts",
+								"name": "AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSION-TEMPLATE-EDIT AC:INH-REGRESSION-CONFIRM-REPLAY AC:UI45-005 AC:AUDIT-002 INV-budget: nothing changes until the exact current revision is approved; then the change runs once with its own audit row"
+							}
+						],
+						"cases": ["UI45-002"]
+					}
+				},
+				{
+					"id": "photo",
+					"says": "A photo attached in the panel is staged privately for one proposal; only its owner sees it while the review lasts, and approval needs it.",
+					"catalog": ["EVR-025"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/evry/adapters/people/commands/commands.test.mts",
+								"name": "AC:UI45-003 a photo proposal's owner sees the exact staged upload while the review lasts; approval needs it"
+							}
+						],
+						"cases": ["UI45-003"],
+						"browser": {
+							"kind": "presence",
+							"state": "new-chat",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Attach a photo"
+								}
+							]
+						}
+					},
+					"noOperation": "the panel stages the photo through Settings' avatar upload (stagePhoto in conversation/photoActions.ts) and the review card reads it back with readStagedPhoto (packages/evry/src/proposals/store.ts); neither is an Evry catalog operation"
+				}
+			]
+		}
+	]
+}

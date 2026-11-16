@@ -1,0 +1,144 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "boundaries",
+	"catalog": [],
+	"surfaces": [
+		{
+			"id": "boundaries.not-found",
+			"says": "The page an unknown address shows: outside the product frame with a link to the home page, and inside it, around the frame, with a link to the viewer's own home.",
+			"routes": [],
+			"reach": [
+				{
+					"link": "/{path}",
+					"fill": {
+						"path": "any address no page answers"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "read",
+				"owner": "read"
+			},
+			"states": [
+				{
+					"id": "outside-frame",
+					"file": "apps/web/src/app/not-found.tsx",
+					"reach": {
+						"persona": "visitor",
+						"open": "/this-page-does-not-exist",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Page not found"
+						},
+						{
+							"role": "link",
+							"name": "Go to the home page"
+						}
+					]
+				},
+				{
+					"id": "inside-frame",
+					"file": "apps/web/src/app/(product)/(frame)/not-found.tsx",
+					"reach": {
+						"persona": "owner",
+						"open": "/settings/no-such-section",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Page not found"
+						},
+						{
+							"role": "link",
+							"name": "Go to home"
+						},
+						{
+							"role": "navigation",
+							"name": "Main"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "boundaries.error",
+			"says": "The page a failed render shows: it says something went wrong, offers Try again and a way home, and shows only an error reference, never the error's message.",
+			"routes": [],
+			"reach": [
+				{
+					"link": "/{path}",
+					"fill": {
+						"path": "a page whose render fails"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "read",
+				"owner": "read"
+			},
+			"states": [
+				{
+					"id": "inside-frame",
+					"file": "apps/web/src/app/(product)/(frame)/error.tsx",
+					"reach": {
+						"manual": "shows only when a signed-in page throws while it renders, which no seed or step can cause; the frame stays around it"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Something went wrong"
+						},
+						{
+							"role": "button",
+							"name": "Try again"
+						},
+						{
+							"role": "link",
+							"name": "Go to home"
+						}
+					]
+				},
+				{
+					"id": "outside-frame",
+					"file": "apps/web/src/app/error.tsx",
+					"reach": {
+						"manual": "shows only when a page outside the product frame throws while it renders, which no seed or step can cause"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Something went wrong"
+						},
+						{
+							"role": "button",
+							"name": "Try again"
+						},
+						{
+							"role": "link",
+							"name": "Go to the home page"
+						}
+					]
+				},
+				{
+					"id": "root-layout",
+					"file": "apps/web/src/app/global-error.tsx",
+					"reach": {
+						"manual": "shows only when the root layout itself fails, which no seed or step can cause; it brings its own document"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Something went wrong"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		}
+	]
+}
