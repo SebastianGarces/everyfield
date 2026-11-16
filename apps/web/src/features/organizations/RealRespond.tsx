@@ -2,9 +2,13 @@
 
 import * as C from "@everyfield/contracts/organizations";
 import { Button, Card, Skeleton } from "@everyfield/ui/controls";
-import { useEffect, useMemo, useState } from "react";
+import { useHydrated, useLocationHash } from "@everyfield/ui/foundations";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { writeAddress } from "../../components/location.ts";
+import { createRead, useRead } from "../../components/read.tsx";
 import { AuthFrame, AuthHeading } from "../identity/AuthFrame";
 import { readRelationshipInvitation } from "./invitation/client.ts";
+import type { RelationshipInvitationRead } from "./invitation/handler.ts";
 import { InvitationResponse } from "./InvitationResponse";
 import type { Invitation } from "./port";
 import { createNames, realRun } from "./real";
@@ -16,49 +20,47 @@ type State =
 	| { kind: "invitation"; invitation: Invitation; names: Record<string, string>; zone: string; proof: string };
 
 const KEEP = "ef-relationship-proof";
+const keptProof = (invitationId: string | null) => `${KEEP}/${invitationId}`;
+const LOADING: State = { kind: "loading" };
+const UNAVAILABLE: State = { kind: "unavailable" };
+const noSubscribe = () => () => {};
 
-/**
- * /connections/respond?invitation=<id>#<proof>, the link in the emailed request (ruling D10). The proof lives only
- * in the fragment, so it never reaches a server log. The page reads it, removes it from the address bar and keeps it
- * in this tab only while the person signs in. It sends the proof only in the body of POST /api/connections/invitation.
- */
+function stateOf(read: RelationshipInvitationRead, invitationId: string, proof: string): State {
+	if (read.kind === "signed_out")
+		return { kind: "signed_out", returnTo: `/connections/respond?invitation=${encodeURIComponent(invitationId)}` };
+	if (read.kind !== "invitation") return UNAVAILABLE;
+	return {
+		kind: "invitation",
+		invitation: C.invitationResult.parse(read.invitation),
+		names: read.names,
+		zone: read.zone,
+		proof,
+	};
+}
+
+const invitations = createRead(
+	(invitationId: string, proof: string) =>
+		readRelationshipInvitation(invitationId, proof).then((read) => stateOf(read, invitationId, proof)),
+	{ failed: () => UNAVAILABLE, keep: () => false },
+);
+
 export function RealRespond({ invitationId }: { invitationId: string | null }) {
-	const [state, setState] = useState<State>({ kind: "loading" });
+	const hydrated = useHydrated();
+	const fromLink = useLocationHash().slice(1);
+	const kept = useSyncExternalStore(
+		noSubscribe,
+		() => sessionStorage.getItem(keptProof(invitationId)),
+		() => null,
+	);
+	const proof = fromLink || kept || "";
+	const usable = Boolean(invitationId && proof);
+	const read = useRead(usable ? invitations : null, invitationId ?? "", proof);
+	const state = !hydrated ? LOADING : !usable ? UNAVAILABLE : (read.value ?? LOADING);
 	useEffect(() => {
-		const fromLink = window.location.hash.slice(1);
-		if (fromLink) {
-			sessionStorage.setItem(`${KEEP}/${invitationId}`, fromLink);
-			history.replaceState(null, "", window.location.pathname + window.location.search);
-		}
-		const proof = fromLink || sessionStorage.getItem(`${KEEP}/${invitationId}`) || "";
-		let live = true;
-		// A link without its proof gets the same answer as any other unusable link.
-		const reply =
-			invitationId && proof
-				? readRelationshipInvitation(invitationId, proof)
-				: Promise.resolve({ kind: "unavailable" } as const);
-		reply.then(
-			(r) => {
-				if (!live) return;
-				if (r.kind === "signed_out")
-					return setState({
-						kind: "signed_out",
-						returnTo: `/connections/respond?invitation=${encodeURIComponent(invitationId ?? "")}`,
-					});
-				if (r.kind !== "invitation") return setState({ kind: "unavailable" });
-				setState({
-					kind: "invitation",
-					invitation: C.invitationResult.parse(r.invitation),
-					names: r.names,
-					zone: r.zone,
-					proof,
-				});
-			},
-			() => live && setState({ kind: "unavailable" }),
-		);
-		return () => {
-			live = false;
-		};
+		const secret = window.location.hash.slice(1);
+		if (!secret) return;
+		sessionStorage.setItem(keptProof(invitationId), secret);
+		writeAddress(window.location.pathname + window.location.search, { replace: true });
 	}, [invitationId]);
 
 	const names = useMemo(() => createNames(state.kind === "invitation" ? state.names : {}), [state]);

@@ -1,4 +1,3 @@
-// S2 batch 2 F06: a refused evaluation or correction names its fields; the modal shows each issue where it belongs.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { evaluationIssues } from "../../../apps/web/src/features/meetings/model.ts";
@@ -29,7 +28,6 @@ test("BUG-01aca6707: no issues maps to nothing, and an unknown path still says s
 	]);
 });
 
-// WP-017: a reviewed update from the ministry shows at once: the people it adds join, the guests it removes leave.
 test("INV-roster-projection: the update adds its people and removes guests by Person, keeping everyone else", () => {
 	const g = (id, personId, name) => ({ id, revision: "1", person: { personId, displayName: name, state: "live" } });
 	const view = {

@@ -4,8 +4,6 @@ import { cn } from "@/components/cn";
 import { Icon } from "@/components/Icon";
 import { NUM } from "@/components/kit/kit";
 
-// A still InsightCard (gradient surface) for the large product pictures.
-
 export function Insight({
 	tone,
 	icon,

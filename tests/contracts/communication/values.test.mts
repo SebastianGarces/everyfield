@@ -1,4 +1,3 @@
-// T-159 (com-23): a draft update that leaves out its subject keeps the stored one. Only null or blank clears it.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { draftInput } from "../../../packages/contracts/src/communication/values.ts";

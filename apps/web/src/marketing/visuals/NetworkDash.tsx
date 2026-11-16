@@ -5,10 +5,6 @@ import { ICONS } from "../icons";
 import { AppFrame, DashCard, DashHead } from "./dash";
 import { Insight } from "./insight";
 
-// The /oversight hero dashboard (the OPS-82 prototype's vNetworkDash): the Austin Sending Network with 14 church plants.
-// Sample data, coded in place; the prototype holds it in the page, not in the copy file.
-
-/** A church plant row: name, place, icon tone, phase, core group, launch and its findings ("" shows a dash). */
 const PLANTS: readonly (readonly [string, string, Tone, string, string, string, string])[] = [
 	["Harvest Point Church", "Hyde Park, Austin, TX", "green", "1 · Core group", "34", "Mar 14, 2027", "1 finding"],
 	["Eastside Commons", "East Austin, Austin, TX", "blue", "3 · Training", "46", "May 2, 2027", "4 findings"],
@@ -16,7 +12,6 @@ const PLANTS: readonly (readonly [string, string, Tone, string, string, string, 
 	["Alamo Heights Church", "San Antonio, TX", "amber", "2 · Launch team", "28", "Sep 2027", "2 findings"],
 	["Deep Ellum Collective", "Dallas, TX", "teal", "4 · Pre-launch", "61", "Jan 24, 2027", "3 findings"],
 ];
-/** A stat: label, value, the line under it, and whether the value is amber (needs attention). */
 const STATS: readonly (readonly [string, string, string, boolean?])[] = [
 	["Church plants", "14", "In 2 states"],
 	["Launching in 12 months", "5", "Next: Deep Ellum, Jan 24"],

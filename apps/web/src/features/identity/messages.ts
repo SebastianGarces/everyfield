@@ -1,11 +1,7 @@
 import type { Refusal } from "./api";
 
-// One place for refusal copy, so no screen can word a refusal in a way that tells whether an account exists
-// (REQ-IDN-001 one invalid-credentials response, REQ-IDN-002 and REQ-IDN-009 non-enumeration).
-
 export type Screen = "sign_in" | "register" | "recover" | "reset" | "session";
 
-/** "4:12 PM" for today, or "Oct 19, 4:12 PM" for a later day, in the reader's own time zone. */
 function retryTime(retryAt: string, now = new Date()): string {
 	const at = new Date(retryAt);
 	const sameDay = at.toDateString() === now.toDateString();
@@ -21,7 +17,6 @@ const UNREACHABLE = "Unable to reach Everyfield. Check your connection and try a
 export function refusalMessage(screen: Screen, error: Refusal): string {
 	const later = error.retryAt ? ` Try again after ${retryTime(error.retryAt)}.` : " Try again later.";
 	switch (error.code) {
-		// A blocked or deleting account answers like a wrong password, so sign-in never confirms that it exists.
 		case "invalid_credentials":
 		case "unauthenticated":
 			return screen === "session" ? "Your session ended. Sign in again." : "Email or password is incorrect.";
@@ -37,7 +32,6 @@ export function refusalMessage(screen: Screen, error: Refusal): string {
 				: "Sign-in is unavailable right now. Try again in a few minutes.";
 		case "invalid_proof":
 			return "This link has expired or was already used.";
-		// The client checks length and matching first, so a refusal here is the unchanged-password rule.
 		case "invalid_input":
 			return screen === "reset"
 				? "Choose a password that is different from your current one."

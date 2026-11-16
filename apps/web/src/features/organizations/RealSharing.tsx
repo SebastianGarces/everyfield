@@ -26,12 +26,9 @@ export type SharingPageData = {
 	revision: string;
 	names: Record<string, string>;
 	targets: InviteTarget[];
-	/** Sending church Owners and Admins only: each current network connection's pipeline totals opt-in. */
 	pipeline: { networkName: string; consent: Extract<z.infer<typeof pipelineConsentResult>, { status: "available" }> }[];
-	/** Network only: whether combined pipeline totals could be shown (S0 check). */
 	aggregate: z.infer<typeof pipelineAggregateAccessResult> | null;
 	residencies: ({ linkId: string; organizationName: string } & ResidencyRow)[];
-	/** The connections list read with the page; null for a seatless account, which has no list. */
 	connections: ConnectionsData | null;
 };
 
@@ -43,9 +40,7 @@ const INTRO: Record<SharingPageData["kind"], string> = {
 	account: "What you share from your residency. Only you can change it.",
 };
 
-/** /settings/sharing on the real WP-007 API: connections, pipeline totals and the viewer's own residency consent. */
 export function RealSharing({ data }: { data: SharingPageData }) {
-	// Invite targets' names are known too, so a request sent from this page names its organization at once.
 	const names = useMemo(
 		() =>
 			createNames({ ...data.names, ...Object.fromEntries(data.targets.map((t) => [t.pair.organization.id, t.name])) }),

@@ -15,14 +15,15 @@ import {
 	Spinner,
 } from "@everyfield/ui/controls";
 import { Avatar, KeyValue, KeyValueList } from "@everyfield/ui/display";
-import { useEffect, useRef, useState } from "react";
+import { focusOnMount } from "@everyfield/ui/foundations";
+import { useState } from "react";
 import type { z } from "zod";
-import { runSave, type PersonStore } from "../model.ts";
-import type { Outcome } from "../../../components/save/model.ts";
-import { fresh, useStore, When } from "../parts.tsx";
+import { runSave, type PersonStore } from "../person.store.ts";
+import { useRead } from "../../../components/read.tsx";
+import { fresh, usePersonState, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
-import { unmergePair, unmergePreview, type Unmerged } from "./actions.ts";
-import { takeUnmergePreview } from "./intent.ts";
+import { unmergePair, type Unmerged } from "./actions.ts";
+import { unmergeRead } from "./intent.ts";
 import { conflictText, counted, FIELD_LABEL, kindTitle, listText } from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { UnmergeView } from "./server.ts";
@@ -31,13 +32,6 @@ type PlantPerson = z.infer<typeof people.plantPerson>;
 type Restored = UnmergeView["preview"]["restores"];
 const first = (name: string) => name.split(" ")[0] ?? name;
 
-/**
- * Unmerge (REQ-PPL-025; prototype #/people/duplicates, preview, done and refused). It opens from the merge in the
- * survivor's Activity and reads the preview when it opens: who comes back, which details go back and what moves back,
- * or what changed since the merge and so blocks it. The Unmerge itself goes through the person store, one request key per
- * merge: a retry after a lost answer replays instead of acting twice, and any later refusal reads the preview again
- * before the dialog says what happened.
- */
 export function UnmergeDialog({
 	mergeId,
 	store,
@@ -47,41 +41,26 @@ export function UnmergeDialog({
 	mergeId: string;
 	store: PersonStore<PlantPerson, PersonDraft>;
 	onClose: () => void;
-	/**
-	 * The Unmerge is saved (`done`, or null when an earlier lost attempt turned out to have run): the page reads itself
-	 * again. Resolves true when that read succeeded. The dialog stays open until it settles (C80).
-	 */
 	onUnmerged: (done: Unmerged | null) => Promise<boolean>;
 }) {
-	const [preview, setPreview] = useState<Outcome<UnmergeView> | null>(null);
+	const read = useRead(unmergeRead, mergeId);
+	const preview = read.value ?? null;
 	const [problem, setProblem] = useState<{ n: number; text: string; retry?: boolean } | null>(null);
-	/** Shows a problem; each one gets a new number, so a repeat of the same words still takes focus. */
 	const say = (p: { text: string; retry?: boolean }) => setProblem((old) => ({ ...p, n: (old?.n ?? 0) + 1 }));
 	const [done, setDone] = useState<{ restored: Restored; names: UnmergeView["names"] } | null>(null);
 	const [pending, setPending] = useState(false);
-	/** After a saved Unmerge: the page is reading itself again, has done so, or could not (C80). */
 	const [page, setPage] = useState<"updating" | "updated" | "stale" | null>(null);
 	async function refreshPage(done: Unmerged | null) {
 		setPage("updating");
 		setPage((await onUnmerged(done).catch(() => false)) ? "updated" : "stale");
 	}
-	const seq = useRef(0);
 	const slot = `unmerge:${mergeId}`;
-	// An earlier Unmerge of this merge whose answer was lost: only a server answer may say what happened, never a failed read.
-	const uncertain = useStore(store).errors[slot] === "lost";
+	const uncertain = usePersonState(store).errors[slot] === "lost";
 
-	/** Reads the preview. The first read is the one started on intent, when there is one (intent.ts). */
-	async function load(first = false) {
-		const n = ++seq.current;
-		const r = first
-			? await takeUnmergePreview(mergeId)
-			: await unmergePreview(mergeId).catch(() => ({ status: "lost" }) as const);
-		if (n === seq.current) setPreview(r);
-		return r;
-	}
-	useEffect(() => {
-		void load(true);
-	}, [mergeId]); // eslint-disable-line react-hooks/exhaustive-deps
+	const close = () => {
+		onClose();
+		unmergeRead.forget(mergeId);
+	};
 
 	async function unmerge(view: UnmergeView) {
 		const rev = view.preview.reviewRevision;
@@ -106,8 +85,7 @@ export function UnmergeDialog({
 				text: "We did not hear back from the server, so the Unmerge may have happened. Try again; it will not run twice.",
 			});
 		}
-		// A refusal: read the preview again, so the dialog shows the truth, including an Unmerge that did happen.
-		const again = await load();
+		const again = await unmergeRead.refresh(mergeId);
 		setPending(false);
 		if (again.status === "ok" && again.value.preview.state === "unmerged") {
 			setDone({ restored: view.preview.restores, names: again.value.names });
@@ -127,7 +105,6 @@ export function UnmergeDialog({
 	const p = view?.preview;
 	const names = done?.names ?? view?.names;
 	const blocked = Boolean(p && p.state === "merged" && p.conflicts.length);
-	// `earlier`: this merge was undone before the dialog opened, so the dialog reports that and claims nothing about now.
 	const finished = done
 		? { ...done, earlier: false }
 		: p?.state === "unmerged" && view
@@ -135,7 +112,7 @@ export function UnmergeDialog({
 			: null;
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && !pending && page !== "updating" && onClose()}>
+		<Dialog open onOpenChange={(open) => !open && !pending && page !== "updating" && close()}>
 			<DialogContent size="md" aria-busy={pending || preview === null || undefined}>
 				<DialogHeader
 					icon={ArrowTurnBackwardIcon}
@@ -235,17 +212,11 @@ export function UnmergeDialog({
 							)}
 						</>
 					)}
-					{problem ? <Problem key={problem.n}>{problem.text}</Problem> : null}
+					{problem ? <Problem request={problem.n}>{problem.text}</Problem> : null}
 				</DialogBody>
 				<DialogFooter>
 					{preview !== null && preview.status !== "ok" ? (
-						<Button
-							variant="secondary"
-							onClick={() => {
-								setPreview(null);
-								void load();
-							}}
-						>
+						<Button variant="secondary" onClick={read.retry}>
 							Try again
 						</Button>
 					) : null}
@@ -255,12 +226,12 @@ export function UnmergeDialog({
 						</Button>
 					) : null}
 					{finished || blocked || !view ? (
-						<Button variant={finished ? "primary" : "secondary"} disabled={page === "updating"} onClick={onClose}>
+						<Button variant={finished ? "primary" : "secondary"} disabled={page === "updating"} onClick={close}>
 							{finished ? "Done" : "Close"}
 						</Button>
 					) : (
 						<>
-							<Button variant="secondary" disabled={pending} onClick={onClose}>
+							<Button variant="secondary" disabled={pending} onClick={close}>
 								Cancel
 							</Button>
 							<Button variant="primary" loading={pending} onClick={() => unmerge(view)}>
@@ -274,7 +245,6 @@ export function UnmergeDialog({
 	);
 }
 
-/** The Unmerge result, read out as a status: both people with links, and what moved back. */
 function Finished({
 	restored,
 	names,
@@ -286,20 +256,18 @@ function Finished({
 	preview: UnmergeView["preview"];
 	earlier: boolean;
 }) {
-	const ref = useRef<HTMLParagraphElement>(null);
-	useEffect(() => ref.current?.focus(), []);
 	return (
 		<div role="status" className="flex flex-col gap-3">
 			<CalloutLabel tone="green" icon={Tick02Icon}>
 				{earlier ? "Already undone" : "Unmerged"}
 			</CalloutLabel>
 			{earlier ? (
-				<p ref={ref} tabIndex={-1} className="text-ink-2 outline-none">
+				<p ref={focusOnMount} tabIndex={-1} className="text-ink-2 outline-none">
 					This merge of {names.source} into {names.survivor} was undone earlier, so there is nothing to undo here. Open
 					either person to see where they stand now.
 				</p>
 			) : (
-				<p ref={ref} tabIndex={-1} className="text-ink-2 outline-none">
+				<p ref={focusOnMount} tabIndex={-1} className="text-ink-2 outline-none">
 					{names.source} is their own person again.{" "}
 					{preview.fields.length ? `${names.survivor} has the details from before the merge. ` : null}
 					{restored.length

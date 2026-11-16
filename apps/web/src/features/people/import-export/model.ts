@@ -1,6 +1,3 @@
-// Pure rules of the CSV import and export screens (REQ-PPL-018, REQ-PPL-019): row groups, choices, copy for each
-// refusal and problem, and the export's filters in words. No React and no server code.
-
 import type * as csv from "@everyfield/contracts/people";
 import { importLimits } from "@everyfield/contracts/people";
 import type { z } from "zod";
@@ -22,11 +19,9 @@ export type ImportReceipt = z.infer<typeof csv.importReceipt>;
 export type RowProblem = z.infer<typeof csv.rowProblem>;
 export type ImportUpload = z.infer<typeof csv.importUpload>;
 
-/** The file size limit the server enforces (contract importLimits), checked here first so a too-big file sends nothing. */
 export const MAX_BYTES = importLimits.bytes;
 export const ROWS_PER_PAGE = 24;
 
-/** A valid row with an existing or earlier-row match: it needs a person's choice. */
 const isDuplicate = (r: ValidRow) => r.existingDuplicates.length > 0 || r.withinFileDuplicateOf !== null;
 
 export type Group = "check" | "fix" | "all";
@@ -35,24 +30,17 @@ export function rowsIn(rows: PreviewRow[], group: Group): PreviewRow[] {
 	if (group === "fix") return rows.filter((r) => r.status === "invalid");
 	return rows.filter((r) => r.status === "valid" && isDuplicate(r));
 }
-/** Open on the rows that need attention: duplicates first, then errors, else everything. */
 export function firstGroup(p: Preview): Group {
 	if (p.counts.existingDuplicates + p.counts.withinFileDuplicates > 0) return "check";
 	return p.counts.invalid > 0 ? "fix" : "all";
 }
 
-/** Every valid row's suggested choice. The import sends exactly one choice per valid row. */
 export function suggestedChoices(p: Preview): Map<number, Choice> {
 	return new Map(p.rows.flatMap((r) => (r.status === "valid" ? [[r.row, r.suggested] as const] : [])));
 }
-/**
- * Whether "Add, review later" has a Person to pair the row with (D-516): one already in Everyfield, or the earlier
- * row it repeats when that row is not skipped. The import refuses the choice otherwise, so the screen does not offer it.
- */
 export const canReview = (r: ValidRow, choices: Map<number, Choice>) =>
 	r.existingDuplicates.length > 0 ||
 	(r.withinFileDuplicateOf !== null && choices.get(r.withinFileDuplicateOf) !== "skip");
-/** The choices with "Add, review later" turned into "Add new" on every row that has nothing left to review against. */
 export function withReviewTargets(p: Preview, choices: Map<number, Choice>): Map<number, Choice> {
 	const next = new Map(choices);
 	for (const r of p.rows)
@@ -99,7 +87,6 @@ export function problemText(p: RowProblem): string {
 	}
 }
 
-/** What the upload step says for a refused file. Each answer names the fix. */
 export function fileRefusal(code: string, line?: number): { title: string; text: string } {
 	switch (code) {
 		case "file_too_large":
@@ -143,14 +130,11 @@ export function fileRefusal(code: string, line?: number): { title: string; text:
 export const plural = (n: number, one: string, many = `${one}s`) =>
 	`${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
-/** The rows a running or finished import still has to account for, as a fraction for the progress bar. */
 export function progressOf(r: ImportReceipt): { done: number; total: number } {
-	// Counted from the rows: a row the job could not write is in both counts.failed and counts.remaining.
 	const total = r.rows.length;
 	return { done: r.rows.filter((row) => row.status !== "remaining").length, total };
 }
 
-/** The export's filters in words, from the same query the directory shows. */
 export function describeFilters(q: PeopleQuery): string[] {
 	if (!isFiltered(q)) return ["Everyone in People, without retired people"];
 	const out: string[] = [];
@@ -172,11 +156,7 @@ export function describeFilters(q: PeopleQuery): string[] {
 	return out;
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// The import screen's state pieces and the notices it shows.
-
 export type FailedRow = Extract<ImportReceipt["rows"][number], { status: "failed" }>;
-/** A checked file: its bytes in memory, the stored upload the server previewed, and the person's choices. */
 export type Review = { file: File; uploadId: string; preview: Preview; choices: Map<number, Choice> };
 export type Notice = { title: string; text: string };
 export const NOT_FOUND: Notice = {
@@ -187,10 +167,6 @@ export const LOST_CHECK: Notice = {
 	title: "We could not confirm the import",
 	text: "The connection dropped before the answer arrived. The import may be running. Check again to see where it stands.",
 };
-/**
- * The receipt was refused. "unavailable" covers both a missing import and a seat that lost access, even when the seat
- * changes during the request, so the screen never says whether rows were saved and offers no resend (ruling C34).
- */
 export const UNCONFIRMED: Notice = {
 	title: "We cannot show this import",
 	text: "We cannot tell whether it started or which rows were saved. Open People to see who is there. If your seat changed, ask an Owner or Admin to check.",
@@ -223,7 +199,6 @@ export function importRefusal(code: string): Notice {
 	}
 }
 
-/** What the Done screen says when "Try N rows again", or the file uploaded again for it, is refused. */
 export function retryRefusal(code: string): Notice {
 	switch (code) {
 		case "import_file_mismatch":

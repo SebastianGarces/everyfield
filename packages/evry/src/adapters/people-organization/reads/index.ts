@@ -30,8 +30,6 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
-// Household, tag, skill, activity, pipeline and CSV reads. Each calls the native read the screen uses. The model
-// receives the same safe facts a directory row shows. Contact values, note bodies, care notes and file bytes stay out.
 type Activity = z.infer<typeof activity>;
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
 
@@ -70,7 +68,6 @@ const FIXABLE = new Set([
 	"malformed_csv_quoting",
 	"csv_header_invalid",
 ]);
-/** A missing or foreign record is not_found. A file the model can fix, or a down source, is a refusal. */
 function valueOf<T>(reply: Reply<T>): T | null {
 	if (reply.status === "ok") return reply.value;
 	if (reply.error.code === "source_unavailable") throw new EvryRefusal("source_unavailable");
@@ -94,7 +91,6 @@ const ACTIVITY = ["note bodies", "internal reasons", "private care", "account id
 function membership(value: { name: string; role: string } | null | undefined): string | null {
 	return value ? `${value.name} (${value.role})` : null;
 }
-/** Activity the model may see. Note text, care follow-ups, account ids and record ids never leave this function. */
 function activityRows(personId: string, items: Activity[]): SourceRow[] {
 	const rows: SourceRow[] = [];
 	for (const item of items) {
@@ -200,12 +196,10 @@ const PROBLEM: Record<string, string> = {
 	invalid_source: "the source is not one People knows",
 	column_count: "the row has the wrong number of columns",
 };
-/** An import row's problems in words, each with its column: what the review card and the receipt read both say. */
 export const problemText = (problems: readonly { column: string | null; code: string }[]) =>
 	problems
 		.map((p) => (p.column ? `${p.column}: ${PROBLEM[p.code] ?? p.code}` : (PROBLEM[p.code] ?? p.code)))
 		.join("; ");
-/** A failed row's reason in words: the columns and checks it failed, or that the import could not write it. */
 export const failure = (item: Extract<z.infer<typeof importReceipt>["rows"][number], { status: "failed" }>) =>
 	item.reason === "row_write_failed" ? "the import could not write this row" : problemText(item.problems) || "invalid";
 function receiptRows(
@@ -286,7 +280,6 @@ function readHousehold(
 					? await personFields.getHousehold(tx, readCtx(actor), request)
 					: await personFields.getHouseholdMembers(tx, readCtx(actor), request);
 			const found = valueOf<z.infer<typeof householdResult>>(reply);
-			// A person with no household is a real answer. A missing household is not_found.
 			if (!found) return missing(operation, ADDRESS);
 			const rows = householdRows(actor, found);
 			return result(operation, "available", rows, rows.length, 1, null, "complete", ADDRESS);
@@ -512,7 +505,6 @@ export const getImportReceipt: ReadAdapter<z.infer<typeof receiptInput>> = {
 	input: receiptInput,
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input) {
-		// Without a key, the most recent import, with its key and when it ran.
 		const latest = input.requestKey
 			? null
 			: valueOf<z.infer<typeof latestImportReceipt>>(await peopleCsv.getLatestImportReceipt(tx, readCtx(actor)));
@@ -541,7 +533,6 @@ export const exportPeople: ReadAdapter<z.infer<typeof exportInput>> = {
 	allowed: inPlant,
 	async invoke(tx, actor, input) {
 		const request = exportPeopleRequest.parse(input);
-		// The count the export's receipt would give, from one count(*): the file and its contact values are never built.
 		const found = valueOf<Omit<z.infer<typeof peopleExport>, "text">>(
 			await peopleCsv.countExport(tx, readCtx(actor), request),
 		);
@@ -566,7 +557,6 @@ export const exportPeople: ReadAdapter<z.infer<typeof exportInput>> = {
 	},
 };
 
-/** The installed people-organization read tools, in catalog order. */
 export const ORGANIZATION_READS = [
 	exportPeople,
 	generateCsvTemplate,
