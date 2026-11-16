@@ -416,7 +416,6 @@ test("AC:CASE-COM-012 AC:CASE-COM-003 drafts save and a reviewed schedule stays 
 	);
 	refused(await read(owner, "getDraft", { id: incomplete.communicationId }), "not_found");
 
-	// Later saves update the one row; a delete from a tab that missed a save is refused and keeps the row.
 	const first = ok(await draft({ subject: "Update me", bodyHtml: "<p>v1</p>" }));
 	const rowsBefore = (await counts()).communications;
 	const second = ok(
@@ -733,7 +732,6 @@ test("AC:CASE-COM-003 a read-only member seat and a forged actor with another us
 		}),
 	);
 	const before = await snapshot();
-	// A Member reads Messages history but cannot save, delete, schedule or send.
 	refused(await write(member, "saveDraft", { requestKey: key(), input: { subject: "X" } }), "access_denied");
 	refused(
 		await write(member, "deleteDraft", {

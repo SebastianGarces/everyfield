@@ -1,11 +1,6 @@
 import "server-only";
 import { checkoutClient, createDatabase, type Database } from "@everyfield/db/client";
 
-// Share connections for the same configured login and schema. The native auth
-// adapter may use different credentials or schemas.
-// Next bundles the instrumentation hook, route handlers and server components as separate module graphs, each with its
-// own copy of this module. The map lives on globalThis so the pools the start-up warm opens are the ones every request
-// then uses.
 const POOLS: unique symbol = Symbol.for("everyfield.web.pools");
 const pools: Map<string, Database> = ((globalThis as { [POOLS]?: Map<string, Database> })[POOLS] ??= new Map());
 export function database(connectionString: string): Database {
@@ -22,11 +17,6 @@ export function requestDatabase(): Database | null {
 	return url ? database(url) : null;
 }
 
-/**
- * The scheduled runner's own pool. Every statement on it, lock waits included, ends after 5 s unless its boundary sets
- * its own timeout (the native write gate sets 10 s), so a job worker that writes outside a bounded transaction (People
- * imports) cannot wait without limit. Other PGOPTIONS stay.
- */
 export function jobDatabase(): Database | null {
 	const url = process.env.IDENTITY_DATABASE_URL;
 	if (!url) return null;
@@ -40,12 +30,6 @@ export function jobDatabase(): Database | null {
 	return pool;
 }
 
-/**
- * The cleanup login's pool (`everyfield_cleanup`), from LIFECYCLE_CLEANUP_DATABASE_URL, or null when the deployment has
- * none. Only the scheduled purge uses it: it removes a deleted subject's content, which neither the runtime nor the job
- * login may do. A purge statement removes every row a church owns, so statements end after 60 s, inside the cron
- * route's 300 s. Other PGOPTIONS stay.
- */
 export function cleanupDatabase(): Database | null {
 	const url = process.env.LIFECYCLE_CLEANUP_DATABASE_URL;
 	if (!url) return null;
@@ -59,20 +43,10 @@ export function cleanupDatabase(): Database | null {
 	return pool;
 }
 
-/**
- * The most connections one request holds at once on the request pool: the person and meetings pages read on two in
- * parallel (RT-6c). Other pools (the auth login) stay at one: no measured request used two at once.
- */
 const REQUEST_CONNECTIONS = 2;
-/**
- * Opens the connections one request needs on every pool created so far, all at once, so no early request pays a TLS
- * handshake. It answers once each pool has one open connection; `rest` settles when the others are open too, so the
- * warm-up never delays the first answer (C115). Server start calls it once the identity mount exists.
- */
 export async function warmPools(): Promise<{ rest: Promise<unknown> }> {
 	const request = requestDatabase();
 	const opening = [...pools.values()].map((db) =>
-		// Started together, each checkout opens its own connection; each is released as soon as it is open.
 		Array.from({ length: db === request ? REQUEST_CONNECTIONS : 1 }, () =>
 			checkoutClient(db).then(({ client }) => client.release()),
 		),

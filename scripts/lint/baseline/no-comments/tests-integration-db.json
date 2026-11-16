@@ -1,6 +1,0 @@
-{
-	"tests/integration/db/baseline.test.mts": 13,
-	"tests/integration/db/normalize.test.mts": 2,
-	"tests/integration/db/task-assignees.test.mts": 4,
-	"tests/integration/db/unit.test.mts": 1
-}

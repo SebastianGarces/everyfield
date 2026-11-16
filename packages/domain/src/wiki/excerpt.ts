@@ -1,14 +1,8 @@
-// The Guide and reference excerpt (WP-034). A section is read as markdown blocks and cut only between blocks, at a
-// sentence end or at a word end, so the cut never splits a table row, a list item, an MDX component or an inline span.
-// The blocks come from `wikiBlocks`, the one block reader the wiki reader, the PDF and the print export also call.
 import { fenceMarker, wikiBlocks, type WikiBlock as Block } from "@everyfield/contracts/wiki";
 
-/** The excerpt limit. A body this long or longer ends with a whole table row. */
 const LIMIT = 500;
-/** A table that starts inside the limit stays whole up to this length. */
 const TABLE_CEILING = 1500;
 
-/** The character ranges of inline spans: code, links and images, bold, italic and inline tags. */
 function spans(text: string): [number, number][] {
 	const ranges: [number, number][] = [];
 	let masked = text;
@@ -28,10 +22,6 @@ function spans(text: string): [number, number][] {
 	return ranges;
 }
 
-/**
- * The longest start of a paragraph within `room`: up to its last sentence end, else up to its last word end with
- * "…". Never inside an inline span. Null when nothing fits.
- */
 function cutParagraph(text: string, room: number): string | null {
 	const ranges = spans(text);
 	const outside = (at: number) => !ranges.some(([start, end]) => at > start && at < end);
@@ -51,14 +41,12 @@ function cutParagraph(text: string, room: number): string | null {
 	return sentence ?? word;
 }
 
-/** The part of a block that crosses the limit, as lines that fit `room`. Empty when none fits. */
 function cutBlock(block: Block, room: number): string[] {
 	if (block.kind === "paragraph" || block.kind === "quote") {
 		const cut = cutParagraph(block.lines.join("\n"), room);
 		return cut == null ? [] : cut.split("\n");
 	}
 	if (block.kind === "code" || block.kind === "diagram") {
-		// A code block keeps its opening line and the whole lines that fit, then closes again.
 		const [open = "```", ...rest] = block.lines;
 		const close = fenceMarker(open) ?? "```";
 		const kept = [open];
@@ -119,10 +107,6 @@ function cut(blocks: Block[]): string {
 	return out.flatMap((block) => block.lines).join("\n");
 }
 
-/**
- * The section under `heading`, up to the next heading of the same or higher level, cut to the excerpt limit at a
- * block, sentence or word end. Without the heading, the start of the text. Excerpts are never reading.
- */
 export function sectionExcerpt(contentType: string, body: string, heading?: string): string {
 	const blocks = wikiBlocks(contentType, body);
 	const start = heading ? blocks.findIndex((block) => block.kind === "heading" && block.text === heading) : -1;

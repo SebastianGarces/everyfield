@@ -53,12 +53,6 @@ function refusedText(code: string | null): string {
 	}
 }
 
-/**
- * Remove an ordinary seat (seats.remove, REQ-IDN-019). Opening the dialog reads the seat's open duties and the seats
- * that may take them (ruling D52); every duty needs a new owner or a visible Needs owner before Remove is enabled.
- * Each opening reads again, and Remove waits for that read. A lost reply locks the choices: Try again resends the
- * same command, and closing the dialog reloads the list.
- */
 export function RemoveDialog({
 	seat,
 	workspaceName,
@@ -68,7 +62,6 @@ export function RemoveDialog({
 }: {
 	seat: Seat;
 	workspaceName: string;
-	/** The confirmed removal: what to tell the person, and the seat's revision as saved now. */
 	onRemoved: (message: string, revision: Seat["revision"]) => void;
 	onClosedUnconfirmed: () => void;
 	trigger: ReactNode;
@@ -156,7 +149,6 @@ export function RemoveDialog({
 			);
 			return;
 		}
-		// A refusal means this review is out of date; read it again so the next attempt carries current revisions.
 		if (result.problem === "refused") void read(load.attempt + 1);
 	}
 

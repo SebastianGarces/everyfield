@@ -1,5 +1,3 @@
-// The organizations reads of INV-tenancy (tenancy.test.mts): church A's live connection with a sending network, made
-// through the organizations adapter's invite and accept as each side's owner, so the connection has history.
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -20,8 +18,6 @@ import {
 } from "../../../packages/domain/src/oversight/index.ts";
 
 const proofs = new Map();
-// The adapter's effects as organizations/support.mts has them, except that the invitation proof is kept here instead
-// of mailed, so nothing is sent.
 const api = createOrganizationAdapter(
 	{
 		async invitation(_tx, v) {
@@ -46,23 +42,19 @@ const api = createOrganizationAdapter(
 	{ candidates: async () => [] },
 );
 
-/** Church A's owner invites the MARK network, whose owner accepts: one live connection with an approval in history. */
 export async function seedOrganizations(t) {
 	const { a, f, MARK, key } = t;
-	// Raw rows because no public write creates an organization; its owner seat comes from the fixture for the same reason.
 	a.network = key();
 	await f.admin.execute(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
 		VALUES(${a.network},'sending_network',${`${MARK} network`},'UTC',1)`);
 	const network = { kind: "organization", id: a.network, organizationKind: "sending_network" };
 	const networkOwner = await f.account();
 	await f.seat(networkOwner, network, "owner");
-	// As the production command mount runs a write: the write gate first, then the adapter, in one transaction.
 	const write = (session, selected, name, expectedRevision, input) =>
 		f.db.transaction(async (tx) => {
 			if (!(await RequestActor.claimWrite(tx, session, selected))) throw Error("unavailable");
 			return api[name](tx, session, selected, { requestKey: key(), expectedRevision, input });
 		});
-	// The invitation carries the plant's revision, which the earlier seeds moved on.
 	const [plant] = await t.rows(sql`SELECT revision::text FROM plant WHERE id = ${t.plantA.id}`);
 	const invitation = await write(t.ownerA.session, t.plantA, "associations.invite", plant.revision, {
 		pair: { kind: "plant", subject: t.plantA, organization: network },
@@ -112,8 +104,6 @@ export function organizationsCases(t, who) {
 				},
 			},
 		],
-		// Oversight reads are for organization seats only: a church's owner, naming church A and its network, gets none.
-		// Church A's own owner holds a plant seat too, so there is no control to read.
 		...(
 			[
 				["oversight:listPlants", () => listPlants(t.f.db, who.actor)],
@@ -123,7 +113,6 @@ export function organizationsCases(t, who) {
 				["oversight:readIntelligence", () => readIntelligence(t.f.db, who.actor, { level: "portfolio", runId: null })],
 			] as const
 		).map(([name, read]) => [name, { run: () => plain(read), expected: { value: null, control: null } }]),
-		// The church settings' reporting location reads only the caller's own plant: church B gets its own, never A's.
 		[
 			"organizations:readReportingLocation",
 			{
@@ -134,7 +123,6 @@ export function organizationsCases(t, who) {
 				},
 			},
 		],
-		// Suggestions read only the global official list; naming church A's city returns no church A value.
 		[
 			"organizations:suggestRegions",
 			{
