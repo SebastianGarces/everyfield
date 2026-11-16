@@ -92,14 +92,12 @@ async function saveRoster(programId, personIds, who = 0, requestKey = key()) {
 	);
 }
 const idsOf = (names, book) => names.map((name) => book[name]);
-/** A team meeting through the one meetings writer (T-201); its guest list is the ministry's people serving now. */
 const teamMeeting = (teamId, fields = {}, who = 0) =>
 	run(
 		meetingsWriter.schedule,
 		{ requestKey: key(), input: { type: "team_meeting", teamId, date: "2026-10-24", time: "09:00", ...fields } },
 		who,
 	);
-/** A held meeting: these people attended and it is completed. The attendance writer has its own tests. */
 async function held(meetingId, personIds) {
 	await admin.execute(sql`UPDATE participation SET presence='attended'
 		WHERE meeting_id=${meetingId} AND person_id = ANY(${sql.param(personIds)}::uuid[])`);
@@ -377,7 +375,6 @@ test("AC:TARGET-TEAM-017 AC:SME53-009 service evidence does not change a role", 
 		}),
 		"invalid_input",
 	);
-	// A service span has no revision to compare, so the program envelope is not accepted for it.
 	refused(
 		await run(trainingWriter.attestCompletion, {
 			requestKey: key(),
@@ -418,23 +415,19 @@ test("AC:B01-001 AC:GAP-TEAM-013 AC:TARGET-TEAM-013 a team meeting keeps its gue
 		}),
 	);
 	const credits = await count(sql`SELECT count(*)::int AS n FROM training_credit`);
-	// The ministry's own leader schedules its training session; the roster is copied once per person.
 	const meeting = ok(await teamMeeting(hospitality.id, { subtype: "training" }, 1)).meeting;
 	assert.equal(meeting.subtype, "training");
 	assert.equal(meeting.guestCount, 2);
 	const guests = await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${meeting.id}`);
 	assert.equal(guests, 2);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM training_credit`), credits);
-	// A later join does not change the saved guest list.
 	await assign(await makeRole(hospitality.id, "Later guest"), hospitality.id, jamie);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM participation WHERE meeting_id=${meeting.id}`), 2);
-	// Another ministry's leader schedules nothing here.
 	refused(await teamMeeting(hospitality.id, { subtype: "training", date: "2026-10-25" }, actors.length - 1));
 	const second = ok(await teamMeeting(hospitality.id, { subtype: "training", date: "2026-10-26" }, 1)).meeting;
 	assert.equal(second.guestCount, 3);
 	const stored = (await admin.execute(sql`SELECT type, subtype, team_id FROM meeting WHERE id=${meeting.id}`)).rows[0];
 	assert.deepEqual({ ...stored }, { type: "team_meeting", subtype: "training", team_id: hospitality.id });
-	// The global list and the ministry's list project the same meeting ids.
 	const listed = ok(await meetingsReader.list(db, await viewer(), { teamId: hospitality.id, window: "all" }));
 	assert.deepEqual(listed.items.map((m) => m.id).sort(), [meeting.id, second.id].sort());
 	const all = ok(await meetingsReader.list(db, await viewer(), { types: ["team_meeting"], window: "all" }));
@@ -944,7 +937,6 @@ test("AC:TARGET-TEAM-008 a ministry's own programs are listed with its roster ev
 	const singer = await person("Zion Singer");
 	await assign(await makeRole(own.id, "Alto"), own.id, singer);
 	await saveRoster(mine.id, [singer]);
-	// 101 programs of another ministry whose names sort before this ministry's own, so the church-wide cap cuts it.
 	await admin.execute(sql`INSERT INTO training_program(plant_id, team_id, name, required)
 		SELECT ${P}::uuid, ${other.id}::uuid, 'Aardvark ' || lpad(n::text, 3, '0'), false FROM generate_series(1, 101) n`);
 	try {
@@ -987,7 +979,6 @@ test("AC:TARGET-TEAM-016 two admins saving one required list: the second is refu
 	const alex = await person("Alex Race");
 	const casey = await person("Casey Race");
 	const item = await program("Race course", { teamId: team.id });
-	// Both dialogs open on the same revision and freeze what their preview read.
 	const first = await preview(item.id, [alex], 0);
 	const second = await preview(item.id, [casey], 2);
 	assert.equal(first.revision, second.revision);
@@ -1018,7 +1009,6 @@ test("AC:TARGET-TEAM-016 two admins saving one required list: the second is refu
 			)
 		).rows.map((row) => row.person_id);
 	assert.deepEqual(await stored(), [alex]);
-	// The first reply was lost. The same request, with the same frozen revision and digest, returns the saved result.
 	const programRevision = await rev("training_program", item.id);
 	const replay = ok(await run(trainingWriter.setRequiredTrainingParticipants, request, 0));
 	assert.deepEqual(replay, saved);
@@ -1077,7 +1067,6 @@ test("AC:TARGET-TEAM-009 a credit sent from a dialog opened before Correct progr
 	);
 	assert.equal(await credits(), before);
 	assert.equal(await plantRevision(), marks);
-	// The current revision is accepted.
 	ok(
 		await run(trainingWriter.recompleteTraining, {
 			requestKey: key(),
@@ -1152,7 +1141,6 @@ test("AC:REQ-IDN-005 an unknown or another church's program or team is unavailab
 		await count(sql`SELECT count(*)::int AS n FROM training_program WHERE plant_id=${P} AND name='Probe'`),
 		0,
 	);
-	// A member who leads no ministry is still refused for permission, not for the row.
 	refused(
 		await run(
 			trainingWriter.correctProgram,

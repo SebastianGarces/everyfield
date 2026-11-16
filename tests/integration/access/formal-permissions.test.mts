@@ -1,8 +1,3 @@
-// The permissions model's conformance test (T-398). formal/permissions/Permissions.tla prints an outcome table, and
-// `bin/dev formal` writes it to formal/permissions/outcomes.json and fails when the file is stale. This test runs every
-// row of that table against the real operations on Postgres and asserts that the code allows or refuses exactly as the
-// model does. A change to the model alone makes the file stale; a change to the code alone fails a row here.
-// .agents/skills/formal-permissions/SKILL.md says how to keep the model, its map and this test in step.
 import "../platform/setup.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
@@ -22,15 +17,12 @@ import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 const table = JSON.parse(readFileSync(new URL("../../../formal/permissions/outcomes.json", import.meta.url), "utf8"))
 	.rows as string[][];
 const KINDS = ["seat", "invite", "revoke", "accept", "statement"];
-/** `word` with its indefinite article, for the test names. */
 const a = (word: string) => `${/^[aeiou]/.test(word) ? "an" : "a"} ${word}`;
 
 let fx: Awaited<ReturnType<typeof fixture>>;
 let seats: ReturnType<typeof createSeatService>;
 let invitations: ReturnType<typeof createInvitationService>;
-/** Each invitation's proof, read from the mail the invite sent. */
 const proofs = new Map<string, string>();
-/** No seat this test removes holds a dated task, so a reminder replan would be a bug. */
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
@@ -56,7 +48,6 @@ after(async () => {
 	await fx?.close();
 });
 
-/** The request actor, resolved now, as a request resolves it before its statements run. */
 async function resolved(actor: Actor) {
 	const authority = await fx.pools.runtime.transaction((tx) =>
 		RequestActor.resolve(tx, sessionId.parse(actor.session)),
@@ -64,8 +55,6 @@ async function resolved(actor: Actor) {
 	assert.ok(authority instanceof RequestActor, JSON.stringify(authority));
 	return authority;
 }
-/** What the code did: "allow" when the operation returned, "refuse" when it refused (a domain refusal or a contract
- * that rejects the input). Anything else fails the test. */
 async function outcome(run: () => Promise<unknown>) {
 	try {
 		await run();
@@ -87,7 +76,6 @@ const command = (expectedRevision: string, input: Record<string, unknown>) => ({
 	expectedRevision,
 	input,
 });
-/** A fresh plant with its owner, and an actor in each role the row names (the owner when it names owner). */
 async function workspace(...roles: string[]) {
 	const plant = await fx.plant();
 	const owner = await fx.actor(plant, "owner");
@@ -109,7 +97,6 @@ function seatChange(
 	if (op === "remove") return seats.remove(authority, plant, v, noReminders);
 	throw Error(`unknown seat action ${op}`);
 }
-/** The input a seat action sends for a target: the contract allows only an ordinary expected role. */
 function seatInput(op: string, seatId: string, targetRole: string, to: string) {
 	const expectedRole = targetRole === "owner" || op === "demote" ? "admin" : targetRole;
 	return op === "remove" ? { seatId, expectedRole, handoffs: [] } : { seatId, expectedRole, to };
@@ -167,8 +154,6 @@ for (const [, actorRole, expected] of table.filter((r) => r[0] === "revoke"))
 for (const [, state, seated, role, expected] of table.filter((r) => r[0] === "accept"))
 	test(`INV-access: ${a(seated!)} account accepts ${a(state!)} ${role} invitation: ${expected}, as the model says`, async () => {
 		const { plant, owner } = await workspace();
-		// An account that must hold a seat when it tries gets it before, from another plant, unless accepting this very
-		// invitation gave it one.
 		const recipient = await fx.actor(seated === "seated" && state !== "accepted" ? await fx.plant() : null, "member");
 		const id = await invite(owner, plant, recipient.email, role!);
 		if (state === "revoked") await invitations.revoke(await resolved(owner), command("1", { invitationId: id }));
@@ -189,7 +174,6 @@ for (const [, kind, role, event, expected] of table.filter((r) => r[0] === "stat
 		const { plant, owner, actors } = await workspace(role!);
 		const actor = actors[0]!;
 		const authority = await resolved(actor);
-		// The change happens after the request resolved its actor and before its statement runs.
 		const ownerAuthority = await resolved(owner);
 		const seat = await liveSeat(actor);
 		if (event === "session_ended")

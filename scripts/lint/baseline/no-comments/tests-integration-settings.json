@@ -1,5 +1,0 @@
-{
-	"tests/integration/settings/settings-api.mts": 1,
-	"tests/integration/settings/settings.test.mts": 65,
-	"tests/integration/settings/workspace-deletion-mail.test.mts": 22
-}

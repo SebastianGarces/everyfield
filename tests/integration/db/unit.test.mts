@@ -26,7 +26,6 @@ process.stdout.write(JSON.stringify({ locale: new Intl.Collator().resolvedOption
 			}),
 		),
 	);
-	// The children really sorted under different collations, so equal output is not an accident of one locale.
 	assert.ok(new Set(runs.map((r) => r.locale)).size >= 3, JSON.stringify(runs.map((r) => r.locale)));
 	const digest = createHash("sha256").update(expected).digest("hex");
 	for (const run of runs)

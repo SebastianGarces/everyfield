@@ -1,10 +1,3 @@
-// Network Intelligence by Region, state or province, Country and Whole portfolio (organizationIntelligence.read and
-// .readLocations, REQ-PI-044), and how it agrees with the oversight plant view and Plant Intelligence on released
-// results (REQ-PI-043, PI-032) and on what it never carries (REQ-IDN-023). "The network Admin opens Network
-// Intelligence at a level" is readIntelligence at that level as a network Admin seat; "the planter opens Plant
-// Intelligence" is intelligence.readAssessment as the plant's Owner. Reporting locations are saved through
-// organizations.correctReportingLocation, the settings Region picker's own command, from the official OMB 23-01 list
-// the test installs. Assessments are published by the real job with the scripted drafter only.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -53,7 +46,6 @@ type Plant = Awaited<ReturnType<Church["plant"]>>;
 type Locality = { city: string | null; stateProvince: string | null; country: string | null };
 const LEVELS: Level[] = ["region", "state", "country", "portfolio"];
 
-/** A network and one of its Admin seats. */
 async function network(name: string) {
 	const org = await c0.database.organization("sending_network", { name, timezone: "America/Chicago" });
 	const seat = await c0.database.actor(org, "admin");
@@ -61,13 +53,11 @@ async function network(name: string) {
 	return { ...org, admin };
 }
 type Network = Awaited<ReturnType<typeof network>>;
-/** Links `p` to `net` by its own active link, sharing findings and every category unless `share` is false. */
 async function link(p: { id: string }, net: { id: string }, share = true) {
 	await c0.admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,
 		share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 		VALUES(${p.id},${net.id},clock_timestamp()-interval '1 day',${share},${share},${share},${share},${share},${share},${share})`);
 }
-/** Launch Sunday 10 days out with one required responsibility unfilled: the plant qualifies for NIR-03. */
 async function nearLaunch(p: Plant) {
 	await c0.admin.execute(
 		sql`INSERT INTO launch(plant_id,status,target_date) VALUES(${p.id},'scheduled',${c0.day(10)}::date)`,
@@ -85,7 +75,6 @@ async function nearLaunch(p: Plant) {
 	await c0.admin.execute(sql`INSERT INTO team_role(id,plant_id,team_id,name,leadership,sort_order,responsibility_key)
 		VALUES(${role},${p.id},${team},'Kids lead',true,1,'children')`);
 }
-/** A plant whose profile is at `where`, qualifying for NIR-03. */
 async function plant(name: string, where: Locality) {
 	const p = await c0.plant(name, { phase: 2 });
 	await c0.admin.execute(sql`UPDATE plant SET city=${where.city},state_province=${where.stateProvince},
@@ -93,12 +82,7 @@ async function plant(name: string, where: Locality) {
 	await nearLaunch(p);
 	return p;
 }
-/** The official areas the planter's Region picker offers for `where`. */
 const candidates = async (p: Plant, where: Locality) => (await suggestRegions(c0.db, p.actor, where))!;
-/**
- * The planter saves `where` as the plant's reporting location from the Region picker, with the Region whose CBSA code
- * is `code` (one of the picker's candidates), or none.
- */
 async function save(p: Plant, where: Locality, code: string | null) {
 	const current = (await readReportingLocation(c0.db, p.actor))!;
 	const offered = await candidates(p, where);
@@ -131,7 +115,6 @@ const refresh = async (net: Network) => {
 };
 const read = async (net: Network, level: Level, runId: string | null = null) =>
 	(await readIntelligence(c0.db, net.admin, { level, runId }))!;
-/** Each group at a level: its placement, the sharing plants it counts and its NIR-03 pattern's support (or null). */
 function levelOf(v: IntelligenceView) {
 	return Object.fromEntries(
 		v.groups.map((g) => [
@@ -265,14 +248,11 @@ test("AC:GEO-008 a plant linked to the network directly and through its sending 
 });
 
 test("AC:GEO-013 AC:GEO-003 a place with two candidate Regions asks the planter to choose and never for a street; the chosen primary Region alone counts, once", async () => {
-	// The official list names "Austin" a principal city of two areas: with no state given, the picker offers both.
 	const austin = { city: "Austin", stateProvince: null, country: "US" };
 	const p = await plant("Two Austins Church", austin);
 	const offered = await candidates(p, austin);
 	assert.deepEqual(offered.map((c) => c.area.code).sort(), ["12380", "12420"]);
-	// The saved location before any choice: no Region, and nothing guessed from the first candidate.
 	assert.equal((await readReportingLocation(c0.db, p.actor))!.region, null);
-	// The picker's command takes a city, state or province and country only: there is no street to give.
 	assert.deepEqual(Object.keys(correctReportingLocationRequest.shape.input.shape.locality.shape).sort(), [
 		"city",
 		"country",
@@ -310,7 +290,6 @@ test("AC:GEO-004 AC:GEO-012 a plant outside the official list, one left unresolv
 	assert.deepEqual(await candidates(outside, nowhere), [], "the official list names no area for it");
 	await save(outside, nowhere, null);
 	await save(abroad, { city: "Ottawa", stateProvince: "ON", country: "CA" }, null);
-	// Unsure Church never saved a location: its profile's Austin, TX is not a choice.
 	await refresh(net);
 	const v = await read(net, "region");
 	assert.deepEqual(
@@ -325,7 +304,6 @@ test("AC:GEO-004 AC:GEO-012 a plant outside the official list, one left unresolv
 		v.groups.every((g) => !g.patterns.length),
 		"no pattern for plants with no Region",
 	);
-	// GEO-012: nothing reads a planting-area attestation, and the saved reporting location says none was made.
 	assert.doesNotMatch(JSON.stringify(v), /attest|geographic_?area|planting_?area/i);
 	const location = (await readReportingLocation(c0.db, outside.actor))!;
 	assert.deepEqual(Object.keys(location).sort(), ["canEdit", "locality", "referenceVersionId", "region", "revision"]);
@@ -382,7 +360,6 @@ test("AC:B02-029 Network Intelligence and the oversight plant view consume only 
 	assert.equal(pv.runId, first.runId, "the plant view agrees");
 	assert.deepEqual((await plantView(b)).assessment, { status: "not_assessed" });
 
-	// The planters open their newest runs: both network pages now show them, with the planter's own concern ids.
 	ok(await assessments.markAssessmentSeen(c0.db, a.actor, { runId: newest.runId }));
 	const riverside = ok(await assessments.readAssessment(c0.db, b.actor, {})).current!;
 	ok(await assessments.markAssessmentSeen(c0.db, b.actor, { runId: riverside.runId }));
@@ -427,7 +404,6 @@ test("AC:GEO-011 AC:ORG55-005 the directory, the plant view and every Network In
 	await c0.admin.execute(sql`UPDATE plant SET phase=2, street='4100 Private Street' WHERE id=${p.id}`);
 	await link(p, net);
 	await save(p, AUSTIN_TX, "12420");
-	// The approved lead: a live Person holding the onboarding lead role, with contact details of their own.
 	const lead = await c0.person(p, "Alex Lead");
 	await c0.admin.execute(
 		sql`UPDATE person SET email='alex@example.test', phone='555-0101', street='12 Private Lane' WHERE id=${lead.id}`,
@@ -504,7 +480,6 @@ test("AC:GEO-010 a newer geography release changes the current view's Regions; t
 	await link(p, net);
 	await save(p, AUSTIN_TX, "12420");
 	const before = await refresh(net);
-	// A newer validated release of the same official areas, adopted when the planter saves their Region again.
 	const release = randomUUID();
 	const hash = randomUUID().replaceAll("-", "").repeat(2);
 	await c0.admin

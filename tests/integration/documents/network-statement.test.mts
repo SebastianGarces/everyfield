@@ -1,12 +1,3 @@
-// DOC-020, CASE-DOC-020 `network-fills-slot` and `no-network-blank-slot` (D-106 to D-109): a Church Document made
-// from a template starts with the sending network's statement of faith in its `statement-of-faith` slot, read once at
-// creation. A plant with no network, or whose network has not written it, gets the marked blank.
-// T-85, CASE-DOC-020 base case and `network-fills-preview` (D-417, D-418): a Bylaws preview and a file saved through
-// "Save for your church" print the network's text as it stands when the action runs, and the marked blank otherwise.
-//
-// Every case creates from the built-in Bylaws, whose "Statement of faith" slot carries the key (T-56, D-110). The key
-// test alone adds one fixture template with mixed slots (D-126), so an unkeyed and an other-keyed slot sit beside it.
-// Every step runs through the real createFromTemplate, readChurch, history and export path.
 import { testDatabase } from "../../support/test-database.mts";
 import { ok, seeds } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
@@ -60,8 +51,6 @@ class MemoryClient extends S3Client {
 const client = new MemoryClient();
 const storage = { bucket: "synthetic-only", client };
 
-// ---------------------------------------------------------------- fixture templates
-
 const LABEL = "Statement of faith";
 const para = (text) => ({ type: "paragraph", content: [{ type: "text", text }] });
 const policy = docTemplateById("conflict-of-interest-policy");
@@ -69,7 +58,6 @@ const withSlots = (id, slots) => {
 	const t = structuredClone(policy);
 	t.id = id;
 	t.title = "Synthetic mixed slots";
-	// After the masthead and its divider: the slot sits between two of the policy's own sections.
 	t.body.content.splice(4, 0, ...slots);
 	return loadTemplate(id, t);
 };
@@ -84,8 +72,6 @@ DOC_TEMPLATES.push(
 	]),
 );
 
-// ---------------------------------------------------------------- tenants
-
 const TEXT = "We hold to these words as our network's own.\n\nWe gather, we send,\nand we serve together.";
 const PARAGRAPHS = [
 	para("We hold to these words as our network's own."),
@@ -99,7 +85,6 @@ const PARAGRAPHS = [
 	},
 ];
 
-/** A plant with one Owner. Returns the plant id and a function giving that Owner's request authority. */
 async function plantWithOwner(name) {
 	const plant = (await seed.plant({ name })).id;
 	const { session } = await seed.actor({ kind: "plant", id: plant }, "owner");
@@ -122,8 +107,6 @@ async function affiliate(plant, org, acceptedAt = "2026-01-01T00:00:00Z") {
 	);
 	return r.rows[0].id;
 }
-
-// ---------------------------------------------------------------- the operations, as a user calls them
 
 const create = async (who, templateId = BYLAWS) =>
 	ok(
@@ -161,7 +144,6 @@ async function exportsOf(who, documentId, revision = 1) {
 	}
 	return [text.pdf, text.docx];
 }
-/** The network's text in the section: under the label, one paragraph per block, and no marked blank. */
 async function assertNetworkText(who, documentId, paragraphs = PARAGRAPHS, revision = 1) {
 	const words = paragraphs.flatMap((p) => p.content.filter((n) => n.type === "text").map((n) => n.text));
 	for (const text of await exportsOf(who, documentId, revision)) {
@@ -176,7 +158,6 @@ async function assertNetworkText(who, documentId, paragraphs = PARAGRAPHS, revis
 		assert.equal(text.includes(SLOT_BLANK_NOTE), false, "no marked blank");
 	}
 }
-/** The empty slot: the template's own, the marked blank in both files and no doctrinal words. */
 async function assertMarkedBlank(who, doc) {
 	assert.deepEqual(keyedSlot(doc.body), keyedSlot(docTemplateById(BYLAWS)), "the slot as Bylaws authored it");
 	assert.deepEqual(keyedSlot(doc.body).content ?? [], [], "an empty slot");
@@ -251,7 +232,6 @@ describe("AC:DOC-020 network text fills a doctrinal section at creation", { conc
 		const later = await organization("sending_network", "The later network's words.");
 		await affiliate(who.plant, earlier, "2026-01-01T00:00:00Z");
 		await affiliate(who.plant, later, "2026-03-01T00:00:00Z");
-		// A sending church affiliation never fills it.
 		await affiliate(who.plant, await organization("sending_church"), "2025-01-01T00:00:00Z");
 
 		assert.deepEqual(keyedSlot((await create(who)).body).content, [para("The later network's words.")]);
@@ -269,7 +249,6 @@ describe("AC:DOC-020 network text fills a doctrinal section at creation", { conc
 			{ type: "slot", attrs: { label: "Vision", key: "vision" }, content: [para(AUTHORED)] },
 		]);
 
-		// A plain save round trip: the key attr comes back as stored, on revision 2.
 		const body = structuredClone(doc.body);
 		body.body.content.push(para("A closing line the church adds."));
 		const saved = ok(
@@ -284,15 +263,11 @@ describe("AC:DOC-020 network text fills a doctrinal section at creation", { conc
 	});
 });
 
-// ---------------------------------------------------------------- preview and "Save for your church" (T-85)
-
-/** The Bylaws preview's PDF text, as `documents.preview` returns it. */
 async function previewText(who) {
 	const value = ok(await documentsReader.preview(db, await who.authority(), { templateId: BYLAWS, format: "pdf" }));
 	assert.ok(value.artifact, "a preview artifact");
 	return (await pdfPages(Buffer.from(value.artifact, "base64"))).join(" ");
 }
-/** The file `documents.generate` stored for Bylaws on this key, as PDF text, and its record id. */
 async function savedText(who, requestKey = randomUUID()) {
 	const generated = ok(
 		await documentsWriter.generate(
@@ -314,7 +289,6 @@ async function storedPdfText(generatedId) {
 	assert.ok(bytes, "the bytes are in private storage");
 	return (await pdfPages(bytes)).join(" ");
 }
-/** The statement-of-faith section: what prints after the slot's label and before the next heading, "Members". */
 function sectionOf(text) {
 	const end = text.search(/\bMembers\b/);
 	assert.ok(end > 0, "the heading after the section");
