@@ -16,7 +16,7 @@
 	"surfaces": [
 		{
 			"id": "evry.panel",
-			"says": "The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations.",
+			"says": "The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations. The catalog endpoint is listed for completeness: nothing in the app calls it, so no step reaches it.",
 			"routes": [],
 			"endpoints": [
 				"/api/evry/catalog",
@@ -386,6 +386,10 @@
 							{
 								"file": "tests/evry/execution/proposals.test.mts",
 								"name": "AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSION-TEMPLATE-EDIT AC:INH-REGRESSION-CONFIRM-REPLAY AC:UI45-005 AC:AUDIT-002 INV-budget: nothing changes until the exact current revision is approved; then the change runs once with its own audit row"
+							},
+							{
+								"file": "tests/evry/execution/proposals.test.mts",
+								"name": "AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or after expiry, even one that lapses while the effect waits, or a cancelled one, starts nothing"
 							}
 						],
 						"cases": ["UI45-002"]

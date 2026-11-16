@@ -65,6 +65,6 @@ Reach:
 
 States:
 
-- **inside-frame** (`error.tsx`): heading "Something went wrong"; button "Try again"; link "Go to home". Not scripted: shows only when a signed-in page throws while it renders, which no seed or step can cause; the frame stays around it.
-- **outside-frame** (`error.tsx`): heading "Something went wrong"; button "Try again"; link "Go to the home page". Not scripted: shows only when a page outside the product frame throws while it renders, which no seed or step can cause.
-- **root-layout** (`global-error.tsx`): heading "Something went wrong". Not scripted: shows only when the root layout itself fails, which no seed or step can cause; it brings its own document.
+- **inside-frame** (`error.tsx`): heading "Something went wrong"; button "Try again"; link "Go to home". Not scripted: shows when a signed-in page throws while it renders and the frame layout itself still works; no seed, step or outside action we know of causes it; the unit tests in tests/unit/shell/boundaries.test.mts render it.
+- **outside-frame** (`error.tsx`): heading "Something went wrong"; button "Try again"; link "Go to the home page". Not scripted: shows when a page outside the product frame throws, and also for a frame page whose frame layout throws; to see it, stop the app's database (on a proof slot, docker stop its Postgres) and open any signed-in page such as /overview.
+- **root-layout** (`global-error.tsx`): heading "Something went wrong". Not scripted: shows when the root layout itself fails; no seed, step or outside action we know of causes it; the unit tests in tests/unit/shell/boundaries.test.mts render it.

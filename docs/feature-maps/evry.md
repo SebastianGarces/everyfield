@@ -25,7 +25,7 @@ flowchart LR
 
 ### evry.panel
 
-The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations.
+The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations. The catalog endpoint is listed for completeness: nothing in the app calls it, so no step reaches it.
 
 - Routes: none
 - Endpoints: `/api/evry/catalog`, `/api/evry/open`, `/api/evry/conversations`, `/api/evry/conversations/[id]`, `/api/evry/conversations/[id]/turns`, `/api/evry/conversations/[id]/stream`, `/api/evry/conversations/[id]/cancel`, `/api/evry/conversations/[id]/retry`
@@ -184,6 +184,7 @@ Revise replaces the prepared change and voids the earlier approval; Cancel ends 
 - Cases: UI45-002
 - Test: `tests/ui/evry/review.test.mjs`: `AC:UI45-002 AC:INH-REGRESSION-CONFIRM-REPLAY INV-lost-approval: a revised change saves once (${engine})`
 - Test: `tests/evry/execution/proposals.test.mts`: `AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSION-TEMPLATE-EDIT AC:INH-REGRESSION-CONFIRM-REPLAY AC:UI45-005 AC:AUDIT-002 INV-budget: nothing changes until the exact current revision is approved; then the change runs once with its own audit row`
+- Test: `tests/evry/execution/proposals.test.mts`: `AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or after expiry, even one that lapses while the effect waits, or a cancelled one, starts nothing`
 
 #### evry.review#photo
 

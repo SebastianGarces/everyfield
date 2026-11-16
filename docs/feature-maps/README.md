@@ -198,7 +198,7 @@ flowchart LR
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
 |---|---|---|---|---|---|---|
-| [assessment-review](assessment-review.md) | [`apps/web/src/features/assessment-review/feature-map.json`](../../apps/web/src/features/assessment-review/feature-map.json) | 1 | 2 | 1 | 0 | 1 |
+| [assessment-review](assessment-review.md) | [`apps/web/src/features/assessment-review/feature-map.json`](../../apps/web/src/features/assessment-review/feature-map.json) | 1 | 2 | 1 | 0 | 0 |
 | [boundaries](boundaries.md) | [`apps/web/src/features/boundaries/feature-map.json`](../../apps/web/src/features/boundaries/feature-map.json) | 2 | 0 | 0 | 0 | 0 |
 | [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 4 | 8 | 8 | 0 |
 | [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 11 | 9 | 6 | 3 |
