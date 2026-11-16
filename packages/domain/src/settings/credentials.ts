@@ -19,30 +19,24 @@ export interface CredentialConfig {
 	admissionDb: Database;
 	origin: string;
 	secret: string;
-	// Native adapter binds actual cookie and overwritten trusted IP to this session, with the request's verified viewer
-	// (D60): its account and the Better Auth user row its session lookup read. Null when the session is not live.
 	request(ctx: SettingsContext): Promise<{
 		request: Request;
 		trustedIp: string | null;
 		viewer: { accountId: string; email: string; verified: boolean } | null;
 	}>;
-	/** Runs bookkeeping after the response is sent (Next.js `after`). Without it the work runs before the reply. */
 	later?(work: () => Promise<unknown>): void;
 	responseCookies(ctx: SettingsContext, cookies: string[]): Promise<void>;
-	/** Adds the verification mail for the new address to `writes`, which commit with its proof row. */
 	deliverVerification(
 		tx: Transaction,
 		input: { accountId: string; address: string; token: string },
 		writes: SQLWrapper[],
 	): Promise<void>;
-	/** Adds the security notice to the old address to `writes`, which commit with the app security event. */
 	securityNotice(
 		tx: Pick<Transaction, "insert">,
 		input: { accountId: string; address: string; action: "password_changed" | "email_changed"; correlationId: string },
 		writes: SQLWrapper[],
 	): Promise<string>;
 }
-/** Fresh proof that opens the restricted deletion session for one current request. */
 type OpenDeletion = (
 	raw: unknown,
 	trustedIp: string | null,
@@ -69,8 +63,6 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 		emailChange: true,
 		deliver: async (user, purpose, token) => {
 			if (purpose !== "email_verification") throw Error("unsupported_credential_mail");
-			// The new proof supersedes any older one first: one live proof per account is a unique index. The new proof
-			// and its mail then commit together in one statement.
 			await config.db.transaction(async (tx) => {
 				const [account] = await tx
 					.select({ id: t.account.id })
@@ -103,13 +95,8 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			});
 		},
 	});
-	/**
-	 * The live self this credential call acts for: the request's verified viewer, which must be this context's own
-	 * account with a verified address. Better Auth checks the session cookie again inside each credential call.
-	 */
 	async function prepare(ctx: SettingsContext) {
 		const ingress = await config.request(ctx);
-		// Without a trusted proxy address (a local server) the budgets count the own login only, as sign-in does.
 		if (
 			new URL(ingress.request.url).origin !== config.origin ||
 			ingress.request.headers.get("origin") !== config.origin
@@ -119,7 +106,6 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 		if (!viewer?.verified || ctx.selected.kind !== "account" || ctx.selected.id !== viewer.accountId) deny();
 		return { account: { id: viewer.accountId }, principal: { email: viewer.email }, ingress };
 	}
-	/** Settles a budget reservation after the reply when the host supports it; a failure there changes no outcome. */
 	function settle(reservation: Awaited<ReturnType<typeof budget.reserve>>, success: boolean) {
 		const work = () => budget.finish(reservation, success).catch(() => undefined);
 		if (config.later) config.later(work);
@@ -132,8 +118,6 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 		correlationId: string,
 	): Promise<CredentialOutcome> {
 		try {
-			// The security event and the notice to the old address commit together in one statement, which needs no
-			// transaction around it.
 			const db = config.db,
 				eventId = randomUUID();
 			const writes: SQLWrapper[] = [
@@ -163,12 +147,6 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			});
 		}
 	}
-	/**
-	 * Fresh proof for the restricted deletion page: the original login and its current password, under the sign-in
-	 * failure budget. Better Auth checks the password; no session is created. For `account` the proof opens a
-	 * restricted session for the account's current deletion request; for `plant`, for the latest church workspace
-	 * deletion this account requested that is still pending or purging. No such request reads as a wrong password.
-	 */
 	async function openDeletion(kind: "account" | "plant", raw: unknown, trustedIp: string | null) {
 		try {
 			const v = n.openAccountDeletionRequest.parse(raw);
@@ -176,7 +154,6 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			const context = await auth.$context;
 			const found = await context.internalAdapter.findUserByEmail(v.email, { includeAccounts: true });
 			const stored = found?.accounts.find((a) => a.providerId === "credential")?.password;
-			// An unknown login hashes too, so the answer takes the same time either way.
 			const valid = stored
 				? await context.password.verify({ hash: stored, password: v.password })
 				: !(await context.password.hash(v.password));
@@ -226,8 +203,6 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				const reservation = await budget
 					.reserve("email_change", a.principal.email, a.ingress.trustedIp)
 					.catch(() => deny("temporary"));
-				// Only the budget's refusal above is `temporary`. A failed send has an unknown outcome: the link may have
-				// gone out, and the try is given back so a resend still has it.
 				try {
 					await auth.api.changeEmail({ headers: a.ingress.request.headers, body: { newEmail: v.newEmail } });
 				} catch {
@@ -243,9 +218,6 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			try {
 				const v = n.confirmEmailChange.parse(raw);
 				const a = await prepare(ctx);
-				// Consume only the live exact requester's proof. No app transaction remains
-				// open while Better Auth changes its credential tables on a separate client.
-				// One statement consumes the live proof, while the account is still unhidden.
 				const consumed = await config.db
 					.update(t.identity_proof)
 					.set({ consumed_at: now })
@@ -302,8 +274,6 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 				const v = n.changePasswordRequest.parse(raw);
 				const a = await prepare(ctx);
 				reservation = await budget.reserve("password_change", a.principal.email, a.ingress.trustedIp);
-				// The current password is proved before an unchanged password is refused. Otherwise Better Auth's own
-				// change proves it.
 				if (v.currentPassword === v.newPassword) {
 					await auth.api.verifyPassword({ headers: a.ingress.request.headers, body: { password: v.currentPassword } });
 					await budget.finish(reservation, false);
@@ -322,9 +292,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 					return credentialOutcome.parse({ status: changed.status >= 500 ? "unknown" : "refused", correlationId });
 				}
 				committedAccount = a.account.id;
-				// The host consumes supported Set-Cookie headers separately. Never store token.
 				await config.responseCookies(ctx, changed.headers.getSetCookie());
-				// Clearing the failure budget waits for no one; a budget failure cannot undo the change.
 				await settle(reservation, true);
 				return await recorded(a.account.id, a.principal.email, "password_changed", correlationId);
 			} catch (e) {
