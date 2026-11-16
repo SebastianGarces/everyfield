@@ -1,18 +1,6 @@
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
 
-// The Everyfield phase checklists (REQ-TSK-009): the 20 checklists of docs/reference/task-templates.ts, Phases 0 to 6,
-// as fixed data in code with no template tables. Each item's priority is its own or its checklist's default, and its
-// offset counts days after the import date or, for a phase offer, the plant-local date of the move. Raise `version`
-// whenever any wording, offset or key changes: an import or offer answer that names an older version is refused, and
-// tasks already created keep their own copy. tests/integration/tasks/templates.test.mts compares this file with the
-// reference item by item. Two titles spell the brand "Everyfield" where the frozen reference keeps its legacy
-// spelling (decisions.md, 2026-10-23 brand spelling). Every item carries a description: the reference has one on
-// only 4 items, which are kept verbatim, and the rest are written here (decisions.md D87). Version 3 drops the three
-// items the Launch plan's readiness tasks own once a launch date is set: the invite drop and the press release of
-// Promotion Campaign and the venue booking of Pre-Launch Services (Sebastian, Nov 6, 2026; WP-045). Tasks already
-// created from them stay as they are.
-
 type Key = z.infer<typeof c.templateKey>;
 type ChecklistItem = {
 	key: Key;
