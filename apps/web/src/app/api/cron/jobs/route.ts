@@ -16,10 +16,8 @@ import { assessmentsMount } from "@/server/jobs/assessment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// A turn may start in the first 60 s and run for 180 s.
 export const maxDuration = 300;
 
-// Every minute: runs due background jobs and closes lost ones (server/jobs/scheduled.ts).
 export function GET(request: Request): Promise<Response> {
 	const db = jobDatabase();
 	const ready = mailReady();

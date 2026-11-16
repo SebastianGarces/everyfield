@@ -99,7 +99,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 		const frozen = await loadStarter();
 		assert.deepEqual(
 			page.templates.map((template) => template.id),
-			// The frozen catalog rows, then the text templates authored in code.
 			[...frozen.catalogs.documents.map((template) => template.id), "bylaws", "prayer-letter"],
 		);
 		assert.equal(page.version, await referenceArtifactSha256());
@@ -143,7 +142,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 			sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
 				VALUES(${meeting},${P},'vision_meeting','Vision','2026-03-10','18:00','America/Chicago','2026-03-10T23:00:00Z','test','planning',1)`,
 		);
-		// A live Vision meeting offers its agenda (WP-036/api, agendas from the meeting).
 		const byMeeting = ok(await documentsReader["templates.contextual"](db, owner, { meetingId: meeting }));
 		assert.deepEqual(
 			byMeeting.templates.map((template) => template.id),
@@ -180,7 +178,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 					assert.equal(pdf.getTitle()?.includes("Harvest Point"), true);
 					assert.equal(pdf.getPageCount(), template.pageCount);
 					const size = pdf.getPage(0).getSize();
-					// The response card is one card a page; the commitment card's file prints four to a Letter sheet.
 					const card = template.id === "response-card";
 					assert.deepEqual([size.width, size.height], card ? [306, 396] : [612, 792]);
 				} else {
@@ -191,7 +188,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 				}
 			}
 		}
-		// A format the template does not offer is refused, as a former Word template's docx is.
 		const word = refused(
 			await documentsReader.preview(db, owner, previewInput("vision-meeting-agenda", "docx")),
 			"invalid_input",
@@ -291,7 +287,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 
 	test("AC:GAP-REF-003 AC:REF-CASE-003 the frozen catalog is the template source and a missing required field emits no bytes", async () => {
 		const { templates, version } = await library();
-		// The 11 frozen catalog rows, then Bylaws and Prayer Letter, authored in code.
 		assert.equal(templates.length, 13);
 		assert.equal(
 			templates.reduce((sum, template) => sum + template.formats.length, 0),
@@ -398,7 +393,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 			sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on) VALUES(${P},${elderRole},${ada},'2026-01-01')`,
 		);
 
-		// Criterion 1: one template for a live Vision meeting and a live leadership team meeting; none for the rest.
 		const offered = async (who, meetingId) =>
 			ok(await documentsReader["templates.contextual"](db, who, { meetingId })).templates.map(
 				(template) => template.id,
@@ -410,7 +404,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 			assert.deepEqual(await offered(owner, none), []);
 		assert.deepEqual(await offered(outsider, vision), []);
 
-		// The print result carries the artifact only; the digest is of the PDF bytes the route would send.
 		const printed = async (who, meetingId: string) => {
 			const result = ok(await documentsReader.printAgenda(db, who, { meetingId }));
 			return {
@@ -421,7 +414,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 		const before = await counts();
 		const audit = await countOf("audit_event");
 
-		// Criterion 2 and 11: preview and the print read the meeting; the bytes equal an engine render of its facts.
 		const render = (id: string, facts) =>
 			renderTemplatePdf(
 				{ id },
@@ -487,7 +479,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 		assert.equal(print.digest, viaPreview.digest);
 		const boardPrint = await printed(owner, board);
 		assert.equal(boardPrint.templateId, "board-meeting-agenda");
-		// A leadership meeting: Role prints the person's current role on the team; no venue leaves Place blank.
 		const boardFacts = agendaMeetingOf(
 			{
 				type: "team_meeting",
@@ -511,7 +502,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 				.digest("hex"),
 		);
 
-		// Refusals leak nothing: wrong kind, retired, another plant's meeting, a meeting of no agenda type.
 		for (const [template, meetingId] of [
 			["board-meeting-agenda", vision],
 			["vision-meeting-agenda", board],
@@ -534,7 +524,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 		const forged = RequestActor.of(actors[3].session, (await authority(0)).actor);
 		refused(await documentsReader.printAgenda(db, forged, { meetingId: vision }), "unavailable");
 
-		// Criterion 11: a print reads the meeting fresh. Reorder, rename and retime, then print again.
 		await admin.execute(
 			sql`UPDATE meeting SET agenda=${JSON.stringify([
 				{ id: "b", title: "Story, retold", minutes: 30 },
@@ -557,7 +546,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 				.update((await render("vision-meeting-agenda", editedFacts)).bytes)
 				.digest("hex"),
 		);
-		// An agenda that empties prints the blank run of show with the meeting's own header facts.
 		await admin.execute(sql`UPDATE meeting SET agenda='[]'::jsonb WHERE id=${vision}`);
 		const emptied = await printed(owner, vision);
 		assert.equal(
@@ -566,7 +554,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 				.update((await render("vision-meeting-agenda", { ...visionFacts, sections: [], totalMinutes: 0 })).bytes)
 				.digest("hex"),
 		);
-		// A removed list entry leaves the print at once; so does retiring the meeting.
 		await admin.execute(
 			sql`UPDATE participation SET removed_at=clock_timestamp() WHERE meeting_id=${vision} AND person_id=${ben}`,
 		);
@@ -575,7 +562,6 @@ describe("AC:CASE-DOC-001 api document templates", { concurrency: 1 }, () => {
 		refused(await documentsReader.printAgenda(db, owner, { meetingId: vision }), "invalid_subject");
 		assert.deepEqual(await offered(owner, vision), []);
 
-		// Nothing stored: no generated document, audit row, file or document row.
 		assert.deepEqual(await counts(), before);
 		assert.equal(await countOf("audit_event"), audit);
 	});

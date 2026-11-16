@@ -12,32 +12,15 @@ import { launchJson, plantLaunchOf, preparationJson } from "./launch.ts";
 import { released, releasedHealth, releasedJson, releasedOf } from "./released.ts";
 export { requestIntelligenceRefresh, readIntelligence, submitIntelligenceFeedback } from "./intelligence.ts";
 
-// Organization oversight reads (REQ-IDN-023, REQ-IDN-024): oversight.listPlants, oversight.getPlant,
-// oversight.listSendingChurches and oversight.getSendingChurch. Each statement checks the seat's live access (C13), the
-// plant's own active link to this exact organization and, for a section, that link's current sharing choice. Nothing is
-// cached or kept, so a choice turned off or a link ended removes the numbers on the next read. A parent link never
-// grants a plant: a sending church's plants reach a network only through their own link to it (D-1093).
-
 type Organization = Extract<Owner, { kind: "organization" }>;
-/** The organization this seat acts for, or null for any other actor. */
 function organizationOf(authority: RequestActor): Organization | null {
 	const context = authority.actor.context;
 	return context.kind === "seat" && context.owner.kind === "organization" ? context.owner : null;
 }
 const live = (authority: RequestActor) => liveRead(liveAccess(authority));
 
-/** The database's clock, or a test clock: the instant an assessment's release is judged at. */
 const nowOf = (clock?: Clock) => (clock ? sql`${clock.now()}::timestamptz` : sql`clock_timestamp()`);
 
-/**
- * The plants linked to organization `org` (a uuid parameter) by their own active link `k`, with `where` added. The
- * locality is the plant's latest reporting location when it saved one, else its profile's, never the street. Health
- * reads the launch preparation counts and the released assessment's structured concerns only while the link shares
- * Plant Intelligence findings, and the gap counts only while it also shares Ministry teams. The released assessment
- * is the latest one its planter has opened or that became available 72 hours before `now` (PI-032). The plant's path
- * names the milestone's organization only when it is this one, and reads whether and when it was reached only while
- * the link shares findings; never the plant's note (T-388).
- */
 const directory = (org: SQL, where: SQL, now: SQL = nowOf()) => sql`SELECT p.id AS plant_id, p.name,
 	CASE WHEN g.plant_id IS NULL THEN p.city ELSE g.city END AS city,
 	CASE WHEN g.plant_id IS NULL THEN p.state_province ELSE g.state_province END AS state_province,
@@ -92,7 +75,6 @@ const directoryRow = z.object({
 });
 type DirectoryRow = z.infer<typeof directoryRow>;
 
-/** The released assessment as this directory row's link may see it. */
 const assessmentOf = (r: DirectoryRow) =>
 	releasedOf(
 		r.shared_findings,
@@ -100,7 +82,6 @@ const assessmentOf = (r: DirectoryRow) =>
 		r.released,
 	);
 
-/** The row's path: no launch row reads as Launch Sunday. */
 function pathOf(r: DirectoryRow): C.PlantPath {
 	if (r.gathering_path !== "milestone") return { kind: "launch_sunday", date: r.launch_date };
 	const progress: C.MilestoneProgress = !r.shared_findings
@@ -138,14 +119,9 @@ function plantRow(raw: unknown): C.PlantDirectoryRow {
 const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
 const uuid = (id: string) => sql`${id}::uuid`;
 
-/** The plants of `directory` as one JSON array column. */
 const plantsJson = (plants: SQL) => sql`(SELECT coalesce(json_agg(d), '[]'::json) FROM (${plants}) d)`;
 const plantList = (raw: unknown) => z.array(z.unknown()).parse(raw).map(plantRow).sort(byName);
 
-/**
- * oversight.listPlants: this organization's name and the plants linked to it, by name; null for an actor without a live
- * organization seat.
- */
 export async function listPlants(db: Reader, authority: RequestActor, clock?: Clock): Promise<C.PlantDirectory | null> {
 	const org = organizationOf(authority);
 	if (!org) return null;
@@ -159,7 +135,6 @@ export async function listPlants(db: Reader, authority: RequestActor, clock?: Cl
 	return row ? C.plantDirectory.parse({ organizationName: row.name, plants: plantList(row.plants) }) : null;
 }
 
-/** What each section counts, as one JSON value for plant `p` (a uuid parameter), and when it has nothing recorded. */
 const SECTIONS = {
 	people: {
 		share: "share_people",
@@ -177,7 +152,6 @@ const SECTIONS = {
 		share: "share_tasks",
 		body: (p: SQL) => {
 			const open = sql`t.status IN ('not_started','in_progress','blocked')`;
-			// A date-only task is overdue from the end of its church-local day, a timed one after its instant (overdueAt).
 			const late = sql`CASE t.due_kind WHEN 'timed' THEN t.due_at < clock_timestamp()
 				WHEN 'date_only' THEN clock_timestamp() >= ((t.due_date + 1)::timestamp AT TIME ZONE pl.timezone) ELSE false END`;
 			return sql`SELECT json_build_object('recorded', count(*)::int, 'open', (count(*) FILTER (WHERE ${open}))::int,
@@ -192,8 +166,6 @@ const SECTIONS = {
 	},
 	meetings: {
 		share: "share_meetings",
-		// The last 12 held meetings that count in reports (meetings analytics `counted`). Attendance counts once the
-		// meeting is finalized, as the reports do; before that it is not recorded.
 		body: (p: SQL) => sql`SELECT coalesce(json_agg(json_build_object('date', x.local_date, 'attended', x.attended)
 			ORDER BY x.occurred, x.id), '[]'::json) FROM (SELECT m.id, m.local_date, coalesce(m.actual_occurrence_at, m.starts_at) AS occurred,
 				CASE WHEN m.finalized_at IS NOT NULL THEN (SELECT count(DISTINCT g.person_id) FROM participation g
@@ -250,10 +222,6 @@ const SECTIONS = {
 	{ share: string; body: (plant: SQL) => SQL; parse: (raw: unknown) => object | null }
 >;
 
-/**
- * One section of plant `plantId` for organization `org`: the current sharing choice of that exact link and, only when it
- * is on, the counts, in one statement.
- */
 async function readSection<K extends C.SectionKey>(
 	db: Reader,
 	authority: RequestActor,
@@ -277,12 +245,6 @@ async function readSection<K extends C.SectionKey>(
 }
 
 const KEYS = Object.keys(SECTIONS) as C.SectionKey[];
-/**
- * oversight.getPlant: one linked plant's directory row, its five sharing sections and its released Plant Intelligence
- * assessment (oversight.getHealth, intelligence.releaseAssessmentToOversight). Null for a plant that is not linked to
- * this organization now, does not exist or is not an id, so the page cannot tell them apart. A section whose read fails
- * is `unavailable`, never a zero, and its error goes to `report`.
- */
 export async function getPlant(
 	db: Reader,
 	authority: RequestActor,
@@ -301,8 +263,6 @@ export async function getPlant(
 		FROM (${directory(uuid(org.id), sql`p.id=${p}`, nowOf(clock))}) d`,
 	);
 	if (!rows?.[0]) return null;
-	// One statement per section, so a section that fails leaves the others readable. A failed statement on the pool
-	// ends no transaction.
 	const sections: Partial<Record<C.SectionKey, unknown>> = {};
 	for (const key of KEYS) {
 		try {
@@ -325,19 +285,13 @@ export async function getPlant(
 	});
 }
 
-/** The active link `sn` from sending church `church` (SQL) to network `net`. */
 const churchLink = (net: SQL, church: SQL) =>
 	sql`sn.organization_id=${net} AND sn.sending_church_id=${church} AND ${linkActive("sn")}`;
-/** The network this seat acts for; a sending church seat holds no network roster authority. */
 const networkOf = (authority: RequestActor) => {
 	const org = organizationOf(authority);
 	return org?.organizationKind === "sending_network" ? org : null;
 };
 
-/**
- * oversight.listSendingChurches: the sending churches linked to this network now, each with the count of plants linked
- * to both, and the requests from sending churches still waiting and not expired. Null for any seat but a network's.
- */
 export async function listSendingChurches(db: Reader, authority: RequestActor): Promise<C.SendingChurchRoster | null> {
 	const net = networkOf(authority);
 	if (!net) return null;
@@ -362,10 +316,6 @@ export async function listSendingChurches(db: Reader, authority: RequestActor): 
 	});
 }
 
-/**
- * oversight.getSendingChurch: one sending church linked to this network now, with the plants linked to both it and the
- * network by their own links. Null for any other id and for any seat but the network's.
- */
 export async function getSendingChurch(
 	db: Reader,
 	authority: RequestActor,

@@ -25,7 +25,6 @@ const mergeRow = z.object({
 });
 type Merge = z.infer<typeof mergeRow>;
 
-/** The merge, both Persons with their current references, and whether the source's old household still exists. */
 async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL) {
 	const result = await tx.execute(sql`SELECT ${gate} AS allowed,(SELECT to_jsonb(m)||jsonb_build_object(
  'source_revision',m.source_revision::text,'survivor_revision',m.survivor_revision::text,
@@ -42,11 +41,6 @@ async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL) {
 	return { merge: mergeRow.parse(row.merge), source, survivor };
 }
 
-/**
- * REQ-PPL-025: Unmerge restores the exact reviewed prior state only while nothing it would undo has changed since. A
- * later edit or merge of the survivor, a new, moved or corrected reference on it, a changed source, or a household that
- * no longer exists each refuses it. Pure, so the preview and the Unmerge decide alike.
- */
 function inverse(merge: Merge, source: Facts, survivor: Facts) {
 	const conflicts: z.infer<typeof c.inverseConflict>[] = [];
 	if (
@@ -72,11 +66,6 @@ function inverse(merge: Merge, source: Facts, survivor: Facts) {
 	);
 	return { conflicts, restores, fields };
 }
-/**
- * C100: after Unmerge each Person's commitment is the one function of its own valid cards and dated changes again: the
- * ones the merge moved go back to the source. Recomputed rather than restored, so a value cached before C100 never
- * comes back.
- */
 function commitments(merge: Merge, source: Facts, survivor: Facts) {
 	const back = new Set([...(merge.moved.commitment ?? []), ...(merge.moved.commitment_change ?? [])]);
 	const cache = (c: CommitmentInputs) => {
@@ -115,7 +104,6 @@ const fieldColumns: Record<string, z.infer<typeof c.mergeField>> = {
 const fieldOf = (col: string) => fieldColumns[col];
 
 export const peopleUnmerge = {
-	/** people.previewUnmerge: what Unmerge would restore, and anything that would refuse it now. */
 	async previewUnmerge(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny();
@@ -135,11 +123,6 @@ export const peopleUnmerge = {
 			});
 		});
 	},
-	/**
-	 * people.unmergePeople and orgPeople.unmerge: with both Persons locked in the merge's UUID order, one statement moves
-	 * back exactly the references the merge moved, restores the source and the survivor's prior values, marks the merge
-	 * reversed and appends one audit row. A repeat changes nothing more; there is no redo and no universal undo.
-	 */
 	async unmergePeople(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
 			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny();

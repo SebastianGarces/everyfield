@@ -142,7 +142,6 @@ const saveTemplate = async (who, input) => documentsWriter.saveChurchTemplate(db
 const deleteTemplate = async (who, templateId) =>
 	documentsWriter.deleteChurchTemplate(db, await authority(who), { templateId });
 const library = async (who) => ok(await documentsWriter.listChurch(db, await authority(who), {}));
-/** Everything stored for one church template: its row and its revision, as one hash. */
 const templateState = async (id) => {
 	const [row] = await rowsOf(
 		sql`SELECT t.title, t.kind, t.revision::text AS revision, t.archived_at, t.current_revision_id, t.copied_from_revision_id,
@@ -160,7 +159,6 @@ const storedTemplate = async (id) =>
 			)
 		)[0].body,
 	);
-/** A document body without what belongs to one copy: its id, title, description, origin and frozen merge values. */
 const content = ({ id, title, description, origin, data, ...rest }) => rest;
 const audits = async (action) =>
 	rowsOf(
@@ -170,7 +168,6 @@ const audits = async (action) =>
 describe("AC:DOC-022 Save as template: a church saves its own document as a template", { concurrency: 1 }, () => {
 	test("AC:DOC-022 a saved revision becomes the church's template; a document from it copies that revision with the church's current details", async () => {
 		const doc = ok(await create(OWNER, "conflict-of-interest-policy", "t18-policy"));
-		// The church edits its copy: a block goes and a paragraph with a placeholder comes in.
 		const edited = structuredClone(doc.body);
 		edited.body.content.splice(1, 1);
 		edited.body.content.push({
@@ -202,7 +199,6 @@ describe("AC:DOC-022 Save as template: a church saves its own document as a temp
 		});
 
 		const savedState = await templateState(template.id);
-		// The template is the saved revision without origin and frozen values (Approach A).
 		const body = await storedTemplate(template.id);
 		assert.equal(body.kind, "template");
 		assert.equal(body.id, template.templateId);
@@ -211,12 +207,10 @@ describe("AC:DOC-022 Save as template: a church saves its own document as a temp
 		assert.equal(body.data, undefined);
 		assert.deepEqual(content({ ...body, kind: "document" }), content(saved.body));
 
-		// The document stays open and unchanged.
 		const same = ok(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: doc.id }));
 		assert.equal(same.revision, saved.revision);
 		assert.equal(same.contentHash, saved.contentHash);
 
-		// One audit row names the actor, the template and the source document and revision.
 		const [audit] = await audits("documents.template_saved");
 		assert.equal(audit.actor_id, actors[ADMIN].id);
 		assert.equal(audit.subject_id, template.id);
@@ -226,7 +220,6 @@ describe("AC:DOC-022 Save as template: a church saves its own document as a temp
 		assert.equal(audit.after_value.sourceRevisionId, saved.revisionId);
 		assert.equal(audit.after_value.sourceRevision, 2);
 
-		// The church's details change after the template was saved.
 		await admin.execute(sql`UPDATE plant SET name = 'Harvest Point City' WHERE id = ${P}::uuid`);
 		const copy = ok(await create(ADMIN, template.templateId, "t18-copy-1"));
 		assert.equal(copy.templateId, template.templateId);
@@ -248,7 +241,6 @@ describe("AC:DOC-022 Save as template: a church saves its own document as a temp
 		assert.match(pdf, /Harvest Point City/);
 		assert.match(pdf, /Adopted by the board on \[date\]/);
 
-		// The library names the church template and its version; New from template lists the template.
 		const lib = await library(OWNER);
 		const line = lib.documents.find((d) => d.id === copy.id);
 		assert.equal(line.templateName, "Our conflict policy");
@@ -262,7 +254,6 @@ describe("AC:DOC-022 Save as template: a church saves its own document as a temp
 			lib.templates.map((t) => t.id),
 			[template.id],
 		);
-		// A church template is not a native document of the plant.
 		const owned = ok(await documentsWriter.listOwned(db, await authority(OWNER), {}));
 		assert.ok(!JSON.stringify(owned).includes(template.id), "the owned-documents list leaves church templates out");
 		assert.equal(await templateState(template.id), savedState, "making a document from it leaves the template");
@@ -288,14 +279,11 @@ describe("AC:DOC-022 Save as template: a church saves its own document as a temp
 	test("AC:DOC-022 edits and deletes elsewhere leave the template exactly as it was, and New from template makes the same copy", async () => {
 		const { template, doc } = state;
 		const hash = state.templateHash;
-		// The copy made from it was wiped and saved in the test before.
 		assert.equal(await templateState(template.id), hash, "editing a copy leaves the template");
-		// Edit the document it came from.
 		const changed = structuredClone(doc.body);
 		changed.body.content.push({ type: "paragraph", content: [{ type: "text", text: "A later edit." }] });
 		const later = ok(await save(OWNER, doc.id, doc.revision, changed));
 		assert.equal(await templateState(template.id), hash, "editing the source leaves the template");
-		// Delete the document it came from.
 		ok(
 			await documentsWriter.deleteChurch(db, await authority(OWNER), {
 				documentId: doc.id,
@@ -329,7 +317,6 @@ describe("AC:DOC-022 Save as template: a church saves its own document as a temp
 		assert.equal(again.id, first.id);
 		assert.deepEqual(again, first);
 		assert.equal((await counts()).templates, before.templates + 1);
-		// A different request under the same key is refused and writes nothing.
 		const mid = await counts();
 		refused(await saveTemplate(OWNER, { ...input, name: "Another name" }), "conflict");
 		assert.deepEqual(await counts(), mid);
@@ -367,12 +354,10 @@ describe("AC:DOC-022 Save as template: a church saves its own document as a temp
 		const lib = await library(OWNER);
 		assert.ok(!lib.templates.some((t) => t.id === template.id), "it leaves the picker");
 		assert.equal(lib.documents.find((d) => d.id === second.id).templateName, "Our conflict policy");
-		// It can no longer make a document, and a second delete finds nothing.
 		const mid = await counts();
 		refused(await create(OWNER, template.templateId, "t18-after-delete"), "unavailable");
 		refused(await deleteTemplate(OWNER, template.id), "unavailable");
 		assert.deepEqual(await counts(), mid);
-		// The documents made from it still open, export and save.
 		const read = ok(await documentsWriter.readChurch(db, await authority(MEMBER), { documentId: second.id }));
 		assert.equal(read.templateName, "Our conflict policy");
 		const exported = ok(await exportDoc(OWNER, second.id, 1, "pdf", "t18-export-after-delete"));
@@ -389,14 +374,11 @@ describe("AC:DOC-022 Save as template: a church saves its own document as a temp
 		refused(await saveTemplate(MEMBER, input), "access_denied");
 		refused(await deleteTemplate(MEMBER, retried.id), "access_denied");
 		refused(await create(MEMBER, retried.templateId, "t18-member-create"), "access_denied");
-		// Another church plant's Admin names this church's document and template.
 		refused(await saveTemplate(OTHER, input), "unavailable");
 		refused(await create(OTHER, retried.templateId, "t18-other-create"), "unavailable");
 		refused(await deleteTemplate(OTHER, retried.id), "unavailable");
-		// A revision the document does not have.
 		refused(await saveTemplate(OWNER, { ...input, revision: 99, requestKey: "t18-no-revision" }), "unavailable");
 		assert.deepEqual(await counts(), before);
-		// A Member's library and another church's library carry none of this church's templates.
 		assert.deepEqual((await library(MEMBER)).templates, []);
 		assert.deepEqual((await library(OTHER)).templates, []);
 		assert.ok((await library(OWNER)).templates.some((t) => t.id === retried.id));
@@ -404,7 +386,6 @@ describe("AC:DOC-022 Save as template: a church saves its own document as a temp
 });
 
 const updateTemplate = async (who, input) => documentsWriter.updateChurchTemplate(db, await authority(who), input);
-/** Everything stored for one Church Document: its row, every revision and the bytes of every saved export, as one hash. */
 const documentState = async (id) => {
 	const [row] = await rowsOf(sql`SELECT * FROM document WHERE id = ${id}::uuid`);
 	const revisions = await rowsOf(
@@ -417,7 +398,6 @@ const documentState = async (id) => {
 	const bytes = exports.map((e) => sha256(client.objects.get(e.opaque_key)));
 	return sha(JSON.stringify({ row, revisions, exports, bytes }));
 };
-/** Every stored revision of one church template, oldest first. */
 const templateRevisions = async (id) =>
 	rowsOf(
 		sql`SELECT r.id, r.version_number, r.body, r.content_hash, t.current_revision_id = r.id AS current
@@ -451,7 +431,6 @@ describe(
 				}),
 			);
 			assert.equal(template.version, 1);
-			// A document made from v1, exported, before the update.
 			const v1 = ok(await create(ADMIN, template.templateId, "t79-v1-doc"));
 			const v1Export = ok(await exportDoc(OWNER, v1.id, 1, "pdf", "t79-v1-export"));
 			const v1Bytes = sha256(await bytesOf(v1Export));
@@ -486,7 +465,6 @@ describe(
 				"one revision and one audit row; no new template row",
 			);
 
-			// One audit row names the actor, the template, both versions and the source.
 			const [audit] = await rowsOf(
 				sql`SELECT actor_id, subject_id, kind, request_key, before_revision::int AS replaced, after_revision::int AS version,
 				after_value FROM audit_event WHERE action = 'documents.template_updated'`,
@@ -501,7 +479,6 @@ describe(
 			assert.equal(audit.after_value.sourceRevisionId, second.revisionId);
 			assert.equal(audit.after_value.sourceRevision, 2);
 
-			// New from template lists it once, at v2, with its name and description.
 			const lib = await library(OWNER);
 			const cards = lib.templates.filter((x) => x.id === template.id);
 			assert.equal(cards.length, 1);
@@ -509,7 +486,6 @@ describe(
 			assert.equal(cards[0].title, "Board policy");
 			assert.equal(cards[0].description, "Kept across versions.");
 
-			// A document from v2 is the revision it was updated from, without origin and frozen values, with today's details.
 			await admin.execute(sql`UPDATE plant SET name = 'Harvest Point North' WHERE id = ${P}::uuid`);
 			const v2 = ok(await create(OWNER, template.templateId, "t79-v2-doc"));
 			const v2Body = (await templateRevisions(template.id))[1].body;
@@ -525,7 +501,6 @@ describe(
 			assert.equal(v2.body.data.church_name, "Harvest Point North");
 			assert.equal(second.body.data.church_name, "Harvest Point");
 
-			// The v1 document: same row, revisions, origin and export bytes; still "from Board policy v1".
 			assert.equal(await documentState(v1.id), v1State);
 			assert.equal(sha256(await bytesOf(v1Export)), v1Bytes);
 			const v1Read = ok(await documentsWriter.readChurch(db, await authority(OWNER), { documentId: v1.id }));
@@ -535,7 +510,6 @@ describe(
 			const lines = (await library(OWNER)).documents;
 			assert.equal(lines.find((d) => d.id === v1.id).templateVersion, 1);
 			assert.equal(lines.find((d) => d.id === v2.id).templateVersion, 2);
-			// v1 is stored unchanged, and the source documents are untouched.
 			assert.deepEqual((await templateRevisions(template.id))[0], { ...v1Revision, current: false });
 			assert.equal(await documentState(first.id), firstState);
 			assert.equal(await documentState(second.id), secondState);
@@ -592,7 +566,6 @@ describe(
 			);
 			assert.equal(won[0].value.version, 4);
 			assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
-			// A later request still naming v3 is refused; the dialog reads v4 as the current version.
 			refused(await updateTemplate(OWNER, named("t79-stale", first)), "conflict");
 			assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
 			assert.equal((await library(ADMIN)).templates.find((x) => x.id === template.id).version, 4);
@@ -680,7 +653,6 @@ describe(
 );
 
 const editTemplate = async (who, input) => documentsWriter.editChurchTemplate(db, await authority(who), input);
-/** The template row as a rename may and may not change it. */
 const templateRow = async (id) =>
 	(
 		await rowsOf(
@@ -714,7 +686,6 @@ describe(
 					requestKey: "t87-save",
 				}),
 			);
-			// A document made before the edit, exported.
 			const earlier = ok(await create(ADMIN, template.templateId, "t87-earlier"));
 			assert.equal(earlier.title, "Volunteer policy");
 			const earlierExport = ok(await exportDoc(OWNER, earlier.id, 1, "pdf", "t87-earlier-export"));
@@ -739,7 +710,6 @@ describe(
 			assert.equal(renamed.version, 1, "the version stays");
 			assert.deepEqual(await counts(), { ...before, audits: before.audits + 1 }, "one audit row and nothing else");
 
-			// One audit event: the actor, the template, the name and description before and after.
 			const [audit] = await editAudits();
 			assert.equal(audit.actor_id, actors[ADMIN].id);
 			assert.equal(audit.subject_id, template.id);
@@ -749,7 +719,6 @@ describe(
 			assert.equal(audit.after_value.name, "Volunteer and staff policy");
 			assert.equal(audit.after_value.description, "For everyone who serves.");
 
-			// The row keeps its version and current revision; every stored revision is byte-identical.
 			assert.deepEqual(await templateRow(template.id), {
 				...rowBefore,
 				title: "Volunteer and staff policy",
@@ -757,11 +726,9 @@ describe(
 			});
 			assert.deepEqual(await templateRevisions(template.id), revisionsBefore);
 
-			// The card in New from template shows the new name and description at the same version.
 			const card = (await library(OWNER)).templates.find((x) => x.id === template.id);
 			assert.deepEqual(card, renamed);
 
-			// The earlier document keeps its title, revisions, origin and export bytes; its from line names the new name.
 			assert.equal(await documentState(earlier.id), earlierState);
 			assert.equal(sha256(await bytesOf(earlierExport)), earlierBytes);
 			const line = (await library(OWNER)).documents.find((d) => d.id === earlier.id);
@@ -774,7 +741,6 @@ describe(
 			assert.equal(opened.templateVersion, 1);
 			assert.deepEqual(opened.body.origin, earlier.body.origin);
 
-			// A document made now takes the new name; its body is the current revision apart from the title.
 			const later = ok(await create(OWNER, template.templateId, "t87-later"));
 			assert.equal(later.title, "Volunteer and staff policy");
 			assert.equal(later.body.title, "Volunteer and staff policy");
@@ -838,7 +804,6 @@ describe(
 			for (const name of ["", "   ", "x".repeat(201)])
 				refused(await editTemplate(OWNER, { ...base, name }), "invalid_input");
 			refused(await editTemplate(OWNER, { ...base, name: "Fine", description: "x".repeat(501) }), "invalid_input");
-			// The limits are Save as template's: 200 and 500 characters fit.
 			const longest = ok(
 				await editTemplate(OWNER, {
 					templateId: template.id,
@@ -864,7 +829,6 @@ describe(
 			const { template, input, renamed } = t;
 			const before = await counts();
 			const audited = (await editAudits()).length;
-			// A resend of the first edit answers with the template as it stands now and writes nothing.
 			assert.deepEqual(ok(await editTemplate(ADMIN, input)), renamed);
 			assert.deepEqual(ok(await editTemplate(OWNER, input)), renamed);
 			refused(await editTemplate(OWNER, { ...input, name: "Another name" }), "conflict");
@@ -882,7 +846,6 @@ describe(
 				audits: before.audits + 1,
 			});
 
-			// A double click: two requests with one key race; one change and one audit row.
 			const race = { templateId: template.id, name: "Raced name", description: "Raced.", requestKey: "t87-race" };
 			const [a, b] = (await Promise.all([editTemplate(OWNER, race), editTemplate(OWNER, race)])).map(ok);
 			assert.deepEqual(a, b);
@@ -890,7 +853,6 @@ describe(
 			assert.deepEqual(await counts(), { ...mid, audits: mid.audits + 1 });
 			assert.equal((await editAudits()).length, audited + 1);
 
-			// A save that changes neither the name nor the description writes nothing.
 			const row = await templateRow(template.id);
 			const still = await counts();
 			assert.deepEqual(still, { ...mid, audits: mid.audits + 1 });
@@ -934,10 +896,8 @@ describe(
 			assert.equal(body.title, "Volunteer and staff policy");
 			assert.equal(body.description, "For everyone who serves.");
 			assert.equal(body.version, 2);
-			// The update list and the picker read the same summary.
 			const card = (await library(ADMIN)).templates.find((x) => x.id === template.id);
 			assert.deepEqual(card, update);
-			// The document made before the rename still reads v1 and its own title.
 			assert.equal(await documentState(t.earlier.id), t.earlierState);
 			const line = (await library(OWNER)).documents.find((d) => d.id === t.earlier.id);
 			assert.equal(line.templateVersion, 1);
@@ -994,7 +954,6 @@ describe(
 				.map((part) => part.trim())
 				.find((part) => part.startsWith("UPDATE"));
 			assert.ok(backfill, "the migration backfills the column");
-			// A template saved with a description, and one saved without, as they stood before the column existed.
 			const plain = ok(
 				await saveTemplate(OWNER, { documentId: t.source.id, revision: 2, name: "Plain", requestKey: "t87-plain" }),
 			);
@@ -1012,7 +971,6 @@ describe(
 			await admin.execute(sql.raw(backfill));
 			assert.equal((await templateRow(described.id)).description, "Saved with a description.");
 			assert.equal((await templateRow(plain.id)).description, null);
-			// The renamed template reads its current revision's description (v2 holds the edited one).
 			assert.equal((await templateRow(template.id)).description, "For everyone who serves.");
 			const cards = (await library(OWNER)).templates;
 			assert.equal(cards.find((x) => x.id === described.id).description, "Saved with a description.");

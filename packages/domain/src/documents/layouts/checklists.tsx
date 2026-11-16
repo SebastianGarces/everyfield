@@ -58,7 +58,6 @@ function teamBlock(ctx: Ctx, team: ChecklistTeam, n: number) {
 		</View>
 	);
 }
-/** Two Letter pages: the title block and three teams, then a running header and three teams. */
 export function checklistsDocument(ctx: Ctx) {
 	const { p, theme } = ctx;
 	const l = theme.letterhead;

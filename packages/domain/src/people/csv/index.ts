@@ -30,10 +30,6 @@ import { newPerson } from "../people.ts";
 import { peopleFilters } from "../queries.ts";
 import { csvLine, parseCsv } from "./format.ts";
 
-// People CSV import (REQ-PPL-018) for plant Owners and Admins, and export (REQ-PPL-019) for any seat in the plant:
-// Members may export what the directory shows them.
-
-/** C13/C32: the request's live access in each statement, without locking its session (live_session). */
 const access = (ctx: { session: string; selected: Owner }, admin = false) =>
 	liveRead({ session: ctx.session, owner: ctx.selected }, admin);
 
@@ -72,7 +68,6 @@ function problemOf(issue: z.core.$ZodIssue): Problem {
 	return { column, code: "too_long" };
 }
 
-/** One data record through the same normalizer and defaults as a Person created by hand. */
 function readRow(row: number, header: string[], fields: string[]): FileRow {
 	if (fields.length !== header.length)
 		return { row, status: "invalid", problems: [{ column: null, code: "column_count" }] };
@@ -107,12 +102,10 @@ function readRow(row: number, header: string[], fields: string[]): FileRow {
 	return { row, status: "valid", values, ...contactSignals(values) };
 }
 
-/** The uploaded bytes themselves, within the size and row limits, before any database work. */
 function readFile(bytes: Uint8Array): ReadFile {
 	if (bytes.length > c.importLimits.bytes) deny("file_too_large");
 	let text: string;
 	try {
-		// A leading byte order mark is removed; bytes that are not UTF-8 text are refused.
 		text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
 	} catch {
 		deny("unsupported_file_content");
@@ -136,10 +129,6 @@ type Match = { id: string; displayName: string; email: string | null; phone: str
 const match = z.array(
 	z.object({ id: z.uuid(), displayName: z.string(), email: z.string().nullable(), phone: z.string() }),
 );
-/**
- * Live people of this church who share an email or phone with a file row, as one scalar subquery. `unless` skips the
- * search, for an import that already froze its findings.
- */
 function existingPeople(plant: string, rows: FileRow[], unless: SQL = sql`false`): SQL {
 	const valid = rows.filter((r) => r.status === "valid");
 	const emails = valid.flatMap((r) => (r.email ? [r.email] : [])),
@@ -152,7 +141,6 @@ function existingPeople(plant: string, rows: FileRow[], unless: SQL = sql`false`
 }
 
 type Finding = { existing: Match[]; earlier: number | null };
-/** Existing and within-file duplicates per valid row, and the digest that freezes them for the import. */
 function findDuplicates(file: ReadFile, people: Match[]) {
 	const findings = new Map<number, Finding>(),
 		first = new Map<string, number>(),
@@ -164,7 +152,6 @@ function findDuplicates(file: ReadFile, people: Match[]) {
 	for (const r of file.rows) {
 		if (r.status !== "valid") continue;
 		const signals = [r.email && "e:" + r.email, r.phone && "p:" + r.phone].filter((s) => !!s) as string[];
-		// Each existing Person once, in search order.
 		const existing = [...new Set(signals.flatMap((s) => known.get(s) ?? []))].sort(
 			(a, b) => order.get(a)! - order.get(b)!,
 		);
@@ -179,19 +166,12 @@ function findDuplicates(file: ReadFile, people: Match[]) {
 	return { findings, reviewDigest };
 }
 
-/** A stable Person ID for one import row, so a retried row conflicts with its earlier success instead of repeating it. */
 function rowPersonId(importId: string, row: number): string {
 	const h = createHash("sha256").update(`${importId}/${row}`).digest("hex");
 	const variant = ((parseInt(h[16]!, 16) & 3) | 8).toString(16);
 	return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-/**
- * The frozen import intent: what happens to every row. A retry resumes it instead of reading new choices. fileDigest
- * names the file's bytes, so a file uploaded again after the kept copy is deleted must be the same file (D-803); imports
- * saved before it was recorded have none: while their kept copy lasts the button still retries from it, but once it is
- * deleted no upload matches, and the remaining rows need a new import.
- */
 const savedPlan = z.object({
 	fileDigest: z.string().optional(),
 	rows: z.int(),
@@ -200,7 +180,6 @@ const savedPlan = z.object({
 	create: z.array(z.object({ row: z.int(), reviewWith: z.uuid().nullable() })),
 });
 type Plan = z.infer<typeof savedPlan>;
-/** The reviewed choices: every valid row exactly once, and a review pair only where a duplicate exists. */
 function planImport(
 	file: ReadFile,
 	findings: Map<number, Finding>,
@@ -232,15 +211,10 @@ function planImport(
 	return plan;
 }
 
-/** Absent keys load as NULL, so empty values stay out of the JSON a statement sends. */
 const dropNulls = (_key: string, value: unknown) => (value === null ? undefined : value);
 
 type Created = Map<number, { personId: string; reviewWith: string | null }>;
 type Failed = Map<number, "row_write_failed">;
-/**
- * Every row's outcome from the saved plan, the rows whose Person exists and the rows the job could not write. `kept`:
- * the import still holds its uploaded file.
- */
 function receipt(importId: string, plan: Plan, created: Created, failed: Failed, running: boolean, kept: boolean) {
 	const outcomes = new Map<number, unknown>();
 	for (const row of plan.skip) outcomes.set(row, { row, status: "skipped" });
@@ -272,10 +246,6 @@ function receipt(importId: string, plan: Plan, created: Created, failed: Failed,
 	});
 }
 
-/**
- * An import's saved state in one scalar subquery: the frozen plan, whether its job still runs, whether it still holds
- * the uploaded file, the rows the job could not write and the rows created so far, from their people.created audit rows.
- */
 const importState = (importId: SQL) => sql`(SELECT jsonb_build_object('plan',sp.plan,
  'running',sj.state IN ('ready','claimed','retry_wait'),'kept',sp.upload IS NOT NULL,'failed',sp.failed,
  'created',coalesce((SELECT jsonb_agg(jsonb_build_object('row',(e.metadata->'import'->>'row')::int,'personId',e.subject_id,
@@ -298,16 +268,9 @@ function loadState(raw: unknown) {
 		kept: state.kept,
 	};
 }
-/** The import's current receipt from its saved state. */
 const receiptOf = (importId: string, s: ReturnType<typeof loadState>) =>
 	receipt(importId, s.plan, s.created, s.failed, s.running, s.kept);
 
-/**
- * Save the reviewed rows and queue the job that writes them, and return at once. The bytes are read before any
- * database work. The save is a People write (D70): the gate holds the importer's Owner/Admin seat until COMMIT, and
- * the shared request key answers a repeat. Repeating the request returns the import's current receipt and queues
- * nothing; "Try N rows again" is retryStoredImport.
- */
 export async function executeBulkImport(db: Database, authority: RequestActor, raw: unknown) {
 	const read = await readReply(async () => {
 		const input = parse(c.executeBulkImportRequest, raw);
@@ -327,7 +290,6 @@ async function saveImport(
 	file: ReadFile,
 ) {
 	const plant = plantId(ctx);
-	// The duplicate findings read the church's other people: the save runs in the gate's transaction (C88).
 	await declareWrite(tx, "established");
 	await lockOwner(tx, ctx);
 	const actorId = (await authorize(tx, ctx, true)).accountId;
@@ -347,12 +309,10 @@ async function saveImport(
 		(await tx.execute(sql`SELECT ${existingPeople(plant, file.rows)} AS people`)).rows[0]?.people,
 	);
 	const { findings, reviewDigest } = findDuplicates(file, people);
-	// The church's people may have changed since the preview; the review is only valid against today's findings.
 	if (reviewDigest !== input.reviewDigest) deny("review_stale");
 	const importId = claim.id,
 		jobId = randomUUID();
 	const plan = planImport(file, findings, choices, importId);
-	// The job keeps the exact reviewed bytes, compressed; it parses them again rather than trusting saved rows.
 	const upload = gzipSync(input.file).toString("base64");
 	claim.events.push({
 		id: importId,
@@ -371,12 +331,10 @@ async function saveImport(
  VALUES(${importId}::uuid,${plant}::uuid,${jobId}::uuid,${actorId}::uuid,${JSON.stringify(plan)}::jsonb,${upload})`,
 	);
 	const answer = receipt(importId, plan, new Map(), new Map(), true, true);
-	// The intent, the job and its payload in one statement with the audit row and its request key.
 	await finishAudit(tx, claim, identity, answer);
 	return answer;
 }
 
-/** The saved state of the import with this id, which the caller found in its own church. */
 async function stateOf(tx: Tx, importId: SQL) {
 	return loadState(
 		z.object({ state: z.unknown() }).parse((await tx.execute(sql`SELECT ${importState(importId)} AS state`)).rows[0])
@@ -384,13 +342,6 @@ async function stateOf(tx: Tx, importId: SQL) {
 	);
 }
 
-/**
- * "Try N rows again" for a partial import, named by its request key in the viewer's church (REQ-PPL-018). Without an
- * upload the job reads the server's kept copy (D-802), so the 1-hour staged upload need not still exist. Once the copy
- * is deleted, the person uploads the file again; the server reads the staged object and keeps it only when its bytes
- * are the ones the import used (D-803). Either way the job writes only the remaining rows: each row's Person ID is fixed
- * by the import, so a row an earlier run created is never created again.
- */
 export async function retryStoredImport(db: Database, storage: PrivateStorage, authority: RequestActor, raw: unknown) {
 	const loaded = await readReply(async () => {
 		const ctx = new PeopleReadContext(authority);
@@ -407,7 +358,6 @@ async function retryImport(tx: Tx, ctx: WriteContext, requestKey: string, file: 
 	const plant = plantId(ctx);
 	await declareWrite(tx, "established");
 	await lockOwner(tx, ctx);
-	// The account that retries becomes the importer: the job writes the remaining rows under its live seat.
 	const actorId = (await authorize(tx, ctx, true)).accountId;
 	const found = z.object({ id: z.uuid().nullable(), state: z.unknown() }).parse(
 		(
@@ -421,7 +371,6 @@ async function retryImport(tx: Tx, ctx: WriteContext, requestKey: string, file: 
 	if (answer.status !== "partial") return answer;
 	if (file && createHash("sha256").update(file).digest("hex") !== prior.plan.fileDigest) deny("import_file_mismatch");
 	const upload = file ? gzipSync(file).toString("base64") : null;
-	// Its last failures clear until the job reports again. Only a job that stopped is queued again, and only with a file.
 	const queued = await tx.execute(sql`WITH imported AS (UPDATE person_import SET failed='[]'::jsonb,
   upload=coalesce(${upload}::text,upload),actor_id=${actorId}::uuid
   WHERE id=${found.id}::uuid AND coalesce(${upload}::text,upload) IS NOT NULL RETURNING job_id)
@@ -432,11 +381,6 @@ async function retryImport(tx: Tx, ctx: WriteContext, requestKey: string, file: 
 	return receipt(found.id, prior.plan, prior.created, new Map(), true, true);
 }
 
-/**
- * The scheduled deletion of kept import files (D-801): a failed or partial import keeps its uploaded file for
- * importFileKeptDays after its job last stopped, then loses it. The receipt is unchanged; a retry then needs the file
- * uploaded again. At most 500 imports per run; locked ones wait for the next run. The number deleted.
- */
 export async function deleteExpiredImportFiles(db: Database): Promise<number> {
 	const result = await db.execute(sql`UPDATE person_import SET upload=NULL WHERE id IN (
  SELECT pi.id FROM person_import pi JOIN job j ON j.id=pi.job_id AND j.tenant_id=pi.tenant_id
@@ -446,22 +390,16 @@ export async function deleteExpiredImportFiles(db: Database): Promise<number> {
 	return result.rows.length;
 }
 
-/** The importing account's current Owner/Admin seat in this church, for a worker that has no request session. */
 function actorAuthority(actorId: string, church: Owner): SQL {
 	return sql`EXISTS(SELECT FROM seat s JOIN account acc ON acc.id=s.account_id WHERE s.account_id=${actorId}::uuid
  AND acc.registration_state='active' AND s.plant_id=${church.id}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()
  AND s.role<>'member' AND ${writeVisibility(actorId, church)})`;
 }
-/** The worker's claim is still the job's current lease. */
 type Lease = { id: string; tenant_id: string; lease_owner: string; claim_generation: string };
 const holds = (lease: Lease) => sql`EXISTS(SELECT FROM job WHERE id=${lease.id}::uuid AND state='claimed'
  AND lease_owner=${lease.lease_owner} AND claim_generation=${lease.claim_generation}::bigint AND lease_until>clock_timestamp())`;
 
 type SavedRow = { row: number; reviewWith: string | null; values: Values };
-/**
- * One batch in one statement: the lease and the importer's live Owner/Admin seat, the new people, one people.created
- * audit row each tied to the import, and the pipeline and church revisions. A Person an earlier run wrote is left alone.
- */
 async function writeBatch(
 	db: Database,
 	lease: Lease,
@@ -472,11 +410,8 @@ async function writeBatch(
 ) {
 	const plant = lease.tenant_id,
 		church = owner.parse({ kind: "plant", id: plant }),
-		// Never earlier than the last row of the batch before: a batch that returns within its own span of milliseconds
-		// would otherwise start the next one inside it.
 		start = Math.max(Date.now(), clock.next);
 	clock.next = start + batch.length;
-	// Rows keep file order in the directory: each is recorded one millisecond after the one before it.
 	const people = batch.map((r, i) =>
 		newPerson({ selected: church }, r.values, null, rowPersonId(importId, r.row), new Date(start + i)),
 	);
@@ -497,12 +432,7 @@ async function writeBatch(
 	return z.boolean().parse(result.rows[0]?.ok);
 }
 
-/** Rows each import statement writes. Statements grow with batches, and with failures only while a batch is split. */
 const BATCH = 500;
-/**
- * Why the database refused a row's values: a data exception (22), a constraint (23) or a trigger's raise (P0). Any
- * other error, such as a lost connection or a serialization failure, is not the row's own: null.
- */
 function rowFailure(error: unknown) {
 	const cause = z
 		.object({ cause: z.object({ code: z.string().regex(/^(22|23|P0)/), constraint: z.string().optional() }) })
@@ -510,15 +440,6 @@ function rowFailure(error: unknown) {
 	return cause.success ? { code: cause.data.cause.code, constraint: cause.data.cause.constraint ?? null } : null;
 }
 type FailedRow = { row: number; reason: "row_write_failed"; code: string; constraint: string | null };
-/**
- * The people_import job: write every remaining reviewed row in batches of one statement each. A batch the database
- * refuses for a row's values is split in halves until each failing row stands alone, so one bad row never fails its
- * neighbours; the run saves each failed row with the database's code and constraint, never its values. Any other error
- * ends the run with the rows still remaining, for the job to try again. Failed rows are saved during the run, so a
- * resumed run starts after every row already created or failed. The run ends by saving the failed rows, or by clearing
- * the payload when every row exists. "lost" means the lease or the importer's authority ended; nothing more
- * was written.
- */
 export async function runPeopleImport(db: Database, lease: Lease): Promise<"succeeded" | "lost"> {
 	const loaded = z
 		.object({
@@ -546,12 +467,10 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 			).rows[0],
 		);
 	if (!loaded?.upload) return "succeeded";
-	// Account purge cleared the importer: nobody holds authority for the remaining rows.
 	const actorId = loaded.actor_id;
 	if (!actorId) return "lost";
 	const file = readFile(gunzipSync(Buffer.from(loaded.upload, "base64")));
 	const values = new Map(file.rows.flatMap((r) => (r.status === "valid" ? [[r.row, r.values] as const] : [])));
-	// Rows an earlier run created or saved as failed are done, so a stopped run's retry moves past them.
 	const done = new Set([...loaded.created, ...loaded.failed.map((f) => f.row)]);
 	const pending: SavedRow[] = savedPlan
 		.parse(loaded.plan)
@@ -560,8 +479,6 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	const failed: FailedRow[] = [...loaded.failed];
 	let lost = false;
 	const clock = { next: 0 };
-	// Failed rows are saved at least every 10 s while a batch is split, and saved progress starts a fresh retry budget,
-	// as scanPage does: a run the platform stops never repeats saved rows, so even a file whose rows all fail finishes.
 	let saved = failed.length,
 		savedAt = Date.now();
 	const save = async () => {
@@ -601,23 +518,12 @@ export async function runPeopleImport(db: Database, lease: Lease): Promise<"succ
 	return finished.rows.length ? "succeeded" : "lost";
 }
 
-// The screen's upload (REQ-PPL-018 over the REQ-PPL-014 private-file flow): the browser puts the file once into the
-// private bucket with a signed PUT, then the preview and the import each read the stored object here and parse it. No
-// request to the app carries the file, and no row the browser sends back is trusted.
-
-/** A staged import file's object key: the church comes from the verified viewer, so another church's upload cannot be named. */
 const uploadKey = (plant: string, uploadId: string) => `private/${plant}/${uploadId}`;
-/**
- * Sign one import upload: one statement checks the live Owner or Admin, inserts the pending file row and queues its
- * cleanup for when it expires. Nothing references a staged file, so the shared object cleanup removes it then, whether
- * the import ran or not. The PUT URL is signed locally for the exact key, type and length, and writes once.
- */
 export async function signPeopleImport(db: Database, storage: PrivateStorage, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
 		const ctx = new PeopleReadContext(authority);
 		authorizeCachedWrite(ctx);
 		const plant = plantId(ctx);
-		// The same refusal as a stored file over the limit, so a browser that skips its own check learns why.
 		const declared = (raw as { byteLength?: unknown } | null)?.byteLength;
 		if (typeof declared === "number" && declared > c.importLimits.bytes) deny("file_too_large");
 		const input = parse(c.signImportUploadRequest, raw);
@@ -638,11 +544,6 @@ export async function signPeopleImport(db: Database, storage: PrivateStorage, au
 		return c.importUpload.parse({ uploadId: id, ...signed });
 	});
 }
-/**
- * The stored upload's bytes. One statement first checks the live Owner or Admin and this church's own unexpired
- * staged upload, so no other request reaches the bucket. An object over the limit is refused unread; a missing,
- * expired or incomplete one is not the file the person chose, so it is refused as a changed file.
- */
 async function storedFile(db: Database, storage: PrivateStorage, ctx: PeopleReadContext, uploadId: string) {
 	const plant = plantId(ctx),
 		key = uploadKey(plant, uploadId);
@@ -660,7 +561,6 @@ async function storedFile(db: Database, storage: PrivateStorage, ctx: PeopleRead
 	if (object === "missing") deny("file_changed");
 	return object.bytes;
 }
-/** previewImport of a stored upload. The bucket is read with no transaction open. */
 export async function previewStoredImport(
 	db: Database,
 	storage: PrivateStorage,
@@ -676,10 +576,6 @@ export async function previewStoredImport(
 	if (loaded.status !== "ok") return loaded;
 	return db.transaction((tx) => peopleCsv.previewImport(tx, ctx, { file: loaded.value }));
 }
-/**
- * executeBulkImport of a stored upload: the server reads the object again and saves it only when it is the previewed
- * file (its digest). A swapped, missing or incomplete object is refused as file_changed and nothing is saved.
- */
 export async function executeStoredImport(
 	db: Database,
 	storage: PrivateStorage,
@@ -697,7 +593,6 @@ export async function executeStoredImport(
 }
 
 export const peopleCsv = {
-	/** The 12 import columns, header only. It holds no church data. */
 	generateCsvTemplate() {
 		return c.csvFile.parse({
 			filename: "people-import-template.csv",
@@ -705,7 +600,6 @@ export const peopleCsv = {
 			text: csvLine(c.importColumns),
 		});
 	},
-	/** Read the file and show every row's outcome and duplicates. It writes nothing. */
 	async previewImport(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			const plant = plantId(ctx);
@@ -746,7 +640,6 @@ export const peopleCsv = {
 			});
 		});
 	},
-	/** The import's outcome for each row, read again after a lost reply or while its job runs. */
 	async getImportReceipt(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			const plant = plantId(ctx);
@@ -762,10 +655,6 @@ export const peopleCsv = {
 			return receiptOf(row.id, loadState(row.state));
 		});
 	},
-	/**
-	 * The church's most recent import and its receipt, without its request key (CLN-05): the person who asks how the last
-	 * import went does not know the key. One statement, under the live Owner or Admin check.
-	 */
 	async getLatestImportReceipt(tx: Tx, ctx: Context) {
 		return readReply(async () => {
 			const plant = plantId(ctx);
@@ -795,10 +684,6 @@ export const peopleCsv = {
 			});
 		});
 	},
-	/**
-	 * executeBulkImport inside the caller's transaction, for a reviewed Evry effect: the reviewed rows, the job that writes
-	 * them and the audit row commit with the effect's outcome. The job runs after that commit, as it does for the screen.
-	 */
 	async saveBulkImport(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.executeBulkImportRequest, raw);
@@ -807,11 +692,6 @@ export const peopleCsv = {
 			return saveImport(tx, ctx, input, file);
 		});
 	},
-	/**
-	 * The directory's filtered people as formula-safe CSV, every matching row in one statement, with the exact filters and
-	 * counts. Members may export what the directory shows them. A person with neither stored name part exports the display
-	 * name's first word as first_name and the rest as last_name; nothing is written back (REQ-PPL-019).
-	 */
 	async exportPeople(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			plantId(ctx);
@@ -835,16 +715,11 @@ export const peopleCsv = {
 			return c.peopleExport.parse({
 				filename: `people-${new Date().toISOString().slice(0, 10)}.csv`,
 				mediaType: media,
-				// The byte order mark lets spreadsheets read the UTF-8 names correctly.
 				text: "\ufeff" + csvLine(c.exportColumns) + state.rows.map(csvLine).join(""),
 				receipt: { filters, matched: state.rows.length, returned: state.rows.length, completeness: "complete" },
 			});
 		});
 	},
-	/**
-	 * What exportPeople would say about its file, without building it: the filename, the media type and the receipt.
-	 * One count(*) under the same filters and live access; it selects no contact value, note or person row. Evry uses it.
-	 */
 	async countExport(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			plantId(ctx);
