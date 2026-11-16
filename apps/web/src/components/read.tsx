@@ -254,9 +254,9 @@ export function useReadWith<A extends unknown[], T>(
 		() => null,
 	);
 	const [shown, setShown] = useState<{ value: T | undefined }>({ value: undefined });
-	if (showPrevious && snapshot?.value !== undefined && shown.value !== snapshot.value)
-		setShown({ value: snapshot.value });
-	const value = snapshot?.value ?? (showPrevious && key !== null ? shown.value : undefined);
+	const latest = key === null ? undefined : (snapshot?.value ?? shown.value);
+	if (shown.value !== latest) setShown({ value: latest });
+	const value = snapshot?.value ?? (showPrevious ? latest : undefined);
 	return {
 		status: key === null ? "idle" : (snapshot?.status ?? "loading"),
 		value,

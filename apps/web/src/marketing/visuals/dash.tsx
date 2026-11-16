@@ -6,10 +6,6 @@ import { Mark } from "@/components/Logo";
 import { Avatar, CardIcon, type Tone } from "@/components/kit/kit";
 import { ICONS } from "../icons";
 
-// The dashboard kit of the large product pictures (the Monday overview on home, the network dashboard in the /oversight
-// hero): app frame, cards, key-value rows, deltas, list rows and the static InsightCard. Server only: no animation.
-
-/** The app window: brand mark, the tabs with Overview on (or none), a slot on the right, the user's avatar, then the page head and body. */
 export function AppFrame({
 	tabs,
 	title,
@@ -70,7 +66,6 @@ export function AppFrame({
 	);
 }
 
-/** A dashboard card. */
 export function DashCard({ className, children }: { className?: string; children: ReactNode }) {
 	return (
 		<div
@@ -83,7 +78,6 @@ export function DashCard({ className, children }: { className?: string; children
 		</div>
 	);
 }
-/** Card header: title, optional description, optional control on the right. */
 export function DashHead({ title, sub, right }: { title: string; sub?: string; right?: ReactNode }) {
 	return (
 		<div className="mb-3.5 flex items-start gap-3">
@@ -95,10 +89,8 @@ export function DashHead({ title, sub, right }: { title: string; sub?: string; r
 		</div>
 	);
 }
-/** The card menu glyph (faint). */
 export const More = () => <Icon icon={ICONS.more} className="text-text-3" />;
 
-/** A key and its value on a ruled row; the first row of its group has no rule. */
 export function Kv({ k, first, children }: { k: string; first?: boolean; children: ReactNode }) {
 	return (
 		<div className={cn("flex items-center justify-between gap-3 py-[11px]", !first && "border-t border-line")}>
@@ -109,7 +101,6 @@ export function Kv({ k, first, children }: { k: string; first?: boolean; childre
 }
 export const KV_V = "font-title type-title-sm tracking-[-0.02em] whitespace-nowrap";
 
-/** A change against the prior period: white pill with an up (green) or down (magenta) triangle. */
 export function Delta({ dir, children }: { dir: "up" | "down"; children: ReactNode }) {
 	return (
 		<span
@@ -126,7 +117,6 @@ export function Delta({ dir, children }: { dir: "up" | "down"; children: ReactNo
 	);
 }
 
-/** A list row: tinted icon, title and line under it, optional end. first: no rule above (first child of its list). */
 export function ListRow({
 	tone,
 	icon,

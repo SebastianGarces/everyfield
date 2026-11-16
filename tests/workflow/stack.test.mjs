@@ -17,7 +17,6 @@ import test from "node:test";
 
 const script = fileURLToPath(new URL("../../scripts/stack.mjs", import.meta.url));
 
-// Fake only the external Portless executable. The public CLI and filesystem are real.
 const fake = `#!/usr/bin/env node
 const fs = require('node:fs');
 const path = require('node:path');

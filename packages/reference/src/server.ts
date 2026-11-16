@@ -39,7 +39,6 @@ export class ReferenceRefusal extends Error {
 }
 export interface ReferenceAuthority {
 	actorId: string;
-	// Trusted adapter loads current session/lifecycle and exact reviewed command, never client flags.
 	review: { commandDigest: string; approvalLocator: string; approvalHash: string };
 }
 export interface ReferenceDependencies {
@@ -57,7 +56,6 @@ export interface ActivationReceipt {
 	createdRelease: boolean;
 }
 
-// No HTTP/session adapter is installed by this producer. Its trusted adapter owns session and review loading.
 export function referenceService(db: Database, deps: ReferenceDependencies) {
 	async function authorizeCurrent(
 		tx: Transaction,
@@ -98,9 +96,7 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 	async function promote(input: unknown, artifactLocator: string): Promise<ActivationReceipt> {
 		const command = promotion.parse(input),
 			requestDigest = hash(canonical(command));
-		// Refuse before protected artifact access, then refresh authority at the commit boundary.
 		await db.transaction((preflight) => authorizeCurrent(preflight, command, requestDigest));
-		// All artifact/provider I/O and CPU work precedes SQL locks.
 		const candidate = generation.safeParse(await deps.loadArtifact(artifactLocator));
 		if (!candidate.success || candidate.data.key !== command.generationKey)
 			throw new ReferenceRefusal("invalid_generation");
@@ -159,7 +155,6 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 			}
 			const releaseId =
 				saved?.id ?? (await install(tx, bundle, artifactLocator, command.manifestHash, authority.review));
-			// Immutable rows are checked again before reuse. A stale or corrupted persisted derivative is not readiness.
 			await verifyStored(tx, bundle, releaseId);
 			const operationId = randomUUID();
 			const unchanged = current?.release_id === releaseId;
@@ -218,7 +213,6 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 	return {
 		promote,
 		async current() {
-			// Every consumer joins all publication and derivative rows by this release_id from one read snapshot.
 			const row = (
 				await db
 					.select({
@@ -275,7 +269,6 @@ async function install(
 		tenant_id: GLOBAL,
 		expected_passages: bundle.passages.length,
 	});
-	// Bounded bulk inserts keep provider latency out of per-item transaction work.
 	await tx.execute(sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id)
     SELECT id,kind,key,${sql.param(GLOBAL)} FROM jsonb_to_recordset(${sql.param(JSON.stringify(bundle.entries))}::jsonb) AS x(id uuid,kind text,key text) ON CONFLICT DO NOTHING`);
 	const items = await tx
