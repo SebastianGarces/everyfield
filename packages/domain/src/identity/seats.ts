@@ -22,12 +22,7 @@ const seatListRow = z.object({
 	acted_at: z.coerce.date().nullable(),
 	avatar: z.uuid().nullable(),
 });
-/** A PostgreSQL error (SQLSTATE) that rolled back a seat change's transaction. */
 const databaseError = z.object({ cause: z.object({ code: z.string().regex(/^[0-9A-Z]{5}$/) }) });
-/**
- * A seat change's reply, where a database failure of any required write (the seat, a moved duty, a team, a reminder or
- * the audit row) is required_write_failed: its transaction rolled back, so nothing of the change remains.
- */
 async function requiredWrites<T>(change: Promise<T>): Promise<T> {
 	try {
 		return await change;
@@ -39,14 +34,12 @@ async function requiredWrites<T>(change: Promise<T>): Promise<T> {
 const inWorkspace = (selected: Owner) =>
 	selected.kind === "plant" ? eq(t.seat.plant_id, selected.id) : eq(t.seat.organization_id, selected.id);
 export function createSeatService(db: Database) {
-	/** The roster in one statement without a transaction: seats with their account name and accepted invitation. */
 	async function list(authority: RequestActor, raw: unknown) {
 		const v = c.listSeatsRequest.parse(raw),
 			a = authority.actor,
 			seat = a.context;
 		if (seat.kind !== "seat" || !sameOwner(seat.owner, v.workspace)) d.refuse();
 		const column = v.workspace.kind === "plant" ? sql`s.plant_id` : sql`s.organization_id`;
-		// The caller's seat must still be live when the roster is read, in the same statement (C13).
 		const found = await liveRows(
 			db,
 			liveRead(liveAccess(authority)),
@@ -91,7 +84,6 @@ export function createSeatService(db: Database) {
 	}
 	async function membership(session: string) {
 		return transaction(db, async (tx) => {
-			// Membership needs a current session, not the exclusive account claim used by acceptance.
 			const proof = await tx.execute(sql`SELECT * FROM access_session(${sessionId.parse(session)}::uuid)`);
 			if (!proof.rows[0]) d.refuse();
 			const a = z
@@ -114,22 +106,15 @@ export function createSeatService(db: Database) {
 			);
 		});
 	}
-	/**
-	 * The open duties a removal must hand off (REQ-IDN-019), in one place for remove and its review (ruling D52).
-	 * Remove holds every duty until it commits; the review reads without locks, so it never changes lock order.
-	 */
 	async function openDuties(tx: Transaction, selected: Owner, s: { id: string; account_id: string }, lock: boolean) {
 		const locked = <T>(q: PromiseLike<T> & { for(strength: "update"): PromiseLike<T> }) => (lock ? q.for("update") : q);
 		const plant = selected.kind === "plant";
-		// Only the task table: a moved task's reminders need its own columns and the plant's zone. The task domain's full
-		// row query costs about 700 ms for 250 tasks, and remove would hold the account and seat locks meanwhile (BUG-127).
 		const tasks = plant
 			? await locked(
 					tx
 						.select({
 							...getTableColumns(t.task),
 							plant_zone: sql<string>`(SELECT p.timezone FROM plant p WHERE p.id=${selected.id}::uuid)`,
-							// Every assignee of the task: a handoff replaces only this account, and the others keep their reminders.
 							assignee_ids: sql<
 								string[]
 							>`(SELECT coalesce(array_agg(ta.account_id),'{}') FROM task_assignee ta WHERE ta.task_id=task.id)`,
@@ -174,10 +159,6 @@ export function createSeatService(db: Database) {
 			: [];
 		return { tasks, pipeline, programs };
 	}
-	/**
-	 * What removing this seat will need (ruling D52): the seat's revision and role, each open duty with its revision,
-	 * and the seats that may receive a duty. The same Owner or Admin check and the same duty selection as remove.
-	 */
 	async function readRemoval(session: string, selected: Owner, raw: unknown) {
 		const v = c.readRemovalRequest.parse(raw);
 		return transaction(db, async (tx) => {
@@ -207,7 +188,6 @@ export function createSeatService(db: Database) {
 				})),
 				...programs.map((p) => ({ dutyId: p.id, expectedRevision: p.revision, kind: "program", label: p.name })),
 			].map((x) => ({ ...x, needsRecipient: x.kind === "program" }));
-			// The same eligibility rule remove applies under its locks, read here in one statement without locks.
 			const column = selected.kind === "plant" ? sql`s.plant_id` : sql`s.organization_id`;
 			const recipients = z
 				.array(z.object({ account_id: z.uuid(), display_name: z.string() }))
@@ -265,7 +245,6 @@ export function createSeatService(db: Database) {
 				v,
 			);
 			if (cmd.kind === "replay") return c.seatMutationResult.parse(cmd.result);
-			// The seat's account is locked before the seat, in one statement that finds it.
 			const [target] = await tx
 				.select({ id: t.account.id })
 				.from(t.account)
@@ -295,7 +274,6 @@ export function createSeatService(db: Database) {
 					{ status: "moved"; dutyId: string; recipientAccountId: string } | { status: "needs_owner"; dutyId: string }
 				> = [],
 				events: string[] = [];
-			// Each moved task's owed reminders follow it: the new assignee's are planned, the removed member's withdrawn.
 			const replan: Array<ReturnType<typeof reminderChange>> = [];
 			if (mode === "remove" && "handoffs" in v.input) {
 				const handoffs = v.input.handoffs;
@@ -343,7 +321,6 @@ export function createSeatService(db: Database) {
 						program = programs.find((x) => x.id === h.dutyId);
 					if (task) {
 						taskMoves.set(task.id, recipient);
-						// D-d: the recipient takes this account's place; when it already holds the task, this account only leaves.
 						const named = (ids: string[]) =>
 							ids.map((id) => ({ accountId: parseAccountId.parse(id), displayName: "", seated: true }));
 						replan.push(
@@ -374,8 +351,6 @@ export function createSeatService(db: Database) {
 						);
 					}
 				}
-				// All duties are already locked and revision-checked. One update per kind and
-				// one audit insert keep lock duration independent of per-duty network latency.
 				const assignment = (moves: Map<string, string | null>, id: ReturnType<typeof sql>) =>
 					sql`CASE ${id} ${sql.join(
 						[...moves].map(([key, recipient]) => sql`WHEN ${key}::uuid THEN ${recipient}::uuid`),
@@ -484,7 +459,6 @@ export function createSeatService(db: Database) {
 					duties,
 				}),
 			);
-			// The sync reads each task at its new revision, so it runs after the final write moved them.
 			await syncAll(reminders!, tx, replan)?.();
 			return result;
 		});
@@ -496,7 +470,6 @@ export function createSeatService(db: Database) {
 		changeOrdinaryRole: (s: RequestActor, o: Owner, v: unknown) => requiredWrites(mutation(s, o, v, "role")),
 		appointAdmin: (s: RequestActor, o: Owner, v: unknown) => requiredWrites(mutation(s, o, v, "appoint")),
 		demote: (s: RequestActor, o: Owner, v: unknown) => requiredWrites(mutation(s, o, v, "demote")),
-		/** Moved tasks replan their owed reminders through `reminders` in the same transaction (REQ-TSK-014). */
 		remove: (s: RequestActor, o: Owner, v: unknown, reminders: TaskReminders) =>
 			requiredWrites(mutation(s, o, v, "remove", reminders)),
 	};

@@ -199,7 +199,6 @@ async function subjects(
 	if (raw.allowed !== true) deny("access_denied");
 	if (!raw.meeting_ok || !raw.template_ok) deny("invalid_subject");
 }
-/** True when the meeting is in this church, not retired and still open for answers. A null id is never open. */
 function meetingOpen(meetingId: string | null, plantId: string) {
 	return sql`(${meetingId}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${meetingId}::uuid
 		AND m.plant_id = ${plantId}::uuid AND ${meetingOpenSql("m")}))`;
@@ -227,11 +226,9 @@ function templateBody(input: c.TemplateDraft) {
 function requireAllowed(allowed: boolean) {
 	if (allowed !== true) deny("access_denied");
 }
-/** C13. Columns of `query` are computed only while `live` is true, in this same statement. */
 function whenLive(live: SQL, query: SQL) {
 	return sql`SELECT g.allowed, q.* FROM (SELECT ${live} AS allowed) g LEFT JOIN LATERAL (${query}) q ON g.allowed`;
 }
-/** The fields a schedule stores and a later preview compares. Both calls use this one value. */
 function reviewedDigest(
 	subject: string | null,
 	body: string | null,
@@ -624,7 +621,6 @@ async function forkTemplate(tx: Tx, context: CommunicationContext, raw: unknown)
 			),
 		);
 		if (existing.success && !existing.data.archived_at) return asTemplate(existing.data);
-		// D-449: forking a source whose church fork is archived brings that fork back, with the church's edits.
 		if (existing.success) {
 			const current = existing.data;
 			const revision = bump(current.revision);
@@ -808,9 +804,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 	if (!found.meeting_ok || !found.template_ok || !found.known) deny("invalid_subject");
 	if (usesRsvpLink(input.bodyHtml) && !found.meeting_open) deny("rsvp_needs_meeting");
 	const summary = summarizeAudience(found.people);
-	// The sample link is built here from the server origin, after the client input is parsed.
 	const merge = previewOrigin ? { ...input.merge, rsvp_link: `${previewOrigin}/rsvp/preview` } : input.merge;
-	// A field with no value would reach the reader as empty text, so the preview names it instead.
 	const missing = mergeVariables(input.bodyHtml).filter((key) => merge[key] === undefined);
 	if (missing.length) deny("missing_merge_variable", { missing, providerCalls: 0 });
 	const previewBody = renderBody(input.bodyHtml, merge, "preview");
@@ -998,7 +992,6 @@ async function listDrafts(tx: Tx, authority: RequestActor) {
 	const found = z.object({ rows: z.array(draftRow) }).parse(raw);
 	return c.draftListResult.parse({ drafts: found.rows.map(asDraft) });
 }
-/** The church name for the Messages chrome. Any seat that may read messages may read it. */
 async function churchName(tx: Tx, authority: RequestActor) {
 	const reader = readerOf(authority);
 	const raw = one(
