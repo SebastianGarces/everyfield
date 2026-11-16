@@ -28,11 +28,6 @@ function automatic(wall: string, zone: TimeZone): Instant {
 	if (resolved.kind !== "resolved") throw Error("calendar_unresolved");
 	return resolved.occurrence.instant;
 }
-/**
- * The period a digest sent at `asOf` covers: from the day after its coverage (or one period back for a first digest)
- * to the last slot that has passed, in the tenant's zone, and `next`, the day the following period ends. Null when
- * nothing is owed. Pure.
- */
 export function owedPeriod(
 	config: { zone: string; cadence: "daily" | "weekly"; weekday: number; hour: number; completedDaysOnly?: boolean },
 	asOf: string,
@@ -71,15 +66,10 @@ const planterRow = z.object({
 const actions =
 	"'tasks.changed','tasks.completed','meetings.changed','meetings.finalized','people.updated','people.created','plant.profile_changed'";
 
-/**
- * The oversight digest's slot: 07:00 in the organization's zone, on Mondays when weekly, covering completed days only
- * (WP-030 decisions D-b, D-c). The scheduled runner and the preview both read it.
- */
 export const OVERSIGHT_SLOT = { weekday: 1, hour: 7 } as const;
 
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
-/** The next stored slot in the plant zone. Not a producer method: it sends no statement. */
 export function nextDigestInstant(
 	zone: TimeZone,
 	cadence: "daily" | "weekly",
@@ -184,18 +174,11 @@ export async function readPlanterDigest(db: Database, authority: RequestActor, r
 	});
 }
 
-// The delivered digests (NTF-007, NTF-008). The scheduled runner compiles each one inside its job transaction. Every
-// statement repeats the recipient's live access check (C13), and the oversight read locks the sharing links it counts,
-// so a plant that turns sharing off waits for the digest to commit or is left out of it.
-
 type Execute = { execute: Database["execute"] };
-/** At most this many lines in one digest; the total still counts every item (REQ-NTF-008: ≤100 lines). */
 const DIGEST_LINES = 100;
 
-/** The recipient holds a current Owner or Admin seat in the tenant, and no lifecycle witness hides the account, seat or tenant. */
 const liveRecipient = (tenant: string, recipient: string) => seatAccess({ account: recipient, tenant, admin: true });
 
-/** Whether the recipient still holds a current Owner or Admin seat in the tenant. One statement. */
 export async function digestRecipientLive(db: Execute, tenant: string, recipient: string) {
 	const r = await db.execute(sql`SELECT ${liveRecipient(tenant, recipient)} AS ok`);
 	return z.object({ ok: z.boolean() }).parse(r.rows[0]).ok;
@@ -208,14 +191,9 @@ type OversightDigestLine = z.infer<typeof oversightLine>;
 const compiled = <T extends z.ZodType>(line: T) =>
 	z.object({ live: z.boolean(), total: z.number().int().nonnegative(), lines: z.array(line).max(DIGEST_LINES) });
 
-/** The title the app shows for meeting m (meetingTitle in contracts), built in SQL from the same type names. */
 const meetingTitleSql = sql`coalesce(nullif(btrim(m.title), ''),
 	(${JSON.stringify(MEETING_TYPE_TITLE)}::jsonb ->> m.type) || coalesce(' #' || nullif(m.vision_number, 0), ''))`;
 
-/**
- * The church digest's open items for one recipient (REQ-NTF-007): their open dated tasks due on or before `through`
- * (overdue ones included) and the church's meetings still ahead that fall on or before `through`. One statement.
- */
 export async function compilePlanterDigest(
 	db: Execute,
 	input: { plant: string; recipient: string; asOf: string; through: string },
@@ -240,13 +218,6 @@ export async function compilePlanterDigest(
 	return compiled(planterItem).parse({ ...r.rows[0], lines: jsonValue(r.rows[0]?.lines) });
 }
 
-/**
- * The oversight digest's activity counts (REQ-NTF-008): for each linked plant whose relationship is current and shares
- * activity, the number of audited changes on each local date from `start` to `end` in the organization's zone. It
- * returns plant names, dates and counts only: never a person, note, message or gift. The sharing links it counts stay
- * locked until the caller commits. Given a delivered notice instead of a zone, it counts in the notice's zone and also
- * returns the text that notice holds, so dispatch rechecks a queued email in one statement. One statement.
- */
 export async function compileOversightDigest(
 	db: Execute,
 	input: { organization: string; recipient: string; start: string; end: string } & (
@@ -291,7 +262,6 @@ const range = (start: string, end: string) =>
 	start === end ? shortDay(start) : `${shortDay(start)} to ${shortDay(end)}`;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** The text a delivered digest shows: a title and one sentence per line. Pure. */
 export function renderPlanterDigest(input: {
 	start: string;
 	end: string;
@@ -314,7 +284,6 @@ export function renderPlanterDigest(input: {
 	};
 }
 
-/** The oversight digest's text: plant names, dates and counts only (REQ-NTF-008). Pure. */
 export function renderOversightDigest(input: {
 	start: string;
 	end: string;
@@ -344,12 +313,6 @@ const previewRow = z.object({
 	covered_through: z.string().nullable(),
 });
 
-/**
- * notifications.previewPlanterDigest: the church digest the signed-in Owner or Admin gets next, from current facts.
- * The scheduled runner's own rules decide it: the church's schedule, the account's cadence and how far its coverage
- * reaches give the send time and the period, and the same compile and text as the delivered digest give its items.
- * Two statements, each with the live access check. Null `next` when the church turned its digest off.
- */
 export async function previewPlanterDigest(db: Execute, authority: RequestActor, raw: unknown, now: () => Date) {
 	return readReply(async () => {
 		const input = parse(previewRequest, raw);
@@ -395,13 +358,6 @@ const oversightPreviewRow = z.object({
 	covered_through: z.string().nullable(),
 });
 
-/**
- * notifications.previewOversightDigest: the oversight digest the signed-in Owner or Admin gets next, from current
- * facts. The scheduled runner's own rules decide it: the fixed 07:00 slot in the organization's zone, the account's
- * cadence and how far its coverage reaches give the send time and the period, and the same compile and text as the
- * delivered digest give its lines: plant names, dates and counts only (REQ-NTF-008). A total of 0 means the runner
- * would send nothing. Two statements, each with the live access check.
- */
 export async function previewOversightDigest(db: Execute, authority: RequestActor, raw: unknown, now: () => Date) {
 	return readReply(async () => {
 		const input = parse(oversightPreviewRequest, raw);

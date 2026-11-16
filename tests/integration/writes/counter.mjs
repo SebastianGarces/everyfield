@@ -17,8 +17,6 @@ const read =
 	/^(?:get|read|list|describe|registrationEligible|addressHash|jobVisibility|append|current|registrationIntent|checkAggregateAccess)/;
 const factories = {
 	createOrganizationAdapter: "organizations",
-	// The settings suites call every settings operation through one composition of the factories the app mounts. It is
-	// labelled there, not on each factory, so other suites that build one factory keep their own budgets.
 	settingsApi: "settings",
 	createAccountCredentials: "settings",
 	createOnboardingProducer: "onboarding",
@@ -90,8 +88,6 @@ export async function measure(name, body, options = {}) {
 	const parent = frames.getStore()?.at(-1);
 	if (parent && parent.first === undefined) parent.first = name;
 	return frames.run([...(frames.getStore() ?? []), frame], async () => {
-		// Exempt from the no-wall-clock rule (test-standard): the sample's `ms` reports real time, which is its job; nothing
-		// asserts on it.
 		const started = performance.now();
 		let status = "threw";
 		try {
@@ -100,7 +96,6 @@ export async function measure(name, body, options = {}) {
 			return result;
 		} finally {
 			const { first, ...counts } = frame;
-			// A shared wrapper outside any named check takes the operation it ran as its variant.
 			const label = options.byFirst && first ? frame.name + ":" + first : frame.name;
 			emit({ kind: "sample", ...counts, name: label, status, ms: Math.round(performance.now() - started) });
 		}
@@ -112,7 +107,6 @@ function decorate(prefix, value) {
 			return measure(prefix, () => Reflect.apply(value, this, args));
 		};
 	for (const key of Object.keys(value)) {
-		// Pure helpers send no statement and return a value, not a promise.
 		if (typeof value[key] !== "function" || key === "addressHash" || key === "queued") continue;
 		const name = prefix + "." + key,
 			fn = value[key];
@@ -130,8 +124,6 @@ function decorate(prefix, value) {
 	return value;
 }
 export function observeDatabase(db) {
-	// pg-pool runs a queued connect callback inside the release of whichever request freed the client.
-	// Binding it here keeps the caller's frames. Promise-style connect already keeps them.
 	const connect = db.$client.connect;
 	db.$client.connect = function (callback) {
 		return Reflect.apply(connect, this, typeof callback === "function" ? [AsyncResource.bind(callback)] : []);
@@ -145,7 +137,6 @@ export function observeDatabase(db) {
 				frame.count++;
 				frame.kinds[kind] = (frame.kinds[kind] ?? 0) + 1;
 				if (kind === "write") frame.writes++;
-				// A native write's established run follows a first attempt that changed nothing: it counts as a retry.
 				if (/^\s*ROLLBACK|^BEGIN \/\* evf:retry \*\//i.test(text)) frame.rollbacks++;
 			}
 			return Reflect.apply(query, this, args);
@@ -153,20 +144,12 @@ export function observeDatabase(db) {
 	});
 	return db;
 }
-/**
- * A shared native wrapper takes a variant: the named boundary check around it, or else the first operation it runs.
- * An operation with a larger reviewed budget gets its own limit; every other call keeps the wrapper's own budget.
- */
 function measureWrapper(name, body) {
 	const outer = frames.getStore()?.at(-1);
 	return outer ? measure(name + ":" + outer.name, body) : measure(name, body, { byFirst: true });
 }
 globalThis.__evfWriteCounts = { measure, measureWrapper, decorate, observeDatabase };
 
-/**
- * Wraps the factories, standalone functions and writer objects of one source file in census frames. Throws when a
- * standalone name listed for the file is not a function declared in it, so a stale manifest entry cannot go unmeasured.
- */
 export function instrument(path, source, listed = standalone) {
 	const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
 		edits = [];

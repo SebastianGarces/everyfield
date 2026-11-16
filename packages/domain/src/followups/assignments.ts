@@ -25,10 +25,6 @@ import {
 import { lockOwner, ownerReason } from "../tasks/owner.ts";
 import { answer, followUpTask, OPEN, refuse } from "./core.ts";
 
-/**
- * The display name of `account` when it may own a follow-up now, else null (REQ-TSK-012). Eligibility is `ownerReason`;
- * the seat and the committed Person are share-locked too.
- */
 const ownerName = (
 	plantId: string,
 	account: string | null,
@@ -38,13 +34,8 @@ const isFollowUp = (t: TaskRow) =>
 	t.category === "follow_up" && t.person_id !== null && t.parent_id === null && t.deleted_at === null;
 const isOpen = (t: TaskRow) => !(tc.settledStatus as readonly string[]).includes(t.status);
 
-/** Explicit follow-up creation, assignment and handoff. Nothing here runs without a person's request (REQ-PPL-022). */
 export function assignmentWriter(reminders: TaskReminders) {
 	return {
-		/**
-		 * A manual follow-up with a Person: undated unless a date is chosen, with no meeting origin or 48-hour measure
-		 * (REQ-TSK-012). The default title comes from the stored Person, never from the client. Owner/Admin.
-		 */
 		async createFollowUp(tx: Tx, context: TaskContext, raw: unknown) {
 			return answer(tx, async () => {
 				const input = parse(c.createFollowUpRequest, raw);
@@ -79,11 +70,6 @@ export function assignmentWriter(reminders: TaskReminders) {
 				});
 			});
 		},
-		/**
-		 * Assign an open follow-up to one or more current eligible owners, or leave it as Needs owner with an empty list
-		 * (REQ-TSK-012). Eligibility of every named account is checked when the change is made; one failing account refuses
-		 * the whole write. Owner/Admin.
-		 */
 		async assignFollowUp(tx: Tx, context: TaskContext, raw: unknown) {
 			return answer(tx, async () => {
 				const input = parse(c.assignFollowUpRequest, raw);
@@ -94,9 +80,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 					const row = await loadTask(tx, plant, v.taskId, true);
 					if (!row || !isFollowUp(row)) deny();
 					if (row.revision !== input.expectedRevision) deny("conflict");
-					// Closed work stays closed: assignment never reopens it.
 					if (!isOpen(row)) deny("invalid_subject");
-					// An account that already holds the task stays, whatever its state; only a joining one is checked.
 					const held = idsOf(row.assignees),
 						joining = v.assigneeIds.filter((id) => !held.includes(id));
 					const added = joining.length
@@ -134,12 +118,6 @@ export function assignmentWriter(reminders: TaskReminders) {
 				});
 			});
 		},
-		/**
-		 * Move reviewed open follow-ups of an account that lost eligibility to a current eligible owner (REQ-TSK-013).
-		 * All or nothing: a foreign or ineligible recipient, a changed task or the church Owner as source refuses before
-		 * anything moves. Closed, waived or deleted tasks never reopen. At most 100 per request; the reply names what
-		 * moved and the source's open follow-ups that remain. Owner/Admin.
-		 */
 		async executeHandoff(tx: Tx, context: TaskContext, raw: unknown) {
 			return answer(tx, async () => {
 				const input = parse(c.executeHandoffRequest, raw);
@@ -169,14 +147,12 @@ export function assignmentWriter(reminders: TaskReminders) {
 					for (const item of v.items) {
 						const row = rows.get(item.taskId);
 						if (!row || !isFollowUp(row)) deny();
-						// The reviewed selection must still be this account's open follow-up at the revision seen.
 						if (
 							row.revision !== item.expectedRevision ||
 							!isOpen(row) ||
 							!row.assignees.some((a) => a.accountId === v.fromAccountId)
 						)
 							deny("conflict");
-						// D-d: the recipient takes the source's place; when it already holds the task, the source only leaves.
 						const next: TaskRow = {
 							...row,
 							assignees: sortPeople([

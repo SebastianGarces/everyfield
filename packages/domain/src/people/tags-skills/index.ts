@@ -27,12 +27,7 @@ const tagRow = z.object({
 	linked: z.coerce.number(),
 	links: z.coerce.number(),
 });
-/**
- * Tags with the live people who carry them, in name order, and each tag's count of all current links (retired people
- * included), which deletion removes. One query.
- */
 async function readTags(tx: Tx, plant: string, id?: string, visible: SQL = sql`true`) {
-	// A refused reader gets the seed row only, so an empty church and a refusal stay distinct.
 	const result = await tx.execute(sql`SELECT g.allowed,t.id,t.name,t.color,t.revision::text AS revision,
  (SELECT count(*) FROM person_tag pt JOIN person p ON p.id=pt.person_id AND p.tenant_id=pt.plant_id
    WHERE pt.tag_id=t.id AND pt.plant_id=t.plant_id AND p.state='live') AS linked,
@@ -54,7 +49,6 @@ async function oneTag(tx: Tx, plant: string, id: string) {
 	if (!found) deny();
 	return found;
 }
-/** One Person's tags in name order, as a scalar subquery read with the Person row (it names the outer `person`). */
 export const personTagsJson = (plant: string) =>
 	sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',t.id,'name',t.name,'color',t.color) ORDER BY t.normalized_name,t.id)
  FROM person_tag pt JOIN tag t ON t.id=pt.tag_id AND t.plant_id=pt.plant_id WHERE pt.person_id=person.id AND pt.plant_id=${plant}::uuid),'[]')`;
@@ -77,7 +71,6 @@ const skillRow = z.object({
 	revision: z.string(),
 });
 const categoryOrder = f.skillCategory.options;
-/** REQ-PPL-011 grouping: category order, then name. */
 const skillOrder = (a: Skill, b: Skill) =>
 	categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category) || byName(a, b);
 const skillView = (r: z.infer<typeof skillRow>): Skill =>
@@ -90,12 +83,10 @@ const skillView = (r: z.infer<typeof skillRow>): Skill =>
 		notes: r.notes,
 		revision: r.revision,
 	});
-/** One Person's skills, as a scalar subquery read with the Person row (it names the outer `person`). */
 export const personSkillsJson = (plant: string) =>
 	sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'person_id',s.person_id,'name',s.name,'category',s.category,
  'proficiency',s.proficiency,'notes',s.notes,'revision',s.revision::text)) FROM person_skill s
  WHERE s.person_id=person.id AND s.plant_id=${plant}::uuid),'[]')`;
-/** The skills of `personSkillsJson` in REQ-PPL-011 order. */
 export const personSkills = (raw: unknown) =>
 	z
 		.array(skillRow)
@@ -131,7 +122,6 @@ export const tagsAndSkills = {
 			const input = parse(f.createTagRequest, raw);
 			return f.tagMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.createTag", input, async (_actor, receiptId, audit) => {
-					// Names that differ only by case or surrounding spaces are the same tag (REQ-PPL-010).
 					const [same] = await tx
 						.select({ id: tables.tag.id })
 						.from(tables.tag)
@@ -223,8 +213,6 @@ export const tagsAndSkills = {
 				await mutation<unknown>(tx, ctx, "people.deleteTag", input, async (_actor, receiptId, audit) => {
 					const { tag: before, links } = await oneTag(tx, plant, input.input.tagId);
 					expectRevision(before.revision, input.expectedRevision);
-					// The links, the tag and its audit row go in one statement; the church lock keeps the read count exact.
-					// Each Person's history keeps its own link.
 					audit.writes.push(
 						tx
 							.delete(tables.person_tag)
@@ -261,7 +249,6 @@ export const tagsAndSkills = {
 			return f.skillMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.addSkill", input, async (_actor, receiptId, audit) => {
 					const { personId, ...fields } = input.input;
-					// The Person and its current skills in one read.
 					const p = await personFacts(tx, plant, personId, personSkillsJson(plant));
 					livePerson(p);
 					const current = personSkills(p.extra);
@@ -354,7 +341,6 @@ export const tagsAndSkills = {
 	},
 };
 
-/** The skill's Person and all of that Person's skills, found by the skill in one read. A missing skill is unavailable. */
 async function currentSkill(tx: Tx, plant: string, skillId: string) {
 	const owner = sql`(SELECT person_id FROM person_skill WHERE id=${skillId}::uuid AND plant_id=${plant}::uuid)`;
 	const p = await personFacts(tx, plant, owner, personSkillsJson(plant));
@@ -372,7 +358,6 @@ async function changeTagLink(tx: Tx, ctx: WriteContext, raw: unknown, name: "peo
 		return f.tagAssignmentResult.parse(
 			await mutation<unknown>(tx, ctx, name, input, async (_actor, receiptId, audit) => {
 				const { personId, tagId } = input.input;
-				// The Person, its tags and the target tag in one read.
 				const p = await personFacts(
 					tx,
 					plant,
@@ -387,7 +372,6 @@ async function changeTagLink(tx: Tx, ctx: WriteContext, raw: unknown, name: "peo
 					before = personTags(facts.tags);
 				const linked = before.some((t) => t.id === tagId);
 				const assign = name === "people.assignTag";
-				// A repeated assign or remove changes nothing and records no activity (REQ-PPL-010).
 				if (linked === assign) {
 					const value = { personId, tags: before, outcome: "noop" as const, receiptId };
 					return { value, subject: personId, action: "people.updated", outcome: "noop" };

@@ -18,8 +18,6 @@ import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, refused, seeds } from "../../../../support/fixture.mts";
 import { freezeClock } from "./support.mts";
 
-// DEL58-006: church P goes pending deletion at 2026-10-13T16:00:00Z. The database clock and the host clock (which
-// signs the file URL and stamps the request) both stand at that instant.
 const DELETE_AT = new Date("2026-10-13T16:00:00.000Z");
 const SEND_AT = "2026-10-20T16:00:00.000Z";
 
@@ -36,7 +34,6 @@ const keys = {
 const rows = async (query) => (await admin.execute(query)).rows;
 const key = () => randomUUID();
 
-/** The fake email service: counts every handoff and cancel the product asks of it. */
 const transport = {
 	calls: { send: 0, cancel: 0 },
 	async send(batch) {
@@ -52,7 +49,6 @@ const transport = {
 	},
 };
 
-/** The private object store, as the documents suites fake it: presigning is local, and reads come from memory. */
 class MemoryClient extends S3Client {
 	objects = new Map();
 	constructor() {
@@ -93,7 +89,6 @@ async function person(name: string) {
 		'live',clock_timestamp())`);
 	return id;
 }
-/** A reviewed message to one guest, scheduled for SEND_AT. */
 async function scheduled(name: string) {
 	const write = (op, input) => withCommunicationWrite(db, actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
 	const saved = ok(
@@ -129,7 +124,6 @@ const mailOf = async (communicationId: string) =>
 			FROM mail WHERE logical_key LIKE ${"communication/" + communicationId + "/%"}`)
 	)[0];
 
-/** A saved PDF of the church, as a generated document over a ready private file. */
 async function savedDocument() {
 	const bytes = Buffer.from("%PDF-1.7 synthetic");
 	const file = randomUUID(),
@@ -144,7 +138,6 @@ async function savedDocument() {
 	storage.client.objects.set(opaque, bytes);
 	return row.id as string;
 }
-/** When a presigned URL stops working: its signing instant plus its lifetime, both carried in the URL itself. */
 function urlExpiry(url: string) {
 	const q = new URL(url).searchParams;
 	const [, y, mo, d, h, mi, s] = /^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)Z$/.exec(q.get("X-Amz-Date")!)!;
@@ -152,23 +145,19 @@ function urlExpiry(url: string) {
 }
 
 test("AC:DEL58-006 pending deletion hands off nothing new, leaves held mail to reconcile, recalls no sent mail and issues no new URL", async () => {
-	// One mail intent still waiting in Everyfield for its send time.
 	const pending = await scheduled("Pat");
 	ok(await handoff("handOffScheduled", pending));
 	assert.equal((await mailOf(pending.id)).state, "scheduled");
-	// One mail the email service accepted and holds for later (handed off with its send time before T-241).
 	const held = await scheduled("Hana");
 	ok(await handoff("dispatchAttempt", held));
 	await admin.execute(
 		sql`UPDATE mail SET scheduled_at = ${SEND_AT}::timestamptz WHERE logical_key LIKE ${"communication/" + held.id + "/%"}`,
 	);
-	// One mail already sent.
 	const sent = await scheduled("Sam");
 	ok(await handoff("dispatchAttempt", sent));
 	await admin.execute(
 		sql`UPDATE mail SET state = 'sent', sent_at = clock_timestamp() WHERE logical_key LIKE ${"communication/" + sent.id + "/%"}`,
 	);
-	// One file URL issued before the request.
 	const documentId = await savedDocument();
 	const issued = ok(await documentsWriter.download(db, actor, { documentId }, storage));
 	assert.equal(issued.expiresAt, "2026-10-13T16:05:00.000Z");
@@ -201,12 +190,9 @@ test("AC:DEL58-006 pending deletion hands off nothing new, leaves held mail to r
 	assert.equal(request.status, "pending_deletion");
 	assert.equal(request.requestedAt, DELETE_AT.toISOString());
 
-	// The send time comes: the runner hands nothing off for a church being deleted, and nobody can hand off or cancel
-	// in its name. The case's cancel call is refused like every other ordinary write of the church.
 	await admin.execute(
 		sql`UPDATE mail SET scheduled_at = clock_timestamp() WHERE logical_key LIKE ${"communication/" + pending.id + "/%"}`,
 	);
-	// The host clock stands at DELETE_AT, so the run's end a minute later lets it look at every due batch.
 	assert.equal(await runDueScheduled(db, transport, keys, 10, DELETE_AT.getTime() + 60_000), 0);
 	assert.equal(await cancelUnsubscribedHeld(db, transport, 10), 0);
 	refused(await handoff("dispatchAttempt", pending), "access_denied");
@@ -223,8 +209,6 @@ test("AC:DEL58-006 pending deletion hands off nothing new, leaves held mail to r
 	assert.equal(newHandoffs, 0);
 	assert.equal((await mailOf(pending.id)).state, "scheduled");
 
-	// The held mail is marked for reconcile: its cancel is requested at the deletion, not yet confirmed, and it is not
-	// reported cancelled.
 	const heldMail = await mailOf(held.id);
 	assert.equal(heldMail.state, "accepted");
 	assert.notEqual(heldMail.provider_message_id, null);
@@ -234,13 +218,11 @@ test("AC:DEL58-006 pending deletion hands off nothing new, leaves held mail to r
 		heldMail.state === "cancelled" ? "confirmed" : heldMail.cancel_requested_at ? "reconcile" : "none";
 	assert.equal(scheduledCancel, "reconcile");
 
-	// The sent mail stays sent: no cancel reached the email service and nothing claims it was recalled.
 	const sentMail = await mailOf(sent.id);
 	assert.equal(sentMail.state, "sent");
 	const sentRecalled = sentMail.state !== "sent" || transport.calls.cancel > 0;
 	assert.equal(sentRecalled, false);
 
-	// The issued URL keeps its own lifetime, and the church can get no new one.
 	assert.equal(urlExpiry(issued.url), issued.expiresAt);
 	const existingUrlMayWorkUntil = urlExpiry(issued.url);
 	assert.equal(existingUrlMayWorkUntil, "2026-10-13T16:05:00.000Z");

@@ -1,16 +1,3 @@
-// T-80 "Compare with template" for a document made from the church's own saved template (T-18): the compare names
-// the church template, says it is the church's own and accepts changes as one revision recording its current version.
-// Version 2 of the church template exists only in this file: it is written through "Update a church template" (T-79)
-// from a test document. No built-in template file changes. Runs on a fresh schema of the shared development database.
-//   Criterion 1: the editor read says "behind" when the church template changed, "current" when it matches.
-//   Criterion 2: a deleted paragraph, a reworded heading and a new margin are each listed once; the name shows.
-//   Criterion 3: a fresh document has no differences.
-//   Criteria 4, 5, 6, 12: accepting some changes of version 2 writes one revision with the exact body and origin; a
-//     new field prints the church's value or the template's fallback; accept all gives version 2's body.
-//   Criterion 7: the legal notice is never a difference, and accept all keeps it in the PDF and the Word file.
-//   Criterion 8: an accept after another save, or after the church template changed, is a conflict and writes nothing.
-//   Criterion 9: a deleted church template offers no compare; the document still opens, saves and exports.
-//   Criterion 10: a Member, another church's seat and a forged origin are refused, write nothing and reveal nothing.
 import { fixture, ok, refused } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -69,7 +56,6 @@ const file = async (who, documentId, format, revision?) =>
 		),
 	);
 const pdfText = async (f) => (await pdfPages(Buffer.from(f.bytes, "base64"))).join(" ").replace(/\s+/g, " ");
-/** The words of the Word file: its body, headers and footers. */
 const docxText = (f) =>
 	Object.entries(docxParts(Buffer.from(f.bytes, "base64")))
 		.filter(([name]) => /^word\/(document|header\d*|footer\d*)\.xml$/.test(name))
@@ -83,7 +69,6 @@ const counts = async () => ({
 	audits: await countOf("audit_event"),
 });
 
-/** A church template saved from a fresh copy of the built-in policy, as "Save as template" makes it. */
 async function churchTemplate(who, name) {
 	const base = await create(who, POLICY);
 	return ok(
@@ -96,7 +81,6 @@ async function churchTemplate(who, name) {
 		}),
 	);
 }
-/** The church template's current version, as stored. */
 const storedTemplate = async (recordId) =>
 	docTemplate.parse(
 		JSON.parse(
@@ -109,11 +93,6 @@ const storedTemplate = async (recordId) =>
 		),
 	);
 
-/**
- * The test-only version 2 of a church template, written through "Update a church template" from a document made from
- * it: block 4 ("Purpose") is reworded, block 5 (its paragraph) is gone, and a new paragraph after block 7 prints a
- * field the version 1 document does not have.
- */
 async function versionTwo(template) {
 	const doc = await create(OWNER, template.templateId);
 	const body = structuredClone(doc.body);
@@ -150,7 +129,6 @@ async function versionTwo(template) {
 }
 
 before(async () => {
-	// Harvest Point has a senior pastor, so the pastor field prints the church's value; Other Church has none.
 	const pastor = randomUUID();
 	const team = randomUUID();
 	const role = randomUUID();
@@ -184,7 +162,6 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		assert.equal(found.templateVersion, 1);
 		assert.equal(found.behind, false);
 		assert.deepEqual(found.differences, []);
-		// A rename shows in the compare: the name is the template row's (D-171).
 		ok(
 			await documentsWriter.editChurchTemplate(db, await authority(ADMIN), {
 				templateId: template.id,
@@ -194,7 +171,6 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 			}),
 		);
 		assert.equal(ok(await compare(ADMIN, doc.id)).templateTitle, "Board conflict policy");
-		// A built-in template is not the church's own.
 		const builtIn = ok(await compare(ADMIN, (await create(ADMIN, POLICY)).id));
 		assert.equal(builtIn.churchTemplate, false);
 	});
@@ -227,7 +203,6 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		const template = await churchTemplate(OWNER, "Our conflict policy");
 		const doc = await create(ADMIN, template.templateId);
 		const other = await create(ADMIN, template.templateId);
-		// The church's own edit on the document: its lead paragraph.
 		const edited = structuredClone(doc.body);
 		edited.body.content[3] = para("Our board keeps this policy so every decision serves the church.");
 		const r2 = ok(await save(ADMIN, doc.id, "1", edited));
@@ -251,7 +226,6 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 			[3, "body", "template-only"],
 		]);
 		assert.equal(found.differences[1].template.content[0].text, "Why this policy exists");
-		// The new field shows what it would print: the church's pastor, never a raw key or a blank.
 		assert.equal(found.values.pastor_name, "Pastor Ada");
 		assert.equal(found.values.church_name, "Harvest Point");
 
@@ -269,7 +243,6 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		assert.deepEqual(await counts(), { ...before, revisions: before.revisions + 1, audits: before.audits + 1 });
 		assert.equal(accepted.revision, "3");
 		assert.equal(accepted.templateVersion, 2);
-		// The document's own lead paragraph stays; the reworded heading, the removal and the new paragraph come in.
 		const expected = structuredClone(r2.body.body.content);
 		expected[4] = v2.body.content[4];
 		expected.splice(7, 0, v2.body.content[6]);
@@ -283,7 +256,6 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		assert.equal(accepted.body.data.pastor_name, "Pastor Ada");
 		assert.equal(await status(ADMIN, doc.id), "current", "the notice is gone");
 
-		// Exactly one new revision; the earlier ones are unchanged and still render the same file.
 		assert.deepEqual(
 			(await history(MEMBER, doc.id)).revisions.map((r) => r.number),
 			[1, 2, 3],
@@ -299,10 +271,8 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 			assert.ok(text.includes("Our board keeps this policy"), "the kept edit prints");
 			assert.ok(!text.includes("pastor_name"), "no raw key prints");
 		}
-		// The kept edit is still a difference; nothing else is.
 		assert.deepEqual(shape(ok(await compare(ADMIN, doc.id)).differences), [[0, "body", "changed"]]);
 
-		// Accept all on another document gives version 2's body.
 		const otherFound = ok(await compare(OWNER, other.id));
 		const all = ok(
 			await accept(OWNER, {
@@ -322,10 +292,8 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 	test("INV-doc-compare: a church with no value for a new field prints the template's fallback; a value is not a difference", async () => {
 		const template = await churchTemplate(OTHER, "Other policy");
 		const doc = await create(OTHER, template.templateId);
-		// Other Church's details change: a frozen value that differs is not a difference.
 		await admin.execute(sql`UPDATE plant SET name = 'Other Church Renamed' WHERE id = ${Q}::uuid`);
 		assert.deepEqual(ok(await compare(OTHER, doc.id)).differences, []);
-		// Version 2, written by Other Church's admin from its own document.
 		const source = await create(OTHER, template.templateId);
 		const body = structuredClone(source.body);
 		body.fields.push({
@@ -407,7 +375,6 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		edited.body.content.splice(5, 1);
 		ok(await save(ADMIN, doc.id, "1", edited));
 		const found = ok(await compare(ADMIN, doc.id));
-		// Another tab saves revision 3 after the compare opened.
 		ok(await save(OWNER, doc.id, "2", { ...edited, title: "Saved elsewhere" }));
 		const request = {
 			documentId: doc.id,
@@ -420,7 +387,6 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		let before = await counts();
 		refused(await accept(ADMIN, request), "conflict");
 		assert.deepEqual(await counts(), before);
-		// The compare reloads on revision 3; then the church template changes before the accept.
 		const reloaded = ok(await compare(ADMIN, doc.id));
 		assert.equal(reloaded.revision, "3");
 		await versionTwo(template);
@@ -480,14 +446,12 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		};
 		const before = await counts();
 
-		// A Member: no editor read (so no notice), no compare, no accept.
 		refused(
 			await documentsWriter.readChurchForEdit(db, await authority(MEMBER), { documentId: doc.id }),
 			"access_denied",
 		);
 		refused(await compare(MEMBER, doc.id), "access_denied");
 		refused(await accept(MEMBER, request), "access_denied");
-		// Another church plant's Admin naming this church's document.
 		const theirs = [await compare(OTHER, doc.id), await accept(OTHER, request)];
 		for (const reply of theirs) {
 			refused(reply, "unavailable");
@@ -495,7 +459,6 @@ describe("INV-doc-compare: compare a document with the church's own template", {
 		}
 		assert.deepEqual(await counts(), before);
 
-		// Another church's document whose origin names this church's template: nothing to compare with.
 		const own = await create(OTHER, POLICY);
 		const forged = ok(
 			await save(OTHER, own.id, "1", { ...own.body, origin: { ...own.body.origin, template: template.templateId } }),

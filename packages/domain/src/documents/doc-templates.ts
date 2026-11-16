@@ -10,11 +10,6 @@ import memberExpectations from "./templates/member-expectations.json" with { typ
 import prayerLetter from "./templates/prayer-letter.json" with { type: "json" };
 import { PUBLISHED, SUPERSEDED, type PublishedVersion } from "./templates/published/index.ts";
 
-// The built-in everyfield.doc/1 templates: one JSON file per template, `templates/<id>.json`. Each file is parsed
-// with the contract parser when this module loads, so a file that does not validate stops the build and every
-// server start. Sebastian approves each file (mergePolicy.documentTemplates).
-
-/** The files, by the id their name gives. A test keeps this list equal to the folder. */
 const FILES: Record<string, unknown> = {
 	"budget-worksheet": budgetWorksheet,
 	bylaws,
@@ -27,7 +22,6 @@ const FILES: Record<string, unknown> = {
 	"prayer-letter": prayerLetter,
 };
 
-/** Parse one template file. A fault names the file and every issue; a file whose id differs from its name fails. */
 export function loadTemplate(id: string, raw: unknown): DocTemplate {
 	const parsed = docTemplate.safeParse(raw);
 	if (!parsed.success)
@@ -36,21 +30,14 @@ export function loadTemplate(id: string, raw: unknown): DocTemplate {
 	return parsed.data;
 }
 
-/** Every built-in template, in a stable order (by id). */
 export const DOC_TEMPLATES: readonly DocTemplate[] = Object.entries(FILES)
 	.sort(([a], [b]) => a.localeCompare(b))
 	.map(([id, raw]) => loadTemplate(id, raw));
 
 export const docTemplateById = (id: string) => DOC_TEMPLATES.find((template) => template.id === id);
 
-/** The superseded versions' bodies, parsed when this module loads, like the template files. */
 const SUPERSEDED_TEMPLATES = new Map(Object.entries(SUPERSEDED).map(([name, raw]) => [name, docTemplate.parse(raw)]));
 
-/**
- * A published version of a built-in template, found by its id and the hash a document records (D-421, D-422): the
- * template file for the current version, else the stored body of a superseded one. Undefined when the store has no
- * such version, so a compare has no base.
- */
 export function publishedTemplate(id: string, hash: string): DocTemplate | undefined {
 	const entry = PUBLISHED[id]?.find((published) => published.hash === hash);
 	if (!entry) return undefined;
@@ -58,11 +45,6 @@ export function publishedTemplate(id: string, hash: string): DocTemplate | undef
 	return current?.version === entry.version ? current : SUPERSEDED_TEMPLATES.get(`${id}.v${entry.version}`);
 }
 
-/**
- * Where a store of published versions disagrees with the template files, one line each; empty when it agrees. Each
- * template's versions run 1, 2, 3 with no gap and end at the file's version, whose hash is the file's; so a file whose
- * content changes without a new version fails. Every earlier version has its stored body, with that version's hash.
- */
 export async function publishedProblems(
 	templates: readonly DocTemplate[],
 	published: Readonly<Record<string, readonly PublishedVersion[]>>,
@@ -81,7 +63,6 @@ export async function publishedProblems(
 		for (const earlier of versions.slice(0, -1)) {
 			const name = `${template.id}.v${earlier.version}`;
 			const body = docTemplate.safeParse(superseded[name]);
-			// The hash covers the id and version too, so a body of another template or version fails here.
 			if (!body.success) problems.push(`${name}: the superseded body is missing or does not validate`);
 			else if ((await templateHash(body.data)) !== earlier.hash)
 				problems.push(`${name}: the body's hash is not the one published`);
@@ -90,7 +71,6 @@ export async function publishedProblems(
 	return problems;
 }
 
-/** What the "New from template" picker shows for each built-in template. */
 export type DocTemplateSummary = {
 	id: string;
 	version: number;
@@ -98,11 +78,9 @@ export type DocTemplateSummary = {
 	description: string | null;
 	documentClass: DocTemplate["class"];
 	formats: DocTemplate["exports"];
-	/** Sheets of paper: the page size in points and the cards per sheet (1 when not tiled). */
 	page: { width: number; height: number; perSheet: number };
 };
 
-/** One sheet of paper: its size in points (Letter when the setup names none) and the cards it holds. */
 export function sheetOf(page: PageSetup) {
 	const box = pageBox(page) ?? { width: 612, height: 792 };
 	return { ...box, perSheet: page.tile ? page.tile.across * page.tile.down : 1 };
