@@ -49,7 +49,6 @@ const currentWitness = z.object({
 });
 export type DeletionSubject = z.infer<typeof n.deletionSubject>;
 export type DeletionRequest = { subject: DeletionSubject; requestId: string; revision: string };
-/** The facts of one church workspace deletion notice: the church, its request and every seat open at the commit. */
 export type WorkspaceDeletionNotice = {
 	kind: "requested" | "cancelled";
 	plant: { name: string; timeZone: string };
@@ -59,9 +58,7 @@ export type WorkspaceDeletionNotice = {
 	recipients: { accountId: string; address: string; timeZone: string | null }[];
 };
 export interface DeletionEffects {
-	/** The purge job for one request, as an insert the request adds to its own write statement (D70). */
 	queue(tx: Tx, input: DeletionRequest & { witnessId: string; eligibleAt: string }): SQLWrapper;
-	/** Adds one email per recipient to `writes`, which commit with the witness change. */
 	workspaceNotice(tx: Tx, input: WorkspaceDeletionNotice, writes: SQLWrapper[]): Promise<void>;
 }
 const audience = z.object({
@@ -72,10 +69,6 @@ const audience = z.object({
 	plant_timezone: z.string(),
 	requester_name: z.string().nullable(),
 });
-/**
- * Every seat open in the church now, with its contact and personal zone, and the requester's name: one statement. The
- * caller holds the plant root (a request) or the workspace seat lock (a cancel).
- */
 async function seated(
 	tx: Tx,
 	kind: WorkspaceDeletionNotice["kind"],
@@ -132,10 +125,6 @@ async function witness(tx: Tx, subject: DeletionSubject) {
 		.for("update");
 	return w;
 }
-/**
- * The restricted session's proof, its account and the request witness, locked in that order in one statement, with
- * the database clock. A handle that names no live proof for this exact request is refused.
- */
 async function proven(tx: Tx, handle: string, subject: DeletionSubject) {
 	const proof = tx.$with("restricted_proof").as(
 		tx
@@ -227,7 +216,6 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 	async function request(tx: Tx, ctx: SettingsContext, raw: unknown, kind: "account" | "plant") {
 		const plantRequest = kind === "plant" ? parse(q.requestWorkspaceDeletion, raw) : null;
 		const v = plantRequest ?? parse(q.requestAccountDeletion, raw);
-		// The bound write locked the account, its open seats and, for a workspace, the plant.
 		const workspace = plantRequest?.input.plant ?? null;
 		const a = workspace ? await plantAdmin(tx, ctx, workspace, "command") : await self(tx, ctx);
 		const subject: DeletionSubject = workspace ?? { kind: "account", id: accountId.parse(a.account.id) };
@@ -240,10 +228,7 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 			v,
 		);
 		if (c.kind === "replay") return requestRecord.parse(c.value).deletion;
-		// The bound write locks the plant only for an actor with one open seat.
 		if (subject.kind === "plant") await root(tx, subject);
-		// One statement: the current witness, locked, and whether an owner seat blocks personal deletion. An Owner of
-		// an organization, or of a workspace that is not itself being deleted, needs the manual exception.
 		const blocked =
 			subject.kind === "account"
 				? sql`EXISTS(SELECT FROM seat s WHERE s.account_id=${a.account.id}::uuid AND s.role='owner' AND s.ended_at IS NULL AND (s.organization_id IS NOT NULL OR NOT EXISTS(SELECT FROM lifecycle_witness h WHERE h.kind='plant' AND h.opaque_subject_id=s.plant_id AND h.state IN ('pending_deletion','purging','purged'))))`
@@ -279,7 +264,6 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		const [w] = old
 			? await tx.update(t.lifecycle_witness).set(values).where(eq(t.lifecycle_witness.id, old.id)).returning()
 			: await tx.insert(t.lifecycle_witness).values(values).returning();
-		// Sessions, pending mail and queued work stop in the same transaction as the witness.
 		await tx.execute(sql`SELECT settings_suspend_subject(${w!.id}::uuid,${requestId}::uuid)`);
 		if (subject.kind === "plant") await effects.workspaceNotice(tx, await seated(tx, "requested", w!), c.writes);
 		c.writes.push(
@@ -310,8 +294,6 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		revision(v.expectedRevision, w.request_revision);
 		if (w.state === "cancelled") return status(w);
 		if (clock >= w.cancel_until! || w.state !== "pending_deletion") deny("deadline_passed");
-		// The witness, its audit entry and each open seat's notice change in one statement. No grant, session or mail is
-		// restored: independent revocations stay authoritative.
 		const writes: SQLWrapper[] = [];
 		if (kind === "plant") await effects.workspaceNotice(tx, await seated(tx, "cancelled", w), writes);
 		await executeWrites(tx, [
@@ -358,8 +340,6 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		cancelWorkspaceDeletion: (tx, ctx, v) => reply(tx, (s) => cancel(s, ctx, v, "plant")),
 	};
 }
-// Trusted native identity adapter supplies the original account after fresh proof.
-// Do not expose this mint as a domain/Evry operation or accept an account from a body.
 export async function issueRestrictedDeletionSession(
 	tx: Tx,
 	input: { subject: DeletionSubject; requestId: string },
@@ -369,7 +349,6 @@ export async function issueRestrictedDeletionSession(
 	if (input.subject.kind === "plant") await lockSeats(tx, "workspace-seats/" + input.subject.id);
 	const id = accountId.parse(proof.accountId),
 		subject = input.subject;
-	// The proven account, the workspace root and the request witness, locked in that order, with the database clock.
 	const read = await tx.execute(
 		sql`WITH a AS (SELECT id FROM account WHERE id=${id}::uuid FOR UPDATE),
  r AS (SELECT id FROM plant WHERE ${subject.kind}='plant' AND id=${subject.id}::uuid AND EXISTS(SELECT FROM a) FOR UPDATE),
@@ -412,7 +391,6 @@ export function createLifecycleCleanup(
 	db: Database,
 	config: {
 		authorize(tx: Tx, input: DeletionRequest): Promise<boolean>;
-		// Confirm provider removal and derivative/cache cleanup; timeout/unknown is false.
 		removeOwnedResources(input: DeletionRequest): Promise<boolean>;
 	},
 ) {

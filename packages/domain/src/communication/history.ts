@@ -72,15 +72,6 @@ function stamp(column: SQL) {
 function mailOn(plantId: string) {
 	return sql`m.tenant_id = ${plantId}::uuid AND m.communication_id = c.id`;
 }
-/**
- * The state history shows, from the recipient rows only (a scheduled handoff stores the held time on each row; a
- * send-now handoff stores none). "Scheduled" needs at least one recipient waiting in Everyfield for the send time, or
- * one the email service accepted and holds (an email handed off before T-241). "unsubscribed": every recipient
- * unsubscribed from this church's email, so nothing goes out. A
- * recipient without an answer makes the handoff "Not confirmed", never "Not scheduled": the email service may hold
- * it. "Not scheduled" is only a handoff the email service refused for everyone. A cancel or time change counts as
- * done only when no accepted recipient is left open.
- */
 function hubState(plantId: string) {
 	const on = mailOn(plantId);
 	const any = (where: SQL) => sql`EXISTS (SELECT 1 FROM mail m WHERE ${on} AND ${where})`;
@@ -102,12 +93,10 @@ function hubState(plantId: string) {
 		ELSE 'unknown'
 	END`;
 }
-/** The send time an accepted recipient still holds when it differs from the saved (requested) time. */
 function staleHeldSql(plantId: string) {
 	return sql`(SELECT min(m.scheduled_at) FROM mail m WHERE ${mailOn(plantId)} AND m.state = 'accepted'
 		AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at)`;
 }
-/** The time to show: what the email service still holds, else the saved time. */
 function shownTimeSql(plantId: string) {
 	return stamp(sql`coalesce(${staleHeldSql(plantId)}, c.scheduled_at)`);
 }
@@ -118,7 +107,6 @@ function reachableSql(plantId: string) {
 			AND m.refusal IS NULL
 			AND NOT EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL))`;
 }
-/** A held (scheduled) recipient is not sent when the email service accepts it, only when it goes out. */
 function sentAtSql(plantId: string) {
 	return stamp(
 		sql`(SELECT min(coalesce(m.sent_at, m.delivered_at, CASE WHEN m.scheduled_at IS NULL THEN m.accepted_at END))
@@ -414,7 +402,6 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 				LEFT JOIN communication c ON c.id = ${input.communicationId}::uuid AND c.plant_id = ${reader.plantId}::uuid
 				LEFT JOIN LATERAL (
 					SELECT count(*)::int AS total,
-						-- Attempted: handed to the email service. A recipient skipped because they unsubscribed never was.
 						count(*) FILTER (WHERE m.state NOT IN ('pending', 'scheduled') AND m.refusal IS NULL)::int AS attempted,
 						count(*) FILTER (WHERE m.bounced_at IS NULL AND m.state NOT IN ('refused', 'failed')
 							AND (m.state IN ('accepted', 'sent') OR m.accepted_at IS NOT NULL))::int AS accepted,
@@ -433,7 +420,6 @@ export async function getDeliveryTotals(tx: Tx, authority: RequestActor, request
 						count(*) FILTER (WHERE m.cancel_requested_at IS NOT NULL
 							AND m.state IN ('accepted', 'unknown', 'dispatched'))::int AS cancel_open,
 						count(*) FILTER (WHERE m.state <> 'sent' AND m.delivered_at IS NULL)::int AS not_sent,
-						-- Outcomes: only what the email service answered, not a recipient still waiting, nor one skipped for an opt-out.
 						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'accepted')::int AS word_accepted,
 						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'unknown')::int AS word_unknown,
 						count(*) FILTER (WHERE m.state <> 'scheduled' AND m.refusal IS NULL AND ${word} = 'rejected')::int AS word_rejected
@@ -621,7 +607,6 @@ export async function listMeetingTracking(tx: Tx, authority: RequestActor, reque
 						SELECT jsonb_agg(jsonb_build_object('personId', t.id, 'name', t.display_name, 'deliveryStatus', t.status)
 							ORDER BY t.display_name, t.id)
 						FROM (
-							-- One row per person: a person emailed by several of the meeting's messages shows their latest mail.
 							SELECT DISTINCT ON (p.id) p.id, p.display_name,
 								CASE WHEN m.delivered_at IS NOT NULL THEN 'delivered' WHEN m.refusal = 'unsubscribed' THEN 'unsubscribed' ELSE m.state END AS status
 							FROM communication c

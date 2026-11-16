@@ -56,7 +56,6 @@ type Contextual = {
 };
 
 function matched(templates: LibraryTemplate[], input: Contextual, kind: AgendaKind | null) {
-	// A meeting offers the one agenda that prints from it.
 	if (input.meetingId && !input.teamId)
 		return kind ? templates.filter((template) => template.id === AGENDA_TEMPLATE[kind]) : [];
 	if (input.meetingId || input.teamId) return [];
@@ -91,7 +90,6 @@ export const documentsReader = {
 	async "templates.contextual"(db: Reader, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.contextualTemplatesRequest, raw);
-			// With a meeting, one statement reads the account, the seat and the meeting's kind together.
 			const viewer = input.meetingId && !input.teamId ? plantViewer(authority) : null;
 			if (viewer && input.meetingId) {
 				const found = await readAgendaKind(db, viewer, input.meetingId);
@@ -107,7 +105,6 @@ export const documentsReader = {
 	async resolveContext(db: Reader, authority: RequestActor, raw: unknown) {
 		return settle(() => contextOf(db, authority, raw, null));
 	},
-	/** The brand kit's images come from private storage; without it the church theme renders with the name in type. */
 	async preview(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null = null) {
 		return settle(() => contextOf(db, authority, raw, { db, storage }));
 	},
@@ -164,14 +161,6 @@ async function contextOf(db: Reader, authority: RequestActor, raw: unknown, arti
 type Loaded = Awaited<ReturnType<typeof library>>;
 type OpenRead = Extract<PlantRead, { subjectOk: true }>;
 
-/**
- * One template resolved for one subject, and its render: the merge values (a meeting's date fills meeting_date) and,
- * for an agenda, the meeting's rows. The preview and generate both call this, so a generated file holds the bytes its
- * preview showed for the same template, format, overrides and subject. An agenda prints only from a live meeting of its
- * own kind; any other meeting reads as no subject at all. The render paints the plant's brand kit as it stands now
- * (`templateTheme`), so both paths use the same theme for the same kit. With a kit, each image costs the preview
- * readBrandAsset's 8 statements; with no kit the preview stays at its one read.
- */
 export function forSubject(
 	loaded: Loaded,
 	template: LibraryTemplate,
@@ -207,7 +196,6 @@ function resolved(
 	plantId: string,
 	row: OpenRead,
 ) {
-	// The meeting's date fills meeting_date for any template named with a live meeting.
 	const meetingDate = row.meeting ? dateText(row.meeting.localDate, new Date().getUTCFullYear()) : undefined;
 	const merge = resolveMerge(
 		template,
@@ -228,10 +216,6 @@ function resolved(
 	return { value, merge };
 }
 
-/**
- * Bytes, or null when a required field is missing. A meeting's rows print only when `printFrom` is given. The network's
- * statement of faith fills a `statement-of-faith` slot. No theme renders the Everyfield-neutral theme.
- */
 async function rendered(
 	template: LibraryTemplate,
 	format: "pdf" | "docx" | "xlsx",
@@ -249,7 +233,6 @@ async function rendered(
 	}
 }
 
-/** The agenda of one live meeting as PDF bytes. One statement reads the plant and the meeting; nothing is stored. */
 async function printAgenda(db: Reader, authority: RequestActor, raw: unknown) {
 	const input = parse(c.printAgendaRequest, raw);
 	const viewer = plantViewer(authority);
