@@ -34,12 +34,12 @@ The account's own notifications, newest first, with All and Unread, a category f
 
 - Routes: `/notifications`
 - Endpoints: `/notifications/read`
-- Personas: `owner` write, `admin` write, `member` write, `network` write, `visitor` none
+- Personas: `owner` write, `admin` write, `member` write, `network` write, `graceOwner` write, `hillOwner` write, `graceDirector` write, `visitor` none
 - Catalog: NTF-003, NTF-008, NTF-009
 
 Reach:
 
-- Rail "Notifications" for `network`
+- Rail "Notifications" for `network`, `graceOwner`, `hillOwner`, `graceDirector`
 - From overview.home as `owner`:
 
 ```bash
