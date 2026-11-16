@@ -42,7 +42,9 @@ import {
 import { Avatar } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
-import { useEffect, useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { useAddress, writeAddress } from "../../components/location.ts";
+import { createRead, useRead } from "../../components/read.tsx";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import {
 	appointLeader,
@@ -77,7 +79,7 @@ import {
 	diffLines,
 	historyTitle,
 	iconKey,
-	NEW_SETUP,
+	newSetup,
 	people,
 	planTeamEdit,
 	plural,
@@ -97,9 +99,12 @@ import { apply, today, type Change } from "./page-state.ts";
 import { ResponsibilitiesPanel } from "./responsibilities/Responsibilities.tsx";
 import type { TeamView } from "./server.ts";
 
-// One ministry (REQ-TEAM-001, -002, -004 to -006): its roles, its people now and before, its leader, its place in the
-// organization view and its history. Every change shows at once, then settles from the write's own answer through the
-// same step (page-state.ts); a refusal puts the page back and says why. Nothing reloads the page.
+const histories = createRead(({ teamId }: { teamId: string; revision: string }) => teamHistory(teamId), {
+	failed: (): Outcome<{ entries: HistoryEntry[] }> => ({ status: "lost" }),
+});
+
+const TABS = ["roles", "responsibilities", "people", "training", "history"] as const;
+const tabOf = (value: string | null) => TABS.find((tab) => tab === value) ?? "roles";
 
 type Confirm =
 	| { kind: "archive" }
@@ -118,14 +123,16 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	}
 	const [, startTransition] = useTransition();
 	const [view, project] = useOptimistic(data, apply);
-	// One lane for the ministry itself (details, archive, leader) and one for its roles and people (C68).
 	const teamLane = useSaveIntent<TeamForm>({ explain: problemText });
 	const roleLane = useSaveIntent<RoleForm>({ explain: problemText });
 	const peopleLane = useSaveIntent<PersonForm>({ explain: problemText });
 	const templatesLane = useSaveIntent<SetupForm>({ explain: problemText });
 	const [flow, setFlow] = useState<PersonFlow | null>(null);
 	const [confirm, setConfirm] = useState<Confirm | null>(null);
-	const [tab, setTab] = useState("roles");
+	const { pathname, params } = useAddress();
+	const tab = tabOf(params.get("tab"));
+	const chooseTab = (next: string) =>
+		writeAddress(next === "roles" ? pathname : `${pathname}?tab=${tabOf(next)}`, { replace: true });
 
 	const t = view.team;
 	const can = data.canChange && !t.archived;
@@ -134,7 +141,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	const open = roles?.filter((r) => !r.occupantPersonId) ?? [];
 	const crew = view.members ? people(view.members) : null;
 
-	/** After a refusal as out of date: the latest page, shown. A ministry that is gone goes back to the list. */
 	const stale = () =>
 		reloadTeam(t.id).then(
 			(r) => {
@@ -144,10 +150,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			},
 			() => {},
 		);
-	/**
-	 * One change: drawn at once, then settled from the write's own answer. `change` is what the person asked for;
-	 * `confirm` turns the answer into the saved change.
-	 */
 	function save<F extends { problem?: string }, T>(
 		lane: ReturnType<typeof useSaveIntent<F>>,
 		spec: {
@@ -179,7 +181,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		});
 	}
 
-	// The ministry ---------------------------------------------------------------------------------------------------
 	const teamForm = (): TeamForm => ({
 		mode: "edit",
 		name: t.name,
@@ -196,8 +197,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			state: form.state,
 			reason: form.reason,
 		};
-		// Nothing changed: send no request, whatever the reason says. A reason alone is not a change,
-		// so say that nothing was saved instead of dropping it silently.
 		const plan = planTeamEdit(teamForm(), form);
 		if (plan !== "send") {
 			teamLane.close();
@@ -242,7 +241,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		});
 	}
 
-	// Roles and people -----------------------------------------------------------------------------------------------
 	function saveRole(form: RoleForm) {
 		const facts = {
 			name: form.name.trim(),
@@ -327,7 +325,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		});
 	}
 
-	/** After roles are added from the templates, the roles read again in their own request: their ids are the server's. */
 	function addedFromTemplates(added: { newRoles: number }) {
 		toast({
 			tone: "success",
@@ -341,7 +338,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		admin: data.admin,
 		disabled: roleLane.wait !== null || templatesLane.wait !== null,
 		onBlank: () => roleLane.open(roleForm(null)),
-		onTemplates: () => templatesLane.open(NEW_SETUP),
+		onTemplates: () => templatesLane.open(newSetup()),
 	};
 
 	const leaderNote =
@@ -353,8 +350,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 					? "From an earlier record"
 					: null;
 
-	// Roles and people: Owners, Admins and this ministry's linked leader. The ministry's details, its leader and its
-	// archive: Owners and Admins only (the producer decides again).
 	const admin = data.admin && can;
 	const actions = can ? (
 		<span className="flex flex-wrap items-center gap-2.5">
@@ -368,7 +363,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 					{t.leaderPersonId ? "Change leader" : "Appoint leader"}
 				</Button>
 			) : null}
-			{/* With every role filled, a new person needs a new role first. */}
 			{open.length ? (
 				<Button
 					variant="primary"
@@ -405,7 +399,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	return (
 		<>
 			<PageHeader
-				// The actions keep their width; a long name wraps instead (REQ-TEAM-012 long names).
 				className="[&>div:last-child]:flex-none max-app-md:[&>div:last-child]:flex-initial"
 				breadcrumb={[{ label: "Ministries", href: "/ministries" }, { label: short(t.name) }]}
 				title={
@@ -449,7 +442,7 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			<SaveNotice {...templatesLane.noticeProps} dialogOpen={templatesLane.editing !== null} />
 
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(280px,1fr)] items-start gap-5 max-app-lg:grid-cols-1">
-				<Tabs value={tab} onValueChange={setTab} className="min-w-0">
+				<Tabs value={tab} onValueChange={chooseTab} className="min-w-0">
 					<TabsList aria-label="Ministry">
 						<Tab value="roles" count={roles?.length}>
 							Roles
@@ -522,7 +515,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 							teamId={t.id}
 							revision={[
 								t.revision,
-								// Role changes are filed under the role, so a settled role change reads the history again too.
 								...(data.roles ?? []).map((r) => `${r.id}.${r.revision}.${r.occupantPersonId ?? ""}`),
 							].join(":")}
 						/>
@@ -559,7 +551,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 							</CardHeading>
 						</CardHeader>
 						<div className="[&_a]:w-full">
-							{/* An archived ministry is out of the organization view; its own page shows only itself, labelled Archived. */}
 							<ChartTree nodes={view.nodes.filter((n) => !n.archived || n.id === t.id)} focus={t.id} />
 						</div>
 						<IntentLink
@@ -658,7 +649,6 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	);
 }
 
-/** A name short enough for a breadcrumb; the page title shows it in full. */
 const short = (name: string) => (name.length > 48 ? `${name.slice(0, 47)}…` : name);
 
 function confirmCopy(
@@ -767,10 +757,6 @@ function PersonFlowDialog({
 	);
 }
 
-/**
- * One way to add a role. An Owner or Admin chooses between a blank role and the templates (one extra click); anyone
- * else who may change the ministry gets the blank role at once (the templates change the church's structure).
- */
 function AddRole({
 	admin,
 	disabled,
@@ -812,8 +798,6 @@ function AddRole({
 		</Menu>
 	);
 }
-
-// Roles ----------------------------------------------------------------------------------------------------------
 
 function RolesCard({
 	roles,
@@ -972,8 +956,6 @@ function RoleSlot({
 	);
 }
 
-// People ---------------------------------------------------------------------------------------------------------
-
 function PeopleCard({
 	archived,
 	crew,
@@ -1098,23 +1080,9 @@ function PeopleCard({
 	);
 }
 
-// History --------------------------------------------------------------------------------------------------------
-
-/** The ministry's history, read when the tab opens and again after the ministry changes. */
 function HistoryCard({ teamId, revision }: { teamId: string; revision: string }) {
-	const at = `${teamId}:${revision}`;
-	const [got, setGot] = useState<{ at: string; value: Outcome<{ entries: HistoryEntry[] }> } | null>(null);
-	useEffect(() => {
-		let live = true;
-		teamHistory(teamId).then(
-			(value) => live && setGot({ at, value }),
-			() => live && setGot({ at, value: { status: "lost" } }),
-		);
-		return () => {
-			live = false;
-		};
-	}, [at, teamId]);
-	return <HistoryList state={got?.at === at ? got.value : null} />;
+	const history = useRead(histories, { teamId, revision });
+	return <HistoryList state={history.value ?? null} />;
 }
 
 function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | null }): ReactNode {

@@ -8,9 +8,6 @@ import { trainingReader, trainingWriter } from "@everyfield/domain/teams";
 import { outcome, write } from "../server.ts";
 import type { Outcome, PersonLoad, TrainingLoad } from "./model.ts";
 
-// Server actions for the training screens. The browser cannot send an actor. Each action reads the seat again and
-// hands the form to the training producer, which parses it. A lost answer may be retried with the same request key.
-
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Seat = NonNullable<Awaited<ReturnType<typeof seat>>>;
 type Authority = Seat["authority"];
@@ -30,11 +27,6 @@ async function read<T>(viewer: Seat, run: (db: Database, authority: Authority) =
 	}
 }
 
-/**
- * One ministry's programs and the church-wide ones and, beside them, who is on each required list. The ministry is
- * filtered before the church-wide cap, so a church with many programs still lists all of this ministry's own. The
- * list still shows when the assignment read fails.
- */
 export async function loadTraining(teamId: string): Promise<Outcome<TrainingLoad>> {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
@@ -51,7 +43,6 @@ export async function loadTraining(teamId: string): Promise<Outcome<TrainingLoad
 	};
 }
 
-/** One person's training summary and credit history, read together. */
 export async function loadPersonTraining(personId: string): Promise<PersonLoad> {
 	const viewer = await seat();
 	if (!viewer) return { summary: noSeat, credits: noSeat };
@@ -117,7 +108,6 @@ export async function attestCompletion(
 	return write(viewer, (tx, ctx) => trainingWriter.attestCompletion(tx, ctx, { requestKey, expectedRevision, input }));
 }
 
-/** Attendance and serving days have no record revision to compare. */
 export async function attestService(
 	requestKey: string,
 	input: { personId: string; attendanceDays: number; volunteerDays: number },
