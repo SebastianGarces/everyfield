@@ -10,7 +10,6 @@ import { createIdentityService, trustedIdentityIp, type IdentityConfig } from "@
 import { invitationService } from "../invitations";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 
-// Explicit credentials and keys are required. Never fall back to the operator DATABASE_URL.
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
 	IDENTITY_AUTH_DATABASE_URL: z.string().min(1),
@@ -19,10 +18,6 @@ const env = z.object({
 	...mailEnv,
 });
 
-/**
- * The identity mount's mail service. Its rule holds at enqueue and again just before the handoff: a reset or
- * verification link goes only to its own account, at the address that account's contact has now.
- */
 function identityMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
 	return createMailService({
@@ -54,7 +49,6 @@ function identityMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	});
 }
 
-/** The identity service's `enqueueMail`: the mail it asks for, queued under the mount's own rule. */
 function identityMailQueue(v: z.infer<typeof env>): IdentityConfig["enqueueMail"] {
 	const mail = identityMail(v);
 	return (tx, m) =>
@@ -71,16 +65,11 @@ function identityMailQueue(v: z.infer<typeof env>): IdentityConfig["enqueueMail"
 		});
 }
 
-/** The identity mail queue as the identity service uses it; null when the deployment has no identity configuration. */
 export function identityMailEnqueue(): IdentityConfig["enqueueMail"] | null {
 	const parsed = env.safeParse(process.env);
 	return parsed.success ? identityMailQueue(parsed.data) : null;
 }
 
-/**
- * The scheduled runner's identity mail pass: one bounded batch of this mount's due mail through `transport`, each
- * rechecked under the mount's own rule. Null when the deployment has no configuration for this mount.
- */
 export function identityMailPass(transport: MailTransport): MailPass | null {
 	const parsed = env.safeParse(process.env);
 	if (!parsed.success) return null;
@@ -109,8 +98,6 @@ function identityMount() {
 			trustedIp: (request) => trustedIdentityIp(request, process.env.VERCEL === "1"),
 			enqueueMail: identityMailQueue(v),
 			diagnostic: (value) => console.error(JSON.stringify({ component: "identity", ...value })),
-			// Invitation-origin registration and resume (REQ-IDN-003, REQ-IDN-030). The invitation service rechecks
-			// the proof, address and revision inside its own transaction.
 			invitations: invitationService() ?? undefined,
 		});
 	}
