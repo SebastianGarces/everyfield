@@ -42,24 +42,13 @@ import {
 	type TaskReminders,
 } from "./writes.ts";
 
-// Phase checklists (REQ-TSK-009, REQ-TSK-010, REQ-PHASE-006). Browse and preview read the fixed catalog; an import or an
-// accepted phase offer copies a checklist into ordinary top-level tasks assigned to the person who chose it. The tasks
-// keep no link to the catalog, so a later catalog version never touches them. Only a person's choice creates tasks: a
-// phase move, a read or a preview creates none. Owner and Admin only.
-//
-// An offer belongs to the plant's latest `movement` transition while that transition has no answer. Its answer is
-// stored on the transition (offer_answer, answered_at) and in one audit record naming the accepted and declined
-// checklists and the tasks created. Later offers leave out every checklist an earlier answer accepted or declined.
-
 const now = () => instant.parse(new Date().toISOString());
 const localDateAt = (at: string, zone: TimeZone) => calendarContext(zone, frozenClock(instant.parse(at))).localDate;
 const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
-/** Every checklist key an earlier offer of the plant accepted or declined, from the answers' audit records. */
 const answeredKeys = (plant: SQL) =>
 	sql`(SELECT coalesce(jsonb_agg(DISTINCT k),'[]') FROM audit_event a
 	CROSS JOIN LATERAL jsonb_array_elements_text((a.after_value->'accepted') || (a.after_value->'declined')) k
 	WHERE a.tenant_id=${plant} AND a.subject_type='phase_transition' AND a.kind='offer_answer')`;
-/** The plant's latest phase move, the only transition that can carry an open offer. `t` names a phase_transition row. */
 const isLatest = (t: SQL) =>
 	sql`${t}.id=(SELECT l.id FROM phase_transition l WHERE l.plant_id=${t}.plant_id AND l.kind='movement'
 	ORDER BY l.occurred_at DESC, l.id DESC LIMIT 1)`;
@@ -84,7 +73,6 @@ const offerTransition = (t: TransitionRow, zone: TimeZone) =>
 		occurredAt: t.occurredAt,
 		anchorDate: localDateAt(t.occurredAt, zone),
 	});
-/** What an answer's audit record says it decided. `taskIds` keeps the order the tasks were created in. */
 const answerRecord = z.object({
 	answer: z.enum(["accepted", "declined"]),
 	accepted: z.array(c.templateKey),
@@ -101,7 +89,6 @@ const summary = (k: Checklist) =>
 		category: k.category,
 		taskCount: k.items.length,
 	});
-/** A checklist's items as the tasks they would create, due `offsetDays` after `anchor`. */
 const preview = (k: Checklist, anchor: LocalDate) =>
 	c.checklistPreview.parse({
 		...summary(k),
@@ -114,11 +101,6 @@ const preview = (k: Checklist, anchor: LocalDate) =>
 		})),
 	});
 
-/**
- * The reader's live Owner or Admin access (C13), the plant's zone and phase and, for an offer read, the latest move,
- * the checklists earlier answers settled and a named transition with its answer record and created task titles. One
- * statement, whatever the catalog or the plant holds.
- */
 async function plantFacts(tx: Pick<Database, "execute">, viewer: Reader, offer?: { named: string | null }) {
 	const live = liveRead({ session: viewer.session, owner: viewer.owner, seatId: viewer.seatId }, true);
 	const named = offer?.named ?? null;
@@ -163,10 +145,8 @@ function adminReader(authority: RequestActor) {
 	return viewer;
 }
 
-/** The checklists, browse and preview reads. `catalog` is the fixed Everyfield catalog; tests pass another version. */
 export function createTemplateReader(catalog: Catalog = CATALOG) {
 	return {
-		/** tasks.listTemplates: every checklist of the catalog, whatever earlier offers answered, and the plant's phase. */
 		async listTemplates(tx: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
 			return readReply(async () => {
 				const viewer = adminReader(authority);
@@ -179,7 +159,6 @@ export function createTemplateReader(catalog: Catalog = CATALOG) {
 				});
 			});
 		},
-		/** tasks.previewTemplate: one checklist's tasks with due dates from the plant-local date today. Writes nothing. */
 		async previewTemplate(tx: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return readReply(async () => {
 				const viewer = adminReader(authority);
@@ -194,12 +173,6 @@ export function createTemplateReader(catalog: Catalog = CATALOG) {
 				});
 			});
 		},
-		/**
-		 * tasks.readPhaseOffer (PHASE-CASE-006): the open offer of the latest unanswered move, or none. The offer lists the
-		 * new phase's checklists that no earlier answer settled, previewed from the move's plant-local date, with the
-		 * Wiki's recommendations for that phase. A named transition reads that move instead, with what its answer
-		 * decided. Reading creates nothing. Two statements with an open offer (the facts and the Wiki read), else one.
-		 */
 		async readPhaseOffer(tx: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
 			return readReply(async () => {
 				const viewer = adminReader(authority);
@@ -236,7 +209,6 @@ export function createTemplateReader(catalog: Catalog = CATALOG) {
 					transition,
 					catalogVersion: catalog.version,
 					checklists,
-					// The offer stands without its reading list when the Wiki read is refused.
 					recommendations:
 						wiki.status === "ok"
 							? wiki.value.articles.slice(0, 50).map((a) => ({ slug: a.slug, title: a.title, excerpt: a.excerpt }))
@@ -247,7 +219,6 @@ export function createTemplateReader(catalog: Catalog = CATALOG) {
 	};
 }
 
-/** New top-level task rows for these items, assigned to the importer and due `offsetDays` after `anchor`. */
 function taskRows(
 	cmd: Command,
 	checklist: Checklist,
@@ -267,7 +238,6 @@ function taskRows(
 		}),
 	);
 }
-/** The command's own audit row, first, so it carries the request key and stored answer. */
 function commandRow(
 	cmd: Command,
 	entry: { kind: "create" | "offer_answer"; subjectType: string; subjectId: string; after: Record<string, unknown> },
@@ -287,7 +257,6 @@ function commandRow(
 	});
 }
 
-/** The locked move an answer is for: its answer so far, whether it is the latest move, and what earlier answers settled. */
 async function lockOffer(tx: Tx, cmd: Command, transitionId: string, importer: boolean) {
 	const r =
 		await tx.execute(sql`SELECT ${transitionJson(sql`t`)} AS transition, ${answeredKeys(sql`t.plant_id`)} AS answered,
@@ -297,16 +266,12 @@ async function lockOffer(tx: Tx, cmd: Command, transitionId: string, importer: b
 	const row = r.rows[0]
 		? z.object({ transition: transitionRow, answered: z.array(c.templateKey), importer: z.unknown() }).parse(r.rows[0])
 		: null;
-	// A creation entry, a declaration, a noop or another plant's move has no offer.
 	if (!row) deny();
-	// Another device or person answered first; the screen reads what they decided.
 	if (row.transition.answer !== null) deny("offer_answered");
-	// A later move replaced this offer.
 	if (!row.transition.latest) deny("conflict");
 	return row;
 }
 
-/** The checklist writes, on the task writer: import, accept and decline. */
 export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATALOG) {
 	const remind = (tx: Tx, cmd: Command, rows: TaskRow[]) =>
 		syncAll(
@@ -314,7 +279,6 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 			tx,
 			rows.map((r) => reminderChange(cmd.actor.plantId, null, r)),
 		);
-	/** Accept or decline: the answer settles this move and every older unanswered one, with one audit record. */
 	async function answer(
 		tx: Tx,
 		cmd: Command,
@@ -364,11 +328,6 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 		};
 	}
 	return {
-		/**
-		 * tasks.importTemplate (TARGET-TSK-009): the named items of one checklist as top-level tasks assigned to the
-		 * importer, due from the plant-local date today. A retry with the same request key replays the stored answer;
-		 * a new key adds another set. A stale version or an unknown key refuses the whole import.
-		 */
 		async importTemplate(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.importTemplateRequest, raw);
@@ -409,7 +368,6 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 				});
 			});
 		},
-		/** tasks.acceptPhaseOffer (TARGET-TSK-010): the chosen offered checklists' tasks, dated from the move's local date. */
 		async acceptPhaseOffer(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.acceptPhaseOfferRequest, raw);
@@ -419,7 +377,6 @@ export function templateWriter(reminders: TaskReminders, catalog: Catalog = CATA
 				});
 			});
 		},
-		/** tasks.declinePhaseOffer: every offered checklist declined; no task. They never come back in a later offer. */
 		async declinePhaseOffer(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.declinePhaseOfferRequest, raw);

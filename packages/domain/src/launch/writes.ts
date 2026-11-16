@@ -13,7 +13,6 @@ import { heldPractices, milestoneJson, milestoneOf, planAfter, systemClock } fro
 import { gatheringCommands } from "./gathering.ts";
 import { outcomeCommands } from "./outcome.ts";
 
-/** A milestone a person just completed, and the church's other current Owners and Admins to tell (NTF-009). */
 export type MilestoneCompleted = {
 	plantId: string;
 	plantName: string;
@@ -24,7 +23,6 @@ export type MilestoneCompleted = {
 	operationId: string;
 	recipients: string[];
 };
-/** Queues the Launch notifications in the completion's transaction: the notification service's port. */
 export type LaunchNotices = (tx: Transaction, completed: MilestoneCompleted) => Promise<unknown>;
 
 const SEED_ROWS = JSON.stringify(
@@ -39,12 +37,6 @@ const SEED_TASKS = JSON.stringify(
 		})),
 	),
 );
-/**
- * LCH-003/009: every fixed milestone and prep task the church does not have yet, as CTEs `ms` and `tk`, with their
- * history rows in `seeded`. Seed identity is the unique (plant, template key) of a milestone and (plant, launch task
- * key) of a task. A task a person deleted keeps its key, and one they renamed keeps it too, so a later repair inserts
- * neither again. Prep tasks are ordinary undated, unassigned Launch prep tasks; Tasks owns every later change.
- */
 const seedCtes = (
 	scope: Scope,
 	op: string,
@@ -72,7 +64,6 @@ const lockRow = z.object({
 	prior: priorRow,
 	launch: launchRow.nullable(),
 });
-/** The command's first statement: its gate, its stored answer if any, and the church's launch row locked. */
 async function lockLaunch(tx: Transaction, scope: Scope, key: string, create: boolean) {
 	const { rows } = await tx.execute(sql`WITH gate AS (SELECT ${scope.admin} AS ok), ${priorKey(scope, key)},
  cur AS (${
@@ -102,10 +93,6 @@ const milestoneLock = z.object({
 export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clock }) {
 	const clock = config.clock ?? systemClock;
 
-	/**
-	 * One date command: the locked launch row, the decided change, then one write statement with the launch row, any
-	 * missing readiness and the history row, then the plan. A refusal rolls everything back.
-	 */
 	async function dateCommand(
 		db: Database,
 		authority: RequestActor,
@@ -149,10 +136,6 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 		});
 	}
 
-	/**
-	 * One milestone command on the locked milestone, with its live linked tasks, the held-practice count, the actor's
-	 * name and the other current Owners and Admins.
-	 */
 	async function milestoneCommand(
 		db: Database,
 		authority: RequestActor,
@@ -194,10 +177,6 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 			return c.milestoneResult.parse(await decide(tx, scope, m, lock, identity));
 		});
 	}
-	/**
-	 * Changes the locked milestone and writes its history row with the stored answer, in one statement. The answer keeps
-	 * the milestone as saved, so a replay returns it unchanged.
-	 */
 	async function saveMilestone(
 		tx: Transaction,
 		scope: Scope,
@@ -222,7 +201,6 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 		return { op, result: { outcome: "changed" as const, milestone: saved } };
 	}
 
-	/** guest_data_entered and debrief_done follow the submitted debrief only: no person completes or reopens them. */
 	const manual = (id: string) => {
 		if (c.derivedMilestone.safeParse(id).success) deny("derived_evidence_only");
 		return id;
@@ -231,12 +209,6 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 	return {
 		...outcomeCommands(clock),
 		...gatheringCommands(clock),
-		/**
-		 * launch.schedule (LCH-001, LCH-003): set, move or recommit Launch Sunday. The first date, and any date while
-		 * readiness is incomplete, also creates the missing milestones and prep tasks in the same change. The same date
-		 * again changes nothing and records nothing. A move keeps every task's assignee, due date and status, and never
-		 * moves the phase.
-		 */
 		async schedule(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.scheduleRequest, raw);
@@ -258,7 +230,6 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 				});
 			});
 		},
-		/** launch.postpone (LCH-001): clears the active date with a reason. History keeps the former date. */
 		async postpone(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.postponeRequest, raw);
@@ -271,12 +242,6 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 				});
 			});
 		},
-		/**
-		 * launch.ensureReadiness (LCH-009): when an Owner or Admin opens a dated plan whose readiness is incomplete (a date
-		 * saved in onboarding, or an interrupted seed), create only the missing milestones and prep tasks. The locked
-		 * launch row serializes two tabs; the seed identities make a repeat create nothing. Never resets, deletes or
-		 * completes anything. Returns how many it created.
-		 */
 		async ensureReadiness(db: Database, authority: RequestActor) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
@@ -295,12 +260,6 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 				});
 			});
 		},
-		/**
-		 * launch.completeMilestone (LCH-004, NTF-009): a person marks the milestone complete, open tasks allowed. The page's
-		 * linked-task digest must still match: if someone changed the tasks since, nothing saves and the refusal carries
-		 * the current milestone to review. Completing a completed milestone that needs no review changes nothing and
-		 * tells no one; otherwise each other current Owner and Admin gets one Launch notification.
-		 */
 		async completeMilestone(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.completeMilestoneRequest, raw);
@@ -330,7 +289,6 @@ export function createLaunchWriter(config: { notices: LaunchNotices; clock?: Clo
 				});
 			});
 		},
-		/** launch.reopenMilestone (LCH-004): a person reopens a completed milestone; its tasks stay as they are. */
 		async reopenMilestone(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.reopenMilestoneRequest, raw);

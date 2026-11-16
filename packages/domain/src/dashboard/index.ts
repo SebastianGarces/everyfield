@@ -8,10 +8,6 @@ import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer } from "../documents/access.ts";
 import { readPlantSetupComplete } from "../identity/reads.ts";
 
-// Overview (WP-048): ADM-004 home routing and ADM-005 metrics, activity, quick actions and prompts. Every read is one
-// statement whose live seat check gates every row it returns (C13). Overview certifies nothing: its numbers are counts,
-// and a dismissed prompt only hides the prompt (REQ-ADM-005).
-
 type Db = Pick<Database, "execute">;
 type Scope = { plantId: string; accountId: string; seatId: string; live: SQL; admin: SQL; member: boolean };
 
@@ -33,7 +29,6 @@ async function settle<T>(body: () => Promise<T>): Promise<c.DashboardReply<T>> {
 		throw error;
 	}
 }
-/** The request's plant seat. `live` holds while the session and this exact seat do; `admin` adds Owner or Admin. */
 function scopeOf(authority: RequestActor): Scope {
 	const viewer = plantViewer(authority);
 	if (!viewer) return deny();
@@ -49,17 +44,12 @@ function scopeOf(authority: RequestActor): Scope {
 }
 const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
-/** A Person who is one of the church's own logins: linked to an account with a current seat here. */
 const seatPerson = (x: string) => {
 	const p = sql.raw(x);
 	return sql`(${p}.linked_account_id IS NOT NULL AND EXISTS(SELECT FROM seat s WHERE s.plant_id=${p}.plant_id
 		AND s.account_id=${p}.linked_account_id AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()))`;
 };
 
-/**
- * The first-week steps still open, from what the church recorded (dashboard.readSetupGaps). People counts anyone but the
- * church's own logins; a team is a second seat or an open seat invitation; a launch date is a planned or recorded date.
- */
 const gapColumns = (p: SQL) => sql`
 	NOT EXISTS(SELECT FROM person x WHERE x.plant_id=${p} AND x.state='live' AND NOT ${seatPerson("x")}) AS gap_add_people,
 	NOT EXISTS(SELECT FROM meeting m WHERE m.plant_id=${p} AND m.type='vision_meeting' AND m.retired_at IS NULL
@@ -88,9 +78,7 @@ function gapsOf(raw: unknown): c.SetupGaps {
 	return { setupComplete: r.setup_complete, gaps: c.SETUP_STEPS.filter((s) => open[s]) };
 }
 
-/** The section a prompt dismissal is audited under: settings.changed names the field, never a value (audit.md). */
 const PROMPT_SECTION = "overview_prompts";
-/** The prompts this person dismissed in this church, from their own dismissal audit rows (dashboard.promptState). */
 const dismissedColumn = (scope: Scope) => sql`(SELECT coalesce(jsonb_agg(DISTINCT a.metadata->>'prompt'),'[]')
 	FROM audit_event a WHERE a.actor_id=${scope.accountId}::uuid AND a.action='settings.changed'
 	AND a.tenant_id=${scope.plantId}::uuid AND a.metadata->>'section'=${PROMPT_SECTION}) AS dismissed`;
@@ -108,13 +96,6 @@ const frameRow = z.object({
 });
 
 export const dashboardReader = {
-	/**
-	 * dashboard.resolveHome (ADM-004): which home the request's seat has. An organization seat has its organization home;
-	 * a plant seat has Overview once the church's setup is saved complete, else its setup; any other account has its own
-	 * onboarding or Discovery page ("none"). Only the validated seat and the persisted onboarding fact decide it: no
-	 * caller input takes part, so a query parameter, returnTo or browser dismissal never certifies setup. One statement for
-	 * a plant seat, with the live check as its predicate; a failed check reads as setup not finished.
-	 */
 	async resolveHome(db: Db, authority: RequestActor | null): Promise<PlantSetup> {
 		const context = authority?.actor.context;
 		if (!authority || context?.kind !== "seat") return "none";
@@ -122,7 +103,6 @@ export const dashboardReader = {
 		return (await readPlantSetupComplete(db, authority.session, context.owner)) ? "complete" : "incomplete";
 	},
 
-	/** dashboard.readSetupGaps (ADM-004): whether setup is saved complete and which first-week steps are still open. */
 	async readSetupGaps(db: Db, authority: RequestActor) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -134,7 +114,6 @@ export const dashboardReader = {
 		});
 	},
 
-	/** dashboard.promptState (ADM-005): the optional prompts this person dismissed in this church. */
 	async readPromptState(db: Db, authority: RequestActor) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -146,11 +125,6 @@ export const dashboardReader = {
 		});
 	},
 
-	/**
-	 * dashboard.availableActions (ADM-005): the church as this seat sees it now: its name, saved phase, church-local
-	 * today and creation day, the quick actions the live seat can use (Owner and Admin write; a Member has none), the
-	 * setup gaps and the optional prompts still showing. One statement.
-	 */
 	async readAvailableActions(db: Db, authority: RequestActor) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -183,14 +157,6 @@ export const dashboardReader = {
 		});
 	},
 
-	/**
-	 * dashboard.metrics (ADM-005): four independent counts in one statement. None is compared with a target.
-	 * - Recruited: live People in core group, launch team or leader, without the church's own logins.
-	 * - People: every live Person; retired and merged People are not counted.
-	 * - My overdue tasks: the viewer's own open top-level tasks past due: a date-only task from the church-local midnight
-	 *   after its day, a timed one once its time has passed. Tasks assigned only to others are not counted.
-	 * - Vision Meetings: held (completed, at or before now), neither voided nor deleted.
-	 */
 	async readMetrics(db: Db, authority: RequestActor) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -220,13 +186,6 @@ export const dashboardReader = {
 		});
 	},
 
-	/**
-	 * dashboard.activity (ADM-005): the 20 latest changes in the church the viewer can open, newest first, from the
-	 * audit record of each change: a Person added, a meeting held, attendance corrected (the same meeting, never a new
-	 * one), a task completed, Launch Sunday set, moved or postponed, Launch Sunday recorded and, for Owners and Admins,
-	 * a phase change. An entry whose item is gone (a deleted task, a deleted meeting) is left out, as is one for an item
-	 * the viewer cannot open. Who did it is the account on the row. One statement.
-	 */
 	async readActivity(db: Db, authority: RequestActor) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -301,7 +260,6 @@ const eventRow = z.object({
 	meeting_type: z.string().nullable(),
 	task_title: z.string().nullable(),
 });
-/** What an audit row says happened, as an activity change. A row of a kind Overview does not show reads as null. */
 function changeOf(e: z.infer<typeof eventRow>): c.Change | null {
 	const after = e.after_value ?? {};
 	const date = (v: unknown) => (typeof v === "string" ? v.slice(0, 10) : null);
@@ -332,12 +290,6 @@ function changeOf(e: z.infer<typeof eventRow>): c.Change | null {
 }
 
 export const dashboardWriter = {
-	/**
-	 * dashboard.dismissPrompt (ADM-005): hides one optional prompt for this person in this church, in every browser. It
-	 * changes nothing else: no count, task, milestone or setup step. One statement: the live seat check, a
-	 * settings.changed audit row that names the field and the prompt, and nothing when it was already dismissed. Any seat
-	 * may dismiss its own prompts; a Member is shown none.
-	 */
 	async dismissPrompt(db: Db, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const scope = scopeOf(authority);

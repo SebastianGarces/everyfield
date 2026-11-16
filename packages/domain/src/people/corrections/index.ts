@@ -9,11 +9,6 @@ import { expectRevision, plantId } from "../fields/shared.ts";
 type RecordType = z.infer<typeof c.recordType>;
 const lens = (col: string) => sql.raw(`jsonb_build_object('score',r.${col},'notes',r.${col}_notes)`);
 const criterion = (col: string) => sql.raw(`jsonb_build_object('rating',r.${col},'notes',r.${col}_notes)`);
-/**
- * Each correctable record: its table, the date column, and every ordinary correction field as the contract names it,
- * with the SQL that reads it and the columns it writes. Original recorder, recorded instant, witness and document are
- * not fields here, so no correction can change them (REQ-PPL-015).
- */
 const records: Record<
 	RecordType,
 	{ table: string; fields: Record<string, { read: SQL; write: (v: never) => Record<string, unknown> }> }
@@ -70,7 +65,6 @@ const found = z.object({
 	voided: z.boolean(),
 	values: z.record(z.string(), z.unknown()),
 });
-/** The fields whose value differs, whatever the key order, with old and new values, by field name. */
 function diff(before: Record<string, unknown>, after: Record<string, unknown>) {
 	return Object.keys({ ...before, ...after })
 		.sort()
@@ -79,12 +73,6 @@ function diff(before: Record<string, unknown>, after: Record<string, unknown>) {
 }
 
 export const recordCorrections = {
-	/**
-	 * people.correctPersonRecord (REQ-PPL-015): correct an assessment, interview or card of this church against the
-	 * revision the corrector saw, with an optional reason. The record keeps its recorder and recorded instant; the assessment total
-	 * follows the corrected scores on every read; the stage never changes. One statement updates the record, appends the
-	 * correction with its old and new values and appends one audit row, which names the record but holds no value.
-	 */
 	async correctPersonRecord(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
 			const plant = plantId(ctx);
@@ -95,7 +83,6 @@ export const recordCorrections = {
 					const def = records[recordType];
 					const table = sql.identifier(def.table);
 					const target = sql`FROM ${table} r WHERE r.id=${recordId}::uuid AND r.plant_id=${plant}::uuid`;
-					// Lock the reviewed Person; a record that now belongs to someone else is a stale view.
 					const p = await subject(tx, ctx, personId, sql`(SELECT ${recordJson(recordType)} ${target})`);
 					if (p.extra === null) deny();
 					const record = found.parse(p.extra);
@@ -113,7 +100,6 @@ export const recordCorrections = {
 						outcome,
 						receiptId,
 					});
-					// Correcting to the values the record already holds changes nothing more.
 					if (!changed.length)
 						return {
 							value: value("noop", record.revision),
@@ -145,18 +131,12 @@ export const recordCorrections = {
 						action: "people.corrected",
 						before: { revision: p.revision },
 						after: { revision: p.revision },
-						// The corrected values and the reason stay in plant history; audit names only the record (audit.md).
 						metadata: recordEvent(`${recordType}_corrected`, recordId),
 					};
 				}),
 			);
 		});
 	},
-	/**
-	 * people.listRecordCorrections: one Person's corrections, latest first, each with old and new values, corrector and
-	 * reason. Card date, kind and void corrections (people.correctCommitmentLifecycle) come from their audit row; field
-	 * corrections from plant history. One statement with the live Owner or Admin check inside it.
-	 */
 	async listRecordCorrections(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
 			const plant = plantId(ctx);
