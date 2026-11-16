@@ -1,8 +1,10 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
-import { AvatarImage } from "./AvatarImage";
+import { AvatarImage, type ImageSettled } from "./AvatarImage";
 import { TINT, type Tone } from "./tone";
+
+export type { ImageSettled } from "./AvatarImage";
 
 export type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
 
@@ -199,10 +201,12 @@ export function Avatar({
 	decorative,
 	className,
 	children,
+	onImageSettled,
 }: {
 	name: string;
 	label?: string;
 	src?: string;
+	onImageSettled?: (result: ImageSettled) => void;
 	tone?: Tone;
 	size?: AvatarSize;
 	ring?: boolean;
@@ -226,7 +230,7 @@ export function Avatar({
 			)}
 		>
 			{children ?? <span aria-hidden="true">{initials(name)}</span>}
-			{src ? <AvatarImage key={src} src={src} /> : null}
+			{src ? <AvatarImage key={src} src={src} onSettled={onImageSettled} /> : null}
 		</span>
 	);
 }

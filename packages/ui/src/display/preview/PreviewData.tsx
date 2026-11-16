@@ -325,3 +325,36 @@ export function TableSection({ index }: { index: number }) {
 		</Section>
 	);
 }
+
+const PHOTO = "/mesh/sage.svg";
+
+function SettledAvatar({ name, src }: { name: string; src: string }) {
+	const [known, setKnown] = useState<"loaded" | "failed" | null>(null);
+	const label = known === "loaded" ? `Photo of ${name}` : name;
+	return (
+		<figure className="flex flex-col items-center gap-2">
+			<Avatar name={name} label={label} src={src} size="xl" tone="green" onImageSettled={setKnown} />
+			<figcaption className="text-sm text-text-3">
+				{known === null ? "Loading the photo" : known === "loaded" ? "Photo loaded" : "Photo failed: initials stay"}
+			</figcaption>
+		</figure>
+	);
+}
+
+export function PhotoSection({ index }: { index: number }) {
+	return (
+		<Section
+			index={index}
+			title="Avatar photo"
+			code="<Avatar src onImageSettled>"
+			note="An avatar with a photo shows its initials until the photo has loaded, and tells the caller once the photo is known, so the label can name the photo only when it is on screen."
+		>
+			<Specimen>
+				<div className="flex flex-wrap gap-8">
+					<SettledAvatar name="Maria Santos" src={PHOTO} />
+					<SettledAvatar name="James Okafor" src="data:image/png;base64,AAAA" />
+				</div>
+			</Specimen>
+		</Section>
+	);
+}
