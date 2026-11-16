@@ -1,5 +1,3 @@
-// One trusted-IP rule (peo-36): early access passes `{ headers: await headers() }` and identity passes the Request, and
-// both read the IP through trustedIdentityIp. No database.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { trustedIdentityIp } from "../../../packages/domain/src/identity/ingress.ts";

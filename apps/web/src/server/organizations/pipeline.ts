@@ -15,12 +15,8 @@ import "server-only";
 import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
 
-// The organization pipeline mount (WP-098a). Pages and actions take the request's one actor (D59); every read and
-// write rechecks the seat inside its own statement or transaction. A database failure reads as "lost", never a crash.
-
 export type PipelineAnswer<T> = PipelineReply<T> | { status: "lost" };
 
-/** The request actor when it holds a seat in an organization; who else is asking otherwise. */
 export async function pipelineActor(): Promise<
 	{ kind: "signed_out" } | { kind: "unavailable" } | { kind: "seat"; authority: RequestActor }
 > {
@@ -60,7 +56,6 @@ export async function loadPipelinePerson(authority: RequestActor, personId: stri
 	return guarded(() => readPipelinePersonRecord(db, authority, { personId }));
 }
 
-/** The answers sent to the viewer for review, and one of them (T-385). */
 export async function loadAnswerReviews(authority: RequestActor) {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" } as const;
@@ -72,7 +67,6 @@ export async function loadAnswerReview(authority: RequestActor, reviewId: string
 	return guarded(() => readAnswerReview(db, authority, { reviewId }));
 }
 
-/** One pipeline write as the request's actor. */
 export async function pipelineWrite<T>(
 	run: (db: Database, authority: RequestActor) => Promise<PipelineReply<T>>,
 ): Promise<PipelineAnswer<T>> {
@@ -90,7 +84,6 @@ export async function loadPipelineExport(authority: RequestActor) {
 }
 
 type PeopleAnswer<T> = PeopleReply<T> | { status: "lost" };
-/** Runs `run` as the request's organization seat; a missing seat is refused, any thrown failure reads as "lost". */
 async function asSeat<T>(
 	run: (db: Database, authority: RequestActor) => Promise<PeopleReply<T>>,
 ): Promise<PeopleAnswer<T>> {
@@ -100,9 +93,7 @@ async function asSeat<T>(
 	if (!db) return { status: "lost" };
 	return guarded(() => run(db, who.authority));
 }
-/** One People read on the organization's own people, in its own transaction (the duplicate review, REQ-MUL-017). */
 export const pipelinePeopleRead = <T>(run: (tx: Transaction, ctx: PeopleContext) => Promise<PeopleReply<T>>) =>
 	asSeat((db, authority) => db.transaction((tx) => run(tx, new PeopleReadContext(authority))));
-/** One People write on the organization's own people: a merge or its undo, through the People producer. */
 export const pipelinePeopleWrite = <T>(run: (tx: Transaction, ctx: PeopleWriteContext) => Promise<PeopleReply<T>>) =>
 	asSeat((db, authority) => withPeopleWrite(db, authority, run));

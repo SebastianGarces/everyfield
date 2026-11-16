@@ -34,7 +34,6 @@ const assessmentRow = z.object({
 	courageous: lens,
 });
 type AssessmentRow = z.infer<typeof assessmentRow>;
-/** REQ-PPL-012: the total is always the sum of the four stored scores, computed here and nowhere else. */
 function assessmentView(plant: string, raw: unknown) {
 	const r: AssessmentRow = assessmentRow.parse(raw);
 	return c.assessment.parse({
@@ -55,7 +54,6 @@ const lensSql = (name: string) => sql.raw(`jsonb_build_object('score',r.${name},
 const assessmentJson = sql`jsonb_build_object('id',r.id,'person_id',r.person_id,'occurred_on',r.assessed_on::text,
  'recorded_at',r.recorded_at,'actor_id',${recorderSql("r")},'revision',r.revision::text,'committed',${lensSql("committed")},
  'compelled',${lensSql("compelled")},'contagious',${lensSql("contagious")},'courageous',${lensSql("courageous")})`;
-// Latest first by assessment date, then recorded instant, then ID: a late historical entry never becomes latest.
 const latestFirst = sql`r.assessed_on DESC,r.recorded_at DESC,r.id DESC`;
 
 export const assessments = {
@@ -91,7 +89,6 @@ export const assessments = {
 							courageous_notes: a.courageous.notes,
 						}),
 					);
-					// Recording an assessment never changes stage (REQ-PPL-012).
 					const value = {
 						assessment: assessmentView(plant, {
 							id,
@@ -120,7 +117,6 @@ export const assessments = {
 					};
 				},
 			);
-			// A retry rebuilds the private record from its row; central audit holds only the receipt.
 			return c.assessmentMutationResult.parse(
 				fresh ?? (await replayed(tx, plant, stored, "assessment", sql`four_cs`, assessmentJson, assessmentView)),
 			);
@@ -134,7 +130,6 @@ export const assessments = {
 	},
 };
 
-/** One Person's 4 C's page as one JSON value over the Person alias `p`, for this read or the person page's. */
 export const assessmentsJson = (plant: string, input: HistoryPage) =>
 	historyJson(plant, input, sql`four_cs`, assessmentJson, latestFirst);
 export const assessmentsOf = (personId: string, h: History) =>

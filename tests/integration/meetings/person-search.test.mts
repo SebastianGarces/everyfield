@@ -5,9 +5,6 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { searchPeople } from "../../../packages/domain/src/people/index.ts";
 
-// The one person-search rule that the meetings pickers and Compose recipients use: the start of a name word
-// or of the email local part, never the email domain; case and diacritics ignored; digits match a phone from three.
-
 let f, plant, other, owner, member;
 let statements = 0;
 const rows = (name, email, phone = null, w = plant, state = "live") =>
@@ -109,7 +106,6 @@ test("INV-access the search keeps the live access check, returns at most 8 and s
 		phone = await count("555");
 	assert.equal(many, none);
 	assert.equal(phone, none);
-	// A member sees what main let a member see; a seat from another church is refused, not empty.
 	const outsider = await f.account();
 	const outsiderSearch = await f.db.transaction((tx) =>
 		searchPeople(tx, { session: outsider.session, selected: { kind: "plant", id: plant.id } }, "s"),

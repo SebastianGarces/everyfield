@@ -1,16 +1,12 @@
 import "server-only";
 import type { Diagram, HierarchyNode, WikiBlock as Block } from "@everyfield/contracts/wiki";
 
-/** `credit` is a human credit (see `humanCredit`) or null, and never a source path or digest. */
 export type PdfRenderMeta = { filename: string; credit: string | null };
 export type PdfRenderer = (title: string, blocks: readonly Block[], meta?: PdfRenderMeta) => Uint8Array;
 
 const BODY_LINES = 46;
-/** Helvetica at 11pt across the 468pt text width, in 1/1000 em. */
 const TEXT_WIDTH = (468 * 1000) / 11;
-/** Courier at 10pt is 6pt a character, so 78 characters fill the 468pt text width. Code lines break there. */
 const CODE_WIDTH = 78;
-/** Four spaces of Helvetica at 11pt, in 1/1000 em: a quote's indent. */
 const QUOTE_INDENT = 4 * 278;
 
 function escapeHtml(text: string): string {
@@ -22,7 +18,6 @@ export function pdfFilename(slug: string): string {
 	return `${clean || "article"}.pdf`;
 }
 
-/** cp1252 bytes 0x80 to 0x9f. NUL marks the five unassigned bytes. */
 const CP1252_HIGH = "€\0‚ƒ„…†‡ˆ‰Š‹Œ\0Ž\0\0‘’“”•–—˜™š›œ\0žŸ";
 const WIN_ANSI = new Map<string, number>();
 for (let byte = 0x20; byte <= 0x7e; byte++) WIN_ANSI.set(String.fromCharCode(byte), byte);
@@ -31,10 +26,6 @@ for (let byte = 0xa0; byte <= 0xff; byte++) WIN_ANSI.set(String.fromCharCode(byt
 	if (char !== "\0") WIN_ANSI.set(char, 0x80 + index);
 });
 
-/**
- * Text as WinAnsi bytes, one char per byte. A letter outside WinAnsi prints as its base letter when it has one
- * (ő as o), anything else as "?".
- */
 function winAnsi(text: string): string {
 	let out = "";
 	for (const char of text.replace(/\t/g, "    ")) {
@@ -50,12 +41,10 @@ function winAnsi(text: string): string {
 	return out;
 }
 
-/** A PDF string literal body for WinAnsi bytes. */
 function pdfString(text: string): string {
 	return winAnsi(text).replace(/\\/g, "\\\\").replace(/\(/g, "\\(").replace(/\)/g, "\\)");
 }
 
-/** Helvetica advance widths for bytes 0x20 to 0x7e (Adobe AFM). */
 const HELVETICA = [
 	278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556,
 	556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833,
@@ -85,14 +74,12 @@ function byteWidth(char: string): number {
 	return baseCode >= 0x20 && baseCode <= 0x7e ? (HELVETICA[baseCode - 0x20] ?? 556) : 556;
 }
 
-/** The printed width of text in Helvetica, in 1/1000 em. */
 export function helveticaWidth(text: string): number {
 	let width = 0;
 	for (const char of winAnsi(text)) width += byteWidth(char);
 	return width;
 }
 
-/** Prose broken at spaces into lines that fit the text width. A word longer than a line breaks inside it. */
 function wrapText(text: string, width = TEXT_WIDTH): string[] {
 	if (helveticaWidth(text) <= width) return [text];
 	const lines: string[] = [];
@@ -116,31 +103,23 @@ function wrapText(text: string, width = TEXT_WIDTH): string[] {
 	return lines;
 }
 
-/**
- * Inline markdown as the words a reader sees: code spans keep their text, links and images keep their label, bold,
- * italic and strike markers and inline tags go.
- */
 function plainInline(text: string): string {
 	return text
 		.split(/(`+[^`]*?`+)/)
 		.map((part, index) => {
 			if (index % 2 === 1) return part.replace(/^(`+)\s?([\s\S]*?)\s?\1$/, "$2");
-			return (
-				part
-					.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-					.replace(/<\/?[A-Za-z][^>]*>/g, "")
-					.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, "$1")
-					.replace(/~~(?=\S)([\s\S]*?\S)~~/g, "$1")
-					.replace(/(?<![\w*])\*(?=\S)([\s\S]*?\S)\*(?!\*)/g, "$1")
-					// One underscore each side, so fill-in blanks (`____`) and `__dunder__` words stay as written.
-					.replace(/(?<![\w_])_(?=[^\s_])([\s\S]*?[^\s_])_(?![\w_])/g, "$1")
-					.replace(/\\([!-/:-@[-`{-~])/g, "$1")
-			);
+			return part
+				.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+				.replace(/<\/?[A-Za-z][^>]*>/g, "")
+				.replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, "$1")
+				.replace(/~~(?=\S)([\s\S]*?\S)~~/g, "$1")
+				.replace(/(?<![\w*])\*(?=\S)([\s\S]*?\S)\*(?!\*)/g, "$1")
+				.replace(/(?<![\w_])_(?=[^\s_])([\s\S]*?[^\s_])_(?![\w_])/g, "$1")
+				.replace(/\\([!-/:-@[-`{-~])/g, "$1");
 		})
 		.join("");
 }
 
-/** A block as the export shows it. Text keeps its inline markers; each writer strips them. */
 type Shown =
 	| { kind: "heading"; level: number; text: string }
 	| { kind: "paragraph"; lines: string[] }
@@ -151,7 +130,6 @@ type Shown =
 	| { kind: "code"; text: string }
 	| { kind: "diagram"; diagram: Diagram };
 
-/** The reader's blocks for export: blank lines, breaks and empty components drop out. */
 function shown(blocks: readonly Block[]): Shown[] {
 	const out: Shown[] = [];
 	const lines = (text: string) => text.split("\n").filter((line) => line.trim().length > 0);
@@ -165,7 +143,6 @@ function shown(blocks: readonly Block[]): Shown[] {
 		} else if (block.kind === "callout") {
 			if (block.text) out.push({ kind: "callout", lines: lines(block.text) });
 		} else if (block.kind === "component") {
-			// Any other component prints what it says without its tags.
 			if (block.text) out.push({ kind: "paragraph", lines: lines(block.text) });
 		} else if (block.kind === "code") out.push({ kind: "code", text: block.text });
 		else if (block.kind === "diagram") out.push({ kind: "diagram", diagram: block.diagram });
@@ -173,10 +150,8 @@ function shown(blocks: readonly Block[]): Shown[] {
 	return out;
 }
 
-/** One printed line. Code lines print in Courier, every other line in Helvetica. */
 type Line = { text: string; code?: true };
 
-/** A diagram as text: its title, the type name, one line per node, then the loop. Flow steps end with "->". */
 function diagramText(diagram: Diagram): string[] {
 	const node = (n: { label: string; detail?: string; note?: string }) =>
 		`${n.label}${n.detail ? ` - ${n.detail}` : ""}${n.note ? ` (${n.note})` : ""}`;
@@ -205,7 +180,6 @@ function visibleLines(title: string, blocks: readonly Block[], filename: string)
 	for (const block of shown(blocks)) {
 		if (block.kind === "heading") prose(block.text);
 		else if (block.kind === "paragraph" || block.kind === "callout") block.lines.forEach(prose);
-		// A quote is indented under the text around it.
 		else if (block.kind === "quote")
 			for (const line of block.lines)
 				lines.push(...wrapText(plainInline(line), TEXT_WIDTH - QUOTE_INDENT).map((part) => ({ text: `    ${part}` })));
@@ -214,7 +188,6 @@ function visibleLines(title: string, blocks: readonly Block[], filename: string)
 		else if (block.kind === "table") for (const row of block.rows) raw(row.map(plainInline).join(" | "));
 		else if (block.kind === "diagram") diagramText(block.diagram).forEach(raw);
 		else {
-			// Code keeps its leading spaces and breaks only at the page width.
 			for (const line of block.text.split("\n"))
 				for (let i = 0; i === 0 || i < line.length; i += CODE_WIDTH)
 					lines.push({ text: line.slice(i, i + CODE_WIDTH), code: true });
@@ -238,7 +211,6 @@ function pageStream(lines: Line[], footer: string): string {
 	return commands.join("\n");
 }
 
-/** The file as bytes. Every string holds one char per byte, so it is written as latin1. */
 function pdfBytes(streams: string[], filename: string): Uint8Array {
 	const fontObject = 3 + streams.length * 2;
 	const codeFont = fontObject + 1;
@@ -269,10 +241,6 @@ function pdfBytes(streams: string[], filename: string): Uint8Array {
 	return Buffer.from(pdf, "latin1");
 }
 
-/**
- * Paginated PDF in the standard Helvetica and Courier with WinAnsi text. Each page keeps the filename, the article
- * lines, and a footer with the human credit, when there is one, and the page number.
- */
 export function helveticaPdf(title: string, blocks: readonly Block[], meta?: PdfRenderMeta): Uint8Array {
 	const filename = meta?.filename ?? "article.pdf";
 	const credit = meta?.credit ?? null;
@@ -307,7 +275,6 @@ function htmlBlock(block: Shown): string {
 	return `<table>${rows}</table>`;
 }
 
-/** A diagram as the app marks it up, without the drawing: a figure named by its title and its nodes as a list. */
 function diagramHtml(diagram: Diagram): string {
 	type Node = { label: string; detail?: string; note?: string; children?: readonly Node[] };
 	const item = (node: Node): string =>
@@ -320,7 +287,6 @@ function diagramHtml(diagram: Diagram): string {
 	return `<figure><figcaption>${escapeHtml(diagram.title)}</figcaption><${tag}>${nodes.map(item).join("")}</${tag}>${loop}</figure>`;
 }
 
-/** The same rendered article as the PDF, as HTML. The body is not raw MDX in a pre element. */
 export function printHtml(title: string, blocks: readonly Block[], meta?: PdfRenderMeta): string {
 	const filename = meta?.filename ?? "article.pdf";
 	const credit = meta?.credit ?? null;

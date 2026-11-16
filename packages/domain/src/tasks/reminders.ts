@@ -4,11 +4,6 @@ import { z } from "zod";
 import { seatHeld } from "../access/session.ts";
 import type { Tx } from "./core.ts";
 
-/**
- * Which task reminder mail may go out (REQ-TSK-014): the notice's task is still at the revision it was planned for,
- * still open and not deleted, the recipient is still one of its assignees and still holds an accepted seat in the church. A
- * reminder for a former assignee, a seat not yet accepted, a settled task or an older plan is refused. One statement.
- */
 export async function authorizeTaskReminders(
 	tx: Tx,
 	mail: readonly { id: string; recipient: string | null; notice: string | null }[],
@@ -30,16 +25,11 @@ export async function authorizeTaskReminders(
 	);
 }
 
-/**
- * The given accounts that may receive the plant's task reminders, with their email: each holds a current, accepted seat
- * in the plant. A query for a CTE, locking the seats it returns.
- */
 export const reminderSeats = (plantId: string, accounts: SQL) =>
 	sql`SELECT s.account_id, c.email FROM seat s CROSS JOIN LATERAL access_account_contact(s.account_id) c
 		WHERE s.plant_id=${plantId}::uuid AND ${seatHeld("s")}
 			AND s.account_id IN (${accounts}) FOR SHARE OF s`;
 
-/** The email address of each account that holds a current seat in the plant. One statement. */
 export async function reminderRecipients(
 	tx: Tx,
 	plantId: string,

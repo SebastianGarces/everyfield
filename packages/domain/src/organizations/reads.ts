@@ -10,32 +10,21 @@ import { liveResidency } from "../access/pipeline.ts";
 import type { Reader } from "./core.ts";
 import { z } from "zod";
 
-/** `account`: a seatless account without a Discovery profile, for example a resident. It sees only its own residency
- * links. */
 export type Kind = "plant" | "sending_church" | "sending_network" | "discovery" | "account";
 export type Viewer = {
 	kind: Kind;
 	session: Extract<z.infer<typeof sessionResult>, { status: "active" }>["sessionId"];
 	accountId: string;
-	/** The exact workspace (or own account for Discovery) every command is checked against. */
 	selected: Owner;
 	canManage: boolean;
-	/** The request actor's live access (liveAccess), which every read below checks in its own statement (C13). */
 	access: Parameters<typeof liveRead>[0];
 };
-/** The viewer still holds this access now; `admin` also needs an Owner or Admin seat. */
 const live = (viewer: Viewer, admin = false) => liveRead(viewer.access, admin);
 
-/**
- * Display names for the IDs a page shows. Plants and organizations by name. Accounts only when they hold a seat in
- * this viewer's own workspace or are the viewer; anyone else stays unnamed.
- */
 export async function namesFor(db: Database, viewer: Viewer, ids: string[]): Promise<Record<string, string>> {
 	const unique = [...new Set(ids)];
 	if (unique.length === 0) return {};
 	const workspace = viewer.selected.kind === "account" ? null : viewer.selected;
-	// One statement. Account names come through seat_identity, the reviewed definer function (auth_user is not readable
-	// by the runtime role).
 	const rows = await db.execute<{ id: string; name: string | null }>(sql`
 		SELECT n.* FROM (SELECT p.id, p.name FROM plant p WHERE p.id=ANY(${sql.param(unique)}::uuid[])
 		UNION ALL SELECT o.id, o.name FROM organization o WHERE o.id=ANY(${sql.param(unique)}::uuid[])
@@ -48,7 +37,6 @@ export async function namesFor(db: Database, viewer: Viewer, ids: string[]): Pro
 	return Object.fromEntries(rows.rows.filter((r) => r.name).map((r) => [r.id, r.name!]));
 }
 
-/** IDs of every endpoint and actor a history page names. */
 export function idsIn(page: {
 	items: { pair: C.RelationshipPair; actor: { kind: string; accountId?: string } }[];
 	activeRelationships: { pair: C.RelationshipPair }[];
@@ -71,7 +59,6 @@ const SUBJECT_COLUMN = {
 	account: null,
 } as const;
 
-/** This subject's own requests still waiting for an answer (ruling D2: the contract has no read for them). */
 export async function pendingFor(db: Database, viewer: Viewer) {
 	const column = SUBJECT_COLUMN[viewer.kind];
 	if (!column) return [];
@@ -102,7 +89,6 @@ export async function pendingFor(db: Database, viewer: Viewer) {
 	);
 }
 
-/** The exact pair this subject would form with one organization. */
 export function pairOf(
 	viewer: Viewer,
 	organization: { kind: "organization"; id: string; organizationKind: "sending_church" | "sending_network" },
@@ -114,11 +100,6 @@ export function pairOf(
 	return C.relationshipPair.parse({ kind: "sending_church", subject: viewer.selected, organization });
 }
 
-/**
- * Organizations this subject may ask (ruling D3): every sending church and network by name and kind, the basic
- * directory a plant already sees in the product, minus itself and its active links. A sending church asks networks
- * only; a network asks no one.
- */
 export async function targetsFor(db: Database, viewer: Viewer, active: Set<string>) {
 	if (viewer.kind === "sending_network") return [];
 	const rows = await db
@@ -140,7 +121,6 @@ export async function targetsFor(db: Database, viewer: Viewer, active: Set<strin
 		}));
 }
 
-/** The subject's current revision, which an invitation must carry, and its time zone for dates. */
 export async function subjectFacts(db: Database, viewer: Viewer) {
 	if (viewer.kind === "discovery" || viewer.kind === "account") {
 		const [a] = await db
@@ -176,11 +156,6 @@ const residencyRow = z.object({
 	share_milestones: z.boolean(),
 });
 
-/**
- * This account's own residency links, newest first: the organization's name, the consent as residency.readSharing
- * answers it, and the link revision a change must carry (ruling D16). One statement on the pool with the live check
- * (C13). `linkId` narrows the read to one link.
- */
 export async function residencyLinks(db: Reader, viewer: Viewer, linkId?: string) {
 	if (linkId !== undefined && !z.uuid().safeParse(linkId).success) return [];
 	const rows = await db.execute(
