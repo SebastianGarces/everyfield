@@ -1,4 +1,3 @@
-// WP-036/api: agendas generated from the meeting (REQ-DOC-007). No database: it renders real bytes from meeting facts.
 import assert from "node:assert/strict";
 import test, { describe } from "node:test";
 import { PDFDocument } from "../../../packages/domain/node_modules/pdf-lib/cjs/index.js";
@@ -126,7 +125,6 @@ describe("AC:DOC-007 AC:DOC-011 agendas from the meeting", () => {
 			assert.ok(names(r).includes("meeting_date") && names(r).includes("meeting_place"));
 			assert.ok(text.includes(CHURCH));
 		}
-		// The #375 facilitator rule: the pastor on the Vision agenda, a blank field on the board agenda.
 		assert.ok(lines(await render("vision-meeting-agenda")).includes("Pastor Ada"));
 		assert.equal(names(await render("vision-meeting-agenda")).includes("facilitator"), false);
 		assert.ok(names(await render("board-meeting-agenda")).includes("facilitator"));
@@ -171,7 +169,6 @@ describe("AC:DOC-007 AC:DOC-011 agendas from the meeting", () => {
 		const r = await render("vision-meeting-agenda", meetingOf());
 		const all = lines(r);
 		assert.ok(all.indexOf("Ada Brown") >= 0 && all.indexOf("Ada Brown") < all.indexOf("Ben Cole"));
-		// 2 people: the rest of the 8 rows are blank write-in rows; Role is a blank field off a leadership team.
 		assert.equal(countOf(r, "present_"), 8);
 		assert.equal(r.fields.filter((f) => f.name.startsWith("attendee_") && f.name.endsWith("_name")).length, 6);
 		assert.equal(r.fields.filter((f) => f.name.endsWith("_role")).length, 8);

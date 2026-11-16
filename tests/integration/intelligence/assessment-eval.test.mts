@@ -1,20 +1,3 @@
-// The assessment evaluation (WP-042, PI-036) on the synthetic test church. By default it runs the scripted model and
-// the scripted graded judge only: no paid call. Every case is one Owner's fresh-assessment request run by the assessment
-// job, listed one by one with the model that drafted it, each draft's text, the exact rules it broke, its language
-// grade, the outcome, the spend it charged and pass or fail against what the case expects. Nothing is averaged. The
-// report is written outside the repository:
-//
-//   ASSESSMENT_EVAL_REPORT=/tmp/assessment-eval.md node --conditions=react-server --import tsx --test \
-//     tests/integration/intelligence/assessment-eval.test.mts
-//
-// (default path: <os tmpdir>/everyfield-assessment-eval.md). The test fails, naming each failing case, when any case
-// does not behave as expected.
-//
-// Real-model mode (D92), run by hand only: ASSESSMENT_EVAL_REAL_MODEL=1 with EVRY_MODEL=gpt-6-luna and OPENAI_API_KEY,
-// on the shared development database (real-model.mts refuses anything else). Cases that inject a violation keep the
-// scripted drafter, since only a script can break a rule on demand; the other cases are drafted by gpt-6-luna, and the
-// paid judge grades every draft. Every paid call is charged to the shared database's own model_spend counter, under
-// D77's cap, and the report records the counter before and after.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -44,7 +27,6 @@ type Case = {
 	id: string;
 	title: string;
 	plant: "harvest" | "unknown" | "phase3";
-	/** Changes the scripted draft on the listed draft ordinals (all three when omitted). */
 	change?: { on?: number[]; edit: (d: Draft) => unknown };
 	expect: { outcome: string; firstDraft: string[]; language: "pass" | "fail" };
 };
@@ -188,8 +170,6 @@ const rows: {
 }[] = [];
 
 const real = realModelOptIn(process.env);
-// The paid drafter and judge charge the shared development database's own model_spend row (public schema), the
-// counter Evry chat charges there, never the throwaway test schema's.
 const meterDb = real && createDatabase({ connectionString: real.meterUrl.toString(), max: 2 });
 const paid = meterDb && paidAssessment(meterDb);
 const judge = async (d: Draft): Promise<JudgeResult> =>
@@ -234,7 +214,6 @@ for (const k of CASES)
 	test(`AC:PI-CASE-027 assessment evaluation: ${k.id}`, async () => {
 		const p = plants[k.plant];
 		const requestId = randomUUID();
-		// A case that injects a violation runs on the scripted drafter in either mode.
 		const drafter =
 			paid && !k.change
 				? paid.drafter

@@ -12,7 +12,6 @@ const asset = (name: string) => ({
 	fileId: `00000000-0000-4000-8000-00000000000${name.length % 10}`,
 	alt: `${name} alt`,
 });
-// The CASE-BRD-006 kit.
 const kit = (over: Partial<BrandKitData> = {}): BrandKitData => ({
 	primaryColor: "#1F4E79",
 	accentColor: "#D4A017",
@@ -118,7 +117,6 @@ describe("AC:CASE-BRD-006 resolveDocumentTheme", () => {
 		});
 	});
 
-	// The text on a fill is the one the PDF prints there (T-123): the renderer's rule picks white or the document ink.
 	test("AC:CASE-BRD-006 operational: small mark, accent fill on table headers and checkboxes with the derived text color", () => {
 		const theme = resolveDocumentTheme(church(kit()), "operational");
 		if (theme.layout.documentClass !== "operational") throw Error("class");
@@ -136,7 +134,6 @@ describe("AC:CASE-BRD-006 resolveDocumentTheme", () => {
 		if (theme.layout.documentClass !== "email") throw Error("class");
 		assert.equal(theme.layout.logoMaxWidthPx, 200);
 		assert.deepEqual(theme.layout.button, { fill: "#1F4E79", text: "#FFFFFF" });
-		// The button follows the primary color of any kit, not the example value.
 		for (const [primaryColor, text] of [
 			["#8B1E3F", "#FFFFFF"],
 			["#F2D74A", "#000000"],
@@ -155,14 +152,12 @@ describe("AC:CASE-BRD-006 resolveDocumentTheme", () => {
 			assert.equal(theme.kind, "church");
 			assert.equal(theme.colors.heading, ink, documentClass);
 			assert.equal(theme.colors.ink, ink);
-			// The color stays on rules and fills, with the derived text color on the fill.
 			assert.equal(theme.colors.rule, "#F2D74A");
 			if (theme.layout.documentClass === "operational") {
 				assert.deepEqual(theme.layout.tableHeader, { fill: "#F2D74A", text: "#181D19" });
 				assert.deepEqual(theme.layout.checkbox, { fill: "#F2D74A", text: "#181D19" });
 			}
 		}
-		// A color at 3:1 or more may head a section.
 		assert.equal(
 			resolveDocumentTheme(church(kit({ primaryColor: "#8B1E3F" })), "formal/legal").colors.heading,
 			"#8B1E3F",

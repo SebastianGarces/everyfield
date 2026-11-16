@@ -1,5 +1,3 @@
-// WP-034/ui criteria 4 and 9: the app reads fenced blocks as code or diagrams, and fence lines never become markdown.
-// No database: articleBlocks is the pure reader the article page renders, over wikiBlocks, the one block parser.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
@@ -11,7 +9,6 @@ const markdownBlocks = (body: string) => articleBlocks("safe_mdx", body);
 
 const lines = (...text: string[]) => text.join("\n");
 
-/** The app's global corpus: the living Wiki seed the reference bundle installs. */
 async function appBody(slug: string): Promise<string> {
 	const payload = JSON.parse(
 		await readFile(new URL("../../../docs/reference/wiki/seed.json", import.meta.url), "utf8"),
@@ -21,7 +18,6 @@ async function appBody(slug: string): Promise<string> {
 	return article.content;
 }
 
-/** The exact lines between the first fence pair, as the source holds them. */
 function firstFence(body: string): string {
 	const all = body.split("\n");
 	const open = all.findIndex((line) => line.startsWith("```"));
@@ -118,13 +114,11 @@ test("AC:CASE-WIKI-001 partner-organization-coordination keeps its dash lines as
 		blocks.filter((block) => block.kind === "code"),
 		[{ kind: "code", text: fence }],
 	);
-	// No list item holds a line from inside the fence.
 	const inside = new Set(fence.split("\n").map((line) => line.replace(/^- /, "").trim()));
 	for (const block of blocks)
 		if (block.kind === "list") for (const item of block.items) assert.equal(inside.has(item), false, item);
 });
 
-/** Every Tj string of the PDF, in page order. The fixture is ASCII, so latin1 reads it as written. */
 const pdfLines = (pdf: Uint8Array) =>
 	[
 		...Buffer.from(pdf)

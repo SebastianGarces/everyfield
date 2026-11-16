@@ -6,7 +6,6 @@ import "server-only";
 import { z } from "zod";
 import { deny, type Tx } from "../core.ts";
 
-/** Households, tags, skills and photos belong to plant people only. */
 export function plantId(ctx: { selected: Owner }): string {
 	if (ctx.selected.kind !== "plant") deny();
 	return ctx.selected.id;
@@ -27,7 +26,6 @@ export const addressOf = (row: Address): Address => ({
 	postal_code: row.postal_code,
 	country: row.country,
 });
-/** REQ-PPL-009: an address is meaningful when any part has text. */
 export const hasAddress = (row: Address) => Object.values(addressOf(row)).some((v) => v !== null && v.trim() !== "");
 export const addressView = (row: Address) => ({
 	street: row.street,
@@ -48,11 +46,6 @@ const factRow = z.object({
 	...address,
 });
 export type PersonFacts = z.infer<typeof factRow>;
-/**
- * The Person columns these fields read and write. A missing or foreign Person is unavailable. A write passes the related
- * row it also needs (a household, tags, an upload) as `extra`, a scalar subquery that may name the outer `person`, so
- * both come back in one round trip. `id` may be a scalar subquery that finds the Person, such as from one of its skills.
- */
 export async function personFacts(
 	tx: Tx,
 	plant: string,
@@ -83,7 +76,6 @@ export async function personFacts(
 	if (!row) deny();
 	return { ...factRow.parse(row), extra: row.extra };
 }
-/** New current facts name only a live Person (REQ-PPL-024). */
 export function livePerson(p: PersonFacts) {
 	if (p.state !== "live") deny();
 }
@@ -92,10 +84,6 @@ export function expectRevision(actual: string, expected: string) {
 }
 export const next = (rev: string) => String(BigInt(rev) + 1n);
 
-/**
- * One object cleanup job queued in the write's own statement. The worker deletes only unreferenced objects. An upload
- * queues its orphan check at expiry and a replaced or removed photo queues its release now, so each has its own key.
- */
 export function queueObjectCleanup(
 	tx: Tx,
 	plant: string,

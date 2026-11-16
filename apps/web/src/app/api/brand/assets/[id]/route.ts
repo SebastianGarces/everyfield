@@ -1,19 +1,11 @@
 import { brandAsset, storeBrandBytes } from "@/features/settings/brand/server";
 import { ASSET_MAX_BYTES } from "@everyfield/contracts/branding";
 
-// Brand asset bytes (REQ-BRD-002). PUT sends the bytes of a staged upload (the id is the upload id); GET returns the
-// stored file the kit references now (the id is the file id). Every request rechecks the live session, the Owner or
-// Admin seat and the kit's current reference, a 304 revalidation included, so a replaced or removed file, a Member,
-// another church and a signed-out visitor all get 404 and no bytes. The ETag comes from the stored SHA-256 that the
-// authorized statement returns, so a matching If-None-Match gets 304 with no storage read. No storage key or bearer URL
-// leaves the server.
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const PRIVATE = { "Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff" };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-/** The brand refusals the byte upload can return, as the status the client maps back to the slot message. */
 const REFUSAL_STATUS = { invalid_file: 422, access_denied: 403, unavailable: 503 } as const;
 
 type Params = { params: Promise<{ id: string }> };
@@ -43,7 +35,6 @@ export async function GET(request: Request, { params }: Params) {
 	return new Response(Buffer.from(bytes), { headers });
 }
 
-/** The quoted first 32 hex characters of the stored SHA-256: the same tag the route has always sent. */
 function etagOf(sha256: string) {
 	return `"${sha256.slice(0, 32)}"`;
 }
