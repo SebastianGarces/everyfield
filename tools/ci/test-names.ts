@@ -1,29 +1,18 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-/**
- * `node tools/ci/test-names.ts`: test, subtest and describe names say which behavior they prove, not which plan
- * item asked for them (T-215). A name outside `tests/workflow/` that cites `WP-<n>`, `T-<n>`, `RT-<n>`, `D-<n>` or
- * the hyphenless `T<n>-<n>` fails. `tests/workflow/` tests the tooling, so its names may cite tooling ids.
- * Comments and other strings are left alone: a small lexer finds only the first string argument of a test call.
- */
-
 export type Finding = { file: string; line: number; id: string; name: string };
 
-/** Plan ids: not part of a longer word or dashed id, so catalog ids such as `AC:TARGET-PPL-016` pass. */
 const PLAN_ID = /(?<![\w-])(?:(?:WP|RT|T|D)-\d+|T\d+-\d+)(?![\w])/g;
-/** Calls that name a test: `test(`, `it(`, `describe(`, `suite(`, `t.test(`, `test.skip(`, `describe.only(` ... */
 const TEST_CALL = new Set(["test", "it", "describe", "suite"]);
 const SOURCE = /\.[cm]?[jt]sx?$/;
 const TEST_FILE = /\.(?:test|spec|db)\.[cm]?[jt]sx?$/;
 
-/** Whether a tracked file holds tests this lint reads. */
 export function isLinted(file: string): boolean {
 	if (file.startsWith("tests/workflow/") || !SOURCE.test(file)) return false;
 	return TEST_FILE.test(file) || file.startsWith("tests/");
 }
 
-/** The plan ids in one file's test names. */
 export function findPlanIds(file: string, source: string): Finding[] {
 	const findings: Finding[] = [];
 	for (const { line, name } of testNames(source)) {
@@ -32,17 +21,13 @@ export function findPlanIds(file: string, source: string): Finding[] {
 	return findings;
 }
 
-/** The first string argument of each test call, with its line. */
 export function testNames(source: string): Array<{ line: number; name: string }> {
 	const names: Array<{ line: number; name: string }> = [];
 	const n = source.length;
 	let i = 0;
-	// What the last significant token was, to tell a regex literal from division.
 	let prev: "value" | "operator" = "operator";
-	// The dotted identifier chain just read, such as ["t", "test"], waiting for its `(`.
 	let chain: string[] = [];
 	let afterDot = false;
-	// Set after `<test call>(`: the next token, if a string, is the name.
 	let expectName = false;
 	const lineAt = (at: number) => source.slice(0, at).split("\n").length;
 
@@ -55,7 +40,6 @@ export function testNames(source: string): Array<{ line: number; name: string }>
 		}
 		return j + 1;
 	};
-	// A template literal, with nested `${ ... }` holding code that may itself hold strings and templates.
 	const skipTemplate = (from: number): number => {
 		let j = from + 1;
 		while (j < n && source[j] !== "`") {
@@ -111,7 +95,6 @@ export function testNames(source: string): Array<{ line: number; name: string }>
 			continue;
 		}
 		if (c === "/" && prev === "operator") {
-			// A regex literal: skip to its closing slash outside a character class, then its flags.
 			let j = i + 1,
 				inClass = false;
 			while (j < n && source[j] !== "\n") {
@@ -135,7 +118,6 @@ export function testNames(source: string): Array<{ line: number; name: string }>
 			chain = afterDot ? [...chain, word] : [word];
 			afterDot = false;
 			i = j;
-			// After keywords such as `return` or `typeof`, a slash starts a regex.
 			prev = /^(?:return|typeof|case|do|else|in|of|new|delete|void|throw|yield|await)$/.test(word)
 				? "operator"
 				: "value";
@@ -167,7 +149,6 @@ export function testNames(source: string): Array<{ line: number; name: string }>
 	return names;
 }
 
-/** Scan the git-tracked test files under `root`. */
 export function lintTestNames(root: string): Finding[] {
 	const files = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" })
 		.split("\0")

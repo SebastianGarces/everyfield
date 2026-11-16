@@ -1,10 +1,5 @@
-// The words Evry's seat, sharing and time zone reviews use, shared by the adapters, the scripted model and the web
-// review card (`@everyfield/evry/labels`). Plain constants with no imports, so a client component can use them.
-
-/** A seat's role as people read it. */
 export const ROLE_LABEL = { owner: "Owner", admin: "Admin", member: "Member" } as const;
 
-/** What a church can share with a connected organization, as Evry names each category. */
 export const SHARING_CATEGORY_LABEL = {
 	people: "People totals",
 	meetings: "Meetings",
@@ -17,7 +12,6 @@ export const SHARING_CATEGORY_LABEL = {
 export type SharingCategory = keyof typeof SHARING_CATEGORY_LABEL;
 export const SHARING_CATEGORIES = Object.keys(SHARING_CATEGORY_LABEL) as [SharingCategory, ...SharingCategory[]];
 
-/** The common US time zones by their everyday names. */
 export const ZONE_NAME: Readonly<Record<string, string>> = {
 	"America/New_York": "Eastern",
 	"America/Chicago": "Central",
@@ -28,7 +22,6 @@ export const ZONE_NAME: Readonly<Record<string, string>> = {
 	"Pacific/Honolulu": "Hawaii",
 };
 
-/** The seven phases by the names `/onboarding` shows. */
 const PHASE_NAME = [
 	"Discovery",
 	"Core group development",
@@ -38,5 +31,4 @@ const PHASE_NAME = [
 	"Launch Sunday",
 	"Post-launch",
 ] as const;
-/** "Phase 1, Core group development". */
 export const phaseText = (phase: number) => `Phase ${phase}, ${PHASE_NAME[phase] ?? "unknown"}`;

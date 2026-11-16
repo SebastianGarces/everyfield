@@ -18,15 +18,10 @@ import { populateKit, updateKitItem } from "./actions.ts";
 import { KIT_CATEGORY_LABEL, problemText, type Detail, type KitItem } from "./model.ts";
 import { RowNotices, SaveNotice, useRowLanes, useSaveIntent } from "../../components/save/parts.tsx";
 
-/** Where the card fills its tab: a column, so the checklist takes what the header leaves. */
 const FILL_CARD = "app-md:flex app-md:h-full app-md:min-h-0 app-md:flex-col";
 
 export type Kit = { version: number | null; items: KitItem[] };
 
-/**
- * The Vision kit (REQ-MTG-006). A tick shows at once and is confirmed by the answer, or put back with the reason. A
- * meeting without a kit offers to add the reviewed one; reading never adds it.
- */
 export function KitCard({
 	meeting,
 	kit,
@@ -36,14 +31,12 @@ export function KitCard({
 	onMeeting,
 	onStale,
 }: {
-	/** The card fills the height its tab gives it where the two columns show; its checklist scrolls inside. */
 	fill?: boolean;
 	meeting: Detail;
 	kit: Kit | null;
 	canWrite: boolean;
 	onKit: (kit: Kit) => void;
 	onMeeting: (meeting: Detail) => void;
-	/** A save was refused as out of date: read the meeting again. */
 	onStale: () => void;
 }) {
 	const toast = useToast();
@@ -51,8 +44,6 @@ export function KitCard({
 	const [items, tick] = useOptimistic(kit?.items ?? [], (all: KitItem[], change: { id: string; checked: boolean }) =>
 		all.map((k) => (k.id === change.id ? { ...k, checked: change.checked } : k)),
 	);
-	// Ticks save side by side, one save per item at a time (a second tick waits for the first answer and its new
-	// revision); adding the kit has the card's own lane (components/save).
 	const ticks = useRowLanes(problemText);
 	const adding = useSaveIntent({ explain: problemText });
 	const checked = items.filter((k) => k.checked).length;
@@ -161,7 +152,6 @@ export function KitCard({
 	);
 }
 
-/** A small progress ring. The numbers are in the card description, so the ring is decoration. */
 function KitRing({ done, total }: { done: number; total: number }) {
 	const r = 18;
 	const c = 2 * Math.PI * r;

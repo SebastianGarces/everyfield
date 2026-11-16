@@ -1,10 +1,3 @@
-// T-126: a toolbar button that is on renders no `data-disabled` attribute; one that is off renders
-// `data-disabled="true"`. The `data-[disabled]` classes and the controls' `[data-disabled]` cursor rule match the
-// attribute whatever its value, so a `data-disabled="false"` would draw an enabled button as if it were off.
-//
-// It renders the real vendored toolbar buttons in node with a real Tiptap editor of the Church Document schema, not
-// mounted (no browser, no database). Run it from packages/domain:
-// tsx --tsconfig ../../tests/unit/render.tsconfig.json --test ../../tests/unit/documents/toolbar-disabled.test.mts
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
@@ -14,7 +7,6 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement } = web("react");
-// The ES module build, the one the editor's extensions load, so the editor and its extensions share one @tiptap/core.
 const { Editor } = await import(pathToFileURL(root + "apps/web/node_modules/@tiptap/core/dist/index.js").href);
 const editorDir = "../../../apps/web/src/features/documents/church/editor/";
 const { editorExtensions } = await import(editorDir + "extensions.ts");
@@ -23,7 +15,6 @@ const { ListButton } = await import(editorDir + "tiptap/ui/list-button.tsx");
 const { BlockquoteButton } = await import(editorDir + "tiptap/ui/blockquote-button.tsx");
 const { UndoRedoButton } = await import(editorDir + "tiptap/ui/undo-redo-button.tsx");
 
-/** An editor of a paragraph and a logo. With `imageSelected`, the logo is selected and the text buttons are off. */
 function editorWith({ imageSelected }: { imageSelected: boolean }) {
 	const editor = new Editor({
 		element: null,
@@ -44,7 +35,6 @@ function editorWith({ imageSelected }: { imageSelected: boolean }) {
 	return editor;
 }
 
-/** The opening tag of the one button in the markup. */
 function buttonTag(html: string) {
 	const tag = html.match(/<button\b[^>]*>/)?.[0];
 	assert.ok(tag, `no button in ${html}`);

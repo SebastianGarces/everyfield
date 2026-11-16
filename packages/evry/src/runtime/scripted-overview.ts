@@ -1,13 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 
-// The scripted model's Overview and feedback requests (T-330), for local previews and tests only. It answers through the
-// same tools a model gets: "what should I focus on this week?" reads Overview's next steps and counts, the week's
-// meetings and the pipeline, and says where each item came from and what it could not cover; "who did we add in the last
-// month?" reads Overview's activity; "what's missing in our setup?" reads the setup gaps; and feedback is proposed for
-// review, then read back from the user's own sent feedback. Every item it names is a row a read returned. The coverage
-// line is the system prompt's own (compile.ts), so the evals test the words the real model is given.
-
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
 type Output = Record<string, unknown> & {
@@ -25,7 +18,6 @@ const call = (toolName: string, operation: string, input: unknown = {}): Languag
 ];
 const say = (...lines: string[]): LanguageModelV4Content[] => [{ type: "text", text: lines.join("\n") }];
 
-/** The JSON tool results of the current turn, oldest first (everything after the last user message). */
 function turnOutputs(prompt: Prompt): Output[] {
 	const start = prompt.findLastIndex((m) => m.role === "user");
 	return prompt
@@ -48,11 +40,9 @@ const SENT = /\bwhat feedback (?:have|did) (?:i|we) sen[dt]\b|\bmy sent feedback
 const STATUS = /\bstatus of (?:my|that|the) feedback\b|\bfeedback(?:'s)? status\b|\bhappened to my feedback\b/i;
 const UUID = /\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i;
 
-// ---- Dates: church-local days as YYYY-MM-DD ----
 const at = (day: string) => new Date(`${day}T12:00:00Z`);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const addDays = (day: string, n: number) => iso(new Date(at(day).getTime() + n * 86_400_000));
-/** The same day one month earlier, or that month's last day. */
 function monthBefore(day: string) {
 	const [y, m, d] = day.split("-").map(Number) as [number, number, number];
 	const last = new Date(Date.UTC(y, m - 1, 0)).getUTCDate();
@@ -60,13 +50,11 @@ function monthBefore(day: string) {
 }
 const short = (day: string) =>
 	new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(at(day));
-/** Today in the church's time zone, from the trusted server clock the system prompt states. */
 function churchToday(prompt: Prompt, zone: string) {
 	const clock = /Current time \(trusted server clock\): (\S+?)\.?(?:\s|$)/.exec(systemText(prompt))?.[1];
 	return new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(clock ? new Date(clock) : new Date());
 }
 
-/** What each read covers, named the way the week answer names it when that read failed. */
 const AREA: Record<string, string> = {
 	"dashboard.availableActions": "Overview's next steps",
 	"dashboard.metrics": "your overdue task count (Tasks)",
@@ -81,7 +69,6 @@ const WEEK_READS = [
 ] as const;
 const FOLLOW_UP: Record<string, string> = { warning: "no recent activity", alert: "no activity for a long while" };
 
-/** The week answer: each read's items with where they came from, then what it could not cover. */
 function weekAnswer(prompt: Prompt, outputs: Output[]) {
 	const of = (operation: string) => outputs.findLast((o) => o.operation === operation);
 	const ok = (o: Output | undefined) => o && !o.error && o.status === "available";
@@ -115,7 +102,6 @@ function weekAnswer(prompt: Prompt, outputs: Output[]) {
 	}
 	const pipeline = of("people.getPipelineData");
 	if (ok(pipeline)) {
-		// Marked by the board's own inactivity rule, listed by name: no one is ranked. The user is never someone to follow up with.
 		const marked = (pipeline!.rows ?? [])
 			.filter((p) => p.kind === "person" && FOLLOW_UP[String(p.fields.inactivity)] && p.fields.you !== true)
 			.sort((a, b) => a.label.localeCompare(b.label));
@@ -145,7 +131,6 @@ function weekAnswer(prompt: Prompt, outputs: Output[]) {
 	return say(...lines);
 }
 
-/** "Who did we add in the last month?": the "added to People" entries of Overview's activity since a month ago. */
 function addedAnswer(prompt: Prompt, activity: Output) {
 	if (activity.error)
 		return say("I couldn't read Overview's activity just now, so I can't say who was added. Open [People](/people).");
@@ -154,8 +139,6 @@ function addedAnswer(prompt: Prompt, activity: Output) {
 	const since = monthBefore(today);
 	const entries = activity.rows ?? [];
 	const added = entries.filter((e) => e.fields.change === "person_added" && String(e.fields.date) >= since);
-	// The feed holds the latest 20 changes. When older ones exist and even the oldest shown is inside the month, the
-	// month may reach past what it returned.
 	const oldest = entries.at(-1);
 	const cut = activity.facts?.more === true && (!oldest || String(oldest.fields.date) >= since);
 	const lines = added.length
@@ -176,7 +159,6 @@ function addedAnswer(prompt: Prompt, activity: Output) {
 	return say(...lines);
 }
 
-/** "What's missing in our setup?": the open setup steps Overview lists, each with its link. */
 function gapsAnswer(gaps: Output) {
 	if (gaps.error) return say("I couldn't read your setup steps just now. Open [Overview](/overview) to see them.");
 	if (gaps.status !== "available") return say(gaps.exclusions?.[0] ?? "I can't read this church's Overview.");
@@ -190,7 +172,6 @@ function gapsAnswer(gaps: Output) {
 	);
 }
 
-/** The feedback type its words suggest: something broke, an idea, a question, or other. */
 function categoryOf(words: string) {
 	if (/\b(broken|broke|bug|error|crash(?:es|ed)?|doesn['’]?t work|does not work|fails?|failed)\b/i.test(words))
 		return "bug";
@@ -202,7 +183,6 @@ function categoryOf(words: string) {
 const sentence = (words: string) => words.charAt(0).toUpperCase() + words.slice(1);
 const feedbackLine = (r: Row) => `- ${r.label}, sent ${String(r.fields.sent)}: ${String(r.fields.status)}`;
 
-/** One step of an Overview or feedback request, or null when it is none. */
 export function overviewStep(options: LanguageModelV4CallOptions, text: string): LanguageModelV4Content[] | null {
 	const tools = JSON.stringify(options.tools ?? []);
 	const offers = (operation: string) => tools.includes(`"${operation}"`);

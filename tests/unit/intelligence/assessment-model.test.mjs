@@ -1,5 +1,3 @@
-// Plant Intelligence's words (WP-044): the cold start never shows a result, the newest run's line keeps the previous
-// result, and next steps come only from gaps the measured facts show.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {

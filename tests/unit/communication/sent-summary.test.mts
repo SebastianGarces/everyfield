@@ -1,9 +1,3 @@
-// T-282 (T-241 Done 3, CASE-NTF-016): the sent-email summary keeps a person who unsubscribed out of "Not delivered".
-// She is skipped, never a failed send, so the summary gives her a "Skipped" count of her own. The totals are the ones
-// scheduled-opt-out.test.mts reads from the domain after the send: Ana unsubscribed, Ben and Cy were accepted.
-//
-// It renders the real Totals in node, with no browser and no database. It runs from packages/domain's test:unit:
-// tsx --tsconfig ../../tests/unit/render.tsconfig.json --test <this file>.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
@@ -38,7 +32,6 @@ const zero = {
 	outcomes: [],
 	sentForAll: false,
 };
-/** After the send: Ana skipped because she unsubscribed, Ben and Cy accepted, nothing failed or bounced. */
 const anaSkipped = {
 	...zero,
 	selected: 3,
@@ -56,7 +49,6 @@ const text = (html: string) =>
 		.replace(/\s+/g, " ")
 		.trim();
 
-/** What staff read: each tile's value by label, each group's rows by heading, and the provider-words line. */
 function summary(totals: typeof zero) {
 	const html = renderToStaticMarkup(createElement(Totals, { totals }));
 	const tiles: Record<string, number> = {};
@@ -78,7 +70,6 @@ test("AC:CASE-NTF-016: after the send, Not delivered leaves Ana out and a Skippe
 	assert.deepEqual(groups["Not delivered"], { Bounced: 0, Failed: 0, Suppressed: 0, Unknown: 0 });
 	assert.deepEqual(groups.Skipped, { Unsubscribed: 1 });
 	assert.deepEqual(Object.keys(groups), ["Delivery", "Engagement", "Not delivered", "Skipped"]);
-	// Her row says she was skipped, and the provider words name no refusal.
 	assert.equal(deliveryName("unsubscribed"), "Skipped: unsubscribed");
 	assert.equal(words, "Accepted");
 });

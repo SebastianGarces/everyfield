@@ -5,10 +5,6 @@ import type { z } from "zod";
 import { type Outcome } from "./model.ts";
 import { loadTask, read, reader, taskViewer, templates, type TaskViewer } from "./server.ts";
 
-// GET /tasks/read: the Tasks screens' reads after the first paint (the open task, more history, the seats, the
-// people, meetings or teams a task may name, the tasks one may wait for, and the list's blocked badges). A GET handler, not a server action, so a read never waits for a save or
-// holds one up. Every read rechecks the live seat inside its statement (C13).
-
 const answer = (body: Outcome<unknown>) => Response.json(body, { headers: { "cache-control": "private, no-store" } });
 const invalid = { status: "refused", code: "invalid_input" } as const;
 
@@ -34,8 +30,6 @@ export async function GET(request: Request) {
 					read((tx) => reader.history(tx, viewer, v.taskId, v.page)),
 				),
 			);
-		// The current page's derived "Blocked by" counts, after a task they may wait for settled, reopened or was deleted.
-		// Only the rows on screen are read, by ID, and only the badge leaves the server.
 		case "blocking":
 			return answer(
 				await parsed(c.taskRowsRequest, { taskIds: p.getAll("id") }, async (v) => {
@@ -45,7 +39,6 @@ export async function GET(request: Request) {
 						: r;
 				}),
 			);
-		// The list rows of the named tasks in one statement: a bulk change's stale rows, read again together.
 		case "rows":
 			return answer(
 				await parsed(c.taskRowsRequest, { taskIds: p.getAll("id") }, (v) =>
@@ -70,7 +63,6 @@ export async function GET(request: Request) {
 					read(async (tx) => refusalOf(await taskReader.relationOptions(tx, viewer.authority, v))),
 				),
 			);
-		// The checklist catalog, one checklist's preview and one phase offer by its move (WP-026). Owner and Admin only.
 		case "templates":
 			return answer(await read(async (tx) => refusalOf(await templates.listTemplates(tx, viewer.authority, {}))));
 		case "preview":

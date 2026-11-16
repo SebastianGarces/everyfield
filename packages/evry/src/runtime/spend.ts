@@ -13,28 +13,16 @@ import { LIMITS } from "../context/limits.ts";
 import type { Price, Spend } from "./model.ts";
 import { traced } from "./trace.ts";
 
-// Paid model spend (D77). Every paid model call reserves its own worst case in the month's counter before the provider
-// sees it, and settles to its reported usage afterwards. A call that never reports usage keeps its reservation.
-
-/**
- * The most input tokens one call can bill. A byte-level tokenizer never makes more tokens than the UTF-8 bytes it reads,
- * and JSON only adds bytes; each message adds a few framing tokens. Covers the prompt, tools and response format.
- */
 export function inputTokenBound(params: LanguageModelV4CallOptions) {
 	const { prompt, tools, toolChoice, responseFormat } = params;
 	return Buffer.byteLength(JSON.stringify({ prompt, tools, toolChoice, responseFormat })) + 16 * prompt.length + 512;
 }
 
-/** One call's cost in millionths of a US dollar, rounded up, in the provider's price tier for its input size. */
 export function callCostMicroUsd(price: Price, inputTokens: number, outputTokens: number) {
 	const long = inputTokens > price.longContextAbove;
 	return Math.ceil(inputTokens * price.input * (long ? 2 : 1) + outputTokens * price.output * (long ? 1.5 : 1));
 }
 
-/**
- * Reserves `micro` of this month's (UTC) spend when the month's charge stays within `cap`. Returns the month, or null
- * when the limit would be passed. One statement; its row lock ends with it.
- */
 async function reserveSpend(db: Database, micro: number, cap: number): Promise<string | null> {
 	const r = await db.execute(sql`
 		INSERT INTO model_spend(month,charged_micro_usd)
@@ -45,7 +33,6 @@ async function reserveSpend(db: Database, micro: number, cap: number): Promise<s
 	return r.rows.length ? z.string().parse(r.rows[0]!.month) : null;
 }
 
-/** Gives back `micro` of a month's reservation (a negative amount charges more). One statement. */
 async function refundSpend(db: Database, month: string, micro: number) {
 	if (micro !== 0)
 		await db.execute(
@@ -53,11 +40,6 @@ async function refundSpend(db: Database, month: string, micro: number) {
 		);
 }
 
-/**
- * The paid model for one run: each call's output is capped at the per-call budget, its worst case is reserved before
- * the provider sees it (refused with model_unavailable when the month's limit would be passed), and it settles once to
- * its reported usage. `charged` is what this run has committed so far.
- */
 export function meteredModel(db: Database, model: LanguageModelV4, spend: Spend) {
 	let charged = 0;
 	const reserve = async (params: LanguageModelV4CallOptions) => {
@@ -81,7 +63,6 @@ export function meteredModel(db: Database, model: LanguageModelV4, spend: Spend)
 				usage.outputTokens.total ?? output,
 			);
 			charged += actual - micro;
-			// A failed refund keeps the larger charge.
 			await refundSpend(db, month, micro - actual).catch(() => (charged += micro - actual));
 		};
 	};
