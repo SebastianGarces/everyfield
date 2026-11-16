@@ -9,8 +9,6 @@ import { renderEmailHtml } from "../../../packages/contracts/src/communication/e
 import { renderBody } from "../../../packages/contracts/src/communication/html.ts";
 import { ok, refused } from "../../support/fixture.mts";
 
-// REQ-COM-010, REQ-MTG-018: an invitation email carries each guest's own RSVP link, minted when the send is handed off.
-
 let f, plant, owner;
 const origin = "https://app.example.test";
 const keys = { encryptionKey: Buffer.alloc(32, 7), addressKey: Buffer.alloc(32, 9), from: "news@example.test", origin };
@@ -79,7 +77,6 @@ async function scheduled(meetingId, personIds, bodyHtml = BODY) {
 			}),
 	};
 }
-/** A transport that records every message and accepts it. */
 function capture() {
 	const sent = [];
 	return {
@@ -159,7 +156,6 @@ test("AC:COM-010 AC:MTG-018 a send gives each guest their own link and no link t
 	assert.equal((await guestRow(orientation, ben)).rsvp_token_hash, sha(b.token));
 	assert.equal((await guestRow(orientation, ben)).rsvp_token_open, true);
 	assert.equal((await rows(sql`SELECT 1 FROM participation WHERE person_id = ${cat}`)).length, 0);
-	// No raw token reaches the audit row, the dispatch result or the stored mail rows.
 	const audit = await rows(
 		sql`SELECT after_value FROM audit_event WHERE action = 'communication.send_intended' AND subject_id = ${s.communicationId}`,
 	);
@@ -216,7 +212,6 @@ test("AC:COM-010 a link lasts to the later of seven days and the meeting start",
 	const farExpiry = (await guestRow(far, farGuest)).rsvp_token_expires_at;
 	assert.equal(farExpiry.getTime(), new Date(farMeeting.starts_at).getTime());
 	const nearExpiry = (await guestRow(near, nearGuest)).rsvp_token_expires_at.getTime();
-	// Seven days from the send, by the database clock read around it.
 	assert.ok(nearExpiry >= earliest + 7 * day && nearExpiry <= latest + 7 * day + 1, String(nearExpiry - earliest));
 });
 
@@ -277,7 +272,6 @@ test("AC:COM-010 the preview equals the sent message apart from the name and the
 		preview.previewHtml.replaceAll("Sample Person", "Gus Pike").replaceAll("/rsvp/preview", "/rsvp/" + link.token),
 		sent.html,
 	);
-	// The sent HTML is the system layout around the rendered body.
 	const [church] = await rows(sql`SELECT name FROM plant WHERE id = ${plant.id}`);
 	assert.equal(
 		sent.html,
@@ -342,7 +336,6 @@ test("AC:COM-010 the preview shows a labeled placeholder when no https link is p
 		assert.equal(sent.includes("RSVP button appears here"), false);
 		assert.equal(renderBody(BODY, merge).includes("RSVP button appears here"), false);
 	}
-	// A valid https link renders the button in both modes.
 	const merge = { name: "Sam", rsvp_link: `${origin}/rsvp/preview` };
 	assert.ok(renderEmailHtml(BODY, merge, context, "preview").includes("data-rsvp-button"));
 	assert.equal(renderEmailHtml(BODY, merge, context, "preview").includes("data-rsvp-placeholder"), false);

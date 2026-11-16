@@ -5,11 +5,6 @@ import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
 
-// Product feedback (WP-049A). Every operation is one statement that checks the caller's access itself: the author's
-// own operations hold only while the account is live (not suspended, deleted or signed out, C13), and triage holds only
-// while that same live account has a current feedback_triage platform grant (REQ-ADM-002). A church Owner or Admin role
-// grants nothing here.
-
 type Code = z.infer<typeof c.feedbackErrorCode>;
 class Refusal extends Error {
 	readonly code: Code;
@@ -37,11 +32,9 @@ async function rows(db: Pick<Database, "execute">, query: SQL) {
 	return (await db.execute(query)).rows as Record<string, unknown>[];
 }
 
-/** The caller's own account, live now: the session, an active registration and no lifecycle hold (C13). */
 const ownAccount = (authority: RequestActor) =>
 	liveRead({ session: authority.session, owner: { kind: "account", id: authority.actor.accountId } });
 
-/** The church and role of the caller's current seat, as at most one row; none without a seat. */
 function seatLabels(authority: RequestActor): SQL {
 	const context = authority.actor.context;
 	return context.kind === "seat"
@@ -51,21 +44,15 @@ function seatLabels(authority: RequestActor): SQL {
 		: sql`SELECT NULL::text AS church, NULL::text AS role WHERE false`;
 }
 
-/**
- * platformAdmin.authorize for the feedback triage purpose, as one condition for the statement that reads or writes:
- * the caller's own live account holds an unrevoked, unexpired feedback_triage grant. Nothing else grants it.
- */
 const triageAuthority = (authority: RequestActor): SQL =>
 	sql`(${ownAccount(authority)} AND EXISTS(SELECT FROM platform_grant g WHERE g.account_id=${authority.actor.accountId}::uuid
  AND g.capability='feedback_triage' AND g.revoked_at IS NULL AND (g.expires_at IS NULL OR g.expires_at>clock_timestamp())))`;
 
-/** platformAdmin.authorize: whether the caller may triage feedback now. One statement; it changes nothing. */
 export async function authorizeTriage(db: Pick<Database, "execute">, authority: RequestActor): Promise<boolean> {
 	const [row] = await rows(db, sql`SELECT ${triageAuthority(authority)} AS ok`);
 	return row?.ok === true;
 }
 
-/** A keyset cursor over (submitted_at, id), newest first, opaque to the browser. */
 const cursorOf = (at: string, id: string) => Buffer.from(`${at}|${id}`).toString("base64url");
 const after = z
 	.string()
@@ -78,7 +65,6 @@ function keyset(cursor: string | null): SQL {
 	const [at, id] = found.data!;
 	return sql`(f.submitted_at, f.id) < (${at}::timestamptz, ${id}::uuid)`;
 }
-/** The first PAGE_SIZE rows, newest first, and the cursor for the next page when there is one. */
 function page<T>(found: Record<string, unknown>[], item: (row: Record<string, unknown>) => T) {
 	const sorted = found.sort((a, b) =>
 		a.at === b.at ? String(b.id).localeCompare(String(a.id)) : String(b.at).localeCompare(String(a.at)),
@@ -90,7 +76,6 @@ function page<T>(found: Record<string, unknown>[], item: (row: Record<string, un
 		next: sorted.length > c.PAGE_SIZE && last ? cursorOf(String(last.at), String(last.id)) : null,
 	};
 }
-// The exact saved time as text, so a cursor keeps its microseconds; the browser sorts and shows it as an ISO time.
 const AT = sql`to_char(f.submitted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`;
 
 const ownItem = (row: Record<string, unknown>) =>
@@ -102,7 +87,6 @@ const ownItem = (row: Record<string, unknown>) =>
 		publicUrl: row.issue_url ?? null,
 	});
 
-/** The operator email's ledger state as a triager reads it, or null when none is queued. */
 const MAIL_STATE: Record<string, c.OperatorMailState> = {
 	pending: "sending",
 	scheduled: "sending",
@@ -147,7 +131,6 @@ const TRIAGE_COLUMNS = sql`f.id, f.category, f.description, f.status, f.revision
  f.held_reason, f.issue_url, (SELECT m.state FROM mail m WHERE m.tenant_id=f.account_id
   AND m.logical_key='feedback/'||f.id::text) AS mail_state`;
 
-/** The feedback a request key already saved for the caller, read once after a lost race. */
 async function replay(db: Database, authority: RequestActor, requestKey: string) {
 	const [row] = await rows(
 		db,
@@ -168,12 +151,6 @@ const submitted = (row: Record<string, unknown>) =>
 	});
 
 export const feedbackWriter = {
-	/**
-	 * feedback.submit: saves one piece of feedback for the caller's own live account. The church and role come from the
-	 * caller's current seat and the app version from the server, never from the request. A resend with the same request
-	 * key returns the saved feedback and writes nothing more. One statement with its feedback.received audit row and the
-	 * feedback_publication job the scheduled runner publishes it from.
-	 */
 	async submit(db: Database, authority: RequestActor, raw: unknown, server: { appVersion: string | null }) {
 		return settle(async () => {
 			const input = parse(c.submitFeedbackRequest, raw);
@@ -209,16 +186,11 @@ SELECT (SELECT ok FROM gate) AS ok, f.id, f.category, f.page_label, ${AT} AS at,
 FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 			);
 			if (row?.ok !== true) deny("access_denied");
-			// A rival request with the same key committed after this statement's snapshot: its row is the answer.
 			if (!row!.id) return replay(db, authority, input.requestKey);
 			return submitted(row!);
 		});
 	},
 
-	/**
-	 * What the dialog shows before sending, read from the server as submit stores it: the church and role of the caller's
-	 * seat (null without one) and the email we reply to. One statement.
-	 */
 	async getSendContext(db: Database, authority: RequestActor) {
 		return settle(async () => {
 			const [row] = await rows(
@@ -231,10 +203,6 @@ FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 		});
 	},
 
-	/**
-	 * feedback.listOwn: the caller's own feedback, newest first, 25 at a time: category, date, status and public link.
-	 * No words, private details or triage history. One statement.
-	 */
 	async listOwn(db: Database, authority: RequestActor, raw: unknown = {}) {
 		return settle(async () => {
 			const input = parse(c.listOwnRequest, raw);
@@ -255,7 +223,6 @@ FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 		});
 	},
 
-	/** feedback.getOwnStatus: one of the caller's own feedback. Another account's id answers as one that does not exist. */
 	async getOwnStatus(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.getOwnStatusRequest, raw);
@@ -268,10 +235,6 @@ FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 		});
 	},
 
-	/**
-	 * feedback.admin.list: every account's feedback with its private details, newest first, 25 at a time, filtered by
-	 * status and category. Only for a caller with the feedback_triage grant. One statement.
-	 */
 	async "admin.list"(db: Database, authority: RequestActor, raw: unknown = {}) {
 		return settle(async () => {
 			const input = parse(c.triageListRequest, raw);
@@ -293,7 +256,6 @@ FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 		});
 	},
 
-	/** One feedback for a triager, with its status history: who changed it, from what to what, and when. One statement. */
 	async "admin.get"(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.triageGetRequest, raw);
@@ -313,11 +275,6 @@ FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 		});
 	},
 
-	/**
-	 * feedback.admin.changeStatus: a triager moves one feedback to a status. It names the revision it saw: when someone
-	 * changed it since, nothing is saved and the answer carries the current status. Setting the status it already has
-	 * records nothing. One statement locks the row, changes it and writes its feedback.status_changed audit row.
-	 */
 	async "admin.changeStatus"(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.changeStatusRequest, raw);

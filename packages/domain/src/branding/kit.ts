@@ -13,7 +13,6 @@ import {
 import { sql } from "@everyfield/db/query";
 import { colorView } from "./color.ts";
 
-/** Database column of each letterhead field. */
 export const LETTERHEAD_COLUMNS: Record<LetterheadKey, string> = {
 	legalName: "legal_name",
 	address: "address",
@@ -29,7 +28,6 @@ type KitRow = Record<string, unknown>;
 
 const text = (value: unknown) => (typeof value === "string" ? value : null);
 
-/** The saved values of a kit row, or the defaults when the church plant has no row. */
 export function dataFromRow(row: KitRow | null): BrandKitData {
 	const assets = Object.fromEntries(
 		ASSET_SLOTS.map((slot) => {
@@ -51,7 +49,6 @@ export function dataFromRow(row: KitRow | null): BrandKitData {
 	};
 }
 
-/** `brand.get` and every kit-returning result: the saved values, the revision and a contrast badge for each color. */
 export function kitFromRow(row: KitRow | null): BrandKit {
 	const data = dataFromRow(row);
 	const primary = data.primaryColor;
@@ -70,20 +67,14 @@ export const assetColumn = (slot: AssetSlot) => sql.identifier(`${slot}_object_i
 export const altColumn = (slot: AssetSlot) => sql.identifier(`${slot}_alt`);
 export const SLOT_ID_COLUMNS = ASSET_SLOTS.map(assetColumn);
 
-/** A file id of each slot, one row each, for a queued release (`v.id`). */
 export const slotValues = (row: string) =>
 	sql.join(
 		ASSET_SLOTS.map((slot) => sql`(${sql.raw(row)}.${assetColumn(slot)})`),
 		sql`, `,
 	);
 
-/** The most bytes a stored raster may have. The staged file reserves it, since the processed size is not known yet. */
 export const STORED_MAX_BYTES = 10 * 1024 * 1024;
 const EXTENSIONS = { "image/svg+xml": "svg", "image/png": "png", "image/webp": "webp" } as const;
-/**
- * A staged file keeps its stored type and a reserved size (both frozen once staged), so the slot, the uploaded type and
- * the uploaded size travel in the upload key: `brand-asset/<slot>/<svg|png|webp>/<byte length>/<id>`.
- */
 export const uploadKeyOf = (slot: AssetSlot, mediaType: keyof typeof EXTENSIONS, byteLength: number, id: string) =>
 	`brand-asset/${slot}/${EXTENSIONS[mediaType]}/${byteLength}/${id}`;
 export function stagedUpload(uploadKey: string) {

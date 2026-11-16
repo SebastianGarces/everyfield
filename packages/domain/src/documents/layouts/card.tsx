@@ -13,7 +13,6 @@ const contactLine = (ctx: Ctx) => {
 	return ctx.values.pastor_name ? `Return this card to ${ctx.values.pastor_name}.` : "";
 };
 
-/** Outward-facing 4.25 x 5.5 in card: primary cover, 4 pt accent bar, rows with the checkbox on the left, then fields. */
 export function cardDocument(ctx: Ctx, spec: CardSpec) {
 	const { p, theme } = ctx;
 	const W = CARD.width - 2 * CARD_MARGIN;

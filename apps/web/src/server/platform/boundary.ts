@@ -43,7 +43,6 @@ export async function safeBoundary(body: () => Promise<Response>): Promise<Respo
 		result.headers.set("X-Request-Id", id);
 		return result;
 	} catch (error) {
-		// Never return SQL, stack, tokens, private subjects or provider payloads.
 		const response = safeResponse(
 			{ code: error instanceof Refusal ? error.code : "unavailable", requestId: id },
 			error instanceof Refusal ? error.status : 503,

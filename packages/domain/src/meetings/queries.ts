@@ -10,23 +10,17 @@ import { kitColumns, kitItem, kitRow } from "./meetings.ts";
 import { personAliasPhoto } from "../people/photos.ts";
 import { agendaOf, detail, meetingColumns, meetingRow, plantMeeting, summary } from "./rows.ts";
 
-// Every read is one statement that checks the reader's live access (C13) after the request's verified viewer names
-// them (D59/D60). Members read; prayer and question notes are only in live Owner/Admin projections. Missing, foreign
-// and deleted meetings read as unavailable.
-
 const current = (plantId: string, meetingId: string) =>
 	sql`${plantMeeting(plantId, meetingId)} AND m.retired_at IS NULL`;
 const guests = (where: SQL) =>
 	sql`(SELECT coalesce(json_agg(x ORDER BY x.person_name, x.id), '[]') FROM (SELECT ${guestColumns}
 		WHERE g.meeting_id = m.id AND g.removed_at IS NULL AND ${where}) x)`;
 
-/** Each current guest's photo, as the People list shows it (REQ-PPL-005, REQ-IDN-006). Guests with none are left out. */
 const guestPhotos = sql`(SELECT coalesce(json_agg(json_build_object('personId', x.person_id, 'photo', x.photo)
 		ORDER BY x.person_id), '[]') FROM (SELECT p.id AS person_id, ${personAliasPhoto} AS photo
 		FROM participation g JOIN person p ON p.id = g.person_id WHERE g.meeting_id = m.id AND g.removed_at IS NULL) x
 	WHERE x.photo IS NOT NULL)`;
 
-/** Per Person, the first open of any email sent from this meeting's messages, as the email service reported it. */
 const emailOpens = sql`(SELECT coalesce(json_agg(json_build_object(
 		'personId', o.person_id, 'openedAt', to_char(o.opened_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
 	) ORDER BY o.person_id), '[]') FROM (
@@ -39,11 +33,6 @@ const emailOpens = sql`(SELECT coalesce(json_agg(json_build_object(
 	) o)`;
 
 export const meetingsReader = {
-	/**
-	 * Upcoming, past or all meetings (default all), optionally by type, status, Vision kit readiness and ministry. Page numbers in
-	 * a stable order: upcoming soonest first, otherwise latest first, ties by ID. A page past the end is empty, with the
-	 * total of the whole filter.
-	 */
 	async list(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.listMeetingsRequest, raw);
@@ -89,7 +78,6 @@ export const meetingsReader = {
 			);
 		});
 	},
-	/** Whether any current meeting of these types exists, whatever a window or filter shows (REQ-MTG-001). */
 	async hasHistory(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.hasHistoryRequest, raw);
@@ -115,7 +103,6 @@ export const meetingsReader = {
 			return agendaOf(meetingRow.parse(row));
 		});
 	},
-	/** The kit as stored; a read never seeds a missing kit (REQ-MTG-006). */
 	async listKit(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
@@ -137,10 +124,6 @@ export const meetingsReader = {
 			});
 		});
 	},
-	/**
-	 * The guests, and for Owners and Admins the first time each guest opened an email of this meeting (WP-028). An
-	 * open is an email-service notice only: it sets no RSVP or attendance, and a missing open says nothing.
-	 */
 	async listGuests(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
@@ -159,11 +142,6 @@ export const meetingsReader = {
 			});
 		});
 	},
-	/**
-	 * The meeting page's guests in one statement: the guest list with its email opens, the recorded cards (notes for
-	 * Owner/Admin only) and the attendance list of up to the 500 guests a meeting can finalize. The page reads the
-	 * participation rows once instead of once each for listGuests, listCards and listAttendance.
-	 */
 	async pageGuests(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
@@ -191,7 +169,6 @@ export const meetingsReader = {
 			};
 		});
 	},
-	/** Recorded Vision cards. Notes appear only for Owner/Admin. */
 	async listCards(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
@@ -210,10 +187,6 @@ export const meetingsReader = {
 			});
 		});
 	},
-	/**
-	 * Card responses with attended guests as the denominator; an attended guest without a card is unknown. Cards from
-	 * guests who did not attend are counted apart. Nothing here infers attendance, consent or commitment.
-	 */
 	async cardBreakdown(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
@@ -245,7 +218,6 @@ export const meetingsReader = {
 			});
 		});
 	},
-	/** Who invited each current guest and their canonical RSVP. There is no invitation tree (REQ-MTG-019). */
 	async invitationAttribution(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
@@ -267,7 +239,6 @@ export const meetingsReader = {
 			});
 		});
 	},
-	/** What an invitation composer needs (Owner/Admin): the meeting, its agenda and the live guests it may address. */
 	async communicationContext(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
@@ -286,10 +257,6 @@ export const meetingsReader = {
 			return c.communicationContext.parse({ meeting: summary(m), agenda: m.agenda, guests: row.recipients });
 		});
 	},
-	/**
-	 * Distinct practices actually held: completed, held at or before now and not voided. A deleted genuine practice still
-	 * counts; scheduled, future, cancelled, not held and voided ones never do (REQ-KNOW-041/042/044/045).
-	 */
 	async listCompletedPreLaunchPractices(db: Reader, authority: RequestActor) {
 		return read(authority, async (v) => {
 			const { row } = await one(
@@ -307,7 +274,6 @@ export const meetingsReader = {
 			});
 		});
 	},
-	/** The signed-in member's own answer for a meeting they are a guest of, through their account-linked live Person. */
 	async getOwnRsvp(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (v) => {
 			const i = parse(c.meetingRequest, raw);
