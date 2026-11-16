@@ -47,7 +47,7 @@
 		},
 		"persona": {
 			"type": "string",
-			"pattern": "^[a-z][a-z0-9-]*$"
+			"pattern": "^[a-z][A-Za-z0-9-]*$"
 		},
 		"text": {
 			"type": "string",
@@ -523,7 +523,7 @@
 			"type": "object",
 			"minProperties": 1,
 			"propertyNames": {
-				"pattern": "^[a-z][a-z0-9-]*$"
+				"pattern": "^[a-z][A-Za-z0-9-]*$"
 			},
 			"additionalProperties": {
 				"type": "object",
