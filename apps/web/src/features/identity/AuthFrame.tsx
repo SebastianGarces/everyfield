@@ -2,15 +2,9 @@ import { cn, Lockup, LogoMark } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-// The prototype's film grain (.auth-brand::before). The SVG has no color of its own; saturate 0 makes it grey noise.
 const GRAIN =
 	"url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
 
-/**
- * The bare sign-in layout from the prototype (#/signin, .auth): the brand panel on the left and the form column on the
- * right, with no top bar or rail. The brand panel keeps its fixed ink and cream in both themes, as printed brand
- * material does. Below 1024px it becomes a short band above the form (not drawn; see the task rulings).
- */
 export function AuthFrame({ children }: { children: ReactNode }) {
 	return (
 		<div className="grid min-h-dvh grid-cols-2 max-app-md:grid-cols-1 max-app-md:grid-rows-[auto_1fr]">
@@ -52,7 +46,6 @@ export function AuthFrame({ children }: { children: ReactNode }) {
 	);
 }
 
-/** The screen heading and its lead sentence, as drawn: a 34px display heading over muted text. */
 export function AuthHeading({ title, children }: { title: string; children?: ReactNode }) {
 	return (
 		<header>
@@ -62,12 +55,10 @@ export function AuthHeading({ title, children }: { title: string; children?: Rea
 	);
 }
 
-/** The centered line under a form ("New to Everyfield? Start your church"). */
 export function AuthFooter({ children }: { children: ReactNode }) {
 	return <p className="mt-6 text-center text-sm text-text-2">{children}</p>;
 }
 
-/** An inline text link in the ink color, underlined on hover, with the product focus ring. */
 export function AuthLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
 	return (
 		<Link href={href} className={cn("rounded-md font-semibold text-ink underline-offset-4 hover:underline", className)}>
