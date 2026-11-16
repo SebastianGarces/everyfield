@@ -1111,7 +1111,7 @@ const gitIn =
 	(...args: string[]) =>
 		execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 
-export function mergeBase(root: string, ref = "origin/main"): string | null {
+function mergeBase(root: string, ref = "origin/main"): string | null {
 	try {
 		return gitIn(root)("merge-base", "HEAD", ref);
 	} catch {

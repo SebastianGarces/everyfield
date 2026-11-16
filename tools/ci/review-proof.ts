@@ -17,19 +17,19 @@ type Surface = FeatureMap["surfaces"][number];
 type Reach = Surface["reach"][number];
 export type ProofResult = { problems: string[]; needed: boolean; report: string };
 
-export const WIDTHS = [390, 1440] as const;
+const WIDTHS = [390, 1440] as const;
 const RECORDING = /\.(webm|mp4|mov)$/;
 const PNG_SIGNATURE = "89504e470d0a1a0a";
 const NOT_PRODUCT = new Set([PENDING_FILE, SCHEMA_FILE]);
 
-export const isProduct = (file: string) =>
+const isProduct = (file: string) =>
 	(file.startsWith("apps/web/") || /^packages\/[^/]+\/src\//.test(file)) &&
 	!NOT_PRODUCT.has(file) &&
 	!file.endsWith(".md") &&
 	!isTest(file) &&
 	!/\.spec\.|(^|\/)(tests?|__tests__)\//.test(file);
 
-export function pngWidth(file: string): number | null {
+function pngWidth(file: string): number | null {
 	const bytes = readFileSync(file);
 	if (bytes.length < 24 || bytes.subarray(0, 8).toString("hex") !== PNG_SIGNATURE) return null;
 	return bytes.readUInt32BE(16);

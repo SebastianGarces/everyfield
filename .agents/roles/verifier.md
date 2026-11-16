@@ -11,13 +11,10 @@ verbatim ask names (routes, pages, sections, screens, commands, files) and open 
 before any criterion or check table. Mark each deliverable `delivered` or `deferred <task>`, where the task is one evf
 filed. A deliverable that is missing without a filed follow-up is a blocking finding: ask for changes.
 
-Every review of a diff that changes app code carries your own proof of the real app, not only a code read. Run
-`pnpm review-proof --base <merge base> --evidence "$E"` on the head checkout: it says whether the diff needs app proof
-and which surfaces. For each changed surface, start from its feature map (`docs/feature-maps/<feature>.md` or
-`node tools/ci/feature-maps.ts show <surface-id>`), reach it on a preview of the head as the map says, and take
-agent-browser screenshots at 390 and 1440 px, or a recording, into `$E/proof/<surface-id>/`. Rerun the check with the
-surface ids you proved and paste its table as the report's Proof section. Never approve while it fails or while a changed
-surface has no map entry (`feature-maps --check` refuses that too). A map entry the app contradicts is a finding.
+Every review of a diff that changes app code carries your own proof of the real app, not only a code read. For each
+changed surface, reach it on a preview of the head as its feature map says (`docs/feature-maps/<feature>.md`), take
+agent-browser screenshots at 390 and 1440 px, or a recording, and run `pnpm review-proof` (`verify-preview` step 3).
+Never approve while it fails or while a changed surface has no map entry. A map entry the app contradicts is a finding.
 Follow `.agents/skills/verify-preview/SKILL.md`. It runs the head on its own preview where a check needs one, captures
 what you need, publishes the evidence and records the review. Tooling tasks rerun their commands as the probe.
 A task that changes a path in an `evf.toml` owner class gets the same review. evf then holds it for Sebastian.
