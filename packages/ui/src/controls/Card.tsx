@@ -29,10 +29,12 @@ const TONE_TEXT: Record<Tone, string> = {
 export const cardVariants = cva("relative flex min-w-0 flex-col", {
 	variants: {
 		variant: {
-			default: "border border-[var(--ef-card-edge)] bg-surface shadow-card",
-			raised: "border border-[var(--ef-card-edge)] bg-surface-raised shadow-card",
-			flat: "border border-dashed border-line-2 bg-transparent",
-			callout: "rounded-lg border border-line bg-surface-raised px-5 py-[18px] shadow-card",
+			default: "border border-[var(--ef-card-edge)] bg-surface shadow-card [--ef-card-fill:var(--ef-surface)]",
+			raised:
+				"border border-[var(--ef-card-edge)] bg-surface-raised shadow-card [--ef-card-fill:var(--ef-surface-raised)]",
+			flat: "border border-dashed border-line-2 bg-transparent [--ef-card-fill:var(--ef-surface)]",
+			callout:
+				"rounded-lg border border-line bg-surface-raised px-5 py-[18px] shadow-card [--ef-card-bottom:18px] [--ef-card-corner:var(--ef-radius-lg)] [--ef-card-fill:var(--ef-surface-raised)] [--ef-card-x:20px]",
 		},
 		size: { md: "", sm: "" },
 	},
@@ -40,9 +42,15 @@ export const cardVariants = cva("relative flex min-w-0 flex-col", {
 		{
 			variant: ["default", "raised", "flat"],
 			size: "md",
-			className: "rounded-card px-7 py-[26px] max-app-sm:px-5 max-app-sm:py-5",
+			className:
+				"rounded-card px-7 py-[26px] [--ef-card-bottom:26px] [--ef-card-corner:var(--ef-radius-card)] [--ef-card-x:28px] max-app-sm:px-5 max-app-sm:py-5 max-app-sm:[--ef-card-bottom:20px] max-app-sm:[--ef-card-x:20px]",
 		},
-		{ variant: ["default", "raised", "flat"], size: "sm", className: "rounded-lg px-[22px] py-5" },
+		{
+			variant: ["default", "raised", "flat"],
+			size: "sm",
+			className:
+				"rounded-lg px-[22px] py-5 [--ef-card-bottom:20px] [--ef-card-corner:var(--ef-radius-lg)] [--ef-card-x:22px]",
+		},
 	],
 	defaultVariants: { variant: "default", size: "md" },
 });
@@ -137,6 +145,18 @@ export function CardFooter({ plain, className, ...props }: ComponentPropsWithRef
 			className={cn(
 				"mt-[22px] flex flex-wrap items-center gap-2.5",
 				!plain && "border-t border-line pt-[18px]",
+				className,
+			)}
+			{...props}
+		/>
+	);
+}
+
+export function CardStickyFooter({ className, ...props }: ComponentPropsWithRef<"div">) {
+	return (
+		<div
+			className={cn(
+				"sticky bottom-0 z-[2] -mx-[var(--ef-card-x)] -mb-[var(--ef-card-bottom)] flex flex-wrap items-center justify-between gap-3 rounded-b-[var(--ef-card-corner)] border-t border-line bg-[var(--ef-card-fill)] px-[var(--ef-card-x)] pt-3 pb-[max(12px,env(safe-area-inset-bottom))]",
 				className,
 			)}
 			{...props}

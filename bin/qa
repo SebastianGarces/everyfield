@@ -1,5 +1,4 @@
 #!/bin/sh
-# qa: Nora's QA previews. Runs tools/qa/main.ts on Node 24+ (native TypeScript).
 set -e
 here=$(cd "$(dirname "$0")/.." && pwd)
 tool=qa

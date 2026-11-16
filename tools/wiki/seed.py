@@ -17,7 +17,6 @@ def record(row):
 
 
 def formatted(value):
-    # Proven byte-identical against the original payload before implementing promotion.
     return (json.dumps(value, sort_keys=True, indent=2, ensure_ascii=True) + "\n").encode()
 
 
@@ -55,7 +54,6 @@ def check(directory, playbook, bootstrap):
             if entry is None:
                 continue
             if group == "templates":
-                # Original SYSTEM_TEMPLATES source order, documented in verification.json.
                 order = ["name", "invitesMeetingType", "description", "category", "channel", "subject", "body", "mergeFields"]
                 source = {k: row[k] for k in order if k in row}
                 actual = digest(json.dumps(source, ensure_ascii=False, separators=(",", ":")).encode())
@@ -120,7 +118,6 @@ def promote(args):
     manifest.setdefault("releases", []).append({"id": row["id"], "slug": row["slug"], "previousRecordSHA256": record(previous) if previous else None, "recordSHA256": record(row), "approvedBy": args.approved_by, "pr": args.pr, "date": now})
     payload_bytes = formatted(payload)
     manifest["seedPayloadSHA256"] = digest(payload_bytes)
-    # Stage both files before replacing either. Never write into the imported verification record.
     staged = []
     try:
         for target, data in [(pp, payload_bytes), (mp, formatted(manifest))]:
