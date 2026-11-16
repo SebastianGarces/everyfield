@@ -416,7 +416,7 @@
 							]
 						}
 					},
-					"noOperation": "the panel stages the photo through Settings' avatar upload (stagePhoto in conversation/photoActions.ts) and the review card reads it back with readStagedPhoto (packages/evry/src/proposals/store.ts); neither is an Evry catalog operation"
+					"noOperation": "the panel stages the photo through the Settings avatar upload (conversation/photoActions.ts) and the review card reads it back from packages/evry/src/proposals/store.ts; neither is an Evry catalog operation"
 				}
 			]
 		}

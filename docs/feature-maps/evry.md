@@ -189,7 +189,7 @@ Revise replaces the prepared change and voids the earlier approval; Cancel ends 
 
 A photo attached in the panel is staged privately for one proposal; only its owner sees it while the review lasts, and approval needs it.
 
-- No operation: the panel stages the photo through Settings' avatar upload (stagePhoto in conversation/photoActions.ts) and the review card reads it back with readStagedPhoto (packages/evry/src/proposals/store.ts); neither is an Evry catalog operation
+- No operation: the panel stages the photo through the Settings avatar upload (conversation/photoActions.ts) and the review card reads it back from packages/evry/src/proposals/store.ts; neither is an Evry catalog operation
 - Catalog: EVR-025
 - Cases: UI45-003
 - Test: `tests/evry/adapters/people/commands/commands.test.mts`: `AC:UI45-003 a photo proposal's owner sees the exact staged upload while the review lasts; approval needs it`
