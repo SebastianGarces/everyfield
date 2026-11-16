@@ -306,13 +306,38 @@ export function qaLogins(root: string): Set<string> {
 	return new Set([...block.matchAll(/^\s*([A-Za-z0-9]+):/gm)].map((m) => m[1]!));
 }
 
+export function withoutComments(source: string): string {
+	let out = "";
+	let i = 0;
+	while (i < source.length) {
+		const c = source[i]!;
+		if (c === "/" && source[i + 1] === "/") {
+			const end = source.indexOf("\n", i);
+			i = end < 0 ? source.length : end;
+		} else if (c === "/" && source[i + 1] === "*") {
+			const end = source.indexOf("*/", i + 2);
+			i = end < 0 ? source.length : end + 2;
+			out += " ";
+		} else if (c === "'" || c === '"' || c === "`") {
+			let j = i + 1;
+			while (j < source.length && source[j] !== c && (c === "`" || source[j] !== "\n")) j += source[j] === "\\" ? 2 : 1;
+			out += source.slice(i, j + 1);
+			i = j + 1;
+		} else out += source[i++];
+	}
+	return out;
+}
+
+const CODE_DIRS = ["apps/web/src/server", FEATURES_DIR];
+const CODE_PLACES = `packages/*/src, ${CODE_DIRS.join(" or ")}`;
+
 function codeCorpus(root: string): Array<{ file: string; text: string }> {
 	const dirs = readdirSync(join(root, "packages"), { withFileTypes: true })
 		.filter((d) => d.isDirectory())
 		.map((d) => `packages/${d.name}/src`);
-	return [...dirs, "apps/web/src/server"]
+	return [...dirs, ...CODE_DIRS]
 		.flatMap((dir) => walk(root, dir, (f) => /\.(tsx?|mts|mjs|js)$/.test(f) && !isTest(f)))
-		.map((file) => ({ file, text: readFileSync(join(root, file), "utf8") }));
+		.map((file) => ({ file, text: withoutComments(readFileSync(join(root, file), "utf8")) }));
 }
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -674,11 +699,7 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 					const prefix = staticPrefix(reach.link);
 					const key = new RegExp(`["'\`]${escape(reach.email)}["'\`]|\\b${escape(reach.email)}\\s*:`);
 					if (!code.some(({ text }) => key.test(text) && text.includes(prefix)))
-						problems.push(
-							at(
-								`${where}: no file in packages/*/src or apps/web/src/server names email "${reach.email}" and builds ${prefix}`,
-							),
-						);
+						problems.push(at(`${where}: no file in ${CODE_PLACES} names email "${reach.email}" and builds ${prefix}`));
 				}
 			}
 			for (const state of surface.states) {
@@ -731,9 +752,7 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 					if (!features) problems.push(at(`${where}: operation ${op} is not in docs/catalog/operations.json`));
 					else {
 						if (!implemented(code, op))
-							problems.push(
-								at(`${where}: operation ${op} is neither quoted nor declared in packages/*/src or apps/web/src/server`),
-							);
+							problems.push(at(`${where}: operation ${op} is neither quoted nor declared in ${CODE_PLACES}`));
 						if (!features.some((f) => behavior.catalog.includes(f)))
 							problems.push(
 								at(
@@ -1089,7 +1108,8 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"behaves as the map says. It checks: every route belongs to one surface or the shrink-only pending list; route",
 		"files import only their own feature; every `loading`, `error` and `not-found` file is a declared state; test",
 		"names exist exactly; cases are `AC:` markers in those tests; operations are in the catalog, serve the behavior's",
-		"catalog features and are quoted or declared in code; email links name a template that builds that path; rail",
+		"catalog features and are quoted or declared, comments and tests excluded, in `packages/*/src`,",
+		"`apps/web/src/server` or a feature folder; email links name a template that builds that path; rail",
 		"reaches agree with `shellNav` both ways for every persona; personas are QA seed logins whose name, context, role",
 		"and residency link match what the seed creates; a behavior proof checks more than the address after it acts;",
 		"on a surface that polls, a waiting check follows every open, click, press and upload; and every name, label",
