@@ -3,9 +3,6 @@ import { diagramSummary } from "@everyfield/contracts/wiki";
 import { HEADING_STOP } from "./layout.ts";
 import { articleBlocks, inlineParts, type Block, type Inline } from "./model.ts";
 
-// Renders the entitled body as elements. It does not parse MDX and it does not emit raw HTML. A code fence shows its
-// text as written; a diagram fence that parses draws as a diagram (WP-034).
-
 function InlineText({ text }: { text: string }) {
 	const parts = inlineParts(text);
 	return (
@@ -35,7 +32,6 @@ function Lines({ text }: { text: string }) {
 const TABLE_LINES =
 	"[&_td]:border [&_td]:border-line [&_td]:px-2.5 [&_td]:py-1.5 [&_th]:border [&_th]:border-line [&_th]:px-2.5 [&_th]:py-1.5 [&_table]:w-full [&_table]:border-collapse";
 
-/** One block as the article renders it. The editor shows its read-only blocks with this too. */
 function ArticleBlock({ block }: { block: Block }) {
 	if (block.kind === "heading") {
 		const Tag = block.level === 3 ? "h3" : "h2";
@@ -101,7 +97,6 @@ function ArticleBlock({ block }: { block: Block }) {
 	);
 }
 
-/** Blocks inside the article's prose styles. */
 export function ArticleBlocks({
 	blocks,
 	size,
@@ -120,7 +115,6 @@ export function ArticleBlocks({
 	);
 }
 
-/** The article body. Headings carry the ids the contents list uses. */
 export function ArticleBody({
 	contentType,
 	body,
