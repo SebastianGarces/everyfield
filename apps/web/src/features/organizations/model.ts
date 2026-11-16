@@ -1,7 +1,6 @@
 import { normalizedEmail } from "@everyfield/contracts/identity";
 import type { Category, HistoryItem, NameOf, Organization, RelationshipPair } from "./port";
 
-/** REQ-IDN-022 categories, in the words the settings sharing card already uses (WP-010/ui). */
 export const CATEGORY_TEXT: Record<Category, { label: string; description: string }> = {
 	people: { label: "People", description: "Counts only, never names or personal details" },
 	meetings: { label: "Meetings", description: "Counts and attendance totals" },
@@ -13,14 +12,12 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 };
 export const CATEGORIES = Object.keys(CATEGORY_TEXT) as Category[];
 
-/** What no organization ever receives, whatever the switches say (REQ-IDN-022, REQ-IDN-031). */
 export const NEVER_SHARED = "Names, personal details, private check-ins and notes about care are never shared.";
 
 export function kindLabel(organization: Organization): string {
 	return organization.organizationKind === "sending_network" ? "Sending network" : "Sending church";
 }
 
-/** The side of the pair that asked to connect: a plant, a sending church or a Discovery account. */
 export function subjectOf(pair: RelationshipPair) {
 	return pair.kind === "discovery" ? ({ kind: "account", id: pair.accountId } as const) : pair.subject;
 }
@@ -29,11 +26,6 @@ export function subjectName(pair: RelationshipPair, nameOf: NameOf): string {
 	return nameOf(subjectOf(pair));
 }
 
-/**
- * The words for one history row (REQ-IDN-021). A withheld reason says so, so a Member never reads "no reason" for a
- * reason they may not see. A recorded empty reason shows nothing. Only an end takes a reason, so a withheld reason
- * on an approval says nothing.
- */
 export function historyReason(item: HistoryItem): { kind: "text" | "withheld"; text: string } | null {
 	if (item.reason.status === "withheld")
 		return item.event === "ended" ? { kind: "withheld", text: "Reason not shown to your role" } : null;
@@ -42,10 +34,6 @@ export function historyReason(item: HistoryItem): { kind: "text" | "withheld"; t
 
 export type NoticeKind = "relationship_approved" | "relationship_ended" | "sharing_changed";
 
-/**
- * Coarse relationship notice text (REQ-NTF-009, REQ-IDN-022). It states only the committed event and the other
- * organization's name. It never names a sharing category, a switch or any shared body.
- */
 export function noticeText(kind: NoticeKind, organizationName: string): string {
 	switch (kind) {
 		case "relationship_approved":
