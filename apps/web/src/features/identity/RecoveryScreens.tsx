@@ -12,7 +12,6 @@ import { Button, Field, Input } from "@everyfield/ui/controls";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { identityApi } from "./api";
 import { AuthFooter, AuthHeading, AuthLink } from "./AuthFrame";
-import { takeQueryProof, useLinkSecretLeavesAddress } from "./link";
 import { refusalMessage } from "./messages";
 import { FormMessage, Outcome, PasswordInput } from "./parts";
 
@@ -118,8 +117,13 @@ export function RecoverScreen() {
 
 type ResetState = "form" | "done" | "expired";
 
-export function ResetPasswordScreen({ proof }: { proof: string | null }) {
-	useLinkSecretLeavesAddress(takeQueryProof);
+function useLinkProof(proof: string | null): string | null {
+	const [kept] = useState(proof);
+	return kept;
+}
+
+export function ResetPasswordScreen({ proof: linkProof }: { proof: string | null }) {
+	const proof = useLinkProof(linkProof);
 	const [state, setState] = useState<ResetState>("form");
 	const [errors, setErrors] = useState<{ newPassword?: string; confirmPassword?: string }>({});
 	const [refusal, setRefusal] = useState<string | null>(null);
@@ -218,8 +222,8 @@ export function ResetPasswordScreen({ proof }: { proof: string | null }) {
 
 type VerifyState = "ready" | "done" | "expired";
 
-export function VerifyEmailScreen({ proof }: { proof: string | null }) {
-	useLinkSecretLeavesAddress(takeQueryProof);
+export function VerifyEmailScreen({ proof: linkProof }: { proof: string | null }) {
+	const proof = useLinkProof(linkProof);
 	const [state, setState] = useState<VerifyState>("ready");
 	const [refusal, setRefusal] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
