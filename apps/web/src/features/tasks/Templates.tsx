@@ -4,7 +4,8 @@ import { ArrowLeft01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
 import { Button, Sheet, Skeleton, StatePanel, useToast } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, useTransition } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import { SHORT_NAME } from "../phases/model.ts";
 import { importTemplate } from "./actions.ts";
 import { DescriptionView } from "./description.ts";
@@ -22,35 +23,26 @@ import {
 	type TemplatePreview,
 } from "./model.ts";
 
-// Phase checklists (TSK-009): the fixed Everyfield catalog, grouped by phase and then by kind of work, with the
-// church's current phase marked. A preview shows each task and its due date; importing adds exactly those tasks to the
-// list, assigned to the person who imported them. Owner and Admin only.
-
 type Load<T> = { status: "loading" } | { status: "failed"; message: string } | { status: "ok"; value: T };
 const loadFailed = (r: Exclude<Outcome<unknown>, { status: "ok" }>) => ({
 	status: "failed" as const,
 	message: r.status === "lost" ? "Check your connection and try again." : problemText(r.code),
 });
 export const phaseName = (phase: number) => `Phase ${phase} · ${SHORT_NAME[phase] ?? ""}`;
+const previews = createRead((key: string) => loadPreview(key), { failed: () => ({ status: "lost" }) as const });
 
-export function Templates({
-	year,
-	onImported,
-}: {
-	year: number;
-	/** The confirmed new tasks, for the list to show without a reload. */
-	onImported: (tasks: TaskItem[]) => void;
-}) {
+export function Templates({ year, onImported }: { year: number; onImported: (tasks: TaskItem[]) => void }) {
 	const toast = useToast();
 	const [open, setOpen] = useState(false);
 	const [catalog, setCatalog] = useState<Load<TemplateCatalog>>({ status: "loading" });
 	const [chosen, setChosen] = useState<string | null>(null);
-	const [preview, setPreview] = useState<Load<TemplatePreview>>({ status: "loading" });
-	const [saving, setSaving] = useState(false);
+	const [saving, startSaving] = useTransition();
 	const [problem, setProblem] = useState<string | null>(null);
-	// One import intent: a lost answer is sent again with the same key, so the tasks are added once.
 	const intent = useRef<string>("");
 	const reading = useRef(false);
+	const read = useRead(chosen ? previews : null, chosen ?? "");
+	const preview: Load<TemplatePreview> =
+		read.value === undefined ? { status: "loading" } : read.value.status === "ok" ? read.value : loadFailed(read.value);
 
 	const readCatalog = () => {
 		reading.current = true;
@@ -60,11 +52,6 @@ export function Templates({
 			setCatalog(r.status === "ok" ? r : loadFailed(r));
 		});
 	};
-	const readPreview = (key: string) => {
-		setPreview({ status: "loading" });
-		void loadPreview(key).then((r) => setPreview(r.status === "ok" ? r : loadFailed(r)));
-	};
-	// The catalog is read on intent (pointer or focus on the button) or on open, once; a failed read offers a retry.
 	const warm = () => {
 		if (catalog.status !== "ok" && !reading.current) readCatalog();
 	};
@@ -74,41 +61,39 @@ export function Templates({
 		else choose(null);
 	};
 	const choose = (key: string | null) => {
+		if (key) previews.prefetch(key);
 		setChosen(key);
 		setProblem(null);
 		intent.current = crypto.randomUUID();
-		if (key) readPreview(key);
 	};
 
-	async function add(p: TemplatePreview) {
-		setSaving(true);
-		setProblem(null);
-		const r = await importTemplate(intent.current, {
-			catalogVersion: p.catalogVersion,
-			checklistKey: p.checklist.key,
-			itemKeys: p.checklist.tasks.map((t) => t.key),
-		}).catch((): Outcome<never> => ({ status: "lost" }));
-		setSaving(false);
-		if (r.status === "lost") {
-			setProblem(problemText("lost"));
-			return;
-		}
-		intent.current = crypto.randomUUID();
-		if (r.status === "refused") {
-			setProblem(problemText(r.code));
-			// The catalog changed under the preview: show the current one.
-			if (r.code === "stale_catalog") {
-				readCatalog();
-				readPreview(p.checklist.key);
+	const add = (p: TemplatePreview) =>
+		startSaving(async () => {
+			setProblem(null);
+			const r = await importTemplate(intent.current, {
+				catalogVersion: p.catalogVersion,
+				checklistKey: p.checklist.key,
+				itemKeys: p.checklist.tasks.map((t) => t.key),
+			}).catch((): Outcome<never> => ({ status: "lost" }));
+			if (r.status === "lost") {
+				setProblem(problemText("lost"));
+				return;
 			}
-			return;
-		}
-		onImported(r.value.tasks);
-		toast({ tone: "success", message: `Added ${taskCount(r.value.tasks.length)} from “${p.checklist.name}”.` });
-		onOpenChange(false);
-	}
+			intent.current = crypto.randomUUID();
+			if (r.status === "refused") {
+				setProblem(problemText(r.code));
+				if (r.code === "stale_catalog") {
+					readCatalog();
+					previews.retry(p.checklist.key);
+				}
+				return;
+			}
+			onImported(r.value.tasks);
+			toast({ tone: "success", message: `Added ${taskCount(r.value.tasks.length)} from “${p.checklist.name}”.` });
+			onOpenChange(false);
+		});
 
-	const shown = chosen && preview.status === "ok" && preview.value.checklist.key === chosen ? preview.value : null;
+	const shown = chosen && preview.status === "ok" ? preview.value : null;
 	return (
 		<Sheet
 			open={open}
@@ -132,7 +117,7 @@ export function Templates({
 							All checklists
 						</Button>
 						<span className="flex-1" />
-						<Button variant="primary" disabled={!shown} loading={saving} onClick={() => shown && void add(shown)}>
+						<Button variant="primary" disabled={!shown} loading={saving} onClick={() => shown && add(shown)}>
 							{shown ? `Add ${taskCount(shown.checklist.tasks.length)}` : "Add tasks"}
 						</Button>
 					</>
@@ -140,7 +125,7 @@ export function Templates({
 			}
 		>
 			{chosen ? (
-				<PreviewBody state={preview} shown={shown} year={year} problem={problem} onRetry={() => readPreview(chosen)} />
+				<PreviewBody state={preview} shown={shown} year={year} problem={problem} onRetry={read.retry} />
 			) : (
 				<CatalogBody state={catalog} onRetry={readCatalog} onChoose={choose} />
 			)}
@@ -224,7 +209,6 @@ function CatalogBody({
 	);
 }
 
-/** The chosen checklist's body: its description, what adding it does and its tasks under a heading that names it. */
 function PreviewBody({
 	state,
 	shown,

@@ -2,36 +2,20 @@
 
 import { MAX_ASSIGNEES } from "@everyfield/contracts/tasks";
 import { Combobox } from "@everyfield/ui/controls";
-import { useEffect, useState } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import { assigneeOptions } from "./fetch.ts";
 import { assigneeName } from "./model.ts";
 
 type Purpose = "any" | "committed_follow_up";
-/** An account already on the record, with the warning it earns when it is no longer an eligible choice. */
 export type Held = { accountId: string; displayName: string; warning?: string | null };
 
-// The church's seats change rarely, so one read serves every picker on this page; a failed read is forgotten, so the
-// next use tries again. Intent on a button that opens a picker starts it, so the list is there when it opens.
-const seats: Partial<Record<Purpose, ReturnType<typeof assigneeOptions>>> = {};
-export const warmAssignees = (purpose: Purpose = "any") =>
-	(seats[purpose] ??= assigneeOptions(purpose)
-		.catch(() => ({ status: "lost" }) as const)
-		.then((r) => {
-			if (r.status !== "ok") delete seats[purpose];
-			return r;
-		}));
-/** After a refusal that names an account as ineligible, the next read asks again. */
-export const forgetAssignees = () => {
-	delete seats.any;
-	delete seats.committed_follow_up;
-};
+const seats = createRead((purpose: Purpose) => assigneeOptions(purpose), {
+	failed: () => ({ status: "lost" }) as const,
+	fresh: Infinity,
+});
+export const warmAssignees = (purpose: Purpose = "any") => seats.get(purpose);
+export const forgetAssignees = () => seats.forget();
 
-/**
- * Choose up to ten people for a task or follow-up (REQ-TSK-002). The list holds the people who may hold it now:
- * `tasks.eligibleAssignees`, and with `committed_follow_up` only those who may own a follow-up. A person already on the
- * record who is no longer eligible stays in the list with their warning, so they can be removed. The picker stops at
- * ten and says so. `onOpenChange` lets a screen that saves at once commit when the list closes.
- */
 export function AssigneePicker({
 	value,
 	onChange,
@@ -44,7 +28,6 @@ export function AssigneePicker({
 	className,
 }: {
 	value: string[];
-	/** The new selection, with the name of every account in it, so a screen can show it before the server answers. */
 	onChange: (ids: string[], names: Record<string, string>) => void;
 	purpose: Purpose;
 	held?: readonly Held[];
@@ -54,24 +37,12 @@ export function AssigneePicker({
 	onOpenChange?: (open: boolean) => void;
 	className?: string;
 }) {
-	const [loaded, setLoaded] = useState<{
-		purpose: Purpose;
-		options: { accountId: string; displayName: string }[] | "failed";
-	} | null>(null);
-	const [attempt, setAttempt] = useState(0);
-	useEffect(() => {
-		let live = true;
-		void warmAssignees(purpose).then((r) => {
-			if (!live) return;
-			setLoaded({ purpose, options: r.status === "ok" ? r.value.items : "failed" });
-		});
-		return () => void (live = false);
-	}, [purpose, attempt]);
-	const people = loaded?.purpose === purpose && Array.isArray(loaded.options) ? loaded.options : null;
-	const failed = loaded?.purpose === purpose && loaded.options === "failed";
+	const read = useRead(seats, purpose);
+	const people: { accountId: string; displayName: string }[] | null =
+		read.value?.status === "ok" ? read.value.value.items : null;
+	const failed = read.value !== undefined && read.value.status !== "ok";
 	const you = (accountId: string, name: string) => (accountId === viewerId ? `${name} (you)` : name);
 	const eligible = new Set((people ?? []).map((p) => p.accountId));
-	// Until the list arrives, the choice shows the names the record already has, so the field never looks empty.
 	const names = new Map<string, string>();
 	const options = [
 		...(people ?? held.filter((h) => !h.warning)).map((p) => {
@@ -105,11 +76,7 @@ export function AssigneePicker({
 					failed
 						? {
 								message: "The list of people did not load.",
-								onRetry: () => {
-									forgetAssignees();
-									setLoaded(null);
-									setAttempt((n) => n + 1);
-								},
+								onRetry: read.retry,
 							}
 						: undefined
 				}

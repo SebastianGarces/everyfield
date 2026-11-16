@@ -13,15 +13,11 @@ import { FollowUpsScreen, type Data, type Filter } from "./FollowUpsScreen.tsx";
 import { outcomeOf, type Outcome } from "./model.ts";
 import { administers, COVERAGE_PAGE, loadCall, read, readOwners, taskViewer, type TaskViewer } from "./server.ts";
 
-// The follow-up routes. The files under apps/web/src/app/(product)/(frame)/ only re-export these, so the screens, their
-// data loading and their states stay in this feature folder.
-
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const robots = { index: false, follow: false };
 export const callMetadata: Metadata = { title: "Follow-up", robots };
 export const followUpsMetadata: Metadata = { title: "Follow-ups", robots };
 
-/** A signed-out reader goes to sign-in and comes back; an account with no plant seat sees why there is nothing here. */
 async function gate(returnTo: string, title: string): Promise<{ viewer: TaskViewer } | { blocked: ReactNode }> {
 	const viewer = await taskViewer();
 	if (viewer) return { viewer };
@@ -55,7 +51,6 @@ const LoadFailed = ({ title }: { title: string }) => (
 	</Blocked>
 );
 
-/** /follow-ups/[taskId]: record what happened on one follow-up (REQ-MTG-022). */
 export async function FollowUpCallPage({ params }: { params: Promise<{ taskId: string }> }) {
 	const raw = (await params).taskId;
 	const id = recordId.safeParse(raw);
@@ -88,10 +83,6 @@ export async function FollowUpCallPage({ params }: { params: Promise<{ taskId: s
 const FILTERS = ["needs_owner", "uncovered", "owned", "any"] as const satisfies readonly Filter[];
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-/**
- * /tasks/follow-ups: who covers which contact (REQ-TSK-012) and the handoff of an account's follow-ups (REQ-TSK-013).
- * Owners and Admins see every contact; a Member sees the follow-ups they own.
- */
 export async function FollowUpsPage({ searchParams }: { searchParams: Search }) {
 	const s = await searchParams;
 	const filter = (FILTERS as readonly string[]).includes(one(s.show) ?? "") ? (one(s.show) as Filter) : "any";
@@ -105,7 +96,6 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 			const own = (p: number) =>
 				followUpReader.listFollowUpOwners(tx, viewer.authority, { owner: viewer.accountId, page: p, limit: 50 });
 			let mine = outcomeOf(await own(page));
-			// A page past the end shows the last page (D67).
 			if (mine.status === "ok" && mine.value.items.length === 0 && page > 1)
 				mine = outcomeOf(await own(Math.max(1, Math.ceil(mine.value.matched / 50))));
 			return mine.status === "ok" ? { status: "ok", value: { kind: "mine", owners: mine.value } } : mine;
@@ -113,7 +103,6 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 		let r = outcomeOf(
 			await followUpReader.followUpCoverage(tx, viewer.authority, { coverage: filter, page, limit: COVERAGE_PAGE }),
 		);
-		// A page past the end shows the last page (D67).
 		if (r.status === "ok" && r.value.items.length === 0 && page > 1) {
 			const last = Math.max(1, Math.ceil(r.value.total / COVERAGE_PAGE));
 			r = outcomeOf(
@@ -125,8 +114,6 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 			);
 		}
 		if (r.status !== "ok") return r;
-		// The eligible owners come with the page, one statement, so Assign opens with its list (C77). Null on a refusal;
-		// the menu then reads them itself.
 		const owners = await readOwners(tx, viewer);
 		return {
 			status: "ok",
@@ -148,7 +135,6 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 	);
 }
 
-/** The first paint while /tasks/follow-ups loads: the coverage list's shape, under its own status text. */
 export function FollowUpsLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-6">
