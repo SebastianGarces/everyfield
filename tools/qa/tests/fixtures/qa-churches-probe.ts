@@ -1,8 +1,3 @@
-// T-255: what the two church Owners see on a seeded QA database. Each signs in through the identity service; the probe
-// reports the church its session selects, the people the People list read returns there, and that read for the other
-// church. qa.test.ts runs it with tsx and the react-server condition and asserts on its JSON.
-//
-//   DATABASE_URL=<admin URL> QA_ROLE_PASSWORD=<role password> node --conditions=react-server --import tsx qa-churches-probe.ts
 import { randomBytes } from "node:crypto";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase, createDatabase } from "../../../../packages/db/src/client.ts";
@@ -55,7 +50,6 @@ const plantOf = async (name: string) =>
 	(await admin.execute(sql`SELECT id FROM plant WHERE name=${name}`)).rows[0]!.id as string;
 const plants = { harvest: await plantOf("Harvest Point (QA)"), riverside: await plantOf("Riverside (QA)") };
 
-/** Every person the People list read returns for `session` in `plant`, as name and email, or its refusal code. */
 async function people(sessionId: string, plant: string) {
 	const ctx = { session: sessionId, selected: { kind: "plant", id: plant } } as never;
 	const reply = (await runtime.transaction((tx) =>
