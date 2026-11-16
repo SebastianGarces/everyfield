@@ -19,10 +19,18 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import type * as c from "@everyfield/contracts/teams/responsibilities";
-import { useEffect, useId, useOptimistic, useRef, useState, useTransition } from "react";
+import { useId, useOptimistic, useRef, useState, useTransition } from "react";
 import type { z } from "zod";
-import { RecordDialog, RowNotices, SaveNotice, useRowLanes, useSaveIntent } from "../../../components/save/parts.tsx";
-import { asRecordId, asRevision, dayText, problemText } from "../model.ts";
+import { createRead, useRead } from "../../../components/read.tsx";
+import {
+	RecordDialog,
+	RowNotices,
+	SaveNotice,
+	useRowLanes,
+	useSaveIntent,
+	type SaveIntent,
+} from "../../../components/save/parts.tsx";
+import { asRecordId, asRevision, dayText, problemText, type Outcome } from "../model.ts";
 import {
 	addResponsibility,
 	completeResponsibility,
@@ -34,14 +42,11 @@ import {
 	readTeamRevision,
 } from "./actions.ts";
 
-// One ministry's responsibilities (REQ-TEAM-007). The playbook lines are an offer: a read shows them and writes
-// nothing, and only an Owner or Admin accepts or declines. Lines left out or declined do not come back. A check
-// records the church's day and does not move a phase. Each change draws at once, then settles from the write's answer.
-
 type Page = z.infer<typeof c.responsibilityPage>;
 type Item = Page["items"][number];
 type OfferState = Page["offer"];
-type Line = z.infer<typeof c.previewPage>["lines"][number];
+type Preview = z.infer<typeof c.previewPage>;
+type Line = Preview["lines"][number];
 type Row = Omit<Item, "completedOn"> & { completedOn: Item["completedOn"] | "pending"; pending?: boolean };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -54,6 +59,9 @@ type RowChange =
 	| { kind: "remove"; id: string }
 	| { kind: "add"; row: Row };
 
+const savedAs = (row: Row, pending: Row) =>
+	!row.pending && row.sortOrder === pending.sortOrder && row.text === pending.text;
+
 function applyRows(items: Row[], change: RowChange): Row[] {
 	switch (change.kind) {
 		case "tick":
@@ -65,7 +73,7 @@ function applyRows(items: Row[], change: RowChange): Row[] {
 		case "remove":
 			return items.filter((row) => row.id !== change.id);
 		case "add":
-			return [...items, change.row];
+			return items.some((row) => savedAs(row, change.row)) ? items : [...items, change.row];
 	}
 }
 
@@ -73,12 +81,11 @@ function byOrder(a: Row, b: Row) {
 	return a.sortOrder - b.sortOrder || a.id.localeCompare(b.id);
 }
 
-/** The accepted lines, paired with the ids the write created. A mismatch draws nothing and the list is read again. */
 function acceptedRows(
 	lines: readonly Line[],
 	createdIds: readonly string[],
 	selected: ReadonlySet<string>,
-): Row[] | null {
+): Item[] | null {
 	if (lines.length !== createdIds.length) return null;
 	return lines.flatMap((line, index) =>
 		selected.has(line.key)
@@ -96,7 +103,17 @@ function acceptedRows(
 	);
 }
 
+const lostPage = (): Outcome<Page> => ({ status: "lost" });
+const loadPage = (teamId: string, page: number) => listResponsibilities(teamId, page);
+const pages = createRead(loadPage, { failed: lostPage });
+const previews = createRead((teamId: string) => previewResponsibilities(teamId), {
+	failed: (): Outcome<Preview> => ({ status: "lost" }),
+});
+
+const emptyPage = (result: Outcome<Page>) => result.status === "ok" && result.value.items.length === 0;
+
 type TextForm = { mode: "add" | "edit"; text: string; id?: string; revision?: string; problem?: string };
+type OfferDecision = Extract<Awaited<ReturnType<typeof offerResponsibilities>>, { status: "ok" }>["value"];
 
 export function ResponsibilitiesPanel({
 	teamId,
@@ -117,156 +134,61 @@ export function ResponsibilitiesPanel({
 	const [, startTransition] = useTransition();
 	const lane = useSaveIntent<TextForm>({ explain: problemText });
 	const ticks = useRowLanes(problemText);
-	const [seenTeam, setSeenTeam] = useState(teamId);
-	const [seenRevision, setSeenRevision] = useState(teamRevision);
-	const [revision, setRevision] = useState(teamRevision);
 	const [page, setPage] = useState(1);
-	const [reloadToken, setReloadToken] = useState(0);
-	const [items, setItems] = useState<Row[] | null>(null);
-	const [offer, setOffer] = useState<OfferState | undefined>(undefined);
-	const [listPhase, setListPhase] = useState<"loading" | "ready" | "lost" | "refused">("loading");
-	const [shown, project] = useOptimistic(items ?? [], applyRows);
-	const rows = items === null ? null : shown;
-	const [preview, setPreview] = useState<
-		| { status: "loading" }
-		| { status: "lost" }
-		| { status: "ok"; lines: Line[]; templateVersion: string; reviewDigest: string }
-	>({ status: "loading" });
-	const [picked, setPicked] = useState<string[]>([]);
-	const [pickError, setPickError] = useState(false);
-	const [declineOpen, setDeclineOpen] = useState(false);
+	const [shownPage, setShownPage] = useState(1);
 	const [drop, setDrop] = useState<Row | null>(null);
-	const firstPick = useRef<HTMLButtonElement>(null);
-	const pickErrorId = useId();
-	if (seenTeam !== teamId) {
-		setSeenTeam(teamId);
-		setPage(1);
-		setItems(null);
-		setOffer(undefined);
-		setListPhase("loading");
-		setPreview({ status: "loading" });
-		setPicked([]);
+	const [lastOffer, setLastOffer] = useState<OfferState | undefined>(undefined);
+	const asked = useRead(pages, teamId, page);
+	const list = useRead(pages, teamId, shownPage);
+	if (page !== shownPage && asked.value) {
+		if (page > 1 && emptyPage(asked.value)) setPage(page - 1);
+		else setShownPage(page);
 	}
-	if (seenRevision !== teamRevision) {
-		setSeenRevision(teamRevision);
-		setRevision(teamRevision);
-	}
+	const loaded = list.value;
+	const items = loaded?.status === "ok" ? loaded.value.items : null;
+	if (loaded?.status === "ok" && loaded.value.offer !== lastOffer) setLastOffer(loaded.value.offer);
+	const offer = loaded?.status === "ok" ? loaded.value.offer : lastOffer;
+	const listPhase =
+		loaded === undefined || loaded.status === "ok" ? null : loaded.status === "lost" ? "lost" : "refused";
+	const [shown, project] = useOptimistic<Row[], RowChange>(items ?? [], applyRows);
+	const rows = items === null ? null : shown;
 
-	useEffect(() => {
-		let live = true;
-		listResponsibilities(teamId, page).then(
-			(result) => {
-				if (!live) return;
-				if (result.status !== "ok") {
-					setListPhase(result.status === "lost" ? "lost" : "refused");
-					return;
-				}
-				if (result.value.items.length === 0 && page > 1) {
-					setPage(page - 1);
-					return;
-				}
-				setItems(result.value.items);
-				setOffer(result.value.offer);
-				setListPhase("ready");
-			},
-			() => live && setListPhase("lost"),
+	const edit = (change: (current: Page) => Page) =>
+		pages.patch(
+			(result) => (result.status === "ok" ? { ...result, value: change(result.value) } : result),
+			teamId,
+			shownPage,
 		);
-		return () => {
-			live = false;
-		};
-	}, [teamId, page, reloadToken]);
 
-	useEffect(() => {
-		if (!canOffer) return;
-		let live = true;
-		previewResponsibilities(teamId).then(
-			(result) => {
-				if (!live) return;
-				if (result.status !== "ok") {
-					setPreview({ status: "lost" });
-					return;
-				}
-				setPreview({
-					status: "ok",
-					lines: result.value.lines,
-					templateVersion: result.value.templateVersion,
-					reviewDigest: result.value.reviewDigest,
-				});
-				setPicked((current) => current.filter((key) => result.value.lines.some((line) => line.key === key)));
-			},
-			() => live && setPreview({ status: "lost" }),
-		);
-		return () => {
-			live = false;
-		};
-	}, [teamId, canOffer, reloadToken]);
-
-	useEffect(() => {
-		if (pickError) firstPick.current?.focus();
-	}, [pickError]);
+	const reload = () => {
+		const target = page;
+		void loadPage(teamId, target)
+			.catch(lostPage)
+			.then((result) => {
+				if (target > 1 && emptyPage(result)) setPage(target - 1);
+				else pages.patch(() => result, teamId, target);
+			});
+		if (canOffer) void previews.refresh(teamId);
+	};
 
 	const conflict = () => {
-		setReloadToken((n) => n + 1);
+		reload();
 		void readTeamRevision(teamId).then((result) => {
-			if (result.status === "ok") rememberRevision(result.value.revision);
+			if (result.status === "ok") onTeamRevision(result.value.revision);
 		});
 	};
 
-	function rememberRevision(next: string) {
-		setRevision(next);
-		setSeenRevision(next);
-		onTeamRevision(next);
-	}
-
-	function saveOffer(decision: "accept" | "decline") {
-		if (preview.status !== "ok" || lane.wait) return;
-		const selected = decision === "accept" ? picked : [];
-		if (decision === "accept" && selected.length === 0) {
-			setPickError(true);
-			return;
-		}
-		setPickError(false);
-		const lines = preview.lines;
-		const templateVersion = preview.templateVersion;
-		const reviewDigest = preview.reviewDigest;
-		const chosen = new Set(selected);
-		startTransition(async () => {
-			await lane.save({
-				what: decision === "accept" ? "The selected responsibilities" : "The playbook offer",
-				done: decision === "accept" ? "added" : "declined",
-				send: (key) =>
-					offerResponsibilities(key, revision, {
-						teamId,
-						decision,
-						selected,
-						expectedVersion: templateVersion,
-						reviewDigest,
-					}),
-				ok: (result) => {
-					rememberRevision(result.revision);
-					setOffer(result.decision === "accept" ? "accepted" : "declined");
-					setPreview((current) => (current.status === "ok" ? { ...current, lines: [] } : current));
-					setPicked([]);
-					if (result.decision === "accept" && result.outcome === "changed") {
-						const added = acceptedRows(lines, result.createdIds, chosen);
-						if (added === null) setReloadToken((n) => n + 1);
-						else if (page === 1)
-							startTransition(() => setItems((current) => [...added, ...(current ?? [])].sort(byOrder).slice(0, 24)));
-						else setPage(1);
-					}
-					toast({
-						tone: "success",
-						message:
-							result.decision === "accept"
-								? "The selected responsibilities are on this ministry."
-								: "The playbook lines stay off this ministry.",
-					});
-				},
-				refused: (code) => {
-					if (code === "conflict" || code === "stale_review" || code === "stale_template_version") conflict();
-				},
-			});
-		});
+	function decided(result: OfferDecision, lines: readonly Line[], chosen: ReadonlySet<string>) {
+		onTeamRevision(result.revision);
+		edit((current) => ({ ...current, offer: result.decision === "accept" ? "accepted" : "declined" }));
+		if (result.decision !== "accept" || result.outcome !== "changed") return;
+		const added = acceptedRows(lines, result.createdIds, chosen);
+		if (added === null) reload();
+		else if (page === 1)
+			startTransition(() =>
+				edit((current) => ({ ...current, items: [...added, ...current.items].sort(byOrder).slice(0, 24) })),
+			);
+		else setPage(1);
 	}
 
 	function saveText(form: TextForm) {
@@ -289,11 +211,12 @@ export function ResponsibilitiesPanel({
 					what: short(text),
 					done: "added",
 					form,
-					send: (key) => addResponsibility(key, revision, teamId, text),
+					send: (key) => addResponsibility(key, teamRevision, teamId, text),
 					ok: (result) => {
 						startTransition(() =>
-							setItems((current) =>
-								(current ?? []).concat({
+							edit((current) => ({
+								...current,
+								items: current.items.concat({
 									id: result.id,
 									revision: result.revision,
 									sourceLine: result.sourceLine,
@@ -301,7 +224,7 @@ export function ResponsibilitiesPanel({
 									sortOrder: row.sortOrder,
 									completedOn: null,
 								}),
-							),
+							})),
 						);
 						toast({ tone: "success", message: "Responsibility added." });
 					},
@@ -322,11 +245,12 @@ export function ResponsibilitiesPanel({
 				send: (key) => editResponsibility(key, form.revision!, id, text),
 				ok: (result) => {
 					startTransition(() =>
-						setItems((current) =>
-							(current ?? []).map((row) =>
+						edit((current) => ({
+							...current,
+							items: current.items.map((row) =>
 								row.id === id ? { ...row, text: result.text, revision: result.revision } : row,
 							),
-						),
+						})),
 					);
 				},
 				refused: (code) => {
@@ -345,7 +269,9 @@ export function ResponsibilitiesPanel({
 				done: "deleted",
 				send: (key) => deleteResponsibility(key, row.revision, row.id),
 				ok: () => {
-					startTransition(() => setItems((current) => (current ?? []).filter((item) => item.id !== row.id)));
+					startTransition(() =>
+						edit((current) => ({ ...current, items: current.items.filter((item) => item.id !== row.id) })),
+					);
 					toast({ tone: "success", message: "Responsibility deleted." });
 				},
 				refused: (code) => {
@@ -365,11 +291,12 @@ export function ResponsibilitiesPanel({
 				send: (key) => completeResponsibility(key, row.revision, row.id, done),
 				ok: (result) => {
 					startTransition(() =>
-						setItems((current) =>
-							(current ?? []).map((item) =>
+						edit((current) => ({
+							...current,
+							items: current.items.map((item) =>
 								item.id === row.id ? { ...item, completedOn: result.completedOn, revision: result.revision } : item,
 							),
-						),
+						})),
 					);
 				},
 				refused: (code) => {
@@ -380,8 +307,6 @@ export function ResponsibilitiesPanel({
 	}
 
 	const busy = lane.wait !== null;
-	const lines = preview.status === "ok" && offer !== "declined" && offer !== undefined ? preview.lines : [];
-	const showOffer = canOffer && lines.length > 0;
 	const doneCount = (rows ?? []).filter((row) => row.completedOn !== null).length;
 	const fullList = page === 1 && (rows?.length ?? 0) < 24;
 	const description = [
@@ -408,63 +333,15 @@ export function ResponsibilitiesPanel({
 		<div className="flex flex-col gap-5">
 			<SaveNotice {...lane.noticeProps} dialogOpen={lane.editing !== null} />
 			<RowNotices lanes={ticks} />
-			{showOffer ? (
-				<Card as="section" aria-labelledby="offer-title">
-					<CardHeader>
-						<CardHeading>
-							<CardTitle id="offer-title">
-								{offer === "accepted" ? "New playbook lines" : "Playbook responsibilities"}
-							</CardTitle>
-							<CardDescription>
-								{offer === "accepted"
-									? "The playbook has lines this ministry has not reviewed. Choose the ones to add. Lines you leave out stay off."
-									: "Choose the lines to keep. Lines you leave out stay off this ministry, including after a later playbook update."}
-							</CardDescription>
-						</CardHeading>
-					</CardHeader>
-					<fieldset aria-invalid={pickError || undefined} aria-describedby={pickError ? pickErrorId : undefined}>
-						<legend className="sr-only">Playbook lines</legend>
-						<ul className="flex flex-col">
-							{lines.map((line, index) => (
-								<li key={line.key}>
-									<Checkbox
-										ref={index === 0 ? firstPick : undefined}
-										shape="round"
-										label={<span className="wrap-anywhere">{line.text}</span>}
-										checked={picked.includes(line.key)}
-										disabled={busy}
-										onCheckedChange={(next) => {
-											setPickError(false);
-											setPicked((current) =>
-												next === true ? [...current, line.key] : current.filter((key) => key !== line.key),
-											);
-										}}
-									/>
-								</li>
-							))}
-						</ul>
-						{pickError ? (
-							<p id={pickErrorId} role="alert" className="text-sm text-magenta-600">
-								Select at least one line.
-							</p>
-						) : null}
-					</fieldset>
-					<div className="mt-2 flex flex-wrap items-center gap-2.5">
-						<Button variant="primary" onClick={() => saveOffer("accept")} disabled={busy}>
-							Add selected
-						</Button>
-						{offer === null ? (
-							<Button variant="secondary" onClick={() => setDeclineOpen(true)} disabled={busy}>
-								Decline playbook lines
-							</Button>
-						) : null}
-					</div>
-				</Card>
-			) : null}
-			{canOffer && preview.status === "lost" ? (
-				<StatePanel tone="error" title="Playbook lines did not load" headingLevel="h3">
-					Nothing was changed. Open this tab again in a moment.
-				</StatePanel>
+			{canOffer ? (
+				<OfferCard
+					teamId={teamId}
+					teamRevision={teamRevision}
+					offer={offer}
+					lane={lane}
+					onDecided={decided}
+					onConflict={conflict}
+				/>
 			) : null}
 			<Card as="section" aria-labelledby="responsibilities-title">
 				<CardHeader>
@@ -474,7 +351,7 @@ export function ResponsibilitiesPanel({
 					</CardHeading>
 					{addButton}
 				</CardHeader>
-				{listPhase === "lost" || listPhase === "refused" ? (
+				{listPhase !== null ? (
 					<StatePanel tone="error" title="Responsibilities did not load" headingLevel="h3">
 						{listPhase === "lost"
 							? "This is a loading problem. Nothing was changed. Open this tab again in a moment."
@@ -533,22 +410,6 @@ export function ResponsibilitiesPanel({
 				/>
 			) : null}
 			<ConfirmDialog
-				open={declineOpen}
-				onOpenChange={setDeclineOpen}
-				tone="danger"
-				title="Decline playbook lines?"
-				consequences={[
-					"These lines stay off this ministry.",
-					"Later playbook updates are not offered.",
-					"Responsibilities you add yourself stay.",
-				]}
-				confirmLabel="Decline playbook lines"
-				onConfirm={() => {
-					setDeclineOpen(false);
-					saveOffer("decline");
-				}}
-			/>
-			<ConfirmDialog
 				open={drop !== null}
 				onOpenChange={(next) => !next && setDrop(null)}
 				tone="danger"
@@ -565,6 +426,156 @@ export function ResponsibilitiesPanel({
 				}}
 			/>
 		</div>
+	);
+}
+
+function OfferCard({
+	teamId,
+	teamRevision,
+	offer,
+	lane,
+	onDecided,
+	onConflict,
+}: {
+	teamId: string;
+	teamRevision: string;
+	offer: OfferState | undefined;
+	lane: SaveIntent<TextForm>;
+	onDecided: (result: OfferDecision, lines: readonly Line[], chosen: ReadonlySet<string>) => void;
+	onConflict: () => void;
+}) {
+	const toast = useToast();
+	const [, startTransition] = useTransition();
+	const preview = useRead(previews, teamId);
+	const [picked, setPicked] = useState<string[]>([]);
+	const [pickError, setPickError] = useState(false);
+	const [declineOpen, setDeclineOpen] = useState(false);
+	const firstPick = useRef<HTMLButtonElement>(null);
+	const pickErrorId = useId();
+	const loaded = preview.value;
+	const offered = loaded?.status === "ok" ? loaded.value.lines : [];
+	const chosen = picked.filter((key) => offered.some((line) => line.key === key));
+	const lines = offer !== "declined" && offer !== undefined ? offered : [];
+	const busy = lane.wait !== null;
+
+	function saveOffer(decision: "accept" | "decline") {
+		if (loaded?.status !== "ok" || lane.wait) return;
+		const selected = decision === "accept" ? chosen : [];
+		if (decision === "accept" && selected.length === 0) {
+			if (!pickError) firstPick.current?.focus();
+			setPickError(true);
+			return;
+		}
+		setPickError(false);
+		const { lines: reviewed, templateVersion, reviewDigest } = loaded.value;
+		startTransition(async () => {
+			await lane.save({
+				what: decision === "accept" ? "The selected responsibilities" : "The playbook offer",
+				done: decision === "accept" ? "added" : "declined",
+				send: (key) =>
+					offerResponsibilities(key, teamRevision, {
+						teamId,
+						decision,
+						selected,
+						expectedVersion: templateVersion,
+						reviewDigest,
+					}),
+				ok: (result) => {
+					preview.patch((current) =>
+						current.status === "ok" ? { ...current, value: { ...current.value, lines: [] } } : current,
+					);
+					setPicked([]);
+					onDecided(result, reviewed, new Set(selected));
+					toast({
+						tone: "success",
+						message:
+							result.decision === "accept"
+								? "The selected responsibilities are on this ministry."
+								: "The playbook lines stay off this ministry.",
+					});
+				},
+				refused: (code) => {
+					if (code === "conflict" || code === "stale_review" || code === "stale_template_version") onConflict();
+				},
+			});
+		});
+	}
+
+	return (
+		<>
+			{lines.length > 0 ? (
+				<Card as="section" aria-labelledby="offer-title">
+					<CardHeader>
+						<CardHeading>
+							<CardTitle id="offer-title">
+								{offer === "accepted" ? "New playbook lines" : "Playbook responsibilities"}
+							</CardTitle>
+							<CardDescription>
+								{offer === "accepted"
+									? "The playbook has lines this ministry has not reviewed. Choose the ones to add. Lines you leave out stay off."
+									: "Choose the lines to keep. Lines you leave out stay off this ministry, including after a later playbook update."}
+							</CardDescription>
+						</CardHeading>
+					</CardHeader>
+					<fieldset aria-invalid={pickError || undefined} aria-describedby={pickError ? pickErrorId : undefined}>
+						<legend className="sr-only">Playbook lines</legend>
+						<ul className="flex flex-col">
+							{lines.map((line, index) => (
+								<li key={line.key}>
+									<Checkbox
+										ref={index === 0 ? firstPick : undefined}
+										shape="round"
+										label={<span className="wrap-anywhere">{line.text}</span>}
+										checked={chosen.includes(line.key)}
+										disabled={busy}
+										onCheckedChange={(next) => {
+											setPickError(false);
+											setPicked(next === true ? [...chosen, line.key] : chosen.filter((key) => key !== line.key));
+										}}
+									/>
+								</li>
+							))}
+						</ul>
+						{pickError ? (
+							<p id={pickErrorId} role="alert" className="text-sm text-magenta-600">
+								Select at least one line.
+							</p>
+						) : null}
+					</fieldset>
+					<div className="mt-2 flex flex-wrap items-center gap-2.5">
+						<Button variant="primary" onClick={() => saveOffer("accept")} disabled={busy}>
+							Add selected
+						</Button>
+						{offer === null ? (
+							<Button variant="secondary" onClick={() => setDeclineOpen(true)} disabled={busy}>
+								Decline playbook lines
+							</Button>
+						) : null}
+					</div>
+				</Card>
+			) : null}
+			{loaded !== undefined && loaded.status !== "ok" ? (
+				<StatePanel tone="error" title="Playbook lines did not load" headingLevel="h3">
+					Nothing was changed. Open this tab again in a moment.
+				</StatePanel>
+			) : null}
+			<ConfirmDialog
+				open={declineOpen}
+				onOpenChange={setDeclineOpen}
+				tone="danger"
+				title="Decline playbook lines?"
+				consequences={[
+					"These lines stay off this ministry.",
+					"Later playbook updates are not offered.",
+					"Responsibilities you add yourself stay.",
+				]}
+				confirmLabel="Decline playbook lines"
+				onConfirm={() => {
+					setDeclineOpen(false);
+					saveOffer("decline");
+				}}
+			/>
+		</>
 	);
 }
 
