@@ -1,0 +1,9 @@
+{
+	"public": {
+		"PersonFollowUps.tsx": "the follow-ups section the person page embeds",
+		"fetch.ts": "client fetches for follow-up history that meetings and tasks show",
+		"model.ts": "follow-up labels, outcomes and contact history types that people, meetings and tasks show",
+		"parts.tsx": "ContactEntries, the contact history list the task sheet shows",
+		"server.ts": "server reads of a person's follow-ups that the person page loads"
+	}
+}
