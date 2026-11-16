@@ -10,9 +10,6 @@ import { createMailService, runDueMail } from "../../../apps/web/src/server/jobs
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { INVITATION_MAIL } from "../../../apps/web/src/server/invitations/index.ts";
 
-// REQ-NTF-013 (WP-028): church invitation mail is required mail. An invitee's email preferences never stop it, and an
-// address blocked after a bounce stops it before anything is queued, with a plain reason for the Admin.
-
 let f;
 const rows = async (query) => (await f.admin.execute(query)).rows;
 
@@ -21,7 +18,6 @@ before(async () => {
 });
 after(() => f?.close());
 
-/** The invitee turned off every update email they can turn off (Wiki upstream review has no email to turn off). */
 async function updatesOff(accountId) {
 	for (const category of notificationCategory.options.filter((name) => notificationChannels(name).includes("email")))
 		await f.admin
@@ -99,7 +95,6 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 				},
 			);
 		}
-		// Mail another mount owns is never claimed by the invitation worker: its authorizer would cancel it.
 		const s = await f.setup("plant");
 		await f.admin.execute(
 			sql`UPDATE job SET state = 'succeeded' WHERE kind = 'mail' AND state IN ('ready', 'retry_wait')`,

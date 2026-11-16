@@ -1,14 +1,9 @@
-// Shared setup for the WP-092 knowledge cases. Each case runs at the exact instant its JSON names, so a suite opens its
-// schema with `clock` (test-database.mts installs schema-local clock functions before the migrations) and `freezeClock`
-// then holds that clock still at one instant. Every query of the schema, its column defaults and its SECURITY DEFINER
-// functions read the frozen value; the host clock and pg_catalog-qualified calls do not move.
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { schemaVersion } from "../../../../../ops/maintenance/restore.mts";
 import type { Snapshot } from "../../../../../ops/maintenance/restore.mts";
 import { sql } from "../../../../../packages/db/src/query.ts";
 import type { Database } from "../../../../support/test-database.mts";
 
-/** Holds the schema's database clock at `at`: now(), transaction_timestamp(), statement_timestamp() and clock_timestamp(). */
 export async function freezeClock(admin: Database, schema: string, at: Date) {
 	const instant = at.toISOString();
 	for (const [fn, volatility] of [
@@ -23,10 +18,6 @@ export async function freezeClock(admin: Database, schema: string, at: Date) {
 		);
 }
 
-// The restore rehearsal (maintenance.restoreWithCurrentManifest). A snapshot is what a backup would hold: the schema's
-// rows as one image, the ready files' bytes, and the external manifest that describes both.
-
-/** The verified restricted-operator capability the cases give, for the isolated test environment. */
 export const operator = {
 	authority: "authorized_restricted_recovery_operator",
 	verified: true,
@@ -37,17 +28,11 @@ export const operator = {
 const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 const DAY = 86_400_000;
 
-/** The private object store as a map from opaque key to bytes. */
 export type Store = Map<string, Uint8Array>;
 export const objectStore = (store: Store) => ({
 	put: async (key: string, bytes: Uint8Array) => void store.set(key, bytes),
 });
 
-/**
- * A snapshot of `admin`'s schema as it stands now: every table but the migration ledger, the bytes `store` holds for
- * each ready file, and a manifest dated `createdAt` (expiring seven days later unless `expiresAt` says) that lists
- * `subjects` with their original copy expiry.
- */
 export async function snapshot(
 	admin: Database,
 	store: Store,
@@ -99,7 +84,6 @@ export async function snapshot(
 	};
 }
 
-/** A ready private file of `tenant` with `bytes` in `store`; returns its id and opaque key. */
 export async function readyFile(
 	admin: Database,
 	store: Store,
@@ -117,14 +101,12 @@ export async function readyFile(
 	return { id, key };
 }
 
-/** Whether the schema exists at all. */
 export const schemaExists = async (admin: Database, name: string) =>
 	(await admin.execute(sql`SELECT EXISTS(SELECT FROM pg_namespace WHERE nspname=${name}) AS found`)).rows[0]!.found ===
 	true;
 export const dropTarget = (admin: Database, name: string) =>
 	admin.execute(sql.raw(`DROP SCHEMA IF EXISTS ${name.replace(/[^a-z0-9_]/g, "")} CASCADE`));
 
-/** Whether `pool`'s login is refused the target schema outright (insufficient privilege), as every app login is. */
 export async function closedTo(pool: Database, target: string) {
 	try {
 		await pool.execute(sql.raw(`SELECT count(*) FROM ${target}.auth_session`));

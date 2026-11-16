@@ -20,7 +20,6 @@ const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Plant", timezone: "America/New_York" })).id;
-// 0 owner of P, 1 member of P, 2 admin of P, 3 admin of Q, 4 account with no seat
 const actors = [
 	database.actors.owner,
 	database.actors.member,
@@ -31,7 +30,6 @@ const actors = [
 
 class MemoryClient extends S3Client {
 	objects = new Map();
-	/** How many object reads (GetObject) the client has answered. */
 	reads = 0;
 	constructor() {
 		super({
@@ -82,11 +80,9 @@ const restoreSeat = (accountId) =>
 	admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${accountId}::uuid`);
 const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
 
-// The CASE-BRD-002 fixture: a 960 x 380 canvas with 900 x 300 content.
 const svg960 = Buffer.from(
 	'<svg xmlns="http://www.w3.org/2000/svg" width="960" height="380" viewBox="0 0 960 380"><rect x="30" y="40" width="900" height="300" fill="#1F4E79"/></svg>',
 );
-// A transparent canvas with a flat #2E7D32 block: the dominant opaque color is exactly that.
 const greenPng = await sharp({
 	create: { width: 200, height: 120, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
 })
@@ -97,7 +93,6 @@ const photoWebp = await sharp({ create: { width: 3000, height: 1200, channels: 3
 	.webp()
 	.toBuffer();
 
-/** Request, send bytes and finalize one asset. Returns the kit after the finalize. */
 async function attach(who, slot, mediaType, bytes, altText, expectedRevision) {
 	const ticket = ok(
 		await brandWriter.requestUpload(db, await authority(who), { slot, mediaType, byteLength: bytes.length, altText }),
@@ -140,7 +135,6 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		refused(await brandReader.suggestColors(db, member, { assetKind: "full_logo" }, storage), "access_denied");
 		assert.equal(await countOf("church_brand_kit"), 0);
 		assert.equal(await countOf("file_object", "WHERE purpose = 'brand_asset'"), 0);
-		// A seat that ended after the viewer lookup gets the same refusal, in the statement itself.
 		const admin2 = await authority(2);
 		await endSeat(actors[2].id);
 		refused(await brandReader.get(db, admin2, {}), "access_denied");
@@ -151,10 +145,8 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		refused(await brandReader.resolveTheme(db, admin2, { documentClass: "email" }), "access_denied");
 		await restoreSeat(actors[2].id);
 		assert.equal(await countOf("church_brand_kit"), 0);
-		// A different church plant has its own default kit and cannot reach this one.
 		assert.equal(ok(await brandReader.get(db, await authority(3), {})).kitState, "default");
 		refused(await brandReader.get(db, await authority(4), {}), "access_denied");
-		// Any active seat resolves a theme.
 		assert.equal(ok(await brandReader.resolveTheme(db, member, { documentClass: "email" })).kind, "everyfield-neutral");
 	});
 
@@ -214,7 +206,6 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		assert.equal(next.colors.primary.textColor, "#FFFFFF");
 		assert.equal(next.accentColor, "#C9A227");
 		assert.equal(next.colors.accent.badge, "fails_text");
-		// A primary color can never be cleared.
 		refused(
 			await brandWriter.saveSettings(db, owner, { expectedRevision: "2", patch: { primaryColor: null } }),
 			"primary_required",
@@ -298,7 +289,6 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		assert.equal(kit.signerTitle, "Lead Pastor");
 		assert.equal(kit.assets.cover_photo, null);
 		assert.equal(kit.assets.signature, null);
-		// null clears a field and the rest stay.
 		const cleared = ok(await brandWriter.saveSettings(db, owner, { expectedRevision: "5", patch: { tagline: null } }));
 		assert.equal(cleared.tagline, null);
 		assert.equal(cleared.legalName, "Harvest Point Church Inc.");
@@ -355,7 +345,6 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			)
 		)[0];
 		assert.deepEqual(ready, { state: "ready", media_type: "image/png", byte_count: bytes.length, sha256: sha(bytes) });
-		// Not readable until the kit references it.
 		refused(await readBrandAsset(db, storage, owner, ticket.uploadId), "unavailable");
 		const kit = ok(
 			await brandWriter.finalizeUpload(db, owner, {
@@ -370,7 +359,6 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		const read = ok(await readBrandAsset(db, storage, owner, ticket.uploadId));
 		assert.deepEqual(Buffer.from(read.bytes), bytes);
 		assert.equal(read.mediaType, "image/png");
-		// Settings read needs Owner or Admin; the theme read accepts any active seat.
 		refused(await readBrandAsset(db, storage, await authority(1), ticket.uploadId), "unavailable");
 		assert.deepEqual(
 			Buffer.from(ok(await readBrandAsset(db, storage, await authority(1), ticket.uploadId, "theme")).bytes),
@@ -416,7 +404,6 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 				"pending",
 			);
 		}
-		// A wrong byte count against the staged request is refused too.
 		const ticket = ok(
 			await brandWriter.requestUpload(db, owner, {
 				slot: "mark",
@@ -427,7 +414,6 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		);
 		refused(await uploadBrandAsset(db, storage, owner, { uploadId: ticket.uploadId, bytes: greenPng }), "invalid_file");
 		assert.equal(await countOf("file_object", "WHERE purpose = 'brand_asset' AND state = 'ready'"), readyBefore);
-		// Another seat cannot upload bytes into this upload.
 		const mine = ok(
 			await brandWriter.requestUpload(db, owner, {
 				slot: "mark",
@@ -487,7 +473,6 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			}),
 			"alt_text_required",
 		);
-		// The slot must match the slot the upload was requested for.
 		const wrongSlot = ok(
 			await brandWriter.requestUpload(db, owner, {
 				slot: "mark",
@@ -528,7 +513,6 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		assert.equal(suggested.suggestedPrimary, "#2E7D32");
 		assert.equal(suggested.suggestedFrom, "full_logo");
 		assert.deepEqual(suggested.palette, ["#2E7D32"]);
-		// Replacing the logo queues cleanup of the file the slot held, and writes one audit row.
 		const jobs = await rowsOf(
 			sql`SELECT producer_key FROM job WHERE kind = 'object_cleanup' AND producer_key LIKE 'brand-asset-release/%'`,
 		);
@@ -585,7 +569,6 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		);
 		assert.equal(off.kind, "everyfield-neutral");
 		assert.equal(off.layout.coverLogo, null);
-		// Another church plant's theme is neutral and carries its own name.
 		const other = ok(await brandReader.resolveTheme(db, await authority(3), { documentClass: "formal/legal" }));
 		assert.deepEqual([other.kind, other.churchName], ["everyfield-neutral", "Other Plant"]);
 	});
@@ -661,10 +644,8 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			ok(await brandReader.resolveTheme(db, owner, { documentClass: "formal/legal" })).kind,
 			"everyfield-neutral",
 		);
-		// Reset of a church plant with no kit is already the answer; a stale revision still conflicts.
 		assert.equal(ok(await brandWriter.reset(db, owner, { expectedRevision: "0" })).kitState, "default");
 		refused(await brandWriter.reset(db, owner, { expectedRevision: "3" }), "conflict");
-		// The first save after a reset expects revision 0.
 		assert.equal(
 			ok(await brandWriter.saveSettings(db, owner, { expectedRevision: "0", patch: { primaryColor: "#1F4E79" } }))
 				.revision,
@@ -703,30 +684,25 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		const { sha256 } = (await rowsOf(sql`SELECT sha256 FROM file_object WHERE id = ${fileId}::uuid`))[0];
 		const held = (stored) => stored === sha256;
 		const readsBefore = client.reads;
-		// The viewer holds the current version: the stored SHA-256 and type come back, no bytes and no object read.
 		assert.deepEqual(ok(await readBrandAssetIfChanged(db, storage, owner, fileId, held)), {
 			sha256,
 			mediaType: "image/png",
 			bytes: null,
 		});
 		assert.equal(client.reads, readsBefore);
-		// A miss reads the bytes once, and they are the stored version.
 		const miss = ok(await readBrandAssetIfChanged(db, storage, owner, fileId, () => false));
 		assert.equal(client.reads, readsBefore + 1);
 		assert.deepEqual([sha(miss.bytes), miss.mediaType], [sha256, "image/png"]);
-		// A Member, another church's Admin and an account with no seat get nothing, the held tag included.
 		for (const [who, code] of [
 			[1, "unavailable"],
 			[3, "unavailable"],
 			[4, "access_denied"],
 		])
 			refused(await readBrandAssetIfChanged(db, storage, await authority(who), fileId, held), code);
-		// A seat that ended after the viewer lookup is refused in the authorized statement itself.
 		const ending = await authority(0);
 		await endSeat(actors[0].id);
 		refused(await readBrandAssetIfChanged(db, storage, ending, fileId, held), "unavailable");
 		await restoreSeat(actors[0].id);
-		// A file the kit no longer references is refused.
 		ok(
 			await brandWriter.saveSettings(db, await authority(0), {
 				expectedRevision: kit.revision,

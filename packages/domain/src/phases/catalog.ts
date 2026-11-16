@@ -2,7 +2,6 @@ import * as c from "@everyfield/contracts/phases";
 import { loadStarter } from "@everyfield/reference/playbook";
 import "server-only";
 
-/** Each criterion's label, as docs/reference/phase-exit-criteria.ts words it. The keys come from the frozen reference. */
 const LABELS: Record<c.CriterionKey, string> = {
 	values_documented: "Core values documented",
 	foundations_complete: "Foundational modules complete",
@@ -24,13 +23,8 @@ const LABELS: Record<c.CriterionKey, string> = {
 	guest_data_entered: "Guest data entered",
 	debrief_done: "Debrief done",
 };
-/** The methodology's `playbook_checklist`: the software checklist row, keyed `readiness_milestones` in the reference. */
 const SOFTWARE_ONLY: ReadonlySet<c.CriterionKey> = new Set(["readiness_milestones"]);
 
-/**
- * phases.readCatalog (PHASE-008): the seven phases and each one's Playbook exit criteria from the WP-032 reference
- * package. Static approved metadata: no plant data and no statement. Phase 6 is terminal with no criteria.
- */
 export async function readCatalog(): Promise<c.Catalog> {
 	const starter = await loadStarter();
 	const criteria = starter.catalogs.criteria.map((row) => ({ phase: row.phase, key: c.criterionKey.parse(row.key) }));

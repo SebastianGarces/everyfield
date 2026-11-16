@@ -8,9 +8,6 @@ import { attendanceReader, meetingsReader } from "../../../packages/domain/src/m
 import { resendWebhook } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
 import { ok } from "../../support/fixture.mts";
 
-// REQ-COM-010 (WP-028): the meeting guest list shows when a guest opened the meeting's email, in its own place. An
-// open is an email-service notice: it changes no RSVP, attendance or count, and no open claims nothing.
-
 let f, plant, owner, member;
 const keys = {
 	encryptionKey: Buffer.alloc(32, 7),
@@ -45,7 +42,6 @@ function opened(messageId, at) {
 }
 const guests = async (who, meetingId) =>
 	ok(await f.db.transaction((tx) => meetingsReader.listGuests(tx, who.actor, { meetingId })));
-/** Everything an open must not touch: the guest rows, the attendance read and the meeting's analytics. */
 async function untouched(meetingId) {
 	const list = await guests(owner, meetingId);
 	const counts = { yes: 0, no: 0, pending: 0 };
@@ -149,6 +145,5 @@ test("AC:CASE-COM-010 a guest who opened the meeting email shows Email opened wi
 	assert.deepEqual(list.emailOpens, [{ personId: alex, openedAt: at }]);
 	assert.ok(!list.emailOpens.some((row) => row.personId === bo), "a guest with no open shows no open");
 	assert.deepEqual(await untouched(meetingId), before);
-	// A Member reads the guest list without email opens.
 	assert.deepEqual((await guests(member, meetingId)).emailOpens, []);
 });

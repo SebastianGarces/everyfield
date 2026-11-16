@@ -8,13 +8,6 @@ import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer } from "../documents/access.ts";
 
-// Manual signals and leadership-candidate attestations (WP-039 slice 2, REQ-PI-014, REQ-PI-015, REQ-TEAM-017). A signal
-// or candidate is one current row of `attestation` plus an append-only `attestation_revision` for every answer,
-// correction, retraction and "Still true". Each write is one SQL statement: the live Owner or Admin check of the exact
-// church, the reviewed revision, the new current row, its revision and one audit row. Another admin's save from the same
-// revision finds the row already moved and writes nothing. A write never touches a team, role, task, phase, notice or
-// assessment (REQ-TEAM-017); only a human session reaches these operations, never a model or private care.
-
 type Code = c.SignalError["code"];
 class Refusal extends Error {
 	readonly code: Code;
@@ -50,7 +43,6 @@ function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	return found.data;
 }
 
-/** The author (the request's own account), the church, the live Owner or Admin condition and the clock. */
 type Scope = { me: string; plant: string; ok: SQL; at: SQL };
 function scopeOf(authority: RequestActor, clock?: Clock): Scope {
 	const viewer = plantViewer(authority);
@@ -64,16 +56,13 @@ function scopeOf(authority: RequestActor, clock?: Clock): Scope {
 }
 
 const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
-/** The name an author shows under: their own Person in this church. Null when the account has none. */
 const nameOf = (account: SQL, s: Scope) =>
 	sql`(SELECT np.display_name FROM person np WHERE np.tenant_id=${s.plant}::uuid AND np.linked_account_id=${account} LIMIT 1)`;
-/** One revision row `r` as a signal or candidate states it. */
 const stateJson = (r: SQL, s: Scope, revision: SQL = sql`${r}.revision`) =>
 	sql`jsonb_build_object('key',${r}.key,'kind',${r}.kind,'answer',${r}.answer,'asOf',${r}.as_of,'detail',${r}.detail,
  'reference',${r}.reference,'revision',(${revision})::text,'authorName',${nameOf(sql`${r}.author_id`, s)},
  'recordedAt',${iso(sql`${r}.recorded_at`)},'periodStart',${r}.period_start,'periodEnd',${r}.period_end,
  'attended',${r}.attendance_continuous,'volunteered',${r}.volunteering_continuous)`;
-/** The church's own calendar day for the statement clock. */
 const todayOf = (s: Scope) =>
 	sql`(SELECT (${s.at} AT TIME ZONE pl.timezone)::date FROM plant pl WHERE pl.id=${s.plant}::uuid)`;
 const todayText = (s: Scope) => sql`(${todayOf(s)})::text`;
@@ -95,7 +84,6 @@ const stateRow = z.object({
 });
 type StateRow = z.infer<typeof stateRow>;
 
-/** One signal from its latest revision (null when never answered) and the church's today. */
 function signalFrom(key: c.SignalKey, row: StateRow | null, today: string): c.SignalEntry {
 	if (!row)
 		return c.signalEntry.parse({
@@ -128,7 +116,6 @@ function signalFrom(key: c.SignalKey, row: StateRow | null, today: string): c.Si
 	});
 }
 
-/** A candidate from its latest revision. Established only when both behaviors are attested over 60 inclusive days. */
 function candidateFrom(
 	row: StateRow & { personId: string; personName: string; personState: c.CandidateEntry["personState"] },
 ): c.CandidateEntry {
@@ -203,7 +190,6 @@ const pageRow = z.object({
 	people: z.array(z.object({ id: z.uuid(), displayName: z.string(), candidateRevision: z.string() })),
 	history: z.array(historyRow),
 });
-/** How many Persons the candidate picker offers and how many revisions the page shows. */
 const PEOPLE_LIMIT = 500;
 const PAGE_HISTORY = 300;
 const HISTORY_LIMIT = 1000;
@@ -212,12 +198,10 @@ const MANUAL = sql.join(
 	sql`,`,
 );
 
-/** The one audit row of a write, for each attestation row in `from`. */
 const audit = (s: Scope, action: "recorded" | "corrected", from: SQL) =>
 	sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id,occurred_at,recorded_at,event_key,after_revision,metadata)
   SELECT x.plant_id,${s.me}::uuid,${"attestation." + action},${action === "recorded" ? "create" : "correct"},x.id,${s.at},${s.at},
   'attestation:'||x.id||':'||x.revision,x.revision,jsonb_build_object('key',x.key) FROM ${from} x RETURNING 1`;
-/** The revision row of a write, for each attestation row in `from`: a signal's or a candidate's fields, the others null. */
 const appendRevision = (s: Scope, kind: c.HumanRevision["kind"], key: string, print: string, from: SQL) =>
 	sql`INSERT INTO attestation_revision(plant_id,attestation_id,revision,key,person_id,kind,answer,as_of,detail,reference,
   period_start,period_end,attendance_continuous,volunteering_continuous,question_version,author_id,request_key,
@@ -239,13 +223,11 @@ const writeRow = z.object({
 });
 type WriteRow = z.infer<typeof writeRow>;
 
-/** A unique request key that a concurrent request took first. */
 const keyTaken = (error: unknown) =>
 	(error as { code?: string; constraint?: string })?.code === "23505" &&
 	(error as { constraint?: string }).constraint === "attestation_revision_uq_1";
 
 export function createSignals(config: { clock?: Clock } = {}) {
-	/** Runs a write statement; a key a concurrent request took first reads that request's answer instead. */
 	async function write(db: Pick<Database, "execute">, s: Scope, key: string, statement: SQL): Promise<WriteRow> {
 		try {
 			return writeRow.parse((await db.execute(statement)).rows[0]);
@@ -260,26 +242,22 @@ export function createSignals(config: { clock?: Clock } = {}) {
 			return writeRow.parse(rows[0]);
 		}
 	}
-	/** The shared CTEs of every write: the gate, the church's today and an earlier write with this request key. */
 	const opening = (s: Scope, key: string) => sql`gate AS (SELECT ${s.ok} AS ok),
  prior AS (SELECT r.* FROM attestation_revision r WHERE r.plant_id=${s.plant}::uuid AND r.request_key=${key}
   AND (SELECT ok FROM gate))`;
 	const closing = (s: Scope) => sql`(SELECT ok FROM gate) AS ok,${todayText(s)} AS today,
  (SELECT jsonb_build_object('fingerprint',p.request_fingerprint,'state',${stateJson(sql`p`, s)}) FROM prior p) AS prior`;
 
-	/** The tail of a signal write: the current row as it was and the revision it wrote. */
 	const signalClosing = (s: Scope) => sql`${closing(s)},
  (SELECT jsonb_build_object('state',cur.state,'revision',cur.revision::text,'answer',cur.answer,'same',NULL::boolean) FROM cur) AS cur,
  (SELECT ${stateJson(sql`x`, s)} FROM rev x) AS written`;
 
-	/** Replays an earlier write of the same request, or refuses a different request that reuses its key. */
 	function replayOf(r: WriteRow, print: string) {
 		if (!r.prior) return null;
 		if (r.prior.fingerprint !== print) deny("idempotency_conflict");
 		return { state: stateRow.parse(r.prior.state), today: r.today! };
 	}
 
-	/** The result of a signal write that saved now or earlier under the same request key; null otherwise. */
 	function signalSaved(r: WriteRow, print: string, key: c.SignalKey) {
 		const replay = replayOf(r, print);
 		if (replay)
@@ -292,7 +270,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 		});
 	}
 
-	/** The refusal or result of a candidate write, in the order a caller can act on them. */
 	function candidateOutcome(
 		r: WriteRow,
 		print: string,
@@ -309,7 +286,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 				candidate: candidateFrom({ ...state, personId, personName: name, personState: "live" }),
 			});
 		if (replay) {
-			// The Person's name is not part of the first result's state: read it back from the candidate fields only.
 			return named(replay.state, r.person?.name ?? "Person");
 		}
 		if (!r.ok) deny("access_denied");
@@ -327,7 +303,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 	}
 
 	return {
-		/** signals.listDefinitions (PI-015): the seven keys in their order. Static; it reads no answer or author. */
 		async listDefinitions(raw: unknown = {}): Promise<c.SignalReply<c.SignalDefinition[]>> {
 			if (!c.listDefinitionsRequest.safeParse(raw).success) return refused("invalid_input");
 			return {
@@ -344,10 +319,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 			};
 		},
 
-		/**
-		 * The Attestations page (PI-014, PI-015): the seven signals, the counts, the live and retired Persons' candidates, the live Persons a
-		 * candidate can be recorded for and the newest history. One statement, whatever the data size.
-		 */
 		async readAttestations(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
@@ -391,7 +362,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 			});
 		},
 
-		/** signals.getHistory (PI-014): every revision of one signal, or of all human evidence, newest first. */
 		async getHistory(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
@@ -408,10 +378,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 			});
 		},
 
-		/**
-		 * signals.attest (PI-014, PI-015): the first answer of a signal, or a new answer after a retraction. One statement.
-		 * The signal is answered Yes or Not yet, true as of a date no later than today in the church's zone.
-		 */
 		async attest(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
@@ -454,10 +420,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 			});
 		},
 
-		/**
-		 * signals.correct (PI-014): change a current answer to the other value, or retract it. The earlier answer stays in
-		 * the history. A correction to the same value is refused as no change and adds no revision.
-		 */
 		async correct(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
@@ -498,10 +460,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 			});
 		},
 
-		/**
-		 * signals.reaffirm (PI-014): "Still true" for one reaffirming signal. It binds the reviewed revision and answer and
-		 * moves only that signal's as-of date to today. No other signal changes.
-		 */
 		async reaffirm(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
@@ -533,11 +491,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 			});
 		},
 
-		/**
-		 * Records that a named live Person attended and volunteered unbroken over a dated period, or records it again after
-		 * a retraction (REQ-PI-014, REQ-TEAM-017). It is a typed Person attestation, not an eighth signal. It changes no
-		 * team, role, task, phase or assessment.
-		 */
 		async attestCandidate(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
@@ -580,7 +533,6 @@ export function createSignals(config: { clock?: Clock } = {}) {
 			});
 		},
 
-		/** Corrects or retracts a candidate attestation. History keeps every earlier statement. */
 		async correctCandidate(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);

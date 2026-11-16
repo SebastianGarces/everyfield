@@ -11,7 +11,6 @@ import { TaskRefusal, type Reader, type TaskContext, type Tx } from "../tasks/co
 export type FollowUpReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.FollowUpError };
 type Code = c.FollowUpError["code"];
 
-/** The follow-up refusals that task refusals do not have. Task helpers keep throwing their own. */
 class FollowUpRefusal extends Error {
 	readonly code: Code;
 	readonly details: Record<string, unknown>;
@@ -45,12 +44,10 @@ export async function readAnswer<T>(body: () => Promise<T>): Promise<FollowUpRep
 		throw error;
 	}
 }
-/** A tool or test caller without a bound native request gets its own savepoint, so a refusal rolls back alone. */
 export async function answer<T>(tx: Tx, body: () => Promise<T>): Promise<FollowUpReply<T>> {
 	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	return readAnswer(() => auditSavepoint(tx, body));
 }
-/** The native request owns rollback: bind the verified actor once, then run the command in the same transaction. */
 export async function withFollowUpWrite<T>(
 	db: Database,
 	authority: RequestActor,
@@ -59,7 +56,6 @@ export async function withFollowUpWrite<T>(
 	const selected = authority.actor.context.owner;
 	return readAnswer(() =>
 		nativeWrite(db, authority, selected, async (tx) => {
-			// Every write of this module reads other rows, counts or the church's settings (C88).
 			await declareWrite(tx, "established");
 			const result = await body(tx, { session: authority.session, selected });
 			if (result.status === "refused") throw new FollowUpRefusal(result.error.code, result.error.details);
@@ -68,10 +64,6 @@ export async function withFollowUpWrite<T>(
 	);
 }
 
-/**
- * One read statement: the reader's live authority (C13) and the rows of `query`, numbered in `ord`. A reader whose
- * session, seat, role or lifecycle changed since the viewer lookup reads nothing.
- */
 export async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
 	const live = liveRead({ session: viewer.session, owner: viewer.owner, seatId: viewer.seatId }, admin);
 	const r = await tx.execute(sql`SELECT g.live, q.* FROM (SELECT ${live} AS live) g
@@ -80,7 +72,6 @@ export async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
 	return r.rows.filter((row) => row.ord !== null);
 }
 
-/** A live top-level person follow-up task: what assignment, coverage and handoff act on. */
 export const followUpTask = (t: SQL) =>
 	sql`${t}.category='follow_up' AND ${t}.person_id IS NOT NULL AND ${t}.parent_id IS NULL AND ${t}.deleted_at IS NULL`;
 export const OPEN = sql`('not_started','in_progress','blocked')`;

@@ -25,12 +25,6 @@ import {
 import { evryActor, invokeRead } from "../../../packages/evry/src/index.ts";
 import { listPeople } from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
 
-// The whole multiplication example at once (REQ-MUL-002 to -004, -007 to -016), as Nora checks it before alpha: Grace
-// Austin (America/Chicago) with Dana (Owner), Luis (Admin), Ana (Member, directs the residency, responsible for Casey),
-// Dee (Member, responsible for Jordan) and Ben (Member, no pipeline duty); Casey Lee, a linked resident who shares
-// milestone progress and not her foundations; Jordan Reyes, not linked; Hill Country Network with its own Owner and its
-// own pipeline; and the plant Harvest Point, connected to both. Each person's reads are the screens' own domain reads.
-
 let f: Awaited<ReturnType<typeof fixture>>;
 type Actor = { id: string; session: string; email: string };
 type Org = { kind: "organization"; id: string; organizationKind: "sending_church" | "sending_network" };
@@ -49,7 +43,6 @@ const notes = { anaOnCasey: randomUUID(), deeOnJordan: randomUUID(), danaOnJorda
 let caseyInvitation: { invitationId: string; proof: string };
 let stages: Record<string, string>;
 
-// Words that each belong to one person's restricted facts, so a read's text shows whether it leaked them.
 const SECRET = {
 	anaNote: "Casey is ready to lead the east side group",
 	deeNote: "Jordan asked about the youth group",
@@ -76,7 +69,6 @@ const names = (b: Awaited<ReturnType<typeof board>>) => b.stages.flatMap((s) => 
 const record = async (a: Actor, personId: string) => readPipelinePersonRecord(f.db, await authority(a), { personId });
 const enrollment = async (a: Actor, enrollmentId: string) => readEnrollment(f.db, await authority(a), { enrollmentId });
 const milestoneOf = <T extends { title: string }>(list: T[], title: string) => list.find((m) => m.title === title)!;
-/** The text an Evry pipeline read hands the model for this person. */
 async function evryRead(a: Actor) {
 	const viewer = await readViewer(f.db, sessionId.parse(a.session));
 	const actor = evryActor(viewer!.authority!);
@@ -97,7 +89,6 @@ const adapter = createOrganizationAdapter(
 	},
 	{ candidates: async () => [] },
 );
-/** Casey's sharing change as the web mount runs it: her account's write gate, then the adapter. */
 async function caseyShares(choices: { shareFoundations: boolean; shareMilestones: boolean }) {
 	const link = (
 		await f.admin.execute(
@@ -133,16 +124,11 @@ const accept = (i: { invitationId: string; proof: string }, shareMilestones = tr
 		choices: { shareFoundations: false, shareMilestones },
 	},
 });
-/** Settles a promise as its value, or `{ refused: code }` for a refusal. */
 const settle = (p: Promise<unknown>) =>
 	p.then(
 		(value) => value,
 		(e: Error & { value?: { code?: string } }) => ({ refused: e.value?.code ?? e.message }),
 	);
-/**
- * Holds `lock` in another transaction, starts every write, waits until all of them wait on a lock, then lets go:
- * the writes reach the contended row at the same moment.
- */
 async function atOnce<T>(lock: SQL, writes: (() => Promise<T>)[]): Promise<T[]> {
 	let held!: () => void, release!: () => void;
 	const locked = new Promise<void>((r) => (held = r));
@@ -190,8 +176,6 @@ before(async () => {
 	anaSeat = await seatOf(ana);
 	deeSeat = await seatOf(dee);
 
-	// Harvest Point is connected to both organizations, sharing everything a plant can; Grace Austin is connected to
-	// Hill Country Network and shares its pipeline totals with it.
 	for (const org of [grace, hill])
 		await f.admin.execute(sql`INSERT INTO affiliation(plant_id,organization_id,accepted_at,share_people,share_meetings,
 		 share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
@@ -203,7 +187,6 @@ before(async () => {
 	await f.admin.execute(sql`INSERT INTO pipeline_sharing(id,organization_id,relationship_id,network_id,
 	 share_pipeline_totals,revision) VALUES(gen_random_uuid(),${grace.id},${networkLink},${hill.id},true,1)`);
 
-	// The pipelines.
 	const b = await board(dana);
 	stages = Object.fromEntries(b.stages.map((s) => [s.label, s.id]));
 	for (const [personId, displayName, email, seat] of [
@@ -270,7 +253,6 @@ before(async () => {
 		}),
 	);
 
-	// The residency, Ana directing; Casey and Jordan enrolled.
 	ok(
 		await programWriter.createProgram(f.db, await authority(dana), {
 			programId: program,
@@ -315,7 +297,6 @@ before(async () => {
 			}),
 		);
 	const milestone = (title: string) => milestoneOf(v1.milestones, title).id;
-	// Before Casey links, Ana records her sermon: a fact Grace Austin owns. Jordan's prospectus too.
 	for (const [enrollmentId, title] of [
 		[caseyEnrollment, PREACH],
 		[jordanEnrollment, PROSPECTUS],
@@ -340,7 +321,6 @@ before(async () => {
 			}),
 		);
 
-	// Casey links, sharing milestone progress only, marks her vision talk done and Ana confirms it.
 	caseyInvitation = await invite(caseyPerson, casey.email);
 	await f.invitations.respondResident(casey.session, accept(caseyInvitation));
 	const mark = { enrollmentId: caseyEnrollment, milestoneId: milestone(VISION) };
@@ -349,7 +329,6 @@ before(async () => {
 });
 after(() => f?.close());
 
-/** Every Grace Austin read a seat's screens make, as one text. Refused reads add their refusal. */
 async function everything(a: Actor) {
 	const who = await authority(a);
 	return JSON.stringify([
@@ -407,9 +386,7 @@ test("AC:ADR1-002 AC:ADR1-012 AC:ADR1-014 Ana sees Casey, the notes on her, the 
 		c.notes.map((n) => [n.author, n.body]),
 		[["Ana", SECRET.anaNote]],
 	);
-	// Jordan is Dee's: his record answers as one that does not exist.
 	assert.deepEqual(await record(ana, jordanPerson), unavailable);
-	// As director, Ana reads both enrollments with the feedback she wrote; Casey's own mark shows while she shares.
 	const e = ok(await enrollment(ana, caseyEnrollment));
 	assert.deepEqual(milestoneOf(e.milestones, VISION).completion?.source, "resident");
 	assert.deepEqual(
@@ -420,7 +397,6 @@ test("AC:ADR1-002 AC:ADR1-012 AC:ADR1-014 Ana sees Casey, the notes on her, the 
 	const text = await everything(ana);
 	for (const secret of [SECRET.deeNote, SECRET.danaNote, SECRET.jordanTalk])
 		assert.equal(text.includes(secret), false, secret);
-	// Program direction gives no pipeline notes and no export.
 	assert.deepEqual(await readPipelineExport(f.db, await authority(ana)), unavailable);
 });
 
@@ -430,7 +406,6 @@ test("AC:ADR1-002 Dee sees Jordan and Jordan's notes, and no other person's note
 	assert.deepEqual(j.notes.map((n) => n.body).sort(), [SECRET.danaNote, SECRET.deeNote].sort());
 	assert.deepEqual(await record(dee, caseyPerson), unavailable);
 	assert.deepEqual(await enrollment(dee, caseyEnrollment), unavailable);
-	// Jordan's own enrollment, without the director's feedback.
 	const e = ok(await enrollment(dee, jordanEnrollment));
 	assert.ok(e.milestones.every((m) => m.feedback === null));
 	assert.deepEqual(
@@ -560,9 +535,7 @@ test("AC:ADR1-002 AC:ADR1-013 Casey sees My residency only: no Pipeline page, st
 		"Potential leader",
 	])
 		assert.equal(text.includes(secret), false, secret);
-	// Her own feedback is hers to read.
 	assert.ok(text.includes(SECRET.caseyFeedback));
-	// Every staff read refuses her, each as a record that does not exist.
 	const refusals = JSON.parse(await everything(casey)) as unknown[];
 	assert.deepEqual(refusals, Array(refusals.length).fill(unavailable));
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM seat WHERE account_id=${casey.id}::uuid`), 0);
@@ -604,7 +577,6 @@ test("AC:ADR1-002 Harvest Point's planter reads nothing from either organization
 	const mine = await readMyResidency(f.db, await authority(planter));
 	assert.equal(JSON.stringify(mine).includes("Grace"), false);
 	assert.equal(await evryRead(planter).catch(() => "refused"), "refused");
-	// The plant's own connections to both organizations show no pipeline person.
 	const shared = await f.admin.execute(
 		sql`SELECT count(*)::int AS n FROM person WHERE tenant_id=${harvest.id}::uuid AND display_name IN ('Casey Lee','Jordan Reyes','Morgan Diaz')`,
 	);
@@ -648,7 +620,6 @@ test("AC:ADR1-002 AC:ADR1-004 an address someone can't see answers exactly like 
 			async () => readProgram(f.db, await authority(who), { programId: program }),
 			async () => readProgram(f.db, await authority(who), { programId: missing }),
 		);
-	// An accepted invitation's link reads as one that never existed.
 	assert.deepEqual(
 		await f.invitations.describe({ proof: caseyInvitation.proof }),
 		await f.invitations.describe({ proof: randomBytes(32).toString("base64url") }),
@@ -680,7 +651,6 @@ test("AC:ADR1-008 Dana and Luis moving Casey at the same moment: one move saves,
 	const replies = [byDana, byLuis].map((r) => (r.status === "ok" ? "saved" : r.refusal.code));
 	assert.deepEqual([...replies].sort(), ["conflict", "saved"]);
 	const winner = replies[0] === "saved" ? "Resident" : "Commissioned";
-	// The other window reads Casey again and sees where she is now; her history has one new move.
 	const now = ok(await record(replies[0] === "saved" ? luis : dana, caseyPerson));
 	assert.equal(now.stage.label, winner);
 	assert.equal(await moves(), before + 1);
@@ -778,7 +748,6 @@ test("AC:ADR1-012 confirming the same milestone at the same moment confirms it o
 	assert.equal(await audits(), before + 1);
 });
 
-/** A second pipeline person with her own Discovery account, invited to link. */
 async function resident(name: string) {
 	const email = `${name.toLowerCase()}-${randomUUID()}@example.test`;
 	const seed = seeds(f.admin);
@@ -806,7 +775,6 @@ test("AC:ADR1-004 accepting the same invitation in two tabs at once makes one li
 		() => settle(f.invitations.respondResident(r.who.session, accept(r.invitation))),
 		() => settle(f.invitations.respondResident(r.who.session, accept(r.invitation))),
 	]);
-	// One tab links; the other is told it is already linked (its screen says so), and nothing is written twice.
 	const outcomes = [one, two].map((x) =>
 		x && typeof x === "object" && "refused" in x
 			? (x as { refused: string }).refused
@@ -815,7 +783,6 @@ test("AC:ADR1-004 accepting the same invitation in two tabs at once makes one li
 	assert.deepEqual(outcomes.sort(), ["accepted", "already_linked"]);
 	assert.equal(await links(r.personId), 1);
 	assert.deepEqual(ok(await record(dana, r.personId)).residency, { status: "linked" });
-	// The refused tab reads the invitation again: it is no longer open to answer.
 	assert.deepEqual(await f.invitations.describe({ proof: r.invitation.proof }), { status: "unavailable" });
 });
 
@@ -834,7 +801,6 @@ test("AC:ADR1-004 Luis revoking while Casey's invitation is being accepted leave
 			),
 	]);
 	const refused = (x: unknown) => !!x && typeof x === "object" && "refused" in x;
-	// Exactly one of the two lands; the other is told the invitation is no longer open (each screen words that code).
 	assert.notEqual(refused(accepted), refused(revoked));
 	assert.deepEqual([accepted, revoked].filter(refused), [{ refused: "invitation_unavailable" }]);
 	const state = (await f.admin.execute(sql`SELECT state FROM invitation WHERE id=${r.invitation.invitationId}::uuid`))
@@ -849,7 +815,6 @@ test("AC:ADR1-004 Luis revoking while Casey's invitation is being accepted leave
 	}
 });
 
-/** The milestone titles the export lists as completed for `personId` (one CSV row per fact). */
 function exportedMarks(text: string, personId: string) {
 	const lines = text.replace(/^\uFEFF/, "").split("\r\n");
 	const start = lines.findIndex((l) => l.startsWith("record,person_id,"));
@@ -864,7 +829,6 @@ function exportedMarks(text: string, personId: string) {
 }
 
 test("AC:ADR1-003 AC:ADR1-005 AC:ADR1-014 AC:ADR1-015 Casey stops sharing milestones: Ana's screen, Dana's export, Evry and the enrollment history drop her marks at once", async () => {
-	// Casey moves to Version 2, which no longer has her vision talk: her mark on it is enrollment history now.
 	const review = ok(await readVersionReview(f.db, await authority(ana), { enrollmentId: caseyEnrollment }));
 	ok(
 		await programWriter.applyVersion(f.db, await authority(ana), {
@@ -894,7 +858,6 @@ test("AC:ADR1-003 AC:ADR1-005 AC:ADR1-014 AC:ADR1-015 Casey stops sharing milest
 
 	await caseyShares({ shareFoundations: false, shareMilestones: false });
 	const withdrawn = await marks();
-	// Only what Ana recorded before Casey linked stays, on every read.
 	assert.deepEqual(withdrawn.screen, [`${PREACH}: program_leader`]);
 	assert.deepEqual(withdrawn.history, []);
 	assert.deepEqual(withdrawn.exported, [PREACH]);
@@ -903,10 +866,8 @@ test("AC:ADR1-003 AC:ADR1-005 AC:ADR1-014 AC:ADR1-015 Casey stops sharing milest
 		milestones: "not_shared",
 		foundations: { status: "not_shared" },
 	});
-	// Evry's pipeline read never carries a milestone mark, shared or not.
 	for (const read of [shared.evry, withdrawn.evry])
 		for (const title of [VISION, PROSPECTUS, PREACH]) assert.equal(read.includes(title), false, title);
-	// Casey still sees her own marks.
 	const mine = ok(await readMyResidency(f.db, await authority(casey)));
 	assert.ok(JSON.stringify(mine).includes(PROSPECTUS));
 });

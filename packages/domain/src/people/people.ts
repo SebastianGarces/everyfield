@@ -38,7 +38,6 @@ export function appendPerson(
 ) {
 	return appendPeople(tx, context, [newPerson(context, raw, linkedAccountId)], writes)[0]!;
 }
-/** New Person rows (newPerson) queued as one insert, with their pipeline columns' revision, however many there are. */
 export function appendPeople(
 	tx: Tx,
 	context: Pick<Context, "selected">,
@@ -60,7 +59,6 @@ export function appendPeople(
 		);
 	return rows;
 }
-/** A new live Person row with the People defaults. The CSV import passes a stable ID and creation time per row. */
 export function newPerson(
 	context: Pick<Context, "selected">,
 	raw: z.infer<typeof c.createPersonRequest>["input"] | z.infer<typeof c.createOrganizationPersonRequest>["input"],
@@ -103,21 +101,12 @@ export function newPerson(
 	});
 }
 
-/**
- * A key at the end of a pipeline column (D68): the time in milliseconds, with a fixed-width fraction from the person's
- * ID so that two people never share a key. New people, a stage change into another column and a restore get one;
- * moves inside a column then always find a key strictly between two neighbours.
- */
 export function freshPosition(id: string, at = new Date()): string {
 	return `${at.getTime()}.${BigInt("0x" + id.replaceAll("-", "").slice(-12))
 		.toString()
 		.padStart(15, "0")}`;
 }
 export const sameColumn = (a: string, b: string) => a === b || (isCommitted(a) && isCommitted(b));
-/**
- * A person joining or leaving a pipeline column changes the order its viewers see, so the column's revision moves on
- * in the same write; a move based on the older view is then refused (REQ-PPL-007). One queued statement.
- */
 export function columnsChanged(plantId: string, stages: readonly (string | null)[]): SQLWrapper {
 	const columns = [...new Set(stages.filter((s) => s !== null).map((s) => (isCommitted(s) ? "core_group" : s)))];
 	return sql`INSERT INTO people_column(plant_id, column_name, revision) SELECT ${plantId}::uuid, c, 2 FROM unnest(${sql.param(columns)}::text[]) c ON CONFLICT (plant_id, column_name) DO UPDATE SET revision = people_column.revision + 1`;
@@ -131,16 +120,10 @@ async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: s
 		needsOwner,
 	};
 }
-/** The person's open tasks, as subject or through their linked account, locked for a handoff. One statement. */
 async function openDuties(tx: Tx, ctx: Context, p: Person) {
 	if (ctx.selected.kind !== "plant") return [];
-	// Tasks store account assignees; Person subjects are separate references.
 	return lockTasks(tx, ctx.selected.id, openDutiesOf(p.id, p.linked_account_id));
 }
-/**
- * Hands the person's open tasks to the chosen people, or leaves them needing an owner. Each moved task's owed
- * reminders follow it in the same transaction: the new assignee's are planned and the former assignee's withdrawn.
- */
 async function handoff(
 	tx: Tx,
 	ctx: Context,
@@ -197,8 +180,6 @@ async function handoff(
 		return { id: duty.id, account: target.linked_account_id };
 	});
 	if (changes.length) {
-		// D-d: the chosen recipient takes the leaving account's place in each task; one already assigned just stays.
-		// A duty about the Person whose set lacks the leaving account has no place to take: the choice replaces the set.
 		const source = p.linked_account_id;
 		await tx.execute(
 			sql`WITH v AS (SELECT * FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) v(id uuid,account uuid)),
@@ -280,7 +261,6 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 					const leaving = isCommitted(before.stage) && !isCommitted(input.input.stage);
 					const needsOwner = !noop && leaving ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
 					if (!leaving && input.input.handoffs.length) deny("invalid_input");
-					// Into another column: the person goes to its end with a fresh key (D68).
 					const position = sameColumn(before.stage!, input.input.stage)
 						? before.pipeline_position
 						: freshPosition(before.id);
@@ -362,7 +342,6 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 		});
 	},
 };
-/** Retires a plant's Person. The caller has refused an organization context. */
 async function retire(
 	tx: Tx,
 	ctx: WriteContext,
@@ -383,7 +362,6 @@ async function retire(
 		if (input.input.reviewRevision !== review) deny("conflict");
 		let after = before;
 		const needsOwner = before.state === "live" ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
-		// Existing historical endpoints remain; current leadership is ended explicitly.
 		if (before.state === "live") {
 			const [updated] = await tx
 				.update(tables.person)
@@ -436,7 +414,6 @@ async function retire(
 		};
 	});
 }
-/** Restores a plant's retired Person. The caller has refused an organization context. */
 async function restore(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.restorePersonRequest>) {
 	return mutation(tx, ctx, "people.restorePerson", input, async (_a, id, audit) => {
 		const before = await person(tx, ctx, input.input.personId, true);
@@ -450,7 +427,6 @@ async function restore(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.restor
 					.set({
 						state: "live",
 						retired_at: null,
-						// Back at the end of its column with a fresh key (D68).
 						pipeline_position: freshPosition(before.id),
 						revision: sql<unknown>`(${tables.person.revision} + 1)`,
 					})
@@ -459,8 +435,6 @@ async function restore(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.restor
 				after = personRow.parse({ ...updated, plant_today: before.plant_today });
 				audit.writes.push(columnsChanged(ctx.selected.id, [before.stage]));
 			} catch (error) {
-				// The unique live account/plant index also arbitrates concurrent relinks.
-				// reply() rolls this statement back to its savepoint before returning.
 				if (
 					error instanceof Error &&
 					error.cause instanceof Error &&
@@ -501,7 +475,6 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 				expected(before, input.expectedRevision);
 				let participation: string | null = null;
 				if ("meetingId" in input.input && input.input.meetingId) {
-					// The meeting participation is another row: this note runs in the gate's transaction (C88).
 					await declareWrite(tx, "established");
 					const r = await tx
 						.select({ id: tables.participation.id })
@@ -550,7 +523,6 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 				if (!r.length || r[0]!.author_id !== actor) deny();
 				if (r[0]!.revision !== input.expectedRevision) deny("conflict");
 				const body = kind === "delete" ? "" : "body" in input.input ? input.input.body : deny("invalid_input");
-				// Exact old/new note bodies live only in protected Person history.
 				audit.events.push({
 					id,
 					tenant_id: ctx.selected.id,
@@ -615,7 +587,6 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 					const before = await person(tx, ctx, input.input.personId, true);
 					live(before);
 					expected(before, input.expectedRevision);
-					// With a birth date the effective value is derived from it, so no manual value can apply (REQ-PPL-026).
 					if (before.birth_date) deny("invalid_input", { reason: "birth_date_decides" });
 					const { today } = (
 						await tx
@@ -651,20 +622,11 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 		);
 	});
 }
-/**
- * Places one person in a pipeline column (D68): right after `afterId`, or first. The person gets a sortable key between
- * the two neighbours, so a move changes one row and writes one audit event, whatever the column's size. The column's
- * revision is the lock: a move against an order that changed meanwhile is refused (REQ-PPL-007).
- */
 async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.reorderPipelineRequest>) {
 	return c.noteMutationResult.pick({ receiptId: true, outcome: true }).parse(
 		await mutation(tx, ctx, "people.reorderPipeline", input, async (actor, id, audit) => {
 			const { column, personId: moving, afterId } = input.input;
 			const stages = columnStages(column);
-			// One statement locks the column row and takes its next revision (a first move creates it at 2), and finds the
-			// key between the anchor and the next person in column order; the key is null when those two share one.
-			// The midpoint multiplies by 0.5: numeric multiplication is exact, where division rounds and could land on a
-			// neighbour after many moves into the same gap.
 			const found = placeRow.parse(
 				(
 					await tx.execute(sql`WITH lock AS (
@@ -686,8 +648,6 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 			const before = await person(tx, ctx, moving, true);
 			if (before.state !== "live" || !stages.includes(before.stage!)) deny("conflict");
 			if (!found.found) deny("conflict");
-			// Keys are unique in a column (new, re-staged and restored people get a fresh key, and migration 0015 spread the
-			// old ones), so a key strictly between two neighbours always exists and a move changes exactly one row.
 			const after = personRow.parse({
 				...before,
 				pipeline_position: z.string().parse(found.key),
@@ -699,7 +659,6 @@ async function pipelineOrder(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.
 					.set({ pipeline_position: after.pipeline_position, revision: sql<unknown>`(${tables.person.revision} + 1)` })
 					.where(and(eq(tables.person.plant_id, ctx.selected.id), eq(tables.person.id, moving))),
 			);
-			// The write's one audit event, from the wrapper, names the moved person (D70).
 			return {
 				value: { receiptId: id, outcome: "changed" },
 				subject: moving,
@@ -717,12 +676,7 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 			const input = raw,
 				selected = owner.parse(input.owner);
 			if (selected.kind !== "plant") deny();
-			// Trusted collaborator, never a client account selector. Provisioning owns
-			// account proof/eligibility and enclosing transaction; these locks arbitrate retries.
-			// A first Person needs no lock or read: the caller created the plant in this transaction and holds the
-			// account's lock, so no other request can see the plant or link a Person to it (person_uq_1 still holds).
 			if (input.selection.kind !== "first") {
-				// One statement locks the account, then the plant: the plant's lock waits for the account's.
 				const locked =
 					await tx.execute(sql`WITH a AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE)
 	 SELECT (SELECT count(*) FROM a)::int AS accounts, (SELECT count(*) FROM (SELECT id FROM plant WHERE id=${selected.id}::uuid
@@ -745,7 +699,6 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 					});
 			}
 			const ctx = { selected };
-			// Only resolve and reviewed_contact use the matching People; a new Person needs none.
 			const candidates = () =>
 				tx.execute(
 					sql`SELECT p.id FROM person p JOIN access_account_contact(${sql.param(input.accountId)}) a ON lower(p.email)=lower(a.email) WHERE p.plant_id=${sql.param(selected.id)} AND p.state='live' AND p.linked_account_id IS NULL AND a.verified ORDER BY p.id LIMIT 100 FOR UPDATE OF p`,
