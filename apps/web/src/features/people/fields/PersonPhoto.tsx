@@ -71,7 +71,8 @@ export function PersonPhoto({
 
 	const saved = photoSrc(photo);
 	const src = busy === "remove" ? undefined : (preview ?? saved ?? undefined);
-	const label = src ? `Photo of ${person.displayName}` : person.displayName;
+	const [shown, setShown] = useState<string | null>(null);
+	const label = src && shown === src ? `Photo of ${person.displayName}` : person.displayName;
 
 	const through = throughStore(
 		store,
@@ -144,7 +145,14 @@ export function PersonPhoto({
 	}
 
 	const avatar = (
-		<Avatar name={person.displayName} label={label} src={src} size="xl" decorative={canEdit}>
+		<Avatar
+			name={person.displayName}
+			label={label}
+			src={src}
+			size="xl"
+			decorative={canEdit}
+			onImageSettled={(result) => setShown(result === "loaded" ? (src ?? null) : null)}
+		>
 			{canEdit ? (
 				<span
 					aria-hidden="true"
