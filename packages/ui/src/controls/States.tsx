@@ -1,6 +1,8 @@
 import { LockKeyIcon, WifiDisconnected01Icon } from "@hugeicons/core-free-icons";
 import type { ComponentPropsWithRef, CSSProperties, ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
+import { Card } from "./Card";
+import { PageHeader, type Crumb } from "./PageHeader";
 
 export function EmptyState({
 	icon,
@@ -83,6 +85,22 @@ export function StatePanel({
 			{actions ? <div className="mt-3 flex flex-wrap justify-center gap-2">{actions}</div> : null}
 			{meta ? <p className="mt-1.5 text-xs text-text-3">{meta}</p> : null}
 		</div>
+	);
+}
+
+export function PageState({
+	page,
+	breadcrumb,
+	size = breadcrumb ? "default" : "xl",
+	...panel
+}: StatePanelProps & { page: ReactNode; breadcrumb?: Crumb[]; size?: "default" | "xl" }) {
+	return (
+		<>
+			<PageHeader size={size} title={page} breadcrumb={breadcrumb} />
+			<Card>
+				<StatePanel {...panel} />
+			</Card>
+		</>
 	);
 }
 
