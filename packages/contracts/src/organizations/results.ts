@@ -24,7 +24,6 @@ export const invitationResult = z.strictObject({
 	expiresAt: instant,
 	inviterDescription: z.string().trim().min(1).max(500),
 });
-// A committed response never claims mail delivery. Delivery/retry is outbox-owned.
 export const mutationResult = z.union([unavailableResult, z.strictObject({ status: z.literal("committed") })]);
 const acceptedInvitation = z.strictObject({
 	status: z.literal("accepted"),
@@ -52,8 +51,6 @@ export const sharingResult = z.union([
 	z.strictObject({ view: z.literal("plant_member"), ...pairInfo }),
 	z.strictObject({ view: z.literal("organization"), ...pairInfo, availability: sharingChoices }),
 ]);
-// Show this before first acceptance. The server supplies the prior exact-pair
-// choices on rejoin; parsing a disclosure cannot reset stored consent.
 export const sharingDisclosure = z.discriminatedUnion("kind", [
 	z.strictObject({
 		kind: z.literal("self_start"),
@@ -97,7 +94,6 @@ export const organizationProfileResult = z.union([
 		timeZone: timeZone,
 	}),
 ]);
-// Domain history is separate from current entitlement and central audit.
 const attribution = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("account"), accountId }),
 	z.strictObject({ kind: z.literal("deleted_account"), token: z.string().min(1).max(200) }),
@@ -115,8 +111,6 @@ export const relationshipHistoryResult = z.union([
 						id: eventId,
 						pair: relationshipPair,
 						event: z.enum(["approved", "ended"]),
-						// Members and other purpose-limited readers get withheld regardless of
-						// whether a reason exists. Only entitled readers receive the recorded value.
 						reason: z.discriminatedUnion("status", [
 							z.strictObject({ status: z.literal("withheld") }),
 							z.strictObject({ status: z.literal("available"), value: z.string().max(1000).nullable() }),
@@ -158,7 +152,6 @@ export const pipelineConsentResult = z.union([
 		minimumContributors: z.literal(2),
 	}),
 ]);
-// No count, contributor IDs, private progress or withheld-versus-zero payload.
 export const pipelineAggregateAccessResult = z.strictObject({
 	allowed: z.boolean(),
 	minimumContributors: z.literal(2),

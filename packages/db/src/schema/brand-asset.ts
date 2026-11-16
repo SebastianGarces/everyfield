@@ -1,9 +1,7 @@
 import "server-only";
 import sharp from "sharp";
 
-/** Largest input and output, in pixels (width times height). */
 const PIXEL_LIMIT = 16_000_000;
-/** Longest side of a stored logo, mark or signature, and of a stored cover photo. */
 const LOGO_SIDE = 2000;
 const COVER_SIDE = 2400;
 const TIMEOUT_SECONDS = 5;
@@ -12,7 +10,6 @@ export type BrandAssetMedia = "image/svg+xml" | "image/png" | "image/webp";
 export type ProcessedAsset = { bytes: Buffer; mediaType: "image/png" | "image/jpeg" };
 
 const startsWith = (bytes: Uint8Array, ...prefix: number[]) => prefix.every((value, index) => bytes[index] === value);
-/** True when the file starts with the signature of the media type the upload was staged for. */
 function matchesSignature(bytes: Uint8Array, mediaType: BrandAssetMedia): boolean {
 	if (mediaType === "image/png") return startsWith(bytes, 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
 	if (mediaType === "image/webp")
@@ -23,10 +20,6 @@ function matchesSignature(bytes: Uint8Array, mediaType: BrandAssetMedia): boolea
 	return /^\s*(<\?xml[^>]*\?>\s*)?(<!--[\s\S]*?-->\s*)*<svg[\s>]/i.test(head);
 }
 
-/**
- * An SVG with a script, a `foreignObject`, an entity or a reference to any URL that is not a `data:` URI is refused.
- * A `#fragment` points inside the file and is allowed.
- */
 function svgIsSafe(source: string): boolean {
 	if (/<script|<foreignObject|<!DOCTYPE|<!ENTITY|<\?xml-stylesheet|@import|javascript:|\son[a-z]+\s*=/i.test(source))
 		return false;
@@ -37,11 +30,6 @@ function svgIsSafe(source: string): boolean {
 	return true;
 }
 
-/**
- * Decodes an upload under a pixel limit and a time limit and returns the stored raster. Logos, marks and the signature
- * are trimmed of empty margin and stored as PNG. The cover photo is resized, not trimmed, and stored as JPEG. Any
- * failure, including a file that is empty after trimming, throws `invalid_file`.
- */
 export async function processBrandAsset(
 	bytes: Uint8Array,
 	mediaType: BrandAssetMedia,
@@ -67,7 +55,6 @@ export async function processBrandAsset(
 				.toBuffer();
 			return { bytes: jpeg, mediaType: "image/jpeg" };
 		}
-		// Trim first at full size so the content keeps its exact proportions, then fit it inside the limit.
 		const trimmed = await input.png().timeout({ seconds: TIMEOUT_SECONDS }).toBuffer();
 		const png = await sharp(trimmed, { limitInputPixels: PIXEL_LIMIT })
 			.trim({ threshold: 10 })
@@ -75,7 +62,6 @@ export async function processBrandAsset(
 			.png()
 			.timeout({ seconds: TIMEOUT_SECONDS })
 			.toBuffer();
-		// A file with no visible pixel is not a logo.
 		const alpha = (await sharp(png).stats()).channels[3];
 		if (alpha && alpha.max === 0) throw Error("blank");
 		return { bytes: png, mediaType: "image/png" };
@@ -92,11 +78,6 @@ const hex = (r: number, g: number, b: number) =>
 		.join("")
 		.toUpperCase();
 
-/**
- * The most used colors of a stored asset, most used first, at most five. Transparent, near-white and near-black pixels
- * are ignored. Each entry is the most common exact color of a coarse bucket, so a flat color comes back unchanged.
- * Returns an empty list when no pixel counts.
- */
 export async function dominantColors(bytes: Uint8Array): Promise<string[]> {
 	const { data, info } = await sharp(bytes, { limitInputPixels: PIXEL_LIMIT })
 		.resize({ width: 256, height: 256, fit: "inside", withoutEnlargement: true, kernel: "nearest" })

@@ -18,7 +18,6 @@ const table = z.object({
 const catalog = z.object({ tables: z.array(table) });
 const sort = (rows: unknown[]) => rows.map((row) => JSON.stringify(row)).sort();
 const typeNames: Record<string, string> = { int8: "bigint", int4: "integer", bool: "boolean" };
-// Postgres names an array type by its element with a leading underscore: _uuid is uuid[].
 const typeName = (udt: string): string =>
 	udt.startsWith("_") ? typeName(udt.slice(1)) + "[]" : (typeNames[udt] ?? udt);
 const deletionCodes: Record<string, string> = {
@@ -29,8 +28,6 @@ const deletionCodes: Record<string, string> = {
 	set_default: "d",
 };
 
-// Inspect the fully migrated schema, never regenerated historical SQL. The same
-// comparison serves the CLI and the real database baseline regression.
 export async function assertCurrentCatalog(db: Database | Transaction, schema: string, raw: unknown): Promise<void> {
 	const expected = catalog.parse(raw);
 	const columns = await db.execute<{
