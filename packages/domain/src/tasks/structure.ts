@@ -44,14 +44,8 @@ const ruleOf = (row: TaskRow) =>
 		? { frequency: row.rule.frequency, until: row.rule.until, localTime: row.rule.local_time }
 		: null;
 
-/** Checklist rows, prerequisites, recurrence and bulk changes (WP-025). Part of the task writer. */
 export function structureWriter(reminders: TaskReminders) {
 	return {
-		/**
-		 * Add a checklist row: a real one-level child task (REQ-TSK-005). An Owner or Admin may add under any live
-		 * top-level task and may name eligible assignees or none; omitted inherits the parent's assignees. A Member may
-		 * add only under a task they hold, and the row inherits its set. The child has no deadline, recurrence, source or relation.
-		 */
 		async createSubtask(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.createSubtaskRequest, raw);
@@ -62,12 +56,9 @@ export function structureWriter(reminders: TaskReminders) {
 					const admin = administers(cmd.actor);
 					if (!admin && !parent.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny();
 					if (!admin && v.assigneeIds !== undefined) deny("access_denied");
-					// One level only: a checklist row never has its own rows.
 					if (parent.parent_id) deny("invalid_subject");
-					// A task reads back with at most 500 checklist rows.
 					if (parent.child_total >= 500) deny("invalid_input");
 					if (parent.revision !== input.expectedRevision) deny("conflict");
-					// Omitted takes the parent's whole set, minus anyone who no longer holds a seat.
 					const assignees =
 						v.assigneeIds === undefined
 							? parent.assignees.filter((a) => a.seated)
@@ -88,10 +79,6 @@ export function structureWriter(reminders: TaskReminders) {
 				});
 			});
 		},
-		/**
-		 * Tick or untick a checklist row of `parentId`. Owner/Admin, or the Member who holds that row; holding the parent
-		 * does not count. The parent never completes by itself.
-		 */
 		async setSubtaskCompletion(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.setSubtaskCompletionRequest, raw);
@@ -102,7 +89,6 @@ export function structureWriter(reminders: TaskReminders) {
 				});
 			});
 		},
-		/** Remove a checklist row: it is soft-deleted with its own history kept; the parent is unchanged. Owner/Admin. */
 		async removeSubtask(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.removeSubtaskRequest, raw);
@@ -124,13 +110,6 @@ export function structureWriter(reminders: TaskReminders) {
 				});
 			});
 		},
-		/**
-		 * Replace a top-level task's prerequisites (REQ-TSK-006). A new prerequisite must be a live top-level task of the
-		 * church and not the task itself; an existing one may stay after its deletion. A set that would close a cycle,
-		 * directly or through other tasks, refuses with dependency_cycle. Every write first locks its church (the bound
-		 * actor's plant row), so the cycle check sees each edge committed before it and two opposite edges proposed at
-		 * once cannot both pass. Owner/Admin.
-		 */
 		async replacePrerequisites(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.replacePrerequisitesRequest, raw);
@@ -181,12 +160,6 @@ export function structureWriter(reminders: TaskReminders) {
 				});
 			});
 		},
-		/**
-		 * Make a top-level task recurring, change its series rule, or stop it with a null rule (REQ-TSK-007). Stopping
-		 * keeps every occurrence and its history. A rule on any occurrence of a stopped series starts a new series from
-		 * that task as occurrence 1; the old series stays stopped with its other occurrences. A generated duty cannot
-		 * recur. Owner/Admin.
-		 */
 		async configureRecurrence(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.configureRecurrenceRequest, raw);
@@ -220,7 +193,6 @@ export function structureWriter(reminders: TaskReminders) {
 						);
 						next = { ...next, rule: { ...row.rule!, ...stored(after) } };
 					} else {
-						// A new series starts at this task, occurrence 1.
 						const seriesId = randomUUID();
 						cmd.writes.push(
 							sql`INSERT INTO recurrence (id, plant_id, interval, end_date, timezone, local_time, source_task_id,
@@ -244,10 +216,6 @@ export function structureWriter(reminders: TaskReminders) {
 				});
 			});
 		},
-		/**
-		 * Complete one occurrence: the same completion as tasks.complete, which also creates the series' next task with
-		 * fresh checklist rows, and returns that successor. A retry returns the same answer and creates nothing.
-		 */
 		async completeOccurrence(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.taskCommandRequest, raw);
@@ -264,13 +232,6 @@ export function structureWriter(reminders: TaskReminders) {
 				});
 			});
 		},
-		/**
-		 * Complete up to 100 reviewed tasks in one transaction (REQ-TSK-008). Each task gets its own outcome: a missing
-		 * or foreign task is not_found, a changed one stale, a waived one closed, one a Member does not hold unauthorized.
-		 * Every valid task completes, recurring ones with their successor, which the task's item names; a failure commits
-		 * nothing, and a retry with the
-		 * same request key returns the stored outcomes without completing anything twice.
-		 */
 		async bulkComplete(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.bulkCompleteRequest, raw);
@@ -286,10 +247,6 @@ export function structureWriter(reminders: TaskReminders) {
 				);
 			});
 		},
-		/**
-		 * Give up to 100 reviewed open top-level tasks the same due date (REQ-TSK-008). An invalid or ambiguous date
-		 * refuses the whole request; per task outcomes as in bulkComplete. Owner/Admin.
-		 */
 		async bulkReschedule(tx: Tx, context: TaskContext, raw: unknown) {
 			return reply(tx, async () => {
 				const input = parse(c.bulkRescheduleRequest, raw);
@@ -320,7 +277,6 @@ export function structureWriter(reminders: TaskReminders) {
 		},
 	};
 
-	/** The shared bulk loop: one locked read of every selected task, one outcome each, one write statement. */
 	async function bulk(
 		tx: Tx,
 		cmd: Command,

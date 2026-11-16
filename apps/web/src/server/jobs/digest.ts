@@ -28,22 +28,9 @@ import {
 import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue.ts";
 import { mountMailService } from "./seated-notifications.ts";
 
-// The church digest (NTF-007) and the oversight digest (NTF-008), delivered by the scheduled runner. Each minute the
-// planner queues one `digest` job for every Owner or Admin whose period has ended; the worker then compiles that job's
-// digest from current facts and writes its bell entry, its email intent and the coverage advance in one statement.
-// The church schedule (Settings → Church) sets the church digest's weekday and hour; the oversight digest goes out at
-// 07:00 in the organization's zone and covers completed days only (WP-030 decisions D-b, D-c).
-
-/** Coverage starts and jobs queued by one planner statement, and digests one runner tick delivers. */
 const PLAN_LIMIT = 500;
 const DIGESTS_PER_RUN = 20;
 
-/**
- * Queues the digests owed at `asOf`. One statement. A recipient seen for the first time starts their coverage at the
- * period that just ended, so the first digest is the next one and no backlog is sent. A recipient whose coverage is
- * behind gets one job for the latest period end: a run after missed slots queues one catch-up, not one per slot. The
- * job key holds the period end, so overlapping runs queue it once. The worker rechecks everything.
- */
 export async function planDigests(db: Database, asOf: string): Promise<{ started: number; queued: number }> {
 	const at = z.iso.datetime().parse(asOf);
 	const pref = (category: string, fallback: string) =>
@@ -108,7 +95,6 @@ const recipientRow = z.object({
 	revision: z.string().nullable(),
 });
 
-/** A digest notice's key: tenant, category, coverage row and the covered dates. Its email's key is `digest/` and this. */
 const digestKey = (tenant: string, category: string, coverage: string, start: string, end: string) =>
 	`${tenant}/${category}/${coverage}/${start}/${end}`;
 const MAIL_KEY = MAIL_PASSES.digest[0];
@@ -120,7 +106,6 @@ const parseKey = (key: string) => {
 export function createDigestWorker(config: { mail: ReturnType<typeof createMailService>; origin: string }) {
 	const origin = new URL(config.origin).origin;
 
-	/** One claimed job: compile the owed digest for its recipient and deliver it, or finish with nothing owed. */
 	async function deliver(tx: Transaction, claim: Claim, asOf: string) {
 		if (!(await lockClaim(tx, claim))) return "lost" as const;
 		const tenant = claim.tenant_id;
@@ -145,8 +130,6 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 			FROM tenant t LEFT JOIN plant p ON p.id = t.id LEFT JOIN organization o ON o.id = t.id
 			WHERE t.id = ${tenant}::uuid`);
 		const row = read.rows[0] ? recipientRow.parse(read.rows[0]) : null;
-		// A job whose subject is no recipient (a church schedule change queues one), or a recipient whose coverage the
-		// planner never started, has nothing owed.
 		if (!row?.coverage || !row.revision || row.church_cadence === "off") return "nothing" as const;
 		const plant = row.kind === "plant";
 		const category = plant ? "planter_digest" : "oversight_digest";
@@ -172,7 +155,6 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 					...d,
 					text: renderOversightDigest({ ...period, ...d }),
 				}));
-		// A recipient who lost their seat or account gets nothing, and their coverage stays where it was.
 		if (!digest.live) return "nothing" as const;
 		const inApp = row.in_app ?? defaultChannelEnabled(category, "in_app");
 		const email = (row.email ?? defaultChannelEnabled(category, "email")) && row.address !== null;
@@ -202,8 +184,6 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 					]
 				: [],
 		);
-		// Coverage advances with what the period delivered, in one statement: an empty period or one with both channels
-		// off advances it alone. A notice whose bell channel is off is archived, and its email still goes.
 		const write = await tx.execute(sql`WITH advanced AS (
 				UPDATE digest_coverage SET covered_through = ${period.end}::date, cadence = ${cadence},
 					timezone = ${row.zone}, revision = revision + 1
@@ -225,7 +205,6 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 		return send ? ("sent" as const) : ("nothing" as const);
 	}
 
-	/** Runs up to `limit` due digest jobs before `until`, one transaction each. Returns how many it delivered. */
 	async function run(db: Database, asOf: string, limit = DIGESTS_PER_RUN, until = Infinity) {
 		let sent = 0;
 		for (let n = 0; n < limit && Date.now() < until; n++) {
@@ -239,7 +218,6 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 				});
 				if (outcome === "sent") sent++;
 			} catch {
-				// No error text: it can carry row values.
 				console.error(JSON.stringify({ component: "digest", outcome: "error" }));
 				await finishJob(db, claim, { state: "retry_wait", code: "digest_failed" });
 			}
@@ -251,12 +229,6 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 }
 export type DigestWorker = ReturnType<typeof createDigestWorker>;
 
-/**
- * Dispatch's check for a digest email (REQ-NTF-008: sharing gates each contribution at compile and dispatch). The
- * recipient must still hold their seat. An oversight email goes only while a fresh compile of its dates gives the
- * same text its notice holds; when a plant stopped sharing or its link ended, the email is withdrawn and the bell
- * entry stays as it was delivered.
- */
 export const authorizeDigestMail: AuthorizeMail = async (tx, list) => {
 	const allowed = new Set<string>();
 	for (const m of list) {
@@ -287,7 +259,6 @@ const env = z.object({
 	IDENTITY_ORIGIN: z.url(),
 });
 let mounted: DigestWorker | undefined;
-/** The runner's digest worker, or null when the deployment has no mail configuration. Mail is queued here only: `digestMailPass` sends it. */
 export function digestsMount(db: Database | null): DigestWorker | null {
 	const v = env.safeParse(process.env);
 	if (!db || !v.success) return null;
@@ -298,10 +269,6 @@ export function digestsMount(db: Database | null): DigestWorker | null {
 	return mounted;
 }
 
-/**
- * The scheduled runner's digest mail pass (`digest/` keys): one bounded batch through `transport`, each digest rechecked
- * by authorizeDigestMail just before the handoff. Null without mail configuration.
- */
 export function digestMailPass(db: Database | null, transport: MailTransport): MailPass | null {
 	const v = env.safeParse(process.env);
 	if (!db || !v.success) return null;

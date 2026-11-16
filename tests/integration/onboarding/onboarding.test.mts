@@ -63,7 +63,6 @@ async function counts() {
 }
 async function resume(f) {
 	const value = ok(await call("getResume", f.a, {}, f.p));
-	// RT-6a: the one-statement entry read gives exactly the resume of the separate reads.
 	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
 	const entry = await readOnboardingEntry(
 		db,
@@ -156,7 +155,6 @@ test("AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-02
 	assert.equal(entries[0].kind, "creation");
 	assert.equal(entries[0].from_phase, null);
 	assert.equal(entries[0].to_phase, 1);
-	// RT-6a: the plant, its owner seat and its creation entry are one statement; the reply names the stored rows.
 	assert.equal(first.creation.recordedAt, entries[0].recorded_at.toISOString());
 	const [owner] = await admin.select().from(t.seat).where(eq(t.seat.plant_id, plant.id));
 	assert.equal(first.ownerSeat.seatId, owner.id);
@@ -320,7 +318,6 @@ test("AC:TARGET-IDN-015 an Owner saves a planned launch date again and again, ea
 		({ revision, scheduleRevision } = saved);
 	}
 	assert.equal(scheduleRevision, "4");
-	// No date keeps the schedule and still names its revision.
 	const kept = ok(
 		await call(
 			"declareJourney",
@@ -331,7 +328,6 @@ test("AC:TARGET-IDN-015 an Owner saves a planned launch date again and again, ea
 	);
 	assert.equal(kept.scheduledLaunchDate, "2027-06-20");
 	assert.equal(kept.scheduleRevision, "4");
-	// Another tab moved the date: the revision this screen read is stale, so the save is refused.
 	await admin
 		.update(t.launch)
 		.set({ target_date: "2027-07-04", revision: sql`${t.launch.revision}+1` })
@@ -363,7 +359,6 @@ test("AC:TARGET-IDN-015 a lock timeout or statement timeout refuses as temporary
 		const before = await counts();
 		let release, held;
 		const locked = new Promise((resolve) => (held = resolve));
-		// A second connection holds the plant row until the save gives up waiting for it.
 		const holder = admin.transaction(async (tx) => {
 			await tx.execute(sql`SELECT id FROM plant WHERE id=${f.p.id}::uuid FOR UPDATE`);
 			held();
@@ -389,7 +384,6 @@ test("AC:TARGET-IDN-015 a lock timeout or statement timeout refuses as temporary
 		const after = await resume(f);
 		assert.equal(after.revision, r.revision);
 		assert.equal(after.journey.status, "pending");
-		// The same request goes through once the row is free.
 		assert.equal(ok(await call("declareJourney", f.a, q, f.p)).scheduledLaunchDate, "2027-03-07");
 	}
 });
@@ -498,7 +492,6 @@ const leadYes = (fill, roleName = "Lead planter", teamName = "Plant leadership")
 	assignment: { kind: "minimal_role", roleName, container: { kind: "minimal", name: teamName } },
 	...(fill === undefined ? {} : { seniorPastor: fill }),
 });
-/** Every ministry, role and open tenure of a plant, by name, in a stable order. */
 async function ministryFacts(plantId) {
 	const r = await admin.execute(sql`SELECT
 		(SELECT coalesce(json_agg(json_build_array(name, template_key) ORDER BY name), '[]') FROM team WHERE plant_id=${plantId}) AS teams,
@@ -525,7 +518,6 @@ async function otherPerson(plantId, name) {
 	});
 	return id;
 }
-/** The Leadership template ministry with its two template roles, as a template import leaves it. */
 async function leadership(plantId) {
 	const team = randomUUID(),
 		pastor = randomUUID();
@@ -574,7 +566,6 @@ test("AC:TARGET-IDN-014 the Senior pastor fill is off by default and only a Yes 
 });
 
 test("AC:TARGET-IDN-014 with the fill on, the planter holds Leadership's Senior pastor role and nothing else", async () => {
-	// No Leadership ministry yet: it is created with the Senior pastor role only.
 	const f = await makePlant();
 	const result = ok(await call("answerLead", f.a, command(leadYes(true), (await resume(f)).revision), f.p));
 	assert.equal(result.lead.seniorPastor, "filled");
@@ -589,7 +580,6 @@ test("AC:TARGET-IDN-014 with the fill on, the planter holds Leadership's Senior 
 	const [seat] = await admin.select().from(t.seat).where(eq(t.seat.id, f.result.ownerSeat.seatId));
 	assert.equal(seat.role, "owner");
 
-	// A Leadership ministry from the templates with the role vacant: only that role is filled.
 	const g = await makePlant();
 	const l = await leadership(g.p.id);
 	const filled = ok(await call("answerLead", g.a, command(leadYes(true), (await resume(g)).revision), g.p));
@@ -722,7 +712,6 @@ test("AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; 
 		.where(and(eq(t.mail.recipient_account_id, unselectedOwner.id), eq(t.mail.purpose, "discovery_receipt")));
 	assert.equal(notices.length, 1);
 	assert.equal(notices[0].state, "pending");
-	// No worker runs assessments yet, so the conversion queues no job for the link (D-530).
 	assert.deepEqual(await admin.select().from(t.job).where(eq(t.job.subject_record_id, second.relationshipId)), []);
 	const before = await counts(),
 		replay = ok(await call("convertDiscovery", d.a, q));
@@ -995,7 +984,6 @@ test("INV-reading: a single current eligible reader must finish all six strictly
 		started_on: sql`(SELECT (clock_timestamp() AT TIME ZONE timezone)::date FROM plant WHERE id=${f.p.id})`,
 	});
 	assert.equal((await resume(f)).reading.status, "incomplete");
-	// Select the ordinary lead role, then assign its current occupant normally.
 	const r = await resume(f),
 		lead = ok(
 			await call(
@@ -1142,7 +1130,6 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 	const converting = db.transaction(async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
 		conversionPid = (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid;
-		// The conversion keeps every lock it took until the organization's end waits for one of them.
 		const result = await api.convertDiscovery(
 			tx,
 			ctx(d.a),
@@ -1447,8 +1434,6 @@ test("INV-reads: a pending account's onboarding entry reads only its account row
 	assert.deepEqual(await readOnboardingEntry(db, api, session, null, false), { kind: "confirm_email" });
 });
 
-// Nora QA 2026-11-05 Ask C (T-65): a network Admin and a sending-church Owner who already hold an organization seat
-// sign in and reach the organization outcome, never the church-plant start.
 for (const [registration, kind, seatRole] of [
 	["network", "sending_network", "admin"],
 	["sending_church", "sending_church", "owner"],
@@ -1490,7 +1475,6 @@ test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session 
 		expiresAt: new Date(Date.now() + 3600000).toISOString(),
 	});
 	const { OnboardingReadContext } = await import("../../../packages/domain/src/onboarding/core.ts");
-	// A plant Owner: the entry and the resume read, with the RequestActor resolved before the seat ended.
 	const f = await makePlant();
 	const owner = (await readViewer(db, writeSessionId.parse(f.a.session))).authority;
 	assert.equal((await readOnboardingEntry(db, api, session(f.a), owner, true)).kind, "plant");
@@ -1501,7 +1485,6 @@ test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session 
 	});
 	denied(await db.transaction((tx) => api.getResume(tx, new OnboardingReadContext(owner), {})));
 
-	// A Discovery account: the profile read, with the RequestActor resolved before the session ended.
 	const d = await discovery();
 	const explorer = (await readViewer(db, writeSessionId.parse(d.a.session))).authority;
 	assert.equal((await readOnboardingEntry(db, api, session(d.a), explorer, true)).kind, "discovery");
@@ -1515,7 +1498,6 @@ test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session 
 		reason: "unavailable",
 	});
 
-	// A seatless account before creation: the precreation facts need a live session too.
 	const a = await actor("planter", "active");
 	const fresh = (await readViewer(db, writeSessionId.parse(a.session))).authority;
 	assert.equal((await readOnboardingEntry(db, api, session(a), fresh, true)).kind, "start");
@@ -1543,7 +1525,6 @@ test("INV-write-clock: answerLead, declareJourney and complete each write the pl
 			return Reflect.apply(query, this, args);
 		};
 	});
-	// The plant UPDATEs one command sends. The declaration's phase move is part of its WITH statement, not one of them.
 	async function plantWrites(name, q) {
 		statements.length = 0;
 		recording = true;
@@ -1603,7 +1584,6 @@ test("INV-write-clock: answerLead, declareJourney and complete each write the pl
 	assert.equal(done.value.completion.materialRevision, row.plant.material_revision);
 	assert.equal(row.setup.completed_material_revision, row.plant.material_revision);
 
-	// A second completion changes no plant row and records a noop.
 	const again = await plantWrites("complete", command({}, done.value.revision));
 	assert.equal(again.writes.length, 0, again.writes.join("\n"));
 	assert.deepEqual(again.value.completion, done.value.completion);
@@ -1614,7 +1594,6 @@ test("INV-write-clock: answerLead, declareJourney and complete each write the pl
 		.where(and(eq(t.audit_event.tenant_id, f.p.id), eq(t.audit_event.kind, "noop")));
 	assert.equal(noops.length, 1);
 
-	// A resume inside a bound write reads through the same entry statement and gives the same answer.
 	const viewer = await readViewer(db, writeSessionId.parse(f.a.session));
 	const inside = await withOnboardingWrite(db, viewer.authority, ctx(f.a, f.p), (tx) =>
 		api.getResume(tx, ctx(f.a, f.p), {}),

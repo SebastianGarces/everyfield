@@ -17,10 +17,6 @@ import type { RequestActor } from "../access/session.ts";
 import { deny, parse, scopeOf, settle, type Scope } from "./access.ts";
 import { SLOT_ID_COLUMNS, stagedUpload } from "./kit.ts";
 
-/**
- * Reads asset bytes only while the kit references the file now. The settings read needs an Owner or Admin seat; the
- * theme read accepts any active seat. Both check the live session and seat in the same statement as the reference.
- */
 export function brandAssetReader(scope: Scope, mode: "settings" | "theme"): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		if (intent !== "read" || file.tenant_id !== scope.plantId || file.purpose !== "brand_asset") return null;
@@ -36,7 +32,6 @@ export function brandAssetReader(scope: Scope, mode: "settings" | "theme"): Reso
 	};
 }
 
-/** A byte upload may put only its own pending file, for a live Owner or Admin seat. */
 function uploadPutter(scope: Scope): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		if (intent !== "put" || file.tenant_id !== scope.plantId || file.purpose !== "brand_asset") return null;
@@ -51,11 +46,6 @@ const pending = z.object({
 	media_type: z.string().nullable(),
 });
 
-/**
- * Stores the bytes of a requested upload. The bytes are checked against the staged type and size, decoded under a pixel
- * and time limit, trimmed (not the cover photo) and rasterized. The stored file is the processed raster with its own
- * byte count and SHA-256. Invalid bytes get `invalid_file` and leave no ready file.
- */
 export async function uploadBrandAsset(
 	db: Database,
 	storage: PrivateStorage | null,
@@ -66,7 +56,6 @@ export async function uploadBrandAsset(
 		const scope = scopeOf(authority);
 		const uploadId = parse(z.uuid(), raw.uploadId);
 		if (!storage) deny();
-		// One statement: the live Owner or Admin seat's own pending upload.
 		const { rows } = await db.execute(sql`SELECT g.ok, f.upload_key, f.media_type
 			FROM (SELECT ${scope.admin} AS ok) g
 			LEFT JOIN file_object f ON g.ok AND f.id = ${uploadId}::uuid AND f.tenant_id = ${scope.plantId}::uuid
@@ -75,7 +64,6 @@ export async function uploadBrandAsset(
 		if (staged.ok !== true) deny("access_denied");
 		const request = staged.upload_key ? stagedUpload(staged.upload_key) : null;
 		if (!request) deny();
-		// The bytes must be the type and size the request named.
 		if (raw.bytes.length !== request.byteLength) deny("invalid_file");
 		const processed = await processBrandAsset(raw.bytes, request.mediaType, c.isTrimmedSlot(request.slot)).catch(() =>
 			deny("invalid_file"),
@@ -110,7 +98,6 @@ export async function uploadBrandAsset(
 	});
 }
 
-/** A stored asset's bytes and media type, if the kit references the file now. */
 export async function readBrandAsset(
 	db: Database,
 	storage: PrivateStorage | null,
@@ -130,10 +117,6 @@ export async function readBrandAsset(
 
 const storedMedia = z.enum(["image/png", "image/jpeg"]);
 
-/**
- * A stored asset's SHA-256 and media type from the same statement that checks the live session, the seat and the kit's
- * current reference. The bytes come from storage only when `current` rejects that SHA-256; `bytes` is null otherwise.
- */
 export async function readBrandAssetIfChanged(
 	db: Database,
 	storage: PrivateStorage | null,

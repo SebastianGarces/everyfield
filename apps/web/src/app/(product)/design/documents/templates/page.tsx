@@ -4,8 +4,6 @@ import { PREVIEW_TEMPLATES } from "@/features/documents/church/preview/templates
 
 export const metadata = { title: "New from template" };
 
-// "New from template" with 60 invented templates, to check search and paging (WP-036). The /design layout returns 404
-// in production.
 export default function TemplatePickerPreviewPage() {
 	return (
 		<ShellPreview role="owner">

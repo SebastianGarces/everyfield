@@ -10,8 +10,6 @@ import { communicationWriter, withCommunicationWrite } from "../../../../../pack
 import { messageTemplateInstaller } from "../../../../../packages/reference/src/message-templates.ts";
 import { fixture, ok, refused } from "../../../../support/fixture.mts";
 
-// GAP-REF-006 at its clock, 2026-10-13T16:00:00Z. P's Admin A has forked the vision meeting invitation as "Our
-// invitation"; a reference publisher installs the seven system templates from the preserved source twice.
 const SOURCE = {
 	path: "docs/reference/communication-system-templates.ts",
 	sha256: "07aa5ec09e7499b77d856e079c1c7312cc04dd443146f702e5a143ae6de561ba",
@@ -33,13 +31,11 @@ const actorOf = async (who) => {
 	return a;
 };
 const caller = (who) => ({ actorId: who.id, userId: who.user, sessionId: who.session });
-/** The install's outcome as data: its value, or the refusal code it threw. */
 const attempt = (run: Promise<unknown>) =>
 	run.then(
 		(value) => ({ status: "ok", value }),
 		(error) => ({ status: "refused", code: error.code, reply: JSON.stringify({ ...error, message: error.message }) }),
 	);
-/** Every row an install or a refusal could add: domain records, receipts and provider work. */
 async function writes() {
 	const [row] = await rows(sql`SELECT
 		(SELECT count(*)::int FROM reference_item) AS reference_items,
@@ -105,7 +101,6 @@ test("AC:GAP-REF-006 seven system templates install twice without overwriting a 
 		assert.equal(second.sourceSha256, SOURCE.sha256);
 		assert.equal(await sourceHash(), SOURCE.sha256);
 
-		// The church still reads its fork in place of the source, and every system template as approved.
 		const listed = ok(await db.transaction((tx) => communicationWriter.listTemplates(tx, A.actor)));
 		const forkShown = listed.templates.find((t) => t.sourceKey === "vision-meeting-invitation");
 		assert.equal(forkShown.origin, "plant");
@@ -137,7 +132,6 @@ test("AC:GAP-REF-006 seven system templates install twice without overwriting a 
 			);
 			assert.deepEqual(error.details, { missing: ["name"], providerCalls: 0 });
 			assert.deepEqual(await writes(), before);
-			// With the field filled, the same preview renders.
 			const shown = ok(
 				await db.transaction((tx) =>
 					communicationWriter.readPreview(tx, A.actor, {

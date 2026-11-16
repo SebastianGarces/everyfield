@@ -1,8 +1,3 @@
-// The synthetic test church for Plant Intelligence assessments (WP-041, WP-042): a methodology reference release with
-// Phase 1, Phase 3 and general Wiki articles, a sending network with its own article, and plants whose measured facts
-// are known exactly. People and commitment cards go through the People operations; meetings, interviews, 4 C's and the
-// Wiki are seeded as rows, since the assessment only reads them. Private notes, scores and a check-in carry canary
-// strings, so a test can prove none of them reaches the model or a draft.
 import { randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -16,7 +11,6 @@ export const ZONE = "America/Chicago";
 export const CANARY = "canary-7f3a";
 const hash = () => randomBytes(32).toString("hex");
 
-/** Methodology articles: [slug, phase, body]. Each heading starts a citable section. */
 export const METHODOLOGY = [
 	[
 		"core-group-commitment",
@@ -40,7 +34,6 @@ export const METHODOLOGY = [
 	],
 ] as const;
 
-/** `cleanup: true` adds the cleanup login a live purge runs on, as `database.pools.cleanup`. */
 export async function church(prefix: string, { cleanup = false } = {}) {
 	const database = await fixture({
 		prefix,
@@ -69,7 +62,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 	}
 	let activations = 0;
 
-	/** A validated release with one revision of each methodology article, activated as the current reference. */
 	async function release(key: string, edit: (body: string) => string = (b) => b) {
 		const id = randomUUID();
 		await admin.execute(sql`INSERT INTO reference_release(id,release_key,artifact_locator,manifest_hash,state,complete_at,
@@ -92,14 +84,12 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 			${activations - 1})`);
 		return { id, key, revisions };
 	}
-	/** Activates an earlier release again: a rollback, under a new activation identity. */
 	async function activate(releaseId: string) {
 		await admin.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,
 			reason,expected_prior_number) VALUES(${randomUUID()},${releaseId},${++activations},clock_timestamp(),'synthetic',
 			'rollback',${activations - 1})`);
 	}
 
-	/** A sending network with its own published follow-up article (organization text, kept as markdown). */
 	async function network(name = "Hill Country Network") {
 		const org = await database.organization("sending_network", { name, timezone: ZONE });
 		const article = randomUUID();
@@ -118,7 +108,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 		return { ...org, article, revision, director };
 	}
 
-	/** A plant in Chicago at `phase` with its Owner; `affiliate` links it to a network that shares the Wiki. */
 	async function plant(name: string, { phase = 1, network: org }: { phase?: number; network?: { id: string } } = {}) {
 		const w = await database.plant({ name, timezone: ZONE, phase });
 		const owner = await database.actor(w, "owner");
@@ -154,7 +143,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 			),
 		).person as { id: string };
 	}
-	/** A person with a core-group commitment card signed `daysAgo` days ago. */
 	async function committed(p: Plant, name: string, daysAgo = 60, input?: Record<string, unknown>) {
 		const who = await person(p, name, input);
 		ok(
@@ -171,7 +159,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 		);
 		return who;
 	}
-	/** A completed Vision meeting `daysAgo` days ago attended by `people`. */
 	async function vision(p: Plant, daysAgo: number, people: { id: string }[]) {
 		const id = randomUUID();
 		await record(id, "meeting", p.id);
@@ -189,7 +176,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 		}
 		return id;
 	}
-	/** An interview and a 4 C's record with private notes and scores, `daysAgo` days ago. */
 	async function humanRecords(p: Plant, who: { id: string }, daysAgo: number) {
 		const i = randomUUID(),
 			f = randomUUID();
@@ -201,7 +187,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 		await admin.execute(sql`INSERT INTO four_cs(id,plant_id,person_id,assessed_on,recorded_at,committed,compelled,contagious,
 			courageous,committed_notes) VALUES(${f},${p.id},${who.id},${day(-daysAgo)},clock_timestamp(),2,3,1,4,${CANARY + "-4cs"})`);
 	}
-	/** The Owner's private check-in: Struggling everywhere, with a note. */
 	async function checkIn(p: Plant) {
 		const current = ok(await care.readCurrent(db, p.actor, {}));
 		const struggling = { spiritual: "struggling", family: "struggling", financial: "struggling", pace: "struggling" };
@@ -213,7 +198,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 			}),
 		);
 	}
-	/** One open ministry role with a responsibility, held by `holder` when given. */
 	async function role(p: Plant, key: string, holder: { id: string } | null) {
 		const team = randomUUID(),
 			r = randomUUID();
@@ -232,10 +216,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 		}
 	}
 
-	/**
-	 * Harvest Point, Phase 1: 30 committed adults (the newest 5 days ago), a Vision meeting 4 days ago, two interviews
-	 * and 4 C's records with private notes, the Owner's private check-in, worship and children filled of the eight.
-	 */
 	async function harvest(name = "Harvest Point", options: { network?: { id: string } } = {}) {
 		const p = await plant(name, options);
 		const adults = [];
@@ -249,14 +229,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 		await role(p, "children", adults[4]!);
 		return p;
 	}
-	/**
-	 * The lifecycle portfolio (TEN-007, SCHEMA-011, MW-CASE-023): plants P and Q with the Harvest Point records, both
-	 * sharing findings and every category with network S1, and S1's saved Network Intelligence run of both, after
-	 * `publish` gave each plant a published assessment its Owner opened. In P, account A is an Admin with a private
-	 * check-in and shared records it wrote (a Person, a training credit it verified, a Vision meeting it created and a
-	 * Launch milestone it completed), and Seat-B is a non-owner Admin seat whose account is linked to a Leader Person and
-	 * owns one open follow-up. B is an Admin of Q.
-	 */
 	async function portfolio(name: string, publish: (p: Plant) => Promise<unknown>) {
 		const s1 = await database.organization("sending_network", { name: `${name} Network`, timezone: ZONE });
 		const seat = await database.actor(s1, "admin");
@@ -337,7 +309,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 			runId,
 		};
 	}
-	/** Phase 1 with 29 known adults and one person nobody has classified: the committed-adult count is Unknown. */
 	async function unknownCount(name = "Mueller Fellowship") {
 		const p = await plant(name);
 		const adults = [];
@@ -346,7 +317,6 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 		await vision(p, 6, adults.slice(0, 10));
 		return p;
 	}
-	/** Phase 3 with 12 committed adults and a Vision meeting 9 days ago. */
 	async function phaseThree(name = "Oak Cliff Church") {
 		const p = await plant(name, { phase: 3 });
 		const adults = [];

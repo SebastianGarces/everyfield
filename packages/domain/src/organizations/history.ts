@@ -27,7 +27,6 @@ const historyRow = z.object({
 	actor_id: accountId.nullable(),
 	actor_token: z.string().nullable(),
 });
-/** One scope's connections and history: one affiliation statement with the live check joined in, one audit page. */
 async function historyFor(db: Reader, actor: Actor, raw: unknown) {
 	const q = Q.relationshipHistoryRequest.parse(raw),
 		scope = Q.relationshipHistoryScope.parse(
@@ -137,6 +136,5 @@ export const getHistory: OrganizationAdapter<Transaction>["associations.getHisto
 	if (actor.status !== "active") return unavailable();
 	return historyFor(tx, actor, raw);
 };
-/** The request's own viewer reads its history on the pool: no transaction, no second actor read (D59). */
 export const readHistory = (db: Database, authority: RequestActor, raw: unknown) =>
 	historyFor(db, authority.actor, raw);
