@@ -5,7 +5,6 @@ import { TEMPLATE_VERSION, leaderSource, teamState } from "./values.ts";
 
 const issue = z.strictObject({ path: z.string().max(200), problem: z.string().max(200) });
 
-/** Every refusal a teams operation can return. Missing rows are "unavailable". */
 export const teamsError = z.discriminatedUnion("code", [
 	defineSafeError("invalid_input", { issues: z.array(issue).max(50) }, "never"),
 	defineSafeError("unsupported_filter", {}, "never"),
@@ -44,7 +43,6 @@ export const teamMutationResult = z.strictObject({
 	team,
 	stableKey: z.string().nullable(),
 });
-/** A team as the list reads it: the team and its leader's display name, or null when it has no leader. */
 export const listedTeam = team.extend({ leaderName: z.string().nullable() });
 export const teamPage = z.strictObject({
 	items: z.array(listedTeam).max(200),
@@ -57,14 +55,8 @@ export const historyEntry = z.strictObject({
 	kind: z.string().min(1).max(80),
 	occurredAt: z.string().min(1),
 	reason: z.string().nullable(),
-	/** Who made the change, by their account name; null when the change has no account. */
 	actorName: z.string().nullable(),
-	/** What the change was filed under: the ministry itself, one of its roles, or one person's time in a role. */
 	subject: z.enum(["ministry", "role", "tenure"]),
-	/**
-	 * The role a role change names, and the person when it names one: a role filled or a role-date correction.
-	 * Ministry entries name none.
-	 */
 	about: z.strictObject({ personName: z.string().nullable(), roleName: z.string() }).nullable(),
 	before: z.record(z.string(), z.unknown()).nullable(),
 	after: z.record(z.string(), z.unknown()).nullable(),
@@ -135,7 +127,6 @@ export const assignmentRow = z.strictObject({
 	endedOn: localDate.nullable(),
 	active: z.boolean(),
 });
-/** One corrected role tenure, as the person's record shows it. */
 export const tenureMutationResult = z.strictObject({ ...receipt, assignment: assignmentRow });
 export const personAssignments = z.strictObject({
 	personId,
@@ -190,7 +181,6 @@ export const chartNode = z.strictObject({
 	archived: z.boolean(),
 	leaderName: z.string().nullable(),
 });
-/** The ministry's current revision alone, for a write refused as stale to retry with. */
 export const teamRevision = z.strictObject({ teamId: recordId, revision });
 export const orgChart = z.strictObject({
 	nodes: z.array(chartNode).max(200),
@@ -203,13 +193,11 @@ export const orgChartExport = z.strictObject({
 	nodes: z.array(chartNode).max(200),
 });
 
-/** One ministry: the team, its roles with their occupants, and its current people. */
 export const teamDetail = z.strictObject({
 	team: listedTeam,
 	roles: z.array(teamRole).max(100),
 	members: z.array(memberRow).max(500),
 });
-/** One current ministry role a person holds. */
 const memberMatch = z.strictObject({
 	personId,
 	name: z.string().min(1).max(200),
@@ -223,10 +211,6 @@ export const memberSearch = z.strictObject({
 	items: z.array(memberMatch).max(200),
 	completeness: z.enum(["complete", "partial"]),
 });
-/**
- * appointed: an explicit appointment; fallback: the holder of a leadership role; none: no leader recorded; unavailable:
- * a leader is recorded but their person record can't be read now, so the ministry is never called leaderless.
- */
 export const leaderStatus = z.enum(["appointed", "fallback", "none", "unavailable"]);
 export const staffingRow = z.strictObject({
 	teamId: recordId,
@@ -234,13 +218,11 @@ export const staffingRow = z.strictObject({
 	state: teamState,
 	leaderStatus,
 	leaderName: z.string().nullable(),
-	/** Configured role slots, those with a current occupant, those open, and the distinct people serving. */
 	roles: z.int().min(0),
 	filledRoles: z.int().min(0),
 	openRoles: z.int().min(0),
 	people: z.int().min(0),
 });
-/** Roles and people are counted apart: one person may fill several roles, and `people` counts each person once. */
 export const staffingSummary = z.strictObject({
 	teams: z.array(staffingRow).max(200),
 	roles: z.int().min(0),
@@ -254,7 +236,6 @@ const personTeamCount = z.strictObject({
 	teams: z.int().min(1),
 	teamNames: z.array(z.string().min(1).max(200)).max(200),
 });
-/** An advisory count of distinct current ministries per person; it never limits or judges anyone. */
 export const personTeamCounts = z.strictObject({
 	minTeams: z.int().min(1),
 	people: z.array(personTeamCount).max(200),

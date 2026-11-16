@@ -1,16 +1,3 @@
-# The nightly full run behind local selection (T-41, T-216). `bin/dev check` skips the test files a diff cannot reach,
-# through the coverage map this workflow writes: every selectable test file runs here under coverage, and only a run
-# where all of them pass uploads its map. `bin/dev check` downloads the map of the latest successful run with gh.
-# The bun typecheck shadow runs here too, out of the pull request gate, until T-53 decides bun's fate.
-# The tests/ui browser set runs here as well (T-301), chromium then webkit, over a seeded production build on the
-# runner's own throwaway Postgres, with no secret or outside service. `bin/dev nightly` stays the local run of the
-# same set on a preview of origin/main until it is retired (D-1377).
-# The formal job (T-401) has TLC generate permissions-model behaviors from a fresh random seed and replays them against
-# the real operations on its own throwaway Postgres (scripts/nightly-formal.ts). A disagreement fails it with only the
-# seed, the commit and the repro commands; the replay's own output stays in an unuploaded runner-temp file (D-1588).
-# Every job sets up Node, pnpm and node_modules through .github/actions/setup, the action the ci.yml jobs use (T-392),
-# so nightly restores and saves the same Node, corepack and node_modules caches as CI.
-# GitHub runs a schedule on the default branch only. fail-forward reports a failed run on main as one incident.
 name: Nightly
 
 on:
@@ -36,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # operation rule and rule placement checks read baseline commits
+          fetch-depth: 0
       - name: Shared setup (Node, pnpm, node_modules)
         uses: ./.github/actions/setup
         with:
@@ -46,7 +33,6 @@ jobs:
           git config --global user.name "evf ci"
           git config --global user.email "ci@everyfield.invalid"
           git config --global init.defaultBranch main
-      # Writes the map only when every test passed; otherwise it fails and no map is uploaded.
       - name: Every selectable test file under coverage
         run: node scripts/nightly.ts coverage-map "$RUNNER_TEMP/coverage-map.json"
         env:
@@ -73,11 +59,6 @@ jobs:
         run: pnpm typecheck:bun
 
   ui:
-    # Every tests/ui/**/*.test.mjs (the list `bin/dev nightly` runs), once per engine, over one seeded production build.
-    # scripts/nightly-ui.ts seeds every tests/ui seed into the service's everyfield_ci (CI=true and
-    # EARLY_ACCESS_TEST_DATABASE=1 let the seeds use it, D-1378), then starts the server, which reads the env file the
-    # seeds wrote: the scripted Evry model and the dev mail capture. A failed chromium run still lets webkit run; either
-    # one failing fails the job.
     name: tests/ui (chromium and webkit)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -97,7 +78,6 @@ jobs:
       EARLY_ACCESS_TEST_DATABASE: "1"
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
-      # GitHub allows no runner context in a job's env, so the later steps read UI_DIR from GITHUB_ENV.
       - name: tests/ui directory
         run: echo "UI_DIR=$RUNNER_TEMP/nightly-ui" >> "$GITHUB_ENV"
       - uses: actions/checkout@v7
@@ -108,8 +88,7 @@ jobs:
       - name: Playwright chromium and webkit with their system dependencies
         working-directory: apps/web
         run: pnpm exec playwright install --with-deps chromium webkit
-      # The seeds accept only a *.localhost origin; this name reaches the server on 127.0.0.1 in both engines.
-      - name: nightly.localhost on the loopback
+      - name: nightly.localhost on the loopback (the seeds accept only a *.localhost origin)
         run: echo "127.0.0.1 nightly.localhost" | sudo tee -a /etc/hosts
       - name: Production build
         run: pnpm build
@@ -127,7 +106,6 @@ jobs:
       - name: Stop the server
         if: ${{ !cancelled() && steps.up.outcome == 'success' }}
         run: node scripts/nightly-ui.ts down "$UI_DIR"
-      # The test and server logs and the mail outbox. The fixtures hold seeded session cookies and stay out.
       - name: tests/ui logs
         if: failure()
         uses: actions/upload-artifact@v7
@@ -140,10 +118,6 @@ jobs:
           retention-days: 14
 
   formal:
-    # scripts/nightly-formal.ts prints a fresh random seed, generates behaviors with `bin/dev formal --traces` (TLC on the
-    # runner's Java; the pinned tla2tools.jar is its one download) and replays them with FORMAL_TRACES on the service's
-    # everyfield_ci. A disagreement's ::error:: names only the seed, the commit and the repro, which fail-forward's
-    # Nightly incident carries (D-1587); the replay's own output stays in $RUNNER_TEMP/nightly-formal, never uploaded.
     name: formal replay (fresh seed)
     runs-on: ubuntu-24.04
     timeout-minutes: 20

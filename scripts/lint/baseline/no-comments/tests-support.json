@@ -1,5 +1,0 @@
-{
-	"tests/support/fake-github.mts": 8,
-	"tests/support/fixture.mts": 25,
-	"tests/support/test-database.mts": 19
-}

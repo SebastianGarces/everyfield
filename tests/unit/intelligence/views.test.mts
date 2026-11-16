@@ -1,5 +1,3 @@
-// The Plant Intelligence views of one published run (WP-044), with no database: the eight lens tiles and the assessed
-// phase's exit criteria come from the run's own snapshot and points only.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readCatalog } from "../../../packages/domain/src/phases/catalog.ts";
@@ -23,7 +21,6 @@ test("AC:PI-CASE-019 eight tiles: measured where the snapshot counted, attested 
 		],
 	);
 	assert.deepEqual(tiles.vision!.points, [3, 1], "strongest first: the strength, then the note");
-	// A stale answer stays attested and says it needs renewing; the other prayer question stays unanswered.
 	assert.deepEqual(
 		tiles.prayer!.attestations.map((a) => [a.key, a.answered, a.asOf, a.needsRenewing]),
 		[
@@ -83,7 +80,6 @@ test("Phase 5 shows First service held with the milestone it rests on; a snapsho
 			{ key: "firstService.heldOn", label: "Milestone reached", value: "2026-10-11" },
 		],
 	});
-	// A Launch Sunday plant's evidence is the day it was held.
 	const held = {
 		...reached,
 		firstService: { path: "launch_sunday", status: "met", heldOn: "2026-10-04" },
@@ -91,7 +87,6 @@ test("Phase 5 shows First service held with the milestone it rests on; a snapsho
 	assert.deepEqual(row(held).evidence, [
 		{ key: "firstService.heldOn", label: "Launch Sunday held", value: "2026-10-04" },
 	]);
-	// The plant-facts/1 fixture has no firstService: still parsed, the criterion is Unknown with no evidence.
 	assert.equal(facts.formulaVersion, "plant-facts/1");
 	assert.deepEqual(row(facts), {
 		key: "first_service_complete",

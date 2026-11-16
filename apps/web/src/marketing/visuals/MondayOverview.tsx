@@ -7,9 +7,6 @@ import { ICONS } from "../icons";
 import { AppFrame, DashCard, DashHead, Delta, Kv, KV_V, ListRow, More } from "./dash";
 import { Insight } from "./insight";
 
-// "Here is what a Monday looks like": the overview dashboard of the demo church (Harvest Point), close to the mockup.
-
-/** The demo values the page passes (home/demo.ts). */
 export type MondayDemo = {
 	title: string;
 	sub: string;
