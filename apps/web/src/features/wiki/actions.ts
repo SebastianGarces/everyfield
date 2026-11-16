@@ -13,9 +13,6 @@ import {
 	wikiMount,
 } from "./server.ts";
 
-// Browser writes for the wiki screens. The producer checks the session again and parses every input.
-// Opening the guide or searching does not record a view.
-
 type WriteOk = {
 	status: "ok";
 	revision: string;
@@ -152,7 +149,6 @@ export type GuideResult =
 	| { status: "denied" }
 	| { status: "unavailable" };
 
-/** The Guide for the current address. One read; it records no view and no progress. */
 export async function loadGuide(route: string): Promise<GuideResult> {
 	const ready = await actorMount();
 	if (ready.status === "denied") return { status: "denied" };
@@ -328,7 +324,6 @@ function nextRevision(current: string): string {
 	return (BigInt(current) + 1n).toString();
 }
 
-/** Refresh the article the editor just wrote. Ignore any other path. */
 function refreshWiki(path: string | undefined) {
 	if (!path || path.length > 400 || !path.startsWith("/wiki")) return;
 	if (path.includes("..") || path.includes("//") || path.includes("\\") || path.includes("?")) return;
