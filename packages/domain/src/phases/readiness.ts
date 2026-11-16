@@ -3,12 +3,6 @@ import "server-only";
 
 type CriterionResults = Partial<Record<c.CriterionKey, c.CriterionStatus>>;
 
-/**
- * Advisory readiness for one phase's exit criteria (PHASE-004). The cluster is a conjunction without weights: ready only
- * when every criterion is met. Unknown and not tracked hold the verdict back without counting as failures. One open
- * criterion with the rest met is approaching; no measured criterion at all is unknown; anything else is not ready. A
- * person may always move the phase, whatever the verdict.
- */
 export function readinessOf(phase: c.CatalogPhase, results: CriterionResults): c.Readiness {
 	const criteria = phase.criteria.map(({ key, label }) => ({ key, label, status: results[key] ?? "unknown" }));
 	const met = criteria.filter((x) => x.status === "met").length;
@@ -32,10 +26,6 @@ export function readinessOf(phase: c.CatalogPhase, results: CriterionResults): c
 	});
 }
 
-/**
- * phases.readReadiness for every phase of the catalog, from the criteria the plant's measured facts answer (WP-040,
- * `PlantFacts.criteria`). A criterion the facts do not measure stays Unknown. Sends no statement of its own.
- */
 export function readReadiness(catalog: c.Catalog, results: CriterionResults): c.Readiness[] {
 	return catalog.phases.map((phase) => readinessOf(phase, results));
 }

@@ -20,28 +20,10 @@ import { factInputs, growthDays, peopleJson } from "../intelligence/facts.ts";
 import { preparationJson, requiredTrainingCount } from "./launch.ts";
 import { released, releasedHealth, releasedJson, releasedOf } from "./released.ts";
 
-// The Network Intelligence page (WP-047b, T-372: organizationIntelligence.read, .readLocations, .readHistory,
-// .requestRefresh and .submitFeedback) with the rubric's patterns NIR-01 and NIR-03 to NIR-06 in their fixed wording. A run stores each
-// plant that shares Plant Intelligence findings at that moment, as counts only: its preparation counts, its overdue
-// and unowned follow-ups, its growth clock in days and its saved required-training obligations, each only while it
-// shares the categories that rule reads (D-1420), and its reporting state, country and Region. Every read keeps only
-// the rows of plants that share findings with this organization now, and each rule only while they still share its
-// categories, so turning sharing off removes a plant from every run, past ones included. Patterns are computed at read
-// time from those rows: two distinct qualifying plants per rule, theme and group, never a score or a ranking. Each
-// sharing plant's row also carries its released Plant Intelligence result, read as the oversight plant view reads it
-// (T-386): as of now on the latest run, as of the run's own time on an earlier one, so an embargoed result never shows
-// and NIR-01 (a recurring shared concern) counts released concerns only.
-
-/**
- * organizationIntelligence.requestRefresh: a new run of this organization's portfolio, by an Owner or Admin. The
- * browser names the run id, so a repeated press records one run. Its audit row names the run and how many plants
- * contributed, nothing else.
- */
 export async function requestIntelligenceRefresh(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.refreshRequest, raw);
 		const o = sql`${w.organization}::uuid`;
-		// The growth clock is the facts' own rule (NIR-05), so it is computed here from the same inputs and stored as days.
 		const people = await w.tx.execute(sql`SELECT DISTINCT ON (k.plant_id) k.plant_id,
 	(clock_timestamp() AT TIME ZONE pl.timezone)::date::text AS today, ${peopleJson(sql`k.plant_id`)} AS people
 	FROM affiliation k JOIN plant pl ON pl.id=k.plant_id
@@ -88,11 +70,6 @@ SELECT EXISTS(SELECT FROM r) AS added,
 	});
 }
 
-/**
- * organizationIntelligence.submitFeedback: this Owner's or Admin's own rating of one pattern in one run of their
- * organization. Nobody else reads it, and it changes no pattern, rule or run. The audit row names the run, never the
- * rating.
- */
 export async function submitIntelligenceFeedback(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.feedbackRequest, raw);
@@ -155,11 +132,6 @@ const unshared = z.object({
 });
 const iso = (v: string) => sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
-/**
- * organizationIntelligence.read, .readLocations and .readHistory: one run of this organization (the latest without
- * `runId`) grouped at `level`, with every run's date. Null for an actor without a live seat of an organization, or a run
- * id that is not this organization's. One statement with the live seat check (C13).
- */
 export async function readIntelligence(
 	db: Reader,
 	authority: RequestActor,
@@ -251,7 +223,6 @@ type Placed = {
 	state: string | null;
 	country: string | null;
 };
-/** A plant's group key, label and placement at `level`: its place there, or why it has none. */
 function placeOf(level: C.Level, p: Placed): { key: string; label: string; placement: C.Placement } {
 	const country = countryKey(p.country);
 	const placed = (key: string, label: string) => ({ key, label, placement: "placed" as const });
@@ -273,7 +244,6 @@ function placeOf(level: C.Level, p: Placed): { key: string; label: string; place
 	if (area) return placed(area.code, C.regionLabel(area));
 	return none(unplacedRegion(p.saved, { city: p.city, stateProvince: p.state, country: p.country }));
 }
-/** The heading of a group of plants with no place at a level, by why: a missing place, or a Region status. */
 const MISSING: Record<C.Level, string> = {
 	region: "No Region set",
 	state: "No state set",
@@ -302,7 +272,6 @@ function groupsOf(
 				{ people: c.people, meetings: c.meetings, tasks: c.tasks, ministry: c.teams },
 				c.released,
 			);
-			// A plant that stopped sharing a rule's categories keeps no evidence for it: that rule reads as Unknown.
 			const counts: C.RuleCounts = {
 				overdueFollowUps: c.meetings && c.tasks ? c.overdue_followups : null,
 				unownedFollowUps: c.meetings && c.tasks ? c.unowned_followups : null,
@@ -380,7 +349,6 @@ function groupsOf(
 		);
 }
 
-/** Each rule theme of one group where at least two distinct sharing plants qualify, in rule order. */
 function patternsOf(
 	place: string,
 	asOf: string,
@@ -403,7 +371,6 @@ function patternsOf(
 	const sum = (plants: typeof shared, of: (c: C.RuleCounts) => number | null) =>
 		plants.reduce((n, p) => n + (of(p.counts) ?? 0), 0);
 	const out: z.input<typeof C.intelligencePattern>[] = [];
-	// NIR-01: plants whose released result raised a concern on the same lens, among the plants with a released result.
 	const assessed = shared.filter((p) => p.assessment.status === "released");
 	for (const { key: lens } of LENSES) {
 		const plants = assessed.filter(
@@ -432,7 +399,6 @@ function patternsOf(
 		const observed = shared.filter((p) => p.results[rule] !== "unknown");
 		const plants = observed.filter((p) => qualifies(p.results[rule]));
 		if (plants.length < 2) return;
-		// NIR-03's key predates the themes, so ratings of earlier runs still find their pattern.
 		const key = rule === "NIR-03" ? `${rule}:${place}` : `${rule}:${theme}:${place}`;
 		out.push({
 			key,

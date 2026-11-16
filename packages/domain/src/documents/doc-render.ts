@@ -19,11 +19,6 @@ import { buildLedgerWorkbook } from "./xlsx.ts";
 
 type LaidElement = { bookmark?: string; nodeType?: string; y: number; height: number; children?: LaidElement[] };
 
-/**
- * Where a document with a `first` or `rest` region splits: after the last top-level body element that ends on page 1.
- * Forme repeats a fixed region on every page from where it starts and never stops it, so the first page and the rest
- * run as two pages. A probe layout marks each top-level element; a continued element carries no mark on page 2.
- */
 async function splitPoint(ctx: ReturnType<typeof renderContext>, doc: EveryfieldDoc): Promise<FlowMode> {
 	const laid = await renderDocumentWithLayout(docElement(ctx, doc, { kind: "probe" }) as never);
 	const pages = laid.layout.pages as unknown as { elements: LaidElement[] }[];
@@ -37,7 +32,6 @@ async function splitPoint(ctx: ReturnType<typeof renderContext>, doc: Everyfield
 	return { kind: "split", at: continued && last > 0 ? last : last + 1 };
 }
 
-/** How far each table checkbox moves down to sit in the middle of its row, read from a measuring layout. */
 async function checkOffsets(ctx: ReturnType<typeof renderContext>, doc: EveryfieldDoc, mode: FlowMode) {
 	const laid = await renderDocumentWithLayout(docElement(ctx, doc, mode, "probe") as never);
 	const offsets = new Map<string, number>();
@@ -53,12 +47,7 @@ async function checkOffsets(ctx: ReturnType<typeof renderContext>, doc: Everyfie
 	return offsets as CheckOffsets;
 }
 
-/**
- * The PDF of one everyfield.doc/1 document or template. The Church Document preview, "Download PDF" and the saved
- * export all call this function, so the same revision and theme give the same bytes. A Member's view is this PDF.
- */
 export async function renderDocPdf(source: EveryfieldDoc, theme: RenderTheme = NEUTRAL_THEME): Promise<PdfRender> {
-	// Conditional text resolves first, so a block left out leaves no blank and the page breaks follow.
 	const doc = printedDoc(source);
 	const values = fieldValues(doc);
 	if (Object.values(values).some(unsafe)) throw new RenderFailed();
@@ -75,11 +64,6 @@ export async function renderDocPdf(source: EveryfieldDoc, theme: RenderTheme = N
 
 export type DocFormat = "pdf" | "docx" | "xlsx";
 
-/**
- * The formats a document offers, in a fixed order: its `exports` list as its body corrects it (`exportsFor`), so Excel
- * only while the body holds a ledger table (a budget), and a format the list leaves out is never offered. `ledger` is
- * whether the body holds one; a read that has no parsed body passes the flag it read.
- */
 export function offeredFormats(exports: readonly DocFormat[], ledger: boolean): DocFormat[] {
 	return (["pdf", "docx", "xlsx"] as const).filter((format) => (format === "xlsx" ? ledger : exports.includes(format)));
 }
@@ -88,10 +72,6 @@ export function docFormats(doc: EveryfieldDoc): DocFormat[] {
 	return offeredFormats(doc.exports, ledgerTables(doc.body).length > 0);
 }
 
-/**
- * The bytes of one document in one format. The preview, every download and the saved export call this function, so
- * one revision with one theme gives one set of bytes. A format the document does not offer is a failed render.
- */
 export async function renderDocFile(doc: EveryfieldDoc, format: DocFormat, theme: ExportTheme, created: Date) {
 	if (!docFormats(doc).includes(format)) throw new RenderFailed();
 	if (format === "pdf") return (await renderDocPdf(doc, theme.render)).bytes;

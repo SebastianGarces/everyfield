@@ -521,13 +521,11 @@ export const teamsWriter = {
 						leadership = ${after.leadership}, time_commitment = ${after.timeCommitment},
 						desired_skills = ${after.desiredSkills}, revision = revision + 1
 						WHERE id = ${before.id}::uuid AND plant_id = ${w.plant.id}::uuid`);
-					// A leader this role made stops leading when the role stops being a leadership role.
 					if (before.leadership && !after.leadership)
 						audit.writes.push(sql`UPDATE team SET leader_person_id = NULL, leader_source = NULL, leader_role_id = NULL,
 						revision = revision + 1
 						WHERE id = ${before.teamId}::uuid AND plant_id = ${w.plant.id}::uuid
 							AND leader_source = 'role_derived' AND leader_role_id = ${before.id}::uuid`);
-					// Turning leadership on fills an empty leader from the occupant and never replaces one (D-561).
 					const promoted =
 						!before.leadership && after.leadership && before.leaderPersonId === null ? before.occupantPersonId : null;
 					if (promoted)
@@ -714,11 +712,6 @@ export const teamsWriter = {
 			);
 		});
 	},
-	/**
-	 * Ends one role a person holds now, as of the church's date: they keep every other role, in this ministry and the
-	 * rest. A leader derived from this role leaves with it; an explicit appointment stays. Their People stage, training
-	 * and seat are untouched. The expected revision is the role's.
-	 */
 	async removeRole(tx: Tx, ctx: TeamsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.removeRoleRequest, raw);
@@ -873,10 +866,6 @@ export const teamsWriter = {
 			});
 		});
 	},
-	/**
-	 * Owner or Admin fixes the recorded start or end date of one role tenure, with a reason (REQ-TEAM-006). The
-	 * ministry's history names the old and new dates, the reason and who made it. A role held now keeps no end date.
-	 */
 	async correctTenure(tx: Tx, ctx: TeamsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.correctTenureRequest, raw);

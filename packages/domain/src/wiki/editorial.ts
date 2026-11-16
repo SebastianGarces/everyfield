@@ -67,11 +67,6 @@ function votesOf(raw: unknown) {
 	return voteList.parse(parsed ?? []);
 }
 
-/**
- * The reader's own votes on an article. Only a plant seat records feedback (setMine), so a reader with no plant seat has
- * none to read. A plant seat reads under setMine's check (meSql): the session, seat, role and lifecycle are live in the
- * same statement, or the read refuses.
- */
 export function getMine(db: Database, authority: RequestActor, raw: unknown) {
 	const input = parse(feedbackGetMineRequest, raw);
 	const context = authority.actor.context;
