@@ -28,6 +28,7 @@ import { ConditionRules, EfIf } from "./condition-extension.ts";
 import { docDecorations } from "./doc-decorations.ts";
 import { nodeFromTable, tableOf } from "./table-actions.ts";
 import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
+import { selectionChanges } from "./tiptap/selection-changes.ts";
 
 const REGION_BLOCKS = "(colblock | columns)*";
 
@@ -133,6 +134,9 @@ const EfQuote = Blockquote.extend({
 });
 
 const EfLink = Link.extend({
+	addProseMirrorPlugins() {
+		return [...(this.parent?.() ?? []), selectionChanges()];
+	},
 	addAttributes() {
 		return {
 			href: {

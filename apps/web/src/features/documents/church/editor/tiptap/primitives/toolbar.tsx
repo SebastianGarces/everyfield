@@ -35,52 +35,57 @@ function arrowTarget(key: string, index: number, count: number) {
 	}
 }
 
-export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(({ children, className, ...props }, ref) => {
-	const remembered = React.useRef(0);
-	const [entry, setEntry] = React.useState(true);
+export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(
+	({ children, className, onKeyDownCapture, onFocus, onBlur, ...props }, ref) => {
+		const remembered = React.useRef(0);
+		const [entry, setEntry] = React.useState(true);
 
-	return (
-		<div
-			ref={ref}
-			role="toolbar"
-			aria-label="Document formatting"
-			tabIndex={entry ? 0 : -1}
-			className={cn(TOOLBAR, "outline-none", className)}
-			{...props}
-			onKeyDownCapture={(event) => {
-				const toolbar = event.currentTarget;
-				if (event.key === "Tab") {
-					if (event.shiftKey && toolbar.contains(event.target as Node)) setEntry(false);
-					return;
-				}
-				const items = itemsOf(toolbar);
-				const index = items.indexOf(event.target as HTMLElement);
-				if (index === -1) return;
-				const next = arrowTarget(event.key, index, items.length);
-				if (next === null) return;
-				event.preventDefault();
-				items[next]?.focus();
-			}}
-			onFocus={(event) => {
-				const toolbar = event.currentTarget;
-				const items = itemsOf(toolbar);
-				if (event.target !== toolbar) {
+		return (
+			<div
+				ref={ref}
+				role="toolbar"
+				aria-label="Document formatting"
+				tabIndex={entry ? 0 : -1}
+				className={cn(TOOLBAR, "outline-none", className)}
+				{...props}
+				onKeyDownCapture={(event) => {
+					onKeyDownCapture?.(event);
+					const toolbar = event.currentTarget;
+					if (event.key === "Tab") {
+						if (event.shiftKey && toolbar.contains(event.target as Node)) setEntry(false);
+						return;
+					}
+					const items = itemsOf(toolbar);
 					const index = items.indexOf(event.target as HTMLElement);
-					if (index !== -1) remembered.current = index;
-				} else if (toolbar.matches(":focus-visible")) {
-					(items[remembered.current] ?? items[0])?.focus();
-				} else {
-					passPointerFocusOn(toolbar);
-				}
-			}}
-			onBlur={(event) => {
-				if (!event.currentTarget.contains(event.relatedTarget)) setEntry(true);
-			}}
-		>
-			<InToolbar value>{children}</InToolbar>
-		</div>
-	);
-});
+					if (index === -1) return;
+					const next = arrowTarget(event.key, index, items.length);
+					if (next === null) return;
+					event.preventDefault();
+					items[next]?.focus();
+				}}
+				onFocus={(event) => {
+					onFocus?.(event);
+					const toolbar = event.currentTarget;
+					const items = itemsOf(toolbar);
+					if (event.target !== toolbar) {
+						const index = items.indexOf(event.target as HTMLElement);
+						if (index !== -1) remembered.current = index;
+					} else if (toolbar.matches(":focus-visible")) {
+						(items[remembered.current] ?? items[0])?.focus();
+					} else {
+						passPointerFocusOn(toolbar);
+					}
+				}}
+				onBlur={(event) => {
+					onBlur?.(event);
+					if (!event.currentTarget.contains(event.relatedTarget)) setEntry(true);
+				}}
+			>
+				<InToolbar value>{children}</InToolbar>
+			</div>
+		);
+	},
+);
 Toolbar.displayName = "Toolbar";
 
 export const ToolbarGroup = React.forwardRef<HTMLDivElement, BaseProps>(({ children, className, ...props }, ref) => (

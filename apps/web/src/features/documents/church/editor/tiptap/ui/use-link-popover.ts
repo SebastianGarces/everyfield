@@ -7,6 +7,7 @@ import { LinkIcon } from "../icons.tsx";
 
 import { isMarkInSchema, sanitizeUrl } from "../tiptap-utils.ts";
 import { isAllowedLink } from "../../extensions.ts";
+import { selectionChangeCount } from "../selection-changes.ts";
 
 export interface UseLinkPopoverConfig {
 	editor?: Editor | null;
@@ -34,10 +35,10 @@ function shouldShowLinkButton(props: { editor: Editor | null }): boolean {
 
 function useLinkHandler(props: LinkHandlerProps) {
 	const { editor } = props;
-	const [draft, setDraft] = React.useState<{ at: Editor["state"]["selection"]; url: string } | null>(null);
+	const [draft, setDraft] = React.useState<{ at: number; url: string } | null>(null);
 	const [error, setError] = React.useState<string | null>(null);
-	const selection = editor?.state.selection;
-	const url = draft && draft.at === selection ? draft.url : editor?.getAttributes("link").href || "";
+	const selectionChange = editor ? selectionChangeCount(editor.state) : 0;
+	const url = draft && draft.at === selectionChange ? draft.url : editor?.getAttributes("link").href || "";
 
 	const setLink = React.useCallback((): boolean => {
 		if (!url || !editor) return false;
@@ -88,7 +89,7 @@ function useLinkHandler(props: LinkHandlerProps) {
 		error,
 		setUrl: (next: string) => {
 			setError(null);
-			setDraft(selection ? { at: selection, url: next } : null);
+			setDraft({ at: selectionChange, url: next });
 		},
 		setLink,
 		removeLink,
