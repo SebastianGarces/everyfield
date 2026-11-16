@@ -1,6 +1,3 @@
-// The watcher's only side effects: two allowlisted read-only commands, its own state, lock and log
-// files, and the wake transport (one HTTPS POST to the routine's own webhook). Nothing here writes to
-// evf or GitHub.
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
 import { access, appendFile, mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
@@ -14,7 +11,6 @@ export const MAIN_CHECKOUT = join(homedir(), "dev/everyfield_v3");
 export const STATE_DIR = join(homedir(), "Library/Application Support/everyfield-actionable-watch");
 export const LOG_DIR = join(homedir(), "Library/Logs/everyfield-actionable-watch");
 
-/** The complete list of commands the watcher may run. Both only read. */
 export const COMMANDS = {
 	"evf-status": { bin: join(homedir(), ".cargo/bin/evf"), args: ["status", "--json"] },
 	"gh-main-ci": {
@@ -38,7 +34,6 @@ export const COMMANDS = {
 export type CommandName = keyof typeof COMMANDS;
 export type ExecResult = { ok: true; stdout: string } | { ok: false; code: string };
 
-/** Runs one allowlisted command. `bin` and `cwd` are overridable only so tests can use fakes. */
 export async function runAllowed(
 	name: CommandName,
 	opts: { bin?: string; cwd?: string; timeoutMs?: number } = {},
@@ -82,8 +77,6 @@ export async function runAllowed(
 	});
 }
 
-// ---- state ------------------------------------------------------------------------------------
-
 export async function loadState(
 	path: string,
 ): Promise<{ state: State | null; code: "ok" | "state_missing" | "state_corrupt" }> {
@@ -101,7 +94,6 @@ export async function loadState(
 	}
 }
 
-/** Atomic: write a private temp file beside the target, then rename over it. */
 export async function saveState(path: string, state: State): Promise<void> {
 	await mkdir(dirname(path), { recursive: true, mode: 0o700 });
 	const tmp = `${path}.${process.pid}.tmp`;
@@ -115,9 +107,7 @@ export async function saveState(path: string, state: State): Promise<void> {
 	await rename(tmp, path);
 }
 
-// ---- single instance --------------------------------------------------------------------------
-
-export const LOCK_STALE_MS = 10 * 60_000; // one poll is bounded far below this
+export const LOCK_STALE_MS = 10 * 60_000;
 
 function alive(pid: number): boolean {
 	try {
@@ -128,7 +118,6 @@ function alive(pid: number): boolean {
 	}
 }
 
-/** Exclusive lock file holding `pid at`. Returns null when a live, fresh holder exists. */
 export async function acquireLock(path: string, nowMs: number): Promise<{ release(): Promise<void> } | null> {
 	await mkdir(dirname(path), { recursive: true, mode: 0o700 });
 	for (let attempt = 0; attempt < 2; attempt++) {
@@ -148,12 +137,9 @@ export async function acquireLock(path: string, nowMs: number): Promise<{ releas
 	return null;
 }
 
-// ---- log --------------------------------------------------------------------------------------
-
 export const LOG_MAX_BYTES = 1024 * 1024;
 export type Log = (line: string) => Promise<void>;
 
-/** Appends one line per call; past LOG_MAX_BYTES the file rolls to `.1` (one generation kept). */
 export function createLog(path: string, now: () => number = Date.now, maxBytes = LOG_MAX_BYTES): Log {
 	return async (line) => {
 		await mkdir(dirname(path), { recursive: true, mode: 0o700 });
@@ -166,28 +152,17 @@ export function createLog(path: string, now: () => number = Date.now, maxBytes =
 	};
 }
 
-// ---- transport --------------------------------------------------------------------------------
-
 export type Payload = { source: string; version: number; kind?: string; at: string; events: Record<string, unknown>[] };
-/**
- * `result` is the only thing a log line may say about a send: `http_<status>`, an error class or a
- * config refusal code. It never carries the URL, the key, a header or an error message.
- * `retry` is true only when no request can have reached the routine (DNS, connect) or the routine
- * answered 5xx. A routine run is not idempotent as far as its docs say, so anything else waits.
- */
 export type SendResult = { ok: true; result: string } | { ok: false; result: string; retry: boolean };
 export type Transport = {
 	mode: "dry-run" | "webhook";
-	/** capped transports count every POST against WEBHOOK_SENDS_PER_HOUR */
 	capped: boolean;
 	send(payload: Payload, signal: AbortSignal): Promise<SendResult>;
 };
 
-/** Written by `provision.mts` from Sebastian's paste (or by hand). Agents never read or print it. */
 export const WEBHOOK_CONFIG = join(STATE_DIR, "webhook.json");
 export type WebhookConfig = { url: URL; key: string };
 
-/** Read at send time only. Every refusal is a named code and happens before any request. */
 export async function readWebhookConfig(
 	path: string,
 ): Promise<{ ok: true; config: WebhookConfig } | { ok: false; code: string }> {
@@ -222,15 +197,10 @@ export async function readWebhookConfig(
 	return obj ? parseWebhookFields(obj.url, obj.key) : { ok: false, code: "webhook_config_invalid" };
 }
 
-/**
- * The one validator for a URL and key, shared by the send-time loader and the provisioning helper.
- * It returns only a named code: a URL parse error can carry the input, so it is never surfaced.
- */
 export function parseWebhookFields(
 	url: unknown,
 	key: unknown,
 ): { ok: true; config: WebhookConfig } | { ok: false; code: string } {
-	// A bearer key is visible ASCII with no spaces; anything else could split the header.
 	if (typeof url !== "string" || typeof key !== "string" || !/^[\x21-\x7e]{1,4096}$/.test(key)) {
 		return { ok: false, code: "webhook_config_invalid" };
 	}
@@ -247,7 +217,6 @@ export function parseWebhookFields(
 const DNS_ERRORS = new Set(["ENOTFOUND", "EAI_AGAIN", "EAI_NONAME", "EAI_FAIL"]);
 const CONNECT_ERRORS = new Set(["ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "EADDRNOTAVAIL", "ENETDOWN"]);
 
-/** An error's class from its code alone; the message (which can name the host) is never read. */
 export function classifySendError(e: unknown): SendResult & { ok: false } {
 	const code = String((e as NodeJS.ErrnoException)?.code ?? "");
 	if (DNS_ERRORS.has(code)) return { ok: false, result: "dns_error", retry: true };
@@ -257,11 +226,9 @@ export function classifySendError(e: unknown): SendResult & { ok: false } {
 	if (/^(ERR_TLS|ERR_SSL|CERT_|UNABLE_TO|DEPTH_ZERO|SELF_SIGNED|HOSTNAME_MISMATCH|ERR_TLS_CERT)/.test(code)) {
 		return { ok: false, result: "tls_error", retry: false };
 	}
-	// ECONNRESET, EPIPE and the rest: the request may have reached the routine, so do not resend.
 	return { ok: false, result: "network_error", retry: false };
 }
 
-/** The request builder: one POST, exactly these two headers, the payload as the body. */
 export function webhookRequest(config: WebhookConfig, payload: Payload) {
 	return {
 		url: config.url,
@@ -271,7 +238,6 @@ export function webhookRequest(config: WebhookConfig, payload: Payload) {
 	};
 }
 
-/** Only HTTP 200 means the routine accepted and started a run. Redirects are not followed. */
 function post(config: WebhookConfig, payload: Payload, signal: AbortSignal, ca?: string): Promise<SendResult> {
 	const req = webhookRequest(config, payload);
 	return new Promise((resolve) => {
@@ -334,17 +300,11 @@ export function createTransport(
 export const SEND_TRIES = 3;
 export const SEND_TIMEOUT_MS = 10_000;
 export const SEND_BACKOFF_MS = 1_000;
-/** Far under the routine's documented 200 runs per routine per hour. */
 export const WEBHOOK_SENDS_PER_HOUR = 20;
 export const SEND_WINDOW_MS = 60 * 60_000;
 
 export type Delivery = { ok: boolean; tries: number; result: string; capped: boolean; sends: number[] };
 
-/**
- * Up to `tries` tries (default SEND_TRIES) inside one poll, with exponential backoff and a per-try
- * timeout. Only a retryable result tries again. With `cap`, every try is a POST counted in a
- * rolling hour; at WEBHOOK_SENDS_PER_HOUR it stops before sending and reports `capped`.
- */
 export async function deliver(
 	transport: Transport,
 	payload: Payload,

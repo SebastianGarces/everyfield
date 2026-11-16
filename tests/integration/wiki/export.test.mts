@@ -1,18 +1,14 @@
-// T-156: the PDF and print export read the shared block reader and print what a reader sees: WinAnsi text, no inline
-// markdown markers, prose wrapped at spaces and a human credit in the footer. No database.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { wikiBlocks as bodyBlocks } from "../../../packages/contracts/src/wiki/index.ts";
 import { helveticaPdf, helveticaWidth, printHtml } from "../../../packages/domain/src/wiki/pdf.ts";
 
-/** cp1252 bytes 0x80 to 0x9f, as the PDF viewer maps them under /WinAnsiEncoding. */
 const CP1252_HIGH = "€\0‚ƒ„…†‡ˆ‰Š‹Œ\0Ž\0\0‘’“”•–—˜™š›œ\0žŸ";
 const cp1252 = (bytes: Buffer) =>
 	[...bytes]
 		.map((byte) => (byte >= 0x80 && byte <= 0x9f ? CP1252_HIGH[byte - 0x80] : String.fromCharCode(byte)))
 		.join("");
 
-/** Every Tj string in page order, read as cp1252 with the PDF string escapes undone. */
 function shownLines(pdf: Uint8Array): string[] {
 	const text = Buffer.from(pdf).toString("latin1");
 	return [...text.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((match) =>
@@ -73,7 +69,6 @@ test("AC:CASE-WIKI-007 accented letters and typographic marks print as WinAnsi, 
 	assert.equal(lines[1], "Año");
 	assert.equal(lines[2], words);
 	assert.equal(lines[3], "Orült ? ok");
-	// Each content stream's /Length counts its bytes, so the file stays readable.
 	for (const match of text.matchAll(/<< \/Length (\d+) >>\nstream\n/g)) {
 		const start = match.index! + match[0].length;
 		assert.equal(text.slice(start + Number(match[1]), start + Number(match[1]) + 10), "\nendstream");
@@ -99,7 +94,6 @@ test("AC:CASE-WIKI-007 inline markdown markers never print; code keeps its text 
 	assert.deepEqual(lines.slice(2, 8), [
 		"Read bold, italic, also, code and the guide tag now.",
 		"• A listed item",
-		// Underscore runs are fill-in blanks or names, not emphasis.
 		"Sign here: ____ date: ____",
 		"Use __init__ now",
 		"Week | Plan",

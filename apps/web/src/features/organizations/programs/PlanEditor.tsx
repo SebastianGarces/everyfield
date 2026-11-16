@@ -7,7 +7,6 @@ import { useId, useState, type ReactNode } from "react";
 import { findReadings } from "./actions";
 import { RHYTHM } from "./model";
 
-/** The plan as the editor holds it: numbers stay text while someone types. */
 export type PlanDraft = {
 	rhythm: ProgramRhythm;
 	expectedMonths: string;
@@ -18,7 +17,6 @@ export type PlanDraft = {
 
 const key = () => crypto.randomUUID();
 
-/** An editable copy of a version's plan. Milestones keep their lineage, so the next version knows them. */
 export function draftFrom(
 	v: Pick<ProgramVersion, "rhythm" | "expectedMonths" | "stages" | "milestones" | "readings">,
 ): PlanDraft {
@@ -39,7 +37,6 @@ export function draftFrom(
 
 const whole = (text: string) => (/^\d{1,3}$/.test(text.trim()) ? Number(text.trim()) : null);
 
-/** The plan to send, or the first thing to fix, in words. */
 export function planFrom(d: PlanDraft): { plan: ProgramPlan } | { problem: string } {
 	const months = whole(d.expectedMonths);
 	if (!months || months > 120) return { problem: "Enter the expected length in whole months, from 1 to 120." };
@@ -83,10 +80,8 @@ function move<T>(list: T[], index: number, by: -1 | 1) {
 	return next;
 }
 
-/** Rhythm, expected length, stages with month ranges, milestones and the Wiki reading list (REQ-MUL-010). */
 export function PlanEditor({ value, onChange }: { value: PlanDraft; onChange: (next: PlanDraft) => void }) {
 	const set = (patch: Partial<PlanDraft>) => onChange({ ...value, ...patch });
-	// Row keys are random per render pass, so ids that reach the HTML come from React instead.
 	const base = useId();
 	return (
 		<div className="flex flex-col gap-6">
@@ -277,7 +272,6 @@ function Order({
 	);
 }
 
-/** The reading list: search the Wiki the organization reads, add an article or its own version, remove one. */
 function Readings({
 	value,
 	onChange,
@@ -327,7 +321,6 @@ function Readings({
 			) : (
 				<p className="text-sm text-text-3">No readings yet.</p>
 			)}
-			{/* Not a form: the reading list sits inside the program's own form. Enter searches. */}
 			<div role="search" className="flex gap-2">
 				<SearchInput
 					aria-label="Search Wiki articles"

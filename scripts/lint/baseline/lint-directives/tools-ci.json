@@ -1,0 +1,4 @@
+{
+	"tools/ci/tests/typecheck-corpus.test.ts": 1,
+	"tools/ci/typecheck-corpus.ts": 10
+}

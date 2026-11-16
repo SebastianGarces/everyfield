@@ -1,8 +1,3 @@
-// Provisions webhook.json from two native hidden-input prompts on this Mac.
-// Usage: node provision.mts [--detach] [--state-dir <dir>]
-// Sebastian pastes the routine panel's "POST to" URL, then its sender key. The values reach this process only
-// over osascript's stdout pipe. They never go into argv, the environment, a log, the status file or any output:
-// the helper reports a values-free code, nothing else. It reads no clipboard, keychain, app file or API.
 import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { chmod, mkdir, open, rename, unlink } from "node:fs/promises";
@@ -11,7 +6,6 @@ import { parseArgs } from "node:util";
 import { parseWebhookFields, readWebhookConfig, STATE_DIR } from "./io.mts";
 
 export const OSASCRIPT = "/usr/bin/osascript";
-/** Each prompt gives up after this long (at most 30 minutes, per the spec). */
 export const PROMPT_GIVE_UP_S = 1800;
 const VALUE_MAX = 8192;
 
@@ -27,10 +21,6 @@ const TEXT: Record<Field, string> = {
 	key: "everyfield actionable watcher (2 of 2)\n\nPaste the sender key from the same routine panel.\n\nIt is saved only to webhook.json on this Mac.",
 };
 
-/**
- * The AppleScript for one prompt. It is built only from the fixed text above: no input, path or value is
- * ever interpolated. It answers on stdout with "C" (cancel), "T" (gave up) or "V" followed by the value.
- */
 export function promptScript(field: Field): string {
 	const text = TEXT[field].replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "\\n");
 	return [
@@ -44,7 +34,6 @@ export function promptScript(field: Field): string {
 	].join("\n");
 }
 
-/** The real prompt: one `osascript` per field, the fixed script in argv, the answer back over a pipe. */
 export function osascriptPrompt(bin = OSASCRIPT): Prompt {
 	return (field) =>
 		new Promise((resolve) => {
@@ -58,7 +47,6 @@ export function osascriptPrompt(bin = OSASCRIPT): Prompt {
 					env: { PATH: "/usr/bin:/bin" },
 				},
 				(err, stdout) => {
-					// Neither the error nor stderr is read: only the exit and the first byte decide.
 					if (err)
 						return resolve({ ok: false, reason: (err as { killed?: boolean }).killed ? "timed_out" : "prompt_failed" });
 					const out = stdout.endsWith("\n") ? stdout.slice(0, -1) : stdout;
@@ -71,7 +59,6 @@ export function osascriptPrompt(bin = OSASCRIPT): Prompt {
 		});
 }
 
-/** Writes `path` atomically: an exclusive 0600 temp file in the same directory, fsynced, renamed over it. */
 async function writePrivate(path: string, text: string): Promise<void> {
 	const tmp = `${path}.${process.pid}.${randomBytes(6).toString("hex")}.tmp`;
 	const fh = await open(tmp, "wx", 0o600);
@@ -106,11 +93,6 @@ const STATE_FOR: Record<Exclude<PromptResult, { ok: true }>["reason"], Provision
 	prompt_failed: "invalid",
 };
 
-/**
- * One provisioning run. It writes `waiting`, asks for the URL then the key, validates both with the
- * transport's own validator, writes webhook.json, re-reads it through the transport's loader and
- * writes the outcome. On cancel, timeout or invalid input it writes no config and leaves any existing one.
- */
 export async function provision(deps: {
 	prompt: Prompt;
 	stateDir: string;
@@ -133,12 +115,10 @@ export async function provision(deps: {
 		const reread = await readWebhookConfig(configPath);
 		return finish(reread.ok ? { state: "ok", code: "webhook_config_ok" } : { state: "invalid", code: reread.code });
 	} catch {
-		// The thrown error is never read: a message could carry a path or the input.
 		return finish({ state: "invalid", code: "provision_failed" });
 	}
 }
 
-/** What the helper prints for a result: `webhook_config ok`, or the code alone. */
 export const report = (r: ProvisionResult) => (r.state === "ok" ? "webhook_config ok" : r.code);
 
 async function main() {
@@ -146,13 +126,11 @@ async function main() {
 		options: {
 			detach: { type: "boolean", default: false },
 			"state-dir": { type: "string", default: STATE_DIR },
-			// Tests only: a stand-in for /usr/bin/osascript. The real prompt is the default.
 			osascript: { type: "string", default: OSASCRIPT },
 		},
 	});
 	const stateDir = values["state-dir"];
 	if (values.detach) {
-		// The child outlives this process and the seat's turn; it gets the same flags, never a value.
 		await writeStatus(stateDir, { state: "waiting", code: "none" });
 		const child = spawn(
 			process.execPath,

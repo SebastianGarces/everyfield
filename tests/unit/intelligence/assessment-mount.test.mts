@@ -1,6 +1,3 @@
-// Which assessment model the scheduled runner mounts in each environment (D92). Production mounts nothing; the paid
-// gpt-6-luna drafter mounts only off production with EVRY_MODEL and OPENAI_API_KEY, and EVRY_SCRIPTED_MODEL=1 always
-// keeps the scripted drafter. Mounting makes no model call.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { assessmentsMount } from "../../../apps/web/src/server/jobs/assessment.ts";

@@ -39,7 +39,7 @@ export function VersionHistory({ revisions, title, current, file, page }: Props)
 									aria-current={on ? "true" : undefined}
 									onClick={() => setChosen(r.number)}
 									className={cn(
-										"flex w-full cursor-pointer flex-col items-start gap-0.5 rounded-card px-3 py-2.5 text-left outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]",
+										"flex w-full flex-col items-start gap-0.5 rounded-card px-3 py-2.5 text-left outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]",
 										on
 											? "bg-surface-raised shadow-[0_0_0_1.5px_var(--ef-ink)]"
 											: "shadow-[0_0_0_1px_var(--ef-line)] hover:bg-surface-raised",

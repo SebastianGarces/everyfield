@@ -21,8 +21,9 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useId, useOptimistic, useState, useTransition } from "react";
 import type { Wait } from "../../../components/save/model.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
-import { STAGE_LABEL, throughStore } from "../model.ts";
-import { LocalDay, useStore } from "../parts.tsx";
+import { STAGE_LABEL } from "../model.ts";
+import { throughStore } from "../person.store.ts";
+import { LocalDay, usePersonState } from "../parts.tsx";
 import { loadInterviews, recordInterview } from "./actions.ts";
 import {
 	advancedStage,
@@ -69,12 +70,6 @@ const RATING_TONE = {
 	fail: "bg-magenta-100 text-magenta-600",
 } as const;
 
-/**
- * The interview (REQ-PPL-013, 020): the latest one's five criteria, result and next steps, with earlier ones below.
- * Any result means the interview happened, so saving one moves an earlier stage to Interviewed in the same save; a
- * later stage stays. The new interview and the stage show at once while it saves; a refusal takes both back and opens
- * the form again with the answers and the reason.
- */
 export function InterviewCard({
 	personId,
 	personName,
@@ -95,9 +90,8 @@ export function InterviewCard({
 	);
 	const [shown, expect] = useOptimistic(history.items, withRecord<Interview>);
 	const [, start] = useTransition();
-	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
-	useStore(store);
-	const form = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.get().pending !== null });
+	usePersonState(store);
+	const form = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.getState().pending !== null });
 	const wait = form.wait;
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
@@ -139,7 +133,7 @@ export function InterviewCard({
 					store,
 					"interview",
 					(v: { person: { stage: PlantPerson["stage"]; revision: string } }) =>
-						({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
+						({ ...store.getState().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 				),
 				ok: (value) => {
 					const moved = value.person.stageChange;
@@ -227,7 +221,7 @@ export function InterviewCard({
 								type="button"
 								aria-expanded={open}
 								onClick={() => setOpen(!open)}
-								className="cursor-pointer rounded-xs text-sm font-medium text-ink-2 underline-offset-[3px] hover:underline"
+								className="rounded-xs text-sm font-medium text-ink-2 underline-offset-[3px] hover:underline"
 							>
 								{open
 									? "Hide earlier interviews"
@@ -319,7 +313,6 @@ function InterviewDialog({
 	onClose,
 	onSubmit,
 }: {
-	/** The card's last save is in flight or unknown (C68): saving waits, and the form keeps its answers. */
 	wait: Wait;
 	editing: Editing;
 	personName: string;
@@ -333,7 +326,6 @@ function InterviewDialog({
 	const setCriterion = (k: CriterionKey, patch: Partial<Draft[CriterionKey]>) =>
 		setDraft((d) => ({ ...d, [k]: { ...d[k], ...patch } }));
 	const complete = draft.occurredOn !== "" && draft.result !== "" && CRITERIA.every((k) => draft[k].rating !== "");
-	// The refusal stays until the refused date changes, so the same date is not sent again.
 	const futureDate = editing.problem === "future_date" && draft.occurredOn === editing.draft.occurredOn;
 	return (
 		<RecordDialog

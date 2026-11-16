@@ -64,7 +64,6 @@ const actor = async (who) => {
 	return resolved;
 };
 const cmd = (input, expected = "0") => ({ requestKey: key(), expectedRevision: expected, input });
-// Progress and view writes carry no expected revision.
 const reading = (input) => ({ requestKey: key(), input });
 const current = async (who, articleId, sourceView) =>
 	ok(await api.getArticle(db, await actor(who), { articleId, ...(sourceView ? { source: sourceView } : {}) }));
@@ -471,7 +470,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		async () => {
 			const listed = ok(await api.listArticles(db, await actor(people.owner), {}));
 			assert.equal(listed.orderRevision, "0");
-			// With no stored order, the order dialog still lists every live source, by join time.
 			assert.deepEqual(listed.churches, [S1, S2, S3, Sx]);
 			assert.deepEqual(listed.networks, [N1, N2]);
 			const leadView = await current(people.owner, lead);
@@ -523,7 +521,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		ac(["CASE-WIKI-002", "CASE-WIKI-008", "WR-038", "WR-039", "WR-040", "WR-041", "WR-054", "WR-064"]) +
 			" navigation, guide and excerpts keep the global citation and add no reading",
 		async () => {
-			// One section's articles, stored out of order, come back by phase, position, then title.
 			const ordered = randomUUID();
 			await item(ordered, "section", "reference/order", GLOBAL);
 			const placed = {};
@@ -665,7 +662,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 			);
 			assert.equal(held.completed, false);
 			assert.equal(held.written, true);
-			// The partial fraction is kept for the next read, and a lower later fraction does not lower it.
 			const partial = (await current(people.owner, departed)).article;
 			assert.deepEqual([partial.observedFraction, partial.completed], ["0.80", false]);
 			const lower = ok(
@@ -1031,7 +1027,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 			const pdf = Buffer.from(exported.bytes, "base64").toString("latin1");
 			assert.ok(pdf.split("/Type /Page /Parent").length > 2);
 			assert.equal(pdf.includes("long-lines.pdf"), true);
-			// The credit is an internal source id here, so the footer shows only the page.
 			assert.match(view.article.credit, /^global:/);
 			assert.equal(pdf.includes(view.article.credit), false);
 			for (const line of lines) assert.equal(pdf.includes(line), true, line);
@@ -1089,7 +1084,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		});
 		const exported = ok(await plain.exportPdf(db, await actor(people.owner), { articleId: id }));
 		const pdf = Buffer.from(exported.bytes, "base64").toString("latin1");
-		// The text each Tj shows, with the PDF string escapes undone.
 		const shown = [...pdf.matchAll(/\((.*)\) Tj/g)].map((match) => match[1]!.replace(/\\([()\\])/g, "$1"));
 		const start = shown.indexOf("Guest path");
 		assert.deepEqual(shown.slice(start, start + 18), [
@@ -1254,7 +1248,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		const reader = await actor(voter);
 		ok(await api.setMine(db, reader, cmd({ articleId: guide, vote: "helpful" })));
 		assert.deepEqual(ok(await api.getMine(db, reader, { articleId: guide })).ownHistoryVotes, ["helpful"]);
-		// A pending-deletion witness on the account hides it.
 		const witness = randomUUID();
 		await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,request_revision,state,witness_checkpoint,
 			cleanup_state,request_id,requested_at,cancel_until) VALUES(${witness},'account',${voter.id},1,'pending_deletion',1,
@@ -1262,7 +1255,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		refused(await api.getMine(db, reader, { articleId: guide }), "access_denied");
 		await admin.execute(sql`DELETE FROM lifecycle_witness WHERE id=${witness}`);
 		assert.deepEqual(ok(await api.getMine(db, reader, { articleId: guide })).ownHistoryVotes, ["helpful"]);
-		// An ended seat reads nothing either, though the request's viewer was resolved while it was live.
 		await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${voter.id}`);
 		refused(await api.getMine(db, reader, { articleId: guide }), "access_denied");
 	});
@@ -1521,8 +1513,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 			assert.equal(note.emailIntents, 0);
 			assert.equal(note.autoAdoptions, 0);
 			assert.deepEqual(note.recipientIds, [editor.id]);
-			// T-229: the notices carry the notification key shape, so the editor's bell shows them and links each to
-			// its published global revision's article, until the editor turns Wiki review requests off in the bell.
 			const bell = async () =>
 				ok(await notices.readFeed(db, await actor(editor), {}))
 					.items.filter((i) => i.category === "wiki_upstream_review")
@@ -1568,14 +1558,11 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 						WHERE e.organization_id=${S3} AND e.article_id=${piece.article}`,
 				)
 			).rows[0];
-		// The editor's read in apps/web/src/features/wiki/server.ts: the draft read's body, else the stored draft,
-		// else the current revision.
 		const opens = async () => {
 			const draft = ok(await api.getOrganizationDraft(db, await actor(editor), at));
 			const stored = await pointer();
 			return { body: draft.body ?? stored.draft ?? stored.current, state: draft.state };
 		};
-		// Save draft A, edit the editor to B and publish B without saving it as a draft first.
 		ok(await api.addOrganizationArticle(db, await actor(editor), cmd({ ...at, body: "Draft A." })));
 		const published = ok(
 			await api.publishOrganizationArticle(
@@ -1594,7 +1581,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 			(await current(editor, piece.article, { kind: "organization", organizationId: S3 })).article.body,
 			"Draft B.",
 		);
-		// A draft saved after the publish is a real unpublished draft, and the editor shows it.
 		ok(await api.editOrganizationArticle(db, await actor(editor), cmd({ ...at, body: "Draft C." }, "2")));
 		assert.deepEqual(await opens(), { body: "Draft C.", state: "published" });
 		assert.equal((await pointer()).current, "Draft B.");
@@ -1605,7 +1591,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		const reader = await enroll("member", { kind: "plant", id: P });
 		const write = async (call, input) => ok(await call(db, await actor(reader), reading(input)));
 		const article = { articleId: piece.article, plantId: P };
-		// Both tabs loaded the page before any reading row existed, so each holds revision "0".
 		const loaded = "0";
 		const results = [
 			await write(api.recordView, article),
@@ -1619,7 +1604,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		for (const result of results) {
 			assert.equal(result.errorCode, null);
 			assert.equal(result.written, true);
-			// A reading row starts at revision 1 and only a bookmark moves it.
 			assert.equal(result.revision, "1");
 		}
 		assert.equal(results.at(-1).observedFraction, "0.6");
@@ -1638,12 +1622,10 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 		assert.equal(marked.written, true);
 		assert.equal(marked.bookmarked, true);
 		assert.equal(marked.revision, "2");
-		// Progress after the bookmark keeps the bookmark and the revision, and completion keeps its rule.
 		const finished = await write(api.updateProgress, { ...article, fraction: "0.85" });
 		assert.equal(finished.completed, true);
 		assert.equal(finished.bookmarked, true);
 		assert.equal(finished.revision, "2");
-		// The bookmark keeps its revision check: the stale tab's toggle is a conflict.
 		refused(
 			await api.setBookmark(db, await actor(reader), cmd({ articleId: piece.article, desired: false }, loaded)),
 			"conflict",
@@ -1801,8 +1783,6 @@ describe("AC:CASE-WIKI-001 wiki api", { concurrency: 1 }, () => {
 	);
 });
 
-// WP-034: church and network versions, the order prompt's data, the updated label and the Guide. Fresh plants, so no
-// stored order from the tests above applies. Runs last: it adds global articles to the active release.
 describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () => {
 	const C1 = randomUUID();
 	const C2 = randomUUID();
@@ -1820,7 +1800,6 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 	const guideIds = new Map();
 	const id = () => randomUUID();
 	const LONG = "Pray, cast vision, tell stories and invite a response. ".repeat(12);
-	// The section crosses the 500-character limit, so it is cut at the last sentence end inside it.
 	const LONG_CUT = `## Seven Essential Elements\n${"Pray, cast vision, tell stories and invite a response. ".repeat(8).trimEnd()}`;
 	const sectionBody = (heading, text) =>
 		`Opening line\n## ${heading}\n${text}\n### Detail\nInside the section\n## Next part\nOutside`;
@@ -1926,9 +1905,7 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 				assert.equal(pair.article.sourceKind, "global");
 				assert.equal(pair.article.body, "Global pair text");
 			}
-			// The one-church plant reads its church copy: one church is never unranked against another.
 			assert.equal((await current(r1.owner, churchPair)).article.body, "Grace pair text");
-			// The order dialog lists both churches before any order is stored, so the first save can name each one.
 			const unsaved = ok(await api.listArticles(db, await actor(r2.owner), {}));
 			assert.deepEqual([unsaved.churches, unsaved.networks, unsaved.orderRevision], [[C1, C2], [M1], "0"]);
 			const denied = ok(
@@ -2015,7 +1992,6 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 			const article = id();
 			const slug = "funding/reopened-guidance";
 			await globalArticle(article, slug, "Reopened guidance", "First text");
-			// Both people finish it and bookmark it; then a meaningful revision lands.
 			for (const who of [r1.owner, r1.member]) {
 				const done = ok(
 					await api.updateProgress(
@@ -2054,7 +2030,6 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 			assert.deepEqual(await lists(r1.member), [true, true]);
 			assert.equal((await current(r1.owner, article)).article.updatedLabel, true);
 
-			// The owner opens it: the badge is gone from their lists and the article, and nothing else on the reading moves.
 			const before = await stored(r1.owner);
 			const opened = ok(await api.recordView(db, await actor(r1.owner), reading({ articleId: article, plantId: R1 })));
 			assert.deepEqual([opened.meaningfulUpdateLabel, opened.completed, opened.bookmarked], [false, true, true]);
@@ -2062,7 +2037,6 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 			assert.deepEqual(await lists(r1.owner), [false, false]);
 			assert.equal((await current(r1.owner, article)).article.updatedLabel, false);
 			assert.equal((await current(r1.owner, article)).article.updatedLabel, false);
-			// The member has not opened it since: they still see it.
 			assert.deepEqual(await lists(r1.member), [true, true]);
 			assert.equal((await current(r1.member, article)).article.updatedLabel, true);
 		},
@@ -2125,8 +2099,6 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 				const route = entry.route.replace(/\[[^\]]+\]/, record);
 				const guide = await guideOf(r1.member, route);
 				if (entry.route === "/settings/brand") {
-					// This synthetic release leaves the brand article out, so a mapped article missing from a release shows no
-					// guide. The real living seed has it: tests/reference/starter/living.db.mts resolves it after wiki:install.
 					assert.deepEqual([guide.found, guide.missing, guide.body], [false, true, null], route);
 					continue;
 				}
@@ -2214,7 +2186,6 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 			assert.equal(church.title, "Grace vision meetings");
 			assert.equal(church.body, "## Seven Essential Elements\nGrace keeps it to five.\n- Welcome\n- Vision");
 			assert.equal((await guideOf(r1.member, "/people")).body, "Grace tracks names and next steps.");
-			// A plant outside Grace Church reads the global section, never Grace's text.
 			const outsider = await guideOf(people.outsider, "/meetings");
 			assert.equal(outsider.title, "Title of core-group/vision-meetings/what-is-a-vision-meeting");
 			assert.equal(outsider.body, LONG_CUT);
@@ -2296,7 +2267,6 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 		);
 		assert.match(found[0].snippet, /Greet each <b>zebrafinch<\/b> guest by name/);
 		assert.doesNotMatch(found[0].snippet, /type|children|format/);
-		// A callout label and a diagram's words are visible text too.
 		for (const query of ["kiwilabel", "wombatdirector"]) assert.deepEqual(await slugs(query), ["t156/silent"], query);
 
 		const exported = ok(await plain.exportPdf(db, reader, { articleId: silent }));
@@ -2311,7 +2281,6 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 			"\x95 Coffee",
 			"\x95 Name tags",
 		]);
-		// A church version prints no credit: the stored credit belongs to the global article.
 		assert.equal(shown.at(-1), "1/1");
 		const html = ok(await plain.printArticle(db, reader, { articleId: silent })).html;
 		assert.ok(
@@ -2435,7 +2404,6 @@ describe("AC:CASE-WIKI-008 wiki versions and the Guide", { concurrency: 1 }, () 
 			plainText(article.snippet);
 			assert.match(article.snippet, /<b>phase<\/b>/i, article.slug);
 			for (const match of article.snippet.matchAll(/<b>([^<]*)<\/b>/g)) assert.match(match[1], /^phase/i, article.slug);
-			// Each word, the first and last included, is a whole word of the article, never two words run together.
 			for (const word of words(article.snippet)) {
 				const bare = word.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
 				if (!bare) continue;

@@ -5,7 +5,6 @@ import { HoverGroup, useHoverItem } from "..";
 
 const ITEMS = ["Overview", "People", "Meetings", "Tasks"] as const;
 
-/** A small HoverGroup: the highlight slides to the hovered or focused item and rests on the selected one. */
 export function HoverDemo() {
 	const [selected, setSelected] = useState<string>("People");
 	return (

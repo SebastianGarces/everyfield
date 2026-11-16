@@ -46,7 +46,6 @@ before(setup);
 after(teardown);
 
 const qualified = (model: LanguageModelV4) => ({ status: "qualified" as const, id: "test", model });
-/** The scripted model, recording every call's prompt and tool names. */
 function recorded() {
 	const calls: LanguageModelV4CallOptions[] = [];
 	const model = wrapLanguageModel({
@@ -55,11 +54,6 @@ function recorded() {
 	}) as LanguageModelV4;
 	return { calls, model: qualified(model) };
 }
-/**
- * The scripted model, counting only what a turn adds to its prompt: the system prompt, which lists the whole catalog and
- * is the same on every call, stays out of its input estimate. With the full catalog in that estimate the cumulative
- * input budget ends a long run of small reads first, so this is what shows the tool budget stopping a turn.
- */
 function lean() {
 	const model = wrapLanguageModel({
 		model: scriptedModel(),
@@ -147,7 +141,6 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 		}),
 	);
 
-	// Every page of 100 rows: the cumulative input budget is the first limit reached.
 	const foreign = await actor("foreign");
 	const all = (await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${otherPlant}`)).rows[0]!.n;
 	const wide = await ask(foreign, "Read every detail for all people.");
@@ -156,7 +149,6 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([input.status.state, input.status.reason], ["stopped", "input_budget"]);
 	assert.ok(input.status.usage.inputTokens >= 128_000 && input.status.usage.toolCalls < 24);
 	assert.equal(input.cards.length, input.status.usage.toolCalls);
-	// Pages of 5 rows: the 24-tool budget is reached first, and the 25th read never runs.
 	const narrow = await ask(foreign, "Read every detail for all people, 5 at a time.");
 	assert.equal(await work(lean()), "succeeded");
 	const budget = await events(foreign, narrow);
@@ -169,7 +161,6 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([last.total, last.completeness, last.next], [all, "partial", 25], "no false exhaustive answer");
 });
 
-/** The Meetings tools (WP-065/066), in catalog order. Reports and most changes are Owner or Admin, as natively. */
 const MEMBER_MEETINGS_READS = [
 	"meetings.list",
 	"meetings.get",
@@ -250,15 +241,10 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 	const seatless = await actor("seatless");
 	const none = await ask(seatless, "What can you do for me?");
 	assert.equal(await work(), "succeeded");
-	// An account with no seat reads only its own Discovery space and may start a church or a Discovery space (T-345).
 	assert.match(
 		(await events(seatless, none)).text,
 		/own Discovery space[\s\S]*starting a new church[\s\S]*private Discovery space/,
 	);
-	// No catalog offers direct writes, approvals, code, private care or coach tools to any context. Only a plant Owner or
-	// Admin may propose the reviewed People, seat, settings, sharing and connection changes, the same floor as the native
-	// commands; any plant seat proposes changes to its own notifications and account, a Member the Meetings changes the
-	// native commands let a Member make, and an organization Owner its own profile.
 	for (const who of ["owner", "member", "orgOwner", "seatless"] as const) {
 		const catalog = readCatalog(await actor(who));
 		const operations = catalog.domains.flatMap((d) => d.operations.map((o) => o.operation));
@@ -319,23 +305,18 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
 						"feedback.submit",
-						// The Launch plan's date, outcome, debrief and summary (WP-076).
 						"launch.schedule",
 						"launch.postpone",
 						"launch.recordOutcome",
 						"launch.submitDebrief",
 						"launch.publishDebriefSummary",
-						// Its milestones (T-382).
 						"launch.completeMilestone",
 						"launch.reopenMilestone",
-						// Its named guests and a correction of Launch Sunday (T-383).
 						"launch.addGuestAttendance",
 						"launch.correctOutcome",
 					]
 				: who === "member"
-					? // A Member changes only their own bell, notification settings and account, and the Meetings changes the native
-						// commands let a Member make; the church digest is an Owner's or Admin's.
-						[
+					? [
 							"notifications.markSelectedRead",
 							"notifications.markAllVisibleRead",
 							"notifications.setPreferences",
@@ -345,9 +326,7 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"feedback.submit",
 						]
 					: who === "orgOwner"
-						? // An organization Owner sets only their own oversight digest (D-1278) and their organization's profile, and
-							// proposes pipeline stage moves and new programs (WP-101).
-							[
+						? [
 								"notifications.oversightDigestCadence.set",
 								"organizations.updateProfile",
 								"pipeline.proposeStageMove",
@@ -357,8 +336,6 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						: ["onboarding.createPlant", "discovery.create", "discovery.convertToPlant"],
 		);
 		const teamsReads = READ_DOMAINS.teams.map((a) => a.operation);
-		// Overview and the user's own feedback (T-330): every church seat, Member included, reads them as Overview and Sent
-		// feedback show them to that seat.
 		const OVERVIEW_READS = [
 			"dashboard.availableActions",
 			"dashboard.metrics",
@@ -368,7 +345,6 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 			"feedback.getOwnStatus",
 		];
 		const peopleReads = ["people.listPeople", "people.getPerson", "people.getPersonPhoto", "people.checkForDuplicates"];
-		// Only an Owner or Admin reviews the pairs an import flagged, as on /people/duplicates.
 		const ownerReads = [...peopleReads, "people.listDuplicatePairs"];
 		const organizationReads = [
 			"people.exportPeople",
@@ -410,7 +386,6 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 						"privacy.getSharing",
 						"onboarding.getResume",
 						...OVERVIEW_READS,
-						// The Launch plan as it reads it (WP-075).
 						"launch.readCountdown",
 						"launch.readWorkspace",
 						"launch.readJournal",
@@ -428,7 +403,6 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 pastoral 
 							"seats.list",
 							"privacy.getSharing",
 							...OVERVIEW_READS,
-							// A Member reads the Launch plan; its history is an Owner's or Admin's.
 							"launch.readCountdown",
 							"launch.readWorkspace",
 							"launch.readDebrief",
@@ -452,7 +426,6 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 	const price = { input: 0.1, output: 0.5, longContextAbove: 272_000 };
 	const charged = async () =>
 		Number((await admin.execute(sql`SELECT coalesce(sum(charged_micro_usd),0) n FROM model_spend`)).rows[0]!.n);
-	/** The scripted model with a price. `before` runs after the call's reservation and before the provider works. */
 	const priced = (capMicroUsd: number, before: (call: number) => Promise<void> = async () => {}) => {
 		let calls = 0;
 		const costs: number[] = [];
@@ -480,7 +453,6 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 		}) as LanguageModelV4;
 		return { calls: () => calls, costs, model: { ...qualified(model), spend: { price, capMicroUsd } } };
 	};
-	/** What the first model call of a turn asking `text` reserves. */
 	const reservation = async (text: string) => {
 		let reserved = 0;
 		const base = await charged();
@@ -492,7 +464,6 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 		return reserved;
 	};
 
-	// A finished turn charges the sum of its calls' reported usage and saves that cost with its status.
 	const first = priced(1_000_000);
 	const id = await ask(owner, "Show all people and tell me the exact total.");
 	assert.equal(await work(first.model), "succeeded");
@@ -500,8 +471,6 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 	assert.ok(first.costs.length > 1 && spent > 0);
 	assert.deepEqual([(await events(owner, id)).status.usage.costMicroUsd, await charged()], [spent, spent]);
 
-	// Multi-byte text reserves by its UTF-8 bytes, not by characters: the same length in a 3-byte script is refused
-	// before any model call under a limit that the ASCII request's first call fits.
 	const ascii = "a".repeat(6_000);
 	const unicode = "\u0800".repeat(6_000);
 	const fits = await reservation(ascii);
@@ -516,13 +485,11 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 		[unicodeTurn.calls(), (await events(owner, refusedUnicode)).status.error.code],
 		[0, "model_unavailable"],
 	);
-	// More than 272,000 input tokens costs twice the input rate and 1.5 times the output rate for the whole call.
 	assert.deepEqual(
 		[callCostMicroUsd(price, 272_000, 1_000), callCostMicroUsd(price, 272_001, 1_000)],
 		[27_700, Math.ceil(272_001 * 0.2 + 1_000 * 0.75)],
 	);
 
-	// Three turns start together under a limit with room for one first call: one reaches the model, two never do.
 	const one = await reservation("Show all people.");
 	const cap = (await charged()) + one + Math.floor(one / 2);
 	const slow = [0, 1, 2].map(() => priced(cap, () => new Promise((r) => setTimeout(r, 300))));
@@ -537,7 +504,6 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 	assert.equal(ends.filter((e) => e.error?.code === "model_unavailable").length >= 2, true);
 	assert.ok((await charged()) <= cap);
 
-	// A model call cut off after cancel may still be billed: the run keeps that call's whole reservation.
 	const cancelled = await ask(owner, "Show all people.");
 	let reservedThrough = 0;
 	const cut = priced(1_000_000_000, async (call) => {
@@ -549,7 +515,6 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 	assert.equal(await work(cut.model), "lost");
 	assert.equal(await charged(), reservedThrough);
 
-	// Deleting conversations removes their events, never the month's charge.
 	await admin.execute(sql`DELETE FROM conversation WHERE id IN (${id}::uuid, ${cancelled}::uuid)`);
 	assert.equal(await charged(), reservedThrough);
 });
@@ -647,7 +612,6 @@ test("AC:EVRY-CONTEXT-BOUNDS the whole prompt keeps at most 24 messages, 32,000 
 		references,
 		now: new Date(),
 	});
-	// The same estimate the runtime uses (4 characters per token), plus its 1,000-token tool allowance.
 	const tokens =
 		Math.ceil(context.system.length / 4) +
 		1_000 +
@@ -678,7 +642,6 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is with
 		await admin.execute(sql`UPDATE person SET state='live',retired_at=NULL WHERE id=${people.casey}`);
 	}
 
-	// The source is retired while the next turn's classifier runs: the model call that follows still sees nothing.
 	const race = await ask(owner, "Find Casey");
 	assert.equal(await work(), "succeeded");
 	await submitTurn(db, owner, race, { requestKey: randomUUID(), text: "Continue" });
@@ -698,7 +661,6 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is with
 		await admin.execute(sql`UPDATE person SET state='live',retired_at=NULL WHERE id=${people.casey}`);
 	}
 
-	// A source retired between two model calls of one turn: the later call gets the result without that row.
 	const usage = {
 		inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
 		outputTokens: { total: 5, text: 5, reasoning: 0 },
@@ -728,7 +690,6 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is with
 						]
 					: n === 1
 						? [
-								// Text copied from the returned row, written while the source is being retired.
 								{ type: "text-start" as const, id: "found" },
 								{ type: "text-delta" as const, id: "found", delta: "I found Alex Chen." },
 								{ type: "text-end" as const, id: "found" },
@@ -775,7 +736,6 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is with
 
 test("AC:GAP-EVR-400 selection reuses only rows the conversation returned and checks access again", async () => {
 	const owner = await actor("owner");
-	// A model that lists, then tries to select a row the result never returned, then selects a returned row.
 	const outputs: Record<string, any>[] = [];
 	const call = (toolName: string, input: unknown) => ({
 		type: "tool-call" as const,
@@ -871,7 +831,6 @@ test("AC:EVRY-RETRY-CANCEL two transient model retries with 1 s then 3 s backoff
 
 	const failing = flaky(3);
 	const bad = await ask(owner, "Find Casey");
-	// Nothing about the provider failure reaches a log: the SDK's default error logger is replaced.
 	const logged: unknown[] = [];
 	const [error, warn] = [console.error, console.warn];
 	console.error = console.warn = (...args: unknown[]) => void logged.push(args);
@@ -945,7 +904,6 @@ test("AC:INH-CROSS-08 AC:EVRY-RETRY-CANCEL INV-run-fence cancel stops model work
 		"text saved before the cancel stays",
 	);
 
-	// Signing out clears the run's session: the turn reads nothing and ends as refused.
 	const member = await actor("member");
 	const signedOut = await ask(member, "Find Casey");
 	const session = (await admin.execute(sql`DELETE FROM auth_session WHERE id=${accounts.member.session} RETURNING *`))
@@ -957,7 +915,6 @@ test("AC:INH-CROSS-08 AC:EVRY-RETRY-CANCEL INV-run-fence cancel stops model work
 	const refusedRun = await events(member, signedOut);
 	assert.deepEqual([refusedRun.cards.length, refusedRun.status.error.code], [0, "access_denied"]);
 
-	// A run whose lease expired cannot publish, and does not block the next turn.
 	const stale = await ask(owner, "Find Casey");
 	await admin.execute(
 		sql`UPDATE job SET state='claimed',lease_owner='gone',lease_until=clock_timestamp()-interval '1 second',claim_generation=1 WHERE subject_record_id=${stale}`,
@@ -974,7 +931,6 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 		admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${owner.accountId}`);
 	const restoreSeat = () => admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`);
 
-	// An open stream checks current access on every poll: after the seat ends it delivers nothing more.
 	const open = await ask(owner, "Find Casey");
 	const seen: string[] = [];
 	await assert.rejects(
@@ -989,7 +945,6 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 	assert.deepEqual(seen, ["user_message"]);
 	await restoreSeat();
 	await cancelTurn(db, owner, open);
-	// A role change ends access the same way (C13): the actor read as owner no longer matches the seat.
 	await admin.execute(sql`UPDATE seat SET role='admin' WHERE account_id=${owner.accountId}`);
 	try {
 		await assert.rejects(
@@ -1000,7 +955,6 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 		await admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${owner.accountId}`);
 	}
 
-	// The seat ends while the classifier runs: the references and reads that follow see nothing.
 	const base = recorded();
 	const ending: LanguageModelV4 = {
 		...base.model.model,
@@ -1023,7 +977,6 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 	const { cards, status } = await events(owner, id);
 	assert.deepEqual([cards.length, status.error.code], [0, "access_denied"]);
 
-	// Retained history and reference labels are scrubbed too.
 	await admin.execute(
 		sql`UPDATE person SET display_name='Ruth sk-live-zyxwvutsrqponmlkjihgfedcb' WHERE id=${people.alexChen}`,
 	);
@@ -1039,7 +992,6 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 	assert.ok(!JSON.stringify(again.calls).includes("sk-live-"));
 	await admin.execute(sql`UPDATE person SET display_name='Alex Chen' WHERE id=${people.alexChen}`);
 
-	// One statement for one reference or for ten.
 	const counted = async (ids: string[]) => {
 		const start = queries.length;
 		const result = await resolveReferences(
@@ -1058,7 +1010,6 @@ test("AC:SEC-02 AC:TEN-002 AC:UI45-006 AC:SEC-11 INV-tenancy: an ended seat or c
 	];
 	assert.deepEqual(await counted([people.alexRivera]), { verified: 1, statements: 1 });
 	assert.deepEqual(await counted(ten), { verified: 3, statements: 1 });
-	// A 24-row selection, the most a selection may name, is one read as well.
 	const selection = [...ten, ...Array.from({ length: 14 }, () => randomUUID())];
 	const start = queries.length;
 	assert.equal((await verifyPeople(db, owner, selection)).length, 3);
@@ -1071,7 +1022,6 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	const names = async () => (await invokeRead(db, owner, listPeople, find)).rows.map((r) => r.label).sort();
 	assert.deepEqual(await names(), ["Alex Chen", "Alex Rivera"]);
 
-	// A stale actor, after each change that ends access, reads no tenant data through either adapter.
 	const session = (await admin.execute(sql`SELECT * FROM auth_session WHERE id=${accounts.owner.session}`)).rows[0]!;
 	const witness = randomUUID();
 	const changes: [string, () => Promise<unknown>, () => Promise<unknown>][] = [
@@ -1112,7 +1062,6 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 		}
 	}
 
-	// A role that still permits People reads keeps reading (C13: the role still permits the read).
 	await admin.execute(sql`UPDATE seat SET role='admin' WHERE account_id=${owner.accountId}`);
 	try {
 		assert.deepEqual(await names(), ["Alex Chen", "Alex Rivera"]);
@@ -1120,8 +1069,6 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 		await admin.execute(sql`UPDATE seat SET role='owner' WHERE account_id=${owner.accountId}`);
 	}
 
-	// A seat end during a running read does not wait for it (reads take no locks, C27). The native read's own statements
-	// then see the ended seat (C13), so that read and the next one refuse.
 	const racing = {
 		...listPeople,
 		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
@@ -1143,7 +1090,6 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	} finally {
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`);
 	}
-	// Signing out during a running read does not wait either, and the read refuses.
 	const signOut = {
 		...listPeople,
 		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
@@ -1164,7 +1110,6 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 		);
 	}
 
-	// The live check adds no statement: only the read timeout comes before the adapter's own statements.
 	const start = queries.length;
 	await invokeRead(db, owner, listPeople, find);
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
@@ -1173,16 +1118,10 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 1);
 });
 
-/**
- * Planner statistics as autovacuum leaves them partway through the suite: the tables the suite fills are analyzed, the
- * empty household and tag tables are not. Without them the young tables plan cheaply, so a read that plans past
- * jit_above_cost only shows when autovacuum happens to run first.
- */
 const analyze = () => admin.execute(sql`ANALYZE conversation, conversation_event, job, person`);
 
 test("INV-run-recovery: a run whose worker was lost, that no worker took within 60 s or whose job ended without its end is closed once as interrupted by the open stream; a live run is not", async () => {
 	const owner = await actor("owner");
-	// The stream's reads plan as they do with statistics, where CI once spent about a second compiling each poll.
 	await analyze();
 	const turnJob = (id: string) => sql`kind='assistant_turn' AND subject_record_id=${id}`;
 	const observed = async (id: string, ms: number) => {
@@ -1228,14 +1167,12 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 		assert.equal((await readConversation(db, owner, id)).run, null, name);
 		const job = await admin.execute(sql`SELECT state FROM job WHERE ${turnJob(id)}`);
 		assert.equal(job.rows[0]!.state, "failed", name);
-		// Observing again saves no second end, and the conversation takes the next turn.
 		const again = await observed(id, 3_000);
 		assert.equal(again.seen.filter((e) => e.kind === "status").length, 1, name);
 		await submitTurn(db, owner, id, { requestKey: randomUUID(), text: "Find Casey again" });
 		assert.equal(await work(), "succeeded", name);
 	}
 
-	// A run a worker may still take is live: the stream waits for it and saves no end.
 	const waiting = await ask(owner, "Find Casey");
 	assert.equal((await readConversation(db, owner, waiting)).run?.state, "running");
 	const live = await observed(waiting, 500);
@@ -1248,13 +1185,9 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 });
 
 test("INV-planning: the conversation read an open stream polls plans below the JIT threshold once the tables have statistics", async () => {
-	// Postgres compiles a statement whose planned cost passes jit_above_cost. The read once planned its card-row check
-	// for every event of a 200-event page (each row array planned at 100 rows), passed the threshold once autovacuum
-	// analyzed the suite's tables, and spent about a second compiling on every poll: a lost run's stream outran its wait.
 	const owner = await actor("owner");
 	const id = await ask(owner, "Show all people.");
 	assert.equal(await work(), "succeeded");
-	// A long conversation: a turn saves its streamed text as many assistant_text events, so a page fills with them.
 	await admin.execute(sql`INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
 		SELECT c.id,c.last_sequence+n,(SELECT turn_id FROM conversation_event WHERE conversation_id=c.id AND kind='user_message'),'assistant_text',jsonb_build_object('text','More. ') FROM conversation c, generate_series(1,400) n WHERE c.id=${id}`);
 	await admin.execute(sql`UPDATE conversation SET last_sequence=last_sequence+400 WHERE id=${id}`);
@@ -1265,7 +1198,6 @@ test("INV-planning: the conversation read an open stream polls plans below the J
 	await readConversation(db, owner, id);
 	const read = statements.slice(from).find((q) => q.text.includes("AS run_live"));
 	assert.ok(read, "the conversation read was not captured");
-	// EXPLAIN takes no bind parameters: write each one into the text as a literal.
 	const literal = (v: unknown) =>
 		v === null ? "NULL" : Array.isArray(v) ? `'{${v.join(",")}}'` : `'${String(v).replaceAll("'", "''")}'`;
 	const text = read.text.replace(/\$(\d+)/g, (_, n) => literal(read.values[Number(n) - 1]));

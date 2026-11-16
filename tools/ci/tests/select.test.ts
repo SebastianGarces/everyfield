@@ -1,5 +1,3 @@
-// T-41: what `selectChecks` runs for a change, and the reachability lint over this checkout. CI_SELECT_MODULE swaps in
-// another select.ts, which select-sabotage.test.ts uses to prove these cases catch a broken selection.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
@@ -62,7 +60,6 @@ const map = {
 		"ops/actionable-watch/test/io.test.mts": ["ops/actionable-watch/io.mts", "ops/actionable-watch/observe.mts"],
 		"ops/actionable-watch/test/observe.test.mts": ["ops/actionable-watch/observe.mts"],
 		"tests/workflow/dev.test.mjs": ["scripts/browser.ts", "scripts/dev.ts"],
-		// What a map built before the read tracer holds: V8 coverage alone sees nothing these tests read as text.
 		"tests/workflow/evry-evals-coverage.test.mjs": [],
 		"tests/workflow/nightly.test.ts": ["scripts/nightly.ts"],
 		"tests/workflow/role-prompts.test.mjs": [],
@@ -74,7 +71,6 @@ const map = {
 	},
 };
 
-/** The checks and tests that run, each with its reason; everything else must be skipped with the stated reason. */
 function assertSelected(
 	s: Selection,
 	want: { checks: Record<string, string>; tests: Record<string, string>; filters?: string[] },
@@ -104,7 +100,6 @@ function assertSelected(
 	assert.deepEqual(s.packageFilters, want.filters ?? []);
 }
 
-/** Everything runs, for exactly `reasons`. */
 function assertFull(s: Selection, reasons: string[]) {
 	const why = `full run: ${reasons.join("; ")}`;
 	assert.deepEqual(s, {
@@ -375,15 +370,16 @@ test("INV-ci-select: reachability lint: every selectable test file and configure
 	});
 	assert.equal(listed.status, 0);
 	assert.deepEqual(unreachable(listed.stdout.split("\0").filter(Boolean)), []);
-	// The lint can see each kind of gap.
 	assert.deepEqual(
 		unreachable([
 			"tools/ci/tests/new.test.mjs",
 			"tests/workflow/sub/deep.test.mjs",
 			"tests/workflow/dev.test.mjs",
 			"tests/workflow/evry-evals-coverage.test.mjs",
+			"tests/workflow/formal.test.ts",
 			"tests/workflow/integration-timing.test.mjs",
 			"tests/workflow/lint-rule-coverage.test.mjs",
+			"tests/workflow/lint-rules.test.mjs",
 			"tests/workflow/nightly.test.ts",
 			"tests/workflow/role-prompts.test.mjs",
 			"tests/workflow/server-logs.test.mjs",
@@ -397,7 +393,13 @@ test("INV-ci-select: reachability lint: every selectable test file and configure
 	);
 	assert.deepEqual(
 		unreachable(
-			[...TESTS, "tests/workflow/integration-timing.test.mjs", "tests/workflow/lint-rule-coverage.test.mjs"],
+			[
+				...TESTS,
+				"tests/workflow/formal.test.ts",
+				"tests/workflow/integration-timing.test.mjs",
+				"tests/workflow/lint-rule-coverage.test.mjs",
+				"tests/workflow/lint-rules.test.mjs",
+			],
 			RULES.filter((rule) => !rule.checks?.includes("docs")),
 		),
 		["check docs is selected by no rule"],
@@ -405,10 +407,12 @@ test("INV-ci-select: reachability lint: every selectable test file and configure
 	assert.deepEqual(unreachable([]), [
 		'rule "role prompts and evf roles" names tests/workflow/role-prompts.test.mjs, which no suite runs',
 		'rule "dev command" names tests/workflow/dev.test.mjs, which no suite runs',
+		'rule "formal checks" names tests/workflow/formal.test.ts, which no suite runs',
 		'rule "preview config" names tests/workflow/stack.test.mjs, which no suite runs',
 		'rule "preview config" names tests/workflow/setup-step.test.mjs, which no suite runs',
 		'rule "adapter operations and their eval cases" names tests/workflow/evry-evals-coverage.test.mjs, which no suite runs',
 		'rule "web app under a dev server" names tests/workflow/server-logs.test.mjs, which no suite runs',
+		'rule "lint rules and their baselines" names tests/workflow/lint-rules.test.mjs, which no suite runs',
 		'rule "lint rule coverage" names tests/workflow/lint-rule-coverage.test.mjs, which no suite runs',
 		'rule "integration timing guard" names tests/workflow/integration-timing.test.mjs, which no suite runs',
 		'rule "coverage read tracer" names tests/workflow/nightly.test.ts, which no suite runs',

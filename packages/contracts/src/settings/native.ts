@@ -8,8 +8,6 @@ import { timezonePreference } from "./values.ts";
 export { changePasswordRequest } from "../identity/requests.ts";
 export { credentialOutcome, retainedAttribution, retainedHistoryReference } from "../identity/results.ts";
 
-// Native auth adapter only. Fresh own identity/mailbox proof and authenticated
-// proof-owner matching are checked by Better Auth, never a durable command.
 export const requestEmailChange = z.strictObject({ newEmail: normalizedEmail });
 export const confirmEmailChange = z.strictObject({ proof: z.string().min(1).max(4096) });
 export const deletionSubject = owner.transform((value, ctx) => {
@@ -46,8 +44,6 @@ export const deletionStatus = z
 				Date.parse(v.copyExpiresAt) <= Date.parse(v.livePurgedAt) + 7 * 86400000),
 		{ message: "invalid_purge_horizon" },
 	);
-// A restricted session binds original identity, exact request, current authority
-// and purpose on the server. It cannot be used as an ordinary settings context.
 export type RestrictedDeletionContext = { kind: "restricted_deletion"; handle: z.infer<typeof sessionId> };
 const deletionStatusRequest = z.strictObject({ subject: deletionSubject, requestId: recordId });
 export const getAccountDeletionStatusRequest = deletionStatusRequest.extend({
@@ -57,7 +53,6 @@ export const getWorkspaceDeletionStatusRequest = deletionStatusRequest.extend({
 	subject: deletionSubject.and(owner.options[1]),
 });
 export const cancelAccountDeletionRequest = commandEnvelope(getAccountDeletionStatusRequest);
-// Fresh proof for the restricted page after a personal deletion request: the original login and its current password.
 export const openAccountDeletionRequest = z.strictObject({
 	email: normalizedEmail,
 	password: z.string().min(1).max(1024),
@@ -67,9 +62,6 @@ export const previewPersonalTimezoneRequest = z.strictObject({ timeZone });
 export const setPersonalTimezoneRequest = commandEnvelope(
 	z.strictObject({ timeZone, previewId: recordId, confirmed: z.literal(true) }),
 );
-// No private week/calendar/revision/existence data in the preference projection.
-// WP-039's native author-only collaborator supplies its separate exact boundary
-// preview before commit. It never enters this DTO, shared receipts or telemetry.
 export const personalTimezonePreview = z
 	.strictObject({
 		previewId: recordId,

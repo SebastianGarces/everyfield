@@ -24,8 +24,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
 
-/** The prototype's navigation compass (a ring and a needle), drawn in the Hugeicons stroke style. Hugeicons' compass
- *  glyphs are a drafting compass and a stopwatch-like dial, so this one keeps the prototype's geometry. */
 const NavCompass: IconSvgElement = [
 	["circle", { cx: "12", cy: "12", r: "8.5", stroke: "currentColor", strokeWidth: "1.5", key: "0" }],
 	[
@@ -41,10 +39,6 @@ const NavCompass: IconSvgElement = [
 	],
 ];
 
-/**
- * The prototype's icon names (marketing-copy.json and the panel data use them) and the Hugeicons glyph that replaces each
- * hand-drawn path. Hugeicons, stroke rounded, free set (design/handoff/foundations.md).
- */
 export const ICONS = {
 	arrow: ArrowRight02Icon,
 	arrowUpRight: ArrowUpRight01Icon,

@@ -77,7 +77,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 							{a.needsClassifying.map((p, i) => (
 								<span key={p.id}>
 									{i ? ", " : null}
-									<Link className="cursor-pointer font-medium text-ink underline" href={`/people/${p.id}`}>
+									<Link className="font-medium text-ink underline" href={`/people/${p.id}`}>
 										{p.name}
 									</Link>
 								</span>
@@ -181,10 +181,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 										key={e.person.id}
 										className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2"
 									>
-										<Link
-											className="cursor-pointer font-medium text-ink hover:underline"
-											href={`/people/${e.person.id}`}
-										>
+										<Link className="font-medium text-ink hover:underline" href={`/people/${e.person.id}`}>
 											{e.person.name}
 										</Link>
 										<span className="text-text-3">

@@ -206,7 +206,6 @@ test("INV-mail: killing a worker after provider acceptance recovers its original
 		},
 	);
 	const exited = new Promise((resolve) => child.once("exit", (code, signal) => resolve({ code, signal })));
-	// The provider sees the handoff before the child ends; a child that exits first never handed off.
 	try {
 		const first = await Promise.race([observed.then(() => "handed_off"), exited.then(() => "handoff_not_observed")]);
 		assert.equal(first, "handed_off");
@@ -363,7 +362,6 @@ test("INV-mail: callbacks persist unknown IDs, reject wrong secrets, replay with
 	const pending = await genuine(await callback(unknown, "sent"));
 	assert.equal(pending.status, 202);
 	assert.deepEqual(await pending.json(), { stored: true, result: "pending" });
-	// Both receipts for the late-matched message stay pending: the unmatched one and the one whose apply failed.
 	assert.deepEqual(await callbackVisibility(runtime, "disabled"), { endpoint: "disabled", pending: 2, unmatched: 0 });
 	await db.execute(querySql`DROP TRIGGER reject_projection ON mail; DROP FUNCTION reject_projection()`);
 	assert.equal(requests.length, count);
@@ -437,9 +435,6 @@ test("INV-mail: hard bounce suppresses even security mail; soft bounce does not"
 	);
 });
 
-// T-151: every queued mail reaches the email service from the scheduled runner, and every unknown outcome settles.
-
-/** A mail service over a recording email service: it keeps each send's idempotency key and answers with `answer`. */
 function recorded(answer: () => { kind: "accepted"; id: string } | { kind: "unknown" }) {
 	const keys: string[] = [];
 	const svc = createMailService({
@@ -460,7 +455,6 @@ function recorded(answer: () => { kind: "accepted"; id: string } | { kind: "unkn
 	});
 	return { svc, keys };
 }
-/** One queued mail under `logicalKey`, due now, to an address no earlier test suppressed. */
 function queue(svc: ReturnType<typeof recorded>["svc"], logicalKey: string, extra: Record<string, unknown> = {}) {
 	return transaction(runtime, (tx) =>
 		svc.enqueue(tx, {
@@ -478,7 +472,6 @@ function queue(svc: ReturnType<typeof recorded>["svc"], logicalKey: string, extr
 	);
 }
 const cron = "cron-" + randomUUID();
-/** One scheduled-runner tick with only these mail passes configured. */
 async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"]) {
 	const response = await scheduledJobs({
 		secret: cron,
@@ -498,14 +491,7 @@ const passOver =
 const row = async (query) => (await db.execute(query)).rows[0];
 
 test("every logical-key prefix a mail producer writes is claimed by exactly one runner pass", () => {
-	// Producers whose prefix is built at run time, by producer.
-	const listed = [
-		"password_reset/", // packages/domain/src/identity/service.ts: `${purpose}/${digest(token)}` and the outcome notice
-		"email_verification/", // packages/domain/src/identity/service.ts: `${purpose}/${digest(token)}`
-		"digest/", // apps/web/src/server/jobs/digest.ts: MAIL_KEY + the digest notice's key
-		"notice/", // apps/web/src/server/jobs/notifications.ts: "notice/" + the notice id (tasks, phases, meetings, milestones)
-	];
-	// Every literal prefix in a producer's mail intent: `logicalKey: "x/..."` or `logicalKey: \`x/...\``.
+	const listed = ["password_reset/", "email_verification/", "digest/", "notice/"];
 	const root = new URL("../../../", import.meta.url).pathname;
 	const files = (dir: string): string[] =>
 		readdirSync(dir).flatMap((name) => {
@@ -516,7 +502,6 @@ test("every logical-key prefix a mail producer writes is claimed by exactly one 
 	const literal = new Set<string>();
 	for (const file of [...files(join(root, "apps/web/src")), ...files(join(root, "packages/domain/src"))])
 		for (const m of readFileSync(file, "utf8").matchAll(/logicalKey:\s*[`"']([a-z_-]+\/)/g)) literal.add(m[1]!);
-	// Messages email (communication/) is handed off by its own runner step and Messages screens, not a mail pass.
 	literal.delete("communication/");
 	const prefixes = [...new Set([...listed, ...literal])].sort();
 	assert.ok(prefixes.length >= 12, prefixes.join(" "));
@@ -524,7 +509,6 @@ test("every logical-key prefix a mail producer writes is claimed by exactly one 
 		const passes = Object.entries(MAIL_PASSES).filter(([, owned]) => (owned as readonly string[]).includes(prefix));
 		assert.equal(passes.length, 1, `${prefix} is claimed by ${passes.map(([name]) => name).join(", ") || "no pass"}`);
 	}
-	// And no pass claims a prefix nothing writes.
 	assert.deepEqual(Object.values(MAIL_PASSES).flat().sort(), prefixes);
 });
 
@@ -544,7 +528,6 @@ test("a seeded backlog of dead links and past reminders sends none of it on the 
 		'task','task_due',${"task/task_due/" + randomUUID()},${querySql.param(task)},1,'Task due',
 		clock_timestamp()-interval '2 days',clock_timestamp())`);
 	const pastReminder = await queue(svc, `notice/${notice}`, { notice });
-	// The links were requested two hours ago (they work for one); the reminder's slot was two days ago.
 	await db.execute(querySql`UPDATE mail SET created_at=clock_timestamp()-interval '2 hours'
 		WHERE id=ANY(${querySql.param([deadReset, deadVerify, resetOutcome])}::uuid[])`);
 	await db.execute(querySql`UPDATE job SET eligible_at=clock_timestamp()-interval '2 days'
@@ -591,7 +574,6 @@ test("an unknown handoff is replayed on the next tick under the same key, only i
 		{ state: "accepted", provider: answer.id, job: "succeeded" },
 	);
 
-	// Past the window (23 h 55 min from the first handoff) the mail is not replayed and its job is not left claimed.
 	answer = { kind: "unknown" };
 	const late = await queue(svc, `replay/${randomUUID()}`);
 	await tick(pass);
@@ -630,7 +612,6 @@ test("an Unsubscribe link minted before the account's first cadence save still u
 	const ring = { current: randomBytes(32), previous: [] };
 	const api = createNotificationProducer({ optOutKeys: ring });
 	const reader = await seeds(db).actor({ kind: "plant", id: tenant } as never, "admin");
-	// The digest email sent before any preference row exists carries revision 0 (mail.ts live()).
 	const token = issueMailOptOutToken(ring, {
 		accountId: reader.id,
 		category: "planter_digest",

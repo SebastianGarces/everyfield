@@ -8,10 +8,6 @@ import type { Loadable } from "./values";
 
 export type EmptyCopy = { icon?: IconSvgElement; title: string; text?: ReactNode; action?: ReactNode };
 
-/**
- * The loading, error and empty states of anything that loads data (components.md: every component that loads data
- * draws them from StatePanel, Skeleton and EmptyState). `skeleton` is the loading shape; children render the data.
- */
 export function LoadableView<T>({
 	state,
 	isEmpty,
@@ -72,19 +68,13 @@ export type Column<Row> = {
 	header: ReactNode;
 	cell: (row: Row) => ReactNode;
 	align?: "left" | "right";
-	/** Numbers in the display face with tabular figures. */
 	numeric?: boolean;
 	width?: string;
-	/** A header the eye does not need (an action column); it stays for screen readers. */
 	srOnlyHeader?: boolean;
 };
 
 export type Selection = { selected: ReadonlySet<string>; onChange: (next: Set<string>) => void };
 
-/**
- * DataTable (components.md): Header, Row, Cell and Selection, with a highlighted row. It is a real table with a
- * caption. Below the content width it scrolls sideways in a focusable, named region, so keyboard users can scroll it.
- */
 export function DataTable<Row>({
 	caption,
 	captionHidden = true,
@@ -104,10 +94,8 @@ export function DataTable<Row>({
 	columns: Column<Row>[];
 	state: Loadable<Row[]>;
 	rowId: (row: Row) => string;
-	/** The row's name for its selection box: "Select Maria Santos". */
 	rowLabel: (row: Row) => string;
 	selection?: Selection;
-	/** The id of a row to tint, such as the one a dialog acts on. */
 	highlight?: string | null;
 	empty: EmptyCopy;
 	skeletonRows?: number;
@@ -229,7 +217,6 @@ function SelectAll<Row>({
 	);
 }
 
-/** Table-shaped placeholder rows: an avatar, two lines and a short value per row. */
 export function TableSkeleton({ rows = 3 }: { rows?: number }) {
 	return (
 		<div className="flex flex-col">
@@ -248,10 +235,6 @@ export function TableSkeleton({ rows = 3 }: { rows?: number }) {
 	);
 }
 
-/**
- * The page numbers to show: always the first and last, the current one and its neighbours, with a gap marker where
- * pages are left out. pageItems(1, 9) is [1, 2, 3, "gap", 9]; pageItems(5, 9) is [1, "gap", 4, 5, 6, "gap", 9].
- */
 function pageItems(current: number, total: number): (number | "gap")[] {
 	if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
 	const near = new Set([1, total, current - 1, current, current + 1]);
@@ -266,10 +249,6 @@ function pageItems(current: number, total: number): (number | "gap")[] {
 	return out;
 }
 
-/**
- * Pagination (components.md): Prev, Page and Next. A navigation landmark with the current page marked; Prev and Next
- * are disabled at the ends. The summary ("Showing 3 of 214 people") goes beside it, outside this component.
- */
 export function Pagination({
 	page,
 	pageCount,
@@ -285,7 +264,7 @@ export function Pagination({
 }) {
 	if (pageCount <= 1) return null;
 	const base =
-		"grid size-10 place-items-center rounded-md font-medium text-ink-2 transition-colors hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent";
+		"grid size-10 place-items-center rounded-md font-medium text-ink-2 transition-colors hover:bg-surface-2 disabled:opacity-40 disabled:hover:bg-transparent";
 	return (
 		<nav aria-label={label} className={cn("flex items-center gap-1.5", className)}>
 			<button

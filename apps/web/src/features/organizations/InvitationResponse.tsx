@@ -11,11 +11,6 @@ import { formatDay } from "../shared/dates.ts";
 import { PrivateLine, ProblemLine } from "./parts";
 import type { NameOf, Invitation, Run } from "./port";
 
-/**
- * The receiving organization's answer to one connection request (REQ-IDN-020). Only an Owner or Admin of that exact
- * organization can answer, from the original emailed link (`proof`). Accepting connects only this pair; it changes
- * no other connection and gives no access to the church's people or records.
- */
 export function InvitationResponse({
 	invitation,
 	proof,
@@ -24,7 +19,6 @@ export function InvitationResponse({
 	run,
 	connectionsHref,
 }: {
-	/** null when the link is expired, withdrawn, answered, or not for this account: one shared refusal. */
 	invitation: Invitation | null;
 	proof: string;
 	nameOf: NameOf;
@@ -33,7 +27,6 @@ export function InvitationResponse({
 	connectionsHref: string;
 }) {
 	const [outcome, setOutcome] = useState<"accepted" | "declined" | "refused" | null>(null);
-	// One intent for both answers: after a lost reply only that same answer can be retried, unchanged.
 	const answer = useIntent<ReturnType<typeof respondInvitationRequest.parse>>("relationship-respond");
 
 	if (!invitation || outcome === "refused") return <NotAvailable scope="page" homeHref={connectionsHref} />;
@@ -79,7 +72,6 @@ export function InvitationResponse({
 		if (result.ok) setOutcome("accepted");
 		else if (result.problem === "refused") setOutcome("refused");
 	};
-	// The decline dialog shows its own error and stays open, so a retry reuses the same request key.
 	const onDecline = async () => {
 		const result = await respond("decline");
 		if (result.ok) return setOutcome("declined");

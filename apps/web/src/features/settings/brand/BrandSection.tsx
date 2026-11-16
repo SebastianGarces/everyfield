@@ -331,7 +331,7 @@ function ColorField({
 						aria-label={`${label} picker`}
 						value={view ? view.hex.toLowerCase() : PICKER_EMPTY}
 						onChange={(e) => onChange(normalizeHex(e.target.value))}
-						className="size-11 flex-none cursor-pointer rounded-md border-0 bg-transparent p-0"
+						className="size-11 flex-none rounded-md border-0 bg-transparent p-0"
 					/>
 					<Input
 						value={value}
