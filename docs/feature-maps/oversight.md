@@ -199,14 +199,14 @@ agent-browser wait --url "**/network/intelligence"
 
 States:
 
-- **network**: heading "Network Intelligence"; button "Refresh"; text "How this works". As `network`, on the QA seed:
+- **network**: heading "Network Intelligence"; button "Refresh"; link "Sending churches". As `network`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/network/intelligence"
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Network Intelligence" --exact
 agent-browser find role button text --name "Refresh" --exact
-agent-browser find text "How this works" text --exact
+agent-browser find role link text --name "Sending churches" --exact
 ```
 
 - **sending-church**: button "Refresh"; link "Your plants". As `graceOwner`, on the QA seed:

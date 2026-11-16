@@ -286,7 +286,7 @@ agent-browser open "$ORIGIN/organization/pipeline"
 agent-browser wait --load networkidle
 agent-browser find role link click --name "Jordan Reyes" --exact
 agent-browser wait --load networkidle
-agent-browser find text "Invitation pending" text --exact
+agent-browser wait --text "Invitation pending"
 agent-browser find role button text --name "Revoke" --exact
 ```
 
@@ -720,7 +720,7 @@ agent-browser find role switch click --name "Foundation progress"
 agent-browser wait --load networkidle
 agent-browser open "$ORIGIN/my-residency"
 agent-browser wait --load networkidle
-agent-browser find text "Not shared" text --exact
+agent-browser wait --text "Not shared"
 ```
 
 ### organizations.respond

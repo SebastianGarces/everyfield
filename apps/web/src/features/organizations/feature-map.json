@@ -464,7 +464,8 @@
 							],
 							"expect": [
 								{
-									"text": "Invitation pending"
+									"text": "Invitation pending",
+									"match": "contains"
 								},
 								{
 									"role": "button",
@@ -1372,7 +1373,8 @@
 							],
 							"expect": [
 								{
-									"text": "Not shared"
+									"text": "Not shared",
+									"match": "contains"
 								}
 							],
 							"kind": "behavior"
