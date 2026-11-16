@@ -7,8 +7,6 @@ import { Site } from "./Site";
 
 const LINK = "text-green-600 underline";
 
-/** Plain copy text with links: e-mail addresses become mailto links, and `privacyWords` links to /privacy. Draft markers
- *  are highlighted. */
 function linked(text: string, privacyWords?: string): ReactNode[] {
 	return marked(text, (part) => links(part, privacyWords));
 }
@@ -43,7 +41,6 @@ function links(text: string, privacyWords?: string): ReactNode[] {
 	return out;
 }
 
-/** The privacy and terms pages, rendered from shared.privacy_page / shared.terms_page (task E2). */
 export function Legal({ path, copy }: { path: string; copy: LegalCopy }) {
 	const privacy = copy.links?.privacy;
 	return (
