@@ -5,11 +5,6 @@ import { Reveal } from "@/components/motion/Reveal";
 import { ICONS } from "../icons";
 import { VisionZoom } from "../visuals/VisionZoom";
 
-/**
- * "The vision, down to this week": the head on the left and the four-level zoom on the right (stacked below 901 px).
- * The zoom's green line runs on through a small "Monday morning" label down to the Monday overview, so the plan and the
- * week read as one section. #proof stays on the overview for old links.
- */
 export function VisionSection({
 	headline,
 	body,
