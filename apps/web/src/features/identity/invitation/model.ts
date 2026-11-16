@@ -38,7 +38,6 @@ export function joinTitle(d: Description): string {
 	return d.subject.purpose === "seat" ? `Join ${d.workspaceName}` : `Link your account to ${d.workspaceName}`;
 }
 
-const PROOF = "ef-invitation-proof";
 const HELD = "ef-invitation-held";
 const JOINING = "ef-invitation-joining";
 
@@ -46,24 +45,7 @@ export type Held = { proof: string; workspaceName: string } & (
 	{ kind: "seat"; command: SeatCommand } | { kind: "resident"; command: ResidentCommand }
 );
 
-const proofReaders = new Set<() => void>();
-const linkProof = () => new URLSearchParams(window.location.hash.slice(1)).get("proof");
-
 export const tabStore = {
-	proof(): string | null {
-		return linkProof() ?? sessionStorage.getItem(PROOF);
-	},
-	onProof(reader: () => void) {
-		proofReaders.add(reader);
-		return () => void proofReaders.delete(reader);
-	},
-	keepProof(): boolean {
-		const fromLink = linkProof();
-		if (!fromLink) return false;
-		sessionStorage.setItem(PROOF, fromLink);
-		for (const reader of proofReaders) reader();
-		return true;
-	},
 	held(proof: string): Held | null {
 		try {
 			const raw = sessionStorage.getItem(HELD);

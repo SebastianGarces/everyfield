@@ -17,7 +17,7 @@ import { useFocusRequest } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import type { z } from "zod";
 import type { Outcome, Wait } from "../../../components/save/model.ts";
-import { useRead, createRead } from "../../../components/read.tsx";
+import { useReadWith, createRead } from "../../../components/read.tsx";
 import { RecordDialog } from "../../../components/save/parts.tsx";
 import { useLocalStore, useStore } from "../../../components/store.ts";
 import { problemText } from "../parts.tsx";
@@ -201,15 +201,13 @@ export function JoinHouseholdDialog({
 		store,
 		(s) => s,
 	);
-	const read = useRead(households, term);
-	const [found, setFound] = useState<{ q: string; outcome: Found } | null>(null);
-	if (read.value && read.value !== found?.outcome) setFound({ q: term, outcome: read.value });
+	const read = useReadWith(households, [term], { showPrevious: true });
 	const focusSwitch = useFocusRequest(switches, firstInput);
 
-	const result = found?.outcome.status === "ok" ? found.outcome.value : null;
+	const result = read.value?.status === "ok" ? read.value.value : null;
 	const items = result?.items ?? [];
 	const chosen = items.find((h) => h.id === choice);
-	const none = result !== null && items.length === 0 && found?.q === "";
+	const none = result !== null && items.length === 0 && read.status === "ready" && term === "";
 	const missing = name.trim() === "";
 	const creating = mode === "create";
 
@@ -263,7 +261,7 @@ export function JoinHouseholdDialog({
 						</Field>
 						<AddressFields value={address} onChange={actions.readdress} />
 						<p className="text-sm text-text-2">{first} will be the head of this household.</p>
-						{found?.outcome.status === "ok" ? (
+						{read.value?.status === "ok" ? (
 							<div>
 								<Button type="button" size="sm" variant="ghost" onClick={() => actions.switchTo("choose")}>
 									Back to the list
@@ -281,12 +279,12 @@ export function JoinHouseholdDialog({
 							onChange={(e) => actions.type(e.target.value)}
 						/>
 						<div className="max-h-[260px] min-h-[120px] overflow-y-auto rounded-md shadow-[0_0_0_1px_var(--ef-line)]">
-							{found === null ? (
+							{read.value === undefined ? (
 								<div className="flex items-center gap-2.5 px-4 py-4 text-sm text-text-3" role="status">
 									<Spinner size={14} />
 									Loading households…
 								</div>
-							) : found.outcome.status !== "ok" ? (
+							) : read.value.status !== "ok" ? (
 								<p role="alert" className="px-4 py-4 text-sm text-text-2">
 									Households did not load.{" "}
 									<button type="button" className="font-medium text-ink underline" onClick={read.retry}>

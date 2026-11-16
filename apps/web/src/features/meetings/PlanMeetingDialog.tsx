@@ -17,7 +17,8 @@ import {
 	Select,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import { editMeeting, listMinistries, listVenues, scheduleMeeting } from "./actions.ts";
 import { offsetText } from "../shared/dates.ts";
 import { problemText, TYPE_LABEL, TYPES, type Detail, type MeetingType, type Outcome, type Venue } from "./model.ts";
@@ -31,22 +32,33 @@ import {
 import { Problem } from "./parts.tsx";
 
 type Choice = { instant: string; offsetSeconds: number };
-/** A ministry a team meeting can name: one that is not archived. */
+type Fold = { choices: Choice[]; offset: number | null };
 type Ministry = { id: string; name: string };
 type Draft = {
 	type: MeetingType;
-	/** A team meeting's ministry; empty until one is chosen. */
 	teamId: string;
 	title: string;
 	date: string;
 	time: string;
-	/** "keep" (edit: the copied place stays), "none", "new" or a saved place's ID. */
 	place: string;
 	placeName: string;
 	placeAddress: string;
 	notes: string;
 };
+type Kept = { draft: Draft; fold: Fold | null };
 const blank = (v: string) => (v.trim() === "" ? null : v.trim());
+
+const savedPlaces = createRead(() => listVenues({ limit: 100 }).then((r) => (r.status === "ok" ? r.value.items : [])), {
+	failed: (): Venue[] => [],
+});
+const teamMinistries = createRead(() => listMinistries().then((r) => (r.status === "ok" ? r.value : [])), {
+	failed: (): Ministry[] => [],
+});
+
+export function prefetchPlanReads(editing: boolean) {
+	savedPlaces.prefetch();
+	if (!editing) teamMinistries.prefetch();
+}
 
 function initial(meeting: Detail | undefined, ministry: Ministry | undefined): Draft {
 	return {
@@ -62,11 +74,6 @@ function initial(meeting: Detail | undefined, ministry: Ministry | undefined): D
 	};
 }
 
-/**
- * Plan a meeting, or edit one (REQ-MTG-002, REQ-MTG-003). The place is copied into the meeting when it is saved, so a
- * later change to the saved place does not rewrite this meeting. A new place is created in the same save. A time that
- * happens twice when the clocks fall back asks which one; a time that does not exist is refused with a reason.
- */
 export function PlanMeetingDialog<E extends { problem?: string }>({
 	open,
 	onOpenChange,
@@ -79,120 +86,81 @@ export function PlanMeetingDialog<E extends { problem?: string }>({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	/** The page's save lane: its notice shows on the page while the dialog is closed, and inside it while open. */
 	lane: SaveIntent<E>;
-	/** The meeting to edit. Without it the dialog plans a new one. */
 	meeting?: Detail;
-	/** A new meeting only: plan a team meeting for this ministry, already chosen. */
 	ministry?: Ministry;
 	onSaved?: (meeting: Detail) => void;
-	/** Edit only: the meeting as it will look, shown while the save runs; null when the answer arrives. */
 	onPreview?: (meeting: Detail | null) => void;
-	/** Edit only: reads the meeting again after a save refused as out of date; resolves once the latest shows. */
 	onStale?: () => Promise<unknown>;
 }) {
-	// The form stays mounted while the dialog is closed, so an edit that fails after the dialog closed reopens with
-	// the person's input and the reason.
+	const [kept, setKept] = useState<Kept | null>(null);
+	const close = () => {
+		setKept(null);
+		onOpenChange(false);
+	};
 	return (
 		<NoticeInDialog {...lane.noticeProps}>
-			<Dialog open={open} onOpenChange={onOpenChange}>
-				<Form
-					open={open}
-					lane={lane}
-					meeting={meeting}
-					onClose={() => onOpenChange(false)}
-					onReopen={() => onOpenChange(true)}
-					onSaved={onSaved}
-					onPreview={onPreview}
-					onStale={onStale}
-					ministry={ministry}
-				/>
+			<Dialog open={open} onOpenChange={(next) => (next ? onOpenChange(true) : close())}>
+				{open ? (
+					<Form
+						lane={lane}
+						meeting={meeting}
+						kept={kept}
+						onClose={close}
+						onReopen={() => onOpenChange(true)}
+						onKeep={(next) => {
+							setKept(next);
+							onOpenChange(true);
+						}}
+						onSaved={onSaved}
+						onPreview={onPreview}
+						onStale={onStale}
+						ministry={ministry}
+					/>
+				) : null}
 			</Dialog>
 		</NoticeInDialog>
 	);
 }
 
 function Form<E extends { problem?: string }>({
-	open,
 	lane,
 	meeting,
+	kept,
 	onClose,
 	onReopen,
+	onKeep,
 	onSaved,
 	onPreview,
 	onStale,
 	ministry,
 }: {
-	open: boolean;
 	lane: SaveIntent<E>;
 	meeting?: Detail;
+	kept: Kept | null;
 	onClose: () => void;
 	onReopen: () => void;
+	onKeep: (kept: Kept) => void;
 	onSaved?: (meeting: Detail) => void;
 	onPreview?: (meeting: Detail | null) => void;
 	onStale?: () => Promise<unknown>;
 	ministry?: Ministry;
 }) {
 	const editing = meeting !== undefined;
-	const [draft, setDraft] = useState(() => initial(meeting, ministry));
-	const [ministries, setMinistries] = useState<Ministry[] | null>(null);
-	const [touched, setTouched] = useState(false);
-	const [choices, setChoices] = useState<Choice[] | null>(null);
-	const [offset, setOffset] = useState<number | null>(null);
-	const [venues, setVenues] = useState<Venue[] | null>(null);
-	// A problem found before sending (which of two times); the server's refusals show in the lane's notice.
+	const [draft, setDraft] = useState(() => kept?.draft ?? initial(meeting, ministry));
+	const [touched, setTouched] = useState(kept !== null);
+	const [fold, setFold] = useState<Fold | null>(kept?.fold ?? null);
 	const [problem, setProblem] = useState<string | null>(null);
+	const venues = useRead(savedPlaces).value;
+	const ministries = useRead(editing ? null : teamMinistries).value;
+	const choices = fold?.choices ?? null;
+	const offset = fold?.offset ?? null;
 	const pending = lane.saving;
-	// Each opening starts from the meeting as it is now, unless it reopens after a failed save.
-	const [wasOpen, setWasOpen] = useState(open);
-	const [keep, setKeep] = useState(false);
-	const [opening, setOpening] = useState(open ? 1 : 0);
-	if (open !== wasOpen) {
-		setWasOpen(open);
-		if (open) setOpening((n) => n + 1);
-		if (open && keep) setKeep(false);
-		else if (open) {
-			setDraft(initial(meeting, ministry));
-			setTouched(false);
-			setChoices(null);
-			setOffset(null);
-			setProblem(null);
-		}
-	}
 	const set = (patch: Partial<Draft>) => {
 		setDraft((d) => ({ ...d, ...patch }));
-		// A new date or time is a new question: an earlier fold choice no longer applies.
-		if ("date" in patch || "time" in patch) {
-			setChoices(null);
-			setOffset(null);
-		}
+		if ("date" in patch || "time" in patch) setFold(null);
 	};
 
-	// Saved places load each time the dialog opens (not with the page), so a place added in Places since the last
-	// opening is there. The last list stays on screen while the new one loads.
-	useEffect(() => {
-		if (opening === 0) return;
-		let live = true;
-		listVenues({ limit: 100 }).then(
-			(r) => live && setVenues(r.status === "ok" ? r.value.items : []),
-			() => live && setVenues((v) => v ?? []),
-		);
-		return () => {
-			live = false;
-		};
-	}, [opening]);
-	// The ministries a team meeting can name load the same way, and only for a new meeting.
-	useEffect(() => {
-		if (opening === 0 || editing) return;
-		let live = true;
-		listMinistries().then(
-			(r) => live && setMinistries(r.status === "ok" ? r.value : []),
-			() => live && setMinistries((m) => m ?? []),
-		);
-		return () => {
-			live = false;
-		};
-	}, [opening, editing]);
 	const team = !editing && draft.type === "team_meeting";
 
 	const missing = {
@@ -217,7 +185,6 @@ function Form<E extends { problem?: string }>({
 		setTouched(true);
 		setProblem(null);
 		if (lane.wait) return;
-		// Focus goes to the first field to fix once React has drawn the errors; the entered values stay.
 		if (Object.values(missing).some(Boolean)) return focusFirstProblem(event.currentTarget as HTMLFormElement);
 		if (choices && offset === null) return setProblem("ambiguous_local_time");
 		if (editing) {
@@ -228,7 +195,6 @@ function Form<E extends { problem?: string }>({
 				...(moved || offset !== null ? when : {}),
 				...(venue ? { venue } : {}),
 			};
-			// The page shows the change at once; the answer confirms it, or the page goes back and the dialog reopens.
 			const chosen = venues?.find((v) => v.id === draft.place);
 			onPreview?.({
 				...meeting,
@@ -249,20 +215,22 @@ function Form<E extends { problem?: string }>({
 									: meeting.venue,
 			});
 			onClose();
+			let answered: Choice[] | undefined;
 			await lane.save({
 				what: "The meeting",
-				send: (key) => editMeeting(key, meeting.revision, meeting.id, patch).then((r) => keepChoices(r)),
+				send: (key) =>
+					editMeeting(key, meeting.revision, meeting.id, patch).then((r) => {
+						if (r.status === "refused" && r.choices) answered = r.choices;
+						return r;
+					}),
 				ok: (value: { meeting: Detail }) => {
 					onPreview?.(null);
 					onSaved?.(value.meeting);
 				},
-				// The page goes back, and the dialog opens again with the person's input and the refusal. Out of date, it
-				// opens on the latest meeting instead, read again first, as the refusal says.
 				refused: (code) => {
 					onPreview?.(null);
 					if (code === "conflict" && onStale) return void onStale().then(onReopen);
-					setKeep(true);
-					onReopen();
+					onKeep({ draft, fold: answered ? { choices: answered, offset } : fold });
 				},
 			});
 			return;
@@ -278,15 +246,13 @@ function Form<E extends { problem?: string }>({
 		await lane.save({
 			what: "The meeting",
 			done: "planned",
-			// Success redirects in the action itself (one round trip): no answer comes back, and the save stays on its way
-			// until the meeting's page opens.
 			send: (key) => scheduleMeeting(key, input).then((r) => (r ? keepChoices(r) : new Promise<never>(() => {}))),
 			ok: () => {},
 		});
 	}
-	/** A time that happens twice comes back with its two choices: the form asks which one. */
 	function keepChoices<T extends Outcome<unknown>>(r: T): T {
-		if (r.status === "refused" && r.choices) setChoices(r.choices);
+		const answered = r.status === "refused" ? r.choices : undefined;
+		if (answered) setFold((f) => ({ choices: answered, offset: f?.offset ?? null }));
 		return r;
 	}
 
@@ -299,7 +265,6 @@ function Form<E extends { problem?: string }>({
 		{ value: "new", label: "Add a new place" },
 	];
 
-	if (!open) return null;
 	return (
 		<DialogContent aria-busy={pending || undefined} onInteractOutside={(e) => pending && e.preventDefault()}>
 			<form onSubmit={submit} noValidate className="contents">
@@ -326,7 +291,7 @@ function Form<E extends { problem?: string }>({
 						<Field
 							label="Ministry"
 							hint={
-								ministries === null
+								ministries === undefined
 									? "Loading ministries…"
 									: ministries.length === 0
 										? "Add a ministry in Ministries first."
@@ -392,7 +357,7 @@ function Form<E extends { problem?: string }>({
 								aria-label={`Which ${timeText(draft.time)}`}
 								value={offset === null ? "" : String(offset)}
 								onValueChange={(v) => {
-									setOffset(Number(v));
+									setFold((f) => f && { ...f, offset: Number(v) });
 									setProblem(null);
 								}}
 							>
@@ -409,7 +374,7 @@ function Form<E extends { problem?: string }>({
 							</RadioGroup>
 						</fieldset>
 					) : null}
-					<Field label="Place" hint={venues === null ? "Loading saved places…" : undefined}>
+					<Field label="Place" hint={venues === undefined ? "Loading saved places…" : undefined}>
 						<Select
 							value={draft.place}
 							disabled={pending}
@@ -467,8 +432,7 @@ function Form<E extends { problem?: string }>({
 	);
 }
 
-/** The ministries to choose from. A preset ministry shows while the list loads, so the dialog opens with it chosen. */
-function ministryOptions(list: Ministry[] | null, preset: Ministry | undefined) {
+function ministryOptions(list: Ministry[] | undefined, preset: Ministry | undefined) {
 	const all = list ?? (preset ? [preset] : []);
 	return all.map((m) => ({ value: m.id, label: m.name }));
 }

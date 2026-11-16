@@ -30,6 +30,7 @@ import {
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { cn, EvryBot, Icon, revealDelay, useFocusRequest } from "../../foundations";
 import {
+	Alert,
 	Button,
 	CalloutLabel,
 	CalloutText,
@@ -62,6 +63,7 @@ import {
 	Field,
 	FilterChip,
 	IconButton,
+	InlineAlert,
 	Input,
 	InsightCard,
 	InsightCount,
@@ -82,6 +84,7 @@ import {
 	MenuSeparator,
 	MenuTrigger,
 	PageHeader,
+	PageState,
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
@@ -139,6 +142,7 @@ export function ControlsPreview() {
 				{show("inputs") ? <SelectionSection /> : null}
 				{show("overlays") ? <OverlaysSection /> : null}
 				{show("feedback") ? <FeedbackSection /> : null}
+				{show("feedback") ? <AlertsSection /> : null}
 				{show("surfaces") ? <StickyFooterSection /> : null}
 				{group === "all" ? <CompositionMap /> : null}
 			</div>
@@ -1149,6 +1153,82 @@ function FeedbackSection() {
 				</Card>
 			</div>
 		</Section>
+	);
+}
+
+function AlertsSection() {
+	return (
+		<Section
+			index={7}
+			title="Alerts"
+			code="<InlineAlert live focus> · <Alert tone title actions> · <PageState page tone title>"
+			note="A problem sits next to what it is about. InlineAlert keeps its live region in the page, so a problem that appears is read out; focus moves to it only when the person asked for the refused action."
+		>
+			<div className="grid items-start gap-5 app-md:grid-cols-2">
+				<Specimen label="Inline problem">
+					<InlineAlert>The meeting was not saved. Your seat may have changed; reload the page.</InlineAlert>
+				</Specimen>
+				<Specimen label="With a title">
+					<Alert role="alert" title="These records can’t be merged">
+						<ul className="mt-1 flex flex-col gap-1">
+							<li>Kim Wu is still the contact on an open follow-up.</li>
+							<li>Sara Nunez has a newer phone number.</li>
+						</ul>
+					</Alert>
+				</Specimen>
+				<Specimen label="With actions">
+					<Alert
+						aria-atomic="true"
+						actions={
+							<>
+								<Button size="sm" variant="secondary">
+									Check again
+								</Button>
+								<Button size="sm" variant="ghost">
+									Dismiss
+								</Button>
+							</>
+						}
+					>
+						The meeting may already be saved. We did not hear back from the server. Check again to find out; it will not
+						be saved twice.
+					</Alert>
+				</Specimen>
+				<Specimen label="Neutral">
+					<Alert
+						tone="neutral"
+						title="Evry stopped before answering"
+						actions={
+							<Button size="sm" variant="outline">
+								Try again
+							</Button>
+						}
+					>
+						Nothing was changed. Ask again in a moment.
+					</Alert>
+				</Specimen>
+				<RefusalSpecimen />
+				<Specimen label="Route state" className="app-md:col-span-2">
+					<PageState page="Documents" tone="error" title="We could not load documents">
+						This is a loading problem. Nothing was changed. Try again in a moment.
+					</PageState>
+				</Specimen>
+			</div>
+		</Section>
+	);
+}
+
+function RefusalSpecimen() {
+	const [refusals, setRefusals] = useState(0);
+	return (
+		<Specimen label="Refusal that takes focus" className="flex flex-col items-start gap-4">
+			<Button variant="primary" onClick={() => setRefusals(refusals + 1)}>
+				Save stage
+			</Button>
+			<InlineAlert focus={refusals} className="self-stretch">
+				{refusals ? `Choose a stage first. Refused ${refusals === 1 ? "once" : `${refusals} times`}.` : null}
+			</InlineAlert>
+		</Specimen>
 	);
 }
 

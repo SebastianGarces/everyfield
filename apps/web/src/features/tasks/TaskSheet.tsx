@@ -46,9 +46,6 @@ import { DueLine, STATUS_TONE, StatusItems } from "./parts.tsx";
 import { BlockedBy, Repeats, Section, Steps, type StepAssignee } from "./structure.tsx";
 
 export type DetailState = { status: "loading" } | { status: "failed"; code: string } | ({ status: "ok" } & Loaded);
-/**
- * The panel section being edited, with the person's choice and the refusal code from a refused save to show again.
- */
 export type PanelEdit =
 	| { kind: "prerequisites"; draft?: Prerequisite[]; problem?: string }
 	| { kind: "repeat"; draft?: Rule | null; problem?: string };
@@ -66,7 +63,6 @@ const MANAGED = {
 	first_vision_follow_up: "A meeting created this follow-up for a first-time guest.",
 	meeting_evaluation: "A meeting created this evaluation task.",
 } as const;
-/** Who made a change. A system cause is never shown as a person (REQ-TSK-015). */
 function actorText(a: Entry["actor"]): string {
 	if (a.kind === "system") {
 		const words = a.cause.replaceAll(/[_.]+/g, " ").trim();
@@ -76,10 +72,6 @@ function actorText(a: Entry["actor"]): string {
 	return a.displayName ?? "A former member";
 }
 
-/**
- * The task panel: what the task is, its steps and its status history (REQ-TSK-015), with the status actions the
- * viewer may take. It opens at once with the row's facts and fills in the rest from one read.
- */
 export function TaskSheet({
 	task: row,
 	state,
@@ -113,13 +105,11 @@ export function TaskSheet({
 	year: number;
 	viewer: Viewer;
 	canAct: boolean;
-	/** The task's last save is in flight or unknown: its status actions and Delete wait (C68). */
 	wait: Wait;
 	onAction: (a: StatusAction) => void;
 	onEdit: () => void;
 	onDelete: () => void;
 	onRetry: () => void;
-	/** Changes still in flight, shown before they are confirmed. */
 	pending: Pending;
 	canActStep: (step: Step) => boolean;
 	stepWait: (id: string) => Wait;
@@ -131,7 +121,6 @@ export function TaskSheet({
 	onPrerequisites: (items: Prerequisite[]) => void;
 	onRepeat: (rule: Rule | null) => void;
 	onOpenTask: (id: string) => void;
-	/** The cards' notices: while the panel is open, they show here (C69). */
 	notices: ReactNode;
 }) {
 	const hint = useId();
@@ -139,7 +128,6 @@ export function TaskSheet({
 	const loaded = state?.status === "ok" ? state : null;
 	const detail = loaded ? loaded.task : null;
 	const panel = detail ? pending.panel[detail.id] : undefined;
-	// The row is the latest confirmed or optimistic state; the detail adds description, steps and history.
 	const task: TaskItem | null = row ?? detail;
 	const admin = viewer.role !== "member";
 	return (
@@ -251,7 +239,6 @@ export function TaskSheet({
 					{task.managed ? (
 						<p className="rounded-md bg-surface px-3.5 py-2.5 text-sm">{MANAGED[task.managed.kind]}</p>
 					) : null}
-					{/* A follow-up with a person records what happened, not just a tick (WP-023, REQ-MTG-022). */}
 					{task.relation?.kind === "person" && !task.parentId && !task.deleted ? (
 						<IntentLink
 							href={`/follow-ups/${task.id}`}
@@ -427,11 +414,6 @@ function Loading() {
 	);
 }
 
-/**
- * What was recorded on a follow-up, newest first: the outcome, how, the note, who and when, with corrected and withdrawn
- * entries kept (REQ-MTG-022). The first page comes with the panel's own read, so it paints with the rest of the panel.
- * A page that did not load is read again on request, so the panel never needs closing.
- */
 function ContactHistorySection({
 	personId,
 	taskId,
@@ -444,7 +426,6 @@ function ContactHistorySection({
 	accountId: string;
 }) {
 	const [loading, setLoading] = useState(false);
-	// A newer first page from the panel replaces the one read here.
 	const [read, setRead] = useState({ from: first, page: first });
 	const log = read.from === first ? read.page : first;
 	return (
@@ -476,12 +457,9 @@ function ContactHistorySection({
 	);
 }
 
-/** Every status change, oldest first, with who or what made it and when. Later pages load on request. */
 function History({ taskId, first }: { taskId: string; first: Outcome<TaskHistory> }) {
 	const [more, setMore] = useState<{ items: Entry[]; next: number | null; problem?: string } | null>(null);
 	const [loading, setLoading] = useState(false);
-	// A first page that did not load is read again on request, so a failed read never needs the panel closed. A newer
-	// first page from the panel replaces the one read here.
 	const [read, setRead] = useState({ from: first, page: first });
 	const page = read.from === first ? read.page : first;
 	if (page.status !== "ok")
