@@ -6,13 +6,8 @@ import "server-only";
 import { requestDatabase } from "../database";
 import { pipelineActor } from "./pipeline";
 
-// The development programs mount (WP-099), beside the pipeline's. Pages and actions take the request's one actor
-// (D59); every read and write rechecks the seat inside its own statement or transaction. A database failure reads as
-// "lost", never a crash.
-
 export type ProgramAnswer<T> = ProgramReply<T> | { status: "lost" };
 
-/** One program read or write as the request's actor, or the refusal of a request with no organization seat. */
 export async function programCall<T>(
 	run: (db: Database, authority: RequestActor) => Promise<ProgramReply<T>>,
 	authority?: RequestActor,

@@ -3,7 +3,6 @@ import { randomUUID } from "node:crypto";
 import { searchPath, testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
 
-// The schema exists from import on; `setup` adds the tenant and `teardown` drops everything.
 const database = await testDatabase({ prefix: "wp031", max: 6 });
 export const db = database.admin;
 export const runtime = database.pools.runtime;

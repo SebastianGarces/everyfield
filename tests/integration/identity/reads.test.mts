@@ -59,8 +59,6 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 	assert.equal(viewer.value.registration, "active");
 	assert.deepEqual(viewer.value.authority.actor.context.owner, s.w);
 	assert.equal(viewer.value.person, null);
-	// The viewer read waits for no write: an open update of the session row (a sign-out, an expiry extension) does not
-	// hold it up (C27).
 	let release, locked;
 	const ready = new Promise((resolve) => (locked = resolve)),
 		done = new Promise((resolve) => (release = resolve));
@@ -103,7 +101,6 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 	assert.equal(sharing.value[relationshipId].sharing.view, "plant_administration");
 	assert.deepEqual(sharing.value[relationshipId].sharing.choices.people, false);
 	assert.equal(sharing.value[relationshipId].relationshipRevision, "1");
-	// As the mount runs it (disclosureFor): a read transaction that observed the request actor, one statement inside.
 	const disclosure = await count(() =>
 		f.db.transaction((tx) => {
 			authority.observe(tx);
@@ -120,7 +117,6 @@ test("INV-reads: viewer, roster, invitation list, sharing history, sharing choic
 		disclosure.statements.map((q) => q.trim().split(/\s/)[0].toUpperCase()),
 		["BEGIN", "SELECT", "COMMIT"],
 	);
-	// A read transaction that observed the request actor answers currentActor without a statement (D59).
 	const observed = await count(() =>
 		f.db.transaction(async (tx) => {
 			authority.observe(tx);
@@ -178,7 +174,6 @@ test("BUG-d77ac46e4: only Better Auth's exact signed session cookie yields a tok
 	const secret = "s".repeat(32),
 		token = "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6";
 	const signature = createHmac("sha256", secret).update(token).digest("base64");
-	// The value as Next.js cookies() hands it over: already percent-decoded.
 	assert.equal(signedSessionToken(`${token}.${signature}`, secret), token);
 	for (const bad of [
 		`${token}.${signature}!`,
@@ -218,7 +213,6 @@ test("INV-reads: a resident's own residency read reuses the observed actor and t
 	);
 	assert.equal(residency.value?.personId, person);
 	assert.equal(residency.value?.organization.id, s.w.id);
-	// The sharing page reads every residency link of the account with its consent in one statement.
 	const links = await count(() =>
 		residencyLinks(f.db, {
 			kind: "account",

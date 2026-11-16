@@ -124,7 +124,6 @@ test("INV-jobs: a retry on the last attempt waits instead of failing when the wo
 		const id = await create(1);
 		const [claim] = await claimDue(runtime, ["object_cleanup"]);
 		assert.equal(claim.attempt_count, claim.max_attempts);
-		// A People import that saves failed rows resets the row's count, as scanPage does on a committed page.
 		if (progress) await db.execute(querySql`UPDATE job SET attempt_count=0 WHERE id=${querySql.param(id)}`);
 		assert.equal(await finishJob(runtime, claim, { state: "retry_wait", code: "import_interrupted" }), true);
 		const row = await job(id);
@@ -228,12 +227,10 @@ test("INV-jobs: a claim is one round trip; it takes the oldest due job, skips on
 	};
 	let held;
 	try {
-		// Another transaction holds the oldest job: the claim skips it and takes the next one, without waiting.
 		held = await db.transaction(async (tx) => {
 			await tx.execute(querySql`SELECT id FROM job WHERE id=${querySql.param(ids[0])} FOR UPDATE`);
 			return claimDue(runtime, ["digest"]);
 		});
-		// One message on one checked-out connection; a transaction would check out a connection and send no pool query.
 		assert.deepEqual(calls, { query: 1, connect: 1 });
 	} finally {
 		pool.query = query;

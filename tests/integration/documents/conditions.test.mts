@@ -1,6 +1,3 @@
-// T-20 (WP-036 slice): conditional text, the `if` node. The format refuses each misplaced or ill-formed condition with
-// its own message; the PDF and the Word file print a true condition's blocks in place and leave a false one out with
-// no blank; the editor's "prints now" state matches the PDF; and the agenda overflow note builds from format nodes.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
@@ -234,7 +231,6 @@ test("INV-doc-conditions: a document with no condition keeps its stored form, an
 	}
 });
 
-// Criterion 4: every case the editor labels, with the PDF of the same document.
 const CASES: { name: string; condition: IfNode["attrs"]; data: Record<string, unknown>; prints: boolean }[] = [
 	{
 		name: "has-value, true",
@@ -337,7 +333,6 @@ test("INV-doc-conditions: the editor's prints-now state matches the PDF in every
 	);
 });
 
-/** Enough text to fill most of a page, so a left-out block moves the page break. */
 const filler = Array.from({ length: 24 }, (_, i) => text(`Filler line ${i + 1} of the document body.`));
 
 test("INV-doc-conditions: a false condition prints exactly as the document without it, page breaks included", async () => {
@@ -354,7 +349,6 @@ test("INV-doc-conditions: a false condition prints exactly as the document witho
 	);
 	assert.equal((await pdfPages(await pdf(falseIf))).length, 2);
 
-	// True: the blocks print in place, as if they sat in the body. The extra lines push the page break: one page more.
 	const trueIf = doc([...filler, cond({ field: "pastor", test: "has-value" }, tall), text("Next block"), ...rest], {
 		pastor: "Ana",
 	});
@@ -363,8 +357,6 @@ test("INV-doc-conditions: a false condition prints exactly as the document witho
 	assert.equal(sha(await docx(trueIf)), sha(await docx(inline)));
 	assert.equal((await pdfPages(await pdf(trueIf))).length, 3, "the page count follows the printed blocks");
 
-	// In a column and in a box too; and the Word file has no empty paragraph where the block was.
-	// Both conditions are false: the pastor has a value.
 	const nested = doc(
 		[
 			{
@@ -416,7 +408,6 @@ test("INV-doc-conditions: tiled card sheets follow the same rule", async () => {
 	assert.equal(printed.split("Pastor line").length - 1, 4, "each of the four cards prints the line");
 });
 
-// Criterion 8: the agenda's attendee overflow note, from format nodes only. The agenda template does not change.
 const NOTE = "This list shows the first 150 people. 1 more are not shown.";
 function agenda(people: number) {
 	const cap = 150;

@@ -57,21 +57,10 @@ const writeRow = z.object({
 
 const residency: readonly string[] = residencyCategories;
 const organizationOnly: readonly string[] = organizationCategories;
-/**
- * Whether the account can receive a category, so Settings offers it: a residency category while it has a live
- * residency link (T-365), any other only with a current seat, and the oversight digest and answers to review (T-385)
- * only with an organization seat.
- * A seatless Discovery account is offered no seat category.
- */
 function offered(category: string, row: { organization: boolean; seated: boolean; resident: boolean }) {
 	if (residency.includes(category)) return row.resident;
 	return row.seated && (!organizationOnly.includes(category) || row.organization);
 }
-/**
- * The account's notification choices, in one statement: its revision, its stored choices with the defaults filled in
- * (defaultChannelEnabled, defaultDigestCadence), limited to the categories it can receive (`offered`). The notifications feed and bell, and the Settings Notifications section, all read this.
- * Null when the session is no longer live.
- */
 export async function readPreferences(
 	db: Pick<Database, "execute">,
 	access: { session: string; actor: Pick<RequestActor["actor"], "accountId"> },
@@ -167,7 +156,6 @@ async function save(
 
 type PreferenceRow = { category: string; channel: string; enabled: boolean; cadence: string | null };
 
-/** The only channel and cadence write for notification_preference. Settings and this producer both call it. */
 export function preferenceUpsert(
 	accountId: string,
 	rows: readonly PreferenceRow[],
