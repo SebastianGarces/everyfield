@@ -218,7 +218,6 @@ test("INV-membership: legacy inconsistent seats and current lifecycle witnesses 
 		const { seat } = await import("./support.mts");
 		const first = await seat(db.admin, a, p),
 			second = id();
-		// Simulate pre-constraint corruption only inside this disposable schema.
 		await db.admin.execute(querySql.raw(`DROP INDEX ${db.schema}.seat_uq_0`));
 		await db.admin.execute(
 			querySql`INSERT INTO seat(id,account_id,plant_id,role,accepted_at) VALUES(${second},${a.id},${q.id},${"member"},clock_timestamp())`,

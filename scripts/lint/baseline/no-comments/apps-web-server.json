@@ -1,6 +1,0 @@
-{
-	"apps/web/src/server/app-version.ts": 1,
-	"apps/web/src/server/database.ts": 10,
-	"apps/web/src/server/mail-env.ts": 3,
-	"apps/web/src/server/request-context.ts": 8
-}

@@ -8,7 +8,6 @@ import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 
-// The schema exists from import on; `teardown` drops it.
 const database = await testDatabase({ prefix: "wp007", max: 8 });
 export const { schema, admin: db } = database;
 export const runtime = database.pools.runtime;
@@ -98,7 +97,6 @@ export const command = (input: unknown, expectedRevision = "1", requestKey = ran
 	expectedRevision,
 	input,
 });
-/** The operations the production mounts run through query(), without the write gate. Every other one is a command. */
 const reads = new Set<keyof typeof api>([
 	"associations.getHistory",
 	"organizations.getProfile",
@@ -108,11 +106,6 @@ const reads = new Set<keyof typeof api>([
 	"pipelineSharing.checkAggregateAccess",
 ]);
 export type Actor = Pick<Awaited<ReturnType<typeof identity>>, "session" | "selected">;
-/**
- * One command transaction as the production mounts run it (command() in apps/web/src/server/organizations): the write
- * gate locks the actor's account and selected owner before the body starts. A body that locks first hides lock-order
- * faults that production has.
- */
 export async function write<T>(
 	actor: Actor,
 	body: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<T>,
@@ -127,7 +120,6 @@ export async function call(name: keyof typeof api, actor: Actor, input: unknown)
 		api[name](c, actor.session, actor.selected, input as never);
 	return reads.has(name) ? tx(run) : write(actor, run);
 }
-/** Resolves once another transaction of this test role waits for a row lock (the shared wait on lock state). */
 export const waitingOnLock = () => sharedWaitingOnLock(runtime);
 export async function affiliation(
 	plant: ReturnType<typeof owner.parse>,
@@ -139,11 +131,6 @@ export async function affiliation(
  VALUES(${sql.param(plant.kind === "plant" ? plant.id : null)},${sql.param(plant.kind === "account" ? plant.id : null)},${sql.param(plant.kind === "organization" ? plant.id : null)},${sql.param(org.id)},clock_timestamp(),${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)}) RETURNING id`);
 	return r.rows[0].id;
 }
-/**
- * The holder binds its write gate and waits until the rival transaction waits for a lock, then runs its body. Each
- * side settles to its value, `{ refused: code }` for a domain refusal or `{ failed: code }` for a Postgres error such
- * as a deadlock (40P01) or lock timeout (55P03).
- */
 export async function race<A, B>(
 	holder: Actor,
 	held: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<A>,

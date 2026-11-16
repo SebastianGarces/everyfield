@@ -6,16 +6,12 @@ import { fixture } from "../identity/invitations-support.mts";
 import { PeopleReadContext, readPersonPhotos } from "../../../packages/domain/src/people/index.ts";
 import { ok, refused } from "../../support/fixture.mts";
 
-// T-274: Evry's result cards ask for the current photos of the person rows they show, by person id, apart from Evry.
-// The lookup applies the People list rule and reads the photos as they are now on every call.
-
 let f, plant, other, viewer;
 async function account(w = plant, role = "member") {
 	const a = await f.account();
 	if (w) await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
 }
-/** The account's photo is now a new version, as Settings' finalize leaves it. */
 async function setAvatar(a) {
 	const versionId = randomUUID();
 	await f.admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,
@@ -54,7 +50,6 @@ test("AC:TARGET-IDN-006: the photos of the asked people as they are now, by the 
 		foreign = await person("Foreign", await account(other), other);
 	assert.deepEqual(await photos([h, b, u, foreign]), { [h]: { kind: "account", ...first } });
 
-	// A replaced photo shows its new version on the next call; a removed one or an ended seat shows none.
 	const replaced = await setAvatar(holder);
 	assert.deepEqual(await photos([h]), { [h]: { kind: "account", ...replaced } });
 	await f.admin.execute(sql`UPDATE account SET avatar_object_id=NULL WHERE id=${holder.id}`);

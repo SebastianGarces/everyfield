@@ -1,8 +1,5 @@
 import type { makePalette } from "./theme.ts";
 
-// The Office Open XML parts every Word file shares: the namespaces, escaping, borders and the paragraph styles.
-// doc-docx.ts writes the document itself.
-
 export const NS =
 	'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"';
 export const HEAD = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
@@ -15,7 +12,6 @@ export const escape = (value: string) =>
 		.replace(/"/g, "&quot;");
 export const hex = (color: string) => color.replace("#", "").toUpperCase();
 
-/** The palette and the font names Word shows. Word falls back if a font is missing. */
 export type DocxCtx = { p: ReturnType<typeof makePalette>; fonts: { heading: string; body: string } };
 
 export const border = (color: string, size = 4) =>
@@ -23,10 +19,6 @@ export const border = (color: string, size = 4) =>
 		.map((side) => `<w:${side} w:val="single" w:sz="${size}" w:space="0" w:color="${hex(color)}"/>`)
 		.join("");
 
-/**
- * The paragraph styles. Body lines are at least the PDF's line height (10.5 pt type at 1.5, 315 twips): an "auto" line
- * multiplies the font's own line gap, which DM Sans makes tall, and LibreOffice then spills pages the PDF fits.
- */
 export function styles(ctx: DocxCtx) {
 	const { heading, body } = ctx.fonts;
 	const font = (name: string) =>

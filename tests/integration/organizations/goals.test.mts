@@ -15,11 +15,6 @@ import {
 const { addPerson, correctConversation, editPerson, logConversation, movePerson, retirePerson, saveGoal, saveStages } =
 	pipelineWriter;
 
-// Sending goals and leadership conversations (REQ-MUL-007, REQ-MUL-009) against a migrated database. Grace Austin
-// (America/Chicago): Owner Dana, Admin Luis, Member Ana (responsible for Casey) and Member Ben (no pipeline duty).
-// Hill Country Network is a separate organization in another time zone. Days are relative to today in each
-// organization's own time zone, so the tests hold on any date.
-
 const database = await fixture({ prefix: "goals", max: 6 });
 const { admin } = database;
 const db = database.pools.runtime;
@@ -59,7 +54,6 @@ const seatOf = async (account: string, organization: string) =>
 			sql`SELECT id FROM seat WHERE account_id=${account}::uuid AND organization_id=${organization}::uuid`,
 		)
 	).rows[0]!.id as string;
-/** A day relative to today in `zone`, as YYYY-MM-DD: `shift` is an SQL interval such as '-1 day'. */
 const day = async (zone: string, expression: string) =>
 	(
 		await admin.execute(
@@ -73,7 +67,6 @@ const casey = randomUUID();
 const people: Record<string, string> = {};
 let stageIds: Record<string, string> = {};
 
-/** Grace Austin's board, move count and Casey's history, to show a goal save moved nobody. */
 const snapshot = async () => ({
 	board: (await board(dana)).stages.map((s) => [
 		s.id,
@@ -104,7 +97,6 @@ before(async () => {
 	anaSeat = await seatOf(ana.id, grace.id);
 	benSeat = await seatOf(ben.id, grace.id);
 
-	// Rename Potential leader to "ICNU conversation had" and add "Intern", counted as Apprentice.
 	const b = await board(dana);
 	const intern = randomUUID();
 	ok(
@@ -143,11 +135,9 @@ before(async () => {
 	await place("Rory Quinn", "Apprentice");
 	await place("Morgan Hale", "Apprentice");
 	await place("Kai Doran", "Commissioned");
-	// Rory is retired; Morgan was merged into Blake. Neither counts.
 	ok(await retirePerson(db, await authority(dana), { personId: people["Rory Quinn"], expectedRevision: "1" }));
 	await admin.execute(sql`UPDATE person SET state='merged',merged_into_person_id=${people["Blake Moss"]}::uuid,
 	 retired_at=clock_timestamp() WHERE id=${people["Morgan Hale"]}::uuid`);
-	// Hill Country has its own pipeline person, in its own Apprentice stage.
 	const hb = await board(hillOwner);
 	people["Hill Person"] = randomUUID();
 	ok(
@@ -168,7 +158,6 @@ test("AC:ADR1-007 with no goals, every seat sees live people counted once by sta
 		assert.equal(g.asOf, today);
 		assert.deepEqual(g.goals, []);
 		assert.equal(g.canEdit, who === dana || who === luis);
-		// 3 in the renamed stage; Intern (1) and Apprentice (2) are both Apprentice; retired, merged and Hill don't count.
 		assert.deepEqual(kinds(g), {
 			potential_leader: 3,
 			apprentice: 3,
@@ -176,10 +165,8 @@ test("AC:ADR1-007 with no goals, every seat sees live people counted once by sta
 			commissioned: 1,
 			not_continuing: 0,
 		});
-		// A Commissioned-kind person is never a plant sent, and the count is never zero (ADR-001 stage 3).
 		assert.deepEqual(g.plantsSent, { status: "unavailable", reason: "deferred_stage_3" });
 	}
-	// Renaming a stage never changes a count: counts use the fixed kind.
 	const b = await board(dana);
 	ok(
 		await saveStages(db, await authority(dana), {
@@ -193,7 +180,6 @@ test("AC:ADR1-007 with no goals, every seat sees live people counted once by sta
 		}),
 	);
 	assert.equal(kinds(await goals(dana)).apprentice, 3);
-	// Hill Country sees only its own person.
 	assert.equal(kinds(await goals(hillOwner)).apprentice, 1);
 });
 
@@ -215,7 +201,6 @@ test("AC:ADR1-007 an Owner adds and edits goals; a negative target is refused; s
 		revision: "1",
 		outcome: "changed",
 	});
-	// A repeated add writes no second goal.
 	assert.equal((ok(await saveGoal(db, await authority(dana), goal)) as { outcome: string }).outcome, "noop");
 	const second = randomUUID();
 	ok(
@@ -236,7 +221,6 @@ test("AC:ADR1-007 an Owner adds and edits goals; a negative target is refused; s
 			[3, 0, 2030, "Three residents ready to lead."],
 		],
 	);
-	// A negative target is refused, on add and on edit.
 	refusedWith(
 		await saveGoal(db, await authority(dana), { ...goal, goalId: randomUUID(), plantTarget: -1 }),
 		"invalid_input",
@@ -247,10 +231,8 @@ test("AC:ADR1-007 an Owner adds and edits goals; a negative target is refused; s
 		"invalid_input",
 		"leaderTarget",
 	);
-	// Members cannot save a goal, even the person's responsible staff.
 	for (const who of [ana, ben])
 		refusedWith(await saveGoal(db, await authority(who), { ...goal, goalId: randomUUID() }), "unavailable");
-	// An edit needs the current revision.
 	assert.equal(
 		(
 			ok(await saveGoal(db, await authority(dana), { ...goal, expectedRevision: "1", leaderTarget: 7 })) as {
@@ -264,9 +246,7 @@ test("AC:ADR1-007 an Owner adds and edits goals; a negative target is refused; s
 		"conflict",
 	);
 	assert.equal((await goals(dana)).goals[0]!.leaderTarget, 7);
-	// Nobody moved, no stage changed and nobody's history gained an entry.
 	assert.deepEqual(await snapshot(), before);
-	// Hill Country sees none of Grace's goals; Grace sees none of Hill's.
 	assert.deepEqual((await goals(hillOwner)).goals, []);
 	ok(await saveGoal(db, await authority(hillOwner), { ...goal, goalId: randomUUID(), rationale: "Hill's own goal." }));
 	assert.deepEqual(
@@ -274,7 +254,6 @@ test("AC:ADR1-007 an Owner adds and edits goals; a negative target is refused; s
 		["Hill's own goal."],
 	);
 	assert.equal((await goals(dana)).goals.length, 2);
-	// Hill's Owner cannot change a Grace goal by naming it.
 	refusedWith(await saveGoal(db, await authority(hillOwner), { ...goal, expectedRevision: "2" }), "unavailable");
 });
 
@@ -294,7 +273,6 @@ test("AC:ADR1-009 conversations count by month and quarter of their day; a futur
 			note: "Asked Casey about leading the east side group.",
 		}),
 	);
-	// A repeat logs nothing new.
 	ok(await logConversation(db, auth, { conversationId: met, personId: casey, occurredOn: thisMonth, note: null }));
 	const boundary = randomUUID();
 	ok(
@@ -315,7 +293,6 @@ test("AC:ADR1-009 conversations count by month and quarter of their day; a futur
 		"invalid_input",
 		"occurredOn",
 	);
-	// Ana is not responsible for Riley; Ben is responsible for no one.
 	refusedWith(
 		await logConversation(db, auth, {
 			conversationId: randomUUID(),
@@ -352,7 +329,6 @@ test("AC:ADR1-009 conversations count by month and quarter of their day; a futur
 		quarters(g),
 	);
 
-	// Correcting the boundary conversation to the first day of this quarter moves it to that month and quarter.
 	const riley = ok(await record(dana, people["Riley Park"]!));
 	const c = riley.conversations[0]!;
 	assert.equal(c.on, lastQuarterEnd);
@@ -368,7 +344,6 @@ test("AC:ADR1-009 conversations count by month and quarter of their day; a futur
 	assert.equal(months(moved)[monthOf(lastQuarterEnd)], 0);
 	assert.equal(quarters(moved)[quarterOf(lastQuarterEnd)], 0);
 	assert.equal(quarters(moved)[quarterOf(quarterStart)], 2);
-	// A stale revision and a future day are refused.
 	refusedWith(
 		await correctConversation(db, await authority(dana), {
 			conversationId: boundary,
@@ -391,7 +366,6 @@ test("AC:ADR1-009 conversations count by month and quarter of their day; a futur
 });
 
 test("AC:ADR1-009 today, months and quarters follow the organization's time zone", async () => {
-	// Kiritimati is UTC+14, so its today is often a day after UTC's: a conversation on its today is not in the future.
 	const today = await day("Pacific/Kiritimati", "today");
 	const g = await goals(hillOwner);
 	assert.equal(g.asOf, today);
@@ -424,7 +398,6 @@ test("AC:ADR1-009 only the Owner, Admins and current responsible staff read a no
 		return r.status === "ok" ? (r.value as { conversations: { note: string | null }[] }).conversations[0]?.note : null;
 	};
 	for (const who of [dana, luis, ana]) assert.match((await noteOf(who)) ?? "", /east side group/);
-	// Ben gets counts only: no record, and nothing in his goals read or a board search mentions the note.
 	refusedWith(await record(ben, casey), "unavailable");
 	assert.equal(JSON.stringify(await goals(ben)).includes(word), false);
 	const searched = await board(ben, { q: "east" });
@@ -432,7 +405,6 @@ test("AC:ADR1-009 only the Owner, Admins and current responsible staff read a no
 	assert.equal(searched.query.q, "");
 	assert.equal(JSON.stringify(searched).includes("east"), false);
 
-	// Ana corrects her conversation's day back by one; the history shows the old and new day, Ana and today.
 	const c = (ok(await record(ana, casey)) as { conversations: { id: string; revision: string; on: string }[] })
 		.conversations[0]!;
 	const earlier = await day("America/Chicago", `'${c.on}'::date - 1`);
@@ -452,13 +424,11 @@ test("AC:ADR1-009 only the Owner, Admins and current responsible staff read a no
 		entry.corrections.map((x) => [x.actor, x.on, x.dateFrom, x.dateTo, x.noteChanged]),
 		[["Ana", await day("America/Chicago", "today"), c.on, earlier, false]],
 	);
-	// Central audit holds no note text.
 	const audit = await admin.execute(
 		sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${grace.id}::uuid AND metadata::text ILIKE '%east side%'`,
 	);
 	assert.equal(audit.rows[0]!.n, 0);
 
-	// Dana makes Ben responsible for Casey in Ana's place: Ben reads the note, Ana no longer can.
 	const person = ok(await record(dana, casey));
 	ok(
 		await editPerson(db, await authority(dana), {
@@ -483,7 +453,6 @@ test("AC:ADR1-009 only the Owner, Admins and current responsible staff read a no
 });
 
 test("AC:ADR1-007 AC:ADR1-016 sharing pipeline totals with a network shows the network none of Grace's goals, counts or conversations", async () => {
-	// Grace turns on "Share pipeline totals" for Hill Country.
 	const link = randomUUID();
 	await admin.execute(sql`INSERT INTO affiliation (id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,
 	 share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
@@ -495,7 +464,6 @@ test("AC:ADR1-007 AC:ADR1-016 sharing pipeline totals with a network shows the n
 		g.goals.map((x) => x.rationale),
 		["Hill's own goal."],
 	);
-	// Only Hill's one person and one conversation.
 	assert.equal(kinds(g).apprentice, 1);
 	assert.equal(kinds(g).potential_leader, 0);
 	assert.equal(
@@ -505,7 +473,6 @@ test("AC:ADR1-007 AC:ADR1-016 sharing pipeline totals with a network shows the n
 	const text = JSON.stringify([g, await board(hillOwner)]);
 	for (const secret of ["Casey", "east side", "Two new churches"]) assert.equal(text.includes(secret), false, secret);
 	refusedWith(await record(hillOwner, casey), "unavailable");
-	// Grace's counts never include Hill's conversation.
 	assert.equal(
 		(await goals(dana)).conversations.quarters.reduce((n, q) => n + q.count, 0),
 		2,
@@ -513,7 +480,6 @@ test("AC:ADR1-007 AC:ADR1-016 sharing pipeline totals with a network shows the n
 });
 
 test("AC:ADR1-007 a goal's chosen counts count each live person who reached the kind since its start, once, even after moving on", async () => {
-	// Hill Country Network (America/Chicago): Owner Hana, Admin Hugo, Member Mia. Grace Austin is a separate church.
 	const net = await database.organization("sending_network", {
 		name: "Hill Country Network",
 		timezone: "America/Chicago",
@@ -523,14 +489,12 @@ test("AC:ADR1-007 a goal's chosen counts count each live person who reached the 
 	const hugo = await database.actor(net as never, "admin", { user: { name: "Hugo" } });
 	const mia = await database.actor(net as never, "member", { user: { name: "Mia" } });
 	const gracie = await database.actor(church as never, "owner", { user: { name: "Gina" } });
-	// Grace Austin shares pipeline totals with Hill Country; Hill Country's counts still hold only its own people.
 	const link = randomUUID();
 	await admin.execute(sql`INSERT INTO affiliation (id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,
 	 share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 	 VALUES (${link}::uuid,${church.id}::uuid,${net.id}::uuid,clock_timestamp(),false,false,false,false,false,false,false)`);
 	await admin.execute(sql`INSERT INTO pipeline_sharing (id,organization_id,relationship_id,network_id,share_pipeline_totals,revision)
 	 VALUES (gen_random_uuid(),${church.id}::uuid,${link}::uuid,${net.id}::uuid,true,1)`);
-	// A second Apprentice-kind stage, "Residency track".
 	const starters = await board(hana);
 	const residencyTrack = randomUUID();
 	ok(
@@ -547,7 +511,6 @@ test("AC:ADR1-007 a goal's chosen counts count each live person who reached the 
 	const apprentice = (await board(hana)).stages.find((s) => s.label === "Apprentice")!.id;
 	const commissioned = await stageOf(hana, "commissioned");
 	const who: Record<string, string> = {};
-	/** Adds a person at `stage`, with the placement dated `at` (an instant) when given. */
 	const place = async (owner: Actor, name: string, stage: string, at?: string) => {
 		who[name] = randomUUID();
 		ok(
@@ -561,7 +524,6 @@ test("AC:ADR1-007 a goal's chosen counts count each live person who reached the 
 		);
 		if (at) await backdate(name, stage, at);
 	};
-	/** Dates the person's latest move into `stage` at `at`: the move's audit row is its day. */
 	const backdate = async (name: string, stage: string, at: string) =>
 		await admin.execute(sql`UPDATE audit_event SET occurred_at=${at}::timestamptz WHERE id=(SELECT m.id
 		 FROM pipeline_stage_move m JOIN pipeline_person pp ON pp.id=m.pipeline_person_id JOIN audit_event a ON a.id=m.id
@@ -579,30 +541,22 @@ test("AC:ADR1-007 a goal's chosen counts count each live person who reached the 
 		await backdate(name, stage, at);
 	};
 	const early = "2025-11-01T18:00:00Z";
-	// Jo: Apprentice on Feb 3, then on to Commissioned on Sep 9. Counts in both.
 	await place(hana, "Jo", potential, early);
 	await move(hana, "Jo", apprentice, "2026-02-03T18:00:00Z");
 	await move(hana, "Jo", commissioned, "2026-09-09T18:00:00Z");
-	// Pat: into Apprentice twice. Counts once.
 	await place(hana, "Pat", potential, early);
 	await move(hana, "Pat", apprentice, "2026-03-01T18:00:00Z");
 	await move(hana, "Pat", potential, "2026-04-01T18:00:00Z");
 	await move(hana, "Pat", apprentice, "2026-06-01T18:00:00Z");
-	// Dee: only Apprentice move is Dec 20, 2025. Does not count.
 	await place(hana, "Dee", potential, early);
 	await move(hana, "Dee", apprentice, "2025-12-20T18:00:00Z");
-	// Lee: placed straight into Commissioned when added on Mar 1. Counts as a leader sent.
 	await place(hana, "Lee", commissioned, "2026-03-01T18:00:00Z");
-	// Ari moved at 00:30 on Jan 1 in Chicago (06:30 UTC): the start day, counts. Sid moved at 23:30 on Dec 31 in
-	// Chicago, already Jan 1 in UTC: does not count.
 	await place(hana, "Ari", potential, early);
 	await move(hana, "Ari", apprentice, "2026-01-01T06:30:00Z");
 	await place(hana, "Sid", potential, early);
 	await move(hana, "Sid", apprentice, "2026-01-01T05:30:00Z");
-	// Ivy moved into the second Apprentice-kind stage. Counts.
 	await place(hana, "Ivy", potential, early);
 	await move(hana, "Ivy", residencyTrack, "2026-05-01T18:00:00Z");
-	// Rae (retired), Max (merged) and a Grace Austin person all reached Apprentice since Jan 1. None counts here.
 	await place(hana, "Rae", apprentice, "2026-04-01T18:00:00Z");
 	ok(await retirePerson(db, await authority(hana), { personId: who.Rae, expectedRevision: "1" }));
 	await place(hana, "Max", apprentice, "2026-04-01T18:00:00Z");
@@ -647,10 +601,8 @@ test("AC:ADR1-007 a goal's chosen counts count each live person who reached the 
 	const g = await counted(hana);
 	assert.equal(g.countingFrom, "2026-01-01");
 	assert.deepEqual(g.counts, expected);
-	// Plants sent stays unavailable with Commissioned people present: Leaders sent never stands in for it.
 	assert.deepEqual((await goals(hana)).plantsSent, { status: "unavailable", reason: "deferred_stage_3" });
 
-	// Renaming Apprentice to "Intern" changes no count and no count label.
 	const b = await board(hana);
 	ok(
 		await saveStages(db, await authority(hana), {
@@ -665,7 +617,6 @@ test("AC:ADR1-007 a goal's chosen counts count each live person who reached the 
 	);
 	assert.deepEqual((await counted(hana)).counts, expected);
 
-	// Every seat reads the counts, without names. A Member cannot change them.
 	const asMia = await goals(mia);
 	assert.equal(asMia.canEdit, false);
 	assert.deepEqual(asMia.goals.find((x) => x.id === goalId)!.counts, expected);
@@ -681,7 +632,6 @@ test("AC:ADR1-007 a goal's chosen counts count each live person who reached the 
 		"unavailable",
 	);
 
-	// Starting from Mar 1 recounts: Jo's and Ari's Apprentice moves fall before it; Lee's start-day placement counts.
 	ok(
 		await saveGoal(db, await authority(hugo), {
 			...base,
@@ -697,7 +647,6 @@ test("AC:ADR1-007 a goal's chosen counts count each live person who reached the 
 		[2, 2],
 	);
 
-	// Grace Austin's own goal counts only Grace Austin's person; neither organization reads the other's goals.
 	const graceGoal = randomUUID();
 	ok(
 		await saveGoal(db, await authority(gracie), {
@@ -717,7 +666,6 @@ test("AC:ADR1-007 a goal's chosen counts count each live person who reached the 
 		(await goals(hana)).goals.map((x) => x.id),
 		[goalId],
 	);
-	// Grace Austin's Owner cannot change Hill Country's goal or its counts by naming it.
 	refusedWith(
 		await saveGoal(db, await authority(gracie), {
 			...base,
@@ -746,13 +694,11 @@ test("saving counts and a start date refuses bad input, moves nobody, is audited
 		rationale: "A private reason only staff read.",
 		counts: [{ kind: "apprentice", label: "Apprentices activated" }],
 	};
-	// Added without a date, a goal counts from the day it was added.
 	ok(await saveGoal(db, auth, { ...base, expectedRevision: null, countingFrom: null }));
 	const saved = async () => (await goals(dana)).goals.find((g) => g.id === goalId)!;
 	assert.equal((await saved()).countingFrom, await day(tz, "today"));
 	const edit = (change: object) =>
 		saveGoal(db, auth, { ...base, expectedRevision: "1", countingFrom: "2026-01-01", ...change });
-	// A day after today, a fifth count, a repeated kind, and an empty or long label are refused; nothing saves.
 	refusedWith(await edit({ countingFrom: await day(tz, "today + 1") }), "invalid_input", "countingFrom");
 	refusedWith(
 		await saveGoal(db, auth, {
@@ -789,7 +735,6 @@ test("saving counts and a start date refuses bad input, moves nobody, is audited
 		["Apprentices activated"],
 	);
 
-	// Four counts save; one is renamed and one removed, and the rest stay intact.
 	const four = [
 		{ kind: "potential_leader", label: "Potential leaders named" },
 		{ kind: "apprentice", label: "Apprentices activated" },
@@ -819,13 +764,10 @@ test("saving counts and a start date refuses bad input, moves nobody, is audited
 			["commissioned", "Leaders sent"],
 		],
 	);
-	// A stale edit is refused.
 	refusedWith(await edit({ counts: [] }), "conflict");
 	assert.equal((await saved()).counts.length, 3);
 
-	// Nobody moved, no stage changed and nobody's history gained an entry.
 	assert.deepEqual(await snapshot(), before);
-	// The audit rows hold ids, the day and the kinds, never a label or the reason.
 	const audit = (
 		await admin.execute(sql`SELECT kind,actor_id::text AS actor,metadata FROM audit_event WHERE tenant_id=${grace.id}::uuid
 		 AND metadata->>'goalId'=${goalId} ORDER BY occurred_at,id`)

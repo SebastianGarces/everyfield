@@ -26,7 +26,6 @@ export class IdentityRefusal extends Error {
 		this.status = status;
 	}
 }
-/** A budget refusal. It names the window the attempt hit, so the reply can say when the same request may pass. */
 export class RateLimited extends IdentityRefusal {
 	readonly windowMinutes: number;
 	constructor(windowMinutes: number) {
@@ -34,7 +33,6 @@ export class RateLimited extends IdentityRefusal {
 		this.windowMinutes = windowMinutes;
 	}
 }
-/** The transaction's statement and lock timeouts, for the select list of its first statement. */
 export const timeouts = sql`set_config('statement_timeout','10s',true)||set_config('lock_timeout','5s',true)`;
 export function transaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
 	return timedTransaction(db, async (tx) => {
@@ -42,7 +40,6 @@ export function transaction<T>(db: Database, body: (tx: Transaction) => Promise<
 		return body(tx);
 	});
 }
-/** A transaction whose first statement selects `timeouts` itself, so the timeouts cost no statement of their own. */
 export async function timedTransaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
 	try {
 		return await auditTransaction(db, body);
@@ -57,7 +54,6 @@ export function rethrowWriteError(error: unknown): never {
 	throw error;
 }
 
-/** A value for the budget's one-round-trip queries: only hex digests, ids, kinds and lock keys, never free text. */
 function literal(value: string | null) {
 	if (value === null) return "NULL";
 	if (!/^[a-z0-9_/-]+$/i.test(value)) throw new Error("unsafe_budget_literal");
@@ -84,8 +80,6 @@ export function attemptBudget(db: Database, key: string) {
 			const [identifierValue, ipValue] = [literal(identifierHash), literal(ipHash)];
 			const inserted = await locked(
 				[identifierHash && `${kind}/id/${identifierHash}`, ipHash && `${kind}/ip/${ipHash}`],
-				// After the locks: drop expired rows, count this window and reserve within the limits. The expired rows
-				// are 24 hours old, outside every window, so the count does not depend on them.
 				`WITH expired AS (DELETE FROM admission_attempt WHERE expires_at<=clock_timestamp() RETURNING 1),
  counts AS (SELECT count(*) FILTER(WHERE identifier_hash=${identifierValue} AND state<>'cleared')::int AS identifiers,
   count(*) FILTER(WHERE trusted_ip_hash=${ipValue})::int AS ips FROM admission_attempt
@@ -103,11 +97,6 @@ export function attemptBudget(db: Database, key: string) {
 			throw new IdentityRefusal("admission_unavailable", 503);
 		}
 	}
-	/**
-	 * Takes the axis locks, in a stable order, with the time limits, then runs `statement`: one round trip. PostgreSQL
-	 * runs the two statements of one simple query as one transaction, and the second takes its snapshot after the
-	 * locks, so it counts every reservation committed before it. Every value is a checked literal (`literal`).
-	 */
 	async function locked(axes: (string | null | false)[], statement: string) {
 		const keys = axes
 			.filter((v): v is string => !!v)
@@ -131,17 +120,13 @@ export function attemptBudget(db: Database, key: string) {
 					trusted_ip_hash: sql<unknown>`CASE WHEN ${clears} THEN NULL ELSE ${tables.admission_attempt.trusted_ip_hash} END`,
 				})
 				.where(eq(tables.admission_attempt.id, r.id));
-		// A failure or a counted attempt only settles its own row: one statement.
 		if (!clears) return void (await settle(db));
-		// A success clears this login's recent failures under its identifier lock, in the same round trip. In-flight
-		// attempts keep their reservation, and another request's later failure is not cleared.
 		await locked(
 			[`${r.kind}/id/${r.identifierHash}`],
 			`WITH cleared AS (UPDATE admission_attempt SET state='cleared' WHERE kind=${literal(r.kind)} AND identifier_hash=${literal(r.identifierHash)} AND state='failed' AND reserved_at>clock_timestamp()-interval '15 minutes' RETURNING 1)
  UPDATE admission_attempt SET state='cleared',trusted_ip_hash=NULL WHERE id=${literal(r.id)}::uuid`,
 		);
 	}
-	/** Gives a reservation back unspent, for an attempt whose outcome is unknown and so must not cost a try. */
 	async function release(reservation: Awaited<ReturnType<typeof reserve>>) {
 		await db.delete(tables.admission_attempt).where(eq(tables.admission_attempt.id, reservation.id));
 	}

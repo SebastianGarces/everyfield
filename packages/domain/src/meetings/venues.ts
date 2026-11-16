@@ -49,7 +49,6 @@ const venue = (v: VenueRow) =>
 		notes: v.notes,
 		active: v.active,
 	});
-/** The fields a venue change records before and after. */
 const fields = (v: z.infer<typeof c.venue>) => ({
 	name: v.name,
 	address: v.address,
@@ -90,7 +89,6 @@ async function lockVenue(tx: Tx, w: Writer, id: string) {
 	return venue(venueRow.parse(r.rows[0]));
 }
 type Venue = z.infer<typeof c.venue>;
-/** What every venue change request carries after parsing. */
 type VenueInput = { venueId: string; patch?: Partial<Omit<Venue, "id" | "revision" | "active">>; reason?: string };
 const patched = (v: Venue, i: VenueInput) =>
 	c.venue.parse({
@@ -105,7 +103,6 @@ const update = (before: z.infer<typeof c.venue>, after: z.infer<typeof c.venue>)
 		revision = revision + 1
 		WHERE id = ${before.id}::uuid AND revision = ${before.revision}::bigint`;
 
-/** One venue change: the locked row, the expected revision, then the update and its history row together. */
 function change(
 	operation: MeetingWrite,
 	schema: z.ZodType<{ requestKey: string; expectedRevision: string; input: VenueInput }>,
@@ -162,7 +159,6 @@ export const venuesWriter = {
 		});
 	},
 	edit: change("venues.edit", c.editVenueRequest, patched, "edit"),
-	/** A reviewed correction of the current facts with a reason; old meeting snapshots keep their copies. */
 	correct: change("venues.correct", c.correctVenueRequest, patched, "correct"),
 	archive: change("venues.archive", c.archiveVenueRequest, (v) => ({ ...v, active: false }), "archive"),
 	restore: change("venues.restore", c.restoreVenueRequest, (v) => ({ ...v, active: true }), "restore"),
@@ -170,7 +166,6 @@ export const venuesWriter = {
 
 const pageRow = z.object({ total: z.number().int(), items: z.array(venueRow).nullable() });
 export const venuesReader = {
-	/** Current venues by name; archived ones only on request. Page numbers in a stable order (name, id). */
 	async list(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.listVenuesRequest, raw);
@@ -197,7 +192,6 @@ export const venuesReader = {
 			});
 		});
 	},
-	/** One venue, archived or not, with its latest history. */
 	async get(db: Reader, authority: RequestActor, raw: unknown) {
 		return read(authority, async (viewer) => {
 			const input = parse(c.venueRequest, raw);
