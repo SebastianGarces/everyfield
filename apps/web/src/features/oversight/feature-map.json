@@ -430,8 +430,12 @@
 									"text": "Latest run"
 								},
 								{
-									"role": "radio",
+									"role": "region",
 									"name": "Whole portfolio"
+								},
+								{
+									"role": "navigation",
+									"name": "Group by"
 								}
 							],
 							"kind": "behavior"

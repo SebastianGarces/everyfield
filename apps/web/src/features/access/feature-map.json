@@ -1,12 +1,16 @@
 {
 	"$schema": "../../../feature-map.schema.json",
 	"feature": "access",
-	"catalog": ["MUL-002"],
+	"catalog": [
+		"MUL-002"
+	],
 	"surfaces": [
 		{
 			"id": "access.design-preview",
 			"says": "Design previews of the access boundary pages and the staff notes panel by viewer duty, with sample data and no database.",
-			"routes": ["/design/access/[flow]"],
+			"routes": [
+				"/design/access/[flow]"
+			],
 			"reach": [
 				{
 					"link": "/design/access/{flow}",

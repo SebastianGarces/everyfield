@@ -234,5 +234,6 @@ agent-browser wait --load networkidle
 agent-browser open "$ORIGIN/network/intelligence"
 agent-browser wait --load networkidle
 agent-browser find text "Latest run" text --exact
-agent-browser find role radio text --name "Whole portfolio" --exact
+agent-browser find role region text --name "Whole portfolio" --exact
+agent-browser find role navigation text --name "Group by" --exact
 ```
