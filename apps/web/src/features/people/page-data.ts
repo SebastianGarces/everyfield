@@ -15,14 +15,8 @@ export type PeopleData =
 	| { kind: "list"; page: z.infer<typeof people.peoplePage> }
 	| { kind: "pipeline"; pipeline: z.infer<typeof people.pipelineResult> }
 	| { kind: "failed" };
-/** `review` is the header's link text to /people/duplicates, null when there is none to show. */
 export type PeopleView = { query: PeopleQuery; data: PeopleData; workspaceEmpty: boolean; review: string | null };
 
-/**
- * One caller-owned page transaction. A page number past the end reads the last page instead (D67). With `pairs` (an
- * Owner or Admin's page load) it also reads the pairs to review, for the header's count (D-846); a view switch leaves it
- * out and keeps the count it has.
- */
 export async function readPeoplePage(
 	tx: Transaction,
 	ctx: PeopleContext,
@@ -59,7 +53,6 @@ async function readReview(tx: Transaction, ctx: PeopleContext) {
 	return pairsToReview(r.status === "ok" ? r.value : null);
 }
 
-/** The person page in one statement (see the domain readPersonPage), with the first 50 Activity items. */
 export async function readPersonPage(
 	db: Database | Transaction,
 	ctx: PeopleContext,

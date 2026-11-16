@@ -20,9 +20,6 @@ const creationFields = {
 	ownerSeat: z.strictObject({ seatId: recordId, role: z.literal("owner"), personId }),
 	creation: creationEntry,
 };
-// Replays return the current phase, plus the original creation evidence. They
-// cannot claim a new entry or demote a plant whose journey advanced afterwards.
-// Creation settings remain original evidence even if sharing changes later.
 export const selfStartSharing = z.record(sharingCategory, z.literal(false));
 export const createPlantResult = z.discriminatedUnion("status", [
 	z.strictObject({
@@ -67,7 +64,6 @@ const recordedLead = z.discriminatedUnion("answer", [
 	z.strictObject({
 		answer: z.literal("yes"),
 		assignment: leadAssignment,
-		/** With the fill on: the planter holds the Senior pastor role, or another person held it and kept it. */
 		seniorPastor: z.enum(["filled", "occupied"]).optional(),
 		savedAt: instant,
 	}),
@@ -83,8 +79,6 @@ const completion = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("unfinished") }),
 	z.strictObject({ status: z.literal("completed"), completedAt: instant, materialRevision: revision }),
 ]);
-// These are independent persisted facts. Completing setup changes no reading,
-// values, People, phase or launch fact and generates no synchronous assessment.
 const setupFacts = {
 	plant: plantOwner,
 	revision,
@@ -94,7 +88,6 @@ const setupFacts = {
 	journey: savedJourney,
 	launch: savedLaunch,
 	scheduledLaunchDate: localDate.nullable(),
-	/** The launch schedule's revision, which a planned date sends back as `expectedScheduleRevision`. "1" before any date. */
 	scheduleRevision: revision,
 	peopleStep: z.enum(["pending", "saved", "skipped"]),
 	completion,
@@ -123,8 +116,6 @@ export const completeOnboardingResult = z.strictObject({
 	completion: completion.options[1],
 });
 
-// Explicit profile, never inferred from a missing seat. No tenant/phase/private
-// body fields; Wiki/editor and account/creation controls are account-scoped.
 const discoveryProfile = z.strictObject({
 	discoveryId: recordId,
 	revision,

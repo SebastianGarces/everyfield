@@ -11,7 +11,6 @@ type Account = Extract<SectionResult, { section: "account" }>;
 const AVATAR_TYPES: readonly AvatarMime[] = ["image/jpeg", "image/png", "image/webp"];
 const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
 
-/** The client check before an upload (REQ-IDN-006). The server verifies the bytes and type again. */
 function avatarProblem(file: { size: number; type: string }): string | null {
 	if (file.size === 0) return "This file is empty. Choose a photo.";
 	if (!(AVATAR_TYPES as readonly string[]).includes(file.type)) return "Use a JPG, PNG or WebP photo.";
@@ -19,12 +18,6 @@ function avatarProblem(file: { size: number; type: string }): string | null {
 	return null;
 }
 
-/**
- * Your photo (REQ-IDN-006). The image shows only through the authenticated route for its version (port.avatarSrc),
- * never through a storage key or a signed URL. Upload is three steps: ask for an upload, send the bytes, then save.
- * Until the save succeeds the old photo stays. A retry of the same save or removal reuses its request key, so a lost
- * reply cannot apply it twice.
- */
 export function AvatarControl({
 	port,
 	account,

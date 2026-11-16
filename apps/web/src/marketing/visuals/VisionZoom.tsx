@@ -8,22 +8,12 @@ import { ICONS } from "../icons";
 import { Backdrop } from "../photo/Backdrop";
 import { VisionScene } from "./vision-fx";
 
-// "The vision, down to this week": four levels of the demo church (Harvest Point, as in the Monday overview): Launch
-// Sunday, the current phase with its benchmark, one launch milestone, and this week's tasks, each with the goal it serves. Close to Instagram ad 13-a. Markup renders
-// on the server; vision-fx.tsx moves it.
-
-/*
- * One green line links the levels. Each node (an icon or a task ring) draws the part of the line inside its own box:
- * from the box's top edge to the node and from the node to the box's bottom edge, plus the 12 px gap below a card.
- * Every node sits at a fixed offset (x 39 px, y 33 px in a row), so the line needs no measuring.
- */
 const LINE = "pointer-events-none absolute left-[38px] w-0.5 origin-top rounded-full bg-green-600";
 const IN = { 33: "top-0 h-[33px]", 22: "top-0 h-[22px]" } as const;
 const OUT = { 39: "top-[39px]", 33: "top-[33px]", 22: "top-[22px]" } as const;
 function LineIn({ n, to = 33 }: { n: number; to?: keyof typeof IN }) {
 	return <Tf as="i" fx="vision.in" n={n} layer={false} className={cn(LINE, IN[to])} />;
 }
-/** gap: the line also crosses the 12 px gap below its card. */
 function LineOut({ n, from = 33, gap }: { n: number; from?: keyof typeof OUT; gap?: boolean }) {
 	return (
 		<Tf as="i" fx="vision.out" n={n} layer={false} className={cn(LINE, OUT[from], gap ? "-bottom-3" : "bottom-0")} />
@@ -34,7 +24,6 @@ const CARD = "relative border border-[color:var(--ef-card-edge)] bg-surface shad
 const LABEL = "type-sm leading-[1.3] text-text-3";
 const VALUE = "mt-0.5 type-lg leading-[1.3] font-semibold text-ink";
 
-/** A plan level: icon, small label, value, optional end. Its node sits 33 px from the top. */
 function Level({
 	n,
 	tone,
@@ -69,7 +58,6 @@ function Level({
 	);
 }
 
-/** The seven phases, 0 to 6, with Phase 1 the current one. */
 function PhaseTrack() {
 	return (
 		<span aria-hidden="true" className="mt-3 flex flex-none items-center gap-1 max-mk-xs:hidden">
@@ -90,7 +78,6 @@ function PhaseTrack() {
 	);
 }
 
-/** This week's tasks: [title, what it is about, the tone and name of the goal it serves]. */
 const TASKS = [
 	["Set the launch team's personal invitation goal", "Launch prep", "green", "Promotion plan chosen"],
 	["Invite the 9 guests from #11", "Vision meeting #12", "blue", "Committed adults"],
@@ -102,7 +89,6 @@ export function VisionZoom() {
 		<VisionScene className="ef-ui relative isolate overflow-hidden px-[clamp(16px,3vw,40px)] py-[clamp(20px,3.2vw,44px)] shadow-mk-frame">
 			<Backdrop bg="blossom" sizes="(max-width: 900px) 100vw, 50vw" className="absolute inset-0 z-0" />
 			<div className="relative mx-auto flex max-w-[500px] flex-col gap-3">
-				{/* Launch Sunday: the date the whole plan leads to. */}
 				<Move fx="vision.card" n={0} className={cn(CARD, "px-5 pt-5 pb-5")}>
 					<LineOut n={0} from={39} gap />
 					<div className="flex items-start gap-3">
@@ -122,7 +108,6 @@ export function VisionZoom() {
 					</div>
 				</Move>
 
-				{/* The current phase and the plant's committed adults (addendum 2026-10-23: a count, with no target). */}
 				<Level
 					n={1}
 					tone="violet"
@@ -141,7 +126,6 @@ export function VisionZoom() {
 					</div>
 				</Level>
 
-				{/* A launch milestone: one of the nine set up with the Launch Sunday date. Its tasks are ordinary tasks. */}
 				<Level
 					n={2}
 					tone="green"
@@ -158,7 +142,6 @@ export function VisionZoom() {
 					</div>
 				</Level>
 
-				{/* This week: three tasks, each with the goal it serves. */}
 				<Move fx="vision.card" n={3} className={cn(CARD, "pb-1.5")}>
 					<div className="relative flex items-start gap-3 px-5 pt-3.5 pb-3">
 						<LineIn n={3} />
@@ -182,7 +165,6 @@ export function VisionZoom() {
 										<span className="block type-md leading-5 font-semibold text-ink">{title}</span>
 										<span className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 type-sm text-text-3">
 											{link}
-											{/* The arrow stays with the goal, so a narrow row wraps before the arrow, not after it. */}
 											<span className="inline-flex items-center gap-1.5">
 												<Icon icon={ICONS.arrow} size={13} className="flex-none text-text-3" />
 												<span className="sr-only">serves</span>

@@ -7,7 +7,7 @@ import { CommunicationScreen } from "./CommunicationScreen.tsx";
 import { parseRoute, routeHref } from "./model.ts";
 import { params } from "../shared/search-params.ts";
 import { canWrite } from "../shared/seat-role.ts";
-import { communicationViewer, loadCommunicationPage, type Viewer } from "./server.ts";
+import { communicationViewer, isReviewedFollowUp, loadCommunicationPage, type Viewer } from "./server.ts";
 
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const seat = await communicationViewer();
@@ -45,6 +45,8 @@ export async function CommunicationPage({ searchParams }: { searchParams?: Searc
 	const route = parseRoute(query);
 	if (route.kind === "compose" && route.id === "new" && !route.handoff && route.step !== "who")
 		redirect(routeHref({ ...route, step: "who" }));
+	if (route.kind === "history" && route.message && (await isReviewedFollowUp(g.viewer, route.message)))
+		redirect(routeHref({ kind: "compose", id: route.message, step: "review", handoff: null }));
 	const loaded = await loadCommunicationPage(g.viewer);
 	if (loaded.status !== "ok") {
 		return (

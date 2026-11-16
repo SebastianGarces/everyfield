@@ -8,8 +8,6 @@ import { verifySchemaDrift, verifySnapshotBaseline } from "./drift.ts";
 import { assertCurrentCatalog } from "./catalog.ts";
 import { assertDevelopmentDatabase, developmentHosts } from "../development.ts";
 
-// No public/production schema is touched. CI uses its existing local throwaway
-// database; local agents may use only the approved shared development endpoint.
 const source = assertDevelopmentDatabase(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL);
 const localCI = !developmentHosts.has(source.hostname);
 if (!localCI) source.searchParams.set("sslmode", "verify-full");

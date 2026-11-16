@@ -1,4 +1,3 @@
-// Explicit schema authority. The frozen SQL is the baseline; evolve these declarations with Kit.
 import {
 	pgTable,
 	text,
@@ -282,7 +281,6 @@ export const article_revision = pgTable(
 			.array()
 			.notNull()
 			.default(sql`ARRAY[]::text[]`),
-		// Set by the article_revision_search_vector trigger on every insert and update; writers never name it.
 		search_vector: tsvector("search_vector").notNull(),
 	},
 	(table): PgTableExtraConfigValue[] => [
@@ -452,7 +450,6 @@ export const attestation_revision = pgTable(
 		attestation_id: uuid("attestation_id").notNull(),
 		revision: int64("revision").notNull(),
 		key: text("key").notNull(),
-		// The Person this revision was about when it was written. A merge moves the current attestation and leaves this.
 		person_id: uuid("person_id"),
 		kind: text("kind", { enum: ["answered", "corrected", "retracted", "reaffirmed"] }).notNull(),
 		answer: boolean("answer"),
@@ -697,7 +694,6 @@ export const commitment = pgTable(
 			table.plant_id.asc().nullsLast(),
 		),
 		index("commitment_ref_3").using("btree", table.object_id.asc().nullsLast(), table.plant_id.asc().nullsLast()),
-		// One private document belongs to one card.
 		uniqueIndex("commitment_object_uq").using("btree", table.object_id.asc().nullsLast()),
 	],
 );
@@ -1348,7 +1344,6 @@ export const document = pgTable(
 		}).notNull(),
 		title: text("title").notNull(),
 		current_revision_id: uuid("current_revision_id"),
-		/** For a Church Document or church template this marks it deleted; archive is `church_archived_at` (D-935). */
 		archived_at: timestamp("archived_at", { withTimezone: true, mode: "date" }),
 		copied_from_revision_id: uuid("copied_from_revision_id"),
 		copied_from_hash: text("copied_from_hash"),
@@ -1361,9 +1356,7 @@ export const document = pgTable(
 		use_church_branding: boolean("use_church_branding"),
 		input_provenance: jsonb("input_provenance"),
 		description: text("description"),
-		/** When an Owner or Admin archived this Church Document: it leaves the library and stays readable (T-9). */
 		church_archived_at: timestamp("church_archived_at", { withTimezone: true, mode: "date" }),
-		/** Who archived it; set with `church_archived_at`. */
 		church_archived_by: uuid("church_archived_by"),
 	},
 	(table): PgTableExtraConfigValue[] => [
@@ -2073,24 +2066,15 @@ export const launch = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
-		/** The planter's note on what happened on Launch Sunday (LCH-006), at most 10,000 characters. */
 		outcome_note: text("outcome_note"),
-		/** When the actual Launch Sunday was first recorded, and by whom; a correction keeps both (LCH-007). */
 		outcome_recorded_at: timestamp("outcome_recorded_at", { withTimezone: true, mode: "date" }),
 		outcome_recorded_by: uuid("outcome_recorded_by"),
-		/**
-		 * How the church ends its gathering phase (T-296): Launch Sunday, or a milestone an organization it is affiliated
-		 * with offers. Choosing one never changes the date, the readiness milestones, the tasks or the phase.
-		 */
 		gathering_path: text("gathering_path", { enum: ["launch_sunday", "milestone"] })
 			.notNull()
 			.default("launch_sunday"),
-		/** The organization whose milestone the church uses; null on Launch Sunday, or once that organization is gone. */
 		gathering_organization_id: uuid("gathering_organization_id"),
-		/** The church-local day the milestone was reached, and its name then: a later rename never changes it. */
 		gathering_reached_on: date("gathering_reached_on", { mode: "string" }),
 		gathering_reached_name: text("gathering_reached_name"),
-		/** The planter's note on reaching it, at most 2,000 characters. */
 		gathering_note: text("gathering_note"),
 	},
 	(table): PgTableExtraConfigValue[] => [
@@ -2160,10 +2144,8 @@ export const launch_milestone = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
-		/** The fixed Playbook milestone this row was seeded from (launch.md): its seed identity, one per plant. */
 		template_key: text("template_key").notNull(),
 		completed_by: uuid("completed_by"),
-		/** The linked tasks that were complete when a person completed the milestone; reopening one asks for review. */
 		completed_task_ids: uuid("completed_task_ids")
 			.array()
 			.notNull()
@@ -2203,12 +2185,6 @@ export const launch_milestone = pgTable(
 		index("launch_milestone_ref_1").using("btree", table.completed_by.asc().nullsLast()),
 	],
 );
-/**
- * A guest a planter named at Launch Sunday (LCH-007): a real Person of the church, linked once. The aggregate attendance
- * on `launch` may count far more people than are named here; nothing fills the difference with placeholder people. A
- * merge moves the link to the survivor unless the survivor is already a guest, Unmerge moves it back, and a retired
- * Person's link stays as history but leaves the current roster.
- */
 export const launch_guest = pgTable(
 	"launch_guest",
 	{
@@ -2244,11 +2220,6 @@ export const launch_guest = pgTable(
 		index("launch_guest_recorder_idx").on(t.recorded_by),
 	],
 );
-/**
- * One version of the Launch debrief (LCH-010): the five written areas and the single missing-guest answer. The first
- * area is the recorded Launch Sunday on `launch`, never a copy. At most one draft per church; a submission is a
- * version that never changes again, and a correction is the next submitted version.
- */
 export const launch_debrief = pgTable(
 	"launch_debrief",
 	{
@@ -2306,12 +2277,6 @@ export const launch_debrief = pgTable(
 		index("launch_debrief_submitter_idx").on(t.submitted_by),
 	],
 );
-/**
- * One version of the short summary a planter writes for their sending church or network (LCH-010, REQ-KNOW-112). At
- * most one draft per church; a published version never changes, and a later edit publishes the next version. The
- * source categories are the sharing categories an organization must hold to read it; a Launch-only summary has
- * Meetings.
- */
 export const launch_summary = pgTable(
 	"launch_summary",
 	{
@@ -2518,9 +2483,7 @@ export const mail = pgTable(
 			.default(sql`1`),
 		created_at: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
 		address_hash: text("address_hash"),
-		/** Why Everyfield refused this recipient before any handoff, when it was not a blocked address. */
 		refusal: text("refusal", { enum: ["unsubscribed"] }),
-		/** The Messages message this recipient send belongs to; null for every other purpose. */
 		communication_id: uuid("communication_id"),
 	},
 	(table): PgTableExtraConfigValue[] => [
@@ -2599,7 +2562,6 @@ export const mail = pgTable(
 			table.tenant_id.asc().nullsLast(),
 			table.communication_id.asc().nullsLast(),
 		),
-		// The minute runner reads Messages email that waits for its send time, and held email it may have to cancel (T-241).
 		index("mail_waiting")
 			.using("btree", table.scheduled_at.asc().nullsLast())
 			.where(
@@ -3094,10 +3056,6 @@ export const organization = pgTable(
 		pipeline_import_columns: jsonb("pipeline_import_columns")
 			.notNull()
 			.default(sql`'{}'::jsonb`),
-		/**
-		 * The milestone that ends the gathering phase for this organization's plants, instead of Launch Sunday (T-296).
-		 * Turning it off keeps the name and description for the next time it is turned on.
-		 */
 		gathering_milestone_offered: boolean("gathering_milestone_offered").notNull().default(false),
 		gathering_milestone_name: text("gathering_milestone_name"),
 		gathering_milestone_description: text("gathering_milestone_description"),
@@ -3525,7 +3483,6 @@ export const person_note = pgTable(
 		revision: int64("revision")
 			.notNull()
 			.default(sql`1`),
-		/** The question titles of a pipeline import's kept answers (T-385), in file order; null on any other note. */
 		questions: text("questions").array(),
 	},
 	(table): PgTableExtraConfigValue[] => [
@@ -3984,12 +3941,6 @@ export const leadership_conversation = pgTable(
 		index("leadership_conversation_staff_idx").using("btree", table.staff_seat_id.asc().nullsLast()),
 	],
 );
-/**
- * Part of a pipeline person's kept answers sent to a named reviewer for review (T-385, D-1507): the chosen question
- * titles of one kept-answers note under a group name. The reviewer reads the note's live answers to those questions,
- * never a copy (D-1509), only while the send is shared: not withdrawn, the reviewer's seat current, the note not removed
- * and the person not removed on request. No answer text is stored here.
- */
 export const answer_review = pgTable(
 	"answer_review",
 	{
@@ -4195,9 +4146,6 @@ export const platform_grant = pgTable(
 			.where(sql`(revoked_at IS NULL)`),
 	],
 );
-// Product feedback (WP-049A). One row per piece of feedback, owned by its author's account: the category, the words and
-// the private page and device details, which never leave Everyfield. A triager with the feedback_triage grant moves
-// its status; each change is an audit row, the history. request_key makes a resend save once.
 export const feedback = pgTable(
 	"feedback",
 	{
@@ -4314,9 +4262,6 @@ export const feedback = pgTable(
 		),
 	],
 );
-// Private weekly check-ins (WP-039). One calendar per author and church, its Monday weeks in the author's personal
-// zone, and the append-only revisions of each week's answer. Only the original author reads them; no other table
-// references them, and the account or church purge removes them (settings_purge_content).
 const careLevels = ["steady", "strained", "struggling"] as const;
 export const private_calendar = pgTable(
 	"private_calendar",
@@ -5089,10 +5034,6 @@ export const schema_migration = pgTable(
 		check("schema_migration_sha256_check", sql`(sha256 ~ '^[a-f0-9]{64}$'::text)`),
 	],
 );
-/**
- * The one-time data backfills db:migrate ran after the SQL files (C102). A name is recorded only in the transaction
- * that completed its backfill, so a rerun skips it and a failed run leaves it pending.
- */
 export const schema_backfill = pgTable(
 	"schema_backfill",
 	{
@@ -5274,7 +5215,6 @@ export const task = pgTable(
 			.array()
 			.notNull()
 			.default(sql`'{}'::uuid[]`),
-		/** Launch readiness seed identity, `<milestone template key>/<n>`. A deleted task keeps it, so repair never resurrects it. */
 		launch_task_key: text("launch_task_key"),
 	},
 	(table): PgTableExtraConfigValue[] => [
@@ -5794,7 +5734,6 @@ export const settings_preview = pgTable(
 	],
 );
 
-/** One private Evry conversation of one account in one exact account, plant or organization context. */
 export const conversation = pgTable(
 	"conversation",
 	{
@@ -5812,9 +5751,7 @@ export const conversation = pgTable(
 		last_sequence: int64("last_sequence")
 			.notNull()
 			.default(sql`0`),
-		/** The assistant_turn job that is the conversation's one active run, if any. */
 		active_turn_id: uuid("active_turn_id"),
-		/** The session that submitted the active turn; the worker re-reads its authority before every read. A signed-out session clears it, which stops the turn. */
 		active_session_id: uuid("active_session_id").references(() => auth_session.id, { onDelete: "set null" }),
 		created_at: timestamp("created_at", { withTimezone: true, mode: "date" })
 			.notNull()
@@ -5825,7 +5762,6 @@ export const conversation = pgTable(
 	},
 	(t): PgTableExtraConfigValue[] => [
 		check("conversation_title", sql`char_length(${t.title}) BETWEEN 1 AND 120`),
-		// The run is a job of the same tenant. Only the owner purge deletes jobs, after it deletes the conversations.
 		foreignKey({
 			name: "conversation_active_turn",
 			columns: [t.active_turn_id, t.tenant_id],
@@ -5835,7 +5771,6 @@ export const conversation = pgTable(
 		unique("conversation_identity").on(t.id, t.tenant_id),
 	],
 );
-/** The saved, ordered record of a conversation: submitted messages, assistant text, source-bound results and run states. */
 export const conversation_event = pgTable(
 	"conversation_event",
 	{
@@ -5858,11 +5793,6 @@ export const conversation_event = pgTable(
 	],
 );
 
-/**
- * What paid Evry model calls have committed this calendar month (UTC) in this database, in millionths of a US dollar
- * (D77). Each paid call reserves its worst case here before the provider sees it and settles to its reported usage; a
- * call that never reports usage keeps its reservation. It holds no personal data and outlives conversation deletion.
- */
 export const model_spend = pgTable(
 	"model_spend",
 	{
@@ -5877,11 +5807,6 @@ export const model_spend = pgTable(
 	],
 );
 
-/**
- * One People CSV import: its frozen plan, the uploaded file the server reviewed (gzip, base64) and the rows whose last
- * write failed. The file is cleared when the import completes, and 7 days after its job last stopped with rows left
- * (T-194, by the scheduled run); the job's deletion removes the import.
- */
 export const person_import = pgTable(
 	"person_import",
 	{
@@ -5890,7 +5815,6 @@ export const person_import = pgTable(
 			.notNull()
 			.references(() => tenant.id),
 		job_id: uuid("job_id").notNull(),
-		// The importing account; account purge clears it and the job then stops at its next authority check.
 		actor_id: uuid("actor_id").references(() => account.id, { onDelete: "set null" }),
 		plan: jsonb("plan").notNull(),
 		upload: text("upload"),
@@ -5901,7 +5825,6 @@ export const person_import = pgTable(
 	(t): PgTableExtraConfigValue[] => [
 		primaryKey({ name: "person_import_pkey", columns: [t.id] }),
 		unique("person_import_job").on(t.job_id),
-		// The job of the same church. Owner purge deletes the church's jobs, which removes their imports.
 		foreignKey({
 			name: "person_import_job_owner",
 			columns: [t.job_id, t.tenant_id],
@@ -5911,11 +5834,6 @@ export const person_import = pgTable(
 		check("person_import_failed", sql`jsonb_typeof(${t.failed})='array'`),
 	],
 );
-/**
- * One durable change Evry proposed in a conversation and its exact human review. A new revision replaces the reviewed
- * arguments, digest and expiry and clears any approval. Once approved, one evry_effect job runs the owning domain
- * write, whose own audit row is the effect's record; the outcome is saved here with it.
- */
 export const proposal = pgTable(
 	"proposal",
 	{
@@ -5929,17 +5847,13 @@ export const proposal = pgTable(
 		conversation_id: uuid("conversation_id").notNull(),
 		operation: text("operation", { enum: ["people.updatePerson"] }).notNull(),
 		revision: integer("revision").notNull().default(1),
-		/** The owning operation's exact arguments, including the expected revision of its target. */
 		input: jsonb("input").notNull(),
-		/** The exact review a person sees: the target and every changed field before and after. */
 		review: jsonb("review").notNull(),
 		digest: text("digest").notNull(),
 		state: text("state", { enum: ["pending", "approved", "cancelled", "expired"] }).notNull(),
 		expires_at: timestamp("expires_at", { withTimezone: true, mode: "date" }).notNull(),
 		approved_at: timestamp("approved_at", { withTimezone: true, mode: "date" }),
-		/** The approving session; execution reads its live authority. Signing out clears it, which refuses the effect. */
 		approved_session_id: uuid("approved_session_id").references(() => auth_session.id, { onDelete: "set null" }),
-		/** The evry_effect job that runs the approved revision. */
 		job_id: uuid("job_id"),
 		outcome: text("outcome", { enum: ["completed", "failed", "refused"] }),
 		receipt: jsonb("receipt"),
@@ -5966,7 +5880,6 @@ export const proposal = pgTable(
 	],
 );
 
-/** Attributable domain changes and their optional exact-request reply. Ordinary writers append only. */
 export const audit_event = pgTable(
 	"audit_event",
 	{
@@ -6031,18 +5944,10 @@ export const audit_event = pgTable(
 		),
 		index("audit_subject_history").on(table.tenant_id, table.subject_id, table.occurred_at, table.id),
 		index("audit_command").on(table.command_id),
-		// The newest event of one action in one tenant: the Wiki's source order (wiki/corpus.ts).
 		index("audit_tenant_action_latest").on(table.tenant_id, table.action, table.occurred_at, table.id),
-		// One actor's events of one action in order: the Wiki feedback a reader gave (wiki/editorial.ts getMine).
 		index("audit_actor_action").on(table.actor_id, table.action, table.occurred_at, table.id),
 	],
 );
-/**
- * One reviewed merge of a source Person into a survivor in the same church or organization (REQ-PPL-017, 025). It keeps
- * what Unmerge needs to restore both people exactly: the survivor field values the merge replaced, the source facts it
- * cleared, the references it moved or deduplicated and the revisions it left. These values are domain history, read only
- * by Owners and Admins; central audit names the merge without them (audit.md). Rows go with their Person on purge.
- */
 export const person_merge = pgTable(
 	"person_merge",
 	{
@@ -6077,20 +5982,12 @@ export const person_merge = pgTable(
 		check("person_merge_distinct", sql`${t.source_id}<>${t.survivor_id}`),
 		check("person_merge_prior", sql`jsonb_typeof(${t.prior})='object'`),
 		check("person_merge_moved", sql`jsonb_typeof(${t.moved})='object'`),
-		// A Person is merged away at most once at a time.
 		uniqueIndex("person_merge_open_source")
 			.on(t.source_id)
 			.where(sql`unmerged_at IS NULL`),
 		index("person_merge_survivor_ref").on(t.survivor_id, t.tenant_id),
 	],
 );
-/**
- * A CRM person's opt-out from one church's Messages email (REQ-NTF-016, D-284): per church and per person, keyed by
- * the Person, never by the address. Only the person's own token writes it: the opt-out page inserts the row and its
- * one-hour undo sets `undone_at`. Staff read it on the person's record but have no write path, and the runtime login
- * cannot delete it or change any other column. A merge leaves it on the Person who unsubscribed; Messages reads the
- * merge lineage, so the survivor stays unsubscribed.
- */
 export const person_email_opt_out = pgTable(
 	"person_email_opt_out",
 	{
@@ -6114,18 +6011,12 @@ export const person_email_opt_out = pgTable(
 			foreignColumns: [person.id, person.tenant_id],
 		}).onDelete("cascade"),
 		check("person_email_opt_out_undone", sql`((undone_at IS NULL) OR (undone_at >= opted_out_at))`),
-		// One current opt-out per Person.
 		uniqueIndex("person_email_opt_out_current")
 			.on(t.person_id)
 			.where(sql`undone_at IS NULL`),
 		index("person_email_opt_out_plant").on(t.plant_id, t.person_id),
 	],
 );
-/**
- * One pair on the duplicates list an Owner or Admin marked "Not a duplicate" (D-789): the person a CSV import added with
- * "Add, review later" and the person it may duplicate. The pair leaves the list while this row exists; Restore deletes
- * it. Each dismiss and restore writes its own audit row, which also names who dismissed the pair.
- */
 export const person_duplicate_dismissal = pgTable(
 	"person_duplicate_dismissal",
 	{
@@ -6154,17 +6045,11 @@ export const person_duplicate_dismissal = pgTable(
 			foreignColumns: [person.id, person.tenant_id],
 		}).onDelete("cascade"),
 		check("person_duplicate_dismissal_distinct", sql`person_id <> with_person_id`),
-		// One dismissal per church and pair.
 		uniqueIndex("person_duplicate_dismissal_pair").on(t.plant_id, t.person_id, t.with_person_id),
 		index("person_duplicate_dismissal_ref_0").on(t.person_id, t.plant_id),
 		index("person_duplicate_dismissal_ref_1").on(t.with_person_id, t.plant_id),
 	],
 );
-/**
- * One correction of an assessment, interview or commitment card (REQ-PPL-015): the changed fields with their old and new
- * values and the reason. The record keeps its original recorder and recorded instant. The corrector is the audit row
- * with the same ID. Values are private plant history, never central audit.
- */
 export const record_correction = pgTable(
 	"record_correction",
 	{
@@ -6180,7 +6065,6 @@ export const record_correction = pgTable(
 			.default(sql`clock_timestamp()`),
 		before_value: jsonb("before_value").notNull(),
 		after_value: jsonb("after_value").notNull(),
-		// An edit may have no reason.
 		reason: text("reason"),
 	},
 	(t): PgTableExtraConfigValue[] => [
@@ -6200,12 +6084,6 @@ export const record_correction = pgTable(
 		index("record_correction_ref_0").on(t.person_id, t.plant_id),
 	],
 );
-/**
- * One explicit dated change of a Person's commitment (REQ-PPL-014, REQ-PPL-026): a withdrawal or a reactivation, with
- * its effective church-local date. With the valid cards it is the whole input of the current commitment (C100); the
- * Person's commitment columns are a cache of that one function. The actor is the account that recorded it (null once
- * that account is deleted); the recorded instant orders events on the same date. The audit row has the same ID.
- */
 export const commitment_change = pgTable(
 	"commitment_change",
 	{
@@ -6232,12 +6110,6 @@ export const commitment_change = pgTable(
 		index("commitment_change_person_order").on(t.person_id, t.plant_id, t.effective_on, t.recorded_at),
 	],
 );
-/**
- * One training program (REQ-TEAM-008, REQ-TEAM-009). A null team is an explicit churchwide program.
- * Archiving a team does not clear team_id. A correction may change the name and whether it is required.
- * It may not change the team. version advances when the content changes so an older credit stays on the
- * version that was earned.
- */
 export const training_program = pgTable(
 	"training_program",
 	{
@@ -6274,14 +6146,6 @@ export const training_program = pgTable(
 		index("training_program_ref_1").using("btree", t.team_id.asc().nullsLast(), t.plant_id.asc().nullsLast()),
 	],
 );
-/**
- * One saved person/program applicability episode (REQ-TEAM-016). Later membership never rewrites these rows.
- * One active episode per person and program. Ending it keeps the row.
- */
-/**
- * One saved person/program applicability episode (REQ-TEAM-016). Later membership never rewrites these rows.
- * One active episode per person and program. Ending it keeps the row.
- */
 export const training_assignment = pgTable(
 	"training_assignment",
 	{
@@ -6332,16 +6196,6 @@ export const training_assignment = pgTable(
 			.where(sql`(state = 'active'::text)`),
 	],
 );
-/**
- * Append-only training evidence (REQ-TEAM-009, REQ-TEAM-017). earned and revoked rows belong to a program version.
- * A service row has no program: it records dated attendance days and volunteer days. Revoke and redo insert rows.
- * They do not update an earlier row. A merge leaves these rows on the source person.
- */
-/**
- * Append-only training evidence (REQ-TEAM-009, REQ-TEAM-017). earned and revoked rows belong to a program version.
- * A service row has no program: it records dated attendance days and volunteer days. Revoke and redo insert rows.
- * They do not update an earlier row. A merge leaves these rows on the source person.
- */
 export const training_credit = pgTable(
 	"training_credit",
 	{
@@ -6405,10 +6259,6 @@ export const training_credit = pgTable(
 		),
 	],
 );
-/**
- * A plant copy of an email template, or a template the plant wrote. The seven system templates stay in code.
- * One live fork per source. plant_id cascades so church deletion removes the row without a purge edit.
- */
 export const message_template = pgTable(
 	"message_template",
 	{
@@ -6468,10 +6318,6 @@ export const message_template = pgTable(
 			.where(sql`(source_key IS NOT NULL)`),
 	],
 );
-/**
- * A native church message: an incomplete draft or a reviewed schedule. It stores no mail intent.
- * Optional meeting and template pointers use deletion actions that do not block church purge.
- */
 export const communication = pgTable(
 	"communication",
 	{
@@ -6548,11 +6394,6 @@ export const communication = pgTable(
 	],
 );
 
-/**
- * One saved brand kit for a church plant (BRD-001 to BRD-006). Reset deletes the row, so revision 0 means no kit.
- * Each asset slot names a ready brand_asset file of the same plant and its alt text. The kit stores no toggle: the
- * document request passes "use church branding".
- */
 export const church_brand_kit = pgTable(
 	"church_brand_kit",
 	{
@@ -6807,21 +6648,14 @@ export const assessment_run = pgTable(
 		recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "date" })
 			.notNull()
 			.default(sql`clock_timestamp()`),
-		/** What asked for the run (change, time, manual, followup) and its demand identity: the job's producer key. */
 		demand: text("demand").notNull(),
 		demand_key: text("demand_key").notNull(),
-		/** The snapshot's own database instant: a committed write audited after it is a change the run did not see. */
 		captured_at: timestamp("captured_at", { withTimezone: true, mode: "date" }).notNull(),
-		/** The run gives up at this instant: a deferral never waits past it. */
 		deadline_at: timestamp("deadline_at", { withTimezone: true, mode: "date" }).notNull(),
-		/** Provider attempts spent on the draft in progress, so a resumed run continues within the same budget. */
 		pending_attempts: integer("pending_attempts").notNull().default(0),
-		/** When a deferred run tries the provider again. */
 		retry_at: timestamp("retry_at", { withTimezone: true, mode: "date" }),
-		/** When the run settled, and when a published one became the current assessment. */
 		settled_at: timestamp("settled_at", { withTimezone: true, mode: "date" }),
 		available_at: timestamp("available_at", { withTimezone: true, mode: "date" }),
-		/** The facts that moved since the previous published assessment (intelligence.computeSnapshotDelta). */
 		delta: jsonb("delta"),
 	},
 	(t): PgTableExtraConfigValue[] => [
@@ -6858,10 +6692,6 @@ export const assessment_run = pgTable(
 		index("assessment_run_current_idx").on(t.plant_id, t.available_at),
 	],
 );
-/**
- * The insights of a published assessment (PI-023), written in the statement that publishes it: one per point, with the
- * severity its model urgency maps to. Severity orders insights only; it never ranks plants.
- */
 export const assessment_insight = pgTable(
 	"assessment_insight",
 	{
@@ -6892,11 +6722,6 @@ export const assessment_insight = pgTable(
 		index("assessment_insight_plant_idx").on(t.plant_id),
 	],
 );
-/**
- * A reader's own rating of one point of one published assessment (PI-033): useful or not useful, with an optional
- * comment. It belongs to its author only, is bound to the exact insight (checked when it is written), run and rubric
- * version, and never changes the run, its scores or the rubric.
- */
 export const assessment_feedback = pgTable(
 	"assessment_feedback",
 	{
@@ -6933,10 +6758,6 @@ export const assessment_feedback = pgTable(
 		index("assessment_feedback_account_idx").on(t.account_id),
 	],
 );
-/**
- * An Owner's or Admin's explicit first open of one published assessment (PI-024). The earliest open, or 72 hours
- * after the run became available, releases the run to the plant's organizations (PI-032). Rendering writes nothing.
- */
 export const assessment_seen = pgTable(
 	"assessment_seen",
 	{

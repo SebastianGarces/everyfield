@@ -7,15 +7,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { MAIL_KEYS, source, startQuietDatabase, stopQuietDatabase, type QuietDatabase } from "./fixtures.ts";
 
-// OPS-127: the QA seed's church and network copies of a Wiki article and its revised article. Each case seeds a quiet
-// local database (D81) and reads the result through the Wiki domain reader as the QA owner.
-
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const CHURCH = "Grace Fellowship (QA)";
 const NETWORK = "Harvest Network (QA)";
-/** OPS-126's sending church. It has a director login and its own connection; it has no Wiki copy. */
 const DIRECTOR_CHURCH = "Grace Church (QA)";
-/** T-312's sending church and network. Both connect to the test church and share its wiki, and publish no copy. */
 const GRACE_AUSTIN = "Grace Austin (QA)";
 const HILL_COUNTRY = "Hill Country Network (QA)";
 const PASSWORD = "qa-role-password-0123";
@@ -42,7 +37,6 @@ type Branch = {
 	seed: () => ReturnType<typeof spawnSync>;
 	read: (requests: { articleId: string; source?: unknown }[]) => Article[];
 	first: string;
-	/** Articles A, B and C as the test expects them, by slug. */
 	a: string;
 	b: string;
 	c: string;
@@ -103,7 +97,6 @@ async function branch(
 }
 
 let freshBranch: Promise<Branch> | undefined;
-/** A fresh migrated database: the seed writes its own three-article wiki, so A, B and C are its three articles. */
 const fresh = () =>
 	(freshBranch ??= branch("qa-wiki", async () => [
 		corpus.articles[0]!.slug,
@@ -112,11 +105,6 @@ const fresh = () =>
 	]));
 
 let devBranch: Promise<Branch> | undefined;
-/**
- * A database shaped like a Neon branch of development: an active release with articles in several sections whose
- * positions tie, article B already on its second revision, another church's data, and no QA data. A, B and C are the first
- * three by position and then slug.
- */
 const development = () =>
 	(devBranch ??= branch("qa-wiki-dev", async (query) => {
 		const hash = () => randomBytes(32).toString("hex");
@@ -187,14 +175,12 @@ const orgId = async (b: Branch, name: string) =>
 const plantId = async (b: Branch) =>
 	String((await b.query("SELECT id FROM plant WHERE name='Harvest Point (QA)'"))[0]!.id);
 
-/** The first paragraph of a copy: copies hold the Wiki editor's document format, everyfield-editor-v1. */
 function firstLine(body: unknown): string {
 	const doc = JSON.parse(String(body)) as { format: string; blocks: { children: { text: string }[] }[] };
 	assert.equal(doc.format, "everyfield-editor-v1");
 	return doc.blocks[0]!.children.map((part) => part.text).join("");
 }
 
-/** Criteria 3 and 4 on one branch: the church copy wins; each source opens its own version. */
 async function sourcesHold(b: Branch) {
 	const a = await articleId(b, b.a),
 		church = await orgId(b, CHURCH),
@@ -225,7 +211,6 @@ async function sourcesHold(b: Branch) {
 	return { current: current!, byGlobal: byGlobal! };
 }
 
-/** Criterion 6 on one branch: B reads as its newest revision, flagged as updated since the owner read it. */
 async function revisionHolds(b: Branch) {
 	const id = await articleId(b, b.b);
 	const revisions = await b.query(
@@ -339,7 +324,6 @@ test("INV-qa-seed: on a branch of development the seed writes the same cases int
 	const { current } = await sourcesHold(b);
 	assert.equal(current.title, `Dev finance/first-budget r1 (${CHURCH})`);
 	await revisionHolds(b);
-	// B already had two revisions: the seed adds the third, and the owner finished the second.
 	const id = await articleId(b, b.b);
 	assert.deepEqual(
 		await b.query(
@@ -366,7 +350,6 @@ test("INV-qa-seed: a second seed run writes nothing; the first run names the new
 	for (const b of [await fresh(), await development()]) {
 		assert.match(
 			b.first,
-			// OPS-126 makes Harvest Network (QA) and its connection first, so the wiki cases add only the church.
 			/QA seed wrote: .*Harvest Network \(QA\), Harvest Network \(QA\) admin seat, connection Harvest Network \(QA\), .*sending church Grace Fellowship \(QA\), affiliation with Grace Fellowship \(QA\), wiki copies/,
 		);
 		assert.match(b.first, /wiki copies of .*, wiki revision of .*, wiki reading/);
@@ -385,8 +368,6 @@ test("INV-qa-seed: a second seed run writes nothing; the first run names the new
 		assert.equal(String(again.stdout).trim(), "QA seed: the branch is already complete.");
 		assert.deepEqual(await counts(), before);
 	}
-	// A run that stopped after an organization but before its affiliation: the rerun writes it and says so. The network's
-	// connection belongs to OPS-126's invitation, so the case uses the church, which only the wiki cases connect.
 	const b = await fresh();
 	await b.query(`DELETE FROM affiliation WHERE organization_id = (SELECT id FROM organization WHERE name = $1)`, [
 		CHURCH,
@@ -398,8 +379,6 @@ test("INV-qa-seed: a second seed run writes nothing; the first run names the new
 
 test("INV-qa-seed: the new organizations add no login, seat or outside address; the fresh-database seed test passes", async () => {
 	const b = await fresh();
-	// OPS-126 later gave the network and its own sending church one login each, and T-312 gave its own church five
-	// and its network one. Grace Fellowship (QA) still has none.
 	assert.deepEqual(
 		await b.query(`SELECT u.email, o.name FROM seat s JOIN organization o ON o.id = s.organization_id
 			JOIN account a ON a.id = s.account_id JOIN auth_user u ON u.id = a.auth_user_id ORDER BY o.name, u.email`),
@@ -425,7 +404,6 @@ test("INV-qa-seed: the new organizations add no login, seat or outside address; 
 			{ email: "delivered+qa-member-2@resend.dev", name: "Harvest Point (QA)", role: "member" },
 			{ email: "delivered+qa-member@resend.dev", name: "Harvest Point (QA)", role: "member" },
 			{ email: "delivered+qa-owner@resend.dev", name: "Harvest Point (QA)", role: "owner" },
-			// T-255's second church plant and its Owner.
 			{ email: "delivered+qa-riverside-owner@resend.dev", name: "Riverside (QA)", role: "owner" },
 		],
 	);
@@ -445,8 +423,6 @@ test("INV-qa-seed: the new organizations add no login, seat or outside address; 
 
 test("INV-qa-runbook: the QA runbook names articles A and B, the church and the network, and what the owner sees", () => {
 	const runbook = readFileSync(join(source, "docs/runbooks/qa-preview.md"), "utf8");
-	// Development installs the approved Wiki seed, where position is sort_order. The seed's rule (first two published
-	// articles by position, then slug) picks these two there.
 	const approved = JSON.parse(readFileSync(join(source, "docs/reference/wiki/seed.json"), "utf8")) as {
 		articles: { slug: string; title: string; sort_order: number; status: string; published_at: string | null }[];
 	};
@@ -472,11 +448,6 @@ test("INV-qa-runbook: the QA runbook names articles A and B, the church and the 
 	);
 });
 
-/**
- * T-51 (WP-034): article C has a published church version from each sending church that shares the wiki, and no order
- * between them, so the reader names the order as required and offers both church versions by name. Article A keeps
- * its one church version.
- */
 async function orderCaseHolds(b: Branch, title: string) {
 	const c = await articleId(b, b.c),
 		a = await articleId(b, b.a);
@@ -496,8 +467,6 @@ async function orderCaseHolds(b: Branch, title: string) {
 			`This is the church version from ${name}.`,
 		]),
 	);
-	// Both churches share the wiki with the test church, and it has set no order. Grace Austin (QA) shares it too and
-	// publishes no version.
 	const plant = await plantId(b);
 	assert.deepEqual(
 		await b.query(
@@ -511,7 +480,6 @@ async function orderCaseHolds(b: Branch, title: string) {
 			{ name: CHURCH, share_wiki: true },
 		],
 	);
-	// A church order is an audit event of the church (packages/domain/src/wiki/writes.ts).
 	assert.deepEqual(
 		await b.query(
 			"SELECT count(*)::int AS n FROM audit_event WHERE tenant_id = $1 AND action = 'wiki.source_order_changed'",

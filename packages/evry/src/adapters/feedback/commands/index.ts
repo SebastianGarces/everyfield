@@ -7,26 +7,14 @@ import { z } from "zod";
 import { change, nativeWrite, notes, plantSeat, settled, target } from "../../native.ts";
 import { CATEGORY_NAME } from "../reads/index.ts";
 
-// Product feedback sent through Evry (WP-084): the user reviews the exact feedback first, then approval runs the same
-// feedbackWriter.submit the feedback dialog runs, on the executor's transaction, so the feedback row, its
-// feedback.received audit row and its feedback_publication job commit with the proposal outcome, once, under the effect
-// key (PUB57-006: it reaches the Everyfield team and starts nothing else). The church and role come from the seat on the
-// server, as the dialog's do; the page is Evry's own.
-
-/** The page a feedback sent through Evry names: there is no screen behind it. */
 const EVRY_PAGE = "Evry";
 
-/** The signed-in account with its seat's church and role, as feedbackWriter stores them, as `a`, `s` and `n`. */
 const sender = (seatId: string | null, accountId: string) =>
 	sql`FROM account a CROSS JOIN LATERAL seat_identity(a.id) n
 		LEFT JOIN LATERAL (SELECT p.name AS church, initcap(st.role) AS role FROM seat st JOIN plant p ON p.id=st.plant_id
 			WHERE st.id=${seatId}::uuid AND st.account_id=a.id AND st.ended_at IS NULL) s ON true
 		WHERE a.id=${accountId}::uuid`;
 
-/**
- * The feedback request key for an effect key: the same UUID every time (an RFC 9562 version 8 UUID from its SHA-256),
- * so a retried effect replays the feedback it saved instead of saving a second one.
- */
 function requestKeyOf(effectKey: string) {
 	const h = createHash("sha256").update(effectKey).digest("hex");
 	const variant = ((parseInt(h[16]!, 16) & 0x3) | 0x8).toString(16);

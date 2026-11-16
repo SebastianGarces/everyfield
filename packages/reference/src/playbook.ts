@@ -4,7 +4,6 @@ export type PlaybookTeam = { description: string | null; version: string };
 
 export { loadStarter, referenceArtifactSha256 };
 
-/** One team's description from the frozen catalog. `version` is the catalog artifact sha256. */
 export async function playbookTeam(teamKey: string): Promise<PlaybookTeam> {
 	const starter = await loadStarter();
 	const version = await referenceArtifactSha256();

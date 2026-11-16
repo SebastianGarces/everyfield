@@ -20,11 +20,6 @@ import { PlanMeetingDialog } from "../meetings/PlanMeetingDialog.tsx";
 import { plural } from "./model.ts";
 import type { TeamView } from "./server.ts";
 
-/**
- * A ministry's team meetings (REQ-TEAM-013 for its ministry): upcoming ones soonest first, then past ones newest first.
- * Each row opens the meeting. Every seat reads them; an Owner or Admin plans a new one here with this ministry chosen.
- * An archived ministry still lists its meetings and plans no new one.
- */
 export function MeetingsCard({
 	team,
 	meetings,
@@ -40,7 +35,6 @@ export function MeetingsCard({
 	const lane = useSaveIntent({ explain: problemText });
 	const thisYear = Number(now.slice(0, 4));
 	const items = meetings?.items ?? [];
-	// The read lists latest first; upcoming ones read soonest first.
 	const upcoming = items.filter((m) => m.startsAt >= now).reverse();
 	const past = items.filter((m) => m.startsAt < now);
 	const plan = canPlan ? (
