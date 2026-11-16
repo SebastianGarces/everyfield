@@ -1,0 +1,443 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "oversight",
+	"catalog": ["IDN-023", "IDN-024", "PI-031", "PI-043", "PI-044"],
+	"surfaces": [
+		{
+			"id": "oversight.plants",
+			"says": "An organization's plant directory and each linked plant's view: phase, Launch Sunday, readiness, health and what the plant shares.",
+			"routes": ["/network", "/network/plants/[plantId]"],
+			"catalog": ["IDN-023", "PI-031"],
+			"reach": [
+				{
+					"rail": "Plants",
+					"personas": ["network", "graceOwner", "hillOwner"]
+				}
+			],
+			"personas": {
+				"network": "read",
+				"graceOwner": "read",
+				"hillOwner": "read",
+				"owner": "none",
+				"resident": "none"
+			},
+			"states": [
+				{
+					"id": "network",
+					"reach": {
+						"persona": "network",
+						"open": "/network",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Harvest Network (QA)"
+						},
+						{
+							"role": "region",
+							"name": "Plants"
+						},
+						{
+							"role": "link",
+							"name": "Harvest Point (QA)",
+							"match": "contains"
+						},
+						{
+							"role": "navigation",
+							"name": "Network views"
+						}
+					]
+				},
+				{
+					"id": "sending-church",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/network",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Grace Austin (QA)"
+						},
+						{
+							"role": "region",
+							"name": "Your plants"
+						},
+						{
+							"role": "link",
+							"name": "Harvest Point (QA)",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "plant",
+					"reach": {
+						"persona": "network",
+						"open": "/network",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Harvest Point (QA)",
+									"match": "contains"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Harvest Point (QA)"
+						},
+						{
+							"text": "Planned Launch Sunday"
+						},
+						{
+							"text": "Plant health"
+						}
+					]
+				},
+				{
+					"id": "not-available",
+					"reach": {
+						"persona": "owner",
+						"open": "/network",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "open-plant",
+					"says": "A plant in the directory opens its own view with what it shares and its launch and health status.",
+					"catalog": ["IDN-023"],
+					"operations": ["oversight.listPlants", "oversight.getPlant"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/oversight/oversight.test.mts",
+								"name": "AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists only own linked plants, once, with the lead and no contacts"
+							},
+							{
+								"file": "tests/integration/oversight/oversight.test.mts",
+								"name": "AC:TARGET-IDN-023 AC:AF-028 AC:AF-035 Harvest Point's sections: shared counts, shared but empty and not shared"
+							}
+						],
+						"cases": ["TARGET-IDN-023"],
+						"browser": {
+							"state": "network",
+							"steps": [
+								{
+									"click": {
+										"role": "link",
+										"name": "Harvest Point (QA)",
+										"match": "contains"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/network/plants/{plantId}"
+								},
+								{
+									"text": "Planned Launch Sunday"
+								},
+								{
+									"role": "heading",
+									"name": "Harvest Point (QA)"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "health",
+					"says": "The plant view shows Limited visibility, readiness and a released assessment only, never On track from silence.",
+					"catalog": ["PI-031"],
+					"operations": [],
+					"noOperation": "the plant view reads health inside its own read; oversight.getHealth and readLaunchReadiness name no code",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/oversight/health.test.mts",
+								"name": "the home shows Limited visibility, Launch readiness and no concern, never On track from silence"
+							},
+							{
+								"file": "tests/integration/oversight/health.test.mts",
+								"name": "the plant view shows Launch status and readiness, then the recorded outcome"
+							}
+						]
+					}
+				}
+			]
+		},
+		{
+			"id": "oversight.sending-churches",
+			"says": "A network's roster of linked sending churches, and each church's plants that are linked to both.",
+			"routes": ["/network/sending-churches", "/network/sending-churches/[churchId]"],
+			"catalog": ["IDN-024"],
+			"reach": [
+				{
+					"from": "oversight.plants",
+					"persona": "network",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Sending churches"
+							}
+						},
+						{
+							"expect": {
+								"url": "/network/sending-churches"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"network": "read",
+				"hillOwner": "read",
+				"graceOwner": "none",
+				"owner": "none"
+			},
+			"states": [
+				{
+					"id": "empty",
+					"reach": {
+						"persona": "network",
+						"open": "/network/sending-churches",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Sending churches"
+						},
+						{
+							"role": "heading",
+							"name": "No sending churches are linked yet"
+						}
+					]
+				},
+				{
+					"id": "roster",
+					"reach": {
+						"persona": "hillOwner",
+						"open": "/network/sending-churches",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "region",
+							"name": "Linked sending churches"
+						},
+						{
+							"role": "link",
+							"name": "Grace Austin (QA)",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "church",
+					"reach": {
+						"persona": "hillOwner",
+						"open": "/network/sending-churches",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Grace Austin (QA)",
+									"match": "contains"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Grace Austin (QA)"
+						},
+						{
+							"text": "Plants linked to both",
+							"match": "contains"
+						},
+						{
+							"role": "link",
+							"name": "Harvest Point (QA)",
+							"match": "contains"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "open-church",
+					"says": "A linked sending church opens its plants that are linked to both, each with what it shares.",
+					"catalog": ["IDN-024"],
+					"operations": ["oversight.listSendingChurches", "oversight.getSendingChurch"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/oversight/oversight.test.mts",
+								"name": "AC:TARGET-IDN-024 the network's roster: linked sending churches, unexpired pending requests and shared plants"
+							}
+						],
+						"cases": ["TARGET-IDN-024"],
+						"browser": {
+							"state": "roster",
+							"steps": [
+								{
+									"click": {
+										"role": "link",
+										"name": "Grace Austin (QA)",
+										"match": "contains"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/network/sending-churches/{churchId}"
+								},
+								{
+									"text": "Plants linked to both",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "oversight.intelligence",
+			"says": "Network Intelligence: patterns across the plants that share findings, by Region, State, Country and the whole portfolio, run on Refresh.",
+			"routes": ["/network/intelligence"],
+			"catalog": ["PI-043", "PI-044"],
+			"reach": [
+				{
+					"from": "oversight.plants",
+					"persona": "network",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Network Intelligence"
+							}
+						},
+						{
+							"expect": {
+								"url": "/network/intelligence"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"network": "write",
+				"graceOwner": "write",
+				"hillOwner": "write",
+				"owner": "none"
+			},
+			"states": [
+				{
+					"id": "network",
+					"reach": {
+						"persona": "network",
+						"open": "/network/intelligence",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Network Intelligence"
+						},
+						{
+							"role": "button",
+							"name": "Refresh"
+						},
+						{
+							"text": "How this works"
+						}
+					]
+				},
+				{
+					"id": "sending-church",
+					"reach": {
+						"persona": "graceOwner",
+						"open": "/network/intelligence",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "button",
+							"name": "Refresh"
+						},
+						{
+							"role": "link",
+							"name": "Your plants"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "refresh",
+					"says": "Refresh runs the network rubric on what the plants share now and keeps the run, which reads back after a reload.",
+					"catalog": ["PI-043"],
+					"operations": ["organizationIntelligence.requestRefresh", "organizationIntelligence.read"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/oversight/health.test.mts",
+								"name": "Refresh keeps history, a Member cannot refresh or rate, and turning sharing off leaves every run"
+							},
+							{
+								"file": "tests/integration/oversight/intelligence-rules.test.mts",
+								"name": "each rule, theme and group counts on its own at every level, and the metro groups show only rows"
+							}
+						],
+						"browser": {
+							"state": "network",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Refresh"
+									}
+								},
+								{
+									"open": "/network/intelligence"
+								}
+							],
+							"expect": [
+								{
+									"text": "Latest run"
+								},
+								{
+									"role": "radio",
+									"name": "Whole portfolio"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				}
+			]
+		}
+	]
+}
