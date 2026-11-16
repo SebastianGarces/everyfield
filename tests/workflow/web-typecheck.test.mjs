@@ -1,7 +1,3 @@
-// T-258: the apps/web `typecheck` script judges only the branch's own code. `next dev` and `next build` write route
-// types under .next (and next-env.d.ts, which imports them) for the tree they ran on, and a reused worktree or evf check
-// slot keeps them when it moves to another branch. These tests run the real script and tsconfig files on a copy of
-// apps/web's config with such stale files planted, so no running dev server's .next is touched.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
@@ -26,8 +22,6 @@ const tsc = join(repo, "node_modules/typescript-7/bin/tsc");
 const temps = [];
 test.after(() => temps.forEach((dir) => rmSync(dir, { recursive: true, force: true })));
 
-/** A tree shaped like the repo (root tsconfig.base.json, apps/web's two tsconfigs and package.json) with one clean
- * source file and the generated files of a `next dev` run on a branch that had a route this one lacks. */
 function staleWorktree() {
 	const root = realpathSync(mkdtempSync(join(tmpdir(), "web-typecheck-")));
 	temps.push(root);

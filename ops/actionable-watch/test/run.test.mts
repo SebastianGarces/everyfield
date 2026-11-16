@@ -62,7 +62,6 @@ test("INV-watch-run: a restart over the same state file and identical status doe
 	await pollOnce(h.deps);
 	h.world.evf = ok(running({ decisions: [{ id: 4 }] }));
 	assert.equal(await pollOnce(h.deps), "woke");
-	// a fresh process: new deps object, same state dir
 	const restarted = { ...h.deps, exec: h.deps.exec };
 	assert.equal(await pollOnce(restarted), "no_change");
 	assert.equal(h.sent.length, 1);
@@ -239,12 +238,10 @@ test("INV-watch-run: the hourly send cap holds a pending event across a restart 
 		"the event is kept, not dropped",
 	);
 
-	// A restart: a fresh process over the same state dir is still capped, and sends nothing.
 	answer = 200;
 	const restarted: Deps = { ...h.deps, transport: { ...h.deps.transport } };
 	assert.equal(await pollOnce(restarted), "wake_capped");
 	assert.equal(posts, 20);
-	// Once the oldest sends leave the rolling hour, the pending event goes out once.
 	t += 60 * 60_000;
 	assert.equal(await pollOnce(restarted), "woke");
 	assert.equal(await pollOnce(restarted), "no_change");
@@ -272,7 +269,6 @@ test("INV-watch-run: the webhook URL and key never reach the log or the state fi
 			h.world.evf = ok(running({ decisions: [{ id: id++ }] }));
 			await pollOnce(h.deps);
 		}
-		// failure paths before any request: a world-readable file, then a non-https URL holding the token
 		await writeConfig(h.stateDir, { url: `${routine.origin}/hooks/${urlToken}`, key }, 0o644);
 		h.world.evf = ok(running({ decisions: [{ id: id++ }] }));
 		await pollOnce(h.deps);

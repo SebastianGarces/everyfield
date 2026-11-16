@@ -1,13 +1,3 @@
-// The Evry golden set (approved by Sebastian on 7 Nov 2026, golden.approved.json) and the per-adapter extra cases
-// (adapters.cases.json), scored against the real model's recorded calls (golden.recorded.json). Each case is one turn
-// asked as runTurn asks it, with the turn's own model tools (golden-harness.mts), and every read runs the real adapter
-// against Hope Fellowship seeded on Postgres (golden-church.mts). It runs in @everyfield/evry's test:db. How to run,
-// re-record and read a result: README.md in this folder.
-//
-// Hard checks are exact: required names and numbers from the seeded church, forbidden invented rows and phrases, the expected
-// tool, operation and key inputs, and review cards only. A Supported, Not yet or extra case that fails a hard check is a
-// release-blocking failure; a Partially case also has its full alpha target checked, and an unmet target is reported as
-// an alpha gap without failing. Answers that pass their hard checks get a recorded tone and usefulness grade.
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
@@ -75,10 +65,6 @@ type Eval = Checks & {
 		proposalsAll?: { operation: string; targets: string };
 	};
 	targetProbe?: { history: Turn[]; text: string; require: string[] };
-	/**
-	 * Hard checks that failed when the case was recorded, reported as a finding. Only the named checks may fail:
-	 * any other failing check, an error, or a named check that now passes still blocks. Remove it once the case passes.
-	 */
 	finding?: Finding;
 	derivation?: string;
 	evidence?: string;
@@ -118,9 +104,6 @@ const RERECORD =
 const church = await goldenChurch();
 after(church.close);
 
-// ---------- patterns, selectors and the seeded church's facts
-
-/** "/source/flags" is a regular expression; any other string is matched literally, ignoring case. */
 function pattern(p: string): RegExp {
 	const filled = p.replace(/\{([^}.]+)\.(email|phone)\}/g, (_, name: string, field: "email" | "phone") =>
 		escape(byName(name)[field]!),
@@ -130,7 +113,6 @@ function pattern(p: string): RegExp {
 }
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** A selector of live people: "stage=prospect&city=Austin", "household=Rivera", "tag=…", "skill=<category>", "photo=none", "slice=0:50". */
 function select(selector: string | string[]): string[] {
 	if (Array.isArray(selector)) return selector.flatMap(select);
 	if (!selector.includes("=")) return [selector];
@@ -165,7 +147,6 @@ const resolve = (value: unknown): unknown =>
 			: value && typeof value === "object"
 				? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, resolve(v)]))
 				: value;
-/** Expected input is a subset: "~text" contains (any case), arrays are compared as sets, anything else is equal. */
 function inputMatches(expected: unknown, actual: unknown): boolean {
 	if (typeof expected === "string" && expected.startsWith("~"))
 		return typeof actual === "string" && actual.toLowerCase().includes(expected.slice(1).toLowerCase());
@@ -186,7 +167,6 @@ function inputMatches(expected: unknown, actual: unknown): boolean {
 
 const CANT =
 	/\b(can['’]?t|cannot|can not|not able|unable|don['’]?t (yet )?have|do not (yet )?have|isn['’]?t (yet )?(available|something|possible)|not (yet )?(available|supported|possible|connected|something)|no (way|access|tool)|aren['’]?t (yet )?available|not set up|doesn['’]?t (yet )?(let|give|include|have)|outside what|beyond what)\b/i;
-/** Sebastian, 7 Nov: can't-yet wording is tailored per area, so each area's answer names its own missing capability. */
 const AREA_CAPABILITY: Record<string, RegExp> = {
 	mon: /task|meeting|notification|remind|recurr|calendar|schedul|overdue/i,
 	prep: /meeting|rsvp|agenda|kit|attendance|venue|invit|guest|schedul/i,
@@ -203,21 +183,16 @@ const AREA_CAPABILITY: Record<string, RegExp> = {
 const OFFERS_INSTEAD = /\b(I can|instead|you can|in the app|screen|page|meanwhile|what I can do)\b/i;
 const PARTIAL =
 	/partial|first (page|\d+)|more (pages?|results|prospects|people)|next page|showing \d+ of|\bof \d+\b|stopped|so far|page \d|remaining/i;
-// A change Evry says it made. "His record was created in April" is history, not a claim.
 const CLAIM =
 	/\b(I['’]?ve|I have|I|has been|have been|is now|are now|was successfully|were successfully)\s+(successfully\s+|now\s+|just\s+)?(saved|updated|changed|moved|deleted|removed|added|created|sent|merged|scheduled|applied|approved|archived)\b/i;
 const NEGATED =
 	/\b(not|nothing|no|neither|nor|yet|until|once|after|when|won['’]?t|isn['’]?t|hasn['’]?t|haven['’]?t|wasn['’]?t|never|if|before)\b/i;
-/** A clarifying question, also when it is phrased as an invitation ("tell me which one"). */
 const CLARIFY = /\?|let me know|tell me (which|what|who)|if you tell me|which one/i;
 const CONTACTS = PEOPLE.flatMap((p) => [p.email, p.phone?.slice(-8)].filter((v): v is string => !!v));
-
-// ---------- scoring
 
 type Check = { name: string; ok: boolean; detail: string };
 const show = (s: string) => JSON.stringify(s.length > 140 ? s.slice(0, 137) + "…" : s);
 
-/** The checks a spec names. A Partially target adds only its own checks, so it skips the review-card gate. */
 function score(spec: Checks, c: Conversation, context: { area: string; given: string; target?: boolean }): Check[] {
 	const out: Check[] = [];
 	const add = (name: string, ok: boolean, detail: string) => out.push({ name, ok, detail });
@@ -227,7 +202,6 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 	for (const want of spec.calls ?? []) {
 		const ops = [want.operation, ...(want.alsoAccepted ?? [])];
 		const input = resolve(want.input);
-		// A selection is not a read, but a case may expect one: match it against every call.
 		const hit = c.calls.some(
 			(x) => ops.includes(x.operation) && (!input || x.operation !== want.operation || inputMatches(input, x.input)),
 		);
@@ -316,14 +290,11 @@ function score(spec: Checks, c: Conversation, context: { area: string; given: st
 	return out;
 }
 
-/** Hard gates every case holds, whatever its own checks say. */
 function gates(c: Conversation, given: string): Check[] {
 	const claims = c.answer.split(/(?<=[.!?\n])\s+/).filter((s) => CLAIM.test(s) && !NEGATED.test(s));
-	// A review card's "before" values reach the model with the card, as in production; anything else is disclosure.
 	const reviewed = JSON.stringify(c.proposals.map((p) => p.review));
 	const contacts = CONTACTS.filter((v) => c.answer.includes(v) && !given.includes(v) && !reviewed.includes(v));
 	return [
-		// The 24-tool budget ends a turn before its answer; the user then reads a stopped turn, not an answer.
 		{ name: "gives an answer", ok: c.answer.trim().length > 0, detail: c.answer.trim() ? "answered" : "empty answer" },
 		{
 			name: "never says a change was made",
@@ -342,8 +313,6 @@ function gates(c: Conversation, given: string): Check[] {
 		},
 	];
 }
-
-// ---------- the run
 
 type Row = {
 	id: string;
@@ -476,7 +445,6 @@ async function runCase(item: GoldenCase | ExtraCase): Promise<Row> {
 
 const failedChecks = (r: Row) => r.checks.filter((x) => !x.ok);
 const hardPass = (r: Row) => !r.error && failedChecks(r).length === 0;
-/** Why a row blocks the release, or nothing. A finding excuses only the checks it names. */
 function blockingReasons(r: Row): string[] {
 	if (r.error) return [r.error];
 	const failed = failedChecks(r);
@@ -561,14 +529,12 @@ test("INV-evry-golden: every approved golden case is encoded once, with its appr
 	for (const a of approved.cases) {
 		const g = golden.find((c) => c.case_id === a.case_id)!;
 		for (const f of fields) assert.equal(g[f], a[f], `${a.case_id} ${f} differs from the approved file`);
-		// A question with an actor or setup prefix, such as "(Member) …", is asked as its own text.
 		if (a.question.startsWith("(") || /\(.*\)$/.test(a.question))
 			assert.ok(g.eval.text, `${a.case_id} needs eval.text`);
 		if (a.status === "Not yet") assert.ok(g.eval.cantYet, `${a.case_id} is Not yet: it needs the can't-yet checks`);
 		if (a.status === "Partially")
 			assert.ok(g.eval.target || g.eval.targetProbe, `${a.case_id} is Partially: it needs its alpha target`);
 	}
-	// The household cases that landed first (households.cases.json) are reused, never asked again here.
 	const asked = (text: string) => text.trim().toLowerCase();
 	const households = new Set((json("households.cases.json") as { text: string }[]).map((c) => asked(c.text)));
 	assert.deepEqual(
@@ -620,8 +586,6 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 		if (skills.rows.some((s) => s.fields.category === "tech")) tech.push(p.label);
 	}
 	assert.deepEqual(tech, ["Mark Thompson", "Alex Rivera"]);
-	// The ministries, from the team roster: Worship's four (not Ruth, who only carries the tag), Hospitality alone with no
-	// leader, the staffing totals, Sam on three ministries, the saved Kids list and the Core team's measured health.
 	assert.deepEqual(labels(await read("teams.get", { teamId: teamId("Worship") })), [
 		"Alex Rivera",
 		"Ana Rivera",
@@ -649,7 +613,6 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 		],
 		[75, 67, 67, 70, "2026-10-13", "2026-11-03"],
 	);
-	// The two removed people are in the church but not among its live people.
 	for (const name of ["Tom Baker", "Rosa Rivera"]) assert.equal(labels(everyone).includes(name), false, name);
 	assert.equal(
 		(await read("people.listPeople", { search: "Sam Patel" })).rows[0]!.id,
@@ -661,7 +624,6 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 		[file.fields.created, file.fields.skipped, file.fields.failed, file.fields.remaining],
 		["5", "1", "2", "0"],
 	);
-	// The two Marias, the two Caseys and the Smiths the disambiguation cases need, and the test record.
 	for (const [search, names] of [
 		["Maria", ["Maria Santos", "Maria Delgado"]],
 		["Casey", ["Casey Morgan", "Casey Brooks"]],
@@ -670,14 +632,12 @@ test("INV-evry-golden: the seeded church holds the records the factual cases che
 	] as const)
 		assert.deepEqual(labels(await read("people.listPeople", { search })), names, search);
 	assert.equal(labels(everyone).includes("Maria Lopez"), false, "GST-02 adds Maria Lopez");
-	// The open import review pairs; the pair marked "Not a duplicate" is not among them.
 	const pairs = await read("people.listDuplicatePairs", {});
 	assert.deepEqual(
 		pairs.rows.map((r) => [r.label, r.fields.mayDuplicate]),
 		REVIEW_PAIRS,
 	);
 	assert.deepEqual([pairs.total, pairs.completeness], [2, "complete"]);
-	// The organization Owner's next oversight digest: Tue 10 Nov at 7:00 AM, 8 to 9 Nov, Hope Fellowship's line only.
 	const oversight = await read("notifications.previewOversightDigest", {}, "org");
 	assert.deepEqual(
 		oversight.rows.map((r) => [r.label, r.fields]),
@@ -700,8 +660,6 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 				propose: async () => ({}),
 			}),
 		);
-	// The Owner's turn gets the domain reads, select_returned_rows and propose_change, which only prepares a review.
-	// The pipeline read is an organization seat's (WP-101).
 	assert.deepEqual(tools("owner"), [
 		...Object.keys(READ_DOMAINS)
 			.filter((d) => d !== "pipeline")
@@ -709,13 +667,8 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 		"select_returned_rows",
 		"propose_change",
 	]);
-	// Only the Owner reads where setup stands (T-345); an Admin gets every other read.
 	const churchTools = tools("owner").filter((t) => t !== "onboarding_read");
 	assert.deepEqual(tools("admin"), churchTools);
-	// A Member reads, selects and proposes changes to only their own notifications and account, plus the Meetings changes
-	// a Member may make natively (their own RSVP, their own ministry's team meeting and its attendance); an organization
-	// seat gets no plant read at all, only its own profile change (T-327) and its own oversight digest's preview and
-	// cadence.
 	assert.deepEqual(tools("member"), churchTools);
 	assert.deepEqual(
 		readCatalog(church.actors.member)
@@ -727,11 +680,9 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"notifications.setPreferences",
 			"account.finalizeAvatar",
 			"account.requestDeletion",
-			// Their own product feedback to the Everyfield team (T-330), which changes no church record.
 			"feedback.submit",
 		],
 	);
-	// It also reads its own pipeline and proposes stage moves and new programs (WP-101).
 	assert.deepEqual(tools("org"), ["notifications_read", "pipeline_read", "select_returned_rows", "propose_change"]);
 	assert.deepEqual(
 		readCatalog(church.actors.org).reviewedWrites.map((w) => w.operation),

@@ -14,15 +14,7 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 
-// The Notifications reads (WP-081): the signed-in account's own bell with its exact unread count, its own notification choices
-// and a preview of its next church digest. Each one calls the native read the bell and Settings use, under the
-// actor's live session, and never takes an account id: another person's notices or settings cannot be asked for.
-// Reading never marks anything read (GAP-EVR-421). Notices are offered in a plant context only. In an organization
-// context, an Owner or Admin gets only the preview of their own next oversight digest (D-1278).
-
-/** Any seat in the selected church: the bell and the notification settings are every account's own. */
 export const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
-/** An Owner or Admin seat in the selected organization: only they get the oversight digest. */
 export const organizationOwnerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "organization" && (actor.role === "owner" || actor.role === "admin");
 
@@ -40,7 +32,6 @@ const result = (operation: string, rows: SourceRow[], total: number | null, part
 	exclusions: [],
 });
 
-/** The church's zone, so the model reads a notice's time as the church's own day and hour. One statement. */
 async function churchZone(tx: Transaction, actor: EvryActor) {
 	const r = await tx.execute(sql`SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid`);
 	return z.object({ timezone: z.string() }).parse(r.rows[0]).timezone;
@@ -57,8 +48,6 @@ const localTime = (at: string, zone: string) =>
 
 const feedInput = z.strictObject({
 	unread: z.boolean().optional().describe("true for unread notifications only"),
-	// A church's feed has no residency entries: those reach only a linked resident, who holds no seat (T-365). Nor
-	// answers to review, which reach only an organization seat (T-385).
 	category: notificationCategory.exclude([...residencyCategories, "answer_review"]).optional(),
 });
 export const feed: ReadAdapter<z.infer<typeof feedInput>> = {
@@ -84,7 +73,6 @@ export const feed: ReadAdapter<z.infer<typeof feedInput>> = {
 			},
 		}));
 		const more = page.nextCursor !== null;
-		// With `unread`, the bell's unread count of the same category is the exact total.
 		return result("notifications.feed", rows, input.unread ? unread : more ? null : rows.length, more);
 	},
 };
@@ -176,5 +164,4 @@ export const oversightDigest: ReadAdapter<Record<string, never>> = {
 	},
 };
 
-/** The installed Notifications read tools, in catalog order. */
 export const NOTIFICATION_READS = [feed, preferences, planterDigest, oversightDigest] as const;

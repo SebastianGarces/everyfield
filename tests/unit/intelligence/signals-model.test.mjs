@@ -1,5 +1,3 @@
-// Attestations screen rules (WP-039 slice 2) that a silent break would turn into a wrong age, a false "no" or a lost
-// answer. They run in node against the modules the screen uses; no browser.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { countsOf, renewalOf, SIGNAL_DEFINITIONS } from "../../../packages/contracts/src/intelligence/signals.ts";
@@ -111,7 +109,6 @@ test("INV-signals: saving needs a choice; the same value is not a correction; ca
 test("BUG-PR551 (signals/com-16): a cleared True as of date is left out of the request and the answer reads as of today", () => {
 	const draft = { value: "yes", asOf: "", detail: " Thursdays ", reference: "" };
 	const input = signalInput("prayer_rhythm_established", "yes", draft);
-	// As sent: no asOf key at all, so the server dates it today.
 	assert.deepEqual(JSON.parse(JSON.stringify(input)), {
 		key: "prayer_rhythm_established",
 		value: "yes",

@@ -1,5 +1,3 @@
-// The plain-text editor maps typed text to stored HTML and back, and the preview pre-pass and send check read the
-// merge fields, so the preview equals the sent email.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { sanitizeHtml } from "../../../packages/contracts/src/communication/html.ts";

@@ -1,26 +1,9 @@
-// "Compare with template" (Approach A, "Versioning and forking"). Two lists of a document beside its template:
-// "All differences" (T-19), a two-way, block-level compare with the template's current version; and "Template changes"
-// (T-81, D-423), a three-way compare that lists only what the template changed between the version the document
-// records (the base) and the current one, so the church's own edits are not listed. Each has the document that
-// accepting some of its items makes. Pure: the caller supplies the templates, the origin to record and the merge
-// values of any field the document lacks.
 import { FORMAT_SCHEMA } from "./schema.ts";
 import type { BlockNode, DocDocument, DocTemplate, FieldDecl, Origin, PageSetup, Region } from "./types.ts";
 
-/**
- * What an item is, each with its own words. "All differences": "In template only", "In your document only" or
- * "Changed". "Template changes": "In template only" (added), "Removed from template", "Changed", or "Changed in
- * template and in your document" (`both`, D-424) when the church had changed what the template changed.
- */
 type DifferenceKind = "template-only" | "document-only" | "changed" | "removed" | "both";
-/** The page setup without its header and footer, which are listed on their own. */
 export type PageLayout = Omit<PageSetup, "header" | "footer">;
 
-/**
- * One item, numbered in reading order. `document` is the document's side, null when it has none ("In template only");
- * `template` is the current template's side, null for "In your document only", "Removed from template", or a block the
- * template removed that the church had changed.
- */
 export type DocDifference = { id: number } & DifferenceOf;
 type DifferenceOf =
 	| { part: "title"; kind: "changed" | "both"; document: string; template: string }
@@ -31,17 +14,11 @@ type DifferenceOf =
 type Rec = { [key: string]: unknown };
 const isRec = (value: unknown): value is Rec => !!value && typeof value === "object" && !Array.isArray(value);
 
-/**
- * The comparable form of a value: attributes filled with the schema's defaults and limited to the declared ones,
- * no empty `attrs` or `content`, adjacent text runs with the same marks joined, keys sorted. The editor writes every
- * default and a template leaves them out; both mean the same block, so both have the same form.
- */
 function normal(value: unknown): unknown {
 	if (Array.isArray(value)) return joinText(value.map(normal));
 	if (!isRec(value)) return value;
 	const spec = typeof value.type === "string" ? FORMAT_SCHEMA.nodes[value.type] : undefined;
 	const out: Rec = {};
-	// A node the schema knows always gets its `attrs` step, so a block with no `attrs` at all still fills the defaults.
 	const keys = new Set(Object.keys(value));
 	if (spec) keys.add("attrs");
 	for (const key of [...keys].sort()) {
@@ -92,10 +69,8 @@ function joinText(nodes: unknown[]) {
 }
 
 const key = (value: unknown) => JSON.stringify(normal(value));
-/** Two values are the same when their comparable forms are: schema defaults filled, undeclared attributes dropped. */
 export const sameKey = key;
 
-/** A header or footer with no blocks prints nothing, so it counts as no region. */
 const region = (value: Region | null | undefined): Region | null => (value?.content?.length ? value : null);
 const layout = (page: PageSetup): PageLayout => {
 	const rest: Partial<PageSetup> = { ...page };
@@ -112,11 +87,6 @@ type Step =
 	| { op: "document-only"; document: BlockNode }
 	| { op: "template-only"; template: BlockNode };
 
-/**
- * The body in reading order as an alignment of the two block lists. An identical block always outweighs any number of
- * pairs, so the alignment keeps the most unchanged blocks; between them, a document block and a template block of the
- * same kind pair up as "Changed", and the rest are in one side only.
- */
 function align(doc: readonly BlockNode[], tpl: readonly BlockNode[]): Step[] {
 	const a = doc.map(key);
 	const b = tpl.map(key);
@@ -143,7 +113,6 @@ function align(doc: readonly BlockNode[], tpl: readonly BlockNode[]): Step[] {
 				j++;
 				continue;
 			}
-			// A removed document block reads before the template block that takes its place.
 			if (score[i]![j] === score[i + 1]![j]) {
 				steps.push({ op: "document-only", document: doc[i++]! });
 				continue;
@@ -157,7 +126,6 @@ function align(doc: readonly BlockNode[], tpl: readonly BlockNode[]): Step[] {
 	return steps;
 }
 
-/** What an accept keeps or takes, part by part. A header or footer is the raw value, so an absent one stays absent. */
 type Picked = {
 	title: string;
 	page: PageSetup;
@@ -165,10 +133,8 @@ type Picked = {
 	footer: PageSetup["footer"];
 	blocks: BlockNode[];
 };
-/** A list and the document parts that accepting the items numbered in `taken` gives. */
 type Plan = { differences: DocDifference[]; apply: (taken: ReadonlySet<number>) => Picked };
 
-/** "All differences": every difference between a document and a template, and what taking each gives. */
 function twoWay(doc: DocDocument, template: DocTemplate): Plan {
 	const differences: DocDifference[] = [];
 	const add = (d: DifferenceOf) => differences.push({ id: differences.length, ...d }) - 1;
@@ -224,11 +190,8 @@ function twoWay(doc: DocDocument, template: DocTemplate): Plan {
 	};
 }
 
-/** How one side moved from the base: what became of each base block, and the blocks it added before each one. */
 type Track = {
-	/** Per base block: the side's block, the same or edited, or null when the side removed it. */
 	at: { block: BlockNode | null; edited: boolean }[];
-	/** `inserts[k]` comes before base block k; the last one after the last block. */
 	inserts: BlockNode[][];
 };
 function track(side: readonly BlockNode[], base: readonly BlockNode[]): Track {
@@ -248,15 +211,9 @@ function track(side: readonly BlockNode[], base: readonly BlockNode[]): Track {
 	return out;
 }
 
-/**
- * "Template changes" (D-423, D-424): only what the template changed between `base` and `current`, each in its place
- * among the document's blocks. A change the document already has, or a block the template removed or reworded that
- * the document already removed, is not listed. Every block the template did not change keeps the document's version.
- */
 function threeWay(doc: DocDocument, base: DocTemplate, current: DocTemplate): Plan {
 	const differences: DocDifference[] = [];
 	const add = (d: DifferenceOf) => differences.push({ id: differences.length, ...d }) - 1;
-	/** One part with no blocks (title, page setup, header, footer): its item, or null when nothing is to take. */
 	function part<T>(mine: T | null, was: T | null, now: T | null, listed: (kind: DifferenceKind) => DifferenceOf) {
 		if (key(was) === key(now) || key(mine) === key(now)) return null;
 		if (mine === null && was !== null) return null;
@@ -283,11 +240,9 @@ function threeWay(doc: DocDocument, base: DocTemplate, current: DocTemplate): Pl
 	};
 	const header = regionPart("header");
 
-	// The body: the base's blocks in order, the blocks each side added before each one, then after the last.
 	const baseBlocks = base.body.content ?? [];
 	const mine = track(doc.body.content ?? [], baseBlocks);
 	const theirs = track(current.body.content ?? [], baseBlocks);
-	/** What one place prints: `keep` unless its item, `id`, is taken. */
 	const slots: { keep: BlockNode[]; take: BlockNode[]; id: number | null }[] = [];
 	for (let k = 0; k <= baseBlocks.length; k++) {
 		const added = mine.inserts[k]!;
@@ -328,34 +283,19 @@ function threeWay(doc: DocDocument, base: DocTemplate, current: DocTemplate): Pl
 	};
 }
 
-/**
- * Every difference between a document and the current template, in reading order: the title, the page setup, the
- * header, the body block by block, then the footer. Merge fields compare by key, so a field whose value differs is
- * not a difference. Nothing outside the body is compared: the legal notice is never part of a document.
- */
 export function compareWithTemplate(doc: DocDocument, template: DocTemplate): DocDifference[] {
 	return twoWay(doc, template).differences;
 }
 
-/**
- * "Template changes": what the template changed from `base`, the version the document records, to `current`, in
- * the same reading order and with the same field rule as `compareWithTemplate`. The church's own edits to blocks the
- * template did not change are not listed.
- */
 export function templateChanges(doc: DocDocument, base: DocTemplate, current: DocTemplate): DocDifference[] {
 	return threeWay(doc, base, current).differences;
 }
 
-/** The template fields a document does not declare. Accepting adds them, with their frozen values. */
 export const missingFields = (doc: DocDocument, template: DocTemplate): FieldDecl[] =>
 	template.fields.filter((field) => !doc.fields.some((mine) => mine.key === field.key));
 
 type AcceptWith = { origin: Origin; values: Record<string, unknown> };
 
-/**
- * The document after accepting the items numbered in `accepted` ("all" accepts every one). The document records
- * `origin`, declares the template's fields it lacked and freezes `values` for them.
- */
 function accept(
 	doc: DocDocument,
 	template: DocTemplate,
@@ -383,10 +323,6 @@ function accept(
 	});
 }
 
-/**
- * Accepting from "All differences": an accepted difference takes the template's side: a template block is added or
- * replaces the document's, a document-only block is removed. Every other block keeps the document's version.
- */
 export function acceptDifferences(
 	doc: DocDocument,
 	template: DocTemplate,
@@ -396,10 +332,6 @@ export function acceptDifferences(
 	return accept(doc, template, twoWay(doc, template), accepted, options);
 }
 
-/**
- * Accepting from "Template changes": each accepted change is applied in its place among the document's own blocks;
- * every block the church edited and the template did not change keeps the church's version.
- */
 export function acceptTemplateChanges(
 	doc: DocDocument,
 	base: DocTemplate,

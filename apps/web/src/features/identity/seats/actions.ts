@@ -6,24 +6,17 @@ import { namesFor, subjectFacts, viewerOf } from "@/server/organizations";
 import { tasksMount } from "@/server/tasks";
 import { answer, refused, type Reply } from "../server";
 
-// The Seats and invitations page's only doors (WP-008/ui ruling U1). The session and the one current seat come from
-// the server for every call. Reads take the request actor (D59); every command goes through the shipped seat and
-// invitation services, which check the actor's own authority again. The page never decides who may see or change a seat.
-
 export type SeatsRead =
 	| { status: "unavailable" }
 	| {
 			status: "ready";
-			/** The current workspace, exactly as the commands take it. */
 			workspace: unknown;
 			kind: "plant" | "sending_church" | "sending_network";
 			workspaceName: string;
 			canManage: boolean;
-			/** The workspace revision an invitation must carry, and its time zone for dates. */
 			revision: string;
 			zone: string;
 			roster: unknown;
-			/** Owners and Admins only: the pending invitations. */
 			invitations: unknown;
 	  };
 
@@ -61,7 +54,6 @@ export async function readSeats(): Promise<SeatsRead> {
 	};
 }
 
-/** The next page of the roster or of the pending invitations, after the last ID the screen holds. */
 export async function readSeatsPage(list: "seats" | "invitations", after: string): Promise<Reply> {
 	const w = await workspaceViewer();
 	const service = invitationService();
@@ -72,7 +64,6 @@ export async function readSeatsPage(list: "seats" | "invitations", after: string
 		: answer(() => service.list(authority, { workspace: selected, after }));
 }
 
-/** What removing one seat needs (ruling D52): its open duties and who may take them, from the seat service. */
 export async function readRemovalReview(seatId: string): Promise<Reply> {
 	const w = await workspaceViewer();
 	if (!w) return refused("unavailable");
@@ -82,7 +73,6 @@ export async function readRemovalReview(seatId: string): Promise<Reply> {
 const operation = z.enum(["invite", "resend", "revoke", "appointAdmin", "demote", "remove"]);
 export type SeatOperation = z.infer<typeof operation>;
 
-/** One seat or invitation command for the current workspace, through its shipped service. */
 export async function runSeatCommand(name: SeatOperation, command: unknown): Promise<Reply> {
 	const op = operation.safeParse(name);
 	const w = await workspaceViewer();
@@ -102,8 +92,6 @@ export async function runSeatCommand(name: SeatOperation, command: unknown): Pro
 		case "demote":
 			return answer(() => mount.seats.demote(s, selected, command));
 		case "remove": {
-			// A removal hands the seat's open tasks on, and their owed reminders follow them through the tasks mount in
-			// the same transaction. A deployment without it cannot replan reminders, so the removal is refused there.
 			const reminders = tasksMount()?.reminders;
 			if (!reminders) return refused("unavailable");
 			return answer(() => mount.seats.remove(s, selected, command, reminders));

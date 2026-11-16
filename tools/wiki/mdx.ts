@@ -34,12 +34,10 @@ const verse =
 	/^(?:[1-3] )?[A-Z][a-z]+(?: [A-Za-z]+)* \d+:\d+[a-z]?(?:[-–](?:\d+:)?\d+[a-z]?)?(?: \((?:LSB|ESV|KJV|NLT)\))?$/;
 export const scripture = /^\s*\*"((?:[^"]|"(?!\*))+)"\*\s+—\s+([^\n]+?)\s*$/;
 
-// ASCII-art diagrams: box-drawing and block characters anywhere, and arrows or connector lines in a code block.
 const box = /[\u2500-\u259F]/;
 const arrow = /[\u2190-\u21FF\u25B2\u25BC\u25BA\u25C4]|->|<-|=>/;
 const connector = /^[|v^ ]*[|v^][|v^ ]*$/;
 
-/** Article lines (from 1) where the body draws a diagram in text. Prose arrows outside code blocks stay allowed. */
 export function asciiArt(content: string): DiagramError[] {
 	const found: DiagramError[] = [];
 	const fenced = new Set<number>();
@@ -62,12 +60,10 @@ export function asciiArt(content: string): DiagramError[] {
 	return found.sort((a, b) => a.line - b.line);
 }
 
-/** The allowlist fingerprint of one fenced block: the first 16 hex digits of the SHA-256 of its info string and body. */
 export function blockFingerprint(block: { info: string; body: string }): string {
 	return createHash("sha256").update(`${block.info}\n${block.body}`).digest("hex").slice(0, 16);
 }
 
-/** Each ASCII-art finding. A fenced finding carries its block's fingerprint, so an allowlist entry can permit that block. */
 export function asciiFindings(content: string) {
 	const opened = new Map(fencedBlocks(content).map((block) => [block.start + 1, block]));
 	return asciiArt(content).map((finding) => {
@@ -76,7 +72,6 @@ export function asciiFindings(content: string) {
 	});
 }
 
-/** Each fault of each ```diagram block, at its article line: the fence line plus the parser's body line. */
 export function diagramErrors(content: string): DiagramError[] {
 	return fencedBlocks(content).flatMap((block) => {
 		if (!isDiagramInfo(block.info)) return [];
@@ -87,7 +82,6 @@ export function diagramErrors(content: string): DiagramError[] {
 	});
 }
 
-/** Marks each fence's code element with its whole info string, so the renderer can tell a diagram block apart. */
 function fenceInfo() {
 	return (tree: Root) => {
 		const visit = (node: Root | RootContent) => {

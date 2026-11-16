@@ -1,9 +1,6 @@
 import type { PipelineRemovalReport } from "@everyfield/contracts/organizations";
 import { plural } from "../board/model";
 
-// The words of a removal report (REQ-MUL-005). No React and no server code.
-
-/** One line per kind of thing the removal took out; a kind with nothing in it is left off. */
 export function removedLines(report: PipelineRemovalReport): string[] {
 	const r = report.removed;
 	const lines = ["Name and contact details", "Place on the pipeline"];
@@ -24,7 +21,6 @@ export function removedLines(report: PipelineRemovalReport): string[] {
 }
 
 type Kept = PipelineRemovalReport["kept"][number];
-/** A kept category in words: what it is and why the organization still needs it. */
 export function keptText(k: Kept, attribution: string): { title: string; why: string } {
 	switch (k.category) {
 		case "program_completion_count":

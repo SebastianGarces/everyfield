@@ -1,11 +1,3 @@
-// What a result card says (WP-051 slice 2). It runs in node against the module the card uses; no browser.
-//   AC:EVRY-CONTEXT-BOUNDS INV-households-card: a listHouseholds result is a Households card with household words, a
-//     household icon, no link and no person wording.
-//   INV-household-detail: getHousehold and getHouseholdMembers name people in the count; member rows show the household
-//     role and link to the person; no household row links to /people/.
-//   INV-result-card-*: every non-person read has its own title, count noun and rows (T-160): tags, a person's tags and
-//     skills, history, the pipeline, the import template, preview and receipt, and the export as a count card.
-//   INV-result-card-duplicate-pairs: listDuplicatePairs lists each imported person with the person it may duplicate.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cardView } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
@@ -150,7 +142,6 @@ test("a message read is a Messages card with the send time, no person wording an
 	assert.deepEqual(none.facts.slice(0, 1), ["No draft or scheduled message in this church matches."]);
 });
 
-// ---------- each non-person read has its own card (T-160)
 const T1 = "44444444-4444-4444-8444-444444444441";
 const T2 = "44444444-4444-4444-8444-444444444442";
 const T3 = "44444444-4444-4444-8444-444444444443";
@@ -242,7 +233,6 @@ test("INV-result-card-person-fields: a person's tags and skills have their own t
 });
 
 test("INV-result-card-history: getActivities is a History card that names what happened, with no note text and no people wording", () => {
-	// Midday UTC, so the date reads the same in any time zone the test runs in.
 	const at = "2026-11-03T12:00:00.000Z";
 	const activity = (id, label, fields) => ({
 		kind: "activity",
@@ -506,7 +496,6 @@ test("INV-result-card-duplicate-pairs: listDuplicatePairs is a Duplicates to rev
 	assert.deepEqual(view.facts, [
 		"Not included: pairs marked not a duplicate, retired or merged people, pairs no import flagged.",
 	]);
-	// Past the first 100 pairs the total is unknown, and the card says only the first are shown.
 	const partial = cardView(
 		"people.listDuplicatePairs",
 		result("people.listDuplicatePairs", [pair(P1, "John Smith", "Jon Smith")], {

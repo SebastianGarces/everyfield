@@ -4,7 +4,6 @@ import { z } from "zod";
 import { hash } from "./hash.ts";
 
 const source = z.strictObject({ path: z.string(), sha256: z.string().regex(/^[a-f0-9]{64}$/), body: z.string() });
-// Literal catalog extraction is frozen with its source bytes. Feature consumers refine their own fields.
 const literal = z.record(z.string(), z.unknown());
 const artifact = z.strictObject({
 	sources: z.array(source),
@@ -30,7 +29,6 @@ function loadFrozen(): Promise<FrozenStarter> {
 	return frozen;
 }
 
-/** A file path string. Next's server bundle uses its own URL class, which Node's fs rejects. */
 function frozenFile(name: string) {
 	return fileURLToPath(new URL(name, import.meta.url).href);
 }
@@ -50,7 +48,6 @@ export async function loadStarter(): Promise<Starter> {
 	return (await loadFrozen()).starter;
 }
 
-/** Artifact sha256 from the same cached read as `loadStarter`. */
 export async function referenceArtifactSha256(): Promise<string> {
 	return (await loadFrozen()).artifactSha256;
 }
