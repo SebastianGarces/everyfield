@@ -2,8 +2,6 @@ import { ratio, textOn } from "../branding/color.ts";
 
 export { ratio, textOn };
 
-// WCAG 2.x contrast. Every text/background pair in a document goes through `pair()`,
-// so the logged ratios match what the page actually uses.
 const hex = (c: string) => {
 	const m = /^#?([0-9a-f]{6})$/i.exec(c);
 	if (!m) throw new Error(`not a #rrggbb colour: ${c}`);
@@ -26,13 +24,12 @@ const mix = (a: string, b: string, t: number) => {
 	return toHex(r1 + (r2 - r1) * t, g1 + (g2 - g1) * t, b1 + (b2 - b1) * t);
 };
 
-export const MIN_BODY = 4.5; // WCAG 1.4.3 normal text
-export const MIN_NONTEXT = 3; // WCAG 1.4.11 borders, checkbox outlines, large text
+export const MIN_BODY = 4.5;
+export const MIN_NONTEXT = 3;
 
 type PairRecord = { use: string; fg: string; bg: string; ratio: number; min: number };
 export class ContrastLog {
 	rows: PairRecord[] = [];
-	/** Record a pair and return the foreground, so it can be used inline. */
 	pair(use: string, fg: string, bg: string, min = MIN_BODY) {
 		const r = ratio(fg, bg);
 		if (!this.rows.some((x) => x.use === use && x.fg === fg && x.bg === bg))
@@ -42,8 +39,6 @@ export class ContrastLog {
 	}
 }
 
-/** A brand colour used as text or as a thin line: keep it if it clears `min` on `bg`, else step it toward ink until it does.
- *  A brand colour under 3:1 is therefore never printed as text; the derived shade is. */
 export const legible = (brand: string, bg: string, ink: string, min = MIN_BODY) => {
 	if (ratio(brand, bg) >= min) return brand;
 	for (let t = 0.05; t <= 1.0001; t += 0.05) {

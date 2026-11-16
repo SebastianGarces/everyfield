@@ -2,13 +2,8 @@ import { playbookTeam, referenceArtifactSha256 } from "@everyfield/reference/pla
 import { sql, type SQL } from "@everyfield/db/query";
 import { reviewDigest } from "../templates.ts";
 
-/** WP-017 key with no source team. It gets no Playbook lines, same as a custom team. */
 export const NO_PLAYBOOK_TEAM_KEY = "administration";
 
-/**
- * team.template_key to the frozen catalog teamKey.
- * The source names the org-chart root senior_pastor. WP-017 stores that team as leadership.
- */
 export const REFERENCE_TEAM_KEY = {
 	leadership: "senior_pastor",
 	worship: "worship",
@@ -33,7 +28,6 @@ export function referenceTeamKey(templateKey: string | null): string | null {
 	return REFERENCE_TEAM_KEY[templateKey as keyof typeof REFERENCE_TEAM_KEY];
 }
 
-/** Same split as docs/reference/ministry-role-templates.ts playbookResponsibilities. */
 function playbookLines(description: string | null): PlaybookLine[] {
 	if (!description) return [];
 	return description
@@ -56,7 +50,6 @@ function catalogSha(): Promise<string> {
 	return referenceArtifactSha256();
 }
 
-/** The caller selects from team t. The CASE reads t.template_key. */
 function referenceKeySql(): SQL {
 	const arms = Object.entries(REFERENCE_TEAM_KEY).map(
 		([templateKey, referenceKey]) => sql`WHEN ${templateKey} THEN ${referenceKey}`,
@@ -64,7 +57,6 @@ function referenceKeySql(): SQL {
 	return sql`CASE t.template_key ${sql.join(arms, sql` `)} ELSE NULL END`;
 }
 
-/** Latest installed ministry_template row for t.template_key. Line text does not come from this row. */
 export const catalogVersion = () => sql`(SELECT v.id FROM reference_version v
 	JOIN reference_item i ON i.id = v.item_id
 	WHERE i.kind = ${MINISTRY_TEMPLATE_KIND} AND i.canonical_key = ${referenceKeySql()}
@@ -78,7 +70,6 @@ function byStoredLine(a: StoredLine, b: StoredLine) {
 	return a.text.localeCompare(b.text);
 }
 
-/** Preview and offer share this digest. A declined offer shows no proposed lines. */
 export async function responsibilityReview(
 	templateKey: string | null,
 	stored: readonly StoredLine[],

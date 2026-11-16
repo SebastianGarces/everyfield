@@ -1,8 +1,3 @@
-// The Guide's screen-to-article list (WP-034), from Nora's list of Nov 2, 2026. A route outside this list has no
-// Guide. Each entry names a global article slug and one exact heading in it, so it resolves against whichever Wiki
-// release is current. A bracketed segment matches one record id, which is always a UUID: `/people/duplicates` is a
-// screen of its own, not a person.
-
 export type GuideEntry = { readonly route: `/${string}`; readonly slug: string; readonly heading: string };
 
 export const GUIDE_ROUTES = [
@@ -63,7 +58,6 @@ function segments(path: string): string[] {
 	return path.split("/").filter(Boolean);
 }
 
-/** The registry entry for an app address. A query string, a fragment or a trailing slash does not change it. */
 export function guideFor(route: string): GuideEntry | null {
 	const parts = segments(route.split(/[?#]/, 1)[0] ?? "");
 	return (

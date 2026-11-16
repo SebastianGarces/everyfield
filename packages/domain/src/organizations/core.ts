@@ -72,35 +72,20 @@ export const affiliationSchema = z.object({
 	share_wiki: z.boolean(),
 	share_activity: z.boolean(),
 	shared_findings: z.boolean(),
-	/** Computed by loadAffiliations: no lifecycle witness on the link or any endpoint, and a Discovery subject still open. */
 	live: z.boolean(),
-	/** Computed by loadAffiliations: live, not ended and accepted. */
 	active: z.boolean(),
 });
 export type Affiliation = z.infer<typeof affiliationSchema>;
 const receivingOrganization = alias(tables.organization, "receiving_organization");
 const sendingOrganization = alias(tables.organization, "sending_organization");
-/** A pool or a transaction: a read needs no transaction. */
 export type Reader = Pick<Transaction, "select" | "execute">;
-/**
- * Lock order shared by every write on a link: the organization, then the link. An organization's write gate locks the
- * organization before its command body; a subject-side write updates the organization's material revision after the
- * link. This filter takes the organization lock before the row lock in the same statement, so both sides queue on
- * the organization instead of deadlocking.
- */
 const organizationFirst = sql<boolean>`EXISTS(SELECT FROM organization o WHERE o.id=${tables.affiliation.organization_id} FOR NO KEY UPDATE)`;
-/**
- * The affiliation row `a` (a table name or alias) is live: no lifecycle witness hides the link or any endpoint, and a
- * Discovery subject is still open.
- */
 const linkLive = (a: string) => {
 	const c = (column: string) => sql.raw(`${a}.${column}`);
 	return sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${c("id")} OR (w.opaque_subject_id IN (${c("organization_id")},${c("plant_id")},${c("account_id")},${c("sending_church_id")}) AND w.kind IN ('account','plant','organization')))) AND (${c("account_id")} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${c("account_id")} AND d.converted_at IS NULL)))`;
 };
-/** The affiliation row `a` is in force now: live, not ended and accepted (loadAffiliations' `active`). */
 export const linkActive = (a: string) =>
 	sql<boolean>`(${sql.raw(a)}.ended_at IS NULL AND ${sql.raw(a)}.accepted_at<=clock_timestamp() AND ${linkLive(a)})`;
-/** Affiliations with their names and a computed `active` flag. A write locks the rows; a read takes no lock. */
 export async function loadAffiliations(tx: Reader, predicate: SQL, write = false) {
 	const live = linkLive("affiliation");
 	const query = tx
@@ -156,10 +141,8 @@ export const choices = (a: Affiliation) =>
 		activity: a.share_activity,
 		shared_findings: a.shared_findings,
 	});
-/** The live flag loadAffiliations computed in the same statement that read the row. */
 export const active = (a: Affiliation) => a.active;
 export interface OrganizationEffects {
-	/** Queue the invitation mail into `writes`, the command's single write statement (D70). */
 	invitation(
 		tx: Transaction,
 		input: {
@@ -173,10 +156,8 @@ export interface OrganizationEffects {
 		},
 		writes: SQLWrapper[],
 	): Promise<void>;
-	/** Stops queued work that read the old grant. Runs inside the command's single write statement (D70). */
 	invalidate(tx: Transaction, input: { owners: readonly Owner[]; sourceId: string; revision: string }): SQLWrapper;
 }
-/** A coarse relationship change the connected parties are told about by receipt mail (REQ-NTF-009). */
 export type RelationshipNotice = {
 	eventId: string;
 	actorId?: string;
@@ -235,7 +216,6 @@ export async function appendEvent(
 	});
 	return id;
 }
-/** Queue the organization's material bump and the stale-work supersede into the command's write statement. */
 export function invalidate(
 	tx: Transaction,
 	effects: OrganizationEffects,
@@ -252,7 +232,6 @@ export function invalidate(
 		effects.invalidate(tx, { owners: [pair.organization], sourceId: id, revision: rev }),
 	);
 }
-/** SQL fragments for one-statement fact reads: endpoint, pair and Discovery checks as boolean columns. */
 export const witnessHides = (kind: "account" | "plant", id: SQL) =>
 	sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.kind=${kind} AND w.opaque_subject_id=${id} AND w.state NOT IN ('active','cancelled'))`;
 export const discoveryOpen = (accountId: SQL) =>
@@ -260,7 +239,6 @@ export const discoveryOpen = (accountId: SQL) =>
 export const seatless = (accountId: SQL) =>
 	sql<boolean>`NOT EXISTS(SELECT FROM seat s WHERE s.account_id=${accountId} AND s.ended_at IS NULL)`;
 const uuid = (value: string) => sql`${sql.param(value)}::uuid`;
-/** The endpoint root exists with that kind and no lifecycle witness hides it. Organizations carry no witness. */
 function liveEndpoint(o: Owner): SQL<boolean> {
 	if (o.kind === "global") return sql<boolean>`false`;
 	if (o.kind === "organization")
@@ -268,18 +246,15 @@ function liveEndpoint(o: Owner): SQL<boolean> {
 	const root = o.kind === "plant" ? sql`plant` : sql`account`;
 	return sql<boolean>`(EXISTS(SELECT FROM ${root} WHERE id=${uuid(o.id)}) AND NOT ${witnessHides(o.kind, uuid(o.id))})`;
 }
-/** Both endpoints exist and are not being deleted, and a Discovery subject is still open, in one column. */
 export function pairLive(pair: RelationshipPair): SQL<boolean> {
 	const live = sql<boolean>`(${liveEndpoint(subjectOwner(pair))} AND ${liveEndpoint(pair.organization)})`;
 	return pair.kind === "discovery" ? sql<boolean>`(${live} AND ${discoveryOpen(uuid(pair.accountId))})` : live;
 }
-/** The subject may act for a discovery pair only while the profile is open and the account holds no live seat. */
 export const discoveryAuthority = (pair: RelationshipPair) =>
 	pair.kind === "discovery"
 		? sql<boolean>`(${discoveryOpen(uuid(pair.accountId))} AND ${seatless(uuid(pair.accountId))})`
 		: sql<boolean>`true`;
 type PairColumns = Record<"plant_id" | "account_id" | "sending_church_id" | "organization_id", SQLWrapper>;
-/** The rows of this exact pair in `affiliation` or `relationship_invitation`. */
 export const pairMatch = (t: PairColumns, pair: RelationshipPair) => {
 	const [plant, account, church, organization] = endpointValues(pair);
 	const nullable = (v: string | null | undefined) => (v ? uuid(v) : sql`NULL::uuid`);

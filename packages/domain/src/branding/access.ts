@@ -46,16 +46,10 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	});
 }
 
-/** The church plant the request is for, with the SQL condition that its live seat still holds (C13). */
 export type Scope = PlantViewer & { admin: SQL; seat: SQL };
-/**
- * Owner and Admin seats read and change the kit. Any active seat resolves a theme. Both conditions run inside the
- * statement that reads or writes (C13); a Member's `admin` condition is false, so the statement returns nothing.
- */
 export function scopeOf(authority: RequestActor): Scope {
 	const viewer = plantViewer(authority);
 	if (!viewer) deny("access_denied");
-	// liveRead matches the seat's exact role, so a Member's claimed role also closes the Owner or Admin condition.
 	const seat = liveRead(viewer.access, false);
 	return { ...viewer, admin: viewer.access.role === "member" ? sql`false` : seat, seat };
 }

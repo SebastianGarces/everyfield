@@ -1,5 +1,3 @@
-// Document building blocks on the theme tokens. Headings and tables carry their tags, which feed the PDF structure
-// tree (DOC accessibility).
 import type { ReactNode } from "react";
 import { Checkbox, Fixed, H1, H2, Image, Cell, Row, Svg, Table, Text, TextField, View } from "@formepdf/react";
 import type { Style } from "@formepdf/react";
@@ -10,13 +8,10 @@ import { FONT, SIZE, SP, type RenderClass, type RenderTheme, type Palette, type 
 export type Ctx = {
 	p: Palette;
 	theme: RenderTheme;
-	/** The class sets fixed page elements: a formal/legal page always prints the legal notice. */
 	documentClass: RenderClass;
 	church: string;
-	/** Merge-field values by key. A key with no value is absent. */
 	values: Record<string, string>;
 	log: ContrastLog;
-	/** The meeting an agenda prints from. Absent: the agenda is the blank sheet. */
 	meeting?: AgendaMeeting;
 };
 
@@ -35,7 +30,6 @@ type TextOpts = {
 	style?: Style;
 	min?: number;
 };
-/** Body text. The (use, color, background) triple is logged and must clear its contrast minimum. */
 export const T = (ctx: Ctx, children: ReactNode, o: TextOpts) => (
 	<Text
 		style={{
@@ -52,7 +46,6 @@ export const T = (ctx: Ctx, children: ReactNode, o: TextOpts) => (
 	</Text>
 );
 
-/** Small-caps field label above a box. */
 const Label = (ctx: Ctx, text: string, bg?: string) =>
 	T(ctx, text, {
 		size: SIZE.xs,
@@ -64,7 +57,6 @@ const Label = (ctx: Ctx, text: string, bg?: string) =>
 		style: { marginBottom: 2 },
 	});
 
-/** The document title: the only DM Serif Display text besides a church name in the logo slot. */
 export const Title = (
 	ctx: Ctx,
 	text: string,
@@ -109,7 +101,6 @@ const H = (ctx: Ctx, text: string, color: string, bg: string, use: string) => {
 	);
 };
 
-/** Inner markup and view box of an SVG logo. Null when the bytes are not an SVG with a view box. */
 function parseSvg(image: ThemeImage) {
 	if (image.mediaType !== "image/svg+xml") return null;
 	const source = Buffer.from(image.bytes).toString("utf8");
@@ -120,8 +111,6 @@ function parseSvg(image: ThemeImage) {
 	return { content: match[2] ?? "", w, h };
 }
 
-/** Fixed w x h box. The logo is fitted inside it (contain), so no logo shape moves anything outside the slot.
- *  No logo: the church name is set in type inside the same box. `onFill` draws a raster logo on a white plate. */
 export const LogoSlot = (
 	ctx: Ctx,
 	w: number,
@@ -178,8 +167,6 @@ export const LogoSlot = (
 	);
 };
 
-/** Numbered section header. `fill`: number tile in the accent fill. `rule`: number and title as primary text on white.
- *  `note`: a string prints as a muted note; a node (a field) prints as given. */
 export const SectionHead = (ctx: Ctx, n: number, title: string, mode: "fill" | "rule", note?: ReactNode) => {
 	const { p } = ctx;
 	return (
@@ -244,7 +231,6 @@ export const SectionHead = (ctx: Ctx, n: number, title: string, mode: "fill" | "
 	);
 };
 
-/** Labelled fillable field: the field draws its own box. A given value prints as text in a drawn box instead. */
 export const Field = (
 	ctx: Ctx,
 	label: string,
@@ -273,12 +259,10 @@ export const Field = (
 	</View>
 );
 
-/** A bare fillable box, for a table cell. */
 export const Cellfield = (name: string, w: number, h = 16) => (
 	<TextField name={name} width={w} height={h} fontSize={SIZE.sm} />
 );
 
-/** Checkbox: a drawn square in the accent line color (3:1 on white) with the Forme fillable checkbox on top. */
 export const Box = (ctx: Ctx, name: string, size = 12, tone: "accent" | "ink" = "accent", checked = false) => {
 	const line = tone === "accent" && ctx.p.brand ? ctx.p.accentLine : ctx.p.ink;
 	ctx.log.pair(`checkbox outline (${tone}) vs page`, line, ctx.p.white, MIN_NONTEXT);
@@ -292,7 +276,6 @@ export const Box = (ctx: Ctx, name: string, size = 12, tone: "accent" | "ink" = 
 type Col = { label: string; w: number | "auto"; align?: "left" | "right" | "center" };
 const cellStyle: Style = { paddingVertical: 3, paddingHorizontal: SP[2], justifyContent: "center" };
 
-/** A real Forme table (tagged Table, TR, TH, TD). The header fill and text color are parameters. */
 export const DataTable = (
 	ctx: Ctx,
 	cols: Col[],
@@ -369,7 +352,6 @@ export const Cellt = (
 		style: { textAlign: o.align ?? "left" },
 	});
 
-/** Letterhead footer: the left text and "Page N of M". */
 export const Footer = (ctx: Ctx, left: string, rule: string) => (
 	<Fixed position="footer">
 		<View
@@ -397,7 +379,6 @@ export const Footer = (ctx: Ctx, left: string, rule: string) => (
 	</Fixed>
 );
 
-/** A photo cropped to a w x h box (cover): the image is scaled to fill and centered, the box clips the rest. */
 export const PhotoSlot = (photo: ThemeImage, w: number, h: number) => {
 	const scale = Math.max(w / photo.aspect, h);
 	return (
