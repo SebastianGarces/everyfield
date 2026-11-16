@@ -1,14 +1,7 @@
 import * as c from "@everyfield/contracts/intelligence";
 import { ProviderBusy, type DraftCall, type Drafter, type DraftReply } from "@everyfield/domain/intelligence";
 
-// The scripted assessment model (WP-042) and the scripted language judge (PI-036), for local previews, tests and CI
-// only (D77: automated tests make no paid calls). The drafter writes a grounded draft from the run's own input the way
-// a careful model would: exact numbers from the cited facts, Unknown said as unknown, one passage per point where the
-// search found one. A test script can change any draft to prove the checks reject it. The paid gpt-6-luna drafter and
-// judge are in assessment-model.ts (D92).
-
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-/** "2026-10-03" as "Oct 3". */
 export const shortDate = (iso: string) => `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${Number(iso.slice(8, 10))}`;
 
 type Topic = c.FactTopic | "coverage";
@@ -23,7 +16,6 @@ const STEM: Record<Topic, RegExp> = {
 	training: /train/i,
 };
 
-/** What the facts say about each topic, in plain words that use only the cited values. */
 function lines(input: c.ModelInput): Line[] {
 	const f = new Map(input.facts.map((x) => [x.key, x.value]));
 	const v = (key: string) => f.get(key);
@@ -144,7 +136,6 @@ function lines(input: c.ModelInput): Line[] {
 	return out;
 }
 
-/** The grounded draft for an input: one focus, two supporting points and what's going well. */
 export function scriptedDraft(input: c.ModelInput): c.DraftOutput {
 	const all = lines(input);
 	const used = new Set<string>();
@@ -167,15 +158,8 @@ export function scriptedDraft(input: c.ModelInput): c.DraftOutput {
 
 const tokens = (value: unknown) => Math.ceil(Buffer.byteLength(JSON.stringify(value)) / 4);
 
-/** A scripted provider reply before the draft: busy (429 with an optional Retry-After in seconds, or a 5xx). */
 export type ScriptedReply = { status: 429 | 500 | 502 | 503; retryAfterSeconds?: number };
 
-/**
- * The scripted drafter. `script(draft, call)` may return a changed draft (or anything at all, to test the shape check)
- * for any call; `failures` makes the first calls fail as an uncertain provider error would; `busy` answers the first
- * calls as a busy provider would, one reply per call; `during(call)` runs before each reply, so a test can change
- * records while a draft is in flight. Every call is one dispatch: there is no hidden retry.
- */
 export function scriptedAssessmentDrafter(
 	options: {
 		script?: (draft: c.DraftOutput, call: DraftCall) => unknown;
@@ -216,10 +200,6 @@ const PRESSURE =
 	/\b(you must|must act|immediately|urgent(?:ly)?|act now|before it's too late|falling behind|you're behind|no excuses)\b/gi;
 const NEXT_STEP = /\b(might|could|consider|try|look at|record|recording|ask|invite|set|fill|finish)\b/i;
 
-/**
- * The scripted graded judge: plain (short sentences), warm (speaks to the planter), useful (each point offers a next
- * step), with every hype or pressure phrase listed as a failure. Deterministic, so a report is reproducible.
- */
 export function scriptedLanguageJudge(draft: c.DraftOutput): c.LanguageGrade {
 	const points = [draft.focus, ...draft.supporting, ...draft.positives];
 	const text = [draft.summary, ...points.flatMap((p) => [p.title, p.body])].join(" ");

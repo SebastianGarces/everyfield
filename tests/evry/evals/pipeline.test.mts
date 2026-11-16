@@ -1,11 +1,3 @@
-// The pipeline and program evals (WP-101) on the scripted model. Each case in pipeline.cases.json is asked the way the
-// app asks it: a real turn (runTurn) with the real catalog, reads and review cards, for the Grace Austin and Hill Country
-// Network seats seeded next to Hope Fellowship (pipeline-church.mts). A case with `approve` is then approved the way the
-// card approves it, which runs the native pipeline or program command in the approval request; its check reads the
-// result back through the Pipeline and Programs pages' own reads. No paid model, network or recording.
-// The cases with a `question` are the seven WP-101 questions (Done 1 to 7) asked by Dana (Owner), Ana (Member, responsible
-// for Casey, program director) and Ben (Member, no duty): each answer is compared with that asker's own Pipeline page read,
-// and each refusal with that asker's own native write, which is refused too (T-312 Done 14).
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -54,21 +46,16 @@ type Change = { field: string; before: unknown; after: unknown };
 type Case = {
 	id: string;
 	criterion: number;
-	/** One of the seven WP-101 questions (Done 1 to 7), asked by Dana, Ana or Ben. */
 	question?: number;
 	actor: PipelineName;
 	ask: string;
 	calls: string[];
 	answer?: string[];
-	/** Text the answer never holds: another person's name, a note's words, a reason the user gave. */
 	absent?: string[];
 	proposal?: { operation: string; target: string; changes?: Change[]; notes?: string[] };
-	/** Approved on the card, with the reason typed there when the card asks for one. */
 	approve?: { reason?: string };
 	outcome?: "completed" | "refused";
-	/** The asker's Pipeline page under this query: the answer names exactly its people, or its counts, as of its day. */
 	page?: { stale?: boolean };
-	/** The native write this asker's refusal matches: the Pipeline page's move or the Programs page's create. */
 	native?: "move" | "createProgram";
 };
 const { cases } = JSON.parse(readFileSync(new URL("./pipeline.cases.json", import.meta.url), "utf8")) as {
@@ -102,7 +89,6 @@ before(async () => {
 });
 after(() => close?.());
 
-/** One turn as the app runs it: submitted, claimed from the queue, run on the scripted model and finished. */
 async function ask(actor: EvryActor, conversationId: string, text: string) {
 	await submitTurn(db, actor, conversationId, { requestKey: randomUUID(), text, references: [] });
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
@@ -134,11 +120,9 @@ async function ask(actor: EvryActor, conversationId: string, text: string) {
 	return { reads, answer, proposals };
 }
 
-/** The Pipeline page as a seat sees it: each stage's people, or counts only. */
 const board = async (who: PipelineName, query: object = {}) =>
 	ok(await readPipelineBoard(db, await authority(who), query));
 const names = (b: Awaited<ReturnType<typeof board>>) => b.stages.flatMap((s) => s.people.map((p) => p.name));
-/** A person's record as Dana's Pipeline page shows it: the moves, newest first. */
 const movesOf = async (personId: string) =>
 	ok(await readPipelinePersonRecord(db, await authority("dana"), { personId })).history.flatMap((h) =>
 		h.kind === "moved" ? [{ from: h.from, to: h.to, reason: h.reason, actor: h.actor }] : [],
@@ -146,7 +130,6 @@ const movesOf = async (personId: string) =>
 const caseyMoves = () => movesOf(PEOPLE.casey);
 const EVERYONE = ["Jordan Reyes", "Casey Lee", "Sam Patel", "Morgan Diaz"];
 
-/** The answer shows what the asker's own Pipeline page shows under the same query: the same people, or the same counts. */
 async function matchesPage(c: Case, answer: string) {
 	const page = await board(c.actor, c.page);
 	assert.ok(answer.includes(dayText(page.asOf)), `${c.id} as of ${page.asOf}: ${answer}`);
@@ -159,7 +142,6 @@ async function matchesPage(c: Case, answer: string) {
 		for (const s of page.stages) assert.ok(answer.includes(`${s.label}: ${s.count}`), `${c.id} ${s.label}: ${answer}`);
 }
 
-/** The native write behind a refusal is refused for the asker too, and changes nothing. */
 async function refusedNatively(c: Case) {
 	if (c.native === "move") {
 		const before = ok(await readPipelinePersonRecord(db, await authority("dana"), { personId: PEOPLE.casey }));
@@ -192,7 +174,6 @@ async function refusedNatively(c: Case) {
 	}
 }
 
-/** A stage move proposal that carries a reason, a note or any text is refused before anything is dispatched. */
 async function refusesText(who: PipelineName, conversation: string, code: string) {
 	const actor = await actorOf(who);
 	const lease = { turnId: randomUUID(), tenantId: actor.owner.id, leaseOwner: "test", generation: "0" };
@@ -206,10 +187,8 @@ async function refusesText(who: PipelineName, conversation: string, code: string
 			`${who} ${JSON.stringify(extra)}`,
 		);
 }
-/** The residency as its program page shows it to `who`. */
 const residency = async (who: PipelineName = "ana") =>
 	ok(await readProgram(db, await authority(who), { programId: stages.residency.programId }));
-/** A version's plan as the program page lists it: rhythm, length, stages, milestones and readings. */
 const planOf = (v: NonNullable<Awaited<ReturnType<typeof residency>>["published"]>) => ({
 	number: v.number,
 	rhythm: v.rhythm,
@@ -220,7 +199,6 @@ const planOf = (v: NonNullable<Awaited<ReturnType<typeof residency>>["published"
 });
 let version1: ReturnType<typeof planOf>;
 let draftBefore: ReturnType<typeof planOf>;
-/** Nothing changed on the program page: Version 1 as seeded, no draft, Casey still on Version 1. */
 const unchanged = async () => {
 	const p = await residency();
 	assert.deepEqual([planOf(p.published!), p.draft], [version1, null]);
@@ -231,7 +209,6 @@ const unchanged = async () => {
 };
 const programNamed = async (who: PipelineName, name: string) =>
 	ok(await readPrograms(db, await authority(who))).programs.find((p) => p.name === name);
-/** Every row Evry keeps for a conversation, proposal or receipt, as text, that holds `text`. */
 const kept = async (text: string) =>
 	(
 		await admin.execute(sql`SELECT
@@ -240,11 +217,9 @@ const kept = async (text: string) =>
 			(SELECT count(*) FROM audit_event a WHERE a.metadata::text LIKE ${`%${text}%`})::int AS audit`)
 	).rows[0];
 
-/** What each case shows or changes, read back as the Pipeline and Programs pages show it. */
 type Hook = (p: Proposal | undefined, conversation: string) => Promise<void>;
 const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 	"PIP-01": {
-		// The same people as the Pipeline page's "no move in six months" filter, and its as-of date.
 		after: async () => assert.deepEqual(names(await board("dana", { stale: true })), ["Jordan Reyes"]),
 	},
 	"PIP-06": { after: async () => assert.deepEqual(names(await board("ben")), []) },
@@ -264,7 +239,6 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 				[program.kind, program.director.name, program.publishedNumber, program.draft, program.activeEnrollments],
 				["apprenticeship", "Ana Ruiz", null, true, 0],
 			);
-			// An unpublished draft that only Ana, its director, can publish (WP-099).
 			for (const [who, director] of [
 				["dana", false],
 				["ana", true],
@@ -287,7 +261,6 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 	},
 	"PIP-15": {
 		before: async (p) => {
-			// The card can't be approved without a typed reason, and nothing moves.
 			await assert.rejects(
 				approveProposal(db, await actorOf("luis"), p!.id, { revision: p!.revision, digest: p!.digest }, null),
 				{ code: "invalid_input" },
@@ -298,14 +271,11 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 		after: async () => {
 			const reason = cases.find((c) => c.id === "PIP-15")!.approve!.reason!;
 			assert.deepEqual((await caseyMoves())[0], { from: "Apprentice", to: "Resident", reason, actor: "Luis Ortega" });
-			// The typed reason reached the native move only: no conversation, proposal, receipt or audit row holds it.
 			assert.deepEqual(await kept(reason), { events: 0, proposals: 0, audit: 0 });
-			// Only the two asks themselves (Dana's PIP-17 and this one) hold the reason the user gave Evry.
 			assert.deepEqual(await kept("finished her apprenticeship"), { events: 2, proposals: 0, audit: 0 });
 		},
 	},
 	"PIP-16": {
-		// Dana moves Casey on the Pipeline page while Luis's card waits.
 		before: async () => {
 			const record = ok(await readPipelinePersonRecord(db, await authority("dana"), { personId: PEOPLE.casey }));
 			ok(
@@ -323,7 +293,6 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 				[card.receipt?.code, card.receipt?.current],
 				["revision_conflict", [{ id: PEOPLE.casey, label: "Casey Lee", value: "Commissioned" }]],
 			);
-			// Nothing moved twice: Dana's move is the newest, and Luis's reason is nowhere.
 			const moves = await caseyMoves();
 			assert.deepEqual(moves[0], {
 				from: "Resident",
@@ -336,7 +305,6 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 		},
 	},
 	"PIP-17": {
-		// Dana's card names only Casey and Resident: it can't be approved without a reason typed on it, and it waits.
 		before: async (p) => {
 			await assert.rejects(
 				approveProposal(db, await actorOf("dana"), p!.id, { revision: p!.revision, digest: p!.digest }, null),
@@ -348,20 +316,17 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 		},
 	},
 	"PIP-20": {
-		// The Pipeline page's search finds Casey by her note alone; Evry's answer is Dana's whole board, not that match.
 		after: async () => assert.deepEqual(names(await board("dana", { q: "youth group" })), ["Casey Lee"]),
 	},
 	"PIP-29": {
 		before: async (_p, conversation) => {
 			await refusesText("dana", conversation, "invalid_input");
-			// The reason Dana gave Evry is in her ask only: no proposal, receipt or audit row holds it.
 			assert.deepEqual(await kept("led the youth retreat"), { events: 1, proposals: 0, audit: 0 });
 		},
 	},
 	"PIP-30": { after: (_p, conversation) => refusesText("ana", conversation, "access_denied") },
 	"PIP-31": { after: (_p, conversation) => refusesText("ben", conversation, "access_denied") },
 	"PIP-32": {
-		// Luis moves Sam on the Pipeline page while Dana's card waits.
 		before: async () => {
 			const record = ok(await readPipelinePersonRecord(db, await authority("luis"), { personId: PEOPLE.sam }));
 			ok(
@@ -391,7 +356,6 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 		},
 	},
 	"PIP-33": {
-		// Ana's page shows Casey where Dana's native move left her.
 		after: async () =>
 			assert.deepEqual(
 				(await board("ana")).stages.flatMap((s) => s.people.map((p) => [p.name, s.label])),
@@ -405,13 +369,11 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 	"PRG-05": { after: unchanged },
 	"PRG-06": { after: unchanged },
 	"PRG-07": {
-		// Nothing is saved before Ana approves.
 		before: unchanged,
 		after: async () => {
 			const p = await residency();
 			assert.deepEqual(planOf(p.published!), version1, "Version 1 stays as it is");
 			const [group, vision, prospectus] = version1.milestones;
-			// Exactly the plan on the card: the kept milestones keep their lineage, and the reading list is Version 1's.
 			const draft = planOf(p.draft!);
 			assert.deepEqual(
 				{ ...draft, milestones: draft.milestones.slice(0, 3) },
@@ -431,7 +393,6 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 	},
 	"PRG-08": {
 		after: async () => {
-			// The draft in progress is replaced, and a renamed milestone keeps its lineage, as every kept one does.
 			const draft = planOf((await residency()).draft!);
 			assert.deepEqual(draft, {
 				...draftBefore,
@@ -443,7 +404,6 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 		},
 	},
 	"PRG-09": {
-		// Ana edits the draft on the program page while the card waits.
 		before: async () => {
 			const p = await residency();
 			const d = p.draft!;
@@ -468,13 +428,11 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 		},
 		after: async (p) => {
 			assert.equal((await readReview(db, await actorOf("ana"), p!.id)).receipt?.code, "revision_conflict");
-			// Nothing was saved over her edit.
 			assert.deepEqual(planOf((await residency()).draft!), { ...draftBefore, expectedMonths: 20 });
 		},
 	},
 	"PRG-10": {
 		after: async () => {
-			// Ana publishes Version 2 herself on the program page, then reads the apply review for Casey natively.
 			const p = await residency();
 			ok(
 				await programWriter.publishVersion(db, await authority("ana"), {
@@ -510,7 +468,6 @@ const SETTLED: Record<string, { before?: Hook; after?: Hook }> = {
 };
 
 test("AC:ADR1-015 INV-evry-pipeline: every pipeline and program case passes on the scripted model, each asker's answers and refusals match their own Pipeline page and native writes, and each approved change reads back on the Pipeline and Programs pages", async () => {
-	// Dana, Ana and Ben each ask all seven WP-101 questions.
 	for (const who of ["dana", "ana", "ben"] as const)
 		assert.deepEqual(
 			cases.flatMap((c) => (c.actor === who && c.question ? [c.question] : [])).toSorted(),
@@ -555,9 +512,7 @@ test("AC:ADR1-015 INV-evry-pipeline: every pipeline and program case passes on t
 			null,
 		);
 		assert.equal(approved.proposal.outcome, c.outcome, `${c.id} outcome ${JSON.stringify(approved.proposal.receipt)}`);
-		// These writes ran in the approval request: no effect job was queued.
 		assert.deepEqual(await claimDue(db, ["evry_effect"], 1, 60), [], `${c.id} queues no job`);
-		// Approving the same card again changes nothing more.
 		const again = await approveProposal(
 			db,
 			actor,
@@ -573,7 +528,6 @@ test("AC:ADR1-015 INV-evry-pipeline: every pipeline and program case passes on t
 test("INV-evry-pipeline-read: the pipeline read takes no search text and answers as each seat's Pipeline page does", async () => {
 	for (const who of ["dana", "luis", "ana", "ben"] as const) {
 		const actor = await actorOf(who);
-		// The model's tool schema has no search field: the Pipeline page's search also matches note text.
 		const tool = modelTools(actor, {
 			read: async () => ({}),
 			select: async () => ({}),
@@ -618,15 +572,12 @@ test("AC:ADR1-015 INV-evry-pipeline-move: a stage move proposal takes a person a
 			{ code: "invalid_input" },
 			JSON.stringify(extra),
 		);
-	// A Member may not move anyone or create a program natively, so Evry offers her neither: only her own programs'
-	// next version, which the review refuses to anyone but the program's director (T-377).
 	for (const who of ["ana", "ben"] as const)
 		assert.deepEqual(
 			readCatalog(await actorOf(who)).reviewedWrites.map((w) => w.operation),
 			["development.draftNextVersion"],
 			who,
 		);
-	// No tool logs a conversation, writes a note or records a milestone, for any seat.
 	for (const who of ["dana", "luis", "ana", "ben", "hill"] as const) {
 		const tools = JSON.stringify(
 			Object.values(
@@ -659,7 +610,6 @@ test("INV-evry-program-read: the program read returns plans and who directs them
 		assert.equal(row.fields.directedByYou, who === "ana", who);
 		const read = await invokeRead(db, actor, programRead as never, { programId: row.id });
 		assert.equal(read.facts?.directedByYou, who === "ana", who);
-		// The plan with its milestones' ids and lineages, and the reading list, as the program page lists them.
 		const page = await residency(who);
 		const plans = [page.published, page.draft].flatMap((v) => (v ? [v] : []));
 		assert.deepEqual(
@@ -671,17 +621,14 @@ test("INV-evry-program-read: the program read returns plans and who directs them
 			read.rows.some((r) => r.fields.part === "reading" && r.label === RESIDENCY_READING),
 			who,
 		);
-		// No enrollee, completion, feedback or note: the enrolled person's name, cohort and completion date are nowhere.
 		const text = JSON.stringify([list, read]);
 		for (const absent of ["Casey", "Fall cohort", ANA_NOTE.slice(0, 20), stages.residency.enrollmentId, "completed"])
 			assert.ok(!text.includes(absent), `${who} reads no ${absent}`);
 	}
-	// Another organization's program reads as nothing.
 	await assert.rejects(
 		invokeRead(db, await actorOf("hill"), programRead as never, { programId: stages.residency.programId }),
 		{ code: "access_denied" },
 	);
-	// The draft write takes a program and a plan, nothing else: no reading list, name, director, publish or enrollment.
 	const actor = await actorOf("ana");
 	const conversation = (await createConversation(db, actor, { requestKey: randomUUID() })).id;
 	const lease = { turnId: randomUUID(), tenantId: actor.owner.id, leaseOwner: "test", generation: "0" };

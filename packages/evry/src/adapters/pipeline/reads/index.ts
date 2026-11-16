@@ -10,12 +10,6 @@ import { liveAuthority } from "../../../context/authority.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { organizationSeat } from "../../native.ts";
 
-// The organization pipeline and its programs (WP-101), read through the same domain reads the Pipeline and Programs
-// pages make, under the asker's live seat: an Owner or Admin reads everyone, a Member named responsible staff reads
-// their own people, and any other seat reads counts per stage only. No read returns a note, a move's reason, feedback,
-// an assessment result or a ranking (REQ-MUL-015).
-
-/** The day six months before `day` (YYYY-MM-DD), clamped to the month's end as the board's SQL date arithmetic does. */
 function sixMonthsBefore(day: string) {
 	const [y, m, d] = day.split("-").map(Number) as [number, number, number];
 	const month = y * 12 + (m - 1) - 6;
@@ -30,19 +24,15 @@ const dayFormat = new Intl.DateTimeFormat("en-US", {
 	year: "numeric",
 	timeZone: "UTC",
 });
-/** A day (YYYY-MM-DD) as people read it: "May 14, 2026". */
 export const dayText = (day: string) => dayFormat.format(new Date(`${day}T12:00:00Z`));
 
-/** A native refusal reads as no tenant data: the seat no longer reads this pipeline. */
 const value = <T>(reply: { status: "ok"; value: T } | { status: "refused" }): T => {
 	if (reply.status !== "ok") throw new EvryRefusal("access_denied");
 	return reply.value;
 };
 
 const listInput = z.strictObject({
-	/** One stage's people (a stage row's id from an earlier result); every stage when left out. */
 	stageId: z.uuid().optional(),
-	/** The Pipeline page's "no move in six months" filter. */
 	stale: z.boolean().optional(),
 	page: z.int().min(1).max(10_000).optional(),
 });
@@ -131,7 +121,6 @@ export const draftPlan = {
 	},
 } satisfies ReadAdapter<Record<string, never>>;
 
-/** One version's plan as rows: its stages, its milestones with their ids and lineages, and its reading list. */
 const planRows = (v: ProgramVersion): SourceRow[] => [
 	...v.stages.map((s) => ({
 		kind: "item" as const,
@@ -164,7 +153,6 @@ export const readProgram = {
 	description:
 		"This organization's development programs as Programs shows them. Without programId: each program with its kind, director, whether the user directs it, its published version number and whether a draft is in progress. With programId (a program row's id): its published version and its draft, each with rhythm and expected length in facts and, as rows, its stages, its milestones (each with its lineage, which carries it across versions) and its reading list, and whether the user directs it. Only the program's current director edits its plan, through development.draftNextVersion. It never returns who is enrolled, completions, feedback, notes or reasons",
 	input: z.strictObject({
-		/** A program row's id from an earlier development.readProgram result; every program when left out. */
 		programId: z.uuid().optional(),
 	}),
 	allowed: organizationSeat,
@@ -216,14 +204,8 @@ export const readProgram = {
 	},
 } satisfies ReadAdapter<{ programId?: string }>;
 
-/** The installed pipeline and program reads. */
 export const PIPELINE_READS = [listPeople, draftPlan, readProgram] as const;
 
-/**
- * Whether this organization seat's Pipeline page lists people: an Owner's or Admin's does, and a Member's does while
- * they are responsible for someone live in it. The empty Evry panel then suggests a pipeline question. One lock-free
- * statement with the live check (C13), sent only for an organization seat.
- */
 export async function pipelineListsPeople(db: Pick<Database, "execute">, actor: EvryActor) {
 	if (!organizationSeat(actor) || !actor.seatId) return false;
 	const r = await db.execute(sql`SELECT ${liveAuthority(actor)} AND (${actor.role !== "member"} OR EXISTS(

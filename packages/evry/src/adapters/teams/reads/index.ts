@@ -30,20 +30,10 @@ import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/type
 import { verifyPeople } from "../../people/reads/index.ts";
 import { recordId } from "../ids.ts";
 
-// The Ministries reads (WP-069): each calls the native teams read the Ministries screens use, under the same domain
-// authority, so an Owner, an Admin and a Member each get exactly what their screens show them. Ministry membership is
-// the team roster, never a People tag. Counts are the domain's own: role slots and people are counted apart, a
-// ministry's health is its measured facts with the meeting window they cover, and Unknown is never zero. Background
-// checks and children's safety records are not part of the product and never appear.
-
 const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 type Fields = SourceRow["fields"];
 type Built = Partial<Omit<SourceResult, "operation" | "rows">> & { rows: SourceRow[] };
 
-/**
- * One read: the domain reply becomes rows. A ministry, program or person this church doesn't have (or the actor may
- * not see) reads as not found, the same as one that never existed.
- */
 function read<I>(spec: {
 	operation: string;
 	description: string;

@@ -7,9 +7,6 @@ import { SHARING_READS } from "../sharing/reads/index.ts";
 import { SHARING_COMMANDS } from "../sharing/commands/index.ts";
 import { CHURCH_COMMANDS } from "./commands/index.ts";
 
-// The seat, Settings, sharing, connection, account and organization tools (T-327), gathered for the catalog and the
-// reviewed-write registry.
-
 export { SEAT_READS, SHARING_READS };
 export const SETTINGS_COMMANDS = {
 	...SEAT_COMMANDS,
