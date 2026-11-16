@@ -19,15 +19,10 @@ import type { IconSvgElement } from "@everyfield/ui/foundations";
 import type { z } from "zod";
 import { MONTHS } from "../shared/dates.ts";
 
-// The teams screens' shared words and shapes. No React and no server code. The producer calls a team a ministry in
-// the product's words; code and contracts say team.
-
 export type Team = z.infer<typeof c.team>;
 export type Role = z.infer<typeof c.teamRole>;
 export type Member = z.infer<typeof c.memberRow>;
-/** A team as the list reads it, with its leader's name. */
 export type ListedTeam = z.infer<typeof c.listedTeam>;
-/** One ministry on the organization view, built from the list: its chosen icon shows on the chart. */
 export type ChartNode = Pick<ListedTeam, "id" | "name" | "icon" | "templateKey" | "archived" | "leaderName"> & {
 	parentId: ListedTeam["id"] | null;
 };
@@ -35,8 +30,6 @@ export type HistoryEntry = z.infer<typeof c.historyEntry>;
 export type Catalog = z.infer<typeof c.catalogPage>;
 export type TeamState = Team["state"];
 
-// The optimistic rows a change shows before its answer carry ids the server already sent (a search result, the form
-// the page filled). These name that step; the server's answer replaces every such row.
 export const asPersonId = (id: string) => id as Member["personId"];
 export const asRecordId = (id: string) => id as Role["id"];
 export const asRevision = (revision: string) => revision as Role["revision"];
@@ -53,13 +46,11 @@ export const STATE_HINT: Record<TeamState, string> = {
 };
 const STATE_TONE: Record<TeamState, Status> = { forming: "measured", active: "positive", paused: "unknown" };
 
-/** The badge a team shows: archived first, then its own state. The label carries the meaning, not the dot. */
 export function teamBadge(team: Pick<Team, "archived" | "state">): { status: Status; label: string } {
 	if (team.archived) return { status: "unknown", label: "Archived" };
 	return { status: STATE_TONE[team.state], label: STATE_LABEL[team.state] };
 }
 
-/** The icons a ministry can show. The key is what the team stores; an unknown key falls back to its template's icon. */
 export const ICONS = {
 	crown: { icon: CrownIcon, label: "Crown", tone: "ink" },
 	music: { icon: MusicNote01Icon, label: "Music", tone: "green" },
@@ -95,10 +86,8 @@ export function iconKey(team: Pick<Team, "icon" | "templateKey">): IconKey {
 	return (team.templateKey && TEMPLATE_ICON[team.templateKey]) || "team";
 }
 
-/** Leadership is the fixed root of the organization view (REQ-TEAM-012). */
 export const isLeadership = (team: Pick<Team, "templateKey">) => team.templateKey === "leadership";
 
-/** One person on a team with every role they hold there. */
 export type Person = {
 	personId: string;
 	name: string;
@@ -114,12 +103,10 @@ export function people(members: readonly Member[]): Person[] {
 	return [...byId.values()];
 }
 
-/** A LocalDate (YYYY-MM-DD) as "Jul 14, 2026". No time zone is involved: the date is the church's own day. */
 export function dayText(day: string): string {
 	const [y, m, d] = day.split("-").map(Number);
 	return `${MONTHS[(m ?? 1) - 1]} ${d}, ${y}`;
 }
-/** An instant as the viewer's local date and time. */
 export function stampText(at: string): string {
 	const date = new Date(at);
 	return Number.isNaN(date.valueOf())
@@ -137,7 +124,6 @@ export function plural(n: number, one: string, many = `${one}s`) {
 	return `${n} ${n === 1 ? one : many}`;
 }
 
-/** The refusal codes of the teams contract, in words a person can act on. */
 export function problemText(code: string): string {
 	switch (code) {
 		case "conflict":
@@ -163,15 +149,12 @@ export function problemText(code: string): string {
 	}
 }
 
-/** What a history entry did, in words. A correction that names a person and role corrected that role's dates. */
 export function historyTitle(e: HistoryEntry) {
 	if (e.kind === "correct" && e.about) return "Role dates corrected";
-	// A leader change with no new leader is a leader who left, for example with a removed seat.
 	if (e.kind === "leader_change" && !e.after?.leaderPersonId) return "Leader removed";
 	if (e.subject === "role") return ROLE_KIND[e.kind] ?? "Role changed";
 	return HISTORY_KIND[e.kind] ?? "Changed";
 }
-/** A change filed under one of the ministry's roles. */
 const ROLE_KIND: Record<string, string> = {
 	create: "Role added",
 	edit: "Role edited",
@@ -200,7 +183,6 @@ const FIELD_LABEL: Record<string, string> = {
 	startedOn: "Start date",
 	endedOn: "End date",
 };
-/** The changed fields of an entry ("Name, State"). Person IDs are not shown; the field name says what changed. */
 export function changedFields(entry: HistoryEntry): string {
 	const keys = new Set([...Object.keys(entry.before ?? {}), ...Object.keys(entry.after ?? {})]);
 	return [...keys]
@@ -209,13 +191,8 @@ export function changedFields(entry: HistoryEntry): string {
 		.join(", ");
 }
 
-/** The order a history entry lists its changed fields in: the order of FIELD_LABEL, then any others. */
 const FIELD_ORDER = Object.keys(FIELD_LABEL);
 const fieldRank = (k: string) => (FIELD_ORDER.includes(k) ? FIELD_ORDER.indexOf(k) : FIELD_ORDER.length);
-/**
- * The "Field: before → after" lines of an entry, for fields shown as text. A field that reads the same before and
- * after is no change, so it has no line: a ministry made with no description has no "Description: None → None".
- */
 export function diffLines(e: HistoryEntry): { label: string; from: string; to: string }[] {
 	const keys = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])].sort(
 		(a, b) => fieldRank(a) - fieldRank(b),
@@ -229,7 +206,6 @@ export function diffLines(e: HistoryEntry): { label: string; from: string; to: s
 	});
 }
 
-/** A value of a changed text field for the history list, or null when it is an identifier or not text. */
 export function shownValue(key: string, value: unknown): string | null {
 	if (key === "state" && typeof value === "string" && value in STATE_LABEL) return STATE_LABEL[value as TeamState];
 	if (key === "name" || key === "description")
@@ -240,7 +216,6 @@ export function shownValue(key: string, value: unknown): string | null {
 	return null;
 }
 
-/** What a ministry Edit save does. A reason is not a change: with no field changed, nothing is sent. */
 type EditPlan = "send" | "close" | "close-and-say";
 export function planTeamEdit(
 	was: Pick<Team, "name" | "icon" | "state"> & { description: string },
@@ -256,6 +231,10 @@ export function planTeamEdit(
 	return now.reason.trim() ? "close-and-say" : "close";
 }
 
-/** `chosen` is null until the person changes a choice: then the default applies (nothing, or the `into` template). */
-export type SetupForm = { chosen: Record<string, string[]> | null; step: "choose" | "review"; problem?: string };
-export const NEW_SETUP: SetupForm = { chosen: null, step: "choose" };
+export type SetupForm = {
+	opening: string;
+	chosen: Record<string, string[]> | null;
+	step: "choose" | "review";
+	problem?: string;
+};
+export const newSetup = (): SetupForm => ({ opening: crypto.randomUUID(), chosen: null, step: "choose" });
