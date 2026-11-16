@@ -1,0 +1,5 @@
+{
+	"public": {
+		"conversation/EvryPanel.tsx": "useEvryPanel, which the shell uses to open and place the Evry panel"
+	}
+}
