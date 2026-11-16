@@ -1,0 +1,8 @@
+{
+	"public": {
+		"Residency.tsx": "ResidencyDisclosure, which the invitation screen shows",
+		"parts.tsx": "ProblemLine is imported by identity until it moves to features/shared",
+		"programs/model.ts": "programProblem and KIND, which the resident view uses",
+		"reviews/model.ts": "reviewPath, the review URL notifications link to"
+	}
+}

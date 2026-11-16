@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	realpathSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,11 +44,8 @@ function sandbox(files = {}, lintData = {}) {
 	temps.push(dir);
 	for (const config of CONFIGS)
 		put(dir, config, { ...JSON.parse(readFileSync(join(repo, config), "utf8")), jsPlugins: [PLUGIN] });
-	put(
-		dir,
-		"scripts/lint/exemptions.json",
-		JSON.parse(readFileSync(join(repo, "scripts/lint/exemptions.json"), "utf8")),
-	);
+	for (const data of ["exemptions.json", "boundaries/_layout.json"])
+		put(dir, `scripts/lint/${data}`, JSON.parse(readFileSync(join(repo, "scripts/lint", data), "utf8")));
 	put(dir, "package.json", { scripts: SCRIPTS });
 	put(dir, "scripts/lint/lint-scripts.json", { "package.json": SCRIPTS });
 	put(dir, "pnpm-workspace.yaml", "packages: []\n");
@@ -260,6 +266,129 @@ test("INV-lint: a baseline allows its count, refuses growth and refuses a stale 
 	assert.deepEqual(lint({ [path]: effects(1) }, survivor("Other")), [`${path}:1 no-effects`, `${path}:3 no-effects`]);
 });
 
+const BOUNDARY_DATA = {
+	"boundaries/_layout.json": {
+		layers: { contracts: [], domain: ["contracts"] },
+		compositionFeatures: { shell: "the product frame composes every feature" },
+		compositionRoots: { "apps/web/src/server/jobs/scheduled.ts": "the scheduler runs every feature's step" },
+		exceptions: [],
+		platformFolders: { jobs: "jobs every feature schedules through" },
+		thickRoutes: {},
+		packages: {
+			domain: { kernel: { access: "the authority kernel every module checks with" }, entries: ["index.ts"] },
+		},
+	},
+	"boundaries/apps-web-features-tasks.json": { public: { "model.ts": "task texts other features show" } },
+	"boundaries/packages-domain.json": { public: ["people/core.ts"] },
+};
+
+test("INV-lint: imports across feature, route, platform and package boundaries are reported unless they go through a public file", () => {
+	const files = {
+		"packages/domain/package.json": { name: "@everyfield/domain", exports: { "./people": "./src/people/index.ts" } },
+		"packages/contracts/package.json": { name: "@everyfield/contracts", exports: { ".": "./src/index.ts" } },
+		"apps/web/src/features/tasks/model.ts": "export const a = 1;\n",
+		"apps/web/src/features/tasks/private.ts": "export const b = 1;\n",
+		"apps/web/src/features/shell/Frame.tsx": "export const d = 1;\n",
+		"apps/web/src/features/shared/dates.ts": `import { a } from "../tasks/model";\nexport const c = a;\n`,
+		"apps/web/src/features/people/Panel.tsx": `import { a } from "../tasks/model";
+import { b } from "@/features/tasks/private";
+import { c } from "../shared/dates";
+import { d } from "../shell/Frame";
+import { e } from "@everyfield/domain/people/internal";
+import type { F } from "../../app/x/page";
+export const all: F[] = [a, b, c, d, e];
+`,
+		"apps/web/src/app/x/page.tsx": `import { a } from "@/features/tasks/model";
+import { all } from "@/features/people/Panel";
+export const dynamic = "force-dynamic";
+export default function Page() {
+	return [a, all];
+}
+`,
+		"apps/web/src/features/people/Hidden.ts": `type T = typeof import("@/features/tasks/private");
+import legacy = require("../tasks/private");
+export const load = () => import(\`@/features/tasks/private\`);
+export const typed: T | typeof legacy | null = null;
+`,
+		"apps/web/src/app/x/helpers.tsx": `import { a } from "@/features/tasks/model";\nimport { all } from "@/features/people/Panel";\nexport const both = [a, all];\n`,
+		"apps/web/src/app/x/opengraph-image.tsx": `import { a } from "@/features/tasks/model";\nimport { all } from "@/features/people/Panel";\nexport default function Image() {\n\treturn [a, all];\n}\n`,
+		"apps/web/src/server/jobs/mail.ts": `import { a } from "../../features/tasks/model";\nexport const m = a;\n`,
+		"apps/web/src/server/jobs/scheduled.ts": `import { a } from "../../features/tasks/model";\nexport const s = a;\n`,
+		"apps/web/src/server/tasks/index.ts": "export const t = 1;\n",
+		"packages/domain/src/people/core.ts": `import { a } from "../../../../apps/web/src/features/tasks/model";
+import { contract } from "@everyfield/contracts";
+export const core = [a, contract];
+`,
+		"packages/domain/src/people/rows.ts": "export const q = 1;\n",
+		"packages/domain/src/access/session.ts": "export const s = 1;\n",
+		"packages/contracts/src/index.ts": `import { core } from "@everyfield/domain/people";\nexport const contract = core;\n`,
+		"packages/domain/src/tasks/writes.ts": `import { core } from "../people/core";
+import { q } from "../people/rows";
+import { s } from "../access/session";
+import { contract } from "../../../contracts/src/index";
+export const w = [core, q, s, contract];
+`,
+	};
+	assert.deepEqual(
+		lint(files, BOUNDARY_DATA),
+		[
+			"apps/web/src/app/x/helpers.tsx:1",
+			"apps/web/src/app/x/helpers.tsx:2",
+			"apps/web/src/app/x/opengraph-image.tsx:2",
+			"apps/web/src/app/x/page.tsx:2",
+			"apps/web/src/app/x/page.tsx:4",
+			"apps/web/src/features/people/Hidden.ts:1",
+			"apps/web/src/features/people/Hidden.ts:2",
+			"apps/web/src/features/people/Hidden.ts:3",
+			"apps/web/src/features/people/Panel.tsx:2",
+			"apps/web/src/features/people/Panel.tsx:4",
+			"apps/web/src/features/people/Panel.tsx:5",
+			"apps/web/src/features/people/Panel.tsx:6",
+			"apps/web/src/features/shared/dates.ts:1",
+			"apps/web/src/server/jobs/mail.ts:1",
+			"apps/web/src/server/tasks/index.ts:1",
+			"packages/contracts/src/index.ts:1",
+			"packages/domain/src/people/core.ts:1",
+			"packages/domain/src/tasks/writes.ts:2",
+			"packages/domain/src/tasks/writes.ts:4",
+		].map((at) => `${at} feature-boundaries`),
+	);
+});
+
+test("INV-lint: the boundary data check refuses a public entry that names nothing, a kernel outside the layout file and a package dependency its layer forbids", () => {
+	const dir = sandbox(
+		{
+			"apps/web/src/features/tasks/model.ts": "export const a = 1;\n",
+			"packages/domain/src/index.ts": "export {};\n",
+			"packages/domain/package.json": {
+				name: "@everyfield/domain",
+				dependencies: { "@everyfield/contracts": "workspace:*" },
+			},
+			"packages/contracts/package.json": {
+				name: "@everyfield/contracts",
+				dependencies: { "@everyfield/domain": "workspace:*" },
+			},
+		},
+		{
+			...BOUNDARY_DATA,
+			"boundaries/packages-domain.json": { kernel: { tasks: "a kernel outside the gated layout file" }, public: [] },
+			"boundaries/apps-web-features-tasks.json": { public: { "gone.ts": "a file that was moved away" } },
+		},
+	);
+	const ran = spawnSync(process.execPath, [join(repo, "scripts/lint/check-boundaries.mjs")], {
+		cwd: dir,
+		encoding: "utf8",
+		env: env(dir),
+	});
+	assert.equal(ran.status, 1);
+	assert.match(ran.stderr, /apps-web-features-tasks\.json public gone\.ts: names nothing/);
+	assert.match(ran.stderr, /packages-domain\.json: unknown key kernel/);
+	assert.match(
+		ran.stderr,
+		/packages\/contracts\/package\.json depends on @everyfield\/domain, which .* does not allow/,
+	);
+});
+
 function check(dir, args = [], extra = {}) {
 	const ran = spawnSync(process.execPath, [CHECK, ...args], { cwd: dir, encoding: "utf8", env: env(dir, extra) });
 	return { status: ran.status, out: ran.stdout + ran.stderr };
@@ -405,6 +534,31 @@ test("INV-lint: in CI the growth check compares with main, through HEAD^1 or, fo
 	const direct = ci("main");
 	assert.match(direct, /the first parent of the pull_request commit/);
 	assert.match(direct, /check-comments: passed/);
+});
+
+test("INV-lint: baseline --shrink moves a renamed file's entries to its new path and area, and the growth check accepts them", () => {
+	const effect = `import { useEffect } from "react";\nexport function Panel() {\n\tuseEffect(() => {});\n}\n`;
+	const dir = sandbox(
+		{ "packages/ui/src/Panel.tsx": effect },
+		{ "baseline/no-effects/packages-ui.json": { "packages/ui/src/Panel.tsx": 1 } },
+	);
+	git(dir, "init", "-q", "-b", "main");
+	const base = commitAll(dir, "base");
+	mkdirSync(join(dir, "packages/ui/src/controls"));
+	git(dir, "mv", "packages/ui/src/Panel.tsx", "packages/ui/src/controls/Panel.tsx");
+	const shrink = spawnSync(process.execPath, [join(repo, "scripts/lint/baseline.mjs"), "--shrink", "--base", base], {
+		cwd: dir,
+		encoding: "utf8",
+		env: env(dir),
+	});
+	assert.equal(shrink.status, 0, shrink.stderr);
+	const baseline = join(dir, "scripts/lint/baseline/no-effects");
+	assert.deepEqual(JSON.parse(readFileSync(join(baseline, "packages-ui-controls.json"), "utf8")), {
+		"packages/ui/src/controls/Panel.tsx": 1,
+	});
+	assert.equal(existsSync(join(baseline, "packages-ui.json")), false);
+	commitAll(dir, "move");
+	assert.match(check(dir, ["--base", base]).out, /check-comments: passed/);
 });
 
 const configFails = (edit, pattern) => {
