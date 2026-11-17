@@ -70,7 +70,6 @@ export type NativeEditorState = {
 		save: (editor: Editor) => Promise<boolean>;
 		importFile: (editor: Editor, file: File) => void;
 		designate: (scope: "church" | "account") => Promise<void>;
-		discard: () => void;
 		unsaved: (editor: Editor) => boolean;
 	};
 };
@@ -85,7 +84,6 @@ export function createNativeEditorStore({
 	port: NativeEditorPort;
 }): StoreApi<NativeEditorState> {
 	const chain = new SaveChain();
-	let discarding = false;
 	let importKey: string | null = null;
 
 	return createStore<NativeEditorState>()((set, get) => {
@@ -255,10 +253,7 @@ export function createNativeEditorStore({
 								: "This document is now your core values.",
 					}));
 				},
-				discard: () => {
-					discarding = true;
-				},
-				unsaved: (editor) => !discarding && (chain.busy || !savedNow(editor)),
+				unsaved: (editor) => chain.busy || !savedNow(editor),
 			},
 		};
 	});
