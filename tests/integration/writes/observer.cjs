@@ -1,7 +1,3 @@
-// Preloaded into `next start` by requests.mjs (NODE_OPTIONS=--require). Counts every SQL statement each HTTP request
-// sends, the session lookup included, and appends one row per request to $EVF_WRITE_COUNTS when its response finishes.
-// It records statement kinds only, never SQL text or parameters. A request names itself with the x-evf-request header.
-// `connects` counts the database connections a request opens itself; server start opens the ones a request needs.
 const { AsyncLocalStorage } = require("node:async_hooks");
 const { appendFileSync } = require("node:fs");
 const { join } = require("node:path");
@@ -13,7 +9,6 @@ const root = join(__dirname, "../../..");
 const requests = new AsyncLocalStorage();
 const { statementKind } = require("./kinds.cjs");
 
-// The app's pg is the copy @everyfield/db resolves; Next keeps pg external, so it loads this same module.
 const pg = require(require.resolve("pg", { paths: [join(root, "packages/db")] }));
 const query = pg.Client.prototype.query;
 pg.Client.prototype.query = function (config, ...rest) {
@@ -42,7 +37,6 @@ http.createServer = function (...args) {
 			const name = request.headers["x-evf-request"];
 			if (typeof name !== "string") return handle.call(this, request, response);
 			const row = { kind: "sample", name, count: 0, writes: 0, rollbacks: 0, connects: 0, kinds: {} };
-			// Statements an after() callback sends once the response is complete are not part of the request's time.
 			response.once("finish", () => {
 				appendFileSync(output, JSON.stringify({ ...row, kinds: { ...row.kinds }, status: response.statusCode }) + "\n");
 			});

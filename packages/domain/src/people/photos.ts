@@ -5,12 +5,6 @@ import { z } from "zod";
 import { workspaceAvatar } from "../settings/photo-visibility.ts";
 import { authorizeCachedRead, deny, parse, readReply, type PeopleReadContext } from "./core.ts";
 
-/**
- * The photo a person row shows, as `listPhoto` JSON or NULL, in one expression (REQ-PPL-005, REQ-IDN-006): a live
- * person's own People photo wins; otherwise the photo of the account the person links to, while that account holds a
- * live seat in the person's church (workspaceAvatar, the rule the photo route applies); a retired or merged person
- * has none. The People list, the meeting guest list and Evry's result cards share it.
- */
 export function listPhotoSql(p: {
 	id: SQLWrapper;
 	state: SQLWrapper;
@@ -23,7 +17,6 @@ export function listPhotoSql(p: {
 		ELSE (SELECT json_build_object('kind','account','accountId',${p.account},'versionId',lp.v)
 			FROM (SELECT ${workspaceAvatar(p.account, p.plant)} AS v) lp WHERE lp.v IS NOT NULL) END)`;
 }
-/** listPhotoSql on the `person` alias `p`. */
 export const personAliasPhoto = listPhotoSql({
 	id: sql`p.id`,
 	state: sql`p.state`,
@@ -34,11 +27,6 @@ export const personAliasPhoto = listPhotoSql({
 
 const photoRow = z.object({ allowed: z.boolean(), id: z.uuid().nullable(), photo: c.listPhoto.nullable() });
 
-/**
- * The current photos of the given people of this church, for a screen that already shows them (Evry's result cards).
- * One statement on the pool with the live access check (C13) inside it: a reader who lost access gets a refusal.
- * Nothing is saved: each call reads the photos as they are now.
- */
 export async function readPersonPhotos(db: Database, ctx: PeopleReadContext, raw: unknown) {
 	return readReply(async () => {
 		if (ctx.selected.kind !== "plant") deny();

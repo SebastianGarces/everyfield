@@ -20,8 +20,6 @@ export function createResendTransport(
 	return {
 		async send(payload, key, signal): Promise<TransportOutcome> {
 			try {
-				// A recipient that is not approved is captured under the same key, so a replay finds the first capture. A
-				// capture fault answers unknown and never reaches the provider.
 				if (!mailRecipientAllowed(env, payload.to))
 					return { kind: "accepted", id: (await capture(payload, null, key)).id };
 				const response = await call("/emails", {
@@ -47,7 +45,6 @@ export function createResendTransport(
 						retryAfterSeconds: Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined,
 					};
 				}
-				// Timeouts, conflicts and server faults cannot establish nonacceptance.
 				if ([400, 401, 403, 422].includes(response.status)) return { kind: "refused", retryable: false };
 				return { kind: "unknown" };
 			} catch {

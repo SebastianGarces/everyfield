@@ -41,12 +41,10 @@ type Stored = {
 	also_task_ids: string[];
 };
 type Who = { accountId: string; displayName: string | null };
-/** One contact-log entry as the contract shows it. */
 function itemOf(
 	r: Stored,
 	actor: Who | null,
 	extra: {
-		/** The other follow-ups this one contact finished, named by where they came from. */
 		also?: Record<string, c.FollowUpOrigin>;
 		corrected?: boolean;
 		corrects?: { id: string; reason: string | null } | null;
@@ -85,7 +83,6 @@ function itemOf(
 		contact: state === "effective" && r.outcome === "contacted",
 	});
 }
-/** The outcome audit row. The command's first row carries the request key and stored answer (D70). */
 function auditOutcome(
 	cmd: AuditCommand,
 	e: {
@@ -128,18 +125,12 @@ const insertOutcome = (plantId: string, r: Stored) =>
 		${r.meeting_id}::uuid, ${r.outcome}, ${r.occurred_at.toISOString()}::timestamptz,
 		${r.recorded_at.toISOString()}::timestamptz, ${r.contact_channel}, ${r.notes}, ${r.supersedes_id}::uuid,
 		${r.completes_task}, ${sql.param(r.also_task_ids)}::uuid[])`;
-// Contact freshness changes: affected assessments are out of date (REQ-MTG-022).
 const staleAssessments = (plantId: string) =>
 	sql`UPDATE plant SET material_revision=material_revision+1 WHERE id=${plantId}::uuid`;
 const latest = (...dates: (Date | string | null)[]) => {
 	const known = dates.filter((d) => d !== null).map((d) => Date.parse(new Date(d).toISOString()));
 	return known.length ? at(new Date(Math.max(...known))) : null;
 };
-/**
- * The actual instant: one more than CLOCK_ALLOWANCE_MS (2 minutes) after the server's clock is refused as future; one
- * within it is a browser clock running ahead and is stored as the server's clock, so it is never after recorded_at.
- * Truthful late entry keeps its past instant.
- */
 function occurrence(value: Instant | undefined, fallback: Date, clock: Date) {
 	const d = value ? new Date(value) : fallback;
 	if (d.getTime() > clock.getTime() + c.CLOCK_ALLOWANCE_MS) refuse("future_occurrence");
@@ -151,7 +142,6 @@ const personFacts = z.object({
 	last_contact: z.coerce.date().nullable(),
 	actor_name: z.string().nullable(),
 	meeting_id: z.uuid().nullable(),
-	// Where each of the Person's open follow-ups came from, by task: names what one contact finishes.
 	origins: z.record(z.string(), z.unknown()),
 });
 async function factsOf(
@@ -195,7 +185,6 @@ const correctionFacts = z.object({
 	author_name: z.string().nullable(),
 	corrects_reason: z.string().nullable(),
 	origins: z.record(z.string(), z.unknown()),
-	// Whether the correcting actor is one of the task's assignees.
 	actor_assigned: z.boolean().nullable(),
 	task_live: z.boolean().nullable(),
 	person_live: z.boolean().nullable(),
@@ -203,14 +192,8 @@ const correctionFacts = z.object({
 	actor_name: z.string().nullable(),
 });
 
-/** Record and correct typed follow-up outcomes. The web mount supplies WP-031's reminder sync, as tasks does. */
 export function outcomeWriter(reminders: TaskReminders) {
 	return {
-		/**
-		 * Record what happened on a follow-up (REQ-MTG-022): on a task the person holds, or for an Owner or Admin as a
-		 * standalone contact with a Person. Completing the task is a separate choice. no_longer_needed closes the task
-		 * without credit and keeps a generated duty waived. Only contacted changes the Person's contact date.
-		 */
 		async recordOutcome(tx: Tx, context: TaskContext, raw: unknown) {
 			return answer(tx, async () => {
 				const input = parse(c.recordOutcomeRequest, raw);
@@ -221,10 +204,6 @@ export function outcomeWriter(reminders: TaskReminders) {
 					let task: LockedTask | null = null;
 					let others: LockedTask[] = [];
 					if (v.target.kind === "task") {
-						// One contact is one outreach (D-c): a contact that finishes the task also finishes the Person's other open
-						// follow-ups the recorder may record on. All of them for an Owner or Admin, their own for a Member. Every
-						// task involved locks in one ID-ordered statement, so two recorders never wait on each other in a cycle;
-						// then one read loads them. A save that finishes nothing else loads only its own task.
 						if (v.outcome === "contacted" && v.completeTask) {
 							const taskId = v.target.taskId;
 							const locked =
@@ -241,11 +220,9 @@ export function outcomeWriter(reminders: TaskReminders) {
 							task = rows.find((r) => r.id === taskId) ?? null;
 							others = rows.filter((r) => r.id !== taskId);
 						} else task = await loadTask(tx, plant, v.target.taskId, true);
-						// A checklist row or a task with no Person has no follow-up outcome.
 						if (!task || task.deleted_at || task.parent_id || !task.person_id) deny();
 						if (!administers(cmd.actor) && !task.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny();
 						if (task.revision !== v.target.expectedRevision) deny("conflict");
-						// A closed follow-up takes no new outcome: its completing record is already the answer.
 						if (!(OPEN_STATUS as readonly string[]).includes(task.status)) deny("conflict");
 					} else if (!administers(cmd.actor)) deny();
 					const personId = task?.person_id ?? (v.target.kind === "person" ? v.target.personId : "");
@@ -257,7 +234,6 @@ export function outcomeWriter(reminders: TaskReminders) {
 						task?.obligation_id ?? null,
 						others.map((o) => o.id),
 					);
-					// Every new reference names a current live Person of this church (REQ-PPL-024).
 					if (!facts.live) deny("invalid_subject");
 					const row: Stored = {
 						id: randomUUID(),
@@ -312,12 +288,6 @@ export function outcomeWriter(reminders: TaskReminders) {
 				});
 			});
 		},
-		/**
-		 * Correct or withdraw a recorded outcome with a reason (REQ-MTG-022). The old entry stays in the log; a correction
-		 * is a new entry that names it. The contact date is recomputed from the effective entries, so withdrawing a wrong
-		 * latest contact shows the earlier one. The task's status and any sent mail stay as they are. An Owner or Admin
-		 * corrects any entry; a Member only their own entry on a task they still hold.
-		 */
 		async correctOutcome(tx: Tx, context: TaskContext, raw: unknown) {
 			return answer(tx, async () => {
 				const input = parse(c.correctOutcomeRequest, raw);
@@ -348,7 +318,6 @@ export function outcomeWriter(reminders: TaskReminders) {
 					if (!r.rows[0]) deny();
 					const f = correctionFacts.parse(r.rows[0]);
 					const old: Stored = { ...f.row, revision: f.row.revision };
-					// A Member corrects only an entry they recorded, on a task they still hold (REQ-MTG-022).
 					const own =
 						old.task_id !== null &&
 						f.task_live === true &&

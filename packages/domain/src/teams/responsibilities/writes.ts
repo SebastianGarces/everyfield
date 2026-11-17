@@ -219,7 +219,7 @@ export const responsibilityWriter = {
 							outcome: "changed",
 							id: responsibilityId,
 							teamId: team.id,
-							revision: "1", // responsibility.revision column default is 1
+							revision: "1",
 							sourceLine,
 							text: input.input.text,
 						}),

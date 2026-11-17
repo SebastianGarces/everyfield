@@ -8,13 +8,6 @@ import "server-only";
 import { z } from "zod";
 import { corpusCtes, visibleBodySql } from "../wiki/corpus.ts";
 
-// Methodology retrieval for an assessment (WP-041, PI-017), by keyword only: Wiki full-text search over every article
-// the plant can read now (the activated global methodology plus its sending church's and network's own articles). The
-// search itself keeps only articles tagged for the plant's phase or for no phase, ranking its own phase first, so a
-// Phase 3 plant never cites Phase 1-only guidance as current and a higher-ranked other-phase hit never crowds one out.
-// Embeddings and meaning-based search wait for Sebastian's spend decision (G-SPEND); nothing here calls a provider.
-
-/** The keyword query of each fact topic, in `to_tsquery` syntax over the english configuration. */
 const QUERIES: Record<c.FactTopic | "coverage", string> = {
 	committedAdults: "commit | committed | commitment | core <-> group",
 	growth: "growth | grow | momentum",
@@ -24,7 +17,6 @@ const QUERIES: Record<c.FactTopic | "coverage", string> = {
 	coverage: "ministry | leader | responsibility",
 	training: "training | train",
 };
-/** Plain stems a section must contain to be offered for its topic. */
 const STEMS: Record<keyof typeof QUERIES, string[]> = {
 	committedAdults: ["commit", "core group"],
 	growth: ["grow", "momentum"],
@@ -57,7 +49,6 @@ const retrievalRow = z.object({
 	hits: z.array(hit),
 });
 
-/** One heading section of an article body: its heading (null for the opening text) and its text as cited. */
 export function sectionsOf(contentType: string, body: string): { section: string | null; text: string }[] {
 	const out: { section: string | null; lines: string[] }[] = [{ section: null, lines: [] }];
 	for (const block of wikiBlocks(contentType, body)) {
@@ -80,11 +71,6 @@ export type Retrieved =
 	| { status: "reference_missing"; phase: number }
 	| { status: "unavailable"; phase: null };
 
-/**
- * intelligence.retrieveMethodology: the passages an assessment of the plant may cite, for the plant's current phase,
- * from the Wiki sources the plant reads now. Only the assessment job calls it. One statement; the caller treats a lock
- * or statement timeout as unavailable guidance. No activated reference is a missing mandatory reference.
- */
 export async function retrieveMethodology(db: Pick<Database, "execute">, plant: string): Promise<Retrieved> {
 	const owner = { kind: "plant" as const, id: tenantId.parse(plant) };
 	const access = { job: "assessment" as const, owner };
@@ -121,7 +107,6 @@ export async function retrieveMethodology(db: Pick<Database, "execute">, plant: 
 			const best = sectionsOf(h.content_type, h.body)
 				.map((s) => ({ ...s, score: STEMS[topic].filter((stem) => s.text.toLowerCase().includes(stem)).length }))
 				.filter((s) => s.score > 0)
-				// The best-matching section; a heading section before the opening text on a tie.
 				.sort((a, b) => b.score - a.score || Number(a.section === null) - Number(b.section === null))[0];
 			const id = `${h.revision_id}#${best?.section ?? ""}`;
 			if (!best || seen.has(id)) continue;

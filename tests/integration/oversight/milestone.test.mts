@@ -1,9 +1,3 @@
-// A plant's path and reached milestone as a sending church or network reads them (T-388), after T-296 let a plant end
-// its gathering phase with a milestone an organization chose instead of Launch Sunday. Every path change runs through
-// the launch writer the planter's /launch actions call. The Hill Country example: Hill Country Network offers
-// "Constituted as a church"; Grace Austin, its sending church, offers nothing. Harvest Point (linked to both, sharing
-// findings with both) reached it on Oct 11, 2026; Eastside Commons stays on Launch Sunday; Mueller Fellowship reached it
-// but shares no findings; Oak Cliff Church uses it and hasn't reached it (and is also linked to Grace Austin).
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -57,14 +51,12 @@ const offer = (org: Owner, offered: boolean, name = CONSTITUTED) =>
 	S.db.execute(sql`UPDATE organization SET gathering_milestone_offered=${offered}, gathering_milestone_name=${name},
 		gathering_milestone_description=${MEANING} WHERE id=${org.id}`);
 
-/** The planter's own Launch plan read, as /launch reads it. */
 const plan = async (p: Plant) => ok(await reader.readPlan(S.runtime, await as(p.owner))).plan;
 const envelope = async (p: Plant, input: unknown) => ({
 	requestKey: randomUUID(),
 	expectedRevision: (await plan(p)).revision,
 	input,
 });
-/** The plant-local date `days` from today in America/Chicago. */
 const localDay = (days: number) => {
 	const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(new Date());
 	const d = new Date(`${today}T12:00:00Z`);
@@ -109,7 +101,6 @@ before(async () => {
 	ocToN = await link(OC, N, FINDINGS);
 	await link(OC, GA, FINDINGS);
 
-	// Harvest Point had a Launch Sunday date, then chose the milestone, recorded it on Oct 10 and corrected it to Oct 11.
 	await schedule(HP, 40);
 	await useMilestone(HP, N);
 	await record(HP, "2026-10-10");
@@ -148,7 +139,6 @@ test("the home shows each plant's path: the milestone reached or not, Launch Sun
 		progress: { status: "not_reached" },
 	});
 	assert.deepEqual(home["Eastside Commons"]!.path, { kind: "launch_sunday", date: localDay(25) });
-	// Mueller shares no findings: the milestone's name only, and still Limited visibility.
 	assert.deepEqual(home["Mueller Fellowship"]!.path, {
 		kind: "milestone",
 		name: CONSTITUTED,
@@ -157,7 +147,6 @@ test("the home shows each plant's path: the milestone reached or not, Launch Sun
 	});
 	assert.equal(home["Mueller Fellowship"]!.health, "limited_visibility");
 	assert.doesNotMatch(JSON.stringify(home["Mueller Fellowship"]), /2026-10-04/);
-	// An organization Member reads the same.
 	assert.deepEqual(await rows(networkMember), home);
 });
 
@@ -195,7 +184,6 @@ test("no organization read carries the milestone's note, description, correction
 		await listPlants(S.runtime, await as(graceOwner)),
 		await getPlant(S.runtime, await as(graceOwner), HP.id),
 	];
-	// The planter's own plan does hold the note, so its absence above is the oversight read's choice.
 	assert.equal((await plan(HP)).path.kind === "milestone" && (await plan(HP)).path.reached?.note, NOTE);
 	const json = JSON.stringify(reads);
 	assert.doesNotMatch(json, /Private milestone note|Private correction reason|adopts its constitution/);
@@ -205,7 +193,6 @@ test("no organization read carries the milestone's note, description, correction
 test("a kept Launch Sunday date on the milestone path is never Launch readiness, on any read", async () => {
 	const LP = await plant("Leander Church");
 	await link(LP, N, FINDINGS);
-	// A Playbook responsibility nobody holds, and Launch Sunday 10 plant-local days away.
 	const t = await S.db.execute(
 		sql`INSERT INTO team(plant_id,name,state,sort_order) VALUES(${LP.id},'Kids','active',0) RETURNING id`,
 	);
@@ -226,7 +213,6 @@ test("a kept Launch Sunday date on the milestone path is never Launch readiness,
 			notice: nearLaunch(own.preparation) === "gap",
 		};
 	};
-	// On Launch Sunday, the concern shows everywhere.
 	assert.deepEqual(await readAll(), {
 		home: "launch_readiness",
 		view: "launch_readiness",
@@ -269,14 +255,12 @@ test("a renamed milestone keeps the name it was reached under; one turned off or
 	};
 	assert.deepEqual(await path(networkOwner, "Oak Cliff Church"), withdrawn);
 	assert.deepEqual((await getPlant(S.runtime, await as(networkOwner), OC.id))!.plant.path, withdrawn);
-	// A milestone already reached stays shown with its date.
 	assert.deepEqual(
 		(await path(networkOwner, "Harvest Point")).kind === "milestone" &&
 			(await path(networkOwner, "Harvest Point")).progress,
 		reached("2026-10-11"),
 	);
 
-	// Offered again, then Oak Cliff's affiliation with Hill Country ends: Grace Austin sees it as no longer offered.
 	await offer(N, true, "Church constituted");
 	assert.deepEqual(
 		(await path(graceOwner, "Oak Cliff Church")).kind === "milestone" &&

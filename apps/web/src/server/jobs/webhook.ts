@@ -48,7 +48,6 @@ async function apply(tx: Transaction, eventId: string) {
 		.from(tables.mail)
 		.where(eq(tables.mail.provider_message_id, e.message_id))
 		.for("update");
-	// Unknown and ambiguous IDs are retained as pending evidence, never routed by request IDs.
 	if (matches.length !== 1) return "unmatched" as const;
 	const m = z
 		.object({ id: z.uuid(), tenant_id: z.uuid(), address_hash: z.string().nullable(), job_id: z.uuid().nullable() })
@@ -114,16 +113,10 @@ async function apply(tx: Transaction, eventId: string) {
 		.onConflictDoNothing({ target: [tables.audit_event.subject_id, tables.audit_event.event_key] });
 	return "applied" as const;
 }
-/** Read at most 16 KB, verify the signature once, then apply those verified bytes. */
 export async function receiveMailCallback(db: Database, request: Request, secret: string) {
 	const raw = await boundedBytes(request, 16_384);
 	return applyMailCallback(db, raw, verifyCallback(raw, request.headers, secret));
 }
-/**
- * Store a durable safe receipt for already verified callback bytes, then try to apply it. A verified event of a type
- * this app does not handle (such as `email.delivery_delayed`) is acknowledged and stored nowhere, so the provider does
- * not retry it.
- */
 export async function applyMailCallback(db: Database, raw: Uint8Array, key: string) {
 	const body: unknown = JSON.parse(new TextDecoder().decode(raw));
 	const type = z.object({ type: z.string().min(1).max(64) }).parse(body).type;
@@ -131,7 +124,6 @@ export async function applyMailCallback(db: Database, raw: Uint8Array, key: stri
 	const v = wire.parse(body);
 	const kind = z.enum(kinds).parse(v.type.slice(6));
 	const hash = createHash("sha256").update(raw).digest("hex");
-	// Commit the safe receipt before attempting application, including unknown message IDs.
 	const id = await transaction(db, async (tx) => {
 		const r = await tx
 			.insert(tables.provider_event)
@@ -160,10 +152,6 @@ export async function applyMailCallback(db: Database, raw: Uint8Array, key: stri
 		return { stored: true, result: "pending" as const };
 	}
 }
-/**
- * Applies up to 100 stored callbacks that are still pending and whose message id now names an email: an event that
- * arrived before its email had a provider id. The scheduled runner calls it each tick (`mail-callbacks`).
- */
 export async function replayStoredCallbacks(db: Database) {
 	const rows = await db
 		.select({ id: provider_event_e.id })
@@ -180,13 +168,10 @@ export async function replayStoredCallbacks(db: Database) {
 	for (const row of rows) {
 		try {
 			if ((await applyStoredCallback(db, z.uuid().parse(row.id))) === "applied") applied++;
-		} catch {
-			/* The durable pending receipt stays visible; another bad row cannot block the scan tail. */
-		}
+		} catch {}
 	}
 	return applied;
 }
-/** Applies one stored callback in its own transaction: the census measures each event, not the whole scan. */
 async function applyStoredCallback(db: Database, eventId: string) {
 	return transaction(db, (tx) => apply(tx, eventId));
 }
