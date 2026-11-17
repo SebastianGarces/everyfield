@@ -2,93 +2,90 @@ import * as React from "react";
 import { Separator } from "./separator";
 import { cn } from "../tiptap-utils.ts";
 import { TOOLBAR, TOOLBAR_GROUP } from "../styles.ts";
-import { useMenuNavigation } from "../use-menu-navigation.ts";
-import { useComposedRef } from "../use-composed-ref.ts";
 
 type BaseProps = React.HTMLAttributes<HTMLDivElement>;
 
-// Everyfield change: the toolbar is one Tab stop (WAI-ARIA toolbar pattern). Tab and Shift+Tab move in and out of it,
-// the arrow keys move between its enabled buttons from the one that has focus, and Enter or Space reaches the focused
-// button natively. Only the remembered button has tabindex 0; the list follows buttons that mount, unmount or turn
-// disabled.
 const ITEMS = 'button:not([disabled]), [role="button"]:not([disabled]), [tabindex]:not([disabled])';
 
-const useToolbarNavigation = (toolbarRef: React.RefObject<HTMLDivElement | null>) => {
-	const [items, setItems] = React.useState<HTMLElement[]>([]);
+export const InToolbar = React.createContext(false);
 
-	const { selectedIndex, setSelectedIndex } = useMenuNavigation<HTMLElement>({
-		containerRef: toolbarRef,
-		items,
-		orientation: "horizontal",
-		autoSelectFirstItem: false,
-	});
+const FOCUSABLE =
+	'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex], [contenteditable="true"]';
 
-	React.useEffect(() => {
-		const toolbar = toolbarRef.current;
-		if (!toolbar) return;
+function passPointerFocusOn(toolbar: HTMLElement) {
+	const outer = toolbar.parentElement?.closest<HTMLElement>(FOCUSABLE);
+	if (outer) outer.focus({ preventScroll: true });
+	else toolbar.blur();
+}
 
-		const updateItems = () => {
-			const next = Array.from(toolbar.querySelectorAll<HTMLElement>(ITEMS));
-			setItems(next);
-			const focused = next.indexOf(document.activeElement as HTMLElement);
-			if (focused !== -1) setSelectedIndex(focused);
-		};
+const itemsOf = (toolbar: HTMLElement) => Array.from(toolbar.querySelectorAll<HTMLElement>(ITEMS));
 
-		updateItems();
-		const observer = new MutationObserver(updateItems);
-		observer.observe(toolbar, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled"] });
+function arrowTarget(key: string, index: number, count: number) {
+	switch (key) {
+		case "ArrowLeft":
+			return (index - 1 + count) % count;
+		case "ArrowRight":
+			return (index + 1) % count;
+		case "Home":
+			return 0;
+		case "End":
+			return count - 1;
+		default:
+			return null;
+	}
+}
 
-		return () => observer.disconnect();
-	}, [toolbarRef, setSelectedIndex]);
+export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(
+	({ children, className, onKeyDownCapture, onFocus, onBlur, ...props }, ref) => {
+		const remembered = React.useRef(0);
+		const [entry, setEntry] = React.useState(true);
 
-	React.useEffect(() => {
-		const toolbar = toolbarRef.current;
-		if (!toolbar) return;
-
-		// Arrow keys move from the button that has focus, however it got there (Tab, a click, a script).
-		const handleFocusIn = (e: FocusEvent) => {
-			const index = items.indexOf(e.target as HTMLElement);
-			if (index !== -1) setSelectedIndex(index);
-		};
-
-		toolbar.addEventListener("focusin", handleFocusIn);
-
-		return () => {
-			toolbar.removeEventListener("focusin", handleFocusIn);
-		};
-	}, [toolbarRef, items, setSelectedIndex]);
-
-	React.useEffect(() => {
-		const toolbar = toolbarRef.current;
-		if (!toolbar || !items.length) return;
-		const current = selectedIndex !== undefined && items[selectedIndex] ? selectedIndex : 0;
-		items.forEach((item, index) => {
-			item.tabIndex = index === current ? 0 : -1;
-		});
-		// Move focus only while it is in the toolbar: a button that turns on or off while someone types in the
-		// document never takes the focus.
-		const item = items[current];
-		if (item && toolbar.contains(document.activeElement) && document.activeElement !== item) item.focus();
-	}, [selectedIndex, items, toolbarRef]);
-};
-
-export const Toolbar = React.forwardRef<HTMLDivElement, BaseProps>(({ children, className, ...props }, ref) => {
-	const toolbarRef = React.useRef<HTMLDivElement>(null);
-	const composedRef = useComposedRef(toolbarRef, ref);
-	useToolbarNavigation(toolbarRef);
-
-	return (
-		<div
-			ref={composedRef}
-			role="toolbar"
-			aria-label="Document formatting"
-			className={cn(TOOLBAR, className)}
-			{...props}
-		>
-			{children}
-		</div>
-	);
-});
+		return (
+			<div
+				ref={ref}
+				role="toolbar"
+				aria-label="Document formatting"
+				tabIndex={entry ? 0 : -1}
+				className={cn(TOOLBAR, "outline-none", className)}
+				{...props}
+				onKeyDownCapture={(event) => {
+					onKeyDownCapture?.(event);
+					const toolbar = event.currentTarget;
+					if (event.key === "Tab") {
+						if (event.shiftKey && toolbar.contains(event.target as Node)) setEntry(false);
+						return;
+					}
+					const items = itemsOf(toolbar);
+					const index = items.indexOf(event.target as HTMLElement);
+					if (index === -1) return;
+					const next = arrowTarget(event.key, index, items.length);
+					if (next === null) return;
+					event.preventDefault();
+					items[next]?.focus();
+				}}
+				onFocus={(event) => {
+					onFocus?.(event);
+					const toolbar = event.currentTarget;
+					const items = itemsOf(toolbar);
+					if (event.target !== toolbar) {
+						const index = items.indexOf(event.target as HTMLElement);
+						if (index !== -1) remembered.current = index;
+					} else if (toolbar.matches(":focus-visible")) {
+						(items[remembered.current] ?? items[0])?.focus();
+					} else {
+						passPointerFocusOn(toolbar);
+					}
+				}}
+				onBlur={(event) => {
+					onBlur?.(event);
+					if (!event.currentTarget.contains(event.relatedTarget)) setEntry(true);
+				}}
+			>
+				<InToolbar value>{children}</InToolbar>
+			</div>
+		);
+	},
+);
 Toolbar.displayName = "Toolbar";
 
 export const ToolbarGroup = React.forwardRef<HTMLDivElement, BaseProps>(({ children, className, ...props }, ref) => (

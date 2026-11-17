@@ -156,7 +156,8 @@ test("AC:CASE-NTF-016 a refused opt-out, from a forged or tampered token, writes
 	const ana = await person(w, "Ana");
 	const email = await schedule(sam, [ana]);
 	const real = messagesOptOutToken(ring, { plantId: w.id, personId: ana.id });
-	const tampered = real.slice(0, -2) + (real.endsWith("A") ? "BB" : "AA");
+	const middle = real.length >> 1;
+	const tampered = real.slice(0, middle) + (real[middle] === "A" ? "B" : "A") + real.slice(middle + 1);
 	const forged = messagesOptOutToken({ current: randomBytes(32), previous: [] }, { plantId: w.id, personId: ana.id });
 	for (const token of [tampered, forged]) {
 		const outcome = await applyMessagesOptOut(f.db, ring, now, { token });
