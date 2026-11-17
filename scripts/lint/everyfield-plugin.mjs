@@ -640,9 +640,6 @@ const noRawHistory = ratcheted("no-raw-history", (context, push) => {
 			const text = addressText(node.right);
 			urlWrite(node, url, part === "hash" ? `#${text.replace(/^#/, "")}` : `?${text.replace(/^\?/, "")}`);
 		},
-		ImportSpecifier(node) {
-			if (keyName(node.imported, false) === "useLocationHash") report(node, "useLocationHash");
-		},
 		VariableDeclarator(node) {
 			if (node.id.type !== "ObjectPattern" || !isLocation(node.init, context)) return;
 			for (const p of node.id.properties)

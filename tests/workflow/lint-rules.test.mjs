@@ -232,7 +232,6 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 			"apps/web/src/features/x/go.ts": source,
 			"apps/web/src/components/location.ts": source,
 			"apps/web/src/components/one-time-link.ts": `export const take = () => (window.history.replaceState(null, "", "/"), location.hash);\n`,
-			"apps/web/src/features/x/Hash.tsx": `import { useLocationHash } from "@everyfield/ui/foundations";\nexport const useProof = () => useLocationHash();\n`,
 			"apps/web/src/server/mail/link.ts":
 				"export const link = (origin, proof) => `${origin}/invitation#proof=${proof}`;\n",
 		}),
@@ -260,7 +259,6 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 			"apps/web/src/features/x/go.ts:13 no-raw-history",
 			"apps/web/src/features/x/go.ts:14 no-raw-history",
 			"apps/web/src/features/x/go.ts:14 no-raw-history",
-			"apps/web/src/features/x/Hash.tsx:1 no-raw-history",
 		].sort(),
 	);
 });
@@ -679,6 +677,26 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.equal(status, 1);
 	assert.match(out, /override for src\/x\.tsx, rule everyfield\/no-effects needs its reason/);
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
+});
+
+test("INV-lint: a survivor whose reason marks it temporary must name the evf task that removes it", () => {
+	const path = "packages/ui/src/Panel.tsx";
+	const run = (reason) => {
+		const dir = sandbox(
+			{ [path]: "export {};\n" },
+			{ "survivors/packages-ui.json": { "no-effects": { [path]: [{ function: "Panel", count: 1, reason }] } } },
+		);
+		git(dir, "init", "-q");
+		return check(dir, ["--no-base"]);
+	};
+	const refused = run("Temporary: the effect goes once the shared hook lands");
+	assert.equal(refused.status, 1);
+	assert.match(
+		refused.out,
+		/packages-ui\.json: no-effects packages\/ui\/src\/Panel\.tsx: a temporary entry must name the evf task/,
+	);
+	assert.match(run("Temporary: the effect goes once the shared hook lands (T-123)").out, /check-comments: passed/);
+	assert.match(run("The effect follows the panel's lifetime, so it stays").out, /check-comments: passed/);
 });
 
 function history() {

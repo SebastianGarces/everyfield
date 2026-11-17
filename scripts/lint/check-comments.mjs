@@ -111,6 +111,8 @@ function checkSurvivors(files) {
 					if (!Number.isInteger(entry.count) || entry.count < 1) fail(`${where}: needs a positive whole count`);
 					if (typeof entry.reason !== "string" || entry.reason.trim().length < 20)
 						fail(`${where}: needs a reason of 20 characters or more`);
+					else if (/temporary/i.test(entry.reason) && !/\bT-\d+\b/.test(entry.reason))
+						fail(`${where}: a temporary entry must name the evf task (T-<number>) that removes it`);
 					if (FUNCTION_RULES.has(rule) && (typeof entry.function !== "string" || !entry.function))
 						fail(`${where}: needs the name of the function the ${rule} hit sits in`);
 				}
