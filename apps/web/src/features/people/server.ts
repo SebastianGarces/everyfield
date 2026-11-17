@@ -9,13 +9,9 @@ import { loadPersonFollowUps } from "../followups/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 import { canWrite } from "../shared/seat-role.ts";
 
-// Layout, pages and actions share this request's native session and actor.
-// Reads consume that observation; writes recheck authority inside their transaction.
-
 export type Viewer = NonNullable<ReturnType<typeof peopleViewer>>;
 export type Role = Viewer["role"];
 
-/** Runs one read in its own transaction. A thrown database error reads as unavailable, never as a crash. */
 export async function read<T>(
 	viewer: Viewer,
 	run: (tx: Transaction, context: PeopleContext) => Promise<PeopleReply<T>>,
@@ -23,7 +19,6 @@ export async function read<T>(
 	return readOnPool(viewer, (db, context) => db.transaction((tx) => run(tx, context)));
 }
 
-/** Runs one single-statement read on the pool, with no transaction around it. A thrown database error reads as unavailable. */
 async function readOnPool<T>(
 	viewer: Viewer,
 	run: (db: Database, context: PeopleReadContext) => Promise<PeopleReply<T>>,
@@ -38,7 +33,6 @@ async function readOnPool<T>(
 	}
 }
 
-/** Runs one native write in its own transaction, with the write context built from the viewer's authority. */
 export async function write<T>(
 	viewer: Viewer,
 	run: (tx: Transaction, context: PeopleWriteContext) => Promise<PeopleReply<T>>,
@@ -55,12 +49,6 @@ export async function write<T>(
 
 export type { PeopleData, PeopleView } from "./page-data.ts";
 
-/**
- * The person page: the person read in one statement on the pool (readPersonView) and, for the page itself, the
- * follow-ups and contact log (WP-023) in their own short transaction at the same time, on a second connection: they
- * need nothing from the person read, and running beside it keeps the page within its one-second budget (C77). They
- * show only for a plant person. A conflict reload passes `withFields: false`: it needs only the person and Activity.
- */
 export async function loadPerson(viewer: Viewer, personId: Parameters<typeof readPersonPage>[2], withFields = true) {
 	const followUps = withFields ? loadPersonFollowUps(viewer.authority, personId) : Promise.resolve(null);
 	const loaded = await readPersonView(viewer, personId, withFields);
@@ -71,11 +59,6 @@ export async function loadPerson(viewer: Viewer, personId: Parameters<typeof rea
 	return { status: "ok" as const, value: { ...loaded.value, followUps: plant ? parts : null } };
 }
 
-/**
- * The person, their first Activity page and, with `withFields`, their WP-012 fields and duplicate hints (WP-015), in
- * one statement on the pool. An Owner or Admin's page also reads the person's 4 C's, interviews and commitments; no
- * one else's page asks for them. Each field card reads its own part again when its own save is refused.
- */
 export async function readPersonView(
 	viewer: Viewer,
 	personId: Parameters<typeof readPersonPage>[2],
@@ -87,7 +70,6 @@ export async function readPersonView(
 	return readOnPool(viewer, (db, ctx) => readPersonPage(db, ctx, personId, parts));
 }
 
-/** With `pairs`, an Owner or Admin's page load, it also reads the header's pairs to review (readPeoplePage). */
 export async function loadPeople(viewer: Viewer, query: PeopleQuery, pairs = false) {
 	const result = await read(viewer, async (tx, ctx) => ({
 		status: "ok",

@@ -24,7 +24,6 @@ export const recruitmentSource = z.enum([
 	"other",
 ]);
 export const adultClassification = z.enum(["adult", "child", "unknown"]);
-/** Where the effective adult or child value comes from: the birth date, a recorded value or nothing yet. */
 export const adultClassificationSource = z.enum(["birth_date", "recorded", "not_recorded"]);
 export const pipelineColumn = z.enum(["prospect", "attendee", "following_up", "interviewed", "core_group"]);
 export const displayName = z.string().trim().min(1).max(255);
@@ -47,8 +46,6 @@ export const personLifecycle = z.discriminatedUnion("state", [
 	z.strictObject({ state: z.literal("retired"), retiredAt: instant }),
 	z.strictObject({ state: z.literal("merged"), retiredAt: instant, survivorId: personId }),
 ]);
-// Current commitment and genuine first acquisition are separate observations.
-// Neither stage, household, account linkage nor classification creates evidence.
 export const currentCommitment = z.discriminatedUnion("state", [
 	z.strictObject({ state: z.literal("unknown") }),
 	z.strictObject({
@@ -66,6 +63,5 @@ export const firstAcquisition = z.discriminatedUnion("status", [
 ]);
 export const pageInput = {
 	limit: z.int().min(1).max(100).default(24),
-	// Page numbers in a stable order (D67). The server takes the church from the session.
 	page: z.int().min(1).max(100_000).default(1),
 };

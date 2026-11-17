@@ -4,13 +4,6 @@ import { computeTable, validate } from "./format/rules.ts";
 import { formatNumber, TABLE_LIMITS } from "./format/table.ts";
 import type { CellNode, ColumnSpec, DocNode, InlineNode, RowNode, TableNode } from "./format/types.ts";
 
-// A plain native document (kind native or core_values) stores the body node of everyfield.doc/1 (D-209): the same
-// tree the Church Document editor writes, limited to the safe-editor set. No page, no merge fields, no slots, images
-// or layout blocks. A table is the plain set of T-100 ruling (a): a grid or rows style, text, number, money, check
-// and row number columns, an optional header and stripes, and typed item rows whose cells hold marked text only.
-// A revision saved before this format stored plain text; it reads as one paragraph per line.
-
-/** The nodes a native body may hold, and the attributes each may set. */
 const NODE_ATTRS: Record<string, readonly string[]> = {
 	doc: [],
 	paragraph: [],
@@ -31,15 +24,11 @@ const MARKS = new Set(["bold", "italic", "underline", "link"]);
 type Rec = Record<string, unknown>;
 const isRec = (value: unknown): value is Rec => !!value && typeof value === "object" && !Array.isArray(value);
 
-/** Deeper than any native body nests (doc, list, item, list, ... ), and far below what the call stack holds. */
 const DEPTH_MAX = 64;
 
-/** The column kinds a plain table may hold: no formula. */
 const PLAIN_KINDS = new Set(["text", "number", "money", "check", "index"]);
-/** The column keys a plain table may set: no alignment, formula or number format. */
 const PLAIN_COLUMN_KEYS = new Set(["id", "label", "type", "width"]);
 
-/** The faults of a table's own attributes and rows that the plain set refuses beyond its attribute list. */
 function tableFaults(node: Rec, path: string, faults: string[]) {
 	const attrs = isRec(node.attrs) ? node.attrs : {};
 	if (attrs.style !== undefined && attrs.style !== "grid" && attrs.style !== "rows")
@@ -56,7 +45,6 @@ function tableFaults(node: Rec, path: string, faults: string[]) {
 		});
 	if (Array.isArray(node.content))
 		node.content.forEach((row, r) => {
-			// A group, subtotal or total row needs a ledger table, which the style check above refuses (validate).
 			if (!isRec(row)) return;
 			if (Array.isArray(row.content))
 				row.content.forEach((cell, c) => {
@@ -69,7 +57,6 @@ function tableFaults(node: Rec, path: string, faults: string[]) {
 		});
 }
 
-/** The faults that keep a node out of the native set: an unknown node, attribute or mark, or an unsafe link. */
 function nativeFaults(node: unknown, path: string, faults: string[], depth = 0) {
 	if (faults.length >= 20) return;
 	if (!isRec(node)) return;
@@ -101,7 +88,6 @@ function nativeFaults(node: unknown, path: string, faults: string[], depth = 0) 
 		node.content.forEach((child, i) => nativeFaults(child, `${path}.content[${i}]`, faults, depth + 1));
 }
 
-/** The envelope the format rules need around a body. Nothing of it is stored. */
 const frame = (body: unknown) => ({
 	format: "everyfield.doc/1",
 	kind: "document",
@@ -116,10 +102,6 @@ const frame = (body: unknown) => ({
 	body,
 });
 
-/**
- * One native body: an everyfield.doc/1 `doc` node with paragraphs, headings, lists, quotes, dividers and plain tables,
- * and bold, italic, underline and safe links. Every format rule applies (text length, printable text, node and size limits).
- */
 export const nativeBody = z.unknown().transform((value, ctx): DocNode => {
 	const faults: string[] = [];
 	if (!isRec(value) || value.type !== "doc") faults.push("body: a plain document body is a doc node");
@@ -131,7 +113,6 @@ export const nativeBody = z.unknown().transform((value, ctx): DocNode => {
 	return faults.length ? z.NEVER : (value as DocNode);
 });
 
-/** The body a pre-change text revision reads as: each line one paragraph, in order. */
 export function nativeFromText(text: string): DocNode {
 	const lines = text.replace(/\r\n?/g, "\n").split("\n");
 	return {
@@ -142,15 +123,12 @@ export function nativeFromText(text: string): DocNode {
 	};
 }
 
-/** A stored revision body as a native body: the stored node, or the paragraphs of a pre-change text revision. */
 export function readNative(stored: string): { body: DocNode; text: boolean } {
 	if (stored.startsWith("{")) {
 		try {
 			const parsed = nativeBody.safeParse(JSON.parse(stored));
 			if (parsed.success) return { body: parsed.data, text: false };
-		} catch {
-			// Not JSON: a text revision that starts with a brace.
-		}
+		} catch {}
 	}
 	return { body: nativeFromText(stored), text: true };
 }
@@ -163,7 +141,6 @@ const inline = (node: Node): string =>
 			? "\n"
 			: (node.content ?? []).map(inline).join("");
 
-/** True when a cell holds something a person put there: text, an amount or a tick. A row number is not content. */
 function filled(cell: CellNode, column: ColumnSpec | undefined): boolean {
 	if (column?.type === "text") return inline(cell as Node).trim() !== "";
 	if (column?.type === "number" || column?.type === "money") return typeof cell.attrs?.value === "number";
@@ -171,7 +148,6 @@ function filled(cell: CellNode, column: ColumnSpec | undefined): boolean {
 	return false;
 }
 
-/** A cell as the evidence text writes it (T-100 ruling d): an amount as the editor shows it, a tick as [x] or [ ]. */
 function cellText(cell: CellNode, column: ColumnSpec | undefined, row: number): string {
 	const value = cell.attrs?.value;
 	switch (column?.type) {
@@ -187,10 +163,6 @@ function cellText(cell: CellNode, column: ColumnSpec | undefined, row: number): 
 	}
 }
 
-/**
- * A table's lines: the header labels first, then one line per row, cells joined by " | ". A table with no filled cell
- * has no lines, so a body of empty tables reads as "".
- */
 function tableLines(table: TableNode): string[] {
 	const columns = table.attrs.columns;
 	const rows = table.content ?? [];
@@ -200,10 +172,6 @@ function tableLines(table: TableNode): string[] {
 	return lines;
 }
 
-/**
- * The plain text of a native body in reading order: one line for each paragraph, heading and list item, and the lines
- * of each table (T-100 ruling d), no markup. A body with only empty blocks and empty tables is "".
- */
 export function nativeText(body: DocNode): string {
 	const lines: string[] = [];
 	const walk = (node: Node) => {
@@ -215,9 +183,6 @@ export function nativeText(body: DocNode): string {
 	return lines.join("\n").trim();
 }
 
-// ---------------------------------------------------------------- a table brought into a plain document
-
-/** The inline content a plain cell keeps: text with bold, italic, underline and links. A line break becomes a space. */
 function plainInline(content: readonly InlineNode[] | undefined): InlineNode[] {
 	const out: InlineNode[] = [];
 	for (const node of content ?? []) {
@@ -229,12 +194,6 @@ function plainInline(content: readonly InlineNode[] | undefined): InlineNode[] {
 	return out;
 }
 
-/**
- * A table of any style reduced to the plain set (T-100 criterion 5, rule "reduce"). Each cell keeps what it showed:
- * a budget becomes a grid whose category and total rows are plain rows with their computed amounts, a formula column
- * becomes a number column with its computed values, and blank write-in rows become empty typed rows. The header color,
- * row height, list field, sheet name, column alignment, tags and fields go. Nothing a person typed is lost.
- */
 export function plainTable(table: TableNode): TableNode {
 	const a = table.attrs;
 	const computed = computeTable(table);
@@ -272,7 +231,6 @@ export function plainTable(table: TableNode): TableNode {
 	const writeIns = a.source ? 0 : (a.writeInRows ?? 0);
 	const wanted = Math.min(TABLE_LIMITS.rows, typed.length + writeIns);
 	while (typed.length < wanted) typed.push(blank());
-	// A table with no header and no row would show nothing to click.
 	if (!header && typed.length === 0) typed.push(blank());
 	return {
 		type: "table",

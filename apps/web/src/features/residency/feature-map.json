@@ -1,0 +1,133 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "residency",
+	"catalog": ["MUL-012", "MUL-013", "MUL-014"],
+	"surfaces": [
+		{
+			"id": "residency.home",
+			"says": "My residency, for a resident with no seat: the program, stage, next meeting, what the sending church sees, milestones, feedback and reading.",
+			"routes": ["/my-residency", "/my-residency/reading/[readingId]"],
+			"catalog": ["MUL-012", "MUL-013", "MUL-014"],
+			"reach": [
+				{
+					"rail": "My residency",
+					"personas": ["resident"]
+				}
+			],
+			"personas": {
+				"resident": "write",
+				"signup": "none"
+			},
+			"states": [
+				{
+					"id": "home",
+					"reach": {
+						"persona": "resident",
+						"open": "/my-residency",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "My residency"
+						},
+						{
+							"role": "heading",
+							"name": "Church planting residency"
+						},
+						{
+							"role": "link",
+							"name": "Change what you share"
+						}
+					]
+				},
+				{
+					"id": "reading-unavailable",
+					"reach": {
+						"persona": "resident",
+						"open": "/my-residency/reading/00000000-0000-4000-8000-000000000000",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This reading isn’t available"
+						},
+						{
+							"role": "link",
+							"name": "Back to My residency"
+						}
+					]
+				},
+				{
+					"id": "not-available",
+					"reach": {
+						"persona": "signup",
+						"open": "/my-residency",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This page is not available"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "mark-done",
+					"says": "A resident marks a milestone done; it waits for the director to confirm, also after a reload.",
+					"catalog": ["MUL-012"],
+					"operations": ["development.completeMilestone"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/residency.test.mts",
+								"name": "AC:ADR1-012 Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record Casey's milestones in one step"
+							}
+						],
+						"cases": ["ADR1-012"],
+						"browser": {
+							"state": "home",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Mark done"
+									}
+								},
+								{
+									"open": "/my-residency"
+								}
+							],
+							"expect": [
+								{
+									"text": "Waiting for",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "reading",
+					"says": "A reading opens only from the resident's own list; the QA residency has no reading, so the tests prove it.",
+					"catalog": ["MUL-014"],
+					"operations": [],
+					"noOperation": "the reading is `loadResidentReading`; the catalog's `residency.resolveReading` names no code",
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/organizations/residency.test.mts",
+								"name": "AC:ADR1-014 church reading opens only from Casey's own list; another church article does not; unpublished reads unavailable"
+							}
+						],
+						"cases": ["ADR1-014"]
+					}
+				}
+			]
+		}
+	]
+}

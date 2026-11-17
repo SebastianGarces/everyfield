@@ -6,10 +6,6 @@ import { formatDay, plural } from "../board/model";
 import { PipelineTabs } from "../board/PipelineTabs";
 import { KIND, programHref, programStatus, PROGRAMS_PATH } from "./model";
 
-/**
- * The Programs tab (REQ-MUL-010): the organization's apprenticeships and residencies with their director, status and
- * active enrollments, and Active residents (REQ-MUL-007). Owners and Admins start a new program here.
- */
 export function ProgramsScreen({ list }: { list: ProgramList }) {
 	const create = list.administrator ? (
 		<Button asChild variant="primary" icon={PlusSignIcon}>

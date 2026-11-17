@@ -18,11 +18,6 @@ const HEADING: Record<Disclosure["kind"], (name: string) => { title: string; tex
 	}),
 };
 
-/**
- * The sharing disclosure shown before a connection is made (REQ-IDN-022). It shows the exact choices the server
- * will apply for this one organization: all on for a first invitation, the saved choices on a return, all off for a
- * self start. The screen never computes them, so a return can never look like a reset.
- */
 export function SharingDisclosure({
 	disclosure,
 	organizationName,

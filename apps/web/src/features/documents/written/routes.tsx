@@ -6,9 +6,6 @@ import { canEditDocuments, canStoreDocuments, writtenScope } from "../server.ts"
 import { loadWritten } from "./server.ts";
 import { WrittenScreen } from "./WrittenScreen.tsx";
 
-// The native document route. The file under apps/web/src/app/ only re-exports it. "new" opens a blank document that
-// the first save creates.
-
 export const writtenMetadata: Metadata = { title: "Document", robots: { index: false, follow: false } };
 
 const BACK = [{ label: "Documents", href: "/documents" }];
@@ -58,7 +55,6 @@ function Failed() {
 	);
 }
 
-/** The first paint while a document loads: the page's shape, not a spinner. */
 export function WrittenLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-5">

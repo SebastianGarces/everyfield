@@ -1,12 +1,8 @@
-// The attendance flow a silent break would cost us: guests are checked in at the door on a phone, attendance is
-// finalized with its generated work, and the meeting is evaluated. The next save after finalize or a walk-in goes through
-// the first time (T-155). Seed with tests/ui/people/seed.mts, then tests/ui/meetings/seed.mts; set UI_BASE_URL. Both
-// browser engines run, each on its own past meetings.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
 
-const SCORES = [4, 5, 4, 3, 5, 4, 4, 3]; // average 32 / 8 = 4.0
+const SCORES = [4, 5, 4, 3, 5, 4, 4, 3];
 
 for (const [name, engine] of ENGINES) {
 	test(`AC:TARGET-MTG-010 AC:TARGET-MTG-012 AC:TARGET-MTG-014 (${name}): door check-in, finalize and evaluation`, async () => {
@@ -17,7 +13,6 @@ for (const [name, engine] of ENGINES) {
 				await signIn(context, fixture("people").owner.cookie);
 				await page.goto(`${BASE}/meetings/${meetingId}/check-in`);
 				await hydrated(page);
-				// One list: no tabs and no radio. A tap marks the row in place and a second tap takes it back.
 				assert.equal(await page.getByRole("radio").count(), 0, "check-in has no radio");
 				const rowOf = (guest, pressed) =>
 					page.getByRole("button", { name: new RegExp(`^${guest}`), ...(pressed === undefined ? {} : { pressed }) });
@@ -46,8 +41,6 @@ for (const [name, engine] of ENGINES) {
 				);
 				await page.reload();
 				await hydrated(page);
-				// The counter reads "N of M" and never says "here".
-				// Read the whole badge, so screen-reader-only text counts too.
 				const badge = page.getByText(new RegExp(`^${guests.length} of \\d+\\s*checked in$`)).first();
 				const counter = await badge.textContent();
 				assert.match(counter, new RegExp(`^${guests.length} of \\d+ checked in$`));
@@ -61,7 +54,6 @@ for (const [name, engine] of ENGINES) {
 				await page.getByText("Attendance is final. To change it", { exact: false }).waitFor();
 
 				await page.setViewportSize({ width: 1440, height: 900 });
-				// Attendance and the evaluation are in the Results tab; a meeting with cards still to record opens on Guests.
 				await page.goto(`${BASE}/meetings/${meetingId}?tab=results`);
 				await hydrated(page);
 				const attendance = page.getByRole("region", { name: "Attendance" });
@@ -109,19 +101,15 @@ for (const [name, engine] of ENGINES) {
 	test(`BUG-ce8e6b7f7 messages/com-8 (${name}): finalize, then Record response card saves the first time`, async () => {
 		const { meetingId, guest } = revisions().card;
 		await signedIn(async (page) => {
-			// Before the meeting closes, Finalize attendance is on the Results tab's attendance card.
 			await open(page, `/meetings/${meetingId}?tab=results`);
 			await page.getByRole("button", { name: "Finalize attendance" }).first().click();
 			const review = page.getByRole("dialog", { name: "Finalize attendance" });
 			await review.getByText(/^Counts /).waitFor();
-			// Finalize's own answer, not a timer: the settle request carries its request key after the mode; the review's
-			// preview does not.
 			const finalized = page.waitForResponse(
 				(r) => r.request().method() === "POST" && /^\["finalize","[0-9a-f-]{36}"/.test(r.request().postData() ?? ""),
 			);
 			await review.getByRole("button", { name: "Finalize" }).click();
 			assert.equal((await finalized).status(), 200);
-			// The toast is written from that answer once the page has applied it.
 			await page
 				.getByText(/: attendance is final\./)
 				.first()
@@ -133,13 +121,11 @@ for (const [name, engine] of ENGINES) {
 			await page.getByRole("menuitem", { name: "Record response card" }).click();
 			const form = page.getByRole("dialog", { name: "Record response card" });
 			await form.getByText("Interested", { exact: true }).click();
-			// The card's own answer: the save that carries this response, at the revision finalize returned.
 			const answered = page.waitForResponse(
 				(r) => r.request().method() === "POST" && (r.request().postData() ?? "").includes('"response":"interested"'),
 			);
 			await form.getByRole("button", { name: "Save card" }).click();
 			assert.equal((await answered).status(), 200);
-			// The guest list takes saves again once the answer is applied: Add guest is enabled.
 			await page.waitForFunction(() =>
 				[...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === "Add guest" && !b.disabled),
 			);

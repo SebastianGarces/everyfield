@@ -1,12 +1,8 @@
-// T-269 (D-844, D-845): a pair marked "Not a duplicate" and its restore show in a person's Activity with their own
-// wording, the other person's current name as plain text and the duplicate-review icon the duplicates list uses. They
-// run in node against the real module the Activity card uses; no browser.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 import { describe } from "../../../apps/web/src/features/people/activity.ts";
 
-// The icon set as the web app resolves it; an icon is plain SVG data, so equal data is the same icon.
 const web = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 const { UserMultiple02Icon } = web("@hugeicons/core-free-icons");
 

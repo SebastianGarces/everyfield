@@ -7,10 +7,6 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import { change, nativeWrite, patchChanges, plantAdmin, settled } from "../../native.ts";
 import { ZONE_NAME } from "../../../catalog/labels.ts";
 
-// The church settings reviewed writes: the church profile and its time zone, through the same Settings commands the
-// Church section runs. A time zone review first runs the native preview, which saves what the change moves, and shows
-// those items with their new times; the save then binds that exact preview.
-
 const PROFILE_COLUMN = {
 	name: "name",
 	street: "street",
@@ -39,7 +35,6 @@ export const updateProfile = nativeWrite({
 	},
 });
 
-/** The longest list of moved items a review shows; the rest are counted. */
 const SHOWN = 8;
 const zoneName = (zone: string) => ZONE_NAME[zone] ?? zone;
 const day = (instant: string, zone: string) =>
@@ -59,7 +54,6 @@ export const setTimezone = nativeWrite({
 		if (!native) throw new EvryRefusal("source_unavailable");
 		const plant = owner.parse({ kind: "plant", id: actor.owner.id }) as { kind: "plant"; id: never };
 		const context = { session: actor.authority.session, selected: plant };
-		// The native preview saves what this change moves, bound to the church's current revision for 15 minutes.
 		const preview = settled(
 			await withSettingsWrite(db, actor.authority, context, (tx) =>
 				native.settings.previewPlantTimezone(tx, context, { plant, timeZone: value.timeZone }),
@@ -74,7 +68,6 @@ export const setTimezone = nativeWrite({
 					).rows.map((r) => [String(r.id), String(r.title)])
 				: [],
 		);
-		// Every moved time in the new zone, before and after, the way the Church section's preview lists them.
 		const zone = preview.newZone;
 		const moved = [
 			...preview.meetings.map((m) => ({ at: m.after, label: "Meeting", before: m.before, after: m.after })),
@@ -112,7 +105,6 @@ export const setTimezone = nativeWrite({
 type DigestSchedule = z.infer<typeof digestScheduleValue>;
 const WEEKDAYS = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
 const hourText = (hour: number) => `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
-/** "Off", "Daily at 7:00 AM" or "Weekly on Mondays at 8:00 AM", as Settings > Church reads it. */
 const scheduleText = (s: DigestSchedule) =>
 	s.cadence === "off"
 		? "Off"
@@ -120,9 +112,6 @@ const scheduleText = (s: DigestSchedule) =>
 			? `Daily at ${hourText(s.hour)}`
 			: `Weekly on ${WEEKDAYS[s.weekday]} at ${hourText(s.hour)}`;
 
-// The church-wide planter digest schedule (T-342), through the Settings command the Church section runs, which audits
-// as church.digestSchedule.set and replans owed digest slots. The catalog's plant.setDigestSchedule names the same
-// command; Evry installs only this name (D-1372).
 export const setDigestSchedule = nativeWrite({
 	operation: "church.digestSchedule.set",
 	description:
@@ -170,7 +159,6 @@ export const setDigestSchedule = nativeWrite({
 	},
 });
 
-/** The installed church settings reviewed writes, keyed by operation. */
 export const CHURCH_COMMANDS = {
 	"plant.updateProfile": updateProfile,
 	"plant.setTimezone": setTimezone,

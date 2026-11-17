@@ -1,11 +1,3 @@
-// WP-104/ui: the pure rules of the Brand kit section (apps/web/src/features/settings/brand/model.ts and the Settings
-// access rule). No browser, no database.
-//   INV-brand-offered: only an Owner or Admin of a plant is offered "Brand kit", directly after "Church profile".
-//   AC:CASE-BRD-005 (client half): a malformed EIN, website or email is refused with the contract's own schema.
-//   AC:CASE-BRD-003 (client half): the pale yellow primary reads "fails text" and no preview text uses it.
-//   AC:CASE-BRD-006: the email button of the full kit is the primary color with white text; no kit is neutral.
-//   BUG-T123: the preview's text on a brand fill is the color the PDF renderer prints there (#767676 included).
-//   INV-brand-patch: a save sends only changed fields, and a cleared optional field is null.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { DEFAULT_BODY_FONT, DEFAULT_HEADING_FONT } from "../../../packages/contracts/src/branding/values.ts";
@@ -107,7 +99,6 @@ test("INV-settings-sharing-link: a plant viewer is offered Sharing after Notific
 	assert.deepEqual(offeredSections(member, pages), ["seats", "notifications", "sharing", "account"]);
 	const organization = { context: "organization", accountId: "a", organization: ORG, role: "owner" } as const;
 	assert.deepEqual(offeredSections(organization, pages), ["organization", "seats", "notifications", "account"]);
-	// An organization Member reads the profile and the gathering milestone it offers its plants, with no controls.
 	assert.deepEqual(offeredSections({ ...organization, role: "member" }, pages), [
 		"organization",
 		"seats",
@@ -140,7 +131,6 @@ test("AC:CASE-BRD-005 the EIN, website and email follow the contract and show on
 		},
 	);
 	assert.deepEqual(validate(full, { required: true }), {});
-	// Every letterhead field is optional: an empty one is no error.
 	assert.deepEqual(validate({ ...full, ein: "", website: "", email: "" }, { required: true }), {});
 });
 
@@ -197,7 +187,6 @@ test("BUG-58bc5acb8: on #767676 the preview sets the text the PDF prints: white,
 	for (const fill of ["#767676", "#1F4E79", "#D4A017", "#FFF3B0", "#9CA3AF", "#E5E7EB"]) {
 		const palette = makePalette({ name: "church", primary: fill, accent: fill });
 		assert.equal(DOCUMENT_INK, palette.ink, "the preview's ink is the renderer's");
-		// The cover band of the outward-facing preview: textOn(band, DOCUMENT_INK).
 		assert.equal(textOn(fill, DOCUMENT_INK), palette.onPrimary, `text on ${fill}`);
 		const operational = themeOf("Harvest Point Church", { ...defaults, primaryColor: fill }, "operational");
 		assert.ok(operational.layout.documentClass === "operational");

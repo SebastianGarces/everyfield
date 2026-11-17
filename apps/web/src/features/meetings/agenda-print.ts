@@ -5,11 +5,6 @@ import { meetingId as meetingIdSchema } from "@everyfield/contracts/meetings";
 import { documentsReader } from "@everyfield/domain/documents";
 import { NextResponse } from "next/server";
 
-// GET /meetings/[meetingId]/agenda (REQ-DOC-007): the meeting's agenda as a PDF the browser shows inline. The session
-// statement and one read statement are all it sends. It stores nothing: no generated document, no audit row, no file.
-// Signed out goes to sign-in and comes back. A seat with no access and a meeting that is not this church's read the
-// same: 404 with no bytes. Each request reads the meeting again; nothing is cached.
-
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const missing = () =>
 	new Response("Not found", { status: 404, headers: { ...NO_STORE, "Content-Type": "text/plain" } });

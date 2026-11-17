@@ -9,13 +9,9 @@ import { RecordDialog } from "../../components/save/parts.tsx";
 import { PersonPicker, type PickedPerson } from "../meetings/dialogs.tsx";
 import { ICON_KEYS, ICONS, STATE_HINT, STATE_LABEL, STATES, type IconKey, type Role, type TeamState } from "./model.ts";
 
-// The forms of the teams screens. Each one belongs to a card's save lane (components/save): a save closes it, and a
-// refusal opens it again with what was entered and the reason in words.
-
 const NAME_MAX = 200;
 const TEXT_MAX = 2000;
 const blank = (s: string) => s.trim() === "";
-/** An optional text field as the contract takes it: trimmed, or null to clear it. */
 export const optional = (s: string) => (blank(s) ? null : s.trim());
 
 export type TeamForm = {
@@ -132,7 +128,6 @@ export const roleForm = (role: Role | null): RoleForm => ({
 	desiredSkills: role?.desiredSkills ?? "",
 });
 
-/** One role slot: one person at a time. A leadership role fills an empty leader seat when someone takes it. */
 export function RoleDialog({
 	form,
 	problem,
@@ -207,10 +202,6 @@ export function RoleDialog({
 
 export type PersonForm = { person: PickedPerson | null; roleId: string | null; problem?: string };
 
-/**
- * Choose a person, and for Add member also the open role they take. The search reads only after the person types.
- * `roles` null means the role is already chosen (Fill on a role, or a leader appointment).
- */
 export function PersonDialog({
 	title,
 	description,
@@ -261,7 +252,7 @@ export function PersonDialog({
 			{roles !== null ? (
 				<Field label="Role" error={touched && noRole ? "Choose a role." : null}>
 					<Select
-						value={f.roleId ?? undefined}
+						value={f.roleId ?? ""}
 						placeholder="Choose an open role"
 						onValueChange={(v) => setF((x) => ({ ...x, roleId: v }))}
 						options={roles.map((r) => ({ value: r.id, label: r.name }))}
@@ -288,5 +279,4 @@ export function PersonDialog({
 	);
 }
 
-/** The icon for a leader appointment dialog. */
 export const LEADER_ICON = Crown02Icon;

@@ -3,13 +3,10 @@ import { database, closeDatabase } from "../src/client.ts";
 import { early_access_request } from "../src/schema/tables.ts";
 import { developmentHosts, assertDevelopmentDatabase } from "../src/development.ts";
 
-// The guard also accepts CI's localhost database; the reset never does, so it also requires a development host.
 let allowed = false;
 try {
 	allowed = developmentHosts.has(assertDevelopmentDatabase(process.env.DATABASE_URL).hostname);
-} catch {
-	/* Refuse without exposing settings. */
-}
+} catch {}
 if (!allowed) {
 	console.error("Reset refused. Use the everyfield-v3 shared development database outside production.");
 	process.exit(1);

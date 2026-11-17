@@ -11,8 +11,8 @@ import {
 	IntentLink,
 } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon, useMinuteClock } from "@everyfield/ui/foundations";
-import { useRef, useState } from "react";
+import { cn, Icon, useFocusRequest, useMinuteClock } from "@everyfield/ui/foundations";
+import { useState } from "react";
 import { dueText, lacksOwner, ownerText } from "../tasks/model.ts";
 import { AssignMenu, dutyFrom } from "./duties.tsx";
 import { outcomeSaved } from "../tasks/fresh.tsx";
@@ -37,19 +37,14 @@ import type { CallData } from "./server.ts";
 
 const OPEN = new Set(["not_started", "in_progress", "blocked"]);
 
-/**
- * The follow-up call (REQ-MTG-022, REQ-MTG-021, REQ-TSK-004): who to reach and how, then what happened. Built for a
- * phone first; on a desktop it sits in the app frame. One save at a time. A saved outcome shows from the answer; the
- * follow-up stays here to record another try when it is still open.
- */
 export function CallScreen({ initial, accountId, admin }: { initial: CallData; accountId: string; admin: boolean }) {
 	const [call, setCall] = useState(initial);
 	const [draft, setDraft] = useState<Draft>(emptyDraft);
 	const [errors, setErrors] = useState<DraftErrors>({});
 	const [saved, setSaved] = useState<OutcomeMutation | null>(null);
 	const lane = useSaveIntent({ explain: problemText });
-	const notice = useRef<HTMLDivElement>(null);
-	const done = useRef<HTMLHeadingElement>(null);
+	const notice = useFocusRequest<HTMLDivElement>(lane.notice?.tone === "refused" ? lane.notice.id : null);
+	const done = useFocusRequest<HTMLHeadingElement>(saved?.record.id);
 	const { task, person, obligation } = call;
 	const open = OPEN.has(task.status);
 	const mine = task.assignees.some((a) => a.accountId === accountId);
@@ -81,7 +76,6 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 				setCall((c) => ({
 					...c,
 					task: value.task ?? c.task,
-					// A finished follow-up has no one left to finish with it, and its record is the entry just saved.
 					others: value.task && !OPEN.has(value.task.status) ? [] : c.others,
 					record:
 						value.task && !OPEN.has(value.task.status) && c.recent ? { ...c.recent, items: [value.record] } : c.record,
@@ -93,15 +87,12 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 							}
 						: c.recent,
 				}));
-				requestAnimationFrame(() => done.current?.focus());
 			},
-			// The answers stay. Out of date: read the follow-up again so the next save uses its latest revision.
 			refused: async (code) => {
 				if (code === "conflict") {
 					const fresh = await loadCall(task.id);
 					if (fresh.status === "ok" && fresh.value.kind === "call") setCall(fresh.value.call);
 				}
-				requestAnimationFrame(() => notice.current?.focus());
 			},
 		});
 	}

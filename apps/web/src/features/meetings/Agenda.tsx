@@ -31,7 +31,6 @@ import { replaceAgenda } from "./actions.ts";
 import { problemText, type AgendaSection, type Detail } from "./model.ts";
 import type { Change } from "./page-state.ts";
 
-/** The agenda (REQ-MTG-005): sections with their start times from the meeting's start, and the total length. */
 export function AgendaCard({
 	meeting,
 	canWrite,
@@ -42,21 +41,16 @@ export function AgendaCard({
 }: {
 	meeting: Detail;
 	canWrite: boolean;
-	/** The meeting has an agenda template: every seat that can read it can print the agenda. */
 	printable: boolean;
 	project: (change: Change) => void;
 	onSaved: (agenda: Detail["agenda"]) => void;
-	/** Reads the meeting again after a save refused as out of date: the latest meeting, or null when it did not load. */
 	onStale: () => Promise<{ meeting: Detail } | null>;
 }) {
-	// The card's save lane (components/save): the editor closes as it saves, and a refusal opens it again with the rows.
 	const lane = useSaveIntent<{ rows: Row[]; problem?: string }>({ explain: problemText });
 	const rowsOf = (m: Detail): Row[] =>
 		m.agenda.sections.map((s) => ({ id: s.id, title: s.title, minutes: String(s.minutes) }));
 	const edit = () => lane.wait === null && lane.open({ rows: rowsOf(meeting) });
-	// Each reopening on the latest agenda starts a fresh editor, so it shows those rows and not the refused ones.
 	const [round, setRound] = useState(0);
-	/** The new agenda shows at once; the answer confirms it, or the old one comes back and its editor reopens. */
 	function submit(rows: Row[], sections: AgendaSection[]) {
 		startTransition(async () => {
 			project({
@@ -68,7 +62,6 @@ export function AgendaCard({
 				form: { rows },
 				send: (key) => replaceAgenda(key, meeting.revision, meeting.id, sections),
 				ok: (value) => startTransition(() => onSaved(value.agenda)),
-				// Out of date: the editor opens again on the agenda as it is now, so "the latest version is shown" is true.
 				refused: (code) => {
 					if (code !== "conflict") return;
 					void onStale().then((latest) => {
@@ -81,7 +74,6 @@ export function AgendaCard({
 		});
 	}
 	const { sections, totalMinutes } = meeting.agenda;
-	// Each section starts when the one before it ends, counted from the meeting's start.
 	const starts = sectionStarts(meeting.localTime, sections);
 	return (
 		<Card as="section" aria-labelledby="agenda-title">
@@ -165,7 +157,6 @@ export function AgendaCard({
 
 type Row = { id: string; title: string; minutes: string };
 
-/** Add, remove, reorder and retime sections. The whole agenda is saved at once; a problem names the row. */
 function AgendaForm({
 	initial,
 	problem,

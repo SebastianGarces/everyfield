@@ -6,8 +6,6 @@ import { NotAvailable } from "../../access/AccessStates";
 import { REVIEWS_PATH, reviewPath } from "./model";
 import { ReviewScreen, ReviewsScreen } from "./ReviewScreens";
 
-// The Sent for review routes (T-385). app/(product)/organization/reviews/** only re-exports these.
-
 export const reviewsMetadata: Metadata = { title: "Sent for review", robots: { index: false, follow: false } };
 
 const refused = (

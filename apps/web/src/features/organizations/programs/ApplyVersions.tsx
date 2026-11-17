@@ -2,7 +2,8 @@
 
 import type { VersionReview } from "@everyfield/contracts/organizations";
 import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, useTransition, type FormEvent } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
 import { Problem } from "../board/Problem";
 import { applyVersions, reviewVersions } from "./actions";
 import { programProblem } from "./model";
@@ -10,17 +11,15 @@ import { ReviewParts } from "./VersionReview";
 
 const lost = () => ({ status: "lost" as const });
 
-/** "Casey Lee", "Casey Lee and Jordan Price", "Casey Lee, Jordan Price and Riley Shaw". */
+export const versionReviews = createRead(
+	(programId: string, enrollmentIds: string[]) => reviewVersions(programId, enrollmentIds).catch(lost),
+	{ failed: lost },
+);
+
 function names(list: string[]) {
 	return list.length < 2 ? (list[0] ?? "") : `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`;
 }
 
-/**
- * The director's review before applying the program's current version to the selected enrollments at once
- * (REQ-MUL-011, D-1328, D-1329): one section per person with what changes for them and their stage on the new version.
- * The director can take a person out of the review. Nothing is saved until they confirm, and then everyone listed
- * moves or nobody does: if anyone's review went out of date, the dialog names them and loads fresh reviews.
- */
 export function ApplyVersionsDialog({
 	open,
 	programId,
@@ -66,76 +65,57 @@ function ApplyVersionsReview({
 	onClose: () => void;
 	onApplied: () => Promise<void>;
 }) {
-	// The people still in the review, and each loaded review; a fresh load reads `load.ids` again.
 	const [listed, setListed] = useState(enrollmentIds);
-	const [load, setLoad] = useState({ ids: enrollmentIds, attempt: 0 });
-	const [reviews, setReviews] = useState<VersionReview[] | null>(null);
-	const [stages, setStages] = useState<Record<string, string>>({});
-	const [saving, setSaving] = useState(false);
+	const [asked, setAsked] = useState(enrollmentIds);
+	const [picked, setPicked] = useState<Record<string, string>>({});
 	const [problem, setProblem] = useState<string | null>(null);
+	const [saving, startSaving] = useTransition();
+	const answer = useRead(versionReviews, programId, asked).value;
+	const reviews = answer?.status === "ok" ? answer.value : null;
+	const loadProblem =
+		!answer || answer.status === "ok"
+			? null
+			: answer.status === "refused" && answer.refusal.code === "unavailable"
+				? "We couldn’t load the review. Someone may have changed these enrollments. Close this, reload the page and select them again."
+				: programProblem(answer);
 	const shown = reviews?.filter((r) => listed.includes(r.enrollmentId)) ?? [];
 	const number = reviews?.[0]?.toNumber ?? toNumber;
+	const stageOf = (r: VersionReview) => {
+		const kept = picked[r.enrollmentId];
+		return kept && r.stages.some((s) => s.id === kept) ? kept : r.stageId;
+	};
 
-	useEffect(() => {
-		let current = true;
-		void reviewVersions(programId, load.ids)
-			.catch(lost)
-			.then((answer) => {
-				if (!current) return;
-				if (answer.status !== "ok") {
-					setReviews(null);
-					return setProblem(
-						answer.status === "refused" && answer.refusal.code === "unavailable"
-							? "We couldn’t load the review. Someone may have changed these enrollments. Close this, reload the page and select them again."
-							: programProblem(answer),
-					);
-				}
-				setReviews(answer.value);
-				// Keep a stage the director already picked while it is still a stage of the version.
-				setStages((picked) =>
-					Object.fromEntries(
-						answer.value.map((r) => {
-							const kept = picked[r.enrollmentId];
-							return [r.enrollmentId, kept && r.stages.some((s) => s.id === kept) ? kept : r.stageId];
-						}),
-					),
-				);
-			});
-		return () => {
-			current = false;
-		};
-	}, [programId, load]);
-
-	async function submit(event: FormEvent) {
+	const submit = (event: FormEvent) => {
 		event.preventDefault();
 		if (!shown.length) return;
-		setSaving(true);
-		setProblem(null);
-		const answer = await applyVersions({
-			programId,
-			versionId: shown[0]!.versionId,
-			enrollments: shown.map((r) => ({
-				enrollmentId: r.enrollmentId,
-				stageId: stages[r.enrollmentId] ?? r.stageId,
-				basis: r.basis,
-			})),
-		}).catch(lost);
-		setSaving(false);
-		if (answer.status === "ok") return onApplied();
-		if (answer.status === "refused" && answer.refusal.code === "stale_review") {
-			const changed = shown
-				.filter((r) => answer.refusal.code === "stale_review" && answer.refusal.enrollmentIds?.includes(r.enrollmentId))
-				.map((r) => r.name);
-			setProblem(
-				changed.length === shown.length && shown.length > 1
-					? "A newer version was published, or everyone’s enrollment changed, since you opened this review. Nobody was moved. Check the updated reviews below, then confirm again."
-					: `Something changed for ${names(changed)} since you opened this review, so nobody was moved. Check the updated review below, then confirm again.`,
-			);
-			setLoad({ ids: listed, attempt: load.attempt + 1 });
-			return;
-		}
-		setProblem(programProblem(answer));
-	}
+		startSaving(async () => {
+			setProblem(null);
+			const answer = await applyVersions({
+				programId,
+				versionId: shown[0]!.versionId,
+				enrollments: shown.map((r) => ({ enrollmentId: r.enrollmentId, stageId: stageOf(r), basis: r.basis })),
+			}).catch(lost);
+			if (answer.status === "ok") return onApplied();
+			if (answer.status === "refused" && answer.refusal.code === "stale_review") {
+				const changed = shown
+					.filter(
+						(r) => answer.refusal.code === "stale_review" && answer.refusal.enrollmentIds?.includes(r.enrollmentId),
+					)
+					.map((r) => r.name);
+				setProblem(
+					changed.length === shown.length && shown.length > 1
+						? "A newer version was published, or everyone’s enrollment changed, since you opened this review. Nobody was moved. Check the updated reviews below, then confirm again."
+						: `Something changed for ${names(changed)} since you opened this review, so nobody was moved. Check the updated review below, then confirm again.`,
+				);
+				versionReviews.forget(programId, listed);
+				versionReviews.seed({ status: "ok", value: shown }, programId, listed);
+				void versionReviews.refresh(programId, listed);
+				setAsked(listed);
+				return;
+			}
+			setProblem(programProblem(answer));
+		});
+	};
 
 	const people = shown.length === 1 ? shown[0]!.name : `${shown.length} people`;
 	return (
@@ -145,7 +125,7 @@ function ApplyVersionsReview({
 				description="Review what changes for each person. Nothing is saved until you confirm, and everyone listed moves together."
 			/>
 			<DialogBody className="flex flex-col gap-5">
-				<Problem text={problem} />
+				<Problem text={loadProblem ?? problem} />
 				{reviews ? (
 					shown.length ? (
 						shown.map((r) => (
@@ -175,15 +155,15 @@ function ApplyVersionsReview({
 								<ReviewParts
 									review={r}
 									heading="h4"
-									stageId={stages[r.enrollmentId] ?? r.stageId}
-									onStageChange={(stageId) => setStages((s) => ({ ...s, [r.enrollmentId]: stageId }))}
+									stageId={stageOf(r)}
+									onStageChange={(stageId) => setPicked((s) => ({ ...s, [r.enrollmentId]: stageId }))}
 								/>
 							</section>
 						))
 					) : (
 						<p className="text-sm text-text-3">Nobody is left in this review. Cancel and select people again.</p>
 					)
-				) : problem ? null : (
+				) : loadProblem || problem ? null : (
 					<p className="text-sm text-text-3">Loading the review…</p>
 				)}
 			</DialogBody>

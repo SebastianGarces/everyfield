@@ -1,7 +1,3 @@
-// `bin/dev check [--full]`: the local product checks a change needs (T-41). An author run checks what
-// tools/ci/select.ts selects from the diff against the merge base with origin/main, through the coverage map of the
-// latest green GitHub nightly (.github/workflows/nightly.yml, T-216); `--full`, the verifier's mode, runs everything.
-// Either way it writes a checks.json record outside the repository and prints its path.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
@@ -28,7 +24,6 @@ import {
 	watchProcess,
 } from "./throwaway-postgres.ts";
 
-/** Runs one command to its end. Tests pass a fake; the real one is `spawnRunner`. */
 export type Runner = (
 	command: string,
 	args: readonly string[],
@@ -36,7 +31,6 @@ export type Runner = (
 ) => { status: number; stdout: string; output: string };
 
 export const spawnRunner: Runner = (command, args, { cwd, env }) => {
-	// Without NODE_TEST_CONTEXT: a test runner that inherits it reports to its parent instead of counting.
 	const { NODE_TEST_CONTEXT: _, ...inherited } = process.env;
 	const result = spawnSync(command, args, {
 		cwd,
@@ -67,36 +61,24 @@ export type CheckRecord = {
 		result: Result;
 		tests: number | null;
 		durationMs: number;
-		/** Why a check that ran failed, when it says more than "failed". */
 		detail?: string;
-		/** test:db: one line per package, in the order they ran. */
 		packages?: { name: string; command: string; result: Result; tests: number | null }[];
-		/** test:db: the throwaway database the packages ran on. Never its password. */
 		database?: { throwaway: true; image: string; container: string };
 	}[];
 	tests: { file: string; check: CheckId; run: boolean; reason: string; result: Result; tests: number | null }[];
 };
 
-/** Where the coverage map and records live: outside every checkout. */
 export const ciHome = (env = process.env) => env.EVERYFIELD_CI_HOME ?? join(homedir(), ".everyfield", "ci");
 
-/** A command runner shaped like `gh`: tests pass a fake. */
 export type Gh = (args: readonly string[]) => { status: number; stdout: string };
 export const spawnGh: Gh = (args) => {
 	const r = spawnSync("gh", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
 	return { status: r.status ?? 1, stdout: r.stdout ?? "" };
 };
 export const REPO = "SebastianGarces/everyfield";
-/** The GitHub workflow that writes the coverage map, and the name of the run artifact that holds it. */
 export const NIGHTLY_WORKFLOW = "nightly.yml";
 export const MAP_ARTIFACT = "coverage-map";
 
-/**
- * The coverage map selection reads: the one in the CI home, replaced first by the map of the latest successful
- * nightly run on main when that run is newer (or the home has no usable map). The download goes to a temporary folder
- * and replaces the home's map only once parseCoverageMap accepts it. When gh cannot list or download, or the
- * download is unusable, the home's map stays in use; without one, the problem says why, and selection runs everything.
- */
 export function coverageMapFor(home: string, gh: Gh): CoverageMap | MapProblem {
 	const file = join(home, "coverage-map.json");
 	const local = parseCoverageMap(existsSync(file) ? readFileSync(file, "utf8") : null);
@@ -119,7 +101,6 @@ export function coverageMapFor(home: string, gh: Gh): CoverageMap | MapProblem {
 		"databaseId,createdAt",
 	]);
 	if (listed.status !== 0) return without("gh could not list the GitHub nightly runs");
-	// An off-shape run fails safe: its download fails, and the reason says so.
 	let latest: { databaseId: number; createdAt: string } | undefined;
 	try {
 		latest = JSON.parse(listed.stdout)[0];
@@ -127,7 +108,6 @@ export function coverageMapFor(home: string, gh: Gh): CoverageMap | MapProblem {
 		return without("gh run list returned no run list");
 	}
 	if (!latest) return without("no GitHub nightly run on main has passed yet");
-	// The map of a run is written after the run starts, so a map from that run or a later one is not older.
 	if (!("problem" in local) && Date.parse(local.createdAt) >= Date.parse(latest.createdAt)) return local;
 	const run = `GitHub nightly run ${latest.databaseId}`;
 	const dir = mkdtempSync(join(tmpdir(), "evf-coverage-map-"));
@@ -161,14 +141,9 @@ const git = (root: string, args: string[]) => {
 	return r.status === 0 ? r.stdout : null;
 };
 const lines = (text: string | null, sep = "\n") => (text ?? "").split(sep).filter(Boolean);
-/** Sums node:test's summary lines (spec `ℹ tests N` or TAP `# tests N`) across every run in the output. */
 const testCount = (output: string) =>
 	[...output.matchAll(/(?:ℹ|#) tests (\d+)\s*$/gm)].reduce((sum, [, n]) => sum + Number(n), 0);
 
-/**
- * Reads the inputs selection needs from the checkout. A git failure means an unreadable diff, never an empty one. A
- * full run selects nothing, so it reads no coverage map.
- */
 function gather(root: string, home: string, full: boolean, gh: Gh) {
 	const head = git(root, ["rev-parse", "HEAD"])?.trim() ?? null;
 	const mergeBase = git(root, ["merge-base", "HEAD", "origin/main"])?.trim() ?? null;
@@ -194,7 +169,6 @@ function gather(root: string, home: string, full: boolean, gh: Gh) {
 	return { head, mergeBase, changed, packages, map, testFiles: files.filter((f) => suiteOf(f)).sort() };
 }
 
-/** The package whose test:db is the statement census. It runs in GitHub CI only, never in bin/dev check (T-105). */
 export const CENSUS_PACKAGE = "@everyfield/domain";
 
 export type CheckOptions = {
@@ -261,8 +235,6 @@ export function check({
 				selection.mode === "full"
 					? ["-r"]
 					: [`...[${input.mergeBase}]`, ...selection.packageFilters].flatMap((f) => ["--filter", f]);
-			// The packages the filter selects, from pnpm itself. A filter that selects none would make every package
-			// check a silent no-op, so it fails instead.
 			const listed = run("corepack", ["pnpm", ...filters, "ls", "--depth", "-1", "--json"], { cwd: root, env });
 			let names: string[] = [];
 			try {
@@ -304,7 +276,6 @@ export function check({
 		} else {
 			const files = testRecords.filter((t) => t.check === id && t.run);
 			if (!files.length) {
-				// No file to hand the runner, which would otherwise run its default set. A suite with nothing is a gap.
 				entry.result = "failed";
 				entry.tests = 0;
 				continue;
@@ -358,10 +329,6 @@ export function check({
 	return { record, recordPath };
 }
 
-/**
- * Runs each package's test:db one after another on one throwaway Postgres, as GitHub CI's db job does, and removes the
- * database on every path. A failed package still lets the later ones run. Any failure, 0 tests included, fails the check.
- */
 function databaseTests(
 	entry: CheckRecord["checks"][number],
 	names: string[],
@@ -413,14 +380,12 @@ function databaseTests(
 	if (problems.length) entry.detail = problems.join("; ");
 }
 
-/** The `bin/dev check` command line. */
 export function checkCommand(args: string[], root: string): number {
 	const full = args.includes("--full");
 	if (args.some((a) => a !== "--full")) {
 		console.error("usage: dev check [--full]");
 		return 2;
 	}
-	// Orphaned QA databases from runs that died without cleaning up hold the Docker VM's memory (T-356).
 	sweepCommand();
 	const { record, recordPath } = check({ root, full });
 	const ran = record.checks.filter((c) => c.run).map((c) => c.id);
