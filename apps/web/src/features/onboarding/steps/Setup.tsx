@@ -42,7 +42,6 @@ const longDate = (iso: string) =>
 		day: "numeric",
 	});
 
-/** After creation, Your church is a summary. Basics are never reentered here (REQ-IDN-013, REQ-IDN-015). */
 export function ChurchSummary({ actions, plantName }: Props) {
 	return (
 		<section data-onboarding-step="church">
@@ -55,7 +54,6 @@ export function ChurchSummary({ actions, plantName }: Props) {
 	);
 }
 
-/** Where you are: an optional attestation of an existing phase, or an answer that keeps the actual phase (R4). */
 export function JourneyStep({ state, actions, resume, plantName }: Props) {
 	const [problem, setProblem] = useState<string | null>(null);
 	const name = churchName(plantName);
@@ -147,7 +145,6 @@ export function JourneyStep({ state, actions, resume, plantName }: Props) {
 	);
 }
 
-/** Launch date. It saves together with the phase answer as one request (R4); No date never clears a saved date. */
 export function LaunchStep({ state, actions, resume, plantName }: Props) {
 	const [problem, setProblem] = useState<string | null>(null);
 	const name = churchName(plantName);
@@ -204,8 +201,6 @@ export function LaunchStep({ state, actions, resume, plantName }: Props) {
 							<Input
 								type="date"
 								name="launchDate"
-								// WebKit never matches :focus-visible on a keyboard-focused date input, so the shared ring
-								// (has-[:focus-visible]) would not show. Keep the same ring on :focus here (WCAG 2.4.7).
 								boxClassName="has-[:focus]:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]"
 								value={shown.date}
 								onChange={(e) => {
@@ -247,7 +242,6 @@ export function LaunchStep({ state, actions, resume, plantName }: Props) {
 	);
 }
 
-/** Your team: the ordinary lead-role question (REQ-IDN-014). Yes creates only the shown role and team (R5). */
 export function TeamStep({ state, actions, resume, plantName }: Props) {
 	const [problems, setProblems] = useState<ReturnType<typeof leadProblems>>({});
 	const [choiceProblem, setChoiceProblem] = useState<string | null>(null);
@@ -370,7 +364,6 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 	);
 }
 
-/** Finish: stamps completion once. Missing facts stay listed before and after (REQ-IDN-015). */
 export function FinishStep({
 	state,
 	actions,

@@ -12,10 +12,6 @@ import { OnboardingProvider, useOnboarding } from "./store";
 
 export type Article = { id: string; title: string };
 
-/**
- * The onboarding page (#/onboarding). `port` is the real API on /onboarding and the fixture API on the design
- * preview. `account` slots in the account controls (sign out) from the identity feature.
- */
 export function OnboardingFlow({
 	port,
 	entry,
@@ -31,7 +27,6 @@ export function OnboardingFlow({
 	articles: Article[];
 	signIn: () => void;
 	account?: ReactNode;
-	/** The account's live residency link (WP-100); the Discovery home then links to My residency. */
 	residency?: { organizationName: string } | null;
 }) {
 	return (
@@ -163,7 +158,6 @@ function Elsewhere({
 		<section data-onboarding-step="elsewhere">
 			<StepHeading title={copy.title}>{copy.body}</StepHeading>
 			<div className="mx-auto mt-[30px] flex max-w-[620px] flex-col items-center gap-6">
-				{/* An organization seat never lands here: /onboarding sends it to its home at /network (WP-047a). */}
 				<Button variant="primary" onClick={onReload}>
 					{entry.kind === "confirm_email" ? "I’ve confirmed it" : "Try again"}
 				</Button>
