@@ -237,7 +237,6 @@ test("INV-ci-db-steps: each package with test:db needs a CI step, and the domain
 		let result = cli(f.root);
 		assert.equal(result.status, 0, result.stderr);
 		assert.match(result.stdout, /CI includes all 3 test files/);
-		// The dropped package's suite is still listed elsewhere, so only the test:db rule can catch the missing step.
 		writeFileSync(
 			join(f.root, "package.json"),
 			JSON.stringify({ scripts: { other: "node --test tests/integration/evry/one.test.mts" } }),

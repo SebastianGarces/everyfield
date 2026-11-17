@@ -1,5 +1,3 @@
-// The assessment draft check, the run budget and the scripted judge (WP-042), with no database: the run's own
-// model input is the whole truth a draft is checked against.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -25,7 +23,6 @@ const fact = (key: string, value: c.FactEntry["value"], status: string | null = 
 	value,
 	status,
 });
-/** A Phase 1 input with an Unknown committed-adult count (29 known, 1 to classify) and two ministry roles of eight. */
 const input: c.ModelInput = {
 	phase: 1,
 	asOf: "2026-10-13T16:00:00.000Z",
@@ -112,7 +109,6 @@ test("AC:PI-CASE-012 a number or date the cited facts do not hold is invented", 
 	const cites = ["coverage.filled", "coverage.slots"];
 	assert.deepEqual(rules("3 of 8 ministry responsibilities have someone.", cites), ["invented_number"]);
 	assert.deepEqual(rules("2 of 8 ministry responsibilities have someone.", cites), []);
-	// A number is grounded only by a fact the same point cites.
 	assert.deepEqual(rules("2 of 8 ministry responsibilities have someone.", ["coverage.status"]), [
 		"invented_number",
 		"invented_number",
@@ -151,7 +147,6 @@ test("notes, scores, check-ins, judgments, readiness verdicts and action claims 
 });
 
 test("AC:PI-CASE-013 a run stays within four attempts per draft, three drafts and 60,000 input and 12,000 output tokens", async () => {
-	// A provider that never answers: four attempts on the first draft, each counted before it is sent, then it stops.
 	const down = scriptedAssessmentDrafter({ failures: 99 });
 	const reserved: number[] = [];
 	const failed = await draftWithin(down, input, undefined, async (p) => (reserved.push(p.usage.attempts), true));
@@ -162,7 +157,6 @@ test("AC:PI-CASE-013 a run stays within four attempts per draft, three drafts an
 	assert.deepEqual(reserved, [1, 2, 3, 4]);
 	assert.equal(failed.progress.usage.outputTokens, 12_000, "four uncertain calls are charged their full allowance");
 
-	// Three invalid drafts and no more.
 	const wrong = scriptedAssessmentDrafter({ script: (d) => ({ ...d, focus: { ...d.focus, citations: [] } }) });
 	const invalid = await draftWithin(wrong, input);
 	assert.deepEqual(
@@ -174,7 +168,6 @@ test("AC:PI-CASE-013 a run stays within four attempts per draft, three drafts an
 		[false, true, true],
 	);
 
-	// A large input: each call's input bound is about 22,000 tokens, so a third call would pass 60,000 and is never sent.
 	const passage = (n: number): c.Passage => ({
 		key: `passage:${n}`,
 		articleId: "00000000-0000-4000-8000-000000000001" as never,
@@ -195,7 +188,6 @@ test("AC:PI-CASE-013 a run stays within four attempts per draft, three drafts an
 		id: "heavy",
 		async draft(call) {
 			sent++;
-			// A byte-level tokenizer bills at most one token per input byte.
 			const billed = Buffer.byteLength(JSON.stringify({ input: call.input, feedback: call.feedback }));
 			return { output: {}, usage: { inputTokens: billed, outputTokens: call.maxOutputTokens } };
 		},
@@ -209,7 +201,6 @@ test("AC:PI-CASE-013 a run stays within four attempts per draft, three drafts an
 		checkDraft({}, large),
 		"an exhausted run keeps the final draft's own violations",
 	);
-	// A claim lost before a dispatch sends nothing more.
 	const lost = scriptedAssessmentDrafter();
 	const stopped = await draftWithin(lost, input, undefined, async () => false);
 	assert.deepEqual([stopped.reason, lost.calls.length], ["lost_claim", 0]);

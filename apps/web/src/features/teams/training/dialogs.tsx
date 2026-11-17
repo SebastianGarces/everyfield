@@ -20,9 +20,10 @@ import {
 	type PersonForm,
 	type ServiceForm,
 } from "./model.ts";
-import { useEffect, useRef, useState } from "react";
-
-// The training forms. Each one belongs to the training card's save lane. A refusal opens the same form again.
+import { createDebouncer } from "@everyfield/ui/foundations";
+import { useState } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
+import { previewRoster } from "./actions.ts";
 
 const fieldText = "text-[16px]";
 
@@ -231,51 +232,52 @@ export function CompletionDialog({
 
 type RosterPreview = Outcome<{ revision: string; rosterDigest: string }>;
 type Check = { state: "checking" } | { state: "ready" } | { state: "failed"; message: string; retry: boolean };
+type RosterKey = { programId: string; ids: string[] };
 
-/**
- * The form keeps the program revision the list showed and the digest of the people now selected. The dialog reads
- * the preview when it opens and after each change to the selection, so Save sends one write with those values. A
- * preview at another revision means someone else saved this list first.
- */
-function useRosterCheck(
-	f: AssignForm,
-	preview: (personIds: string[]) => Promise<RosterPreview>,
-	setDigest: (digest: string) => void,
-	onStale: () => void,
-) {
-	const [check, setCheck] = useState<Check>({ state: "checking" });
-	const [attempt, setAttempt] = useState(0);
-	const asked = useRef(0);
-	const selection = [...f.personIds].sort().join(",");
-	useEffect(() => {
-		const n = ++asked.current;
-		setCheck({ state: "checking" });
-		const ids = selection ? selection.split(",") : [];
-		const fail = (message: string, retry = false) =>
-			n === asked.current && setCheck({ state: "failed", message, retry });
-		const lost = "The required list could not be checked. Try again.";
-		const stale = () => {
-			fail(problemText("conflict"));
-			onStale();
-		};
-		const timer = setTimeout(() => {
-			preview(ids).then(
-				(result) => {
-					if (n !== asked.current) return;
-					if (result.status === "refused") return result.code === "conflict" ? stale() : fail(problemText(result.code));
-					if (result.status !== "ok") return fail(lost, true);
-					if (result.value.revision !== f.revision) return stale();
-					setDigest(result.value.rosterDigest);
-					setCheck({ state: "ready" });
-				},
-				() => fail(lost, true),
-			);
-		}, 200);
-		return () => clearTimeout(timer);
-		// The preview runs again only when the selection or the retry changes, not when a callback is new.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [selection, attempt]);
-	return { check, retry: () => setAttempt((n) => n + 1) };
+const rosterChecks = createRead(({ programId, ids }: RosterKey) => previewRoster(programId, ids), {
+	failed: (): RosterPreview => ({ status: "lost" }),
+});
+
+const selectionOf = (personIds: readonly string[]) => [...personIds].sort();
+const sameSelection = (a: readonly string[], b: readonly string[]) => a.join(",") === b.join(",");
+const isStale = (result: RosterPreview, revision: string) =>
+	result.status === "refused"
+		? result.code === "conflict"
+		: result.status === "ok" && result.value.revision !== revision;
+
+function checkOf(result: RosterPreview, revision: string): Check {
+	if (isStale(result, revision)) return { state: "failed", message: problemText("conflict"), retry: false };
+	if (result.status === "refused") return { state: "failed", message: problemText(result.code), retry: false };
+	if (result.status !== "ok")
+		return { state: "failed", message: "The required list could not be checked. Try again.", retry: true };
+	return { state: "ready" };
+}
+
+export function checkRoster(form: Pick<AssignForm, "programId" | "revision" | "personIds">, onStale: () => void) {
+	void rosterChecks.get({ programId: form.programId, ids: selectionOf(form.personIds) }).then((result) => {
+		if (isStale(result, form.revision)) onStale();
+	});
+}
+
+function useRosterCheck(f: AssignForm, onStale: () => void) {
+	const selection = selectionOf(f.personIds);
+	const [asked, setAsked] = useState(selection);
+	const [{ run: afterPause, cancelOnDetach }] = useState(() => createDebouncer(200));
+	const preview = useRead(rosterChecks, { programId: f.programId, ids: asked });
+	const settled = sameSelection(asked, selection) && preview.value !== undefined;
+	const check: Check = settled && preview.value ? checkOf(preview.value, f.revision) : { state: "checking" };
+	const digest = check.state === "ready" && preview.value?.status === "ok" ? preview.value.value.rosterDigest : null;
+	const select = (personIds: readonly string[]) =>
+		afterPause(() => {
+			const next = selectionOf(personIds);
+			checkRoster({ ...f, personIds: next }, onStale);
+			setAsked(next);
+		});
+	const retry = () =>
+		void rosterChecks.retry({ programId: f.programId, ids: asked }).then((result) => {
+			if (isStale(result, f.revision)) onStale();
+		});
+	return { check, digest, select, cancelOnDetach, retry };
 }
 
 export function AssignDialog({
@@ -284,7 +286,6 @@ export function AssignDialog({
 	rosterKnown,
 	problem,
 	wait,
-	preview,
 	onStale,
 	onClose,
 	onSubmit,
@@ -294,8 +295,6 @@ export function AssignDialog({
 	rosterKnown: boolean;
 	problem?: string;
 	wait: Wait;
-	preview: (personIds: string[]) => Promise<RosterPreview>;
-	/** The list this dialog opened from is out of date. */
 	onStale: () => void;
 	onClose: () => void;
 	onSubmit: (form: AssignForm) => void;
@@ -303,22 +302,15 @@ export function AssignDialog({
 	const [f, setF] = useState(form);
 	const [extra, setExtra] = useState<{ id: string; name: string }[]>([]);
 	const [tooMany, setTooMany] = useState(false);
-	const { check, retry } = useRosterCheck(
-		f,
-		preview,
-		(rosterDigest) => setF((current) => ({ ...current, rosterDigest })),
-		onStale,
-	);
+	const { check, digest, select, cancelOnDetach, retry } = useRosterCheck(f, onStale);
 	const selected = new Set(f.personIds);
 	const known = new Map([...directory, ...extra].map((person) => [person.id, person.name]));
-	const toggle = (id: string, on: boolean) => {
-		setF((current) => {
-			const next = new Set(current.personIds);
-			if (on) next.add(id);
-			else next.delete(id);
-			return { ...current, personIds: [...next], rosterDigest: null };
-		});
+	const choose = (personIds: string[]) => {
+		setF({ ...f, personIds });
+		select(personIds);
 	};
+	const toggle = (id: string, on: boolean) =>
+		choose(on ? [...new Set([...f.personIds, id])] : f.personIds.filter((personId) => personId !== id));
 	return (
 		<RecordDialog
 			icon={UserGroupIcon}
@@ -328,14 +320,14 @@ export function AssignDialog({
 			problem={problem}
 			wait={wait}
 			size="md"
-			disabled={check.state !== "ready" || f.rosterDigest === null}
+			disabled={check.state !== "ready" || digest === null}
 			onClose={onClose}
 			onSubmit={() => {
 				if (f.personIds.length > 500) {
 					setTooMany(true);
 					return false;
 				}
-				onSubmit(f);
+				onSubmit({ ...f, rosterDigest: digest });
 				return true;
 			}}
 		>
@@ -358,7 +350,11 @@ export function AssignDialog({
 					The current list did not load. Saving now replaces it with only the people you select here.
 				</p>
 			)}
-			<fieldset className="flex flex-col" data-invalid={(tooMany && f.personIds.length > 500) || undefined}>
+			<fieldset
+				ref={cancelOnDetach}
+				className="flex flex-col"
+				data-invalid={(tooMany && f.personIds.length > 500) || undefined}
+			>
 				<legend className="text-sm font-medium text-ink-2">People on this ministry</legend>
 				{directory.length === 0 ? (
 					<p className="mt-2 text-sm text-text-2">This ministry has no people yet.</p>
@@ -389,7 +385,7 @@ export function AssignDialog({
 				onChange={(person) => {
 					if (!person || selected.has(person.id)) return;
 					setExtra((rows) => [...rows, person]);
-					setF((current) => ({ ...current, personIds: [...current.personIds, person.id], rosterDigest: null }));
+					choose([...f.personIds, person.id]);
 				}}
 			/>
 			<p

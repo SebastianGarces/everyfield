@@ -8,39 +8,21 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { accountContext, change, nativeWrite, notes, plantOwner, settled, target } from "../../native.ts";
 import { JOURNEY_TEXT, LEAD_TEXT, linkKind, onboardingEntry } from "../reads/index.ts";
 
-// The setup reviewed writes (T-345): the Owner setting up a church answers where it is, who leads it and finishes
-// setup; a seatless account starts a church or a Discovery space; a Discovery account turns its space into a church.
-// Each runs the onboarding producer command `/onboarding` runs, on the executor's transaction, so the change, its audit
-// rows and any receipt email in the outbox commit with the proposal outcome. A step that is already settled for good
-// (a declared phase, an assigned lead role, a finished setup, an existing church or Discovery space) has no review.
-
-/** The church whose setup this Owner is doing, with its setup row and launch schedule, as `pl`, `os` and `l`. */
 const setup = (actor: EvryActor) =>
 	sql`FROM plant pl JOIN onboarding_setup os ON os.plant_id=pl.id LEFT JOIN launch l ON l.plant_id=pl.id
 		WHERE pl.id=${actor.owner.id}::uuid AND os.account_id=${actor.accountId}::uuid`;
 const church = target("church", sql`pl.id`, sql`pl.name`);
-/** The signed-in account with its name, as `a` and `n`, while it holds no seat and no church setup. */
 const seatless = (actor: EvryActor) =>
 	sql`FROM account a CROSS JOIN LATERAL seat_identity(a.id) n WHERE a.id=${actor.accountId}::uuid
 		AND NOT EXISTS(SELECT FROM seat s WHERE s.account_id=a.id AND s.ended_at IS NULL)
 		AND NOT EXISTS(SELECT FROM onboarding_setup x WHERE x.account_id=a.id)`;
 const you = sql`jsonb_build_object('kind','account','id',a.id,'label',n.display_name)`;
-/**
- * The executor's context for an onboarding command. Every setup write is allowed only to a church Owner (plantOwner) or
- * an account context (accountContext), never an organization seat, so its scope is one onboarding accepts.
- */
 const onboardingContext = (context: PeopleContext) => context as OnboardingWriteContext;
 
-/** A saved journey answer (os.journey) as `/onboarding` words it, or null while it is open. */
 const journeyText = sql`CASE WHEN os.journey->>'status'<>'saved' THEN NULL
 	ELSE (${JSON.stringify(JOURNEY_TEXT)}::jsonb)->>(os.journey->'value'->>'answer') END`;
 const answerText = (j: z.infer<typeof journeyAnswer>) =>
 	j.answer === "existing" ? `Declared ${phaseText(j.phase)}` : JOURNEY_TEXT[j.answer];
-/**
- * The launch answer that saves with the journey answer (they are one native request). Evry takes no launch date, so a
- * saved answer is sent again as it is now (a planned date with the schedule's current revision) and an open one is
- * saved as skipped, which never clears a schedule.
- */
 const launchArg = sql`CASE WHEN os.launch->>'status'<>'saved' THEN '{"answer":"skip"}'::jsonb
 	WHEN os.launch->'value'->>'answer'='planned' AND l.target_date IS NOT NULL AND l.status<>'completed'
 		THEN jsonb_build_object('answer','planned','date',l.target_date::text,'expectedScheduleRevision',l.revision::text)
@@ -77,7 +59,6 @@ export const declareJourney = nativeWrite({
 
 const DEFAULT_LEAD = { roleName: "Lead pastor", teamName: "Leadership" } as const;
 const name = z.string().trim().min(1).max(200);
-/** A saved lead answer (os.lead) as `/onboarding` words it, or null while it is open. A "yes" answer has no review. */
 const leadText = sql`(${JSON.stringify(LEAD_TEXT)}::jsonb)->>(os.lead->>'answer')`;
 
 export const answerLead = nativeWrite({
@@ -148,11 +129,9 @@ export const complete = nativeWrite({
 	},
 });
 
-/** A new church's basics as the model names them; the account owner confirms them by approving. */
 const place = name.optional();
 const basics = { name, city: place, stateProvince: place, country: place };
 type Basics = { name: string; city?: string; stateProvince?: string; country?: string };
-/** The basics as the native request takes them, and each one as a reviewed change. */
 function plantBasics(value: Basics) {
 	const place = {
 		city: value.city ?? null,
@@ -215,7 +194,6 @@ export const createDiscovery = nativeWrite({
 	},
 });
 
-/** One link the Discovery owner keeps when the space becomes a church, and what the church's link shares. */
 const carryOver = z.strictObject({ organizationId: z.uuid(), share: z.array(z.enum(SHARING_CATEGORIES)).max(7) });
 type Choices = Record<SharingCategory, boolean>;
 const sharedNow = (choices: Choices) => SHARING_CATEGORIES.filter((k) => choices[k]);
@@ -227,7 +205,6 @@ export const convertToPlant = nativeWrite({
 	allowed: accountContext,
 	async review(actor, value, { db, native }) {
 		if (!native) return null;
-		// The profile `/onboarding` reads, so the relationships carried over are the ones it shows, at their revisions.
 		const entry = await onboardingEntry(db, actor, native);
 		if (entry.kind !== "discovery") return null;
 		const profile = entry.profile as {
@@ -241,8 +218,6 @@ export const convertToPlant = nativeWrite({
 				choices: Choices;
 			}[];
 		};
-		// Each link as it is now, and what carries over: every link sharing what it shares today, or only the picked links
-		// sharing the picked categories. A Discovery link itself shares nothing (affiliation_ck_2): sharing starts with the church.
 		const links = profile.relationships.map((r) => {
 			const pick = value.carryOver ? value.carryOver.find((c) => c.organizationId === r.organization.id) : null;
 			const choices = Object.fromEntries(
@@ -272,7 +247,6 @@ export const convertToPlant = nativeWrite({
 				share: l.carries ? sharedNow(l.choices) : [],
 			})),
 		);
-		// One reviewed row per link: the organization and what it shares now, then whether it carries over and with what.
 		const linkChanges = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('field','link:'||x.id,
 				'before',jsonb_build_object('organization',o.name,'kind',x.kind,'share',x.now),
 				'after',jsonb_build_object('carries',x.carries,'share',x.share)) ORDER BY o.name,o.id),'[]'::jsonb)
@@ -302,7 +276,6 @@ export const convertToPlant = nativeWrite({
 	},
 });
 
-/** The installed setup reviewed writes, keyed by operation. */
 export const ONBOARDING_COMMANDS = {
 	"onboarding.declareJourney": declareJourney,
 	"identity.answerLeadOnboarding": answerLead,

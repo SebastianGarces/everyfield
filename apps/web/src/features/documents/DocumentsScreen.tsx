@@ -18,7 +18,7 @@ import { Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { MERGE_VALUE_MAX } from "@everyfield/contracts/documents";
 import { startTransition, useActionState, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
-import { writeAddress, useAddress } from "../../components/location.ts";
+import { fullAddress, writeAddress, useAddress } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
 import { generateDocument, resolveDocument, type DocumentOutcome } from "./actions.ts";
 import { createChurchDocument, type ChurchActionResult } from "./church/actions.ts";
@@ -327,7 +327,8 @@ export function DocumentsScreen({
 			next.format = null;
 			open(nextSelected ?? null);
 		}
-		writeAddress(`${queryHref(address.pathname, next)}${window.location.hash}`, { replace: true });
+		const { hash } = new URL(fullAddress(), window.location.origin);
+		writeAddress(`${queryHref(address.pathname, next)}${hash}`, { replace: true });
 	}
 
 	function select(id: string) {

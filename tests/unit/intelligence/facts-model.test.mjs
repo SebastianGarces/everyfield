@@ -1,4 +1,3 @@
-// The measured-facts section's wording (WP-040): Unknown must say what is missing and never read as 29, zero or No.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {

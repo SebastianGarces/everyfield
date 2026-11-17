@@ -1,4 +1,3 @@
-// T-104: `bin/dev nightly schedule install|status|uninstall` against a fake launchctl and a temp LaunchAgents dir.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -25,7 +24,6 @@ function temp(t: { after(fn: () => void): void }) {
 	return dir;
 }
 
-/** A launchctl that keeps one gui/501 domain and records every call. bootout takes effect after one more print. */
 function fakeDeps(dir: string, over: Partial<ScheduleDeps> = {}) {
 	const calls: string[] = [];
 	const out: string[] = [];
@@ -47,7 +45,6 @@ function fakeDeps(dir: string, over: Partial<ScheduleDeps> = {}) {
 			if (args[0] === "bootout")
 				return loaded ? ((unloading = true), { status: 0, output: "" }) : { status: 3, output: "" };
 			if (args[0] === "bootstrap") {
-				// The real launchctl refuses a label that is still loaded (error 5).
 				if (loaded) return { status: 5, output: "Bootstrap failed: 5: Input/output error" };
 				assert.ok(existsSync(args[2]), "bootstrap reads a plist that exists");
 				loaded = true;
@@ -146,7 +143,6 @@ test("a second install boots the old agent out first and leaves exactly one plis
 	assert.deepEqual(calls, [
 		"print gui/501/com.everyfield.nightly",
 		"bootout gui/501/com.everyfield.nightly",
-		// launchd lets go asynchronously: install waits until print no longer finds the job.
 		"print gui/501/com.everyfield.nightly",
 		"print gui/501/com.everyfield.nightly",
 		`bootstrap gui/501 ${file}`,

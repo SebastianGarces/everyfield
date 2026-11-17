@@ -17,8 +17,8 @@ import {
 import { startTransition, useOptimistic, useState, useTransition } from "react";
 import type { Wait } from "../../../components/save/model.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
-import { throughStore } from "../model.ts";
-import { LocalDay, useStore } from "../parts.tsx";
+import { throughStore } from "../person.store.ts";
+import { LocalDay, usePersonState } from "../parts.tsx";
 import { loadAssessments, recordAssessment } from "./actions.ts";
 import {
 	firstName,
@@ -45,11 +45,6 @@ const blank = (): Draft => ({
 	courageous: { score: "", notes: "" },
 });
 
-/**
- * The 4 C's (REQ-PPL-012): the latest human assessment, four scores from 1 to 5 and their total, with earlier ones
- * below. Recording one never changes the stage. A new assessment shows at once while it saves; a refusal takes it away
- * and opens the form again with the answers kept and the reason.
- */
 export function AssessmentCard({
 	personId,
 	personName,
@@ -68,9 +63,8 @@ export function AssessmentCard({
 	);
 	const [shown, expect] = useOptimistic(history.items, withRecord<Assessment>);
 	const [, start] = useTransition();
-	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
-	useStore(store);
-	const form = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.get().pending !== null });
+	usePersonState(store);
+	const form = useSaveIntent<Editing>({ explain: recordProblem, busy: () => store.getState().pending !== null });
 	const wait = form.wait;
 	const [open, setOpen] = useState(false);
 	const first = firstName(personName);
@@ -105,7 +99,7 @@ export function AssessmentCard({
 					store,
 					"assessment",
 					(v: { person: { stage: PlantPerson["stage"]; revision: string } }) =>
-						({ ...store.get().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
+						({ ...store.getState().saved, stage: v.person.stage, revision: v.person.revision }) as PlantPerson,
 				),
 				ok: (value) => {
 					startTransition(() => history.add(value.assessment));
@@ -265,7 +259,6 @@ function AssessmentDialog({
 	onClose,
 	onSubmit,
 }: {
-	/** The card's last save is in flight or unknown (C68): saving waits, and the form keeps its answers. */
 	wait: Wait;
 	editing: Editing;
 	personName: string;
@@ -277,7 +270,6 @@ function AssessmentDialog({
 	const setLens = (l: Lens, patch: Partial<Draft[Lens]>) => setDraft((d) => ({ ...d, [l]: { ...d[l], ...patch } }));
 	const total = totalOf(LENSES.map((l) => (draft[l].score ? Number(draft[l].score) : null)));
 	const complete = draft.occurredOn !== "" && LENSES.every((l) => draft[l].score !== "");
-	// The refusal stays until the refused date changes, so the same date is not sent again.
 	const futureDate = editing.problem === "future_date" && draft.occurredOn === editing.draft.occurredOn;
 	return (
 		<RecordDialog

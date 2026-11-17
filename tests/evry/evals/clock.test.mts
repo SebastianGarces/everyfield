@@ -1,6 +1,3 @@
-// The eval database's clock runs in NOW's frame (evalDatabase in golden-church.mts), whatever the real date is. Without
-// the pin, a fixture time such as the Friday of NOW's week passes in real life, and the review of ADP-M-04 and ADP-M-07
-// refuses it as "already passed".
 import assert from "node:assert/strict";
 import { performance } from "node:perf_hooks";
 import { test } from "node:test";

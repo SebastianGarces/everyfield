@@ -1,0 +1,30 @@
+{
+	"owner": { "says": "Daniel Reyes, Owner of Harvest Point (QA)", "context": "plant", "role": "owner", "seed": "qa" },
+	"admin": { "says": "Lena Park, Admin of Harvest Point (QA)", "context": "plant", "role": "admin", "seed": "qa" },
+	"member": { "says": "Ruth Allen, Member of Harvest Point (QA)", "context": "plant", "role": "member", "seed": "qa" },
+	"network": { "says": "Marcus Bell, Admin of Harvest Network (QA)", "context": "organization", "seed": "qa" },
+	"graceOwner": {
+		"says": "Dana Brooks, Owner of Grace Austin (QA), a sending church with a pipeline and a residency",
+		"context": "organization",
+		"seed": "qa"
+	},
+	"graceDirector": {
+		"says": "Ana Ruiz, the residency director at Grace Austin (QA), a Member seat",
+		"context": "organization",
+		"seed": "qa"
+	},
+	"hillOwner": {
+		"says": "Ruth Calder, Owner of Hill Country Network (QA), which Grace Austin (QA) is linked to",
+		"context": "organization",
+		"seed": "qa"
+	},
+	"resident": {
+		"says": "Casey Lee, a seatless account linked to a sending church's residency",
+		"context": "account",
+		"residencyLinked": true,
+		"seed": "qa"
+	},
+	"signup": { "says": "Hannah Cole, a verified sign-up with no church yet", "context": "account", "seed": "qa" },
+	"triage": { "says": "Tess Morgan, a seatless account that triages feedback", "context": "account", "seed": "qa" },
+	"visitor": { "says": "Nobody signed in", "context": "signed-out" }
+}

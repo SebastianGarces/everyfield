@@ -1,7 +1,3 @@
-// Pure rules of the People screens: URL state, stage vocabulary and the one-save-per-person store. No React and no
-// server code; the one runtime import is the contract's id rule, so the rules run the same in the browser, on the
-// server and in node tests.
-
 import { recordId } from "@everyfield/contracts/common";
 import type { Outcome } from "../../components/save/model.ts";
 
@@ -37,7 +33,6 @@ type ArchivedValue = (typeof ARCHIVED)[number];
 const VIEWS = ["list", "card", "pipeline"] as const;
 export type ViewValue = (typeof VIEWS)[number];
 
-/** The shared StageChip keys (packages/ui display Badges) for each contract stage. */
 export const STAGE_KEY = {
 	prospect: "prospect",
 	attendee: "attendee",
@@ -73,28 +68,21 @@ export const CLASSIFICATION_LABEL: Record<ClassificationValue, string> = {
 	unknown: "Not recorded",
 };
 
-/** Stages a move passes over: moving prospect to interviewed skips attendee and following up. */
 export function skippedStages(from: StageValue, to: StageValue): StageValue[] {
 	const a = STAGES.indexOf(from),
 		b = STAGES.indexOf(to);
 	return b > a + 1 ? STAGES.slice(a + 1, b) : [];
 }
 const COMMITTED: readonly StageValue[] = ["core_group", "launch_team", "leader"];
-/** Leaving core group, launch team or leader for an earlier stage asks what happens to the person's open duties. */
 export function leavesCommitted(from: StageValue, to: StageValue): boolean {
 	return COMMITTED.includes(from) && !COMMITTED.includes(to);
 }
-
-// ---------------------------------------------------------------------------------------------------------------
-// URL state (REQ-PPL-001, D67): view, search, filters and the page number live in the address, so a list is a link.
-// Any filter, search or view change goes back to page one and keeps the other filters.
 
 export type PeopleQuery = {
 	view: ViewValue;
 	search: string;
 	stages: StageValue[];
 	sources: SourceValue[];
-	/** Tag IDs. A person matches only when they carry every selected tag (REQ-PPL-001, ruling D47). */
 	tags: string[];
 	classification: ClassificationValue | null;
 	commitment: CommitmentValue;
@@ -102,7 +90,6 @@ export type PeopleQuery = {
 	page: number;
 };
 const PAGE_SIZE = 24;
-/** The contract's highest page number; a larger number in the address reads as the last page. */
 const MAX_PAGE = 100_000;
 
 type Params = { getAll(name: string): string[]; get(name: string): string | null };
@@ -111,7 +98,6 @@ const pick = <T extends string>(all: readonly T[], value: string | null, fallbac
 const picks = <T extends string>(all: readonly T[], values: string[]): T[] =>
 	all.filter((v) => values.flatMap((x) => x.split(",")).includes(v));
 
-/** Reads the address into a query. Values outside the closed lists are ignored, never guessed. */
 export function parseQuery(params: Params): PeopleQuery {
 	const page = Number(params.get("page") ?? "1");
 	const classification = params.get("adult");
@@ -126,8 +112,6 @@ export function parseQuery(params: Params): PeopleQuery {
 					.getAll("tag")
 					.flatMap((t) => t.split(","))
 					.map((t) => t.trim().toLowerCase())
-					// The contract's id rule: a looser test lets a tag through that the list and export requests then
-					// refuse as a whole.
 					.filter((t) => recordId.safeParse(t).success),
 			),
 		].slice(0, 100),
@@ -141,7 +125,6 @@ export function parseQuery(params: Params): PeopleQuery {
 	};
 }
 
-/** The address for a query. Defaults are left out, so the plain list is just /people. */
 export function querySearch(q: PeopleQuery): string {
 	const out = new URLSearchParams();
 	if (q.view !== "list") out.set("view", q.view);
@@ -157,12 +140,10 @@ export function querySearch(q: PeopleQuery): string {
 	return s ? `?${s}` : "";
 }
 
-/** The listPeopleRequest for a query. The page load and every "Show more" build it here, the same way. */
 export function listRequest(q: PeopleQuery): Record<string, unknown> {
 	return {
 		limit: PAGE_SIZE,
 		...(q.search ? { search: q.search } : {}),
-		// List and cards show the same rows, so they send the same request and share page numbers.
 		view: q.view === "pipeline" ? "pipeline" : "list",
 		stages: q.stages,
 		sources: q.sources,
@@ -175,11 +156,9 @@ export function listRequest(q: PeopleQuery): Record<string, unknown> {
 	};
 }
 
-/** A filter, search or view change: back to the first page, other filters kept. */
 export function withFilters(q: PeopleQuery, patch: Partial<Omit<PeopleQuery, "page">>): PeopleQuery {
 	return { ...q, ...patch, page: 1 };
 }
-/** The number of pages for a total; an empty list still has page one. */
 export function pageCount(total: number): number {
 	return Math.max(1, Math.ceil(total / PAGE_SIZE));
 }
@@ -194,26 +173,16 @@ export function isFiltered(q: PeopleQuery): boolean {
 		q.archived !== "exclude"
 	);
 }
-/**
- * The People header's link to /people/duplicates (D-847): "3 to review in Duplicates", or "100+ …" when the pairs read
- * stopped at its first 100 (D-846). Null, so no link, with nothing to review or when the read is not there.
- */
 export function pairsToReview(pairs: { items: readonly unknown[]; completeness: "complete" | "partial" } | null) {
 	if (!pairs?.items.length) return null;
 	return `${pairs.items.length}${pairs.completeness === "partial" ? "+" : ""} to review in Duplicates`;
 }
-/** "Showing 25–48 of 214 people". */
 export function rangeText(q: PeopleQuery, shown: number, total: number | null): string {
 	const first = (q.page - 1) * PAGE_SIZE + 1;
 	if (shown === 0) return "No people on this page";
 	const range = shown === 1 ? `${first}` : `${first}–${first + shown - 1}`;
 	return total === null ? `Showing ${range}` : `Showing ${range} of ${total} ${total === 1 ? "person" : "people"}`;
 }
-
-// ---------------------------------------------------------------------------------------------------------------
-// Request keys (idempotency). A key belongs to one exact payload. A retry after a lost answer reuses it, so the server
-// replays the first result instead of acting twice; any change to the payload gets a new key, because the server
-// refuses a known key with a different payload.
 
 export type KeyedPayload = { key: string; body: string };
 export function keyFor(prior: KeyedPayload | null, payload: unknown, fresh: () => string): KeyedPayload {
@@ -231,171 +200,16 @@ function stableJson(v: unknown): string {
 	return JSON.stringify(v);
 }
 
-/** Revisions are decimal strings of PostgreSQL bigints; compare them as numbers, never as text. */
 export function newerRevision(a: string, b: string): boolean {
 	return BigInt(a) > BigInt(b);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// The person store (R3). It owns the saved person, the drafts and the one mutation in flight. Every person action goes
-// through it, so two actions cannot race on one revision and a draft never disappears unless its save succeeded.
-
-export type Saved = { revision: string };
-export type PersonState<P extends Saved, D> = {
-	saved: P;
-	/** Drafts by slot ("profile", "note", "note:<id>", "stage", ...). A slot with no entry has nothing unsaved. */
-	drafts: Readonly<Record<string, D>>;
-	/** The slot whose save is running, or null. At most one at a time. */
-	pending: string | null;
-	/** The key and payload of each slot's last attempt, for a retry after a lost answer. */
-	keys: Readonly<Record<string, KeyedPayload>>;
-	/** The last refusal or lost answer per slot, for the message under that form. */
-	errors: Readonly<Record<string, "refused" | "lost" | string>>;
-};
-export type PersonEvent<P extends Saved, D> =
-	| { type: "edit"; slot: string; draft: D }
-	| { type: "discard"; slot: string }
-	| { type: "begin"; slot: string; key: KeyedPayload }
-	| { type: "settle"; slot: string; outcome: Outcome<P | null>; keepDraft?: boolean }
-	| { type: "server"; person: P };
-
-function initialPerson<P extends Saved, D>(person: P): PersonState<P, D> {
-	return { saved: person, drafts: {}, pending: null, keys: {}, errors: {} };
-}
-const without = <T>(r: Readonly<Record<string, T>>, k: string): Record<string, T> => {
-	const { [k]: _, ...rest } = r;
-	void _;
-	return rest;
-};
-
-function personReducer<P extends Saved, D>(s: PersonState<P, D>, e: PersonEvent<P, D>): PersonState<P, D> {
-	switch (e.type) {
-		case "edit":
-			// A form being saved is read-only; an edit that still arrives for it is ignored, so the sent draft stays the draft.
-			if (s.pending === e.slot) return s;
-			return { ...s, drafts: { ...s.drafts, [e.slot]: e.draft }, errors: without(s.errors, e.slot) };
-		case "discard":
-			if (s.pending === e.slot) return s;
-			return {
-				...s,
-				drafts: without(s.drafts, e.slot),
-				keys: without(s.keys, e.slot),
-				errors: without(s.errors, e.slot),
-			};
-		case "begin":
-			if (s.pending !== null) return s;
-			return { ...s, pending: e.slot, keys: { ...s.keys, [e.slot]: e.key }, errors: without(s.errors, e.slot) };
-		case "settle": {
-			if (s.pending !== e.slot) return s;
-			const o = e.outcome;
-			if (o.status === "ok") {
-				return {
-					...s,
-					saved: o.value && !newerRevision(s.saved.revision, o.value.revision) ? o.value : s.saved,
-					pending: null,
-					drafts: e.keepDraft ? s.drafts : without(s.drafts, e.slot),
-					keys: without(s.keys, e.slot),
-					errors: without(s.errors, e.slot),
-				};
-			}
-			// A refusal is final for that key; a lost answer keeps the key so the retry replays instead of acting twice.
-			return {
-				...s,
-				pending: null,
-				keys: o.status === "lost" ? s.keys : without(s.keys, e.slot),
-				errors: { ...s.errors, [e.slot]: o.status === "lost" ? "lost" : o.code },
-			};
-		}
-		case "server":
-			// Server props after a refresh. An older revision never replaces a newer one already saved here.
-			return newerRevision(s.saved.revision, e.person.revision) ? s : { ...s, saved: e.person };
-	}
-}
-
-/** The fields of `draft` that differ from `base`: an edit sends only what the person changed. */
 export function changedFields<T extends Record<string, unknown>>(base: T, draft: T): Partial<T> {
 	const out: Partial<T> = {};
 	for (const k of Object.keys(draft) as (keyof T)[]) if (draft[k] !== base[k]) out[k] = draft[k];
 	return out;
 }
 
-/**
- * The person store as an external store for useSyncExternalStore. `begin` decides synchronously, so a double click or
- * two dialogs cannot start two saves before React renders.
- */
-export class PersonStore<P extends Saved, D> {
-	#state: PersonState<P, D>;
-	#listeners = new Set<() => void>();
-	constructor(person: P) {
-		this.#state = initialPerson<P, D>(person);
-	}
-	get = (): PersonState<P, D> => this.#state;
-	subscribe = (listener: () => void): (() => void) => {
-		this.#listeners.add(listener);
-		return () => this.#listeners.delete(listener);
-	};
-	dispatch = (event: PersonEvent<P, D>): void => {
-		const next = personReducer(this.#state, event);
-		if (next === this.#state) return;
-		this.#state = next;
-		for (const l of this.#listeners) l();
-	};
-	/**
-	 * Starts a save for `slot` and gives its request key, or null when another save is running. A caller that tracks its
-	 * own save intents passes `own`, the key of that intent; it wins over the slot's last key, so a new intent with the
-	 * same payload as an earlier lost one never replays the earlier one.
-	 */
-	begin(slot: string, payload: unknown, fresh: () => string, own?: KeyedPayload): KeyedPayload | null {
-		if (this.#state.pending !== null) return null;
-		const key = own ?? keyFor(this.#state.keys[slot] ?? null, payload, fresh);
-		this.dispatch({ type: "begin", slot, key });
-		return key;
-	}
-}
-
-/**
- * One save through the store: start it, call the server with the request key, settle it. `toPerson` takes the saved
- * person from the answer, when the answer carries one. Gives the outcome, or null when another save was running.
- */
-export async function runSave<P extends Saved, D, T>(
-	store: PersonStore<P, D>,
-	slot: string,
-	payload: unknown,
-	call: (requestKey: string) => Promise<Outcome<T>>,
-	options: { fresh: () => string; toPerson?: (value: T) => P | null; keepDraft?: boolean; key?: KeyedPayload },
-): Promise<Outcome<T> | null> {
-	const key = store.begin(slot, payload, options.fresh, options.key);
-	if (!key) return null;
-	let result: Outcome<T>;
-	try {
-		result = await call(key.key);
-	} catch {
-		result = { status: "lost" };
-	}
-	store.dispatch({
-		type: "settle",
-		slot,
-		keepDraft: options.keepDraft,
-		outcome: result.status === "ok" ? { status: "ok", value: options.toPerson?.(result.value) ?? null } : result,
-	});
-	return result;
-}
-
-/**
- * A save lane's `through` (components/save) for a write that changes the Person: the save runs in the person store, one
- * save per person, with the intent's own key, and the store takes the saved Person from the answer. Null when another
- * save to this person is running.
- */
-export const throughStore =
-	<P extends Saved, D, V>(store: PersonStore<P, D>, slot: string, toPerson?: (value: V) => P | null) =>
-	<T extends V>(key: string, send: () => Promise<Outcome<T>>): Promise<Outcome<T> | null> =>
-		runSave(store, slot, null, send, { fresh: () => key, key: { key, body: "" }, toPerson });
-
-/**
- * Activity after a saved change, without reading it again: an entry with a new ID joins the top of the list (Activity
- * is newest first, and a new entry is the newest), and an entry with a known ID (an edited or deleted note) replaces it
- * in place. The loaded pages are the newest ones, so a new entry belongs on top whether or not older pages are loaded.
- */
 export function withEntry<E extends { id: string }, A extends { items: E[]; next: number | null }>(
 	activities: Outcome<A>,
 	entry: E,
@@ -407,7 +221,6 @@ export function withEntry<E extends { id: string }, A extends { items: E[]; next
 	return { status: "ok", value: { ...list, items: [entry, ...list.items] } };
 }
 
-/** A column order with one person moved one place up or down. The same order when that move leaves the column. */
 export function moveInOrder(ids: readonly string[], id: string, direction: "up" | "down"): string[] {
 	const from = ids.indexOf(id),
 		to = direction === "up" ? from - 1 : from + 1;
@@ -417,24 +230,16 @@ export function moveInOrder(ids: readonly string[], id: string, direction: "up" 
 	return next;
 }
 
-/** The pipeline column a stage shows in: core group, launch team and leader share the last column. */
 export function columnOf(stage: StageValue): ColumnValue {
 	return stage === "launch_team" || stage === "leader" ? "core_group" : stage;
 }
 
-/** A column as the server saved it, from a reorder or stage-change answer (D68). */
 export type ColumnAnswer<R extends string = string> = {
 	revision: string;
 	personIds: string[];
 	personRevisions: Record<string, R>;
 };
 
-/**
- * The cards one pipeline column shows (D68). It starts from the loaded server copy and applies the moves since then.
- * A card shows in the column of its current stage. Cards keep the column's latest saved order (`order` while a reorder
- * is pending), and anyone the answer does not list goes to the end. Each person carries the newest revision that any
- * answer gave, so a later move never sends an older one.
- */
 export function columnCards<C extends { person: { id: string; stage: StageValue; revision: R } }, R extends string>(
 	column: ColumnValue,
 	loaded: readonly C[],

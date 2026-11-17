@@ -16,16 +16,8 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import type { Wait } from "../../components/save/model.ts";
 import { bulkOutcomeText, type BulkActions, type BulkOutcome, type DueInput } from "./model.ts";
 
-// Bulk changes (REQ-TSK-008): the bar over a selection and the report of what each selected task did.
-
 const onInk = "text-on-ink hover:bg-on-ink-soft focus-visible:outline-on-ink";
 
-/**
- * The bar for the selected tasks: select every task on the page, complete them, give them one due date, or clear the
- * selection. Owner and Admin only. It sits in the page flow below the list, as the prototype draws it: a sticky bar
- * covered row controls while scrolling (axe target-size), and a bar above the list would push the rows down under the
- * pointer when the first task is selected.
- */
 export function BulkBar({
 	count,
 	all,
@@ -38,13 +30,9 @@ export function BulkBar({
 	onReschedule,
 }: {
 	count: number;
-	/** What the selected tasks' current statuses allow (REQ-TSK-008: only open tasks complete or move). */
 	actions: BulkActions;
-	/** Drop the closed tasks from the selection. */
 	onKeepOpen: () => void;
-	/** A save of a selected task or of the last bulk change is in flight or unknown: no bulk change starts (C68). */
 	wait: Wait;
-	/** Whether every task on this page is selected. */
 	all: boolean;
 	onAll: () => void;
 	onClear: () => void;
@@ -60,7 +48,6 @@ export function BulkBar({
 		: actions.kind === "settled"
 			? "Closed tasks reopen one at a time, from the task's menu or panel."
 			: null;
-	// A save in flight and a closed task in the selection both disable the actions; each says why.
 	const why = wait ? hint : mixed ? reasonId : undefined;
 	return (
 		<div
@@ -91,8 +78,6 @@ export function BulkBar({
 					</span>
 				) : null}
 			</span>
-			{/* One group in every state, in one order: keep-open (mixed only), the actions, then Clear. On a phone the
-			    group takes its own row, so the labels never wrap. */}
 			{actions.kind !== "settled" ? (
 				<div className="flex flex-wrap items-center gap-2 max-app-sm:order-last max-app-sm:grid max-app-sm:basis-full max-app-sm:grid-cols-2">
 					{mixed ? (
@@ -157,7 +142,6 @@ function RescheduleForm({ count, onSubmit }: { count: number; onSubmit: (due: Du
 		e.preventDefault();
 		setTouched(true);
 		if (kind === "undated") return onSubmit({ kind: "undated" });
-		// A refused submit moves focus to the day that needs an answer.
 		if (!valid) return day.current?.focus();
 		onSubmit({ kind: "local_date", date: date as never });
 	};
@@ -191,13 +175,10 @@ function RescheduleForm({ count, onSubmit }: { count: number; onSubmit: (due: Du
 export type Report = {
 	kind: "complete" | "reschedule";
 	changed: number;
-	/** The selected tasks that did not change, with why. */
 	unchanged: { id: string; title: string; outcome: BulkOutcome }[];
-	/** How many of those are still open and still selected. */
 	remaining: number;
 };
 
-/** What a bulk change did: how many changed and, for each task that did not, why. Nothing is hidden behind a total. */
 export function BulkReport({
 	report,
 	onOpen,

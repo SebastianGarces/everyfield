@@ -18,13 +18,11 @@ import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
 import { SaveError } from "../SettingsDialog";
 import { formatMoment } from "../time";
 
-/** Whose deletion the page is about. After the request no session is left to name the church, so its name is optional. */
 type Subject = { kind: "account" } | { kind: "workspace"; churchName?: string };
 
 type View =
 	{ step: "proof"; notice?: string } | { step: "status"; status: DeletionStatus } | { step: "error"; refusal: Refusal };
 
-/** No restricted session (or an expired one) asks for proof; any other refusal is a loading problem. */
 function viewOf(reply: Reply<DeletionStatus>): View {
 	if (reply.status === "ok") return { step: "status", status: reply.value };
 	return reply.error.code === "proof_invalid" ? { step: "proof" } : { step: "error", refusal: refusalOf(reply.error) };
@@ -39,23 +37,13 @@ const OFFLINE: Refusal = {
 type Props = {
 	subject: Subject;
 	port: DeletionPort;
-	/** The status read the page started with, or null when no restricted session can exist yet. */
 	initial: Promise<Reply<DeletionStatus>> | null;
-	/** The deadline the deletion request returned, when this page opens right after it. */
 	requestedUntil?: string | null;
-	/** The current time, passed in so the deadline check is testable and never reads the host clock here. */
 	now: () => number;
-	/** The zone to show dates in. */
 	zone: string;
 	signInHref: string;
 };
 
-/**
- * The restricted deletion page (REQ-IDN-032, REQ-KNOW-067). After a deletion request every normal session has ended.
- * The email and password of the original login open only this: the status of one exact request and its
- * cancellation. It has no settings, navigation or church content. Cancel shows only before the deadline; the server
- * still refuses at or after it, even when the deletion has not started yet.
- */
 export function DeletionStatusScreen(props: Props) {
 	return (
 		<main id="main" className="grid min-h-dvh place-items-center bg-frame px-4 py-10">
@@ -87,7 +75,6 @@ function Loading() {
 function Deletion({ subject, port, initial, requestedUntil = null, now, zone, signInHref }: Props) {
 	const first = initial ? use(initial) : null;
 	const [view, setShown] = useState<View>(() => (first ? viewOf(first) : { step: "proof" }));
-	// A view that replaces the one in use moves focus to its heading, so the button that was pressed is not lost.
 	const moved = useRef(false);
 	const setView = (next: View) => {
 		moved.current = true;
@@ -103,7 +90,6 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 	const [cancelError, setCancelError] = useState<Refusal | null>(null);
 	const [cancelling, setCancelling] = useState(false);
 
-	/** Reads the status again. `notice` explains why the page asks for proof when the session ended meanwhile. */
 	const load = async (notice?: string) => {
 		setLoading(true);
 		try {
@@ -126,10 +112,8 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 			setCancelError(refusalOf(reply.error));
 			if (reply.error.code === "deadline_passed" || reply.error.code === "conflict") await load();
 		} catch {
-			// The cancellation may have happened. The status, read again, says whether it did.
 			const message = "We could not confirm that the deletion was cancelled.";
 			setCancelError({ ...OFFLINE, message: `${message} The status below is the latest we have.` });
-			// A cancellation that went through also ended the restricted session; proof then shows the outcome.
 			await load(`${message} Enter your email and password again to see the status.`);
 		} finally {
 			setCancelling(false);
@@ -249,10 +233,6 @@ function Deletion({ subject, port, initial, requestedUntil = null, now, zone, si
 	}
 }
 
-/**
- * Fresh proof of the original login: its email and current password. The password is never kept after a try, and a
- * refusal does not say which of the two was wrong.
- */
 function Proof({
 	subject,
 	notice,

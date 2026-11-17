@@ -24,7 +24,6 @@ function portless(args) {
 	return JSON.parse(result.stdout);
 }
 
-/** The worktree's preview.json with install and build timed, written outside the checkout. */
 function previewConfig(project) {
 	const file = join(project, "scripts/preview.json");
 	const records = recordsDir(project);

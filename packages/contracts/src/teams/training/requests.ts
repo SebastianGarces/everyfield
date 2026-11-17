@@ -46,22 +46,17 @@ const serviceSpan = z.strictObject({
 	attendanceDays: days,
 	volunteerDays: days,
 });
-/** A program credit names the program revision the dialog read. */
 export const attestProgramRequest = commandEnvelope(programCredit);
-/** A service span has no record revision to compare, so it carries only the request key. */
 export const attestServiceRequest = z.strictObject({ requestKey, input: serviceSpan });
 export const attestCompletionRequest = z.union([attestProgramRequest, attestServiceRequest]);
 export const revokeCompletionRequest = commandEnvelope(z.strictObject({ personId, programId: recordId }));
 export const recompleteTrainingRequest = commandEnvelope(
 	z.strictObject({ personId, programId: recordId, earnedOn: localDate }),
 );
-/** With a teamId, only that ministry's programs and the church-wide ones (no ministry) are read, before the cap. */
 export const listTrainingRequest = z.strictObject({ teamId: recordId.optional() });
 export const trainingMatrixRequest = z.strictObject({ teamId: recordId.optional() });
 export const personTrainingRequest = z.strictObject({ personId });
 export const trainingHistoryRequest = z.strictObject({ personId });
 export const staffingFactsRequest = z.strictObject({ teamId: recordId });
-/** The church's current ministries' health, with the measured-team denominator. */
 export const aggregateHealthRequest = z.strictObject({});
-/** A program's saved required people and who of them has a current completion. */
 export const requiredParticipantsRequest = z.strictObject({ programId: recordId });

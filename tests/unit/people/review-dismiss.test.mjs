@@ -1,7 +1,3 @@
-// T-268: "Not a duplicate" on the side-by-side review of a listed pair. It sends the listed direction, once more when the
-// answer is lost; a saved answer (also one another tab already saved) returns to the list, a refusal keeps the reviewer
-// on the review and reads it again, a second lost answer says it may have saved, and a double click sends one dismiss.
-// Run in node against the real module the review uses; no browser.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -11,7 +7,6 @@ import {
 } from "../../../apps/web/src/features/people/corrections/model.ts";
 
 const listed = { personId: "imported", withPersonId: "existing" };
-/** A send that answers each call from `answers` in turn and records what it was sent. */
 function sender(...answers) {
 	const sent = [];
 	const send = async (input) => {

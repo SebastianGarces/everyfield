@@ -29,11 +29,6 @@ import { readMinistries } from "../teams/server.ts";
 import type { Finalization, Outcome } from "./model.ts";
 import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
 
-// Server actions behind the meetings screens: the browser boundary. Each one rebuilds the viewer from the request and
-// hands the browser's values to the producer, which parses them with the WP-020 contract (strict objects: no owner,
-// actor or authority can be sent). A lost answer may be retried with the same request key; the producer replays a
-// write that did commit instead of acting twice.
-
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Run<T> = (tx: Transaction, ctx: MeetingsContext) => Promise<MeetingsReply<T>>;
 
@@ -53,12 +48,6 @@ const command = (requestKey: string, expectedRevision: string, input: unknown) =
 	input,
 });
 
-// Meetings ------------------------------------------------------------------------------------------------------
-
-/**
- * Plans a meeting and opens its page. The redirect returns the new page in the same response as the write, so the
- * browser makes one round trip instead of a write and then a page load. A refusal comes back as an Outcome.
- */
 export async function scheduleMeeting(requestKey: string, input: unknown) {
 	const r = await act((tx, ctx) => meetingsWriter.schedule(tx, ctx, { requestKey, input }));
 	if (r.status === "ok") redirect(`/meetings/${r.value.meeting.id}`);
@@ -112,37 +101,28 @@ export async function replaceAgenda(
 	);
 }
 
-/** The ministries a new team meeting can name: every one not archived, read when the plan dialog opens. */
 export async function listMinistries() {
 	return look(readMinistries);
 }
-/** What an update from the ministry would change on this team meeting's guest list. Nothing is written. */
 export async function previewRoster(meetingId: string) {
 	return look((v) => read(v, (db, a) => rosterReader.previewRosterImport(db, a, { meetingId })).then(outcome));
 }
-/** Applies the reviewed update: exactly the people the preview named, or a refusal when the ministry changed since. */
 export async function updateRoster(requestKey: string, meetingId: string, add: string[], remove: string[]) {
 	return act((tx, ctx) => rosterWriter.copyTeamRoster(tx, ctx, { requestKey, input: { meetingId, add, remove } }));
 }
 
-/** The meeting page's data again, after a change was refused as out of date. Only this meeting is read. */
 export async function reloadMeeting(meetingId: string) {
 	return look(async (v) => ({ status: "ok" as const, value: await loadMeeting(v, meetingId) }));
 }
 
-/** The Vision report on the meetings list, read once when the list first shows (REQ-MTG-016). */
 export async function visionReport() {
 	return look(async (v) => ({ status: "ok" as const, value: await loadReport(v) }));
 }
 
-/** The check-in screen's data again, after a change was refused as out of date or its answer was lost. */
 export async function reloadCheckIn(meetingId: string) {
 	return look(async (v) => ({ status: "ok" as const, value: await loadCheckIn(v, meetingId) }));
 }
 
-// Vision kit ----------------------------------------------------------------------------------------------------
-
-/** Adds the reviewed kit, then reads it, so the card shows the new items without reloading the page. */
 export async function populateKit(requestKey: string, expectedRevision: string, meetingId: string) {
 	const v = await getViewer();
 	if (!v?.people) return noSeat;
@@ -165,9 +145,6 @@ export async function updateKitItem(
 	);
 }
 
-// Guests --------------------------------------------------------------------------------------------------------
-
-/** Everyone chosen in Add guest, People and new contacts, in one write with one request key. */
 export async function addGuests(requestKey: string, input: unknown) {
 	return act((tx, ctx) => guestsWriter.addGuests(tx, ctx, { requestKey, input }));
 }
@@ -187,7 +164,6 @@ export async function setInviter(
 		guestsWriter.setInviter(tx, ctx, command(requestKey, expectedRevision, { meetingId, personId, inviterPersonId })),
 	);
 }
-/** An Admin's RSVP correction (REQ-MTG-008). Null resets the answer to Pending. */
 export async function correctRsvp(
 	requestKey: string,
 	expectedRevision: string,
@@ -199,7 +175,6 @@ export async function correctRsvp(
 		guestsWriter.correctRsvp(tx, ctx, command(requestKey, expectedRevision, { meetingId, personId, rsvp })),
 	);
 }
-/** The signed-in guest's own answer (REQ-MTG-009). The producer finds their Person from the session. */
 export async function saveOwnRsvp(requestKey: string, meetingId: string, rsvp: string) {
 	return act((tx, ctx) => guestsWriter.saveOwnRsvp(tx, ctx, { requestKey, input: { meetingId, rsvp } }));
 }
@@ -218,10 +193,6 @@ export async function clearCard(
 	);
 }
 
-/**
- * People to add as a guest or name as an inviter: live people of this church whose name word or email local part starts
- * with each query word, or whose phone holds the typed digits. The rule is the shared people search.
- */
 export async function searchPeople(search: unknown): Promise<Outcome<{ id: string; name: string; detail: string }[]>> {
 	const v = await getViewer();
 	if (!v?.people) return noSeat;
@@ -233,10 +204,6 @@ export async function searchPeople(search: unknown): Promise<Outcome<{ id: strin
 	return { status: "ok", value: r.value };
 }
 
-// Attendance, finalization, evaluation (WP-022) -----------------------------------------------------------------
-
-// Finalization and evaluation settle generated tasks, so their writer queues those tasks' reminders through the tasks
-// mount in the same transaction. A deployment without it cannot settle work, so these writes are unavailable there.
 let attendanceWriter: AttendanceWriter | undefined;
 async function settle<T>(run: (w: AttendanceWriter) => Run<T>): Promise<Outcome<T>> {
 	const mount = tasksMount();
@@ -246,7 +213,6 @@ async function settle<T>(run: (w: AttendanceWriter) => Run<T>): Promise<Outcome<
 }
 type Presence = "attended" | "absent" | "excused";
 
-/** A guest's presence before finalization. Attended for someone not on the list adds them as a walk-in. */
 export async function setPresence(requestKey: string, meetingId: string, personId: string, presence: Presence) {
 	return settle(
 		(w) => (tx, ctx) =>
@@ -257,14 +223,9 @@ export async function setPresence(requestKey: string, meetingId: string, personI
 					: w.setAttendance(tx, ctx, { requestKey, input: { meetingId, personId, presence } }),
 	);
 }
-/** Someone new at the door: their Person and their attended guest row in one write (REQ-MTG-011). */
 export async function addWalkIn(requestKey: string, input: unknown) {
 	return act((tx, ctx) => guestsWriter.createWalkInContact(tx, ctx, { requestKey, input }));
 }
-/**
- * Finalize or correct (reconcile) the attended set at the revision the person reviewed. The answer carries the
- * meeting's report as it is after the change, read in the same request, so the page shows the generated work at once.
- */
 export async function settleAttendance(
 	mode: "finalize" | "reconcile",
 	requestKey: string,
@@ -289,12 +250,6 @@ export async function settleAttendance(
 		value: { result: done.value, analytics: report.status === "ok" ? report.value : null },
 	};
 }
-/**
- * The exact effects of a finalize or correction before the person confirms it (REQ-MTG-012, C73): each follow-up call
- * with its person and owner, each advance to Attendee and the evaluation task. It runs the real producer once in a
- * transaction and rolls it back, so the review shows what the same command would do now, with nothing saved. Task
- * reminders join the same transaction and roll back with it.
- */
 export async function previewSettlement(
 	mode: "finalize" | "reconcile",
 	expectedRevision: string,
@@ -328,28 +283,22 @@ export async function recordEvaluation(requestKey: string, input: unknown) {
 export async function correctEvaluation(requestKey: string, expectedRevision: string, input: unknown) {
 	return settle((w) => (tx, ctx) => w.correctEvaluation(tx, ctx, { requestKey, expectedRevision, input }));
 }
-/** The evaluation's original record and every correction, read when the person opens its history. */
 export async function evaluationHistory(meetingId: string) {
 	return look(async (v) => outcome(await read(v, (db, a) => attendanceReader.evaluationHistory(db, a, { meetingId }))));
 }
-/** A note about an attendee, kept in the person's history with this meeting as its source (REQ-MTG-017). */
 export async function addAttendeeNote(requestKey: string, meetingId: string, personId: string, text: string) {
 	return settle((w) => (tx, ctx) => w.addAttendeeNote(tx, ctx, { requestKey, input: { meetingId, personId, text } }));
 }
 
-// Places (venues) -----------------------------------------------------------------------------------------------
-
 export async function listVenues(request: unknown) {
 	return look(async (v) => outcome(await read(v, (db, a) => venuesReader.list(db, a, request))));
 }
-/** One place with its correction history. */
 export async function getVenue(venueId: string) {
 	return look(async (v) => outcome(await read(v, (db, a) => venuesReader.get(db, a, { venueId }))));
 }
 export async function createVenue(requestKey: string, input: unknown) {
 	return act((tx, ctx) => venuesWriter.create(tx, ctx, { requestKey, input }));
 }
-/** Edit, correct (with a reason), archive or restore one place, at the revision the screen last saw. */
 export async function changeVenue(
 	op: "edit" | "correct" | "archive" | "restore",
 	requestKey: string,
@@ -361,9 +310,6 @@ export async function changeVenue(
 	return act((tx, ctx) => venuesWriter[op](tx, ctx, command(requestKey, expectedRevision, input)));
 }
 
-// Public RSVP link ----------------------------------------------------------------------------------------------
-
-/** An explicit answer through a personal link (COM-010). No session is read or granted. */
 export async function answerRsvp(token: unknown, rsvp: unknown): Promise<Outcome<{ rsvp: string }>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
@@ -375,10 +321,6 @@ export async function answerRsvp(token: unknown, rsvp: unknown): Promise<Outcome
 		return { status: "lost" };
 	}
 }
-/**
- * What a personal link holds now: its meeting, state and recorded answer. Read once after an answer's reply was lost or
- * the link said it was closed, so the page shows the answer the server kept instead of guessing (C58). Never writes.
- */
 export async function readRsvpLink(token: unknown): Promise<Outcome<z.infer<typeof rsvpTokenView>>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };

@@ -1,26 +1,14 @@
 import { asDay, asPersonId, type Member, type Role, type Team } from "./model.ts";
 import type { TeamView } from "./server.ts";
 
-// The ministry page's state after a change. No React and no server code. The same step draws a change at once
-// (optimistic) and settles it from the write's own answer, so a write never reads the page again (patterns.md:
-// a write answers with what changed). Each case mirrors what the WP-017 producer does in that write:
-//   - a person taking a leadership role leads a ministry that has no leader (role-derived), which bumps its revision;
-//     bringing a former member back never derives a leader;
-//   - ending a membership or retiring a role ends the open tenures it covers, and clears a leader derived from them;
-//   - the serving count follows the open tenures.
-// A refused change reads the page again in its own request (reloadTeam).
-
 export type Change =
-	/** The ministry's own facts: what the form sent, then the saved row. */
 	| { kind: "team"; patch: Partial<TeamView["team"]> }
 	| { kind: "fill"; role: Role; person: { id: string; name: string }; today: string; derive: boolean }
 	| { kind: "leave"; personId: string; today: string }
-	/** A created, edited or retired role, as the form sent it or as the write saved it. */
 	| { kind: "role"; role: Role; today: string };
 
 const bump = (revision: Team["revision"]) => String(BigInt(revision) + 1n) as Team["revision"];
 
-/** The open tenures that `ends` matches move to the past with today's date; a leader they derived is cleared. */
 function end(v: TeamView, ends: (m: Member) => boolean, today: string): TeamView {
 	const closing = v.members?.filter(ends) ?? [];
 	const t = v.team;
@@ -46,7 +34,6 @@ function end(v: TeamView, ends: (m: Member) => boolean, today: string): TeamView
 	};
 }
 
-/** The organization view's node for this ministry, with its leader's name. */
 function chartLeader(v: TeamView, name: string | null) {
 	return v.nodes.map((n) => (n.id === v.team.id ? { ...n, leaderName: name } : n));
 }
@@ -116,5 +103,4 @@ export function apply(v: TeamView, c: Change): TeamView {
 	}
 }
 
-/** Today as the viewer's calendar shows it (YYYY-MM-DD). A reload shows the church's recorded date. */
 export const today = () => new Date().toLocaleDateString("en-CA");

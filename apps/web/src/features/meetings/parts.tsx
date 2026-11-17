@@ -9,12 +9,11 @@ import {
 } from "@hugeicons/core-free-icons";
 import { CardIcon } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, type ReactNode } from "react";
+import { cn, Icon, useFocusRequest } from "@everyfield/ui/foundations";
+import { useState, type ReactNode } from "react";
 import { PersonLink } from "../people/parts.tsx";
 import { statusView, TYPE_TONE, type MeetingStatus, type MeetingType } from "./model.ts";
 
-/** A link that prefetches on intent (pointer, touch, keyboard focus), never because it scrolled into view. */
 export { PersonLink as IntentLink };
 
 const TYPE_ICON = {
@@ -28,7 +27,6 @@ export function MeetingIcon({ type, size = 36 }: { type: MeetingType; size?: 36 
 	return <CardIcon icon={TYPE_ICON[type]} tone={TYPE_TONE[type]} size={size} />;
 }
 
-/** A meeting's status as `statusView` reads it at `now`: a past meeting still planning or ready reads "Not closed". */
 export function MeetingStatusBadge({
 	meeting,
 	now,
@@ -48,10 +46,6 @@ export function MeetingStatusBadge({
 	);
 }
 
-/**
- * Yes, No and Pending as one bar; `other` is a neutral rest when only the yes count is known. Each segment's width is
- * its share. The counts are written beside it, so the bar is decoration and never the only carrier of the numbers.
- */
 export function RsvpBar({
 	yes,
 	no = 0,
@@ -86,10 +80,6 @@ export function RsvpBar({
 	);
 }
 
-/**
- * Why the last save of a form was refused, in words (the save lane's `problem`). A live region, so a screen reader hears
- * it when it appears. Forms in a RecordDialog get this from the dialog.
- */
 export function Problem({ text, className }: { text: string | undefined; className?: string }) {
 	return (
 		<div aria-live="assertive" className={cn("empty:hidden", className)}>
@@ -105,12 +95,6 @@ export function Problem({ text, className }: { text: string | undefined; classNa
 
 const FIRST_CONTROL = "input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled])";
 
-/**
- * The panels of a tabbed dialog, drawn in one grid cell so the dialog is as tall as its tallest panel on every tab.
- * Switching tabs then changes neither the dialog height nor the tab control's position. The panels that are not shown
- * keep their state, stay invisible and take no focus or screen-reader reading (inert). A tab change moves focus to the
- * first control of the shown panel; opening the dialog leaves focus to the dialog.
- */
 export function TabStack({
 	active,
 	panels,
@@ -120,20 +104,15 @@ export function TabStack({
 	active: string;
 	panels: Record<string, ReactNode>;
 	className?: string;
-	/** Size to the shown panel; the hidden panels take no height (they keep their state). */
 	fit?: boolean;
 }) {
-	const root = useRef<HTMLDivElement>(null);
-	const first = useRef(true);
-	useEffect(() => {
-		if (first.current) {
-			first.current = false;
-			return;
-		}
-		root.current?.querySelector<HTMLElement>(`[data-panel="${active}"] :is(${FIRST_CONTROL})`)?.focus();
-	}, [active]);
+	const [shown, setShown] = useState({ active, switches: 0 });
+	if (shown.active !== active) setShown({ active, switches: shown.switches + 1 });
+	const focusShownPanel = useFocusRequest<HTMLDivElement>(shown.switches, (root) =>
+		root.querySelector<HTMLElement>(`[data-panel="${active}"] :is(${FIRST_CONTROL})`),
+	);
 	return (
-		<div ref={root} className="grid">
+		<div ref={focusShownPanel} className="grid">
 			{Object.entries(panels).map(([key, node]) => (
 				<div
 					key={key}

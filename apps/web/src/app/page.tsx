@@ -16,8 +16,6 @@ import { ACCESS_PATH, accessFor } from "@/site";
 
 export const metadata: Metadata = pageMetadata(PAGES.home);
 
-/** The home page (OPS-82 prototype): hero, problem, the vision down to Monday, the six phases, the journey, Evry, the
- *  sending church, then the call to action. Below the vision it shows no app UI. */
 export default function Home() {
 	const J = COPY.journey,
 		S = COPY.shared;
