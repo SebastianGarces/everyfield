@@ -26,7 +26,6 @@ async function oneRow(tx: Tx, query: ReturnType<typeof sql>) {
 function today(zone: string) {
 	return sql`(clock_timestamp() AT TIME ZONE ${zone})::date`;
 }
-/** Training rows are not records. The audit subject is a record that already exists. */
 function subjectOf(program: Program, plantId: string) {
 	return program.teamId ?? plantId;
 }

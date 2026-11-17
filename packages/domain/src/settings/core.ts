@@ -94,7 +94,6 @@ export async function actor(tx: Tx, ctx: Context, use: "read" | "command" | "pre
 		return { ...locked, identity: locked.actor };
 	}
 
-	// This capability takes the account write lock before session and user share locks.
 	const raw = await tx.execute(sql`SELECT * FROM invitation_identity(${sessionId.parse(ctx.session)})`);
 	const p = z
 		.object({ account_id: accountId, display_name: z.string(), email: z.string(), verified: z.boolean() })
@@ -128,7 +127,6 @@ export async function plantAdmin(tx: Tx, ctx: Context, plant: Owner, use: "read"
 	return { ...a, plant: row };
 }
 export type Command = { requestKey: string; expectedRevision: string; input: unknown };
-/** Every settings write name. The wrapper declares each write established (C88), so one declaration decides the path. */
 export type SettingsWrite =
 	| "account.finalizeAvatar"
 	| "account.removeAvatar"
@@ -163,11 +161,6 @@ export async function finish<T>(tx: Tx, c: NewCommand, schema: z.ZodType<T>, bod
 	await finishAudit(tx, c, c.identity, value);
 	return value;
 }
-/**
- * The audit projection of one settings change (docs/architecture/audit.md, coordinator ruling 2026-10-20): the
- * section and, in the bounded metadata.diff, the name of each changed field. Revisions stay on the row. No before or
- * after value is kept: personal settings permit field names only.
- */
 export function auditChange(
 	c: NewCommand,
 	id: string,
@@ -200,7 +193,6 @@ export async function calendarEligible(tx: Tx, id: string) {
 	return !!s && (await liveOwner(tx, { kind: "plant", id: tenantId.parse(s.plant_id) }));
 }
 
-/** The request owns rollback; native writes need no nested savepoint. */
 export async function withSettingsWrite<T>(
 	db: Database,
 	authority: RequestActor | undefined,
@@ -208,7 +200,6 @@ export async function withSettingsWrite<T>(
 	body: (tx: Tx) => Promise<SettingsReply<T>>,
 ): Promise<SettingsReply<T>> {
 	const run = async (tx: Tx) => {
-		// Every settings write reads the gate's account, church and setup rows (C88).
 		await declareWrite(tx, "established");
 		const result = await body(tx);
 		if (result.status === "refused") throw new Refusal(result.error.code);

@@ -65,10 +65,6 @@ const interviewJson = sql`jsonb_build_object('id',r.id,'person_id',r.person_id,'
 const latestFirst = sql`r.interviewed_on DESC,r.recorded_at DESC,r.id DESC`;
 
 export const interviews = {
-	/**
-	 * REQ-PPL-013 and REQ-PPL-020: any result means the interview happened. An earlier stage moves to interviewed in the
-	 * same statement as the interview and its history; an advanced stage stays. Next steps are text and create no task.
-	 */
 	async createInterview(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
 			const plant = plantId(ctx);
@@ -140,7 +136,6 @@ export const interviews = {
 					};
 				},
 			);
-			// A retry rebuilds the private record from its row; central audit holds only the receipt.
 			return c.interviewMutationResult.parse(
 				fresh ?? (await replayed(tx, plant, stored, "interview", sql`interview`, interviewJson, interviewView)),
 			);
@@ -154,7 +149,6 @@ export const interviews = {
 	},
 };
 
-/** One Person's interview page as one JSON value over the Person alias `p`, for this read or the person page's. */
 export const interviewsJson = (plant: string, input: HistoryPage) =>
 	historyJson(plant, input, sql`interview`, interviewJson, latestFirst);
 export const interviewsOf = (personId: string, h: History) =>

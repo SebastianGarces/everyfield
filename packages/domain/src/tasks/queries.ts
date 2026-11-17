@@ -9,7 +9,6 @@ import { assigneeList, assigneesOf, assignedTo, sortPeople } from "./assignees.t
 import { ownerView, eligibleOwner } from "./owner.ts";
 import { administers, deny, parse, readReply, readerOf, type Reader, type Tx, type Viewer } from "./core.ts";
 
-// Storage keeps the shipped short kind names; the contract names say which duty it is.
 export const storedKind = z
 	.enum(["follow_up", "evaluation"])
 	.transform((k) => (k === "follow_up" ? "first_vision_follow_up" : "meeting_evaluation"));
@@ -26,7 +25,6 @@ const taskRow = z.object({
 	created_at: z.coerce.date(),
 	completed_at: z.coerce.date().nullable(),
 	deleted_at: z.coerce.date().nullable(),
-	// Ordered by display name, then account ID (D-b).
 	assignees: assigneeList,
 	due_kind: z.enum(["undated", "date_only", "timed"]),
 	due_date: z.string().nullable(),
@@ -58,7 +56,6 @@ const taskRow = z.object({
 				revision,
 				title: z.string(),
 				status: c.taskStatus,
-				// Each assignee's seat status says whether a recurrence copy may keep them.
 				assignees: assigneeList,
 			}),
 		)
@@ -75,12 +72,7 @@ const taskRow = z.object({
 		.optional(),
 	total: z.coerce.number().int().optional(),
 });
-/** A list row, or a task a write builds. */
 export type TaskRow = z.infer<typeof taskRow>;
-/**
- * One task as a single-task read returns it: its checklist, its series rule, whether a live successor exists, whether
- * the assignee is still seated and whether the relation is live. A status change needs all of them (REQ-TSK-007).
- */
 const lockedTask = taskRow.extend({
 	checklist: taskRow.shape.checklist
 		.unwrap()
@@ -88,7 +80,6 @@ const lockedTask = taskRow.extend({
 		.transform((k) => k ?? []),
 	rule: taskRow.shape.rule.unwrap(),
 	has_successor: z.boolean(),
-	// The related Person is live, the team active: a recurrence copy may name them again.
 	relation_live: z.boolean(),
 });
 export type LockedTask = z.infer<typeof lockedTask>;
@@ -106,10 +97,6 @@ const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, 
 		AND k.status='complete') AS child_complete,
 	(SELECT k.id FROM task k WHERE k.series_id=t.series_id AND k.plant_id=t.plant_id AND k.id<>t.id
 		AND k.deleted_at IS NULL AND k.status NOT IN ('complete','no_longer_needed') LIMIT 1) AS open_successor`;
-/**
- * A person follow-up's owner view and origin. Only reads carry them: each is another seat_identity call the planner
- * cannot inline, and a write's answer is merged with what the screen already shows.
- */
 const views = sql`	CASE WHEN t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL
 		THEN (SELECT coalesce(jsonb_agg(${ownerView(sql`a.account_id`, sql`t.plant_id`)}),'[]'::jsonb)
 			FROM task_assignee a WHERE a.task_id=t.id) END AS follow_up_owners,
@@ -130,7 +117,6 @@ const joins = sql`FROM task t JOIN plant pl ON pl.id=t.plant_id
 	LEFT JOIN meeting m ON m.id=t.meeting_id AND m.plant_id=t.plant_id
 	LEFT JOIN team tm ON tm.id=t.team_id AND tm.plant_id=t.plant_id`;
 
-/** One task of the plant with its labels and checklist. A write locks the task row. */
 export async function loadTask(tx: Tx, plantId: string, task: string | { obligationId: string }, lock: boolean) {
 	const which =
 		typeof task === "string"
@@ -139,31 +125,20 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
 	return r.rows[0] ? lockedTask.parse(r.rows[0]) : null;
 }
-/** The plant's tasks that match `which`, locked in ID order so two batches never wait on each other in a cycle. One statement. */
 export async function lockTasks(tx: Tx, plantId: string, which: SQL) {
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`);
 	return z.array(lockedTask).parse(r.rows);
 }
-/** Several tasks of the plant by ID, locked as lockTasks locks them. */
 export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[]) {
 	const rows = await lockTasks(tx, plantId, sql`t.id=ANY(${sql.param(ids)}::uuid[])`);
 	return new Map(rows.map((row) => [row.id, row]));
 }
-/**
- * The live tasks of generated duties, locked in ID order like loadTasks, as one JSON array expression. A caller puts it
- * in its own locked fact read so settling the duties adds no statement; `obligations` is a uuid[] expression.
- */
 export const managedTasks = (plantId: string, obligations: SQL) =>
 	sql`(SELECT coalesce(json_agg(x ORDER BY x.id), '[]') FROM (${taskQuery(plantId, sql`t.obligation_id=ANY(${obligations}) AND t.deleted_at IS NULL`)} ORDER BY t.id FOR UPDATE OF t) x)`;
 export const managedTaskRows = z.array(lockedTask);
 const taskQuery = (plantId: string, which: SQL, withViews = false) =>
 	sql`SELECT ${columns}, ${withViews ? sql`${views}, ` : sql``}${checklist}, 1 AS ord ${joins} WHERE ${which} AND t.plant_id=${plantId}::uuid`;
 
-/**
- * One read statement: the reader's live authority (C13, lock-free per C27) and the rows of `query`, which numbers its
- * rows in `ord`.
- * A reader whose session, seat, role or lifecycle changed since the viewer lookup is refused and reads nothing.
- */
 async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
 	const live = liveRead({ session: viewer.session, owner: viewer.owner, seatId: viewer.seatId }, admin);
 	const r = await tx.execute(sql`SELECT g.live, q.* FROM (SELECT ${live} AS live) g
@@ -185,10 +160,6 @@ export function dueOf(row: Pick<TaskRow, "due_kind" | "due_date" | "due_time" | 
 		offsetSeconds: (Date.parse(`${local}Z`) - at.getTime()) / 1000,
 	});
 }
-/**
- * A person follow-up's owner views (REQ-TSK-012), one for each assignee. A read carries the stored views; an assignee a
- * write just added was checked by that write, so it reads as eligible.
- */
 function followUpOwnersOf(row: TaskRow) {
 	if (row.category !== "follow_up" || !row.person_id || row.parent_id) return [];
 	const views = new Map((row.follow_up_owners ?? []).map((v) => [v.accountId, v]));
@@ -269,7 +240,6 @@ export function detailOf(row: TaskRow, asOf: Instant) {
 
 const now = () => instant.parse(new Date().toISOString());
 const escapeLike = (v: string) => v.replace(/[\\%_]/g, (m) => "\\" + m);
-/** The authorized top-level scope shared by the list and its counts. */
 function scope(viewer: Viewer, f: z.infer<typeof c.countTasksRequest>): SQL {
 	const parts = [
 		sql`t.plant_id=${viewer.plantId}::uuid AND t.parent_id IS NULL AND t.deleted_at IS NULL`,
@@ -296,7 +266,6 @@ function scope(viewer: Viewer, f: z.infer<typeof c.countTasksRequest>): SQL {
 	return sql.join(parts, sql` AND `);
 }
 const sortKey = {
-	// A date-only task sorts at the end of its church-local day, where it becomes overdue.
 	due: sql`coalesce(t.due_at, ((t.due_date + 1)::timestamp AT TIME ZONE pl.timezone))`,
 	priority: sql`array_position(ARRAY['low','medium','high','urgent'], t.priority)`,
 	status: sql`array_position(ARRAY['not_started','in_progress','blocked','complete','no_longer_needed'], t.status)`,
@@ -310,7 +279,6 @@ function reader(authority: RequestActor, admin = false) {
 	return viewer;
 }
 export const taskReader = {
-	/** One page in a stable order: the sort key, null due dates last, then the ID (D67 page numbers). One statement. */
 	async list(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
 			const viewer = reader(authority),
@@ -326,7 +294,6 @@ export const taskReader = {
 			);
 			const rows = z.array(taskRow).parse(found),
 				asOf = v.asOf ?? now();
-			// A page past the end has no rows to carry the total; the caller then reads the last page (D67).
 			const total = rows[0]?.total ?? (v.page > 1 ? await countTop(tx, viewer, v) : 0);
 			return c.taskPage.parse({
 				items: rows.map((row) => itemOf(row, asOf)),
@@ -337,7 +304,6 @@ export const taskReader = {
 			});
 		});
 	},
-	/** The list rows of the named live tasks of the church, without the list's search, order or count. One statement. */
 	async listRows(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
 			const viewer = reader(authority),
@@ -357,7 +323,6 @@ export const taskReader = {
 			});
 		});
 	},
-	/** Top-level tallies and checklist units over the list's scope. One statement. */
 	async count(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
 			const viewer = reader(authority),
@@ -397,7 +362,6 @@ export const taskReader = {
 			});
 		});
 	},
-	/** One live task with its checklist. A missing, deleted or foreign task reads as unavailable. One statement. */
 	async get(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
 			const viewer = reader(authority),
@@ -408,10 +372,6 @@ export const taskReader = {
 			return c.taskResult.parse({ status: "available", task: detailOf(row, v.asOf ?? now()) });
 		});
 	},
-	/**
-	 * Every status change of a task the church has, deleted or not, from the shared audit record (D70): creation,
-	 * completion, reopen and waiver, with who or what made it. One statement.
-	 */
 	async statusHistory(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
 			const viewer = reader(authority),
@@ -444,8 +404,6 @@ export const taskReader = {
 					}),
 				)
 				.parse(found.filter((a) => a.id !== null));
-			// The task row always comes back: no rows on page 1 means no such task here. A task with no status audit row
-			// comes back as one row with null audit columns, which reads as an empty history.
 			if (!found.length && v.page === 1) deny();
 			const total = rows[0]?.total ?? 0;
 			return c.statusHistory.parse({
@@ -455,7 +413,6 @@ export const taskReader = {
 					occurredAt: a.occurred_at.toISOString(),
 					from: a.from,
 					to: a.to,
-					// A system trigger is never shown as a person; a deleted account keeps only its scope-local token.
 					actor: a.system_cause
 						? { kind: "system", cause: a.system_cause }
 						: a.actor_id
@@ -468,10 +425,6 @@ export const taskReader = {
 			});
 		});
 	},
-	/**
-	 * The church's current accepted seats, who may hold a task. With purpose `committed_follow_up` only the seats that may
-	 * own a follow-up (REQ-TSK-012). Owner/Admin only. One statement.
-	 */
 	async eligibleAssignees(tx: Tx, authority: RequestActor, raw: unknown = {}) {
 		return readReply(async () => {
 			const viewer = reader(authority, true),
@@ -496,7 +449,6 @@ export const taskReader = {
 			});
 		});
 	},
-	/** Live People, meetings or active teams of the church a task may name, by name. Owner/Admin only. One statement. */
 	async relationOptions(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
 			const viewer = reader(authority, true),
@@ -522,7 +474,6 @@ export const taskReader = {
 			});
 		});
 	},
-	/** One page of a live task's checklist rows, oldest first (REQ-TSK-005). One statement. */
 	async listSubtasks(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
 			const viewer = reader(authority),
@@ -540,7 +491,6 @@ export const taskReader = {
 				WHERE k.parent_id=${v.parentId}::uuid AND k.plant_id=${viewer.plantId}::uuid AND k.deleted_at IS NULL
 				ORDER BY k.created_at, k.id LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit})`,
 			);
-			// The parent's own row comes first and carries the count; without it the parent is not a live task here.
 			const [head, ...items] = found;
 			if (!head || Number(head.ord) !== 0) deny();
 			const total = z.int().parse(head.total);
@@ -573,10 +523,6 @@ export const taskReader = {
 			});
 		});
 	},
-	/**
-	 * A live task's prerequisites in the order saved, with whether each still blocks it: a deleted, complete or no
-	 * longer needed prerequisite does not (REQ-TSK-006). One statement.
-	 */
 	async listPrerequisites(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
 			const viewer = reader(authority),
@@ -602,10 +548,6 @@ export const taskReader = {
 			});
 		});
 	},
-	/**
-	 * Live top-level tasks that may become prerequisites of a task, by title: not the task itself and none that already
-	 * depends on it, so a pick never closes a cycle. Open tasks first. Owner/Admin. One statement.
-	 */
 	async prerequisiteCandidates(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
 			const viewer = reader(authority, true),
@@ -632,10 +574,6 @@ export const taskReader = {
 			});
 		});
 	},
-	/**
-	 * The open occurrence of a task's series, if any: its task, occurrence number, predecessor and revision
-	 * (REQ-TSK-007). A task outside any series reads not_recurring. One statement.
-	 */
 	async findOpenOccurrence(tx: Tx, authority: RequestActor, raw: unknown) {
 		return readReply(async () => {
 			const viewer = reader(authority),

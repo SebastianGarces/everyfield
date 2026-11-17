@@ -52,11 +52,6 @@ async function loadResident(tx: Transaction, id: string, write = false) {
 	const rows = await (write ? query.for("update", { of: tables.residency_link }) : query);
 	return rows[0] ? residentRow.parse(rows[0]) : null;
 }
-/**
- * A sending church's pipeline totals choice for each of its live network connections, as pipelineSharing.readConsent
- * answers it, for its own Owner or Admin (REQ-MUL-016): on the pool with the request actor and the live check (D59,
- * C13), one statement for the connections and one for their choices. `relationshipId` narrows the read to one connection.
- */
 export async function readPipelineConsents(db: Reader, authority: RequestActor, relationshipId?: string) {
 	const actor = authority.actor,
 		selected = actor.context.owner;

@@ -8,9 +8,6 @@ import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { MANUAL_SIGNALS } from "../../../docs/reference/manual-signals.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
 
-// WP-039 slice 2: manual signals and leadership-candidate attestations through the signals operations the Attestations
-// page calls, on a scratch schema of the development or CI database. The clock is injected so ages are exact.
-
 let f, signals;
 let now = "2026-10-13T16:00:00.000Z";
 const clock = { now: () => now };
@@ -26,9 +23,7 @@ const DAY = 86_400_000;
 const at = (days) => new Date(Date.parse("2026-10-13T16:00:00.000Z") + days * DAY).toISOString();
 
 let named = 0;
-/** The first Owner or Admin of each church, whose session creates the Persons Members cannot create. */
 const founders = new Map();
-/** An account with a seat in `w` and, like a planter, its own Person in that church to show its name. */
 async function seated(w, role = "admin") {
 	const a = await f.account();
 	await f.seat(a, w, role);
@@ -126,7 +121,6 @@ test("AC:PI-015 the page shows seven Unknown signals with counts; a Member, an e
 		assert.equal(s.renewal.status, "unknown");
 	}
 	assert.deepEqual(view.counts, { current: 0, needsRenewing: 0, notAnswered: 7 });
-	// An Owner reads the same page as an Admin.
 	const owned = await page(await seated(w, "owner"));
 	assert.deepEqual([owned.signals, owned.counts], [view.signals, view.counts]);
 	refusedBare(await signals.readAttestations(f.db, member.actor, {}), "access_denied");
@@ -134,7 +128,6 @@ test("AC:PI-015 the page shows seven Unknown signals with counts; a Member, an e
 	const ended = await seated(w);
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${ended.id}`);
 	refusedBare(await signals.readAttestations(f.db, ended.actor, {}), "access_denied");
-	// A foreign church's admin reads only its own page.
 	assert.equal(
 		(await page(stranger)).signals.every((s) => s.state === "unanswered"),
 		true,
@@ -155,7 +148,6 @@ test("AC:PI-015 AC:REQ-KNOW-050 a signal is answered with its name and date; det
 	assert.equal(first.signal.reference, null);
 	assert.ok(first.signal.authorName);
 	assert.equal(first.signal.revision, "1");
-	// An answer with a detail, a reference and an earlier date.
 	const detailed = ok(
 		await attest(a, "financial_base_established", "not_yet", {
 			asOf: "2026-10-01",
@@ -167,10 +159,8 @@ test("AC:PI-015 AC:REQ-KNOW-050 a signal is answered with its name and date; det
 	assert.equal(detailed.signal.asOf, "2026-10-01");
 	assert.equal(detailed.signal.detail, "Pledges due");
 	assert.equal(detailed.signal.reference, "Budget v2");
-	// Tomorrow in the church's zone is the future.
 	refusedBare(await attest(a, "systems_tested", "yes", { asOf: "2026-10-14" }), "invalid_input");
 	assert.equal((await entry(a, "systems_tested")).state, "unanswered");
-	// A retry with the same key returns the first result and writes nothing again.
 	const key = randomUUID();
 	const before = await counts(w);
 	const one_ = ok(await attest(a, "prayer_in_gatherings", "yes", {}, "0", key));
@@ -181,7 +171,6 @@ test("AC:PI-015 AC:REQ-KNOW-050 a signal is answered with its name and date; det
 		revisions: before.revisions + 1,
 		audits: before.audits + 1,
 	});
-	// The same key for a different request is refused and writes nothing.
 	refusedBare(await attest(a, "prayer_in_gatherings", "not_yet", {}, "0", key), "idempotency_conflict");
 	assert.equal((await entry(a, "prayer_in_gatherings")).value, "yes");
 });
@@ -221,11 +210,9 @@ test("AC:PI-014 a correction to another value keeps history; the same value and 
 		await correct(a, { action: "correct", key: "prayer_leader_assigned", value: "yes" }, gone.signal.revision),
 		"not_current",
 	);
-	// Never-answered signals have nothing to correct or retract.
 	refusedBare(await correct(a, { action: "retract", key: "systems_tested" }, "0"), "not_current");
 	const view = await page(a);
 	assert.equal(view.counts.notAnswered, 7);
-	// A retracted signal is answered again, and every earlier answer stays.
 	const again = ok(await attest(a, "prayer_leader_assigned", "yes", {}, gone.signal.revision));
 	assert.equal(again.signal.revision, "4");
 	const all = ok(await signals.getHistory(f.db, a.actor, { key: "prayer_leader_assigned" })).revisions;
@@ -271,19 +258,16 @@ test("AC:PI-014 history lists every revision newest first, and the runtime login
 		whole.map((r) => r.key),
 		["core_group_giving", "values_documented", "core_group_giving"],
 	);
-	// The runtime login (f.db) cannot rewrite or delete history.
 	await rejects(
 		f.db.execute(sql`UPDATE attestation_revision SET detail='x' WHERE plant_id=${w.id}`),
 		/permission denied/,
 	);
 	await rejects(f.db.execute(sql`DELETE FROM attestation_revision WHERE plant_id=${w.id}`), /permission denied/);
 	await rejects(f.db.execute(sql`DELETE FROM attestation WHERE plant_id=${w.id}`), /permission denied/);
-	// Even the owner role cannot change a recorded field (SCHEMA-007).
 	await rejects(
 		f.admin.execute(sql`UPDATE attestation_revision SET detail='x' WHERE plant_id=${w.id}`),
 		/immutable_source_evidence/,
 	);
-	// No other authority writes a revision: a Member cannot.
 	const member = await seated(w, "member");
 	refusedBare(await attest(member, "systems_tested"), "access_denied");
 	assert.equal((await counts(w)).revisions, 3);
@@ -316,7 +300,6 @@ test("AC:B01-025 AC:B01-026 ages, renewal at 31 days, and funding that never exp
 		assert.equal(e.state, "answered");
 		assert.equal(e.ageDays, 31);
 	}
-	// Funding at 100 days is not expired; the other non-reaffirming signals never expire either.
 	now = at(100);
 	for (const key of ["financial_base_established", "values_documented", "prayer_leader_assigned"]) {
 		assert.deepEqual(await status(key), { status: "does_not_expire" }, key);
@@ -324,7 +307,6 @@ test("AC:B01-025 AC:B01-026 ages, renewal at 31 days, and funding that never exp
 	}
 	const view = await page(a);
 	assert.deepEqual(view.counts, { current: 3, needsRenewing: 3, notAnswered: 1 });
-	// A systems owner or completed systems task is not an answer: nothing here wrote one.
 	const systems = await entry(a, "systems_tested");
 	assert.equal(systems.state, "unanswered");
 	assert.equal(systems.value, null);
@@ -339,13 +321,12 @@ test("AC:B01-025 ages count the church's calendar days in its own zone", async (
 	const w = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone='Pacific/Auckland' WHERE id=${w.id}`);
 	const a = await seated(w);
-	// 2026-10-13T16:00Z is already Oct 14 in Auckland (UTC+13 in October).
 	now = "2026-10-13T16:00:00.000Z";
 	const made = ok(await attest(a, "prayer_rhythm_established"));
 	assert.equal(made.signal.asOf, "2026-10-14");
-	now = "2026-11-12T10:59:00.000Z"; // Nov 12 23:59 in Auckland: age 29
+	now = "2026-11-12T10:59:00.000Z";
 	assert.deepEqual((await entry(a, "prayer_rhythm_established")).renewal, { status: "current", daysLeft: 1 });
-	now = "2026-11-13T11:00:00.000Z"; // Nov 14 00:00 in Auckland: age 31
+	now = "2026-11-13T11:00:00.000Z";
 	assert.equal((await entry(a, "prayer_rhythm_established")).ageDays, 31);
 	assert.deepEqual((await entry(a, "prayer_rhythm_established")).renewal, { status: "needs_renewing" });
 });
@@ -384,12 +365,10 @@ test("AC:B01-025 AC:B01-026 Still true refreshes only that signal; stale or wron
 	assert.equal((await entry(a, "core_group_giving")).ageDays, 20);
 	assert.equal((await entry(a, "financial_base_established")).ageDays, 20);
 	assert.equal((await entry(a, "prayer_in_gatherings")).revision, "1");
-	// A stale reviewed revision is refused after the signal moved on.
 	refusedBare(
 		await reaffirm(a, "prayer_rhythm_established", "yes", made.prayer_rhythm_established.revision),
 		"revision_conflict",
 	);
-	// An unanswered signal and a retracted signal cannot be reaffirmed.
 	refusedBare(await reaffirm(a, "core_group_giving", "yes", "0"), "revision_conflict");
 	const retracted = ok(
 		await correct(a, { action: "retract", key: "core_group_giving" }, made.core_group_giving.revision),
@@ -397,7 +376,6 @@ test("AC:B01-025 AC:B01-026 Still true refreshes only that signal; stale or wron
 	refusedBare(await reaffirm(a, "core_group_giving", "yes", retracted.signal.revision), "not_current");
 	const fresh = await seated(await f.workspace());
 	refusedBare(await reaffirm(fresh, "prayer_in_gatherings", "yes", "0"), "not_current");
-	// One failed row does not undo the others: each reaffirm is its own write.
 	const rows_ = await Promise.all([
 		reaffirm(a, "prayer_in_gatherings", "yes", made.prayer_in_gatherings.revision),
 		reaffirm(a, "core_group_giving", "yes", retracted.signal.revision),
@@ -405,7 +383,6 @@ test("AC:B01-025 AC:B01-026 Still true refreshes only that signal; stale or wron
 	assert.equal(rows_[0].status, "ok");
 	assert.equal(rows_[1].status, "refused");
 	assert.equal((await entry(a, "prayer_in_gatherings")).ageDays, 0);
-	// A reaffirm keeps the value, detail and reference, and replays on its key.
 	const key = randomUUID();
 	const current = await entry(a, "prayer_rhythm_established");
 	const r1 = ok(await reaffirm(a, "prayer_rhythm_established", "yes", current.revision, key));
@@ -437,25 +414,21 @@ test("AC:PI-014 AC:AUDIT-004 every accepted write has one audit row; refusals wr
 		sql`SELECT action FROM audit_event WHERE tenant_id=${w.id} AND action LIKE 'attestation.%' ORDER BY recorded_at, action`,
 	);
 	assert.deepEqual(corrected.map((r) => r.action).sort(), ["attestation.corrected", "attestation.recorded"]);
-	// Refusals leave nothing behind.
 	const snapshot = await counts(w);
 	refusedBare(await attest(member, "values_documented"), "access_denied");
 	refusedBare(await correct(member, { action: "retract", key: "systems_tested" }, "2"), "access_denied");
 	refusedBare(await reaffirm(member, "core_group_giving", "yes", "0"), "access_denied");
-	// An admin of another church names this church's signal: it is theirs alone.
 	ok(await attest(foreign, "systems_tested", "yes"));
 	assert.deepEqual(await counts(w), snapshot);
 	assert.equal((await one(sql`SELECT count(*)::int n FROM attestation WHERE plant_id=${other.id}`)).n, 1);
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${b.id}`);
 	refusedBare(await attest(b, "values_documented"), "access_denied");
-	// An organization seat has no authority over a church.
 	const org = await f.workspace("sending_church");
 	const orgAdmin = await seated(org);
 	refusedBare(await signals.readAttestations(f.db, orgAdmin.actor, {}), "access_denied");
 	refusedBare(await attest(orgAdmin, "values_documented"), "access_denied");
 	assert.deepEqual(await counts(w), snapshot);
 	void before;
-	// Two admins save a first answer from the same revision: one wins, one revision_conflict.
 	const c1 = await seated(w),
 		c2 = await seated(w);
 	for (let round = 0; round < 4; round++) {
@@ -473,7 +446,6 @@ test("AC:PI-014 AC:AUDIT-004 every accepted write has one audit row; refusals wr
 			1,
 		);
 	}
-	// And two corrections of the same revision.
 	const base = ok(await attest(c1, "prayer_in_gatherings", "yes")).signal;
 	const both = await Promise.all([
 		correct(c1, { action: "correct", key: "prayer_in_gatherings", value: "not_yet" }, base.revision),
@@ -496,7 +468,6 @@ test("AC:PI-014 a leadership candidate needs both behaviors and 60 inclusive day
 		volunteered: true,
 		statement: "Seen at every setup.",
 	};
-	// Aug 15 to Oct 13 is 60 inclusive days.
 	const made = ok(
 		await signals.attestCandidate(f.db, a.actor, { requestKey: randomUUID(), expectedRevision: "0", input: base }),
 	).candidate;
@@ -511,7 +482,6 @@ test("AC:PI-014 a leadership candidate needs both behaviors and 60 inclusive day
 		listed.map((x) => [x.personName, x.established]),
 		[["Alex Rivera", true]],
 	);
-	// 59 days, one behavior missing, and both.
 	const sam = await person(a, "Sam Ortiz");
 	const short = ok(
 		await signals.attestCandidate(f.db, a.actor, {
@@ -532,7 +502,6 @@ test("AC:PI-014 a leadership candidate needs both behaviors and 60 inclusive day
 		}),
 	).candidate;
 	assert.deepEqual(half.reasons, ["attendance_not_attested", "volunteering_not_attested"]);
-	// Each box is stored as sent, and the list reads back the current statement's values.
 	for (const [name, attended, volunteered, reasons] of [
 		["Pat Mixed", true, false, ["volunteering_not_attested"]],
 		["Ray Mixed", false, true, ["attendance_not_attested"]],
@@ -553,7 +522,6 @@ test("AC:PI-014 a leadership candidate needs both behaviors and 60 inclusive day
 				name,
 			);
 	}
-	// A retry replays; a period ending after the as-of date, or after today, is invalid.
 	const key = randomUUID();
 	const kay = await person(a, "Kay Lee");
 	const one_ = ok(
@@ -590,7 +558,6 @@ test("AC:PI-014 a leadership candidate needs both behaviors and 60 inclusive day
 		}),
 		"invalid_input",
 	);
-	// A foreign or retired Person gives not_found.
 	const stranger = await seated(await f.workspace());
 	const foreignPerson = await person(stranger, "Foreign Canary");
 	const nothing = await counts(w);
@@ -620,7 +587,6 @@ test("AC:PI-014 a leadership candidate needs both behaviors and 60 inclusive day
 		"not_found",
 	);
 	assert.deepEqual(await counts(w), nothing);
-	// Not an eighth signal: the signal list is unchanged and a Member cannot record one.
 	assert.equal((await page(a)).signals.length, 7);
 	const member = await seated(w, "member");
 	refusedBare(
@@ -648,7 +614,6 @@ test("AC:PI-014 a candidate corrects and retracts with history, and a retired Pe
 	const made = ok(
 		await signals.attestCandidate(f.db, a.actor, { requestKey: randomUUID(), expectedRevision: "0", input }),
 	).candidate;
-	// The same facts are no change.
 	refusedBare(
 		await signals.correctCandidate(f.db, a.actor, {
 			requestKey: randomUUID(),
@@ -694,7 +659,6 @@ test("AC:PI-014 a candidate corrects and retracts with history, and a retired Pe
 		}),
 		"revision_conflict",
 	);
-	// Recording again after the retraction is allowed.
 	const back = ok(
 		await signals.attestCandidate(f.db, a.actor, { requestKey: randomUUID(), expectedRevision: gone.revision, input }),
 	).candidate;
@@ -712,7 +676,6 @@ test("AC:PI-014 a candidate corrects and retracts with history, and a retired Pe
 	);
 	assert.equal(trail[0].personName, "Mo Hart");
 	assert.equal(trail[0].questionVersion, "leadership-candidate/1");
-	// Retiring the Person keeps its row, marked retired, and its history on that Person; the picker drops it.
 	await f.admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${mo.id}`);
 	const view = await page(a);
 	assert.deepEqual(view.candidates, [{ ...back, personState: "retired" }]);
@@ -745,9 +708,7 @@ test("AC:PI-014 a retired Person's candidate keeps its row and statement, marked
 
 	await f.admin.execute(sql`UPDATE person SET state='retired', retired_at=clock_timestamp() WHERE id=${quinn.id}`);
 	const retired = await page(a);
-	// Only the person's state changes: name, statement, period, status, author and date stay as they were.
 	assert.deepEqual(retired.candidates, [{ ...made, personState: "retired" }]);
-	// The picker still offers only live Persons, and a write for the retired Person still refuses.
 	assert.equal(
 		retired.people.some((x) => x.id === quinn.id),
 		false,
@@ -831,7 +792,6 @@ test("AC:REQ-TEAM-017 recording, correcting and retracting a candidate changes n
 		}),
 	);
 	assert.deepEqual(await snapshot(), before);
-	// Organization reads get nothing new: the organization seat cannot read candidates or history.
 	const org = await seated(await f.workspace("sending_church"));
 	refusedBare(await signals.getHistory(f.db, org.actor, { key: null }), "access_denied");
 });
