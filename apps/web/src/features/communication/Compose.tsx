@@ -2,8 +2,7 @@
 
 import { ArrowLeft01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, Field, Select } from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
-import { useFocusRequest } from "@everyfield/ui/foundations";
+import { Icon, useFocusOnChange } from "@everyfield/ui/foundations";
 import { useState, type ComponentProps } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
@@ -206,9 +205,7 @@ function ComposeForm({
 				actions: state.actions,
 			})),
 		);
-	const [moved, setMoved] = useState({ step, count: 0 });
-	if (moved.step !== step) setMoved({ step, count: moved.count + 1 });
-	const heading = useFocusRequest<HTMLHeadingElement>(moved.count);
+	const heading = useFocusOnChange<HTMLHeadingElement>(step);
 	const openedMeeting = opening.kind === "new" ? opening.meeting : null;
 	const meetingRead = useRead(!openedMeeting && form.meetingId ? meetingContexts : null, form.meetingId ?? "");
 	const meeting = openedMeeting ?? (meetingRead.value?.status === "ok" ? meetingRead.value.value : null);
