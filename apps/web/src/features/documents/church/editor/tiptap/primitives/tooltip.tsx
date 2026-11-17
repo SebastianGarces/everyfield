@@ -173,7 +173,6 @@ export const TooltipContent = React.forwardRef<HTMLDivElement, TooltipContentPro
 ) {
 	const context = useTooltipContext();
 	const ref = useMergeRefs([context.refs.setFloating, propRef]);
-	// Everyfield change: portal into the product root, not <body>, so the product font and tokens apply.
 	const container = usePortalContainer();
 
 	if (!context.open) return null;
