@@ -693,7 +693,10 @@ test("INV-lint: a survivor whose reason marks it temporary must name the evf tas
 	};
 	const refused = run("Temporary: the effect goes once the shared hook lands");
 	assert.equal(refused.status, 1);
-	assert.match(refused.out, /packages-ui\.json: no-effects packages\/ui\/src\/Panel\.tsx: a temporary entry must name the evf task/);
+	assert.match(
+		refused.out,
+		/packages-ui\.json: no-effects packages\/ui\/src\/Panel\.tsx: a temporary entry must name the evf task/,
+	);
 	assert.match(run("Temporary: the effect goes once the shared hook lands (T-123)").out, /check-comments: passed/);
 	assert.match(run("The effect follows the panel's lifetime, so it stays").out, /check-comments: passed/);
 });
