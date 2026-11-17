@@ -681,6 +681,23 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
 });
 
+test("INV-lint: a survivor whose reason marks it temporary must name the evf task that removes it", () => {
+	const path = "packages/ui/src/Panel.tsx";
+	const run = (reason) => {
+		const dir = sandbox(
+			{ [path]: "export {};\n" },
+			{ "survivors/packages-ui.json": { "no-effects": { [path]: [{ function: "Panel", count: 1, reason }] } } },
+		);
+		git(dir, "init", "-q");
+		return check(dir, ["--no-base"]);
+	};
+	const refused = run("Temporary: the effect goes once the shared hook lands");
+	assert.equal(refused.status, 1);
+	assert.match(refused.out, /packages-ui\.json: no-effects packages\/ui\/src\/Panel\.tsx: a temporary entry must name the evf task/);
+	assert.match(run("Temporary: the effect goes once the shared hook lands (T-123)").out, /check-comments: passed/);
+	assert.match(run("The effect follows the panel's lifetime, so it stays").out, /check-comments: passed/);
+});
+
 function history() {
 	const path = "packages/ui/src/Panel.tsx";
 	const renamed = "packages/ui/src/Moved.tsx";
