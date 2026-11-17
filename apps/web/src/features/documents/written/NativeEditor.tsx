@@ -8,7 +8,6 @@ import {
 	Refresh01Icon,
 	StarIcon,
 } from "@hugeicons/core-free-icons";
-import { IMPORT_BYTES_MAX, IMPORT_TOO_LARGE, nativeText, type DocNode } from "@everyfield/contracts/documents";
 import {
 	Button,
 	ConfirmDialog,
@@ -22,19 +21,18 @@ import {
 	PageHeader,
 } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
-import type { Node as PMNode } from "@tiptap/pm/model";
-import { EditorContent, EditorContext, useEditor } from "@tiptap/react";
+import { focusOnMount } from "@everyfield/ui/foundations";
+import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { writeAddress } from "../../../components/location.ts";
 import { SAVE_SHORTCUT, shortcutMark } from "../../../components/save/leave.ts";
+import { useLocalStore, useStore } from "../../../components/store.ts";
 import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
-import { clean } from "../church/editor/document-json.ts";
 import "../church/editor/editor.css";
 import { nativeExtensions } from "../church/editor/extensions.ts";
 import { BlockControls } from "../church/editor/LayoutControls.tsx";
 import { TABLE_REFUSED } from "../church/editor/TableControls.tsx";
-import { blocksFromEditor, blocksToEditor } from "../church/editor/table-json.ts";
 import {
 	BlockShortcuts,
 	LeaveDialog,
@@ -44,23 +42,8 @@ import {
 } from "../church/editor/session.tsx";
 import { EditorToolbar } from "../church/editor/Toolbar.tsx";
 import { documentProblem, type WrittenView } from "../model.ts";
-import { SaveChain } from "../save-chain.ts";
 import { CopiedNote, SECTION, TextRevisionNote } from "./notes.tsx";
-
-const EMPTY: DocNode = { type: "doc", content: [{ type: "paragraph" }] };
-
-const toEditor = (body: DocNode) => ({ ...body, content: blocksToEditor(body.content ?? []) });
-const fromEditor = (doc: PMNode): DocNode => {
-	const json = clean(doc.toJSON()) as DocNode;
-	return json.content ? { ...json, content: blocksFromEditor(json.content) as DocNode["content"] } : json;
-};
-
-function fileFormat(file: File): "text" | "docx" | null {
-	const name = file.name.toLowerCase();
-	if (name.endsWith(".docx")) return "docx";
-	if (name.endsWith(".txt") || file.type === "text/plain") return "text";
-	return null;
-}
+import { EMPTY, createNativeEditorStore, sameDoc, toEditor } from "./NativeEditor.store.ts";
 
 async function importWritten(file: File, params: Record<string, string>): Promise<DocumentOutcome<WrittenView>> {
 	try {
@@ -76,7 +59,12 @@ async function importWritten(file: File, params: Record<string, string>): Promis
 	}
 }
 
-type Saved = { id: string | null; revision: string; title: string; kind: WrittenView["kind"] };
+const port = {
+	save: saveOwnedDocument,
+	importFile: importWritten,
+	designate: designateOwnedDocument,
+	created: (id: string) => writeAddress(`/documents/written/${id}`, { replace: true }),
+};
 
 export default function NativeEditor({
 	doc,
@@ -88,38 +76,16 @@ export default function NativeEditor({
 	canStore: boolean;
 }) {
 	const router = useRouter();
-	const first: Saved = {
-		id: doc?.id ?? null,
-		revision: doc?.revision ?? "0",
-		title: doc?.title ?? "",
-		kind: doc?.kind ?? "native",
-	};
-	const [saved, setSavedState] = useState<Saved>(first);
-	const savedRef = useRef(first);
-	const setSaved = (next: Saved) => {
-		savedRef.current = next;
-		setSavedState(next);
-	};
-	const [title, setTitleState] = useState(first.title);
-	const titleRef = useRef(first.title);
-	const setTitle = (next: string) => {
-		titleRef.current = next;
-		setTitleState(next);
-	};
-	const [bodyChanged, setBodyChanged] = useState(false);
-	const [phase, setPhase] = useState<
-		{ kind: "idle" } | { kind: "saving" } | { kind: "failed"; reason: string; conflict: boolean }
-	>({ kind: "idle" });
-	const [errors, setErrors] = useState<{ title?: string; body?: string }>({});
-	const [note, setNote] = useState<string | null>(null);
+	const store = useLocalStore(() => createNativeEditorStore({ doc, port }));
+	const actions = useStore(store, (state) => state.actions);
+	const saved = useStore(store, (state) => state.saved);
+	const title = useStore(store, (state) => state.title);
+	const phase = useStore(store, (state) => state.phase);
+	const errors = useStore(store, (state) => state.errors);
+	const note = useStore(store, (state) => state.note);
+	const refused = useStore(store, (state) => state.refused);
 	const [archiveOpen, setArchiveOpen] = useState(false);
-	const [textRevision, setTextRevision] = useState(doc?.textRevision ?? false);
-	const savedDoc = useRef<PMNode | null>(null);
-	const [saves] = useState(() => new SaveChain());
-	const discarding = useRef(false);
-	const fileRef = useRef<HTMLInputElement>(null);
-	const importKey = useRef<string | null>(null);
-	const titleInput = useRef<HTMLInputElement>(null);
+	const fileInput = useRef<HTMLInputElement>(null);
 
 	const editor = useEditor({
 		extensions: [...nativeExtensions(), BlockShortcuts],
@@ -133,33 +99,16 @@ export default function NativeEditor({
 				spellcheck: "true",
 			},
 		},
+		onCreate: ({ editor: created }) => actions.began(created),
+		onUpdate: actions.settle,
+		onSelectionUpdate: actions.settle,
 	});
 
-	const isSaved = useCallback((current: PMNode) => {
-		let base = savedDoc.current;
-		if (!base) return true;
-		if (base.type.schema !== current.type.schema)
-			base = savedDoc.current = current.type.schema.nodeFromJSON(base.toJSON());
-		return base.eq(current);
-	}, []);
-	const unsaved = useCallback(
-		() =>
-			!discarding.current &&
-			!!editor &&
-			(saves.busy || !isSaved(editor.state.doc) || titleRef.current.trim() !== savedRef.current.title),
-		[editor, isSaved, saves],
-	);
-	useEffect(() => {
-		if (!editor) return;
-		savedDoc.current ??= editor.state.doc;
-		const sync = () => setBodyChanged(!isSaved(editor.state.doc));
-		editor.on("update", sync);
-		return () => void editor.off("update", sync);
-	}, [editor, isSaved]);
-	useEffect(() => {
-		if (!doc) titleInput.current?.focus();
-	}, [doc]);
-
+	const bodyChanged =
+		useEditorState({
+			editor,
+			selector: ({ editor: current }) => !!current && !sameDoc(saved.doc, current.state.doc),
+		}) ?? false;
 	const changed = bodyChanged || title.trim() !== saved.title;
 	const status: SaveStatus =
 		phase.kind === "saving"
@@ -170,156 +119,18 @@ export default function NativeEditor({
 					? { kind: "dirty" }
 					: { kind: "saved" };
 
-	const created = (id: string) => {
-		if (savedRef.current.id) return;
-		writeAddress(`/documents/written/${id}`, { replace: true });
-	};
-
-	const saveNow = useCallback((): Promise<boolean> => {
-		if (!editor) return Promise.resolve(false);
-		const current = editor.state.doc;
-		const body = fromEditor(current);
-		const nextTitle = titleRef.current.trim();
-		const found = {
-			...(nextTitle ? {} : { title: "Enter a title." }),
-			...(nativeText(body) ? {} : { body: "Write some text before you save." }),
-		};
-		setErrors(found);
-		if (found.title || found.body) return Promise.resolve(false);
-		setPhase({ kind: "saving" });
-		setNote(null);
-		const base = savedRef.current;
-		return saves.start(async () => {
-			const result = await saveOwnedDocument({
-				title: nextTitle,
-				body,
-				expectedRevision: base.revision,
-				...(base.id ? { documentId: base.id } : {}),
-			}).catch(() => ({ status: "lost" }) as const);
-			if (result.status !== "ok") {
-				const conflict = result.status === "refused" && result.code === "conflict";
-				setPhase({
-					kind: "failed",
-					conflict,
-					reason: conflict
-						? "Someone saved a newer version first. Your edits are still here. Copy what you need, then reload."
-						: result.status === "lost"
-							? "The connection dropped. Your edits are still here."
-							: documentProblem(result.code, result.problem, "Try again."),
-				});
-				return false;
-			}
-			created(result.value.id);
-			savedDoc.current = current;
-			setSaved({ id: result.value.id, revision: result.value.revision, title: nextTitle, kind: result.value.kind });
-			if (titleRef.current.trim() === nextTitle) setTitle(nextTitle);
-			setBodyChanged(!editor.state.doc.eq(current));
-			setTextRevision(false);
-			setPhase({ kind: "idle" });
-			return true;
-		});
-	}, [editor, saves]);
-
-	const save = useCallback(async (): Promise<boolean> => {
-		if (!editor) return false;
-		return saves.save(() => isSaved(editor.state.doc) && titleRef.current.trim() === savedRef.current.title, saveNow);
-	}, [editor, isSaved, saveNow, saves]);
-
-	const [refused, setRefused] = useState(false);
-	useEffect(() => {
-		if (!editor) return;
-		const table = () => setRefused(true);
-		const hide = () => setRefused(false);
-		editor.on("tableChangeRefused", table);
-		editor.on("update", hide);
-		editor.on("selectionUpdate", hide);
-		return () => {
-			editor.off("tableChangeRefused", table);
-			editor.off("update", hide);
-			editor.off("selectionUpdate", hide);
-		};
-	}, [editor]);
-
+	const save = useCallback(async () => (editor ? actions.save(editor) : false), [editor, actions]);
+	const editorContext = useMemo(() => ({ editor }), [editor]);
+	const unsaved = useCallback(() => !!editor && actions.unsaved(editor), [editor, actions]);
 	const leave = useLeaveGuard(editor, unsaved);
 
 	function reload() {
-		discarding.current = true;
+		actions.discard();
 		window.location.reload();
 	}
 
-	function importFile(file: File) {
-		if (!editor) return;
-		const format = fileFormat(file);
-		if (!format) return setNote("Use a .txt or .docx file. Older .doc Word files are not accepted.");
-		if (file.size === 0) return setNote("The file is empty.");
-		if (file.size > IMPORT_BYTES_MAX) return setNote(IMPORT_TOO_LARGE);
-		const base = savedRef.current;
-		const nextTitle =
-			titleRef.current.trim() || file.name.replace(/\.(txt|docx)$/i, "").slice(0, 200) || "Imported document";
-		const key = importKey.current ?? crypto.randomUUID();
-		importKey.current = key;
-		setPhase({ kind: "saving" });
-		setNote(null);
-		void (async () => {
-			const result = await importWritten(file, {
-				title: nextTitle,
-				format,
-				expectedRevision: base.revision,
-				requestKey: key,
-				...(base.id ? { documentId: base.id } : {}),
-			});
-			setPhase({ kind: "idle" });
-			if (result.status !== "ok") {
-				if (result.status === "refused") importKey.current = null;
-				return setNote(
-					documentProblem(
-						result.status === "refused" ? result.code : "lost",
-						result.status === "refused" ? result.problem : undefined,
-						"This file did not import. Nothing in this document changed.",
-					),
-				);
-			}
-			importKey.current = null;
-			const value = result.value;
-			created(value.id);
-			editor.chain().setMeta("addToHistory", false).setContent(toEditor(value.body)).run();
-			savedDoc.current = editor.state.doc;
-			setBodyChanged(false);
-			setSaved({ id: value.id, revision: value.revision, title: value.title, kind: value.kind });
-			setTitle(value.title);
-			setTextRevision(false);
-			setNote(
-				format === "docx"
-					? "The Word file is now this document's saved version. Its headings, lists, links and tables came across, ready to edit."
-					: "The file's text is now this document's saved version. Each line is a paragraph you can edit.",
-			);
-		})();
-	}
-
-	async function designate() {
-		const base = savedRef.current;
-		if (!base.id) return;
-		setPhase({ kind: "saving" });
-		const result = await designateOwnedDocument(base.id, base.revision).catch(() => ({ status: "lost" }) as const);
-		setPhase({ kind: "idle" });
-		if (result.status !== "ok")
-			return setNote(
-				documentProblem(
-					result.status === "refused" ? result.code : "lost",
-					result.status === "refused" ? result.problem : undefined,
-					"The core values did not change. Try again.",
-				),
-			);
-		setSaved({ ...base, revision: result.value.revision, kind: result.value.kind });
-		setNote(
-			scope === "church"
-				? "This document is now the core values for your church."
-				: "This document is now your core values.",
-		);
-	}
-
 	async function archive() {
-		const base = savedRef.current;
+		const base = store.getState().saved;
 		if (!base.id) return;
 		const result = await archiveOwnedDocument(base.id, base.revision);
 		if (result.status !== "ok")
@@ -330,21 +141,21 @@ export default function NativeEditor({
 					"This document was not archived. Try again.",
 				),
 			);
-		discarding.current = true;
+		actions.discard();
 		router.push("/documents");
 	}
 
 	const busy = phase.kind === "saving";
 	const conflict = phase.kind === "failed" && phase.conflict;
 	return (
-		<EditorContext.Provider value={{ editor }}>
+		<EditorContext.Provider value={editorContext}>
 			<div className="flex flex-col gap-4">
 				<PageHeader
 					breadcrumb={[{ label: "Documents", href: "/documents" }]}
 					title={title.trim() || (saved.id ? saved.title : "New document")}
 					subtitle={SECTION[scope]}
 				/>
-				{saved.kind === "core_values" || doc?.copied || textRevision ? (
+				{saved.kind === "core_values" || doc?.copied || saved.textRevision ? (
 					<div className="flex w-full max-w-[816px] flex-col gap-2 self-center">
 						{saved.kind === "core_values" ? (
 							<div>
@@ -352,19 +163,16 @@ export default function NativeEditor({
 							</div>
 						) : null}
 						{doc?.copied ? <CopiedNote /> : null}
-						{textRevision ? <TextRevisionNote /> : null}
+						{saved.textRevision ? <TextRevisionNote /> : null}
 					</div>
 				) : null}
 				<div className="w-full max-w-[816px] self-center">
 					<Field label="Title" error={errors.title}>
 						<Input
-							ref={titleInput}
+							ref={doc ? undefined : focusOnMount}
 							value={title}
 							maxLength={200}
-							onChange={(event) => {
-								setTitle(event.target.value);
-								setErrors((e) => ({ ...e, title: undefined }));
-							}}
+							onChange={(event) => actions.typeTitle(event.target.value)}
 						/>
 					</Field>
 				</div>
@@ -397,12 +205,12 @@ export default function NativeEditor({
 							size="sm"
 							icon={FileImportIcon}
 							disabled={!canStore || busy || bodyChanged || (saved.id !== null && changed)}
-							onClick={() => fileRef.current?.click()}
+							onClick={() => fileInput.current?.click()}
 						>
 							Import a text or Word file
 						</Button>
 						<input
-							ref={fileRef}
+							ref={fileInput}
 							type="file"
 							tabIndex={-1}
 							aria-hidden="true"
@@ -411,7 +219,7 @@ export default function NativeEditor({
 							onChange={(event) => {
 								const file = event.target.files?.[0];
 								event.target.value = "";
-								if (file) importFile(file);
+								if (file && editor) actions.importFile(editor, file);
 							}}
 						/>
 						{saved.id ? (
@@ -421,7 +229,7 @@ export default function NativeEditor({
 								</MenuTrigger>
 								<MenuContent align="end">
 									{saved.kind === "native" ? (
-										<MenuItem icon={StarIcon} disabled={busy || changed} onSelect={() => void designate()}>
+										<MenuItem icon={StarIcon} disabled={busy || changed} onSelect={() => void actions.designate(scope)}>
 											Use as core values
 										</MenuItem>
 									) : null}
