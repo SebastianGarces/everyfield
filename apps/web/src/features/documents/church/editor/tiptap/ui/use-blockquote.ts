@@ -1,20 +1,15 @@
 import * as React from "react";
 import type { Editor } from "@tiptap/react";
 
-// --- Hooks ---
 import { useTiptapEditor } from "../use-tiptap-editor.ts";
 
-// --- Icons ---
 import { BlockquoteIcon } from "../icons.tsx";
 
-// --- Lib ---
 import { isNodeInSchema, isNodeTypeSelected } from "../tiptap-utils.ts";
 
-// Everyfield change: the node is named `quote` in the format, and the toggle is one chain, so one Undo reverts it.
 const BLOCKQUOTE_SHORTCUT_KEY = "mod+shift+b";
 
 export interface UseBlockquoteConfig {
-	/** The Tiptap editor instance. */
 	editor?: Editor | null;
 }
 
@@ -41,14 +36,12 @@ function shouldShowButton(props: { editor: Editor | null }): boolean {
 	return isNodeInSchema("quote", editor);
 }
 
-/** Custom hook that provides quote functionality for a Tiptap editor. */
 export function useBlockquote(config?: UseBlockquoteConfig) {
 	const { editor: providedEditor } = config || {};
 
 	const { editor } = useTiptapEditor(providedEditor);
 	const canToggle = canToggleBlockquote(editor);
 	const isActive = isBlockquoteActive(editor);
-	// Everyfield change: derived on every render, not set in an effect (see use-mark.ts).
 	const isVisible = shouldShowButton({ editor });
 
 	const handleToggle = React.useCallback(() => {
