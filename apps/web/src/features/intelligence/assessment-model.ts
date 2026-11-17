@@ -8,16 +8,11 @@ import type {
 	TrendValue,
 } from "@everyfield/contracts/intelligence";
 
-// Plant Intelligence's pure model (WP-044): labels, dates and the words of each state. No React and no server code, so
-// the UI tests call it directly.
-
 type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
 
-/** "Nov 2, 2026" for a plant-local calendar date. */
 export const dayText = (d: string) =>
 	new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`));
 
-/** One fact value in words: Unknown for null, Yes or No, a date, a status, or the number. */
 export function factText(value: string | number | boolean | number[] | null): string {
 	if (value === null) return "Unknown";
 	if (typeof value === "boolean") return value ? "Yes" : "No";
@@ -55,7 +50,6 @@ export const SEVERITY_LABEL: Record<Assessment["focus"]["severity"], string> = {
 	info: "Going well",
 };
 
-/** The one line about the newest run when it is not the current one, or null when the current one is the newest. */
 export function newestText(newest: NewestRun | null, hasCurrent: boolean): string | null {
 	if (!newest) return null;
 	const kept = hasCurrent ? " The assessment below is still the latest complete one." : "";
@@ -71,7 +65,6 @@ export function newestText(newest: NewestRun | null, hasCurrent: boolean): strin
 	}
 }
 
-/** The cold-start heading: not prepared yet, on its way, or couldn't be prepared yet. Never an empty "all good". */
 export function coldStartTitle(newest: NewestRun | null): { title: string; body: string } {
 	if (newest?.state === "preparing" || newest?.state === "deferred")
 		return {
@@ -89,7 +82,6 @@ export function coldStartTitle(newest: NewestRun | null): { title: string; body:
 	};
 }
 
-/** Next steps from the measured facts alone: each names a real gap the records show, with where to act on it. */
 export function nextSteps(facts: PlantFacts): { title: string; detail: string; href: string }[] {
 	const steps: { title: string; detail: string; href: string }[] = [];
 	const a = facts.committedAdults;

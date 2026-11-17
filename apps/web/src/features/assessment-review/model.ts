@@ -1,7 +1,5 @@
 import type { DemandKind, DraftRule, FailureCause } from "@everyfield/contracts/intelligence";
 
-// The assessment review pages' words (PI-042). Pure, so a test can read them without React.
-
 export const CAUSE: Record<FailureCause, { label: string; detail: string }> = {
 	provider: {
 		label: "Provider",
@@ -37,7 +35,6 @@ export const RULE: Record<DraftRule, string> = {
 	readiness_verdict: "Readiness verdict",
 	action_claim: "Action claim",
 };
-/** "Nov 13, 2026, 3:42 PM" in UTC, so every operator reads the same time. */
 export const timeLabel = (iso: string) =>
 	`${new Date(iso).toLocaleString("en-US", {
 		month: "short",

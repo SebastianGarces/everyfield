@@ -44,11 +44,6 @@ import {
 } from "./facts-model.ts";
 import { renewalLabel, VALUE_LABEL } from "./signals-model.ts";
 
-/**
- * What Everyfield has measured about the plant's progress toward launch (WP-040), with the evidence behind each number.
- * Every fact comes from the records the planter keeps; Unknown says what is missing. WP-044 later folds this section
- * into the full Plant Intelligence screen.
- */
 export function FactsSection({ facts }: { facts: PlantFacts }) {
 	const [evidence, setEvidence] = useState(false);
 	const a = facts.committedAdults;
