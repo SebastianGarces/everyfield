@@ -16,7 +16,6 @@ import {
 	uploadKeyOf,
 } from "./kit.ts";
 
-/** The 15 minutes a staged upload stays open for its bytes and its finalize. */
 const STAGING_MINUTES = 15;
 
 const SCALARS = [
@@ -28,7 +27,6 @@ const SCALARS = [
 ] as const;
 const col = (name: string) => sql.identifier(name);
 
-/** The statement result `{ ok, current_revision, row }` every kit write reads. */
 const resultRow = z.object({
 	ok: z.boolean().nullable(),
 	current_revision: z.union([z.string(), z.number()]).nullable(),
@@ -39,19 +37,15 @@ async function run(db: Database, query: SQL) {
 	return resultRow.parse(rows[0]);
 }
 
-/** The gate: the live Owner or Admin seat, checked inside the statement that writes. */
 const gate = (scope: Scope) => sql`gate AS (SELECT ${scope.admin} AS ok)`;
-/** The kit as it was when the statement started. Absent for a church plant with no kit. */
 const current = (scope: Scope) =>
 	sql`cur AS (SELECT k.* FROM church_brand_kit k, gate WHERE gate.ok AND k.tenant_id = ${scope.plantId}::uuid)`;
-/** The cleanup job of a file the kit no longer holds. The worker deletes only unreferenced files. */
 const releaseJobs = (scope: Scope, files: SQL, from: SQL) => sql`rel AS (
 	INSERT INTO job(tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts, claim_generation)
 	SELECT ${scope.plantId}::uuid, 'object_cleanup', v.id, 'brand-asset-release/' || v.id::text, 'ready', clock_timestamp(), 0, 4, 0
 	FROM ${from}, LATERAL (VALUES ${files}) v(id)
 	WHERE v.id IS NOT NULL
 	ON CONFLICT DO NOTHING)`;
-/** One audit row in the statement, with the changed fields and their before and after values (D70). */
 const audit = (scope: Scope, changed: SQL, kind: "edit" | "remove") => sql`aud AS (
 	INSERT INTO audit_event(tenant_id, actor_id, action, kind, subject_id, occurred_at, recorded_at, before_value, after_value, before_revision, after_revision, metadata)
 	SELECT ${scope.plantId}::uuid, ${scope.accountId}::uuid, 'branding.changed', ${kind}, ${scope.plantId}::uuid,
@@ -71,7 +65,6 @@ const audit = (scope: Scope, changed: SQL, kind: "edit" | "remove") => sql`aud A
 const tail = sql`SELECT (SELECT ok FROM gate) AS ok, (SELECT revision::text FROM cur) AS current_revision,
 	(SELECT to_jsonb(c) FROM changed c) AS row`;
 
-/** Lets a specific field refuse with its own code instead of the generic `invalid_input`. */
 function parseSettings(raw: unknown) {
 	const patch = (raw as { patch?: Record<string, unknown> } | null)?.patch;
 	if (patch && typeof patch === "object" && patch.primaryColor === null) deny("primary_required");
@@ -85,7 +78,6 @@ function parseSettings(raw: unknown) {
 }
 
 export const brandWriter = {
-	/** One patch of closed fields, with the expected revision checked in the same statement. */
 	async saveSettings(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -151,7 +143,6 @@ export const brandWriter = {
 			);
 			if (!result.row) {
 				if (result.ok === true && String(result.current_revision ?? "0") === input.expectedRevision) {
-					// The revision is right, so the only other reason is a missing or cleared primary color.
 					deny("primary_required");
 				}
 				if (result.ok !== true) deny("access_denied");
@@ -161,12 +152,10 @@ export const brandWriter = {
 		});
 	},
 
-	/** Stages a pending `brand_asset` file and its orphan cleanup job in one statement (CASE-BRD-002). */
 	async requestUpload(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
 			const rawObject = (raw ?? {}) as Record<string, unknown>;
-			// A missing or blank alt text refuses before anything is stored.
 			if (typeof rawObject.altText !== "string" || !rawObject.altText.trim()) deny("alt_text_required");
 			if (!(c.ASSET_MEDIA_TYPES as readonly unknown[]).includes(rawObject.mediaType)) deny("unsupported_media_type");
 			const input = parse(c.uploadRequest, raw);
@@ -196,7 +185,6 @@ export const brandWriter = {
 		});
 	},
 
-	/** Attaches the ready, unexpired, same-church-plant `brand_asset` file to its slot with its alt text. */
 	async finalizeUpload(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -240,7 +228,6 @@ export const brandWriter = {
 		});
 	},
 
-	/** Deletes the kit row, queues cleanup of every asset file and writes one audit row. */
 	async reset(db: Database, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const scope = scopeOf(authority);
@@ -270,7 +257,6 @@ export const brandWriter = {
 				})
 				.parse(rows[0]);
 			if (row.ok !== true) deny("access_denied");
-			// Reset of a church plant with no kit is already the answer.
 			if (row.deleted === 0 && !(row.current_revision === null && input.expectedRevision === "0")) deny("conflict");
 			return kitFromRow(null);
 		});

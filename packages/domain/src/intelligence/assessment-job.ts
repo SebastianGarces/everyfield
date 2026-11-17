@@ -21,24 +21,10 @@ import {
 import { captureFacts } from "./facts.ts";
 import { retrieveMethodology, type Retrieved } from "./retrieval.ts";
 
-// The Plant Intelligence assessment job (WP-043). The scheduled tick first queues demand (intelligence.scheduleAssessment)
-// from durable state alone: a plant never assessed or whose newest published assessment is seven days old (one demand
-// per UTC day), an audited write since the newest run's snapshot, or a new reference activation. A lost tick loses
-// nothing, because the next one reads the same state. Then it runs a bounded batch (intelligence.runAssessmentBatch):
-// each job claim captures one consistent snapshot (facts, phase, passages, activation, as-of) in one transaction and
-// stores it as a pending run before any model call, drafts outside any transaction, and settles the run in one fenced
-// statement. Publication needs the job's current claim, unchanged inputs (the facts' source revision recomputed at the
-// run's as-of) and the same reference activation; otherwise the run is superseded and a follow-up demand takes its place.
-// A busy provider defers the run to its retry instant, never past its deadline. Nothing here sends a notification.
-
 export const ASSESSMENT_TIMING = {
-	/** A published assessment this old is refreshed. */
 	staleDays: 7,
-	/** A claim lasts this long; every provider dispatch renews it. */
 	leaseMs: 5 * 60_000,
-	/** A run gives up this long after its capture. */
 	deadlineMs: 60 * 60_000,
-	/** The least wait after each busy reply in a draft, before any Retry-After. */
 	backoffMs: [30_000, 60_000, 120_000, 240_000],
 } as const;
 
@@ -84,13 +70,11 @@ const counters = (p: DraftProgress) => sql`drafts=${json(p.drafts)},attempts=${p
 
 export function createAssessmentJob(config: { clock?: Clock } = {}) {
 	const nowMs = () => (config.clock ? Date.parse(config.clock.now()) : Date.now());
-	/** The job's "now" and "now plus": the test clock when one is set, else the database's own clock. */
 	const now = () => (config.clock ? sql`${config.clock.now()}::timestamptz` : sql`clock_timestamp()`);
 	const later = (ms: number) =>
 		config.clock
 			? sql`${new Date(nowMs() + ms).toISOString()}::timestamptz`
 			: sql`clock_timestamp()+make_interval(secs=>${ms / 1000})`;
-	/** The job row, locked, only while this claim is current: every write of a run goes through it. */
 	const lock = (j: Claim) => sql`lk AS (SELECT j.id FROM job j WHERE j.id=${j.id}::uuid AND j.kind='assessment'
 	AND j.state='claimed' AND j.claim_generation=${j.generation}::bigint AND j.lease_owner=${j.owner}
 	AND j.lease_until>${now()} FOR UPDATE)`;
@@ -102,7 +86,6 @@ export function createAssessmentJob(config: { clock?: Clock } = {}) {
 		jsonb_build_object('runId',r.id,'outcome',r.outcome,'reason',r.reason,'demand',r.demand,'grounding',r.grounding,
 			'drafts',jsonb_array_length(r.drafts),'model',r.model) FROM r RETURNING 1)`;
 
-	/** Claims the next due assessment job, taking over one whose lease expired. One statement, with its run if any. */
 	async function claim(db: Database): Promise<Claim | null> {
 		const owner = randomUUID();
 		const { rows } = await db.execute(sql`WITH due AS (SELECT j.id FROM job j WHERE j.kind='assessment' AND (
@@ -124,18 +107,11 @@ FROM up`);
 		return rows[0] ? { ...claimRow.parse(rows[0]), owner } : null;
 	}
 
-	/** Ends a claim with no run to settle (the demand needed none, or the plant is gone). One statement. */
 	async function close(db: Pick<Database, "execute">, j: Claim, state: "succeeded" | "cancelled", code: string) {
 		await db.execute(sql`WITH ${lock(j)}, r AS (SELECT 1),
 ${finish(state, code)} SELECT 1`);
 	}
 
-	/**
-	 * Captures the snapshot and stores it as the job's pending run, in one repeatable-read transaction: the facts at one
-	 * as-of instant, the phase, passages and reference activation all from one database snapshot. A change or reference
-	 * demand whose snapshot matches the newest run's needs no run (an unrelated field, a no-op). Guidance that can't be
-	 * read stores the run as degraded with no model input.
-	 */
 	async function capture(db: Database, j: Claim, model: string): Promise<Run | "none"> {
 		const runId = randomUUID();
 		const demand = demandOf(j.key);
@@ -151,7 +127,6 @@ ${finish(state, code)} SELECT 1`);
 				try {
 					retrieved = await tx.transaction((t) => retrieveMethodology(t, j.plant));
 				} catch (error) {
-					// The savepoint rolls back and keeps the facts: the run is degraded, never ungrounded.
 					const code = pgCode(error);
 					if (code !== "55P03" && code !== "57014") throw error;
 					retrieved = { status: "unavailable", phase: null };
@@ -206,7 +181,6 @@ SELECT EXISTS(SELECT FROM r) AS ok`);
 			{ isolationLevel: "repeatable read" },
 		);
 	}
-	/** Stores a reservation's counters before its dispatch and renews the claim, only while it is current. */
 	async function reserve(db: Database, j: Claim, run: Run, p: DraftProgress) {
 		const { rows } = await db.execute(sql`WITH ${lock(j)},
 r AS (UPDATE assessment_run SET outcome='pending',retry_at=NULL,${counters(p)}
@@ -217,11 +191,6 @@ SELECT EXISTS(SELECT FROM r) AS ok`);
 		return z.object({ ok: z.boolean() }).parse(rows[0]).ok;
 	}
 
-	/**
-	 * Settles a run that will not publish: failed (with the final draft's violations in its drafts), deferred until
-	 * `retryAt`, or superseded with a follow-up demand when `followup`. One fenced statement with its audit row; a
-	 * deferral writes none, since the run is not settled.
-	 */
 	async function settleRun(
 		db: Database,
 		j: Claim,
@@ -251,12 +220,6 @@ ${jobEnd}${deferred ? sql`` : sql`, ${audit}`}${followup}
 SELECT 1`);
 	}
 
-	/**
-	 * intelligence.publishAssessment: the result, its insights, the delta from the previous published assessment, its
-	 * audit row and the job's end, in one statement, only while the claim is current, the reference activation is the
-	 * run's and the plant is not hidden. The caller has already found the inputs unchanged. Answers whether it
-	 * published, and whether the reference moved.
-	 */
 	async function publish(db: Database, j: Claim, run: Run, p: DraftProgress, draft: c.DraftOutput) {
 		const prior = sql`(SELECT q.id,q.as_of,q.model_input FROM assessment_run q WHERE q.plant_id=${run.plant}::uuid
 	AND q.outcome='published' ORDER BY q.available_at DESC,q.id DESC LIMIT 1)`;
@@ -290,13 +253,11 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 			.parse(rows[0]);
 	}
 
-	/** intelligence.executeDemand: one claimed job, from capture or a stored run to its settled outcome. */
 	async function execute(db: Database, drafter: Drafter, j: Claim) {
 		let run: Run;
 		let from: DraftProgress = NO_PROGRESS;
 		if (j.run) {
 			if (j.run.outcome !== "pending" && j.run.outcome !== "deferred") return close(db, j, "succeeded", "settled");
-			// A retry or a replacement worker resumes the exact stored snapshot within the same budget.
 			run = {
 				id: j.run.id,
 				plant: j.plant,
@@ -334,7 +295,6 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 			case "model_unavailable":
 				return settleRun(db, j, run, p, "failed", drafted.reason);
 		}
-		// Publication needs the inputs as captured: the facts' source revision recomputed at the run's own as-of.
 		const current = await captureFacts(db, run.plant, run.asOf);
 		if (!current || current.sourceRevision !== run.revision)
 			return settleRun(db, j, run, p, "superseded", "changed_input", { followup: !!current });
@@ -345,7 +305,6 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 			console.error(JSON.stringify({ component: "assessment", outcome: "persistence", code: pgCode(error) ?? null }));
 			return settleRun(db, j, run, p, "failed", "persistence");
 		}
-		// A moved reference leaves newer work eligible; a hidden plant gets no more work.
 		if (!outcome.published && outcome.claimed)
 			return settleRun(db, j, run, p, "superseded", outcome.reference ? "changed_input" : "changed_reference", {
 				followup: outcome.visible,
@@ -353,12 +312,6 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 	}
 
 	return {
-		/**
-		 * intelligence.scheduleAssessment (with intelligence.selectAssessmentCandidates): queues at most `limit` demands
-		 * from durable state, at most one open job per plant. A plant held after three failed scheduled runs gets time
-		 * demand again only seven days after its newest run; a changed input or reference always queues. A hidden plant
-		 * gets none. One statement; answers how many it queued.
-		 */
 		async scheduleAssessments(db: Pick<Database, "execute">, limit = 25) {
 			z.int().min(1).max(500).parse(limit);
 			const t = now();
@@ -392,11 +345,6 @@ SELECT count(*)::int AS n FROM ins`);
 			return z.object({ n: z.int() }).parse(rows[0]).n;
 		},
 
-		/**
-		 * intelligence.executeDemand for the next due job: claims one (taking over an expired lease) and runs it to its
-		 * settled outcome. Answers false when nothing was due. A failure leaves the run's stored progress for a later
-		 * claim within its deadline.
-		 */
 		async runNext(db: Database, drafter: Drafter) {
 			const j = await claim(db);
 			if (!j) return false;
@@ -411,10 +359,6 @@ SELECT count(*)::int AS n FROM ins`);
 }
 export type AssessmentJob = ReturnType<typeof createAssessmentJob>;
 
-/**
- * intelligence.runAssessmentBatch: runs up to `limit` due jobs one at a time, starting none after `until` (epoch ms).
- * Answers how many it ran.
- */
 export async function runAssessmentBatch(
 	job: AssessmentJob,
 	db: Database,

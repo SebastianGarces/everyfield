@@ -31,7 +31,6 @@ const actors = [
 ];
 let foreignMeeting;
 const sha = (text) => createHash("sha256").update(text).digest("hex");
-/** A native body of one paragraph per line, as the editor saves it. */
 const doc = (text) => nativeFromText(text);
 
 class MemoryClient extends S3Client {
@@ -100,7 +99,6 @@ const { storedZip } = W;
 const paragraph = (text) =>
 	`<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${text}</w:t></w:r></w:p></w:body></w:document>`;
 const docx = (text, extra = []) => storedZip([{ name: "word/document.xml", data: paragraph(text) }, ...extra]);
-/** A Word file whose one entry's header declares `declared` bytes while its deflate stream inflates to `inflated`. */
 function lyingZip(declared, inflated) {
 	const name = Buffer.from("word/document.xml");
 	const data = zlib.deflateRawSync(Buffer.alloc(inflated));
@@ -240,7 +238,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			assert.equal(await countOf("file_object", `WHERE upload_key = 'generated:${P}:make-${format}'`), 1);
 			saved[format] = { made, stored };
 		}
-		// No template offers Word now; the old request is refused with the existing message.
 		const refusal = refusedPrivate(
 			await documentsWriter.generate(
 				db,
@@ -251,7 +248,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			"invalid_input",
 		);
 		assert.equal(refusal.details.issues[0].problem, "Format is not on this template.");
-		// A DOCX record saved before the Forme renderer keeps its exact bytes and its old renderer version.
 		const legacyBytes = docx("Saved by the hand-written writer");
 		const legacyFile = randomUUID();
 		const legacyKey = `private/${P}/${randomUUID()}`;
@@ -392,7 +388,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		const signed = ok(await documentsWriter.download(db, owner, { documentId: saved.pdf.made.id }, storage));
 		assert.equal(signed.expiresInSeconds, 300);
 		assert.equal(signed.url.includes(saved.pdf.stored.opaque_key), true);
-		// The link expires 300 s after the signing date it carries, read back from the URL, not from the wall clock.
 		const query = new URL(signed.url).searchParams;
 		assert.equal(query.get("X-Amz-Expires"), "300");
 		const signedAt = Date.parse(
@@ -416,7 +411,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.ok(preview.digest, "the preview renders from the meeting");
 		const dated = preview.fields.find((field) => field.key === "meeting_date");
 		assert.equal(dated.source, "meeting");
-		// The same template with the meeting's date typed in, but no meeting, prints no meeting rows: other bytes.
 		const unbound = ok(
 			await documentsReader.preview(db, owner, {
 				templateId: "vision-meeting-agenda",
@@ -431,7 +425,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		const stored = await fileKey(made.id);
 		assert.equal(sha(client.objects.get(stored.opaque_key)), preview.digest);
 		assert.deepEqual(client.objects.get(stored.opaque_key), Buffer.from(preview.artifact, "base64"));
-		// A meeting of another kind is no subject for this agenda, as in the preview.
 		const other = randomUUID();
 		await admin.execute(
 			sql`INSERT INTO meeting(id,plant_id,type,title,local_date,local_time,timezone,starts_at,resolver_version,status,attendance_revision)
@@ -794,7 +787,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 	test("AC:CASE-DOC-016 a Word entry that declares 10 bytes and inflates past 40 MiB is refused without inflating past its declared size", async () => {
 		const owner = await authority(2);
 		const bytes = lyingZip(10, 100 * 1024 * 1024);
-		// Every inflate the import runs is watched for how much output it may make.
 		const real = zlib.inflateRawSync;
 		const limits = [];
 		zlib.inflateRawSync = (input, options) => {
@@ -850,7 +842,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		const revisions = () => countOf("document_revision", `WHERE tenant_id = '${P}'`);
 		const audits = () => countOf("audit_event", `WHERE tenant_id = '${P}' AND action LIKE 'documents.%'`);
 
-		// Criterion 5: the stored row is the body node; any other shape, an unsafe link or a block outside the set writes nothing.
 		const saved = ok(
 			await documentsWriter.saveNative(db, owner, { title: "Values draft", body, expectedRevision: "0" }),
 		);
@@ -896,7 +887,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 				"invalid_input",
 			);
 		}
-		// The stored kind decides: a plain save on a Church Document, or a Church Document save on a plain one, writes nothing.
 		refusedPrivate(
 			await documentsWriter.saveNative(db, owner, {
 				title: "Policy",
@@ -919,7 +909,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.equal(await audits(), beforeAudits);
 		assert.deepEqual(JSON.parse((await currentOf(saved.id)).body), body);
 
-		// Criterion 1: the page read returns the plain document of the current owner, and nothing for anyone else.
 		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: saved.id })).body, body);
 		refusedPrivate(await documentsWriter.read(db, owner, { documentId: randomUUID() }), "unavailable");
 		refusedPrivate(await documentsWriter.read(db, owner, { documentId: church.id }), "unavailable");
@@ -929,7 +918,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		refusedPrivate(await documentsWriter.read(db, await authority(1), { documentId: saved.id }), "unavailable");
 		await restoreSeat(actors[1].id);
 
-		// Criterion 6: a text revision saved before this change opens as its lines, and a save adds the body after it.
 		const old = randomUUID();
 		const oldRevision = randomUUID();
 		const oldText = "First line\nSecond line\n\nFourth line";
@@ -968,7 +956,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.deepEqual(JSON.parse(rows[1].body), opened.body);
 		assert.equal(resaved.textRevision, false);
 
-		// Criterion 7: an imported file lands as paragraphs and saves as a body; a refused one leaves the document as it was.
 		const imported = ok(
 			await documentsWriter.importTextOrWord(
 				db,
@@ -988,7 +975,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			type: "doc",
 			content: [para(text("One")), para(text("Two"))],
 		});
-		// A Word file's paragraphs land as paragraphs too, one for each, not run together into one line.
 		const words =
 			'<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
 			"<w:p><w:r><w:t>Greeters welcome</w:t></w:r><w:r><w:t> every guest</w:t></w:r></w:p><w:p><w:r><w:t>Kids team</w:t></w:r></w:p>" +
@@ -1029,7 +1015,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		);
 		assert.equal((await currentOf(old)).revision, imported.revision);
 
-		// Criterion 8: the core-values evidence is the body's plain text in reading order; a body of empty blocks never qualifies.
 		const designated = ok(
 			await documentsWriter.designateCoreValues(db, owner, { documentId: saved.id, expectedRevision: saved.revision }),
 		);
@@ -1055,7 +1040,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		);
 		assert.equal((await currentOf(blank.id)).kind, "native");
 
-		// Criterion 9: archive takes the document out of the list and the evidence; its revisions stay stored.
 		ok(await documentsWriter.archive(db, owner, { documentId: saved.id, expectedRevision: designated.revision }));
 		assert.equal(
 			ok(await documentsWriter.listOwned(db, owner, {})).documents.some((item) => item.id === saved.id),
@@ -1064,7 +1048,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.deepEqual(ok(await documentsWriter.readCoreValuesEvidence(db, owner, {})), { documentId: null, text: null });
 		assert.equal(await countOf("document_revision", `WHERE document_id = '${saved.id}'`), 1);
 
-		// Criteria 11 and 12: the picker lists the Owner's own live account documents with text, and one key makes one copy.
 		await endSeat(actors[2].id);
 		const mine = await authority(2);
 		const source = ok(
@@ -1145,7 +1128,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.equal(await churchDocs(), docsBefore + 1);
 		assert.equal(await copies(), copiesBefore + 1);
 
-		// A later edit of the original does not reach the copy, and the original stays in your documents.
 		await endSeat(actors[2].id);
 		ok(
 			await documentsWriter.saveNative(db, await authority(2), {
@@ -1190,7 +1172,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			return body;
 		};
 
-		// Criterion 1: headings by style name (any style id, or a style based on one) or by outline level.
 		const headingStyles = W.styles(
 			W.style("Normal", "Normal"),
 			W.style("Heading1", "heading 1"),
@@ -1239,7 +1220,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			},
 		);
 
-		// Criteria 2 to 4: bulleted and numbered runs, the breaks between lists, nested levels and a list item's line break.
 		const listParts = {
 			styles: W.styles(
 				W.style("ListBullet", "List Bullet", '<w:pPr><w:numPr><w:numId w:val="1"/></w:numPr></w:pPr>'),
@@ -1311,7 +1291,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			{ type: "doc", content: [ordered(...many.slice(0, 200)), ordered(...many.slice(200))] },
 		);
 
-		// Criterion 5: links to safe addresses keep their exact address; every other target stays plain text.
 		const linkRels = W.rels(
 			["rId1", "https://example.org/give?fund=1&amp;week=2"],
 			["rId2", "mailto:team@example.org"],
@@ -1358,9 +1337,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		for (const target of ["file:///etc/passwd", "../../outside.docx"])
 			refusedPrivate(await importWord(hyperlinkTo(target)), "invalid_input");
 
-		// documents/doc-11: a part target resolves from its own part's folder, so the `../docProps/meta.xml` that
-		// macOS textutil writes stays inside the package and imports; a tab reads as a space and character references
-		// decode, named ones as before.
 		assert.deepEqual(
 			await stored(
 				await importWord(
@@ -1376,7 +1352,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			`<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml" Target="${target}"/>`;
 		for (const target of ["/docProps/meta.xml", "./theme/../../docProps/meta.xml"])
 			ok(await importWord(W.textutilWord(["<w:t>Inside</w:t>"], partRel(target))));
-		// A target that climbs out of the package is still refused, self-closed or not.
 		for (const rel of [
 			partRel("../../outside.xml"),
 			partRel("theme/../../../outside.xml"),
@@ -1384,8 +1359,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		])
 			refusedPrivate(await importWord(W.textutilWord(["<w:t>Outside</w:t>"], rel)), "invalid_input");
 
-		// Criterion 6: text boxes stay paragraphs in reading order and the drawing's fallback copy is not repeated; a table
-		// is a native table (T-111), its cells one line of plain text.
 		const mixed = ok(
 			await importWord(
 				W.word(
@@ -1436,8 +1409,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			"Plan\nCell heading | Cell item\nBefore box \nInside box\nafter box\n\nTom & Ann <3",
 		);
 
-		// Criterion 7: one structured revision and one audit row; the same key replays it; a body past a format limit
-		// writes nothing.
 		const key = randomUUID();
 		const bytes = W.word(
 			W.styled("Heading1", "Values") + W.numbered("1", "Pray first") + W.numbered("1", "Go together"),
@@ -1461,7 +1432,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.match(JSON.stringify(tooLarge), /too large/);
 		assert.deepEqual(await rows(), before);
 
-		// Criterion 9: the core-values evidence of a structured import is its plain text lines in reading order.
 		ok(
 			await documentsWriter.designateCoreValues(db, owner, { documentId: first.id, expectedRevision: first.revision }),
 		);
@@ -1470,8 +1440,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			"Values\nPray first\nGo together",
 		);
 
-		// Criterion 10: no styles or numbering part, or a malformed one, leaves plain paragraphs; an unclosed paragraph keeps
-		// its text.
 		const structured = W.styled("Heading1", "Title") + W.numbered("1", "Item");
 		const plain = { type: "doc", content: [para(text("Title")), para(text("Item"))] };
 		assert.deepEqual(await stored(await importWord(W.word(structured))), plain);
@@ -1553,13 +1521,11 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		const revisions = () => countOf("document_revision", `WHERE tenant_id = '${P}'`);
 		const audits = () => countOf("audit_event", `WHERE tenant_id = '${P}' AND action LIKE 'documents.%'`);
 
-		// Criterion 7: the plain table set saves as the stored body node and reads back the same, for a Member too.
 		const saved = ok(await documentsWriter.saveNative(db, owner, { title: "Setup", body, expectedRevision: "0" }));
 		assert.deepEqual(JSON.parse((await currentOf(saved.id)).body), body);
 		assert.deepEqual(ok(await documentsWriter.read(db, owner, { documentId: saved.id })).body, body);
 		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: saved.id })).body, body);
 
-		// Each part a plain table refuses: nothing is written, on a new document or a save of this one.
 		const changed = (change) => {
 			const next = structuredClone(body);
 			change(next.content[1]);
@@ -1600,7 +1566,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.equal(await audits(), beforeAudits);
 		assert.deepEqual(JSON.parse((await currentOf(saved.id)).body), body);
 
-		// Criterion 9: the evidence writes each table as its lines, header labels first, in reading order with the prose.
 		ok(
 			await documentsWriter.designateCoreValues(db, owner, { documentId: saved.id, expectedRevision: saved.revision }),
 		);
@@ -1619,7 +1584,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			].join("\n"),
 		);
 
-		// A body whose only content is an empty table, or a table of empty cells, never qualifies: no save, no core values.
 		const emptyRows = { type: "row", content: grid.attrs.columns.map(() => cell()) };
 		const emptyBodies = [
 			{ type: "doc", content: [{ ...grid, content: [] }] },
@@ -1647,7 +1611,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			"unavailable",
 		);
 
-		// Criterion 10: Use for this church copies the tables intact, and a later table edit of the original leaves the copy.
 		await endSeat(actors[2].id);
 		const source = ok(
 			await documentsWriter.saveNative(db, await authority(2), { title: "Setup tables", body, expectedRevision: "0" }),
@@ -1684,7 +1647,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		});
 		const para = (...content) => ({ type: "paragraph", ...(content.length ? { content } : {}) });
 		const cellOf = (...content) => ({ type: "cell", ...(content.length ? { content } : {}) });
-		/** A typed row: a string is a cell of that text, an array a cell of those nodes, "" an empty cell. */
 		const typed = (...cells) => ({
 			type: "row",
 			content: cells.map((value) => (Array.isArray(value) ? cellOf(...value) : value ? cellOf(text(value)) : cellOf())),
@@ -1703,7 +1665,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 				{ title: "Word table", format: "docx", bytes, expectedRevision: "0", requestKey: randomUUID() },
 				storage,
 			);
-		/** The saved body of an import, checked equal to the result and to what nativeBody accepts. */
 		const stored = async (result) => {
 			const value = ok(result);
 			const body = JSON.parse((await currentOf(value.id)).body);
@@ -1715,7 +1676,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		const imported = async (body, parts) => stored(await importWord(admin2, W.word(body, parts)));
 		const { table, row, headerRow, cell } = W;
 
-		// Criterion 1: prose, a 3-column table with a header row, prose; in a church plant seat and in account context.
 		const roster = W.table(
 			[
 				headerRow([cell("Name"), cell("Role"), cell("Day")]),
@@ -1741,7 +1701,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 		assert.deepEqual(await stored(accountResult), rosterBody);
 		assert.equal(ok(accountResult).tenantId, actors[4].id);
 
-		// Criterion 6: a Member reads the imported table, and core values write it as T-100 ruling (d).
 		assert.deepEqual(ok(await documentsWriter.read(db, member, { documentId: inPlant.id })).body, rosterBody);
 		ok(
 			await documentsWriter.designateCoreValues(db, admin2, {
@@ -1754,7 +1713,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			"Our team\nName | Role | Day\nAda | Pastor | Sunday\nBen | Music | Friday\nThank you",
 		);
 
-		// Criterion 2: Word's header row, by its on/off values; the table style's first-row flag alone is not one.
 		const twoRows = (first, props = "") =>
 			W.p("Prose") + table([first([cell("Item"), cell("Count")]), row([cell("Chairs"), cell("40")])], props);
 		const withHeader = {
@@ -1791,7 +1749,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			{ type: "doc", content: [tableOf([fits, "Count"], true, [typed("Marked", "again"), typed("Chairs", "40")])] },
 		);
 
-		// Criterion 3: each cell is one line; merges leave their spanned cells empty; a nested table joins its cell.
 		const cellParts = {
 			styles: W.styles(W.style("Heading1", "heading 1")),
 			numbering: W.numbering(["1", ["bullet"]]),
@@ -1835,8 +1792,6 @@ describe("AC:CASE-DOC-003 AC:CASE-DOC-016 api generated files and owned document
 			},
 		);
 
-		// Criterion 4: past 16 columns the table stays paragraphs; past 1000 rows it continues; an empty table stays a
-		// table; a table in a text box stays paragraphs.
 		const wide = Array.from({ length: 17 }, (_, i) => `A${i + 1}`);
 		assert.deepEqual(await imported(W.p("Wide") + table([row(wide.map((value) => cell(value)))])), {
 			type: "doc",

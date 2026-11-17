@@ -36,7 +36,6 @@ const require = createRequire(new URL("../../../packages/db/package.json", impor
 
 const appRequire = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 const { S3Client } = require("@aws-sdk/client-s3");
-// The suite applies the migrations itself and checks what each run applied.
 const database = await testDatabase({
 	prefix: "wp004_test",
 	roles: { runtime: ["runtime"], auth: ["auth"] },
@@ -94,8 +93,6 @@ before(async () => {
 after(database.close);
 
 test("BUG-96eb2fd80: a valid PDF passes when the parse worker starts late; a parse past its limit still fails", async () => {
-	// The worker's parser import is held open while the mocked clock runs 3.5 s, longer than the 3-second parse limit,
-	// as on a loaded runner or a cold start. Each worker's import says when it is loading and waits for the test's go.
 	const parser = pathToFileURL(require.resolve("pdfjs-dist/legacy/build/pdf.mjs")).href;
 	const gate = "bug176-" + randomUUID();
 	const slowStart = `const c = new BroadcastChannel(${JSON.stringify(gate)}); c.postMessage("loading");
@@ -116,7 +113,6 @@ export * from ${JSON.stringify(parser)};`;
 		mock.timers.reset();
 		channel.close();
 	}
-	// A parse that never ends fails at its limit; the warm worker is replaced and the next file still parses.
 	const endless = `export const getDocument = () => ({ promise: new Promise(() => {}), destroy: async () => {} });`;
 	await assert.rejects(
 		validateCommitment(pdf(), "application/pdf", {
@@ -135,10 +131,8 @@ test("INV-storage: only a Vercel production deployment may use the production bu
 		AWS_ENDPOINT_URL_S3: "https://storage.example.test",
 	};
 	const bucket = (env) => privateStorageFrom({ ...keys, ...env })?.bucket ?? null;
-	// A local preview is a production build: NODE_ENV=production alone is not production.
 	for (const env of [{}, { NODE_ENV: "production" }, { VERCEL_ENV: "preview" }])
 		assert.throws(() => bucket({ ...env, AWS_BUCKET_NAME: "everyfield" }), /production only/);
-	// Incomplete settings with the production bucket are refused too, not read as "no bucket".
 	assert.throws(
 		() => privateStorageFrom({ AWS_BUCKET_NAME: "everyfield", AWS_ENDPOINT_URL_S3: "" }),
 		/production only/,
@@ -245,7 +239,6 @@ test("INV-migration: two branches' migrations apply by name in either merge orde
 	const main = (await migrationArtifact()).map(({ name }) => name);
 	for (const name of main)
 		await copyFile(new URL("../../../packages/db/migrations/" + name, import.meta.url), new URL(name, migrations));
-	// Both branches generated their migration on the same main. A has the earlier timestamp but may merge second.
 	const a = { name: "20261022150000_branch_a.sql", sql: "CREATE TABLE branch_a_probe(id integer NOT NULL)" };
 	const b = { name: "20261022160000_branch_b.sql", sql: "CREATE TABLE branch_b_probe(id integer NOT NULL)" };
 	const schemas = [];
@@ -268,7 +261,6 @@ test("INV-migration: two branches' migrations apply by name in either merge orde
 		]) {
 			const upgraded = await schema();
 			await writeFile(new URL(first.name, migrations), first.sql);
-			// D78 applies by file name. A committed migration may sort between these branch names.
 			assert.deepEqual(await migrate(admin, upgraded, migrations), [...main, first.name].sort());
 			await writeFile(new URL(second.name, migrations), second.sql);
 			assert.deepEqual(await migrate(admin, upgraded, migrations), [second.name]);
@@ -348,7 +340,6 @@ test("INV-backfill (C102): db:migrate's backfills run once each; a failure recor
 		name,
 		async run(tx) {
 			runs.push(name);
-			// Two batches; the first run of the first step fails after its first batch.
 			await tx.execute(querySql`INSERT INTO backfill_probe VALUES(${name},1)`);
 			if (name === "probe_one" && failAfterFirstBatch) {
 				failAfterFirstBatch = false;
@@ -366,13 +357,11 @@ test("INV-backfill (C102): db:migrate's backfills run once each; a failure recor
 	const probe = async () => (await admin.execute(querySql`SELECT count(*)::int n FROM backfill_probe`)).rows[0].n;
 	try {
 		await assert.rejects(backfill(admin, [step("probe_one"), step("probe_two")], schema), /probe failure/);
-		// The failed backfill left no ledger name and no rows; the next one never started.
 		assert.deepEqual([await names(), await probe(), runs], [[], 0, ["probe_one"]]);
 		assert.deepEqual(await backfill(admin, [step("probe_one"), step("probe_two")], schema), [
 			{ name: "probe_one", changed: 2 },
 			{ name: "probe_two", changed: 2 },
 		]);
-		// A rerun skips both; a new name runs once.
 		assert.deepEqual(await backfill(admin, [step("probe_one"), step("probe_two"), step("probe_three")], schema), [
 			{ name: "probe_three", changed: 2 },
 		]);
@@ -546,7 +535,6 @@ test("AC:AUDIT-003 INV-audit: exact UTF-8 limit for audit changed fields", async
 	const x = await doc(p);
 	const sql =
 		"INSERT INTO audit_event(tenant_id,subject_id,kind,occurred_at,recorded_at,system_cause,event_key,action,metadata) VALUES($1,$2,'edit',now(),now(),'synthetic',$3,'documents.saved',jsonb_build_object('diff',$4::jsonb))";
-	// JSONB text adds 9 bytes for this key/value shape.
 	const size = (n) => JSON.stringify({ x: "a".repeat(n - 9) });
 	await runtime.execute(statement(sql, [p, x, "boundary", size(2048)]));
 	assert.equal(
@@ -695,7 +683,6 @@ test("INV-storage: server-owned key, current authorization, five-minute signing 
 		"INSERT INTO document_revision(tenant_id,document_id,version_number,body,content_hash,import_object_id,recorded_at) VALUES($1,$2,2,'late bind',$3,$4,now())",
 		[p, d, hash, uploaded.id],
 	);
-	// Provider failure remains truthful and retryable with the same key.
 	const retryInput = {
 		tenantId: p,
 		purpose: "commitment",

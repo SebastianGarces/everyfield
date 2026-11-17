@@ -9,7 +9,6 @@ import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 
-// WP-023 F07b criterion 1: the migration that turns the single task assignee into a set keeps every assignment.
 const NEW = "task_assignees.sql";
 const database = await testDatabase({ prefix: "wp023_test", roles: {}, migrate: false, max: 2 });
 const { admin, schema } = database;
@@ -63,20 +62,17 @@ test("AC:TARGET-TSK-002 each task keeps its single assignee after the migration,
 		expected.map(([id, assignee]) => [id, assignee, plant]),
 		"every non-null assignee is one row; the unassigned task has none",
 	);
-	// No task or obligation column keeps a second stored owner.
 	const columns = (
 		await run(
 			querySql`SELECT table_name FROM information_schema.columns WHERE table_schema=${schema} AND column_name='assignee_id'`,
 		)
 	).rows;
 	assert.deepEqual(columns, []);
-	// A task holds an account once.
 	const [anyTask, assignee] = expected[0]!;
 	await assert.rejects(
 		run(querySql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${plant},${anyTask},${assignee})`),
 		(e: { cause?: { code?: string } }) => e.cause?.code === "23505",
 	);
-	// The app logins hold the same privileges as on task.
 	const grants = async (table: string) =>
 		(
 			await run(

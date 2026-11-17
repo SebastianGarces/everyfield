@@ -1,5 +1,3 @@
-// The Overview reads of INV-tenancy (tenancy.test.mts), and the internal pipeline count (PPL-023). Church A's owner
-// dismisses a prompt, so its prompt state has something of its own to show.
 import assert from "node:assert/strict";
 import { dashboardReader, dashboardWriter } from "../../../packages/domain/src/dashboard/index.ts";
 import { readPipelineMetrics } from "../../../packages/domain/src/people/index.ts";
@@ -15,7 +13,6 @@ export function dashboardCases(t, who) {
 	const db = t.f.db;
 	const r = (name, run, expected) => [`dashboard:dashboardReader.${name}`, { run, expected }];
 	return [
-		// Each answers from the caller's own seat: church B's owner sees church B's empty dashboard.
 		r("resolveHome", () => plain(() => dashboardReader.resolveHome(db, who.actor)), {
 			check: (v) => assert.ok(v === "complete" || v === "incomplete"),
 			control: (v) => assert.ok(v === "complete" || v === "incomplete"),
@@ -36,7 +33,6 @@ export function dashboardCases(t, who) {
 			check: (v) => assert.equal(v.recruited + v.myOverdueTasks + v.visionMeetings, 0),
 			control: (v) => assert.ok(v.people > 0),
 		}),
-		// Church A's own owner sees church A's people in the feed: the default control.
 		r("readActivity", () => dashboardReader.readActivity(db, who.actor), {
 			check: (v) => assert.ok(v.entries.every((e) => e.change.kind !== "person_added")),
 		}),

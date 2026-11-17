@@ -11,26 +11,10 @@ import { GLOBAL } from "../wiki/core.ts";
 import { queueResidencyJob } from "./notifications.ts";
 import { activeResidents, answer, one, parse, refuse, seatOf, write, type Executor, type Writer } from "./seat.ts";
 
-// Development programs (REQ-MUL-010, -011, -012). Every seat of the organization reads its programs and enrollments.
-// An Owner or Admin creates programs and enrolls people; the program's current director edits and publishes the plan,
-// records and confirms an unlinked enrollee's milestones, and writes feedback on hands-on assignments. Feedback is read
-// only by the current director and the organization's Owner and Admins. Each read is one statement with the live
-// access check inside it (C13); each write runs in the organization's write gate (C88, established) with a body-free
-// audit row. A published version never changes: the director's next save starts the next version's draft, and an
-// enrollment keeps the version it was enrolled on until the director reviews and applies a newer one (REQ-MUL-011).
-// A milestone's `lineage` carries it across versions: an enrollment's completions and feedback keep the milestone and
-// version they were recorded on, and every read matches them to the enrollment's plan by lineage.
-
 type Reply<T> = C.ProgramReply<T>;
 
-/** The current Wiki release, whose published global revisions an organization may put on a reading list. */
 const release = sql`(SELECT a.release_id FROM reference_activation a ORDER BY a.activation_number DESC LIMIT 1)`;
 
-/**
- * The reading list of version `v` for organization `org`, each item with the slug its source publishes now, or null:
- * the organization's own version while it is still published, a global article while the current release has it and
- * the organization has not hidden it. The pinned row grants no library access (REQ-MUL-010).
- */
 const readingsJson = (
 	org: string,
 ) => sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',r.id,'revisionId',r.revision_id,
@@ -46,7 +30,6 @@ const readingsJson = (
  FROM development_reading r JOIN article_revision pin ON pin.id=r.revision_id
  WHERE r.version_id=v.id AND r.organization_id=v.organization_id),'[]'::jsonb)`;
 
-/** Version `v` as the contract's programVersion, with dates in `o.timezone`. */
 const versionJson = (org: string) => sql`jsonb_build_object('id',v.id,'number',v.version_number,
  'publishedOn',(v.published_at AT TIME ZONE o.timezone)::date::text,'rhythm',v.rhythm,'expectedMonths',v.expected_months,
  'stages',coalesce((SELECT jsonb_agg(jsonb_build_object('id',s.id,'label',s.label,'minMonths',s.min_months,
@@ -57,21 +40,14 @@ const versionJson = (org: string) => sql`jsonb_build_object('id',v.id,'number',v
    WHERE m.version_id=v.id AND m.organization_id=v.organization_id),'[]'::jsonb),
  'readings',${readingsJson(org)})`;
 
-/** A seat as `{seatId, name}`. */
 const seatJson = (seat: SQL) => sql`(SELECT jsonb_build_object('seatId',rs.id,'name',coalesce(i.display_name,'Staff'))
  FROM seat rs LEFT JOIN LATERAL seat_identity(rs.account_id) i ON true WHERE rs.id=${seat})`;
-/** An account's display name. */
 const nameOf = (account: SQL) => sql`(SELECT i.display_name FROM seat_identity(${account}) i)`;
-/** The organization's current seats, for the director picker. */
 const staffJson = (org: string) => sql`coalesce((SELECT jsonb_agg(jsonb_build_object('seatId',s.id,
  'name',coalesce(i.display_name,'Staff')) ORDER BY lower(coalesce(i.display_name,'')),s.id)
  FROM seat s LEFT JOIN LATERAL seat_identity(s.account_id) i ON true
  WHERE s.organization_id=${org}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()),'[]'::jsonb)`;
 
-/**
- * Whether `seat` may read enrollment `e` of a program directed by `director`: an Owner or Admin, the program's
- * director, or the person's responsible staff. Any other seat reads no enrollment (REQ-MUL-002: named duties only).
- */
 const readsEnrollment = (seat: NonNullable<ReturnType<typeof seatOf>>, director: SQL) =>
 	sql`(${seat.administrator} OR ${director}=${seat.seatId}::uuid OR EXISTS(SELECT FROM pipeline_person rp
  WHERE rp.organization_id=e.organization_id AND rp.person_id=e.person_id AND rp.responsible_seat_id=${seat.seatId}::uuid))`;
@@ -81,10 +57,6 @@ const orgCte = (
 ) => sql`o AS (SELECT o.name,o.timezone,(clock_timestamp() AT TIME ZONE o.timezone)::date AS today
  FROM organization o JOIN g ON g.allowed WHERE o.id=${org}::uuid)`;
 
-/**
- * The Programs tab: every program with its director, status and active enrollments, and Active residents: distinct
- * live people with at least one active enrollment in a residency-kind program (REQ-MUL-007). One statement.
- */
 export async function readPrograms(db: Executor, authority: RequestActor): Promise<Reply<C.ProgramList>> {
 	return answer<C.ProgramList, C.ProgramRefusal>(async () => {
 		const seat = seatOf(authority) ?? refuse();
@@ -123,7 +95,6 @@ FROM g`);
 	});
 }
 
-/** One program: its published version, its draft, the enrollments the viewer may read and, for an Owner or Admin, who can be enrolled. */
 export async function readProgram(
 	db: Executor,
 	authority: RequestActor,
@@ -184,34 +155,19 @@ FROM g`);
 	});
 }
 
-/**
- * The live residency link `lk` of enrollment `x`'s person, with what its resident shares (REQ-MUL-003). No row
- * without a live link: never linked, left, or ended.
- */
 const linkOf = (
 	org: string,
 ) => sql`lk AS (SELECT l.id,l.account_id,l.share_milestones,l.share_foundations FROM residency_link l
  JOIN x ON l.person_id=x.person_id WHERE l.organization_id=${org}::uuid AND ${liveResidency} LIMIT 1)`;
 
-/** How many of the six Discovery foundations account `account` has completed on a published revision (REQ-MUL-014). */
 const foundationsCompleted = (account: SQL) => sql`(SELECT count(DISTINCT r.article_id)::int FROM reading r
  JOIN article_revision v ON v.id=r.completed_revision_id AND v.article_id=r.article_id
  WHERE r.account_id=${account} AND r.article_id=ANY(${sql.param(foundationArticles)}::uuid[]) AND r.completed_at IS NOT NULL
   AND v.published_at IS NOT NULL)`;
 
-/**
- * Whether completion `c` of enrollment `x` shows to the organization: what it recorded itself, and a linked
- * resident's own mark only while that person's live link shares milestone progress (REQ-MUL-003, REQ-MUL-014). Each
- * enrollment's own link decides, so it holds on a read over several enrollments.
- */
 export const orgSees = sql`(c.source='program_leader' OR EXISTS(SELECT FROM residency_link l
  WHERE l.person_id=x.person_id AND l.organization_id=c.organization_id AND ${liveResidency} AND l.share_milestones))`;
 
-/**
- * Milestone `m` for enrollment `x` as the contract's enrollmentMilestone: its completion and feedback on any version,
- * matched by lineage, with dates in `o.timezone`. Feedback is null unless `x.reads_feedback`;
- * a completion shows only as `orgSees`.
- */
 const progressJson = sql`jsonb_build_object('id',m.id,'title',m.title,'description',m.description,'handsOn',m.hands_on,
  'completion',(SELECT jsonb_build_object('completedOn',c.completed_on::text,
    'confirmedOn',(c.confirmed_at AT TIME ZONE o.timezone)::date::text,'recorder',${nameOf(sql`c.recorder_id`)},
@@ -225,15 +181,6 @@ const progressJson = sql`jsonb_build_object('id',m.id,'title',m.title,'descripti
    AND fm.organization_id=f.organization_id WHERE f.enrollment_id=x.id AND f.organization_id=x.organization_id
    AND fm.lineage=m.lineage),'[]'::jsonb) END)`;
 
-/**
- * One enrollment: the person, the program, the version it is on with that version's stages and milestones, each
- * milestone's completion, and the director's feedback for a viewer who may read it: the current director, or an
- * Owner or Admin (REQ-MUL-012). Records on milestones a later version removed are listed as earlier, kept as they
- * were recorded, and a newer published version is named. The person's responsible staff read the rest; feedback
- * reads as null. Any other seat reads it as unavailable, as an enrollment that does not exist. One statement. A linked resident's own marks show only while they share milestone progress, and
- * their foundations only as a count while they share foundations; what the organization recorded itself always shows
- * (REQ-MUL-003, REQ-MUL-014).
- */
 export async function readEnrollment(
 	db: Executor,
 	authority: RequestActor,
@@ -299,10 +246,6 @@ FROM g`);
 	});
 }
 
-/**
- * Wiki articles the organization may put on a reading list whose title matches: its own published versions, then
- * global articles of the current release it has not hidden. At most 20. One statement.
- */
 export async function searchReadings(db: Executor, authority: RequestActor, raw: unknown) {
 	return answer<z.infer<typeof C.readingCandidates>, C.ProgramRefusal>(async () => {
 		const seat = seatOf(authority) ?? refuse();
@@ -327,11 +270,6 @@ SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object('revisionId',t.id
 	});
 }
 
-/**
- * The state a version review shows for enrollment `x` (`id`, `revision`, `version_id`, `current_stage_id`,
- * `current_version_id`): the enrollment, its program's current version and its completions. An apply names it, and
- * any change since refuses the apply (REQ-MUL-011).
- */
 const basisOf = (org: string) => sql`md5(concat_ws('|',x.revision,x.version_id,x.current_stage_id,x.current_version_id,
  (SELECT string_agg(c.id::text,',' ORDER BY c.id) FROM enrollment_milestone c WHERE c.enrollment_id=x.id
   AND c.organization_id=${org}::uuid)))`;
@@ -357,10 +295,6 @@ const reviewRow = z.object({
 	finished: z.array(z.string()),
 });
 
-/**
- * What applying the current version changes for this enrollment, matched by lineage. The stage is preselected to the
- * new version's stage with the same label, else its first stage (D-1272).
- */
 function versionReview(r: z.infer<typeof reviewRow>): C.VersionReview {
 	const finished = new Set(r.finished);
 	const before = new Map(r.from.map((m) => [m.lineage, m]));
@@ -393,10 +327,6 @@ function versionReview(r: z.infer<typeof reviewRow>): C.VersionReview {
 	});
 }
 
-/**
- * The reviews of active enrollments `ids` on an older version than their program's current one, for its current
- * director, each with the person's name, in name order. `programId` keeps them to one program. One statement.
- */
 async function reviewsOf(
 	db: Executor,
 	seat: NonNullable<ReturnType<typeof seatOf>>,
@@ -432,11 +362,6 @@ FROM g`);
 	return row.reviews.map(versionReview);
 }
 
-/**
- * The review the current director reads before applying the program's current published version to an active
- * enrollment on an older one (REQ-MUL-011). Anyone else, or an enrollment with nothing newer, reads nothing.
- * One statement.
- */
 export async function readVersionReview(
 	db: Executor,
 	authority: RequestActor,
@@ -449,11 +374,6 @@ export async function readVersionReview(
 	});
 }
 
-/**
- * The reviews the current director reads before applying the program's current published version to several of its
- * enrollments at once (REQ-MUL-011, D-1329): one per person, as the single review shows it. Every named enrollment
- * must be an active one of this program on an older version, or nothing is read. One statement.
- */
 export async function readVersionReviews(
 	db: Executor,
 	authority: RequestActor,
@@ -470,12 +390,6 @@ export async function readVersionReviews(
 
 type Plan = C.ProgramPlan;
 
-/**
- * The statement that writes a plan into version `version` (inserted when `next` names its number, updated otherwise)
- * and bumps the program, all only when every reading is a published revision of the global
- * library or of this organization. Rows get fresh IDs: a draft's plan is replaced whole, and nothing points at a
- * draft's rows. `program` is the CTE that inserts or locks the program (`id`, `revision`).
- */
 function planStatement(
 	w: Writer,
 	o: {
@@ -540,12 +454,10 @@ SELECT coalesce((SELECT ok FROM ok),false) AS readings,(SELECT revision::text FR
 }
 const planAnswer = z.object({ readings: z.boolean(), revision: z.string().nullable() });
 
-/** A seat that may direct a program: current in this organization. */
 const eligibleDirector = (w: Writer, seat: string) =>
 	sql`EXISTS(SELECT FROM seat s WHERE s.id=${seat}::uuid AND s.organization_id=${w.organization}::uuid
  AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp())`;
 
-/** Creates a program with its first draft: blank, or as the browser filled it from the residency template. */
 function createProgram(db: Database, authority: RequestActor, raw: unknown): Promise<Reply<{ revision: string }>> {
 	return write<{ revision: string }, C.ProgramRefusal>(db, authority, true, async (w) => {
 		const input = parse(C.createProgramRequest, raw);
@@ -567,7 +479,6 @@ function createProgram(db: Database, authority: RequestActor, raw: unknown): Pro
  AND organization_id=${w.organization}::uuid) AS existing,${eligibleDirector(w, input.directorSeatId)} AS director`,
 		);
 		if (row.revision) return { revision: row.revision };
-		// A repeat of a request that already created this program answers with its revision.
 		if (row.existing) return { revision: row.existing };
 		if (!row.director) refuse({ code: "invalid_input", field: "directorSeatId" });
 		if (!row.readings) refuse({ code: "invalid_input", field: "readings" });
@@ -575,10 +486,6 @@ function createProgram(db: Database, authority: RequestActor, raw: unknown): Pro
 	});
 }
 
-/**
- * The program `x`, locked, and its draft `d`, locked, for a director's write. Answers whether the writer directs it,
- * its revision and the draft's ID and number.
- */
 const directed = (
 	w: Writer,
 	programId: string,
@@ -594,11 +501,6 @@ const directedRow = z.object({
 	last: z.number().nullable(),
 });
 
-/**
- * Saves the director's plan into the program's draft, or into a new draft of the next version when the current one is
- * published. The first statement locks the program and its draft and clears the draft's rows when the director holds
- * the expected revision; the second writes the plan.
- */
 function savePlan(db: Database, authority: RequestActor, raw: unknown): Promise<Reply<{ revision: string }>> {
 	return write<{ revision: string }, C.ProgramRefusal>(db, authority, false, async (w) => {
 		const input = parse(C.saveProgramPlanRequest, raw);
@@ -638,7 +540,6 @@ SELECT EXISTS(SELECT FROM x) AS found,coalesce((SELECT director_seat_id=${w.seat
 	});
 }
 
-/** Publishes the draft as the program's current version. The current director only; the draft needs a stage. */
 function publishVersion(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ revision: string; number: number }, C.ProgramRefusal>(db, authority, false, async (w) => {
 		const input = parse(C.publishProgramRequest, raw);
@@ -667,11 +568,6 @@ SELECT EXISTS(SELECT FROM x) AS found,coalesce((SELECT director_seat_id=${w.seat
 	});
 }
 
-/**
- * Enrolls a live pipeline person in the program's current published version at one of its stages. The pipeline stage
- * is untouched (REQ-MUL-011). A second active enrollment in the same program is refused; another program is fine.
- * The next meeting is in the organization's time zone, which the enrollment keeps. Owner or Admin.
- */
 function enroll(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ enrollmentId: string; outcome: "changed" | "noop" }, C.ProgramRefusal>(
 		db,
@@ -725,7 +621,6 @@ SELECT EXISTS(SELECT FROM pr WHERE current_version_id IS NOT NULL) AS published,
 	);
 }
 
-/** The active enrollment `x`, locked, that the writer directs, and milestone `m` of its version. */
 const directedEnrollment = (w: Writer, enrollmentId: string, milestoneId: string) => sql`x AS (SELECT e.id,e.version_id,
  e.person_id,e.revision FROM development_enrollment e JOIN development_program p ON p.id=e.program_id
  AND p.organization_id=e.organization_id WHERE e.id=${enrollmentId}::uuid AND e.organization_id=${w.organization}::uuid
@@ -733,13 +628,6 @@ const directedEnrollment = (w: Writer, enrollmentId: string, milestoneId: string
 m AS (SELECT m.id,m.lineage,m.hands_on FROM development_milestone m JOIN x ON m.version_id=x.version_id
  WHERE m.id=${milestoneId}::uuid AND m.organization_id=${w.organization}::uuid)`;
 
-/**
- * The director records that an unlinked enrollee finished a milestone on a day no later than today, and confirms it
- * in the same step: recorder and confirmer are the director, the source is the program leader (REQ-MUL-012). It is
- * refused while the person has a current resident link. A milestone the person marked while linked is hidden once the
- * link ends, so the director's record replaces it; one the director recorded stays as recorded. Nothing else changes:
- * no stage, no commissioning, no plant.
- */
 function recordMilestone(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
 		const input = parse(C.recordMilestoneRequest, raw);
@@ -759,8 +647,6 @@ linked AS (SELECT FROM residency_link l JOIN x ON l.person_id=x.person_id WHERE 
  AND ${liveResidency}),
 d AS (SELECT ${input.completedOn}::date<=(clock_timestamp() AT TIME ZONE o.timezone)::date AS past FROM organization o
  WHERE o.id=${org}::uuid),
--- The milestone as the organization recorded it on any version, matched by lineage: one carried from an earlier version
--- stays as recorded. A former resident's own mark no longer shows, so it does not count.
 done AS (SELECT FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id
  AND cm.organization_id=c.organization_id JOIN m ON cm.lineage=m.lineage
  WHERE c.enrollment_id=${input.enrollmentId}::uuid AND c.organization_id=${org}::uuid AND c.source='program_leader'),
@@ -780,17 +666,11 @@ SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,coalesc
 		if (!row.found) refuse();
 		if (!row.milestone) refuse({ code: "invalid_input", field: "milestoneId" });
 		if (row.linked) refuse({ code: "linked_resident" });
-		// A milestone already recorded stays as it was recorded.
 		if (row.existing) return { outcome: "noop" as const };
 		return refuse({ code: "invalid_input", field: "completedOn" });
 	});
 }
 
-/**
- * The director confirms a milestone the linked resident marked done (REQ-MUL-012), while the resident shares milestone
- * progress: the confirmer is the director and the confirmation is dated now, and the resident gets a notice (T-365).
- * A confirmed milestone stays as it was.
- */
 function confirmMilestone(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
 		const input = parse(C.confirmMilestoneRequest, raw);
@@ -806,7 +686,6 @@ function confirmMilestone(db: Database, authority: RequestActor, raw: unknown) {
 			}),
 			sql`WITH ${directedEnrollment(w, input.enrollmentId, input.milestoneId)},
 ${linkOf(org)},
--- The resident's mark on this milestone, on any version, matched by lineage.
 r AS (SELECT c.id,c.confirmed_at FROM enrollment_milestone c JOIN development_milestone cm ON cm.id=c.milestone_id
  AND cm.organization_id=c.organization_id JOIN m ON cm.lineage=m.lineage
  WHERE c.enrollment_id=${input.enrollmentId}::uuid AND c.organization_id=${org}::uuid AND c.source='resident'),
@@ -815,7 +694,6 @@ c AS (UPDATE enrollment_milestone c SET confirmer_id=${w.actor}::uuid,confirmed_
   AND coalesce((SELECT share_milestones FROM lk),false) RETURNING c.id),
 a AS (${w.audit({ action: "development.milestone_confirmed", kind: "accept", subjectType: "development_enrollment", subject: sql`x.id`, metadata: { milestoneId: input.milestoneId, source: "resident" } })}
  FROM x,c RETURNING id),
--- The linked resident hears of it (T-365): one notice job for this confirmation and link.
 j AS (${queueResidencyJob(org, sql`x,m,c,lk`)})
 SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,
  coalesce((SELECT share_milestones FROM lk),false) AS shared,EXISTS(SELECT FROM c) AS confirmed,
@@ -824,17 +702,12 @@ SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m) AS milestone,
 		if (row.confirmed) return { outcome: "changed" as const };
 		if (!row.found) refuse();
 		if (!row.milestone) refuse({ code: "invalid_input", field: "milestoneId" });
-		// What the resident does not share is not the organization's to confirm.
 		if (!row.shared) refuse();
 		if (row.already) return { outcome: "noop" as const };
 		return refuse({ code: "conflict" });
 	});
 }
 
-/**
- * Dated feedback from the current director on a hands-on assignment of an active enrollment (REQ-MUL-012). A linked
- * resident gets a notice that names the milestone (T-365).
- */
 function addFeedback(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ feedbackId: string }, C.ProgramRefusal>(db, authority, false, async (w) => {
 		const input = parse(C.addFeedbackRequest, raw);
@@ -849,7 +722,6 @@ f AS (INSERT INTO assignment_feedback (id,organization_id,enrollment_id,version_
  FROM x,m WHERE m.hands_on ON CONFLICT (id) DO NOTHING RETURNING id),
 a AS (${w.audit({ action: "development.feedback_recorded", kind: "create", subjectType: "development_enrollment", subject: sql`x.id`, metadata: { feedbackId: input.feedbackId, milestoneId: input.milestoneId } })}
  FROM x,f RETURNING id),
--- A linked resident hears of new feedback, never its words (T-365, D-1414); an unlinked enrollee gets nothing.
 j AS (${queueResidencyJob(org, sql`x,m,f,lk`, input.feedbackId)})
 SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m WHERE m.hands_on) AS assignment,EXISTS(SELECT FROM f) AS added,
  EXISTS(SELECT FROM assignment_feedback f WHERE f.id=${input.feedbackId}::uuid AND f.organization_id=${org}::uuid
@@ -862,12 +734,6 @@ SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM m WHERE m.hands_on) AS 
 	});
 }
 
-/**
- * The current director moves an active enrollment to the program's current published version at one of its stages,
- * after reviewing it (REQ-MUL-011, D-1271). Only the version and stage change: completions and feedback keep the
- * milestone, version, recorder, confirmer and dates they were recorded with, and nobody is named as a new recorder.
- * A review older than the enrollment's state is refused as stale; the same apply repeated changes nothing.
- */
 function applyVersion(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
 		const input = parse(C.applyVersionRequest, raw);
@@ -900,20 +766,12 @@ SELECT EXISTS(SELECT FROM x) AS found,EXISTS(SELECT FROM x WHERE x.version_id=${
 		);
 		if (row.applied) return { outcome: "changed" as const };
 		if (!row.found) refuse();
-		// A repeat of an apply that already moved the enrollment to the current version.
 		if (row.already) return { outcome: "noop" as const };
 		if (!row.fresh) refuse({ code: "stale_review" });
 		return refuse({ code: "invalid_input", field: "stageId" });
 	});
 }
 
-/**
- * The current director moves several active enrollments of one program to its current published version, each at a
- * stage of that version, all or none (D-1328), after reviewing each (D-1329). Each person's completions and feedback
- * keep what they were recorded with, as in a single apply. Any review that went out of date refuses the whole apply,
- * naming those enrollments; the same apply repeated changes nothing. One statement whatever the number of people,
- * with one body-free audit row per person moved (D-1330).
- */
 function applyVersions(db: Database, authority: RequestActor, raw: unknown) {
 	return write<{ outcome: "changed" | "noop" }, C.ProgramRefusal>(db, authority, false, async (w) => {
 		const input = parse(C.applyVersionsRequest, raw);
@@ -957,7 +815,6 @@ SELECT (SELECT count(*) FROM x) AS found,
 		);
 		if (row.applied === n) return { outcome: "changed" as const };
 		if (row.found < n) refuse();
-		// A repeat of an apply that already moved every one of them to the current version.
 		if (row.already === n) return { outcome: "noop" as const };
 		if (!row.current) refuse({ code: "stale_review", enrollmentIds: input.enrollments.map((e) => e.enrollmentId) });
 		const stale = input.enrollments.map((e) => e.enrollmentId).filter((id) => row.stale.includes(id));
@@ -966,7 +823,6 @@ SELECT (SELECT count(*) FROM x) AS found,
 	});
 }
 
-/** Every program write. The statement census measures each one as `programs.<name>`. */
 export const programWriter = {
 	createProgram,
 	savePlan,
