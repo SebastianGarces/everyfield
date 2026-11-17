@@ -1,4 +1,3 @@
-// WP-036 criteria 2, 5 and 6: the built-in template files and the one generic Forme renderer for everyfield.doc/1.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
@@ -118,7 +117,6 @@ test("AC:CASE-DOC-023 the conflict-of-interest policy prints its text, numbered 
 	assert.equal(sha(again.bytes), sha(pdf.bytes), "a second render gives the same bytes");
 });
 
-// T-205: the eight library templates with a template file. The library renders each from that file alone.
 const TWINNED = [
 	"commitment-card",
 	"guest-sign-in-sheet",
@@ -158,7 +156,6 @@ test("the library preview of each twinned template is the everyfield.doc/1 rende
 				? (await renderDocPdf(doc)).bytes
 				: Buffer.from(buildLedgerWorkbook(doc, fieldValues(doc), NEUTRAL_THEME));
 		assert.equal(sha(preview!), sha(own), id);
-		// The merge values fill the file's own fields; the brand fields fall back as the file says.
 		assert.equal(fieldValues(doc).church_name, "Harbor City Church", id);
 		if (doc.fields.some((f) => f.key === "pastor_name")) assert.equal(fieldValues(doc).pastor_name, "Pastor Ada", id);
 		if (doc.fields.some((f) => f.key === "church_legal_name"))
@@ -176,7 +173,6 @@ test("the library preview of each twinned template is the everyfield.doc/1 rende
 	assert.equal(text.includes(SLOT_BLANK_NOTE), false);
 });
 
-/** The text of each heading in a body, merge fields left out. */
 const headingTexts = (nodes: readonly BlockNode[] | undefined): string[] =>
 	(nodes ?? []).flatMap((node): string[] => {
 		if (node.type === "heading") {
@@ -218,7 +214,6 @@ test("the library facts of each twinned template are read from its file", async 
 			assert.equal(view.category, "administrative", id);
 			assert.deepEqual(
 				view.mergeFields.map((f) => [f.key, f.required, f.autoFill]),
-				// Bylaws never print the pastor's name, so they offer no input for it.
 				id === "bylaws"
 					? [["church_name", true, "church_name"]]
 					: [
@@ -232,7 +227,6 @@ test("the library facts of each twinned template are read from its file", async 
 });
 
 test("every merge field the library offers for a twinned template prints its value", async () => {
-	// A template file prints only the merge values it declares, so the library offers no input that a render drops.
 	const { templates } = await library();
 	for (const id of TWINNED.filter((id) => docTemplateById(id)!.exports[0] === "pdf")) {
 		const view = templateView(templates.find((t) => t.id === id)!);
@@ -241,7 +235,6 @@ test("every merge field the library offers for a twinned template prints its val
 		for (const [key, value] of Object.entries(values)) assert.ok(text.includes(value), `${id} drops ${key}`);
 	}
 	const keys = (id: string) => templateView(templates.find((t) => t.id === id)!).mergeFields.map((f) => f.key);
-	// Main offered these, and the template files print none of them.
 	assert.deepEqual(keys("commitment-card"), ["church_name"]);
 	assert.deepEqual(keys("guest-sign-in-sheet"), ["church_name"]);
 	assert.deepEqual(keys("member-expectations"), ["church_name"]);
@@ -249,8 +242,6 @@ test("every merge field the library offers for a twinned template prints its val
 });
 
 test("AC:CASE-DOC-022 an unedited Church Document prints the same pages as its template's library preview", async () => {
-	// One renderer: "Save for your church" and "Create Church Document" both render the template file. The document is
-	// made as documents.createFromTemplate makes it: the church's values frozen, the network's statement in its slot.
 	for (const id of TWINNED.filter((id) => docTemplateById(id)!.exports[0] === "pdf"))
 		for (const pastor of ["Pastor Ada", null]) {
 			const values: Record<string, string> = {
@@ -295,7 +286,6 @@ test("AC:CASE-DOC-004 the card sheet prints four cards on one Letter page with s
 		pdf.fields.map((f) => f.name),
 		range(4).flatMap((t) => perCard.map((field) => `${field}_t${t}`)),
 	);
-	// documents/doc-10: each card's signature is a /Sig field, and a suffixed field has its unsuffixed tooltip.
 	const typed = new Map(pdf.fields.map((f) => [f.name, f]));
 	assert.deepEqual(
 		pdf.fields.filter((f) => f.type === "Sig").map((f) => `${f.name}:${f.type}`),
@@ -307,7 +297,6 @@ test("AC:CASE-DOC-004 the card sheet prints four cards on one Letter page with s
 	const doc = await PDFDocument.load(pdf.bytes);
 	const size = doc.getPage(0).getSize();
 	assert.deepEqual([size.width, size.height], [612, 792]);
-	// The cards sit in four 306 x 396 pt quarters: each card title is in its own quarter.
 	const words = pdf.text[0]!.filter((line) => line === "My commitment");
 	assert.equal(words.length, 4);
 	const again = await renderDocPdf(await fork("commitment-card"));
@@ -316,7 +305,6 @@ test("AC:CASE-DOC-004 the card sheet prints four cards on one Letter page with s
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
-/** The drawing operator lines of a PDF's first page. */
 async function pageOps(bytes: Uint8Array) {
 	const doc = await PDFDocument.load(bytes);
 	const contents = doc.getPage(0).node.Contents()!;
@@ -328,18 +316,12 @@ async function pageOps(bytes: Uint8Array) {
 	return { doc, ops };
 }
 
-/**
- * Every rectangle a PDF page strokes, with the line width it is stroked at and the clip it is drawn under. Reads the
- * page's own drawing operators, so it sees the drawn border rather than the form widget over it. The page draws its
- * boxes as `x y w h re` then `S` (stroke) or `B` (fill and stroke), clips as `x y w h re W n`, and nests with `q`/`Q`.
- */
 async function strokedRects(bytes: Uint8Array) {
 	const { doc, ops } = await pageOps(bytes);
 	type State = { clip: Rect; width: number };
 	const page = doc.getPage(0).getSize();
 	let state: State = { clip: { x0: 0, y0: 0, x1: page.width, y1: page.height }, width: 1 };
 	const stack: State[] = [];
-	// A bare `re` line whose paint operator comes on the next line, as the checkboxes draw.
 	let pending: Rect | null = null;
 	const out: (Rect & { width: number; clip: Rect })[] = [];
 	const stroke = (rect: Rect) => out.push({ ...rect, width: state.width, clip: state.clip });
@@ -384,10 +366,8 @@ test("AC:CASE-DOC-004 every box on the 4-per-sheet card sheet draws its whole bo
 	const clipped: string[] = [];
 	for (const [i, card] of cards.entries()) {
 		const inCard = boxes.filter((b) => b.x0 >= card.x0 && b.x1 <= card.x1 && b.y0 >= card.y0 && b.y1 <= card.y1);
-		// Name, Email or phone, Signature and Date, plus the three checkboxes (each drawn as an outer and inner square).
 		const fields = inCard.filter((b) => b.y1 - b.y0 >= 17 && b.x1 - b.x0 >= 90);
 		assert.equal(fields.length, 4, `card ${i + 1} draws its four field boxes`);
-		// A row of boxes shares one height: Date is as tall as Signature beside it, Name as Email or phone.
 		assert.ok(
 			fields.some((b) => b.x1 - b.x0 === 90 && Math.round(b.y1 - b.y0) === 24),
 			`card ${i + 1} draws its Date box at the Signature box's height`,
@@ -417,7 +397,6 @@ test("AC:CASE-DOC-004 each checkbox on the card sits level with its GROW, PRAY o
 		.filter((t) => t[4] === "re")
 		.map((t) => t.slice(0, 4).map(Number) as [number, number, number, number]);
 	const middle = ([, y, , h]: [number, number, number, number]) => +(y + h / 2).toFixed(1);
-	// The top-left card (y above 396): its three tag tiles (42 x 14) and the outer squares of its checkboxes (12 x 12).
 	const top = (r: [number, number, number, number]) => r[0] < 306 && r[1] > 396;
 	const tiles = rects.filter((r) => top(r) && r[2] === 42 && Math.abs(r[3]) === 14).map(middle);
 	const boxes = rects.filter((r) => top(r) && r[2] === 12 && Math.abs(r[3]) === 12).map(middle);
@@ -431,7 +410,6 @@ test("AC:CASE-DOC-004 each checkbox on the card sits level with its GROW, PRAY o
 });
 
 test("AC:CASE-DOC-004 each card closes with the return line, under the contact line when there is one and with no gap when there is none", async () => {
-	// Maya, Nov 12 (T-205): the card names no title. With no planter-name field, the line is the hand-back form.
 	const RETURN = "Please hand this card back to the person who gave it to you.";
 	const [withContact] = await pdfPages((await renderDocPdf(await fork("commitment-card"))).bytes);
 	assert.equal(count(withContact!, RETURN), 4, "one return line on each of the four cards");
@@ -442,7 +420,6 @@ test("AC:CASE-DOC-004 each card closes with the return line, under the contact l
 	);
 	assert.ok(!/pastor/i.test(withContact!), "no hard-coded title");
 
-	// No contact line: the footer drops the empty line, so the card draws as if its footer had no contact line at all.
 	const blank = { ...DATA, contact_line: "" };
 	const card = docTemplateById("commitment-card")!;
 	const bare = await renderDocPdf(await forkTemplate(card, { data: blank }));
@@ -510,7 +487,6 @@ test("AC:CASE-DOC-013 typed values print computed formula, subtotal and total ce
 	assert.match(text!, /Net \(income minus expenses\) \$3,500 \$42,000/);
 });
 
-/** One document that holds every node and mark of the design.md node table, and every page setup part. */
 function everyNode(): DocDocument {
 	const t = (text: string, marks?: DocDocument["body"]["content"] extends unknown ? any[] : never) =>
 		marks ? { type: "text" as const, text, marks } : { type: "text" as const, text };
@@ -694,7 +670,6 @@ test("AC:CASE-DOC-023 every node, mark and page setup part of the design node ta
 	const doc = everyNode();
 	const pdf = await renderDocPdf(doc);
 	const pages = await pdfPages(pdf.bytes);
-	// A4 landscape is short: the kept-together box moves to page 2, and the page break starts page 3.
 	assert.equal(pdf.pages, 3, JSON.stringify(pages));
 	assert.ok(pages[1]!.includes("Words on the primary fill.") && !pages[1]!.includes("STATEMENT OF FAITH"));
 	assert.ok(pages[2]!.startsWith("Running header STATEMENT OF FAITH"), "the page break starts a new page");
@@ -746,7 +721,6 @@ test("AC:CASE-DOC-023 every node, mark and page setup part of the design node ta
 		`the italic mark uses an italic face: ${[...fonts]}`,
 	);
 
-	// The Word file follows the same page setup and prints the text inside columns, the box, the header and the footer.
 	const word = docxParts(await renderDocFile(doc, "docx", THEME, SAVED));
 	const body = word["word/document.xml"]!;
 	assert.match(
@@ -804,7 +778,6 @@ test("AC:CASE-DOC-019-EDIT a wiped fork of the policy still validates and prints
 	const [page] = await pdfPages(pdf.bytes);
 	assert.equal(page, "Template, not legal advice");
 	assert.ok(pdf.text[0]!.includes("Template, not legal advice"));
-	// The notice comes from the class, not from content: an operational fork wiped the same way prints nothing.
 	const plain = await renderDocPdf({ ...doc, class: "operational" });
 	assert.deepEqual(await pdfPages(plain.bytes), [""]);
 });
@@ -830,7 +803,6 @@ test("AC:CASE-DOC-022 New from template freezes each field from its source, else
 		data: { church_name: "Harbor City Church", church_tagline: "Come as you are.", contact_line: "" },
 		from: { church_name: "church.name", church_tagline: "brand.tagline", contact_line: "fallback" },
 	});
-	// An empty frozen value prints nothing; a template prints its samples.
 	const doc = await forkTemplate(card, { data: frozen.data });
 	assert.equal(fieldValues(doc).contact_line, "");
 	assert.equal(fieldValues(card).contact_line, "harborcity.church  ·  (555) 010-0199");

@@ -34,7 +34,6 @@ const sessionRow = z.strictObject({
 	avatar: z.uuid().nullable(),
 });
 type SessionRow = z.infer<typeof sessionRow>;
-/** A pool or a transaction: the viewer read is one statement and needs no transaction. */
 type Executor = Pick<Transaction, "execute">;
 const seatRow = z.strictObject({
 	id: recordId,
@@ -44,7 +43,6 @@ const seatRow = z.strictObject({
 	revision,
 	accepted_at: z.coerce.date(),
 });
-/** Whether an owner exists with that kind and no lifecycle witness hides it. A write locks the root; a read does not. */
 export async function liveOwner(tx: Transaction, selected: Owner, lock = true): Promise<boolean> {
 	if (selected.kind === "global") return false;
 	const root =
@@ -62,8 +60,7 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 		.where(
 			lock
 				? eq(root.id, selected.id)
-				: // A read checks the witness in the same statement.
-					and(
+				: and(
 						eq(root.id, selected.id),
 						notExists(tx.select({ id: tables.lifecycle_witness.id }).from(tables.lifecycle_witness).where(hiddenBy)),
 					),
@@ -76,7 +73,6 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 	)
 		return false;
 	if (!lock) return true;
-	// A write's second statement observes lifecycle changes committed while the root lock waited.
 	const hidden = await tx
 		.select({ id: tables.lifecycle_witness.id })
 		.from(tables.lifecycle_witness)
@@ -85,18 +81,11 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 		.for("share");
 	return hidden.length === 0;
 }
-/**
- * One statement: the session's account, its live seats, the selected owner, every lifecycle witness that hides the
- * account, the owner or the seat, the own Person of a plant seat and whether a seatless account still has a Discovery
- * profile. With `lock`, access_session share-locks the session and account until COMMIT, so a revoke waits for an
- * authority transaction (INV-revocation). A read passes `lock` false and takes no row lock (C22).
- */
 async function readSession(db: Executor, session: z.infer<typeof sessionId>, requested?: Owner, lock = true) {
 	const handle = sessionId.parse(session);
 	const row = await viewerRow(db, lock ? sql`access_session(${handle})` : sql`live_session(${handle})`, requested);
 	return row ? sessionRow.parse(row) : null;
 }
-/** The viewer statement over one identity source: a function that returns the session's account row. */
 async function viewerRow(db: Executor, identity: SQL, requested?: Owner) {
 	const r = await db.execute(sql`
 		WITH identity AS MATERIALIZED (
@@ -172,11 +161,6 @@ async function resolveActor(tx: Executor, session: z.infer<typeof sessionId>, re
 	return row ? actorOf(row) : currentActorResult.parse({ status: "unavailable" });
 }
 
-/**
- * The signed-in viewer for one request: the registration state, the actor when the account holds one live seat or
- * none, the own Person of a plant seat and whether a seatless account has a Discovery profile. Null when the session
- * has no live account or the account is being deleted. One statement and no row lock (C27): it waits for no write.
- */
 export async function readViewer(db: Executor, session: z.infer<typeof sessionId>) {
 	const row = await readSession(db, session, undefined, false);
 	return row && viewerOf(row, session);
@@ -190,7 +174,6 @@ function viewerOf(row: SessionRow, session: z.infer<typeof sessionId>) {
 		authority: actor.status === "active" ? RequestActor.of(session, actor) : null,
 		person: row.own_person,
 		discovery: row.discovery,
-		/** The account's own current photo version, which its own account may always load. */
 		avatar: row.avatar,
 	};
 }
@@ -201,12 +184,6 @@ const requestRow = sessionRow.extend({
 	email: z.email(),
 	email_verified: z.boolean(),
 });
-/**
- * The request's session, its user and its viewer in one statement, keyed by the token of a session cookie whose
- * signature the server has verified (RT-1). It replaces Better Auth's session and user reads and readViewer. No row
- * locks (C27); every tenant read still checks live access itself (C13). Null when no live session with an account
- * has this token. `viewer` is null, as from readViewer, when a deletion hold hides the account.
- */
 export async function readRequestViewer(db: Executor, token: string) {
 	const raw = await viewerRow(db, sql`request_session(${token})`);
 	if (!raw) return null;
@@ -218,13 +195,11 @@ export async function readRequestViewer(db: Executor, token: string) {
 	};
 }
 
-/** The actor for this transaction. A read passes `lock` false, so resolving it takes no session lock (C22). */
 export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, lock = true) {
 	const bound = boundWrite(tx);
 	if (bound && bound.authority.session === session && sameOwner(bound.selected, selected)) return bound.actor;
 	const parsed = owner.safeParse(selected);
 	if (!parsed.success) return currentActorResult.parse({ status: "unavailable" });
-	// A read transaction that observed the request actor (D59) answers for that actor's own workspace or account.
 	const observed = requestReads.get(tx);
 	if (observed && observed.session === session) {
 		const actor = observed.actor;
@@ -239,7 +214,6 @@ export async function currentActor(tx: Transaction, session: z.infer<typeof sess
 	return resolveActor(tx, session, parsed.data, lock);
 }
 const requestReads = new WeakMap<Transaction, RequestActor>();
-/** The actor a read transaction observed for this session, or null. */
 export function observedActor(tx: Transaction, session: z.infer<typeof sessionId>) {
 	const observed = requestReads.get(tx);
 	return observed && observed.session === session ? observed.actor : null;
@@ -264,22 +238,15 @@ type RequestWrite = {
 	setup: typeof tables.onboarding_setup.$inferSelect | null;
 };
 const requestWrites = new WeakMap<Transaction, RequestWrite>();
-/** An immutable observation held by the native command's outer transaction: the gate's locked rows. */
 export const requestWrite = (tx: Transaction) => requestWrites.get(tx);
-/**
- * A native write that has not run the gate: the request's verified actor, checked again with its locks by the final
- * write statement (D70), or by the gate once the command needs a transaction.
- */
 type DeferredWrite = Pick<RequestWrite, "authority" | "selected" | "actor">;
 const deferredWrites = new WeakMap<Transaction, DeferredWrite>();
-/** The command's actor, locked by the gate or deferred to the final write. */
 export const boundWrite = (tx: Transaction): DeferredWrite | undefined =>
 	requestWrites.get(tx) ?? deferredWrites.get(tx);
 export const clearRequestWrite = (tx: Transaction) => {
 	requestWrites.delete(tx);
 	deferredWrites.delete(tx);
 };
-/** The request actor's authority over `selected`, or null when only the gate can decide it. */
 export function deferWrite(tx: Transaction, authority: RequestActor, selected: Owner): DeferredWrite | null {
 	const actor = authority.actor;
 	const own =
@@ -293,15 +260,6 @@ export function deferWrite(tx: Transaction, authority: RequestActor, selected: O
 	deferredWrites.set(tx, write);
 	return write;
 }
-/**
- * The gate's checks and locks for one final write statement (D70): the WITH entries, ending in `evf_auth(allowed)`.
- * The same lock order as lockWriteAuthority: session and account, seats, then the owner root. The observed seat must
- * still be the actor's one live seat with the same role and revision. The statement never waits for a lock: its
- * snapshot is taken before its locks, so after a wait it could miss what the lock holder committed. A held lock fails
- * the statement at once, and the command runs the established way, which waits. A writer that changed the account or
- * the root and committed between the snapshot and the lock leaves a newer version than the snapshot sees: the locked
- * row's `xmin` then differs from the snapshot's, and the statement refuses too.
- */
 export function writeAuthority(write: DeferredWrite): SQL {
 	const { authority, selected, actor } = write;
 	const root = selected.kind === "plant" ? sql`plant` : selected.kind === "organization" ? sql`organization` : null;
@@ -346,7 +304,6 @@ export function writeAuthority(write: DeferredWrite): SQL {
  }) AS allowed)`;
 }
 
-/** Server-only authority for one request. Constructed from a live session, never from JSON. */
 export class RequestActor {
 	readonly status = "active";
 	readonly actor: ActiveActor;
@@ -356,7 +313,6 @@ export class RequestActor {
 		this.actor = actor;
 	}
 
-	/** Bind one verified actor to the transaction that owns this command's rollback. */
 	async bind(tx: Transaction, selected: Owner): Promise<RequestWrite | null> {
 		const locked = await lockWriteAuthority(tx, this.session, selected, this);
 		if (!locked || locked.identity.status !== "active") return null;
@@ -374,7 +330,6 @@ export class RequestActor {
 		return write;
 	}
 
-	/** A tool ingress that has not supplied a request actor verifies and locks it once. */
 	static async claimWrite(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
 		const locked = await lockWriteAuthority(tx, session, selected);
 		if (!locked || locked.identity.status !== "active") return null;
@@ -393,12 +348,10 @@ export class RequestActor {
 		return write;
 	}
 
-	/** Let a read transaction answer currentActor from this observation instead of a second statement. */
 	observe(tx: Transaction) {
 		requestReads.set(tx, this);
 	}
 
-	/** @internal readViewer builds the authority from the same statement that observed the actor. */
 	static of(session: z.infer<typeof sessionId>, actor: ActiveActor) {
 		return new RequestActor(session, actor);
 	}
@@ -409,26 +362,14 @@ export class RequestActor {
 	}
 }
 
-/** One locked snapshot. A command's admission checks lifecycle again after any lock wait. */
 export function writeVisibility(actor: string | SQLWrapper, selected: Owner) {
 	return sql<boolean>`NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
   (w.kind='account' AND w.opaque_subject_id=${actor}::uuid) OR (w.kind=${selected.kind} AND w.opaque_subject_id=${selected.id}::uuid) OR
   (${selected.kind}<>'account' AND w.seat_id IN (SELECT id FROM seat WHERE account_id=${actor}::uuid
    AND coalesce(plant_id,organization_id)=${selected.id}::uuid AND ended_at IS NULL))))`;
 }
-/**
- * A seat as it stands now, for a statement that runs with no session (a mail authorizer or worker): accepted by now and
- * not ended. `alias` is a fixed table alias, never input.
- */
 export const seatHeld = (alias: string) =>
 	sql`${sql.raw(alias)}.ended_at IS NULL AND ${sql.raw(alias)}.accepted_at <= clock_timestamp()`;
-/**
- * C13 and C22: access as it is now, as one condition for each statement of a tenant read. The session is live and its
- * account active; for a plant or organization the account still holds an accepted seat there, not ended, Owner or Admin
- * when `admin`, exactly `role` when it is named, and the same seat as the request's actor when `seatId` names it; no
- * lifecycle witness hides the account, the owner or the seat. live_session takes no row lock, so a sign-out never waits
- * for a running read. A write locks its authority instead (lockWriteAuthority, access_session).
- */
 export function liveRead(
 	access: { session: string; owner: Owner; seatId?: string; role?: z.infer<typeof role> },
 	admin = false,
@@ -444,18 +385,12 @@ export function liveRead(
 	return sql`EXISTS(SELECT FROM live_session(${access.session}::uuid) i WHERE i.registration_state='active'
  AND ${seat} AND ${writeVisibility(sql`i.account_id`, owner)})`;
 }
-/** liveRead's access for one request actor: its session, owner and, for a seat, that same seat. */
 export function liveAccess(authority: RequestActor): Parameters<typeof liveRead>[0] {
 	const context = authority.actor.context;
 	return context.kind === "seat"
 		? { session: authority.session, owner: context.owner, seatId: context.seatId }
 		: { session: authority.session, owner: context.owner };
 }
-/**
- * One statement: `query`'s rows when `live` (a liveRead condition) holds, or null when it fails, so a read whose actor
- * lost access returns no tenant data (C13). The rows keep no order and carry the access_live and access_found
- * columns; the caller sorts them and parses its own columns.
- */
 export async function liveRows(db: Executor, live: SQL, query: SQLWrapper): Promise<Record<string, unknown>[] | null> {
 	const found = await db.execute(sql`SELECT a.access_live, q.* FROM (SELECT ${live} AS access_live) a
  LEFT JOIN LATERAL (SELECT true AS access_found, x.* FROM (${query}) x) q ON a.access_live`);

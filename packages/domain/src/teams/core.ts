@@ -24,7 +24,6 @@ export type Reader = Pick<Transaction, "execute">;
 export type TeamsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
 type Code = TeamsError["code"];
-/** A refusal inside a bound write; its reply carries the same code. */
 export class Refusal extends Error {
 	readonly code: Code;
 	readonly details: object;
@@ -80,7 +79,6 @@ export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<TeamsRep
 	return settleWrite(() => auditSavepoint(tx, body));
 }
 
-/** One native write. Every teams command reads another row, so the path is established. */
 export async function withTeamsWrite<T>(
 	db: Database,
 	authority: RequestActor,
@@ -202,9 +200,7 @@ type TeamWrite =
 	| "teams.revokeCompletion"
 	| "teams.recompleteTraining";
 
-/** A team id, or a lookup that runs only when the actor is not an admin. */
 type LeaderGate = string | ((tx: Tx, w: Writer) => Promise<string | undefined>);
-/** Admin, or the linked live leader of that team. A member who leads another team is refused. */
 async function allow(tx: Tx, w: Writer, leaderOf?: LeaderGate) {
 	if (w.admin) return;
 	const teamId = typeof leaderOf === "function" ? await leaderOf(tx, w) : leaderOf;

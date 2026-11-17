@@ -16,12 +16,10 @@ import {
 	type ThemeImage,
 } from "./theme.ts";
 
-/** A theme for a render: what the PDF paints, what the DOCX names, and what the record keeps. */
 export type ExportTheme = {
 	render: RenderTheme;
 	fonts: { heading: string; body: string };
 	kind: "church" | "everyfield-neutral";
-	/** The primary color of a church theme, upper case. */
 	primary: string | null;
 };
 
@@ -32,7 +30,6 @@ export const NEUTRAL_EXPORT_THEME: ExportTheme = {
 	primary: null,
 };
 
-/** Width over height of a PNG or JPEG. Null when the bytes are neither. */
 function imageAspect(bytes: Uint8Array): number | null {
 	const b = Buffer.from(bytes);
 	if (b.length > 24 && b.readUInt32BE(0) === 0x89504e47) {
@@ -56,14 +53,9 @@ function imageAspect(bytes: Uint8Array): number | null {
 	return null;
 }
 
-/** The image nodes' sources a document uses, so the render reads only those brand assets. */
 export type ImageSource = "logo" | "mark" | "photo";
 const KIT_SLOT = { logo: "full_logo", mark: "mark", photo: "cover_photo" } as const;
 
-/**
- * The palette the renderer paints for a document and the brand-kit images it may show: the church theme when the
- * document uses church branding and the church has a primary color, else the neutral theme. Pure, no I/O.
- */
 export function documentBrand(kit: BrandKitData | null, useChurchBranding: boolean): DocBrand {
 	const themed = useChurchBranding && kit !== null && kit.primaryColor !== null;
 	const render: RenderTheme = themed
@@ -81,7 +73,6 @@ export function documentBrand(kit: BrandKitData | null, useChurchBranding: boole
 			accent: p.accent,
 			accentLine: p.accentLine,
 			primaryText: p.primaryText,
-			// The renderer's own rule for text on a fill: the palette's ink on white or muted, else the legible one.
 			on: {
 				ink: textOn(p.ink, p.ink),
 				"muted-text": textOn(p.mutedText, p.ink),
@@ -96,11 +87,6 @@ export function documentBrand(kit: BrandKitData | null, useChurchBranding: boole
 	};
 }
 
-/**
- * `resolveDocumentTheme(church, documentClass)` picks the church theme or the Everyfield-neutral theme; this adds the
- * bytes of the brand-kit images the document's image nodes show. With the toggle off, or with no brand kit, the
- * neutral theme renders.
- */
 export async function exportTheme(
 	db: Database,
 	storage: PrivateStorage | null,
@@ -113,8 +99,6 @@ export async function exportTheme(
 	const theme = resolveDocumentTheme(church, documentClass as DocumentClass, { useChurchBranding });
 	const kit = church.kit;
 	if (theme.kind !== "church" || !kit || !theme.colors.primary) return NEUTRAL_EXPORT_THEME;
-	// Only the assets the document uses are read, and a file two sources share is read once. The reads run one after
-	// another: each checks the seat in the request's transaction, which runs one statement at a time.
 	const own: NonNullable<RenderTheme["images"]> = {};
 	const read = new Map<string, Omit<ThemeImage, "alt"> | null>();
 	for (const source of images) {
@@ -144,12 +128,6 @@ export async function exportTheme(
 	};
 }
 
-/**
- * The theme a library template renders with (preview and "Save for your church"): the church theme when the plant has
- * a brand kit with a primary color, else the Everyfield-neutral theme. `exportTheme` picks it with branding on. The
- * template layouts take the full logo in their logo slot, the kit's letterhead and, on outward-facing cards, the cover
- * photo and tagline. A brand asset that cannot be read leaves its slot to the church name in type.
- */
 export async function templateTheme(
 	db: Database,
 	storage: PrivateStorage | null,

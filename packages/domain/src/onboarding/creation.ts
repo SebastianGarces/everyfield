@@ -29,8 +29,6 @@ import { ownReading } from "./reading.ts";
 
 export interface OnboardingEffects {
 	relationships(tx: Tx, inputs: readonly RelationshipNotice[]): Promise<void>;
-	// Required durable mail/notice writers share Tx. They enqueue only; providers
-	// run after commit. No default noop can silently drop a required consequence.
 	enqueue(
 		tx: Tx,
 		input: {
@@ -71,7 +69,6 @@ export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$
 				choices: choices(a),
 			}),
 		);
-	// Documents stay private. Creation never copies bodies or selects all drafts.
 	return {
 		discoveryId: d.id,
 		revision: d.revision,
@@ -97,8 +94,6 @@ async function provision(
 	const plantId = randomUUID(),
 		seatId = randomUUID(),
 		entry = creationEntry(tx, cx, plantId);
-	// One statement creates the plant, then its owner seat and its creation entry, which read the new plant's row so
-	// they run after it (their record bindings need the plant's tenant row).
 	const placed = await tx.execute(sql`WITH p AS (${tx
 		.insert(t.plant)
 		.values({
@@ -120,7 +115,6 @@ async function provision(
  e AS (${entry.insert(sql`p`)})
  SELECT (SELECT count(*) FROM s)::int AS seats, (extract(epoch FROM (SELECT recorded_at FROM e))*1000)::float8 AS recorded`);
 	const row = z.object({ seats: z.literal(1), recorded: z.number() }).parse(placed.rows[0]);
-	// The plant is new in this transaction and the gate holds the account's lock, so the account's Person is the first.
 	const linked = await accountPersonProducer.ensureAccountPerson(tx, {
 		accountId: accountId.parse(account.id),
 		owner: { kind: "plant", id: tenantId.parse(plantId) },
@@ -128,7 +122,6 @@ async function provision(
 	});
 	if (linked.status !== "ok" || linked.value.status !== "linked") deny();
 	const creation = await entry.recorded(new Date(row.recorded));
-	// The setup row and the account's activation go in the command's final statement with its audit rows.
 	cx.writes.push(
 		tx.insert(t.onboarding_setup).values({
 			plant_id: plantId,
@@ -180,8 +173,6 @@ export function creation(effects: OnboardingEffects) {
 				const cx = await begin(tx, ctx, a.account.id, "onboarding.createPlant", q);
 				if (cx.kind === "replay")
 					return c.createPlantResult.parse(await currentCreation(tx, ctx, c.createPlantResult.parse(cx.value)));
-				// One statement locks the account's active seats and reads its setup and discovery; the gate already holds the
-				// account's lock, which every writer of these rows takes first.
 				const state = startRow.parse(
 					(
 						await tx.execute(sql`SELECT (SELECT count(*) FROM (SELECT id FROM seat WHERE account_id=${a.account.id}::uuid
@@ -276,9 +267,6 @@ export function creation(effects: OnboardingEffects) {
 						await currentCreation(tx, ctx, c.convertDiscoveryResult.parse(cx.value)),
 					);
 				await seatless(tx, a.account.id);
-				// Lock order shared with organization writes, whose gate locks the actor account, then the organization,
-				// then the link. With the profile, this statement locks the owners' accounts the notices share-lock, then
-				// the linked organizations, before any link.
 				const linked = sql`SELECT organization_id FROM affiliation WHERE account_id=${a.account.id}::uuid AND ended_at IS NULL`;
 				const organizationsLocked = sql`(SELECT count(*) FROM (WITH owners AS MATERIALIZED (SELECT o.id FROM account o WHERE o.id IN (SELECT account_id FROM seat WHERE organization_id IN (${linked}) AND role='owner' AND ended_at IS NULL) ORDER BY o.id FOR SHARE)
 	SELECT o.id FROM organization o WHERE o.id IN (${linked}) AND (SELECT count(*) FROM owners)>=0 ORDER BY o.id FOR NO KEY UPDATE) locked)>=0`;

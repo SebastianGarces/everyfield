@@ -1,31 +1,21 @@
 import { z } from "zod";
 
-// The feedback publisher's GitHub client (REQ-ADM-003). It makes exactly two calls: create one issue with a title and a
-// body, and search one repository's issues for a reference. Nothing else, no labels, assignees, comments, branches,
-// pull requests or workflow triggers, is ever sent. The repository and token come from configuration. Each call ends
-// after 10 seconds. Relative imports and no "server-only", so node tests can import it by path.
-
 const GITHUB_TIMEOUT_MS = 10_000;
 const GITHUB_API = "https://api.github.com";
 
 export type IssueLink = { number: number; url: string };
-/** created: GitHub answered with the issue. refused: GitHub said no, so nothing was created. unknown: no clear answer. */
 export type CreateOutcome = { kind: "created"; issue: IssueLink } | { kind: "refused" } | { kind: "unknown" };
-/** found: the issues whose body carries the reference (none, one or several). failed: the search gave no full answer. */
 export type SearchOutcome = { kind: "found"; issues: IssueLink[] } | { kind: "failed" };
 export interface IssueClient {
 	create(repository: string, issue: { title: string; body: string }): Promise<CreateOutcome>;
 	search(repository: string, reference: string): Promise<SearchOutcome>;
 }
 
-/** "owner/name" as GitHub spells a repository. */
 const repositoryName = z.string().regex(/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/);
 
 export type GitHubConfig = {
-	/** The repository the next new intent targets: its numeric id and owner/name. */
 	repository: { id: string; name: string };
 	token: string;
-	/** The API origin: GitHub's own unless a development or test fake is named. */
 	api: string;
 };
 const env = z.object({
@@ -34,7 +24,6 @@ const env = z.object({
 	FEEDBACK_GITHUB_TOKEN: z.string().min(1),
 	FEEDBACK_GITHUB_API: z.url().optional(),
 });
-/** The deployment's feedback repository, or null when it has none configured: then nothing is sent to GitHub. */
 export function githubConfig(source: Readonly<Record<string, string | undefined>> = process.env): GitHubConfig | null {
 	const parsed = env.safeParse(source);
 	if (!parsed.success) return null;
@@ -58,7 +47,6 @@ const searchReply = z.object({
 		}),
 	),
 });
-/** GitHub's answers that mean the create was refused and made nothing. Any other answer may have created the issue. */
 const REFUSED = new Set([400, 401, 404, 410, 422]);
 
 export function githubIssues(
@@ -104,7 +92,6 @@ export function githubIssues(
 				if (response.status !== 200) return { kind: "failed" };
 				const found = searchReply.safeParse(await response.json());
 				if (!found.success || found.data.incomplete_results) return { kind: "failed" };
-				// Search matches words loosely; only a body that carries this exact reference is this report's issue.
 				const issues = found.data.items
 					.filter((item) => !item.pull_request && item.body?.includes(`Reference: ${reference}.`))
 					.map((item) => ({ number: item.number, url: item.html_url }));

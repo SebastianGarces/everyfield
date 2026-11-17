@@ -59,11 +59,6 @@ export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S>
 	return found.data;
 }
 
-/**
- * The church plant of the request. `live` is the C13 condition that the session and exact seat still hold, any role;
- * `admin` adds Owner or Admin. Launch administration is Owner and Admin (launch.md); a Member reads the plan only, so
- * their `admin` is false and every administration statement reads and writes nothing.
- */
 export type Scope = PlantViewer & { live: SQL; admin: SQL };
 export function scopeOf(authority: RequestActor): Scope {
 	const viewer = plantViewer(authority);
@@ -92,7 +87,6 @@ export type Operation =
 	| "launch.correctGathering"
 	| "launch.clearGathering";
 export const priorRow = z.object({ request_identity: z.unknown(), result: z.unknown() }).nullable();
-/** The stored answer of an earlier request with this key, as a CTE named `prior`. */
 export const priorKey = (scope: Scope, key: string) =>
 	sql`prior AS (SELECT a.request_identity,a.result FROM audit_event a WHERE a.tenant_id=${scope.plantId}::uuid AND a.request_key=${key})`;
 export function identityOf(
@@ -108,7 +102,6 @@ export function identityOf(
 		digest: hash({ operation, expectedRevision: q.expectedRevision, input: q.input }),
 	});
 }
-/** The same request replays its stored answer; another request with the key is refused. */
 export function replay(prior: NonNullable<z.infer<typeof priorRow>>, identity: RequestIdentity) {
 	const stored = requestIdentity.safeParse(prior.request_identity);
 	if (
@@ -120,6 +113,5 @@ export function replay(prior: NonNullable<z.infer<typeof priorRow>>, identity: R
 		deny("idempotency_conflict");
 	return prior.result;
 }
-/** The command's own audit columns: the request key, its identity and the stored answer. */
 export const keyed = (identity: RequestIdentity, result: unknown) =>
 	sql`${identity.requestKey},${JSON.stringify(identity)}::jsonb,${JSON.stringify(result)}::jsonb`;

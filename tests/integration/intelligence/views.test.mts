@@ -1,8 +1,3 @@
-// The Plant Intelligence screens' reads and writes (WP-044): what an Owner or Admin sees from the saved assessment, the
-// citation read's person links, their own feedback, the explicit first open and its release to the plant's
-// organizations after an open or 72 hours, and what an organization may see of it. "The planter opens Plant
-// Intelligence and sees X" is intelligence.readAssessment called as that planter. Runs are published by the real job
-// with the scripted drafter only, and a test clock stands in for waiting.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -26,7 +21,6 @@ let clockMs = Date.now();
 const clock = { now: () => new Date(clockMs).toISOString() as never };
 const job = createAssessmentJob({ clock });
 const assessments = createAssessments({ clock });
-/** The scripted drafter, counting every model call it is asked for. */
 let calls = 0;
 const counted = (): Drafter => {
 	const inner = scriptedAssessmentDrafter();
@@ -41,7 +35,6 @@ after(() => c0?.database.close());
 
 type P = Awaited<ReturnType<Church["harvest"]>>;
 const view = (p: { actor: RequestActor }) => assessments.readAssessment(c0.db, p.actor, {}).then(ok);
-/** Publishes the plant's next assessment: an Owner's request, then the job, at the test clock. */
 async function publish(p: P) {
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	await runAssessmentBatch(job, c0.db, counted(), 20);
@@ -49,7 +42,6 @@ async function publish(p: P) {
 	assert.ok(v.current, "published");
 	return v.current;
 }
-/** A plant in `phase` with the Harvest Point records, sharing findings and every category with a new network. */
 async function assessedPlant(name: string, { phase = 2, share = true } = {}) {
 	clockMs = Date.now();
 	const net = await c0.database.organization("sending_network", {
@@ -91,8 +83,6 @@ test("an Owner opens a Phase 2 assessment: one main focus, two supporting points
 		["vision", "ownership", "critical_mass", "cohesion", "prayer", "generosity", "leadership", "training"],
 	);
 	const lens = Object.fromEntries(a.lenses.map((l) => [l.key, l]));
-	// Harvest Point: 30 committed adults, a Vision meeting 4 days ago, two of the eight responsibilities filled, and no
-	// prayer, giving or funding answer.
 	assert.equal(lens.critical_mass!.quality, "measured");
 	assert.equal(lens.vision!.quality, "measured");
 	assert.equal(lens.leadership!.quality, "measured");
@@ -257,7 +247,6 @@ test("the network sees a new assessment's health only after the planter opens it
 	const row = (await listPlants(c0.db, director, clock))!.plants.find((x) => x.plantId === p.id)!;
 	assert.equal(row.health, "not_assessed");
 
-	// The clock has millisecond steps; the stored instant has microseconds, so the first whole millisecond at or after it.
 	const available = Math.ceil(
 		Number(
 			(
@@ -274,7 +263,6 @@ test("the network sees a new assessment's health only after the planter opens it
 	assert.ok(r1.status === "released");
 	assert.equal(r1.runId, first.runId, "72 hours after it became available");
 
-	// Back at real time, where the job stamps availability: the planter opens the first run, then a second publishes.
 	clockMs = Date.now();
 	ok(await assessments.markAssessmentSeen(c0.db, p.actor, { runId: first.runId }));
 	const second = await publish(p);
@@ -321,7 +309,6 @@ test("a plant that does not share findings shows Limited visibility and nothing 
 	assert.deepEqual(org.assessment, { status: "withheld" });
 	assert.equal(org.plant.health, "limited_visibility");
 
-	// Findings on, Ministry teams off: a concern resting on the ministry responsibilities is counted, never shown.
 	await c0.admin.execute(sql`UPDATE affiliation SET shared_findings=true,share_people=true,share_meetings=true,
 		share_tasks=true WHERE plant_id=${p.id}`);
 	const partly = (await orgView(director, p))!;
@@ -336,8 +323,6 @@ test("a plant that does not share findings shows Limited visibility and nothing 
 
 test("trends show the latest twelve complete assessments, newest first and dated; a fact an older snapshot did not have reads Not measured, never zero", async () => {
 	const { p, run } = await assessedPlant("Brookside Church");
-	// Thirteen earlier complete runs, a week apart, copied from the real one. The oldest shown was written before
-	// required training was measured, so its snapshot has no training facts at all.
 	for (let week = 1; week <= 13; week++)
 		await c0.admin.execute(sql`INSERT INTO assessment_run SELECT (jsonb_populate_record(NULL::assessment_run,
 			to_jsonb(r)||jsonb_build_object('id',gen_random_uuid(),'demand_key','manual/'||gen_random_uuid(),
