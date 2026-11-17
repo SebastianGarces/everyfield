@@ -1,6 +1,3 @@
-// A Phase 2 fact snapshot and a published draft for the Plant Intelligence view tests (WP-044): 30 committed adults,
-// Vision 4 days ago, two of eight responsibilities filled, a Corporate prayer rhythm answer 45 days old and nothing else
-// answered, no attendance, follow-up or required-training evidence, and a launch date.
 const person = { id: "00000000-0000-4000-8000-000000000001", name: "Sam" };
 const unanswered = (key) => ({
 	key,

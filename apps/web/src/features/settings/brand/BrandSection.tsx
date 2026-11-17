@@ -30,7 +30,6 @@ import { hasPicks } from "./picks";
 import { useAssets } from "./useAssets";
 import { useBrand } from "./useBrand";
 
-/** What the color picker shows while the typed color is empty or not `#RRGGBB`. */
 const PICKER_EMPTY = "#808080";
 
 const FONT_OPTIONS = FONTS.map((font) => ({ value: font.id, label: font.id }));
@@ -52,7 +51,6 @@ const brandRefusal = (error: BrandError): Refusal => ({
 	reference: errorReference(error),
 	code: error.code,
 });
-/** The reply never arrived, so the save may or may not have been applied. Load latest shows which. */
 const OFFLINE: Refusal = {
 	message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
 	reference: OFFLINE_REFERENCE,
@@ -88,20 +86,20 @@ function BrandEditor({
 }: {
 	view: BrandView;
 	setKit: ReturnType<typeof useBrand>["setKit"];
-	reload: () => void;
+	reload: ReturnType<typeof useBrand>["reload"];
 }) {
 	const { port } = useSettings();
 	const { kit, churchName } = view;
 	const saved = formOf(kit);
-	const { draft, setDraft, dirty, saving, refusal, save: runSave } = useDraft<BrandForm>("brand", saved);
+	const { draft, setDraft, dirty, saving, refusal, save: runSave, serverChanged } = useDraft<BrandForm>("brand", saved);
+	const reloadKit = () => void reload().then((latest) => latest && serverChanged(formOf(latest.kit)));
 	const [showErrors, setShowErrors] = useState(false);
 	const [confirmingReset, setConfirmingReset] = useState(false);
 	const [pickedHint, setPickedHint] = useState(false);
 	const set = <K extends keyof BrandForm>(key: K, value: BrandForm[K]) => setDraft({ ...draft, [key]: value });
-	const assets = useAssets({ port: port.brand, kit, setKit, reload });
+	const assets = useAssets({ port: port.brand, kit, setKit, reload: reloadKit });
 	const picked = hasPicks({ picks: assets.picks });
 
-	// Field errors: the contract's rules, plus the field a refusal names. A refusal clears with the next edit.
 	const errors = {
 		...validate(draft, { required: showErrors }),
 		...(refusal?.code === "invalid_ein" ? { ein: BRAND_ERROR_TEXT.invalid_ein } : {}),
@@ -109,10 +107,7 @@ function BrandEditor({
 	};
 	const blocked = Object.keys(validate(draft, { required: true })).length > 0;
 
-	// One brand.saveSettings with the expected revision. The screen shows the kit as saved at once; the reply confirms
-	// it, or the kit goes back to what the server holds and the refusal says why.
 	const save = () => {
-		// A picked file is not part of Save: it uploads from its own slot. Say so instead of saving nothing.
 		if (!dirty && picked) return setPickedHint(true);
 		setShowErrors(true);
 		if (blocked) return;
@@ -121,8 +116,6 @@ function BrandEditor({
 			if (Object.keys(patch).length === 0) return { ok: true, server: saved };
 			setKit(optimisticKit(kit, sent));
 			const reply = await port.brand.save({ expectedRevision: kit.revision, patch }).catch(() => null);
-			// A rollback names the server value it returns to, so the draft is compared with that, not with the
-			// optimistic kit that is still on screen for one more render.
 			if (reply === null) {
 				setKit(kit);
 				return { ok: false, refusal: OFFLINE, server: saved };
@@ -136,7 +129,6 @@ function BrandEditor({
 		});
 	};
 
-	// Reset deletes the kit: the controls show the defaults and every preview tab shows the neutral theme.
 	const reset = () =>
 		runSave(async () => {
 			const reply = await port.brand.reset({ expectedRevision: kit.revision });
@@ -151,9 +143,8 @@ function BrandEditor({
 				size="sm"
 				variant="secondary"
 				onClick={() => {
-					// Reading the kit again clears the refusal; the draft stays, and a change under it rebases.
 					setDraft(draft);
-					reload();
+					reloadKit();
 				}}
 			>
 				Load latest
@@ -302,10 +293,6 @@ function FontField({ label, value, onChange }: { label: string; value: FontId; o
 	);
 }
 
-/**
- * A color as hex text and a picker that stay in step, with its contrast against white paper: the WCAG ratio, the badge
- * and the text color the documents set on it. The values come from the server's own colorView function.
- */
 function ColorField({
 	label,
 	value,

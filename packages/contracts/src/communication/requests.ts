@@ -19,7 +19,6 @@ export const scheduleRequest = z.strictObject({
 	input: z.strictObject({
 		communicationId: recordId,
 		scheduledAt: instant,
-		/** What a review showed (recipientsDigest): the schedule is refused when the audience resolves differently. */
 		recipientsDigest: z.string().min(1).optional(),
 	}),
 });
@@ -63,7 +62,6 @@ export const dispatchRequest = z.strictObject({
 	expectedRevision: revision,
 	input: z.strictObject({
 		communicationId: recordId,
-		/** People a review showed as left out: they stay left out even if their address or choice changed since. */
 		leftOut: z.array(recordId).max(5_000).optional(),
 	}),
 });
@@ -94,7 +92,6 @@ export const listSuppressionRequest = z.strictObject({ address: z.email() });
 const contactOutcomes = ["contacted", "attempted_no_contact", "administrative_completion", "no_longer_needed"] as const;
 const resendSelections = ["delivered_nonopeners", "proven_failed"] as const;
 
-/** Hub filters are loose: unknown keys are ignored and invalid values fall back in the read. */
 export const historyQuery = z
 	.object({
 		limit: z.unknown().optional(),

@@ -49,11 +49,6 @@ export function NotificationsSection() {
 
 const pairKey = (c: { category: string; channel: string }) => `${c.category}:${c.channel}`;
 
-/**
- * The category × channel matrix (REQ-IDN-012). Each switch saves at once with the section revision. While it saves
- * the switch shows the new value and a spinner; if the server refuses, the switch returns to the saved value and
- * the reason shows above the table. Only one save runs at a time, so every save carries the latest revision.
- */
 function Preferences({
 	section,
 	replace,

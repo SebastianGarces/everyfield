@@ -17,7 +17,6 @@ export function stableId(key: string): string {
 	return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-// PostgreSQL vector stores float32. Hash that representation, not a provider's JSON spelling.
 export function vectorHash(values: readonly number[]): string {
 	const bytes = Buffer.alloc(values.length * 4);
 	values.forEach((v, i) => bytes.writeFloatLE(v, i * 4));

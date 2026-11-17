@@ -1,4 +1,3 @@
-/** The first Tab stop on every page. Off screen until it has keyboard focus; it moves focus to the main landmark. */
 export function SkipLink() {
 	return (
 		<a

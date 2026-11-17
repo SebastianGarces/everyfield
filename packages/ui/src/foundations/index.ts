@@ -21,6 +21,7 @@ export {
 	focusFirstField,
 	focusIfLost,
 	focusOnMount,
+	useFocusOnChange,
 	useFocusRequest,
 	type FocusPick,
 	type FocusRequest,
@@ -29,9 +30,12 @@ export { Lockup, LogoMark } from "./Logo";
 export {
 	observeHeadings,
 	observeIntersection,
+	observeScroll,
+	observeScrollProgress,
 	observeSize,
 	type HeadingOptions,
 	type NodeRef,
+	type ScrollOptions,
 	type SizeOptions,
 } from "./observe";
 export { ProductRoot, useProductTheme } from "./ProductRoot";
