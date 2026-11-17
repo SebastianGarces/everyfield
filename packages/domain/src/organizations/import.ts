@@ -11,26 +11,16 @@ import { readSheet, SheetRefused, type Sheet } from "../people/csv/sheet.ts";
 import { eligibleSeat, insertStarters, startersJson } from "./pipeline.ts";
 import { answer, one, parse, refuse, seatOf, write, type Executor } from "./seat.ts";
 
-// Importing pipeline people from a CSV or a form's Excel export (T-363) for an Owner or Admin. Columns match fields by
-// their title, ignoring case, spacing and punctuation, and an organization remembers the choice made for each title, so
-// a reordered or repeated export lines up without choosing again. An answer that matches no field is kept as one note
-// on the new person, with the ordinary note audience (REQ-MUL-009); a background-check question is never kept
-// (REQ-PPL-002). Possible duplicates by email are the person's to skip or add; nothing is merged and no existing person
-// changes (REQ-MUL-017). The server reads the uploaded bytes itself for the preview and again for the import, which
-// runs as one write (C88, established): everyone is added or no one is, and a repeat of the same import adds no one.
-
 type Choice = C.PipelineColumnChoice;
 type Field = Exclude<Choice, "answer" | "skip">;
 type RowProblem = z.infer<typeof C.pipelineImportRowProblem>;
 
-/** A title as it is compared: case, spacing and punctuation removed. */
 export const titleKey = (title: string) =>
 	title
 		.normalize("NFKC")
 		.toLowerCase()
 		.replace(/[^\p{L}\p{N}]+/gu, "");
 
-/** The titles each field matches, best first: "Full name" beats a form's own "Name" column. */
 const SYNONYMS: Record<Field, string[]> = {
 	name: ["fullname", "name", "yourfullname", "yourname", "applicantname", "applicantsname"],
 	email: ["emailaddress", "email", "youremailaddress", "youremail"],
@@ -38,14 +28,8 @@ const SYNONYMS: Record<Field, string[]> = {
 };
 const FIELDS = Object.keys(SYNONYMS) as Field[];
 const isField = (c: Choice): c is Field => c !== "answer" && c !== "skip";
-/** A background-check question (REQ-PPL-002): skipped in every import, never kept or matched. */
 const isBackgroundCheck = (key: string) => key.includes("backgroundcheck") || key.includes("backgroundscreening");
 
-/**
- * Each column's choice when the person has not chosen: the organization's remembered choice for the title, else the
- * best title match for each field, else "answer". A field goes to one column only; another column that also names it
- * is skipped, and a column with no title is skipped.
- */
 function defaultChoices(header: string[], remembered: Record<string, unknown>): Choice[] {
 	const keys = header.map(titleKey);
 	const known = keys.map((k) => {
@@ -78,7 +62,6 @@ function defaultChoices(header: string[], remembered: Record<string, unknown>): 
 	return choices.map((c, i) => c ?? (FIELDS.some((f) => SYNONYMS[f].includes(keys[i]!)) ? "skip" : "answer"));
 }
 
-/** The person's own choices, checked: one per column, a field on one column at most, a background check skipped. */
 function checkedChoices(header: string[], choices: Choice[]): Choice[] {
 	if (choices.length !== header.length) refuse({ code: "invalid_input", field: "columns" });
 	const seen = new Set<Field>();
@@ -100,15 +83,12 @@ type Read = {
 	email: string | null;
 	stageId: string | null;
 	body: string | null;
-	/** The kept questions' titles, in file order, as their lines in the body read (T-385). */
 	questions: string[];
 	problems: RowProblem[];
 };
 const email = normalizedEmail.pipe(z.string().max(320));
-/** The kept answers' note body has the ordinary note's length limit. */
 const NOTE_MAX = 5000;
 
-/** One data row through the chosen columns. Kept answers become the note body, titled with the file and the day. */
 function readRow(
 	row: number,
 	cells: string[],
@@ -157,7 +137,6 @@ function readRow(
 }
 
 type Existing = { id: string; name: string; email: string };
-/** The rows with their duplicate findings by email: the pipeline's people, and the file's other rows. */
 function review(reads: Read[], existing: Existing[]) {
 	const valid = reads.filter((r) => r.problems.length === 0);
 	const byEmail = new Map<string, number[]>();
@@ -173,7 +152,6 @@ function review(reads: Read[], existing: Existing[]) {
 const digestOf = (fileDigest: string, choices: Choice[], rows: ReturnType<typeof review>) =>
 	hash({ fileDigest, choices, findings: rows.map((r) => [r.row, r.existing.map((p) => p.personId), r.sameAs]) });
 
-/** The file's table, or the refusal that says why it cannot be read. */
 async function sheetOf(fileName: string, file: Uint8Array): Promise<Sheet> {
 	try {
 		return await readSheet(file, fileName, C.pipelineImportLimits);
@@ -182,16 +160,10 @@ async function sheetOf(fileName: string, file: Uint8Array): Promise<Sheet> {
 		throw error;
 	}
 }
-/** Every cell that could be an email, for the one statement that finds the pipeline's people who share one. */
 const candidates = (sheet: Sheet) => [
 	...new Set(sheet.rows.flatMap((r) => r.flatMap((v) => (v.includes("@") ? [v.trim().toLowerCase()] : [])))),
 ];
 
-/**
- * The organization's live state an import reads, in one statement: its stages (the starters before any is saved), its
- * remembered choices, today as a note title says it, and its live and retired pipeline people with an email the file
- * holds. A removed or merged person is not a duplicate.
- */
 const stateRow = z.object({
 	allowed: z.boolean(),
 	remembered: z.record(z.string(), z.unknown()).nullable(),
@@ -227,10 +199,6 @@ FROM g`;
 const digestFile = (file: Uint8Array) => createHash("sha256").update(file).digest("hex");
 const noteTitle = (fileName: string, today: string) => `Answers from ${fileName}, ${today}`;
 
-/**
- * The preview: each column with its choice (the person's, else the remembered or default match) and each row as ready,
- * invalid with its problems, or a possible duplicate. It writes nothing. Owner or Admin. One statement.
- */
 export async function previewPipelineImport(db: Executor, authority: RequestActor, raw: unknown) {
 	return answer<C.PipelineImportPreview, C.PipelineImportRefusal>(async () => {
 		const seat = seatOf(authority) ?? refuse();
@@ -275,23 +243,13 @@ export async function previewPipelineImport(db: Executor, authority: RequestActo
 	});
 }
 
-/** An ID fixed by the import and its row, so a repeat of the same import conflicts instead of adding again. */
 function derivedId(seed: string) {
 	const h = createHash("sha256").update(seed).digest("hex");
 	return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${((parseInt(h[16]!, 16) & 3) | 8).toString(16)}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
-/** What the import's own audit row keeps to answer a repeat: its digest and the outcome by row number, no values. */
 const stored = z.object({ digest: z.string(), result: C.pipelineImportResult });
-/** The most titles an organization remembers; past it, only the latest import's titles are kept. */
 const REMEMBERED_MAX = 500;
 
-/**
- * Adds the reviewed rows to the pipeline at the chosen stage (or the stage a Stage column names) with the chosen
- * responsible staff, each with a people.created audit row and a first placement, and one note of kept answers by the
- * importer. A possible duplicate is added only when the person chose "add". Remembers the choice for each column title.
- * Refused when the bytes differ from the reviewed file or the pipeline's duplicate findings changed since the preview.
- * Owner or Admin.
- */
 async function importPeople(db: Database, authority: RequestActor, raw: unknown) {
 	const seat = seatOf(authority);
 	if (!seat?.administrator) return { status: "refused" as const, refusal: { code: "unavailable" as const } };
@@ -309,7 +267,6 @@ async function importPeople(db: Database, authority: RequestActor, raw: unknown)
 		const o = w.organization;
 		const command = derivedId(`pipeline-import:${o}:${input.importId}`);
 		const choices = checkedChoices(sheet.header, input.columns);
-		// The reviewed request without its bytes (the file digest names them): a repeat must match it exactly.
 		const digest = hash({
 			fileName: input.fileName,
 			fileDigest: input.fileDigest,
@@ -326,7 +283,6 @@ async function importPeople(db: Database, authority: RequestActor, raw: unknown)
 SELECT s.*,(SELECT a.metadata FROM audit_event a WHERE a.id=${command}::uuid AND a.tenant_id=${o}::uuid) AS prior,
  ${eligibleSeat(w, input.responsibleSeatId)} AS seat FROM s`,
 		);
-		// A repeat of this import answers as the first did and adds no one.
 		if (r.prior) {
 			const prior = stored.parse(r.prior);
 			if (prior.digest !== digest) refuse({ code: "conflict" });
@@ -338,7 +294,6 @@ SELECT s.*,(SELECT a.metadata FROM audit_event a WHERE a.id=${command}::uuid AND
 		const reads = sheet.rows.map((cells, i) => readRow(i + 1, cells, sheet.header, choices, r.stages, title));
 		const rows = review(reads, r.existing);
 		if (digestOf(input.fileDigest, choices, rows) !== input.reviewDigest) refuse({ code: "review_stale" });
-		// Every possible duplicate is decided, and nothing else is.
 		const decided = new Map(input.duplicates.map((d) => [d.row, d.choice]));
 		const duplicates = rows.filter((x) => x.status === "duplicate");
 		if (decided.size !== input.duplicates.length || decided.size !== duplicates.length)
@@ -356,7 +311,6 @@ SELECT s.*,(SELECT a.metadata FROM audit_event a WHERE a.id=${command}::uuid AND
 			email: x.email,
 			stage: x.stageId ?? input.stageId,
 			body: x.body,
-			// A send for review names at most 200 questions of a note (T-385); a note with more cannot be sent.
 			questions: x.questions.length && x.questions.length <= 200 ? x.questions : null,
 		}));
 		const result = C.pipelineImportResult.parse({

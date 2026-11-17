@@ -1,7 +1,4 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-// Run explicitly with test:identity:production. Owns one managed production preview.
-// Exempt from the no-sleep, no-wall-clock rule (test-standard): measuring real time is this file's job. It proves a
-// production latency class, so its pg_sleep stall, performance.now timings and polling deadline are the measurement.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { execFile } from "node:child_process";
@@ -93,15 +90,13 @@ writeFileSync('apps/web/.env.local',Object.entries({...settings,IDENTITY_ORIGIN:
 						assert.equal(response.headers.getSetCookie().length, 0);
 						row[kind] = performance.now() - start;
 					}
-					// Observe completion outside the measured response. This proves the slow
-					// known-address work executed, without measuring its duration as admission.
 					const deadline = performance.now() + 15000;
 					while ((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n === before) {
 						assert.ok(performance.now() < deadline, "post-response proof mail must reach the real outbox");
 						await new Promise((r) => setTimeout(r, 50));
 					}
 					assert.equal((await f.db.execute(querySql`SELECT count(*)::int n FROM mail`)).rows[0].n, before + 1);
-					if (i >= 2) rows.push(row); // Discard two cold-start/warmup pairs for each route.
+					if (i >= 2) rows.push(row);
 				}
 				const existing = rows.map((r) => r.existing),
 					missing = rows.map((r) => r.missing);

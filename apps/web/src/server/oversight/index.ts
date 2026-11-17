@@ -12,16 +12,11 @@ import "server-only";
 import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
 
-// The organization oversight pages (/network) reach the oversight reads here. Pages share the request's one viewer
-// (D59/D60); every read rechecks the seat's live access, the plant's own link and its sharing inside its statements
-// (C13). Nothing here keeps a result between requests, so a choice turned off shows on the next load.
-
 export type OversightViewer = {
 	authority: RequestActor;
 	organizationKind: "sending_church" | "sending_network";
 };
 
-/** Who opens an oversight page: signed out, an organization seat, or anyone else (a plant seat or seatless account). */
 export async function oversightViewer(): Promise<
 	{ kind: "signed_out" } | { kind: "other" } | { kind: "organization"; viewer: OversightViewer }
 > {
@@ -35,7 +30,6 @@ export async function oversightViewer(): Promise<
 	};
 }
 
-/** A read's answer: its value, `missing` when the read found nothing this seat may see, or `lost` on a failure. */
 export type Loaded<T> = { status: "ok"; value: T } | { status: "missing" } | { status: "lost" };
 
 async function load<T>(read: (db: Database) => Promise<T | null>): Promise<Loaded<T>> {

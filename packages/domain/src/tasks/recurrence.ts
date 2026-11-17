@@ -8,14 +8,6 @@ import { newTask } from "./writes.ts";
 const localDateOf = (at: Date, zone: TimeZone) =>
 	localDate.parse(new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(at));
 
-/**
- * The next occurrence of a recurring task completed at `at` (REQ-TSK-007), or null when the series has stopped, already
- * has a successor in this series (an occurrence restarted from a stopped series may keep one in its old series), or the next date falls after the inclusive end date. The successor is due one interval after the
- * current due date, or after the completion date when undated, so a late completion may yield an overdue successor.
- * A rule time or a timed predecessor gives a timed successor, resolved automatically: earlier fold, forward over a gap.
- * The successor keeps the task's fields, keeps each assignee only while that account still holds a seat, and gets fresh
- * copies of the live checklist rows: not started, no completion facts, no due date, no prerequisites.
- */
 export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
 	const rule = row.rule;
 	if (!rule || rule.stopped || row.has_successor || row.parent_id) return null;
@@ -28,7 +20,6 @@ export function successorOf(row: LockedTask, at: Date): TaskRow[] | null {
 	if (time) {
 		const r = resolveCalendar(localDateTime.parse(`${date}T${time}`), zone, "automatic");
 		if (r.kind !== "resolved") throw new RangeError("automatic resolution always resolves");
-		// Store the wall time that actually occurs: 02:30 in a spring gap is kept as 03:30.
 		const at = Date.parse(r.occurrence.instant);
 		const wall = new Date(at + r.occurrence.offsetSeconds * 1000).toISOString();
 		due = {

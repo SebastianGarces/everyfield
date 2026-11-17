@@ -28,12 +28,6 @@ import {
 	createNotificationWorker,
 } from "../../../apps/web/src/server/jobs/notification-worker.ts";
 
-// Residency notices (T-365, D-1414 to D-1416): Ana confirming a milestone Casey marked done, and Ana writing feedback on
-// one of Casey's milestones, each give Casey, the linked resident, one bell entry and one email through the notification
-// worker and the notice mail pass, only while her link is live. Grace Austin (America/Chicago): Dana Owner, Luis Admin,
-// Ana (Member) directs the residency. Casey Lee (casey@example.test) links sharing milestone progress. Jordan Price is
-// enrolled without an account. Robin Hale is enrolled and links later.
-
 const ORIGIN = "http://app.example.test";
 let f: Awaited<ReturnType<typeof fixture>>;
 type Actor = { id: string; session: string; email: string };
@@ -51,16 +45,13 @@ const ok = <T,>(r: { status: string; value?: T; refusal?: unknown }): T => {
 	return r.value as T;
 };
 
-// The outbox: every email the notice mail pass hands to the email service.
 const outbox: MailPayload[] = [];
 let mail: ReturnType<typeof createMailService>;
 let worker: ReturnType<typeof createNotificationWorker>;
 const feed = createNotificationProducer({ optOutKeys: { current: randomBytes(32) } });
-/** The scheduled runner's two steps: notice jobs, then the notice mail pass. */
 const deliver = () => worker.run(f.db, new Date().toISOString());
 const dispatch = () => runDueMail(f.db, mail, MAIL_PASSES.notice, 50, Infinity);
 
-/** What an account's bell shows: unread count and its residency entries, newest first. */
 async function bell(a: Actor) {
 	const reader = await authority(a);
 	const page = ok(await feed.readFeedPage(f.db, reader, {}));
@@ -71,7 +62,6 @@ async function bell(a: Actor) {
 			.map((i) => ({ category: i.category, title: i.title, body: i.body, read: i.read, subject: i.subject })),
 	};
 }
-/** Every residency notice row and its mail, for anyone, oldest first. */
 async function noticeRows() {
 	return (
 		await f.admin.execute(sql`SELECT n.recipient_id AS recipient,split_part(n.logical_key,'/',2) AS category,n.title,
@@ -138,7 +128,6 @@ const feedback = async (enrollmentId: string, milestoneId: string, body: string,
 	programWriter.addFeedback(f.db, await authority(ana), { feedbackId, enrollmentId, milestoneId, body });
 const mark = async (a: Actor, enrollmentId: string, milestoneId: string) =>
 	ok(await residentWriter.markMilestone(f.db, await authority(a), { enrollmentId, milestoneId }));
-/** Casey's notification choices, as Settings > Notifications reads them. */
 const choices = async (a: Actor) =>
 	ok(await feed.getPreferences(f.db, await authority(a))).choices.map((c) => `${c.category}.${c.channel}=${c.enabled}`);
 
@@ -250,7 +239,6 @@ before(async () => {
 after(() => f?.close());
 
 test("AC:CASE-NTF-001 Casey's Settings offer only Milestone confirmations and Feedback, both channels on; a seat offers neither", async () => {
-	// Before she links, a seatless Discovery account can receive nothing, so nothing is offered.
 	assert.deepEqual(await choices(casey), []);
 	await link(casey, people.casey);
 	assert.deepEqual(await choices(casey), [
@@ -266,12 +254,10 @@ test("AC:CASE-NTF-001 Casey's Settings offer only Milestone confirmations and Fe
 });
 
 test("AC:CASE-NTF-001 Ana confirms Casey's milestone: one bell entry and one email to casey@example.test, nothing for anyone else", async () => {
-	// Casey marking her own milestone done tells nobody.
 	await mark(casey, enrollments.casey, milestones.vision);
 	assert.deepEqual(await residencyJobs(), []);
 	const before = await bell(casey);
 	assert.deepEqual(ok(await confirm(enrollments.casey, milestones.vision)), { outcome: "changed" });
-	// The same request again changes nothing and queues nothing.
 	assert.deepEqual(ok(await confirm(enrollments.casey, milestones.vision)), { outcome: "noop" });
 	assert.equal(await deliver(), 1);
 	assert.equal(await deliver(), 0);
@@ -298,11 +284,9 @@ test("AC:CASE-NTF-001 Ana confirms Casey's milestone: one bell entry and one ema
 		),
 		email.text,
 	);
-	// The category's own email opt-out (NTF-012).
 	assert.match(email.text, new RegExp(`Unsubscribe: ${ORIGIN}/email-preferences/\\S+`));
 	assert.ok(email.headers?.["List-Unsubscribe"]);
 
-	// Nobody else hears of it, and Casey's account stays seatless.
 	for (const other of [ana, dana, luis, robin, planter]) assert.deepEqual((await bell(other)).entries, []);
 	assert.deepEqual(
 		(await noticeRows()).map((n) => n.recipient),
@@ -321,7 +305,6 @@ test("AC:CASE-NTF-001 feedback on Casey's assignment: one entry and one email na
 	const words = "Clear outline, Casey. Slow down in the second half.";
 	const feedbackId = randomUUID();
 	ok(await feedback(enrollments.casey, milestones.preach, words, feedbackId));
-	// A replay with the same feedback ID writes nothing more.
 	ok(await feedback(enrollments.casey, milestones.preach, words, feedbackId));
 	assert.equal(await deliver(), 1);
 	assert.equal(await deliver(), 0);
@@ -357,7 +340,6 @@ test("AC:CASE-NTF-001 nothing for an unlinked enrollee's record-and-confirm or f
 	const jobs = (await residencyJobs()).length;
 	const notices = (await noticeRows()).length;
 	const sent = outbox.length;
-	// Jordan has no account; Robin has not linked yet.
 	for (const who of ["jordan", "robin"] as const) {
 		ok(
 			await programWriter.recordMilestone(f.db, await authority(ana), {
@@ -403,7 +385,6 @@ test("AC:CASE-NTF-004 Casey's choices: feedback email off keeps the bell entry; 
 	await mark(casey, enrollments.casey, milestones.prospectus);
 	ok(await confirm(enrollments.casey, milestones.prospectus));
 	assert.equal(await deliver(), 1);
-	// In-app off keeps every confirmation out of the bell, as for any category; the new one is written for email only.
 	assert.deepEqual(
 		(await bell(casey)).entries.filter((e) => e.category === "residency_confirmation"),
 		[],
@@ -419,7 +400,6 @@ test("AC:CASE-NTF-004 Casey's choices: feedback email off keeps the bell entry; 
 });
 
 test("AC:CASE-NTF-003 Casey leaves before dispatch: her entries and count go at once, queued mail and notices are not sent", async () => {
-	// Back on: the bell shows feedback again.
 	const reader = await authority(casey);
 	const revision = ok(await feed.getPreferences(f.db, reader)).revision;
 	ok(
@@ -434,7 +414,6 @@ test("AC:CASE-NTF-003 Casey leaves before dispatch: her entries and count go at 
 			},
 		}),
 	);
-	// One notice written with its email waiting, and one feedback whose job has not run.
 	ok(await feedback(enrollments.casey, milestones.preach, "Third sermon notes"));
 	assert.equal(await deliver(), 1);
 	ok(await feedback(enrollments.casey, milestones.preach, "Fourth sermon notes"));
@@ -444,7 +423,6 @@ test("AC:CASE-NTF-003 Casey leaves before dispatch: her entries and count go at 
 
 	await leave(casey);
 	assert.deepEqual(await bell(casey), { unread: 0, entries: [] });
-	// The job that had not run writes nothing; the email that waited is claimed and not sent.
 	assert.equal(await deliver(), 0);
 	assert.equal((await residencyJobs()).filter((j) => j.state === "cancelled" && j.code === "suppressed").length, 1);
 	await dispatch();
@@ -453,9 +431,7 @@ test("AC:CASE-NTF-003 Casey leaves before dispatch: her entries and count go at 
 		(await noticeRows()).map((n) => n.mail),
 		["accepted", "accepted", null, "accepted", "cancelled"],
 	);
-	// A saved entry link opens My residency's not-linked state; her Settings offer no residency choice.
 	assert.deepEqual(ok(await readMyResidency(f.db, await authority(casey))), { status: "not_linked" });
 	assert.deepEqual(await choices(casey), []);
-	// Robin, still linked, is unaffected and never heard of Casey's.
 	assert.deepEqual((await bell(robin)).entries, []);
 });

@@ -1,12 +1,10 @@
 import { crc32, deflateRawSync } from "node:zlib";
 
-export type ZipEntry = { name: string; data: Uint8Array; /** Store the bytes as they are (images). */ store?: boolean };
+export type ZipEntry = { name: string; data: Uint8Array; store?: boolean };
 
-// A zero DOS date and time: the same bytes for the same entries, on every run.
 const DOS_TIME = 0;
 const DOS_DATE = 0;
 
-/** A deterministic ZIP archive: entries in the order given, a fixed date and no extra fields. */
 export function zip(entries: readonly ZipEntry[]): Buffer {
 	const parts: Buffer[] = [];
 	const central: Buffer[] = [];
@@ -16,7 +14,7 @@ export function zip(entries: readonly ZipEntry[]): Buffer {
 		const raw = Buffer.from(entry.data);
 		const packed = entry.store ? raw : deflateRawSync(raw, { level: 9 });
 		const method = entry.store ? 0 : 8;
-		const flags = /^[\x20-\x7e]*$/.test(entry.name) ? 0 : 0x0800; // the UTF-8 flag only for non-ASCII names
+		const flags = /^[\x20-\x7e]*$/.test(entry.name) ? 0 : 0x0800;
 		const checksum = crc32(raw) >>> 0;
 		const local = Buffer.alloc(30);
 		local.writeUInt32LE(0x04034b50, 0);
