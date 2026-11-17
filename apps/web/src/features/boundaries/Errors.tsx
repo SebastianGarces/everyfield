@@ -6,7 +6,6 @@ import Link from "next/link";
 import { ButtonLink, buttonClass } from "@/components/ButtonLink";
 import { RootState } from "./RootState";
 
-/** What Next hands an error boundary. The message stays in the server log; only the digest reaches the viewer. */
 export type BoundaryProps = { error: Error & { digest?: string }; reset: () => void };
 
 const MESSAGE = "This page ran into a problem. Try again, and if it keeps happening, come back in a few minutes.";
@@ -15,7 +14,6 @@ function reference(error: BoundaryProps["error"]) {
 	return error.digest ? `Error reference ${error.digest}` : undefined;
 }
 
-/** A thrown render inside the signed-in product frame ((frame)/error.tsx): the shell stays, the main area says so. */
 export function FrameError({ error, reset }: BoundaryProps) {
 	return (
 		<Card>
@@ -42,7 +40,6 @@ export function FrameError({ error, reset }: BoundaryProps) {
 	);
 }
 
-/** A thrown render outside the product frame (app/error.tsx), inside the root layout. */
 export function RootError({ error, reset }: BoundaryProps) {
 	const ref = reference(error);
 	return (
@@ -65,10 +62,6 @@ export function RootError({ error, reset }: BoundaryProps) {
 	);
 }
 
-/**
- * The document global-error renders when the root layout itself fails: its own <html> and <body> around the root error
- * page. `className` carries the font variables the layout would have set.
- */
 export function GlobalErrorDocument({ className, ...props }: BoundaryProps & { className?: string }) {
 	return (
 		<html lang="en" className={className}>

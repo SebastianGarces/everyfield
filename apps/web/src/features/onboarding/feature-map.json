@@ -1,0 +1,510 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "onboarding",
+	"catalog": ["IDN-013", "IDN-014", "IDN-015", "IDN-016"],
+	"surfaces": [
+		{
+			"id": "onboarding.setup",
+			"says": "The account's way into a church: create one, or explore first in a private Discovery space. A member, an organization seat and a signed-out visitor are each sent elsewhere.",
+			"routes": ["/onboarding"],
+			"catalog": ["IDN-013", "IDN-016"],
+			"reach": [
+				{
+					"from": "overview.home",
+					"persona": "signup",
+					"path": [
+						{
+							"open": "/overview"
+						}
+					]
+				},
+				{
+					"link": "/onboarding"
+				}
+			],
+			"personas": {
+				"signup": "write",
+				"triage": "write",
+				"resident": "write",
+				"owner": "write",
+				"member": "read",
+				"network": "none",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "create-church",
+					"reach": {
+						"persona": "signup",
+						"open": "/onboarding",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/onboarding?step=church"
+						},
+						{
+							"role": "heading",
+							"name": "Start your church"
+						},
+						{
+							"role": "textbox",
+							"name": "Church name"
+						},
+						{
+							"role": "button",
+							"name": "Create church"
+						}
+					]
+				},
+				{
+					"id": "choose-start",
+					"reach": {
+						"persona": "triage",
+						"open": "/onboarding",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "How do you want to start?"
+						},
+						{
+							"role": "radio",
+							"name": "Start a church",
+							"match": "contains"
+						},
+						{
+							"role": "radio",
+							"name": "Explore in Discovery",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/onboarding",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Setup belongs to the Owner"
+						},
+						{
+							"role": "button",
+							"name": "Try again"
+						}
+					]
+				},
+				{
+					"id": "organization",
+					"reach": {
+						"persona": "network",
+						"open": "/onboarding",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/network"
+						},
+						{
+							"noText": "Start your church"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/onboarding",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fonboarding"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "create-church",
+					"says": "A church name and the box saying you set it up yourself create the church in Phase 1, with you as its Owner.",
+					"catalog": ["IDN-013"],
+					"operations": ["onboarding.createPlant"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/onboarding/onboarding.test.mts",
+								"name": "AC:TARGET-IDN-013 AC:ROLE43-003 AC:ROLE43-014 AC:DC-021 AC:DC-027 AC:DC-029 AC:DC-031 creation is atomic, ungated, leader bootstrap and replay never demote"
+							}
+						],
+						"cases": ["TARGET-IDN-013"],
+						"browser": {
+							"kind": "behavior",
+							"state": "create-church",
+							"steps": [
+								{
+									"type": "Map Test Church",
+									"into": "Church name"
+								},
+								{
+									"click": {
+										"role": "checkbox",
+										"name": "I’m setting up this church myself"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Create church"
+									}
+								},
+								{
+									"expect": {
+										"role": "heading",
+										"name": "Church created"
+									}
+								},
+								{
+									"open": "/onboarding?step=church"
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Map Test Church",
+									"match": "contains"
+								},
+								{
+									"role": "heading",
+									"name": "Church created"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "discovery",
+					"says": "An account that is not ready to plant opens Discovery, a private space with no church and no seat, and comes back to it on the next visit.",
+					"catalog": ["IDN-016"],
+					"operations": ["discovery.create"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/onboarding/onboarding.test.mts",
+								"name": "AC:TARGET-IDN-016 AC:AF-012 AC:DC-001 Discovery is explicit and seatless; conversion transfers only selected current pairs"
+							}
+						],
+						"cases": ["TARGET-IDN-016"],
+						"browser": {
+							"kind": "behavior",
+							"state": "choose-start",
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "Explore in Discovery",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Continue"
+									}
+								},
+								{
+									"expect": {
+										"role": "heading",
+										"name": "Explore before you plant"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Open Discovery"
+									}
+								},
+								{
+									"open": "/onboarding"
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Discovery"
+								},
+								{
+									"role": "button",
+									"name": "Start your church"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "onboarding.steps",
+			"says": "After the church exists, the Owner's setup steps on the same page: where the church is today, when it launches, who leads it, then Finish.",
+			"routes": [],
+			"catalog": ["IDN-014", "IDN-015"],
+			"reach": [
+				{
+					"from": "onboarding.setup",
+					"persona": "signup",
+					"path": [
+						{
+							"open": "/onboarding?step=journey"
+						}
+					]
+				}
+			],
+			"personas": {
+				"signup": "write",
+				"owner": "write",
+				"member": "none"
+			},
+			"states": [
+				{
+					"id": "journey",
+					"reach": {
+						"persona": "signup",
+						"setup": [
+							{
+								"open": "/onboarding"
+							},
+							{
+								"type": "Map Onboarding Church",
+								"into": "Church name"
+							},
+							{
+								"click": {
+									"role": "checkbox",
+									"name": "I’m setting up this church myself"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Create church"
+								}
+							},
+							{
+								"expect": {
+									"role": "heading",
+									"name": "Church created"
+								}
+							}
+						],
+						"open": "/onboarding?step=journey"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Where is",
+							"match": "contains"
+						},
+						{
+							"role": "radio",
+							"name": "Launch team formation",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Skip for now"
+						}
+					]
+				},
+				{
+					"id": "owner-finished",
+					"reach": {
+						"persona": "owner",
+						"open": "/onboarding",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/onboarding?step=finish"
+						},
+						{
+							"role": "heading",
+							"name": "Setup is finished"
+						},
+						{
+							"role": "link",
+							"name": "Go to Overview"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "journey",
+					"says": "Picking the phase the church is already in and a launch answer saves both together; the phase then shows as declared and cannot be picked again here.",
+					"catalog": ["IDN-015"],
+					"operations": ["onboarding.declareJourney"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/onboarding/onboarding.test.mts",
+								"name": "AC:DC-022 explicit journey allows 0..6 once with fixed reason; launch and phase commit together"
+							},
+							{
+								"file": "tests/integration/onboarding/onboarding.test.mts",
+								"name": "AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and skip preserve phase and launch; finish preserves real gaps"
+							}
+						],
+						"cases": ["DC-022", "TARGET-IDN-015"],
+						"browser": {
+							"kind": "behavior",
+							"state": "journey",
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "Launch team formation",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Continue"
+									}
+								},
+								{
+									"click": {
+										"role": "radio",
+										"name": "No date yet",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save and continue"
+									}
+								},
+								{
+									"expect": {
+										"role": "heading",
+										"name": "Will you lead",
+										"match": "contains"
+									}
+								},
+								{
+									"open": "/onboarding?step=journey"
+								}
+							],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "You declared Phase",
+									"match": "contains"
+								},
+								{
+									"absent": {
+										"role": "radio",
+										"name": "Launch team formation",
+										"match": "contains"
+									}
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "lead",
+					"says": "Yes, I lead it adds one lead role and gives it to the planter; No assigns nothing; a role someone already holds is kept.",
+					"catalog": ["IDN-014"],
+					"operations": ["identity.answerLeadOnboarding"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/onboarding/onboarding.test.mts",
+								"name": "AC:TARGET-IDN-014 AC:ROLE43-004 AC:ROLE43-005 lead answer uses the linked Owner, ordinary role only, and occupied roles conflict"
+							},
+							{
+								"file": "tests/integration/onboarding/onboarding.test.mts",
+								"name": "AC:TARGET-IDN-014 the Senior pastor fill is off by default and only a Yes answer can carry it"
+							}
+						],
+						"cases": ["TARGET-IDN-014"]
+					}
+				},
+				{
+					"id": "finish-and-resume",
+					"says": "Finish setup records completion and keeps real gaps; a returning Owner picks up at the first unanswered step.",
+					"catalog": ["IDN-015"],
+					"operations": ["onboarding.complete", "onboarding.getResume"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/onboarding/onboarding.test.mts",
+								"name": "AC:TARGET-IDN-015 AC:DC-018 AC:DC-030 AC:DC-032 unsure, discerning and skip preserve phase and launch; finish preserves real gaps"
+							},
+							{
+								"file": "tests/integration/onboarding/onboarding.test.mts",
+								"name": "AC:DC-001 AC:DC-027 account drafts stay private through conversion; resume uses only actual current plant values"
+							}
+						],
+						"cases": ["TARGET-IDN-015"],
+						"browser": {
+							"kind": "presence",
+							"state": "owner-finished",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Review answers"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "onboarding.design-preview",
+			"says": "A design preview of the onboarding screens with sample accounts and no database. Production returns 404.",
+			"routes": ["/design/onboarding"],
+			"reach": [
+				{
+					"link": "/design/onboarding"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "new-planter",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/onboarding",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/design/onboarding?step=church"
+						},
+						{
+							"role": "heading",
+							"name": "Start your church"
+						},
+						{
+							"role": "combobox",
+							"name": "Preview account"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		}
+	]
+}

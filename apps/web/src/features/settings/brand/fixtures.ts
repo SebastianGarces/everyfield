@@ -17,10 +17,6 @@ import {
 import { colorView } from "@everyfield/domain/branding/color";
 import type { BrandError, BrandKit, BrandPort, BrandReply } from "../port";
 
-// The brand kit fixture for the design preview. It answers like the branding contract says (every kit is parsed by
-// brandKit, every patch by saveSettingsRequest) and keeps one kit in memory per preview load. It is a stand-in for the
-// design review only; the server's own rules live in packages/domain.
-
 export type PreviewKit = "none" | "saved" | "pale";
 const PREVIEW_KITS: readonly PreviewKit[] = ["none", "saved", "pale"];
 export const parsePreviewKit = (value: string | null | undefined): PreviewKit =>
@@ -35,7 +31,6 @@ const EMPTY: BrandKitData = {
 	assets: Object.fromEntries(ASSET_SLOTS.map((slot) => [slot, null])) as BrandKitData["assets"],
 };
 
-/** The CASE-BRD-006 kit, and the CASE-BRD-003 pale yellow primary with no accent. */
 const START: Record<PreviewKit, BrandKitData> = {
 	none: EMPTY,
 	saved: {
@@ -72,13 +67,8 @@ export type BrandFault = BrandError["code"] | "offline";
 export type BrandOperation =
 	"getBrand" | "saveBrand" | "resetBrand" | "requestUpload" | "uploadBytes" | "finalizeUpload" | "suggestColors";
 
-/** The colors the fixture suggests for any logo: the dominant color first, as the server's function returns them. */
 const SUGGESTION = ["#2E7D32", "#8BC34A", "#1B5E20"] as const;
 
-/**
- * `tick(op)` counts the call, waits and applies a queued fault: it returns the refusal code or null, and throws
- * for a lost connection.
- */
 export function createFixtureBrand({
 	kit,
 	churchName,
@@ -94,7 +84,6 @@ export function createFixtureBrand({
 }): BrandPort {
 	let data = START[kit];
 	let revision = kit === "none" ? "0" : "1";
-	// Staged uploads by id, and the object URL of each stored file (the fixture's "served asset").
 	const staged = new Map<string, { slot: string; byteLength: number }>();
 	const served = new Map<string, string>();
 	const refuse = (code: BrandError["code"]): BrandReply<never> => ({

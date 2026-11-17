@@ -7,9 +7,7 @@ import { PAGES, pageMetadata } from "@/marketing/meta";
 import { PageHero } from "@/marketing/sections/PageHero";
 import { Site } from "@/marketing/Site";
 
-// Copy: shared.access_page in design/marketing-copy.json (task E2, step form WP-097).
 const A = COPY.shared.access_page;
-// The server accepts only the contract's phase values, so the copy must use the same labels.
 if (A.phases.join("|") !== PHASES.join("|")) {
 	throw new Error("marketing-copy.json: access_page.phases must equal PHASES in src/access/contract.ts");
 }
@@ -31,7 +29,6 @@ const maxFor = (name: string) => Object.entries(FIELD_MAX).find(([k]) => k === n
 
 function field(name: string, who: Who): FieldSpec {
 	const shape = SHAPES[name];
-	// A church and a network answer the same organization field under their own label.
 	const c = name === "organization" && who !== "planter" ? A.organization[who] : A.fields[name];
 	if (!shape || !c) throw new Error(`marketing-copy.json: access_page field "${name}" is missing`);
 	const copy = { help: undefined, optional: undefined, placeholder: undefined, prompt: undefined, ...c };
@@ -43,7 +40,6 @@ function field(name: string, who: Who): FieldSpec {
 		help: copy.help,
 		placeholder: copy.placeholder,
 		prompt: copy.prompt,
-		// An optional free-text field has no format to get wrong; its only error is length.
 		error: copy.error ?? A.outcomes.invalid.title,
 		tooLong: A.errors.too_long.replace("{max}", String(maxFor(name) ?? "")),
 	};
@@ -80,7 +76,6 @@ const text: FormText = {
 
 export const metadata: Metadata = pageMetadata(PAGES.access);
 
-/** ?role=planter, church or network (Revision 8) opens the form with that answer chosen; anything else is ignored. */
 export default async function Access({
 	searchParams,
 }: {

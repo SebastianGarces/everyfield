@@ -13,10 +13,6 @@ import "server-only";
 import type { SignalOutcome } from "./signals-model.ts";
 import { careViewer, type CareViewer } from "./server.ts";
 
-// The Attestations page reaches the signals domain here. Pages and actions share the request's one viewer (D59/D60),
-// and every read and write rechecks the live Owner or Admin seat inside its statement. Failures log their kind only:
-// no answer, detail, reference or name ever reaches a log line.
-
 const signals = createSignals();
 
 const report = (outcome: string, error: unknown) =>
@@ -24,7 +20,6 @@ const report = (outcome: string, error: unknown) =>
 		JSON.stringify({ component: "signals", outcome, kind: (error as { code?: string })?.code ?? "unknown" }),
 	);
 
-/** The Attestations page: the seven signals, the counts, the candidates and the history. One statement. */
 export async function loadAttestations(viewer: CareViewer): Promise<SignalOutcome<AttestationsPage>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
@@ -36,7 +31,6 @@ export async function loadAttestations(viewer: CareViewer): Promise<SignalOutcom
 	}
 }
 
-/** One signals operation for the request's viewer. */
 export async function runSignals<T extends SignalWriteResult | CandidateWriteResult | AttestationsPage>(
 	body: (signals: Signals, db: Database, authority: RequestActor) => Promise<SignalReply<T>>,
 ): Promise<SignalOutcome<T>> {

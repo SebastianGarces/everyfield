@@ -6,8 +6,6 @@ import { organizationProfileResult, sharingResult } from "../organizations/resul
 import { organizationOwner, plantOwner } from "../organizations/subjects.ts";
 import { notificationSettings, plantSettings, settingsName, timezonePreference } from "./values.ts";
 
-// Application delivery resolves version to a private server key and checks live
-// self authority. No signed bearer URL, raw key or original filename crosses it.
 export const avatarReference = z.strictObject({ accountId, versionId: recordId });
 export function avatarRoute(value: z.infer<typeof avatarReference>): string {
 	return `/api/accounts/${value.accountId}/avatar/${value.versionId}`;
@@ -79,8 +77,6 @@ export const settingsError = z.discriminatedUnion("code", [
 	defineSafeError("deadline_passed", {}, "never"),
 	defineSafeError("manual_owner_exception_required", {}, "never"),
 ]);
-// The actual organization helper commits sharing with relationship/consent
-// revisions, history, audit, receipt and required intents in one transaction.
 export type SectionResult = z.infer<typeof sectionResult>;
 export type SettingsError = z.infer<typeof settingsError>;
 export { organizationOwner };

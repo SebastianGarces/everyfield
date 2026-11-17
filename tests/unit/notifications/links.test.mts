@@ -1,7 +1,3 @@
-// T-260 (D-731 to D-733): a feed entry whose category has a subject page links to it, read or unread; any other entry is
-// a mark-read button while unread and plain text once read. It maps each subject the feed returns to its address and
-// renders the real entry in node. It runs from packages/domain's test:unit:
-// tsx --tsconfig ../../tests/unit/render.tsconfig.json --test <this file>.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
@@ -12,7 +8,6 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement } = web("react");
-// Links go through the app router; a router that goes nowhere stands in for the mounted one.
 const { AppRouterContext } = web("next/dist/shared/lib/app-router-context.shared-runtime");
 const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {} };
 const { subjectHref } = await import("../../../apps/web/src/features/notifications/model.ts");
@@ -52,7 +47,6 @@ test("AC:CASE-NTF-003 each subject opens its page", () => {
 
 test("AC:CASE-NTF-003 a residency entry opens My residency at its milestone, which reads it", () => {
 	assert.equal(subjectHref({ kind: "residency_milestone", id }), `/my-residency?milestone=${id}#milestone-${id}`);
-	// Answers sent for review open the send on the reviewer's Sent for review page (T-385).
 	assert.equal(subjectHref({ kind: "answer_review", id }), `/organization/reviews/${id}`);
 	const entry = html({
 		...base,

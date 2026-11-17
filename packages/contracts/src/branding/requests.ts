@@ -19,7 +19,6 @@ const letterheadPatch = Object.fromEntries(
 	LETTERHEAD_KEYS.map((key) => [key, letterheadFields[key].nullable().optional()]),
 ) as { [K in LetterheadKey]: z.ZodOptional<z.ZodNullable<(typeof letterheadFields)[K]>> };
 
-/** One patch of closed fields. A missing field stays; null clears it. The primary color cannot be cleared. */
 export const settingsPatch = z
 	.strictObject({
 		primaryColor: hexColor.optional(),
@@ -27,7 +26,6 @@ export const settingsPatch = z
 		headingFont: fontId.optional(),
 		bodyFont: fontId.optional(),
 		...letterheadPatch,
-		/** Only null is accepted: it removes the asset and its alt text. An upload attaches a new one. */
 		assets: z.strictObject(Object.fromEntries(assetSlot.options.map((s) => [s, z.null().optional()]))).optional(),
 	})
 	.refine((patch) => Object.values(patch).some((value) => value !== undefined), "Name at least one field to change.");

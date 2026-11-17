@@ -12,10 +12,6 @@ import { liveAuthority } from "../../../context/authority.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { accountContext, plantOwner } from "../../native.ts";
 
-// Where setup stands, read through the same native reads `/onboarding` uses: a church's setup steps for the Owner who is
-// setting it up, and an account's own Discovery space. Each row is one step or one organization, worded as the
-// onboarding screen words it.
-
 type Resume = Extract<z.infer<typeof resumeResult>, { status: "available" }>;
 type Profile = Extract<z.infer<typeof discoveryProfileResult>, { status: "active" }>["profile"];
 
@@ -40,10 +36,6 @@ const none = (operation: string, why: string): SourceResult => ({
 	completeness: "complete",
 	exclusions: [why],
 });
-/**
- * Where this account stands, from the one read `/onboarding` makes (readOnboardingEntry): a church's setup for the Owner
- * setting it up, or the account's own Discovery space. The read takes no lock and checks live access itself.
- */
 export async function onboardingEntry(tx: Database | Transaction, actor: EvryActor, native: NativePorts | null) {
 	if (!native) throw new EvryRefusal("source_unavailable");
 	const session = {
@@ -61,13 +53,11 @@ const step = (id: string, label: string, saved: boolean, answer: string | null):
 	label,
 	fields: { status: saved ? "saved" : "open", answer },
 });
-/** A journey answer other than a declared phase, as `/onboarding` words it. */
 export const JOURNEY_TEXT = {
 	unsure: "Not sure yet. Nothing declared.",
 	discerning: "Still discerning. Nothing declared.",
 	skip: "Skipped",
 } as const;
-/** The answer each step shows on `/onboarding`, or null while it is open. */
 function journeyAnswer(r: Resume) {
 	if (r.journey.status !== "saved") return null;
 	const j = r.journey.value;
@@ -80,7 +70,6 @@ function launchAnswer(r: Resume) {
 	if (r.scheduledLaunchDate) return `Launch date ${r.scheduledLaunchDate}`;
 	return r.launch.value.answer === "skip" ? "Skipped" : "No date yet";
 }
-/** A lead answer as `/onboarding` words it. */
 export const LEAD_TEXT = { yes: "You hold the lead role", no: "Someone else leads", skip: "Skipped" } as const;
 function leadAnswer(r: Resume) {
 	const lead = r.lead;
@@ -89,9 +78,7 @@ function leadAnswer(r: Resume) {
 		? "You hold the Senior pastor role"
 		: LEAD_TEXT[lead.answer];
 }
-/** A Discovery link's organization kind as `/onboarding` words it. */
 export const linkKind = (kind: string) => (kind === "sending_network" ? "Network" : "Sending church");
-/** The setup steps of `/onboarding` in its order, each saved or open. */
 function setupSteps(r: Resume): SourceRow[] {
 	const plant = r.plant.id;
 	return [
@@ -107,7 +94,6 @@ function setupSteps(r: Resume): SourceRow[] {
 	];
 }
 
-/** Where a returning Owner picks up on `/onboarding`: the first open step, or Finish (model.ts resumeStep). */
 function resumeAt(r: Resume) {
 	if (r.completion.status === "completed") return "Finish setup";
 	if (r.journey.status !== "saved" || r.launch.status !== "saved") return "Where you are";
@@ -125,7 +111,6 @@ export const ONBOARDING_READS = [
 			const found = await onboardingEntry(tx, actor, native);
 			if (found.kind !== "plant") return none("onboarding.getResume", "This church has no setup in progress for you.");
 			const resume = found.resume as Resume;
-			// The user's own Discovery space that became this church, which closed when it did.
 			const [closed] = (
 				await tx.execute(sql`SELECT to_char(d.converted_at AT TIME ZONE pl.timezone,'YYYY-MM-DD') AS on
 					FROM discovery d JOIN plant pl ON pl.id=d.converted_plant_id
@@ -167,7 +152,6 @@ export const ONBOARDING_READS = [
 				fields: {
 					organizationId: r.organization.id,
 					relationship: linkKind(r.organization.organizationKind),
-					// What the link shares, in the Sharing screen's words, or null when it shares nothing.
 					shares:
 						SHARING_CATEGORIES.filter((k) => r.choices[k])
 							.map((k) => SHARING_CATEGORY_LABEL[k])

@@ -232,7 +232,6 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 			"apps/web/src/features/x/go.ts": source,
 			"apps/web/src/components/location.ts": source,
 			"apps/web/src/components/one-time-link.ts": `export const take = () => (window.history.replaceState(null, "", "/"), location.hash);\n`,
-			"apps/web/src/features/x/Hash.tsx": `import { useLocationHash } from "@everyfield/ui/foundations";\nexport const useProof = () => useLocationHash();\n`,
 			"apps/web/src/server/mail/link.ts":
 				"export const link = (origin, proof) => `${origin}/invitation#proof=${proof}`;\n",
 		}),
@@ -260,7 +259,46 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 			"apps/web/src/features/x/go.ts:13 no-raw-history",
 			"apps/web/src/features/x/go.ts:14 no-raw-history",
 			"apps/web/src/features/x/go.ts:14 no-raw-history",
-			"apps/web/src/features/x/Hash.tsx:1 no-raw-history",
+		].sort(),
+	);
+});
+
+test("INV-lint: an in-app address carrying a one-time link value is reported when it names an origin, or is built with URL, URLSearchParams or a pathname object", () => {
+	const source = `export function links(proof) {
+	const absolute = ["https://everyfield.app/invitation#proof=" + proof, "//everyfield.app/reset-password?token=1", "https://everyfield.app/reset-password?step=2"];
+	const reset = new URL("/reset-password", window.location.origin);
+	reset.searchParams.set("token", proof);
+	const verify = new URL("https://everyfield.app/verify-email");
+	verify.search = \`?token=\${proof}\`;
+	const invite = new URL(\`\${origin}/invitation\`);
+	invite.hash = \`proof=\${proof}\`;
+	const query = new URLSearchParams({ token: proof });
+	const later = new URLSearchParams();
+	later.append("token", proof);
+	const step = new URLSearchParams({ step: "2" });
+	const built = ["/reset-password?" + query, \`/verify-email?\${later.toString()}\`, \`/reset-password?\${new URLSearchParams([["token", proof]])}\`, "/reset-password?" + step];
+	const pages = [{ pathname: "/verify-email", query: { token: proof } }, { pathname: "/invitation", hash: proof }, { pathname: "/reset-password", query: { step: 2 } }];
+	const other = new URL("/documents", origin);
+	other.searchParams.set("token", proof);
+	return [absolute, reset, verify, invite, built, pages, other];
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/links.ts": source,
+			"apps/web/src/server/mail/links.ts": source,
+		}),
+		[
+			"apps/web/src/features/x/links.ts:2 no-raw-history",
+			"apps/web/src/features/x/links.ts:2 no-raw-history",
+			"apps/web/src/features/x/links.ts:4 no-raw-history",
+			"apps/web/src/features/x/links.ts:6 no-raw-history",
+			"apps/web/src/features/x/links.ts:8 no-raw-history",
+			"apps/web/src/features/x/links.ts:13 no-raw-history",
+			"apps/web/src/features/x/links.ts:13 no-raw-history",
+			"apps/web/src/features/x/links.ts:13 no-raw-history",
+			"apps/web/src/features/x/links.ts:14 no-raw-history",
+			"apps/web/src/features/x/links.ts:14 no-raw-history",
 		].sort(),
 	);
 });
@@ -281,6 +319,17 @@ test("INV-lint: window and document listeners, and onTraversal or onNavigation h
 	document.onclick = run;
 	node.ownerDocument.addEventListener("keydown", run);
 	window.visualViewport.addEventListener("resize", run);
+	const scroller = node.root ?? window;
+	scroller.addEventListener("scroll", run);
+	(node.scrolls ? node : window).removeEventListener("scroll", run);
+	const view = (node.root || document.defaultView) as Window;
+	view.addEventListener("resize", run);
+	let later;
+	later = node.root ?? window;
+	later.addEventListener("scroll", run);
+	(0, window).addEventListener("scroll", run);
+	const frame = node.ownerDocument?.defaultView;
+	frame.addEventListener("resize", run);
 	return [add, listen];
 }
 `;
@@ -302,7 +351,7 @@ export function Screen() {
 			"apps/web/src/components/location.ts": source,
 		}),
 		[
-			...[2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15].map(
+			...[2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 17, 18, 20, 23, 24, 26].map(
 				(line) => `apps/web/src/features/x/mount.ts:${line} no-global-listeners`,
 			),
 			"apps/web/src/features/x/Screen.tsx:4 no-global-listeners",
@@ -628,6 +677,26 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.equal(status, 1);
 	assert.match(out, /override for src\/x\.tsx, rule everyfield\/no-effects needs its reason/);
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
+});
+
+test("INV-lint: a survivor whose reason marks it temporary must name the evf task that removes it", () => {
+	const path = "packages/ui/src/Panel.tsx";
+	const run = (reason) => {
+		const dir = sandbox(
+			{ [path]: "export {};\n" },
+			{ "survivors/packages-ui.json": { "no-effects": { [path]: [{ function: "Panel", count: 1, reason }] } } },
+		);
+		git(dir, "init", "-q");
+		return check(dir, ["--no-base"]);
+	};
+	const refused = run("Temporary: the effect goes once the shared hook lands");
+	assert.equal(refused.status, 1);
+	assert.match(
+		refused.out,
+		/packages-ui\.json: no-effects packages\/ui\/src\/Panel\.tsx: a temporary entry must name the evf task/,
+	);
+	assert.match(run("Temporary: the effect goes once the shared hook lands (T-123)").out, /check-comments: passed/);
+	assert.match(run("The effect follows the panel's lifetime, so it stays").out, /check-comments: passed/);
 });
 
 function history() {

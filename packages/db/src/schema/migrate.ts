@@ -25,18 +25,11 @@ async function locked<T>(db: Database, schema: string, body: (tx: Transaction) =
 		return body(tx);
 	});
 }
-/**
- * Reviewed replacements of landed migrations: a file name and the earlier bytes (sha256) some databases applied. A
- * ledger row holding one of these still names its file, so the database migrates on with no checksum conflict.
- * 20261112031340 lost its backfill, which failed on PostgreSQL 18 with a plain-text body; 20261112073258 now runs it
- * with a function that database can apply (T-275).
- */
 const replacedBytes: Readonly<Record<string, readonly string[]>> = {
 	"20261112031340_article_revision_search_vector.sql": [
 		"fd8e4e477a59a07aabde0e851106e9ff636bd4e6c5d22b05b357225b38eb9b97",
 	],
 };
-/** Whether a ledger row's bytes are its file's current bytes or a reviewed earlier version of them. */
 function ledgerMatches(sha256: string | undefined, name: string, file: string | undefined): boolean {
 	return file !== undefined && (sha256 === file || (replacedBytes[name]?.includes(sha256 ?? "") ?? false));
 }
@@ -44,10 +37,6 @@ export async function migrationArtifact() {
 	return (await migrations()).map(({ name, sha256 }) => ({ name, sha256 }));
 }
 
-// One transaction covers the batch and original ledger. No automatic checksum adoption.
-// Deploy/build/start never calls this; it is an explicit operator command.
-// Every ledger row must name a file with the same bytes. Every file the ledger lacks then
-// applies in name order, so two branches' migrations apply in either merge order (D78).
 export async function migrate(db: Database, schema = "public", directory?: URL): Promise<string[]> {
 	const files = await migrations(directory);
 	return locked(db, schema, async (tx) => {
@@ -80,17 +69,8 @@ export async function migrate(db: Database, schema = "public", directory?: URL):
 	});
 }
 
-/**
- * A one-time data step db:migrate runs after the SQL files (C102). `run` changes rows inside the given transaction and
- * returns how many it changed.
- */
 export type Backfill = { name: string; run: (tx: Transaction) => Promise<number> };
 
-/**
- * Run each backfill not yet recorded, in order, each in one transaction under the migration lock. The name and its
- * change count are recorded in schema_backfill in that same transaction, so a rerun skips a completed backfill and a
- * failure leaves it pending for the next run. Returns the backfills this call completed.
- */
 export async function backfill(
 	db: Database,
 	backfills: readonly Backfill[],
@@ -111,8 +91,6 @@ export async function backfill(
 	return done;
 }
 
-// Explicit reviewed adoption only. Current-byte agreement cannot prove which bytes
-// originally ran. Preserve timestamps and mark that limitation in every adopted row.
 export async function adoptMigrationHistory(
 	db: Database,
 	schema: string,

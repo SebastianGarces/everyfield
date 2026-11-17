@@ -11,11 +11,6 @@ import { NativeImage } from "@/components/native";
 
 type Assets = ReturnType<typeof useAssets>;
 
-/**
- * "Logos and images" (REQ-BRD-002): six slots, each with its guidance and either the stored image with its alt text,
- * the picked file waiting for its description, or an empty state. A logo shows on a light, a dark and a brand color
- * background. The brand swatch follows the draft primary color without a request.
- */
 export function AssetsGroup({
 	kit,
 	port,
@@ -29,10 +24,8 @@ export function AssetsGroup({
 	kit: BrandKit;
 	port: BrandPort;
 	assets: Assets;
-	/** The draft primary color when it is a valid `#RRGGBB`. */
 	primary: HexColor | null;
 	neutralInk: string;
-	/** The draft accent color as typed. */
 	accent: string;
 	onUsePrimary: (color: string) => void;
 	onUseAccent: (color: string) => void;

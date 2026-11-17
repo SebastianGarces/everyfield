@@ -18,11 +18,6 @@ const WARNING_TEXT: Record<PlantTimezonePreview["warnings"][number], string> = {
 	more_results: "There are more changes than shown here. Saving changes all of them the same way.",
 };
 
-/**
- * Changing the church time zone (REQ-IDN-011, REQ-TSK-018): choose a zone, see what moves, then save. Saving needs an
- * unexpired preview of that exact zone; a stale preview asks for a new one. Past times, one-time appointments and
- * due dates keep their values. The parent gives each opening a new key, so every opening starts clean.
- */
 export function PlantTimezoneDialog({
 	open,
 	onOpenChange,
