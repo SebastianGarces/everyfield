@@ -1,29 +1,15 @@
-// Pure core of the actionable-change watcher: parse evf status and main CI runs, reduce them to a
-// canonical snapshot, derive actionable events and advance the dedup state. No I/O here.
-
-/**
- * Stuck, defined conservatively. evf's loop writes `heartbeat` on every tick, and `evf status`
- * reports its own clock as `now`. If `now - heartbeat` reaches 15 minutes the loop has not ticked
- * for many tick periods: the drive is stuck no matter what any seat is doing. A seat is stuck only
- * when evf itself says its pane is not `live` while the task still reads running, on two polls in a
- * row (about 3 minutes at a 90 s cadence), so one missed probe cannot fire it. Runtime length and
- * `activity_at` are never inputs: a long, live run is healthy.
- */
 export const HEARTBEAT_STALE_MS = 15 * 60_000;
-export const DEAD_SEAT_POLLS = 2; // enforced by intersecting the previous and current snapshot
+export const DEAD_SEAT_POLLS = 2;
 export const MAX_PENDING = 50;
 
 const ERROR_VALUES = new Set(["failed", "error", "errored", "stuck", "crashed"]);
 const WAITING_PHASES = new Set(["waiting", "queued", "ready"]);
-// A wait that names an owner gate, a decision, a review, a hold or another task is not slot-bound.
 const GATED_WAIT = /owner|decision|decide|approv|ruling|answer|review|hold|blocked|waits for T-\d+/i;
 const CI_FAILURES = new Set(["failure", "timed_out", "startup_failure", "action_required"]);
 
-/** `detail` names where a parse failed, by list, index and field name:type. It never holds a value. */
 export type Result<T> = { ok: true; value: T } | { ok: false; code: string; detail?: string };
 
 type RawTask = { id: number; label: string; phase: string; lifecycle: string; held: boolean; wait: string | null };
-/** `task` is null and `run`/`step` are absent on the `needs_you` row evf adds for an open decision. */
 type RawAgent = { task: number | null; run: number | null; step: string | null; state: string };
 type RawSeat = { task: number; run: number; live: boolean };
 export type Status = {
@@ -71,7 +57,6 @@ export type EventKind =
 export type WatchEvent = {
 	key: string;
 	kind: EventKind;
-	/** level events hold while their condition holds; edge events are one-off transitions */
 	level: boolean;
 	task?: number;
 	label?: string;
@@ -81,29 +66,18 @@ export type WatchEvent = {
 	sha?: string;
 	conclusion?: string;
 };
-/** `sends` holds the times (ms) of webhook POSTs in the last rolling hour, for the local send cap. */
 export type State = { version: 1; snapshot: Snapshot; sent: string[]; pending: WatchEvent[]; sends: number[] };
-
-// ---- boundary parsing -------------------------------------------------------------------------
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const isInt = (v: unknown): v is number => Number.isSafeInteger(v);
 const isStr = (v: unknown): v is string => typeof v === "string";
-/** Identifiers pass whole; anything that is not a short slug (prose, URLs, emails) becomes "". */
 export const token = (v: string, max = 64): string => (v.length <= max && /^[A-Za-z0-9._-]+$/.test(v) ? v : "");
 
-/** A value's type for diagnostics: never the value itself. */
 const typeOf = (v: unknown): string => (v === null ? "null" : Array.isArray(v) ? "array" : typeof v);
 
 type Fields = Record<string, (v: unknown) => boolean>;
 type ListResult<T> = { ok: true; value: T[] } | { ok: false; detail: string };
 
-/**
- * Parses a list item by item. Each item is checked field by field against `fields`, so a failure
- * names the list, the item index and every offending field with its type. Unknown extra fields are
- * ignored. One bad item fails the list rather than being skipped: a silently dropped task or seat
- * would read as a finished run and wake falsely, so the poll fails loudly and names the field.
- */
 function list<T>(name: string, v: unknown, fields: Fields, build: (x: Record<string, unknown>) => T): ListResult<T> {
 	if (!Array.isArray(v)) return { ok: false, detail: `list=${name} fields=${name}:${typeOf(v)}` };
 	const out: T[] = [];
@@ -147,8 +121,6 @@ export function parseStatus(raw: unknown): Result<Status> {
 		held: (t.hold ?? null) !== null || (t.hold_by ?? null) !== null || t.phase === "held",
 		wait: t.wait as string | null,
 	}));
-	// evf's `agents_of` emits a `needs_you` row per open decision: task may be null, and it carries
-	// `decision`, `kind` and `open_decisions` but no `run` or `step` keys.
 	const agents = list(
 		"agents",
 		raw.agents,
@@ -191,7 +163,6 @@ export function parseStatus(raw: unknown): Result<Status> {
 	};
 }
 
-/** `gh run list --json headSha,status,conclusion,createdAt` for the CI workflow on main (push and nightly runs). */
 export function parseCi(raw: unknown): Result<Ci | null> {
 	const parsed = list(
 		"runs",
@@ -222,12 +193,7 @@ export function parseCi(raw: unknown): Result<Ci | null> {
 	return { ok: true, value: { sha, conclusion } };
 }
 
-// ---- canonical snapshot -----------------------------------------------------------------------
-
-/** Keeps actionable identity only. Volatile fields (now, heartbeat, machine, since, activity, doing,
- * cost, tokens, audit, wait prose) never reach the snapshot; heartbeat survives only as a boolean. */
 export function normalize(status: Status, ci: Ci | null): Snapshot {
-	// A `needs_you` row stands for an open decision, not a run: the decision event covers it.
 	const agentByTask = new Map(
 		status.agents.filter((a) => a.task !== null && a.state !== "needs_you").map((a) => [a.task as number, a]),
 	);
@@ -264,8 +230,6 @@ export function normalize(status: Status, ci: Ci | null): Snapshot {
 	};
 }
 
-/** Released, eligible work only. Held, owner-gated, decision-pending, dependency-blocked and terminal
- * tasks never count. This predicate informs a notice; nothing in the watcher starts a task. */
 export function isEligibleWaiting(t: RawTask, hasOpenDecision: boolean): boolean {
 	return (
 		t.lifecycle === "open" &&
@@ -276,22 +240,18 @@ export function isEligibleWaiting(t: RawTask, hasOpenDecision: boolean): boolean
 	);
 }
 
-// ---- events -----------------------------------------------------------------------------------
-
 export function deriveEvents(prev: Snapshot | null, cur: Snapshot): WatchEvent[] {
 	const events: WatchEvent[] = [];
 	const curById = new Map(cur.tasks.map((t) => [t.id, t]));
 	const prevById = new Map((prev?.tasks ?? []).map((t) => [t.id, t]));
 
-	// evf replaces a task's agent row with a `needs_you` row while a decision on it is open, so its run
-	// reads as gone. The decision event is the wake for that transition; a seat-finished would repeat it.
 	const decidedNow = new Set(cur.decisions.map((d) => d.task));
 	for (const p of prev?.tasks ?? []) {
 		if (p.phase !== "running" || p.run === null) continue;
 		if (decidedNow.has(p.id)) continue;
 		const c = curById.get(p.id);
 		if (c && c.phase === "running" && c.run === p.run && c.step === p.step) continue;
-		if (c?.error) continue; // a run that ends in error is reported once, as task-error
+		if (c?.error) continue;
 		events.push({
 			key: `seat-finished:${p.id}:${p.run}:${p.step}`,
 			kind: "seat-finished",
@@ -357,11 +317,6 @@ export function deriveEvents(prev: Snapshot | null, cur: Snapshot): WatchEvent[]
 	return events;
 }
 
-/**
- * One poll's state step. No previous state (first run, missing or corrupt file) re-baselines: every
- * condition already true counts as sent, and nothing wakes. Otherwise a key wakes once; a level key
- * leaves `sent` when its condition clears, so a genuine recurrence wakes again.
- */
 export function advance(state: State | null, cur: Snapshot): { next: State; due: WatchEvent[] } {
 	if (!state) {
 		const sent = deriveEvents(null, cur)
@@ -385,7 +340,6 @@ export function markDelivered(state: State, delivered: WatchEvent[]): State {
 	return { ...state, sent, pending: state.pending.filter((e) => !keys.has(e.key)) };
 }
 
-/** The wake payload: event kind and identifiers only. */
 export function buildPayload(events: WatchEvent[], nowMs: number) {
 	return {
 		source: "everyfield-actionable-watch",
@@ -401,7 +355,6 @@ export function buildPayload(events: WatchEvent[], nowMs: number) {
 	};
 }
 
-/** The one-shot `--test-wake` payload: marked as a test, with no events and no dedup state. */
 export function buildTestPayload(nowMs: number) {
 	return {
 		source: "everyfield-actionable-watch",
@@ -428,7 +381,6 @@ export function parseState(raw: unknown): State | null {
 	const okPending =
 		Array.isArray(raw.pending) &&
 		raw.pending.every((e) => isObj(e) && isStr(e.key) && isStr(e.kind) && typeof e.level === "boolean");
-	// Older state files have no `sends`; they read as no recent sends.
 	const okSends = raw.sends === undefined || (Array.isArray(raw.sends) && raw.sends.every(isInt));
 	return okSnapshot && okSent && okPending && okSends ? ({ ...raw, sends: raw.sends ?? [] } as State) : null;
 }

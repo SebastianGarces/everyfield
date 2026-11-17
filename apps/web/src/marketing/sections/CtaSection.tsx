@@ -9,11 +9,6 @@ import { Backdrop } from "../photo/Backdrop";
 
 type Cta = { headline: string; body: string; cta_primary: string; cta_secondary: string; note?: string };
 
-/**
- * The closing call to action: the lake photo with the cream symbol, the headline and both buttons in cream. Both buttons
- * go to the request page, by default at its first step; `href` can choose the answer to "who are you". Wide boxes take a 45 % overlay (bright reed tips sit behind the lead); tall boxes zoom into the
- * brown band behind the text. Every glyph keeps 4.5:1.
- */
 export function CtaSection({ c, href }: { c: Cta; href?: { primary?: string; secondary?: string } }) {
 	return (
 		<section id="cta" className="relative py-section">

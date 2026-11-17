@@ -1,7 +1,0 @@
-{
-	"bin/dev": 1,
-	"bin/lib/node24.sh": 2,
-	"bin/prod-identity": 2,
-	"bin/qa": 1,
-	"bin/wiki": 1
-}

@@ -127,14 +127,19 @@ function FaqHeading({ level, ...props }: { level: "h2" | "h3" | "h4" } & Compone
 	return <H className="font-body text-base font-medium tracking-normal" {...props} />;
 }
 
-export function Prose({ size = "md", className, ...props }: { size?: "md" | "sm" } & ComponentPropsWithRef<"div">) {
+export function Prose({
+	size = "md",
+	className,
+	...props
+}: { size?: "md" | "sm" | "excerpt" } & ComponentPropsWithRef<"div">) {
 	return (
 		<div
 			className={cn(
 				"mx-auto w-full text-ink-2",
 				size === "md" ? "max-w-[700px] text-base leading-[1.7]" : "text-[15px] leading-[1.65]",
-				"[&_h2]:mt-[34px] [&_h2]:mb-2.5 [&_h2]:text-[26px] [&_h2]:text-ink [&_h2]:scroll-mt-28",
-				"[&_h3]:mt-[26px] [&_h3]:mb-2 [&_h3]:text-[19px] [&_h3]:text-ink [&_h3]:scroll-mt-28",
+				size === "excerpt"
+					? "[&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h2]:font-body [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-ink [&_h2]:scroll-mt-28 [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:font-body [&_h3]:text-[15px] [&_h3]:font-medium [&_h3]:text-ink [&_h3]:scroll-mt-28"
+					: "[&_h2]:mt-[34px] [&_h2]:mb-2.5 [&_h2]:text-[26px] [&_h2]:text-ink [&_h2]:scroll-mt-28 [&_h3]:mt-[26px] [&_h3]:mb-2 [&_h3]:text-[19px] [&_h3]:text-ink [&_h3]:scroll-mt-28",
 				size === "sm" && "[&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:font-title [&_h2]:text-[21px] [&_h3]:text-[17px]",
 				"[&_p]:mb-3.5 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-[22px] [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-[22px] [&_li]:my-1.5",
 				"[&_blockquote]:my-5 [&_blockquote]:rounded-card [&_blockquote]:bg-surface-2 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:font-title [&_blockquote]:tracking-[-0.02em] [&_blockquote]:text-[19px] [&_blockquote]:leading-[1.45] [&_blockquote]:text-ink",

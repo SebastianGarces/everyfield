@@ -37,6 +37,7 @@ import {
 	type ReactNode,
 } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
+import { leaveBeaconMark, shortcutMark } from "../../components/save/leave.ts";
 import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
 import {
 	downloadPdf,
@@ -80,18 +81,6 @@ export function WikiChrome({ children }: { children: ReactNode }) {
 	const [searchPath, setSearchPath] = useState<string | null>(null);
 	const [guide, setGuide] = useState(false);
 	if (searchPath !== null && searchPath !== pathname) setSearchPath(null);
-	useEffect(() => {
-		const onKey = (event: KeyboardEvent) => {
-			if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
-			if (!pathname.startsWith("/wiki")) return;
-			const target = event.target;
-			if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable=true]")) return;
-			event.preventDefault();
-			setSearchPath(pathname);
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [pathname]);
 	const chrome = useMemo(
 		() => ({
 			openSearch: () => setSearchPath(pathname),
@@ -122,6 +111,7 @@ export function WikiSearchButton() {
 					readOnly
 					placeholder="Search the wiki"
 					shortcut="/"
+					{...shortcutMark("/")}
 					aria-label="Search the wiki"
 					boxClassName="w-[280px]"
 					onClick={open}
@@ -132,7 +122,13 @@ export function WikiSearchButton() {
 					}}
 				/>
 			</div>
-			<IconButton className="app-sm:hidden" icon={Search01Icon} label="Search the wiki" onClick={open} />
+			<IconButton
+				className="app-sm:hidden"
+				icon={Search01Icon}
+				label="Search the wiki"
+				onClick={open}
+				{...shortcutMark("/")}
+			/>
 		</>
 	);
 }
@@ -399,7 +395,16 @@ export function ArticleSession({ children, ...seed }: SessionSeed & { children: 
 		}),
 		[store, exporting, track],
 	);
-	return <SessionContext value={session}>{children}</SessionContext>;
+	return (
+		<SessionContext value={session}>
+			{children}
+			<ProgressBeacon store={store} />
+		</SessionContext>
+	);
+}
+
+function ProgressBeacon({ store }: { store: SessionStore }) {
+	return <span hidden {...leaveBeaconMark(useStore(store, (state) => state.beacon))} />;
 }
 
 export function ArticleTools() {

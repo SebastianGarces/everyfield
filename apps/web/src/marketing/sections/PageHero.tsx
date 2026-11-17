@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import { Display } from "@/components/Display";
 
-/** The hero of a plain page (/access, /privacy, /terms): optional eyebrow, centred headline, then the page's own content. */
 export function PageHero({ eyebrow, title, children }: { eyebrow?: string; title: string; children: ReactNode }) {
 	return (
 		<section

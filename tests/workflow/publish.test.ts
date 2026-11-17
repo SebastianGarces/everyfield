@@ -22,8 +22,6 @@ const source = join(resolve(import.meta.dirname, "../.."), SELF);
 const PROD_SECRET = "prod-secret-value-never-read";
 const DEV_SECRET = "dev-database-password-1234";
 
-// A scratch checkout with the committed script, an unreadable .env.prod and a dev env file,
-// plus a fake S3 endpoint that answers protected-bucket listings with the given statuses.
 async function setup(listing: Record<string, number>) {
 	const dir = mkdtempSync(join(tmpdir(), "evf-publish-test-")),
 		repo = join(dir, "repo"),
@@ -35,7 +33,7 @@ async function setup(listing: Record<string, number>) {
 	g("add", ".");
 	g("commit", "-q", "-m", "scratch");
 	writeFileSync(join(repo, ".env.prod"), `AWS_ACCESS_KEY_ID=prod-key-id\nAWS_SECRET_ACCESS_KEY=${PROD_SECRET}\n`);
-	chmodSync(join(repo, ".env.prod"), 0); // any read throws EACCES
+	chmodSync(join(repo, ".env.prod"), 0);
 	writeFileSync(join(repo, ".env.local"), `DATABASE_PASSWORD=${DEV_SECRET}\n`);
 
 	const requests: string[] = [];
@@ -100,7 +98,6 @@ const evidenceOnly = { everyfield: 403, "everyfield-dev": 403 };
 test("OPS-33 publish: an evidence-only key uploads and the script never opens .env.prod", async () => {
 	const t = await setup(evidenceOnly);
 	try {
-		// A value from .env.prod in the evidence: reading .env.prod as a secret source would also refuse this.
 		writeFileSync(join(t.evidence, "notes.txt"), `mentions ${PROD_SECRET}\n`);
 		const r = await t.publish();
 		assert.equal(r.code, 0, r.err);
@@ -222,7 +219,6 @@ test("OPS-33 publish: an evidence file that links to .env.prod or out of the fol
 	}
 });
 
-// The WP-036 evidence shape: two image folders plus top-level text, JSON and JSONL files.
 function wp036Fixture(evidence: string) {
 	mkdirSync(join(evidence, "actions"));
 	mkdirSync(join(evidence, "shots"));
@@ -265,7 +261,6 @@ test("OPS-110 publish: the index shows one section per folder with images inline
 						`<div class="gallery">${figure("shots/1440-light-text-style-menu.webp")}${figure("shots/390-light-text-style-menu.png")}</div></section>`,
 				].join("\n"),
 		);
-		// Uncropped images capped at the page width, a responsive grid at desktop width, readable captions.
 		assert.match(html, /<meta name="viewport" content="width=device-width,initial-scale=1">/);
 		assert.match(
 			html,
@@ -276,7 +271,6 @@ test("OPS-110 publish: the index shows one section per folder with images inline
 		assert.match(html, /td img\{[^}]*object-fit:cover/);
 		assert.doesNotMatch(html.replace(/td img\{[^}]*\}/, ""), /object-fit/);
 		assert.doesNotMatch(html, /\.hidden|\.cache|published\.json|href="index\.html"/);
-		// Eight fixture files, probe.log and the index; dot-files and published.json are not uploaded.
 		assert.equal(JSON.parse(r.out).files, 10);
 		assert.equal(t.types["shots/1440-light-text-style-menu.webp"], "image/webp");
 		assert.equal(t.types["photo.jpeg"], "image/jpeg");

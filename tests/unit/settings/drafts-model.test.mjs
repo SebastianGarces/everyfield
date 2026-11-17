@@ -1,10 +1,3 @@
-// INV-draft-model: the settings draft rules (apps/web/src/features/settings/drafts.ts) over random interleavings of
-// edits, saves, section switches, a second person's change, Load latest, and server replies that accept or refuse
-// a stale revision. After every step:
-//   1. the visible value is the latest edit, or the server value when there is no edit;
-//   2. the section is dirty exactly when the visible value differs from the latest server value the client holds;
-//   3. at most one save per section is in flight, so a second Save never sends a second request.
-// A successful save of an untouched draft takes the server's normalized value (trimmed here). No browser needed.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -34,8 +27,8 @@ function world() {
 		server: { value: "A", revision: 1 },
 		cache: { value: "A", revision: 1 },
 		book: emptyBook(),
-		intent: null, // what the person last typed and still means; null follows the server
-		pending: null, // the request on the wire: { sent, expected }
+		intent: null,
+		pending: null,
 		requests: 0,
 	};
 }
@@ -43,8 +36,6 @@ function world() {
 const step = {
 	edit(w, value) {
 		w.book = edit(w.book, KEY, value, w.cache.value);
-		// The rule, not the code: an edit equal to the saved value is no edit, unless a save is about to change
-		// the saved value.
 		w.intent = w.pending === null && value === w.cache.value ? null : value;
 	},
 	save(w) {
@@ -55,7 +46,6 @@ const step = {
 		w.pending = { sent: started.sent, expected: w.cache.revision };
 		w.requests += 1;
 	},
-	// The section unmounts and mounts again. Everything that matters lives in the book, so nothing changes.
 	switchSection() {},
 	reply(w) {
 		if (!w.pending) return;
@@ -65,18 +55,18 @@ const step = {
 			w.server = { value: String(sent).trim(), revision: w.server.revision + 1 };
 			w.cache = { ...w.server };
 			w.book = finish(w.book, KEY, { ok: true }, w.cache.value);
-			if (w.intent === sent) w.intent = null; // the saved value, as the server normalized it, is what was meant
+			if (w.intent === sent) w.intent = null;
 		} else {
 			w.book = finish(w.book, KEY, { ok: false, refusal: "conflict" }, w.cache.value);
 		}
-		if (w.intent === w.cache.value) w.intent = null; // an edit that matches the saved value is no longer an edit
+		if (w.intent === w.cache.value) w.intent = null;
 	},
 	otherPerson(w) {
 		w.server = { value: "X", revision: w.server.revision + 1 };
 	},
 	loadLatest(w) {
 		if (w.pending) return;
-		w.cache = { ...w.server }; // an unsaved edit survives Load latest; no edit follows the new saved value
+		w.cache = { ...w.server };
 	},
 };
 
@@ -105,9 +95,9 @@ test("BUG-PR114: saving an earlier edit keeps the typed-back value dirty", () =>
 	run("switchSection");
 	run("switchSection");
 	run("edit", "C");
-	run("save"); // refused locally: the first save is still in flight, so no second request
+	run("save");
 	run("edit", "A");
-	run("reply"); // the first save commits B
+	run("reply");
 	assert.equal(w.requests, 1);
 	assert.deepEqual(w.cache, { value: "B", revision: 2 });
 	assert.equal(visible(w.book, KEY, w.cache.value), "A", "the typed-back A is still shown");
@@ -143,13 +133,12 @@ test("INV-draft-model: random interleavings keep the invariant", () => {
 
 test("INV-draft-rebase: Load latest after a conflict keeps the fields the person changed and shows the rest", () => {
 	const opened = { city: "Austin", street: "", warningDays: "14" };
-	const latest = { city: "Austin", street: "1 Main St", warningDays: "14" }; // someone else saved a street
+	const latest = { city: "Austin", street: "1 Main St", warningDays: "14" };
 	let book = edit(emptyBook(), KEY, { ...opened, city: "Round Rock" }, opened);
 	book = finish(begin(book, KEY, opened).book, KEY, { ok: false, refusal: "conflict" }, opened);
 	book = rebase(book, KEY, opened, latest);
 	assert.deepEqual(visible(book, KEY, latest), { city: "Round Rock", street: "1 Main St", warningDays: "14" });
 	assert.equal(book.refusals[KEY], undefined, "the refusal that asked for the reload is gone");
-	// A person who changed only what someone else also saved has nothing left to save.
 	book = rebase(edit(emptyBook(), KEY, { ...opened, street: "1 Main St" }, opened), KEY, opened, latest);
 	assert.equal(isDirty(book, KEY, latest), false);
 });

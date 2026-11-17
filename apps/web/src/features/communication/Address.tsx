@@ -10,40 +10,35 @@ import {
 	Field,
 	Input,
 } from "@everyfield/ui/controls";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import { readOwnSuppression, restoreOwnSuppression } from "./actions.ts";
-import { outcomeText, restoreText, type SuppressionReport } from "./model.ts";
+import { outcomeText, restoreText, type Outcome, type RestoreReport, type SuppressionReport } from "./model.ts";
+
+const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 import { useKeys } from "./useKeys.ts";
 
 type Notice = { text: string; tone: "alert" | "status" };
 
+export const ownSuppression = createRead(() => readOwnSuppression(), {
+	failed: (): Outcome<SuppressionReport> => ({ status: "lost" }),
+});
+
 export function Address() {
 	const keys = useKeys();
 	const reasonRef = useRef<HTMLInputElement>(null);
-	const [report, setReport] = useState<SuppressionReport | null>(null);
+	const read = useRead(ownSuppression);
 	const [reason, setReason] = useState("");
 	const [reasonError, setReasonError] = useState<string | undefined>();
-	const [status, setStatus] = useState<string | null>(null);
-	const [tone, setTone] = useState<Notice["tone"]>("status");
-	const [pending, setPending] = useState(false);
-	const [loaded, setLoaded] = useState(false);
-
-	useEffect(() => {
-		let live = true;
-		void readOwnSuppression().then((result) => {
-			if (!live) return;
-			setLoaded(true);
-			if (result.status !== "ok") {
-				setTone("alert");
-				setStatus(outcomeText(result) ?? "Unable to read this address.");
-				return;
-			}
-			setReport(result.value);
-		});
-		return () => {
-			live = false;
-		};
-	}, []);
+	const [restored, setRestored] = useState<Notice | null>(null);
+	const [pending, start] = useTransition();
+	const loaded = read.value !== undefined;
+	const report = read.value?.status === "ok" ? read.value.value : null;
+	const notice: Notice | null =
+		restored ??
+		(read.value && read.value.status !== "ok"
+			? { text: outcomeText(read.value) ?? "Unable to read this address.", tone: "alert" }
+			: null);
 
 	const onRestore = () => {
 		const trimmed = reason.trim();
@@ -52,25 +47,25 @@ export function Address() {
 			reasonRef.current?.focus();
 			return;
 		}
-		setPending(true);
 		setReasonError(undefined);
-		void restoreOwnSuppression(keys.take("restore"), trimmed).then((result) => {
+		start(async () => {
+			const result = await restoreOwnSuppression(keys.take("restore"), trimmed).catch(lost<RestoreReport>);
 			keys.settle("restore", result);
-			setPending(false);
 			if (result.status !== "ok") {
-				setTone("alert");
-				setStatus(outcomeText(result) ?? "Unable to restore this address.");
+				setRestored({ text: outcomeText(result) ?? "Unable to restore this address.", tone: "alert" });
 				return;
 			}
-			setTone("status");
-			setStatus(restoreText(result.value));
+			setRestored({ text: restoreText(result.value), tone: "status" });
 			if (result.value.suppressionClears > 0) {
-				// The new restore is the newest entry. The name comes from the next read, so it is not guessed here.
-				void readOwnSuppression().then((fresh) => {
-					if (fresh.status === "ok") setReport(fresh.value);
-				});
-				setReport((current) => (current ? { ...current, active: false } : current));
+				ownSuppression.patch((current) =>
+					current.status === "ok" ? { ...current, value: { ...current.value, active: false } } : current,
+				);
 				setReason("");
+				void readOwnSuppression()
+					.catch(lost<SuppressionReport>)
+					.then((fresh) => {
+						if (fresh.status === "ok") ownSuppression.patch(() => fresh);
+					});
 			}
 		});
 	};
@@ -88,9 +83,12 @@ export function Address() {
 					Checking this address.
 				</p>
 			)}
-			{status ? (
-				<p role={tone} className={tone === "alert" ? "text-sm font-medium text-magenta-600" : "text-md text-ink"}>
-					{status}
+			{notice ? (
+				<p
+					role={notice.tone}
+					className={notice.tone === "alert" ? "text-sm font-medium text-magenta-600" : "text-md text-ink"}
+				>
+					{notice.text}
 				</p>
 			) : null}
 			{report ? (
@@ -145,7 +143,6 @@ export function Address() {
 	);
 }
 
-/** The date and time on this device's clock. */
 function restoredOn(iso: string): string {
 	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
 }

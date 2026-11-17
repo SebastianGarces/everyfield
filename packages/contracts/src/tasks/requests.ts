@@ -14,8 +14,6 @@ import {
 	title,
 } from "./values.ts";
 
-// No owner, creator, completion time, obligation or source identity in bodies: the server derives them. A checklist
-// row is created with createSubtaskRequest.
 export const createTaskRequest = z.strictObject({
 	requestKey,
 	input: z.strictObject({
@@ -29,7 +27,6 @@ export const createTaskRequest = z.strictObject({
 		relation: relation.nullable().default(null),
 	}),
 });
-// Omitted means unchanged; an explicit null clears a nullable field.
 export const editTaskRequest = commandEnvelope(
 	z.strictObject({
 		taskId: recordId,
@@ -39,7 +36,6 @@ export const editTaskRequest = commandEnvelope(
 			priority: priority.optional(),
 			category: category.optional(),
 			due: dueInput.optional(),
-			// Omitted leaves the set unchanged; an empty list clears it.
 			assigneeIds: assigneeIds.optional(),
 			relation: relation.nullable().optional(),
 		}),
@@ -58,7 +54,6 @@ const filters = {
 	priorities: z.array(priority).max(4).default([]),
 	categories: z.array(category).max(10).default([]),
 	relation: z.enum(["person", "meeting", "team", "none", "any"]).default("any"),
-	// A team the church does not have matches no task, so a foreign team reveals nothing.
 	teamId: recordId.optional(),
 	due: z.enum(["undated", "local_date", "resolved_instant", "any"]).default("any"),
 };
@@ -72,7 +67,6 @@ export const listTasksRequest = z.strictObject({
 });
 export const countTasksRequest = z.strictObject(filters);
 export const getTaskRequest = z.strictObject({ taskId: recordId, asOf: instant.optional() });
-/** The list rows of up to one page of named tasks: a bulk change's stale rows, or the page's "Blocked by" badges. */
 export const taskRowsRequest = z.strictObject({
 	taskIds: z
 		.array(recordId)
@@ -85,7 +79,6 @@ export const statusHistoryRequest = z.strictObject({
 	limit: z.int().min(1).max(100).default(50),
 	page: z.int().min(1).max(100_000).default(1),
 });
-/** Who a picker offers: every seat, or only those who may own a follow-up (REQ-TSK-012). */
 export const eligibleAssigneesRequest = z.strictObject({
 	purpose: z.enum(["any", "committed_follow_up"]).default("any"),
 });
@@ -100,14 +93,11 @@ const page = {
 };
 const unique = (ids: readonly string[]) => new Set(ids).size === ids.length;
 
-// One-level checklist rows (REQ-TSK-005). expectedRevision is the parent's revision for a create and the child's for a
-// tick or removal, so a concurrent parent change or child change refuses instead of acting on stale state.
 export const listSubtasksRequest = z.strictObject({ parentId: recordId, ...page });
 export const createSubtaskRequest = commandEnvelope(
 	z.strictObject({
 		parentId: recordId,
 		title,
-		// Omitted inherits the parent's assignees. Only an Owner or Admin may name other accounts or an empty list.
 		assigneeIds: assigneeIds.optional(),
 	}),
 );
@@ -116,7 +106,6 @@ export const setSubtaskCompletionRequest = commandEnvelope(
 );
 export const removeSubtaskRequest = commandEnvelope(z.strictObject({ parentId: recordId, taskId: recordId }));
 
-// Advisory prerequisites (REQ-TSK-006): the whole set is replaced at once.
 export const replacePrerequisitesRequest = commandEnvelope(
 	z.strictObject({ taskId: recordId, prerequisiteIds: z.array(recordId).max(50).refine(unique) }),
 );
@@ -126,14 +115,11 @@ export const prerequisiteCandidatesRequest = z.strictObject({
 	search: z.string().trim().max(200).default(""),
 });
 
-// Recurrence (REQ-TSK-007). A null rule stops the series; its tasks and history stay.
 export const configureRecurrenceRequest = commandEnvelope(
 	z.strictObject({ taskId: recordId, rule: recurrenceRule.nullable() }),
 );
 export const findOpenOccurrenceRequest = z.strictObject({ taskId: recordId });
 
-// Bulk changes (REQ-TSK-008): at most 100 reviewed tasks, each with the revision the person saw. A repeated task ID
-// counts once.
 const bulkItems = z
 	.array(z.strictObject({ taskId: recordId, expectedRevision: revision }))
 	.min(1)

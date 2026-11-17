@@ -8,11 +8,6 @@ import { exportChart } from "./actions.ts";
 import type { ChartNode } from "./model.ts";
 import { LeaderLine, TeamIcon } from "./parts.tsx";
 
-// The organization view (REQ-TEAM-012): Leadership is the fixed root and every other ministry sits under it. It is a
-// picture of the ministries, not a reporting hierarchy, and nothing here edits one. The tree is nested lists, so a
-// screen reader hears the same structure the lines draw. On a wide screen the ministries sit in one row that pans
-// sideways; on a narrow one they stack under the root.
-
 type Tree = { root: ChartNode | null; children: ChartNode[] };
 function tree(nodes: readonly ChartNode[]): Tree {
 	const root = nodes.find((n) => n.parentId === null && nodes.some((c) => c.parentId === n.id)) ?? null;
@@ -21,8 +16,6 @@ function tree(nodes: readonly ChartNode[]): Tree {
 	return { root, children: nodes.filter((n) => n !== root) };
 }
 
-// Each ministry under the root: a rail across the row and a stem down to the card (wide), or a tick off the side rail
-// (narrow). The rail stops at the first and last card's middle.
 const BRANCH = cn(
 	"relative",
 	"app-md:px-2 app-md:pt-6",
@@ -57,7 +50,6 @@ function Node({ node, current }: { node: ChartNode; current?: boolean }) {
 	);
 }
 
-/** The tree itself. `focus` draws only the root and that ministry, stacked, for the ministry page. */
 export function ChartTree({ nodes, focus }: { nodes: readonly ChartNode[]; focus?: string }) {
 	const t = tree(nodes);
 	if (focus) {
@@ -110,7 +102,6 @@ export function ChartTree({ nodes, focus }: { nodes: readonly ChartNode[]; focus
 	);
 }
 
-/** The whole organization view on the ministries page, with the archived switch and the exports. */
 export function OrgChart({ nodes, onAdd }: { nodes: readonly ChartNode[]; onAdd?: () => void }) {
 	const [archived, setArchived] = useState(false);
 	const shown = archived ? nodes : nodes.filter((n) => !n.archived);
@@ -165,7 +156,6 @@ export function OrgChart({ nodes, onAdd }: { nodes: readonly ChartNode[]; onAdd?
 							)}
 						</p>
 					) : null}
-					{/* Wide charts pan sideways inside this box; the page itself never scrolls sideways. */}
 					<div
 						tabIndex={0}
 						role="region"
@@ -182,7 +172,6 @@ export function OrgChart({ nodes, onAdd }: { nodes: readonly ChartNode[]; onAdd?
 	);
 }
 
-/** SVG and PDF of the same drawing. Each download reads the chart again, so it shows what the seat may see now. */
 function Exports({ archived, disabled }: { archived: boolean; disabled: boolean }) {
 	const toast = useToast();
 	const [busy, setBusy] = useState<"svg" | "pdf" | null>(null);

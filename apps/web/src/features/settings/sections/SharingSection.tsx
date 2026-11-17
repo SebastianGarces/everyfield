@@ -15,7 +15,6 @@ type Affiliation = Extract<SectionResult, { section: "affiliations" }>;
 type Choices = Extract<Affiliation["values"], { view: "plant_administration" }>["choices"];
 type Category = keyof Choices;
 
-// REQ-IDN-022 categories in the settings patch's words: teams is ministry_teams and activityPush is activity.
 const PATCH_FIELD: Record<Category, keyof AffiliationPatch> = {
 	people: "people",
 	meetings: "meetings",
@@ -98,11 +97,6 @@ function AffiliationCard({ plant, relationship }: { plant: PlantOwner; relations
 	);
 }
 
-/**
- * The affiliation switches (REQ-IDN-010). Each switch sends a closed patch of that one category with the current
- * relationship and consent revisions; omitted categories keep their stored value. Members see the choices are set
- * by Owners and Admins. A refusal puts the switch back and says why.
- */
 function Choices({
 	section,
 	relationship,

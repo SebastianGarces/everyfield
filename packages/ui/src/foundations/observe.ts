@@ -4,6 +4,7 @@ export type SizeOptions<T extends Element> = {
 	also?: (node: T) => Iterable<Element | null | undefined>;
 	fonts?: boolean;
 	viewport?: boolean;
+	measureOnAttach?: boolean;
 };
 
 export function observeSize<T extends Element>(onResize: (node: T) => void, options: SizeOptions<T> = {}): NodeRef<T> {
@@ -13,7 +14,7 @@ export function observeSize<T extends Element>(onResize: (node: T) => void, opti
 		const measure = () => {
 			if (attached) onResize(node);
 		};
-		measure();
+		if (options.measureOnAttach !== false) measure();
 		const observer = new ResizeObserver(measure);
 		observer.observe(node);
 		for (const other of options.also?.(node) ?? []) if (other) observer.observe(other);
@@ -39,6 +40,27 @@ export function observeIntersection<T extends Element>(
 		const stop = () => observer.disconnect();
 		observer.observe(node);
 		return stop;
+	};
+}
+
+export type ScrollOptions<T extends Element> = {
+	root?: (node: T) => Element | null;
+};
+
+export function observeScroll<T extends Element>(
+	onScroll: (node: T) => void,
+	options: ScrollOptions<T> = {},
+): NodeRef<T> {
+	return (node) => {
+		if (!node) return;
+		const root = options.root?.(node) ?? null;
+		const scrolled = () => onScroll(node);
+		if (root) {
+			root.addEventListener("scroll", scrolled, { passive: true });
+			return () => root.removeEventListener("scroll", scrolled);
+		}
+		window.addEventListener("scroll", scrolled, { passive: true });
+		return () => window.removeEventListener("scroll", scrolled);
 	};
 }
 
@@ -70,8 +92,29 @@ export function observeHeadings(
 			onActive(current);
 		};
 		update();
-		const target: Element | Window = root ?? doc.defaultView ?? window;
-		target.addEventListener("scroll", update, { passive: true });
-		return () => target.removeEventListener("scroll", update);
+		return observeScroll<HTMLElement>(update, { root: () => root })(container);
+	};
+}
+
+export function observeScrollProgress<T extends HTMLElement>(
+	onProgress: (fraction: number) => void,
+	options: ScrollOptions<T> = {},
+): NodeRef<T> {
+	return (node) => {
+		if (!node) return;
+		const root = options.root?.(node) ?? null;
+		const report = () => {
+			const total = node.scrollHeight;
+			if (total <= 0) return;
+			const edge = root ? root.getBoundingClientRect().bottom : window.innerHeight;
+			const seen = Math.min(total, Math.max(0, edge - node.getBoundingClientRect().top));
+			onProgress(seen / total);
+		};
+		const stopSize = observeSize<T>(report, { also: () => [root], viewport: !root, measureOnAttach: false })(node);
+		const stopScroll = observeScroll<T>(report, { root: () => root })(node);
+		return () => {
+			stopSize?.();
+			stopScroll?.();
+		};
 	};
 }
