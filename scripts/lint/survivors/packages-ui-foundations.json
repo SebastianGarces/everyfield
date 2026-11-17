@@ -10,11 +10,6 @@
 				"function": "subscribeVisibility",
 				"count": 2,
 				"reason": "The tab-visibility subscription behind useDocumentHidden: useSyncExternalStore calls it once per reading component, which adds its own visibilitychange listener on the document and removes it when the component stops reading; nothing else says the tab was hidden or shown."
-			},
-			{
-				"function": "subscribeHash",
-				"count": 2,
-				"reason": "The fragment subscription behind useLocationHash: useSyncExternalStore calls it once per reading component, which adds its own hashchange listener on the window and removes it when the component stops reading; the location store does not report fragment-only changes."
 			}
 		],
 		"packages/ui/src/foundations/evry-life.ts": [
