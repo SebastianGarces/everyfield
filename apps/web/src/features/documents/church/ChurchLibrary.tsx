@@ -29,7 +29,7 @@ import { Icon, cn } from "@everyfield/ui/foundations";
 import type { ChurchSummary, ChurchTemplateSummary } from "@everyfield/contracts/documents";
 import type { DocTemplateSummary } from "@everyfield/domain/documents";
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useOptimistic, useRef, useState, useTransition } from "react";
 import { createChurchDocument, deleteChurchTemplate, type ChurchActionResult } from "./actions.ts";
 import { EditTemplateDialog, type TemplateDetails } from "./EditTemplate.tsx";
 import { CLASS_LABEL, formatList, paperText, updatedText } from "./labels.ts";
@@ -37,10 +37,8 @@ import { CLASS_LABEL, formatList, paperText, updatedText } from "./labels.ts";
 type Props = {
 	documents: ChurchSummary[];
 	templates: DocTemplateSummary[];
-	/** The church's own templates, saved from its documents. Empty for a Member. */
 	churchTemplates: ChurchTemplateSummary[];
 	canManage: boolean;
-	/** The notice after a delete, an archive or a restore returned here. */
 	notice: "deleted" | "archived" | "restored" | null;
 };
 
@@ -127,16 +125,12 @@ export function ChurchLibrary({ documents, templates, churchTemplates, canManage
 	);
 }
 
-/** Templates on one page of the picker. */
 const PAGE_SIZE = 10;
 
-/** One template in the picker: the church's own, or Everyfield's. `templateId` is what New from template takes. */
 type Choice = {
 	group: "church" | "everyfield";
 	templateId: string;
-	/** The church template's record id, which Delete takes. */
 	recordId: string | null;
-	/** The church template's current version; Everyfield's templates show none. */
 	version: number | null;
 	title: string;
 	description: string | null;
@@ -150,7 +144,6 @@ const GROUPS = [
 	{ group: "everyfield", label: "Everyfield templates" },
 ] as const;
 
-/** The templates whose name, description or category holds every word of the search, in their order. */
 function matching(templates: Choice[], search: string) {
 	const words = search.toLowerCase().split(/\s+/).filter(Boolean);
 	if (!words.length) return templates;
@@ -160,11 +153,6 @@ function matching(templates: Choice[], search: string) {
 	});
 }
 
-/**
- * "New from template": the church's own templates first, then Everyfield's, each group under its own heading. A search
- * over name, description and category and pages of ten keep a long list easy to browse. Choosing one makes the
- * document and opens its page. An Owner or Admin can rename or delete a church template here; Everyfield's stay.
- */
 function TemplatePicker({
 	templates,
 	churchTemplates,
@@ -173,40 +161,31 @@ function TemplatePicker({
 	churchTemplates: ChurchTemplateSummary[];
 }) {
 	const [open, setOpen] = useState(false);
-	const [search, setSearch] = useState("");
-	const [page, setPage] = useState(1);
-	// A deleted church template leaves the picker at once; the library page reads the rest on its next visit.
 	const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
-	// A renamed church template shows its new name and description at once, by record id.
 	const [edited, setEdited] = useState<ReadonlyMap<string, TemplateDetails>>(new Map());
-	const [saved, setSaved] = useState<string | null>(null);
-	const list = useRef<HTMLDivElement>(null);
+	const [message, setMessage] = useState<string | null>(null);
+	const [pending, start] = useTransition();
+	const [chosen, choosing] = useOptimistic<string | null>(null);
+	const keys = useRef<Map<string, string> | null>(null);
 	const all: Choice[] = [
 		...churchTemplates
 			.filter((t) => !removed.has(t.id))
 			.map((t) => ({ ...t, ...edited.get(t.id), group: "church" as const, recordId: t.id })),
 		...templates.map((t) => ({ ...t, group: "everyfield" as const, templateId: t.id, recordId: null, version: null })),
 	];
-	const found = matching(all, search);
-	const pageCount = Math.ceil(found.length / PAGE_SIZE);
-	const shown = found.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-	const [chosen, setChosen] = useState<string | null>(null);
-	const [message, setMessage] = useState<string | null>(null);
-	const [pending, start] = useTransition();
-	// One request key for each template while the dialog is open: a double click opens the same document.
-	const keys = useRef(new Map<string, string>());
 
 	function choose(id: string) {
 		if (pending) return;
+		keys.current ??= new Map();
 		const key = keys.current.get(id) ?? crypto.randomUUID();
 		keys.current.set(id, key);
-		setChosen(id);
 		setMessage(null);
 		start(async () => {
-			const result: ChurchActionResult | undefined = await createChurchDocument(id, key);
-			// A success redirects to the new document and returns nothing here; only a refusal comes back.
+			choosing(id);
+			const result: ChurchActionResult | undefined = await createChurchDocument(id, key).catch(
+				(): ChurchActionResult => ({ status: "lost" }),
+			);
 			if (!result) return;
-			setChosen(null);
 			setMessage(result.status === "refused" ? result.message : "The connection dropped. Nothing was made. Try again.");
 		});
 	}
@@ -216,9 +195,6 @@ function TemplatePicker({
 		if (result.status === "refused") throw new Error(result.message);
 		if (result.status === "lost") throw new Error("The connection dropped. Nothing was deleted. Try again.");
 		setRemoved((prior) => new Set(prior).add(recordId));
-		setSaved(null);
-		// The last template of the last page went: show the page before it.
-		setPage((current) => Math.min(current, Math.max(1, Math.ceil((found.length - 1) / PAGE_SIZE))));
 	}
 
 	return (
@@ -228,11 +204,8 @@ function TemplatePicker({
 				if (pending) return;
 				setOpen(next);
 				if (!next) {
-					keys.current.clear();
+					keys.current?.clear();
 					setMessage(null);
-					setSaved(null);
-					setSearch("");
-					setPage(1);
 				}
 			}}
 		>
@@ -241,104 +214,138 @@ function TemplatePicker({
 					New from template
 				</Button>
 			</DialogTrigger>
-			{/* One height for every search result, so the centered dialog never moves or shrinks while someone types. */}
 			<DialogContent size="lg" className="h-[min(800px,calc(100dvh-24px))]">
 				<DialogHeader
 					title="New from template"
 					description="Pick a template. Everyfield copies it for your church plant and fills in your church's details."
 				/>
-				<div className="flex-none px-7 pb-4 max-app-sm:px-5">
-					<SearchInput
-						value={search}
-						onChange={(event) => {
-							setSearch(event.target.value);
-							setPage(1);
-						}}
-						placeholder="Search templates"
-						aria-label="Search templates"
-					/>
-				</div>
-				{/* pt-1 keeps the first card's ring and focus outline inside the scroll area, which clips its edges. */}
-				<DialogBody ref={list} className={cn("flex flex-col gap-6 pt-1", pageCount > 1 ? "pb-4" : "pb-7")}>
-					<div role="status" className="empty:hidden">
-						{saved ? (
-							<p className="rounded-md bg-surface-2 px-4 py-3 text-md text-text-2">
-								Saved “<span className="font-medium text-ink">{saved}</span>”. New documents from it take this name.
-							</p>
-						) : null}
-					</div>
-					{shown.length === 0 ? (
-						<p className="py-6 text-md text-text-2">No template matches “{search.trim()}”.</p>
-					) : null}
-					{GROUPS.map(({ group, label }) => {
-						const items = shown.filter((t) => t.group === group);
-						if (!items.length) return null;
-						// A church with no templates of its own sees Everyfield's list alone, with no heading.
-						const headed = group === "church" || shown.some((t) => t.group === "church");
-						return (
-							<section key={group} className="flex flex-col gap-3">
-								{headed ? (
-									<h3 aria-hidden="true" className="text-sm font-semibold text-text-2">
-										{label}
-									</h3>
-								) : null}
-								<ul className="flex flex-col gap-3" aria-label={label}>
-									{items.map((t) => (
-										<TemplateCard
-											key={t.templateId}
-											template={t}
-											busy={pending && chosen === t.templateId}
-											disabled={pending && chosen !== t.templateId}
-											onChoose={() => choose(t.templateId)}
-											onDelete={t.recordId ? () => remove(t.recordId!) : null}
-											onEdited={
-												t.recordId
-													? (details) => {
-															setEdited((prior) => new Map(prior).set(t.recordId!, details));
-															setSaved(details.title);
-														}
-													: null
-											}
-										/>
-									))}
-								</ul>
-							</section>
-						);
-					})}
-					{message ? (
-						<p role="alert" className="text-md text-magenta-600">
-							{message}
-						</p>
-					) : null}
-				</DialogBody>
-				<p role="status" className="sr-only">
-					{found.length === 1 ? "1 template" : `${found.length} templates`}
-				</p>
-				{pageCount > 1 ? (
-					<div className="flex flex-none flex-wrap items-center justify-between gap-3 px-7 pt-4 pb-6 shadow-[0_-1px_0_var(--ef-line)] max-app-sm:px-5 max-app-sm:pb-5">
-						<span className="text-sm text-text-3 tabular-nums">
-							Showing {(page - 1) * PAGE_SIZE + 1}–{(page - 1) * PAGE_SIZE + shown.length} of {found.length}
-						</span>
-						<Pagination
-							label="Template pages"
-							page={page}
-							pageCount={pageCount}
-							onPageChange={(next) => {
-								setPage(next);
-								list.current?.scrollTo({ top: 0 });
-							}}
-						/>
-					</div>
-				) : null}
+				<PickerList
+					all={all}
+					chosen={pending ? chosen : null}
+					message={message}
+					onChoose={choose}
+					onRemove={remove}
+					onEdited={(recordId, details) => setEdited((prior) => new Map(prior).set(recordId, details))}
+				/>
 			</DialogContent>
 		</Dialog>
 	);
 }
 
-/**
- * One template: a button that makes a document from it, and for a church template Edit and Delete buttons at its right
- * edge, past the arrow.
- */
+function PickerList({
+	all,
+	chosen,
+	message,
+	onChoose,
+	onRemove,
+	onEdited,
+}: {
+	all: Choice[];
+	chosen: string | null;
+	message: string | null;
+	onChoose: (templateId: string) => void;
+	onRemove: (recordId: string) => Promise<void>;
+	onEdited: (recordId: string, details: TemplateDetails) => void;
+}) {
+	const [search, setSearch] = useState("");
+	const [page, setPage] = useState(1);
+	const [saved, setSaved] = useState<string | null>(null);
+	const list = useRef<HTMLDivElement>(null);
+	const found = matching(all, search);
+	const pageCount = Math.ceil(found.length / PAGE_SIZE);
+	const shown = found.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+	async function remove(recordId: string) {
+		await onRemove(recordId);
+		setSaved(null);
+		setPage((current) => Math.min(current, Math.max(1, Math.ceil((found.length - 1) / PAGE_SIZE))));
+	}
+
+	return (
+		<>
+			<div className="flex-none px-7 pb-4 max-app-sm:px-5">
+				<SearchInput
+					value={search}
+					onChange={(event) => {
+						setSearch(event.target.value);
+						setPage(1);
+					}}
+					placeholder="Search templates"
+					aria-label="Search templates"
+				/>
+			</div>
+			<DialogBody ref={list} className={cn("flex flex-col gap-6 pt-1", pageCount > 1 ? "pb-4" : "pb-7")}>
+				<div role="status" className="empty:hidden">
+					{saved ? (
+						<p className="rounded-md bg-surface-2 px-4 py-3 text-md text-text-2">
+							Saved “<span className="font-medium text-ink">{saved}</span>”. New documents from it take this name.
+						</p>
+					) : null}
+				</div>
+				{shown.length === 0 ? <p className="py-6 text-md text-text-2">No template matches “{search.trim()}”.</p> : null}
+				{GROUPS.map(({ group, label }) => {
+					const items = shown.filter((t) => t.group === group);
+					if (!items.length) return null;
+					const headed = group === "church" || shown.some((t) => t.group === "church");
+					return (
+						<section key={group} className="flex flex-col gap-3">
+							{headed ? (
+								<h3 aria-hidden="true" className="text-sm font-semibold text-text-2">
+									{label}
+								</h3>
+							) : null}
+							<ul className="flex flex-col gap-3" aria-label={label}>
+								{items.map((t) => (
+									<TemplateCard
+										key={t.templateId}
+										template={t}
+										busy={chosen === t.templateId}
+										disabled={chosen !== null && chosen !== t.templateId}
+										onChoose={() => onChoose(t.templateId)}
+										onDelete={t.recordId ? () => remove(t.recordId!) : null}
+										onEdited={
+											t.recordId
+												? (details) => {
+														onEdited(t.recordId!, details);
+														setSaved(details.title);
+													}
+												: null
+										}
+									/>
+								))}
+							</ul>
+						</section>
+					);
+				})}
+				{message ? (
+					<p role="alert" className="text-md text-magenta-600">
+						{message}
+					</p>
+				) : null}
+			</DialogBody>
+			<p role="status" className="sr-only">
+				{found.length === 1 ? "1 template" : `${found.length} templates`}
+			</p>
+			{pageCount > 1 ? (
+				<div className="flex flex-none flex-wrap items-center justify-between gap-3 px-7 pt-4 pb-6 shadow-[0_-1px_0_var(--ef-line)] max-app-sm:px-5 max-app-sm:pb-5">
+					<span className="text-sm text-text-3 tabular-nums">
+						Showing {(page - 1) * PAGE_SIZE + 1}–{(page - 1) * PAGE_SIZE + shown.length} of {found.length}
+					</span>
+					<Pagination
+						label="Template pages"
+						page={page}
+						pageCount={pageCount}
+						onPageChange={(next) => {
+							setPage(next);
+							list.current?.scrollTo({ top: 0 });
+						}}
+					/>
+				</div>
+			) : null}
+		</>
+	);
+}
+
 function TemplateCard({
 	template: t,
 	busy,
@@ -395,7 +402,6 @@ function TemplateCard({
 								disabled={disabled}
 								onClick={() => setEditing(true)}
 							/>
-							{/* Mounted only while open, so each opening starts from what the card shows and with new request keys. */}
 							{editing ? (
 								<EditTemplateDialog
 									onOpenChange={setEditing}
