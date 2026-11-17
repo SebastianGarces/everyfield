@@ -1,8 +1,3 @@
-// T-125: the library renders a template once per page load. A thumbnail and the selected template's preview with the
-// same values share one POST /documents/preview, and the render key names everything that changes the bytes, so a new
-// library version, format, override or church value draws a fresh picture while an unchanged load reuses it. A silent
-// break either doubles the slowest request on /documents or shows a stale thumbnail after the church's values change.
-// No browser: the real modules run in node, with fetch counting the posts.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { churchValues, renderKey, type Resolved } from "../../../apps/web/src/features/documents/model.ts";
@@ -75,13 +70,11 @@ test("a thumbnail and the preview of the same template and values post one previ
 	}) as typeof fetch;
 	try {
 		const key = renderKey(base);
-		// The thumbnail asks first, the selected template's preview while it is still in flight, and again once done.
 		const thumbnail = sharedPreview(key, "vision-card", "pdf", {});
 		const preview = sharedPreview(key, "vision-card", "pdf", {});
 		assert.deepEqual(await thumbnail, await preview);
 		await sharedPreview(key, "vision-card", "pdf", {});
 		assert.equal(posts.length, 1);
-		// Typed values are another render.
 		const typed = { tagline: "Join us" };
 		await sharedPreview(renderKey({ ...base, overrides: typed }), "vision-card", "pdf", typed);
 		assert.deepEqual(posts, [

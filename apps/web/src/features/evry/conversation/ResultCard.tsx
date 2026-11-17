@@ -30,10 +30,6 @@ import { STAGE_KEY, STAGE_LABEL } from "../../people/model.ts";
 import type { SourceResult } from "./model.ts";
 import { cardView, type Glyph, type RowView } from "./resultView.ts";
 
-// A source-bound result card (REQ-EVR-024): the rows Evry read, as they are now, with the count, whether more exist and
-// what the read leaves out. A person row links to the person, which loads on intent only. A household, tag, skill,
-// activity or file row has no page; a seat, invitation or connection row opens its Settings section; a setup step or Discovery link opens setup.
-
 const isStage = (value: string): value is keyof typeof STAGE_KEY => value in STAGE_KEY;
 const GLYPH: Record<Glyph, IconSvgElement> = {
 	person: UserIcon,
@@ -72,7 +68,6 @@ function Mark({ mark }: { mark: RowView["mark"] }) {
 	return isStage(mark.stage) ? <StageChip stage={STAGE_KEY[mark.stage]}>{STAGE_LABEL[mark.stage]}</StageChip> : null;
 }
 
-/** A long result starts with this many rows; the rest open on request. */
 const FIRST_ROWS = 6;
 
 export function ResultCard({
@@ -84,7 +79,6 @@ export function ResultCard({
 	operation: string;
 	result: SourceResult;
 	originalTotal: number | null;
-	/** The current photo route of each person row, by person id (useRowPhotos). A row without one keeps the initials. */
 	photos: Readonly<Record<string, string>>;
 }) {
 	const [all, setAll] = useState(false);

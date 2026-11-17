@@ -12,16 +12,14 @@ import {
 	DialogFooter,
 	DialogHeader,
 } from "@everyfield/ui/controls";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { querySearch, type PeopleQuery } from "../model.ts";
 import { describeFilters, plural } from "./model.ts";
-
-// Export the directory's current filters as CSV (REQ-PPL-019). The dialog names the filters before the download and
-// the row count after it. One request per Download press; the file is every matching person, however many.
+import "./export.css";
 
 type State =
 	| { kind: "ready" }
-	| { kind: "exporting"; slow: boolean }
+	| { kind: "exporting" }
 	| { kind: "done"; filename: string; returned: number; complete: boolean }
 	| { kind: "failed"; denied: boolean };
 
@@ -36,14 +34,10 @@ export function ExportDialog({
 }) {
 	const [state, setState] = useState<State>({ kind: "ready" });
 	const busy = state.kind === "exporting";
-	const slowTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	useEffect(() => () => clearTimeout(slowTimer.current), []);
 	const filters = describeFilters(query);
 
 	const download = async () => {
-		setState({ kind: "exporting", slow: false });
-		// A very large export is report work and can pass one second (C33); the dialog says so while it waits.
-		slowTimer.current = setTimeout(() => setState((s) => (s.kind === "exporting" ? { ...s, slow: true } : s)), 1000);
+		setState({ kind: "exporting" });
 		try {
 			const res = await fetch(`/api/people/export${querySearch({ ...query, page: 1 })}`, { cache: "no-store" });
 			if (!res.ok) {
@@ -53,11 +47,11 @@ export function ExportDialog({
 			const blob = await res.blob();
 			const filename = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? "people.csv";
 			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = filename;
-			a.click();
-			setTimeout(() => URL.revokeObjectURL(url), 30_000);
+			const link = document.createElement("a");
+			link.href = url;
+			link.download = filename;
+			link.click();
+			URL.revokeObjectURL(url);
 			setState({
 				kind: "done",
 				filename,
@@ -66,8 +60,6 @@ export function ExportDialog({
 			});
 		} catch {
 			setState({ kind: "failed", denied: false });
-		} finally {
-			clearTimeout(slowTimer.current);
 		}
 	};
 
@@ -120,8 +112,10 @@ export function ExportDialog({
 										: "The connection dropped or the server did not answer. Try again."}
 								</CalloutText>
 							</Card>
-						) : state.kind === "exporting" && state.slow ? (
-							<p className="text-sm text-text-2">Still preparing the file. A large export can take a few seconds.</p>
+						) : state.kind === "exporting" ? (
+							<p className="people-export-slow text-sm text-text-2">
+								Still preparing the file. A large export can take a few seconds.
+							</p>
 						) : null}
 					</div>
 				</DialogBody>

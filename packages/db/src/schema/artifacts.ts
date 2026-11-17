@@ -6,7 +6,6 @@ import * as schema from "./tables.ts";
 import { assertUnqualifiedOwnTables, assertQualifiedVectorTypes } from "./normalize.ts";
 
 export const migrationDirectory = new URL("../../migrations/", import.meta.url);
-/** Numbered names until 2026-10-22 (D76), then UTC timestamps (D78). Both sort by name. */
 export const migrationName = /^(?:\d{4}|\d{14})_[a-z0-9_]+\.sql$/;
 export const ownTableNames = new Set(
 	Object.values(schema)
@@ -21,7 +20,6 @@ export async function checkMigrationArtifacts(directory = migrationDirectory): P
 		await readFile(new URL("meta/_journal.json", directory), "utf8"),
 	);
 	const files = (await readdir(directory)).filter((name) => name.endsWith(".sql")).sort();
-	// Kit's journal registers the numbered migrations only. Timestamped ones need no registry: the folder is one.
 	const numbered = files.filter((name) => /^\d{4}_/.test(name));
 	const registered = journal.entries.map((entry) => entry.tag + ".sql").sort();
 	if (
@@ -58,13 +56,11 @@ export async function checkMigrationArtifacts(directory = migrationDirectory): P
 	assertAdditiveAuditActions(auditActions, await retiredAuditActions(directory));
 }
 const auditActionCheck = /ADD CONSTRAINT "audit_action" CHECK \(\(action IN \(([^)]*)\)\)\)/g;
-/** The allowed actions of the last `audit_action` CHECK a migration sets, if it sets one. */
 function lastAuditActionList(sql: string): string[] | undefined {
 	const list = [...sql.matchAll(auditActionCheck)].at(-1)?.[1];
 	return list === undefined ? undefined : [...list.matchAll(/'([^']*)'/g)].map((match) => match[1] ?? "");
 }
 type Retirement = { migration: string; actions: string[] };
-/** Deliberate drops of writer-less actions, each owner-ruled (T-200). A missing file retires nothing. */
 async function retiredAuditActions(directory: URL): Promise<Retirement[]> {
 	try {
 		return JSON.parse(await readFile(new URL("retired-audit-actions.json", directory), "utf8")).retirements;
@@ -73,10 +69,6 @@ async function retiredAuditActions(directory: URL): Promise<Retirement[]> {
 		throw error;
 	}
 }
-/**
- * Audit rows outlive the code that wrote them, so a later list may add actions but never drop one (pac-9).
- * The one exception is a committed retirement: it names a migration and exactly the actions that migration drops.
- */
 function assertAdditiveAuditActions(lists: { name: string; actions: string[] }[], retirements: Retirement[]): void {
 	const last = lists.at(-1);
 	if (!last) return;

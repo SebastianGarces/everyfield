@@ -1,6 +1,3 @@
-// Pure rules and words for the person fields (REQ-PPL-005, 009, 010, 011): labels, tag tones and the text of a household
-// change in Activity. No React and no server code, so they run the same in the browser, on the server and in node tests.
-
 import type * as people from "@everyfield/contracts/people";
 import { householdRole, PHOTO_MAX_BYTES, photoMime, proficiency, skillCategory } from "@everyfield/contracts/people";
 import type { Tone } from "@everyfield/ui/display";
@@ -18,7 +15,6 @@ export type HouseholdSummary = z.infer<typeof people.household>;
 export type Membership = z.infer<typeof people.householdMembership>;
 export type PhotoResult = z.infer<typeof people.personPhotoResult>;
 
-/** What the person page reads for these fields. Null means that part did not load; the page still shows the rest. */
 export type PersonFields = {
 	tags: PersonTag[] | null;
 	skills: Skill[] | null;
@@ -51,11 +47,6 @@ export const ROLE_LABEL: Record<HouseholdRole, string> = {
 	other: "Other",
 };
 
-/**
- * The tag colors this screen offers: one per brand tone, so every tag keeps the brand's contrast in light and dark.
- * The contract also accepts red, orange, yellow, indigo and any #rrggbb from other clients; they show in the nearest
- * tone (named) or neutral with a color dot (hex).
- */
 export const TAG_COLORS = ["gray", "green", "teal", "blue", "purple", "amber", "pink"] as const;
 export type TagColorChoice = (typeof TAG_COLORS)[number];
 export const TAG_COLOR_LABEL: Record<TagColorChoice, string> = {
@@ -80,14 +71,12 @@ const NAMED_TONE: Record<string, Tone> = {
 	purple: "violet",
 	pink: "magenta",
 };
-/** How a saved tag color shows: a brand tone, or neutral with the exact hex as a small dot. */
 export function tagLook(color: string | null): { tone?: Tone; dot?: string } {
 	if (!color) return {};
 	if (color.startsWith("#")) return { dot: color };
 	return { tone: NAMED_TONE[color] };
 }
 
-/** Skills grouped by category in the requirement's order, each group already in name order from the server. */
 export function skillGroups(skills: readonly Skill[]): { category: SkillCategory; skills: Skill[] }[] {
 	return SKILL_CATEGORIES.map((category) => ({
 		category,
@@ -95,7 +84,6 @@ export function skillGroups(skills: readonly Skill[]): { category: SkillCategory
 	})).filter((g) => g.skills.length > 0);
 }
 
-/** One line for an address, or null when every part is blank. */
 export function addressLine(a: {
 	street?: string | null;
 	city?: string | null;
@@ -109,7 +97,6 @@ export function addressLine(a: {
 	return line || null;
 }
 
-/** The client check before an upload (REQ-PPL-005). The server verifies the bytes and type again. */
 export function photoProblem(file: { size: number; type: string }): string | null {
 	if (file.size === 0) return "This file is empty. Choose a photo.";
 	if (!photoMime.safeParse(file.type).success) return "Use a JPG, PNG or WebP photo.";
@@ -117,17 +104,12 @@ export function photoProblem(file: { size: number; type: string }): string | nul
 	return null;
 }
 
-/**
- * The file a picker's change chose, with the picker cleared at once, refused file or not. A browser fires change only
- * when the picker's value differs, so without the clear choosing the same file again does nothing.
- */
 export function takeFile(input: { files: ArrayLike<File> | null; value: string }): File | null {
 	const file = input.files?.[0] ?? null;
 	input.value = "";
 	return file;
 }
 
-/** The words for a household change in Activity, from the membership before and after (REQ-PPL-009). */
 export function householdChange(change: { from: Membership | null; to: Membership | null }): string {
 	const { from, to } = change;
 	if (!from && to) return `Joined ${to.name} as ${ROLE_LABEL[to.role].toLowerCase()}`;
@@ -138,13 +120,11 @@ export function householdChange(change: { from: Membership | null; to: Membershi
 	return "Household changed";
 }
 
-/** The current membership of one person, as Activity records it, from a household read. */
 export function membershipOf(result: HouseholdResult | null, personId: string): Membership | null {
 	if (result?.status !== "available") return null;
 	const me = result.members.find((m) => m.personId === personId);
 	return me ? { householdId: result.household.id, name: result.household.name, role: me.role } : null;
 }
 
-/** The app address of one photo version (photo-route.ts). Never a storage key or a signed link. */
 export const photoSrc = (photo: PhotoResult): string | undefined =>
 	photo.status === "available" ? `/people/${photo.personId}/photo/${photo.versionId}` : undefined;

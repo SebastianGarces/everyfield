@@ -15,15 +15,11 @@ import {
 	type Template,
 } from "./model.ts";
 
-// The documents screens' reads. The library is the full catalog (one account check). The selected template's church
-// values are a second read, and only for a plant seat. Preview bytes are a separate request, not part of the page.
-
 export type DocumentsLoad =
 	| { status: "ok"; templates: Template[]; version: string; context: Resolved | null; canPreview: boolean }
 	| { status: "refused" }
 	| { status: "failed" };
 
-/** The request's active actor, or null when there is no active account. */
 export async function documentActor(): Promise<RequestActor | null> {
 	const viewer = await getViewer();
 	if (!viewer || viewer.status !== "active") return null;
@@ -35,10 +31,6 @@ export type PreviewOutcome =
 	| { status: "refused"; code: DocumentsError["code"]; path?: string }
 	| { status: "lost" };
 
-/**
- * Exact preview bytes for one template. Nothing is stored. The browser cannot name a person, meeting, or team.
- * The actor is read again here.
- */
 export async function readPreview(
 	templateId: string,
 	format: Format,
@@ -93,10 +85,6 @@ function present(value: {
 	};
 }
 
-/**
- * The library, then the selected template's filled fields. List and resolve stay in order: the selected id depends on
- * the catalog. A plant seat adds the resolve statement. An account with no church seat still receives the library.
- */
 export async function loadDocuments(authority: RequestActor, query: DocumentsQuery): Promise<DocumentsLoad> {
 	const db = requestDatabase();
 	if (!db) return { status: "failed" };
@@ -127,7 +115,6 @@ export async function loadDocuments(authority: RequestActor, query: DocumentsQue
 	}
 }
 
-/** Account context, or a plant seat. An organization seat has neither library of written documents. */
 export function writtenScope(authority: RequestActor): "church" | "account" | null {
 	const context = authority.actor.context;
 	if (context.kind === "account") return "account";
@@ -135,14 +122,12 @@ export function writtenScope(authority: RequestActor): "church" | "account" | nu
 	return null;
 }
 
-/** Members can read written documents. They cannot save, import, archive, or designate. */
 export function canEditDocuments(authority: RequestActor) {
 	const context = authority.actor.context;
 	if (context.kind === "account") return true;
 	return context.kind === "seat" && context.owner.kind === "plant" && context.role !== "member";
 }
 
-/** Private storage is configured for this process. Generation and import need it. Text save does not. */
 export function canStoreDocuments() {
 	return privateStorage() !== null;
 }

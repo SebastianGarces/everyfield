@@ -1,11 +1,3 @@
-// BUG-551 (audit appshell/web-7, T-165): the not-found and error boundaries. Unknown URLs and thrown renders show a branded Everyfield page: the product
-// frame's boundaries inside the shell, the root ones outside it, and global-error with its own document. Each error
-// boundary says "Something went wrong", shows the digest as a reference and never the error's message, and its Try again
-// calls the reset Next hands it.
-//
-// It renders the real boundary components in node, with no browser and no database. Try again is found in the element
-// tree the boundary returns and clicked by calling its handler, as React would. It runs from packages/domain's test:unit:
-// tsx --tsconfig ../../tests/unit/render.tsconfig.json --test <this file>.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
@@ -28,7 +20,6 @@ const ERRORS: [string, Boundary][] = [
 	["global error", GlobalErrorDocument],
 ];
 
-/** The visible text of the markup, tags dropped and whitespace collapsed. */
 function text(html: string) {
 	return html
 		.replace(/<[^>]+>/g, " ")
@@ -36,7 +27,6 @@ function text(html: string) {
 		.trim();
 }
 
-/** The text a React node renders, read from the element tree without rendering it. */
 function label(node: unknown): string {
 	if (typeof node === "string" || typeof node === "number") return String(node);
 	if (Array.isArray(node)) return node.map(label).join("");
@@ -44,8 +34,6 @@ function label(node: unknown): string {
 	return "";
 }
 
-/** The first element in the tree, searching every element-valued prop (children, actions …), whose label is `name` and
- *  that has a click handler. A component element is expanded by calling it, as React would; none of these use hooks. */
 function clickable(node: unknown, name: string): { onClick: () => void } | undefined {
 	if (Array.isArray(node)) {
 		for (const n of node) {

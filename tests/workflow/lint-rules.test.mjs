@@ -209,7 +209,7 @@ export function Row({ on }) {
 	]);
 });
 
-test("INV-lint: history writes, popstate and the Navigation API are reported outside the location store, in every spelling", () => {
+test("INV-lint: history writes, popstate, the Navigation API, the address fragment and an in-app address carrying a one-time link value are reported outside the location store, in every spelling", () => {
 	const source = `export function go(mode, href) {
 	window.history.pushState(null, "", href);
 	history.replaceState(null, "", href);
@@ -221,11 +221,20 @@ test("INV-lint: history writes, popstate and the Navigation API are reported out
 	history["push" + "State"](null, "", href);
 	window.navigation.navigate(href);
 	navigation.addEventListener("navigate", go);
+	const proof = window.location.hash.slice(1) || location.hash || document.location.hash;
+	const links = ["/invitation#proof=" + proof, \`/reset-password?token=\${proof}\`, "/connections/respond?invitation=1#x", "/invitation", "/reset-password?step=2", \`\${origin}/invitation#proof=\${proof}\`];
+	const built = ["/reset-password?" + "token=" + proof, links]; const { hash } = location;
 	return pushState;
 }
 `;
 	assert.deepEqual(
-		lint({ "apps/web/src/features/x/go.ts": source, "apps/web/src/components/location.ts": source }),
+		lint({
+			"apps/web/src/features/x/go.ts": source,
+			"apps/web/src/components/location.ts": source,
+			"apps/web/src/components/one-time-link.ts": `export const take = () => (window.history.replaceState(null, "", "/"), location.hash);\n`,
+			"apps/web/src/server/mail/link.ts":
+				"export const link = (origin, proof) => `${origin}/invitation#proof=${proof}`;\n",
+		}),
 		[
 			"apps/web/src/features/x/go.ts:2 no-raw-history",
 			"apps/web/src/features/x/go.ts:3 no-raw-history",
@@ -241,11 +250,60 @@ test("INV-lint: history writes, popstate and the Navigation API are reported out
 			"apps/web/src/features/x/go.ts:10 no-raw-history",
 			"apps/web/src/features/x/go.ts:10 no-raw-history",
 			"apps/web/src/features/x/go.ts:11 no-raw-history",
+			"apps/web/src/features/x/go.ts:12 no-raw-history",
+			"apps/web/src/features/x/go.ts:12 no-raw-history",
+			"apps/web/src/features/x/go.ts:12 no-raw-history",
+			"apps/web/src/features/x/go.ts:13 no-raw-history",
+			"apps/web/src/features/x/go.ts:13 no-raw-history",
+			"apps/web/src/features/x/go.ts:13 no-raw-history",
+			"apps/web/src/features/x/go.ts:13 no-raw-history",
+			"apps/web/src/features/x/go.ts:14 no-raw-history",
+			"apps/web/src/features/x/go.ts:14 no-raw-history",
 		].sort(),
 	);
 });
 
-test("INV-lint: window and document listeners are reported outside the location store and the page-event registry", () => {
+test("INV-lint: an in-app address carrying a one-time link value is reported when it names an origin, or is built with URL, URLSearchParams or a pathname object", () => {
+	const source = `export function links(proof) {
+	const absolute = ["https://everyfield.app/invitation#proof=" + proof, "//everyfield.app/reset-password?token=1", "https://everyfield.app/reset-password?step=2"];
+	const reset = new URL("/reset-password", window.location.origin);
+	reset.searchParams.set("token", proof);
+	const verify = new URL("https://everyfield.app/verify-email");
+	verify.search = \`?token=\${proof}\`;
+	const invite = new URL(\`\${origin}/invitation\`);
+	invite.hash = \`proof=\${proof}\`;
+	const query = new URLSearchParams({ token: proof });
+	const later = new URLSearchParams();
+	later.append("token", proof);
+	const step = new URLSearchParams({ step: "2" });
+	const built = ["/reset-password?" + query, \`/verify-email?\${later.toString()}\`, \`/reset-password?\${new URLSearchParams([["token", proof]])}\`, "/reset-password?" + step];
+	const pages = [{ pathname: "/verify-email", query: { token: proof } }, { pathname: "/invitation", hash: proof }, { pathname: "/reset-password", query: { step: 2 } }];
+	const other = new URL("/documents", origin);
+	other.searchParams.set("token", proof);
+	return [absolute, reset, verify, invite, built, pages, other];
+}
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/links.ts": source,
+			"apps/web/src/server/mail/links.ts": source,
+		}),
+		[
+			"apps/web/src/features/x/links.ts:2 no-raw-history",
+			"apps/web/src/features/x/links.ts:2 no-raw-history",
+			"apps/web/src/features/x/links.ts:4 no-raw-history",
+			"apps/web/src/features/x/links.ts:6 no-raw-history",
+			"apps/web/src/features/x/links.ts:8 no-raw-history",
+			"apps/web/src/features/x/links.ts:13 no-raw-history",
+			"apps/web/src/features/x/links.ts:13 no-raw-history",
+			"apps/web/src/features/x/links.ts:13 no-raw-history",
+			"apps/web/src/features/x/links.ts:14 no-raw-history",
+			"apps/web/src/features/x/links.ts:14 no-raw-history",
+		].sort(),
+	);
+});
+
+test("INV-lint: window and document listeners, and onTraversal or onNavigation held for a component's lifetime, are reported outside the location store and the page-event registry", () => {
 	const source = `export function mount(node, run) {
 	window.addEventListener("keydown", run);
 	document.removeEventListener("click", run);
@@ -261,15 +319,28 @@ test("INV-lint: window and document listeners are reported outside the location 
 	document.onclick = run;
 	node.ownerDocument.addEventListener("keydown", run);
 	window.visualViewport.addEventListener("resize", run);
+	const scroller = node.root ?? window;
+	scroller.addEventListener("scroll", run);
+	(node.scrolls ? node : window).removeEventListener("scroll", run);
+	const view = (node.root || document.defaultView) as Window;
+	view.addEventListener("resize", run);
+	let later;
+	later = node.root ?? window;
+	later.addEventListener("scroll", run);
+	(0, window).addEventListener("scroll", run);
+	const frame = node.ownerDocument?.defaultView;
+	frame.addEventListener("resize", run);
 	return [add, listen];
 }
 `;
-	const registries = `import { addAddressRule, onTraversal } from "../../components/location.ts";
+	const registries = `import { addAddressRule, onNavigation, onTraversal } from "../../components/location.ts";
 addAddressRule("ok", () => null);
 export function Screen() {
 	addAddressRule("bad", () => null);
 	const go = () => onTraversal(() => {});
-	return <button ref={(node) => (node ? onTraversal(() => {}) : undefined)} onClick={go} />;
+	onNavigation(() => {});
+	const leave = () => onNavigation(() => {});
+	return <button ref={(node) => (node ? onTraversal(() => {}) : undefined)} onClick={go} onBlur={leave} />;
 }
 `;
 	assert.deepEqual(
@@ -280,11 +351,12 @@ export function Screen() {
 			"apps/web/src/components/location.ts": source,
 		}),
 		[
-			...[2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15].map(
+			...[2, 3, 4, 5, 6, 9, 10, 11, 12, 13, 14, 15, 17, 18, 20, 23, 24, 26].map(
 				(line) => `apps/web/src/features/x/mount.ts:${line} no-global-listeners`,
 			),
 			"apps/web/src/features/x/Screen.tsx:4 no-global-listeners",
 			"apps/web/src/features/x/Screen.tsx:6 no-global-listeners",
+			"apps/web/src/features/x/Screen.tsx:8 no-global-listeners",
 		].sort(),
 	);
 });
@@ -343,7 +415,7 @@ export function Panel() {
 	);
 });
 
-test("INV-lint: a createRead loader only loads its key: a call of a read, optionally mapped, and nothing else", () => {
+test("INV-lint: a createRead or useLocalRead loader only loads its key: a call of a read, optionally mapped, and nothing else", () => {
 	const source = `import { createRead } from "../../components/read.tsx";
 import { loadThing, markSeen } from "./actions.ts";
 export const a = createRead((id) => loadThing(id), { failed: () => null });
@@ -353,8 +425,11 @@ export const d = createRead(async (id) => { markSeen(id); return loadThing(id); 
 export const e = createRead(loadThing, { failed: () => null });
 export const f = createRead((id) => (markSeen(id), loadThing(id)), { failed: () => null });
 export const g = createRead((id) => loadThing(id).then((r) => { markSeen(id); return r; }), { failed: () => null });
+export const useH = (id) => useLocalRead((key) => loadThing(key), { failed: () => null }, id);
+export const useI = (id) => useLocalRead(async (key) => { markSeen(key); return loadThing(key); }, { failed: () => null }, id);
 `;
 	assert.deepEqual(lint({ "apps/web/src/features/x/reads.ts": source }), [
+		"apps/web/src/features/x/reads.ts:11 read-loader",
 		"apps/web/src/features/x/reads.ts:6 read-loader",
 		"apps/web/src/features/x/reads.ts:8 read-loader",
 		"apps/web/src/features/x/reads.ts:9 read-loader",
@@ -602,6 +677,26 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.equal(status, 1);
 	assert.match(out, /override for src\/x\.tsx, rule everyfield\/no-effects needs its reason/);
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
+});
+
+test("INV-lint: a survivor whose reason marks it temporary must name the evf task that removes it", () => {
+	const path = "packages/ui/src/Panel.tsx";
+	const run = (reason) => {
+		const dir = sandbox(
+			{ [path]: "export {};\n" },
+			{ "survivors/packages-ui.json": { "no-effects": { [path]: [{ function: "Panel", count: 1, reason }] } } },
+		);
+		git(dir, "init", "-q");
+		return check(dir, ["--no-base"]);
+	};
+	const refused = run("Temporary: the effect goes once the shared hook lands");
+	assert.equal(refused.status, 1);
+	assert.match(
+		refused.out,
+		/packages-ui\.json: no-effects packages\/ui\/src\/Panel\.tsx: a temporary entry must name the evf task/,
+	);
+	assert.match(run("Temporary: the effect goes once the shared hook lands (T-123)").out, /check-comments: passed/);
+	assert.match(run("The effect follows the panel's lifetime, so it stays").out, /check-comments: passed/);
 });
 
 function history() {

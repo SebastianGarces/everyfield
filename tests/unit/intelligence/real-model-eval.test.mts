@@ -1,5 +1,3 @@
-// The assessment evaluation's real-model opt-in (D92): without ASSESSMENT_EVAL_REAL_MODEL=1 it stays scripted; with it,
-// it needs the approved paid model and the shared development database, and refuses production and the scripted switch.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { developmentHosts } from "../../../packages/db/src/development.ts";

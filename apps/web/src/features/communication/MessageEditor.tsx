@@ -4,14 +4,10 @@ import { Field, Input, Textarea } from "@everyfield/ui/controls";
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { fieldToken, fieldsFor, type MergeField } from "./fields.ts";
 
-// Subject and message for Write and for the template editor. The message is plain text. The rail lists the fields that
-// work in it; a click inserts one at the cursor, and typing `{{` opens the same list under the cursor.
-
 type Open = { from: number; query: string; top: number; left: number };
 
 const LINE = 22;
 
-/** Where the `{{name` being typed ends at the caret, and roughly where to draw the list. */
 function openAt(el: HTMLTextAreaElement): Open | null {
 	const caret = el.selectionStart;
 	const before = el.value.slice(0, caret);
@@ -43,9 +39,7 @@ export function MessageEditor({
 	bodyError?: string;
 	hasMeeting: boolean;
 	disabled?: boolean;
-	/** True when the opened body had markup the editor reduced to text. */
 	lossy?: boolean;
-	/** The template picker, above the subject. */
 	children?: ReactNode;
 }) {
 	const area = useRef<HTMLTextAreaElement>(null);
@@ -60,14 +54,10 @@ export function MessageEditor({
 		if (!el) return;
 		const start = from ?? el.selectionStart;
 		const end = el.selectionEnd;
-		const token = fieldToken(field.key);
-		onText(el.value.slice(0, start) + token + el.value.slice(end));
+		el.focus();
+		el.setRangeText(fieldToken(field.key), start, end, "end");
+		onText(el.value);
 		setOpen(null);
-		const caret = start + token.length;
-		requestAnimationFrame(() => {
-			el.focus();
-			el.setSelectionRange(caret, caret);
-		});
 	};
 
 	const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -78,14 +68,11 @@ export function MessageEditor({
 			setActive((current) => (current + step + shown.length) % shown.length);
 		} else if (event.key === "Enter" || event.key === "Tab") {
 			event.preventDefault();
-			// Replace the typed `{{na` with the whole field.
-			const el = area.current!;
-			const end = el.selectionStart;
+			const el = event.currentTarget;
 			const field = shown[active] ?? shown[0]!;
-			onText(el.value.slice(0, open.from) + fieldToken(field.key) + el.value.slice(end));
+			el.setRangeText(fieldToken(field.key), open.from, el.selectionStart, "end");
+			onText(el.value);
 			setOpen(null);
-			const caret = open.from + fieldToken(field.key).length;
-			requestAnimationFrame(() => el.setSelectionRange(caret, caret));
 		} else if (event.key === "Escape") {
 			event.preventDefault();
 			setOpen(null);

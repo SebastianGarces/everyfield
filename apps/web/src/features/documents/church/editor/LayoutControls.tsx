@@ -13,13 +13,8 @@ import { ConditionControls } from "./ConditionControls.tsx";
 import { fieldDecl, writeInKindLabel } from "./extensions.ts";
 import { TableControls } from "./TableControls.tsx";
 
-// The settings of the block the cursor is in or on: the number of columns, a box's fill and border, a divider's weight
-// and color, an image's height and alignment. Each color control is a row of swatches, one for each token of the format,
-// painted in the color the PDF prints for this document. No control takes a hex value or opens a color picker.
-
 const HEIGHT = FORMAT_LIMITS.imageHeight;
 
-/** Height of an image in points, in the format's range. A value outside it is refused with the format's words. */
 function HeightField({ editor, target }: { editor: Editor; target: Target }) {
 	const id = useId();
 	const current = typeof target.node.attrs.height === "number" ? target.node.attrs.height : 34;
@@ -74,7 +69,6 @@ function ControlsFor({
 	palette: DocBrand["palette"] | null;
 }) {
 	const attrs = target.node.attrs;
-	// A plain document (no palette) has settings for its tables only (BlockControls passes no other target).
 	if (!palette) return <TableControls editor={editor} palette={null} />;
 	switch (target.kind) {
 		case "columns":
@@ -155,10 +149,6 @@ function ControlsFor({
 	}
 }
 
-/**
- * The value of the selected merge field. It commits on Enter or when the input loses focus, as one Undo step, and every
- * copy of the field on the page shows it at once. Escape puts back the value it had.
- */
 function FieldValue({ editor, fieldKey }: { editor: Editor; fieldKey: string }) {
 	const id = useId();
 	const label = useEditorState({
@@ -212,10 +202,6 @@ function FieldValue({ editor, fieldKey }: { editor: Editor; fieldKey: string }) 
 	);
 }
 
-/**
- * The settings row under the main toolbar. It shows only while the cursor is in a block that has settings. A plain
- * document passes no palette: only a table has settings there.
- */
 export function BlockControls({ editor, palette }: { editor: Editor; palette: DocBrand["palette"] | null }) {
 	const targets = useEditorState({
 		editor,

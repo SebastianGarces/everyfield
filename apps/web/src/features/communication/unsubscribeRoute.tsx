@@ -3,9 +3,6 @@ import type { Metadata } from "next";
 import { UnsubscribeScreen, type UnsubscribeView } from "./UnsubscribeScreen.tsx";
 import { unsubscribeCall } from "./unsubscribe.ts";
 
-// The Unsubscribe link of a Messages email (REQ-NTF-016). Opening it only describes the token, so a mail scanner that
-// follows the link changes nothing; a malformed, tampered or wrong-purpose token reads as invalid.
-
 export const unsubscribeMetadata: Metadata = {
 	title: "Unsubscribe",
 	robots: { index: false, follow: false },

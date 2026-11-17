@@ -5,18 +5,12 @@ import { useState } from "react";
 import { ChurchPdf } from "./ChurchPdf.tsx";
 import type { RevisionRow } from "./server.ts";
 
-// Version history: the saved revisions of a Church Document, newest first, and the real PDF of the one chosen. It only
-// reads: nothing here changes the document, and the editor under it keeps its draft and its Undo history.
-
 const WHEN = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 type Props = {
-	/** The page's saved revisions, newest first; a save on the page adds its row. */
 	revisions: RevisionRow[];
 	title: string;
-	/** The revision the document is at now. */
 	current: string;
-	/** The preview address of one revision in one format. */
 	file: (format: string, revision: string) => string;
 	page: { width: number; height: number };
 };

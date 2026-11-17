@@ -1,11 +1,3 @@
-// The setup fixture (T-345), the acceptance fixture for the onboarding evals and the local preview, seeded next to Hope
-// Fellowship (golden-church.mts) but apart from it: Cedar Creek Church (America/Chicago), which its Owner (Casey Rivera)
-// created and has not finished setting up, with an Admin (Jordan Lee) and a Member invited to lead on its launch team
-// (Taylor Nguyen); three seatless accounts (Sam Ortiz, Erin Walsh and Riley Park); a former Member of Hope Fellowship
-// whose seat ended (Alex Moreno); a Discovery account (Dana Brooks) linked to Hill Country Network; and a Discovery
-// account (Morgan Hale) linked to Grace Austin and Hill Country Network. A Discovery link shares nothing
-// (affiliation_ck_2); what a link shares is chosen when the space becomes a church. The church and the Discovery spaces
-// are made by the same onboarding producer `/onboarding` calls.
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
@@ -38,18 +30,12 @@ export const SETUP_SPECS = {
 export type SetupName = keyof typeof SETUP_SPECS;
 const SETUP_CHURCH = "Cedar Creek Church";
 
-/** The command envelope the onboarding screens send. */
 const command = (input: unknown, expectedRevision = "1") => ({ requestKey: randomUUID(), expectedRevision, input });
 function ok<T>(reply: { status: string; value?: T; error?: unknown }): T {
 	if (reply.status !== "ok") throw Error(`setup fixture refused: ${JSON.stringify(reply.error)}`);
 	return reply.value as T;
 }
 
-/**
- * Seeds the setup accounts into the schema `admin` writes, then creates the church and the Discovery space natively.
- * `team: false` leaves Cedar Creek's Admin and Member unseated, for the Overview evals (seedOverview), whose church has
- * invited no one yet.
- */
 export async function seedSetup(admin: Database, runtime: Database, native: NativePorts, { team = true } = {}) {
 	for (const [who, a] of Object.entries(SETUP_SPECS)) {
 		await admin.execute(
@@ -77,14 +63,12 @@ export async function seedSetup(admin: Database, runtime: Database, native: Nati
 		await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
 			VALUES(${SETUP_SPECS.setupAdmin.account},${created.plant.id},'admin',clock_timestamp()-interval '1 day'),
 				(${SETUP_SPECS.teamLead.account},${created.plant.id},'member',clock_timestamp()-interval '1 day')`);
-	// A Member of Hope Fellowship whose seat ended: an active account with no seat and no Discovery space.
 	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at,ended_at)
 		VALUES(${SETUP_SPECS.former.account},${PLANT},'member',clock_timestamp()-interval '30 days',clock_timestamp()-interval '2 days')`);
 	for (const who of ["discovery", "sender"] as const)
 		await runtime.transaction(async (tx) =>
 			ok(await native.onboarding.createDiscovery(tx, as(who) as never, command({}) as never)),
 		);
-	// The organizations each Discovery account chose: links that share nothing until the space becomes a church.
 	const link = (who: SetupName, organization: string) =>
 		admin.execute(sql`INSERT INTO affiliation(account_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 			VALUES(${SETUP_SPECS[who].account},${organization},clock_timestamp()-interval '1 day',false,false,false,false,false,false,false)`);
@@ -94,17 +78,6 @@ export async function seedSetup(admin: Database, runtime: Database, native: Nati
 	return { plant: created.plant.id };
 }
 
-// ---- The Overview fixture (T-330) ------------------------------------------------------------------------------------
-// Cedar Creek Church once its Owner finished setup, in its first week, before anyone else is invited: eight people the
-// Owner brought over from an earlier list, five of them added in the last month (Overview's activity dates each one by
-// its people.created audit row, and the pipeline's inactivity reads their history), so with the Owner's own record that
-// setup added today, Overview's activity shows six people added in the last month; an orientation two days ahead and
-// a pre-launch practice nine days ahead; one overdue task of the Owner's; no Vision Meeting, Launch Sunday or invitation.
-// So Overview offers the Owner three next steps: plan a Vision Meeting, invite the team and set Launch Sunday. Times are
-// relative to the database clock, which the overview suite pins to Oct 13, 2026. Each later Given is its own function,
-// so the suite and the local preview apply the same ones in the same order.
-
-/** Each fixture person, the days since they were added, and whether they had activity since (no inactivity mark). */
 const OVERVIEW_PEOPLE = [
 	["Grace Holt", 50, true],
 	["Marcus Webb", 45, true],
@@ -122,7 +95,6 @@ const peopleCtx = (who: SetupName, plant: string) => ({
 	session: SETUP_SPECS[who].session,
 	selected: { kind: "plant" as const, id: plant },
 });
-/** The Owner adds one person natively; `daysAgo` moves the person and its people.created audit row back in time. */
 async function addPerson(admin: Database, runtime: Database, plant: string, name: string, daysAgo = 0) {
 	const person = await runtime.transaction(async (tx) =>
 		ok<{ person: { id: string } }>(
@@ -142,7 +114,6 @@ async function addPerson(admin: Database, runtime: Database, plant: string, name
 	}
 	return id;
 }
-/** The church's local date `days` from today, by the database clock. */
 async function localDay(admin: Database, plant: string, days: number) {
 	const [row] = (
 		await admin.execute(sql`SELECT to_char((clock_timestamp() AT TIME ZONE timezone)::date+${days}::int,'YYYY-MM-DD') AS day
@@ -159,7 +130,6 @@ async function schedule(admin: Database, runtime: Database, plant: string, input
 	);
 }
 
-/** Cedar Creek as the Overview evals and preview find it (see above). Run after seedSetup with `team: false`. */
 export async function seedOverview(admin: Database, runtime: Database, native: NativePorts, plant: string) {
 	const owner = peopleCtx("setupOwner", plant);
 	const [{ revision }] = (await admin.execute(sql`SELECT revision::text FROM plant WHERE id=${plant}`)).rows as {
@@ -168,7 +138,6 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 	await runtime.transaction(async (tx) =>
 		ok(await native.onboarding.complete(tx, owner as never, command({}, revision) as never)),
 	);
-	// The Owner's own record, which setup added: Overview's activity lists it with the others.
 	const [me] = (
 		await admin.execute(
 			sql`SELECT id::text FROM person WHERE plant_id=${plant} AND linked_account_id=${SETUP_SPECS.setupOwner.account}`,
@@ -177,7 +146,6 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 	const ids: Record<string, string> = { [SETUP_SPECS.setupOwner.name]: me!.id };
 	for (const [name, days, active] of OVERVIEW_PEOPLE) {
 		ids[name] = await addPerson(admin, runtime, plant, name, days);
-		// A later change to the person is activity: the pipeline marks no inactivity for them.
 		if (active)
 			await runtime.transaction(async (tx) =>
 				ok(
@@ -206,7 +174,6 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 	await admin.execute(
 		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${plant},${task},${SETUP_SPECS.setupOwner.account})`,
 	);
-	// Another account's own feedback, sent from no church: never shown to the Owner.
 	const sam = await viewerOf(runtime, "seatless");
 	const other = await runtime.transaction(async (tx) =>
 		ok<{ id: string }>(
@@ -221,7 +188,6 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 	return { people: ids, otherFeedback: other.id };
 }
 
-/** Given: the Owner planned the first Vision Meeting, eight days ahead. Overview's Vision Meeting step is then done. */
 export async function planVisionMeeting(admin: Database, runtime: Database, plant: string) {
 	await schedule(admin, runtime, plant, {
 		type: "vision_meeting",
@@ -229,12 +195,10 @@ export async function planVisionMeeting(admin: Database, runtime: Database, plan
 		date: await localDay(admin, plant, 8),
 	});
 }
-/** Given: the Member (Taylor Nguyen) joined Cedar Creek. */
 export async function seatMember(admin: Database, plant: string) {
 	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
 		VALUES(${SETUP_SPECS.teamLead.account},${plant},'member',clock_timestamp()-interval '1 day')`);
 }
-/** Given: fifteen more people added today, so Overview's 20 latest changes all fall inside the last month. */
 export async function crowdActivity(admin: Database, runtime: Database, plant: string) {
 	for (let n = 1; n <= 15; n++) await addPerson(admin, runtime, plant, `Guest ${String(n).padStart(2, "0")}`);
 }

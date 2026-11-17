@@ -9,13 +9,9 @@ import { holdLeave } from "../../../../components/save/leave.ts";
 import { saveAndLeave } from "../../save-chain.ts";
 import { deleteBlock, moveBlock } from "./blocks.ts";
 
-// What the Church Document editor and the plain document editor share around the paper: the save status line, the
-// guard that asks before unsaved edits leave the page, and the block shortcuts.
-
 export type SaveStatus =
 	{ kind: "saved" } | { kind: "dirty" } | { kind: "saving" } | { kind: "failed"; reason: string };
 
-/** Block shortcuts that need no toolbar: Move block up and down, Delete block. */
 export const BlockShortcuts = Extension.create({
 	name: "blockShortcuts",
 	addKeyboardShortcuts() {
@@ -65,22 +61,13 @@ export function SaveStatusText({
 	);
 }
 
-/** A way out of the page that waits for an answer: `go` leaves, `stay` (if any) puts back what the way out undid. */
 type LeaveRequest = { go: () => void; stay?: () => void };
 
-/**
- * Asks before an in-app link, the Back button or a page-wide action such as Sign out (`leavePage`) leaves the page
- * while the document has changes that are not saved. The question is an Everyfield dialog (LeaveDialog), never a
- * browser confirm. Closing or reloading the tab can only show the browser's own beforeunload prompt; after the person
- * chose to leave, it stays quiet. The listeners stay on for the life of the editor and ask `unsaved` at the moment of
- * the click or the Back press, so no edit, however close to the click, gets past them.
- */
 export function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 	const router = useRouter();
 	const [request, setRequest] = useState<LeaveRequest | null>(null);
 	useEffect(() => {
 		if (!editor) return;
-		// The person chose "Leave without saving" for a way out that loads a new page (Sign out): no second question.
 		let released = false;
 		const beforeUnload = (event: BeforeUnloadEvent) => {
 			if (released || !unsaved()) return;
@@ -99,12 +86,6 @@ export function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 			event.stopPropagation();
 			setRequest({ go: () => router.push(`${url.pathname}${url.search}${url.hash}`) });
 		};
-		// The Back button: a sentinel entry with the same address takes the first Back press. The edit that makes the
-		// document unsaved pushes it, so it is in place before any Back press. Leaving the sentinel with nothing unsaved
-		// (after a Save) goes on back, so one press still leaves the page.
-		// The Settings dialog opens over the editor with its own history entries (/settings/account). They can sit above
-		// the sentinel, so an edit checks the entry it is on, and Back onto a Settings entry is no way out: the editor is
-		// still there under the dialog.
 		const here = () => window.location.pathname + window.location.search;
 		const home = here();
 		const onSentinel = () => window.history.state?.efLeaveGuard === true;
@@ -153,7 +134,6 @@ export function useLeaveGuard(editor: Editor | null, unsaved: () => boolean) {
 	return { request, close: () => setRequest(null) };
 }
 
-/** Save and leave, Leave without saving, or Cancel. A save that fails keeps the page, with the reason in the status. */
 export function LeaveDialog({
 	request,
 	onSave,

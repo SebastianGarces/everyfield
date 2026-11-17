@@ -9,7 +9,6 @@ function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrim
 }
 
 function DropdownMenuPortal({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Portal>) {
-	// Everyfield change: portal into the product root, not <body>, so the product font, tokens and focus ring apply.
 	const container = usePortalContainer();
 	return <DropdownMenuPrimitive.Portal container={container} {...props} />;
 }
@@ -28,8 +27,6 @@ const DropdownMenuContent = React.forwardRef<
 		portal?: boolean;
 	}
 >(({ className, sideOffset = 4, portal = false, onEscapeKeyDown, ...props }, ref) => {
-	// Everyfield change: Escape returns focus to the menu's button, as the menu button pattern asks. Choosing an item
-	// still leaves focus where the item's action put it (the document), as Tiptap does.
 	const escaped = React.useRef(false);
 	const content = (
 		<DropdownMenuPrimitive.Content

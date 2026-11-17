@@ -29,10 +29,6 @@ const KEYS = Object.keys(RESIDENT_TEXT) as Key[];
 const PRIVATE =
 	"Your reading, notes and documents stay yours. They are never shared, and no one gets a seat in your account.";
 
-/**
- * What a resident chooses before accepting a residency link (REQ-MUL-003). Both start unchecked: acceptance shares
- * only what the resident ticks here.
- */
 export function ResidencyDisclosure({
 	organizationName,
 	onAccept,
@@ -90,22 +86,12 @@ export function ResidencyDisclosure({
 	);
 }
 
-/**
- * The current consent and the link's own revision. Every change must carry both: the link revision on the command
- * and the consent revision inside it (REQ-MUL-003). The contract read returns only the consent revision, so the
- * caller supplies the link revision (ruling D16).
- */
 export type ResidencyRow = { sharing: Sharing; linkRevision: string };
 export type ReadResidency = (linkId: string) => Promise<ResidencyRow>;
-/** Saves one choice. The answer is the link as saved now, or null when nothing was saved. */
 export type SaveResidency = (
 	command: ReturnType<typeof setResidencySharingRequest.parse>,
 ) => Promise<ResidencyRow | null>;
 
-/**
- * A resident's own consent for one residency link (REQ-MUL-003). Each switch stops or starts one category at once;
- * leaving ends the link. A stale screen is refused, never applied over a newer choice.
- */
 export function ResidencySharing({
 	linkId,
 	organizationName,
@@ -116,11 +102,9 @@ export function ResidencySharing({
 }: {
 	linkId: string;
 	organizationName: string;
-	/** The link as the page read it; the card reads again only after Leave or for Load latest. */
 	initial?: ResidencyRow;
 	read: ReadResidency;
 	save: SaveResidency;
-	/** Sends Leave. */
 	run: Run;
 }) {
 	const titleId = useId();
@@ -186,14 +170,12 @@ function ActiveResidency({
 	data: Extract<Sharing, { status: "active" }>;
 	linkRevision: string;
 	organizationName: string;
-	/** A fresh read is running: the revisions on screen may be old, so nothing is sent until it arrives. */
 	refreshing: boolean;
 	save: SaveResidency;
 	onSaved: (row: ResidencyRow) => void;
 	run: Run;
 	reload: () => void;
 }) {
-	// One intent for the switches and Leave: while one command is unconfirmed, nothing else is sent.
 	const save = useIntent<object>("residency");
 	const frame = useResidency();
 	const [busy, setBusy] = useState<{ key: Key; value: boolean } | null>(null);
@@ -216,7 +198,6 @@ function ActiveResidency({
 			send,
 			(row) => row !== null,
 		);
-		// On success the card re-mounts on the saved consent revision; until then the switch keeps the saved value.
 		if (result.ok && result.reply) onSaved(result.reply);
 		else setBusy(null);
 	};
@@ -234,7 +215,6 @@ function ActiveResidency({
 			(r) => r.status === "committed",
 		);
 		if (result.ok) {
-			// My residency leaves the navigation and its open page at once.
 			frame.left();
 			return reload();
 		}
@@ -295,7 +275,6 @@ function ActiveResidency({
 						size="sm"
 						variant="secondary"
 						onClick={() => {
-							// Reading the latest state resolves an unconfirmed change; a new switch is a new command.
 							save.release();
 							reload();
 						}}

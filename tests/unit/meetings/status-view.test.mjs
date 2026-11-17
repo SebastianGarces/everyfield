@@ -1,5 +1,3 @@
-// T-46 (Nora QA 2026-11-04): a past team meeting still planning or ready read "Planning". It now reads "Not closed";
-// every other meeting reads its stored status, and nothing changes the stored status (REQ-MTG-002).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { statusView } from "../../../apps/web/src/features/meetings/model.ts";

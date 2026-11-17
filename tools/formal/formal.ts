@@ -1,12 +1,3 @@
-// `bin/dev formal [--write] [<model dir>...]`: the formal checks (T-398). For every model under formal/ (or the dirs
-// given), it runs TLC on the model's MC*.cfg with a pinned tla2tools.jar whose checksum it verifies, prints each
-// invariant and property with its result and the distinct states TLC explored, and prints TLC's counterexample when a
-// property fails. It then checks the outcome table the model prints against the committed outcomes.json (--write
-// rewrites it) and checks every map in .agents/skills/formal-*/map.json against the code and the model. For a model in
-// SIMULATIONS it also generates random behaviors with TLC simulation from a fixed seed and checks them against the
-// committed traces.json the same way (T-399); `--traces <dir> [--seed <n>]` writes a fresh set outside the repository.
-//
-// TLC runs on a local Java 11 or newer when there is one, and otherwise in a pinned Java container through Docker.
 import { spawnSync } from "node:child_process";
 import { createHash, randomInt } from "node:crypto";
 import {
@@ -28,9 +19,7 @@ const TLA_TOOLS = {
 	url: "https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar",
 	sha256: "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
 };
-/** eclipse-temurin:21-jre, pinned by its multi-platform index digest. */
 const JAVA_IMAGE = "eclipse-temurin@sha256:18bb4a91a3dea3f03ee31d3755af34dfb40f904fc77ab56cdc2f092e32fff9c2";
-/** A run that takes longer than this is a hang, not a slow model: the spec's budget is 3 minutes. */
 const TLC_TIMEOUT_MS = 10 * 60 * 1000;
 
 class FormalError extends Error {
@@ -41,7 +30,6 @@ const cacheDir = (env = process.env) =>
 	env.EVERYFIELD_FORMAL_CACHE ?? join(homedir(), ".cache", "everyfield", "formal");
 const sha256 = (file: string) => createHash("sha256").update(readFileSync(file)).digest("hex");
 
-/** The pinned jar in the cache, downloaded once and verified by checksum on every run. */
 async function tlaTools(dir = cacheDir()): Promise<string> {
 	const jar = join(dir, `tla2tools-${TLA_TOOLS.version}.jar`);
 	if (!existsSync(jar)) {
@@ -61,12 +49,10 @@ async function tlaTools(dir = cacheDir()): Promise<string> {
 
 type Runner = { kind: "java" } | { kind: "docker"; env: Record<string, string> };
 
-/** A local Java 11 or newer, or else a Docker endpoint that answers. */
 function runner(): Runner {
 	const java = spawnSync("java", ["-version"], { encoding: "utf8" });
 	const version = /version "(\d+)/.exec(`${java.stderr ?? ""}${java.stdout ?? ""}`);
 	if (java.status === 0 && version && Number(version[1]) >= 11) return { kind: "java" };
-	// An empty client config: a public image needs no credential helper, and a missing helper fails the pull.
 	const config = join(cacheDir(), "docker-config");
 	mkdirSync(config, { recursive: true });
 	writeFileSync(join(config, "config.json"), "{}\n");
@@ -88,19 +74,10 @@ function runner(): Runner {
 	throw new FormalError("TLC needs Java 11 or newer, or a running Docker. Neither answered.");
 }
 
-/** TLC simulation: `traces` random behaviors of up to `depth` states each, from `seed`, on one worker so a seed always
- * gives the same behaviors. */
 type Simulate = { traces: number; depth: number; seed: number };
 
-/** The marker of each state a simulation prints. */
 const STATE_MARK = '<< "evf-state",';
 
-/**
- * The module and config a simulation runs instead of the model's own: the same spec and constants, checking nothing,
- * with one invariant that prints each state of each behavior as its level and every variable. TLC 1.7.4's own
- * `-simulate file=` writes a lazily built function (such as the sessions a removal ends) as an unevaluated expression,
- * and printing such a function whole breaks the run, so each variable prints as its set of <<key, value>> pairs.
- */
 function simulation(dir: string, spec: string, config: string) {
 	const tla = globSync("*.tla", { cwd: dir })
 		.map((f) => readFileSync(join(dir, f), "utf8"))
@@ -126,17 +103,12 @@ EvfTraceState == PrintT(<<"evf-state", TLCGet("level"), <<${variables.map((v) =>
 	return { name, module, config: `${kept.join("\n")}\nINVARIANT EvfTraceState\n`, variables };
 }
 
-/**
- * Runs TLC on one model dir's MC*.cfg in a temporary copy, so TLC's state files never land in the repository. With
- * `simulate` it generates random behaviors instead of checking every state (see `simulation`).
- */
 function tlc(dir: string, jar: string, how: Runner, simulate?: Simulate) {
 	const configs = globSync("MC*.cfg", { cwd: dir });
 	if (configs.length !== 1) throw new FormalError(`${dir} needs exactly one MC*.cfg; it has ${configs.length}.`);
 	const config = configs[0]!,
 		spec = config.replace(/\.cfg$/, ".tla");
 	if (!existsSync(join(dir, spec))) throw new FormalError(`${dir}/${config} has no ${spec} beside it.`);
-	// Under the cache, in the home folder: Docker on macOS (colima) shares only the home folder with its VM.
 	const work = mkdtempSync(join(cacheDir(), "run-"));
 	try {
 		for (const file of globSync("*.{tla,cfg}", { cwd: dir })) cpSync(join(dir, file), join(work, file));
@@ -199,7 +171,6 @@ function tlc(dir: string, jar: string, how: Runner, simulate?: Simulate) {
 				],
 				{ ...options, env },
 			);
-			// A timed-out client leaves its container running: stop it by the name this run gave it.
 			if (result.error) spawnSync("docker", ["rm", "-f", name], { env, stdio: "ignore" });
 		}
 		const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
@@ -216,7 +187,6 @@ function tlc(dir: string, jar: string, how: Runner, simulate?: Simulate) {
 	}
 }
 
-/** The names a TLC config checks, by section. */
 function checkedNames(config: string) {
 	const text = config.replace(/\\\*.*$/gm, "");
 	const names = { invariants: [] as string[], properties: [] as string[] };
@@ -230,7 +200,6 @@ function checkedNames(config: string) {
 	return names;
 }
 
-/** The outcome table a model prints as `<<"outcomes", {...}>>`, sorted, or null when it prints none. */
 function outcomes(output: string): string[][] | null {
 	const start = output.indexOf('<< "outcomes",');
 	if (start < 0) return null;
@@ -253,14 +222,11 @@ function outcomes(output: string): string[][] | null {
 	return rows.map((r) => r.map(String)).sort((a, b) => (a.join(" ") < b.join(" ") ? -1 : 1));
 }
 
-/** A TLA+ value TLC printed, as JSON. A record or a function is an object, a tuple or a set is an array, and a model
- * value is its name. */
 type Value = string | number | boolean | Value[] | { [key: string]: Value };
 type State = Record<string, Value>;
 
 const TOKEN = /\s*(<<|>>|\|->|:>|@@|[[\](){},]|"(?:[^"\\]|\\.)*"|-?\d+|[A-Za-z_]\w*)/y;
 
-/** The value TLC printed at `from` in `text`, read as TLC prints it. */
 function printedValue(text: string, from: number): Value {
 	TOKEN.lastIndex = from;
 	const take = (want?: string) => {
@@ -300,8 +266,6 @@ function printedValue(text: string, from: number): Value {
 	return value();
 }
 
-/** `v` with each tuple of plain values (in these models an id such as <<x, 1>>) as its parts joined by "/", and each
- * object's keys in order, since TLC prints a record's fields in no fixed order. */
 const id = (v: Value): Value =>
 	Array.isArray(v)
 		? v.length && v.every((x) => typeof x !== "object")
@@ -313,12 +277,6 @@ const id = (v: Value): Value =>
 const sorted = (entries: [string, Value][]) =>
 	Object.fromEntries(entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
-/**
- * The behaviors a simulation printed (see `simulation`), each a list of states in order. A state at a lower level than
- * the one before starts a new behavior. TLC 1.7.4 checks the invariant on the initial state once, at level 0, and on
- * each behavior's later states at levels 1, 2, ..., so each later behavior starts from that one initial state. It
- * evaluates the invariant twice on some states, so the same state again at the same level is one state. Each variable printed as its set of <<key, value>> pairs and reads back as an object.
- */
 function printedBehaviors(output: string, variables: readonly string[]): State[][] {
 	const behaviors: State[][] = [];
 	let previous = -1;
@@ -340,8 +298,6 @@ function printedBehaviors(output: string, variables: readonly string[]): State[]
 	return behaviors;
 }
 
-/** One step of a behavior: the model action, its arguments, the result when the action has one, and every state
- * variable entry the step changed. */
 type TraceStep = {
 	action: string;
 	args: Record<string, Value>;
@@ -349,10 +305,6 @@ type TraceStep = {
 	after: Record<string, Record<string, Value>>;
 };
 
-/**
- * A permissions step from the state it made. The model records each step in `last` (Step(op, session,
- * target, ok)); the rest of an action's arguments are in the state it made.
- */
 function permissionStep(after: State): Omit<TraceStep, "after"> {
 	const last = after.last as Record<string, Value>;
 	const op = String(last.op),
@@ -363,7 +315,6 @@ function permissionStep(after: State): Omit<TraceStep, "after"> {
 	if (op === "endSession") return { action: "EndSession", args: { session } };
 	if (seatOps.includes(op)) {
 		const seat = (after.seats as Record<string, Record<string, Value>>)[target]!;
-		// Every seat change but a removal sets the role it names, so the seat's role after the step is that role.
 		return { action: "SeatAction", args: { session, op, to: op === "remove" ? "none" : seat.role!, target } };
 	}
 	if (op === "invite") {
@@ -384,7 +335,6 @@ function permissionStep(after: State): Omit<TraceStep, "after"> {
 	);
 }
 
-/** What one step covers: its action, with the seat change, or the statement kind and whether it was admitted. */
 function permissionCoverage(step: Omit<TraceStep, "after">) {
 	if (step.action === "SeatAction")
 		return `SeatAction ${step.args.op}${step.args.op === "changeOrdinaryRole" ? ` to ${step.args.to}` : ""}`;
@@ -392,11 +342,6 @@ function permissionCoverage(step: Omit<TraceStep, "after">) {
 	return step.action;
 }
 
-/**
- * The models whose random behaviors `bin/dev formal` generates for a replay test, keyed by the module TLC checks (the
- * MC*.cfg's name): the one place that sets how many behaviors, how long each may be and the seed, and what the
- * behaviors must cover. A behavior ends early when no action is enabled, such as once every session has ended.
- */
 const SIMULATIONS: Record<
 	string,
 	Simulate & {
@@ -429,20 +374,14 @@ const SIMULATIONS: Record<
 	},
 };
 
-/** The simulation settings of the model in `dir`, if it has any. */
 const simulationOf = (dir: string) => SIMULATIONS[globSync("MC*.cfg", { cwd: dir })[0]?.replace(/\.cfg$/, "") ?? ""];
 
-/** The actions a model's Next names. */
 function nextActions(tla: string) {
 	const defined = new Set([...tla.matchAll(/^([A-Za-z]\w*)(?:\([^)]*\))?\s*==/gm)].map((m) => m[1]!));
 	const next = /^Next\s*==([\s\S]*?)^\S/m.exec(tla)?.[1] ?? "";
 	return [...new Set([...next.matchAll(/\b([A-Z]\w*)\(/g)].map((m) => m[1]!))].filter((n) => defined.has(n));
 }
 
-/**
- * Generates a model's behaviors with TLC simulation and returns its traces file text, or the problem that stops it: a
- * model with more than one initial state, or an action of Next (or a listed variant) that no behavior takes.
- */
 function generateTraces(dir: string, jar: string, how: Runner, seed: number) {
 	const sim = simulationOf(dir)!;
 	const run = tlc(dir, jar, how, { ...sim, seed });
@@ -483,7 +422,6 @@ function generateTraces(dir: string, jar: string, how: Runner, seed: number) {
 	return { text, traces: steps.length, steps: count, missing, ms: run.ms };
 }
 
-/** Checks one model dir. Returns the lines to print and whether it passed. */
 function checkModel(dir: string, jar: string, how: Runner, write: boolean) {
 	const lines: string[] = [];
 	const run = tlc(dir, jar, how);
@@ -507,7 +445,6 @@ function checkModel(dir: string, jar: string, how: Runner, write: boolean) {
 	let ok = true;
 	const table = outcomes(run.output);
 	if (table)
-		// One row per line, so a changed outcome reads as a one-line diff.
 		ok &&= current(
 			lines,
 			join(dir, "outcomes.json"),
@@ -534,7 +471,6 @@ function checkModel(dir: string, jar: string, how: Runner, write: boolean) {
 	return { lines, ok };
 }
 
-/** Whether a generated file matches its committed copy; with `write`, rewrites the copy. */
 function current(lines: string[], file: string, text: string, size: string, test: string, write: boolean) {
 	const name = basename(file);
 	if (existsSync(file) && readFileSync(file, "utf8") === text) {
@@ -550,10 +486,6 @@ function current(lines: string[], file: string, text: string, size: string, test
 	return false;
 }
 
-/**
- * `--traces <dir>`: a fresh behavior set from `seed` (random when not given) for each model with a simulation, written
- * to <dir>/<model>/traces.json outside the repository. The replay test reads it with FORMAL_TRACES=<dir>.
- */
 function freshTraces(dirs: string[], out: string, seed: number, jar: string, how: Runner, root: string) {
 	let ok = true;
 	for (const dir of dirs.filter((d) => simulationOf(d))) {
@@ -575,7 +507,6 @@ function freshTraces(dirs: string[], out: string, seed: number, jar: string, how
 type MapEntry = { name: string; code: { file: string; function: string }[]; ids: string[] };
 type FormalMap = {
 	model: string;
-	/** The files `bin/dev formal --write` generates from the model, and the tests that run them against the code. */
 	generated?: string[];
 	tests?: string[];
 	actions: MapEntry[];
@@ -584,7 +515,6 @@ type FormalMap = {
 };
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-/** Whether `source` defines `name`: a function, a const, a method, an object property, or SQL. */
 function defines(source: string, name: string) {
 	const n = escape(name);
 	return [
@@ -597,7 +527,6 @@ function defines(source: string, name: string) {
 	].some((re) => re.test(source));
 }
 
-/** Problems with one map: unmapped or unknown model names, missing code, unknown ids. */
 export function mapProblems(root: string, mapFile: string): string[] {
 	const map = JSON.parse(readFileSync(join(root, mapFile), "utf8")) as FormalMap;
 	const problems: string[] = [];

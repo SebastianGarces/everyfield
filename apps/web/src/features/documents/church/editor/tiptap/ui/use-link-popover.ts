@@ -1,98 +1,47 @@
 import * as React from "react";
 import type { Editor } from "@tiptap/react";
 
-// --- Hooks ---
 import { useTiptapEditor } from "../use-tiptap-editor.ts";
 
-// --- Icons ---
 import { LinkIcon } from "../icons.tsx";
 
-// --- Lib ---
 import { isMarkInSchema, sanitizeUrl } from "../tiptap-utils.ts";
 import { isAllowedLink } from "../../extensions.ts";
+import { selectionChangeCount } from "../selection-changes.ts";
 
-/**
- * Configuration for the link popover functionality
- */
 export interface UseLinkPopoverConfig {
-	/**
-	 * The Tiptap editor instance.
-	 */
 	editor?: Editor | null;
 }
 
-/**
- * Configuration for the link handler functionality
- */
 export interface LinkHandlerProps {
-	/**
-	 * The Tiptap editor instance.
-	 */
 	editor: Editor | null;
 }
 
-/**
- * Checks if a link can be set in the current editor state
- */
 function canSetLink(editor: Editor | null): boolean {
 	if (!editor || !editor.isEditable) return false;
 	return editor.can().setMark("link");
 }
 
-/**
- * Checks if a link is currently active in the editor
- */
 function isLinkActive(editor: Editor | null): boolean {
 	if (!editor || !editor.isEditable) return false;
 	return editor.isActive("link");
 }
 
-/**
- * Determines if the link button should be shown
- */
 function shouldShowLinkButton(props: { editor: Editor | null }): boolean {
 	const { editor } = props;
 
 	return isMarkInSchema("link", editor) && !!editor;
 }
 
-/**
- * Custom hook for handling link operations in a Tiptap editor
- */
 function useLinkHandler(props: LinkHandlerProps) {
 	const { editor } = props;
-	const [url, setUrl] = React.useState<string | null>(null);
-
-	React.useEffect(() => {
-		if (!editor) return;
-
-		// Get URL immediately on mount
-		const { href } = editor.getAttributes("link");
-
-		if (isLinkActive(editor) && url === null) {
-			setUrl(href || "");
-		}
-	}, [editor, url]);
-
-	React.useEffect(() => {
-		if (!editor) return;
-
-		const updateLinkState = () => {
-			const { href } = editor.getAttributes("link");
-			setUrl(href || "");
-		};
-
-		editor.on("selectionUpdate", updateLinkState);
-		return () => {
-			editor.off("selectionUpdate", updateLinkState);
-		};
-	}, [editor]);
-
+	const [draft, setDraft] = React.useState<{ at: number; url: string } | null>(null);
 	const [error, setError] = React.useState<string | null>(null);
+	const selectionChange = editor ? selectionChangeCount(editor.state) : 0;
+	const url = draft && draft.at === selectionChange ? draft.url : editor?.getAttributes("link").href || "";
 
 	const setLink = React.useCallback((): boolean => {
 		if (!url || !editor) return false;
-		// Everyfield change: the format takes only https://, http:// and mailto: links. Anything else gets a message.
 		if (!isAllowedLink(url)) {
 			setError("A link must start with https://, http:// or mailto:. No link was added.");
 			return false;
@@ -106,14 +55,13 @@ function useLinkHandler(props: LinkHandlerProps) {
 
 		chain = chain.extendMarkRange("link").setLink({ href: url });
 
-		// Everyfield change: editing the link under the cursor must not insert the address as text.
 		if (isEmpty && !editor.isActive("link")) {
 			chain = chain.insertContent({ type: "text", text: url });
 		}
 
 		chain.run();
 
-		setUrl(null);
+		setDraft(null);
 
 		return true;
 	}, [editor, url]);
@@ -121,7 +69,7 @@ function useLinkHandler(props: LinkHandlerProps) {
 	const removeLink = React.useCallback(() => {
 		if (!editor) return;
 		editor.chain().focus().extendMarkRange("link").unsetLink().setMeta("preventAutolink", true).run();
-		setUrl("");
+		setDraft(null);
 	}, [editor]);
 
 	const openLink = React.useCallback(
@@ -137,11 +85,11 @@ function useLinkHandler(props: LinkHandlerProps) {
 	);
 
 	return {
-		url: url || "",
+		url,
 		error,
-		setUrl: (next: React.SetStateAction<string | null>) => {
+		setUrl: (next: string) => {
 			setError(null);
-			setUrl(next);
+			setDraft({ at: selectionChange, url: next });
 		},
 		setLink,
 		removeLink,
@@ -149,16 +97,12 @@ function useLinkHandler(props: LinkHandlerProps) {
 	};
 }
 
-/**
- * Custom hook for link popover state management
- */
 function useLinkState(props: { editor: Editor | null }) {
 	const { editor } = props;
 
 	const canSet = canSetLink(editor);
 	const isActive = isLinkActive(editor);
 
-	// Everyfield change: derive visibility on every render (see use-mark.ts); the effect version hid the button on load.
 	const isVisible = shouldShowLinkButton({ editor });
 
 	return {
@@ -168,41 +112,6 @@ function useLinkState(props: { editor: Editor | null }) {
 	};
 }
 
-/**
- * Main hook that provides link popover functionality for Tiptap editor
- *
- * @example
- * ```tsx
- * // Simple usage
- * function MyLinkButton() {
- *   const { isVisible, canSet, isActive, Icon, label } = useLinkPopover()
- *
- *   if (!isVisible) return null
- *
- *   return <button disabled={!canSet}>Link</button>
- * }
- *
- * // Advanced usage with configuration
- * function MyAdvancedLinkButton() {
- *   const { isVisible, canSet, isActive, Icon, label } = useLinkPopover({
- *     editor: myEditor,
- *   })
- *
- *   if (!isVisible) return null
- *
- *   return (
- *     <MyButton
- *       disabled={!canSet}
- *       aria-label={label}
- *       aria-pressed={isActive}
- *     >
- *       <Icon />
- *       {label}
- *     </MyButton>
- *   )
- * }
- * ```
- */
 export function useLinkPopover(config?: UseLinkPopoverConfig) {
 	const { editor: providedEditor } = config || {};
 

@@ -1,4 +1,3 @@
-/** One reviewed Wiki source: the files a generation is built from, their hashes and counts. */
 export interface WikiSource {
 	version: string;
 	manifestPath: string;
@@ -10,9 +9,6 @@ export interface WikiSource {
 	systemTemplates: number;
 }
 
-// Pins for the approved global Wiki: the living seed that `bin/wiki promote` maintains.
-// The bootstrap payload stays unchanged as its `derivedFrom` provenance and is never installed.
-// Update after each promotion with `node packages/reference/src/starter/manifest/pin.mjs --write`.
 const approvedSource = {
 	version: "wiki-seed-f38baeb7f295",
 	manifestPath: "docs/reference/wiki/manifest.json",

@@ -1,7 +1,4 @@
 #!/bin/sh
-# pre-push: a push of a task branch (refs/heads/evf/*) runs bin/dev fast-check first, and fails when it fails. Any other
-# ref (an evf reservation or proof ref under refs/evf/*, a tag, a deletion) passes unchecked. GitHub CI's full run
-# stays required. Then the global pre-push, if any, runs too.
 updates=$(cat)
 check=no
 while read -r local_ref local_sha remote_ref remote_sha; do

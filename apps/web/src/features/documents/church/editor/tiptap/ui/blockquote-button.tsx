@@ -3,24 +3,16 @@
 import * as React from "react";
 import { BUTTON_ICON } from "../styles.ts";
 
-// --- Hooks ---
 import { useTiptapEditor } from "../use-tiptap-editor.ts";
 
-// --- Tiptap UI ---
 import type { UseBlockquoteConfig } from "./use-blockquote.ts";
 import { useBlockquote } from "./use-blockquote.ts";
 
-// --- UI Primitives ---
 import type { ButtonProps } from "../primitives/button.tsx";
 import { Button } from "../primitives/button.tsx";
 
 export interface BlockquoteButtonProps extends Omit<ButtonProps, "type">, UseBlockquoteConfig {}
 
-/**
- * Button component for toggling a quote in a Tiptap editor.
- *
- * For custom button implementations, use the `useBlockquote` hook instead.
- */
 export const BlockquoteButton = React.forwardRef<HTMLButtonElement, BlockquoteButtonProps>(
 	({ editor: providedEditor, onClick, children, ...buttonProps }, ref) => {
 		const { editor } = useTiptapEditor(providedEditor);

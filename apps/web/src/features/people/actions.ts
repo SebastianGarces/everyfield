@@ -12,20 +12,9 @@ import type { Outcome } from "../../components/save/model.ts";
 import { boundary, invalid, outcome, receipt, type Receipt } from "./boundary.ts";
 import { loadPeople, loadPerson, read, write, type PeopleView } from "./server.ts";
 
-// Server actions behind the People screens: the browser boundary. Each one rebuilds the viewer from the request,
-// parses the browser's input with the WP-011 contract schemas (a strict schema refuses any owner, account or authority
-// field), calls the producer and answers with an Outcome. A database failure reads as "lost": the browser may retry
-// with the same request key, and the producer replays a write that did commit instead of acting twice.
-
 type PlantPerson = z.infer<typeof c.plantPerson>;
-/**
- * A stage change or a retirement hands the person's open tasks to someone else, and their owed reminders follow them
- * through the tasks mount in the same transaction. A deployment without it cannot replan reminders, so these writes
- * are refused there and nothing is saved.
- */
 const unplanned = { status: "refused", code: "unavailable" } as const;
 type Saved = { person: PlantPerson; receipt: Receipt };
-/** A note change: the person's revision as saved now, the note's ID and revision, and the receipt. */
 type NoteSaved = {
 	personRevision: z.infer<typeof revision>;
 	receipt: Receipt;
@@ -33,10 +22,6 @@ type NoteSaved = {
 };
 export type { Receipt };
 
-/**
- * The person page again after this screen's change was refused as out of date: the person and the first Activity page,
- * so the next try uses the latest revision. Only this person is read, never the whole page.
- */
 export async function reloadPerson(
 	personId: string,
 ): Promise<Outcome<{ person: PlantPerson; activities: z.infer<typeof c.activitiesResult> | null }>> {
@@ -52,10 +37,6 @@ export async function reloadPerson(
 	});
 }
 
-/**
- * The People view for an address the screen has not loaded yet: the pipeline from the list, or the list from the
- * pipeline. Null when the viewer cannot read People; the screen then loads the page, which shows sign-in or the lock.
- */
 export async function loadPeopleView(search: unknown): Promise<PeopleView | null> {
 	const v = await getViewer();
 	if (!v?.people || typeof search !== "string" || search.length > 16_384) return null;
@@ -95,12 +76,6 @@ export async function statusWarnings(personId: string): Promise<Outcome<z.infer<
 
 type ColumnOrder = Awaited<ReturnType<typeof readColumnOrders>>[number];
 
-/**
- * Changes a person's stage. The answer is the saved person and the columns the move touched, read in the same
- * transaction (D68): the column they joined and, when the pipeline names it, the column they left. Both revisions
- * move on with a change of column, so the pipeline shows what a reload would show, and its next move sends the
- * current revisions.
- */
 export async function changeStatus(
 	requestKey: string,
 	expectedRevision: string,
@@ -174,7 +149,6 @@ export async function classifyAdult(
 	});
 }
 
-// A note moves the person revision on, so a note answer carries the person's new revision with the note's own.
 const noteSaved = (r: z.infer<typeof c.noteMutationResult>): NoteSaved => ({
 	personRevision: r.personRevision,
 	receipt: receipt(r),
@@ -214,7 +188,6 @@ export async function loadActivities(personId: string, page = 1): Promise<Outcom
 	);
 }
 
-/** One page of one pipeline column. */
 export async function loadColumn(
 	query: Record<string, unknown>,
 	column: string,
@@ -229,13 +202,6 @@ export async function loadColumn(
 	);
 }
 
-/**
- * Places one person in a pipeline column, after another person or first. The
- * answer is that column as it stands after the command, read in the same transaction after the producer locked the
- * column row: its order and its revision, never the whole pipeline (D68). A replayed request (same key after a lost
- * answer) may answer with a later actor's order; the pair still matches, so a next move can never pair an old order
- * with a newer revision.
- */
 export async function reorderPipeline(
 	requestKey: string,
 	expectedRevision: string,

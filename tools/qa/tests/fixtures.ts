@@ -6,17 +6,12 @@ import { ownerLabels, PREFIX } from "../containers.ts";
 
 export const source = resolve(import.meta.dirname, "../../..");
 
-/** Runs a repo TypeScript file with tsx, as the QA seed runs, with `env` over a clean NODE_ENV and DATABASE_URL. */
 export function tsxRun(args: string[], env: Record<string, string | undefined>) {
 	const clean: NodeJS.ProcessEnv = { ...process.env, NODE_ENV: undefined, DATABASE_URL: undefined, ...env };
 	for (const k of Object.keys(clean)) if (clean[k] === undefined) delete clean[k];
 	const tsx = join(source, "packages/domain/node_modules/.bin/tsx");
 	return spawnSync(tsx, ["--conditions=react-server", ...args], { cwd: source, encoding: "utf8", env: clean });
 }
-/**
- * Fixed mail keys for the seed, as `bin/qa up` passes the preview's own. A test that reads seeded suppression or mail
- * rows hashes and opens addresses under them.
- */
 export const MAIL_KEYS = {
 	IDENTITY_MAIL_KEY: "1a".repeat(32),
 	IDENTITY_ADDRESS_KEY: "2b".repeat(32),
@@ -35,17 +30,9 @@ function docker(...args: string[]): string {
 	return r.stdout.trim();
 }
 
-/** The containers this process started and has not stopped, removed on exit. */
 const live = new Set<string>();
 process.on("exit", () => live.forEach((container) => stopQuietDatabase({ container })));
 
-/**
- * Removes the container once this process ends, however it ends (T-356). On a normal exit, a test that failed included,
- * the exit handler removes it before the process is gone. Otherwise a detached watcher does: it reads a pipe whose only
- * writer is this process, which closes when the process dies, even by SIGKILL or a kill of its process group. Signal
- * handlers cannot promise that: a node:test child dies of SIGPIPE once its runner is gone, and a signal that arrives
- * during a spawnSync can be dropped.
- */
 function removeWhenThisProcessEnds(container: string) {
 	live.add(container);
 	const reap = 'cat >/dev/null; exec docker rm -f -v "$1" >/dev/null 2>&1';
@@ -57,11 +44,6 @@ function removeWhenThisProcessEnds(container: string) {
 	(watcher.stdin as Socket).unref();
 }
 
-/**
- * CI's Postgres image in Docker, migrated by this checkout's own db:migrate, for one test file. No test touches a shared
- * database. The caller should call stopQuietDatabase when done; the container also goes when this process ends. Its
- * labels name this process, so `bin/dev check`'s sweep (tools/qa/containers.ts) leaves it alone while it runs.
- */
 export function startQuietDatabase(checkout: string, tag: string): QuietDatabase {
 	const container = `${PREFIX}${tag}-${randomBytes(3).toString("hex")}`,
 		password = randomBytes(18).toString("hex");
@@ -84,7 +66,6 @@ export function startQuietDatabase(checkout: string, tag: string): QuietDatabase
 		IMAGE,
 	);
 	try {
-		// The image's init server listens on its socket only, so a TCP answer means the final server is up.
 		const ready = () =>
 			spawnSync("docker", ["exec", container, "pg_isready", "-q", "-h", "127.0.0.1", "-U", "qa", "-d", DATABASE]);
 		for (let waited = 0; ready().status !== 0; waited += 500) {
@@ -93,7 +74,6 @@ export function startQuietDatabase(checkout: string, tag: string): QuietDatabase
 		}
 		const port = docker("port", container, "5432/tcp").split("\n")[0]!.split(":").pop();
 		const adminUrl = `postgres://qa:${password}@127.0.0.1:${port}/${DATABASE}`;
-		// These values win over any env file the script reads.
 		const migrated = spawnSync("corepack", ["pnpm", "db:migrate"], {
 			cwd: checkout,
 			encoding: "utf8",

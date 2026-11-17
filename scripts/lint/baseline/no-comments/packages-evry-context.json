@@ -1,8 +1,0 @@
-{
-	"packages/evry/src/context/actor.ts": 5,
-	"packages/evry/src/context/authority.ts": 2,
-	"packages/evry/src/context/compile.ts": 34,
-	"packages/evry/src/context/errors.ts": 5,
-	"packages/evry/src/context/limits.ts": 2,
-	"packages/evry/src/context/self.ts": 1
-}

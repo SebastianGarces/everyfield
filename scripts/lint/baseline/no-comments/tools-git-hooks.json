@@ -1,5 +1,0 @@
-{
-	"tools/git-hooks/global-hook": 2,
-	"tools/git-hooks/pre-push": 3,
-	"tools/git-hooks/prepare-commit-msg": 1
-}

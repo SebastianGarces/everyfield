@@ -1,9 +1,6 @@
 import "server-only";
 import { readPreview } from "./server.ts";
 
-// Preview and download bytes. A server action on /documents also renders a flight reply, and that reply exceeded
-// one second. This route returns the same preview as JSON. Nothing is stored.
-
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const BODY_MAX = 64 * 1024;
 

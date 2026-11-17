@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-// Before (main) and after (branch) browser evidence in headless Chromium and WebKit.
-// Usage: node capture.mjs --before <main preview URL> --after <branch preview URL>
-//          --out <evidence dir> [--paths /,/access] [--widths 390,1440] [--engines chromium,webkit] [--flow <flow.mjs>]
-// A flow module exports `default async ({ page, side, engine, width, path }) => [{ check, pass, detail }]`.
-// Flows run on both sides with video; the after side must pass every check.
 import { execFileSync } from "node:child_process";
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -25,7 +20,6 @@ const widths = opt("widths", "390,1440").split(",").map(Number);
 const engines = opt("engines", "chromium,webkit").split(",");
 const flow = opt("flow") ? (await import(pathToFileURL(resolve(opt("flow"))).href)).default : null;
 
-// Record which commit each preview serves, so the report binds evidence to exact heads.
 const previews = JSON.parse(execFileSync("portless", ["preview", "status", "--json"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }));
 const meta = Object.fromEntries(Object.entries(urls).map(([side, url]) => {
   const p = previews.find((x) => x.state === "ready" && new URL(x.url).host === new URL(url).host);
@@ -33,7 +27,6 @@ const meta = Object.fromEntries(Object.entries(urls).map(([side, url]) => {
   return [side, { url, head: p.head, mode: p.mode, previewId: p.id, directory: p.directory }];
 }));
 
-// Resolve Playwright, sharp and axe-core from the branch preview's own install; nothing is added to the repo.
 const req = createRequire(join(meta.after.directory, "apps/web/package.json"));
 const playwright = req("playwright");
 const sharp = req("sharp");
@@ -110,7 +103,6 @@ for (const engine of engines) {
       if (flow) Object.assign(shot[side], await runFlow(browser, engine, width, path, side));
     }
     shot.diffPercent = await pixelDiff(shot.before.screenshot, shot.after.screenshot);
-    // Fail only on violations main does not have (new rule or more nodes); report the rest.
     const onMain = new Map(shot.before.axe.map((v) => [v.id, v.nodes]));
     shot.newAxe = shot.after.axe.filter((v) => v.nodes > (onMain.get(v.id) ?? 0));
     const failures = [
