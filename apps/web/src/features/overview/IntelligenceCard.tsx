@@ -16,10 +16,6 @@ import { coldStartTitle, dayText, QUALITY, SEVERITY_LABEL, STANDING } from "../i
 import { CardFailed } from "./cards.tsx";
 import type { Loaded } from "./model.ts";
 
-/**
- * Overview's Plant Intelligence card (WP-044): the same main focus and eight lens tiles as /intelligence, from the same
- * saved assessment, each linking to it. Before the first assessment it says so, never an empty "all good".
- */
 export function IntelligenceCard({ loaded }: { loaded: Loaded<AssessmentView> }) {
 	if (loaded.status !== "ok") return <CardFailed what="Plant Intelligence" loaded={loaded} />;
 	const a = loaded.value.current;

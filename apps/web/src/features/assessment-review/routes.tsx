@@ -9,10 +9,6 @@ import type { ReactNode } from "react";
 import { CAUSE, count, DEMAND, RULE, timeLabel } from "./model.ts";
 import { assessments, run, type Run } from "./server.ts";
 
-// Assessment review (PI-042): the plants held after three failed scheduled assessments, and one run's real cause. It
-// shows causes, rules and counters only, never a plant's facts, the model's input or any draft's words. The pages open
-// only for an account with a current assessment_operator grant; anyone else sees the same closed page.
-
 export const reviewMetadata: Metadata = { title: "Assessment review", robots: { index: false, follow: false } };
 const REVIEW = [{ label: "Assessment review", href: "/assessment-review" }];
 
@@ -38,7 +34,6 @@ const Closed = () => (
 const LOAD_FAILED = "This is a loading problem, not an empty list. Nothing was changed. Reload the page in a moment.";
 const CauseTag = ({ run }: { run: ReviewRun }) => <Tag tone="amber">{CAUSE[run.cause].label}</Tag>;
 
-/** /assessment-review: every plant held for review, newest failure first. */
 export async function ReviewListPage() {
 	const r = settled(await run((db, a) => assessments.listRunsForReview(db, a, {})), "/assessment-review");
 	return (
@@ -79,7 +74,6 @@ export async function ReviewListPage() {
 	);
 }
 
-/** /assessment-review/[runId]: one run that did not publish, its cause, counters and the plant's failed streak. */
 export async function ReviewRunPage({ params }: { params: Promise<{ runId: string }> }) {
 	const { runId } = await params;
 	const r = settled(

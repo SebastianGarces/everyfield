@@ -34,18 +34,12 @@ import { PROMPT_TEXT, STEP_TEXT } from "./model.ts";
 
 const PROMPT_OF: Partial<Record<SetupStep, PromptKey>> = Object.fromEntries(PROMPTS.map((p) => [PROMPT_STEP[p], p]));
 
-/**
- * The first week's checklist, or the optional prompts after it (ADM-005). A step is done from what the church recorded;
- * dismissing a prompt only hides it, here at once and on the server for every later visit. Members see the steps
- * without the actions they cannot use.
- */
 export function GetStarted({ frame }: { frame: OverviewFrame }) {
 	const toast = useToast();
 	const [hidden, setHidden] = useState<ReadonlySet<PromptKey>>(new Set());
 	const admin = frame.role !== "member";
 	const prompts = frame.prompts.filter((p) => !hidden.has(p));
 	const open = (s: SetupStep) => frame.setup.gaps.includes(s);
-	// A step whose prompt this person dismissed earlier stays off the checklist.
 	const dismissed = (s: SetupStep) => {
 		const p = PROMPT_OF[s];
 		return admin && p !== undefined && open(s) && !prompts.includes(p);
@@ -127,7 +121,6 @@ export function GetStarted({ frame }: { frame: OverviewFrame }) {
 	);
 }
 
-/** The quick actions the seat can use now; each opens the working flow. A Member has none, so none show. */
 export function QuickActions({ actions }: { actions: readonly QuickAction[] }) {
 	const [adding, setAdding] = useState(false);
 	const [planning, setPlanning] = useState(false);

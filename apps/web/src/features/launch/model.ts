@@ -14,9 +14,6 @@ import {
 	type SummaryProblem,
 } from "@everyfield/contracts/launch";
 
-// The Launch plan's pure model: words, dates and progress. No React and no server code.
-
-/** A server action's answer: the operation's reply, or "lost" when no database answer came back. */
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: LaunchError } | { status: "lost" };
 
 export async function sent<T>(call: () => Promise<Outcome<T>>): Promise<Outcome<T>> {
@@ -28,7 +25,6 @@ export async function sent<T>(call: () => Promise<Outcome<T>>): Promise<Outcome<
 }
 
 const at = (date: string) => new Date(`${date}T12:00:00Z`);
-/** "Tue, Nov 10, 2026": a church-local date, never shifted by the browser's time zone. */
 export const longDate = (date: string) =>
 	new Intl.DateTimeFormat("en-US", {
 		timeZone: "UTC",
@@ -37,7 +33,6 @@ export const longDate = (date: string) =>
 		day: "numeric",
 		year: "numeric",
 	}).format(at(date));
-/** "Nov 1", or "Nov 1, 2027" in another year than `today`. */
 export const shortDate = (date: string, today: string) =>
 	new Intl.DateTimeFormat("en-US", {
 		timeZone: "UTC",
@@ -45,14 +40,12 @@ export const shortDate = (date: string, today: string) =>
 		day: "numeric",
 		...(date.slice(0, 4) === today.slice(0, 4) ? {} : { year: "numeric" }),
 	}).format(at(date));
-/** A completion instant as the church's date. */
 export const instantDate = (instant: string, timeZone: string) =>
 	new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(
 		new Date(instant),
 	);
 
 export type Shown = { kind: Countdown["kind"]; badge: string; tone: "positive" | "attention" | "risk" | "unknown" };
-/** The plan's state as the header badge says it. On the milestone path (T-296) it says whether it was reached. */
 export function shownOf(plan: Plan): Shown {
 	if (plan.path.kind === "milestone")
 		return plan.path.reached
@@ -73,13 +66,11 @@ export function shownOf(plan: Plan): Shown {
 	}
 }
 
-/** Milestones complete and not waiting for review: the Launch plan's readiness count, and Overview's. */
 export const milestonesDone = (plan: Pick<Plan, "milestones">) =>
 	plan.milestones.filter((m) => m.completion && !m.needsReview).length;
 
 export const isOpen = (status: Milestone["tasks"][number]["status"]) =>
 	status !== "complete" && status !== "no_longer_needed";
-/** Done tasks of a milestone, from its live tasks: nothing is cached. */
 export const progressOf = (m: Pick<Milestone, "tasks">) => ({
 	done: m.tasks.filter((t) => t.status === "complete").length,
 	total: m.tasks.length,
@@ -102,7 +93,6 @@ export const GATHERING_MESSAGE: Record<GatheringProblem, string> = {
 	date_in_future: "It can't be recorded for a date after today.",
 	note_too_long: "Keep the note to 2,000 characters or fewer.",
 };
-/** "Constituted as a church (chosen by Hill Country Network)". */
 export const offerLabel = (name: string, organization: string | null) =>
 	organization ? `${name} (chosen by ${organization})` : name;
 export const DEBRIEF_MESSAGE: Record<DebriefProblem, string> = {
@@ -116,14 +106,12 @@ export const SUMMARY_MESSAGE: Record<SummaryProblem, string> = {
 	too_long: "Keep the summary to 4,000 characters or fewer.",
 };
 
-/** A count typed in a form: empty is Not recorded (null); anything else must be a whole number. */
 export function parseCount(raw: string): { ok: true; value: number | null } | { ok: false } {
 	const t = raw.trim();
 	if (!t) return { ok: true, value: null };
 	if (!/^\d+$/.test(t)) return { ok: false };
 	return { ok: true, value: Number(t) };
 }
-/** A recorded count as the page says it: an empty one is Not recorded, and 0 is 0. */
 export const countText = (n: number | null) => (n === null ? "Not recorded" : n.toLocaleString("en-US"));
 
 export const EVIDENCE_TEXT: Record<EvidenceStatus, { label: string; tone: "positive" | "risk" | "unknown" }> = {
@@ -138,7 +126,6 @@ const FIELD_LABEL: Record<OutcomeField, string> = {
 	decisions: "Decisions",
 	note: "Note",
 };
-/** One Launch history entry in words: a title and the details under it. */
 export function historyText(e: HistoryEntry, today: string): { title: string; lines: string[] } {
 	const c = e.change;
 	const day = (d: string | null) => (d ? shortDate(d, today) : "no date");
@@ -220,10 +207,8 @@ function historyValue(field: OutcomeField, v: string | number | null, today: str
 	if (v === null) return "Not recorded";
 	return field === "actualDate" ? shortDate(String(v), today) : String(v);
 }
-/** Who made a change: their name, or a former account once it is deleted. */
 export const actorText = (e: Pick<HistoryEntry, "actor">) => e.actor?.displayName || "A former account";
 
-/** The message a refused or lost change shows. */
 export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok" }>): string {
 	if (outcome.status === "lost")
 		return "Everyfield's answer did not come back, so this may not have saved. Try again: the same change will not apply twice.";
@@ -260,7 +245,6 @@ export function refusalMessage(outcome: Exclude<Outcome<unknown>, { status: "ok"
 	}
 }
 
-/** One request key per intent, so a retry after a lost answer replays the first write instead of acting twice. */
 export function requestKeys(fresh: () => string) {
 	const keys = new Map<string, string>();
 	return {

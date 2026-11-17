@@ -26,7 +26,6 @@ function PublicLink({ url }: { url: string }) {
 	);
 }
 
-/** The author's own feedback, 25 at a time, with "Show more" for the next 25. */
 export function OwnFeedbackList({ initial }: { initial: OwnFeedbackPage }) {
 	const [items, setItems] = useState(initial.items);
 	const [next, setNext] = useState(initial.next);
@@ -91,7 +90,6 @@ export function OwnFeedbackList({ initial }: { initial: OwnFeedbackPage }) {
 	);
 }
 
-/** One item's status: category, date, status and its public link once one exists. No words or private details. */
 export function OwnFeedbackItem({ item }: { item: OwnFeedback }) {
 	return (
 		<Card>
