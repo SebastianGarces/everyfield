@@ -1,8 +1,0 @@
-{
-	"apps/web/src/features/documents/church/ChurchPdf.tsx": 4,
-	"apps/web/src/features/documents/church/editor/ChurchEditor.tsx": 4,
-	"apps/web/src/features/documents/church/editor/SaveAsTemplate.tsx": 1,
-	"apps/web/src/features/documents/church/editor/TemplateCompare.tsx": 1,
-	"apps/web/src/features/documents/church/editor/Toolbar.tsx": 1,
-	"apps/web/src/features/documents/church/editor/session.tsx": 1
-}

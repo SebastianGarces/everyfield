@@ -8,22 +8,12 @@ import { docDecorations } from "./doc-decorations.ts";
 import { conditionHolds } from "@everyfield/domain/documents/values";
 import { conditionLabel, type Condition } from "./condition.ts";
 
-// Conditional text: the format's `if` node. It always shows its blocks so they can be edited; a condition that does not
-// hold with this document's values dims them and says "Does not print now". The rules plugin keeps it where the format
-// takes it: in the body, a column or a box, never in the page header or footer, never inside another conditional text,
-// and never around a budget table, a section slot or a block its column or box refuses.
-
-/** The condition an `if` node holds. */
 export const conditionOf = (node: PMNode): Condition => ({
 	field: String(node.attrs.field ?? ""),
 	test: (node.attrs.test as Condition["test"] | undefined) ?? "has-value",
 	...(typeof node.attrs.value === "number" ? { value: node.attrs.value } : {}),
 });
 
-/**
- * What a conditional text says on the page, from the fields and values the root node holds now: its condition in words
- * and whether it prints. A change of value or of field list redraws every block at once.
- */
 function conditionSpec(root: PMNode, node: PMNode) {
 	const fields = (root.attrs.fields as FieldDecl[] | undefined) ?? [];
 	const doc = { kind: "document", fields, data: root.attrs.data } as DocDocument;
@@ -61,7 +51,6 @@ export const EfIf = Node.create({
 	},
 });
 
-/** The block on the page: its condition and whether it prints now, above its editable blocks. */
 function conditionView(initial: PMNode, decorations: readonly Decoration[]) {
 	const dom = document.createElement("div");
 	dom.className = "ef-if";
@@ -102,13 +91,9 @@ function conditionView(initial: PMNode, decorations: readonly Decoration[]) {
 	};
 }
 
-// ---------------------------------------------------------------- where it may sit
-
-/** What a column and a box refuse inside them, conditional text included (the format's `deny`, passed down). */
 const DENY: Record<string, string[]> = { column: ["pageBreak", "columns"], box: ["pageBreak", "box"] };
 const NAME: Record<string, string> = { pageBreak: "a page break", columns: "columns", box: "a box" };
 
-/** Why the conditional text at `pos` cannot sit where it is, or null when the format takes it. */
 function issueAt(doc: PMNode, pos: number, node: PMNode): string | null {
 	const $pos = doc.resolve(pos);
 	const deny = new Set<string>();
@@ -134,20 +119,17 @@ function issueAt(doc: PMNode, pos: number, node: PMNode): string | null {
 	return found;
 }
 
-/** The first reason any conditional text in the document cannot sit where it is, or null. */
 export function conditionIssue(doc: PMNode): string | null {
 	let found: string | null = null;
 	doc.descendants((node, pos) => {
 		if (found) return false;
 		if (node.type.name !== "if") return true;
 		found = issueAt(doc, pos, node);
-		// Go on into it: conditional text inside conditional text is a fault of the inner one.
 		return found === null;
 	});
 	return found;
 }
 
-/** A pasted slice with each conditional text replaced by its blocks, for a place that takes no conditional text. */
 function unwrap(slice: Slice): Slice {
 	const strip = (fragment: Fragment): Fragment => {
 		const nodes: PMNode[] = [];
@@ -160,11 +142,6 @@ function unwrap(slice: Slice): Slice {
 	return new Slice(strip(slice.content), slice.openStart, slice.openEnd);
 }
 
-/**
- * Keeps conditional text where the format takes it. A change that would put it somewhere else does not happen, and the
- * editor says why. A paste into the header, the footer or another conditional text keeps the blocks and drops the
- * condition around them.
- */
 export const ConditionRules = Extension.create({
 	name: "conditionRules",
 	addProseMirrorPlugins() {

@@ -1,15 +1,8 @@
 import { attrsOf, computeTable, formatNumber, type RowRole, type TableNode } from "@everyfield/contracts/documents";
 
-// What a table shows in the places a person does not type: the numbers a subtotal, a total or a formula column computes,
-// the row numbers, and the rows the PDF stripes. The numbers come from the format's own `computeTable`. The rules for when
-// a number shows, how rows count and which rows stripe repeat those in the PDF (layouts/doc.tsx) and the Word file
-// (doc-docx.ts), since each walks its own rows. AC:WP-036-5, -6 and -13 compare the three.
-
 type RowView = {
 	role: RowRole;
-	/** True on the rows the PDF shades when `zebra` is on. */
 	stripe: boolean;
-	/** The text of each cell that is computed, formatted as the PDF prints it; null where the cell takes input or is blank. */
 	shown: (string | null)[];
 };
 
@@ -45,7 +38,6 @@ export function tableView(table: TableNode): RowView[] {
 	});
 }
 
-/** The blank write-in rows, with the row number and stripe of each: they count on after the typed rows. A list has none. */
 export function blankRows(table: TableNode): { index: number; stripe: boolean }[] {
 	const a = attrsOf(table);
 	const typed = (table.content ?? []).filter((row) => (row.attrs?.role ?? "item") === "item").length;

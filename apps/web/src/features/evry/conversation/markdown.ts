@@ -1,11 +1,3 @@
-// A small, safe markdown subset for Evry's answers (WP-051): paragraphs, line breaks, bold, italic, bulleted and
-// numbered lists, links and inline code. It parses to plain data; view.ts draws React elements. Nothing here
-// produces HTML, and a link renders as a link only for http, https, mailto and app-relative addresses.
-//
-// While an answer streams, a marker that is still open at the end never shows as a literal character: it is hidden and
-// the text after it already takes the style it will have, so nothing reflows when the marker closes. A finished answer
-// shows a really unmatched marker as text.
-
 import { safeLinkAddress } from "@everyfield/contracts/common";
 
 export type Inline =
@@ -17,7 +9,6 @@ export type Inline =
 
 export type Block = { kind: "paragraph"; lines: Inline[][] } | { kind: "list"; ordered: boolean; items: Inline[][] };
 
-/** The address a link may point to, or null: the shared outside-link rule, or an app-relative path. */
 export function safeHref(raw: string): { href: string; external: boolean } | null {
 	const external = safeLinkAddress(raw);
 	if (external !== null) return { href: external, external: true };
@@ -29,7 +20,6 @@ export function safeHref(raw: string): { href: string; external: boolean } | nul
 
 const ESCAPABLE = "\\`*[]()_";
 
-/** `text` is the whole inline source; `open` marks the answer as still streaming. */
 function parseInline(text: string, open = false): Inline[] {
 	const out: Inline[] = [];
 	let buffer = "";
@@ -74,7 +64,7 @@ function parseInline(text: string, open = false): Inline[] {
 				return out;
 			}
 		} else if (c === "*") {
-			if (open && i === text.length - 1) return (flush(), out); // may be the first half of "**"
+			if (open && i === text.length - 1) return (flush(), out);
 			if (text[i + 1] && !/\s/.test(text[i + 1]!) && text[i + 1] !== "*") {
 				let end = i + 1;
 				while ((end = text.indexOf("*", end + 1)) !== -1 && (/\s/.test(text[end - 1]!) || text[end + 1] === "*"));
@@ -105,13 +95,11 @@ function parseInline(text: string, open = false): Inline[] {
 					continue;
 				}
 				if (open) {
-					// "[text](" and its address so far: the label shows, the address waits for its closing bracket.
 					flush();
 					out.push(...parseInline(text.slice(i + 1, close), true));
 					return out;
 				}
 			} else if (open && text.indexOf("]", i + 1) === -1) {
-				// "[text" so far: it may become a link, so the bracket waits.
 				flush();
 				out.push(...parseInline(text.slice(i + 1), true));
 				return out;
@@ -167,7 +155,6 @@ export function parseMarkdown(text: string, open = false): Block[] {
 			endParagraph(index - 1);
 			endList(index - 1);
 		} else if (list && /^\s{2,}\S/.test(line)) {
-			// An indented line continues the list item above.
 			list.items[list.items.length - 1] += " " + line.trim();
 		} else {
 			endList(index - 1);

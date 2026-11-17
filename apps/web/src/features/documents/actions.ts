@@ -14,11 +14,6 @@ import {
 } from "./model.ts";
 import { documentActor } from "./server.ts";
 
-// The Documents library and written-document actions: field fill and Save for your church for the open template, the
-// saved files and their downloads, and the account's written documents (load, save, archive, designate, copy to the
-// church). The actor is read again here. The browser cannot name a person, meeting, or team. Preview bytes use their
-// own route.
-
 export type DocumentOutcome<T> =
 	| { status: "ok"; value: T }
 	| { status: "refused"; code: DocumentsError["code"]; problem?: string; path?: string }
@@ -48,7 +43,6 @@ async function run<T>(
 	}
 }
 
-/** Filled fields for one template. Format does not change the fields. */
 export async function resolveDocument(templateId: string, format: Format): Promise<DocumentOutcome<Resolved>> {
 	return run(async (db, actor) => {
 		const reply = await documentsReader.resolveContext(db, actor, { templateId, format });
@@ -87,7 +81,6 @@ function presentOwned(value: OwnedView): OwnedView {
 	return { id: value.id, kind: value.kind, title: value.title, archived: value.archived };
 }
 
-/** Save one generated file for the church. The same request key and the same fields return the same file. */
 export async function generateDocument(
 	templateId: string,
 	format: Format,
@@ -103,7 +96,6 @@ export async function generateDocument(
 	});
 }
 
-/** The latest saved files for this church. Preview bytes are not in this list. */
 export async function listSavedDocuments(): Promise<DocumentOutcome<SavedFile[]>> {
 	return run(async (db, actor) => {
 		const reply = await documentsWriter["history.list"](db, actor, {});
@@ -112,7 +104,6 @@ export async function listSavedDocuments(): Promise<DocumentOutcome<SavedFile[]>
 	});
 }
 
-/** A fresh signed download for one saved file. The link lasts five minutes. */
 export async function downloadSavedDocument(documentId: string): Promise<DocumentOutcome<{ url: string }>> {
 	const storage = privateStorage();
 	if (!storage) return storageMissing;
@@ -123,7 +114,6 @@ export async function downloadSavedDocument(documentId: string): Promise<Documen
 	});
 }
 
-/** Written documents for the current account or church, plus the current core-values text. */
 export async function loadWrittenDocuments(): Promise<
 	DocumentOutcome<{ documents: OwnedView[]; evidence: string | null }>
 > {
@@ -142,10 +132,6 @@ export async function loadWrittenDocuments(): Promise<
 	});
 }
 
-/**
- * Create or replace a written document: its title and the editor's body node. A new document uses revision "0" and
- * has no id. The domain parses the body; the browser's copy is not trusted.
- */
 export async function saveOwnedDocument(input: {
 	title: string;
 	body: unknown;
@@ -186,7 +172,6 @@ export async function designateOwnedDocument(
 	});
 }
 
-/** Use for this church: your own account documents that are not archived and have text. */
 export async function loadCopySources(): Promise<DocumentOutcome<CopySource[]>> {
 	return run(async (db, actor) => {
 		const reply = await documentsWriter.listCopySources(db, actor, {});
@@ -198,7 +183,6 @@ export async function loadCopySources(): Promise<DocumentOutcome<CopySource[]>> 
 	});
 }
 
-/** Copy one of your account documents into the church plant. The same request key makes one copy. */
 export async function copyToChurch(input: {
 	documentId: string;
 	revisionId: string;

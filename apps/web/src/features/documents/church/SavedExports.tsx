@@ -9,10 +9,6 @@ import { cn } from "@everyfield/ui/foundations";
 import { deleteSavedExport } from "./actions.ts";
 import { FORMAT_LABEL } from "../model.ts";
 
-// The saved exports of one Church Document, newest first. Each row downloads the stored bytes of that export, which never
-// change after later edits, brand kit changes or renderer changes. Only an Owner or Admin sees Delete.
-
-/** The stored file of one saved export. The route reads the bytes; it never renders. */
 export const savedExportHref = (saved: Pick<SavedExport, "documentId" | "id">) =>
 	`/documents/church/${saved.documentId}/exports/${saved.id}`;
 

@@ -12,22 +12,16 @@ import {
 import { Button, ConfirmDialog, PageHeader, Skeleton } from "@everyfield/ui/controls";
 import { LocalTime, Tag } from "@everyfield/ui/display";
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { startTransition, useActionState, useOptimistic, useRef, useState } from "react";
 import { ChurchBranding } from "./ChurchBranding.tsx";
 import { ChurchPdf } from "./ChurchPdf.tsx";
 import { ChurchRevisions } from "./ChurchRevisions.tsx";
+import { liveAssets } from "./editor/brand-assets.ts";
 import { SavedExports, savedExportHref } from "./SavedExports.tsx";
 import { VersionHistory } from "./VersionHistory.tsx";
 import { archiveChurchDocument, deleteChurchDocument, type ChurchActionResult } from "./actions.ts";
 import { CLASS_LABEL } from "./labels.ts";
 import type { ChurchView, ExportResult, RevisionRow, TemplateState } from "./server.ts";
-
-// One Church Document: the real PDF as its preview, the downloads, the revisions and the saved exports. A download saves
-// one export of the shown revision (or of the revision a Revisions row names), then downloads that export's stored bytes (D-78); the preview stays a fresh render and saves
-// nothing. Any seat downloads (D-80). An Owner or Admin can edit, archive and delete it, and delete a saved export (D-79).
-// An archived document is read-only for every seat: no editor, no branding switch, no Archive and no export delete, while its revisions
-// and saved exports stay readable and downloadable, and an Owner or Admin can still delete it (T-9).
-// The editor is a separate chunk, loaded only when an Owner or Admin opens the page: a Member's page never loads it.
 
 const ChurchEditor = dynamic(() => import("./editor/ChurchEditor.tsx"), {
 	ssr: false,
@@ -58,13 +52,9 @@ export function ChurchDocumentScreen({
 	viewerName,
 }: {
 	doc: ChurchView;
-	/** The newest saved revisions, newest first, at most CHURCH_REVISION_LIST_MAX. */
 	revisions: RevisionRow[];
-	/** True when the document has older revisions than `revisions` holds. */
 	revisionsTruncated: boolean;
-	/** The latest saved exports, newest first. */
 	exports: SavedExport[];
-	/** The stored document, only for an Owner or Admin. A Member gets null and the read-only page. */
 	editable: {
 		document: DocDocument;
 		brands: DocBrands;
@@ -72,97 +62,77 @@ export function ChurchDocumentScreen({
 		mergeValues: Record<string, string>;
 	} | null;
 	canManage: boolean;
-	/** The viewer's own name, for the row their save adds; the server reads the same name for that revision. */
 	viewerName: string | null;
 }) {
-	// A save moves the revision here, so the header, the downloads and the Revisions list follow without a page refresh.
-	const [revision, setShownRevision] = useState(doc.revision);
-	const [listed, setListed] = useState({ revisions: firstRevisions, truncated: revisionsTruncated });
-	const { revisions } = listed;
-	const [history, setHistory] = useState(false);
-	// Excel is offered while the body holds a budget table, so a save can add it or take it away. The header follows the
-	// shown revision; each Revisions row keeps the formats its own revision offers.
-	const [formats, setFormats] = useState<readonly ExportFormat[]>(doc.formats);
-	const setRevision = (next: string, offered: readonly ExportFormat[]) => {
-		setShownRevision(next);
-		setFormats(offered);
-		// The save's own time is on the server; this one is within a second of it and a reload shows the stored one.
-		const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName, formats: offered };
-		// The list keeps the server's bound: a save past it drops the oldest row, and the list then says it is cut short.
-		setListed((now) =>
-			now.revisions.some((r) => r.number === row.number)
-				? now
-				: {
-						revisions: [row, ...now.revisions].slice(0, CHURCH_REVISION_LIST_MAX),
-						truncated: now.truncated || now.revisions.length >= CHURCH_REVISION_LIST_MAX,
-					},
-		);
-	};
-	// Accepting template changes writes a revision the editor did not make: the editor opens again on it.
-	const [current, setCurrent] = useState(() => ({
-		document: editable?.document ?? null,
+	const [record, setRecord] = useState(() => ({
 		revision: doc.revision,
-		template: editable?.template ?? null,
-		epoch: 0,
-		accepted: null as string | null,
+		formats: doc.formats as readonly ExportFormat[],
+		revisions: firstRevisions,
+		truncated: revisionsTruncated,
+		opened: {
+			document: editable?.document ?? null,
+			revision: doc.revision,
+			template: editable?.template ?? null,
+			epoch: 0,
+			accepted: null as string | null,
+		},
 	}));
+	const { revision, formats, revisions, opened: current } = record;
+	const setRevision = (next: string, offered: readonly ExportFormat[]) =>
+		setRecord((now) => withRevision(now, next, offered, viewerName));
 	const templateVersion = current.document?.origin?.version ?? doc.templateVersion;
-	// The branding switch makes no revision, so the preview's address also names the look: a change loads it again.
-	// The file route reads the stored value; `look` only keys the preview.
 	const [branded, setBranded] = useState(doc.useChurchBranding);
 	const file = (format: string, at = revision) =>
 		`/documents/church/${doc.id}/file?format=${format}&revision=${at}&look=${branded ? "church" : "plain"}`;
 	const brands = editable?.brands;
-	const brand = brands ? (branded && brands.church ? brands.church : brands.plain) : null;
+	const brandOf = (church: boolean) => (brands ? (church && brands.church ? brands.church : brands.plain) : null);
+	const brand = brandOf(branded);
+	const [assets] = useState(() => liveAssets(brand?.assets ?? { logo: null, mark: null, photo: null }));
 	const [exports, setExports] = useState(firstExports);
-	// `at` is null for the header's downloads (the shown revision) and a revision number for a Revisions row, so the
-	// spinner and a failure show beside the button that was clicked.
-	const [exporting, setExporting] = useState<{ at: number | null; format: ExportFormat } | null>(null);
-	const [exportError, setExportError] = useState<{ at: number | null; message: string } | null>(null);
-	// One request key for each revision and format until a result arrives: a double click or a retry after a lost reply
-	// reaches the same saved export instead of making a second one.
-	const keys = useRef(new Map<string, string>());
+	const keys = useRef<Map<string, string> | null>(null);
+	const [exportingJob, showExporting] = useOptimistic<ExportJob | null>(null);
+	const [exportError, exportFile, exportPending] = useActionState(
+		async (_: ExportError | null, job: ExportJob): Promise<ExportError | null> => {
+			showExporting(job);
+			const target = job.at === null ? revision : String(job.at);
+			const slot = `${target}:${job.format}`;
+			keys.current ??= new Map();
+			const key = keys.current.get(slot) ?? crypto.randomUUID();
+			keys.current.set(slot, key);
+			const result = await requestExport(doc.id, { revision: target, format: job.format, requestKey: key });
+			if (result.status === "lost")
+				return {
+					at: job.at,
+					message: "The connection dropped, so nothing was downloaded. Try again; a retry will not save a second copy.",
+				};
+			keys.current.delete(slot);
+			if (result.status === "refused") return { at: job.at, message: result.message };
+			const saved = result.saved;
+			setExports((list) => [saved, ...list.filter((e) => e.id !== saved.id)].slice(0, 100));
+			const link = document.createElement("a");
+			link.href = savedExportHref(saved);
+			link.download = saved.downloadName;
+			link.click();
+			return null;
+		},
+		null,
+	);
+	const exporting = exportPending ? exportingJob : null;
+	const shownError = exportPending ? null : exportError;
 
-	async function download(format: ExportFormat, at: number | null = null) {
-		if (exporting) return;
-		const target = at === null ? revision : String(at);
-		const slot = `${target}:${format}`;
-		const key = keys.current.get(slot) ?? crypto.randomUUID();
-		keys.current.set(slot, key);
-		setExporting({ at, format });
-		setExportError(null);
-		const result = await requestExport(doc.id, { revision: target, format, requestKey: key });
-		setExporting(null);
-		if (result.status === "lost") {
-			setExportError({
-				at,
-				message: "The connection dropped, so nothing was downloaded. Try again; a retry will not save a second copy.",
-			});
-			return;
-		}
-		keys.current.delete(slot);
-		if (result.status === "refused") {
-			setExportError({ at, message: result.message });
-			return;
-		}
-		const saved = result.saved;
-		setExports((list) => [saved, ...list.filter((e) => e.id !== saved.id)].slice(0, 100));
-		const link = document.createElement("a");
-		link.href = savedExportHref(saved);
-		link.download = saved.downloadName;
-		link.click();
+	function download(format: ExportFormat, at: number | null = null) {
+		if (exportPending) return;
+		startTransition(() => exportFile({ at, format }));
 	}
 
 	async function remove() {
 		const result: ChurchActionResult | undefined = await deleteChurchDocument(doc.id, revision);
-		// A success redirects to the library and returns nothing here; a refusal stays in the dialog with its reason.
 		if (result?.status === "refused") throw new Error(result.message);
 		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was deleted.");
 	}
 
 	async function archive() {
 		const result: ChurchActionResult | undefined = await archiveChurchDocument(doc.id, revision);
-		// A success redirects to the library and returns nothing here; a refusal stays in the dialog with its reason.
 		if (result?.status === "refused") throw new Error(result.message);
 		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was archived.");
 	}
@@ -248,19 +218,23 @@ export function ChurchDocumentScreen({
 					its revisions and saved exports stay available.
 				</p>
 			) : null}
-			{exportError?.at === null ? (
+			{shownError?.at === null ? (
 				<p
 					role="alert"
 					className="mb-4 rounded-md bg-magenta-100 px-4 py-3 text-md text-magenta-600 shadow-[0_0_0_1px_var(--ef-line)]"
 				>
-					{exportError.message}
+					{shownError.message}
 				</p>
 			) : null}
 			{doc.archived ? null : (
 				<ChurchBranding
 					documentId={doc.id}
 					stored={branded}
-					onSaved={setBranded}
+					onSaved={(next) => {
+						setBranded(next);
+						const nextBrand = brandOf(next);
+						if (nextBrand) assets.show(nextBrand.assets);
+					}}
 					access={!brands ? "member" : brands.church ? "kit" : "no-kit"}
 					className={editable ? undefined : "mx-auto w-full max-w-[880px]"}
 				/>
@@ -272,6 +246,7 @@ export function ChurchDocumentScreen({
 					title={doc.title}
 					document={current.document}
 					brand={brand}
+					assets={assets}
 					mergeValues={editable.mergeValues}
 					revision={current.revision}
 					onRevision={setRevision}
@@ -280,46 +255,29 @@ export function ChurchDocumentScreen({
 					template={current.template}
 					templateName={doc.templateName}
 					accepted={current.accepted}
-					onAccepted={(document, next, taken) => {
-						// The accepted body may add or remove a budget table, and Excel follows it as on a save.
-						setRevision(next, exportsFor(document.exports, document.body));
-						setCurrent((now) => ({
-							document,
-							revision: next,
-							template: "current",
-							epoch: now.epoch + 1,
-							accepted:
-								taken === 1 ? "Accepted 1 change from the template." : `Accepted ${taken} changes from the template.`,
-						}));
-					}}
+					onAccepted={(document, next, taken) =>
+						setRecord((now) => ({
+							...withRevision(now, next, exportsFor(document.exports, document.body), viewerName),
+							opened: {
+								document,
+								revision: next,
+								template: "current",
+								epoch: now.opened.epoch + 1,
+								accepted:
+									taken === 1 ? "Accepted 1 change from the template." : `Accepted ${taken} changes from the template.`,
+							},
+						}))
+					}
 				/>
 			) : (
-				<div className="flex flex-col gap-3">
-					<div className="flex justify-end">
-						<Button
-							variant="secondary"
-							size="sm"
-							icon={history ? ViewIcon : Clock01Icon}
-							onClick={() => setHistory((open) => !open)}
-						>
-							{history ? "Back to the document" : "Version history"}
-						</Button>
-					</div>
-					{history ? (
-						<VersionHistory revisions={revisions} title={doc.title} current={revision} file={file} page={doc.page} />
-					) : (
-						<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
-							<ChurchPdf key={file("pdf")} title={doc.title} src={file("pdf")} page={doc.page} />
-						</section>
-					)}
-				</div>
+				<ReadOnly revisions={revisions} title={doc.title} current={revision} file={file} page={doc.page} />
 			)}
 			<ChurchRevisions
 				revisions={revisions}
-				truncated={listed.truncated}
+				truncated={record.truncated}
 				current={Number(revision)}
 				exporting={exporting && exporting.at !== null ? { at: exporting.at, format: exporting.format } : null}
-				error={exportError}
+				error={shownError}
 				onDownload={(at, format) => void download(format, at)}
 			/>
 			<SavedExports
@@ -331,7 +289,64 @@ export function ChurchDocumentScreen({
 	);
 }
 
-/** Asks the server to save one export. Any failure to reach it, or an answer that is not JSON, is a lost connection. */
+type ExportJob = { at: number | null; format: ExportFormat };
+type ExportError = { at: number | null; message: string };
+
+type Listed = { revision: string; formats: readonly ExportFormat[]; revisions: RevisionRow[]; truncated: boolean };
+
+function withRevision<T extends Listed>(
+	now: T,
+	next: string,
+	offered: readonly ExportFormat[],
+	viewerName: string | null,
+): T {
+	const row = { number: Number(next), recordedAt: new Date().toISOString(), savedBy: viewerName, formats: offered };
+	const listed = now.revisions.some((r) => r.number === row.number)
+		? { revisions: now.revisions, truncated: now.truncated }
+		: {
+				revisions: [row, ...now.revisions].slice(0, CHURCH_REVISION_LIST_MAX),
+				truncated: now.truncated || now.revisions.length >= CHURCH_REVISION_LIST_MAX,
+			};
+	return { ...now, revision: next, formats: offered, ...listed };
+}
+
+function ReadOnly({
+	revisions,
+	title,
+	current,
+	file,
+	page,
+}: {
+	revisions: RevisionRow[];
+	title: string;
+	current: string;
+	file: (format: string, at?: string) => string;
+	page: ChurchView["page"];
+}) {
+	const [history, setHistory] = useState(false);
+	return (
+		<div className="flex flex-col gap-3">
+			<div className="flex justify-end">
+				<Button
+					variant="secondary"
+					size="sm"
+					icon={history ? ViewIcon : Clock01Icon}
+					onClick={() => setHistory((open) => !open)}
+				>
+					{history ? "Back to the document" : "Version history"}
+				</Button>
+			</div>
+			{history ? (
+				<VersionHistory revisions={revisions} title={title} current={current} file={file} page={page} />
+			) : (
+				<section aria-label="Preview" className="mx-auto w-full max-w-[880px]">
+					<ChurchPdf key={file("pdf")} title={title} src={file("pdf")} page={page} />
+				</section>
+			)}
+		</div>
+	);
+}
+
 async function requestExport(
 	documentId: string,
 	body: { revision: string; format: string; requestKey: string },
