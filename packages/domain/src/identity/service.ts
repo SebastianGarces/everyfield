@@ -46,7 +46,6 @@ export type IdentityConfig = {
 	origin: string;
 	secret: string;
 	scheduleDelivery: (work: () => Promise<void>) => void;
-	// The host adapter must overwrite ingress headers. Null means no trustworthy IP.
 	trustedIp: (request: Request) => string | null;
 	enqueueMail: (tx: Transaction, mail: IdentityMail) => Promise<string>;
 	diagnostic: (value: { correlationId: string; outcome: "unknown" | "reporting_pending" | "delivery_failed" }) => void;
@@ -125,7 +124,6 @@ export function createIdentityService(config: IdentityConfig) {
 		);
 	}
 	async function session(request: Request) {
-		// The handler propagates renewal cookies. Never forward its user/token payload.
 		const response = await call(request, "get-session");
 		if (!response.ok) throw new IdentityRefusal("unavailable", 503);
 		const raw: unknown = await response.json();
@@ -167,7 +165,6 @@ export function createIdentityService(config: IdentityConfig) {
 		try {
 			const url = new URL(request.url),
 				path = url.pathname.replace(/^\/api\/auth\//, "");
-			// Next uses its private listener URL behind a proxy. Validate Host against the fixed public authority; ignore forwarded host/protocol.
 			if (request.headers.get("host") !== new URL(origin).host) throw new IdentityRefusal("origin_denied", 403);
 			const gets = ["get-session", "registration-status", "registration-options", "recover-invalid-session"];
 			const posts = [
@@ -225,7 +222,6 @@ export function createIdentityService(config: IdentityConfig) {
 			if (request.headers.get("origin") !== origin) throw new IdentityRefusal("origin_denied", 403);
 			const suppliedIp = config.trustedIp(request),
 				ip = suppliedIp && isIP(suppliedIp) ? suppliedIp : null;
-			// Registration charges even malformed, duplicate and closed-mode submissions.
 			const registration = path === "register" ? await budget.reserve("registration", null, ip) : null;
 			const input = await boundedBody(request);
 			if (path === "register") {
@@ -277,8 +273,6 @@ export function createIdentityService(config: IdentityConfig) {
 					return json({ status: "continue_identity_proof" });
 				}
 				const result = await call(request, "sign-up/email", { email: v.email, name: v.name, password: v.password });
-				// No caller credential, email equality, synthetic BA ID or returned cookie grants domain access.
-				// Querying this credential is safe only to create a pending, unprivileged app row.
 				if (result.ok) {
 					const row = await config.authDb
 						.select({ id: tables.auth_user.id })
@@ -302,7 +296,6 @@ export function createIdentityService(config: IdentityConfig) {
 				await budget.finish(reservation, result.ok);
 				if (!result.ok) throw new IdentityRefusal("invalid_credentials", 401);
 				const resultBody = z.object({ user: z.object({ id: z.uuid() }) }).parse(await result.json());
-				// Repairs interruption after credential creation. Authentication is the proof; no grants are created.
 				if (!(await account(resultBody.user.id))) {
 					const exists = await config.db
 						.select({ id: tables.account.id })
@@ -315,7 +308,6 @@ export function createIdentityService(config: IdentityConfig) {
 						.where(eq(tables.auth_user.id, resultBody.user.id));
 					const u = z.object({ email: z.email(), created_at: z.date() }).parse(native[0]);
 					const saved = await budget.registrationIntent(u.email, u.created_at);
-					// Expired throttle records must not destroy a valid identity. A fresh native self registration supplies its intent again.
 					if (!saved) return cookies(json({ status: "signed_in", returnTo: safeReturn(v.returnTo) }), result);
 					const intent = z
 						.object({
@@ -331,8 +323,6 @@ export function createIdentityService(config: IdentityConfig) {
 				const v = passwordRecoveryRequest.parse(input);
 				const reservation = await budget.reserve("reset", v.email, ip);
 				await budget.finish(reservation, true);
-				// Both addresses perform only admission work before responding. The host
-				// schedules proof issuance in the response lifecycle, with no cookie or secret.
 				try {
 					config.scheduleDelivery(async () => {
 						try {
@@ -378,7 +368,6 @@ export function createIdentityService(config: IdentityConfig) {
 					.where(and(eq(tables.auth_account.user_id, authUser), eq(tables.auth_account.provider_id, "credential")));
 				const hash = z.string().parse(credential[0]?.password_hash);
 				if (await verifyPassword({ hash, password: v.newPassword })) throw new IdentityRefusal("invalid_input", 422);
-				// A durable content-free attempt survives a failure to append the later outcome.
 				await event(a.id, correlationId, "identity.credential_observed");
 				let result: Response;
 				try {
@@ -436,7 +425,6 @@ export function createIdentityService(config: IdentityConfig) {
 				return cookies(json({ status: "other_sessions_revoked" }), s.response);
 			}
 			const v = resumeRegistrationRequest.parse(input);
-			// The producer rechecks the exact native identity, mailbox and source in its transaction.
 			if (v.invitationProof) {
 				if (!config.invitations) throw new IdentityRefusal("unavailable", 503);
 				const accepted = seatInvitationAcceptedResult.parse(

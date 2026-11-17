@@ -7,10 +7,6 @@ type Row = Record<string, unknown> & {
 	assignee_ids?: string[];
 };
 
-/**
- * Insert task rows the way the tests describe them: `assignee_id` names one assignee and `assignee_ids` several. The
- * set lives in task_assignee, so each row is stored without them and its members follow.
- */
 export async function insertTasks(admin: any, rows: Row[]) {
 	const tasks = rows.map(({ assignee_id: _one, assignee_ids: _many, ...task }) => ({
 		id: crypto.randomUUID(),
@@ -27,7 +23,6 @@ export async function insertTasks(admin: any, rows: Row[]) {
 	if (members.length) await admin.insert(t.task_assignee).values(members);
 	return tasks.map((x) => x.id);
 }
-/** The account IDs assigned to a task, sorted. */
 export async function assigneesOf(admin: any, taskId: string): Promise<string[]> {
 	const rows = await admin
 		.select({ id: t.task_assignee.account_id })
@@ -35,7 +30,6 @@ export async function assigneesOf(admin: any, taskId: string): Promise<string[]>
 		.where(eq(t.task_assignee.task_id, taskId));
 	return rows.map((r: { id: string }) => r.id).sort();
 }
-/** How many tasks of `plant` the account is assigned to. */
 export async function assignedCount(admin: any, account: string, plant: string): Promise<number> {
 	const rows = await admin
 		.select({ n: sql`count(*)::int` })

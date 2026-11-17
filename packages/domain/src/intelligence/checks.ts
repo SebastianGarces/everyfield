@@ -1,17 +1,10 @@
 import * as c from "@everyfield/contracts/intelligence";
 
-// The deterministic draft check (WP-042, PI-018). A draft is published only when this finds nothing. It is pure: the
-// run's own model input is the whole truth it checks against, so a number, date or citation that the run did not offer
-// is invented by definition. Wording rules keep the assessment on launch progress: no verdict on church health,
-// character, doctrine or spiritual readiness, no "ready to launch", no claim that something was created, sent or moved,
-// and nothing about notes, scores or check-ins, which the model never receives.
-
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 const MONTH_DATE = /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?\b/gi;
 const ISO_DATE = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
 const NUMBER = /(?<![\w.])\d+(?:\.\d+)?(?![\w])/g;
 
-/** Wording a draft may never use, by rule. Each pattern names what it guards. */
 const WORDING: [c.DraftRule, RegExp][] = [
 	[
 		"private_content",
@@ -31,7 +24,6 @@ const WORDING: [c.DraftRule, RegExp][] = [
 	],
 ];
 
-/** How a sentence names each fact topic, for the Unknown rule. */
 const TOPIC: Record<c.FactTopic, RegExp> = {
 	committedAdults: /committed[- ]adults?|adult count|core group size/i,
 	growth: /\bgrowth\b|new adults?|momentum/i,
@@ -40,7 +32,6 @@ const TOPIC: Record<c.FactTopic, RegExp> = {
 	followUps: /follow[- ]?ups?/i,
 	training: /\btraining\b/i,
 };
-/** A claim that a topic's value is known: a count, a comparison with a number, or a measured state. */
 const KNOWN_CLAIM = [
 	/(?<!at least )\b\d+\s+(?:committed[- ]adults?|new adults?|days?|follow[- ]?ups?|people)\b/i,
 	/\b(?:at|below|above|under|over|reached|short of|fewer than|more than|less than|past|hit)\s+\d+/i,
@@ -50,7 +41,6 @@ const KNOWN_CLAIM = [
 type Where = { where: string; text: string; citations: readonly string[] };
 const sentences = (text: string) => text.split(/(?<=[.!?])\s+|\n+/).filter((s) => s.trim());
 
-/** Every ISO date a fact value holds. */
 function datesOf(values: Iterable<c.FactEntry["value"]>) {
 	const out = new Set<string>();
 	for (const v of values) if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v)) out.add(v);
@@ -65,7 +55,6 @@ function numbersOf(values: Iterable<c.FactEntry["value"]>) {
 	return out;
 }
 
-/** Every rule the draft breaks against its own run input. An empty list means the draft may be published. */
 export function checkDraft(raw: unknown, input: c.ModelInput): c.Violation[] {
 	const parsed = c.draftOutput.safeParse(raw);
 	if (!parsed.success)
@@ -92,7 +81,6 @@ export function checkDraft(raw: unknown, input: c.ModelInput): c.Violation[] {
 		for (const key of p.citations)
 			if (!facts.has(key) && !passages.has(key)) out.push({ rule: "invented_citation", where: p.where, detail: key });
 	}
-	// The summary has no citations of its own: it may repeat what the points cite.
 	const summary = { where: "summary", text: draft.summary, citations: points.flatMap((p) => p.citations) };
 	for (const p of [...points, summary]) {
 		const values = p.citations.flatMap((k) => (facts.has(k) ? [facts.get(k)!.value] : []));
@@ -116,7 +104,6 @@ function numbersAndDates(p: Where, values: c.FactEntry["value"][], input: c.Mode
 			out.push({ rule: "invented_date", where: p.where, detail: m });
 		return " ";
 	});
-	// "Phase 1" names the plant's own phase; it is not a measured number.
 	text = text.replace(new RegExp(`\\bphase\\s+${input.phase}\\b`, "gi"), " ");
 	const allowed = numbersOf(values);
 	for (const m of text.matchAll(NUMBER))
@@ -131,7 +118,6 @@ function wording(p: Where): c.Violation[] {
 	});
 }
 
-/** A sentence about a topic whose measured state is Unknown may say it is unknown, never a count, comparison or state. */
 function unknowns(p: Where, facts: Map<string, c.FactEntry>): c.Violation[] {
 	const out: c.Violation[] = [];
 	for (const topic of c.FACT_TOPICS) {
@@ -145,7 +131,6 @@ function unknowns(p: Where, facts: Map<string, c.FactEntry>): c.Violation[] {
 	return out;
 }
 
-/** The plain text of a draft, for reports and the language judge. */
 export function draftText(draft: c.DraftOutput): string {
 	const point = (label: string, p: c.DraftPoint) => `${label}: ${p.title}\n${p.body}\n[${p.citations.join(", ")}]`;
 	return [
