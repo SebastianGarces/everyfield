@@ -1,36 +1,17 @@
 {
-	"no-global-listeners": {
-		"apps/web/src/components/motion/scene.tsx": [
-			{
-				"function": "subscribeReduced",
-				"count": 2,
-				"reason": "Temporary, a copy of packages/ui useReducedMotion that #848 (shared app components) replaces with it. The reduced-motion change listener of the marketing scenes, added while a scene reads it and removed with the last reader."
-			}
-		]
-	},
 	"no-timers": {
 		"apps/web/src/components/motion/m.tsx": [
 			{
-				"function": "useBind",
+				"function": "offs",
 				"count": 1,
-				"reason": "Writes each MotionValue change of an m element's style in Motion's render step, with the frame's other writes: the replacement for Motion's own m components, which batch the same way."
+				"reason": "Writes each MotionValue change of an m element's style in Motion's render step, with the frame's other writes: the bind ref callback subscribes each value when the element attaches and unsubscribes when it detaches, as Motion's own m components batch their writes."
 			}
 		],
 		"apps/web/src/components/motion/scene.tsx": [
 			{
-				"function": "useTicker",
+				"function": "follow",
 				"count": 1,
-				"reason": "The scene clock of the animated marketing scenes: Motion's update step advances each running scene once per frame, so the frame is the animation itself, not an ordering patch; it stops when the scene stops or the tab is hidden."
-			},
-			{
-				"function": "write",
-				"count": 1,
-				"reason": "Writes an animated data attribute (EvryBot's mood) in Motion's render step, with the frame's other style writes, so a value is written once per frame and never between two reads of the same frame."
-			},
-			{
-				"function": "MText",
-				"count": 1,
-				"reason": "Writes animated text (typing, counters) in Motion's render step, with the frame's other writes, so React never renders per frame and a value is written once per frame."
+				"reason": "Writes animated text (typing, counters) in Motion's render step, with the frame's other writes: the follow ref callback subscribes to the text's MotionValue when the span attaches and unsubscribes when it detaches, so React never renders per frame and a value is written once per frame."
 			}
 		]
 	}
