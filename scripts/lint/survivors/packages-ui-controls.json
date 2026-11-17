@@ -4,7 +4,7 @@
 			{
 				"function": "subscribePalette",
 				"count": 2,
-				"reason": "Temporary, in the controls preview page only. The Cmd+K shortcut that opens the preview's command palette: added while the overlays section reads the palette and removed with it; packages/ui has no page-event registry to register a shortcut with."
+				"reason": "The Cmd+K shortcut of the controls preview page's command palette, a page that exists only to show the primitives: the listener is added while the overlays section reads the palette and removed with its last reader, because packages/ui has no page-event registry to register a shortcut with. No evf task removes it yet; when one is filed, this entry names it."
 			}
 		]
 	}

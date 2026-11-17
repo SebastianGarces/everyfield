@@ -4,7 +4,7 @@
 			{
 				"function": "closeOnPointerOutside",
 				"count": 2,
-				"reason": "Temporary, waiting for a shared outside-press mechanism in packages/ui. Closes the narrow shell menu on a press outside it: added in the ref callback when the open menu's wrapper attaches and removed when it detaches; the press can land anywhere on the page."
+				"reason": "Closes the narrow shell menu on a press outside it: the listener is added in the ref callback when the open menu's wrapper attaches and removed when it detaches, because the press can land anywhere on the page and packages/ui has no shared outside-press mechanism. No evf task removes it yet; when one is filed, this entry names it."
 			}
 		]
 	}

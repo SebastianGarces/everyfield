@@ -355,7 +355,7 @@ export function Screen() {
 				(line) => `apps/web/src/features/x/mount.ts:${line} no-global-listeners`,
 			),
 			"apps/web/src/features/x/Screen.tsx:4 no-global-listeners",
-			"apps/web/src/features/x/Screen.tsx:6 no-effects",
+			"apps/web/src/features/x/Screen.tsx:8 no-effects",
 			"apps/web/src/features/x/Screen.tsx:6 no-global-listeners",
 			"apps/web/src/features/x/Screen.tsx:8 no-global-listeners",
 		].sort(),
