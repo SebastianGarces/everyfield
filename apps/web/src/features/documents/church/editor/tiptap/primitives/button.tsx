@@ -1,11 +1,10 @@
 import * as React from "react";
 
-// --- Tiptap UI Primitive ---
 import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
-// --- Lib ---
 import { cn, parseShortcutKeys } from "../tiptap-utils.ts";
 import { BUTTON, BUTTON_BASE, BUTTON_GROUP } from "../styles.ts";
+import { InToolbar } from "./toolbar.tsx";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 	className?: string;
@@ -32,13 +31,12 @@ const ShortcutDisplay: React.FC<{ shortcuts: string[] }> = ({ shortcuts }) => {
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 	({ className, children, tooltip, showTooltip = true, shortcutKeys, "aria-label": ariaLabel, ...props }, ref) => {
 		const shortcuts = React.useMemo(() => parseShortcutKeys({ shortcutKeys }), [shortcutKeys]);
-		// Everyfield change: a `className` replaces the default box (size, padding, gap and justify), so a call site's
-		// `h-8` or `justify-between` is the only class for its property and takes effect.
 		const classes = className ? cn(BUTTON_BASE, className) : BUTTON;
+		const tabIndex = React.use(InToolbar) ? -1 : undefined;
 
 		if (!tooltip || !showTooltip) {
 			return (
-				<button className={classes} ref={ref} aria-label={ariaLabel} {...props}>
+				<button className={classes} ref={ref} aria-label={ariaLabel} tabIndex={tabIndex} {...props}>
 					{children}
 				</button>
 			);
@@ -46,7 +44,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
 		return (
 			<Tooltip delay={200}>
-				<TooltipTrigger className={classes} ref={ref} aria-label={ariaLabel} {...props}>
+				<TooltipTrigger className={classes} ref={ref} aria-label={ariaLabel} tabIndex={tabIndex} {...props}>
 					{children}
 				</TooltipTrigger>
 				<TooltipContent>
