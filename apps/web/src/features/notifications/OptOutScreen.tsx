@@ -8,10 +8,6 @@ import { useState, useTransition, type ReactNode } from "react";
 import { applyEmailOptOut, undoEmailOptOut } from "./actions.ts";
 import { categoryLabel, type Category, type OptOut, type Outcome } from "./model.ts";
 
-// The email preferences page (screens.md, Phone screens), opened from the footer of a notification email. The token
-// is the only authority (REQ-NTF-012): opening the page only reads it, and a mail scanner that follows the link
-// changes nothing. Only the button turns the email off, and the undo it offers works for one hour.
-
 export type OptOutView =
 	| { state: "unavailable" }
 	| { state: "invalid" }

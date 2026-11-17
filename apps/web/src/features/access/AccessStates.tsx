@@ -6,19 +6,12 @@ import { AuthFooter, AuthFrame, AuthHeading, AuthLink } from "../identity/AuthFr
 import { SessionActions } from "../identity/SessionActions";
 import { AFTER_SIGN_IN } from "../identity/SignInScreen";
 
-/**
- * The one refusal state (REQ-IDN-005, WP-006/ui R2). A record that does not exist, a record in another church or
- * organization, and a record this account may not open all show these same words, so the screen never confirms
- * that something hidden exists or says which rule refused it.
- */
 export function NotAvailable({
 	scope,
 	homeHref,
 	headingLevel,
 }: {
-	/** `page` replaces the whole page; `section` replaces one panel inside a page the person can open. */
 	scope: "page" | "section";
-	/** Where "Go to home" leads. Pages only. */
 	homeHref?: string;
 	headingLevel?: "h1" | "h2" | "h3";
 }) {
@@ -51,10 +44,6 @@ export function NotAvailable({
 	);
 }
 
-/**
- * Session recovery (REQ-IDN-028). A missing, expired or revoked session gets the bare sign-in frame with no church
- * content. The return path goes through `safeReturn`, so only a local path survives (WP-006/ui R3).
- */
 export function SessionEnded({ returnTo }: { returnTo: string | null }) {
 	return (
 		<AuthFrame>
@@ -71,10 +60,6 @@ export function SessionEnded({ returnTo }: { returnTo: string | null }) {
 	);
 }
 
-/**
- * A signed-in account whose registration is not finished (`pending_domain`) has no church or organization
- * authority (REQ-IDN-030). It can only continue setup or sign out (WP-006/ui R4).
- */
 export function PendingAccount() {
 	return (
 		<AuthFrame>

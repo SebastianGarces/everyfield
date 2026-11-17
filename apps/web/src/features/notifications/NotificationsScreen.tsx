@@ -12,12 +12,13 @@ import {
 } from "@everyfield/ui/controls";
 import { LoadableView } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
-import { useState } from "react";
+import { useAddress, writeAddress } from "../../components/location.ts";
 import { useClock, useFeed } from "./feed.tsx";
 import {
 	CATEGORIES,
 	categoryLabel,
 	groupByDay,
+	parseQuery,
 	querySearch,
 	type Category,
 	type FeedPage,
@@ -25,25 +26,19 @@ import {
 } from "./model.ts";
 import { ItemsSkeleton, NotificationItem } from "./parts.tsx";
 
-// The Notifications page (prototype #/notifications): the account's own feed, newest first, with All and Unread, a
-// category filter and Load older. The filters live in the address; changing one reads the first page again without
-// reloading the page.
-
 const ANY = "any";
 
-export function NotificationsScreen({ initialQuery, initial }: { initialQuery: FeedQuery; initial: FeedPage }) {
-	const [query, setQuery] = useState(initialQuery);
+export function NotificationsScreen({ initial }: { initial: FeedPage }) {
+	const query = parseQuery(useAddress().params);
 	const feed = useFeed(query, initial);
 	const clock = useClock();
 
 	const go = (next: FeedQuery) => {
-		setQuery(next);
-		window.history.replaceState(null, "", `/notifications${querySearch(next)}`);
+		writeAddress(`/notifications${querySearch(next)}`, { replace: true });
 		void feed.load(next);
 	};
 	const ready = feed.state.status === "ready" ? feed.state.data : null;
 	const openShown = ready?.items.filter((i) => !i.read).length ?? 0;
-	// Mark-all has no category, so a filtered page marks the unread entries it shows.
 	const markLabel = query.category ? "Mark shown as read" : "Mark all read";
 	const canMark = query.category ? openShown > 0 : (ready?.unread ?? 0) > 0 || openShown > 0;
 

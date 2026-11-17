@@ -9,7 +9,6 @@ import { BasicsForm } from "./Basics";
 
 type Props = { state: State; actions: Actions };
 
-/** Create the church: the one creation this account makes (D43). */
 export function CreateChurch({ state, actions, onBack }: Props & { onBack?: () => void }) {
 	return (
 		<section data-onboarding-step="church">
@@ -29,7 +28,6 @@ export function CreateChurch({ state, actions, onBack }: Props & { onBack?: () =
 	);
 }
 
-/** Start Discovery: a private space with no church and no seat (REQ-IDN-016). */
 export function StartDiscovery({ state, actions, onBack }: Props & { onBack?: () => void }) {
 	return (
 		<section data-onboarding-step="church">
@@ -47,7 +45,6 @@ export function StartDiscovery({ state, actions, onBack }: Props & { onBack?: ()
 	);
 }
 
-/** An active account without a seat chooses explicitly (D42). Nothing is inferred from the missing seat. */
 export function ChooseStart({ state, actions }: Props) {
 	const [choice, setChoice] = useState<"plant" | "discovery" | null>(null);
 	const [chosen, setChosen] = useState<"plant" | "discovery" | null>(null);
@@ -102,7 +99,6 @@ const shared = (r: Relationship) =>
 const kindLabel = (r: Relationship) =>
 	r.organization.organizationKind === "sending_network" ? "Network relationship" : "Sending church relationship";
 
-/** Discovery: own reading and relationships, and Start your church as conversion (REQ-IDN-016, R7). */
 export function DiscoveryHome({ state, actions, articles }: Props & { articles: { id: string; title: string }[] }) {
 	const [converting, setConverting] = useState(false);
 	if (state.entry.kind !== "discovery") return null;
