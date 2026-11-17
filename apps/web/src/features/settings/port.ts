@@ -5,11 +5,6 @@ import type { OrderRead, OrderSave } from "../wiki/actions";
 import type { Locality, RegionRead, RegionSave, RegionSuggestion } from "./region";
 import type { z } from "zod";
 
-// The door from the settings screens to the server. Every type comes from the settings contract in
-// packages/contracts/src/settings, so the screens cannot send a field the contract refuses. Production passes the
-// server actions (actions.ts); the design preview passes a fixture port whose replies the same schemas parse
-// (preview/fixtures.ts).
-
 export type SettingsError = S.SettingsError;
 export type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: SettingsError };
 
@@ -18,13 +13,8 @@ export type SavedSection = z.infer<typeof S.savedSectionResult>;
 export type SaveSectionRequest = z.input<typeof S.saveSectionRequest>;
 export type SaveChurchRequest = z.input<typeof S.saveChurchRequest>;
 export type GetSectionRequest = z.input<typeof S.getSectionRequest>;
-/**
- * The read the server started with the page at that section's address: a settings section, or the brand kit (which
- * has its own contract and refusal codes).
- */
 export type SectionSeed =
 	{ request: GetSectionRequest; value: Promise<Reply<SectionResult>> } | { brand: Promise<BrandReply<BrandView>> };
-/** The exact plant or organization a section belongs to, as the requests take it. */
 export type PlantOwner = { kind: "plant"; id: string };
 export type OrganizationOwner = {
 	kind: "organization";
@@ -49,7 +39,6 @@ export type DeletionStatus = N.DeletionStatus;
 export type CredentialOutcome = z.infer<typeof N.credentialOutcome>;
 type ChangePasswordRequest = z.input<typeof N.changePasswordRequest>;
 
-// The church brand kit (WP-104). Its operations and refusals come from the branding contract.
 export type BrandKit = B.BrandKit;
 export type BrandError = B.BrandError;
 export type BrandReply<T> = B.BrandReply<T>;
@@ -60,24 +49,16 @@ export type FinalizeBrandUpload = z.input<typeof B.finalizeUploadRequest>;
 export type SuggestBrandColors = z.input<typeof B.suggestColorsRequest>;
 export type BrandUploadTicket = z.infer<typeof B.uploadTicket>;
 export type SuggestedColors = z.infer<typeof B.suggestedColors>;
-/** The saved kit and the church name the preview sets in type in the logo slots. */
 export type BrandView = { kit: BrandKit; churchName: string };
 
-/** A section the dialog can show. Seats come from WP-008/ui through the same frame. */
 export type SectionKey =
 	"church" | "brand" | "organization" | "seats" | "notifications" | "sharing" | "wiki" | "account";
 
-/**
- * Who is looking and in which context. The server decides authority again on every call; this only chooses which
- * sections to offer. `role` is the seat in the selected plant or organization; an account without a seat has only
- * its own sections.
- */
 export type SettingsViewer =
 	| { context: "plant"; accountId: string; plant: PlantOwner; role: "owner" | "admin" | "member" }
 	| { context: "organization"; accountId: string; organization: OrganizationOwner; role: "owner" | "admin" | "member" }
 	| { context: "account"; accountId: string };
 
-/** One current plant/organization relationship, as WP-007 lists it; `revision` is the relationship revision. */
 export type Relationship = {
 	relationshipId: string;
 	revision: string;
@@ -85,26 +66,19 @@ export type Relationship = {
 	organizationName: string;
 };
 
-/** The section operations. Production passes the settings server actions. */
 export interface SettingsPort {
 	getSection(request: GetSectionRequest): Promise<Reply<SectionResult>>;
 	saveSection(request: SaveSectionRequest): Promise<Reply<SavedSection>>;
-	/** Up to three church changes saved as one write; a refusal keeps all of them unsaved. */
 	saveChurch(request: SaveChurchRequest): Promise<Reply<SavedSection>>;
 	previewPlantTimezone(request: z.input<typeof S.previewPlantTimezoneRequest>): Promise<Reply<PlantTimezonePreview>>;
 	setPlantTimezone(request: z.input<typeof S.setPlantTimezoneRequest>): Promise<Reply<PlantTimezoneResult>>;
-	/** Your photo, email, password, own time zone and deletion. */
 	flows: FlowPort;
-	/** The church brand kit: read, save one patch, reset. */
 	brand: BrandPort;
-	/** The church's Wiki source order (wiki.setSourceOrder): which sending church and network it reads first. */
 	wiki: WikiOrderPort;
-	/** The church's reporting Region from the official OMB 23-01 list (organizations.correctReportingLocation). */
 	region: RegionPort;
 }
 
 export type { Locality, RegionRead, RegionSave, RegionSuggestion } from "./region";
-/** The reporting location read, the official areas a place matches, and the save. */
 export interface RegionPort {
 	read(): Promise<RegionRead>;
 	suggest(locality: Locality): Promise<RegionSuggestion[] | null>;
@@ -119,7 +93,6 @@ export interface RegionPort {
 
 export type { OrderRead, OrderRow, OrderSave } from "../wiki/actions";
 
-/** The Wiki source order read and save, as the wiki server actions answer them. */
 export interface WikiOrderPort {
 	read(): Promise<OrderRead>;
 	save(requestKey: string, expectedRevision: string, churches: string[], networks: string[]): Promise<OrderSave>;
@@ -129,29 +102,18 @@ export interface BrandPort {
 	get(): Promise<BrandReply<BrandView>>;
 	save(request: SaveBrandRequest): Promise<BrandReply<BrandKit>>;
 	reset(request: ResetBrandRequest): Promise<BrandReply<BrandKit>>;
-	/** Step 1 of an asset upload: stages a pending file for one slot. */
 	requestUpload(request: RequestBrandUpload): Promise<BrandReply<BrandUploadTicket>>;
-	/** Step 2: sends the picked bytes to the staged upload (the byte route). A refusal is the slot's own message. */
 	uploadBytes(uploadId: string, file: Blob): Promise<BrandReply<null>>;
-	/** Step 3: attaches the processed file to its slot with the alt text; returns the kit at its new revision. */
 	finalizeUpload(request: FinalizeBrandUpload): Promise<BrandReply<BrandKit>>;
-	/** Colors from the ready asset in one slot. Nothing is applied until the person chooses. */
 	suggestColors(request: SuggestBrandColors): Promise<BrandReply<SuggestedColors>>;
-	/** The authenticated delivery route for one stored asset. Never a storage key or bearer URL. */
 	assetSrc(fileId: string): string;
 }
 
-/** The photo flow of your own account (REQ-IDN-006). */
 export interface AvatarPort {
 	requestAvatarUpload(request: z.input<typeof S.requestAvatarUpload>): Promise<Reply<AvatarUpload>>;
-	/**
-	 * Sends the bytes to the server-owned staging upload, whose id is the version it becomes. The server verifies type
-	 * and size again; a file it refuses is invalid_input.
-	 */
 	uploadAvatarBytes(target: AvatarReference, file: Blob): Promise<Reply<null>>;
 	finalizeAvatar(request: z.input<typeof S.finalizeAvatarRequest>): Promise<Reply<AvatarResult>>;
 	removeAvatar(request: z.input<typeof S.removeAvatarRequest>): Promise<Reply<AvatarResult>>;
-	/** The authenticated delivery route for one avatar version (avatarRoute). Never a storage key or bearer URL. */
 	avatarSrc(avatar: AvatarReference): string;
 }
 
@@ -169,20 +131,15 @@ export interface FlowPort {
 	setPersonalTimezone(request: z.input<typeof N.setPersonalTimezoneRequest>): Promise<Reply<PersonalTimezoneResult>>;
 
 	requestAccountDeletion(request: z.input<typeof S.requestAccountDeletion>): Promise<Reply<DeletionStatus>>;
-	/** The Owner only; the server refuses an Admin or Member. */
 	requestWorkspaceDeletion(request: z.input<typeof S.requestWorkspaceDeletion>): Promise<Reply<DeletionStatus>>;
 }
 
-/** The restricted deletion session (REQ-IDN-032): status and cancel for one exact request, nothing else. */
 export interface DeletionPort {
-	/** Fresh proof of the original login. It opens the restricted session for the account's current request. */
 	open(request: z.input<typeof N.openAccountDeletionRequest>): Promise<Reply<DeletionStatus>>;
-	/** Refused with proof_invalid when no restricted session is open. */
 	getStatus(): Promise<Reply<DeletionStatus>>;
 	cancel(expectedRevision: string): Promise<Reply<DeletionStatus>>;
 }
 
-/** A fresh request key per user action. A retry of the same action reuses its key. */
 export function newRequestKey(prefix: string): string {
 	return `${prefix}-${crypto.randomUUID()}`;
 }

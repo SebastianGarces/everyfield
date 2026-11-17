@@ -13,21 +13,20 @@ import {
 	Select,
 	Spinner,
 } from "@everyfield/ui/controls";
-import { useEffect, useRef, useState } from "react";
+import { useFocusRequest } from "@everyfield/ui/foundations";
+import { useState } from "react";
 import type { z } from "zod";
 import type { Outcome, Wait } from "../../../components/save/model.ts";
+import { useReadWith, createRead } from "../../../components/read.tsx";
 import { RecordDialog } from "../../../components/save/parts.tsx";
+import { useLocalStore, useStore } from "../../../components/store.ts";
 import { problemText } from "../parts.tsx";
 import { findHouseholds } from "./actions.ts";
+import { createJoinHouseholdStore } from "./JoinHouseholdDialog.store.ts";
 import { addressLine, ROLE_LABEL, ROLES, type Household, type HouseholdRole, type HouseholdSummary } from "./model.ts";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
-type Address = { street: string; city: string; stateProvince: string; postalCode: string; country: string };
-/**
- * What every household dialog takes. The card closes the dialog at once and shows the expected result; a refused change
- * opens the dialog again with the same values (`initial`) and the reason (`problem`). While the card's last save is in
- * flight or unknown (`wait`, C68) the form keeps its values and cannot submit.
- */
+export type Address = { street: string; city: string; stateProvince: string; postalCode: string; country: string };
 type FormProps<T> = {
 	onClose: () => void;
 	onSubmit: (value: T) => void;
@@ -38,7 +37,6 @@ type FormProps<T> = {
 type AddressValue = { [K in keyof Address]: string | null };
 export type StartValue = { name: string } & AddressValue;
 export type EditValue = { name?: string } & AddressValue;
-/** The Add to a household dialog sends either a join to a chosen household or a new household with this person as head. */
 export type JoinValue =
 	| { mode: "join"; householdId: string; role: HouseholdRole; household: HouseholdSummary }
 	| ({ mode: "create" } & StartValue);
@@ -62,7 +60,6 @@ const addressDraft = (a: { [K in keyof Address]?: string | null }): Address => (
 const addressValue = (a: Address) =>
 	Object.fromEntries(ADDRESS.map((k) => [k, a[k].trim() || null])) as { [K in keyof Address]: string | null };
 
-/** The words for a refused household change. */
 export function householdProblem(code: string, first: string): string {
 	switch (code) {
 		case "busy":
@@ -98,10 +95,14 @@ function AddressFields({ value, onChange }: { value: Address; onChange: (a: Addr
 	);
 }
 
-/** A default household name from the person's last name: "Maria Santos" starts "Santos household". */
+type Found = Outcome<{ items: HouseholdSummary[]; total: number }>;
+export const households = createRead((q: string): Promise<Found> => findHouseholds(q), {
+	failed: () => ({ status: "lost" }) as const,
+});
+const firstInput = (node: HTMLElement) => node.querySelector<HTMLElement>("input");
+
 const defaultName = (p: PlantPerson) => `${p.lastName?.trim() || p.displayName.trim().split(/\s+/).at(-1)} household`;
 
-/** Start a household with this person as its head (REQ-PPL-009). The address starts as the person's own. */
 export function StartHouseholdDialog({
 	person,
 	onClose,
@@ -138,7 +139,6 @@ export function StartHouseholdDialog({
 	);
 }
 
-/** Edit a household's name and address. Members keep their own addresses until someone copies it on purpose. */
 export function EditHouseholdDialog({
 	household,
 	onClose,
@@ -177,11 +177,6 @@ export function EditHouseholdDialog({
 	);
 }
 
-/**
- * Add this person to an existing household with a role, or create a new household with them as its head (REQ-PPL-009).
- * One dialog, two modes: choosing keeps its search, choice and role while the create form is open. A person with no
- * address of their own takes the household's when joining; an address they already have stays.
- */
 export function JoinHouseholdDialog({
 	person,
 	onClose,
@@ -193,49 +188,31 @@ export function JoinHouseholdDialog({
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
 	const joined = initial?.mode === "join" ? initial : undefined;
 	const created = initial?.mode === "create" ? initial : undefined;
-	const [mode, setMode] = useState<"choose" | "create">(created ? "create" : "choose");
-	const [search, setSearch] = useState("");
-	const [found, setFound] = useState<{
-		q: string;
-		outcome: Outcome<{ items: HouseholdSummary[]; total: number }>;
-	} | null>(null);
-	const [choice, setChoice] = useState<string>(joined?.householdId ?? "");
-	const [role, setRole] = useState<HouseholdRole | "">(joined?.role ?? "");
-	const [touched, setTouched] = useState(false);
-	const [name, setName] = useState(created?.name ?? defaultName(person));
-	const [address, setAddress] = useState(addressDraft(created ?? person));
-	const [nameTouched, setNameTouched] = useState(false);
-	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	const term = useRef("");
-	const body = useRef<HTMLDivElement>(null);
-	const switched = useRef(false);
+	const store = useLocalStore(() =>
+		createJoinHouseholdStore({
+			mode: created ? "create" : "choose",
+			choice: joined?.householdId ?? "",
+			role: joined?.role ?? "",
+			name: created?.name ?? defaultName(person),
+			address: addressDraft(created ?? person),
+		}),
+	);
+	const { mode, switches, search, term, choice, role, touched, name, address, nameTouched, actions } = useStore(
+		store,
+		(s) => s,
+	);
+	const read = useReadWith(households, [term], { showPrevious: true });
+	const focusSwitch = useFocusRequest(switches, firstInput);
 
-	function load(q: string) {
-		term.current = q;
-		findHouseholds(q)
-			.catch(() => ({ status: "lost" }) as const)
-			.then((outcome) => term.current === q && setFound({ q, outcome }));
-	}
-	useEffect(() => {
-		load("");
-		return () => clearTimeout(timer.current);
-	}, []);
-	// Switching mode moves focus to the first field of the new mode: the household name, or the search.
-	useEffect(() => {
-		if (!switched.current) return void (switched.current = true);
-		body.current?.querySelector<HTMLElement>("input")?.focus();
-	}, [mode]);
-
-	const result = found?.outcome.status === "ok" ? found.outcome.value : null;
+	const result = read.value?.status === "ok" ? read.value.value : null;
 	const items = result?.items ?? [];
 	const chosen = items.find((h) => h.id === choice);
-	// No household exists in the church at all (not a search that found none).
-	const none = result !== null && items.length === 0 && found?.q === "";
+	const none = result !== null && items.length === 0 && read.status === "ready" && term === "";
 	const missing = name.trim() === "";
 	const creating = mode === "create";
 
 	const createButton = (label: string, variant: "primary" | "secondary" | "ghost" = "secondary") => (
-		<Button type="button" size="sm" variant={variant} onClick={() => setMode("create")}>
+		<Button type="button" size="sm" variant={variant} onClick={() => actions.switchTo("create")}>
 			{label}
 		</Button>
 	);
@@ -258,36 +235,35 @@ export function JoinHouseholdDialog({
 			wait={wait}
 			onSubmit={() => {
 				if (creating) {
-					setNameTouched(true);
+					actions.touchName();
 					if (missing) return false;
 					onSubmit({ mode: "create", name: name.trim(), ...addressValue(address) });
 					return true;
 				}
-				// With no household to choose, the main action opens the create form instead of a join.
 				if (none) {
-					setMode("create");
+					actions.switchTo("create");
 					return true;
 				}
-				setTouched(true);
+				actions.touch();
 				if (!chosen || !role) return false;
 				onSubmit({ mode: "join", householdId: chosen.id, role, household: chosen });
 				return true;
 			}}
 		>
-			<div ref={body} className="contents">
+			<div ref={focusSwitch} className="contents">
 				{creating ? (
 					<>
 						<Field
 							label="Household name"
 							error={nameTouched && missing ? "Name the household, such as Santos household." : null}
 						>
-							<Input value={name} maxLength={255} onChange={(e) => setName(e.target.value)} />
+							<Input value={name} maxLength={255} onChange={(e) => actions.rename(e.target.value)} />
 						</Field>
-						<AddressFields value={address} onChange={setAddress} />
+						<AddressFields value={address} onChange={actions.readdress} />
 						<p className="text-sm text-text-2">{first} will be the head of this household.</p>
-						{found?.outcome.status === "ok" ? (
+						{read.value?.status === "ok" ? (
 							<div>
-								<Button type="button" size="sm" variant="ghost" onClick={() => setMode("choose")}>
+								<Button type="button" size="sm" variant="ghost" onClick={() => actions.switchTo("choose")}>
 									Back to the list
 								</Button>
 							</div>
@@ -300,23 +276,18 @@ export function JoinHouseholdDialog({
 							placeholder="Search households"
 							value={search}
 							maxLength={255}
-							onChange={(e) => {
-								const q = e.target.value;
-								setSearch(q);
-								clearTimeout(timer.current);
-								timer.current = setTimeout(() => load(q.trim()), 250);
-							}}
+							onChange={(e) => actions.type(e.target.value)}
 						/>
 						<div className="max-h-[260px] min-h-[120px] overflow-y-auto rounded-md shadow-[0_0_0_1px_var(--ef-line)]">
-							{found === null ? (
+							{read.value === undefined ? (
 								<div className="flex items-center gap-2.5 px-4 py-4 text-sm text-text-3" role="status">
 									<Spinner size={14} />
 									Loading households…
 								</div>
-							) : found.outcome.status !== "ok" ? (
+							) : read.value.status !== "ok" ? (
 								<p role="alert" className="px-4 py-4 text-sm text-text-2">
 									Households did not load.{" "}
-									<button type="button" className="font-medium text-ink underline" onClick={() => load(search.trim())}>
+									<button type="button" className="font-medium text-ink underline" onClick={read.retry}>
 										Try again
 									</button>
 								</p>
@@ -341,7 +312,7 @@ export function JoinHouseholdDialog({
 									aria-invalid={(touched && !choice) || undefined}
 									aria-describedby={touched && !choice ? "household-choice-error" : undefined}
 									value={choice}
-									onValueChange={setChoice}
+									onValueChange={actions.choose}
 									className="gap-0 px-4"
 								>
 									{items.map((h) => (
@@ -383,7 +354,7 @@ export function JoinHouseholdDialog({
 								<Select
 									value={role}
 									placeholder="Choose a role"
-									onValueChange={(r) => setRole(r as HouseholdRole)}
+									onValueChange={(r) => actions.pickRole(r as HouseholdRole)}
 									options={ROLES.map((r) => ({ value: r, label: ROLE_LABEL[r] }))}
 								/>
 							</Field>
@@ -395,11 +366,6 @@ export function JoinHouseholdDialog({
 	);
 }
 
-/**
- * Copy the household address to every member (REQ-PPL-009): the dialog previews the household as the card shows it,
- * each member's address and which ones change. Confirming overwrites exactly those reviewed members at once; the server
- * refuses the write, and nothing is written, if any member changed since.
- */
 export function CopyAddressDialog({
 	household: h,
 	onClose,
@@ -407,7 +373,6 @@ export function CopyAddressDialog({
 	problem,
 	wait,
 }: {
-	/** The household as the card shows it now; the server refuses the copy if anyone changed since. */
 	household: Household;
 } & FormProps<Household>) {
 	const target = addressLine(h.household);
@@ -463,7 +428,6 @@ export function CopyAddressDialog({
 	);
 }
 
-/** Take this person out of their household. Their own address stays; an emptied household can be deleted with it. */
 export function LeaveHouseholdDialog({
 	person,
 	household,

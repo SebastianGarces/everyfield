@@ -9,13 +9,9 @@ import type {
 } from "@everyfield/contracts/intelligence";
 import type { Status } from "@everyfield/ui/display";
 
-// The measured-facts section's pure model (WP-040): every sentence the planter reads about a fact. No React and no
-// server code, so the UI tests call it directly. Unknown always says what is missing; it never reads as zero or No.
-
 export type Verdict = { status: Status; label: string };
 const UNKNOWN: Verdict = { status: "unknown", label: "Unknown" };
 
-/** "Oct 23, 2026" for a plant-local date. */
 export const dayLabel = (date: string) =>
 	new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
 		new Date(date + "T00:00:00Z"),
@@ -29,7 +25,6 @@ export const adultsVerdict = (a: CommittedAdults): Verdict =>
 		: a.status === "not_met"
 			? { status: "attention", label: "Not met" }
 			: UNKNOWN;
-/** The headline number: the exact count, or Unknown with the known lower bound. */
 export const adultsValue = (a: CommittedAdults) => (a.exact !== null ? String(a.exact) : "Unknown");
 export function adultsDetail(a: CommittedAdults): string {
 	if (a.exact === null)
@@ -101,7 +96,6 @@ export function followUpsDetail(f: FollowUps): string {
 	if (f.unmeasured) parts.push(`${f.unmeasured} could not be measured.`);
 	return parts.join(" ");
 }
-/** Contact stays apart from task work: only a recorded "contacted" outcome counts. */
 export const contactLine = (f: FollowUps) =>
 	`Recorded contact: ${plural(f.contacted, "follow-up")}. A ticked task is not contact.`;
 

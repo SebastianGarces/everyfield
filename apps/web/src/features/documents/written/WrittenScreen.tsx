@@ -7,9 +7,6 @@ import type { WrittenView } from "../model.ts";
 import { NativeProse } from "./NativeProse.tsx";
 import { CopiedNote, SECTION } from "./notes.tsx";
 
-// One plain native document. An Owner, an Admin or the account owner edits it in the shared editor, which loads as its
-// own chunk; a Member, and anyone on an archived document, reads it as prose and never loads the editor.
-
 const NativeEditor = dynamic(() => import("./NativeEditor.tsx"), {
 	ssr: false,
 	loading: () => (

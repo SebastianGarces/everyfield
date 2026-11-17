@@ -16,7 +16,7 @@ import {
 import { DataTable, Pagination, StatusBadge, type Column } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
 	DEFAULT_QUERY,
 	isFiltered,
@@ -37,9 +37,10 @@ import {
 	type Window,
 } from "./model.ts";
 import { IntentLink, MeetingIcon, MeetingStatusBadge, RsvpBar } from "./parts.tsx";
-import { deletions, useDeleted } from "./deletions.ts";
-import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
+import { deletions } from "./deletions.store.ts";
+import { PlanMeetingDialog, prefetchPlanReads } from "./PlanMeetingDialog.tsx";
 import { SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
+import { useStore } from "../../components/store.ts";
 import { VisionReport } from "./Report.tsx";
 import type { MeetingsView } from "./server.ts";
 import { places as placeReads, VenuesSheet } from "./VenuesSheet.tsx";
@@ -54,8 +55,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 	const planLane = useSaveIntent({ explain: problemText });
 	const [places, setPlaces] = useState(false);
 	const { query, hasHistory, now } = view;
-	const deleted = useDeleted();
-	useEffect(() => deletions.flush(), []);
+	const deleted = useStore(deletions, (s) => s.hidden);
 	const page = view.page && {
 		...view.page,
 		items: view.page.items.filter((m) => !deleted.has(m.id)),
@@ -67,7 +67,14 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 	const filter = (patch: Partial<MeetingsQuery>) => go({ ...query, ...patch, page: 1 });
 
 	const plan = canWrite ? (
-		<Button variant="primary" icon={CalendarAdd01Icon} onClick={() => setPlanning(true)}>
+		<Button
+			variant="primary"
+			icon={CalendarAdd01Icon}
+			onClick={() => {
+				prefetchPlanReads(false);
+				setPlanning(true);
+			}}
+		>
 			Plan a meeting
 		</Button>
 	) : null;

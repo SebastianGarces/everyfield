@@ -2,7 +2,6 @@ import { cn } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { PIPELINE_PATH } from "./model";
 
-/** People and Programs, the two halves of the Pipeline page (Nora's Nov 13 call). */
 export function PipelineTabs({ current }: { current: "people" | "programs" }) {
 	return (
 		<nav aria-label="Pipeline" className="mb-5 flex gap-1 border-b border-line">

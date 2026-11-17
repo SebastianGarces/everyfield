@@ -1,5 +1,3 @@
-// T-28: the Guide registry resolves against the pinned living seed, the release planters read. A seed promotion that
-// drops a mapped article or renames a mapped heading fails here before it reaches a planter as "No guide for this page".
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -21,7 +19,6 @@ test("every Guide entry names a published article and one exact heading in the p
 		assert.equal(article.status, "published", entry.route);
 		const found = article.content.split("\n").filter((line) => HEADING.exec(line)?.[1] === entry.heading);
 		assert.equal(found.length, 1, `${entry.route}: heading "${entry.heading}" in ${entry.slug}`);
-		// The excerpt opens at that heading, not at the article's start (the fallback for a missing heading).
 		assert.equal(
 			sectionExcerpt("safe_mdx", article.content, entry.heading).split("\n")[0],
 			found[0]!.trim(),

@@ -19,7 +19,7 @@ import {
 	Input,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
 import { correctConversation, logConversation } from "./actions";
 import { formatDay, refusalText } from "./model";
 import { Problem } from "./Problem";
@@ -27,11 +27,6 @@ import { Problem } from "./Problem";
 type Record = PipelinePersonRecord;
 type Conversation = Record["conversations"][number];
 
-/**
- * Leadership (“I see in you”) conversations with this person (REQ-MUL-009). Everyone who reads the record logs and
- * corrects them; only they read the notes, because the record's audience is the notes' audience. Logging is
- * human-only. Each correction stays in the conversation's history with the old and new day.
- */
 export function ConversationsCard({ record, onChanged }: { record: Record; onChanged: () => Promise<void> }) {
 	const [editing, setEditing] = useState<Conversation | "new" | null>(null);
 	const live = !record.retired;
@@ -132,7 +127,6 @@ function ConversationDialog({
 	);
 }
 
-/** The day it happened (not after today) and an optional short note. Logging names the conversation's ID once. */
 function ConversationForm({
 	record,
 	conversation,
@@ -145,27 +139,24 @@ function ConversationForm({
 	const [conversationId] = useState(() => conversation?.id ?? crypto.randomUUID());
 	const [on, setOn] = useState<string>(conversation?.on ?? record.asOf);
 	const [note, setNote] = useState(conversation?.note ?? "");
-	const [error, setError] = useState<string | null>(null);
-	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		const dayError = !on ? "Enter the date." : on > record.asOf ? "The date can’t be after today." : null;
-		setError(dayError);
-		if (dayError) return;
-		setSaving(true);
-		const values = { occurredOn: on, note: note.trim() || null };
-		const answer = await (
-			conversation
-				? correctConversation({ conversationId, expectedRevision: conversation.revision, ...values })
-				: logConversation({ conversationId, personId: record.personId, ...values })
-		).catch(() => ({ status: "lost" as const }));
-		setSaving(false);
-		if (answer.status !== "ok") return setProblem(refusalText(answer));
-		await onSaved();
-	}
+	const [state, submit, saving] = useActionState(
+		async (last: { problem: string | null }): Promise<{ error: string | null; problem: string | null }> => {
+			const error = !on ? "Enter the date." : on > record.asOf ? "The date can’t be after today." : null;
+			if (error) return { error, problem: last.problem };
+			const values = { occurredOn: on, note: note.trim() || null };
+			const answer = await (
+				conversation
+					? correctConversation({ conversationId, expectedRevision: conversation.revision, ...values })
+					: logConversation({ conversationId, personId: record.personId, ...values })
+			).catch(() => ({ status: "lost" as const }));
+			if (answer.status !== "ok") return { error: null, problem: refusalText(answer) };
+			await onSaved();
+			return { error: null, problem: null };
+		},
+		{ error: null, problem: null },
+	);
 	return (
-		<form onSubmit={submit} noValidate className="contents">
+		<form action={submit} noValidate className="contents">
 			<DialogHeader
 				title={conversation ? "Correct conversation" : "Log a leadership conversation"}
 				description={
@@ -175,13 +166,13 @@ function ConversationForm({
 				}
 			/>
 			<DialogBody className="flex flex-col gap-4">
-				<Field label="Date it happened" error={error ?? undefined}>
+				<Field label="Date it happened" error={state.error ?? undefined}>
 					<Input type="date" value={on} max={record.asOf} onChange={(e) => setOn(e.target.value)} />
 				</Field>
 				<Field label="Note" optional hint={`Only Owners, Admins and ${record.name}’s responsible staff can read it.`}>
 					<Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} maxLength={1000} />
 				</Field>
-				<Problem text={problem} />
+				<Problem text={state.problem} />
 			</DialogBody>
 			<DialogFooter>
 				<Button type="submit" variant="primary" loading={saving}>

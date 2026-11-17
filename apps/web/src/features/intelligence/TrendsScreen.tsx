@@ -13,10 +13,6 @@ import { cn } from "@everyfield/ui/foundations";
 import { dayText, trendText } from "./assessment-model.ts";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
 
-/**
- * Plant Intelligence trends (WP-044, PI-029): the latest twelve complete assessments, newest first, each with the facts
- * its own original snapshot measured. A fact an older snapshot did not have reads Not measured, never zero.
- */
 export function TrendsScreen({ history, catalog }: { history: AssessmentHistory; catalog: Catalog }) {
 	return (
 		<>

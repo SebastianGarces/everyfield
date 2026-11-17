@@ -14,11 +14,6 @@ import { useState } from "react";
 import { readLaunchHistory } from "./actions.ts";
 import { actorText, historyText, refusalMessage, sent } from "./model.ts";
 
-/**
- * Launch history (LCH-002, LCH-010): every change to Launch Sunday, the milestones and the recorded outcome, newest
- * first, with who made it and when. It loads when opened, so it is always current; a change by an account that was
- * since deleted reads as a former account.
- */
 export function LaunchHistory({ today }: { today: string }) {
 	const [history, setHistory] = useState<History | null>(null);
 	const [error, setError] = useState<string | null>(null);

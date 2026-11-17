@@ -8,10 +8,6 @@ import {
 import type { BrandError, BrandKit, BrandPort, SuggestedColors } from "../port";
 import { BRAND_ERROR_TEXT } from "./model.ts";
 
-// The pure rules of the "Logos and images" group: the slots, the checks made before any request, the three-step
-// upload and the one-patch removal. They call the port the screen uses, so the same code runs against the server and
-// the fixture. No React.
-
 export const SLOT_ORDER = ["full_logo", "full_logo_dark", "mark", "mark_dark", "cover_photo", "signature"] as const;
 
 const TYPES = "SVG, PNG or WebP, up to 3 MB";
@@ -44,12 +40,10 @@ export const SLOT_INFO: Record<AssetSlot, { label: string; guidance: string; log
 	},
 };
 
-/** Only these two slots feed brand.suggestColors (REQ-BRD-003). */
 export const canSuggest = (slot: AssetSlot) => slot === "full_logo" || slot === "mark";
 
 export const ACCEPT = ASSET_MEDIA_TYPES.join(",");
 
-/** The check before any request (criterion 4). The message names the reason and the limit. */
 export function fileProblem(file: { size: number; type: string }): string | null {
 	if (!(ASSET_MEDIA_TYPES as readonly string[]).includes(file.type))
 		return "That file type is not supported. Use an SVG, PNG or WebP image.";
@@ -58,11 +52,9 @@ export function fileProblem(file: { size: number; type: string }): string | null
 	return null;
 }
 
-/** The alt text rule of the contract: blank or whitespace-only text is refused before anything is sent. */
 export const ALT_REQUIRED = "Add a description of the image.";
 export const altProblem = (alt: string) => (alt.trim() === "" ? ALT_REQUIRED : null);
 
-/** What the slot says for each refusal an upload step can return. */
 export function assetMessage(error: BrandError): string {
 	switch (error.code) {
 		case "alt_text_required":
@@ -78,16 +70,8 @@ export function assetMessage(error: BrandError): string {
 	}
 }
 
-export type UploadOutcome =
-	| { ok: true; kit: BrandKit }
-	| { ok: false; error: BrandError }
-	/** The reply never arrived, so a step may or may not have been applied. */
-	| { ok: false; error: null };
+export type UploadOutcome = { ok: true; kit: BrandKit } | { ok: false; error: BrandError } | { ok: false; error: null };
 
-/**
- * requestUpload, the byte upload and finalizeUpload, in that order, with the revision read when the last step starts.
- * The first refusal ends it and names the step's own error.
- */
 export async function uploadAsset(
 	port: BrandPort,
 	input: { slot: AssetSlot; file: File; altText: string; revision: () => string },
@@ -115,13 +99,11 @@ export async function uploadAsset(
 	}
 }
 
-/** The kit with one slot emptied, shown at once while the removal runs. */
 export const withoutAsset = (kit: BrandKit, slot: AssetSlot): BrandKit => ({
 	...kit,
 	assets: { ...kit.assets, [slot]: null } as BrandKitData["assets"],
 });
 
-/** One brand.saveSettings with `assets: { <slot>: null }` and the revision read now. */
 export async function removeAsset(port: BrandPort, slot: AssetSlot, revision: string): Promise<UploadOutcome> {
 	try {
 		const reply = await port.save({ expectedRevision: revision, patch: { assets: { [slot]: null } } });
@@ -131,7 +113,6 @@ export async function removeAsset(port: BrandPort, slot: AssetSlot, revision: st
 	}
 }
 
-/** The suggestion for a slot, or null when the call is refused or lost; a missing suggestion is never an error. */
 export async function suggestFor(port: BrandPort, slot: AssetSlot): Promise<SuggestedColors | null> {
 	try {
 		const reply = await port.suggestColors({ assetKind: slot });
@@ -145,10 +126,6 @@ type SwatchBackground = { name: "Light" | "Dark" | "Brand"; color: string; note?
 
 const LIGHT = "white";
 const DARK = "var(--color-ink-fixed)";
-/**
- * The three swatches a logo shows on. The brand swatch uses the draft primary color, else the theme's neutral ink
- * with a note.
- */
 export function backgrounds(primary: HexColor | null, neutralInk: string): SwatchBackground[] {
 	return [
 		{ name: "Light", color: LIGHT },

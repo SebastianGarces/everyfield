@@ -9,23 +9,15 @@ import { EvryRefusal, projectError } from "../context/errors.ts";
 import { liveJob } from "../runtime/job.ts";
 import { reviewMap, reviewsOf } from "../proposals/review.ts";
 
-// Conversation commands are one statement each (D70): the current-authority check, the change, the run's job row and
-// one audit row commit together, and zero changed rows means refused or not found. Message bodies never enter audit.
-
 const PAGE_SIZE = 24;
 const EVENT_PAGE = 200;
 const TERMINAL_JOB = sql`('succeeded','failed','cancelled','superseded')`;
-/** The conversation's active run can still make progress (runtime/job.ts). */
 const liveRun = (alias: string) =>
 	sql`EXISTS(SELECT FROM job j WHERE j.id=${sql.raw(alias)}.active_turn_id AND ${sql.raw(liveJob("j"))})`;
 
 const uuid = z.uuid();
 const text = z.string().trim().min(1).max(8_000);
 const requestKey = z.string().min(8).max(200);
-/**
- * A page reference (a person on the user's page) or a photo the user attached in Evry (their own staged account photo
- * upload). Both are hints, read again under current authority before the model sees them.
- */
 export const reference = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("person"), id: z.uuid() }),
 	z.strictObject({ kind: z.literal("photo"), id: z.uuid() }),
@@ -33,7 +25,6 @@ export const reference = z.discriminatedUnion("kind", [
 const submitInput = z.strictObject({
 	requestKey,
 	text,
-	/** Visible page context: presentation hints only. Each is re-read under current authority before model use. */
 	references: z.array(reference).max(64).default([]),
 });
 const createInput = z.strictObject({ requestKey, title: z.string().trim().min(1).max(120).optional() });
@@ -79,7 +70,6 @@ const titleOf = (value: string) => {
 	return line.length > 80 ? line.slice(0, 79) + "…" : line;
 };
 
-/** evry.createConversation: a new private conversation in the actor's exact context. A repeated request key returns it. */
 export async function createConversation(db: Database, actor: EvryActor, raw: unknown): Promise<Conversation> {
 	const input = parse(createInput, raw);
 	const r = await db.execute(sql`
@@ -102,7 +92,6 @@ export async function createConversation(db: Database, actor: EvryActor, raw: un
 	return conversationRow.parse(row);
 }
 
-/** evry.listConversations: the actor's own conversations in this exact context, newest first, searchable, by page number. */
 export async function listConversations(db: Database, actor: EvryActor, raw: unknown) {
 	const input = parse(listInput, raw);
 	const pattern = input.search ? "%" + input.search.replace(/[\\%_]/g, (c) => "\\" + c) + "%" : null;
@@ -125,11 +114,6 @@ export async function listConversations(db: Database, actor: EvryActor, raw: unk
 	};
 }
 
-/**
- * evry.readConversation and evry.openConversation: the conversation and its saved events after a cursor, with the
- * current review of each review card among them and the active run: running while its job can still make progress, lost once its worker or claim is gone and its end is not
- * saved yet (closeLostRun saves it). A foreign or missing conversation is not_found, with no metadata. One statement.
- */
 export async function readConversation(db: Database, actor: EvryActor, id: string, after = 0) {
 	const conversationId = parse(uuid, id);
 	const read = await conversationPage(db, actor, sql`${conversationId}::uuid`, parse(z.int().min(0), after));
@@ -137,10 +121,6 @@ export async function readConversation(db: Database, actor: EvryActor, id: strin
 	return read;
 }
 
-/**
- * evry.openConversation for the launcher and the panel: the actor's most recent conversation in this exact context and
- * its first page of saved events with the active run, in one statement. Null when the actor has none.
- */
 export async function openLatestConversation(db: Database, actor: EvryActor) {
 	return conversationPage(
 		db,
@@ -169,7 +149,6 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 			? { turnId: row.conversation.activeTurnId, state: row.run_live ? ("running" as const) : ("lost" as const) }
 			: null,
 		events: row.events,
-		/** The current review of each review card in this page, as readReview reads it; null when it is unavailable. */
 		reviews: row.reviews,
 		more: row.events.length === EVENT_PAGE,
 	};
@@ -178,10 +157,6 @@ async function conversationPage(db: Database, actor: EvryActor, id: SQL, cursor:
 const submitted = z.object({ turnId: z.uuid(), sequence: z.coerce.number() });
 export type Submitted = z.infer<typeof submitted> & { replayed: boolean };
 
-/**
- * evry.submitTurn: saves the message, starts the conversation's one run as an assistant_turn job and audits it, in one
- * statement. A repeated request key returns the saved turn and starts nothing. Only a live run blocks a new turn.
- */
 export async function submitTurn(
 	db: Database,
 	actor: EvryActor,
@@ -232,12 +207,6 @@ const interrupted = () => ({
 	error: projectError(new EvryRefusal("interrupted")),
 });
 
-/**
- * Saves the end of a lost run once: the conversation still points at the turn and its job can no longer make progress
- * (runtime/job.ts). The job ends as failed with a new claim generation, so a late worker cannot pass the run fence; the
- * turn ends as interrupted, which may be tried again. The job update re-checks the live rule on the row a concurrent
- * claim locked, so a claim and a close never both win. Nothing about access is read or changed. One statement.
- */
 export async function closeLostRun(db: Database, actor: EvryActor, conversationId: string, turnId: string) {
 	const r = await db.execute(sql`
 		WITH ended AS (
@@ -257,13 +226,6 @@ export async function closeLostRun(db: Database, actor: EvryActor, conversationI
 	return r.rows.length > 0;
 }
 
-/**
- * The scheduled runner's recovery, so no Evry job waits for a page to be open: every turn and approved effect whose
- * job can no longer make progress (runtime/job.ts) ends as failed with a new claim generation, so no worker takes it
- * later, and every conversation whose active run ended without its end saves it once as interrupted, as closeLostRun
- * does. An effect's review then reads unknown for good and may be tried again. The job update re-checks the live rule
- * on the row a concurrent claim locked, so a claim and a close never both win. At most `limit` of each. One statement.
- */
 export async function closeLostJobs(db: Pick<Database, "execute">, limit = 100) {
 	const n = z.int().min(1).max(100).parse(limit);
 	const r = await db.execute(sql`
@@ -289,10 +251,6 @@ export async function closeLostJobs(db: Pick<Database, "execute">, limit = 100) 
 	return z.object({ jobs: z.number(), runs: z.number() }).parse(r.rows[0]);
 }
 
-/**
- * evry.cancelTurn: stops the active run. Model work and new tool scheduling end at the worker's next fenced save; saved
- * messages, results and receipts stay as they are. Cancelling an idle conversation changes nothing.
- */
 export async function cancelTurn(db: Database, actor: EvryActor, conversationId: string) {
 	const id = parse(uuid, conversationId);
 	const r = await db.execute(sql`
@@ -319,10 +277,6 @@ export async function cancelTurn(db: Database, actor: EvryActor, conversationId:
 	return { cancelled: row.cancelled !== null, turnId: row.cancelled };
 }
 
-/**
- * evry.retryTurn: an explicit new turn with the text of the last message whose run did not complete. The earlier
- * turn's saved results stay; the new turn reads again under the actor's current authority.
- */
 export async function retryTurn(db: Database, actor: EvryActor, conversationId: string, raw: unknown) {
 	const id = parse(uuid, conversationId);
 	const { requestKey: key } = parse(z.strictObject({ requestKey }), raw);
@@ -343,7 +297,6 @@ export async function retryTurn(db: Database, actor: EvryActor, conversationId: 
 		})
 		.parse(r.rows[0]);
 	if (last.known) return { ...last.known, replayed: true };
-	// Only a turn that did not complete can be retried; a completed answer stays as it is.
 	if (last.completed) throw new EvryRefusal("invalid_input");
 	return submitTurn(
 		db,

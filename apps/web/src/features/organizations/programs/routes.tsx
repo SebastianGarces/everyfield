@@ -10,9 +10,6 @@ import { NewProgram } from "./NewProgram";
 import { ProgramScreen } from "./ProgramScreen";
 import { ProgramsScreen } from "./ProgramsScreen";
 
-// The Programs tab of the organization Pipeline and its program and enrollment routes.
-// app/(product)/organization/pipeline/programs/** only re-exports these.
-
 export const programsMetadata: Metadata = { title: "Programs", robots: { index: false, follow: false } };
 
 const refused = (
@@ -23,7 +20,6 @@ const refused = (
 	</div>
 );
 
-/** The request's organization seat, or a redirect to sign in that comes back to `path`. */
 async function seat(path: string) {
 	const who = await pipelineActor();
 	if (who.kind === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);

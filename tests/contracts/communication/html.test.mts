@@ -14,7 +14,6 @@ test("INV-plain-text: plainText decodes each entity the sanitizer writes into te
 
 test("INV-plain-text: plainText decodes &amp; last, so double-encoded text stays literal", () => {
 	assert.equal(plainText("<p>&amp;lt;b&amp;gt; and &amp;amp;</p>"), "&lt;b&gt; and &amp;");
-	// A tag typed as text reads as its characters and is not stripped as markup.
 	assert.equal(plainText("<p>&lt;b&gt;bold&lt;/b&gt;</p>"), "<b>bold</b>");
 });
 
@@ -27,6 +26,5 @@ test("INV-plain-text: plainText keeps a link as its decoded label and its URL", 
 		plainText('<p><a href="https://example.org/?a=1&amp;b=2">https://example.org/?a=1&amp;b=2</a></p>'),
 		"https://example.org/?a=1&b=2",
 	);
-	// The URL is decoded once, as before: an encoded entity inside it stays encoded.
 	assert.equal(plainText('<p><a href="https://example.org/?q=&amp;lt;">go</a></p>'), "go https://example.org/?q=&lt;");
 });

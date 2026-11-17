@@ -1,14 +1,3 @@
-// Seeds a People preview on the shared development database (WP-011/ui). It opens the shared tests/ui seed environment
-// (tests/ui/seed-env.mts: one isolated schema, login roles and apps/web/.env.local per worktree), signs up real accounts
-// through the identity service, creates a church through the onboarding producer and adds people through the People
-// producer, the same code the screens call.
-//
-//   up:   node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/people/seed.mts up <preview-url>
-//   down: node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/people/seed.mts down
-//
-// `up` writes the Owner's session cookie and the people IDs the browser tests need (tests/ui/meetings/attendance.test.mjs,
-// tests/ui/evry/review.test.mjs and tests/ui/meetings/seed.mts) to $PEOPLE_UI_FIXTURE (default
-// /tmp/everyfield-people-ui.json). `down` deletes it and drops the shared schema when no other seed still uses it.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
@@ -21,7 +10,6 @@ const PASSWORD = "People-preview-pass-1";
 async function up(origin: string) {
 	const env = await openSeedEnvironment(origin);
 	const { admin, runtime, authDb, secret } = env;
-	// Registration admission is limited per address; each seeded account signs up from its own loopback address.
 	let ip = 1;
 	const identity = createIdentityService({
 		db: runtime,
@@ -31,7 +19,6 @@ async function up(origin: string) {
 		origin,
 		secret,
 		trustedIp: () => env.loopback("people", ip),
-		// Verification mail is skipped: the seed marks the address verified directly below.
 		enqueueMail: async () => {},
 		diagnostic: () => {},
 	});

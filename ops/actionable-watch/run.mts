@@ -1,6 +1,3 @@
-// One poll per launchd run: launchd's StartInterval owns cadence and restart, so there is no loop.
-// Usage: node run.mts [--transport dry-run|webhook] [--test-wake | --check-config] [--state-dir <dir>] [--log-dir <dir>]
-// The webhook URL and key live only in <state-dir>/webhook.json (0600), never in argv or the plist.
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -75,8 +72,6 @@ export async function pollOnce(deps: Deps): Promise<Outcome> {
 
 		const statePath = join(deps.stateDir, "state.json");
 		const loaded = await loadState(statePath);
-		// gh missing, logged out or odd output turns only the CI check off: keep the last known CI so
-		// its condition neither clears nor re-fires.
 		let ci: Ci | null = loaded.state?.snapshot.ci ?? null;
 		const gh = await deps.exec("gh-main-ci");
 		const ghRaw = gh.ok ? parseJson(gh.stdout) : undefined;
@@ -132,7 +127,6 @@ export async function pollOnce(deps: Deps): Promise<Outcome> {
 	}
 }
 
-/** One test payload, one try, no lock, no cap and no dedup state: it neither reads nor writes state.json. */
 export async function testWake(deps: {
 	transport: Transport;
 	log: Log;
@@ -156,8 +150,6 @@ async function main() {
 	});
 	const stateDir = values["state-dir"];
 	if (values["check-config"]) {
-		// Reads webhook.json through the send-time loader and says only whether it would be used.
-		// It sends nothing, logs nothing and never touches state.json.
 		const read = await readWebhookConfig(join(stateDir, "webhook.json"));
 		process.stdout.write(`${read.ok ? "webhook_config ok" : read.code}\n`);
 		process.exitCode = read.ok ? 0 : 1;
@@ -181,7 +173,6 @@ async function main() {
 
 if (import.meta.main) {
 	main().catch(async (e) => {
-		// Never print raw errors: they can carry paths or command output.
 		await createLog(join(LOG_DIR, "watch.log"))(`internal_error name=${(e as Error)?.name ?? "unknown"}`).catch(
 			() => undefined,
 		);

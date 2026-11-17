@@ -8,7 +8,6 @@ const catalogIndex = "docs/catalog/index.json";
 const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const strings = (text, expression) => [...text.matchAll(expression)].map((m) => JSON.parse(m[1]));
 
-/** Read-only verification of a checkout's sources, not a release/activation approval. */
 export async function verifySources(root) {
 	root = await realpath(root);
 	const issues = [];
@@ -168,7 +167,6 @@ export async function verifySources(root) {
 			payloadPath,
 		);
 	}
-	// Read only literal identities in the hashed original files. Never import/execute legacy code.
 	const documents = strings(source("document-templates.ts"), /^    id: ("[^"\n]+"),/gm);
 	const checklists = strings(source("task-templates.ts"), /^    key: ("[^"\n]+"),/gm);
 	const teams = strings(source("ministry-role-templates.ts"), /^    teamKey: ("[^"\n]+"),/gm);

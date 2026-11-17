@@ -24,6 +24,8 @@
 		"test:ui": "node --test --test-concurrency=1 'tests/ui/**/*.test.mjs'",
 		"machines:check": "node tools/ci/machines.ts --check",
 		"machines:write": "node tools/ci/machines.ts --write",
+		"feature-maps": "node tools/ci/feature-maps.ts --check",
+		"review-proof": "node tools/ci/review-proof.ts",
 		"format": "prettier --write \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
 		"format:check": "prettier --check \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""
 	},

@@ -1,8 +1,3 @@
-// The Wiki sources section of Settings (apps/web/src/features/settings/sections/wikiOrder.ts and the Settings access
-// rule). No browser, no database: the order read and save are wiki.setSourceOrder's, covered in tests/integration/wiki.
-//   INV-wiki-sources-offered: only a plant Owner or Admin is offered "Wiki sources", directly after Sharing.
-//   INV-wiki-sources-order: Move up and Move down change the draft only, and stop at either end.
-//   INV-wiki-sources-refusal: every refused or failed save says it did not save.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { offeredSections, sectionAt, sectionRequest } from "../../../apps/web/src/features/settings/model.ts";

@@ -12,10 +12,6 @@ import { colorView } from "@everyfield/domain/branding/color";
 import { resolveDocumentTheme } from "@everyfield/domain/branding/theme";
 import type { BrandError, BrandKit, SaveBrandRequest } from "../port";
 
-// Pure brand kit rules for the screen: the form a kit becomes, its validation (the contract's own schemas), the patch a
-// save sends and the theme the preview resolves. No imports from React or the server.
-
-/** Text inputs hold strings; an empty optional field saves as null (clearing a field saves it as cleared). */
 export type BrandForm = {
 	primaryColor: string;
 	accentColor: string;
@@ -33,10 +29,6 @@ export function formOf(kit: BrandKit): BrandForm {
 	};
 }
 
-/**
- * A color field keeps the letters upper case and the leading #, as the server stores them, so typing the saved color
- * is not a change.
- */
 export function normalizeHex(value: string): string {
 	const text = value.trim().toUpperCase();
 	return text === "" || text.startsWith("#") ? text : `#${text}`;
@@ -52,17 +44,12 @@ const LETTERHEAD_ERROR: Partial<Record<LetterheadKey, string>> = {
 	email: "Enter a full email address.",
 };
 
-/** The contract's own schema decides, so the client cannot accept what the server refuses. */
 function letterheadError(key: LetterheadKey, value: string): string | undefined {
 	const text = value.trim();
 	if (text === "" || letterheadFields[key].safeParse(text).success) return undefined;
 	return LETTERHEAD_ERROR[key] ?? "Shorten this text.";
 }
 
-/**
- * Field errors. A color that is not `#RRGGBB` and a malformed letterhead value always show. A missing primary color
- * shows only with `required` (after Save is pressed), so an empty form does not open in error.
- */
 export function validate(form: BrandForm, { required }: { required: boolean }): Errors {
 	const errors: Errors = {};
 	if (form.primaryColor === "") {
@@ -76,7 +63,6 @@ export function validate(form: BrandForm, { required }: { required: boolean }): 
 	return errors;
 }
 
-/** Only the fields that differ from the saved form. A cleared optional field is null. */
 export function patchOf(form: BrandForm, saved: BrandForm): SaveBrandRequest["patch"] {
 	const patch: Record<string, unknown> = {};
 	if (form.primaryColor !== saved.primaryColor) patch.primaryColor = form.primaryColor;
@@ -90,7 +76,6 @@ export function patchOf(form: BrandForm, saved: BrandForm): SaveBrandRequest["pa
 	return patch as SaveBrandRequest["patch"];
 }
 
-/** The draft as the saved-kit shape the theme resolver reads. A value that would not save is left out. */
 function draftKit(form: BrandForm, assets: BrandKitData["assets"]): BrandKitData {
 	const color = (value: string) => (isHex(value) ? hexColor.parse(value) : null);
 	const letterhead = Object.fromEntries(
@@ -109,10 +94,6 @@ function draftKit(form: BrandForm, assets: BrandKitData["assets"]): BrandKitData
 	};
 }
 
-/**
- * The preview's theme: the same function the server resolves with, over the unsaved draft and the stored assets. The
- * assets are the kit's own references (an upload or removal saves at once), so the layout places them, not this file.
- */
 export const themeOf = (
 	churchName: string,
 	form: BrandForm,
@@ -129,16 +110,10 @@ const NO_ASSETS: BrandKitData["assets"] = {
 	signature: null,
 };
 
-/** The WCAG view of a typed color, or null while it is empty or not `#RRGGBB`. Same function as the server's. */
 export const colorOf = (value: string) => (isHex(value) ? colorView(hexColor.parse(value)) : null);
 
-/** The derived text color on a brand color, in words. */
 export const textColorName = (textColor: string) => (textColor.endsWith("FFFFFF") ? "White" : "Black");
 
-/**
- * The kit as a save of this form will leave it, shown at once while the save runs (REQ: update the screen
- * optimistically). The revision stays until the server confirms. Contrast comes from the server's own function.
- */
 export function optimisticKit(kit: BrandKit, form: BrandForm): BrandKit {
 	const data = draftKit(form, kit.assets);
 	const primary = data.primaryColor;
@@ -161,7 +136,6 @@ export const BADGE_WORDS: Record<ContrastBadge, string> = {
 };
 export const formatRatio = (contrast: number) => `${contrast.toFixed(2)}:1`;
 
-/** What the person reads for each refusal (criterion 13). `invalid_ein` also marks the EIN field. */
 export const BRAND_ERROR_TEXT: Record<BrandError["code"], string> = {
 	invalid_input: "Some values are not valid. Check the fields marked in red.",
 	access_denied: "You no longer have access to the brand kit. Ask an Owner or Admin of your church.",
