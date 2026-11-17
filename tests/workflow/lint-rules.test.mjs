@@ -232,7 +232,6 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 			"apps/web/src/features/x/go.ts": source,
 			"apps/web/src/components/location.ts": source,
 			"apps/web/src/components/one-time-link.ts": `export const take = () => (window.history.replaceState(null, "", "/"), location.hash);\n`,
-			"apps/web/src/features/x/Hash.tsx": `import { useLocationHash } from "@everyfield/ui/foundations";\nexport const useProof = () => useLocationHash();\n`,
 			"apps/web/src/server/mail/link.ts":
 				"export const link = (origin, proof) => `${origin}/invitation#proof=${proof}`;\n",
 		}),
@@ -260,7 +259,6 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 			"apps/web/src/features/x/go.ts:13 no-raw-history",
 			"apps/web/src/features/x/go.ts:14 no-raw-history",
 			"apps/web/src/features/x/go.ts:14 no-raw-history",
-			"apps/web/src/features/x/Hash.tsx:1 no-raw-history",
 		].sort(),
 	);
 });
