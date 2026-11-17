@@ -8,22 +8,14 @@ import type { IconName } from "../icons";
 import { FrostIcon } from "../sections/FrostIcon";
 
 type Item = { label: string; title: string; body?: string; short?: string };
-/** Home shows the six phases (#features); /oversight shows each church plant up close (#plants). Each card has a frosted
- *  icon box (OPS-82). */
 type Props = { id: "features" | "plants"; headline: string; items: Item[]; icons: readonly IconName[] };
 
-/* Every card shows its own blurred colorful photo with a cream number (Sebastian, R3 review), as the OPS-82 prototype
-   picks them (PH_PHOTOS and OV_PH_PHOTOS). */
 const ART: Record<Props["id"], PhotoName[]> = {
 	features: ["bluebells", "poppies", "marigolds", "lilies", "lupins", "swirl"],
 	plants: ["wildflowers", "poppies", "blossom", "meadow", "marigolds", "lilies"],
 };
 const num = (i: number) => String(i + 1).padStart(2, "0");
 
-/**
- * The phases rail (Marketing v15): six tall cards in a row that bleeds off the right edge. Home shows the planter's six
- * phases; /oversight shows what a sending church sees. The cards render here; PinnedRail moves the row.
- */
 export function PhasesRail({ id, headline, items, icons }: Props) {
 	const head = (
 		<div className="mx-auto max-w-mk px-page">
@@ -32,7 +24,6 @@ export function PhasesRail({ id, headline, items, icons }: Props) {
 					as="h2"
 					size="h2"
 					id="ph-title"
-					// Home: two lines, as in the prototype, where the h2 is larger.
 					className={cn("col-span-9 max-mk-lg:col-span-12", id === "features" && "max-w-[640px]")}
 				>
 					{headline}
@@ -54,7 +45,6 @@ export function PhasesRail({ id, headline, items, icons }: Props) {
 					>
 						<div className="relative isolate mx-2 mt-2 h-[236px] flex-none overflow-hidden max-mk-sm:h-[200px]">
 							<Backdrop bg={art} sizes="(max-width: 640px) 82vw, 372px" className="absolute inset-0 -z-1" />
-							{/* The cream number sits on an ink corner shade: 3:1 or more on the lightest crops. */}
 							<span aria-hidden="true" className="mk-corner-shade absolute inset-0 -z-1" />
 							<span
 								aria-hidden="true"

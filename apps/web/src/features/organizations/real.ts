@@ -27,13 +27,6 @@ import type { NameOf, OperationName, Run } from "./port";
 import type { ReadResidency, SaveResidency } from "./Residency";
 import type { ReadSharing, SaveSharing } from "./Sharing";
 
-// The real port (WP-007/ui ruling D11): one typed server action per operation. The server parses the browser's input
-// and answers with the contract value, which the screens trust. A server refusal becomes a Refusal; a lost reply stays
-// a thrown network error, so useIntent keeps the command frozen. The one exception is the answer to a relationship
-// request, which carries the emailed proof: it goes through POST /api/connections/invitation, never a server function
-// argument (rulings U1, D54).
-
-/** The operations the screens call; the contract's other operations have no screen and no door. */
 type Actions = { [K in OperationName]?: (input: Ops[K]["input"]) => Promise<Reply<Ops[K]["output"]>> };
 const ACTIONS: Actions = {
 	"associations.invite": inviteAssociation,
@@ -70,7 +63,6 @@ export const realRun: Run = async <K extends OperationName>(operation: K, input:
 	return reply.value;
 };
 
-/** Names learned from the server so far. Pages add to it as they load; unknown IDs get a neutral word. */
 export function createNames(initial: Record<string, string>) {
 	const known = new Map(Object.entries(initial));
 	const learn = (names: Record<string, string>) => {

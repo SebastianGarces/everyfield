@@ -1,27 +1,6 @@
 "use client";
 
-import {
-	BookOpen01Icon,
-	BookOpen02Icon,
-	Calendar03Icon,
-	ChartLineData01Icon,
-	DashboardSquare01Icon,
-	File02Icon,
-	FileSearchIcon,
-	HierarchyIcon,
-	Link01Icon,
-	Mail01Icon,
-	Mortarboard01Icon,
-	Notification03Icon,
-	MessageEdit01Icon,
-	Route01Icon,
-	Settings02Icon,
-	StartUp02Icon,
-	ShieldUserIcon,
-	Task01Icon,
-	UserGroupIcon,
-	UserMultipleIcon,
-} from "@hugeicons/core-free-icons";
+import { BookOpen02Icon, MessageEdit01Icon, Settings02Icon } from "@hugeicons/core-free-icons";
 import { DASHBOARD_HOME, LANDING_ROUTE, ORGANIZATION_HOME } from "@everyfield/contracts/identity";
 import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
@@ -36,100 +15,13 @@ import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
 import { SettingsOpener } from "../settings/opener";
+import { shellNav } from "./nav.ts";
 import { Residency, useResidency, type ResidencyState } from "./residency.ts";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "../people/server.ts";
 import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
 
-const OVERVIEW = {
-	kind: "link",
-	key: "overview",
-	label: "Overview",
-	href: DASHBOARD_HOME,
-	icon: DashboardSquare01Icon,
-	prefetch: false,
-} as const;
-const PEOPLE = { kind: "link", key: "people", label: "People", href: "/people", icon: UserMultipleIcon } as const;
-const MEETINGS = {
-	kind: "link",
-	key: "meetings",
-	label: "Meetings",
-	href: "/meetings",
-	icon: Calendar03Icon,
-	prefetch: false,
-} as const;
-const TASKS = { kind: "link", key: "tasks", label: "Tasks", href: "/tasks", icon: Task01Icon } as const;
-const MESSAGES = {
-	kind: "link",
-	key: "messages",
-	label: "Messages",
-	href: "/communication",
-	icon: Mail01Icon,
-	prefetch: false,
-} as const;
-const MINISTRIES = {
-	kind: "link",
-	key: "ministries",
-	label: "Ministries",
-	href: "/ministries",
-	icon: UserGroupIcon,
-	prefetch: false,
-} as const;
-const WIKI = { kind: "link", key: "wiki", label: "Wiki", href: "/wiki", icon: BookOpen01Icon } as const;
-const DOCUMENTS = {
-	kind: "link",
-	key: "documents",
-	label: "Documents",
-	href: "/documents",
-	icon: File02Icon,
-	prefetch: false,
-} as const;
-const INTELLIGENCE = {
-	kind: "link",
-	key: "intelligence",
-	label: "Plant Intelligence",
-	href: "/intelligence",
-	icon: ChartLineData01Icon,
-	prefetch: false,
-} as const;
-const LAUNCH = {
-	kind: "link",
-	key: "launch",
-	label: "Launch",
-	href: "/launch",
-	icon: StartUp02Icon,
-	prefetch: false,
-} as const;
-const PLANTS = { kind: "link", key: "plants", label: "Plants", href: "/network", icon: HierarchyIcon } as const;
-const ORGANIZATION_PAGES = [
-	{ kind: "link", key: "connections", label: "Connections", href: "/settings/sharing#connections", icon: Link01Icon },
-	{ kind: "link", key: "sharing", label: "Sharing", href: "/settings/sharing", icon: ShieldUserIcon },
-	{ kind: "link", key: "notifications", label: "Notifications", href: "/notifications", icon: Notification03Icon },
-] as const;
-const PIPELINE = {
-	kind: "link",
-	key: "pipeline",
-	label: "Pipeline",
-	href: "/organization/pipeline",
-	icon: Route01Icon,
-	prefetch: false,
-} as const;
-const REVIEWS = {
-	kind: "link",
-	key: "reviews",
-	label: "Sent for review",
-	href: "/organization/reviews",
-	icon: FileSearchIcon,
-	prefetch: false,
-} as const;
-const MY_RESIDENCY = {
-	kind: "link",
-	key: "my-residency",
-	label: "My residency",
-	href: "/my-residency",
-	icon: Mortarboard01Icon,
-} as const;
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
 type FrameProps = {
@@ -228,37 +120,26 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 		onSelect: () => setFeedback(true),
 	} as const;
 	const organization = settings?.context === "organization";
-	const nav: ShellNav = organization
-		? {
-				main: [PLANTS, PIPELINE, REVIEWS],
-				pages: ORGANIZATION_PAGES.map((p) => (p.key === "notifications" ? { ...p, onNavigate: bell.refresh } : p)),
-				tools: [feedbackAction, settingsLink],
-			}
-		: {
-				main: account
-					? linked
-						? [MY_RESIDENCY, WIKI]
-						: [WIKI]
-					: [OVERVIEW, PEOPLE, MEETINGS, MESSAGES, TASKS, MINISTRIES, WIKI],
-				pages:
-					settings?.context !== "plant"
-						? [DOCUMENTS]
-						: role !== "member"
-							? [LAUNCH, INTELLIGENCE, DOCUMENTS]
-							: [LAUNCH, DOCUMENTS],
-				tools: [
-					feedbackAction,
-					{
-						kind: "action",
-						key: "guide",
-						label: "Guide",
-						icon: BookOpen02Icon,
-						onSelect: () => wiki?.toggleGuide(),
-						expanded: wiki?.guideOpen,
-					},
-					settingsLink,
-				],
-			};
+	const rail = shellNav(
+		organization
+			? { context: "organization" }
+			: settings?.context === "plant"
+				? { context: "plant", role: settings.role }
+				: { context: "account", residencyLinked: linked },
+	);
+	const guide = {
+		kind: "action",
+		key: "guide",
+		label: "Guide",
+		icon: BookOpen02Icon,
+		onSelect: () => wiki?.toggleGuide(),
+		expanded: wiki?.guideOpen,
+	} as const;
+	const nav: ShellNav = {
+		main: rail.main,
+		pages: rail.pages.map((p) => (p.key === "notifications" ? { ...p, onNavigate: bell.refresh } : p)),
+		tools: rail.guide ? [feedbackAction, guide, settingsLink] : [feedbackAction, settingsLink],
+	};
 	const later = (what: string) => () => toast({ message: `${what} is not available yet.`, tone: "info" });
 	const seat = role ? `${ROLE[role]} seat` : "";
 	return (

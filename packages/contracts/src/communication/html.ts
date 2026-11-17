@@ -1,6 +1,5 @@
 import sanitize from "sanitize-html";
 
-/** Tags a church email may keep. Everything else is discarded, including its nested content when it is a script. */
 const allowedTags = [
 	"a",
 	"b",
@@ -20,10 +19,6 @@ const allowedTags = [
 	"ul",
 ];
 
-/**
- * Allowlist sanitizer. It parses the markup, so a nested or unclosed tag cannot reassemble into a script.
- * The repo had no HTML parser. sanitize-html parses with htmlparser2 and keeps only this email subset.
- */
 export function sanitizeHtml(input: string): string {
 	return sanitize(input, {
 		allowedTags,
@@ -38,14 +33,11 @@ export function escapeHtml(value: string): string {
 	return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
-/** The merge keys delivery fills at send. The Messages field rail lists exactly these. */
 export const mergeKeys = ["name", "rsvp_link"] as const;
 export type MergeKey = (typeof mergeKeys)[number];
 
-/** True when a stored body holds the `{{rsvp_link}}` field. Such a message can only be sent from an open meeting. */
 export const usesRsvpLink = (body: string | null | undefined): boolean => /\{\{\s*rsvp_link\s*\}\}/i.test(body ?? "");
 
-/** The one merge value that becomes markup: an absolute https URL whose path is `/rsvp/<token>`. Anything else is null. */
 function rsvpHref(value: string | undefined): string | null {
 	if (!value) return null;
 	let url: URL;
@@ -61,10 +53,6 @@ function rsvpHref(value: string | undefined): string | null {
 
 export const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
-/**
- * The RSVP button, built by system code from a checked URL. A table cell carries the background, an inline-styled link
- * fills the cell, and a VML shape does the same in Outlook's Word engine. Nothing here depends on a `<style>` block.
- */
 function rsvpButton(href: string): string {
 	const url = escapeHtml(href);
 	return (
@@ -76,7 +64,6 @@ function rsvpButton(href: string): string {
 	);
 }
 
-/** Preview only: a labeled box where the button goes when the app origin cannot make a link. Never sent. */
 const rsvpPlaceholder = (): string =>
 	`<table data-rsvp-placeholder="" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0 6px 0;"><tr>` +
 	`<td align="center" style="border:2px dashed #9A9E98;padding:12px 20px;font-family:${FONT};font-size:14px;color:#666A64;">RSVP button appears here (needs an https app origin)</td></tr></table>`;
@@ -85,10 +72,6 @@ export type RenderMode = "send" | "preview";
 
 const MERGE_FIELD = () => /\{\{\s*([a-z0-9_]+)\s*\}\}/gi;
 
-/**
- * The merge fields a body fills with a value, in order of first use: every `{{field}}` in its text except `rsvp_link`,
- * which system code builds. A field inside a tag is dropped by `renderBody`, so it is not one.
- */
 export function mergeVariables(input: string): string[] {
 	const keys = sanitizeHtml(input)
 		.split(/(<[^>]*>)/)
@@ -97,13 +80,8 @@ export function mergeVariables(input: string): string[] {
 	return [...new Set(keys)].filter((key) => key !== "rsvp_link");
 }
 
-/**
- * Replace `{{field}}` after sanitizing. An unknown field becomes empty text. `rsvp_link` becomes a link only for a valid
- * RSVP URL and is empty otherwise. Every other value is escaped text, never markup or an attribute.
- */
 export function renderBody(input: string, merge: Readonly<Record<string, string>>, mode: RenderMode = "send"): string {
 	const field = MERGE_FIELD();
-	// Fields fill text only. A field inside a tag (an href) is dropped, so no merge value reaches an attribute.
 	return sanitizeHtml(input)
 		.split(/(<[^>]*>)/)
 		.map((part) =>
@@ -123,17 +101,14 @@ export function renderBody(input: string, merge: Readonly<Record<string, string>
 		.replace(/<p>\s*<\/p>/g, "");
 }
 
-/** The entities the sanitizer writes into text. */
 const entities: Record<string, string> = { lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " };
 
-/** Text of sanitized markup as a reader sees it. `&amp;` decodes last, so `&amp;lt;` stays the literal text `&lt;`. */
 const decodeText = (markup: string): string =>
 	markup
 		.replace(/<[^>]+>/g, " ")
 		.replace(/&(lt|gt|quot|#39|nbsp);/g, (_m, name: string) => entities[name]!)
 		.replaceAll("&amp;", "&");
 
-/** Text part of a body. A link is written as its text followed by its URL. */
 export function plainText(input: string): string {
 	return sanitizeHtml(input)
 		.split(/(<a\s+href="[^"]*"[^>]*>[\s\S]*?<\/a>)/)
@@ -149,14 +124,12 @@ export function plainText(input: string): string {
 		.trim();
 }
 
-/** Thirty 24-hour days. An instant equal to this window is accepted. A later instant is not. A past instant is not. */
 export const SCHEDULE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function scheduleAccepted(now: Date, at: Date): boolean {
 	return at.getTime() >= now.getTime() && at.getTime() <= now.getTime() + SCHEDULE_WINDOW_MS;
 }
 
-/** A protected security message. The caller stores the token only inside the sealed mail payload. */
 export function renderTransactional(
 	purpose: "password_reset",
 	token: string,

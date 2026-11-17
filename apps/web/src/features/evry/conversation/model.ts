@@ -1,10 +1,5 @@
-// The Evry panel's state, as plain data and pure functions (WP-051/ui). The server's saved events are the only truth
-// about a conversation: the panel merges what the API and the stream send, by sequence, and derives turns, result
-// cards and notices from them. A message the person sent shows at once and falls away when its saved event arrives.
-
 import type { Review } from "../review/model.ts";
 
-/** The four exact contexts a conversation belongs to. */
 type ContextKind = "account" | "plant" | "sending_church" | "sending_network";
 
 export type Conversation = {
@@ -30,7 +25,6 @@ type ErrorCode =
 	| "photo_unavailable"
 	| "unknown";
 
-/** The only error shape Evry sends: a code, a correlation id and whether a retry helps. */
 export type ProjectedError = {
 	code: ErrorCode;
 	correlationId: string;
@@ -38,7 +32,6 @@ export type ProjectedError = {
 	outcome: "unknown" | "refused";
 };
 
-/** A person on the page, or a photo the user attached in the panel (their own staged account photo upload). */
 export type Reference = { kind: "person" | "photo"; id: string };
 export type SourceRow = {
 	kind:
@@ -81,11 +74,8 @@ export type SourceResult = {
 	next: number | null;
 	completeness: "complete" | "partial";
 	exclusions: string[];
-	/** Totals the read counted over its rows, such as roles and people serving church-wide. */
 	facts?: Record<string, unknown>;
-	/** Rows whose source is no longer available, left out of this card when it was read again. */
 	withheldRows?: number;
-	/** Set on the result that holds a prepared change for review (WP-053). */
 	proposalId?: string;
 };
 
@@ -109,31 +99,22 @@ export type ConversationEvent =
 			{ state: "completed" | "stopped" | "failed"; reason: StopReason; error?: ProjectedError; withheld?: boolean }
 	  >;
 
-/** A message on its way: shown at once, sent with one request key that a retry of the same message reuses. */
 export type Send = {
 	key: string;
 	text: string;
 	references: Reference[];
 	state: "sending" | "unconfirmed" | "refused";
 	error: ProjectedError | null;
-	/** The saved message's sequence, once the server confirmed it. */
 	sequence: number | null;
 };
 
 export type State = {
 	conversation: Conversation | null;
 	events: readonly ConversationEvent[];
-	/** The run the panel waits for, until its final status event arrives. */
 	activeTurnId: string | null;
-	/** Cancel was asked for and the final status has not arrived yet. */
 	stopping: boolean;
 	sends: readonly Send[];
-	/** Each running turn's whole text as the live stream has delivered it, ahead of its saved events. */
 	live: Readonly<Record<string, string>>;
-	/**
-	 * Each review card's review from the read that opened the conversation, by proposal id; null when it is unavailable.
-	 * A card takes its own once, as it first shows (`seen`), and reads it by id after that.
-	 */
 	reviews: Readonly<Record<string, Review | null>>;
 };
 
@@ -147,28 +128,20 @@ export const EMPTY: State = {
 	reviews: {},
 };
 
-/** Live text from the stream (turn text from `offset` on). A piece the panel already has adds only what it lacks. */
 export function mergeLive(state: State, turnId: string, offset: number, text: string): State {
 	const have = state.live[turnId] ?? "";
 	if (offset > have.length || offset + text.length <= have.length) return state;
 	return { ...state, live: { ...state.live, [turnId]: have + text.slice(have.length - offset) } };
 }
 
-/** A conversation as the API reads it: its saved events and the state of its active run. */
 export type ReadConversation = {
 	conversation: Conversation;
-	/**
-	 * The active run: running while its job can make progress, lost once it cannot. The stream saves a lost run's end
-	 * (closeLostRun) and delivers it, so the panel waits for both.
-	 */
 	run: { turnId: string; state: "running" | "lost" } | null;
 	events: ConversationEvent[];
-	/** The current review of each review card among `events`, by proposal id; null when the person may not read it. */
 	reviews: Record<string, Review | null>;
 	more: boolean;
 };
 
-/** Opens a conversation read from the server, waiting for its active run's final status. */
 export function opened(read: ReadConversation): State {
 	return {
 		...merge({ ...EMPTY, conversation: read.conversation }, read.events),
@@ -177,13 +150,8 @@ export function opened(read: ReadConversation): State {
 	};
 }
 
-/** The highest saved sequence the panel has: the cursor for the next read or stream. */
 export const cursor = (state: State) => state.events.at(-1)?.sequence ?? 0;
 
-/**
- * Adds saved events, once each, in sequence order. A final status ends the run it belongs to. A message saved by
- * another tab starts a run the panel then waits for. A send whose message is now saved falls away.
- */
 export function merge(state: State, incoming: readonly ConversationEvent[]): State {
 	if (!incoming.length) return state;
 	const known = new Set(state.events.map((e) => e.sequence));
@@ -193,7 +161,6 @@ export function merge(state: State, incoming: readonly ConversationEvent[]): Sta
 	let { activeTurnId, stopping } = state;
 	let live = state.live;
 	for (const e of fresh) {
-		// A turn's end holds its whole saved text: what the stream delivered ahead of it is done.
 		if (e.kind === "status" && e.turnId && e.turnId in live)
 			live = Object.fromEntries(Object.entries(live).filter(([id]) => id !== e.turnId));
 		if (e.kind === "user_message" && e.turnId && !events.some((s) => s.kind === "status" && s.turnId === e.turnId))
@@ -207,10 +174,6 @@ export function merge(state: State, incoming: readonly ConversationEvent[]): Sta
 	const sends = state.sends.filter((s) => s.sequence === null || !saved.has(s.sequence));
 	return { ...state, events, activeTurnId, stopping, sends, live };
 }
-
-// ---------------------------------------------------------------------------------------------------------------
-// Turns: what the panel draws. One turn is the person's message, then Evry's text and result cards in the order they
-// were saved, then how the turn ended.
 
 type Block =
 	| { kind: "text"; sequence: number; text: string; withheld: boolean }
@@ -265,11 +228,9 @@ export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Rec
 				break;
 		}
 	}
-	// Text the stream delivered ahead of its saved events: what the saved text lacks of the live text, in the same place.
 	for (const turn of turns.values()) {
 		const streamed = live[turn.id];
 		if (!streamed || turn.end) continue;
-		// A withheld text means a source is gone: the turn's live text is never shown (retained.ts).
 		if (turn.blocks.some((b) => b.kind === "text" && b.withheld)) continue;
 		let saved = 0;
 		for (const e of events) if (e.turnId === turn.id && e.kind === "assistant_text") saved += e.body.text.length;
@@ -280,13 +241,11 @@ export function turnsOf(events: readonly ConversationEvent[], live: Readonly<Rec
 		else
 			turn.blocks.push({ kind: "text", sequence: (events.at(-1)?.sequence ?? 0) + 0.5, text: tail, withheld: false });
 	}
-	// A withheld text block keeps one notice, however many saved pieces it had.
 	for (const turn of turns.values())
 		for (const block of turn.blocks) if (block.kind === "text" && block.withheld) block.text = "";
 	return [...turns.values()];
 }
 
-/** The text of a turn's answer, for the screen reader's announcement when the turn ends. */
 export const answerText = (turn: Turn) =>
 	turn.blocks
 		.filter((b) => b.kind === "text" && !b.withheld)
@@ -294,16 +253,11 @@ export const answerText = (turn: Turn) =>
 		.join("")
 		.trim();
 
-/** Only the last turn can be tried again, once nothing runs and it did not complete. */
 export function retryable(state: State, turns: readonly Turn[]) {
 	const last = turns.at(-1);
 	if (!last?.end || state.activeTurnId || last.end.state === "completed") return false;
 	return last.end.error?.retry !== "never";
 }
-
-// ---------------------------------------------------------------------------------------------------------------
-// Notices: what the panel says when a turn did not complete, or a send was not saved. Calm, factual, and never more
-// than the projected error says.
 
 export type Notice = { tone: "neutral" | "error"; title: string; text: string };
 
@@ -381,13 +335,8 @@ export function sendNotice(send: Send): string | null {
 	}
 }
 
-/** A send can go again with its own key unless the server refused it for good. */
 export const resendable = (send: Send) =>
 	send.state === "unconfirmed" || (send.state === "refused" && send.error?.retry !== "never");
-
-// ---------------------------------------------------------------------------------------------------------------
-// Page context: the record on the page the person is looking at, offered to Evry as a hint it reads again under the
-// person's current access (REQ-EVR-006). Only person pages name a record in this slice.
 
 const PERSON_PAGE = /^\/people\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i;
 

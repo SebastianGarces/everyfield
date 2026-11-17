@@ -1,10 +1,6 @@
 import "server-only";
 import { loadPipelineExport, pipelineActor } from "@/server/organizations/pipeline";
 
-// GET /organization/pipeline/export (REQ-MUL-005): the pipeline as CSV for an Owner or Admin. The producer rechecks the
-// seat and the residents' consent in the statement that makes the bytes. Anyone else gets 403 with no body; a failed
-// database call 503.
-
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
 export async function exportRoute() {

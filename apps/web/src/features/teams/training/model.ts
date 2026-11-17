@@ -1,9 +1,6 @@
 import type * as c from "@everyfield/contracts/teams";
 import type { z } from "zod";
 
-// Words and shapes for the training screens. No React and no server code. A program belongs to one ministry, or to
-// every ministry when teamId is null. Completion is a record a person makes. Scheduling a session does not create one.
-
 export type Program = z.infer<typeof c.trainingList>["programs"][number];
 export type Credit = z.infer<typeof c.trainingHistory>["credits"][number];
 type PersonTraining = z.infer<typeof c.personTraining>;
@@ -12,12 +9,10 @@ type CreditBody = z.infer<typeof c.creditResult>;
 
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
-/** A program as the list shows it. `countsKnown` is false after the required list changes, until the list loads again. `rosterKnown` is false when that list did not load. */
 export type ShownProgram = Program & { assignedIds: string[]; countsKnown: boolean; rosterKnown: boolean };
 
 export type TrainingLoad = {
 	programs: Program[];
-	/** Null when the assignment read failed. The finished counts on each program still come from the list. */
 	assigned: { id: string; personIds: string[] }[] | null;
 };
 
@@ -47,7 +42,6 @@ export function problemText(code: string): string {
 	}
 }
 
-/** This ministry's programs, then programs for every ministry. Archived programs go last. */
 function orderPrograms(programs: readonly ShownProgram[], teamId: string): ShownProgram[] {
 	const rank = (p: ShownProgram) => (p.archived ? 2 : p.teamId === teamId ? 0 : 1);
 	return [...programs].sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
@@ -73,7 +67,6 @@ export function canWriteProgram(
 	return program.teamId === teamId && canChange;
 }
 
-/** The sentence under a program. Missing assignments are never called 100% complete. */
 export function progressText(
 	program: Pick<ShownProgram, "required" | "requiredPeople" | "compatibleCredits" | "countsKnown">,
 ): string {
@@ -143,7 +136,6 @@ export function applyRoster(
 	);
 }
 
-/** A new compatible completion counts only for someone on the required list. A revoke removes one. */
 export function applyCredit(programs: readonly ShownProgram[], result: CreditBody): ShownProgram[] {
 	if (result.outcome !== "changed" || result.programId === null) return [...programs];
 	return programs.map((p) => {
@@ -155,7 +147,6 @@ export function applyCredit(programs: readonly ShownProgram[], result: CreditBod
 	});
 }
 
-/** The latest credit for each program. History arrives oldest first, so the last row wins. */
 export function latestByProgram(credits: readonly Credit[]): Map<string, Credit> {
 	const map = new Map<string, Credit>();
 	for (const credit of credits) if (credit.programId) map.set(credit.programId, credit);
@@ -221,7 +212,6 @@ export type AssignForm = {
 	revision: string;
 	programName: string;
 	personIds: string[];
-	/** The preview's digest of exactly these people at `revision`. Null until the preview for this selection loads. */
 	rosterDigest: string | null;
 	problem?: string;
 };

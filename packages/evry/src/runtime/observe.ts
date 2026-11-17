@@ -10,30 +10,15 @@ const pause = (ms: number, signal: AbortSignal) =>
 		signal.addEventListener("abort", () => (clearTimeout(timer), resolve()), { once: true });
 	});
 
-/**
- * Live text of the running turn, ahead of its saved events. `offset` is where `text` starts in the turn's whole text, so
- * a receiver that already has the first characters (a reconnect, a saved event) adds only what it lacks.
- */
 export type LiveText = { turnId: string; offset: number; text: string };
 export type Observed = { event: ConversationEvent } | { live: LiveText };
 
 export type ObserveOptions = {
-	/** How often saved events and the access check are read. */
 	pollMs?: number;
-	/** The longest live text goes undelivered without a passed access check (patterns.md: a live path rechecks). */
 	staleMs?: number;
-	/** The first page after `after`, when the caller just read it as its access check: the first poll uses it. */
 	first?: Awaited<ReturnType<typeof readConversation>>;
 };
 
-/**
- * evry.observeRun and evry.resumeRun: the conversation's saved events after a cursor, then each new saved event while
- * a run is active, plus the running turn's text the moment this process receives it. Reconnecting with the last seen
- * sequence resumes without gaps or duplicates. Observing never starts, repeats or extends a run, and each poll checks
- * ownership again. A lost run gets its interrupted end saved once (closeLostRun), which the next read delivers before the
- * stream ends. Live text skips the database, so it flows only while the last access check passed less than `staleMs`
- * ago, and a failed check drops what it holds.
- */
 export async function* observeRun(
 	db: Database,
 	actor: EvryActor,
@@ -56,17 +41,14 @@ export async function* observeRun(
 		w?.();
 	};
 	let runTurn: string | null = null;
-	// Turns whose saved text came back withheld (a source was removed): their live text is never sent (retained.ts).
 	const withheld = new Set<string>();
 
-	// The saved events and the access check: one statement per read, with the live rule in it.
 	const poller = (async () => {
 		let cursor = after;
 		let submitted: ConversationEvent | null = null;
 		const delivered = new Set<string>();
 		try {
 			while (!inner.signal.aborted) {
-				// A caller that already read the first page (its access check) hands it over, so it is not read twice.
 				const page = first ?? (await readConversation(db, actor, conversationId, cursor));
 				first = undefined;
 				checkedAt = Date.now();
@@ -87,7 +69,6 @@ export async function* observeRun(
 				if (page.more) continue;
 				if (!page.run) return;
 				if (page.run.state === "lost" && (await closeLostRun(db, actor, conversationId, page.run.turnId))) continue;
-				// The running turn's room wakes the live pump; the poll only needs the saved events and the check.
 				await pause(pollMs, inner.signal);
 			}
 		} catch (error) {
@@ -100,7 +81,6 @@ export async function* observeRun(
 		}
 	})();
 
-	// Live text: only after the first access check passed, and only for the turn the conversation is running.
 	const pump = (async () => {
 		const sent = new Map<string, number>();
 		while (!inner.signal.aborted) {
@@ -115,7 +95,6 @@ export async function* observeRun(
 					continue;
 				}
 			}
-			// Wake at the next text, or after a poll in case the first access check or the run id was not in yet.
 			await room.next(AbortSignal.any([inner.signal, AbortSignal.timeout(pollMs)]));
 		}
 	})();
@@ -125,7 +104,6 @@ export async function* observeRun(
 			if (failure) throw (failure as { error: unknown }).error;
 			const item = queue[0];
 			if (item) {
-				// Live text waits while the access check is stale; a failed check clears it.
 				if ("live" in item && Date.now() - checkedAt > staleMs) {
 					await new Promise<void>((resolve) => {
 						wake = resolve;
@@ -148,7 +126,6 @@ export async function* observeRun(
 	}
 }
 
-/** The saved events only, for callers that follow the durable record alone. */
 export async function* observeConversation(
 	db: Database,
 	actor: EvryActor,

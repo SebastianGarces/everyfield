@@ -1,15 +1,9 @@
-// The throwaway Postgres `bin/dev check` runs package database tests on (T-105), as D81 and the QA quiet database
-// (tools/qa/tests/fixtures.ts) do: CI's image in Docker on this machine, a synthetic password, 127.0.0.1 on a random
-// port, migrated by the checkout's own db:migrate. Nothing else uses it. Every container carries this checkout's label,
-// so a start first removes what a crashed run of the same checkout left, and never another session's containers.
 import { spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { basename } from "node:path";
 import type { Runner } from "./check.ts";
 
-/** The image of CI's `db` job in .github/workflows/ci.yml. A test fails when the two differ. */
 export const IMAGE = "pgvector/pgvector:0.8.7-pg18";
-/** CI's database name, which tests/support/test-database.mts requires of a local database. */
 const DATABASE = "everyfield_ci";
 const USER = "ci";
 export const LABEL = "everyfield.check.checkout";
@@ -21,22 +15,15 @@ export type PostgresOptions = {
 	run: Runner;
 	readyTimeoutMs: number;
 	sleep: (ms: number) => void;
-	/** Starts what removes the container if this process dies first; returns how to stop it. */
 	watch: (container: string) => () => void;
 };
 
-/** A failure with its reason for checks.json. */
 export class DatabaseError extends Error {}
 
-/** This checkout's label value: the same for every run of one checkout, different across checkouts. */
 export const checkoutLabel = (root: string) => createHash("sha256").update(root).digest("hex").slice(0, 16);
 
 export const sleepSync = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
-/**
- * A detached shell that waits for this process to exit by any path (a signal included, while a synchronous child
- * blocks every JS handler) and then removes the container. Its own process group, so a Ctrl-C does not stop it first.
- */
 export function watchProcess(container: string): () => void {
 	const child = spawn(
 		"sh",
@@ -51,16 +38,13 @@ export function watchProcess(container: string): () => void {
 	};
 }
 
-/** The env each database command gets. Process env wins over node's --env-file-if-exists, so no env file reaches past it. */
 export const databaseEnv = (url: string) => ({
 	DATABASE_URL: url,
 	DATABASE_URL_UNPOOLED: url,
 	EARLY_ACCESS_TEST_DATABASE: "1",
-	// GitHub sets CI=true; the test-database guard accepts a local database only under it.
 	CI: "true",
 });
 
-/** Starts, waits for and migrates the database. Throws a DatabaseError with the reason; removes the container then. */
 export function startPostgres(options: PostgresOptions): ThrowawayPostgres & { stop: () => void } {
 	const { root, env, run, readyTimeoutMs, sleep } = options;
 	const docker = (...args: string[]) => run("docker", args, { cwd: root, env });
@@ -87,7 +71,6 @@ export function startPostgres(options: PostgresOptions): ThrowawayPostgres & { s
 	};
 	try {
 		if (started.status !== 0) throw new DatabaseError(`Docker could not start ${IMAGE}: ${firstLine(started.output)}`);
-		// The image's init server listens on its socket only, so a TCP answer means the final server is up.
 		const ready = () =>
 			docker("exec", container, "pg_isready", "-q", "-h", "127.0.0.1", "-U", USER, "-d", DATABASE).status === 0;
 		const deadline = Date.now() + readyTimeoutMs;

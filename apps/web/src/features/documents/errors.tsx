@@ -2,7 +2,6 @@
 
 import { Button, Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 
-/** An unexpected failure while rendering the documents page. Retrying renders the page again. */
 export function DocumentsError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
 	return (
 		<>

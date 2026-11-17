@@ -43,19 +43,6 @@ export function useDocumentHidden(): boolean {
 	);
 }
 
-const subscribeHash = (changed: () => void) => {
-	window.addEventListener("hashchange", changed);
-	return () => window.removeEventListener("hashchange", changed);
-};
-
-export function useLocationHash(): string {
-	return useSyncExternalStore(
-		subscribeHash,
-		() => location.hash,
-		() => "",
-	);
-}
-
 export function useHydrated(): boolean {
 	return useSyncExternalStore(
 		noSubscribe,

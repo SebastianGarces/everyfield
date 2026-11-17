@@ -1,7 +1,3 @@
-// WP-033: the app installs the living Wiki seed. The old bootstrap generation stays reachable for rollback.
-// Only this test reads the bootstrap payload, to build that old generation (criterion 11).
-// fixtures/living-wiki is a synthetic living seed with a corrected 501(c)(3) article. It proves the install
-// path carries corrected text byte for byte apart from the real seed's content.
 import { testDatabase, type TestDatabase } from "../../support/test-database.mts";
 import type { Database } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
@@ -20,7 +16,6 @@ import { createWikiProducer } from "../../../packages/domain/src/wiki/index.ts";
 import { GUIDE_ROUTES } from "../../../packages/domain/src/wiki/guides.ts";
 import { sectionExcerpt } from "../../../packages/domain/src/wiki/excerpt.ts";
 
-// The pin the app installed before WP-033, from git history. Only this test still builds it.
 const bootstrapSource: WikiSource = {
 	version: "wiki-starter-2026-10-03",
 	manifestPath: "docs/reference/bootstrap/manifest.json",
@@ -33,7 +28,6 @@ const bootstrapSource: WikiSource = {
 };
 const fixtureDir = "tests/reference/starter/fixtures/living-wiki";
 const fixtureBytes = (name: string) => readFile(new URL(`../../../${fixtureDir}/${name}`, import.meta.url));
-/** A living-seed pin for the synthetic fixture. The loader checks every hash and count against it. */
 const fixtureSource: WikiSource = {
 	version: "wiki-seed-fixture",
 	manifestPath: `${fixtureDir}/manifest.json`,
@@ -47,10 +41,8 @@ const fixtureSource: WikiSource = {
 const slug = "administrative/legal/setting-up-501c3";
 const einSlug = "administrative/legal/getting-your-churchs-ein";
 const oldAdvice = "Make sure you qualify for Form 1023-EZ";
-// The bootstrap copy offers Form 1023-EZ to a church in these three places.
 const oldOffers = [oldAdvice, "Lower filing fee (currently $275)", "| Form 1023-EZ | 2-4 weeks |"];
 
-/** Fails unless the article cites Rev. Proc. 2026-8 and no sentence offers Form 1023-EZ to a church. */
 function assertCorrected(body: string) {
 	assert.ok(body.includes("Rev. Proc. 2026-8"));
 	for (const offer of oldOffers) assert.equal(body.includes(offer), false, offer);
@@ -73,7 +65,6 @@ after(async () => {
 	for (const store of stores) await store.close();
 });
 
-/** An empty reference store in its own schema, with one operator who holds reference_publish. */
 async function emptyStore(schema?: string) {
 	const store = await testDatabase({ prefix: "wp033_test", schema, roles: {} });
 	stores.push(store);
@@ -112,7 +103,6 @@ function command(
 	};
 }
 
-/** The article body a reader gets: the revision in the currently active release. */
 async function activeArticle(db: Database, wanted: string) {
 	const selected = await db.execute(sql`
 		SELECT r.release_key, ar.body FROM article_revision ar
@@ -145,7 +135,6 @@ test("an empty store gets the real living seed's corrected 501(c)(3) and EIN art
 	assertCorrected(await installFresh(approvedWiki));
 });
 
-/** Bootstrap generation, then the living one, then a rollback and its replay. Returns the living article body and the store export. */
 async function upgradeAndRollBack(pin: WikiSource) {
 	const { db, caller } = await emptyStore();
 	const old = referenceService(db, { source: bootstrapSource });
@@ -156,7 +145,6 @@ async function upgradeAndRollBack(pin: WikiSource) {
 	assert.equal(first.insertedArticles, 96);
 	assert.equal((await activeArticle(db, slug)).body, await seedContent(bootstrapSource.payloadPath, slug));
 	for (const offer of oldOffers) assert.ok((await activeArticle(db, slug)).body.includes(offer), offer);
-	// The new pins refuse to install under the old source's digests.
 	await assert.rejects(
 		living.installApprovedWiki(caller, command(bootstrapSource, "LIVING", "1", "install")),
 		(error: unknown) => error instanceof Error && error.message === "digest_conflict",
@@ -205,7 +193,6 @@ test("the real living generation replaces the bootstrap one, and rollback works 
 	assert.deepEqual([approvedWiki.articles, approvedWiki.sections, approvedWiki.systemTemplates], [124, 21, 7]);
 	const { body, exported } = await upgradeAndRollBack(approvedWiki);
 	assertCorrected(body);
-	// The store keeps every global item it ever installed. Both seeds share item ids, so the counts stay at the living ones.
 	assert.deepEqual(
 		[exported.articles, exported.sections, exported.systemTemplates, exported.discoveryArticles],
 		[124, 21, 7, 6],
@@ -213,7 +200,6 @@ test("the real living generation replaces the bootstrap one, and rollback works 
 });
 
 test("the seed step's wiki:install activates the living seed on a seed schema, a rerun changes nothing, and every Guide opens at its section", async () => {
-	// The command accepts only tests/ui seed schema names, so this store borrows that shape.
 	const { db } = await emptyStore("ui_" + randomBytes(8).toString("hex"));
 	const schema = ((await db.execute(sql`SELECT current_schema() AS s`)).rows[0] as { s: string }).s;
 	const run = () => {
@@ -237,7 +223,6 @@ test("the seed step's wiki:install activates the living seed on a seed schema, a
 	await assertGuides(db);
 });
 
-/** T-28: an Owner's Guide on every mapped screen opens at its section of the installed release, and writes no reading. */
 async function assertGuides(db: Database) {
 	const who = { id: randomUUID(), user: randomUUID(), session: randomUUID(), plant: randomUUID() };
 	await db.execute(sql`INSERT INTO auth_user(id, email, email_verified, name)

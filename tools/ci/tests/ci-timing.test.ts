@@ -7,7 +7,6 @@ import { join, resolve } from "node:path";
 
 const tool = resolve(import.meta.dirname, "../ci-timing.ts");
 
-// A fake gh that serves fixtures by API path, records every call and refuses anything but a GET read.
 const fakeGh = `#!/usr/bin/env node
 const fs = require('node:fs');
 const path = require('node:path');
@@ -66,7 +65,6 @@ function fixture() {
 						created_at: t(0),
 						started_at: t(2),
 						steps: [
-							// Every listed setup pattern, 1 s each: 11 s of setup.
 							step("Set up job", 2, 3),
 							step("Run actions/checkout@v7", 3, 4),
 							step("Run pnpm/action-setup@v6", 4, 5),
@@ -76,7 +74,6 @@ function fixture() {
 							step("Run actions/cache@v6", 8, 9),
 							step("Run actions/cache/restore@v6", 9, 10),
 							step("Chromium for render tests", 10, 11),
-							// Unlisted steps are run time: 30 s + 20 s. The skipped one did not run.
 							step("Types", 11, 41),
 							step("Install the world", 41, 61),
 							step("Statement census part", 61, 61, "skipped"),
@@ -89,7 +86,6 @@ function fixture() {
 						name: "docs",
 						created_at: t(0),
 						started_at: t(5),
-						// A run step without completed_at: run time is no data, setup still counts.
 						steps: [step("Set up job", 5, 7), step("Documentation checks", 7, null)],
 					},
 				],
@@ -103,7 +99,6 @@ function fixture() {
 				"2026-11-04T12:00:10Z \x1b[36;1munrelated coloured line\x1b[0m",
 			].join("\n"),
 		},
-		// Expired log.
 		[`${R}/jobs/12/logs`]: { status: 410 },
 		[`${R}/runs/2/jobs?per_page=100`]: {
 			body: {
@@ -113,7 +108,6 @@ function fixture() {
 						name: "app",
 						created_at: t(0),
 						started_at: t(4),
-						// The step names since T-251: corepack's pnpm and the pnpm store cache are setup.
 						steps: [
 							step("Set up job", 4, 6),
 							step("pnpm from corepack (retries registry errors)", 6, 7),
@@ -133,8 +127,6 @@ function fixture() {
 						name: "tooling",
 						created_at: t(0),
 						started_at: t(3),
-						// The step names since T-285: the shared setup action and tooling's node_modules save are setup,
-						// 1 + 1 + 6 + 2 + 1 + 1 + 1 = 13 s. The wiki install between them stays run time.
 						steps: [
 							step("Set up job", 3, 4),
 							step("Run actions/checkout@v7", 4, 5),
@@ -152,7 +144,6 @@ function fixture() {
 						name: "ci",
 						created_at: t(0),
 						started_at: t(2),
-						// The Node-only shared setup is setup too.
 						steps: [
 							step("Set up job", 2, 3),
 							step("Shared setup (Node)", 3, 5),
@@ -163,8 +154,6 @@ function fixture() {
 			},
 		},
 		[`${R}/jobs/21/logs`]: { body: "Cache not found for input keys: x\npnpm cache is not found\n" },
-		// The shared setup's two restores print inside its step: Node and corepack hit, node_modules missed. The
-		// corepack line and the save after the wiki install are not cache restores.
 		[`${R}/jobs/23/logs`]: {
 			body: [
 				"2026-11-04T12:00:05Z Cache restored from key: node-corepack-Linux-X64-24.22.1-pnpm@10.34.6",
@@ -175,7 +164,6 @@ function fixture() {
 			].join("\n"),
 		},
 		[`${R}/jobs/24/logs`]: { body: "2026-11-04T12:00:03Z Cache restored from key: node-Linux-X64-24.22.1\n" },
-		// Job 22 has no log route: HTTP 404.
 	};
 	writeFileSync(join(root, "routes.json"), JSON.stringify(routes));
 	const run = (...args: string[]) =>
@@ -220,7 +208,6 @@ test("INV-ci-timing: ci-timing splits queue, setup and run per job, counts cache
 			totals: [
 				{ name: "app", jobs: 2, queueMs: 6000, setupMs: 15_000, runMs: 60_000, cacheHits: 2, cacheMisses: 3 },
 				{ name: "tooling", jobs: 1, queueMs: 3000, setupMs: 13_000, runMs: 21_000, cacheHits: 2, cacheMisses: 1 },
-				// The missing run time and both missing logs are left out of the totals, never counted as 0.
 				{ name: "docs", jobs: 2, queueMs: 6000, setupMs: 3000, runMs: 3000, cacheHits: null, cacheMisses: null },
 				{ name: "ci", jobs: 1, queueMs: 2000, setupMs: 3000, runMs: 4000, cacheHits: 1, cacheMisses: 0 },
 			],
@@ -257,11 +244,9 @@ test("INV-ci-timing: ci-timing sends only GET reads to GitHub", () => {
 		assert.equal(calls.length, 9);
 		for (const call of calls) {
 			assert.deepEqual(call.slice(0, 3), ["api", "--method", "GET"]);
-			// A job log read also allows the log's colour codes; nothing else is added.
 			const isLog = call.at(-1)?.endsWith("/logs");
 			assert.deepEqual(call.slice(3, -1), isLog ? ["--allow-escape-sequences"] : []);
 		}
-		// The fake really refuses writes, so a write attempt cannot pass unnoticed.
 		for (const write of [
 			["--method", "POST"],
 			["-X", "PATCH"],

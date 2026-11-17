@@ -9,20 +9,13 @@ import { historyReason, subjectOf } from "./model";
 import { formatDay } from "../shared/dates.ts";
 import type { History, HistoryItem, NameOf, RelationshipPair } from "./port";
 
-/** Reads the next page of the same history scope. `after` is the contract's `next` cursor. */
 export type ReadHistory = (after: string | null) => Promise<{ status: "unavailable" } | History>;
 
-/** The name of the other side of a pair, seen from the scope that asked for the history. */
 export function otherSide(scope: History["scope"], pair: RelationshipPair, nameOf: NameOf): string {
 	const fromOrganization = "organization" in scope && scope.organization.id === pair.organization.id;
 	return fromOrganization ? nameOf(subjectOf(pair)) : nameOf(pair.organization);
 }
 
-/**
- * Connection history (REQ-IDN-021): who connected or ended which link and when, newest first. It shows only the
- * recorded events; a `partial` history says that earlier events were not recorded instead of inventing them. When a
- * later page is refused, every row already shown goes away (REQ-IDN-005).
- */
 export function HistoryList({
 	first,
 	read,

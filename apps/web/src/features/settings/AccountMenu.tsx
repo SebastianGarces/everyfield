@@ -13,11 +13,6 @@ import { leavePage } from "../../components/save/leave.ts";
 import { identityApi, loadPage } from "../identity/api";
 import { SECTION_LABEL } from "./model";
 
-/**
- * The user menu (screens.md, Overlays: User menu): who you are, your account, the feedback you sent (WP-049), the
- * settings pages that exist, and Sign out. The AppShell's name button opens it on every signed-in page. Seats and Sharing are offered to every seat:
- * Members read them and the pages themselves hide every change a Member may not make.
- */
 export function AccountMenu({
 	name,
 	detail,
@@ -27,7 +22,6 @@ export function AccountMenu({
 	name: string;
 	detail: string;
 	onAccount: () => void;
-	/** A plant Owner or Admin has a private weekly check-in; a Member has no entry point (REQ-PI-038). */
 	checkIn?: boolean;
 }) {
 	const toast = useToast();

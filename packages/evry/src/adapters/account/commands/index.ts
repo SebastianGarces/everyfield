@@ -5,13 +5,6 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { nativeWrite, notes, plantSeat, settled } from "../../native.ts";
 
-// The signed-in person's own account: their photo and a request to delete their login. Each runs the account command
-// the Settings > Account section runs, for the approving session's own account. Sign-in, password and email changes
-// are never Evry tools; Evry points to Settings for them.
-
-// Anyone with a seat in a church may change their own account. An organization login gets only its own profile tool
-// for now (T-327), so these stay with church seats.
-/** The approving session's own account, the owner every account command takes. */
 const own = (context: PeopleContext, accountId: string) => ({
 	session: context.session,
 	selected: owner.parse({ kind: "account", id: accountId }),
@@ -20,10 +13,6 @@ const account = (actor: EvryActor) =>
 	sql`FROM account a CROSS JOIN LATERAL seat_identity(a.id) n WHERE a.id=${actor.accountId}::uuid`;
 const you = sql`jsonb_build_object('kind','account','id',a.id,'label',n.display_name)`;
 
-/**
- * Making a photo the person attached in Evry their own account photo. The upload is their own staged, verified photo
- * that no account uses yet; the card shows its bytes and approval needs them shown (proposals/store.ts).
- */
 export const finalizeAvatar = nativeWrite({
 	operation: "account.finalizeAvatar",
 	description:
@@ -41,11 +30,6 @@ export const finalizeAvatar = nativeWrite({
 	},
 });
 
-/**
- * Asking to delete the person's own login. It waits 30 days, during which signing in again offers to cancel it. An
- * Owner's account keeps the church running, so its review says what has to happen first and offers no approval, as
- * Settings does.
- */
 export const requestDeletion = nativeWrite({
 	operation: "account.requestDeletion",
 	description:
@@ -71,7 +55,6 @@ export const requestDeletion = nativeWrite({
 	},
 });
 
-/** The installed account reviewed writes, keyed by operation. */
 export const ACCOUNT_COMMANDS = {
 	"account.finalizeAvatar": finalizeAvatar,
 	"account.requestDeletion": requestDeletion,
