@@ -3,7 +3,6 @@ export {
 	useBrowserZone,
 	useDocumentHidden,
 	useHydrated,
-	useLocationHash,
 	useMediaQuery,
 	useMinuteClock,
 	useReducedMotion,

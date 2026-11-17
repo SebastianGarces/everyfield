@@ -19,6 +19,7 @@ export type AddressRule = (to: URL, from: URL | null) => string | null;
 const changes = new Set<Listener>();
 const linkValueReaders = new Set<Listener>();
 const traversals = new Set<Listener>();
+const hashReaders = new Set<Listener>();
 export type RouterNavigation = "push" | "replace" | "traverse";
 type NavigationListener = (to: string, type: RouterNavigation) => void;
 const navigations = new Set<NavigationListener>();
@@ -32,6 +33,9 @@ export const currentAddress = () => window.location.pathname + window.location.s
 export const fullAddress = () => currentAddress() + window.location.hash;
 const urlOf = (href: string | URL) => new URL(href, ORIGIN);
 const knownAddress = () => (shown ??= fullAddress());
+const hashChanged = () => {
+	for (const reader of hashReaders) reader();
+};
 
 function ruled(to: URL, from: URL | null): string | null {
 	for (const rule of rules.values()) {
@@ -85,6 +89,7 @@ function traversed() {
 	routerBehind = true;
 	for (const listener of changes) listener();
 	for (const listener of traversals) listener();
+	hashChanged();
 }
 
 export function routerTransitionStarted(href: string, type: RouterNavigation): void {
@@ -101,7 +106,7 @@ function routerWrote(event: EntryChange) {
 	shown = fullAddress();
 }
 
-type Installed = { popstate: () => void; entry: (event: EntryChange) => void };
+type Installed = { popstate: () => void; hashchange: () => void; entry: (event: EntryChange) => void };
 const INSTALLED = Symbol.for("everyfield.location");
 
 if (typeof window !== "undefined") {
@@ -110,10 +115,12 @@ if (typeof window !== "undefined") {
 	const previous = host[INSTALLED];
 	if (previous) {
 		window.removeEventListener("popstate", previous.popstate);
+		window.removeEventListener("hashchange", previous.hashchange);
 		navigation?.removeEventListener("currententrychange", previous.entry);
 	}
-	host[INSTALLED] = { popstate: traversed, entry: routerWrote };
+	host[INSTALLED] = { popstate: traversed, hashchange: hashChanged, entry: routerWrote };
 	window.addEventListener("popstate", traversed);
+	window.addEventListener("hashchange", hashChanged);
 	navigation?.addEventListener("currententrychange", routerWrote);
 }
 
@@ -140,6 +147,11 @@ export function addAddressRule(name: string, rule: AddressRule): void {
 export function writeAddress(href: string | URL, { replace = false, state }: AddressWrite = {}): void {
 	write(ruled(urlOf(href), urlOf(knownAddress())) ?? href, replace, state ?? null);
 	for (const listener of changes) listener();
+}
+
+export function writeHash(hash: string): void {
+	window.location.hash = hash;
+	hashChanged();
 }
 
 const marked = (value: string) => (routerBehind ? `+${value}` : `-${value}`);
@@ -169,6 +181,17 @@ export function useAddress(): Address {
 		const url = urlOf(href);
 		return { pathname: url.pathname, params: url.searchParams };
 	}, [href]);
+}
+
+const subscribeHash = (listener: Listener) => {
+	hashReaders.add(listener);
+	return () => void hashReaders.delete(listener);
+};
+
+export const addressHash = () => window.location.hash;
+
+export function useAddressHash(): string {
+	return useSyncExternalStore(subscribeHash, addressHash, () => "");
 }
 
 const subscribeLinkValue = (listener: Listener) => {

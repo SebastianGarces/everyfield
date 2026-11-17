@@ -4,7 +4,7 @@
 			{
 				"function": "useEvryPanel",
 				"count": 1,
-				"reason": "Temporary survivor, waiting for a shared follow-up: EvryPanel.tsx:65 (Cmd+J/Ctrl+J listener). It goes away once AppShell takes a shortcut mark on its Ask Evry button and ProductFrame passes a toggle (packages/ui and features/shell, outside this slice). No pattern inside this folder can carry the mark: the closed panel renders nothing, and a hidden marked button would be the same listener in disguise."
+				"reason": "Temporary survivor until T-420 removes it, waiting for a shared follow-up: EvryPanel.tsx:65 (Cmd+J/Ctrl+J listener). It goes away once AppShell takes a shortcut mark on its Ask Evry button and ProductFrame passes a toggle (packages/ui and features/shell, outside this slice). No pattern inside this folder can carry the mark: the closed panel renders nothing, and a hidden marked button would be the same listener in disguise."
 			}
 		]
 	},
@@ -13,7 +13,7 @@
 			{
 				"function": "useEvryPanel",
 				"count": 2,
-				"reason": "The add and remove of the same listener. Temporary survivor, waiting for a shared follow-up: EvryPanel.tsx:65 (Cmd+J/Ctrl+J listener). It goes away once AppShell takes a shortcut mark on its Ask Evry button and ProductFrame passes a toggle (packages/ui and features/shell, outside this slice). No pattern inside this folder can carry the mark: the closed panel renders nothing, and a hidden marked button would be the same listener in disguise."
+				"reason": "The add and remove of the same listener. Temporary survivor until T-420 removes it, waiting for a shared follow-up: EvryPanel.tsx:65 (Cmd+J/Ctrl+J listener). It goes away once AppShell takes a shortcut mark on its Ask Evry button and ProductFrame passes a toggle (packages/ui and features/shell, outside this slice). No pattern inside this folder can carry the mark: the closed panel renders nothing, and a hidden marked button would be the same listener in disguise."
 			}
 		]
 	}
