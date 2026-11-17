@@ -1,5 +1,3 @@
-// The messages a refused Church Document action shows. A plain module, so a test reads them without a server action.
-
 const MESSAGES: Record<string, string> = {
 	access_denied: "Only an Owner or Admin of the church plant can do this.",
 	unavailable: "This is not available any more. Reload the page.",
@@ -11,7 +9,6 @@ export const refusedWith = (code: string): { status: "refused"; message: string 
 	message: MESSAGES[code] ?? "Something went wrong. Nothing was changed.",
 });
 
-/** The messages a refused Download shows. Nothing is saved and nothing downloads on any of them. */
 export const EXPORT_MESSAGES: Record<string, string> = {
 	render_failed: "Everyfield could not make this file, so nothing was saved or downloaded. Try again in a moment.",
 	unavailable: "This file could not be saved, so nothing was downloaded. Reload the page and try again.",

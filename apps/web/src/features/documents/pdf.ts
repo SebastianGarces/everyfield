@@ -13,10 +13,6 @@ function library() {
 	return loaded;
 }
 
-export function preparePdf() {
-	void library();
-}
-
 export async function openPdf(bytes: Uint8Array): Promise<PDFDocumentProxy> {
 	const pdfjs = await library();
 	return pdfjs.getDocument({ data: bytes.slice() }).promise;
