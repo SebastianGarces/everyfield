@@ -32,7 +32,7 @@ import {
 } from "@everyfield/ui/controls";
 import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap/react";
 import { useCallback, useId, useMemo, useState, type CSSProperties, type FormEvent } from "react";
-import { SAVE_SHORTCUT, shortcutMark } from "../../../../components/save/leave.ts";
+import { armLeaveHold, leaveHoldMark, SAVE_SHORTCUT, shortcutMark } from "../../../../components/save/leave.ts";
 import { useLocalStore, useStore } from "../../../../components/store.ts";
 import { saveChurchDocument } from "../actions.ts";
 import { ChurchPdf } from "../ChurchPdf.tsx";
@@ -50,7 +50,7 @@ import { readPage } from "./layout.ts";
 import { paletteVars } from "./paper.ts";
 import { PageSetupPanel } from "./PageSetup.tsx";
 import { SaveAsTemplateDialog, churchTemplates, type TemplateSaved } from "./SaveAsTemplate.tsx";
-import { BlockShortcuts, LeaveDialog, SaveStatusText, useLeaveGuard, type SaveStatus } from "./session.tsx";
+import { BlockShortcuts, LeaveDialog, SaveStatusText, type SaveStatus } from "./session.tsx";
 import { TemplateCompare, templateCompares } from "./TemplateCompare.tsx";
 import { EditorToolbar } from "./Toolbar.tsx";
 
@@ -122,7 +122,10 @@ export default function ChurchEditor({
 			actions.began(created);
 			assets.drawIn(created);
 		},
-		onUpdate: ({ editor: changed }) => actions.edited(changed),
+		onUpdate: ({ editor: changed }) => {
+			actions.edited(changed);
+			if (actions.unsaved(changed)) armLeaveHold();
+		},
 		onSelectionUpdate: actions.moved,
 		editorProps,
 	});
@@ -141,8 +144,6 @@ export default function ChurchEditor({
 					? { kind: "saved" }
 					: { kind: "dirty" };
 
-	const unsaved = useCallback(() => !!editor && actions.unsaved(editor), [editor, actions]);
-
 	const save = useCallback(
 		async (): Promise<boolean> => (editor ? actions.save(editor, onRevision) : false),
 		[editor, actions, onRevision],
@@ -153,8 +154,6 @@ export default function ChurchEditor({
 		const fromButton = (event.nativeEvent as SubmitEvent).submitter !== null;
 		void save().then((ok) => ok && fromButton && editor?.view.focus());
 	}
-
-	const leave = useLeaveGuard(editor, unsaved);
 
 	const preview = useCallback(async () => {
 		if (status.kind !== "saved" && !(await save())) return;
@@ -204,7 +203,7 @@ export default function ChurchEditor({
 
 	return (
 		<EditorContext.Provider value={editorContext}>
-			<div className="flex flex-col gap-3">
+			<div className="flex flex-col gap-3" {...leaveHoldMark(!same || phase.kind === "saving")}>
 				<form
 					className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
 					{...shortcutMark(SAVE_SHORTCUT)}
@@ -406,7 +405,7 @@ export default function ChurchEditor({
 					</section>
 				) : null}
 			</div>
-			<LeaveDialog request={leave.request} onSave={save} onDone={leave.close} />
+			<LeaveDialog onSave={save} />
 			{templateDialog.opening > 0 ? (
 				<SaveAsTemplateDialog
 					key={templateDialog.opening}

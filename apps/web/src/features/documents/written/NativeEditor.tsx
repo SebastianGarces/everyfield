@@ -26,20 +26,21 @@ import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { writeAddress } from "../../../components/location.ts";
-import { SAVE_SHORTCUT, shortcutMark } from "../../../components/save/leave.ts";
+import {
+	armLeaveHold,
+	leaveHoldMark,
+	leavePage,
+	leaveRequestNow,
+	SAVE_SHORTCUT,
+	shortcutMark,
+} from "../../../components/save/leave.ts";
 import { useLocalStore, useStore } from "../../../components/store.ts";
 import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
 import "../church/editor/editor.css";
 import { nativeExtensions } from "../church/editor/extensions.ts";
 import { BlockControls } from "../church/editor/LayoutControls.tsx";
 import { TABLE_REFUSED } from "../church/editor/TableControls.tsx";
-import {
-	BlockShortcuts,
-	LeaveDialog,
-	SaveStatusText,
-	useLeaveGuard,
-	type SaveStatus,
-} from "../church/editor/session.tsx";
+import { BlockShortcuts, LeaveDialog, SaveStatusText, type SaveStatus } from "../church/editor/session.tsx";
 import { EditorToolbar } from "../church/editor/Toolbar.tsx";
 import { documentProblem, type WrittenView } from "../model.ts";
 import { CopiedNote, SECTION, TextRevisionNote } from "./notes.tsx";
@@ -100,7 +101,10 @@ export default function NativeEditor({
 			},
 		},
 		onCreate: ({ editor: created }) => actions.began(created),
-		onUpdate: actions.settle,
+		onUpdate: ({ editor: changed }) => {
+			actions.settle();
+			if (actions.unsaved(changed)) armLeaveHold();
+		},
 		onSelectionUpdate: actions.settle,
 	});
 
@@ -121,12 +125,9 @@ export default function NativeEditor({
 
 	const save = useCallback(async () => (editor ? actions.save(editor) : false), [editor, actions]);
 	const editorContext = useMemo(() => ({ editor }), [editor]);
-	const unsaved = useCallback(() => !!editor && actions.unsaved(editor), [editor, actions]);
-	const leave = useLeaveGuard(editor, unsaved);
-
 	function reload() {
-		actions.discard();
-		window.location.reload();
+		leavePage(() => window.location.reload());
+		leaveRequestNow()?.leave();
 	}
 
 	async function archive() {
@@ -141,7 +142,6 @@ export default function NativeEditor({
 					"This document was not archived. Try again.",
 				),
 			);
-		actions.discard();
 		router.push("/documents");
 	}
 
@@ -149,7 +149,7 @@ export default function NativeEditor({
 	const conflict = phase.kind === "failed" && phase.conflict;
 	return (
 		<EditorContext.Provider value={editorContext}>
-			<div className="flex flex-col gap-4">
+			<div className="flex flex-col gap-4" {...leaveHoldMark(changed)}>
 				<PageHeader
 					breadcrumb={[{ label: "Documents", href: "/documents" }]}
 					title={title.trim() || (saved.id ? saved.title : "New document")}
@@ -292,7 +292,7 @@ export default function NativeEditor({
 					</div>
 				</div>
 			</div>
-			<LeaveDialog request={leave.request} onSave={save} onDone={leave.close} />
+			<LeaveDialog onSave={save} />
 			<ConfirmDialog
 				open={archiveOpen}
 				onOpenChange={setArchiveOpen}
