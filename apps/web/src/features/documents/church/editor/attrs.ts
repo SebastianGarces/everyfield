@@ -1,11 +1,6 @@
-// How a node keeps an attribute of the format: in a `data-ef-*` attribute of its HTML, so a copy and a paste keep it.
-// An attribute the file leaves out stays `undefined` in the editor and out of the JSON, so a document reads back exactly
-// as it was stored. A stored `null` (a table's `source`, an amount that was cleared) is written as `data-ef-<name>-null`.
-
 type Kind = "string" | "number" | "boolean" | "json";
 export type Attrs = Record<string, unknown>;
 
-/** One format attribute: no default (the format's default applies at render), stored in a `data-ef-*` attribute. */
 function attr(name: string, kind: Kind = "string") {
 	const html = `data-ef-${name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 	return {
