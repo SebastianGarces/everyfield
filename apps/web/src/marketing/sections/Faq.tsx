@@ -5,7 +5,6 @@ import { FaqItem } from "./FaqItem";
 
 type FaqCopy = Copy["shared"]["oversight_page"]["faq"];
 
-/** /oversight, Revision 26: the FAQ. Title left (sticky), questions right on desktop; one column on tablets and phones. */
 export function Faq({ f }: { f: FaqCopy }) {
 	return (
 		<section id="faq" className="relative py-section">
@@ -33,7 +32,6 @@ export function Faq({ f }: { f: FaqCopy }) {
 	);
 }
 
-/** The answer text; the words in `link` become a link to the request page's network form, as in the prototype. */
 function answer(a: string, link?: string) {
 	const i = link ? a.indexOf(link) : -1;
 	if (!link || i < 0) return a;

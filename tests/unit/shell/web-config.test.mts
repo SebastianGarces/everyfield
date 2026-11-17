@@ -1,5 +1,3 @@
-// T-163: the web app's Next config sends baseline security headers on every response and keeps the invitation page's
-// no-referrer override after them; `next dev` logs no request whose URL carries a link token.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";

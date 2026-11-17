@@ -19,24 +19,13 @@ const REFUSED: Record<string, string> = {
 	stale_revision: "Your choice was not saved. It changed somewhere else. Load the latest and try again.",
 };
 
-/**
- * The organization's view of this connection and the connection revision a change must carry. privacy.getSharing
- * returns only the consent revision, so the caller supplies the connection revision (ruling D17).
- */
 export type SharingRow = { sharing: Sharing; relationshipRevision: string };
 export type ReadSharing = (
 	relationshipId: string,
 	request: ReturnType<typeof readSharingRequest.parse>,
 ) => Promise<SharingRow>;
-/** Saves one choice. The answer is the connection's sharing as saved now, or null when nothing was saved. */
 export type SaveSharing = (command: SetCommand) => Promise<SharingRow | null>;
 
-/**
- * What one connected organization can see (REQ-IDN-022), on the plant's own connection row. Owners and Admins turn
- * each category on or off for this exact organization; Members see that Owners and Admins choose. The words match
- * the settings sharing card (WP-010/ui). The list reads the card's state with the page; each save answers with the
- * state as saved, so the next change carries the current connection and consent revisions without another read.
- */
 export function SharingChoices({
 	relationship,
 	organizationName,
@@ -47,11 +36,9 @@ export function SharingChoices({
 }: {
 	relationship: Relationship;
 	organizationName: string;
-	/** The state as the list read it with the page; the card reads again only after a save. */
 	initial?: SharingRow;
 	read: ReadSharing;
 	save: SaveSharing;
-	/** After a save: the connection's revision moved, so the list that owns Leave takes the new one. */
 	onChanged: (relationshipRevision: string) => void;
 }) {
 	const pair = relationship.pair;
@@ -120,10 +107,8 @@ function Switches({
 	relationshipId: string;
 	relationshipRevision: string;
 	save: SaveSharing;
-	/** A fresh read is running: the revisions on screen may be old, so nothing is sent until it arrives. */
 	refreshing: boolean;
 	onSaved: (row: SharingRow) => void;
-	/** Read the latest state, after an unconfirmed change. */
 	onStale: () => void;
 }) {
 	const save = useIntent<SetCommand>("privacy-sharing");
@@ -150,7 +135,6 @@ function Switches({
 			send,
 			(row) => row !== null,
 		);
-		// On success the switches re-mount on the new revisions; until then they keep the saved value and stay disabled.
 		if (result.ok && result.reply) onSaved(result.reply);
 		else setNext(null);
 	};
@@ -203,7 +187,6 @@ function Switches({
 						size="sm"
 						variant="secondary"
 						onClick={() => {
-							// Reading the latest state resolves an unconfirmed change; a new switch is a new command.
 							save.release();
 							onStale();
 						}}

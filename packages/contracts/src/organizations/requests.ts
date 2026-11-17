@@ -13,13 +13,11 @@ import {
 	sharingCategory,
 } from "./subjects.ts";
 
-// Session, actor, roles, current scope, approval and clock come from server adapters.
 export const inviteRelationshipRequest = commandEnvelope(
 	z.strictObject({ pair: relationshipPair, recipientEmail: normalizedEmail.pipe(z.string().max(320)) }),
 );
 const invitation = z.strictObject({ invitationId: recordId });
 export const invitationCommandRequest = commandEnvelope(invitation);
-// Native original-address proof is ephemeral, never stored in receipts or model input.
 export const respondInvitationRequest = commandEnvelope(
 	invitation.extend({
 		proof: z.string().min(1).max(4096),
@@ -60,16 +58,10 @@ export const setSharingRequest = commandEnvelope(
 	}),
 );
 
-/** The longest statement of faith a network stores, in characters. */
 export const STATEMENT_OF_FAITH_MAX = 10_000;
 const boundedText = z.string().trim().max(200).nullable();
-/** The longest name and description of the milestone an organization offers its plants (T-296), in characters. */
 export const GATHERING_NAME_MAX = 120;
 export const GATHERING_DESCRIPTION_MAX = 2000;
-/**
- * The milestone that ends the gathering phase for the organization's plants instead of Launch Sunday (T-296). Blank
- * text is a clear. Offering it needs a name; turning it off keeps the name and description for later.
- */
 export const gatheringMilestone = z
 	.strictObject({
 		offered: z.boolean(),
@@ -96,11 +88,6 @@ export const profileFields = z.strictObject({
 	description: z.string().trim().max(5000).nullable(),
 	contactEmail: normalizedEmail.pipe(z.string().max(320)).nullable(),
 	contactPhone: z.string().trim().max(50).nullable(),
-	/**
-	 * A sending network's statement of faith (DOC-020, D-107): plain text, paragraphs split by a blank line. It fills
-	 * the statement-of-faith slot of Church Documents its plants create from a template. Blank text is a clear. A
-	 * sending church holds none.
-	 */
 	statementOfFaith: z
 		.string()
 		.transform((text) => text.replace(/\r\n?/g, "\n").trim())
@@ -115,8 +102,6 @@ export const updateOrganizationProfileRequest = commandEnvelope(
 		patch: profileFields.partial().refine((v) => Object.keys(v).length > 0),
 	}),
 );
-// Plant settings, despite the historical operation name. Never accepts street,
-// coordinates, guessed geography, a caller clock or a phase attestation.
 export const correctReportingLocationRequest = commandEnvelope(
 	z.strictObject({
 		plant: plantOwner,
@@ -139,5 +124,4 @@ export const pipelineConsentRequest = z.strictObject({ relationshipId: recordId 
 export const setPipelineConsentRequest = commandEnvelope(
 	pipelineConsentRequest.extend({ sharePipelineTotals: z.boolean() }),
 );
-// No filters/contributor list/asOf override can turn this S0 check into totals delivery.
 export const pipelineAggregateAccessRequest = z.strictObject({ network: networkOwner });

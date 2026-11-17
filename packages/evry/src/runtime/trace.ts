@@ -8,14 +8,6 @@ import { type SpanExporter, TracerProvider } from "@opentelemetry/sdk-trace";
 import { registerTelemetry } from "ai";
 import { createHash } from "node:crypto";
 
-// Evry turn tracing in Langfuse (C64): one trace per turn with the full text the model sees, from the AI SDK's own
-// telemetry, plus our spans for the work around the model. Tracing is an observer: a tracing error never reaches a turn,
-// and export runs in the background and is flushed after the response, so it never fails or slows a turn. Without the
-// Langfuse keys nothing is registered and every span below is a no-op. Tracing reports its own state as JSON lines in the
-// server log (registration or refusal, OpenTelemetry's own warnings, each failed export, each flush), and no line holds
-// a key, an auth header or the base URL's user info or query.
-
-/** The time the worker spent claiming the turn from the queue. */
 export type Claimed = { claimStart: Date; claimEnd: Date };
 type Metadata = Record<string, unknown>;
 
@@ -27,19 +19,11 @@ const quietly = <T>(body: () => T): T | undefined => {
 	}
 };
 
-/**
- * Process-wide like the OpenTelemetry globals. Next.js bundles instrumentation in its own layer, with its own copy of
- * this module and of `@opentelemetry/api`, apart from the routes that flush. The route's copy cannot recognize the
- * registered provider through the global (its `ProxyTracerProvider` is another class), so the provider itself lives
- * here. `hidden` holds the values no log line may show (the keys, their Basic auth form, and the base URL's user info,
- * query and fragment), `exported` counts the spans handed to the exporter so far, so a flush reports its share.
- */
 const state = ((globalThis as { [key: symbol]: unknown })[Symbol.for("everyfield.evry.tracing")] ??= {
 	hidden: new Set<string>(),
 	exported: 0,
 }) as { hidden: Set<string>; exported: number; provider?: TracerProvider };
 
-/** Writes one JSON line with the secrets above masked. Never throws, also when the console itself throws. */
 function log(stream: "log" | "error", line: { event: string } & Metadata) {
 	quietly(() => {
 		let text = JSON.stringify({ component: "evry", ...line });
@@ -48,7 +32,6 @@ function log(stream: "log" | "error", line: { event: string } & Metadata) {
 	});
 }
 
-/** A message for a log line. An error shows only its message; a failed flush rejects with a list of them. */
 const describe = (value: unknown): string =>
 	value instanceof Error
 		? value.message
@@ -58,7 +41,6 @@ const describe = (value: unknown): string =>
 				? value.map(describe).join("; ")
 				: (quietly(() => JSON.stringify(value)) ?? "");
 
-/** OpenTelemetry's own registration and export messages, at WARN and above. */
 const otelDiag =
 	(level: string) =>
 	(message: string, ...args: unknown[]) =>
@@ -71,16 +53,9 @@ const diagLogger: DiagLogger = {
 	verbose: otelDiag("verbose"),
 };
 
-/** LangfuseSpanProcessor's own default when it gets no base URL: the EU region. */
 const DEFAULT_BASE_URL = "https://cloud.langfuse.com";
-/** Langfuse's rule for an environment name. */
 const ENVIRONMENT = /^(?!langfuse)[a-z0-9_-]+$/;
 
-/**
- * Logs each failed export. The processor builds its OTLP exporter inside (auth header, compression, batch byte limit),
- * so the wrap goes around that instance and the export itself stays the SDK's own. The SDK versions are pinned, and the
- * export-failure test fails if this shape ever moves.
- */
 function watchExports(processor: LangfuseSpanProcessor) {
 	const exporter = (processor as unknown as { processor?: { _exporter?: SpanExporter } }).processor?._exporter;
 	if (!exporter) return;
@@ -102,12 +77,6 @@ function watchExports(processor: LangfuseSpanProcessor) {
 	};
 }
 
-/**
- * Sends spans and AI SDK telemetry to Langfuse when LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY are set, with
- * LANGFUSE_BASE_URL (default: the SDK's EU host) and LANGFUSE_TRACING_ENVIRONMENT. A configuration that can never export
- * is refused: an environment name Langfuse rejects, or a base URL that is not an absolute http(s) URL. Writes one
- * startup line either way. Once per process, from Next.js instrumentation.
- */
 export function registerTracing(env: Record<string, string | undefined> = process.env) {
 	const { LANGFUSE_PUBLIC_KEY: publicKey, LANGFUSE_SECRET_KEY: secretKey } = env;
 	const environment = env.LANGFUSE_TRACING_ENVIRONMENT;
@@ -145,10 +114,6 @@ export function registerTracing(env: Record<string, string | undefined> = proces
 	return true;
 }
 
-/**
- * Exports the spans still buffered and writes how many went to the exporter, or why the flush failed. Call it inside
- * after(), once the response and the turn are done. Writes nothing when tracing is not registered. Never throws.
- */
 export async function flushTraces() {
 	const { provider } = state;
 	if (!provider) return;
@@ -166,10 +131,6 @@ export async function flushTraces() {
 	}
 }
 
-/**
- * One trace per turn: its id derives from the turn id (Langfuse's createTraceId rule, computed synchronously), so the
- * stream route can add its delivery span to it.
- */
 const turnContext = (turnId: string) => ({
 	traceId: createHash("sha256").update(turnId).digest("hex").slice(0, 32),
 	spanId: "0123456789abcdef",
@@ -177,15 +138,10 @@ const turnContext = (turnId: string) => ({
 	isRemote: true,
 });
 
-/** A span that already ended, under the active observation. */
 function past(name: string, start: Date, end: Date) {
 	quietly(() => startObservation(name, {}, { startTime: start }).end(end));
 }
 
-/**
- * Runs `body` in a child observation of the active trace. The span carries timing and `metadata` only: model input and
- * output come from the AI SDK spans. A tracing failure never reaches the caller; `body`'s own errors pass through.
- */
 export async function traced<T>(name: string, body: () => Promise<T>, metadata?: (result: T) => Metadata): Promise<T> {
 	const span = quietly(() => startObservation(name));
 	const active = span && quietly(() => trace.setSpan(context.active(), span.otelSpan));
@@ -200,10 +156,6 @@ export async function traced<T>(name: string, body: () => Promise<T>, metadata?:
 	}
 }
 
-/**
- * The turn's trace, from submit to the saved end: queue wait, queue claim and turn load as past spans, then `body`
- * inside the root observation. `body` reports the turn's final answer as the trace output.
- */
 export async function traceTurn<T>(
 	turn: { turnId: string; conversationId: string; submittedAt: Date; request: string; claimed?: Claimed },
 	body: (report: (output: Metadata) => void) => Promise<T>,
@@ -235,12 +187,6 @@ export async function traceTurn<T>(
 	);
 }
 
-/**
- * Called by an observer right after it delivered a turn's first saved text: a span in that turn's trace from the save to
- * the delivery, with the time from submit when the observer also saw the user's message. The span starts on the database
- * clock and ends on the app clock, so its length includes their offset. The poll is `submitToFirstSseMs` minus the
- * turn's `submitToFirstTextMs`: both measure app time against the database's submit time, so the offset cancels.
- */
 export function traceDelivery(turnId: string, savedAt: Date, submittedAt: Date | null) {
 	const delivered = new Date();
 	quietly(() =>

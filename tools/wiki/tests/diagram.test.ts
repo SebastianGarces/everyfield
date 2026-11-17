@@ -1,7 +1,3 @@
-// WP-034/ui: lint reports each malformed diagram block at its article line, and the ASCII-art rule holds the seed to a
-// shrinking allowlist of fingerprinted blocks. The real seed may be main's, #388's promoted seed or OPS-97's, and an
-// article may fail for a reason outside this rule. So expectations come from the seed and the allowlist, and new ASCII
-// art goes into articles with no entry, under fixture entries. The render test is in render.test.ts.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -20,7 +16,6 @@ const seedRoot = resolve(root, "docs/reference/wiki");
 const allowlist: Entry[] = JSON.parse(await readFile(resolve(root, "tools/wiki/ascii-allowlist.json"), "utf8")).entries;
 const payload: Seed = JSON.parse(await readFile(resolve(seedRoot, "seed.json"), "utf8"));
 
-/** The 9 entries the fingerprinted allowlist started with. An entry outside this list is a new allowance. */
 const ORIGINAL: Entry[] = [
 	{ slug: "administrative/financial/disbursements-and-approvals", fingerprint: "fa93d37d2db18357" },
 	{ slug: "core-group/building-your-core-group/the-core-group-funnel", fingerprint: "430e5f7897e63c55" },
@@ -33,7 +28,6 @@ const ORIGINAL: Entry[] = [
 	{ slug: "training/boot-camp-overview", fingerprint: "baa5d805038a52a3" },
 ];
 
-/** The six articles whose ASCII blocks #388's drafts rewrite as ```diagram blocks. */
 const PR388 = [
 	"core-group/building-your-core-group/the-core-group-funnel",
 	"core-group/commitment/the-three-key-documents",
@@ -44,14 +38,11 @@ const PR388 = [
 ];
 
 const key = (entry: Entry) => `${entry.slug} ${entry.fingerprint}`;
-/** Allowlist entries that are not one of the original 9: each one is a new allowance and fails the shrink rule. */
 const added = (entries: Entry[]) => entries.filter((entry) => !ORIGINAL.some((pin) => key(pin) === key(entry)));
 
-/** Each ASCII-art finding in the seed, by slug. */
 const findings = (seed: Seed) =>
 	seed.articles.flatMap((row) => asciiFindings(row.content).map((finding) => ({ ...finding, slug: row.slug })));
 
-/** Each entry permits one finding with its slug and fingerprint. Returns the findings left over and the inert entries. */
 function audit(seed: Seed, entries: Entry[]) {
 	const unmatched = [...entries];
 	const unallowed = findings(seed).filter((finding) => {
@@ -67,7 +58,6 @@ function wiki(...args: string[]) {
 	return { status: result.status, output: result.stdout + result.stderr };
 }
 
-/** Seed lint over a disposable copy of the seed, with the given rows and allowlist entries. */
 async function lintSeed(seed: Seed, entries: Entry[] = allowlist) {
 	const dir = await mkdtemp(join(tmpdir(), "wiki-allow-"));
 	try {
@@ -83,14 +73,12 @@ async function lintSeed(seed: Seed, entries: Entry[] = allowlist) {
 	}
 }
 
-/** A copy of the seed with `edit` applied to the content of each named article. */
 function edited(seed: Seed, edits: Record<string, (content: string) => string>): Seed {
 	const copy = structuredClone(seed);
 	for (const row of copy.articles) if (edits[row.slug]) row.content = edits[row.slug]!(row.content);
 	return copy;
 }
 
-/** Replace the article's first ASCII block with a valid ```diagram block. An article already migrated stays as it is. */
 function migrate(content: string) {
 	const finding = asciiArt(content)[0];
 	if (!finding) return content;
@@ -108,7 +96,6 @@ function migrate(content: string) {
 	return lines.join("\n");
 }
 
-/** The #388 replay: the seed with the six #388 articles migrated to ```diagram blocks. */
 const replay = edited(payload, Object.fromEntries(PR388.map((slug) => [slug, migrate])));
 
 const lines = (output: string, prefix: string) =>
@@ -125,17 +112,14 @@ const inertWarning = (entry: Entry) =>
 const asciiError = (slug: string, line: number) =>
 	`ASCII-art at ${slug}:${line}: Code block draws a diagram with box, arrow or connector characters; use a \`\`\`diagram block`;
 
-/** What the seed fails before a test changes it. #388's promoted seed fails one article for a broken related slug. */
 const baseline = await lintSeed(payload);
 const knownFailures = failing(baseline.output);
 
-/** The run fails only the known articles, so it exits 0 on a seed with none. */
 function assertNoNewFailures(result: { status: number | null; output: string }) {
 	assert.deepEqual(failing(result.output), knownFailures, result.output);
 	assert.equal(result.status, knownFailures.length ? 1 : 0, result.output);
 }
 
-/** Each entry shows one warning on a passing article: its matched block, or its own inert line. No other article warns. */
 function assertEachEntryReported(result: Awaited<ReturnType<typeof lintSeed>>, seed: Seed) {
 	for (const entry of allowlist) {
 		const block = result.block(entry.slug);
@@ -146,7 +130,6 @@ function assertEachEntryReported(result: Awaited<ReturnType<typeof lintSeed>>, s
 	assert.equal(asciiWarnings(result.output).length, allowlist.length, result.output);
 }
 
-// Fixture art for articles with no entry and no ASCII block. `pin` permits `art` and nothing else.
 const art = "```\nA -> B\n```";
 const otherArt = "```\nC -> D\n```";
 const pin = blockFingerprint({ info: "", body: "A -> B" });
@@ -158,7 +141,6 @@ const append =
 	(content: string) =>
 		[content, ...parts, ""].join("\n\n");
 
-/** A draft that passes every other lint check. Its body starts with `extra` (line 1 onward). */
 function draft(extra: string, slug = "administrative/financial/diagram-fixture") {
 	return {
 		...payload.articles[0],
@@ -190,7 +172,6 @@ function draft(extra: string, slug = "administrative/financial/diagram-fixture")
 	};
 }
 
-/** Draft lint with an allowlist that holds `entries`, to show draft lint never reads it. */
 async function lintDraft(extra: string, slug?: string, entries: Entry[] = []) {
 	const dir = await mkdtemp(join(tmpdir(), "wiki-diagram-"));
 	try {
@@ -204,7 +185,6 @@ async function lintDraft(extra: string, slug?: string, entries: Entry[] = []) {
 }
 
 test("INV-wiki-lint: draft lint reports each malformed diagram block with its article line", async () => {
-	// The fixture body starts on line 1, so the first fence is line 1 and its first body line is line 2.
 	const cases: [string, string, string[]][] = [
 		[
 			"an unknown type",
@@ -284,13 +264,9 @@ test("INV-wiki-lint: the #388 replay passes, each migrated article names its ine
 test("INV-wiki-lint: new ASCII art in an article with a matched or an inert entry fails seed lint", async () => {
 	const [second, copied, prose, changed] = plain as [string, string, string, string];
 	const seed = edited(payload, {
-		// A second ASCII block beside the pinned one.
 		[second]: append(art, otherArt),
-		// An identical copy of the pinned block: one entry permits one block.
 		[copied]: append(art, art),
-		// A box-drawing character in prose has no block, so no fingerprint can permit it.
 		[prose]: append(art, "A box \u250c\u2500\u2510 in prose"),
-		// The pinned block edited, which is also new art beside an inert entry: no block matches the entry.
 		[changed]: append(otherArt),
 	});
 	const entries = [...allowlist, ...[second, copied, prose, changed].map((slug) => ({ slug, fingerprint: pin }))];
@@ -301,7 +277,6 @@ test("INV-wiki-lint: new ASCII art in an article with a matched or an inert entr
 			.filter((f) => f.slug === slug)
 			.map((f) => f.line);
 	const asciiErrors = (block: string) => errors(block).filter((e) => e.startsWith("ASCII-art"));
-	// In each article with a matched entry, the pinned block stays a warning and only the new art fails.
 	for (const slug of [second, copied]) {
 		const [pinned, extra] = at(slug) as [number, number];
 		const block = result.block(slug);
@@ -334,7 +309,6 @@ test("INV-wiki-lint: ASCII art in an article with no allowlist entry fails seed 
 });
 
 test("INV-wiki-lint: the allowlist only shrinks, and an entry for an unknown slug fails seed lint", async () => {
-	// The guard: each entry in the file is one of the original 9 pinned above, listed once.
 	assert.deepEqual(added(allowlist), []);
 	assert.equal(new Set(allowlist.map(key)).size, allowlist.length);
 	const forged = { slug: ORIGINAL[0]!.slug, fingerprint: "0123456789abcdef" };
@@ -348,8 +322,6 @@ test("INV-wiki-lint: the allowlist only shrinks, and an entry for an unknown slu
 		result.output,
 		/^FAIL tools\/wiki\/ascii-allowlist\.json\n {2}ERROR remove frameworks\/no-such-article from the allowlist$/m,
 	);
-	// Removing entries keeps both the guard and seed lint green: the six inert #388 entries after the replay, then
-	// OPS-97's last three after it migrates their blocks too.
 	const afterReplay = allowlist.filter((e) => !PR388.includes(e.slug));
 	assert.deepEqual(added(afterReplay), []);
 	const replayed = await lintSeed(replay, afterReplay);
@@ -362,25 +334,21 @@ test("INV-wiki-lint: the allowlist only shrinks, and an entry for an unknown slu
 });
 
 test("INV-wiki-lint: each seed ASCII finding matches an entry, and each entry matches one block or is inert", () => {
-	// The seed as it stands: every finding matches, and lint reports each entry with no block as inert.
 	const current = audit(payload, allowlist);
 	assert.deepEqual(current.unallowed, []);
 	for (const entry of current.inert) assert.ok(baseline.output.includes(inertWarning(entry)), key(entry));
-	// The #388 replay: every remaining finding matches, and exactly the six migrated entries are inert.
 	const replayed = audit(replay, allowlist);
 	assert.deepEqual(replayed.unallowed, []);
 	assert.deepEqual(
 		replayed.inert,
 		allowlist.filter((e) => PR388.includes(e.slug)),
 	);
-	// The detection patterns: prose arrows outside a fence stay allowed; boxes, arrows and connectors in a fence do not.
 	assert.deepEqual(asciiArt("Guests move from visit -> lunch -> class => member."), []);
 	assert.deepEqual(asciiArt("A box ┌─┐ in prose"), [
 		{ line: 1, message: "Box-drawing character; use a ```diagram block" },
 	]);
 	for (const body of ["A\n  |\n  v\nB", "A --> B", "A <- B", "Step ▼"])
 		assert.equal(asciiArt("```\n" + body + "\n```").length, 1, body);
-	// The fingerprint covers the info string and the body.
 	assert.notEqual(blockFingerprint({ info: "", body: "A -> B" }), blockFingerprint({ info: "text", body: "A -> B" }));
 	assert.notEqual(blockFingerprint({ info: "", body: "A -> B" }), blockFingerprint({ info: "", body: "A -> C" }));
 });

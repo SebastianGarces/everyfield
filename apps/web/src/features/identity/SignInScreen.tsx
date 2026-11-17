@@ -1,43 +1,22 @@
 "use client";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
-import {
-	afterSignIn,
-	LANDING_ROUTE,
-	ONBOARDING_HOME,
-	normalizedEmail,
-	type SessionResult,
-} from "@everyfield/contracts/identity";
+import { afterSignIn, LANDING_ROUTE, ONBOARDING_HOME, normalizedEmail } from "@everyfield/contracts/identity";
 import { Button, Field, Input } from "@everyfield/ui/controls";
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { identityApi, loadPage } from "./api";
 import { AuthFooter, AuthHeading, AuthLink } from "./AuthFrame";
 import { refusalMessage } from "./messages";
 import { FormMessage, PasswordInput } from "./parts";
 import { SessionActions } from "./SessionActions";
 
-/**
- * Every sign-in lands on the landing route, which decides on the server (landingFor): Overview for a finished church, its
- * setup step for an unfinished one. A return path goes along as the route's returnTo, so it never skips setup.
- */
 export const AFTER_SIGN_IN = LANDING_ROUTE;
 
-type SignedIn = Exclude<SessionResult, { status: "unauthenticated" }>;
+export type SignedIn = "pending_domain" | "active";
 
-/** Sign in (#/signin). A visitor who already has a session sees the signed-in state instead of the form. */
-export function SignInScreen({ returnTo }: { returnTo: string | null }) {
-	const [session, setSession] = useState<SignedIn | null>(null);
-	useEffect(() => {
-		let live = true;
-		void identityApi.session().then((result) => {
-			if (live && result.ok && result.value.status !== "unauthenticated") setSession(result.value);
-		});
-		return () => {
-			live = false;
-		};
-	}, []);
-	if (session) return <SignedInState session={session} returnTo={returnTo} />;
+export function SignInScreen({ returnTo, signedIn }: { returnTo: string | null; signedIn: SignedIn | null }) {
+	if (signedIn) return <SignedInState status={signedIn} returnTo={returnTo} />;
 	return (
 		<>
 			<AuthHeading title="Welcome back">{returnTo ? "Sign in to continue." : "Sign in to your church."}</AuthHeading>
@@ -49,8 +28,8 @@ export function SignInScreen({ returnTo }: { returnTo: string | null }) {
 	);
 }
 
-function SignedInState({ session, returnTo }: { session: SignedIn; returnTo: string | null }) {
-	const pending = session.status === "pending_domain";
+function SignedInState({ status, returnTo }: { status: SignedIn; returnTo: string | null }) {
+	const pending = status === "pending_domain";
 	return (
 		<>
 			<AuthHeading title="You’re signed in">
@@ -106,7 +85,6 @@ export function SignInForm({
 			...(returnTo ? { returnTo } : {}),
 		});
 		if (result.ok) {
-			// A full load, so every server component reads the new session cookie.
 			loadPage(afterSignIn(result.value.returnTo));
 			return;
 		}

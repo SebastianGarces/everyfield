@@ -1,11 +1,5 @@
 import { FONT, escapeHtml, renderBody, type RenderMode } from "./html.ts";
 
-// The one place that builds the HTML of a church email. Delivery seals its output and the Messages preview shows the
-// same string in an isolated frame, so the preview cannot drift from the inbox. It is plain TypeScript with no app,
-// database or environment dependency. The layout is system code: tables and inline styles only, no `<style>` block,
-// no external CSS or fonts. Author HTML never reaches it unsanitized.
-
-/** `unsubscribeUrl`: the recipient's own Messages Unsubscribe page. A preview has none, so it shows no link. */
 export type EmailContext = { churchName: string; unsubscribeUrl?: string };
 
 const INK = "#181D19";
@@ -22,7 +16,6 @@ const blockStyles: Record<string, string> = {
 		"margin:0 0 14px 0;padding-left:14px;border-left:3px solid #E7E4DE;font-size:16px;line-height:1.6;color:#3A3F3B;",
 };
 
-/** Sanitized author markup has no attributes except `href`, so bare tags are the author's and get inline styles. */
 function inlineStyles(body: string): string {
 	return body
 		.replace(/<(p|h1|h2|h3|ul|ol|li|blockquote)>/g, (_m, tag: string) => `<${tag} style="${blockStyles[tag]}">`)
@@ -43,7 +36,6 @@ function unsubscribeLink(url: string | undefined): string {
 	return ` <a href="${escapeHtml(url)}" style="color:#666A64;text-decoration:underline;">Unsubscribe</a>`;
 }
 
-/** The complete HTML document for one recipient: layout, the rendered body and the RSVP button. */
 export function renderEmailHtml(
 	body: string,
 	merge: Readonly<Record<string, string>>,

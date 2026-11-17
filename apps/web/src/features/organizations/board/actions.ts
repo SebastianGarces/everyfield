@@ -11,10 +11,6 @@ import { invitationService } from "@/server/invitations";
 import { pipelineWriter, reviewWriter } from "@everyfield/domain/organizations";
 import { answer, refused, type Reply } from "../../identity/server";
 
-// Server actions behind the Pipeline page and a person's record. Each one rebuilds the request actor; the domain
-// parses the input and rechecks the seat. A write's answer is its result or refusal; the screen then reads again only
-// the part that changed (the record, or the board after a stage edit).
-
 export async function addPerson(input: unknown) {
 	return pipelineWrite((db, authority) => pipelineWriter.addPerson(db, authority, input));
 }
@@ -45,7 +41,6 @@ export async function editNote(input: unknown) {
 export async function removeNote(input: unknown) {
 	return pipelineWrite((db, authority) => pipelineWriter.removeNote(db, authority, input));
 }
-/** Kept answers sent to a staff member for review, and withdrawn (T-385). Owner or Admin. */
 export async function sendAnswers(input: unknown) {
 	return pipelineWrite((db, authority) => reviewWriter.sendAnswers(db, authority, input));
 }
@@ -62,33 +57,24 @@ export async function correctConversation(input: unknown) {
 	return pipelineWrite((db, authority) => pipelineWriter.correctConversation(db, authority, input));
 }
 
-/** The goals area again, after a goal is saved. */
 export async function readGoals() {
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
 	return loadPipelineGoals(who.authority);
 }
 
-/** The board again under the same filters, after a change that reshapes it. */
 export async function readBoard(query: unknown) {
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
 	return loadPipelineBoard(who.authority, query);
 }
 
-/** One person's record again, after a change to it. */
 export async function readPerson(personId: string) {
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
 	return loadPipelinePerson(who.authority, personId);
 }
 
-/**
- * The invitation to link a pipeline person's own account to this organization's residency (REQ-MUL-004): send,
- * resend or revoke, through the shipped invitation service, which checks the Owner or Admin seat and the person again.
- * The browser names the person, the address on their record and the revisions it read; the organization comes from
- * the seat.
- */
 export async function runLinkInvitation(
 	operation: "invite" | "resend" | "revoke",
 	command: { requestKey: string; expectedRevision: string; input: Record<string, unknown> },

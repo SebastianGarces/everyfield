@@ -1,5 +1,0 @@
-{
-	"tests/unit/organizations/import-model.test.mts": 4,
-	"tests/unit/organizations/invitation-proof.test.mts": 15,
-	"tests/unit/organizations/pipeline-model.test.mts": 3
-}

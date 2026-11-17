@@ -1,13 +1,3 @@
-// Evry streams an answer as it is written (WP-051). The running turn hands each model delta to this process's observers
-// at once (runtime/live.ts) and saves it to the database off the model read loop.
-//   INV-stream-progressive: a short answer of at least 6 deltas reaches an observer as 3 or more updates, in order, whose
-//     concatenation is the model text; each delta is delivered within 150 ms of the model emitting it. The live path
-//     skips the database, so the numbers do not include its latency (D81).
-//   INV-stream-durable: a reconnect from a mid-stream cursor has the rest with no gap and no duplicate; a second
-//     observer and a reload show the same final text; a lost run is closed once.
-//   INV-stream-access: an observer whose seat ends mid-stream gets no more text within 1 s.
-//   INV-stream-end: Stop keeps the partial text; a provider error mid-stream keeps it, shows the projected error and
-//     leaks no raw provider message.
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -48,7 +38,6 @@ const DELTAS = [
 ];
 const TEXT = DELTAS.join("");
 
-/** A model that writes `deltas` 30 to 60 ms apart, recording when each left the model; optionally ends in an error. */
 function writer(deltas: string[], emitted: number[] = [], opts: { error?: Error; gap?: () => number } = {}) {
 	const base = scriptedModel();
 	const gap = opts.gap ?? (() => 30 + Math.random() * 30);
@@ -84,7 +73,6 @@ async function ask(who: EvryActor, text = "Write a short overview of the people 
 	return c.id;
 }
 type Seen = { at: number; item: Observed };
-/** Follows a conversation like the stream route does, stamping each item. */
 async function follow(who: EvryActor, id: string, after = 0, ms = 15_000, seen: Seen[] = []) {
 	for await (const item of observeRun(db, who, id, after, AbortSignal.timeout(ms))) seen.push({ at: Date.now(), item });
 	return seen;
@@ -108,7 +96,6 @@ test("INV-stream-paint INV-stream-progressive: a short answer arrives as 3+ orde
 	const emitted: number[] = [];
 	const seen: Seen[] = [];
 	const watching = follow(owner, id, 0, 15_000, seen);
-	// The observer has passed its first access check once it delivered the question.
 	for (let n = 0; n < 100 && !seen.length; n++) await sleep(20);
 	assert.equal(await work(writer(DELTAS, emitted)), "succeeded");
 	await watching;
@@ -123,7 +110,6 @@ test("INV-stream-paint INV-stream-progressive: a short answer arrives as 3+ orde
 	}
 	assert.equal(pieces.map((p) => p.text).join(""), TEXT);
 
-	// Delivery latency per delta: the first update that covers the delta's end, against when the model emitted it.
 	let end = 0;
 	const worst = DELTAS.map((delta, n) => {
 		end += delta.length;
@@ -134,7 +120,6 @@ test("INV-stream-paint INV-stream-progressive: a short answer arrives as 3+ orde
 	assert.ok(Math.max(...worst) <= 150, `slowest delta ${Math.max(...worst)} ms`);
 	assert.ok(pieces[0]!.at - emitted[0]! <= 150, "first text within 150 ms of the first delta");
 
-	// The database holds the same text.
 	assert.equal(savedText(await readAll(owner, id)), TEXT);
 });
 
@@ -147,7 +132,6 @@ test("INV-stream-durable: reconnect mid-stream, a second tab and a reload agree;
 	const b = follow(owner, id, 0, 15_000, tab);
 	for (let n = 0; n < 100 && (!first.length || !tab.length); n++) await sleep(20);
 	const running = work(writer(DELTAS, [], { gap: () => 60 }));
-	// Wait for the first saved text, then reconnect from that cursor.
 	let cursor = 0;
 	for (let n = 0; n < 200 && !cursor; n++) {
 		cursor = saved(first).find((e) => e.kind === "assistant_text")?.sequence ?? 0;
@@ -176,7 +160,6 @@ test("INV-stream-durable: reconnect mid-stream, a second tab and a reload agree;
 	assert.equal(savedText(saved(tab)), TEXT, "a second observer sees the same text");
 	assert.equal(savedText(everything), TEXT, "a reload after the end shows the same text");
 	assert.equal(everything.filter((e) => e.kind === "status").length, 1);
-	// A reconnect while the run lived got its live text from the start of the turn, addressed by offset.
 	for (const p of lives(again)) assert.equal(TEXT.slice(p.offset, p.offset + p.text.length), p.text);
 });
 
@@ -257,7 +240,6 @@ test("INV-stream-stop INV-stream-end: Stop keeps the partial text and ends the s
 			{ gap: () => 50 },
 		),
 	);
-	// Stop keeps the text saved before it; live text skips the database (D81), so wait for the save, not for live parts.
 	for (let n = 0; n < 200 && !savedText(saved(seen)).startsWith("w0 w1 "); n++) await sleep(20);
 	assert.ok(savedText(saved(seen)).startsWith("w0 w1 "), "the partial text was saved before Stop");
 	const stoppedAt = Date.now();
@@ -294,7 +276,6 @@ test("INV-stream-end: a provider error mid-stream keeps the text, projects the e
 test("INV-stream-withheld: a source removed mid-turn withholds the turn's live text from a new observer", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
-	// The first call reads Casey; the second streams slowly.
 	const slow = writer(
 		Array.from({ length: 40 }, (_, n) => `secret${n} `),
 		[],

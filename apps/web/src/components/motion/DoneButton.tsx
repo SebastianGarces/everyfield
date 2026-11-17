@@ -11,26 +11,17 @@ import { useTo } from "./scene";
 
 type Props = {
 	t: MotionValue<number>;
-	/** When the press starts (ms on the clock). */
 	at: number;
 	label: string;
 	done: string;
-	/** Time scale of the confirm steps (the hero plays them 1.5 times slower). */
 	scale?: number;
-	/** Length of the press (ms). */
 	press?: number;
-	/** The scene's loop reset (1 while it plays). */
 	R?: (t: number) => number;
 	size?: "md" | "sm";
 	className?: string;
 	ref?: Ref<HTMLSpanElement>;
 };
 
-/**
- * A pictured button that is pressed and confirms: it presses, a green fill rises, the label swaps to a check and the
- * done label, and a shine sweeps across. The hero's "Approve and send" and every panel's confirm button.
- * The check is 18 px, as in the prototype (its product-visual icon size wins over the button's 15 px rule).
- */
 export function DoneButton({
 	t,
 	at,

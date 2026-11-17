@@ -23,7 +23,6 @@ export const timeZone = z
 	.min(1)
 	.max(100)
 	.refine((v) => {
-		// Reject numeric offsets. Calendar context requires a named IANA zone.
 		if (/^[+-]/.test(v)) return false;
 		try {
 			new Intl.DateTimeFormat("en", { timeZone: v });
@@ -80,8 +79,6 @@ export type Resolution =
 	| { kind: "fold"; entered: LocalDateTime; zone: TimeZone; choices: readonly Occurrence[] }
 	| { kind: "invalid_offset"; entered: LocalDateTime; zone: TimeZone };
 
-// Resolver v1: earlier fold; forward by the actual gap, including non-hour gaps.
-// IANA offsets are sampled around the requested wall time, never from the host zone.
 export function resolveCalendar(
 	wall: LocalDateTime,
 	zone: TimeZone,
@@ -143,9 +140,6 @@ export function calendarContext(zone: TimeZone, clock: Clock) {
 	};
 }
 
-// Persist entered wall time, confirmed zone/offset and resolved instant together.
-// Reads preserve the saved instant even after preferences or IANA rules change.
-// Resolve/validate the entered choice at creation, not while hydrating history.
 export const resolvedTime = z
 	.strictObject({
 		entered: localDateTime,

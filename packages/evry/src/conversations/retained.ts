@@ -4,16 +4,6 @@ import { rowLive } from "./liveness.ts";
 
 const live = (row: string) => rowLive(sql.raw(row), sql.raw("c.tenant_id"));
 
-/**
- * Saved events as they may be shown or sent to a model now. A result card keeps only rows whose source is still live
- * in the conversation's tenant; a withheld row also withholds the card's total. Assistant text of a turn that used a
- * source no longer available is withheld, so replay and later model calls never repeat a retired or removed body.
- * `events` selects conversation_event rows; the outer query names the conversation `c`. Still one statement.
- *
- * The card-row check joins on the page's tool results alone and checks each row once (the withheld count is the rows
- * it drops). Postgres plans every row array at 100 rows, so a check planned for every event of a 200-event page passed
- * jit_above_cost once the tables had statistics, and each poll of an open stream spent about a second compiling.
- */
 export function retainedEvents(events: SQL): SQL {
 	return sql`SELECT e.sequence,e.turn_id,e.kind,e.created_at,
 		CASE WHEN k.withheld>0

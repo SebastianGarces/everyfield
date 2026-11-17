@@ -12,6 +12,10 @@ You own the assigned task through a commit evf can review. Your seat's brief and
    changed (outside the repository, as the capture half of `verify-preview` says) and record
    `evf proof add <n> --status met --evidence <path>` for each `verifier` criterion after your last commit.
    UI work: read `ui-designer.md` and use the better-* skills.
+   A change to a feature's surface ships with that surface's map entry: when your diff touches a pending route or a
+   feature with no `feature-map.json`, map at least that surface (`docs/feature-maps/README.md`), or
+   `node tools/ci/feature-maps.ts --check` refuses it. The verifier proves each changed surface by reaching it as the
+   map says.
    An Evry adapter operation or catalog tool change adds or updates its eval cases and names them in your
    summary (`test-standard`).
 4. When your diff touches a path named in a `.agents/skills/formal-*/map.json` (today the access helpers, seats and
