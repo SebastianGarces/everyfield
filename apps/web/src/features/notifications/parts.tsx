@@ -4,19 +4,11 @@ import { CardIcon, IntentLink, Skeleton } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { areaOf, dueLabel, subjectHref, timeLabel, type Clock, type FeedItem } from "./model.ts";
 
-// One notification entry (prototype .notif-item) and the loading shape of a list of them. The page and the bell share it.
-
 const ROW =
 	"grid w-full grid-cols-[36px_minmax(0,1fr)_8px] items-start gap-3 rounded-card p-2.5 text-left transition-[background-color] duration-150";
 const CHOOSABLE =
 	"hover:bg-surface-2 focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] focus-visible:outline-none active:bg-surface-3";
 
-/**
- * An entry whose category has a subject page is a link to it, read or not (D-731, D-732); following it marks it read.
- * Any other unread entry is a button that marks it read, and a read one is plain text. Reading never completes the work
- * it is about. The dot and the bold title show unread; the hidden words say it too. `onOpen` runs as a link is
- * followed, so the bell can close.
- */
 export function NotificationItem({
 	item,
 	clock,
@@ -90,7 +82,6 @@ export function NotificationItem({
 	);
 }
 
-/** The loading shape: icon tiles and two text lines, as many as the list will likely show. */
 export function ItemsSkeleton({ rows }: { rows: number }) {
 	return (
 		<div className="flex flex-col gap-1">

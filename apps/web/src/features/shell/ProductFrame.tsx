@@ -26,26 +26,17 @@ const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Me
 
 type FrameProps = {
 	name: string;
-	/** The app's own route for the viewer's current photo, when there is one. */
 	photo?: string;
-	/** The viewer as Settings sees it, with the seat's role; null when there is no active actor. */
 	settings: SettingsViewer | null;
-	/** The settings section read the server started for this page's address, for the server's viewer only. */
 	seed?: SectionSeed | null;
-	/** A seatless account's live residency link, by the church's name; null without one. */
 	residency?: { organizationName: string } | null;
 	children: ReactNode;
 };
 
-/**
- * A confirmed change to the viewer's own seat, from a page inside the frame (Seats): the new role, or null when the
- * seat was removed. The frame shows it at once, without reading the page again.
- */
 const OwnSeat = createContext<(role: Role | null) => void>(() => {});
 export const useOwnSeatChange = () => use(OwnSeat);
 
 export function ProductFrame({ settings: initial, seed, residency = null, ...props }: FrameProps) {
-	// The server's link is the source until a page reports that the viewer left it.
 	const [left, setLeft] = useState<{ from: typeof residency } | null>(null);
 	const ended = left !== null && left.from === residency;
 	const residencyState: ResidencyState = {
@@ -53,7 +44,6 @@ export function ProductFrame({ settings: initial, seed, residency = null, ...pro
 		ended,
 		left: () => setLeft({ from: residency }),
 	};
-	// The server's viewer is the source until a page reports a change to the viewer's own seat.
 	const [own, setOwn] = useState({ from: initial, settings: initial });
 	const settings = own.from === initial ? own.settings : initial;
 	const change = (role: Role | null) =>
@@ -70,7 +60,7 @@ export function ProductFrame({ settings: initial, seed, residency = null, ...pro
 		<ToastProvider>
 			<OwnSeat value={change}>
 				<Residency value={residencyState}>
-					<NotificationsProvider>
+					<NotificationsProvider account={initial?.accountId ?? ""}>
 						<WikiChrome>
 							<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
 						</WikiChrome>
@@ -85,7 +75,6 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
 	const pathname = usePathname();
-	// Evry is off while the private check-in is open: its panel closes and Ask Evry says so (REQ-PI-038).
 	const privatePage = evryOff(pathname);
 	const evry = useEvryPanel({
 		inPlant: settings?.context === "plant",
@@ -103,7 +92,6 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	const role = settings && settings.context !== "account" ? settings.role : null;
 	const { linked } = useResidency();
 	const account = !settings || settings.context === "account";
-	// A plant Member reads People and Tasks and works on their own tasks; organization seats have neither.
 	const banner =
 		settings?.context === "plant" && role === "member" ? (
 			<RoleBanner>
@@ -111,7 +99,6 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 				an Owner or Admin.
 			</RoleBanner>
 		) : null;
-	// The rail's Settings opens the dialog over the current page, as the user menu does; /settings is its address.
 	const settingsLink = {
 		kind: "link",
 		key: "settings",
@@ -150,7 +137,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 	} as const;
 	const nav: ShellNav = {
 		main: rail.main,
-		pages: rail.pages,
+		pages: rail.pages.map((p) => (p.key === "notifications" ? { ...p, onNavigate: bell.refresh } : p)),
 		tools: rail.guide ? [feedbackAction, guide, settingsLink] : [feedbackAction, settingsLink],
 	};
 	const later = (what: string) => () => toast({ message: `${what} is not available yet.`, tone: "info" });
