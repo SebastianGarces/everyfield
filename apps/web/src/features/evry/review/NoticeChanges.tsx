@@ -4,9 +4,6 @@ import type { ReactNode } from "react";
 import { CATEGORY_TEXT } from "../../settings/model.ts";
 import { digestSchedule, noticeWhen, reviewedNotices, settingChanges, type Review } from "./model.ts";
 
-// What a notifications review shows (WP-082): exactly which of the account's own notices get marked read, how many a
-// mark-all covers, or which of its own settings change and which stay. It never names another person.
-
 const category = (key: string) => CATEGORY_TEXT[key as keyof typeof CATEGORY_TEXT]?.label ?? key;
 const onOff = (on: boolean) => (on ? "On" : "Off");
 

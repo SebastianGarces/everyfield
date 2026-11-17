@@ -11,13 +11,6 @@ import {
 	type TableNode,
 } from "@everyfield/contracts/documents";
 
-// What a person can do to a table, as functions on the format's own table. Each one takes a table and returns the
-// next table, or says why it cannot. The editor turns the result into one transaction, so one Undo reverses one action.
-// Rulings: a new column is text with a free width and an unused id (b); a changed kind converts the cells so the table
-// still parses (c); a column a formula reads keeps its place and kind (d); a budget keeps one text column (e); a line
-// item goes before its category total (f); a budget keeps one category (g); a new category has one line item and a
-// total, and goes before the grand total (h).
-
 export type Kind = "text" | "number" | "money" | "check" | "index";
 export const KINDS: { kind: Kind; label: string }[] = [
 	{ kind: "text", label: "Text" },
@@ -27,7 +20,6 @@ export const KINDS: { kind: Kind; label: string }[] = [
 	{ kind: "index", label: "Row number" },
 ];
 
-/** Where the person is in the table: a typed row or the blank write-in rows, and a column. */
 export type Place = { row: number | null; col: number | null; blank?: boolean };
 
 const isLedger = (t: TableNode) => t.attrs.style === "ledger";
@@ -54,18 +46,14 @@ const emptyRow = (t: TableNode, role?: RowRole, label = ""): RowNode => {
 	};
 };
 
-/** The text column that holds the labels of a budget: the first one. */
 export const labelColumn = (t: TableNode) =>
 	Math.max(
 		0,
 		t.attrs.columns.findIndex((c) => c.type === "text"),
 	);
 
-// ---------------------------------------------------------------- categories of a budget
-
 type Category = { start: number; end: number };
 
-/** The categories of a budget, in order: a group row, its line items and its total. A grand total belongs to none. */
 function categories(t: TableNode): Category[] {
 	const out: Category[] = [];
 	let open: Category | null = null;
@@ -84,19 +72,14 @@ function categories(t: TableNode): Category[] {
 	return out;
 }
 
-/** The category that holds row `row`, or null for a grand total or no row. */
 export const categoryAt = (t: TableNode, row: number | null) =>
 	row === null ? null : (categories(t).find((c) => row >= c.start && row <= c.end) ?? null);
 
-// ---------------------------------------------------------------- formulas
-
-/** The formula column that reads column `index`, or null. */
 function readerOf(t: TableNode, index: number): ColumnSpec | null {
 	const id = t.attrs.columns[index]?.id;
 	return formulaDeps(t.attrs.columns).find((dep) => id !== undefined && dep.reads.includes(id))?.column ?? null;
 }
 
-/** True when a column added at `at` (before the column now there) would fall inside a sum range of a formula. */
 const joinsASum = (t: TableNode, at: number) =>
 	formulaDeps(t.attrs.columns).some((dep) => dep.spans.some(([a, b]) => at > a && at <= b));
 
@@ -105,11 +88,8 @@ const lastTextColumn = (t: TableNode, index: number) =>
 	t.attrs.columns[index]?.type === "text" &&
 	t.attrs.columns.filter((c) => c.type === "text").length === 1;
 
-// ---------------------------------------------------------------- what is allowed
-
 const ROW_LIMIT = `A table holds at most ${TABLE_LIMITS.rows} rows.`;
 const COLUMN_LIMIT = `A table holds at most ${TABLE_LIMITS.columns} columns.`;
-/** A table with no header and no row has nothing to show or click: it would stay in the document, invisible. */
 export const LAST_ROW = "A table with no header keeps at least one row.";
 
 export function availability(t: TableNode, at: Place) {
@@ -167,9 +147,6 @@ export function availability(t: TableNode, at: Place) {
 	};
 }
 
-// ---------------------------------------------------------------- rows
-
-/** A new typed row at `index`. */
 export function addRow(t: TableNode, index: number): TableNode {
 	const rows = [...rowsOf(t)];
 	rows.splice(index, 0, emptyRow(t));
@@ -183,15 +160,11 @@ export function removeRow(t: TableNode, at: number): TableNode {
 	);
 }
 
-// ---------------------------------------------------------------- columns
-
-/** The first id `column_n` that no column of the table uses. */
 function freeColumnId(columns: readonly ColumnSpec[]) {
 	const taken = new Set(columns.map((c) => c.id));
 	for (let n = columns.length + 1; ; n++) if (!taken.has(`column_${n}`)) return `column_${n}`;
 }
 
-/** A new text column at index `at`; every row gets an empty cell there. */
 export function addColumn(t: TableNode, at: number): TableNode {
 	const columns = [...t.attrs.columns];
 	const id = freeColumnId(columns);
@@ -216,7 +189,6 @@ export function removeColumn(t: TableNode, at: number): TableNode {
 const textOf = (cell: CellNode | undefined) =>
 	(cell?.content ?? []).map((n) => (n.type === "text" ? n.text : "")).join("");
 
-/** One cell of a column that changes kind: the value or text that still makes sense, else an empty cell. */
 function convertCell(cell: CellNode | undefined, from: ColumnType, to: Kind, role: RowRole): CellNode {
 	const amount = to === "number" || to === "money";
 	if (amount && role !== "item") return emptyCell();
@@ -240,13 +212,11 @@ function convertCell(cell: CellNode | undefined, from: ColumnType, to: Kind, rol
 	return emptyCell();
 }
 
-/** Changes the kind of column `at`. Its cells convert, so the table parses after the change. */
 export function setKind(t: TableNode, at: number, kind: Kind): TableNode {
 	const column = t.attrs.columns[at];
 	if (!column) return t;
 	const columns = t.attrs.columns.map((c, i) => {
 		if (i !== at) return c;
-		// A column that is no formula keeps neither a formula nor a format.
 		const next: ColumnSpec = { ...c, type: kind };
 		delete next.formula;
 		delete next.format;
@@ -259,13 +229,10 @@ export function setKind(t: TableNode, at: number, kind: Kind): TableNode {
 	return withColumns(t, columns, content);
 }
 
-// ---------------------------------------------------------------- a budget
-
 const LINE_ITEM = "Line item";
 const CATEGORY = "Category";
 const CATEGORY_TOTAL = "Category total";
 
-/** A new line item after row `at`, before its category total. */
 export function addLineItem(t: TableNode, at: number): TableNode {
 	const rows = [...rowsOf(t)];
 	const row = rows[at];
@@ -275,7 +242,6 @@ export function addLineItem(t: TableNode, at: number): TableNode {
 	return withRows(t, rows);
 }
 
-/** A new category (a group row, a line item and a total) after the category that holds `at`, before any grand total. */
 export function addCategory(t: TableNode, at: number | null): TableNode {
 	const rows = [...rowsOf(t)];
 	const after = categoryAt(t, at) ?? categories(t).at(-1);
@@ -290,7 +256,6 @@ export function addCategory(t: TableNode, at: number | null): TableNode {
 	return withRows(t, rows);
 }
 
-/** Removes the category that holds `at`: its group row, its line items and its total. */
 export function removeCategory(t: TableNode, at: number): TableNode {
 	const category = categoryAt(t, at);
 	if (!category) return t;
@@ -300,13 +265,11 @@ export function removeCategory(t: TableNode, at: number): TableNode {
 	);
 }
 
-/** The index of the group row of the category that holds `at`, or null when it has none. */
 function groupRow(t: TableNode, at: number | null) {
 	const start = categoryAt(t, at)?.start;
 	return start !== undefined && rowsOf(t)[start]?.attrs?.role === "group" ? start : null;
 }
 
-/** Sets whether the category that holds `at` adds to the grand total or subtracts from it. */
 export function setSign(t: TableNode, at: number, sign: "add" | "subtract"): TableNode {
 	const group = groupRow(t, at);
 	return withRows(
@@ -317,25 +280,20 @@ export function setSign(t: TableNode, at: number, sign: "add" | "subtract"): Tab
 	);
 }
 
-/** The sign of the category that holds `at`. */
 export function signAt(t: TableNode, at: number | null): "add" | "subtract" | null {
 	const group = groupRow(t, at);
 	if (group === null) return null;
 	return rowsOf(t)[group]?.attrs?.sign === "subtract" ? "subtract" : "add";
 }
 
-// ---------------------------------------------------------------- new tables
-
 const grid = (n: number): ColumnSpec[] =>
 	Array.from({ length: n }, (_, i) => ({ id: `column_${i + 1}`, label: `Column ${i + 1}`, type: "text", width: 0 }));
 
-/** Insert → Table: a grid with a header, 3 text columns and 5 blank write-in rows. */
 export const newGrid = (): TableNode => ({
 	type: "table",
 	attrs: { style: "grid", header: true, columns: grid(3), writeInRows: 5 },
 });
 
-/** Insert → Checklist rows: no header, a check box column, a text column and 3 rows. */
 export const newChecklist = (): TableNode => ({
 	type: "table",
 	attrs: {
@@ -350,20 +308,17 @@ export const newChecklist = (): TableNode => ({
 	content: Array.from({ length: 3 }, () => ({ type: "row" as const, content: [emptyCell(), emptyCell()] })),
 });
 
-/** Insert → Table in a plain document (T-100 ruling b): a grid with a header, 3 text columns and 3 empty typed rows. */
 export function newPlainGrid(): TableNode {
 	const base: TableNode = { type: "table", attrs: { style: "grid", header: true, columns: grid(3) } };
 	return withRows(base, [emptyRow(base), emptyRow(base), emptyRow(base)]);
 }
 
-/** Insert → Checklist rows in a plain document: the checklist above, with no header color. */
 export function newPlainChecklist(): TableNode {
 	const table = newChecklist();
 	delete table.attrs.headerFill;
 	return table;
 }
 
-/** Insert → Budget table: one category with one line item, its total and a grand total. */
 export function newBudget(): TableNode {
 	const base: TableNode = {
 		type: "table",

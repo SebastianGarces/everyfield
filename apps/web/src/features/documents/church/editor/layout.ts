@@ -5,12 +5,7 @@ import { Fragment, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeSelection, Selection, type EditorState } from "@tiptap/pm/state";
 import { documentFrom, REGION_NODE } from "./document-json.ts";
 
-// Layout actions: the columns count, a block's own settings (box fill and border, divider weight and color, image size
-// and alignment) and the page setup. Each is one transaction, so one Undo reverses it, and each one writes only what the
-// format stores: the file stays everyfield.doc/1 with no extra keys.
-
 export const TOKENS: readonly Token[] = ["none", "ink", "muted-text", "primary", "accent", "muted", "border"];
-/** The name a planter reads for each token: a swatch's accessible name and its tooltip. Primary and Accent match the brand kit. */
 export const TOKEN_NAMES: Readonly<Record<Token, string>> = {
 	none: "None",
 	ink: "Text",
@@ -23,10 +18,7 @@ export const TOKEN_NAMES: Readonly<Record<Token, string>> = {
 export const WEIGHTS = ["hairline", "rule", "bar"] as const;
 export const ALIGNS = ["left", "center", "right"] as const;
 
-// `closeHistory` ends the Undo group before this step, so one Undo reverses exactly this action.
 const history = (editor: Editor) => closeHistory(editor.state.tr);
-
-// ---------------------------------------------------------------- what the selection is in
 
 export type Target = {
 	kind: "columns" | "box" | "divider" | "image" | "writeIn" | "table" | "if" | "field";
@@ -35,7 +27,6 @@ export type Target = {
 };
 const KINDS = new Set(["columns", "box", "divider", "image", "writeIn", "table", "if", "field"]);
 
-/** The layout blocks the selection is in or on, outermost first: the columns and boxes around the cursor, or the selected block. */
 export function layoutTargets(state: EditorState): Target[] {
 	const { selection } = state;
 	const $from = selection.$from;
@@ -49,7 +40,6 @@ export function layoutTargets(state: EditorState): Target[] {
 	return found;
 }
 
-/** Sets attributes of the block at `pos` and keeps the selection where it was. */
 export function setBlockAttrs(editor: Editor, pos: number, patch: Record<string, unknown>): boolean {
 	const node = editor.state.doc.nodeAt(pos);
 	if (!node) return false;
@@ -59,13 +49,6 @@ export function setBlockAttrs(editor: Editor, pos: number, patch: Record<string,
 	return true;
 }
 
-// ---------------------------------------------------------------- columns
-
-/**
- * Changes the number of columns of the columns block at `pos` to 2, 3 or 4. Going up adds empty columns. Going down moves
- * the blocks of each removed column to the end of the column on its left, so no content is lost. The widths reset to
- * equal; a template's stored widths stay until the count changes.
- */
 export function setColumnCount(editor: Editor, pos: number, count: number): boolean {
 	const { state } = editor;
 	const columns = state.doc.nodeAt(pos);
@@ -80,7 +63,6 @@ export function setColumnCount(editor: Editor, pos: number, count: number): bool
 		if (index < count) kept.push(child);
 	});
 	if (columns.childCount > count) {
-		// A removed column that holds only the empty paragraph a new column starts with adds nothing to move.
 		const moved: PMNode[] = [];
 		for (let i = count; i < columns.childCount; i++) {
 			const removed = columns.child(i);
@@ -101,30 +83,24 @@ export function setColumnCount(editor: Editor, pos: number, count: number): bool
 	return true;
 }
 
-// ---------------------------------------------------------------- page setup
-
 export type PageWithoutRegions = Omit<DocDocument["page"], "header" | "footer">;
 
-/** The page setup the editor holds, without the header and the footer (those are the first and last child). */
 export function readPage(state: EditorState): PageWithoutRegions {
 	return state.doc.attrs.page as PageWithoutRegions;
 }
 
 export type RegionKey = keyof typeof REGION_NODE;
 
-/** Which pages a region prints on, or null when the page has none. */
 export function regionPages(state: EditorState, key: RegionKey): "all" | "first" | "rest" | null {
 	const node = regionNode(state.doc, key);
 	return node ? ((node.attrs.pages as "all" | "first" | "rest" | undefined) ?? "all") : null;
 }
 
-/** The header or the footer node: the first or the last child of the document, or null when the page has none. */
 function regionNode(doc: PMNode, key: RegionKey): PMNode | null {
 	const edge = key === "header" ? doc.firstChild : doc.lastChild;
 	return edge?.type.name === REGION_NODE[key] ? edge : null;
 }
 
-/** Turns the header or the footer on (with one empty paragraph) or off, or sets the pages it prints on. One step. */
 export function setRegion(
 	editor: Editor,
 	key: RegionKey,
@@ -147,13 +123,9 @@ export function setRegion(
 	return true;
 }
 
-/** What the format says about a page setup: each fault of `page`, in the format's words, without the path prefix. */
 type PageIssue = { path: string; message: string };
 
-/** Checks a page setup against the whole format, with the body and the regions the editor holds now. */
 export function pageIssues(editor: Editor, base: DocDocument, candidate: PageWithoutRegions): PageIssue[] {
-	// The root's other attributes (the merge fields and values the editor holds now) stay, so a field inserted since the
-	// last save is still declared when the candidate is checked.
 	const current = editor.getJSON();
 	const json = { ...current, attrs: { ...current.attrs, page: candidate } };
 	const parsed = docDocument.safeParse(documentFrom(base, json));
@@ -166,12 +138,10 @@ export function pageIssues(editor: Editor, base: DocDocument, candidate: PageWit
 	return issues;
 }
 
-/** Applies a page setup as one step. The caller has checked it with `pageIssues`. */
 export function applyPage(editor: Editor, candidate: PageWithoutRegions) {
 	editor.view.dispatch(history(editor).setDocAttribute("page", candidate));
 }
 
-/** Points per inch: margins and custom sizes show in inches and store points. */
 export const POINTS = 72;
 export const toInches = (points: number) => Math.round((points / POINTS) * 1000) / 1000;
 export const toPoints = (inches: number) => Math.round(inches * POINTS * 100) / 100;

@@ -1,7 +1,5 @@
 import type { DocTemplateSummary } from "@everyfield/domain/documents";
 
-// 60 invented templates for the "New from template" design preview: enough to page and search. No database.
-
 const NAMES: [title: string, description: string, documentClass: DocTemplateSummary["documentClass"]][] = [
 	[
 		"Budget Worksheet",
