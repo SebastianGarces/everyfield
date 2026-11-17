@@ -13,23 +13,16 @@ import { setBlockAttrs, type Target } from "./layout.ts";
 import { Button } from "./tiptap/primitives/button.tsx";
 import { BUTTON_ICON } from "./tiptap/styles.ts";
 
-// The condition of the conditional text the cursor is in: the field it reads, the test, and for "is more than" the
-// number. The fields are the document's own; each field offers only the tests its type takes. Each change is one step
-// that Undo reverses, and the block's label on the page follows it at once.
-
 const SELECT =
 	"h-9 max-w-full min-w-0 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:opacity-45";
 
-/** The format's attributes for a condition: no `value` unless the test is "is more than". */
 const attrsFor = (c: Condition) => ({ field: c.field, test: c.test, value: c.value });
 
-/** The number "is more than" compares with. A value that is not a whole number from 0 shows why and is not applied. */
 function ValueField({ editor, target, condition }: { editor: Editor; target: Target; condition: Condition }) {
 	const id = useId();
 	const [draft, setDraft] = useState<string | null>(null);
 	const current = String(condition.value ?? 0);
 	const parsed = draft === null ? null : parseConditionValue(draft);
-	// Undo or Redo can change the value under a draft: the field shows the stored value then.
 	const shown = draft !== null && parsed && ("problem" in parsed || String(parsed.value) === current) ? draft : current;
 	const problem = draft !== null && shown === draft && parsed && "problem" in parsed ? parsed.problem : null;
 	return (
@@ -66,7 +59,6 @@ function ValueField({ editor, target, condition }: { editor: Editor; target: Tar
 }
 
 export function ConditionControls({ editor, target }: { editor: Editor; target: Target }) {
-	// The document's fields as the root node holds them now, so a merge field inserted a moment ago is offered at once.
 	const fields =
 		useEditorState({
 			editor,

@@ -3,16 +3,11 @@
 import { Cancel01Icon, Image01Icon } from "@hugeicons/core-free-icons";
 import { IconButton, Tooltip } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { uploadAvatarBytes } from "../../settings/flows/avatarBytes.ts";
 import { stagePhoto } from "./photoActions.ts";
 import { NativeImage } from "@/components/native";
 
-// A photo the user attaches to their next message, so they can say "use this as my photo". It is staged as their own
-// account photo upload (the Settings Account section's upload), sent with the message as a photo reference, and shown
-// again on the review card before anything changes. Nothing else reads it.
-
-/** The types and size the account photo upload accepts. */
 const TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 3 * 1024 * 1024;
 
@@ -21,39 +16,24 @@ export type Attached =
 	| { status: "ready"; src: string; id: string }
 	| { status: "failed"; src: string | null; message: string };
 
-export function useAttachedPhoto() {
-	const [photo, setPhoto] = useState<Attached | null>(null);
-	const attempt = useRef(0);
-	// Each preview is a local object URL; it is released when replaced or cleared.
-	useEffect(() => () => void (photo?.src && URL.revokeObjectURL(photo.src)), [photo?.src]);
-	async function attach(file: File) {
-		const run = ++attempt.current;
-		if (!TYPES.includes(file.type))
-			return setPhoto({ status: "failed", src: null, message: "Choose a JPG, PNG or WebP photo." });
-		if (file.size > MAX_BYTES)
-			return setPhoto({ status: "failed", src: null, message: "Choose a photo smaller than 3 MB." });
-		const src = URL.createObjectURL(file);
-		setPhoto({ status: "uploading", src });
-		const failed = () =>
-			run === attempt.current && setPhoto({ status: "failed", src, message: "That photo did not upload. Try again." });
-		try {
-			const staged = await stagePhoto({ mime: file.type, byteLength: file.size });
-			if (!staged) return failed();
-			const sent = await uploadAvatarBytes(staged, file);
-			if (sent.status !== "ok") return failed();
-			if (run === attempt.current) setPhoto({ status: "ready", src, id: staged.versionId });
-		} catch {
-			failed();
-		}
-	}
-	const clear = () => {
-		attempt.current++;
-		setPhoto(null);
-	};
-	return { photo, attach, clear };
+export function checkPhoto(file: File): Attached | null {
+	if (!TYPES.includes(file.type)) return { status: "failed", src: null, message: "Choose a JPG, PNG or WebP photo." };
+	if (file.size > MAX_BYTES) return { status: "failed", src: null, message: "Choose a photo smaller than 3 MB." };
+	return null;
 }
 
-/** The attach button: opens the photo picker. */
+export async function stageAttached(file: File, src: string): Promise<Attached> {
+	const failed: Attached = { status: "failed", src, message: "That photo did not upload. Try again." };
+	try {
+		const staged = await stagePhoto({ mime: file.type, byteLength: file.size });
+		if (!staged) return failed;
+		const sent = await uploadAvatarBytes(staged, file);
+		return sent.status === "ok" ? { status: "ready", src, id: staged.versionId } : failed;
+	} catch {
+		return failed;
+	}
+}
+
 export function AttachButton({ disabled, onFile }: { disabled: boolean; onFile: (file: File) => void }) {
 	const input = useRef<HTMLInputElement>(null);
 	return (
@@ -84,7 +64,6 @@ export function AttachButton({ disabled, onFile }: { disabled: boolean; onFile: 
 	);
 }
 
-/** The attached photo above the message: its thumbnail, what is happening to it and a way to take it off. */
 export function AttachedPhoto({ photo, onRemove }: { photo: Attached; onRemove: () => void }) {
 	const status =
 		photo.status === "uploading" ? "Uploading…" : photo.status === "ready" ? "Photo attached" : photo.message;

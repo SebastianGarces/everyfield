@@ -5,10 +5,6 @@ import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { basicsProblems, type BasicsDraft } from "../model";
 import { StepFooter } from "../parts";
 
-/**
- * Church basics: a required name and an optional, independent place (REQ-IDN-013), plus the account owner's own
- * confirmation (REQ-MUL-006). Nothing is sent until the name is filled and the box is ticked.
- */
 export function BasicsForm({
 	draft,
 	onEdit,
@@ -24,7 +20,6 @@ export function BasicsForm({
 	busy: boolean;
 	onBack?: () => void;
 	submitLabel: string;
-	/** Extra fields between the place and the confirmation, such as relationships to bring. */
 	children?: ReactNode;
 }) {
 	const [shown, setShown] = useState<ReturnType<typeof basicsProblems>>({});

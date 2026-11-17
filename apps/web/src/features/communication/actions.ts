@@ -38,9 +38,6 @@ import { communicationViewer, deliver, read, write, type Viewer } from "./server
 import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
 import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "./mail.ts";
 
-// Server actions for the Messages screens. The actor is the request's seat. The browser cannot send one.
-// A lost write keeps its request key so a retry replays. The caller mints a new key after success or a refusal.
-
 type Scheduled = Draft & { scheduledAt: string };
 const denied = { status: "refused", code: "access_denied" } as const;
 
@@ -91,7 +88,6 @@ export async function deleteDraft(
 	);
 }
 
-/** Save and schedule in one request. Two requests were the schedule that passed one second. */
 async function scheduleDraft(
 	saveKey: string,
 	scheduleKey: string,
@@ -129,10 +125,6 @@ export async function rescheduleReviewed(
 	);
 }
 
-/**
- * Hand a scheduled email over: to the email service at once for `now`; for `held` Everyfield keeps it, and the minute
- * runner hands it off at its saved time (T-241). The provider key is the domain idempotency key.
- */
 export async function sendReviewed(
 	requestKey: string,
 	expectedRevision: string,
@@ -163,7 +155,6 @@ export async function sendReviewed(
 	};
 }
 
-/** Ask the provider about a send that already exists. A missing send is not_found. */
 export async function reconcileDelivery(
 	requestKey: string,
 	expectedRevision: string,
@@ -191,7 +182,6 @@ export async function reconcileDelivery(
 	};
 }
 
-/** Cancel at the email service, or check an open cancel again. Each recipient is asked by its own email id. */
 export async function cancelScheduled(
 	requestKey: string,
 	expectedRevision: string,
@@ -210,7 +200,6 @@ export async function cancelScheduled(
 	return { status: "ok", value: { scheduledCancel, confirmedCount, sentCount, openCount } };
 }
 
-/** Read whether every previous send is cancelled. This does not create or send a message. */
 export async function replaceScheduled(
 	requestKey: string,
 	expectedRevision: string,
@@ -227,7 +216,6 @@ export async function replaceScheduled(
 	return { status: "ok", value: { replacementAllowed: result.value.replacementAllowed } };
 }
 
-/** Change the send time, or check an open time change again. Each held recipient moves by its own email id. */
 export async function rescheduleDispatched(
 	requestKey: string,
 	expectedRevision: string,
@@ -254,7 +242,6 @@ export async function readDraft(communicationId: string): Promise<Outcome<Draft>
 	return look((tx, viewer) => communicationWriter.get(tx, viewer.authority, { id: communicationId }));
 }
 
-/** The address is the signed-in account email. The browser cannot choose a different one. */
 export async function readOwnSuppression(): Promise<Outcome<SuppressionReport>> {
 	const gate = await communicationViewer();
 	if (!gate.viewer || !canWrite(gate.viewer)) return denied;
@@ -268,7 +255,6 @@ export async function readOwnSuppression(): Promise<Outcome<SuppressionReport>> 
 	return { status: "ok", value: { address: result.value.address, active, restores } };
 }
 
-/** Clear suppression for the signed-in account email. This does not send email. */
 export async function restoreOwnSuppression(requestKey: string, reason: string): Promise<Outcome<RestoreReport>> {
 	const gate = await communicationViewer();
 	if (!gate.viewer || !canWrite(gate.viewer)) return denied;
@@ -318,7 +304,6 @@ export async function updateTemplate(
 
 type TemplateChange = { template: Template; templates: Template[] | null };
 
-/** One request removes the row and, for a fork, returns the list with the system template restored. */
 async function removeTemplate(
 	kind: "archive" | "delete",
 	requestKey: string,
@@ -412,7 +397,6 @@ export async function readMeetingTracking(meetingId: string): Promise<Outcome<{ 
 	});
 }
 
-/** Detail, totals and the first 100 named recipients. One read. Addresses need mail keys. */
 export async function openMessage(communicationId: string): Promise<Outcome<MessageView>> {
 	const viewer = await seat();
 	if (!viewer) return denied;
@@ -461,7 +445,6 @@ export async function reviewResend(communicationId: string): Promise<Outcome<Res
 	});
 }
 
-/** Save a reviewed follow-up. This does not send email and does not change the original. */
 export async function saveResend(requestKey: string, communicationId: string): Promise<Outcome<SavedResend>> {
 	return change(async (tx, context) => {
 		const result = await communicationWriter.executeResend(tx, context, {
@@ -480,7 +463,6 @@ export async function saveResend(requestKey: string, communicationId: string): P
 	});
 }
 
-/** Schedule a message that is already reviewed. The subject and body stay as saved. */
 async function scheduleExisting(
 	requestKey: string,
 	expectedRevision: string,
@@ -514,12 +496,6 @@ async function scheduleExisting(
 	});
 }
 
-/**
- * Send now (`scheduledAt` null) or Schedule, from a draft or a reviewed message. It chains the existing commands:
- * save and schedule in one transaction, then hand the new revision to the email service, at once or held until
- * `scheduledAt`. Each step has its own request key. A handoff that fails or returns no result leaves the message
- * saved; the result says so and nothing is sent twice.
- */
 export async function handOff(
 	keys: { save: string; schedule: string; send: string },
 	expectedRevision: string | null,
@@ -537,7 +513,6 @@ export async function handOff(
 	return scheduledAt === null ? chainSendNow(steps) : chainHandoff(steps, scheduledAt);
 }
 
-/** The meeting a message is attached to: title, time, place and its live guest list, in one statement. */
 export async function readMeetingContext(meetingId: string): Promise<Outcome<MeetingContext>> {
 	const viewer = await seat();
 	if (!viewer || !canWrite(viewer)) return denied;
@@ -559,7 +534,6 @@ export async function readMeetingContext(meetingId: string): Promise<Outcome<Mee
 	};
 }
 
-/** The church name and app origin the email preview needs on screens outside the Messages page. */
 export async function readPreviewContext(): Promise<Outcome<{ churchName: string; origin: string }>> {
 	const viewer = await seat();
 	if (!viewer) return denied;

@@ -14,9 +14,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 
-// Tiptap's own SVG icon components are replaced by the product's Hugeicons set, so the toolbar draws with the same
-// stroke as the rest of the app. Each export keeps the name and the `className` prop of the Tiptap file it replaces.
-
 const make = (icon: IconSvgElement) =>
 	function ToolbarIcon({ className }: { className?: string }) {
 		return <Icon icon={icon} size={18} className={className} />;

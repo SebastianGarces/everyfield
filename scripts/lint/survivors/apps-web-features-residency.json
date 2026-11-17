@@ -1,0 +1,11 @@
+{
+	"no-effects": {
+		"apps/web/src/features/residency/MyResidencyScreen.tsx": [
+			{
+				"function": "useOpenedNotice",
+				"count": 1,
+				"reason": "Marks the residency notices for the milestone a person has just opened as read, once each time the page is shown: on a direct load from the email link, a link from the bell, Back, Forward and a reload, and never on a refresh or a prefetch. No event covers all of those arrivals, and marking in the server render would also mark on every refresh."
+			}
+		]
+	}
+}

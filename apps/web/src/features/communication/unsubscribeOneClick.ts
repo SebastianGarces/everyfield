@@ -3,10 +3,6 @@ import "server-only";
 import { applyMessagesOptOut } from "@everyfield/domain/communication";
 import { unsubscribeCall } from "./unsubscribe.ts";
 
-// POST /unsubscribe/[token]/one-click: a mail client's one-click unsubscribe (RFC 8058) for a Messages email. It sends
-// "List-Unsubscribe=One-Click" as a form body to the List-Unsubscribe URL; a GET never reaches this handler, so a
-// scanner that follows links changes nothing. The token is the only authority (REQ-NTF-016).
-
 const reply = (status: number) => new Response(null, { status, headers: { "cache-control": "no-store" } });
 
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {

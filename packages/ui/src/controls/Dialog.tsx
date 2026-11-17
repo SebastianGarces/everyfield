@@ -3,7 +3,8 @@
 import { Alert02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { AlertDialog, Dialog as DialogPrimitive } from "radix-ui";
 import { useState, type ComponentPropsWithRef, type ReactNode, type Ref } from "react";
-import { cn, Icon, type IconSvgElement } from "../foundations";
+import { cn, type IconSvgElement } from "../foundations";
+import { InlineAlert } from "./Alert";
 import { Button, IconButton } from "./Button";
 import { CardIcon, type Tone } from "./Card";
 import { usePortalContainer, useReturnFocus } from "./overlay-portal";
@@ -171,14 +172,7 @@ export function ConfirmDialog({
 							</ul>
 						</div>
 					) : null}
-					<div aria-live="assertive" className="px-7 empty:hidden max-app-sm:px-5">
-						{error ? (
-							<p className="mt-4 flex items-start gap-2 rounded-md bg-magenta-50 px-3.5 py-2.5 text-sm text-magenta-600">
-								<Icon icon={Alert02Icon} size={16} className="mt-px" />
-								{error}
-							</p>
-						) : null}
-					</div>
+					<InlineAlert className="px-7 pt-4 max-app-sm:px-5">{error}</InlineAlert>
 					<div className="flex flex-none flex-wrap items-center justify-end gap-2.5 px-7 pt-6 pb-[26px] max-app-sm:px-5 max-app-sm:pb-5 max-app-sm:*:flex-1">
 						<AlertDialog.Cancel asChild>
 							<Button variant="secondary" disabled={pending}>

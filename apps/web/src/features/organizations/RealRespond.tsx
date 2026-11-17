@@ -2,9 +2,8 @@
 
 import * as C from "@everyfield/contracts/organizations";
 import { Button, Card, Skeleton } from "@everyfield/ui/controls";
-import { useHydrated, useLocationHash } from "@everyfield/ui/foundations";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { writeAddress } from "../../components/location.ts";
+import { useMemo } from "react";
+import { useOneTimeLinkValue } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
 import { AuthFrame, AuthHeading } from "../identity/AuthFrame";
 import { readRelationshipInvitation } from "./invitation/client.ts";
@@ -19,11 +18,8 @@ type State =
 	| { kind: "unavailable" }
 	| { kind: "invitation"; invitation: Invitation; names: Record<string, string>; zone: string; proof: string };
 
-const KEEP = "ef-relationship-proof";
-const keptProof = (invitationId: string | null) => `${KEEP}/${invitationId}`;
 const LOADING: State = { kind: "loading" };
 const UNAVAILABLE: State = { kind: "unavailable" };
-const noSubscribe = () => () => {};
 
 function stateOf(read: RelationshipInvitationRead, invitationId: string, proof: string): State {
 	if (read.kind === "signed_out")
@@ -45,23 +41,11 @@ const invitations = createRead(
 );
 
 export function RealRespond({ invitationId }: { invitationId: string | null }) {
-	const hydrated = useHydrated();
-	const fromLink = useLocationHash().slice(1);
-	const kept = useSyncExternalStore(
-		noSubscribe,
-		() => sessionStorage.getItem(keptProof(invitationId)),
-		() => null,
-	);
-	const proof = fromLink || kept || "";
+	const linked = useOneTimeLinkValue("connections/respond");
+	const proof = linked ?? "";
 	const usable = Boolean(invitationId && proof);
 	const read = useRead(usable ? invitations : null, invitationId ?? "", proof);
-	const state = !hydrated ? LOADING : !usable ? UNAVAILABLE : (read.value ?? LOADING);
-	useEffect(() => {
-		const secret = window.location.hash.slice(1);
-		if (!secret) return;
-		sessionStorage.setItem(keptProof(invitationId), secret);
-		writeAddress(window.location.pathname + window.location.search, { replace: true });
-	}, [invitationId]);
+	const state = linked === undefined ? LOADING : !usable ? UNAVAILABLE : (read.value ?? LOADING);
 
 	const names = useMemo(() => createNames(state.kind === "invitation" ? state.names : {}), [state]);
 

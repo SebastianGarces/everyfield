@@ -51,7 +51,7 @@ import {
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useId, useState, useTransition } from "react";
 import { changeTaskStatus } from "../tasks/actions.ts";
 import { DoneBox } from "../tasks/parts.tsx";
 import {
@@ -84,16 +84,15 @@ import {
 } from "./model.ts";
 
 type Viewer = { accountId: string; admin: boolean };
-type DateDraft = { mode: "set" | "move" | "postpone"; date: string; reason: string; error: string | null };
+type DateDraft = {
+	mode: "set" | "move" | "postpone";
+	date: string;
+	reason: string;
+	error: string | null;
+};
 const AREAS: Area[] = ["operations", "launch_team", "promotion"];
 const GATHERING = { choose: chooseGatheringPath, save: saveGathering, offers: readGatheringOffers };
 
-/**
- * The Launch plan (WP-045, prototype #/launch): Launch Sunday and its countdown in church-local days, and the nine
- * Playbook milestones with their prep tasks. Owners and Admins set, move and postpone the date and complete or reopen
- * milestones; anyone completes the prep tasks they hold. Every change shows at once and is confirmed or rolled back
- * from the server's answer; nothing reloads the page.
- */
 export function LaunchScreen({
 	plan: initial,
 	offers: initialOffers,
@@ -106,29 +105,30 @@ export function LaunchScreen({
 	const toast = useToast();
 	const [plan, setPlan] = useState(initial);
 	const [offers, setOffers] = useState(initialOffers);
-	// On the milestone path (T-296) the milestone takes Launch Sunday's place: no date, countdown or Launch Sunday record.
 	const milestone = plan.path.kind === "milestone" ? plan.path : null;
 	const [draft, setDraft] = useState<DateDraft | null>(null);
-	const [saving, setSaving] = useState(false);
 	const [keys] = useState(() => requestKeys(() => crypto.randomUUID()));
+	const [saving, startSaving] = useTransition();
 	const shown = shownOf(plan);
 	const dated = shown.kind === "ahead" || shown.kind === "today" || shown.kind === "overdue";
 
 	const replaceMilestone = (m: Milestone) =>
 		setPlan((p) => ({ ...p, milestones: p.milestones.map((x) => (x.id === m.id ? m : x)) }));
 
-	async function submitDate(d: DateDraft) {
+	function submitDate(d: DateDraft) {
 		const note = checkNote(d.reason, d.mode !== "set");
 		if (!note.ok) return setDraft({ ...d, error: NOTE_MESSAGE[note.problem] });
 		if (d.mode !== "postpone" && !d.date) return setDraft({ ...d, error: "Choose a date for Launch Sunday." });
+		startSaving(() => saveDate(d));
+	}
+
+	async function saveDate(d: DateDraft) {
 		const intent = [d.mode, plan.revision, d.date, d.reason] as const;
-		setSaving(true);
 		const r = await sent(() =>
 			d.mode === "postpone"
 				? postponeLaunch(keys.keyFor(intent), plan.revision, d.reason)
 				: setLaunchDate(keys.keyFor(intent), plan.revision, d.date, d.reason.trim() ? d.reason : null),
 		);
-		setSaving(false);
 		if (r.status !== "lost") keys.settle(intent);
 		if (r.status === "ok") {
 			setDraft(null);
@@ -141,7 +141,12 @@ export function LaunchScreen({
 	}
 
 	const open = (mode: DateDraft["mode"]) =>
-		setDraft({ mode, date: mode === "postpone" ? "" : (plan.launch?.targetDate ?? ""), reason: "", error: null });
+		setDraft({
+			mode,
+			date: mode === "postpone" ? "" : (plan.launch?.targetDate ?? ""),
+			reason: "",
+			error: null,
+		});
 	const actions =
 		viewer.admin && !milestone ? (
 			dated ? (
@@ -162,7 +167,6 @@ export function LaunchScreen({
 			)
 		) : null;
 
-	// What happened on Launch Sunday (WP-046): first once it is recorded, after the milestones until then.
 	const after = milestone ? null : (
 		<>
 			<OutcomeCard plan={plan} admin={viewer.admin} keys={keys} onPlan={setPlan} />
@@ -232,10 +236,6 @@ export function LaunchScreen({
 	);
 }
 
-/**
- * Launch readiness (WP-047b, NIR-03): within 30 days of Launch Sunday with a required role unfilled or required training
- * not done. A sending church or network that this church shares findings and Ministry teams with sees the same concern.
- */
 function PreparationNotice({ plan }: { plan: Plan }) {
 	const p = plan.preparation;
 	const gap = gapText(p);
@@ -256,7 +256,6 @@ function PreparationNotice({ plan }: { plan: Plan }) {
 	);
 }
 
-/** Launch Sunday and the countdown in church-local days (LCH-008). */
 function Countdown({ plan, admin, onSet }: { plan: Plan; admin: boolean; onSet: () => void }) {
 	const c = countdown(plan.launch, plan.today);
 	const date = plan.launch?.targetDate ?? null;
@@ -341,7 +340,6 @@ const addDays = (date: string, days: number) => {
 	return d.toISOString().slice(0, 10);
 };
 
-/** Milestones people marked complete, and the prep tasks done, from the live tasks. */
 function Readiness({ plan }: { plan: Plan }) {
 	const done = milestonesDone(plan);
 	const tasks = plan.milestones.reduce(
@@ -421,7 +419,6 @@ function Bar({ part, blue }: { part: number; blue?: boolean }) {
 }
 
 type Keys = ReturnType<typeof requestKeys>;
-/** The nine milestones in Playbook order, grouped by area. */
 function Milestones({
 	plan,
 	viewer,
@@ -555,7 +552,6 @@ function MilestoneRow({
 			return onMilestone(r.value.milestone);
 		}
 		if (r.status === "refused" && r.error.code === "stale_review") {
-			// Someone changed these tasks: show them as they are now; nothing saved until the Owner confirms again.
 			setStale(true);
 			return onMilestone(r.error.details.milestone);
 		}
@@ -659,7 +655,6 @@ function MilestoneRow({
 	);
 }
 
-/** One prep task. Its owner or an Owner or Admin completes and reopens it through Tasks, with Tasks' own rules. */
 function TaskRow({
 	task,
 	today,

@@ -15,13 +15,9 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { writeAddress } from "../../components/location.ts";
 import { ratePattern, refreshIntelligence } from "./actions.ts";
 import { concernLenses, HEALTH, type IntelligenceWords, plural, resultLabels, runLabel } from "./model.ts";
-
-// The body of /network/intelligence (WP-047b, T-372): the run shown and its history, the level switch, and each group's
-// plant rows with one short result per rule, and each rule pattern (NIR-03 to NIR-06) where two sharing plants qualify.
-// Plants are listed by name; nothing is ranked or scored. Refresh (Owners and Admins) shows the new run from the action's answer; a rating shows at once and rolls back
-// if the server refuses it.
 
 const href = (level: Level, runId: string | null) =>
 	`/network/intelligence?level=${level}${runId ? `&run=${runId}` : ""}`;
@@ -36,10 +32,12 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 	const refresh = () =>
 		startRefresh(async () => {
 			setProblem(null);
-			const answer = await refreshIntelligence(crypto.randomUUID(), view.level);
+			const answer = await refreshIntelligence(crypto.randomUUID(), view.level).catch(() => ({
+				status: "lost" as const,
+			}));
 			if (answer.status === "ok") {
 				setView(answer.view);
-				window.history.replaceState(null, "", href(answer.view.level, null));
+				writeAddress(href(answer.view.level, null), { replace: true });
 			} else setProblem(answer.status === "refused" ? words.refused : words.failed);
 		});
 
@@ -56,7 +54,9 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 		const before = pattern.rating;
 		set(rating);
 		setProblem(null);
-		const answer = await ratePattern({ runId: view.run.runId, patternKey: pattern.key, rating });
+		const answer = await ratePattern({ runId: view.run.runId, patternKey: pattern.key, rating }).catch(() => ({
+			status: "lost" as const,
+		}));
 		if (answer.status !== "ok") {
 			set(before);
 			setProblem("Your rating wasn't saved. Try again in a moment.");

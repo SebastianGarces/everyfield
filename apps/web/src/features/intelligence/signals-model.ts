@@ -18,10 +18,6 @@ import {
 } from "@everyfield/contracts/intelligence";
 import { shortDate } from "./model.ts";
 
-// The Attestations page's pure model: labels, dates, messages and the optimistic page. No React and no server code, so
-// the UI tests call it directly.
-
-/** A server action's answer: the operation's reply, or "lost" when no database answer came back. */
 export type SignalOutcome<T> =
 	{ status: "ok"; value: T } | { status: "refused"; error: SignalError } | { status: "lost" };
 
@@ -30,14 +26,11 @@ export const definitionOf = (key: SignalKey) => SIGNAL_DEFINITIONS.find((d) => d
 export const signalsIn = (page: AttestationsPage, group: string) =>
 	page.signals.filter((s) => definitionOf(s.key).group === group);
 
-/** "Yes", "Not yet", "Retracted" or "Not answered". Retracted and Not answered are both Unknown, never no. */
 export function answerLabel(entry: SignalEntry) {
 	if (entry.state === "answered") return VALUE_LABEL[entry.value!];
 	return entry.state === "retracted" ? "Retracted" : "Not answered";
 }
-/** "today", "1 day ago" or "34 days ago". */
 export const agoText = (days: number) => (days === 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`);
-/** The renewal badge text: how many days remain, or that the answer needs renewing or never expires. */
 export function renewalLabel(renewal: Renewal) {
 	switch (renewal.status) {
 		case "current":
@@ -54,15 +47,12 @@ export const renewalStatus = (renewal: Renewal) =>
 	({ current: "positive", needs_renewing: "attention", does_not_expire: "plain", unknown: "unknown" })[
 		renewal.status
 	] as "positive" | "attention" | "plain" | "unknown";
-/** What a row's button says: answer it, update it or renew it. */
 export function actionLabel(entry: SignalEntry) {
 	if (entry.state !== "answered") return "Answer";
 	return entry.renewal.status === "needs_renewing" ? "Renew" : "Update";
 }
-/** The attention count on the Attestations tab: answers to renew and signals nobody answered. */
 export const attentionCount = (page: AttestationsPage) => page.counts.needsRenewing + page.counts.notAnswered;
 
-/** An entry as the admin has just stated it, before the server confirms. */
 export function stated(
 	entry: SignalEntry,
 	change: { value: SignalValue; asOf: string; detail: string; reference: string },
@@ -84,7 +74,6 @@ export function stated(
 		renewal: renewalOf(entry.key, "answered", age),
 	};
 }
-/** An entry as a retraction leaves it: Retracted, which reads as Unknown. */
 export function retracted(entry: SignalEntry, authorName: string | null): SignalEntry {
 	return {
 		...entry,
@@ -99,7 +88,6 @@ export function retracted(entry: SignalEntry, authorName: string | null): Signal
 		renewal: { status: "unknown" },
 	};
 }
-/** An entry after "Still true": the same answer, as of today. */
 export function reaffirmed(entry: SignalEntry, today: string, authorName: string | null): SignalEntry {
 	return stated(
 		entry,
@@ -109,12 +97,10 @@ export function reaffirmed(entry: SignalEntry, today: string, authorName: string
 	);
 }
 
-/** The page with one signal replaced and the counts recomputed. */
 export function withSignal(page: AttestationsPage, entry: SignalEntry): AttestationsPage {
 	const signals = page.signals.map((s) => (s.key === entry.key ? entry : s));
 	return { ...page, signals, counts: countsOf(signals) };
 }
-/** The history line a confirmed write adds at the top. */
 export function historyLine(entry: SignalEntry, kind: HumanRevision["kind"], value: SignalValue | null): HumanRevision {
 	return {
 		id: crypto.randomUUID() as HumanRevision["id"],
@@ -149,7 +135,6 @@ const KIND_LABEL: Record<HumanRevision["kind"], string> = {
 	retracted: "Retracted",
 	reaffirmed: "Still true",
 };
-/** "Yes · Weekly, Thursday evenings" for a history line; a retraction names itself. */
 export function historyText(line: HumanRevision) {
 	if (line.key === "leadership_candidate") {
 		const days = daysBetween(line.periodStart!, line.periodEnd!) + 1;
@@ -163,7 +148,6 @@ export function historyText(line: HumanRevision) {
 		.join(" · ");
 }
 
-/** A dialog draft. `asOf` stays a LocalDate string so the date input and the request agree. */
 export type Draft = { value: SignalValue | null; asOf: string; detail: string; reference: string };
 export const draftOf = (entry: SignalEntry, today: string): Draft => ({
 	value: entry.value,
@@ -171,9 +155,7 @@ export const draftOf = (entry: SignalEntry, today: string): Draft => ({
 	detail: entry.detail ?? "",
 	reference: entry.reference ?? "",
 });
-/** The date a draft states: the typed one, or today when the field is cleared, as the server dates it. */
 export const statedAsOf = (draft: Draft, today: string) => draft.asOf || today;
-/** A signal answer's request input. A cleared date is left out, never sent as "", so the server dates it today. */
 export const signalInput = (key: SignalKey, value: SignalValue, draft: Draft) => ({
 	key,
 	value,
@@ -181,14 +163,12 @@ export const signalInput = (key: SignalKey, value: SignalValue, draft: Draft) =>
 	detail: draft.detail,
 	reference: draft.reference,
 });
-/** What saving a draft would do for this entry, or why it cannot yet. */
 export function intent(entry: SignalEntry, draft: Draft): "attest" | "correct" | "none" {
 	if (!draft.value) return "none";
 	if (entry.state !== "answered") return "attest";
 	return draft.value === entry.value ? "none" : "correct";
 }
 
-/** What a refusal means for the admin, in words. */
 export function refusalText(error: SignalError | null): string {
 	switch (error?.code) {
 		case "revision_conflict":
@@ -212,12 +192,10 @@ export function refusalText(error: SignalError | null): string {
 	}
 }
 
-/** Days a candidate period covers, both ends included; 0 while a date is missing or the order is wrong. */
 export function periodDays(start: string, end: string) {
 	if (!start || !end || start > end) return 0;
 	return daysBetween(start, end) + 1;
 }
-/** Why a candidate is or is not established, as the draft stands. */
 export function draftReasons(d: { start: string; end: string; attended: boolean; volunteered: boolean }) {
 	const reasons: CandidateReason[] = [];
 	if (!d.attended) reasons.push("attendance_not_attested");
@@ -230,11 +208,9 @@ export const REASON_TEXT: Record<CandidateReason, string> = {
 	volunteering_not_attested: "Volunteering is not attested",
 	period_too_short: `The period is shorter than ${CANDIDATE_DAYS} days`,
 };
-/** "Aug 15 to Oct 13 · 60 days" */
 export const periodText = (c: Pick<CandidateEntry, "periodStart" | "periodEnd" | "days">) =>
 	`${shortDate(c.periodStart)} to ${shortDate(c.periodEnd)} · ${c.days} days`;
 
-/** The page with one candidate replaced, added or (when retracted) kept as Retracted. */
 export function withCandidate(page: AttestationsPage, entry: CandidateEntry): AttestationsPage {
 	const known = page.candidates.some((c) => c.personId === entry.personId);
 	const candidates = known

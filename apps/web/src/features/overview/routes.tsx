@@ -12,10 +12,6 @@ import { IntelligenceCard } from "./IntelligenceCard.tsx";
 import { phaseText } from "./model.ts";
 import { loadActivity, loadFrame, loadIntelligence, loadLaunch, loadMetrics } from "./server.ts";
 
-// The /overview route (WP-048), a church plant's home. apps/web/src/app/(product)/(frame)/overview/ only re-exports
-// these. The server decides who may see it from the seat and the saved setup (ADM-004); each card then reads on its
-// own and streams in behind its own loading state.
-
 export const overviewMetadata: Metadata = { title: "Overview", robots: { index: false, follow: false } };
 
 export async function OverviewPage() {
@@ -25,7 +21,6 @@ export async function OverviewPage() {
 	const db = requestDatabase();
 	const plant =
 		viewer.status === "active" && db ? await dashboardReader.resolveHome(db, viewer.authority ?? null) : "none";
-	// An unfinished church goes back to its setup step, an organization seat to its home, an account to Discovery.
 	const home = landingFor({ status: viewer.status, plant });
 	if (home !== DASHBOARD_HOME) redirect(home);
 
@@ -89,7 +84,6 @@ async function Launch({ admin }: { admin: boolean }) {
 	return <LaunchCard loaded={await loadLaunch()} admin={admin} />;
 }
 
-/** The first paint while the page decides and reads: its shape, not a spinner. */
 export function OverviewLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-5">

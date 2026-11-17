@@ -10,9 +10,6 @@ import { loadTasksPage, taskViewer } from "./server.ts";
 import { TasksScreen } from "./TasksScreen.tsx";
 import { params } from "../shared/search-params.ts";
 
-// The Tasks route. apps/web/src/app/(product)/(frame)/tasks/ only re-exports these, so the screen, its data loading
-// and its states stay in this feature folder.
-
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export const tasksMetadata: Metadata = { title: "Tasks", robots: { index: false, follow: false } };
 
@@ -63,7 +60,6 @@ function Blocked({ children }: { children: React.ReactNode }) {
 	);
 }
 
-/** The first paint while Tasks loads: the list's shape, not a spinner. */
 export function TasksLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-6">

@@ -11,10 +11,6 @@ import type {
 import type { Outcome } from "./model.ts";
 import { read, write } from "./server.ts";
 
-// The browser boundary of the Launch plan's writes. Each hands the browser's values to the Launch writer, which parses
-// them with the strict launch contract and rechecks the live Owner or Admin seat inside its statement. A retry with
-// the same request key replays the stored answer. Prep tasks complete and reopen through the Tasks actions.
-
 type DateResult = { outcome: "changed" | "noop"; plan: Plan };
 type MilestoneResult = { outcome: "changed" | "noop"; milestone: Milestone };
 
@@ -74,7 +70,6 @@ export async function correctOutcome(
 	return write((w, db, authority) => w.correctOutcome(db, authority, { requestKey, expectedRevision, input }));
 }
 
-/** Name a guest: `{ personId }` picks a suggested Person, `{ displayName }` adds a new one. */
 export async function addGuest(requestKey: string, input: unknown): Promise<Outcome<DateResult>> {
 	return write((w, db, authority) => w.addGuestAttendance(db, authority, { requestKey, input }));
 }
@@ -111,7 +106,6 @@ export async function saveSummary(
 	);
 }
 
-/** Use an offered milestone (`{ path: "milestone", organizationId }`) or Launch Sunday again (T-296). */
 export async function chooseGatheringPath(
 	requestKey: string,
 	expectedRevision: string,
@@ -120,7 +114,6 @@ export async function chooseGatheringPath(
 	return write((w, db, authority) => w.choosePath(db, authority, { requestKey, expectedRevision, input }));
 }
 
-/** Record the milestone reached, correct the record with a reason, or clear it with a reason. */
 export async function saveGathering(
 	requestKey: string,
 	expectedRevision: string,
@@ -136,12 +129,10 @@ export async function saveGathering(
 	});
 }
 
-/** The milestones the church's affiliations offer now, read again after a refused switch. */
 export async function readGatheringOffers(): Promise<Outcome<GatheringOffer[]>> {
 	return read((r, db, authority) => r.readGatheringOffers(db, authority));
 }
 
-/** People of the church a typed guest name may be. Offered only: nothing links until the planter picks one. */
 export async function suggestGuests(query: string): Promise<Outcome<GuestMatch[]>> {
 	return read((r, db, authority) => r.suggestGuests(db, authority, String(query)));
 }

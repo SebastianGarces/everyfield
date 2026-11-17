@@ -19,11 +19,6 @@ import {
 } from "./model.ts";
 import { phaseName } from "./Templates.tsx";
 
-// The phase offer (TSK-010, PHASE-006): after a move to a new phase, the Owner or an Admin sees that phase's
-// checklists once, with the Wiki's reading for it. Nothing is added until they choose. Accepting adds exactly the
-// chosen checklists' tasks, due from the day of the move; a checklist left out or declined is not offered again, and
-// Phase checklists can still add it later. One answer counts: a second device shows what was already decided.
-
 type Decided = Extract<Offer, { status: "answered" }>;
 const NONE: Offer = { status: "none" };
 
@@ -34,17 +29,14 @@ export function PhaseOffer({
 }: {
 	initial: OpenOffer;
 	year: number;
-	/** The confirmed new tasks, for the list to show without a reload. */
 	onAdded: (tasks: TaskItem[]) => void;
 }) {
 	const toast = useToast();
-	// One card at a time: the open offer, what another device decided, or nothing. Close and every answer end it.
 	const [card, setCard] = useState<Offer>(initial);
 	const [chosen, setChosen] = useState<ReadonlySet<string>>(() => new Set());
 	const [saving, setSaving] = useState<"accept" | "decline" | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
-	// One answer intent: a lost reply is sent again with the same key and replays the stored answer.
-	const intent = useRef(crypto.randomUUID());
+	const intent = useRef<string | null>(null);
 
 	if (card.status === "answered") return <AlreadyAnswered decided={card} onClose={() => setCard(NONE)} />;
 	if (card.status === "none") return null;
@@ -54,14 +46,14 @@ export function PhaseOffer({
 		setSaving(kind);
 		setProblem(null);
 		const keys = kind === "accept" ? offer.checklists.filter((k) => chosen.has(k.key)).map((k) => k.key) : [];
-		const r = await answerOffer(intent.current, {
+		const r = await answerOffer((intent.current ??= crypto.randomUUID()), {
 			transitionId: offer.transition.id,
 			catalogVersion: offer.catalogVersion,
 			checklistKeys: keys,
 		}).catch((): Outcome<OfferAnswered> => ({ status: "lost" }));
 		setSaving(null);
 		if (r.status === "lost") return setProblem(problemText("lost"));
-		intent.current = crypto.randomUUID();
+		intent.current = null;
 		if (r.status === "ok") {
 			onAdded(r.value.created);
 			setCard(NONE);
@@ -81,7 +73,6 @@ export function PhaseOffer({
 			r.code === "conflict"
 				? "The church moved to another phase, so this offer no longer applies."
 				: problemText(r.code);
-		// The catalog or the phase changed: show the current offer with the reason, or say why the card went away.
 		if (r.code === "stale_catalog" || r.code === "conflict") {
 			const read = await loadOffer();
 			if (read.status === "ok") {
@@ -192,7 +183,6 @@ export function PhaseOffer({
 	);
 }
 
-/** Another device or person answered first: what they decided, read from the database. */
 function AlreadyAnswered({ decided, onClose }: { decided: Decided; onClose: () => void }) {
 	const a = decided.answer;
 	return (

@@ -1,0 +1,439 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "launch",
+	"catalog": [
+		"LCH-001",
+		"LCH-002",
+		"LCH-003",
+		"LCH-004",
+		"LCH-005",
+		"LCH-006",
+		"LCH-007",
+		"LCH-008",
+		"LCH-009",
+		"LCH-010"
+	],
+	"surfaces": [
+		{
+			"id": "launch.plan",
+			"says": "Launch Sunday's date and countdown, its readiness, and the outcome form once the day arrives.",
+			"routes": ["/launch"],
+			"catalog": ["LCH-001", "LCH-003", "LCH-006", "LCH-007", "LCH-008"],
+			"reach": [
+				{
+					"rail": "Launch",
+					"personas": ["owner", "admin", "member"]
+				},
+				{
+					"from": "overview.home",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Set Launch Sunday"
+							}
+						},
+						{
+							"expect": {
+								"url": "/launch"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "no-date",
+					"reach": {
+						"persona": "owner",
+						"open": "/launch",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "No launch date yet"
+						},
+						{
+							"role": "button",
+							"name": "Set Launch Sunday"
+						},
+						{
+							"role": "button",
+							"name": "Record Launch Sunday"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/launch",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "An Owner or Admin sets Launch Sunday",
+							"match": "contains"
+						},
+						{
+							"absent": {
+								"role": "button",
+								"name": "Set Launch Sunday"
+							}
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/launch",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Flaunch"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/launch/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the Launch plan"
+					},
+					"expect": [
+						{
+							"text": "Loading the Launch plan"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "outcome",
+					"says": "Once the date arrives, Record Launch Sunday saves what happened, named guests become People, and corrections keep history.",
+					"catalog": ["LCH-006", "LCH-007"],
+					"operations": ["launch.recordOutcome", "launch.correctOutcome"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/launch/outcome.test.mts",
+								"name": "AC:LAUNCH46-001 AC:CASE-LCH-006 Launch Sunday held on Oct 11 sits beside the planned Oct 10, which stays, and no meeting is made"
+							},
+							{
+								"file": "tests/integration/launch/outcome.test.mts",
+								"name": "AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named Mara, linked as a Launch Sunday guest, with nothing made up"
+							},
+							{
+								"file": "tests/integration/launch/outcome.test.mts",
+								"name": "AC:CASE-LCH-007 AC:B02-021 correcting 40 to 50 with a reason is history once; the phase stays and no task is made"
+							}
+						],
+						"cases": ["CASE-LCH-006", "CASE-LCH-007"],
+						"browser": {
+							"state": "no-date",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Record Launch Sunday"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "dialog",
+									"name": "Record Launch Sunday"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				},
+				{
+					"id": "set-date",
+					"says": "Set Launch Sunday saves the date and seeds the nine milestones and their prep tasks once.",
+					"catalog": ["LCH-001", "LCH-003"],
+					"operations": ["launch.schedule", "launch.ensureReadiness"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/launch/launch.test.mts",
+								"name": "AC:CASE-LCH-001 AC:CASE-LCH-003 setting Launch Sunday seeds the nine milestones and 23 undated, unassigned prep tasks once"
+							},
+							{
+								"file": "tests/integration/launch/launch.test.mts",
+								"name": "AC:CASE-LCH-008 the countdown counts church-local days: 28 days, today, overdue, postponed and no date"
+							}
+						],
+						"cases": ["CASE-LCH-001", "CASE-LCH-003", "CASE-LCH-008"],
+						"browser": {
+							"state": "no-date",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Set Launch Sunday"
+									}
+								},
+								{
+									"press": "Tab"
+								},
+								{
+									"press": "1"
+								},
+								{
+									"press": "2"
+								},
+								{
+									"press": "1"
+								},
+								{
+									"press": "5"
+								},
+								{
+									"press": "2"
+								},
+								{
+									"press": "0"
+								},
+								{
+									"press": "3"
+								},
+								{
+									"press": "0"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Set date"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Move date"
+								},
+								{
+									"role": "button",
+									"name": "Postpone"
+								},
+								{
+									"absent": {
+										"role": "heading",
+										"name": "No launch date yet"
+									}
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "move-postpone",
+					"says": "Moving or postponing Launch Sunday keeps every task's due date, assignee and status, and a later date schedules it again.",
+					"catalog": ["LCH-001"],
+					"operations": ["launch.move", "launch.postpone"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/launch/launch.test.mts",
+								"name": "AC:CASE-LCH-001 moving Launch Sunday keeps every task's due date, assignee and status and the phase"
+							},
+							{
+								"file": "tests/integration/launch/launch.test.mts",
+								"name": "AC:CASE-LCH-001 postponing clears the countdown and a later date schedules Launch Sunday again"
+							}
+						],
+						"cases": ["CASE-LCH-001"]
+					}
+				}
+			]
+		},
+		{
+			"id": "launch.progress",
+			"says": "After a date is set: the nine milestones with their prep tasks, and Launch history.",
+			"routes": [],
+			"catalog": ["LCH-002", "LCH-004", "LCH-005", "LCH-010"],
+			"reach": [
+				{
+					"link": "/launch"
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read"
+			},
+			"states": [
+				{
+					"id": "scheduled",
+					"reach": {
+						"persona": "owner",
+						"setup": [
+							{
+								"open": "/launch"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Set Launch Sunday"
+								}
+							},
+							{
+								"press": "Tab"
+							},
+							{
+								"press": "1"
+							},
+							{
+								"press": "2"
+							},
+							{
+								"press": "1"
+							},
+							{
+								"press": "5"
+							},
+							{
+								"press": "2"
+							},
+							{
+								"press": "0"
+							},
+							{
+								"press": "3"
+							},
+							{
+								"press": "0"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Set date"
+								}
+							}
+						],
+						"open": "/launch"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Scheduled",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Move date"
+						},
+						{
+							"role": "heading",
+							"name": "Milestones"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "milestone",
+					"says": "A milestone is completed or reopened by hand; its tasks' progress never completes it for you.",
+					"catalog": ["LCH-004", "LCH-005"],
+					"operations": ["launch.completeMilestone", "launch.reopenMilestone"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/launch/launch.test.mts",
+								"name": "AC:CASE-LCH-004 a milestone completes with an open task, refuses a stale review, needs review when a done task reopens"
+							},
+							{
+								"file": "tests/integration/launch/launch.test.mts",
+								"name": "AC:CASE-LCH-005 progress follows the live tasks, and finishing every task never completes the milestone"
+							},
+							{
+								"file": "tests/integration/launch/launch.test.mts",
+								"name": "AC:CASE-LCH-001 AC:CASE-LCH-004 a Member reads the plan and completes their own task, and nothing else"
+							}
+						],
+						"cases": ["CASE-LCH-004", "CASE-LCH-005"],
+						"browser": {
+							"state": "scheduled",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Not complete",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Complete milestone"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Reopen milestone"
+								},
+								{
+									"role": "button",
+									"name": "Completed",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "history",
+					"says": "Launch history lists every date change, milestone and outcome with who made it and when.",
+					"catalog": ["LCH-002", "LCH-010"],
+					"operations": ["launch.readJournal"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/launch/outcome.test.mts",
+								"name": "AC:CASE-LCH-002 AC:CASE-LCH-010 Launch history lists date moves, postponement, milestones and the outcome; a deleted account is a former account"
+							}
+						],
+						"cases": ["CASE-LCH-002", "CASE-LCH-010"],
+						"browser": {
+							"state": "scheduled",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Show history"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Launch Sunday set"
+								},
+								{
+									"role": "button",
+									"name": "Refresh"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				}
+			]
+		}
+	]
+}
