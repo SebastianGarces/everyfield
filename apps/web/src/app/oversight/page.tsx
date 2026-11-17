@@ -14,9 +14,6 @@ import { accessFor } from "@/site";
 
 export const metadata: Metadata = pageMetadata(PAGES.oversight);
 
-/** /oversight (OPS-82 prototype): the hero dashboard, the problem, every church plant at once, each one up close, the
- *  future planters, the sending paths, why the numbers are true, the questions, then the call to action. Below the hero
- *  dashboard the only product views are the sending-paths cards. No Evry. */
 export default function Oversight() {
 	const S = COPY.shared,
 		O = S.oversight_page;

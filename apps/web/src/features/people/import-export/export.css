@@ -1,0 +1,12 @@
+@keyframes people-export-slow {
+	from {
+		visibility: hidden;
+	}
+	to {
+		visibility: visible;
+	}
+}
+
+.people-export-slow {
+	animation: people-export-slow 0s 1s both;
+}

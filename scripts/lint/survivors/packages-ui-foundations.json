@@ -26,5 +26,19 @@
 				"reason": "The one shared minute clock behind relative times and the 48-hour call window, replacing the two intervals the app had: the passing minute is the behavior and nothing else signals it; one interval for all subscribers, cleared with the last"
 			}
 		]
+	},
+	"no-global-listeners": {
+		"packages/ui/src/foundations/observe.ts": [
+			{
+				"function": "observeScroll",
+				"count": 2,
+				"reason": "The one shared scroll observer for a node's position (active heading, reading progress): where the page itself scrolls (no scroll column), only the window's scroll event says the node moved. Added when the node attaches and removed when it detaches; no observer reports a continuous position"
+			},
+			{
+				"function": "observeSize",
+				"count": 2,
+				"reason": "The viewport option re-measures the node when the window is resized, for layouts that depend on the viewport and not on the node's own box (which the ResizeObserver already covers). Added when the node attaches and removed when it detaches"
+			}
+		]
 	}
 }

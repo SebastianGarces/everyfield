@@ -23,27 +23,25 @@ import {
 } from "@everyfield/ui/controls";
 import { TINT, type Tone } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
-import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
 import type { Outcome } from "../../../components/save/model.ts";
 import { DialogNotice, type SaveIntent } from "../../../components/save/parts.tsx";
 import { FormProblem, problemText } from "../parts.tsx";
 import { createChurchTag, deleteChurchTag, listChurchTags, updateChurchTag } from "./actions.ts";
 import { TAG_COLOR_LABEL, TAG_COLORS, tagLook, type ChurchTag } from "./model.ts";
 
+export const churchTags = createRead((): Promise<Outcome<ChurchTag[]>> => listChurchTags(), {
+	failed: () => ({ status: "lost" }) as const,
+});
 const byName = (a: { name: string }, b: { name: string }) =>
 	a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
 const problem = (r: Outcome<unknown>) => (r.status === "ok" ? undefined : r.status === "lost" ? "lost" : r.code);
-/** The words for a tag write that was refused: a rename onto an existing name is a conflict (REQ-PPL-010). */
 export const tagProblem = (code: string) =>
 	code === "conflict"
 		? "Another tag already has this name, or the tag changed. Check the list and try again."
 		: problemText(code);
 
-/**
- * Church tags (REQ-PPL-010): create, rename, recolor and delete the church's own tags. A change shows on every person
- * who has the tag. Delete says how many people have it first; their history keeps the tag. Changes save through the tags
- * card's lane, so the card and this dialog save one change at a time and its notice shows here while the dialog is open.
- */
 export function ManageTagsDialog({
 	open,
 	lane,
@@ -53,13 +51,10 @@ export function ManageTagsDialog({
 	open: boolean;
 	lane: SaveIntent<{ problem?: string }>;
 	onOpenChange: (open: boolean) => void;
-	/** Every change to the church's tags, so chips on the page follow it. */
 	onChurchTags: (tags: ChurchTag[]) => void;
 }) {
-	// Read fresh on every opening: the counts change whenever anyone tags a person.
-	const [loaded, setLoaded] = useState<Outcome<ChurchTag[]> | null>(null);
+	const loaded = useRead(churchTags).value ?? null;
 	const tags = loaded?.status === "ok" ? loaded.value : [];
-	// Create, rename, recolor and delete show at once; a refused change falls back to the saved list with its reason.
 	const [shown, apply] = useOptimistic(tags, (all, change: { put: ChurchTag } | { remove: string }) =>
 		"put" in change
 			? [...all.filter((t) => t.id !== change.put.id), change.put].sort(byName)
@@ -67,41 +62,17 @@ export function ManageTagsDialog({
 	);
 	const [, start] = useTransition();
 	const [name, setName] = useState("");
-	/** A delete whose fresh read of the tags failed: nothing was sent. */
 	const [rowProblem, setRowProblem] = useState<{ id: string; text: string } | null>(null);
 	const wait = lane.wait;
-	/** The tag whose rename row is open, and the name it starts with (a refused rename keeps what was typed). */
 	const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
 	const [deleting, setDeleting] = useState<ChurchTag | null>(null);
-	// The list as last saved. Saves that finish out of order each start from it, so none brings back an older tag.
-	const latest = useRef<ChurchTag[]>([]);
-
-	useEffect(() => {
-		if (loaded) return;
-		let live = true;
-		listChurchTags()
-			.catch(() => ({ status: "lost" }) as const)
-			.then((r) => {
-				if (!live) return;
-				if (r.status === "ok") latest.current = r.value;
-				setLoaded(r);
-			});
-		return () => {
-			live = false;
-		};
-	}, [loaded]);
-
 	const save = (update: (all: ChurchTag[]) => ChurchTag[]) => {
-		const all = update(latest.current).sort(byName);
-		latest.current = all;
-		setLoaded({ status: "ok", value: all });
+		const saved = churchTags.peek()?.value;
+		const all = update(saved?.status === "ok" ? saved.value : []).sort(byName);
+		churchTags.patch(() => ({ status: "ok", value: all }));
 		onChurchTags(all);
 	};
 
-	/**
-	 * Delete starts from the church's tags read now, so the confirmation names how many people have the tag at this
-	 * moment and the delete sends the tag's current revision (REQ-PPL-010: deletion previews the linked count).
-	 */
 	async function confirmDelete(tag: ChurchTag) {
 		setRowProblem(null);
 		const r = await listChurchTags().catch(() => ({ status: "lost" }) as const);
@@ -122,16 +93,11 @@ export function ManageTagsDialog({
 				what: term,
 				done: "added",
 				send: (key) => createChurchTag(key, { name: term }),
-				// The typed name comes back so a retry needs no retyping.
 				refused: () => setName((now) => now || term),
 				ok: (tag) => save((all) => [...all.filter((t) => t.id !== tag.id), tag]),
 			});
 		});
 	}
-	/**
-	 * A refused change: a conflict means the tag changed elsewhere, so the list (and the chips on the page) take the
-	 * church's tags as saved now, and the next change sends the current revision.
-	 */
 	async function reload(code: string) {
 		if (code !== "conflict") return;
 		const r = await listChurchTags().catch(() => null);
@@ -162,7 +128,6 @@ export function ManageTagsDialog({
 				done: "changed",
 				send: (key) => updateChurchTag(key, tag.revision, { tagId: tag.id, ...patch }),
 				refused: (code) => {
-					// A refused rename opens its row again with the typed name.
 					if (patch.name !== undefined) setRenaming({ id: tag.id, name: patch.name });
 					void reload(code);
 				},
@@ -309,9 +274,7 @@ function RenameRow({
 	onCancel,
 }: {
 	tag: ChurchTag;
-	/** The name the row starts with: the tag's name, or the name a refused rename sent. */
 	initial: string;
-	/** The card's last save is in flight or unknown (C68). */
 	disabled: boolean;
 	onSave: (name: string) => void;
 	onCancel: () => void;
@@ -344,7 +307,6 @@ function RenameRow({
 	);
 }
 
-/** The tag's color as a swatch button; its menu offers no color and one color per brand tone. */
 function ColorMenu({
 	tag,
 	disabled,
@@ -393,7 +355,6 @@ function ColorMenu({
 	);
 }
 
-/** A color sample: the tone's tint with its mark color in the middle, or the exact hex, or an empty ring. */
 function Swatch({ tone, dot }: { tone?: Tone; dot?: string }) {
 	if (dot) return <span aria-hidden="true" className="size-4 rounded-full" style={{ backgroundColor: dot }} />;
 	return (

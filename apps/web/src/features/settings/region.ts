@@ -8,11 +8,6 @@ import type { RegionArea } from "@everyfield/contracts/oversight";
 import { readReportingLocation, suggestRegions } from "@everyfield/domain/organizations";
 import { z } from "zod";
 
-// The church settings' reporting Region (WP-047b, REQ-PI-044): the plant's reporting city, state and country, and the
-// official OMB 23-01 metro or micro area its Owner or Admin picked for it. Suggestions come only from the official
-// list; a save goes through organizations.correctReportingLocation, which accepts only an offered area and refuses a
-// Member and every organization seat.
-
 export type Locality = { city: string | null; stateProvince: string | null; country: string | null };
 export type RegionRead =
 	| {
@@ -21,7 +16,6 @@ export type RegionRead =
 			canEdit: boolean;
 			locality: Locality;
 			region: RegionArea | null;
-			/** The installed official list, or null when none is installed (the picker then says so). */
 			referenceVersionId: string | null;
 	  }
 	| { status: "denied" }

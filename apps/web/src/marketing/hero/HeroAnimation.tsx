@@ -6,23 +6,16 @@ import { Fade, MoodBot, Move, Target, Tf } from "@/components/motion/fx";
 import { ICONS } from "../icons";
 import { ApproveButton, HeroStage, Roll, Typed, TypedName } from "./hero-fx";
 
-// The home hero (OPS-82 prototype): one person, from first contact to the core group. Evry creates a follow-up task for a
-// team member and you approve it; Evry never writes the message. The cards render on the server; hero-fx.tsx runs the
-// clock, the typing, the moving chip and the pause button.
-
 const label = (name: string, task: HeroDemo["task"]) =>
 	`Example: ${name} is added and comes to a vision meeting. Evry creates a follow-up task for ${task.assignee}, and you approve it. ${name.split(" ")[0]} commits and joins the core group.`;
 const CARD =
 	"relative col-start-1 row-start-1 w-[min(440px,calc(100%-32px))] px-5 pt-[18px] pb-5 opacity-0 max-mk-sm:w-[calc(100%-24px)] max-mk-sm:px-4 max-mk-sm:pt-4 max-mk-sm:pb-[18px]";
 
-/** Card text the page passes (home/demo.ts): the meeting, the follow-up task and the person. */
 export type HeroDemo = {
 	meeting: { title: string; sub: string };
-	/** The task Evry creates: its title (typed in), who it is for and when it is due. */
 	task: { title: string; assignee: string; initials: string; due: string };
 	person: HeroPerson;
 };
-/** following and core: the stage counts before and after the person moves from Following up to Core group. */
 type HeroPerson = {
 	name: string;
 	initials: string;
@@ -110,7 +103,6 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 					<span>For</span>
 					<Slot i={2} person={person} />
 				</St>
-				{/* The follow-up is a task row (ring, title, assignee), not a message. */}
 				<St
 					i={2}
 					k={2}
@@ -136,7 +128,6 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 			<Move fx="card" n={3} className={CARD}>
 				<St i={3} k={0} className="mb-3.5 flex items-center justify-between gap-2.5">
 					<Slot i={3} person={person} />
-					{/* Scene 4: the stage flips from Following up to Committed. */}
 					<span className="inline-grid">
 						<Move as="span" fx="flipA" className="col-start-1 row-start-1 justify-self-end">
 							<StageChip tone="amber">Following up</StageChip>
@@ -198,7 +189,6 @@ export function HeroAnimation({ demo }: { demo: HeroDemo }) {
 	);
 }
 
-/** A card child that staggers in with its card (k-th child of card i). */
 function St({ i, k, className, children }: { i: number; k: number; className?: string; children: ReactNode }) {
 	return (
 		<Move fx="st" n={i * 10 + k} className={className}>
@@ -222,7 +212,6 @@ function Head({ i, lead, title, sub }: { i: number; lead: ReactNode; title: stri
 function Lab({ children }: { children: ReactNode }) {
 	return <span className="mb-1.5 block type-xs font-semibold text-text-2">{children}</span>;
 }
-/** A list line; the first one of its group has no rule above it. */
 function Li({ first, children }: { first?: boolean; children: ReactNode }) {
 	return <div className={cn("flex h-11 items-center gap-2.5", !first && "border-t border-line")}>{children}</div>;
 }
@@ -239,7 +228,6 @@ function Kv({ k, label, children }: { k: number; label: string; children: ReactN
 	);
 }
 
-/** The person's chip as the hidden slot in card i that the moving chip flies to. */
 function Slot({ i, person }: { i: number; person: HeroPerson }) {
 	return (
 		<Target name={"s" + i} className="invisible inline-flex">
@@ -251,12 +239,8 @@ function Slot({ i, person }: { i: number; person: HeroPerson }) {
 	);
 }
 
-/** Scene 5: three people stages with the demo church's counts. Following up and Core group roll as the person moves;
- *  hero-fx.tsx fills the meters (Attendee 41, Following up 23, Core group 34, out of 50). */
 const ATTENDEES = 41;
 const METER = ["bg-blue-500", "bg-amber-500", "bg-green-500"] as const;
-/** One stage: its chip, the person's slot (Core group only), the count, and a meter under them. The core-group row gets
- *  a short highlight. */
 function Row({
 	k,
 	chip,

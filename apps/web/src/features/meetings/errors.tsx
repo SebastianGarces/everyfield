@@ -2,7 +2,6 @@
 
 import { Button, Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 
-/** An unexpected failure while rendering a meetings page. Retrying renders the page again; nothing was changed. */
 export function MeetingsError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
 	return (
 		<>

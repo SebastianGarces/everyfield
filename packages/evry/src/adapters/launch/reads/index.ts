@@ -8,14 +8,6 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { plantAdmin, plantSeat } from "../../native.ts";
 
-// The Launch plan as Evry reads it (WP-075): the same domain reads the Launch plan page makes (WP-045, WP-046), under
-// the asker's live seat. The countdown is the plan's own, from the church-local date the read returns; Evry never
-// computes one from a date it guessed. A milestone's progress and overdue tasks come from its own linked prep tasks
-// only (INH-LAUNCH-02). History says what changed, who changed it and when, never how readiness stood at a time
-// (INH-LAUNCH-03). Nothing here completes a milestone, names a guest or changes anything: only an approved card or the
-// Launch plan does. A guest name's matches are only offered (LCH-007). Debrief answers and the outcome note are the
-// planter's own words: they stay on the Launch plan.
-
 const reader = createLaunchReader();
 const dayFormat = new Intl.DateTimeFormat("en-US", {
 	weekday: "short",
@@ -24,10 +16,8 @@ const dayFormat = new Intl.DateTimeFormat("en-US", {
 	year: "numeric",
 	timeZone: "UTC",
 });
-/** A church-local date (YYYY-MM-DD) as the Launch plan says it: "Tue, Nov 10, 2026". */
 export const launchDay = (day: string) => dayFormat.format(new Date(`${day}T12:00:00Z`));
 
-/** The plan could not be read: the answer says so, never that the church has no launch. */
 const UNLOADED = "the Launch plan, which couldn't be loaded";
 function unloaded(operation: string): SourceResult {
 	return {
@@ -43,10 +33,6 @@ function unloaded(operation: string): SourceResult {
 	};
 }
 
-/**
- * One Launch read in its own savepoint, so a failed statement leaves the read's transaction usable and the answer says
- * the plan couldn't be loaded. A native refusal reads as no tenant data: the seat no longer reads this plan.
- */
 async function loaded<T>(
 	tx: Transaction,
 	read: (t: Transaction) => Promise<{ status: "ok"; value: T } | { status: "refused" }>,
@@ -67,7 +53,6 @@ const planOf = (tx: Transaction, actor: EvryActor) =>
 	});
 
 const STATUS_TEXT = { planning: "No date set", scheduled: "Scheduled", postponed: "Postponed", completed: "Launched" };
-/** The plan's date facts: the church-local date today, the planned date and the Launch plan's own countdown. */
 function dateFacts(plan: Plan) {
 	const c = countdown(plan.launch, plan.today);
 	return {
@@ -105,7 +90,6 @@ export const readCountdown = {
 		const plan = await planOf(tx, actor);
 		if (!plan) return unloaded("launch.readCountdown");
 		const facts = dateFacts(plan);
-		// One row: Launch Sunday as the Launch plan's header shows it.
 		const row: SourceRow = {
 			kind: "item",
 			id: actor.owner.id,
@@ -117,16 +101,11 @@ export const readCountdown = {
 } satisfies ReadAdapter<Record<string, never>>;
 
 const isOpen = (status: string) => status !== "complete" && status !== "no_longer_needed";
-/** A milestone the Launch plan counts done: a person marked it complete and no reopened task waits for review. */
 const done = (m: Milestone) => m.completion !== null && !m.needsReview;
-/** An open linked prep task whose due date is before the church-local date today. */
 const overdue = (t: Milestone["tasks"][number], today: string) =>
 	isOpen(t.status) && t.dueDate !== null && t.dueDate < today;
 
 const workspaceInput = z.strictObject({
-	/**
-	 * open (the default): milestones not yet done. blocked: open milestones with an overdue linked prep task. all: all nine.
-	 */
 	filter: z.enum(["open", "blocked", "all"]).optional(),
 });
 export const readWorkspace = {
@@ -192,7 +171,6 @@ const EVENT_TEXT: Record<string, string> = {
 	postponed: "Launch postponed",
 	rescheduled: "Launch Sunday set again",
 };
-/** One history entry as a row: what changed, from what to what, the reason as written, who and when. */
 function entryRow(e: History["entries"][number], timeZone: string): SourceRow {
 	const at = new Intl.DateTimeFormat("en-US", { timeZone, month: "short", day: "numeric", year: "numeric" }).format(
 		new Date(e.at),
@@ -281,14 +259,12 @@ function entryRow(e: History["entries"][number], timeZone: string): SourceRow {
 			};
 	}
 }
-/** The church-local date of an instant. */
 const localDayOf = (at: string, timeZone: string) =>
 	new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
 		new Date(at),
 	);
 
 const journalInput = z.strictObject({
-	/** Only changes on or after this church-local date (YYYY-MM-DD), such as a week before today. */
 	since: localDate.optional(),
 });
 export const readJournal = {
@@ -312,10 +288,6 @@ export const readJournal = {
 } satisfies ReadAdapter<z.infer<typeof journalInput>>;
 
 const debriefInput = z.strictObject({
-	/**
-	 * A guest's name as the user typed it: the read also lists the church's live People that name may be (person rows
-	 * with match), as the Launch plan's guest picker shows them, for an Owner or Admin. A match is only offered.
-	 */
 	guestName: z
 		.string()
 		.max(GUEST_NAME_MAX * 4)
@@ -336,7 +308,6 @@ export const readDebrief = {
 			label: g.displayName,
 			fields: { guest: "Launch Sunday first-time guest" },
 		}));
-		// The guest picker's matches, for an Owner or Admin only, through the same read the Launch plan's picker calls.
 		const guestName = input.guestName?.trim() || null;
 		const picker = guestName !== null && plantAdmin(actor);
 		const matches = picker ? await loaded(tx, (t) => reader.suggestGuests(t, actor.authority, guestName)) : null;
@@ -393,5 +364,4 @@ export const readDebrief = {
 	},
 } satisfies ReadAdapter<z.infer<typeof debriefInput>>;
 
-/** The installed Launch reads. */
 export const LAUNCH_READS = [readCountdown, readWorkspace, readJournal, readDebrief] as const;

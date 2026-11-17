@@ -1,4 +1,3 @@
-// The sent-email summary. Pure, so a render test can load it without the panel's server actions.
 import { rateText, type DeliveryTotals } from "./model.ts";
 
 export function when(iso: string | null): string {
@@ -8,10 +7,6 @@ export function when(iso: string | null): string {
 	return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
-/**
- * One recipient's status. A person who unsubscribed is skipped, never failed: before the email goes out they won't
- * receive it; after, they are listed as skipped (`gone` true).
- */
 export function deliveryName(status: string, gone = true): string {
 	if (status === "unsubscribed") return gone ? "Skipped: unsubscribed" : "Unsubscribed, won't receive this";
 	const labels: Record<string, string> = {
@@ -68,7 +63,6 @@ export function Totals({ totals }: { totals: DeliveryTotals }) {
 				{ label: "Unknown", value: totals.unknown },
 			],
 		},
-		// A person who unsubscribed is skipped, never a failed send, so they stay out of "Not delivered" (T-282).
 		{
 			title: "Skipped",
 			rows: [{ label: "Unsubscribed", value: totals.unsubscribed }],

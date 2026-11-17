@@ -21,7 +21,10 @@ export function AccountSection({
 }: {
 	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
-	const { state, replace, reload } = useSection({ section: "account" });
+	const { state, replace, reload } = useSection(
+		{ section: "account" },
+		{ key: "account", formOf: (account) => ({ name: account.name }) },
+	);
 	return (
 		<LoadableView
 			state={state}
@@ -90,7 +93,6 @@ function AccountForm({
 						port={port.flows.avatar}
 						account={account}
 						onChanged={(avatar) => {
-							// The change also moved the account revision, which only a fresh read carries (as for the time zone).
 							replace({ ...account, avatar });
 							reload();
 						}}
@@ -119,8 +121,6 @@ function AccountForm({
 					<PersonalTimezone
 						preference={account.personalTimezone}
 						onSaved={(personalTimezone) => {
-							// The save also moved the account revision, which only a fresh read carries. Show the new zone
-							// at once, then read the section so the next name or notification save sends the current revision.
 							replace({ ...account, personalTimezone });
 							reload();
 						}}
@@ -158,7 +158,6 @@ function AccountForm({
 	);
 }
 
-/** An Owner's account keeps the church running, so it cannot be deleted here (manual_owner_exception_required). */
 const ownsSeat = (viewer: SettingsViewer) => viewer.context !== "account" && viewer.role === "owner";
 
 function deletionText(viewer: SettingsViewer): string {

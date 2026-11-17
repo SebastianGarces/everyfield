@@ -143,7 +143,6 @@ async function main() {
 		if (!row) throw new Error(`Unknown seed article: ${input}`);
 		return { row, seed: true };
 	}
-	// Seed ASCII-art blocks that stay until OPS-97 migrates them. Each entry permits one block, by slug and fingerprint.
 	const listed = await readJson(
 		resolve(String(flags.get("--allowlist") || resolve(root, "tools/wiki/ascii-allowlist.json"))),
 	);
@@ -154,14 +153,12 @@ async function main() {
 		const slug = String(row.slug);
 		const result = await inspect(typeof row.content === "string" ? row.content : "", known, seed, slug);
 		result.errors.unshift(...shape(row, articles, sections, seed));
-		// Only seed rows read the allowlist; a draft with ASCII art always fails.
 		const unmatched = seed ? allowlist.filter((entry) => entry.slug === slug).map((entry) => entry.fingerprint) : [];
 		for (const finding of result.ascii) {
 			const index = finding.fingerprint === null ? -1 : unmatched.indexOf(finding.fingerprint);
 			if (index >= 0) unmatched.splice(index, 1);
 			(index >= 0 ? result.warnings : result.errors).push(finding.message);
 		}
-		// An entry whose block is gone permits nothing. It is a warning, so a migration never needs a tooling edit.
 		for (const fingerprint of unmatched)
 			result.warnings.push(
 				`Inert ASCII allowlist entry ${slug} ${fingerprint}: no ASCII block matches it, so it permits nothing; delete it`,
@@ -238,7 +235,7 @@ async function main() {
 		if (!bytes.equals(reviewed))
 			throw new Error("Draft differs from the reviewed PR head; obtain review of the changed draft");
 		const lock = resolve(seedDir, ".wiki-promote.lock");
-		await mkdir(lock); // One seed writer. A stale lock requires inspection before removal.
+		await mkdir(lock);
 		try {
 			console.log(
 				python("promote", [

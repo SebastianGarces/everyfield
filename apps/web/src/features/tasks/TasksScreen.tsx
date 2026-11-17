@@ -36,20 +36,13 @@ import {
 	IntentLink,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, Pagination, StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
+import { cn, createDebouncer, Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
-import {
-	useEffect,
-	useId,
-	useOptimistic,
-	useRef,
-	useState,
-	useSyncExternalStore,
-	useTransition,
-	type ReactNode,
-} from "react";
-import { SaveLane, type LaneOptions, type SaveSpec, type Wait } from "../../components/save/model.ts";
+import { useId, useOptimistic, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { writeAddress } from "../../components/location.ts";
+import type { SaveLane, SaveSpec, Wait } from "../../components/save/model.ts";
 import { NoticeInDialog, SaveNotice } from "../../components/save/parts.tsx";
+import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
 import {
 	addStep,
 	bulkComplete,
@@ -65,7 +58,6 @@ import {
 import { BulkBar, BulkReport, type Report } from "./bulk.tsx";
 import { loadBlocking, loadRows, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
 import {
-	BadgeReads,
 	blocks,
 	withBlockers,
 	type Blocker,
@@ -90,6 +82,7 @@ import {
 	pageCount,
 	PRIORITIES,
 	PRIORITY_LABEL,
+	parseQuery,
 	problemText,
 	querySearch,
 	rangeText,
@@ -122,16 +115,23 @@ import { Assignee, DoneBox, intentHandlers, MetaLine, StatusItems } from "./part
 import type { StepAssignee } from "./structure.tsx";
 import { warmAssignees } from "./AssigneePicker.tsx";
 import { TaskDialog, type Commit, type EditForm } from "./TaskDialog.tsx";
-import { TaskSheet, type DetailState, type PanelEdit } from "./TaskSheet.tsx";
+import { TaskSheet, type DetailState } from "./TaskSheet.tsx";
+import {
+	BULK,
+	createTasksPageStore,
+	createTasksStore,
+	NEW,
+	type TaskForm,
+	type TasksPageState,
+} from "./TasksScreen.store.ts";
 import { PhaseOffer } from "./PhaseOffer.tsx";
 import { Templates } from "./Templates.tsx";
 
-type Loaded = {
+export type TasksAnswer = {
 	query: TaskQuery;
 	page: { items: TaskItem[]; total: number; page: number };
 	counts: TaskCounts;
 	opened: TaskLoad | null;
-	/** The open phase offer for an Owner or Admin, or null. */
 	offer: OpenOffer | null;
 };
 
@@ -152,7 +152,6 @@ const targetOf = (a: StatusAction): Status =>
 				? "no_longer_needed"
 				: a.status;
 
-/** Words for a status change in a card's notice: "was not marked done", "may already be reopened". */
 const doneOf = (a: StatusAction): string =>
 	a.kind === "complete"
 		? "marked done"
@@ -161,66 +160,26 @@ const doneOf = (a: StatusAction): string =>
 			: a.kind === "waive"
 				? "closed as no longer needed"
 				: `moved to ${STATUS_LABEL[a.status]}`;
-/** Refusals that mean this screen's copy of the task is old. */
 const STALE = new Set(["conflict", "open_successor"]);
-/** The lanes of the New task form and of bulk changes; every other lane is a task's or a step's ID. */
-const NEW = "new";
-const BULK = "bulk";
+const pageFields = ({ items, counts, total, selected, report, badgesStale }: TasksPageState) => ({
+	items,
+	counts,
+	total,
+	selected,
+	report,
+	badgesStale,
+});
 
-/** A form a card's lane opens again after a refused save: the edit dialog or a panel section, with the person's choice. */
-type TaskForm = EditForm | (PanelEdit & { problem?: string });
-
-/**
- * The save lanes of this screen's cards (C68), made on first use. The screen draws again when any of them changes, so
- * rows, the panel and the bulk bar read a lane's wait and notice during render.
- */
-class Lanes {
-	#lanes = new Map<string, SaveLane<TaskForm>>();
-	#listeners = new Set<() => void>();
-	#version = 0;
-	readonly #options: (id: string) => LaneOptions;
-	constructor(options: (id: string) => LaneOptions) {
-		this.#options = options;
-	}
-	of = (id: string): SaveLane<TaskForm> => {
-		let lane = this.#lanes.get(id);
-		if (!lane) {
-			lane = new SaveLane<TaskForm>(this.#options(id));
-			lane.subscribe(() => {
-				this.#version++;
-				for (const l of this.#listeners) l();
-			});
-			this.#lanes.set(id, lane);
-		}
-		return lane;
-	};
-	/** Every lane with a notice, by lane ID. */
-	notices = (): [string, SaveLane<TaskForm>][] => [...this.#lanes].filter(([, l]) => l.get().notice !== null);
-	subscribe = (listener: () => void) => {
-		this.#listeners.add(listener);
-		return () => void this.#listeners.delete(listener);
-	};
-	version = () => this.#version;
-}
-/** A lane's notice props for SaveNotice and NoticeInDialog. */
 const noticeOf = (lane: SaveLane<TaskForm> | null) => ({
 	notice: lane?.get().notice ?? null,
 	busy: lane ? lane.wait() === "saving" : false,
 	onDismiss: () => lane?.dismiss(),
 });
-/** The notices of several cards, each in its own live region. */
 function Notices({ lanes }: { lanes: [string, SaveLane<TaskForm>][] }) {
 	return lanes.map(([id, lane]) => <SaveNotice key={id} dialogOpen={false} className="mb-3" {...noticeOf(lane)} />);
 }
 
-/**
- * Tasks (REQ-TSK-001 to 003, 005 to 008, 015): My and All views, search, filters, sort and pages in the address, with
- * counts over the same scope. Completing, reopening and status changes show at once and are confirmed or rolled back
- * with a message; a confirmed answer replaces the row and moves the counts, so nothing reads the page again. Owners and
- * Admins create, edit and delete, change what a task waits for and how it repeats, and complete or reschedule a
- * selection at once; a Member acts only on a task they hold and adds steps under it (REQ-IDN-029).
- */
-export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: Viewer; year: number }) {
+export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; viewer: Viewer; year: number }) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const toast = useToast();
@@ -228,74 +187,34 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const [navigating, startNav] = useTransition();
 	const [, startAction] = useTransition();
 
-	// The server's answer is the source until this screen confirms a change. A new answer (filters, page) resets it.
-	const [server, setServer] = useState(loaded);
-	const [items, setItems] = useState(loaded.page.items);
-	const [counts, setCounts] = useState(loaded.counts);
-	const [total, setTotal] = useState(loaded.page.total);
-	const [details, setDetails] = useState<Record<string, DetailState>>(() =>
-		loaded.opened ? { [loaded.opened.task.id]: { status: "ok", ...loaded.opened } } : {},
-	);
-	const [openId, setOpenId] = useState<string | null>(loaded.opened?.task.id ?? null);
-	// Owner and Admin select tasks for a bulk change; the report says what each selected task did.
-	const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
-	const [report, setReport] = useState<Report | null>(null);
-	// Each card's saves (C58, C68): one lane per task, step and new task, and one for bulk changes. The selection a bulk
-	// change may start on, and the tasks the last bulk change holds while it is in flight or unknown.
-	const chosenIds = useRef<readonly string[]>([]);
-	const bulkHeld = useRef<readonly string[]>([]);
-	const [lanes] = useState(
-		(): Lanes =>
-			new Lanes((id): LaneOptions => ({
-				explain: (code) => problemText(code as never),
-				report: (line) => console.error(line),
-				busy:
-					id === BULK
-						? (): boolean => chosenIds.current.some((t) => lanes.of(t).wait() !== null)
-						: (): boolean => {
-								const bulk = lanes.of(BULK).get();
-								return (bulk.saving || bulk.notice?.tone === "unknown") && bulkHeld.current.includes(id);
-							},
-			})),
-	);
+	const [list, setList] = useState(() => ({ answer: loaded, store: createTasksPageStore(loaded) }));
+	if (list.answer !== loaded) setList({ answer: loaded, store: createTasksPageStore(loaded) });
+	const pageStore = list.store;
+	const { items, counts, total, selected, report, badgesStale } = useStore(pageStore, useShallow(pageFields));
+	const changePage = pageStore.getState().actions.change;
+	const setItems = (change: (rows: TaskItem[]) => TaskItem[]) => changePage((p) => ({ items: change(p.items) }));
+	const setCounts = (change: (c: TaskCounts) => TaskCounts) => changePage((p) => ({ counts: change(p.counts) }));
+	const setTotal = (change: (t: number) => number) => changePage((p) => ({ total: change(p.total) }));
+	const setSelected = (change: ReadonlySet<string> | ((s: ReadonlySet<string>) => ReadonlySet<string>)) =>
+		changePage((p) => ({ selected: typeof change === "function" ? change(p.selected) : change }));
+	const setReport = (report: Report | null) => changePage(() => ({ report }));
+	const listed = () => pageStore.getState().items;
+
+	const store = useLocalStore(() => createTasksStore({ opened: loaded.opened }));
+	const details = useStore(store, (s) => s.details);
+	const openId = useStore(store, (s) => s.openId);
+	const dialogFor = useStore(store, (s) => s.dialogFor);
+	const deleting = useStore(store, (s) => s.deleting);
+	const { lanes, actions } = store.getState();
 	useSyncExternalStore(lanes.subscribe, lanes.version, lanes.version);
-	// The lane whose edit form the dialog shows, and the lane of the form the person opened last: a refused save opens
-	// its form again only while no other form or task was opened since (C58).
-	const [dialogFor, setDialogFor] = useState<string | null>(null);
-	const formLane = useRef<string | null>(null);
-	// The page's "Blocked by" badges: which read applies, a read in flight, and whether the last one failed.
-	const badgeReads = useRef(new BadgeReads());
-	const readingBadges = useRef(false);
-	const [badgesStale, setBadgesStale] = useState(false);
-	if (server !== loaded) {
-		setServer(loaded);
-		setItems(loaded.page.items);
-		setCounts(loaded.counts);
-		setTotal(loaded.page.total);
-		setSelected(new Set());
-		setReport(null);
-		setBadgesStale(false);
-	}
-	// Changes in flight (status, edit, delete, new task). They show at once and fall away when the write settles.
+	const known = () => store.getState().details;
+	const setDetails = actions.details;
+	const { openForm, closeForm, leaveForm } = actions;
+	const setDeleting = actions.confirmDelete;
+
 	const [pending, setPending] = useOptimistic(NO_PENDING, withChange);
 	const shown = shownRows(items, pending);
-	// The confirmed rows, for writes that settle after a later render.
-	const listed = useRef(items);
-	const known = useRef(details);
-	useEffect(() => {
-		listed.current = items;
-		known.current = details;
-	}, [items, details]);
-	// A new list (search, filters, page) ends every badge read and retry of the old one: their answers describe rows
-	// that this list no longer shows.
-	useEffect(() => {
-		badgeReads.current.end();
-		readingBadges.current = false;
-	}, [server]);
-	const [deleting, setDeleting] = useState<TaskItem | null>(null);
-	const loading = useRef(new Set<string>());
 	const query = loaded.query;
-	/** Tasks a checklist import or a phase offer just created: listed and counted when they match the query. */
 	const addTasks = (tasks: TaskItem[]) => {
 		const fresh = tasks.filter((t) => matches(query, t, viewer.accountId));
 		if (!fresh.length) return;
@@ -307,23 +226,21 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const go = (next: TaskQuery, replace = false) =>
 		startNav(() => (replace ? router.replace : router.push)(pathname + querySearch(next), { scroll: false }));
 
-	// The open task is in the address, so a reload or a shared link opens it again. Next keeps its router in step with
-	// history.replaceState, so this sends no request.
 	const address = (id: string | null) => {
 		const url = new URL(window.location.href);
 		if (id) url.searchParams.set("task", id);
 		else url.searchParams.delete("task");
-		window.history.replaceState(null, "", url.pathname + url.search);
+		writeAddress(url.pathname + url.search, { replace: true });
 	};
 	const warm = (id: string) => {
-		const known = details[id];
-		if (loading.current.has(id) || (known?.status === "ok" && known.history.status === "ok")) return;
-		loading.current.add(id);
+		const cached = known()[id];
+		if (cached?.status === "ok" && cached.history.status === "ok") return;
+		if (!actions.startLoading(id)) return;
 		setDetails((d) => ({ ...d, [id]: { status: "loading" } }));
 		loadTask(id)
 			.catch(() => lost)
 			.then((r: Outcome<TaskLoad>) => {
-				loading.current.delete(id);
+				actions.stopLoading(id);
 				setDetails((d) => ({
 					...d,
 					[id]:
@@ -333,44 +250,19 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				}));
 			});
 	};
-	/** Ends the chance of the last form to open again after a refusal, unless it belongs to `keep`. */
-	const leaveForm = (keep?: string) => {
-		const last = formLane.current;
-		if (!last || last === keep) return;
-		lanes.of(last).close();
-		formLane.current = null;
-	};
-	/** Opens a card's form: the edit dialog or a panel section. */
-	const openForm = (id: string, form: TaskForm) => {
-		leaveForm(id);
-		formLane.current = id;
-		lanes.of(id).open(form);
-		if (form.kind === "edit") setDialogFor(id);
-	};
-	const closeForm = (id: string) => {
-		lanes.of(id).close();
-		if (formLane.current === id) formLane.current = null;
-	};
-	// The task the panel shows, for answers that arrive after a later render.
-	const shownId = useRef(openId);
 	const open = (id: string) => {
 		warm(id);
-		if (id !== openId) leaveForm(id);
-		shownId.current = id;
-		setOpenId(id);
+		if (id !== store.getState().openId) leaveForm(id);
+		actions.show(id);
 		address(id);
 	};
 	const close = () => {
 		leaveForm();
-		shownId.current = null;
-		setOpenId(null);
+		actions.show(null);
 		address(null);
 	};
 
-	/** A confirmed write: the row, the counts and an open panel show the saved task; its history gains the entry. */
 	const confirm = (before: TaskItem | null, saved: Saved, fields = false) => {
-		// A write's answer skips the owner and origin reads (they cost a statement each): this screen keeps the ones it
-		// showed. An owner stays for the same assignee; a new follow-up reads them again.
 		const task = {
 			...saved.task,
 			followUpOwners: saved.task.followUpOwners.map(
@@ -380,10 +272,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		};
 		if (!before && task.category === "follow_up" && task.relation?.kind === "person" && !task.followUpOrigin)
 			void refresh(task.id);
-		// A task opened from the address may be outside this list (a closed task in the open list): only its panel changes.
-		// A status change keeps its row in place, struck through; a new or edited task is listed and counted only when it
-		// matches the query (F5), as the server would list it.
-		const wasIn = before !== null && listed.current.some((r) => r.id === task.id);
+		const wasIn = before !== null && listed().some((r) => r.id === task.id);
 		const nowIn = task.deleted ? false : fields ? matches(query, task, viewer.accountId) : wasIn;
 		if (wasIn || nowIn) {
 			setItems((rows) =>
@@ -407,11 +296,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				void _;
 				return rest;
 			}
-			// Nothing cached yet (a new task): the panel reads the task and its history when it opens (F6).
 			if (cur?.status !== "ok") return d;
 			const moved = saved.changed && before && before.status !== task.status;
-			// A status change moves a series' open occurrence; a successor (below) names the new one. A task that starts a
-			// new series (Make it repeat on a stopped one) leaves its old series' open occurrence behind.
 			const occurrence = moved || cur.task.recurrence?.seriesId !== task.recurrence?.seriesId ? null : cur.occurrence;
 			const history =
 				moved && cur.history.status === "ok" && cur.history.value.next === null
@@ -435,24 +321,16 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 					: cur.history;
 			return { ...d, [task.id]: { ...cur, task, history, occurrence } };
 		});
-		// A task that settled, reopened or left releases or restores the "Blocked by" badge of the tasks that wait for it.
 		if (before && (task.deleted || isSettled(before.status) !== isSettled(task.status)))
 			blockersChanged([{ id: task.id, status: task.status, deleted: task.deleted }]);
 	};
 
-	/**
-	 * Tasks changed whether they hold others back (REQ-TSK-006): done, no longer needed, deleted, or reopened. A
-	 * write's answer names only the changed task, so the screen reconciles the tasks that wait for it. A task whose
-	 * prerequisites this screen holds (its panel was read) gets its badge and list at once, with no request. Rows whose
-	 * prerequisites it does not hold may wait for a changed task too; one read of this page's badges settles them. A
-	 * newer read replaces an older one.
-	 */
 	const blockersChanged = (changed: Blocker[]) => {
 		const by = new Set(changed.map((c) => c.id));
 		const recount = (st: DetailState) =>
 			st.status === "ok" && st.prerequisites ? withBlockers(st.prerequisites.items, changed) : null;
 		const counts = new Map<string, number>();
-		for (const [id, st] of Object.entries(known.current)) {
+		for (const [id, st] of Object.entries(known())) {
 			const r = recount(st);
 			if (r) counts.set(id, r.open);
 		}
@@ -474,45 +352,35 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		);
 		if (counts.size)
 			setItems((rows) => rows.map((r) => (counts.has(r.id) ? { ...r, openPrerequisites: counts.get(r.id)! } : r)));
-		// Rows this screen cannot reconcile itself: open ones whose prerequisites it has not read. After a release only a
-		// row with a badge can change; after a reopen any of them can.
 		const reopened = changed.some((c) => !c.deleted && !isSettled(c.status));
-		const unknown = listed.current.some((r) => {
-			const st = known.current[r.id];
+		const unknown = listed().some((r) => {
+			const st = known()[r.id];
 			const held = st?.status === "ok" && st.prerequisites !== null;
 			return !held && !by.has(r.id) && !isSettled(r.status) && (reopened || r.openPrerequisites > 0);
 		});
-		// A read still in flight started before this change, so its answer may be older than it: it is dropped, and a
-		// new read covers both changes.
-		if (unknown || readingBadges.current) readBadges();
+		if (unknown || pageStore.getState().readingBadges) readBadges();
 	};
-	/**
-	 * One read of this page's badges for the rows whose prerequisites the screen does not hold. Only the newest read
-	 * applies. A failed read is tried twice more; after that the list says its badges may be out of date and offers
-	 * to read them again, so a wrong badge is never silent.
-	 */
-	const readBadges = (attempt = 0) => {
-		const read = badgeReads.current.start(window.location.search);
-		const current = () => badgeReads.current.applies(read, window.location.search);
+	const readBadges = (retry = true) => {
+		const { badgeReads } = pageStore.getState();
+		const read = badgeReads.start(window.location.search);
+		const current = () => badgeReads.applies(read, window.location.search);
 		const held = (id: string) => {
-			const st = known.current[id];
+			const st = known()[id];
 			return st?.status === "ok" && st.prerequisites !== null;
 		};
-		const ids = listed.current.filter((row) => !held(row.id)).map((row) => row.id);
+		const ids = listed()
+			.filter((row) => !held(row.id))
+			.map((row) => row.id);
 		if (!ids.length) {
-			readingBadges.current = false;
-			return badgeReads.current.end();
+			changePage(() => ({ readingBadges: false }));
+			return badgeReads.end();
 		}
-		readingBadges.current = true;
-		setBadgesStale(false);
+		changePage(() => ({ readingBadges: true, badgesStale: false }));
 		loadBlocking(ids).then((r) => {
 			if (!current()) return;
-			if (r.status !== "ok") {
-				if (attempt < 2) return void setTimeout(() => current() && readBadges(attempt + 1), 1000 * (attempt + 1));
-				readingBadges.current = false;
-				return setBadgesStale(true);
-			}
-			readingBadges.current = false;
+			if (r.status !== "ok" && retry) return readBadges(false);
+			if (r.status !== "ok") return changePage(() => ({ readingBadges: false, badgesStale: true }));
+			changePage(() => ({ readingBadges: false }));
 			const fresh = new Map(r.value.map((t) => [t.id, t.openPrerequisites]));
 			setItems((rows) =>
 				rows.map((row) =>
@@ -524,12 +392,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		});
 	};
 
-	/**
-	 * The next occurrence a completed recurring task created: it joins the list next to its predecessor when it matches
-	 * the query, and the counts move. A single complete also toasts it (succeeded); a bulk one reports the whole set.
-	 */
 	const addSuccessor = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
-		if (matches(query, next, viewer.accountId) && !listed.current.some((r) => r.id === next.id)) {
+		if (matches(query, next, viewer.accountId) && !listed().some((r) => r.id === next.id)) {
 			setItems((rows) =>
 				rows.some((r) => r.id === pred.id)
 					? rows.flatMap((r) => (r.id === pred.id ? [r, next] : [r]))
@@ -562,7 +426,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		});
 	};
 
-	/** A task the server no longer shows to this seat leaves the list. */
 	const gone = (id: string, code: string) => {
 		if (code !== "unavailable") return;
 		setItems((rows) => rows.filter((x) => x.id !== id));
@@ -577,7 +440,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				setDetails((d) => ({ ...d, [id]: { status: "ok", ...r.value } }));
 			});
 
-	/** Stale rows after a bulk change, read again together: one request whatever their number. */
 	const refreshRows = (ids: string[]): void => {
 		if (!ids.length) return;
 		const again = new Set(ids);
@@ -587,19 +449,14 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 				if (r.status !== "ok") return;
 				const fresh = new Map(r.value.items.map((t) => [t.id, t]));
 				setItems((rows) => rows.map((x) => fresh.get(x.id) ?? x));
-				// A cached panel of a stale task no longer matches; the open one reads again, the others on their next open.
-				const shown = shownId.current;
+				const shown = store.getState().openId;
 				setDetails((d) => Object.fromEntries(Object.entries(d).filter(([id]) => !again.has(id) || id === shown)));
 				if (shown && again.has(shown)) void refresh(shown);
 			});
 	};
 
-	/**
-	 * A step's confirmed answer: added, ticked or removed. The open panel's steps, the parent row's step count and the
-	 * step counts follow, measured against the steps this screen last confirmed.
-	 */
 	const stepSaved = (parentId: string, step: TaskDetail) => {
-		const cur = known.current[parentId];
+		const cur = known()[parentId];
 		const before = cur?.status === "ok" ? cur.task.checklistItems.find((x) => x.id === step.id) : undefined;
 		const total = step.deleted ? -Number(Boolean(before)) : before ? 0 : 1;
 		const complete = Number(!step.deleted && step.status === "complete") - Number(before?.status === "complete");
@@ -624,19 +481,13 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		if (!total && !complete) return;
 		const bump = (k: TaskItem["checklist"]) => ({ total: k.total + total, complete: k.complete + complete });
 		setItems((rows) => rows.map((r) => (r.id === parentId ? { ...r, checklist: bump(r.checklist) } : r)));
-		if (listed.current.some((r) => r.id === parentId))
+		if (listed().some((r) => r.id === parentId))
 			setCounts((c) => ({
 				...c,
 				childTaskTotal: c.childTaskTotal + total,
 				childTaskComplete: c.childTaskComplete + complete,
 			}));
 	};
-	/**
-	 * One save on one card (C58, C68). The change shows at once while the card's lane sends it: a lost answer is sent
-	 * once more with the same key, a saved answer stands in the rows, a refusal opens the form again or puts the reason
-	 * on the card, and an unknown result says it may already be saved, with Check again. Nothing starts on a busy card
-	 * (the lane reports it, C69) and nothing waits in a queue.
-	 */
 	const run = <T,>(id: string, show: () => void, spec: SaveSpec<TaskForm, T>) => {
 		const lane = lanes.of(id);
 		if (lane.wait() !== null) return void lane.save(spec);
@@ -645,7 +496,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			await lane.save({ ...spec, ok: (value, checked) => startAction(() => spec.ok(value, checked)) });
 		});
 	};
-	/** A refusal that means this screen's copy is old reads the task again first, so the card tells it over the latest. */
 	const reread = async <T,>(id: string, sent: Promise<Outcome<T>>, stale = (code: string) => STALE.has(code)) => {
 		const r = await sent;
 		if (r.status === "refused" && stale(r.code)) await refresh(id);
@@ -665,7 +515,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			refused: (code) => gone(task.id, code),
 		});
 
-	/** Tick or untick a step, shown at once. Its own assignee or an Owner/Admin may (REQ-TSK-005). */
 	const tickStep = (parentId: string, step: Step, complete: boolean) =>
 		run(step.id, () => setPending({ kind: "status", id: step.id, status: complete ? "complete" : "not_started" }), {
 			what: `The step “${step.title}”`,
@@ -673,10 +522,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			send: (key) => reread(parentId, setStep(key, step.revision, parentId, step.id, complete), () => true),
 			ok: (value: Saved) => stepSaved(parentId, value.task),
 		});
-	/**
-	 * Add a step, shown at once under its task until the server names it. Each new step is its own card: adding one does
-	 * not change its task's revision, so several can be added quickly.
-	 */
 	const addStepTo = (parent: TaskItem, title: string, who: StepAssignee) => {
 		const assignees =
 			who.kind === "inherit"
@@ -699,7 +544,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			ok: (value: Saved) => stepSaved(parent.id, value.task),
 		});
 	};
-	/** Remove a step, shown at once. It leaves the list; its history stays. Owner/Admin. */
 	const removeStepFrom = (parentId: string, step: Step) =>
 		run(step.id, () => setPending({ kind: "row", id: step.id, row: null }), {
 			what: `The step “${step.title}”`,
@@ -711,17 +555,13 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			},
 		});
 
-	/**
-	 * Replace what a task waits for, shown at once in the panel and the row's badge (REQ-TSK-006). A loop or a stale
-	 * copy refuses, and the list opens again with the person's choice while it is still their latest form.
-	 */
 	const savePrerequisites = (task: TaskItem, list: Prerequisite[]) => {
 		const openCount = list.filter(blocks).length;
 		run(
 			task.id,
 			() => {
 				setPending({ kind: "panel", id: task.id, panel: { prerequisites: list } });
-				const row = listed.current.find((r) => r.id === task.id);
+				const row = listed().find((r) => r.id === task.id);
 				if (row) setPending({ kind: "row", id: task.id, row: { ...row, openPrerequisites: openCount } });
 			},
 			{
@@ -749,7 +589,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			},
 		);
 	};
-	/** Make a task repeat, change its rule or stop it, shown at once in the panel (REQ-TSK-007). */
 	const saveRepeat = (task: TaskItem, before: TaskDetail["recurrence"], rule: Rule | null) => {
 		const shownRule: TaskDetail["recurrence"] = rule
 			? { ...rule, seriesId: before?.seriesId ?? (PENDING_PREFIX as never), stopped: false }
@@ -762,13 +601,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 		});
 	};
 
-	/**
-	 * Complete or reschedule the selected tasks in one request (REQ-TSK-008). The rows change at once; the answer
-	 * confirms each task that changed, rolls back the rest and reports why each one did not. The open ones that did not
-	 * change stay selected, and a task that changed since it was selected is loaded again for review.
-	 */
 	const runBulk = (kind: Report["kind"], due: DueInput | null, selectedTasks: TaskItem[]) => {
-		// A closed task never goes in a bulk request: its status and due date stay as they are (REQ-TSK-008).
 		const chosen = selectedTasks.filter((t) => !isSettled(t.status));
 		if (!chosen.length) return;
 		setReport(null);
@@ -777,78 +610,76 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			kind === "complete"
 				? { ...t, revision: revision as never, status: "complete", completedAt: new Date().toISOString() as never }
 				: { ...t, revision: revision as never, due: due as TaskItem["due"], overdue: previewOverdue(due!) };
-		run(
-			BULK,
-			() => {
-				bulkHeld.current = chosen.map((t) => t.id);
-				for (const t of chosen)
-					if (kind === "complete") setPending({ kind: "status", id: t.id, status: "complete" });
-					else setPending({ kind: "row", id: t.id, row: after(t, t.revision) });
-			},
-			{
-				what: `The change to ${chosen.length} ${chosen.length === 1 ? "task" : "tasks"}`,
-				send: (key) => (kind === "complete" ? bulkComplete(key, items) : bulkReschedule(key, items, due)),
-				ok: (result: BulkResult) => {
-					const byId = new Map(chosen.map((t) => [t.id, t]));
-					const outcome = new Map(result.items.map((i) => [i.taskId, i]));
-					const gone = new Set(
-						result.items.filter((i) => i.outcome === "deleted" || i.outcome === "not_found").map((i) => i.taskId),
-					);
-					const rows = listed.current;
-					let moved = 0;
-					const nextCounts = (c: TaskCounts) =>
-						rows.reduce((acc, row) => {
-							const i = outcome.get(row.id);
-							if (i?.outcome === "changed") return countsAfter(acc, row, after(row, i.revision!));
-							if (gone.has(row.id)) return countsAfter(acc, row, null);
-							return acc;
-						}, c);
-					for (const row of rows) if (gone.has(row.id)) moved++;
-					setItems((list) =>
-						list.flatMap((row) => {
-							const i = outcome.get(row.id);
-							if (gone.has(row.id)) return [];
-							return i?.outcome === "changed" ? [after(row, i.revision!)] : [row];
-						}),
-					);
-					setCounts(nextCounts);
-					if (moved) setTotal((t) => Math.max(0, t - moved));
-					for (const i of result.items) if (i.successor) addSuccessor({ id: i.taskId }, i.successor);
-					// A changed task's cached panel no longer matches; the open one reads again, the others on their next open.
-					const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
-					if (kind === "complete" && changed.size)
-						blockersChanged([...changed].map((id) => ({ id, status: "complete" as const, deleted: false })));
-					const shownTask = shownId.current;
-					setDetails((d) =>
-						Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)),
-					);
-					if (shownTask && changed.has(shownTask)) refresh(shownTask);
-					refreshRows(result.items.filter((i) => i.outcome === "stale").map((i) => i.taskId));
-					setSelected(new Set(result.remaining));
-					const unchanged = result.items
-						.filter((i) => i.outcome !== "changed")
-						.map((i) => ({ id: i.taskId, title: byId.get(i.taskId)?.title ?? "A task", outcome: i.outcome }));
-					if (!unchanged.length) {
-						const n = result.changed;
-						return toast({
-							tone: "success",
-							message: `${kind === "complete" ? "Completed" : "Rescheduled"} ${n} ${n === 1 ? "task" : "tasks"}.`,
-						});
-					}
-					setReport({ kind, changed: result.changed, unchanged, remaining: result.remaining.length });
-				},
-			},
+		actions.startBulk(
+			selectedTasks.map((t) => t.id),
+			() =>
+				run(
+					BULK,
+					() => {
+						actions.holdBulk(chosen.map((t) => t.id));
+						for (const t of chosen)
+							if (kind === "complete") setPending({ kind: "status", id: t.id, status: "complete" });
+							else setPending({ kind: "row", id: t.id, row: after(t, t.revision) });
+					},
+					{
+						what: `The change to ${chosen.length} ${chosen.length === 1 ? "task" : "tasks"}`,
+						send: (key) => (kind === "complete" ? bulkComplete(key, items) : bulkReschedule(key, items, due)),
+						ok: (result: BulkResult) => {
+							const byId = new Map(chosen.map((t) => [t.id, t]));
+							const outcome = new Map(result.items.map((i) => [i.taskId, i]));
+							const gone = new Set(
+								result.items.filter((i) => i.outcome === "deleted" || i.outcome === "not_found").map((i) => i.taskId),
+							);
+							const rows = listed();
+							let moved = 0;
+							const nextCounts = (c: TaskCounts) =>
+								rows.reduce((acc, row) => {
+									const i = outcome.get(row.id);
+									if (i?.outcome === "changed") return countsAfter(acc, row, after(row, i.revision!));
+									if (gone.has(row.id)) return countsAfter(acc, row, null);
+									return acc;
+								}, c);
+							for (const row of rows) if (gone.has(row.id)) moved++;
+							setItems((list) =>
+								list.flatMap((row) => {
+									const i = outcome.get(row.id);
+									if (gone.has(row.id)) return [];
+									return i?.outcome === "changed" ? [after(row, i.revision!)] : [row];
+								}),
+							);
+							setCounts(nextCounts);
+							if (moved) setTotal((t) => Math.max(0, t - moved));
+							for (const i of result.items) if (i.successor) addSuccessor({ id: i.taskId }, i.successor);
+							const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
+							if (kind === "complete" && changed.size)
+								blockersChanged([...changed].map((id) => ({ id, status: "complete" as const, deleted: false })));
+							const shownTask = store.getState().openId;
+							setDetails((d) =>
+								Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)),
+							);
+							if (shownTask && changed.has(shownTask)) refresh(shownTask);
+							refreshRows(result.items.filter((i) => i.outcome === "stale").map((i) => i.taskId));
+							setSelected(new Set(result.remaining));
+							const unchanged = result.items
+								.filter((i) => i.outcome !== "changed")
+								.map((i) => ({ id: i.taskId, title: byId.get(i.taskId)?.title ?? "A task", outcome: i.outcome }));
+							if (!unchanged.length) {
+								const n = result.changed;
+								return toast({
+									tone: "success",
+									message: `${kind === "complete" ? "Completed" : "Rescheduled"} ${n} ${n === 1 ? "task" : "tasks"}.`,
+								});
+							}
+							setReport({ kind, changed: result.changed, unchanged, remaining: result.remaining.length });
+						},
+					},
+				),
 		);
 	};
 
-	/**
-	 * New task or edit, shown at once. A refusal opens the form again with the person's values on the newest copy of
-	 * the task (a conflict reads it first), or, when they opened another form since, puts the reason on the task's card.
-	 */
 	const commit = (c: Commit) => {
 		const before = c.before;
 		const id = before?.id ?? NEW;
-		// The lane copies the form when the server refuses, so a question the refusal asks (which of two times) goes in it.
 		const form: EditForm = { kind: "edit", task: before, draft: c.draft };
 		run(
 			id,
@@ -892,7 +723,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const canAct = (task: Pick<TaskItem, "assignees">) =>
 		admin || task.assignees.some((a) => a.accountId === viewer.accountId);
 
-	/** Delete, shown at once: the row leaves; a refusal brings it back with the reason. */
 	const remove = (task: TaskItem) => {
 		if (openId === task.id) close();
 		run(task.id, () => setPending({ kind: "row", id: task.id, row: null }), {
@@ -906,7 +736,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 			refused: (code) => gone(task.id, code),
 		});
 	};
-	/** Edit needs the description, which the list does not carry: one read, then the form. */
 	const edit = (task: TaskItem) => {
 		const d = details[task.id];
 		if (d?.status === "ok") return openForm(task.id, { kind: "edit", task: d.task });
@@ -924,7 +753,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	};
 
 	const openState = openId ? (details[openId] ?? { status: "loading" }) : null;
-	// The open task is the row when it is listed, else its loaded detail (a link to a task outside these filters).
 	const openDetail = openState?.status === "ok" ? openState.task : null;
 	const openTask = openId
 		? (shown.find((t) => t.id === openId) ??
@@ -933,10 +761,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const dialogLane = dialogFor ? lanes.of(dialogFor) : null;
 	const dialogForm = dialogLane?.get().editing?.kind === "edit" ? (dialogLane.get().editing as EditForm) : null;
 	const panelForm = openId ? lanes.of(openId).get().editing : null;
-	// While the panel or the dialog is open, a card's notice shows there and not on its row (C69): the modal hides the
-	// list from assistive technology. The panel shows every notice; the dialog shows its own card's notice.
 	const modal = openId !== null || dialogForm !== null;
-	// The open dialog shows its own card's notice, so the panel under it leaves that one out.
 	const sheetNotices = lanes
 		.notices()
 		.filter(([id]) => !(dialogForm && id === dialogFor))
@@ -946,7 +771,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 	const filtered = isFiltered(query);
 	const selectable = shown.filter((t) => !t.id.startsWith(PENDING_PREFIX));
 	const chosen = selectable.filter((t) => selected.has(t.id));
-	chosenIds.current = chosen.map((t) => t.id);
+	const bulkWait = chosen.some((t) => lanes.of(t.id).wait() !== null) ? "saving" : lanes.of(BULK).wait();
 	const toggleSelected = (id: string) =>
 		setSelected((s) => {
 			const n = new Set(s);
@@ -1067,7 +892,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 								setSelected(chosen.length === selectable.length ? new Set() : new Set(selectable.map((t) => t.id)))
 							}
 							onClear={() => setSelected(new Set())}
-							wait={lanes.of(BULK).wait()}
+							wait={bulkWait}
 							actions={bulkActions(chosen.map((t) => t.status))}
 							onKeepOpen={() => setSelected(new Set(chosen.filter((t) => !isSettled(t.status)).map((t) => t.id)))}
 							onComplete={() => runBulk("complete", null, chosen)}
@@ -1132,7 +957,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: Loaded; viewer: 
 						problem={dialogForm?.problem ? problemText(dialogForm.problem as never) : undefined}
 						onClose={() => {
 							if (dialogFor) closeForm(dialogFor);
-							setDialogFor(null);
+							actions.dialog(null);
 						}}
 						onCommit={commit}
 					/>
@@ -1183,13 +1008,10 @@ function TaskRow({
 	you: string;
 	admin: boolean;
 	canAct: boolean;
-	/** Whether the row is in the bulk selection, or null when the viewer cannot select. */
 	selected: boolean | null;
 	onSelect: () => void;
-	/** The task's save in flight or unknown: its status controls and Delete wait (C68). */
 	wait: Wait;
 	notice: ReturnType<typeof noticeOf>;
-	/** The panel or a dialog is open, so the notice shows there instead. */
 	modal: boolean;
 	onToggle: () => void;
 	onAction: (a: StatusAction) => void;
@@ -1199,7 +1021,6 @@ function TaskRow({
 	onDelete: () => void;
 }) {
 	const settled = isSettled(task.status);
-	// While the task's save is in flight or unknown, its controls wait (C68) and say why next to the title.
 	const hint = useId();
 	const waiting = canAct && wait !== null;
 	return (
@@ -1274,28 +1095,31 @@ function TaskRow({
 }
 
 function SearchBox({ query, go }: { query: TaskQuery; go: (q: TaskQuery, replace?: boolean) => void }) {
-	const [value, setValue] = useState(query.search);
-	const latest = useRef(query);
-	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-	useEffect(() => {
-		latest.current = query;
-	});
-	useEffect(() => () => clearTimeout(timer.current), []);
-	// Typing waits for a pause before it changes the address, so each keystroke is not a page load.
+	const [box, setBox] = useState({ text: query.search, shown: query.search, sent: [] as readonly string[] });
+	if (box.shown !== query.search)
+		setBox(
+			box.sent.includes(query.search)
+				? { text: box.text, shown: query.search, sent: box.sent.slice(box.sent.indexOf(query.search) + 1) }
+				: { text: query.search, shown: query.search, sent: [] },
+		);
+	const [{ run: afterPause, cancelOnDetach }] = useState(() => createDebouncer(300));
 	return (
 		<div className="w-[280px] max-app-sm:w-full">
 			<SearchInput
+				ref={cancelOnDetach}
 				aria-label="Search tasks by title"
 				placeholder="Search tasks"
-				value={value}
+				value={box.text}
 				maxLength={200}
 				onChange={(e) => {
 					const next = e.target.value;
-					setValue(next);
-					clearTimeout(timer.current);
-					timer.current = setTimeout(() => {
-						if (next.trim() !== latest.current.search) go(withFilters(latest.current, { search: next.trim() }), true);
-					}, 300);
+					setBox((b) => ({ ...b, text: next }));
+					afterPause(() => {
+						const current = parseQuery(new URLSearchParams(window.location.search));
+						if (next.trim() === current.search) return;
+						setBox((b) => ({ ...b, sent: [...b.sent, next.trim()] }));
+						go(withFilters(current, { search: next.trim() }), true);
+					});
 				}}
 			/>
 		</div>
@@ -1314,8 +1138,6 @@ function Toolbar({
 	rows: readonly TaskItem[];
 }) {
 	const single = <T extends string>(list: readonly T[], v: string[]) => list.find((x) => x === v.at(-1));
-	// Team names: an Owner or Admin reads the church's active teams when the chip shows intent; a Member's seat does not
-	// list teams, so a Member picks from the teams named on this page.
 	const [teams, setTeams] = useState<{ id: string; label: string }[] | "loading" | "failed" | null>(null);
 	const loadTeams = () => {
 		setTeams("loading");

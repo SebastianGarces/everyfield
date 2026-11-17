@@ -1,7 +1,0 @@
-{
-	"apps/web/src/features/identity/seats/RemoveDialog.tsx": 3,
-	"apps/web/src/features/identity/seats/SeatsScreen.tsx": 16,
-	"apps/web/src/features/identity/seats/actions.ts": 11,
-	"apps/web/src/features/identity/seats/model.ts": 14,
-	"apps/web/src/features/identity/seats/routes.tsx": 2
-}

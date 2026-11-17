@@ -1,0 +1,11 @@
+{
+	"no-effects": {
+		"apps/web/src/features/wiki/client.tsx": [
+			{
+				"function": "ArticleSession",
+				"count": 1,
+				"reason": "Records one Wiki view each time an article is shown: on a direct load, a link, Back, Forward and a reload, and never on a prefetch or a refresh. No event covers all of those arrivals; recording it in the server render would make a page read write, lose views served from the router's cache on Back and count refreshes."
+			}
+		]
+	}
+}

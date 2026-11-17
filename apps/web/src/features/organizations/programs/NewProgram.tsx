@@ -3,7 +3,7 @@
 import { RESIDENCY_TEMPLATE, type ProgramKind, type ProgramList } from "@everyfield/contracts/organizations";
 import { Button, Card, CardBody, Field, Input, PageHeader, Radio, RadioGroup, Select } from "@everyfield/ui/controls";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useActionState, useState, type ReactNode } from "react";
 import { PIPELINE_PATH } from "../board/model";
 import { Problem } from "../board/Problem";
 import { createProgram } from "./actions";
@@ -11,8 +11,13 @@ import { programHref, programProblem, PROGRAMS_PATH } from "./model";
 import { PlanEditor, planFrom, type PlanDraft } from "./PlanEditor";
 
 type Start = "template" | "blank";
+type NewState = {
+	values: { name: string; director: string };
+	nameError: string | null;
+	directorError: string | null;
+	problem: string | null;
+};
 
-/** The residency template as an editable plan (REQ-MUL-010). */
 function template(): PlanDraft {
 	return {
 		rhythm: "monthly",
@@ -35,23 +40,12 @@ function template(): PlanDraft {
 }
 const blank = (): PlanDraft => ({ rhythm: "monthly", expectedMonths: "12", stages: [], milestones: [], readings: [] });
 
-/**
- * A new apprenticeship or residency, from the residency template or from blank (REQ-MUL-010). An Owner or Admin
- * names it and its director; the plan saves as a draft that the director reviews and publishes.
- */
 export function NewProgram({ list }: { list: ProgramList }) {
 	const router = useRouter();
 	const [programId] = useState(() => crypto.randomUUID());
 	const [kind, setKind] = useState<ProgramKind>("residency");
 	const [start, setStart] = useState<Start>("template");
-	const [name, setName] = useState("");
-	const [director, setDirector] = useState("");
 	const [plan, setPlan] = useState<PlanDraft>(template);
-	const [saving, setSaving] = useState(false);
-	const [problem, setProblem] = useState<string | null>(null);
-	const [nameError, setNameError] = useState<string | null>(null);
-	const [directorError, setDirectorError] = useState<string | null>(null);
-
 	function choose(nextKind: ProgramKind, nextStart: Start) {
 		const from = nextKind === "residency" ? nextStart : "blank";
 		setKind(nextKind);
@@ -59,32 +53,33 @@ export function NewProgram({ list }: { list: ProgramList }) {
 		setPlan(from === "template" ? template() : blank());
 	}
 
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		setNameError(name.trim() ? null : "Name the program.");
-		setDirectorError(director ? null : "Choose who directs it.");
-		const built = planFrom(plan);
-		if ("problem" in built) setProblem(built.problem);
-		if (!name.trim() || !director || "problem" in built) return;
-		setSaving(true);
-		setProblem(null);
-		const answer = await createProgram({
-			programId,
-			kind,
-			name: name.trim(),
-			directorSeatId: director,
-			plan: built.plan,
-		}).catch(() => ({ status: "lost" as const }));
-		if (answer.status !== "ok") {
-			setSaving(false);
-			setProblem(programProblem(answer));
-			return;
-		}
-		router.push(programHref(programId));
-	}
+	const [state, submit, saving] = useActionState(
+		async (last: NewState, form: FormData): Promise<NewState> => {
+			const values = { name: String(form.get("name") ?? ""), director: String(form.get("director") ?? "") };
+			const built = planFrom(plan);
+			const checked = {
+				values,
+				nameError: values.name.trim() ? null : "Name the program.",
+				directorError: values.director ? null : "Choose who directs it.",
+			};
+			if (!values.name.trim() || !values.director || "problem" in built)
+				return { ...checked, problem: "problem" in built ? built.problem : last.problem };
+			const answer = await createProgram({
+				programId,
+				kind,
+				name: values.name.trim(),
+				directorSeatId: values.director,
+				plan: built.plan,
+			}).catch(() => ({ status: "lost" as const }));
+			if (answer.status !== "ok") return { ...checked, problem: programProblem(answer) };
+			router.push(programHref(programId));
+			return { ...checked, problem: null };
+		},
+		{ values: { name: "", director: "" }, nameError: null, directorError: null, problem: null },
+	);
 
 	return (
-		<form onSubmit={submit} noValidate className="flex flex-col gap-5">
+		<form action={submit} noValidate className="flex flex-col gap-5">
 			<PageHeader
 				breadcrumb={[
 					{ label: "Pipeline", href: PIPELINE_PATH },
@@ -122,10 +117,10 @@ export function NewProgram({ list }: { list: ProgramList }) {
 						</Choices>
 					) : null}
 					<div className="grid grid-cols-2 gap-4 max-app-sm:grid-cols-1">
-						<Field label="Name" error={nameError ?? undefined}>
+						<Field label="Name" error={state.nameError ?? undefined}>
 							<Input
-								value={name}
-								onChange={(e) => setName(e.target.value)}
+								name="name"
+								defaultValue={state.values.name}
 								maxLength={120}
 								autoComplete="off"
 								placeholder={kind === "residency" ? "Church planting residency" : "Apprenticeship"}
@@ -134,18 +129,18 @@ export function NewProgram({ list }: { list: ProgramList }) {
 						<Field
 							label="Director"
 							hint="They edit and publish the plan and record milestones."
-							error={directorError ?? undefined}
+							error={state.directorError ?? undefined}
 						>
 							<Select
-								value={director}
-								onValueChange={setDirector}
+								name="director"
+								defaultValue={state.values.director}
 								placeholder="Choose a staff member"
 								options={list.staff.map((s) => ({ value: s.seatId, label: s.name }))}
 							/>
 						</Field>
 					</div>
 					<PlanEditor value={plan} onChange={setPlan} />
-					<Problem text={problem} />
+					<Problem text={saving ? null : state.problem} />
 					<div className="flex justify-end">
 						<Button type="submit" variant="primary" loading={saving}>
 							Save draft

@@ -3,11 +3,13 @@
 import { ArrowDown01Icon, ArrowUp01Icon, SortingIcon } from "@hugeicons/core-free-icons";
 import { Button, CalloutLabel, CalloutText, Card, IconButton, Skeleton, Tooltip } from "@everyfield/ui/controls";
 import { LoadableView, StatusBadge, type Loadable } from "@everyfield/ui/display";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useFocusRequest } from "@everyfield/ui/foundations";
+import { useId, useRef, useState } from "react";
+import { useRead } from "../../../components/read.tsx";
 import type { OrderRead, OrderRow } from "../port";
 import { newRequestKey } from "../port";
 import { SaveError, SaveFooter, SectionBody } from "../SettingsDialog";
-import { useDraft, useFlowState, useSettings } from "../store";
+import { useDraft, useReads, useSettings } from "../store";
 import {
 	moved,
 	orderNeeded,
@@ -35,47 +37,21 @@ const LIST: Record<OrderKind, { title: string; description: string; empty: strin
 	},
 };
 
-/**
- * Wiki sources (T-26): the order in which the church reads its sending churches' and networks' Wiki versions. The
- * first entry of each list is the preferred one; the other versions stay in each article's Source menu. Nothing is
- * saved until Save order, and the save sends the revision this read returned, so an order saved elsewhere since is
- * refused rather than overwritten.
- */
 export function WikiSourcesSection() {
-	const { port } = useSettings();
-	const [view, setView] = useFlowState<WikiOrderView | null>("wiki.order", null);
-	const [failed, setFailed] = useState<number | null>(null);
-	const [attempt, setAttempt] = useState(0);
-
-	const load = useCallback(async (): Promise<WikiOrderView | null> => {
-		const reply = await port.wiki.read().catch((): OrderRead => ({ status: "lost" }));
-		if (reply.status !== "ok") return null;
-		setView(reply);
-		return reply;
-	}, [port, setView]);
-
-	useEffect(() => {
-		if (view && attempt === 0) return;
-		let live = true;
-		void load().then((loaded) => live && !loaded && setFailed(attempt));
-		return () => {
-			live = false;
-		};
-		// The stored value is read once; Try again bumps the attempt.
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [attempt, load]);
-
+	const reads = useReads();
+	const read = useRead(reads.wiki);
+	const reply = read.value;
 	const state: Loadable<WikiOrderView> =
-		failed === attempt
-			? {
-					status: "error",
-					title: "The Wiki sources did not load",
-					meta: "Everyfield could not read your church's source order.",
-					onRetry: () => setAttempt((n) => n + 1),
-				}
-			: view
-				? { status: "ready", data: view }
-				: { status: "loading" };
+		reply === undefined
+			? { status: "loading" }
+			: reply.status === "ok"
+				? { status: "ready", data: reply }
+				: {
+						status: "error",
+						title: "The Wiki sources did not load",
+						meta: "Everyfield could not read your church's source order.",
+						onRetry: read.retry,
+					};
 
 	return (
 		<LoadableView
@@ -92,45 +68,40 @@ export function WikiSourcesSection() {
 				</SectionBody>
 			}
 		>
-			{(ready) => <OrderEditor view={ready} setView={setView} load={load} />}
+			{(ready) => <OrderEditor view={ready} />}
 		</LoadableView>
 	);
 }
 
-function OrderEditor({
-	view,
-	setView,
-	load,
-}: {
-	view: WikiOrderView;
-	setView: (next: WikiOrderView) => void;
-	load: () => Promise<WikiOrderView | null>;
-}) {
+function OrderEditor({ view }: { view: WikiOrderView }) {
 	const { port } = useSettings();
-	const { draft, setDraft, dirty, saving, refusal, save } = useDraft<WikiOrder>("wiki", orderOf(view));
+	const reads = useReads();
+	const { draft, setDraft, dirty, saving, refusal, save, serverChanged } = useDraft<WikiOrder>("wiki", orderOf(view));
 	const [saved, setSaved] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [announcement, setAnnouncement] = useState("");
-	const focusNext = useRef<{ id: string; step: -1 | 1 } | null>(null);
-	const lists = useRef<HTMLDivElement>(null);
-
-	// After a move, focus stays on the moved entry's control, or its other control once it reaches an end.
-	useEffect(() => {
-		const target = focusNext.current;
-		if (!target) return;
-		focusNext.current = null;
-		const button = (step: number) =>
-			lists.current?.querySelector<HTMLButtonElement>(`[data-move="${target.id}"][data-step="${step}"]`);
-		const same = button(target.step);
-		const next = same && !same.disabled ? same : button(-target.step);
-		if (next) focusInBody(next);
-	}, [draft]);
+	const [movedLast, setMovedLast] = useState<{ count: number; id: string; step: -1 | 1 } | null>(null);
+	const body = useRef<HTMLDivElement>(null);
+	const lists = useFocusRequest<HTMLDivElement>(
+		movedLast?.count,
+		(root) => {
+			if (!movedLast) return null;
+			const button = (step: number) =>
+				root.querySelector<HTMLButtonElement>(`[data-move="${movedLast.id}"][data-step="${step}"]`);
+			const same = button(movedLast.step);
+			const next = same && !same.disabled ? same : button(-movedLast.step);
+			if (next) revealInBody(next);
+			return next;
+		},
+		PREVENT_SCROLL,
+	);
+	const setView = (next: WikiOrderView) => reads.wiki.patch(() => next);
 
 	const move = (kind: OrderKind, row: OrderRow, index: number, step: -1 | 1) => {
 		const ids = moved(draft[kind], index, step);
-		focusNext.current = { id: row.id, step };
 		setSaved(false);
 		setAnnouncement(`${row.name} moved to position ${index + step + 1} of ${ids.length}.`);
+		setMovedLast({ count: (movedLast?.count ?? 0) + 1, id: row.id, step });
 		setDraft({ ...draft, [kind]: ids });
 	};
 
@@ -144,22 +115,24 @@ function OrderEditor({
 			setView(savedView(view, sent, reply.revision));
 			setSaved(true);
 			setAnnouncement("");
-			// The confirmation is at the top of the section body; bring it into view (the body only, not the sheet).
-			lists.current?.closest("[role=region]")?.scrollTo({ top: 0 });
+			body.current?.closest("[role=region]")?.scrollTo({ top: 0 });
 			return { ok: true, server: sent };
 		});
 
 	const loadCurrent = async () => {
 		setLoading(true);
-		const current = await load();
+		const current = await port.wiki.read().catch((): OrderRead => ({ status: "lost" }));
 		setLoading(false);
-		if (current) setDraft(orderOf(current));
+		if (current.status !== "ok") return;
+		setView(current);
+		serverChanged(orderOf(current));
+		setDraft(orderOf(current));
 	};
 
 	return (
 		<>
 			<SectionBody>
-				<div className="mt-4 flex flex-col gap-4">
+				<div ref={body} className="mt-4 flex flex-col gap-4">
 					<div aria-live="polite" className="empty:hidden">
 						{saved && !dirty ? (
 							<p className="flex flex-wrap items-center gap-2.5 text-sm text-text-2">
@@ -227,12 +200,9 @@ function OrderEditor({
 	);
 }
 
-/**
- * Focuses a control without letting the browser scroll the dialog sheet itself (on a phone that cut off the section
- * nav and lifted the footer), then scrolls only the section body, if needed, to show it.
- */
-function focusInBody(control: HTMLElement) {
-	control.focus({ preventScroll: true });
+const PREVENT_SCROLL = { preventScroll: true };
+
+function revealInBody(control: HTMLElement) {
 	const body = control.closest<HTMLElement>("[role=region]");
 	if (!body) return;
 	const box = body.getBoundingClientRect();
@@ -250,7 +220,6 @@ function OrderList({
 }: {
 	kind: OrderKind;
 	rows: OrderRow[];
-	/** Whether the first entry is marked Preferred: not while competing church versions wait for a saved order. */
 	marked: boolean;
 	disabled: boolean;
 	onMove: (kind: OrderKind, row: OrderRow, index: number, step: -1 | 1) => void;
