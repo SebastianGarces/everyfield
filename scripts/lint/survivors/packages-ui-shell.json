@@ -4,7 +4,7 @@
 			{
 				"function": "closeOnPointerOutside",
 				"count": 2,
-				"reason": "Closes the narrow shell menu on a press outside it: the listener is added in the ref callback when the open menu's wrapper attaches and removed when it detaches, because the press can land anywhere on the page and packages/ui has no shared outside-press mechanism. No evf task removes it yet; when one is filed, this entry names it."
+				"reason": "Temporary, T-414: closes the narrow shell menu on a press outside it; the listener is added in the ref callback when the menu's wrapper attaches and removed when it detaches. The Radix Popover in packages/ui/src/controls/Popover.tsx fits and T-414 replaces this with it: Popover held open by the menu state, PopoverTrigger on the Menu button, PopoverAnchor on the top bar pill, and PopoverContent sized to the pill in place of the absolutely placed panel. Radix's dismiss layer then closes on an outside press and on Escape and returns focus to the button, so this listener and the wrapper's Escape handler both go."
 			}
 		]
 	}
