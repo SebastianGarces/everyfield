@@ -53,7 +53,7 @@ Object.assign(globalThis, {
 			removeItem: (key: string) => void stored.delete(key),
 		},
 	}),
-	document: Object.assign(new EventTarget(), { activeElement: null }),
+	document: new EventTarget(),
 	IS_REACT_ACT_ENVIRONMENT: true,
 });
 const { createRoot } = web("react-dom/client");
