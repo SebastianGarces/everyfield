@@ -4,11 +4,6 @@ import { liveRead } from "@everyfield/domain/access";
 import { z } from "zod";
 import type { EvryActor } from "./actor.ts";
 
-/**
- * evry.resolveSelf: the signed-in account's own live person row in the actor's church, or null. One statement per
- * turn, with the lock-free live access check (C13, C27) in it, so a sign-out or seat end returns no row. In the account
- * context, or with no linked live person (never linked, or archived), the user has no row. The id is the only result.
- */
 export async function resolveSelf(db: Pick<Database, "execute">, actor: EvryActor): Promise<string | null> {
 	if (actor.owner.kind !== "plant" || actor.role === null) return null;
 	const r = await db.execute(sql`

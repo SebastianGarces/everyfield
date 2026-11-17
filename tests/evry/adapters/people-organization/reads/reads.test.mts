@@ -50,16 +50,11 @@ const REASON = "secret internal calling assessment";
 const SUMMARY = "private summary note";
 const CARE = "private care follow up detail";
 const HEADER = "first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\n";
-/** One native statement, plus the read timeout. A page keeps this count at any size. */
 const READ = 2;
-/** Person row, activity page and the read timeout. */
 const ACTIVITY = 3;
-/** Saved columns, the board, duties for the cards on the page, and the read timeout. */
 const PIPELINE = 4;
-/** Saved columns, an empty board and the read timeout. Duties are skipped when the page has no cards. */
 const PIPELINE_EMPTY = 3;
 
-/** The export count's one statement: a count(*) that selects no contact value, note, tag list or per-person row. */
 function exportCount(start: number) {
 	const [statement, ...rest] = queries
 		.slice(start)
@@ -156,7 +151,6 @@ test("AC:AC-EVR-143--EVR-143 AC:AC-EVR-READ--EVR-143 AC:TARGET-PPL-019 the pipel
 	const exported = queries.length;
 	const file = await invokeRead(db, member, exportPeople, {});
 	assert.equal(counted(exported), READ);
-	// The count answer builds no file: one count(*) plus the read timeout, with no contact column, note or person row.
 	exportCount(exported);
 	assert.equal(file.total, 203);
 	assert.match(file.rows[0]!.label, /^people-\d{4}-\d{2}-\d{2}\.csv$/);
@@ -373,7 +367,6 @@ test("AC:TARGET-PPL-025 AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-MERGE A
 			item.fields.householdTo ?? null,
 		]),
 		[
-			// Newest first, as the person page reads it.
 			[mergeId, "person_merged", "activity", null, null, null],
 			[moveId, "updated", "activity", null, null, "Rivera Home (head)"],
 			[stageId, "Stage", "stage_changed", "prospect", "attendee", null],

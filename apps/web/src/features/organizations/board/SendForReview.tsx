@@ -14,20 +14,15 @@ import {
 	Input,
 	Select,
 } from "@everyfield/ui/controls";
-import { useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
 import { sendAnswers, withdrawReview } from "./actions";
 import { formatDay, refusalText } from "./model";
 import { Problem } from "./Problem";
-
-// Kept answers sent for review (T-385, D-1507): an Owner or Admin chooses some questions of a kept-answers note, names
-// the group and picks a current seat of the organization. The reviewer reads only those questions, with the note's
-// current answers, and nothing else of the person. No answer goes into the notice or its email.
 
 type Staff = PipelineBoard["staff"];
 type Answer = Awaited<ReturnType<typeof sendAnswers>>;
 const lost = (): Answer => ({ status: "lost" });
 
-/** The dialog behind "Send for review". Send stays off until a question, a group name and a reviewer are chosen. */
 export function SendForReviewDialog({
 	open,
 	onOpenChange,
@@ -67,13 +62,10 @@ function SendForm({
 	staff: Staff;
 	onSent: () => Promise<void>;
 }) {
-	// One ID per dialog: a resend after a lost answer, or a second click, makes no second send.
 	const [reviewId] = useState(() => crypto.randomUUID());
 	const [chosen, setChosen] = useState<ReadonlySet<string>>(new Set());
 	const [groupName, setGroupName] = useState("");
 	const [reviewer, setReviewer] = useState("");
-	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
 	const ready = chosen.size > 0 && groupName.trim() !== "" && reviewer !== "";
 	function toggle(question: string, on: boolean) {
 		const next = new Set(chosen);
@@ -81,10 +73,8 @@ function SendForm({
 		else next.delete(question);
 		setChosen(next);
 	}
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		if (!ready || saving) return;
-		setSaving(true);
+	const [problem, submit, saving] = useActionState(async (last: string | null): Promise<string | null> => {
+		if (!ready) return last;
 		const answer = await sendAnswers({
 			reviewId,
 			noteId,
@@ -92,15 +82,19 @@ function SendForm({
 			questions: questions.filter((q) => chosen.has(q)),
 			reviewerSeatId: reviewer,
 		}).catch(lost);
-		if (answer.status !== "ok") {
-			setSaving(false);
-			setProblem(refusalText(answer));
-			return;
-		}
+		if (answer.status !== "ok") return refusalText(answer);
 		await onSent();
-	}
+		return null;
+	}, null);
 	return (
-		<form onSubmit={submit} noValidate className="contents">
+		<form
+			action={submit}
+			onSubmit={(event) => {
+				if (saving) event.preventDefault();
+			}}
+			noValidate
+			className="contents"
+		>
 			<DialogHeader
 				title="Send for review"
 				description={`The reviewer sees only the questions you choose, with ${person}’s answers. They see nothing else of ${person}, and the email they get holds no answers.`}
@@ -134,7 +128,6 @@ function SendForm({
 	);
 }
 
-/** The note's sends that are not withdrawn: who, which group and when, its questions, and Withdraw for an Owner or Admin. */
 export function NoteReviews({
 	reviews,
 	canWithdraw,

@@ -40,14 +40,6 @@ import {
 	venueId,
 } from "../shared.ts";
 
-// The Meetings reviewed writes (WP-066). The model only proposes. Each review reads the target through the native
-// Meetings reads, saves the native command's exact request (with the revision the review showed) and runs that same
-// command once in a transaction that rolls back (previewMeetingsWrite, C73), so the card shows exactly what it will do
-// now: the change and every task, stage advance or reminder it generates, with nothing saved. On approval the executor
-// runs the native command once under the approver's live seat, with the effect key as its request key; a target that
-// changed since refuses (conflict) instead of being overwritten. Public RSVP tokens and notification planning stay
-// native and are not tools.
-
 type Reader = Pick<Transaction, "execute">;
 type Target = { kind: "meeting" | "venue"; id: string; label: string };
 type Change = { field: string; before: unknown; after: unknown };
@@ -65,10 +57,8 @@ const writers = (reminders: TaskReminders): Writers => ({
 	roster: rosterWriter,
 	venues: venuesWriter,
 });
-/** A preview rolls back, so the reminders a generated task would plan are never planned. */
 const previewWriters = writers(async () => undefined);
 
-/** What a review prepared: the target, the native request without its request key, and facts the card shows. */
 type Prepared<F = unknown> = { target: Target | null; args: Record<string, unknown>; facts: F };
 
 const change = (field: string, before: unknown, after: unknown): Change => ({
@@ -78,7 +68,6 @@ const change = (field: string, before: unknown, after: unknown): Change => ({
 });
 const created = (field: string, after: unknown): Change => change(field, null, after);
 
-/** The plain reason a review cannot be approved as asked, from the native refusal the preview returned. */
 const REFUSAL: Record<string, string> = {
 	unavailable: "An Owner or Admin has to make this change.",
 	conflict: "This changed while Evry was preparing it. Ask Evry to prepare it again.",
@@ -92,7 +81,6 @@ const REFUSAL: Record<string, string> = {
 	owner_ineligible: "The chosen owner can't own this follow-up.",
 	token_closed: "This meeting no longer takes RSVPs.",
 };
-/** The member floor's refusal: a seated Member may do this only for their own ministry's team meeting. */
 const MEMBER_REFUSAL = "An Owner or Admin, or the leader of this meeting's ministry, has to make this change.";
 
 const meetingLive = (actor: EvryActor, meeting: string) =>
@@ -100,25 +88,17 @@ const meetingLive = (actor: EvryActor, meeting: string) =>
 const venueLive = (actor: EvryActor, venue: string) =>
 	sql`EXISTS(SELECT FROM venue v WHERE v.id=${venue}::uuid AND v.plant_id=${actor.owner.id}::uuid)`;
 
-/**
- * One reviewed write. `prepare` reads the target through the native reads and builds the native request; `run` is the
- * native command; `changes` turns the previewed answer into the card's rows; `inspect` may read, inside the rolled-back
- * preview, what the command generated (the titles of the tasks a finalize creates).
- */
 function write<I, F, V>(spec: {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
 	allowed?: (actor: EvryActor) => boolean;
-	/** Members may propose it: the native command's own floor (a team leader, the guest themself) decides. */
 	member?: true;
 	prepare(db: Reader, actor: EvryActor, input: NoInfer<I>): Promise<Prepared<F> | null>;
 	run(w: Writers, tx: Transaction, ctx: MeetingsContext, request: unknown): Promise<MeetingsReply<V>>;
 	changes(previewed: { prepared: Prepared<F>; value: V; seen: unknown }): Change[];
-	/** The rows a card shows when the preview refused, so the person still sees what was asked. */
 	asked?(prepared: Prepared<F>): Change[];
 	inspect?(tx: Transaction, value: NoInfer<V>): Promise<unknown>;
-	/** The revision the receipt names: the changed record's new revision. */
 	revision(value: NoInfer<V>): string;
 }): ReviewedWrite<I> {
 	return {
@@ -165,15 +145,12 @@ function write<I, F, V>(spec: {
 				const v = reply.value as V & { receiptId: string };
 				return { receiptId: v.receiptId, revision: spec.revision(v) };
 			} catch (error) {
-				// Inside the executor's bound write a native refusal is thrown; the executor rolls the transaction back.
 				if (error instanceof MeetingsRefusal) return { refused: error.code };
 				throw error;
 			}
 		},
 	};
 }
-
-// --- Shared reads and shapes --------------------------------------------------------------------------------------
 
 type Detail = z.infer<typeof c.meetingDetail>;
 const meetingTarget = (m: Pick<Detail, "id" | "displayTitle">): Target => ({
@@ -193,7 +170,6 @@ const STATUS: Record<string, string> = {
 	cancelled: "Cancelled",
 };
 const venueText = (v: Facts["venue"]) => (v ? (v.address ? `${v.name}, ${v.address}` : v.name) : null);
-/** A meeting's facts as the card shows them, in the church's own zone. */
 const shown = (m: Facts) => ({
 	title: m.displayTitle,
 	when: localWhen(m.startsAt, m.zone),
@@ -204,13 +180,11 @@ const shown = (m: Facts) => ({
 	voided: m.occurrence.voidedAt ? "Voided" : null,
 	removed: m.retiredAt ? "Removed from Meetings" : null,
 });
-/** The facts that differ between two versions of a meeting. */
 function meetingDiff(before: Facts, after: Facts): Change[] {
 	const a = shown(before),
 		b = shown(after);
 	return (Object.keys(b) as (keyof typeof b)[]).filter((k) => a[k] !== b[k]).map((k) => change(k, a[k], b[k]));
 }
-/** A wall time the person entered, resolved in the meeting's zone the way the native command resolves one. */
 function instantOf(local: string, zone: string) {
 	const r = resolveCalendar(localDateTime.parse(`${local}:00`), timeZone.parse(zone), "entered");
 	if (r.kind !== "resolved") throw new EvryRefusal("invalid_input");
@@ -228,7 +202,6 @@ type GuestResult = z.infer<typeof c.guestMutationResult>;
 const guestRevision = (v: { guest: { revision: string } }) => v.guest.revision;
 const meetingRevision = (v: { meeting: { revision: string } }) => v.meeting.revision;
 
-/** A meeting command on the meeting's own revision: the target and the native request for this meeting now. */
 const onDetail = (m: Detail, input: Record<string, unknown> = {}) =>
 	({
 		target: meetingTarget(m),
@@ -244,7 +217,6 @@ type AgendaResult = { receiptId: string; agenda: z.infer<typeof c.agendaResult> 
 type KitItem = z.infer<typeof c.kitItem>;
 const diffed = ({ prepared, value: v }: { prepared: Prepared<Detail>; value: MeetingResult }) =>
 	meetingDiff(prepared.facts, v.meeting);
-/** The reason the person gave, as the card's last row. */
 const reasonRow = (prepared: Prepared) => created("reason", (prepared.args.input as { reason: string }).reason);
 const diffedWithReason = (p: { prepared: Prepared<Detail>; value: MeetingResult }) => [
 	...diffed(p),
@@ -253,8 +225,6 @@ const diffedWithReason = (p: { prepared: Prepared<Detail>; value: MeetingResult 
 const reason = c.reason;
 const sectionText = (s: { title: string; minutes: number }) => `${s.title} (${s.minutes} min)`;
 const clock = z.string().regex(/^\d{2}:\d{2}$/);
-
-// --- Meetings -----------------------------------------------------------------------------------------------------
 
 const scheduleInput = z.strictObject({
 	type: c.meetingType,
@@ -437,7 +407,6 @@ export const replaceAgenda = write({
 	async prepare(db, actor, i) {
 		const m = await meeting(db, actor, i.meetingId);
 		if (!m) return null;
-		// A section that keeps its title keeps its id; a new one gets a fresh id.
 		const ids = new Map(m.agenda.sections.map((s) => [s.title, s.id]));
 		const sections = i.sections.map((s) => ({ id: ids.get(s.title) ?? randomUUID(), ...s }));
 		return onDetail(m, { sections });
@@ -504,8 +473,6 @@ export const updateKitItem = write({
 	revision: (v) => v.items[0]?.revision ?? "1",
 });
 
-// --- Guests -------------------------------------------------------------------------------------------------------
-
 export const inviteGuest = write({
 	operation: "meetings.inviteGuest",
 	description: "Add a person in People to a meeting's guest list. Sends nothing.",
@@ -529,7 +496,6 @@ export const inviteGuest = write({
 	revision: guestRevision,
 });
 
-/** A guest command on the guest row's own revision. */
 async function onGuest(db: Reader, actor: EvryActor, meetingId: string, person: string, input: object = {}) {
 	const f = await guestFacts(db, actor, meetingId);
 	const g = f && guestOf(f, person);
@@ -605,7 +571,6 @@ const contactInput = {
 };
 type Contact = { displayName: string; email?: string; phone?: string };
 type ContactFacts = { m: Detail; duplicates: string[] };
-/** The meeting and the People duplicate hints for a new contact, from the native People duplicate check. */
 async function onContact(db: Reader, actor: EvryActor, i: Contact & { meetingId: string }, extra: object = {}) {
 	const m = await meeting(db, actor, i.meetingId);
 	if (!m) return null;
@@ -744,8 +709,6 @@ export const copyTeamRoster = write({
 	revision: () => "1",
 });
 
-// --- Attendance ---------------------------------------------------------------------------------------------------
-
 type AttendanceFacts = { m: Detail; list: z.infer<typeof c.attendanceList> };
 async function attendanceFacts(db: Reader, actor: EvryActor, meetingId: string) {
 	const m = await meeting(db, actor, meetingId);
@@ -827,7 +790,6 @@ const STAGE: Record<string, string> = {
 	launch_team: "Launch team",
 	leader: "Leader",
 };
-/** Each generated task as Tasks will list it: its title and who owns it. */
 async function generatedTasks(tx: Transaction, v: Finalization) {
 	const ids = v.work.flatMap((w) => (w.taskId && w.outcome === "created" ? [w.taskId] : []));
 	if (!ids.length) return [];
@@ -844,7 +806,6 @@ async function generatedTasks(tx: Transaction, v: Finalization) {
 		w.taskId && titles.has(w.taskId) ? [`${titles.get(w.taskId)}${w.needsOwner ? " (needs an owner)" : ""}`] : [],
 	);
 }
-/** The finalize or correction card: every attendance mark, stage advance and task it creates. */
 function settlementChanges({
 	prepared,
 	value: v,
@@ -1034,8 +995,6 @@ export const addAttendeeNote = write({
 	revision: () => "1",
 });
 
-// --- Venues -------------------------------------------------------------------------------------------------------
-
 const venueFields = {
 	name: z.string().trim().min(1).max(120),
 	address: z.string().trim().min(1).max(500),
@@ -1126,7 +1085,6 @@ export const restoreVenue = write({
 	revision: venueRevision,
 });
 
-/** The installed Meetings reviewed writes, keyed by operation. */
 export const MEETINGS_COMMANDS = {
 	"meetings.schedule": schedule,
 	"meetings.edit": edit,

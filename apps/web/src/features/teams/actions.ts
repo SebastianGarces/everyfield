@@ -18,14 +18,6 @@ import {
 	type Viewer,
 } from "./server.ts";
 
-// Server actions behind the teams screens: the browser boundary. Each one rebuilds the viewer from the request and
-// hands the browser's values to the producer, which parses them with the WP-017 contract (strict objects: no owner,
-// actor or authority can be sent). A lost answer may be retried with the same request key; the producer replays a
-// write that did commit instead of acting twice.
-//
-// A write answers with its own result, never with the page read again (patterns.md, Writes): the page draws the
-// change from that answer (page-state.ts). After a refusal as out of date, the page reads itself in its own request.
-
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Context = Parameters<typeof teamsWriter.create>[1];
 type Run<T> = (tx: Transaction, ctx: Context) => Promise<TeamsReply<T>>;
@@ -33,7 +25,6 @@ type Run<T> = (tx: Transaction, ctx: Context) => Promise<TeamsReply<T>>;
 async function seat() {
 	return (await getViewer())?.people ?? null;
 }
-/** One write in its own transaction. */
 async function change<T>(run: Run<T>): Promise<Outcome<T>> {
 	const v = await seat();
 	if (!v) return noSeat;
@@ -45,19 +36,12 @@ const command = (requestKey: string, expectedRevision: string, input: unknown) =
 	input,
 });
 
-// Teams ---------------------------------------------------------------------------------------------------------
-
-/**
- * Creates a ministry and returns that ministry. The list draws the page from the form when the save starts, then
- * opens this address from the answer. A refusal comes back as an Outcome.
- */
 export async function createTeam(requestKey: string, input: unknown) {
 	const v = await seat();
 	if (!v) return noSeat;
 	return write(v, (tx, ctx) => teamsWriter.create(tx, ctx, { requestKey, input }));
 }
 
-/** Edit (with an optional reason), archive or restore one ministry, at the revision the page last saw. */
 export async function changeTeam(
 	op: "edit" | "archive" | "restore",
 	requestKey: string,
@@ -69,14 +53,11 @@ export async function changeTeam(
 	return change((tx, ctx) => teamsWriter[op](tx, ctx, command(requestKey, expectedRevision, { ...patch, teamId })));
 }
 
-/** Appoints a leader explicitly. It outranks a leader that comes from a leadership role (REQ-TEAM-004). */
 export async function appointLeader(requestKey: string, expectedRevision: string, teamId: string, personId: string) {
 	return change((tx, ctx) =>
 		teamsWriter.appointLeader(tx, ctx, command(requestKey, expectedRevision, { teamId, personId })),
 	);
 }
-
-// Roles and people ----------------------------------------------------------------------------------------------
 
 export async function createRole(requestKey: string, teamId: string, input: Record<string, unknown>) {
 	return change((tx, ctx) => teamsWriter.createRole(tx, ctx, { requestKey, input: { ...input, teamId } }));
@@ -91,11 +72,9 @@ export async function editRole(
 		teamsWriter.editRole(tx, ctx, command(requestKey, expectedRevision, { ...patch, roleId })),
 	);
 }
-/** Takes a role out of the current structure. Its holder's tenure ends; past tenure stays in the history. */
 export async function retireRole(requestKey: string, expectedRevision: string, roleId: string) {
 	return change((tx, ctx) => teamsWriter.retireRole(tx, ctx, command(requestKey, expectedRevision, { roleId })));
 }
-/** Puts one live person in one open role. The answer says when they now serve on two or more teams. */
 export async function assignRole(
 	requestKey: string,
 	expectedRevision: string,
@@ -107,13 +86,11 @@ export async function assignRole(
 		teamsWriter.assignRole(tx, ctx, command(requestKey, expectedRevision, { roleId, teamId, personId })),
 	);
 }
-/** Ends every role the person holds on this ministry. Stage, commitments and training stay as they are. */
 export async function endMembership(requestKey: string, expectedRevision: string, teamId: string, personId: string) {
 	return change((tx, ctx) =>
 		teamsWriter.endMembership(tx, ctx, command(requestKey, expectedRevision, { teamId, personId })),
 	);
 }
-/** A former member back in their old role, as a new tenure that keeps the old dates. */
 export async function reactivateMembership(
 	requestKey: string,
 	expectedRevision: string,
@@ -125,15 +102,10 @@ export async function reactivateMembership(
 	);
 }
 
-/**
- * Owner or Admin corrects one role tenure's start or end date with a reason, from the person's record. The answer is
- * the corrected row; the ministry's history names the change.
- */
 export async function correctTenure(requestKey: string, expectedRevision: string, input: Record<string, unknown>) {
 	return change((tx, ctx) => teamsWriter.correctTenure(tx, ctx, command(requestKey, expectedRevision, input)));
 }
 
-/** The ministry page's data again, after a change was refused as out of date. */
 export async function reloadTeam(teamId: string): Promise<Outcome<TeamView | null>> {
 	const v = await seat();
 	if (!v) return noSeat;
@@ -147,8 +119,6 @@ export async function teamHistory(teamId: string) {
 	return outcome(await readHistory(v, teamId));
 }
 
-// Setup from templates (REQ-TEAM-003) ---------------------------------------------------------------------------
-
 export async function templateCatalog() {
 	const v = await seat();
 	if (!v) return noSeat;
@@ -156,7 +126,6 @@ export async function templateCatalog() {
 }
 
 type Selection = { teamKey: string; roleKeys: string[]; destinationTeamId?: string };
-/** Adds the templates the person just reviewed. The answer says how many ministries and roles are new. */
 export async function importTemplates(
 	requestKey: string,
 	version: string,
@@ -173,18 +142,12 @@ export async function importTemplates(
 	if (done.status !== "ok") return done;
 	return { status: "ok", value: { newTeams: done.value.newTeams, newRoles: done.value.newSelectedRoles } };
 }
-/**
- * The ministries list and chart again, after an import created ministries whose ids only the server knows. A read in
- * its own request, so the import's write request stays within its statement budget.
- */
 export async function reloadTeams(): Promise<Outcome<TeamsView>> {
 	const v = await seat();
 	if (!v) return noSeat;
 	return { status: "ok", value: await loadTeams(v) };
 }
-// Organization view (REQ-TEAM-012) ------------------------------------------------------------------------------
 
-/** The drawing as SVG text and PDF text, drawn from the same lines. Reading it again reauthorizes the current seat. */
 export async function exportChart(includeArchived: boolean) {
 	const v: Viewer | null = await seat();
 	if (!v) return noSeat;

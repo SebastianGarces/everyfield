@@ -1,6 +1,3 @@
-// T-126: template compare names each changed block. A heading with no level is the format's level 2, so it must read
-// "Heading 2"; it used to read "Heading 1". The paper names come from one map, so Page setup, compare and the library
-// cards say the same name.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { BlockNode } from "../../../packages/contracts/src/documents/index.ts";

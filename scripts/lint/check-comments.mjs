@@ -42,6 +42,7 @@ const CONFIGS = {
 		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],
 		"packages/*/src/**": ["no-timers", "feature-boundaries"],
 		"packages/ui/src/**": ["no-cursor-utility"],
+		"packages/ui/src/foundations/observe.ts": ["no-global-listeners"],
 	},
 	"apps/web/.oxlintrc.json": {
 		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],

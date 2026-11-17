@@ -25,8 +25,8 @@ import type { z } from "zod";
 import type { Outcome, SaveSpec } from "../../../components/save/model.ts";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
-import { throughStore, type PersonStore } from "../model.ts";
-import { PersonLink, useStore } from "../parts.tsx";
+import { throughStore, type PersonStore } from "../person.store.ts";
+import { PersonLink, usePersonState } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
 import {
 	joinHousehold,
@@ -42,6 +42,7 @@ import {
 	CopyAddressDialog,
 	EditHouseholdDialog,
 	householdProblem,
+	households,
 	JoinHouseholdDialog,
 	LeaveHouseholdDialog,
 	StartHouseholdDialog,
@@ -64,17 +65,8 @@ import {
 type PlantPerson = z.infer<typeof people.plantPerson>;
 type Store = PersonStore<PlantPerson, PersonDraft>;
 type Kind = "start" | "join" | "edit" | "copy" | "leave";
-/** The open household form and, after a refusal, the values it sent and why (`problem` is the refusal code). */
 type Editing = { kind: Kind; value?: unknown; problem?: string };
 
-/**
- * Household (REQ-PPL-009): who lives with this person and their role, the household address, and the deliberate
- * changes: start, join, change role, edit, copy the address to everyone, leave. Every change saves through the card's
- * save lane (components/save): one at a time, its own request key, one replay after a lost answer and Check again
- * while it stays unknown. Membership changes the Person, so they also run in the person store with the latest
- * revision. A change shows at once; a refusal rolls it back and opens the form again with the values and why, and a
- * conflict reads the household and the person again so the next try starts from what is saved.
- */
 export function HouseholdCard({
 	store,
 	person,
@@ -87,28 +79,21 @@ export function HouseholdCard({
 }: {
 	store: Store;
 	person: PlantPerson;
-	/** Null when the household did not load. */
 	household: HouseholdResult | null;
 	onHousehold: (h: HouseholdResult) => void;
 	canEdit: boolean;
-	/** A saved membership change, with the membership before and after, for Activity. */
 	onMembership: (receipt: Receipt, change: { from: Membership | null; to: Membership | null }) => void;
-	/** The person changed elsewhere: read the person again. */
 	onConflict: () => void;
-	/** Shows a change to this person at once while it saves (the copied address); it rolls back if refused. */
 	onExpectPerson: (patch: Partial<PlantPerson>) => void;
 }) {
 	const [saving, start] = useTransition();
-	// The last confirmed change, said in the card's status line instead of a toast that could cover the menu.
 	const [notice, setNotice] = useState<string | null>(null);
-	// The household as the screen expects it while a change saves; it falls back to the saved one if the change fails.
 	const [shown, expect] = useOptimistic(household, (_h, next: HouseholdResult) => next);
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
-	// Another change to this person is saving: the card waits, and Check again waits for it (C65, C68).
-	useStore(store);
+	usePersonState(store);
 	const lane = useSaveIntent<Editing>({
 		explain: (code) => householdProblem(code, first),
-		busy: () => store.get().pending !== null,
+		busy: () => store.getState().pending !== null,
 	});
 	const editing = lane.editing;
 	const form = <T,>(kind: Kind) =>
@@ -129,7 +114,6 @@ export function HouseholdCard({
 	});
 	const placeholder = { id: person.id as string, revision: person.revision } as Household["household"];
 
-	/** Reads the household again after a conflict, so the card and the next try use what is saved. */
 	async function refresh() {
 		const r = await readHousehold(person.id).catch(() => null);
 		if (r?.status === "ok") onHousehold(r.value);
@@ -139,12 +123,10 @@ export function HouseholdCard({
 		void refresh();
 		onConflict();
 	};
-	/** The page's person with the revision and address of their row in a household answer. */
 	function fromMember(answer: HouseholdResult): PlantPerson | null {
 		const row = answer.status === "available" ? answer.members.find((m) => m.personId === person.id) : undefined;
-		return row ? { ...store.get().saved, ...addressOf(row), revision: row.revision } : null;
+		return row ? { ...store.getState().saved, ...addressOf(row), revision: row.revision } : null;
 	}
-	/** Shows the expected household at once, then saves through the lane; the transition rolls back a refusal. */
 	function change<T>(next: HouseholdResult, spec: SaveSpec<Editing, T>, personPatch?: Partial<PlantPerson>) {
 		setNotice(null);
 		start(async () => {
@@ -153,27 +135,20 @@ export function HouseholdCard({
 			await lane.save(spec);
 		});
 	}
-	/**
-	 * One membership write: it runs in the person store with the person's latest revision. A saved change updates the
-	 * household, the person and Activity from the answer.
-	 */
 	function membership<A extends MembershipSaved>(
 		slot: string,
 		call: (key: string, revision: string) => Promise<Outcome<A>>,
 		then?: () => void,
 	): Pick<SaveSpec<Editing, A>, "send" | "through" | "ok" | "refused"> {
 		const before = membershipOf(household, person.id);
-		const revision = store.get().saved.revision;
+		const revision = store.getState().saved.revision;
 		return {
 			send: (key) => call(key, revision),
-			// The answer's member row carries this person's new revision and address; after leaving, the saved Person.
 			through: throughStore(store, slot, (v: MembershipSaved) => v.person ?? fromMember(v.household)),
 			refused: conflict,
 			ok: (value) => {
 				const after = membershipOf(value.household, person.id);
-				// After leaving, the answer is the household the person left; this person is now in none.
 				onHousehold(after ? value.household : { status: "none" });
-				// Copying the address keeps the membership; its record belongs to the household, not this person's Activity.
 				if (before?.householdId !== after?.householdId || before?.role !== after?.role)
 					onMembership(value.receipt, { from: before, to: after });
 				then?.();
@@ -181,18 +156,15 @@ export function HouseholdCard({
 		};
 	}
 
-	/** Starts a household with this person as head. `kind` is the form to reopen if it is refused, with `value` in it. */
 	function startChange(
 		{ name, street, city, stateProvince, postalCode, country }: StartValue,
 		kind: Kind,
 		value: unknown,
 	) {
-		// Only the household fields go to the server: the join dialog's value also carries its `mode`.
 		const v = { name, street, city, stateProvince, postalCode, country };
 		change(
 			{
 				status: "available",
-				// A stand-in until the answer: the card hides household actions while it saves, so this ID is never sent.
 				household: {
 					id: placeholder.id,
 					name: v.name,
@@ -309,7 +281,14 @@ export function HouseholdCard({
 					<p className="text-sm text-text-3">{first} is not in a household.</p>
 					{canEdit ? (
 						<div className="flex flex-wrap gap-2">
-							<Button size="sm" variant="secondary" onClick={() => lane.open({ kind: "join" })}>
+							<Button
+								size="sm"
+								variant="secondary"
+								onClick={() => {
+									households.prefetch("");
+									lane.open({ kind: "join" });
+								}}
+							>
 								Add to a household
 							</Button>
 							<Button size="sm" variant="ghost" onClick={() => lane.open({ kind: "start" })}>
@@ -336,7 +315,6 @@ export function HouseholdCard({
 							v.mode === "create"
 								? startChange(v, "join", v)
 								: change(
-										// The other members arrive with the answer; until then the card shows this person and "Saving…".
 										{
 											status: "available",
 											household: { ...v.household, memberCount: v.household.memberCount + 1 },
@@ -420,7 +398,6 @@ export function HouseholdCard({
 										() => startTransition(() => setNotice("Address copied to every member.")),
 									),
 								},
-								// This person is one of the members, so Details shows the copied address at once too.
 								copied,
 							);
 						}}

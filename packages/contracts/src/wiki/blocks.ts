@@ -1,24 +1,15 @@
-// The one wiki block parser. A stored body (organization nodes or markdown) becomes blocks that carry both what a
-// reader sees (heading, paragraph, quote, list, table, callout, code, diagram) and the markdown lines each block stands
-// for. The reader, the Guide and reference excerpt, the PDF and the print export all read these blocks, so they show
-// the same structure. For a markdown body the lines of all blocks, in order, are the input lines.
 import { fenceAt, fenceContent, parseDiagram, type Diagram, type FencedBlock } from "./diagram.ts";
 
 export type WikiBlock =
 	| { kind: "blank" | "break"; lines: string[] }
 	| { kind: "heading"; level: number; text: string; lines: string[] }
-	/** `paragraphs` are the paragraphs a reader sees: one per markdown line, or one per organization node. */
 	| { kind: "paragraph"; paragraphs: string[]; lines: string[] }
 	| { kind: "quote"; text: string; lines: string[] }
-	/** `items` are every item's text without its marker; `groups` the lines of each top-level item, nested ones kept. */
 	| { kind: "list"; ordered: boolean; items: string[]; groups: string[][]; lines: string[] }
-	/** `rows` are the cells of each row, without the separator row; `head` is how many source lines the header takes. */
 	| { kind: "table"; rows: string[][]; head: number; lines: string[] }
 	| { kind: "callout"; label: string; text: string; lines: string[] }
-	/** An MDX component other than a callout: it shows only its text, without tags. */
 	| { kind: "component"; text: string; lines: string[] }
 	| { kind: "code"; text: string; lines: string[] }
-	/** `info` and `source` are the fence as written, so a save keeps the diagram as its author wrote it. */
 	| { kind: "diagram"; diagram: Diagram; info: string; source: string; lines: string[] };
 
 export const EDITOR_FORMAT = "everyfield-editor-v1";
@@ -50,7 +41,6 @@ function startsBlock(line: string): boolean {
 	);
 }
 
-/** A table row's cells, without empty and separator cells. */
 function cells(line: string): string[] {
 	return line
 		.split("|")
@@ -80,7 +70,6 @@ function calloutBlock(lines: string[]): WikiBlock {
 	};
 }
 
-/** Markdown text as blocks. */
 function markdownBlocks(lines: string[]): WikiBlock[] {
 	const blocks: WikiBlock[] = [];
 	let index = 0;
@@ -95,7 +84,6 @@ function markdownBlocks(lines: string[]): WikiBlock[] {
 		const component = COMPONENT.exec(line)?.[1];
 		const heading = HEADING.exec(line);
 		if (fence) {
-			// Fence lines are never markdown.
 			blocks.push(fenceBlock(fence, lines.slice(index, fence.end)));
 			index = fence.end;
 		} else if (line.trim() === "") {
@@ -108,7 +96,6 @@ function markdownBlocks(lines: string[]): WikiBlock[] {
 			blocks.push({ kind: "break", lines: [line] });
 			index++;
 		} else if (component) {
-			// An MDX component is one block, up to its closing line.
 			const close = `</${component}>`;
 			const start = index++;
 			if (!line.includes(close) && !/\/>\s*$/.test(line)) {
@@ -119,7 +106,6 @@ function markdownBlocks(lines: string[]): WikiBlock[] {
 			if (component === "Callout") blocks.push(calloutBlock(own));
 			else blocks.push({ kind: "component", text: textLines(own).join("\n"), lines: own });
 		} else if (CLOSING_TAG.test(line)) {
-			// A stray closing tag shows nothing.
 			blocks.push({ kind: "component", text: "", lines: [line] });
 			index++;
 		} else if (TABLE_ROW.test(line)) {
@@ -161,12 +147,10 @@ function markdownBlocks(lines: string[]): WikiBlock[] {
 	return blocks;
 }
 
-/** Lines as a reader sees them: tags dropped, trimmed, empty lines gone. */
 function textLines(lines: string[]): string[] {
 	return lines.map((line) => stripTags(line).trim()).filter(Boolean);
 }
 
-/** A fence around `body` that no line of it closes early. */
 function fenceLines(info: string, body: string): string[] {
 	const longest = Math.max(2, ...[...body.matchAll(/^ {0,3}(`{3,})/gm)].map((match) => match[1]?.length ?? 0));
 	const marker = "`".repeat(longest + 1);
@@ -183,7 +167,6 @@ const calloutLines = (label: string, text: string) => {
 };
 const paragraph = (text: string): WikiBlock => ({ kind: "paragraph", paragraphs: [text], lines: text.split("\n") });
 
-/** The text of an editor document's inline runs: text and link labels. */
 function runText(value: unknown): string {
 	if (!Array.isArray(value)) return "";
 	return value
@@ -210,7 +193,6 @@ type EditorNode = {
 	rows?: unknown;
 };
 
-/** One block of an everyfield-editor-v1 document, or null when it shows nothing. */
 function editorBlock(value: unknown): WikiBlock | null {
 	if (!value || typeof value !== "object") return null;
 	const node = value as EditorNode;
@@ -260,7 +242,6 @@ function editorBlock(value: unknown): WikiBlock | null {
 	return null;
 }
 
-/** The text of any other organization node tree. Scripts and imports never show. */
 function textOf(value: unknown): string {
 	if (typeof value === "string") return value;
 	if (Array.isArray(value)) return value.map(textOf).filter(Boolean).join("");
@@ -271,7 +252,6 @@ function textOf(value: unknown): string {
 	return textOf(node.content ?? node.children ?? "");
 }
 
-/** Any other organization node tree as blocks: headings, lists, callouts, quotes and paragraphs. */
 function nodeBlocks(value: unknown, blocks: WikiBlock[]): void {
 	if (Array.isArray(value)) {
 		value.forEach((item) => nodeBlocks(item, blocks));
@@ -314,7 +294,6 @@ function nodeBlocks(value: unknown, blocks: WikiBlock[]): void {
 	if (kids) nodeBlocks(kids, blocks);
 }
 
-/** The blocks of an editor document, or null when `value` is not one. */
 export function editorDocumentBlocks(value: unknown): WikiBlock[] | null {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
 	const doc = value as { format?: unknown; blocks?: unknown };
@@ -322,7 +301,6 @@ export function editorDocumentBlocks(value: unknown): WikiBlock[] | null {
 	return doc.blocks.map(editorBlock).filter((block) => block !== null);
 }
 
-/** Organization nodes as blocks, or null when the body is not a node tree. Raw JSON is never shown. */
 function nodeDocument(body: string): WikiBlock[] | null {
 	let parsed: unknown;
 	try {
@@ -340,7 +318,6 @@ function nodeDocument(body: string): WikiBlock[] | null {
 	return text ? [paragraph(text)] : [];
 }
 
-/** A stored body as blocks: organization nodes when they parse, else markdown. Older organization text is markdown. */
 export function wikiBlocks(contentType: string, body: string): WikiBlock[] {
 	if (contentType === "safe_nodes") {
 		const nodes = nodeDocument(body);
@@ -349,7 +326,6 @@ export function wikiBlocks(contentType: string, body: string): WikiBlock[] {
 	return markdownBlocks(body.split("\n"));
 }
 
-/** The markdown fence opener of a line, for a writer that cuts a fence and closes it again. */
 export function fenceMarker(line: string): string | null {
 	return FENCE.exec(line)?.[1] ?? null;
 }

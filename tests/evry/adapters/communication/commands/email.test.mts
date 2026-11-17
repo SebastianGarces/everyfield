@@ -37,11 +37,7 @@ import {
 	teardown,
 } from "../../../runtime/support.mts";
 
-// MAIL51-009 (WP-028 slice 2): Evry saves a draft and reviews a schedule, time change, cancel and replacement before any
-// of it runs. The email service is a recording fake; the database is real. Every effect goes through the real queue.
-
 const CALLBACK_SECRET = "whsec_" + randomBytes(32).toString("base64");
-/** The email service's signed callback for one provider id, as the webhook route receives it. */
 function signedCallback(messageId: string, kind: string) {
 	const raw = JSON.stringify({
 		type: "email." + kind,
@@ -67,7 +63,6 @@ const addressKey = Buffer.alloc(32, 9);
 const hashOf = (address: string) => createHmac("sha256", addressKey).update(address).digest("hex");
 
 type Answer = "done" | "sent" | "unknown";
-/** A fake email service. `openTransactions` is how many transactions the runtime login held open while it was called. */
 function emailService() {
 	const calls = {
 		send: [] as {
@@ -84,9 +79,7 @@ function emailService() {
 	const answers = {
 		cancel: "done" as Answer | ((id: string, n: number) => Answer),
 		reschedule: "done" as Answer,
-		/** A schedule request that gets no answer, or that the email service refuses. */
 		send: "ids" as "ids" | "unknown" | "refused",
-		/** What asking again about an unanswered schedule request says. */
 		lookup: "unknown" as "ids" | "unknown",
 	};
 	const open = async () =>
@@ -135,7 +128,6 @@ function emailService() {
 	return { port, calls, answers };
 }
 
-/** The person unsubscribed from this church's email (the Messages opt-out the handoff honors, D-284). */
 const unsubscribe = (person: string) =>
 	admin.execute(sql`INSERT INTO person_email_opt_out (plant_id, person_id) VALUES (${plant}, ${person})`);
 
@@ -147,13 +139,11 @@ before(async () => {
 		[people.casey!, "casey.reed@example.test"],
 	];
 	for (const [id, email] of emails) await admin.execute(sql`UPDATE person SET email=${email} WHERE id=${id}`);
-	// Casey's address bounced and is blocked.
 	const event = randomUUID();
 	await admin.execute(sql`INSERT INTO provider_event(id,event_key,message_id,kind,occurred_at,received_at,payload_hash,safe_payload)
 		VALUES(${event},${"seed-" + event},${"seed-" + event},'bounced',clock_timestamp(),clock_timestamp(),'x','{"hard_bounce":true}'::jsonb)`);
 	await admin.execute(sql`INSERT INTO suppression(address_hash,reason,source_event_id,suppressed_at)
 		VALUES(${hashOf("casey.reed@example.test")},'hard_bounce',${event},clock_timestamp())`);
-	// Dana unsubscribed from this church's email.
 	people.dana = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state,linked_account_id)
 		VALUES(${people.dana},${plant},${plant},'Dana Off','dana.off@example.test','other',clock_timestamp(),'prospect','unknown','unknown',9,'live',${accounts.member.id})`);
@@ -196,7 +186,6 @@ async function runNext(mail: MailPort | null) {
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	return outcome;
 }
-/** The trusted approval of the exact revision shown, then the effect run once through the queue. */
 async function approve(who: EvryActor, proposal: Proposal, mail: MailPort | null) {
 	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const outcome = await runNext(mail);
@@ -204,7 +193,6 @@ async function approve(who: EvryActor, proposal: Proposal, mail: MailPort | null
 }
 const change = (proposal: Proposal, field: string) => proposal.review.changes.find((c) => c.field === field);
 const rows = async (query: ReturnType<typeof sql>) => (await admin.execute(query)).rows as Record<string, any>[];
-/** A future local send time in the church's zone: `days` from now at `hhmm`. */
 function localAt(days: number, hhmm = "09:00") {
 	const d = new Date(Date.now() + days * 86_400_000);
 	return `${d.toISOString().slice(0, 10)}T${hhmm}`;
@@ -218,11 +206,9 @@ const SUBJECT = "Sunday's interest meeting";
 const limits = JSON.parse(
 	readFileSync(new URL("../../../../integration/writes/limits.json", import.meta.url), "utf8"),
 ) as Record<string, { limit: number }>;
-/** A person who joins the launch team and has an address, the way a planter adds one in People. */
 const stageOf = (id: string, stage: string) => admin.execute(sql`UPDATE person SET stage=${stage} WHERE id=${id}`);
 const BODY = "Hi {{name}},\n\nCome to Sunday's interest meeting at 4 pm.";
 
-/** Saves a draft through a review and returns its id and revision. */
 async function savedDraft(who: EvryActor, mail: MailPort, subject = SUBJECT, body = BODY) {
 	const t = await turn(who, mail);
 	const proposal = await t.propose("communication.saveDraft", { subject, body, audience: audience() });
@@ -232,17 +218,9 @@ async function savedDraft(who: EvryActor, mail: MailPort, subject = SUBJECT, bod
 	return { id: done.review.receipt!.receiptId!, revision: done.review.receipt!.revision! };
 }
 const mailOf = (id: string) => `communication/${id}/%`;
-/**
- * The email service holds the message's waiting recipients, as it does for a message scheduled before T-241 moved the
- * handoff to the send time: a cancel or a time change then has to ask it, and can go unconfirmed.
- */
 const heldByService = (id: string) =>
 	admin.execute(sql`UPDATE mail SET state='accepted',provider_message_id='re_'||id::text
 		WHERE logical_key LIKE ${mailOf(id)} AND state='scheduled'`);
-/**
- * A message scheduled through its reviews. It waits in Everyfield for its send time; `held` (the default) then puts it
- * with the email service, so the provider paths of a cancel, a time change and a replacement can be driven.
- */
 async function scheduledMessage(
 	who: EvryActor,
 	service: ReturnType<typeof emailService>,
@@ -259,16 +237,13 @@ async function scheduledMessage(
 	if (held) await heldByService(draft.id);
 	return { id: draft.id, review: done.review };
 }
-/** Makes message `id` due and runs the minute runner once: it hands the message to the email service. */
 async function sendWhenDue(id: string, service: ReturnType<typeof emailService>) {
-	// The earliest due time, so the runner's one claim is this message.
 	await admin.execute(
 		sql`UPDATE mail SET scheduled_at='2000-01-01T00:00:00Z' WHERE logical_key LIKE ${mailOf(id)} AND state='scheduled'`,
 	);
 	return runDueScheduled(db, service.port.transport, service.port.keys, 1, Date.now() + 30_000);
 }
 
-/** A crash after the email service answered: the first step's saved mark stays, and no outcome was saved. */
 const loseOutcome = (id: string) =>
 	admin.execute(sql`UPDATE proposal SET outcome=NULL,receipt='{"reached":true}'::jsonb WHERE id=${id}`);
 
@@ -389,7 +364,6 @@ test("the review leaves out who the handoff refuses: an unsubscribe after one re
 	]);
 	assert.equal(after!.review.refusal, "Nobody in this audience can get this email.");
 
-	// More people than one email service call takes: the handoff sends them in batches, so the review allows it.
 	const crowd = Array.from({ length: 101 }, () => randomUUID());
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,email,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		SELECT x::uuid,${plant},${plant},'Crowd '||x,x||'@example.test','other',clock_timestamp(),'prospect','unknown','unknown',12,'live'
@@ -418,9 +392,7 @@ test("a schedule that is not approved, or whose approval lapsed, runs nothing an
 	const t = await turn(owner, service.port);
 	const proposal = await t.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt: localAt(3) });
 	assert.ok(proposal);
-	// Not approved: no effect job exists, so nothing can run it.
 	assert.equal(await runNext(service.port), null);
-	// Approved, then the approval lapses before the effect starts.
 	await approveProposal(db, owner, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	await admin.execute(
 		sql`UPDATE proposal SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${proposal.id}`,
@@ -444,14 +416,12 @@ test("approving a schedule saves it scheduled, reports counts without saying del
 	);
 	assert.deepEqual(
 		{ ...review.receipt!.report, scheduledAt: undefined },
-		// Casey's blocked address is refused; Dana unsubscribed, which Messages counts apart from refusals (D-284).
 		{
 			kind: "schedule",
 			confirmation: "confirmed",
 			accepted: 2,
 			refused: 1,
 			unknown: 0,
-			// No email service call yet: two wait in Everyfield, and the review left Casey, Dana and Member 001 out (D-927).
 			waiting: 2,
 			leftOut: 3,
 			scheduledAt: undefined,
@@ -472,7 +442,6 @@ test("approving a schedule saves it scheduled, reports counts without saying del
 		listMessages.invoke(tx, owner, { state: "scheduled", subject: "Scheduled once" }),
 	);
 	assert.equal(found.rows[0]!.fields.handedOff, true);
-	// At its send time the email service gets one request with the reviewed recipients and content.
 	assert.equal(await sendWhenDue(id, service), 1);
 	assert.equal(service.calls.send.length, 1);
 	const call = service.calls.send[0]!;
@@ -499,7 +468,6 @@ test("the email service gets only the people the review showed", async () => {
 	const sendAt = localAt(3);
 	const proposal = await t.propose("communication.scheduleReviewed", { communicationId: id, sendAt });
 	assert.deepEqual(change(proposal!, "recipients")!.after, [{ name: "Alex Rivera" }]);
-	// Alex Chen joins the launch team inside the 15 minutes: the approved effect refuses, the draft stays a draft.
 	await stageOf(people.alexChen!, "launch_team");
 	const done = await approve(owner, proposal!, service.port);
 	assert.equal(done.review.outcome, "refused");
@@ -508,7 +476,6 @@ test("the email service gets only the people the review showed", async () => {
 	assert.equal((await rows(sql`SELECT state FROM communication WHERE id=${id}`))[0]!.state, "draft");
 	await stageOf(people.alexChen!, "prospect");
 
-	// A person the review left out as blocked stays left out when their address is restored before the approval.
 	const blockedDraft = await turn(owner, service.port);
 	const p2 = await blockedDraft.propose("communication.saveDraft", {
 		subject: "Left out stays out",
@@ -604,7 +571,6 @@ test("a time change shows old and new time and says Saturday only after the emai
 		new Date((await rows(sql`SELECT scheduled_at FROM communication WHERE id=${id}`))[0]!.scheduled_at).toISOString(),
 		(time.after as { at: string }).at,
 	);
-	// A confirmed time change is not checked again.
 	const asked = service.calls.reschedule.length;
 	await checkProposal(db, owner, proposal.id, service.port);
 	assert.equal(service.calls.reschedule.length, asked);
@@ -614,7 +580,6 @@ test("a schedule the email service did not answer refuses a time change on the r
 	const owner = await actor("owner");
 	const service = emailService();
 	const draft = await scheduledMessage(owner, service, "Unanswered then moved");
-	// The email service never answered about any recipient it was handed.
 	await admin.execute(
 		sql`UPDATE mail SET state='unknown',provider_message_id=NULL WHERE logical_key LIKE ${mailOf(draft.id)} AND state='accepted'`,
 	);
@@ -661,7 +626,6 @@ test("a cancel review shows subject, time and count; Cancelled needs the email s
 		{ confirmation: first.review.receipt!.report!.confirmation, open: first.review.receipt!.report!.open },
 		{ confirmation: "not_confirmed", open: 2 },
 	);
-	// The card lists everyone the email service still holds, so the owner sees who may still get it.
 	const held = first.review.receipt!.report!;
 	assert.ok(held.kind === "cancel");
 	assert.deepEqual(
@@ -704,14 +668,12 @@ test("a replacement is scheduled only when every original send is confirmed canc
 	assert.match(String(change(proposal, "body")!.after), /5 pm/);
 	assert.equal((change(proposal, "audience")!.before as { recipients: number }).recipients, 4);
 	assert.equal((change(proposal, "audience")!.after as { recipients: number }).recipients, 1);
-	// The review names who the new audience leaves out before approval, as the schedule review does.
 	assert.ok(Array.isArray(change(proposal, "leftOut")!.after));
 	const sends = service.calls.send.length;
 	const done = await approve(owner, proposal, service.port);
 	const report = done.review.receipt!.report!;
 	assert.equal(report.kind, "replace");
 	assert.equal(report.confirmation, "confirmed");
-	// The replacement waits in Everyfield like any schedule, and goes to the email service at its time.
 	const [replacement] = await rows(
 		sql`SELECT id,state FROM communication WHERE plant_id=${plant} AND body_text LIKE '%5 pm%' ORDER BY created_at DESC LIMIT 1`,
 	);
@@ -729,7 +691,6 @@ test("a replacement is scheduled only when every original send is confirmed canc
 		2,
 	);
 
-	// One cancel unknown: nothing is scheduled and the affected recipient is named.
 	const partial = await scheduledMessage(owner, service, "Replace partial");
 	service.answers.cancel = (_id, n) => (n === 0 ? "unknown" : "done");
 	const sendsBefore = service.calls.send.length;
@@ -758,7 +719,6 @@ test("a replacement is scheduled only when every original send is confirmed canc
 		"no replacement was saved or scheduled",
 	);
 
-	// One recipient's email already went out: also no replacement.
 	service.answers.cancel = "done";
 	const sentMessage = await scheduledMessage(owner, service, "Replace sent");
 	service.answers.cancel = (_id, n) => (n === 0 ? "sent" : "done");
@@ -783,7 +743,6 @@ test("a replacement the handoff would refuse is refused on the review, and a cha
 	const service = emailService();
 	const { id } = await scheduledMessage(owner, service, "Replace nobody");
 	const t = await turn(owner, service.port);
-	// Casey is blocked and Member 001 has no address: nobody can get it, so the old send is left alone.
 	const nobody = await t.propose("communication.replaceScheduledReviewed", {
 		communicationId: id,
 		audience: { groups: [], teamIds: [], personIds: [people.casey!, people.noAddress!] },
@@ -797,7 +756,6 @@ test("a replacement the handoff would refuse is refused on the review, and a cha
 	);
 	assert.equal(service.calls.cancel.length, 0);
 
-	// A changed audience stops before the cancel.
 	await stageOf(people.alexChen!, "launch_team");
 	const grown = await t.propose("communication.replaceScheduledReviewed", {
 		communicationId: id,
@@ -813,7 +771,6 @@ test("a replacement the handoff would refuse is refused on the review, and a cha
 	assert.equal(service.calls.cancel.length, 0, "the old send was not cancelled");
 });
 
-/** Each change the criterion names, made by the native command Messages or the email service callback runs. */
 const inMessages = {
 	async edit(who: EvryActor, id: string) {
 		const [row] = await rows(sql`SELECT revision::text AS r,body_html,audience FROM communication WHERE id=${id}`);
@@ -856,7 +813,6 @@ const inMessages = {
 		);
 		assert.equal(reply.status, "ok", JSON.stringify(reply));
 	},
-	/** The email service's sent callback for each held recipient, through the recorder the webhook route uses. */
 	async sent(id: string) {
 		const held = await rows(
 			sql`SELECT provider_message_id AS id FROM mail WHERE logical_key LIKE ${"communication/" + id + "/%"} AND state='accepted'`,
@@ -895,7 +851,6 @@ test("a message edited in Messages after the review refuses the approval and cal
 	assert.equal(await runNext(service.port), null, "no effect was queued");
 	assert.equal(service.calls.send.length, 0);
 	assert.equal((await rows(sql`SELECT state FROM communication WHERE id=${draft.id}`))[0]!.state, "draft");
-	// Reviewing again reads the message as it is now and can be approved.
 	const again = await reviseProposal(
 		db,
 		owner,
@@ -909,7 +864,6 @@ test("a message edited in Messages after the review refuses the approval and cal
 	);
 	assert.equal(again.stale, false);
 	assert.equal(change(again, "subject")!.after, "Edited in Messages");
-	// A change that lands after the approval, while the effect waits, is refused by the effect itself.
 	await approveProposal(db, owner, again.id, { revision: again.revision, digest: again.digest }, null);
 	await inMessages.edit(owner, draft.id);
 	assert.equal(await runNext(service.port), "refused");
@@ -949,7 +903,6 @@ for (const [name, changeIt] of [
 				[service.calls.send.length, service.calls.cancel.length, service.calls.reschedule.length],
 				before,
 			);
-			// A cancelled or sent message has nothing left to review again, and the card says so.
 			if (name !== "rescheduled")
 				await assert.rejects(
 					reviseProposal(
@@ -976,7 +929,6 @@ test("a cancel that went out before the effect ran is refused by the effect, and
 	assert.equal((await readReview(db, owner, proposal!.id)).receipt!.code, "revision_conflict");
 	assert.equal(service.calls.cancel.length, calls);
 
-	// The email service itself answers "already sent" to the approved cancel: the report counts no cancel.
 	const late = await scheduledMessage(owner, service, "Sent at the service");
 	const t2 = await turn(owner, service.port);
 	const p2 = await t2.propose("communication.cancelScheduledReviewed", { communicationId: late.id });
@@ -1054,7 +1006,6 @@ test("the read offers only a message that can still go out, so a replaced origin
 	const cancel = await t.propose("communication.cancelScheduledReviewed", { communicationId: cancelled.id });
 	assert.equal((await approve(owner, cancel!, service.port)).review.receipt!.report!.confirmation, "confirmed");
 
-	// The original and its replacement have the same subject and day: only the replacement can still go out.
 	const original = await scheduledMessage(owner, service, "Read replaced", when);
 	const t2 = await turn(owner, service.port);
 	const replace = await t2.propose("communication.replaceScheduledReviewed", {
@@ -1068,12 +1019,10 @@ test("the read offers only a message that can still go out, so a replaced origin
 	await admin.execute(
 		sql`UPDATE mail SET state='sent' WHERE logical_key LIKE ${"communication/" + sent.id + "/%"} AND state='accepted'`,
 	);
-	// Sent to one recipient and still held for the other: it can still go out.
 	const partly = await scheduledMessage(owner, service, "Read partly sent", when);
 	await admin.execute(
 		sql`UPDATE mail SET state='sent' WHERE id=(SELECT id FROM mail WHERE logical_key LIKE ${"communication/" + partly.id + "/%"} AND state='accepted' LIMIT 1)`,
 	);
-	// The email service did not answer: it may hold them, so it may still go out.
 	const draft = await savedDraft(owner, service.port, "Read unanswered");
 	const t3 = await turn(owner, service.port);
 	const unanswered = await t3.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt: when });
@@ -1108,7 +1057,6 @@ test("a second approval, a double click or a retried effect makes one draft, one
 	assert.equal(await runNext(service.port), null, "one effect job");
 	assert.equal((await rows(sql`SELECT count(*)::int n FROM communication WHERE subject='Only once'`))[0]!.n, 1);
 
-	// A retried effect job after the first run's outcome was lost: the work replays and nothing is repeated.
 	const { id } = await scheduledMessage(owner, service, "Retried effect");
 	const sends = service.calls.send.length;
 	const t2 = await turn(owner, service.port);
@@ -1116,7 +1064,6 @@ test("a second approval, a double click or a retried effect makes one draft, one
 	const first = await approve(owner, cancel!, service.port);
 	assert.equal(first.review.receipt!.report!.confirmation, "confirmed");
 	const cancelCalls = service.calls.cancel.length;
-	// The outcome never reached the proposal (a crash after the email service answered): clear it and retry the job.
 	await loseOutcome(cancel!.id);
 	await admin.execute(sql`UPDATE job SET state='failed' WHERE id=(SELECT job_id FROM proposal WHERE id=${cancel!.id})`);
 	await retryUnresolvedEffects(db, owner, cancel!.id);
@@ -1125,7 +1072,6 @@ test("a second approval, a double click or a retried effect makes one draft, one
 	assert.equal(service.calls.send.length, sends, "no new schedule request");
 	assert.equal((await readReview(db, owner, cancel!.id)).receipt!.report!.confirmation, "confirmed");
 
-	// The same for the schedule: a retried job makes no second schedule request.
 	const t3 = await turn(owner, service.port);
 	const draft = await savedDraft(owner, service.port, "Schedule retry");
 	const sched = await t3.propose("communication.scheduleReviewed", { communicationId: draft.id, sendAt: localAt(3) });
@@ -1142,7 +1088,6 @@ test("a second approval, a double click or a retried effect makes one draft, one
 		4,
 	);
 
-	// The same for a time change: the recipients already at the new time are not asked again.
 	const { id: movedId } = await scheduledMessage(owner, service, "Move retry");
 	const t4 = await turn(owner, service.port);
 	const move = await t4.propose("communication.rescheduleReviewed", { communicationId: movedId, sendAt: localAt(5) });
@@ -1156,7 +1101,6 @@ test("a second approval, a double click or a retried effect makes one draft, one
 	assert.equal(service.calls.reschedule.length, moves, "no second time change request");
 	assert.equal((await readReview(db, owner, move!.id)).receipt!.report!.confirmation, "confirmed");
 
-	// A retry after a partial first run: the time change's own revision does not refuse it as changed.
 	const { id: partId } = await scheduledMessage(owner, service, "Cancel retry partial");
 	const t5 = await turn(owner, service.port);
 	const part = await t5.propose("communication.cancelScheduledReviewed", { communicationId: partId });
@@ -1201,7 +1145,6 @@ test("a retry that runs after the approval lapsed reports what the email service
 	assert.equal(review.receipt!.report!.accepted, 2);
 	assert.equal(service.calls.send.length, sends, "no second schedule request");
 
-	// An effect that has not started still expires: nothing ran, so the card may say so.
 	const other = await savedDraft(owner, service.port, "Lapsed before it started");
 	const t2 = await turn(owner, service.port);
 	const fresh = await t2.propose("communication.scheduleReviewed", { communicationId: other.id, sendAt: localAt(3) });
@@ -1214,14 +1157,12 @@ test("a retry that runs after the approval lapsed reports what the email service
 test("each read and effect stays within its budget in limits.json and no transaction is open during a provider call", async () => {
 	const owner = await actor("owner");
 	const service = emailService();
-	// The Evry read: its own row in limits.json, which counts the BEGIN and COMMIT of its read transaction.
 	await scheduledMessage(owner, service, "Budget read");
 	const start = queries.length;
 	await db.transaction((tx) => listMessages.invoke(tx, owner, { state: "scheduled" }));
 	const sent = queries.length - start;
 	assert.ok(sent <= limits["communication.list"]!.limit, `communication.list sent ${sent} statements`);
 
-	// A review reads at most: the message, the audience and the review statement. Set-based, not per recipient.
 	const draft = await savedDraft(owner, service.port, "Budget");
 	const t = await turn(owner, service.port);
 	const review = async (operation: string, input: unknown, reads: number) => {
@@ -1233,8 +1174,7 @@ test("each read and effect stays within its budget in limits.json and no transac
 	};
 	const sched = await review("communication.scheduleReviewed", { communicationId: draft.id, sendAt: localAt(3) }, 4);
 
-	/** Runs one approved effect and holds it to the native rows of limits.json plus the executor's fixed work. */
-	const EXECUTOR = 12; // claim the job, lock and authority, the saved mark, the publication locks and the save
+	const EXECUTOR = 12;
 	const effect = async (proposal: Proposal, native: string[]) => {
 		await approveProposal(db, owner, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 		const before = queries.length;
@@ -1243,8 +1183,6 @@ test("each read and effect stays within its budget in limits.json and no transac
 		assert.ok(counted(before) <= budget, `${proposal.operation} sent ${counted(before)} statements, budget ${budget}`);
 	};
 	await effect(sched, ["communication.scheduleReviewed", "communication.handOffScheduled"]);
-	// The send itself happens at the send time (the schedule approval test checks its open transactions). From here the email service
-	// holds the message, so each later effect calls it.
 	await heldByService(draft.id);
 
 	const move = await review("communication.rescheduleReviewed", { communicationId: draft.id, sendAt: localAt(4) }, 1);

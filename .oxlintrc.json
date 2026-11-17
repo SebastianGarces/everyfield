@@ -111,6 +111,12 @@
 			}
 		},
 		{
+			"files": ["packages/ui/src/foundations/observe.ts"],
+			"rules": {
+				"everyfield/no-global-listeners": "error"
+			}
+		},
+		{
 			"files": ["packages/evry/src/**", "packages/domain/src/**"],
 			"rules": {
 				"everyfield/private-care-scope": "error"

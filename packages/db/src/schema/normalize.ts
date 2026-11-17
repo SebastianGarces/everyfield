@@ -60,7 +60,6 @@ function tokenize(source: string): string[] {
 	return tokens;
 }
 
-/** Kit assumes public for default-schema references; our runner selects the application schema. */
 export function normalizeOwnTableReferences(source: string, tableNames: ReadonlySet<string>): string {
 	const tokens = tokenize(source);
 	const identifier = (token: string) =>
@@ -101,7 +100,6 @@ export function assertUnqualifiedOwnTables(source: string, tableNames: ReadonlyS
 	}
 }
 
-/** Qualify only extension type positions; vector-shaped names and values stay byte-for-byte unchanged. */
 export function qualifyVectorTypes(source: string): string {
 	const tokens = tokenize(source);
 	const significant = tokens.flatMap((value, index) => (/^\s+$|^--|^\/\*/.test(value) ? [] : [{ value, index }]));

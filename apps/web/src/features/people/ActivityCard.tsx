@@ -26,35 +26,25 @@ import { addNote, deleteNote, editNote, loadActivities } from "./actions.ts";
 import { CHANNEL_LABEL } from "../followups/model.ts";
 import { unmergeIntent } from "./corrections/intent.ts";
 import { describe } from "./activity.ts";
-import { runSave, type PersonStore } from "./model.ts";
+import { runSave, type PersonStore } from "./person.store.ts";
 import type { Outcome } from "../../components/save/model.ts";
-import { FormProblem, fresh, isConflict, problemOf, useStore, When } from "./parts.tsx";
+import { FormProblem, fresh, isConflict, problemOf, usePersonState, When } from "./parts.tsx";
 import type { PersonDraft } from "./StageDialog.tsx";
 
 type PlantPerson = z.infer<typeof people.plantPerson>;
 export type Activities = z.infer<typeof people.activitiesResult>;
 export type Item = Activities["items"][number];
 type Base = "id" | "occurredAt" | "recordedAt" | "actor";
-/** An Activity entry without the parts every entry has: what a saved change adds, before its receipt is known. */
 export type EntryFields = Item extends infer I ? (I extends Item ? Omit<I, Base> : never) : never;
 type Store = PersonStore<PlantPerson, PersonDraft>;
-/**
- * A saved note change moves the person revision on and changes nothing else on the person: the person this page holds
- * takes the answer's revision, so the next save on this page sends the latest one.
- */
 const savedAt =
 	(store: Store) =>
 	(v: { personRevision: PlantPerson["revision"] }): PlantPerson => ({
-		...store.get().saved,
+		...store.getState().saved,
 		revision: v.personRevision,
 	});
 type NoteEdit = { body: string; reason: string };
 
-/**
- * Activity (REQ-PPL-008): ordinary notes, stage changes, record activity and follow-up history, newest first, in the
- * server's time-and-ID order, descending. Only a note's author edits or deletes it, with a reason that goes to the history. A
- * deleted note keeps a marker of who removed it and when; its words are gone. A saved note shows from its answer.
- */
 export function ActivityCard({
 	store,
 	activities,
@@ -68,17 +58,13 @@ export function ActivityCard({
 	store: Store;
 	activities: Outcome<Activities>;
 	onActivities: (activities: Outcome<Activities>) => void;
-	/** A saved note change: a new entry, or a known entry as it is now. */
 	onEntry: (item: Item) => void;
-	/** A note change was refused because this page is out of date: read the person again. */
 	onConflict: () => void;
-	/** The viewer's account, to tell their own notes from others'. */
 	accountId: string;
 	canWrite: boolean;
-	/** Opens the Unmerge preview for a merge in this history (WP-015). Owners and Admins only. */
 	onUnmerge?: (mergeId: string) => void;
 }) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const person = state.saved;
 	const live = person.lifecycle.state === "live";
 	const [more, setMore] = useState<{ loading: boolean; problem?: string }>({ loading: false });
@@ -86,7 +72,6 @@ export function ActivityCard({
 	const first = person.displayName.split(" ")[0] ?? person.displayName;
 	const composer = (state.drafts.note as { body: string } | undefined)?.body ?? "";
 	const writing = canWrite && live;
-	// A merge that a later loaded entry undid offers no Unmerge; the dialog still guards one undone on an unloaded page.
 	const undone = new Set(
 		activities.status === "ok"
 			? activities.value.items.flatMap((i) =>
@@ -104,7 +89,6 @@ export function ActivityCard({
 		setMore({ loading: true });
 		const r = await loadActivities(person.id, activities.value.next).catch(() => ({ status: "lost" }) as const);
 		if (r.status === "ok") {
-			// A note saved since the first page shifted the pages by one: skip what is already shown.
 			const shown = new Set(activities.value.items.map((i) => i.id));
 			setActivities({
 				status: "ok",
@@ -155,7 +139,7 @@ export function ActivityCard({
 							maxLength={5000}
 							value={composer}
 							readOnly={state.pending === "note"}
-							onChange={(e) => store.dispatch({ type: "edit", slot: "note", draft: { body: e.target.value } })}
+							onChange={(e) => store.getState().actions.edit("note", { body: e.target.value })}
 						/>
 					</Field>
 					<FormProblem code={state.errors.note} />
@@ -253,7 +237,7 @@ function Row({
 	onConflict: () => void;
 	onUnmerge?: (mergeId: string) => void;
 }) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const slot = `note:${item.id}`;
 	const edit = state.drafts[slot] as NoteEdit | undefined;
 	const by = who(item.actor, mine);
@@ -261,13 +245,13 @@ function Row({
 
 	if (item.kind === "note" && edit) {
 		const pending = state.pending === slot;
-		const set = (patch: Partial<NoteEdit>) => store.dispatch({ type: "edit", slot, draft: { ...edit, ...patch } });
+		const set = (patch: Partial<NoteEdit>) => store.getState().actions.edit(slot, { ...edit, ...patch });
 		async function save(event: React.FormEvent) {
 			event.preventDefault();
 			setTouched(true);
 			if (item.kind !== "note" || !edit || !edit.body.trim() || !edit.reason.trim()) return;
 			const input = {
-				personId: store.get().saved.id,
+				personId: store.getState().saved.id,
 				noteId: item.id,
 				body: edit.body.trim(),
 				reason: edit.reason.trim(),
@@ -315,7 +299,7 @@ function Row({
 							disabled={pending}
 							onClick={() => {
 								setTouched(false);
-								store.dispatch({ type: "discard", slot });
+								store.getState().actions.discard(slot);
 							}}
 						>
 							Cancel
@@ -379,7 +363,7 @@ function Row({
 							size="sm"
 							icon={Edit02Icon}
 							disabled={state.pending !== null}
-							onClick={() => store.dispatch({ type: "edit", slot, draft: { body: item.body, reason: "" } })}
+							onClick={() => store.getState().actions.edit(slot, { body: item.body, reason: "" })}
 						>
 							Edit
 						</Button>
@@ -409,18 +393,17 @@ function DeleteNoteDialog({
 	note: Extract<Item, { kind: "note" }> | null;
 	store: Store;
 	onClose: () => void;
-	/** The note's entry as it is now: a marker that it was deleted. */
 	onDeleted: (entry: Item) => void;
 	onConflict: () => void;
 }) {
-	const state = useStore(store);
+	const state = usePersonState(store);
 	const slot = note ? `delete:${note.id}` : "delete";
 	const pending = state.pending === slot;
 	const reason = (state.drafts[slot] as { body: string } | undefined)?.body ?? "";
 	const [touched, setTouched] = useState(false);
 	const close = () => {
 		if (pending) return;
-		store.dispatch({ type: "discard", slot });
+		store.getState().actions.discard(slot);
 		setTouched(false);
 		onClose();
 	};
@@ -454,7 +437,7 @@ function DeleteNoteDialog({
 							maxLength={5000}
 							value={reason}
 							readOnly={pending}
-							onChange={(e) => store.dispatch({ type: "edit", slot, draft: { body: e.target.value } })}
+							onChange={(e) => store.getState().actions.edit(slot, { body: e.target.value })}
 						/>
 					</Field>
 					<FormProblem code={state.errors[slot]} />

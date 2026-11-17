@@ -1,9 +1,0 @@
-{
-	"apps/web/src/features/settings/sections/AccountSection.tsx": 4,
-	"apps/web/src/features/settings/sections/ChurchSection.tsx": 4,
-	"apps/web/src/features/settings/sections/NotificationsSection.tsx": 1,
-	"apps/web/src/features/settings/sections/OrganizationSection.tsx": 3,
-	"apps/web/src/features/settings/sections/SharingSection.tsx": 2,
-	"apps/web/src/features/settings/sections/WikiSourcesSection.tsx": 7,
-	"apps/web/src/features/settings/sections/wikiOrder.ts": 7
-}

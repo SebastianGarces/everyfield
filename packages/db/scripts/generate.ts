@@ -32,8 +32,6 @@ async function normalizeGenerated() {
 await normalizeGenerated();
 await checkMigrationArtifacts();
 if (values.name) {
-	// The pinned Kit diffs the schema after every migration against the declarations, as `drizzle-kit generate`
-	// does, without its journal or snapshot chain: those are the files two branches would both append to (D78).
 	const previous = await currentSnapshot();
 	const declared = definitions(JSON.parse(JSON.stringify(generateDrizzleJson(declarations))));
 	const zero = "00000000-0000-0000-0000-000000000000";
@@ -49,7 +47,6 @@ if (values.name) {
 			: statements.join("--> statement-breakpoint\n"),
 		{ flag: "wx" },
 	);
-	// A custom migration changes nothing Kit models, so the base carries forward unchanged.
 	await writeFile(
 		new URL("meta/current.json", migrationDirectory),
 		JSON.stringify(values.custom ? previous : declared, null, 2),

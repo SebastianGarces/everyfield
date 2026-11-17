@@ -16,14 +16,6 @@ import {
 import { ciRuns, NOW, rawStatus, running, type Task } from "./fixtures.mts";
 import { readFileSync } from "node:fs";
 
-/**
- * A real `evf status --json` (evf 2.0.0), captured 2026-11-08T15:30:35Z while one owner decision of kind
- * `question` was open (on the task whose own agent row evf replaced with a `needs_you` row). Redacted by a
- * script outside the repo: key names and value types kept; task, run and decision ids remapped (task 100,
- * decision 900, ...); every string blanked except enum values of state, phase, lifecycle, kind, workflow,
- * step, role, effort, part, status, action, verdict, type and hold_by; each list keeps one item per
- * distinct shape (max 3).
- */
 const realOpenDecision = JSON.parse(readFileSync(new URL("./status-open-decision.json", import.meta.url), "utf8"));
 
 const snap = (raw: unknown, ci: Ci | null = null): Snapshot => {
@@ -32,7 +24,6 @@ const snap = (raw: unknown, ci: Ci | null = null): Snapshot => {
 	return normalize(s.value, ci);
 };
 const baseline = (raw: unknown, ci: Ci | null = null): State => advance(null, snap(raw, ci)).next;
-/** Events due when going from `prev` to `cur`, with all of prev's conditions already sent. */
 const due = (prev: unknown, cur: unknown, ciPrev: Ci | null = null, ciCur: Ci | null = ciPrev) =>
 	advance(baseline(prev, ciPrev), snap(cur, ciCur)).due.map((e) => e.key);
 
@@ -49,7 +40,6 @@ describe("INV-watch-observe: normalisation", () => {
 			sha: "a".repeat(40),
 			conclusion: "success",
 		});
-		// evf hides the agent row of a task with an open decision behind its needs_you row.
 		assert.deepEqual(s, {
 			tasks: [
 				{
@@ -114,8 +104,6 @@ describe("INV-watch-observe: normalisation", () => {
 });
 
 describe("INV-watch-observe: real capture: an open owner decision", () => {
-	// The Nov 8 outage: main's parser required `run` and `step` on every agents row, so this capture
-	// failed with evf_bad_shape on every poll while a decision was open (the parser at f450acec fails it).
 	test("INV-watch-observe: the captured status parses, including evf's needs_you row", () => {
 		const needsYou = realOpenDecision.agents.filter((a: Record<string, unknown>) => a.state === "needs_you");
 		assert.equal(needsYou.length, 1, "the fixture holds the real needs_you row");

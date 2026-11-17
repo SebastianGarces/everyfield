@@ -3,11 +3,6 @@ import { z } from "zod";
 import { committed, nativeWrite, plantAdmin } from "../../native.ts";
 import { SHARING_CATEGORIES, SHARING_CATEGORY_LABEL } from "../../../catalog/labels.ts";
 
-// Changing what the church shares with one connected organization, through the same native sharing command the
-// Settings > Sharing section reaches. The review reads the live connection and its consent revision; a change made
-// since refuses on approval instead of being overwritten.
-
-/** Each sharing category's column on the connection. */
 export const COLUMN = {
 	people: "share_people",
 	meetings: "share_meetings",
@@ -40,5 +35,4 @@ export const setSharing = nativeWrite({
 	},
 });
 
-/** The installed sharing reviewed writes, keyed by operation. */
 export const SHARING_COMMANDS = { "privacy.setSharing": setSharing } as const;

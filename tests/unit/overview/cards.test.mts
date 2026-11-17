@@ -1,7 +1,3 @@
-// Overview's cards (ADM-005, LCH-008), rendered in node with no browser and no database. It runs from
-// packages/domain's test:unit: tsx --tsconfig ../../tests/unit/render.tsconfig.json --test <this file>.
-//   A card whose read failed says it could not load and shows no number or list in its place.
-//   The launch card shows the Launch plan's countdown and readiness, or Postponed, a prompt, overdue, or what happened.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
@@ -11,7 +7,6 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement } = web("react");
-// Launch plan links go through the app router; a router that goes nowhere stands in for the mounted one.
 const { AppRouterContext } = web("next/dist/shared/lib/app-router-context.shared-runtime");
 const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {} };
 const { ActivityCard, LaunchCard, MetricsCards } = await import("../../../apps/web/src/features/overview/cards.tsx");
@@ -33,7 +28,6 @@ test("AC:CASE-ADM-005 a card whose read failed says so, with no zero or empty fe
 	const launch = text(createElement(LaunchCard, { loaded: lost, admin: true }));
 	assert.match(launch, /Launch Sunday could not load/);
 	assert.doesNotMatch(launch, /days|No date|of 9/);
-	// A real zero is a zero.
 	const zeros = text(
 		createElement(MetricsCards, {
 			loaded: { status: "ok", value: { recruited: 0, people: 0, myOverdueTasks: 0, visionMeetings: 0 } },
@@ -86,18 +80,15 @@ test("AC:CASE-ADM-005 the launch card counts church-local days and shows the Lau
 	assert.match(postponed, /Postponed/);
 	assert.doesNotMatch(postponed, /days/);
 
-	// No date: a prompt to set one; a Member sees the prompt without the action.
 	assert.match(card(plan(null)), /No date yet .*Set Launch Sunday to start the countdown.* Set Launch Sunday/);
 	const member = card(plan(null), false);
 	assert.match(member, /Set Launch Sunday to start the countdown/);
 	assert.doesNotMatch(member, /readiness milestones\. Set Launch Sunday/);
 
-	// Past the date with nothing recorded: overdue, never launched.
 	const overdue = card({ ...plan({ status: "scheduled", targetDate: "2026-11-10" }), today: "2026-11-12" });
 	assert.match(overdue, /Overdue .*Tue, Nov 10, 2026 This date has passed and no Launch Sunday is recorded yet/);
 	assert.doesNotMatch(overdue, /Launched/);
 
-	// Recorded as held: the actual date and attendance replace the countdown.
 	const held = card({
 		...plan(
 			{ status: "completed", targetDate: "2026-11-10" },
