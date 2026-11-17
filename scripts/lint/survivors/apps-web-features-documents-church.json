@@ -4,7 +4,7 @@
 			{
 				"function": "useLeaveGuard",
 				"count": 1,
-				"reason": "Temporary, waiting for a shared follow-up. Holds a person with unsaved edits when they follow a link inside the app or press Back; the page-event registry cannot yet hold those two. When it can, this guard moves there for both editors. Its beforeunload stays with it until then: the registry's data-unsaved mark is rendered, and the written editor's Discard my edits and reload clears the hold and reloads in one call, which fires beforeunload before React can render the mark away."
+				"reason": "Temporary until T-424 removes it, waiting for a shared follow-up. Holds a person with unsaved edits when they follow a link inside the app or press Back; the page-event registry cannot yet hold those two. When it can, this guard moves there for both editors. Its beforeunload stays with it until then: the registry's data-unsaved mark is rendered, and the written editor's Discard my edits and reload clears the hold and reloads in one call, which fires beforeunload before React can render the mark away."
 			}
 		]
 	},
@@ -13,7 +13,7 @@
 			{
 				"function": "useLeaveGuard",
 				"count": 6,
-				"reason": "The listeners of the temporary leave guard (see its no-effects entry): a capturing click listener on the document that holds in-app links, popstate that holds Back, and beforeunload, each added when the editor starts and removed when it goes. The page-event registry has no hold for a link or for Back yet; a shared follow-up adds them, and then these move there for both editors."
+				"reason": "The listeners of the temporary leave guard that T-424 removes (see its no-effects entry): a capturing click listener on the document that holds in-app links, popstate that holds Back, and beforeunload, each added when the editor starts and removed when it goes. The page-event registry has no hold for a link or for Back yet; a shared follow-up adds them, and then these move there for both editors."
 			}
 		]
 	},
@@ -22,12 +22,12 @@
 			{
 				"function": "useLeaveGuard",
 				"count": 2,
-				"reason": "The temporary leave guard's Back hold (see its no-effects entry) listens to popstate to ask before Back leaves while edits are unsaved. The location store has no hold for Back yet; a shared follow-up adds one, and then this moves there for both editors."
+				"reason": "The temporary leave guard's Back hold, which T-424 removes (see its no-effects entry) listens to popstate to ask before Back leaves while edits are unsaved. The location store has no hold for Back yet; a shared follow-up adds one, and then this moves there for both editors."
 			},
 			{
 				"function": "pushSentinel",
 				"count": 1,
-				"reason": "The same temporary Back hold pushes a sentinel entry with the same address, so the first Back press stays on the page while edits are unsaved; the location store's writeAddress cannot push an entry that a later Back is meant to consume. It goes when the shared follow-up gives the location store a Back hold."
+				"reason": "The same temporary Back hold, which T-424 removes, pushes a sentinel entry with the same address, so the first Back press stays on the page while edits are unsaved; the location store's writeAddress cannot push an entry that a later Back is meant to consume. It goes when the shared follow-up gives the location store a Back hold."
 			}
 		]
 	}

@@ -1,11 +1,11 @@
 "use client";
 
-import { useLocationHash } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/components/cn";
+import { useAddressHash } from "@/components/location";
 
 export function FaqItem({ id, q, children }: { id: string; q: string; children: ReactNode }) {
-	const hash = useLocationHash();
+	const hash = useAddressHash();
 	const [open, setOpen] = useState(false);
 	const [shownHash, setShownHash] = useState("");
 	if (hash !== shownHash) {

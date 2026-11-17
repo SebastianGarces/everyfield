@@ -1,6 +1,7 @@
 "use client";
 
 import { prefersReducedMotion } from "@everyfield/ui/foundations";
+import { addressHash, writeHash } from "@/components/location";
 import { inOut } from "@/components/motion/curves";
 import { READER_INPUT } from "./reader-input";
 
@@ -37,8 +38,8 @@ function glideToFragment(e: MouseEvent) {
 	e.preventDefault();
 	stopGlide();
 	const from = window.scrollY;
-	if (location.hash === url.hash) target.scrollIntoView({ block: "start", behavior: "instant" });
-	else location.hash = url.hash;
+	if (addressHash() === url.hash) target.scrollIntoView({ block: "start", behavior: "instant" });
+	else writeHash(url.hash);
 	const to = window.scrollY;
 	if (to === from) return;
 	window.scrollTo({ top: from, behavior: "instant" });
@@ -86,7 +87,7 @@ function pageShown() {
 	if (shown !== null) shownAt = performance.now();
 	shown = path;
 	if ((window.__readerInputAt ?? -1) >= shownAt) return;
-	const id = decodeURIComponent(location.hash.slice(1));
+	const id = decodeURIComponent(addressHash().slice(1));
 	const target = id ? document.getElementById(id) : null;
 	if (!target) return;
 	hold = { target, held: -1, height: 0, sizes: new ResizeObserver(keepTargetInPlace) };
