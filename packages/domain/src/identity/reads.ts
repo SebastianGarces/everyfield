@@ -30,7 +30,6 @@ export async function readIdentityAccount(db: Database, authUser: string) {
 	return blocked.length ? null : account;
 }
 
-/** Domain registration and lifecycle attached to an already validated native session. */
 export async function readIdentitySession(
 	db: Database,
 	native: {
@@ -67,10 +66,6 @@ export async function readAccountContacts(
 	return new Map(rows.map((row) => [row.id, row.email]));
 }
 
-/**
- * Whether the viewer's selected plant has finished setup (WP-009 sets plant.onboarding_completed_at). One statement,
- * with the live access check as its predicate (C13). A failed check returns no row, which reads as not finished.
- */
 export async function readPlantSetupComplete(
 	db: Pick<Database, "execute">,
 	session: z.infer<typeof sessionId>,

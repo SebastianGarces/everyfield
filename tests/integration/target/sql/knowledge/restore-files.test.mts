@@ -18,9 +18,6 @@ import {
 	type Store,
 } from "./support.mts";
 
-// REC59-003, OPS54-002 and REC59-004: church P has one ready private file D and a member B pending deletion. A
-// snapshot cut at the last coherent point, 2026-10-13T15:00:00Z, is restored in an isolated rehearsal with the current
-// witnesses. A restore succeeds only when every ready file the restored database points at has its exact bytes.
 const COHERENT = new Date("2026-10-13T15:00:00.000Z");
 const INCIDENT = new Date("2026-10-13T16:00:00.000Z");
 const V2 = "a".repeat(64);
@@ -36,7 +33,6 @@ before(async () => {
 	await freezeClock(admin, schema, COHERENT);
 	plant = await seed.plant({ name: "Harvest Point" });
 	file = await readyFile(admin, live, plant.id, Buffer.from("%PDF-1.7 launch plan D"));
-	// B's deletion request, so the restore applies a current witness.
 	const b = await seed.actor(plant, "member");
 	const requestId = randomUUID();
 	await admin.execute(sql`INSERT INTO lifecycle_witness (kind, opaque_subject_id, account_id, request_id, requester_id,
@@ -49,7 +45,6 @@ after(async () => {
 	await database.close();
 });
 
-/** One rehearsal of `copy` with the drill clock reading `times` in turn, into a fresh target and empty store. */
 async function rehearse(copy, times: Date[] = [INCIDENT], incidentAt?: Date) {
 	const target = `${schema}_r${targets.length}`;
 	targets.push(target);
@@ -69,7 +64,6 @@ async function rehearse(copy, times: Date[] = [INCIDENT], incidentAt?: Date) {
 }
 
 test("AC:REC59-003 restored bytes of an older file version fail the restore closed, naming only the file", async () => {
-	// The restored database points at version D-v2 (sha256 aaaa…), but the copy holds D-v1's bytes under its key.
 	const v1 = Buffer.from("%PDF-1.7 handbook D-v1");
 	const v2 = randomUUID(),
 		key = `private/${plant.id}/${randomUUID()}`;
@@ -89,7 +83,6 @@ test("AC:REC59-003 restored bytes of an older file version fail the restore clos
 		assert.equal(result.refusal, "file_mismatch");
 		assert.equal(result.file, v2);
 		assert.doesNotMatch(JSON.stringify(result), /PDF|handbook/);
-		// Nothing can be issued from the target: it is gone, and its object store received no bytes.
 		assert.equal(await schemaExists(admin, target), false);
 		assert.equal(store.size, 0);
 	} finally {
@@ -131,7 +124,6 @@ test("AC:REC59-004 a timed drill measures the recovery point and time against th
 			},
 			{ observed_loss_hours: 1, observed_restore_hours: 4, internal_target_met: true, customer_SLA: null },
 		);
-		// The verified copy holds D's exact bytes, in a target no app login can reach.
 		assert.deepEqual(store.get(file.key), live.get(file.key));
 		assert.equal(result.service_opened, false);
 		assert.equal(result.customer_data_gate, "blocked");

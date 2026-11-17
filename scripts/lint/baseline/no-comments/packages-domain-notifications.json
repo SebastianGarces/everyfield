@@ -1,8 +1,0 @@
-{
-	"packages/domain/src/notifications/core.ts": 5,
-	"packages/domain/src/notifications/digest.ts": 16,
-	"packages/domain/src/notifications/feed.ts": 3,
-	"packages/domain/src/notifications/index.ts": 2,
-	"packages/domain/src/notifications/opt-out.ts": 4,
-	"packages/domain/src/notifications/preferences.ts": 3
-}

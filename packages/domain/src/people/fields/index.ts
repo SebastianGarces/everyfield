@@ -32,11 +32,6 @@ import { households } from "../households/index.ts";
 import { tagsAndSkills } from "../tags-skills/index.ts";
 import { expectRevision, livePerson, next, personFacts, plantId, queueObjectCleanup } from "./shared.ts";
 
-/**
- * The person photo (REQ-PPL-005) uses the shared private-object flow, like the account avatar: a pending object, verified
- * bytes stored privately, then one write that points the Person at the exact version. Only people who can see the live
- * Person read the bytes, through the app; there is no storage link.
- */
 const photo = {
 	async requestPersonPhotoUpload(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return readReply(async () => {
@@ -45,10 +40,7 @@ const photo = {
 			await lockOwner(tx, ctx);
 			await authorize(tx, ctx, true);
 			livePerson(await personFacts(tx, plant, input.personId));
-			// The request key names the upload, so a replay after a lost answer reaches the same object, not a second one.
 			const id = uploadIdFor(plant, input.requestKey);
-			// The object and its orphan cleanup are one statement: an upload never finalized is removed after expiry. A replay
-			// inserts nothing and answers the object it made first; the cleanup it queued then stays the only one.
 			const result = await tx.execute(sql`WITH upload AS (
  INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
  VALUES (${id}::uuid,${plant}::uuid,'person_photo',${`private/${plant}/${randomUUID()}`},${input.mime},${input.byteLength},'pending',${id},0,clock_timestamp()+interval '15 minutes')
@@ -58,7 +50,6 @@ const photo = {
  UNION ALL SELECT expires_at,media_type,max_bytes FROM file_object
  WHERE id=${id}::uuid AND tenant_id=${plant}::uuid AND purpose='person_photo' AND NOT EXISTS(SELECT FROM upload)`);
 			const row = result.rows[0];
-			// The same request key with another file is not a replay.
 			if (!row || row.media_type !== input.mime || Number(row.max_bytes) !== input.byteLength) deny("conflict");
 			const expiresAt = z.coerce.date().parse(row.expires_at).toISOString();
 			return f.photoUploadResult.parse({ uploadId: id, expiresAt });
@@ -71,7 +62,6 @@ const photo = {
 			return f.photoMutationResult.parse(
 				await mutation<unknown>(tx, ctx, "people.setPersonPhoto", input, async (_actor, receiptId, audit) => {
 					const { personId, uploadId } = input.input;
-					// Only this church's own verified, unexpired, unclaimed upload can become the photo. One read with the Person.
 					const p = await personFacts(
 						tx,
 						plant,
@@ -143,7 +133,6 @@ const photo = {
 			const input = parse(f.personFieldsRequest, raw);
 			const { gate } = await authorizeRead(tx, ctx);
 			const p = await personFacts(tx, plant, input.personId, undefined, gate);
-			// A retired or merged Person's photo is unavailable (REQ-PPL-005).
 			livePerson(p);
 			return f.personPhotoResult.parse(
 				p.photo_object_id
@@ -154,7 +143,6 @@ const photo = {
 	},
 };
 
-/** The photo upload of one photo change: a UUID from the church and the request key, the same on every replay. */
 function uploadIdFor(plant: string, requestKey: string) {
 	const h = createHash("sha256").update(`person-photo-upload\0${plant}\0${requestKey}`).digest();
 	h[6] = (h[6]! & 0x0f) | 0x50;
@@ -163,19 +151,12 @@ function uploadIdFor(plant: string, requestKey: string) {
 	return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20, 32)}`;
 }
 
-/** Every household, tag, skill and photo operation, named as its catalog operation people.<name>. */
 export const personFields = { ...households, ...tagsAndSkills, ...photo };
 
-/**
- * Current authority for one person-photo object. Uploads need an administrator of the church; reads need a reader of the
- * church and the exact current photo of a live Person. Cleanup is the worker's, never a request's.
- */
 function photoAuthority(ctx: PeopleContext, read?: { personId: string }): ResourceAuthorizer {
 	return async (tx, file, intent) => {
 		if (intent === "cleanup" || file.purpose !== "person_photo" || file.tenant_id !== ctx.selected.id) return null;
 		if (intent === "read") {
-			// C13 and C22: the live access check runs in the same statement as the exact current photo, on every pass the
-			// storage layer makes, and holds no session lock. No actor from earlier in the request is trusted.
 			const [current] = await tx
 				.select({ actorId: sql<string>`(SELECT i.account_id FROM live_session(${ctx.session}::uuid) i)` })
 				.from(tables.person)
@@ -199,7 +180,6 @@ function photoAuthority(ctx: PeopleContext, read?: { personId: string }): Resour
 	};
 }
 
-/** The byte adapter: verify the image and store it privately before setPersonPhoto points the Person at it. */
 export async function uploadPersonPhoto(db: Database, storage: PrivateStorage, ctx: PeopleContext, raw: unknown) {
 	return readReply(async () => {
 		const plant = plantId(ctx);
@@ -220,12 +200,10 @@ export async function uploadPersonPhoto(db: Database, storage: PrivateStorage, c
 				)
 				.for("update");
 			if (!current) deny();
-			// A replay after a lost answer: these exact bytes are stored already, so they are not sent to storage again.
 			if (current.state === "ready") {
 				if (current.sha256 !== sha256 || Number(current.byte_count) !== input.bytes.length) deny("conflict");
 				return null;
 			}
-			// A failed upload changes nothing: the Person keeps its current photo.
 			if (input.bytes.length !== Number(current.max_bytes)) deny("invalid_input");
 			await validateAvatar(input.bytes, current.media_type).catch(() => deny("invalid_input"));
 			await tx
@@ -251,10 +229,8 @@ const signatures = [
 	["image/jpeg", [0xff, 0xd8, 0xff]],
 	["image/webp", [0x52, 0x49, 0x46, 0x46]],
 ] as const;
-/** The image type of verified person-photo bytes, read from their signature, or undefined for anything else. */
 export const photoMediaType = (bytes: Uint8Array) =>
 	signatures.find(([, magic]) => magic.every((b, i) => bytes[i] === b))?.[0];
-/** The exact current photo version of a live Person the reader can see, as bytes for the app's own route. */
 export async function readPersonPhoto(db: Database, storage: PrivateStorage, ctx: PeopleContext, raw: unknown) {
 	return readReply(async () => {
 		plantId(ctx);
