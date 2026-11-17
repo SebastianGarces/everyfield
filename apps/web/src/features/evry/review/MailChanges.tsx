@@ -15,9 +15,6 @@ import {
 	type Review,
 } from "./model.ts";
 
-// What an email review shows (MAIL51-009): the subject, who gets it and who is left out, the exact content, and the send
-// time in the church's zone. After approval it shows only what the email service confirmed, never "delivered".
-
 const find = (review: Review, field: string): Change | undefined =>
 	review.review.changes.find((c) => c.field === field);
 const text = (value: unknown) => (typeof value === "string" ? value : "");
@@ -41,7 +38,6 @@ const New = ({ children }: { children: ReactNode }) => (
 	<span className="font-medium break-words text-ink">{children}</span>
 );
 
-/** A long text kept in its own block so a body reads as the reader will see it. */
 function Block({ label, children, muted }: { label: string; children: string; muted?: boolean }) {
 	return (
 		<div className="flex flex-col gap-1">
@@ -84,11 +80,9 @@ function People({ label, names }: { label: string; names: { name: string; note?:
 	);
 }
 
-/** The people a review leaves out, each with the reason. */
 const leftOutNames = (rows: { name: string; reason: string }[]) =>
 	rows.map((r) => ({ name: r.name, note: LEFT_OUT_REASON[r.reason] ?? r.reason }));
 
-/** The reviewed facts of one email change. */
 export function MailChanges({ review }: { review: Review }) {
 	const subject = text(find(review, "subject")?.after);
 	const time = sendTimeOf(review, "after");
@@ -172,7 +166,6 @@ export function MailChanges({ review }: { review: Review }) {
 	);
 }
 
-/** What the card tells the owner will and will not happen, in one sentence. */
 export const MAIL_CONSEQUENCE: Record<string, string> = {
 	"communication.saveDraft": "The draft is saved in Messages. Nothing is sent.",
 	"communication.scheduleReviewed":
@@ -199,7 +192,6 @@ function Tally({ items }: { items: [string, number][] }) {
 
 const noun = (n: number) => (n === 1 ? "recipient" : "recipients");
 
-/** The accepted, refused and unknown counts of one request to the email service. */
 const handoffTally = (report: { accepted: number; refused: number; unknown: number }) => (
 	<Tally
 		items={[
@@ -220,10 +212,8 @@ const cancelTally = (report: { cancelled: number; sent: number; open: number }) 
 );
 
 type Handoff = { confirmation: string; unknown: number; waiting?: number | undefined; leftOut?: number | undefined };
-/** The email waits in Everyfield until its send time (D-927); the email service has not been asked yet. */
 const waits = (report: Handoff) => report.confirmation === "confirmed" && report.waiting !== undefined;
 
-/** The counts of one handoff: who waits in Everyfield, or what the email service answered. */
 function handoffCounts(report: Handoff & { accepted: number; refused: number }) {
 	return waits(report) ? (
 		<Tally
@@ -237,7 +227,6 @@ function handoffCounts(report: Handoff & { accepted: number; refused: number }) 
 	);
 }
 
-/** What one handoff means, in words that never go past what is known. */
 function handoffText(report: Handoff, at: string | null): string {
 	if (waits(report))
 		return `Everyfield keeps this email until ${at}, then hands it to the email service. Anyone who unsubscribes before then doesn't get it.`;
@@ -254,11 +243,9 @@ function stoppedText(report: Extract<MailReport, { kind: "replace_stopped" }>, a
 	return `The old send is cancelled, and the new one was not scheduled. ${stoppedReason(report.code)} Nobody gets this email unless you schedule it again.`;
 }
 
-/** The saved result of an email effect, in the words of what the email service said. */
 export function MailResult({ review }: { review: Review }) {
 	const report = review.receipt?.report;
 	if (!report) return null;
-	// The send time the review showed, for a result that says the original email may still go out.
 	const time = sendTimeOf(review, "after") ?? sendTimeOf(review, "before");
 	const sendAt = time ? sendTimeShort(time) : null;
 	let lines: ReactNode = null;
@@ -291,7 +278,6 @@ export function MailResult({ review }: { review: Review }) {
 			lines =
 				report.confirmation === "confirmed" ? (
 					<p>
-						{/* Mail still waiting in Everyfield is confirmed with no email service call (D-927), so the line names no confirmer. */}
 						The new time is confirmed: {reportTime(report.scheduledAt, review)}. The earlier time is gone.
 						{report.sent ? ` ${report.sent} ${noun(report.sent)} had already been sent.` : ""}
 					</p>

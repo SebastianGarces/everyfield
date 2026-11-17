@@ -333,7 +333,6 @@ function Chat({
 						retrying={retrying}
 						reviews={state.reviews}
 						photos={photos}
-						onSeen={actions.seen}
 						onRetry={() => {
 							actions.retry(turn.id);
 							focusComposer();
@@ -406,7 +405,6 @@ function TurnView({
 	retrying,
 	reviews,
 	photos,
-	onSeen,
 	onRetry,
 }: {
 	turn: Turn;
@@ -416,7 +414,6 @@ function TurnView({
 	retrying: boolean;
 	reviews: State["reviews"];
 	photos: Readonly<Record<string, string>>;
-	onSeen: (proposalId: string) => void;
 	onRetry: () => void;
 }) {
 	const notice = endNotice(turn.end);
@@ -466,7 +463,6 @@ function TurnView({
 									proposalId={block.proposalId}
 									target={block.target}
 									seed={reviews[block.proposalId]}
-									onSeen={onSeen}
 								/>
 							),
 						)}
