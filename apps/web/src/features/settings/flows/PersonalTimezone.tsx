@@ -12,14 +12,6 @@ import { formatInstant, formatLocalDate, nextMonday, zoneLabel } from "../time";
 import { usePersonalZoneChoice } from "./usePersonalZoneChoice";
 import { ZonePicker } from "./ZonePicker";
 
-/**
- * Your own time zone (REQ-IDN-033), separate from the church's. Until you confirm one, it says so and asks; it never
- * takes the church, device or UTC zone for you. A change starts at the first Monday after now in the new zone. The
- * saved zone comes with Your account, so this row asks the server nothing until you choose a zone.
- *
- * Saving closes the dialog and shows the new zone at once. A refusal puts the saved zone back and says why, with a way
- * back into the dialog, which keeps the choice and its request key, so a retry after a lost reply is not saved twice.
- */
 export function PersonalTimezone({
 	preference,
 	onSaved,
@@ -101,7 +93,6 @@ function PersonalTimezoneDialog({
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	current: TimezonePreference;
-	/** The zone being saved, shown in the row before the reply. */
 	onSaving: (preference: TimezonePreference) => void;
 	onSettled: (result: Outcome<TimezonePreference>) => void;
 }) {

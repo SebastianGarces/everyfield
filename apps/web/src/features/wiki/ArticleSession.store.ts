@@ -1,5 +1,6 @@
-import { createDebouncer, observeIntersection, observeSize } from "@everyfield/ui/foundations";
+import { createDebouncer, observeScrollProgress } from "@everyfield/ui/foundations";
 import { createStore, type StoreApi } from "zustand/vanilla";
+import type { LeaveBeacon } from "../../components/save/leave.ts";
 import type { ExportResult, WriteResult } from "./actions.ts";
 import { fractionText, pdfFilename } from "./model.ts";
 
@@ -31,6 +32,7 @@ export type SessionState = {
 	done: boolean;
 	updated: boolean;
 	note: string;
+	beacon: LeaveBeacon | null;
 	actions: {
 		recordView: () => void;
 		track: (column: HTMLElement) => () => void;
@@ -105,19 +107,9 @@ export function createArticleSessionStore(seed: SessionSeed, port: SessionPort):
 		const save = () => {
 			if (seen <= sent) return;
 			sent = seen;
+			set({ beacon: null });
 			const fraction = fractionText(seen);
 			void enqueue(() => port.saveProgress({ requestKey: crypto.randomUUID(), ...reading }, fraction));
-		};
-
-		const sendOnLeave = () => {
-			if (seen <= sent) return;
-			sent = seen;
-			void fetch("/api/wiki/progress", {
-				method: "POST",
-				keepalive: true,
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({ requestKey: crypto.randomUUID(), fraction: fractionText(seen), ...reading }),
-			}).catch(() => undefined);
 		};
 
 		return {
@@ -126,6 +118,7 @@ export function createArticleSessionStore(seed: SessionSeed, port: SessionPort):
 			done: seed.completed,
 			updated: seed.updated,
 			note: "",
+			beacon: null,
 			actions: {
 				recordView() {
 					if (viewed) return;
@@ -136,37 +129,31 @@ export function createArticleSessionStore(seed: SessionSeed, port: SessionPort):
 					const article = column.querySelector<HTMLElement>("#wiki-article");
 					if (!article) return () => undefined;
 					const scrolls = getComputedStyle(column).overflowY !== "visible";
-					const measure = () => {
-						const total = article.scrollHeight;
-						if (total <= 0) return;
-						const rect = article.getBoundingClientRect();
-						const edge = scrolls ? column.getBoundingClientRect().bottom : window.innerHeight;
-						const visible = Math.min(total, Math.max(0, edge - rect.top));
-						const next = Math.min(1, visible / total);
-						const reached = next >= 0.995 ? 1 : next;
+					const reach = (fraction: number) => {
+						const reached = fraction >= 0.995 ? 1 : fraction;
 						if (reached <= seen) return;
 						seen = reached;
-						set({ percent: fractionText(reached) });
+						set({
+							percent: fractionText(reached),
+							beacon: {
+								url: "/api/wiki/progress",
+								body: { requestKey: crypto.randomUUID(), fraction: fractionText(reached), ...reading },
+							},
+						});
 						if (progressStep(reached) > progressStep(sent)) save();
 					};
-					const settled = () => settle.run(measure);
-					const stopFirstSight = observeIntersection<HTMLElement>(
-						(_entry, stop) => {
-							stop();
-							measure();
+					let firstReport = true;
+					const stopProgress = observeScrollProgress<HTMLElement>(
+						(fraction) => {
+							if (firstReport) {
+								firstReport = false;
+								reach(fraction);
+							} else settle.run(() => reach(fraction));
 						},
-						{ root: scrolls ? column : null },
+						{ root: () => (scrolls ? column : null) },
 					)(article);
-					if (scrolls) column.addEventListener("scroll", settled, { passive: true });
-					else window.addEventListener("scroll", settled, { passive: true });
-					const stopSizing = observeSize(settled, { viewport: true })(column);
-					window.addEventListener("pagehide", sendOnLeave);
 					return () => {
-						if (scrolls) column.removeEventListener("scroll", settled);
-						else window.removeEventListener("scroll", settled);
-						stopFirstSight?.();
-						stopSizing?.();
-						window.removeEventListener("pagehide", sendOnLeave);
+						stopProgress?.();
 						settle.cancel();
 						save();
 					};

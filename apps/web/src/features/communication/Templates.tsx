@@ -3,9 +3,10 @@
 import { ArrowLeft01Icon, Mail01Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useRef, useState } from "react";
+import { useState, useTransition } from "react";
+import { useLocalStore, useStore } from "../../components/store.ts";
 import { archiveTemplate, createTemplate, deleteTemplate, forkTemplate, updateTemplate } from "./actions.ts";
-import { bodyToTextResult, textToBody } from "./body.ts";
+import { textToBody } from "./body.ts";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { fieldProblem, fieldProblemText, pickSampleName, usableKeys } from "./fields.ts";
 import { MessageEditor } from "./MessageEditor.tsx";
@@ -17,46 +18,14 @@ import {
 	outcomeText,
 	templateCategories,
 	type MeetingType,
+	type Outcome,
 	type Template,
 	type TemplateCategory,
 } from "./model.ts";
+import { createTemplateEditorStore, type Issues } from "./Templates.store.ts";
 import { useKeys } from "./useKeys.ts";
 
-// Templates: a list in two groups, and the editor on the Write layout with the same live preview.
-
-type Fields = {
-	name: string;
-	description: string;
-	category: TemplateCategory;
-	meetingType: MeetingType | "";
-	subject: string;
-	text: string;
-	lossy: boolean;
-};
-type Issues = { name?: string; subject?: string; body?: string; meetingType?: string; form?: string };
-
-const blank = (): Fields => ({
-	name: "",
-	description: "",
-	category: "announcement",
-	meetingType: "",
-	subject: "",
-	text: "",
-	lossy: false,
-});
-
-function fieldsFrom(template: Template): Fields {
-	const body = bodyToTextResult(template.bodyHtml);
-	return {
-		name: template.name,
-		description: template.description ?? "",
-		category: template.category,
-		meetingType: template.meetingType ?? "",
-		subject: template.subject,
-		text: body.text,
-		lossy: body.lossy,
-	};
-}
+const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 
 export function Templates({
 	templates,
@@ -70,7 +39,6 @@ export function Templates({
 	templates: Template[];
 	setTemplates: (next: Template[] | ((rows: Template[]) => Template[])) => void;
 	canWrite: boolean;
-	/** A template id, "new" or null for the list. It comes from the address. */
 	selected: string | null;
 	onSelect: (id: string | null) => void;
 	churchName: string;
@@ -163,7 +131,6 @@ function Editor({
 	origin,
 }: {
 	template: Template | null;
-	/** The address names a template that is not in the list. A save that just replaced the row is not missing. */
 	missing: boolean;
 	canWrite: boolean;
 	setTemplates: (next: Template[] | ((rows: Template[]) => Template[])) => void;
@@ -172,13 +139,9 @@ function Editor({
 	origin: string;
 }) {
 	const keys = useKeys();
-	const busy = useRef(false);
-	const [fields, setFields] = useState<Fields>(() => (template ? fieldsFrom(template) : blank()));
-	const [current, setCurrent] = useState<Template | null>(template);
-	const [issues, setIssues] = useState<Issues>({});
-	const [status, setStatus] = useState<string | null>(null);
-	const [pending, setPending] = useState<string | null>(null);
-	const [confirm, setConfirm] = useState<null | "archive" | "delete">(null);
+	const store = useLocalStore(() => createTemplateEditorStore({ template }));
+	const { fields, current, issues, status, previewed, actions } = useStore(store, (state) => state);
+	const [pending, start] = useTransition();
 	const [sample] = useState(() => pickSampleName(template?.templateId ?? "new"));
 	if (missing && !current) {
 		return (
@@ -196,17 +159,10 @@ function Editor({
 	const editing = canWrite && !system;
 	const invitation = fields.category === "meeting_invitation";
 
-	const run = async (name: string, body: () => Promise<void>) => {
-		if (busy.current) return;
-		busy.current = true;
-		setPending(name);
-		setStatus(null);
-		try {
-			await body();
-		} finally {
-			busy.current = false;
-			setPending(null);
-		}
+	const run = (body: () => Promise<void>) => {
+		if (pending) return;
+		actions.say(null);
+		start(body);
 	};
 
 	const keep = (next: Template) => {
@@ -214,8 +170,7 @@ function Editor({
 			if (next.sourceKey) return rows.map((row) => (row.sourceKey === next.sourceKey ? next : row));
 			return [next, ...rows.filter((row) => row.templateId !== next.templateId)];
 		});
-		setCurrent(next);
-		setFields(fieldsFrom(next));
+		actions.keep(next);
 		onSelect(next.templateId);
 	};
 
@@ -243,33 +198,36 @@ function Editor({
 	});
 
 	const onSave = () =>
-		run("template", async () => {
+		run(async () => {
 			const found = check();
-			setIssues(found);
+			actions.flag(found);
 			if (found.name || found.subject || found.body || found.meetingType) return;
 			if (!current) {
-				const result = await createTemplate(keys.take("template"), payload());
+				const result = await createTemplate(keys.take("template"), payload()).catch(lost<Template>);
 				keys.settle("template", result);
-				if (result.status !== "ok") return setIssues({ form: outcomeText(result) ?? undefined });
+				if (result.status !== "ok") return actions.flag({ form: outcomeText(result) ?? undefined });
 				keep(result.value);
-				setStatus("Template created.");
+				actions.say("Template created.");
 				return;
 			}
-			const result = await updateTemplate(keys.take("template"), current.revision, current.templateId, payload());
+			const result = await updateTemplate(keys.take("template"), current.revision, current.templateId, payload()).catch(
+				lost<Template>,
+			);
 			keys.settle("template", result);
-			if (result.status !== "ok") return setIssues({ form: outcomeText(result) ?? undefined });
+			if (result.status !== "ok") return actions.flag({ form: outcomeText(result) ?? undefined });
 			keep(result.value);
-			setStatus("Template saved.");
+			actions.say("Template saved.");
 		});
 
 	const onFork = () =>
-		run("fork", async () => {
+		run(async () => {
 			if (!current?.sourceKey) return;
-			const result = await forkTemplate(keys.take("fork"), current.sourceKey);
+			actions.flag({});
+			const result = await forkTemplate(keys.take("fork"), current.sourceKey).catch(lost<Template>);
 			keys.settle("fork", result);
-			if (result.status !== "ok") return setIssues({ form: outcomeText(result) ?? undefined });
+			if (result.status !== "ok") return actions.flag({ form: outcomeText(result) ?? undefined });
 			keep(result.value);
-			setStatus("Template forked. The church copy is in the list under Your church, with any edits it had before.");
+			actions.say("Template forked. The church copy is in the list under Your church, with any edits it had before.");
 		});
 
 	return (
@@ -307,14 +265,14 @@ function Editor({
 						<Input
 							value={fields.name}
 							disabled={!editing}
-							onChange={(event) => setFields((c) => ({ ...c, name: event.target.value }))}
+							onChange={(event) => actions.change((c) => ({ ...c, name: event.target.value }))}
 						/>
 					</Field>
 					<Field label="Description" optional>
 						<Input
 							value={fields.description}
 							disabled={!editing}
-							onChange={(event) => setFields((c) => ({ ...c, description: event.target.value }))}
+							onChange={(event) => actions.change((c) => ({ ...c, description: event.target.value }))}
 						/>
 					</Field>
 					<Field label="Category">
@@ -322,7 +280,7 @@ function Editor({
 							value={fields.category}
 							disabled={!editing}
 							onValueChange={(value) =>
-								setFields((c) => ({
+								actions.change((c) => ({
 									...c,
 									category: value as TemplateCategory,
 									meetingType: value === "meeting_invitation" ? c.meetingType : "",
@@ -337,7 +295,7 @@ function Editor({
 								value={fields.meetingType || "none"}
 								disabled={!editing}
 								onValueChange={(value) =>
-									setFields((c) => ({ ...c, meetingType: value === "none" ? "" : (value as MeetingType) }))
+									actions.change((c) => ({ ...c, meetingType: value === "none" ? "" : (value as MeetingType) }))
 								}
 								options={[
 									{ value: "none", label: "Choose a meeting type" },
@@ -348,9 +306,9 @@ function Editor({
 					) : null}
 					<MessageEditor
 						subject={fields.subject}
-						onSubject={(subject) => setFields((c) => ({ ...c, subject }))}
+						onSubject={(subject) => actions.change((c) => ({ ...c, subject }))}
 						text={fields.text}
-						onText={(text) => setFields((c) => ({ ...c, text }))}
+						onText={(text) => actions.change((c) => ({ ...c, text }))}
 						subjectError={issues.subject}
 						bodyError={issues.body}
 						hasMeeting={invitation}
@@ -360,72 +318,90 @@ function Editor({
 					{canWrite ? (
 						<div className="flex flex-wrap gap-2">
 							{system ? (
-								<Button
-									variant="primary"
-									onClick={onFork}
-									loading={pending === "fork"}
-									disabled={pending !== null && pending !== "fork"}
-								>
+								<Button variant="primary" onClick={onFork} loading={pending}>
 									Fork template
 								</Button>
 							) : (
-								<Button
-									variant="primary"
-									onClick={onSave}
-									loading={pending === "template"}
-									disabled={pending !== null && pending !== "template"}
-								>
+								<Button variant="primary" onClick={onSave} loading={pending}>
 									Save template
 								</Button>
 							)}
 							{current && !system ? (
-								<Button variant="secondary" onClick={() => setConfirm("archive")} disabled={pending !== null}>
-									Archive template
-								</Button>
+								<RemoveTemplate
+									kind="archive"
+									disabled={pending}
+									template={current}
+									keys={keys}
+									setTemplates={setTemplates}
+									onSelect={onSelect}
+								/>
 							) : null}
 							{current && !system ? (
-								<Button variant="danger" onClick={() => setConfirm("delete")} disabled={pending !== null}>
-									Delete template
-								</Button>
+								<RemoveTemplate
+									kind="delete"
+									disabled={pending}
+									template={current}
+									keys={keys}
+									setTemplates={setTemplates}
+									onSelect={onSelect}
+								/>
 							) : null}
 						</div>
 					) : null}
 				</div>
 				<PreviewStage
-					input={{ bodyHtml: textToBody(fields.text), name: sample, hasMeeting: invitation, origin, churchName }}
+					live={textToBody(fields.text)}
+					input={{ bodyHtml: textToBody(previewed), name: sample, hasMeeting: invitation, origin, churchName }}
 					chrome={{ from: churchName, to: sample, subject: fields.subject }}
 				/>
 			</div>
-			<ConfirmDialog
-				open={confirm !== null}
-				onOpenChange={(open) => {
-					if (!open) setConfirm(null);
-				}}
-				title={confirm === "delete" ? "Delete this template?" : "Archive this template?"}
-				description={
-					confirm === "delete"
-						? "Delete removes a template that no message uses."
-						: "An archived template leaves the list. Messages that use it stay as they are."
-				}
-				consequences={confirm === "delete" ? ["The template is deleted."] : ["The template is archived."]}
-				confirmLabel={confirm === "delete" ? "Delete template" : "Archive template"}
-				tone={confirm === "delete" ? "danger" : "default"}
-				onConfirm={async () => {
-					if (!current) throw new Error("Choose a template first.");
-					const kind = confirm === "delete" ? "delete" : "archive";
-					const result =
-						kind === "delete"
-							? await deleteTemplate(keys.take("delete"), current.revision, current.templateId)
-							: await archiveTemplate(keys.take("archive"), current.revision, current.templateId);
-					keys.settle(kind, result);
-					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to update the template.");
-					const removed = current.templateId;
-					if (result.value.templates) setTemplates(result.value.templates);
-					else setTemplates((rows) => rows.filter((row) => row.templateId !== removed));
-					setConfirm(null);
-					onSelect(null);
-				}}
-			/>
 		</div>
+	);
+}
+
+function RemoveTemplate({
+	kind,
+	disabled,
+	template,
+	keys,
+	setTemplates,
+	onSelect,
+}: {
+	kind: "archive" | "delete";
+	disabled: boolean;
+	template: Template;
+	keys: ReturnType<typeof useKeys>;
+	setTemplates: (next: Template[] | ((rows: Template[]) => Template[])) => void;
+	onSelect: (id: string | null) => void;
+}) {
+	const deleting = kind === "delete";
+	return (
+		<ConfirmDialog
+			trigger={
+				<Button variant={deleting ? "danger" : "secondary"} disabled={disabled}>
+					{deleting ? "Delete template" : "Archive template"}
+				</Button>
+			}
+			title={deleting ? "Delete this template?" : "Archive this template?"}
+			description={
+				deleting
+					? "Delete removes a template that no message uses."
+					: "An archived template leaves the list. Messages that use it stay as they are."
+			}
+			consequences={deleting ? ["The template is deleted."] : ["The template is archived."]}
+			confirmLabel={deleting ? "Delete template" : "Archive template"}
+			tone={deleting ? "danger" : "default"}
+			onConfirm={async () => {
+				const result = deleting
+					? await deleteTemplate(keys.take("delete"), template.revision, template.templateId)
+					: await archiveTemplate(keys.take("archive"), template.revision, template.templateId);
+				keys.settle(kind, result);
+				if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to update the template.");
+				const removed = template.templateId;
+				if (result.value.templates) setTemplates(result.value.templates);
+				else setTemplates((rows) => rows.filter((row) => row.templateId !== removed));
+				onSelect(null);
+			}}
+		/>
 	);
 }

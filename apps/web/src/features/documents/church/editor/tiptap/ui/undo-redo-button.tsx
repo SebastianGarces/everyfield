@@ -3,24 +3,16 @@
 import * as React from "react";
 import { BUTTON_ICON } from "../styles.ts";
 
-// --- Hooks ---
 import { useTiptapEditor } from "../use-tiptap-editor.ts";
 
-// --- Tiptap UI ---
 import type { UseUndoRedoConfig } from "./use-undo-redo.ts";
 import { useUndoRedo } from "./use-undo-redo.ts";
 
-// --- UI Primitives ---
 import type { ButtonProps } from "../primitives/button.tsx";
 import { Button } from "../primitives/button.tsx";
 
 export interface UndoRedoButtonProps extends Omit<ButtonProps, "type">, UseUndoRedoConfig {}
 
-/**
- * Button component for triggering undo/redo actions in a Tiptap editor.
- *
- * For custom button implementations, use the `useHistory` hook instead.
- */
 export const UndoRedoButton = React.forwardRef<HTMLButtonElement, UndoRedoButtonProps>(
 	({ editor: providedEditor, action, onClick, children, ...buttonProps }, ref) => {
 		const { editor } = useTiptapEditor(providedEditor);

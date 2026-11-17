@@ -7,9 +7,6 @@ import { useState, useTransition, type ReactNode } from "react";
 import type { Outcome } from "./model.ts";
 import { applyUnsubscribe, undoUnsubscribe } from "./unsubscribeActions.ts";
 
-// The Unsubscribe page of a Messages email (REQ-NTF-016, D-284). It names the church, never the person's address.
-// Opening it changes nothing: only the button unsubscribes, and the undo it offers works for one hour.
-
 export type UnsubscribeView =
 	{ state: "unavailable" } | { state: "invalid" } | { state: "open"; churchName: string; unsubscribed: boolean };
 

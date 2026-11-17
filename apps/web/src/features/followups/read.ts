@@ -15,11 +15,6 @@ import {
 	type TaskViewer,
 } from "./server.ts";
 
-// GET /follow-ups/read: the follow-up screens' reads after the first paint (more of the contact log, eligible owners,
-// a handoff preview and a fresh copy after a revision conflict). The seats a handoff can start from are
-// /tasks/read?what=seats. A GET handler, not a server action, so a read never waits for a save or holds one up. Every
-// read rechecks the live seat inside its statement (C13).
-
 const answer = (body: Outcome<unknown>) => Response.json(body, { headers: { "cache-control": "private, no-store" } });
 const invalid = { status: "refused", code: "invalid_input" } as const;
 
@@ -47,14 +42,12 @@ export async function GET(request: Request) {
 					(v) => read(async (tx) => outcomeOf(await followUpReader.listContactHistory(tx, viewer.authority, v))),
 				),
 			);
-		// The Person page's follow-up part again, after a refusal because it was out of date.
 		case "person":
 			return answer(
 				await parsed(c.listContactHistoryRequest.pick({ personId: true }), { personId: p.get("person") }, (v) =>
 					read(async (tx) => ok(await readPersonFollowUps(tx, viewer.authority, v.personId))),
 				),
 			);
-		// The next page of a Person's open follow-ups or Vision follow-ups, after the first page of the person page.
 		case "duties":
 			return answer(
 				await parsed(
@@ -76,7 +69,6 @@ export async function GET(request: Request) {
 					(v) => read(async (tx) => outcomeOf(await followUpReader.readObligations(tx, viewer.authority, v))),
 				),
 			);
-		// The Follow-ups page's current view again, after a refusal because a row was out of date.
 		case "coverage":
 			return answer(
 				await parsed(

@@ -25,20 +25,10 @@ import {
 	type Outcome,
 } from "./typecheck.ts";
 
-/**
- * Seeded type errors for comparing tsc with bun check (T-53).
- * `node tools/ci/typecheck-corpus.ts`
- * Every case runs in a temporary copy of the workspace, never in tracked source. Each case is applied alone and
- * bun check must exit non-zero in every package it names. Then all cases are applied together and tsc and bun check
- * must report the same file, line and code in each package.
- */
-
 type Expect = { pkg: string; file: string; line: number; code: string };
 export type Case = {
 	id: string;
-	/** What the case seeds, for the report. */
 	kind: string;
-	/** Files to write, by path from the workspace root. */
 	files: Record<string, string>;
 	expect: Expect[];
 };
@@ -51,7 +41,6 @@ const one = (pkg: string, id: string, kind: string, ext: string, source: string,
 	expect: [{ pkg, file: `${C}/${id}.${ext}`, line, code }],
 });
 
-/** Valid at baseline: two exports of @everyfield/contracts/common and one consumer in each package that imports it. */
 const CONSUMERS = ["apps/web", "packages/domain", "packages/evry", "packages/reference"];
 export const BASE_FILES: Record<string, string> = {
 	"packages/contracts/src/common/corpus-a.ts": "export const corpusId = (id: string): string => id;\n",
@@ -82,7 +71,6 @@ const CONTRACTS = "packages/contracts",
 	WEB = "apps/web";
 
 export const CASES: Case[] = [
-	// packages/contracts
 	one(
 		CONTRACTS,
 		"c-index",
@@ -128,7 +116,6 @@ export const CASES: Case[] = [
 		9,
 		"TS2322",
 	),
-	// packages/db
 	one(DB, "d-prop", "unknown property", "ts", "const o = { a: 1 };\nexport const b = o.b;\n", 2, "TS2339"),
 	one(
 		DB,
@@ -158,7 +145,6 @@ export const CASES: Case[] = [
 		2,
 		"TS2540",
 	),
-	// packages/domain
 	one(
 		DOMAIN,
 		"m-jsx",
@@ -188,7 +174,6 @@ export const CASES: Case[] = [
 		1,
 		"TS2578",
 	),
-	// packages/evry
 	one(
 		EVRY,
 		"e-destructure",
@@ -234,7 +219,6 @@ export const CASES: Case[] = [
 		2,
 		"TS1308",
 	),
-	// packages/reference
 	one(
 		REFERENCE,
 		"r-expect",
@@ -280,7 +264,6 @@ export const CASES: Case[] = [
 		1,
 		"TS2448",
 	),
-	// packages/ui
 	one(
 		UI,
 		"u-jsx-type",
@@ -326,7 +309,6 @@ export const CASES: Case[] = [
 		2,
 		"TS2532",
 	),
-	// apps/web
 	one(
 		WEB,
 		"w-jsx-ui",
@@ -372,7 +354,6 @@ export const CASES: Case[] = [
 		2,
 		"TS2322",
 	),
-	// A workspace package export that changes: errors land in every consumer, not in contracts.
 	{
 		id: "x-renamed-export",
 		kind: "workspace export renamed",
@@ -389,7 +370,6 @@ export const CASES: Case[] = [
 	},
 ];
 
-/** Copy the tracked workspace into `to` and give each package a node_modules that points at the copies. */
 export function copyWorkspace(root: string, to: string, dirs: string[]): void {
 	const listed = spawnSync(
 		"git",
@@ -400,7 +380,6 @@ export function copyWorkspace(root: string, to: string, dirs: string[]): void {
 		},
 	);
 	if (listed.status !== 0) throw new Error(`git ls-files failed: ${listed.stderr}`);
-	// Packages import tracked data and modules from these directories, such as docs/reference/*.json.
 	const shared = spawnSync("git", ["ls-files", "-z", "--", "docs", "ops", "design"], { cwd: root, encoding: "utf8" });
 	const files = [
 		...listed.stdout.split("\0").filter(Boolean),
@@ -418,7 +397,6 @@ export function copyWorkspace(root: string, to: string, dirs: string[]): void {
 	const link = (source: string, target: string) => {
 		const real = realpathSync(source);
 		const inside = relative(root, real);
-		// Workspace packages resolve to their copies, so a changed export is seen by its consumers.
 		const mapped = !inside.startsWith("..") && !inside.split("/").includes("node_modules") ? join(to, inside) : real;
 		symlinkSync(mapped, target);
 	};
@@ -511,7 +489,6 @@ export async function runCorpus(root: string): Promise<CorpusReport> {
 					pkg,
 					exit: bun.exit,
 					outcome: bun.outcome,
-					// Exit codes 1 and 2 both count as "errors found".
 					nonZero: bun.outcome === "errors",
 					expectedFound: c.expect.filter((e) => e.pkg === pkg).every((e) => keys.has(diagnosticKey(e))),
 				});

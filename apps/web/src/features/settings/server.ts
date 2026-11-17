@@ -33,13 +33,6 @@ import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
 
-// The settings mount (WP-010): the one door from the settings server actions to the settings domain. The session and
-// actor come from the request's getViewer. A section read uses that viewer on the pool, without a transaction; every
-// write binds that actor in its own transaction (withSettingsWrite) and the domain checks authority again. Changes
-// queue their jobs and mail in the same transaction; a worker acts on them. Email and password changes go through
-// Better Auth, outside any app transaction. Photo bytes go to the private bucket (privateStorage), as brand
-// assets do; a deployment without one refuses the photo calls and every other section still works.
-
 type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
 type Signed = SectionViewer & { accountId: string };
 type Mount = NonNullable<ReturnType<typeof create>>;
@@ -62,8 +55,6 @@ function create(v: z.infer<typeof env>) {
 	const addressHash = (address: string) =>
 		createHmac("sha256", addressKey).update(address.trim().toLowerCase()).digest("hex");
 	const effects = {
-		// A plant's digest schedule or time zone changed: the digest job plans the next sends again.
-		// It stays (D-520): replan is a domain effect the settings producer calls, even though the planner rereads every minute.
 		replan: (tx: Transaction, i: { owner: Owner; revision: string; operationId: string; kind: string }) =>
 			enqueueJob(tx, {
 				tenant: i.owner.id,
@@ -78,7 +69,6 @@ function create(v: z.infer<typeof env>) {
 		organizations: organizations.adapter,
 		organizationEffects: organizations.effects,
 		effects,
-		// The mail worker's suppression list, keyed the same way: HMAC of the trimmed, lower-case address.
 		async suppression(db, email) {
 			const rows = await db
 				.select({ id: t.suppression.id })
@@ -88,7 +78,6 @@ function create(v: z.infer<typeof env>) {
 			return rows.length ? "suppressed" : "clear";
 		},
 	});
-	// Old or never-finalized photo bytes: the cleanup worker removes the file once nothing references it.
 	const avatar = avatarOperations({
 		queue: (tx, i) =>
 			queueJobs(tx, [
@@ -102,8 +91,6 @@ function create(v: z.infer<typeof env>) {
 				},
 			]),
 	});
-	// The purge job becomes eligible at the cancellation deadline. Each open seat's deletion notice commits with the
-	// witness change.
 	const { workspaceNotice, ...credentialMail } = mail;
 	const deletion = deletionOperations({
 		workspaceNotice,
@@ -125,8 +112,6 @@ function create(v: z.infer<typeof env>) {
 		admissionDb: db,
 		origin,
 		secret: v.IDENTITY_SECRET,
-		// The browser's own request: its session cookie and Origin header go to Better Auth unchanged. The viewer is
-		// this request's cached lookup (D60), so the call reads no session again.
 		async request() {
 			const request = new Request(`${origin}/api/auth/settings`, { method: "POST", headers: await headers() });
 			const viewer = await signedIn();
@@ -141,7 +126,6 @@ function create(v: z.infer<typeof env>) {
 			};
 		},
 		later: after,
-		// Better Auth's new session cookie after a password or email change.
 		async responseCookies(_ctx, list) {
 			const jar = await cookies();
 			for (const cookie of list.map(parseSetCookie)) if (cookie) jar.set(cookie);
@@ -166,7 +150,6 @@ function settingsMount() {
 	return mount;
 }
 
-/** One Set-Cookie header as the options Next.js cookies().set takes, or null when it has no name. */
 function parseSetCookie(header: string) {
 	const [pair = "", ...attributes] = header.split(";").map((part) => part.trim());
 	const split = pair.indexOf("=");
@@ -204,10 +187,6 @@ function parseSetCookie(header: string) {
 	return cookie;
 }
 
-/**
- * The Settings commands Evry's church and account tools call (T-327): the same producers this mount builds, with the
- * same replan, cleanup and deletion effects. Null when the deployment has no identity configuration.
- */
 export function settingsCommands() {
 	const ops = settingsMount();
 	if (!ops) return null;
@@ -222,7 +201,6 @@ export function settingsCommands() {
 	};
 }
 
-/** What the settings screens need to know about the viewer; null when signed out or without an active actor. */
 export function settingsViewerOf(v: Viewer | null): SettingsViewer | null {
 	const authority = v?.authority;
 	if (!authority || v.status !== "active") return null;
@@ -248,10 +226,6 @@ function refusal(code: keyof typeof RETRY): { status: "refused"; error: Settings
 	};
 }
 
-/**
- * Reads one settings section for this request's viewer on the pool: one statement, two for notifications, and no
- * transaction. The domain parses the request before it reads. A thrown error is logged and reads as temporary.
- */
 export async function readSection(raw: unknown): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
 	const viewer = await signedIn();
 	const ops = settingsMount();
@@ -264,13 +238,6 @@ export async function readSection(raw: unknown): Promise<SettingsReply<z.infer<t
 	}
 }
 
-/**
- * Runs one settings write for this request's viewer. The raw browser input is parsed with the contract `schema`
- * first; a request it refuses never reaches the database. `section` names the section: your account and
- * notifications belong to your account, every other section to the plant or organization of your seat. The write
- * binds the actor in its transaction. A thrown error is logged and reads as unknown: the screen then offers to load
- * the latest value.
- */
 export async function run<S extends z.ZodType, T>(
 	schema: S,
 	raw: unknown,
@@ -293,12 +260,6 @@ export async function run<S extends z.ZodType, T>(
 	}
 }
 
-/**
- * Runs one Better Auth credential change (email or password) for this request's viewer, after the contract `schema`
- * parses the browser input. Better Auth changes its own tables outside any app transaction, so no app lock is held
- * while it runs; the domain checks the live session and account first and records the security event after the
- * change.
- */
 export async function credential<S extends z.ZodType, T>(
 	schema: S,
 	raw: unknown,
@@ -321,7 +282,6 @@ export async function credential<S extends z.ZodType, T>(
 	}
 }
 
-/** The photo bytes for one staged upload, verified by type and size again before they reach the private bucket. */
 export async function storeAvatarBytes(accountId: string, uploadId: string, bytes: Uint8Array) {
 	const viewer = await signedIn();
 	const ops = settingsMount();
@@ -338,11 +298,6 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 	}
 }
 
-/**
- * The bytes of one current account photo version, or null. Its own account and the people who hold a live seat in a
- * workspace where it holds one, or that oversees or is overseen by such a workspace through a current link, may read
- * it (readAvatar); every other request gets the same null as a missing photo.
- */
 export async function avatarBytes(accountId: string, versionId: string) {
 	const viewer = await signedIn();
 	const ops = settingsMount();
@@ -358,10 +313,6 @@ export async function avatarBytes(accountId: string, versionId: string) {
 	}
 }
 
-// The restricted deletion pages (REQ-IDN-032). After a personal or church workspace deletion request every normal
-// session of the people it reaches ends. A fresh proof of the original login opens a ten-minute restricted session
-// for that exact request; its handle lives in an HttpOnly cookie and permits only the request's status and its
-// cancellation.
 const DELETION_COOKIE = "evf-deletion";
 const restrictedCookie = z.strictObject({
 	handle: sessionId,
@@ -369,10 +320,6 @@ const restrictedCookie = z.strictObject({
 });
 type Restricted = z.infer<typeof restrictedCookie>;
 
-/**
- * Checks the original login's password and opens the restricted session for its current deletion request: the
- * account's own (`account`), or the latest church workspace request it made (`plant`).
- */
 export async function openRestrictedDeletion(kind: "account" | "plant", raw: unknown) {
 	const ops = settingsMount();
 	if (!ops) return refusal("access_denied");
@@ -406,7 +353,6 @@ export async function openRestrictedDeletion(kind: "account" | "plant", raw: unk
 	return restrictedStatus(kind);
 }
 
-/** The restricted session, when one is open for a request of this kind. */
 async function restricted(kind: "account" | "plant"): Promise<Restricted | null> {
 	const raw = (await cookies()).get(DELETION_COOKIE)?.value;
 	if (!raw) return null;
@@ -418,7 +364,6 @@ async function restricted(kind: "account" | "plant"): Promise<Restricted | null>
 	}
 }
 
-/** The exact request's status for the restricted session, or a refusal once the session expired. */
 export async function restrictedStatus(kind: "account" | "plant") {
 	const ops = settingsMount(),
 		session = await restricted(kind);
@@ -434,7 +379,6 @@ export async function restrictedStatus(kind: "account" | "plant") {
 	);
 }
 
-/** Cancels the exact request strictly before its deadline. A cancelled request ends the restricted session. */
 export async function cancelRestrictedDeletion(kind: "account" | "plant", expectedRevision: string) {
 	const ops = settingsMount(),
 		session = await restricted(kind);
@@ -457,7 +401,6 @@ export async function cancelRestrictedDeletion(kind: "account" | "plant", expect
 
 const refused = async (code: keyof typeof RETRY) => refusal(code);
 
-/** A thrown error is logged and reads as unknown: the page then offers to load the latest status. */
 async function logged<T>(outcome: string, body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
 	try {
 		return await body();
@@ -467,7 +410,6 @@ async function logged<T>(outcome: string, body: () => Promise<SettingsReply<T>>)
 	}
 }
 
-/** The active viewer with the user row the request's session lookup already read. */
 async function signedIn(): Promise<Signed | null> {
 	const v = await getViewer();
 	if (v?.status !== "active" || !v.authority) return null;

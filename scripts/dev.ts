@@ -55,7 +55,6 @@ const STACK = join(root, "scripts/stack.mjs");
 
 class DevError extends Error {}
 
-/** A node script on this Node, not whichever node is first on PATH. */
 const node = (script: string, args: string[], capture = false) =>
 	spawnSync(process.execPath, [script, ...args], {
 		encoding: "utf8",
@@ -63,7 +62,6 @@ const node = (script: string, args: string[], capture = false) =>
 		stdio: capture ? ["ignore", "pipe", "inherit"] : "inherit",
 	});
 
-/** Takes one `--name value` option out of `args`. */
 function take(args: string[], name: string): string | undefined {
 	const at = args.indexOf(name);
 	if (at < 0) return undefined;
@@ -89,7 +87,6 @@ function stack(args: string[]): number {
 	if (action === "up") {
 		const options = [...rest],
 			project = take(options, "--project") ?? root;
-		// A full preview pool makes the stack wait for a free slot (and free orphans first) instead of failing.
 		const slot = node(SLOTS, ["--project", project]);
 		if (slot.status !== 0) return slot.status ?? 1;
 	}
@@ -121,7 +118,6 @@ async function fastCheckCommand(args: string[]): Promise<number> {
 
 const HOOKS = "tools/git-hooks";
 
-/** Sets the repo's core.hooksPath to the tracked hooks. Idempotent; a no-op in CI or outside a git work tree. */
 function hooks(args: string[]): number {
 	if (args[0] !== "install" || args.length > 1) return usage();
 	if (process.env.CI) return 0;
@@ -146,7 +142,6 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return stack(args);
 		case "logs":
 			return logs(args);
-		// Loaded on use: the other commands, and copies of bin/dev in tests, need none of the selection code.
 		case "check":
 			return (await import("./check.ts")).checkCommand(args, root);
 		case "nightly":

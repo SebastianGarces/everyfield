@@ -15,7 +15,8 @@ import {
 } from "@everyfield/contracts/documents";
 import { Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import { createRead, useRead } from "../../../../components/read.tsx";
 import { acceptTemplateChanges, compareWithTemplate, type CompareResult } from "../actions.ts";
 import { blockLabel, PAPER_LABEL } from "../labels.ts";
 import { editorExtensions, type FieldValues } from "./extensions.ts";
@@ -23,25 +24,29 @@ import { paletteVars } from "./paper.ts";
 import { blocksToEditor } from "./table-json.ts";
 import { WORD_MARK, wordMarks } from "./word-marks.ts";
 
-// "Compare with template": the document's saved revision beside the current template, block by block, in reading
-// order, as two lists (D-423). "Template changes" opens first: only what the template changed since the version the
-// document records, so the church's own edits are not listed. "All differences" lists every difference (T-19). The
-// person picks the items to take; accepting saves them as one new revision. Each item says what it is in words, so
-// the color only repeats the label. Inside a changed item the words that differ are marked on each side (T-82): only
-// to read the change, since accepting takes the whole block.
-
 type Props = {
 	docId: string;
 	brand: DocBrand;
-	/** Back to the editor. `stale` is true when the compare read a newer revision than the editor holds. */
 	onBack: (stale: boolean) => void;
-	/** The accepted revision: the editor reopens on it. */
 	onAccepted: (document: DocDocument, revision: string, taken: number) => void;
-	/** The revision the editor holds, to tell when another tab saved a newer one. */
 	revision: string;
 };
 
+export const templateCompares = createRead(
+	(docId: string) => compareWithTemplate(docId).catch((): CompareResult => ({ status: "lost" })),
+	{ failed: (): CompareResult => ({ status: "lost" }) },
+);
+
 type Load = { kind: "loading" } | { kind: "ready"; compare: ChurchCompare } | { kind: "failed"; message: string };
+
+function loadOf(result: CompareResult | undefined): Load {
+	if (!result) return { kind: "loading" };
+	if (result.status === "ok") return { kind: "ready", compare: result.compare };
+	return {
+		kind: "failed",
+		message: result.status === "refused" ? result.message : "The connection dropped. Nothing was changed.",
+	};
+}
 
 const KIND: Record<DocDifference["kind"], { label: string; take: string; chip: string }> = {
 	"template-only": {
@@ -71,7 +76,6 @@ const KIND: Record<DocDifference["kind"], { label: string; take: string; chip: s
 	},
 };
 
-/** What changed beside the words, said on the item. */
 const NOTE: Record<ChangeNote, string> = {
 	formatting: "Formatting changed",
 	spacing: "Spacing changed",
@@ -79,11 +83,9 @@ const NOTE: Record<ChangeNote, string> = {
 };
 
 const VIEW_LABEL: Record<CompareView, string> = { changes: "Template changes", all: "All differences" };
-/** The list a view shows; "Template changes" is null when the version the document records is not stored. */
 const listOf = (compare: ChurchCompare, view: CompareView) =>
 	view === "changes" ? compare.changes : compare.differences;
 
-/** What a difference is about: "Title", "Page setup", "Header", "Footer" or the kind of block. */
 function partLabel(d: DocDifference) {
 	if (d.part === "title") return "Title";
 	if (d.part === "page") return "Page setup";
@@ -95,7 +97,6 @@ function partLabel(d: DocDifference) {
 
 const inches = (pt: number) => `${Number((pt / 72).toFixed(2))} in`;
 
-/** The page setup in words, as Page setup names it. */
 function describePage(page: PageLayout) {
 	const m = page.margin;
 	const parts = [
@@ -108,39 +109,20 @@ function describePage(page: PageLayout) {
 }
 
 export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: Props) {
-	const [load, setLoad] = useState<Load>({ kind: "loading" });
-	const [view, setView] = useState<CompareView>("changes");
+	const compared = useRead(templateCompares, docId);
+	const load = loadOf(compared.value);
+	const [chosenView, setView] = useState<CompareView>("changes");
 	const [chosen, setChosen] = useState<ReadonlySet<number>>(new Set());
 	const [busy, setBusy] = useState<"chosen" | "all" | null>(null);
 	const [notice, setNotice] = useState<string | null>(null);
 	const headingId = useId();
+	const view: CompareView = load.kind === "ready" && load.compare.changes === null ? "all" : chosenView;
 
-	const show = useCallback((result: CompareResult) => {
-		if (result.status === "ok") {
-			setLoad({ kind: "ready", compare: result.compare });
-			setView((now) => (result.compare.changes === null ? "all" : now));
-			setChosen(new Set());
-			return result.compare;
-		}
-		setLoad({
-			kind: "failed",
-			message: result.status === "refused" ? result.message : "The connection dropped. Nothing was changed.",
-		});
-		return null;
-	}, []);
-	const read = useCallback(async () => {
-		setLoad({ kind: "loading" });
-		return show(await compareWithTemplate(docId).catch(() => ({ status: "lost" }) as const));
-	}, [docId, show]);
-	useEffect(() => {
-		let live = true;
-		void compareWithTemplate(docId)
-			.catch(() => ({ status: "lost" }) as const)
-			.then((result) => live && show(result));
-		return () => {
-			live = false;
-		};
-	}, [docId, show]);
+	async function read() {
+		setChosen(new Set());
+		const result = await templateCompares.retry(docId);
+		return result.status === "ok" ? result.compare : null;
+	}
 
 	const stale = load.kind === "ready" && load.compare.revision !== revision;
 
@@ -263,7 +245,6 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 						<NoDifferences behind={load.compare.behind} busy={busy !== null} onMark={() => void accept("all")} />
 					) : (
 						<Differences
-							// Each snippet's editor keeps the content it was made with, so another view mounts afresh.
 							key={view}
 							view={view}
 							items={listOf(load.compare, view) ?? []}
@@ -288,7 +269,6 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 	);
 }
 
-/** "Template changes" is empty: every change the template made since the base is in the document (D-425). */
 function HasEveryChange({ base, church }: { base: number | null; church: boolean }) {
 	return (
 		<div className="rounded-card bg-surface-raised p-6 shadow-[0_0_0_1px_var(--ef-line)]">
@@ -418,7 +398,6 @@ function DifferenceCard({
 	const kind = KIND[d.kind];
 	const words = useMemo(() => wordChanges(d), [d]);
 	const notes = words && words.show !== "whole" ? words.notes : [];
-	// A block the template removed after the church changed it: the template's side says so in words.
 	const goneFromTemplate = d.kind === "both" && d.template === null;
 	const marked = (side: "document" | "template") => (words?.show === "words" ? words[side] : null);
 	const sides = [
@@ -467,10 +446,6 @@ function DifferenceCard({
 	);
 }
 
-/**
- * One side of a difference: the title or page setup in words, or the blocks as the paper page shows them. `lines` are
- * the side's word marks, one list of runs per text line, or null to show the side unmarked.
- */
 function Side({
 	difference: d,
 	value,
@@ -521,7 +496,6 @@ function Side({
 	return <Snippet content={content} lines={lines} values={values} brand={brand} />;
 }
 
-/** Blocks on a strip of white paper, drawn by the editor's own nodes, read only. */
 function Snippet({
 	content,
 	lines,
@@ -537,12 +511,9 @@ function Snippet({
 		() => [...editorExtensions(brand.assets), ...(lines ? [wordMarks(lines)] : [])],
 		[brand.assets, lines],
 	);
-	// Fields read their values from the root node, so the snippet's root carries the printed values as data.
 	const fields = Object.keys(values).map((key) => ({ key, type: "string", label: key }));
 	const editor = useEditor({
 		extensions,
-		// The format's tables become the editor's own table nodes, as on every other load path: without this an amount,
-		// check box or row number cell draws empty.
 		content: { type: "doc", attrs: { fields, data: values }, content: blocksToEditor(content) as JSONContent[] },
 		editable: false,
 		immediatelyRender: true,

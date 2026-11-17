@@ -28,25 +28,12 @@ import { ConditionRules, EfIf } from "./condition-extension.ts";
 import { docDecorations } from "./doc-decorations.ts";
 import { nodeFromTable, tableOf } from "./table-actions.ts";
 import { EfCell, EfRow, EfTable, EfValueCell, TableRules } from "./table-extension.ts";
+import { selectionChanges } from "./tiptap/selection-changes.ts";
 
-// The Tiptap extensions for everyfield.doc/1. Each node and mark has the name and the attributes of the format
-// (packages/contracts/src/documents/format/schema.ts), so `editor.getJSON()` is the document body and there is no
-// mapping layer for prose. An attribute the file leaves out stays `undefined` in the editor and out of the JSON, so a
-// document reads back exactly as it was stored. Every node of the format has its extension here, the inline field
-// and the table nodes (table-extension.ts) and conditional text (condition-extension.ts) included.
-
-/** What the page header and footer hold: the blocks a column holds, and columns. A page break cannot sit there. */
 const REGION_BLOCKS = "(colblock | columns)*";
 
-// ---------------------------------------------------------------- prose
-
 const EfDocument = Document.extend({
-	// The header and the footer are the first and the last child of the document, so they edit on the paper page above
-	// and below the body, take the same text tools, and share one Undo history with the body and the page setup.
 	content: "pageHeader? block* pageFooter?",
-	// `page` is the page setup of the format (size, orientation, margins, tile) without the header and the footer.
-	// `fields` and `data` are the merge fields the document declares and their values: a field inserted or a value
-	// changed is a step on the root node, so it joins the one Undo history.
 	addAttributes() {
 		return {
 			page: { default: undefined, rendered: false },
@@ -102,7 +89,6 @@ const EfHeading = Node.create({
 		return HEADING_TAGS.map((tag, i) => ({
 			tag,
 			getAttrs: (el: HTMLElement | string) => {
-				// A copy inside the editor keeps the format's own attributes; a heading from outside gets its level.
 				const own = typeof el === "string" ? null : el.getAttribute("data-ef-level");
 				return own === null ? { level: i + 1 } : null;
 			},
@@ -132,7 +118,6 @@ const EfOrderedList = OrderedList.extend({
 	addAttributes: () => ({}),
 });
 const EfListItem = ListItem.extend({
-	// The format keeps lists flat: an item holds paragraphs only, so Tab has nothing to nest into.
 	content: "paragraph+",
 	addKeyboardShortcuts() {
 		return {
@@ -148,9 +133,10 @@ const EfQuote = Blockquote.extend({
 	addAttributes: () => ({}),
 });
 
-// ---------------------------------------------------------------- marks
-
 const EfLink = Link.extend({
+	addProseMirrorPlugins() {
+		return [...(this.parent?.() ?? []), selectionChanges()];
+	},
 	addAttributes() {
 		return {
 			href: {
@@ -164,12 +150,10 @@ const EfLink = Link.extend({
 	openOnClick: false,
 	autolink: false,
 	linkOnPaste: false,
-	// The format's link rule: https, http or mailto, nothing else.
 	isAllowedUri: (url) => isAllowedLink(url),
 	HTMLAttributes: { target: null, rel: null, class: null },
 });
 
-/** True when a link target starts the way the format requires. */
 export const isAllowedLink = (url: string) => /^(https?:\/\/|mailto:)/i.test(url.trim());
 
 const EfTag = Mark.create({
@@ -177,8 +161,6 @@ const EfTag = Mark.create({
 	parseHTML: () => [{ tag: "span[data-ef-tag]" }],
 	renderHTML: ({ HTMLAttributes }) => ["span", mergeAttributes(HTMLAttributes, { "data-ef-tag": "" }), 0],
 });
-
-// ---------------------------------------------------------------- simple blocks
 
 const EfDivider = Node.create({
 	name: "divider",
@@ -191,7 +173,6 @@ const EfDivider = Node.create({
 		"hr",
 		mergeAttributes(HTMLAttributes, {
 			"data-ef-node": "divider",
-			// What the PDF draws when the file leaves the attribute out: a 2 pt rule in ink.
 			"data-line-weight": String(node.attrs.weight ?? "rule"),
 			"data-line-color": String(node.attrs.color ?? "ink"),
 		}),
@@ -226,11 +207,8 @@ const EfPageBreak = Node.create({
 	],
 });
 
-// ---------------------------------------------------------------- inline atoms
-
 export type FieldValues = Record<string, string>;
 
-/** The text each merge field prints now, from the field declarations and values on the root node. */
 export function liveValues(doc: PMNode): FieldValues {
 	return printedValues({
 		kind: "document",
@@ -239,17 +217,11 @@ export function liveValues(doc: PMNode): FieldValues {
 	} as EveryfieldDoc);
 }
 
-/** The declaration of a field key on the root node, if any. */
 export const fieldDecl = (doc: PMNode, key: string) =>
 	((doc.attrs.fields as FieldDecl[] | undefined) ?? []).find((field) => field.key === key);
 
-/** A whole bracketed placeholder, such as an unfilled field's "[pastor]". */
 const isPlaceholder = (text: string) => new RegExp(`^${PLACEHOLDER.source}$`).test(text);
 
-/**
- * A merge field: one unit that shows its value as the PDF prints it. The value comes from the root node, so a change of
- * value shows in every copy at once. The plugin below hands each field its value as a node decoration.
- */
 const EfField = Node.create({
 	name: "field",
 	group: "inline",
@@ -322,9 +294,6 @@ const EfPageNumber = Node.create({
 	],
 });
 
-// ---------------------------------------------------------------- layout blocks
-
-/** Columns side by side. Each share of the free width is the column's `width`, as in the PDF (layouts/doc.tsx). */
 const EfColumns = Node.create({
 	name: "columns",
 	group: "block boxblock",
@@ -365,7 +334,6 @@ const EfColumn = Node.create({
 		0,
 	],
 });
-/** A box with a fill and a border from the token list. Its padding and keep-together setting load and save as they are. */
 const EfBox = Node.create({
 	name: "box",
 	group: "block colblock",
@@ -476,7 +444,6 @@ const EfWriteIn = Node.create({
 	},
 });
 
-/** One line to write on, with its label as an input: the label commits on Enter or when the field loses focus. */
 function writeInView(initial: PMNode, editor: Editor, getPos: () => number | undefined) {
 	const dom = document.createElement("div");
 	dom.className = "ef-writein";
@@ -549,13 +516,8 @@ function writeInView(initial: PMNode, editor: Editor, getPos: () => number | und
 	};
 }
 
-/** The label a doctrinal section prints when the file leaves it out (the format's default). */
 const SLOT_LABEL = "Statement of faith";
 
-/**
- * A doctrinal section: a labelled area the church fills with its own statement. It can be filled, deleted with the
- * block tools and added back from the Insert menu. Empty, it shows the same marked blank the PDF and the Word file print.
- */
 const EfSlot = Node.create({
 	name: "slot",
 	group: BLOCKS,
@@ -609,7 +571,6 @@ const EfSlot = Node.create({
 	},
 });
 
-/** A doctrinal section with no text in it: it prints as the marked blank. */
 function isBlankSlot(node: PMNode) {
 	let field = false;
 	node.descendants((child) => {
@@ -619,9 +580,6 @@ function isBlankSlot(node: PMNode) {
 	return !field && node.textContent.trim() === "";
 }
 
-// ---------------------------------------------------------------- placeholders
-
-/** The placeholder spans of a document: each bracketed prompt such as [date] in its text, read from the text itself. */
 function placeholderDecorations(doc: PMNode) {
 	const found: Decoration[] = [];
 	doc.descendants((node, pos) => {
@@ -634,10 +592,6 @@ function placeholderDecorations(doc: PMNode) {
 	return found;
 }
 
-/**
- * Highlights every bracketed placeholder ([date], [number], [low amount]) as the PDF and the Word file do. Nothing is
- * stored: a new "[...]" lights up as it is typed and goes dark when a bracket is removed.
- */
 const Placeholders = Extension.create({
 	name: "placeholders",
 	addProseMirrorPlugins() {
@@ -645,9 +599,6 @@ const Placeholders = Extension.create({
 	},
 });
 
-// ---------------------------------------------------------------- heading numbers
-
-/** The numbers the PDF prints before a numbered heading: "01" for a level 2, "1.1" for a level 3 (doc.tsx, heading). */
 function headingNumbers(doc: PMNode) {
 	const numbers = new Map<number, string>();
 	let h2 = 0;
@@ -685,7 +636,6 @@ const HeadingNumbers = Extension.create({
 							{ side: -1, ignoreSelection: true, key: `n${pos}${text}` },
 						),
 					);
-					// The number sits in front of the text, so the heading itself also carries the numbered look.
 					const node = doc.nodeAt(pos);
 					if (node) decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: "ef-heading-numbered" }));
 				}
@@ -695,12 +645,8 @@ const HeadingNumbers = Extension.create({
 	},
 });
 
-// ---------------------------------------------------------------- layout rules
-
-/** The key a write-in line has: the format's default is "name" when the file leaves it out. */
 const keyOf = (node: PMNode) => (typeof node.attrs.key === "string" ? node.attrs.key : "name");
 
-/** The first key from `base` that no other write-in line uses: "name", "name_2", "name_3". */
 function freeKey(base: string, taken: ReadonlySet<string>) {
 	const root = FORMAT_KEY.test(base) ? base : "line";
 	if (!taken.has(root)) return root;
@@ -713,12 +659,6 @@ function freeKey(base: string, taken: ReadonlySet<string>) {
 
 const CONTAINERS = ["column", "box", "pageHeader", "pageFooter", "slot"];
 
-/**
- * Rules that keep the document valid as it changes: a write-in line keeps a key no other line uses (new, copied and
- * pasted lines included, since PDF form fields need unique names), an empty column, box, header or footer gets an
- * empty paragraph so the cursor has somewhere to go, and a page number pasted outside the header and the footer is
- * dropped (it can sit only there).
- */
 const LayoutRules = Extension.create({
 	name: "layoutRules",
 	addProseMirrorPlugins() {
@@ -728,7 +668,6 @@ const LayoutRules = Extension.create({
 				appendTransaction: (transactions, _old, state) => {
 					if (!transactions.some((tr) => tr.docChanged)) return null;
 					const tr = state.tr;
-					// Write-in keys: the first line in document order keeps its key; a later line with the same key gets a free one.
 					const taken = new Set<string>();
 					const renames: { pos: number; node: PMNode }[] = [];
 					state.doc.descendants((node, pos) => {
@@ -742,7 +681,6 @@ const LayoutRules = Extension.create({
 						taken.add(key);
 						tr.setNodeMarkup(pos, undefined, { ...node.attrs, key });
 					}
-					// Empty containers in the changed ranges.
 					const fills: number[] = [];
 					for (const t of transactions)
 						t.mapping.maps.forEach((map, index) =>
@@ -768,11 +706,6 @@ const LayoutRules = Extension.create({
 	},
 });
 
-/**
- * What a paste brings in. A page number outside the header and the footer is dropped. Under a column, a pasted columns
- * node, or bare columns copied across, gives way to its columns' blocks in order, since the format refuses columns
- * anywhere inside a column; the schema then drops what still cannot sit there.
- */
 export function pastedSlice(slice: Slice, state: EditorState): Slice {
 	const dropNumbers = !regionAt(state);
 	const flatten = insideColumn(state);
@@ -789,7 +722,6 @@ export function pastedSlice(slice: Slice, state: EditorState): Slice {
 		});
 		return Fragment.fromArray(nodes);
 	};
-	// An open side that ran through a flattened columns node loses its columns and column levels.
 	const open = (depth: number, edge: (node: Fragment) => PMNode | null) => {
 		let removed = 0;
 		let fragment: Fragment = slice.content;
@@ -816,9 +748,6 @@ export function pastedSlice(slice: Slice, state: EditorState): Slice {
 	);
 }
 
-// ---------------------------------------------------------------- the set
-
-/** Every extension of the editor. The headless tests load the same list. */
 export function editorExtensions(assets: Assets | null = null) {
 	return [
 		EfDocument,
@@ -858,16 +787,10 @@ export function editorExtensions(assets: Assets | null = null) {
 		Placeholders,
 		LayoutRules,
 		ConditionRules,
-		// Last, so its Enter, Backspace and Tab in a table cell come before every other extension's.
 		TableRules,
 	];
 }
 
-/**
- * A paste into a plain document: every table it brings is reduced to the plain set (T-100 criterion 5, `plainTable`),
- * so a budget table or a table with a header color or write-in rows copied from a Church Document lands as a plain
- * table that keeps what each cell showed. The schema has already dropped what it does not know, such as a tag.
- */
 export function plainPastedSlice(slice: Slice): Slice {
 	let changed = false;
 	const strip = (fragment: Fragment): Fragment => {
@@ -893,12 +816,6 @@ const PlainPaste = Extension.create({
 	],
 });
 
-/**
- * The plain document set (D-208): the same nodes and marks the Church Document editor uses for prose, and T-16's table
- * in its plain form (T-100), with nothing a template brings (no page header or footer, page setup, merge fields,
- * slots, images, layout blocks or tag). Content the schema does not know is dropped, and a pasted table is reduced to
- * the plain set, so the editor JSON is always a native body.
- */
 export function nativeExtensions() {
 	return [
 		Document.extend({ content: "block*" }),
@@ -922,7 +839,6 @@ export function nativeExtensions() {
 		UndoRedo,
 		Placeholders,
 		PlainPaste,
-		// Last, so its Enter, Backspace and Tab in a table cell come before every other extension's.
 		TableRules,
 	];
 }

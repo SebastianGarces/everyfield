@@ -1,6 +1,3 @@
-// T-41: `bin/dev check` on a throwaway repository. A fake runner stands in for pnpm, python and the test runner, and a
-// fake gh for GitHub (T-216), so these tests see exactly which commands a selection runs, which coverage map it reads,
-// what the record says, and when the run fails.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -20,14 +17,12 @@ import {
 } from "../../scripts/check.ts";
 import { IMAGE, LABEL } from "../../scripts/throwaway-postgres.ts";
 
-/** A gh that knows no successful GitHub nightly run, so selection reads the CI home's own map. */
 const noNightly: Gh = () => ({ status: 0, stdout: "[]" });
 const check = (options: CheckOptions) => runCheck({ gh: noNightly, ...options });
 
 const sh = (cwd: string, ...args: string[]) =>
 	execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t.invalid", ...args], { cwd, encoding: "utf8" }).trim();
 
-/** A repository whose main has one package, one workflow test and docs; the branch then commits `change`. */
 function repo(t: { after(fn: () => void): void }, change: Record<string, string>, extra: Record<string, string> = {}) {
 	const root = mkdtempSync(join(tmpdir(), "evf-check-repo-"));
 	const home = mkdtempSync(join(tmpdir(), "evf-check-home-"));
@@ -79,7 +74,6 @@ function repo(t: { after(fn: () => void): void }, change: Record<string, string>
 	return { root, home, base, head: sh(root, "rev-parse", "HEAD") };
 }
 
-/** A runner that passes everything, reports `tests` tests per test file, and records each command. */
 function fake({ tests = 3, unitOutput = "ℹ tests 5\nℹ pass 5" } = {}) {
 	const commands: string[] = [];
 	const run: Runner = (command, args, { cwd, env }) => {
@@ -118,7 +112,6 @@ test("T-41 a one-package change runs its package checks through the merge-base a
 		record.checks.filter((c) => c.run).map(({ id, command, result, tests }) => ({ id, command, result, tests })),
 		[
 			{ id: "lint", command: `corepack pnpm ${filter} --if-present run lint`, result: "passed", tests: null },
-			// The fixture package defines no typecheck, so pnpm would run nothing: recorded as skipped, not passed.
 			{ id: "typecheck", command: null, result: "skipped", tests: null },
 			{ id: "test:unit", command: `corepack pnpm ${filter} --if-present run test:unit`, result: "passed", tests: 5 },
 			{ id: "test:db", command: null, result: "skipped", tests: null },
@@ -178,7 +171,6 @@ test("T-41 a changed source file runs the test files that reached it, with their
 
 test("T-41 a non-empty diff that selects no checks fails, and so does a check that reports 0 tests", async (t) => {
 	await t.test("no check selected", (t) => {
-		// bin/qa selects the QA tool suite, which this repository does not have.
 		const { root, home } = repo(t, { "bin/qa": "#!/bin/sh\n" });
 		const { run, commands } = fake();
 		const { record } = check({ root, full: false, home, run });
@@ -268,10 +260,6 @@ test("T-41 an unreadable diff runs everything", (t) => {
 	assert.deepEqual(record.fullReasons, ["the diff could not be read"]);
 });
 
-/**
- * A fake gh with one successful nightly run that started at `createdAt`. Its download writes `artifact` as the run's
- * coverage-map.json, or fails when `artifact` is null.
- */
 function nightlyGh(createdAt: string, artifact: string | null, listed = { status: 0 }) {
 	const calls: string[][] = [];
 	const gh: Gh = (args) => {
@@ -400,8 +388,6 @@ test("T-216 a failed or unusable nightly download runs everything and says why",
 	});
 });
 
-// T-105: package database tests on a throwaway Postgres. A fake Docker stands in for the container, so these tests see
-// every docker and pnpm command, the env each gets, and the record.
 const DB_PACKAGES = {
 	"packages/db/package.json": JSON.stringify({ name: "@everyfield/db", scripts: { "test:db": "tsx --test x" } }),
 	"packages/db/src/client.ts": "export {};\n",
@@ -414,7 +400,6 @@ const DB_PACKAGES = {
 };
 
 type Call = { command: string; env: Record<string, string> };
-/** A runner whose pnpm lists `listed`, whose Docker and migration pass unless `fail` names a step, and records each call. */
 function fakeDb({
 	listed,
 	fail,
@@ -489,14 +474,12 @@ test("T-105 a full run runs every test:db but the census, one after another on o
 	const container = started[started.indexOf("--name") + 1]!;
 	assert.match(container, /^evf-check-db-evf-check-repo-/);
 	assert.deepEqual(entry.database, { throwaway: true, image: IMAGE, container });
-	// One container from CI's image, labelled for this checkout, on 127.0.0.1 at a random port, with a random password.
 	assert.equal(started.at(-1), IMAGE);
 	assert.ok(started.includes("127.0.0.1::5432") && started.includes("POSTGRES_DB=everyfield_ci"), started.join(" "));
 	assert.ok(started[started.indexOf("--label") + 1]!.startsWith(`${LABEL}=`));
 	const password = started.find((a) => a.startsWith("POSTGRES_PASSWORD="))!.slice("POSTGRES_PASSWORD=".length);
 	assert.match(password, /^[0-9a-f]{36}$/);
 	assert.ok(!readFileSync(recordPath, "utf8").includes(password), "the record holds the password");
-	// Sweep, start, ready, port, migrate, the two packages in order, then removal. Never the census.
 	const order = commands().filter((c) => c.startsWith("docker") || c.includes("db:migrate") || c.includes("test:db"));
 	assert.deepEqual(
 		order.map((c) => c.split(" ").slice(0, 2).join(" ")),
@@ -519,7 +502,6 @@ test("T-105 a full run runs every test:db but the census, one after another on o
 			{ ...c.env, PATH: undefined },
 			{ PATH: undefined, DATABASE_URL: url, DATABASE_URL_UNPOOLED: url, EARLY_ACCESS_TEST_DATABASE: "1", CI: "true" },
 		);
-	// No other check gets the database.
 	for (const c of calls.filter((c) => !c.command.includes("db:migrate") && !c.command.includes("test:db")))
 		assert.equal(c.env.DATABASE_URL, undefined, c.command);
 });
@@ -571,7 +553,6 @@ test("T-105 the throwaway DATABASE_URL wins over the one an env file names", (t)
 	);
 	const { run: base } = fakeDb({ listed: ["@everyfield/db"] });
 	let seen = "";
-	// The package script reads the env file as the real ones do (--env-file-if-exists), through the real runner.
 	const run: Runner = (command, args, options) => {
 		if (!args.includes("test:db")) return base(command, args, options);
 		const r = spawnRunner(

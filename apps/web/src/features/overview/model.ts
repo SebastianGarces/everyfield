@@ -3,14 +3,10 @@ import { countdown, type Plan } from "@everyfield/contracts/launch";
 import { TYPE_LABEL } from "../meetings/model.ts";
 import { SHORT_NAME } from "../phases/model.ts";
 
-// Overview's pure model: words, links and dates. No React and no server code.
-
-/** A card's read: its value, a refusal (the seat lost access) or lost (no answer came back). Never a made-up zero. */
 export type Loaded<T> = { status: "ok"; value: T } | { status: "denied" } | { status: "lost" };
 
 export const phaseText = (phase: number) => `Phase ${phase} · ${SHORT_NAME[phase] ?? ""}`;
 
-/** Each count's card: what it counts and the list it opens. */
 export const METRICS = [
 	{
 		key: "recruited",
@@ -28,7 +24,6 @@ export const METRICS = [
 	},
 ] as const;
 
-/** The first-week steps as the checklist says them. `action` is what an Owner or Admin can do about an open step. */
 export const STEP_TEXT: Record<SetupStep, { title: string; detail: string; action: { label: string; href: string } }> =
 	{
 		add_people: {
@@ -52,7 +47,6 @@ export const STEP_TEXT: Record<SetupStep, { title: string; detail: string; actio
 			action: { label: "Set date", href: "/launch" },
 		},
 	};
-/** The optional prompt each step may show outside the first week. */
 export const PROMPT_TEXT: Record<PromptKey, { title: string }> = {
 	import_people: { title: "Import your people" },
 	invite_team: { title: "Invite your team" },
@@ -61,7 +55,6 @@ export const PROMPT_TEXT: Record<PromptKey, { title: string }> = {
 const at = (date: string) => new Date(`${date}T12:00:00Z`);
 const shortDate = (date: string) =>
 	new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(at(date));
-/** "Oct 12, 4:05 PM" in the church's time zone. */
 export const churchTime = (instant: string, timeZone: string) =>
 	new Intl.DateTimeFormat("en-US", {
 		timeZone,
@@ -71,7 +64,6 @@ export const churchTime = (instant: string, timeZone: string) =>
 		minute: "2-digit",
 	}).format(new Date(instant));
 
-/** What the launch card shows: a held launch, a countdown, or the state that stands in for one. */
 export type LaunchShown =
 	| { kind: "held"; date: string; attendance: number | null }
 	| { kind: "ahead"; days: number; date: string }
@@ -89,7 +81,6 @@ export function launchShown(plan: Plan): LaunchShown {
 }
 export const daysText = (days: number) => `${days} ${days === 1 ? "day" : "days"}`;
 
-/** One activity entry in words, with the item it opens. */
 export function entryText(e: ActivityEntry): { title: string; href: string } {
 	const c = e.change;
 	switch (c.kind) {
@@ -123,6 +114,5 @@ export function entryText(e: ActivityEntry): { title: string; href: string } {
 			return { title: `Phase saved as ${phaseText(c.phase)}`, href: "/intelligence" };
 	}
 }
-/** Who made the change and when, in church-local time. */
 export const entryByline = (e: ActivityEntry, timeZone: string) =>
 	`${e.actor?.displayName ?? "Everyfield"} · ${churchTime(e.at, timeZone)}`;

@@ -6,8 +6,6 @@ import { createAssessments } from "@everyfield/domain/intelligence";
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 
-// The review reads run as the request's own signed-in account; the domain checks the operator grant in each statement.
-
 export const assessments = createAssessments();
 
 export type Run<T> =

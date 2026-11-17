@@ -1,6 +1,0 @@
-{
-	"packages/contracts/src/onboarding/reading.ts": 3,
-	"packages/contracts/src/onboarding/requests.ts": 6,
-	"packages/contracts/src/onboarding/results.ts": 9,
-	"packages/contracts/src/onboarding/server.ts": 20
-}

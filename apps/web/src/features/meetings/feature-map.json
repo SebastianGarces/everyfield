@@ -1,0 +1,698 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "meetings",
+	"catalog": [
+		"MTG-001",
+		"MTG-002",
+		"MTG-003",
+		"MTG-005",
+		"MTG-006",
+		"MTG-007",
+		"MTG-008",
+		"MTG-009",
+		"MTG-010",
+		"MTG-011",
+		"MTG-012",
+		"MTG-013",
+		"MTG-014"
+	],
+	"surfaces": [
+		{
+			"id": "meetings.list",
+			"says": "Every meeting of the church, with the next one first, filtered by when, type and status.",
+			"routes": ["/meetings"],
+			"catalog": ["MTG-001", "MTG-002", "MTG-003"],
+			"reach": [
+				{
+					"rail": "Meetings",
+					"personas": ["owner", "admin", "member"]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "populated",
+					"reach": {
+						"persona": "owner",
+						"open": "/meetings",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "All meetings"
+						},
+						{
+							"role": "button",
+							"name": "Plan a meeting"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/meetings",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "All meetings"
+						},
+						{
+							"noText": "Plan a meeting"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/meetings",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fmeetings"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/meetings/(list)/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the list"
+					},
+					"expect": [
+						{
+							"text": "Loading meetings"
+						}
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/meetings/error.tsx",
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load meetings"
+						},
+						{
+							"role": "button",
+							"name": "Try again"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "filter",
+					"says": "The When, Type and Status filters narrow the list and live in the address.",
+					"catalog": ["MTG-001"],
+					"operations": ["meetings.list"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/meetings/meetings.test.mts",
+								"name": "AC:TARGET-MTG-001 AC:B02-007 windows, closed type filter, equal-start paging, empty filter with history and foreign detail"
+							}
+						],
+						"cases": ["TARGET-MTG-001", "B02-007"],
+						"browser": {
+							"state": "populated",
+							"steps": [
+								{
+									"click": {
+										"role": "radio",
+										"name": "Orientation"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/meetings?type=orientation"
+								},
+								{
+									"role": "link",
+									"name": "QA orientation"
+								},
+								{
+									"absent": {
+										"role": "link",
+										"name": "QA vision meeting"
+									}
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "plan",
+					"says": "An Owner or Admin plans a meeting with its venue, agenda, kit and guests in one save.",
+					"catalog": ["MTG-002", "MTG-005", "MTG-006"],
+					"operations": ["meetings.schedule"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/meetings/meetings.test.mts",
+								"name": "AC:TARGET-MTG-002 AC:GAP-MTG-003 AC:TARGET-MTG-005 AC:TARGET-MTG-006 schedule saves venue copy, agenda, kit and guests together with distinct Vision numbers"
+							}
+						],
+						"cases": ["TARGET-MTG-002", "TARGET-MTG-005", "TARGET-MTG-006"],
+						"browser": {
+							"state": "populated",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Plan a meeting"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "dialog",
+									"name": "Plan a meeting"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				},
+				{
+					"id": "places",
+					"says": "Places keeps the church's venues; a meeting keeps its own copy of the venue it used.",
+					"catalog": ["MTG-003", "MTG-004"],
+					"operations": ["venues.create", "venues.edit", "venues.archive", "venues.restore"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/meetings/meetings.test.mts",
+								"name": "AC:TARGET-MTG-003 AC:TARGET-MTG-004 AC:GAP-MTG-004 venues keep meeting copies through edit, archive, restore and stale corrections"
+							}
+						],
+						"cases": ["TARGET-MTG-003", "TARGET-MTG-004"],
+						"browser": {
+							"state": "populated",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Places"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "dialog",
+									"name": "Places"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "meetings.detail",
+			"says": "One meeting: its status, guests and RSVPs, kit, agenda, results and evaluation.",
+			"routes": ["/meetings/[meetingId]"],
+			"endpoints": ["/meetings/[meetingId]/agenda"],
+			"catalog": ["MTG-001", "MTG-002", "MTG-005", "MTG-007", "MTG-012", "MTG-013", "MTG-014"],
+			"reach": [
+				{
+					"from": "meetings.list",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "QA vision meeting"
+							}
+						},
+						{
+							"expect": {
+								"url": "/meetings/{meetingId}"
+							}
+						}
+					]
+				},
+				{
+					"link": "/meetings/{meetingId}",
+					"fill": {
+						"meetingId": "the id in a meeting row's link"
+					}
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "read"
+			},
+			"states": [
+				{
+					"id": "populated",
+					"reach": {
+						"persona": "owner",
+						"open": "/meetings",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "QA vision meeting"
+								}
+							},
+							{
+								"expect": {
+									"url": "/meetings/{meetingId}"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "QA vision meeting",
+							"match": "contains"
+						},
+						{
+							"role": "button",
+							"name": "Status",
+							"match": "contains"
+						},
+						{
+							"role": "tab",
+							"name": "Guests",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "not-found",
+					"file": "apps/web/src/app/(product)/(frame)/meetings/[meetingId]/not-found.tsx",
+					"reach": {
+						"persona": "owner",
+						"open": "/meetings/00000000-0000-4000-8000-000000000000",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This meeting is not here"
+						},
+						{
+							"role": "link",
+							"name": "Back to Meetings"
+						}
+					]
+				},
+				{
+					"id": "error",
+					"file": "apps/web/src/app/(product)/(frame)/meetings/error.tsx",
+					"reach": {
+						"manual": "renders only when the page throws while rendering"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "We could not load meetings"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "change-status",
+					"says": "An Owner or Admin moves a meeting on from the Status menu and the toast confirms it.",
+					"catalog": ["MTG-002"],
+					"operations": ["meetings.changeStatus"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/meetings/meetings.test.mts",
+								"name": "AC:B02-008 AC:B02-009 AC:B02-011 AC:B02-012 AC:B02-013 AC:B02-015 AC:B02-032 AC:TARGET-MTG-002 held practices count once and only when actually held"
+							}
+						],
+						"cases": ["TARGET-MTG-002"],
+						"browser": {
+							"state": "populated",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Status",
+										"match": "contains"
+									}
+								},
+								{
+									"click": {
+										"role": "menuitem",
+										"name": "Mark as ready"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "is saved.",
+									"match": "contains"
+								},
+								{
+									"role": "button",
+									"name": "Ready",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "guests",
+					"says": "Add guest puts People and new contacts on the guest list in one write and names who was not added.",
+					"catalog": ["MTG-007", "MTG-011"],
+					"operations": ["meetings.addGuests"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/meetings/add-guests.test.mts",
+								"name": "AC:TARGET-MTG-007 AC:TARGET-MTG-011 one write adds People and new contacts, keeps each guest rule and names who was not added"
+							}
+						],
+						"cases": ["TARGET-MTG-007", "TARGET-MTG-011"],
+						"browser": {
+							"state": "populated",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Add guest"
+									}
+								}
+							],
+							"expect": [
+								{
+									"role": "dialog",
+									"name": "Add guest"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				},
+				{
+					"id": "results",
+					"says": "On Results, attendance is finalized with its generated work and the Vision meeting is evaluated.",
+					"catalog": ["MTG-012", "MTG-014"],
+					"operations": ["meetings.finalizeAttendance", "meetings.recordEvaluation"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/meetings/attendance.test.mts",
+								"name": "AC:TARGET-MTG-020 AC:TARGET-MTG-012 AC:TARGET-TSK-017 AC:GAP-PPL-020 AC:CASE-OPS-004 finalize commits attendance, progression and generated work together"
+							},
+							{
+								"file": "tests/integration/meetings/attendance.test.mts",
+								"name": "AC:TARGET-MTG-014 AC:GAP-MTG-015 AC:TARGET-MTG-015 one evaluation, computed average, reviewed corrections"
+							},
+							{
+								"file": "tests/ui/meetings/attendance.test.mjs",
+								"name": "BUG-ce8e6b7f7 messages/com-8 (${name}): finalize, then Record response card saves the first time"
+							}
+						],
+						"cases": ["TARGET-MTG-012", "TARGET-MTG-014", "TARGET-MTG-015"]
+					}
+				},
+				{
+					"id": "print-agenda",
+					"says": "A Vision meeting has Print agenda, which opens its agenda as a printable page.",
+					"catalog": ["MTG-005"],
+					"operations": ["meetings.readAgenda"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/meetings/meetings.test.mts",
+								"name": "AC:TARGET-MTG-005 an agenda saves whole: reorder and retime round trip, invalid payloads are refused by name"
+							}
+						],
+						"cases": ["TARGET-MTG-005"],
+						"browser": {
+							"state": "populated",
+							"steps": [],
+							"expect": [
+								{
+									"role": "link",
+									"name": "Print agenda"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "meetings.check-in",
+			"says": "Door check-in on a phone: tap a name to check them in, add walk-ins, then finish and finalize.",
+			"routes": ["/meetings/[meetingId]/check-in"],
+			"catalog": ["MTG-010", "MTG-011", "MTG-012"],
+			"reach": [
+				{
+					"from": "meetings.detail",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Start check-in"
+							}
+						},
+						{
+							"expect": {
+								"url": "/meetings/{meetingId}/check-in"
+							}
+						}
+					]
+				},
+				{
+					"link": "/meetings/{meetingId}/check-in",
+					"fill": {
+						"meetingId": "the meeting's id"
+					}
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "none"
+			},
+			"states": [
+				{
+					"id": "guests",
+					"reach": {
+						"persona": "owner",
+						"open": "/meetings",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "QA vision meeting"
+								}
+							},
+							{
+								"expect": {
+									"url": "/meetings/{meetingId}"
+								}
+							},
+							{
+								"click": {
+									"role": "link",
+									"name": "Start check-in"
+								}
+							},
+							{
+								"expect": {
+									"url": "/meetings/{meetingId}/check-in"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Check-in"
+						},
+						{
+							"role": "button",
+							"name": "Finish check-in"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "tap-to-check-in",
+					"says": "A tap on a guest marks them here in place; a second tap takes it back.",
+					"catalog": ["MTG-010"],
+					"operations": ["meetings.setAttendance"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/ui/meetings/attendance.test.mjs",
+								"name": "AC:TARGET-MTG-010 AC:TARGET-MTG-012 AC:TARGET-MTG-014 (${name}): door check-in, finalize and evaluation"
+							},
+							{
+								"file": "tests/integration/meetings/attendance.test.mts",
+								"name": "AC:TARGET-MTG-001 AC:TARGET-MTG-010 AC:B02-010 AC:PERSONREF-MEETING-INVITATION-RSVP-ATTENDANCE-CARD-RETIRE draft attendance is all or nothing and keeps RSVP and card"
+							}
+						],
+						"cases": ["TARGET-MTG-010", "TARGET-MTG-012", "TARGET-MTG-014"],
+						"browser": {
+							"state": "guests",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Sara Nunez"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Here",
+									"match": "contains"
+								},
+								{
+									"text": "checked in",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "walk-in",
+					"says": "Add a walk-in checks in someone new at the door, and Finish check-in finalizes the first time.",
+					"catalog": ["MTG-011", "MTG-012"],
+					"operations": ["meetings.createWalkInContact", "meetings.finalizeAttendance"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/ui/meetings/attendance.test.mjs",
+								"name": "BUG-ce8e6b7f7 messages/com-9 (${name}): a walk-in, then Finish check-in finalizes the first time"
+							},
+							{
+								"file": "tests/integration/meetings/meetings.test.mts",
+								"name": "AC:TARGET-MTG-011 AC:GAP-MTG-011 AC:B02-023 AC:B02-024 quick-add contacts create one real Person and one guest, or nothing"
+							}
+						],
+						"cases": ["TARGET-MTG-011"],
+						"browser": {
+							"state": "guests",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Add a walk-in"
+									}
+								},
+								{
+									"click": {
+										"role": "radio",
+										"name": "Someone new"
+									}
+								},
+								{
+									"type": "Map Walk-in",
+									"into": "Name"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Check in"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "is checked in.",
+									"match": "contains"
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "meetings.rsvp",
+			"says": "The public RSVP page an invitation email links to: no sign-in, one answer per guest.",
+			"routes": ["/rsvp/[token]"],
+			"catalog": ["MTG-009"],
+			"reach": [
+				{
+					"link": "/rsvp/{token}",
+					"email": "rsvp_link",
+					"fill": {
+						"token": "the token in the guest's invitation email"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "write"
+			},
+			"states": [
+				{
+					"id": "unavailable",
+					"reach": {
+						"persona": "visitor",
+						"open": "/rsvp/not-a-token",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This link does not work"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "answer",
+					"says": "The guest answers yes or no from the link; a closed, answered or expired link takes no answer.",
+					"catalog": ["MTG-009"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/meetings/meetings.test.mts",
+								"name": "AC:CASE-COM-010 AC:TARGET-MTG-001 AC:TARGET-MTG-008 AC:TARGET-MTG-009 AC:GAP-MTG-008 one current RSVP from link, own reply or Admin, never attendance"
+							},
+							{
+								"file": "tests/integration/meetings/meetings.test.mts",
+								"name": "BUG-ce8e6b7f7: a link to a cancelled or completed meeting reads as closed, open, answered or expired, and takes no answer"
+							}
+						],
+						"cases": ["CASE-COM-010", "TARGET-MTG-009"]
+					},
+					"noOperation": "the token RSVP reads and writes (meetings.readTokenRsvp, meetings.resolveTokenRsvp) are catalog names the code does not use"
+				}
+			]
+		}
+	]
+}

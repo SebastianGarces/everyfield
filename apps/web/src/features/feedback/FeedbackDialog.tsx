@@ -21,7 +21,8 @@ import {
 } from "@everyfield/ui/controls";
 import { cn, EvryBot, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { Dialog as DialogPrimitive } from "radix-ui";
-import { useEffect, useId, useState, useTransition, type ReactNode } from "react";
+import { useId, useState, useTransition, type ReactNode } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import { loadSendContext, sendFeedback, type DialogContext } from "./actions.ts";
 import { CATEGORIES, counter, PROMPT, readPageDetails, timeLabel, type PageDetails } from "./model.ts";
 
@@ -34,12 +35,6 @@ const ICON: Record<FeedbackCategory, IconSvgElement> = {
 
 type Failure = "lost" | "refused" | null;
 
-/**
- * Send feedback (the drawn Feedback dialog, REQ-ADM-001): a type, the words and the page and device details, with no
- * screenshot or file. It opens over the current page and reads that page's details when it opens. Church, role, app
- * version and time are the server's; the list shows what the server will store. A lost reply keeps the same request key,
- * so sending again saves the feedback once.
- */
 export function FeedbackDialog({
 	open,
 	onOpenChange,
@@ -56,29 +51,77 @@ export function FeedbackDialog({
 	);
 }
 
+const sendContexts = createRead(() => loadSendContext(), {
+	failed: () => ({ status: "lost" as const }),
+});
+
 function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void }) {
 	const [details] = useState<PageDetails>(readPageDetails);
-	const [context, setContext] = useState<DialogContext | null>(null);
 	const [category, setCategory] = useState<FeedbackCategory>("suggestion");
+	const [sent, setSent] = useState<SubmittedFeedback | null>(null);
+	const loaded = useRead(sendContexts).value;
+	const context = loaded?.status === "ok" ? loaded.value : null;
+	const page = details.page ?? "this page";
+	const first = name.split(/\s+/)[0] || name;
+
+	if (sent)
+		return (
+			<DialogContent style={{ maxWidth: 620 }} aria-describedby={undefined}>
+				<div className="flex flex-col items-center gap-2.5 px-[30px] pt-[34px] pb-[30px] text-center">
+					<EvryBot size="xl" mood="happy" />
+					<DialogTitleText>Thank you, {first}</DialogTitleText>
+					<p className="m-0 max-w-[380px] text-md text-text-2">
+						Your feedback is saved, together with the details from <b className="font-semibold text-ink">{page}</b>. If
+						we have a question, we reply to {sent.replyTo}.
+					</p>
+					<div className="mt-3 flex gap-2">
+						<Button variant="secondary" onClick={() => setSent(null)}>
+							Send more
+						</Button>
+						<Button variant="primary" onClick={onClose}>
+							Done
+						</Button>
+					</div>
+				</div>
+			</DialogContent>
+		);
+
+	return (
+		<FeedbackForm
+			details={details}
+			context={context}
+			category={category}
+			onCategory={setCategory}
+			onSent={setSent}
+			onClose={onClose}
+		/>
+	);
+}
+
+function FeedbackForm({
+	details,
+	context,
+	category,
+	onCategory,
+	onSent,
+	onClose,
+}: {
+	details: PageDetails;
+	context: DialogContext | null;
+	category: FeedbackCategory;
+	onCategory: (category: FeedbackCategory) => void;
+	onSent: (sent: SubmittedFeedback) => void;
+	onClose: () => void;
+}) {
 	const [text, setText] = useState("");
 	const [requestKey, setRequestKey] = useState(() => crypto.randomUUID());
-	const [sent, setSent] = useState<SubmittedFeedback | null>(null);
 	const [failure, setFailure] = useState<Failure>(null);
 	const [pending, start] = useTransition();
 	const count = counter(text);
 	const ids = { count: useId() };
 
-	useEffect(() => {
-		let live = true;
-		void loadSendContext().then((r) => live && r.status === "ok" && setContext(r.value));
-		return () => {
-			live = false;
-		};
-	}, []);
-
 	function edit(change: () => void) {
 		change();
-		// Changed words are new feedback: a new key, so it is not mistaken for a resend of the last attempt.
 		if (failure === "lost") setRequestKey(crypto.randomUUID());
 		setFailure(null);
 	}
@@ -97,42 +140,13 @@ function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void })
 				screenWidth: details.screenWidth,
 				screenHeight: details.screenHeight,
 				theme: details.theme,
-			});
-			if (r.status === "ok") setSent(r.value);
+			}).catch(() => ({ status: "lost" as const }));
+			if (r.status === "ok") onSent(r.value);
 			else setFailure(r.status === "lost" ? "lost" : "refused");
 		});
 	}
 
-	function again() {
-		setSent(null);
-		setText("");
-		setRequestKey(crypto.randomUUID());
-	}
-
 	const page = details.page ?? "this page";
-	const first = name.split(/\s+/)[0] || name;
-
-	if (sent)
-		return (
-			<DialogContent style={{ maxWidth: 620 }} aria-describedby={undefined}>
-				<div className="flex flex-col items-center gap-2.5 px-[30px] pt-[34px] pb-[30px] text-center">
-					<EvryBot size="xl" mood="happy" />
-					<DialogTitleText>Thank you, {first}</DialogTitleText>
-					<p className="m-0 max-w-[380px] text-md text-text-2">
-						Your feedback is saved, together with the details from <b className="font-semibold text-ink">{page}</b>. If
-						we have a question, we reply to {sent.replyTo}.
-					</p>
-					<div className="mt-3 flex gap-2">
-						<Button variant="secondary" onClick={again}>
-							Send more
-						</Button>
-						<Button variant="primary" onClick={onClose}>
-							Done
-						</Button>
-					</div>
-				</div>
-			</DialogContent>
-		);
 
 	const rows: [string, string | null][] = [
 		["Page", details.page],
@@ -169,7 +183,7 @@ function FeedbackPanel({ name, onClose }: { name: string; onClose: () => void })
 								name="feedback-type"
 								value={c.value}
 								checked={category === c.value}
-								onChange={() => edit(() => setCategory(c.value))}
+								onChange={() => edit(() => onCategory(c.value))}
 								className="sr-only"
 							/>
 							<Icon icon={ICON[c.value]} size={18} className={category === c.value ? "text-ink" : "text-text-2"} />

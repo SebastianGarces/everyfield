@@ -1,9 +1,3 @@
-// OPS-126: what each QA login sees on a seeded QA database, through the same domain reads the screens use. qa.test.ts
-// runs it with tsx and the react-server condition, because the domain code is server-only, and asserts on its JSON.
-// The mail reads use the keys the seed got, as the preview does.
-//
-//   DATABASE_URL=<admin URL> QA_ROLE_PASSWORD=<role password> IDENTITY_MAIL_KEY=<key> IDENTITY_ADDRESS_KEY=<key> \
-//     node --conditions=react-server --import tsx qa-probe.ts
 import { randomBytes } from "node:crypto";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase, createDatabase } from "../../../../packages/db/src/client.ts";
@@ -61,7 +55,6 @@ const mailKeys = {
 	origin: ORIGIN,
 };
 
-/** Sign in as a person does and read the session the cookie names, before any actor check. */
 async function signInOnly(email: string) {
 	const r = await call("sign-in/email", { email, password: QA_PASSWORD });
 	const signedIn = (await r.json()) as { status: string };
@@ -77,7 +70,6 @@ async function signInOnly(email: string) {
 	return { signedIn: signedIn.status, session };
 }
 
-/** Sign in as a person does, then resolve the actor the session selects. */
 async function signIn(email: string) {
 	const { signedIn, session } = await signInOnly(email);
 	const authority = await RequestActor.resolve(runtime, session.sessionId as never);
@@ -85,7 +77,6 @@ async function signIn(email: string) {
 	return { signedIn, session, authority };
 }
 
-/** A refusal without its correlation id, so the test can compare it exactly. */
 const bare = (reply: unknown) => {
 	const r = reply as { status: string; error?: { correlationId?: string } };
 	return r.status === "refused" && r.error ? { ...r, error: { ...r.error, correlationId: null } } : r;
@@ -105,7 +96,6 @@ try {
 		checkIn: await care.readCurrent(runtime, owner.authority),
 		history: await care.readHistory(runtime, owner.authority, { page: 1 }),
 	};
-	// The 2026-11-04 cases: the delivery message as the Owner opens it, the Admin's own address, the two new logins.
 	const delivery = (await admin.execute(sql`SELECT id FROM communication WHERE subject='QA delivery check'`)).rows[0]!
 		.id as string;
 	out.delivery = await runtime.transaction(async (tx) => ({
@@ -131,7 +121,6 @@ try {
 		const who = await signIn(QA_LOGINS[login]);
 		const context = who.authority.actor.context;
 		const selected = context.owner;
-		// The two reads /settings/sharing makes for this viewer (apps/web/src/features/organizations/routes.tsx).
 		const viewer: Viewer = {
 			kind: selected.kind === "organization" ? selected.organizationKind : selected.kind,
 			session: who.session.sessionId as Viewer["session"],
@@ -155,7 +144,6 @@ try {
 							organization: names![r.pair.organization.id],
 						}))
 					: history,
-			// Planter-private data: the check-in reads for this actor, and the church's people reads.
 			care: {
 				current: bare(await care.readCurrent(runtime, who.authority)),
 				history: bare(await care.readHistory(runtime, who.authority, { page: 1 })),
@@ -174,7 +162,6 @@ try {
 			},
 		};
 	}
-	// T-312: the multiplication example's logins. Each one's session context, and what it reads of each pipeline.
 	const personNamed = async (name: string) =>
 		(await admin.execute(sql`SELECT id FROM person WHERE display_name=${name} AND plant_id IS NULL`)).rows[0]!
 			.id as string;
@@ -263,7 +250,6 @@ try {
 		),
 		board: value((await readPipelineBoard(runtime, casey.authority, {})) as Read, () => "read"),
 	};
-	// The network's aggregate check with Grace Austin's pipeline totals shared, and Harvest Point's planter's reads.
 	const adapter = createOrganizationAdapter(
 		{ invitation: async () => {}, invalidate: () => sql`SELECT 1` },
 		{ candidates: async () => [] },

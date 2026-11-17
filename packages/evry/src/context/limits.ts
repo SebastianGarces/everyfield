@@ -1,4 +1,3 @@
-/** The frozen runtime limits from the Evry chapter's finite runtime contract. Changing one changes the contract. */
 export const LIMITS = {
 	toolCalls: 24,
 	outputTokensPerCall: 8_000,
@@ -15,7 +14,6 @@ export const LIMITS = {
 	selectedRows: 24,
 } as const;
 
-/** Why a turn stopped. Every value except "completed" says a limit or a choice ended the turn early. */
 export type StopReason =
 	| "completed"
 	| "policy_boundary"

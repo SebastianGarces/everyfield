@@ -36,7 +36,7 @@ export async function prImages(pr: number, files: string[], update: boolean, roo
 			id = /\/([a-f0-9]+)$/.exec(url)?.[1];
 			if (!id) throw new Error("Could not read the created gist id");
 			body += `\n\n<!-- wiki-screenshots-gist: ${id} -->`;
-			await saveBody(); // Bind immediately, so retries reuse the gist even if upload fails.
+			await saveBody();
 		}
 		const owner = gh("api", `gists/${id}`, "--jq", ".owner.login");
 		const checkout = join(temp, "gist");
@@ -56,7 +56,6 @@ export async function prImages(pr: number, files: string[], update: boolean, roo
 				"-m",
 				`Update Wiki screenshots for PR #${pr}`,
 			);
-			// This host rejects chunked uploads once full-page PNG packs exceed Git's 1 MiB buffer.
 			git(checkout, "-c", "http.postBuffer=52428800", "push", "origin", "HEAD");
 		}
 		const lines = names

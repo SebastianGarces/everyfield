@@ -1,6 +1,3 @@
-// Result rows are kept or withheld by their own kind (WP-051 slice 2): a household or tag row is live while it exists,
-// a person row while the person is live, and kinds that are not stored sources are never withheld. Replay
-// (retainedEvents) and the in-turn check (withLiveRows) use one rule (conversations/liveness.ts).
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -59,7 +56,6 @@ const setState = (id: string, state: "live" | "retired") =>
 			: sql`UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id=${id}`,
 	);
 
-/** A model that makes these reads in order, then answers `answer`; `before[n]` runs just before model call n. */
 function script(
 	calls: { operation: string; input: unknown }[],
 	answer: string,
@@ -160,7 +156,6 @@ test("AC:EVRY-CONTEXT-BOUNDS a household removed after its turn is withheld from
 	assert.ok(replay.texts.length > 0 && replay.texts.every((t) => t.withheld === true && t.text === ""));
 	assert.ok(!JSON.stringify(replay).includes("Okafor"));
 
-	// Removed between two model calls of one turn: the later call gets the result without the row.
 	const mid = await household("Okafor household", "North Ridgeville");
 	await ask(owner, "what households do we have?");
 	const run = script(
@@ -194,14 +189,12 @@ test("AC:EVRY-CONTEXT-BOUNDS a mixed household result withholds only the source 
 		assert.deepEqual(labels(kept), ["Alex Chen", "Alex Rivera", "Okafor household"]);
 		assert.equal(kept.result.withheldRows, undefined);
 
-		// One member deleted (retired): only that person is withheld.
 		await setState(people.alexChen, "retired");
 		const oneGone = (await events(owner, id)).cards[0]!;
 		assert.deepEqual(labels(oneGone), ["Alex Rivera", "Okafor household"]);
 		assert.equal(oneGone.result.withheldRows, 1);
 		await setState(people.alexChen, "live");
 
-		// Only the household deleted: both live people stay.
 		await admin.execute(sql`UPDATE person SET household_id=NULL,household_role=NULL WHERE household_id=${home}`);
 		await admin.execute(sql`DELETE FROM household WHERE id=${home}`);
 		const homeGone = (await events(owner, id)).cards[0]!;
@@ -252,7 +245,6 @@ test("AC:EVRY-CONTEXT-BOUNDS every row kind the catalog returns is kept while it
 	);
 	const home = await household("Okafor household", "North Ridgeville");
 	try {
-		// Real reads through a turn, replayed: household, tag and file rows.
 		const id = await ask(owner, "Tags and the template");
 		const run = script(
 			[
@@ -274,7 +266,6 @@ test("AC:EVRY-CONTEXT-BOUNDS every row kind the catalog returns is kept while it
 		);
 		assert.ok(replay.texts.every((t) => t.withheld !== true));
 
-		// Every kind in the one in-turn statement, including ids that are not uuids.
 		const rows = [
 			{ kind: "person", id: people.alexRivera },
 			{ kind: "household", id: home },
@@ -315,7 +306,6 @@ test("AC:EVRY-CONTEXT-BOUNDS an actor who lost access gets no row of any kind fr
 			sql`UPDATE auth_session SET expires_at=clock_timestamp()-interval '1 minute' WHERE id=${accounts.owner.session}`,
 		);
 		assert.equal((await liveRowKeys(db, owner, rows)).size, 0);
-		// A member of another church cannot see this church's household either.
 		assert.equal((await liveRowKeys(db, await actor("foreign"), rows.slice(0, 2))).size, 0);
 	} finally {
 		await admin.execute(
