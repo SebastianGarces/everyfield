@@ -114,7 +114,7 @@ function WrapAction({ editor, reason, run }: { editor: Editor; reason: string | 
 	return (
 		<Tip text={`Make block conditional: ${reason}`} className="flex">
 			<span
-				tabIndex={0}
+				tabIndex={-1}
 				aria-label={`Make block conditional is unavailable. ${reason}`}
 				className="flex rounded-sm outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]"
 			>
@@ -277,7 +277,7 @@ export function EditorToolbar({
 						run={() => editor.chain().setMeta("closeHistory", true).focus().toggleMark("tag").run()}
 					/>
 				) : null}
-				<LinkPopover editor={editor} autoOpenOnLinkActive={false} />
+				<LinkPopover editor={editor} />
 			</ToolbarGroup>
 			<ToolbarSeparator />
 			<ToolbarGroup>
