@@ -4,9 +4,6 @@ import type { AttestationsPage, CandidateWriteResult, SignalWriteResult } from "
 import type { SignalOutcome } from "./signals-model.ts";
 import { runSignals } from "./signals-server.ts";
 
-// The browser boundary of the Attestations page. Each action hands the browser's values to the signals domain, which
-// parses them with the strict contract and takes the author from the session, never from the request.
-
 export async function attestSignal(
 	requestKey: string,
 	expectedRevision: string,
@@ -55,7 +52,6 @@ export async function correctCandidate(
 	);
 }
 
-/** Reload the page after a conflict, so the admin sees where the signals stand now. */
 export async function reloadAttestations(): Promise<SignalOutcome<AttestationsPage>> {
 	return runSignals((signals, db, authority) => signals.readAttestations(db, authority, {}));
 }

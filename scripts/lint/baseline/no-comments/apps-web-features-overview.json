@@ -1,9 +1,0 @@
-{
-	"apps/web/src/features/overview/IntelligenceCard.tsx": 1,
-	"apps/web/src/features/overview/actions.ts": 3,
-	"apps/web/src/features/overview/cards.tsx": 4,
-	"apps/web/src/features/overview/client.tsx": 3,
-	"apps/web/src/features/overview/model.ts": 9,
-	"apps/web/src/features/overview/routes.tsx": 5,
-	"apps/web/src/features/overview/server.ts": 7
-}

@@ -2,7 +2,6 @@ import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { PageHeader } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
 
-/** The check-in page title: who it is for and the "Only you" mark (prototype #/me/check-in). */
 export function CheckInHeader({ name, subtitle }: { name: string; subtitle: string }) {
 	const first = name.trim().split(/\s+/)[0];
 	return (

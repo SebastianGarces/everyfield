@@ -4,10 +4,6 @@ import type { DeclareResult, TransitionResult } from "@everyfield/contracts/phas
 import type { Outcome } from "./model.ts";
 import { write } from "./server.ts";
 
-// The browser boundary of the journey screen's two writes. Each hands the browser's values to the phase writer, which
-// parses them with the strict phases contract and rechecks the live Owner or Admin seat inside its statement. The
-// server reads the starting phase itself; a retry with the same request key replays the stored answer.
-
 export async function declarePhase(
 	requestKey: string,
 	expectedRevision: string,

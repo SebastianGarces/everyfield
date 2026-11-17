@@ -4,13 +4,6 @@ import { runDueFeedbackPublication } from "../../server/jobs/feedback-publicatio
 import { githubConfig, githubIssues } from "../../server/jobs/github.ts";
 import { operatorMail } from "./mail.ts";
 
-// The scheduled runner's feedback publication (WP-049B), as the deployment configures it. Relative imports, so node
-// tests can import it by path.
-
-/**
- * One bounded batch of feedback publication with the deployment's repository, token and operator inbox. Null when no
- * feedback repository is configured: nothing is sent to GitHub, no operator email is queued, and feedback waits.
- */
 export function feedbackPublicationMount(
 	db: Database | null,
 	source: Readonly<Record<string, string | undefined>> = process.env,
