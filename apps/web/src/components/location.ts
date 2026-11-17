@@ -104,7 +104,6 @@ function routerWrote(event: EntryChange) {
 	if (writing || event.navigationType === "traverse") return;
 	routerBehind = false;
 	shown = fullAddress();
-	hashChanged();
 }
 
 type Installed = { popstate: () => void; hashchange: () => void; entry: (event: EntryChange) => void };
@@ -148,7 +147,6 @@ export function addAddressRule(name: string, rule: AddressRule): void {
 export function writeAddress(href: string | URL, { replace = false, state }: AddressWrite = {}): void {
 	write(ruled(urlOf(href), urlOf(knownAddress())) ?? href, replace, state ?? null);
 	for (const listener of changes) listener();
-	hashChanged();
 }
 
 export function writeHash(hash: string): void {
