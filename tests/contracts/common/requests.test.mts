@@ -8,6 +8,9 @@ const ACTOR_KEYS = new Set([
 	"actor",
 	"actorId",
 	"actorAccountId",
+	"ownerId",
+	"churchId",
+	"ip",
 	"session",
 	"sessionId",
 	"sessionToken",
@@ -15,6 +18,7 @@ const ACTOR_KEYS = new Set([
 	"viewerId",
 	"userId",
 ]);
+const FREE_KEY_MAPS = new Set(["mergeFields", "overrides"]);
 const SECRET_KEY = /password|proof|token/i;
 const DURABLE_SECRET_KEY = /password|proof/i;
 const RESULT_NAME = /(?:Result|Results|View|Page)$/;
@@ -59,9 +63,9 @@ const exported: { name: string; schema: Schema }[] = [];
 for (const [entry, file] of Object.entries(entries))
 	for (const [name, value] of Object.entries(await import(new URL(file, ROOT).href)))
 		if (isSchema(value)) exported.push({ name: `${entry.slice(2)} ${name}`, schema: value });
-const requests = exported.filter(({ name }) => name.endsWith("Request"));
+const requests = exported.filter(({ name }) => /(?:Request|Query|Input|Command)$/.test(name));
 
-test("INV-actor: request schemas declare no actor or session key and pass no unknown key through", () => {
+test("INV-actor: request schemas declare no actor or session key, pass no unknown key through and take free keys only in merge-value maps", () => {
 	assert.ok(requests.length >= 400, `only ${requests.length} request schemas found`);
 	assert.deepEqual(paths(keyed(requests, (key) => ACTOR_KEYS.has(key))), []);
 	const open = [...keyed(requests, () => true)].filter(({ schema }) => {
@@ -69,6 +73,17 @@ test("INV-actor: request schemas declare no actor or session key and pass no unk
 		return schema.def.type === "object" && isSchema(catchall) && catchall.def.type !== "never";
 	});
 	assert.deepEqual(paths(open), []);
+	const freeKeys = [...keyed(requests, () => true)].filter(({ key, schema }) => {
+		if (schema.def.type !== "record") return false;
+		const keys = (schema.def.keyType as Schema).def;
+		const restricted =
+			keys.type !== "string" ||
+			((keys.checks as { _zod: { def: { format?: string } } }[] | undefined) ?? []).some(
+				(check) => check._zod.def.format === "regex",
+			);
+		return key === "" || !(restricted || FREE_KEY_MAPS.has(key));
+	});
+	assert.deepEqual(paths(freeKeys), []);
 });
 
 test("INV-secrets: a password, proof or token field keeps exactly what was typed or refuses it, and no result carries a password or proof", () => {
