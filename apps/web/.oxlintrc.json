@@ -64,8 +64,10 @@
 		"typescript/prefer-namespace-keyword": "error",
 		"typescript/triple-slash-reference": "error",
 		"everyfield/resend-senders": "error",
+		"everyfield/request-actor": "error",
 		"everyfield/no-comments": "error",
 		"everyfield/no-effects": "error",
+		"everyfield/storage-client": "error",
 		"everyfield/max-state": "error",
 		"everyfield/no-sql-comments": "error"
 	},
@@ -1271,7 +1273,8 @@
 		{
 			"files": ["src/**"],
 			"rules": {
-				"everyfield/private-care-scope": "error"
+				"everyfield/private-care-scope": "error",
+				"everyfield/table-writers": "error"
 			}
 		},
 		{
@@ -1285,7 +1288,8 @@
 				"everyfield/zustand-shape": "error",
 				"everyfield/read-loader": "error",
 				"everyfield/no-render-writes": "error",
-				"everyfield/feature-boundaries": "error"
+				"everyfield/feature-boundaries": "error",
+				"everyfield/route-reads": "error"
 			}
 		},
 		{

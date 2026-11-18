@@ -65,13 +65,13 @@ export function DocumentsLoading() {
 			<span className="sr-only" role="status">
 				Loading documents
 			</span>
-			<Skeleton className="h-14 w-64 rounded-card" />
+			<Skeleton className="h-14 w-64" />
 			<Skeleton className="h-10 w-full max-w-xl rounded-md" />
 			<div className="grid gap-4 sm:grid-cols-2">
-				<Skeleton className="h-40 rounded-card" />
-				<Skeleton className="h-40 rounded-card" />
-				<Skeleton className="h-40 rounded-card" />
-				<Skeleton className="h-40 rounded-card" />
+				<Skeleton className="h-40" />
+				<Skeleton className="h-40" />
+				<Skeleton className="h-40" />
+				<Skeleton className="h-40" />
 			</div>
 		</div>
 	);

@@ -156,7 +156,7 @@ export function FollowUpsLoading() {
 						</div>
 					))}
 				</Card>
-				<Skeleton shape="block" className="h-40 rounded-card max-app-lg:hidden" />
+				<Skeleton shape="block" className="h-40 max-app-lg:hidden" />
 			</div>
 		</div>
 	);

@@ -153,7 +153,6 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 							tone="error"
 							title="Places did not load"
 							headingLevel="h3"
-							className="py-8"
 							actions={
 								<Button variant="secondary" size="sm" onClick={list.retry}>
 									Try again
@@ -240,7 +239,7 @@ function Place({
 		return (
 			<div className="flex flex-col gap-3">
 				{back}
-				<StatePanel tone="error" title="This place did not load" headingLevel="h3" className="py-8">
+				<StatePanel tone="error" title="This place did not load" headingLevel="h3">
 					{got.status === "ok" ? "It may have been removed." : "Nothing was changed. Try again in a moment."}
 				</StatePanel>
 			</div>
@@ -307,7 +306,7 @@ function Place({
 					)}
 				</div>
 			) : null}
-			<SaveNotice {...archive.noticeProps} dialogOpen={false} className="" />
+			<SaveNotice {...archive.noticeProps} dialogOpen={false} />
 			{canWrite ? (
 				<ConfirmDialog
 					open={archiving}
@@ -540,7 +539,7 @@ function VenueForm({ venue: opened, onDone }: { venue?: Venue; onDone: (id: stri
 					<Input value={draft.reason} onChange={set("reason")} maxLength={2000} autoComplete="off" readOnly={pending} />
 				</Field>
 			) : null}
-			<SaveNotice {...lane.noticeProps} dialogOpen={false} className="" />
+			<SaveNotice {...lane.noticeProps} dialogOpen={false} />
 			<div className="flex flex-wrap justify-end gap-2.5">
 				<Button variant="secondary" type="button" onClick={() => onDone(venue?.id ?? null)} disabled={pending}>
 					Cancel

@@ -107,7 +107,7 @@ function RunDetail({ run: item }: { run: ReviewRun }) {
 	return (
 		<div className="grid items-start gap-5 app-lg:grid-cols-[minmax(0,1fr)_360px]">
 			<Card className="gap-4">
-				<CardHeader className="mb-0 items-center">
+				<CardHeader>
 					<CardHeading>
 						<CardTitle>Cause</CardTitle>
 					</CardHeading>

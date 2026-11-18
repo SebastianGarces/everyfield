@@ -18,7 +18,7 @@ import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/featu
 import {
 	current as organizationMount,
 	organizationMailPass,
-} from "../../../apps/web/src/server/organizations/index.ts";
+} from "../../../apps/web/src/features/organizations/mount.ts";
 
 const database = await testDatabase({ prefix: "t127", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 6 });
 const { admin } = database;

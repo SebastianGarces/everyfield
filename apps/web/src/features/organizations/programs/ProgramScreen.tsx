@@ -323,7 +323,7 @@ function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied
 	const tooMany = chosen.length > APPLY_VERSION_LIMIT;
 	return (
 		<Card>
-			<CardHeader className={selecting ? "mb-4 flex-wrap" : undefined}>
+			<CardHeader className={selecting ? "flex-wrap" : undefined}>
 				<CardHeading>
 					<CardTitle>Enrolled</CardTitle>
 				</CardHeading>
