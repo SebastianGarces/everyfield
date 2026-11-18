@@ -100,6 +100,7 @@ export const SESSION_MODULE = "packages/domain/src/access/session.ts";
 const PRODUCT_SOURCE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
 
 const ACTOR_CLASS = "RequestActor";
+const ACTOR_STATICS = new Set(["resolve", "claimWrite"]);
 const staticKey = (node) =>
 	keyName(node.property, node.computed) ?? (node.computed ? literalArgument(node.property) : null);
 
@@ -131,11 +132,22 @@ const requestActor = {
 				if (isClass(node.object)) {
 					const key = staticKey(node);
 					if (key === null || key === "of") context.report({ node, message: built });
+					else if (!ACTOR_STATICS.has(key)) context.report({ node, message: passed });
 				}
 				if (staticKey(node) === ACTOR_CLASS && !throughMember(node)) context.report({ node, message: passed });
 			},
 			Identifier(node) {
 				if (locals.has(node.name) && isValueReference(node) && !throughMember(node))
+					context.report({ node, message: passed });
+			},
+			ExportSpecifier(node) {
+				const local = nameOf(node.local);
+				if ((local === ACTOR_CLASS || locals.has(local)) && nameOf(node.exported) !== ACTOR_CLASS)
+					context.report({ node, message: passed });
+			},
+			Property(node) {
+				const renamed = node.value.type !== "Identifier" || node.value.name !== ACTOR_CLASS;
+				if (node.parent.type === "ObjectPattern" && keyName(node.key, node.computed) === ACTOR_CLASS && renamed)
 					context.report({ node, message: passed });
 			},
 		};

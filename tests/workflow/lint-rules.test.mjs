@@ -697,8 +697,16 @@ export const i = access.RequestActor;
 export const j = (s: string) => RequestActor.resolve({} as never, s);
 export const k = (s: string) => access.RequestActor.claimWrite({} as never, s, {} as never);
 export type Held = Typed | RequestActor;
+export { RequestActor as Authority } from "@everyfield/domain/access";
+export { RA as Authority2, RequestActor };
+export const l = async () => (await import("@everyfield/domain/access")).RequestActor.claimWrite;
+export const m = async () => {
+	const { RequestActor: R } = await import("@everyfield/domain/access");
+	return R;
+};
+export const n = () => Reflect.construct(RequestActor.prototype.constructor, []);
 `;
-	const reported = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+	const reported = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 17, 18, 21, 24];
 	assert.deepEqual(
 		lint({
 			"packages/domain/src/wiki/forge.ts": forge,
