@@ -223,6 +223,7 @@ test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs e
 		"typecheck",
 		"test:unit",
 		"test:db",
+		"census",
 		"docs",
 		"ci-coverage",
 		"workflow",
@@ -404,10 +405,12 @@ function fakeDb({
 	listed,
 	fail,
 	tests = 4,
+	census = { status: 0, output: "" },
 }: {
 	listed: string[];
 	fail?: "docker" | "ready" | "migrate" | "@everyfield/db" | "zero";
 	tests?: number;
+	census?: { status: number; output: string; changes?: string[] };
 }) {
 	const calls: Call[] = [];
 	const run: Runner = (command, args, options) => {
@@ -420,6 +423,17 @@ function fakeDb({
 			return { status: 0, stdout: "", output: "" };
 		}
 		if (args.includes("db:migrate")) return { status: fail === "migrate" ? 1 : 0, stdout: "", output: "migrate" };
+		if (args.includes("test:db") && args.includes("@everyfield/domain")) {
+			const out = `${census.output}\nℹ tests ${fail === "zero" ? 0 : 9}`;
+			if (census.changes) {
+				writeFileSync(join(options.env.EVF_CENSUS_TIGHTENED!, "limits.json"), '{\n\t"a": { "limit": 1 }\n}\n');
+				writeFileSync(
+					join(options.env.EVF_CENSUS_TIGHTENED!, "changes.md"),
+					"### Statement budgets tightened\n\n" + census.changes.map((c) => `- ${c}\n`).join(""),
+				);
+			}
+			return { status: census.status, stdout: out, output: out };
+		}
 		if (args.includes("test:db")) {
 			const name = args[args.indexOf("--filter") + 1];
 			const out = fail === "zero" ? "ℹ tests 0" : `ℹ tests ${tests}\nℹ pass ${tests}`;
@@ -432,22 +446,105 @@ function fakeDb({
 const noWait = { readyTimeoutMs: 0, sleep: () => {}, watch: () => () => {} };
 const dbEntry = (record: CheckRecord) => record.checks.find((c) => c.id === "test:db")!;
 
-test("T-105 a packages/domain change runs no census: test:db is skipped with the reason", (t) => {
+const censusEntry = (record: CheckRecord) => record.checks.find((c) => c.id === "census")!;
+
+test("INV-check-census: a packages/domain change runs the whole census on a production build and a throwaway Postgres", (t) => {
 	const { root, home } = repo(t, { "packages/domain/src/a.ts": "export const a = 1;\n" }, DB_PACKAGES);
-	const { run, commands } = fakeDb({ listed: ["@everyfield/domain"] });
+	const { run, calls, commands } = fakeDb({ listed: ["@everyfield/domain"] });
 	const { record } = check({ root, full: false, home, run, database: noWait });
-	const entry = dbEntry(record);
-	assert.equal(entry.run, true);
-	assert.equal(entry.result, "skipped");
-	assert.equal(entry.command, null);
+	const db = dbEntry(record);
+	assert.equal(db.result, "skipped");
 	assert.equal(
-		entry.reason,
-		"package source: packages/domain/src/a.ts; only @everyfield/domain defines test:db, the statement census, which runs in GitHub CI only",
+		db.reason,
+		"package source: packages/domain/src/a.ts; only @everyfield/domain defines test:db, the statement census, which runs as the census check",
 	);
-	assert.ok(!commands().some((c) => c.startsWith("docker") || c.includes("test:db")), commands().join("\n"));
+	const entry = censusEntry(record);
+	assert.equal(entry.reason, "backend or database code: packages/domain/src/a.ts");
+	assert.equal(entry.result, "passed", entry.detail);
+	assert.equal(entry.tests, 9);
+	assert.equal(
+		entry.command,
+		"corepack pnpm --filter @everyfield/web run build; corepack pnpm --filter @everyfield/domain run test:db",
+	);
+	assert.equal(entry.database?.throwaway, true);
+	assert.equal(record.result, "passed");
+	const order = commands().filter((c) => /^docker (run|rm)|db:migrate|run build|test:db/.test(c));
+	assert.deepEqual(
+		order.map((c) => c.split(" ").slice(0, 2).join(" ") + " " + c.split(" ").at(-1)),
+		[
+			`docker run ${IMAGE}`,
+			"corepack pnpm db:migrate",
+			"corepack pnpm build",
+			"corepack pnpm test:db",
+			`docker rm ${entry.database!.container}`,
+		],
+	);
+	const censusRun = calls.find((c) => c.command.includes("@everyfield/domain run test:db"))!;
+	assert.match(censusRun.env.DATABASE_URL!, /^postgres:\/\/ci:[0-9a-f]{36}@127\.0\.0\.1:55432\/everyfield_ci$/);
+	assert.ok(censusRun.env.EVF_CENSUS_TIGHTENED, "the census gets a folder for the tightened limits.json");
 });
 
-test("T-105 a full run runs every test:db but the census, one after another on one throwaway Postgres", (t) => {
+test("INV-check-census: a docs-only diff skips the census and says why", (t) => {
+	const { root, home } = repo(t, { "docs/a.md": "b\n" }, DB_PACKAGES);
+	const { run, commands } = fakeDb({ listed: [] });
+	const { record } = check({ root, full: false, home, run, database: noWait });
+	const entry = censusEntry(record);
+	assert.deepEqual(
+		{ run: entry.run, result: entry.result, reason: entry.reason },
+		{ run: false, result: "skipped", reason: "the diff touches no backend or database code" },
+	);
+	assert.ok(!commands().some((c) => c.startsWith("docker") || c.includes("build")), commands().join("\n"));
+});
+
+test("INV-check-census: an over-budget write or an N+1 fails the census check and names the operation", (t) => {
+	const { root, home } = repo(
+		t,
+		{ "apps/web/src/server/jobs/mail.ts": "export const m = 1;\n" },
+		{ ...DB_PACKAGES, "apps/web/package.json": JSON.stringify({ name: "@everyfield/web", scripts: {} }) },
+	);
+	const problems = [
+		"people.createPerson: 7 statements, limit 6 (2 read, 1 write, 2 transaction, 2 locked read)",
+		"census.perRow: N+1, sends the same statement 3 times in one run: INSERT INTO note (id) VALUES (?); batch it into one set-based statement, or give limits.json a repeats reason",
+	];
+	const output = [
+		"✖ INV-census: every request and write stays within its statement budget",
+		"  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:",
+		"  + actual - expected",
+		"",
+		"  + [",
+		...problems.map((p, i) => `  +   '${p}'${i < problems.length - 1 ? "," : ""}`),
+		"  + ]",
+		"  - []",
+	].join("\n");
+	const { run } = fakeDb({ listed: ["@everyfield/web"], census: { status: 1, output } });
+	const { record } = check({ root, full: false, home, run, database: noWait });
+	assert.equal(censusEntry(record).result, "failed");
+	assert.equal(record.result, "failed");
+	assert.ok(
+		record.failures.includes(`census failed: statement census: ${problems.join("; ")}`),
+		record.failures.join("\n"),
+	);
+});
+
+test("INV-check-census: slack is no failure; the tightened limits.json lands in the worktree and the record", (t) => {
+	const { root, home } = repo(
+		t,
+		{ "packages/domain/src/a.ts": "export const a = 1;\n" },
+		{ ...DB_PACKAGES, "tests/integration/writes/limits.json": '{\n\t"a": { "limit": 2 }\n}\n' },
+	);
+	const changes = ['a: 1 statements at most, limit 2; tightened to {"limit":1}'];
+	const { run } = fakeDb({ listed: ["@everyfield/domain"], census: { status: 0, output: "", changes } });
+	const { record } = check({ root, full: false, home, run, database: noWait });
+	const entry = censusEntry(record);
+	assert.equal(entry.result, "passed", entry.detail);
+	assert.deepEqual(entry.tightened, changes);
+	assert.equal(
+		readFileSync(join(root, "tests/integration/writes/limits.json"), "utf8"),
+		'{\n\t"a": { "limit": 1 }\n}\n',
+	);
+});
+
+test("T-105 a full run runs every test:db, then the census, one after another on one throwaway Postgres", (t) => {
 	const { root, home } = repo(t, { "docs/a.md": "b\n" }, DB_PACKAGES);
 	const { run, calls, commands } = fakeDb({
 		listed: ["@everyfield/db", "@everyfield/domain", "@everyfield/evry", "@everyfield/ui"],
@@ -480,7 +577,7 @@ test("T-105 a full run runs every test:db but the census, one after another on o
 	const password = started.find((a) => a.startsWith("POSTGRES_PASSWORD="))!.slice("POSTGRES_PASSWORD=".length);
 	assert.match(password, /^[0-9a-f]{36}$/);
 	assert.ok(!readFileSync(recordPath, "utf8").includes(password), "the record holds the password");
-	const order = commands().filter((c) => c.startsWith("docker") || c.includes("db:migrate") || c.includes("test:db"));
+	const order = commands().filter((c) => c.startsWith("docker") || /db:migrate|test:db|run build/.test(c));
 	assert.deepEqual(
 		order.map((c) => c.split(" ").slice(0, 2).join(" ")),
 		[
@@ -491,28 +588,47 @@ test("T-105 a full run runs every test:db but the census, one after another on o
 			"corepack pnpm",
 			"corepack pnpm",
 			"corepack pnpm",
+			"corepack pnpm",
+			"corepack pnpm",
 			"docker rm",
 		],
 	);
+	assert.deepEqual(
+		order.filter((c) => c.startsWith("corepack")).map((c) => c.replace("corepack pnpm ", "")),
+		[
+			"db:migrate",
+			"--filter @everyfield/db run test:db",
+			"--filter @everyfield/evry run test:db",
+			"--filter @everyfield/web run build",
+			"--filter @everyfield/domain run test:db",
+		],
+	);
+	assert.equal(censusEntry(record).database?.container, container);
 	assert.ok(order.at(-1)!.endsWith(container));
-	assert.ok(!commands().some((c) => c.includes("@everyfield/domain")), commands().join("\n"));
 	const url = `postgres://ci:${password}@127.0.0.1:55432/everyfield_ci`;
-	for (const c of calls.filter((c) => c.command.includes("db:migrate") || c.command.includes("test:db")))
-		assert.deepEqual(
-			{ ...c.env, PATH: undefined },
-			{ PATH: undefined, DATABASE_URL: url, DATABASE_URL_UNPOOLED: url, EARLY_ACCESS_TEST_DATABASE: "1", CI: "true" },
-		);
-	for (const c of calls.filter((c) => !c.command.includes("db:migrate") && !c.command.includes("test:db")))
-		assert.equal(c.env.DATABASE_URL, undefined, c.command);
+	const database = { DATABASE_URL: url, DATABASE_URL_UNPOOLED: url, EARLY_ACCESS_TEST_DATABASE: "1", CI: "true" };
+	const usesDatabase = (c: Call) => /db:migrate|test:db|run build/.test(c.command);
+	for (const c of calls.filter(usesDatabase)) {
+		const { PATH: _, EVF_CENSUS_TIGHTENED: tightened, NEXT_TELEMETRY_DISABLED: telemetry, ...rest } = c.env;
+		assert.deepEqual(rest, database, c.command);
+		assert.equal(Boolean(tightened), c.command.includes("@everyfield/domain"), c.command);
+		assert.equal(telemetry, c.command.includes("run build") ? "1" : undefined, c.command);
+	}
+	for (const c of calls.filter((c) => !usesDatabase(c))) assert.equal(c.env.DATABASE_URL, undefined, c.command);
 });
 
-test("T-105 each database failure fails test:db and the run with its reason, never skipped or passed", async (t) => {
-	const cases: [Parameters<typeof fakeDb>[0]["fail"], string, boolean][] = [
-		["docker", "test:db failed: Docker cannot be reached: Cannot connect to the Docker daemon", false],
-		["ready", "test:db failed: the database was not ready within 0 s", true],
-		["migrate", "test:db failed: pnpm db:migrate failed on the throwaway database", true],
-		["@everyfield/db", "test:db failed: @everyfield/db test:db failed", true],
-		["zero", "test:db failed: @everyfield/db reported 0 tests", true],
+test("T-105 each database failure fails test:db, the census and the run with its reason, never skipped or passed", async (t) => {
+	const both = (detail: string) => [`test:db failed: ${detail}`, `census failed: ${detail}`];
+	const cases: [Parameters<typeof fakeDb>[0]["fail"], string[], boolean][] = [
+		["docker", both("Docker cannot be reached: Cannot connect to the Docker daemon"), false],
+		["ready", both("the database was not ready within 0 s"), true],
+		["migrate", both("pnpm db:migrate failed on the throwaway database"), true],
+		["@everyfield/db", ["test:db failed: @everyfield/db test:db failed"], true],
+		[
+			"zero",
+			["test:db failed: @everyfield/db reported 0 tests", "census failed: the statement census reported 0 tests"],
+			true,
+		],
 	];
 	for (const [fail, failure, started] of cases)
 		await t.test(String(fail), (t) => {
@@ -521,7 +637,7 @@ test("T-105 each database failure fails test:db and the run with its reason, nev
 			const { record } = check({ root, full: false, home, run, database: noWait });
 			assert.equal(dbEntry(record).result, "failed");
 			assert.equal(record.result, "failed");
-			assert.deepEqual(record.failures, [failure]);
+			assert.deepEqual(record.failures, failure);
 			const run_ = commands().find((c) => c.startsWith("docker run "));
 			assert.equal(Boolean(run_), started);
 			if (run_) {

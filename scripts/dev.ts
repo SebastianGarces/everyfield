@@ -13,13 +13,16 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
         checks.json record outside the repo and prints its path. Selection reads the coverage map of the latest
         green GitHub nightly (.github/workflows/nightly.yml), downloaded with gh; without one it runs everything
-        checks: lint, typecheck, test:unit, test:db, docs, ci-coverage, workflow, tools-ci, tools-qa, tools-app, github-scripts, ops-watch
+        checks: lint, typecheck, test:unit, test:db, census, docs, ci-coverage, workflow, tools-ci, tools-qa, tools-app, github-scripts, ops-watch
         test:db runs the selected packages' database tests on a throwaway local Postgres (CI's image in Docker,
         removed when the run ends), so it needs Docker; it never uses the shared development database
+        census runs for a diff that touches backend or database code (and in --full): a production build, then the
+        whole statement census on its own throwaway Postgres. Over budget, N+1 and a missing budget fail it; slack
+        and stale reasons only tighten tests/integration/writes/limits.json in the worktree, so commit that file
         check first removes orphaned qa-test-* containers: older than EVERYFIELD_QA_SWEEP_MINUTES (default 120)
         and owned by no live run
-        GitHub CI also runs: format:check, test:logs, the statement census with the one build then server-trace,
-        schema generate --check, wiki
+        GitHub CI also runs: format:check, the statement census in parts with the one build then server-trace,
+        schema generate --check, wiki; the GitHub nightly runs test:logs
         The GitHub nightly also runs: every selectable test under coverage, typecheck:bun (bun check, until T-53),
         the tests/ui set in chromium and webkit on a seeded build over its own Postgres (scripts/nightly-ui.ts), and
         the formal replay: permissions behaviors from a fresh random seed replayed on its own Postgres; a disagreement

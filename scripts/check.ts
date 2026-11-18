@@ -1,5 +1,14 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+	copyFileSync,
+	existsSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	renameSync,
+	rmSync,
+	writeFileSync,
+} from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
 import {
@@ -64,6 +73,7 @@ export type CheckRecord = {
 		detail?: string;
 		packages?: { name: string; command: string; result: Result; tests: number | null }[];
 		database?: { throwaway: true; image: string; container: string };
+		tightened?: string[];
 	}[];
 	tests: { file: string; check: CheckId; run: boolean; reason: string; result: Result; tests: number | null }[];
 };
@@ -209,6 +219,25 @@ export function check({
 		tests: null,
 	}));
 	const checks: CheckRecord["checks"] = [];
+	let throwaway: Throwaway | DatabaseError | undefined;
+	const postgres = () => {
+		if (!throwaway)
+			try {
+				throwaway = startPostgres({
+					root,
+					env,
+					run,
+					readyTimeoutMs: 60_000,
+					sleep: sleepSync,
+					watch: watchProcess,
+					...database,
+				});
+			} catch (error) {
+				if (!(error instanceof DatabaseError)) throw error;
+				throwaway = error;
+			}
+		return throwaway;
+	};
 	for (const id of Object.keys(CHECKS) as CheckId[]) {
 		const decision = selection.checks[id];
 		const entry: CheckRecord["checks"][number] = {
@@ -249,7 +278,7 @@ export function check({
 			const defining = input.packages.filter((p) => names.includes(p.name) && p.scripts[definition.script]);
 			if (id === "test:db" && defining.length && defining.every((p) => p.name === CENSUS_PACKAGE)) {
 				entry.result = "skipped";
-				entry.reason += `; only ${CENSUS_PACKAGE} defines test:db, the statement census, which runs in GitHub CI only`;
+				entry.reason += `; only ${CENSUS_PACKAGE} defines test:db, the statement census, which runs as the census check`;
 				continue;
 			}
 			if (!defining.length) {
@@ -259,7 +288,7 @@ export function check({
 			}
 			if (id === "test:db") {
 				const runnable = defining.map((p) => p.name).filter((name) => name !== CENSUS_PACKAGE);
-				databaseTests(entry, runnable.sort(), { root, env, run, ...database });
+				databaseTests(entry, runnable.sort(), { root, env, run, postgres });
 				entry.durationMs = Date.now() - t0;
 				continue;
 			}
@@ -268,6 +297,13 @@ export function check({
 			if (id === "test:unit") {
 				entry.tests = testCount(r.output);
 				if (entry.tests === 0) entry.result = "failed";
+			}
+		} else if (definition.kind === "census") {
+			if (input.packages.some((p) => p.name === CENSUS_PACKAGE && p.scripts["test:db"]))
+				census(entry, { root, env, run, postgres });
+			else {
+				entry.result = "skipped";
+				entry.reason += `; ${CENSUS_PACKAGE} defines no test:db`;
 			}
 		} else if (definition.kind === "command") {
 			const [command, ...args] = definition.command;
@@ -302,6 +338,7 @@ export function check({
 		}
 		entry.durationMs = Date.now() - t0;
 	}
+	if (throwaway && !(throwaway instanceof DatabaseError)) throwaway.stop();
 	if (selection.mode === "selected" && !checks.some((c) => c.run))
 		failures.push("the diff selected no checks, so nothing proves it; run bin/dev check --full");
 	for (const c of checks)
@@ -329,12 +366,19 @@ export function check({
 	return { record, recordPath };
 }
 
+type Throwaway = ReturnType<typeof startPostgres>;
+type DatabaseOptions = {
+	root: string;
+	env: Record<string, string>;
+	run: Runner;
+	postgres: () => Throwaway | DatabaseError;
+};
+
 function databaseTests(
 	entry: CheckRecord["checks"][number],
 	names: string[],
-	options: Omit<PostgresOptions, "readyTimeoutMs" | "sleep" | "watch"> & Partial<PostgresOptions>,
+	{ root, env, run, postgres }: DatabaseOptions,
 ) {
-	const { root, env, run } = options;
 	entry.packages = names.map((name) => ({
 		name,
 		command: `corepack pnpm --filter ${name} run test:db`,
@@ -342,42 +386,86 @@ function databaseTests(
 		tests: null,
 	}));
 	entry.command = entry.packages.map((p) => p.command).join("; ");
-	const problems: string[] = [];
-	let db: ReturnType<typeof startPostgres>;
-	try {
-		db = startPostgres({
-			readyTimeoutMs: 60_000,
-			sleep: sleepSync,
-			watch: watchProcess,
-			...options,
-		});
-	} catch (error) {
-		if (!(error instanceof DatabaseError)) throw error;
+	const db = postgres();
+	if (db instanceof DatabaseError) {
 		entry.result = "failed";
-		entry.detail = error.message;
+		entry.detail = db.message;
 		return;
 	}
-	try {
-		entry.database = { throwaway: true, image: db.image, container: db.container };
-		for (const p of entry.packages) {
-			console.error(`check test:db: ${p.command} on ${db.container}`);
-			const r = run("corepack", ["pnpm", "--filter", p.name, "run", "test:db"], {
-				cwd: root,
-				env: { ...env, ...databaseEnv(db.url) },
-			});
-			const output = r.output.replaceAll(db.password, "***");
-			process.stderr.write(output.endsWith("\n") || !output ? output : output + "\n");
-			p.tests = testCount(r.output);
-			p.result = r.status === 0 && p.tests > 0 ? "passed" : "failed";
-			if (p.result === "failed")
-				problems.push(r.status === 0 ? `${p.name} reported 0 tests` : `${p.name} test:db failed`);
-		}
-	} finally {
-		db.stop();
+	const problems: string[] = [];
+	entry.database = { throwaway: true, image: db.image, container: db.container };
+	for (const p of entry.packages) {
+		console.error(`check test:db: ${p.command} on ${db.container}`);
+		const r = run("corepack", ["pnpm", "--filter", p.name, "run", "test:db"], {
+			cwd: root,
+			env: { ...env, ...databaseEnv(db.url) },
+		});
+		const output = r.output.replaceAll(db.password, "***");
+		process.stderr.write(output.endsWith("\n") || !output ? output : output + "\n");
+		p.tests = testCount(r.output);
+		p.result = r.status === 0 && p.tests > 0 ? "passed" : "failed";
+		if (p.result === "failed")
+			problems.push(r.status === 0 ? `${p.name} reported 0 tests` : `${p.name} test:db failed`);
 	}
 	entry.tests = entry.packages.reduce((sum, p) => sum + (p.tests ?? 0), 0);
 	entry.result = problems.length ? "failed" : "passed";
 	if (problems.length) entry.detail = problems.join("; ");
+}
+
+export const LIMITS = "tests/integration/writes/limits.json";
+const CENSUS_PROBLEM = /^\s*\+\s+'(.+)',?$/gm;
+
+function census(entry: CheckRecord["checks"][number], { root, env, run, postgres }: DatabaseOptions) {
+	const build = ["corepack", "pnpm", "--filter", "@everyfield/web", "run", "build"];
+	const test = ["corepack", "pnpm", "--filter", CENSUS_PACKAGE, "run", "test:db"];
+	entry.command = `${build.join(" ")}; ${test.join(" ")}`;
+	const db = postgres();
+	if (db instanceof DatabaseError) {
+		entry.result = "failed";
+		entry.detail = db.message;
+		return;
+	}
+	const tightenedDir = mkdtempSync(join(tmpdir(), "evf-census-tightened-"));
+	try {
+		entry.database = { throwaway: true, image: db.image, container: db.container };
+		const dbEnv = { ...env, ...databaseEnv(db.url) };
+		const show = (output: string) => {
+			const text = output.replaceAll(db.password, "***");
+			process.stderr.write(text.endsWith("\n") || !text ? text : text + "\n");
+			return text;
+		};
+		console.error(`check census: ${build.join(" ")}`);
+		const built = run(build[0]!, build.slice(1), { cwd: root, env: { ...dbEnv, NEXT_TELEMETRY_DISABLED: "1" } });
+		show(built.output);
+		if (built.status !== 0) {
+			entry.result = "failed";
+			entry.detail = "the production build for the request budgets failed";
+			return;
+		}
+		console.error(`check census: ${test.join(" ")} on ${db.container}`);
+		const r = run(test[0]!, test.slice(1), { cwd: root, env: { ...dbEnv, EVF_CENSUS_TIGHTENED: tightenedDir } });
+		const output = show(r.output);
+		entry.tests = testCount(r.output);
+		entry.result = r.status === 0 && entry.tests > 0 ? "passed" : "failed";
+		if (entry.result === "failed") {
+			const problems = [...new Set([...output.matchAll(CENSUS_PROBLEM)].map((m) => m[1]!))];
+			entry.detail = problems.length
+				? `statement census: ${problems.join("; ")}`
+				: r.status === 0
+					? "the statement census reported 0 tests"
+					: "the statement census failed; see its output above";
+		}
+		const tightened = join(tightenedDir, "limits.json");
+		if (existsSync(tightened)) {
+			copyFileSync(tightened, join(root, LIMITS));
+			entry.tightened = readFileSync(join(tightenedDir, "changes.md"), "utf8")
+				.split("\n")
+				.filter((line) => line.startsWith("- "))
+				.map((line) => line.slice(2));
+		}
+	} finally {
+		rmSync(tightenedDir, { recursive: true, force: true });
+	}
 }
 
 export function checkCommand(args: string[], root: string): number {
@@ -392,6 +480,11 @@ export function checkCommand(args: string[], root: string): number {
 	console.log(`check ${record.mode}: ${record.result}. Ran ${ran.join(", ") || "nothing"}.`);
 	if (record.mode === "full") console.log(`Full because ${record.fullReasons.join("; ")}.`);
 	for (const failure of record.failures) console.log(`FAIL ${failure}`);
+	const tightened = record.checks.flatMap((c) => c.tightened ?? []);
+	if (tightened.length) {
+		console.log(`The census tightened ${LIMITS} in this worktree; commit it in this change:`);
+		for (const change of tightened) console.log(`  ${change}`);
+	}
 	console.log(`check record: ${recordPath}`);
 	return record.result === "passed" ? 0 : 1;
 }

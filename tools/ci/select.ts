@@ -5,6 +5,7 @@ export const CHECKS = {
 	typecheck: { kind: "package", script: "typecheck" },
 	"test:unit": { kind: "package", script: "test:unit" },
 	"test:db": { kind: "package", script: "test:db" },
+	census: { kind: "census" },
 	docs: { kind: "command", command: ["python3", "docs/check-all.py"] },
 	"ci-coverage": { kind: "command", command: ["node", "tools/ci/ci-tests.ts"] },
 	workflow: { kind: "suite", root: "tests/workflow", files: "tests/workflow/*.test.{mjs,ts}" },
@@ -19,6 +20,7 @@ export type CheckId = keyof typeof CHECKS;
 type Check =
 	| { kind: "package"; script: string }
 	| { kind: "command"; command: readonly string[] }
+	| { kind: "census" }
 	| { kind: "suite"; root: string; files: string };
 export type SuiteId = { [K in CheckId]: (typeof CHECKS)[K] extends { kind: "suite" } ? K : never }[CheckId];
 
@@ -119,6 +121,23 @@ export const RULES: readonly Rule[] = [
 		paths: ["packages/evry/src/adapters/**", "tests/evry/evals/**"],
 		tests: ["tests/workflow/evry-evals-coverage.test.mjs"],
 	},
+	{
+		name: "backend or database code",
+		paths: [
+			"packages/domain/**",
+			"packages/db/**",
+			"packages/reference/**",
+			"apps/web/src/server/**",
+			"apps/web/src/features/**/server.ts",
+			"apps/web/src/features/**/*-server.ts",
+			"apps/web/src/features/**/actions.ts",
+			"apps/web/src/features/**/routes.tsx",
+			"apps/web/src/features/**/*-route.ts",
+			"apps/web/src/app/**/route.ts",
+			"tests/integration/**",
+		],
+		checks: ["census"],
+	},
 	{ name: "web app under a dev server", paths: ["apps/web/**"], tests: ["tests/workflow/server-logs.test.mjs"] },
 	{
 		name: "lint rules and their baselines",
@@ -188,6 +207,7 @@ export type Context = {
 };
 
 export type Decision = { run: boolean; reason: string };
+export const NO_CENSUS = "the diff touches no backend or database code";
 export type Selection = {
 	mode: "selected" | "full";
 	fullReasons: string[];
@@ -306,7 +326,7 @@ export function selectChecks(
 				id,
 				why
 					? { run: true, reason: [...new Set(why)].join("; ") }
-					: { run: false, reason: "no changed path selects it" },
+					: { run: false, reason: id === "census" ? NO_CENSUS : "no changed path selects it" },
 			];
 		}),
 	) as Selection["checks"];
