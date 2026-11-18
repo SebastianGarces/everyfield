@@ -115,7 +115,7 @@ export function KitCard({
 		.filter((g) => g.items.length > 0);
 	return (
 		<Card as="section" aria-labelledby="kit-title" className={fill ? FILL_CARD : undefined}>
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="kit-title">Vision kit</CardTitle>
 					<CardDescription>
@@ -137,7 +137,6 @@ export function KitCard({
 							<Checkbox
 								key={k.id}
 								shape="round"
-								className="py-2"
 								label={<span className={k.checked ? "text-text-3 line-through" : undefined}>{k.text}</span>}
 								description={k.assignee ? k.assignee.displayName : undefined}
 								checked={k.checked}

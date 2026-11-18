@@ -40,12 +40,12 @@ export function LaunchLoading() {
 			<span className="sr-only" role="status">
 				Loading the Launch plan
 			</span>
-			<Skeleton className="h-14 w-72 rounded-card" />
+			<Skeleton className="h-14 w-72" />
 			<div className="grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.9fr)] gap-5 max-app-md:grid-cols-1">
-				<Skeleton className="h-72 rounded-card" />
-				<Skeleton className="h-72 rounded-card" />
+				<Skeleton className="h-72" />
+				<Skeleton className="h-72" />
 			</div>
-			<Skeleton className="h-96 rounded-card" />
+			<Skeleton className="h-96" />
 		</div>
 	);
 }

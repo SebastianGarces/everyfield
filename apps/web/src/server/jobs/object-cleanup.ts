@@ -1,6 +1,6 @@
 import "server-only";
 import type { Database } from "@everyfield/db/client";
-import { deleteUnreferencedObject, type PrivateStorage } from "@everyfield/db/schema";
+import { deleteUnreferencedObject, StorageError, type PrivateStorage } from "@everyfield/db/schema";
 import { claimDue, finishJob, recoverLease, type JobResult } from "./queue.ts";
 
 export async function runDueObjectCleanup(db: Database, storage: PrivateStorage, limit: number, until = Infinity) {
@@ -18,7 +18,7 @@ export async function runDueObjectCleanup(db: Database, storage: PrivateStorage,
 						file.tenant_id === claim.tenant_id ? { kind: "system", cause: "object_cleanup" } : null,
 					fileId,
 				).catch((error: unknown) => {
-					if (error instanceof Error && error.message === "unavailable") return { status: "kept" as const };
+					if (error instanceof StorageError && error.code === "unavailable") return { status: "kept" as const };
 					throw error;
 				})
 			: { status: "kept" as const };

@@ -13,10 +13,9 @@ import {
 	type ReactNode,
 } from "react";
 import { buttonClass } from "@/components/ButtonLink";
-import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
-import { useFocusRequest } from "@everyfield/ui/foundations";
+import { cn, useFocusRequest } from "@everyfield/ui/foundations";
 import { revealProps, revealRef } from "@/components/motion/Reveal";
 import { stepAccessForm, submitAccessRequest } from "./actions";
 import { HONEYPOT, validateAccessRequest, type FieldErrorCode } from "./contract";
@@ -400,7 +399,6 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 										"[transition:border-color_.15s,background-color_.15s,box-shadow_.15s] hover:border-ink/40 motion-reduce:transition-none",
 										"has-checked:border-ink has-checked:bg-white has-checked:shadow-[inset_0_0_0_1px_var(--color-ink)]",
 										"has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-green-600",
-										whoErr && "border-magenta-600",
 									)}
 								>
 									<input

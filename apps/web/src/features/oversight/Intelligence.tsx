@@ -99,7 +99,7 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 								aria-current={view.level === l ? "page" : undefined}
 								className={cn(
 									"inline-flex flex-none items-center rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
-									view.level === l && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
+									view.level === l && "bg-surface-raised shadow-[var(--ef-shadow-raised)]",
 								)}
 							>
 								{words.levels[l]}

@@ -226,7 +226,7 @@ export function Sheet({
 		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
 			{trigger ? <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger> : null}
 			<DialogPrimitive.Portal container={container}>
-				{modal ? <DialogPrimitive.Overlay className={cn(SCRIM, "bg-ink-fixed/12 backdrop-blur-none")} /> : null}
+				{modal ? <DialogPrimitive.Overlay className={cn(SCRIM, "backdrop-blur-none")} /> : null}
 				<DialogPrimitive.Content
 					aria-modal={modal ? "true" : undefined}
 					{...focus}
