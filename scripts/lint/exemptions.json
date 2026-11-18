@@ -88,8 +88,8 @@
 					"react/refs": "Vendored Tiptap UI components keep upstream's code so later upstream updates stay comparable; editor/tiptap/README.md lists the Everyfield changes",
 					"react/immutability": "Vendored Tiptap UI components keep upstream's code so later upstream updates stay comparable; editor/tiptap/README.md lists the Everyfield changes"
 				},
-				"**/*.test.*, **/test/**, **/tests/**, src/features/communication/mail.ts, src/server/jobs/resend.ts": {
-					"everyfield/resend-senders": "Tests drive fake mail providers, and mail.ts and server/jobs/resend.ts are the two guarded senders in apps/web"
+				"**/*.test.*, **/test/**, **/tests/**, src/server/mail/transport.ts, src/server/jobs/resend.ts": {
+					"everyfield/resend-senders": "Tests drive fake mail providers, and server/mail/transport.ts and server/jobs/resend.ts are the two guarded senders in apps/web"
 				},
 				"src/app/layout.tsx": {
 					"everyfield/no-inner-html": "The root layout's own constant script sets the reader flags before the first paint, and React gives an inline script its code only through dangerouslySetInnerHTML"

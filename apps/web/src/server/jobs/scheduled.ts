@@ -20,7 +20,7 @@ import { transaction } from "../platform/database.ts";
 import { planDigests, type DigestWorker } from "./digest.ts";
 import { runDuePurges } from "./lifecycle-purge.ts";
 import { expireStaleMail, type MailPass, type MailPassName } from "./mail.ts";
-import type { NotificationWorker } from "./notification-worker.ts";
+import type { NotificationWorker } from "../../features/notifications/worker.ts";
 import { runDueObjectCleanup } from "./object-cleanup.ts";
 import { replayStoredCallbacks } from "./webhook.ts";
 
