@@ -25,6 +25,12 @@ A path in an `evf.toml` owner class also waits for Sebastian. The classes are `d
 
 evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in history.
 
+## Pinging Jonah
+
+Outside a seat, when you need Jonah, run `evf ping need --kind decision|gate|question|stuck|limit|merge --msg "<1-2 sentences>"`
+and wait. When done, run `evf ping done --kind done --msg "<what finished>" --link <PR or file>` (add `--task T-<n>`).
+In a seat, evf pings him itself for `evf ask owner`, a stuck or environment failure, a usage limit and a landing.
+
 ## Rules
 
 - Three guards hold. Everything else is your judgment.
