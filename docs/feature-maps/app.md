@@ -328,12 +328,13 @@ agent-browser wait --text "https://everyfield.app"
 agent-browser wait --text "monthly"
 ```
 
-- **apple-icon**: URL `/apple-icon`; no text "Page not found". As `visitor`, on the QA seed:
+- **apple-icon**: URL `/apple-icon`; no text "Page not found"; no text "Error". As `visitor`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/apple-icon"
 agent-browser wait --load networkidle
 agent-browser wait --url "**/apple-icon"
 agent-browser wait --fn "!document.body.innerText.includes(\"Page not found\")"
+agent-browser wait --fn "!document.body.innerText.includes(\"Error\")"
 ```
 

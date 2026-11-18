@@ -572,6 +572,9 @@
 						},
 						{
 							"noText": "Page not found"
+						},
+						{
+							"noText": "Error"
 						}
 					]
 				}
