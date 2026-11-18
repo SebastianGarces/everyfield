@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { DocumentsScreen } from "./DocumentsScreen.tsx";
 import { parseQuery } from "./model.ts";
 import { canEditDocuments, canStoreDocuments, loadDocuments, writtenScope } from "./server.ts";
-import { params } from "../shared/search-params.ts";
+import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export const documentsMetadata: Metadata = { title: "Documents", robots: { index: false, follow: false } };

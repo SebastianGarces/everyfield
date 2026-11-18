@@ -8,7 +8,7 @@ import { useRef, useState } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Wait } from "../../components/save/model.ts";
-import { offsetText } from "../shared/dates.ts";
+import { offsetText } from "../../components/dates.ts";
 import { createTask, editTask } from "./actions.ts";
 import { AssigneePicker, forgetAssignees } from "./AssigneePicker.tsx";
 import { relationOptions } from "./fetch.ts";

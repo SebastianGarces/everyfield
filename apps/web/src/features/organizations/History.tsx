@@ -6,7 +6,7 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
 import { historyReason, subjectOf } from "./model";
-import { formatDay } from "../shared/dates.ts";
+import { formatDay } from "../../components/dates.ts";
 import type { History, HistoryItem, NameOf, RelationshipPair } from "./port";
 
 export type ReadHistory = (after: string | null) => Promise<{ status: "unavailable" } | History>;
