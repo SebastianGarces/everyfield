@@ -18,10 +18,11 @@ import {
 import { cache } from "react";
 import "server-only";
 import { z } from "zod";
-import { mailEnv } from "../mail-env.ts";
-import { database } from "../database";
-import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
-import { getViewer } from "../request-context";
+import { mailEnv } from "../../server/mail-env.ts";
+import { database } from "../../server/database";
+import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../../server/jobs/mail";
+import { getViewer } from "../../server/request-context";
+import { invitationLink } from "../../server/invitations";
 
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
@@ -62,7 +63,7 @@ function create(v: z.infer<typeof env>) {
 	const effects: OrganizationEffects = {
 		async invitation(tx, input, writes) {
 			if (input.owner.kind === "global") throw new Error("unavailable");
-			const link = `${v.IDENTITY_ORIGIN}/connections/respond?invitation=${input.invitationId}#${input.proof}`;
+			const link = invitationLink(v.IDENTITY_ORIGIN, "/connections/respond", input.invitationId, input.proof);
 			await mail.append(
 				tx,
 				{
