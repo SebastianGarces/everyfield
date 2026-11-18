@@ -11,9 +11,9 @@ import type { ReactNode } from "react";
 import { parseQuery, querySearch } from "./model.ts";
 import { PeopleScreen } from "./PeopleScreen.tsx";
 import { PersonScreen } from "./PersonScreen.tsx";
-import { canWrite } from "../shared/seat-role.ts";
+import { canWrite } from "../../components/seat-role.ts";
 import { loadPeople, loadPerson, type Viewer } from "./server.ts";
-import { params } from "../shared/search-params.ts";
+import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {

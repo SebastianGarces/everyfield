@@ -7,7 +7,7 @@ import { useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
 import { useIntent } from "./intent";
 import { NEVER_SHARED, subjectName } from "./model";
-import { formatDay } from "../shared/dates.ts";
+import { formatDay } from "../../components/dates.ts";
 import { PrivateLine, ProblemLine } from "./parts";
 import type { NameOf, Invitation, Run } from "./port";
 
