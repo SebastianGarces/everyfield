@@ -1,5 +1,5 @@
 import { createElement as h, Fragment, type ReactNode } from "react";
-import { parseMarkdown, type Inline } from "./markdown.ts";
+import { parseMarkdown, type Inline } from "../../../components/markdown.ts";
 
 const CODE = "rounded-sm bg-surface-2 px-1 py-0.5 font-mono text-[0.9em] text-ink";
 const LINK = "text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]";
