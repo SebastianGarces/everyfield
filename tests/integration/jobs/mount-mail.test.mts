@@ -14,7 +14,7 @@ import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/s
 import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
-import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/server/onboarding/index.ts";
+import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/features/onboarding/mount.ts";
 import {
 	current as organizationMount,
 	organizationMailPass,
