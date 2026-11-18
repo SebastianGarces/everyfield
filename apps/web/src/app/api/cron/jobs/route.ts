@@ -5,7 +5,7 @@ import { noticeMailPass, notificationsMount } from "@/features/notifications/wor
 import { tasksMount } from "@/features/tasks/mount";
 import { runDueInvitationMail } from "@/server/invitations";
 import { identityMailPass } from "@/server/identity";
-import { organizationMailPass } from "@/server/organizations";
+import { organizationMailPass } from "@/features/organizations/mount";
 import { onboardingMailPass } from "@/features/onboarding/mount";
 import { settingsMailPass } from "@/features/settings/mail";
 import { feedbackMailPass } from "@/features/feedback/mail";

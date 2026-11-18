@@ -1,5 +1,5 @@
 import "server-only";
-import { loadPipelineExport, pipelineActor } from "@/server/organizations/pipeline";
+import { loadPipelineExport, pipelineActor } from "../pipeline-mount";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 
