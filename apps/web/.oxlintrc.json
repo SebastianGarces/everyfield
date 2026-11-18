@@ -1261,7 +1261,7 @@
 				"**/*.test.*",
 				"**/test/**",
 				"**/tests/**",
-				"src/features/communication/mail.ts",
+				"src/server/mail/transport.ts",
 				"src/server/jobs/resend.ts"
 			],
 			"rules": {

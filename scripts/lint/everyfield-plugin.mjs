@@ -50,7 +50,7 @@ const resendSenders = {
 	meta: { type: "problem" },
 	create(context) {
 		const message =
-			"Only the guarded senders (mail.ts, server/jobs/resend.ts, early-access) may reach Resend: send mail through them, so mailRecipientAllowed runs first.";
+			"Only the guarded senders (server/mail/transport.ts, server/jobs/resend.ts, early-access) may reach Resend: send mail through them, so mailRecipientAllowed runs first.";
 		const host = (node) => {
 			if (text(node)?.includes(RESEND_HOST)) context.report({ node, message });
 		};
