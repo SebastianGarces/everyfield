@@ -1,5 +1,5 @@
 {
 	"public": {
-		"AccessStates.tsx": "NotAvailable is imported by documents, identity, organizations, oversight and residency until it moves to features/shared"
+		"AccessStates.tsx": "NotAvailable is imported by documents, identity, organizations, oversight and residency until it moves to apps/web/src/components"
 	}
 }
