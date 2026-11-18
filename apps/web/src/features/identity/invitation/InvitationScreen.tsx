@@ -22,7 +22,7 @@ import { Avatar } from "@everyfield/ui/display";
 import { useCallback, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useOneTimeLinkValue } from "../../../components/location.ts";
 import { NotAvailable } from "../../access/AccessStates";
-import { Refusal, useIntent, useLoad } from "../../organizations/intent";
+import { Refusal, useIntent, useLoad } from "../../../components/intent.ts";
 import { ProblemLine } from "../../organizations/parts";
 import { ResidencyDisclosure } from "../../organizations/Residency";
 import { identityApi, loadPage } from "../api";

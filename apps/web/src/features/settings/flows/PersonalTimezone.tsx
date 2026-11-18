@@ -8,7 +8,7 @@ import type { TimezonePreference } from "../port";
 import type { Outcome, Refusal } from "../save";
 import { SaveError } from "../SettingsDialog";
 import { useFlows } from "../store";
-import { formatInstant, formatLocalDate, nextMonday, zoneLabel } from "../time";
+import { formatInstant, formatLocalDate, nextMonday, zoneLabel } from "../../../components/time.ts";
 import { usePersonalZoneChoice } from "./usePersonalZoneChoice";
 import { ZonePicker } from "./ZonePicker";
 

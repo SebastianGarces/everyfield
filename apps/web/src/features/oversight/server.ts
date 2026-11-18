@@ -9,8 +9,8 @@ import {
 	readIntelligence,
 } from "@everyfield/domain/oversight";
 import "server-only";
-import { requestDatabase } from "../database";
-import { getViewer } from "../request-context";
+import { requestDatabase } from "../../server/database";
+import { getViewer } from "../../server/request-context";
 
 export type OversightViewer = {
 	authority: RequestActor;
