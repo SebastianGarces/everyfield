@@ -210,6 +210,9 @@ const READ_AREAS: Record<string, string> = {
 	calendar: "Work out dates and times in your church's time zone, including the daylight saving changes.",
 	wiki: "Find what the Wiki says, what to read next and where you left off.",
 	documents: "Find your church's documents and the Church Document templates.",
+	dashboard: "Read your church's overview: its numbers, recent activity and what setup still needs.",
+	feedback: "Read the feedback you sent about Everyfield and where each one stands.",
+	launch: "Read the Launch plan: the countdown, milestones, Launch history and Launch Sunday's guests.",
 };
 const WRITE_AREAS: { prefix: string; text: string }[] = [
 	{
@@ -242,6 +245,8 @@ const WRITE_AREAS: { prefix: string; text: string }[] = [
 		prefix: "seats.",
 		text: "Prepare seat, invitation, church settings, sharing and connection changes for your review.",
 	},
+	{ prefix: "launch.", text: "Prepare Launch plan changes for your review, as your seat allows." },
+	{ prefix: "feedback.", text: "Send feedback about Everyfield after you review it." },
 	{ prefix: "pipeline.", text: "Prepare a pipeline stage move or a new program for your review." },
 	{
 		prefix: "onboarding.declareJourney",

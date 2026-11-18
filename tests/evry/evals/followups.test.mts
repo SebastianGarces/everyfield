@@ -76,10 +76,24 @@ test("AC:EVRY-CONTEXT-BOUNDS the seeded church has 5 live people; Daniel and Len
 	}
 });
 
-test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never suggest the signed-in user and still count them", async () => {
+test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never suggest the signed-in user and still count them", async (t) => {
 	assert.ok(cases.length >= 5);
 	const model = recorded.model();
 	const failures: string[] = [];
+	const Real = Date;
+	const shift = NOW.getTime() - Real.now();
+	globalThis.Date = class extends Real {
+		constructor(...args: unknown[]) {
+			if (args.length) super(...(args as [string]));
+			else super(Real.now() + shift);
+		}
+		static override now() {
+			return Real.now() + shift;
+		}
+	} as unknown as DateConstructor;
+	t.after(() => {
+		globalThis.Date = Real;
+	});
 	for (const c of cases) {
 		const who = c.actor === "lena" ? lena : daniel;
 		const me = c.actor === "lena" ? "Lena" : "Daniel";

@@ -242,7 +242,8 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 	const memberAnswer = (await events(member, asked)).text;
 	assert.match(memberAnswer, /Find and count the people/);
 	assert.match(memberAnswer, /made by an Owner or Admin of this church/);
-	assert.match(memberAnswer, /Coming later:\n- Launch planning/);
+	assert.match(memberAnswer, /Read the Launch plan/);
+	assert.doesNotMatch(memberAnswer, /Coming later/);
 	assert.doesNotMatch(memberAnswer, /Tasks and reminders|Documents and the wiki/);
 	assert.doesNotMatch(memberAnswer, /Prepare (changes|emails)|propose/i);
 	assert.notEqual(memberAnswer, owned);
@@ -382,13 +383,13 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"onboarding.declareJourney",
 						"identity.answerLeadOnboarding",
 						"onboarding.complete",
+						"feedback.submit",
 						...taskWrites,
 						...wikiWrites,
 						"documents.createFromTemplate",
 						"documents.exportNative",
 						"documents.archive",
 						"documents.designateCoreValues",
-						"feedback.submit",
 						"launch.schedule",
 						"launch.postpone",
 						"launch.recordOutcome",
@@ -407,9 +408,9 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							...MEMBER_MEETINGS_WRITES,
 							"account.finalizeAvatar",
 							"account.requestDeletion",
+							"feedback.submit",
 							...memberTaskWrites,
 							...wikiWrites,
-							"feedback.submit",
 						]
 					: who === "orgOwner"
 						? [
@@ -529,11 +530,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 						"seats.listInvitations",
 						"privacy.getSharing",
 						"onboarding.getResume",
+						...OVERVIEW_READS,
 						"calendar.getContext",
 						"calendar.resolve",
 						...wikiReads,
 						...documentsReads,
-						...OVERVIEW_READS,
 						"launch.readCountdown",
 						"launch.readWorkspace",
 						"launch.readJournal",
@@ -551,11 +552,11 @@ test("AC:INH-EDGES-10 AC:INH-REGRESSION-CAPABILITIES AC:TARGET-IDN-031 AC:META-0
 							...MEMBER_MEETINGS_READS,
 							"seats.list",
 							"privacy.getSharing",
+							...OVERVIEW_READS,
 							"calendar.getContext",
 							"calendar.resolve",
 							...wikiReads,
 							...documentsReads,
-							...OVERVIEW_READS,
 							"launch.readCountdown",
 							"launch.readWorkspace",
 							"launch.readDebrief",

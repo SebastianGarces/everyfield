@@ -805,9 +805,9 @@ test("INV-evry-golden SAF-02 SAF-11 SAF-12 SAF-14: the model's tools can read an
 			"notifications.setPreferences",
 			"account.finalizeAvatar",
 			"account.requestDeletion",
+			"feedback.submit",
 			"wiki.bookmarks.set",
 			"wiki.feedback.setMine",
-			"feedback.submit",
 		],
 	);
 	assert.deepEqual(tools("org"), ["notifications_read", "pipeline_read", "select_returned_rows", "propose_change"]);
