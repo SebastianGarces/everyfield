@@ -11,7 +11,7 @@ import { HistoryList, otherSide, type ReadHistory } from "./History";
 import { useIntent, useLoad } from "./intent";
 import { InviteDialog, type InviteTarget, type ReadDisclosure } from "./InviteDialog";
 import { kindLabel, subjectOf } from "./model";
-import { formatDay } from "../shared/dates.ts";
+import { formatDay } from "../../components/dates.ts";
 import { ProblemLine } from "./parts";
 import { SharingChoices, type ReadSharing, type SaveSharing, type SharingRow } from "./Sharing";
 import type { History, NameOf, Invitation, Relationship, Run } from "./port";

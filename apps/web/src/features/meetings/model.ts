@@ -3,7 +3,7 @@ import { meetingStatusMachine, targets } from "@everyfield/contracts/machines";
 import type * as c from "@everyfield/contracts/meetings";
 import type { Status } from "@everyfield/ui/display";
 import type { z } from "zod";
-import { MONTHS } from "../shared/dates.ts";
+import { MONTHS } from "../../components/dates.ts";
 
 export type MeetingType = z.infer<typeof c.meetingType>;
 export type MeetingStatus = z.infer<typeof c.meetingStatus>;
