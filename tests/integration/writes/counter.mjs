@@ -3,7 +3,7 @@ import { AsyncLocalStorage, AsyncResource } from "node:async_hooks";
 import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { statementKind } from "./kinds.cjs";
+import { repeatedShapes, statementKind, statementShape } from "./kinds.cjs";
 
 const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 const require = createRequire(root + "/packages/domain/package.json");
@@ -84,7 +84,7 @@ const standalone = {
 };
 
 export async function measure(name, body, options = {}) {
-	const frame = { name, count: 0, writes: 0, rollbacks: 0, kinds: {} };
+	const frame = { name, count: 0, writes: 0, rollbacks: 0, kinds: {}, shapes: new Map() };
 	const parent = frames.getStore()?.at(-1);
 	if (parent && parent.first === undefined) parent.first = name;
 	return frames.run([...(frames.getStore() ?? []), frame], async () => {
@@ -95,9 +95,17 @@ export async function measure(name, body, options = {}) {
 			status = result?.status ?? "returned";
 			return result;
 		} finally {
-			const { first, ...counts } = frame;
+			const { first, shapes, ...counts } = frame;
 			const label = options.byFirst && first ? frame.name + ":" + first : frame.name;
-			emit({ kind: "sample", ...counts, name: label, status, ms: Math.round(performance.now() - started) });
+			const repeats = repeatedShapes(shapes);
+			emit({
+				kind: "sample",
+				...counts,
+				...(Object.keys(repeats).length ? { repeats } : {}),
+				name: label,
+				status,
+				ms: Math.round(performance.now() - started),
+			});
 		}
 	});
 }
@@ -133,8 +141,10 @@ export function observeDatabase(db) {
 		client.query = function (...args) {
 			const text = typeof args[0] === "string" ? args[0] : (args[0]?.text ?? "");
 			const kind = statementKind(text);
+			const shape = kind === "transaction" ? null : statementShape(text);
 			for (const frame of frames.getStore() ?? []) {
 				frame.count++;
+				if (shape) frame.shapes.set(shape, (frame.shapes.get(shape) ?? 0) + 1);
 				frame.kinds[kind] = (frame.kinds[kind] ?? 0) + 1;
 				if (kind === "write") frame.writes++;
 				if (/^\s*ROLLBACK|^BEGIN \/\* evf:retry \*\//i.test(text)) frame.rollbacks++;

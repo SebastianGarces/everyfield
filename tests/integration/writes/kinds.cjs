@@ -4,3 +4,20 @@ exports.statementKind = function statementKind(text) {
 	if (/\bFOR\s+(?:NO\s+KEY\s+)?(?:UPDATE|SHARE)\b|\bFOR\s+KEY\s+SHARE\b|pg_advisory/i.test(text)) return "locked read";
 	return "read";
 };
+
+exports.statementShape = function statementShape(text) {
+	return text
+		.replace(/'(?:[^']|'')*'/g, "?")
+		.replace(/\$\d+/g, "?")
+		.replace(/\b\d+(?:\.\d+)?\b/g, "?")
+		.replace(/\(\s*\?(?:\s*,\s*\?)*\s*\)/g, "(?)")
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, 400);
+};
+
+exports.repeatedShapes = function repeatedShapes(shapes) {
+	const repeats = {};
+	for (const [shape, count] of shapes) if (count > 1) repeats[shape] = count;
+	return repeats;
+};

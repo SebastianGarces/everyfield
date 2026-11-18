@@ -1,9 +1,15 @@
 export const WRITE_PATTERN = 6;
+export const REPEAT_LIMIT = 2;
 
 const kindsText = (kinds = {}) =>
 	Object.entries(kinds)
 		.map(([kind, n]) => `${n} ${kind}`)
 		.join(", ");
+
+const most = (samples) => Math.max(...samples.map((s) => s.count));
+
+const perRow = (sample) =>
+	sample.rollbacks ? [] : Object.entries(sample.repeats ?? {}).filter(([, count]) => count > REPEAT_LIMIT);
 
 export function budgetName(limits, name) {
 	return Object.hasOwn(limits, name) ? name : name.split(":")[0];
@@ -21,15 +27,11 @@ export function checkBudgets(rows, limits) {
 			problems.push(`${name}: budgeted but never measured; remove it or exercise it`);
 			continue;
 		}
-		const most = Math.max(...entry.limit.map((s) => s.count));
-		if (entry.limit.length && budget.limit > most)
-			problems.push(`${name}: ${most} statements at most, limit ${budget.limit}; set it to ${most}`);
-		const over = entry.write && budget.limit > WRITE_PATTERN;
-		if (over && !budget.reason?.trim())
+		const measuredMost = entry.limit.length ? most(entry.limit) : budget.limit;
+		if (entry.write && measuredMost > WRITE_PATTERN && !budget.reason?.trim())
 			problems.push(
-				`${name}: limit ${budget.limit} is above the ${WRITE_PATTERN}-statement write pattern; add a reason`,
+				`${name}: ${measuredMost} statements is above the ${WRITE_PATTERN}-statement write pattern; add a reason`,
 			);
-		if (!over && budget.reason !== undefined) problems.push(`${name}: within the pattern; remove its reason`);
 		if (name.startsWith("GET ")) {
 			const counts = [...new Set(entry.limit.map((s) => s.count))];
 			if (counts.length > 1)
@@ -37,6 +39,42 @@ export function checkBudgets(rows, limits) {
 		}
 	}
 	return problems;
+}
+
+export function ranEverySuite(rows, units) {
+	const ran = rows.filter((row) => row.kind === "part").flatMap((row) => row.ran);
+	return ran.length === units.length && new Set(ran).size === ran.length && units.every((unit) => ran.includes(unit));
+}
+
+export function tighten(rows, limits, units) {
+	if (!ranEverySuite(rows, units)) return null;
+	const { measured } = measure(rows, limits);
+	const changes = [];
+	const tightened = {};
+	for (const [name, budget] of Object.entries(limits)) {
+		const entry = measured.get(name);
+		const next = { ...budget };
+		const why = [];
+		if (entry?.limit.length && budget.limit > most(entry.limit)) {
+			next.limit = most(entry.limit);
+			why.push(`${next.limit} statements at most, limit ${budget.limit}`);
+		}
+		if (entry?.retry.length && budget.retry === undefined) {
+			next.retry = most(entry.retry);
+			why.push(`a retry run sent ${next.retry} statements and had no retry budget`);
+		}
+		if (entry && next.reason !== undefined && !(entry.write && next.limit > WRITE_PATTERN)) {
+			delete next.reason;
+			why.push(`within the ${WRITE_PATTERN}-statement write pattern, so its reason is stale`);
+		}
+		if (entry && next.repeats !== undefined && !entry.repeated) {
+			delete next.repeats;
+			why.push("no statement repeats per row any more, so its repeats reason is stale");
+		}
+		if (why.length) changes.push(`${name}: ${why.join("; ")}; tightened to ${JSON.stringify(next)}`);
+		tightened[name] = next;
+	}
+	return { limits: tightened, changes };
 }
 
 function measure(rows, limits) {
@@ -56,16 +94,21 @@ function measure(rows, limits) {
 			continue;
 		}
 		const variant = sample.rollbacks ? "retry" : "limit";
-		const entry = measured.get(name) ?? { limit: [], retry: [], write: false };
+		const entry = measured.get(name) ?? { limit: [], retry: [], write: false, repeated: false };
 		entry[variant].push(sample);
 		entry.write ||= sample.writes > 0 || name.startsWith("POST ");
 		measured.set(name, entry);
-		if (budget[variant] === undefined)
-			problems.push(`${sample.name}: ${sample.count} statements on a ${variant} run, which has no budget`);
-		else if (sample.count > budget[variant])
+		if (budget[variant] !== undefined && sample.count > budget[variant])
 			problems.push(
 				`${sample.name}: ${sample.count} statements, limit ${budget[variant]}${variant === "retry" ? " (retry)" : ""} (${kindsText(sample.kinds)})`,
 			);
+		for (const [shape, count] of perRow(sample)) {
+			entry.repeated = true;
+			if (!budget.repeats?.trim())
+				problems.push(
+					`${sample.name}: N+1, sends the same statement ${count} times in one run: ${shape.slice(0, 200)}; batch it into one set-based statement, or give limits.json a repeats reason`,
+				);
+		}
 	}
 	return { problems, measured };
 }
