@@ -4,7 +4,6 @@
 		"/",
 		"/access",
 		"/api/cron/access-retention",
-		"/api/cron/jobs",
 		"/api/health",
 		"/api/webhooks/resend",
 		"/apple-icon",

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { FlowPort, PersonalTimezonePreview, PersonalTimezoneResult } from "../port";
 import { OFFLINE_REFERENCE, useWrite, type Outcome } from "../save";
-import { zoneLabel } from "../time";
+import { zoneLabel } from "../../../components/time.ts";
 
 export function usePersonalZoneChoice(
 	calls: Pick<FlowPort, "previewPersonalTimezone" | "setPersonalTimezone">,
