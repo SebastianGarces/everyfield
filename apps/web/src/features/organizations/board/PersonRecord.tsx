@@ -34,9 +34,10 @@ import {
 	retirePerson,
 } from "./actions";
 import { ConversationsCard } from "./Conversations";
-import { changedText, formatDay, PIPELINE_PATH, refusalText } from "./model";
+import { formatPlainDate } from "../../../components/dates.ts";
+import { changedText, PIPELINE_PATH, refusalText } from "./model";
 import { PersonDialog } from "./PersonDialog";
-import { Problem } from "./Problem";
+import { Problem } from "../../../components/Problem.tsx";
 import { RemoveDialog } from "../data/RemoveDialog";
 import { ResidencyLink } from "./ResidencyLink";
 import { NoteReviews, SendForReviewDialog } from "./SendForReview";
@@ -123,7 +124,7 @@ export function PersonRecord({
 							</dl>
 							<p className="mt-4 text-sm text-ink">
 								{record.assessment
-									? `Outside assessment: ${formatDay(record.assessment.on)}, ${record.assessment.by}`
+									? `Outside assessment: ${formatPlainDate(record.assessment.on)}, ${record.assessment.by}`
 									: "No outside assessment recorded"}
 							</p>
 							{admin ? (
@@ -273,8 +274,8 @@ function History({ record }: { record: Record }) {
 							<span className="font-medium text-ink">{historyTitle(h)}</span>
 							<span className="text-text-2">
 								{h.kind === "review_sent" || h.kind === "review_withdrawn"
-									? formatDay(h.on)
-									: [h.actor ?? "Former staff", formatDay(h.on)].join(" · ")}
+									? formatPlainDate(h.on)
+									: [h.actor ?? "Former staff", formatPlainDate(h.on)].join(" · ")}
 							</span>
 							{h.kind === "moved" ? <span className="text-ink-2">Reason: {h.reason}</span> : null}
 						</li>
@@ -474,7 +475,7 @@ function Notes({
 									<p className="flex items-center gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-sm text-text-2">
 										<NoteAuthorAvatar note={n} />
 										<span className="min-w-0">
-											Note removed by {n.author ?? "former staff"}, {formatDay(n.removedOn)}
+											Note removed by {n.author ?? "former staff"}, {formatPlainDate(n.removedOn)}
 										</span>
 									</p>
 								) : (
@@ -540,7 +541,7 @@ function NoteItem({
 			await onChanged();
 		});
 	}
-	const meta = `${note.author ?? "Former staff"} · ${formatDay(note.writtenOn)}${note.editedOn ? ` · edited ${formatDay(note.editedOn)}` : ""}`;
+	const meta = `${note.author ?? "Former staff"} · ${formatPlainDate(note.writtenOn)}${note.editedOn ? ` · edited ${formatPlainDate(note.editedOn)}` : ""}`;
 	return (
 		<article className="flex flex-col gap-1.5 rounded-md bg-surface-2 px-3 py-2.5">
 			{editing ? (
