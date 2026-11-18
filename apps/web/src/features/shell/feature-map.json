@@ -206,6 +206,40 @@
 				}
 			],
 			"behaviors": []
+		},
+		{
+			"id": "shell.health",
+			"says": "The liveness check an uptime monitor calls: it answers status ok with the server time and reads no database.",
+			"routes": [],
+			"endpoints": ["/api/health"],
+			"reach": [
+				{
+					"link": "/api/health"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "live",
+					"reach": {
+						"persona": "visitor",
+						"open": "/api/health",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/api/health"
+						},
+						{
+							"text": "ok",
+							"match": "contains"
+						}
+					]
+				}
+			],
+			"behaviors": []
 		}
 	]
 }
