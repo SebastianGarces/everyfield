@@ -4,9 +4,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { machines } from "../../../packages/contracts/src/machines/index.ts";
 
 const tool = resolve(import.meta.dirname, "../machines.ts");
-const proof = "tests/integration/meetings/status-machine.test.mts";
 const writer = "packages/domain/src/meetings/meetings.ts";
 
 const guarded = [
@@ -25,7 +25,7 @@ function repo() {
 		writeFileSync(join(root, file), source);
 		execFileSync("git", ["add", file], { cwd: root });
 	};
-	put(proof, "");
+	for (const m of machines) put(m.proof, "");
 	put(writer, guarded);
 	const cli = (...args: string[]) => spawnSync(process.execPath, [tool, ...args], { cwd: root, encoding: "utf8" });
 	return { root, put, cli, close: () => rmSync(root, { recursive: true, force: true }) };
@@ -114,9 +114,69 @@ test("INV-machines: a guarded writer and a current chart pass; a stale chart and
 			],
 			["drizzle update from a variable", a, "tx.update(tables.meeting).set(patch);", /a\.ts:1: drizzle writes/],
 			[
+				"drizzle update filtered inside or",
+				a,
+				"tx.update(tables.meeting).set({ status: to }).where(or(eq(tables.meeting.id, id), inArray(tables.meeting.status, fromStates(meetingStatusMachine, e, to, m))));",
+				/a\.ts:1: drizzle writes/,
+			],
+			[
+				"drizzle update filtered on another column",
+				a,
+				"tx.update(tables.meeting).set({ status: to }).where(inArray(tables.meeting.type, fromStates(meetingStatusMachine, e, to, m)));",
+				/a\.ts:1: drizzle writes/,
+			],
+			[
+				"drizzle insert whose spread comes after the initial state",
+				a,
+				"tx.insert(tables.meeting).values({ status: 'planning', ...row });",
+				/a\.ts:1: drizzle writes/,
+			],
+			[
 				"drizzle update with a computed key",
 				a,
 				"tx.update(tables.meeting).set({ ['status']: 'cancelled' });",
+				/a\.ts:1: drizzle writes/,
+			],
+			[
+				"unguarded update beside a guarded one in the same SQL text",
+				a,
+				"sql`WITH a AS (UPDATE meeting SET status = ${to} WHERE status = ANY(${sql.param(fromStates(meetingStatusMachine, e, to, m))}::text[]) RETURNING 1), b AS (UPDATE meeting SET status = 'ready' WHERE id = ${id} RETURNING 1) SELECT 1`",
+				/a\.ts:1: update writes/,
+			],
+			[
+				"update whose filter sits in a later statement",
+				a,
+				"sql`UPDATE meeting SET status = 'ready' WHERE id = ${id}; SELECT 1 FROM meeting WHERE status = ANY(${fromStates(meetingStatusMachine, e, to, m)})`",
+				/a\.ts:1: update writes/,
+			],
+			[
+				"filter for another target than the one written",
+				a,
+				"tx.update(tables.meeting).set({ status: 'ready' }).where(inArray(tables.meeting.status, fromStates(meetingStatusMachine, 'meetings.changeStatus', 'cancelled', m)));",
+				/a\.ts:1: drizzle writes/,
+			],
+			[
+				"filter for an event with no move to the state written",
+				a,
+				"sql`UPDATE meeting SET status = 'ready' WHERE status = ANY(${fromStates(meetingStatusMachine, 'meetings.completePractice', to, m)})`",
+				/a\.ts:1: update writes/,
+			],
+			[
+				"drizzle update through a table alias",
+				a,
+				"const mt = tables.meeting;\ntx.update(mt).set({ status: 'ready' });",
+				/a\.ts:2: drizzle writes/,
+			],
+			[
+				"drizzle update through a split chain",
+				a,
+				"const q = tx.update(tables.meeting);\nq.set({ status: 'ready' });",
+				/a\.ts:2: drizzle writes/,
+			],
+			[
+				"drizzle insert that updates the state on conflict",
+				a,
+				"tx.insert(tables.meeting).values({ ...row, status: 'planning' }).onConflictDoUpdate({ target: tables.meeting.id, set: { status: 'ready' } });",
 				/a\.ts:1: drizzle writes/,
 			],
 			[
@@ -136,6 +196,94 @@ test("INV-machines: a guarded writer and a current chart pass; a stale chart and
 		r.put("packages/other/src/a.test.ts", "sql`UPDATE meeting SET status = 'ready' WHERE id = ${id}`");
 		r.put("packages/other/src/a.ts", "sql`UPDATE meeting SET title = ${t} WHERE status = 'ready'`");
 		assert.equal(r.cli("--check").status, 0, "test files and reads of the column are not writers");
+		r.put(
+			"packages/other/src/b.ts",
+			[
+				"tx.update(tables.meeting).set({ status: to }).where(and(eq(tables.meeting.id, id), inArray(tables.meeting.status, fromStates(meetingStatusMachine, e, to, m))));",
+				"tx.insert(tables.meeting).values({ ...row, status: 'planning' });",
+				"const mt = tables.meeting;",
+				"tx.update(mt).set({ status: 'ready' }).where(inArray(mt.status, fromStates(meetingStatusMachine, 'meetings.changeStatus', 'ready', m)));",
+			].join("\n"),
+		);
+		assert.equal(r.cli("--write").status, 0);
+		assert.equal(r.cli("--check").status, 0, "a filtered Drizzle update and an initial Drizzle insert are guarded");
+		const writers = r.cli("census").stdout;
+		assert.match(writers, /packages\/other\/src\/b\.ts:1 drizzle guard=from-state filter/);
+		assert.match(writers, /packages\/other\/src\/b\.ts:2 drizzle guard=initial state/);
+		assert.match(writers, /packages\/other\/src\/b\.ts:4 drizzle guard=from-state filter/);
+	} finally {
+		r.close();
+	}
+});
+
+test("INV-machines: a SQL function writer is guarded only by its edge's locking read, and a copy only by entry states", () => {
+	const r = repo();
+	try {
+		const fn = (lock: string, name = "settings_purge_subject", to = "purged", where = "id=witness") =>
+			[
+				`CREATE FUNCTION ${name}(witness uuid,request uuid,expected bigint) RETURNS void`,
+				"LANGUAGE plpgsql SECURITY DEFINER SET search_path FROM CURRENT AS $$",
+				"DECLARE w lifecycle_witness%ROWTYPE;",
+				"BEGIN",
+				` SELECT * INTO w FROM lifecycle_witness WHERE id=witness AND request_id=request AND ${lock} FOR UPDATE;`,
+				" IF NOT FOUND THEN RAISE EXCEPTION 'unavailable' USING ERRCODE='42501'; END IF;",
+				` UPDATE lifecycle_witness SET state='${to}',witness_checkpoint=witness_checkpoint+1 WHERE ${where};`,
+				"END $$;",
+			].join("\n");
+		const migration = "packages/db/migrations/0999_purge.sql";
+		const copy = "ops/maintenance/copy.mts";
+		const guarded: Record<string, string> = {
+			[migration]: fn("state='purging' AND cancel_until<=clock_timestamp()"),
+			[copy]:
+				"sql`INSERT INTO lifecycle_witness SELECT * FROM json_populate_recordset(NULL::lifecycle_witness, ${rows}::json) r WHERE r.state = ANY(${sql.param(entryStates(deletionMachine, OPERATION))}::text[])`;",
+		};
+		for (const [file, source] of Object.entries(guarded)) r.put(file, source);
+		assert.equal(r.cli("--write").status, 0);
+		assert.equal(r.cli("--check").status, 0, "the declared purge function and a filtered copy are guarded");
+		const unguarded: [string, string, string, RegExp][] = [
+			["function locking another state", migration, fn("state='pending_deletion'"), /0999_purge\.sql:7: update writes/],
+			["function locking a state list", migration, fn("state IN ('purging','pending_deletion')"), /0999_purge\.sql:7/],
+			["function no edge names", migration, fn("state='purging'", "settings_other"), /0999_purge\.sql:7/],
+			["function writing another state", migration, fn("state='purging'", undefined, "cancelled"), /0999_purge\.sql:7/],
+			[
+				"copy filtered on from-states",
+				copy,
+				"sql`INSERT INTO lifecycle_witness SELECT * FROM json_populate_recordset(NULL::lifecycle_witness, ${rows}::json) r WHERE r.state = ANY(${fromStates(deletionMachine, e, to, w)})`;",
+				/copy\.mts:1: insert writes/,
+			],
+			[
+				"function updating rows other than the locked one",
+				migration,
+				fn("state='purging'", undefined, undefined, "kind='account'"),
+				/0999_purge\.sql:7/,
+			],
+			[
+				"copy whose filter belongs to another statement",
+				copy,
+				"sql`WITH c AS (INSERT INTO lifecycle_witness SELECT * FROM json_populate_recordset(NULL::lifecycle_witness, ${rows}::json) RETURNING 1) SELECT 1 FROM lifecycle_witness r WHERE r.state = ANY(${sql.param(entryStates(deletionMachine, OPERATION))}::text[])`;",
+				/copy\.mts:1: insert writes/,
+			],
+			[
+				"copy filtered on another event's entry states",
+				copy,
+				"sql`INSERT INTO lifecycle_witness SELECT * FROM json_populate_recordset(NULL::lifecycle_witness, ${rows}::json) r WHERE r.state = ANY(${entryStates(deletionMachine, 'lifecycle.purge')})`;",
+				/copy\.mts:1: insert writes/,
+			],
+			[
+				"copy with no filter",
+				copy,
+				"sql`INSERT INTO lifecycle_witness SELECT * FROM json_populate_recordset(NULL::lifecycle_witness, ${rows}::json)`;",
+				/copy\.mts:1: insert writes/,
+			],
+		];
+		for (const [name, file, source, expected] of unguarded) {
+			r.put(file, source);
+			const result = r.cli("--check");
+			assert.equal(result.status, 1, name);
+			assert.match(result.stderr, expected, name);
+			assert.equal(result.stderr.match(/ writes lifecycle_witness\.state /g)?.length, 1, name);
+			r.put(file, guarded[file]!);
+		}
 	} finally {
 		r.close();
 	}

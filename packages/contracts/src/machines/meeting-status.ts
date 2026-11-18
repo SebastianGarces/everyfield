@@ -17,7 +17,7 @@ export const meetingStatusMachine = machine({
 		"meetings.correctOccurrence",
 	],
 	refusal: "status_transition",
-	initial: { event: "meetings.schedule", to: "planning" },
+	initial: [{ event: "meetings.schedule", to: "planning" }],
 	guards: { practice: (m: { readonly type: z.infer<typeof meetingType> }) => m.type === "prelaunch_practice" },
 	subjects: {
 		vision: { type: "vision_meeting" },
