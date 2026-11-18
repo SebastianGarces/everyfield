@@ -194,7 +194,7 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 								<InsightTop>
 									<InsightPill icon={Alert02Icon}>Needs a leader</InsightPill>
 								</InsightTop>
-								<InsightTitle id="leaderless-title" size="sm" className="mt-4">
+								<InsightTitle id="leaderless-title" size="sm">
 									{leaderless.length === 1
 										? `${leaderless[0]!.name} has no leader`
 										: `${plural(leaderless.length, "ministry", "ministries")} have no leader`}

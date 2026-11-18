@@ -112,10 +112,10 @@ export function AssessmentCard({
 
 	return (
 		<Card className="min-w-0">
-			<CardHeader className="mb-4">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm">The 4 C&rsquo;s</CardTitle>
-					<CardDescription className="text-sm">
+					<CardDescription className="leading-(--text-sm--line-height)">
 						{latest ? (
 							<>
 								<LocalDay day={latest.occurredOn} /> · {pendingOr(latest, `by ${recorder(latest.actor, accountId)}`)}

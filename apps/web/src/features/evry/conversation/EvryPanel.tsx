@@ -624,7 +624,7 @@ function Composer({
 					) : (
 						<Tag icon={Unlink01Icon}>Page left out</Tag>
 					)}
-					<Button size="sm" variant="ghost" onClick={() => setUsePage((v) => !v)} className="h-[26px] px-2 text-text-2">
+					<Button size="sm" variant="ghost" onClick={() => setUsePage((v) => !v)} className="text-text-2">
 						{usePage ? "Leave out" : "Include page"}
 					</Button>
 				</div>
@@ -716,7 +716,7 @@ function Composer({
 									variant="primary"
 									icon={SentIcon}
 									disabled={!canSend}
-									className="w-[34px] px-0"
+									className="w-[34px]"
 								>
 									<span className="sr-only">Send</span>
 								</Button>

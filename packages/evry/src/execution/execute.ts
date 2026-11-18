@@ -6,6 +6,7 @@ import { MeetingsRefusal } from "@everyfield/domain/meetings";
 import { Refusal } from "@everyfield/domain/people";
 import { TeamsRefusal } from "@everyfield/domain/teams";
 import { owner, sessionId } from "@everyfield/contracts/common";
+import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/contracts/machines";
 import { z } from "zod";
 import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
@@ -15,6 +16,9 @@ import type { EffectPorts, EffectResult, MailPort, NativePorts, ReviewedWrite } 
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
 
 export type EffectOutcome = "completed" | "refused" | "failed" | "expired" | "closed" | "lost";
+
+const queued: ProposalSubject = { now: false, lapsed: false, jobLive: false };
+const lapsed: ProposalSubject = { ...queued, lapsed: true };
 
 const fence = (lease: EffectLease) =>
 	sql`EXISTS(SELECT FROM job j WHERE j.id=${lease.jobId}::uuid AND j.tenant_id=${lease.tenantId}::uuid AND j.state='claimed'
@@ -117,7 +121,8 @@ export async function executeProposal(
 			}
 			const published = await tx.execute(
 				sql`UPDATE proposal SET outcome='completed',receipt=${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp()
-					WHERE id=${p.id}::uuid AND expires_at>clock_timestamp() AND ${fence(lease)}`,
+					WHERE id=${p.id}::uuid AND expires_at>clock_timestamp() AND ${fence(lease)}
+						AND concat_ws('_',state,outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.executeProposal", "approved_completed", queued))}::text[])`,
 			);
 			if (!published.rowCount) throw new Unpublished();
 			return "completed";
@@ -129,7 +134,8 @@ export async function executeProposal(
 			await holdPublicationLocks(tx, lease);
 			return tx.execute(
 				sql`UPDATE proposal SET outcome='completed',receipt=${JSON.stringify(reached)}::jsonb,updated_at=clock_timestamp()
-					WHERE id=${first.id}::uuid AND state='approved' AND outcome IS NULL AND ${fence(lease)}`,
+					WHERE id=${first.id}::uuid AND ${fence(lease)}
+						AND concat_ws('_',state,outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.executeProposal", "approved_completed", queued))}::text[])`,
 			);
 		});
 		return saved.rowCount ? "completed" : "lost";
@@ -139,7 +145,8 @@ export async function executeProposal(
 				await holdPublicationLocks(tx, lease);
 				return tx.execute(sql`
 					UPDATE proposal SET state='expired',approved_at=NULL,approved_session_id=NULL,updated_at=clock_timestamp()
-					WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND state='approved' AND outcome IS NULL
+					WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid
+						AND concat_ws('_',state,outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.executeProposal", "expired", lapsed))}::text[])
 						AND expires_at<=clock_timestamp() AND ${fence(lease)}`);
 			});
 			return expired.rowCount ? "expired" : "lost";
@@ -161,7 +168,8 @@ export async function executeProposal(
 			return tx.execute(sql`
 				UPDATE proposal SET outcome='refused',receipt=jsonb_strip_nulls(jsonb_build_object('code',${refused}::text,
 					'current',CASE WHEN ${refused}::text IN ('revision_conflict','stale_review') THEN ${currentState} END)),updated_at=clock_timestamp()
-				WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND state='approved' AND outcome IS NULL AND ${fence(lease)}`);
+				WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND ${fence(lease)}
+					AND concat_ws('_',state,outcome) = ANY(${sql.param(fromStates(proposalMachine, "evry.executeProposal", "approved_refused", queued))}::text[])`);
 		});
 		return saved.rowCount ? "refused" : "lost";
 	}
