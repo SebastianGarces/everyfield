@@ -500,6 +500,82 @@
 				}
 			],
 			"behaviors": []
+		},
+		{
+			"id": "app.site-files",
+			"says": "The files search engines and phones fetch from the public site: robots.txt allows only the live public pages and their share images and points to the sitemap, the sitemap lists the five public pages, and the Apple touch icon is a 180 px PNG.",
+			"routes": [],
+			"endpoints": ["/robots.txt", "/sitemap.xml", "/apple-icon"],
+			"catalog": ["ADM-007"],
+			"reach": [
+				{
+					"link": "/robots.txt"
+				},
+				{
+					"link": "/sitemap.xml"
+				},
+				{
+					"link": "/apple-icon"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "robots",
+					"reach": {
+						"persona": "visitor",
+						"open": "/robots.txt",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "/oversight/twitter-image",
+							"match": "contains"
+						},
+						{
+							"text": "/sitemap.xml",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "sitemap",
+					"reach": {
+						"persona": "visitor",
+						"open": "/sitemap.xml",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "https://everyfield.app",
+							"match": "contains"
+						},
+						{
+							"text": "monthly",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "apple-icon",
+					"reach": {
+						"persona": "visitor",
+						"open": "/apple-icon",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/apple-icon"
+						},
+						{
+							"noText": "Page not found"
+						}
+					]
+				}
+			],
+			"behaviors": []
 		}
 	]
 }

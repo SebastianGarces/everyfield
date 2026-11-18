@@ -6,7 +6,7 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 127 of 136. Not yet mapped: 9, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 130 of 136. Not yet mapped: 6, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
@@ -145,6 +145,7 @@ flowchart LR
     f25s2["app.oversight-page"]
     f25s3["app.access-request"]
     f25s4["app.legal"]
+    f25s5["app.site-files"]
   end
   links -.-> f0s0
   links -.-> f1s0
@@ -247,6 +248,7 @@ flowchart LR
   f25s2 --> f25s3
   links -.-> f25s3
   f25s1 --> f25s4
+  links -.-> f25s5
 ```
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
@@ -276,7 +278,7 @@ flowchart LR
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
 | [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 2 | 4 | 3 | 1 |
 | [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 2 | 6 | 3 | 1 |
-| [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 5 | 6 | 1 | 0 | 0 |
+| [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 6 | 9 | 1 | 0 | 0 |
 
 ## Become a persona
 

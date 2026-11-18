@@ -8,6 +8,9 @@ flowchart LR
   s0_link0(["link /api/cron/jobs"])
   s1_link0(["link /"])
   s3_link2(["link /access?role={role}"])
+  s5_link0(["link /robots.txt"])
+  s5_link1(["link /sitemap.xml"])
+  s5_link2(["link /apple-icon"])
   s0["app.cron-jobs<br/>no page"]
   s0_link0 --> s0
   s0 -.- s0_st0(("refused"))
@@ -33,6 +36,13 @@ flowchart LR
   s1 -- "link #quot;Terms#quot;" --> s4
   s4 -.- s4_st0(("privacy"))
   s4 -.- s4_st1(("terms"))
+  s5["app.site-files<br/>no page"]
+  s5_link0 --> s5
+  s5_link1 --> s5
+  s5_link2 --> s5
+  s5 -.- s5_st0(("robots"))
+  s5 -.- s5_st1(("sitemap"))
+  s5 -.- s5_st2(("apple-icon"))
 ```
 
 ## Surfaces
@@ -281,5 +291,49 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/terms"
 agent-browser find role heading text --name "Terms" --exact
 agent-browser find role heading text --name "Your requests" --exact
+```
+
+### app.site-files
+
+The files search engines and phones fetch from the public site: robots.txt allows only the live public pages and their share images and points to the sitemap, the sitemap lists the five public pages, and the Apple touch icon is a 180 px PNG.
+
+- Routes: none
+- Endpoints: `/robots.txt`, `/sitemap.xml`, `/apple-icon`
+- Personas: `visitor` read
+- Catalog: ADM-007
+
+Reach:
+
+- Link `/robots.txt`
+- Link `/sitemap.xml`
+- Link `/apple-icon`
+
+States:
+
+- **robots**: text containing "/oversight/twitter-image"; text containing "/sitemap.xml". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/robots.txt"
+agent-browser wait --load networkidle
+agent-browser wait --text "/oversight/twitter-image"
+agent-browser wait --text "/sitemap.xml"
+```
+
+- **sitemap**: text containing "https://everyfield.app"; text containing "monthly". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/sitemap.xml"
+agent-browser wait --load networkidle
+agent-browser wait --text "https://everyfield.app"
+agent-browser wait --text "monthly"
+```
+
+- **apple-icon**: URL `/apple-icon`; no text "Page not found". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/apple-icon"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/apple-icon"
+agent-browser wait --fn "!document.body.innerText.includes(\"Page not found\")"
 ```
 

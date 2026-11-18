@@ -4,11 +4,8 @@
 		"/api/cron/access-retention",
 		"/api/health",
 		"/api/webhooks/resend",
-		"/apple-icon",
 		"/design/controls",
 		"/design/display",
-		"/design/foundations",
-		"/robots.txt",
-		"/sitemap.xml"
+		"/design/foundations"
 	]
 }
