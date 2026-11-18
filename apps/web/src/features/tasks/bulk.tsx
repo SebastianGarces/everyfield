@@ -16,7 +16,7 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import type { Wait } from "../../components/save/model.ts";
 import { bulkOutcomeText, type BulkActions, type BulkOutcome, type DueInput } from "./model.ts";
 
-const onInk = "text-on-ink hover:bg-on-ink-soft focus-visible:outline-on-ink";
+const onInk = "text-on-ink focus-visible:outline-on-ink";
 
 export function BulkBar({
 	count,
@@ -60,7 +60,7 @@ export function BulkBar({
 					aria-label="Select every task on this page"
 					checked={all ? true : "indeterminate"}
 					onCheckedChange={onAll}
-					className="bg-on-ink-soft shadow-[inset_0_0_0_1.5px_var(--ef-on-ink)] data-[state=checked]:bg-on-ink-soft data-[state=indeterminate]:bg-on-ink-soft"
+					className="data-[state=checked]:bg-on-ink-soft data-[state=indeterminate]:bg-on-ink-soft"
 				/>
 			</label>
 			<span className="flex flex-1 flex-col app-sm:min-w-48">

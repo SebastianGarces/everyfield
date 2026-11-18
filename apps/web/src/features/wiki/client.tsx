@@ -202,7 +202,6 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 							value={asked.phase}
 							options={PHASES}
 							onValueChange={(next) => ask(query, next, 1)}
-							className="w-[240px]"
 						/>
 					</form>
 					<SearchBody result={shown?.result ?? null} pending={pending} query={query.trim()} />

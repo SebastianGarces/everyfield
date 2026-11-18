@@ -61,8 +61,8 @@ export function WrittenLoading() {
 			<span className="sr-only" role="status">
 				Loading
 			</span>
-			<Skeleton className="h-14 w-72 rounded-card" />
-			<Skeleton className="h-12 w-full rounded-card" />
+			<Skeleton className="h-14 w-72" />
+			<Skeleton className="h-12 w-full" />
 			<Skeleton className="mx-auto h-[640px] w-full max-w-[816px] rounded-none" />
 		</div>
 	);

@@ -208,7 +208,7 @@ export function PinnedRail({ id, headingId, head, children }: Props) {
 								? "overflow-clip"
 								: cn(
 										"cursor-grab snap-x snap-mandatory scroll-px-(--phc-in) overflow-x-auto overflow-y-hidden overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-										dragging && "cursor-grabbing snap-none select-none",
+										dragging && "cursor-grabbing select-none",
 									),
 						)}
 					>

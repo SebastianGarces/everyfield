@@ -36,7 +36,7 @@ export function PersonCard({
 			className={cn(
 				"relative flex flex-col gap-2.5 rounded-card bg-surface-raised p-3 shadow-raised transition-[box-shadow,transform] duration-150",
 				selected && "shadow-[var(--ef-shadow-raised),inset_0_0_0_1.5px_var(--ef-ink)]",
-				dragging && "rotate-[1.5deg] shadow-pop motion-reduce:rotate-0",
+				dragging && "rotate-[1.5deg] motion-reduce:rotate-0",
 				className,
 			)}
 		>
