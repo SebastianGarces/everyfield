@@ -6,8 +6,8 @@ import { JS_FLAG_SCRIPT, READER_INPUT_SCRIPT } from "../components/frame/reader-
 import { ONE_TIME_LINK_SCRIPT } from "../components/one-time-link";
 import { PAGES, SITE_NAME, fullTitle } from "../marketing/meta";
 import { SITE_URL } from "../site";
-import { FONT_VARIABLES } from "./fonts";
-import { THEME_VIEWPORT } from "./viewport";
+import { FONT_VARIABLES } from "../components/fonts";
+import { THEME_VIEWPORT } from "../components/viewport";
 
 export const metadata: Metadata = {
 	metadataBase: new URL(SITE_URL),

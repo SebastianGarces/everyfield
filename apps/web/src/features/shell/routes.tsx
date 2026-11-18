@@ -1,4 +1,4 @@
-import { ownResidencyLinks } from "@/server/organizations";
+import { ownResidencyLinks } from "../organizations/mount";
 import { getViewer } from "@/server/request-context";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import type { ReactNode } from "react";
