@@ -16,7 +16,7 @@ import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
 import { SettingsOpener } from "../settings/opener";
 import { shellNav } from "./nav.ts";
-import { Residency, useResidency, type ResidencyState } from "./residency.ts";
+import { Residency, useResidency, type ResidencyState } from "../residency/context.ts";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "../people/server.ts";

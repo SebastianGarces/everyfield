@@ -439,6 +439,65 @@ export function Panel() {
 	);
 });
 
+test("INV-lint: a model module that imports React, the server or the database, or reads the clock or the browser, is reported", () => {
+	const impure = `"use client";
+import { useState } from "react";
+import "server-only";
+import type { Database } from "@everyfield/db/client";
+import { db } from "@everyfield/db/client";
+export const at = () => Date.now();
+export const day = () => new Date();
+export const stored = () => window.localStorage;
+export const parsed = (iso: string, d: Database) => [new Date(iso), d, useState, db];
+`;
+	const pure = `import type { ReactNode } from "react";
+import { parse } from "../../components/dates.ts";
+export const later = (now: Date, ms: number) => new Date(now.getTime() + ms);
+export const label = (node: ReactNode) => [node, parse];
+`;
+	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": impure }), [
+		"apps/web/src/components/save/model.ts:1 model-module",
+		"apps/web/src/components/save/model.ts:2 model-module",
+		"apps/web/src/components/save/model.ts:3 model-module",
+		"apps/web/src/components/save/model.ts:5 model-module",
+		"apps/web/src/components/save/model.ts:6 model-module",
+		"apps/web/src/components/save/model.ts:7 model-module",
+		"apps/web/src/components/save/model.ts:8 model-module",
+	]);
+	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": pure }), []);
+	const disguised = `const D = Date;
+const { now } = performance;
+const tick = Date.now;
+export const reads = () => [
+	Date(),
+	D.now(),
+	new D(),
+	Date["now"](),
+	now(),
+	tick(),
+	new globalThis.Date(),
+	self.performance.now(),
+	location.href,
+	history.length,
+];
+export const typed = (node: import("react").ReactNode, at: number) => [node, Date.UTC(2026, 0, 1), new Date(at)];
+`;
+	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": disguised }), [
+		"apps/web/src/components/save/model.ts:10 model-module",
+		"apps/web/src/components/save/model.ts:11 model-module",
+		"apps/web/src/components/save/model.ts:11 model-module",
+		"apps/web/src/components/save/model.ts:12 model-module",
+		"apps/web/src/components/save/model.ts:12 model-module",
+		"apps/web/src/components/save/model.ts:13 model-module",
+		"apps/web/src/components/save/model.ts:14 model-module",
+		"apps/web/src/components/save/model.ts:5 model-module",
+		"apps/web/src/components/save/model.ts:6 model-module",
+		"apps/web/src/components/save/model.ts:7 model-module",
+		"apps/web/src/components/save/model.ts:8 model-module",
+		"apps/web/src/components/save/model.ts:9 model-module",
+	]);
+});
+
 test("INV-lint: a createRead or useLocalRead loader only loads its key: a call of a read, optionally mapped, and nothing else", () => {
 	const source = `import { createRead } from "../../components/read.tsx";
 import { loadThing, markSeen } from "./actions.ts";

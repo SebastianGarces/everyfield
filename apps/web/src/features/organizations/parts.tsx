@@ -1,7 +1,7 @@
 import { Alert02Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { Icon } from "@everyfield/ui/foundations";
 import type { ReactNode, Ref } from "react";
-import type { Problem } from "./intent";
+import type { Problem } from "../../components/intent.ts";
 
 export function PrivateLine({ children }: { children: ReactNode }) {
 	return (
