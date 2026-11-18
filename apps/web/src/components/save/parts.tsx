@@ -64,8 +64,10 @@ export function RowNotices({ lanes, className = "mb-4" }: { lanes: RowLanes; cla
 
 export type SaveIntent<E extends { problem?: string } = { problem?: string }> = ReturnType<typeof useSaveIntent<E>>;
 
-export function focusFirstProblem(form: HTMLFormElement) {
-	requestAnimationFrame(() => firstProblem(form)?.focus());
+export function useProblemFocus() {
+	const [refusals, setRefusals] = useState(0);
+	const ref = useFocusRequest<HTMLFormElement>(refusals, firstProblem);
+	return [ref, () => setRefusals((n) => n + 1)] as const;
 }
 const FOCUSABLE =
 	'input:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
@@ -103,8 +105,7 @@ export function RecordDialog({
 }) {
 	const alert = useRef<HTMLDivElement>(null);
 	const fields = useRef<HTMLDivElement>(null);
-	const [incomplete, setIncomplete] = useState(0);
-	const focusProblem = useFocusRequest<HTMLFormElement>(incomplete, firstProblem);
+	const [focusProblem, refuseProblem] = useProblemFocus();
 	return (
 		<Dialog open onOpenChange={(next) => !next && onClose()}>
 			<DialogContent
@@ -127,7 +128,7 @@ export function RecordDialog({
 					onSubmit={(e) => {
 						e.preventDefault();
 						if (wait || disabled) return;
-						if (!onSubmit()) setIncomplete((n) => n + 1);
+						if (!onSubmit()) refuseProblem();
 					}}
 				>
 					<DialogHeader icon={icon} tone={tone} title={title} description={description} />

@@ -1,7 +1,7 @@
 "use client";
 
 import { prefersReducedMotion } from "@everyfield/ui/foundations";
-import { useEffect, type CSSProperties, type ReactNode, type RefObject } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { cn } from "../cn";
 
 function revealOnceInView(up: boolean) {
@@ -37,10 +37,6 @@ function revealOnceInView(up: boolean) {
 const REVEAL = { rise: revealOnceInView(false), riseFurther: revealOnceInView(true) };
 
 export const revealRef = (up?: boolean) => (up ? REVEAL.riseFurther : REVEAL.rise);
-
-export function useReveal(ref: RefObject<HTMLElement | null>, up?: boolean) {
-	useEffect(() => revealRef(up)(ref.current), [ref, up]);
-}
 
 export function revealProps(delay = 0, up?: boolean) {
 	return {
