@@ -29,6 +29,7 @@ test("every evf role has a prompt file on disk, with this repo's rules and no v1
 		assert.match(text, /This repository's rules/, path);
 		assert.match(text, /production database/, path);
 		assert.match(text, /390 and 1440 px/, path);
+		assert.match(text, /interactive browser checks with `bin\/app`/, path);
 		assert.doesNotMatch(text, /bin\/evf/, path);
 		shared.add(rulesOf(text));
 	}

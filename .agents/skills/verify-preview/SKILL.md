@@ -29,17 +29,37 @@ start. These rules apply to every role that opens a browser.
   command in its own process group with a timeout (default 900 s). When the command ends, fails,
   times out or gets a signal, it closes the run's agent-browser session, stops every process
   the run started and deletes the run's temporary directory, where Playwright keeps its profiles.
-- Interactive checks use agent-browser, never the Playwright MCP. Give each job its own
-  session and a short idle timeout, and close it when you finish, also after a failure:
+- Interactive checks use `bin/app`, never the Playwright MCP. It drives agent-browser in one session
+  per worktree (`app-<worktree>`, 10 min idle timeout, reopened as the last persona after an idle
+  close), prints one line per result, and its exit code is the result (0 ok, 1 expectation failed,
+  3 not found, 4 no app). `bin/app help` is the whole guide. Write the whole flow as one `do` script
+  and make every step prove something: `fill` reads the value back, actions print new status and
+  alert text, `expect` checks the result.
 
   ```bash
-  ab() { agent-browser --session <task>-verify --idle-timeout 10m "$@"; }
-  ab open <branch url>; ab set viewport 390 900; ab snapshot -i; ab click @e3
-  ab screenshot "$E/shots/<name>.png"; ab errors; ab console
-  ab close
+  bin/app up                                   # this head on a throwaway Postgres with the QA seed
+  bin/app --task <task>-verify do <<'EOF'
+  login owner --goto /people
+  click "Lena Park"
+  click "Edit profile"
+  fill City Provo
+  click "Save changes"
+  expect --text Provo
+  shot person
+  cursor-audit
+  errors
+  EOF
+  bin/app down                                 # closes the browser too; bin/app close keeps the app
   ```
 
-  Run `agent-browser skills get core` once for the full command guide.
+  `shot` writes true 390 and 1440 px PNGs to `$E/shots` when `--task` is `<task>-verify`. Against a
+  portless preview, pass `--url <preview>` once and `login <key> --cookie-file <tests/ui fixture>`.
+- When you use agent-browser directly (`bin/app raw -- <args>` keeps the session flags), chain the
+  steps in one shell call with semantic locators instead of a snapshot and an `@ref` per step:
+  `find role link click --name "Lena Park" --exact && find label City fill Provo && find role button
+  click --name "Save changes" && wait --fn "document.body.innerText.includes('Provo')"`. Its `fill`
+  does not check the result (a date or time input stays empty and it still prints done), and
+  `screenshot --full` at 390 or 1440 comes out 375 or 1425 px wide when the page scrolls.
 - Stop only processes you started, by PID or process group. Never stop processes by a name
   pattern (`pkill chrome`, `killall`): other agents' browsers run on the same machine.
 - Before you end, none of your browsers or agent-browser sessions may still be running.
@@ -191,15 +211,15 @@ refetches or refreshes. Keep request logs in `$E` and summarize them in the Expe
 Reports and analytics may exceed the time budget only when the PR names that approved category
 and explains the slower action.
 
-Then check the changed behavior by hand with agent-browser on the branch preview: open the pages,
-use the controls, read `ab errors` and `ab console`, and take screenshots of states the flow does
-not reach. When a flow matters more than a still image (an overlay, focus order, a transition, a
+Then check the changed behavior by hand with `bin/app` on the branch: open the pages, use the
+controls, read `bin/app errors`, and take `bin/app shot` screenshots of states the flow does not
+reach. When a flow matters more than a still image (an overlay, focus order, a transition, a
 multi-step form), record a short video of it on the branch preview:
 
 ```bash
-ab record start "$E/videos/<flow>-after.webm"
-# the steps of the flow
-ab record stop
+bin/app raw -- record start "$E/videos/<flow>-after.webm"
+bin/app do < "$E/flow.steps"
+bin/app raw -- record stop
 ```
 
 Keep each video under 30 seconds. Use synthetic data or data from the shared development

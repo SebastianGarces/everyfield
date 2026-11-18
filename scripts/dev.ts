@@ -13,7 +13,7 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
         checks.json record outside the repo and prints its path. Selection reads the coverage map of the latest
         green GitHub nightly (.github/workflows/nightly.yml), downloaded with gh; without one it runs everything
-        checks: lint, typecheck, test:unit, test:db, docs, ci-coverage, workflow, tools-ci, tools-qa, github-scripts, ops-watch
+        checks: lint, typecheck, test:unit, test:db, docs, ci-coverage, workflow, tools-ci, tools-qa, tools-app, github-scripts, ops-watch
         test:db runs the selected packages' database tests on a throwaway local Postgres (CI's image in Docker,
         removed when the run ends), so it needs Docker; it never uses the shared development database
         check first removes orphaned qa-test-* containers: older than EVERYFIELD_QA_SWEEP_MINUTES (default 120)
@@ -36,6 +36,8 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command. Its
         formal step fails a branch that changes a file in a .agents/skills/formal-*/map.json without that map or its
         model, unless a branch commit has the trailer "Formal-model: unchanged"
+  app help                                 interactive browser checks of this worktree's app (bin/app: agent-browser
+        underneath, one line per result, one session, a local seeded app with app up)
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
   dev formal [--write] [<model dir>...]    runs TLC on every model under formal/ with the pinned tla2tools.jar, checks
         each model's outcomes.json and its TLC-simulated traces.json (--write rewrites both) and the

@@ -73,8 +73,9 @@ function fire(row, event, to) {
 
 function pathTo(subject, goal) {
 	const s = machine.subjects[subject];
-	const routes = new Map([[machine.initial.to, []]]);
-	const queue = [machine.initial.to];
+	const [entry] = machine.entries;
+	const routes = new Map([[entry.to, []]]);
+	const queue = [entry.to];
 	for (let at = queue.shift(); at !== undefined; at = queue.shift())
 		for (const t of machine.transitions)
 			if (t.from === at && !routes.has(t.to) && allows(machine, t.event, t.from, t.to, s)) {
@@ -103,7 +104,7 @@ test("INV-machine: meeting status follows its declared transitions and refuses e
 
 	for (const subject of subjects) {
 		const row = await schedule(subject);
-		observe({ kind: "edge", subject, event: machine.initial.event, from: null, to: row.status });
+		observe({ kind: "edge", subject, event: machine.entries[0].event, from: null, to: row.status });
 	}
 
 	for (const edge of machine.transitions)
@@ -129,7 +130,7 @@ test("INV-machine: meeting status follows its declared transitions and refuses e
 	for (const r of refusals(machine)) {
 		const subject = r.subject;
 		const before = await meetingIn(subject, r.from);
-		refused(await fire(before, r.event, r.to), machine.refusal);
+		refused(await fire(before, r.event, r.to), r.code);
 		const after = await stored(before.id);
 		assert.deepEqual(after, before, `${subject} ${r.event} ${r.from} -> ${r.to} left the row unchanged`);
 		observe({ kind: "refusal", subject, event: r.event, from: before.status, to: r.to });
@@ -143,7 +144,7 @@ test("INV-machine: meeting status follows its declared transitions and refuses e
 		observe({ kind: "noop", subject: n.subject, event: n.event, from: n.state, to: n.state });
 	}
 
-	const report = coverage(machine, refusals(machine), observations);
+	const report = coverage(machine, observations);
 	if (process.env.EVF_MACHINE_COVERAGE)
 		appendFileSync(process.env.EVF_MACHINE_COVERAGE, observations.map((o) => `${JSON.stringify(o)}\n`).join(""));
 	t.diagnostic(report.line);

@@ -155,6 +155,17 @@ jobs:
         if: ${{ !cancelled() && steps.chromium.outcome == 'success' }}
         working-directory: tools/wiki
         run: pnpm test
+      - name: agent-browser for the app tool
+        if: ${{ !cancelled() && steps.chromium.outcome == 'success' }}
+        id: agent-browser
+        run: npm install -g agent-browser@0.39.1
+      - name: App verification tool
+        if: ${{ !cancelled() && steps.agent-browser.outcome == 'success' }}
+        env:
+          AGENT_BROWSER_ARGS: --no-sandbox
+        run: |
+          export AGENT_BROWSER_EXECUTABLE_PATH="$(cd tools/wiki && node -e "console.log(require('playwright').chromium.executablePath())")"
+          node --test --disable-warning=ExperimentalWarning tools/app/tests/*.test.ts
 
   db:
     name: db (@everyfield/db, evry)

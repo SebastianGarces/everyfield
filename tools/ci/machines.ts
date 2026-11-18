@@ -7,10 +7,10 @@ import {
 	machines,
 	mermaid,
 	refusals,
+	skips,
 	unreachableStates,
 	type MachineShape,
 	type Observation,
-	type Refusal,
 } from "../../packages/contracts/src/machines/index.ts";
 import * as registry from "../../packages/contracts/src/machines/index.ts";
 import { mergeBase } from "./feature-maps.ts";
@@ -22,7 +22,8 @@ export type Writer = {
 	readonly guard: string | null;
 };
 
-type Literal = { readonly text: string; readonly guarded: readonly boolean[]; readonly line: number };
+type Guard = { readonly fn: "fromStates" | "entryStates"; readonly event: string | null; readonly to: string | null };
+type Literal = { readonly text: string; readonly guarded: readonly (Guard | null)[]; readonly line: number };
 
 const SOURCE_ROOTS = ["apps", "packages", "ops", "scripts", "tools"];
 const SOURCE_FILE = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
@@ -44,11 +45,43 @@ function trackedFiles(root: string): string[] {
 		);
 }
 
-function guardCall(expr: ts.Expression, binding: string): boolean {
-	if (!ts.isCallExpression(expr)) return false;
+const stringOf = (expr: ts.Expression | undefined): string | null =>
+	expr !== undefined && (ts.isStringLiteral(expr) || ts.isNoSubstitutionTemplateLiteral(expr)) ? expr.text : null;
+
+function guardCall(expr: ts.Expression, binding: string): Guard | null {
+	if (!ts.isCallExpression(expr)) return null;
 	const callee = expr.expression.getText();
 	if (callee === "sql.param" && expr.arguments.length === 1) return guardCall(expr.arguments[0]!, binding);
-	return callee === "fromStates" && expr.arguments[0]?.getText() === binding;
+	if ((callee !== "fromStates" && callee !== "entryStates") || expr.arguments[0]?.getText() !== binding) return null;
+	return {
+		fn: callee,
+		event: stringOf(expr.arguments[1]),
+		to: callee === "fromStates" ? stringOf(expr.arguments[2]) : null,
+	};
+}
+
+function fits(m: MachineShape, guard: Guard | null | undefined, fn: Guard["fn"], written: string | null): boolean {
+	if (!guard || guard.fn !== fn) return false;
+	const moves = fn === "fromStates" ? m.transitions : m.entries;
+	if (guard.event !== null && !moves.some((t) => t.event === guard.event)) return false;
+	if (fn === "entryStates") return true;
+	if (guard.to !== null && written !== null && guard.to !== written) return false;
+	const to = guard.to ?? written;
+	return to === null || m.transitions.some((t) => (guard.event === null || t.event === guard.event) && t.to === to);
+}
+
+function statementEnd(text: string, start: number): number {
+	let depth = 0,
+		quoted = false;
+	for (let at = start; at < text.length; at++) {
+		const ch = text[at];
+		if (ch === "'") quoted = !quoted;
+		if (quoted) continue;
+		if (ch === "(") depth++;
+		if (ch === ")" && --depth < 0) return at;
+		if (ch === ";" && depth === 0) return at;
+	}
+	return text.length;
 }
 
 function literals(source: ts.SourceFile, binding: string): Literal[] {
@@ -87,39 +120,153 @@ function splitTop(list: string): string[] {
 	return items;
 }
 
-function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string): Writer[] {
+const initialStates = (m: MachineShape) => [...new Set(m.entries.map((e) => e.to))];
+
+function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string, binding: string): Writer[] {
 	const found: Writer[] = [];
 	const target = new RegExp(`(?:^|\\.)${escape(m.table)}$`);
+	const targetColumn = new RegExp(`(?:^|\\.)${escape(m.table)}\\.${escape(m.column)}$`);
+	const constants = new Map<string, ts.Expression>();
+	const collect = (node: ts.Node) => {
+		if (
+			ts.isVariableDeclaration(node) &&
+			ts.isIdentifier(node.name) &&
+			node.initializer &&
+			ts.isVariableDeclarationList(node.parent) &&
+			node.parent.flags & ts.NodeFlags.Const
+		)
+			constants.set(node.name.text, node.initializer);
+		ts.forEachChild(node, collect);
+	};
+	collect(source);
+	const resolve = (expr: ts.Expression, depth = 0): ts.Expression =>
+		ts.isIdentifier(expr) && constants.has(expr.text) && depth < 8
+			? resolve(constants.get(expr.text)!, depth + 1)
+			: expr;
+	const textOf = (expr: ts.Expression): string => {
+		const e = resolve(expr);
+		return ts.isPropertyAccessExpression(e) ? `${textOf(e.expression)}.${e.name.text}` : e.getText(source);
+	};
+	const writes = (call: ts.Expression): "update" | "insert" | null => {
+		const c = resolve(call);
+		return ts.isCallExpression(c) &&
+			ts.isPropertyAccessExpression(c.expression) &&
+			(c.expression.name.text === "update" || c.expression.name.text === "insert") &&
+			c.arguments[0] !== undefined &&
+			target.test(textOf(c.arguments[0]))
+			? c.expression.name.text
+			: null;
+	};
+	const inserts = (expr: ts.Expression): boolean => {
+		const e = resolve(expr);
+		if (writes(e) === "insert") return true;
+		if (ts.isCallExpression(e)) return inserts(e.expression);
+		if (ts.isPropertyAccessExpression(e)) return inserts(e.expression);
+		return false;
+	};
+	const column = (p: ts.ObjectLiteralElementLike) =>
+		p.name !== undefined &&
+		!ts.isComputedPropertyName(p.name) &&
+		p.name.getText(source).replace(/["']/g, "") === m.column;
 	const names = (arg: ts.Expression) =>
 		!ts.isObjectLiteralExpression(arg) ||
 		arg.properties.some(
-			(p) =>
-				ts.isSpreadAssignment(p) ||
-				p.name === undefined ||
-				ts.isComputedPropertyName(p.name) ||
-				p.name.getText(source).replace(/["']/g, "") === m.column,
+			(p) => ts.isSpreadAssignment(p) || p.name === undefined || ts.isComputedPropertyName(p.name) || column(p),
 		);
+	const initial = (arg: ts.Expression) => {
+		if (!ts.isObjectLiteralExpression(arg)) return false;
+		const last = arg.properties.findLast(
+			(p) => ts.isSpreadAssignment(p) || p.name === undefined || ts.isComputedPropertyName(p.name) || column(p),
+		);
+		return (
+			last !== undefined &&
+			ts.isPropertyAssignment(last) &&
+			column(last) &&
+			ts.isStringLiteral(last.initializer) &&
+			initialStates(m).includes(last.initializer.text)
+		);
+	};
+	const written = (arg: ts.Expression | undefined): string | null => {
+		if (arg === undefined || !ts.isObjectLiteralExpression(arg)) return null;
+		const last = arg.properties.findLast(
+			(p) => ts.isSpreadAssignment(p) || p.name === undefined || ts.isComputedPropertyName(p.name) || column(p),
+		);
+		return last !== undefined && ts.isPropertyAssignment(last) && column(last) ? stringOf(last.initializer) : null;
+	};
+	const filtered = (where: ts.Expression, value: string | null): boolean => {
+		if (!ts.isCallExpression(where)) return false;
+		const callee = where.expression.getText(source);
+		if (callee === "and") return where.arguments.some((w) => filtered(w, value));
+		return (
+			callee === "inArray" &&
+			where.arguments.length === 2 &&
+			targetColumn.test(textOf(where.arguments[0]!)) &&
+			fits(m, guardCall(where.arguments[1]!, binding), "fromStates", value)
+		);
+	};
+	const guardOf = (node: ts.CallExpression, kind: string): string | null => {
+		if (kind === "values") return node.arguments.length === 1 && initial(node.arguments[0]!) ? "initial state" : null;
+		const parent = node.parent;
+		const where =
+			ts.isPropertyAccessExpression(parent) && parent.name.text === "where" && ts.isCallExpression(parent.parent)
+				? parent.parent
+				: null;
+		return where && where.arguments.length === 1 && filtered(where.arguments[0]!, written(node.arguments[0]))
+			? "from-state filter"
+			: null;
+	};
+	const line = (node: ts.Node) => source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
 	const visit = (node: ts.Node) => {
-		if (
-			ts.isCallExpression(node) &&
-			ts.isPropertyAccessExpression(node.expression) &&
-			["set", "values"].includes(node.expression.name.text) &&
-			ts.isCallExpression(node.expression.expression) &&
-			ts.isPropertyAccessExpression(node.expression.expression.expression) &&
-			["update", "insert"].includes(node.expression.expression.expression.name.text) &&
-			target.test(node.expression.expression.arguments[0]?.getText(source) ?? "") &&
-			node.arguments.some(names)
-		)
-			found.push({
-				file,
-				line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
-				statement: "drizzle",
-				guard: null,
-			});
+		if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
+			const method = node.expression.name.text;
+			const kind = writes(node.expression.expression);
+			if (
+				((method === "set" && kind === "update") || (method === "values" && kind === "insert")) &&
+				node.arguments.some(names)
+			)
+				found.push({ file, line: line(node), statement: "drizzle", guard: guardOf(node, method) });
+			if (
+				(method === "onConflictDoUpdate" || method === "onDuplicateKeyUpdate") &&
+				inserts(node.expression.expression)
+			) {
+				const config = node.arguments[0];
+				const set =
+					config && ts.isObjectLiteralExpression(config)
+						? config.properties.find(
+								(p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText(source) === "set",
+							)
+						: undefined;
+				if (!config || !ts.isObjectLiteralExpression(config) || (set && names(set.initializer)))
+					found.push({ file, line: line(node), statement: "drizzle", guard: null });
+			}
+		}
 		ts.forEachChild(node, visit);
 	};
 	visit(source);
 	return found;
+}
+
+function functionGuard(m: MachineShape, text: string, index: number, to: string | undefined): string | null {
+	const head = [
+		...text.slice(0, index).matchAll(/CREATE\s+(?:OR\s+REPLACE\s+)?FUNCTION\s+(?:"?\w+"?\.)?"?(\w+)"?\s*\(/gi),
+	].at(-1);
+	if (!head || to === undefined || text.slice(head.index, index).includes("$$;")) return null;
+	const from = [...new Set(m.transitions.filter((t) => t.sql === head[1] && t.to === to).map((t) => t.from))];
+	const lock = new RegExp(
+		`SELECT\\s+\\*\\s+INTO\\s+\\w+\\s+FROM\\s+"?${escape(m.table)}"?\\s+WHERE\\s+([^;]*?)\\s+FOR\\s+UPDATE\\s*;\\s*IF\\s+NOT\\s+FOUND\\s+THEN\\s+RAISE\\b`,
+		"i",
+	).exec(text.slice(head.index, index));
+	const column = escape(m.column);
+	const single = lock && new RegExp(`(?<![\\w.])${column}\\s*=\\s*'([^']*)'`, "i").exec(lock[1]!);
+	const listed = lock && new RegExp(`(?<![\\w.])${column}\\s+IN\\s*\\(([^)]*)\\)`, "i").exec(lock[1]!);
+	const required = single ? [single[1]!] : listed ? splitTop(listed[1]!).map((v) => v.replace(/'/g, "")) : [];
+	const same = from.length > 0 && required.length === from.length && from.every((s) => required.includes(s));
+	const where = /\bWHERE\s+(?:\w+\.)?id\s*=\s*(\w+)\s*$/i.exec(text.slice(index, statementEnd(text, index)));
+	const locked =
+		lock !== null &&
+		where !== null &&
+		new RegExp(`(?:^|\\sAND\\s)(?:\\w+\\.)?id\\s*=\\s*${escape(where[1]!)}(?:\\s|$)`, "i").test(lock[1]!);
+	return same && locked ? `locked ${from.join(", ")} in ${head[1]}` : null;
 }
 
 export function bindingOf(m: MachineShape): string {
@@ -161,15 +308,24 @@ export function census(root: string, m: MachineShape, binding = bindingOf(m)): W
 					writers.push({ file, line, statement: "update", guard: null });
 					continue;
 				}
-				if (!items.some((item) => assigns.test(item))) continue;
-				const f = filter.exec(lit.text);
-				const guarded = !sqlFile && f !== null && lit.guarded[Number(f[1])] === true;
+				const assignment = items.find((item) => assigns.test(item));
+				if (assignment === undefined) continue;
+				if (sqlFile) {
+					const to = /=\s*'([^']*)'\s*$/.exec(assignment)?.[1];
+					writers.push({ file, line, statement: "update", guard: functionGuard(m, text, u.index, to) });
+					continue;
+				}
+				const f = filter.exec(lit.text.slice(u.index, statementEnd(lit.text, u.index)));
+				const value = /=\s*'([^']*)'\s*$/.exec(assignment)?.[1] ?? null;
+				const guarded = f !== null && fits(m, lit.guarded[Number(f[1])], "fromStates", value);
 				writers.push({ file, line, statement: "update", guard: guarded ? "from-state filter" : null });
 			}
 			for (const i of lit.text.matchAll(insert)) {
 				const line = lineOf(lit, i.index);
 				if (i[1] === undefined) {
-					writers.push({ file, line, statement: "insert", guard: null });
+					const f = filter.exec(lit.text.slice(i.index, statementEnd(lit.text, i.index)));
+					const copied = !sqlFile && f !== null && fits(m, lit.guarded[Number(f[1])], "entryStates", null);
+					writers.push({ file, line, statement: "insert", guard: copied ? "entry-state filter" : null });
 					continue;
 				}
 				const columns = splitTop(i[1]).map((c) => c.replace(/"/g, "").toLowerCase());
@@ -177,7 +333,9 @@ export function census(root: string, m: MachineShape, binding = bindingOf(m)): W
 				if (at < 0) continue;
 				const value = i[3] === undefined ? undefined : splitTop(i[3])[at];
 				const initial =
-					!sqlFile && value !== undefined && new RegExp(`^'${escape(m.initial.to)}'(?:::text)?$`).test(value);
+					!sqlFile &&
+					value !== undefined &&
+					initialStates(m).some((to) => new RegExp(`^'${escape(to)}'(?:::text)?$`).test(value));
 				writers.push({ file, line, statement: "insert", guard: initial ? "initial state" : null });
 			}
 		}
@@ -185,16 +343,19 @@ export function census(root: string, m: MachineShape, binding = bindingOf(m)): W
 			for (const lit of found)
 				if (!STATEMENT.test(lit.text) && splitTop(lit.text).some((item) => assigns.test(item)))
 					writers.push({ file, line: lit.line, statement: "set fragment", guard: null });
-		if (source) writers.push(...drizzleWriters(source, m, file));
+		if (source) writers.push(...drizzleWriters(source, m, file, binding));
 	}
 	return writers.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
 
 const title = (id: string) => id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, " ");
-const refusalRow = (r: Refusal) => `| ${r.subject} | \`${r.event}\` | ${r.from} | ${r.to} |`;
+const code = (text: string) => `\`${text}\``;
+const list = (items: readonly string[]) => items.map(code).join(", ");
 
-export function render(m: MachineShape, declaredRefusals: readonly Refusal[], writers: readonly Writer[]): string {
-	const statements = [...new Map(writers.map((w) => [`${w.file} ${w.statement}`, w])).values()];
+export function render(m: MachineShape, writers: readonly Writer[]): string {
+	const statements = [...new Map(writers.map((w) => [`${w.file} ${w.statement} ${w.guard}`, w])).values()];
+	const declaredRefusals = refusals(m),
+		declaredSkips = skips(m);
 	return [
 		`# ${title(m.id)} machine`,
 		"",
@@ -202,15 +363,22 @@ export function render(m: MachineShape, declaredRefusals: readonly Refusal[], wr
 		"`node tools/ci/machines.ts --check` fails when this page differs from the table, and when the writer census below",
 		"finds a write of the column that does not carry the machine's guard.",
 		"",
-		`- Column: \`${m.table}.${m.column}\``,
-		`- States: ${m.states.map((s) => `\`${s}\``).join(", ")}`,
-		`- Subjects the guards tell apart: ${Object.keys(m.subjects)
-			.map((s) => `\`${s}\``)
-			.join(", ")}`,
-		`- Refusal for every move the chart does not show: \`${m.refusal}\``,
+		`- Column: ${code(`${m.table}.${m.column}`)}`,
+		`- States: ${list(m.states)}`,
+		`- Subjects the guards tell apart: ${list(Object.keys(m.subjects))}`,
+		...(m.facts?.length ? [`- Guards that describe the moment, not the subject: ${list(m.facts)}`] : []),
+		`- Refusal for every move the chart does not show: ${code(m.refusal)}`,
+		...(m.refusalCodes ?? []).map(
+			(r) =>
+				`- ${code(r.code)} instead for ${code(r.event)}${r.from === undefined ? "" : ` from ${list(typeof r.from === "string" ? [r.from] : r.from)}`}`,
+		),
 		...(m.unchangedIsNoop.length
-			? [`- A request for the current state writes nothing: ${m.unchangedIsNoop.map((e) => `\`${e}\``).join(", ")}`]
+			? [`- A request for the current state writes nothing: ${list(m.unchangedIsNoop)}`]
 			: []),
+		...(declaredSkips.length
+			? ["- A sweep changes only the rows in its from-states and leaves every other row as it is"]
+			: []),
+		...(m.notes?.length ? ["", ...m.notes.map((n) => `- ${n}`)] : []),
 		"",
 		"```mermaid",
 		mermaid(m),
@@ -218,26 +386,53 @@ export function render(m: MachineShape, declaredRefusals: readonly Refusal[], wr
 		"",
 		"## Refused moves",
 		"",
-		"| Subject | Event | From | To |",
-		"|---|---|---|---|",
-		...declaredRefusals.map(refusalRow),
+		"| Subject | Event | From | To | Refusal |",
+		"|---|---|---|---|---|",
+		...declaredRefusals.map((r) => `| ${code(r.subject)} | ${code(r.event)} | ${r.from} | ${r.to} | ${code(r.code)} |`),
+		...(declaredSkips.length
+			? [
+					"",
+					"## Rows a sweep leaves unchanged",
+					"",
+					"| Subject | Event | From | Not moved to |",
+					"|---|---|---|---|",
+					...declaredSkips.map((r) => `| ${code(r.subject)} | ${code(r.event)} | ${r.from} | ${r.to} |`),
+				]
+			: []),
 		"",
 		"## Writers of the column",
 		"",
 		"| File | Statement | Guard |",
 		"|---|---|---|",
-		...statements.map((w) => `| \`${w.file}\` | ${w.statement} | ${w.guard ?? "none"} |`),
+		...statements.map((w) => `| ${code(w.file)} | ${w.statement} | ${w.guard ?? "none"} |`),
 		"",
 		"The census is a static scan of git-tracked product code and SQL files under apps, packages, ops, scripts and",
 		"tools. It reads SQL literals (with an optional schema prefix), SET fragments in a file that also holds a dynamic",
-		"`SET ${…}` on the table, Drizzle `update`/`insert` calls, and `.sql` files. A guarded UPDATE filters on",
-		`\`${m.column} = ANY(\${fromStates(${bindingOf(m)}, …)})\` in the same statement; a guarded INSERT writes the`,
-		"initial state. A column name or statement start built at runtime, or a Drizzle object that is not a literal, counts",
-		"as an unguarded writer.",
+		"`SET ${…}` on the table, Drizzle `update`/`insert`/`onConflictDoUpdate` calls (a table or query held in a",
+		"`const` of the same file is followed), and `.sql` files. A statement ends at its `;` or at the parenthesis",
+		"that closes its CTE, so a guard elsewhere in the same SQL text does not count. A guarded UPDATE filters on",
+		`\`${m.column} = ANY(\${fromStates(${bindingOf(m)}, …)})\` inside its own statement, or a Drizzle update on`,
+		`\`inArray(<table>.${m.column}, fromStates(${bindingOf(m)}, …))\` in its \`where\` (alone or inside \`and\`). When`,
+		"the guard names its event or target as a string literal, or the write sets the state as a literal, the event",
+		"must have a move to that state and the two targets must agree. A guarded INSERT writes an initial state as a",
+		"literal; in a Drizzle object literal that is the last property that names the column, after any spread. An",
+		"insert that updates the column on conflict is unguarded. An INSERT that copies rows without a column list is",
+		`guarded when its own statement filters on \`${m.column} = ANY(\${entryStates(${bindingOf(m)}, …)})\`. An UPDATE in`,
+		"a `.sql` file is guarded only inside a function that an edge names with `sql`, after a",
+		"`SELECT * INTO … FROM <table> WHERE … FOR UPDATE; IF NOT FOUND THEN RAISE` whose required states are exactly",
+		"that edge's from-states, only when it writes that edge's target as a literal, and only when its `WHERE` is",
+		"`id = <the id the lock read>`. A column name or statement start built at runtime, or a Drizzle object that is",
+		"not a literal, counts as an unguarded writer.",
 		"",
-		"It cannot see: a SET fragment passed in from another file, SQL text assembled from variables that hold no",
-		"literal naming the table, statements sent outside this repository, or writes made by hand in a database",
-		"session. Only a database trigger generated from this table would refuse those.",
+		"It cannot see: a SET fragment passed in from another file; SQL text assembled from variables that hold no",
+		"literal naming the table; a table or query handed through a parameter, a `let` or another file; whether an",
+		"event or target passed as a variable fits the write (only literal ones are checked); statements sent outside",
+		"this repository; or writes made by hand in a database session. Only a database trigger generated from this",
+		"table would refuse those.",
+		"",
+		"It is strict where it cannot tell: any other write in a `.sql` file counts as unguarded (a data backfill",
+		"needs its own edge and function), and so does a bare",
+		`\`${m.column} = …\` fragment of any table in a file that also holds a dynamic \`UPDATE ${m.table} SET \${…}\`.`,
 		"",
 		"## Proof",
 		"",
@@ -345,7 +540,7 @@ export function checkMachines(root: string, write = false): string[] {
 				);
 		for (const s of unreachableStates(m)) problems.push(`${m.id}: state ${s} has no incoming edge.`);
 		if (!existsSync(join(root, m.proof))) problems.push(`${m.id}: proof test ${m.proof} does not exist.`);
-		const expected = render(m, refusals(m), writers),
+		const expected = render(m, writers),
 			path = join(root, page(m));
 		if (write) {
 			mkdirSync(dirname(path), { recursive: true });
@@ -361,7 +556,7 @@ export function coverageReport(file: string): { lines: string[]; complete: boole
 		.split("\n")
 		.filter(Boolean)
 		.map((line) => JSON.parse(line) as Observation);
-	const results = machines.map((m) => coverage(m, refusals(m), observations));
+	const results = machines.map((m) => coverage(m, observations));
 	return {
 		lines: results.flatMap((r) => [r.line, ...r.missing.map((k) => `  missing: ${k}`)]),
 		complete: results.every((r) => r.complete),

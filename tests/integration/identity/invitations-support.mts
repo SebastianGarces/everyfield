@@ -107,7 +107,8 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		return Object.assign(call, { auth: service.auth });
 	}
 	async function dispatch() {
-		for (const claim of await claimDue(db, ["mail"], 100)) await mail.dispatch(claim);
+		for (let claims = await claimDue(db, ["mail"], 100); claims.length; claims = await claimDue(db, ["mail"], 100))
+			for (const claim of claims) await mail.dispatch(claim);
 	}
 	async function proof(invitationId) {
 		const [i] = await admin
