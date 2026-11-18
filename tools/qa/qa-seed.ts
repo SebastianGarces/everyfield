@@ -262,6 +262,8 @@ async function fill(
 			id = created.plant.id;
 			done.push(`church${label}`);
 		}
+		await admin.execute(sql`UPDATE plant SET street='1200 Congress Ave', state_province='TX', country='United States'
+			WHERE id=${id} AND street IS NULL AND country IS NULL`);
 		const completed = await rows(admin, sql`SELECT onboarding_completed_at FROM plant WHERE id=${id}`);
 		if (!completed[0]!.onboarding_completed_at) {
 			const c = { session: await sessionOf(ownerEmail), selected: { kind: "plant", id } };

@@ -85,24 +85,25 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 		refreshAfterClose.current = null;
 		refresh?.();
 	};
+	const refreshOnClose =
+		<A extends unknown[], R extends { status: string }>(save: (...args: A) => Promise<R>) =>
+		async (...args: A) => {
+			const reply = await save(...args);
+			if (reply.status === "ok" && !refreshAfterClose.current) {
+				const stop = onTraversal(() => {
+					if (!sectionAt(window.location.pathname, viewer)) refreshUnderneath();
+				});
+				refreshAfterClose.current = () => {
+					stop();
+					router.refresh();
+				};
+			}
+			return reply;
+		};
 	const [port] = useState<SettingsPort>(() => ({
 		...PORT,
-		wiki: {
-			...PORT.wiki,
-			save: async (...args) => {
-				const reply = await PORT.wiki.save(...args);
-				if (reply.status === "ok" && !refreshAfterClose.current) {
-					const stop = onTraversal(() => {
-						if (!sectionAt(window.location.pathname, viewer)) refreshUnderneath();
-					});
-					refreshAfterClose.current = () => {
-						stop();
-						router.refresh();
-					};
-				}
-				return reply;
-			},
-		},
+		saveChurch: refreshOnClose(PORT.saveChurch),
+		wiki: { ...PORT.wiki, save: refreshOnClose(PORT.wiki.save) },
 	}));
 
 	const navigate = (key: SectionKey | null) => {
