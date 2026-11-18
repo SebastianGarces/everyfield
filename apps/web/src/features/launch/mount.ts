@@ -2,9 +2,9 @@ import type { Database } from "@everyfield/db/client";
 import { authorizeLaunchNotices, createLaunchWriter } from "@everyfield/domain/launch";
 import "server-only";
 import { z } from "zod";
-import { mailEnv } from "../mail-env.ts";
-import { database } from "../database";
-import { mountMailService, seatedNotificationService } from "../jobs/seated-notifications";
+import { mailEnv } from "../../server/mail-env.ts";
+import { database } from "../../server/database";
+import { mountMailService, seatedNotificationService } from "../../server/jobs/seated-notifications";
 import { launchNotices } from "./notices";
 
 const env = z.object({
