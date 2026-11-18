@@ -81,6 +81,42 @@ const privateCareScope = {
 	},
 };
 
+export const TABLE_WRITERS = {
+	phase_transition: {
+		owner: "packages/domain/src/phases/",
+		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
+	},
+};
+const INSERT_INTO = /\binsert\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+
+const tableWriters = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		const report = (node, table) => {
+			const { owner, why } = TABLE_WRITERS[table];
+			if (!path.startsWith(owner))
+				context.report({
+					node,
+					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here.`,
+				});
+		};
+		const check = (value, node) => {
+			for (const [, table] of value?.matchAll(INSERT_INTO) ?? [])
+				if (Object.hasOwn(TABLE_WRITERS, table.toLowerCase())) report(node, table.toLowerCase());
+		};
+		return {
+			Literal: (node) => check(text(node), node),
+			TemplateElement: (node) => check(text(node), node),
+			CallExpression: (node) => {
+				const table = node.arguments[0];
+				const name = table?.type === "MemberExpression" ? memberName(table) : null;
+				if (memberName(node.callee) === "insert" && Object.hasOwn(TABLE_WRITERS, name)) report(node, name);
+			},
+		};
+	},
+};
+
 const noInnerHtml = {
 	meta: { type: "problem" },
 	create(context) {
@@ -1240,6 +1276,7 @@ export default {
 		"pure-module": pureModule,
 		"no-inner-html": noInnerHtml,
 		"no-effects": noEffects,
+		"table-writers": tableWriters,
 		"max-state": maxState,
 		"no-timers": noTimers,
 		"no-comments": noComments,

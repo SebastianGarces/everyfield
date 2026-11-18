@@ -1271,7 +1271,8 @@
 		{
 			"files": ["src/**"],
 			"rules": {
-				"everyfield/private-care-scope": "error"
+				"everyfield/private-care-scope": "error",
+				"everyfield/table-writers": "error"
 			}
 		},
 		{
