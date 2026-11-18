@@ -18,7 +18,10 @@ Never approve while it fails or while a changed surface has no map entry. A map 
 Follow `.agents/skills/verify-preview/SKILL.md`. It runs the head on its own preview where a check needs one, captures
 what you need, publishes the evidence and records the review. Tooling tasks rerun their commands as the probe.
 A task that changes a path in an `evf.toml` owner class gets the same review. evf then holds it for Sebastian.
-For a task that touches a state machine, attach its `docs/machines/<id>.md` chart and coverage report (`verify-preview` 4).
+A review of a diff that touches a machine (its table, its column's values or a file its writer census lists) or a
+4+ state value set pastes the Machines table `pnpm review-proof` prints into its Proof section, linking each machine's
+table and its generated `docs/machines/<id>.md` chart, with the coverage report saved as `$E/<id>-coverage.txt`
+(`verify-preview` 5). Never approve while `pnpm review-proof` or `node tools/ci/machines.ts --check` fails.
 For a task that changes `docs/reference/wiki/`, check sources, scripture and screenshots of each draft before you approve.
 
 Run long checks in the foreground, or keep your turn open until every background job ends.
