@@ -42,14 +42,29 @@ jobs:
         run: pnpm test:logs
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+      - name: LibreOffice packages cache key (runner image and package list)
+        id: libreoffice-key
+        run: echo "key=libreoffice-debs-$ImageOS-$ImageVersion-$RUNNER_ARCH-$(sha256sum .github/scripts/libreoffice-install.sh | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - name: LibreOffice packages cache
+        id: libreoffice-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/libreoffice-debs/*.deb
+          key: ${{ steps.libreoffice-key.outputs.key }}
       - name: LibreOffice and the upright DM Sans fonts for the documents tests
+        timeout-minutes: 8
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc
+          .github/scripts/libreoffice-install.sh "$HOME/libreoffice-debs"
           sudo mkdir -p /usr/local/share/fonts/everyfield
           sudo cp packages/domain/src/documents/fonts/DMSans-{Regular,Medium,Bold}.ttf packages/domain/src/documents/fonts/DMSerifDisplay-Regular.ttf /usr/local/share/fonts/everyfield/
           fc-cache -f
           soffice --version
+      - name: Save the LibreOffice packages cache
+        if: steps.libreoffice-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/libreoffice-debs/*.deb
+          key: ${{ steps.libreoffice-key.outputs.key }}
       - name: Package unit tests (each package's test:unit, no database or network)
         run: corepack pnpm -r --if-present test:unit
         env:
