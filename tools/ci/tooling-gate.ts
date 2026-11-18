@@ -4,9 +4,8 @@ import { basename, matchesGlob } from "node:path";
 import { OWN_STEP } from "../../scripts/test-workflow.mjs";
 import { RULES } from "./select.ts";
 
-export const GATE_SCRIPT = "tools/ci/tooling-gate.ts";
-export const FORMAL_TESTS: readonly string[] = ["tests/workflow/formal.test.ts"];
-export const TYPECHECK_TESTS = "tools/ci/tests/typecheck*.test.ts";
+const FORMAL_TEST = "tests/workflow/formal.test.ts";
+const TYPECHECK_TESTS = "tools/ci/tests/typecheck*.test.ts";
 
 function rulePaths(name: string): readonly string[] {
 	const rule = RULES.find((r) => r.name === name);
@@ -14,14 +13,14 @@ function rulePaths(name: string): readonly string[] {
 	return rule.paths;
 }
 
-export const FULL_PATHS: readonly string[] = [
+const FULL_PATHS: readonly string[] = [
 	".github/workflows/**",
 	".github/actions/**",
-	GATE_SCRIPT,
+	"tools/ci/tooling-gate.ts",
 	...rulePaths("shared input"),
 ];
 
-export const GATES = {
+const GATES = {
 	typecheck: {
 		step: "INV-typecheck tests in the CI test coverage tool",
 		paths: [
@@ -35,7 +34,7 @@ export const GATES = {
 	},
 	formal: {
 		step: "INV-formal (TLC) tests in the local stack step",
-		paths: [...rulePaths("formal checks"), ...FORMAL_TESTS],
+		paths: [...rulePaths("formal checks"), FORMAL_TEST],
 	},
 	qa: {
 		step: "QA preview tool",
@@ -47,8 +46,8 @@ export const GATES = {
 } as const satisfies Record<string, { step: string; paths: readonly string[] }>;
 
 export type GateId = keyof typeof GATES;
-export type Decision = { run: boolean; reason: string };
-export type Decisions = Record<GateId, Decision>;
+type Decision = { run: boolean; reason: string };
+type Decisions = Record<GateId, Decision>;
 
 const IDS = Object.keys(GATES) as GateId[];
 const all = (reason: string): Decisions =>
@@ -92,7 +91,7 @@ export function testFiles(
 	return {
 		toolsCi: toolsCi.filter((file) => decisions.typecheck.run || !matchesGlob(file, TYPECHECK_TESTS)),
 		workflow: workflow.filter(
-			(file) => !OWN_STEP.has(basename(file)) && (decisions.formal.run || !FORMAL_TESTS.includes(file)),
+			(file) => !OWN_STEP.has(basename(file)) && (decisions.formal.run || file !== FORMAL_TEST),
 		),
 	};
 }
