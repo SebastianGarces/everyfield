@@ -1,5 +1,5 @@
 import "server-only";
-import { command, invitationFor, namesFor, subjectFacts, viewerOf, type Reply } from "@/server/organizations";
+import { command, invitationFor, namesFor, subjectFacts, viewerOf, type Reply } from "../mount";
 import { z } from "zod";
 
 export type RelationshipInvitationRead =
