@@ -10,7 +10,7 @@ import {
 import "server-only";
 import type { Outcome, PageData } from "./model.ts";
 import { appOrigin, mailReady, type MailReady } from "./mail.ts";
-import { canWrite } from "../shared/seat-role.ts";
+import { canWrite } from "../../components/seat-role.ts";
 
 type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
 export type Viewer = Peopled;

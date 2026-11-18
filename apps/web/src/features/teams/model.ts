@@ -17,7 +17,7 @@ import type { Tone } from "@everyfield/ui/controls";
 import type { Status } from "@everyfield/ui/display";
 import type { IconSvgElement } from "@everyfield/ui/foundations";
 import type { z } from "zod";
-import { MONTHS } from "../shared/dates.ts";
+import { MONTHS } from "../../components/dates.ts";
 
 export type Team = z.infer<typeof c.team>;
 export type Role = z.infer<typeof c.teamRole>;
