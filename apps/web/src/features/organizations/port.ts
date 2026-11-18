@@ -27,7 +27,3 @@ export type { RelationshipPair };
 export type NameOf = (
 	endpoint: { kind: "account"; id: string } | { kind: "plant" | "organization"; id: string },
 ) => string;
-
-export function newRequestKey(intent: string): string {
-	return `${intent}-${crypto.randomUUID()}`;
-}

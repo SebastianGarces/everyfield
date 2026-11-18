@@ -16,7 +16,7 @@ import {
 import { useState, useTransition } from "react";
 import { saveStages } from "./actions";
 import { KIND_LABEL, plural, refusalText, stageChanges } from "./model";
-import { Problem } from "./Problem";
+import { Problem } from "../../../components/Problem.tsx";
 
 type Stage = PipelineBoard["stages"][number];
 type Row = { id: string; label: string; kind: string; revision: string | null; count: number };

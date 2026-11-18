@@ -11,7 +11,7 @@ import { LoadableView, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useState } from "react";
 import type { z } from "zod";
 import { NotAvailable } from "../access/AccessStates";
-import { useIntent, useLoad } from "./intent";
+import { useIntent, useLoad } from "../../components/intent.ts";
 import { PrivateLine, ProblemLine } from "./parts";
 
 type Consent = z.infer<typeof pipelineConsentResult>;
