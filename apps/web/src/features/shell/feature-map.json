@@ -206,6 +206,82 @@
 				}
 			],
 			"behaviors": []
+		},
+		{
+			"id": "shell.package-preview",
+			"says": "Design previews of the shared UI package inside the product frame as an Owner: controls, display parts and foundations, with sample data and no database. Production returns 404.",
+			"routes": ["/design/controls", "/design/display", "/design/foundations"],
+			"reach": [
+				{
+					"link": "/design/controls"
+				},
+				{
+					"link": "/design/display"
+				},
+				{
+					"link": "/design/foundations"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "controls",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/controls",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Controls"
+						},
+						{
+							"role": "heading",
+							"name": "Card"
+						}
+					]
+				},
+				{
+					"id": "display",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/display",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Display"
+						},
+						{
+							"role": "heading",
+							"name": "Badges, chips and avatars"
+						}
+					]
+				},
+				{
+					"id": "foundations",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/foundations",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Foundations"
+						},
+						{
+							"role": "heading",
+							"name": "Logo"
+						}
+					]
+				}
+			],
+			"behaviors": []
 		}
 	]
 }

@@ -6,7 +6,7 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 121 of 136. Not yet mapped: 15, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 124 of 136. Not yet mapped: 12, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
@@ -125,6 +125,7 @@ flowchart LR
   subgraph f21["shell"]
     f21s0["shell.frame"]
     f21s1["shell.design-preview"]
+    f21s2["shell.package-preview"]
   end
   subgraph f22["tasks"]
     f22s0["tasks.list"]
@@ -223,6 +224,7 @@ flowchart LR
   links -.-> f20s4
   links -.-> f21s0
   links -.-> f21s1
+  links -.-> f21s2
   rail -- "Tasks" --> f22s0
   f22s0 --> f22s1
   links -.-> f22s1
@@ -258,7 +260,7 @@ flowchart LR
 | [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
 | [residency](residency.md) | [`apps/web/src/features/residency/feature-map.json`](../../apps/web/src/features/residency/feature-map.json) | 1 | 2 | 2 | 1 | 0 |
 | [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 9 | 7 | 5 | 2 |
-| [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 2 | 2 | 0 | 0 | 0 |
+| [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 3 | 5 | 0 | 0 | 0 |
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
 | [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 2 | 4 | 3 | 1 |
 | [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 2 | 6 | 3 | 1 |
