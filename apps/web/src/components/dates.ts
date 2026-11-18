@@ -6,6 +6,14 @@ export function formatDay(instant: string, zone: string): string {
 	);
 }
 
+const plainDate = new Intl.DateTimeFormat("en-US", {
+	month: "short",
+	day: "numeric",
+	year: "numeric",
+	timeZone: "UTC",
+});
+export const formatPlainDate = (value: string) => plainDate.format(new Date(`${value}T00:00:00Z`));
+
 export function offsetText(seconds: number): string {
 	const sign = seconds < 0 ? "−" : "+";
 	const abs = Math.abs(seconds),
