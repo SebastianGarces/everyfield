@@ -1,12 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { changedFiles, mergeBase } from "./feature-maps.ts";
 
-export type AddedMigration = { path: string; sql: string };
+type AddedMigration = { path: string; sql: string };
 
-export const MIGRATION = /^packages\/db\/migrations\/[^/]+\.sql$/;
-export const CONTRACT_PATHS = ["packages/db/", "docs/", "tests/integration/db/"] as const;
+const MIGRATION = /^packages\/db\/migrations\/[^/]+\.sql$/;
+const CONTRACT_PATHS = ["packages/db/", "docs/", "tests/integration/db/"] as const;
 
 const IDENT = String.raw`(?:"[^"]+"|[A-Za-z_][\w$]*)(?:\s*\.\s*(?:"[^"]+"|[A-Za-z_][\w$]*))?`;
 const MARKER = /^[ \t]*--[ \t]*contract:(.*)$/gim;
@@ -19,7 +19,7 @@ function name(ident: string): string {
 	return quoted ?? bare!.toLowerCase();
 }
 
-export function statements(source: string): string[] {
+function statements(source: string): string[] {
 	const out: string[] = [];
 	let current = "";
 	let i = 0;
@@ -113,7 +113,7 @@ const NOT_COLUMN = /^(?:CONSTRAINT|PRIMARY|UNIQUE|CHECK|FOREIGN|EXCLUDE)\b/i;
 
 type Finding = { statement: string; rule: string };
 
-export function findings(source: string): Finding[] {
+function findings(source: string): Finding[] {
 	const all = statements(source);
 	const created = new Set<string>();
 	const defaults = new Set<string>();
@@ -198,9 +198,9 @@ export function checkMigrations(added: readonly AddedMigration[], changed: reado
 	return problems;
 }
 
-export type Change = { base: string; head?: string; against: string };
+type Change = { base: string; head?: string; against: string };
 
-export function changeUnderCheck(root: string, ref = "origin/main"): Change | { error: string } {
+function changeUnderCheck(root: string, ref = "origin/main"): Change | { error: string } {
 	const git = (...args: string[]) =>
 		execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 	const base = mergeBase(root, ref);
@@ -213,7 +213,7 @@ export function changeUnderCheck(root: string, ref = "origin/main"): Change | { 
 	}
 }
 
-export function addedMigrations(root: string, change: Change): { added: AddedMigration[]; changed: string[] } {
+function addedMigrations(root: string, change: Change): { added: AddedMigration[]; changed: string[] } {
 	const changed = changedFiles(root, change.base, change.head);
 	const atBase = new Set(
 		execFileSync("git", ["ls-tree", "-r", "--name-only", change.base, "--", "packages/db/migrations/"], {
@@ -225,13 +225,12 @@ export function addedMigrations(root: string, change: Change): { added: AddedMig
 	);
 	const added = changed
 		.filter((path) => MIGRATION.test(path) && !atBase.has(path))
-		.flatMap((path): AddedMigration[] => {
-			if (change.head)
-				return [
-					{ path, sql: execFileSync("git", ["show", `${change.head}:${path}`], { cwd: root, encoding: "utf8" }) },
-				];
-			return existsSync(join(root, path)) ? [{ path, sql: readFileSync(join(root, path), "utf8") }] : [];
-		});
+		.map((path) => ({
+			path,
+			sql: change.head
+				? execFileSync("git", ["show", `${change.head}:${path}`], { cwd: root, encoding: "utf8" })
+				: readFileSync(join(root, path), "utf8"),
+		}));
 	return { added, changed };
 }
 
