@@ -1128,17 +1128,18 @@ test("INV-run-recovery: a run whose worker was lost, that no worker took within 
 	const observed = async (id: string, reads: number) => {
 		const seen = [];
 		const budget = new AbortController();
+		const signal = AbortSignal.any([budget.signal, AbortSignal.timeout(60_000)]);
 		let polled = 0;
 		const count = (text: string) => {
 			if (text.includes("AS run_live") && ++polled > reads) budget.abort();
 		};
 		statementListeners.add(count);
 		try {
-			for await (const e of observeConversation(db, owner, id, 0, budget.signal, 20)) seen.push(e);
+			for await (const e of observeConversation(db, owner, id, 0, signal, 20)) seen.push(e);
 		} finally {
 			statementListeners.delete(count);
 		}
-		return { seen, ended: !budget.signal.aborted };
+		return { seen, ended: !signal.aborted };
 	};
 	const cases: [string, (id: string) => Promise<unknown>][] = [
 		[
