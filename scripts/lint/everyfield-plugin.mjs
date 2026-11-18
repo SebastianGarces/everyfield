@@ -1,6 +1,7 @@
-import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
+import { fileProblems, importProblem, resolveImport, routeFeatures } from "./boundaries.mjs";
 import { existsSync, readFileSync } from "node:fs";
-import { area, commentsExempt, ratchet, repoPath, sqlMarkers } from "./ratchet.mjs";
+import { join } from "node:path";
+import { area, commentsExempt, ratchet, repoPath, root, sqlMarkers } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
 const RESEND_HOST = "api.resend.com";
@@ -1301,6 +1302,50 @@ const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
 	};
 });
 
+const READ_ROUTE = /^apps\/web\/src\/app\/(?:.+\/)?(?:page\.tsx|layout\.tsx|route\.ts)$/;
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const SERVER_ACTIONS = /^\s*["']use server["']/;
+
+const exportedNames = (statement) =>
+	statement.type !== "ExportNamedDeclaration"
+		? []
+		: statement.declaration
+			? statement.declaration.type === "VariableDeclaration"
+				? statement.declaration.declarations.map((d) => d.id.name)
+				: [statement.declaration.id?.name]
+			: statement.specifiers.map((s) => nameOf(s.exported));
+
+const isServerActions = (path) => {
+	try {
+		return SERVER_ACTIONS.test(readFileSync(join(root, path), "utf8"));
+	} catch {
+		return false;
+	}
+};
+
+const routeReads = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!READ_ROUTE.test(from)) return {};
+		const imports = [];
+		return {
+			...moduleSources((node, spec) => imports.push([node, spec])),
+			"Program:exit"(program) {
+				if (program.body.some((s) => exportedNames(s).some((name) => WRITE_METHODS.has(name)))) return;
+				for (const [node, spec] of imports) {
+					const to = resolveImport(from, spec).to;
+					if (to && isServerActions(to))
+						context.report({
+							node,
+							message: `A page, a layout and a GET route handler only read, so they never import a server action module (${spec} starts with "use server"). Read through the feature's routes or read module, and let it hand the action to the client as a prop.`,
+						});
+				}
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -1322,5 +1367,6 @@ export default {
 		"no-render-writes": noRenderWrites,
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
+		"route-reads": routeReads,
 	},
 };
