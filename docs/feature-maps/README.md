@@ -6,7 +6,7 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 125 of 136. Not yet mapped: 11, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 133 of 136. Not yet mapped: 3, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
@@ -143,7 +143,12 @@ flowchart LR
   end
   subgraph f25["app"]
     f25s0["app.cron-jobs"]
-    f25s1["app.resend-webhook"]
+    f25s1["app.home"]
+    f25s2["app.oversight-page"]
+    f25s3["app.access-request"]
+    f25s4["app.legal"]
+    f25s5["app.site-files"]
+    f25s6["app.resend-webhook"]
   end
   links -.-> f0s0
   links -.-> f0s1
@@ -243,6 +248,13 @@ flowchart LR
   f24s0 --> f24s1
   links -.-> f25s0
   links -.-> f25s1
+  f25s1 --> f25s2
+  f25s1 --> f25s3
+  f25s2 --> f25s3
+  links -.-> f25s3
+  f25s1 --> f25s4
+  links -.-> f25s5
+  links -.-> f25s6
 ```
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
@@ -272,7 +284,7 @@ flowchart LR
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
 | [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 2 | 4 | 3 | 1 |
 | [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 2 | 6 | 3 | 1 |
-| [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 2 | 2 | 1 | 0 | 0 |
+| [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 7 | 10 | 2 | 0 | 0 |
 
 ## Become a persona
 
@@ -314,8 +326,10 @@ reaches agree with `shellNav` both ways for every persona; personas are QA seed 
 and residency link match what the seed creates; a behavior proof checks more than the address after it acts;
 on a surface that polls, a waiting check follows every open, click, press and upload; and every name, label
 and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the
-feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was
-typed earlier in the same steps.
+feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly, by a relative or `@/`
+path, and the JSON files those modules import) or the QA seed, or was typed earlier in the same steps. The app
+map (`apps/web/src/app/feature-map.json`) owns the routes no one feature does, such as the public site, and
+its folder is all of `apps/web/src/app`.
 
 It cannot catch, and only running the browser steps catches:
 
