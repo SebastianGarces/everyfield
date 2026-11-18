@@ -3,8 +3,8 @@
 		"apps/web/src/marketing/playback.ts": [
 			{
 				"function": "install",
-				"count": 2,
-				"reason": "The marketing page-state owner's one permanent visibilitychange listener, installed once at module load like the location store's (the second count is its hot-reload removal). The home journey and the /oversight sending paths advance on their own and must stop while the tab is hidden and start a full step again when it shows; the hero and vision clocks must jump to their still frame when reduced motion turns on. Each subscribes in the event that makes it need the page state and releases it when that need ends: an autoplay and the hero clock while their block is on screen, the vision zoom from its first intersection report until its entrance has played; the lint knows only the location store and the page-event registry as owners."
+				"count": 3,
+				"reason": "The marketing page-state owner's one permanent visibilitychange listener, installed once at module load like the location store's (the second count is its hot-reload removal). The home journey and the /oversight sending paths advance on their own and must stop while the tab is hidden and start a full step again when it shows; the hero and vision clocks must jump to their still frame when reduced motion turns on. Each subscribes in the event that makes it need the page state and releases it when that need ends: an autoplay and the hero clock while their block is on screen, the vision zoom from its first intersection report until its entrance has played; the lint knows only the location store and the page-event registry as owners. The third count is the reduced-motion media query's change listener, installed with it: the autoplay and frame loops stop when the visitor asks for reduced motion, and a media query has no other change signal."
 			}
 		]
 	},
@@ -14,6 +14,11 @@
 				"function": "start",
 				"count": 1,
 				"reason": "The autoplay step the visitor sees: the home journey walks to its next stop every 4.2 s and the /oversight sending paths roll to their next phrase every 5.5 s while the block is on screen, the tab is visible, motion is not reduced and nothing holds it (hover, focus, a pick, the pause button). The wait is the product behavior, not an ordering patch; every hold clears it and every release starts a full step."
+			},
+			{
+				"function": "runFrames",
+				"count": 1,
+				"reason": "The frame loop of the marketing scenes: Motion's update step advances a running scene once per frame (dt capped at 50 ms), so the frame is the animation itself, not an ordering patch; the caller cancels it when the scene stops, the tab is hidden or reduced motion is on."
 			}
 		]
 	}

@@ -8,7 +8,7 @@ import { parseQuery, querySearch } from "./model.ts";
 import { Fresh } from "./fresh.tsx";
 import { loadTasksPage, taskViewer } from "./server.ts";
 import { TasksScreen } from "./TasksScreen.tsx";
-import { params } from "../shared/search-params.ts";
+import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export const tasksMetadata: Metadata = { title: "Tasks", robots: { index: false, follow: false } };

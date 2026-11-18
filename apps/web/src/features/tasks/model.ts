@@ -1,7 +1,7 @@
 import { recordId } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
-import { MONTHS } from "../shared/dates.ts";
+import { MONTHS } from "../../components/dates.ts";
 
 export type Status = z.infer<typeof c.taskStatus>;
 export type Priority = z.infer<typeof c.priority>;

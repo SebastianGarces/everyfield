@@ -101,8 +101,8 @@ async function run(
 		return sequence;
 	};
 	const kick = () => {
-		saves.running ??= (async () => {
-			await null;
+		if (saves.running || !pending || lost) return;
+		saves.running = (async () => {
 			try {
 				while (pending && !lost) {
 					const delta = pending;

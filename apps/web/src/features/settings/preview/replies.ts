@@ -26,7 +26,6 @@ export function createReplies(held = false): Replies {
 		},
 		answer,
 		arrive: async () => {
-			await Promise.resolve();
 			if (!holding) return;
 			await new Promise<void>((release) => {
 				queue.push(release);

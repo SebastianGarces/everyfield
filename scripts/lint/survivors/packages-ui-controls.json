@@ -1,0 +1,11 @@
+{
+	"no-global-listeners": {
+		"packages/ui/src/controls/preview/ControlsPreview.tsx": [
+			{
+				"function": "subscribePalette",
+				"count": 2,
+				"reason": "Temporary, T-414: the Cmd+K shortcut of the controls preview page's command palette; the listener is added while the overlays section reads the palette and removed with its last reader. packages/ui has no page-event registry to register a shortcut with, and T-414 moves the shortcut onto one so this listener goes."
+			}
+		]
+	}
+}

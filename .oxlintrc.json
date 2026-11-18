@@ -107,13 +107,8 @@
 			"files": ["packages/*/src/**"],
 			"rules": {
 				"everyfield/no-timers": "error",
+				"everyfield/no-render-writes": "error",
 				"everyfield/feature-boundaries": "error"
-			}
-		},
-		{
-			"files": ["packages/ui/src/foundations/observe.ts"],
-			"rules": {
-				"everyfield/no-global-listeners": "error"
 			}
 		},
 		{
@@ -175,6 +170,7 @@
 				"react/unsupported-syntax": "warn",
 				"everyfield/no-inner-html": "error",
 				"everyfield/no-cursor-utility": "error",
+				"everyfield/no-global-listeners": "error",
 				"jsx-a11y/no-static-element-interactions": "error",
 				"jsx-a11y/click-events-have-key-events": "error"
 			}
