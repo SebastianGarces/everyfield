@@ -6,7 +6,7 @@ import {
 	loadPipelinePerson,
 	pipelineActor,
 	pipelineWrite,
-} from "@/server/organizations/pipeline";
+} from "../pipeline-mount";
 import { invitationService } from "@/server/invitations";
 import { pipelineWriter, reviewWriter } from "@everyfield/domain/organizations";
 import { answer, refused, type Reply } from "../../identity/server";

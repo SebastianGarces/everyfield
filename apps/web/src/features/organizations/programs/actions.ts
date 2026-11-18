@@ -1,6 +1,6 @@
 "use server";
 
-import { programCall } from "@/server/organizations/programs";
+import { programCall } from "./mount";
 import {
 	programWriter,
 	readEnrollment,
