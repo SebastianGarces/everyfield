@@ -25,20 +25,8 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
-import {
-	day,
-	id,
-	inPlant,
-	localWhen,
-	meeting,
-	meetingId,
-	ownerOrAdmin,
-	personId,
-	RSVP,
-	TYPE_LABEL,
-	value,
-	venueId,
-} from "../shared.ts";
+import { localWhen, TYPE_LABEL } from "../../../catalog/labels.ts";
+import { day, id, inPlant, meeting, meetingId, ownerOrAdmin, personId, RSVP, value, venueId } from "../shared.ts";
 
 type Reader = Pick<Transaction, "execute">;
 type Target = { kind: "meeting" | "venue"; id: string; label: string };

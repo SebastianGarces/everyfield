@@ -1,7 +1,7 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import { command, current } from "@/server/organizations";
+import { command, current } from "../organizations/mount";
 import { getViewer } from "@/server/request-context";
 import { correctReportingLocationRequest } from "@everyfield/contracts/organizations";
 import type { RegionArea } from "@everyfield/contracts/oversight";

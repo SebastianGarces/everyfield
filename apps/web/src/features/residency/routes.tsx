@@ -1,4 +1,4 @@
-import { loadMyResidency, loadResidentReading, residentActor } from "@/server/organizations/residency";
+import { loadMyResidency, loadResidentReading, residentActor } from "./server";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";

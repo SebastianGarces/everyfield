@@ -1,5 +1,5 @@
-import { pipelineActor } from "@/server/organizations/pipeline";
-import { loadEnrollment, loadProgram, loadPrograms } from "@/server/organizations/programs";
+import { pipelineActor } from "../pipeline-mount";
+import { loadEnrollment, loadProgram, loadPrograms } from "./mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";

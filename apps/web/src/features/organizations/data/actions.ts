@@ -1,6 +1,6 @@
 "use server";
 
-import { pipelinePeopleRead, pipelinePeopleWrite, pipelineWrite } from "@/server/organizations/pipeline";
+import { pipelinePeopleRead, pipelinePeopleWrite, pipelineWrite } from "../pipeline-mount";
 import { pipelineDataWriter } from "@everyfield/domain/organizations";
 import { peopleMerge, peopleUnmerge } from "@everyfield/domain/people";
 

@@ -60,7 +60,7 @@ export function BulkBar({
 					aria-label="Select every task on this page"
 					checked={all ? true : "indeterminate"}
 					onCheckedChange={onAll}
-					className="bg-on-ink-soft shadow-[inset_0_0_0_1.5px_var(--ef-on-ink)] data-[state=checked]:bg-on-ink-soft data-[state=indeterminate]:bg-on-ink-soft"
+					className="data-[state=checked]:bg-on-ink-soft data-[state=indeterminate]:bg-on-ink-soft"
 				/>
 			</label>
 			<span className="flex flex-1 flex-col app-sm:min-w-48">
@@ -125,7 +125,7 @@ export function BulkBar({
 				icon={Cancel01Icon}
 				label="Clear the selection"
 				size="sm"
-				className={`shadow-none ${onInk}`}
+				className="shadow-none text-on-ink focus-visible:outline-on-ink"
 				onClick={onClear}
 			/>
 		</div>
