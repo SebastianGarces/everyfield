@@ -1,7 +1,7 @@
 "use client";
 
 import { useReduced } from "@/components/motion/scene";
-import { observeSize, useMediaQuery } from "@everyfield/ui/foundations";
+import { cn, observeSize, useMediaQuery } from "@everyfield/ui/foundations";
 import { NativeAnimation, scroll } from "motion/react";
 import {
 	useCallback,
@@ -13,7 +13,6 @@ import {
 	type PointerEvent,
 	type ReactNode,
 } from "react";
-import { cn } from "@/components/cn";
 import { clamp } from "@/components/motion/curves";
 
 type Props = { id: string; headingId: string; head: ReactNode; children: ReactNode };
