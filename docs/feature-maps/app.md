@@ -49,7 +49,7 @@ flowchart LR
 
 ### app.cron-jobs
 
-The scheduler endpoint the platform cron calls: with the exact bearer it runs every feature's due jobs and mail passes in one tick; any other call gets 401 and nothing runs.
+The scheduler endpoint the platform cron calls: with the exact bearer it runs every feature's due jobs and mail passes in one tick; a call without that bearer gets 401 and runs nothing, and a deployment with no cron secret set answers 503.
 
 - Routes: none
 - Endpoints: `/api/cron/jobs`
@@ -61,12 +61,12 @@ Reach:
 
 States:
 
-- **refused**: text "unauthorized". As `visitor`, on the QA seed:
+- **refused**: text containing "unauthorized". As `visitor`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/api/cron/jobs"
 agent-browser wait --load networkidle
-agent-browser find text "unauthorized" text --exact
+agent-browser wait --text "unauthorized"
 ```
 
 ### app.home
