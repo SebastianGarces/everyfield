@@ -16,8 +16,9 @@ import {
 } from "@everyfield/ui/controls";
 import { useActionState, useState } from "react";
 import { sendAnswers, withdrawReview } from "./actions";
-import { formatDay, refusalText } from "./model";
-import { Problem } from "./Problem";
+import { formatPlainDate } from "../../../components/dates.ts";
+import { refusalText } from "./model";
+import { Problem } from "../../../components/Problem.tsx";
 
 type Staff = PipelineBoard["staff"];
 type Answer = Awaited<ReturnType<typeof sendAnswers>>;
@@ -162,7 +163,7 @@ function ReviewItem({
 		<li className="flex flex-col gap-1">
 			<div className="flex flex-wrap items-center gap-x-3 gap-y-1">
 				<span className="text-sm font-medium text-ink [overflow-wrap:anywhere]">
-					Sent to {review.reviewer}: {review.groupName}, {formatDay(review.sentOn)}
+					Sent to {review.reviewer}: {review.groupName}, {formatPlainDate(review.sentOn)}
 				</span>
 				{canWithdraw ? (
 					<Button variant="ghost" size="sm" className="ml-auto" onClick={() => setConfirming(true)}>

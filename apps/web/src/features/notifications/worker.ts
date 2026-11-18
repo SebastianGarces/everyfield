@@ -20,10 +20,10 @@ import { authorizePhaseNotices } from "@everyfield/domain/phases";
 import { authorizeTaskReminders } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
-import { reviewPath } from "../../features/organizations/reviews/model.ts";
-import { milestonePath } from "../../features/residency/model.ts";
-import { mailEnv } from "../mail-env.ts";
-import { transaction } from "../platform/database.ts";
+import { reviewPath } from "../organizations/reviews/model.ts";
+import { milestonePath } from "../residency/model.ts";
+import { mailEnv } from "../../server/mail-env.ts";
+import { transaction } from "../../server/platform/database.ts";
 import {
 	MAIL_PASSES,
 	mailUnsubscribe,
@@ -32,9 +32,21 @@ import {
 	type createMailService,
 	type MailPass,
 	type MailTransport,
-} from "./mail.ts";
-import { claimDue, finishClaim, finishJob, lockClaim, recoverLease, type Claim, type JobResult } from "./queue.ts";
-import { accountNotificationService, mountMailService, seatedNotificationService } from "./seated-notifications.ts";
+} from "../../server/jobs/mail.ts";
+import {
+	claimDue,
+	finishClaim,
+	finishJob,
+	lockClaim,
+	recoverLease,
+	type Claim,
+	type JobResult,
+} from "../../server/jobs/queue.ts";
+import {
+	accountNotificationService,
+	mountMailService,
+	seatedNotificationService,
+} from "../../server/jobs/seated-notifications.ts";
 
 const NOTICES_PER_RUN = 20;
 const slotOf = (key: string) => reminderSlot.parse(key.split("/")[1]);

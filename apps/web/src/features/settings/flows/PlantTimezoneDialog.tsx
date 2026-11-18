@@ -7,7 +7,7 @@ import type { PlantTimezonePreview, SectionResult } from "../port";
 import { useWrite } from "../save";
 import { SaveError } from "../SettingsDialog";
 import { useSettings } from "../store";
-import { formatInstant, formatLocalDate, zoneLabel } from "../time";
+import { formatInstant, formatLocalDate, zoneLabel } from "../../../components/time.ts";
 import { ZonePicker } from "./ZonePicker";
 
 type PlantSection = Extract<SectionResult, { section: "plant" }>;
