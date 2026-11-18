@@ -8,6 +8,7 @@ import { join, relative } from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { checkBudgets, checkSamples, tighten } from "./budgets.mjs";
+import { repeatedShapes, statementShape } from "./kinds.cjs";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -298,6 +299,24 @@ test("INV-census: a statement sent once per row fails as N+1 inside its budget u
 		"GET /people": { limit: 5, repeats: "One read per fixed section." },
 	};
 	assert.deepEqual(checkBudgets(rows, explained), []);
+});
+
+test("INV-census: a shape strips values but keeps the whole text, so reads behind one long access wrapper differ", () => {
+	const wrapper =
+		"SELECT g.live, q.* FROM (SELECT EXISTS(SELECT FROM live_session($1::uuid) i WHERE " + "x=1 AND ".repeat(60);
+	const shape = (text: string) => statementShape(text);
+	assert.equal(
+		shape("SELECT * FROM t WHERE id IN ($1, $2, $3) AND n = 'a''b' AND k > 10"),
+		"SELECT * FROM t WHERE id IN (?) AND n = ? AND k > ?",
+	);
+	const repeats = repeatedShapes(
+		new Map([
+			[shape(wrapper + "true) q FROM person"), 2],
+			[shape(wrapper + "true) q FROM task"), 2],
+		]),
+	);
+	assert.equal(Object.keys(repeats).length, 2);
+	assert.ok(Object.keys(repeats).every((key) => key.length < 320 && /… #[0-9a-f]{10}$/.test(key)));
 });
 
 test("INV-census: the tightener rewrites limits.json after every suite ran and leaves a subset alone", async () => {
