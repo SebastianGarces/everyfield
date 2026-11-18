@@ -15,7 +15,7 @@ import {
 import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { seatedNotificationService } from "../../../apps/web/src/server/jobs/seated-notifications.ts";
-import { launchNotices } from "../../../apps/web/src/server/launch/notices.ts";
+import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
 
 const inventory = JSON.parse(
 	readFileSync(new URL("../../../docs/reference/launch-template-inventory.json", import.meta.url), "utf8"),
