@@ -49,19 +49,14 @@ function initials(name: string): string {
 	return letters.join("") || "•";
 }
 
-function requireAddress(context: EmailContext, mode: RenderMode): string | null {
-	if (mode === "send" && context.mailingAddress === null) throw new Error("mailing_address_required");
-	return context.mailingAddress;
-}
-
 function addressLine(church: string, address: string | null): string {
 	if (address === null) return `<span data-mailing-address="missing" style="color:#B42318;">${MISSING_ADDRESS}</span>`;
 	return `<span data-mailing-address>${church} · ${escapeHtml(address)}</span>`;
 }
 
-export function renderEmailText(body: string, context: EmailContext, mode: RenderMode = "send"): string {
+export function renderEmailText(body: string, context: EmailContext): string {
 	const church = context.churchName.trim() || "Your church";
-	const address = requireAddress(context, mode);
+	const address = context.mailingAddress;
 	const footer = [
 		`You get this email because you are part of ${church}.`,
 		address === null ? MISSING_ADDRESS : `${church} · ${address}`,
@@ -82,7 +77,6 @@ export function renderEmailHtml(
 	mode: RenderMode = "send",
 ): string {
 	const church = escapeHtml(context.churchName.trim() || "Your church");
-	const address = requireAddress(context, mode);
 	const content = inlineStyles(renderBody(body, merge, mode));
 	return (
 		`<!DOCTYPE html><html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head>` +
@@ -99,7 +93,7 @@ export function renderEmailHtml(
 		`<td style="padding-left:10px;font-family:${FONT};font-size:15px;font-weight:600;color:${INK};">${church}</td>` +
 		`</tr></table></td></tr>` +
 		`<tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;padding:30px 30px 28px 30px;font-family:${FONT};font-size:16px;line-height:1.6;color:#3A3F3B;">${content}</td></tr>` +
-		`<tr><td align="center" style="padding:18px 10px 0 10px;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#666A64;">You get this email because you are part of ${church}.${unsubscribeLink(context.unsubscribeUrl)}<br>${addressLine(church, address)}</td></tr>` +
+		`<tr><td align="center" style="padding:18px 10px 0 10px;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#666A64;">You get this email because you are part of ${church}.${unsubscribeLink(context.unsubscribeUrl)}<br>${addressLine(church, context.mailingAddress)}</td></tr>` +
 		`</table>` +
 		`<!--[if mso]></td></tr></table><![endif]-->` +
 		`</td></tr></table></body></html>`
