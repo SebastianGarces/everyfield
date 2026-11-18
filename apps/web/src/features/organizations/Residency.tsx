@@ -12,7 +12,7 @@ import { LoadableView, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useId, useState } from "react";
 import type { z } from "zod";
 import { NotAvailable } from "../access/AccessStates";
-import { useResidency } from "../shell/residency.ts";
+import { useResidency } from "../residency/context.ts";
 import { useIntent, useLoad } from "./intent";
 import { PrivateLine, ProblemLine } from "./parts";
 import type { Run } from "./port";
