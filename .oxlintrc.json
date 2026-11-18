@@ -23,7 +23,7 @@
 				"destructuredArrayIgnorePattern": false
 			}
 		],
-		"typescript/ban-ts-comment": "error",
+		"typescript/ban-ts-comment": ["error", { "ts-expect-error": true }],
 		"typescript/no-duplicate-enum-values": "error",
 		"typescript/no-empty-object-type": "error",
 		"typescript/no-explicit-any": "error",
@@ -40,8 +40,11 @@
 		"typescript/prefer-as-const": "error",
 		"typescript/prefer-namespace-keyword": "error",
 		"typescript/triple-slash-reference": "error",
-		// AC:WP-029-13: only the guarded senders import resend (any form) or name api.resend.com. Tests are spared below.
-		"everyfield/resend-senders": "error"
+		"everyfield/resend-senders": "error",
+		"everyfield/no-comments": "error",
+		"everyfield/no-effects": "error",
+		"everyfield/max-state": "error",
+		"everyfield/no-sql-comments": "error"
 	},
 	"overrides": [
 		{
@@ -72,17 +75,13 @@
 		{
 			"files": ["**/*.test.*", "**/test/**", "**/tests/**", "packages/domain/src/early-access/index.ts"],
 			"rules": {
-				// The guarded sender in this config's reach; apps/web/.oxlintrc.json spares the other two.
 				"everyfield/resend-senders": "off"
 			}
 		},
 		{
-			// The root `lint:tests` folders (T-176).
 			"files": ["tests/integration/**", "tests/evry/**", "tests/ui/**", "tests/unit/**", "tests/workflow/**"],
 			"rules": {
-				// No typecheck covers these folders, so a type written here goes unchecked; `any` marks untyped JSON.
 				"typescript/no-explicit-any": "off",
-				// Tests drop fields with rest destructuring to compare what is left.
 				"no-unused-vars": [
 					"error",
 					{
@@ -101,14 +100,25 @@
 		{
 			"files": ["tests/**/*.cjs"],
 			"rules": {
-				// A CommonJS preload that node loads with --require can only require.
 				"typescript/no-require-imports": "off"
+			}
+		},
+		{
+			"files": ["packages/*/src/**"],
+			"rules": {
+				"everyfield/no-timers": "error",
+				"everyfield/feature-boundaries": "error"
+			}
+		},
+		{
+			"files": ["packages/ui/src/foundations/observe.ts"],
+			"rules": {
+				"everyfield/no-global-listeners": "error"
 			}
 		},
 		{
 			"files": ["packages/evry/src/**", "packages/domain/src/**"],
 			"rules": {
-				// INV-privacy: only the intelligence domain names the private-care tables (care.test.mts checks the runtime side).
 				"everyfield/private-care-scope": "error"
 			}
 		},
@@ -121,14 +131,12 @@
 		{
 			"files": ["packages/domain/src/mail-recipients.ts"],
 			"rules": {
-				// AC:WP-029-1: the mail rule reads only its two arguments: no value import, require, process, fetch, await or Date.
 				"everyfield/pure-module": "error"
 			}
 		},
 		{
 			"files": ["packages/evry/src/runtime/turn.ts"],
 			"rules": {
-				// INV-evry-golden: the turn only prepares a review; approval runs from the review card.
 				"no-restricted-imports": [
 					"error",
 					{
@@ -146,8 +154,27 @@
 			"files": ["packages/ui/src/**"],
 			"plugins": ["react", "jsx-a11y"],
 			"rules": {
-				// Shared UI renders text, never raw HTML; each a11y rule keeps a click on a control or an explicit shortcut.
+				"react/jsx-key": "error",
+				"react/jsx-no-comment-textnodes": "error",
+				"react/jsx-no-duplicate-props": "error",
+				"react/no-children-prop": "error",
+				"react/no-danger-with-children": "error",
+				"react/rules-of-hooks": "error",
+				"react/exhaustive-deps": "warn",
+				"react/static-components": "error",
+				"react/use-memo": "error",
+				"react/preserve-manual-memoization": "error",
+				"react/incompatible-library": "warn",
+				"react/immutability": "error",
+				"react/globals": "error",
+				"react/refs": "error",
+				"react/set-state-in-effect": "error",
+				"react/error-boundaries": "error",
+				"react/purity": "error",
+				"react/set-state-in-render": "error",
+				"react/unsupported-syntax": "warn",
 				"everyfield/no-inner-html": "error",
+				"everyfield/no-cursor-utility": "error",
 				"jsx-a11y/no-static-element-interactions": "error",
 				"jsx-a11y/click-events-have-key-events": "error"
 			}

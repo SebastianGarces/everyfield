@@ -19,11 +19,6 @@ import {
 	type OutcomeValue,
 } from "./model.ts";
 
-/**
- * The outcome form (REQ-MTG-022): what happened, when, how, a note and, on a follow-up, whether it is done. Contacted
- * needs the person to say when it happened. `completable` is false for a contact with no task and for a correction.
- * `outcomes` limits the choices (a standalone contact cannot be "No longer needed").
- */
 export function OutcomeFields({
 	draft,
 	onDraft,
@@ -39,7 +34,6 @@ export function OutcomeFields({
 	completable: boolean;
 	outcomes?: readonly OutcomeValue[];
 	personName: string;
-	/** The Person's other open follow-ups a saved contact with "done" also finishes (D-c), named before the save. */
 	alsoFinish?: readonly Pick<DutyItem, "taskId" | "origin">[];
 }) {
 	const groupLabel = useId();
@@ -193,7 +187,6 @@ function WhenField({
 					<Input
 						type="datetime-local"
 						value={draft.at}
-						// oxlint-disable-next-line react/purity -- the latest allowed time is now, read again on each render
 						max={localInputOf(new Date())}
 						onChange={(e) => onDraft({ ...draft, at: e.target.value })}
 					/>

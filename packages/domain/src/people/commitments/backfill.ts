@@ -10,10 +10,6 @@ const cached = z.object({
 	inputs: commitmentInputs,
 });
 
-/**
- * C100: make every plant Person's commitment cache equal commitmentOf over its valid cards and dated changes, in
- * batches by Person ID, writing only the rows that differ. A merged Person keeps its value: Unmerge restores it.
- */
 export function commitmentCacheBackfill(batch = 500): Backfill {
 	return {
 		name: "commitment_cache_c100",
@@ -45,12 +41,6 @@ export function commitmentCacheBackfill(batch = 500): Backfill {
 
 const activeMerge = z.object({ id: z.uuid(), family_changes: z.array(z.uuid()) });
 
-/**
- * C100 for merges made before commitment_change existed: their moved lists name no commitment change, so Unmerge would
- * leave the source's withdrawals and reactivations on the survivor. For each active merge, record as moved the changes
- * recorded on the source or on a Person merged into it earlier (its moved merged_person rows), wherever they are now,
- * so each Unmerge, nested ones included, gives them back.
- */
 export function mergeReferencesBackfill(batch = 200): Backfill {
 	return {
 		name: "merge_references_c100",

@@ -7,10 +7,6 @@ import Link from "next/link";
 import { useId, useState } from "react";
 import { setChurchBranding } from "./actions.ts";
 
-// The "Use church branding" switch of one Church Document. The switch moves at once and the write confirms it; a
-// refusal or a lost reply puts it back at the stored value with a message, so it never shows a value that was not saved.
-// Changing it makes no revision: only later previews and exports follow it.
-
 const LOST =
 	"The connection dropped, so the change may not have been saved. Reload the page to see the current setting.";
 
@@ -22,10 +18,8 @@ export function ChurchBranding({
 	className,
 }: {
 	documentId: string;
-	/** The stored value. */
 	stored: boolean;
 	onSaved: (useChurchBranding: boolean) => void;
-	/** "member" reads the value only. "no-kit" can change it, but the church has no brand kit to paint yet. */
 	access: "kit" | "no-kit" | "member";
 	className?: string;
 }) {
@@ -35,7 +29,6 @@ export function ChurchBranding({
 	const shown = pending ?? stored;
 
 	async function change(next: boolean) {
-		// One write at a time. The switch stays enabled while it saves, so keyboard focus stays on it.
 		if (pending !== null) return;
 		setPending(next);
 		setProblem(null);
@@ -67,7 +60,7 @@ export function ChurchBranding({
 						{access === "no-kit" ? (
 							<span>
 								Your church has no brand kit yet, so documents use the plain Everyfield look.{" "}
-								<Link href="/settings/brand" className="cursor-pointer font-medium text-ink underline">
+								<Link href="/settings/brand" className="font-medium text-ink underline">
 									Set up the brand kit
 								</Link>
 							</span>

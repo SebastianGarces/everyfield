@@ -1,13 +1,11 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type { ComponentPropsWithRef, ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
-import { AvatarImage } from "./AvatarImage";
+import { AvatarImage, type ImageSettled } from "./AvatarImage";
 import { TINT, type Tone } from "./tone";
 
-/**
- * The five evidence states (foundations.md, Color roles). The dot carries the hue; the label always carries the
- * meaning, so the state never depends on color alone.
- */
+export type { ImageSettled } from "./AvatarImage";
+
 export type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
 
 const DOT: Record<Status, string> = {
@@ -39,7 +37,6 @@ const badgeVariants = cva(
 	},
 );
 
-/** StatusBadge (components.md): Dot and Label. `plain` drops the dot for a neutral count badge. */
 export function StatusBadge({
 	status = "unknown",
 	fill,
@@ -62,10 +59,6 @@ export function StatusBadge({
 	);
 }
 
-/**
- * DeltaChip (components.md): an arrow and a value. The arrow is drawn, so the direction is also said in words for
- * screen readers ("up 9 people"). tone="risk" turns an upward arrow magenta, for counts where up is bad.
- */
 export function DeltaChip({
 	dir,
 	tone = "auto",
@@ -77,7 +70,6 @@ export function DeltaChip({
 	dir: "up" | "down";
 	tone?: "auto" | "risk";
 	size?: "md" | "sm";
-	/** On an InsightCard gradient: the light island's ink pill, like InsightPill (D-415). */
 	onInk?: boolean;
 	className?: string;
 	children: ReactNode;
@@ -109,7 +101,6 @@ export function DeltaChip({
 	);
 }
 
-/** Tag (components.md): an optional icon and a label in a tone. Use for ministries, skills and labels. */
 export function Tag({
 	tone,
 	icon,
@@ -135,7 +126,6 @@ export function Tag({
 	);
 }
 
-/** The seven pipeline stages, in order (components.md, Stage chip). */
 export const STAGES = ["prospect", "attendee", "following", "interviewed", "core", "launch", "leader"] as const;
 export type Stage = (typeof STAGES)[number];
 
@@ -149,7 +139,6 @@ export const STAGE_LABEL: Record<Stage, string> = {
 	leader: "Leader",
 };
 
-/** The dot color of each stage, also used by pipeline column headers. */
 export const STAGE_DOT: Record<Stage, string> = {
 	prospect: "bg-text-3",
 	attendee: "bg-blue-500",
@@ -170,7 +159,6 @@ const STAGE_FILL: Record<Stage, string> = {
 	leader: "bg-ink text-on-ink",
 };
 
-/** StageChip (components.md): Dot and Label for one of the seven pipeline stages. */
 export function StageChip({ stage, className, children }: { stage: Stage; className?: string; children?: ReactNode }) {
 	return (
 		<span
@@ -196,7 +184,6 @@ const AVATAR_SIZE: Record<AvatarSize, string> = {
 	xl: "size-[92px] font-display tracking-[-0.02em] text-[32px]",
 };
 
-/** Two initials from a display name: "Maria Santos" is MS, "Cher" is CH. */
 export function initials(name: string): string {
 	const words = name.trim().split(/\s+/).filter(Boolean);
 	if (words.length === 0) return "?";
@@ -204,10 +191,6 @@ export function initials(name: string): string {
 	return (words[0]![0]! + words[words.length - 1]![0]!).toUpperCase();
 }
 
-/**
- * Avatar (components.md): Image or Fallback initials in a tone. The person's name is the accessible name; pass
- * `decorative` when the name is already written next to it, as in a list row.
- */
 export function Avatar({
 	name,
 	label,
@@ -218,18 +201,17 @@ export function Avatar({
 	decorative,
 	className,
 	children,
+	onImageSettled,
 }: {
 	name: string;
-	/** The accessible name when it says more than the name: "Owner: Daniel Reyes". Initials still come from `name`. */
 	label?: string;
 	src?: string;
+	onImageSettled?: (result: ImageSettled) => void;
 	tone?: Tone;
 	size?: AvatarSize;
-	/** The green ring of the signed-in user. */
 	ring?: boolean;
 	decorative?: boolean;
 	className?: string;
-	/** Replaces the initials, for an icon in an open role slot. */
 	children?: ReactNode;
 }) {
 	return (
@@ -248,15 +230,11 @@ export function Avatar({
 			)}
 		>
 			{children ?? <span aria-hidden="true">{initials(name)}</span>}
-			{src ? <AvatarImage key={src} src={src} /> : null}
+			{src ? <AvatarImage key={src} src={src} onSettled={onImageSettled} /> : null}
 		</span>
 	);
 }
 
-/**
- * AvatarGroup (components.md): overlapping avatars with a "+n" counter. The group is one image named by `label`
- * ("Maria Santos, James Okafor and 8 others"), so a screen reader hears one sentence instead of each circle.
- */
 export function AvatarGroup({
 	people,
 	max = 3,
@@ -292,7 +270,6 @@ export function AvatarGroup({
 				<span
 					aria-hidden="true"
 					className={cn(
-						// relative, like each Avatar, so the counter paints over the avatar before it and its "+" stays clear.
 						"relative grid flex-none place-items-center rounded-full bg-ink font-semibold text-on-ink shadow-[0_0_0_2px_var(--ef-surface)]",
 						AVATAR_SIZE[size],
 						size === "xs" ? "-ml-[5px] text-[10px]" : "-ml-2",

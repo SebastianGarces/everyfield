@@ -1,30 +1,21 @@
-// fast-check: format, lint and typecheck over only the files a branch changes, in seconds and with no database, stack or
-// network. The tracked pre-push hook (tools/git-hooks/pre-push) runs it; GitHub CI's full run over the whole repo stays
-// required. Each step reads its scope from the script it stands in for, so it follows them when they change: the root
-// `format:check` globs, each workspace package's `lint` and `typecheck` scripts, the root lint scripts the root `lint`
-// runs with `pnpm run`, the root `typecheck:tools` script and its tsconfig's `include`, and pnpm-workspace.yaml.
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
 import { extname, join, matchesGlob, relative, resolve, sep } from "node:path";
 
-export type StepName = "format" | "lint" | "typecheck";
+export type StepName = "format" | "lint" | "typecheck" | "formal";
 export type Step = {
 	name: StepName;
 	status: "passed" | "failed" | "skipped";
 	ms: number;
-	/** Repo-relative files that fail the step. */
 	files: string[];
-	/** The command that fixes or reruns the failure. */
 	fix?: string;
-	/** What the tool said about the failure, or why the step was skipped. */
 	detail?: string;
 };
 export type Report = { ok: boolean; base: { ref: string; sha: string }; files: string[]; ms: number; steps: Step[] };
 
 export class FastCheckError extends Error {}
 
-type Linter = { tool: "oxlint" | "eslint"; bin: string; config?: string };
-/** A package's lint: Oxlint first, then ESLint for the rules Oxlint lacks (T-43), each one optional, over the same roots. */
+type Linter = { tool: "oxlint" | "eslint"; bin: string; config?: string; args: string[] };
 type Lint = { cwd: string; linters: Linter[]; roots: string[] };
 type Pkg = { name: string; dir: string; lint?: Lint; typecheck: boolean };
 
@@ -39,7 +30,6 @@ const quote = (arg: string) => (/^[\w./@:=+-]+$/.test(arg) ? arg : `'${arg.repla
 const command = (args: string[]) => args.map(quote).join(" ");
 const inside = (dir: string, file: string) => file === dir || file.startsWith(dir + sep);
 
-/** The changed files between the merge base of `base` (origin/main, else main) and HEAD, deleted files excluded. */
 export function changedFiles(root: string, baseRef?: string): { ref: string; sha: string; files: string[] } {
 	const ref =
 		baseRef ?? (git(root, ["rev-parse", "--verify", "--quiet", "origin/main"]) !== undefined ? "origin/main" : "main");
@@ -53,14 +43,11 @@ export function changedFiles(root: string, baseRef?: string): { ref: string; sha
 	return { ref, sha, files };
 }
 
-/** The quoted globs of the root `format:check` script. */
 function formatGlobs(root: string): string[] {
 	const script: string = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["format:check"] ?? "";
 	return [...script.matchAll(/"([^"]+)"/g)].map((match) => match[1]!);
 }
 
-/** Reads a package's `lint` script: `[cd <dir> &&] [<oxlint> ... &&] [<eslint> ...] [&& other checks]`, each linter as
- * `<bin> [--config <file>] [flags] <roots...>`. */
 function parseLint(dir: string, script: string | undefined): Lint | undefined {
 	if (!script) return undefined;
 	const parts = script.split("&&").map((part) => part.trim());
@@ -71,7 +58,11 @@ function parseLint(dir: string, script: string | undefined): Lint | undefined {
 		const [bin, ...args] = part.split(/\s+/);
 		const tool = /(^|\/)(oxlint|eslint)$/.exec(bin ?? "")?.[2] as Linter["tool"] | undefined;
 		if (!bin || !tool) break;
-		const linter: Linter = { tool, bin: bin === tool ? join(dir, "node_modules/.bin", tool) : resolve(cwd, bin) };
+		const linter: Linter = {
+			tool,
+			bin: bin === tool ? join(dir, "node_modules/.bin", tool) : resolve(cwd, bin),
+			args,
+		};
 		const roots: string[] = [];
 		for (let at = 0; at < args.length; at++) {
 			const arg = args[at]!;
@@ -84,7 +75,6 @@ function parseLint(dir: string, script: string | undefined): Lint | undefined {
 	return lint.linters.length ? lint : undefined;
 }
 
-/** The root lint scripts the root `lint` runs with `pnpm run <name>`, each as a package rooted at the repo. */
 function rootLints(root: string): Pkg[] {
 	const scripts: Record<string, string> = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts ?? {};
 	const names = [...(scripts.lint ?? "").matchAll(/\bpnpm run ([\w:-]+)/g)].map((match) => match[1]!);
@@ -94,17 +84,14 @@ function rootLints(root: string): Pkg[] {
 	});
 }
 
-/** The root `typecheck:tools` script and the `include` globs of the tsconfig it names with `-p`. */
 function toolsProject(root: string): { script: string; include: string[] } | undefined {
 	const script: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["typecheck:tools"];
 	const project = typeof script === "string" ? / -p (\S+)/.exec(script)?.[1] : undefined;
 	if (typeof script !== "string" || !project || !existsSync(join(root, project))) return undefined;
-	// tsconfig allows whole-line // comments, which JSON.parse does not.
 	const config = JSON.parse(readFileSync(join(root, project), "utf8").replace(/^\s*\/\/.*$/gm, ""));
 	return { script, include: config.include ?? [] };
 }
 
-/** Workspace packages from the `- <dir>/*` entries of pnpm-workspace.yaml. */
 function workspacePackages(root: string): Pkg[] {
 	const yaml = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
 	const dirs = [...yaml.matchAll(/^\s*-\s*["']?([^"'\s]+)\/\*["']?\s*$/gm)].flatMap(([, parent]) =>
@@ -122,6 +109,16 @@ function workspacePackages(root: string): Pkg[] {
 			};
 		});
 }
+
+export type LintRun = Linter & { name: string; cwd: string; roots: string[] };
+
+export function lintRuns(root: string): LintRun[] {
+	return [...workspacePackages(root), ...rootLints(root)].flatMap(({ name, lint }) =>
+		(lint?.linters ?? []).map((linter) => ({ ...linter, name, cwd: lint!.cwd, roots: lint!.roots })),
+	);
+}
+
+export const oxlintRuns = (root: string) => lintRuns(root).filter((run) => run.tool === "oxlint");
 
 type Ran = { status: number | null; stdout: string; stderr: string; missing: boolean };
 const run = (cwd: string, bin: string, args: string[]) =>
@@ -153,7 +150,6 @@ async function format(root: string, changed: string[]): Promise<Step> {
 	const started = Date.now(),
 		prettier = join(root, "node_modules/.bin/prettier");
 	if (!existsSync(prettier)) return missing("format", "Prettier", started);
-	// Prettier skips explicitly named files that .prettierignore lists.
 	const ran = await run(root, prettier, ["--check", ...files]);
 	const ms = Date.now() - started;
 	if (ran.status === 0) return { name: "format", status: "passed", ms, files: [] };
@@ -309,13 +305,11 @@ async function lint(root: string, packages: Pkg[], changed: string[]): Promise<S
 	};
 }
 
-/** The tools config over the tool folders, when a changed file matches its `include`. */
 async function typecheckTools(root: string, changed: string[]): Promise<Step | undefined> {
 	const tools = toolsProject(root);
 	if (!tools || !changed.some((file) => tools.include.some((glob) => matchesGlob(file, glob)))) return undefined;
 	const started = Date.now();
 	const ran = await run(root, "sh", ["-c", tools.script]);
-	// The shell's "not found": node_modules is not installed.
 	if (ran.status === 127) return missing("typecheck", "tsc", started);
 	const ms = Date.now() - started;
 	if (ran.status === 0) return { name: "typecheck", status: "passed", ms, files: [] };
@@ -332,7 +326,6 @@ async function typecheckTools(root: string, changed: string[]): Promise<Step | u
 	};
 }
 
-/** The package typecheck and the tools config, run side by side and reported as one step. */
 async function typecheck(root: string, packages: Pkg[], changed: string[]): Promise<Step> {
 	const [inPackages, inTools] = await Promise.all([
 		typecheckPackages(root, packages, changed),
@@ -362,7 +355,6 @@ async function typecheck(root: string, packages: Pkg[], changed: string[]): Prom
 }
 
 async function typecheckPackages(root: string, packages: Pkg[], changed: string[]): Promise<Step> {
-	// A package owns its folder and the outside roots its lint script names (the tests its tsconfig includes).
 	const owned = packages.filter(
 		(pkg) =>
 			pkg.typecheck &&
@@ -370,10 +362,7 @@ async function typecheckPackages(root: string, packages: Pkg[], changed: string[
 	);
 	if (!owned.length) return skipped("typecheck", "No changed file is in a package with a typecheck script.");
 	const started = Date.now();
-	// Every typecheck script runs TypeScript 7 from the root's node_modules; bun check is the nightly's shadow (T-216).
 	if (!existsSync(join(root, "node_modules/typescript-7/bin/tsc"))) return missing("typecheck", "tsc", started);
-	// pnpm's `...[<ref>]` filter finds the repo by its .git folder, so it matches nothing in a git worktree. The
-	// changed packages are found above; `...<name>` adds their dependents.
 	const args = [...owned.flatMap((pkg) => ["--filter", `...${pkg.name}`]), "--no-bail", "--if-present", "typecheck"];
 	const ran = await run(root, "pnpm", args);
 	const ms = Date.now() - started;
@@ -389,11 +378,74 @@ async function typecheckPackages(root: string, packages: Pkg[], changed: string[
 		};
 	if (ran.status === 0) return { name: "typecheck", status: "passed", ms, files: [] };
 	const output = ran.stdout + ran.stderr;
-	// pnpm prefixes each line with the package folder: `packages/db typecheck: src/x.ts(3,5): error TS2322: ...`.
 	const errors = [...output.matchAll(/^(\S+) typecheck: (.+?)\(\d+,\d+\): error TS\d+/gm)];
 	const files = [...new Set(errors.map(([, dir, file]) => relative(root, resolve(root, dir!, file!))))];
 	const lines = output.split("\n").filter((line) => /error TS\d+/.test(line));
 	return { name: "typecheck", status: "failed", ms, files, fix: rerun, detail: (lines.join("\n") || output).trim() };
+}
+
+const MAINTAIN = ".agents/skills/maintain-formal-verification/SKILL.md";
+const TRAILER = "Formal-model: unchanged";
+
+function formalMaps(root: string): { map: string; model: string; files: Set<string> }[] {
+	return globSync(".agents/skills/formal-*/map.json", { cwd: root })
+		.sort()
+		.map((map) => {
+			const parsed: Record<string, unknown> = JSON.parse(readFileSync(join(root, map), "utf8"));
+			const model = String(parsed.model ?? "").replace(/\/+$/, "");
+			if (!model) throw new FastCheckError(`${map} names no "model" folder.`);
+			const entries = Object.values(parsed).flatMap((value) => (Array.isArray(value) ? value : []));
+			const files = new Set<string>(
+				entries.flatMap((entry: { code?: { file?: unknown }[] }) =>
+					(entry?.code ?? []).flatMap((code) => (typeof code?.file === "string" ? [code.file] : [])),
+				),
+			);
+			return { map, model, files };
+		});
+}
+
+async function formal(root: string, sha: string): Promise<Step> {
+	const started = Date.now();
+	const maps = formalMaps(root);
+	if (!maps.length) return skipped("formal", "No .agents/skills/formal-*/map.json in the repo.");
+	const touched = (git(root, ["diff", "--name-only", "-z", "--no-renames", sha, "HEAD"]) ?? "")
+		.split("\0")
+		.filter(Boolean);
+	const drifted = maps.flatMap(({ map, model, files }) => {
+		const mapped = touched.filter((file) => files.has(file));
+		const kept = touched.some((file) => file === map || file.startsWith(model + "/"));
+		return mapped.length && !kept ? [{ map, model, mapped }] : [];
+	});
+	if (!drifted.length) return { name: "formal", status: "passed", ms: Date.now() - started, files: [] };
+	const trailed = (
+		git(root, ["log", `--format=%H %(trailers:key=Formal-model,valueonly,separator=%x2C)`, `${sha}..HEAD`]) ?? ""
+	)
+		.split("\n")
+		.map((line) => line.split(" "))
+		.find(([, value]) => value?.split(",").some((v) => v.trim() === "unchanged"))?.[0];
+	const files = [...new Set(drifted.flatMap(({ mapped }) => mapped))];
+	if (trailed)
+		return {
+			name: "formal",
+			status: "passed",
+			ms: Date.now() - started,
+			files: [],
+			detail: `${files.length} mapped file(s) changed; the ${TRAILER} trailer in commit ${trailed.slice(0, 9)} records the model still holds.`,
+		};
+	return {
+		name: "formal",
+		status: "failed",
+		ms: Date.now() - started,
+		files,
+		fix: MAINTAIN,
+		detail: [
+			...drifted.map(
+				({ map, model, mapped }) =>
+					`${mapped.join(", ")}: mapped in ${map} (model ${model}/), and the branch changes neither the map nor the model.`,
+			),
+			`Update the model or map as ${MAINTAIN} says, or, when the behavior did not change, add the trailer "${TRAILER}" to a branch commit.`,
+		].join("\n"),
+	};
 }
 
 export async function fastCheck(root: string, baseRef?: string): Promise<Report> {
@@ -404,6 +456,7 @@ export async function fastCheck(root: string, baseRef?: string): Promise<Report>
 		format(root, files),
 		lint(root, [...packages, ...rootLints(root)], files),
 		typecheck(root, packages, files),
+		formal(root, sha),
 	]);
 	return {
 		ok: steps.every((step) => step.status !== "failed"),
@@ -420,7 +473,8 @@ export function render(report: Report): string {
 	];
 	for (const step of report.steps) {
 		const time = step.status === "skipped" ? "" : ` ${step.ms} ms`;
-		lines.push(`${step.name.padEnd(10)}${step.status}${time}${step.status === "skipped" ? `: ${step.detail}` : ""}`);
+		const note = step.status !== "failed" && step.detail ? `: ${step.detail}` : "";
+		lines.push(`${step.name.padEnd(10)}${step.status}${time}${note}`);
 		if (step.status !== "failed") continue;
 		for (const file of step.files) lines.push(`  ${file}`);
 		if (step.detail)

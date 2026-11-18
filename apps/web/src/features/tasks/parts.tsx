@@ -33,8 +33,6 @@ import {
 	type TaskItem,
 } from "./model.ts";
 
-// Small pieces the task row and the task panel share.
-
 const RELATION_ICON: Record<NonNullable<TaskItem["relation"]>["kind"], IconSvgElement> = {
 	person: UserIcon,
 	meeting: Calendar03Icon,
@@ -48,10 +46,6 @@ export const STATUS_TONE: Record<Status, Tone> = {
 	no_longer_needed: "unknown",
 };
 
-/**
- * Intent to open a task: the mouse moves over it, a finger touches it, or keyboard focus reaches it. Focus that code
- * restores after a dialog closes is not intent and sends nothing (the People rule from D68).
- */
 export function intentHandlers(warm: () => void) {
 	return {
 		onPointerMove: (e: PointerEvent) => void (e.pointerType === "mouse" && warm()),
@@ -60,10 +54,6 @@ export function intentHandlers(warm: () => void) {
 	};
 }
 
-/**
- * The round box that completes or reopens a task, in a 44px hit area. A closed-as-not-needed task shows a dash. A
- * person who cannot act on the task sees no box, so nothing looks clickable that is not.
- */
 export function DoneBox({
 	task,
 	canAct,
@@ -73,30 +63,21 @@ export function DoneBox({
 }: {
 	task: Pick<TaskItem, "title" | "status">;
 	canAct: boolean;
-	/** The ID of the text that says why the box waits. */
 	describedBy?: string;
-	/** The task's last save is in flight or unknown: the box waits (C68). */
 	wait: Wait;
 	onToggle: () => void;
 }) {
 	if (!canAct) return <span aria-hidden="true" className="size-11 flex-none" />;
 	const settled = isSettled(task.status);
 	return (
-		<label
-			className={cn(
-				"-m-3 grid size-11 flex-none place-items-center rounded-full",
-				// The box shows progress while a save runs and not-allowed while it waits for another reason (C68).
-				wait === "saving" ? "cursor-progress" : wait === null ? "cursor-pointer" : "cursor-not-allowed",
-			)}
-		>
+		<label className="-m-3 grid size-11 flex-none place-items-center rounded-full">
 			<Checkbox
 				shape="round"
 				aria-label={`${settled ? "Reopen" : "Complete"} ${task.title}`}
 				aria-busy={wait === "saving" || undefined}
 				aria-describedby={describedBy}
 				disabled={wait !== null}
-				// A save takes a moment: the box keeps its new state at full strength instead of flashing dim.
-				className={wait === "saving" ? "disabled:cursor-progress disabled:opacity-100" : undefined}
+				className={wait === "saving" ? "disabled:opacity-100" : undefined}
 				checked={task.status === "complete" ? true : task.status === "no_longer_needed" ? "indeterminate" : false}
 				onCheckedChange={onToggle}
 			/>
@@ -104,7 +85,6 @@ export function DoneBox({
 	);
 }
 
-/** Due words with the overdue state in words and color, so the state never depends on color alone. */
 export function DueLine({ task, year }: { task: Pick<TaskItem, "due" | "overdue" | "status">; year: number }) {
 	const text = dueText(task.due, year);
 	if (!text) return null;
@@ -117,12 +97,7 @@ export function DueLine({ task, year }: { task: Pick<TaskItem, "due" | "overdue"
 	);
 }
 
-/**
- * Every assignee's name, or "Needs owner" for a task no one holds (REQ-TSK-017). With no room (a phone) the row shows
- * the first name and how many more; the full list is in the label and the panel.
- */
 export function Assignee({ task, you }: { task: Pick<TaskItem, "assignees" | "followUpOwners">; you: string }) {
-	// On a phone the badge moves under the title (MetaLine), so the title keeps its width.
 	if (!task.assignees.length)
 		return (
 			<StatusBadge status="attention" size="sm" className="max-app-sm:hidden">
@@ -131,7 +106,6 @@ export function Assignee({ task, you }: { task: Pick<TaskItem, "assignees" | "fo
 		);
 	const names = assigneeNames(task.assignees);
 	const own = task.assignees.some((a) => a.accountId === you);
-	// An assignee who cannot own follow-ups says so in the same words as every other screen.
 	const who = task.assignees.map((a) => {
 		const view = task.followUpOwners.find((o) => o.accountId === a.accountId);
 		return view && !view.eligible ? ownerText(view) : assigneeNames([a])[0];
@@ -146,7 +120,6 @@ export function Assignee({ task, you }: { task: Pick<TaskItem, "assignees" | "fo
 		>
 			<Avatar name={names[0]!} label={label} size="xs" ring={own} />
 			<span className="min-w-0 truncate text-sm text-text-2" aria-hidden="true">
-				{/* The row has room for a few short names; past that it shows the first name and how many more. */}
 				<span className="max-app-sm:hidden">{room ? full : assigneeSummary(task.assignees)}</span>
 				<span className="app-sm:hidden">{assigneeSummary(task.assignees)}</span>
 			</span>
@@ -154,7 +127,6 @@ export function Assignee({ task, you }: { task: Pick<TaskItem, "assignees" | "fo
 	);
 }
 
-/** The facts under a task title: due, status, priority, link, steps and completion. */
 export function MetaLine({ task, year }: { task: TaskItem; year: number }) {
 	const parts: ReactNode[] = [];
 	if (!task.assignees.length)
@@ -186,7 +158,6 @@ export function MetaLine({ task, year }: { task: TaskItem; year: number }) {
 				{STATUS_LABEL[task.status]}
 			</StatusBadge>,
 		);
-	// The advisory badge from unfinished prerequisites, in words and with its own icon, apart from the Blocked status.
 	if (task.openPrerequisites > 0 && !isSettled(task.status))
 		parts.push(
 			<span key="waits" className="inline-flex items-center gap-1.5">
@@ -225,14 +196,12 @@ export function MetaLine({ task, year }: { task: TaskItem; year: number }) {
 	return <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-3">{shown}</div>;
 }
 
-/** The status choices for one task, shared by the row menu and the task panel. */
 export function StatusItems({
 	task,
 	disabled = false,
 	onAction,
 }: {
 	task: Pick<TaskItem, "status">;
-	/** The task's last save is in flight or unknown (C68). */
 	disabled?: boolean;
 	onAction: (a: StatusAction) => void;
 }) {

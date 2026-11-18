@@ -23,7 +23,6 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 	const runtimeUrl = database.logins.runtime.url;
 	const effects = [];
 	let mailFault = false;
-	// A real transport a test can put behind the recording one, so the email goes to a recorded email service.
 	let relay = null;
 	const addressKey = mailKeys?.addressKey ?? randomBytes(32);
 	const hash = (address) => createHmac("sha256", addressKey).update(address).digest("hex");
@@ -53,7 +52,6 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		origin: "http://invitation.example.test",
 		budgetSecret: randomBytes(32).toString("hex"),
 		people: accountPersonProducer,
-		// As the invitation mount checks it: the mail service's own address hash against the active blocks.
 		addressBlocked: (email) =>
 			sql`EXISTS (SELECT 1 FROM suppression WHERE address_hash = ${hash(email.trim().toLowerCase())} AND cleared_at IS NULL)`,
 		enqueueMail: async (tx, m, command) => {
@@ -196,7 +194,6 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		native,
 		admin,
 		db,
-		/** The runtime login with this schema, for a mount that opens its own pool from the environment. */
 		runtimeUrl: runtimeUrl.href,
 		invitations,
 		seats: createSeatService(db),
@@ -223,7 +220,6 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 	};
 }
 
-/** The task reminder port of a seat removal whose tasks are undated, so a replan there would be a bug. */
 export const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };

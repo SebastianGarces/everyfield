@@ -31,13 +31,6 @@ import {
 import { blankRows, tableView } from "./table-model.ts";
 import type { Place } from "./table-ops.ts";
 
-// The table the editor draws and edits. It is the format's own `table`, not Tiptap's general table. A text column holds
-// typed text in `cell` nodes. Every other column holds `valueCell` leaves that this file draws: an amount field, a check
-// box, or a number the table computes. The header and the blank write-in rows are drawn by the table, since the format
-// stores them as the column list and a count.
-
-// ---------------------------------------------------------------- nodes
-
 export const EfTable = TiptapNode.create({
 	name: "table",
 	group: BLOCKS,
@@ -89,7 +82,6 @@ export const EfRow = TiptapNode.create({
 	],
 });
 
-/** A cell of a text column: typed text and nothing else. Enter makes no paragraph here, since a cell is one line. */
 export const EfCell = TiptapNode.create({
 	name: "cell",
 	content: "inline*",
@@ -106,7 +98,6 @@ export const EfCell = TiptapNode.create({
 	],
 });
 
-/** A cell of any other column: an amount, a check box, a row number or a computed number. */
 export const EfValueCell = TiptapNode.create({
 	name: "valueCell",
 	atom: true,
@@ -126,9 +117,6 @@ export const EfValueCell = TiptapNode.create({
 	},
 });
 
-// ---------------------------------------------------------------- what the decorations tell a cell
-
-/** What the cell draws, from its row and column. Numbers and strings only, so a change redraws the cell. */
 type CellSpec = { kind: ColumnSpec["type"]; shown: string | null; input: boolean; label: string; row: number };
 const cellSpecOf = (decorations: readonly Decoration[]): CellSpec | null => {
 	for (const d of decorations) {
@@ -138,8 +126,6 @@ const cellSpecOf = (decorations: readonly Decoration[]): CellSpec | null => {
 	return null;
 };
 
-// ---------------------------------------------------------------- DOM helpers
-
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, attrs: Record<string, string> = {}) {
 	const node = document.createElement(tag);
 	node.className = className;
@@ -148,9 +134,6 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, at
 }
 const alignOf = (c: ColumnSpec) => c.align ?? (c.type === "text" ? "left" : "right");
 
-// ---------------------------------------------------------------- moving between cells
-
-/** The places a Tab stops in a table, in reading order: the header labels, then every cell that takes input. */
 function stopsOf(table: TableNode): Place[] {
 	const a = attrsOf(table);
 	const stops: Place[] = [];
@@ -162,7 +145,6 @@ function stopsOf(table: TableNode): Place[] {
 				stops.push({ row: r, col });
 		});
 	});
-	// The blank rows are one stop at the end: a person who lands there can remove a blank row.
 	if (!a.source && a.writeInRows > 0) stops.push({ row: null, col: null, blank: true });
 	return stops;
 }
@@ -170,11 +152,6 @@ function stopsOf(table: TableNode): Place[] {
 const TABBABLE =
 	'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
 
-/**
- * Tab past the last cell or Shift+Tab before the first moves on to the control after or before the table, as the
- * browser would. The editor's own element holds the table, so the browser's choice would be the table's first field
- * again: this picks the next one that is neither inside the table nor around it.
- */
 function leaveTable(view: EditorView, tablePos: number, direction: 1 | -1): boolean {
 	const dom = view.nodeDOM(tablePos) as HTMLElement | null;
 	if (!dom) return false;
@@ -187,13 +164,11 @@ function leaveTable(view: EditorView, tablePos: number, direction: 1 | -1): bool
 	let at = all.indexOf(edge) + direction;
 	while (all[at] && (dom.contains(all[at]!) || all[at]!.contains(dom))) at += direction;
 	const next = all[at];
-	// Nothing comes after the table: focus leaves the page's controls, as it does at the end of any page.
 	if (next) next.focus();
 	else (document.activeElement as HTMLElement | null)?.blur();
 	return true;
 }
 
-/** Tab (`1`) or Shift+Tab (`-1`) from `from`. At either end it moves on to the next control after or before the table. */
 function moveFocus(editor: Editor, tablePos: number, from: Place, direction: 1 | -1): boolean {
 	const node = editor.state.doc.nodeAt(tablePos);
 	if (!node || node.type.name !== "table") return false;
@@ -204,11 +179,9 @@ function moveFocus(editor: Editor, tablePos: number, from: Place, direction: 1 |
 	return true;
 }
 
-/** The keys every field of a table shares: one Undo history for the whole document, and Tab between the stops. */
 export function fieldKey(editor: Editor, event: KeyboardEvent, tablePos?: number, stop?: Place | null) {
 	const key = event.key.toLowerCase();
 	if ((event.metaKey || event.ctrlKey) && !event.altKey && (key === "z" || key === "y")) {
-		// The field's own Undo would split a typed amount.
 		event.preventDefault();
 		if (key === "y" || event.shiftKey) editor.commands.redo();
 		else editor.commands.undo();
@@ -216,8 +189,6 @@ export function fieldKey(editor: Editor, event: KeyboardEvent, tablePos?: number
 		if (moveFocus(editor, tablePos, stop, event.shiftKey ? -1 : 1)) event.preventDefault();
 	}
 }
-
-// ---------------------------------------------------------------- the amount and check box cell
 
 function valueCellView(
 	initial: PMNode,
@@ -255,7 +226,6 @@ function valueCellView(
 	const onKey = (event: KeyboardEvent) => {
 		const pos = getPos();
 		if (pos === undefined) return;
-		// The cell's parent is its row, and the row's parent is the table.
 		const $pos = editor.state.doc.resolve(pos);
 		fieldKey(editor, event, $pos.before($pos.depth - 1), { row: $pos.index($pos.depth - 1), col: $pos.index() });
 	};
@@ -290,7 +260,6 @@ function valueCellView(
 					typeInto(editor.view, typing, (tr) => setAttrs(tr, pos, { ...current.attrs, value: read.value }));
 				});
 				input.addEventListener("blur", () => {
-					// The next keystroke is a new Undo step.
 					typing.doc = null;
 					setInvalid(null);
 					input.value = amountText();
@@ -311,7 +280,6 @@ function valueCellView(
 			const input = field as HTMLInputElement;
 			input.setAttribute("aria-label", label);
 			const typed = parseAmount(input.value, amountKind());
-			// Undo or Redo can change the amount while the field has focus: the field shows the stored amount then too.
 			if (document.activeElement !== input || (typed.ok && typed.value !== (node.attrs.value ?? null))) {
 				input.value = amountText();
 				setInvalid(null);
@@ -363,15 +331,8 @@ function valueCellView(
 	};
 }
 
-// ---------------------------------------------------------------- the table
-
-/** The text width of a plain document's paper in points: 816 px Letter less 88 px on each side (`.ef-native`). */
 const PLAIN_TEXT_WIDTH = 480;
 
-/**
- * The width in points the PDF gives a block at the top of the page, or of a card on a sheet of cards. A plain document
- * has no page setup and prints nothing, so its tables take the width of its paper.
- */
 function textWidth(page: PageSetup | undefined) {
 	if (!page) return PLAIN_TEXT_WIDTH;
 	return (tileBox(page)?.width ?? 0) - (page.tile ? 2 * page.tile.padding : 0);
@@ -399,8 +360,6 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 	const table = () => attrsOf(tableOf(node));
 
 	function widths() {
-		// The columns have the PDF's widths on any screen: the page's text width, or the share of it a block inside a column
-		// or a box has. The table scrolls inside its own area when the screen is narrower than that.
 		const paper = dom.closest<HTMLElement>(".ProseMirror")?.clientWidth;
 		const share = paper && scroll.clientWidth ? Math.min(1, scroll.clientWidth / paper) : 1;
 		const points = columnWidths(
@@ -415,7 +374,6 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		const a = table();
 		const key = JSON.stringify([a.columns.map((c) => [c.type, c.align ?? null]), a.header]);
 		if (key === headKey) {
-			// The inputs stay while a person types in one. Only Undo and Redo make a value differ from its label.
 			a.columns.forEach((c, i) => {
 				const cell = head.children[i] as HTMLElement | undefined;
 				const input = cell?.firstElementChild as HTMLInputElement | null | undefined;
@@ -496,7 +454,6 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		widths();
 	}
 	draw();
-	// A change of the table's width lays the columns out again, in the next frame so the observer never loops on itself.
 	let seen = scroll.clientWidth;
 	const observer = new ResizeObserver(() => {
 		if (scroll.clientWidth === seen) return;
@@ -508,9 +465,21 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 	blanks.addEventListener("keydown", (event) => {
 		fieldKey(editor, event, getPos(), { row: null, col: null, blank: true });
 	});
-	// A change of the page setup changes the widths, also on a screen too narrow for the paper to change.
 	let page = editor.state.doc.attrs.page;
+	let refocus = false;
+	const restoreFocus = () => {
+		const pos = getPos();
+		const here = tableContext(editor.state);
+		if (dom.contains(document.activeElement)) return;
+		if (pos !== undefined && here?.pos === pos && here.at.row === null && here.at.col !== null)
+			focusPlace(editor.view, pos, here.at);
+		else editor.view.focus();
+	};
 	const onTransaction = () => {
+		if (refocus) {
+			refocus = false;
+			restoreFocus();
+		}
 		if (editor.state.doc.attrs.page === page) return;
 		page = editor.state.doc.attrs.page;
 		widths();
@@ -524,19 +493,9 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 			node = next;
 			const owned = head.contains(document.activeElement) || blanks.contains(document.activeElement);
 			draw();
-			// Undo or Redo can redraw the header under the person's focus. The focus stays in the table, after this update.
-			if (owned && !dom.contains(document.activeElement))
-				queueMicrotask(() => {
-					const pos = getPos();
-					const here = tableContext(editor.state);
-					if (dom.contains(document.activeElement)) return;
-					if (pos !== undefined && here?.pos === pos && here.at.row === null && here.at.col !== null)
-						focusPlace(editor.view, pos, here.at);
-					else editor.view.focus();
-				});
+			refocus = owned && !dom.contains(document.activeElement);
 			return true;
 		},
-		// Events in the header and the blank rows belong to the table, not to the document's cursor.
 		stopEvent: (event: Event) => event.target instanceof Node && !body.contains(event.target),
 		ignoreMutation: (mutation: ViewMutationRecord) =>
 			mutation.type === "selection" ? false : !body.contains(mutation.target),
@@ -546,8 +505,6 @@ function tableNodeView(initial: PMNode, editor: Editor, getPos: () => number | u
 		},
 	};
 }
-
-// ---------------------------------------------------------------- decorations: what each row and cell shows
 
 function decorationsFor(node: PMNode, pos: number): Decoration[] {
 	const table = tableOf(node);
@@ -580,9 +537,6 @@ function decorationsFor(node: PMNode, pos: number): Decoration[] {
 	return list;
 }
 
-// ---------------------------------------------------------------- keeping a table valid
-
-/** True when the format accepts the table, and every cell is the editor's node for its column. */
 function validTable(node: PMNode): boolean {
 	const columns = node.attrs.columns as { type: string }[] | undefined;
 	if (!Array.isArray(columns) || columns.length === 0) return false;
@@ -608,7 +562,6 @@ const tablesIn = (doc: PMNode) => {
 	return found;
 };
 
-/** The cell that holds a position, or null. */
 function cellAt(doc: PMNode, pos: number) {
 	const $pos = doc.resolve(pos);
 	for (let d = $pos.depth; d >= 1; d--)
@@ -618,7 +571,6 @@ function cellAt(doc: PMNode, pos: number) {
 
 const flat = (text: string) => text.replace(/\s*[\r\n]+\s*/g, " ");
 
-/** The inline content of a slice as one line: blocks and line breaks become spaces. */
 function oneLine(slice: Slice): Slice {
 	const out: PMNode[] = [];
 	const push = (node: PMNode) => {
@@ -657,7 +609,6 @@ export const TableRules = Extension.create({
 			new Plugin({
 				key: new PluginKey("efTableRules"),
 				props: {
-					// A selection inside a table stays in one cell: a drag or Shift+arrows cannot span cells.
 					createSelectionBetween: (_view, $anchor, $head) => {
 						const doc = $anchor.doc;
 						const start = cellAt(doc, $anchor.pos);
@@ -666,8 +617,6 @@ export const TableRules = Extension.create({
 						const head = Math.min(Math.max($head.pos, start.start), start.end);
 						return TextSelection.create(doc, $anchor.pos, head);
 					},
-					// A key typed while the whole table is selected, as Undo or Redo can leave it, would replace the table. It goes to
-					// the table's first field instead.
 					handleTextInput: (view, _from, _to, text) => {
 						const { selection } = view.state;
 						if (!(selection instanceof NodeSelection) || selection.node.type.name !== "table") return false;
@@ -684,8 +633,6 @@ export const TableRules = Extension.create({
 					transformPastedText: (text, _plain, view) => (inCell(view.state) ? flat(text) : text),
 					transformPasted: (slice, view) => (inCell(view.state) ? oneLine(slice) : slice),
 				},
-				// No change leaves a table the format refuses. A selection can run across a table's edge or its rows, and
-				// deleting it must not cost the person a document they cannot save. The editor says why nothing happened.
 				filterTransaction: (tr, state) => {
 					if (!tr.docChanged) return true;
 					const before = new Set(tablesIn(state.doc).map((table) => table.node));
@@ -716,17 +663,14 @@ export const TableRules = Extension.create({
 			return moveFocus(editor, context.pos, { row: context.at.row, col: context.at.col }, direction);
 		};
 		return {
-			// Select all in a cell selects the cell, as in any field: the next key would otherwise replace the whole document.
 			"Mod-a": () => {
 				const cell = cellAt(editor.state.doc, editor.state.selection.from);
 				if (!cell) return false;
 				return editor.commands.setTextSelection({ from: cell.start, to: cell.end });
 			},
-			// A cell is one line: no paragraph, no line break.
 			Enter: swallowInCell,
 			"Shift-Enter": swallowInCell,
 			"Mod-Enter": swallowInCell,
-			// Backspace at the start of a cell and Delete at its end would take the neighbor cell with them.
 			Backspace: () => atCellEdge("start") || selectedAmountCell(),
 			Delete: () => atCellEdge("end") || selectedAmountCell(),
 			Tab: tab(1),

@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { CardDescription, CardHeader, CardHeading, CardTitle } from "../../controls";
 import { cn, revealDelay } from "../../foundations";
 
-/** One preview section: a title, the component names it shows and the specimens. */
 export function Section({
 	title,
 	code,
@@ -31,7 +30,6 @@ export function Section({
 	);
 }
 
-/** A white card holding one or more specimens, with an optional small heading. */
 export function Specimen({
 	title,
 	description,
@@ -68,7 +66,6 @@ export function Specimen({
 	);
 }
 
-/** A responsive grid of specimens: one column on a phone, `cols` from 1024px. */
 export function Grid({ cols = 3, className, children }: { cols?: 2 | 3 | 4; className?: string; children: ReactNode }) {
 	return (
 		<div

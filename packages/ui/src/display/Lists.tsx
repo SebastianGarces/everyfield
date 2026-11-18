@@ -4,7 +4,6 @@ import { cn, Icon, type IconSvgElement } from "../foundations";
 import { TINT, type Tone } from "./tone";
 import { formatCount, type Count } from "./values";
 
-/** KeyValue (components.md): Key, Value and an optional Delta in a ruled list. */
 export function KeyValue({
 	k,
 	value,
@@ -15,7 +14,6 @@ export function KeyValue({
 	k: ReactNode;
 	value: Count | ReactNode;
 	delta?: ReactNode;
-	/** sm: a compact text row for side panels ("Based on · Everyfield global v4"). */
 	size?: "md" | "sm";
 	className?: string;
 }) {
@@ -46,7 +44,6 @@ export function KeyValue({
 	);
 }
 
-/** A list of KeyValue rows. It is a description list, so each key names its value. */
 export function KeyValueList({ className, ...props }: ComponentPropsWithRef<"dl">) {
 	return <dl className={cn("flex flex-col", className)} {...props} />;
 }
@@ -54,24 +51,17 @@ export function KeyValueList({ className, ...props }: ComponentPropsWithRef<"dl"
 type ListRowProps = {
 	title: ReactNode;
 	subtitle?: ReactNode;
-	/** An icon in a tone circle, or an Avatar passed as `leading`. */
 	icon?: IconSvgElement;
 	tone?: Tone;
 	leading?: ReactNode;
 	trailing?: ReactNode;
-	/** A link row: it shows the chevron. Pass `linkAs` (next/link) for client navigation. */
 	href?: string;
 	linkAs?: ElementType;
 	onClick?: () => void;
-	/** The subtitle in magenta, for an overdue or failing item. */
 	urgent?: boolean;
 	className?: string;
 };
 
-/**
- * ListRow (components.md): Icon, Title, Subtitle and Trailing. With href it is a link, with onClick a button, else a
- * plain row. Rows are ruled by a hairline and draw the focus ring inside their edge.
- */
 export function ListRow({
 	title,
 	subtitle,
@@ -95,7 +85,7 @@ export function ListRow({
 			data-focus-inset={interactive ? "" : undefined}
 			className={cn(
 				"flex w-full items-center gap-3.5 border-t border-line py-4 text-left text-ink first:border-t-0",
-				interactive && "-mx-2 w-[calc(100%+16px)] cursor-pointer rounded-md px-2 transition-colors hover:bg-hover",
+				interactive && "-mx-2 w-[calc(100%+16px)] rounded-md px-2 transition-colors hover:bg-hover",
 				className,
 			)}
 		>
@@ -117,7 +107,6 @@ export function ListRow({
 	);
 }
 
-/** A list of ListRows, or of any rows ruled the same way. */
 export function List({ className, ...props }: ComponentPropsWithRef<"div">) {
 	return <div className={cn("flex flex-col", className)} {...props} />;
 }

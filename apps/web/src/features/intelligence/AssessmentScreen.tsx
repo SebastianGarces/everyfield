@@ -49,9 +49,10 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
+import { cn, Icon, observeIntersection, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import {
 	markAssessmentSeen,
 	resolveAssessmentCitation,
@@ -86,15 +87,8 @@ const LENS_ICON: Record<Lens["key"], IconSvgElement> = {
 };
 const phaseName = (catalog: Catalog, n: number) => `Phase ${n} · ${catalog.phases[n]?.name ?? ""}`;
 
-/**
- * Plant Intelligence (WP-044): where the plant stands from its latest saved assessment. One main focus, two supporting
- * points and what's going well; the eight lens tiles; the assessed phase's exit criteria with evidence. Every citation
- * opens the exact fact or passage from that assessment's own snapshot. Opening the page records the reader's explicit
- * open once; nothing here calls a model.
- */
 export function AssessmentScreen({ view, facts, catalog }: Props) {
 	const current = view.current;
-	useOpenOnce(current?.runId ?? null, view.seen);
 	return (
 		<>
 			<PageHeader
@@ -116,19 +110,28 @@ export function AssessmentScreen({ view, facts, catalog }: Props) {
 	);
 }
 
-/** The reader's explicit open of the current run, sent once from the browser: rendering on the server writes nothing. */
-function useOpenOnce(runId: string | null, seen: boolean) {
-	const sent = useRef<string | null>(null);
-	useEffect(() => {
-		if (!runId || seen || sent.current === runId) return;
-		sent.current = runId;
-		void markAssessmentSeen(runId).catch(() => {});
-	}, [runId, seen]);
-}
+const citations = createRead((runId: string, key: string) => resolveAssessmentCitation(runId, key), {
+	failed: (): ActionOutcome<CitationView> => ({ status: "lost" }),
+});
 
 function Current({ view, assessment: a, catalog }: { view: AssessmentView; assessment: Assessment; catalog: Catalog }) {
 	const [citation, setCitation] = useState<{ key: string; label: string } | null>(null);
-	const open = (key: string, label: string) => setCitation({ key, label });
+	const runId = a.runId;
+	const markSeen = useMemo(
+		() =>
+			view.seen
+				? undefined
+				: observeIntersection<HTMLDivElement>((entry, stop) => {
+						if (!entry.isIntersecting) return;
+						stop();
+						void markAssessmentSeen(runId).catch(() => {});
+					}),
+		[runId, view.seen],
+	);
+	const open = (key: string, label: string) => {
+		citations.prefetch(a.runId, key);
+		setCitation({ key, label });
+	};
 	const feedback = new Map(view.feedback.map((f) => [f.ordinal, f]));
 	const concerns = new Set(a.concerns.map((c) => c.ordinal));
 	const later = newestText(view.newest, true);
@@ -140,7 +143,7 @@ function Current({ view, assessment: a, catalog }: { view: AssessmentView; asses
 		concern: concerns.has(ordinal),
 	});
 	return (
-		<div className="flex flex-col gap-5">
+		<div ref={markSeen} className="flex flex-col gap-5">
 			<Card size="sm" as="section" aria-label="About this assessment" data-phase={a.phase}>
 				<div className="flex flex-col gap-3">
 					<p className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-ink-2">
@@ -265,7 +268,6 @@ function PointRow({ p, ordinal, runId, feedback, concern, onCite }: PointProps) 
 	);
 }
 
-/** A concern an organization this plant shares findings with sees too, by the same id, as counts only. */
 function ConcernNote({ ordinal, runId, light }: { ordinal: number; runId: string; light?: boolean }) {
 	return (
 		<p
@@ -305,7 +307,6 @@ function Citations({
 	);
 }
 
-/** The reader's own rating of one point, with an optional comment. It changes nothing about the assessment. */
 function Feedback({
 	runId,
 	ordinal,
@@ -347,7 +348,6 @@ function Feedback({
 	}
 	const muted = light ? "text-[var(--on-3)]" : "text-text-3";
 	const rate = (rating: OwnFeedback["rating"]) => {
-		// Not useful opens the comment box, so the reader can say why; the rating is saved either way.
 		if (rating === "not_useful" && writing === null) setWriting(saved?.comment ?? "");
 		void save(rating, saved?.comment ?? "", false);
 	};
@@ -481,7 +481,7 @@ function LensTile({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 			<p className="mt-auto flex items-center justify-between gap-2 text-xs text-text-3">
 				<span className="font-medium text-ink-2">{QUALITY[lens.quality].label}</span>
 				{lens.points.length ? (
-					<a href="#focus" className="cursor-pointer hover:text-ink">
+					<a href="#focus" className="hover:text-ink">
 						{lens.points.length === 1 ? "1 point cites this" : `${lens.points.length} points cite this`}
 					</a>
 				) : null}
@@ -498,7 +498,7 @@ function LensNote({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 				{lens.attestations.length ? (
 					<>
 						{" "}
-						<Link href="/intelligence/attestations" className="cursor-pointer font-medium text-ink underline">
+						<Link href="/intelligence/attestations" className="font-medium text-ink underline">
 							Answer {lens.attestations.length === 1 ? "the question" : `${lens.attestations.length} questions`}
 						</Link>
 					</>
@@ -525,12 +525,11 @@ function LensNote({ lens, onCite }: { lens: Lens; onCite: (key: string, label: s
 	);
 }
 
-/** One fact of a lens or criterion: its label and value, opening its citation. */
 function FactButton({ fact: e, onCite }: { fact: EvidenceFact; onCite: (key: string, label: string) => void }) {
 	return (
 		<button
 			type="button"
-			className="cursor-pointer text-left hover:text-ink"
+			className="text-left hover:text-ink"
 			data-citation={e.key}
 			onClick={() => onCite(e.key, e.label)}
 		>
@@ -595,7 +594,6 @@ function Criteria({
 	);
 }
 
-/** One citation, read from the assessment's own stored snapshot or the exact passage it read. */
 function CitationDialog({
 	runId,
 	citation,
@@ -605,16 +603,7 @@ function CitationDialog({
 	citation: { key: string; label: string };
 	onClose: () => void;
 }) {
-	const [result, setResult] = useState<ActionOutcome<CitationView> | null>(null);
-	useEffect(() => {
-		let live = true;
-		resolveAssessmentCitation(runId, citation.key)
-			.then((r) => live && setResult(r))
-			.catch(() => live && setResult({ status: "lost" }));
-		return () => {
-			live = false;
-		};
-	}, [runId, citation.key]);
+	const result = useRead(citations, runId, citation.key).value;
 	return (
 		<Dialog open onOpenChange={(next) => (next ? null : onClose())}>
 			<DialogContent size="sm">
@@ -661,10 +650,7 @@ function CitationBody({ view }: { view: CitationView }) {
 						<ul className="mt-1.5 flex flex-col gap-1 text-sm">
 							{view.people.shown.map((p) => (
 								<li key={p.personId}>
-									<Link
-										href={`/people/${p.personId}`}
-										className="inline-flex cursor-pointer items-center gap-1 text-ink underline"
-									>
+									<Link href={`/people/${p.personId}`} className="inline-flex items-center gap-1 text-ink underline">
 										{p.name}
 										<Icon icon={ArrowRight01Icon} size={16} />
 									</Link>
@@ -696,14 +682,13 @@ function CitationBody({ view }: { view: CitationView }) {
 				{view.version.release}, revision {view.version.revision}
 				{view.currentVersion ? "" : " · a newer version has been published since"}
 			</p>
-			<Link href={`/wiki/${view.slug}`} className="cursor-pointer text-sm font-medium text-ink underline">
+			<Link href={`/wiki/${view.slug}`} className="text-sm font-medium text-ink underline">
 				Open the article
 			</Link>
 		</>
 	);
 }
 
-/** No assessment yet: not prepared, on its way, or couldn't be prepared, with next steps from the measured facts only. */
 function ColdStart({ view, facts }: { view: AssessmentView; facts: PlantFacts }) {
 	const { title, body } = coldStartTitle(view.newest);
 	const steps = nextSteps(facts);
@@ -725,7 +710,7 @@ function ColdStart({ view, facts }: { view: AssessmentView; facts: PlantFacts })
 					<ul className="flex flex-col">
 						{steps.map((s) => (
 							<li key={s.title} className="border-t border-line first:border-t-0">
-								<Link href={s.href} className="flex cursor-pointer items-center gap-3 py-3 hover:text-ink">
+								<Link href={s.href} className="flex items-center gap-3 py-3 hover:text-ink">
 									<span className="min-w-0 flex-1">
 										<span className="block font-medium text-ink">{s.title}</span>
 										<span className="block text-sm text-text-2">{s.detail}</span>

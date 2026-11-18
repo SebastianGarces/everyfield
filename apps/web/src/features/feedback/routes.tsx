@@ -7,10 +7,6 @@ import { OwnFeedbackList, OwnFeedbackItem } from "./OwnFeedback.tsx";
 import { feedbackWriter, publicationSetup, run, type Run } from "./server.ts";
 import { TriageItem, TriageList } from "./Triage.tsx";
 
-// Sent feedback (the author's own list and status, REQ-KNOW-029) and feedback triage (REQ-ADM-002). Neither is drawn;
-// they are composed from the shared list, tag and state components. The triage pages open only for an account with a
-// current feedback_triage grant; anyone else sees the same closed page, whatever their church role.
-
 export const sentFeedbackMetadata: Metadata = { title: "Sent feedback", robots: { index: false, follow: false } };
 export const triageMetadata: Metadata = { title: "Feedback triage", robots: { index: false, follow: false } };
 
@@ -33,7 +29,6 @@ function Panel({ title, tone, children }: { title: string; tone: "error" | "lock
 }
 const LOAD_FAILED = "This is a loading problem, not an empty list. Nothing was changed. Reload the page in a moment.";
 
-/** /feedback: what the signed-in account sent, newest first, 25 at a time, with each item's status. */
 export async function SentFeedbackPage() {
 	const r = settled(await run((db, a) => feedbackWriter.listOwn(db, a, {})), "/feedback");
 	return (
@@ -53,7 +48,6 @@ export async function SentFeedbackPage() {
 	);
 }
 
-/** /feedback/[feedbackId]: one item's status. Another account's link answers as one that does not exist. */
 export async function OwnFeedbackPage({ params }: { params: Promise<{ feedbackId: string }> }) {
 	const { feedbackId } = await params;
 	const r = settled(
@@ -87,7 +81,6 @@ function TriageClosed() {
 	);
 }
 
-/** /feedback/triage?status=&category=: every account's feedback with its private details, for a triager. */
 export async function TriagePage({
 	searchParams,
 }: {
@@ -120,7 +113,6 @@ export async function TriagePage({
 	);
 }
 
-/** /feedback/triage/[feedbackId]: one feedback's private original, its status and its history. */
 export async function TriageItemPage({ params }: { params: Promise<{ feedbackId: string }> }) {
 	const { feedbackId } = await params;
 	const r = settled(

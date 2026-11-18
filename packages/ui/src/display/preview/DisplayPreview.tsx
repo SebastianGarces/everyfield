@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { PageHeader, SegmentedControl, ToastProvider } from "../../controls";
-import { ContentSection } from "./PreviewContent";
-import { BadgesSection, ListsSection, TableSection } from "./PreviewData";
+import { ContentSection, ProseSizesSection } from "./PreviewContent";
+import { BadgesSection, ListsSection, PhotoSection, TableSection } from "./PreviewData";
 import { PipelineSection } from "./PreviewPipeline";
 
 type Group = "all" | "data" | "content" | "domain";
@@ -15,11 +15,6 @@ const GROUPS = [
 	{ value: "domain", label: "Domain" },
 ] as const satisfies readonly { value: Group; label: string }[];
 
-/**
- * The display preview at /design/display, after the prototype's #/components page: every display part a feature
- * imports, in its drawn states, with invented sample data. Every interactive part works, so keyboard, focus and the
- * loading, error and empty states can be checked in place.
- */
 export function DisplayPreview() {
 	const [group, setGroup] = useState<Group>("all");
 	const show = (g: Group) => group === "all" || group === g;
@@ -39,6 +34,8 @@ export function DisplayPreview() {
 				{show("data") ? <TableSection index={3} /> : null}
 				{show("content") ? <ContentSection index={4} /> : null}
 				{show("domain") ? <PipelineSection index={5} /> : null}
+				{show("data") ? <PhotoSection index={6} /> : null}
+				{show("content") ? <ProseSizesSection index={7} /> : null}
 			</div>
 		</ToastProvider>
 	);

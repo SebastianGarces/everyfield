@@ -26,10 +26,6 @@ import Link from "next/link";
 import { longDate, milestonesDone, shownOf } from "../launch/model.ts";
 import { daysText, entryByline, entryText, launchShown, METRICS, type Loaded } from "./model.ts";
 
-// Overview's cards. Each takes its own read and shows its own loading and failure: a card whose read failed says so
-// and never shows a 0 or an empty list in its place (ADM-005, screens.md states).
-
-/** A card whose read did not arrive. `what` names it: "Your numbers", "Recent changes". */
 export function CardFailed({ what, loaded }: { what: string; loaded: Exclude<Loaded<unknown>, { status: "ok" }> }) {
 	return (
 		<Card>
@@ -56,7 +52,7 @@ export function MetricsCards({ loaded }: { loaded: Loaded<Metrics> }) {
 					key={m.key}
 					href={m.href}
 					prefetch={false}
-					className="group cursor-pointer rounded-card border border-line bg-surface p-5 transition-colors hover:bg-hover max-app-sm:p-4"
+					className="group rounded-card border border-line bg-surface p-5 transition-colors hover:bg-hover max-app-sm:p-4"
 				>
 					<span className="block text-md font-medium text-text-2">{m.label}</span>
 					<span className="num mt-3 block font-display text-[40px] leading-none tracking-[-0.02em] text-ink max-app-sm:text-[32px]">
@@ -129,7 +125,6 @@ export function ActivityCard({ loaded }: { loaded: Loaded<Activity> }) {
 	);
 }
 
-/** The launch card (LCH-008): the same date, countdown and readiness as the Launch plan, or what happened. */
 export function LaunchCard({ loaded, admin }: { loaded: Loaded<Plan>; admin: boolean }) {
 	if (loaded.status !== "ok") return <CardFailed what="Launch Sunday" loaded={loaded} />;
 	const plan = loaded.value;

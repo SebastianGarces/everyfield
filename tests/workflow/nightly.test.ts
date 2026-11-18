@@ -1,5 +1,3 @@
-// T-41, T-216: `bin/dev nightly` with fake probes, a fake preview and a fake gh, and the coverage map writer the GitHub
-// nightly runs, on a real throwaway repository whose test reaches a source file only through a child process.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -31,7 +29,6 @@ const lines = (dir: string) =>
 		.split("\n")
 		.map((l) => JSON.parse(l) as Record<string, unknown>);
 
-/** Fake deps that log every effect; any effect not overridden is a plain success. */
 function deps(dir: string, over: Partial<NightlyDeps> = {}) {
 	const events: string[] = [];
 	let clock = 0;
@@ -102,7 +99,6 @@ test("T-216 a local nightly runs only tests/ui, one engine at a time, closes its
 		"remove",
 	]);
 	assert.deepEqual(lines(dir), [
-		// The fake clock ticks one second per read.
 		{
 			type: "nightly_result",
 			at: "1970-01-01T00:00:02.000Z",
@@ -135,7 +131,6 @@ test("T-41 a browser run that throws still closes the preview and removes the wo
 	assert.deepEqual(events.slice(-2), ["preview down", "remove"]);
 });
 
-/** A fake gh with one repository's issues. */
 function fakeGh() {
 	const calls: string[][] = [];
 	const issues: { number: number; body: string; comments: { body: string }[] }[] = [];
@@ -155,7 +150,6 @@ test("T-41 a failed nightly reports once per head and suite", async (t) => {
 	const { gh, calls, issues } = fakeGh();
 	const failing = (ui: { passed: number; failed: number }) => deps(dir, { gh, ui: () => ui }).d;
 	await nightly(failing({ passed: 8, failed: 2 }));
-	// Both engines failed: one issue, then one comment for the second suite.
 	assert.deepEqual(
 		calls.map((c) => c.slice(0, 2).join(" ")),
 		["issue list", "issue create", "issue list", "issue comment"],
@@ -166,11 +160,9 @@ test("T-41 a failed nightly reports once per head and suite", async (t) => {
 		/^<!-- everyfield-nightly -->\n<!-- nightly:f{40}:tests\/ui chromium -->\nNightly `tests\/ui chromium` failed on main at f{40}: 2 failed, 8 passed/,
 	);
 	assert.match(issues[0].comments[0].body, /^<!-- nightly:f{40}:tests\/ui webkit -->/);
-	// A second run on the same head adds nothing.
 	await nightly(failing({ passed: 8, failed: 2 }));
 	assert.equal(calls.length, 4);
 	assert.equal(issues[0].comments.length, 1);
-	// Without the local ledger, the issue itself still says the key is known.
 	rmSync(join(dir, "nightly-reported.json"));
 	const entry = {
 		type: "nightly_result",
@@ -183,13 +175,11 @@ test("T-41 a failed nightly reports once per head and suite", async (t) => {
 	} as const;
 	assert.equal(reportFailure(dir, gh, entry), "known");
 	assert.equal(issues[0].comments.length, 1);
-	// A new head comments once.
 	assert.equal(reportFailure(dir, gh, { ...entry, head: "e".repeat(40) }), "commented");
 	assert.equal(reportFailure(dir, gh, { ...entry, head: "e".repeat(40) }), "known");
 	assert.equal(issues[0].comments.length, 2);
 });
 
-/** A throwaway repository with selectable tests, committed so the coverage-map command can name its HEAD. */
 function coverageRepo(t: { after(fn: () => void): void }, files: Record<string, string>) {
 	const root = mkdtempSync(join(tmpdir(), "evf-coverage-repo-"));
 	t.after(() => rmSync(root, { recursive: true, force: true }));
@@ -256,7 +246,6 @@ test("T-41 the coverage map records what each test ran or read, also through a c
 			'test("cli adds", () => assert.equal(execFileSync(process.execPath, ["scripts/cli.mjs"], { encoding: "utf8" }), "3\\n"));',
 		].join("\n"),
 		"tests/workflow/plain.test.mjs": 'import { test } from "node:test";\ntest("nothing", () => {});\n',
-		// Reads that V8 coverage cannot see: a file as text here, a directory listing and a text read in a child.
 		"docs/notes.md": "# notes\n",
 		"docs/unread.md": "# unread\n",
 		"cases/a.json": "{}\n",

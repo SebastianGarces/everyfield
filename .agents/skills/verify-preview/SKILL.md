@@ -7,10 +7,10 @@ description: "Apply when you verify a change as the independent Opus verifier. R
 
 You prove the change works. The author's summary is not evidence, but the author's proof is: read the
 diff in full and judge the code (D66), read `evf proof show` and open each proof's evidence.
-Spot-check. Re-run a flow on a preview of the exact head only where a proof is unmet, missing or looks
-wrong. Run local checks with `bin/dev check --full`: a verifier ignores selection and runs every check. You own the verdict. The Experience section may use the author's recorded
+Spot-check the author's proofs. Re-run an author's check on a preview of the exact head only where a proof is unmet,
+missing or looks wrong. App proof is the exception: for a diff that changes app code you capture it yourself (step 3). Run local checks with `bin/dev check --full`: a verifier ignores selection and runs every check. You own the verdict. The Experience section may use the author's recorded
 measurements; re-measure where they look wrong or missing. Scripts are in `scripts/` next to this file. They need Node 24+, `gh`, `portless`, the
-local env files of the main checkout and, for `publish.mjs`, the evidence env file (step 5). Every command below runs from any checkout of this repo.
+local env files of the main checkout and, for `publish.mjs`, the evidence env file (step 6). Every command below runs from any checkout of this repo.
 
 ```bash
 S=.agents/skills/verify-preview/scripts            # in your own checkout of main
@@ -78,6 +78,13 @@ Read your brief (the ask and the spec) and the full diff against the merge base.
 requirements the task names. Write down the behavior you will check before you run anything.
 You are a fresh Opus 5.5 medium session that never shared context with the author (D82).
 
+Start from the feature map when the feature has one. For each feature directory the diff touches,
+read `docs/feature-maps/<feature>.md` or run `node tools/ci/feature-maps.ts show <surface-id>`. It
+names the routes, the QA seed persona that reaches each state, the tests and cases behind each
+behavior, and browser steps as agent-browser commands. "Become a persona" in
+`docs/feature-maps/README.md` says how to sign in. Follow those steps on a fresh QA seed instead of
+exploring the app. When the map and the app disagree, that is a finding.
+
 ## 2. Start the previews
 
 ```bash
@@ -105,7 +112,51 @@ The development database is shared and may be wiped and reseeded at any time:
 `corepack pnpm --filter @everyfield/db reset:dev`. Never point a check at production. Never print
 credentials. Do not submit a valid access form unless the task needs it: it sends a real email.
 
-## 3. UI changes
+## 3. App proof
+
+Every review of a diff that changes app code carries your own proof of the real app, not only a code read. Find what
+the diff needs, in the head checkout:
+
+```bash
+B=$(git merge-base HEAD origin/main)
+pnpm review-proof --base "$B" --evidence "$E"     # add --head <checkout> when you run it from another checkout
+```
+
+It reads the diff from the merge base to the head and requires the surface of each changed mapped route, at least one
+surface of each changed mapped feature, and at least one surface for any other product code under `apps/web/` or
+`packages/*/src/` (tests excluded). A diff of only tooling, docs, tests or agent instructions prints "No app proof
+needed"; put that output in the Proof section and go on.
+
+For each surface you prove, read its entry (`node tools/ci/feature-maps.ts show <surface-id>`), sign in as the persona
+it names, reach the surface on the head preview the way it says (the rail item or the path, then the state), and
+capture it:
+
+```bash
+mkdir -p "$E/proof/<surface-id>"
+ab set viewport 390 900; ab open <url>; ab wait --load networkidle
+ab screenshot "$E/proof/<surface-id>/<state>-390.png"
+ab set viewport 1440 900; ab open <url>; ab wait --load networkidle
+ab screenshot "$E/proof/<surface-id>/<state>-1440.png"
+```
+
+Take viewport shots, not `--full`: the app keeps a stable scrollbar gutter, so a full-page shot at a 390 px viewport
+comes out 375 px wide and the check refuses it. Scroll and shoot again for more of a long page. When a flow shows the
+change better, one recording (`ab record start "$E/proof/<surface-id>/<flow>.webm"`) stands for both widths.
+
+Then run the check with the surface ids you proved:
+
+```bash
+pnpm review-proof --base "$B" --evidence "$E" <surface-id>...
+```
+
+It fails naming each surface and width that is missing, each PNG that is not exactly 390 or 1440 px wide and each
+unknown surface id. Never approve while it fails. A changed surface with no map entry is a blocking finding too:
+`node tools/ci/feature-maps.ts --check` refuses a branch that changes a pending route or a feature with no map, and the
+author maps it. When it passes it prints one row per proved surface with its feature, how users reach it and what
+proves it, next to the files it found. Paste that table as the report's Proof section, with the file links pointed at
+the published evidence.
+
+## 4. UI changes
 
 A UI change touches anything a person sees: `apps/web/src`, styles, `design/` tokens or copy.
 Write a temporary flow in `$E/flow.mjs` that exercises the changed behavior as a person would:
@@ -159,7 +210,7 @@ Check layout, spacing, type, color, focus states, copy and the phone width with 
 skills. A visual problem is a failure even when the script passes. A pixel difference on a PR
 that claims no visual change is a failure.
 
-## 4. Backend changes
+## 5. Backend changes
 
 A backend change touches server code, routes, actions, `packages/`, the schema or a command.
 Write a temporary probe in `$E/probe.mjs`. It calls the real endpoints on the preview URL and runs
@@ -183,7 +234,7 @@ also attaches the machine's chart, `docs/machines/<id>.md`, and its coverage rep
 with `EVF_MACHINE_COVERAGE="$E/<id>.jsonl"`, then `node tools/ci/machines.ts coverage "$E/<id>.jsonl" | tee
 "$E/<id>-coverage.txt"`. Anything short of every edge, stay, refusal and state is unmet.
 
-## 5. Publish
+## 6. Publish
 
 ```bash
 node $S/publish.mjs "$E" --task <task>
@@ -239,7 +290,7 @@ Keys have the layout `evf-evidence/<task>/<prefix>/<file>`, so the link shows bo
 The command prints how many objects it deleted. Then check that the old index link returns 404:
 `curl -s -o /dev/null -w '%{http_code}\n' <index link>`.
 
-## 6. Report
+## 7. Report
 
 Write `$E/report.md` in this shape. Name what you did not check.
 
@@ -260,6 +311,12 @@ is a blocking finding: ask for changes.
 | Deliverable in the verbatim ask | Status |
 |---|---|
 | <route, page, section, screen, command or file> | delivered / deferred <T-n> / missing |
+
+## Proof
+
+<The table `pnpm review-proof` printed: one row per changed surface with its feature, how users reach it, what proves
+it and links to its 390 and 1440 px screenshots or recording. For a tooling-only review: "No app proof needed", with
+the check's output.>
 
 ## Checks
 
@@ -305,7 +362,7 @@ evf review submit --verdict approved --report-file "$E/report.md"   # or --verdi
 Then close your step: `evf run done --status passed` when you approved, and `--status failed --cause change`
 when you asked for changes. A new head needs a new verification.
 
-## 7. Clean up
+## 8. Clean up
 
 ```bash
 agent-browser --session <task>-verify close

@@ -41,29 +41,22 @@ import {
 	type requestKeys,
 } from "./model.ts";
 
-// How the church ends its gathering phase (T-296): Launch Sunday, or a milestone its network or sending church offers.
-// The Owner or Admin picks, records the day it was reached, corrects or clears it. Nothing here moves the phase,
-// changes the launch date or creates a task; a Member reads the path and the record only.
-
 type Keys = ReturnType<typeof requestKeys>;
 type Milestone = Extract<Plan["path"], { kind: "milestone" }>;
 type Mode = "record" | "correct" | "clear";
 type Draft = { mode: Mode; date: string; note: string; reason: string; error: string | null };
 export type Offers = Outcome<GatheringOffer[]> | null;
-/** The server actions these cards call; the Launch plan passes the real ones. */
 export type GatheringActions = {
 	choose: typeof chooseGatheringPath;
 	save: typeof saveGathering;
 	offers: typeof readGatheringOffers;
 };
 
-/** "Oct 11, 2026": a church-local date. */
 const dayText = (date: string) =>
 	new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" }).format(
 		new Date(`${date}T12:00:00Z`),
 	);
 
-/** Switch the church's path, answering with the plan as saved; a refusal says why and changes nothing. */
 function useSwitch(
 	act: GatheringActions,
 	plan: Plan,
@@ -87,10 +80,6 @@ function useSwitch(
 	return { busy, choose };
 }
 
-/**
- * The milestone the church uses, in the place of Launch Sunday's date and countdown: who chose it, what it means, and
- * whether it was reached. A milestone no longer offered says so, and the church can go back to Launch Sunday.
- */
 export function GatheringCard({
 	act,
 	plan,
@@ -205,11 +194,6 @@ export function GatheringCard({
 	);
 }
 
-/**
- * The milestones the church's network or sending church offer instead of Launch Sunday, each labelled with who chose
- * it. Shown to an Owner or Admin while there is one to switch to; when the offers can't load it says so, and the
- * church's current path stays shown above it.
- */
 export function GatheringChoice({
 	act,
 	plan,
@@ -241,7 +225,6 @@ export function GatheringChoice({
 		);
 	const current = plan.path.kind === "milestone" ? plan.path : null;
 	const others = offers.value.filter((o) => o.organizationId !== current?.organizationId);
-	// A church that recorded Launch Sunday keeps it; a reached milestone is cleared before any switch.
 	if (!others.length || plan.outcome || current?.reached) return null;
 	return (
 		<Card className="mt-5">

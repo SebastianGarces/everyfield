@@ -3,7 +3,6 @@
 import { Card, PageHeader, SegmentedControl } from "@everyfield/ui/controls";
 import { ShellPreview } from "@everyfield/ui/shell/preview";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo } from "react";
 import { NotAvailable, PendingAccount, SessionEnded } from "../AccessStates";
 import { canReadStaffNotes } from "../port";
 import { PersonDuties, StaffNotesPanel } from "../StaffNotes";
@@ -26,10 +25,6 @@ function pick<T extends string>(all: readonly T[], raw: string | null, fallback:
 	return (all as readonly string[]).includes(raw ?? "") ? (raw as T) : fallback;
 }
 
-/**
- * The access boundary previews at /design/access/[flow] (WP-006/ui R8). `staff-notes` takes `as` (viewer duties),
- * `notes` (scenario) and `delay` (fixture latency in ms). `session-ended` takes `returnTo`.
- */
 export function AccessPreview({ flow }: { flow: AccessFlow }) {
 	const search = useSearchParams();
 	if (flow === "session-ended") return <SessionEnded returnTo={search.get("returnTo") ?? "/people?view=core"} />;
@@ -51,9 +46,7 @@ function StaffNotesPreview() {
 	const pathname = usePathname();
 	const viewer = pick(VIEWERS, search.get("as"), "admin");
 	const scenario = pick(NOTE_SCENARIOS, search.get("notes"), "pages");
-	const wait = Math.min(Math.max(Number(search.get("delay") ?? 500) || 0, 0), 5000);
 	const access = accessFor(viewer);
-	const read = useMemo(() => notesReader(viewer, scenario, wait), [viewer, scenario, wait]);
 
 	function set(key: string, value: string) {
 		const next = new URLSearchParams(search);
@@ -98,7 +91,7 @@ function StaffNotesPreview() {
 						<StaffNotesPanel
 							key={`${viewer}-${scenario}`}
 							personName={PERSON.name}
-							read={read}
+							read={notesReader(viewer, scenario)}
 							authorName={authorName}
 							zone={ZONE}
 						/>

@@ -7,14 +7,10 @@ import type { BrandKit, BrandPort, SuggestedColors } from "../port";
 import { ACCEPT, SLOT_INFO, SLOT_ORDER, backgrounds, canSuggest } from "./assets";
 import type { Note, Pick } from "./picks";
 import type { useAssets } from "./useAssets";
+import { NativeImage } from "@/components/native";
 
 type Assets = ReturnType<typeof useAssets>;
 
-/**
- * "Logos and images" (REQ-BRD-002): six slots, each with its guidance and either the stored image with its alt text,
- * the picked file waiting for its description, or an empty state. A logo shows on a light, a dark and a brand color
- * background. The brand swatch follows the draft primary color without a request.
- */
 export function AssetsGroup({
 	kit,
 	port,
@@ -28,10 +24,8 @@ export function AssetsGroup({
 	kit: BrandKit;
 	port: BrandPort;
 	assets: Assets;
-	/** The draft primary color when it is a valid `#RRGGBB`. */
 	primary: HexColor | null;
 	neutralInk: string;
-	/** The draft accent color as typed. */
 	accent: string;
 	onUsePrimary: (color: string) => void;
 	onUseAccent: (color: string) => void;
@@ -239,8 +233,7 @@ function ImageBox({ src, alt, dark, busy }: { src: string; alt: string; dark: bo
 			className="flex h-20 w-40 flex-none items-center justify-center overflow-hidden rounded-sm border border-line p-2"
 			style={{ background: dark ? "var(--color-ink-fixed)" : "white", opacity: busy ? 0.6 : 1 }}
 		>
-			{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated route or a local object URL */}
-			<img src={src} alt={alt} className="max-h-full max-w-full object-contain" />
+			<NativeImage src={src} alt={alt} className="max-h-full max-w-full object-contain" />
 		</div>
 	);
 }
@@ -268,8 +261,11 @@ function Backgrounds({
 							className="flex h-14 items-center justify-center overflow-hidden rounded-sm border border-line p-2"
 							style={{ background: s.color }}
 						>
-							{/* eslint-disable-next-line @next/next/no-img-element -- the authenticated route */}
-							<img src={src} alt={s.name === "Light" ? alt : ""} className="max-h-full max-w-full object-contain" />
+							<NativeImage
+								src={src}
+								alt={s.name === "Light" ? alt : ""}
+								className="max-h-full max-w-full object-contain"
+							/>
 						</div>
 						<span className="text-xs text-text-3">{s.name}</span>
 					</div>
@@ -388,7 +384,7 @@ function Swatch({
 			aria-pressed={selected}
 			title={color}
 			onClick={onClick}
-			className={`${base} cursor-pointer ${selected ? "border-ink ring-2 ring-ink" : "border-line"}`}
+			className={`${base} ${selected ? "border-ink ring-2 ring-ink" : "border-line"}`}
 			style={{ background: color }}
 		/>
 	);

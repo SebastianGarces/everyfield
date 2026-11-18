@@ -12,12 +12,19 @@ You own the assigned task through a commit evf can review. Your seat's brief and
    changed (outside the repository, as the capture half of `verify-preview` says) and record
    `evf proof add <n> --status met --evidence <path>` for each `verifier` criterion after your last commit.
    UI work: read `ui-designer.md` and use the better-* skills.
+   A change to a feature's surface ships with that surface's map entry: when your diff touches a pending route or a
+   feature with no `feature-map.json`, map at least that surface (`docs/feature-maps/README.md`), or
+   `node tools/ci/feature-maps.ts --check` refuses it. The verifier proves each changed surface by reaching it as the
+   map says.
    An Evry adapter operation or catalog tool change adds or updates its eval cases and names them in your
    summary (`test-standard`).
-4. Run focused tests for the files you change with `node --test <files>`. evf runs `fast-check` and then
+4. When your diff touches a path named in a `.agents/skills/formal-*/map.json` (today the access helpers, seats and
+   invitations), follow `.agents/skills/maintain-formal-verification/SKILL.md`: update the model and map, and rerun
+   `bin/dev formal` and the conformance test.
+5. Run focused tests for the files you change with `node --test <files>`. evf runs `fast-check` and then
    `bin/dev check --full`; GitHub CI also runs the database suites.
-5. Say what changed, how you checked it and any risk in your summary file.
-6. Close with `evf run done`. Do not push or open a PR: evf does both from your commits.
+6. Say what changed, how you checked it and any risk in your summary file.
+7. Close with `evf run done`. Do not push or open a PR: evf does both from your commits.
 
 Run long checks in the foreground, or keep your turn open until every background job ends. Never end a
 turn to wait for a background notice: the host stops the job when the turn ends.

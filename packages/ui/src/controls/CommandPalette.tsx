@@ -12,9 +12,7 @@ import { Spinner } from "./Spinner";
 export type CommandItem = {
 	id: string;
 	label: string;
-	/** Leading art: an Avatar, an icon or EvryBot size xs. Decorative. */
 	art?: ReactNode;
-	/** Right-hand detail, such as the person's stage. Also searched. */
 	meta?: string;
 	keywords?: string[];
 	onSelect: () => void;
@@ -26,23 +24,15 @@ type CommandPaletteProps = {
 	onOpenChange: (open: boolean) => void;
 	groups: CommandGroup[];
 	placeholder?: string;
-	/** Controlled query, for pages that search on the server. Then pass filter={false}. */
 	query?: string;
 	onQueryChange?: (query: string) => void;
-	/** false when the caller already filtered the groups for the query. */
 	filter?: boolean;
 	loading?: boolean;
-	/** A failed search says so and never looks like "No results". */
 	error?: { message: string; onRetry: () => void };
 	emptyText?: string;
-	/** Keyboard hints in the footer, such as ["↑↓ move", "↵ open", "⌘J ask Evry"]. */
 	hints?: string[];
 };
 
-/**
- * CommandPalette (components.md): a modal dialog with a search combobox, grouped results and a hint footer. Arrow keys
- * move through results, Enter opens one, Esc closes and returns focus. The caller opens it from Search and ⌘K.
- */
 export function CommandPalette({
 	open,
 	onOpenChange,
@@ -87,7 +77,7 @@ export function CommandPalette({
 									<button
 										type="button"
 										onClick={error.onRetry}
-										className="cursor-pointer rounded-xs font-medium text-ink underline underline-offset-[3px]"
+										className="rounded-xs font-medium text-ink underline underline-offset-[3px]"
 									>
 										Try again
 									</button>
@@ -119,7 +109,7 @@ export function CommandPalette({
 														item.onSelect();
 														onOpenChange(false);
 													}}
-													className="flex h-[42px] cursor-pointer items-center gap-2.5 rounded-md px-2.5 transition-[background-color] duration-150 select-none data-[selected=true]:bg-surface-2"
+													className="flex h-[42px] items-center gap-2.5 rounded-md px-2.5 transition-[background-color] duration-150 select-none data-[selected=true]:bg-surface-2"
 												>
 													{item.art}
 													<span className="min-w-0 flex-1 truncate">{item.label}</span>

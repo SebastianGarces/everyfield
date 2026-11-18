@@ -1,10 +1,6 @@
 import type * as C from "@everyfield/contracts/onboarding";
 import type { z } from "zod";
 
-// The onboarding rules as pure functions (WP-009/ui R4-R6). The store (store.tsx) holds one State and applies these;
-// tests/unit/onboarding/model.test.mjs checks them over random interleavings. This file has only type imports, so the
-// model test runs it without a bundler.
-
 export type Resume = Extract<z.infer<typeof C.resumeResult>, { status: "available" }>;
 type DiscoveryProfile = Extract<z.infer<typeof C.discoveryProfileResult>, { status: "active" }>["profile"];
 export type OnboardingError = z.infer<typeof C.onboardingError>;
@@ -14,11 +10,6 @@ export type JourneyAnswer = z.input<typeof C.journeyAnswer>;
 export type LaunchAnswer = z.input<typeof C.launchAnswer>;
 export type Relationship = DiscoveryProfile["relationships"][number];
 
-/**
- * Where the signed-in account stands, from the server. `start` is a seatless account that can create: a pending
- * account only as the kind it registered for (D42), an active seatless account by explicit choice. `elsewhere` is
- * an account onboarding has nothing for: a seat it does not own, an organization account, or no session.
- */
 export type Entry =
 	| { kind: "confirm_email" }
 	| { kind: "start"; offer: "planter" | "discovery" | "either"; accountRevision: string }
@@ -27,7 +18,6 @@ export type Entry =
 	| { kind: "elsewhere"; reason: "member" | "organization" | "unavailable" };
 
 export type StepKey = "church" | "journey" | "launch" | "team" | "finish";
-/** The four numbered steps of the prototype (#/onboarding). Finish follows them and has no number. */
 export const STEPS: { key: Exclude<StepKey, "finish">; label: string }[] = [
 	{ key: "church", label: "Your church" },
 	{ key: "journey", label: "Where you are" },
@@ -36,7 +26,6 @@ export const STEPS: { key: Exclude<StepKey, "finish">; label: string }[] = [
 ];
 const ORDER: StepKey[] = ["church", "journey", "launch", "team", "finish"];
 
-/** Phase names and short descriptions from the prototype's phase step. */
 export const PHASES = [
 	{ phase: 0, name: "Discovery", detail: "Discerning the call, values and readiness" },
 	{ phase: 1, name: "Core group development", detail: "Vision meetings, follow-up, building commitment" },
@@ -47,13 +36,9 @@ export const PHASES = [
 	{ phase: 6, name: "Post-launch", detail: "Building rhythms after launch" },
 ] as const;
 
-// ---- Drafts: what the person has chosen on screen but not saved ----
-
-/** The phase step's choice. `existing` is the only attestation; the others never carry a phase. */
 export type JourneyDraft =
 	{ answer: "existing"; phase: number } | { answer: "unsure" } | { answer: "discerning" } | { answer: "skip" };
 export type LaunchDraft = { answer: "planned"; date: string } | { answer: "no_date" } | { answer: "skip" };
-/** `seniorPastor` is the optional Senior pastor fill (REQ-IDN-014): offered only after Yes, and off by default. */
 export type LeadDraft =
 	{ answer: "yes"; roleName: string; teamName: string; seniorPastor: boolean } | { answer: "no" } | { answer: "skip" };
 export type BasicsDraft = { name: string; city: string; stateProvince: string; country: string; confirmed: boolean };
@@ -63,7 +48,6 @@ export type Drafts = {
 	journey: JourneyDraft | null;
 	launch: LaunchDraft | null;
 	lead: LeadDraft | null;
-	/** Discovery relationships the person ticked to bring into the new church. None by default. */
 	keep: string[];
 };
 const EMPTY_BASICS: BasicsDraft = { name: "", city: "", stateProvince: "", country: "", confirmed: false };
@@ -72,24 +56,16 @@ function emptyDrafts(): Drafts {
 	return { basics: EMPTY_BASICS, journey: null, launch: null, lead: null, keep: [] };
 }
 
-// ---- Commands ----
-
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
-/** One intent: the same payload retried keeps its request key, so a retry replays instead of acting twice. */
 type Intent = { op: Op; digest: string; requestKey: string };
 export type Command = { requestKey: string; expectedRevision: string; input: unknown };
 
-/**
- * A notice the step shows after a refusal, keyed by what the person can do about it. `reloaded` says whether fresh
- * facts arrived after it, so the notice claims the latest was loaded only when it was.
- */
 export type Notice = { op: Op; code: ErrorCode; reloaded: boolean };
 
 export type State = {
 	entry: Entry;
 	view: StepKey;
 	drafts: Drafts;
-	/** The command on the wire. At most one, for the whole flow. */
 	pending: Op | null;
 	intent: Intent | null;
 	notice: Notice | null;
@@ -100,20 +76,14 @@ export function initialState(entry: Entry, requested: StepKey | null, drafts = e
 	return { ...state, view: clampView(state, requested ?? (entry.kind === "plant" ? resumeStep(entry.resume) : null)) };
 }
 
-// ---- Facts and steps ----
-
 const journeySaved = (r: Resume) => r.journey.status === "saved";
-/** An existing-journey attestation is once only. After it the phase and the launch answer show read-only (R4). */
 export const journeyLocked = (r: Resume) => r.journey.status === "saved" && r.journey.value.answer === "existing";
-/** A saved yes made a real role assignment; sending yes again would make a second one (R4). */
 export const leadLocked = (r: Resume) => r.lead.answer === "yes";
-/** The lead answer in words, for the saved step and the finish summary. */
 export function leadText(lead: Resume["lead"]): string {
 	if (lead.answer === "yes")
 		return lead.seniorPastor === "filled" ? "You hold the Senior pastor role" : "You hold the lead role";
 	return lead.answer === "no" ? "Someone else leads" : lead.answer === "skip" ? "Skipped" : "Not answered";
 }
-/** Why the Senior pastor fill was skipped, or null when it was not asked for or it filled the role. */
 export const skippedFill = (lead: Resume["lead"]) =>
 	lead.answer === "yes" && lead.seniorPastor === "occupied"
 		? "We did not fill the Senior pastor role. Someone in Leadership already holds it, and they keep it. You hold the lead role you entered instead."
@@ -135,7 +105,6 @@ export function stepDone(key: StepKey, r: Resume): boolean {
 	}
 }
 
-/** Where a returning Owner picks up: the first unanswered step, or Finish. */
 function resumeStep(r: Resume): StepKey {
 	if (finished(r)) return "finish";
 	if (!stepDone("journey", r) || !stepDone("launch", r)) return "journey";
@@ -143,11 +112,6 @@ function resumeStep(r: Resume): StepKey {
 	return "finish";
 }
 
-/**
- * The step the person may see. Before the church exists only Your church (its form). After, Your church is a
- * read-only summary: basics are never reentered. Launch date needs a phase answer first, saved or drafted, because
- * the two save together.
- */
 function clampView(state: Pick<State, "entry" | "drafts">, requested: StepKey | null): StepKey {
 	if (state.entry.kind !== "plant") return "church";
 	const r = state.entry.resume;
@@ -156,10 +120,6 @@ function clampView(state: Pick<State, "entry" | "drafts">, requested: StepKey | 
 	return view;
 }
 
-/**
- * The ?step= the address bar carries. A screen with no steps (confirm email, or an account onboarding has nothing for,
- * such as an organization's) carries none, so an organization login never sits on /onboarding?step=church (T-65).
- */
 export function addressStep(state: Pick<State, "entry" | "view">): StepKey | null {
 	return state.entry.kind === "confirm_email" || state.entry.kind === "elsewhere" ? null : state.view;
 }
@@ -175,7 +135,6 @@ export function parseStep(value: string | null | undefined): StepKey | null {
 	return ORDER.includes(value as StepKey) ? (value as StepKey) : null;
 }
 
-/** The draft the phase step shows: the person's unsaved choice, else the saved answer. */
 export function shownJourney(state: State): JourneyDraft | null {
 	if (state.drafts.journey) return state.drafts.journey;
 	if (state.entry.kind !== "plant" || state.entry.resume.journey.status !== "saved") return null;
@@ -194,9 +153,6 @@ export function shownLead(state: State): LeadDraft | null {
 	return lead.answer === "no" || lead.answer === "skip" ? { answer: lead.answer } : null;
 }
 
-// ---- Inputs: drafts to contract requests ----
-
-/** The journey request part. Only `existing` carries a phase; not sure, discerning and skip never become Phase 0. */
 export function journeyInput(draft: JourneyDraft): JourneyAnswer {
 	switch (draft.answer) {
 		case "existing":
@@ -209,10 +165,6 @@ export function journeyInput(draft: JourneyDraft): JourneyAnswer {
 			return { answer: "skip" };
 	}
 }
-/**
- * The launch request part. A planned date sends the schedule revision the screen last read (resume or the last
- * journey reply). If another tab moved the date since, the server refuses with conflict and the step reloads.
- */
 export function launchInput(draft: LaunchDraft, scheduleRevision: string): LaunchAnswer {
 	if (draft.answer === "planned")
 		return { answer: "planned", date: draft.date, expectedScheduleRevision: scheduleRevision };
@@ -237,7 +189,6 @@ export function leadInput(draft: LeadDraft) {
 	};
 }
 
-/** Field problems the person can fix before anything is sent. Empty when the step can save. */
 export function basicsProblems(b: BasicsDraft): { name?: string; confirmed?: string } {
 	return {
 		...(b.name.trim() ? {} : { name: "Enter your church’s name." }),
@@ -253,9 +204,6 @@ export function leadProblems(d: LeadDraft): { roleName?: string; teamName?: stri
 	};
 }
 
-// ---- Begin and settle ----
-
-/** Same key order every time, so equal payloads have equal digests. */
 export function stable(value: unknown): string {
 	if (Array.isArray(value)) return "[" + value.map(stable).join(",") + "]";
 	if (value !== null && typeof value === "object")
@@ -270,7 +218,6 @@ export function stable(value: unknown): string {
 	return JSON.stringify(value);
 }
 
-/** Why a command is not sent: already busy, or the step is read-only. */
 export type Hold = "busy" | "locked" | "unavailable";
 
 function expectedRevision(entry: Entry, op: Op): string | null {
@@ -289,10 +236,6 @@ function locked(entry: Entry, op: Op): boolean {
 	return finished(entry.resume);
 }
 
-/**
- * Start a command. Nothing is sent while another command is on the wire or when the step is read-only. A retry of
- * the same payload keeps the intent's request key; any other payload gets a new key.
- */
 export function begin(
 	state: State,
 	op: Op,
@@ -314,7 +257,6 @@ export function begin(
 	};
 }
 
-/** Each command's parsed result, as the contract defines it. */
 export type Results = {
 	createPlant: z.infer<typeof C.createPlantResult>;
 	createDiscovery: z.infer<typeof C.createDiscoveryResult>;
@@ -323,10 +265,8 @@ export type Results = {
 	answerLead: z.infer<typeof C.leadAnswerResult>;
 	complete: z.infer<typeof C.completeOnboardingResult>;
 };
-/** A reply as the store hands it over: the op and its parsed reply. */
 export type Settled = { [K in Op]: { op: K; reply: Reply<Results[K]> } }[Op];
 
-/** Codes after which the screen reloads its facts from the server before the person tries again. */
 const RELOAD_CODES: ReadonlySet<ErrorCode> = new Set([
 	"conflict",
 	"already_declared",
@@ -334,16 +274,11 @@ const RELOAD_CODES: ReadonlySet<ErrorCode> = new Set([
 	"association_resolution_required",
 	"unknown",
 ]);
-/** Creation replaces the whole entry, so it always reloads after success too. */
 export const needsReload = (s: Settled) =>
 	s.reply.status === "refused"
 		? RELOAD_CODES.has(s.reply.error.code)
 		: s.op === "createPlant" || s.op === "convertDiscovery";
 
-/**
- * Apply a reply. Facts change only from the server's reply or the fresh entry, never from what was sent. A refusal
- * keeps every draft. The intent survives only a refusal that a retry of the same request may fix.
- */
 export function settle(state: State, s: Settled, fresh: Entry | null): State {
 	if (state.pending !== s.op) return state;
 	const base: State = { ...state, pending: null };
@@ -361,7 +296,6 @@ export function settle(state: State, s: Settled, fresh: Entry | null): State {
 		case "convertDiscovery": {
 			const entry = fresh ?? state.entry;
 			const next = { ...done, entry, drafts: { ...done.drafts, basics: EMPTY_BASICS, keep: [] } };
-			// A new church lands on its summary first; a replay of an older creation resumes where setup stands.
 			const isNew = s.reply.value.status === "created" || s.reply.value.status === "converted";
 			return { ...next, view: clampView(next, isNew ? "church" : null) };
 		}
@@ -401,7 +335,6 @@ export function settle(state: State, s: Settled, fresh: Entry | null): State {
 	}
 }
 
-/** Replace the entry with a fresh one from the server (a reload), keeping drafts and the requested view. */
 export function reload(state: State, entry: Entry): State {
 	const next = { ...state, entry };
 	return { ...next, view: clampView(next, state.view) };
@@ -413,8 +346,6 @@ export function setView(state: State, view: StepKey): State {
 export function editDrafts(state: State, patch: Partial<Drafts>): State {
 	return { ...state, drafts: { ...state.drafts, ...patch } };
 }
-
-// ---- Facts still missing after finish (REQ-IDN-015: they stay visible) ----
 
 export type Missing = { key: "journey" | "launch" | "lead" | "people" | "reading" | "values"; label: string };
 export function missingFacts(r: Resume, articleCount: number): Missing[] {

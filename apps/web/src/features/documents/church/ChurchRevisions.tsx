@@ -2,17 +2,11 @@
 
 import { Download01Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@everyfield/ui/controls";
-import { Tag } from "@everyfield/ui/display";
+import { LocalTime, Tag } from "@everyfield/ui/display";
 import { cn } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { FORMAT_LABEL } from "../model.ts";
-import { savedAt } from "./labels.ts";
 import type { RevisionRow } from "./server.ts";
-
-// The saved revisions of one Church Document, newest first, read only. Each row downloads that revision: the download
-// saves one export of it (D-78) and joins Saved exports. Any seat that reads the document downloads (D-80). No row edits,
-// restores or deletes a revision. Each row offers the formats its own revision can make: Excel only while that revision
-// holds a budget table. Each row names its saver, or "A former member" once their seat here has ended (D-105).
 
 type Format = keyof typeof FORMAT_LABEL;
 
@@ -27,14 +21,10 @@ export function ChurchRevisions({
 	error,
 	onDownload,
 }: {
-	/** Newest first. */
 	revisions: RevisionRow[];
-	/** True when the document has older revisions than `revisions` holds. */
 	truncated: boolean;
 	current: number;
-	/** The row download running now. */
 	exporting: { at: number; format: Format } | null;
-	/** The last failed download; it shows on its row when `at` is that row's revision. */
 	error: { at: number | null; message: string } | null;
 	onDownload: (at: number, format: Format) => void;
 }) {
@@ -65,11 +55,8 @@ export function ChurchRevisions({
 									{r.number === current ? <Tag>Current</Tag> : null}
 								</span>
 								<span className="text-sm text-text-3 wrap-anywhere">
-									Saved{" "}
-									<time dateTime={r.recordedAt} suppressHydrationWarning className="tabular-nums">
-										{savedAt(r.recordedAt)}
-									</time>{" "}
-									by <span className="text-text-2">{r.savedBy ?? "A former member"}</span>
+									Saved <LocalTime iso={r.recordedAt} className="tabular-nums" /> by{" "}
+									<span className="text-text-2">{r.savedBy ?? "A former member"}</span>
 								</span>
 							</div>
 							<div className="flex flex-none flex-wrap items-center gap-2">

@@ -30,7 +30,6 @@ const answers =
 const value = (v: string): PromptResult => ({ ok: true, value: v });
 const statusLine = async (dir: string) => (await readFile(join(dir, "provision.status"), "utf8")).trim();
 
-/** Every byte the helper left anywhere except webhook.json itself. */
 async function everythingButConfig(dir: string, extra: string[] = []): Promise<string> {
 	let all = extra.join("\n");
 	for (const f of await readdir(dir))
@@ -172,7 +171,6 @@ describe("INV-watch-provision: the real prompt", () => {
 	});
 
 	test("INV-watch-provision: the helper reads no clipboard, keychain, environment or other secret source", async () => {
-		// Code only: comments may name what the helper does not do.
 		const src = (await readFile(provisionMts, "utf8")).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 		for (const banned of [
 			/pbpaste/,
@@ -201,7 +199,6 @@ describe("INV-watch-provision: the real prompt", () => {
 	});
 });
 
-/** A stand-in for osascript: it records its argv, env and its parent's argv, then answers from files. */
 async function fakeOsascript(dir: string, url: string, key: string): Promise<string> {
 	await writeFile(join(dir, "url.in"), url);
 	await writeFile(join(dir, "key.in"), key);
@@ -273,7 +270,6 @@ describe("INV-watch-provision: the provision CLI", () => {
 		const m = launched.stdout.match(/^pid=(\d+) status=(.+)\n$/);
 		assert.ok(m, launched.stdout);
 		assert.equal(m[2], join(state, "provision.status"));
-		// The launcher has exited; the detached helper is still alive and waiting on the prompt.
 		await until(async () => (await readFile(join(work, "seen.out"), "utf8").catch(() => "")).includes("argv:"));
 		assert.match(await statusLine(state), /^state=waiting code=none at=/);
 		process.kill(Number(m[1]), 0);

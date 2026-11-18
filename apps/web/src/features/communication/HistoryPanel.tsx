@@ -2,7 +2,11 @@
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMinuteClock } from "@everyfield/ui/foundations";
+import { useState, type ReactNode } from "react";
+import { currentAddress } from "../../components/location.ts";
+import { createRead, useRead } from "../../components/read.tsx";
+import { useLocalStore, useStore } from "../../components/store.ts";
 import {
 	cancelScheduled,
 	openMessage,
@@ -42,22 +46,17 @@ import {
 	type HubState,
 	type MessageView,
 	type Outcome,
+	type PersonHistory,
 	type ResendReview,
 	type TrackingRow,
 } from "./model.ts";
 import { plural } from "./composeModel.ts";
 import { pickSampleName } from "./fields.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
+import { createHistoryStore } from "./HistoryPanel.store.ts";
 import { useKeys } from "./useKeys.ts";
 
-// History is the message hub. A follow-up saves a new reviewed message and leaves the original alone.
-// Times use the clock on this device. The church zone is not on this page.
-
 type PersonName = { id: string; displayName: string; email: string | null };
-type Scope = { kind: "hub" } | { kind: "person"; personId: string } | { kind: "meeting"; meetingId: string };
-type Filters = { query: string; state: string; channel: string };
-
-const emptyFilters: Filters = { query: "", state: "any", channel: "any" };
 
 function problem(result: Outcome<unknown>): string {
 	if (result.status === "lost") return "Unable to reach the church records. Try again in a moment.";
@@ -75,101 +74,97 @@ function listed(items: string[], max = 8): string {
 	return `${items.slice(0, max).join(", ")}, and ${items.length - max} more`;
 }
 
-function useHistory(load: (cursor: string | null) => Promise<Outcome<HistoryPage>>) {
-	const [items, setItems] = useState<HistoryItem[]>([]);
-	const [page, setPage] = useState<HistoryPage | null>(null);
-	const [error, setError] = useState<string | null>(null);
-	const [pending, setPending] = useState<"list" | "more" | null>("list");
-	const loadRef = useRef(load);
+export type ListQuery =
+	| { kind: "hub"; query: string; state: string; channel: string }
+	| { kind: "person"; personId: string }
+	| { kind: "meeting"; meetingId: string };
 
-	useEffect(() => {
-		loadRef.current = load;
+type MoreItems = { items: HistoryItem[]; page: HistoryPage };
+
+const lost = <T,>(): Outcome<T> => ({ status: "lost" });
+
+function loadPage(list: ListQuery, cursor: string | null): Promise<Outcome<HistoryPage | PersonHistory>> {
+	if (list.kind === "person") return readPersonHistory(list.personId, cursor ?? undefined);
+	if (list.kind === "meeting") return readMeetingHistory(list.meetingId, cursor ?? undefined);
+	return readHistory({
+		limit: 50,
+		...(cursor ? { cursor } : {}),
+		...(list.query.trim() ? { query: list.query.trim() } : {}),
+		...(list.state !== "any" ? { state: list.state } : {}),
+		...(list.channel !== "any" ? { channel: list.channel } : {}),
 	});
+}
 
-	useEffect(() => {
-		let cancel = false;
-		void loadRef
-			.current(null)
-			.then((result) => {
-				if (cancel) return;
-				setPending(null);
-				if (result.status !== "ok") {
-					setError(problem(result));
-					setItems([]);
-					setPage(null);
-					return;
+const firstPages = createRead((list: ListQuery) => loadPage(list, null), {
+	failed: lost<HistoryPage | PersonHistory>,
+});
+const messages = createRead((id: string) => openMessage(id), { failed: lost<MessageView> });
+const meetingTrackings = createRead((meetingId: string) => readMeetingTracking(meetingId), {
+	failed: lost<{ items: TrackingRow[] }>,
+});
+
+const patchItems = (items: HistoryItem[], id: string, view: MessageView) =>
+	items.map((item) =>
+		item.id === id
+			? {
+					...item,
+					state: view.totals.state,
+					scheduledAt: view.detail.scheduledAt,
+					sentAt: view.detail.sentAt,
+					reachable: view.totals.reachable,
+					delivered: view.totals.delivered,
+					rate: view.totals.rate,
 				}
-				setPage(result.value);
-				setItems(result.value.items);
-			})
-			.catch(() => {
-				if (cancel) return;
-				setPending(null);
-				setError("Unable to reach the church records. Try again in a moment.");
-				setItems([]);
-				setPage(null);
-			});
-		return () => {
-			cancel = true;
-		};
-	}, []);
+			: item,
+	);
 
-	const more = () => {
+function useHistory(list: ListQuery) {
+	const first = useRead(firstPages, list);
+	const [more, setMore] = useState<MoreItems | null>(null);
+	const [loadingMore, setLoadingMore] = useState(false);
+	const [moreError, setMoreError] = useState<string | null>(null);
+	const listPending = first.value === undefined || first.status === "loading";
+	const firstPage = first.value?.status === "ok" ? first.value.value : null;
+	const items = listPending && !firstPage ? [] : [...(firstPage?.items ?? []), ...(more?.items ?? [])];
+	const page = more?.page ?? firstPage;
+	const error = listPending ? null : first.value && first.value.status !== "ok" ? problem(first.value) : moreError;
+	const pending = listPending ? ("list" as const) : loadingMore ? ("more" as const) : null;
+
+	const loadMore = () => {
 		if (!page?.nextCursor || pending) return;
 		const cursor = page.nextCursor;
-		setPending("more");
-		void loadRef
-			.current(cursor)
+		setLoadingMore(true);
+		void loadPage(list, cursor)
+			.catch(lost<HistoryPage>)
 			.then((result) => {
-				setPending(null);
+				setLoadingMore(false);
 				if (result.status !== "ok") {
-					setError(problem(result));
+					setMoreError(problem(result));
 					return;
 				}
-				setPage(result.value);
-				setItems((current) => [...current, ...result.value.items]);
-			})
-			.catch(() => {
-				setPending(null);
-				setError("Unable to reach the church records. Try again in a moment.");
+				setMoreError(null);
+				setMore((current) => ({ items: [...(current?.items ?? []), ...result.value.items], page: result.value }));
 			});
 	};
 
 	const reload = () => {
-		setPending("list");
-		setError(null);
-		void loadRef.current(null).then((result) => {
-			setPending(null);
-			if (result.status !== "ok") {
-				setError(problem(result));
-				setItems([]);
-				setPage(null);
-				return;
-			}
-			setPage(result.value);
-			setItems(result.value.items);
-		});
+		setMore(null);
+		setMoreError(null);
+		first.reload();
 	};
 
-	/** The open message's row follows its fresh detail after an action, so the list never keeps an old state. */
-	const patch = (id: string, view: MessageView) =>
-		setItems((current) =>
-			current.map((item) =>
-				item.id === id
-					? {
-							...item,
-							state: view.totals.state,
-							scheduledAt: view.detail.scheduledAt,
-							sentAt: view.detail.sentAt,
-							reachable: view.totals.reachable,
-							delivered: view.totals.delivered,
-							rate: view.totals.rate,
-						}
-					: item,
-			),
+	const patch = (id: string, view: MessageView) => {
+		firstPages.patch(
+			(current) =>
+				current.status === "ok"
+					? { ...current, value: { ...current.value, items: patchItems(current.value.items, id, view) } }
+					: current,
+			list,
 		);
+		setMore((current) => current && { ...current, items: patchItems(current.items, id, view) });
+	};
 
-	return { items, page, error, pending, more, reload, patch };
+	return { items, page, error, pending, more: loadMore, reload, patch };
 }
 
 const stateTone: Record<HubState, string> = {
@@ -197,7 +192,6 @@ function StateBadge({ state }: { state: HubState }) {
 	);
 }
 
-/** The time a row shows: sent, else scheduled, else when it was created. */
 function rowTime(item: HistoryItem): string {
 	if (item.sentAt) return when(item.sentAt);
 	if (item.scheduledAt) return `For ${when(item.scheduledAt)}`;
@@ -218,7 +212,7 @@ function MessageButton({
 			type="button"
 			aria-current={selected ? "true" : undefined}
 			onClick={() => onSelect(item)}
-			className="flex min-h-[72px] w-full cursor-pointer flex-col items-start gap-1 rounded-md px-3 py-2.5 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] aria-[current=true]:bg-surface-2"
+			className="flex min-h-[72px] w-full flex-col items-start gap-1 rounded-md px-3 py-2.5 text-left hover:bg-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] aria-[current=true]:bg-surface-2"
 		>
 			<span className="flex w-full items-center justify-between gap-2">
 				<span className="min-w-0 truncate font-medium text-ink">{item.subject?.trim() || "No subject"}</span>
@@ -231,7 +225,6 @@ function MessageButton({
 	);
 }
 
-/** A message that has not gone out has no recipient records yet, so a zero there would mislead. */
 const recipientCount = (n: number, state: HubState) =>
 	n === 0 && (state === "draft" || state === "scheduled") ? "Not sent yet" : plural(n, "recipient", "recipients");
 
@@ -256,11 +249,9 @@ type ScheduledActions = {
 	onReschedule: (instant: Date) => void;
 };
 
-/** The handoff counts every scheduled state names. Refused here is the email service's refusal, never a bounce. */
 const handoffCounts = (totals: MessageView["totals"]) =>
 	`Accepted ${totals.accepted}. Refused ${totals.failed}. No answer ${totals.unknown}.${unsubscribedNote(totals.unsubscribed)}`;
 
-/** Headline and detail for the message's state at the email service. Each line comes only from confirmed answers. */
 function heldStatus(view: MessageView): { title: string; body: string } {
 	const { totals, detail } = view;
 	const went = sentNote(totals.sent);
@@ -310,7 +301,6 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 	}
 }
 
-/** An action's result. It stays after the scheduled panel closes, as when every email already went out. */
 function ResultNotice({ notice }: { notice: Notice }) {
 	return (
 		<p
@@ -325,12 +315,12 @@ function ResultNotice({ notice }: { notice: Notice }) {
 function ScheduledPanel({ view, actions }: { view: MessageView; actions: ScheduledActions }) {
 	const [when_, setWhen] = useState("");
 	const [error, setError] = useState<string | undefined>();
-	const bounds = useMemo(() => windowBounds(), []);
+	const now = useMinuteClock();
+	const bounds = now === null ? null : windowBounds(new Date(now));
 	const busy = actions.pending !== null;
 	const state = view.totals.state;
 	const status = heldStatus(view);
 	const requestedAt = view.detail.requestedAt;
-	// The email service holds at least one recipient: cancel and time change go to it, and Send now would not.
 	const held = state === "scheduled" || state === "time_unconfirmed";
 	const unconfirmed = state === "cancel_unconfirmed" || state === "time_unconfirmed";
 	const action = (name: string, label: string, run: () => void, variant: "primary" | "secondary" = "secondary") => (
@@ -376,9 +366,8 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 						<Input
 							type="datetime-local"
 							value={when_}
-							min={bounds.min}
-							max={bounds.max}
-							suppressHydrationWarning
+							min={bounds?.min}
+							max={bounds?.max}
 							onChange={(event) => {
 								setWhen(event.target.value);
 								setError(undefined);
@@ -446,7 +435,7 @@ function Detail({
 	const meetingId = detail.meetingId;
 	const named = view.recipients.filter((row) => row.name);
 	const [shownAs, setShownAs] = useState(0);
-	const [sample] = useState(() => pickSampleName(detail.communicationId));
+	const sample = pickSampleName(detail.communicationId);
 	const as = named[Math.min(shownAs, Math.max(0, named.length - 1))]?.name ?? sample;
 	const totals = view.totals;
 	const heldStates: HubState[] = ["scheduled", "time_unconfirmed", "cancel_unconfirmed"];
@@ -616,7 +605,7 @@ type BrowserProps = {
 	intro: string;
 	emptyTitle: string;
 	emptyBody: string;
-	load: (cursor: string | null) => Promise<Outcome<HistoryPage>>;
+	list: ListQuery;
 	header?: ReactNode;
 	onOpen: (draft: Draft, people: PersonName[]) => void;
 	onPerson: (personId: string) => void;
@@ -637,7 +626,7 @@ function Browser({
 	intro,
 	emptyTitle,
 	emptyBody,
-	load,
+	list,
 	header,
 	onOpen,
 	onPerson,
@@ -651,62 +640,42 @@ function Browser({
 	origin,
 	banner,
 }: BrowserProps) {
-	const history = useHistory(load);
+	const history = useHistory(list);
 	const keys = useKeys();
-	const [detail, setDetail] = useState<{ id: string; view: MessageView | null; error: string | null } | null>(null);
+	const opened = useRead(selected ? messages : null, selected ?? "");
 	const [acting, setActing] = useState<string | null>(null);
 	const [reviewed, setReviewed] = useState<{ id: string; review: ResendReview | null; error: string | null } | null>(
 		null,
 	);
 	const [confirm, setConfirm] = useState<null | "follow-up" | "send" | "cancel">(null);
-	const [notice, setNotice] = useState<Notice | null>(null);
+	const [noticed, setNoticed] = useState<{ id: string; notice: Notice } | null>(null);
 
-	const current = detail !== null && detail.id === selected ? detail : null;
-	const view = current?.view ?? null;
-	const detailError = current?.error ?? null;
-	const opening = selected !== null && current === null;
+	const openedView = opened.value?.status === "ok" ? opened.value.value : null;
+	const followUp = openedView !== null && openedView.detail.state === "reviewed" && onCompose !== undefined;
+	const view = followUp ? null : openedView;
+	const detailError = opened.value && opened.value.status !== "ok" ? problem(opened.value) : null;
+	const opening = selected !== null && (opened.value === undefined || followUp);
 	const detailPending = acting ?? (opening ? "open" : null);
 	const review = reviewed && reviewed.id === selected ? reviewed.review : null;
 	const reviewError = reviewed && reviewed.id === selected ? reviewed.error : null;
+	const notice = noticed && noticed.id === selected ? noticed.notice : null;
+	const setNotice = (id: string, next: Notice | null) => setNoticed(next ? { id, notice: next } : null);
 
 	const count = (state: HubState) => history.items.filter((item) => item.state === state).length;
 
-	const composeRef = useRef(onCompose);
-	useEffect(() => {
-		composeRef.current = onCompose;
-	});
-
-	useEffect(() => {
-		if (!selected) return;
-		let live = true;
-		void openMessage(selected)
-			.then((result) => {
-				if (!live) return;
-				if (result.status !== "ok") {
-					setDetail({ id: selected, view: null, error: problem(result) });
-					return;
-				}
-				// A saved follow-up is a Reviewed message. It opens at the Review step.
-				if (result.value.detail.state === "reviewed" && composeRef.current) {
-					composeRef.current(selected, "review", true);
-					return;
-				}
-				setDetail({ id: selected, view: result.value, error: null });
-				setNotice(null);
-			})
-			.catch(() => {
-				if (live)
-					setDetail({ id: selected, view: null, error: "Unable to reach the church records. Try again in a moment." });
-			});
-		return () => {
-			live = false;
-		};
-	}, [selected]);
-
 	const select = (item: HistoryItem) => {
-		// A draft goes back to Write. Anything else opens in the detail pane.
-		if (item.state === "draft" && onCompose && canWrite) onCompose(item.id, "write", false);
-		else onSelected(item.id);
+		if (item.state === "draft" && onCompose && canWrite) {
+			onCompose(item.id, "write", false);
+			return;
+		}
+		setNoticed(null);
+		onSelected(item.id);
+		if (!onCompose) return;
+		void messages.get(item.id).then((result) => {
+			const shown = new URL(currentAddress(), window.location.origin).searchParams.get("message");
+			if (result.status === "ok" && result.value.detail.state === "reviewed" && shown === item.id)
+				onCompose(item.id, "review", true);
+		});
 	};
 
 	const onReview = () => {
@@ -729,9 +698,9 @@ function Browser({
 	};
 
 	const refresh = async (id: string) => {
-		const fresh = await openMessage(id);
+		const fresh = await openMessage(id).catch(lost<MessageView>);
 		if (fresh.status !== "ok") return;
-		setDetail({ id, view: fresh.value, error: null });
+		messages.patch(() => fresh, id);
 		history.patch(id, fresh.value);
 	};
 
@@ -743,15 +712,15 @@ function Browser({
 		if (!view || detailPending) return;
 		const id = view.detail.communicationId;
 		setActing(name);
-		setNotice(null);
+		setNotice(id, null);
 		try {
-			const result = await call();
+			const result = await call().catch(lost<T>);
 			keys.settle(name, result);
 			if (result.status !== "ok") {
-				setNotice({ text: outcomeText(result) ?? "Unable to finish. Try again.", tone: "alert" });
+				setNotice(id, { text: outcomeText(result) ?? "Unable to finish. Try again.", tone: "alert" });
 				return;
 			}
-			setNotice(text(result.value));
+			setNotice(id, text(result.value));
 			await refresh(id);
 		} finally {
 			setActing(null);
@@ -986,7 +955,7 @@ function Browser({
 					const result = await sendReviewed(keys.take("send"), view.detail.revision, id);
 					keys.settle("send", result);
 					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to send the email.");
-					setNotice({
+					setNotice(id, {
 						text: deliveryText(result.value),
 						tone: result.value.status === "accepted" ? "status" : "alert",
 					});
@@ -1011,7 +980,7 @@ function Browser({
 					const result = await cancelScheduled(keys.take("cancel"), view.detail.revision, id);
 					keys.settle("cancel", result);
 					if (result.status !== "ok") throw new Error(outcomeText(result) ?? "Unable to cancel the scheduled email.");
-					setNotice({
+					setNotice(id, {
 						text: cancelText(result.value),
 						tone: result.value.scheduledCancel === "reconcile" ? "alert" : "status",
 					});
@@ -1022,11 +991,6 @@ function Browser({
 	);
 }
 
-/**
- * The person's own opt-out from this church's email (D-284). Staff see it and when, and nothing here can clear it. The
- * Unsubscribe page offered the person an Undo for one hour after they pressed Unsubscribe; opening the link again later
- * only shows that they are unsubscribed.
- */
 function OptOutNote({ at, churchName }: { at: string; churchName: string }) {
 	return (
 		<div className="flex flex-col gap-1 rounded-md bg-surface-2 px-3.5 py-3">
@@ -1092,9 +1056,7 @@ export function History({
 	personId: string | null;
 	meetingId: string | null;
 	onOpen: (draft: Draft, people: PersonName[]) => void;
-	/** Stay on the opened person or meeting. The person tab uses this so the tab does not open the church list. */
 	keepScope?: boolean;
-	/** The opened message, from the address. Without it the list keeps its own choice (the person tab). */
 	selected?: string | null;
 	onSelected?: (id: string | null) => void;
 	onCompose?: (id: string, step: "write" | "review", replace: boolean) => void;
@@ -1103,69 +1065,27 @@ export function History({
 	origin: string;
 	banner?: string | null;
 }) {
-	const [ownSelected, setOwnSelected] = useState<string | null>(null);
-	const openId = selected === undefined ? ownSelected : selected;
-	const choose = onSelected ?? setOwnSelected;
-	const [scope, setScope] = useState<Scope>(
-		personId ? { kind: "person", personId } : meetingId ? { kind: "meeting", meetingId } : { kind: "hub" },
+	const store = useLocalStore(() =>
+		createHistoryStore({
+			scope: personId ? { kind: "person", personId } : meetingId ? { kind: "meeting", meetingId } : { kind: "hub" },
+		}),
 	);
-	const [filters, setFilters] = useState<Filters>(emptyFilters);
-	const [query, setQuery] = useState("");
-	const [contacts, setContacts] = useState<ContactRow[] | null>(null);
-	const [lastContact, setLastContact] = useState<string | null>(null);
-	const [optOutAt, setOptOutAt] = useState<string | null>(null);
-	const [tracking, setTracking] = useState<TrackingRow[] | null>(null);
-	const [scopeNote, setScopeNote] = useState<string | null>(null);
-
-	useEffect(() => {
-		const timer = setTimeout(() => setFilters((current) => ({ ...current, query })), 300);
-		return () => clearTimeout(timer);
-	}, [query]);
-
-	useEffect(() => {
-		if (scope.kind !== "meeting") return;
-		let cancel = false;
-		void readMeetingTracking(scope.meetingId).then((result) => {
-			if (cancel) return;
-			if (result.status !== "ok") {
-				setScopeNote(problem(result));
-				setTracking(null);
-				return;
-			}
-			setScopeNote(null);
-			setTracking(result.value.items);
-		});
-		return () => {
-			cancel = true;
-		};
-	}, [scope]);
-
-	const reloadKey =
+	const { scope, filters, query, ownSelected, actions } = useStore(store, (state) => state);
+	const openId = selected === undefined ? ownSelected : selected;
+	const choose = onSelected ?? actions.choose;
+	const list: ListQuery =
 		scope.kind === "hub"
-			? `hub:${filters.query}:${filters.state}:${filters.channel}`
-			: scope.kind === "person"
-				? `person:${scope.personId}`
-				: `meeting:${scope.meetingId}`;
-
-	const load = async (cursor: string | null) => {
-		if (scope.kind === "person") {
-			const result = await readPersonHistory(scope.personId, cursor ?? undefined);
-			if (!cursor && result.status === "ok") {
-				setContacts(result.value.contacts);
-				setLastContact(result.value.lastConfirmedContactAt);
-				setOptOutAt(result.value.emailOptOutAt);
-			}
-			return result;
-		}
-		if (scope.kind === "meeting") return readMeetingHistory(scope.meetingId, cursor ?? undefined);
-		return readHistory({
-			limit: 50,
-			...(cursor ? { cursor } : {}),
-			...(filters.query.trim() ? { query: filters.query.trim() } : {}),
-			...(filters.state !== "any" ? { state: filters.state } : {}),
-			...(filters.channel !== "any" ? { channel: filters.channel } : {}),
-		});
-	};
+			? { kind: "hub", query: filters.query, state: filters.state, channel: filters.channel }
+			: scope;
+	const first = useRead(firstPages, list);
+	const personPage =
+		scope.kind === "person" && first.value?.status === "ok" ? (first.value.value as PersonHistory) : null;
+	const tracked = useRead(
+		scope.kind === "meeting" ? meetingTrackings : null,
+		scope.kind === "meeting" ? scope.meetingId : "",
+	);
+	const tracking = tracked.value?.status === "ok" ? tracked.value.value.items : null;
+	const scopeNote = tracked.value && tracked.value.status !== "ok" ? problem(tracked.value) : null;
 
 	const filtered = filters.query.trim() !== "" || filters.state !== "any" || filters.channel !== "any";
 	const emptyTitle =
@@ -1191,12 +1111,12 @@ export function History({
 			{scope.kind === "hub" ? (
 				<div className="grid gap-4 md:grid-cols-3">
 					<Field label="Subject or message">
-						<Input value={query} placeholder="Launch Sunday" onChange={(event) => setQuery(event.target.value)} />
+						<Input value={query} placeholder="Launch Sunday" onChange={(event) => actions.type(event.target.value)} />
 					</Field>
 					<Field label="Status">
 						<Select
 							value={filters.state}
-							onValueChange={(state) => setFilters((current) => ({ ...current, state }))}
+							onValueChange={(state) => actions.filter({ state })}
 							options={[
 								{ value: "any", label: "Any status" },
 								...hubStates.map((state) => ({ value: state, label: hubLabel[state] })),
@@ -1206,7 +1126,7 @@ export function History({
 					<Field label="Channel">
 						<Select
 							value={filters.channel}
-							onValueChange={(channel) => setFilters((current) => ({ ...current, channel }))}
+							onValueChange={(channel) => actions.filter({ channel })}
 							options={[
 								{ value: "any", label: "Any recorded channel" },
 								{ value: "email", label: "Email" },
@@ -1215,26 +1135,12 @@ export function History({
 					</Field>
 				</div>
 			) : keepScope ? null : (
-				<Button
-					variant="ghost"
-					onClick={() => {
-						setScope({ kind: "hub" });
-						setScopeNote(null);
-						setContacts(null);
-						setTracking(null);
-					}}
-				>
+				<Button variant="ghost" onClick={() => actions.show({ kind: "hub" })}>
 					All messages
 				</Button>
 			)}
 			{scope.kind === "hub" && filtered ? (
-				<Button
-					variant="ghost"
-					onClick={() => {
-						setQuery("");
-						setFilters(emptyFilters);
-					}}
-				>
+				<Button variant="ghost" onClick={actions.clear}>
 					Clear filters
 				</Button>
 			) : null}
@@ -1244,7 +1150,7 @@ export function History({
 				</p>
 			) : null}
 			<Browser
-				key={reloadKey}
+				key={firstPages.key(list)}
 				canWrite={canWrite}
 				selected={openId}
 				onSelected={choose}
@@ -1269,26 +1175,16 @@ export function History({
 				}
 				emptyTitle={emptyTitle}
 				emptyBody={emptyBody}
-				load={load}
+				list={list}
 				onOpen={onOpen}
-				onPerson={(id) => {
-					setScope({ kind: "person", personId: id });
-					setScopeNote(null);
-					setContacts(null);
-					setTracking(null);
-				}}
-				onMeeting={(id) => {
-					setScope({ kind: "meeting", meetingId: id });
-					setScopeNote(null);
-					setContacts(null);
-					setTracking(null);
-				}}
+				onPerson={(id) => actions.show({ kind: "person", personId: id })}
+				onMeeting={(id) => actions.show({ kind: "meeting", meetingId: id })}
 				keepScope={keepScope}
 				header={
-					scope.kind === "person" && contacts ? (
+					personPage ? (
 						<div className="flex flex-col gap-4">
-							{optOutAt ? <OptOutNote at={optOutAt} churchName={churchName} /> : null}
-							<ContactLog contacts={contacts} lastConfirmedContactAt={lastContact} />
+							{personPage.emailOptOutAt ? <OptOutNote at={personPage.emailOptOutAt} churchName={churchName} /> : null}
+							<ContactLog contacts={personPage.contacts} lastConfirmedContactAt={personPage.lastConfirmedContactAt} />
 						</div>
 					) : scope.kind === "meeting" && tracking ? (
 						<div className="flex flex-col gap-3">

@@ -3,9 +3,6 @@ import { profileFields } from "@everyfield/contracts/organizations";
 import { z } from "zod";
 import { committed, nativeWrite, organizationAdmin, patchChanges } from "../../native.ts";
 
-// A sending church's or network's own profile, for its Owner or Admin, through the same native command the Settings >
-// Organization profile section runs. This is the only tool an organization login has today.
-
 const COLUMN = {
 	name: "name",
 	city: "city",
@@ -40,5 +37,4 @@ export const updateProfile = nativeWrite({
 	},
 });
 
-/** The installed organization reviewed writes, keyed by operation. */
 export const ORGANIZATION_COMMANDS = { "organizations.updateProfile": updateProfile } as const;

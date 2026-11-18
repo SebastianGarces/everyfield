@@ -17,7 +17,7 @@ import {
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import type { DocBrand, FieldDecl } from "@everyfield/contracts/documents";
 import type { Editor } from "@tiptap/react";
-import { Fragment, useEffect, useReducer } from "react";
+import { Fragment, useCallback, useSyncExternalStore } from "react";
 import { useEditorState } from "@tiptap/react";
 import {
 	canInsert,
@@ -64,12 +64,6 @@ import { MarkButton } from "./tiptap/ui/mark-button.tsx";
 import { UndoRedoButton } from "./tiptap/ui/undo-redo-button.tsx";
 import { BUTTON_ICON, MENU_ITEM, MENU_ITEM_BASE } from "./tiptap/styles.ts";
 
-// The main toolbar. The primitives, the mark buttons, the Undo and Redo buttons and the link popover are Tiptap's free
-// ready-made parts (see tiptap/README.md); the text-style, list, block and insert controls use the same primitives.
-// Every control has a name and a tooltip. A control that cannot apply is disabled, not hidden. A plain document (no
-// `church` prop) gets the prose controls (text style, marks, link, lists, quote, divider, move and delete block) and an
-// Insert menu with a table and checklist rows only (T-100).
-
 const glyph = (icon: IconSvgElement) => <Icon icon={icon} size={18} className={BUTTON_ICON} />;
 
 function Action({
@@ -112,19 +106,15 @@ function Action({
 	);
 }
 
-/**
- * Make block conditional: wraps the current block in conditional text. When it cannot apply, the button is disabled and
- * its tooltip, on a wrapper that still takes the pointer and the keyboard, says why.
- */
 function WrapAction({ editor, reason, run }: { editor: Editor; reason: string | null; run: () => void }) {
 	const button = (
 		<Action editor={editor} label="Make block conditional" icon={GitBranchIcon} disabled={reason !== null} run={run} />
 	);
 	if (reason === null) return button;
 	return (
-		<Tip text={`Make block conditional: ${reason}`} className="flex cursor-not-allowed">
+		<Tip text={`Make block conditional: ${reason}`} className="flex">
 			<span
-				tabIndex={0}
+				tabIndex={-1}
 				aria-label={`Make block conditional is unavailable. ${reason}`}
 				className="flex rounded-sm outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]"
 			>
@@ -135,7 +125,6 @@ function WrapAction({ editor, reason, run }: { editor: Editor; reason: string | 
 }
 
 type InsertItem = (typeof INSERT_KINDS)[number];
-/** The Insert menu's groups. The doctrinal section (group `sections`) has its own button, not a menu item. */
 type MenuGroup = Exclude<InsertItem["group"], "sections">;
 
 const GROUP_LABEL: Record<MenuGroup, string> = {
@@ -148,7 +137,6 @@ const GROUP_LABEL: Record<MenuGroup, string> = {
 	conditions: "Conditions",
 };
 
-/** A heading over a group of Insert menu items. */
 function MenuLabel({ children }: { children: string }) {
 	return (
 		<div
@@ -165,11 +153,9 @@ const PAGE_NUMBERS = [
 	{ format: "page-of-total", label: "Page N of M" },
 ] as const;
 
-/** What a plain document's Insert offers besides the divider button: a table and checklist rows, never a budget. */
 const PLAIN_TABLES = INSERT_KINDS.filter((k) => k.kind === "table" || k.kind === "checklist");
 const PLAIN_INSERTS: InsertKind[] = ["divider", ...PLAIN_TABLES.map((k) => k.kind)];
 
-/** The text styles a plain document offers: body text and the three heading levels. */
 const NATIVE_STYLES = new Set<string>(["body", "h1", "h2", "h3"]);
 
 export function EditorToolbar({
@@ -177,30 +163,29 @@ export function EditorToolbar({
 	church,
 }: {
 	editor: Editor;
-	/** The template parts of a Church Document; a plain native document has none. */
 	church?: {
 		brand: DocBrand;
-		/** The church's current value of each merge field Insert offers, by key. */
 		mergeValues: Record<string, string>;
 		pageSetup: { open: boolean; controls: string; toggle: () => void };
 	};
 }) {
-	// The view mounts after the first render and `editor.isEditable` is false until then. Draw again when it mounts, so
-	// Bold, Italic, Underline and Link show on load, not after the first click.
-	const [, drawAgain] = useReducer((n: number) => n + 1, 0);
-	useEffect(() => {
-		editor.on("mount", drawAgain);
-		if (editor.isEditable) drawAgain();
-		return () => {
-			editor.off("mount", drawAgain);
-		};
-	}, [editor]);
+	const subscribeMount = useCallback(
+		(changed: () => void) => {
+			editor.on("mount", changed);
+			return () => void editor.off("mount", changed);
+		},
+		[editor],
+	);
+	const editable = useSyncExternalStore(
+		subscribeMount,
+		() => editor.isEditable,
+		() => false,
+	);
 	const s = useEditorState({
 		editor,
 		selector: ({ editor: e }) => {
 			const state = e.state;
 			const empty = currentBlock(state) === null;
-			// A plain document's schema has no layout, slot or field nodes: it inserts a divider, a table and checklist rows.
 			const insertable = Object.fromEntries(
 				(church ? INSERT_KINDS.map((k) => k.kind) : PLAIN_INSERTS).map((kind) => [kind, canInsert(state, kind)]),
 			) as Record<InsertKind, boolean>;
@@ -219,7 +204,6 @@ export function EditorToolbar({
 				canField: canInsertField(state),
 				hasSlot: hasSlot(state.doc),
 				values: liveValues(state.doc),
-				// The document's fields, as the root node holds them now: conditional text needs at least one to read.
 				fields: (state.doc.attrs.fields as FieldDecl[] | undefined) ?? [],
 				insertable,
 			};
@@ -230,7 +214,7 @@ export function EditorToolbar({
 	const noFields = noConditionReason(fields);
 	const styles = church ? TEXT_STYLES : TEXT_STYLES.filter((t) => NATIVE_STYLES.has(t.style));
 	return (
-		<Toolbar aria-label="Document formatting">
+		<Toolbar aria-label="Document formatting" data-editable={editable ? "" : undefined}>
 			<ToolbarGroup>
 				<UndoRedoButton editor={editor} action="undo" />
 				<UndoRedoButton editor={editor} action="redo" />
@@ -293,8 +277,7 @@ export function EditorToolbar({
 						run={() => editor.chain().setMeta("closeHistory", true).focus().toggleMark("tag").run()}
 					/>
 				) : null}
-				{/* The caret entering a link leaves focus in the document; the button opens the link's popover. */}
-				<LinkPopover editor={editor} autoOpenOnLinkActive={false} />
+				<LinkPopover editor={editor} />
 			</ToolbarGroup>
 			<ToolbarSeparator />
 			<ToolbarGroup>
@@ -350,8 +333,6 @@ export function EditorToolbar({
 							align="start"
 							aria-label="Insert block"
 							collisionPadding={8}
-							// Radix measures the room around the button, so the list scrolls inside the window however far
-							// down the page the toolbar sits, and its notes wrap on a narrow screen.
 							className="max-h-[min(var(--radix-dropdown-menu-content-available-height),560px)] max-w-(--radix-dropdown-menu-content-available-width) overflow-y-auto"
 						>
 							{INSERT_KINDS.filter(

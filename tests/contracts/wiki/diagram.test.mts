@@ -1,4 +1,3 @@
-// WP-034/ui criteria 2 and 3: the diagram block parser returns the exact typed diagram or the exact error list.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fencedBlocks, parseDiagram } from "../../../packages/contracts/src/wiki/diagram.ts";

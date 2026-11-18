@@ -9,15 +9,10 @@ const VIEWS: { key: View; label: string; href: string }[] = [
 	{ key: "attestations", label: "Attestations", href: "/intelligence/attestations" },
 ];
 
-/**
- * The Plant Intelligence views (prototype .intel-tabs): the assessment, its trends, the phase journey and Attestations.
- * The count is what needs the admin's attention on Attestations: answers to renew and signals nobody answered. It
- * shows only where it is already known.
- */
 export function IntelligenceTabs({ current, count }: { current: View; count?: number }) {
 	const tab = (active: boolean) =>
 		cn(
-			"inline-flex cursor-pointer items-center gap-2 rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] max-app-sm:px-2.5",
+			"inline-flex items-center gap-2 rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] max-app-sm:px-2.5",
 			active && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
 		);
 	return (

@@ -13,16 +13,14 @@ import {
 	MenuTrigger,
 	Select,
 } from "@everyfield/ui/controls";
-import { useMemo, useState } from "react";
+import { useMinuteClock } from "@everyfield/ui/foundations";
+import { useState } from "react";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { textToBody } from "./body.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { listed, plural, type Form } from "./composeModel.ts";
 import { groupLabel, type AudienceSummary, type MeetingContext, type Team, type Template } from "./model.ts";
 
-// Review and send: the full-width email with a "Preview as" switcher, and the "Ready to send?" panel.
-
-/** Tomorrow at 9:00 and the next Sunday at 8:00, both local, both inside the window. */
 function presets(now = new Date()): { label: string; at: Date }[] {
 	const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0);
 	const toSunday = (7 - now.getDay()) % 7 || 7;
@@ -69,7 +67,8 @@ export function ReviewStep({
 	const [picking, setPicking] = useState(false);
 	const [custom, setCustom] = useState("");
 	const [customError, setCustomError] = useState<string | undefined>();
-	const bounds = useMemo(() => windowBounds(), []);
+	const now = useMinuteClock();
+	const bounds = now === null ? null : windowBounds(new Date(now));
 	const safe = Math.min(index, Math.max(0, recipients.length - 1));
 	const name = recipients[safe]?.displayName ?? sampleName;
 	const eligible = summary?.eligibleRecipients ?? 0;
@@ -144,7 +143,6 @@ export function ReviewStep({
 								"No one"
 							) : (
 								<ul
-									// biome-ignore lint/a11y/noNoninteractiveTabindex: a scrollable region must take focus so keyboard users can scroll it
 									tabIndex={0}
 									className="flex max-h-40 flex-col gap-0.5 overflow-y-auto rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
 									aria-label="Left out"
@@ -206,9 +204,8 @@ export function ReviewStep({
 							<Input
 								type="datetime-local"
 								value={custom}
-								min={bounds.min}
-								max={bounds.max}
-								suppressHydrationWarning
+								min={bounds?.min}
+								max={bounds?.max}
 								onChange={(event) => {
 									setCustom(event.target.value);
 									setCustomError(undefined);

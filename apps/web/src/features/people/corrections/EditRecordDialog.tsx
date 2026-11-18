@@ -20,15 +20,16 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { focusOnMount } from "@everyfield/ui/foundations";
+import { useRef, useState, type ReactNode } from "react";
 import type { z } from "zod";
 import type { Receipt } from "../boundary.ts";
-import { runSave, type PersonStore } from "../model.ts";
-import type { Outcome } from "../../../components/save/model.ts";
-import { fresh, LocalDay, useStore, When } from "../parts.tsx";
+import { runSave, type PersonStore } from "../person.store.ts";
+import { useRead } from "../../../components/read.tsx";
+import { fresh, LocalDay, usePersonState, When } from "../parts.tsx";
 import type { PersonDraft } from "../StageDialog.tsx";
-import { correctRecord, loadRecords } from "./actions.ts";
-import { takeRecords } from "./intent.ts";
+import { correctRecord } from "./actions.ts";
+import { recordsRead } from "./intent.ts";
 import {
 	assessmentChanges,
 	commitmentChanges,
@@ -63,7 +64,6 @@ type Chosen =
 	| { type: "interview"; record: Interview }
 	| { type: "commitment"; record: Commitment };
 
-/** The record kind inside a sentence: "the 4 C's assessment". */
 const TYPE_NAME: Record<RecordType, string> = {
 	assessment: "4 C's assessment",
 	interview: "interview",
@@ -90,14 +90,6 @@ const interviewValues = (r: Interview): InterviewValues => ({
 	nextSteps: r.nextSteps,
 });
 
-/**
- * Edit a record (REQ-PPL-015, a flow the prototype does not draw). One dialog lists the person's 4 C's
- * assessments, interviews and commitment cards; choosing one opens its values to edit, with an optional reason and
- * the changes already made to it (old value, new value, who and why when given). Only changed fields are sent. The
- * recorder, the recorded time, the witness and the document never change, and the stage never moves. Each edit is one
- * intent with one request key: a retry after a lost answer replays, and a refusal after a lost answer reads the record
- * again before the dialog says whether the edit was saved.
- */
 export function EditRecordDialog({
 	person,
 	store,
@@ -109,33 +101,23 @@ export function EditRecordDialog({
 	store: PersonStore<PlantPerson, PersonDraft>;
 	accountId: string;
 	onClose: () => void;
-	/** A saved edit: its card shows the record as saved now, and Activity adds its entry when the receipt is known. */
 	onEdited: (receipt: Receipt | null, corrected: Chosen) => void;
 }) {
-	const [records, setRecords] = useState<Outcome<Records> | null>(null);
 	const [chosen, setChosen] = useState<{ type: RecordType; id: string } | null>(null);
 	const [saved, setSaved] = useState<{ type: RecordType; id: string; reasoned: boolean } | null>(null);
 	const [reason, setReason] = useState("");
 	const [pending, setPending] = useState(false);
-	const seq = useRef(0);
-	// Edits whose answer was lost. Only a server answer may say what happened, never a failed read.
-	const errors = useStore(store).errors;
+	const read = useRead(recordsRead, person.id);
+	const records = read.value ?? null;
+	const errors = usePersonState(store).errors;
 	const uncertain = new Set(
 		Object.entries(errors).flatMap(([k, v]) => (k.startsWith("correct:") && v === "lost" ? [k.slice(8)] : [])),
 	);
 
-	/** Reads the records. The first read is the one started on intent, when there is one (intent.ts). */
-	async function load(first = false) {
-		const n = ++seq.current;
-		const r = first
-			? await takeRecords(person.id)
-			: await loadRecords(person.id).catch(() => ({ status: "lost" }) as const);
-		if (n === seq.current) setRecords(r);
-		return r;
-	}
-	useEffect(() => {
-		void load(true);
-	}, [person.id]); // eslint-disable-line react-hooks/exhaustive-deps
+	const close = () => {
+		onClose();
+		recordsRead.forget(person.id);
+	};
 
 	const list = records?.status === "ok" ? records.value : null;
 	const find = (data: Records, c: { type: RecordType; id: string }): Chosen | null => {
@@ -155,7 +137,7 @@ export function EditRecordDialog({
 	};
 
 	return (
-		<Dialog open onOpenChange={(open) => !open && !pending && onClose()}>
+		<Dialog open onOpenChange={(open) => !open && !pending && close()}>
 			<DialogContent size="md" aria-busy={pending || records === null || undefined}>
 				<DialogHeader
 					icon={FileEditIcon}
@@ -192,16 +174,10 @@ export function EditRecordDialog({
 							</Problem>
 						</DialogBody>
 						<DialogFooter>
-							<Button variant="secondary" onClick={onClose}>
+							<Button variant="secondary" onClick={close}>
 								Close
 							</Button>
-							<Button
-								variant="primary"
-								onClick={() => {
-									setRecords(null);
-									void load();
-								}}
-							>
+							<Button variant="primary" onClick={read.retry}>
 								Try again
 							</Button>
 						</DialogFooter>
@@ -220,7 +196,7 @@ export function EditRecordDialog({
 							<Button variant="secondary" onClick={back}>
 								Edit another record
 							</Button>
-							<Button variant="primary" onClick={onClose}>
+							<Button variant="primary" onClick={close}>
 								Done
 							</Button>
 						</DialogFooter>
@@ -238,11 +214,11 @@ export function EditRecordDialog({
 						onBack={back}
 						onPending={setPending}
 						reload={async () => {
-							const r = await load();
+							const r = await recordsRead.refresh(person.id);
 							return r.status === "ok" ? find(r.value, { type: current.type, id: current.record.id }) : null;
 						}}
 						onSaved={(next, correction, receipt) => {
-							setRecords({
+							read.patch(() => ({
 								status: "ok",
 								value: {
 									...list,
@@ -257,7 +233,7 @@ export function EditRecordDialog({
 									),
 									corrections: correction ? [correction, ...list.corrections] : list.corrections,
 								},
-							});
+							}));
 							setSaved({ type: next.type, id: next.record.id, reasoned: Boolean(correction?.reason) });
 							setReason("");
 							onEdited(receipt, next);
@@ -269,7 +245,7 @@ export function EditRecordDialog({
 							<RecordList data={list} uncertain={uncertain} onChoose={(type, id) => setChosen({ type, id })} />
 						</DialogBody>
 						<DialogFooter>
-							<Button variant="secondary" onClick={onClose}>
+							<Button variant="secondary" onClick={close}>
 								Close
 							</Button>
 						</DialogFooter>
@@ -281,10 +257,8 @@ export function EditRecordDialog({
 }
 
 function SavedNote({ type, reasoned }: { type: RecordType; reasoned: boolean }) {
-	const ref = useRef<HTMLDivElement>(null);
-	useEffect(() => ref.current?.focus(), []);
 	return (
-		<div ref={ref} tabIndex={-1} role="status" className="flex flex-col gap-2 outline-none">
+		<div ref={focusOnMount} tabIndex={-1} role="status" className="flex flex-col gap-2 outline-none">
 			<CalloutLabel tone="green" icon={Tick02Icon}>
 				Changes saved
 			</CalloutLabel>
@@ -296,14 +270,12 @@ function SavedNote({ type, reasoned }: { type: RecordType; reasoned: boolean }) 
 	);
 }
 
-/** Every record the person has, grouped by kind. A voided card stays listed but cannot be edited. */
 function RecordList({
 	data,
 	uncertain,
 	onChoose,
 }: {
 	data: Records;
-	/** Records whose last edit got no answer: it may have been saved. */
 	uncertain: ReadonlySet<string>;
 	onChoose: (type: RecordType, id: string) => void;
 }) {
@@ -360,7 +332,7 @@ function RecordList({
 											disabled={r.voided}
 											onClick={() => onChoose(g.type, r.id)}
 											data-focus-inset=""
-											className="-mx-2 flex min-h-12 w-[calc(100%+16px)] items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors enabled:cursor-pointer enabled:hover:bg-hover disabled:cursor-not-allowed"
+											className="-mx-2 flex min-h-12 w-[calc(100%+16px)] items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors enabled:hover:bg-hover"
 										>
 											<span className="min-w-0 flex-1">
 												<span className="block font-medium text-ink">
@@ -406,7 +378,6 @@ type FormProps = {
 	accountId: string;
 	onBack: () => void;
 	onPending: (pending: boolean) => void;
-	/** The record read again, after a refusal; null when it could not be read. */
 	reload: () => Promise<Chosen | null>;
 	onSaved: (next: Chosen, correction: Correction | null, receipt: Receipt | null) => void;
 };
@@ -418,10 +389,6 @@ function EditForm(props: FormProps) {
 	return <CommitmentForm {...props} chosen={chosen} />;
 }
 
-/**
- * The save shared by the three forms. `changes` is what differs from the record; `apply` is the record with the
- * changes, as the server holds it after a saved edit.
- */
 function useCorrection(
 	props: FormProps,
 	changes: Record<string, unknown>,
@@ -450,8 +417,7 @@ function useCorrection(
 			changes,
 		};
 		const rev = chosen.record.revision;
-		// An earlier answer for this record was lost, in this form or before the dialog was reopened.
-		if (store.get().errors[slot] === "lost") lost.current = true;
+		if (store.getState().errors[slot] === "lost") lost.current = true;
 		busy(true);
 		setProblem(null);
 		const r = await runSave(store, slot, { input, rev }, (key) => correctRecord(key, rev, input), { fresh });
@@ -488,7 +454,6 @@ function useCorrection(
 			});
 		}
 		if (r.code === "conflict") {
-			// The record changed since the form opened, perhaps by this edit's own earlier attempt.
 			const fresh = await props.reload();
 			busy(false);
 			const draft = apply();
@@ -555,11 +520,11 @@ function Frame({
 				</Field>
 				{state.problem ? (
 					state.problem.tone === "info" ? (
-						<p key={state.problem.n} role="status" className="rounded-md bg-surface px-3.5 py-2.5 text-sm text-ink-2">
+						<p role="status" className="rounded-md bg-surface px-3.5 py-2.5 text-sm text-ink-2">
 							{state.problem.text}
 						</p>
 					) : (
-						<Problem key={state.problem.n}>{state.problem.text}</Problem>
+						<Problem request={state.problem.n}>{state.problem.text}</Problem>
 					)
 				) : null}
 				<History corrections={corrections} accountId={accountId} />
@@ -730,14 +695,11 @@ function CommitmentForm(props: FormProps & { chosen: Extract<Chosen, { type: "co
 	);
 }
 
-/** The changes already made to one record: old value, new value, who and why when given, latest first. */
 function History({ corrections, accountId, open }: { corrections: Correction[]; accountId: string; open?: boolean }) {
 	if (!corrections.length) return null;
 	return (
 		<details open={open} className="group rounded-md bg-surface px-4 py-3">
-			<summary className="cursor-pointer text-sm font-semibold text-ink">
-				Changes to this record ({corrections.length})
-			</summary>
+			<summary className="text-sm font-semibold text-ink">Changes to this record ({corrections.length})</summary>
 			<ol className="mt-2 flex flex-col">
 				{corrections.map((c) => (
 					<li key={c.id} className="border-t border-line py-3 text-sm first:border-t-0">

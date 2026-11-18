@@ -1,7 +1,4 @@
-import { MIME, fileName, type Format, type Resolved } from "./model.ts";
-
-// The browser side of the preview route. One POST returns the exact bytes; the preview, the thumbnail and the
-// download all use them, so the three agree by construction (DOC-002, DOC-003).
+import { MIME, churchValues, fileName, type Format, type Resolved } from "./model.ts";
 
 export type PreviewReply =
 	| { status: "ok"; value: Resolved & { artifact: string | null; brandKit: boolean } }
@@ -26,7 +23,6 @@ export function downloadBytes(name: string, format: Format, encoded: string) {
 	URL.revokeObjectURL(url);
 }
 
-/** One JSON post. The preview route skips the server-action flight, which was the slow part. */
 async function postPreview(
 	templateId: string,
 	format: Format,
@@ -45,32 +41,46 @@ async function postPreview(
 	}
 }
 
-// The renders of this visit, by render key (model.ts). A thumbnail and the preview of the same template and values
-// share one request. A failed render is not kept, and only the newest few are, so the bytes do not pile up.
 const renders = new Map<string, Promise<PreviewReply>>();
 const KEPT = 24;
 
-/** The preview for `key`, posted once: a later call with the same key gets the same reply. */
+function remember(key: string, reply: Promise<PreviewReply>) {
+	renders.set(key, reply);
+	for (const old of renders.keys()) {
+		if (renders.size <= KEPT) break;
+		renders.delete(old);
+	}
+	void reply.then((settled) => {
+		if (renders.get(key) === reply && (settled.status !== "ok" || !settled.value.artifact)) renders.delete(key);
+	});
+}
+
+export type PreviewAlias = { key: string; church: Record<string, string> };
+
+const sorted = (values: Record<string, string>) =>
+	JSON.stringify(Object.entries(values).sort(([a], [b]) => (a < b ? -1 : 1)));
+
+const printed = (reply: PreviewReply, church: Record<string, string>) =>
+	reply.status === "ok" && sorted(churchValues(reply.value)) === sorted(church);
+
 export function sharedPreview(
 	key: string,
 	templateId: string,
 	format: Format,
 	overrides: Record<string, string>,
+	alias: PreviewAlias | null = null,
 ): Promise<PreviewReply> {
-	let known = renders.get(key);
-	if (!known) {
-		known = postPreview(templateId, format, overrides);
-		renders.set(key, known);
-		for (const old of renders.keys()) {
-			if (renders.size <= KEPT) break;
-			renders.delete(old);
-		}
-		void known.then((reply) => {
-			if (reply.status !== "ok" || !reply.value.artifact) renders.delete(key);
-		});
-	}
-	return known;
+	const known = renders.get(key);
+	if (known) return known;
+	const earlier = alias ? renders.get(alias.key) : undefined;
+	const reply = earlier
+		? earlier.then((settled) =>
+				alias && printed(settled, alias.church) ? settled : postPreview(templateId, format, overrides),
+			)
+		: postPreview(templateId, format, overrides);
+	remember(key, reply);
+	if (alias && !earlier) remember(alias.key, reply);
+	return reply;
 }
 
-/** The one line every render failure shows. */
 export const RENDER_FAILED = "This file did not render. Nothing was saved.";

@@ -1,7 +1,6 @@
 import type { BlockNode, EveryfieldDoc, Formula, TableNode } from "@everyfield/contracts/documents";
 import { attrsOf, computeTable, parseFormula } from "@everyfield/contracts/documents";
 import { textOn } from "./contrast.ts";
-// The Word writer's escaper: it also drops the control characters XML 1.0 forbids, which make a sheet unreadable.
 import { escape as xml } from "./docx.ts";
 import type { Palette, RenderTheme } from "./theme.ts";
 import { makePalette, tokenColor } from "./theme.ts";
@@ -18,7 +17,6 @@ function column(index: number) {
 	return out;
 }
 
-/** Cell style ids, in the order of the cellXfs below. */
 const S = {
 	plain: 0,
 	title: 1,
@@ -33,7 +31,6 @@ const S = {
 	total: 10,
 } as const;
 
-/** A cell. `value` is a typed number. A ledger formula has no cached result, so every reader computes it. */
 type Cell = { text?: string; formula?: string; value?: number; uncached?: boolean; style: number };
 type Sheet = { name: string; widths: number[]; freeze: { x: number; y: number }; rows: Cell[][] };
 
@@ -47,10 +44,6 @@ const NUMBER_DECIMALS = "#,##0.0###;[Red]\\-#,##0.0###";
 const LEFT = '<alignment horizontal="left" vertical="center"/>';
 const RIGHT = '<alignment horizontal="right" vertical="center"/>';
 
-/**
- * The styles part of a workbook. The first eleven cell formats are the ones `S` names, in that order, so the budgets that
- * only use them keep their bytes. A table adds its own formats after them: number formats, header fills and stripes.
- */
 class StyleBook {
 	readonly palette: Palette;
 	private fonts: string[];
@@ -94,7 +87,6 @@ class StyleBook {
 		this.xf(4, 3, 2, 164, RIGHT);
 	}
 
-	/** The id of a number format, added when it is new. */
 	numFmt(code: string) {
 		return 164 + this.index(this.numFmts, code);
 	}
@@ -102,20 +94,17 @@ class StyleBook {
 		const at = list.indexOf(entry);
 		return at < 0 ? list.push(entry) - 1 : at;
 	}
-	/** A bold font in a color, or the plain bold font when `color` is null. */
 	boldFont(color: string | null) {
 		return color
 			? this.index(this.fonts, `<font><b/><color rgb="${argb(color)}"/><sz val="11"/><name val="DM Sans"/></font>`)
 			: 4;
 	}
-	/** A solid fill in a color. */
 	fill(color: string) {
 		return this.index(
 			this.fills,
 			`<fill><patternFill patternType="solid"><fgColor rgb="${argb(color)}"/></patternFill></fill>`,
 		);
 	}
-	/** A border with one line under the cell, in a color. */
 	bottomRule(color: string) {
 		return this.index(
 			this.borders,
@@ -230,10 +219,9 @@ const text = (value: string, style: number): Cell => ({ text: value, style });
 const blank = (style: number): Cell => ({ style });
 const formula = (f: string, style: number): Cell => ({ formula: f, style });
 
-/** Rows of the monthly block: labels in column A, `inputs` input columns, then a formula column. Data starts below row 3. */
 function block(inputs: number, totalFormula: (row: number) => string) {
 	const rows: Cell[][] = [];
-	let next = 4; // the sheet row of the next pushed row
+	let next = 4;
 	const add = (cells: Cell[]) => {
 		rows.push(cells);
 		return next++;
@@ -333,17 +321,10 @@ function firstYear(church: string): Sheet[] {
 	return [monthly, summary];
 }
 
-/** The first-year budget workbook in stored ZIP form. Totals are live formulas. The same inputs give the same bytes. */
 export function buildFirstYearBudget(church: string, theme: RenderTheme) {
 	return workbook(firstYear(church), new StyleBook(theme));
 }
 
-// ---------------------------------------------------------------- everyfield.doc/1 ledgers
-
-/**
- * The ledger tables of a document in body order, each with the title above it: the text of the nearest heading before it in the body, merge fields filled in, so a
- * title edited in the editor is the title of the sheet. A table with no heading above it has none.
- */
 function sheetTitles(doc: EveryfieldDoc, values: Record<string, string>) {
 	const titles = new Map<TableNode, string>();
 	let last = "";
@@ -363,7 +344,6 @@ function sheetTitles(doc: EveryfieldDoc, values: Record<string, string>) {
 	return titles;
 }
 
-/** A column formula as an Excel formula in one sheet row: column ids become letters, sum(a:b) becomes SUM(A5:C5). */
 function excelFormula(tree: Formula, letter: (id: string) => string, row: number): string {
 	switch (tree.op) {
 		case "num":
@@ -375,7 +355,6 @@ function excelFormula(tree: Formula, letter: (id: string) => string, row: number
 		case "sum":
 			return `SUM(${letter(tree.first)}${row}:${letter(tree.last)}${row})`;
 		case "/": {
-			// evalTree gives 0 for a zero divisor; an empty cell is zero in Excel too.
 			const [a, b] = [excelFormula(tree.a, letter, row), excelFormula(tree.b, letter, row)];
 			return `IF((${b})=0,0,(${a})/(${b}))`;
 		}
@@ -384,7 +363,6 @@ function excelFormula(tree: Formula, letter: (id: string) => string, row: number
 	}
 }
 
-/** Ascending rows as runs of contiguous rows, so a SUM range never spans a subtotal row between two items. */
 function runs(rows: readonly number[]) {
 	const out: [number, number][] = [];
 	for (const row of rows) {
@@ -401,13 +379,6 @@ const cellText = (cell: TableNode["content"] extends (infer R)[] | undefined ? R
 		.join("")
 		.trim();
 
-/**
- * One sheet per ledger table. Money and number inputs are boxed cells holding the typed values. A formula column is a
- * live Excel formula in each item row. A subtotal row is SUM over its category's item rows; a total row adds each
- * category (its subtotal, or the SUM of its items) with the group's sign. `fullCalcOnLoad` makes every reader compute.
- * The sheet shows what the editor and the PDF show: cents when a money column has them, no `$` on a number column, a
- * ticked check cell, the table's header fill and the rows the PDF stripes.
- */
 export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, string>, theme: RenderTheme) {
 	const book = new StyleBook(theme);
 	const p = book.palette;
@@ -420,7 +391,6 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 		const numeric = (type: string) => type === "money" || type === "number" || type === "formula";
 		const kindOf = (c: (typeof cols)[number]): "money" | "number" =>
 			c.type === "money" || (c.type === "formula" && c.format === "money") ? "money" : "number";
-		// One number format for each numeric column: cents when any amount or total in it has them.
 		const formats = cols.map((c, ci) => {
 			if (!numeric(c.type)) return 0;
 			const nums = (table.content ?? [])
@@ -467,10 +437,8 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 					groups.push(open);
 				}
 				open.items.push(at);
-				// A subtotal above this row no longer covers the whole category, so a total adds the items instead.
 				open.subtotal = null;
 				index += 1;
-				// The rows the PDF stripes: every second item row.
 				const fill = a.zebra && index % 2 === 0 ? stripe : 0;
 				const label = book.xf(0, fill, 3, 0, LEFT);
 				rows.push(
@@ -506,7 +474,6 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 					if (c.type === "text") return text(cellText(row, ci), S.totalLabel);
 					if (!numeric(c.type)) return blank(S.totalLabel);
 					const L = column(ci + 1);
-					// A subtotal adds its category; only a total applies each group's sign.
 					const sign = (g: Group, gi: number) => (role === "total" && g.sign < 0 ? "-" : gi === 0 ? "" : "+");
 					const terms = parts.map((g, gi) => `${sign(g, gi)}${sum(L, g)}`);
 					return { formula: terms.join("") || "0", uncached: true, style: book.xf(4, 3, 2, formats[ci] ?? 0, RIGHT) };
@@ -519,7 +486,6 @@ export function buildLedgerWorkbook(doc: EveryfieldDoc, values: Record<string, s
 				.replace(/^'+|'+$/g, "")
 				.trim();
 		let name = clean(a.sheet ?? "").slice(0, 31) || `Sheet ${ti + 1}`;
-		// Excel compares sheet names without regard to case.
 		while (used.has(name.toLowerCase())) name = `${name.slice(0, 28)} ${ti + 1}`;
 		used.add(name.toLowerCase());
 		return {

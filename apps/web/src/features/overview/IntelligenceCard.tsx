@@ -16,10 +16,6 @@ import { coldStartTitle, dayText, QUALITY, SEVERITY_LABEL, STANDING } from "../i
 import { CardFailed } from "./cards.tsx";
 import type { Loaded } from "./model.ts";
 
-/**
- * Overview's Plant Intelligence card (WP-044): the same main focus and eight lens tiles as /intelligence, from the same
- * saved assessment, each linking to it. Before the first assessment it says so, never an empty "all good".
- */
 export function IntelligenceCard({ loaded }: { loaded: Loaded<AssessmentView> }) {
 	if (loaded.status !== "ok") return <CardFailed what="Plant Intelligence" loaded={loaded} />;
 	const a = loaded.value.current;
@@ -62,7 +58,7 @@ export function IntelligenceCard({ loaded }: { loaded: Loaded<AssessmentView> })
 			<IntentLink
 				href="/intelligence#focus"
 				data-focus
-				className="block cursor-pointer rounded-md bg-surface-2 px-4 py-3.5 transition-colors hover:bg-surface-3"
+				className="block rounded-md bg-surface-2 px-4 py-3.5 transition-colors hover:bg-surface-3"
 			>
 				<span className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-3">
 					<span className="font-medium text-ink-2">Main focus</span>
@@ -81,7 +77,7 @@ export function IntelligenceCard({ loaded }: { loaded: Loaded<AssessmentView> })
 								data-quality={l.quality}
 								data-standing={l.standing}
 								className={cn(
-									"flex h-full cursor-pointer flex-col gap-2 rounded-md px-3 py-2.5 transition-colors",
+									"flex h-full flex-col gap-2 rounded-md px-3 py-2.5 transition-colors",
 									l.quality === "unknown"
 										? "border-[1.5px] border-dashed border-line-2 hover:bg-hover"
 										: "bg-surface-2 hover:bg-surface-3",

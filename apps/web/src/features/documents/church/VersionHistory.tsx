@@ -5,18 +5,12 @@ import { useState } from "react";
 import { ChurchPdf } from "./ChurchPdf.tsx";
 import type { RevisionRow } from "./server.ts";
 
-// Version history: the saved revisions of a Church Document, newest first, and the real PDF of the one chosen. It only
-// reads: nothing here changes the document, and the editor under it keeps its draft and its Undo history.
-
 const WHEN = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 type Props = {
-	/** The page's saved revisions, newest first; a save on the page adds its row. */
 	revisions: RevisionRow[];
 	title: string;
-	/** The revision the document is at now. */
 	current: string;
-	/** The preview address of one revision in one format. */
 	file: (format: string, revision: string) => string;
 	page: { width: number; height: number };
 };
@@ -39,7 +33,7 @@ export function VersionHistory({ revisions, title, current, file, page }: Props)
 									aria-current={on ? "true" : undefined}
 									onClick={() => setChosen(r.number)}
 									className={cn(
-										"flex w-full cursor-pointer flex-col items-start gap-0.5 rounded-card px-3 py-2.5 text-left outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]",
+										"flex w-full flex-col items-start gap-0.5 rounded-card px-3 py-2.5 text-left outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)]",
 										on
 											? "bg-surface-raised shadow-[0_0_0_1.5px_var(--ef-ink)]"
 											: "shadow-[0_0_0_1px_var(--ef-line)] hover:bg-surface-raised",

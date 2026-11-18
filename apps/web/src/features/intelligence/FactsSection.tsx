@@ -44,11 +44,6 @@ import {
 } from "./facts-model.ts";
 import { renewalLabel, VALUE_LABEL } from "./signals-model.ts";
 
-/**
- * What Everyfield has measured about the plant's progress toward launch (WP-040), with the evidence behind each number.
- * Every fact comes from the records the planter keeps; Unknown says what is missing. WP-044 later folds this section
- * into the full Plant Intelligence screen.
- */
 export function FactsSection({ facts }: { facts: PlantFacts }) {
 	const [evidence, setEvidence] = useState(false);
 	const a = facts.committedAdults;
@@ -77,7 +72,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 							{a.needsClassifying.map((p, i) => (
 								<span key={p.id}>
 									{i ? ", " : null}
-									<Link className="cursor-pointer font-medium text-ink underline" href={`/people/${p.id}`}>
+									<Link className="font-medium text-ink underline" href={`/people/${p.id}`}>
 										{p.name}
 									</Link>
 								</span>
@@ -181,10 +176,7 @@ export function FactsSection({ facts }: { facts: PlantFacts }) {
 										key={e.person.id}
 										className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2"
 									>
-										<Link
-											className="cursor-pointer font-medium text-ink hover:underline"
-											href={`/people/${e.person.id}`}
-										>
+										<Link className="font-medium text-ink hover:underline" href={`/people/${e.person.id}`}>
 											{e.person.name}
 										</Link>
 										<span className="text-text-3">

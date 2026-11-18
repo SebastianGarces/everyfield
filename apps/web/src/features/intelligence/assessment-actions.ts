@@ -14,10 +14,6 @@ import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createAssessments, type Assessments } from "@everyfield/domain/intelligence";
 
-// The browser boundary of Plant Intelligence assessments (WP-043, WP-044): a fresh assessment, the explicit open of the
-// current one, a point's own feedback and one citation. The plant and the reader come from the session's seat, never
-// from the request; the domain refuses anyone but the plant's Owner or Admin.
-
 const assessments = createAssessments();
 
 export type ActionOutcome<T> =
@@ -49,7 +45,6 @@ export async function requestAssessmentRefresh(requestId: unknown): Promise<Acti
 	return run("refresh", (a, db, actor) => a.requestRefresh(db, actor, { requestId }));
 }
 
-/** The Owner's or Admin's explicit open of the current assessment: it may release the run to their organizations. */
 export async function markAssessmentSeen(runId: unknown): Promise<ActionOutcome<SeenReceipt>> {
 	return run("seen", (a, db, actor) => a.markAssessmentSeen(db, actor, { runId }));
 }

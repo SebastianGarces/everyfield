@@ -3,16 +3,12 @@
 import { Delete02Icon, Download01Icon, FileLockedIcon } from "@hugeicons/core-free-icons";
 import type { SavedExport } from "@everyfield/contracts/documents";
 import { Button, Card, ConfirmDialog, EmptyState } from "@everyfield/ui/controls";
-import { Tag } from "@everyfield/ui/display";
+import { formatLocalTime, LocalTime, Tag, useLocalTime } from "@everyfield/ui/display";
+import { useBrowserZone } from "@everyfield/ui/foundations";
 import { cn } from "@everyfield/ui/foundations";
 import { deleteSavedExport } from "./actions.ts";
 import { FORMAT_LABEL } from "../model.ts";
-import { savedAt as exportedAt } from "./labels.ts";
 
-// The saved exports of one Church Document, newest first. Each row downloads the stored bytes of that export, which never
-// change after later edits, brand kit changes or renderer changes. Only an Owner or Admin sees Delete.
-
-/** The stored file of one saved export. The route reads the bytes; it never renders. */
 export const savedExportHref = (saved: Pick<SavedExport, "documentId" | "id">) =>
 	`/documents/church/${saved.documentId}/exports/${saved.id}`;
 
@@ -29,6 +25,7 @@ export function SavedExports({
 	canManage: boolean;
 	onDeleted: (id: string) => void;
 }) {
+	const zone = useBrowserZone();
 	return (
 		<section aria-labelledby="saved-exports-heading" className="mx-auto mt-8 flex w-full max-w-[880px] flex-col gap-3">
 			<div className="flex flex-col gap-1">
@@ -61,9 +58,7 @@ export function SavedExports({
 								<div className="flex min-w-0 flex-col gap-0.5">
 									<span className="text-md font-medium text-ink tabular-nums">Revision {saved.revision}</span>
 									<span className="text-sm text-text-3">
-										<time dateTime={saved.generatedAt} suppressHydrationWarning className="tabular-nums">
-											{exportedAt(saved.generatedAt)}
-										</time>
+										<LocalTime iso={saved.generatedAt} className="tabular-nums" />
 										{" · "}
 										{saved.creatorName ?? "A former member"}
 										{" · "}
@@ -76,7 +71,7 @@ export function SavedExports({
 									<a
 										href={savedExportHref(saved)}
 										download={saved.downloadName}
-										aria-label={`Download revision ${saved.revision} ${FORMAT_LABEL[saved.format]}, saved ${exportedAt(saved.generatedAt)}`}
+										aria-label={`Download revision ${saved.revision} ${FORMAT_LABEL[saved.format]}, saved ${formatLocalTime(saved.generatedAt, zone)}`}
 									>
 										Download
 									</a>
@@ -99,6 +94,7 @@ function DeleteExport({ saved, onDeleted }: { saved: SavedExport; onDeleted: (id
 		onDeleted(saved.id);
 	}
 	const label = `${FORMAT_LABEL[saved.format]} copy of revision ${saved.revision}`;
+	const savedOn = useLocalTime(saved.generatedAt);
 	return (
 		<ConfirmDialog
 			trigger={
@@ -113,7 +109,7 @@ function DeleteExport({ saved, onDeleted }: { saved: SavedExport; onDeleted: (id
 			}
 			tone="danger"
 			title={`Delete the saved ${label}?`}
-			description={`Saved ${exportedAt(saved.generatedAt)} by ${saved.creatorName ?? "a former member"}.`}
+			description={`Saved ${savedOn} by ${saved.creatorName ?? "a former member"}.`}
 			consequences={[
 				"No one can download this copy again. The file you or others already downloaded is not affected.",
 				"The document and its revisions stay. A new download saves a new copy.",

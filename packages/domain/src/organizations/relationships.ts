@@ -59,13 +59,9 @@ const invitationFacts = z.object({
 	subject_kind: z.enum(["sending_church", "sending_network"]).nullable(),
 	inviter_description: z.string(),
 	now: z.coerce.date(),
-	/** The session's verified address is the invitation's recipient. */
 	addressed: z.boolean(),
-	/** Both endpoints exist and are not being deleted; a Discovery subject is still open. */
 	pair_live: z.boolean(),
-	/** A Discovery subject still acts for itself: open profile, no live seat. True for every other subject. */
 	subject_authority: z.boolean(),
-	/** The inviter still holds the authority the invitation came from. */
 	inviter_live: z.boolean(),
 });
 type Invite = z.infer<typeof invitationFacts>;
@@ -81,10 +77,6 @@ const pairFor = (i: Invite) =>
 				}),
 		organization: { kind: "organization", id: i.organization_id, organizationKind: i.organization_kind },
 	});
-/**
- * One statement: the relationship invitation with its organizations and every fact an answer or a command checks.
- * A command locks the invitation row; the respond page reads without a lock.
- */
 async function loadInvitation(tx: Transaction, id: string, session: z.infer<typeof sessionId>, lock: boolean) {
 	const account = sql`r.account_id`;
 	const subjectLive = sql`CASE WHEN r.plant_id IS NOT NULL THEN EXISTS(SELECT FROM plant p WHERE p.id=r.plant_id) AND NOT ${witnessHides("plant", sql`r.plant_id`)}
@@ -111,10 +103,8 @@ function proofMatches(proof: string, digest: string) {
 		b = Buffer.from(digest);
 	return a.length === b.length && timingSafeEqual(a, b);
 }
-/** The receiving organization's Owner or Admin, at the address the invitation went to. */
 const authorizedReceiver = (actor: Actor, i: Invite, pair: RelationshipPair) =>
 	sameOwner(actor.context.owner, pair.organization) && administrator(actor) && i.addressed;
-/** The subject side: its Owner or Admin, or the Discovery account itself while it may still act. */
 const actsForSubject = (actor: Actor, pair: RelationshipPair, discovery: boolean) =>
 	sameOwner(actor.context.owner, subjectOwner(pair)) && (pair.kind === "discovery" ? discovery : administrator(actor));
 const tenants = { plant: "plant", discovery: "account", sending_church: "organization" } as const;
@@ -128,7 +118,6 @@ const inviteFacts = z.object({
 	now: z.coerce.date(),
 	recent: z.number().int(),
 	pending: z.boolean(),
-	/** This subject already has a pending request out to this address (unique per tenant and address). */
 	address_pending: z.boolean(),
 	active_pair: z.boolean(),
 	pair_live: z.boolean(),
@@ -159,12 +148,10 @@ export function relationshipCommands(
 				(pair.kind !== "discovery" && !administrator(actor))
 			)
 				refuse();
-			// The write gate locked and read the subject root, the selected owner: its revision and name cost no statement.
 			const bound = requestWrite(tx),
 				root = subject.kind === "plant" ? bound?.plant : subject.kind === "organization" ? bound?.organization : null,
 				rootRevision = subject.kind === "account" ? bound?.account.revision : root?.revision;
 			if (rootRevision === undefined) refuse();
-			// A real address-budget row serializes cross-workspace invitation admission before the count below.
 			const addressKey = hash("relationship-address/" + q.input.recipientEmail),
 				addressId =
 					addressKey.slice(0, 8) +
@@ -179,7 +166,6 @@ export function relationshipCommands(
 			await tx.execute(
 				sql`INSERT INTO admission_attempt(id,kind,identifier_hash,workspace_key,reserved_at,state,expires_at) VALUES(${addressId}::uuid,'relationship_invite',${addressKey},'relationship-address',clock_timestamp(),'counted',clock_timestamp()+interval '720 hours') ON CONFLICT(id) DO UPDATE SET expires_at=greatest(admission_attempt.expires_at,excluded.expires_at)`,
 			);
-			// One statement: the pair's existing link (locked), the address budget, a pending request and both endpoints.
 			const facts = inviteFacts.parse(
 				(
 					await tx.execute(
@@ -202,7 +188,6 @@ export function relationshipCommands(
 			if (facts.active_pair) refuse("already_active");
 			if (facts.recent >= 3) refuse("invitation_limit");
 			if (facts.pending) refuse("pending_invitation");
-			// One pending request per subject and address (invitation_uq_1): refuse instead of failing the insert.
 			if (facts.address_pending) refuse("address_pending");
 			const id = randomUUID(),
 				expiry = new Date(facts.now.getTime() + 30 * DAY).toISOString(),
@@ -319,7 +304,6 @@ export function relationshipCommands(
 			const [prior] = await loadAffiliations(tx, pairMatch(tables.affiliation, pair), true);
 			if (prior?.ended_at === null) refuse("already_active");
 			const [plant, account, church] = endpointValues(pair);
-			// The row as it reads after this write: a rejoin revives the pair's own row, a first approval creates it.
 			const a: Affiliation = prior
 				? {
 						...prior,
@@ -485,8 +469,6 @@ export function relationshipCommands(
 		return auditSavepoint(tx, async () => {
 			const q = Q.endRelationshipRequest.parse(raw),
 				pair = q.input.pair;
-			// Lock order shared with Discovery conversion: the write gate (actor account, then owner root), then the link.
-			// Never lock the subject account here: a conversion holds it while it waits for this organization.
 			const actor = await writeActor(tx, session, selected);
 			const a = await loadAffiliation(tx, q.input.relationshipId, true);
 			if (
@@ -533,12 +515,6 @@ export function relationshipCommands(
 
 const invitationDetailRequest = z.strictObject({ invitationId: recordId, proof: z.string().min(1).max(4096) });
 
-/**
- * Bounded invitation-detail read for the native answer page (WP-007/ui ruling D48). Before any detail leaves, it
- * applies the same checks as an answer: the emailed proof, a live valid pair, the shipped authorizedReceiver rule
- * (exact receiving organization, Owner or Admin, original addressed recipient), a pending unexpired request and a
- * live inviter. Anything else is the one `unavailable` result. It reads only. Follow-up: make it a contract operation.
- */
 export async function readAnswerableInvitation(
 	tx: Transaction,
 	session: z.infer<typeof sessionId>,
@@ -547,7 +523,6 @@ export async function readAnswerableInvitation(
 ) {
 	const q = invitationDetailRequest.safeParse(raw);
 	if (!q.success) return { status: "unavailable" } as const;
-	// A read: nothing is locked; the answer command re-reads and locks what it changes.
 	const i = await loadInvitation(tx, q.data.invitationId, session, false);
 	if (!i || !proofMatches(q.data.proof, i.token_hash)) return { status: "unavailable" } as const;
 	const pair = pairFor(i),

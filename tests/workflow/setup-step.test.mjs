@@ -21,8 +21,6 @@ const wrapper = fileURLToPath(new URL("../../scripts/setup-step.mjs", import.met
 const SHA = "0123456789abcdef0123456789abcdef01234567";
 const SECRET = "postgres://user:hunter2@db.example.test/everyfield";
 
-// Like Portless: jobs get only PATH and HOME, the config env and the preview's own keys. A production preview
-// runs install and build in a source snapshot without .git; a development preview runs install in the worktree.
 const fakePortless = `#!/usr/bin/env node
 const fs = require('node:fs');
 const path = require('node:path');
@@ -54,7 +52,6 @@ function readStore(dir) {
 		.map((f) => JSON.parse(readFileSync(join(dir, f), "utf8")));
 }
 
-/** Run a command through the wrapper, as Portless would run a wrapped config command. */
 function wrapped(cwd, records, step, command, env = {}) {
 	return spawnSync(
 		process.execPath,
@@ -96,7 +93,6 @@ test("T-39: stack up records one install and one build setup step with exactly t
 			},
 		});
 		assert.equal(r.status, 0, r.stderr);
-		// The commands ran with their own output, inside the wrapper.
 		assert.equal(readFileSync(join(f.root, "jobs.log"), "utf8"), "install 0 installed\nbuild 0 built\n");
 		const records = readStore(f.records).sort((a, b) => a.step.localeCompare(b.step));
 		assert.equal(records.length, 2);
@@ -114,7 +110,6 @@ test("T-39: stack up records one install and one build setup step with exactly t
 				{ task: "T-39", head: SHA, role: "implementer", source: "stack", step: "install", cacheState: "unknown" },
 			],
 		);
-		// The record files and the timed config live outside the project.
 		assert.deepEqual(readdirSync(project), ["scripts"]);
 	} finally {
 		f.close();
@@ -153,7 +148,6 @@ test("T-39: wrapping changes only install and build, which keep their exact comm
 test("T-39: a verify-preview build of a checkout without the wrapper is still timed from the verifier's checkout", () => {
 	const f = fixture();
 	try {
-		// The previewed commit predates this change: it has no scripts/setup-step.mjs at all.
 		const old = join(f.root, "old-commit");
 		mkdirSync(old);
 		const timed = wrapSetupCommands(
@@ -192,7 +186,6 @@ test("T-39: build cache state is miss for a missing or empty .next/cache and hit
 				for (const entry of entries) mkdirSync(join(cwd, "apps/web/.next/cache", entry));
 			}
 			const records = join(f.root, `records-${name}`);
-			// The build fills the cache; the state is read before the build starts.
 			const r = wrapped(cwd, records, "build", [
 				process.execPath,
 				"-e",
@@ -229,7 +222,6 @@ test("T-39: the wrapper passes output and exit code through, and still records a
 		const [record] = readStore(f.records);
 		assert.ok(record.durationMs >= 50);
 		assert.ok(!JSON.stringify(record).includes("hunter2"));
-		// A record directory that cannot be written warns and leaves the result as it was.
 		const blocked = join(f.root, "not-a-dir");
 		writeFileSync(blocked, "");
 		const ok = wrapped(f.root, blocked, "install", [process.execPath, "-e", "process.stdout.write('fine')"]);
@@ -259,13 +251,11 @@ test("T-39: the setup report gives weekly totals, medians and hit rates, and no 
 			cacheState,
 		});
 		const rows = [
-			// ISO week 45: Nov 2 to Nov 8.
 			at("02", 60_000, "stack", "build", "miss"),
 			at("03", 120_000, "stack", "build", "hit"),
 			at("04", 30_000, "stack", "build", "hit"),
 			at("05", 200_000, "verify-preview", "install", "unknown"),
 			at("08", 1_000, "stack", "install", "unknown"),
-			// Week 46 has no records. Week 47: Nov 16 to Nov 22.
 			at("16", 90_000, "verify-preview", "build", "miss"),
 		];
 		rows.forEach((row, i) => writeFileSync(join(f.records, `${i}.json`), JSON.stringify(row)));

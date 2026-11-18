@@ -17,10 +17,6 @@ import { isAdmin, loadTeam, loadTeams, type Viewer } from "./server.ts";
 import { TeamScreen } from "./TeamScreen.tsx";
 import { TeamsScreen } from "./TeamsScreen.tsx";
 
-// The ministries routes. The files under apps/web/src/app/ only re-export these, so the screens, their data loading
-// and their states stay in this feature folder.
-
-/** Signed out goes to sign-in and comes back; no seat in a plant sees a lock; a broken setup sees an error. */
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await plantViewer();
 	if (v.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
@@ -53,7 +49,7 @@ export async function TeamsPage({ searchParams }: { searchParams: Search }) {
 	const tab = (await searchParams).view === "chart" ? "chart" : "teams";
 	const g = await gate(tab === "chart" ? "/ministries?view=chart" : "/ministries", "Ministries");
 	if ("blocked" in g) return g.blocked;
-	return <TeamsScreen view={await loadTeams(g.viewer)} tab={tab} admin={isAdmin(g.viewer)} />;
+	return <TeamsScreen view={await loadTeams(g.viewer)} admin={isAdmin(g.viewer)} />;
 }
 
 export const teamMetadata: Metadata = { title: "Ministry", robots: { index: false, follow: false } };
@@ -82,7 +78,6 @@ export async function TeamPage({ params: route }: { params: Promise<{ teamId: st
 	return <TeamScreen key={loaded.team.id} data={loaded} />;
 }
 
-/** A ministry that is not here: missing, in another church or a malformed link all read the same. */
 export function TeamNotFound() {
 	return (
 		<>
@@ -108,7 +103,6 @@ export function TeamNotFound() {
 	);
 }
 
-/** The first paint while a ministries page loads: the page's shape, not a spinner. */
 export function TeamsLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-5">

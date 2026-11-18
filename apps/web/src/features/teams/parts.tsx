@@ -6,7 +6,6 @@ import { Avatar, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { ICONS, iconKey, plural, teamBadge, type Team } from "./model.ts";
 
-/** The ministry's icon tile, in its icon's tone. Decorative: the name is always written next to it. */
 export function TeamIcon({ team, size = 44 }: { team: Pick<Team, "icon" | "templateKey">; size?: 36 | 44 }) {
 	const i = ICONS[iconKey(team)];
 	return <CardIcon icon={i.icon} tone={i.tone} size={size} />;
@@ -21,7 +20,6 @@ export function TeamBadge({ team, size }: { team: Pick<Team, "archived" | "state
 	);
 }
 
-/** The leader, or a dashed empty seat that says a leader is needed. The words carry the meaning, not the color. */
 export function LeaderLine({ name, className }: { name: string | null; className?: string }) {
 	return (
 		<p className={cn("flex min-w-0 items-center gap-2 text-sm", className)}>
@@ -45,13 +43,7 @@ export function LeaderLine({ name, className }: { name: string | null; className
 	);
 }
 
-/**
- * One ministry on the list: icon, state, name, leader and how many serve. The whole card is one link named by the
- * ministry, so a voice-control user can say what they see (WCAG 2.5.3). It prefetches on intent only.
- */
 export function MinistryCard({ team }: { team: Team & { leaderName: string | null } }) {
-	// The name comes first in reading order, so the link is named by the ministry; the icon and state row is drawn
-	// above it with `order`.
 	return (
 		<IntentLink
 			href={`/ministries/${team.id}`}

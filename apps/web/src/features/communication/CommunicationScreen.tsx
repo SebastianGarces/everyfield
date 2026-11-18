@@ -2,42 +2,32 @@
 
 import { Add01Icon } from "@hugeicons/core-free-icons";
 import { Button, PageHeader, SegmentedControl } from "@everyfield/ui/controls";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
-import { Address } from "./Address.tsx";
+import { useState } from "react";
+import { addAddressRule, useAddress, writeAddress } from "../../components/location.ts";
+import { Address, ownSuppression } from "./Address.tsx";
 import { Compose } from "./Compose.tsx";
 import { History } from "./HistoryPanel.tsx";
 import { parseRoute, routeHref, type PageData, type Route, type Step, type Template } from "./model.ts";
 import { Templates } from "./Templates.tsx";
 
-// Messages. The page opens on the history list. New message starts the guided flow. Every state is in the address, so
-// reload and the Back button return to it. Opening a message or entering compose pushes an entry; a step change replaces.
-// Every move inside the page writes the address with the history API, which Next.js keeps in step with
-// useSearchParams, so it makes no server request. The page's data loads once; each panel reads what it shows.
-// Next.js starts following the history API in an effect after hydration. A move before that, such as a fresh load of an
-// unsaved message's Write going back to Who, goes through the router, or Next.js would not see it.
-const historyFollowed = () => !/\[native code\]/.test(Function.prototype.toString.call(window.history.pushState));
-
 type Section = "messages" | "templates" | "address";
 
+addAddressRule("communication: an unsaved new message starts at Who", (to) => {
+	if (to.pathname !== "/communication" || to.searchParams.get("compose") !== "new") return null;
+	const route = parseRoute(Object.fromEntries(to.searchParams));
+	if (route.kind !== "compose" || route.handoff || route.step === "who") return null;
+	if (document.querySelector('[data-compose-draft="new"]')) return null;
+	return routeHref({ ...route, step: "who" });
+});
+
 export function CommunicationScreen({ data, canWrite }: { data: PageData; canWrite: boolean }) {
-	const params = useSearchParams();
-	const router = useRouter();
-	const route = parseRoute(Object.fromEntries(params.entries()));
+	const address = useAddress();
+	const route = parseRoute(Object.fromEntries(address.params.entries()));
 	const [templates, setTemplates] = useState<Template[]>(data.templates);
 	const [banner, setBanner] = useState<string | null>(null);
 
-	const go = useCallback(
-		(next: Route, mode: "push" | "replace" = "push") => {
-			const href = routeHref(next);
-			if (!historyFollowed()) {
-				if (mode === "push") router.push(href, { scroll: false });
-				else router.replace(href, { scroll: false });
-			} else if (mode === "push") window.history.pushState(null, "", href);
-			else window.history.replaceState(null, "", href);
-		},
-		[router],
-	);
+	const go = (next: Route, mode: "push" | "replace" = "push") =>
+		writeAddress(routeHref(next), { replace: mode === "replace" });
 
 	const section: Section = route.kind === "templates" ? "templates" : route.kind === "address" ? "address" : "messages";
 	const composing = route.kind === "compose" && canWrite;
@@ -49,6 +39,7 @@ export function CommunicationScreen({ data, canWrite }: { data: PageData; canWri
 
 	const openSection = (value: Section) => {
 		setBanner(null);
+		if (value === "address") ownSuppression.prefetch();
 		go(
 			value === "templates"
 				? { kind: "templates", template: null }

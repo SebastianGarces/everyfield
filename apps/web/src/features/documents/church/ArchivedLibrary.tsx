@@ -10,10 +10,6 @@ import { useRef, useState } from "react";
 import { restoreChurchDocument, type ChurchActionResult } from "./actions.ts";
 import { CLASS_LABEL, archivedText } from "./labels.ts";
 
-// The church plant's archived Church Documents (T-284), newest archive first, for an Owner or Admin. Each row opens the
-// archived document's read-only page, and Restore returns it to the library after a confirmation.
-
-/** Rows on one page of the list. */
 const PAGE_SIZE = 20;
 
 export function ArchivedLibrary({ documents }: { documents: ArchivedChurchSummary[] }) {
@@ -79,11 +75,9 @@ export function ArchivedLibrary({ documents }: { documents: ArchivedChurchSummar
 	);
 }
 
-/** One archived document: a link to its page, and Restore at its right edge (below it on a phone). */
 function ArchivedRow({ doc }: { doc: ArchivedChurchSummary }) {
 	async function restore() {
 		const result: ChurchActionResult | undefined = await restoreChurchDocument(doc.id);
-		// A success redirects to the library and returns nothing here; a refusal stays in the dialog with its reason.
 		if (result?.status === "refused") throw new Error(result.message);
 		if (result?.status === "lost") throw new Error("The connection dropped. Nothing was restored.");
 	}
@@ -97,7 +91,7 @@ function ArchivedRow({ doc }: { doc: ArchivedChurchSummary }) {
 			<IntentLink
 				href={`/documents/church/${doc.id}`}
 				className={cn(
-					"group flex min-h-11 min-w-0 flex-1 cursor-pointer flex-col justify-center gap-1 rounded-md",
+					"group flex min-h-11 min-w-0 flex-1 flex-col justify-center gap-1 rounded-md",
 					"focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus",
 				)}
 			>

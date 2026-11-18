@@ -20,11 +20,6 @@ import {
 import { Segmented, Tip } from "./ControlParts.tsx";
 import { PAPER_LABEL } from "../labels.ts";
 
-// The page setup panel: paper size, orientation, the four margins, cards per sheet with cut marks, and the header and
-// footer. Each change applies at once as one step of the editor's history, after the format has checked it. A value the
-// format refuses shows the format's message next to its field and is not applied. Margins and custom sizes show in
-// inches and store points (72 to the inch).
-
 const SIZES = Object.entries(PAPER_LABEL).map(([value, label]) => ({ value, label }));
 const PAGES = [
 	{ value: "all", label: "All pages" },
@@ -36,7 +31,6 @@ const SIDE_LABEL = { top: "Top margin", right: "Right margin", bottom: "Bottom m
 
 type Fault = { field: string; message: string };
 
-/** A number field in inches. The text stays as typed until the field loses focus, so "0." and "" are not rewritten. */
 function Inches({
 	label,
 	field,
@@ -79,7 +73,6 @@ function Inches({
 	);
 }
 
-/** The format's message for a control with no Field of its own, under that control. */
 function FaultNote({ message }: { message: string | undefined }) {
 	return message ? (
 		<p role="alert" className="text-xs font-medium text-magenta-600">
@@ -104,7 +97,6 @@ export function PageSetupPanel({
 	onClose,
 }: {
 	editor: Editor;
-	/** The stored document the page setup is checked against: read when a value changes, not when the panel draws. */
 	base: () => DocDocument;
 	id: string;
 	onClose: () => void;
@@ -122,7 +114,6 @@ export function PageSetupPanel({
 	const { page, header, footer } = state;
 	const faultAt = (field: string) => (fault?.field === field ? fault.message : undefined);
 
-	/** Applies `next` when the format accepts it; else shows the format's message at `field` and applies nothing. */
 	const change = (field: string, next: PageWithoutRegions) => {
 		const issues = pageIssues(editor, base(), next);
 		if (issues.length > 0) {
@@ -140,7 +131,6 @@ export function PageSetupPanel({
 	const setSize = (size: string) => {
 		const next = { ...page, size } as PageWithoutRegions;
 		if (size === "custom") {
-			// A custom page starts at the size it replaces, in portrait numbers.
 			const upright = pageBox({ ...page, orientation: "portrait" }) ?? box;
 			Object.assign(next, { width: upright.width, height: upright.height });
 		} else {
@@ -184,7 +174,7 @@ export function PageSetupPanel({
 				<Tip text="Close page setup">
 					<button
 						type="button"
-						className="cursor-pointer rounded-sm px-2 py-1 text-sm font-medium text-ink-2 hover:bg-hover"
+						className="rounded-sm px-2 py-1 text-sm font-medium text-ink-2 hover:bg-hover"
 						onClick={onClose}
 					>
 						Close

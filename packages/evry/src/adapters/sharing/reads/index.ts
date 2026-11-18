@@ -4,10 +4,6 @@ import type { ReadAdapter, SourceResult } from "../../../catalog/types.ts";
 import { plantSeat } from "../../native.ts";
 import { SHARING_CATEGORIES, SHARING_CATEGORY_LABEL } from "../../../catalog/labels.ts";
 
-// What the church shares with each organization it is connected to, read through the same native read the Settings >
-// Sharing section uses. An Owner or Admin sees every category and whether it is shared; a Member sees only the
-// connections, since Owners and Admins choose.
-
 export const SHARING_READS = [
 	{
 		operation: "privacy.getSharing",

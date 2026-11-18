@@ -70,15 +70,10 @@ import {
 	VIEWS,
 } from "./model.ts";
 
-// The organization oversight pages (REQ-IDN-023, REQ-IDN-024; prototype #/network and #/network/plant). They show
-// names, localities, phases, dates and counts only, are read only for every organization role, and rank nothing:
-// plants are listed by name.
-
-/** The organization's view switch (VIEWS): a network's three views, a sending church's two. */
 function ViewTabs({ kind, current }: { kind: OrganizationKind; current: OrganizationView }) {
 	const tab = (active: boolean) =>
 		cn(
-			"inline-flex cursor-pointer items-center gap-2 rounded-md px-3.5 py-2 font-medium text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
+			"inline-flex items-center gap-2 rounded-md px-3.5 py-2 font-medium text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
 			active && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
 		);
 	const { label, tabs } = VIEWS[kind];
@@ -112,10 +107,6 @@ function PrivacyNote() {
 	);
 }
 
-/**
- * One plant in a list: its name, locality and lead planter, phase, Launch Sunday or chosen milestone, and how it is
- * linked.
- */
 function PlantRow({ plant }: { plant: PlantDirectoryRow }) {
 	const place = locality(plant);
 	const region = regionText(plant);
@@ -126,7 +117,7 @@ function PlantRow({ plant }: { plant: PlantDirectoryRow }) {
 			<Link
 				href={`/network/plants/${plant.plantId}`}
 				data-focus-inset=""
-				className="-mx-2 grid cursor-pointer grid-cols-[minmax(0,1fr)_9rem_11rem_10rem_11rem_auto] items-center gap-x-4 gap-y-2 rounded-md px-2 py-4 transition-colors hover:bg-hover max-app-md:grid-cols-[minmax(0,1fr)_auto]"
+				className="-mx-2 grid grid-cols-[minmax(0,1fr)_9rem_11rem_10rem_11rem_auto] items-center gap-x-4 gap-y-2 rounded-md px-2 py-4 transition-colors hover:bg-hover max-app-md:grid-cols-[minmax(0,1fr)_auto]"
 			>
 				<span className="flex min-w-0 items-center gap-3.5 max-app-md:col-start-1">
 					<CardIcon icon={ChurchIcon} tone="green" size={36} />
@@ -166,7 +157,6 @@ function PlantRow({ plant }: { plant: PlantDirectoryRow }) {
 	);
 }
 
-/** A row value with its label: the label is for screen readers on wide screens and shows on narrow ones. */
 function Field({ label, children }: { label: string; children: ReactNode }) {
 	return (
 		<span className="flex min-w-0 items-center gap-2 text-md max-app-md:col-span-2 max-app-md:pl-[50px]">
@@ -199,7 +189,6 @@ function PlantList({ plants, caption }: { plants: readonly PlantDirectoryRow[]; 
 	);
 }
 
-/** /network: the organization home. */
 export function DirectoryScreen({ directory, kind }: { directory: PlantDirectory; kind: OrganizationKind }) {
 	const { organizationName, plants } = directory;
 	return (
@@ -258,7 +247,6 @@ const SHARE_TAG = {
 	unavailable: { label: "Couldn't load", status: "risk" },
 } as const;
 
-/** /network/plants/[plantId]: one plant as this organization sees it. */
 export function PlantScreen({ view }: { view: PlantView }) {
 	const { plant, sections } = view;
 	const place = locality(plant);
@@ -303,10 +291,6 @@ export function PlantScreen({ view }: { view: PlantView }) {
 	);
 }
 
-/**
- * Launch Sunday as this organization may see it. Without Plant Intelligence findings shared: only the planned date the
- * directory shows, and Limited visibility in place of status, readiness and outcome.
- */
 function LaunchCard({ view }: { view: PlantView }) {
 	const { plant, launch } = view;
 	const date = plant.path.kind === "launch_sunday" ? plant.path.date : null;
@@ -396,11 +380,6 @@ const PROGRESS_STATUS = {
 	withdrawn: "unknown",
 	withheld: "unknown",
 } as const;
-/**
- * The milestone a plant uses instead of Launch Sunday (T-388), in Launch Sunday's place: its name, who chose it and
- * whether it was reached. Without Plant Intelligence findings shared: the name only, and Limited visibility in place of
- * whether it was reached. Never its description, the plant's note or its history.
- */
 function MilestoneCard({ plantName, path }: { plantName: string; path: Extract<PlantPath, { kind: "milestone" }> }) {
 	const { progress } = path;
 	return (
@@ -435,10 +414,6 @@ function MilestoneCard({ plantName, path }: { plantName: string; path: Extract<P
 }
 
 const LENS_LABEL = Object.fromEntries(LENSES.map((l) => [l.key, l.label])) as Record<string, string>;
-/**
- * Plant health from the plant's released Plant Intelligence assessment: its rollup, the phase and date it was assessed
- * for, and each concern as counts only, the same concern the planter sees. Never the assessment's words or a person.
- */
 function HealthCard({ view }: { view: PlantView }) {
 	const { plant, assessment } = view;
 	const health = HEALTH[plant.health];
@@ -502,7 +477,6 @@ function HealthCard({ view }: { view: PlantView }) {
 	);
 }
 
-/** The planter's latest published launch summary, exactly as they published it, with its day. */
 function SummaryCard({ view, summary }: { view: PlantView; summary: NonNullable<PlantView["summary"]> }) {
 	return (
 		<Card as="section" aria-labelledby="summary-title" className="mb-5" data-summary-version={summary.version}>
@@ -519,7 +493,6 @@ function SummaryCard({ view, summary }: { view: PlantView; summary: NonNullable<
 	);
 }
 
-/** /network/intelligence: patterns across the plants that share with this organization. */
 export function IntelligenceScreen({ view, kind }: { view: IntelligenceView; kind: OrganizationKind }) {
 	const words = intelligenceWords(kind, view.organizationName);
 	return (
@@ -691,7 +664,6 @@ function SectionCounts({
 	}
 }
 
-/** /network/sending-churches: the sending churches linked to this network. */
 export function RosterScreen({ roster }: { roster: SendingChurchRoster }) {
 	const { churches, pendingInvitations } = roster;
 	return (
@@ -709,7 +681,7 @@ export function RosterScreen({ roster }: { roster: SendingChurchRoster }) {
 					{pendingInvitations ? (
 						<Link
 							href="/settings/sharing#connections"
-							className="cursor-pointer text-md text-text-2 underline-offset-[3px] hover:text-ink hover:underline"
+							className="text-md text-text-2 underline-offset-[3px] hover:text-ink hover:underline"
 						>
 							{plural(pendingInvitations, "pending invitation")}
 						</Link>
@@ -724,7 +696,7 @@ export function RosterScreen({ roster }: { roster: SendingChurchRoster }) {
 								<Link
 									href={`/network/sending-churches/${c.organizationId}`}
 									data-focus-inset=""
-									className="-mx-2 flex cursor-pointer items-center gap-3.5 rounded-md px-2 py-4 transition-colors hover:bg-hover"
+									className="-mx-2 flex items-center gap-3.5 rounded-md px-2 py-4 transition-colors hover:bg-hover"
 								>
 									<CardIcon icon={ChurchIcon} tone="blue" size={36} />
 									<span className="min-w-0 flex-1">
@@ -750,7 +722,6 @@ export function RosterScreen({ roster }: { roster: SendingChurchRoster }) {
 	);
 }
 
-/** /network/sending-churches/[id]: one sending church and the plants linked to both it and this network. */
 export function SendingChurchScreen({ church }: { church: SendingChurchView }) {
 	return (
 		<div className="flex flex-col">

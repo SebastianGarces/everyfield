@@ -51,7 +51,6 @@ test("INV-consent: first approval defaults on while rejoin preserves independent
 		expectedConsentRevision: "1",
 	});
 	await S.call("privacy.setSharing", pa, change);
-	// A replay and a change at a stale revision queue no second milestone job (T-267).
 	await S.call("privacy.setSharing", pa, change);
 	await assert.rejects(S.call("privacy.setSharing", pa, { ...change, requestKey: randomUUID() }), /stale_revision/);
 	await S.call(
@@ -75,7 +74,6 @@ test("INV-consent: first approval defaults on while rejoin preserves independent
 	assert.equal(v.choices.wiki, false);
 	assert.equal(v.choices.people, true);
 	assert.equal(v.consentRevision, "2");
-	// One milestone job per committed occurrence, keyed by the revision it wrote: approval, sharing change, end, rejoin.
 	const jobs = await S.db.execute(
 		sql`SELECT producer_key FROM job WHERE kind='notification' AND tenant_id=${sql.param(p.id)} AND subject_record_id=${sql.param(accepted.relationship.id)} ORDER BY source_revision`,
 	);
@@ -276,7 +274,6 @@ test("AC:ADR1-016 a sending church's page read gives each live network connectio
 	assert.equal(saved.consent.revision, "2");
 	assert.deepEqual(await readPipelineConsents(S.runtime, authority, toEnded), []);
 	assert.deepEqual(await readPipelineConsents(S.runtime, authority, "not-a-uuid"), []);
-	// Members never see the choice, and a seat that ended after the request began reads nothing (C13).
 	assert.deepEqual(await readPipelineConsents(S.runtime, await RequestActor.resolve(S.runtime, member.session)), []);
 	await S.db.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(admin.account)}`);
 	assert.deepEqual(await readPipelineConsents(S.runtime, authority), []);
@@ -313,7 +310,6 @@ test("AC:ADR1-003 a resident's page read gives each own residency link's consent
 	await S.call("residency.leave", r, S.command({ linkId: link, expectedConsentRevision: "2" }, "2"));
 	assert.deepEqual(await residencyLinks(S.runtime, viewer), await expected("3"));
 	assert.deepEqual((await residencyLinks(S.runtime, viewer))[0].sharing, { status: "ended", linkId: link });
-	// A live residency the account no longer may read (its person retired) shows unavailable, as the operation does.
 	const { r: removed, link: removedLink, person } = await resident();
 	await S.db.execute(sql`UPDATE person SET state='retired' WHERE id=${sql.param(person)}`);
 	const removedViewer = {

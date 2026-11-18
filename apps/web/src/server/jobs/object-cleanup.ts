@@ -3,11 +3,6 @@ import type { Database } from "@everyfield/db/client";
 import { deleteUnreferencedObject, type PrivateStorage } from "@everyfield/db/schema";
 import { claimDue, finishJob, recoverLease, type JobResult } from "./queue.ts";
 
-/**
- * Runs due object_cleanup jobs one at a time. Each job names one private file. The file's bytes are deleted only when no
- * record references it; a referenced, missing or already purged file has nothing to delete. A provider failure leaves
- * the claimed file for the retry, which deletes the same immutable key.
- */
 export async function runDueObjectCleanup(db: Database, storage: PrivateStorage, limit: number, until = Infinity) {
 	await recoverLease(db);
 	let removed = 0;

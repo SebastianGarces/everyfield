@@ -38,10 +38,6 @@ const newWrite = () => ({
 	writes: new Array<SQLWrapper>(),
 	events: new Array<PgInsertValue<typeof t.audit_event>>(),
 });
-/**
- * Read a committed exact-request reply. A unique audit key arbitrates absent-key races at commit. A native write's
- * first attempt skips the read; a key conflict or a refusal after this point reads the stored key (nativeWrite).
- */
 export async function prepareWrite(tx: Transaction, request: RequestIdentity) {
 	const first = sessions.get(tx);
 	if (first) {
@@ -49,7 +45,6 @@ export async function prepareWrite(tx: Transaction, request: RequestIdentity) {
 		return newWrite();
 	}
 	const stored = storedRuns.get(tx);
-	// The gate checked the actor; audit rows never change, so a key a stored-answer run read is still current.
 	const row =
 		knownKeys.get(tx)?.get(request.requestKey) ??
 		storedKey.parse(
@@ -97,7 +92,6 @@ export async function finishAudit(tx: Transaction, command: AuditWrite, request:
 		command_id: command.id,
 		...(entry.id === command.id ? { request_key: request.requestKey, request_identity: request, result } : {}),
 	}));
-	// A deletion request deliberately hides its own locked root before its final audit.
 	const closesOwner = ["account.requestDeletion", "churches.requestWorkspaceDeletion"].includes(request.operation);
 	const writes = [...command.writes, tx.insert(t.audit_event).values(rows)];
 	const session = sessions.get(tx);
@@ -105,13 +99,8 @@ export async function finishAudit(tx: Transaction, command: AuditWrite, request:
 	await executeWrites(tx, writes, closesOwner ? undefined : request);
 }
 
-/**
- * The name executeWrites gives the write most recently queued on `command`. A later write that reads it runs after
- * it inside the one statement, for example an insert that must follow the update freeing a unique slot.
- */
 export const lastWrite = (command: AuditWrite) => sql.identifier(`write_${command.writes.length - 1}`);
 
-/** Independent changes and their audit entries execute in one statement, on a transaction or alone on the pool. */
 export async function executeWrites(
 	tx: Pick<Transaction, "execute">,
 	writes: readonly SQLWrapper[],
@@ -134,7 +123,6 @@ function isAuditRetry(error: unknown): boolean {
 		.safeParse(error);
 	return found.success;
 }
-/** A lost concurrent request may win the audit key after this transaction's first snapshot. */
 export async function auditTransaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
 	try {
 		return await db.transaction(body);
@@ -166,19 +154,8 @@ export async function auditSavepoint<T>(tx: Transaction, body: (tx: Transaction)
 	}
 }
 
-/**
- * Which way a native write runs (C88). "single": every check the write makes is on rows its final statement locks
- * again, or on a database constraint, so it may run as one statement without a transaction. "established": the write
- * depends on another row's value (a time zone, a setting, a parent's state), a count or limit, or uniqueness without
- * a constraint, so it runs in the gate's transaction. A statement's snapshot predates its locks, and a lock refreshes
- * only the rows it locks. Every write is established unless it declares "single".
- */
 export type WritePath = "single" | "established";
 
-/**
- * Declares the running command's path, or the path a variant needs before a read of another row. An established
- * command starts its transaction and runs the gate now. A write never returns from established to single.
- */
 export async function declareWrite(tx: Transaction, path: WritePath) {
 	const session = sessions.get(tx);
 	if (!session || session.path === "established") return session?.lock();
@@ -186,21 +163,6 @@ export async function declareWrite(tx: Transaction, path: WritePath) {
 	if (path === "established") await session.lock();
 }
 
-/**
- * A native write (RT-3, D70). The first attempt sends no BEGIN, no gate and no request-key read. A "single" command
- * reads its rows without a lock (checkedRead); its final statement checks the request actor's authority with the
- * gate's locks, repeats each read with its lock and makes the changes with their audit, so it needs no transaction. A
- * failed check raises inside that statement, which then changes nothing. Any other command, and any other statement
- * before the final one, starts a transaction and runs the gate first, as before.
- *
- * A first attempt that changed nothing is answered without running the command again where that gives the same answer
- * (RT-6b). Its write met the stored request key (a replay): the stored answer is read in one statement per key. The
- * command refused with every statement it sent on the gate's locks, or with none sent: that run was the established
- * run minus its request-key read, so the refusal stands, after one key read if the command reached prepareWrite (a
- * stored key answers instead). A refusal that rests on an unlocked read also reads the key first. Otherwise the
- * command reruns the established way: BEGIN, gate, request-key read, command, COMMIT; a key read just before is not
- * read again.
- */
 export async function nativeWrite<T>(
 	db: Database,
 	authority: RequestActor,
@@ -215,11 +177,8 @@ export async function nativeWrite<T>(
 		const stored = await storedAnswer(db, authority, selected, body);
 		if (stored.done) return stored.value;
 		if (stored.absent && first.next === "refusal") throw first.error;
-		// The rerun reuses the keys just read. A key stored since then fails the rerun's write, and auditTransaction's
-		// next run reads it.
 		known = stored.known;
 	}
-	// The established run names itself a retry on the wire, so statement budgets count it with the first attempt.
 	const { client, db: bound } = await checkoutClient(db);
 	const own = Object.getOwnPropertyDescriptor(client, "query");
 	const send = client.query.bind(client) as (config: unknown, values?: unknown) => Promise<unknown>;
@@ -239,17 +198,10 @@ export async function nativeWrite<T>(
 		client.release();
 	}
 }
-/** The BEGIN of a native write's established run, after its first attempt changed nothing. */
 const RETRY = "BEGIN /* evf:retry */";
 
-/** A statement after a native write committed on its own: a "single" command must end with its final write. */
 class WriteOrderError extends Error {}
 
-/**
- * What follows a first attempt that changed nothing: "replay" when its write met a stored request key; "answer", or
- * "refusal" (the answer unless the request key is stored), when it ran as the established run would; "check" (the
- * stored key, else the established run) when its refusal rests on an unlocked read; "rerun" after a failed statement.
- */
 type Next = "replay" | "answer" | "refusal" | "check" | "rerun";
 
 async function firstAttempt<T>(
@@ -288,20 +240,11 @@ async function firstAttempt<T>(
 	}
 }
 
-/** Ends a stored-answer run before it sends anything but a request-key read. */
 class StoredMiss extends Error {}
-/** A request-key read of a stored-answer run. */
 const STORED = "/* evf:stored */ ";
 const storedRuns = new WeakMap<Transaction, StoredRun>();
-/** The request keys a stored-answer run read, for the established run that follows it. */
 const knownKeys = new WeakMap<Transaction, ReadonlyMap<string, StoredKey>>();
 
-/**
- * The command again, where prepareWrite reads the stored request key in one statement with the request actor's live
- * access (C13, as a read checks it) and any other statement ends the run unsent. A stored answer, or the command's
- * refusal of a stored key (another request's key, or an actor without access), is the answer. `absent`: the first key
- * read found nothing stored. `known`: the keys it read.
- */
 async function storedAnswer<T>(
 	db: Database,
 	authority: RequestActor,
@@ -328,7 +271,6 @@ async function storedAnswer<T>(
 }
 
 class StoredRun {
-	/** Set when the run ended unsent: true when a key read found nothing stored. */
 	missed: boolean | undefined;
 	failed = false;
 	readonly known = new Map<string, StoredKey>();
@@ -369,30 +311,22 @@ class StoredRun {
 	}
 }
 
-/** A read the final statement repeats with `lock`: the same rows, or the write fails. */
 type Check = { read: SQL; lock: SQL; digest: string };
 const sessions = new WeakMap<Transaction, WriteSession>();
 const gating = new AsyncLocalStorage<true>();
 const FINAL = "/* evf:final */ ",
 	READ = "/* evf:read */ ";
 const skipped = (command: string) => ({ command, rowCount: 0, rows: [], fields: [], oid: 0 });
-/** The rows of `read` as one comparable value. */
 const digestOf = (read: SQL) =>
 	sql`(SELECT md5(coalesce(jsonb_agg(r.v ORDER BY r.v::text)::text,'')) FROM (SELECT to_jsonb(q) AS v FROM (${read}) q) r)`;
 
 class WriteSession {
 	tx: Transaction | undefined;
-	/** BEGIN was sent: the gate holds its locks until COMMIT. */
 	private begun = false;
-	/** Undeclared runs as established: only a "single" declaration opens the one-statement path. */
 	path: WritePath | undefined;
-	/** The final statement committed on its own. */
 	private done = false;
-	/** The command reached prepareWrite, which skipped the request-key read. */
 	keyed = false;
-	/** A statement failed. */
 	failed = false;
-	/** A statement ran before the gate's locks: the first attempt read rows unlocked. */
 	unlocked = false;
 	private locking: Promise<void> | undefined;
 	private readonly checks: Check[] = [];
@@ -437,7 +371,6 @@ class WriteSession {
 		}
 	}
 
-	/** Start the transaction and run the gate once: a statement the final write cannot check needs the gate's locks. */
 	lock(): Promise<void> {
 		this.locking ??= gating.run(true, async () => {
 			await this.sent(() => (this.send as (c: string) => Promise<unknown>)("BEGIN"));
@@ -447,7 +380,6 @@ class WriteSession {
 		return this.locking;
 	}
 
-	/** Run `read` without its lock; the final statement repeats it with the lock. Null once the gate holds its locks. */
 	async check(read: SQL, lock: SQL): Promise<Record<string, unknown>[] | null> {
 		if (this.begun || this.path !== "single") return null;
 		const result = await this.tx!.execute(
@@ -473,7 +405,6 @@ class WriteSession {
 			: request
 				? writeVisibility(request.actorId, request.owner)
 				: sql`true`;
-		// Each check runs after the authority's locks and takes its own locks without waiting.
 		const current = this.checks.length
 			? sql.join(
 					this.checks.map((c) => sql`${digestOf(sql`${c.read} ${c.lock} NOWAIT`)}=${c.digest}`),
@@ -481,7 +412,6 @@ class WriteSession {
 				)
 			: sql`true`;
 		const entries = [...(authority ? [writeAuthority(authority)] : []), writeEntries(writes)];
-		// The CASE result depends on the rows, so the planner cannot fold the failing cast; the error aborts the statement.
 		await this.tx!.execute(
 			sql`${sql.raw(FINAL)}WITH ${sql.join(entries, sql`, `)} SELECT (CASE WHEN ${allowed} IS NOT TRUE THEN 'evf_refused'
  WHEN ${current} THEN 'true' ELSE 'evf_stale' END)::boolean AS allowed`,
@@ -490,17 +420,10 @@ class WriteSession {
 	}
 }
 
-/**
- * A "single" command's read of rows its final statement locks again: `read` is the query, `lock` the locking clause
- * the established way adds (FOR UPDATE OF t). The first attempt runs `read` without the lock; the final statement runs
- * it again with `lock` NOWAIT and requires the same rows. Null for an established command or once the gate holds its
- * locks: run the read with its lock as usual.
- */
 export function checkedRead(tx: Transaction, read: SQL, lock: SQL) {
 	return sessions.get(tx)?.check(read, lock) ?? Promise.resolve(null);
 }
 
-/** The gate's locked rows. A native write's first attempt starts its transaction and runs the gate here. */
 export async function lockedWrite(tx: Transaction) {
 	storedRuns.get(tx)?.miss(false);
 	await sessions.get(tx)?.lock();

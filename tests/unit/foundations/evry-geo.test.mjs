@@ -1,11 +1,3 @@
-// Evry's geometry (WP-088), ported from the approved prototype's EvryGeo (OPS-84). It runs in node against the module
-// both Evry components use; no browser. A silent break here draws a dented morph frame or an eye that pokes out of the
-// body, which no screenshot of one frame would catch.
-//   INV-convex: every shape and every morph blend of two shapes is convex.
-//   INV-eyes-inside: rest eyes (idle and thinking) and eyes at full reach in 8 directions keep MARGIN inside the outline.
-//   INV-foreshorten: an eye pushed toward the edge reports p in [0, 1] and, sideways, a narrower width; a flat side
-//     does not bend it (bend under 0.001 of its length, against over 0.01 on the circle).
-//   INV-deterministic: path data is the same string for the same input, so server and client markup match.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
@@ -30,7 +22,6 @@ const EPS = 1e-9;
 const outline = (name) => edges(SHAPES[name].pts, newEdges());
 const DIRS = Array.from({ length: 8 }, (_, i) => [Math.cos((i * Math.PI) / 4), Math.sin((i * Math.PI) / 4)]);
 
-/** True when every turn of the closed polygon P (2N numbers) goes the same way. */
 function convex(P) {
 	let sign = 0;
 	for (let i = 0; i < N; i++) {
@@ -103,11 +94,8 @@ test("INV-foreshorten: toward the edge an eye narrows, with p in [0, 1]", () => 
 				return m;
 			});
 			for (const m of measures) assert.ok(m.p >= 0 && m.p <= 1, `${name}: p ${m.p}`);
-			// The eye nearer the edge in this direction foreshortens.
 			const lead = measures.reduce((a, b) => (b.p > a.p ? b : a));
 			assert.ok(lead.p > 0, `${name} (${ux.toFixed(2)}, ${uy.toFixed(2)}): p ${lead.p}`);
-			// Foreshortening runs along the outline normal: a sideways look thins the eye, a straight up or down look only
-			// shortens it.
 			if (Math.abs(ux) > 0.5)
 				assert.ok(lead.width < 1, `${name} (${ux.toFixed(2)}, ${uy.toFixed(2)}): width ${lead.width}`);
 			else assert.ok(lead.width <= 1 + EPS, `${name} (${ux.toFixed(2)}, ${uy.toFixed(2)}): width ${lead.width}`);
@@ -117,7 +105,6 @@ test("INV-foreshorten: toward the edge an eye narrows, with p in [0, 1]", () => 
 
 test("INV-foreshorten: a flat side never bends the eye", () => {
 	const C = new Float64Array(38);
-	// The square's sides and the hexagon's left and right sides are flat.
 	for (const [name, ux, uy] of [
 		["square", 1, 0],
 		["square", -1, 0],
@@ -135,7 +122,6 @@ test("INV-foreshorten: a flat side never bends the eye", () => {
 			assert.ok(m.bend < 1e-3, `${name} (${ux}, ${uy}): bend ${m.bend}`);
 		}
 	}
-	// The circle is curved everywhere, so the eye at its edge bends.
 	const S = SHAPES.circle;
 	const E = outline("circle");
 	const sp = specs(S.fy, S.fk, "idle");
@@ -147,7 +133,6 @@ test("INV-foreshorten: a flat side never bends the eye", () => {
 
 test("INV-deterministic: path data is the same string for the same input, whatever was drawn in between", () => {
 	const C = new Float64Array(38);
-	// Drawing anything else reuses the module's shared buffers; it must not leak into the next result.
 	const other = () => {
 		bodyD(SHAPES.triangle.pts, 1.2, 10, 80);
 		eye(outline("square"), 30, 40, 9, 20, -6, 3, C);
@@ -164,11 +149,9 @@ test("INV-deterministic: path data is the same string for the same input, whatev
 		assert.deepEqual(restPaths(name, "idle"), rest, name);
 		assert.deepEqual(restPaths(name, "happy"), happy, name);
 		assert.equal(look(), gaze, name);
-		// Real path data, not an empty or undefined result that would also compare equal.
 		assert.match(rest.body, /^M[\d. -]+Q[\d. -]+(T[\d. -]+){35}Z$/, name);
 		for (const d of [...rest.eyes, gaze]) assert.match(d, /^M[\d. -]+(C[\d. -]+){6}Z$/, name);
 		for (const d of happy.eyes) assert.match(d, /^M[\d. -]+A[\d. -]+$/, name);
 	}
-	// No turn is the identity transform.
 	assert.equal(unturn([4, 4, 92, 92], 0, 50, 50), "matrix(1 0 0 1 0 0)");
 });

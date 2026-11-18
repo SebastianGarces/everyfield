@@ -3,7 +3,6 @@
 import { ArrowDown01Icon, ArrowLeft02Icon, ArrowRight02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
 	useActionState,
-	useEffect,
 	useId,
 	useRef,
 	useState,
@@ -16,6 +15,7 @@ import { buttonClass } from "@/components/ButtonLink";
 import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
+import { useFocusRequest } from "@everyfield/ui/foundations";
 import { revealProps, useReveal } from "@/components/motion/Reveal";
 import { stepAccessForm, submitAccessRequest } from "./actions";
 import { HONEYPOT, validateAccessRequest, type FieldErrorCode } from "./contract";
@@ -43,21 +43,16 @@ export type FieldSpec = {
 	type: "text" | "email" | "select" | "area" | "number";
 	optional?: boolean;
 	help?: string;
-	/** Message for a missing or wrongly formatted value. */
 	error: string;
-	/** Message for a value over the limit ({max} already filled in). */
 	tooLong: string;
 	placeholder?: string;
-	/** First, empty option of a select. */
 	prompt?: string;
 	options?: readonly string[];
 	autoComplete?: string;
 };
-/** One step after the choice: its heading and one or two fields. */
 export type StepSpec = { title: string; fields: FieldSpec[] };
 type Outcome = { title: string; body: string; link?: string };
 export type FormText = {
-	/** "Step {step} of {total}". */
 	progress: string;
 	back: string;
 	continue: string;
@@ -69,8 +64,6 @@ export type FormText = {
 	contactEmail: string;
 	outcomes: Record<"received" | "invalid" | Notice, Outcome>;
 };
-/** paths: the three steps after the choice, per answer. A church and a network differ in labels only. who: the answer
- *  chosen in advance by a link (/access?role=network); the first step still shows it and lets the person change it. */
 type Props = { paths: Record<Who, StepSpec[]>; text: FormText; who?: Who };
 
 const ARROW = <Icon icon={ArrowRight02Icon} size={17} />;
@@ -78,7 +71,6 @@ const BACK = <Icon icon={ArrowLeft02Icon} size={17} />;
 const CHECK = <Icon icon={Tick02Icon} size={18} />;
 const CHEVRON = <Icon icon={ArrowDown01Icon} size={18} />;
 
-/* The card and its parts. Error red is magenta-600 (6.4:1 on white); the failure message text is darker still. */
 const CARD =
 	"relative mx-auto w-full max-w-[600px] rounded-card border border-mk-ink-06 bg-white p-[clamp(24px,4vw,40px)] shadow-mk-card";
 const EYEBROW = "type-sm leading-[1.3] font-semibold tracking-[0.09em] text-text-2 uppercase";
@@ -91,16 +83,12 @@ const MSG =
 	"type-md focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink [&_p+p]:mt-1";
 const FAIL = "px-4 py-3.5 bg-magenta-100 text-mk-danger-ink [&_a]:font-semibold [&_a]:text-inherit [&_a]:underline";
 const LINK = "text-green-600 underline";
-/* React adds hidden inputs at the start of a form with a server action, so the grid is a wrapper, not the form. */
 const LAYOUT = "grid grid-rows-[auto_1fr_auto] gap-6";
-/* Every view sits in the same grid cell. Hidden views keep their size, so the card is as tall as the tallest view
-   and never changes height. Only the shown view fades in. */
 const VIEW = "col-start-1 row-start-1 min-w-0";
 const shown = (on: boolean) =>
 	on ? "transition-opacity duration-150 ease-out motion-reduce:transition-none" : "invisible opacity-0";
 const FIELDSET = "m-0 min-w-0 border-0 p-0";
 
-/** Links each e-mail address in a sentence. */
 function withMailto(text: string): ReactNode[] {
 	return text.split(/([^\s@]+@[^\s@]+\.[a-z]{2,})/i).map((part, i) => {
 		if (!(i % 2)) return part;
@@ -113,7 +101,6 @@ function withMailto(text: string): ReactNode[] {
 		);
 	});
 }
-/** Links the first occurrence of `words` in `text` to `href`. */
 function withLink(text: string, words: string, href: string): ReactNode {
 	const i = text.indexOf(words);
 	if (i < 0) return text;
@@ -128,7 +115,6 @@ function withLink(text: string, words: string, href: string): ReactNode {
 	);
 }
 
-/** An error line. With no error it holds its longest message invisibly, so showing an error never moves anything. */
 function ErrorLine({ id, message, reserve }: { id: string; message?: string; reserve: string }) {
 	return message ? (
 		<p className={ERROR} id={id}>
@@ -176,7 +162,6 @@ function Field({ f, id, err, value, sending, optionalLabel, onCheck }: FieldProp
 				) : null}
 			</label>
 			{f.type === "select" ? (
-				// appearance-none: WebKit's native select ignores padding and renders shorter than the text fields.
 				<div className="relative">
 					<select
 						{...common}
@@ -231,14 +216,6 @@ function Field({ f, id, err, value, sending, optionalLabel, onCheck }: FieldProp
 
 type Focus = "step" | "error" | "message";
 
-/**
- * The early access form: "who are you", then three steps of one or two fields, then the outcome. Every step, error
- * and outcome renders inside one card of fixed size, so nothing below the card moves.
- * With JavaScript the browser moves between steps, checks only the current step's fields, and sends the request with
- * submitAccessRequest. Without JavaScript each button posts the form to stepAccessForm, which makes the same moves.
- * The server stays the authority: an "invalid" answer goes back to the first step with an error.
- * A failed send keeps every answer in the form.
- */
 export function AccessForm({ paths, text, who: chosen }: Props) {
 	const uid = useId();
 	const formRef = useRef<HTMLFormElement>(null);
@@ -249,10 +226,18 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 	const rv = revealProps();
 	const [serverState, formAction] = useActionState(stepAccessForm, chosen ? { ...START, who: chosen } : START);
 	const [s, setS] = useState<FormState>(serverState);
-	const [sending, setSending] = useState(false);
 	const [said, setSaid] = useState("");
-	const focusNext = useRef<Focus | null>(null);
-	const [, startTransition] = useTransition();
+	const [landed, setLanded] = useState<{ n: number; to: Focus }>({ n: 0, to: "step" });
+	const [sending, startTransition] = useTransition();
+	const focusLanded = useFocusRequest<HTMLDivElement>(landed.n, (layout) => {
+		if (landed.to === "message") return msgRef.current;
+		const view = layout.querySelector<HTMLElement>("[data-view=current]");
+		return landed.to === "error"
+			? (view?.querySelector<HTMLElement>("[aria-invalid=true]") ?? view?.querySelector<HTMLElement>("input") ?? null)
+			: (view?.querySelector<HTMLElement>("input:checked") ??
+					view?.querySelector<HTMLElement>("input:not([type=hidden]), select, textarea") ??
+					null);
+	});
 
 	const kind = s.who ? kindOf(s.who) : undefined;
 	const notice = s.status !== "editing" && s.status !== "received" ? s.status : undefined;
@@ -271,36 +256,21 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 	const answers = (all: Record<string, string>) =>
 		Object.fromEntries(FIELD_NAMES.flatMap((n) => (all[n] === undefined ? [] : [[n, all[n]]])));
 
-	/** Shows a new state, then moves focus to what changed and says the new step. */
 	const land = (n: FormState) => {
 		setS(n);
-		if (n.status !== "editing") {
-			focusNext.current = "message";
-			setSaid("");
-		} else if (Object.keys(n.errors).length) {
-			focusNext.current = "error";
-			setSaid(n.invalid ? text.outcomes.invalid.title : "");
-		} else {
-			focusNext.current = "step";
-			setSaid(`${progress(n.step)}. ${titleOf(n)}`);
-		}
+		const to: Focus = n.status !== "editing" ? "message" : Object.keys(n.errors).length ? "error" : "step";
+		setLanded((l) => ({ n: l.n + 1, to }));
+		setSaid(
+			to === "message"
+				? ""
+				: to === "error"
+					? n.invalid
+						? text.outcomes.invalid.title
+						: ""
+					: `${progress(n.step)}. ${titleOf(n)}`,
+		);
 	};
-	useEffect(() => {
-		const to = focusNext.current;
-		if (!to) return;
-		focusNext.current = null;
-		if (to === "message") return msgRef.current?.focus();
-		const view = formRef.current?.querySelector<HTMLElement>("[data-view=current]");
-		const target =
-			to === "error"
-				? // A radio cannot be marked invalid, so the choice's error focuses the first choice.
-					(view?.querySelector<HTMLElement>("[aria-invalid=true]") ?? view?.querySelector<HTMLElement>("input"))
-				: (view?.querySelector<HTMLElement>("input:checked") ??
-					view?.querySelector<HTMLElement>("input:not([type=hidden]), select, textarea"));
-		target?.focus();
-	});
 
-	// Once a field shows an error, the error follows what the person types. On leaving a filled field, check it.
 	const recheck = (name: string, onBlur: boolean) => {
 		if (s.status !== "editing" || !s.who || (!onBlur && !s.errors[name])) return;
 		const values = read();
@@ -323,21 +293,17 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 		const who = s.who;
 		const v = validateAccessRequest(kindOf(who), values);
 		if (!v.ok) return land(withErrors(s, values, v.fieldErrors));
-		setSending(true);
 		startTransition(async () => {
 			let n: FormState;
 			try {
 				const fields = { ...requestFields(who, values), [HONEYPOT]: all[HONEYPOT] ?? "" };
 				n = afterReply(s, values, await submitAccessRequest(kindOf(who), fields));
 			} catch {
-				// The request did not reach the server, or the reply was lost.
 				n = { ...s, values, errors: {}, status: navigator.onLine ? "unavailable" : "offline" };
 			}
-			setSending(false);
 			land(n);
 		});
 	}
-	// Enter on a choice continues, as it does in a text field.
 	const onKeyDown = (e: KeyboardEvent<HTMLFormElement>) => {
 		if (e.key !== "Enter" || !(e.target instanceof HTMLInputElement) || e.target.type !== "radio") return;
 		e.preventDefault();
@@ -353,7 +319,6 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 				key={`${path ?? "contact"}-${n}`}
 				className={cn(VIEW, FIELDSET, shown(on))}
 				data-view={on ? "current" : undefined}
-				// The other request kind's fields are disabled, so they are never sent.
 				disabled={path ? kind !== path : !kind}
 				inert={!on}
 			>
@@ -401,7 +366,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 			aria-busy={sending}
 			aria-label={text.submit}
 		>
-			<div className={LAYOUT}>
+			<div className={LAYOUT} ref={focusLanded}>
 				<div className={cn("col-start-1 row-start-1 flex items-center justify-between gap-4", received && "invisible")}>
 					<p className={EYEBROW}>{progress(s.step)}</p>
 					<div className="flex gap-1.5" aria-hidden="true">
@@ -431,7 +396,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 								<label
 									key={w}
 									className={cn(
-										"flex min-h-14 cursor-pointer items-center gap-3 border border-mk-line-strong bg-mk-canvas px-4 type-lg font-semibold text-ink",
+										"flex min-h-14 items-center gap-3 border border-mk-line-strong bg-mk-canvas px-4 type-lg font-semibold text-ink",
 										"[transition:border-color_.15s,background-color_.15s,box-shadow_.15s] hover:border-ink/40 motion-reduce:transition-none",
 										"has-checked:border-ink has-checked:bg-white has-checked:shadow-[inset_0_0_0_1px_var(--color-ink)]",
 										"has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-green-600",
@@ -456,7 +421,6 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 						</div>
 					</fieldset>
 
-					{/* Contact details are the same for every path. */}
 					{fieldsView(paths.planter[0]!, 1)}
 					{paths.planter.slice(1).map((st, i) => fieldsView(st, i + 2, "planter"))}
 					{network.slice(1).map((st, i) => fieldsView(st, i + 2, "network"))}
@@ -482,19 +446,14 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 				</div>
 
 				<div className={cn("col-start-1 row-start-3 flex flex-col gap-4", received && "invisible")} inert={received}>
-					{/* The primary button comes first in the markup, so Enter in a field continues. It shows on the right, or on
-					    top on small screens, where both buttons are full width on every step so the footer keeps its height. */}
 					<div className="flex flex-row-reverse items-center justify-between gap-3 max-mk-sm:flex-col max-mk-sm:items-stretch">
 						<button
 							ref={primaryRef}
-							className={buttonClass(
-								"primary",
-								"md",
-								"justify-center aria-disabled:cursor-progress aria-disabled:bg-ink-2",
-							)}
+							className={buttonClass("primary", "md", "justify-center aria-disabled:bg-ink-2")}
 							type="submit"
 							name="intent"
 							value={s.step < LAST_STEP ? "next" : "send"}
+							aria-busy={sending || undefined}
 							aria-disabled={sending || undefined}
 						>
 							{s.step < LAST_STEP ? text.continue : sending ? text.submitting : text.submit}
@@ -509,11 +468,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 						</button>
 						<button
 							className={cn(
-								buttonClass(
-									"secondary",
-									"md",
-									"justify-center ps-5 aria-disabled:cursor-progress aria-disabled:opacity-60",
-								),
+								buttonClass("secondary", "md", "justify-center ps-5 aria-disabled:opacity-60"),
 								s.step === 0 && "invisible",
 							)}
 							type="submit"
@@ -559,7 +514,6 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 				<label htmlFor={`${uid}-${HONEYPOT}`}>Leave this field empty</label>
 				<input id={`${uid}-${HONEYPOT}`} name={HONEYPOT} type="text" tabIndex={-1} autoComplete="off" />
 			</div>
-			{/* Read only by the no-JavaScript action; the browser keeps this state itself. */}
 			<input type="hidden" name="step" value={s.step} />
 			{notice ? <input type="hidden" name="notice" value={notice} /> : null}
 			<p className="sr-only" role="status">

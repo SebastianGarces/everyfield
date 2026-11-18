@@ -2,16 +2,12 @@
 
 import { File02Icon, Table01Icon } from "@hugeicons/core-free-icons";
 import { Skeleton } from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState } from "react";
+import { Icon, observeIntersection } from "@everyfield/ui/foundations";
+import { useState } from "react";
 import type { Template } from "./model.ts";
 import { closePdf, drawPage, openPdf } from "./pdf.ts";
 import { bytesOf, sharedPreview } from "./preview-client.ts";
-
-// A library thumbnail: page 1 of the renderer's own bytes for the template, drawn when the card scrolls into view.
-// Renders run one at a time and the picture is kept for the visit, by the render key of what it printed, so the
-// library route stays quick and a change to the template or the church's values draws a new one. The selected
-// template's preview shares the same render (sharedPreview).
+import { NativeImage } from "@/components/native";
 
 const WIDTH = 200;
 const pictures = new Map<string, Promise<string | null>>();
@@ -48,49 +44,38 @@ export function Thumbnail({
 	enabled,
 }: {
 	template: Template;
-	/** What the picture prints: model.ts `renderKey` for the template as a PDF with no overrides. */
 	renderKey: string;
 	enabled: boolean;
 }) {
-	const frame = useRef<HTMLSpanElement>(null);
 	const [url, setUrl] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const pdf = template.formats[0] === "pdf" && template.pageSize !== null;
-
-	useEffect(() => {
-		const node = frame.current;
-		if (!node || !pdf || !enabled) return;
-		let current = true;
-		const observer = new IntersectionObserver(
-			([entry]) => {
-				if (!entry?.isIntersecting) return;
-				observer.disconnect();
-				setLoading(true);
-				void picture(template, renderKey).then((next) => {
-					if (!current) return;
-					setUrl(next);
-					setLoading(false);
-				});
-			},
-			{ rootMargin: "200px" },
-		);
-		observer.observe(node);
-		return () => {
-			current = false;
-			observer.disconnect();
-		};
-	}, [template, renderKey, pdf, enabled]);
+	const [watch] = useState(() =>
+		pdf && enabled
+			? observeIntersection<HTMLSpanElement>(
+					(entry, stop) => {
+						if (!entry.isIntersecting) return;
+						stop();
+						setLoading(true);
+						void picture(template, renderKey).then((next) => {
+							setUrl(next);
+							setLoading(false);
+						});
+					},
+					{ rootMargin: "200px" },
+				)
+			: undefined,
+	);
 
 	const size = template.pageSize;
 	return (
 		<span
-			ref={frame}
+			ref={watch}
 			className="flex h-56 w-full items-center justify-center overflow-hidden rounded-md bg-surface-2 p-3"
 			data-thumbnail={url ? "ready" : "pending"}
 		>
 			{url && size ? (
-				// eslint-disable-next-line @next/next/no-img-element -- a data URL drawn from the renderer's bytes
-				<img
+				<NativeImage
 					src={url}
 					alt={`Page 1 of ${template.name}`}
 					width={size.width}

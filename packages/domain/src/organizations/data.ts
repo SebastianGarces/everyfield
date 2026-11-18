@@ -9,13 +9,6 @@ import { csvLine } from "../people/csv/format.ts";
 import { orgSees } from "./programs.ts";
 import { answer, one, parse, refuse, seatOf, write, type Executor } from "./seat.ts";
 
-// Taking the pipeline out of Everyfield and removing a person on request (REQ-MUL-005). Only an exact-organization
-// Owner or Admin does either. The export is one statement with the live check inside it; it reads no note, move
-// reason, feedback body or conversation, nothing from a resident's own account, and a resident's own milestone marks
-// only while their live link shares milestone progress. Removal runs the established way (C88) and keeps only what the
-// organization needs without the person: completed enrollments as program completion counts, its activity record with
-// values, reasons and actors scrubbed, and the removal record itself.
-
 const NAME = "Former participant";
 const COLUMNS = [
 	"record",
@@ -83,12 +76,6 @@ const exportRow = z.object({
 	),
 });
 
-/**
- * The pipeline as one CSV file: its first lines say whose pipeline it is, when it was made in the organization's time
- * zone, what it holds and what it leaves out; then one row per person, stage move, program, enrollment and milestone
- * completion. Live and retired people; a removed or merged one is not in it. A merged-in record's moves show on the
- * person it was merged into. Owner or Admin. One statement.
- */
 export async function readPipelineExport(db: Executor, authority: RequestActor) {
 	return answer(async () => {
 		const seat = seatOf(authority) ?? refuse();
@@ -120,8 +107,6 @@ SELECT g.allowed,(SELECT to_jsonb(o) FROM o) AS org,
     'milestones',coalesce((SELECT jsonb_agg(jsonb_build_object('title',dm.title,'on',c.completed_on::text)
       ORDER BY c.completed_on,dm.position,dm.id)
      FROM enrollment_milestone c JOIN development_milestone dm ON dm.id=c.milestone_id AND dm.organization_id=c.organization_id
-     -- Each mark exports as the organization sees it (orgSees): what it recorded itself always, a resident's own
-     -- mark only while their live link shares milestone progress.
      WHERE c.enrollment_id=e.id AND c.organization_id=e.organization_id AND ${orgSees}),'[]'::jsonb))
     ORDER BY e.started_on,lower(dp.name),e.id)
    FROM development_enrollment e JOIN development_program dp ON dp.id=e.program_id AND dp.organization_id=e.organization_id
@@ -186,21 +171,12 @@ FROM g`);
 		return C.pipelineExport.parse({
 			filename: `pipeline-${o.day}.csv`,
 			mediaType: "text/csv; charset=utf-8",
-			// The byte order mark lets spreadsheets read UTF-8 names correctly, as the People export does.
 			text: "﻿" + preamble + csvLine(COLUMNS) + programs + body,
 			people: row.people.length,
 		});
 	});
 }
 
-/**
- * Removes a live or retired pipeline person on their request (REQ-MUL-005). The first statement locks the person at
- * the confirmed revision, writes the removal witness, replaces every contact field and sets the name to "Former
- * participant", unlinks the account, ends any residency link at once and severs it from the account, revokes pending
- * residency invitations and deletes staff notes, for the person and every record merged into them. The second runs
- * remove_organization_person, which deletes the pipeline rows the runtime role may not, scrubs the audit trails, and
- * appends one body-free removal audit row after it. Not retirement: nothing here can be restored. Owner or Admin.
- */
 const residentInvitation = { purpose: "residency_link", tenant: "organization", fresh: true } as const;
 function removePerson(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
@@ -291,5 +267,4 @@ SELECT f.r FROM f WHERE EXISTS(SELECT FROM a)`,
 	});
 }
 
-/** The export and removal writes. The statement census measures the removal as `pipeline.removePerson`. */
 export const pipelineDataWriter = { removePerson };
