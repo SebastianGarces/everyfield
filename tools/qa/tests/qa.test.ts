@@ -1181,7 +1181,7 @@ test("INV-qa-cron: qa up writes the cron secret to a private file and starts no 
 			up.stderr.trim().split("\n").pop(),
 			`Scheduled sends: off until you run, outside a seat: cd '${s.root}' && bin/qa drive`,
 		);
-		Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 2 * TEST_MINUTE);
+		assert.ok(!existsSync(join(s.root, ".git/qa/drive.lock")), "qa up started a driver");
 		assert.deepEqual(cronCalls(s.state), [], "qa up started a driver");
 		assert.ok(!existsSync(join(s.root, `.git/qa/${id}.cron.log`)));
 		const down = s.qa("down", id);
