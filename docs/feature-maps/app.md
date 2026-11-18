@@ -11,6 +11,7 @@ flowchart LR
   s5_link0(["link /robots.txt"])
   s5_link1(["link /sitemap.xml"])
   s5_link2(["link /apple-icon"])
+  s6_link0(["link /api/webhooks/resend"])
   s0["app.cron-jobs<br/>no page"]
   s0_link0 --> s0
   s0 -.- s0_st0(("refused"))
@@ -43,6 +44,10 @@ flowchart LR
   s5 -.- s5_st0(("robots"))
   s5 -.- s5_st1(("sitemap"))
   s5 -.- s5_st2(("apple-icon"))
+  s6["app.resend-webhook<br/>no page"]
+  s6_link0 --> s6
+  s6 -.- s6_st0(("refused"))
+  s6 --- s6_b0["record-delivery<br/>tests + cases"]
 ```
 
 ## Surfaces
@@ -338,3 +343,34 @@ agent-browser wait --fn "!document.body.innerText.includes(\"Page not found\")"
 agent-browser wait --fn "!document.body.innerText.includes(\"Error\")"
 ```
 
+### app.resend-webhook
+
+The Resend webhook that records delivery, bounce and open callbacks for sent mail: it refuses any method but a signed POST.
+
+- Routes: none
+- Endpoints: `/api/webhooks/resend`
+- Personas: `visitor` none
+
+Reach:
+
+- Link `/api/webhooks/resend`
+
+States:
+
+- **refused**: URL `/api/webhooks/resend`; text containing "method_not_allowed". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/api/webhooks/resend"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/api/webhooks/resend"
+agent-browser wait --text "method_not_allowed"
+```
+
+#### app.resend-webhook#record-delivery
+
+A signed callback records one delivery outcome for the sent mail, and a callback with a bad signature writes nothing.
+
+- No operation: the Resend webhook handler (server/jobs/webhook-route.ts) verifies the signature and the mail callback job records the outcome; it is a provider callback, not a catalog operation
+- Catalog: NTF-010
+- Cases: CASE-NTF-010
+- Test: `tests/integration/communication/delivery.test.mts`: `AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one outcome and a bad signature writes nothing`

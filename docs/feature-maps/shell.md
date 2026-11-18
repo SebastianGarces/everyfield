@@ -11,6 +11,7 @@ flowchart LR
   s2_link0(["link /design/controls"])
   s2_link1(["link /design/display"])
   s2_link2(["link /design/foundations"])
+  s3_link0(["link /api/health"])
   s0["shell.frame<br/>no page"]
   s0_link0 --> s0
   s0 -.- s0_st0(("owner"))
@@ -30,6 +31,9 @@ flowchart LR
   s2 -.- s2_st0(("controls"))
   s2 -.- s2_st1(("display"))
   s2 -.- s2_st2(("foundations"))
+  s3["shell.health<br/>no page"]
+  s3_link0 --> s3
+  s3 -.- s3_st0(("live"))
 ```
 
 ## Surfaces
@@ -171,5 +175,28 @@ agent-browser open "$ORIGIN/design/foundations"
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Foundations" --exact
 agent-browser find role heading text --name "Logo" --exact
+```
+
+### shell.health
+
+The liveness check an uptime monitor calls: it answers status ok with the server time and reads no database.
+
+- Routes: none
+- Endpoints: `/api/health`
+- Personas: `visitor` read
+
+Reach:
+
+- Link `/api/health`
+
+States:
+
+- **live**: URL `/api/health`; text containing "ok". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/api/health"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/api/health"
+agent-browser wait --text "ok"
 ```
 

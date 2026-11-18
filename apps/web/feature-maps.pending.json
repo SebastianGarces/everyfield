@@ -1,4 +1,4 @@
 {
 	"$schema": "./feature-map.schema.json#/$defs/pending",
-	"routes": ["/api/cron/access-retention", "/api/health", "/api/webhooks/resend"]
+	"routes": []
 }

@@ -580,6 +580,57 @@
 				}
 			],
 			"behaviors": []
+		},
+		{
+			"id": "app.resend-webhook",
+			"says": "The Resend webhook that records delivery, bounce and open callbacks for sent mail: it refuses any method but a signed POST.",
+			"routes": [],
+			"endpoints": ["/api/webhooks/resend"],
+			"reach": [
+				{
+					"link": "/api/webhooks/resend"
+				}
+			],
+			"personas": {
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "refused",
+					"reach": {
+						"persona": "visitor",
+						"open": "/api/webhooks/resend",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/api/webhooks/resend"
+						},
+						{
+							"text": "method_not_allowed",
+							"match": "contains"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "record-delivery",
+					"says": "A signed callback records one delivery outcome for the sent mail, and a callback with a bad signature writes nothing.",
+					"catalog": ["NTF-010"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/delivery.test.mts",
+								"name": "AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one outcome and a bad signature writes nothing"
+							}
+						],
+						"cases": ["CASE-NTF-010"]
+					},
+					"noOperation": "the Resend webhook handler (server/jobs/webhook-route.ts) verifies the signature and the mail callback job records the outcome; it is a provider callback, not a catalog operation"
+				}
+			]
 		}
 	]
 }
