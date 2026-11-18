@@ -3,8 +3,11 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import ts from "../../packages/contracts/node_modules/typescript/lib/typescript.js";
 import {
+	columnsOf,
 	coverage,
 	machines,
+	part,
+	PRODUCT_SEPARATOR,
 	mermaid,
 	refusals,
 	skips,
@@ -24,6 +27,7 @@ export type Writer = {
 
 type Guard = { readonly fn: "fromStates" | "entryStates"; readonly event: string | null; readonly to: string | null };
 type Literal = { readonly text: string; readonly guarded: readonly (Guard | null)[]; readonly line: number };
+type Written = { readonly column: string; readonly value: string | null };
 
 const SOURCE_ROOTS = ["apps", "packages", "ops", "scripts", "tools"];
 const SOURCE_FILE = /\.(?:ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;
@@ -60,14 +64,40 @@ function guardCall(expr: ts.Expression, binding: string): Guard | null {
 	};
 }
 
-function fits(m: MachineShape, guard: Guard | null | undefined, fn: Guard["fn"], written: string | null): boolean {
+const matches = (m: MachineShape, state: string, written: readonly Written[]) =>
+	written.every((w) => part(m, state, w.column) === w.value);
+
+function fits(m: MachineShape, guard: Guard | null | undefined, fn: Guard["fn"], written: readonly Written[]): boolean {
 	if (!guard || guard.fn !== fn) return false;
 	const moves = fn === "fromStates" ? m.transitions : m.entries;
 	if (guard.event !== null && !moves.some((t) => t.event === guard.event)) return false;
 	if (fn === "entryStates") return true;
-	if (guard.to !== null && written !== null && guard.to !== written) return false;
-	const to = guard.to ?? written;
-	return to === null || m.transitions.some((t) => (guard.event === null || t.event === guard.event) && t.to === to);
+	if (guard.to !== null && !matches(m, guard.to, written)) return false;
+	return m.transitions.some(
+		(t) =>
+			(guard.event === null || t.event === guard.event) &&
+			(guard.to === null ? matches(m, t.to, written) : t.to === guard.to),
+	);
+}
+
+function stateFrom(m: MachineShape, values: ReadonlyMap<string, string | null>): string | null {
+	return m.states.find((state) => columnsOf(m).every((c) => part(m, state, c) === (values.get(c) ?? null))) ?? null;
+}
+
+function selectList(text: string, start: number): string {
+	const end = statementEnd(text, start);
+	let depth = 0,
+		quoted = false;
+	for (let at = start; at < end; at++) {
+		const ch = text[at];
+		if (ch === "'") quoted = !quoted;
+		if (quoted) continue;
+		if (ch === "(") depth++;
+		if (ch === ")") depth--;
+		if (depth === 0 && /\W/.test(text[at - 1] ?? " ") && /^FROM\b/i.test(text.slice(at, at + 5)))
+			return text.slice(start, at);
+	}
+	return text.slice(start, end);
 }
 
 function statementEnd(text: string, start: number): number {
@@ -120,6 +150,12 @@ function splitTop(list: string): string[] {
 	return items;
 }
 
+function literal(expression: string): string | null | undefined {
+	const text = expression.trim();
+	if (/^NULL$/i.test(text)) return null;
+	return /^'([^']*)'(?:::text)?$/.exec(text)?.[1];
+}
+
 const initialStates = (m: MachineShape) => [...new Set(m.entries.map((e) => e.to))];
 
 function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string, binding: string): Writer[] {
@@ -164,10 +200,13 @@ function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string, bi
 		if (ts.isPropertyAccessExpression(e)) return inserts(e.expression);
 		return false;
 	};
-	const column = (p: ts.ObjectLiteralElementLike) =>
-		p.name !== undefined &&
-		!ts.isComputedPropertyName(p.name) &&
-		p.name.getText(source).replace(/["']/g, "") === m.column;
+	const named = (p: ts.ObjectLiteralElementLike, c: string) =>
+		p.name !== undefined && !ts.isComputedPropertyName(p.name) && p.name.getText(source).replace(/["']/g, "") === c;
+	const column = (p: ts.ObjectLiteralElementLike) => columnsOf(m).some((c) => named(p, c));
+	const lastNaming = (arg: ts.ObjectLiteralExpression, c: string) =>
+		arg.properties.findLast(
+			(p) => ts.isSpreadAssignment(p) || p.name === undefined || ts.isComputedPropertyName(p.name) || named(p, c),
+		);
 	const names = (arg: ts.Expression) =>
 		!ts.isObjectLiteralExpression(arg) ||
 		arg.properties.some(
@@ -175,26 +214,27 @@ function drizzleWriters(source: ts.SourceFile, m: MachineShape, file: string, bi
 		);
 	const initial = (arg: ts.Expression) => {
 		if (!ts.isObjectLiteralExpression(arg)) return false;
-		const last = arg.properties.findLast(
-			(p) => ts.isSpreadAssignment(p) || p.name === undefined || ts.isComputedPropertyName(p.name) || column(p),
-		);
-		return (
-			last !== undefined &&
-			ts.isPropertyAssignment(last) &&
-			column(last) &&
-			ts.isStringLiteral(last.initializer) &&
-			initialStates(m).includes(last.initializer.text)
-		);
+		const values = new Map<string, string | null>();
+		for (const c of columnsOf(m)) {
+			const last = lastNaming(arg, c);
+			if (last === undefined) continue;
+			if (!ts.isPropertyAssignment(last) || !named(last, c) || !ts.isStringLiteral(last.initializer)) return false;
+			values.set(c, last.initializer.text);
+		}
+		const state = stateFrom(m, values);
+		return state !== null && initialStates(m).includes(state);
 	};
-	const written = (arg: ts.Expression | undefined): string | null => {
-		if (arg === undefined || !ts.isObjectLiteralExpression(arg)) return null;
-		const last = arg.properties.findLast(
-			(p) => ts.isSpreadAssignment(p) || p.name === undefined || ts.isComputedPropertyName(p.name) || column(p),
-		);
-		return last !== undefined && ts.isPropertyAssignment(last) && column(last) ? stringOf(last.initializer) : null;
+	const written = (arg: ts.Expression | undefined): Written[] => {
+		if (arg === undefined || !ts.isObjectLiteralExpression(arg)) return [];
+		return columnsOf(m).flatMap((c) => {
+			const last = lastNaming(arg, c);
+			const value =
+				last !== undefined && ts.isPropertyAssignment(last) && named(last, c) ? stringOf(last.initializer) : null;
+			return value === null ? [] : [{ column: c, value }];
+		});
 	};
-	const filtered = (where: ts.Expression, value: string | null): boolean => {
-		if (!ts.isCallExpression(where)) return false;
+	const filtered = (where: ts.Expression, value: readonly Written[]): boolean => {
+		if (m.product || !ts.isCallExpression(where)) return false;
 		const callee = where.expression.getText(source);
 		if (callee === "and") return where.arguments.some((w) => filtered(w, value));
 		return (
@@ -277,7 +317,8 @@ export function bindingOf(m: MachineShape): string {
 
 export function census(root: string, m: MachineShape, binding = bindingOf(m)): Writer[] {
 	const table = `(?:"?\\w+"?\\.)?"?${escape(m.table)}"?(?![\\w"])`,
-		column = `"?${escape(m.column)}"?`;
+		quoted = (c: string) => `"?${escape(c)}"?`,
+		column = columnsOf(m).map(quoted).join("|");
 	const update = new RegExp(
 		`\\bUPDATE\\s+(?:ONLY\\s+)?${table}(?:\\s+(?:AS\\s+)?(?!SET\\b)\\w+)?\\s+SET\\b([\\s\\S]*?)(?=\\bWHERE\\b|\\bRETURNING\\b|\\bFROM\\b|;|$)`,
 		"gi",
@@ -286,9 +327,17 @@ export function census(root: string, m: MachineShape, binding = bindingOf(m)): W
 		`\\bINSERT\\s+INTO\\s+${table}\\s*(?:\\(([^)]*)\\)\\s*(VALUES\\s*\\(([\\s\\S]*)\\))?)?`,
 		"gi",
 	);
-	const assigns = new RegExp(`^(?:\\w+\\.)?${column}\\s*=`, "i");
+	const assigns = new RegExp(`^(?:\\w+\\.)?(?:${column})\\s*=`, "i");
+	const assignment = (item: string): Written | undefined => {
+		const c = columnsOf(m).find((name) => new RegExp(`^(?:\\w+\\.)?${quoted(name)}\\s*=`, "i").test(item));
+		const value = literal(item.slice(item.indexOf("=") + 1));
+		return c === undefined || value === undefined ? undefined : { column: c, value };
+	};
 	const dynamicColumn = /^\$\d+\s*=/;
-	const filter = new RegExp(`(?<![\\w])(?:\\w+\\.)?${column}\\s*=\\s*ANY\\s*\\(\\s*\\$(\\d+)`, "i");
+	const key = m.product
+		? `concat_ws\\(\\s*'${escape(PRODUCT_SEPARATOR)}'\\s*,\\s*(?:\\w+\\.)?${quoted(m.column)}\\s*,\\s*(?:\\w+\\.)?${quoted(m.product.column)}\\s*\\)`
+		: `(?:\\w+\\.)?${quoted(m.column)}`;
+	const filter = new RegExp(`(?<![\\w])${key}\\s*=\\s*ANY\\s*\\(\\s*\\$(\\d+)`, "i");
 	const prefilter = new RegExp(`\\b(?:UPDATE|INSERT\\s+INTO)\\s+${table}|\\.(?:update|insert)\\(`, "i");
 	const writers: Writer[] = [];
 	for (const file of trackedFiles(root)) {
@@ -308,34 +357,46 @@ export function census(root: string, m: MachineShape, binding = bindingOf(m)): W
 					writers.push({ file, line, statement: "update", guard: null });
 					continue;
 				}
-				const assignment = items.find((item) => assigns.test(item));
-				if (assignment === undefined) continue;
+				const assigned = items.filter((item) => assigns.test(item));
+				if (!assigned.length) continue;
+				const written = assigned.flatMap((item) => assignment(item) ?? []);
 				if (sqlFile) {
-					const to = /=\s*'([^']*)'\s*$/.exec(assignment)?.[1];
-					writers.push({ file, line, statement: "update", guard: functionGuard(m, text, u.index, to) });
+					const own = assigned.length === 1 ? written.find((w) => w.column === m.column)?.value : undefined;
+					writers.push({ file, line, statement: "update", guard: functionGuard(m, text, u.index, own ?? undefined) });
 					continue;
 				}
 				const f = filter.exec(lit.text.slice(u.index, statementEnd(lit.text, u.index)));
-				const value = /=\s*'([^']*)'\s*$/.exec(assignment)?.[1] ?? null;
-				const guarded = f !== null && fits(m, lit.guarded[Number(f[1])], "fromStates", value);
+				const guarded = f !== null && fits(m, lit.guarded[Number(f[1])], "fromStates", written);
 				writers.push({ file, line, statement: "update", guard: guarded ? "from-state filter" : null });
 			}
 			for (const i of lit.text.matchAll(insert)) {
 				const line = lineOf(lit, i.index);
 				if (i[1] === undefined) {
 					const f = filter.exec(lit.text.slice(i.index, statementEnd(lit.text, i.index)));
-					const copied = !sqlFile && f !== null && fits(m, lit.guarded[Number(f[1])], "entryStates", null);
+					const copied = !sqlFile && f !== null && fits(m, lit.guarded[Number(f[1])], "entryStates", []);
 					writers.push({ file, line, statement: "insert", guard: copied ? "entry-state filter" : null });
 					continue;
 				}
 				const columns = splitTop(i[1]).map((c) => c.replace(/"/g, "").toLowerCase());
-				const at = columns.indexOf(m.column.toLowerCase());
-				if (at < 0) continue;
-				const value = i[3] === undefined ? undefined : splitTop(i[3])[at];
-				const initial =
-					!sqlFile &&
-					value !== undefined &&
-					initialStates(m).some((to) => new RegExp(`^'${escape(to)}'(?:::text)?$`).test(value));
+				if (!columnsOf(m).some((c) => columns.includes(c.toLowerCase()))) continue;
+				const after = i.index + i[0].length;
+				const select = /^\s*SELECT\b/i.exec(lit.text.slice(after));
+				const values =
+					i[3] !== undefined
+						? splitTop(i[3])
+						: select
+							? splitTop(selectList(lit.text, after + select[0].length))
+							: undefined;
+				const named = new Map(
+					columnsOf(m).map((c) => {
+						const at = columns.indexOf(c.toLowerCase());
+						return [c, at < 0 ? null : values?.[at] === undefined ? undefined : literal(values[at]!)] as const;
+					}),
+				);
+				const state = [...named.values()].includes(undefined)
+					? null
+					: stateFrom(m, named as ReadonlyMap<string, string | null>);
+				const initial = !sqlFile && state !== null && initialStates(m).includes(state);
 				writers.push({ file, line, statement: "insert", guard: initial ? "initial state" : null });
 			}
 		}
@@ -347,6 +408,9 @@ export function census(root: string, m: MachineShape, binding = bindingOf(m)): W
 	}
 	return writers.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
 }
+
+const keyText = (m: MachineShape) =>
+	m.product ? `concat_ws('${PRODUCT_SEPARATOR}',${m.column},${m.product.column})` : m.column;
 
 const title = (id: string) => id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, " ");
 const code = (text: string) => `\`${text}\``;
@@ -363,8 +427,23 @@ export function render(m: MachineShape, writers: readonly Writer[]): string {
 		"`node tools/ci/machines.ts --check` fails when this page differs from the table, and when the writer census below",
 		"finds a write of the column that does not carry the machine's guard.",
 		"",
-		`- Column: ${code(`${m.table}.${m.column}`)}`,
-		`- States: ${list(m.states)}`,
+		...(m.product
+			? [
+					`- Columns: ${code(`${m.table}.${m.column}`)} and ${code(`${m.table}.${m.product.column}`)}. A state is one pair the code allows, named ${code(`concat_ws('${PRODUCT_SEPARATOR}', ${m.column}, ${m.product.column})`)}:`,
+					"",
+					`| State | ${m.column} | ${m.product.column} |`,
+					"|---|---|---|",
+					...m.states.map(
+						(state) =>
+							`| ${code(state)} | ${part(m, state, m.column) ?? "NULL"} | ${part(m, state, m.product!.column) ?? "NULL"} |`,
+					),
+					"",
+					"- Every other pair is a state the code never writes.",
+				]
+			: [`- Column: ${code(`${m.table}.${m.column}`)}`, `- States: ${list(m.states)}`]),
+		...(m.unwritten?.length
+			? [`- States no product code writes (the schema and readers allow them): ${list(m.unwritten)}`]
+			: []),
 		`- Subjects the guards tell apart: ${list(Object.keys(m.subjects))}`,
 		...(m.facts?.length ? [`- Guards that describe the moment, not the subject: ${list(m.facts)}`] : []),
 		`- Refusal for every move the chart does not show: ${code(m.refusal)}`,
@@ -411,7 +490,7 @@ export function render(m: MachineShape, writers: readonly Writer[]): string {
 		"`SET ${…}` on the table, Drizzle `update`/`insert`/`onConflictDoUpdate` calls (a table or query held in a",
 		"`const` of the same file is followed), and `.sql` files. A statement ends at its `;` or at the parenthesis",
 		"that closes its CTE, so a guard elsewhere in the same SQL text does not count. A guarded UPDATE filters on",
-		`\`${m.column} = ANY(\${fromStates(${bindingOf(m)}, …)})\` inside its own statement, or a Drizzle update on`,
+		`\`${keyText(m)} = ANY(\${fromStates(${bindingOf(m)}, …)})\` inside its own statement, or a Drizzle update on`,
 		`\`inArray(<table>.${m.column}, fromStates(${bindingOf(m)}, …))\` in its \`where\` (alone or inside \`and\`). When`,
 		"the guard names its event or target as a string literal, or the write sets the state as a literal, the event",
 		"must have a move to that state and the two targets must agree. A guarded INSERT writes an initial state as a",
@@ -423,6 +502,15 @@ export function render(m: MachineShape, writers: readonly Writer[]): string {
 		"that edge's from-states, only when it writes that edge's target as a literal, and only when its `WHERE` is",
 		"`id = <the id the lock read>`. A column name or statement start built at runtime, or a Drizzle object that is",
 		"not a literal, counts as an unguarded writer.",
+		...(m.product
+			? [
+					"",
+					`This machine spans two columns, so a write of either one is a writer. A literal written to one column must fit`,
+					"the guard's target state. A guarded INSERT names each column as a literal or leaves it out (NULL), in `VALUES`",
+					"or in its `SELECT` list, and the pair is an initial state. A Drizzle update cannot filter on the pair, so any",
+					"Drizzle update of either column is unguarded, and so is any write of the second column in a `.sql` file.",
+				]
+			: []),
 		"",
 		"It cannot see: a SET fragment passed in from another file; SQL text assembled from variables that hold no",
 		"literal naming the table; a table or query handed through a parameter, a `let` or another file; whether an",
@@ -516,7 +604,7 @@ export function schemaColumns(root: string, base?: string) {
 
 export function checkStateColumns(root: string, base: string): string[] {
 	const { head, before } = schemaColumns(root, base);
-	const covered = new Set(machines.map((m) => `${m.table}.${m.column}`));
+	const covered = new Set(machines.flatMap((m) => columnsOf(m).map((c) => `${m.table}.${c}`)));
 	const problems: string[] = [];
 	for (const [key, values] of head) {
 		const [table, column] = key.split(".") as [string, string];
@@ -545,6 +633,9 @@ export function checkMachines(root: string, write = false): string[] {
 					`${w.file}:${w.line}: ${w.statement} writes ${m.table}.${m.column} outside the ${m.id} machine's guard.`,
 				);
 		for (const s of unreachableStates(m)) problems.push(`${m.id}: state ${s} has no incoming edge.`);
+		for (const s of m.unwritten ?? [])
+			if ([...m.entries, ...m.transitions.filter((t) => t.from !== t.to)].some((t) => t.to === s))
+				problems.push(`${m.id}: state ${s} is declared unwritten but has an incoming edge.`);
 		if (!existsSync(join(root, m.proof))) problems.push(`${m.id}: proof test ${m.proof} does not exist.`);
 		const expected = render(m, writers),
 			path = join(root, page(m));
