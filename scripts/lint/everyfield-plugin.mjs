@@ -126,6 +126,52 @@ const pureModule = {
 	},
 };
 
+const RUNTIME_MODULES =
+	/^(?:react|react-dom|next|server-only|client-only|zustand|@everyfield\/db|node:)(?:\/|$)|^node:/;
+const RUNTIME_GLOBALS = new Set([
+	"window",
+	"document",
+	"navigator",
+	"localStorage",
+	"sessionStorage",
+	"process",
+	"fetch",
+]);
+const CLOCK_CALLS = new Set(["Date.now", "performance.now"]);
+
+const modelModule = {
+	meta: { type: "problem" },
+	create(context) {
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `A model module is pure: it takes the clock, the browser and the server as arguments and imports none of them. Remove the ${what}.`,
+			});
+		return {
+			...moduleSources((node, name) => {
+				if (RUNTIME_MODULES.test(name) && !(node.type === "ImportDeclaration" && typeOnly(node)))
+					report(node, `import of ${name}`);
+			}),
+			ExpressionStatement: (node) =>
+				typeof node.directive === "string" && node.directive.startsWith("use ") && report(node, `"${node.directive}"`),
+			NewExpression: (node) =>
+				node.callee.type === "Identifier" &&
+				node.callee.name === "Date" &&
+				node.arguments.length === 0 &&
+				report(node, "clock read (new Date())"),
+			CallExpression: (node) => {
+				const callee = node.callee;
+				const name =
+					callee.type === "MemberExpression" && callee.object.type === "Identifier" && !callee.computed
+						? `${callee.object.name}.${callee.property.name}`
+						: null;
+				if (CLOCK_CALLS.has(name)) report(node, `clock read (${name}())`);
+			},
+			Identifier: (node) => RUNTIME_GLOBALS.has(node.name) && isReference(node) && report(node, `use of ${node.name}`),
+		};
+	},
+};
+
 const EFFECT_HOOKS = new Set(["useEffect", "useLayoutEffect", "useInsertionEffect"]);
 const STATE_HOOKS = new Set(["useState", "useReducer"]);
 const MAX_STATE = 4;
@@ -1238,6 +1284,7 @@ export default {
 		"resend-senders": resendSenders,
 		"private-care-scope": privateCareScope,
 		"pure-module": pureModule,
+		"model-module": modelModule,
 		"no-inner-html": noInnerHtml,
 		"no-effects": noEffects,
 		"max-state": maxState,
