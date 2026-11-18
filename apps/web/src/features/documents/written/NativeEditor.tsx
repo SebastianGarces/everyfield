@@ -26,14 +26,7 @@ import { EditorContent, EditorContext, useEditor, useEditorState } from "@tiptap
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { writeAddress } from "../../../components/location.ts";
-import {
-	armLeaveHold,
-	leaveHoldMark,
-	leavePage,
-	leaveRequestNow,
-	SAVE_SHORTCUT,
-	shortcutMark,
-} from "../../../components/save/leave.ts";
+import { armLeaveHold, leaveHoldMark, leaveNow, SAVE_SHORTCUT, shortcutMark } from "../../../components/save/leave.ts";
 import { useLocalStore, useStore } from "../../../components/store.ts";
 import { archiveOwnedDocument, designateOwnedDocument, saveOwnedDocument, type DocumentOutcome } from "../actions.ts";
 import "../church/editor/editor.css";
@@ -126,8 +119,7 @@ export default function NativeEditor({
 	const save = useCallback(async () => (editor ? actions.save(editor) : false), [editor, actions]);
 	const editorContext = useMemo(() => ({ editor }), [editor]);
 	function reload() {
-		leavePage(() => window.location.reload());
-		leaveRequestNow()?.leave();
+		leaveNow(() => window.location.reload());
 	}
 
 	async function archive() {
