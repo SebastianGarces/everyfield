@@ -105,13 +105,35 @@ const tableWriters = {
 			for (const [, table] of value?.matchAll(INSERT_INTO) ?? [])
 				if (Object.hasOwn(TABLE_WRITERS, table.toLowerCase())) report(node, table.toLowerCase());
 		};
+		const aliases = new Map();
+		const tableOf = (node) =>
+			node?.type === "Identifier"
+				? aliases.get(node.name)
+				: node?.type === "MemberExpression" && Object.hasOwn(TABLE_WRITERS, memberName(node))
+					? memberName(node)
+					: undefined;
+		const bind = (id, table) => {
+			if (id?.type === "Identifier" && table) aliases.set(id.name, table);
+		};
 		return {
 			Literal: (node) => check(text(node), node),
 			TemplateElement: (node) => check(text(node), node),
+			ImportSpecifier: (node) => {
+				const imported = nameOf(node.imported);
+				if (Object.hasOwn(TABLE_WRITERS, imported)) bind(node.local, imported);
+			},
+			VariableDeclarator: (node) => {
+				if (node.id.type === "Identifier") bind(node.id, tableOf(node.init));
+				if (node.id.type !== "ObjectPattern") return;
+				for (const p of node.id.properties) {
+					const key = p.type === "Property" ? keyName(p.key, p.computed) : null;
+					if (Object.hasOwn(TABLE_WRITERS, key))
+						bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, key);
+				}
+			},
 			CallExpression: (node) => {
-				const table = node.arguments[0];
-				const name = table?.type === "MemberExpression" ? memberName(table) : null;
-				if (memberName(node.callee) === "insert" && Object.hasOwn(TABLE_WRITERS, name)) report(node, name);
+				const table = tableOf(node.arguments[0]);
+				if (memberName(node.callee) === "insert" && table) report(node, table);
 			},
 		};
 	},
