@@ -96,6 +96,56 @@ const noInnerHtml = {
 	},
 };
 
+const paramNamed = (fn, name) => fn.params?.[0]?.type === "Identifier" && fn.params[0].name === name;
+const narrowsToError = (test, name) =>
+	test?.type === "BinaryExpression" &&
+	test.operator === "instanceof" &&
+	test.left.type === "Identifier" &&
+	test.left.name === name;
+const knownError = (node, name) => {
+	for (let at = node, child = null; at; child = at, at = at.parent) {
+		if (at.type === "CatchClause" && at.param?.type === "Identifier" && at.param.name === name) return true;
+		if (at.type === "LogicalExpression" && at.operator === "&&" && at.right === child && narrowsToError(at.left, name))
+			return true;
+		if (
+			(at.type === "ArrowFunctionExpression" || at.type === "FunctionExpression") &&
+			paramNamed(at, name) &&
+			at.parent?.type === "CallExpression" &&
+			at.parent.callee.type === "MemberExpression" &&
+			at.parent.callee.property.name === "catch"
+		)
+			return true;
+	}
+	return false;
+};
+const errorMessage = (node) =>
+	node?.type === "MemberExpression" &&
+	!node.computed &&
+	node.property.name === "message" &&
+	node.object.type === "Identifier" &&
+	knownError(node, node.object.name);
+const EQUALITY = new Set(["==", "===", "!=", "!=="]);
+const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith"]);
+
+const noErrorMessageMatch = {
+	meta: { type: "problem" },
+	create(context) {
+		const message =
+			"Never recognise an error by its message text: throw an error class with a typed code and test it with instanceof and .code.";
+		return {
+			BinaryExpression: (node) => {
+				if (EQUALITY.has(node.operator) && (errorMessage(node.left) || errorMessage(node.right)))
+					context.report({ node, message });
+			},
+			CallExpression: (node) => {
+				const callee = node.callee;
+				if (callee.type !== "MemberExpression" || callee.computed || !TEXT_MATCH.has(callee.property.name)) return;
+				if (errorMessage(callee.object) || node.arguments.some(errorMessage)) context.report({ node, message });
+			},
+		};
+	},
+};
+
 const IMPURE_GLOBALS = new Set(["process", "fetch", "Date", "require"]);
 const typeOnly = (node) =>
 	node.importKind === "type" || (node.specifiers.length > 0 && node.specifiers.every((s) => s.importKind === "type"));
@@ -1252,5 +1302,6 @@ export default {
 		"no-render-writes": noRenderWrites,
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
+		"no-error-message-match": noErrorMessageMatch,
 	},
 };

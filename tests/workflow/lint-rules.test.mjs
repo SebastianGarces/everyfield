@@ -1006,6 +1006,26 @@ test("INV-lint: the base tree is linted at its real path, so path exemptions hol
 	);
 });
 
+test("INV-lint: product code that recognises a caught error by its message text is reported", () => {
+	const source = `export function f(error: unknown, p: Promise<void>) {
+	if (error instanceof Error && error.message === "unavailable") return 1;
+	try {
+		return 2;
+	} catch (e) {
+		if (["invalid_file"].includes(e.message)) return 3;
+	}
+	p.catch((err) => err.message.startsWith("stale"));
+	const parsed = { message: "x" };
+	return parsed.message === "x" && error instanceof Error && error.message;
+}
+`;
+	assert.deepEqual(lint({ "packages/domain/src/m.ts": source, "tests/unit/m.test.mts": source }), [
+		"packages/domain/src/m.ts:2 no-error-message-match",
+		"packages/domain/src/m.ts:6 no-error-message-match",
+		"packages/domain/src/m.ts:8 no-error-message-match",
+	]);
+});
+
 test("INV-lint: comments inside SQL templates and query strings are reported, a listed marker is not", () => {
 	const source = `import { sql as q } from "drizzle-orm";
 export const sql = (s: TemplateStringsArray, ...v: unknown[]) => [s, v];
