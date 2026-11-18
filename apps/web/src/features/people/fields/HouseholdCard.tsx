@@ -271,7 +271,7 @@ export function HouseholdCard({
 										</PersonLink>
 									)}
 								</span>
-								<Tag className="h-[22px] px-2 text-xs">{ROLE_LABEL[m.role]}</Tag>
+								<Tag className="text-xs">{ROLE_LABEL[m.role]}</Tag>
 							</li>
 						))}
 					</ul>
@@ -410,7 +410,7 @@ export function HouseholdCard({
 
 function Header({ description, action }: { description?: string; action?: React.ReactNode }) {
 	return (
-		<CardHeader className="mb-2">
+		<CardHeader>
 			<CardHeading>
 				<CardTitle size="sm">Household</CardTitle>
 				{description ? <CardDescription>{description}</CardDescription> : null}

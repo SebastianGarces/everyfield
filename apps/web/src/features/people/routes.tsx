@@ -157,12 +157,12 @@ export function PeopleLoading() {
 			<span className="sr-only" role="status">
 				Loading people
 			</span>
-			<Skeleton className="h-14 w-60 rounded-card" />
+			<Skeleton className="h-14 w-60" />
 			<Card className="gap-4">
 				<div className="flex flex-wrap gap-3">
-					<Skeleton className="h-11 w-[320px] max-w-full rounded-card" />
-					<Skeleton className="h-11 w-28 rounded-card" />
-					<Skeleton className="h-11 w-28 rounded-card" />
+					<Skeleton className="h-11 w-[320px] max-w-full" />
+					<Skeleton className="h-11 w-28" />
+					<Skeleton className="h-11 w-28" />
 				</div>
 				<TableSkeleton rows={6} />
 			</Card>

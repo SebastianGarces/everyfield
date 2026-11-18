@@ -529,7 +529,10 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 								{leaderNote ? <CardDescription>{leaderNote}</CardDescription> : null}
 							</CardHeading>
 						</CardHeader>
-						<LeaderLine name={t.leaderPersonId ? (t.leaderName ?? "Leader") : null} className="text-md" />
+						<LeaderLine
+							name={t.leaderPersonId ? (t.leaderName ?? "Leader") : null}
+							className="text-md leading-(--text-sm--line-height)"
+						/>
 						{!t.leaderPersonId ? (
 							<p className="mt-2 text-sm text-text-2">
 								Appoint someone, or fill a leadership role. The first person in a leadership role leads until someone is
@@ -906,7 +909,7 @@ function RoleSlot({
 			{r.occupantName ? (
 				<Avatar name={r.occupantName} size="sm" decorative />
 			) : (
-				<Avatar name="" size="sm" decorative className="bg-surface shadow-none">
+				<Avatar name="" size="sm" decorative className="shadow-none">
 					<Icon icon={UserAdd01Icon} size={16} className="text-text-3" />
 				</Avatar>
 			)}

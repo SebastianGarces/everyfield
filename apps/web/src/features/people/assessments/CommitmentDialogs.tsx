@@ -248,9 +248,9 @@ function WitnessField({
 				}}
 				className="flex-wrap gap-x-6"
 			>
-				<Radio value="none" label="No witness" className="py-1.5" />
-				<Radio value="person" label="Someone in your church" className="py-1.5" />
-				<Radio value="external" label="Someone else" className="py-1.5" />
+				<Radio value="none" label="No witness" />
+				<Radio value="person" label="Someone in your church" />
+				<Radio value="external" label="Someone else" />
 			</RadioGroup>
 			{value.kind === "person" ? (
 				<WitnessPicker
@@ -343,10 +343,10 @@ function WitnessPicker({
 							const p = options.find((o) => o.id === id);
 							if (p) onChange({ id: p.id, name: p.name });
 						}}
-						className="gap-0"
+						className="gap-y-0"
 					>
 						{options.map((p) => (
-							<Radio key={p.id} value={p.id} label={p.name} description={p.detail || undefined} className="py-2" />
+							<Radio key={p.id} value={p.id} label={p.name} description={p.detail || undefined} />
 						))}
 					</RadioGroup>
 				)}

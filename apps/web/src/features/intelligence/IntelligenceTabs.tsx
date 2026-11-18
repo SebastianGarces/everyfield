@@ -13,7 +13,7 @@ export function IntelligenceTabs({ current, count }: { current: View; count?: nu
 	const tab = (active: boolean) =>
 		cn(
 			"inline-flex items-center gap-2 rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] max-app-sm:px-2.5",
-			active && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
+			active && "bg-surface-raised shadow-[var(--ef-shadow-raised)]",
 		);
 	return (
 		<nav
