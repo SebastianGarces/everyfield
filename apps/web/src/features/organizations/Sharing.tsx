@@ -6,7 +6,7 @@ import { LoadableView, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useState } from "react";
 import type { z } from "zod";
 import { NotAvailable } from "../access/AccessStates";
-import { useIntent, useLoad } from "./intent";
+import { useIntent, useLoad } from "../../components/intent.ts";
 import { CATEGORIES, CATEGORY_TEXT } from "./model";
 import { ProblemLine } from "./parts";
 import type { Category, Relationship } from "./port";
