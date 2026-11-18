@@ -38,10 +38,12 @@ export function checkCiTests(root: string): void {
 		visited = new Set<string>();
 	const run = (file: string, label: string) => (runs.get(file) ?? runs.set(file, new Set()).get(file)!).add(label);
 	function follow(command: string, pkg: Package, label: string, matrix: Record<string, string[]> = {}): void {
-		for (const part of command.split(/\s*(?:&&|\|\||;|\n)\s*/)) {
+		for (const part of command.replace(/\\\n\s*/g, " ").split(/\s*(?:&&|\|\||;|\n)\s*/)) {
 			const tokens = (part.match(/"[^"]*"|'[^']*'|[^\s]+/g) ?? []).map((t) => t.replace(/^(['"])(.*)\1$/, "$2"));
 			if (tokens[0] === "corepack") tokens.shift();
-			if (tokens[0] === "pnpm") {
+			if (tokens[0] === "node" && tokens[1] === "tools/ci/parallel.ts") {
+				for (const arg of tokens.slice(2)) follow(arg.slice(arg.indexOf("=") + 1), pkg, label, matrix);
+			} else if (tokens[0] === "pnpm") {
 				const args = tokens.slice(1);
 				const filterAt = args.indexOf("--filter"),
 					filter = filterAt < 0 ? undefined : args.splice(filterAt, 2)[1];

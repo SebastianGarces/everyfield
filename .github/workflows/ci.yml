@@ -26,22 +26,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 2
-      - name: Shared setup (Node, pnpm, node_modules)
-        uses: ./.github/actions/setup
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Formatting (Prettier)
-        run: pnpm format:check
-      - name: Lint (Oxlint, ESLint, lint baselines against main, image locks, colour literals)
-        run: pnpm lint
-      - name: Lint rules stay on, cover every file and only shrink their baselines
-        run: node scripts/lint/check-comments.mjs
-      - name: Types
-        run: pnpm typecheck
-      - name: Server log privacy (next dev with synthetic passwords)
-        run: pnpm test:logs
-        env:
-          NEXT_TELEMETRY_DISABLED: "1"
       - name: LibreOffice packages from the cache (the runner's Ubuntu mirror can be slow)
         id: libreoffice-debs
         uses: actions/cache/restore@v6
@@ -49,19 +33,35 @@ jobs:
           path: ~/libreoffice-debs
           key: libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2
           restore-keys: libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2-
-      - name: LibreOffice, with apt's archive cache in the restored directory so only packages it lacks come from the mirror
+      - name: LibreOffice and the documents fonts start installing in the background, while setup and the static checks run
+        run: |
+          (set +e; bash tools/ci/libreoffice.sh > "$RUNNER_TEMP/libreoffice.log" 2>&1; echo $? > "$RUNNER_TEMP/libreoffice.status") < /dev/null > /dev/null 2>&1 &
+          echo $! > "$RUNNER_TEMP/libreoffice.pid"
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Prettier, lint, lint rule coverage, types and server log privacy at once (each line names its command)
+        run: |
+          node tools/ci/parallel.ts \
+            "prettier=pnpm format:check" \
+            "lint=pnpm lint" \
+            "lint-rules=node scripts/lint/check-comments.mjs" \
+            "types=pnpm typecheck" \
+            "logs=pnpm test:logs"
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+      - name: LibreOffice and the fonts installed (waits for the background install and prints its log)
         id: libreoffice
         run: |
+          tail --pid="$(cat "$RUNNER_TEMP/libreoffice.pid")" -f /dev/null
+          cat "$RUNNER_TEMP/libreoffice.log"
+          status=$(cat "$RUNNER_TEMP/libreoffice.status" 2>/dev/null || echo "missing")
+          if [ "$status" != 0 ]; then
+            echo "::error::The background LibreOffice install failed (exit $status); its log is above."
+            exit 1
+          fi
           debs="$HOME/libreoffice-debs"
-          mkdir -p "$debs/partial"
-          apt_cache=(-o "Dir::Cache::Archives=$debs" -o APT::Keep-Downloaded-Packages=true -o APT::Sandbox::User=root)
-          echo "Restored $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) cached packages."
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends "${apt_cache[@]}" libreoffice-writer libreoffice-calc
-          sudo apt-get "${apt_cache[@]}" autoclean
-          sudo rm -rf "$debs/partial" "$debs/lock"
-          sudo chown -R "$(id -u):$(id -g)" "$debs"
-          echo "Caching $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) packages, $(du -sh "$debs" | cut -f1)."
           echo "key=libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2-$(find "$debs" -maxdepth 1 -name '*.deb' -printf '%f\n' | sort | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
       - name: LibreOffice packages saved to the cache (only when this run's set differs from the restored one)
         if: ${{ steps.libreoffice.outputs.key != steps.libreoffice-debs.outputs.cache-matched-key }}
@@ -69,12 +69,6 @@ jobs:
         with:
           path: ~/libreoffice-debs
           key: ${{ steps.libreoffice.outputs.key }}
-      - name: The upright DM Sans fonts for the documents tests, and the LibreOffice version
-        run: |
-          sudo mkdir -p /usr/local/share/fonts/everyfield
-          sudo cp packages/domain/src/documents/fonts/DMSans-{Regular,Medium,Bold}.ttf packages/domain/src/documents/fonts/DMSerifDisplay-Regular.ttf /usr/local/share/fonts/everyfield/
-          fc-cache -f
-          soffice --version
       - name: Package unit tests (each package's test:unit, no database or network)
         run: corepack pnpm -r --if-present test:unit
         env:
