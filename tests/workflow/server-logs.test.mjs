@@ -63,6 +63,9 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 		response.writeHead(200, { "content-type": "font/woff2" }).end();
 	});
 	await new Promise((r) => fonts.listen(0, "127.0.0.1", r));
+	const offline = createServer((socket) => socket.destroy());
+	await new Promise((r) => offline.listen(0, "127.0.0.1", r));
+	const proxy = `http://127.0.0.1:${offline.address().port}`;
 	const dir = mkdtempSync(join(tmpdir(), "server-logs-"));
 	const mockFile = join(dir, "google-fonts.cjs");
 	writeFileSync(
@@ -91,6 +94,13 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 			NODE_ENV: "development",
 			NEXT_TELEMETRY_DISABLED: "1",
 			NEXT_FONT_GOOGLE_MOCKED_RESPONSES: mockFile,
+			NODE_USE_ENV_PROXY: "1",
+			HTTP_PROXY: proxy,
+			HTTPS_PROXY: proxy,
+			http_proxy: proxy,
+			https_proxy: proxy,
+			NO_PROXY: "127.0.0.1,localhost,::1",
+			no_proxy: "127.0.0.1,localhost,::1",
 			PORT: String(port),
 		},
 		stdio: ["ignore", "pipe", "pipe"],
@@ -153,6 +163,7 @@ test("BUG-PR199: the dev server log never shows a password sent to a server acti
 		stop();
 		watcher.kill();
 		fonts.close();
+		offline.close();
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
