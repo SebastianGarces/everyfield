@@ -39,7 +39,16 @@ http.createServer = function (...args) {
 		args[at] = function (request, response) {
 			const name = request.headers["x-evf-request"];
 			if (typeof name !== "string") return handle.call(this, request, response);
-			const row = { kind: "sample", name, count: 0, writes: 0, rollbacks: 0, connects: 0, kinds: {}, shapes: new Map() };
+			const row = {
+				kind: "sample",
+				name,
+				count: 0,
+				writes: 0,
+				rollbacks: 0,
+				connects: 0,
+				kinds: {},
+				shapes: new Map(),
+			};
 			response.once("finish", () => {
 				const { shapes, ...counts } = row;
 				const repeats = repeatedShapes(shapes);

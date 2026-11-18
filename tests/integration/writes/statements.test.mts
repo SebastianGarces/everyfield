@@ -182,7 +182,10 @@ test(
 		const limits = { "census.overBudget": { limit: 2 }, "census.perRow": { limit: 6 }, "census.batched": { limit: 1 } };
 		const perRow =
 			"census.perRow: N+1, sends the same statement 3 times in one run: INSERT INTO census_note (id, body) VALUES (?); batch it into one set-based statement, or give limits.json a repeats reason";
-		assert.deepEqual(checkSamples(rows, limits), ["census.overBudget: 3 statements, limit 2 (2 read, 1 write)", perRow]);
+		assert.deepEqual(checkSamples(rows, limits), [
+			"census.overBudget: 3 statements, limit 2 (2 read, 1 write)",
+			perRow,
+		]);
 		assert.deepEqual(
 			rows.map((row) => [row.name, row.count]),
 			[
