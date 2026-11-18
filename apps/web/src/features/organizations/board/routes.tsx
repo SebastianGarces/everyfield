@@ -1,9 +1,4 @@
-import {
-	loadPipelineBoard,
-	loadPipelineGoals,
-	loadPipelinePerson,
-	pipelineActor,
-} from "@/server/organizations/pipeline";
+import { loadPipelineBoard, loadPipelineGoals, loadPipelinePerson, pipelineActor } from "../pipeline-mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
