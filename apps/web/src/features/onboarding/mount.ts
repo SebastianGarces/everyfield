@@ -1,14 +1,14 @@
-import { sendOnboardingRelationships } from "../jobs/notifications";
+import { sendOnboardingRelationships } from "../../server/jobs/notifications";
 import "server-only";
 import { z } from "zod";
-import { mailEnv } from "../mail-env.ts";
+import { mailEnv } from "../../server/mail-env.ts";
 import type { Database } from "@everyfield/db/client";
-import { database } from "../database";
+import { database } from "../../server/database";
 import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/server";
 import { createOnboardingProducer, withOnboardingWrite, readOnboardingEntry } from "@everyfield/domain/onboarding";
-import { getViewer } from "../request-context";
-import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
+import { getViewer } from "../../server/request-context";
+import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../../server/jobs/mail";
 
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
 type Reply = { status: "ok"; value: unknown } | { status: "refused"; error: z.infer<typeof c.onboardingError> };
