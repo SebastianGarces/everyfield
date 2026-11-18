@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { onboardingCommand, onboardingEntry, type Op } from "@/server/onboarding";
+import { onboardingCommand, onboardingEntry, type Op } from "./mount";
 
 export async function loadOnboardingEntry() {
 	return onboardingEntry();

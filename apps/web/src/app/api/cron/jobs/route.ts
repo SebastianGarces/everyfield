@@ -6,7 +6,7 @@ import { tasksMount } from "@/features/tasks/mount";
 import { runDueInvitationMail } from "@/server/invitations";
 import { identityMailPass } from "@/server/identity";
 import { organizationMailPass } from "@/features/organizations/mount";
-import { onboardingMailPass } from "@/server/onboarding";
+import { onboardingMailPass } from "@/features/onboarding/mount";
 import { settingsMailPass } from "@/features/settings/mail";
 import { feedbackMailPass } from "@/features/feedback/mail";
 import { feedbackPublicationMount } from "@/features/feedback/publication";
