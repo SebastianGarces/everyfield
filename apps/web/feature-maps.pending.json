@@ -3,7 +3,6 @@
 	"routes": [
 		"/",
 		"/access",
-		"/api/cron/jobs",
 		"/apple-icon",
 		"/design/controls",
 		"/design/display",

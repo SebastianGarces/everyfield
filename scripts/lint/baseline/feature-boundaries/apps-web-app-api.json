@@ -1,18 +1,4 @@
 {
 	"apps/web/src/app/api/cron/jobs/route.ts": 1,
-	"apps/web/src/app/api/evry/catalog/route.ts": 1,
-	"apps/web/src/app/api/evry/conversations/[id]/cancel/route.ts": 1,
-	"apps/web/src/app/api/evry/conversations/[id]/retry/route.ts": 1,
-	"apps/web/src/app/api/evry/conversations/[id]/route.ts": 1,
-	"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": 1,
-	"apps/web/src/app/api/evry/conversations/[id]/turns/route.ts": 1,
-	"apps/web/src/app/api/evry/conversations/route.ts": 2,
-	"apps/web/src/app/api/evry/open/route.ts": 1,
-	"apps/web/src/app/api/evry/proposals/[id]/approve/route.ts": 1,
-	"apps/web/src/app/api/evry/proposals/[id]/cancel/route.ts": 1,
-	"apps/web/src/app/api/evry/proposals/[id]/check/route.ts": 1,
-	"apps/web/src/app/api/evry/proposals/[id]/photo/route.ts": 1,
-	"apps/web/src/app/api/evry/proposals/[id]/retry/route.ts": 1,
-	"apps/web/src/app/api/evry/proposals/[id]/revise/route.ts": 1,
-	"apps/web/src/app/api/evry/proposals/[id]/route.ts": 1
+	"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": 1
 }

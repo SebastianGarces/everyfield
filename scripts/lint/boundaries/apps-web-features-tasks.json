@@ -5,6 +5,7 @@
 		"fetch.ts": "assigneeOptions, the client fetch follow-ups reuse",
 		"fresh.tsx": "Fresh and outcomeSaved, which follow-ups use for the tasks they create",
 		"model.ts": "task due, owner and warning texts that follow-ups and meetings show",
+		"mount.ts": "tasksMount, the task writer that follow-ups, meetings, people, seats, Evry and the cron route call",
 		"parts.tsx": "DoneBox, which the launch screen shows",
 		"server.ts": "taskViewer, the task server entry follow-ups use"
 	}

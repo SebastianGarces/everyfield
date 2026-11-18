@@ -24,7 +24,7 @@ import { peopleReader, peopleWriter } from "../../../packages/domain/src/people/
 import { PeopleReadContext } from "../../../packages/domain/src/people/core.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { ok, refused } from "../../support/fixture.mts";
 
 let f, followups, tasks, reminders;
