@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
-import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
+import { runDueImports } from "../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import {
 	executeBulkImport,
 	listDuplicatePairs,
