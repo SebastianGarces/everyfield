@@ -43,6 +43,9 @@ wrong or missing. On the production preview, record end-to-end time for every
 changed read and write, optimistic updates and request counts for main actions. Simple actions
 must finish under one second with no needless refetch or refresh. Reports and analytics may
 exceed the budget only with a named exception. Explain when checks do not apply.
+For a diff that touches backend or database code, confirm the `census` entry of the full-check record passed; an
+over-budget query or an N+1 there is a change request. A new `repeats` or `reason` in `limits.json` needs a cause you
+agree with, and a `limits.json` the census tightened belongs in the same PR.
 
 Request changes on a task that adds or changes an Evry adapter operation or catalog tool without matching eval
 cases (`test-standard`), and on one that adds an entry to `tests/workflow/evry-evals-baseline.json`.
