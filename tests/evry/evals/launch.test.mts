@@ -29,7 +29,7 @@ import { transaction } from "../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { seatedNotificationService } from "../../../apps/web/src/server/jobs/seated-notifications.ts";
-import { launchNotices } from "../../../apps/web/src/server/launch/notices.ts";
+import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
 import { ACTOR_SPECS, evalDatabase, PLANT, seedHope } from "./golden-church.mts";
 import {
 	authorityOf,

@@ -1,4 +1,4 @@
-import { deliveryTransport } from "../../../apps/web/src/features/communication/mail.ts";
+import { deliveryTransport } from "../../../apps/web/src/server/mail/transport.ts";
 
 export type Recorded = { method: string; path: string; idempotencyKey: string | null; body: unknown };
 type Held = { id: string; to: string; scheduledAt: string | null; lastEvent: string };
