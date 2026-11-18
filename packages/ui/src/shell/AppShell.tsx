@@ -149,6 +149,7 @@ function Topbar({
 						title={actions.onAskEvry ? undefined : "Evry is off on this page"}
 						aria-keyshortcuts={actions.onAskEvry ? (actions.askEvryShortcut ?? "Meta+J") : undefined}
 						data-shortcut={actions.askEvryShortcut}
+						data-shortcut-claim={actions.askEvryShortcut ? "" : undefined}
 						aria-haspopup={actions.askEvryOpen === undefined ? undefined : "dialog"}
 						aria-expanded={actions.askEvryOpen}
 						className="inline-flex h-11 items-center gap-[9px] rounded-nav-item bg-surface-2 pr-4 pl-2.5 font-medium text-ink transition-[background-color] hover:bg-surface-3 disabled:opacity-45 disabled:hover:bg-surface-2 max-app-xl:pr-3 max-app-sm:px-2.5"
