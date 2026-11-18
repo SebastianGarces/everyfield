@@ -10,7 +10,7 @@ import {
 	type CareWeek,
 	type CareWriteResult,
 } from "@everyfield/contracts/intelligence";
-import { nextMonday } from "../settings/time.ts";
+import { nextMonday } from "../../components/time.ts";
 
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: CareError } | { status: "lost" };
 

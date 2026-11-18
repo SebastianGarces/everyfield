@@ -30,7 +30,7 @@ import { Avatar, Tag } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useCallback, useRef, useState, type FormEvent } from "react";
 import { NotAvailable } from "../../access/AccessStates";
-import { Refusal, useIntent } from "../../organizations/intent";
+import { Refusal, useIntent } from "../../../components/intent.ts";
 import { ProblemLine } from "../../organizations/parts";
 import { useOwnSeatChange } from "../../shell/ProductFrame";
 import { FormMessage } from "../parts";

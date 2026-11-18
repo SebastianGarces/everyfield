@@ -1,7 +1,7 @@
 "use server";
 
 import { getViewer } from "@/server/request-context";
-import { tasksMount } from "@/server/tasks";
+import { tasksMount } from "../tasks/mount.ts";
 
 import { recordId, revision } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
