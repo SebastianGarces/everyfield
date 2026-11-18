@@ -1217,3 +1217,19 @@ export function Report() {
 		[],
 	);
 });
+
+test("INV-lint: a page, a layout or a GET route handler that imports a server action module is reported, a route that also writes is not", () => {
+	const actions = `"use server";\nexport async function save() {}\n`;
+	const reads = `export async function load() {}\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": actions,
+			"apps/web/src/features/x/reads.ts": reads,
+			"apps/web/src/app/x/page.tsx": `export { save as default } from "@/features/x/actions";\n`,
+			"apps/web/src/app/x/layout.tsx": `export { load as default } from "@/features/x/reads";\n`,
+			"apps/web/src/app/x/read/route.ts": `export { save as GET } from "../../../features/x/actions";\n`,
+			"apps/web/src/app/x/write/route.ts": `export { save as GET, save as POST } from "@/features/x/actions";\n`,
+		}).filter((hit) => hit.endsWith("route-reads")),
+		["apps/web/src/app/x/page.tsx:1 route-reads", "apps/web/src/app/x/read/route.ts:1 route-reads"],
+	);
+});
