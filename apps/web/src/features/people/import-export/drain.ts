@@ -1,6 +1,6 @@
 import "server-only";
 import { after } from "next/server";
-import { requestDatabase } from "../database";
+import { requestDatabase } from "../../../server/database";
 import { runDueImports } from "./run-imports";
 
 export function drainPeopleImports() {
