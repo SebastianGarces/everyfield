@@ -2,7 +2,7 @@
 
 import { Combobox, Field } from "@everyfield/ui/controls";
 import { useMemo } from "react";
-import { allZones, zoneLabel } from "../time";
+import { allZones, zoneLabel } from "../../../components/time.ts";
 
 export function ZonePicker({
 	label,
