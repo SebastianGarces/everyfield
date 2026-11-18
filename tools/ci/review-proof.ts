@@ -12,17 +12,7 @@ import {
 	SCHEMA_FILE,
 	type FeatureMap,
 } from "./feature-maps.ts";
-import {
-	census,
-	chartCurrent,
-	enumColumns,
-	page,
-	render,
-	SCHEMA_TABLES,
-	sameValues,
-	showAt,
-	tableFile,
-} from "./machines.ts";
+import { census, chartCurrent, page, render, SCHEMA_TABLES, sameValues, schemaColumns, tableFile } from "./machines.ts";
 import { machines } from "../../packages/contracts/src/machines/index.ts";
 
 type Surface = FeatureMap["surfaces"][number];
@@ -79,12 +69,7 @@ function machineProof(root: string, changed: string[], evidence: string, base?: 
 	const problems: string[] = [];
 	const rows: string[] = [];
 	const changes = new Set(changed);
-	const schema = changes.has(SCHEMA_TABLES)
-		? {
-				head: enumColumns(existsSync(join(root, SCHEMA_TABLES)) ? readFileSync(join(root, SCHEMA_TABLES), "utf8") : ""),
-				before: enumColumns(base ? showAt(root, base, SCHEMA_TABLES) : ""),
-			}
-		: undefined;
+	const schema = changes.has(SCHEMA_TABLES) ? schemaColumns(root, base) : undefined;
 	for (const m of machines) {
 		const key = `${m.table}.${m.column}`;
 		const writers = census(root, m);

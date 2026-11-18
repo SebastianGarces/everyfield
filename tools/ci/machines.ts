@@ -453,7 +453,7 @@ export const SCHEMA_TABLES = "packages/db/src/schema/tables.ts";
 const STATE_NAME = /^(?:status|state|stage|phase)$|_(?:status|state|stage|phase)$/;
 const STATE_MINIMUM = 4;
 
-export function enumColumns(text: string): Map<string, string[]> {
+function enumColumns(text: string): Map<string, string[]> {
 	const columns = new Map<string, string[]>();
 	const source = ts.createSourceFile(SCHEMA_TABLES, text, ts.ScriptTarget.Latest, true);
 	const stringArg = (call: ts.CallExpression, i: number) => {
@@ -493,7 +493,7 @@ export function enumColumns(text: string): Map<string, string[]> {
 export const sameValues = (a: readonly string[] = [], b: readonly string[] = []) =>
 	a.length === b.length && [...a].sort().join("\0") === [...b].sort().join("\0");
 
-export function showAt(root: string, base: string, file: string): string {
+function showAt(root: string, base: string, file: string): string {
 	try {
 		return execFileSync("git", ["show", `${base}:${file}`], {
 			cwd: root,
@@ -506,10 +506,16 @@ export function showAt(root: string, base: string, file: string): string {
 	}
 }
 
-export function checkStateColumns(root: string, base: string): string[] {
+export function schemaColumns(root: string, base?: string) {
 	const headFile = join(root, SCHEMA_TABLES);
-	const head = enumColumns(existsSync(headFile) ? readFileSync(headFile, "utf8") : "");
-	const before = enumColumns(showAt(root, base, SCHEMA_TABLES));
+	return {
+		head: enumColumns(existsSync(headFile) ? readFileSync(headFile, "utf8") : ""),
+		before: enumColumns(base ? showAt(root, base, SCHEMA_TABLES) : ""),
+	};
+}
+
+export function checkStateColumns(root: string, base: string): string[] {
+	const { head, before } = schemaColumns(root, base);
 	const covered = new Set(machines.map((m) => `${m.table}.${m.column}`));
 	const problems: string[] = [];
 	for (const [key, values] of head) {
