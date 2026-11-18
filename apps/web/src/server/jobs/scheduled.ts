@@ -15,7 +15,7 @@ import {
 import { timingSafeEqual } from "node:crypto";
 import "server-only";
 import { runEffects, runTurns } from "../evry/worker.ts";
-import { runDueImports } from "../people/run-imports.ts";
+import { runDueImports } from "../../features/people/import-export/run-imports.ts";
 import { transaction } from "../platform/database.ts";
 import { planDigests, type DigestWorker } from "./digest.ts";
 import { runDuePurges } from "./lifecycle-purge.ts";
