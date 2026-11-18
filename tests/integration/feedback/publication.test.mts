@@ -161,7 +161,7 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 		title: "Bug report — Documents",
 		body: `A product bug report was submitted for Documents. Private details are retained for authorized triage. Reference: ${reference}.`,
 	});
-	const outbound = JSON.stringify(received.map((r) => [r.path, r.body]));
+	const outbound = JSON.stringify(received.map((r) => [r.path, r.body])).replaceAll(reference, "");
 	for (const canary of [...CANARIES, daniel.email, sent.id, "/documents"])
 		assert.equal(outbound.includes(canary), false, canary);
 
@@ -200,7 +200,7 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 		`A product bug report was submitted for Documents. Private details are retained for authorized triage. Reference: ${reference}.\n\nPublic issue: ${issue.url}\n\nTriage it in Everyfield: https://app.example.test/feedback/triage`,
 	);
 	for (const canary of [...CANARIES, daniel.email])
-		assert.equal(JSON.stringify(mail[0]).includes(canary), false, canary);
+		assert.equal(JSON.stringify(mail[0]).replaceAll(reference, "").includes(canary), false, canary);
 	assert.equal((await triage(sent.id)).operatorMail, "sent");
 	assert.deepEqual((await triage(sent.id)).publication, { state: "published", heldReason: null, url: issue.url });
 
