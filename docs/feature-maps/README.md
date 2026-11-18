@@ -28,7 +28,6 @@ flowchart LR
     f3s1["communication.compose"]
     f3s2["communication.templates"]
     f3s3["communication.unsubscribe"]
-    f3s4["communication.delivery-callbacks"]
   end
   subgraph f4["documents"]
     f4s0["documents.library"]
@@ -144,6 +143,7 @@ flowchart LR
   end
   subgraph f25["app"]
     f25s0["app.cron-jobs"]
+    f25s1["app.resend-webhook"]
   end
   links -.-> f0s0
   links -.-> f0s1
@@ -155,7 +155,6 @@ flowchart LR
   f3s0 --> f3s1
   f3s0 --> f3s2
   links -.-> f3s3
-  links -.-> f3s4
   rail -- "Documents" --> f4s0
   f4s0 --> f4s1
   f4s1 --> f4s2
@@ -243,6 +242,7 @@ flowchart LR
   links -.-> f24s0
   f24s0 --> f24s1
   links -.-> f25s0
+  links -.-> f25s1
 ```
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
@@ -250,7 +250,7 @@ flowchart LR
 | [access](access.md) | [`apps/web/src/features/access/feature-map.json`](../../apps/web/src/features/access/feature-map.json) | 2 | 2 | 1 | 0 | 0 |
 | [assessment-review](assessment-review.md) | [`apps/web/src/features/assessment-review/feature-map.json`](../../apps/web/src/features/assessment-review/feature-map.json) | 1 | 2 | 1 | 0 | 0 |
 | [boundaries](boundaries.md) | [`apps/web/src/features/boundaries/feature-map.json`](../../apps/web/src/features/boundaries/feature-map.json) | 2 | 0 | 0 | 0 | 0 |
-| [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 5 | 5 | 9 | 8 | 0 |
+| [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 4 | 8 | 8 | 0 |
 | [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 11 | 9 | 6 | 3 |
 | [evry](evry.md) | [`apps/web/src/features/evry/feature-map.json`](../../apps/web/src/features/evry/feature-map.json) | 2 | 15 | 5 | 2 | 1 |
 | [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 4 | 3 | 3 | 0 |
@@ -272,7 +272,7 @@ flowchart LR
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
 | [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 2 | 4 | 3 | 1 |
 | [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 2 | 6 | 3 | 1 |
-| [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 1 | 1 | 0 | 0 | 0 |
+| [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 2 | 2 | 1 | 0 | 0 |
 
 ## Become a persona
 

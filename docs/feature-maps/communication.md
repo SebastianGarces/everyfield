@@ -8,7 +8,6 @@ flowchart LR
   rail(["rail"])
   s0_link1(["link /communication?message={communicationId}"])
   s3_link0(["email unsubscribeUrl"])
-  s4_link0(["link /api/webhooks/resend"])
   s0["communication.messages<br/>/communication"]
   rail -- "Messages" --> s0
   s0_link1 --> s0
@@ -35,10 +34,6 @@ flowchart LR
   s3 -.- s3_st0(("invalid"))
   s3 -.- s3_st1(("open (setup)"))
   s3 --- s3_b0["unsubscribe-and-undo<br/>tests + cases + browser behavior"]
-  s4["communication.delivery-callbacks<br/>no page"]
-  s4_link0 --> s4
-  s4 -.- s4_st0(("refused"))
-  s4 --- s4_b0["record-delivery<br/>tests + cases"]
 ```
 
 ## Surfaces
@@ -393,35 +388,3 @@ agent-browser find role button click --name "Undo" --exact
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "You will get email from"
 ```
-
-### communication.delivery-callbacks
-
-The Resend webhook that records delivery, bounce and open callbacks for sent mail: it refuses any method but a signed POST.
-
-- Routes: none
-- Endpoints: `/api/webhooks/resend`
-- Personas: `visitor` none
-
-Reach:
-
-- Link `/api/webhooks/resend`
-
-States:
-
-- **refused**: URL `/api/webhooks/resend`; text containing "method_not_allowed". As `visitor`, on the QA seed:
-
-```bash
-agent-browser open "$ORIGIN/api/webhooks/resend"
-agent-browser wait --load networkidle
-agent-browser wait --url "**/api/webhooks/resend"
-agent-browser wait --text "method_not_allowed"
-```
-
-#### communication.delivery-callbacks#record-delivery
-
-A signed callback records one delivery outcome for the sent mail, and a callback with a bad signature writes nothing.
-
-- No operation: the Resend webhook handler (server/jobs/webhook-route.ts) verifies the signature and the mail callback job records the outcome; it is a provider callback, not a catalog operation
-- Catalog: NTF-010
-- Cases: CASE-NTF-010
-- Test: `tests/integration/communication/delivery.test.mts`: `AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one outcome and a bad signature writes nothing`
