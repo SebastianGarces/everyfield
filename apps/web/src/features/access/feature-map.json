@@ -61,6 +61,55 @@
 				}
 			],
 			"behaviors": []
+		},
+		{
+			"id": "access.request-retention",
+			"says": "The daily cron that expires old early-access requests: it refuses any caller without the cron secret.",
+			"routes": [],
+			"endpoints": ["/api/cron/access-retention"],
+			"reach": [
+				{
+					"link": "/api/cron/access-retention"
+				}
+			],
+			"personas": {
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "refused",
+					"reach": {
+						"persona": "visitor",
+						"open": "/api/cron/access-retention",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/api/cron/access-retention"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "expire-access-requests",
+					"says": "The daily run deletes early-access requests after twelve months and clears stored IP addresses older than thirty days; without the cron secret it changes nothing.",
+					"catalog": ["ADM-006"],
+					"operations": ["marketing.expireAccessRequests"],
+					"proof": {
+						"tests": [
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: scheduled retention deletes after twelve months and clears only IPs older than thirty days"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: cron requires a configured secret and refuses unauthorized retention"
+							}
+						]
+					}
+				}
+			]
 		}
 	]
 }

@@ -14,7 +14,7 @@ import {
 	scopeOf,
 	viewerOf,
 	type Reply,
-} from "@/server/organizations";
+} from "./mount";
 import type { OrganizationOperations as Ops } from "@everyfield/contracts/organizations";
 import type { ResidencyRow } from "./Residency";
 

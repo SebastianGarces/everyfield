@@ -209,6 +209,29 @@ export function Row({ on }) {
 	]);
 });
 
+test("INV-lint: a pointer handler on a motion element or in its capture phase is a clickable host like any other", () => {
+	const source = `import { motion } from "motion/react";
+import { m } from "@/components/motion/m";
+export function Card({ on }) {
+	return (
+		<section>
+			<motion.div onClick={on} />
+			<m.span onPointerDownCapture={on} />
+			<div onClickCapture={on} />
+			<motion.button onClick={on} />
+			<m.a href="/x" onClickCapture={on} />
+			<motion.div role="button" onClick={on} />
+		</section>
+	);
+}
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/Card.tsx": source }), [
+		"apps/web/src/features/x/Card.tsx:6 clickable-host",
+		"apps/web/src/features/x/Card.tsx:7 clickable-host",
+		"apps/web/src/features/x/Card.tsx:8 clickable-host",
+	]);
+});
+
 test("INV-lint: history writes, popstate, the Navigation API, the address fragment and an in-app address carrying a one-time link value are reported outside the location store, in every spelling", () => {
 	const source = `export function go(mode, href) {
 	window.history.pushState(null, "", href);
@@ -770,6 +793,33 @@ function history() {
 	return { dir, path, renamed, write, base };
 }
 
+test("INV-storage: only the storage module reaches the object store client and its URL signer, in product code", () => {
+	const reach = `import { S3Client } from "@aws-sdk/client-s3";
+export { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+export const later = () => import("@aws-sdk/client-s3");
+export type Client = import("@aws-sdk/client-s3").S3Client;
+export const client = S3Client;
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/documents/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/db/src/schema/storage.ts": reach,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[
+			"apps/web/src/features/x/reach.ts:1 storage-client",
+			"apps/web/src/features/x/reach.ts:2 storage-client",
+			"apps/web/src/features/x/reach.ts:3 storage-client",
+			"apps/web/src/features/x/reach.ts:4 storage-client",
+			"packages/domain/src/documents/reach.ts:1 storage-client",
+			"packages/domain/src/documents/reach.ts:2 storage-client",
+			"packages/domain/src/documents/reach.ts:3 storage-client",
+			"packages/domain/src/documents/reach.ts:4 storage-client",
+		],
+	);
+});
+
 test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
 	const { dir, path, renamed, write, base } = history();
 	const growth = (entries, ...moves) => {
@@ -1085,6 +1135,39 @@ export const run = (client: { query(text: string): void }) => {
 	]);
 });
 
+test("INV-lint: an insert into a single-writer table is reported outside its owning module, in SQL text or through the query builder", () => {
+	const source = `import { sql } from "drizzle-orm";
+export const a = sql\`INSERT INTO phase_transition(plant_id) VALUES (1)\`;
+export const b = (db, t) => db.insert(t.phase_transition).values({});
+export const c = sql\`insert into "public"."phase_transition" (plant_id) select 1\`;
+export const d = sql\`SELECT kind FROM phase_transition\`;
+export const e = sql\`UPDATE phase_transition SET offer_answer = 'yes'\`;
+`;
+	const named = `import { phase_transition, plant } from "@everyfield/db/schema";
+import * as t from "@everyfield/db/schema";
+export const f = (db) => db.insert(phase_transition).values({});
+const pt = t.phase_transition;
+const { phase_transition: other } = t;
+export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}), db.insert(plant).values({})];
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/tasks/x.ts": source,
+			"packages/domain/src/phases/x.ts": source,
+			"packages/domain/src/tasks/named.ts": named,
+			"packages/domain/src/phases/named.ts": named,
+		}).filter((hit) => hit.endsWith("table-writers")),
+		[
+			"packages/domain/src/tasks/named.ts:3 table-writers",
+			"packages/domain/src/tasks/named.ts:6 table-writers",
+			"packages/domain/src/tasks/named.ts:6 table-writers",
+			"packages/domain/src/tasks/x.ts:2 table-writers",
+			"packages/domain/src/tasks/x.ts:3 table-writers",
+			"packages/domain/src/tasks/x.ts:4 table-writers",
+		],
+	);
+});
+
 test("INV-lint: a React namespace alias, a class lifecycle method and a ref callback that never uses its node are effects", () => {
 	const source = `import * as React from "react";
 import { Component, useCallback } from "react";
@@ -1274,5 +1357,21 @@ export function Report() {
 			hit.endsWith("no-render-writes"),
 		),
 		[],
+	);
+});
+
+test("INV-lint: a page, a layout or a GET route handler that imports a server action module is reported, a route that also writes is not", () => {
+	const actions = `"use server";\nexport async function save() {}\n`;
+	const reads = `export async function load() {}\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": actions,
+			"apps/web/src/features/x/reads.ts": reads,
+			"apps/web/src/app/x/page.tsx": `export { save as default } from "@/features/x/actions";\n`,
+			"apps/web/src/app/x/layout.tsx": `export { load as default } from "@/features/x/reads";\n`,
+			"apps/web/src/app/x/read/route.ts": `export { save as GET } from "../../../features/x/actions";\n`,
+			"apps/web/src/app/x/write/route.ts": `export { save as GET, save as POST } from "@/features/x/actions";\n`,
+		}).filter((hit) => hit.endsWith("route-reads")),
+		["apps/web/src/app/x/page.tsx:1 route-reads", "apps/web/src/app/x/read/route.ts:1 route-reads"],
 	);
 });
