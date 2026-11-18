@@ -2,13 +2,13 @@ import "server-only";
 
 import { z } from "zod";
 import { MAIL_BATCH_LIMIT } from "@everyfield/contracts/communication";
-import { mailEnv } from "../../server/mail-env.ts";
+import { mailEnv } from "../mail-env.ts";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
 import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
-import type { MailTransport } from "../../server/jobs/mail.ts";
-import { createResendTransport } from "../../server/jobs/resend.ts";
+import type { MailTransport } from "../jobs/mail.ts";
+import { createResendTransport } from "../jobs/resend.ts";
 import { capture, captureAllowed, captured, captureSilent, changeCaptured, isCaptureId } from "./capture.ts";
 import { settleCaptured } from "./settle.ts";
 
