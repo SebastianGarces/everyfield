@@ -1,5 +1,5 @@
 import { createElement as h, type ReactNode } from "react";
-import { parseMarkdown, type Inline } from "../evry/conversation/markdown.ts";
+import { parseMarkdown, type Inline } from "../../components/markdown.ts";
 import { renderMarkdown } from "../evry/conversation/view.ts";
 
 const plain = (parts: Inline[]): string =>
