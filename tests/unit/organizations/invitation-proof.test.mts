@@ -59,7 +59,7 @@ const stubs: Record<string, string> = {
 	"server-only": stub(""),
 	"./actions": actions,
 	"./intent": stub(`export class Refusal extends Error { constructor(code) { super(code); this.code = code; } }`),
-	"@/server/organizations": stub(`
+	"../mount": stub(`
 		const state = globalThis.__relationshipInvitation;
 		export const viewerOf = async () => { state.domain.push(["viewerOf"]); return state.viewer; };
 		export const invitationFor = async (_m, _a, _v, invitationId, proof) => {
