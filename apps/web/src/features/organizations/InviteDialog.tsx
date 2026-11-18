@@ -18,7 +18,7 @@ import {
 import { focusOnMount } from "@everyfield/ui/foundations";
 import { useState, type ReactNode } from "react";
 import { SharingDisclosure } from "./Disclosure";
-import { useIntent } from "./intent";
+import { useIntent } from "../../components/intent.ts";
 import { emailProblem, kindLabel } from "./model";
 import { ProblemLine } from "./parts";
 import type { Disclosure, Invitation, Organization, RelationshipPair, Run } from "./port";
