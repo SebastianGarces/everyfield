@@ -761,7 +761,8 @@
 		"limit": 2
 	},
 	"meetings.correctOccurrence": {
-		"limit": 6
+		"limit": 6,
+		"retry": 5
 	},
 	"meetings.correctPracticeOccurrence": {
 		"limit": 6
