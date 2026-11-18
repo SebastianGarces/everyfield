@@ -19,7 +19,7 @@ import {
 } from "../../../../../packages/evry/src/adapters/people-organization/reads/index.ts";
 import { RequestActor } from "../../../../../packages/domain/src/access/session.ts";
 import { executeBulkImport } from "../../../../../packages/domain/src/people/index.ts";
-import { runDueImports } from "../../../../../apps/web/src/server/people/run-imports.ts";
+import { runDueImports } from "../../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import {
 	accounts,
 	actor,
