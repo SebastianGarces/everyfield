@@ -3,6 +3,7 @@
 import { ArrowDown01Icon, ArrowLeft02Icon, ArrowRight02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import {
 	useActionState,
+	useCallback,
 	useId,
 	useRef,
 	useState,
@@ -16,7 +17,7 @@ import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
 import { useFocusRequest } from "@everyfield/ui/foundations";
-import { revealProps, useReveal } from "@/components/motion/Reveal";
+import { revealProps, revealRef } from "@/components/motion/Reveal";
 import { stepAccessForm, submitAccessRequest } from "./actions";
 import { HONEYPOT, validateAccessRequest, type FieldErrorCode } from "./contract";
 import {
@@ -219,10 +220,12 @@ type Focus = "step" | "error" | "message";
 export function AccessForm({ paths, text, who: chosen }: Props) {
 	const uid = useId();
 	const formRef = useRef<HTMLFormElement>(null);
-	const cardRef = useRef<HTMLElement>(null);
 	const msgRef = useRef<HTMLDivElement>(null);
 	const primaryRef = useRef<HTMLButtonElement>(null);
-	useReveal(cardRef);
+	const formCard = useCallback((el: HTMLFormElement | null) => {
+		formRef.current = el;
+		return revealRef()(el);
+	}, []);
 	const rv = revealProps();
 	const [serverState, formAction] = useActionState(stepAccessForm, chosen ? { ...START, who: chosen } : START);
 	const [s, setS] = useState<FormState>(serverState);
@@ -355,10 +358,7 @@ export function AccessForm({ paths, text, who: chosen }: Props) {
 		<form
 			className={cn(rv.className, CARD)}
 			style={rv.style}
-			ref={(el) => {
-				formRef.current = el;
-				cardRef.current = el;
-			}}
+			ref={formCard}
 			action={formAction}
 			onSubmit={onSubmit}
 			onKeyDown={onKeyDown}

@@ -24,9 +24,9 @@ import { offsetText } from "../../components/dates.ts";
 import { problemText, TYPE_LABEL, TYPES, type Detail, type MeetingType, type Outcome, type Venue } from "./model.ts";
 import {
 	DialogNotice,
-	focusFirstProblem,
 	NoticeInDialog,
 	SaveButton,
+	useProblemFocus,
 	type SaveIntent,
 } from "../../components/save/parts.tsx";
 import { Problem } from "./parts.tsx";
@@ -151,6 +151,7 @@ function Form<E extends { problem?: string }>({
 	const [touched, setTouched] = useState(kept !== null);
 	const [fold, setFold] = useState<Fold | null>(kept?.fold ?? null);
 	const [problem, setProblem] = useState<string | null>(null);
+	const [focusProblem, refuseProblem] = useProblemFocus();
 	const venues = useRead(savedPlaces).value;
 	const ministries = useRead(editing ? null : teamMinistries).value;
 	const choices = fold?.choices ?? null;
@@ -185,7 +186,7 @@ function Form<E extends { problem?: string }>({
 		setTouched(true);
 		setProblem(null);
 		if (lane.wait) return;
-		if (Object.values(missing).some(Boolean)) return focusFirstProblem(event.currentTarget as HTMLFormElement);
+		if (Object.values(missing).some(Boolean)) return refuseProblem();
 		if (choices && offset === null) return setProblem("ambiguous_local_time");
 		if (editing) {
 			const moved = draft.date !== meeting.localDate || draft.time !== meeting.localTime;
@@ -267,7 +268,7 @@ function Form<E extends { problem?: string }>({
 
 	return (
 		<DialogContent aria-busy={pending || undefined} onInteractOutside={(e) => pending && e.preventDefault()}>
-			<form onSubmit={submit} noValidate className="contents">
+			<form ref={focusProblem} onSubmit={submit} noValidate className="contents">
 				<DialogHeader
 					icon={editing ? Edit02Icon : CalendarAdd01Icon}
 					tone="green"

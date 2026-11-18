@@ -41,9 +41,9 @@ import {
 } from "./model.ts";
 import {
 	DialogNotice,
-	focusFirstProblem,
 	NoticeInDialog,
 	SaveButton,
+	useProblemFocus,
 	type SaveIntent,
 } from "../../components/save/parts.tsx";
 
@@ -322,12 +322,13 @@ export function AddFollowUpDialog({
 	const [draft, setDraft] = useState<AddDraft>({ title: "", dated: "undated", date: "", owners: [] });
 	const [dateError, setDateError] = useState<string | null>(null);
 	const owners = useOwners(true);
+	const [focusProblem, refuseProblem] = useProblemFocus();
 	const set = (patch: Partial<AddDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
-	async function submit(form: HTMLFormElement) {
+	async function submit() {
 		if (draft.dated === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) {
 			setDateError("Choose a due date, or choose No date.");
-			return focusFirstProblem(form);
+			return refuseProblem();
 		}
 		setDateError(null);
 		const input = {
@@ -352,11 +353,12 @@ export function AddFollowUpDialog({
 			<Dialog open onOpenChange={(next) => !next && onClose()}>
 				<DialogContent size="sm" onCloseAutoFocus={returnFocus}>
 					<form
+						ref={focusProblem}
 						noValidate
 						className="contents"
 						onSubmit={(e) => {
 							e.preventDefault();
-							if (!lane.wait) void submit(e.currentTarget);
+							if (!lane.wait) void submit();
 						}}
 					>
 						<DialogHeader
