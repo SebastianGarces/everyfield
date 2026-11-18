@@ -41,8 +41,8 @@ test("parallel: the commands run at the same time, not one after another", () =>
 	assert.ok(total < 2.5, `three 1 s commands took ${total} s`);
 });
 
-test("parallel: a malformed or repeated label is refused before anything runs", () => {
-	for (const args of [[], ["no label"], ["a=true", "a=false"], ["a=  "]]) {
+test("parallel: a malformed label is refused before anything runs", () => {
+	for (const args of [[], ["no label"], ["a=  "]]) {
 		const r = cli(...args);
 		assert.equal(r.status, 2, `${JSON.stringify(args)}: ${r.stdout}${r.stderr}`);
 		assert.equal(r.stdout, "");

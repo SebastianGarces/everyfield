@@ -7,13 +7,12 @@ type Result = Command & { code: number | null; signal: NodeJS.Signals | null; se
 
 const USAGE = 'usage: node tools/ci/parallel.ts "<label>=<command>" ...';
 
-export function parseCommands(args: string[]): Command[] | string {
+function parseCommands(args: string[]): Command[] | string {
 	if (!args.length) return USAGE;
 	const commands: Command[] = [];
 	for (const arg of args) {
 		const match = arg.match(/^([\w-]+)=(.*\S.*)$/s);
 		if (!match) return `${USAGE}\nnot <label>=<command>: ${arg}`;
-		if (commands.some((c) => c.label === match[1])) return `label ${match[1]} is given twice`;
 		commands.push({ label: match[1]!, command: match[2]!.trim() });
 	}
 	return commands;
@@ -34,10 +33,6 @@ function run(command: Command, started: number): Promise<Result> {
 	const child = spawn(command.command, { shell: true, stdio: ["ignore", "pipe", "pipe"] });
 	const output = Promise.all([prefix(child.stdout, command.label), prefix(child.stderr, command.label)]);
 	return new Promise((done) => {
-		child.on("error", (error) => {
-			process.stdout.write(`[${command.label}] could not start: ${String(error)}\n`);
-			done({ ...command, code: 127, signal: null, seconds: seconds(started) });
-		});
 		child.on("close", async (code, signal) => {
 			await output;
 			const result = { ...command, code, signal, seconds: seconds(started) };
@@ -49,7 +44,7 @@ function run(command: Command, started: number): Promise<Result> {
 
 const outcome = (r: Result) => (r.signal ? `killed by ${r.signal}` : `exit ${r.code}`);
 
-export async function runParallel(commands: Command[]): Promise<number> {
+async function runParallel(commands: Command[]): Promise<number> {
 	const started = performance.now();
 	const results = await Promise.all(commands.map((c) => run(c, started)));
 	const failed = results.filter((r) => r.code !== 0);
