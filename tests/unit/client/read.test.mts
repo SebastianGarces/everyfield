@@ -12,7 +12,8 @@ Object.assign(globalThis, {
 });
 const { createRoot } = web("react-dom/client");
 const { act, createElement } = web("react");
-const { createRead, useReadWith } = await import("../../../apps/web/src/components/read.tsx");
+const { renderToString } = web("react-dom/server");
+const { createRead, useLocalRead, useReadWith } = await import("../../../apps/web/src/components/read.tsx");
 
 const settled = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -239,5 +240,35 @@ test("INV-read: a search that keeps the previous list shows the last answer whil
 	assert.equal(shown, undefined, "the first search after a clear shows nothing from before the clear");
 	await answer("b", ["Ben Ruiz"]);
 	assert.deepEqual(shown, ["Ben Ruiz"]);
+	await act(async () => root.unmount());
+});
+
+test("INV-read: a local read seeded with the server's value shows it from the first render and asks the server only on reload", async () => {
+	let calls = 0;
+	const load = async () => `loaded-${++calls}`;
+	let shown: string | undefined;
+	const reads: { reload(): void }[] = [];
+	function Seeded() {
+		const state = useLocalRead(load, { failed: () => "lost", fresh: Infinity, initial: "from-server" });
+		shown = state.value;
+		reads.push(state);
+		return null;
+	}
+	renderToString(createElement(Seeded));
+	assert.equal(shown, "from-server", "the server render shows the seed");
+	const root = createRoot(
+		Object.assign(new EventTarget(), {
+			nodeType: 1,
+			nodeName: "DIV",
+			tagName: "DIV",
+			ownerDocument: new EventTarget(),
+		}),
+	);
+	await act(async () => root.render(createElement(Seeded)));
+	assert.equal(shown, "from-server");
+	assert.equal(calls, 0, "mounting a seeded read sends no request");
+	await act(async () => reads.at(-1)?.reload());
+	assert.equal(calls, 1);
+	assert.equal(shown, "loaded-1");
 	await act(async () => root.unmount());
 });
