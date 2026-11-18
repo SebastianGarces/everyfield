@@ -2,7 +2,7 @@
 
 import type { Loadable } from "@everyfield/ui/display";
 import { useRef, useState } from "react";
-import { createRead, useRead } from "../../components/read.tsx";
+import { useLocalRead } from "../../components/read.tsx";
 import { newRequestKey } from "./port";
 
 export type Problem = "refused" | "unknown";
@@ -71,22 +71,17 @@ export function useIntent<C>(intent: string) {
 type Loaded<T> = { data: T } | { failed: true };
 
 export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string, initial?: T) {
-	const [read] = useState(() => {
-		const instance = createRead((): Promise<Loaded<T>> => fetch().then((data) => ({ data })), {
-			failed: (): Loaded<T> => ({ failed: true }),
-			fresh: Infinity,
-			keep: (value) => "data" in value,
-		});
-		if (initial !== undefined) instance.seed({ data: initial });
-		return instance;
+	const loaded = useLocalRead((): Promise<Loaded<T>> => fetch().then((data) => ({ data })), {
+		failed: (): Loaded<T> => ({ failed: true }),
+		fresh: Infinity,
+		keep: (value) => "data" in value,
+		initial: initial === undefined ? undefined : { data: initial },
 	});
-	const loaded = useRead(read);
-	const value = loaded.status === "idle" && initial !== undefined ? { data: initial } : loaded.value;
-	const state: Loadable<T> = !value
+	const state: Loadable<T> = !loaded.value
 		? { status: "loading" }
-		: "failed" in value
+		: "failed" in loaded.value
 			? { status: "error", title: errorTitle, onRetry: loaded.retry }
-			: { status: "ready", data: value.data };
+			: { status: "ready", data: loaded.value.data };
 	const update = (change: (data: T) => T) =>
 		loaded.patch((current) => ("data" in current ? { data: change(current.data) } : current));
 	return { state, reload: loaded.reload, update, refreshing: loaded.reloading };

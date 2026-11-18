@@ -269,11 +269,16 @@ export function useReadWith<A extends unknown[], T>(
 
 export function useLocalRead<A extends unknown[], T>(
 	load: (...args: A) => Promise<T>,
-	options: ReadOptions<T>,
+	{ initial, ...options }: ReadOptions<T> & { readonly initial?: T },
 	...args: A
 ): ReadState<T> {
-	const [read] = useState(() => createRead(load, options));
-	return useRead(read, ...args);
+	const [read] = useState(() => {
+		const local = createRead(load, options);
+		if (initial !== undefined) local.seed(initial, ...args);
+		return local;
+	});
+	const state = useRead(read, ...args);
+	return state.status === "idle" && initial !== undefined ? { ...state, value: initial } : state;
 }
 
 export function Await<T>({
