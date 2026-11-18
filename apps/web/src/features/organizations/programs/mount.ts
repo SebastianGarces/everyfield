@@ -3,8 +3,8 @@ import type { RequestActor } from "@everyfield/domain/access";
 import type { Database } from "@everyfield/db/client";
 import { readEnrollment, readProgram, readPrograms } from "@everyfield/domain/organizations";
 import "server-only";
-import { requestDatabase } from "../database";
-import { pipelineActor } from "./pipeline";
+import { requestDatabase } from "../../../server/database";
+import { pipelineActor } from "../pipeline-mount";
 
 export type ProgramAnswer<T> = ProgramReply<T> | { status: "lost" };
 

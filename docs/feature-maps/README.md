@@ -6,7 +6,7 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 122 of 136. Not yet mapped: 14, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 136 of 136. Not yet mapped: 0, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
@@ -14,6 +14,7 @@ flowchart LR
   links(["links and email"])
   subgraph f0["access"]
     f0s0["access.design-preview"]
+    f0s1["access.request-retention"]
   end
   subgraph f1["assessment-review"]
     f1s0["assessment-review.runs"]
@@ -125,6 +126,8 @@ flowchart LR
   subgraph f21["shell"]
     f21s0["shell.frame"]
     f21s1["shell.design-preview"]
+    f21s2["shell.package-preview"]
+    f21s3["shell.health"]
   end
   subgraph f22["tasks"]
     f22s0["tasks.list"]
@@ -141,8 +144,15 @@ flowchart LR
   end
   subgraph f25["app"]
     f25s0["app.cron-jobs"]
+    f25s1["app.home"]
+    f25s2["app.oversight-page"]
+    f25s3["app.access-request"]
+    f25s4["app.legal"]
+    f25s5["app.site-files"]
+    f25s6["app.resend-webhook"]
   end
   links -.-> f0s0
+  links -.-> f0s1
   links -.-> f1s0
   links -.-> f2s0
   links -.-> f2s1
@@ -226,6 +236,8 @@ flowchart LR
   links -.-> f20s4
   links -.-> f21s0
   links -.-> f21s1
+  links -.-> f21s2
+  links -.-> f21s3
   rail -- "Tasks" --> f22s0
   f22s0 --> f22s1
   links -.-> f22s1
@@ -237,11 +249,19 @@ flowchart LR
   links -.-> f24s0
   f24s0 --> f24s1
   links -.-> f25s0
+  links -.-> f25s1
+  f25s1 --> f25s2
+  f25s1 --> f25s3
+  f25s2 --> f25s3
+  links -.-> f25s3
+  f25s1 --> f25s4
+  links -.-> f25s5
+  links -.-> f25s6
 ```
 
 | Feature | Map | Surfaces | Routes | Behaviors | Browser behavior proofs | Browser presence proofs |
 |---|---|---|---|---|---|---|
-| [access](access.md) | [`apps/web/src/features/access/feature-map.json`](../../apps/web/src/features/access/feature-map.json) | 1 | 1 | 0 | 0 | 0 |
+| [access](access.md) | [`apps/web/src/features/access/feature-map.json`](../../apps/web/src/features/access/feature-map.json) | 2 | 2 | 1 | 0 | 0 |
 | [assessment-review](assessment-review.md) | [`apps/web/src/features/assessment-review/feature-map.json`](../../apps/web/src/features/assessment-review/feature-map.json) | 1 | 2 | 1 | 0 | 0 |
 | [boundaries](boundaries.md) | [`apps/web/src/features/boundaries/feature-map.json`](../../apps/web/src/features/boundaries/feature-map.json) | 2 | 0 | 0 | 0 | 0 |
 | [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 4 | 8 | 8 | 0 |
@@ -262,11 +282,11 @@ flowchart LR
 | [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
 | [residency](residency.md) | [`apps/web/src/features/residency/feature-map.json`](../../apps/web/src/features/residency/feature-map.json) | 1 | 2 | 2 | 1 | 0 |
 | [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 9 | 7 | 5 | 2 |
-| [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 2 | 2 | 0 | 0 | 0 |
+| [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 4 | 6 | 0 | 0 | 0 |
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
 | [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 2 | 4 | 3 | 1 |
 | [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 2 | 6 | 3 | 1 |
-| [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 1 | 1 | 0 | 0 | 0 |
+| [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 7 | 10 | 2 | 0 | 0 |
 
 ## Become a persona
 
@@ -308,8 +328,10 @@ reaches agree with `shellNav` both ways for every persona; personas are QA seed 
 and residency link match what the seed creates; a behavior proof checks more than the address after it acts;
 on a surface that polls, a waiting check follows every open, click, press and upload; and every name, label
 and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the
-feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was
-typed earlier in the same steps.
+feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly, by a relative or `@/`
+path, and the JSON files those modules import) or the QA seed, or was typed earlier in the same steps. The app
+map (`apps/web/src/app/feature-map.json`) owns the routes no one feature does, such as the public site, and
+its folder is all of `apps/web/src/app`.
 
 It cannot catch, and only running the browser steps catches:
 
