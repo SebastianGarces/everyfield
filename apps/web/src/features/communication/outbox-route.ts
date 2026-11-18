@@ -1,4 +1,4 @@
-import { captureAllowed } from "./capture.ts";
+import { captureAllowed } from "../../server/mail/capture.ts";
 import { readOutbox } from "./outbox.ts";
 
 const escape = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
