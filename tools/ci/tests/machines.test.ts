@@ -236,6 +236,66 @@ test("INV-machines: a guarded writer and a current chart pass; a stale chart and
 	}
 });
 
+test("INV-machines: a two-column machine's writer is guarded only by a filter on the pair that fits the literal it writes", () => {
+	const r = repo();
+	try {
+		const file = "packages/evry/src/x.ts";
+		const filter = (event: string, to: string) =>
+			`concat_ws('_',p.state,p.outcome) = ANY(\${sql.param(fromStates(proposalMachine, "${event}", "${to}", s))}::text[])`;
+		r.put(
+			file,
+			[
+				"sql`INSERT INTO proposal(id,state,expires_at) SELECT ${id},'pending',${at} FROM c`;",
+				`sql\`UPDATE proposal p SET state='cancelled' WHERE p.id=\${id} AND ${filter("evry.cancelProposal", "cancelled")}\`;`,
+				`sql\`UPDATE proposal p SET outcome=NULL,job_id=\${job} WHERE ${filter("evry.retryUnresolvedEffects", "approved")}\`;`,
+			].join("\n"),
+		);
+		assert.equal(r.cli("--write").status, 0);
+		assert.equal(r.cli("--check").status, 0);
+		const writers = r.cli("census").stdout;
+		assert.match(writers, /evry-proposal: packages\/evry\/src\/x\.ts:1 insert guard=initial state/);
+		assert.match(writers, /evry-proposal: packages\/evry\/src\/x\.ts:2 update guard=from-state filter/);
+		assert.match(writers, /evry-proposal: packages\/evry\/src\/x\.ts:3 update guard=from-state filter/);
+
+		const a = "packages/other/src/a.ts";
+		const unguarded: [string, string][] = [
+			[
+				"second column written under a filter on the first column alone",
+				"sql`UPDATE proposal SET outcome='completed' WHERE state = ANY(${sql.param(fromStates(proposalMachine, 'evry.executeProposal', 'approved_completed', s))}::text[])`",
+			],
+			[
+				"second column literal that does not fit the guard's target",
+				`sql\`UPDATE proposal p SET outcome='refused' WHERE ${filter("evry.executeProposal", "approved_completed")}\``,
+			],
+			[
+				"insert of a pair that is not initial",
+				"sql`INSERT INTO proposal(id,state,outcome) VALUES (${id},'approved','completed')`",
+			],
+			[
+				"insert whose SELECT list writes a state that is not a literal",
+				"sql`INSERT INTO proposal(id,state) SELECT ${id},${state} FROM c`",
+			],
+			[
+				"drizzle update of the second column",
+				"tx.update(tables.proposal).set({ outcome: 'completed' }).where(inArray(tables.proposal.state, fromStates(proposalMachine, 'evry.executeProposal', 'approved_completed', s)));",
+			],
+		];
+		for (const [name, source] of unguarded) {
+			r.put(a, source);
+			const result = r.cli("--check");
+			assert.equal(result.status, 1, name);
+			assert.match(
+				result.stderr,
+				/a\.ts:1: (?:update|insert|drizzle) writes proposal\.state outside the evry-proposal machine's guard/,
+				name,
+			);
+			execFileSync("git", ["rm", "-q", "-f", a], { cwd: r.root });
+		}
+	} finally {
+		r.close();
+	}
+});
+
 test("INV-machines: a SQL function writer is guarded only by its edge's locking read, and a copy only by entry states", () => {
 	const r = repo();
 	try {
