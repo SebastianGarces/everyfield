@@ -2,10 +2,11 @@
 
 import type { Loadable } from "@everyfield/ui/display";
 import { useRef, useState } from "react";
-import { useLocalRead } from "../../components/read.tsx";
-import { newRequestKey } from "./port";
+import { useLocalRead } from "./read.tsx";
 
 export type Problem = "refused" | "unknown";
+
+const newRequestKey = (intent: string) => `${intent}-${crypto.randomUUID()}`;
 
 export class Refusal extends Error {
 	constructor(readonly code: string) {

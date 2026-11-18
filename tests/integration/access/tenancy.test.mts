@@ -63,7 +63,7 @@ import {
 	readVersionReviews,
 	searchReadings,
 } from "../../../packages/domain/src/organizations/index.ts";
-import { runDueImports } from "../../../apps/web/src/server/people/run-imports.ts";
+import { runDueImports } from "../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { ok } from "../../support/fixture.mts";
 import { accessCases, seedAccess } from "./tenancy-access.mts";
 import { brandingCases, seedBranding } from "./tenancy-branding.mts";

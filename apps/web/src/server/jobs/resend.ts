@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
-import { capture, captured, isCaptureId } from "../../features/communication/capture.ts";
+import { capture, captured, isCaptureId } from "../mail/capture.ts";
 import type { MailTransport, TransportOutcome } from "./mail.ts";
 const accepted = z.object({ id: z.string().min(1).max(128) });
 export function createResendTransport(

@@ -1,9 +1,4 @@
-import { checkProposal } from "@everyfield/evry";
-import { evryMail, evryResponse } from "@/server/evry";
+export { proposalCheckPost as POST } from "@/server/evry/http";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-export const POST = async (_request: Request, { params }: { params: Promise<{ id: string }> }) => {
-	const { id } = await params;
-	return evryResponse(async (db, actor) => checkProposal(db, actor, id, evryMail()));
-};

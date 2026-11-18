@@ -1,6 +1,6 @@
 import "server-only";
 import { requestDatabase } from "@/server/database";
-import { drainPeopleImports } from "@/server/people/imports";
+import { drainPeopleImports } from "./drain";
 import { getViewer } from "@/server/request-context";
 import {
 	exportPeopleRequest,
