@@ -1,4 +1,4 @@
-import { captureAllowed } from "../../../../features/communication/capture";
+import { captureAllowed } from "../../../../server/mail/capture";
 import { readOutbox } from "../../../../features/communication/outbox";
 
 export const runtime = "nodejs";
