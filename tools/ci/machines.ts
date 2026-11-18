@@ -490,13 +490,17 @@ export function render(m: MachineShape, writers: readonly Writer[]): string {
 		"`SET ${…}` on the table, Drizzle `update`/`insert`/`onConflictDoUpdate` calls (a table or query held in a",
 		"`const` of the same file is followed), and `.sql` files. A statement ends at its `;` or at the parenthesis",
 		"that closes its CTE, so a guard elsewhere in the same SQL text does not count. A guarded UPDATE filters on",
-		`\`${keyText(m)} = ANY(\${fromStates(${bindingOf(m)}, …)})\` inside its own statement, or a Drizzle update on`,
-		`\`inArray(<table>.${m.column}, fromStates(${bindingOf(m)}, …))\` in its \`where\` (alone or inside \`and\`). When`,
+		...(m.product
+			? [`\`${keyText(m)} = ANY(\${fromStates(${bindingOf(m)}, …)})\` inside its own statement. When`]
+			: [
+					`\`${keyText(m)} = ANY(\${fromStates(${bindingOf(m)}, …)})\` inside its own statement, or a Drizzle update on`,
+					`\`inArray(<table>.${m.column}, fromStates(${bindingOf(m)}, …))\` in its \`where\` (alone or inside \`and\`). When`,
+				]),
 		"the guard names its event or target as a string literal, or the write sets the state as a literal, the event",
 		"must have a move to that state and the two targets must agree. A guarded INSERT writes an initial state as a",
 		"literal; in a Drizzle object literal that is the last property that names the column, after any spread. An",
 		"insert that updates the column on conflict is unguarded. An INSERT that copies rows without a column list is",
-		`guarded when its own statement filters on \`${m.column} = ANY(\${entryStates(${bindingOf(m)}, …)})\`. An UPDATE in`,
+		`guarded when its own statement filters on \`${keyText(m)} = ANY(\${entryStates(${bindingOf(m)}, …)})\`. An UPDATE in`,
 		"a `.sql` file is guarded only inside a function that an edge names with `sql`, after a",
 		"`SELECT * INTO … FROM <table> WHERE … FOR UPDATE; IF NOT FOUND THEN RAISE` whose required states are exactly",
 		"that edge's from-states, only when it writes that edge's target as a literal, and only when its `WHERE` is",

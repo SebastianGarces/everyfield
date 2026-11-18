@@ -104,13 +104,12 @@ tools. It reads SQL literals (with an optional schema prefix), SET fragments in 
 `SET ${…}` on the table, Drizzle `update`/`insert`/`onConflictDoUpdate` calls (a table or query held in a
 `const` of the same file is followed), and `.sql` files. A statement ends at its `;` or at the parenthesis
 that closes its CTE, so a guard elsewhere in the same SQL text does not count. A guarded UPDATE filters on
-`concat_ws('_',state,outcome) = ANY(${fromStates(proposalMachine, …)})` inside its own statement, or a Drizzle update on
-`inArray(<table>.state, fromStates(proposalMachine, …))` in its `where` (alone or inside `and`). When
+`concat_ws('_',state,outcome) = ANY(${fromStates(proposalMachine, …)})` inside its own statement. When
 the guard names its event or target as a string literal, or the write sets the state as a literal, the event
 must have a move to that state and the two targets must agree. A guarded INSERT writes an initial state as a
 literal; in a Drizzle object literal that is the last property that names the column, after any spread. An
 insert that updates the column on conflict is unguarded. An INSERT that copies rows without a column list is
-guarded when its own statement filters on `state = ANY(${entryStates(proposalMachine, …)})`. An UPDATE in
+guarded when its own statement filters on `concat_ws('_',state,outcome) = ANY(${entryStates(proposalMachine, …)})`. An UPDATE in
 a `.sql` file is guarded only inside a function that an edge names with `sql`, after a
 `SELECT * INTO … FROM <table> WHERE … FOR UPDATE; IF NOT FOUND THEN RAISE` whose required states are exactly
 that edge's from-states, only when it writes that edge's target as a literal, and only when its `WHERE` is
