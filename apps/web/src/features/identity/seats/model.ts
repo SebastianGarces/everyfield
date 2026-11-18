@@ -2,7 +2,7 @@ import { tenantOwner } from "@everyfield/contracts/access";
 import { invitationListResult, seatListResult } from "@everyfield/contracts/identity";
 import type { z } from "zod";
 import type { SeatsRead } from "./actions";
-import { formatDay } from "../../shared/dates.ts";
+import { formatDay } from "../../../components/dates.ts";
 
 export type Roster = z.infer<typeof seatListResult>;
 export type Seat = Roster["items"][number];

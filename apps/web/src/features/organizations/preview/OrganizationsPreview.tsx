@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Connections } from "../Connections";
 import { InvitationResponse } from "../InvitationResponse";
 import { noticeText } from "../model";
-import { formatDay } from "../../shared/dates.ts";
+import { formatDay } from "../../../components/dates.ts";
 import { PipelineAccessNote, PipelineTotals } from "../Pipeline";
 import { ResidencyDisclosure, ResidencySharing } from "../Residency";
 import {
