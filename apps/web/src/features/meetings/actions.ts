@@ -19,7 +19,7 @@ import {
 	rosterReader,
 	rosterWriter,
 } from "@everyfield/domain/meetings";
-import { tasksMount } from "@/server/tasks";
+import { tasksMount } from "../tasks/mount.ts";
 import { searchPeople as findPeople } from "@everyfield/domain/people";
 import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meetings";
 import { z } from "zod";
