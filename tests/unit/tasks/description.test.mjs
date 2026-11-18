@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { DESCRIPTION_EXCERPT, normalizeDescription } from "../../../packages/contracts/src/tasks/index.ts";
 import { DescriptionPreview, DescriptionView } from "../../../apps/web/src/features/tasks/description.ts";
 import { safeLinkAddress } from "../../../packages/contracts/src/common/index.ts";
-import { safeHref } from "../../../apps/web/src/features/evry/conversation/markdown.ts";
+import { safeHref } from "../../../apps/web/src/components/markdown.ts";
 
 const web = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
 const { renderToStaticMarkup } = web("react-dom/server");
