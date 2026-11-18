@@ -491,7 +491,7 @@ test("INV-check-census: a build Next.js stops once with its retry notice runs on
 	] as const)
 		await t.test(String(result), (t) => {
 			const { root, home } = repo(t, { "packages/domain/src/a.ts": "export const a = 1;\n" }, DB_PACKAGES);
-			const { run: base, commands } = fakeDb({ listed: ["@everyfield/domain"] });
+			const { run: base } = fakeDb({ listed: ["@everyfield/domain"] });
 			let n = 0;
 			const run: Runner = (command, args, options) => {
 				if (!args.includes("build")) return base(command, args, options);
