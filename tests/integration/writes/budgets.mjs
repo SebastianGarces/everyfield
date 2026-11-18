@@ -1,5 +1,5 @@
 export const WRITE_PATTERN = 6;
-export const REPEAT_LIMIT = 2;
+const REPEAT_LIMIT = 2;
 
 const kindsText = (kinds = {}) =>
 	Object.entries(kinds)
@@ -41,13 +41,10 @@ export function checkBudgets(rows, limits) {
 	return problems;
 }
 
-export function ranEverySuite(rows, units) {
-	const ran = rows.filter((row) => row.kind === "part").flatMap((row) => row.ran);
-	return ran.length === units.length && new Set(ran).size === ran.length && units.every((unit) => ran.includes(unit));
-}
-
 export function tighten(rows, limits, units) {
-	if (!ranEverySuite(rows, units)) return null;
+	const ran = rows.filter((row) => row.kind === "part").flatMap((row) => row.ran);
+	if (ran.length !== units.length || new Set(ran).size !== ran.length || !units.every((unit) => ran.includes(unit)))
+		return null;
 	const { measured } = measure(rows, limits);
 	const changes = [];
 	const tightened = {};

@@ -412,7 +412,7 @@ function databaseTests(
 	if (problems.length) entry.detail = problems.join("; ");
 }
 
-export const LIMITS = "tests/integration/writes/limits.json";
+const LIMITS = "tests/integration/writes/limits.json";
 const NEXT_RETRY = "Retry the same command to continue";
 const CENSUS_PROBLEM = /^\s*\+\s+'(.+)',?$/gm;
 
