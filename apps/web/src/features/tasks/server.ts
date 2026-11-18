@@ -1,6 +1,5 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
-import { tasksMount } from "@/server/tasks";
 import type { Transaction } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { followUpReader } from "@everyfield/domain/followups";
@@ -15,6 +14,7 @@ import {
 import "server-only";
 import { HISTORY_PAGE, outcomeOf } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
+import { tasksMount } from "./mount.ts";
 
 export type TaskViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
 const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";

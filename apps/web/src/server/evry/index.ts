@@ -4,7 +4,7 @@ import { after } from "next/server";
 import { privateHeaders } from "../platform/boundary";
 import { requestDatabase } from "../database";
 import { getViewer } from "../request-context";
-import { tasksMount } from "../tasks";
+import { tasksMount } from "../../features/tasks/mount.ts";
 import { runEffects, runTurns } from "./worker";
 
 export function evryDatabase() {

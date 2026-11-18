@@ -8813,7 +8813,6 @@
         "apps/web/src/marketing/",
         "apps/web/src/server/jobs/",
         "apps/web/src/server/onboarding/",
-        "apps/web/src/server/tasks/",
         "design/",
         "packages/db/scripts/",
         "packages/domain/src/early-access/",
