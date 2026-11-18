@@ -2,10 +2,10 @@ import type { Database } from "@everyfield/db/client";
 import { authorizePhaseNotices, createPhaseWriter, type PhaseNotices } from "@everyfield/domain/phases";
 import "server-only";
 import { z } from "zod";
-import { mailEnv } from "../mail-env.ts";
-import { database } from "../database";
-import { createMailService } from "../jobs/mail";
-import { createNotificationService } from "../jobs/notifications";
+import { mailEnv } from "../../server/mail-env.ts";
+import { database } from "../../server/database";
+import { createMailService } from "../../server/jobs/mail";
+import { createNotificationService } from "../../server/jobs/notifications";
 import { phaseNotices } from "./notices";
 
 const env = z.object({

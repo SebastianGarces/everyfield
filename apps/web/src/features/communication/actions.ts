@@ -36,7 +36,7 @@ import { read as readMeeting } from "../meetings/server.ts";
 import { canWrite } from "../../components/seat-role.ts";
 import { communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
 import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
-import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "./mail.ts";
+import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "../../server/mail/transport.ts";
 
 type Scheduled = Draft & { scheduledAt: string };
 const denied = { status: "refused", code: "access_denied" } as const;
