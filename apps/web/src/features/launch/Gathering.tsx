@@ -155,11 +155,9 @@ export function GatheringCard({
 					? `No longer offered by ${by ?? "the organization that chose it"}. ${admin ? "Go back to Launch Sunday, or choose another milestone if one is offered." : "An Owner or Admin can go back to Launch Sunday."}`
 					: `${name ? `Used instead of Launch Sunday, chosen by ${by ?? "an organization no longer connected"}.` : ""}${path.offered?.description ? ` ${path.offered.description}` : ""}`}
 			</InsightText>
-			{r?.note ? <InsightText className="mt-2 whitespace-pre-line">{r.note}</InsightText> : null}
+			{r?.note ? <InsightText className="whitespace-pre-line">{r.note}</InsightText> : null}
 			{r && gone ? (
-				<InsightText className="mt-2">
-					No longer offered by {by ?? "the organization that chose it"}. The record stays.
-				</InsightText>
+				<InsightText>No longer offered by {by ?? "the organization that chose it"}. The record stays.</InsightText>
 			) : null}
 			{admin ? (
 				<InsightFooter>

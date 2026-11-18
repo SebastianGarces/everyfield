@@ -185,7 +185,7 @@ export function UploadStep({
 					aria-busy={checking ? true : undefined}
 					className={cn(
 						"flex flex-col items-center gap-3 rounded-card border border-dashed border-line-2 px-6 py-12 text-center transition-[background-color,border-color] duration-150 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus hover:bg-hover max-app-sm:py-8",
-						over && "border-ink bg-hover",
+						over && "bg-hover",
 					)}
 				>
 					<span aria-hidden="true" className="grid size-14 place-items-center rounded-card bg-surface-2 text-text-2">

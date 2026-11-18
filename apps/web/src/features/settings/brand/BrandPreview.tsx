@@ -43,7 +43,7 @@ export function BrandPreview({
 					))}
 				</TabsList>
 				{CLASSES.map((c) => (
-					<TabsPanel key={c.value} value={c.value} className="pt-4">
+					<TabsPanel key={c.value} value={c.value}>
 						<Sheet theme={themeOf(churchName, form, c.value, assets)} />
 					</TabsPanel>
 				))}

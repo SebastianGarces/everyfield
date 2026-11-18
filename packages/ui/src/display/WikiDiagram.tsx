@@ -338,7 +338,7 @@ function Tree({ nodes, root = false }: { nodes: readonly WikiDiagramTreeNode[]; 
 							"after:absolute after:top-0 after:bottom-[-0.5rem] after:-left-5 after:border-l-[1.75px] after:border-text-3 after:content-['']",
 					)}
 				>
-					<Card className={cn(root ? "bg-surface-raised" : "py-2.5", "inline-block max-w-full")}>
+					<Card className={cn(root && "bg-surface-raised", "inline-block max-w-full")}>
 						<Text node={node} />
 					</Card>
 					{node.children.length ? <Tree nodes={node.children} /> : null}
