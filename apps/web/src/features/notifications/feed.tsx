@@ -4,7 +4,7 @@ import { useToast } from "@everyfield/ui/controls";
 import type { Loadable } from "@everyfield/ui/display";
 import { useBrowserZone, useDocumentHidden, useMinuteClock } from "@everyfield/ui/foundations";
 import { useMemo, useRef, useState, type ReactNode } from "react";
-import { createRead, useRead } from "../../components/read.tsx";
+import { createRead, useReadWith } from "../../components/read.tsx";
 import { storeContext, useLocalStore } from "../../components/store.ts";
 import { createAccountStore, type AccountState } from "./account.store.ts";
 import { markAllVisibleRead, markRead, markSelectedRead } from "./actions.ts";
@@ -38,6 +38,7 @@ type Counted = Outcome<UnreadCount>;
 const unreadCount = createRead((account: string) => readUnreadCount(account), {
 	failed: (): Counted => ({ status: "lost" }),
 	fresh: STALE_MS,
+	servedAt: (value) => (value.status === "ok" ? value.value.at : undefined),
 });
 
 const countOf = (value: Counted | undefined) => (value?.status === "ok" ? value.value : null);
@@ -54,11 +55,14 @@ function adjustCount(account: string, delta: number) {
 	if (now) unreadCount.patch(() => counted(Math.max(0, now.count + delta), now.at), account);
 }
 
-function useUnreadCount(): UnreadCount | null {
+function useUnreadCount(page: UnreadCount | null): UnreadCount | null {
 	const account = Account.useSelect((s) => s.account);
 	const hidden = useDocumentHidden();
-	const live = countOf(useRead(hidden ? null : unreadCount, account).value);
 	const [shown, setShown] = useState<UnreadCount | null>(null);
+	const behindPage = page !== null && shown !== null && shown.at < page.at && shown.count !== page.count;
+	const live = countOf(
+		useReadWith(hidden ? null : unreadCount, [account], { newerThan: behindPage ? page.at : undefined }).value,
+	);
 	if (live && (live.count !== shown?.count || live.at !== shown.at)) setShown(live);
 	return live ?? shown;
 }
@@ -111,7 +115,6 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 	const { stand, withdraw, confirm } = Account.useSelect((s) => s.actions);
 	const marks = Account.useSelect((s) => s.marks);
 	const account = Account.useSelect((s) => s.account);
-	const count = useUnreadCount();
 	const [state, setState] = useState<FeedState>(() =>
 		initial ? { status: "ready", ...fromPage(initial) } : { status: "loading" },
 	);
@@ -120,6 +123,11 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 	const revision = useRef(initial?.revision ?? null);
 
 	const standing = state.status === "ready" ? withStandingMarks(state.items, marks) : null;
+	const count = useUnreadCount(
+		initial && !query.category && state.status === "ready" && standing
+			? { count: Math.max(0, state.unread - standing.reached), at: state.at }
+			: null,
+	);
 	const countIsNewer = state.status === "ready" && count !== null && count.at >= state.at;
 	const shown: (Ready & { status: "ready" }) | null =
 		state.status === "ready" && standing
