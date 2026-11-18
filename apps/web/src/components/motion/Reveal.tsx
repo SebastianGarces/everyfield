@@ -1,8 +1,7 @@
 "use client";
 
-import { prefersReducedMotion } from "@everyfield/ui/foundations";
+import { cn, prefersReducedMotion } from "@everyfield/ui/foundations";
 import type { CSSProperties, ReactNode } from "react";
-import { cn } from "../cn";
 
 function revealOnceInView(up: boolean) {
 	return (el: HTMLElement | null) => {

@@ -13,10 +13,9 @@ import {
 	type ReactNode,
 } from "react";
 import { buttonClass } from "@/components/ButtonLink";
-import { cn } from "@/components/cn";
 import { Display } from "@/components/Display";
 import { Icon } from "@/components/Icon";
-import { useFocusRequest } from "@everyfield/ui/foundations";
+import { cn, useFocusRequest } from "@everyfield/ui/foundations";
 import { revealProps, revealRef } from "@/components/motion/Reveal";
 import { stepAccessForm, submitAccessRequest } from "./actions";
 import { HONEYPOT, validateAccessRequest, type FieldErrorCode } from "./contract";
