@@ -13,6 +13,7 @@ export const { admin } = database;
 export const db = database.pools.runtime;
 export const queries: string[] = [];
 export const statements: { text: string; values: unknown[] }[] = [];
+export const statementListeners = new Set<(text: string) => void>();
 
 export const plant = randomUUID();
 export const otherPlant = randomUUID();
@@ -70,6 +71,7 @@ export async function setup() {
 			const values = (args[0] as { values?: unknown[] }).values ?? (Array.isArray(args[1]) ? args[1] : []);
 			queries.push(text);
 			statements.push({ text, values });
+			for (const listener of statementListeners) listener(text);
 			return Reflect.apply(query, this, args);
 		} as typeof client.query;
 	});
