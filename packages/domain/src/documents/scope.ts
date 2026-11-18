@@ -1,7 +1,7 @@
 import * as c from "@everyfield/contracts/documents";
 import { sql } from "@everyfield/db/query";
 import { checkoutClient, type Database, type Transaction } from "@everyfield/db/client";
-import { putPrivateObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
+import { putPrivateObject, StorageError, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
 import "server-only";
 import { liveRead } from "../access/session.ts";
 import { deny, type PlantViewer } from "./access.ts";
@@ -70,11 +70,7 @@ export function sameRevision(left: string, right: string) {
 }
 
 export function refuseStorage(error: unknown): never {
-	if (
-		error instanceof Error &&
-		["unavailable", "invalid_file", "private_bucket_required", "invalid_upload_key"].includes(error.message)
-	)
-		deny();
+	if (error instanceof StorageError) deny();
 	throw error;
 }
 
