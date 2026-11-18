@@ -9,7 +9,7 @@ import {
 } from "@everyfield/domain/communication";
 import "server-only";
 import type { Outcome, PageData } from "./model.ts";
-import { appOrigin, mailReady, type MailReady } from "./mail.ts";
+import { appOrigin, mailReady, type MailReady } from "../../server/mail/transport.ts";
 import { canWrite } from "../../components/seat-role.ts";
 
 type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;

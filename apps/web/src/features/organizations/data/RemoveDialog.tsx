@@ -6,7 +6,7 @@ import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader }
 import Link from "next/link";
 import { useState } from "react";
 import { PIPELINE_PATH, refusalText } from "../board/model";
-import { Problem } from "../board/Problem";
+import { Problem } from "../../../components/Problem.tsx";
 import { removePerson } from "./actions";
 import { keptText, removedLines } from "./model";
 
