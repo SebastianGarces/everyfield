@@ -1,10 +1,4 @@
 {
-	"apps/web/src/app/api/accounts/[accountId]/avatar/[versionId]/route.ts": 4,
-	"apps/web/src/app/api/brand/assets/[id]/route.ts": 4,
-	"apps/web/src/app/api/cron/access-retention/route.ts": 1,
 	"apps/web/src/app/api/cron/jobs/route.ts": 1,
-	"apps/web/src/app/api/dev/outbox/route.ts": 3,
-	"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": 1,
-	"apps/web/src/app/api/health/route.ts": 1,
-	"apps/web/src/app/api/webhooks/resend/route.ts": 3
+	"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": 1
 }

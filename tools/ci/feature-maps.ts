@@ -259,15 +259,27 @@ function stringsOf(root: string, files: string[]): Set<string> {
 	return new Set(files.flatMap((f) => sourceStrings(readFileSync(join(root, f), "utf8"), f.endsWith(".tsx"))));
 }
 
+const APP_ALIAS_ROOT = "apps/web/src";
+
+function importsOf(root: string, file: string): string[] {
+	return [...readFileSync(join(root, file), "utf8").matchAll(/from\s+"((?:\.\.?|@)\/[^"]+)"/g)].flatMap((m) => {
+		const spec = m[1]!;
+		const target = spec.startsWith("@/")
+			? posix.join(APP_ALIAS_ROOT, spec.slice(2))
+			: posix.normalize(posix.join(posix.dirname(file), spec));
+		return [target, `${target}.ts`, `${target}.tsx`].filter(
+			(f) => (SOURCE_FILE.test(f) || f.endsWith(".json")) && existsSync(join(root, f)),
+		);
+	});
+}
+
 function withImports(root: string, dir: string): string[] {
 	const files = walk(root, dir, (f) => SOURCE_FILE.test(f) && !isTest(f));
-	const imported = files.flatMap((file) =>
-		[...readFileSync(join(root, file), "utf8").matchAll(/from\s+"(\.\.?\/[^"]+)"/g)].flatMap((m) => {
-			const target = posix.normalize(posix.join(posix.dirname(file), m[1]!));
-			return [target, `${target}.ts`, `${target}.tsx`].filter((f) => SOURCE_FILE.test(f) && existsSync(join(root, f)));
-		}),
-	);
-	return [...new Set([...files, ...imported])];
+	const imported = files.flatMap((file) => importsOf(root, file));
+	const data = imported
+		.flatMap((file) => (file.endsWith(".json") ? [] : importsOf(root, file)))
+		.filter((f) => f.endsWith(".json"));
+	return [...new Set([...files, ...imported, ...data])];
 }
 
 type SeedPersona = Omit<Persona, "says" | "seed"> & { name: string };
@@ -1114,8 +1126,10 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"and residency link match what the seed creates; a behavior proof checks more than the address after it acts;",
 		"on a surface that polls, a waiting check follows every open, click, press and upload; and every name, label",
 		"and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the",
-		"feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was",
-		"typed earlier in the same steps.",
+		"feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly, by a relative or `@/`",
+		"path, and the JSON files those modules import) or the QA seed, or was typed earlier in the same steps. The app",
+		"map (`apps/web/src/app/feature-map.json`) owns the routes no one feature does, such as the public site, and",
+		"its folder is all of `apps/web/src/app`.",
 		"",
 		"It cannot catch, and only running the browser steps catches:",
 		"",

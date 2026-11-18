@@ -68,10 +68,10 @@ export function CheckInLoading() {
 			<span className="sr-only" role="status">
 				Loading your check-in
 			</span>
-			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-14 w-80" />
 			<div className="grid grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
-				<Skeleton className="h-[520px] rounded-card" />
-				<Skeleton className="h-[520px] rounded-card" />
+				<Skeleton className="h-[520px]" />
+				<Skeleton className="h-[520px]" />
 			</div>
 		</div>
 	);
@@ -109,15 +109,15 @@ export function AttestationsLoading() {
 			<span className="sr-only" role="status">
 				Loading the attestations
 			</span>
-			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-14 w-80" />
 			<Skeleton className="h-10 w-72 rounded-md" />
 			<div className="grid grid-cols-4 gap-4 max-app-md:grid-cols-2">
-				<Skeleton className="h-28 rounded-card" />
-				<Skeleton className="h-28 rounded-card" />
-				<Skeleton className="h-28 rounded-card" />
-				<Skeleton className="h-28 rounded-card" />
+				<Skeleton className="h-28" />
+				<Skeleton className="h-28" />
+				<Skeleton className="h-28" />
+				<Skeleton className="h-28" />
 			</div>
-			<Skeleton className="h-72 rounded-card" />
+			<Skeleton className="h-72" />
 		</div>
 	);
 }
@@ -170,12 +170,12 @@ export function PlantIntelligenceLoading() {
 			<span className="sr-only" role="status">
 				Loading Plant Intelligence
 			</span>
-			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-14 w-80" />
 			<Skeleton className="h-10 w-96 max-w-full rounded-md" />
-			<Skeleton className="h-28 rounded-card" />
+			<Skeleton className="h-28" />
 			<div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 max-app-md:grid-cols-1">
-				<Skeleton className="h-[300px] rounded-card" />
-				<Skeleton className="h-[300px] rounded-card" />
+				<Skeleton className="h-[300px]" />
+				<Skeleton className="h-[300px]" />
 			</div>
 		</div>
 	);

@@ -17,7 +17,7 @@ export function NotAvailable({
 }) {
 	if (scope === "section")
 		return (
-			<StatePanel tone="lock" title="This is not available" headingLevel={headingLevel ?? "h3"} className="py-10">
+			<StatePanel tone="lock" title="This is not available" headingLevel={headingLevel ?? "h3"}>
 				It may have been removed, or your account cannot open it.
 			</StatePanel>
 		);

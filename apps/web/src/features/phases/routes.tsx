@@ -38,10 +38,10 @@ export function IntelligenceLoading() {
 			<span className="sr-only" role="status">
 				Loading the journey
 			</span>
-			<Skeleton className="h-14 w-72 rounded-card" />
+			<Skeleton className="h-14 w-72" />
 			<div className="grid grid-cols-[minmax(0,1.9fr)_minmax(0,1.1fr)] items-start gap-5 max-app-md:grid-cols-1">
-				<Skeleton className="h-80 rounded-card" />
-				<Skeleton className="h-80 rounded-card" />
+				<Skeleton className="h-80" />
+				<Skeleton className="h-80" />
 			</div>
 		</div>
 	);

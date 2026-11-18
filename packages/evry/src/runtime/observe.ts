@@ -104,15 +104,13 @@ export async function* observeRun(
 			if (failure) throw (failure as { error: unknown }).error;
 			const item = queue[0];
 			if (item) {
-				if ("live" in item && Date.now() - checkedAt > staleMs) {
-					await new Promise<void>((resolve) => {
-						wake = resolve;
-						setTimeout(poke, 50);
-					});
+				const unchecked = "live" in item && Date.now() - checkedAt > staleMs;
+				if (unchecked && polling) {
+					await new Promise<void>((resolve) => (wake = resolve));
 					continue;
 				}
 				queue.shift();
-				if ("live" in item && withheld.has(item.live.turnId)) continue;
+				if (unchecked || ("live" in item && withheld.has(item.live.turnId))) continue;
 				yield item;
 				continue;
 			}
