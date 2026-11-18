@@ -1,7 +1,12 @@
 import * as c from "@everyfield/contracts/documents";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
+import {
+	readAuthorizedObject,
+	StorageError,
+	type PrivateStorage,
+	type ResourceAuthorizer,
+} from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
 import "server-only";
 import type { RequestActor } from "../access/session.ts";
@@ -909,7 +914,7 @@ export const churchWriter = {
 				return allowed[0]?.ok === true ? { kind: "account", actorId: scope.accountId } : null;
 			};
 			const bytes = await readAuthorizedObject(db, storage, authorize, row.object_id).catch((error: unknown) =>
-				error instanceof Error && error.message === "unavailable" ? deny("unavailable") : Promise.reject(error),
+				error instanceof StorageError && error.code === "unavailable" ? deny("unavailable") : Promise.reject(error),
 			);
 			return c.churchFile.parse({
 				documentId: input.documentId,

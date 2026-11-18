@@ -550,7 +550,7 @@ export function GuestList({
 	const form = lane.editing;
 	return (
 		<Card as="section" aria-labelledby="guests-title">
-			<CardHeader className="flex-wrap items-center">
+			<CardHeader className="flex-wrap">
 				<CardHeading>
 					<CardTitle id="guests-title">Guest list</CardTitle>
 				</CardHeading>
@@ -579,7 +579,7 @@ export function GuestList({
 			<SaveNotice {...lane.noticeProps} dialogOpen={form !== null} className="mb-3" />
 			<RowNotices lanes={presence.lanes} className="mb-3" />
 			{guests === null ? (
-				<StatePanel tone="error" title="Guests did not load" headingLevel="h3" className="py-8">
+				<StatePanel tone="error" title="Guests did not load" headingLevel="h3">
 					Nothing was changed. Reload the page in a moment.
 				</StatePanel>
 			) : (

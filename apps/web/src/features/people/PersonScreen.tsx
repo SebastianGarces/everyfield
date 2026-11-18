@@ -194,7 +194,7 @@ export function PersonScreen({
 								<h1 className="text-display-sm leading-[1.05] tracking-[-0.02em] text-ink text-balance max-app-sm:text-title-lg">
 									{p.displayName}
 								</h1>
-								<StageChip stage={STAGE_KEY[p.stage]} className="h-[30px] text-[13px]">
+								<StageChip stage={STAGE_KEY[p.stage]} className="h-[30px] text-[13px] leading-(--text-xs--line-height)">
 									{STAGE_LABEL[p.stage]}
 								</StageChip>
 							</div>
@@ -292,7 +292,7 @@ export function PersonScreen({
 					<CalloutLabel tone="blue" icon={GitMergeIcon}>
 						Opened from a merged person
 					</CalloutLabel>
-					<CalloutText className="text-sm">
+					<CalloutText className="leading-(--text-sm--line-height)">
 						The link you followed was for a person who was merged into {p.displayName}. Their history is in this
 						Activity.
 					</CalloutText>
@@ -386,7 +386,7 @@ export function PersonScreen({
 						</div>
 						<div className="flex min-w-0 flex-col gap-5 max-app-lg:order-first">
 							<Card>
-								<CardHeader className="mb-2">
+								<CardHeader>
 									<CardHeading>
 										<CardTitle size="sm">Details</CardTitle>
 									</CardHeading>
@@ -473,7 +473,7 @@ export function PersonScreen({
 								<MinistryRoles key={`ministries-${generation}`} initial={ministries} canCorrect={canWrite} />
 							) : null}
 							<Card>
-								<CardHeader className="mb-2">
+								<CardHeader>
 									<CardHeading>
 										<CardTitle size="sm">{records ? "Adult or child" : "Adult or child and commitment"}</CardTitle>
 									</CardHeading>
@@ -520,7 +520,7 @@ export function PersonScreen({
 							</Card>
 							{p.summaryNotes ? (
 								<Card>
-									<CardHeader className="mb-2">
+									<CardHeader>
 										<CardHeading>
 											<CardTitle size="sm">Summary</CardTitle>
 										</CardHeading>

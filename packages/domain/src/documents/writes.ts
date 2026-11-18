@@ -4,6 +4,7 @@ import { sql } from "@everyfield/db/query";
 import {
 	createAuthorizedDownload,
 	deleteUnreferencedObject,
+	StorageError,
 	type PrivateStorage,
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
@@ -594,7 +595,7 @@ const generatedWriter = {
 					if (result.status === "inaccessible") purged += 1;
 					else unknown += 1;
 				} catch (error) {
-					if (error instanceof Error && error.message === "unavailable") continue;
+					if (error instanceof StorageError && error.code === "unavailable") continue;
 					throw error;
 				}
 			}

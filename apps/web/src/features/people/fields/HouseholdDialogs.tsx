@@ -313,7 +313,7 @@ export function JoinHouseholdDialog({
 									aria-describedby={touched && !choice ? "household-choice-error" : undefined}
 									value={choice}
 									onValueChange={actions.choose}
-									className="gap-0 px-4"
+									className="gap-y-0 px-4"
 								>
 									{items.map((h) => (
 										<Radio

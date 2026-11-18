@@ -157,7 +157,7 @@ export function InterviewCard({
 
 	return (
 		<Card className="min-w-0">
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
 						<CardTitle size="sm">Interview</CardTitle>
@@ -167,7 +167,7 @@ export function InterviewCard({
 							</StatusBadge>
 						) : null}
 					</div>
-					<CardDescription className="text-sm">
+					<CardDescription className="leading-(--text-sm--line-height)">
 						{latest ? (
 							<>
 								<LocalDay day={latest.occurredOn} /> ·{" "}
@@ -394,10 +394,10 @@ function InterviewDialog({
 					aria-describedby={touched && draft.result === "" ? `${resultId}-error` : undefined}
 					value={draft.result}
 					onValueChange={(result) => setDraft((d) => ({ ...d, result: result as Result }))}
-					className="grid grid-cols-2 gap-x-4 max-app-sm:grid-cols-1"
+					className="grid grid-cols-2 max-app-sm:grid-cols-1"
 				>
 					{RESULTS.map((r) => (
-						<Radio key={r} value={r} label={RESULT_LABEL[r]} className="py-2" />
+						<Radio key={r} value={r} label={RESULT_LABEL[r]} />
 					))}
 				</RadioGroup>
 				<div aria-live="polite" className="empty:hidden">

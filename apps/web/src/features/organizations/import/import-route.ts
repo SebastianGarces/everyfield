@@ -1,7 +1,7 @@
 import "server-only";
 import { requestDatabase } from "@/server/database";
 import { boundedBytes, Refusal } from "@/server/platform/boundary";
-import { pipelineActor } from "@/server/organizations/pipeline";
+import { pipelineActor } from "../pipeline-mount";
 import { pipelineImportLimits } from "@everyfield/contracts/organizations";
 import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
 
