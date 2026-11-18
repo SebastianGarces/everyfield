@@ -25,7 +25,8 @@ Do not push: evf opens the PR (implementor step 6).
   `better-colors`, `better-accessibility`, `better-writing`). New components come from the shadcn CLI.
 - Use the upstream `vercel-react-best-practices` skill for React and Next.js components, pages,
   data fetching, bundle size and performance work.
-- Look at your work on its portless preview at mobile and desktop widths with agent-browser.
+- Look at your work at mobile and desktop widths with `bin/app` (`app shot` takes both, `app cursor-audit`
+  checks pointers).
   Read the console. Judge hierarchy, spacing and copy. The verifier checks Chromium and WebKit.
 - Browser regression tests cover critical flows only, with `AC:<case-id>` markers. Use integration
   tests for other behavior and broad browser proof outside the repo. Follow `test-standard`.

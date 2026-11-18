@@ -10,6 +10,7 @@ export const CHECKS = {
 	workflow: { kind: "suite", root: "tests/workflow", files: "tests/workflow/*.test.{mjs,ts}" },
 	"tools-ci": { kind: "suite", root: "tools/ci/tests", files: "tools/ci/tests/*.test.ts" },
 	"tools-qa": { kind: "suite", root: "tools/qa/tests", files: "tools/qa/tests/*.test.ts" },
+	"tools-app": { kind: "suite", root: "tools/app/tests", files: "tools/app/tests/*.test.ts" },
 	"github-scripts": { kind: "suite", root: ".github/scripts", files: ".github/scripts/*.test.cjs" },
 	"ops-watch": { kind: "suite", root: "ops/actionable-watch/test", files: "ops/actionable-watch/test/*.test.mts" },
 } as const satisfies Record<string, Check>;
@@ -106,6 +107,7 @@ export const RULES: readonly Rule[] = [
 		tests: ["tests/workflow/formal.test.ts"],
 	},
 	{ name: "QA command", paths: ["bin/qa"], suites: ["tools-qa"] },
+	{ name: "app verification command", paths: ["bin/app", "tools/app/**"], suites: ["tools-app"] },
 	{ name: "production identity setup", paths: ["bin/prod-identity", "tools/prod-identity/**"], suites: ["tools-qa"] },
 	{
 		name: "preview config",

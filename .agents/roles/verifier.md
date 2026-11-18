@@ -23,9 +23,10 @@ For a task that changes `docs/reference/wiki/`, check sources, scripture and scr
 
 Run long checks in the foreground, or keep your turn open until every background job ends.
 Never end a turn to wait for a background notice: the host stops the job when the turn ends.
-Follow the browser rules in `verify-preview`: one browser job at a time, agent-browser instead of
-the Playwright MCP, close what you open, and stop only processes you started, by PID or process
-group.
+Follow the browser rules in `verify-preview`: one browser job at a time, `bin/app` (agent-browser
+underneath) instead of the Playwright MCP, `bin/app close` when you finish, and stop only processes
+you started, by PID or process group. To re-run a flow, `bin/app up` gives this head a local seeded
+app and `bin/app do` runs the whole flow in one call.
 
 Include a "Code quality" section in every review. Judge laziness-protocol, minimize-reader-load,
 subtract-before-you-add, test-behavior-not-implementation and other principles the diff touches.
