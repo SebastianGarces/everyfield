@@ -188,6 +188,11 @@ The golden, household and follow-up suites need a database `testDatabase` accept
 Postgres the way CI runs one (`DATABASE_URL=postgres://ci:ci@localhost:5432/everyfield_ci`, `CI=true`,
 `EARLY_ACCESS_TEST_DATABASE=1`, then `pnpm db:migrate`). Each run creates its own schema and drops it afterwards.
 
+`test:db` runs four files at a time. Each file is its own process with its own schema, login roles, pinned database clock
+and host clock, so the files share no rows, clocks or ports. What they do share is Postgres's lock table: one schema's
+migration or drop takes thousands of locks, so `testDatabase` runs both under the migration lock, one at a time
+(`tests/evry/runtime/schema-locks.test.mts`).
+
 The report (and `/tmp/evry-golden.md.json`) shows, for every case: the case ID, scenario, actor, question, expected
 answer, observed answer, tool calls, review cards, each hard check with the text it passed or failed on, the alpha
 target, the judge's grades and the recording keys. Keep reports outside the repository.
