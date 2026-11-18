@@ -2,8 +2,8 @@
 
 import { z } from "zod";
 import { invitationService } from "@/server/invitations";
-import { namesFor, subjectFacts, viewerOf } from "@/server/organizations";
-import { tasksMount } from "@/server/tasks";
+import { namesFor, subjectFacts, viewerOf } from "../../organizations/mount";
+import { tasksMount } from "../../tasks/mount.ts";
 import { answer, refused, type Reply } from "../server";
 
 export type SeatsRead =

@@ -26,7 +26,7 @@ import {
 import {
 	authorizeNotificationMail,
 	createNotificationWorker,
-} from "../../../apps/web/src/server/jobs/notification-worker.ts";
+} from "../../../apps/web/src/features/notifications/worker.ts";
 
 const ORIGIN = "http://app.example.test";
 let f: Awaited<ReturnType<typeof fixture>>;

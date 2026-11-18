@@ -28,7 +28,7 @@ import {
 import {
 	authorizeNotificationMail,
 	createNotificationWorker,
-} from "../../../apps/web/src/server/jobs/notification-worker.ts";
+} from "../../../apps/web/src/features/notifications/worker.ts";
 
 const database = await fixture({ prefix: "answerreview", max: 6 });
 const { admin } = database;

@@ -1,0 +1,636 @@
+{
+	"$schema": "../../feature-map.schema.json",
+	"feature": "app",
+	"catalog": ["ADM-006", "ADM-007"],
+	"surfaces": [
+		{
+			"id": "app.cron-jobs",
+			"says": "The scheduler endpoint the platform cron calls: with the exact bearer it runs every feature's due jobs and mail passes in one tick; a call without that bearer gets 401 and runs nothing, and a deployment with no cron secret set answers 503.",
+			"routes": [],
+			"endpoints": ["/api/cron/jobs"],
+			"reach": [
+				{
+					"link": "/api/cron/jobs"
+				}
+			],
+			"personas": {
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "refused",
+					"reach": {
+						"persona": "visitor",
+						"open": "/api/cron/jobs",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "unauthorized",
+							"match": "contains"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "app.home",
+			"says": "The public home page for church planters: the hero with its demo animation, the phases, what Evry does, the oversight teaser and links to request early access. It needs no sign-in.",
+			"routes": ["/"],
+			"catalog": ["ADM-006"],
+			"reach": [
+				{
+					"link": "/"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "visitor",
+					"reach": {
+						"persona": "visitor",
+						"open": "/",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "From calling to Launch Sunday."
+						},
+						{
+							"role": "link",
+							"name": "Request early access"
+						},
+						{
+							"role": "heading",
+							"name": "Everything a church plant needs, in the order you need it."
+						},
+						{
+							"role": "link",
+							"name": "Learn more about the oversight view"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "app.oversight-page",
+			"says": "The public page for sending churches and networks: a sample dashboard of the plants they send, the trust cards and the questions people ask, with a link that opens the access form already set to a network.",
+			"routes": ["/oversight"],
+			"catalog": ["ADM-006"],
+			"reach": [
+				{
+					"from": "app.home",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Churches & Networks"
+							}
+						}
+					]
+				},
+				{
+					"from": "app.home",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Learn more about the oversight view"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "visitor",
+					"reach": {
+						"persona": "visitor",
+						"open": "/",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Churches & Networks"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/oversight"
+						},
+						{
+							"role": "heading",
+							"name": "See every church plant you send."
+						},
+						{
+							"role": "columnheader",
+							"name": "Church plant"
+						},
+						{
+							"role": "link",
+							"name": "Talk to us about your network"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "app.access-request",
+			"says": "The one early access form: the visitor says who they are, then gives contact and church or network details step by step, and sends. Each step is checked on the server before the next. Sending emails the Everyfield owner through the mail provider directly, with no capture outbox, so no browser step here presses the final send; the tests prove it.",
+			"routes": ["/access"],
+			"catalog": ["ADM-006"],
+			"reach": [
+				{
+					"from": "app.home",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Request early access"
+							}
+						}
+					]
+				},
+				{
+					"from": "app.oversight-page",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Talk to us about your network"
+							}
+						}
+					]
+				},
+				{
+					"link": "/access?role={role}",
+					"fill": {
+						"role": "planter, church or network, which picks the first answer"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "write"
+			},
+			"states": [
+				{
+					"id": "choose",
+					"reach": {
+						"persona": "visitor",
+						"open": "/access",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Request early access"
+						},
+						{
+							"role": "heading",
+							"name": "Which of these describes you?"
+						},
+						{
+							"role": "radio",
+							"name": "Church planter"
+						},
+						{
+							"role": "radio",
+							"name": "Sending network"
+						}
+					]
+				},
+				{
+					"id": "choose-required",
+					"reach": {
+						"persona": "visitor",
+						"open": "/access",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "Choose the one that describes you.",
+							"match": "contains"
+						},
+						{
+							"role": "heading",
+							"name": "Which of these describes you?"
+						}
+					]
+				},
+				{
+					"id": "contact",
+					"reach": {
+						"persona": "visitor",
+						"open": "/access",
+						"path": [
+							{
+								"click": {
+									"role": "radio",
+									"name": "Church planter"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "How can we reach you?"
+						},
+						{
+							"role": "textbox",
+							"name": "Your name"
+						},
+						{
+							"role": "button",
+							"name": "Back"
+						}
+					]
+				},
+				{
+					"id": "email-invalid",
+					"reach": {
+						"persona": "visitor",
+						"open": "/access",
+						"path": [
+							{
+								"click": {
+									"role": "radio",
+									"name": "Church planter"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							},
+							{
+								"type": "Sam Field",
+								"into": "Your name"
+							},
+							{
+								"type": "not-an-email",
+								"into": "Email"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "Enter an email address, such as name@example.com.",
+							"match": "contains"
+						},
+						{
+							"role": "heading",
+							"name": "How can we reach you?"
+						}
+					]
+				},
+				{
+					"id": "network-from-link",
+					"reach": {
+						"persona": "visitor",
+						"open": "/access?role=network",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							},
+							{
+								"type": "Sam Field",
+								"into": "Your name"
+							},
+							{
+								"type": "sam@example.org",
+								"into": "Email"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Which network are you with?"
+						},
+						{
+							"role": "textbox",
+							"name": "Network name"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "send",
+					"says": "A complete request is stored with every field and sends one email to the owner; the same email and form within 24 hours sends nothing more, five requests per email and twenty per address an hour are the limit, a filled honeypot gets a receipt with nothing stored, and a failed store or mail never claims success.",
+					"catalog": ["ADM-006"],
+					"operations": [],
+					"noOperation": "The form's server action calls `receiveAccessRequest` (`packages/domain/src/early-access/index.ts`); the catalog's `marketing.requestInvitation` names no code.",
+					"proof": {
+						"tests": [
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: accepted forms normalize email, store every field and send one complete owner email each"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: 24-hour duplicates use normalized email and form without another row or email"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: five valid attempts per normalized email in 24 hours then email refusal"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: twenty attempts per IP in one hour then IP refusal"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: honeypot receives a fake receipt with no data, limit attempts or email"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: mail rejection, missing receipt and timeout never claim success; retry keeps original row and payload"
+							}
+						]
+					}
+				}
+			]
+		},
+		{
+			"id": "app.legal",
+			"says": "The public privacy policy and terms, linked from every public page's footer and from the access form.",
+			"routes": ["/privacy", "/terms"],
+			"catalog": ["ADM-007"],
+			"reach": [
+				{
+					"from": "app.home",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Privacy policy"
+							}
+						}
+					]
+				},
+				{
+					"from": "app.home",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Terms"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "privacy",
+					"reach": {
+						"persona": "visitor",
+						"open": "/",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Privacy policy"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/privacy"
+						},
+						{
+							"role": "heading",
+							"name": "Privacy policy"
+						},
+						{
+							"role": "heading",
+							"name": "What we collect"
+						},
+						{
+							"role": "heading",
+							"name": "Ask for a copy, a correction or deletion"
+						}
+					]
+				},
+				{
+					"id": "terms",
+					"reach": {
+						"persona": "visitor",
+						"open": "/",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Terms"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/terms"
+						},
+						{
+							"role": "heading",
+							"name": "Terms"
+						},
+						{
+							"role": "heading",
+							"name": "Your requests"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "app.site-files",
+			"says": "The files search engines and phones fetch from the public site: robots.txt allows only the live public pages and their share images and points to the sitemap, the sitemap lists the five public pages, and the Apple touch icon is a 180 px PNG.",
+			"routes": [],
+			"endpoints": ["/robots.txt", "/sitemap.xml", "/apple-icon"],
+			"catalog": ["ADM-007"],
+			"reach": [
+				{
+					"link": "/robots.txt"
+				},
+				{
+					"link": "/sitemap.xml"
+				},
+				{
+					"link": "/apple-icon"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "robots",
+					"reach": {
+						"persona": "visitor",
+						"open": "/robots.txt",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "/oversight/twitter-image",
+							"match": "contains"
+						},
+						{
+							"text": "/sitemap.xml",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "sitemap",
+					"reach": {
+						"persona": "visitor",
+						"open": "/sitemap.xml",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "https://everyfield.app",
+							"match": "contains"
+						},
+						{
+							"text": "monthly",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "apple-icon",
+					"reach": {
+						"persona": "visitor",
+						"open": "/apple-icon",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/apple-icon"
+						},
+						{
+							"noText": "Page not found"
+						},
+						{
+							"noText": "Error"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "app.resend-webhook",
+			"says": "The Resend webhook that records delivery, bounce and open callbacks for sent mail: it refuses any method but a signed POST.",
+			"routes": [],
+			"endpoints": ["/api/webhooks/resend"],
+			"reach": [
+				{
+					"link": "/api/webhooks/resend"
+				}
+			],
+			"personas": {
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "refused",
+					"reach": {
+						"persona": "visitor",
+						"open": "/api/webhooks/resend",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/api/webhooks/resend"
+						},
+						{
+							"text": "method_not_allowed",
+							"match": "contains"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "record-delivery",
+					"says": "A signed callback records one delivery outcome for the sent mail, and a callback with a bad signature writes nothing.",
+					"catalog": ["NTF-010"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/delivery.test.mts",
+								"name": "AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one outcome and a bad signature writes nothing"
+							}
+						],
+						"cases": ["CASE-NTF-010"]
+					},
+					"noOperation": "the Resend webhook handler (server/jobs/webhook-route.ts) verifies the signature and the mail callback job records the outcome; it is a provider callback, not a catalog operation"
+				}
+			]
+		}
+	]
+}

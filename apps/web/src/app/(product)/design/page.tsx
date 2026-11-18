@@ -1,5 +1,1 @@
-import { redirect } from "next/navigation";
-
-export default function DesignIndex() {
-	redirect("/design/shell/owner");
-}
+export { DesignIndexPage as default } from "@/features/shell/preview/design";
