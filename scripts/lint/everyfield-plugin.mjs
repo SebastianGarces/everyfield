@@ -99,16 +99,44 @@ const noInnerHtml = {
 export const SESSION_MODULE = "packages/domain/src/access/session.ts";
 const PRODUCT_SOURCE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
 
+const ACTOR_CLASS = "RequestActor";
+const staticKey = (node) =>
+	keyName(node.property, node.computed) ?? (node.computed ? literalArgument(node.property) : null);
+
 const requestActor = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
 		if (path === SESSION_MODULE || !PRODUCT_SOURCE.test(path)) return {};
-		const message = `Only ${SESSION_MODULE} builds a RequestActor from a session and an actor: resolve it with RequestActor.resolve or claim a write, so authority always comes from the server session.`;
+		const built = `Only ${SESSION_MODULE} builds a RequestActor from a session and an actor: resolve it with RequestActor.resolve or claim a write, so authority always comes from the server session.`;
+		const passed = `Reach RequestActor only through a named static member (RequestActor.resolve, RequestActor.claimWrite), so only ${SESSION_MODULE} builds one from a session and an actor.`;
+		const locals = new Set([ACTOR_CLASS]);
+		const isClass = (node) =>
+			(node.type === "Identifier" && locals.has(node.name)) ||
+			(node.type === "MemberExpression" && staticKey(node) === ACTOR_CLASS);
+		const throughMember = (node) => node.parent?.type === "MemberExpression" && node.parent.object === node;
 		return {
-			MemberExpression: (node) => {
-				if (node.object.type === "Identifier" && node.object.name === "RequestActor" && memberName(node) === "of")
-					context.report({ node, message });
+			Program(program) {
+				for (const s of program.body)
+					if (s.type === "ImportDeclaration" && s.importKind !== "type")
+						for (const spec of s.specifiers)
+							if (
+								spec.type === "ImportSpecifier" &&
+								spec.importKind !== "type" &&
+								nameOf(spec.imported) === ACTOR_CLASS
+							)
+								locals.add(spec.local.name);
+			},
+			MemberExpression(node) {
+				if (isClass(node.object)) {
+					const key = staticKey(node);
+					if (key === null || key === "of") context.report({ node, message: built });
+				}
+				if (staticKey(node) === ACTOR_CLASS && !throughMember(node)) context.report({ node, message: passed });
+			},
+			Identifier(node) {
+				if (locals.has(node.name) && isValueReference(node) && !throughMember(node))
+					context.report({ node, message: passed });
 			},
 		};
 	},
