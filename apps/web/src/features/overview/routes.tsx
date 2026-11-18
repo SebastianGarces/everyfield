@@ -1,4 +1,5 @@
 import { requestDatabase } from "@/server/database";
+import { readFlag } from "@/server/flags";
 import { getViewer } from "@/server/request-context";
 import { DASHBOARD_HOME, landingFor } from "@everyfield/contracts/identity";
 import { dashboardReader } from "@everyfield/domain/dashboard";
@@ -9,7 +10,7 @@ import { Suspense } from "react";
 import { ActivityCard, CardFailed, CardLoading, LaunchCard, MetricsCards, MetricsLoading } from "./cards.tsx";
 import { GetStarted, QuickActions } from "./client.tsx";
 import { IntelligenceCard } from "./IntelligenceCard.tsx";
-import { phaseText } from "./model.ts";
+import { overviewSubtitle } from "./model.ts";
 import { loadActivity, loadFrame, loadIntelligence, loadLaunch, loadMetrics } from "./server.ts";
 
 export const overviewMetadata: Metadata = { title: "Overview", robots: { index: false, follow: false } };
@@ -24,7 +25,7 @@ export async function OverviewPage() {
 	const home = landingFor({ status: viewer.status, plant });
 	if (home !== DASHBOARD_HOME) redirect(home);
 
-	const frame = await loadFrame();
+	const [frame, showRole] = await Promise.all([loadFrame(), readFlag("overview-role-subtitle")]);
 	if (frame.status === "denied")
 		return (
 			<StatePanel tone="lock" title="You do not have access to this church">
@@ -41,7 +42,7 @@ export async function OverviewPage() {
 				title="Overview"
 				subtitle={
 					ready
-						? `${ready.plantName} · ${phaseText(ready.phase)}`
+						? overviewSubtitle(ready, showRole)
 						: "Your church's name and phase could not load. Reload the page in a moment."
 				}
 				className="mb-1"

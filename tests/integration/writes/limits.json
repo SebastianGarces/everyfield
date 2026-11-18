@@ -81,10 +81,12 @@
 		"limit": 2
 	},
 	"GET /overview": {
-		"limit": 7
+		"limit": 8,
+		"reason": "One more than before T-470: the overview-role-subtitle flag read (flags/values.readFlags), one statement for every flag the page reads."
 	},
 	"GET /overview (member)": {
-		"limit": 6
+		"limit": 7,
+		"reason": "One more than before T-470: the overview-role-subtitle flag read (flags/values.readFlags), one statement for every flag the page reads."
 	},
 	"GET /people": {
 		"limit": 6
