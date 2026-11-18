@@ -11514,7 +11514,7 @@
 					"note": ""
 				},
 				"refusal": {
-					"note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; null otherwise. A blocked address keeps its suppression row instead."
+					"note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; child when the person was marked as a child at send time (no override); null otherwise. A blocked address keeps its suppression row instead."
 				},
 				"communication_id": {
 					"note": "The Messages message this recipient send belongs to, set on every communication mail insert; null for other purposes. History, delivery and meeting reads join on it instead of a logical_key prefix."

@@ -252,7 +252,7 @@
 			"says": "New message: Who, Write, then Review and send, each step in the address, ending in Send now or a schedule.",
 			"routes": [],
 			"endpoints": ["/api/dev/outbox"],
-			"catalog": ["COM-003", "COM-004", "COM-012"],
+			"catalog": ["COM-003", "COM-004", "COM-012", "NTF-016"],
 			"reach": [
 				{
 					"from": "communication.messages",
@@ -457,6 +457,33 @@
 								}
 							]
 						}
+					}
+				},
+				{
+					"id": "leave-out-children",
+					"says": "People marked as a child (Adult or child on the Person record) are listed under Left out, and why with \"Marked as a child\" and never get the email; an audience of only children cannot be sent or scheduled, and the check runs again at the send time. Mark a person as a child on their Person record, then choose them on Who.",
+					"catalog": ["NTF-016", "COM-004", "COM-012"],
+					"operations": ["communication.resolveAudience", "communication.scheduleReviewed"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/children.test.mts",
+								"name": "AC:CASE-NTF-016-CHILD a group email leaves out the people marked as a child with that reason, and everyone else still gets it at the send time"
+							},
+							{
+								"file": "tests/integration/communication/children.test.mts",
+								"name": "AC:CASE-NTF-016-CHILD a send or schedule only to people marked as a child is refused with that reason, and no email is queued"
+							},
+							{
+								"file": "tests/integration/communication/children.test.mts",
+								"name": "AC:CASE-NTF-016-CHILD a person marked as a child after the email is scheduled gets nothing at the send time, and staff see them left out as a child"
+							},
+							{
+								"file": "tests/integration/communication/children.test.mts",
+								"name": "AC:CASE-NTF-016-CHILD a person marked as a child when the email was scheduled and marked as an adult before it goes out receives it, unless something else stops them"
+							}
+						],
+						"cases": ["CASE-NTF-016-CHILD"]
 					}
 				}
 			]

@@ -12420,7 +12420,7 @@
       "checkConstraints": {
         "mail_refusal": {
           "name": "mail_refusal",
-          "value": "((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))"
+          "value": "((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text])) AND (state = 'refused'::text)))"
         },
         "mail_ck_0": {
           "name": "mail_ck_0",

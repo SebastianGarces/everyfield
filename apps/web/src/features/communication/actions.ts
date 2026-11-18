@@ -151,6 +151,7 @@ export async function sendReviewed(
 			rejectedCount: result.value.rejectedCount,
 			unknownCount: result.value.unknownCount,
 			unsubscribedCount: result.value.unsubscribedCount,
+			childCount: result.value.childCount,
 		},
 	};
 }
@@ -178,6 +179,7 @@ export async function reconcileDelivery(
 			rejectedCount: result.value.rejectedCount,
 			unknownCount: result.value.unknownCount,
 			unsubscribedCount: result.value.unsubscribedCount,
+			childCount: result.value.childCount,
 		},
 	};
 }

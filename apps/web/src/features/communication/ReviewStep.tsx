@@ -19,7 +19,14 @@ import { PreviewStage } from "./EmailFrame.tsx";
 import { textToBody } from "./body.ts";
 import { insideWindow, windowBounds } from "./scheduleWindow.ts";
 import { listed, plural, type Form } from "./composeModel.ts";
-import { groupLabel, type AudienceSummary, type MeetingContext, type Team, type Template } from "./model.ts";
+import {
+	groupLabel,
+	noRecipientReason,
+	type AudienceSummary,
+	type MeetingContext,
+	type Team,
+	type Template,
+} from "./model.ts";
 
 function presets(now = new Date()): { label: string; at: Date }[] {
 	const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9, 0);
@@ -79,7 +86,10 @@ export function ReviewStep({
 		...form.audience.teamIds.map((id) => teams.find((t) => t.id === id)?.name ?? "A team"),
 		...form.people.map((p) => p.displayName ?? known.get(p.id) ?? "A person"),
 	];
-	const left = summary?.missingEmailExclusions ?? [];
+	const left = [
+		...(summary?.childExclusions ?? []).map((person) => ({ name: person.displayName, why: "marked as a child" })),
+		...(summary?.missingEmailExclusions ?? []).map((name) => ({ name, why: "no email address" })),
+	];
 
 	const schedulePicked = () => {
 		const at = custom ? new Date(custom) : null;
@@ -148,9 +158,9 @@ export function ReviewStep({
 									aria-label="Left out"
 								>
 									{left.map((n, i) => (
-										<li key={`${n}-${i}`}>
-											{n}
-											<span className="text-text-3">, no email address</span>
+										<li key={`${n.name}-${i}`}>
+											{n.name}
+											<span className="text-text-3">, {n.why}</span>
 										</li>
 									))}
 								</ul>
@@ -162,7 +172,9 @@ export function ReviewStep({
 					<Row label="Meeting" value={meeting ? `${meeting.title}` : "None"} />
 				</dl>
 				{!canSend ? (
-					<p className="text-sm text-text-2">Choose at least one person who can get email before you send.</p>
+					<p className="text-sm text-text-2">
+						{noRecipientReason(summary, "Choose at least one person who can get email before you send.")}
+					</p>
 				) : null}
 				<div className="flex">
 					<Button

@@ -438,7 +438,8 @@
       "failed"
     ],
     "mail.refusal": [
-      "unsubscribed"
+      "unsubscribed",
+      "child"
     ],
     "mail_attempt.outcome": [
       "in_flight",
@@ -25977,7 +25978,7 @@
           "nullable": true
         },
         {
-          "note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; null otherwise. A blocked address keeps its suppression row instead.",
+          "note": "unsubscribed when Everyfield refused this Messages recipient because the person opted out of the church's email; child when the person was marked as a child at send time (no override); null otherwise. A blocked address keeps its suppression row instead.",
           "name": "refusal",
           "type": "text",
           "nullable": true
@@ -26157,7 +26158,7 @@
         "((frozen_payload IS NULL) = (address_hash IS NULL))",
         "purpose in ('communication', 'discovery_receipt', 'email_change', 'email_verification', 'notification', 'oversight_digest', 'password_reset', 'planter_digest', 'relationship_invitation', 'relationship_receipt', 'seat_invitation')",
         "((tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid) OR (frozen_payload IS NULL))",
-        "((refusal IS NULL) OR (refusal = 'unsubscribed'::text AND state = 'refused'::text))"
+        "((refusal IS NULL) OR ((refusal = ANY (ARRAY['unsubscribed'::text, 'child'::text])) AND (state = 'refused'::text)))"
       ],
       "indexes": {
         "mail_ref_1": {

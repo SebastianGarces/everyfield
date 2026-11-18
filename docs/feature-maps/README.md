@@ -264,7 +264,7 @@ flowchart LR
 | [access](access.md) | [`apps/web/src/features/access/feature-map.json`](../../apps/web/src/features/access/feature-map.json) | 2 | 2 | 1 | 0 | 0 |
 | [assessment-review](assessment-review.md) | [`apps/web/src/features/assessment-review/feature-map.json`](../../apps/web/src/features/assessment-review/feature-map.json) | 1 | 2 | 1 | 0 | 0 |
 | [boundaries](boundaries.md) | [`apps/web/src/features/boundaries/feature-map.json`](../../apps/web/src/features/boundaries/feature-map.json) | 2 | 0 | 0 | 0 | 0 |
-| [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 4 | 8 | 8 | 0 |
+| [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 4 | 9 | 8 | 0 |
 | [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 11 | 9 | 6 | 3 |
 | [evry](evry.md) | [`apps/web/src/features/evry/feature-map.json`](../../apps/web/src/features/evry/feature-map.json) | 2 | 15 | 5 | 2 | 1 |
 | [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 4 | 3 | 3 | 0 |

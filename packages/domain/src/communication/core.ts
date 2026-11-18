@@ -49,6 +49,7 @@ const retry: Record<Code, string> = {
 	referenced: "never",
 	not_found: "never",
 	rsvp_needs_meeting: "never",
+	children_only: "never",
 	missing_merge_variable: "never",
 	cancel_unconfirmed: "never",
 };

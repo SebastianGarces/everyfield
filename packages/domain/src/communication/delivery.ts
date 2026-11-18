@@ -13,7 +13,7 @@ import {
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
-import { audiencePeople, reviewedParts } from "./audience.ts";
+import { audiencePeople, childSql, reviewedParts } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
 import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
@@ -57,8 +57,10 @@ type Member = {
 	provider: string | null;
 	scheduledAt: string | null;
 	cancelRequested: boolean;
-	unsubscribed: boolean;
+	leftOut: LeftOut;
 };
+type LeftOut = "unsubscribed" | "child" | null;
+const leftOutValue = z.enum(["unsubscribed", "child"]).nullable();
 type Mode = "now" | "scheduled" | "lookup";
 type Batch = {
 	requestId: string;
@@ -129,17 +131,18 @@ function requireActor(authority: RequestActor) {
 }
 function counts(members: readonly Member[]) {
 	const accepted = members.filter(
-		(row) => row.state === "accepted" || row.state === "sent" || row.state === "scheduled",
+		(row) => !row.leftOut && (row.state === "accepted" || row.state === "sent" || row.state === "scheduled"),
 	);
 	const rejected = members.filter(
-		(row) => !row.unsubscribed && (row.state === "refused" || row.state === "failed" || row.state === "cancelled"),
+		(row) => !row.leftOut && (row.state === "refused" || row.state === "failed" || row.state === "cancelled"),
 	);
 	const unknown = members.filter((row) => row.state === "unknown" || row.state === "dispatched");
 	return {
 		acceptedCount: accepted.length,
 		rejectedCount: rejected.length,
 		unknownCount: unknown.length,
-		unsubscribedCount: members.filter((row) => row.unsubscribed).length,
+		unsubscribedCount: members.filter((row) => row.leftOut === "unsubscribed").length,
+		childCount: members.filter((row) => row.leftOut === "child").length,
 		confirmedRecipientIds: accepted.map((row) => row.personId).filter((id): id is string => id !== null),
 	};
 }
@@ -234,7 +237,8 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 							'provider', m.provider_message_id,
 							'scheduledAt', to_char(m.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 							'cancelRequested', m.cancel_requested_at IS NOT NULL,
-							'unsubscribed', m.refusal IS NOT DISTINCT FROM 'unsubscribed',
+							'leftOut', CASE WHEN m.refusal IS NOT NULL THEN m.refusal
+								WHEN m.state = 'scheduled' AND ${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} THEN 'child' END,
 							'payload', CASE WHEN m.state IN ('dispatched', 'unknown') THEN m.frozen_payload END,
 							'address', CASE WHEN m.state IN ('dispatched', 'unknown') THEN m.recipient_address_encrypted END
 						) ORDER BY mem.position) AS members
@@ -271,7 +275,7 @@ const storedBatches = z.array(
 				provider: z.string().nullable(),
 				scheduledAt: z.string().nullable(),
 				cancelRequested: z.boolean(),
-				unsubscribed: z.boolean(),
+				leftOut: leftOutValue,
 				payload: sealedPayload.nullable(),
 				address: z.string().nullable(),
 			}),
@@ -350,7 +354,15 @@ async function prepare(
 	if (linked && (!found.meeting_id || !found.meeting_open)) deny("rsvp_needs_meeting");
 	const guests = new Set(z.array(z.uuid()).parse(asJson(found.guests) ?? []));
 	const people = z
-		.array(z.object({ id: z.uuid(), email: z.string().nullable(), displayName: z.string(), n: z.number() }))
+		.array(
+			z.object({
+				id: z.uuid(),
+				email: z.string().nullable(),
+				displayName: z.string(),
+				n: z.number(),
+				child: z.boolean(),
+			}),
+		)
 		.parse(asJson(found.people) ?? [])
 		.filter((row) => row.email?.trim())
 		.sort((a, b) => a.id.localeCompare(b.id));
@@ -388,6 +400,7 @@ async function prepare(
 		return {
 			id,
 			person: person.id,
+			child: person.child,
 			logical_key: `communication/${found.id}/${person.id}`,
 			payload_hash: payloadHash,
 			token_hash: token ? rsvpTokenDigest(token) : null,
@@ -434,8 +447,8 @@ async function prepare(
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
-				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
-					id uuid, person uuid, logical_key text, payload_hash text, token_hash text, address_hash text, payload jsonb, address text,
+				SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ id, person, child, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position }) => ({ id, person, child, logical_key, payload_hash, token_hash, address_hash, payload, address, batch, position })))}::jsonb) AS i(
+					id uuid, person uuid, child boolean, logical_key text, payload_hash text, token_hash text, address_hash text, payload jsonb, address text,
 					batch int, position int
 				)
 			),
@@ -449,12 +462,13 @@ async function prepare(
 					frozen_payload, recipient_address_encrypted, address_hash, state, created_at, scheduled_at, refusal)
 				SELECT i.id, ${actor.plantId}::uuid, i.person, 'communication', ${found.id}::uuid, i.logical_key, i.payload_hash, ${loaded.digest},
 					i.payload, i.address, i.address_hash,
-					CASE WHEN i.unsubscribed OR EXISTS (
+					CASE WHEN i.unsubscribed OR i.refuse_child OR EXISTS (
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
 					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
-					CASE WHEN i.unsubscribed THEN 'unsubscribed' END
-				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
+					CASE WHEN i.refuse_child THEN 'child' WHEN i.unsubscribed THEN 'unsubscribed' END
+				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed,
+					i.child AND ${mode !== "scheduled"}::boolean AS refuse_child FROM input i) i
 				JOIN gate g ON g.allowed
 				WHERE EXISTS (
 					SELECT 1 FROM communication c
@@ -503,7 +517,7 @@ async function prepare(
 			)
 			SELECT (SELECT allowed FROM gate) AS allowed,
 				(SELECT count(*)::int FROM ins_attempt) AS attempts,
-				coalesce((SELECT jsonb_agg(jsonb_build_object('id', m.id, 'state', m.state, 'unsubscribed', m.refusal IS NOT NULL))
+				coalesce((SELECT jsonb_agg(jsonb_build_object('id', m.id, 'state', m.state, 'refusal', m.refusal))
 					FROM ins_mail m), '[]'::jsonb) AS members,
 				(SELECT count(*) FROM ins_mem) AS members_written,
 				(SELECT count(*) FROM ins_audit) AS audits`),
@@ -511,7 +525,7 @@ async function prepare(
 	if (stored?.allowed !== true) deny("access_denied");
 	const written = new Map(
 		z
-			.array(z.object({ id: z.uuid(), state: z.string(), unsubscribed: z.boolean() }))
+			.array(z.object({ id: z.uuid(), state: z.string(), refusal: leftOutValue }))
 			.parse(asJson(stored.members) ?? [])
 			.map((row) => [row.id, row]),
 	);
@@ -532,7 +546,7 @@ async function prepare(
 				provider: null,
 				scheduledAt: heldUntil,
 				cancelRequested: false,
-				unsubscribed: written.get(row.id)!.unsubscribed,
+				leftOut: written.get(row.id)!.refusal ?? (state(row.id) === "scheduled" && row.child ? "child" : null),
 			})),
 			messages: new Map(
 				members
@@ -1108,7 +1122,7 @@ const claimedSchema = z.object({
 			id: z.uuid(),
 			state: z.string(),
 			personId: z.uuid().nullable(),
-			unsubscribed: z.boolean(),
+			leftOut: leftOutValue,
 			payload: sealedPayload.nullable(),
 			address: z.string().nullable(),
 		}),
@@ -1131,6 +1145,7 @@ async function claimDue(db: Database) {
 			), decided AS MATERIALIZED (
 				SELECT m.id, mem.position,
 					${optedOutSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS unsubscribed,
+					${childSql(sql`m.tenant_id`, sql`m.recipient_person_id`)} AS child,
 					EXISTS (SELECT 1 FROM suppression s WHERE s.address_hash = m.address_hash AND s.cleared_at IS NULL) AS blocked
 				FROM locked r
 				JOIN mail_request_member mem ON mem.request_id = r.id AND mem.tenant_id = r.tenant_id
@@ -1138,8 +1153,8 @@ async function claimDue(db: Database) {
 				WHERE m.state = 'scheduled'
 			), flipped AS (
 				UPDATE mail m SET
-					state = CASE WHEN d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
-					refusal = CASE WHEN d.unsubscribed THEN 'unsubscribed' END,
+					state = CASE WHEN d.child OR d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
+					refusal = CASE WHEN d.child THEN 'child' WHEN d.unsubscribed THEN 'unsubscribed' END,
 					scheduled_at = NULL
 				FROM decided d
 				WHERE m.id = d.id AND m.state = 'scheduled'
@@ -1150,7 +1165,7 @@ async function claimDue(db: Database) {
 				(SELECT a.id FROM mail_attempt a WHERE a.request_id = r.id AND a.attempt_number = 1) AS attempt_id,
 				(SELECT split_part(f.logical_key, '/', 2) FROM flipped f LIMIT 1) AS communication_id,
 				coalesce((SELECT jsonb_agg(jsonb_build_object('position', f.position, 'id', f.id, 'state', f.state,
-					'personId', f.recipient_person_id, 'unsubscribed', f.refusal IS NOT NULL,
+					'personId', f.recipient_person_id, 'leftOut', f.refusal,
 					'payload', f.frozen_payload, 'address', f.recipient_address_encrypted) ORDER BY f.position)
 					FROM flipped f), '[]'::jsonb) AS members
 			FROM locked r
@@ -1187,7 +1202,7 @@ export async function runDueScheduled(
 			provider: null,
 			scheduledAt: null,
 			cancelRequested: false,
-			unsubscribed: row.unsubscribed,
+			leftOut: row.leftOut,
 		}));
 		const batch: Batch = {
 			requestId: claimed.request_id,

@@ -3,6 +3,7 @@ import { audienceResult } from "@everyfield/contracts/communication";
 import { sql, type SQL } from "@everyfield/db/query";
 import { z } from "zod";
 import { hash } from "../operations/canonical.ts";
+import { effectiveAdultSql, plantTodaySql } from "../people/adult.ts";
 import { optedOutAtSql } from "./opt-out.ts";
 
 const personRow = z.object({
@@ -11,7 +12,12 @@ const personRow = z.object({
 	email: z.string().nullable(),
 	n: z.number().int(),
 	optedOutAt: z.string().nullable(),
+	child: z.boolean(),
 });
+
+export const childSql = (plantId: SQL, personId: SQL) =>
+	sql`EXISTS (SELECT 1 FROM person cp WHERE cp.id = ${personId} AND cp.tenant_id = ${plantId}
+		AND ${effectiveAdultSql(sql`cp.birth_date`, sql`cp.adult_classification`, plantTodaySql(sql`cp.plant_id`))} = 'child')`;
 
 export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
 	const groups = JSON.stringify(audience.groups);
@@ -19,7 +25,8 @@ export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
 	const personIds = JSON.stringify(audience.personIds);
 	return sql`coalesce((
 		SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', email, 'n', n,
-			'optedOutAt', ${optedOutAtSql(sql`${plantId}::uuid`, sql`counted.id`)}))
+			'optedOutAt', ${optedOutAtSql(sql`${plantId}::uuid`, sql`counted.id`)},
+			'child', ${childSql(sql`${plantId}::uuid`, sql`counted.id`)}))
 		FROM (
 			SELECT id, display_name, email, count(*)::int AS n
 			FROM (
@@ -74,21 +81,23 @@ export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
 const NAMED_CAP = 200;
 
 export function summarizeAudience(raw: unknown) {
-	const rows = z.array(personRow).parse(raw ?? []);
+	const all = z.array(personRow).parse(raw ?? []);
+	const byName = (a: { displayName: string; id: string }, b: { displayName: string; id: string }) =>
+		a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id);
+	const children = all.filter((row) => row.child).sort(byName);
+	const rows = all.filter((row) => !row.child);
 	const missing = rows
 		.filter((row) => !row.email?.trim())
 		.map((row) => row.displayName)
 		.sort((a, b) => a.localeCompare(b));
 	const addressed = rows.filter((row) => row.email?.trim());
-	const unsubscribed = addressed
-		.filter((row) => row.optedOutAt)
-		.sort((a, b) => a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id));
+	const unsubscribed = addressed.filter((row) => row.optedOutAt).sort(byName);
 	const withEmail = addressed.filter((row) => !row.optedOutAt);
-	const named = [...withEmail].sort((a, b) => a.displayName.localeCompare(b.displayName) || a.id.localeCompare(b.id));
+	const named = [...withEmail].sort(byName);
 	const emails = new Set(withEmail.map((row) => row.email!.trim().toLowerCase()));
 	const occurrences = withEmail.reduce((sum, row) => sum + row.n, 0);
 	return audienceResult.parse({
-		resolvedDistinctPeople: rows.length,
+		resolvedDistinctPeople: all.length,
 		eligibleRecipients: withEmail.length,
 		missingEmailExclusions: missing,
 		duplicateAddressesRemoved: occurrences - emails.size,
@@ -102,7 +111,13 @@ export function summarizeAudience(raw: unknown) {
 		unsubscribedExclusions: unsubscribed
 			.slice(0, NAMED_CAP)
 			.map((row) => ({ id: row.id, displayName: row.displayName, unsubscribedAt: row.optedOutAt! })),
+		childExclusions: children.slice(0, NAMED_CAP).map((row) => ({ id: row.id, displayName: row.displayName })),
 	});
+}
+
+export function onlyChildren(raw: unknown): boolean {
+	const rows = z.array(personRow).parse(raw ?? []);
+	return rows.some((row) => row.child) && !rows.some((row) => !row.child && row.email?.trim());
 }
 
 export function reviewedParts(raw: unknown): { people: string[]; emails: string[] } {

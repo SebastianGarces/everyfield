@@ -24,6 +24,7 @@ import { pickSampleName } from "./fields.ts";
 import { MessageEditor } from "./MessageEditor.tsx";
 import {
 	deliveryText,
+	noRecipientReason,
 	scheduleText,
 	outcomeText,
 	scheduledNotSentText,
@@ -225,7 +226,7 @@ function ComposeForm({
 	const whoReason = !ready
 		? "Counting who can get email."
 		: eligible === 0
-			? "Choose at least one person who can get email"
+			? noRecipientReason(summary, "Choose at least one person who can get email")
 			: null;
 	const reason = step === "who" ? whoReason : step === "write" ? (locked ? null : (write?.reason ?? null)) : null;
 
@@ -347,8 +348,12 @@ function ComposeForm({
 	};
 
 	const names = summary?.missingEmailExclusions ?? [];
+	const children = (summary?.childExclusions ?? []).map((person) => person.displayName);
 	const consequences = (when: string) => [
 		`${plural(eligible, "person gets", "people get")} this email ${when}.`,
+		...(children.length
+			? [`${listed(children)} ${children.length === 1 ? "is" : "are"} marked as a child and will be skipped.`]
+			: []),
 		...(names.length ? [`${listed(names)} ${names.length === 1 ? "has" : "have"} no email and will be skipped.`] : []),
 		"You cannot unsend it once it leaves.",
 	];

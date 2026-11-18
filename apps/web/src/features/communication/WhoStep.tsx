@@ -12,6 +12,7 @@ import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
 import { audienceSize, plural } from "./composeModel.ts";
 import {
 	audienceGroups,
+	CHILD_RULE,
 	groupLabel,
 	type Audience,
 	type AudienceSummary,
@@ -24,6 +25,9 @@ const MAX_CHIPS = 8;
 
 const onDay = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(iso));
 const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
+
+const leftOutCount = (summary: AudienceSummary) =>
+	summary.childExclusions.length + summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length;
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 
@@ -162,7 +166,7 @@ function Counts({
 		{ label: "Will get this email", value: summary?.eligibleRecipients ?? (empty ? 0 : null) },
 		{
 			label: "Left out",
-			value: summary ? summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length : empty ? 0 : null,
+			value: summary ? leftOutCount(summary) : empty ? 0 : null,
 		},
 	];
 	return (
@@ -185,10 +189,16 @@ function Counts({
 			{summary ? (
 				<section aria-label="Left out, and why" className="flex max-w-3xl flex-col gap-2">
 					<h3 className="text-sm font-medium text-ink-2">Left out, and why</h3>
-					{summary.missingEmailExclusions.length + summary.unsubscribedExclusions.length === 0 ? (
+					{leftOutCount(summary) === 0 ? (
 						<p className="text-sm text-text-2">Everyone selected can get this email.</p>
 					) : (
 						<ul className="flex flex-col gap-1">
+							{summary.childExclusions.map((person) => (
+								<li key={person.id} className="flex flex-wrap justify-between gap-x-3 text-md text-ink">
+									<span>{person.displayName}</span>
+									<span className="text-text-2">Marked as a child</span>
+								</li>
+							))}
 							{summary.unsubscribedExclusions.map((person) => (
 								<li key={person.id} className="flex flex-wrap justify-between gap-x-3 text-md text-ink">
 									<span>{person.displayName}</span>
@@ -203,6 +213,11 @@ function Counts({
 							))}
 						</ul>
 					)}
+					{summary.childExclusions.length > 0 ? (
+						<p className="text-sm text-text-2">
+							{CHILD_RULE} If a marking is wrong, correct Adult or child on the person&rsquo;s record.
+						</p>
+					) : null}
 					{summary.unsubscribedExclusions.length > 0 ? (
 						<p className="text-sm text-text-2">
 							Only the person can undo an unsubscribe, from the link in an email. Staff cannot clear it.

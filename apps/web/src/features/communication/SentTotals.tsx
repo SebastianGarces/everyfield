@@ -9,6 +9,7 @@ export function when(iso: string | null): string {
 
 export function deliveryName(status: string, gone = true): string {
 	if (status === "unsubscribed") return gone ? "Skipped: unsubscribed" : "Unsubscribed, won't receive this";
+	if (status === "child") return gone ? "Skipped: marked as a child" : "Marked as a child, won't receive this";
 	const labels: Record<string, string> = {
 		delivered: "Delivered",
 		sent: "Sent",
@@ -65,7 +66,10 @@ export function Totals({ totals }: { totals: DeliveryTotals }) {
 		},
 		{
 			title: "Skipped",
-			rows: [{ label: "Unsubscribed", value: totals.unsubscribed }],
+			rows: [
+				{ label: "Unsubscribed", value: totals.unsubscribed },
+				{ label: "Marked as a child", value: totals.child },
+			],
 		},
 	];
 	return (

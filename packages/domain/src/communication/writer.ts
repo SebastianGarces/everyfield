@@ -18,7 +18,7 @@ import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
 import { meetingOpenSql } from "../meetings/tokens.ts";
-import { audiencePeople, recipientsDigest, reviewedParts, summarizeAudience } from "./audience.ts";
+import { audiencePeople, onlyChildren, recipientsDigest, reviewedParts, summarizeAudience } from "./audience.ts";
 import { optedOutAtSql } from "./opt-out.ts";
 import { personSearchMatch } from "../people/search.ts";
 import {
@@ -533,6 +533,7 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 			if (peopleRaw.allowed !== true) deny("access_denied");
 			if (usesRsvpLink(current.body_html) && !peopleRaw.meeting_open) deny("rsvp_needs_meeting");
 			const people = peopleRaw.people;
+			if (onlyChildren(people)) deny("children_only", { providerCalls: 0 });
 			const parts = reviewedParts(people);
 			if (!parts.people.length) deny("invalid_input");
 			const shown = input.input.recipientsDigest;
