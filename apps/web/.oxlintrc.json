@@ -1347,6 +1347,12 @@
 			"rules": {
 				"everyfield/private-care-scope": "off"
 			}
+		},
+		{
+			"files": ["src/server/flags.types.ts"],
+			"rules": {
+				"typescript/ban-ts-comment": "off"
+			}
 		}
 	]
 }
