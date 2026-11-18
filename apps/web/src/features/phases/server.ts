@@ -1,5 +1,4 @@
 import { requestDatabase } from "@/server/database";
-import { phasesMount } from "@/server/phases";
 import { getViewer } from "@/server/request-context";
 import { phasesError, type PhasesReply } from "@everyfield/contracts/phases";
 import type { Database } from "@everyfield/db/client";
@@ -8,6 +7,7 @@ import { createFacts } from "@everyfield/domain/intelligence";
 import { createLaunchReader } from "@everyfield/domain/launch";
 import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@everyfield/domain/phases";
 import "server-only";
+import { phasesMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
 
 type PhaseViewer = {

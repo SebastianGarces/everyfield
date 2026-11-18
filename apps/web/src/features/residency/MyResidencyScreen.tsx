@@ -30,7 +30,7 @@ import { useReadElsewhere } from "../notifications/feed";
 import { formatPlainDate } from "../../components/dates.ts";
 import { Problem } from "../../components/Problem.tsx";
 import { programProblem, KIND } from "../organizations/programs/model";
-import { useResidency } from "../shell/residency.ts";
+import { useResidency } from "./context.ts";
 import { markMilestone } from "./actions";
 import { articlePath } from "../wiki/model";
 import { meetingDay, meetingTime, milestoneAnchor, readingPath, zoneName } from "./model";
