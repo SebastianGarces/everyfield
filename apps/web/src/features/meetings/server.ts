@@ -7,7 +7,7 @@ import type { MeetingsReply } from "@everyfield/contracts/meetings";
 import type { Database, Transaction } from "@everyfield/db/client";
 import "server-only";
 import { isFiltered, listRequest, NEXT_REQUEST, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
-import { canWrite } from "../shared/seat-role.ts";
+import { canWrite } from "../../components/seat-role.ts";
 
 type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
 export type Viewer = Peopled;
