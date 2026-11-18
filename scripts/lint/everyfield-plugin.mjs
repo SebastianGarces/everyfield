@@ -160,14 +160,12 @@ export const INTERACTIVE_ROLES = [
 	"tab",
 	"treeitem",
 ];
-const POINTER_HANDLERS = new Set([
-	"onClick",
-	"onDoubleClick",
-	"onMouseDown",
-	"onMouseUp",
-	"onPointerDown",
-	"onPointerUp",
-]);
+const POINTER_HANDLERS = new Set(
+	["onClick", "onDoubleClick", "onMouseDown", "onMouseUp", "onPointerDown", "onPointerUp"].flatMap((name) => [
+		name,
+		`${name}Capture`,
+	]),
+);
 const CURSOR_UTILITY = /^!?(?:[^\s:]+:)*!?cursor-(?:pointer|default|auto)!?$/;
 
 const nameOf = (node) => (node.type === "Identifier" ? node.name : node.value);
@@ -1104,24 +1102,28 @@ const literalAttribute = (element, name) => {
 	return value?.type === "Literal" && typeof value.value === "string" ? value.value : null;
 };
 
+const hostTag = (name) =>
+	name.type === "JSXIdentifier" ? name.name : name.type === "JSXMemberExpression" ? name.property.name : null;
+
 const acceptsHost = (host, element) => {
 	const [, tag, required] = host.match(/^([a-z]+)(?:\[([a-z-]+)\])?$/);
 	return (
-		element.name.name === tag &&
+		hostTag(element.name) === tag &&
 		(!required || element.attributes.some((a) => a.type === "JSXAttribute" && a.name.name === required))
 	);
 };
 
 const clickableHost = ratcheted("clickable-host", (context, push) => ({
 	JSXOpeningElement(node) {
-		if (node.name.type !== "JSXIdentifier" || !/^[a-z]/.test(node.name.name)) return;
+		const tag = hostTag(node.name);
+		if (!tag || !/^[a-z]/.test(tag)) return;
 		if (INTERACTIVE_HOSTS.some((host) => acceptsHost(host, node))) return;
 		const handler = node.attributes.find((a) => a.type === "JSXAttribute" && POINTER_HANDLERS.has(a.name.name));
 		if (!handler || INTERACTIVE_ROLES.includes(literalAttribute(node, "role"))) return;
 		push({
 			node: handler,
 			fn: enclosingName(node),
-			message: `${handler.name.name} on a <${node.name.name}> makes an element clickable that is not a control, so it gets no pointer cursor, focus or keyboard activation. Use a button, a link or a packages/ui primitive.`,
+			message: `${handler.name.name} on a <${tag}> makes an element clickable that is not a control, so it gets no pointer cursor, focus or keyboard activation. Use a button, a link or a packages/ui primitive.`,
 		});
 	},
 }));
