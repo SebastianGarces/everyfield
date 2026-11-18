@@ -39,7 +39,6 @@ export function LoadableView<T>({
 				tone="error"
 				title={state.title ?? "This did not load"}
 				headingLevel="h3"
-				className="py-10"
 				meta={state.meta}
 				actions={
 					state.onRetry ? (
@@ -291,7 +290,7 @@ export function Pagination({
 						className={cn(
 							base,
 							"tabular-nums max-app-sm:[&:not([aria-current])]:hidden",
-							p === page && "bg-ink text-on-ink hover:bg-ink",
+							p === page && "bg-ink text-on-ink",
 						)}
 					>
 						{p}

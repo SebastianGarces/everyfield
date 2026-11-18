@@ -228,7 +228,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						setSearch(e.target.value);
 						setArrived(null);
 					}}
-					className="h-[46px]"
 				/>
 			</header>
 
@@ -487,7 +486,7 @@ function WalkInDialog({
 								label="Who"
 								value={mode}
 								onValueChange={setMode}
-								className="flex w-full [&>*]:flex-1 [&>*]:justify-center"
+								className="w-full [&>*]:flex-1 [&>*]:justify-center"
 								options={[
 									{ value: "existing", label: "In People" },
 									{ value: "new", label: "Someone new" },

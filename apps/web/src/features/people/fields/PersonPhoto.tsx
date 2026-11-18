@@ -224,12 +224,12 @@ export function PersonPhoto({
 			</PopoverAnchor>
 			<PopoverContent
 				label="Photo"
-				className="w-[340px] p-0"
+				className="w-[340px]"
 				onOpenAutoFocus={(e) => e.preventDefault()}
 				onInteractOutside={(e) => e.preventDefault()}
 				onEscapeKeyDown={() => lane.dismiss()}
 			>
-				<SaveNotice {...lane.noticeProps} dialogOpen={false} className="" />
+				<SaveNotice {...lane.noticeProps} dialogOpen={false} />
 			</PopoverContent>
 		</Popover>
 	);

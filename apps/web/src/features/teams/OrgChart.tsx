@@ -33,7 +33,6 @@ function Node({ node, current }: { node: ChartNode; current?: boolean }) {
 			aria-current={current ? "page" : undefined}
 			className={cn(
 				"flex w-[232px] items-center gap-3 rounded-card border border-[var(--ef-card-edge)] bg-surface p-3.5 text-left shadow-card transition-shadow duration-150 hover:shadow-raised focus-visible:shadow-[0_0_0_2px_var(--ef-ink)] focus-visible:outline-none max-app-sm:w-full",
-				current && "shadow-[0_0_0_2px_var(--ef-ink)]",
 				node.archived && "border-dashed bg-surface-2",
 			)}
 		>
