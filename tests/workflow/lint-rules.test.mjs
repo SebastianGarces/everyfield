@@ -1135,6 +1135,39 @@ export const run = (client: { query(text: string): void }) => {
 	]);
 });
 
+test("INV-lint: an insert into a single-writer table is reported outside its owning module, in SQL text or through the query builder", () => {
+	const source = `import { sql } from "drizzle-orm";
+export const a = sql\`INSERT INTO phase_transition(plant_id) VALUES (1)\`;
+export const b = (db, t) => db.insert(t.phase_transition).values({});
+export const c = sql\`insert into "public"."phase_transition" (plant_id) select 1\`;
+export const d = sql\`SELECT kind FROM phase_transition\`;
+export const e = sql\`UPDATE phase_transition SET offer_answer = 'yes'\`;
+`;
+	const named = `import { phase_transition, plant } from "@everyfield/db/schema";
+import * as t from "@everyfield/db/schema";
+export const f = (db) => db.insert(phase_transition).values({});
+const pt = t.phase_transition;
+const { phase_transition: other } = t;
+export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}), db.insert(plant).values({})];
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/tasks/x.ts": source,
+			"packages/domain/src/phases/x.ts": source,
+			"packages/domain/src/tasks/named.ts": named,
+			"packages/domain/src/phases/named.ts": named,
+		}).filter((hit) => hit.endsWith("table-writers")),
+		[
+			"packages/domain/src/tasks/named.ts:3 table-writers",
+			"packages/domain/src/tasks/named.ts:6 table-writers",
+			"packages/domain/src/tasks/named.ts:6 table-writers",
+			"packages/domain/src/tasks/x.ts:2 table-writers",
+			"packages/domain/src/tasks/x.ts:3 table-writers",
+			"packages/domain/src/tasks/x.ts:4 table-writers",
+		],
+	);
+});
+
 test("INV-lint: a React namespace alias, a class lifecycle method and a ref callback that never uses its node are effects", () => {
 	const source = `import * as React from "react";
 import { Component, useCallback } from "react";

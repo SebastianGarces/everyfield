@@ -109,7 +109,8 @@
 			"rules": {
 				"everyfield/no-timers": "error",
 				"everyfield/no-render-writes": "error",
-				"everyfield/feature-boundaries": "error"
+				"everyfield/feature-boundaries": "error",
+				"everyfield/table-writers": "error"
 			}
 		},
 		{
