@@ -6,9 +6,10 @@ import { ToastProvider, useToast } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { usePathname } from "next/navigation";
-import { createContext, use, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
 import { FeedbackDialog } from "../feedback/FeedbackDialog.tsx";
+import { OwnSeat } from "../identity/seat-context.ts";
 import { evryOff } from "../intelligence/path.ts";
 import { useNotificationBell } from "../notifications/Bell.tsx";
 import { NotificationsProvider } from "../notifications/feed.tsx";
@@ -16,7 +17,7 @@ import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
 import { SettingsOpener } from "../settings/opener";
 import { shellNav } from "./nav.ts";
-import { Residency, useResidency, type ResidencyState } from "./residency.ts";
+import { Residency, useResidency, type ResidencyState } from "../residency/context.ts";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "../people/server.ts";
@@ -32,9 +33,6 @@ type FrameProps = {
 	residency?: { organizationName: string } | null;
 	children: ReactNode;
 };
-
-const OwnSeat = createContext<(role: Role | null) => void>(() => {});
-export const useOwnSeatChange = () => use(OwnSeat);
 
 export function ProductFrame({ settings: initial, seed, residency = null, ...props }: FrameProps) {
 	const [left, setLeft] = useState<{ from: typeof residency } | null>(null);

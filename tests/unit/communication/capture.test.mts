@@ -3,9 +3,9 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, before, test } from "node:test";
-import { capture, captureAllowed, NO_ANSWER_FILE } from "../../../apps/web/src/features/communication/capture.ts";
+import { capture, captureAllowed, NO_ANSWER_FILE } from "../../../apps/web/src/server/mail/capture.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
-import { deliveryTransport, mailReady } from "../../../apps/web/src/features/communication/mail.ts";
+import { deliveryTransport, mailReady } from "../../../apps/web/src/server/mail/transport.ts";
 
 const keys = {
 	IDENTITY_MAIL_KEY: "a".repeat(64),
