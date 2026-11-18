@@ -88,10 +88,11 @@ random behaviors and checks `traces.json` (below); the whole command takes about
 Both run in `tests/workflow/formal.test.ts` on a scratch copy. To see one by hand, make the edit in
 `formal/permissions/Permissions.tla`, run `bin/dev formal`, read the trace, then `git checkout formal/permissions`.
 
-1. **The C13 bug class.** A read trusts the actor its request resolved at the start. Replace
-   `ReadAdmits(q, cur, session) == LiveCheck(q, cur, session)` with `ReadAdmits(q, cur, session) == TRUE`.
-   TLC fails `StatementSeesLiveAccess` (d): the trace resolves a read, ends the session (or the seat), then runs the
-   read, which returns data.
+1. **The C13 bug class.** A read trusts the session its request resolved at the start. Replace
+   `ReadAdmits(q, cur, session) == LiveCheck(q, cur, session)` with
+   `ReadAdmits(q, cur, session) == LiveCheck(q, cur, "live")`. TLC fails `StatementSeesLiveAccess` (d): the trace
+   resolves a read, ends the session, then runs the read, which returns data. The seat check stays, so no other
+   property fails and the multi-worker check always reports this one.
 2. **An Admin acts on the Owner seat.** Delete the line `/\ targetRole # "owner"` from `MayChangeSeat`. TLC fails
    `OwnerSeatFixed` (a): the trace has an Admin or the Owner change or remove the owner seat.
 
