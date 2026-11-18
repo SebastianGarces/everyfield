@@ -110,21 +110,6 @@ async function scheduleDraft(
 	});
 }
 
-export async function rescheduleReviewed(
-	requestKey: string,
-	expectedRevision: string,
-	communicationId: string,
-	scheduledAt: string,
-): Promise<Outcome<Scheduled>> {
-	return change((tx, context) =>
-		communicationWriter.rescheduleReviewed(tx, context, {
-			requestKey,
-			expectedRevision,
-			input: { communicationId, scheduledAt },
-		}),
-	);
-}
-
 export async function sendReviewed(
 	requestKey: string,
 	expectedRevision: string,

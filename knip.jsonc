@@ -26,7 +26,4 @@
 			],
 		},
 	},
-	"ignoreIssues": {
-		"apps/web/src/features/communication/actions.ts": ["exports"],
-	},
 }
