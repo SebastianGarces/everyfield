@@ -5,6 +5,8 @@ on:
   push:
     branches: [main]
   merge_group:
+  schedule:
+    - cron: "47 6 * * *"
 
 permissions:
   contents: read
@@ -100,12 +102,21 @@ jobs:
           git config --global user.name "evf ci"
           git config --global user.email "ci@everyfield.invalid"
           git config --global init.defaultBranch main
+      - name: Tool self-test gate (paths changed since the merge base)
+        id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: node tools/ci/tooling-gate.ts
       - name: Documentation, catalog and acceptance case checks
         if: ${{ !cancelled() }}
         run: python3 docs/check-all.py
       - name: Local stack isolation and reporting
-        if: ${{ !cancelled() }}
-        run: corepack pnpm test:workflow
+        if: ${{ !cancelled() && steps.gate.outputs.stack == 'true' }}
+        env:
+          WORKFLOW_TESTS: ${{ steps.gate.outputs.workflow-tests }}
+        run: corepack pnpm test:workflow $WORKFLOW_TESTS
       - name: Evry eval coverage
         if: ${{ !cancelled() }}
         run: node --test tests/workflow/evry-evals-coverage.test.mjs
@@ -120,18 +131,20 @@ jobs:
         run: corepack pnpm machines:check
       - name: CI test coverage tool
         if: ${{ !cancelled() }}
-        run: node --test tools/ci/tests/*.test.ts
+        env:
+          TOOLS_CI_TESTS: ${{ steps.gate.outputs.tools-ci-tests }}
+        run: node --test ${TOOLS_CI_TESTS:-tools/ci/tests/*.test.ts}
       - name: Feature maps (routes, proofs and diagrams)
         if: ${{ !cancelled() }}
         run: corepack pnpm feature-maps
       - name: QA preview tool
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.gate.outputs.qa == 'true' }}
         run: node --test --disable-warning=ExperimentalWarning tools/qa/tests/*.test.ts
       - name: Actionable watcher
         if: ${{ !cancelled() }}
         run: node --test ops/actionable-watch/test/*.test.mts
       - name: Wiki tool install
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && (steps.gate.outputs.wiki == 'true' || steps.gate.outputs.app == 'true') }}
         id: wiki-install
         working-directory: tools/wiki
         run: pnpm install --frozen-lockfile --ignore-workspace
@@ -152,11 +165,11 @@ jobs:
         working-directory: tools/wiki
         run: pnpm exec playwright install chromium
       - name: Wiki tool tests
-        if: ${{ !cancelled() && steps.chromium.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.chromium.outcome == 'success' && steps.gate.outputs.wiki == 'true' }}
         working-directory: tools/wiki
         run: pnpm test
       - name: agent-browser for the app tool
-        if: ${{ !cancelled() && steps.chromium.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.chromium.outcome == 'success' && steps.gate.outputs.app == 'true' }}
         id: agent-browser
         run: npm install -g agent-browser@0.39.1
       - name: App verification tool
