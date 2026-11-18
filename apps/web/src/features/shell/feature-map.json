@@ -231,6 +231,10 @@
 					"expect": [
 						{
 							"url": "/api/health"
+						},
+						{
+							"text": "ok",
+							"match": "contains"
 						}
 					]
 				}

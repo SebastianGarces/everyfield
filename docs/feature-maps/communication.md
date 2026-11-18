@@ -38,6 +38,7 @@ flowchart LR
   s4["communication.delivery-callbacks<br/>no page"]
   s4_link0 --> s4
   s4 -.- s4_st0(("refused"))
+  s4 --- s4_b0["record-delivery<br/>tests + cases"]
 ```
 
 ## Surfaces
@@ -399,7 +400,7 @@ The Resend webhook that records delivery, bounce and open callbacks for sent mai
 
 - Routes: none
 - Endpoints: `/api/webhooks/resend`
-- Personas: `visitor` read
+- Personas: `visitor` none
 
 Reach:
 
@@ -407,11 +408,20 @@ Reach:
 
 States:
 
-- **refused**: URL `/api/webhooks/resend`. As `visitor`, on the QA seed:
+- **refused**: URL `/api/webhooks/resend`; text containing "method_not_allowed". As `visitor`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/api/webhooks/resend"
 agent-browser wait --load networkidle
 agent-browser wait --url "**/api/webhooks/resend"
+agent-browser wait --text "method_not_allowed"
 ```
 
+#### communication.delivery-callbacks#record-delivery
+
+A signed callback records one delivery outcome for the sent mail, and a callback with a bad signature writes nothing.
+
+- No operation: resendWebhook verifies the signature and applyMailCallback records the outcome; it is a provider callback, not a catalog operation
+- Catalog: NTF-010
+- Cases: CASE-NTF-010
+- Test: `tests/integration/communication/delivery.test.mts`: `AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one outcome and a bad signature writes nothing`

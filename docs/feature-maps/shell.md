@@ -139,11 +139,12 @@ Reach:
 
 States:
 
-- **live**: URL `/api/health`. As `visitor`, on the QA seed:
+- **live**: URL `/api/health`; text containing "ok". As `visitor`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/api/health"
 agent-browser wait --load networkidle
 agent-browser wait --url "**/api/health"
+agent-browser wait --text "ok"
 ```
 

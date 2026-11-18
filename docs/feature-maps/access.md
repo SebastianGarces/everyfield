@@ -14,6 +14,7 @@ flowchart LR
   s1["access.request-retention<br/>no page"]
   s1_link0 --> s1
   s1 -.- s1_st0(("refused"))
+  s1 --- s1_b0["expire-access-requests<br/>tests"]
 ```
 
 ## Surfaces
@@ -56,7 +57,7 @@ The daily cron that expires old early-access requests: it refuses any caller wit
 
 - Routes: none
 - Endpoints: `/api/cron/access-retention`
-- Personas: `visitor` read
+- Personas: `visitor` none
 
 Reach:
 
@@ -72,3 +73,11 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/api/cron/access-retention"
 ```
 
+#### access.request-retention#expire-access-requests
+
+The daily run deletes early-access requests after twelve months and clears stored IP addresses older than thirty days; without the cron secret it changes nothing.
+
+- Operations: marketing.expireAccessRequests
+- Catalog: ADM-006
+- Test: `packages/domain/test/requests.test.ts`: `INV-access: scheduled retention deletes after twelve months and clears only IPs older than thirty days`
+- Test: `packages/domain/test/requests.test.ts`: `INV-access: cron requires a configured secret and refuses unauthorized retention`

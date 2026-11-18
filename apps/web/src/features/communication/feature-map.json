@@ -823,7 +823,7 @@
 				}
 			],
 			"personas": {
-				"visitor": "read"
+				"visitor": "none"
 			},
 			"states": [
 				{
@@ -836,11 +836,32 @@
 					"expect": [
 						{
 							"url": "/api/webhooks/resend"
+						},
+						{
+							"text": "method_not_allowed",
+							"match": "contains"
 						}
 					]
 				}
 			],
-			"behaviors": []
+			"behaviors": [
+				{
+					"id": "record-delivery",
+					"says": "A signed callback records one delivery outcome for the sent mail, and a callback with a bad signature writes nothing.",
+					"catalog": ["NTF-010"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/communication/delivery.test.mts",
+								"name": "AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one outcome and a bad signature writes nothing"
+							}
+						],
+						"cases": ["CASE-NTF-010"]
+					},
+					"noOperation": "resendWebhook verifies the signature and applyMailCallback records the outcome; it is a provider callback, not a catalog operation"
+				}
+			]
 		}
 	]
 }
