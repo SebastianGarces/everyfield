@@ -4,9 +4,6 @@ export const PIPELINE_PATH = "/organization/pipeline";
 
 export const KIND_LABEL: Record<string, string> = Object.fromEntries([...STARTER_STAGES, ["other", "Other"]]);
 
-const day = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-export const formatDay = (value: string) => day.format(new Date(`${value}T00:00:00Z`));
-
 type Search = Record<string, string | string[] | undefined>;
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 export function queryFromSearch(search: Search): PipelineBoardQuery {
