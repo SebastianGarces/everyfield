@@ -16,7 +16,7 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import type { Wait } from "../../components/save/model.ts";
 import { bulkOutcomeText, type BulkActions, type BulkOutcome, type DueInput } from "./model.ts";
 
-const onInk = "text-on-ink focus-visible:outline-on-ink";
+const onInk = "text-on-ink hover:bg-on-ink-soft focus-visible:outline-on-ink";
 
 export function BulkBar({
 	count,
@@ -125,7 +125,7 @@ export function BulkBar({
 				icon={Cancel01Icon}
 				label="Clear the selection"
 				size="sm"
-				className={`shadow-none ${onInk}`}
+				className="shadow-none text-on-ink focus-visible:outline-on-ink"
 				onClick={onClear}
 			/>
 		</div>

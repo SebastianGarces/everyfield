@@ -307,7 +307,6 @@ export function ChosenList({
 									label={`Remove ${c.name}`}
 									variant="soft"
 									size="sm"
-									className=""
 									onClick={() => onRemove(c.key)}
 								/>
 							</li>
