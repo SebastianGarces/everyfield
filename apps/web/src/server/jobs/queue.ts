@@ -16,6 +16,7 @@ const jobKind = z.enum([
 	"people_import",
 	"evry_effect",
 	"feedback_publication",
+	"assessment",
 ]);
 export type JobKind = z.infer<typeof jobKind>;
 export const DEFAULT_LEASE_SECONDS = 300;
@@ -48,7 +49,6 @@ const enqueueSchema = z.strictObject({
 });
 export type JobInput = z.input<typeof enqueueSchema>;
 
-/** The job rows as one insert a producer queues into its own write statement (D70). A known key inserts nothing. */
 export function queueJobs(tx: Transaction, inputs: readonly JobInput[]) {
 	const values = inputs.map((input) => enqueueSchema.parse(input));
 	return tx
@@ -69,7 +69,6 @@ export function queueJobs(tx: Transaction, inputs: readonly JobInput[]) {
 		)
 		.onConflictDoNothing();
 }
-// Called on the producer's existing transaction, alongside its facts and receipt.
 export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]): Promise<string[]> {
 	const values = inputs.map((input) => enqueueSchema.parse(input));
 	if (!values.length) return [];
@@ -118,13 +117,6 @@ export async function enqueueJob(tx: Transaction, input: JobInput): Promise<stri
 	return id;
 }
 
-/**
- * Claims up to `limit` due jobs of these kinds, oldest first, skipping rows another claim holds. One round trip: the
- * claim and its 5-second statement bound are one simple-protocol message, which Postgres runs as one implicit
- * transaction, so `SET LOCAL statement_timeout` bounds the claim exactly as the transaction wrapper did. The values are
- * inlined because that protocol takes no parameters; each is parsed first (kind names, integers, a random UUID).
- * `maxAgeSeconds` leaves older jobs to their kind's own recovery, for kinds whose unclaimed jobs expire (Evry's).
- */
 export async function claimDue(
 	db: Database,
 	kinds: readonly JobKind[],
@@ -141,7 +133,6 @@ export async function claimDue(
 		})
 		.parse({ kinds, limit, lease: leaseSeconds, maxAge: maxAgeSeconds });
 	const owner = z.uuid().parse(randomUUID());
-	// The pool runs a text without parameters as a simple query and answers one result per statement.
 	const pool = (db as Database & { $client: { query(text: string): Promise<unknown> } }).$client;
 	const results = (await pool.query(`SET LOCAL statement_timeout = '5s';
 WITH due AS (
@@ -174,10 +165,6 @@ const literal = (value: string) =>
 		.regex(/^[^\0]*$/)
 		.parse(value)
 		.replaceAll("'", "''")}'`;
-/**
- * The finish as one UPDATE whose WHERE is the claim fence (lockClaim's conditions), so the row lock, the fence check and
- * the outcome are one statement. Values are parsed and inlined so finishJob can send it with the simple protocol.
- */
 function finishStatement(claim: Claim, result: JobResult) {
 	const c = claimSchema
 		.extend({ claim_generation: z.string().regex(/^\d+$/), source_revision: z.string().regex(/^\d+$/).nullable() })
@@ -191,8 +178,6 @@ function finishStatement(claim: Claim, result: JobResult) {
 		.finite()
 		.min(0)
 		.parse(result.state === "retry_wait" ? (result.retryAfterSeconds ?? 0) : 0);
-	// A retry reads the row's own attempt count, never the claim's: a worker that saved progress reset it (scanPage, People
-	// imports), and that fresh budget must decide exhaustion and backoff (300, 600, then 1200 s).
 	const exhausted = "attempt_count>=max_attempts";
 	const code = result.code === undefined ? "NULL" : literal(result.code);
 	const set =
@@ -207,14 +192,9 @@ function finishStatement(claim: Claim, result: JobResult) {
   AND lease_owner=${literal(c.lease_owner)} AND source_revision IS NOT DISTINCT FROM ${c.source_revision ?? "NULL"}::bigint
   AND lease_until>clock_timestamp()`;
 }
-/** Ends a claim inside the caller's transaction, only while the claim is current. One statement. */
 export async function finishClaim(tx: Transaction, claim: Claim, result: JobResult): Promise<boolean> {
 	return (await tx.execute(sql.raw(finishStatement(claim, result)))).rowCount === 1;
 }
-/**
- * Ends a claim on its own, only while the claim is current. One round trip: the 5-second statement bound and the finish
- * are one simple-protocol message, which Postgres runs as one implicit transaction (as claimDue does, C111).
- */
 export async function finishJob(db: Database, claim: Claim, result: JobResult): Promise<boolean> {
 	const pool = (db as Database & { $client: { query(text: string): Promise<unknown> } }).$client;
 	const results = (await pool.query(`SET LOCAL statement_timeout = '5s';\n${finishStatement(claim, result)}`)) as {
@@ -223,7 +203,6 @@ export async function finishJob(db: Database, claim: Claim, result: JobResult): 
 	return results[1]!.rowCount === 1;
 }
 
-// A crash after the external marker cannot turn into a new external effect.
 export async function recoverLease(db: Database, limit = 100): Promise<number> {
 	z.number().int().min(1).max(100).parse(limit);
 	return transaction(db, async (tx) => {
@@ -259,7 +238,6 @@ export async function checkpoint(tx: Transaction, claim: Claim, key: string): Pr
 	return true;
 }
 
-// Owed-tail scans commit each processed page and cursor together. No provider work here.
 export async function scanPage(
 	tx: Transaction,
 	claim: Claim,
@@ -283,7 +261,6 @@ export async function scanPage(
 	}
 	if (ids.length === 0) return finishClaim(tx, claim, { state: "succeeded" });
 	await config.process(tx, ids);
-	// Progress begins a fresh retry budget for the next chunk, never for a failed chunk.
 	await tx
 		.update(tables.job)
 		.set({

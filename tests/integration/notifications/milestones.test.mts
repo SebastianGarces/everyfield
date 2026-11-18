@@ -10,12 +10,8 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import {
 	authorizeNotificationMail,
 	createNotificationWorker,
-} from "../../../apps/web/src/server/jobs/notification-worker.ts";
+} from "../../../apps/web/src/features/notifications/worker.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
-
-// Connection and sharing milestones (T-267, REQ-NTF-009): approving, ending and changing what a church shares each
-// queue a `notification` job, and the scheduled tick writes one notice per current plant Owner and Admin, in the bell
-// and by email, while the occurrence still holds. The organization's seat holders are never told (D-795).
 
 after(S.teardown);
 const db = S.runtime;
@@ -59,7 +55,6 @@ async function runTick() {
 	return body;
 }
 
-/** A plant with an Owner, an Admin, a Member and an Admin who turned the in-app or email choice off. */
 async function church() {
 	const p = await S.tenant("plant", "Harvest");
 	const [owner, adminSeat, member, quiet] = [
@@ -68,7 +63,6 @@ async function church() {
 		await S.identity(p, "member"),
 		await S.identity(p, "admin"),
 	];
-	// The quiet Admin keeps connection notices out of the bell and sharing notices out of email.
 	await S.db.execute(sql`INSERT INTO notification_preference(account_id,category,channel,enabled,unsubscribe_revision)
 		VALUES(${sql.param(quiet.account)},'relationship_milestone','in_app',false,0),
 			(${sql.param(quiet.account)},'sharing_milestone','email',false,0)`);
@@ -91,7 +85,6 @@ async function connect(c: Awaited<ReturnType<typeof church>>, name: string) {
 	if (accepted.status !== "accepted") throw Error("not accepted");
 	return { o, oa, pair, id: accepted.relationship.id };
 }
-/** Stops sharing the Wiki on a connection just approved (revision and consent revision 1). */
 const share = (c: Awaited<ReturnType<typeof church>>, link: Awaited<ReturnType<typeof connect>>) =>
 	S.call(
 		"privacy.setSharing",
@@ -112,7 +105,6 @@ const end = (c: Awaited<ReturnType<typeof church>>, link: Awaited<ReturnType<typ
 		S.command({ relationshipId: link.id, pair: link.pair, confirmed: true, reason: null }, revision),
 	);
 
-/** Each notice of one connection: [recipient, category, occurrence, title, in the bell, email state]. */
 const notices = async (affiliation: string) =>
 	(
 		await S.db.execute(sql`SELECT n.recipient_id AS recipient, split_part(n.logical_key,'/',2) AS category,
@@ -127,7 +119,6 @@ const jobs = async (affiliation: string) =>
 			WHERE kind='notification' AND subject_record_id=${sql.param(affiliation)} ORDER BY source_revision`)
 	).rows.map((r) => [r.producer_key, r.state, r.error_code]);
 const feed = createNotificationProducer({ optOutKey: randomBytes(32), now: () => new Date() });
-/** The account's bell entries in the two milestone categories, oldest first, as [category, title]. */
 async function bell(who: Identity) {
 	const reader = await RequestActor.resolve(db, who.session);
 	const result = await feed.readFeed(db, reader, {});
@@ -143,7 +134,6 @@ test("AC:CASE-NTF-009 AC:NOTIFY47-005 the scheduled tick tells the plant's Owner
 	const link = await connect(c, "North Network");
 	const told = [c.owner, c.admin, c.quiet].map((a) => a.account).sort();
 
-	// Approved: each current Owner and Admin gets one notice and one email; the quiet Admin's stays out of the bell.
 	assert.equal((await runTick()).steps.notification.status, "ok");
 	const approved = {
 		category: "relationship_milestone",
@@ -158,7 +148,6 @@ test("AC:CASE-NTF-009 AC:NOTIFY47-005 the scheduled tick tells the plant's Owner
 		told.map((recipient) => ({ ...approved, recipient, bell: recipient !== c.quiet.account })),
 	);
 
-	// Sharing changed: the quiet Admin sees it in the bell but gets no email.
 	assert.equal(Q.mutationResult.parse(await share(c, link)).status, "committed");
 	await runTick();
 	const sharing = {
@@ -174,7 +163,6 @@ test("AC:CASE-NTF-009 AC:NOTIFY47-005 the scheduled tick tells the plant's Owner
 		told.map((recipient) => ({ ...sharing, recipient, mail: recipient === c.quiet.account ? null : "pending" })),
 	);
 
-	// Ended: the notice states only the plant's own event, and goes to the plant alone.
 	await end(c, link, "2");
 	await runTick();
 	const ended = {
@@ -203,7 +191,6 @@ test("AC:CASE-NTF-009 AC:NOTIFY47-005 the scheduled tick tells the plant's Owner
 	assert.deepEqual(await bell(c.owner), all);
 	assert.deepEqual(await bell(c.admin), all);
 	assert.deepEqual(await bell(c.quiet), [all[1]]);
-	// A Member and the organization's Owner get neither a notice nor an email.
 	assert.deepEqual(await bell(c.member), []);
 	assert.deepEqual(await bell(link.oa), []);
 	const outside = await S.db.execute(sql`SELECT count(*)::int AS n FROM notice n
@@ -217,7 +204,6 @@ test("AC:CASE-NTF-009 AC:NOTIFY47-005 the scheduled tick tells the plant's Owner
 test("AC:CASE-NTF-009 an occurrence is sent while its fact holds: a sharing change keeps an earlier approval, an end stops it", async () => {
 	const c = await church();
 	const told = [c.owner, c.admin, c.quiet].map((a) => a.account).sort();
-	// Approved, then sharing changed, before the tick: both are sent.
 	const kept = await connect(c, "Kept Network");
 	await share(c, kept);
 	await runTick();
@@ -225,7 +211,6 @@ test("AC:CASE-NTF-009 an occurrence is sent while its fact holds: a sharing chan
 		(await notices(kept.id)).map((n) => [n.recipient, n.occurrence]),
 		[...told.map((r) => [r, "approved"]), ...told.map((r) => [r, "sharing"])],
 	);
-	// Approved, then ended, before the tick: only the end is sent; the approval finishes without a notice or mail.
 	const gone = await connect(c, "Gone Network");
 	await end(c, gone, "1");
 	await runTick();
@@ -257,7 +242,6 @@ test("INV-notification-worker: a milestone is sent once when its job fails and r
 	assert.deepEqual(await jobs(link.id), [["affiliation/approved/1", "retry_wait", "notification_failed"]]);
 	assert.deepEqual(await notices(link.id), []);
 
-	// Due again: two workers run at once; the job is claimed by one and its notices are written once.
 	await S.db
 		.execute(sql`UPDATE job SET next_attempt_at=clock_timestamp()-interval '1 second', eligible_at=clock_timestamp()-interval '1 second'
 		WHERE kind='notification' AND subject_record_id=${sql.param(link.id)}`);
@@ -290,7 +274,6 @@ test("INV-notification-mail: milestone mail goes out only while the recipient ho
 	const approvedMail = [c.owner, c.admin, c.quiet].map((a) => a.account).sort();
 	assert.deepEqual(await allowed(), approvedMail);
 
-	// The Admin's seat ends before the mail is handed off: theirs no longer goes out.
 	await S.db.execute(
 		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(c.admin.account)} AND plant_id=${sql.param(c.p.id)}`,
 	);
@@ -298,13 +281,11 @@ test("INV-notification-mail: milestone mail goes out only while the recipient ho
 		await allowed(),
 		approvedMail.filter((r) => r !== c.admin.account),
 	);
-	// A seat moved to Member counts as gone too.
 	await S.db.execute(
 		sql`UPDATE seat SET role='member' WHERE account_id=${sql.param(c.quiet.account)} AND plant_id=${sql.param(c.p.id)}`,
 	);
 	assert.deepEqual(await allowed(), [c.owner.account]);
 
-	// Ended before the approval mail is handed off: the approval mail stops; the end's goes out.
 	await end(c, link, "1");
 	await runTick();
 	const mail = await rows();

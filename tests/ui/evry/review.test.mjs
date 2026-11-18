@@ -1,19 +1,3 @@
-// The Evry review card's approval on a seeded preview (WP-053/ui), in both engines at phone width. It needs the People
-// seed (tests/ui/people/seed.mts), whose env file selects the scripted model.
-//   AC:UI45-002 AC:INH-REGRESSION-REVISED-APPROVAL INV-revise: revising a reviewed value makes revision 2, which is
-//     the one approved and saved.
-//   AC:INH-REGRESSION-CONFIRM-REPLAY INV-lost-approval: an approval whose reply is lost after the server saved it shows
-//     as saved, never as "not approved"; the same request is sent once more and no more (C58), the person changed
-//     once, and focus stays in the card.
-//   AC:INH-REGRESSION-CONFIRM-REPLAY INV-unknown-approval: an update the server saved whose reply and read are lost
-//     keeps the form and its values, offers only Check again, and Check again shows revision 2. Then an approval,
-//     its replay and the read all get no answer: the card says it may already be saved and offers only Check again,
-//     with Revise and Cancel disabled. The browser clock then passes the review's expiry: the card stays "Not
-//     confirmed" and never says nothing changed. Check again sends the same request key and the change saves once.
-//   T-231 INV-open-reviews: a review card from a live turn reads its own review once; opening a conversation with two
-//     review cards, from the launcher or from History, reads no review by id: the page read brings both.
-//   AC:INH-REGRESSION-CONFIRM-REPLAY INV-approve-runs-once (real routes, no page): a first approval's own request runs
-//     the change with no other request; a replay of it returns the saved review and saves nothing again.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { BASE, ENGINES, fixture, hydrated, signIn, withPage } from "../setup.mjs";
@@ -28,7 +12,6 @@ for (const [engine, launcher] of ENGINES)
 				const approvals = [];
 				await context.route("**/api/evry/proposals/*/approve", async (route) => {
 					approvals.push(route.request().postData());
-					// The server saves the approval; the browser never hears back.
 					await route.fetch();
 					await route.abort("connectionreset");
 				});
@@ -49,17 +32,14 @@ for (const [engine, launcher] of ENGINES)
 				await card.getByRole("button", { name: "Update review" }).click();
 				await card.getByText("Revision 2", { exact: true }).waitFor();
 
-				// Keyboard use: Safari does not focus a button on a mouse click.
 				await card.getByRole("button", { name: "Approve" }).focus();
 				await page.keyboard.press("Enter");
 				const saved = panel.getByRole("region", { name: "Saved" });
 				await saved.waitFor({ timeout: 15_000 });
-				// One replay of the same request key after the lost reply, then the card reads the saved state.
 				assert.equal(approvals.length, 2);
 				assert.equal(approvals[1], approvals[0]);
 				assert.equal(JSON.parse(approvals[0]).revision, 2);
 				assert.match(await saved.innerText(), new RegExp(city));
-				// The Approve button is gone; focus moved to the card's head, not to <body>.
 				assert.equal(await saved.evaluate((el) => el.contains(document.activeElement)), true);
 				const person = await page.evaluate(
 					(id) => fetch(`/people/${id}`).then((r) => r.text()),
@@ -80,13 +60,11 @@ for (const [engine, launcher] of ENGINES)
 				const approvals = [];
 				let lose = false;
 				let revised = 0;
-				// The update reaches the server, but its reply and the read after it are lost.
 				await context.route("**/api/evry/proposals/*/revise", async (route) => {
 					revised++;
 					await route.fetch();
 					await route.abort("connectionreset");
 				});
-				// The approval and its replay never reach the server; the read after them gets no answer either.
 				await context.route("**/api/evry/proposals/*/approve", async (route) => {
 					approvals.push(route.request().postData());
 					if (lose) await route.abort("connectionreset");
@@ -95,7 +73,6 @@ for (const [engine, launcher] of ENGINES)
 				await context.route("**/api/evry/proposals/*", (route) =>
 					lose ? route.abort("connectionreset") : route.continue(),
 				);
-				// The browser's own clock, so the test can pass the review's expiry without waiting 15 minutes.
 				await page.clock.install();
 				await page.goto(`${BASE}/people`);
 				await hydrated(page);
@@ -134,7 +111,6 @@ for (const [engine, launcher] of ENGINES)
 				assert.equal(await unknown.getByRole("button", { name: "Revise" }).isDisabled(), true);
 				assert.equal(await unknown.getByRole("button", { name: "Cancel" }).isDisabled(), true);
 				assert.equal(approvals.length, 2);
-				// Only the server can say the review expired without an effect; the local clock never does.
 				await page.clock.fastForward("16:00");
 				assert.equal(await panel.getByRole("region", { name: "Expired" }).count(), 0);
 				assert.match(await unknown.innerText(), /may already be saved/);
@@ -158,7 +134,6 @@ for (const [engine, launcher] of ENGINES)
 			async (page, context) => {
 				const people = fixture("people");
 				await signIn(context, people.owner.cookie);
-				// Every GET of one review by id: /api/evry/proposals/<id>, not its photo or an action.
 				const reads = [];
 				page.on("request", (r) => {
 					if (r.method() === "GET" && /^\/api\/evry\/proposals\/[^/]+$/.test(new URL(r.url()).pathname))
@@ -183,11 +158,8 @@ for (const [engine, launcher] of ENGINES)
 					await approve.nth(n).waitFor({ timeout: 60_000 });
 					await panel.getByRole("button", { name: "Stop" }).waitFor({ state: "hidden", timeout: 60_000 });
 				}
-				// A card from a live turn was not in any page read: each reads its own review (twice under React's dev
-				// StrictMode, once in production).
 				assert.equal(new Set(reads).size, 2);
 
-				// The launcher opens the latest conversation: both cards show their review with no read by id.
 				reads.length = 0;
 				await page.reload();
 				await hydrated(page);
@@ -196,7 +168,6 @@ for (const [engine, launcher] of ENGINES)
 				assert.equal(await cards.count(), 2);
 				assert.deepEqual(reads, []);
 
-				// From History: another conversation first, then this one again.
 				await panel.getByRole("button", { name: "History" }).click();
 				await panel.getByRole("button", { name: "New chat" }).click();
 				await panel.getByRole("button", { name: "History" }).click();
@@ -208,8 +179,6 @@ for (const [engine, launcher] of ENGINES)
 			{ width: 390, height: 844 },
 		));
 
-// A first approval with no later request, through the real routes: its own request starts the change. A replay of the
-// same approval afterwards returns the saved review and saves nothing again.
 test("AC:INH-REGRESSION-CONFIRM-REPLAY INV-approve-runs-once: a first approval saves its change without any other request; its replay saves nothing again", () =>
 	withPage(ENGINES[0][1], async (_page, context) => {
 		const people = fixture("people");

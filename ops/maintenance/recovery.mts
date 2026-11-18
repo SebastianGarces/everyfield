@@ -17,11 +17,10 @@ export const manifestSchema = z.strictObject({
 	database: artifact,
 	objects: z.array(artifact).max(10000),
 	keyVersion: z.uuid(),
-	witnessCheckpoint: z.string().regex(/^[1-9]\d*$/),
+	witnessCheckpoint: z.string().regex(/^(0|[1-9]\d*)$/),
 	subjects: z.array(z.strictObject({ id: z.uuid(), expiresAt: z.iso.datetime() })).max(10000),
 });
 const DAY = 86_400_000;
-// No provider, app endpoint or key-loading fallback. Only the restricted CLI imports this file.
 export function validateCandidate(input, now, originalExpiries = new Map()) {
 	const m = manifestSchema.parse(input);
 	const created = Date.parse(m.createdAt),

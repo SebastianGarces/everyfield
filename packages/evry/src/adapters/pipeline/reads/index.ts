@@ -1,7 +1,8 @@
 import { programKind, programRhythm } from "@everyfield/contracts/organizations";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import { readPipelineBoard, readPrograms } from "@everyfield/domain/organizations";
+import { readPipelineBoard, readProgram as readProgramDetail, readPrograms } from "@everyfield/domain/organizations";
+import type { ProgramVersion } from "@everyfield/contracts/organizations";
 import { z } from "zod";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import type { EvryActor } from "../../../context/actor.ts";
@@ -9,12 +10,6 @@ import { liveAuthority } from "../../../context/authority.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import { organizationSeat } from "../../native.ts";
 
-// The organization pipeline and its programs (WP-101), read through the same domain reads the Pipeline and Programs
-// pages make, under the asker's live seat: an Owner or Admin reads everyone, a Member named responsible staff reads
-// their own people, and any other seat reads counts per stage only. No read returns a note, a move's reason, feedback,
-// an assessment result or a ranking (REQ-MUL-015).
-
-/** The day six months before `day` (YYYY-MM-DD), clamped to the month's end as the board's SQL date arithmetic does. */
 function sixMonthsBefore(day: string) {
 	const [y, m, d] = day.split("-").map(Number) as [number, number, number];
 	const month = y * 12 + (m - 1) - 6;
@@ -29,19 +24,15 @@ const dayFormat = new Intl.DateTimeFormat("en-US", {
 	year: "numeric",
 	timeZone: "UTC",
 });
-/** A day (YYYY-MM-DD) as people read it: "May 14, 2026". */
 export const dayText = (day: string) => dayFormat.format(new Date(`${day}T12:00:00Z`));
 
-/** A native refusal reads as no tenant data: the seat no longer reads this pipeline. */
 const value = <T>(reply: { status: "ok"; value: T } | { status: "refused" }): T => {
 	if (reply.status !== "ok") throw new EvryRefusal("access_denied");
 	return reply.value;
 };
 
 const listInput = z.strictObject({
-	/** One stage's people (a stage row's id from an earlier result); every stage when left out. */
 	stageId: z.uuid().optional(),
-	/** The Pipeline page's "no move in six months" filter. */
 	stale: z.boolean().optional(),
 	page: z.int().min(1).max(10_000).optional(),
 });
@@ -130,14 +121,91 @@ export const draftPlan = {
 	},
 } satisfies ReadAdapter<Record<string, never>>;
 
-/** The installed pipeline and program reads. */
-export const PIPELINE_READS = [listPeople, draftPlan] as const;
+const planRows = (v: ProgramVersion): SourceRow[] => [
+	...v.stages.map((s) => ({
+		kind: "item" as const,
+		id: s.id,
+		label: s.label,
+		fields: { part: "stage", version: v.number, minMonths: s.minMonths, maxMonths: s.maxMonths },
+	})),
+	...v.milestones.map((m) => ({
+		kind: "item" as const,
+		id: m.id,
+		label: m.title,
+		fields: {
+			part: "milestone",
+			version: v.number,
+			lineage: m.lineage,
+			description: m.description,
+			handsOn: m.handsOn,
+		},
+	})),
+	...v.readings.map((r) => ({
+		kind: "item" as const,
+		id: r.id,
+		label: r.title,
+		fields: { part: "reading", version: v.number },
+	})),
+];
 
-/**
- * Whether this organization seat's Pipeline page lists people: an Owner's or Admin's does, and a Member's does while
- * they are responsible for someone live in it. The empty Evry panel then suggests a pipeline question. One lock-free
- * statement with the live check (C13), sent only for an organization seat.
- */
+export const readProgram = {
+	operation: "development.readProgram",
+	description:
+		"This organization's development programs as Programs shows them. Without programId: each program with its kind, director, whether the user directs it, its published version number and whether a draft is in progress. With programId (a program row's id): its published version and its draft, each with rhythm and expected length in facts and, as rows, its stages, its milestones (each with its lineage, which carries it across versions) and its reading list, and whether the user directs it. Only the program's current director edits its plan, through development.draftNextVersion. It never returns who is enrolled, completions, feedback, notes or reasons",
+	input: z.strictObject({
+		programId: z.uuid().optional(),
+	}),
+	allowed: organizationSeat,
+	async invoke(tx, actor, input): Promise<SourceResult> {
+		const done = (rows: SourceRow[], facts: SourceResult["facts"]): SourceResult => ({
+			operation: "development.readProgram",
+			status: "available",
+			rows,
+			total: rows.length,
+			page: 1,
+			next: null,
+			completeness: "complete",
+			exclusions: ["who is enrolled, completions, feedback and notes, which stay in Programs"],
+			facts,
+		});
+		if (!input.programId) {
+			const list = value(await readPrograms(tx, actor.authority));
+			return done(
+				list.programs.map((p) => ({
+					kind: "item",
+					id: p.id,
+					label: p.name,
+					fields: {
+						part: "program",
+						kind: p.kind,
+						director: p.director.name,
+						directedByYou: p.director.seatId === actor.seatId,
+						publishedVersion: p.publishedNumber,
+						draft: p.draft,
+					},
+				})),
+				{ organization: list.organizationName },
+			);
+		}
+		const p = value(await readProgramDetail(tx, actor.authority, { programId: input.programId }));
+		return done([...(p.published ? planRows(p.published) : []), ...(p.draft ? planRows(p.draft) : [])], {
+			programId: p.id,
+			program: p.name,
+			kind: p.kind,
+			director: p.director.name,
+			directedByYou: p.viewer.director,
+			publishedVersion: p.published?.number ?? null,
+			publishedRhythm: p.published?.rhythm ?? null,
+			publishedMonths: p.published?.expectedMonths ?? null,
+			draftVersion: p.draft?.number ?? null,
+			draftRhythm: p.draft?.rhythm ?? null,
+			draftMonths: p.draft?.expectedMonths ?? null,
+		});
+	},
+} satisfies ReadAdapter<{ programId?: string }>;
+
+export const PIPELINE_READS = [listPeople, draftPlan, readProgram] as const;
+
 export async function pipelineListsPeople(db: Pick<Database, "execute">, actor: EvryActor) {
 	if (!organizationSeat(actor) || !actor.seatId) return false;
 	const r = await db.execute(sql`SELECT ${liveAuthority(actor)} AND (${actor.role !== "member"} OR EXISTS(

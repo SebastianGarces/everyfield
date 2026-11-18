@@ -31,23 +31,16 @@ import { traced, traceTurn, type Claimed } from "./trace.ts";
 export type RunDeps = {
 	db: Database;
 	model: QualifiedModel;
-	/** The session's current actor, read again from the database: the fresh authority check before every read. */
 	freshActor(session: string): Promise<EvryActor | null>;
-	/** The email service and keys a review that hashes addresses needs; null when the deployment has no mail keys. */
 	mail?: MailPort | null;
-	/** The private bucket attached files are staged in; null when the deployment has none. */
 	storage?: PrivateStorage | null;
-	/** The Settings, seat and connection services those tools call; null when the deployment has none. */
 	native?: NativePorts | null;
 	now?: () => Date;
 };
-/** Stands in for this turn's earlier assistant text once one of its sources is no longer available. */
 const WITHHELD_TEXT = "[An earlier part of this answer used a source that is no longer available.]";
 
-/** succeeded: the turn saved its final state. failed: it saved a failure. lost: it no longer owned the run. */
 export type RunOutcome = "succeeded" | "failed" | "lost";
 
-/** Refusals of an attached file that the model explains to the user; the turn goes on. */
 const ATTACHMENT_REFUSALS = new Set<string>(["attachment_elsewhere", "attachment_gone"]);
 
 const TRANSIENT_SQL = new Set(["40001", "40P01", "08000", "08003", "08006", "57P01", "53300"]);
@@ -58,10 +51,6 @@ const transientRead = (error: unknown) => {
 	return typeof code === "string" && (TRANSIENT_SQL.has(code) || code === "ECONNRESET" || code === "ETIMEDOUT");
 };
 
-/**
- * Runs one claimed turn to its saved end. Reads run under the actor's authority, re-read before each one; every saved
- * event is fenced by the run's job lease; the turn stops truthfully at the first limit, on cancel or on lost ownership.
- */
 export async function runTurn(deps: RunDeps, lease: RunLease, claimed?: Claimed): Promise<RunOutcome> {
 	const turn = await loadTurn(deps.db, lease);
 	if (!turn) return "lost";
@@ -94,24 +83,18 @@ async function run(
 	let pending = "";
 	let toolCalls = 0;
 	let cards = 0;
-	// Only files attached in this very conversation can be read, by a read or an import review.
 	const filesOf = (fresh: EvryActor) => ({
 		read: (id: string) => readAttachment(db, deps.storage ?? null, fresh, turn.conversation_id, id),
 	});
 	const usage = { inputTokens: 0, outputTokens: 0 };
-	// A paid model reserves and settles each call in the month's spend counter (D77).
 	let meter: ReturnType<typeof meteredModel> | null = null;
 	let firstText = true;
-	// Streamed text goes to this process's observers at once (live.ts) and to the database off the read loop: one save
-	// in flight, each taking all the text that arrived meanwhile, so a slow database never delays the model stream.
 	const room = liveRoom(turn.conversation_id);
 	room.begin(lease.turnId);
 	const saves: { running: Promise<void> | null; failed: { error: unknown } | null } = { running: null, failed: null };
 	const save = async (kind: "assistant_text" | "tool_result", body: Record<string, unknown>) => {
-		// A result is saved after the text before it, so replay keeps the order.
 		if (kind === "tool_result") await drain();
 		const append = () => appendEvent(db, lease, turn.conversation_id, kind, body);
-		// The first saved text is what an observer can first read from the database: the end of the time to first token on our side.
 		const first = kind === "assistant_text" && firstText;
 		firstText &&= !first;
 		const sequence = lost
@@ -128,9 +111,8 @@ async function run(
 		return sequence;
 	};
 	const kick = () => {
-		saves.running ??= (async () => {
-			// Yield first, so the promise is stored before this loop can finish and clear it.
-			await null;
+		if (saves.running || !pending || lost) return;
+		saves.running = (async () => {
 			try {
 				while (pending && !lost) {
 					const delta = pending;
@@ -144,7 +126,6 @@ async function run(
 			}
 		})();
 	};
-	/** Waits until every delta received so far is saved; rethrows a failed save. */
 	const drain = async () => {
 		kick();
 		while (saves.running) await saves.running;
@@ -182,7 +163,6 @@ async function run(
 		const checked = session ? await traced("access check", () => deps.freshActor(session)) : null;
 		if (!session || !checked || checked.accountId !== turn.account_id || checked.owner.id !== turn.tenant_id)
 			throw new EvryRefusal("access_denied");
-		// The user's own person row, read once per turn under current authority. Every later fresh actor keeps it.
 		const selfPersonId = await traced("self row", () => resolveSelf(db, checked));
 		const actor: EvryActor = { ...checked, selfPersonId };
 		if (deps.model.status !== "qualified") throw new EvryRefusal("model_unavailable");
@@ -203,8 +183,6 @@ async function run(
 			return await finish();
 		}
 
-		// The model input as of now: retained history and page references are read again under current authority right
-		// before every model call, so a source that became unavailable during the turn never reaches the model.
 		const compile = async () => {
 			const history = await loadHistory(db, lease, turn.conversation_id, actor);
 			if (!history) throw new EvryRefusal("access_denied");
@@ -222,9 +200,7 @@ async function run(
 			});
 		};
 		const context = await compile();
-		/** The actor as the last access check before a tool call found it. */
 		let current = actor;
-		/** This turn's messages with sources that are no longer available withheld. One read per model call. */
 		const withLiveRows = async (messages: ModelMessage[]) => {
 			type Row = { kind: string; id: string };
 			const key = (row: Row) => `${row.kind}:${row.id}`;
@@ -237,11 +213,7 @@ async function run(
 				if (m.role === "tool")
 					for (const part of m.content) for (const row of rowsOf(part) ?? []) rows.set(key(row), row);
 			if (!rows.size) return messages;
-			// One rule per row kind (liveness.ts), one statement, with the live access check in it: a source the actor
-			// lost access to since the last tool call drops out.
 			const live = await liveRowKeys(db, current, [...rows.values()]);
-			// The replay rule (retained.ts): when a source of this turn is withheld, so is this turn's assistant text,
-			// which may quote it. Tool calls and their results stay, so the call/result protocol holds.
 			const withheld = [...rows.keys()].some((k) => !live.has(k));
 			if (!withheld) return messages;
 			return messages.map((m): ModelMessage => {
@@ -280,7 +252,6 @@ async function run(
 			});
 		};
 
-		// One budget gate for every tool: the 25th call runs nothing, and a changed context stops the turn.
 		const admit = async () => {
 			if (++toolCalls > LIMITS.toolCalls) {
 				toolCalls = LIMITS.toolCalls;
@@ -302,9 +273,12 @@ async function run(
 				try {
 					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null, filesOf(fresh));
 				} catch (error) {
-					// A file from another conversation, or one whose 24 hours passed, is the model's to explain, not a failed turn.
 					if (error instanceof EvryRefusal && ATTACHMENT_REFUSALS.has(error.code)) return { error: error.code };
 					if (attempt < LIMITS.readRetries && transientRead(error)) continue;
+					const still = await deps.freshActor(session).catch(() => null);
+					const lost = error instanceof EvryRefusal && error.code === "access_denied";
+					if (!lost && still && sameContext(still, fresh) && still.role === fresh.role)
+						return { error: "source_unavailable", operation: adapter.operation };
 					fail(error instanceof EvryRefusal ? error : new EvryRefusal("source_unavailable"));
 					return { error: "source_unavailable" };
 				}
@@ -323,7 +297,6 @@ async function run(
 				const returned = new Set(source?.rows.filter((r) => r.kind === "person").map((r) => r.id) ?? []);
 				const rejected = ids.filter((id) => !returned.has(id));
 				if (!source || rejected.length) return { error: "not_returned", rejected: rejected.length };
-				// Current access is checked again before a returned row is reused.
 				const rows = await verifyPeople(db, fresh, ids);
 				const result: SourceResult = {
 					operation: SELECT_RETURNED_ROWS,
@@ -343,9 +316,7 @@ async function run(
 				});
 				return sequence === null ? { error: "cancelled" } : resultForModel(sequence, result);
 			},
-			// A reviewed write is only proposed here: the review card is saved and a person approves it in the app.
 			propose: async (call) => {
-				// A turn never fills with review cards: a bulk change confirms its scope and count first (SAF-16).
 				if (++cards > LIMITS.reviewCards) return { error: "review_limit" };
 				const fresh = await admit();
 				if (!fresh) return { error: stop === "tool_budget" ? "tool_budget" : "access_denied" };
@@ -368,7 +339,6 @@ async function run(
 					result: {
 						operation: "evry.prepareProposal",
 						status: "available",
-						// The target row lets replay withhold the card once the target is no longer available.
 						rows: target ? [{ kind: target.kind, id: target.id, label: target.label, fields: {} }] : [],
 						total: 1,
 						page: 1,
@@ -382,7 +352,6 @@ async function run(
 			},
 		});
 
-		// The classification call counts against the same turn budget as every tool-loop step.
 		const before = { ...usage };
 		const budget: StopCondition<ToolSet> = ({ steps }) => {
 			const input = before.inputTokens + steps.reduce((n, s) => n + (s.usage.inputTokens ?? 0), 0);
@@ -411,8 +380,6 @@ async function run(
 			maxRetries: 0,
 			maxOutputTokens: LIMITS.outputTokensPerCall,
 			abortSignal: abort.signal,
-			// The stream's error part ends the turn with a projected error; the SDK's default logger would print the raw
-			// provider message, URL and payload.
 			onError: () => undefined,
 			telemetry: { functionId: "evry.answer" },
 		});

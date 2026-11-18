@@ -1,22 +1,3 @@
-// The follow-up evals (WP-059): when the signed-in user asks who to follow up with, Evry never suggests the user's own
-// row. Labelled requests (followups.cases.json) are scored against the real model's recorded streams
-// (followups.recorded.json). The model gets Evry's real system prompt and read tools, and every read it calls runs the
-// real adapter through invokeRead against a small church seeded on Postgres (small-church.mts). It runs in
-// @everyfield/evry's test:db. The church has 5 live people: Daniel Reyes (the planter, an Owner linked to his account)
-// and Lena Park (an Admin linked to hers) are the strongest follow-up candidates, with no next step, the oldest activity
-// and no open task; Maria Lopez, Tom Baker and Priya Shah are the others. Inactivity and coverage are the real pipeline
-// board's, derived from seeded activity and task rows, and the signed-in user's own row carries `you: true` from the
-// real row path. One case signs in Lena on the same church. A recording is keyed by the exact call the provider
-// receives, so a changed prompt, tool list, limit or read result has no recording and fails here until it is scored
-// again on the real model (with the database variables of README.md in the shell):
-//
-//   EVRY_EVAL_RECORD=1 node --conditions=react-server --env-file=apps/web/.env.local --test tests/evry/evals/followups.test.mts
-//
-// Recording makes a few small paid calls inside the G-SPEND cap (D77). CI replays the file.
-//   AC:EVRY-CONTEXT-BOUNDS tool selection: each request picks the operation of its case.
-//   Answer correctness: a follow-up answer never names the signed-in user and names another candidate (or, for "from
-//   me", says none is assigned to them); the count
-//   answer includes the user.
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -29,7 +10,6 @@ type Case = {
 	alsoAccepted?: string[];
 	actor?: "lena";
 	expect: "followUp" | "count";
-	/** "From me" asks for the user's own follow-ups: saying none is assigned to them is a correct answer too. */
 	noneAssigned?: boolean;
 	rubric: Record<string, string>;
 };
@@ -111,8 +91,6 @@ test("AC:EVRY-CONTEXT-BOUNDS follow-up requests pick the right read, never sugge
 			failures.push(`${c.text}: ${call.operation} ${JSON.stringify(call.input)} was refused (${call.error})`);
 		if (c.expect === "followUp") {
 			const points = {
-				// Naming the user is fine only when Evry says the row is "you"; a line or sentence that names the user as a
-				// candidate fails.
 				notYou: !answer
 					.split(/\n|(?<=[.!?])\s/)
 					.some((part) => new RegExp(me, "i").test(part) && !/\b(you|your|yours)\b/i.test(part)),

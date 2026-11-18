@@ -19,11 +19,6 @@ import { PageHead } from "../../shell/preview/ShellPreview";
 import { EvryCheer } from "./EvryCheer";
 import { HoverDemo } from "./HoverDemo";
 
-/**
- * The foundations preview at /design/foundations, after the prototype's #/foundations page: logo, color roles, type,
- * muted palette, gradients, shape, elevation, patterns, focus, motion and the Evry character. Every value comes from
- * tokens.css. Brand specimens (ef-brand-fixed) keep their brand values in dark mode; the chrome around them follows it.
- */
 export function FoundationsPreview() {
 	return (
 		<>
@@ -390,7 +385,6 @@ const GRADIENTS: [InsightTone, typeof Plant01Icon, string][] = [
 	["rose", Alert02Icon, "Risk or gap"],
 ];
 
-/** A muted ramp, 700 to 100: cream text on 700, brand ink on the lighter steps, in both themes. */
 function MutedRamp({ name, note, hue }: { name: string; note: string; hue: "green" | "sky" | "sage" | "rose" }) {
 	const steps = ["700", "500", "300", "100"] as const;
 	const fill = {
@@ -435,7 +429,6 @@ function Swatch({ className, name, use }: { className: string; name: string; use
 	);
 }
 
-/** Text on 600/700 and on the text greys is on-ink; text on a 500 fill is brand ink in both themes; tints use ink. */
 function stepText(step: string): string {
 	if (/^(v|t)?(600|700)$/.test(step) || step.startsWith("text-")) return "text-on-ink";
 	if (/500$/.test(step)) return "text-ink-fixed";

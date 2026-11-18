@@ -1,15 +1,8 @@
-// Evry's answer text (WP-051): safe markdown as React elements, and the live text the stream delivers ahead of saved
-// events. They run in node against the modules the panel uses; no browser.
-//   INV-markdown: paragraphs, line breaks, bold, italic, lists, links and inline code render as elements; HTML in model
-//     text stays text; only http, https, mailto and app-relative links are links.
-//   INV-partial: while an answer streams, an unclosed marker never shows as a literal character; a finished answer
-//     shows a really unmatched marker as text.
-//   INV-live: live text adds only the characters the panel lacks, and a turn's end drops it.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
 import { renderMarkdown } from "../../../apps/web/src/features/evry/conversation/view.ts";
-import { safeHref } from "../../../apps/web/src/features/evry/conversation/markdown.ts";
+import { safeHref } from "../../../apps/web/src/components/markdown.ts";
 import { EMPTY, merge, mergeLive, turnsOf } from "../../../apps/web/src/features/evry/conversation/model.ts";
 
 const web = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
@@ -85,7 +78,6 @@ test("INV-partial: an open marker never shows while streaming", () => {
 	assert.match(html("There are **19 pro", true), /<strong[^>]*>19 pro<\/strong>/);
 	assert.match(html("Run `pnpm te", true), /<code[^>]*>pnpm te<\/code>/);
 	assert.ok(html("See [the guide](https://exa", true).includes("the guide"));
-	// Closing it later changes no text, only the element around it.
 	assert.equal(html("There are **19 pro", true).replace(/<[^>]+>/g, ""), "There are 19 pro");
 	assert.equal(html("There are **19 pro**", true).replace(/<[^>]+>/g, ""), "There are 19 pro");
 });
@@ -123,12 +115,10 @@ test("INV-live: live text adds only what the panel lacks", () => {
 	assert.equal(s.live[T], "Hello world");
 	assert.equal(mergeLive(s, T, 2, "llo"), s);
 	assert.equal(turnsOf(s.events, s.live)[0].blocks[0].text, "Hello world");
-	// A saved event covering the first part of the live text shows once, with the rest after it.
 	s = merge(s, [text(2, "Hello ")]);
 	const [turn] = turnsOf(s.events, s.live);
 	assert.equal(turn.blocks.length, 1);
 	assert.equal(turn.blocks[0].text, "Hello world");
-	// The turn's end drops the live text; only saved text remains.
 	s = merge(s, [
 		text(3, "world"),
 		{

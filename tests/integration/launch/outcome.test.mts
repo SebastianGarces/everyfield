@@ -16,11 +16,7 @@ import { peopleMerge, peopleReader, peopleUnmerge, peopleWriter } from "../../..
 import { createPhaseWriter, phaseReader } from "../../../packages/domain/src/phases/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { seatedNotificationService } from "../../../apps/web/src/server/jobs/seated-notifications.ts";
-import { launchNotices } from "../../../apps/web/src/server/launch/notices.ts";
-
-// WP-046: what happened on Launch Sunday. Every write runs through the writer the /launch actions call, every read
-// through the reader the page calls, on its own schema of the development or CI database. "Today" is Oct 12, 2026 in
-// Harvest Point's time zone (America/Chicago); the planned Launch Sunday is Oct 10.
+import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
 
 const TODAY = frozenClock(instant.parse("2026-10-12T17:00:00.000Z"));
 let f, reader, writer, phases;
@@ -47,7 +43,6 @@ const BLANK = {
 	missingNames: null,
 	missingCount: null,
 };
-/** Save (or submit) the debrief over the draft the plan `p` shows. */
 const debrief = (who, p, answers, submit = false) =>
 	writer[submit ? "submitDebrief" : "saveDebriefDraft"](f.db, who.actor, {
 		requestKey: key(),
@@ -61,7 +56,6 @@ const summary = (who, p, body, publish = false) =>
 		input: { draftId: p.summary.draft?.id ?? null, body },
 	});
 const named = (p) => p.guests.named.map((g) => g.displayName);
-/** Every row an outcome write can add, to prove a no-op or a refusal wrote nothing. */
 const footprint = (w) =>
 	one(sql`SELECT (SELECT count(*)::int FROM person WHERE tenant_id=${w.id}) people,
 		(SELECT count(*)::int FROM launch_guest WHERE plant_id=${w.id}) guests,
@@ -83,7 +77,6 @@ async function seated(w, role, name = "Synthetic person") {
 	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
 }
-/** Harvest Point with its Owner, an Admin and a Member, planned Launch Sunday Oct 10, 2026. */
 async function church({ planned = "2026-10-10" } = {}) {
 	const w = await f.workspace("plant");
 	await f.admin.execute(sql`UPDATE plant SET name='Harvest Point', timezone='America/Chicago' WHERE id=${w.id}`);
@@ -100,7 +93,6 @@ async function church({ planned = "2026-10-10" } = {}) {
 		);
 	return { w, owner, admin, member };
 }
-/** A church whose Owner recorded Launch Sunday held on Oct 11 with attendance 40 and 6 decisions. */
 async function launched(input = {}) {
 	const c = await church();
 	const p = await plan(c.owner);
@@ -141,7 +133,6 @@ after(() => f?.close());
 test("AC:LAUNCH46-001 AC:CASE-LCH-006 Launch Sunday held on Oct 11 sits beside the planned Oct 10, which stays, and no meeting is made", async () => {
 	const c = await church();
 	const before = await plan(c.owner);
-	// Before anything is recorded, a passed planned date is overdue, never launched.
 	assert.equal(before.today, "2026-10-12");
 	assert.equal(before.outcome, null);
 	assert.deepEqual(countdown(before.launch, before.today), { kind: "overdue", days: 2 });
@@ -171,14 +162,12 @@ test("AC:LAUNCH46-001 AC:CASE-LCH-006 Launch Sunday held on Oct 11 sits beside t
 		},
 	);
 	assert.equal((await footprint(c.w)).meetings, meetings);
-	// Recording again is a correction, never a second record.
 	refused(await record(c.owner, { actualDate: "2026-10-11" }, p.revision), "conflict");
 });
 
 test("AC:CASE-LCH-008 AC:LAUNCH46-012 no future date, counts 0 to 1,000,000, a note of 10,000; empty is not recorded and 0 is 0", async () => {
 	const c = await church();
 	let p = await plan(c.owner);
-	// A completed milestone does not make the church launched either.
 	const m = p.milestones[0];
 	ok(
 		await writer.completeMilestone(f.db, c.owner.actor, {
@@ -202,7 +191,6 @@ test("AC:CASE-LCH-008 AC:LAUNCH46-012 no future date, counts 0 to 1,000,000, a n
 	refused(await record(c.owner, { actualDate: "2026-10-11", attendance: 2.5 }, p.revision), "invalid_input");
 	assert.deepEqual(await footprint(c.w), before);
 
-	// Today is allowed, and so are the bounds.
 	const saved = ok(
 		await record(
 			c.owner,
@@ -224,7 +212,6 @@ test("AC:CASE-LCH-008 AC:LAUNCH46-012 no future date, counts 0 to 1,000,000, a n
 
 test("AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named Mara, linked as a Launch Sunday guest, with nothing made up", async () => {
 	const c = await church();
-	// Guests need a recorded Launch Sunday.
 	refused(await guest(c.owner, { displayName: "Mara" }), "not_ready");
 	ok(await record(c.owner, { actualDate: "2026-10-11", attendance: 40 }, (await plan(c.owner)).revision));
 	const before = await footprint(c.w);
@@ -249,7 +236,6 @@ test("AC:LAUNCH46-003 AC:CASE-LCH-006 typing only Mara adds a new Person named M
 	const after = await footprint(c.w);
 	assert.equal(after.people, before.people + 1);
 	assert.equal(after.guests, before.guests + 1);
-	// People's own history has the new Person, created by the Owner.
 	const created = await one(sql`SELECT actor_id,kind FROM audit_event WHERE action='people.created'
 		AND subject_id=${p.guests.named[0].personId}`);
 	assert.deepEqual(created, { actor_id: c.owner.id, kind: "create" });
@@ -270,7 +256,6 @@ test("AC:LAUNCH46-004 AC:LAUNCH46-002 picking the suggested Alex Kim links him; 
 	const linked = ok(await guest(c.owner, { personId: alex }, requestKey));
 	assert.equal(linked.outcome, "changed");
 	assert.deepEqual(named(linked.plan), ["Alex Kim"]);
-	// The same request replays its answer; picking him again changes nothing.
 	assert.equal(ok(await guest(c.owner, { personId: alex }, requestKey)).outcome, "changed");
 	assert.equal(ok(await guest(c.owner, { personId: alex })).outcome, "noop");
 	assert.equal((await rows(sql`SELECT 1 FROM launch_guest WHERE person_id=${alex}`)).length, 1);
@@ -281,7 +266,6 @@ test("AC:LAUNCH46-004 AC:LAUNCH46-002 picking the suggested Alex Kim links him; 
 	const count = async () =>
 		(await one(sql`SELECT count(*)::int n FROM person WHERE tenant_id=${c.w.id} AND display_name='Alex Kim'`)).n;
 	assert.equal(await count(), 1);
-	// A Person of another church is never linked.
 	const other = await f.workspace("plant");
 	refused(await guest(c.owner, { personId: await person(other, "Alex Kim") }), "access_denied");
 	assert.equal(await count(), 1);
@@ -310,7 +294,6 @@ test("AC:LAUNCH46-011 AC:B02-019 a partial debrief stays a draft; submitting wit
 	assert.equal(p.debrief.draft.answers.toChange, "Parking");
 	assert.equal(p.debrief.draft.submittedAt, null);
 	assert.equal(p.debrief.submitted, null);
-	// Leaving and coming back reads the same draft; a second tab's save over an older draft is refused.
 	p = await plan(c.owner);
 	assert.equal(p.debrief.draft.answers.toChange, "Parking");
 	assert.deepEqual(p.evidence.guestNamesEntered.status, "unknown");
@@ -319,7 +302,6 @@ test("AC:LAUNCH46-011 AC:B02-019 a partial debrief stays a draft; submitting wit
 	refused(await debrief(c.owner, stale, { wentWell: "Other tab" }), "conflict");
 	assert.equal(ok(await debrief(c.owner, p, { wentWell: "Worship", toChange: "Parking" })).outcome, "noop");
 
-	// Submitting needs the guest answer, and Yes needs how many; nothing else has a minimum.
 	const problem = async (answers) =>
 		refused(await debrief(c.owner, p, answers, true), "invalid_debrief").details.problem;
 	assert.equal(await problem({ wentWell: "Worship" }), "guest_answer_needed");
@@ -348,7 +330,6 @@ test("AC:LAUNCH46-011 AC:B02-019 a partial debrief stays a draft; submitting wit
 		GUEST_QUESTION,
 		"Was there anyone that visited as a guest and has not been entered by name into our People CRM?",
 	);
-	// The first area is the recorded Launch Sunday itself, not a copy.
 	assert.equal(done.outcome.attendance, 40);
 	assert.equal("attendance" in done.debrief.submitted.answers, false);
 });
@@ -366,7 +347,6 @@ test("AC:LAUNCH46-008 AC:LAUNCH46-010 AC:LAUNCH46-009 AC:B02-020 Yes 3 is not me
 	assert.equal(p.guests.count, 2);
 	assert.deepEqual(p.evidence.guestNamesEntered, { status: "not_met", remaining: 3 });
 
-	// Correcting the submitted answer to No is the next version; the first stays.
 	p = ok(await debrief(c.owner, p, { missingNames: "no" }, true)).plan;
 	assert.deepEqual(p.evidence.guestNamesEntered, { status: "met", remaining: null });
 	assert.equal(p.debrief.submitted.version, 2);
@@ -379,13 +359,11 @@ test("AC:LAUNCH46-008 AC:LAUNCH46-010 AC:LAUNCH46-009 AC:B02-020 Yes 3 is not me
 			{ version: 2, missing_names: "no", missing_count: null },
 		],
 	);
-	// A later unfinished draft that says Yes, and one that answers nothing, never replace the submitted No.
 	p = ok(await debrief(c.owner, p, { missingNames: "yes" })).plan;
 	assert.deepEqual(p.evidence.guestNamesEntered, { status: "met", remaining: null });
 	p = ok(await debrief(c.owner, p, { wentWell: "Half done" })).plan;
 	assert.deepEqual(p.evidence.guestNamesEntered, { status: "met", remaining: null });
 	assert.deepEqual(p.evidence.debriefDone, { status: "met" });
-	// Submitting the same answers again over no draft adds nothing.
 	const n = (await footprint(c.w)).audits;
 	const clean = { ...p, debrief: { ...p.debrief, draft: null } };
 	await f.admin.execute(sql`DELETE FROM launch_debrief WHERE plant_id=${c.w.id} AND submitted_at IS NULL`);
@@ -439,7 +417,6 @@ test("AC:CASE-LCH-007 AC:B02-021 correcting 40 to 50 with a reason is history on
 	const before = await footprint(c.w);
 	const fixed = ok(await correct(c.owner, input, p.revision)).plan;
 	assert.equal(fixed.outcome.attendance, 50);
-	// The first recording keeps its time and person.
 	assert.equal(fixed.outcome.recordedAt, p.outcome.recordedAt);
 	const again = ok(await correct(c.owner, input, fixed.revision));
 	assert.equal(again.outcome, "noop");
@@ -517,7 +494,6 @@ test("AC:CASE-LCH-002 AC:CASE-LCH-010 Launch history lists date moves, postponem
 		entries.map((e) => e.actor?.displayName),
 		["Olivia Owner", "Olivia Owner", "Olivia Owner", "Olivia Owner", "Adam Admin", "Olivia Owner"],
 	);
-	// Each entry keeps its original time, newest first.
 	assert.deepEqual(
 		entries.map((e) => e.at),
 		entries
@@ -526,7 +502,6 @@ test("AC:CASE-LCH-002 AC:CASE-LCH-010 Launch history lists date moves, postponem
 			.toReversed(),
 	);
 
-	// The Admin who moved the date deletes their account: the purge clears the actor and keeps an opaque token.
 	await f.admin
 		.execute(sql`UPDATE audit_event SET actor_token=coalesce(actor_token,encode(sha256(convert_to(tenant_id::text||'/'||actor_id::text,'UTF8')),'hex')),
 		actor_id=NULL WHERE actor_id=${c.admin.id}`);
@@ -542,12 +517,10 @@ test("AC:CASE-LCH-002 AC:CASE-LCH-010 Launch history lists date moves, postponem
 	assert.equal(JSON.stringify(moved).includes("Adam"), false);
 	assert.equal(JSON.stringify(moved).includes(c.admin.email), false);
 
-	// The outcome and its correction join the same history.
 	const now = await plan(c.owner);
 	ok(await record(c.owner, { actualDate: "2026-10-11", attendance: 40 }, now.revision));
 	const kinds = (await journal(c.owner)).slice(0, 1).map((e) => [e.change.kind, e.change.event]);
 	assert.deepEqual(kinds, [["outcome", "recorded"]]);
-	// A Member does not read Launch history.
 	refused(await reader.readJournal(f.db, c.member.actor), "access_denied");
 });
 
@@ -563,7 +536,6 @@ test("AC:B02-030 AC:LAUNCH46-015 AC:LAUNCH46-019 the summary publishes only what
 			true,
 		),
 	).plan;
-	// Submitting the debrief published nothing.
 	assert.deepEqual(p.summary, { draft: null, published: [] });
 	const before = await footprint(c.w);
 
@@ -579,7 +551,6 @@ test("AC:B02-030 AC:LAUNCH46-015 AC:LAUNCH46-019 the summary publishes only what
 		[[1, "Service held. Next review is Tuesday.", "Olivia Owner"]],
 	);
 	assert.ok(p.summary.published[0].publishedAt);
-	// Publishing the same text again adds nothing; an edit is the next version and the first stays.
 	assert.equal(ok(await summary(c.owner, p, "Service held. Next review is Tuesday.", true)).outcome, "noop");
 	p = ok(await summary(c.owner, p, "Service held. Team review Tuesday.", true)).plan;
 	assert.deepEqual(
@@ -594,7 +565,6 @@ test("AC:B02-030 AC:LAUNCH46-015 AC:LAUNCH46-019 the summary publishes only what
 		[after.tasks, after.people, after.mail, after.notices, after.phase, after.meetings],
 		[before.tasks, before.people, before.mail, before.notices, before.phase, before.meetings],
 	);
-	// History names the version, never the text.
 	const published = (await journal(c.owner)).filter((e) => e.change.kind === "summary");
 	assert.deepEqual(
 		published.map((e) => e.change.version),
@@ -630,30 +600,24 @@ test("AC:LAUNCH46-016 AC:LAUNCH46-018 AC:B02-031 an organization reads the publi
 	const nLink = await link(network, true, true);
 	await link(sender, true, false);
 	const read = (who) => reader.readPublishedSummary(f.db, who, c.w.id);
-	// Nothing is published yet: a draft is never readable.
 	p = ok(await summary(c.owner, p, "Draft words")).plan;
 	assert.equal(await read(n), null);
 	p = ok(await summary(c.owner, p, "Service held.", true)).plan;
-	// Readable at once, with no assessment release.
 	const shared = await read(n);
 	assert.deepEqual(
 		{ ...shared, publishedAt: undefined },
 		{ version: 1, body: "Service held.", publishedAt: undefined },
 	);
 	assert.equal(JSON.stringify(shared).includes("Private support"), false);
-	// Meetings is not shared with the sending church, and the stranger has no link.
 	assert.equal(await read(s), null);
 	assert.equal(await read(x), null);
-	// The plant itself is not an organization reader.
 	assert.equal(await read(c.owner.actor), null);
-	// Ending the network's link denies it and leaves a second valid link readable.
 	const second = await f.workspace("sending_network");
 	const n2 = await orgActor(second);
 	await link(second, true, true);
 	await f.admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${nLink}`);
 	assert.equal(await read(n), null);
 	assert.equal((await read(n2)).body, "Service held.");
-	// Turning findings off denies it too.
 	await f.admin.execute(sql`UPDATE affiliation SET shared_findings=false WHERE organization_id=${second.id}`);
 	assert.equal(await read(n2), null);
 });
@@ -717,18 +681,15 @@ test("AC:PERSONREF-LAUNCH-NAMED-GUEST-MERGE AC:PERSONREF-LAUNCH-NAMED-GUEST-UNME
 			(r) => r.person_id,
 		);
 
-	// Both are guests: Alex-2 merges into Alex-1, the roster names Alex-1 once and Alex-2's link stays as history.
 	const merged = await merge(alex2, alex1);
 	const p = await plan(c.owner);
 	assert.deepEqual(named(p), ["Alex Kim"]);
 	assert.equal(p.outcome.attendance, 40);
 	assert.deepEqual(p.evidence.guestNamesEntered, { status: "not_met", remaining: 3 });
 	assert.deepEqual(await links(), [alex1, alex2]);
-	// A guest who merges into someone who was not a guest moves their link to the survivor.
 	const mergedJo = await merge(alex1, jo);
 	assert.deepEqual(named(await plan(c.owner)), ["Jo Park"]);
 	assert.deepEqual(await links(), [jo, alex2]);
-	// Unmerge moves it back.
 	const preview = ok(await read((t, ctx) => peopleUnmerge.previewUnmerge(t, ctx, { mergeId: mergedJo.mergeId })));
 	ok(
 		await write((t, ctx) =>
@@ -792,7 +753,6 @@ test("AC:CASE-LCH-011 the phase journey shows the declaration, the move and Laun
 	);
 	const before = (await journey()).entries.length;
 	ok(await record(c.owner, { actualDate: "2026-10-11", attendance: 40 }, (await plan(c.owner)).revision));
-	// A correction of the outcome is not a second journey entry.
 	const p = await plan(c.owner);
 	ok(
 		await correct(

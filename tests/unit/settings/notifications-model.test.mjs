@@ -1,5 +1,3 @@
-// Settings > Notifications offers a choice only for a category something sends. Nothing writes launch milestones yet
-// (D-762), so that row stays hidden even when the account has stored choices for it. No browser needed.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { notificationCategory } from "../../../packages/contracts/src/settings/values.ts";
@@ -24,6 +22,24 @@ test("INV-notification-rows: only categories with a producer are offered, in mat
 			"phase_milestone",
 			"wiki_upstream_review",
 			"scheduled_email_unsubscribe",
+			"residency_confirmation",
+			"residency_feedback",
+			"answer_review",
+		],
+	);
+});
+
+test("INV-notification-rows: a linked resident's choices make the Milestone confirmations and Feedback rows, both channels", () => {
+	const rows = preferenceRows(
+		["residency_confirmation", "residency_feedback"].flatMap((category) =>
+			["email", "in_app"].map((channel) => ({ category, channel, enabled: true })),
+		),
+	);
+	assert.deepEqual(
+		rows.map((row) => [row.label, row.inApp?.enabled, row.email?.enabled]),
+		[
+			["Milestone confirmations", true, true],
+			["Feedback", true, true],
 		],
 	);
 });

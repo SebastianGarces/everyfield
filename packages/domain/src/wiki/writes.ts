@@ -72,8 +72,6 @@ async function saveReading(
 	const fraction = input.input.fraction ?? "0";
 	const desired = input.input.desired ?? false;
 	const plantId = input.input.plantId ?? null;
-	// Only bookmark checks and bumps the reading revision. Progress and views are monotone merges that keep it.
-	// A row starts at revision 1 (the column's floor), so a page that loaded before any row ("0") matches 1.
 	const expected = !input.expectedRevision || input.expectedRevision === "0" ? "1" : input.expectedRevision;
 	const fresh = mode === "bookmark" ? sql`COALESCE(e.revision, 1)::text = ${expected}` : sql`true`;
 	const current = mode === "bookmark" ? sql`reading.revision::text = ${expected}` : sql`true`;
@@ -129,7 +127,6 @@ async function saveReading(
 						WHEN ${mode} = 'progress' AND ${fraction}::numeric > 0.80 THEN ${fraction}::numeric
 						ELSE NULL END,
 					COALESCE(e.policy_version, 'wiki-reading-v1'),
-					-- Any read of a meaningful revision marks it read: opening the article clears "Updated since you read it".
 					CASE
 						WHEN v.meaningful
 							THEN GREATEST(COALESCE(e.last_read_meaningful_sequence, 0), v.meaningful_sequence)
@@ -243,7 +240,6 @@ export function setBookmark(db: Database, authority: RequestActor, raw: unknown)
 	const input = parse(setBookmarkRequest, raw);
 	return saveReading(ownWrite(db, authority), authority, "wiki.bookmarks.set", input, "bookmark");
 }
-/** setBookmark inside an Evry effect's transaction, for the session that approved the review. */
 export async function setBookmarkIn(tx: Transaction, context: PeopleContext, raw: unknown) {
 	const input = parse(setBookmarkRequest, raw);
 	const claimed = await claimedWrite(tx, context.session, context.selected);

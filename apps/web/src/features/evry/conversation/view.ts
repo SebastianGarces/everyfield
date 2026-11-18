@@ -1,11 +1,8 @@
 import { createElement as h, Fragment, type ReactNode } from "react";
-import { parseMarkdown, type Inline } from "./markdown.ts";
-
-// Draws Evry's markdown subset as React elements. No raw HTML is ever produced: model text only becomes text nodes.
-// Written with createElement so the unit tests load it in node, without a JSX build.
+import { parseMarkdown, type Inline } from "../../../components/markdown.ts";
 
 const CODE = "rounded-sm bg-surface-2 px-1 py-0.5 font-mono text-[0.9em] text-ink";
-const LINK = "cursor-pointer text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]";
+const LINK = "text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]";
 
 function pieces(parts: Inline[]): ReactNode[] {
 	return parts.map((part, key) => {
@@ -33,7 +30,6 @@ function pieces(parts: Inline[]): ReactNode[] {
 	});
 }
 
-/** One answer's text as elements. `open` is true while it still streams, so an unfinished marker stays hidden. */
 export function renderMarkdown(text: string, open = false): ReactNode[] {
 	return parseMarkdown(text, open).map((block, key) => {
 		if (block.kind === "paragraph")

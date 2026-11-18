@@ -2,7 +2,7 @@
 
 [target.json](target.json) is generated from the Drizzle declarations in [tables.ts](../../packages/db/src/schema/tables.ts). Those declarations own modeled structure; reviewed custom migrations and supplemental catalog expectations own triggers, functions and privileges. Applied SQL remains immutable.
 
-The schema has 118 tables, 1333 columns, 393 declared FKs and 29 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
+The schema has 123 tables, 1404 columns, 409 declared FKs and 35 JSONB columns. These are counts of definitions, including compound FKs as one constraint. They exclude indexes, triggers, packaged artifacts and external backups.
 
 Run documentation/tooling checks from the repository root:
 
@@ -38,6 +38,11 @@ Each replaced table inherits the union of producer packages from its previous ta
 
 | New table | Ownership basis and ruling | Producers |
 |---|---|---|
+| `answer_review` | WP-102 (T-385) sends chosen kept answers for review. | WP-102 |
+| `assessment_feedback` | WP-044 writes it from intelligence.submitFeedback. | WP-044 |
+| `assessment_insight` | WP-043 writes each published assessment's insights with its run. | WP-043 |
+| `assessment_run` | WP-041 and WP-042 record each assessment run with its captured input, versions, drafts, usage and published result. | WP-041, WP-042, WP-043 |
+| `assessment_seen` | WP-044 writes it from intelligence.markAssessmentSeen. | WP-044 |
 | `assignment_feedback` | WP-099 development programs own their plans, completions and feedback. | WP-099 |
 | `attestation_revision` | WP-039 appends a revision when a signal or candidate attestation changes. | WP-039 |
 | `church_brand_kit` | WP-104 stores one brand kit for each church plant. The plant owns the row. | WP-104 |
@@ -400,6 +405,8 @@ Each name identifies one exact FK. The checker requires this list whenever `targ
 ## Additional scope exceptions
 
 - `affiliation(recognition_operation_id) -> audit_event(id)`: D70 command identity correlation; the producer validates the actual owner, exact source and current authority in its transaction. Retained evidence grants no access.
+- `answer_review(note_id) -> person_note(id)`: The send's note is a person_note of the same organization: the send's write reads it by note, organization and live pipeline person in the same statement. Deleting the note leaves the send with no note, so it reads as no longer shared.
+- `answer_review(reviewer_seat_id) -> seat(id)`: Current reviewer seat belongs to the exact organization. The send's write checks the seat's organization and that it is current; each read checks it again and grants nothing beyond the send.
 - `audit_event(command_id) -> audit_event(id)`: Original command correlation may cross the owned endpoint of a reviewed conversion. Cleanup may sever correlation while retaining only independently owned facts.
 - `audit_event(subject_id) -> record(id)`: D70 audit subject or original-command correlation may name an authorized bilateral endpoint or retained identity; pair/source checks and current authority remain mandatory. Operator projections omit protected history and retry content.
 - `communication(meeting_id) -> meeting(id)`: A meeting can be removed while a draft still names it. The pointer clears. The draft stays in its plant. The app checks the meeting belongs to the plant before it saves the pointer.

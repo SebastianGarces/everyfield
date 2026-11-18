@@ -9,28 +9,22 @@ import { executeWrites } from "../../../packages/domain/src/operations/writes.ts
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
 import { resendRecorder } from "../communication/resend-recorder.mts";
-import { queuedMailTransport } from "../../../apps/web/src/features/communication/mail.ts";
+import { queuedMailTransport } from "../../../apps/web/src/server/mail/transport.ts";
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
-import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/server/onboarding/index.ts";
+import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/features/onboarding/mount.ts";
 import {
 	current as organizationMount,
 	organizationMailPass,
-} from "../../../apps/web/src/server/organizations/index.ts";
-
-// T-127 (people/peo-1): the scheduled runner sends the mail the identity, organizations, settings and onboarding
-// mounts queue. Each mail is queued through its mount's own code, on a suite schema of the shared development database
-// (or CI's disposable one). One tick hands each to a recorded email service through that mount's pass, which claims only
-// its own prefixes and rechecks every mail under the mount's own rule.
+} from "../../../apps/web/src/features/organizations/mount.ts";
 
 const database = await testDatabase({ prefix: "t127", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 6 });
 const { admin } = database;
 const db = database.pools.runtime;
 const seed = seeds(admin);
 const hex = () => randomBytes(32).toString("hex");
-// The mounts read their configuration from the environment, as a deployment does: this suite's schema and fresh keys.
 Object.assign(process.env, {
 	IDENTITY_DATABASE_URL: database.logins.runtime.url.href,
 	IDENTITY_AUTH_DATABASE_URL: database.logins.auth.url.href,
@@ -50,7 +44,6 @@ const ready = {
 	},
 	apiKey: "re_test_key",
 };
-// A production recipient rule, so every address is allowed and each send is one recorded call.
 const transport = () => queuedMailTransport(ready, resend.fetch, { VERCEL_ENV: "production" });
 const secret = "cron-" + randomUUID();
 
@@ -77,7 +70,6 @@ const allPasses = () => ({
 const mailState = async (key: string) =>
 	(await admin.execute(sql`SELECT state FROM mail WHERE logical_key = ${key}`)).rows.map((r) => r.state);
 
-/** An account with a session and no seat, as sign-up leaves a planter. */
 async function planter() {
 	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID(), email: `${randomUUID()}@example.test` };
 	await admin.execute(
@@ -92,7 +84,6 @@ async function planter() {
 	return a;
 }
 
-/** A church owner and a sending church to invite, and the command runner the organizations mount uses. */
 async function connection() {
 	const plant = owner.parse(await seed.plant({ name: "Harvest Point" }));
 	const actor = await seed.actor(plant as never, "owner");
@@ -127,7 +118,6 @@ const day = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC
 
 before(() => resend.take());
 after(async () => {
-	// The mounts' own pools (server/database.ts), then the suite schema.
 	const pools = (globalThis as Record<symbol, Map<string, Parameters<typeof closeDatabase>[0]>>)[
 		Symbol.for("everyfield.web.pools")
 	];
@@ -136,7 +126,6 @@ after(async () => {
 });
 
 test("INV-mount-mail: one tick sends the identity, relationship, settings and onboarding mail each mount queued, through that mount's own rule", async () => {
-	// identity: a reset and a verification link to an account's own contact, as the identity service asks for them.
 	const reader = await seed.actor(null);
 	const enqueueIdentity = identityMailEnqueue()!;
 	const identity = (purpose: "password_reset" | "email_verification", account = reader) => {
@@ -156,17 +145,14 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	};
 	const reset = await identity("password_reset");
 	const verification = await identity("email_verification");
-	// The identity rule rejects a reset whose address no longer matches the account's contact.
 	const moved = await seed.actor(null);
 	const stale = await identity("password_reset", moved);
 	await admin.execute(sql`UPDATE auth_user SET email = ${"moved-" + moved.email} WHERE id = ${moved.user}`);
 
-	// organizations: a connection request to a typed address, through the mount's real adapter and effects.
 	const invitee = `${randomUUID()}@example.test`;
 	const invitation = await (await connection()).invite(invitee);
 	assert.equal(invitation.status, "pending");
 
-	// settings: an email-change link to the address of the account's live proof, and a security notice.
 	const changer = await seed.actor(null);
 	const newAddress = `${randomUUID()}@example.test`;
 	await admin.execute(sql`INSERT INTO identity_proof(account_id,purpose,token_hash,proposed_email,expires_at)
@@ -184,7 +170,6 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 		await executeWrites(tx, writes);
 	});
 
-	// onboarding: the set-up receipt a new church's owner gets, through the mount's real producer.
 	const founder = await planter();
 	const onboarding = onboardingMount()!;
 	await onboarding.db.transaction((tx) =>
@@ -199,8 +184,6 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 		),
 	);
 
-	// Mail none of these passes owns (church invitations: the `mail` step, absent here), and an association receipt,
-	// which the onboarding pass sends under its rule.
 	const permissive = createMailService({
 		db,
 		encryptionKey: Buffer.from(process.env.IDENTITY_MAIL_KEY!, "hex"),
@@ -232,7 +215,6 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	assert.equal(body.mailed, 0, "the invitation step's count is unchanged and its pass is not configured here");
 	assert.deepEqual(body.steps.mail, { status: "skipped" });
 	assert.deepEqual(body.steps.messages, { status: "skipped" });
-	// Each pass claimed only its own mail: identity 3 (one rejected), relationship 1, settings 2, onboarding 2.
 	assert.deepEqual(body.steps["identity-mail"], { status: "ok", count: 3 });
 	assert.deepEqual(body.steps["organization-mail"], { status: "ok", count: 1 });
 	assert.deepEqual(body.steps["settings-mail"], { status: "ok", count: 2 });
@@ -259,7 +241,6 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	for (const key of foreign) assert.deepEqual(await mailState(key), ["pending"], `${key} is claimed by no new pass`);
 	assert.deepEqual(await mailState(association), ["accepted"]);
 
-	// The relationship mail prints the invitation's real expiry, as a UTC long date labelled UTC.
 	const [request] = sent(invitee, /./);
 	assert.ok(
 		(request!.body as { text: string }).text.includes(
@@ -267,7 +248,6 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 		),
 	);
 
-	// A deployment without mail configuration skips every pass.
 	const quiet = await tick(undefined);
 	for (const name of ["identity-mail", "organization-mail", "settings-mail", "onboarding-mail"])
 		assert.deepEqual(quiet.body.steps[name], { status: "skipped" });
@@ -280,7 +260,6 @@ test("INV-mount-mail: a relationship invitation resent on day 29 keeps its origi
 	const made = await c.invite(invitee);
 	await tick({ organization: organizationMailPass(transport()) });
 	resend.take();
-	// Day 29: the invitation was created 29 days ago and never resent.
 	await admin.execute(
 		sql`UPDATE invitation SET created_at = clock_timestamp() - interval '29 days' WHERE id = ${made.invitationId}`,
 	);
@@ -298,7 +277,6 @@ test("INV-mount-mail: a relationship invitation resent on day 29 keeps its origi
 	const mail = calls[0]!.body as { to: string; text: string };
 	assert.equal(mail.to, invitee);
 	assert.ok(mail.text.includes(`It works until ${day.format(original)} (UTC).`), mail.text);
-	// Not day 29 + 30: the row was created 29 days before the resend, so that date is created_at + 59 days.
 	const extended = new Date(new Date(created_at).getTime() + 59 * 86_400_000);
 	assert.ok(!mail.text.includes(day.format(extended)), mail.text);
 });

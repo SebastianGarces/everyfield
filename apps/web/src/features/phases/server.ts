@@ -1,16 +1,14 @@
 import { requestDatabase } from "@/server/database";
-import { phasesMount } from "@/server/phases";
 import { getViewer } from "@/server/request-context";
 import { phasesError, type PhasesReply } from "@everyfield/contracts/phases";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createFacts } from "@everyfield/domain/intelligence";
+import { createLaunchReader } from "@everyfield/domain/launch";
 import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@everyfield/domain/phases";
 import "server-only";
+import { phasesMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
-
-// The journey screen reaches the phases domain here. Pages and actions share the request's one viewer (D59/D60). Every
-// read and write rechecks the live Owner or Admin seat inside its own statement (C13, D70).
 
 type PhaseViewer = {
 	authority: RequestActor;
@@ -19,7 +17,6 @@ type PhaseViewer = {
 	displayName: string;
 };
 
-/** The request's plant seat, or null for a signed-out reader, an organization seat or an account without a seat. */
 export async function phaseViewer(): Promise<PhaseViewer | null> {
 	const v = await getViewer();
 	const authority = v?.authority;
@@ -31,32 +28,33 @@ export async function phaseViewer(): Promise<PhaseViewer | null> {
 export const administers = (v: Pick<PhaseViewer, "role">) => v.role !== "member";
 
 const facts = createFacts();
+const launch = createLaunchReader();
 
-/**
- * The /intelligence page: the journey (one statement), the catalog, the plant's measured facts (one statement) and the
- * advisory readiness of every phase filled from those facts. A database failure reads as lost, never as an empty
- * journey or as zero facts.
- */
 export async function loadJourney(viewer: PhaseViewer) {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" } as const;
 	try {
-		const [history, catalog, measured] = await Promise.all([
+		const [history, catalog, measured, journal] = await Promise.all([
 			phaseReader.readHistory(db, viewer.authority),
 			readCatalog(),
 			facts.readFacts(db, viewer.authority),
+			launch.readJournal(db, viewer.authority),
 		]);
 		if (history.status !== "ok") return { status: "refused", error: history.error } as const;
 		if (measured.status !== "ok") return { status: "refused", error: measured.error } as const;
+		if (journal.status !== "ok") return { status: "refused", error: journal.error } as const;
 		const readiness = readReadiness(catalog, measured.value.criteria);
-		return { status: "ok", value: { history: history.value, catalog, readiness, facts: measured.value } } as const;
+		const launchDates = journal.value.entries.filter((e) => e.change.kind === "date");
+		return {
+			status: "ok",
+			value: { history: history.value, catalog, readiness, facts: measured.value, launchDates },
+		} as const;
 	} catch (error) {
 		console.error(JSON.stringify({ component: "phases", outcome: "read_failed", error: String(error) }));
 		return { status: "lost" } as const;
 	}
 }
 
-/** One phase write for the request's viewer. */
 export async function write<T>(
 	run: (writer: PhaseWriter, db: Database, authority: RequestActor) => Promise<PhasesReply<T>>,
 ): Promise<Outcome<T>> {

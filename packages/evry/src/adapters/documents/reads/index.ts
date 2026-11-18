@@ -8,30 +8,17 @@ import type { EvryActor } from "../../../context/actor.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { documentText } from "./text.ts";
 
-// The Documents reads (WP-079). The app keeps two stores and Evry reads both as the app does: written documents (plain,
-// core values and imported ones) and Church Documents made from a template. Every read is one statement in the actor's
-// own church under the lock-free live check, so another church's document never comes back. Any seat in the church may
-// read; only an Owner or Admin may change a document (commands/index.ts). A read never returns stored JSON: a document's
-// text is its plain reading-order text, cut at a bound, so Evry can quote what a document actually says.
-
 const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 const live = (actor: EvryActor) =>
 	liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined });
 
-/** Where a document opens in the app. */
 const documentLink = (store: "written" | "church", id: string) =>
 	store === "church" ? `/documents/church/${id}` : `/documents/written/${id}`;
-/** The two lists in the app: written documents on Documents, Church Documents in their own library. */
 const LISTS = { written: "/documents", church: "/documents/church" } as const;
 
-/** The most text one document read returns to the model. A longer document says it was cut. */
 const TEXT_CHARS = 6_000;
 const LIST_LIMIT = 50;
 
-/**
- * The documents a person sees in the app now: each live written document and each Church Document that is neither
- * archived nor deleted. `store` says which list it is on, `type` what it is.
- */
 const listed = (actor: EvryActor) => sql`
 	SELECT d.id, d.title, d.kind, d.template_id, d.template_version, r.recorded_at,
 		CASE WHEN d.kind='church_document' THEN 'church' ELSE 'written' END AS store
@@ -77,8 +64,6 @@ export const listOwned: ReadAdapter<z.infer<typeof listInput>> = {
 	input: listInput,
 	allowed: inPlant,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
-		// Every word of the request appears in the title, in any order: "September vision agenda" finds
-		// "Vision Meeting Agenda - September 14".
 		const words = (input.title?.split(/\s+/).filter(Boolean) ?? []).map((w) => `%${w.replace(/[\\%_]/g, "\\$&")}%`);
 		const r = await tx.execute(sql`
 			SELECT x.*, count(*) OVER () AS total FROM (${listed(actor)}) x
@@ -112,7 +97,6 @@ export const read: ReadAdapter<z.infer<typeof readInput>> = {
 	input: readInput,
 	allowed: inPlant,
 	async invoke(tx: Transaction, actor: EvryActor, input): Promise<SourceResult> {
-		// An archived document stays readable, as it does in the app; a deleted Church Document does not.
 		const r = await tx.execute(sql`
 			SELECT d.id, d.title, d.kind, d.template_id, d.template_version, r.recorded_at, r.body,
 				CASE WHEN d.kind='church_document' THEN 'church' ELSE 'written' END AS store,
@@ -156,7 +140,6 @@ export const read: ReadAdapter<z.infer<typeof readInput>> = {
 	},
 };
 
-/** A Church Document's text with its frozen merge values filled in; a body the parser refuses reads as empty. */
 function churchText(stored: string) {
 	try {
 		const doc = docDocument.safeParse(JSON.parse(stored));
@@ -172,7 +155,6 @@ export const coreValues: ReadAdapter<Record<string, never>> = {
 	input: z.strictObject({}),
 	allowed: inPlant,
 	async invoke(tx: Transaction, actor: EvryActor): Promise<SourceResult> {
-		// The app's evidence rule (documentsWriter.readCoreValuesEvidence): the latest live core-values document with text.
 		const r = await tx.execute(sql`
 			SELECT d.id, d.title, d.kind, d.template_id, d.template_version, r.recorded_at, 'written' AS store
 			FROM document d JOIN document_revision r ON r.id=d.current_revision_id AND r.tenant_id=d.tenant_id
@@ -234,5 +216,4 @@ export const templatesList: ReadAdapter<z.infer<typeof templatesInput>> = {
 	},
 };
 
-/** The installed Documents read tools, in catalog order. */
 export const DOCUMENTS_READS = [listOwned, read, coreValues, templatesList] as const;

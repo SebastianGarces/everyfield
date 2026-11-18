@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
-import { capture, captured, isCaptureId } from "../../features/communication/capture.ts";
+import { capture, captured, isCaptureId } from "../mail/capture.ts";
 import type { MailTransport, TransportOutcome } from "./mail.ts";
 const accepted = z.object({ id: z.string().min(1).max(128) });
 export function createResendTransport(
@@ -20,8 +20,6 @@ export function createResendTransport(
 	return {
 		async send(payload, key, signal): Promise<TransportOutcome> {
 			try {
-				// A recipient that is not approved is captured under the same key, so a replay finds the first capture. A
-				// capture fault answers unknown and never reaches the provider.
 				if (!mailRecipientAllowed(env, payload.to))
 					return { kind: "accepted", id: (await capture(payload, null, key)).id };
 				const response = await call("/emails", {
@@ -47,7 +45,6 @@ export function createResendTransport(
 						retryAfterSeconds: Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined,
 					};
 				}
-				// Timeouts, conflicts and server faults cannot establish nonacceptance.
 				if ([400, 401, 403, 422].includes(response.status)) return { kind: "refused", retryable: false };
 				return { kind: "unknown" };
 			} catch {

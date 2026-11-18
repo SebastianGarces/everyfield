@@ -13,33 +13,20 @@ import {
 	selectQualifiedModel,
 } from "@everyfield/evry";
 import "server-only";
-import { deliveryTransport, mailReady } from "../../features/communication/mail.ts";
+import { deliveryTransport, mailReady } from "../mail/transport.ts";
 import { claimDue, finishJob } from "../jobs/queue.ts";
 import { evryNative } from "./native.ts";
 
-// The Evry workers on the WP-031 queue. The request drains (index.ts) and the scheduled runner (jobs/scheduled.ts)
-// both run them. A job older than CLAIM_SECONDS is never claimed: Evry already reports it lost, and the scheduled
-// runner closes it (closeLostJobs).
-
-/**
- * The email service and keys the Communication reviews use, or null when the server has no mail keys. A review that
- * hashes addresses and an effect that reaches the email service both refuse without it.
- */
 export function evryMail(): MailPort | null {
 	const ready = mailReady();
 	return ready ? { transport: deliveryTransport(ready), keys: ready.keys } : null;
 }
 
-const LEASE_SECONDS = 240; // above the 180-second turn wall time
+const LEASE_SECONDS = 240;
 const EFFECT_LEASE_SECONDS = 60;
 
-/**
- * Claims due turns and runs them one at a time while the deadline allows another start. The turns' traces are exported
- * last, after every turn saved its end. Returns how many turns ran.
- */
 export async function runTurns(pool: Database, limit: number, until = Infinity) {
 	const model = selectQualifiedModel();
-	// The current authority of a turn's session, read again from the database before every read the turn makes.
 	const freshActor = async (session: string) => {
 		const parsed = sessionId.safeParse(session);
 		const viewer = parsed.success ? await readViewer(pool, parsed.data) : null;
@@ -69,11 +56,6 @@ export async function runTurns(pool: Database, limit: number, until = Infinity) 
 	return ran;
 }
 
-/**
- * Claims approved Evry effects and runs each once. The executor saves the outcome with the change; the claim then
- * ends. A People command that hands tasks on replans their reminders, and a forward phase move queues its notices,
- * through `ports`. Returns how many ran.
- */
 export async function runEffects(pool: Database, ports: EffectPorts, limit: number, until = Infinity) {
 	let ran = 0;
 	for (; ran < limit && Date.now() < until; ran++) {

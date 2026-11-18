@@ -16,10 +16,6 @@ import {
 	type State,
 } from "./model.ts";
 
-// The one door from the onboarding screens to the API. The real port calls the server actions; the design preview
-// passes a fixture port (preview/fixtures.ts). Every reply is parsed here by the WP-009 contract, so a screen sees a
-// contract value or one onboarding error, never raw data.
-
 export interface OnboardingTransport {
 	entry(): Promise<unknown>;
 	command(op: Op, command: Command): Promise<unknown>;
@@ -55,7 +51,6 @@ function refusal(code: "unavailable" | "unknown"): OnboardingError {
 	});
 }
 
-/** A reply that arrived outside the contract reads as unavailable. */
 function parseReply<T>(schema: z.ZodType<T>, raw: unknown): Reply<T> {
 	const shape = z.object({ status: z.enum(["ok", "refused"]), value: z.unknown(), error: z.unknown() }).partial();
 	const r = shape.safeParse(raw);
@@ -70,7 +65,6 @@ function parseReply<T>(schema: z.ZodType<T>, raw: unknown): Reply<T> {
 	return { status: "refused", error: refusal("unavailable") };
 }
 
-/** `offline`: the entry call itself failed (a dropped connection), so nothing is known about where the account stands. */
 export type ParsedEntry = { kind: "entry"; entry: Entry } | { kind: "signed_out" };
 type EntryLoad = ParsedEntry | { kind: "offline" };
 export function parseEntry(raw: unknown): ParsedEntry {
@@ -98,7 +92,6 @@ export function createPort(transport: OnboardingTransport): OnboardingPort {
 			try {
 				raw = await transport.command(op, command);
 			} catch {
-				// No reply arrived, so the write may or may not have happened: keep the request key and reconcile.
 				return { status: "refused", error: refusal("unknown") };
 			}
 			return parseReply<Results[O]>(RESULT[op], raw);
@@ -106,23 +99,14 @@ export function createPort(transport: OnboardingTransport): OnboardingPort {
 	};
 }
 
-/** Where the store keeps its one State. */
 export type StateCell = { get(): State; set(next: State): void };
 
-/**
- * The latest entry from the server, or null when none arrived: signed out (the page goes to sign-in) or offline. On
- * null the step, its drafts and the entry it shows stay as they are.
- */
 async function freshEntry(port: OnboardingPort, signIn: () => void): Promise<Entry | null> {
 	const load = await port.entry();
 	if (load.kind === "signed_out") signIn();
 	return load.kind === "entry" ? load.entry : null;
 }
 
-/**
- * One command as the store runs it: begin, send, reload the entry when the reply asks for it, settle. Resolves to the
- * hold when nothing was sent, else to whether the server accepted it.
- */
 export async function runCommand(
 	port: OnboardingPort,
 	cell: StateCell,
@@ -141,7 +125,6 @@ export async function runCommand(
 	return reply.status;
 }
 
-/** Load the latest facts from the server, keeping drafts. Nothing changes when no entry arrived. */
 export async function refreshEntry(port: OnboardingPort, cell: StateCell, signIn: () => void): Promise<void> {
 	const entry = await freshEntry(port, signIn);
 	if (entry) cell.set(reload(cell.get(), entry));

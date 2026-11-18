@@ -1,21 +1,17 @@
 import { FORMAT_SCHEMA, type BlockNode, type ChurchDocument, type PageSize } from "@everyfield/contracts/documents";
 import { FORMAT_LABEL } from "../model.ts";
 
-// Words the Church Documents screens share.
-
 export const CLASS_LABEL: Record<ChurchDocument["documentClass"], string> = {
 	"formal/legal": "Formal or legal",
 	"outward-facing": "Outward-facing",
 	operational: "Operational",
 };
 
-/** "PDF, Word and Excel", in that order. */
 export function formatList(formats: readonly (keyof typeof FORMAT_LABEL)[]) {
 	const names = (["pdf", "docx", "xlsx"] as const).filter((f) => formats.includes(f)).map((f) => FORMAT_LABEL[f]);
 	return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : (names[0] ?? "");
 }
 
-/** The paper sizes by the name Page setup shows. */
 export const PAPER_LABEL: Record<PageSize, string> = {
 	letter: "Letter",
 	legal: "Legal",
@@ -25,7 +21,6 @@ export const PAPER_LABEL: Record<PageSize, string> = {
 	custom: "Custom",
 };
 
-/** The named paper sizes by their portrait points, "612x792" for Letter. */
 const SIZES: Record<string, string> = Object.fromEntries(
 	Object.entries(FORMAT_SCHEMA.pageSizes).map(([size, box]) => [
 		`${box.width}x${box.height}`,
@@ -33,7 +28,6 @@ const SIZES: Record<string, string> = Object.fromEntries(
 	]),
 );
 
-/** The blocks whose name does not depend on their attributes, as Insert and template compare both say it. */
 export const BLOCK_NAME = {
 	paragraph: "Paragraph",
 	bulletList: "Bulleted list",
@@ -46,7 +40,6 @@ export const BLOCK_NAME = {
 	table: "Table",
 } as const;
 
-/** The names that depend on a block's attributes. A heading with no level is the format's level 2. */
 const BLOCK_LABEL: Record<string, (block: BlockNode) => string> = {
 	heading: (b) => `Heading ${(b.attrs as { level?: number } | undefined)?.level ?? 2}`,
 	columns: (b) => `${(b as { content?: unknown[] }).content?.length ?? 2} columns`,
@@ -61,11 +54,9 @@ const BLOCK_LABEL: Record<string, (block: BlockNode) => string> = {
 	slot: (b) => (b.attrs as { label?: string } | undefined)?.label ?? "Section",
 };
 
-/** What a block is called: "Paragraph", "Heading 2", "3 columns". */
 export const blockLabel = (block: BlockNode): string =>
 	(BLOCK_NAME as Record<string, string>)[block.type] ?? BLOCK_LABEL[block.type]?.(block) ?? "Block";
 
-/** "Letter" or "4 cards on one Letter sheet". */
 export function paperText(page: { width: number; height: number; perSheet: number }) {
 	const portrait = page.width <= page.height ? `${page.width}x${page.height}` : `${page.height}x${page.width}`;
 	const name = SIZES[portrait] ?? `${Math.round(page.width)} x ${Math.round(page.height)} pt`;
@@ -73,13 +64,11 @@ export function paperText(page: { width: number; height: number; perSheet: numbe
 	return page.perSheet > 1 ? `${page.perSheet} cards on one ${sheet} sheet` : sheet;
 }
 
-/** "Updated Nov 1, 2026". */
 export function updatedText(iso: string) {
 	const date = new Date(iso);
 	return `Updated ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`;
 }
 
-/** "Archived Nov 8, 2026 by Dana Reyes", or "by a former member" once the archiver's seat ended (D-105). */
 export function archivedText(iso: string, by: string | null) {
 	const date = new Date(iso).toLocaleDateString("en-US", {
 		month: "short",
@@ -88,15 +77,4 @@ export function archivedText(iso: string, by: string | null) {
 		timeZone: "UTC",
 	});
 	return `Archived ${date} by ${by ?? "a former member"}`;
-}
-
-/** "Nov 8, 2026, 3:04 PM" in the reader's own time zone. */
-export function savedAt(iso: string) {
-	return new Date(iso).toLocaleString("en-US", {
-		month: "short",
-		day: "numeric",
-		year: "numeric",
-		hour: "numeric",
-		minute: "2-digit",
-	});
 }

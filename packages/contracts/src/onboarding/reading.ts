@@ -10,7 +10,6 @@ const sourceOwner = owner.transform((value, ctx) => {
 	ctx.addIssue({ code: "custom", message: "Expected a published Wiki source" });
 	return z.NEVER;
 });
-// Provenance is retained reading credit, never a present source-body grant.
 export const articleReading = z.strictObject({
 	readerAccountId: accountId,
 	articleId: recordId.refine((id) => canonicalIds.has(id)),
@@ -27,8 +26,6 @@ const completeReadings = individualReadings.refine(
 );
 export const foundationReading = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("incomplete") }),
-	// Eligibility is loaded now by the producer, never accepted in a command.
-	// One outer reader owns the entire six-item set; partial sets cannot be pooled.
 	z
 		.strictObject({
 			status: z.literal("complete"),

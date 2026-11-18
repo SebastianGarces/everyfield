@@ -18,7 +18,6 @@ export const residentInvitationSubject = z.strictObject({
 	organization: organizationOwner,
 	personId,
 });
-// Relationship ownership and consent remain with the WP-007 producer.
 export const invitationSubject = z.discriminatedUnion("purpose", [
 	seatInvitationSubject,
 	residentInvitationSubject,
@@ -28,7 +27,6 @@ const proof = z.string().min(1).max(4096);
 const addressedEmail = normalizedEmail.pipe(z.string().max(320));
 const invitationIdInput = z.strictObject({ invitationId: recordId });
 
-// Actor, clock, address verification and authority are loaded by the server.
 export const inviteSeatRequest = commandEnvelope(
 	z.strictObject({ workspace: tenantOwner, recipientEmail: addressedEmail, role: ordinarySeatRole }),
 );
@@ -38,7 +36,6 @@ export const inviteResidentRequest = commandEnvelope(
 export const resendInvitationRequest = commandEnvelope(invitationIdInput);
 export const revokeInvitationRequest = commandEnvelope(invitationIdInput);
 export const describeInvitationRequest = z.strictObject({ proof });
-// These proofs are native-only transient inputs, never Evry tools or receipt fields.
 export const acceptSeatInvitationRequest = commandEnvelope(invitationIdInput.extend({ proof }));
 export const respondResidentInvitationRequest = commandEnvelope(
 	z.discriminatedUnion("decision", [
@@ -57,8 +54,6 @@ const description = {
 	workspaceName: z.string().trim().min(1).max(200),
 	expiresAt: instant,
 };
-// A description is an observation, never mailbox proof or permission to claim.
-// Invalid, unrelated, expired and revoked proofs share unavailable.
 export const invitationDescriptionResult = z.union([
 	unavailable,
 	z.strictObject({ status: z.literal("pending"), ...description }),
@@ -90,9 +85,6 @@ export const invitationRevokedResult = z.strictObject({
 	revision,
 });
 
-// No accepted output can describe pending registration or a partial claim.
-// API implements one locked transaction for claim, exact grant/link, Person,
-// activation, receipt, audit and required mail intent. Dispatch is after commit.
 const acceptedSeat = z.discriminatedUnion("kind", [
 	z.strictObject({
 		kind: z.literal("plant"),
@@ -130,10 +122,10 @@ export const residentInvitationDecisionResult = z.union([
 export const invitationError = z.discriminatedUnion("code", [
 	...safeError.options,
 	defineSafeError("invitation_unavailable", {}, "never"),
+	defineSafeError("already_linked", {}, "never"),
 	defineSafeError("invitation_rate_limited", { retryAt: instant }, "same_request"),
 	defineSafeError("invitation_cooldown", { retryAt: instant }, "same_request"),
 	defineSafeError("idempotency_conflict", {}, "never"),
-	/** The address is blocked after an earlier bounce or complaint, so no invitation email can go to it. */
 	defineSafeError("address_blocked", {}, "never"),
 ]);
 export type InvitationSubject = z.infer<typeof invitationSubject>;

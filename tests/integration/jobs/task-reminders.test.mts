@@ -8,11 +8,7 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminderTimes } from "../../../apps/web/src/server/jobs/calendar.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
-import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
-
-// The planned task reminders (REQ-TSK-014) for one batch of tasks with mixed due dates, assignees, preferences and
-// recurrence, then for the same tasks after a reschedule, a reassignment, a completion, a replay and a closed
-// successor. The mounts' real recipient and authority checks run, and the mail worker dispatches what is owed.
+import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 
 let reminders, mail, sent;
 const people = {};
@@ -63,7 +59,6 @@ before(async () => {
 			VALUES(${id},${tenant},${name === "ana" ? "owner" : "member"},now())`);
 		people[name] = { id, email };
 	}
-	// Ben reads reminders in the app only; Cy gets them by email only; Dee's seat has ended.
 	await db.execute(sql`INSERT INTO notification_preference(account_id,category,channel,enabled,unsubscribe_revision)
 		VALUES (${people.ben.id},'task_due','email',false,1),(${people.ben.id},'task_overdue','email',false,1),
 		(${people.cy.id},'task_due','in_app',false,1),(${people.cy.id},'task_overdue','in_app',false,1)`);
@@ -86,7 +81,6 @@ async function put(name, t) {
 		ON CONFLICT (id) DO UPDATE SET status=excluded.status,completed_at=excluded.completed_at,
 		due_kind=excluded.due_kind,due_date=excluded.due_date,due_time=excluded.due_time,timezone=excluded.timezone,
 		due_at=excluded.due_at,resolver_version=excluded.resolver_version,revision=excluded.revision`);
-	// The assignee set is replaced as a whole, like a write does: `assignees` names the set, `assignee` a set of one.
 	const names = t.assignees ?? (t.assignee ? [t.assignee] : []);
 	await db.execute(sql`DELETE FROM task_assignee WHERE task_id=${id}`);
 	for (const name of names)
@@ -108,7 +102,6 @@ const sync = (sources) => runtime.transaction((tx) => reminders(tx, sources));
 const times = (due) =>
 	Object.fromEntries(taskReminderTimes(due.kind === "date_only" ? { ...due, zone } : due).map((t) => [t.slot, t.at]));
 
-/** Every notice of the batch's tasks, with its mail and job state, in a stable order. */
 async function planned() {
 	const names = new Map(Object.entries(tasks).map(([k, v]) => [v, k]));
 	const who = new Map(Object.entries(people).map(([k, v]) => [v.id, k]));
@@ -184,7 +177,6 @@ test("AC:CASE-NTF-005 one sync plans and replans the owed reminders of mixed tas
 		row("t8", "ana", 1, "task_overdue", t.t8.overdue),
 	]);
 
-	// t1's due notice was already shown in the inbox, so the reschedule never plans that slot again.
 	await db.execute(
 		sql`UPDATE notice SET eligible_at=now()-interval '1 hour' WHERE source_record_id=${tasks.t1} AND logical_key LIKE '%/task_due/%'`,
 	);

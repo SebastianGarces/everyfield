@@ -1,19 +1,50 @@
-// The organization oversight pages' words (apps/web/src/features/oversight/model.ts): what a directory row and a plant
-// page say for each provenance, lead and launch state, and the sending church's own heading.
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+	chosenText,
 	HOME_HEADING,
 	intelligenceWords,
 	launchLabel,
 	leadLabel,
 	linkedLabel,
 	locality,
+	pathText,
 	phaseLabel,
 	provenanceLabel,
 	sharedCount,
 	VIEWS,
 } from "../../../apps/web/src/features/oversight/model.ts";
+
+test("a milestone-path row is labelled Milestone with its progress, never read as a Launch Sunday date", () => {
+	assert.deepEqual(pathText({ kind: "launch_sunday", date: "2026-11-08" }), {
+		label: "Launch Sunday",
+		value: "Nov 8, 2026",
+		detail: null,
+		set: true,
+	});
+	assert.equal(pathText({ kind: "launch_sunday", date: null }).value, "Not set");
+	const milestone = (progress, chosenBy = "Hill Country Network") => ({
+		kind: "milestone",
+		name: "Constituted as a church",
+		chosenBy,
+		progress,
+	});
+	assert.deepEqual(pathText(milestone({ status: "reached", date: "2026-10-11" })), {
+		label: "Milestone",
+		value: "Constituted as a church",
+		detail: "Reached Oct 11, 2026",
+		set: true,
+	});
+	assert.equal(pathText(milestone({ status: "not_reached" })).detail, "Not reached yet");
+	assert.equal(pathText(milestone({ status: "withdrawn" })).detail, "No longer offered");
+	assert.equal(pathText(milestone({ status: "withheld" })).detail, null);
+
+	assert.equal(chosenText(milestone({ status: "not_reached" }), "Harvest Point"), "chosen by Hill Country Network");
+	assert.equal(
+		chosenText(milestone({ status: "reached", date: "2026-10-11" }, null), "Harvest Point"),
+		"chosen by another organization Harvest Point is linked with",
+	);
+});
 
 test("AC:ORG55-004 a plant with no lead planter says so and never falls back to another name", () => {
 	assert.equal(leadLabel({ leadPlanter: "Marcus Hill" }), "Marcus Hill");
@@ -34,7 +65,6 @@ test("AC:TARGET-IDN-023 how a plant is linked, its locality, phase and Launch Su
 	assert.equal(locality({ city: null, stateProvince: null, country: "US" }), "US");
 	assert.equal(phaseLabel(3), "3 · Training");
 	assert.equal(launchLabel(null), "Not set");
-	// A plant-local date shows as that date in every time zone, never the day before.
 	assert.equal(launchLabel("2027-03-14"), "Mar 14, 2027");
 });
 
@@ -43,7 +73,6 @@ test("AC:TARGET-IDN-024 a sending church's home heading never says network", () 
 	assert.doesNotMatch(HOME_HEADING.sending_church, /network/i);
 });
 
-/** Every string a value holds, however deep. */
 const stringsOf = (value) => (typeof value === "string" ? [value] : Object.values(value).flatMap((v) => stringsOf(v)));
 
 test("a sending church's Intelligence page and view switch use its own name and never say network", () => {
@@ -53,7 +82,6 @@ test("a sending church's Intelligence page and view switch use its own name and 
 	assert.equal(words.notRun, "Grace Austin Intelligence hasn't run yet");
 	assert.equal(words.refused, "Only Owners and Admins can refresh Grace Austin Intelligence.");
 	assert.equal(words.failed, "We couldn't run Grace Austin Intelligence. Nothing was changed. Try again in a moment.");
-	// The callout still says what the rubric reads and that it never names a person or ranks plants.
 	assert.match(words.howItWorks, /^Everyfield's rubric v1 reads only counts and dates each plant shares with you/);
 	assert.match(words.howItWorks, /It never names a person, ranks or scores plants\./);
 	assert.deepEqual(
@@ -76,7 +104,7 @@ test("a network's Intelligence page and view switch keep their wording", () => {
 		title: "Network Intelligence",
 		levels: { region: "Region", state: "State", country: "Country", portfolio: "Whole portfolio" },
 		howItWorks:
-			"Everyfield's network rubric v1 reads only counts and dates each plant shares with you: launch dates, unfilled roles, overdue follow-ups, when its newest committed adult signed and required training. It never names a person, ranks or scores plants. A plant that doesn't share counts as Not shared, never as zero.",
+			"Everyfield's network rubric v1 reads only counts and dates each plant shares with you: launch dates, unfilled roles, overdue follow-ups, when its newest committed adult signed and required training, plus the concerns of its released Plant Intelligence assessment. It never names a person, ranks or scores plants. A plant that doesn't share counts as Not shared, never as zero.",
 		notRun: "Network Intelligence hasn't run yet",
 		refused: "Only Owners and Admins can refresh Network Intelligence.",
 		failed: "We couldn't run Network Intelligence. Nothing was changed. Try again in a moment.",
@@ -102,7 +130,6 @@ test("AC:TARGET-IDN-023 a plant shares what it shares, empty included; not share
 	);
 });
 
-// WP-047b: the near-launch rule (network rubric NIR-03) and the home's health value, as every screen reads them.
 import {
 	followUpResult,
 	growthResult,
@@ -123,7 +150,6 @@ test("a near Launch Sunday alone is no concern; a recorded role or training gap 
 	assert.equal(nearLaunch(prep({ daysToLaunch: 31, unfilledRoles: 1 })), "clear");
 	assert.equal(nearLaunch(prep({ daysToLaunch: -1, unfilledRoles: 1 })), "clear");
 	assert.equal(nearLaunch(prep({ launched: true, daysToLaunch: null, unfilledRoles: 3 })), "clear");
-	// Missing evidence is Unknown, never a zero.
 	assert.equal(nearLaunch(prep({ daysToLaunch: null })), "unknown");
 	assert.equal(nearLaunch(prep({ unfilledRoles: null })), "unknown");
 	assert.equal(nearLaunch(prep({ unfilledRoles: null, outstandingTraining: 1 })), "gap");
@@ -134,6 +160,18 @@ test("not sharing findings is Limited visibility, and silence is never On track"
 	assert.equal(healthOf(true, prep({ unfilledRoles: 1 })), "launch_readiness");
 	assert.equal(healthOf(true, prep({})), "not_assessed");
 	assert.equal(healthOf(true, prep({ daysToLaunch: null })), "not_assessed");
+});
+
+test("Watch and On track come only from a released assessment; a concern the organization may not see is Limited visibility", () => {
+	assert.equal(healthOf(true, prep({}), { concerns: 1, withheld: false }), "watch");
+	assert.equal(healthOf(true, prep({}), { concerns: 0, withheld: false }), "on_track");
+	assert.equal(healthOf(true, prep({}), { concerns: 0, withheld: true }), "limited_visibility");
+	assert.equal(healthOf(true, prep({}), null), "not_assessed");
+	assert.equal(healthOf(false, prep({}), { concerns: 0, withheld: false }), "limited_visibility");
+	assert.equal(
+		healthOf(true, prep({ daysToLaunch: 10, unfilledRoles: 1 }), { concerns: 0, withheld: false }),
+		"launch_readiness",
+	);
 });
 
 test("the pattern uses the rubric's NIR-03 wording, and a Not shared row says nothing else", () => {
@@ -157,7 +195,6 @@ test("the pattern uses the rubric's NIR-03 wording, and a Not shared row says no
 	assert.equal(gapText(prep({})), null);
 });
 
-// T-372: NIR-04 to NIR-06 per plant. Zero is observed; missing evidence and nothing assigned are Unknown.
 const counts = (c) => ({
 	overdueFollowUps: null,
 	unownedFollowUps: null,

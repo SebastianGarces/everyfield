@@ -4,11 +4,11 @@ import { Link01Icon, Notification01Icon, Unlink01Icon } from "@hugeicons/core-fr
 import { Card, PageHeader, SegmentedControl } from "@everyfield/ui/controls";
 import { List, ListRow } from "@everyfield/ui/display";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Connections } from "../Connections";
 import { InvitationResponse } from "../InvitationResponse";
 import { noticeText } from "../model";
-import { formatDay } from "../../shared/dates.ts";
+import { formatDay } from "../../../components/dates.ts";
 import { PipelineAccessNote, PipelineTotals } from "../Pipeline";
 import { ResidencyDisclosure, ResidencySharing } from "../Residency";
 import {
@@ -47,10 +47,6 @@ const NOTE: Record<OrganizationFlow, string> = {
 	notices: "Coarse relationship notices. They name the organization and the event only.",
 };
 
-/**
- * The organization relationship previews at /design/organizations/[flow] (WP-007/ui). `as` picks the viewer,
- * `scenario` the sample state, and `stage=before` shows the residency choices before joining.
- */
 export function OrganizationsPreview({ flow }: { flow: OrganizationFlow }) {
 	const search = useSearchParams();
 	const router = useRouter();
@@ -127,7 +123,7 @@ function Flow({
 	stage: string | null;
 }) {
 	const side = flow === "organization" ? "organization" : "subject";
-	const backend = useMemo(() => createBackend(side, viewer, scenario), [side, viewer, scenario]);
+	const [backend] = useState(() => createBackend(side, viewer, scenario));
 	const canManage = viewer === "owner";
 
 	switch (flow) {
@@ -250,8 +246,7 @@ function BeforeJoining() {
 		<div className="flex flex-col gap-4 py-6">
 			<ResidencyDisclosure
 				organizationName={NAMES_FOR_PREVIEW.network}
-				onAccept={async (choices) => {
-					await new Promise((r) => setTimeout(r, 450));
+				onAccept={(choices) => {
 					const shared = [
 						choices.shareFoundations && "foundation progress",
 						choices.shareMilestones && "milestone progress",

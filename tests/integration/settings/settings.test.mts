@@ -37,7 +37,6 @@ let api, onboarding, mail, producerDeps;
 let faults = false;
 const origin = "http://settings.localhost";
 const ingress = new Map();
-/** A trusted IP per session, for a test that must not share the default IP's budget with earlier tests. */
 const trustedIps = new Map();
 const deliveries = [];
 const secret = randomBytes(40).toString("hex");
@@ -51,13 +50,11 @@ const ctx = (a, selected = { kind: "account", id: a.id }) => ({
 	session: a.session,
 	selected,
 });
-/** The credential operations take no app transaction, as the web mount calls them. */
 const CREDENTIALS = ["requestEmailChange", "confirmEmailChange", "changePassword"];
 const call = (name, a, v, selected) =>
 	CREDENTIALS.includes(name)
 		? api[name](ctx(a, selected), v)
 		: db.transaction((tx) => api[name](tx, ctx(a, selected), v));
-/** The viewer the settings mount passes: the request actor and the user row of the session's Better Auth lookup. */
 async function viewerOf(a) {
 	const v = await readViewer(db, a.session);
 	if (!v?.authority) return null;
@@ -67,7 +64,6 @@ async function viewerOf(a) {
 	const { name, email, email_verified } = user.rows[0];
 	return { authority: v.authority, principal: { display_name: name, email, verified: email_verified } };
 }
-/** One section read the way the settings mount runs it: on the pool, with the request's viewer. */
 const section = async (a, request) => api.getSection(db, await viewerOf(a), request);
 async function actor() {
 	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
@@ -91,6 +87,13 @@ async function plant(a = undefined) {
 		),
 	);
 	return { a, p: result.plant, result };
+}
+async function seated(a) {
+	const { p } = await plant();
+	await admin
+		.insert(t.seat)
+		.values({ plant_id: p.id, account_id: a.id, role: "member", accepted_at: new Date(), revision: "1" });
+	return a;
 }
 async function seat(p, role = "admin") {
 	const a = await actor();
@@ -208,7 +211,6 @@ before(async () => {
 					},
 				]);
 			},
-			// Notice mail is covered by workspace-deletion-mail.test.mts.
 			workspaceNotice: async () => {},
 		},
 		credentials,
@@ -282,10 +284,9 @@ test("AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped set
 });
 
 test("AC:TARGET-IDN-012 account preferences keep exact category/channel choices independent and scoped", async () => {
-	const a = await actor();
+	const a = await seated(await actor());
 	const current = ok(await section(a, { section: "notifications" }));
 	assert.equal(current.values.choices.length, 20);
-	// T-242: an unsubscribe from an email this account scheduled is a bell-only row, on by default.
 	assert.deepEqual(
 		current.values.choices.filter((c) => c.category === "scheduled_email_unsubscribe"),
 		[{ category: "scheduled_email_unsubscribe", channel: "in_app", enabled: true }],
@@ -663,7 +664,6 @@ test("AC:DEL58-007 AC:DEL58-005 workspace purge hides and removes only its conte
 });
 
 test("AC:DEL58-005: purging one church workspace leaves each person's own account and the seats of other churches and organizations untouched", async () => {
-	// An account holds one open seat at a time (seat_uq_0), so the seats elsewhere belong to other accounts.
 	const f = await plant(),
 		other = await plant(),
 		network = await organization();
@@ -738,7 +738,6 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	const saved = ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId })));
 	assert.deepEqual(saved, { status: "available", avatar: { accountId: a.id, versionId: upload.uploadId } });
 	assert.deepEqual(await readAvatar(db, storage, ctx(a), { accountId: a.id, versionId: upload.uploadId }), bytes);
-	// INV-C27: the photo read takes no session lock. It finishes while another transaction holds the session row.
 	let entered, release;
 	const locked = new Promise((r) => (entered = r)),
 		held = new Promise((r) => (release = r));
@@ -749,7 +748,6 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	});
 	await locked;
 	try {
-		// The read races Postgres lock state: it must finish before any session of the runtime role waits for a lock.
 		const done = new AbortController();
 		const read = readAvatar(db, storage, ctx(a), { accountId: a.id, versionId: upload.uploadId }).finally(() =>
 			done.abort(),
@@ -767,14 +765,10 @@ test("AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private byte
 	denied(await call("getAvatar", a, { versionId: upload.uploadId }));
 });
 
-// T-271: the account photo read rule (REQ-IDN-006). Its own account, and the people who hold a live seat in a church or
-// organization where the account holds one, load its current version. Everyone else gets the same refusal as a
-// missing photo.
 const PNG = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
 	"base64",
 );
-/** A private bucket fake that keeps the bytes it was sent. */
 function photoStorage() {
 	const objects = new Map();
 	return {
@@ -799,7 +793,6 @@ function photoStorage() {
 		},
 	};
 }
-/** The account uploads and finalizes a new photo, as Settings does; the version it becomes. */
 async function setPhoto(storage, a) {
 	const upload = ok(await call("requestAvatarUpload", a, { mime: "image/png", byteLength: PNG.length }));
 	await uploadAvatar(db, storage, ctx(a), { uploadId: upload.uploadId, bytes: PNG });
@@ -807,13 +800,11 @@ async function setPhoto(storage, a) {
 	ok(await call("finalizeAvatar", a, command({ uploadId: upload.uploadId }, row.revision)));
 	return { accountId: a.id, versionId: upload.uploadId };
 }
-/** What one account's session gets for one photo version: its bytes, or "refused" for every kind of refusal. */
 const photoRead = (storage, a, photo) =>
 	readAvatar(db, storage, ctx(a), photo).then(
 		(bytes) => (Buffer.from(bytes).equals(PNG) ? "bytes" : "wrong bytes"),
 		(error) => (error.message === "unavailable" ? "refused" : error.message),
 	);
-/** A fresh normal session for an account whose sessions a deletion request ended. */
 async function newSession(a) {
 	const session = randomUUID();
 	await admin.execute(
@@ -833,16 +824,13 @@ test("AC:TARGET-IDN-006: seat holders in the same church load each other's curre
 		memberPhoto = await setPhoto(storage, member);
 	const read = (who, photo) => photoRead(storage, who, photo);
 
-	// Done 4: each seat holder loads the other's photo, and the account loads its own.
 	assert.equal(await read(member, owner), "bytes");
 	assert.equal(await read(f.a, memberPhoto), "bytes");
 	assert.equal(await read(f.a, owner), "bytes");
-	// Done 5: another church, an organization the person is not in, no seat at all.
 	for (const who of [other.a, network.a, seatless]) {
 		assert.equal(await read(who, owner), "refused");
 		assert.equal(await read(who, memberPhoto), "refused");
 	}
-	// The rule follows the shared workspace: a seat holder in the same organization loads that photo.
 	const peer = await actor();
 	await admin
 		.insert(t.seat)
@@ -850,12 +838,9 @@ test("AC:TARGET-IDN-006: seat holders in the same church load each other's curre
 	const networkPhoto = await setPhoto(storage, network.a);
 	assert.equal(await read(peer, networkPhoto), "bytes");
 	assert.equal(await read(f.a, networkPhoto), "refused");
-	// The account and version must belong together: another account's id with this version is refused.
 	assert.equal(await read(member, { accountId: member.id, versionId: owner.versionId }), "refused");
 
-	// Done 6: no live session (unknown, expired) gets the refusal.
 	assert.equal(await read({ id: member.id, session: randomUUID() }, owner), "refused");
-	// A session counts only for its own account.
 	assert.equal(await read({ id: member.id, session: seatless.session }, owner), "refused");
 	const own = await setPhoto(storage, seatless);
 	assert.equal(await read(seatless, own), "bytes");
@@ -864,7 +849,6 @@ test("AC:TARGET-IDN-006: seat holders in the same church load each other's curre
 	);
 	assert.equal(await read(seatless, own), "refused");
 
-	// Done 8: a replaced version is refused to every viewer, the account itself included; only the current one loads.
 	const replaced = await setPhoto(storage, f.a);
 	assert.equal(await read(f.a, owner), "refused");
 	assert.equal(await read(member, owner), "refused");
@@ -874,7 +858,6 @@ test("AC:TARGET-IDN-006: seat holders in the same church load each other's curre
 	assert.equal(await read(f.a, replaced), "refused");
 	assert.equal(await read(member, replaced), "refused");
 
-	// Done 7: after the seat ends, neither side loads the other's photo any more.
 	const current = await setPhoto(storage, f.a);
 	assert.equal(await read(member, current), "bytes");
 	await admin.execute(
@@ -915,19 +898,16 @@ test("AC:TARGET-IDN-006: an overseeing organization and its plant load each othe
 		directorPhoto = await setPhoto(storage, director);
 	const read = (who, photo) => photoRead(storage, who, photo);
 
-	// The church's directors load the planter's and plant staff's photos, and the plant's people load theirs.
 	for (const who of [church.a, director]) {
 		assert.equal(await read(who, planter), "bytes");
 		assert.equal(await read(who, staffPhoto), "bytes");
 	}
 	assert.equal(await read(staff, directorPhoto), "bytes");
 	assert.equal(await read(f.a, directorPhoto), "bytes");
-	// An organization with no link to the plant gets the refusal both ways.
 	assert.equal(await read(outsider.a, planter), "refused");
 	assert.equal(await read(outsider.a, directorPhoto), "refused");
 	assert.equal(await read(staff, await setPhoto(storage, outsider.a)), "refused");
 
-	// A director whose seat ended is refused at once, both ways; so is the plant's photo of a staff seat that ended.
 	await admin.execute(
 		sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${director.id} AND organization_id=${church.o.id}`,
 	);
@@ -939,7 +919,6 @@ test("AC:TARGET-IDN-006: an overseeing organization and its plant load each othe
 	assert.equal(await read(church.a, staffPhoto), "refused");
 	assert.equal(await read(staff, await setPhoto(storage, church.a)), "refused");
 
-	// Once the link ends, the church's remaining director no longer loads the planter's photo.
 	assert.equal(await read(church.a, planter), "bytes");
 	await admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${link.id}`);
 	assert.equal(await read(church.a, planter), "refused");
@@ -947,7 +926,6 @@ test("AC:TARGET-IDN-006: an overseeing organization and its plant load each othe
 
 test("AC:TARGET-IDN-006: a committed personal or church workspace deletion request hides the photos it reaches", async () => {
 	const storage = photoStorage();
-	// Personal deletion: the account's photo is refused to the church, and the account's own new session is refused too.
 	const f = await plant(),
 		leaving = await seat(f.p, "member");
 	const photo = await setPhoto(storage, leaving);
@@ -957,7 +935,6 @@ test("AC:TARGET-IDN-006: a committed personal or church workspace deletion reque
 	assert.equal(await photoRead(storage, f.a, photo), "refused");
 	assert.equal(await photoRead(storage, await newSession(leaving), photo), "refused");
 
-	// Church workspace deletion: a fresh session of a seat holder there no longer loads the church's photos.
 	const church = await plant(),
 		member = await seat(church.p, "member");
 	const ownerPhoto = await setPhoto(storage, church.a);
@@ -975,7 +952,6 @@ test("AC:TARGET-IDN-006: a committed personal or church workspace deletion reque
 	const again = await newSession(member);
 	assert.equal(await photoRead(storage, again, ownerPhoto), "refused");
 	assert.equal(await photoRead(storage, await newSession(church.a), memberPhoto), "refused");
-	// The member's own photo is still theirs to load.
 	assert.equal(await photoRead(storage, again, memberPhoto), "bytes");
 });
 
@@ -1006,11 +982,9 @@ test("AC:TARGET-IDN-006: the Seats roster and the People list name each visible 
 	};
 	assert.deepEqual(await roster(f.a), expected);
 	assert.deepEqual(await roster(member), expected);
-	// No storage key or bearer URL is in the roster.
 	assert.doesNotMatch(JSON.stringify(await roster(f.a)), /private\/|https?:/);
 	assert.equal(formerPhoto.accountId, former.id);
 
-	// People: a linked seat holder shows the account photo; a People photo wins; unlinked and former stay plain.
 	const person = async (name, linked) => {
 		const id = randomUUID();
 		await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,stage,adult_classification,commitment_state,pipeline_position,state,created_at,linked_account_id)
@@ -1018,7 +992,6 @@ test("AC:TARGET-IDN-006: the Seats roster and the People list name each visible 
 		return id;
 	};
 	const linked = await person("Linked", member.id),
-		// The Owner's own Person, which creating the church linked to the Owner's account.
 		[{ id: both }] = await admin
 			.select({ id: t.person.id })
 			.from(t.person)
@@ -1085,7 +1058,6 @@ async function login(a) {
 	ingress.set(s.session.id, request);
 	return { ...a, session: s.session.id };
 }
-/** Fresh proof on the restricted workspace deletion page, as the web mount sends it. */
 const openWorkspace = (a, password = a.password) =>
 	producerDeps.credentials.openWorkspaceDeletion({ email: a.email, password }, null);
 const PROOF_REFUSED = { status: "refused", code: "proof_invalid" };
@@ -1104,7 +1076,6 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace del
 		call("requestWorkspaceDeletion", a, command({ plant: f.p, confirmed: true }, church.revision), f.p);
 	denied(await ask(member));
 	denied(await ask(seatedAdmin));
-	// Before any request, the Owner's own credentials open nothing.
 	assert.deepEqual(await openWorkspace(owner), PROOF_REFUSED);
 	const seatOf = async (a) => {
 		const context = (await viewerOf(a))?.authority.actor.context;
@@ -1123,11 +1094,9 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace del
 		.from(t.lifecycle_witness)
 		.where(and(eq(t.lifecycle_witness.kind, "plant"), eq(t.lifecycle_witness.opaque_subject_id, f.p.id)));
 	assert.equal(w.cancel_until.toISOString(), pending.cancelUntil);
-	// Every seat's open session ended, and a new sign-in reaches no church.
 	for (const a of [owner, member, seatedAdmin]) assert.equal(await viewerOf(a), null);
 	assert.equal(await viewerOf(await login(member)), null);
 
-	// A wrong password, another seat's own credentials and an account with no request all get the same refusal.
 	assert.deepEqual(await openWorkspace(owner, "Wrong secret 1234!"), PROOF_REFUSED);
 	assert.deepEqual(await openWorkspace(member), PROOF_REFUSED);
 	assert.deepEqual(await openWorkspace(await credentialActor()), PROOF_REFUSED);
@@ -1151,10 +1120,8 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace del
 	);
 	assert.equal(cancelled.status, "cancelled");
 	assert.equal(cancelled.cancelUntil, pending.cancelUntil);
-	// A cancelled request opens no restricted session again.
 	assert.deepEqual(await openWorkspace(owner), PROOF_REFUSED);
 
-	// Signing in normally gives the Owner and the seats their church back.
 	for (const a of [owner, member, seatedAdmin])
 		assert.deepEqual(await seatOf(await login(a)), { kind: "seat", owner: f.p, role: seats[a.id] });
 	assert.equal(
@@ -1166,7 +1133,6 @@ test("AC:TARGET-IDN-026 AC:TARGET-IDN-032: only the Owner requests workspace del
 test("AC:DEL58-007: a workspace cancel after the stored deadline is refused even before the purge runs", async () => {
 	const owner = await credentialActor();
 	const f = await plant(owner);
-	// A request whose 30 days ended a day ago, with no purge run yet.
 	const p = await overdue(owner, { kind: "plant", id: f.p.id });
 	const opened = await openWorkspace(owner);
 	assert.equal(opened.status, "ok");
@@ -1208,7 +1174,6 @@ test("AC:AUTH-005 AC:AUTH-006 AC:AUTH-007 AC:TARGET-IDN-007 AC:ROLE43-018 email 
 	assert.equal(proofs.filter((p) => p.superseded_at !== null).length, 1);
 	const active = proofs.find((p) => p.superseded_at === null);
 	const expiry = active.expires_at.getTime();
-	// The proof lives 24 hours from its request, read against the database clock around that request.
 	assert.ok(expiry >= earliest + 86_400_000 && expiry <= latest + 86_400_000 + 1, String(expiry - earliest));
 	const result = await call("confirmEmailChange", a, { proof: second.token });
 	assert.equal(result.status, "succeeded");
@@ -1285,7 +1250,6 @@ test("AC:CASE-NTF-004 an organization member who never saved an oversight choice
 	const oversight = (channel) =>
 		current.values.choices.find((c) => c.category === "oversight_digest" && c.channel === channel).enabled;
 	assert.deepEqual([oversight("in_app"), oversight("email"), current.values.oversightCadence], [true, false, "daily"]);
-	// Saving the cadence keeps the channels the person sees: the stored rows match the defaults shown.
 	const saved = ok(
 		await call(
 			"saveSection",
@@ -1344,7 +1308,6 @@ test("AC:ORG55-001 AC:ORG55-007 AC:TARGET-IDN-026 organization profile and exact
 		(await admin.select().from(t.affiliation).where(eq(t.affiliation.id, relationship.id)))[0].consent_revision,
 		"2",
 	);
-	// The committed change queued one milestone job for the plant (T-267); the refused, conflicting and faulted saves none.
 	assert.deepEqual(
 		(
 			await admin.execute(
@@ -1651,7 +1614,6 @@ test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; chur
 	ok(
 		await call("setDigestSchedule", f.a, command({ plant: f.p, schedule: { cadence: "off" } }, profile.revision), f.p),
 	);
-	// The runner plans and delivers across two weekly slots: a church whose digest is off owes nobody anything.
 	const digests = createDigestWorker({ mail: sender, origin });
 	for (const at of ["2099-01-11T23:00:00.000Z", "2099-01-18T23:00:00.000Z"]) {
 		await planDigests(db, at);
@@ -1684,7 +1646,6 @@ test("AC:TARGET-IDN-007 AC:TARGET-IDN-008 native credential budgets use own logi
 test("AC:TARGET-IDN-007 an email change whose send throws is unknown and gives its try back", async () => {
 	const a = await credentialActor();
 	trustedIps.set(a.session, "198.51.100.31");
-	// The viewer is still live, but the request reaching Better Auth carries no session cookie, so changeEmail throws.
 	const live = ingress.get(a.session);
 	ingress.set(a.session, new Request(live.url, { method: "POST", headers: { origin } }));
 	denied(await call("requestEmailChange", a, { newEmail: randomUUID() + "@example.test" }), "unknown");
@@ -1840,7 +1801,6 @@ test("INV-settings-preview: expiry is checked independently from actor, subject,
 
 let recording = false;
 const statements = [];
-/** One section read the way the settings mount runs it, with every statement the database receives. */
 async function mountRead(a, request) {
 	const viewer = await viewerOf(a);
 	statements.length = 0;
@@ -1853,7 +1813,6 @@ async function mountRead(a, request) {
 	}
 }
 const instrumented = new WeakSet();
-/** Records every statement the pools send while `recording` is on. */
 function instrument(...pools) {
 	for (const pool of pools)
 		pool.$client.on("acquire", (client) => {
@@ -1889,7 +1848,6 @@ test("INV-performance: each settings section reads in one statement on the pool,
 		revision: "1",
 	});
 	const sharing = { plant: f.p, organization: org.o };
-	// The notifications row adds one suppression lookup in the web mount; this test's suppression list reads nothing.
 	const reads = [
 		[f.a, { section: "account" }, (v) => [v.name, v.email], ["Synthetic", f.a.user + "@example.test"]],
 		[f.a, { section: "notifications" }, (v) => [v.values.planterCadence, v.values.oversightCadence], ["weekly", null]],
@@ -2027,7 +1985,6 @@ test("BUG-3213d18: notifications read the account's saved choices and an organiz
 	);
 	assert.equal(read.values.planterCadence, "daily");
 	assert.equal(read.values.oversightCadence, "daily");
-	// A save compares with that read: turning the saved "off" back on must store it.
 	const patch = { kind: "channel", choice: { category: "task_due", channel: "email", enabled: true } };
 	ok(await call("saveSection", org.a, command({ section: "notifications", patch }, read.revision)));
 	const [stored] = await admin
@@ -2045,7 +2002,6 @@ test("BUG-3213d18: notifications read the account's saved choices and an organiz
 	assert.equal(reload.values.choices.find((c) => c.category === "task_due" && c.channel === "email").enabled, true);
 });
 
-/** One write the way the web mount runs it: the request's actor bound in its own transaction, every statement recorded. */
 async function mountWrite(a, body) {
 	const viewer = await viewerOf(a),
 		context = { session: a.session, selected: { kind: "account", id: a.id } };
@@ -2058,7 +2014,6 @@ async function mountWrite(a, body) {
 		recording = false;
 	}
 }
-/** The audit rows of one command, by its request key. */
 const auditOf = (requestKey) =>
 	admin.execute(
 		sql`SELECT action, metadata, result FROM audit_event WHERE command_id=(SELECT id FROM audit_event WHERE request_key=${requestKey})`,
@@ -2067,7 +2022,6 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 	instrument(db);
 	const a = await actor();
 	const upload = await mountWrite(a, (tx, c) => api.requestAvatarUpload(tx, c, { mime: "image/png", byteLength: 68 }));
-	// The byte adapter verified and stored the bytes.
 	await admin
 		.update(t.file_object)
 		.set({ state: "ready", byte_count: "68", sha256: "0".repeat(64) })
@@ -2097,7 +2051,6 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		),
 	);
 	assert.deepEqual(zone.value.preference, { status: "confirmed", timeZone: "Europe/Paris", revision: "2" });
-	// An exact retry returns the same reply from the replay record.
 	const retried = await mountWrite(a, (tx, c) =>
 		api.setPersonalTimezone(
 			tx,
@@ -2121,7 +2074,6 @@ test("INV-performance: photo, own time zone and deletion writes use a fixed smal
 		assert.deepEqual(rows[0].metadata, { section: "account", diff: { [field]: true } });
 	}
 	assert.equal((await auditOf(deletionKey)).rows.length, 1);
-	// The whole audit row, replay record included, holds no personal value: no zone, no photo reference.
 	assert.deepEqual((await auditOf(zoneKey)).rows[0].result, { revision: "2" });
 	assert.deepEqual((await auditOf(finalizeKey)).rows[0].result, {});
 	assert.deepEqual((await auditOf(removeKey)).rows[0].result, {});
@@ -2138,7 +2090,6 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 	assert.equal(opened.status, "ok");
 	assert.deepEqual(opened.value.subject, { kind: "account", id: a.id });
 	assert.equal(opened.value.requestId, pending.requestId);
-	// While the request is pending, the same login reaches no viewer.
 	assert.equal(await viewerOf(await login(a)), null);
 	const request = { subject: opened.value.subject, requestId: opened.value.requestId };
 	const measured = async (body) => {
@@ -2156,21 +2107,18 @@ test("AC:DEL58-002 INV-performance: a fresh password proof opens only the accoun
 		api.cancelAccountDeletion(tx, opened.value.session, command(request, pending.revision)),
 	);
 	assert.equal(cancelled.value.status, "cancelled");
-	// BEGIN, SAVEPOINT, the locking read, RELEASE, COMMIT.
 	assert.equal(status.count, 5);
-	// Kept: the original email and password sign in again to a working account.
 	const fresh = await login(a);
 	assert.notEqual(await viewerOf(fresh), null);
 	ok(await section(fresh, { section: "account" }));
 });
 
 test("INV-account-revision people/peo-3: Your account and notifications share one revision; a save in one moves the other's and the old revision is refused", async () => {
-	const a = await actor();
+	const a = await seated(await actor());
 	const account = ok(await section(a, { section: "account" }));
 	const notifications = ok(await section(a, { section: "notifications" }));
 	assert.equal(notifications.revision, account.revision);
 	const toggle = { kind: "channel", choice: { category: "task_due", channel: "email", enabled: false } };
-	// A name save moves the revision the notifications section reads; a toggle sent with the old one is refused.
 	const named = ok(
 		await call("saveSection", a, command({ section: "account", name: "Shared Revision" }, account.revision)),
 	);
@@ -2179,7 +2127,6 @@ test("INV-account-revision people/peo-3: Your account and notifications share on
 	const stale = await call("saveSection", a, command({ section: "notifications", patch: toggle }, account.revision));
 	assert.equal(stale.status, "refused", JSON.stringify(stale));
 	assert.equal(stale.error.code, "conflict");
-	// The toggle with the shared revision saves, and moves the revision Your account reads in turn.
 	const toggled = ok(
 		await call("saveSection", a, command({ section: "notifications", patch: toggle }, named.current.revision)),
 	);
@@ -2189,4 +2136,95 @@ test("INV-account-revision people/peo-3: Your account and notifications share on
 		"conflict",
 	);
 	assert.equal(ok(await section(a, { section: "account" })).name, "Shared Revision");
+});
+
+test("an organization's Owner offers its plants a gathering milestone in its profile; a Member reads it and is refused a save with nothing written", async () => {
+	const org = await organization();
+	const member = await actor();
+	await admin
+		.insert(t.seat)
+		.values({ account_id: member.id, organization_id: org.o.id, role: "member", accepted_at: new Date() });
+	const milestone = (value) => ({ section: "organization", organization: org.o, patch: { gatheringMilestone: value } });
+	const stored = async () =>
+		(
+			await admin.execute(
+				sql`SELECT gathering_milestone_offered AS offered,gathering_milestone_name AS name,
+				gathering_milestone_description AS description,revision::text AS revision FROM organization WHERE id=${org.o.id}`,
+			)
+		).rows[0];
+	assert.deepEqual(
+		ok(await section(org.a, { section: "organization", organization: org.o })).values.profile.gatheringMilestone,
+		{
+			offered: false,
+			name: null,
+			description: null,
+		},
+	);
+
+	const saved = ok(
+		await call(
+			"saveSection",
+			org.a,
+			command(
+				milestone({ offered: true, name: " Constituted as a church ", description: "Adopts its constitution.\r\n" }),
+			),
+			org.o,
+		),
+	);
+	const value = { offered: true, name: "Constituted as a church", description: "Adopts its constitution." };
+	assert.deepEqual(saved.current.values.profile.gatheringMilestone, value);
+	assert.deepEqual(
+		ok(await section(org.a, { section: "organization", organization: org.o })).values.profile.gatheringMilestone,
+		value,
+	);
+	assert.deepEqual(
+		ok(await section(member, { section: "organization", organization: org.o })).values.profile.gatheringMilestone,
+		value,
+	);
+	const audit = (
+		await admin.execute(
+			sql`SELECT after_value FROM audit_event WHERE subject_id=${org.o.id} AND action='organization.profile_changed' ORDER BY recorded_at DESC LIMIT 1`,
+		)
+	).rows[0].after_value;
+	assert.deepEqual(audit, {
+		gathering_milestone_offered: true,
+		gathering_milestone_name: "Constituted as a church",
+		gathering_milestone_description: "Adopts its constitution.",
+	});
+
+	const before = await stored();
+	denied(
+		await call(
+			"saveSection",
+			member,
+			command(milestone({ offered: false, name: null, description: null }), "2"),
+			org.o,
+		),
+	);
+	assert.deepEqual(await stored(), before);
+
+	for (const bad of [
+		{ offered: true, name: "  ", description: null },
+		{ offered: true, name: "a".repeat(121), description: null },
+		{ offered: true, name: "Constituted", description: "a".repeat(2001) },
+	])
+		denied(await call("saveSection", org.a, command(milestone(bad), "2"), org.o), "invalid_input");
+	assert.deepEqual(await stored(), before);
+	ok(
+		await call(
+			"saveSection",
+			org.a,
+			command(milestone({ offered: true, name: "a".repeat(120), description: "a".repeat(2000) }), "2"),
+			org.o,
+		),
+	);
+	ok(
+		await call(
+			"saveSection",
+			org.a,
+			command(milestone({ offered: false, name: "a".repeat(120), description: null }), "3"),
+			org.o,
+		),
+	);
+	assert.deepEqual(await stored(), { offered: false, name: "a".repeat(120), description: null, revision: "4" });
 });

@@ -12,10 +12,6 @@ import {
 import { commitments, peopleWriter, recordCorrections } from "../../../packages/domain/src/people/index.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
 
-// WP-040 measured facts through intelligence.readFacts, the read Plant Intelligence calls, on a scratch schema of the
-// development or CI database. People and commitment cards go through the People operations; meetings, follow-ups,
-// ministry roles, training, interviews and 4 C's are seeded as rows, since the read only reads them.
-
 let f, facts, signals, care;
 const ZONE = "America/Chicago";
 const refusedBare = refusedWith({ details: {} });
@@ -34,7 +30,6 @@ before(async () => {
 });
 after(() => f?.close());
 
-/** A plant in Chicago with its Owner, whose session the People writes use. */
 async function plant() {
 	const w = await f.workspace();
 	await f.admin.execute(sql`UPDATE plant SET timezone=${ZONE} WHERE id=${w.id}`);
@@ -72,7 +67,6 @@ const record = (id, kind, plantId) =>
 	f.admin.execute(sql`INSERT INTO record(id,kind,tenant_id) VALUES(${id},${kind},${plantId}) ON CONFLICT DO NOTHING`);
 
 let visionNumber = 0;
-/** A meeting, completed when `held` names how many days ago it happened, else scheduled `inDays` ahead. */
 async function meeting(o, { held, inDays, type = "vision_meeting", attended = [] }) {
 	const id = randomUUID();
 	await record(id, "meeting", o.w.id);
@@ -93,7 +87,6 @@ async function attend(o, meetingId, personId, presence = "attended") {
 		VALUES(${id},${o.w.id},${meetingId},${personId},true,${presence})`);
 	return id;
 }
-/** A first-Vision follow-up of `meetingId` for `personId` and its task, originating `ageHours` ago. */
 async function followUp(o, meetingId, personId, ageHours, task = {}) {
 	const id = randomUUID(),
 		taskId = randomUUID();
@@ -118,7 +111,6 @@ async function outcome(o, obligation, personId, kind, afterHours, completes = tr
 		${at}::timestamptz,${at}::timestamptz,${completes})`);
 	return id;
 }
-/** A ministry team with one role per responsibility key, each held by the named person (or open with null). */
 async function roles(o, holders) {
 	const team = randomUUID();
 	await record(team, "team", o.w.id);
@@ -142,7 +134,6 @@ async function roles(o, holders) {
 	}
 	return { team, ...out };
 }
-/** A required program with these people assigned; the first `complete` of them earned it at its version. */
 async function program(o, people, complete) {
 	const id = randomUUID();
 	await f.admin.execute(
@@ -173,7 +164,6 @@ async function fourCs(o, personId, on) {
 		.execute(sql`INSERT INTO four_cs(id,plant_id,person_id,assessed_on,recorded_at,committed,compelled,contagious,
 		courageous,committed_notes) VALUES(${id},${o.w.id},${personId},${on},clock_timestamp(),2,3,1,4,${CANARY + "-4cs"})`);
 }
-/** A private weekly check-in of the Owner: Struggling everywhere, with a note. */
 async function checkIn(o) {
 	const current = ok(await care.readCurrent(f.db, o.actor, {}));
 	const struggling = { spiritual: "struggling", family: "struggling", financial: "struggling", pace: "struggling" };
@@ -203,7 +193,7 @@ test("AC:CA001 AC:CA003 30 committed adults on two teams count once each, childr
 	const both = a.evidence.find((e) => e.person.id === adults[0].id);
 	assert.deepEqual([both.kinds, both.committedSince], [["core_group", "launch_team"], day(-60)]);
 	assert.equal(r.criteria.committed_adults, "met");
-	assert.equal(r.formulaVersion, "plant-facts/1");
+	assert.equal(r.formulaVersion, "plant-facts/2");
 });
 
 test("AC:CA004 29 known adults and one unclassified person read Unknown with at least 29 and name that person", async () => {
@@ -213,7 +203,6 @@ test("AC:CA004 29 known adults and one unclassified person read Unknown with at 
 	const a = (await read(o)).committedAdults;
 	assert.deepEqual([a.status, a.known, a.exact], ["unknown", 29, null]);
 	assert.deepEqual(a.needsClassifying, [{ id: sam.id, name: "Sam Unclassified" }]);
-	// Classifying them settles the count.
 	await f.admin.execute(sql`UPDATE person SET adult_classification='adult' WHERE id=${sam.id}`);
 	assert.deepEqual([(await read(o)).committedAdults.exact, (await read(o)).committedAdults.status], [30, "met"]);
 });
@@ -259,7 +248,6 @@ test("AC:CA008 AC:CA019 a withdrawal lowers the count but keeps the growth clock
 		[r.growth.status, r.growth.lastAcquiredOn, r.growth.daysSince, r.growth.current],
 		["stalled", day(-30), 30, 0],
 	);
-	// The correction is in the person's correction history and its audit row.
 	const history = ok(await tx((t) => recordCorrections.listRecordCorrections(t, o.ctx, { personId: blake.id })));
 	const line = JSON.stringify(history);
 	assert.match(line, new RegExp(day(-22)));
@@ -277,7 +265,6 @@ test("AC:PI-CASE-003 AC:PI-TASK-CONTACT-001 AC:B01-002 AC:B01-020 AC:B01-026 vis
 	const held = await meeting(o, { held: 22, attended: people.slice(0, 6).map((p) => p.id) });
 	await meeting(o, { held: 36, attended: people.slice(0, 4).map((p) => p.id) });
 	await meeting(o, { inDays: 3 });
-	// A newer completed Vision meeting with nobody attended is not a held meeting with attendance.
 	await meeting(o, { held: 2 });
 
 	const [g1, g2, g3, g4] = [
@@ -304,7 +291,6 @@ test("AC:PI-CASE-003 AC:PI-TASK-CONTACT-001 AC:B01-002 AC:B01-020 AC:B01-026 vis
 		["prayer", e.id],
 	]);
 	await program(o, people, 9);
-	// Answered 35 days ago through the signals operation, with its stated as-of date.
 	ok(
 		await signals.attest(f.db, o.actor, {
 			requestKey: randomUUID(),
@@ -362,9 +348,7 @@ test("AC:PI-PURPOSE-001 AC:ASMT-012 check-ins never reach the facts; interviews 
 	});
 	const text = JSON.stringify(r);
 	for (const hidden of [CANARY, "struggling", "not_qualified", "concern"]) assert.ok(!text.includes(hidden), hidden);
-	// Private care is no input: the check-in changes neither the facts nor their revision.
 	assert.deepEqual(stable(r), stable(before));
-	// The one statement names no private-care table and no interview or 4 C's content column.
 	const seen = [];
 	const spy = { execute: (q) => (seen.push(q), f.db.execute(q)) };
 	await read(o, spy);
@@ -411,8 +395,6 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 	await fourCs(o, p.id, day(-4));
 	const next = await meeting(o, { inDays: 4 });
 
-	// One committed change to each input the statement reads, conditional ones included: a manual classification only
-	// matters without a birth date, and the plant's zone moves every local date.
 	const changes = {
 		"plant.timezone": sql`UPDATE plant SET timezone='America/Denver' WHERE id=${o.w.id}`,
 		"person.display_name": sql`UPDATE person SET display_name='Rowan Renamed' WHERE id=${p.id}`,
@@ -443,6 +425,13 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"training_program.required": sql`UPDATE training_program SET required=false WHERE id=${prog}`,
 		interview: sql`DELETE FROM interview WHERE person_id=${p.id}`,
 		four_cs: sql`DELETE FROM four_cs WHERE person_id=${p.id}`,
+		launch: sql`INSERT INTO launch(plant_id,target_date,status) VALUES(${o.w.id},${day(40)},'scheduled')`,
+		"launch.target_date": sql`UPDATE launch SET target_date=${day(41)} WHERE plant_id=${o.w.id}`,
+		"launch.status": sql`UPDATE launch SET status='postponed',target_date=NULL WHERE plant_id=${o.w.id}`,
+		"launch.gathering_path": sql`UPDATE launch SET gathering_path='milestone' WHERE plant_id=${o.w.id}`,
+		"launch.gathering_reached_on": sql`UPDATE launch SET gathering_reached_on=${day(-1)},
+			gathering_reached_name='Constituted as a church' WHERE plant_id=${o.w.id}`,
+		"launch.gathering_reached_name": sql`UPDATE launch SET gathering_reached_name='Church constituted' WHERE plant_id=${o.w.id}`,
 	};
 	let last = (await read(o)).sourceRevision;
 	for (const [input, change] of Object.entries(changes)) {
@@ -451,7 +440,6 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		assert.notEqual(now, last, `${input} did not change the facts' revision`);
 		last = now;
 	}
-	// An attestation through its own operation is an input too.
 	ok(
 		await signals.attest(f.db, o.actor, {
 			requestKey: randomUUID(),
@@ -462,13 +450,11 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 	const answered = await read(o);
 	assert.notEqual(answered.sourceRevision, last);
 	assert.equal(answered.criteria.systems_tested, "met");
-	// Private care and unrelated columns are not inputs.
 	await checkIn(o);
 	await f.admin.execute(sql`UPDATE person SET email='rowan@example.test',notes='unrelated' WHERE id=${p.id}`);
 	const quiet = await read(o);
 	assert.equal(quiet.sourceRevision, answered.sourceRevision);
 	assert.deepEqual(stable(quiet), stable(answered));
-	// Every top-level input the builder parses has at least one change above, or is a computed presence of one.
 	assert.deepEqual(Object.keys(factInputs.shape).sort(), [
 		"anyAttendance",
 		"attendance",
@@ -476,6 +462,7 @@ test("AC:ASMT-006 every input the facts read changes the revision on the next re
 		"followUps",
 		"fourCs",
 		"interviews",
+		"launch",
 		"nextVision",
 		"people",
 		"roles",

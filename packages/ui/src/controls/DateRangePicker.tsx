@@ -8,7 +8,6 @@ import { Radio, RadioGroup } from "./Choice";
 import { Field, Input } from "./Field";
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from "./Popover";
 
-/** A calendar date range as ISO dates ("2026-09-21"), inclusive at both ends. No time and no time zone. */
 export type DateRange = { start: string; end: string };
 export type DatePreset = { key: string; label: string; range: DateRange };
 
@@ -16,13 +15,11 @@ const CUSTOM = "custom";
 const fmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 const fmtYear = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-/** Parses an ISO date as a local calendar day, so no time zone shifts it a day. */
 function day(iso: string): Date {
 	const [y = 0, m = 1, d = 1] = iso.split("-").map(Number);
 	return new Date(y, m - 1, d);
 }
 
-/** "Sep 21 to Oct 18", with years only when the range crosses one. */
 export function formatRange({ start, end }: DateRange): string {
 	const a = day(start);
 	const b = day(end);
@@ -33,18 +30,11 @@ export function formatRange({ start, end }: DateRange): string {
 type DateRangePickerProps = {
 	value: DateRange;
 	onValueChange: (range: DateRange) => void;
-	/** Ranges the page offers, such as Last 28 days. The caller computes them from the plant's calendar. */
 	presets: DatePreset[];
-	/** The comparison the page draws ("vs prior 28 days"). The page computes it; this control only shows it. */
 	compareLabel?: string;
 	className?: string;
 };
 
-/**
- * DateRangePicker (components.md, Date range): the toolbar pill with the range Trigger and the Compare label. It opens
- * a popover with the presets and a custom range made of two native date inputs, which bring the platform's own
- * accessible calendar and keyboard entry.
- */
 export function DateRangePicker({ value, onValueChange, presets, compareLabel, className }: DateRangePickerProps) {
 	const matching = presets.find((p) => p.range.start === value.start && p.range.end === value.end)?.key ?? CUSTOM;
 	const [choice, setChoice] = useState(matching);
@@ -62,7 +52,7 @@ export function DateRangePicker({ value, onValueChange, presets, compareLabel, c
 					}
 				}}
 			>
-				<PopoverTrigger className="inline-flex h-[38px] cursor-pointer items-center gap-2 rounded-md bg-surface-raised px-3 text-[15px] font-medium whitespace-nowrap text-ink shadow-raised">
+				<PopoverTrigger className="inline-flex h-[38px] items-center gap-2 rounded-md bg-surface-raised px-3 text-[15px] font-medium whitespace-nowrap text-ink shadow-raised">
 					<Icon icon={Calendar03Icon} size={18} />
 					<span>
 						<span className="sr-only">Date range: </span>

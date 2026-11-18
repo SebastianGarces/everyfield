@@ -1,8 +1,3 @@
-// The seat, Settings, sharing, connection, account and organization evals (T-327) on the scripted model. Each case in
-// settings.cases.json is asked the way the app asks it: a real turn (runTurn) in Hope Fellowship (golden-church.mts)
-// with the real catalog, reads and review cards. A case with `approve` is then approved and its effect run through the
-// WP-031 queue with the same native services the Settings screens use; its check reads the result back through those
-// screens' own reads. No paid model, network or recording: the scripted model is deterministic.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -52,7 +47,6 @@ const { cases } = JSON.parse(readFileSync(new URL("./settings.cases.json", impor
 
 let church: GoldenChurch;
 let db: Database;
-/** Every email the native commands queued, in order: seat invitations and connection invitations. */
 const mail: { to: string; purpose: string }[] = [];
 const native: NativePorts = nativePorts(mail);
 const objects = new Map<string, Buffer>();
@@ -66,7 +60,6 @@ const storage = {
 		},
 	},
 } as never as PrivateStorage;
-/** A 1x1 PNG. */
 const png = Buffer.from(
 	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
 	"base64",
@@ -77,8 +70,6 @@ const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
 };
-// Removing Lena's seat hands her open tasks back as needing an owner, which replans their reminders; the reminder
-// jobs themselves are not under test here.
 const noReminders = async () => undefined;
 const noPorts = {
 	reminders: noReminders,
@@ -93,7 +84,6 @@ before(async () => {
 });
 after(() => church?.close());
 
-/** One turn as the app runs it: submitted, claimed from the queue, run on the scripted model and finished. */
 async function ask(actor: EvryActor, conversationId: string, text: string, references: unknown[] = []) {
 	await submitTurn(db, actor, conversationId, { requestKey: randomUUID(), text, references });
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
@@ -125,7 +115,6 @@ async function ask(actor: EvryActor, conversationId: string, text: string, refer
 	return { reads, answer, proposals };
 }
 
-/** The trusted approval of the exact revision shown, then the effect run once through the WP-031 queue. */
 async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	await approveProposal(db, actor, proposal.id, { revision: proposal.revision, digest: proposal.digest }, storage);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
@@ -141,7 +130,6 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	return outcome;
 }
 
-// What Settings shows, read through the Settings screens' own native reads or the columns they show.
 const seatsScreen = async (actor: EvryActor) =>
 	(await createSeatService(db).list(actor.authority, { workspace: actor.owner })).items
 		.filter((s) => s.status === "active")
@@ -160,7 +148,6 @@ const row = async (query: ReturnType<typeof sql>) =>
 	(await church.db.execute(query)).rows[0] as Record<string, unknown>;
 const digest = () => row(sql`SELECT digest_cadence,digest_weekday,digest_hour FROM plant WHERE id=${PLANT}`);
 
-/** What each approved case changes, read back as Settings shows it; `before` runs before approval. */
 const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after: (a: EvryActor) => Promise<void> }> = {
 	"SET-04": {
 		before: async (a) => assert.deepEqual(await invitationsScreen(a), [["jordan@example.test", "member"]]),
@@ -222,8 +209,6 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 			assert.deepEqual(await row(sql`SELECT timezone FROM plant WHERE id=${PLANT}`), { timezone: "America/New_York" }),
 	},
 	"SET-12": {
-		// Hope Fellowship's affiliation with Hill Country Church shares activity for its oversight digest (T-341); Harvest
-		// Network shares only the Wiki (the Wiki corpus, tests/evry/adapters/wiki/corpus.mts). Settings lists them by id.
 		before: async (a) =>
 			assert.deepEqual(await sharingScreen(a), [
 				["Hill Country Network", ["people", "meetings"]],
@@ -254,7 +239,6 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 		},
 	},
 	"SET-14": {
-		// Ending the network connection leaves Hope Fellowship's affiliations with Hill Country Church and Harvest Network.
 		after: async (a) =>
 			assert.deepEqual(await sharingScreen(a), [
 				["Hill Country Church", ["activity"]],
@@ -276,7 +260,6 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 		after: async () =>
 			assert.deepEqual(await row(sql`SELECT city FROM plant WHERE id=${PLANT}`), { city: "Round Rock" }),
 	},
-	// The church digest schedule as Settings > Church shows it: cadence, day and hour.
 	"SET-25": {
 		before: async () =>
 			assert.deepEqual(await digest(), { digest_cadence: "weekly", digest_weekday: 0, digest_hour: 16 }),
@@ -297,7 +280,6 @@ const SETTLED: Record<string, { before?: (a: EvryActor) => Promise<void>; after:
 	},
 };
 
-/** The Owner's staged photo upload, as the panel's attach control leaves it (Settings' requestAvatarUpload and bytes). */
 let photo: string | null = null;
 async function stagePhoto(actor: EvryActor) {
 	photo = randomUUID();
@@ -340,7 +322,6 @@ test("INV-evry-settings: every seat, Settings, sharing, connection, account and 
 			);
 		if (expected.refusal !== undefined)
 			assert.equal(proposal.review.refusal ?? null, expected.refusal, `${c.id} refusal`);
-		// Still nothing changed: the review is only a card.
 		await SETTLED[c.id]?.before?.(actor);
 		if (!c.approve) continue;
 		assert.equal(await approveAndRun(actor, proposal), "completed", `${c.id} runs once approved`);

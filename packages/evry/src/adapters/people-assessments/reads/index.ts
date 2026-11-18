@@ -27,12 +27,6 @@ import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/type
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { id } from "../ids.ts";
 
-// The People assessment-area reads (WP-061): interviews, 4 C's assessments, commitments and their document, merge and
-// Unmerge reviews, record corrections and where a merged person went. Each calls the native People read the screens
-// use, under the same domain authority (Owner or Admin, checked live inside its statement, C13). A Member, an
-// organization seat or another church gets no tool here at all, so nothing in these results can reach them. These are
-// recorded human judgments: the rows carry exactly what a person recorded and nothing the model could score.
-
 const context = (actor: EvryActor) => new PeopleReadContext(actor.authority);
 const result = (operation: string, rows: SourceRow[], exclusions: string[], total = rows.length): SourceResult => ({
 	operation,
@@ -44,7 +38,6 @@ const result = (operation: string, rows: SourceRow[], exclusions: string[], tota
 	completeness: "complete",
 	exclusions,
 });
-/** A native read's value, or nothing: a foreign, retired or guessed id reads the same as one that never existed. */
 const valueOf = <T>(reply: PeopleReply<T>) => (reply.status === "ok" ? reply.value : null);
 const PRIVATE = ["private care", "other churches"];
 
@@ -173,10 +166,6 @@ export const getCommitmentDownload: ReadAdapter<{ commitmentId: string }> = {
 	input: z.strictObject({ commitmentId: id }),
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input) {
-		// The link is the People page's own document route: each time it is opened it calls the native
-		// people.getCommitmentDownload under that request's live authority, which signs a five-minute link to the exact
-		// object. No signed link, storage key or byte reaches the model. This statement finds the card's document under
-		// the same live Owner or Admin check the native read uses.
 		const r = await tx.execute(sql`SELECT k.person_id,f.media_type,f.byte_count FROM commitment k
 			JOIN file_object f ON f.id=k.object_id AND f.tenant_id=k.plant_id AND f.state='ready'
 			WHERE k.id=${input.commitmentId}::uuid AND k.plant_id=${actor.owner.id}::uuid
@@ -184,7 +173,6 @@ export const getCommitmentDownload: ReadAdapter<{ commitmentId: string }> = {
 		const found = r.rows[0] ? documentRow.parse(r.rows[0]) : null;
 		if (!found) return result("people.getCommitmentDownload", [], ["document bytes"]);
 		const row: SourceRow = {
-			// A record row, so it is withheld with the rest of the assessment area once the seat is no longer Owner or Admin.
 			kind: "record",
 			id: input.commitmentId,
 			label: "Signed commitment document",
@@ -205,10 +193,6 @@ const names = async (tx: Transaction, actor: EvryActor, ids: string[]) => {
 	return new Map(r.rows.map((x) => [String(x.id), String(x.display_name)]));
 };
 
-/**
- * The merge review of two people, through the native people.getMergeReview. `blocked` is the same answer the People
- * merge review gives; it is null when the merge can run.
- */
 export async function mergeReviewOf(tx: Transaction, actor: EvryActor, pair: { sourceId: string; survivorId: string }) {
 	return valueOf(await peopleMerge.getMergeReview(tx, context(actor), pair));
 }
@@ -246,7 +230,6 @@ export const getMergeReview: ReadAdapter<{ sourceId: string; survivorId: string 
 	},
 };
 
-/** The Unmerge preview, with the names of both people, through the native people.previewUnmerge. */
 export async function unmergePreviewOf(tx: Transaction, actor: EvryActor, mergeId: string) {
 	const v = valueOf(await peopleUnmerge.previewUnmerge(tx, context(actor), { mergeId }));
 	if (!v) return null;
@@ -267,10 +250,6 @@ const unmergeInput = z.union([
 	z.strictObject({ mergeId: id }),
 	z.strictObject({ personId: id.describe("Either person of the merge: the one who stayed or the one merged in") }),
 ]);
-/**
- * The merge a person took part in that can still be undone, latest first, under the live Owner or Admin check: a later
- * turn knows the people by name, not the merge's id.
- */
 async function mergeOf(tx: Transaction, actor: EvryActor, input: z.infer<typeof unmergeInput>) {
 	if ("mergeId" in input) return input.mergeId;
 	const r = await tx.execute(sql`SELECT m.id FROM person_merge m
@@ -332,7 +311,6 @@ export const listRecordCorrections: ReadAdapter<z.infer<typeof correctionsInput>
 				recordId: c.recordId,
 				correctedAt: c.correctedAt,
 				reason: c.reason,
-				// Each corrected field with its old and new value, as the record held them.
 				changes: JSON.stringify(c.changes),
 			},
 		}));
@@ -345,7 +323,6 @@ export const mergedPersonDestination: ReadAdapter<z.infer<typeof personInput>> =
 	description:
 		"Say where a person's record leads now: live, removed, or merged into another person, with the mergeId of a merge that can still be undone. Owners and Admins only.",
 	input: personInput,
-	// The People pages let any reader follow a merged person; in Evry it opens the merge area, so Owners and Admins only.
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input) {
 		const v = valueOf(await peopleMerge.mergedPersonDestination(tx, context(actor), input));
@@ -360,7 +337,6 @@ export const mergedPersonDestination: ReadAdapter<z.infer<typeof personInput>> =
 	},
 };
 
-/** The installed assessment-area read tools, in catalog order. */
 export const ASSESSMENT_READS = [
 	getInterviews,
 	getAssessments,

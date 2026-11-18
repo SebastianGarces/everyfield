@@ -15,11 +15,7 @@ import {
 import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { seatedNotificationService } from "../../../apps/web/src/server/jobs/seated-notifications.ts";
-import { launchNotices } from "../../../apps/web/src/server/launch/notices.ts";
-
-// WP-045: the Launch plan. Every write runs through the writer the /launch actions call, every read through the reader
-// the page calls, on its own schema of the development or CI database. "Today" is fixed at Oct 13, 2026 in Harvest
-// Point's time zone (America/Chicago): 03:00 UTC on Oct 14 is still Oct 13 there.
+import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
 
 const inventory = JSON.parse(
 	readFileSync(new URL("../../../docs/reference/launch-template-inventory.json", import.meta.url), "utf8"),
@@ -50,7 +46,6 @@ const task = (who, op, input) =>
 const setStatus = (who, t, status) =>
 	task(who, status === "complete" ? "complete" : "reopen", { expectedRevision: t.revision, input: { taskId: t.id } });
 const milestone = (p, key) => p.milestones.find((m) => m.templateKey === key);
-/** Every row a launch write can add, to prove a no-op or refusal wrote nothing. */
 const footprint = (w) =>
 	one(sql`SELECT (SELECT count(*)::int FROM launch_milestone WHERE plant_id=${w.id}) milestones,
 		(SELECT count(*)::int FROM task WHERE plant_id=${w.id}) tasks,
@@ -63,7 +58,6 @@ async function seated(w, role) {
 	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
 }
-/** Harvest Point with its Owner, two Admins and a Member. A church has one Owner seat. */
 async function church() {
 	const w = await f.workspace("plant");
 	await f.admin.execute(sql`UPDATE plant SET name='Harvest Point', timezone='America/Chicago' WHERE id=${w.id}`);
@@ -75,7 +69,6 @@ async function church() {
 	];
 	return { w, owner, admin2, admin, member };
 }
-/** A church whose Owner has set Launch Sunday to Nov 10, 2026. */
 async function scheduled() {
 	const c = await church();
 	ok(await schedule(c.owner, "2026-11-10", null, "1"));
@@ -216,13 +209,11 @@ test("AC:CASE-LCH-009 a date saved in onboarding gets its readiness once, even f
 	assert.equal(after.repair, false);
 	assert.equal(after.plan.milestones.length, 9);
 	assert.equal(after.plan.milestones.flatMap((m) => m.tasks).length, 23);
-	// A Member opening the plan creates nothing.
 	refused(await writer.ensureReadiness(f.db, c.member.actor), "access_denied");
 });
 
 test("AC:CASE-LCH-009 repair adds only what is missing: a renamed task keeps its name and a deleted one stays deleted", async () => {
 	const c = await scheduled();
-	// Readiness only partly created: one milestone and one task of another never made it.
 	await f.admin.execute(
 		sql`DELETE FROM task WHERE plant_id=${c.w.id} AND launch_task_key LIKE 'promotion.partner_churches/%'`,
 	);
@@ -323,7 +314,6 @@ test("AC:CASE-LCH-004 a milestone completes with an open task, refuses a stale r
 	const [first, second] = promo.tasks;
 	const done = ok(await setStatus(c.owner, first, "complete")).task;
 
-	// The page still shows the tasks before that completion: nothing saves, and the current tasks come back.
 	const stale = refused(await complete(c.owner, promo), "stale_review");
 	const current = stale.details.milestone;
 	assert.deepEqual(
@@ -338,7 +328,6 @@ test("AC:CASE-LCH-004 a milestone completes with an open task, refuses a stale r
 	assert.equal(saved.milestone.needsReview, false);
 	assert.equal((await one(sql`SELECT status FROM task WHERE id=${second.id}`)).status, "not_started");
 
-	// Reopening the task that was done at completion asks for review and keeps the completion listed.
 	ok(await setStatus(c.owner, done, "reopen"));
 	const review = milestone(await plan(c.owner), "promotion.plan");
 	assert.equal(review.needsReview, true);
@@ -382,7 +371,6 @@ test("AC:CASE-LCH-005 three pre-launch services held counts only held, past, unv
 	await practice(c.w);
 	const second = await practice(c.w);
 	assert.equal(await held(), 2);
-	// None of these count.
 	const services = milestone(c.plan, "launch_team.pre_launch_services").tasks;
 	for (const t of services.slice(1)) ok(await setStatus(c.owner, t, "complete"));
 	await practice(c.w, { type: "team_meeting" });
@@ -395,7 +383,6 @@ test("AC:CASE-LCH-005 three pre-launch services held counts only held, past, unv
 	assert.equal(await held(), 3);
 	const m = milestone(await plan(c.owner), "launch_team.pre_launch_services");
 	assert.equal(m.completion, null);
-	// Voiding or correcting a held practice changes the count.
 	await f.admin.execute(sql`UPDATE meeting SET occurrence_voided_at=clock_timestamp() WHERE id=${third}`);
 	assert.equal(await held(), 2);
 	await f.admin.execute(sql`UPDATE meeting SET status='planning',actual_occurrence_at=NULL WHERE id=${second}`);
@@ -446,12 +433,10 @@ test("AC:CASE-NTF-009 completing a milestone tells each other Owner and Admin on
 		assert.equal(n.purpose, "launch_milestone");
 		assert.match(n.title, /completed “Promotion plan chosen”/);
 	}
-	// The same request replays its answer; a new save of the same completion is a no-op. Neither tells anyone again.
 	assert.equal(ok(await complete(c.owner, promo, key)).outcome, "changed");
 	const now = milestone(await plan(c.owner), "promotion.plan");
 	assert.equal(ok(await complete(c.owner, now)).outcome, "noop");
 	assert.equal((await notices()).length, 2);
-	// Turning the Launch notification off stops the in-app notice for that person.
 	ok(await reopen(c.owner, now));
 	await f.admin
 		.execute(sql`INSERT INTO notification_preference(account_id,category,channel,enabled,unsubscribe_revision)

@@ -9,9 +9,6 @@ import type { GeographyReference } from "./profile.ts";
 import { profileOperations } from "./profile.ts";
 import { relationshipCommands } from "./relationships.ts";
 import { sharingOperations } from "./sharing.ts";
-// Native server adapter. Call inside one transaction; errors must roll it back.
-// Required collaborators persist their intents on this exact connection. They
-// cannot call providers here. Evry's reviewed admission remains its adapter's job.
 export function createOrganizationAdapter(
 	effects: OrganizationEffects,
 	geography: GeographyReference,
@@ -26,7 +23,19 @@ export function createOrganizationAdapter(
 }
 export { readAnswerableInvitation } from "./relationships.ts";
 export { readPlantSharing, readSharingDisclosure } from "./sharing.ts";
-export { milestone, milestoneCategory, planMilestoneNotice, relationshipMailGrants } from "./notifications.ts";
+export {
+	milestone,
+	milestoneCategory,
+	planMilestoneNotice,
+	planResidencyNotice,
+	planReviewNotice,
+	relationshipMailGrants,
+	residencyCategory,
+	residencyJobOf,
+	residencyMailGrants,
+	reviewJobOf,
+	reviewMailGrants,
+} from "./notifications.ts";
 export type { GeographyReference, OrganizationEffects, RelationshipNotice };
 
 export { idsIn, namesFor, pairOf, pendingFor, residencyLinks, subjectFacts, targetsFor } from "./reads.ts";
@@ -44,3 +53,5 @@ export {
 export { geographyReference, installGeographyRelease, readReportingLocation, suggestRegions } from "./geography.ts";
 export { pipelineDataWriter, readPipelineExport } from "./data.ts";
 export { readMyResidency, readResidentReading, residentWriter } from "./residency.ts";
+export { pipelineImportWriter, previewPipelineImport } from "./import.ts";
+export { readAnswerReview, readAnswerReviews, reviewWriter } from "./reviews.ts";

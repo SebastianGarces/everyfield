@@ -62,19 +62,15 @@ import {
 import { actorName, EntryFacts, LastContact, OutcomeBadge, useOpener } from "./parts.tsx";
 import {
 	DialogNotice,
-	focusFirstProblem,
 	NoticeInDialog,
 	SaveButton,
 	SaveNotice,
+	useProblemFocus,
 	useSaveIntent,
 	type SaveIntent,
 } from "../../components/save/parts.tsx";
 import type { PersonFollowUps } from "./server.ts";
 
-/**
- * The Person page's follow-up part (REQ-MTG-021, REQ-MTG-022, REQ-PPL-022, REQ-TSK-012): their open follow-ups with
- * owners, their Vision follow-ups with the 48-hour result, and the contact log. Each card has its own save lane.
- */
 export function PersonFollowUps({
 	initial,
 	person,
@@ -86,7 +82,6 @@ export function PersonFollowUps({
 	person: { id: string; label: string };
 	accountId: string;
 	admin: boolean;
-	/** The person is live; a retired person keeps their history and takes no new follow-up or outcome. */
 	live: boolean;
 }) {
 	return (
@@ -133,10 +128,6 @@ function FollowUpsCard({
 		(items) => setObligations((all) => [...all, ...items.filter((x) => !all.some((y) => y.id === x.id))]),
 	);
 	const change = (d: DutyItem) => setDuties((all) => all.map((x) => (x.taskId === d.taskId ? d : x)));
-	/**
-	 * After a refusal because a follow-up was out of date: both lists start again from their first page as the server has
-	 * them now, each with its own "Show more" position, so nothing loaded earlier is shown stale or skipped (C58 rule 6).
-	 */
 	async function reload() {
 		const r = await loadPersonFollowUps(person.id);
 		if (r.status !== "ok") return;
@@ -306,7 +297,6 @@ function ContactLogCard({
 					}
 				: l,
 		);
-	/** The log again from its first page, after a refusal because it was out of date. Returns the fresh entries. */
 	async function reload(): Promise<OutcomeItem[] | null> {
 		const r = await loadHistory(person.id, 1);
 		if (r.status !== "ok") return null;
@@ -464,11 +454,6 @@ function ContactLogCard({
 
 const TITLE = { record: "Record a contact", correct: "Correct this entry", withdraw: "Withdraw this entry" } as const;
 
-/**
- * Record a contact with no follow-up task, correct an entry or withdraw it (REQ-MTG-022). A correction or withdrawal
- * needs a reason and keeps the earlier entry in the log. The form keeps its answers while it saves, after a refusal and
- * after a reload because the entry changed; the save's notice is inside the dialog.
- */
 function OutcomeDialog({
 	editing,
 	personId,
@@ -480,7 +465,6 @@ function OutcomeDialog({
 	returnFocus,
 }: {
 	editing: Editing;
-	/** Focus back to the button that opened the dialog, or its menu's button (useOpener). */
 	returnFocus: (e: Event) => void;
 	personId: string;
 	first: string;
@@ -492,12 +476,13 @@ function OutcomeDialog({
 	const [draft, setDraft] = useState<Draft>(() => (editing.kind === "correct" ? draftOf(editing.item) : emptyDraft()));
 	const [reason, setReason] = useState("");
 	const [errors, setErrors] = useState<DraftErrors & { reason?: string }>({});
+	const [focusProblem, refuseProblem] = useProblemFocus();
 	const outcomes =
 		editing.kind === "correct" && editing.item.taskId !== null
 			? OUTCOMES
 			: OUTCOMES.filter((o) => o !== "no_longer_needed");
 
-	async function submit(form: HTMLFormElement) {
+	async function submit() {
 		const why = editing.kind === "record" ? null : reasonOf(reason);
 		const parsed = editing.kind === "withdraw" ? null : outcomeInput(draft, { completable: false });
 		const next: typeof errors = {
@@ -505,7 +490,7 @@ function OutcomeDialog({
 			...(why && !why.ok ? { reason: why.error } : {}),
 		};
 		setErrors(next);
-		if (Object.keys(next).length) return focusFirstProblem(form);
+		if (Object.keys(next).length) return refuseProblem();
 		const reasonText = why?.ok ? why.reason : "";
 		let send: (key: string) => Promise<Awaited<ReturnType<typeof recordOutcome>>>;
 		if (editing.kind === "record") {
@@ -550,11 +535,12 @@ function OutcomeDialog({
 			<Dialog open onOpenChange={(open) => !open && onClose()}>
 				<DialogContent size="md" onCloseAutoFocus={returnFocus}>
 					<form
+						ref={focusProblem}
 						noValidate
 						className="contents"
 						onSubmit={(e) => {
 							e.preventDefault();
-							if (!lane.wait) void submit(e.currentTarget);
+							if (!lane.wait) void submit();
 						}}
 					>
 						<DialogHeader
@@ -628,7 +614,6 @@ type More = {
 	more: () => void;
 	reset: (next: number | null) => void;
 };
-/** The next page of a list on "Show more": its items join the list once, and a failed read can be tried again. */
 function useMore<T>(
 	first: number | null,
 	load: (page: number) => Promise<Outcome<{ items: T[]; next: number | null }>>,
@@ -642,14 +627,12 @@ function useMore<T>(
 		setState("loading");
 		const started = generation.current;
 		const r = await load(next);
-		// A page that arrives after the list started again belongs to the old list: drop it.
 		if (started !== generation.current) return;
 		if (r.status !== "ok") return setState("failed");
 		add(r.value.items);
 		setNext(r.value.next);
 		setState("idle");
 	}
-	/** Starts the list again: its first page was just replaced, and `next` is that page's continuation. */
 	function reset(first: number | null) {
 		generation.current++;
 		setNext(first);

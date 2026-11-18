@@ -1,0 +1,68 @@
+export const APPLICATIONS: string[][] = [
+	[
+		"ID",
+		"Start time",
+		"Completion time",
+		"Email",
+		"Name",
+		"Full name",
+		"Email address",
+		"Phone number",
+		"Describe your calling",
+		"Spouse's name",
+		"Have you completed a background check?",
+		"Statement of faith",
+		"Ordination history",
+	],
+	[
+		"1",
+		"2026-10-03 14:02",
+		"2026-10-03 14:22",
+		"anonymous",
+		"",
+		"Jordan Reyes",
+		"jordan@example.test",
+		"512-555-0101",
+		"East Austin, among young families.\nWe have prayed about it for two years, together.",
+		"Maria Reyes",
+		"Yes, in 2025",
+		"I hold to the Apostles' Creed and the network's statement of faith.",
+		"Licensed at Grace Austin in 2022; ordination council planned for spring.",
+	],
+	[
+		"2",
+		"2026-10-05 09:10",
+		"2026-10-05 09:31",
+		"anonymous",
+		"",
+		"Sam Ortiz",
+		"Sam@Example.test",
+		"",
+		"Students near campus, starting with a dinner table",
+		"",
+		"No",
+		"The Nicene Creed",
+		"",
+	],
+	[
+		"3",
+		"2026-10-06 18:40",
+		"2026-10-06 18:55",
+		"anonymous",
+		"",
+		"Casey Lee",
+		"casey@example.test",
+		"512-555-0103",
+		"Ready to apprentice",
+		"Jo Lee",
+		"Yes",
+		"Affirmed with my home church",
+		"Ordained 2019",
+	],
+];
+export const V2_ORDER = [6, 5, 8, 10, 9, 12, 11, 7, 0, 3, 4, 1, 2];
+
+export function csvOf(rows: string[][]) {
+	const cell = (v: string) => (/[",\r\n]/.test(v) ? `"${v.replaceAll('"', '""').replaceAll("\n", "\r\n")}"` : v);
+	return "﻿" + rows.map((r) => r.map(cell).join(",") + "\r\n").join("");
+}

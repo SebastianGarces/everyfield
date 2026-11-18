@@ -3,12 +3,6 @@ import { randomUUID } from "node:crypto";
 import { dayText } from "../adapters/pipeline/reads/index.ts";
 import { PIPELINE_RULES } from "../context/compile.ts";
 
-// The scripted model's pipeline and program requests (WP-101), for local previews and tests only. It answers through
-// the same tools a model gets: it reads the pipeline as the user's Pipeline page shows it, drafts a program plan, and
-// proposes a stage move or a program that the user reviews. A request the tools never serve (logging a conversation,
-// reading notes, ranking people) gets the product's own reply from the system prompt (compile.ts), quoted only when the
-// prompt holds it, so the evals test the text the real model is given.
-
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind?: string; id: string; label: string; fields: Record<string, unknown> };
 type Output = Record<string, unknown> & { rows?: Row[]; facts?: Record<string, unknown> };
@@ -43,7 +37,77 @@ const MOVE =
 const DRAFT =
 	/\bdraft (?:a |an )?(\d{1,3})[- ]month (apprenticeship|residency)(?: program)? plan(?: with ([A-Z][a-z]+) as (?:the )?director)?/i;
 
-/** The pipeline answer for the user's seat: names by stage, or counts per stage only. */
+const NEXT = /\bdraft (?:a |the )?next version of (.+?)(?::\s*([\s\S]*))?$/i;
+const PUBLISH = /\b(?:publish|enroll|apply)\b.*\b(?:version|program|residency|apprenticeship|plan)\b/i;
+const SHOW_PROGRAM =
+	/\b(?:show(?: me)?|what(?:'s| is| does)|tell me about)\s+(?:about\s+)?(.*?\b(?:residency|apprenticeship|program))\b/i;
+const QUOTED = `["'\u2018\u201c]([^"'\u2019\u201d]+)["'\u2019\u201d]`;
+const RHYTHM_TEXT = { weekly: "weekly", every_two_weeks: "every two weeks", monthly: "monthly" } as const;
+type Rhythm = keyof typeof RHYTHM_TEXT;
+
+function programNamed(rows: Row[], hint: string) {
+	const words = hint
+		.toLowerCase()
+		.split(/[^a-z0-9-]+/)
+		.filter((w) => w && !["the", "our", "my", "a", "of", "program", "plan"].includes(w));
+	return rows.find((r) => words.every((w) => r.label.toLowerCase().includes(w) || r.fields.kind === w));
+}
+const ownerNamed = (hint: string) => /^(?:the )?([A-Z][\w-]*(?: [A-Z][\w-]*)*)'s\b/.exec(hint.trim())?.[1];
+
+function versionPlan(detail: Output, which: "published" | "draft") {
+	const facts = detail.facts ?? {};
+	const number = facts[`${which}Version`];
+	if (typeof number !== "number") return null;
+	const rows = (detail.rows ?? []).filter((r) => r.fields.version === number);
+	return {
+		number,
+		rhythm: facts[`${which}Rhythm`] as Rhythm,
+		expectedMonths: Number(facts[`${which}Months`]),
+		stages: rows
+			.filter((r) => r.fields.part === "stage")
+			.map((r) => ({ label: r.label, minMonths: Number(r.fields.minMonths), maxMonths: Number(r.fields.maxMonths) })),
+		milestones: rows
+			.filter((r) => r.fields.part === "milestone")
+			.map((r) => ({
+				lineage: r.fields.lineage as string | undefined,
+				title: r.label,
+				description: (r.fields.description ?? null) as string | null,
+				handsOn: r.fields.handsOn === true,
+			})),
+		readings: rows.filter((r) => r.fields.part === "reading").map((r) => r.label),
+	};
+}
+type Plan = NonNullable<ReturnType<typeof versionPlan>>;
+
+function edited(base: Plan, ask: string): Plan | null {
+	const plan: Plan = { ...base, milestones: [...base.milestones] };
+	let changed = false;
+	const rhythm = /\bmeet(?:s|ing)? (weekly|every week|every two weeks|every other week|monthly|every month)\b/i.exec(
+		ask,
+	)?.[1];
+	if (rhythm) {
+		const r = rhythm.toLowerCase();
+		plan.rhythm = /two|other/.test(r) ? "every_two_weeks" : /month/.test(r) ? "monthly" : "weekly";
+		changed = true;
+	}
+	for (const m of ask.matchAll(new RegExp(`\\brename (?:the )?milestone ${QUOTED} to ${QUOTED}`, "gi"))) {
+		plan.milestones = plan.milestones.map((x) => (x.title === m[1] ? { ...x, title: m[2]! } : x));
+		changed = true;
+	}
+	for (const m of ask.matchAll(new RegExp(`\\badd (?:a )?milestone ${QUOTED}`, "gi"))) {
+		plan.milestones = [...plan.milestones, { lineage: undefined, title: m[1]!, description: null, handsOn: false }];
+		changed = true;
+	}
+	return changed ? plan : null;
+}
+
+const planText = (plan: Plan, name?: string) =>
+	`${name ? `${name}: m` : "M"}eets ${RHYTHM_TEXT[plan.rhythm]} over ${plan.expectedMonths} months. Stages: ${plan.stages
+		.map((s) => `${s.label} (months ${s.minMonths}–${s.maxMonths})`)
+		.join(", ")}. Milestones:\n${plan.milestones.map((m, i) => `${i + 1}. ${m.title}`).join("\n")}\nReading list: ${
+		plan.readings.join("; ") || "none"
+	}.`;
+
 function boardText(out: Output) {
 	const facts = out.facts ?? {};
 	const rows = out.rows ?? [];
@@ -77,7 +141,6 @@ function staleText(out: Output) {
 	return `${head} How it was measured: ${String(facts.measured)}`;
 }
 
-/** A plan of `months` months: three stages over the length and five starter milestones. */
 function draft(months: number, kind: "apprenticeship" | "residency") {
 	const q = Math.max(1, Math.round(months / 4));
 	const t = Math.max(q, Math.round((3 * months) / 4));
@@ -105,7 +168,6 @@ const draftText = (plan: ReturnType<typeof draft>) =>
 		.map((s) => `${s.label} (months ${s.minMonths}–${s.maxMonths})`)
 		.join(", ")}. Milestones:\n${plan.milestones.map((m, i) => `${i + 1}. ${m.title}`).join("\n")}`;
 
-/** One step of a pipeline or program request, or null when it is none. */
 export function pipelineStep(options: LanguageModelV4CallOptions, text: string): LanguageModelV4Content[] | null {
 	const tools = JSON.stringify(options.tools ?? []);
 	const offers = (operation: string) => tools.includes(`"${operation}"`);
@@ -126,7 +188,12 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 
 	const drafted = DRAFT.exec(text);
 	const move = MOVE.exec(text);
+	const next = NEXT.exec(text);
+	const shown = SHOW_PROGRAM.exec(text);
 	if (!(
+		next ||
+		PUBLISH.test(text) ||
+		shown ||
 		LOG.test(text) ||
 		JUDGE.test(text) ||
 		drafted ||
@@ -138,7 +205,71 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 		return null;
 	if (last?.error) return say(`I couldn't do that (${String(last.error)}).`);
 
-	// Never in Evry: conversations, notes and milestones are logged in the app; notes and rankings are never read.
+	const programs = outputs.findLast((o) => o.operation === "development.readProgram" && !o.facts?.programId);
+	const detail = outputs.findLast((o) => o.operation === "development.readProgram" && o.facts?.programId);
+	const hint = next?.[1] ?? shown?.[1];
+	if (hint) {
+		if (typeof last?.proposalId === "string") {
+			const [card] = (last.rows ?? []) as Row[];
+			const plan = detail && edited((versionPlan(detail, "draft") ?? versionPlan(detail, "published"))!, text);
+			return say(
+				`Here is the plan for ${card?.label ?? "the next version"} of ${String(detail?.facts?.program)}. ${plan ? planText(plan) : ""}\n\nI prepared a review card that lists each change and what stays the same. Nothing is saved until you approve it, nothing is published, and only you publish it from Programs.`,
+			);
+		}
+		if (!programs) return call("pipeline_read", { operation: "development.readProgram", input: {} });
+		const owner = ownerNamed(hint);
+		if (owner && owner !== String(programs.facts?.organization)) return rule(PIPELINE_RULES.ownPrograms);
+		const program = programNamed(programs.rows ?? [], owner ? hint.slice(hint.indexOf("'s") + 2) : hint);
+		if (!program)
+			return say(
+				`${String(programs.facts?.organization ?? "Your organization")} has no program like that. Its programs: ${
+					(programs.rows ?? []).map((r) => r.label).join(", ") || "none yet"
+				}.`,
+			);
+		if (!detail)
+			return call("pipeline_read", { operation: "development.readProgram", input: { programId: program.id } });
+		const facts = detail.facts ?? {};
+		const published = versionPlan(detail, "published");
+		const draft = versionPlan(detail, "draft");
+		if (!next)
+			return say(
+				[
+					`${String(facts.program)}, directed by ${String(facts.director)}.`,
+					published ? `Version ${published.number}, published: ${planText(published)}` : "No version is published yet.",
+					draft ? `Draft of Version ${draft.number} in progress: ${planText(draft)}` : null,
+				]
+					.filter(Boolean)
+					.join("\n\n"),
+			);
+		if (facts.directedByYou !== true || !offers("development.draftNextVersion"))
+			return say(
+				`${quoted(PIPELINE_RULES.directorOnly)}${String(facts.program)} is directed by ${String(facts.director)}, so only ${String(facts.director)} edits its plan and I can't draft its next version for you. Nothing changed.`,
+			);
+		const base = (draft ?? published)!;
+		const plan = edited(base, next[2] ?? "");
+		if (!plan)
+			return say(
+				`What should change in the next version of ${String(facts.program)}? ${planText(base, draft ? `Draft of Version ${base.number}` : `Version ${base.number}`)}`,
+			);
+		return call("propose_change", {
+			operation: "development.draftNextVersion",
+			input: {
+				programId: facts.programId,
+				plan: {
+					rhythm: plan.rhythm,
+					expectedMonths: plan.expectedMonths,
+					stages: plan.stages,
+					milestones: plan.milestones.map((m) =>
+						m.lineage
+							? { lineage: m.lineage, title: m.title, description: m.description, handsOn: m.handsOn }
+							: { title: m.title },
+					),
+				},
+			},
+		});
+	}
+	if (PUBLISH.test(text)) return rule(PIPELINE_RULES.programNative);
+
 	if (LOG.test(text)) return rule(PIPELINE_RULES.nativeOnly);
 	if (JUDGE.test(text)) return rule(PIPELINE_RULES.noJudgment);
 
@@ -187,7 +318,6 @@ export function pipelineStep(options: LanguageModelV4CallOptions, text: string):
 		});
 	}
 
-	// Another organization's pipeline, or a person who may be in one: only this organization's own pipeline is read.
 	const other = OTHER_PIPELINE.exec(text)?.[1];
 	if (other && !/^(?:our|my)$/i.test(other)) {
 		if (!board) return readBoard();

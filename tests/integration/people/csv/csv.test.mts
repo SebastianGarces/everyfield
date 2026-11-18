@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
-import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
+import { runDueImports } from "../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import {
 	executeBulkImport,
 	listDuplicatePairs,
@@ -21,13 +21,10 @@ import {
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
 
-// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
-// here would be a bug.
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
 
-// People CSV import and export through their public operations on a scratch schema.
 const database = await fixture({ prefix: "wp013" });
 const { admin, schema } = database;
 const db = database.pools.runtime;
@@ -38,14 +35,12 @@ const plants = [database.tenant.id, (await database.plant()).id],
 		database.actors.member,
 		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
 	];
-// 0: plant A owner, 1: plant A member, 2: plant B admin.
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
 const rows = async (query) => (await admin.execute(query)).rows;
 const count = async (table) => (await rows(sql.raw(`SELECT count(*)::int n FROM ${table}`)))[0].n;
 const bytes = (text) => new TextEncoder().encode(text);
 const read = (who, body) => db.transaction((t) => body(t, ctx(who)));
 const actor = async (who = 0) => db.transaction((t) => RequestActor.resolve(t, actors[who].session));
-// A write as the web mount runs it: withPeopleWrite with the request's resolved actor (RT-3).
 const write = async (who, body) => withPeopleWrite(db, await actor(who), body);
 const preview = (text, who = 0) => read(who, (t, c) => csv.previewImport(t, c, { file: bytes(text) }));
 const header = "first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\n";
@@ -59,11 +54,8 @@ const submit = async (text, p, choices, requestKey = randomUUID(), who = 0) =>
 		reviewDigest: p.reviewDigest,
 		choices,
 	});
-// The web mount's worker: claim each due import job through the queue and run it.
-// The web mount's drain: recover expired leases, then claim and run each due import job.
 const drain = () => runDueImports(db, 10);
 const receiptOf = (requestKey, who = 0) => read(who, (t, c) => csv.getImportReceipt(t, c, { requestKey }));
-/** Submit, let the job run, and read the receipt, as the screen does. */
 const importFile = async (text, p, choices, requestKey = randomUUID(), who = 0) => {
 	const submitted = await submit(text, p, choices, requestKey, who);
 	if (submitted.status !== "ok") return submitted;
@@ -86,7 +78,6 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 	const template = csv.generateCsvTemplate();
 	assert.equal(template.text, header);
 
-	// The literal case file: BOM, CRLF, a quoted multiline note, doubled quotes and formula-looking text.
 	const file =
 		"﻿" +
 		header +
@@ -106,7 +97,6 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 	);
 	assert.deepEqual(p.columns, { used: [...header.trim().split(",")], ignored: [] });
 
-	// Existing and within-file duplicates are shown; preview never touches the existing Person.
 	const existing = await person("Mara Existing", { email: "Mara@Example.test" });
 	const dup = ok(await preview("first_name,email\r\nMara,mara@example.test\r\nMara,mara@example.test\r\n"));
 	assert.deepEqual(
@@ -118,7 +108,6 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 	);
 	assert.equal((await rows(sql`SELECT revision::int r FROM person WHERE id=${sql.param(existing.id)}`))[0].r, 1);
 
-	// Row problems are named per row; an export's extra columns are ignored, never imported.
 	const mixed = ok(
 		await preview(
 			"First_Name,last_name,email,status,tags\r\n,,a@example.test,leader,x\r\nAva,,bad-email,leader,x\r\nZed,,z@example.test\r\n",
@@ -153,7 +142,6 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 		"unsupported_file_content",
 	);
 
-	// INV-tenancy: only this church's Owner or Admin previews against its people.
 	refused(await preview(file, 1));
 	refused(
 		await db.transaction((t) =>
@@ -172,7 +160,6 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 });
 
 test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, survives a lost reply and resumes without duplicates", async () => {
-	// The literal case: Noah's row fails in the database before it commits; Mara and Lia are still saved.
 	const file =
 		"\ufeff" +
 		header +
@@ -198,12 +185,10 @@ test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, s
 	await failNoah(true);
 	let first;
 	try {
-		// The request saves the reviewed rows and returns at once; the job writes them.
 		const queued = ok(await submit(file, p, choices, requestKey));
 		assert.equal(queued.status, "in_progress");
 		assert.deepEqual(queued.remaining, [1, 2, 3]);
 		await drain();
-		// The reply is lost: the receipt read afterwards still names the failed row and why.
 		first = ok(await receiptOf(requestKey));
 	} finally {
 		await failNoah(false);
@@ -218,13 +203,11 @@ test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, s
 	assert.deepEqual(first.counts, { created: 2, skipped: 0, failed: 1, remaining: 1 });
 	assert.equal(await count("person"), peopleBefore + 2);
 
-	// A changed review under the same key is refused; the same request again only answers the receipt.
 	refused(
 		await submit(file, p, [{ row: 1, choice: "skip" }, ...choices.slice(1)], requestKey),
 		"review_digest_conflict",
 	);
 	assert.deepEqual(ok(await submit(file, p, choices, requestKey)), first);
-	// "Try 1 row again" from the server's kept copy retries only the unfinished row.
 	const again = ok(await retryStoredImport(db, null, await actor(), { requestKey }));
 	assert.equal(again.status, "in_progress");
 	assert.deepEqual(outcome(again), [
@@ -243,12 +226,10 @@ test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, s
 	await drain();
 	assert.equal(await count("person"), peopleBefore + 3);
 	assert.equal(await count("job WHERE kind='people_import' AND state='ready'"), 0);
-	// A finished import keeps no copy of the uploaded file.
 	assert.deepEqual(await rows(sql`SELECT upload FROM person_import WHERE id=${sql.param(retry.importId)}`), [
 		{ upload: null },
 	]);
 
-	// The people hold the file's exact text, as Persons created by hand would: prospect, unknown classification.
 	const saved = await rows(
 		sql`SELECT display_name,notes,source,stage,adult_classification,commitment_state FROM person WHERE id=ANY(${sql.param(retry.rows.map((r) => r.personId))}::uuid[]) ORDER BY created_at`,
 	);
@@ -258,7 +239,6 @@ test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, s
 		{ display_name: "Lia", notes: "=1+1", source: "website", ...plain },
 		{ display_name: "Noah", notes: 'He said "hello"', source: "other", ...plain },
 	]);
-	// One people.created history entry per Person, tied to the import, with no contact values.
 	assert.deepEqual(
 		await rows(
 			sql`SELECT after_value, metadata FROM audit_event WHERE command_id=${sql.param(retry.importId)} AND action='people.created' ORDER BY (metadata->'import'->>'row')::int`,
@@ -266,7 +246,6 @@ test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, s
 		[1, 2, 3].map((row) => ({ after_value: { stage: "prospect" }, metadata: { import: { row } } })),
 	);
 
-	// A large import: one failing row among 1,201 fails alone, across 500-row batches.
 	const filler = (i) => `Bulk${i},Import,bulk.import${i}@example.test,,,,,,,,,\r\n`;
 	const large =
 		header +
@@ -289,12 +268,10 @@ test("AC:TARGET-PPL-018 INV-lost-reply a partial import names its failed rows, s
 	}
 	assert.deepEqual(big.remaining, [600]);
 	assert.deepEqual(big.counts, { created: 1200, skipped: 0, failed: 1, remaining: 1 });
-	// The import keeps why each row failed, as the database named it, without the row's values.
 	assert.deepEqual(await rows(sql`SELECT failed FROM person_import WHERE id=${sql.param(big.importId)}`), [
 		{ failed: [{ row: 600, reason: "row_write_failed", code: "P0001", constraint: null }] },
 	]);
 
-	// A failure that is not the row's own, such as a serialization failure, fails no row: the job tries again later.
 	const transient = header + "Tara,,tara@example.test,,,,,,,,,\r\nUli,,uli@example.test,,,,,,,,,\r\n";
 	const tp = ok(await preview(transient)),
 		transientKey = randomUUID();
@@ -339,7 +316,6 @@ test("AC:TARGET-PPL-018 INV-jobs an import whose worker loses its lease resumes 
 	const requestKey = randomUUID(),
 		peopleBefore = await count("person");
 	ok(await submit(file, p, choose(p), requestKey));
-	// The lease expires as the first 500 rows commit, as when a worker stalls past its lease.
 	await admin.execute(
 		sql.raw(`CREATE FUNCTION ${schema}.expire_lease() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
  IF NEW.email='lease500@example.test' THEN UPDATE ${schema}.job SET lease_until=clock_timestamp()-interval '1 second'
@@ -357,7 +333,6 @@ test("AC:TARGET-PPL-018 INV-jobs an import whose worker loses its lease resumes 
 	}
 	assert.equal(await count("person"), peopleBefore + 500);
 	assert.equal(ok(await receiptOf(requestKey)).status, "in_progress");
-	// The drain returns the expired lease to the queue; the job waits for the queue's retry delay, then resumes.
 	await drain();
 	assert.equal(await count("person"), peopleBefore + 500);
 	await admin.execute(
@@ -368,8 +343,6 @@ test("AC:TARGET-PPL-018 INV-jobs an import whose worker loses its lease resumes 
 	assert.equal(done.status, "complete");
 	assert.deepEqual(done.counts, { created: 1001, skipped: 0, failed: 0, remaining: 0 });
 	assert.equal(await count("person"), peopleBefore + 1001);
-	// BUG-551 (people/peo-6): the directory lists an import in file order, by each Person's created_at. Within one run
-	// that holds across batches of 500: the resumed run wrote rows 501 to 1000, then row 1001 in a batch of its own.
 	const at = new Map(
 		(
 			await rows(
@@ -395,7 +368,6 @@ test("AC:TARGET-PPL-018 INV-jobs an import on its last attempt that saved progre
 	const requestKey = randomUUID(),
 		peopleBefore = await count("person");
 	ok(await submit(file, p, choose(p), requestKey));
-	// Three rows the database refuses (P0001) in the first batch, and one transient failure (40001) in the second.
 	await admin.execute(
 		sql.raw(`CREATE FUNCTION ${schema}.budget_faults() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
  IF NEW.first_name LIKE 'Refused%' THEN RAISE EXCEPTION 'refused'; END IF;
@@ -409,10 +381,8 @@ test("AC:TARGET-PPL-018 INV-jobs an import on its last attempt that saved progre
 			)
 		)[0];
 	try {
-		// Three attempts are already spent: the run claims the last one.
 		await admin.execute(sql`UPDATE job SET attempt_count=3 WHERE kind='people_import' AND state='ready'`);
 		await drain();
-		// The first batch saved its three failed rows, which starts a fresh budget, so the transient error waits.
 		assert.deepEqual(await job(), { state: "retry_wait", attempt_count: 0, error_code: "import_interrupted" });
 		assert.equal(await count("person"), peopleBefore + 497);
 	} finally {
@@ -477,7 +447,6 @@ test("AC:TARGET-PPL-018 INV-tenancy BUG-PR198 an import saves exactly the review
 			[5, "failed", "invalid"],
 		],
 	);
-	// A review pair names the existing Person, or the earlier row's new Person; nothing existing is overwritten.
 	assert.equal(rae.reviewWith, existing.id);
 	assert.equal(sam1.reviewWith, null);
 	assert.equal(sam2.reviewWith, sam1.personId);
@@ -492,11 +461,8 @@ test("AC:TARGET-PPL-018 INV-tenancy BUG-PR198 an import saves exactly the review
 		),
 		[{ m: { row: 3, reviewWith: sam1.personId } }],
 	);
-	// Another church's Admin cannot read the receipt.
 	refused(await read(2, (t, c) => csv.getImportReceipt(t, c, { requestKey: randomUUID() })));
 
-	// INV-revocation: the import holds the importer's seat like every other write. A seat that ends while the import
-	// waits for it refuses the import, and nothing is queued.
 	const late = "first_name\r\nLate\r\n",
 		lp = ok(await preview(late)),
 		lateKey = randomUUID();
@@ -518,7 +484,6 @@ test("AC:TARGET-PPL-018 INV-tenancy BUG-PR198 an import saves exactly the review
 		choose(lp, () => "create"),
 		lateKey,
 	);
-	// Release the seat once the import waits on it.
 	await waitingOnLock(db);
 	release();
 	await holder;
@@ -543,7 +508,6 @@ test("AC:TARGET-PPL-018 a repeat of a skipped row has nothing to review against:
 	);
 	const peopleBefore = await count("person"),
 		importsBefore = await count("person_import");
-	// The review screen hides "Add, review later" here; the server still refuses it and writes nothing.
 	refused(
 		await importFile(file, p, [
 			{ row: 1, choice: "skip" },
@@ -579,7 +543,6 @@ test("AC:TARGET-PPL-018 each review-later row is a pair to review until a merge 
 	await person(`Ross ${tag}`, { email: `ross-${tag}@example.test` });
 	await person(`Uma ${tag}`, { email: `uma-${tag}@example.test` });
 	const quinOther = await person(`Quin Other ${tag}`);
-	// Rows 1 and 2 match existing people, row 5 repeats row 4; Ross is added new and Uma skipped, so neither pairs.
 	const file =
 		`first_name,last_name,email\r\nPia,Imported,pia-${tag}@example.test\r\nQuin,Imported,quin-${tag}@example.test\r\n` +
 		`Ross,Imported,ross-${tag}@example.test\r\nTess,One,tess-${tag}@example.test\r\nTess,Two,tess-${tag}@example.test\r\n` +
@@ -598,18 +561,15 @@ test("AC:TARGET-PPL-018 each review-later row is a pair to review until a merge 
 	);
 	const id = (row) => receipt.rows.find((r) => r.row === row).personId;
 	const fresh = async (who = 0) => (await pairs(who)).items.filter((x) => !before.has(x.person.id));
-	// The read uses the import's own audit rows: no backfill or migration step runs between the import and the list.
 	assert.deepEqual(await fresh(), [
 		{ person: { id: id(1), displayName: "Pia Imported" }, with: { id: pia.id, displayName: `Pia ${tag}` } },
 		{ person: { id: id(2), displayName: "Quin Imported" }, with: { id: quin.id, displayName: `Quin ${tag}` } },
 		{ person: { id: id(5), displayName: "Tess Two" }, with: { id: id(4), displayName: "Tess One" } },
 	]);
 
-	// INV-tenancy: another church's Admin sees none of them, and a Member of this church is refused.
 	assert.deepEqual((await pairs(2)).items, []);
 	refused(await read(1, (t, c) => listDuplicatePairs(t, c)));
 
-	// A merge of the pair, or of either one into someone else, removes it; so does retiring either one.
 	const merge = async (sourceId, survivorId) => {
 		const r = ok(await read(0, (t, c) => peopleMerge.getMergeReview(t, c, { sourceId, survivorId })));
 		ok(
@@ -738,7 +698,6 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 		"created_at",
 	];
 
-	// Every directory filter, and all-selected-tags AND, gives the same people in the same order as the directory.
 	const filterSets = [
 		{},
 		{ stages: ["leader"] },
@@ -759,7 +718,6 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 		const directory = [];
 		for (let page = 1; ; page++) {
 			const result = ok(await read(0, (t, c) => peopleReader.listPeople(t, c, { ...filters, page, limit: 100 })));
-			// The export names a person with no stored name part by the display name's first word and the rest.
 			directory.push(
 				...result.items.map((p) =>
 					p.firstName === null && p.lastName === null
@@ -784,7 +742,6 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 	assert.equal(empty.receipt.returned, 0);
 	assert.equal(empty.receipt.filters.search, "nobody-matches");
 
-	// Exact cells: RFC 4180 quoting, formula neutralization, semicolon tags and the UTC creation instant.
 	const [, ...all] = parseCsv(ok(await exported({ tags: [choir.id] })).text);
 	const created = (p) => p.createdAt.replace(/(\.\d{3})?Z$/, (m, ms) => (ms ?? ".000") + "Z");
 	assert.deepEqual(all, [
@@ -826,11 +783,9 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 	const raw = ok(await exported({ tags: [choir.id] })).text;
 	assert.ok(raw.includes('"O""Neil, Jr"'));
 	assert.ok(raw.includes('"Line one\nLine two"'));
-	// A retired Person leaves the default export but stays in its history.
 	assert.ok(!raw.includes("Retired"));
 	assert.ok(ok(await exported({ archived: "only" })).text.includes("Retired,Person"));
 
-	// More rows than a directory page come out in one file.
 	const many =
 		"first_name,email\r\n" + Array.from({ length: 150 }, (_, i) => `Many${i},many${i}@example.test\r\n`).join("");
 	const p = ok(await preview(many));
@@ -839,8 +794,6 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 	assert.equal(big.receipt.returned, 150);
 	assert.equal(parseCsv(big.text).length, 151);
 
-	// INV-tenancy: a Member exports what the directory shows them; another church's Admin and an organization context
-	// get none of this church's people.
 	assert.equal(ok(await exported({}, 1)).text, ok(await exported({})).text);
 	const foreign = ok(await exported({}, 2));
 	assert.equal(foreign.receipt.returned, 0);
@@ -854,7 +807,6 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 			csv.exportPeople(t, { session: actors[0].session, selected: { kind: "organization", id: randomUUID() } }, {}),
 		),
 	);
-	// A seat that ends after the request resolved its actor exports nothing.
 	const owner = await actor(0);
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[0].id)}`);
 	try {
@@ -885,7 +837,6 @@ test("AC:TARGET-PPL-019 BUG-1096833c2 the export derives first_name and last_nam
 	assert.deepEqual(cells("Robert,"), ["Robert", "Lee"]);
 	assert.deepEqual(cells("Umaya,"), ["Umaya", ""]);
 	assert.deepEqual(cells("'=cmd,"), ["'=cmd", "Smith"]);
-	// Criterion 8: nothing is written back.
 	const stored = await rows(
 		sql`SELECT display_name,first_name,last_name FROM person WHERE id IN (${sql.join(
 			[maria, mary, grace, formula].map((p) => sql`${p.id}::uuid`),
@@ -894,7 +845,6 @@ test("AC:TARGET-PPL-019 BUG-1096833c2 the export derives first_name and last_nam
 	);
 	assert.equal(stored.length, 4);
 	for (const r of stored) assert.deepEqual([r.first_name, r.last_name], [null, null], r.display_name);
-	// Criterion 10: the exported file previews as the same display name.
 	const header = lines[0];
 	const p = ok(await preview(header + "\r\n" + mariaLine + "\r\n"));
 	assert.equal(p.rows.length, 1);
@@ -925,7 +875,6 @@ test("INV-session-lock: a CSV read takes no session lock: a sign-out never waits
 	for (const [name, run] of Object.entries(reads))
 		await read(0, async (t, c) => {
 			assert.equal((await run(t, c)).status, "ok", name);
-			// The read's transaction is still open.
 			try {
 				await admin.transaction(async (a) => {
 					await a.execute(sql`SET LOCAL lock_timeout='250ms'`);

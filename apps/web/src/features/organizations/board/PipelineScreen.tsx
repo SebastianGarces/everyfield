@@ -1,16 +1,17 @@
 "use client";
 
 import type { PipelineBoard, PipelineGoals } from "@everyfield/contracts/organizations";
-import { Edit02Icon, FileExportIcon, PlusSignIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
+import { Edit02Icon, FileExportIcon, FileImportIcon, PlusSignIcon, UserMultipleIcon } from "@hugeicons/core-free-icons";
 import { Button, EmptyState, PageHeader, SearchInput } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
-import { cn } from "@everyfield/ui/foundations";
+import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
 import { readBoard } from "./actions";
 import { GoalsArea } from "./GoalsArea";
-import { boardHref, formatDay, PIPELINE_PATH, plural } from "./model";
+import { formatPlainDate } from "../../../components/dates.ts";
+import { boardHref, PIPELINE_PATH, plural } from "./model";
 import { PersonDialog, type Saved } from "./PersonDialog";
 import { PipelineTabs } from "./PipelineTabs";
 import { StageEditor } from "./StageEditor";
@@ -19,39 +20,28 @@ import { ExportDialog } from "../data/ExportDialog";
 type Stage = PipelineBoard["stages"][number];
 type Card = Stage["people"][number];
 
-/**
- * The organization's Pipeline (REQ-MUL-008): one column per stage in the organization's order. Owners and Admins see
- * everyone and add people and edit stages; responsible staff see their own people; any other seat sees counts only.
- * The filters live in the address (D67). Moving a person happens on their record, with a reason. Above the board,
- * every seat sees the sending goals and conversation counts.
- */
 export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goals: PipelineGoals | null }) {
-	const [board, setBoard] = useState(initial);
-	const [seen, setSeen] = useState(initial);
-	// A new server read (another address) replaces local changes.
-	if (seen !== initial) {
-		setSeen(initial);
-		setBoard(initial);
-	}
-	const [adding, setAdding] = useState(false);
-	const [editingStages, setEditingStages] = useState(false);
-	const [exporting, setExporting] = useState(false);
+	const [local, setLocal] = useState<{ from: PipelineBoard; value: PipelineBoard } | null>(null);
+	const board = local?.from === initial ? local.value : initial;
+	const setBoard = (change: (b: PipelineBoard) => PipelineBoard) =>
+		setLocal((last) => ({ from: initial, value: change(last?.from === initial ? last.value : initial) }));
+	const [dialog, setDialog] = useState<"add" | "stages" | "export" | null>(null);
+	const dialogFor = (name: "add" | "stages" | "export") => (open: boolean) => setDialog(open ? name : null);
 	const router = useRouter();
 	const admin = board.audience === "administrator";
 	const { query } = board;
 	const total = board.stages.reduce((n, s) => n + s.count, 0);
 	const retiredView = query.view === "retired";
-	// Nobody in the pipeline yet, live or retired: the board says so first and offers a way to add someone.
 	const empty = admin && !retiredView && total === 0 && board.retiredCount === 0 && !query.q && !query.stale;
 
 	async function reread() {
 		const answer = await readBoard(query).catch(() => null);
-		if (answer?.status === "ok") setBoard(answer.value);
+		if (answer?.status === "ok") setBoard(() => answer.value);
 		else router.refresh();
 	}
 
 	const added = (person: Saved) => {
-		setAdding(false);
+		setDialog(null);
 		const responsible = board.staff.find((s) => s.seatId === person.responsibleSeatId);
 		const card: Card = {
 			personId: person.personId as Card["personId"],
@@ -84,16 +74,22 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 				actions={
 					admin ? (
 						<>
-							<Button variant="secondary" icon={FileExportIcon} onClick={() => setExporting(true)}>
+							<Button variant="secondary" asChild>
+								<Link href={`${PIPELINE_PATH}/import`}>
+									<Icon icon={FileImportIcon} size={18} />
+									Import
+								</Link>
+							</Button>
+							<Button variant="secondary" icon={FileExportIcon} onClick={() => setDialog("export")}>
 								Export
 							</Button>
 							<Button variant="secondary" asChild>
 								<Link href={`${PIPELINE_PATH}/duplicates`}>Possible duplicates</Link>
 							</Button>
-							<Button variant="secondary" icon={Edit02Icon} onClick={() => setEditingStages(true)}>
+							<Button variant="secondary" icon={Edit02Icon} onClick={() => setDialog("stages")}>
 								Edit stages
 							</Button>
-							<Button variant="primary" icon={PlusSignIcon} onClick={() => setAdding(true)}>
+							<Button variant="primary" icon={PlusSignIcon} onClick={() => setDialog("add")}>
 								Add person
 							</Button>
 						</>
@@ -115,7 +111,7 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 								icon={UserMultipleIcon}
 								title="No one in your pipeline yet"
 								action={
-									<Button variant="primary" icon={PlusSignIcon} onClick={() => setAdding(true)}>
+									<Button variant="primary" icon={PlusSignIcon} onClick={() => setDialog("add")}>
 										Add person
 									</Button>
 								}
@@ -135,19 +131,19 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 			{admin ? (
 				<>
 					<PersonDialog
-						open={adding}
-						onOpenChange={setAdding}
+						open={dialog === "add"}
+						onOpenChange={dialogFor("add")}
 						staff={board.staff}
 						stages={board.stages}
 						onSaved={added}
 					/>
-					<ExportDialog open={exporting} onOpenChange={setExporting} />
+					<ExportDialog open={dialog === "export"} onOpenChange={dialogFor("export")} />
 					<StageEditor
-						open={editingStages}
-						onOpenChange={setEditingStages}
+						open={dialog === "stages"}
+						onOpenChange={dialogFor("stages")}
 						stages={board.stages}
 						onSaved={() => {
-							setEditingStages(false);
+							setDialog(null);
 							void reread();
 						}}
 					/>
@@ -157,7 +153,6 @@ export function PipelineScreen({ initial, goals }: { initial: PipelineBoard; goa
 	);
 }
 
-/** Search, the six-month filter with its as-of date, and Board or Retired for Owners and Admins. */
 function Toolbar({ board }: { board: PipelineBoard }) {
 	const { query } = board;
 	const router = useRouter();
@@ -186,14 +181,14 @@ function Toolbar({ board }: { board: PipelineBoard }) {
 					href={boardHref({ ...query, stale: !query.stale, page: 1 })}
 					aria-pressed={query.stale}
 					className={cn(
-						"inline-flex h-10 cursor-pointer items-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-[background-color,box-shadow] duration-150",
+						"inline-flex h-10 items-center gap-1.5 rounded-md px-3 text-sm font-medium whitespace-nowrap transition-[background-color,box-shadow] duration-150",
 						query.stale
 							? "bg-amber-100 text-amber-600 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-amber-500)_35%,transparent)]"
 							: "bg-surface-raised text-ink shadow-[inset_0_0_0_1px_var(--ef-line)] hover:shadow-[inset_0_0_0_1px_var(--ef-line-2)]",
 					)}
 				>
 					No stage move in 6 months
-					<span className={query.stale ? "text-amber-600" : "text-text-3"}>· as of {formatDay(board.asOf)}</span>
+					<span className={query.stale ? "text-amber-600" : "text-text-3"}>· as of {formatPlainDate(board.asOf)}</span>
 				</Link>
 			)}
 			{board.audience === "administrator" ? (
@@ -204,7 +199,7 @@ function Toolbar({ board }: { board: PipelineBoard }) {
 							href={boardHref({ view, stale: false, q: "", page: 1 })}
 							aria-current={query.view === view ? "page" : undefined}
 							className={cn(
-								"cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium",
+								"rounded-md px-3 py-1.5 text-sm font-medium",
 								query.view === view ? "bg-surface-raised text-ink shadow-raised" : "text-text-2 hover:text-ink",
 							)}
 						>
@@ -265,7 +260,7 @@ function PersonCard({ person, stage }: { person: Card; stage?: string }) {
 			<div className="min-w-0">
 				<Link
 					href={`${PIPELINE_PATH}/${person.personId}`}
-					className="block cursor-pointer truncate text-sm leading-[1.2] font-semibold text-ink after:absolute after:inset-0 after:rounded-card hover:underline"
+					className="block truncate text-sm leading-[1.2] font-semibold text-ink after:absolute after:inset-0 after:rounded-card hover:underline"
 				>
 					{person.name}
 				</Link>
@@ -274,13 +269,14 @@ function PersonCard({ person, stage }: { person: Card; stage?: string }) {
 						.filter(Boolean)
 						.join(" · ")}
 				</p>
-				{person.lastMovedOn ? <p className="text-xs text-text-3">Last move {formatDay(person.lastMovedOn)}</p> : null}
+				{person.lastMovedOn ? (
+					<p className="text-xs text-text-3">Last move {formatPlainDate(person.lastMovedOn)}</p>
+				) : null}
 			</div>
 		</article>
 	);
 }
 
-/** Owners and Admins find retired people here, with their stage and history kept. */
 function Retired({ board }: { board: PipelineBoard }) {
 	const people = board.stages.flatMap((s) => s.people.map((p) => ({ p, stage: s.label })));
 	if (!people.length)
@@ -300,7 +296,6 @@ function Retired({ board }: { board: PipelineBoard }) {
 	);
 }
 
-/** A seat with no pipeline duty sees how many people are at each stage, and nothing about who they are. */
 function Counts({ board }: { board: PipelineBoard }) {
 	return (
 		<>
@@ -327,10 +322,7 @@ function Pages({ board }: { board: PipelineBoard }) {
 	return (
 		<nav aria-label="Pages" className="mt-4 flex items-center justify-center gap-3 text-sm">
 			{query.page > 1 ? (
-				<Link
-					className="cursor-pointer font-medium text-ink underline"
-					href={boardHref({ ...query, page: query.page - 1 })}
-				>
+				<Link className="font-medium text-ink underline" href={boardHref({ ...query, page: query.page - 1 })}>
 					Previous
 				</Link>
 			) : null}
@@ -338,10 +330,7 @@ function Pages({ board }: { board: PipelineBoard }) {
 				Page {query.page} of {pages}
 			</span>
 			{query.page < pages ? (
-				<Link
-					className="cursor-pointer font-medium text-ink underline"
-					href={boardHref({ ...query, page: query.page + 1 })}
-				>
+				<Link className="font-medium text-ink underline" href={boardHref({ ...query, page: query.page + 1 })}>
 					Next
 				</Link>
 			) : null}

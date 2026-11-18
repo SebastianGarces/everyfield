@@ -15,11 +15,8 @@ import {
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { phaseNotices } from "../../../apps/web/src/server/phases/notices.ts";
+import { phaseNotices } from "../../../apps/web/src/features/phases/notices.ts";
 import { ok, refused } from "../../support/fixture.mts";
-
-// WP-038: the journey a church plant declares and moves through. Every write runs through the phase writer the
-// /intelligence actions call, on its own schema of the development or CI database.
 
 let f, writer, onboarding;
 let faultyNotices = false;
@@ -31,20 +28,17 @@ const declare = (who, phase, expectedRevision, requestKey = randomUUID()) =>
 const move = (who, toPhase, reason, expectedRevision, requestKey = randomUUID()) =>
 	writer.transition(f.db, who.actor, { requestKey, expectedRevision, input: { toPhase, reason } });
 const revisionOf = async (plant) => (await one(sql`SELECT revision::text AS r FROM plant WHERE id=${plant.id}`)).r;
-/** Every row a phase write could add, to prove a refusal wrote nothing. */
 const footprint = (plant) =>
 	one(sql`SELECT (SELECT count(*)::int FROM phase_transition WHERE plant_id=${plant.id}) transitions,
 		(SELECT count(*)::int FROM audit_event WHERE tenant_id=${plant.id}) audits,
 		(SELECT count(*)::int FROM notice) notices, (SELECT count(*)::int FROM job) jobs,
 		(SELECT phase FROM plant WHERE id=${plant.id}) phase, (SELECT revision::text FROM plant WHERE id=${plant.id}) revision`);
 
-/** An account with a seat in `w`, and its request actor. */
 async function seated(w, role) {
 	const a = await f.account();
 	await f.seat(a, w, role);
 	return { ...a, actor: await f.actor(a.session) };
 }
-/** A church plant created the way onboarding creates one: plant, Owner seat and its creation entry in one command. */
 async function church(name = "Harvest Point") {
 	const a = await f.account("pending_domain");
 	await f.admin.execute(sql`UPDATE account SET registration_kind='planter' WHERE id=${a.id}`);
@@ -57,13 +51,11 @@ async function church(name = "Harvest Point") {
 	const owner = { ...a, actor: await f.actor(a.session) };
 	return { plant: created.plant, owner, replayCreation: run };
 }
-/** A church at `phase`, moved there by its Owner. */
 async function churchAt(phase) {
 	const c = await church();
 	if (phase !== 1) ok(await move(c.owner, phase, "Setting up the test church", await revisionOf(c.plant)));
 	return c;
 }
-/** A sending church or network connected to the plant, with one Owner. */
 async function connect(plant, kind = "sending_church") {
 	const org = await f.workspace(kind);
 	const owner = await seated(org, "owner");
@@ -109,7 +101,6 @@ after(() => f?.close());
 
 test("AC:DC-021 AC:DC-027 AC:DC-029 AC:DC-031 AC:ROLE43-014 AC:DC-001 creation starts at Phase 1 with one creation entry and no 0→1 move", async () => {
 	const { plant, owner } = await church();
-	// No Discovery article was read: creation does not wait for it and invents no Phase 0.
 	assert.equal((await one(sql`SELECT count(*)::int n FROM reading WHERE account_id=${owner.id}`)).n, 0);
 	const h = ok(await history(owner));
 	assert.deepEqual(h.state, { phase: 1, revision: h.state.revision, declarable: true });
@@ -152,7 +143,6 @@ test("AC:PHASE-CASE-008 AC:B02-032 the catalog has seven phases and the 19 refer
 		catalog.phases.flatMap((p) => p.criteria.map((x) => x.key)),
 		[...CRITERION_KEYS],
 	);
-	// The methodology's software-only `playbook_checklist` row is the reference's readiness_milestones.
 	assert.deepEqual(
 		catalog.phases.flatMap((p) => p.criteria.filter((x) => x.softwareOnly).map((x) => [p.phase, x.key])),
 		[[4, "readiness_milestones"]],
@@ -172,7 +162,6 @@ test("AC:PHASE-CASE-004 readiness is an advisory conjunction: Unknown holds it b
 		return [r.verdict, r.ready, r.humanTransitionAllowed];
 	};
 	assert.deepEqual(verdict("met", "met", "met", "met", "met"), ["ready", true, true]);
-	// Four met and one Unknown: not ready, and the person may still move.
 	assert.deepEqual(verdict("met", "met", "met", "met", "unknown"), ["approaching", false, true]);
 	const r = readinessOf(phase1, cluster("met", "met", "met", "met", "unknown"));
 	assert.deepEqual(
@@ -182,7 +171,6 @@ test("AC:PHASE-CASE-004 readiness is an advisory conjunction: Unknown holds it b
 	assert.deepEqual(verdict("met", "not_met", "met", "met", "met"), ["approaching", false, true]);
 	assert.deepEqual(verdict("met", "not_met", "unknown", "met", "met"), ["not_ready", false, true]);
 	assert.deepEqual(verdict("unknown", "unknown", "unknown", "not_tracked", "unknown"), ["unknown", false, true]);
-	// Without a measured result every criterion reads Unknown and nothing is measured.
 	const catalog = await readCatalog();
 	const live = readReadiness(catalog, {});
 	assert.ok(live.every((x) => !x.measured && x.criteria.every((c) => c.status === "unknown")));
@@ -190,7 +178,6 @@ test("AC:PHASE-CASE-004 readiness is an advisory conjunction: Unknown holds it b
 		live.map((x) => x.verdict),
 		["unknown", "unknown", "unknown", "unknown", "unknown", "unknown", "terminal"],
 	);
-	// The measured facts (WP-040) fill each phase's own criteria; the rest stay Unknown.
 	const filled = readReadiness(catalog, {
 		committed_adults: "met",
 		financial_base: "not_met",
@@ -217,7 +204,6 @@ test("AC:PHASE-CASE-001 AC:DC-022 AC:DC-032 AC:TARGET-IDN-015 a declaration reco
 	const stored = await rows(
 		sql`SELECT kind,from_phase,to_phase,reason FROM phase_transition WHERE plant_id=${plant.id} ORDER BY occurred_at`,
 	);
-	// No synthesized entries for phases 1 and 2.
 	assert.deepEqual(stored, [
 		{ kind: "creation", from_phase: null, to_phase: 1, reason: "Plant created in EveryField." },
 		{ kind: "initial_declaration", from_phase: 1, to_phase: 3, reason: DECLARATION_REASON },
@@ -226,12 +212,10 @@ test("AC:PHASE-CASE-001 AC:DC-022 AC:DC-032 AC:TARGET-IDN-015 a declaration reco
 		ok(await history(owner)).entries.map((e) => e.kind),
 		["creation", "initial_declaration"],
 	);
-	// A second declaration, by anyone, is refused and changes nothing.
 	const before = await footprint(plant);
 	refused(await declare(admin, 4, d.state.revision), "already_declared");
 	refused(await declare(owner, 2, d.state.revision), "already_declared");
 	assert.deepEqual(await footprint(plant), before);
-	// Retrying the original creation replays it without demoting the declared phase.
 	ok(await replayCreation());
 	assert.equal((await one(sql`SELECT phase FROM plant WHERE id=${plant.id}`)).phase, 3);
 });
@@ -276,7 +260,6 @@ test("AC:DC-022 onboarding and the journey view share one declaration slot", asy
 			["initial_declaration", 1, 2],
 		],
 	);
-	// After a move, neither path may declare.
 	const other = await church();
 	const moved = ok(await move(other.owner, 2, "Launch team is forming", await revisionOf(other.plant)));
 	refused(await declare(other.owner, 4, moved.state.revision), "already_declared");
@@ -302,7 +285,6 @@ test("AC:PHASE-CASE-009 phases are integers 0 to 6, reasons are trimmed and the 
 	await reason("empty", "   \n\t ");
 	await reason("too_long", "x".repeat(2001));
 	await reason("reserved", `  ${DECLARATION_REASON}  `);
-	// A caller can name neither the kind nor the starting phase.
 	for (const input of [
 		{ toPhase: 2, reason: "Because", kind: "initial_declaration" },
 		{ toPhase: 2, reason: "Because", fromPhase: 0 },
@@ -361,13 +343,11 @@ test("AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, act
 				occurredAt: null,
 			},
 		);
-		// The move's time is the database's own, read back between two database clock reads around the call.
 		const at = Date.parse(r.entry.occurredAt);
 		assert.ok(at >= earliest && at <= latest, `${r.entry.occurredAt} outside the move`);
 		revision = r.state.revision;
 	}
 	const h = ok(await history(owner));
-	// Earlier entries are exactly as they were: a correction is a new entry, never an edit.
 	assert.deepEqual(h.entries.slice(0, start.length), start);
 	assert.deepEqual(
 		h.entries.slice(start.length).map((e) => [e.fromPhase, e.toPhase, e.direction]),
@@ -411,7 +391,6 @@ test("AC:PHASE-CASE-003 the same phase returns a noop receipt and changes nothin
 	assert.deepEqual(receipt.state, { phase: 3, revision: before.revision, declarable: false });
 	assert.deepEqual(ok(await move(owner, 3, "Checking where we are", before.revision, key)), receipt);
 	const after = await footprint(plant);
-	// One noop receipt row and its audit row; the phase, revision, notices and jobs are unchanged.
 	assert.deepEqual(after, { ...before, transitions: before.transitions + 1, audits: before.audits + 1 });
 	assert.deepEqual(
 		await rows(
@@ -420,7 +399,6 @@ test("AC:PHASE-CASE-003 the same phase returns a noop receipt and changes nothin
 		[{ id: receipt.receiptId, kind: "noop", from_phase: 3, to_phase: 3 }],
 	);
 	assert.deepEqual(ok(await history(owner)).entries, entries);
-	// The same key with another request is refused rather than replayed.
 	refused(await move(owner, 4, "Something else", before.revision, key), "idempotency_conflict");
 });
 
@@ -460,10 +438,8 @@ test("AC:CASE-NTF-009 a forward move notifies each connected organization once; 
 	const church1 = await connect(plant, "sending_church");
 	const network = await connect(plant, "sending_network");
 	let revision = await revisionOf(plant);
-	// A declaration is not an advance.
 	revision = ok(await declare(owner, 2, revision)).state.revision;
 	assert.deepEqual(await noticesFor(plant), []);
-	// A skip forward is an advance: one notice for each organization, owned by it, to its Owner.
 	const key = randomUUID();
 	const advance = ok(await move(owner, 4, "Training is complete", revision, key));
 	const first = await noticesFor(plant);
@@ -477,14 +453,11 @@ test("AC:CASE-NTF-009 a forward move notifies each connected organization once; 
 	const mails = await one(sql`SELECT count(*)::int n FROM mail m JOIN notice n ON n.id=m.notice_id
 		JOIN phase_transition t ON t.id=n.source_record_id WHERE t.plant_id=${plant.id}`);
 	assert.equal(mails.n, 2);
-	// A replay of the same move adds nothing.
 	assert.deepEqual(ok(await move(owner, 4, "Training is complete", revision, key)), advance);
 	assert.equal((await noticesFor(plant)).length, 2);
-	// A backward correction and a noop add nothing.
 	revision = ok(await move(owner, 3, "Pre-launch was too early", advance.state.revision)).state.revision;
 	ok(await move(owner, 3, "Still here", revision));
 	assert.equal((await noticesFor(plant)).length, 2);
-	// Ending one organization's link leaves the other organization's notice in place, and later advances reach it alone.
 	await f.admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE organization_id=${church1.org.id}`);
 	assert.ok((await noticesFor(plant)).every((n) => n.cancelled_at === null));
 	ok(await move(owner, 4, "Pre-launch for real", revision));
@@ -504,7 +477,6 @@ test("AC:PHASE-CASE-007 only a live Owner or Admin seat reads the journey or cha
 	refused(await move(member, 3, "Members cannot move it", revision), "access_denied");
 	assert.deepEqual(await footprint(plant), before);
 	assert.equal(ok(await history(admin)).entries.length, 1);
-	// The Admin's seat ends after the request read its actor: the next read returns no history body, and writes fail.
 	await f.admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${admin.id}`);
 	const gone = refused(await history(admin), "access_denied");
 	assert.deepEqual(gone.details, {});

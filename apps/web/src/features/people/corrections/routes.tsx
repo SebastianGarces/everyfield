@@ -3,7 +3,7 @@ import { buttonVariants, Card, IntentLink, PageHeader, StatePanel } from "@every
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { gate } from "../routes.tsx";
-import { canWrite } from "../../shared/seat-role.ts";
+import { canWrite } from "../../../components/seat-role.ts";
 import { read } from "../server.ts";
 import { DismissedPairs, DuplicatePairs } from "./DuplicatePairs.tsx";
 import { DuplicatesScreen } from "./DuplicatesScreen.tsx";
@@ -19,12 +19,6 @@ const dismissedCrumbs = [
 	{ label: "Dismissed" },
 ];
 
-/**
- * /people/duplicates?person=<id>&with=<id>[&keep=<id>]: one pair of possible duplicates, reviewed side by side.
- * Owners and Admins review and merge; a Member sees why the page is closed to them. Without a pair the page lists the
- * pairs CSV imports flagged with "Add, review later", each with Review and "Not a duplicate". ?view=dismissed lists the
- * pairs marked "Not a duplicate", each with Restore (D-790).
- */
 export async function DuplicatesPage({
 	searchParams,
 }: {

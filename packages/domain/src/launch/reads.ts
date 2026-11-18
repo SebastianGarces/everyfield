@@ -17,18 +17,10 @@ export const systemClock: Clock = { now: () => instant.parse(new Date().toISOStr
 const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 const TASK_COUNT = SEED.reduce((n, m) => n + m.taskKeys.length, 0);
 
-/**
- * A distinct practice actually held: a Pre-launch practice marked held, at or before now and not voided. The same
- * predicate as meetings.listCompletedPreLaunchPractices (REQ-KNOW-041 to 045). `plant` is an SQL plant id.
- */
 export const heldPractices = (plant: SQL) => sql`(SELECT count(*)::int FROM meeting x WHERE x.plant_id=${plant}
 	AND x.type='prelaunch_practice' AND x.status='completed' AND x.actual_occurrence_at<=clock_timestamp()
 	AND x.occurrence_voided_at IS NULL)`;
 
-/**
- * One milestone as JSON with its live linked tasks, in Playbook task order. Progress is read from the tasks each time,
- * never a stored counter (LCH-004). A completion needs review when a task that was complete at completion is open now.
- */
 export const milestoneJson = (m: string) => {
 	const r = sql.raw(m);
 	return sql`jsonb_build_object('id',${r}.id,'templateKey',${r}.template_key,'area',${r}.area,'title',${r}.title,
@@ -88,7 +80,6 @@ export function milestoneOf(raw: unknown, practices: number): c.Milestone {
 
 const personJson = (id: SQL) => sql`CASE WHEN ${id} IS NOT NULL THEN jsonb_build_object('accountId',${id},
 	'displayName',(SELECT i.display_name FROM seat_identity(${id}) i LIMIT 1)) END`;
-/** One debrief version as JSON: `d` is a launch_debrief row. */
 const debriefJson = (d: string) => {
 	const r = sql.raw(d);
 	return sql`jsonb_build_object('id',${r}.id,'version',${r}.version,'revision',${r}.revision::text,
@@ -98,13 +89,8 @@ const debriefJson = (d: string) => {
 	'savedAt',${iso(sql`${r}.saved_at`)},'savedBy',${personJson(sql`${r}.saved_by`)},
 	'submittedAt',${iso(sql`${r}.submitted_at`)},'submittedBy',${personJson(sql`${r}.submitted_by`)})`;
 };
-/** The live People named as guests: a retired or merged-away Person leaves the roster, and its link stays as history. */
 const rosterOf = (plant: SQL) => sql`launch_guest g JOIN person pe ON pe.id=g.person_id AND pe.tenant_id=g.plant_id
 	AND pe.state='live' WHERE g.plant_id=${plant}`;
-/**
- * What happened on Launch Sunday, as JSON columns (WP-046). `admin` is the reader's Owner or Admin condition: a Member
- * gets the outcome, the guest count and the evidence, never guest names, debrief answers or the summary.
- */
 const outcomeColumns = (plant: SQL, admin: SQL) => sql`${admin} AS admin,
 	(SELECT jsonb_build_object('actualDate',l.actual_date::text,'attendance',l.attendance,'decisions',l.decisions,
 		'note',l.outcome_note,'recordedAt',${iso(sql`l.outcome_recorded_at`)},'recordedBy',${personJson(sql`l.outcome_recorded_by`)})
@@ -123,11 +109,8 @@ const outcomeColumns = (plant: SQL, admin: SQL) => sql`${admin} AS admin,
 		'publishedAt',${iso(sql`s.published_at`)},'publishedBy',${personJson(sql`s.published_by`)}) ORDER BY s.version DESC),'[]')
 		FROM launch_summary s WHERE s.plant_id=${plant} AND s.published_at IS NOT NULL) END AS published`;
 
-/**
- * The plan as JSON columns of one statement: `plant` is an SQL plant id and `admin` the reader's Owner or Admin
- * condition (a writer passes true: only Owners and Admins write).
- */
 export const planColumns = (plant: SQL, admin: SQL) => sql`${outcomeColumns(plant, admin)},
+	${gatheringJson(plant)} AS gathering,
 	(SELECT timezone FROM plant WHERE id=${plant}) AS timezone,
 	(SELECT jsonb_build_object('status',l.status,'targetDate',l.target_date::text,'revision',l.revision::text)
 		FROM launch l WHERE l.plant_id=${plant}) AS launch,
@@ -137,7 +120,35 @@ export const planColumns = (plant: SQL, admin: SQL) => sql`${outcomeColumns(plan
 	(SELECT count(*)::int FROM launch_milestone m WHERE m.plant_id=${plant}) AS seeded_milestones,
 	(SELECT count(*)::int FROM task k WHERE k.plant_id=${plant} AND k.launch_task_key IS NOT NULL) AS seeded_tasks,
 	${preparationJson(plant, sql`true`)} AS preparation`;
-/** An account named on a row: null when the account has since been deleted. */
+export const offersTo = (o: string, plant: SQL) =>
+	sql`(${sql.raw(o)}.gathering_milestone_offered AND EXISTS(SELECT FROM affiliation k WHERE k.plant_id=${plant}
+		AND k.organization_id=${sql.raw(o)}.id AND ${linkActive("k")}))`;
+const gatheringJson = (plant: SQL) => sql`(SELECT jsonb_build_object('path',l.gathering_path,
+	'organizationId',l.gathering_organization_id,'organizationName',o.name,
+	'offered',CASE WHEN ${offersTo("o", plant)} THEN jsonb_build_object('name',o.gathering_milestone_name,
+		'description',o.gathering_milestone_description) END,
+	'reached',CASE WHEN l.gathering_reached_on IS NOT NULL THEN jsonb_build_object('name',l.gathering_reached_name,
+		'date',l.gathering_reached_on::text,'note',l.gathering_note) END)
+	FROM launch l LEFT JOIN organization o ON o.id=l.gathering_organization_id WHERE l.plant_id=${plant})`;
+const gatheringRow = z
+	.object({
+		path: z.enum(["launch_sunday", "milestone"]),
+		organizationId: z.uuid().nullable(),
+		organizationName: z.string().nullable(),
+		offered: z.unknown().nullable(),
+		reached: z.unknown().nullable(),
+	})
+	.nullable()
+	.transform((g): c.GatheringPath => {
+		if (!g || g.path === "launch_sunday") return { kind: "launch_sunday" };
+		return c.gatheringPath.parse({
+			kind: "milestone",
+			organizationId: g.organizationId,
+			organizationName: g.organizationName,
+			offered: g.offered,
+			reached: g.reached,
+		});
+	});
 const named = z
 	.object({ accountId: z.uuid(), displayName: z.string().nullable() })
 	.nullable()
@@ -173,6 +184,7 @@ const planRow = z.object({
 	summary_draft: z.unknown().nullable(),
 	published: z.array(z.unknown()).nullable(),
 	timezone: timeZone,
+	gathering: gatheringRow,
 	launch: z.object({ status: c.launchStatus, targetDate: z.string().nullable(), revision: z.string() }).nullable(),
 	milestones: z.array(z.unknown()),
 	practices: z.int(),
@@ -180,13 +192,13 @@ const planRow = z.object({
 	seeded_tasks: z.int(),
 	preparation: z.unknown(),
 });
-/** The plan from planColumns, and whether readiness needs repair: a dated plan missing seeded milestones or tasks. */
 export function planOf(raw: unknown, clock: Clock) {
 	const r = planRow.parse(raw);
 	const plan = c.plan.parse({
 		today: calendarContext(r.timezone, clock).localDate,
 		timeZone: r.timezone,
 		launch: r.launch,
+		path: r.gathering,
 		revision: r.launch?.revision ?? "1",
 		milestones: r.milestones.map((m) => milestoneOf(m, r.practices)),
 		outcome: r.outcome,
@@ -201,7 +213,6 @@ export function planOf(raw: unknown, clock: Clock) {
 	return { plan, repair: dated && incomplete };
 }
 
-/** The plan after a write, in the write's transaction. */
 export async function planAfter(tx: Transaction, scope: Scope, clock: Clock) {
 	const { rows } = await tx.execute(sql`SELECT ${planColumns(sql`${scope.plantId}::uuid`, sql`true`)}`);
 	return planOf(rows[0], clock).plan;
@@ -209,11 +220,6 @@ export async function planAfter(tx: Transaction, scope: Scope, clock: Clock) {
 
 export function createLaunchReader(clock: Clock = systemClock) {
 	return {
-		/**
-		 * launch.readPlan (LCH-001, LCH-008): the planned date, the church-local date today and the nine milestones with
-		 * their live prep tasks and the held-practice count. Any seat of the church reads it. One statement, gated by the
-		 * live seat (C13). `repair` says an Owner or Admin opening the plan should run launch.ensureReadiness.
-		 */
 		async readPlan(db: Pick<Database, "execute">, authority: RequestActor) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
@@ -224,10 +230,6 @@ export function createLaunchReader(clock: Clock = systemClock) {
 				return planOf(row, clock);
 			});
 		},
-		/**
-		 * launch.readJournal (LCH-002, LCH-010): every Launch change, newest first, with who made it and when. Owners and
-		 * Admins read it; one statement gated by their live seat. A deleted account reads as a former account.
-		 */
 		async readJournal(db: Pick<Database, "execute">, authority: RequestActor) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
@@ -253,10 +255,28 @@ export function createLaunchReader(clock: Clock = systemClock) {
 				return c.history.parse({ timeZone: r.timezone, entries: historyOf(r.entries ?? []) });
 			});
 		},
-		/**
-		 * The church's live People a typed guest name may be (LCH-007), for an Owner or Admin to pick from. A match is only
-		 * offered: nothing links or merges until the planter picks it. One statement with the live seat check.
-		 */
+		async readGatheringOffers(db: Pick<Database, "execute">, authority: RequestActor) {
+			return settle(async () => {
+				const scope = scopeOf(authority);
+				const p = sql`${scope.plantId}::uuid`;
+				const { rows } = await db.execute(sql`SELECT g.ok,x.* FROM (SELECT ${scope.admin} AS ok) g
+	LEFT JOIN LATERAL (SELECT o.id,o.name,o.gathering_milestone_name,o.gathering_milestone_description FROM organization o
+		WHERE g.ok AND ${offersTo("o", p)} ORDER BY o.name,o.id) x ON true`);
+				if (rows[0]?.ok !== true) deny("access_denied");
+				return rows.flatMap((r) =>
+					r.id
+						? [
+								c.gatheringOffer.parse({
+									organizationId: r.id,
+									organizationName: r.name,
+									name: r.gathering_milestone_name,
+									description: r.gathering_milestone_description,
+								}),
+							]
+						: [],
+				);
+			});
+		},
 		async suggestGuests(db: Pick<Database, "execute">, authority: RequestActor, query: string) {
 			return settle(async () => {
 				const scope = scopeOf(authority);
@@ -281,13 +301,6 @@ export function createLaunchReader(clock: Clock = systemClock) {
 				);
 			});
 		},
-		/**
-		 * The published Launch summary an organization may read (REQ-KNOW-112, REQ-KNOW-114, LAUNCH46-016): the latest
-		 * published version, only while this exact organization has a current link with Plant Intelligence findings shared
-		 * (`shared_findings`) and every source category the version draws on shared. It is readable from the moment it is
-		 * published; it never waits for an assessment release. Drafts, debrief answers and guest names are never read here.
-		 * Null for anything else, including an organization that may not read it. One statement with the live seat check.
-		 */
 		async readPublishedSummary(db: Pick<Database, "execute">, authority: RequestActor, plantId: string) {
 			const ctx = authority.actor.context;
 			if (ctx.kind !== "seat" || ctx.owner.kind !== "organization") return null;

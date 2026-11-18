@@ -16,7 +16,7 @@ import {
 import { DataTable, Pagination, StatusBadge, type Column } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import {
 	DEFAULT_QUERY,
 	isFiltered,
@@ -37,19 +37,16 @@ import {
 	type Window,
 } from "./model.ts";
 import { IntentLink, MeetingIcon, MeetingStatusBadge, RsvpBar } from "./parts.tsx";
-import { deletions, useDeleted } from "./deletions.ts";
-import { PlanMeetingDialog } from "./PlanMeetingDialog.tsx";
+import { deletions } from "./deletions.store.ts";
+import { PlanMeetingDialog, prefetchPlanReads } from "./PlanMeetingDialog.tsx";
 import { SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
+import { useStore } from "../../components/store.ts";
 import { VisionReport } from "./Report.tsx";
 import type { MeetingsView } from "./server.ts";
-import { VenuesSheet } from "./VenuesSheet.tsx";
+import { places as placeReads, VenuesSheet } from "./VenuesSheet.tsx";
 
 const ALL = "all";
 
-/**
- * The meetings list (REQ-MTG-001): every current meeting, newest first, with the window, type and status in the
- * address. A filter change goes back to page one. An empty filter says so and never claims there is no history.
- */
 export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrite: boolean }) {
 	const router = useRouter();
 	const pathname = usePathname();
@@ -58,9 +55,7 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 	const planLane = useSaveIntent({ explain: problemText });
 	const [places, setPlaces] = useState(false);
 	const { query, hasHistory, now } = view;
-	// A meeting deleted from its page leaves this list at once, while its delete is confirmed (deletions.ts).
-	const deleted = useDeleted();
-	useEffect(() => deletions.flush(), []);
+	const deleted = useStore(deletions, (s) => s.hidden);
 	const page = view.page && {
 		...view.page,
 		items: view.page.items.filter((m) => !deleted.has(m.id)),
@@ -72,7 +67,14 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 	const filter = (patch: Partial<MeetingsQuery>) => go({ ...query, ...patch, page: 1 });
 
 	const plan = canWrite ? (
-		<Button variant="primary" icon={CalendarAdd01Icon} onClick={() => setPlanning(true)}>
+		<Button
+			variant="primary"
+			icon={CalendarAdd01Icon}
+			onClick={() => {
+				prefetchPlanReads(false);
+				setPlanning(true);
+			}}
+		>
 			Plan a meeting
 		</Button>
 	) : null;
@@ -85,7 +87,14 @@ export function MeetingsScreen({ view, canWrite }: { view: MeetingsView; canWrit
 				subtitle="Vision meetings, orientations and pre-launch practices."
 				actions={
 					<>
-						<Button variant="secondary" icon={Location01Icon} onClick={() => setPlaces(true)}>
+						<Button
+							variant="secondary"
+							icon={Location01Icon}
+							onClick={() => {
+								placeReads.prefetch(false, "");
+								setPlaces(true);
+							}}
+						>
 							Places
 						</Button>
 						{plan}
@@ -248,10 +257,6 @@ function columns(thisYear: number, now: string): Column<Summary>[] {
 	];
 }
 
-/**
- * The next upcoming meeting, as the prototype's "Next" card: one link to the meeting page. Its name is the card's visible
- * text, so a voice-control user can say what they see (WCAG 2.5.3).
- */
 function NextMeeting({ meeting: m, now, thisYear }: { meeting: Summary; now: string; thisYear: number }) {
 	const until = untilText(m, now);
 	return (

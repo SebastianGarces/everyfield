@@ -1,30 +1,33 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, type SyntheticEvent } from "react";
 import { cn } from "../foundations";
 
-/**
- * An avatar's photo, laid over the initials in the same circle. The initials show until the photo has loaded, and a
- * photo that fails or is refused unmounts, so the circle keeps the initials with no broken-image icon and no change of
- * size. Give it `key={src}` so a new version starts over.
- */
-export function AvatarImage({ src }: { src: string }) {
-	const [state, setState] = useState<"loading" | "loaded" | "failed">("loading");
-	const ref = useRef<HTMLImageElement>(null);
-	// An image that settled before hydration fired no React event: a complete image with no pixels failed.
-	useEffect(() => {
-		const img = ref.current;
-		if (img?.complete) setState(img.naturalWidth > 0 ? "loaded" : "failed");
-	}, []);
+export type ImageSettled = "loaded" | "failed";
+
+const settledImages = new WeakSet<HTMLImageElement>();
+
+function replaySettledBeforeHydration(img: HTMLImageElement | null) {
+	if (img?.complete) img.dispatchEvent(new Event(img.naturalWidth > 0 ? "load" : "error"));
+}
+
+export function AvatarImage({ src, onSettled }: { src: string; onSettled?: (result: ImageSettled) => void }) {
+	const [state, setState] = useState<"loading" | ImageSettled>("loading");
+	const settle = (event: SyntheticEvent<HTMLImageElement>, result: ImageSettled) => {
+		if (settledImages.has(event.currentTarget)) return;
+		settledImages.add(event.currentTarget);
+		setState(result);
+		onSettled?.(result);
+	};
 	if (state === "failed") return null;
 	return (
 		<img
-			ref={ref}
+			ref={replaySettledBeforeHydration}
 			src={src}
 			alt=""
 			decoding="async"
-			onLoad={() => setState("loaded")}
-			onError={() => setState("failed")}
+			onLoad={(event) => settle(event, "loaded")}
+			onError={(event) => settle(event, "failed")}
 			className={cn("absolute inset-0 size-full bg-surface object-cover", state === "loading" && "opacity-0")}
 		/>
 	);

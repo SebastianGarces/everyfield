@@ -8,17 +8,10 @@ import type { EvryActor } from "../../../context/actor.ts";
 import { EvryRefusal } from "../../../context/errors.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
-// The phase and manual-signal reads (WP-073 over WP-038 and WP-039). Each calls the native read the phase journey and
-// the Attestations page use, under the actor's live authority. Only an Owner or Admin of the selected church reads
-// them: a Member's seat does not include the phase journey, and an organization or account context has no plant phase.
-// Private weekly check-ins have no adapter, and no read here touches private care.
-
-/** The Owner or Admin of the selected church, the floor of every phases.* and signals.* operation. */
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
-/** A refused native read: the seat ended or changed since the turn started. */
 function valueOf<T>(reply: Reply<T>): T {
 	if (reply.status === "ok") return reply.value;
 	throw new EvryRefusal(reply.error.code === "access_denied" ? "access_denied" : "source_unavailable");
@@ -34,14 +27,11 @@ const complete = (operation: string, rows: SourceRow[], exclusions: string[] = [
 	exclusions,
 });
 
-/** A phase's number and name, as the journey says it: "1 Core Group Development". */
 const phaseName = (catalog: c.Catalog, phase: number) => catalog.phases.find((p) => p.phase === phase)!.name;
-/** The church's calendar day of an instant: "2026-08-03". */
 const localDay = (at: string, zone: string) =>
 	new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
 		new Date(at),
 	);
-/** What a criterion's status means, in the words Evry must use: no measured data is never "not met". */
 export const STATUS_WORDS: Record<c.CriterionStatus, string> = {
 	met: "met",
 	not_met: "not met",
@@ -98,13 +88,10 @@ const readHistory: ReadAdapter<z.infer<typeof none>> = {
 				phase: String(h.state.phase),
 				since: latest ? localDay(latest.occurredAt, zone) : null,
 				timeZone: zone,
-				// True only while the church has neither declared its phase nor moved: phases.declare is then offered.
 				declarable: h.state.declarable,
 			},
 		};
-		// An entry is named by its place in the journey, which never changes: entries are only ever appended.
 		const entries: SourceRow[] = h.entries.map((e, n) =>
-			// Launch Sunday's recorded date is a journey entry of its own, as the phase journey shows it.
 			e.kind === "launch_sunday"
 				? {
 						kind: "phase",
@@ -120,20 +107,35 @@ const readHistory: ReadAdapter<z.infer<typeof none>> = {
 							on: e.actualDate,
 						},
 					}
-				: {
-						kind: "phase",
-						id: `entry:${n + 1}`,
-						label: phaseName(catalog, e.toPhase),
-						fields: {
-							entry: e.kind,
-							fromPhase: e.fromPhase === null ? null : phaseName(catalog, e.fromPhase),
-							toPhase: phaseName(catalog, e.toPhase),
-							direction: e.kind === "movement" ? e.direction : null,
-							reason: e.kind === "movement" ? e.reason : null,
-							by: e.actor?.displayName || null,
-							on: localDay(e.occurredAt, zone),
+				: e.kind === "gathering"
+					? {
+							kind: "phase",
+							id: `entry:${n + 1}`,
+							label: `${e.name} reached`,
+							fields: {
+								entry: e.kind,
+								fromPhase: null,
+								toPhase: null,
+								direction: null,
+								reason: null,
+								by: e.actor?.displayName || null,
+								on: e.reachedOn,
+							},
+						}
+					: {
+							kind: "phase",
+							id: `entry:${n + 1}`,
+							label: phaseName(catalog, e.toPhase),
+							fields: {
+								entry: e.kind,
+								fromPhase: e.fromPhase === null ? null : phaseName(catalog, e.fromPhase),
+								toPhase: phaseName(catalog, e.toPhase),
+								direction: e.kind === "movement" ? e.direction : null,
+								reason: e.kind === "movement" ? e.reason : null,
+								by: e.actor?.displayName || null,
+								on: localDay(e.occurredAt, zone),
+							},
 						},
-					},
 		);
 		return complete("phases.readHistory", [current, ...entries]);
 	},
@@ -149,7 +151,6 @@ const readReadinessAdapter: ReadAdapter<z.infer<typeof readinessInput>> = {
 	input: readinessInput,
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input) {
-		// The criteria the church's measured facts answer (WP-040), as the /intelligence page reads them.
 		const [history, catalog, measured] = await Promise.all([
 			phaseReader.readHistory(tx, actor.authority),
 			readCatalog(),
@@ -166,7 +167,6 @@ const readReadinessAdapter: ReadAdapter<z.infer<typeof readinessInput>> = {
 				phase: String(phase),
 				current: phase === h.state.phase,
 				terminal: readiness.verdict === "terminal",
-				// False while no criterion has a measured source: every status then reads "no data yet".
 				measured: readiness.measured,
 				next: phase < c.TERMINAL_PHASE ? phaseName(catalog, phase + 1) : null,
 			},
@@ -177,7 +177,6 @@ const readReadinessAdapter: ReadAdapter<z.infer<typeof readinessInput>> = {
 			label: x.label,
 			fields: { phase: String(phase), status: STATUS_WORDS[x.status] },
 		}));
-		// The verdict stays out: Evry reports each criterion and a person decides when to move.
 		return complete("phases.readReadiness", [head, ...criteria]);
 	},
 };
@@ -213,12 +212,10 @@ const getHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 	allowed: ownerOrAdmin,
 	async invoke(tx, actor, input) {
 		const history = valueOf(await signals.getHistory(tx, actor.authority, { key: input.key ?? null }));
-		// Leadership-candidate attestations name people and belong to the team tools, not to the signal tools.
 		const rows: SourceRow[] = history.revisions
 			.filter((r) => r.key !== "leadership_candidate")
 			.map((r) => ({
 				kind: "signal",
-				// A signal's revision names the entry for good: its history is append-only.
 				id: `${r.key}:${r.revision}`,
 				label: signalLabel(r.key),
 				fields: {
@@ -236,7 +233,5 @@ const getHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 	},
 };
 
-/** The phase reads, in catalog order. */
 export const PHASE_READS = [readPhaseCatalog, readHistory, readReadinessAdapter] as const;
-/** The manual-signal reads. */
 export const SIGNAL_READS = [listDefinitions, getHistory] as const;

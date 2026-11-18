@@ -34,10 +34,6 @@ import {
 } from "./editorial.ts";
 import { recordView, setBookmark, setBookmarkIn, setSourceOrder, updateProgress } from "./writes.ts";
 
-/**
- * The Wiki writes an Evry effect runs inside its own transaction, for the session that approved the review: the same
- * commands the Wiki page calls, with the same request key, audit row and refusals.
- */
 export const wikiEffects = { setBookmark: setBookmarkIn, setMine: setMineIn };
 
 export { sectionExcerpt } from "./excerpt.ts";

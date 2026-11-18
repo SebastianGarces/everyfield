@@ -21,10 +21,6 @@ import { transaction } from "../../../../apps/web/src/server/platform/database.t
 import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
 import { accounts, actor, admin, db, otherPlant, plant, setup, sql, teardown } from "../../runtime/support.mts";
 
-// The Evry interview, 4 C's, commitment, merge and correction adapters (WP-061, WP-062) against the native People
-// operations: an Owner reads and records exactly what they give after approving the review; a Member, an organization
-// seat and another church get nothing from this area.
-
 before(setup);
 after(teardown);
 
@@ -93,7 +89,6 @@ test("INV-evry-assessments: only an Owner or Admin of the plant gets the intervi
 	assert.deepEqual(ops(await actor("owner")), [...reads.keys()]);
 	assert.deepEqual(ops(await actor("member")), []);
 	assert.deepEqual(ops(await actor("orgOwner")), []);
-	// The reviewed writes follow the same floor.
 	const writes = (who: EvryActor) => readCatalog(who).reviewedWrites.map((w) => w.operation);
 	assert.ok(writes(await actor("owner")).includes("people.createInterview"));
 	assert.equal(writes(await actor("member")).includes("people.createInterview"), false);
@@ -138,7 +133,6 @@ test("INV-evry-assessments SAF-01: an Owner reads a recorded interview exactly; 
 	});
 	const foreign = await actor("foreign");
 	assert.deepEqual((await read(foreign, "people.getInterviews", { personId: daniel })).rows, []);
-	// A record row stays only while the conversation's account is an Owner or Admin of the church.
 	const key = `record:${got.rows[0]!.id}`;
 	assert.ok((await liveRowKeys(db, owner, [{ kind: "record", id: got.rows[0]!.id }])).has(key));
 	await admin.execute(sql`UPDATE seat SET role='member' WHERE account_id=${accounts.owner.id}`);
@@ -155,7 +149,6 @@ test("INV-evry-assessments: an interview review holds exactly the given ratings 
 	const person = await addPerson("Jordan Vale", "following_up");
 	const yesterday = daysAgo(await churchToday(), 1);
 	const propose = await turn(owner);
-	// A request that leaves out a criterion cannot be proposed: nothing fills it in.
 	const { season: _, ...partial } = INTERVIEW;
 	await assert.rejects(propose("people.createInterview", { personId: person, occurredOn: yesterday, ...partial }), {
 		code: "invalid_input",
@@ -187,7 +180,6 @@ test("INV-evry-assessments: an interview review holds exactly the given ratings 
 		sql`SELECT actor_id FROM audit_event WHERE subject_id=${person} AND action='people.recorded'`,
 	);
 	assert.deepEqual(recorder.rows, [{ actor_id: accounts.owner.id }]);
-	// A date after the church's today is refused on the card itself.
 	const future = await propose("people.createInterview", {
 		personId: person,
 		occurredOn: daysAgo(await churchToday(), -2),
@@ -237,7 +229,6 @@ test("INV-evry-assessments: a commitment is recorded for this church's Alex only
 	const today = await churchToday();
 	const signed = daysAgo(today, 9);
 	const propose = await turn(owner);
-	// Another church's person is never a target.
 	assert.equal(
 		await propose("people.createCommitment", { personId: otherAlex, kind: "core_group", occurredOn: signed }),
 		null,
@@ -268,7 +259,6 @@ test("INV-evry-assessments: a commitment is recorded for this church's Alex only
 	]);
 	assert.equal((await approveAndRun(owner, withdraw)).outcome, "completed");
 	assert.equal(await stageOf(alex), "core_group");
-	// Withdrawing again has nothing to withdraw: the card says so and offers no approval.
 	const again = await propose("people.withdrawCommitment", { personId: alex, effectiveOn: today });
 	assert.equal(again?.review.refusal, "This person has no active commitment to withdraw.");
 	const reactivate = await propose("people.reactivateCommitment", { personId: alex, effectiveOn: today });
@@ -319,7 +309,6 @@ test("INV-evry-assessments CLN-03: a merge review shows who stays and what moves
 		{ field: "keeps", before: null, after: "Jon Merge" },
 		{ field: "mergesIn", before: null, after: "John Merge" },
 		{ field: "moves", before: null, after: "1 note" },
-		// The People merge's default: the survivor's empty email takes the source's; the name stays Jon's.
 		{ field: "email", before: null, after: "john.merge@example.org" },
 		{ field: "keptDetails", before: null, after: "Name" },
 	]);
@@ -339,7 +328,6 @@ test("INV-evry-assessments CLN-03: a merge review shows who stays and what moves
 	assert.equal(undo.review.refusal, undefined);
 	assert.equal((await approveAndRun(owner, undo)).outcome, "completed");
 	assert.equal((await admin.execute(sql`SELECT state FROM person WHERE id=${john}`)).rows[0]!.state, "live");
-	// Undone already: the preview and the card say so, and nothing can be approved.
 	const done = await read(owner, "people.previewUnmerge", { mergeId: row.id });
 	assert.equal(done.rows[0]!.fields.blocked, "This merge was already undone.");
 });
@@ -397,7 +385,6 @@ test("INV-evry-assessments: correcting an interview's date shows the old and new
 		history.rows.map((r) => r.fields.changes),
 		[JSON.stringify([{ field: "occurredOn", old: "2026-10-03", new: "2026-10-02" }])],
 	);
-	// A rating given without notes keeps the notes the criterion has.
 	const keep = await propose("people.correctPersonRecord", {
 		recordType: "interview",
 		recordId: interview!.id,

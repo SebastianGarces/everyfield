@@ -84,10 +84,6 @@ export {
 	renderPlanterDigest,
 } from "./digest.ts";
 
-/**
- * The notification writes inside a caller's transaction whose write gate holds the approving session (an approved Evry
- * review, packages/evry). Each one changes only that session's own account and writes its own audit row.
- */
 export const lockedNotificationWrites = {
 	markSelectedRead: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, markSelectedReadCommand),
 	markAllVisibleRead: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, markAllVisibleReadCommand),
@@ -98,5 +94,4 @@ export const lockedNotificationWrites = {
 };
 export { readFeedPage } from "./feed.ts";
 export { getPreferences } from "./preferences.ts";
-/** The signed-in account (`me`) and the notices it may see and mark: the bell's own rule, for an Evry review. */
 export { noticeVisible, selfSql } from "./core.ts";

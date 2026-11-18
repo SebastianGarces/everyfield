@@ -9,38 +9,23 @@ import { CATEGORY_LABEL } from "../../tasks/model.ts";
 import { CATEGORY_TEXT } from "../../settings/model.ts";
 import type { SourceResult, SourceRow } from "./model.ts";
 
-// What a result card says, as plain data: the title, the count, the notes under the rows and, per row, its name, a short
-// line, a link and a mark. ResultCard.tsx draws it. Kept apart so the wording is tested without a browser.
-
 type Kind = SourceRow["kind"];
 export type Glyph = "person" | "people" | Exclude<Kind, "person" | "import">;
 
-/** One operation's card. Every installed read has one; an unknown operation falls back to FALLBACK. */
 type OpView = {
 	title: string;
-	/** The count word, singular and plural, for the rows the card counts. */
 	noun: readonly [string, string];
-	/** The header icon. "person" turns into "people" when the card shows more than one row. */
 	icon: Glyph;
-	/** The row kind the summary counts, or "all" rows. Other rows (a household or file row heading the card) are not counted. */
 	counts: Kind | "all";
-	/** The total counts something other than the counted rows, so the summary never says "N of M". */
 	shownOnly?: true;
-	/** The summary is the read's total (a count by status), and the rows still show. */
 	totalOnly?: true;
-	/** One record read on its own: no count in the header, only "Not found" when it is gone. */
 	quiet?: true;
-	/** Of the rows of the counted kind, only these count (a commitment's current state heads its cards). */
 	countIf?: (row: SourceRow) => boolean;
-	/** The first row heads the card (a digest's title and dates) and is not one of the counted rows. */
 	headed?: true;
-	/** Said when nothing came back. */
+	beside?: (row: SourceRow) => boolean;
 	empty: string;
-	/** A count answer: the summary is the total and the rows stay hidden, with this note instead. */
 	countAnswer?: string;
-	/** A summary of its own, for a card whose first row heads the others (the current phase). */
 	summary?: (result: SourceResult) => string;
-	/** Where to go instead when nothing came back. */
 	emptyLinks?: readonly { href: string; label: string }[];
 };
 
@@ -93,7 +78,6 @@ const rows = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	empty: "This file has no rows to show.",
 	...rest,
 });
-// The calendar helpers (WP-085): one row, the church's today or the one local date and time checked.
 const calendar = (title: string): OpView => ({
 	title,
 	noun: ["date", "dates"],
@@ -119,7 +103,6 @@ const followUps = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	...rest,
 });
 
-/** A card of recorded interviews, assessments, commitments, merges or corrections (Owners and Admins only). */
 const records = (
 	title: string,
 	noun: readonly [string, string],
@@ -140,7 +123,6 @@ const VIEWS: Record<string, OpView> = {
 	"people.getPerson": people("Person"),
 	"people.getPersonPhoto": people("Photo"),
 	"people.checkForDuplicates": people("Possible duplicates"),
-	// One row per import review pair: the imported person, with the person it may duplicate on its line.
 	"people.listDuplicatePairs": people("Duplicates to review", {
 		empty: "No import has flagged a possible duplicate that still needs review.",
 	}),
@@ -153,7 +135,6 @@ const VIEWS: Record<string, OpView> = {
 		counts: "household",
 		empty: NO_HOUSEHOLD,
 	},
-	// A household read counts the people it names; the household's own row heads the card and is not a person.
 	"people.getHousehold": people("Household", { icon: "household", shownOnly: true, empty: NO_HOUSEHOLD }),
 	"people.getHouseholdMembers": people("Household members", {
 		icon: "household",
@@ -240,7 +221,6 @@ const VIEWS: Record<string, OpView> = {
 		icon: "merge",
 		counts: "merge",
 	}),
-	// The church's phase journey: the current phase heads the card, then each entry oldest first.
 	"phases.readHistory": {
 		title: "Phase journey",
 		noun: ["entry", "entries"],
@@ -256,7 +236,6 @@ const VIEWS: Record<string, OpView> = {
 		counts: "phase",
 		empty: "The phases are not available.",
 	},
-	// The phase's exit criteria: the phase heads the card and each criterion says met, not met or no data yet.
 	"phases.readReadiness": {
 		title: "Exit criteria",
 		noun: ["criterion", "criteria"],
@@ -307,6 +286,49 @@ const VIEWS: Record<string, OpView> = {
 		counts: "step",
 		empty: "This church has no setup in progress for you.",
 	},
+	"dashboard.availableActions": {
+		title: "Next steps",
+		noun: ["step", "steps"],
+		icon: "step",
+		counts: "step",
+		empty: "Overview offers you no next steps right now.",
+	},
+	"dashboard.readSetupGaps": {
+		title: "Setup steps",
+		noun: ["open step", "open steps"],
+		icon: "step",
+		counts: "step",
+		empty: "Every setup step is done.",
+	},
+	"dashboard.metrics": {
+		title: "Overview counts",
+		noun: ["count", "counts"],
+		icon: "item",
+		counts: "item",
+		empty: "Overview's counts are not available.",
+	},
+	"dashboard.activity": {
+		title: "Recent changes",
+		noun: ["change", "changes"],
+		icon: "activity",
+		counts: "activity",
+		shownOnly: true,
+		empty: "Nothing has changed in this church yet.",
+	},
+	"feedback.listOwn": {
+		title: "Sent feedback",
+		noun: ["feedback", "feedback"],
+		icon: "item",
+		counts: "item",
+		empty: "You haven't sent any feedback yet.",
+	},
+	"feedback.getOwnStatus": {
+		title: "Feedback",
+		noun: ["feedback", "feedback"],
+		icon: "item",
+		counts: "item",
+		empty: "That feedback isn't one you sent.",
+	},
 	"discovery.getProfile": {
 		title: "Discovery space",
 		noun: ["linked organization", "linked organizations"],
@@ -314,7 +336,6 @@ const VIEWS: Record<string, OpView> = {
 		counts: "relationship",
 		empty: "No sending church or network is linked yet.",
 	},
-	// The organization pipeline as the seat's Pipeline page shows it: each stage's count, then the people it may see.
 	"pipeline.listPeople": {
 		title: "Pipeline",
 		noun: ["stage", "stages"],
@@ -323,6 +344,33 @@ const VIEWS: Record<string, OpView> = {
 		shownOnly: true,
 		empty: "This pipeline has no stages yet.",
 	},
+	"launch.readCountdown": {
+		title: "Launch Sunday",
+		noun: ["date", "dates"],
+		icon: "item",
+		counts: "item",
+		shownOnly: true,
+		empty: "The Launch plan couldn't be loaded.",
+	},
+	"launch.readWorkspace": {
+		title: "Launch milestones",
+		noun: ["milestone", "milestones"],
+		icon: "milestone",
+		counts: "milestone",
+		empty: "No launch milestone matches.",
+	},
+	"launch.readJournal": {
+		title: "Launch history",
+		noun: ["change", "changes"],
+		icon: "activity",
+		counts: "activity",
+		empty: "No Launch changes in that time.",
+	},
+	"launch.readDebrief": people("Launch Sunday outcome", {
+		noun: ["named guest", "named guests"],
+		beside: (r) => r.fields.match !== undefined,
+		empty: "No first-time guest names to show here.",
+	}),
 	"development.draftPlan": {
 		title: "Who can direct a program",
 		noun: ["staff member", "staff members"],
@@ -330,6 +378,11 @@ const VIEWS: Record<string, OpView> = {
 		counts: "seat",
 		empty: "Only an Owner or Admin sees who may direct a program.",
 	},
+	"development.readProgram": items("Programs", {
+		noun: ["item", "items"],
+		icon: "training",
+		empty: "This organization has no program yet.",
+	}),
 	"communication.list": {
 		title: "Messages",
 		noun: ["message", "messages"],
@@ -445,7 +498,6 @@ const VIEWS: Record<string, OpView> = {
 	"meetings.hasHistory": items("Meeting history", { noun: ["answer", "answers"] }),
 	"meetings.readAgenda": items("Agenda", { noun: ["section", "sections"], empty: "This meeting has no saved agenda." }),
 	"meetings.listKit": items("Vision kit", { empty: "No kit item matches." }),
-	// RSVPs are the guests' answers to the invitation, never attendance.
 	"meetings.listGuests": people("RSVPs", { icon: "meeting", empty: "This meeting has no guests yet." }),
 	"meetings.listCards": people("Response cards", { icon: "meeting", empty: "No response card is recorded." }),
 	"meetings.cardBreakdown": items("Card responses", { noun: ["group", "groups"] }),
@@ -468,7 +520,6 @@ const VIEWS: Record<string, OpView> = {
 		empty: "No meeting has an evaluation.",
 	}),
 	"meetings.compareEvaluation": items("Evaluation compared", { noun: ["comparison", "comparisons"] }),
-	// A held meeting with no attendance recorded says so; it is never counted as 0.
 	"meetings.attendanceTrend": items("Attendance trend", {
 		noun: ["meeting", "meetings"],
 		empty: "No held meeting matches.",
@@ -501,7 +552,6 @@ const VIEWS: Record<string, OpView> = {
 		counts: "setting",
 		empty: "Your notification settings are not available.",
 	},
-	// The digest's own row heads the card; each line under it is one item the digest will list.
 	"notifications.previewPlanterDigest": {
 		title: "Next church digest",
 		noun: ["open item", "open items"],
@@ -510,7 +560,6 @@ const VIEWS: Record<string, OpView> = {
 		headed: true,
 		empty: "Your church digest is turned off, so no digest is coming.",
 	},
-	// One line per plant and day; the total counts activities, not lines.
 	"notifications.previewOversightDigest": {
 		title: "Next oversight digest",
 		noun: ["line", "lines"],
@@ -547,11 +596,9 @@ const VIEWS: Record<string, OpView> = {
 		empty: "No template matches.",
 	},
 };
-/** With no person, communication.forPerson lists the people no email has gone out to. */
 const NEVER_EMAILED = people("No email recorded", {
 	empty: "Every live person in this church has had an email from Messages.",
 });
-// The Ministries reads (WP-069). A ministry row opens its Ministries page; a person row opens the person.
 const ministries = (title: string, rest: Partial<OpView> = {}): OpView => ({
 	title,
 	noun: ["ministry", "ministries"],
@@ -661,7 +708,6 @@ const TEAM_VIEWS: Record<string, OpView> = {
 };
 Object.assign(VIEWS, TEAM_VIEWS);
 
-/** An operation with no view of its own. A test fails while any installed read falls back to it. */
 export const FALLBACK = { title: "Records", noun: ["record", "records"] } as const;
 const fallback: OpView = {
 	...FALLBACK,
@@ -669,7 +715,6 @@ const fallback: OpView = {
 	counts: "person",
 	empty: "Nothing in this church matches, or you can't see it.",
 };
-/** "2026-11-01T01:30", a church's local wall time, as "Sun, Nov 1, 2026, 1:30 AM". */
 function localName(local: string) {
 	const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
 	if (!m) return local;
@@ -689,7 +734,6 @@ const DATE_STATUS: Record<string, string> = {
 	nonexistent: "Skipped by the clocks",
 	invalid_date: "Not a date",
 };
-/** One recipient's recorded result. "Sent" is never "delivered": only the email service's report says that. */
 const RESULT: Record<string, string> = {
 	waiting: "Waiting for its send time",
 	checking: "Result still being checked",
@@ -748,15 +792,12 @@ const num = (value: unknown) =>
 	typeof value === "number" ? value : typeof value === "string" && value !== "" ? Number(value) : Number.NaN;
 const joined = (...parts: (string | null)[]) => parts.filter(Boolean).join(" · ") || null;
 const stage = (value: unknown) => (typeof value === "string" ? (STAGE_LABEL[value as StageValue] ?? value) : null);
-/** "Commitment recorded" from "commitment_recorded". */
 const words = (value: string) => {
 	const s = value.replaceAll("_", " ");
 	return s.charAt(0).toUpperCase() + s.slice(1);
 };
-/** A stored value's label, or the value in words when the table has no label for it. */
 const label = (table: Record<string, string>, value: unknown) =>
 	typeof value === "string" && value ? (table[value] ?? words(value)) : null;
-/** A church-local date, "2026-08-03", as "Aug 3, 2026": a calendar day with no time zone of its own. */
 const phaseDay = (value: unknown) =>
 	typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)
 		? new Date(`${value}T00:00:00Z`).toLocaleDateString("en-US", {
@@ -770,7 +811,6 @@ const ENTRY: Record<string, string> = {
 	creation: "Started in",
 	initial_declaration: "Declared as",
 	movement: "Moved to",
-	// Launch Sunday names itself: its row reads "Held Launch Sunday".
 	launch_sunday: "Held",
 };
 const CRITERION: Record<string, string> = {
@@ -789,7 +829,6 @@ const ANSWER: Record<string, string> = { yes: "Yes", not_yet: "Not yet" };
 const categoryText = (value: unknown) =>
 	typeof value === "string" ? (CATEGORY_TEXT[value as keyof typeof CATEGORY_TEXT]?.label ?? words(value)) : null;
 const day = (value: unknown) => {
-	// A church-local time ("2026-11-05 15:30 America/Chicago") names its own calendar day.
 	const local = typeof value === "string" ? /^(\d{4}-\d{2}-\d{2}) \d{2}:\d{2} /.exec(value) : null;
 	if (local)
 		return new Date(`${local[1]}T12:00:00Z`).toLocaleDateString("en-US", {
@@ -804,7 +843,6 @@ const day = (value: unknown) => {
 		: null;
 };
 
-/** "Oct 9" or "Oct 9, 2:30 PM" from a church-local due date ("2026-10-09", "2026-10-09 14:30 America/Chicago"). */
 const localDay = (value: unknown) => {
 	const m = typeof value === "string" ? /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):(\d{2}))?/.exec(value) : null;
 	if (!m) return null;
@@ -816,7 +854,6 @@ const localDay = (value: unknown) => {
 		: date;
 };
 const due = (value: unknown) => (localDay(value) ? `Due ${localDay(value)}` : null);
-/** Owners by name; the signed-in user's own account reads "Yours" alone, else "you" among the names. */
 const owners = (value: unknown) => {
 	const names = text(value);
 	return names === "you" ? "Yours" : names;
@@ -834,7 +871,6 @@ const OBLIGATION_STATE: Record<string, string> = {
 	no_longer_needed: "No longer needed",
 	superseded: "Replaced",
 };
-/** An outcome as the contact log names it. Only a conversation is contact. */
 const OUTCOME: Record<string, string> = {
 	contacted: "Conversation",
 	attempted_no_contact: "Attempt, no conversation",
@@ -842,7 +878,6 @@ const OUTCOME: Record<string, string> = {
 	no_longer_needed: "No longer needed",
 };
 const CHANNEL: Record<string, string> = CHANNEL_LABEL;
-/** How a conversation happened, as the first word of its row: "Call — conversation". */
 const CONVERSATION_BY: Record<string, string> = {
 	phone: "Call",
 	text: "Text",
@@ -856,12 +891,10 @@ const COVERAGE: Record<string, string> = {
 	needs_owner: "Follow-up needs an owner",
 	uncovered: "No open follow-up",
 };
-/** "meeting: Interest meeting" as "Meeting: Interest meeting". */
 const capital = (value: unknown) => {
 	const s = text(value);
 	return s ? s.charAt(0).toUpperCase() + s.slice(1) : null;
 };
-/** A checklist key ("launch-prep") in words, for a receipt that names only the key. */
 const keyWords = (value: string) =>
 	/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(value) ? words(value.replaceAll("-", " ")) : value;
 
@@ -875,24 +908,13 @@ export type RowView = {
 	name: string;
 	line: string | null;
 	mark: RowMark;
-	/** The round mark before the name: a person's (or an account's) initials, or the icon of any other record. */
 	avatar: Exclude<Kind, "import"> | null;
-	/** The person whose initials the round mark shows, and whose current photo it shows when there is one. */
 	photoFor: string | null;
-	/**
-	 * A person (or a row that names its person: a created import row, a follow-up, a contact log entry), a meeting and a
-	 * Wiki article open their page; a top-level task opens in Tasks. A household or any other record has no page.
-	 */
 	href: string | null;
-	/** A recorded judgment in full, field by field: every criterion, score, result and note, never clamped. */
 	details?: { label: string; value: string }[];
-	/** The row opens a file through the People page's download route, which signs its link only when opened. */
 	download?: true;
-	/** The link opens a file the app makes (the agenda's print view) in a new tab. */
 	newTab?: true;
-	/** A file the row downloads (the Wiki's PDF): a plain link, never prefetched. */
 	file?: string;
-	/** The Wiki's own words, quoted under the row: an excerpt exactly as the article has it, markup aside. */
 	quote?: string;
 };
 export type CardView = {
@@ -901,11 +923,9 @@ export type CardView = {
 	icon: Glyph;
 	rows: RowView[];
 	facts: string[];
-	/** Links under the facts: where to go when the read found nothing. */
 	links: { href: string; label: string }[];
 };
 
-/** An excerpt's words without its markup: headings, emphasis marks and component tags go, line breaks stay. */
 const plainExcerpt = (excerpt: string) =>
 	excerpt
 		.replace(/<\/?[A-Za-z][^>]*>/g, "")
@@ -924,14 +944,11 @@ function activityLine(fields: Record<string, unknown>) {
 }
 
 const corrected = z.array(z.object({ field: z.string(), old: z.unknown(), new: z.unknown() }));
-/** Each corrected field with its old and new value, in the People correction history's words. */
 function correctionDetails(value: unknown) {
 	let raw: unknown = null;
 	try {
 		raw = typeof value === "string" ? JSON.parse(value) : null;
-	} catch {
-		// A saved row in another shape shows no details rather than breaking the conversation.
-	}
+	} catch {}
 	const parsed = corrected.safeParse(raw);
 	return parsed.success
 		? parsed.data.map((c) => ({
@@ -940,7 +957,6 @@ function correctionDetails(value: unknown) {
 			}))
 		: undefined;
 }
-/** One field of a record row, in the review card's words: "Team chemistry: Concern · Needs time". */
 const detail = (field: string, value: unknown) => {
 	const v = valueText(field, value);
 	return v ? { label: fieldLabel(field), value: v } : null;
@@ -1037,7 +1053,25 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "skill",
 			};
 		case "activity": {
-			// Note text never reaches the card: a note row says only that a note was added or removed, and when.
+			if (operation === "launch.readJournal")
+				return {
+					...plain,
+					href: "/launch",
+					name: row.label,
+					line: joined(
+						fields.change === "date" ? `${text(fields.from) ?? "No date"} → ${text(fields.to) ?? "No date"}` : null,
+						joined(text(fields.by), text(fields.on)),
+					),
+					avatar: "activity",
+				};
+			if (operation === "dashboard.activity")
+				return {
+					...plain,
+					href: text(fields.href),
+					name: row.label,
+					line: joined(text(fields.by), text(fields.when)),
+					avatar: "activity",
+				};
 			const kind = fields.kind;
 			const name =
 				kind === "note"
@@ -1084,7 +1118,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "import": {
-			// A row of the file, named by its row number. Only a row that created a person links to that person.
 			const name = `Row ${row.id}`;
 			if (operation === "people.getImportReceipt") {
 				const personId = text(fields.personId);
@@ -1092,7 +1125,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 				return {
 					key,
 					name,
-					// The reason in words, as the receipt read gives it: each column and what is wrong with it.
 					line: failed ? (text(fields.reason) ?? "Not valid") : null,
 					mark: {
 						kind: "status",
@@ -1126,7 +1158,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "team": {
-			// A team a task may be linked to (tasks.relationOptions): its name only.
 			if (operation === "tasks.relationOptions") return { ...plain, name: row.label, line: "Team", avatar: "team" };
 			const percent = (v: unknown) => (typeof v === "number" ? `${v}%` : null);
 			const health =
@@ -1230,12 +1261,10 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "responsibility",
 			};
 		case "template":
-			// A task checklist (tasks.*) or a team template.
 			if (operation.startsWith("tasks.")) return templateView(operation, row, key);
 			return {
 				...plain,
 				name: row.label,
-				// An email template says where it comes from; a ministry template what importing it adds.
 				line:
 					"origin" in fields
 						? fields.origin === "system"
@@ -1247,7 +1276,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "template",
 			};
 		case "message":
-			// What happened to a sent email, in the words of its recorded results.
 			if (typeof fields.result === "string")
 				return {
 					...plain,
@@ -1264,7 +1292,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 					line: fields.tooSoon ? `Can resend from ${text(fields.resendFrom)}` : joined("Sent", text(fields.sentAt)),
 					avatar: null,
 				};
-			// A draft or scheduled message: its send time in the church's zone, never its body or recipients.
 			return {
 				...plain,
 				name: row.label,
@@ -1321,10 +1348,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "account":
-			// A seat's account, by its name: its initials, never a Person's photo or page.
 			return {
 				...plain,
-				// The avatar's initials come from the name, so "You" goes on the line.
 				name: row.label,
 				line: joined(
 					fields.you === true ? "You" : null,
@@ -1398,7 +1423,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "criterion": {
-			// The status is the row's line, so a long criterion name is never cut short by a mark at phone width.
 			const status = CRITERION[String(fields.status)];
 			return { ...plain, name: row.label, line: status ?? null, avatar: "criterion" };
 		}
@@ -1422,10 +1446,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "signal",
 			};
 		case "meeting": {
-			// A meeting a task may be linked to (tasks.relationOptions): its name only.
 			if (operation === "tasks.relationOptions")
 				return { ...plain, name: row.label, line: "Meeting", avatar: "meeting", href: `/meetings/${row.id}` };
-			// An email's meeting carries its start; a ministry's team meetings (teams.listMeetings) the date and status.
 			if (!operation.startsWith("meetings."))
 				return {
 					...plain,
@@ -1469,13 +1491,13 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "item":
 			return {
 				...plain,
+				href: /^(dashboard|feedback)\./.test(operation) ? text(fields.href) : null,
 				name: row.label,
 				line: itemLine(operation, fields),
 				mark: itemMark(operation, fields),
 				avatar: null,
 			};
 		case "seat":
-			// A seat: the person's name and role, as Settings > Seats lists it.
 			return {
 				...plain,
 				href: "/settings/seats",
@@ -1495,7 +1517,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: null,
 			};
 		case "connection":
-			// A connection and what this church shares with it; a Member sees only that Owners and Admins choose.
 			return {
 				...plain,
 				href: "/settings/sharing",
@@ -1509,7 +1530,8 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: null,
 			};
 		case "step":
-			// A setup step as `/onboarding` shows it: saved with its answer, or still open.
+			if (operation.startsWith("dashboard."))
+				return { ...plain, href: text(fields.href), name: row.label, line: "From Overview", avatar: null };
 			return {
 				...plain,
 				href: "/onboarding",
@@ -1518,8 +1540,25 @@ function rowView(operation: string, row: SourceRow): RowView {
 				mark: { kind: "status", text: fields.status === "saved" ? "Saved" : "Open", warn: fields.status !== "saved" },
 				avatar: null,
 			};
+		case "milestone": {
+			const overdue = Number(fields.overdueTasks ?? 0);
+			return {
+				...plain,
+				href: "/launch",
+				name: row.label,
+				line: joined(
+					`${String(fields.done)} of ${count(Number(fields.total ?? 0), "task", "tasks")} done`,
+					overdue ? `${overdue} overdue` : null,
+				),
+				mark: fields.completed
+					? { kind: "status", text: "Complete", warn: false }
+					: fields.needsReview
+						? { kind: "status", text: "Needs review", warn: true }
+						: { kind: "status", text: "Open", warn: overdue > 0 },
+				avatar: null,
+			};
+		}
 		case "stage": {
-			// A pipeline stage: everyone in it, and how many of them this answer lists when a filter narrowed it.
 			const all = Number(fields.count ?? 0);
 			const shown = typeof fields.matching === "number" && fields.matching !== all ? `, ${fields.matching} listed` : "";
 			return {
@@ -1531,7 +1570,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "relationship":
-			// A sending church or network a Discovery space is linked to, and what that link shares.
 			return {
 				...plain,
 				href: "/onboarding",
@@ -1540,7 +1578,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: null,
 			};
 		case "date": {
-			// calendar.getContext names today; calendar.resolve says whether the local time exists once, twice or not at all.
 			if (operation === "calendar.getContext")
 				return {
 					...plain,
@@ -1552,8 +1589,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 			return {
 				...plain,
 				name: status === "invalid_date" ? row.label : localName(String(fields.local ?? row.label)),
-				// An exact time names its zone abbreviation ("EST", the end of "Sun, Nov 1, 2026, 1:30 AM EST"); the answer under
-				// the card lists both times of a fold. The status sits on the line, not in a tag, so the date keeps its width.
 				line: joined(
 					status === "exact" ? (text(fields.shows)?.split(" ").at(-1) ?? null) : (DATE_STATUS[status] ?? "Not a date"),
 					text(fields.zone),
@@ -1562,7 +1597,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "document":
-			// A document's type and when it last changed; its text stays in the answer, never on the card.
 			return {
 				...plain,
 				name: row.label,
@@ -1582,7 +1616,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 				avatar: "template",
 			};
 		case "notice":
-			// A bell notification: its area and church-local time. A card never marks it read.
 			return {
 				...plain,
 				name: row.label,
@@ -1604,7 +1637,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 			};
 		}
 		case "digest":
-			// The digest's head says when it sends and the dates it covers; each other row is one line of it.
 			return row.id === "next"
 				? {
 						...plain,
@@ -1619,7 +1651,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 					}
 				: { ...plain, name: row.label, line: null, avatar: null };
 		case "article": {
-			// A version other than the global one says whose it is, as the Wiki page does.
 			const whose =
 				fields.source === "network"
 					? "Your network's version"
@@ -1651,7 +1682,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 		case "person":
 			break;
 	}
-	// A person in an organization's pipeline: their stage, last move and responsible staff, and their pipeline record.
 	if (operation === "pipeline.listPeople")
 		return {
 			key,
@@ -1679,7 +1709,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 		};
 	const href = `/people/${row.id}`;
 	if (operation === "people.getPersonPhoto")
-		// The photo read names no person; the row says what it found and opens the person's page.
 		return {
 			key,
 			name: fields.photo === "available" ? "Has a photo" : "No photo",
@@ -1734,7 +1763,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 			photoFor: row.id,
 			href,
 		};
-	// A person in an email's audience or results: why they are left out, or what happened to their email.
 	if ("leftOut" in fields || "result" in fields || fields.email === "no email recorded")
 		return {
 			key,
@@ -1805,7 +1833,6 @@ function rowView(operation: string, row: SourceRow): RowView {
 	};
 }
 
-/** A task, a checklist item, a prerequisite or a task a phase offer created. */
 function taskView(operation: string, row: SourceRow, key: string): RowView {
 	const { fields } = row;
 	const child = text(fields.parentId) !== null;
@@ -1844,12 +1871,10 @@ function taskView(operation: string, row: SourceRow, key: string): RowView {
 		mark,
 		avatar: "task",
 		photoFor: null,
-		// The Tasks page opens one top-level task from its address; a checklist item opens with its task.
 		href: deleted ? null : `/tasks?task=${child ? String(fields.parentId) : row.id}`,
 	};
 }
 
-/** An open follow-up (by person), or a meeting's generated follow-up or evaluation. */
 function followUpView(operation: string, row: SourceRow, key: string): RowView {
 	const { fields } = row;
 	const personId = text(fields.personId);
@@ -1886,7 +1911,6 @@ function followUpView(operation: string, row: SourceRow, key: string): RowView {
 	};
 }
 
-/** A phase checklist, one task a checklist would create, or a receipt of an import. */
 function templateView(operation: string, row: SourceRow, key: string): RowView {
 	const { fields } = row;
 	const plain = { key, mark: null, href: null, photoFor: null, avatar: "template" } as const;
@@ -1902,7 +1926,6 @@ function templateView(operation: string, row: SourceRow, key: string): RowView {
 		};
 	const tasks = num(fields.taskCount);
 	if (!Number.isFinite(tasks))
-		// One task of a previewed checklist, with the date it would be due.
 		return { ...plain, name: row.label, line: joined(due(fields.due), label({}, fields.priority)), avatar: null };
 	return {
 		...plain,
@@ -1922,7 +1945,6 @@ function templateView(operation: string, row: SourceRow, key: string): RowView {
 
 const RSVP_TEXT: Record<string, string> = { yes: "RSVP yes", no: "RSVP no", "no answer": "No answer" };
 const PRESENCE_TEXT: Record<string, string> = { attended: "Attended", absent: "Absent", excused: "Excused" };
-/** A person row of a meeting read: their RSVP, presence, card or roster change. Undefined for any other read. */
 function personMark(operation: string, fields: Record<string, unknown>): RowMark | undefined {
 	if (!operation.startsWith("meetings.")) return undefined;
 	const value = (table: Record<string, string>, key: unknown) =>
@@ -1937,9 +1959,13 @@ function personMark(operation: string, fields: Record<string, unknown>): RowMark
 		);
 	return say(value(RSVP_TEXT, fields.rsvp), fields.rsvp === "no");
 }
-/** The short line of an item row: an agenda section's start and length, a kit item's category, a trend point. */
 function itemLine(operation: string, f: Record<string, unknown>): string | null {
 	switch (operation) {
+		case "dashboard.metrics":
+			return String(f.count);
+		case "feedback.listOwn":
+		case "feedback.getOwnStatus":
+			return joined(`Sent ${String(f.sent)}`, text(f.status));
 		case "meetings.readAgenda":
 			return joined(
 				typeof f.starts === "string" ? timeText(f.starts) : null,
@@ -1962,8 +1988,34 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 			return typeof f.rsvp === "string" ? (RSVP_TEXT[f.rsvp] ?? f.rsvp) : null;
 		case "meetings.hasHistory":
 			return f.hasHistory ? "Meetings are on record" : "No meeting on record";
+		case "launch.readCountdown":
+			return joined(
+				text(f.status),
+				text(f.plannedDate),
+				typeof f.daysLeft === "number" ? count(f.daysLeft, "day left", "days left") : null,
+			);
+		case "launch.readWorkspace":
+			return joined(
+				text(f.milestone),
+				typeof f.dueDate === "string" ? `Due ${f.dueDate}` : "No due date",
+				text(f.assignees),
+			);
+		case "development.readProgram":
+			if (f.part === "program")
+				return joined(
+					`Directed by ${String(f.director)}`,
+					typeof f.publishedVersion === "number" ? `Version ${f.publishedVersion} published` : "Not published",
+					f.draft ? "Draft in progress" : null,
+				);
+			return joined(
+				`Version ${String(f.version)}`,
+				f.part === "stage"
+					? `Stage, months ${String(f.minMonths)}–${String(f.maxMonths)}`
+					: f.part === "milestone"
+						? "Milestone"
+						: "Reading",
+			);
 		default: {
-			// A report line: its counts, in the words of its fields.
 			const parts = Object.entries(f)
 				.filter(([, v]) => typeof v === "string" && v !== "")
 				.slice(0, 4)
@@ -1975,16 +2027,16 @@ function itemLine(operation: string, f: Record<string, unknown>): string | null 
 function itemMark(operation: string, f: Record<string, unknown>): RowMark {
 	if (operation === "meetings.listKit")
 		return { kind: "status", text: f.checked ? "Checked" : "Needed", warn: !f.checked };
+	if (operation === "launch.readWorkspace" && f.overdue === true)
+		return { kind: "status", text: "Overdue", warn: true };
 	if (operation === "meetings.attendanceTrend" && f.attended === "not recorded")
 		return { kind: "status", text: "Not recorded", warn: true };
 	return null;
 }
 
-/** The rows a card shows. A receipt's created import row links to its person, so the separate person row goes. */
 function shownRows(operation: string, view: OpView, result: SourceResult) {
 	if (view.countAnswer) return [];
 	if (operation === "people.getImportReceipt") return result.rows.filter((r) => r.kind !== "person");
-	// A roster leads with its people: the ministry, then who serves, then its role slots.
 	if (operation === "teams.get")
 		return ["team", "person", "role"].flatMap((kind) => result.rows.filter((r) => r.kind === kind));
 	return result.rows;
@@ -2003,6 +2055,7 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 				(r, n) =>
 					(view.counts === "all" || r.kind === view.counts) &&
 					!(view.headed && n === 0) &&
+					!view.beside?.(r) &&
 					(!view.countIf || view.countIf(r)),
 			).length;
 	const photo = operation === "people.getPersonPhoto";
@@ -2038,6 +2091,10 @@ export function cardView(operation: string, result: SourceResult, originalTotal:
 			typeof totals.measured === "string"
 				? `As of ${day(`${totals.asOf}T12:00:00Z`)}. ${totals.measured}`
 				: `As of ${day(`${totals.asOf}T12:00:00Z`)}.`,
+		);
+	if (operation === "launch.readDebrief" && totals.recorded === true)
+		facts.push(
+			`Launch Sunday ${String(totals.actualDate)}: attendance ${typeof totals.attendance === "number" ? totals.attendance.toLocaleString("en-US") : "not recorded"}.${typeof totals.guestsNotNamed === "number" && totals.guestsNotNamed > 0 ? ` The debrief says ${count(totals.guestsNotNamed, "guest isn't", "guests aren't")} entered by name.` : ""}`,
 		);
 	if (typeof totals.discoveryClosedOn === "string")
 		facts.push(`Your Discovery space closed on ${totals.discoveryClosedOn}, when it became this church.`);

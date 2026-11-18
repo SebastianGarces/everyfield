@@ -1,0 +1,52 @@
+import "server-only";
+import { requestDatabase } from "@/server/database";
+import { boundedBytes, Refusal } from "@/server/platform/boundary";
+import { pipelineActor } from "../pipeline-mount";
+import { pipelineImportLimits } from "@everyfield/contracts/organizations";
+import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
+
+const NO_STORE = { "Cache-Control": "private, no-store" };
+const reply = (body: unknown) => Response.json(body, { headers: NO_STORE });
+const tooLarge = () => reply({ status: "refused", refusal: { code: "file_refused", problem: "file_too_large" } });
+const BODY_MAX = pipelineImportLimits.bytes + 256 * 1024;
+
+async function handle(request: Request, step: "preview" | "save") {
+	const site = request.headers.get("sec-fetch-site");
+	if (site !== null && site !== "same-origin") return new Response(null, { status: 403, headers: NO_STORE });
+	if (Number(request.headers.get("content-length") ?? 0) > BODY_MAX) return tooLarge();
+	const who = await pipelineActor();
+	if (who.kind !== "seat") return reply({ status: "refused", refusal: { code: "unavailable" } });
+	const db = requestDatabase();
+	if (!db) return reply({ status: "lost" });
+	let input: Record<string, unknown>;
+	try {
+		const bytes = await boundedBytes(request, BODY_MAX).catch((error: unknown) => {
+			if (error instanceof Refusal) return null;
+			throw error;
+		});
+		if (!bytes) return tooLarge();
+		const form = await new Response(bytes as BodyInit, {
+			headers: { "Content-Type": request.headers.get("content-type") ?? "" },
+		}).formData();
+		const file = form.get("file");
+		const json = form.get("request");
+		if (!(file instanceof File) || typeof json !== "string")
+			return reply({ status: "refused", refusal: { code: "invalid_input" } });
+		input = { ...JSON.parse(json), fileName: file.name, file: new Uint8Array(await file.arrayBuffer()) };
+	} catch {
+		return reply({ status: "refused", refusal: { code: "invalid_input" } });
+	}
+	try {
+		return reply(
+			step === "preview"
+				? await previewPipelineImport(db, who.authority, input)
+				: await pipelineImportWriter.importPeople(db, who.authority, input),
+		);
+	} catch (error) {
+		console.error(JSON.stringify({ component: "pipeline", outcome: `import_${step}_failed`, error: String(error) }));
+		return reply({ status: "lost" });
+	}
+}
+
+export const previewRoute = (request: Request) => handle(request, "preview");
+export const saveRoute = (request: Request) => handle(request, "save");

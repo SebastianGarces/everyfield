@@ -1,0 +1,6 @@
+{
+	"public": {
+		"conversation/EvryPanel.tsx": "useEvryPanel, which the shell uses to open and place the Evry panel",
+		"conversation/view.ts": "renderMarkdown, the Evry answer renderer that task descriptions reuse for the same markdown"
+	}
+}

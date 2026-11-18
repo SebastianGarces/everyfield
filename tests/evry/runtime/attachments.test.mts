@@ -1,6 +1,3 @@
-// Files attached in the Evry panel (WP-054): staged in the private bucket for one conversation, checked with
-// people.previewImport, imported only through a review card bound to the checked bytes, and deleted after 24 hours.
-// Every turn runs on the scripted model through the real runtime.
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -23,11 +20,6 @@ before(async () => {
 });
 after(teardown);
 
-/**
- * A private bucket on a real S3 client, so uploads are signed as in production, whose provider calls stay in memory:
- * the bucket ACL check, reading an object and deleting one. A test "puts" a file by storing its bytes under the key the
- * signed URL names, as the browser's PUT would.
- */
 function bucket() {
 	const objects = new Map<string, Buffer>();
 	const deleted: string[] = [];
@@ -56,7 +48,6 @@ function bucket() {
 }
 const files = bucket();
 
-/** The launch interest form: one new person, one who shares Alex Rivera's email, and one bad email. */
 const LAUNCH_FORM = [
 	"first_name,last_name,email",
 	"Jordan,Lee,jordan.lee@example.test",
@@ -67,7 +58,6 @@ const LAUNCH_FORM = [
 async function conversation(who: EvryActor) {
 	return (await createConversation(db, who, { requestKey: randomUUID() })).id;
 }
-/** Attaches a CSV to the conversation as the panel does: sign the upload, then put the exact bytes. */
 async function attach(who: EvryActor, conversationId: string, name: string, text: string) {
 	const bytes = Buffer.from(text);
 	const staged = await stageAttachment(db, files.storage, who, conversationId, { name, byteLength: bytes.length });
@@ -121,11 +111,9 @@ test("AC:CLN-04 AC:GAP-EVR-422 an attached launch interest form is checked row b
 		/Jordan Lee: valid[\s\S]*Alex Rivera: possible duplicate of Alex Rivera[\s\S]*Row 3: can't be imported \(invalid_email\)/,
 	);
 	assert.match(checked.text, /Nothing is imported/);
-	// The model never sees the file's contact values.
 	assert.ok(!JSON.stringify(preview.result).includes("@example.test"));
 	assert.equal(await peopleCount(), before);
 
-	// Another conversation does not list the file, and a read naming it there is refused without failing the turn.
 	const elsewhere = await conversation(owner);
 	const refused = await say(owner, elsewhere, "check the spreadsheet I uploaded");
 	assert.match(refused.text, /can't see a file in this conversation\. Attach it here/);
@@ -145,7 +133,6 @@ test("AC:GAP-EVR-422 the import review is built from the conversation's own chec
 	const imported = await say(owner, here, "import it");
 	const card = imported.reviews.find((r) => r?.operation === "people.executeBulkImport")!;
 	assert.equal(card.status, "pending");
-	// The card is the People import review (T-319) of this exact file: each row's planned outcome, as the check showed.
 	const rows = (card.review as { rows?: { row: number; outcome: string; label: string | null }[] }).rows ?? [];
 	assert.deepEqual(
 		rows.map((r) => [r.row, r.outcome, r.label]),
@@ -158,7 +145,6 @@ test("AC:GAP-EVR-422 the import review is built from the conversation's own chec
 	assert.match(imported.text, /People stays as it is until you approve it/);
 	assert.equal(await peopleCount(), before);
 
-	// The same name attached again replaces the file: importing now meets file_changed and gets a fresh check, no card.
 	const replaced = await conversation(owner);
 	const first = await attach(owner, replaced, "launch-interest.csv", LAUNCH_FORM);
 	await say(owner, replaced, "check the spreadsheet I uploaded", [first]);
@@ -181,7 +167,6 @@ test("AC:GAP-EVR-422 the import review is built from the conversation's own chec
 test("INV-attachment-expiry: an attached file unused for 24 hours is gone: Evry asks for it again and its staged bytes are deleted", async () => {
 	const owner = await actor("owner");
 	const here = await conversation(owner);
-	// A file attached now is staged for exactly 24 hours, with its cleanup queued for that moment.
 	const fresh = await attach(owner, here, "launch-interest.csv", LAUNCH_FORM);
 	const [staged] = (
 		await admin.execute(
@@ -191,8 +176,6 @@ test("INV-attachment-expiry: an attached file unused for 24 hours is gone: Evry 
 	).rows as { queued: boolean; day: boolean }[];
 	assert.deepEqual([staged!.queued, staged!.day], [true, true]);
 
-	// The same file attached in this conversation 24 hours ago and never used: the staged row, its bytes, its due
-	// cleanup and the message that attached it, placed through their rows (a file row's expiry is immutable).
 	const old = randomUUID();
 	const key = `private/${plant}/${old}`;
 	files.objects.set(key, Buffer.from(LAUNCH_FORM));
@@ -213,8 +196,6 @@ test("INV-attachment-expiry: an attached file unused for 24 hours is gone: Evry 
 	assert.equal(files.objects.has(key), false);
 	const [row] = (await admin.execute(sql`SELECT state FROM file_object WHERE id=${old}::uuid`)).rows;
 	assert.equal(row!.state, "purged");
-	// A read naming the gone file is refused as gone, never served from anywhere else; another conversation's read of it
-	// is refused as not its own.
 	await assert.rejects(readAttachment(db, files.storage, owner, here, old), /attachment_gone/);
 	await assert.rejects(
 		readAttachment(db, files.storage, owner, await conversation(owner), old),

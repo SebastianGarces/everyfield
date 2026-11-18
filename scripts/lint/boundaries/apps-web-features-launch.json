@@ -1,0 +1,6 @@
+{
+	"public": {
+		"model.ts": "launch date and milestone texts the overview card shows",
+		"mount.ts": "launchMount, the launch writer and notices Evry's native port calls"
+	}
+}

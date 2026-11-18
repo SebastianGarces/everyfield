@@ -1,12 +1,3 @@
-// One golden-set conversation, asked the way runTurn (packages/evry/src/runtime/turn.ts) asks it: evry.classifyRequest
-// first (a pastoral or capabilities request gets the runtime's fixed answer and no tool), then the real system prompt
-// (compileContext over the real catalog) with the model tools the turn gives this actor, built by the same function
-// (modelTools in runtime/tools.ts). Every read runs the real adapter through invokeRead against Hope Fellowship, seeded
-// on Postgres (golden-church.mts); a selection re-checks its rows with the real verifyPeople; propose_change prepares a
-// real review card with prepareProposal in an open conversation. Nothing is ever approved and no effect job runs.
-//
-// Each provider call is recorded by the hash of what the provider receives (prompt, tools, tool choice, reasoning,
-// output limit, response format, provider options). Replay serves the recording and makes no network call.
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { generateText, Output, stepCountIs, streamText } from "../../../packages/evry/node_modules/ai/dist/index.js";
@@ -55,25 +46,27 @@ import { byName, NOW, type ActorName, type GoldenChurch } from "./golden-church.
 import { SEAT_READS, SETTINGS_COMMANDS, SHARING_READS } from "../../../packages/evry/src/adapters/settings/index.ts";
 import { ONBOARDING_READS } from "../../../packages/evry/src/adapters/onboarding/reads/index.ts";
 import { ONBOARDING_COMMANDS } from "../../../packages/evry/src/adapters/onboarding/commands/index.ts";
+import { DASHBOARD_READS } from "../../../packages/evry/src/adapters/dashboard/reads/index.ts";
+import { FEEDBACK_READS } from "../../../packages/evry/src/adapters/feedback/reads/index.ts";
+import { FEEDBACK_COMMANDS } from "../../../packages/evry/src/adapters/feedback/commands/index.ts";
 import { PIPELINE_READS } from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
 import { PIPELINE_COMMANDS } from "../../../packages/evry/src/adapters/pipeline/commands/index.ts";
+import { LAUNCH_READS } from "../../../packages/evry/src/adapters/launch/reads/index.ts";
+import { LAUNCH_COMMANDS } from "../../../packages/evry/src/adapters/launch/commands/index.ts";
 
-/**
- * The operations these recordings offer the model: every installed one except the seat, Settings, sharing, connection,
- * account and organization tools T-327 added, the setup and Discovery tools T-345 added and the pipeline and program
- * tools WP-101 added after they were recorded. Offering those would change every recorded provider call, and Nora's
- * asks for T-327 (13 Nov 2026), T-345 and WP-101 allow no new spend, so settings.test.mts, onboarding.test.mts and
- * pipeline.test.mts score them on the scripted model instead. The next recording
- * drops this filter (rulings D-1137, D-1292).
- */
 const LATER = new Set<string>([
 	...SEAT_READS.map((a) => a.operation),
 	...SHARING_READS.map((a) => a.operation),
 	...Object.keys(SETTINGS_COMMANDS),
 	...ONBOARDING_READS.map((a) => a.operation),
 	...Object.keys(ONBOARDING_COMMANDS),
+	...DASHBOARD_READS.map((a) => a.operation),
+	...FEEDBACK_READS.map((a) => a.operation),
+	...Object.keys(FEEDBACK_COMMANDS),
 	...PIPELINE_READS.map((a) => a.operation),
 	...Object.keys(PIPELINE_COMMANDS),
+	...LAUNCH_READS.map((a) => a.operation),
+	...Object.keys(LAUNCH_COMMANDS),
 ]);
 export const RECORDED = (operation: string) => !LATER.has(operation);
 
@@ -84,21 +77,14 @@ type Call =
 export type Recorded = {
 	model: string;
 	recordedAt: string;
-	/** What the last recording run that made new calls paid, and what recording every call here afresh would cost. */
 	spend: { newCalls: number; newMicroUsd: number; allCalls: number; allMicroUsd: number };
 	calls: Record<string, Call>;
 };
 
-/** The real clock, kept before the golden church pins the host clock (golden-church.mts): it stamps recordedAt. */
 const RealDate = Date;
 
-/** EVRY_EVAL_RECORD=1 records the calls a file does not hold yet (a new or changed case) and drops unused ones. */
 export const recording = process.env.EVRY_EVAL_RECORD === "1";
 
-/**
- * A recording run shares the provider's per-minute token cap with other work, so a call refused by the cap is asked
- * again after a pause instead of failing its case. Replay never reaches the provider.
- */
 async function capped<T>(call: () => PromiseLike<T>): Promise<T> {
 	for (let attempt = 0; ; attempt++) {
 		try {
@@ -111,7 +97,6 @@ async function capped<T>(call: () => PromiseLike<T>): Promise<T> {
 	}
 }
 
-/** What the provider observes of one call: a different value is a different call. */
 export const callKey = ({
 	prompt,
 	tools,
@@ -156,17 +141,12 @@ function merged(parts: LanguageModelV4StreamPart[]) {
 	return out;
 }
 
-/**
- * The recorded calls of one eval file, `<name>.recorded.json` in this folder. `model(keys)` serves recorded calls and,
- * only while recording, asks the real model for new ones; `save()` writes the calls this run used (a recording run only).
- */
 export function recorder(name: string) {
 	const file = new URL(`${name}.recorded.json`, import.meta.url);
 	let loaded: Recorded | null = (() => {
 		try {
 			return JSON.parse(readFileSync(file, "utf8"));
 		} catch {
-			// No file yet: replay fails each call as unrecorded; a recording run starts one.
 			return null;
 		}
 	})();
@@ -185,10 +165,6 @@ export function recorder(name: string) {
 		return (real = selected.model);
 	}
 
-	/**
-	 * The model for one conversation; each provider call's key is pushed to `keys`, and everything the provider
-	 * receives in it (the prompt, with the system text and every tool result, and the tool definitions) to `inputs`.
-	 */
 	function model(keys: string[] = [], inputs: string[] = []): LanguageModelV4 {
 		const known = (key: string) => used.get(key) ?? loaded?.calls[key];
 		const missing = (key: string): never => {
@@ -239,8 +215,6 @@ export function recorder(name: string) {
 						new TransformStream({
 							transform(part, controller) {
 								parts.push(part);
-								// A stream the provider ended with an error (its token cap or a rate limit) is not an answer: it is
-								// never saved as a recording, so the next recording run asks again.
 								if (part.type === "finish" && !parts.some((p) => p.type === "error")) {
 									saved.usage = usageOf(part.usage);
 									fresh.push(saved.usage);
@@ -255,12 +229,10 @@ export function recorder(name: string) {
 		};
 	}
 
-	/** Writes the calls this run used (a recording run only). */
 	function save() {
 		if (!recording) return;
-		realModel(); // the price of the recorded model, also when every call was already recorded
+		realModel();
 		const cost = (u: Usage) => (price ? callCostMicroUsd(price, u.input, u.output) : 0);
-		// A run limited to some cases (EVRY_EVAL_CASES) keeps every other recording; a full run drops the unused ones.
 		const kept = process.env.EVRY_EVAL_CASES ? Object.entries(loaded?.calls ?? {}) : [];
 		const calls = Object.fromEntries([...kept, ...used.entries()].sort(([a], [b]) => a.localeCompare(b)));
 		const all = Object.values(calls).map((c) => c.usage);
@@ -268,7 +240,6 @@ export function recorder(name: string) {
 			model: loaded?.model || (process.env.EVRY_MODEL ?? ""),
 			recordedAt: fresh.length ? new RealDate().toISOString() : (loaded?.recordedAt ?? new RealDate().toISOString()),
 			spend: {
-				// A run that needed no new call keeps the last paid run's figures.
 				newCalls: fresh.length || (loaded?.spend.newCalls ?? 0),
 				newMicroUsd: fresh.length ? fresh.reduce((s, u) => s + cost(u), 0) : (loaded?.spend.newMicroUsd ?? 0),
 				allCalls: all.length,
@@ -276,8 +247,6 @@ export function recorder(name: string) {
 			},
 			calls,
 		};
-		// Consecutive deltas of one text or tool input are merged: replay streams the same text and input, so every later
-		// call (and its key) is unchanged.
 		for (const call of Object.values(out.calls)) if (call.kind === "stream") call.parts = merged(call.parts);
 		writeFileSync(file, JSON.stringify(out, null, "\t") + "\n");
 		loaded = out;
@@ -305,16 +274,10 @@ export type Conversation = {
 	proposals: Proposal[];
 	answer: string;
 	keys: string[];
-	/** Everything the model received in this conversation, one entry per provider call (recorder's `inputs`). */
 	inputs: string[];
-	/** The refusal that ended the turn, as runTurn ends it when a read fails. */
 	failed?: string;
 };
 
-/**
- * The mail keys an email review reads (it hashes addresses to find blocked ones), as a deployment has them. A review
- * never calls the email service, and nothing here is approved, so the transport refuses every call.
- */
 const refuse = async (): Promise<never> => {
 	throw Error("a review never calls the email service");
 };
@@ -328,19 +291,12 @@ const MAIL: MailPort = {
 	transport: { send: refuse, cancel: refuse, reschedule: refuse },
 };
 
-/** The turn's own stop: the 24-tool budget (a step past it runs nothing). The step bound only backs it up. */
 const MAX_STEPS = LIMITS.toolCalls + 1;
 
-/** Conversations open one at a time, so each claim takes the turn its own submit just started. */
 let opening: Promise<unknown> = Promise.resolve();
-/**
- * The conversation a proposal is saved in, with the claim on its submitted turn, as the app worker holds it while the
- * turn runs. Its turn is never run: the eval itself is the turn.
- */
 function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attached[] = []) {
 	const opened = opening.then(async () => {
 		const c = await createConversation(db, actor, { requestKey: randomUUID() });
-		// The case's attached files, staged in this conversation as the panel stages them.
 		for (const f of files)
 			await db.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,state,upload_key,claim_generation,expires_at)
 				VALUES(${f.id}::uuid,${actor.owner.id}::uuid,'assistant_staging',${`private/${actor.owner.id}/${f.id}`},'text/csv',${f.bytes.length},
@@ -350,7 +306,6 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 			text: "Golden eval",
 			attachments: files.map((f) => ({ id: f.id, name: f.name })),
 		});
-		// A file the case says was checked earlier carries that check, saved as the runtime saves a read's result.
 		for (const f of files.filter((x) => x.checked)) {
 			const result = await invokeRead(db, actor, previewImport as ReadAdapter<unknown>, { attachmentId: f.id }, null, {
 				read: async () => f.bytes,
@@ -373,7 +328,6 @@ function openConversation(db: GoldenChurch["db"], actor: EvryActor, files: Attac
 	return opened;
 }
 
-/** A file a case attached: a pinned id, its name, CSV text with {Name.email} filled from the church, and whether it was checked. */
 export type CaseFile = { id: string; name: string; csv: string; checked?: boolean };
 type Attached = CaseFile & { bytes: Uint8Array };
 const fill = (csv: string) =>
@@ -385,9 +339,7 @@ export async function converse(
 	text: string,
 	history: Turn[] = [],
 	attachments: CaseFile[] = [],
-	/** A model to ask instead of the recording, such as the scripted model (assessments.cases.json). */
 	override?: LanguageModelV4,
-	/** The Wiki article the user's page shows (its slug), offered as the turn offers a page reference. */
 	page?: string,
 ): Promise<Conversation> {
 	const { db } = church;
@@ -418,7 +370,6 @@ export async function converse(
 			}) as unknown as ConversationEvent,
 	);
 	const files: Attached[] = attachments.map((f) => ({ ...f, bytes: new TextEncoder().encode(fill(f.csv)) }));
-	// The conversation's saved facts as the runtime reads them, pinned: each file attached five minutes before NOW.
 	const attachedAt = new Date(NOW.getTime() - 5 * 60_000);
 	const state = {
 		attachments: files.map((f) => ({
@@ -456,9 +407,6 @@ export async function converse(
 	let failed: string | undefined;
 	const abort = new AbortController();
 	const admit = () => ++toolCalls <= LIMITS.toolCalls;
-	// The turn runs a step's tool calls side by side, so a real read can finish before an earlier one, and the next
-	// prompt lists results as they finish. Here they run one after another in call order, and each takes its result id,
-	// call entry and proposal number before its first await, so a replay sends exactly the recorded prompt.
 	let queue: Promise<unknown> = Promise.resolve();
 	const inOrder =
 		<A extends unknown[], R>(run: (...args: A) => Promise<R>) =>
@@ -485,13 +433,11 @@ export async function converse(
 					call.result = await invokeRead(db, actor, adapter, input, null, conversationFiles);
 					return keep(resultId, call.result);
 				} catch (error) {
-					// A file from another conversation, or a gone one, is the model's to explain, as runTurn does.
 					if (
 						error instanceof EvryRefusal &&
 						(error.code === "attachment_elsewhere" || error.code === "attachment_gone")
 					)
 						return ((call.error = error.code), { error: error.code });
-					// A failed read ends the turn with its refusal, as runTurn does.
 					const code = error instanceof EvryRefusal ? error.code : "source_unavailable";
 					call.error = code;
 					failed ??= code;
@@ -520,22 +466,18 @@ export async function converse(
 				});
 			}),
 			propose: inOrder(async (call: { operation: string; input: unknown }) => {
-				// The turn's review card cap (runTurn): a bulk change confirms its scope first.
 				if (++cards > LIMITS.reviewCards) return { error: "review_limit" };
 				if (!admit()) return { error: "tool_budget" };
 				const card: Proposal = { operation: call.operation, input: call.input, prepared: false, review: null };
 				proposals.push(card);
 				const number = proposals.length;
 				const open = await (conversation ??= openConversation(db, actor, files));
-				// The checks this turn made are saved in the conversation before the review reads them, as runTurn saves each
-				// read's result as it ends.
 				for (const check of calls.filter((x) => x.operation === "people.previewImport" && x.result && !saved.has(x))) {
 					saved.add(check);
 					await db.execute(sql`WITH c AS (UPDATE conversation SET last_sequence=last_sequence+1 WHERE id=${open.id}::uuid RETURNING id,last_sequence)
 					INSERT INTO conversation_event(conversation_id,sequence,turn_id,kind,body)
 					SELECT id,last_sequence,${open.lease.turnId}::uuid,'tool_result',${JSON.stringify({ operation: check.operation, input: check.input, result: check.result })}::jsonb FROM c`);
 				}
-				// An import reads the case's attached files, as a turn's review does (runtime/turn.ts).
 				const proposal = await prepareProposal(
 					db,
 					actor,
@@ -552,9 +494,6 @@ export async function converse(
 				}
 				card.prepared = true;
 				card.review = proposal.review;
-				// The card's id and expiry come from the database. The model reads pinned ones, so a replay sends the
-				// recorded call; everything else on the card is the real review. A contact time taken from the database clock
-				// carries its minute, so the model reads NOW's instead.
 				return proposalForModel({
 					...proposal,
 					review: pinnedContactTime(proposal.review, call.input),
@@ -587,12 +526,6 @@ export async function converse(
 	return { kind: "application", calls, proposals, answer, keys, inputs, ...(failed ? { failed } : {}) };
 }
 
-/**
- * A contact log's time taken from the database clock, as NOW in the review's zone ("2026-11-09 09:00 America/Chicago");
- * other reviews as they are. The review uses the clock for "now" and for any later time it is given (a date today is
- * noon, so it is one), and the eval clock keeps running from NOW, so its minute depends on when the case runs. A time
- * at or after NOW's minute can only be the clock's.
- */
 function pinnedContactTime<R extends { changes: { field: string; after: unknown }[] }>(review: R, input: unknown): R {
 	if ((input as { occurred?: unknown } | null)?.occurred === undefined) return review;
 	const changes = review.changes.map((c) => {
@@ -616,7 +549,6 @@ function pinnedContactTime<R extends { changes: { field: string; after: unknown 
 	return { ...review, changes };
 }
 
-/** The tone and usefulness rubric, graded by the same model after the hard checks pass. No weights, no score. */
 export const RUBRIC = {
 	grades: ["strong", "adequate", "weak"] as const,
 	tone: "Warm, plain and brief, the way a capable church staff member talks to a busy planter: no preaching, flattery, jargon or filler, and no false certainty.",

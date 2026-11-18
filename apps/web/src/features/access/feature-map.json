@@ -1,0 +1,115 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "access",
+	"catalog": ["MUL-002"],
+	"surfaces": [
+		{
+			"id": "access.design-preview",
+			"says": "Design previews of the access boundary pages and the staff notes panel by viewer duty, with sample data and no database.",
+			"routes": ["/design/access/[flow]"],
+			"reach": [
+				{
+					"link": "/design/access/{flow}",
+					"fill": {
+						"flow": "not-available, session-ended, pending or staff-notes"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "staff-notes",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/access/staff-notes",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "radiogroup",
+							"name": "Preview as"
+						},
+						{
+							"role": "heading",
+							"name": "Staff notes"
+						},
+						{
+							"role": "button",
+							"name": "Show more notes"
+						}
+					]
+				},
+				{
+					"id": "pending",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/access/pending",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Finish setting up"
+						},
+						{
+							"role": "link",
+							"name": "Set up your church"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "access.request-retention",
+			"says": "The daily cron that expires old early-access requests: it refuses any caller without the cron secret.",
+			"routes": [],
+			"endpoints": ["/api/cron/access-retention"],
+			"reach": [
+				{
+					"link": "/api/cron/access-retention"
+				}
+			],
+			"personas": {
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "refused",
+					"reach": {
+						"persona": "visitor",
+						"open": "/api/cron/access-retention",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/api/cron/access-retention"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "expire-access-requests",
+					"says": "The daily run deletes early-access requests after twelve months and clears stored IP addresses older than thirty days; without the cron secret it changes nothing.",
+					"catalog": ["ADM-006"],
+					"operations": ["marketing.expireAccessRequests"],
+					"proof": {
+						"tests": [
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: scheduled retention deletes after twelve months and clears only IPs older than thirty days"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: cron requires a configured secret and refuses unauthorized retention"
+							}
+						]
+					}
+				}
+			]
+		}
+	]
+}

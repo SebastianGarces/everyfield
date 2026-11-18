@@ -23,11 +23,6 @@ import {
 	residentWriter,
 } from "../../../packages/domain/src/organizations/index.ts";
 
-// My residency and consented progress (REQ-MUL-003, -004, -013, -014) against a migrated database, through the real
-// invitation service and organization adapter. Grace Austin (America/Chicago): Dana Owner, Luis Admin, Ana (Member)
-// directs the residency. Casey Lee is enrolled and has a Discovery account at casey@example.test. Jordan Price is a
-// second enrollee. Rae is someone else signed in with another email.
-
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 let f: Awaited<ReturnType<typeof fixture>>;
 type Actor = { id: string; session: string; email: string };
@@ -51,7 +46,6 @@ const record = async (a: Actor, personId = caseyPerson) =>
 	ok(await readPipelinePersonRecord(f.db, await authority(a), { personId }));
 const enrollment = async (a: Actor, enrollmentId = caseyEnrollment) =>
 	ok(await readEnrollment(f.db, await authority(a), { enrollmentId }));
-// The product frame's My residency entry: the newest active card of the Sharing page's one residency read.
 const navLink = async (a: Actor) => {
 	const who = await authority(a);
 	const owner = who.actor.context.owner;
@@ -78,7 +72,6 @@ const adapter = createOrganizationAdapter(
 	},
 	{ candidates: async () => [] },
 );
-/** One resident consent command as the web mount runs it: the account's write gate, then the adapter. */
 async function asResident(name: "residency.setSharing" | "residency.leave", input: unknown) {
 	const owner = { kind: "account" as const, id: casey.id };
 	return f.db.transaction(async (tx) => {
@@ -101,7 +94,6 @@ async function share(choices: { shareFoundations: boolean; shareMilestones: bool
 		input: { linkId: l.id, expectedConsentRevision: l.consent, choices },
 	});
 }
-/** What Casey's account holds: seats, organization connections and residency links, ended or not. */
 async function accountState() {
 	return (
 		await f.admin.execute(sql`SELECT (SELECT count(*)::int FROM seat WHERE account_id=${casey.id}::uuid) AS seats,
@@ -165,7 +157,6 @@ before(async () => {
 		)
 	).rows[0]!.id as string;
 
-	// Wiki: one global article, and two of Grace Austin's own published versions.
 	release = randomUUID();
 	await f.admin.execute(
 		sql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${randomUUID()},'section','framework/start',${GLOBAL})`,
@@ -193,7 +184,6 @@ before(async () => {
 		.execute(sql`INSERT INTO reference_activation(id,release_id,activation_number,activated_at,actor_tombstone,reason,expected_prior_number)
 	 VALUES(${randomUUID()},${release},1,clock_timestamp(),'synthetic','test',0)`);
 
-	// The pipeline: Casey with her email and no linked account, Jordan without one.
 	const board = ok(await readPipelineBoard(f.db, await authority(dana), {}));
 	const potential = board.stages.find((s) => s.label === "Potential leader")!.id;
 	for (const [personId, displayName, email] of [
@@ -210,7 +200,6 @@ before(async () => {
 			}),
 		);
 
-	// The residency, Ana directing, with a hands-on assignment and a reading list; Casey and Jordan enrolled.
 	ok(
 		await programWriter.createProgram(f.db, await authority(dana), {
 			programId: program,
@@ -258,7 +247,6 @@ before(async () => {
 				nextMeetingAt: "2026-10-20T19:00:00",
 			}),
 		);
-	// Before Casey links, Ana records and confirms one of her milestones in one step: a fact Grace Austin owns.
 	const preach = (
 		await f.admin
 			.execute(sql`SELECT m.id FROM development_milestone m JOIN development_program p ON p.current_version_id=m.version_id
@@ -271,7 +259,6 @@ before(async () => {
 			completedOn: "2026-10-12",
 		}),
 	);
-	// Staff facts about Casey that My residency must never carry.
 	const record0 = await record(dana);
 	ok(
 		await pipelineWriter.recordAssessment(f.db, await authority(dana), {
@@ -301,7 +288,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-test("an Admin invites Casey to link; the record shows it pending with its date; revoking kills the emailed link", async () => {
+test("AC:ADR1-004 an Admin invites Casey to link; the record shows it pending with its date; revoking kills the emailed link", async () => {
 	assert.deepEqual((await record(luis)).residency, { status: "not_linked" });
 	const sent = await invite();
 	const pending = (await record(luis)).residency;
@@ -310,7 +297,6 @@ test("an Admin invites Casey to link; the record shows it pending with its date;
 	assert.equal(pending.invitationId, sent.invitationId);
 	assert.equal(pending.recipientEmail, "casey@example.test");
 	assert.match(pending.sentOn, /^\d{4}-\d{2}-\d{2}$/);
-	// The email reached Casey's address.
 	assert.ok(
 		f.effects.some((e) => e.to === "casey@example.test" && e.text.includes("link your account to Grace Austin")),
 	);
@@ -326,7 +312,7 @@ test("an Admin invites Casey to link; the record shows it pending with its date;
 	await assert.rejects(f.invitations.respondResident(casey.session, claim(sent, { decision: "decline" })));
 });
 
-test("someone with another email cannot accept; Casey's decline leaves her account as it was", async () => {
+test("AC:ADR1-004 someone with another email cannot accept; Casey's decline leaves her account as it was", async () => {
 	const before = await accountState();
 	const sent = await invite();
 	await assert.rejects(
@@ -342,7 +328,7 @@ test("someone with another email cannot accept; Casey's decline leaves her accou
 	assert.deepEqual(ok(await readMyResidency(f.db, await authority(casey))), { status: "not_linked" });
 });
 
-test("Casey accepts sharing milestone progress only: no seat, still a Discovery account, and Grace Austin sees her linked", async () => {
+test("AC:ADR1-004 AC:ADR1-013 Casey accepts sharing milestone progress only: no seat, still a Discovery account, and Grace Austin sees her linked", async () => {
 	const sent = await invite();
 	const accepted = await f.invitations.respondResident(
 		casey.session,
@@ -353,7 +339,6 @@ test("Casey accepts sharing milestone progress only: no seat, still a Discovery 
 	assert.equal(state.seats, 0);
 	assert.equal(state.kind, "discovery");
 	assert.equal(state.links, 1);
-	// Her session still has no seat: it acts as her own account.
 	assert.equal((await authority(casey)).actor.context.kind, "account");
 	assert.deepEqual((await record(luis)).residency, { status: "linked" });
 	assert.equal(await navLink(casey), "Grace Austin");
@@ -365,7 +350,7 @@ test("Casey accepts sharing milestone progress only: no seat, still a Discovery 
 	});
 });
 
-test("My residency shows the program, program stage, next meeting in Casey's zone, milestones and reading, and no staff facts", async () => {
+test("AC:ADR1-013 My residency shows the program, program stage, next meeting in Casey's zone, milestones and reading, and no staff facts", async () => {
 	const view = await mine();
 	assert.equal(view.status, "linked");
 	if (view.status !== "linked") return;
@@ -399,7 +384,6 @@ test("My residency shows the program, program stage, next meeting in Casey's zon
 			["Building a launch team at Grace", "organization", true, null],
 		],
 	);
-	// Nothing the staff record about Casey is in the payload.
 	const text = JSON.stringify(view);
 	for (const hidden of [
 		"Resident",
@@ -410,7 +394,6 @@ test("My residency shows the program, program stage, next meeting in Casey's zon
 	])
 		assert.ok(!text.includes(hidden), hidden);
 
-	// In another zone, the meeting moves to her own time and still names the church's.
 	await f.admin.execute(sql`UPDATE account SET personal_timezone='America/Los_Angeles' WHERE id=${casey.id}::uuid`);
 	const moved = await mine();
 	assert.equal(moved.status === "linked" && moved.timezone, "America/Los_Angeles");
@@ -422,7 +405,7 @@ test("My residency shows the program, program stage, next meeting in Casey's zon
 	await f.admin.execute(sql`UPDATE account SET personal_timezone=NULL WHERE id=${casey.id}::uuid`);
 });
 
-test("Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record Casey's milestones in one step", async () => {
+test("AC:ADR1-012 Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record Casey's milestones in one step", async () => {
 	const view = await mine();
 	if (view.status !== "linked") throw Error("not linked");
 	const vision = milestoneOf(view.enrollments[0]!.milestones, "Present your vision to the sending church leadership");
@@ -444,14 +427,12 @@ test("Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record
 		confirmer: null,
 		source: "resident",
 	});
-	// Only the director confirms; Dana (Owner) is not the director.
 	assert.equal((await programWriter.confirmMilestone(f.db, await authority(dana), mark)).status, "refused");
 	assert.deepEqual(ok(await programWriter.confirmMilestone(f.db, await authority(ana), mark)), { outcome: "changed" });
 	assert.deepEqual(ok(await programWriter.confirmMilestone(f.db, await authority(ana), mark)), { outcome: "noop" });
 	assert.deepEqual(await caseySees(), { completedOn: today, confirmedOn: today, source: "resident" });
 	assert.equal((await anaSees())?.confirmer, "Ana");
 
-	// While Casey is linked, the one-step record-and-confirm path refuses every milestone of hers.
 	const prospectus = milestoneOf(view.enrollments[0]!.milestones, "Write a church planting prospectus");
 	const one = await programWriter.recordMilestone(f.db, await authority(ana), {
 		enrollmentId: caseyEnrollment,
@@ -459,16 +440,14 @@ test("Casey marks a milestone done; it waits; Ana confirms it; Ana cannot record
 		completedOn: "2026-10-12",
 	});
 	assert.deepEqual(one, { status: "refused", refusal: { code: "linked_resident" } });
-	// A milestone of a version Casey is not on is refused.
 	assert.equal(
 		(await residentWriter.markMilestone(f.db, await authority(casey), { ...mark, milestoneId: randomUUID() })).status,
 		"refused",
 	);
-	// Rae, who is not linked, cannot mark Casey's milestones.
 	assert.equal((await residentWriter.markMilestone(f.db, await authority(rae), mark)).status, "refused");
 });
 
-test("Casey sees Ana's feedback on her own assignment and none written for Jordan", async () => {
+test("AC:ADR1-012 Casey sees Ana's feedback on her own assignment and none written for Jordan", async () => {
 	const view = await mine();
 	if (view.status !== "linked") throw Error("not linked");
 	const preach = milestoneOf(view.enrollments[0]!.milestones, "Preach on a Sunday");
@@ -494,8 +473,7 @@ test("Casey sees Ana's feedback on her own assignment and none written for Jorda
 	assert.ok(!JSON.stringify(after).includes("Jordan"));
 });
 
-test("foundations: not shared, then a count of the six once Casey shares them, never her reading rows", async () => {
-	// Casey completed two foundations, and read one other article.
+test("AC:ADR1-014 foundations: not shared, then a count of the six once Casey shares them, never her reading rows", async () => {
 	const foundations = (await import("../../../docs/reference/discovery-foundations.json", { with: { type: "json" } }))
 		.default.articles;
 	for (const a of foundations.slice(0, 2)) {
@@ -521,8 +499,7 @@ test("foundations: not shared, then a count of the six once Casey shares them, n
 	for (const a of foundations) assert.ok(!text.includes(a.title), a.title);
 });
 
-test("milestone sharing off hides Casey's own marks; the milestone Ana recorded before Casey linked stays", async () => {
-	// Jordan is unlinked, so Ana recorded his milestone herself; Casey's own confirmed mark is consented progress.
+test("AC:ADR1-003 AC:ADR1-014 milestone sharing off hides Casey's own marks; the milestone Ana recorded before Casey linked stays", async () => {
 	await share({ shareFoundations: true, shareMilestones: false });
 	const shown = await enrollment(ana);
 	assert.deepEqual(shown.resident, {
@@ -541,7 +518,6 @@ test("milestone sharing off hides Casey's own marks; the milestone Ana recorded 
 	assert.equal(milestoneOf(shown.milestones, "Preach on a Sunday").completion?.completedOn, "2026-10-12");
 	assert.equal(shown.status, "active");
 	assert.equal(shown.stage.label, "Assimilating");
-	// What Casey sees of her own progress is unchanged.
 	const view = await mine();
 	assert.equal(
 		view.status === "linked" &&
@@ -549,7 +525,6 @@ test("milestone sharing off hides Casey's own marks; the milestone Ana recorded 
 				?.source,
 		"resident",
 	);
-	// Confirming what she does not share is refused.
 	const prospectus =
 		view.status === "linked"
 			? milestoneOf(view.enrollments[0]!.milestones, "Write a church planting prospectus")
@@ -572,7 +547,6 @@ test("milestone sharing off hides Casey's own marks; the milestone Ana recorded 
 });
 
 test("a new version keeps Casey's own marks on carried milestones, and shows them to Ana only while she shares", async () => {
-	// Milestone sharing is off. Ana publishes Version 2 with the same milestones and applies it to Casey.
 	const p = ok(await readProgram(f.db, await authority(ana), { programId: program }));
 	const v = p.published!;
 	const saved = ok(
@@ -599,10 +573,8 @@ test("a new version keeps Casey's own marks on carried milestones, and shows the
 			expectedRevision: saved.revision,
 		}),
 	);
-	// The review counts only what Grace Austin may see as finished: its own record, not Casey's hidden marks.
 	const r = ok(await readVersionReview(f.db, await authority(ana), { enrollmentId: caseyEnrollment }));
 	assert.deepEqual(r.carried, ["Preach on a Sunday"]);
-	// Reviewed with unlinked Jordan, each person's own link decides: Casey's unshared marks still don't count.
 	const both = ok(
 		await readVersionReviews(f.db, await authority(ana), {
 			programId: program,
@@ -633,10 +605,8 @@ test("a new version keeps Casey's own marks on carried milestones, and shows the
 	assert.notEqual(vision.completion?.confirmedOn, null);
 	assert.deepEqual([prospectus.completion?.source, prospectus.completion?.confirmedOn], ["resident", null]);
 	assert.equal(milestoneOf(own, "Preach on a Sunday").completion?.source, "program_leader");
-	// Marking a milestone already marked on Version 1 changes nothing.
 	const mark = { enrollmentId: caseyEnrollment, milestoneId: vision.id };
 	assert.deepEqual(ok(await residentWriter.markMilestone(f.db, await authority(casey), mark)), { outcome: "noop" });
-	// Once she shares again, Ana sees both marks on Version 2 and confirms the waiting one.
 	await share({ shareFoundations: true, shareMilestones: true });
 	const shown = await enrollment(ana);
 	assert.equal(shown.versionNumber, 2);
@@ -655,7 +625,7 @@ test("a new version keeps Casey's own marks on carried milestones, and shows the
 	assert.deepEqual(ok(await programWriter.confirmMilestone(f.db, await authority(ana), confirm)), { outcome: "noop" });
 });
 
-test("church reading opens only from Casey's own list; another church article does not; unpublished reads unavailable", async () => {
+test("AC:ADR1-014 church reading opens only from Casey's own list; another church article does not; unpublished reads unavailable", async () => {
 	const view = await mine();
 	if (view.status !== "linked") throw Error("not linked");
 	const team = view.enrollments[0]!.readings.find((r) => r.source === "organization")!;
@@ -664,14 +634,12 @@ test("church reading opens only from Casey's own list; another church article do
 		"Building a launch team at Grace",
 		"Grace Austin",
 	]);
-	// A reading of a list Casey is not on, or any ID that is not one, opens nothing.
 	assert.deepEqual(ok(await readResidentReading(f.db, await authority(casey), { readingId: randomUUID() })), {
 		status: "unavailable",
 	});
 	assert.deepEqual(ok(await readResidentReading(f.db, await authority(rae), { readingId: team.id })), {
 		status: "unavailable",
 	});
-	// Grace Austin unpublishes its version: the item reads as unavailable and opens nothing.
 	await f.admin.execute(
 		sql`UPDATE article_editor_state SET state='hide' WHERE organization_id=${grace.id}::uuid AND article_id=${articles.team}::uuid`,
 	);
@@ -683,7 +651,7 @@ test("church reading opens only from Casey's own list; another church article do
 	});
 });
 
-test("Casey leaves: My residency is gone at once and Grace Austin sees her as not linked; its own facts stay", async () => {
+test("AC:ADR1-003 AC:ADR1-013 Casey leaves: My residency is gone at once and Grace Austin sees her as not linked; its own facts stay", async () => {
 	const l = (await linkRow())!;
 	await asResident("residency.leave", {
 		requestKey: randomUUID(),
@@ -697,7 +665,6 @@ test("Casey leaves: My residency is gone at once and Grace Austin sees her as no
 	assert.deepEqual(shown.resident, { status: "not_linked" });
 	assert.equal(shown.status, "active");
 	assert.equal((await accountState()).seats, 0);
-	// Casey's own marks are hidden once she leaves, so Ana can record them in one step again; her own record stays.
 	const vision = milestoneOf(shown.milestones, "Present your vision to the sending church leadership");
 	assert.equal(vision.completion, null);
 	const recordAs = (milestoneId: string) =>
@@ -717,7 +684,6 @@ test("Casey leaves: My residency is gone at once and Grace Austin sees her as no
 	const preach = milestoneOf(recorded.milestones, "Preach on a Sunday");
 	assert.deepEqual(ok(await recordAs(preach.id)), { outcome: "noop" });
 	assert.equal(milestoneOf((await enrollment(ana)).milestones, preach.title).completion?.completedOn, "2026-10-12");
-	// Without a live link, nothing of the residency opens and no mark is taken.
 	const reading = (await f.admin.execute(sql`SELECT id FROM development_reading LIMIT 1`)).rows[0]!.id as string;
 	assert.deepEqual(ok(await readResidentReading(f.db, await authority(casey), { readingId: reading })), {
 		status: "unavailable",

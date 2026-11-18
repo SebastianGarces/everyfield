@@ -7,10 +7,10 @@ description: "Apply when you verify a change as the independent Opus verifier. R
 
 You prove the change works. The author's summary is not evidence, but the author's proof is: read the
 diff in full and judge the code (D66), read `evf proof show` and open each proof's evidence.
-Spot-check. Re-run a flow on a preview of the exact head only where a proof is unmet, missing or looks
-wrong. Run local checks with `bin/dev check --full`: a verifier ignores selection and runs every check. You own the verdict. The Experience section may use the author's recorded
+Spot-check the author's proofs. Re-run an author's check on a preview of the exact head only where a proof is unmet,
+missing or looks wrong. App proof is the exception: for a diff that changes app code you capture it yourself (step 3). Run local checks with `bin/dev check --full`: a verifier ignores selection and runs every check. You own the verdict. The Experience section may use the author's recorded
 measurements; re-measure where they look wrong or missing. Scripts are in `scripts/` next to this file. They need Node 24+, `gh`, `portless`, the
-local env files of the main checkout and, for `publish.mjs`, the evidence env file (step 5). Every command below runs from any checkout of this repo.
+local env files of the main checkout and, for `publish.mjs`, the evidence env file (step 6). Every command below runs from any checkout of this repo.
 
 ```bash
 S=.agents/skills/verify-preview/scripts            # in your own checkout of main
@@ -29,17 +29,37 @@ start. These rules apply to every role that opens a browser.
   command in its own process group with a timeout (default 900 s). When the command ends, fails,
   times out or gets a signal, it closes the run's agent-browser session, stops every process
   the run started and deletes the run's temporary directory, where Playwright keeps its profiles.
-- Interactive checks use agent-browser, never the Playwright MCP. Give each job its own
-  session and a short idle timeout, and close it when you finish, also after a failure:
+- Interactive checks use `bin/app`, never the Playwright MCP. It drives agent-browser in one session
+  per worktree (`app-<worktree>`, 10 min idle timeout, reopened as the last persona after an idle
+  close), prints one line per result, and its exit code is the result (0 ok, 1 expectation failed,
+  3 not found, 4 no app). `bin/app help` is the whole guide. Write the whole flow as one `do` script
+  and make every step prove something: `fill` reads the value back, actions print new status and
+  alert text, `expect` checks the result.
 
   ```bash
-  ab() { agent-browser --session <task>-verify --idle-timeout 10m "$@"; }
-  ab open <branch url>; ab set viewport 390 900; ab snapshot -i; ab click @e3
-  ab screenshot "$E/shots/<name>.png"; ab errors; ab console
-  ab close
+  bin/app up                                   # this head on a throwaway Postgres with the QA seed
+  bin/app --task <task>-verify do <<'EOF'
+  login owner --goto /people
+  click "Lena Park"
+  click "Edit profile"
+  fill City Provo
+  click "Save changes"
+  expect --text Provo
+  shot person
+  cursor-audit
+  errors
+  EOF
+  bin/app down                                 # closes the browser too; bin/app close keeps the app
   ```
 
-  Run `agent-browser skills get core` once for the full command guide.
+  `shot` writes true 390 and 1440 px PNGs to `$E/shots` when `--task` is `<task>-verify`. Against a
+  portless preview, pass `--url <preview>` once and `login <key> --cookie-file <tests/ui fixture>`.
+- When you use agent-browser directly (`bin/app raw -- <args>` keeps the session flags), chain the
+  steps in one shell call with semantic locators instead of a snapshot and an `@ref` per step:
+  `find role link click --name "Lena Park" --exact && find label City fill Provo && find role button
+  click --name "Save changes" && wait --fn "document.body.innerText.includes('Provo')"`. Its `fill`
+  does not check the result (a date or time input stays empty and it still prints done), and
+  `screenshot --full` at 390 or 1440 comes out 375 or 1425 px wide when the page scrolls.
 - Stop only processes you started, by PID or process group. Never stop processes by a name
   pattern (`pkill chrome`, `killall`): other agents' browsers run on the same machine.
 - Before you end, none of your browsers or agent-browser sessions may still be running.
@@ -78,6 +98,13 @@ Read your brief (the ask and the spec) and the full diff against the merge base.
 requirements the task names. Write down the behavior you will check before you run anything.
 You are a fresh Opus 5.5 medium session that never shared context with the author (D82).
 
+Start from the feature map when the feature has one. For each feature directory the diff touches,
+read `docs/feature-maps/<feature>.md` or run `node tools/ci/feature-maps.ts show <surface-id>`. It
+names the routes, the QA seed persona that reaches each state, the tests and cases behind each
+behavior, and browser steps as agent-browser commands. "Become a persona" in
+`docs/feature-maps/README.md` says how to sign in. Follow those steps on a fresh QA seed instead of
+exploring the app. When the map and the app disagree, that is a finding.
+
 ## 2. Start the previews
 
 ```bash
@@ -105,7 +132,52 @@ The development database is shared and may be wiped and reseeded at any time:
 `corepack pnpm --filter @everyfield/db reset:dev`. Never point a check at production. Never print
 credentials. Do not submit a valid access form unless the task needs it: it sends a real email.
 
-## 3. UI changes
+## 3. App proof
+
+Every review of a diff that changes app code carries your own proof of the real app, not only a code read. Find what
+the diff needs, in the head checkout:
+
+```bash
+B=$(git merge-base HEAD origin/main)
+pnpm review-proof --base "$B" --evidence "$E"     # add --head <checkout> when you run it from another checkout
+```
+
+It reads the diff from the merge base to the head and requires the surface of each changed mapped route, at least one
+surface of each changed mapped feature, and at least one surface for any other product code under `apps/web/` or
+`packages/*/src/` (tests excluded). A diff of only tooling, docs, tests or agent instructions prints "No app proof
+needed"; put that output in the Proof section and go on.
+
+For each surface you prove, read its entry (`node tools/ci/feature-maps.ts show <surface-id>`), sign in as the persona
+it names, reach the surface on the head preview the way it says (the rail item or the path, then the state), and
+capture it:
+
+```bash
+mkdir -p "$E/proof/<surface-id>"
+ab set viewport 390 900; ab open <url>; ab wait --load networkidle
+ab screenshot "$E/proof/<surface-id>/<state>-390.png"
+ab set viewport 1440 900; ab open <url>; ab wait --load networkidle
+ab screenshot "$E/proof/<surface-id>/<state>-1440.png"
+```
+
+Take viewport shots, not `--full`: the app keeps a stable scrollbar gutter, so a full-page shot at a 390 px viewport
+comes out 375 px wide and the check refuses it. Scroll and shoot again for more of a long page. When a flow shows the
+change better, one recording (`ab record start "$E/proof/<surface-id>/<flow>.webm"`) stands for both widths.
+
+Then run the check with the surface ids you proved:
+
+```bash
+pnpm review-proof --base "$B" --evidence "$E" <surface-id>...
+```
+
+It fails naming each surface and width that is missing, each PNG that is not exactly 390 or 1440 px wide and each
+unknown surface id. Never approve while it fails. A changed surface with no map entry is a blocking finding too:
+`node tools/ci/feature-maps.ts --check` refuses a branch that changes a pending route or a feature with no map, and the
+author maps it. When it passes it prints one row per proved surface with its feature, how users reach it and what
+proves it, next to the files it found. Paste that table as the report's Proof section, with the file links pointed at
+the published evidence. When the diff touches a state machine, the output also has a Machines table (step 5): paste it
+too.
+
+## 4. UI changes
 
 A UI change touches anything a person sees: `apps/web/src`, styles, `design/` tokens or copy.
 Write a temporary flow in `$E/flow.mjs` that exercises the changed behavior as a person would:
@@ -139,15 +211,15 @@ refetches or refreshes. Keep request logs in `$E` and summarize them in the Expe
 Reports and analytics may exceed the time budget only when the PR names that approved category
 and explains the slower action.
 
-Then check the changed behavior by hand with agent-browser on the branch preview: open the pages,
-use the controls, read `ab errors` and `ab console`, and take screenshots of states the flow does
-not reach. When a flow matters more than a still image (an overlay, focus order, a transition, a
+Then check the changed behavior by hand with `bin/app` on the branch: open the pages, use the
+controls, read `bin/app errors`, and take `bin/app shot` screenshots of states the flow does not
+reach. When a flow matters more than a still image (an overlay, focus order, a transition, a
 multi-step form), record a short video of it on the branch preview:
 
 ```bash
-ab record start "$E/videos/<flow>-after.webm"
-# the steps of the flow
-ab record stop
+bin/app raw -- record start "$E/videos/<flow>-after.webm"
+bin/app do < "$E/flow.steps"
+bin/app raw -- record stop
 ```
 
 Keep each video under 30 seconds. Use synthetic data or data from the shared development
@@ -159,7 +231,7 @@ Check layout, spacing, type, color, focus states, copy and the phone width with 
 skills. A visual problem is a failure even when the script passes. A pixel difference on a PR
 that claims no visual change is a failure.
 
-## 4. Backend changes
+## 5. Backend changes
 
 A backend change touches server code, routes, actions, `packages/`, the schema or a command.
 Write a temporary probe in `$E/probe.mjs`. It calls the real endpoints on the preview URL and runs
@@ -178,7 +250,16 @@ node "$E/probe.mjs" <args> 2>&1 | tee "$E/probe.log"
 
 A change with both parts gets both. A tooling-only change gets its commands rerun as the probe.
 
-## 5. Publish
+A change that touches a state machine (its table in `packages/contracts/src/machines/`, its column's values in
+`packages/db/src/schema/tables.ts`, or a file its writer census lists) also proves the machine: run the proof test its
+chart names with `EVF_MACHINE_COVERAGE="$E/<id>.jsonl"`, then `node tools/ci/machines.ts coverage "$E/<id>.jsonl" | tee
+"$E/<id>-coverage.txt"`. The coverage file is named `<id>-coverage.txt`. `pnpm review-proof` (step 3) then prints a
+Machines table with each touched machine's id, column, table file and generated `docs/machines/<id>.md` chart, and fails
+while the chart is stale or missing or the coverage file is missing or has a `missing:` line. A diff that adds or
+changes a 4+ state value set (a `status`, `state`, `stage` or `phase` enum column) with no machine table fails
+`node tools/ci/machines.ts --check`. Never approve while `pnpm review-proof` or `machines --check` fails.
+
+## 6. Publish
 
 ```bash
 node $S/publish.mjs "$E" --task <task>
@@ -234,7 +315,7 @@ Keys have the layout `evf-evidence/<task>/<prefix>/<file>`, so the link shows bo
 The command prints how many objects it deleted. Then check that the old index link returns 404:
 `curl -s -o /dev/null -w '%{http_code}\n' <index link>`.
 
-## 6. Report
+## 7. Report
 
 Write `$E/report.md` in this shape. Name what you did not check.
 
@@ -255,6 +336,13 @@ is a blocking finding: ask for changes.
 | Deliverable in the verbatim ask | Status |
 |---|---|
 | <route, page, section, screen, command or file> | delivered / deferred <T-n> / missing |
+
+## Proof
+
+<The table `pnpm review-proof` printed: one row per changed surface with its feature, how users reach it, what proves
+it and links to its 390 and 1440 px screenshots or recording. For a tooling-only review: "No app proof needed", with
+the check's output. For a diff touching a machine or a 4+ state value set: the Machines table it printed, linking each
+machine's table and `docs/machines/<id>.md` chart, and its `<id>-coverage.txt`.>
 
 ## Checks
 
@@ -300,7 +388,7 @@ evf review submit --verdict approved --report-file "$E/report.md"   # or --verdi
 Then close your step: `evf run done --status passed` when you approved, and `--status failed --cause change`
 when you asked for changes. A new head needs a new verification.
 
-## 7. Clean up
+## 8. Clean up
 
 ```bash
 agent-browser --session <task>-verify close

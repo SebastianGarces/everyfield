@@ -23,10 +23,6 @@ import {
 
 const { createProgram, savePlan, publishVersion, enroll, recordMilestone, addFeedback, applyVersion } = programWriter;
 
-// Development programs (REQ-MUL-010, -011, -012, and Active residents from REQ-MUL-007) against a migrated database.
-// Grace Austin: Owner Dana, Admin Luis, Ana (Member) directs the residency, Dee (Member) is responsible for Casey Lee,
-// Ben (Member) has no duty. Casey has no linked account. Hill Country Network is a separate organization.
-
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const database = await fixture({ prefix: "programs", max: 6 });
 const { admin } = database;
@@ -57,7 +53,6 @@ const seatOf = async (account: string, organization: string) =>
 const program = async (a: Actor, programId: string) => ok(await readProgram(db, await authority(a), { programId }));
 const enrollment = async (a: Actor, enrollmentId: string) =>
 	ok(await readEnrollment(db, await authority(a), { enrollmentId }));
-/** Active residents as the Programs tab and the Pipeline goals card each show it; the two must agree. */
 const residents = async (a: Actor) => {
 	const tab = ok(await readPrograms(db, await authority(a))).activeResidents;
 	assert.equal(ok(await readPipelineGoals(db, await authority(a))).activeResidents, tab);
@@ -89,7 +84,6 @@ const jordan = randomUUID();
 const residency = randomUUID();
 const apprenticeship = randomUUID();
 const second = randomUUID();
-// Wiki articles: two global ones and one with Grace Austin's own published version.
 const section = randomUUID();
 const articles = { prayer: randomUUID(), vision: randomUUID(), team: randomUUID() };
 const revisions = { prayer: randomUUID(), vision: randomUUID(), team: randomUUID(), teamGrace: randomUUID() };
@@ -183,11 +177,10 @@ test("an organization with no programs lists none and counts no active residents
 	assert.equal(list.activeResidents, 0);
 	assert.equal(list.administrator, true);
 	assert.deepEqual(list.staff.map((s) => s.name).sort(), ["Ana", "Ben", "Dana", "Dee", "Luis"]);
-	// A Member sees the list but gets no director picker.
 	assert.deepEqual(ok(await readPrograms(db, await authority(ben))).staff, []);
 });
 
-test("an Owner starts a residency from the template with Ana as director; a Member cannot create one", async () => {
+test("AC:ADR1-010 an Owner starts a residency from the template with Ana as director; a Member cannot create one", async () => {
 	refusedWith(
 		await createProgram(db, await authority(ana), {
 			programId: randomUUID(),
@@ -228,7 +221,6 @@ test("an Owner starts a residency from the template with Ana as director; a Memb
 	assert.equal(p.draft?.expectedMonths, 15);
 	assert.equal(p.draft?.number, 1);
 	assert.equal(p.draft?.publishedOn, null);
-	// A seat of another organization cannot direct it.
 	refusedWith(
 		await createProgram(db, await authority(dana), {
 			programId: randomUUID(),
@@ -241,7 +233,7 @@ test("an Owner starts a residency from the template with Ana as director; a Memb
 	);
 });
 
-test("a blank apprenticeship, and each organization sees only its own programs", async () => {
+test("AC:ADR1-010 a blank apprenticeship, and each organization sees only its own programs", async () => {
 	ok(
 		await createProgram(db, await authority(dana), {
 			programId: apprenticeship,
@@ -275,11 +267,10 @@ test("a blank apprenticeship, and each organization sees only its own programs",
 	refusedWith(await readProgram(db, await authority(dana), { programId: hillProgram }), "unavailable");
 });
 
-test("the director edits the draft and its reading list; nobody else edits it and nobody enrolls in a draft", async () => {
+test("AC:ADR1-010 the director edits the draft and its reading list; nobody else edits it and nobody enrolls in a draft", async () => {
 	const p = await program(ana, residency);
 	assert.equal(p.viewer.director, true);
 	const found = ok(await searchReadings(db, await authority(ana), { q: "launch team" }));
-	// Grace Austin's own version is offered first, then the global article.
 	assert.deepEqual(
 		found.map((f) => [f.title, f.source]),
 		[
@@ -312,7 +303,6 @@ test("the director edits the draft and its reading list; nobody else edits it an
 			await savePlan(db, await authority(who), { programId: residency, expectedRevision: p.revision, plan }),
 			"unavailable",
 		);
-	// A hands-on assignment needs a description.
 	refusedWith(
 		await savePlan(db, await authority(ana), {
 			programId: residency,
@@ -321,7 +311,6 @@ test("the director edits the draft and its reading list; nobody else edits it an
 		}),
 		"invalid_input",
 	);
-	// Another organization's version of an article cannot be pinned.
 	const hillRevision = randomUUID();
 	await revision(hillRevision, articles.vision, hill.id, "Hill vision", "framework/vision", null);
 	refusedWith(
@@ -356,7 +345,6 @@ test("the director edits the draft and its reading list; nobody else edits it an
 			["Building a launch team at Grace", "organization", "framework/team"],
 		],
 	);
-	// A stale revision is refused.
 	refusedWith(
 		await savePlan(db, await authority(ana), { programId: residency, expectedRevision: p.revision, plan }),
 		"conflict",
@@ -376,7 +364,7 @@ test("the director edits the draft and its reading list; nobody else edits it an
 	);
 });
 
-test("only the current director publishes; Version 1 is published today", async () => {
+test("AC:ADR1-010 only the current director publishes; Version 1 is published today", async () => {
 	const p = await program(ana, residency);
 	for (const who of [dana, luis, ben])
 		refusedWith(
@@ -394,7 +382,6 @@ test("only the current director publishes; Version 1 is published today", async 
 	const list = ok(await readPrograms(db, await authority(ben)));
 	const row = list.programs.find((x) => x.id === residency)!;
 	assert.deepEqual([row.publishedNumber, row.publishedOn, row.draft], [1, after.today, false]);
-	// A blank draft has no stage to enroll at, so it cannot be published yet.
 	const blank = await program(ana, apprenticeship);
 	refusedWith(
 		await publishVersion(db, await authority(ana), { programId: apprenticeship, expectedRevision: blank.revision }),
@@ -419,7 +406,7 @@ test("an unpublished church version reads as unavailable with its title; the oth
 });
 
 const caseyResidency = randomUUID();
-test("an Owner enrolls Casey; the pipeline stage stays; a second active enrollment in the same program is refused", async () => {
+test("AC:ADR1-011 an Owner enrolls Casey; the pipeline stage stays; a second active enrollment in the same program is refused", async () => {
 	const p = await program(dana, residency);
 	const assimilating = p.published!.stages[0]!.id;
 	const input = {
@@ -434,7 +421,6 @@ test("an Owner enrolls Casey; the pipeline stage stays; a second active enrollme
 	};
 	for (const who of [ana, ben]) refusedWith(await enroll(db, await authority(who), input), "unavailable");
 	assert.equal(ok(await enroll(db, await authority(dana), input)).outcome, "changed");
-	// A repeated request enrolls nobody twice.
 	assert.equal(ok(await enroll(db, await authority(dana), input)).outcome, "noop");
 	const e = await enrollment(dana, caseyResidency);
 	assert.deepEqual(
@@ -449,7 +435,6 @@ test("an Owner enrolls Casey; the pipeline stage stays; a second active enrollme
 	const record = ok(await readPipelinePersonRecord(db, await authority(dana), { personId: casey }));
 	assert.equal(record.stage.label, "Potential leader");
 	refusedWith(await enroll(db, await authority(dana), { ...input, enrollmentId: randomUUID() }), "already_enrolled");
-	// A stage of another version, or a person outside the pipeline, is refused.
 	refusedWith(
 		await enroll(db, await authority(dana), { ...input, enrollmentId: randomUUID(), personId: randomUUID() }),
 		"invalid_input",
@@ -458,7 +443,6 @@ test("an Owner enrolls Casey; the pipeline stage stays; a second active enrollme
 });
 
 test("Active residents counts distinct people in residencies, never an apprenticeship or the pipeline label", async () => {
-	// The apprenticeship gets a stage and is published, then Casey and Jordan (pipeline stage Resident) join it.
 	const a = await program(ana, apprenticeship);
 	const saved = ok(
 		await savePlan(db, await authority(ana), {
@@ -483,7 +467,6 @@ test("Active residents counts distinct people in residencies, never an apprentic
 			}),
 		);
 	assert.equal(await residents(dana), 1);
-	// A second residency with Casey in it still counts Casey once.
 	ok(
 		await createProgram(db, await authority(dana), {
 			programId: second,
@@ -513,7 +496,7 @@ test("Active residents counts distinct people in residencies, never an apprentic
 	assert.equal(list.programs.find((p) => p.id === apprenticeship)!.activeEnrollments, 2);
 });
 
-test("Version 2 leaves Casey on Version 1 with its milestones; Version 1 never changes", async () => {
+test("AC:ADR1-010 AC:ADR1-011 Version 2 leaves Casey on Version 1 with its milestones; Version 1 never changes", async () => {
 	const p = await program(ana, residency);
 	const v1 = p.published!;
 	const plan = {
@@ -550,7 +533,7 @@ test("Version 2 leaves Casey on Version 1 with its milestones; Version 1 never c
 	assert.equal(after.enrollments.find((x) => x.id === caseyResidency)?.versionNumber, 1);
 });
 
-test("the director records and confirms Casey's milestone in one step; nothing else changes", async () => {
+test("AC:ADR1-012 the director records and confirms Casey's milestone in one step; nothing else changes", async () => {
 	const before = await enrollment(ana, caseyResidency);
 	const group = before.milestones.find((m) => m.title === "Start a small group and raise a replacement")!;
 	const input = { enrollmentId: caseyResidency, milestoneId: group.id, completedOn: "2026-10-12" };
@@ -582,8 +565,7 @@ test("the director records and confirms Casey's milestone in one step; nothing e
 	assert.equal(record.stage.label, "Potential leader");
 });
 
-test("feedback on a hands-on assignment: the director, Owner and Admin read it; Dee and Ben never do", async () => {
-	// Casey is on Version 1, whose plan has "Preach on a Sunday" as a hands-on assignment.
+test("AC:ADR1-012 feedback on a hands-on assignment: the director, Owner and Admin read it; Dee and Ben never do", async () => {
 	const e = await enrollment(ana, caseyResidency);
 	const preach = e.milestones.find((m) => m.title === "Preach on a Sunday")!;
 	assert.deepEqual([preach.handsOn, preach.description], [true, "Preach one Sunday sermon at Grace."]);
@@ -606,12 +588,10 @@ test("feedback on a hands-on assignment: the director, Owner and Admin read it; 
 			[["Ana", input.body, e.today]],
 		);
 	}
-	for (const who of [dee, ben]) {
-		const read = await enrollment(who, caseyResidency);
-		assert.ok(read.milestones.every((m) => m.feedback === null));
-		assert.ok(!JSON.stringify(read).includes("slow down"));
-	}
-	// Central audit holds no feedback body.
+	const read = await enrollment(dee, caseyResidency);
+	assert.ok(read.milestones.every((m) => m.feedback === null));
+	assert.ok(!JSON.stringify(read).includes("slow down"));
+	refusedWith(await readEnrollment(db, await authority(ben), { enrollmentId: caseyResidency }), "unavailable");
 	const audit = await admin.execute(
 		sql`SELECT metadata::text AS m FROM audit_event WHERE action='development.feedback_recorded' AND tenant_id=${grace.id}`,
 	);
@@ -619,18 +599,22 @@ test("feedback on a hands-on assignment: the director, Owner and Admin read it; 
 	assert.ok(!String(audit.rows[0]!.m).includes("slow down"));
 });
 
-test("directing a program does not let Ana read Dee's pipeline notes on Casey", async () => {
+test("AC:ADR1-002 directing a program does not let Ana read Dee's pipeline notes on Casey", async () => {
 	refusedWith(await readPipelinePersonRecord(db, await authority(ana), { personId: casey }), "unavailable");
 	const deeView = ok(await readPipelinePersonRecord(db, await authority(dee), { personId: casey }));
 	assert.equal(deeView.notes.length, 1);
 });
 
-test("Ben reads programs and enrollments and every write he sends is refused", async () => {
+test("AC:ADR1-002 Ben reads the programs but no one's enrollment, and every write he sends is refused", async () => {
 	const p = await program(ben, residency);
 	assert.deepEqual(p.viewer, { administrator: false, director: false });
 	assert.deepEqual(p.people, []);
-	const e = await enrollment(ben, caseyResidency);
-	assert.deepEqual(e.viewer, { administrator: false, director: false });
+	assert.deepEqual(p.enrollments, []);
+	assert.ok((await program(dana, residency)).enrollments.length > 0);
+	const hidden = await readEnrollment(db, await authority(ben), { enrollmentId: caseyResidency });
+	assert.deepEqual(hidden, await readEnrollment(db, await authority(ben), { enrollmentId: randomUUID() }));
+	refusedWith(hidden, "unavailable");
+	const e = await enrollment(dana, caseyResidency);
 	const auth = await authority(ben);
 	refusedWith(
 		await createProgram(db, auth, {
@@ -679,10 +663,6 @@ test("Ben reads programs and enrollments and every write he sends is refused", a
 	);
 });
 
-// Applying a newer version to one enrollment (REQ-MUL-011). Casey is on Version 1, with "Start a small group and raise
-// a replacement" finished Oct 12 and feedback on "Preach on a Sunday". Version 2 renames "Present your vision to the
-// sending church leadership" and adds "Lead a prayer walk".
-
 const review = async (a: Actor) =>
 	ok(await readVersionReview(db, await authority(a), { enrollmentId: caseyResidency }));
 const applied = async () =>
@@ -697,7 +677,6 @@ const completions = async () =>
 		await admin.execute(sql`SELECT id,milestone_id,version_id,completed_on::text AS completed_on,recorder_id,confirmer_id,
 		 confirmed_at,source FROM enrollment_milestone WHERE enrollment_id=${caseyResidency} ORDER BY id`)
 	).rows;
-/** The next plan from the current published version, with `edit` applied to its milestones and stages. */
 const nextPlan = (
 	v: NonNullable<Awaited<ReturnType<typeof program>>["published"]>,
 	edit: {
@@ -744,7 +723,6 @@ test("Casey's enrollment names Version 2; only the director reads the review, an
 	assert.deepEqual([r.fromNumber, r.toNumber, r.versionId], [1, 2, v2.id]);
 	assert.deepEqual(r.added, [{ title: "Lead a prayer walk", description: null, handsOn: false, finished: false }]);
 	assert.deepEqual(r.removed, []);
-	// Only the renamed milestone is listed as changed, with both wordings; the unchanged ones are not.
 	assert.deepEqual(r.changed, [
 		{
 			before: {
@@ -757,7 +735,6 @@ test("Casey's enrollment names Version 2; only the director reads the review, an
 		},
 	]);
 	assert.deepEqual(r.carried, ["Start a small group and raise a replacement"]);
-	// Casey is at Assimilating on Version 1, and Version 2's stage with the same label is preselected.
 	assert.equal(r.stage, "Assimilating");
 	assert.equal(r.stageId, v2.stages.find((s) => s.label === "Assimilating")!.id);
 	assert.deepEqual(
@@ -766,7 +743,6 @@ test("Casey's enrollment names Version 2; only the director reads the review, an
 	);
 	assert.equal((await enrollment(ana, caseyResidency)).versionNumber, 1);
 	assert.deepEqual(await applied(), []);
-	// An enrollment already on the current version has nothing to apply.
 	const other = ok(await readProgram(db, await authority(dana), { programId: second })).enrollments[0]!;
 	assert.equal((await enrollment(ana, other.id)).newerVersion, null);
 	refusedWith(await readVersionReview(db, await authority(ana), { enrollmentId: other.id }), "unavailable");
@@ -774,7 +750,6 @@ test("Casey's enrollment names Version 2; only the director reads the review, an
 
 test("a review that went out of date is refused and changes nothing; the fresh one shows the change", async () => {
 	const stale = await review(ana);
-	// Another session records the milestone Version 2 renames.
 	const vision = (await enrollment(ana, caseyResidency)).milestones.find((m) =>
 		m.title.startsWith("Present your vision"),
 	)!;
@@ -804,28 +779,25 @@ test("a review that went out of date is refused and changes nothing; the fresh o
 	assert.deepEqual(fresh.carried, ["Start a small group and raise a replacement", "Present your vision to the elders"]);
 });
 
-test("only the program's current director applies, only the current version, only in their organization", async () => {
+test("AC:ADR1-011 only the program's current director applies, only the current version, only in their organization", async () => {
 	const r = await review(ana);
 	const v1Stage = (await enrollment(ana, caseyResidency)).stage.id;
 	const input = { enrollmentId: caseyResidency, versionId: r.versionId, stageId: r.stageId, basis: r.basis };
 	for (const who of [dana, luis, dee, ben, hillOwner])
 		refusedWith(await applyVersion(db, await authority(who), input), "unavailable");
-	// A former director: the program is now directed by Dee.
 	await admin.execute(sql`UPDATE development_program SET director_seat_id=${deeSeat} WHERE id=${residency}`);
 	refusedWith(await applyVersion(db, await authority(ana), input), "unavailable");
 	refusedWith(await readVersionReview(db, await authority(ana), { enrollmentId: caseyResidency }), "unavailable");
 	await admin.execute(sql`UPDATE development_program SET director_seat_id=${anaSeat} WHERE id=${residency}`);
-	// Version 1, which Casey is on and which is not the current version, is refused.
 	const version1 = (await admin.execute(sql`SELECT version_id FROM development_enrollment WHERE id=${caseyResidency}`))
 		.rows[0]!.version_id as string;
 	refusedWith(await applyVersion(db, await authority(ana), { ...input, versionId: version1 }), "stale_review");
-	// Casey's stage on Version 1 is not a stage of Version 2.
 	refusedWith(await applyVersion(db, await authority(ana), { ...input, stageId: v1Stage }), "invalid_input");
 	assert.equal((await enrollment(ana, caseyResidency)).versionNumber, 1);
 	assert.deepEqual(await applied(), []);
 });
 
-test("Ana applies Version 2 at a stage she picks; finished work keeps its attribution and feedback its readers", async () => {
+test("AC:ADR1-011 Ana applies Version 2 at a stage she picks; finished work keeps its attribution and feedback its readers", async () => {
 	const before = await enrollment(dana, caseyResidency);
 	const rows = await completions();
 	const r = await review(ana);
@@ -841,7 +813,6 @@ test("Ana applies Version 2 at a stage she picks; finished work keeps its attrib
 		v2.milestones.map((m) => m.title),
 	);
 	assert.deepEqual(e.earlier, []);
-	// Cohort, dates, status and next meeting are unchanged; the stage is the one Ana picked.
 	assert.deepEqual(
 		[e.cohort, e.startedOn, e.expectedEndOn, e.status, e.nextMeeting, e.stage.label],
 		[before.cohort, before.startedOn, before.expectedEndOn, before.status, before.nextMeeting, "Gathering"],
@@ -854,7 +825,6 @@ test("Ana applies Version 2 at a stage she picks; finished work keeps its attrib
 		confirmer: "Ana",
 		source: "program_leader",
 	});
-	// The renamed milestone Casey finished stays finished with its original record.
 	assert.deepEqual(e.milestones.find((m) => m.title === "Present your vision to the elders")!.completion, {
 		completedOn: "2026-10-14",
 		confirmedOn: e.today,
@@ -863,9 +833,7 @@ test("Ana applies Version 2 at a stage she picks; finished work keeps its attrib
 		source: "program_leader",
 	});
 	assert.equal(e.milestones.find((m) => m.title === "Lead a prayer walk")!.completion, null);
-	// The stored records are the same rows, on Version 1, with the same recorder, confirmer and times.
 	assert.deepEqual(await completions(), rows);
-	// Feedback written on Version 1 reads the same to the director, Owner and Admin, and to nobody else.
 	const v1Feedback = before.milestones.find((m) => m.title === "Preach on a Sunday")!.feedback;
 	assert.equal(v1Feedback?.length, 1);
 	for (const who of [ana, dana, luis])
@@ -873,21 +841,17 @@ test("Ana applies Version 2 at a stage she picks; finished work keeps its attrib
 			(await enrollment(who, caseyResidency)).milestones.find((m) => m.title === "Preach on a Sunday")!.feedback,
 			v1Feedback,
 		);
-	for (const who of [dee, ben]) {
-		const read = await enrollment(who, caseyResidency);
-		assert.ok(read.milestones.every((m) => m.feedback === null));
-		assert.ok(!JSON.stringify(read).includes("slow down"));
-	}
+	const deeRead = await enrollment(dee, caseyResidency);
+	assert.ok(deeRead.milestones.every((m) => m.feedback === null));
+	assert.ok(!JSON.stringify(deeRead).includes("slow down"));
 	const listed = (await program(dana, residency)).enrollments.find((x) => x.id === caseyResidency)!;
 	assert.deepEqual([listed.versionNumber, listed.stage], [2, "Gathering"]);
 	const record = ok(await readPipelinePersonRecord(db, await authority(dana), { personId: casey }));
 	assert.equal(record.stage.label, "Potential leader");
-	// One body-free audit row; the repeated request changes nothing and adds none.
 	assert.deepEqual(await applied(), [{ fromVersion: 1, toVersion: 2 }]);
 	assert.equal(ok(await applyVersion(db, await authority(ana), input)).outcome, "noop");
 	assert.deepEqual(await applied(), [{ fromVersion: 1, toVersion: 2 }]);
 	assert.deepEqual(await completions(), rows);
-	// A milestone carried over finished is not recorded a second time on Version 2.
 	assert.equal(
 		ok(
 			await recordMilestone(db, await authority(ana), {
@@ -911,10 +875,8 @@ test("a version that drops Casey's finished milestone keeps its record under Ver
 	assert.equal(open.toNumber, 3);
 	assert.deepEqual(open.removed, [{ title: group, description: null, handsOn: false, finished: true }]);
 	assert.deepEqual([open.added, open.changed], [[], []]);
-	// Casey's stage Gathering has no match on Version 3, so the first stage is preselected.
 	assert.equal(open.stage, "Gathering");
 	assert.equal(open.stageId, v3.stages[0]!.id);
-	// A newer version published while the review is open makes it stale.
 	const v4 = await publishNext({
 		milestones: (ms) => [...ms, { ...ms[0]!, id: randomUUID(), lineage: randomUUID(), title: "Visit a church plant" }],
 	});
@@ -970,10 +932,6 @@ test("a version that drops Casey's finished milestone keeps its record under Ver
 	]);
 });
 
-// Applying a newer version to several enrollments at once (REQ-MUL-011, D-1328 to D-1330). A second residency, directed
-// by Ana: Casey and Jordan are on Version 1, Casey with "Start a small group and raise a replacement" finished Oct 12
-// and Jordan with "Write a church planting prospectus" finished Oct 20. Riley joined on Version 2; Sam withdrew.
-
 const cohort = randomUUID();
 const riley = randomUUID();
 const sam = randomUUID();
@@ -1001,7 +959,6 @@ const confirmAll = (rs: { enrollmentId: string; stageId: string; basis: string; 
 	enrollments: rs.map((r) => ({ enrollmentId: r.enrollmentId, stageId: r.stageId, basis: r.basis })),
 });
 
-/** Adds a pipeline person and enrolls them in `programId`'s current version at the stage labeled `stage`. */
 async function enrollNew(programId: string, personId: string, enrollmentId: string, name: string, stage: string) {
 	const board = ok(await readPipelineBoard(db, await authority(dana), {}));
 	const known = await admin.execute(sql`SELECT FROM pipeline_person WHERE person_id=${personId}::uuid`);
@@ -1052,7 +1009,6 @@ test("the director reviews several enrollments: one section per person, with the
 		const m = (await enrollment(ana, id)).milestones.find((x) => x.title === title)!;
 		ok(await recordMilestone(db, await authority(ana), { enrollmentId: id, milestoneId: m.id, completedOn: on }));
 	}
-	// Version 2 adds "Preach on a Sunday" and rewords the prospectus.
 	const v1 = (await program(ana, cohort)).published!;
 	const draft = ok(
 		await savePlan(db, await authority(ana), {
@@ -1099,7 +1055,6 @@ test("the director reviews several enrollments: one section per person, with the
 	});
 	assert.deepEqual([c!.added, c!.removed, c!.changed, c!.carried], [[preach], [], [wording(false)], [GROUP]]);
 	assert.deepEqual([j!.added, j!.removed, j!.changed, j!.carried], [[preach], [], [wording(true)], [PROSPECTUS]]);
-	// Each is preselected to their own stage's label on Version 2.
 	assert.deepEqual(
 		[c!.stage, c!.stageId, j!.stage, j!.stageId],
 		[
@@ -1109,11 +1064,8 @@ test("the director reviews several enrollments: one section per person, with the
 			v2.stages.find((s) => s.label === "Assimilating")!.id,
 		],
 	);
-	// Reading saves nothing.
 	assert.deepEqual(await appliedTo([batch.casey, batch.jordan]), []);
-	// Riley is already on Version 2 and Sam withdrew, so neither can be reviewed; nor can a mix that includes them.
 	for (const id of [batch.riley, batch.sam]) refusedWith(await reviews(ana, [batch.casey, id]), "unavailable");
-	// Only the current director reads the reviews, and only for the program they name.
 	for (const who of [dana, luis, dee, ben, hillOwner])
 		refusedWith(await reviews(who, [batch.casey, batch.jordan]), "unavailable");
 	refusedWith(await reviews(ana, [batch.casey, caseyResidency]), "unavailable");
@@ -1127,11 +1079,9 @@ test("a batch apply is refused whole for anyone but the director and for any bad
 	const before = await storedRows([batch.casey, batch.jordan]);
 	for (const who of [dana, luis, dee, ben, hillOwner])
 		refusedWith(await applyVersions(db, await authority(who), input), "unavailable");
-	// A former director.
 	await admin.execute(sql`UPDATE development_program SET director_seat_id=${deeSeat} WHERE id=${cohort}`);
 	refusedWith(await applyVersions(db, await authority(ana), input), "unavailable");
 	await admin.execute(sql`UPDATE development_program SET director_seat_id=${anaSeat} WHERE id=${cohort}`);
-	// Version 1 is not the current published version.
 	const v1 = (await admin.execute(sql`SELECT version_id FROM development_enrollment WHERE id=${batch.casey}`)).rows[0]!
 		.version_id as string;
 	const stale = await applyVersions(db, await authority(ana), { ...input, versionId: v1 });
@@ -1140,7 +1090,6 @@ test("a batch apply is refused whole for anyone but the director and for any bad
 		batch.casey,
 		batch.jordan,
 	]);
-	// An enrollment of another program, of another organization, or one already on Version 2 or withdrawn.
 	const hillProgram = (await admin.execute(sql`SELECT id FROM development_program WHERE organization_id=${hill.id}`))
 		.rows[0]!.id as string;
 	const hillRevision = ok(await readProgram(db, await authority(hillOwner), { programId: hillProgram })).revision;
@@ -1178,7 +1127,6 @@ test("a batch apply is refused whole for anyone but the director and for any bad
 			}),
 			other === batch.riley ? "stale_review" : "unavailable",
 		);
-	// A repeated enrollment, more than 50 people, or nobody.
 	refusedWith(
 		await applyVersions(db, await authority(ana), {
 			...input,
@@ -1189,7 +1137,6 @@ test("a batch apply is refused whole for anyone but the director and for any bad
 	const many = Array.from({ length: 51 }, () => ({ ...input.enrollments[0]!, enrollmentId: randomUUID() }));
 	refusedWith(await applyVersions(db, await authority(ana), { ...input, enrollments: many }), "invalid_input");
 	refusedWith(await applyVersions(db, await authority(ana), { ...input, enrollments: [] }), "invalid_input");
-	// A stage of Version 1 for one person.
 	const v1Stage = (await enrollment(ana, batch.jordan)).stage.id;
 	refusedWith(
 		await applyVersions(db, await authority(ana), {
@@ -1205,7 +1152,6 @@ test("a batch apply is refused whole for anyone but the director and for any bad
 
 test("one person's review going out of date refuses the whole apply, names them, and moves nobody", async () => {
 	const rs = ok(await reviews(ana, [batch.casey, batch.jordan]));
-	// Another session records a milestone for Jordan.
 	const vision = (await enrollment(ana, batch.jordan)).milestones.find((m) =>
 		m.title.startsWith("Present your vision"),
 	)!;
@@ -1223,7 +1169,6 @@ test("one person's review going out of date refuses the whole apply, names them,
 	for (const id of [batch.casey, batch.jordan]) assert.equal((await enrollment(ana, id)).versionNumber, 1);
 	assert.deepEqual(await storedRows([batch.casey, batch.jordan]), before);
 	assert.deepEqual(await appliedTo([batch.casey, batch.jordan]), []);
-	// The fresh reviews show Jordan's new record; Casey's is as it was.
 	const [c, j] = ok(await reviews(ana, [batch.casey, batch.jordan]));
 	assert.equal(c!.basis, rs[0]!.basis);
 	assert.notEqual(j!.basis, rs[1]!.basis);
@@ -1241,7 +1186,6 @@ test("Ana applies Version 2 to Casey and Jordan, each at their own stage; finish
 		).rows;
 	const pipeline = await records();
 	const [c, j] = ok(await reviews(ana, ids));
-	// Only Jordan's stage changes from the preselection.
 	const gathering = j!.stages.find((s) => s.label === "Gathering")!.id;
 	const input = {
 		...confirmAll([c!, j!]),
@@ -1274,12 +1218,9 @@ test("Ana applies Version 2 to Casey and Jordan, each at their own stage; finish
 		source: "program_leader",
 	});
 	assert.deepEqual(after.casey.milestones.find((m) => m.title === GROUP)!.completion, record("2026-10-12"));
-	// Jordan's changed milestone stays finished with its original record.
 	assert.deepEqual(after.jordan.milestones.find((m) => m.title === PROSPECTUS)!.completion, record("2026-10-20"));
 	assert.equal(after.casey.milestones.find((m) => m.title === PROSPECTUS)!.completion, null);
-	// The stored records are the same rows: nobody is named as a new recorder or confirmer.
 	assert.deepEqual(await storedRows(ids), rows);
-	// Pipeline records are untouched, and the program lists both on Version 2 with Riley and Sam as they were.
 	assert.deepEqual(await records(), pipeline);
 	assert.deepEqual(
 		(await program(ana, cohort)).enrollments.map((e) => [e.name, e.versionNumber, e.stage]),
@@ -1290,7 +1231,6 @@ test("Ana applies Version 2 to Casey and Jordan, each at their own stage; finish
 			["Sam Ortiz", 1, "Assimilating"],
 		],
 	);
-	// One body-free audit row per person; repeating the confirmed batch changes nothing and adds none.
 	const audit = [
 		[batch.casey, { fromVersion: 1, toVersion: 2 }],
 		[batch.jordan, { fromVersion: 1, toVersion: 2 }],
@@ -1325,7 +1265,6 @@ test("a version that drops a finished milestone keeps each person's record; a pe
 			[{ title: GROUP, description: null, handsOn: false, finished: false }],
 		],
 	);
-	// Ana removes Riley from the review: only Casey and Jordan move.
 	const rows = await storedRows(ids);
 	ok(await applyVersions(db, await authority(ana), confirmAll([c!, j!])));
 	assert.deepEqual(await Promise.all(ids.map(async (id) => (await enrollment(ana, id)).versionNumber)), [3, 3, 2]);

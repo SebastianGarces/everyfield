@@ -861,6 +861,32 @@
         "SCHEMA-009",
         "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE"
       ]
+    },
+    {
+      "table": "answer_review",
+      "columns": [
+        "person_id",
+        "organization_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-102"
+      ],
+      "meaning": "The pipeline person whose kept answers were sent for review (T-385).",
+      "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer row; new references take the same lifecycle locks.",
+      "merge_policy": "Preserve original historical endpoints; refuse conflicting linked accounts, duplicate active same-program enrollments or cross-owner collisions. Never transfer consent, private content or authorship.",
+      "inverse_policy": "Guard exact prior/result revisions and refuse new reference, changed feedback/completion or irreversible disclosure; no partial inverse.",
+      "retirement_policy": "A retired person's sends stay shared; removal on request ends sharing and keeps the send with no note.",
+      "privacy_policy": "Names only the person; the reviewer reads the chosen live answers and nothing else of the person's record.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "ADR1-001",
+        "ADR1-005",
+        "ADR1-017"
+      ]
     }
   ],
   "person_snapshot_references": [

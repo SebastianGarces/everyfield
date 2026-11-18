@@ -1,0 +1,11 @@
+{
+	"public": {
+		"Residency.tsx": "ResidencyDisclosure, which the invitation screen shows",
+		"mount.ts": "the organizations server mount: viewer, names and mail pass that identity, onboarding, settings, the shell, Evry and the cron route read",
+		"parts.tsx": "ProblemLine is imported by identity until it moves to apps/web/src/components",
+		"pipeline-mount.ts": "pipelineWrite, the pipeline write the oversight actions commit through",
+		"programs/model.ts": "programProblem and KIND, which the resident view uses",
+		"programs/mount.ts": "ProgramAnswer, the reply type the resident reads return",
+		"reviews/model.ts": "reviewPath, the review URL notifications link to"
+	}
+}

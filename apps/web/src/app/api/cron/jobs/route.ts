@@ -1,24 +1,23 @@
 import { privateStorage } from "@everyfield/db/schema";
 import { cleanupDatabase, jobDatabase } from "@/server/database";
 import { digestMailPass, digestsMount } from "@/server/jobs/digest";
-import { noticeMailPass, notificationsMount } from "@/server/jobs/notification-worker";
+import { noticeMailPass, notificationsMount } from "@/features/notifications/worker";
 import { evryEffectPorts } from "@/server/evry";
 import { runDueInvitationMail } from "@/server/invitations";
 import { identityMailPass } from "@/server/identity";
-import { organizationMailPass } from "@/server/organizations";
-import { onboardingMailPass } from "@/server/onboarding";
+import { organizationMailPass } from "@/features/organizations/mount";
+import { onboardingMailPass } from "@/features/onboarding/mount";
 import { settingsMailPass } from "@/features/settings/mail";
 import { feedbackMailPass } from "@/features/feedback/mail";
 import { feedbackPublicationMount } from "@/features/feedback/publication";
-import { deliveryTransport, mailReady, queuedMailTransport } from "@/features/communication/mail";
+import { deliveryTransport, mailReady, queuedMailTransport } from "@/server/mail/transport";
 import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
+import { assessmentsMount } from "@/server/jobs/assessment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// A turn may start in the first 60 s and run for 180 s.
 export const maxDuration = 300;
 
-// Every minute: runs due background jobs and closes lost ones (server/jobs/scheduled.ts).
 export function GET(request: Request): Promise<Response> {
 	const db = jobDatabase();
 	const ready = mailReady();
@@ -31,6 +30,7 @@ export function GET(request: Request): Promise<Response> {
 		digests: digestsMount(db),
 		notifications: notificationsMount(db),
 		feedbackPublication: feedbackPublicationMount(db),
+		assessments: assessmentsMount(db),
 		mail: ready ? (limit, until) => runDueInvitationMail(queuedMailTransport(ready), limit, until) : null,
 		messages: ready && db ? scheduledMessages(db, deliveryTransport(ready), ready.keys) : null,
 		mountMail: ready

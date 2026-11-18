@@ -1,11 +1,9 @@
 import { LockKeyIcon, WifiDisconnected01Icon } from "@hugeicons/core-free-icons";
 import type { ComponentPropsWithRef, CSSProperties, ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
+import { Card } from "./Card";
+import { PageHeader, type Crumb } from "./PageHeader";
 
-/**
- * EmptyState (components.md): Art, Title, Text and Action for a list or card with nothing in it yet. Say what will
- * appear here and how to start; a failed load uses StatePanel tone="error" instead, never this.
- */
 export function EmptyState({
 	icon,
 	title,
@@ -47,24 +45,16 @@ const ART: Record<StateTone, string> = {
 const DEFAULT_ICON: Partial<Record<StateTone, IconSvgElement>> = { error: WifiDisconnected01Icon, lock: LockKeyIcon };
 
 type StatePanelProps = {
-	/** error: a load failed (never shown as empty) · lock: no access · neutral: empty or first week. */
 	tone?: StateTone;
 	icon?: IconSvgElement;
 	title: string;
 	children: ReactNode;
-	/** Try again, Report a problem, Ask for access and the like. */
 	actions?: ReactNode;
-	/** The reference line: "Last loaded today at 8:40 am · Error reference EF-7Q2K". */
 	meta?: ReactNode;
-	/** h1 when the panel is the whole page, as a refusal or a not-found page is. */
 	headingLevel?: "h1" | "h2" | "h3";
 	className?: string;
 };
 
-/**
- * StatePanel (components.md): the page-level state for error, no access and empty. An error panel is an alert, says
- * what failed, keeps the last known time in `meta` and offers Try again (foundations.md, Accessibility).
- */
 export function StatePanel({
 	tone = "neutral",
 	icon,
@@ -98,10 +88,22 @@ export function StatePanel({
 	);
 }
 
-/**
- * Skeleton (components.md): a shimmering placeholder in the shape of the content to come. Placeholders are
- * decorative; wrap the loading region in an element with aria-busy and a visible or sr-only "Loading …" text.
- */
+export function PageState({
+	page,
+	breadcrumb,
+	size = breadcrumb ? "default" : "xl",
+	...panel
+}: StatePanelProps & { page: ReactNode; breadcrumb?: Crumb[]; size?: "default" | "xl" }) {
+	return (
+		<>
+			<PageHeader size={size} title={page} breadcrumb={breadcrumb} />
+			<Card>
+				<StatePanel {...panel} />
+			</Card>
+		</>
+	);
+}
+
 export function Skeleton({
 	shape = "line",
 	width,

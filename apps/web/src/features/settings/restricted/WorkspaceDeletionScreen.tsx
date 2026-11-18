@@ -2,7 +2,8 @@
 
 import { cancelWorkspaceDeletion, getWorkspaceDeletionStatus, openWorkspaceDeletion } from "../actions";
 import type { DeletionPort, DeletionStatus, Reply } from "../port";
-import { DeletionStatusScreen, useBrowserZone } from "./DeletionStatusScreen";
+import { useBrowserZone } from "@everyfield/ui/foundations";
+import { DeletionStatusScreen } from "./DeletionStatusScreen";
 
 const PORT: DeletionPort = {
 	open: openWorkspaceDeletion,
@@ -10,7 +11,6 @@ const PORT: DeletionPort = {
 	cancel: cancelWorkspaceDeletion,
 };
 
-/** The product's restricted deletion page for a church workspace (/workspace-deletion), for the Owner who asked. */
 export function WorkspaceDeletionScreen({
 	initial,
 	requestedUntil,
@@ -25,7 +25,7 @@ export function WorkspaceDeletionScreen({
 			initial={initial}
 			requestedUntil={requestedUntil}
 			now={Date.now}
-			zone={useBrowserZone()}
+			zone={useBrowserZone() ?? "UTC"}
 			signInHref="/signin"
 		/>
 	);

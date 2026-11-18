@@ -1,7 +1,3 @@
-// Queue, setup and run time of each job in the last completed CI runs, with cache hits and misses from the job logs.
-//   node tools/ci/ci-timing.ts --last <n> [--json]
-// Reads GitHub with `gh api --method GET` only. A value without data prints "no data" (null in --json) and is left
-// out of the totals, never counted as 0.
 import { spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
 
@@ -9,14 +5,9 @@ class CiTimingError extends Error {
 	name = "ToolError";
 }
 
-/**
- * Setup is this fixed list of GitHub step names. Every other step is run time. Setup covers the runner's own steps,
- * checkout, pnpm and Node setup, the corepack install, `pnpm install`, cache restore, the Playwright browser install
- * and the post-job cleanup. pnpm/action-setup and "pnpm in the corepack cache" are the step names before T-251, kept
- * so older runs still classify.
- */
 const SETUP_STEPS: readonly RegExp[] = [
 	/^Set up job$/,
+	/^Shared setup\b/,
 	/^Run actions\/checkout@/,
 	/^Run pnpm\/action-setup@/,
 	/^Run actions\/setup-node@/,
@@ -29,7 +20,6 @@ const SETUP_STEPS: readonly RegExp[] = [
 	/^Post /,
 	/^Complete job$/,
 ];
-/** Lines that actions/cache and actions/setup-node print when a cache restores or is absent. */
 const CACHE_HIT = /Cache restored from key/;
 const CACHE_MISS = /Cache not found for input keys|\bcache is not found\b/;
 
@@ -51,7 +41,6 @@ const between = (from?: string | null, to?: string | null): number | null => {
 	return Number.isFinite(ms) && ms >= 0 ? ms : null;
 };
 
-/** One job's split. A category is null when any step in it that ran has no timestamps; skipped steps did not run. */
 function jobTiming(job: Job, log: string | null): JobTiming {
 	const sums = { setup: 0, run: 0 } as Record<"setup" | "run", number | null>;
 	for (const step of job.steps ?? []) {
@@ -72,7 +61,6 @@ function jobTiming(job: Job, log: string | null): JobTiming {
 	};
 }
 
-/** Totals per job name. Each value sums only the jobs that have it, and stays null when none does. */
 function totals(jobs: JobTiming[]): Total[] {
 	const byName = new Map<string, Total>();
 	for (const job of jobs) {
@@ -97,10 +85,6 @@ function totals(jobs: JobTiming[]): Total[] {
 
 type GhResult = { ok: true; out: string } | { ok: false; status: number | null; message: string };
 
-/**
- * Every GitHub read goes through here, and it only ever sends GET. Job logs hold the runner's colour codes, which gh
- * refuses to print unless told; the tool only searches them, so a log read allows them.
- */
 function gh(path: string, opts: { escapes?: boolean } = {}): GhResult {
 	const args = ["api", "--method", "GET", ...(opts.escapes ? ["--allow-escape-sequences"] : []), path];
 	const r = spawnSync("gh", args, { encoding: "utf8", maxBuffer: 512 * 1024 * 1024 });
@@ -143,7 +127,6 @@ function main(): void {
 		createdAt: run.created_at,
 		jobs: list<Job>(json(`repos/{owner}/{repo}/actions/runs/${run.id}/jobs?per_page=100`), "jobs").map((job) => {
 			const log = gh(`repos/{owner}/{repo}/actions/jobs/${job.id}/logs`, { escapes: true });
-			// An expired or missing log (HTTP 410 or 404) has no cache data. Any other failure stops the report.
 			if (!log.ok && log.status !== 404 && log.status !== 410)
 				throw new CiTimingError(`GitHub read failed for the log of job ${job.id}: ${log.message}`);
 			return jobTiming(job, log.ok ? log.out : null);

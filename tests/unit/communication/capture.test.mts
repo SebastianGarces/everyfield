@@ -1,13 +1,11 @@
-// Criterion 35 and WP-029: outside production every address that is not approved is captured, with or without a provider
-// key. Production records nothing, and production sending through the provider is unchanged.
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, before, test } from "node:test";
-import { capture, captureAllowed, NO_ANSWER_FILE } from "../../../apps/web/src/features/communication/capture.ts";
+import { capture, captureAllowed, NO_ANSWER_FILE } from "../../../apps/web/src/server/mail/capture.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
-import { deliveryTransport, mailReady } from "../../../apps/web/src/features/communication/mail.ts";
+import { deliveryTransport, mailReady } from "../../../apps/web/src/server/mail/transport.ts";
 
 const keys = {
 	IDENTITY_MAIL_KEY: "a".repeat(64),
@@ -69,7 +67,6 @@ test("AC:CASE-COM-003 a development server records each send and calls no provid
 		AbortSignal.timeout(1_000),
 	);
 	assert.equal(result.outcome, "ids");
-	// The capture asks for the provider's sent callback for each recorded message.
 	assert.deepEqual(settled, result.outcome === "ids" ? result.ids.filter((id): id is string => id !== null) : []);
 	assert.equal(settled.length, 1);
 	const [entry] = await readOutbox(outbox);
@@ -136,7 +133,6 @@ test("AC:CASE-COM-012 a scheduled capture waits in the outbox, and cancel and ti
 	);
 	assert.equal(held.outcome, "ids");
 	const [first, second] = held.outcome === "ids" ? (held.ids as string[]) : [];
-	// A held capture is not sent, so no sent callback follows it.
 	assert.deepEqual(settled, []);
 	const entry = async (id: string) => JSON.parse(await readFile(join(outbox, `${id}.json`), "utf8"));
 	assert.equal((await entry(first!)).scheduledAt, friday);
@@ -153,7 +149,6 @@ test("AC:CASE-COM-012 a scheduled capture waits in the outbox, and cancel and ti
 	]);
 	assert.deepEqual(await capture.cancel(["../escape"], signal()), [{ outcome: "unknown" }]);
 
-	// A capture whose time has passed went out: it can no longer be cancelled or moved.
 	const past = await capture.send(
 		{
 			key: "k-now",

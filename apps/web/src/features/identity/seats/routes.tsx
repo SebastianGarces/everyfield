@@ -1,15 +1,12 @@
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { viewerOf } from "@/server/organizations";
+import { viewerOf } from "../../organizations/mount";
 import { NotAvailable } from "../../access/AccessStates";
 import { AFTER_SIGN_IN } from "../SignInScreen";
 import { readSeats } from "./actions";
 import { parseSeats } from "./model";
 import { SeatsScreen } from "./SeatsScreen";
-
-// /settings/seats (screens.md Settings, Seats and invitations). It sits inside the settings layout's product frame
-// (WP-010) until the settings dialog lands (ruling U2).
 
 export const seatsMetadata: Metadata = { title: "Seats and invitations", robots: { index: false, follow: false } };
 

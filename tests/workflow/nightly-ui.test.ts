@@ -1,5 +1,3 @@
-// The GitHub nightly's tests/ui job: the verdict each engine's step gives node:test's output (real node:test runs over
-// throwaway files), the seed order, and the job's step conditions in nightly.yml.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -12,7 +10,6 @@ import { seedsOf } from "../../scripts/nightly.ts";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
-/** node:test over throwaway files with these bodies, in an otherwise empty folder; its output whatever the exit code. */
 function nodeTest(t: { after(fn: () => void): void }, bodies: string[]): { files: string[]; output: string } {
 	const dir = mkdtempSync(join(tmpdir(), "evf-nightly-ui-"));
 	t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -56,7 +53,6 @@ test("T-301 a failing, all-skipped, empty or crashed run fails its engine step",
 	const cases: [string, string][] = [
 		[nodeTest(t, ['test("a", () => {}); test("b", () => { throw Error("x"); });']).output, "1 failed"],
 		[nodeTest(t, ['test.skip("a", () => {}); test.todo("b");']).output, "no test passed (every test skipped)"],
-		// A file with no test counts as one passing test; node:test over no file at all finds none.
 		[nodeTest(t, []).output, "no test ran"],
 		["Error: Cannot find module\n", "node:test printed no summary"],
 	];
@@ -87,6 +83,7 @@ test("T-301 the People seed runs first, since the Evry and Meetings seeds read i
 		"evry",
 		"golden",
 		"invitation",
+		"launch-evry",
 		"meetings",
 		"oversight",
 		"people",
@@ -105,7 +102,6 @@ test("T-301 the nightly ui job runs webkit after a failed chromium run and uses 
 		assert.match(stepText, /if: \$\{\{ !cancelled\(\) && steps\.up\.outcome == 'success' \}\}/);
 		assert.match(stepText, new RegExp(`run: node scripts/nightly-ui\\.ts test ${engine} "\\$UI_DIR"`));
 	}
-	// Every step reads UI_DIR, which the job's first step writes to GITHUB_ENV under the runner's temp directory.
 	assert.match(
 		job,
 		/\n    steps:\n(?:\s+#.*\n)*      - name: tests\/ui directory\n        run: echo "UI_DIR=\$RUNNER_TEMP\/nightly-ui" >> "\$GITHUB_ENV"\n/,

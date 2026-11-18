@@ -16,22 +16,18 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
-import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { createDebouncer } from "@everyfield/ui/foundations";
+import { useOptimistic, useState, useTransition } from "react";
+import { Await, createRead, useRead } from "../../components/read.tsx";
 import { changeVenue, createVenue, getVenue, listVenues } from "./actions.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
 import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
-import { MONTHS } from "../shared/dates.ts";
+import { MONTHS } from "../../components/dates.ts";
 
 type History = Extract<Awaited<ReturnType<typeof getVenue>>, { status: "ok" }>["value"];
-/** `saved` is the place a save just answered with: the screen shows it at once and loads only its history. */
 type Screen =
 	{ kind: "list" } | { kind: "new" } | { kind: "venue"; id: string; saved?: Venue } | { kind: "edit"; venue: Venue };
 
-/**
- * Places (REQ-MTG-003, REQ-MTG-004): the church's saved venues. Archived places are hidden unless asked for, and stay
- * on the meetings that used them. A correction records a reason in the place's history. Members read; Owners and
- * Admins add, change, archive and restore.
- */
 export function VenuesSheet({
 	open,
 	onOpenChange,
@@ -61,7 +57,10 @@ export function VenuesSheet({
 			{!open ? null : screen.kind === "list" ? (
 				<Places
 					canWrite={canWrite}
-					onOpen={(id) => setScreen({ kind: "venue", id })}
+					onOpen={(id) => {
+						placeDetails.prefetch(id);
+						setScreen({ kind: "venue", id });
+					}}
 					onAdd={() => setScreen({ kind: "new" })}
 				/>
 			) : screen.kind === "venue" ? (
@@ -76,34 +75,30 @@ export function VenuesSheet({
 			) : (
 				<VenueForm
 					venue={screen.kind === "edit" ? screen.venue : undefined}
-					onDone={(id, saved) => setScreen(id ? { kind: "venue", id, saved } : { kind: "list" })}
+					onDone={(id, saved) => {
+						if (id) placeDetails.forget(id);
+						setScreen(id ? { kind: "venue", id, saved } : { kind: "list" });
+					}}
 				/>
 			)}
 		</Sheet>
 	);
 }
 
+const PLACES_SEARCH_PAUSE_MS = 300;
+
+export const places = createRead(
+	(archived: boolean, query: string) =>
+		listVenues({ archived: archived ? "include" : "exclude", ...(query ? { search: query } : {}), limit: 100 }),
+	{ failed: (): Outcome<{ items: Venue[]; total: number }> => ({ status: "lost" }) },
+);
+
 function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: string) => void; onAdd: () => void }) {
 	const [search, setSearch] = useState("");
 	const [archived, setArchived] = useState(false);
-	const [round, setRound] = useState(0);
-	const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const [query, setQuery] = useState("");
-	// The answer for the current search; an answer for an older search is never shown.
-	const key = `${archived}:${query}:${round}`;
-	const [got, setGot] = useState<{ key: string; value: Outcome<{ items: Venue[]; total: number }> } | null>(null);
-	const result = got?.key === key ? got.value : null;
-	useEffect(() => {
-		let live = true;
-		listVenues({ archived: archived ? "include" : "exclude", ...(query ? { search: query } : {}), limit: 100 }).then(
-			(value) => live && setGot({ key, value }),
-			() => live && setGot({ key, value: { status: "lost" } }),
-		);
-		return () => {
-			live = false;
-		};
-	}, [archived, query, key]);
-	useEffect(() => () => clearTimeout(timer.current), []);
+	const [{ run: afterPause, cancelOnDetach }] = useState(() => createDebouncer(PLACES_SEARCH_PAUSE_MS));
+	const list = useRead(places, archived, query);
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -114,11 +109,14 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 						placeholder="Search name or address"
 						value={search}
 						maxLength={120}
+						ref={cancelOnDetach}
 						onChange={(e) => {
 							const next = e.target.value;
 							setSearch(next);
-							clearTimeout(timer.current);
-							timer.current = setTimeout(() => setQuery(next.trim()), 300);
+							afterPause(() => {
+								places.prefetch(archived, next.trim());
+								setQuery(next.trim());
+							});
 						}}
 					/>
 				</div>
@@ -128,56 +126,74 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 					</Button>
 				) : null}
 			</div>
-			<Switch label="Show archived places" checked={archived} onCheckedChange={setArchived} />
-			{result === null ? (
-				<div aria-busy="true" className="flex flex-col gap-3">
-					<span className="sr-only" role="status">
-						Loading places
-					</span>
-					{[0, 1, 2].map((i) => (
-						<Skeleton key={i} className="h-14 rounded-md" />
-					))}
-				</div>
-			) : result.status !== "ok" ? (
-				<StatePanel
-					tone="error"
-					title="Places did not load"
-					headingLevel="h3"
-					className="py-8"
-					actions={
-						<Button variant="secondary" size="sm" onClick={() => setRound((r) => r + 1)}>
-							Try again
-						</Button>
-					}
-				>
-					Nothing was changed. Try again in a moment.
-				</StatePanel>
-			) : result.value.items.length === 0 ? (
-				<EmptyState icon={Location01Icon} title={query ? "No places match" : "No places yet"} headingLevel="h3">
-					{query
-						? "Try another name or part of the address."
-						: canWrite
-							? "Add the homes, halls and schools where you meet. You can also add one while you plan a meeting."
-							: "When an Owner or Admin adds a place, it appears here."}
-				</EmptyState>
-			) : (
-				<List>
-					{result.value.items.map((v) => (
-						<ListRow
-							key={v.id}
-							title={v.name}
-							subtitle={v.address}
-							icon={Location01Icon}
-							tone={v.active ? "teal" : "ink"}
-							trailing={v.active ? null : <Tag>Archived</Tag>}
-							onClick={() => onOpen(v.id)}
-						/>
-					))}
-				</List>
-			)}
+			<Switch
+				label="Show archived places"
+				checked={archived}
+				onCheckedChange={(next) => {
+					places.prefetch(next, query);
+					setArchived(next);
+				}}
+			/>
+			<Await
+				state={list}
+				fallback={
+					<div aria-busy="true" className="flex flex-col gap-3">
+						<span className="sr-only" role="status">
+							Loading places
+						</span>
+						{[0, 1, 2].map((i) => (
+							<Skeleton key={i} className="h-14 rounded-md" />
+						))}
+					</div>
+				}
+			>
+				{(result) =>
+					result.status !== "ok" ? (
+						<StatePanel
+							tone="error"
+							title="Places did not load"
+							headingLevel="h3"
+							className="py-8"
+							actions={
+								<Button variant="secondary" size="sm" onClick={list.retry}>
+									Try again
+								</Button>
+							}
+						>
+							Nothing was changed. Try again in a moment.
+						</StatePanel>
+					) : result.value.items.length === 0 ? (
+						<EmptyState icon={Location01Icon} title={query ? "No places match" : "No places yet"} headingLevel="h3">
+							{query
+								? "Try another name or part of the address."
+								: canWrite
+									? "Add the homes, halls and schools where you meet. You can also add one while you plan a meeting."
+									: "When an Owner or Admin adds a place, it appears here."}
+						</EmptyState>
+					) : (
+						<List>
+							{result.value.items.map((v) => (
+								<ListRow
+									key={v.id}
+									title={v.name}
+									subtitle={v.address}
+									icon={Location01Icon}
+									tone={v.active ? "teal" : "ink"}
+									trailing={v.active ? null : <Tag>Archived</Tag>}
+									onClick={() => onOpen(v.id)}
+								/>
+							))}
+						</List>
+					)
+				}
+			</Await>
 		</div>
 	);
 }
+
+const placeDetails = createRead((id: string) => getVenue(id), {
+	failed: (): Outcome<History> => ({ status: "lost" }),
+});
 
 function Place({
 	id,
@@ -193,33 +209,16 @@ function Place({
 	onEdit: (venue: Venue) => void;
 }) {
 	const toast = useToast();
-	const [got, setGot] = useState<Outcome<History> | null>(() =>
-		saved ? { status: "ok", value: { status: "available", venue: saved, history: [] } } : null,
-	);
-	// After a save the place shows from the save's answer; only its history is still on the way.
-	const [historyPending, setHistoryPending] = useState(saved !== undefined);
+	const details = useRead(placeDetails, id);
+	const fromSaved: Outcome<History> | null = saved
+		? { status: "ok", value: { status: "available", venue: saved, history: [] } }
+		: null;
+	const got = details.value && (details.value.status === "ok" || !saved) ? details.value : fromSaved;
+	const historyPending = saved !== undefined && details.value === undefined;
 	const [, startTransition] = useTransition();
 	const [active, setActive] = useOptimistic<boolean | null>(null);
 	const [archiving, setArchiving] = useState(false);
 	const archive = useSaveIntent({ explain: problemText });
-	useEffect(() => {
-		let live = true;
-		getVenue(id).then(
-			(r) => {
-				if (!live) return;
-				setHistoryPending(false);
-				if (r.status === "ok" || !saved) setGot(r);
-			},
-			() => {
-				if (!live) return;
-				setHistoryPending(false);
-				if (!saved) setGot({ status: "lost" });
-			},
-		);
-		return () => {
-			live = false;
-		};
-	}, [id, saved]);
 
 	const back = (
 		<Button variant="ghost" size="sm" icon={ArrowLeft01Icon} onClick={onBack} className="self-start">
@@ -250,7 +249,6 @@ function Place({
 	const venue = loaded.venue;
 	const isActive = active ?? venue.active;
 
-	/** Archive or restore at once on screen; the answer confirms it or puts it back with the reason. */
 	function toggle(to: "archive" | "restore", reason?: string) {
 		startTransition(async () => {
 			setActive(to === "restore");
@@ -260,13 +258,13 @@ function Place({
 				done: to === "archive" ? "archived" : "restored",
 				send: (key) => changeVenue(to, key, venue.revision, input),
 				ok: (value) => {
-					startTransition(() => setGot({ status: "ok", value: { ...loaded, venue: value.venue } }));
+					details.patch(() => ({ status: "ok", value: { ...loaded, venue: value.venue } }));
 					toast({
 						message: to === "archive" ? `${venue.name} is archived.` : `${venue.name} is restored.`,
 						tone: "success",
 					});
 				},
-				refused: (code) => code === "conflict" && getVenue(venue.id).then(setGot),
+				refused: (code) => code === "conflict" && details.reload(),
 			});
 		});
 	}
@@ -373,7 +371,6 @@ const FIELD_NAME: Record<string, string> = {
 	active: "archived state",
 };
 const fieldName = (k: string) => FIELD_NAME[k] ?? k;
-/** "Oct 12, 2026" from an instant, by its UTC day, so the server and browser print the same words. */
 const dayText = (at: string) => {
 	const d = new Date(at);
 	return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`;
@@ -397,13 +394,10 @@ const draftOf = (venue: Venue | undefined): VenueDraft => ({
 	reason: "",
 });
 
-/** Add a place, or change one. A change with a reason is a correction and keeps the reason in the history. */
 function VenueForm({ venue: opened, onDone }: { venue?: Venue; onDone: (id: string | null, saved?: Venue) => void }) {
-	// The place being changed: as opened, or as read again after a save refused as out of date.
 	const [venue, setVenue] = useState(opened);
 	const [draft, setDraft] = useState<VenueDraft>(() => draftOf(opened));
 	const [touched, setTouched] = useState(false);
-	// The form stays open while it saves; its notice says why a save was refused or that it may already be saved.
 	const lane = useSaveIntent({ explain: problemText });
 	const pending = lane.saving;
 	const set = (k: keyof VenueDraft) => (e: { target: { value: string } }) =>
@@ -455,7 +449,6 @@ function VenueForm({ venue: opened, onDone }: { venue?: Venue; onDone: (id: stri
 			what: `The changes to ${venue.name}`,
 			send: (key) => changeVenue(op, key, venue.revision, input),
 			ok: (value) => onDone(venue.id, value.venue),
-			// Out of date: the form shows the place as it is now, as the refusal says, and saves against that revision.
 			refused: (code) =>
 				code === "conflict" &&
 				getVenue(venue.id).then(

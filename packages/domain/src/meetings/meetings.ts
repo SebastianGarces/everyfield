@@ -1,4 +1,5 @@
 import { localDateTime, resolveCalendar, timeZone } from "@everyfield/contracts/common";
+import { allows, fromStates, holds, meetingStatusMachine } from "@everyfield/contracts/machines";
 import * as c from "@everyfield/contracts/meetings";
 import { sql, type SQLWrapper } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
@@ -11,7 +12,6 @@ import { detail, facts, meetingColumns, meetingRow, plantMeeting, type MeetingRo
 
 type VenueChoice = z.infer<typeof c.venueChoice>;
 
-/** An entered wall time in the meeting's zone: a gap is refused, a fold needs the chosen offset (REQ-TSK-018). */
 function resolve(date: string, time: string, zone: string, offsetSeconds?: number) {
 	const r = resolveCalendar(localDateTime.parse(`${date}T${time}:00`), timeZone.parse(zone), "entered", offsetSeconds);
 	if (r.kind === "gap") deny("nonexistent_local_time");
@@ -22,13 +22,11 @@ function resolve(date: string, time: string, zone: string, offsetSeconds?: numbe
 }
 
 const venueFacts = z.object({ id: z.uuid(), name: z.string(), address: z.string(), archived: z.boolean() }).nullable();
-/** Reads the chosen saved venue in the fact statement; an archived one may stay only when it is already selected. */
 const chosenVenue = (plantId: string, choice: VenueChoice | undefined) =>
 	choice?.kind === "existing"
 		? sql`(SELECT row_to_json(v) FROM (SELECT id, name, address, archived_at IS NOT NULL AS archived FROM venue
 			WHERE id = ${sql.param(choice.venueId)}::uuid AND plant_id = ${sql.param(plantId)}::uuid FOR SHARE) v)`
 		: sql`NULL::json`;
-/** The meeting's copied location for a choice, plus the venue insert when the picker creates one with the meeting. */
 function location(
 	w: Writer,
 	choice: VenueChoice,
@@ -38,7 +36,6 @@ function location(
 ) {
 	if (choice.kind === "none") return { venue_id: null, venue_name: null, venue_address: null };
 	if (choice.kind === "existing") {
-		// An unchanged selection keeps its snapshot, even when that venue was archived since.
 		if (current && current.venue_id === choice.venueId)
 			return { venue_id: current.venue_id, venue_name: current.venue_name, venue_address: current.venue_address };
 		if (!found) deny();
@@ -53,7 +50,6 @@ function location(
 	return { venue_id: id, venue_name: v.name, venue_address: v.address };
 }
 
-/** The locked meeting and the clock, in one statement. Missing, foreign and retired meetings read the same. */
 async function lockMeeting(tx: Tx, w: Writer, meetingId: string, extra = sql`NULL::json`) {
 	const r = await tx.execute(
 		sql`SELECT ${meetingColumns}, ${extra} AS extra, clock_timestamp() AS now FROM meeting m
@@ -66,17 +62,22 @@ async function lockMeeting(tx: Tx, w: Writer, meetingId: string, extra = sql`NUL
 function expected(m: MeetingRow, revision: string) {
 	if (m.revision !== revision) deny("conflict");
 }
-/**
- * The meeting update for a changed row, fenced by the revision the command read, with its notification jobs brought to
- * the row after the change in the same write (syncReminderJobs).
- */
 function update(before: MeetingRow, after: MeetingRow, now: Date, set: SQLWrapper): SQLWrapper[] {
 	return [
 		sql`UPDATE meeting SET ${set}, revision = revision + 1 WHERE id = ${before.id}::uuid AND revision = ${before.revision}::bigint`,
 		...syncReminderJobs(after, now),
 	];
 }
-/** The audit fields every meeting change shares; the caller names the action and kind. */
+type StatusEvent = (typeof meetingStatusMachine.events)[number];
+function move(event: StatusEvent, before: MeetingRow, after: MeetingRow, now: Date, set: SQLWrapper[] = []) {
+	if (!allows(meetingStatusMachine, event, before.status, after.status, before)) deny(meetingStatusMachine.refusal);
+	return [
+		sql`UPDATE meeting SET status = ${after.status}, ${sql.join([...set, sql`revision = revision + 1`], sql`, `)}
+			WHERE id = ${before.id}::uuid AND revision = ${before.revision}::bigint
+			AND status = ANY(${sql.param(fromStates(meetingStatusMachine, event, after.status, before))}::text[])`,
+		...syncReminderJobs(after, now),
+	];
+}
 const meetingChange = <T>(m: MeetingRow, value: T, before: MeetingRow) => ({
 	value,
 	subject: m.id,
@@ -106,11 +107,7 @@ export const meetingsWriter = {
 						zone = w.plant.timezone,
 						startsAt = resolve(i.date, i.time, zone, i.offsetSeconds);
 					const plant = sql`${w.plant.id}::uuid`;
-					// REQ-TEAM-013: a Member schedules only their own ministry's team meeting, with its copied roster and no new
-					// venue or hand-picked guests, which stay with an Owner or Admin.
 					if (!w.admin && (i.type !== "team_meeting" || i.venue.kind === "new" || i.guests.length)) deny();
-					// A team meeting's ministry, locked while its people are copied; an archived one is refused. `leads` is the
-					// attendance rule (REQ-MTG-010, D-562): the ministry's leader is a live Person linked to the writer.
 					const team = i.teamId
 						? sql`(SELECT json_build_object('name', t.name, 'archived', t.archived_at IS NOT NULL,
 						'leads', EXISTS (SELECT FROM person lp WHERE lp.id = t.leader_person_id AND lp.tenant_id = t.plant_id
@@ -139,7 +136,6 @@ export const meetingsWriter = {
 					if (!w.admin && (!f.team?.leads || f.team.archived)) deny();
 					if (f.guests.length !== i.guests.length) deny("invalid_subject");
 					if (i.teamId && (!f.team || f.team.archived)) deny("team_unavailable");
-					// The ministry's people join as copied guests; a person also chosen by hand stays a hand-added guest.
 					const chosen = new Set<string>(i.guests);
 					const roster = (f.team?.people ?? []).filter((p) => !chosen.has(p));
 					const vision = i.type === "vision_meeting",
@@ -175,7 +171,6 @@ export const meetingsWriter = {
 						kit_total: vision ? c.visionKit.items.length : 0,
 						kit_checked: 0,
 					};
-					// The meeting, its copied venue, agenda, kit, guests and reminders commit together or not at all.
 					audit.writes
 						.push(sql`INSERT INTO meeting (id, plant_id, type, subtype, team_id, title, notes, creator_id, local_date,
 					local_time, timezone, starts_at, resolver_version, venue_id, venue_name, venue_address, vision_number, status,
@@ -275,15 +270,8 @@ export const meetingsWriter = {
 				expected(before, input.expectedRevision);
 				const to = input.input.to,
 					noop = before.status === to;
-				// A practice is completed with when it was held, and reopened through its correction (REQ-KNOW-042).
-				if (
-					!noop &&
-					(!c.statusTransitions[before.status].includes(to) ||
-						(before.type === "prelaunch_practice" && (to === "completed" || before.status === "completed")))
-				)
-					deny("status_transition");
 				const m = noop ? before : changed(before, { status: to });
-				if (!noop) audit.writes.push(...update(before, m, now, sql`status = ${to}`));
+				if (!noop) audit.writes.push(...move("meetings.changeStatus", before, m, now));
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
 					action: "meetings.changed",
@@ -293,7 +281,6 @@ export const meetingsWriter = {
 			});
 		});
 	},
-	/** Removes the meeting from current lists with history; a genuine held practice still counts (REQ-KNOW-045). */
 	async delete(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.deleteMeetingRequest, raw);
@@ -311,7 +298,6 @@ export const meetingsWriter = {
 			});
 		});
 	},
-	/** One distinct held practice: actually happened, not in the future, no Vision effects (REQ-KNOW-041/042). */
 	async completePractice(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.completePracticeRequest, raw);
@@ -321,18 +307,13 @@ export const meetingsWriter = {
 				if (before.type !== "prelaunch_practice") deny("wrong_meeting_type");
 				const heldAt = new Date(input.input.occurredAt);
 				if (heldAt > now) deny("invalid_input", { issues: [{ path: "occurredAt", problem: "in_the_future" }] });
-				if (before.status === "cancelled") deny("status_transition");
+				const held = changed(before, { status: "completed", actual_occurrence_at: heldAt });
+				const writes = move("meetings.completePractice", before, held, now, [
+					sql`actual_occurrence_at = ${heldAt.toISOString()}::timestamptz`,
+				]);
 				const noop = before.status === "completed" && before.actual_occurrence_at?.getTime() === heldAt.getTime();
-				const m = noop ? before : changed(before, { status: "completed", actual_occurrence_at: heldAt });
-				if (!noop)
-					audit.writes.push(
-						...update(
-							before,
-							m,
-							now,
-							sql`status = 'completed', actual_occurrence_at = ${heldAt.toISOString()}::timestamptz`,
-						),
-					);
+				const m = noop ? before : held;
+				if (!noop) audit.writes.push(...writes);
 				return {
 					...meetingChange(m, result(m, noop ? "noop" : "changed", audit.id), before),
 					action: "meetings.finalized",
@@ -342,7 +323,6 @@ export const meetingsWriter = {
 			});
 		});
 	},
-	/** Corrects whether and when a practice was held; history keeps the earlier facts. */
 	async correctPracticeOccurrence(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.correctPracticeRequest, raw);
@@ -353,18 +333,16 @@ export const meetingsWriter = {
 				const heldAt = input.input.occurredAt ? new Date(input.input.occurredAt) : null;
 				if (heldAt && heldAt > now)
 					deny("invalid_input", { issues: [{ path: "occurredAt", problem: "in_the_future" }] });
-				// Not held reopens the practice to planning without a held time.
-				const patch = heldAt
-					? { status: "completed" as const, actual_occurrence_at: heldAt }
-					: { status: "planning" as const, actual_occurrence_at: null };
-				const m = changed(before, patch);
+				const m = changed(
+					before,
+					heldAt
+						? { status: "completed", actual_occurrence_at: heldAt }
+						: { status: "planning", actual_occurrence_at: null },
+				);
 				audit.writes.push(
-					...update(
-						before,
-						m,
-						now,
-						sql`status = ${patch.status}, actual_occurrence_at = ${heldAt?.toISOString() ?? null}::timestamptz`,
-					),
+					...move("meetings.correctPracticeOccurrence", before, m, now, [
+						sql`actual_occurrence_at = ${heldAt?.toISOString() ?? null}::timestamptz`,
+					]),
 				);
 				return {
 					...meetingChange(m, result(m, "changed", audit.id), before),
@@ -375,14 +353,14 @@ export const meetingsWriter = {
 			});
 		});
 	},
-	/** Voids an invalid held occurrence, or restores it; archiving a genuine one is delete (REQ-KNOW-045). */
 	async correctOccurrence(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.correctOccurrenceRequest, raw);
 			return command(tx, ctx, "meetings.correctOccurrence", input, async (w, audit) => {
 				const { m: before, now } = await lockMeeting(tx, w, input.input.meetingId);
 				expected(before, input.expectedRevision);
-				if (before.status !== "completed") deny("status_transition");
+				if (!holds(meetingStatusMachine, "meetings.correctOccurrence", before.status, before))
+					deny(meetingStatusMachine.refusal);
 				const voided = input.input.voided;
 				const noop = (before.occurrence_voided_at !== null) === voided;
 				const m = noop ? before : changed(before, { occurrence_voided_at: voided ? now : null });
@@ -400,7 +378,6 @@ export const meetingsWriter = {
 			});
 		});
 	},
-	/** Saves the whole agenda; a later default version never touches it (REQ-MTG-005). */
 	async replaceAgenda(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.replaceAgendaRequest, raw);
@@ -432,7 +409,6 @@ export const meetingsWriter = {
 			});
 		});
 	},
-	/** Seeds the canonical Vision kit once; repeating it changes nothing. Other types have no kit (REQ-MTG-006). */
 	async populateKit(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.populateKitRequest, raw);
@@ -460,7 +436,6 @@ export const meetingsWriter = {
 			});
 		});
 	},
-	/** Checks, unchecks, assigns or annotates one kit item. A new assignee must be a live Person of this church. */
 	async updateKitItem(tx: Tx, ctx: MeetingsContext, raw: unknown) {
 		return reply(tx, async () => {
 			const input = parse(c.updateKitItemRequest, raw);

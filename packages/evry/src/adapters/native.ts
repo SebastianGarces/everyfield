@@ -6,33 +6,20 @@ import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import type { EffectResult, NativeContext, NativePorts, ReviewContext, ReviewedWrite } from "../proposals/types.ts";
 
-// What the Settings, seat, sharing, connection, account and organization tools share. Each review is one SELECT that
-// reads its target live and saves the native command's exact arguments with the revision the review showed. On
-// approval the executor runs the same native command the Settings screen calls, inside its own transaction, with the
-// effect key as the request key; anything that changed since refuses instead of being overwritten.
-
-/** The Owner or Admin of the selected church: who may change its seats, settings, sharing and connections. */
 export const plantAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
-/** The Owner of the selected church: the only one who may answer its setup questions (the native command checks it is the Owner setting it up). */
 export const plantOwner = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role === "owner";
-/** The signed-in account's own context, with no seat: where a church or a Discovery space is started. */
 export const accountContext = (actor: EvryActor) => actor.owner.kind === "account" && actor.role === null;
-/** Any seat in the selected church. */
 export const plantSeat = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
-/** The Owner or Admin of the selected sending church or network. */
 export const organizationAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "organization" && (actor.role === "owner" || actor.role === "admin");
-/** Any seat in the selected sending church or network. */
 export const organizationSeat = (actor: EvryActor) => actor.owner.kind === "organization" && actor.role !== null;
 
-/** One reviewed field: its value before and after, both as JSON. */
 export const change = (field: string, before: SQL, after: unknown) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${JSON.stringify(after ?? null)}::jsonb)`;
 export const target = (kind: string, id: SQL, label: SQL) =>
 	sql`jsonb_build_object('kind',${kind}::text,'id',${id},'label',${label})`;
 export const notes = (lines: readonly string[]) => sql`${JSON.stringify(lines)}::jsonb`;
-/** A profile patch's reviewed fields, in the patch's order: each one's value now in `row`'s column, then the patch's. */
 export function patchChanges(patch: Record<string, unknown>, columns: Record<string, string>, row: SQL) {
 	const changes = Object.entries(patch).map(([field, after], n) => ({
 		n,
@@ -44,10 +31,6 @@ export function patchChanges(patch: Record<string, unknown>, columns: Record<str
 		FROM jsonb_to_recordset(${JSON.stringify(changes)}::jsonb) k(n int,field text,col text,after jsonb))`;
 }
 
-/**
- * The code of a native refusal: a seat or invitation refusal, a Settings refusal, or the short code a connection or
- * organization command throws. Anything else is not a refusal: the change may have committed, so it stays unknown.
- */
 export function refusalOf(error: unknown): string | null {
 	if (!(error instanceof Error)) return null;
 	const code = (error as { code?: unknown }).code;
@@ -55,23 +38,17 @@ export function refusalOf(error: unknown): string | null {
 	return /^[a-z_]{3,40}$/.test(error.message) ? error.message : null;
 }
 
-/** A native Settings reply: its value, or the refusal its code names. */
 export function settled<T>(reply: { status: "ok"; value: T } | { status: "refused"; error: { code: string } }): T {
 	if (reply.status === "ok") return reply.value;
 	throw Object.assign(new Error(reply.error.code), { code: reply.error.code });
 }
 
-/** A connection or organization command's answer: committed, or refused as unavailable. */
 export function committed<T extends { status: string }>(result: T): T {
 	if (result.status === "unavailable") throw new Error("unavailable");
 	return result;
 }
 
 type Receipt = { receiptId?: string; revision?: string };
-/**
- * One reviewed native write. `review` selects the review and `args`, the native command's request without its request
- * key; `run` calls the native command with that request and its key.
- */
 export function nativeWrite<I>(spec: {
 	operation: string;
 	description: string;

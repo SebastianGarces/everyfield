@@ -301,9 +301,12 @@
 				"reference_update",
 				"digest",
 				"launch",
-				"communication"
+				"communication",
+				"residency",
+				"review"
 			],
 			"notice.purpose": [
+				"answer_review",
 				"communication_unsubscribed",
 				"insight_available",
 				"launch_milestone",
@@ -317,6 +320,8 @@
 				"reference_update",
 				"relationship_decision",
 				"relationship_invitation",
+				"residency_confirmation",
+				"residency_feedback",
 				"task_assignment",
 				"task_due"
 			],
@@ -1512,6 +1517,7 @@
 			"record.kind": [
 				"account",
 				"affiliation",
+				"answer_review",
 				"article_editor_state",
 				"article_revision",
 				"assessment",
@@ -2381,6 +2387,20 @@
 				"privacy_policy": "Credit evidence never transfers account grants, private care, or organization person evidence.",
 				"immutable_evidence_policy": "Verifier, earned date, and kind stay as written. Revoke and redo append rows.",
 				"future_case_ids": ["SCHEMA-009", "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE"]
+			},
+			{
+				"table": "answer_review",
+				"columns": ["person_id", "organization_id"],
+				"target_columns": ["id", "tenant_id"],
+				"consumer_work_packages": ["WP-102"],
+				"meaning": "The pipeline person whose kept answers were sent for review (T-385).",
+				"lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer row; new references take the same lifecycle locks.",
+				"merge_policy": "Preserve original historical endpoints; refuse conflicting linked accounts, duplicate active same-program enrollments or cross-owner collisions. Never transfer consent, private content or authorship.",
+				"inverse_policy": "Guard exact prior/result revisions and refuse new reference, changed feedback/completion or irreversible disclosure; no partial inverse.",
+				"retirement_policy": "A retired person's sends stay shared; removal on request ends sharing and keeps the send with no note.",
+				"privacy_policy": "Names only the person; the reviewer reads the chosen live answers and nothing else of the person's record.",
+				"immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+				"future_case_ids": ["ADR1-001", "ADR1-005", "ADR1-017"]
 			}
 		],
 		"person_snapshot_references": [
@@ -3818,7 +3838,12 @@
 				"domain": "tenancy",
 				"purpose": "Immutable sending-church or network identity and editable contact profile.",
 				"library_owned": false,
-				"jsonb_keys": {},
+				"jsonb_keys": {
+					"pipeline_import_columns": [
+						"key: a column title with case, spacing and punctuation removed",
+						"value: name, first_name, last_name, email, stage, answer or skip"
+					]
+				},
 				"capabilities": ["CAP-A-004", "CAP-A-007"],
 				"replaces": ["organization"],
 				"producer_work_packages": ["WP-004", "WP-007"],
@@ -3950,6 +3975,18 @@
 				},
 				"statement_of_faith": {
 					"note": "A sending network's plain-text statement of faith. It fills the statement-of-faith slot of Church Documents its plants create from a template (DOC-020, D-107). Null on a sending church."
+				},
+				"pipeline_import_columns": {
+					"note": "The pipeline import's remembered column choices (T-363): normalized column title to the field, answer or skip an Owner or Admin last chose for it. Titles only, never an answer."
+				},
+				"gathering_milestone_offered": {
+					"note": "Whether the organization's plants may end the gathering phase with its milestone instead of Launch Sunday (T-296). Turning it off keeps the name and description."
+				},
+				"gathering_milestone_name": {
+					"note": "The milestone's name, at most 120 characters; required while it is offered."
+				},
+				"gathering_milestone_description": {
+					"note": "What the milestone means, at most 2,000 characters, shown on its plants' Launch plans."
 				}
 			},
 			"foreignKeys": {
@@ -5451,6 +5488,9 @@
 				},
 				"revision": {
 					"note": ""
+				},
+				"questions": {
+					"note": "The kept question titles of a pipeline import's note (T-385), in file order; null on any other note. A send for review names some of them."
 				}
 			},
 			"foreignKeys": {
@@ -8097,7 +8137,20 @@
 				},
 				"outcome_note": { "note": "The planter's note on what happened on Launch Sunday, at most 10,000 characters." },
 				"outcome_recorded_at": { "note": "When the actual Launch Sunday was first recorded; a correction keeps it." },
-				"outcome_recorded_by": { "note": "The account that first recorded the actual Launch Sunday." }
+				"outcome_recorded_by": { "note": "The account that first recorded the actual Launch Sunday." },
+				"gathering_path": {
+					"note": "How the church ends its gathering phase (T-296): launch_sunday, or milestone, a milestone an organization it is affiliated with offers. Choosing never changes the date, readiness, tasks or phase."
+				},
+				"gathering_organization_id": {
+					"note": "The organization whose milestone the church uses. Null on Launch Sunday, or once that organization is gone."
+				},
+				"gathering_reached_on": {
+					"note": "The church-local day the milestone was reached; null until recorded or once cleared."
+				},
+				"gathering_reached_name": {
+					"note": "The milestone's name when it was reached, at most 120 characters. A later rename by the organization never changes it."
+				},
+				"gathering_note": { "note": "The planter's note on reaching the milestone, at most 2,000 characters." }
 			},
 			"foreignKeys": {
 				"plant_id->plant(id)": {
@@ -8116,6 +8169,12 @@
 					"deletion": {
 						"action": "set_null",
 						"policy": "Deleting the account clears who recorded the outcome; the fact, its time and its audit history stay."
+					}
+				},
+				"gathering_organization_id->organization(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Removing the organization leaves the church on the milestone path with no offer, which reads as no longer offered; a reached record and its audit history stay."
 					}
 				}
 			}
@@ -14834,6 +14893,106 @@
 				}
 			}
 		},
+		"answer_review": {
+			"table": {
+				"name": "answer_review",
+				"domain": "people",
+				"purpose": "Part of an organization pipeline person's kept answers sent to a named reviewer (T-385, D-1507): one kept-answers note, the chosen question titles and a group name, sent by an Owner or Admin to a current seat of the same organization. The reviewer reads the note's live answers to those questions only (D-1509) and gets no other duty (D-1511).",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-A-056"],
+				"replaces": [],
+				"producer_work_packages": ["WP-102"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-102"],
+					"rule": "WP-102 (T-385) sends chosen kept answers for review."
+				},
+				"feature_ids": ["MUL-007", "MUL-008", "MUL-009"],
+				"acceptance_ids": ["AC-MUL-009--MUL-009"],
+				"future_case_ids": ["ADR1-009"],
+				"scope": "people",
+				"invariants": [
+					"Sent only by a current Owner or Admin, only to a current seat of the same organization, and only from a note that holds kept answers.",
+					"Holds question titles and a group name, never an answer: the reviewer reads the note's current answers, and a question the note no longer holds reads as no longer available.",
+					"Shared only while not withdrawn, the reviewer's seat is current, the note is not removed and the person is not removed on request; otherwise the reviewer sees no question or answer text.",
+					"Never enters Evry, model input, search or the pipeline export; its audit rows hold ids, actor and change kind only."
+				],
+				"revision": "Withdrawal advances it once; a repeated withdrawal changes nothing.",
+				"idempotency": "The browser names the send id, so a repeated send writes one send.",
+				"deletion": "Kept with no note when the note is removed or deleted with a removal on request (REQ-MUL-005), so the reviewer sees it as no longer shared; deleted with the person record.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": ""
+				},
+				"organization_id": {
+					"note": ""
+				},
+				"person_id": {
+					"note": ""
+				},
+				"note_id": {
+					"note": ""
+				},
+				"reviewer_seat_id": {
+					"note": ""
+				},
+				"sender_id": {
+					"note": ""
+				},
+				"group_name": {
+					"note": ""
+				},
+				"questions": {
+					"note": ""
+				},
+				"sent_at": {
+					"note": ""
+				},
+				"withdrawn_at": {
+					"note": ""
+				},
+				"revision": {
+					"note": ""
+				}
+			},
+			"foreignKeys": {
+				"organization_id->organization(id)": {
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"person_id,organization_id->person(id,tenant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"note_id->person_note(id)": {
+					"scope_exception": "The send's note is a person_note of the same organization: the send's write reads it by note, organization and live pipeline person in the same statement. Deleting the note leaves the send with no note, so it reads as no longer shared.",
+					"deletion": {
+						"action": "set null",
+						"policy": "Removing or deleting the note leaves the send with no note: the reviewer sees it as no longer shared."
+					}
+				},
+				"reviewer_seat_id->seat(id)": {
+					"scope_exception": "Current reviewer seat belongs to the exact organization. The send's write checks the seat's organization and that it is current; each read checks it again and grants nothing beyond the send.",
+					"deletion": {
+						"action": "restrict",
+						"policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+					}
+				},
+				"sender_id->account(id)": {
+					"deletion": {
+						"action": "set null",
+						"policy": "Account deletion keeps the send with no sender attribution."
+					}
+				}
+			}
+		},
 		"leadership_conversation": {
 			"table": {
 				"name": "leadership_conversation",
@@ -19033,6 +19192,516 @@
 					"deletion": {
 						"action": "cascade",
 						"policy": "A deleted account's own ratings go with it."
+					}
+				}
+			}
+		},
+		"assessment_run": {
+			"table": {
+				"name": "assessment_run",
+				"domain": "intelligence",
+				"purpose": "One Plant Intelligence assessment run of a plant (REQ-PI-016 to REQ-PI-019, REQ-PI-026): the exact captured fact snapshot and model input, the reference and rubric versions it read, each draft with the rules it broke, the usage, and the published assessment with its citations when a draft passed every check.",
+				"library_owned": false,
+				"jsonb_keys": {
+					"facts": "The intelligence.readFacts result at the run's as-of instant (plant-facts/1), exactly as captured.",
+					"model_input": "The model-purpose input: phase, as-of, rubric, citable fact entries (counts, statuses and dates only) and the offered methodology passages. Null when guidance couldn't be read.",
+					"drafts": "Each draft in order: ordinal, provider attempts, the model's output and its violations (rule, where, detail).",
+					"result": "`draft`, the published draft (summary, focus, two supporting points, positives), and `citations`, each cited fact (key, label, value) or passage (article, revision, source, section, phase, text, text hash, version).",
+					"delta": "`previousRunId`, `previousAsOf` and `changed`: each citable fact whose value moved since the previous published run (key, label, before, after)."
+				},
+				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-041", "WP-042", "WP-043"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-041", "WP-042", "WP-043"],
+					"rule": "WP-041 and WP-042 record each assessment run with its captured input, versions, drafts, usage and published result."
+				},
+				"feature_ids": [
+					"PI-016",
+					"PI-017",
+					"PI-018",
+					"PI-019",
+					"PI-020",
+					"PI-022",
+					"PI-023",
+					"PI-024",
+					"PI-025",
+					"PI-026",
+					"PI-027",
+					"PI-028",
+					"PI-029",
+					"PI-030",
+					"PI-031",
+					"PI-034",
+					"PI-035",
+					"PI-036",
+					"PI-042"
+				],
+				"acceptance_ids": [
+					"AC-PI-016--PI-016",
+					"AC-PI-017--PI-017",
+					"AC-PI-018--PI-018",
+					"AC-PI-019--PI-019",
+					"AC-PI-020--PI-020",
+					"AC-PI-022--PI-022",
+					"AC-PI-023--PI-023",
+					"AC-PI-024--PI-024",
+					"AC-PI-025--PI-025",
+					"AC-PI-026--PI-026",
+					"AC-PI-027--PI-027",
+					"AC-PI-028--PI-028",
+					"AC-PI-029--PI-029",
+					"AC-PI-030--PI-030",
+					"AC-PI-031--PI-031",
+					"AC-PI-034--PI-034",
+					"AC-PI-035--PI-035",
+					"AC-PI-036--PI-036",
+					"AC-PI-042--PI-042"
+				],
+				"future_case_ids": ["PI-CASE-011", "PI-CASE-018", "ASMT-011", "ASMT-012"],
+				"scope": "intelligence",
+				"invariants": [
+					"The captured snapshot (facts, model input, versions, demand) never changes after capture; only progress and outcome advance, and a settled run never changes again.",
+					"Only an outcome of published holds a result and an available_at; a degraded run holds no model input or drafts.",
+					"The model input holds no person, name, note, score, interview result or private check-in.",
+					"The current assessment is the latest published run by available_at and id; no pointer is stored."
+				],
+				"revision": "The snapshot is frozen by trigger; the outcome moves from pending or deferred to one settled outcome, fenced on the job's current claim.",
+				"idempotency": "One run per plant and demand key (the job's producer key), so a retried or reclaimed job resumes the same run.",
+				"deletion": "Plant-owned derived facts. Runs go with the plant in the church purge; account deletion clears who requested a run.",
+				"physical_verified": false
+			},
+			"columns": {
+				"id": {
+					"note": "Run identity."
+				},
+				"plant_id": {
+					"note": "The assessed plant."
+				},
+				"requested_by": {
+					"note": "The Owner or Admin who asked for the run; null after their account is deleted."
+				},
+				"as_of": {
+					"note": "The run's one as-of instant, the facts' own."
+				},
+				"phase": {
+					"note": "The plant's phase at the run; its methodology passages are for this phase or general."
+				},
+				"source_revision": {
+					"note": "The facts' source revision digest at capture."
+				},
+				"formula_version": {
+					"note": "The fact formula version (plant-facts/1)."
+				},
+				"rubric_version": {
+					"note": "The plant rubric version the run applies (v1)."
+				},
+				"rubric_sha256": {
+					"note": "SHA-256 of the rubric's preserved bytes."
+				},
+				"reference_release": {
+					"note": "The activated reference release the run read; null when none was readable."
+				},
+				"reference_activation": {
+					"note": "That activation's number; null when none was readable."
+				},
+				"model": {
+					"note": "The drafter id, such as assessment-scripted."
+				},
+				"outcome": {
+					"note": "pending, deferred (waiting for the provider until retry_at), published, failed, degraded (guidance couldn't be read) or superseded (an input or the reference changed first)."
+				},
+				"grounding": {
+					"note": "grounded, or degraded when the methodology sources couldn't be read."
+				},
+				"reason": {
+					"note": "Why the run did not publish; null when it did."
+				},
+				"facts": {
+					"note": "The captured fact snapshot."
+				},
+				"model_input": {
+					"note": "The exact model input."
+				},
+				"drafts": {
+					"note": "Every draft with its violations."
+				},
+				"result": {
+					"note": "The published assessment and its citations."
+				},
+				"attempts": {
+					"note": "Provider attempts across drafts."
+				},
+				"input_tokens": {
+					"note": "Input tokens counted against the run budget."
+				},
+				"output_tokens": {
+					"note": "Output tokens counted against the run budget."
+				},
+				"recorded_at": {
+					"note": "When the run row was stored, at capture."
+				},
+				"demand": {
+					"note": "What asked for the run: change, time, manual or followup."
+				},
+				"demand_key": {
+					"note": "The demand identity, the job's producer key; unique per plant."
+				},
+				"captured_at": {
+					"note": "The snapshot's database instant; a write audited after it is a change the run did not see."
+				},
+				"deadline_at": {
+					"note": "When the run gives up; a deferral never waits past it."
+				},
+				"pending_attempts": {
+					"note": "Provider attempts spent on the draft in progress."
+				},
+				"retry_at": {
+					"note": "When a deferred run tries the provider again; set exactly when deferred."
+				},
+				"settled_at": {
+					"note": "When the run reached its final outcome; null while pending or deferred."
+				},
+				"available_at": {
+					"note": "When a published run became current; set exactly when published."
+				},
+				"delta": {
+					"note": "The facts that moved since the previous published run."
+				}
+			},
+			"foreignKeys": {
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the plant in the church purge."
+					}
+				},
+				"requested_by->account(id)": {
+					"deletion": {
+						"action": "set_null",
+						"policy": "Deleting the account clears who requested the run; the run stays."
+					}
+				}
+			}
+		},
+		"assessment_feedback": {
+			"table": {
+				"name": "assessment_feedback",
+				"domain": "intelligence",
+				"purpose": "A reader's own rating of one point of one published Plant Intelligence assessment (REQ-PI-033): useful or not useful with an optional comment, bound to the exact insight, run and rubric version.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-044"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-044"],
+					"rule": "WP-044 writes it from intelligence.submitFeedback."
+				},
+				"feature_ids": [
+					"PI-016",
+					"PI-017",
+					"PI-018",
+					"PI-019",
+					"PI-020",
+					"PI-022",
+					"PI-023",
+					"PI-024",
+					"PI-025",
+					"PI-026",
+					"PI-027",
+					"PI-028",
+					"PI-029",
+					"PI-030",
+					"PI-031",
+					"PI-034",
+					"PI-035",
+					"PI-036",
+					"PI-042"
+				],
+				"acceptance_ids": [
+					"AC-PI-016--PI-016",
+					"AC-PI-017--PI-017",
+					"AC-PI-018--PI-018",
+					"AC-PI-019--PI-019",
+					"AC-PI-020--PI-020",
+					"AC-PI-022--PI-022",
+					"AC-PI-023--PI-023",
+					"AC-PI-024--PI-024",
+					"AC-PI-025--PI-025",
+					"AC-PI-026--PI-026",
+					"AC-PI-027--PI-027",
+					"AC-PI-028--PI-028",
+					"AC-PI-029--PI-029",
+					"AC-PI-030--PI-030",
+					"AC-PI-031--PI-031",
+					"AC-PI-034--PI-034",
+					"AC-PI-035--PI-035",
+					"AC-PI-036--PI-036",
+					"AC-PI-042--PI-042"
+				],
+				"future_case_ids": [],
+				"scope": "intelligence",
+				"invariants": [
+					"Only its author writes or reads it.",
+					"It never changes the run, its insights, scores or the rubric."
+				],
+				"revision": "The author's latest rating and comment replace the earlier ones; each change writes an intelligence.feedback_saved audit row.",
+				"idempotency": "Saving the same rating and comment again changes nothing and writes no audit row.",
+				"deletion": "Goes with its insight, run, plant or author account.",
+				"physical_verified": false
+			},
+			"columns": {
+				"run_id": {
+					"note": "The published run."
+				},
+				"ordinal": {
+					"note": "The rated point: its insight ordinal."
+				},
+				"plant_id": {
+					"note": "The assessed plant."
+				},
+				"account_id": {
+					"note": "The author: the only account that reads or changes it."
+				},
+				"rubric_version": {
+					"note": "The run's rubric version when the feedback was given."
+				},
+				"rating": {
+					"note": "useful or not_useful."
+				},
+				"comment": {
+					"note": "The optional comment, 1 to 1000 characters; null when blank."
+				},
+				"recorded_at": {
+					"note": "When the latest rating or comment was saved."
+				}
+			},
+			"foreignKeys": {
+				"run_id,plant_id->assessment_run(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its run."
+					}
+				},
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the plant in the church purge."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its author's account."
+					}
+				}
+			}
+		},
+		"assessment_seen": {
+			"table": {
+				"name": "assessment_seen",
+				"domain": "intelligence",
+				"purpose": "An Owner's or Admin's explicit first open of one published Plant Intelligence assessment (REQ-PI-024, REQ-PI-032). The earliest open, or 72 hours after the run became available, releases it to the plant's organizations.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-044"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-044"],
+					"rule": "WP-044 writes it from intelligence.markAssessmentSeen."
+				},
+				"feature_ids": [
+					"PI-016",
+					"PI-017",
+					"PI-018",
+					"PI-019",
+					"PI-020",
+					"PI-022",
+					"PI-023",
+					"PI-024",
+					"PI-025",
+					"PI-026",
+					"PI-027",
+					"PI-028",
+					"PI-029",
+					"PI-030",
+					"PI-031",
+					"PI-034",
+					"PI-035",
+					"PI-036",
+					"PI-042"
+				],
+				"acceptance_ids": [
+					"AC-PI-016--PI-016",
+					"AC-PI-017--PI-017",
+					"AC-PI-018--PI-018",
+					"AC-PI-019--PI-019",
+					"AC-PI-020--PI-020",
+					"AC-PI-022--PI-022",
+					"AC-PI-023--PI-023",
+					"AC-PI-024--PI-024",
+					"AC-PI-025--PI-025",
+					"AC-PI-026--PI-026",
+					"AC-PI-027--PI-027",
+					"AC-PI-028--PI-028",
+					"AC-PI-029--PI-029",
+					"AC-PI-030--PI-030",
+					"AC-PI-031--PI-031",
+					"AC-PI-034--PI-034",
+					"AC-PI-035--PI-035",
+					"AC-PI-036--PI-036",
+					"AC-PI-042--PI-042"
+				],
+				"future_case_ids": [],
+				"scope": "intelligence",
+				"invariants": [
+					"Written by an explicit open from an eligible Owner or Admin, never by rendering or by an organization seat.",
+					"Never changed after it is written."
+				],
+				"revision": "Immutable; no revision.",
+				"idempotency": "One row per run and account; a repeated open writes nothing.",
+				"deletion": "Goes with its run, plant or account.",
+				"physical_verified": false
+			},
+			"columns": {
+				"run_id": {
+					"note": "The opened run."
+				},
+				"account_id": {
+					"note": "The Owner or Admin who opened it."
+				},
+				"plant_id": {
+					"note": "The assessed plant."
+				},
+				"seen_at": {
+					"note": "When they first opened it."
+				}
+			},
+			"foreignKeys": {
+				"run_id,plant_id->assessment_run(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its run."
+					}
+				},
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the plant in the church purge."
+					}
+				},
+				"account_id->account(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the account."
+					}
+				}
+			}
+		},
+		"assessment_insight": {
+			"table": {
+				"name": "assessment_insight",
+				"domain": "intelligence",
+				"purpose": "The insights of a published Plant Intelligence assessment (REQ-PI-023): one per point (focus, supporting, positive) with the severity its model urgency maps to, written in the statement that publishes the run.",
+				"library_owned": false,
+				"jsonb_keys": {},
+				"capabilities": ["CAP-C-020", "CAP-C-021", "CAP-C-026"],
+				"replaces": [],
+				"producer_work_packages": ["WP-043"],
+				"producer_derivation": {
+					"old_target_tables": [],
+					"additional_producers": ["WP-043"],
+					"rule": "WP-043 writes each published assessment's insights with its run."
+				},
+				"feature_ids": [
+					"PI-016",
+					"PI-017",
+					"PI-018",
+					"PI-019",
+					"PI-020",
+					"PI-022",
+					"PI-023",
+					"PI-024",
+					"PI-025",
+					"PI-026",
+					"PI-027",
+					"PI-028",
+					"PI-029",
+					"PI-030",
+					"PI-031",
+					"PI-034",
+					"PI-035",
+					"PI-036",
+					"PI-042"
+				],
+				"acceptance_ids": [
+					"AC-PI-016--PI-016",
+					"AC-PI-017--PI-017",
+					"AC-PI-018--PI-018",
+					"AC-PI-019--PI-019",
+					"AC-PI-020--PI-020",
+					"AC-PI-022--PI-022",
+					"AC-PI-023--PI-023",
+					"AC-PI-024--PI-024",
+					"AC-PI-025--PI-025",
+					"AC-PI-026--PI-026",
+					"AC-PI-027--PI-027",
+					"AC-PI-028--PI-028",
+					"AC-PI-029--PI-029",
+					"AC-PI-030--PI-030",
+					"AC-PI-031--PI-031",
+					"AC-PI-034--PI-034",
+					"AC-PI-035--PI-035",
+					"AC-PI-036--PI-036",
+					"AC-PI-042--PI-042"
+				],
+				"future_case_ids": ["ASMT-006"],
+				"scope": "intelligence",
+				"invariants": [
+					"Written with its published run in one statement, never changed.",
+					"Severity is info, low, medium or high; critical is never produced."
+				],
+				"revision": "Immutable; no revision.",
+				"idempotency": "Written once with its run.",
+				"deletion": "Goes with its run and its plant.",
+				"physical_verified": false
+			},
+			"columns": {
+				"run_id": {
+					"note": "The published run."
+				},
+				"ordinal": {
+					"note": "The point's order: focus, the supporting points, then positives."
+				},
+				"plant_id": {
+					"note": "The assessed plant."
+				},
+				"role": {
+					"note": "focus, supporting or positive."
+				},
+				"severity": {
+					"note": "info, low, medium or high, from the model urgency positive, info, watch or urgent."
+				},
+				"title": {
+					"note": "The point's title as published."
+				}
+			},
+			"foreignKeys": {
+				"run_id,plant_id->assessment_run(id,plant_id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with its run."
+					}
+				},
+				"plant_id->plant(id)": {
+					"deletion": {
+						"action": "cascade",
+						"policy": "Goes with the plant in the church purge."
 					}
 				}
 			}

@@ -15,12 +15,6 @@ import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
 
-// WP-028, T-241: a scheduled message waits in Everyfield and goes to the email service at its send time. An email the
-// email service already holds (every scheduled email before T-241, made here with heldAtProvider) is cancelled or moved
-// there, and its screen states (scheduled, cancelled, moved, sent, not confirmed) come only from what the email
-// service answered for each recipient. The
-// email service here is the real Messages adapter talking to a recorded fake of the Resend routes.
-
 let f, plant, owner;
 const ZONE = "America/Chicago";
 const keys = {
@@ -34,7 +28,6 @@ const key = () => randomUUID();
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const read = (op, input, extra) => f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input, extra));
 
-/** The next `weekday` at `hour`:00 on the plant's clock, at least a day after `from`. */
 function plantTime(weekday, hour, from = new Date()) {
 	const format = new Intl.DateTimeFormat("en-US", {
 		timeZone: ZONE,
@@ -69,7 +62,6 @@ async function person(name, email = `${name.toLowerCase()}-${key().slice(0, 8)}@
 		VALUES(${id},${plant.id},${plant.id},${name},${email},'other','prospect','unknown','unknown',0,'live',clock_timestamp())`);
 	return id;
 }
-/** A reviewed message for three new people (or the given ones), saved as scheduled for `at`. */
 async function reviewed(at, given = null) {
 	const people = given ?? [];
 	if (!given) for (const name of ["Ana", "Ben", "Cy"]) people.push(await person(name));
@@ -128,13 +120,11 @@ const mailOf = (message) =>
 		WHERE m.logical_key LIKE ${"communication/" + message.id + "/%"} ORDER BY mem.position`);
 const auditsOf = async (message) =>
 	(await rows(sql`SELECT count(*)::int AS n FROM audit_event WHERE subject_id = ${message.id}`))[0].n;
-/** What history and message detail show for the message. */
 async function shown(message) {
 	const page = ok(await read("listHistory", { limit: 100 }));
 	const item = page.items.find((row) => row.id === message.id);
 	const detail = ok(await read("getDetail", { id: message.id }, keys));
 	const totals = ok(await read("getDeliveryTotals", { communicationId: message.id }));
-	// BUG-T44: the message header badge reads the totals state, which always matches history, not the stored state.
 	assert.equal(totals.state, item.state);
 	return { item, detail, totals };
 }
@@ -175,7 +165,6 @@ test("BUG-f038ba571 AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005
 	assert.equal(view.totals.reachable, 3);
 	assert.equal(scheduleText(result, "Fri 9:00"), "Scheduled for Fri 9:00. It goes to 3 people then.");
 
-	// The send time comes: one batch under the handoff's own key, sent at once with no held time.
 	await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
 	const calls = resend.take();
 	assert.equal(calls.length, 1);
@@ -194,7 +183,6 @@ test("BUG-f038ba571 AC:CASE-COM-012 AC:GAP-COM-012 AC:MAIL51-003 AC:CASE-COM-005
 	assert.equal(view.item.state, "sending");
 	assert.deepEqual([view.totals.accepted, view.totals.failed, view.totals.unknown], [3, 0, 0]);
 
-	// The next minute finds nothing due and asks the email service nothing.
 	await minuteRunner(f.db, resend.transport, keys);
 	assert.deepEqual(resend.take(), []);
 });
@@ -221,7 +209,6 @@ test("AC:CASE-COM-012 at the send time a refusal for everyone is Not sent, no an
 		);
 	}
 
-	// One recipient without an answer: the other two went out, with exact counts.
 	const resend = resendRecorder({ VERCEL_ENV: "production" });
 	resend.batch((index) => index !== 1);
 	const partial = await reviewed(friday);
@@ -270,7 +257,6 @@ test("AC:MAIL51-004 AC:MAIL51-005 a waiting message is cancelled or moved at onc
 		}),
 	);
 	assert.equal(replace.replacementAllowed, true);
-	// A cancelled message never goes out at its old time.
 	await atSendTime(f.admin, f.db, message.id, resend.transport, keys);
 	assert.deepEqual(resend.take(), []);
 });
@@ -382,7 +368,6 @@ test("BUG-f038ba571 AC:MAIL51-005 AC:MAIL51-007 a cancel without every answer is
 	);
 	assert.equal(allowed.replacementAllowed, true);
 
-	// A check after the cancel is confirmed asks nobody and writes no audit row.
 	const audits = await auditsOf(message);
 	const again = ok(await cancel(message, resend.transport));
 	assert.deepEqual(resend.take(), []);
@@ -484,7 +469,6 @@ test("BUG-f038ba571 AC:MAIL51-005 AC:MAIL51-007 an email the service already sen
 		},
 		{ status: "confirmed", confirmed: 2, sent: 1, open: 0 },
 	);
-	// The result leads with what went out and never calls the message cancelled.
 	assert.equal(cancelText(result), "1 already went out and cannot be recalled. The email service stopped the other 2.");
 	assert.doesNotMatch(cancelText(result), /^Cancelled/);
 	assert.equal(
@@ -507,7 +491,6 @@ test("BUG-f038ba571 AC:MAIL51-005 AC:MAIL51-007 an email the service already sen
 	resend.wentOut("re-6");
 	const moved = ok(await move(moving, plantTime("Sat", 9, new Date(friday)), resend.transport));
 	assert.deepEqual([moved.confirmedCount, moved.sentCount, moved.openCount], [0, 3, 0]);
-	// No new time is named as done when every email already went out.
 	assert.equal(
 		rescheduleText(moved, String),
 		"3 already went out and cannot be recalled. The send time did not change.",
@@ -545,7 +528,6 @@ test("AC:CASE-COM-005 Send now that the email service refuses is Not sent, stays
 	assert.equal(hubLabel[view.item.state], "Not sent");
 	assert.equal(view.detail.subject, "Friday gathering");
 
-	// Send now again from history: the same answer, and the email service is not asked again.
 	const again = ok(
 		await handOff({ ...message, revision: await revisionOf(message) }, resend.transport, "sendReviewed"),
 	);
@@ -556,9 +538,7 @@ test("AC:CASE-COM-005 Send now that the email service refuses is Not sent, stays
 
 test("AC:CASE-COM-005 a mixed result shows exact counts, an all-unknown result is Not confirmed, and no result says delivered", async () => {
 	const resend = resendRecorder({ VERCEL_ENV: "production" });
-	// The batch holds only the two addresses that are not blocked; the second of them gets no answer.
 	resend.batch((index) => index !== 1);
-	// One recipient's address is blocked after an earlier bounce, so it is refused before the email service is asked.
 	const blocked = `blocked-${key().slice(0, 8)}@example.test`;
 	await blockAddress(blocked);
 	const mixed = await reviewed(plantTime("Fri", 9), [
@@ -601,7 +581,6 @@ test("AC:CASE-COM-005 a mixed result shows exact counts, an all-unknown result i
 	for (const text of texts) assert.doesNotMatch(text, /deliver/i, text);
 });
 
-/** A hard bounce for this address, as the email service reports it, leaves it blocked. */
 async function blockAddress(address) {
 	const { createHmac } = await import("node:crypto");
 	const hash = createHmac("sha256", keys.addressKey).update(address).digest("hex");
@@ -617,8 +596,8 @@ test("AC:CASE-COM-012 in dev capture mode schedule, cancel, time change and Chec
 	const { mkdtemp, rm, writeFile } = await import("node:fs/promises");
 	const { tmpdir } = await import("node:os");
 	const { join } = await import("node:path");
-	const { deliveryTransport } = await import("../../../apps/web/src/features/communication/mail.ts");
-	const { NO_ANSWER_FILE } = await import("../../../apps/web/src/features/communication/capture.ts");
+	const { deliveryTransport } = await import("../../../apps/web/src/server/mail/transport.ts");
+	const { NO_ANSWER_FILE } = await import("../../../apps/web/src/server/mail/capture.ts");
 	const outbox = await mkdtemp(join(tmpdir(), "wp028-outbox-"));
 	const saved = process.env.EVERYFIELD_DEV_OUTBOX;
 	process.env.EVERYFIELD_DEV_OUTBOX = outbox;

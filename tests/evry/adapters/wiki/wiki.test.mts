@@ -31,10 +31,6 @@ import {
 	wikiIds,
 } from "./corpus.mts";
 
-// S4 Evry for the Wiki (WP-077, WP-078): Evry quotes only what the church's Wiki page shows, with its title and link,
-// stops quoting a network's text once the connection ends, never writes reading progress by reading, and bookmarks or
-// rates an article only through an approved review. Every turn runs on the scripted model through the real runtime.
-
 const ids = wikiIds(randomUUID);
 const wiki = createWikiProducer();
 let owner: EvryActor;
@@ -50,7 +46,6 @@ const adapter = (operation: string) =>
 	WIKI_READS.find((a) => a.operation === operation)! as unknown as ReadAdapter<unknown>;
 const read = (operation: string, input: unknown = {}, who = owner) => invokeRead(db, who, adapter(operation), input);
 const text = (result: SourceResult) => JSON.stringify(result);
-/** The Wiki page's own read of the article: the version a planter's Wiki page shows now. */
 async function pageVersion(articleId: string) {
 	const authority = await RequestActor.resolve(db, accounts.owner.session as never);
 	assert.ok(authority instanceof RequestActor);
@@ -58,14 +53,12 @@ async function pageVersion(articleId: string) {
 	assert.equal(reply.status, "ok");
 	return reply.status === "ok" ? reply.value.article : null;
 }
-/** The owner's reading rows, which only the Wiki page's own view, progress and bookmark writes may change. */
 const reading = async () =>
 	(
 		await admin.execute(
 			sql`SELECT article_id,observed_fraction::text,last_viewed_at::text,bookmarked,revision FROM reading WHERE account_id=${accounts.owner.id} ORDER BY article_id`,
 		)
 	).rows;
-/** One turn asked through the panel's route and run on the scripted model, as the app worker runs it. */
 async function ask(question: string, conversationId?: string, references: unknown[] = []) {
 	const id = conversationId ?? (await createConversation(db, owner, { requestKey: randomUUID() })).id;
 	await submitTurn(db, owner, id, { requestKey: randomUUID(), text: question, references });
@@ -108,7 +101,6 @@ test("AC:CASE-WIKI-003 AC:GAP-EVR-417 Evry quotes the network's published versio
 	assert.equal(excerpt.rows[0]!.id, ids.vision.network);
 	assert.equal(excerpt.rows[0]!.fields.excerpt, `${VISION_OPENING} ${NETWORK_LINE}`);
 
-	// No search, excerpt or answer ever shows the draft or the unconnected network's text.
 	for (const query of ["draft only published", "other network guidance", "thank-you note"]) {
 		const result = await read("wiki.search", { query });
 		assert.ok(!text(result).includes(DRAFT_LINE) && !text(result).includes(FOREIGN_LINE), query);
@@ -141,11 +133,9 @@ test("AC:GAP-EVR-418 once the network connection ends, Evry withholds the networ
 	assert.match(JSON.stringify(first.page.events), new RegExp(NETWORK_LINE));
 	await admin.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${ids.affiliation}`);
 	try {
-		// The reopened conversation keeps no network text: the result rows and the answer that quoted them are withheld.
 		const reopened = await readConversation(db, owner, first.id);
 		assert.doesNotMatch(JSON.stringify(reopened.events), new RegExp(NETWORK_LINE));
 		assert.ok(reopened.events.some((e) => e.kind === "status" && e.body.withheld === true));
-		// A follow-up reads again under current access: the global version the Wiki page shows now.
 		const followUp = await ask("what does the wiki say about vision meeting", first.id);
 		assert.equal((await pageVersion(ids.vision.article))?.revisionId, ids.vision.global);
 		assert.deepEqual(
@@ -172,7 +162,6 @@ test("AC:CASE-WIKI-004 what to read next lists the Wiki home's suggestions for t
 		await admin.execute(sql`UPDATE plant SET phase=1 WHERE id=${plant}`);
 	}
 	assert.deepEqual((await read("wiki.reading.resume")).rows, []);
-	// The Wiki page records the open itself; Evry only reads it back.
 	const authority = await RequestActor.resolve(db, accounts.owner.session as never);
 	assert.ok(authority instanceof RequestActor);
 	const viewed = await wiki.recordView(db, authority, {

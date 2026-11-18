@@ -1,9 +1,5 @@
 import type { DocDocument } from "@everyfield/contracts/documents";
 
-// A Church Document's plain text in reading order, the way it prints: one line per paragraph, heading and list item,
-// each merge field as its frozen value, a table as its header labels and rows. Images, dividers and page breaks carry
-// no text. Pure, so a test can check every line.
-
 type Node = { type: string; text?: string; attrs?: Record<string, unknown>; content?: Node[] };
 
 export function documentText(doc: Pick<DocDocument, "body" | "data" | "fields">): string {

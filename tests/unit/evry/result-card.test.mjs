@@ -1,18 +1,3 @@
-// What a result card says (WP-051 slice 2). It runs in node against the module the card uses; no browser.
-//   AC:EVRY-CONTEXT-BOUNDS INV-households-card: a listHouseholds result is a Households card with household words, a
-//     household icon, no link and no person wording.
-//   INV-household-detail: getHousehold and getHouseholdMembers name people in the count; member rows show the household
-//     role and link to the person; no household row links to /people/.
-//   INV-result-card-*: every non-person read has its own title, count noun and rows (T-160): tags, a person's tags and
-//     skills, history, the pipeline, the import template, preview and receipt, and the export as a count card.
-//   INV-result-card-phases: the phase journey card is headed by the current phase and the day it began, marks a move
-//     backward, and an exit criterion with no measured data says "No data yet", never "Not met".
-//   INV-result-card-duplicate-pairs: listDuplicatePairs lists each imported person with the person it may duplicate.
-//   INV-result-card-dates: the calendar helpers' cards name the local date and time in words, the zone, and whether the
-//     clocks repeat or skip it.
-//   INV-result-card-tasks: task rows say the due date, owner and status in words, mark overdue and open the task in Tasks.
-//   INV-result-card-follow-ups: follow-ups name their owner or "Nobody assigned"; contact log entries say whether a
-//     conversation happened; account rows say the role and whether the account can own follow-ups.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { cardView } from "../../../apps/web/src/features/evry/conversation/resultView.ts";
@@ -157,7 +142,6 @@ test("a message read is a Messages card with the send time, no person wording an
 	assert.deepEqual(none.facts.slice(0, 1), ["No draft or scheduled message in this church matches."]);
 });
 
-// ---------- each non-person read has its own card (T-160)
 const T1 = "44444444-4444-4444-8444-444444444441";
 const T2 = "44444444-4444-4444-8444-444444444442";
 const T3 = "44444444-4444-4444-8444-444444444443";
@@ -249,7 +233,6 @@ test("INV-result-card-person-fields: a person's tags and skills have their own t
 });
 
 test("INV-result-card-history: getActivities is a History card that names what happened, with no note text and no people wording", () => {
-	// Midday UTC, so the date reads the same in any time zone the test runs in.
 	const at = "2026-11-03T12:00:00.000Z";
 	const activity = (id, label, fields) => ({
 		kind: "activity",
@@ -513,7 +496,6 @@ test("INV-result-card-duplicate-pairs: listDuplicatePairs is a Duplicates to rev
 	assert.deepEqual(view.facts, [
 		"Not included: pairs marked not a duplicate, retired or merged people, pairs no import flagged.",
 	]);
-	// Past the first 100 pairs the total is unknown, and the card says only the first are shown.
 	const partial = cardView(
 		"people.listDuplicatePairs",
 		result("people.listDuplicatePairs", [pair(P1, "John Smith", "Jon Smith")], {
@@ -569,7 +551,6 @@ test("INV-result-card-tasks: task rows say due, owner and overdue in words and o
 				"task",
 				`/tasks?task=${P2}`,
 			],
-			// A checklist item opens its parent task.
 			["Set out chairs", "Needs owner", null, "task", `/tasks?task=${T1}`],
 		],
 	);
@@ -897,5 +878,25 @@ test("INV-result-card-dates: calendar cards name the local date and time, the zo
 	assert.deepEqual(
 		exact.rows.map((r) => [r.name, r.line, r.mark]),
 		[["Fri, Nov 20, 2026, 9:00 AM", "EST · America/New_York", null]],
+	);
+});
+
+test("INV-result-card-launch-guests: a guest name's People matches are listed under the named guests, never counted as guests", () => {
+	const guest = (id, label) => ({ kind: "person", id, label, fields: { guest: "Launch Sunday first-time guest" } });
+	const match = {
+		kind: "person",
+		id: P2,
+		label: "Maria Lopez",
+		fields: { match: "Maria Lopez", detail: null, alreadyGuest: false },
+	};
+	const view = cardView(
+		"launch.readDebrief",
+		result("launch.readDebrief", [guest(H, "Ana Silva"), guest(P1, "Ben Cho"), match], { total: 2 }),
+		null,
+	);
+	assert.equal(view.summary, "2 named guests");
+	assert.deepEqual(
+		view.rows.map((r) => r.name),
+		["Ana Silva", "Ben Cho", "Maria Lopez"],
 	);
 });

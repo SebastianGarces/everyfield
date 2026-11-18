@@ -4,16 +4,16 @@ import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls"
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { NoChurchPlantSeat, PlantIntelligenceBlocked } from "../phases/PlantIntelligenceBlocked.tsx";
+import { administers, phaseViewer } from "../phases/server.ts";
+import { AssessmentScreen } from "./AssessmentScreen.tsx";
+import { loadAssessment, loadTrends } from "./assessment-server.ts";
 import { AttestationsScreen } from "./AttestationsScreen.tsx";
+import { TrendsScreen } from "./TrendsScreen.tsx";
 import { CheckInScreen } from "./CheckInScreen.tsx";
 import { CHECK_IN_PATH } from "./path.ts";
 import { careViewer, loadCheckIn } from "./server.ts";
 import { loadAttestations } from "./signals-server.ts";
 import { ZoneStep } from "./ZoneStep.tsx";
-
-// The /me/check-in route (WP-039): the private weekly check-in of a church plant's Owner or Admin.
-// apps/web/src/app/(product)/(frame)/me/check-in/ only re-exports these. The page takes no address parameters: the
-// author is always the signed-in account.
 
 export const checkInMetadata: Metadata = { title: "Weekly check-in", robots: { index: false, follow: false } };
 
@@ -24,7 +24,6 @@ export async function CheckInPage() {
 		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(CHECK_IN_PATH)}`);
 		return <Blocked title="The weekly check-in belongs to a church plant">{SEAT_TEXT}</Blocked>;
 	}
-	// The check-in is for a plant's Owners and Admins only (privateCare.* authority). A Member has no page.
 	if (viewer.role === "member")
 		return <Blocked title="The weekly check-in is for Owners and Admins">{SEAT_TEXT}</Blocked>;
 	const loaded = await loadCheckIn(viewer);
@@ -63,7 +62,6 @@ function Blocked({
 	);
 }
 
-/** The first paint while the check-in loads: its shape, not a spinner. */
 export function CheckInLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-6">
@@ -79,8 +77,6 @@ export function CheckInLoading() {
 	);
 }
 
-// The Attestations page (WP-039 slice 2): /intelligence/attestations. A Member and a signed-in account without a
-// church-plant seat get the same lock page that /intelligence shows them, inside the app frame, and no attestations read.
 export const attestationsMetadata: Metadata = { title: "Attestations", robots: { index: false, follow: false } };
 
 export async function AttestationsPage() {
@@ -91,7 +87,6 @@ export async function AttestationsPage() {
 			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/attestations")}`);
 		return <NoChurchPlantSeat />;
 	}
-	// Attestations are for a plant's Owners and Admins only (signals authority).
 	if (viewer.role === "member")
 		return (
 			<PlantIntelligenceBlocked title="Attestations are for Owners and Admins">
@@ -108,7 +103,6 @@ export async function AttestationsPage() {
 	return <AttestationsScreen initial={loaded.value} viewerName={viewer.displayName} />;
 }
 
-/** The first paint while the attestations load: their shape, not a spinner. */
 export function AttestationsLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-6">
@@ -124,6 +118,65 @@ export function AttestationsLoading() {
 				<Skeleton className="h-28 rounded-card" />
 			</div>
 			<Skeleton className="h-72 rounded-card" />
+		</div>
+	);
+}
+
+export const intelligenceMetadata: Metadata = { title: "Plant Intelligence", robots: { index: false, follow: false } };
+export const trendsMetadata: Metadata = { title: "Trends", robots: { index: false, follow: false } };
+
+async function ownerOrAdmin(path: string) {
+	const viewer = await phaseViewer();
+	if (!viewer) {
+		const v = await getViewer();
+		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
+		return { blocked: <NoChurchPlantSeat /> } as const;
+	}
+	if (!administers(viewer))
+		return {
+			blocked: (
+				<PlantIntelligenceBlocked title="Plant Intelligence is for Owners and Admins">
+					Your Member seat does not include the church&apos;s Plant Intelligence. Ask an Owner or Admin if you need it.
+				</PlantIntelligenceBlocked>
+			),
+		} as const;
+	return { viewer } as const;
+}
+const loadFailed = (
+	<PlantIntelligenceBlocked title="We could not load Plant Intelligence" tone="error">
+		This is a loading problem. Your assessments are safe. Reload the page in a moment.
+	</PlantIntelligenceBlocked>
+);
+
+export async function PlantIntelligencePage() {
+	const seat = await ownerOrAdmin("/intelligence");
+	if (!seat.viewer) return seat.blocked;
+	const loaded = await loadAssessment(seat.viewer.authority);
+	if (loaded.status !== "ok") return loadFailed;
+	return <AssessmentScreen {...loaded.value} />;
+}
+
+export async function TrendsPage() {
+	const seat = await ownerOrAdmin("/intelligence/trends");
+	if (!seat.viewer) return seat.blocked;
+	const loaded = await loadTrends(seat.viewer.authority);
+	if (loaded.status !== "ok") return loadFailed;
+	return <TrendsScreen {...loaded.value} />;
+}
+
+export function PlantIntelligenceLoading() {
+	return (
+		<div aria-busy="true" className="flex flex-col gap-5">
+			<span className="sr-only" role="status">
+				Loading Plant Intelligence
+			</span>
+			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-10 w-96 max-w-full rounded-md" />
+			<Skeleton className="h-28 rounded-card" />
+			<div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 max-app-md:grid-cols-1">
+				<Skeleton className="h-[300px] rounded-card" />
+				<Skeleton className="h-[300px] rounded-card" />
+			</div>
 		</div>
 	);
 }

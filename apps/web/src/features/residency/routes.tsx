@@ -1,4 +1,4 @@
-import { loadMyResidency, loadResidentReading, residentActor } from "@/server/organizations/residency";
+import { loadMyResidency, loadResidentReading, residentActor } from "./server";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -6,8 +6,6 @@ import { NotAvailable } from "../access/AccessStates";
 import { MyResidencyScreen } from "./MyResidencyScreen";
 import { MY_RESIDENCY_PATH, readingPath } from "./model";
 import { ResidentReadingScreen } from "./ResidentReadingScreen";
-
-// My residency (REQ-MUL-013) and its church-owned reading. app/(product)/(frame)/my-residency/** only re-exports these.
 
 export const myResidencyMetadata: Metadata = { title: "My residency", robots: { index: false, follow: false } };
 

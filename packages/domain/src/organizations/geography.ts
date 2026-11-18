@@ -1,4 +1,4 @@
-import type { RegionArea } from "@everyfield/contracts/oversight";
+import type { Placement, RegionArea } from "@everyfield/contracts/oversight";
 import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { createHash } from "node:crypto";
@@ -9,22 +9,13 @@ import { liveAccess, liveRead, liveRows, type RequestActor } from "../access/ses
 import omb from "../../../../docs/reference/geography/omb-23-01/areas.json" with { type: "json" };
 import type { GeographyReference } from "./profile.ts";
 
-// Reporting Regions (REQ-PI-044): the official July 2023 OMB Bulletin 23-01 metropolitan and micropolitan statistical
-// areas, built word for word from the Census delineation files in docs/reference/geography/omb-23-01 (build.py). The
-// database holds the validated reference release, its dataset version and one geography_region item per area, keyed
-// `omb-23-01/<CBSA code>`; titles, types, counties and principal cities stay in the packaged list. A place matches an
-// area only where the official list names it as a principal city: nothing is geocoded, and a place that matches more
-// than one area is never resolved to the first one.
-
 type Area = (typeof omb.areas)[number];
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const RELEASE_KEY = "geography/omb-23-01";
 const DATASET_KEY = "omb-23-01";
 const BY_CODE = new Map<string, Area>(omb.areas.map((a) => [a.code, a]));
 
-/** The reference item key of the area with CBSA `code`. */
 export const regionKey = (code: string) => `${DATASET_KEY}/${code}`;
-/** The area a region item key names, or null for any other key. */
 export function areaOf(key: string | null): RegionArea | null {
 	const code = key?.startsWith(`${DATASET_KEY}/`) ? key.slice(DATASET_KEY.length + 1) : null;
 	const a = code ? BY_CODE.get(code) : undefined;
@@ -89,31 +80,23 @@ const CODES = new Set(Object.values(STATES));
 const NAMES = new Map(
 	Object.entries(STATES).map(([name, code]) => [code, name.replace(/\b\w/g, (c) => c.toUpperCase())]),
 );
-/** "Texas" for "TX"; "District of Columbia" keeps its lowercase "of". */
 export const stateName = (code: string) => (NAMES.get(code) ?? code).replace(" Of ", " of ");
 const fold = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").trim().toLowerCase().replace(/\s+/g, " ");
-/** The two-letter code of a US state written as "TX", "tx" or "Texas"; null for anything else. */
 export function stateCode(raw: string | null): string | null {
 	if (!raw) return null;
 	const f = fold(raw).replace(/\./g, "");
 	if (CODES.has(f.toUpperCase())) return f.toUpperCase();
 	return STATES[f] ?? null;
 }
-/** Blank, "US", "USA" or "United States": the only country the official list covers. */
 function inUnitedStates(country: string | null): boolean {
 	const f = fold(country ?? "").replace(/\./g, "");
 	return ["", "us", "usa", "united states", "united states of america"].includes(f);
 }
-/** "US" for the United States, else the country as written; null when blank. */
 export function countryKey(country: string | null): string | null {
 	if (!country?.trim()) return null;
 	return inUnitedStates(country) ? "US" : country.trim();
 }
 
-/**
- * The areas whose official principal cities include this place. With a state, only that state's place; without one,
- * every state's place of that name, so a name several states share makes the planter choose.
- */
 function matchAreas(locality: {
 	city: string | null;
 	stateProvince: string | null;
@@ -128,15 +111,20 @@ function matchAreas(locality: {
 		.map((a) => ({ code: a.code, title: a.title, type: a.type as RegionArea["type"] }));
 }
 
-/** The validated dataset version of the OMB release, or null before it is installed. */
+export function unplacedRegion(
+	saved: boolean,
+	locality: Parameters<typeof matchAreas>[0],
+): Exclude<Placement, "placed" | "missing"> {
+	if (!inUnitedStates(locality.country)) return "unsupported_country";
+	if (saved && locality.city?.trim() && !matchAreas(locality).length) return "outside_reference";
+	return "unresolved";
+}
+
 const datasetVersion = sql`(SELECT v.id FROM reference_version v JOIN reference_item i ON i.id=v.item_id
 	JOIN reference_release r ON r.id=v.release_id WHERE i.kind='geography_dataset' AND i.canonical_key=${DATASET_KEY}
-	AND i.tenant_id=${GLOBAL}::uuid AND r.state='validated' AND r.validated_at IS NOT NULL LIMIT 1)`;
+	AND i.tenant_id=${GLOBAL}::uuid AND r.state='validated' AND r.validated_at IS NOT NULL
+	ORDER BY r.validated_at DESC, v.version_number DESC LIMIT 1)`;
 
-/**
- * The organizations adapter's candidate check for organizations.correctReportingLocation: the region item ids the
- * official list offers for this place, so a save can only pick one of them.
- */
 export const geographyReference: GeographyReference = {
 	async candidates(tx: Transaction, input) {
 		const keys = matchAreas(input.locality).map((a) => regionKey(a.code));
@@ -149,11 +137,6 @@ export const geographyReference: GeographyReference = {
 };
 
 const SOURCE = new URL("../../../../docs/reference/geography/omb-23-01/areas.json", import.meta.url);
-/**
- * Installs the OMB 23-01 release once: a validated global reference release whose manifest hash is the packaged list's
- * SHA-256, its dataset item and version, and one geography_region item per area. A second run changes nothing. It
- * writes global reference rows, so it runs with the owner login (the development seed and tests), never a request.
- */
 export async function installGeographyRelease(db: Pick<Transaction, "execute">) {
 	const hash = createHash("sha256").update(readFileSync(SOURCE)).digest("hex");
 	const regions = omb.areas.map((a) => regionKey(a.code));
@@ -173,7 +156,6 @@ export async function installGeographyRelease(db: Pick<Transaction, "execute">) 
 		ON CONFLICT (kind,canonical_key) DO NOTHING`);
 }
 
-/** The latest reporting location row of plant `p` (an SQL plant id), for a LATERAL join: locality and Region. */
 export const latestGeography = (p: SQL) => sql`(SELECT x.* FROM plant_geography x WHERE x.plant_id=${p}
 	ORDER BY x.effective_at DESC, x.id DESC LIMIT 1)`;
 
@@ -190,12 +172,6 @@ const reportingRow = z.object({
 	region_key: z.string().nullable(),
 	version_id: z.string().nullable(),
 });
-/**
- * The church settings' reporting location (geography.listReportingRegionCandidates' seat read): the plant's latest
- * reporting city, state and country (its profile's until one is saved), the chosen Region, the plant revision a save
- * expects, the installed official dataset version and whether this seat may change it (Owner or Admin). Null for any
- * actor but a live seat of this plant. One statement.
- */
 export async function readReportingLocation(db: Pick<Transaction, "execute">, authority: RequestActor) {
 	const context = authority.actor.context;
 	if (context.kind !== "seat" || context.owner.kind !== "plant") return null;
@@ -224,10 +200,6 @@ export async function readReportingLocation(db: Pick<Transaction, "execute">, au
 	};
 }
 
-/**
- * The official areas a typed place matches, with the region item ids a save names. Empty when the place is not a
- * principal city in the list. Needs a live seat of a plant; reads only global reference rows. One statement.
- */
 export async function suggestRegions(
 	db: Pick<Transaction, "execute">,
 	authority: RequestActor,

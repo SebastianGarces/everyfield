@@ -1,14 +1,6 @@
 "use client";
 
-import {
-	ANSWER_MAX,
-	checkDebrief,
-	checkSummary,
-	GUEST_QUESTION,
-	SUMMARY_MAX,
-	type DebriefAnswers,
-	type Plan,
-} from "@everyfield/contracts/launch";
+import { ANSWER_MAX, checkSummary, GUEST_QUESTION, SUMMARY_MAX, type Plan } from "@everyfield/contracts/launch";
 import {
 	Button,
 	Card,
@@ -25,15 +17,15 @@ import {
 	useToast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useState } from "react";
+import { useLocalStore, useStore } from "../../components/store.ts";
 import { saveDebrief, saveSummary } from "./actions.ts";
+import { createDebriefStore, type Written } from "./DebriefForm.store.ts";
 import {
 	countText,
-	DEBRIEF_MESSAGE,
 	EVIDENCE_TEXT,
 	instantDate,
 	longDate,
-	parseCount,
 	refusalMessage,
 	sent,
 	SUMMARY_MESSAGE,
@@ -41,8 +33,6 @@ import {
 } from "./model.ts";
 
 type Keys = ReturnType<typeof requestKeys>;
-type Written = "wentWell" | "toChange" | "operations" | "followUpPlan" | "supportNeeded";
-/** The six areas, in order. The first is the recorded Launch Sunday, never a second copy of it. */
 const AREAS: { key: Written; label: string }[] = [
 	{ key: "wentWell", label: "What went well" },
 	{ key: "toChange", label: "What to change" },
@@ -50,27 +40,7 @@ const AREAS: { key: Written; label: string }[] = [
 	{ key: "followUpPlan", label: "Guest follow-up plan" },
 	{ key: "supportNeeded", label: "Support needed from sending churches and networks" },
 ];
-type Form = Record<Written, string> & { missingNames: "yes" | "no" | null; missingCount: string };
-const formOf = (a: DebriefAnswers | null): Form => ({
-	wentWell: a?.wentWell ?? "",
-	toChange: a?.toChange ?? "",
-	operations: a?.operations ?? "",
-	followUpPlan: a?.followUpPlan ?? "",
-	supportNeeded: a?.supportNeeded ?? "",
-	missingNames: a?.missingNames ?? null,
-	missingCount: a?.missingCount === null || !a ? "" : String(a.missingCount),
-});
-/** The form as answers; checkDebrief blanks empty areas and drops a count sent with No. */
-function answersOf(f: Form): DebriefAnswers | null {
-	const count = parseCount(f.missingCount);
-	return count.ok ? { ...f, missingCount: count.value } : null;
-}
 
-/**
- * After Launch Sunday (LCH-010): the two evidence-governed milestones and the debrief. "Guest names entered" and
- * "Debrief done" follow the latest submitted debrief only; they have no checkbox. Owners and Admins write the debrief;
- * every seat sees the two milestones.
- */
 export function DebriefCard({
 	plan,
 	admin,
@@ -181,10 +151,6 @@ function Submitted({ plan }: { plan: Plan }) {
 	);
 }
 
-/**
- * The six-area debrief, saved as a draft as the planter types (and when they press Save draft), so leaving the page
- * keeps it. Submitting needs only the guest answer; no area has a minimum length.
- */
 function DebriefForm({
 	plan,
 	keys,
@@ -200,78 +166,29 @@ function DebriefForm({
 }) {
 	const toast = useToast();
 	const d = plan.debrief!;
-	const [initial] = useState(() => formOf(d.draft?.answers ?? d.submitted?.answers ?? null));
-	const [form, setForm] = useState<Form>(initial);
-	const [status, setStatus] = useState<string | null>(
-		d.draft ? `Draft saved ${instantDate(d.draft.savedAt, plan.timeZone)}` : null,
+	const store = useLocalStore(() =>
+		createDebriefStore({
+			plan,
+			port: {
+				save: saveDebrief,
+				keys,
+				onPlan,
+				onSubmitted: () => {
+					toast({ message: "Debrief submitted.", tone: "success" });
+					onSubmitted();
+				},
+			},
+		}),
 	);
-	const [error, setError] = useState<string | null>(null);
-	const [busy, setBusy] = useState(false);
-	// The draft the server holds, so each save names it and a second tab's older draft is refused, never overwritten.
-	const held = useRef(d.draft ? { id: d.draft.id, revision: d.draft.revision } : null);
-	const dirty = useRef(false);
-	const inFlight = useRef(false);
-	// The form as typed, for a save that runs after the render that changed it.
-	const latest = useRef(initial);
+	const { form, status, error, busy, actions } = useStore(store, (state) => state);
+	const holdPause = useCallback((node: HTMLFormElement | null) => store.getState().actions.hold(node), [store]);
+	const set = actions.edit;
+	const save = actions.save;
 	const o = plan.outcome!;
-
-	async function save(submit: boolean) {
-		const answers = answersOf(latest.current);
-		if (!answers) return setError(DEBRIEF_MESSAGE.count_out_of_range);
-		const checked = checkDebrief(answers, submit);
-		if (!checked.ok) {
-			if (submit) setError(DEBRIEF_MESSAGE[checked.problem]);
-			return;
-		}
-		dirty.current = false;
-		const fence = held.current;
-		const intent = ["debrief", submit, fence, checked.answers] as const;
-		setBusy(true);
-		inFlight.current = true;
-		if (!submit) setStatus("Saving draft");
-		const r = await sent(() =>
-			saveDebrief(keys.keyFor(intent), fence?.revision ?? "0", fence?.id ?? null, checked.answers, submit),
-		);
-		inFlight.current = false;
-		setBusy(false);
-		if (r.status !== "lost") keys.settle(intent);
-		if (r.status === "ok") {
-			const draft = r.value.plan.debrief?.draft ?? null;
-			held.current = draft ? { id: draft.id, revision: draft.revision } : null;
-			setError(null);
-			onPlan(r.value.plan);
-			if (submit) {
-				toast({ message: "Debrief submitted.", tone: "success" });
-				return onSubmitted();
-			}
-			setStatus(draft ? `Draft saved ${instantDate(draft.savedAt, plan.timeZone)}` : null);
-			if (dirty.current) void save(false);
-			return;
-		}
-		dirty.current = true;
-		setStatus(null);
-		setError(refusalMessage(r));
-	}
-
-	// Save a draft a moment after the planter stops typing. A save already on its way saves again when it lands.
-	const autosave = useEffectEvent(() => {
-		if (dirty.current && !inFlight.current) void save(false);
-	});
-	useEffect(() => {
-		const timer = setTimeout(autosave, 900);
-		return () => clearTimeout(timer);
-	}, [form]);
-
-	const set = (patch: Partial<Form>) => {
-		const next = { ...latest.current, ...patch };
-		latest.current = next;
-		dirty.current = true;
-		setError(null);
-		setForm(next);
-	};
 
 	return (
 		<form
+			ref={holdPause}
 			className="mt-6 flex flex-col gap-5 border-t border-line pt-5"
 			onSubmit={(e) => {
 				e.preventDefault();
@@ -351,10 +268,6 @@ function DebriefForm({
 	);
 }
 
-/**
- * The summary a planter writes for their sending church or network (REQ-KNOW-112). Nothing from the debrief is copied
- * into it. They preview the exact text and publish it as the next version; earlier versions stay listed.
- */
 export function SummaryCard({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Plan) => void }) {
 	const toast = useToast();
 	const s = plan.summary!;

@@ -2,12 +2,8 @@ import type { z } from "zod";
 import type { inverseConflict, mergeBlocker, referenceKind } from "./errors.ts";
 import type { mergeField } from "./index.ts";
 
-// The words a merge or Unmerge refusal uses, shared by the People screens and Evry so both say the same thing.
-
-/** The reference kinds a merge review counts (the registry in packages/domain/src/people/person-reference-registry). */
 export type ReferenceKind = z.infer<typeof referenceKind>;
 
-/** What each kind is called in a count: "2 notes". The singular is used for one. */
 const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	tag: ["tag", "tags"],
 	skill: ["skill", "skills"],
@@ -40,18 +36,15 @@ const KIND_LABEL: Record<ReferenceKind, [one: string, many: string]> = {
 	team_tenure: ["ministry role", "ministry roles"],
 	training_assignment: ["training assignment", "training assignments"],
 	training_credit: ["training credit", "training credits"],
+	answer_review: ["answer send for review", "answer sends for review"],
 };
 export const counted = (kind: ReferenceKind, count: number) => `${count} ${KIND_LABEL[kind][count === 1 ? 0 : 1]}`;
-/** A kind as a list heading: "Notes". */
 export const kindTitle = (kind: ReferenceKind) => KIND_LABEL[kind][1].replace(/^./, (c) => c.toUpperCase());
-/** "notes, tasks and emails": the plural names of `kinds`, for a sentence. */
 const kindList = (kinds: readonly ReferenceKind[]) => listText(kinds.map((k) => KIND_LABEL[k][1]));
 export function listText(items: readonly string[]): string {
 	if (items.length <= 1) return items[0] ?? "";
 	return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
-
-// Refusals in words. Each names a cause the person can act on.
 
 export type Blocker = z.infer<typeof mergeBlocker>;
 export function blockerText(cause: Blocker, names: { source: string; survivor: string }, kinds: ReferenceKind[]) {
@@ -81,7 +74,6 @@ export function conflictText(cause: InverseConflict, names: { source: string; su
 	}
 }
 
-/** The whole blocked answer, as the People merge review gives it: the heading, then each cause. */
 export function mergeBlockedText(
 	blockers: { causes: readonly Blocker[]; references: ReferenceKind[] },
 	names: { source: string; survivor: string },
@@ -90,7 +82,6 @@ export function mergeBlockedText(
 		" ",
 	);
 }
-/** Why Unmerge cannot run now, as the People Unmerge dialog says it. */
 export function unmergeBlockedText(conflicts: readonly InverseConflict[], names: { source: string; survivor: string }) {
 	return [
 		"Cannot unmerge.",
@@ -99,7 +90,6 @@ export function unmergeBlockedText(conflicts: readonly InverseConflict[], names:
 	].join(" ");
 }
 
-/** A merge review's person fields, as the People merge review names them. */
 export const MERGE_FIELD_LABEL: Record<z.infer<typeof mergeField>, string> = {
 	displayName: "Name",
 	firstName: "First name",

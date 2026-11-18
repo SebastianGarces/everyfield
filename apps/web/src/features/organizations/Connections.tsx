@@ -8,31 +8,20 @@ import { useCallback, useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
 import { EndDialog, type EndConnection, type Side } from "./EndDialog";
 import { HistoryList, otherSide, type ReadHistory } from "./History";
-import { useIntent, useLoad } from "./intent";
+import { useIntent, useLoad } from "../../components/intent.ts";
 import { InviteDialog, type InviteTarget, type ReadDisclosure } from "./InviteDialog";
 import { kindLabel, subjectOf } from "./model";
-import { formatDay } from "../shared/dates.ts";
+import { formatDay } from "../../components/dates.ts";
 import { ProblemLine } from "./parts";
 import { SharingChoices, type ReadSharing, type SaveSharing, type SharingRow } from "./Sharing";
 import type { History, NameOf, Invitation, Relationship, Run } from "./port";
 
-/**
- * One read of the list: the first history page with the current connections, the requests still waiting, and for a
- * plant what each connection sees, keyed by relationship id.
- */
 export type ConnectionsData = {
 	history: { status: "unavailable" } | History;
 	pending: Invitation[];
 	sharing: Record<string, SharingRow>;
 };
 
-/**
- * The connections of one plant, sending church or Discovery account, or of one organization, with their history
- * (REQ-IDN-020, REQ-IDN-021). Several connections can exist at once and each one is ended on its own. The server
- * renders the first list with the page. Each confirmed command answers with what changed (the invitation, the history
- * as it is now, the sharing as saved), and the list applies that answer: one request, no reload. The list reads again
- * only after an unconfirmed command. `canManage` only hides controls; the server still checks every command.
- */
 export function Connections({
 	side,
 	load,
@@ -46,10 +35,8 @@ export function Connections({
 	readSharing,
 	initial,
 }: {
-	/** `subject` words the list for the side that asks to connect; `organization` for the side that receives. */
 	side: Side;
 	load: () => Promise<ConnectionsData>;
-	/** The list as the server rendered it with the page, so the first paint needs no second read. */
 	initial?: ConnectionsData;
 	readMore: ReadHistory;
 	canManage: boolean;
@@ -57,9 +44,7 @@ export function Connections({
 	zone: string;
 	run: Run;
 	end: EndConnection;
-	/** Present when this viewer can ask organizations to connect. */
 	invite?: { targets: InviteTarget[]; readDisclosure: ReadDisclosure; expectedRevision: string };
-	/** Present for a plant: each connection row shows what that organization can see, and saves a change. */
 	readSharing?: { read: ReadSharing; save: SaveSharing };
 }) {
 	const [status, setStatus] = useState("");
@@ -181,7 +166,6 @@ export function Connections({
 type EndAnswer = Parameters<Parameters<typeof EndDialog>[0]["onEnded"]>[0];
 type SharingPort = { read: ReadSharing; save: SaveSharing };
 
-/** Organizations this viewer may ask, without the ones it is connected with now as the asking side. */
 function available(targets: InviteTarget[], history: ConnectionsData["history"]) {
 	if (history.status !== "available") return targets;
 	const connected = new Set(
@@ -192,7 +176,6 @@ function available(targets: InviteTarget[], history: ConnectionsData["history"])
 	return targets.filter((t) => !connected.has(t.pair.organization.id));
 }
 
-/** The history with one current connection's new revision, after a sharing change moved it. */
 function withRevision(history: ConnectionsData["history"], relationshipId: string, revision: string) {
 	if (history.status !== "available") return history;
 	return {
@@ -203,7 +186,6 @@ function withRevision(history: ConnectionsData["history"], relationshipId: strin
 	};
 }
 
-/** The side this viewer holds in one connection: the receiving organization, or the side that asked. */
 function sideIn(scope: History["scope"], relationship: Relationship): Side {
 	return "organization" in scope && scope.organization.id === relationship.pair.organization.id
 		? "organization"
@@ -287,10 +269,8 @@ function ActiveRow({
 	end: EndConnection;
 	onEnded: (name: string, history: EndAnswer) => void;
 	readSharing?: SharingPort;
-	/** What this connection sees, as the list read it; a save answers with it as saved. */
 	sharing?: SharingRow;
 	onRevision: (relationshipId: string, revision: string) => void;
-	/** The list is reloading; this row's revision may be old, so Leave waits. */
 	stale: boolean;
 }) {
 	const subject = side === "subject";
@@ -351,12 +331,6 @@ const RESEND_REFUSED: Record<string, string> = {
 	resend_cooldown: "This invitation was sent a moment ago. Wait a minute, then resend it.",
 };
 
-/**
- * Invitations this subject sent that are still waiting (REQ-IDN-020). Resend sends a fresh link and keeps the
- * original expiry; withdraw cancels the request. Each row keeps its own frozen command, so a lost reply on one row
- * never sends its request key with another invitation or another action. Until it is resolved or the list reloads, the
- * other controls wait.
- */
 function PendingList({
 	invitations,
 	canManage,
@@ -372,9 +346,7 @@ function PendingList({
 	nameOf: NameOf;
 	zone: string;
 	run: Run;
-	/** A confirmed command: what to say, and the list as it is now. */
 	onChange: (status: string, change: (list: Invitation[]) => Invitation[]) => void;
-	/** After an unconfirmed command: read the list again. */
 	onStale: () => void;
 	stale: boolean;
 }) {
@@ -425,7 +397,6 @@ function PendingList({
 				{invitations.map((invitation) => {
 					const name = nameOf(invitation.pair.organization);
 					const slot = invitation.invitationId;
-					// While any command is in flight or unconfirmed, only that row's same action stays usable.
 					const lockedTo: Action | null =
 						resend.held === slot || resend.pending === slot
 							? "resend"

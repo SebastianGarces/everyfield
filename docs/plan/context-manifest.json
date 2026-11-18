@@ -2667,6 +2667,11 @@
       ],
       "consumer_table_names": [
         "admission_attempt",
+        "answer_review",
+        "assessment_feedback",
+        "assessment_insight",
+        "assessment_run",
+        "assessment_seen",
         "assignment_feedback",
         "attestation_revision",
         "church_brand_kit",
@@ -12729,6 +12734,10 @@
       ],
       "consumer_table_names": [
         "account",
+        "assessment_feedback",
+        "assessment_insight",
+        "assessment_run",
+        "assessment_seen",
         "attestation",
         "attestation_revision",
         "audit_event",
@@ -13679,6 +13688,10 @@
       ],
       "producer_table_names": [],
       "consumer_table_names": [
+        "assessment_feedback",
+        "assessment_insight",
+        "assessment_run",
+        "assessment_seen",
         "attestation",
         "attestation_revision",
         "audit_event",
@@ -13937,12 +13950,16 @@
         "WP-090"
       ],
       "producer_table_names": [
+        "assessment_run",
         "passage",
         "record",
         "reference_activation",
         "reference_release"
       ],
       "consumer_table_names": [
+        "assessment_feedback",
+        "assessment_insight",
+        "assessment_seen",
         "audit_event",
         "job",
         "network_intelligence_feedback",
@@ -14322,8 +14339,13 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "assessment_run"
+      ],
       "consumer_table_names": [
+        "assessment_feedback",
+        "assessment_insight",
+        "assessment_seen",
         "audit_event",
         "job",
         "network_intelligence_feedback",
@@ -14479,6 +14501,7 @@
         "SCHEMA-012"
       ],
       "own_operation_ids": [
+        "intelligence.listRunsForReview",
         "intelligence.publishAssessment",
         "intelligence.releaseAssessmentToOversight",
         "intelligence.requestOperatorRefresh",
@@ -14739,6 +14762,7 @@
         "intelligence.describeRunFailure",
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
+        "intelligence.listRunsForReview",
         "intelligence.publishAssessment",
         "intelligence.readAssessmentDelta",
         "intelligence.readAssessmentRun",
@@ -14794,8 +14818,13 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "assessment_insight",
+        "assessment_run"
+      ],
       "consumer_table_names": [
+        "assessment_feedback",
+        "assessment_seen",
         "audit_event",
         "job",
         "network_intelligence_feedback",
@@ -15588,8 +15617,13 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "assessment_feedback",
+        "assessment_seen"
+      ],
       "consumer_table_names": [
+        "assessment_insight",
+        "assessment_run",
         "audit_event",
         "network_intelligence_feedback",
         "network_intelligence_plant",
@@ -16304,6 +16338,10 @@
         "record"
       ],
       "consumer_table_names": [
+        "assessment_feedback",
+        "assessment_insight",
+        "assessment_run",
+        "assessment_seen",
         "launch_milestone"
       ],
       "proof_stage": "producer or adapter portions, with downstream native/assistant integration owned separately",
@@ -16730,6 +16768,10 @@
         "record"
       ],
       "consumer_table_names": [
+        "assessment_feedback",
+        "assessment_insight",
+        "assessment_run",
+        "assessment_seen",
         "audit_event",
         "plant_geography",
         "reference_item",
@@ -17469,6 +17511,10 @@
       ],
       "consumer_table_names": [
         "account",
+        "assessment_feedback",
+        "assessment_insight",
+        "assessment_run",
+        "assessment_seen",
         "auth_account",
         "auth_session",
         "auth_user",
@@ -22300,6 +22346,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -22409,6 +22456,7 @@
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
         "intelligence.formatCitedFact",
+        "intelligence.listRunsForReview",
         "intelligence.markAssessmentSeen",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
@@ -24956,6 +25004,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -25068,6 +25117,7 @@
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
         "intelligence.formatCitedFact",
+        "intelligence.listRunsForReview",
         "intelligence.markAssessmentSeen",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
@@ -25681,6 +25731,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -25793,6 +25844,7 @@
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
         "intelligence.formatCitedFact",
+        "intelligence.listRunsForReview",
         "intelligence.markAssessmentSeen",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
@@ -26336,8 +26388,13 @@
         "account",
         "admission_attempt",
         "affiliation",
+        "answer_review",
         "article_editor_state",
         "article_revision",
+        "assessment_feedback",
+        "assessment_insight",
+        "assessment_run",
+        "assessment_seen",
         "assignment_feedback",
         "attestation",
         "attestation_revision",
@@ -28456,6 +28513,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -28565,6 +28623,7 @@
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
         "intelligence.formatCitedFact",
+        "intelligence.listRunsForReview",
         "intelligence.markAssessmentSeen",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
@@ -31112,6 +31171,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -31224,6 +31284,7 @@
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
         "intelligence.formatCitedFact",
+        "intelligence.listRunsForReview",
         "intelligence.markAssessmentSeen",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
@@ -31837,6 +31898,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -31949,6 +32011,7 @@
         "intelligence.evaluateAssessment",
         "intelligence.executeDemand",
         "intelligence.formatCitedFact",
+        "intelligence.listRunsForReview",
         "intelligence.markAssessmentSeen",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
@@ -32487,8 +32550,13 @@
         "account",
         "admission_attempt",
         "affiliation",
+        "answer_review",
         "article_editor_state",
         "article_revision",
+        "assessment_feedback",
+        "assessment_insight",
+        "assessment_run",
+        "assessment_seen",
         "assignment_feedback",
         "attestation",
         "attestation_revision",
@@ -36936,6 +37004,7 @@
         "intelligence.describeRunFailure",
         "intelligence.evaluateAssessment",
         "intelligence.formatCitedFact",
+        "intelligence.listRunsForReview",
         "intelligence.markAssessmentSeen",
         "intelligence.publishAssessment",
         "intelligence.readAssessment",
@@ -36997,6 +37066,7 @@
       "shared_operation_ids": [
         "evry.readCatalog",
         "intelligence.evaluateAssessment",
+        "intelligence.listRunsForReview",
         "intelligence.markAssessmentSeen",
         "intelligence.publishAssessment",
         "intelligence.releaseAssessmentToOversight",
@@ -41627,7 +41697,9 @@
         "record",
         "sending_goal"
       ],
-      "consumer_table_names": [],
+      "consumer_table_names": [
+        "answer_review"
+      ],
       "proof_stage": "stages 1 and 2 producer; final whole-target integration admits no deferrals",
       "contract_consumption_rule": "Selected context does not change feature ownership or authorized access."
     },
@@ -41839,6 +41911,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -41888,6 +41961,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -42031,6 +42105,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -42135,6 +42210,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -42189,6 +42265,7 @@
         "development.applyVersion",
         "development.completeMilestone",
         "development.confirmMilestone",
+        "development.draftNextVersion",
         "development.draftPlan",
         "development.enroll",
         "development.publishVersion",
@@ -42249,7 +42326,9 @@
         "WP-089",
         "WP-090"
       ],
-      "producer_table_names": [],
+      "producer_table_names": [
+        "answer_review"
+      ],
       "consumer_table_names": [
         "affiliation",
         "assignment_feedback",

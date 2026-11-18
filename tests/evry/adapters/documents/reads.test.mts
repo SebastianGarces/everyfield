@@ -1,6 +1,3 @@
-// The Evry Documents reads and the reviews of its reviewed writes, against real rows in two churches. Every read runs
-// through invokeRead under the actor's live authority; every review is prepared as the model's propose_change prepares
-// it. Executing an approved change loads the document renderer, so commands.test.mts covers that under tsx.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -49,14 +46,12 @@ before(async () => {
 		empty: await seedDocument(plant, "native", "Blank Page", "", 4),
 		policy: await seedDocument(plant, "church_document", "Conflict of Interest Policy", null, 2),
 	};
-	// The other church has its own documents and marks none as core values.
 	theirs = {
 		agenda: await seedDocument(otherPlant, "native", "Vision Meeting Agenda - Theirs", "7:00 PM Their welcome", 3),
 		policy: await seedDocument(otherPlant, "church_document", "Their Policy", null, 3),
 	};
 });
 
-/** A running turn in a new conversation: the only place a proposal can be prepared. */
 async function propose(who: EvryActor, operation: string, input: unknown) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
 	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
@@ -80,7 +75,6 @@ test("the core values read names the marked document with its link, and says non
 		found.rows.map((r) => [r.kind, r.id, r.label, r.fields.type, r.fields.link]),
 		[["document", docs.coreValues.id, "Our Core Values", "Core values", `/documents/written/${docs.coreValues.id}`]],
 	);
-	// The read names the document and never returns its text: Evry does not present core values as its own words.
 	assert.equal(JSON.stringify(found).includes("We pray first"), false);
 	const none = await read(await actor("foreign"), "documents.readCoreValuesEvidence");
 	assert.deepEqual([none.status, none.rows], ["not_found", []]);
@@ -120,7 +114,6 @@ test("a document read returns its actual saved text, so a comparison quotes what
 		assert.equal(found.rows[0]!.fields.text, doc.text);
 		assert.equal(found.rows[0]!.fields.textCut, false);
 	}
-	// A Church Document reads as it prints: the church's details filled in, never the stored JSON.
 	const policy = (await read(owner, "documents.read", { documentId: docs.policy.id })).rows[0]!;
 	assert.match(
 		String(policy.fields.text),
@@ -143,7 +136,6 @@ test("no read in one church returns or names another church's documents", async 
 	for (const doc of Object.values(theirs)) assert.equal(ours.includes(doc.id) || ours.includes(doc.title), false);
 	const list = await read(foreign, "documents.listOwned");
 	assert.deepEqual(list.rows.map((r) => r.label).sort(), ["Their Policy", "Vision Meeting Agenda - Theirs"]);
-	// A review of another church's document has nothing to show.
 	assert.equal(await propose(owner, "documents.archive", { documentId: theirs.agenda.id }), null);
 	assert.equal(await propose(owner, "documents.exportNative", { documentId: theirs.policy.id, format: "pdf" }), null);
 });
@@ -189,7 +181,6 @@ test("export, archive and mark-as-core-values reviews show the change on the doc
 		label: "Conflict of Interest Policy",
 	});
 	assert.deepEqual(values(exported!.review.changes), { format: "PDF", version: "Version 1" });
-	// Only a Church Document has a saved file; a written document has none to export.
 	assert.equal(await propose(owner, "documents.exportNative", { documentId: docs.draft.id, format: "pdf" }), null);
 
 	const church = await propose(owner, "documents.archive", { documentId: docs.policy.id });
@@ -203,7 +194,6 @@ test("export, archive and mark-as-core-values reviews show the change on the doc
 		[["documentType", "Written document", "Core values"]],
 	);
 	assert.equal(mark!.review.refusal, undefined);
-	// A document with no text, or one already marked, cannot be marked: the card says why and offers no approval.
 	const blank = await propose(owner, "documents.designateCoreValues", { documentId: docs.empty.id });
 	assert.match(blank!.review.refusal ?? "", /has no text yet/);
 	const already = await propose(owner, "documents.designateCoreValues", { documentId: docs.coreValues.id });
@@ -244,7 +234,6 @@ test("a Member reads documents but gets no document change to propose", async ()
 			(e: unknown) => e instanceof EvryRefusal && e.code === "access_denied",
 			operation,
 		);
-	// An organization seat has no Church Documents, so it gets no documents tool at all.
 	assert.equal(
 		readCatalog(await actor("orgOwner")).domains.some((d) => d.domain === "documents"),
 		false,

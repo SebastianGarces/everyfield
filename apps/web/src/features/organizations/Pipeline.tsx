@@ -11,20 +11,14 @@ import { LoadableView, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useState } from "react";
 import type { z } from "zod";
 import { NotAvailable } from "../access/AccessStates";
-import { useIntent, useLoad } from "./intent";
+import { useIntent, useLoad } from "../../components/intent.ts";
 import { PrivateLine, ProblemLine } from "./parts";
 
 type Consent = z.infer<typeof pipelineConsentResult>;
 type SetCommand = ReturnType<typeof setPipelineConsentRequest.parse>;
-/** Reads one network connection's choice: the Load latest path after an unconfirmed change. */
 export type ReadConsent = (relationshipId: string) => Promise<Consent>;
-/** Saves the choice. The answer is the choice as saved now, or null when nothing was saved. */
 export type SaveConsent = (command: SetCommand) => Promise<Consent | null>;
 
-/**
- * A sending church's pipeline totals opt-in for one network connection (REQ-MUL-016). It is off until an Owner or
- * Admin turns it on, and it applies to this one network only. Turning it off stops sharing at once.
- */
 export function PipelineTotals({
 	relationshipId,
 	networkName,
@@ -36,7 +30,6 @@ export function PipelineTotals({
 	relationshipId: string;
 	networkName: string;
 	canManage: boolean;
-	/** The choice as the page read it; the card reads again only for Load latest. */
 	initial?: Consent;
 	read: ReadConsent;
 	save: SaveConsent;
@@ -96,9 +89,7 @@ function ConsentSwitch({
 	canManage: boolean;
 	save: SaveConsent;
 	onSaved: (saved: Consent) => void;
-	/** Read the latest state, after an unconfirmed change. */
 	onStale: () => void;
-	/** A fresh read is running: the revision on screen may be old, so nothing is sent until it arrives. */
 	refreshing: boolean;
 }) {
 	const save = useIntent<SetCommand>("pipeline-consent");
@@ -119,7 +110,6 @@ function ConsentSwitch({
 			send,
 			(saved) => saved !== null,
 		);
-		// On success the switch re-mounts on the saved revision; until then it keeps the saved value.
 		if (result.ok && result.reply) onSaved(result.reply);
 		else setNext(null);
 	};
@@ -161,7 +151,6 @@ function ConsentSwitch({
 						size="sm"
 						variant="secondary"
 						onClick={() => {
-							// Reading the latest state resolves an unconfirmed change; a new switch is a new command.
 							save.release();
 							onStale();
 						}}
@@ -181,10 +170,6 @@ function ConsentSwitch({
 	);
 }
 
-/**
- * The network's side (REQ-MUL-016, S0): only whether combined totals could be shown, never a number. Delivery of
- * the totals comes later (ADR stage 4), so this says so plainly instead of showing zero.
- */
 export function PipelineAccessNote({ access }: { access: z.infer<typeof pipelineAggregateAccessResult> }) {
 	return (
 		<Card size="sm" as="section" aria-label="Pipeline totals from churches">

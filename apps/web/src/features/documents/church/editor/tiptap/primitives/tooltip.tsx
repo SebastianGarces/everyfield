@@ -144,10 +144,8 @@ export const TooltipTrigger = React.forwardRef<HTMLElement, TooltipTriggerProps>
 	const context = useTooltipContext();
 	const childrenRef = React.isValidElement(children)
 		? parseInt(React.version, 10) >= 19
-			? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(children as { props: { ref?: React.Ref<any> } }).props.ref
-			: // eslint-disable-next-line @typescript-eslint/no-explicit-any
-				(children as any).ref
+			? (children as { props: { ref?: React.Ref<HTMLElement> } }).props.ref
+			: (children as { ref?: React.Ref<HTMLElement> }).ref
 		: undefined;
 	const ref = useMergeRefs([context.refs.setReference, propRef, childrenRef]);
 
@@ -175,7 +173,6 @@ export const TooltipContent = React.forwardRef<HTMLDivElement, TooltipContentPro
 ) {
 	const context = useTooltipContext();
 	const ref = useMergeRefs([context.refs.setFloating, propRef]);
-	// Everyfield change: portal into the product root, not <body>, so the product font and tokens apply.
 	const container = usePortalContainer();
 
 	if (!context.open) return null;

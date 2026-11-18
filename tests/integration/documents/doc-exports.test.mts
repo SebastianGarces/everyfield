@@ -1,5 +1,3 @@
-// WP-036 criteria 8 and 9: the Word file and the ledger workbook are tree walkers over the same document as the PDF.
-// LibreOffice headless opens each file independently of the writers; those checks skip when it is missing unless REQUIRE_SOFFICE=1.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -45,7 +43,6 @@ const DATA = { church_name: "Harbor City Church", church_legal_name: "Harbor Cit
 const fork = async (id: string) => forkTemplate(docTemplateById(id)!, { data: DATA });
 const squash = (text: string) => text.replace(/\s+/g, " ").trim();
 
-/** The heading and paragraph texts of a body, with field values filled in, in reading order. */
 function proseOf(doc: DocDocument) {
 	const values = fieldValues(doc);
 	const text = (content: readonly InlineNode[] | undefined) =>
@@ -71,7 +68,6 @@ function proseOf(doc: DocDocument) {
 	return { headings: headings.filter(Boolean), paragraphs: paragraphs.filter(Boolean) };
 }
 
-// pdf.js joins text items with a space, so a shaded placeholder run reads "[date] ." in LibreOffice's PDF.
 const words = (text: string) =>
 	squash(text)
 		.replace(/[‐-―]/g, "-")
@@ -81,7 +77,8 @@ sofficeTest(
 	"AC:CASE-DOC-023 the Word file of the policy opens in LibreOffice with the PDF's headings and paragraph text",
 	async () => {
 		const doc = await fork("conflict-of-interest-policy");
-		const pdf = words((await pdfPages(await renderDocFile(doc, "pdf", THEME, SAVED))).join(" "));
+		const pdfPageTexts = await pdfPages(await renderDocFile(doc, "pdf", THEME, SAVED));
+		const pdf = words(pdfPageTexts.join(" "));
 		const docx = await renderDocFile(doc, "docx", THEME, SAVED);
 		const pages = await pdfPages(sofficeToPdf(docx));
 		const converted = words(pages.join(" "));
@@ -93,9 +90,10 @@ sofficeTest(
 			assert.ok(converted.includes(words(line)), `the Word file has "${line}"`);
 		}
 		assert.match(converted, /01 Purpose/);
-		// LibreOffice breaks pages a little differently from our PDF, so the count comes from its own output.
-		assert.ok(pages.length >= 2, "the policy runs past one page");
-		assert.match(converted, new RegExp(`Page 1 of ${pages.length}`), "LibreOffice fills PAGE and NUMPAGES");
+		assert.equal(pdfPageTexts.length, 2);
+		assert.equal(pages.length, pdfPageTexts.length, "LibreOffice gives the PDF's page count");
+		assert.match(converted, /Page 1 of 2/, "LibreOffice fills PAGE and NUMPAGES");
+		assert.match(words(pages.at(-1)!), /BOARD MEMBER ROLE SIGNATURE DATE/, "the signature rows are on the last page");
 		pages.forEach((page, i) =>
 			assert.equal(
 				words(page).split("Template, not legal advice").length - 1,
@@ -124,14 +122,12 @@ test("AC:CASE-DOC-023 AC:CASE-DOC-019 the Word file has heading styles, a footer
 	assert.ok(!wordText(sign["word/footer1.xml"]!).includes("Template, not legal advice"));
 	assert.match(sign["word/footer1.xml"]!, /w:instr=" NUMPAGES "/);
 
-	// A wiped formal/legal fork still has the notice in its Word footer.
 	const wiped = await fork("conflict-of-interest-policy");
 	wiped.body = { type: "doc", content: [] };
 	wiped.page.footer = null;
 	const parts = docxParts(await renderDocFile(docDocument.parse(wiped), "docx", THEME, SAVED));
 	assert.equal(wordText(parts["word/footer1.xml"]!), "Template, not legal advice");
 
-	// A "first" footer and a "rest" header use Word's different-first-page setting.
 	const split = await fork("conflict-of-interest-policy");
 	split.page.header = {
 		pages: "rest",
@@ -158,14 +154,13 @@ sofficeTest(
 		for (const id of ["commitment-card", "guest-sign-in-sheet"]) {
 			const doc = await fork(id);
 			const pages = await pdfPages(sofficeToPdf(await renderDocFile(doc, "docx", THEME, SAVED)));
-			assert.equal(pages.length, id === "commitment-card" ? 1 : 2, id);
+			assert.equal(pages.length, 1, id);
 			for (const heading of proseOf(doc).headings)
 				assert.ok(words(pages.join(" ")).includes(words(heading)), `${id}: ${heading}`);
 		}
 	},
 );
 
-/** The budget fork with an amount in every line item: 100.5, 200.5, ... */
 async function seededBudget() {
 	const doc = await fork("budget-worksheet");
 	const table = ledgerTables(doc.body)[0]!;
@@ -198,7 +193,6 @@ test("AC:CASE-DOC-013 the ledger workbook has typed inputs, live formulas and SU
 	assert.match(sheet, /<c r="B10" s="\d+"><f>SUM\(B5:B9\)<\/f><\/c>/, "the subtotal is a SUM over its category");
 	assert.match(sheet, /<c r="B23" s="\d+"><f>B10-B22<\/f><\/c>/, "the total adds each category with its sign");
 
-	// Two ledger tables give two sheets; a document without one offers no Excel and refuses to make one.
 	const two = structuredClone(doc);
 	const copy = structuredClone(ledgerTables(two.body)[0]!) as TableNode;
 	copy.attrs.sheet = "Second budget";
@@ -269,7 +263,6 @@ sofficeTest(
 
 test("AC:CASE-DOC-023 the PDF prints each bracketed placeholder as plain text and the Word file shades its run", async () => {
 	const doc = await fork("conflict-of-interest-policy");
-	// A placeholder in a field value is found too; text outside the brackets is not.
 	doc.body.content.push({
 		type: "paragraph",
 		content: [{ type: "text", text: "Approved for [low amount] to [high amount], not [] or a [bracket" }],
@@ -278,7 +271,6 @@ test("AC:CASE-DOC-023 the PDF prints each bracketed placeholder as plain text an
 	const { findTextRegions } = await import("../../../packages/domain/node_modules/@formepdf/core/dist/index.js");
 	const found = await findTextRegions(pdf, [{ pattern: "\\[[^\\[\\]\\n]{1,60}\\]", pattern_type: "Regex" }]);
 	assert.equal(found.length, 4, "[number], [date], [low amount] and [high amount]");
-	// The highlight is an editing aid: the printed page carries no fill in the placeholder color and no multiply blend.
 	const ops = await pdfOperators(pdf);
 	assert.doesNotMatch(ops, /0\.992\d* 0\.941\d* 0\.650\d* rg/, "no fill in the placeholder color");
 	assert.doesNotMatch(ops, /\/BM \/Multiply/, "no highlight blend");
@@ -291,10 +283,6 @@ test("AC:CASE-DOC-023 the PDF prints each bracketed placeholder as plain text an
 	assert.deepEqual(shaded, ["[number]", "[date]", "[low amount]", "[high amount]"]);
 });
 
-/**
- * The values a sheet's cells compute: typed values, and formulas of cell refs, SUM over ranges, IF and arithmetic,
- * which is all the ledger writer emits. An empty cell is 0. A division by zero is #DIV/0!, as Excel shows it.
- */
 function computedCells(sheet: string) {
 	const cells = new Map<string, { v?: number; f?: string }>();
 	for (const [, ref, body] of sheet.matchAll(/<c r="([A-Z]+\d+)"[^>]*?(?:\/>|>(.*?)<\/c>)/g)) {
@@ -322,7 +310,6 @@ function computedCells(sheet: string) {
 	return { formula: (ref: string) => cells.get(ref)?.f, value };
 }
 
-/** The budget fork with its ledger rows replaced by `rows`: [role, label, monthly]. */
 async function budgetWith(rows: [string, string, number | null][], columns?: TableNode["attrs"]["columns"]) {
 	const doc = await fork("budget-worksheet");
 	const table = ledgerTables(doc.body)[0]!;
@@ -355,7 +342,6 @@ test("AC:CASE-DOC-013 a subtotal after a second run of items sums only item rows
 	]);
 	const sheet = sheetsOf(await renderDocFile(doc, "xlsx", THEME, SAVED)).sheets[0]!;
 	const cells = computedCells(sheet);
-	// Rows 1 and 2 are the title and note, row 3 the header: the table's rows start at row 4.
 	const subtotals = [6, 8];
 	assert.equal(cells.formula("B8"), "SUM(B5:B5,B7:B7)");
 	assert.equal(cells.value("B8"), 57);
@@ -406,13 +392,11 @@ test("AC:CASE-DOC-013 a workbook division by a zero or empty divisor shows 0, as
 
 const textOf = (cell: any) => (cell?.content ?? []).map((n: any) => n.text ?? "").join("");
 const textCell = (text: string) => ({ type: "cell", content: [{ type: "text", text }] });
-/** The text of one cell of a sheet: its inline string runs. */
 function sheetText(sheet: string, ref: string) {
 	const body = new RegExp(`<c r="${ref}"[^>]*?(?:/>|>(.*?)</c>)`, "s").exec(sheet)?.[1] ?? "";
 	return [...body.matchAll(/<t[^>]*>(.*?)<\/t>/gs)].map((m) => m[1]!.replaceAll("&amp;", "&")).join("");
 }
 
-/** The first sheet of an edited ledger: the title above it, its header labels, each label and each computed number. */
 function editedSheet(xlsx: Uint8Array, table: TableNode, title: string) {
 	const sheet = sheetsOf(xlsx).sheets[0]!;
 	const cells = computedCells(sheet);
@@ -474,10 +458,8 @@ test("AC:CASE-DOC-013 a forked budget, edited, gives an Excel file with the edit
 	);
 	assert.ok(!forked.sheet.includes(">Grants<"), "the removed line item is gone");
 	assert.equal(sheetText(forked.sheet, "C5"), "weekly");
-	// The new category subtracts: the net is income minus expenses minus missions.
 	assert.equal(forked.cells.value(`B${forked.last}`), 3000 + 500 - 1500 - 250.5);
 
-	// Insert -> Budget table in a blank document, with a second category that subtracts and a text column at the left.
 	const blank: any = await fork("guest-sign-in-sheet");
 	let b = newBudget();
 	const putB = (ri: number, ci: number, cell: unknown) => ((b.content![ri]!.content as unknown[])[ci] = cell);
@@ -531,10 +513,7 @@ test("AC:CASE-DOC-023 the PDF and the Word file print a budget's totals rounded 
 	}
 });
 
-// ---------------------------------------------------------------- Excel shows what the table shows
-
 const palette = makePalette(NEUTRAL_THEME);
-/** The Excel file of a document, as the download route builds it. */
 const renderXlsx = (doc: DocDocument) => buildLedgerWorkbook(doc, fieldValues(doc), NEUTRAL_THEME);
 
 async function budgetDoc(change: (table: any, items: any[]) => void) {
@@ -545,7 +524,6 @@ async function budgetDoc(change: (table: any, items: any[]) => void) {
 	return docDocument.parse(doc);
 }
 
-/** Reads a workbook: each part, the number formats, and the style of every cell by reference. */
 function workbook(bytes: Uint8Array) {
 	const parts = docxParts(bytes);
 	const styles = parts["xl/styles.xml"]!;
@@ -580,12 +558,10 @@ function workbook(bytes: Uint8Array) {
 }
 
 test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, ticks, the header fill, the stripes and a sheet for each table", async () => {
-	// Rows of the budget worksheet: row 3 is the header, 4 the first group, 5 and 6 the first two line items.
 	const build = async (change: (table: any, items: any[]) => void) => workbook(renderXlsx(await budgetDoc(change)));
 	const set = (items: any[], values: number[]) =>
 		items.forEach((r, i) => (r.content[1] = { type: "cell", attrs: { value: values[i] ?? null } }));
 
-	// A money column with cents shows them in its amounts and its totals; one with whole amounts shows none.
 	const cents = await build((t, items) => set(items, [100.55, 200]));
 	assert.match(cents.format("B5")!, /^"\$"#,##0\.00/, "an amount with cents shows the cents");
 	assert.match(
@@ -601,7 +577,6 @@ test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, tick
 		assert.match(whole.format(ref)!, /^"\$"#,##0(;|$)/, `${ref} shows no cents`);
 	assert.doesNotMatch(whole.format("B5")!, /0\.00/);
 
-	// A number column shows no dollar sign, in its cells and its totals.
 	const number = await build((t, items) => {
 		t.attrs.columns[1].type = "number";
 		set(items, [100, 2.5]);
@@ -610,7 +585,6 @@ test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, tick
 		assert.doesNotMatch(number.format(ref)!, /\$/, `${ref} shows no dollar sign`);
 	assert.match(number.format("B6")!, /#,##0\.0/, "a number with decimals keeps them");
 
-	// A ticked check cell shows ticked; an unticked one shows empty.
 	const checks = await build((t, items) => {
 		t.attrs.columns.push({ id: "paid", label: "Paid", type: "check", width: 40 });
 		t.content.forEach((row: any) => row.content.push({ type: "cell" }));
@@ -620,7 +594,6 @@ test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, tick
 	assert.match(checks.cell("D5")!, /☒/, "a ticked cell shows ticked");
 	assert.doesNotMatch(checks.cell("D6")!, /<t[ >]|<v>/, "an unticked cell shows empty");
 
-	// The header row uses the table's fill; striped rows are shaded on the rows the PDF shades.
 	const striped = await build((t) => {
 		t.attrs.headerFill = "accent";
 		t.attrs.zebra = true;
@@ -634,7 +607,6 @@ test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, tick
 	const noFill = await build((t) => (t.attrs.headerFill = "none"));
 	assert.equal(noFill.fill("A3"), null, "headerFill none paints no fill");
 
-	// Two budget tables give two sheets with different names; `sheet` names each one.
 	const twoTables = async (first: string, second: string) => {
 		const doc = await budgetDoc((t) => (t.attrs.sheet = first));
 		const copy: any = structuredClone(doc.body.content!.find((n) => n.type === "table"));
@@ -649,9 +621,6 @@ test("AC:CASE-DOC-013 Excel shows cents, no dollar sign on a number column, tick
 	assert.equal(new Set(same.names.map((n) => n!.toLowerCase())).size, 2, "two sheets never share a name");
 });
 
-// ---------------------------------------------------------------- the PDF and the Word file
-
-/** One body with every column kind, blank rows, a header color, stripes, checklist rows and a budget. */
 async function everything() {
 	const text = (s?: string) => (s ? textCell(s) : { type: "cell" });
 	const grid = {
@@ -738,7 +707,6 @@ test("AC:CASE-DOC-023 the PDF and the Word file hold a table's text, numbers, ro
 			);
 		for (const piece of [
 			...["Chairs", "Tables", "Banner"],
-			// The typed inputs, then the row numbers and the computed totals, then the blank rows' numbers.
 			...["4", "$12.50", "2", "$80", "1", "$0.30"],
 			...["$50", "$160"],
 			"Pray every day",
@@ -754,18 +722,15 @@ test("AC:CASE-DOC-023 the PDF and the Word file hold a table's text, numbers, ro
 		);
 	}
 
-	// A ticked cell prints ticked and an unticked one prints empty. The PDF keeps the empty ones as form fields.
 	const form = (await PDFDocument.load(pdfBytes)).getForm();
 	const checks = form.getFields().filter((f) => f instanceof PDFCheckBox) as InstanceType<typeof PDFCheckBox>[];
 	const names = form.getFields().map((f) => f.getName());
 	assert.equal(new Set(names).size, names.length, "every form field has a unique name");
-	// The grid has two ticked cells and the checklist one; the rest (one typed, three blank, one checklist) are empty fields.
 	assert.equal(checks.filter((c) => c.isChecked()).length, 3, "the PDF prints three ticked boxes");
 	assert.ok(checks.filter((c) => !c.isChecked()).length >= 5, "the unticked and blank boxes stay fillable fields");
 	assert.ok(names.filter((n) => /^row_\d+_/.test(n)).length >= 3 * 2, "the blank rows keep fillable fields");
 	assert.equal((word.match(/☒/g) ?? []).length, 3, "the Word file prints three ticked boxes");
 	assert.ok((word.match(/☐/g) ?? []).length >= 5, "the Word file prints the unticked boxes empty");
-	// One Word row for the header, each typed row and each blank row of the grid, the checklist and the budget.
 	const wordRows = (document.match(/<w:tr[ >]/g) ?? []).length;
 	assert.ok(wordRows >= 1 + 3 + 3 + 2 + 20, `the Word tables hold the typed rows and the blank rows (${wordRows})`);
 });

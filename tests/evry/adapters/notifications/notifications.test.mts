@@ -20,9 +20,6 @@ import { transaction } from "../../../../apps/web/src/server/platform/database.t
 import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
 import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../runtime/support.mts";
 
-// WP-081 and WP-082: Evry reads the signed-in account's own bell and notification settings, and changes them only
-// through an exact review the account approves. The database is real and every effect runs through the real queue.
-
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
@@ -76,12 +73,10 @@ before(async () => {
 	);
 	read = await notice(accounts.owner.id, "task_due", "Old reminder", ago(5));
 	await admin.execute(sql`UPDATE notice SET read_at=clock_timestamp() WHERE id=${read}`);
-	// Another account in the same church, with unread notices of its own.
 	others = [
 		await notice(accounts.member.id, "task_due", "Member reminder", ago(1)),
 		await notice(accounts.member.id, "meeting_reminder", "Member meeting", ago(1)),
 	];
-	// Private care in the same church: a confidential note no notification answer may hold.
 	const person = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		VALUES(${person},${plant},${plant},'Robin Care','other',clock_timestamp(),'prospect','unknown','unknown',5,'live')`);
@@ -142,7 +137,6 @@ test("AC:GAP-EVR-421 AC:NOTIFY47-010 the feed and count show only the account's 
 	const meetings = await readAs(owner, "notifications.feed", { unread: true, category: "meeting_reminder" });
 	assert.deepEqual([meetings.total, meetings.rows.length], [2, 2]);
 	assert.deepEqual(await unreadIds(accounts.owner.id), before);
-	// The member reads only their own two.
 	assert.deepEqual(
 		(await readAs(member, "notifications.feed", { unread: true })).rows.map((r) => r.id).sort(),
 		[...others].sort(),
@@ -151,7 +145,6 @@ test("AC:GAP-EVR-421 AC:NOTIFY47-010 the feed and count show only the account's 
 
 test("AC:INH-NOTIFICATIONS-03 a review lists exactly the three asked notices, approval marks only them and a second approval writes nothing", async () => {
 	const propose = await turn(owner);
-	// Another account's notice id is never part of the review, even when the model names it.
 	const proposal = await propose("notifications.markSelectedRead", { noticeIds: [N[0], N[1], N[2], others[0]] });
 	assert.ok(proposal);
 	assert.equal(proposal.status, "pending");
@@ -166,7 +159,6 @@ test("AC:INH-NOTIFICATIONS-03 a review lists exactly the three asked notices, ap
 	assert.equal(first.review.outcome, "completed");
 	assert.deepEqual(await unreadIds(accounts.owner.id), [N[3]]);
 	assert.deepEqual(await unreadIds(accounts.member.id), [...others].sort());
-	// Approving the same card again returns it as already applied and writes nothing.
 	const writes = await audits();
 	const again = await approveProposal(
 		db,
@@ -179,13 +171,11 @@ test("AC:INH-NOTIFICATIONS-03 a review lists exactly the three asked notices, ap
 	assert.equal(again.proposal.outcome, "completed");
 	assert.equal(await runNext(), null);
 	assert.equal(await audits(), writes);
-	// A review of notices that are all read already, or none of them the account's own, has nothing to show.
 	assert.equal(await propose("notifications.markSelectedRead", { noticeIds: [N[0], others[1]] }), null);
 });
 
 test("AC:CASE-NTF-003 marking a task notice read leaves the task as it was", async () => {
 	const before = (await admin.execute(sql`SELECT status,revision,title FROM task WHERE id=${task}`)).rows[0];
-	// N1 and N2 are this task's reminders; the earlier test marked them read through Evry.
 	const marked = await admin.execute(
 		sql`SELECT count(*)::int n FROM notice WHERE id IN (${N[0]},${N[1]}) AND read_at IS NOT NULL`,
 	);
@@ -202,8 +192,6 @@ test("AC:NOTIFY47-001 mark all states the visible unread count, marks them all a
 	const proposal = await propose("notifications.markAllVisibleRead", {});
 	assert.ok(proposal);
 	assert.deepEqual(proposal.review.changes, [{ field: "unread", before: 12, after: 0 }]);
-	// One that arrives after the review is not part of it. It is newer than every counted notice (half a day old), and
-	// a few minutes old so a host clock ahead of the database's still shows it as eligible.
 	const later = await notice(accounts.owner.id, "meeting_reminder", "Arrived after the review", ago(0.005));
 	const done = await approve(owner, proposal);
 	assert.equal(done.outcome, "completed");
@@ -240,10 +228,8 @@ test("INV-notification-settings email off for task reminders is reviewed with in
 		["task_due", "off", "on"],
 		["task_overdue", "off", "on"],
 	]);
-	// The member's own settings are untouched.
 	const theirs = await readAs(member, "notifications.preferences.get");
 	assert.equal(theirs.rows.find((r) => r.id === "task_due")?.fields.email, "on");
-	// Asking again for what is already set is a review that can't be approved.
 	const same = await propose("notifications.setPreferences", { choices });
 	assert.ok(same?.review.refusal);
 });
@@ -310,7 +296,6 @@ test("INV-digest-preview the next church digest preview has its send time, date 
 	const preview = await readAs(owner, "notifications.previewPlanterDigest");
 	const [head, ...lines] = preview.rows;
 	assert.equal(head!.kind, "digest");
-	// Weekly on Mondays at 08:00 in the church's zone (the plant's schedule): seven days ending on the send day.
 	const to = String(head!.fields.to);
 	assert.match(String(head!.fields.sendsAt), /^Mon, /);
 	assert.equal(new Date(`${to}T12:00:00Z`).getUTCDay(), 1);
@@ -339,17 +324,16 @@ test("INV-notification-tools an organization login is offered its oversight dige
 	assert.ok("notifications_read" in tools);
 	assert.deepEqual(
 		readCatalog(org).domains.flatMap((d) => d.operations.map((o) => o.operation)),
-		// WP-101's pipeline reads sit beside the digest preview.
-		["notifications.previewOversightDigest", "pipeline.listPeople", "development.draftPlan"],
+		["notifications.previewOversightDigest", "pipeline.listPeople", "development.draftPlan", "development.readProgram"],
 	);
 	assert.deepEqual(
 		readCatalog(org).reviewedWrites.map((w) => w.operation),
-		// T-327's organization profile change, and WP-101's stage move and program create.
 		[
 			"notifications.oversightDigestCadence.set",
 			"organizations.updateProfile",
 			"pipeline.proposeStageMove",
 			"development.saveProgram",
+			"development.draftNextVersion",
 		],
 	);
 	const plantTools = modelTools(owner, { read: async () => ({}), select: async () => ({}), propose: async () => ({}) });

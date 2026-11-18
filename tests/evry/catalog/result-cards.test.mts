@@ -1,8 +1,3 @@
-// INV-result-card-views (T-160): every read the catalog installs, and the catalog's own tools, has a result card of its
-// own. Each operation is answered by its real adapter against the eval church (golden-church.mts, seeded on Postgres;
-// this file runs in @everyfield/evry's test:db) and drawn with the card's view:
-// no card may fall back to the generic "Records" title, and no card may count in "person/people" words unless every row
-// it shows is a person. A new read operation or catalog tool fails here until it has a view and a probe below.
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import * as catalog from "../../../packages/evry/src/catalog/catalog.ts";
@@ -30,17 +25,37 @@ import {
 import { nativePorts } from "../evals/settings-ports.mts";
 import { seedSetup, SETUP_SPECS } from "../evals/setup-church.mts";
 import { PIPELINE_SPECS, seedPipeline } from "../evals/pipeline-church.mts";
+import { seedGuests, seedLaunched, seedOutcome, seedScheduled } from "../evals/launch-church.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
+import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
+import { randomUUID } from "node:crypto";
 
 const church = await goldenChurch();
 after(church.close);
-// The setup fixture's Owner and Discovery account, for the setup and Discovery reads (T-345).
 const native = nativePorts();
 await seedSetup(church.admin, church.db, native);
 const setupActor = async (session: string) => evryActor((await readViewer(church.db, session as never))!.authority!);
-// Grace Austin's pipeline, for the pipeline and program reads (WP-101), read by its Owner.
-await seedPipeline(church.admin, church.db);
+let feedbackId: string | undefined;
+async function sentFeedback() {
+	if (feedbackId) return feedbackId;
+	const authority = (await setupActor(SETUP_SPECS.setupOwner.session)).authority;
+	const r = await church.db.transaction((tx) =>
+		feedbackWriter.submit(
+			tx as never,
+			authority,
+			{ requestKey: randomUUID(), category: "other", description: "Probe" },
+			{ appVersion: null },
+		),
+	);
+	assert.equal(r.status, "ok");
+	return (feedbackId = (r as { value: { id: string } }).value.id);
+}
+const pipeline = await seedPipeline(church.admin, church.db);
+await seedScheduled(church.admin, church.db);
+await seedLaunched(church.db);
+await seedOutcome(church.db, 150);
+await seedGuests(church.db);
 const adapters = new Map<string, ReadAdapter<unknown>>(
 	Object.values(catalog.READ_DOMAINS)
 		.flat()
@@ -49,13 +64,8 @@ const adapters = new Map<string, ReadAdapter<unknown>>(
 const read = (operation: string, input: unknown) =>
 	invokeRead(church.db, church.actors.owner, adapters.get(operation)!, input);
 const JAMES = byName("James Okafor").id;
-/** Has a household, a tag and a skill. */
 const MARK = byName("Mark Thompson").id;
 const FILE = "first_name,last_name,email\r\nAda,Park,ada@example.test\r\n,,\r\nJames,Okafor,\r\n";
-/**
- * The open task the Tasks list finds by `search` (the first open task when none is given), read with `operation` and
- * the input `build` makes from its id.
- */
 const withTask =
 	(operation: string, build: (taskId: string) => Record<string, unknown>, search?: string) => async () => {
 		const found = (await read("tasks.list", search ? { search } : {})).rows[0];
@@ -63,7 +73,6 @@ const withTask =
 		return read(operation, build(found.id));
 	};
 
-/** The input each operation is probed with. A catalog tool has a function that builds its result instead. */
 const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResult>)> = {
 	"people.listPeople": {},
 	"people.getPerson": { personId: JAMES },
@@ -72,7 +81,6 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.listDuplicatePairs": {},
 	"people.exportPeople": {},
 	"people.generateCsvTemplate": {},
-	// Kevin Walsh has notes on record; James Okafor has no history yet.
 	"people.getActivities": { personId: byName("Kevin Walsh").id },
 	"people.getHousehold": { personId: JAMES },
 	"people.getHouseholdMembers": { personId: JAMES },
@@ -88,7 +96,6 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"people.getCommitments": { personId: byName("Ana Rivera").id },
 	"people.getCommitmentDownload": { commitmentId: ANA_COMMITMENT },
 	"people.getMergeReview": { sourceId: byName("John Smith").id, survivorId: byName("Jon Smith").id },
-	// A real merge through the native People command, then its Unmerge preview.
 	"people.previewUnmerge": async () => {
 		const pair = { sourceId: byName("John Smith").id, survivorId: byName("Jon Smith").id };
 		const authority = church.actors.owner.authority;
@@ -127,7 +134,6 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"tasks.list": {},
 	"tasks.count": {},
 	"tasks.get": withTask("tasks.get", (taskId) => ({ taskId })),
-	// Lena completed the welcome packet; a settled task is not in the open list, so the probe names it by id.
 	"tasks.statusHistory": { taskId: taskId("packet") },
 	"tasks.listSubtasks": withTask("tasks.listSubtasks", (parentId) => ({ parentId }), "Prepare launch Sunday"),
 	"tasks.listPrerequisites": withTask("tasks.listPrerequisites", (taskId) => ({ taskId }), "Prepare launch Sunday"),
@@ -147,7 +153,6 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"tasks.followUpCoverage": {},
 	"tasks.planHandoff": { fromAccountId: church.actors.owner.accountId },
 	"followups.readObligations": {},
-	// Beth Johnson's follow-up was completed by a recorded call.
 	"followups.listContactHistory": { personId: byName("Beth Johnson").id },
 	"communication.preview": {
 		subject: "You're invited: Vision Night",
@@ -162,7 +167,6 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"notifications.feed": { unread: true },
 	"notifications.preferences.get": {},
 	"notifications.previewPlanterDigest": {},
-	// The organization Owner's own oversight digest: the organization seat, not the church's.
 	"notifications.previewOversightDigest": () =>
 		invokeRead(church.db, church.actors.org, adapters.get("notifications.previewOversightDigest")!, {}),
 	"teams.list": {},
@@ -245,12 +249,34 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 			{},
 			native,
 		),
+	"launch.readCountdown": {},
+	"launch.readWorkspace": {},
+	"launch.readJournal": {},
+	"launch.readDebrief": {},
+	...Object.fromEntries(
+		["dashboard.availableActions", "dashboard.metrics", "dashboard.activity", "dashboard.readSetupGaps"].map((op) => [
+			op,
+			async () => invokeRead(church.db, await setupActor(SETUP_SPECS.setupOwner.session), adapters.get(op)!, {}),
+		]),
+	),
+	"feedback.listOwn": async () => {
+		await sentFeedback();
+		return invokeRead(
+			church.db,
+			await setupActor(SETUP_SPECS.setupOwner.session),
+			adapters.get("feedback.listOwn")!,
+			{},
+		);
+	},
+	"feedback.getOwnStatus": async () =>
+		invokeRead(church.db, await setupActor(SETUP_SPECS.setupOwner.session), adapters.get("feedback.getOwnStatus")!, {
+			feedbackId: await sentFeedback(),
+		}),
 	"pipeline.listPeople": async () =>
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("pipeline.listPeople")!, {}),
 	"development.draftPlan": async () =>
 		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("development.draftPlan")!, {}),
 	"calendar.getContext": {},
-	// In a US time zone, 1:30am on Nov 1, 2026 happens twice as the clocks fall back.
 	"calendar.resolve": { date: "2026-11-01", time: "01:30" },
 	"wiki.search": { query: "vision meeting" },
 	"wiki.referenceExcerpt": { articleId: WIKI.vision.article },
@@ -261,13 +287,16 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	"documents.read": { documentId: DOCS.septemberAgenda.id },
 	"documents.readCoreValuesEvidence": {},
 	"documents.templates.list": {},
+	"development.readProgram": async () =>
+		invokeRead(church.db, await setupActor(PIPELINE_SPECS.dana.session), adapters.get("development.readProgram")!, {
+			programId: pipeline.residency.programId,
+		}),
 	[catalog.SELECT_RETURNED_ROWS]: async () => {
 		const list = await read("people.listPeople", {});
 		return { ...list, operation: catalog.SELECT_RETURNED_ROWS, rows: list.rows.slice(0, 2), total: 2 };
 	},
 };
 
-/** The catalog's own model tools: every exported "evry.…" name in catalog.ts, beside the adapters' reads. */
 const catalogTools = Object.values(catalog).filter((v): v is string => typeof v === "string" && v.startsWith("evry."));
 const installed = [
 	...Object.values(catalog.READ_DOMAINS).flatMap((adapters) => adapters.map((a) => a.operation)),
@@ -287,7 +316,6 @@ test("INV-result-card-views: every installed read and catalog tool has its own c
 		if (!result.rows.length) problems.push(`${operation}: the probe returned no rows`);
 		const view = cardView(operation, result, null);
 		if (view.title === FALLBACK.title) problems.push(`${operation}: falls back to the "${FALLBACK.title}" card`);
-		// "N people" counts the person rows the card shows; a count answer shows no rows and counts its total.
 		const persons = view.rows.filter((r) => r.avatar === "person" || r.href?.startsWith("/people/")).length;
 		const counted = /^([\d,]+) (?:person|people)$/.exec(view.summary);
 		if (counted && view.rows.length && Number(counted[1]!.replaceAll(",", "")) !== persons)

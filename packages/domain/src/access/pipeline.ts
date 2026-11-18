@@ -88,11 +88,6 @@ export async function readPipelinePerson(
 		: unavailable();
 }
 
-/**
- * The residency link `l` (a residency_link row in the statement) is its account's live residency: accepted and not
- * ended, its connection with the organization accepted, not ended and not being deleted, its residency invitation
- * accepted by that account, and its person live and linked to that account.
- */
 export const liveResidency = sql<boolean>`(l.ended_at IS NULL AND l.accepted_at<=clock_timestamp()
  AND EXISTS(SELECT FROM affiliation a WHERE a.id=l.affiliation_id AND a.organization_id=l.organization_id
   AND a.account_id=l.account_id AND a.ended_at IS NULL AND a.accepted_at<=clock_timestamp()
@@ -101,6 +96,13 @@ export const liveResidency = sql<boolean>`(l.ended_at IS NULL AND l.accepted_at<
   AND i.accepted_account_id=l.account_id AND i.state='accepted' AND i.purpose='residency_link' AND i.resident_person_id=l.person_id)
  AND EXISTS(SELECT FROM person p WHERE p.id=l.person_id AND p.tenant_id=l.organization_id
   AND p.linked_account_id=l.account_id AND p.state='live'))`;
+
+export const reviewShared = sql<boolean>`(r.withdrawn_at IS NULL
+ AND EXISTS(SELECT FROM seat rs WHERE rs.id=r.reviewer_seat_id AND rs.organization_id=r.organization_id
+  AND rs.ended_at IS NULL AND rs.accepted_at<=clock_timestamp())
+ AND EXISTS(SELECT FROM person_note rn WHERE rn.id=r.note_id AND rn.tenant_id=r.organization_id AND rn.removed_at IS NULL)
+ AND NOT EXISTS(SELECT FROM organization_person_removal rw WHERE rw.person_record_id=r.person_id
+  AND rw.organization_id=r.organization_id))`;
 
 export async function readOwnResidency(
 	tx: Transaction,
@@ -111,8 +113,6 @@ export async function readOwnResidency(
 	const input = organizationPersonRequest.safeParse(raw);
 	if (!input.success || organization.kind !== "organization" || !(await liveOwner(tx, organization, false)))
 		return null;
-	// The request actor observed on this transaction names the account; otherwise one lock-free session read does. The
-	// link statement checks the account's live access itself (C13), without a session lock (C27).
 	const observed = observedActor(tx, session);
 	const accountId = observed
 		? observed.accountId

@@ -21,6 +21,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `settings.test.mts`   | `settings.cases.json`                                                                                                    | Seat, Settings, sharing, connection, account and organization tools (scripted model)    |
 | `onboarding.test.mts` | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                              |
 | `pipeline.test.mts`   | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                                |
+| `launch.test.mts`     | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                                 |
 
 ## The settings suite (scripted model)
 
@@ -39,6 +40,19 @@ their recordings stay valid until the next recording run adds these tools.
 Owner has not finished setup (with an Admin), two seatless accounts and a Discovery account linked to Hill Country
 Network, through the same onboarding producer `/onboarding` calls. Each approved change is read back through
 `/onboarding`'s own read (`readOnboardingEntry`) and Home's landing rule. The recorded suites leave these tools out too.
+
+## The overview suite (scripted model)
+
+`overview.test.mts` scores the Overview and feedback tools (T-330: `dashboard.availableActions`, `dashboard.metrics`,
+`dashboard.activity`, `dashboard.readSetupGaps`, `feedback.listOwn`, `feedback.getOwnStatus` and the reviewed
+`feedback.submit`) on the scripted model (`packages/evry/src/runtime/scripted-overview.ts`): their ask allowed no new
+spend. It runs on the acceptance fixture church, Cedar Creek (`seedOverview` in `setup-church.mts`, America/Chicago),
+with the database clock pinned to Oct 13, 2026: the church in its first week with setup finished, people added over two
+months, the week's meetings and an overdue task. A case's `given` applies one later fixture change (a failing Meetings
+read, a planned Vision Meeting, a seated Member, a crowded activity feed). Each answer is held to what Overview itself
+shows, through its own reads and words (`apps/web/src/features/overview/model.ts`); MON-01 and CLN-10 carry their
+golden question word for word, with its expected answer and must-not. The approved feedback is read back through Sent
+feedback's own read. The recorded suites leave these tools out too.
 
 ## The pipeline suite (scripted model)
 
@@ -61,6 +75,41 @@ model local previews use (`packages/evry/src/runtime/scripted-assessments.ts`). 
 judged. They run one at a time after the recorded cases, because a case's `setup` merges or edits people through the
 native People commands first. A proposal spec may also check the review card itself: `changes` (`[field, after]` or
 `[field, after, before]`) and `refusal` (a pattern the card's refusal must match).
+
+The same suite scores T-377: a program's current director has Evry draft its next version. `development.readProgram`
+reads the programs and one program's published plan and draft as Programs shows them, with no enrollee, completion or
+feedback, and `development.draftNextVersion` takes a program and a plan and saves the next version's draft through the
+Programs page's own save once approved. The fixture adds Grace Austin's "Church planting residency" (`seedResidency`):
+Version 1 published with one reading, and Casey Lee enrolled on it with one milestone finished. The PRG cases read
+each approved draft back on the program page, refuse the card to every seat but the director, refuse it after a native
+edit, and, after Ana publishes natively, read the native apply review for Casey: kept and renamed milestones keep
+their lineage.
+
+## The launch suite (scripted model)
+
+`launch.test.mts` scores the Launch tools (WP-075, WP-076) the same way, on the scripted model
+(`packages/evry/src/runtime/scripted-launch.ts`): the countdown, the open and blocked milestones, Launch history and
+Launch Sunday's guests as the Launch plan reads them, and five review cards: setting or moving Launch Sunday
+(`launch.schedule`), postponing it (`launch.postpone`), recording Launch Sunday with the debrief's guest answer
+(`launch.recordOutcome`), submitting the debrief (`launch.submitDebrief`) and publishing the summary
+(`launch.publishDebriefSummary`). `launch-church.mts` sets Hope Fellowship's Launch plan through the native Launch
+writer, with dates relative to the church-local date the Launch read returns. A case with `approve` is approved the way
+the card approves it and its effect runs once through the WP-031 queue; its check reads the result back through the
+Launch plan's own reads. The suite also holds the refusals the Launch plan makes (no reason, or one over 2,000
+characters), a Member's direct approval, a card made stale by a change on the Launch plan, and a plan that can't be
+read. LAU-21 to LAU-36 (T-382) complete and reopen the venue milestone on a card (`launch.completeMilestone`,
+`launch.reopenMilestone`): open linked tasks stay open, a card refused because a linked task changed in Tasks
+(`stale_review`) or because the milestone changed on the Launch plan shows them as they are now, a needs-review
+completion is confirmed, and the Launch notifications reach the other Owners and Admins only. Already complete, not
+complete, the two milestones the debrief decides, and a name that matches none or several make no card. LAU-37 to
+LAU-61 (T-383) name Launch Sunday guests (`launch.addGuestAttendance`) and correct the recorded outcome
+(`launch.correctOutcome`). A typed name with no live match gets a card for a new Person with only that name; one with
+matches (`launch.readDebrief` with `guestName`) gets the list and a question, and a `continue` case answers it in the
+same conversation by picking a match or asking for a new Person. Three names make one card each, approved one at a
+time. A correction card changes only the fields named, keeps the outcome note, and one made stale on the Launch plan
+shows the outcome as it is now. Each refusal (not recorded, already a guest, no or long name, no or long reason, a date
+after today, a count out of range, the same values) makes no card, and the card itself refuses them too. The recorded
+suites leave these tools out too.
 
 ## The household and follow-up suites
 

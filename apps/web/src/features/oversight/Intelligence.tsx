@@ -15,13 +15,9 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { writeAddress } from "../../components/location.ts";
 import { ratePattern, refreshIntelligence } from "./actions.ts";
-import { type IntelligenceWords, plural, resultLabels, runLabel } from "./model.ts";
-
-// The body of /network/intelligence (WP-047b, T-372): the run shown and its history, the level switch, and each group's
-// plant rows with one short result per rule, and each rule pattern (NIR-03 to NIR-06) where two sharing plants qualify.
-// Plants are listed by name; nothing is ranked or scored. Refresh (Owners and Admins) shows the new run from the action's answer; a rating shows at once and rolls back
-// if the server refuses it.
+import { concernLenses, HEALTH, type IntelligenceWords, plural, resultLabels, runLabel } from "./model.ts";
 
 const href = (level: Level, runId: string | null) =>
 	`/network/intelligence?level=${level}${runId ? `&run=${runId}` : ""}`;
@@ -36,10 +32,12 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 	const refresh = () =>
 		startRefresh(async () => {
 			setProblem(null);
-			const answer = await refreshIntelligence(crypto.randomUUID(), view.level);
+			const answer = await refreshIntelligence(crypto.randomUUID(), view.level).catch(() => ({
+				status: "lost" as const,
+			}));
 			if (answer.status === "ok") {
 				setView(answer.view);
-				window.history.replaceState(null, "", href(answer.view.level, null));
+				writeAddress(href(answer.view.level, null), { replace: true });
 			} else setProblem(answer.status === "refused" ? words.refused : words.failed);
 		});
 
@@ -56,7 +54,9 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 		const before = pattern.rating;
 		set(rating);
 		setProblem(null);
-		const answer = await ratePattern({ runId: view.run.runId, patternKey: pattern.key, rating });
+		const answer = await ratePattern({ runId: view.run.runId, patternKey: pattern.key, rating }).catch(() => ({
+			status: "lost" as const,
+		}));
 		if (answer.status !== "ok") {
 			set(before);
 			setProblem("Your rating wasn't saved. Try again in a moment.");
@@ -98,7 +98,7 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 								href={href(l, viewingLatest ? null : view.run!.runId)}
 								aria-current={view.level === l ? "page" : undefined}
 								className={cn(
-									"inline-flex flex-none cursor-pointer items-center rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
+									"inline-flex flex-none items-center rounded-md px-3.5 py-2 font-medium whitespace-nowrap text-ink-2 transition-colors duration-150 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)]",
 									view.level === l && "bg-surface-raised text-ink shadow-[var(--ef-shadow-raised)]",
 								)}
 							>
@@ -106,6 +106,14 @@ export function IntelligenceBody({ initial, words }: { initial: IntelligenceView
 							</Link>
 						))}
 					</nav>
+					{view.level === "region" && view.geographyReleases.length ? (
+						<p
+							className="-mt-2 text-sm text-text-3"
+							data-geography={view.geographyReleases.map((r) => r.key).join(" ")}
+						>
+							Regions from {view.geographyReleases.map((r) => r.credit).join("; ")}.
+						</p>
+					) : null}
 					{view.groups.length ? (
 						view.groups.map((g) => (
 							<Group
@@ -160,29 +168,48 @@ function Group({ group, rate, canRate }: { group: IntelligenceGroup; rate: Rate;
 				</div>
 			) : (
 				<p className="mb-3 text-md text-text-2 text-pretty">
-					{group.unplaced
+					{group.placement !== "placed"
 						? "These plants have no location at this level. They still count at the larger levels."
 						: "Not enough plants for a pattern here. A pattern needs at least 2 sharing plants with the same recorded result."}
 				</p>
 			)}
 			<ul aria-label={`Plants in ${group.label}`}>
 				{group.rows.map((r) => (
-					<li key={r.plantId} className="border-t border-line first:border-t-0" data-row={r.status}>
+					<li
+						key={r.plantId}
+						className="border-t border-line first:border-t-0"
+						data-row={r.status}
+						data-plant={r.plantId}
+						data-health={r.status === "shared" ? r.health : undefined}
+						data-concerns={
+							r.status === "shared" && r.assessment.status === "released"
+								? r.assessment.concerns.map((c) => c.id).join(" ")
+								: undefined
+						}
+					>
 						<Link
 							href={`/network/plants/${r.plantId}`}
 							data-focus-inset=""
-							className="-mx-2 flex cursor-pointer items-center gap-3 rounded-md px-2 py-3 transition-colors hover:bg-hover"
+							className="-mx-2 flex items-center gap-3 rounded-md px-2 py-3 transition-colors hover:bg-hover"
 						>
 							<CardIcon icon={UserGroupIcon} tone="green" size={36} />
 							<span className="flex min-w-0 flex-1 flex-col gap-1.5">
 								<span className="font-medium text-ink">{r.name}</span>
 								<span className="flex flex-wrap gap-1.5">
+									{r.status === "shared" ? (
+										<StatusBadge status={HEALTH[r.health].status} size="sm">
+											{HEALTH[r.health].label}
+										</StatusBadge>
+									) : null}
 									{resultLabels(r).map((tag) => (
 										<StatusBadge key={tag.label} status={tag.status} size="sm">
 											{tag.label}
 										</StatusBadge>
 									))}
 								</span>
+								{r.status === "shared" && concernLenses(r.assessment) ? (
+									<span className="text-sm text-text-2">{concernLenses(r.assessment)}</span>
+								) : null}
 							</span>
 							<Icon icon={ArrowRight01Icon} size={16} className="flex-none text-text-3" />
 						</Link>
@@ -210,7 +237,7 @@ function Pattern({ pattern, rate, canRate }: { pattern: IntelligencePattern; rat
 					<li key={p.plantId}>
 						<Link
 							href={`/network/plants/${p.plantId}`}
-							className="cursor-pointer font-medium text-ink underline underline-offset-[3px] hover:text-ink-2"
+							className="font-medium text-ink underline underline-offset-[3px] hover:text-ink-2"
 						>
 							{p.name}
 						</Link>
@@ -263,7 +290,7 @@ function History({ view }: { view: IntelligenceView }) {
 						<Link
 							href={href(view.level, i === 0 ? null : h.runId)}
 							aria-current={view.run?.runId === h.runId ? "page" : undefined}
-							className="cursor-pointer text-md text-text-2 underline-offset-[3px] hover:text-ink hover:underline aria-[current=page]:font-medium aria-[current=page]:text-ink"
+							className="text-md text-text-2 underline-offset-[3px] hover:text-ink hover:underline aria-[current=page]:font-medium aria-[current=page]:text-ink"
 						>
 							{runLabel(h.ranAt, view.timeZone)}
 							{i === 0 ? " · latest" : ""}

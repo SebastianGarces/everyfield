@@ -8,14 +8,13 @@ import type { DeletionStatus, DigestSchedule, PlantOwner, PlantSettings, Section
 import { attempt } from "../save";
 import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
 import { useDraft, useSection, useSettings } from "../store";
-import { hourLabel, WEEKDAYS, zoneLabel } from "../time";
+import { hourLabel, WEEKDAYS, zoneLabel } from "../../../components/time.ts";
 import { PlantTimezoneDialog } from "../flows/PlantTimezoneDialog";
 import { ReportingRegion } from "../flows/RegionPicker";
 import { WorkspaceDeletionDialog } from "../flows/DeletionDialogs";
 
 type PlantSection = Extract<SectionResult, { section: "plant" }>;
 
-// Text inputs hold strings; an empty optional field saves as null (REQ-IDN-011: independent nullable fields).
 type Form = {
 	name: string;
 	street: string;
@@ -82,7 +81,10 @@ function ChurchLoaded({
 	plant: PlantOwner;
 	onDeletionRequested: (status: DeletionStatus | null) => void;
 }) {
-	const { state, replace, reload } = useSection({ section: "plant", plant });
+	const { state, replace, reload } = useSection(
+		{ section: "plant", plant },
+		{ key: "church", formOf: (section) => formOf(section.values) },
+	);
 	return (
 		<LoadableView
 			state={state}
@@ -126,8 +128,6 @@ function ChurchForm({
 	const visible = showErrors ? errors : {};
 	const set = <K extends keyof Form>(key: K, value: Form[K]) => setDraft({ ...draft, [key]: value });
 
-	// One section save sends up to three contract changes as one write. A refusal saves none of them, keeps every
-	// value in the draft and says why.
 	const save = () => {
 		setShowErrors(true);
 		if (Object.keys(errors).length > 0) return;
@@ -313,7 +313,6 @@ function ChurchForm({
 const HOURS = Array.from({ length: 24 }, (_, h) => ({ value: String(h), label: hourLabel(h) }));
 const DAYS = WEEKDAYS.map((label, i) => ({ value: String(i), label }));
 
-/** Off, daily at an hour, or weekly on a day at an hour (digestSchedule). The defaults are Sunday at 4:00 PM. */
 function DigestControl({ value, onChange }: { value: DigestSchedule; onChange: (next: DigestSchedule) => void }) {
 	const hour = value.cadence === "off" ? 16 : value.hour;
 	const weekday = value.cadence === "weekly" ? value.weekday : 0;

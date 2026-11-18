@@ -7,17 +7,14 @@ import type {
 } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 import { onboardingStep } from "./scripted-onboarding.ts";
+import { launchStep } from "./scripted-launch.ts";
+import { overviewStep } from "./scripted-overview.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { TASK_DATA, taskStep } from "./scripted-tasks.ts";
 import { assessmentStep } from "./scripted-assessments.ts";
 import { mailStep, proposesOn } from "./scripted-mail.ts";
 import { MEMBER_PHASES } from "../catalog/catalog.ts";
 import { settingsStep } from "./scripted-settings.ts";
-
-// A deterministic stand-in for a qualified model, for local previews and tests only (selectQualifiedModel never picks
-// it on Vercel). It reads the conversation the way a model would see it and answers through the same tools, so the
-// runtime, its limits, fences and stream are exercised end to end without a paid provider. It is not policy: the
-// runtime enforces the boundary and limits whatever the model says.
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 const lastUserText = (prompt: Prompt) => {
@@ -50,12 +47,9 @@ const pageSize = (text: string) =>
 	Number(/\b(\d{1,3}) at a time\b/.exec(text)?.[1] ?? (/\b(?:every|all)\b/i.test(text) ? 100 : 24));
 
 function classify(text: string) {
-	// Reporting what the church started is a signal to record, not a request for prayer.
 	if (SIGNAL.test(text)) return "application";
-	// A task titled "Pray for the launch" is task data, not a request for prayer.
 	if (!TASK_DATA.test(text) && /\b(pray|prayer|biblical|scripture|spiritual(ly)?|pastoral(ly)?|suitab)/i.test(text))
 		return "pastoral_boundary";
-	// A judgment of a person ("do you think Daniel is qualified?") is a human call, never Evry's.
 	if (/\b(do you think|would you say|in your opinion)\b.*\b(qualified|ready|mature|called)\b/i.test(text))
 		return "pastoral_boundary";
 	if (/what (can|are) you (able to )?(do|help)|capabilit/i.test(text)) return "capabilities";
@@ -66,9 +60,6 @@ const systemText = (prompt: Prompt) => {
 	return m?.role === "system" ? m.content : "";
 };
 
-// Attached files (WP-054): the system prompt lists each one with its attachmentId, what is true of it now and its latest
-// check. "check it" previews the newest file; "import it" proposes the import of the newest file with the latest check
-// of a file by that name, so a file replaced since its check meets the runtime's refusal and is checked afresh.
 type Listed = { id: string; name: string; status: "available" | "replaced" | "gone"; checked: string | null };
 function attachedFiles(system: string): Listed[] {
 	const out: Listed[] = [];
@@ -139,7 +130,6 @@ function fileStep(text: string, system: string, result: Record<string, unknown> 
 	];
 }
 
-// Dates (WP-085): "Nov 1 at 1:30am" is checked against the church's calendar before anything uses it.
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 function dateStep(text: string, result: Record<string, unknown> | null, canRead: boolean) {
 	const say = (t: string) => [{ type: "text" as const, text: t }];
@@ -175,7 +165,6 @@ function dateStep(text: string, result: Record<string, unknown> | null, canRead:
 	return say("That isn't a real date. Which date do you mean?");
 }
 
-// Honest limits (EVR-007, META-01, SAF-02, SAF-06, SAF-16, SAF-17) and saved outcomes (GAP-EVR-429).
 function limitStep(text: string, system: string, result: Record<string, unknown> | null, canPropose: boolean) {
 	const say = (t: string) => [{ type: "text" as const, text: t }];
 	if (/background check/i.test(text))
@@ -187,7 +176,6 @@ function limitStep(text: string, system: string, result: Record<string, unknown>
 		);
 		return say(lines.length ? lines.join("\n") : "Nothing was sent from this conversation.");
 	}
-	// A person's own notifications and digest are always theirs: the notification step answers those.
 	if (
 		!canPropose &&
 		/\b(move|change|set|update|delete|remove|add)\b/i.test(text) &&
@@ -212,7 +200,6 @@ function limitStep(text: string, system: string, result: Record<string, unknown>
 	return null;
 }
 
-// History (EVR-031): find the one person, then read their history page by page, each item with its date.
 function historyStep(text: string, result: Record<string, unknown> | null) {
 	const m = /\b(?:everything that'?s happened|history) (?:with|of|for) ([A-Z][\w'-]+(?: [A-Z][\w'-]+)?)/.exec(text);
 	if (!m) return null;
@@ -243,11 +230,7 @@ function historyStep(text: string, result: Record<string, unknown> | null) {
 	];
 }
 
-// Email requests (MAIL51-009): "draft an email to the launch team", "schedule it for Friday at 9am", "move the Friday
-// email to Saturday at 9am", "cancel the Friday email", "replace the body of the Friday email with: ...". The same
-// tools a model uses: find the message with a read, then propose the reviewed change.
 const DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-/** The next date (UTC calendar) of a weekday name, from today: "friday" is never today. */
 function nextDate(day: string, now = new Date()) {
 	const ahead = (DAYS.indexOf(day.toLowerCase()) - now.getUTCDay() + 7) % 7 || 7;
 	return new Date(now.getTime() + ahead * 86_400_000).toISOString().slice(0, 10);
@@ -311,10 +294,6 @@ function emailStep(text: string, canPropose: boolean, canRead: boolean, result: 
 	);
 }
 
-// Wiki requests (DOC-03, WIKI-008): "what does the wiki say about running a vision meeting", "what should I read next?",
-// "where did I leave off?", and on an open article "bookmark this", "this article was helpful" and "a PDF of this
-// article". The answer quotes only what a Wiki read returned, with its title and link; no match says so. A request to
-// edit the Wiki is pointed to Church Documents. Article text is never read as an instruction.
 const WIKI_ASK = /\bwhat does the wiki say about\s+(.+?)[?.!\s]*$/i;
 const WIKI_NEXT = /\bwhat should i read next\b/i;
 const WIKI_RESUME = /\bwhere did i leave off\b/i;
@@ -326,7 +305,6 @@ const WIKI_EDIT_ANSWER =
 	"I can't edit the Wiki. It is shared reading, and churches keep their own writing in Church Documents.";
 const VERIFIED = "Verified references on the user's page: ";
 type WikiRow = { kind: string; id: string; label: string; fields: Record<string, unknown> };
-/** The open article the page reference names, read again under current authority (resolveReferences). */
 function pageArticle(prompt: Prompt): string | null {
 	const system = prompt.find((m) => m.role === "system")?.content;
 	const at = typeof system === "string" ? system.indexOf(VERIFIED) : -1;
@@ -342,7 +320,6 @@ function wikiStep(
 	result: Record<string, unknown> | null,
 ): LanguageModelV4Content[] | null {
 	if (!options.tools?.some((t) => t.name === "wiki_read")) return null;
-	// Only a Wiki request: another tool's result or error in the same turn is not the Wiki's.
 	if (![WIKI_ASK, WIKI_NEXT, WIKI_RESUME, WIKI_BOOKMARK, WIKI_VOTE, WIKI_PDF, WIKI_EDIT].some((ask) => ask.test(text)))
 		return null;
 	const read = (operation: string, input: unknown) => [toolCall("wiki_read", { operation, input })];
@@ -363,7 +340,6 @@ function wikiStep(
 		const [row] = rows;
 		if (!row) return say(`The Wiki has nothing on ${topic}.`);
 		const whose = row.fields.source === "global" ? "" : ` This is your ${String(row.fields.source)}'s version.`;
-		// The excerpt itself is quoted word for word on the result card above the answer.
 		return say(`Here is what the Wiki's article ${linked(row)} says, quoted above.${whose}`);
 	}
 	if (WIKI_NEXT.test(text)) {
@@ -404,10 +380,6 @@ function wikiStep(
 	return null;
 }
 
-// Phase and signal requests (adapters/intelligence): "what phase are we in", "what do we need to move to the next
-// phase?", "move us to Launch Team Formation", "move us back to Discovery", "we started prayer and fasting this week",
-// "correct our core group giving signal: ...", "our core group is still giving". Reads first where a review needs a
-// phase number; every change is only proposed.
 const PHASE_NOW = /\bwhat phase are we in\b/i;
 const NEXT_PHASE = /\bmove to the next phase\b/i;
 const MOVE = /\bmove us (?:back )?to ([A-Za-z &-]+?)\.?$/i;
@@ -480,10 +452,6 @@ function phaseStep(
 	return propose("signals.reaffirm", { key: "core_group_giving" });
 }
 
-// Notification requests (WP-081, WP-082), with the same tools a model uses. "Anything I missed" reads the unread feed
-// and answers grouped by area with the count; reading never marks anything read. "Mark those three as read" marks the
-// group of that size from the unread feed, and "mark all as read", "stop emailing me task reminders" and "send my digest
-// daily" each propose their review. A digest choice Settings does not offer gets the choices that exist.
 const AREA: Record<string, string> = {
 	task_due: "Tasks",
 	task_overdue: "Tasks",
@@ -517,7 +485,6 @@ function notificationStep(
 	const preview = /\bnext (?:oversight )?digest\b/i.test(text);
 	const someone =
 		/\b(?:[Cc]hange|[Tt]urn off|[Ss]top)\b.*\b([A-Z][a-z]+)'s (?:notifications?|(?:oversight )?digest)\b/.exec(text);
-	// In an organization, the digest is the oversight digest.
 	const digest = tools.oversight ? "oversight digest" : "church digest";
 	if (!(missed || those || all || email || cadence || other || preview || someone)) return null;
 	const propose = (operation: string, input: unknown) => [toolCall("propose_change", { operation, input })];
@@ -599,13 +566,7 @@ function notificationStep(
 	];
 }
 
-// Household, tag, note, skill and import requests (WP-064): "add Pedro to the Martinez household", "the nguyens moved
-// to 123 oak st, update everyone", "tag Ana Rivera and Mark Thompson as coffee-oct", "add a note to Maria Santos: ...",
-// "change Maria Santos's note to: ...", "delete Maria Santos's note", "Sam does sound, advanced", "how did yesterday's
-// import go" and "import this csv: ...". Each finds its records with reads, one step after another, then proposes the
-// reviewed change. A seat that may not propose is told who can make the change.
 type Row = { id: string; kind: string; label: string; fields: Record<string, unknown> };
-/** Every tool result since the user's last message, in order. */
 function turnOutputs(prompt: Prompt): Record<string, unknown>[] {
 	const out: Record<string, unknown>[] = [];
 	for (let i = prompt.length - 1; i >= 0 && prompt[i]!.role !== "user"; i--) {
@@ -747,13 +708,6 @@ function peopleOrganizationStep(
 	}
 }
 
-// Meetings requests (WP-065/066), each through the same tools a model uses: read the meetings, then answer from the rows
-// or propose the reviewed change. "what are my upcoming meetings?", "who rsvp'd for thursday's vision night",
-// "print the agenda for sunday", "what do I still need from the vision kit?", "are vision nights growing? last 3",
-// "set up a vision meeting next thursday 7pm at the coffee shop" (then "the 22nd"), "add a walk-in, Luis, no last name",
-// "mark Maria, Alex and Casey as attended and finalize it", "score last night's vision meeting for me" (then the eight
-// scores) and "delete the <meeting>".
-/** The user's earlier messages in this conversation, oldest first, without the last one. */
 function earlierUserTexts(prompt: Prompt) {
 	const texts = prompt
 		.filter((m) => m.role === "user")
@@ -775,7 +729,6 @@ const dayName = (date: string) =>
 	new Intl.DateTimeFormat("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(
 		new Date(`${date}T12:00:00Z`),
 	);
-/** The next `day` (0 = Sunday) on or after tomorrow, church-local. */
 const nextWeekday = (day: number, from = localToday()) => addDays(from, (day - weekday(from) + 7) % 7 || 7);
 const RSVP_GROUPS = [
 	["yes", "RSVP yes"],
@@ -811,7 +764,6 @@ function meetingsStep(
 	const earlierTexts = earlierUserTexts(prompt);
 	const earlier = earlierTexts.join("\n");
 	const pickedDay = /^(?:the )?(\d{1,2})(?:st|nd|rd|th)?\.?$|\bthursday,? (\w+ \d{1,2})\b/i.exec(text.trim());
-	// The latest earlier request to set one up, so a reply such as "the 19th" answers the question just asked.
 	const asked =
 		earlierTexts
 			.reverse()
@@ -992,19 +944,20 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const text = lastUserText(options.prompt);
 	if (options.responseFormat?.type === "json")
 		return [{ type: "text", text: JSON.stringify({ kind: classify(text) }) }];
-	// "Show a formatting demo": an answer with markdown, written slowly enough to watch it grow (local previews and tests).
 	if (FORMATTING.test(text)) return [{ type: "text", text: FORMATTING_ANSWER }];
+	const overview = overviewStep(options, text);
+	if (overview) return overview;
 	const pipeline = pipelineStep(options, text);
 	if (pipeline) return pipeline;
+	const launch = launchStep(options, text);
+	if (launch) return launch;
 	const onboarding = onboardingStep(options, text);
 	if (onboarding) return onboarding;
 	const settings = settingsStep(options, text);
 	if (settings) return settings;
 	const hasPeople = options.tools?.some((t) => t.name === "people_read") ?? false;
 	const canPropose = options.tools?.some((t) => t.name === "propose_change") ?? false;
-	// A Member proposes changes to their own notifications only; the People reviews are an Owner's or Admin's.
 	const canProposePeople = proposesOn(options, "people");
-	// "Change Maria's city to Austin": find the person, then propose the change for review.
 	const change = /\b(?:change|set|update)\s+([A-Z][\w'-]+?)(?:'s)?\s+(city|phone|email)\s+to\s+(.+?)\.?\s*$/i.exec(
 		text,
 	);
@@ -1038,7 +991,6 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 	const phase = phaseStep(text, options, result);
 	if (phase) return phase;
 	if (hasPeople) {
-		// The import receipt read is one of the people-organization tool's operations only for an Owner or Admin.
 		const imports = JSON.stringify(options.tools?.find((t) => t.name === "peopleOrganization_read") ?? {}).includes(
 			"people.getImportReceipt",
 		);
@@ -1086,7 +1038,6 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 					input: { personId: rows[0]!.id, patch: { [change[2]!.toLowerCase()]: change[3] } },
 				}),
 			];
-		// "every" asks for all pages: keep reading while the result says more exist; the runtime's budget stops it.
 		if (/\bevery\b/i.test(text) && typeof result.next === "number")
 			return [
 				toolCall("people_read", {
@@ -1159,7 +1110,6 @@ export function scriptedModel(): LanguageModelV4 {
 				if (c.type === "text") {
 					const id = randomUUID();
 					parts.push({ type: "text-start", id });
-					// Word-sized deltas, so a reader sees the reply arrive in pieces as a provider would send it.
 					for (const word of c.text.match(/\S+\s*/g) ?? []) parts.push({ type: "text-delta", id, delta: word });
 					parts.push({ type: "text-end", id });
 				} else if (c.type === "tool-call") parts.push(c);

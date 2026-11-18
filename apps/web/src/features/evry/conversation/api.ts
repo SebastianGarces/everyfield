@@ -1,9 +1,5 @@
 import type { Attachment, Conversation, ProjectedError, ReadConversation, Reference } from "./model.ts";
 
-// The browser side of the WP-051 Evry API (apps/web/src/app/api/evry). Every call answers one of three ways: ok, refused
-// with the projected error, or lost. Lost means the outcome is not known (no answer, or the server says "unknown"), so
-// the same request key may be sent again: the server replays a request it already saved instead of acting twice.
-
 export type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: ProjectedError } | { status: "lost" };
 
 export async function call<T>(path: string, init?: { method: "POST"; body: unknown }): Promise<Reply<T>> {
@@ -26,7 +22,6 @@ export async function call<T>(path: string, init?: { method: "POST"; body: unkno
 export type Submitted = { turnId: string; sequence: number; replayed: boolean };
 export type ConversationPage = { items: Conversation[]; total: number; page: number; next: number | null };
 
-/** The latest conversation in this context, or none. Opening never creates one. */
 export const openLatest = () => call<(ReadConversation | { conversation: null }) & { pipeline?: boolean }>("open");
 export const readConversation = (id: string, after = 0) => call<ReadConversation>(`conversations/${id}?after=${after}`);
 export const listConversations = (search: string, page: number) =>
@@ -43,7 +38,6 @@ export const submitTurn = (
 	attachments: Attachment[],
 ) =>
 	call<Submitted>(`conversations/${id}/turns`, { method: "POST", body: { requestKey, text, references, attachments } });
-/** Signs one write-once upload of a CSV into this conversation; the browser then puts the bytes to `upload.url`. */
 export const stageAttachment = (id: string, name: string, byteLength: number) =>
 	call<{ attachment: Attachment; upload: { url: string; headers: Record<string, string> } }>(
 		`conversations/${id}/attachments`,
@@ -54,5 +48,4 @@ export const retryTurn = (id: string, requestKey: string) =>
 export const cancelTurn = (id: string) =>
 	call<{ cancelled: boolean; turnId: string | null }>(`conversations/${id}/cancel`, { method: "POST", body: {} });
 
-/** The conversation's saved events after `after`, then each new one while a run is active. */
 export const streamUrl = (id: string, after: number) => `/api/evry/conversations/${id}/stream?after=${after}`;

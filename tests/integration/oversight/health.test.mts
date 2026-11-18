@@ -1,7 +1,3 @@
-// Plant health, Launch Sunday, published launch summaries, reporting Regions and the first Network Intelligence page
-// (WP-047b), as a sending church or network seat reads them. The Hill Country example: network N with sending church
-// GA (Grace Austin) and plants HP (Harvest Point, Round Rock), EC (Eastside Commons, Austin), MF (Mueller Fellowship,
-// Austin) and OC (Oak Cliff Church, Dallas). Dates count from today in each plant's time zone.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -67,7 +63,6 @@ async function person(p: Owner, name: string) {
 		'launch_team','unknown','unknown','1','live',clock_timestamp())`);
 	return id;
 }
-/** A role carrying a Playbook responsibility, held by `holder` when given. */
 async function responsibility(p: Owner, key: string, holder: string | null) {
 	const t = await S.db.execute(
 		sql`INSERT INTO team(plant_id,name,state,sort_order) VALUES(${p.id},${key},'active',0) RETURNING id`,
@@ -78,7 +73,6 @@ async function responsibility(p: Owner, key: string, holder: string | null) {
 		await S.db.execute(sql`INSERT INTO team_tenure(plant_id,role_id,person_id,started_on)
 			VALUES(${p.id},${r.rows[0]!.id},${holder},'2026-01-01')`);
 }
-/** A required training assigned to `who`, completed when `done`. */
 async function training(p: Owner, who: string, done: boolean) {
 	const g = await S.db.execute(
 		sql`INSERT INTO training_program(plant_id,name,required) VALUES(${p.id},'Safe kids',true) RETURNING id, version`,
@@ -90,7 +84,6 @@ async function training(p: Owner, who: string, done: boolean) {
 		await S.db.execute(sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on)
 			VALUES(${p.id},${who},${id},'earned',${version},'2026-02-01')`);
 }
-/** Launch Sunday `days` plant-local days from today, with `completed` of nine milestones done. */
 async function launch(p: Owner, days: number, completed = 0) {
 	await S.db.execute(sql`INSERT INTO launch(plant_id,status,target_date)
 		VALUES(${p.id},'scheduled',(clock_timestamp() AT TIME ZONE 'America/Chicago')::date + ${days}::int)`);
@@ -131,9 +124,6 @@ before(async () => {
 	await link(OC, N, sharing);
 	await link(GA, N);
 
-	// Eastside: 10 days out, every responsibility filled and training done. Harvest Point: 30 days out with one
-	// responsibility unfilled. Oak Cliff: 20 days out with one required training not done. Mueller: 5 days out with a
-	// gap, but it does not share findings.
 	const ea = await person(EC, "Ana Eastside");
 	await responsibility(EC, "worship", ea);
 	await training(EC, ea, true);
@@ -164,7 +154,6 @@ test("the home shows Limited visibility, Launch readiness and no concern, never 
 		"Mueller Fellowship": "limited_visibility",
 		"Oak Cliff Church": "launch_readiness",
 	});
-	// A Member reads the same values.
 	assert.deepEqual(await homeHealth(networkMember), await homeHealth(networkAdmin));
 });
 
@@ -174,7 +163,6 @@ test("a near launch alone, a far one with a gap and a gap the plant does not sha
 	await responsibility(far, "children", null);
 	await launch(far, 31);
 	assert.equal((await homeHealth(networkAdmin))["Far Out"], "not_assessed");
-	// Inside the window it is a concern; once Ministry teams is not shared the gap is unknown, so no concern.
 	await S.db.execute(sql`UPDATE launch SET target_date=target_date-5 WHERE plant_id=${far.id}`);
 	assert.equal((await homeHealth(networkAdmin))["Far Out"], "launch_readiness");
 	await share(id, "ministry_teams", false);
@@ -188,12 +176,12 @@ test("the plant view shows Launch status and readiness, then the recorded outcom
 	assert.equal(launch.status, "shared");
 	if (launch.status !== "shared") return;
 	assert.equal(launch.state, "scheduled");
-	assert.equal(launch.plannedDate, view!.plant.launchDate);
+	const planned = view!.plant.path.kind === "launch_sunday" ? view!.plant.path.date : null;
+	assert.equal(launch.plannedDate, planned);
 	assert.deepEqual(launch.milestones, { completed: 2, total: 9 });
 	assert.equal(launch.outcome, null);
 	assert.deepEqual(launch.preparation, { launched: false, daysToLaunch: 30, unfilledRoles: 1, outstandingTraining: 0 });
 
-	// The planter moves the date: the audit row's event says so.
 	await S.db.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
 		VALUES(${HP.id},${hpOwner.account},'launch.changed','edit','launch',${HP.id},'{"event":"moved"}'::jsonb)`);
 	const moved = (await getPlant(S.runtime, await as(networkAdmin), HP.id))!.launch;
@@ -204,7 +192,7 @@ test("the plant view shows Launch status and readiness, then the recorded outcom
 	const done = (await getPlant(S.runtime, await as(networkAdmin), HP.id))!;
 	assert.equal(done.launch.status === "shared" && done.launch.state, "completed");
 	assert.deepEqual(done.launch.status === "shared" && done.launch.outcome, {
-		actualDate: done.plant.launchDate && shiftDays(done.plant.launchDate, -30),
+		actualDate: planned && shiftDays(planned, -30),
 		attendance: 212,
 		decisions: 9,
 	});
@@ -223,7 +211,8 @@ test("a plant that does not share findings shows only the directory's planned da
 	assert.deepEqual(view.launch, { status: "withheld" });
 	assert.equal(view.summary, null);
 	const row = (await listPlants(S.runtime, await as(networkAdmin)))!.plants.find((p) => p.plantId === MF.id)!;
-	assert.equal(view.plant.launchDate, row.launchDate);
+	assert.deepEqual(view.plant.path, row.path);
+	assert.equal(row.path.kind === "launch_sunday" && row.path.date !== null, true);
 	assert.equal(view.plant.health, "limited_visibility");
 });
 
@@ -241,7 +230,6 @@ test("a published summary shows at once, its edit replaces it, and turning findi
 	await share(hpToN, "findings", false);
 	assert.equal(await read(networkAdmin), null);
 	assert.deepEqual((await getPlant(S.runtime, await as(networkAdmin), HP.id))!.launch, { status: "withheld" });
-	// Grace Austin's own link still shares findings with it.
 	assert.equal((await read(graceOwner))?.body, "We launched with 214 people.");
 	await share(hpToN, "findings", true);
 });
@@ -260,7 +248,6 @@ test("the Region picker suggests official areas, makes an ambiguous place choose
 	});
 	assert.ok(springfield!.length > 1);
 	assert.deepEqual(await suggestRegions(S.runtime, owner, { city: "Nowhere", stateProvince: "TX", country: "US" }), []);
-	// A micro area from the official list.
 	const kerrville = await suggestRegions(S.runtime, owner, {
 		city: "Kerrville",
 		stateProvince: "Texas",
@@ -288,7 +275,6 @@ test("the Region picker suggests official areas, makes an ambiguous place choose
 				},
 			} as never),
 		);
-	// Another place's area is refused: only an offered candidate saves.
 	await assert.rejects(save(hpOwner, springfield![0]!.regionItemId, current.revision), /region_unavailable/);
 	await assert.rejects(save(hpMember, austin![0]!.regionItemId, current.revision), /unavailable/);
 	await assert.rejects(save(networkAdmin, austin![0]!.regionItemId, current.revision), /unavailable/);
@@ -307,32 +293,29 @@ test("the Region picker suggests official areas, makes an ambiguous place choose
 	assert.doesNotMatch(JSON.stringify(await listPlants(S.runtime, await as(networkAdmin))), /Private Lane/);
 });
 
-/** The Dallas area for Oak Cliff and Austin for Eastside, saved by each plant's Owner. */
+async function placeIn(p: Owner, city: string) {
+	const owner = await S.identity(p, "owner");
+	const a = await as(owner);
+	const where = (await readReportingLocation(S.runtime, a))!;
+	const [c] = (await suggestRegions(S.runtime, a, { city, stateProvince: "TX", country: "US" }))!;
+	await S.write(owner, (tx) =>
+		api["organizations.correctReportingLocation"](tx, owner.session, owner.selected, {
+			requestKey: randomUUID(),
+			expectedRevision: where.revision,
+			input: {
+				plant: p,
+				locality: { city, stateProvince: "TX", country: "US" },
+				referenceVersionId: where.referenceVersionId,
+				regionItemId: c!.regionItemId,
+			},
+		} as never),
+	);
+}
 async function placeOthers() {
-	for (const [p, city] of [
-		[OC, "Dallas"],
-		[EC, "Austin"],
-	] as const) {
-		const owner = await S.identity(p, "owner");
-		const a = await as(owner);
-		const where = (await readReportingLocation(S.runtime, a))!;
-		const [c] = (await suggestRegions(S.runtime, a, { city, stateProvince: "TX", country: "US" }))!;
-		await S.write(owner, (tx) =>
-			api["organizations.correctReportingLocation"](tx, owner.session, owner.selected, {
-				requestKey: randomUUID(),
-				expectedRevision: where.revision,
-				input: {
-					plant: p,
-					locality: { city, stateProvince: "TX", country: "US" },
-					referenceVersionId: where.referenceVersionId,
-					regionItemId: c!.regionItemId,
-				},
-			} as never),
-		);
-	}
+	await placeIn(OC, "Dallas");
+	await placeIn(EC, "Austin");
 }
 
-/** A group's near-launch (NIR-03) pattern, or null. */
 const near = (g: { patterns: { rule: string }[] }) =>
 	(g.patterns.find((p) => p.rule === "NIR-03") as Extract<IntelligencePattern, { rule: "NIR-03" }> | undefined) ?? null;
 
@@ -349,6 +332,7 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 			run: null,
 			history: [],
 			groups: [],
+			geographyReleases: [],
 			canRefresh: true,
 		},
 	);
@@ -367,6 +351,7 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 		observed: 3,
 		plants: ["Harvest Point", "Oak Cliff Church"],
 		rating: null,
+		citation: { rubric: "everyfield-network/v1", rule: "NIR-03", source: "docs/reference/network-rubric-v1.json" },
 	});
 	assert.deepEqual(
 		portfolio!.rows.map((r) => [r.name, r.status === "shared" ? r.results["NIR-03"] : r.status]),
@@ -377,7 +362,6 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 			["Oak Cliff Church", "gap"],
 		],
 	);
-	// Not shared carries nothing but its name and link.
 	assert.deepEqual(Object.keys(portfolio!.rows.find((r) => r.name === "Mueller Fellowship")!).sort(), [
 		"name",
 		"plantId",
@@ -396,9 +380,65 @@ test("Network Intelligence names the near-launch pattern only where two sharing 
 	assert.deepEqual(await at("region"), {
 		"Austin-Round Rock-San Marcos, TX (metro area)": null,
 		"Dallas-Fort Worth-Arlington, TX (metro area)": null,
-		"No Region set": null,
+		"Region unresolved": null,
 	});
 	assert.doesNotMatch(JSON.stringify(whole), /Round Rock"|Private Lane|Hank|Olive|Ana Eastside/);
+});
+
+test("in one Region two sharing plants make a pattern citing the network rubric; the plant that doesn't share reads Not shared", async () => {
+	const region = await S.tenant("sending_network", "Capital Region Network");
+	const director = await as(await S.identity(region, "admin"));
+	const plants: Owner[] = [];
+	for (const [name, shares] of [
+		["North Austin Church", true],
+		["South Austin Church", true],
+		["Central Austin Church", false],
+	] as const) {
+		const p = await plant(name, "Austin");
+		await placeIn(p, "Austin");
+		await link(p, region, shares ? sharing : ["people"]);
+		await responsibility(p, "children", null);
+		await launch(p, 12);
+		plants.push(p);
+	}
+	await requestIntelligenceRefresh(S.runtime, director, { runId: randomUUID() });
+	const [g] = (await readIntelligence(S.runtime, director, { level: "region", runId: null }))!.groups;
+	assert.equal(g!.label, "Austin-Round Rock-San Marcos, TX (metro area)");
+	assert.deepEqual(
+		g!.rows.map((r) => [r.name, r.status === "shared" ? r.results["NIR-03"] : r.status]),
+		[
+			["Central Austin Church", "not_shared"],
+			["North Austin Church", "gap"],
+			["South Austin Church", "gap"],
+		],
+	);
+	const pattern = near(g!)!;
+	assert.deepEqual(
+		{ ...pattern, plants: pattern.plants.map((p) => p.name) },
+		{
+			key: `NIR-03:region:${g!.key}`,
+			rule: "NIR-03",
+			theme: "near_launch",
+			support: 2,
+			observed: 2,
+			plants: ["North Austin Church", "South Austin Church"],
+			rating: null,
+			citation: { rubric: "everyfield-network/v1", rule: "NIR-03", source: "docs/reference/network-rubric-v1.json" },
+		},
+	);
+	assert.deepEqual(Object.keys(pattern.plants[0]!).sort(), ["name", "plantId"]);
+	assert.doesNotMatch(JSON.stringify(g), /Private Lane|lead"|personId|"body"|"summary"|"title"/);
+	assert.deepEqual(
+		g!.rows.find((r) => r.name === "Central Austin Church"),
+		{
+			status: "not_shared",
+			plantId: plants[2]!.id,
+			name: "Central Austin Church",
+		},
+	);
+	await S.db.execute(sql`UPDATE affiliation SET shared_findings=false WHERE plant_id=${plants[1]!.id}`);
+	const [single] = (await readIntelligence(S.runtime, director, { level: "region", runId: null }))!.groups;
+	assert.deepEqual(single!.patterns, []);
 });
 
 test("a sharing plant with no launch date is Unknown, and one qualifying plant makes no pattern", async () => {
@@ -425,7 +465,6 @@ test("Refresh keeps history, a Member cannot refresh or rate, and turning sharin
 	const before = (await readIntelligence(S.runtime, admin, { level: "portfolio", runId: null }))!;
 	const second = randomUUID();
 	await requestIntelligenceRefresh(S.runtime, admin, { runId: second });
-	// The same press again records nothing new.
 	assert.deepEqual(await requestIntelligenceRefresh(S.runtime, admin, { runId: second }), {
 		status: "ok",
 		value: { runId: second, outcome: "noop" },
@@ -447,7 +486,6 @@ test("Refresh keeps history, a Member cannot refresh or rate, and turning sharin
 		assert.equal(near(view.groups[0]!), null);
 	}
 	await share(hpToN, "findings", true);
-	// An organization's run id is not another organization's.
 	const other = await as(graceOwner);
 	assert.equal(await readIntelligence(S.runtime, other, { level: "portfolio", runId: second }), null);
 	void mfToN;

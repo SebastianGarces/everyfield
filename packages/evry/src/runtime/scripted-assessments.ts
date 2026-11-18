@@ -1,16 +1,11 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 
-// The scripted model's interviews, 4 C's, commitments, merges and corrections (WP-061, WP-062), for local previews and
-// tests only. It answers the way a model would, through the same tools: find the person, read or propose, then say
-// what came back. It never fills in a rating, score, result or date the user did not give: it asks for it instead.
-
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
 type Output = Record<string, unknown> & { operation?: string; rows?: Row[]; proposalId?: string; refusal?: string };
 type Call = (toolName: string, input: unknown) => LanguageModelV4Content;
 const say = (text: string): LanguageModelV4Content[] => [{ type: "text", text }];
 
-/** Every tool result since the user's last message, in order: this turn's reads so far. */
 function turnOutputs(prompt: Prompt): Output[] {
 	const out: Output[] = [];
 	for (let i = prompt.length - 1; i >= 0; i--) {
@@ -28,7 +23,6 @@ const assistantTexts = (prompt: Prompt) =>
 	prompt.flatMap((m) => (m.role === "assistant" ? m.content.flatMap((p) => (p.type === "text" ? [p.text] : [])) : []));
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-/** The church's today from the prompt's trusted clock. The scripted church is the fixture's, in Central time. */
 function today(prompt: Prompt) {
 	const system = prompt.find((m) => m.role === "system");
 	const at = system ? /Current time \(trusted server clock\): (\S+?)\.?$/m.exec(system.content)?.[1] : undefined;
@@ -37,7 +31,6 @@ function today(prompt: Prompt) {
 }
 const shift = (day: string, days: number) =>
 	new Date(Date.parse(`${day}T12:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
-/** "today", "yesterday", "on Oct 4" or "October 4, 2026": the date the user gave, or null when they gave none. */
 function dateIn(text: string, prompt: Prompt): string | null {
 	const day = today(prompt);
 	if (/\btoday\b/i.test(text)) return day;
@@ -85,7 +78,6 @@ const RESULT_WORDS: Record<string, string> = {
 	follow_up: "follow up",
 };
 
-/** The person the request names: "Daniel's interview", "Maria Santos's four C's", "Alex signed". */
 function named(text: string) {
 	return (
 		/\b([A-Z][a-z]+(?: [A-Z][a-z]+)?)['’]s\b/.exec(text)?.[1] ??
@@ -124,7 +116,6 @@ function intentOf(text: string, prompt: Prompt): Intent | null {
 	if (/\bfix\b.*\binterview date\b/.test(lower))
 		return { kind: "fix_interview_date", name, occurredOn: dateIn(text.split(/\binterview date\b/i)[1] ?? "", prompt) };
 	if (/\bcorrection/.test(lower)) return { kind: "corrections", name };
-	// "Ana's card was signed Sep 21, not Sep 20": the date first named is the right one; the user's words are the reason.
 	const card = /\bcard was signed (.+?), not\b/i.exec(text);
 	if (card) return { kind: "fix_card_date", name, occurredOn: dateIn(card[1]!, prompt), reason: text.trim() };
 	if (/\brecord\b.*\binterview\b/.test(lower)) {
@@ -160,14 +151,12 @@ function intentOf(text: string, prompt: Prompt): Intent | null {
 	if (/\bcommitment\b/.test(lower)) return { kind: "commitments", name };
 	return null;
 }
-/** "Jon Smith", "John Smith" from "is jon smith the same as john smith?". */
 function nameList(text: string) {
 	const m = /\b([a-z]+ [a-z]+) (?:the same as|and|or) ([a-z]+ [a-z]+)\b/i.exec(text.replace(/^is /i, ""));
 	return m ? [m[1]!, m[2]!] : [];
 }
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
-/** What is still missing from a recording request, in words, or null. */
 function missing(intent: Intent): string | null {
 	if (intent.kind === "record_interview") {
 		const left = CRITERIA.filter(([k]) => !intent.ratings[k]).map(([k]) => CRITERION_WORDS[k]!);
@@ -245,7 +234,6 @@ export function assessmentStep(
 				rows.find((r) => intent.names.some((n) => same(n, r.label) || same(n, String(r.fields.mayDuplicate ?? "")))) ??
 				(intent.names.length ? undefined : rows[0]);
 			if (!pair) return say("I can't find those two people among the possible duplicates to review.");
-			// The person the import flagged merges into the person already in People, as the People review defaults.
 			return read("people.getMergeReview", { sourceId: pair.id, survivorId: pair.fields.mayDuplicateId });
 		}
 		const merge = review.rows?.find((r) => r.kind === "merge");
@@ -270,8 +258,6 @@ export function assessmentStep(
 	if (intent.kind === "unmerge") {
 		const preview = of("people.previewUnmerge");
 		if (!preview) {
-			// The people the conversation named: the survivor an earlier answer named, then each name the user asked
-			// about. An answer that used the merged person is withheld after the merge; the user's own words stay.
 			const into = assistantTexts(prompt)
 				.map((t) => /\binto ([A-Z][\w'-]+(?: [A-Z][\w'-]+)?)/.exec(t)?.[1])
 				.filter((n): n is string => Boolean(n));
@@ -291,11 +277,9 @@ export function assessmentStep(
 		return propose("people.unmergePeople", { mergeId: row.id });
 	}
 
-	// Every other request names one person: find them first.
 	const found = of("people.listPeople");
 	if (!found) return [toolCall("people_read", { operation: "people.listPeople", input: { search: intent.name } })];
 	const rows = found.rows ?? [];
-	// A full name, or a first name that starts exactly one person's name ("Ana" is not "Dana Abbott").
 	const exact = rows.filter((r) => same(r.label, intent.name));
 	const word = rows.filter((r) => r.label.toLowerCase().startsWith(`${intent.name.toLowerCase()} `));
 	const matches = exact.length === 1 ? exact : word.length ? word : rows;

@@ -4456,7 +4456,10 @@
         "WP-004",
         "WP-092"
       ],
-      "status": "future-not-run",
+      "status": "run",
+      "run_by": [
+        "tests/integration/target/sql/knowledge/unmerge.test.mts"
+      ],
       "layers": [
         "integration",
         "request",
@@ -4536,7 +4539,7 @@
       "expected": {
         "state": {},
         "result": {
-          "error_code": "unmerge_conflict",
+          "error_code": "inverse_conflict",
           "current_reference": "P1",
           "provider_undos": 0,
           "provider_resends": 0,

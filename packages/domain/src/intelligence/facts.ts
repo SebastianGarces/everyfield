@@ -12,20 +12,12 @@ import { plantViewer } from "../documents/access.ts";
 import { effectiveAdult } from "../people/adult.ts";
 import { commitmentOf } from "../people/commitments/lifecycle.ts";
 import { compatible } from "../teams/training/reads.ts";
-
-// Plant Intelligence measured facts (WP-040). One statement reads every input the facts use, under the live Owner or
-// Admin check of the exact plant (C13); `buildFacts` turns those inputs into facts with no I/O, so every counting rule
-// is testable at a fixed date. The inputs never include private care, and interviews and 4 C's arrive only as a count
-// and a latest date: the statement reads no score, note, result or qualification column. `sourceRevision` digests the
-// inputs, so any committed change to one of them gives the next read a new revision and leaves earlier assessment
-// work stale, while the same records always give the same revision.
+import { eligibleOwner } from "../tasks/owner.ts";
 
 const presence = z.strictObject({ count: z.int(), latestOn: z.string().nullable() });
 
-/** Everything the fact builder reads, exactly. A field added to the statement must be added here, or parsing fails. */
 export const factInputs = z.strictObject({
 	zone: z.string(),
-	/** Live people with at least one valid commitment card. */
 	people: z.array(
 		z.strictObject({
 			id: z.uuid(),
@@ -38,11 +30,9 @@ export const factInputs = z.strictObject({
 			),
 		}),
 	),
-	/** The last two completed Vision meetings with attendance, newest first. */
 	vision: z.array(z.strictObject({ on: z.string(), attended: z.int() })).max(2),
 	nextVision: z.string().nullable(),
 	anyAttendance: z.boolean(),
-	/** Each person's attended dates of completed meetings in the last 56 days. */
 	attendance: z.array(z.strictObject({ personId: z.uuid(), on: z.array(z.string()) })),
 	followUps: z.array(
 		z.strictObject({
@@ -50,9 +40,9 @@ export const factInputs = z.strictObject({
 			state: z.enum(["open", "complete", "no_longer_needed", "superseded"]),
 			completion: instant.nullable(),
 			contacted: z.boolean(),
+			owned: z.boolean(),
 		}),
 	),
-	/** Current holders of a role mapped to a methodology responsibility. */
 	roles: z.array(z.strictObject({ key: z.string(), id: z.uuid(), name: z.string() })),
 	training: z.array(
 		z.strictObject({
@@ -71,6 +61,16 @@ export const factInputs = z.strictObject({
 	),
 	interviews: presence,
 	fourCs: presence,
+	launch: z
+		.strictObject({
+			target: z.string().nullable(),
+			actual: z.string().nullable(),
+			status: z.enum(["planning", "scheduled", "postponed", "completed"]),
+			path: z.enum(["launch_sunday", "milestone"]),
+			reachedOn: z.string().nullable(),
+			reachedName: z.string().nullable(),
+		})
+		.nullable(),
 });
 export type FactInputs = z.infer<typeof factInputs>;
 
@@ -83,7 +83,6 @@ const byName = (a: Named, b: Named) => a.name.localeCompare(b.name) || a.id.loca
 const max = (dates: string[]) => dates.reduce<string | null>((m, d) => (m === null || d > m ? d : m), null);
 
 type Acquiring = { adult: { value: "adult" | "child" | "unknown" }; firstOn: string | null };
-/** Each person's adult value at `today` and their first commitment signed on or before it. */
 const acquiring = (p: FactInputs["people"][number], today: string) => {
 	const signed = p.cards.filter((k) => k.on <= today);
 	return {
@@ -93,11 +92,6 @@ const acquiring = (p: FactInputs["people"][number], today: string) => {
 	};
 };
 
-/**
- * The growth clock at plant-local `today` (the facts' growth rule, which Network Intelligence's NIR-05 also reads): the
- * newest first-time committed adult's first commitment and the days since. A withdrawal never removes it, and an old
- * date proves no slowdown while an unclassified person signed after it.
- */
 function growthClock(
 	people: Acquiring[],
 	today: string,
@@ -114,7 +108,6 @@ function growthClock(
 	return { ...clock, status: daysSince < c.GROWTH_STALLED_DAYS ? "slowed" : "stalled", reason: null };
 }
 
-/** Days since the newest first-time committed adult, or null when the facts read growth as Unknown (NIR-05). */
 export function growthDays(people: FactInputs["people"], today: string): number | null {
 	const clock = growthClock(
 		people.map((p) => acquiring(p, today)),
@@ -123,7 +116,24 @@ export function growthDays(people: FactInputs["people"], today: string): number 
 	return clock.status === "unknown" ? null : clock.daysSince;
 }
 
-/** The facts of one plant at `asOf`, whose plant-local date is `today`. Pure: the same inputs give the same facts. */
+function launchCountdown(l: FactInputs["launch"], today: string) {
+	const scheduled = l && l.status === "scheduled" && !l.actual ? l.target : null;
+	return {
+		targetOn: scheduled,
+		daysToLaunch: scheduled ? Math.round((Date.parse(scheduled) - Date.parse(today)) / DAY) : null,
+	};
+}
+
+function firstServiceOf(l: FactInputs["launch"], today: string): z.input<typeof c.firstService> {
+	const held = (on: string | null) => (on !== null && on <= today ? on : null);
+	if (l?.path === "milestone") {
+		const heldOn = held(l.reachedOn);
+		return { path: "milestone", status: heldOn ? "met" : "unknown", milestone: heldOn ? l.reachedName : null, heldOn };
+	}
+	const heldOn = l?.status === "completed" ? held(l.actual) : null;
+	return { path: "launch_sunday", status: heldOn ? "met" : "unknown", heldOn };
+}
+
 export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.PlantFacts {
 	const windowStart = addDays(today, -(c.WINDOW_DAYS - 1));
 	const priorStart = addDays(today, -(2 * c.WINDOW_DAYS - 1));
@@ -136,7 +146,6 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 	}));
 	const active = people.filter((p) => p.commitment.state === "active");
 
-	// Committed adults: each live person once, whatever teams or signatures they have.
 	const counted = active.filter((p) => p.adult.value === "adult");
 	const unclassified = active.filter((p) => p.adult.value === "unknown");
 	const known = counted.length;
@@ -161,7 +170,6 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		children: active.filter((p) => p.adult.value === "child").length,
 	};
 
-	// Growth: each adult's first valid commitment, whatever happened after it. A withdrawal never removes it.
 	const acquired = people.filter((p) => p.adult.value === "adult" && p.firstOn !== null);
 	const inCurrent = acquired.filter((p) => within(p.firstOn!, windowStart, today));
 	const growth: z.input<typeof c.growth> = {
@@ -173,7 +181,6 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		priorStart,
 	};
 
-	// Vision rhythm from held meetings only; a scheduled one never counts.
 	const lastVision = inputs.vision[0] ?? null;
 	const visionDays = lastVision ? c.daysBetween(lastVision.on, today) : null;
 	const vision: z.input<typeof c.visionRhythm> = {
@@ -194,7 +201,6 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		nextScheduledOn: inputs.nextVision,
 	};
 
-	// Cohesion: committed people who attended in the prior 28 days and not in the last 28.
 	const attendedOn = new Map(inputs.attendance.map((a) => [a.personId, a.on]));
 	const disengaged = active
 		.filter((p) => {
@@ -214,7 +220,6 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		committed: active.length,
 	};
 
-	// Follow-ups: the meetings' own 48-hour measure. No longer needed is left out, never a miss; contact is separate.
 	const measures = inputs.followUps.map((f) =>
 		measure({ originAt: f.originAt, state: f.state, completion: f.state === "complete" ? f.completion : null }, asOf),
 	);
@@ -230,7 +235,6 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		total: inputs.followUps.length,
 	};
 
-	// Coverage: stable responsibility keys, filled slots and distinct people apart.
 	const holders = (key: string) =>
 		inputs.roles
 			.filter((r) => r.key === key)
@@ -248,7 +252,6 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		prayerLeader: holders("prayer"),
 	};
 
-	// Training: every saved required person/program obligation. Complete means all of them, never a rounded share.
 	const programs = inputs.training.map((g) => ({
 		id: g.id,
 		name: g.name,
@@ -292,15 +295,18 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		return a.value === "yes" ? "met" : a.value === "not_yet" ? "not_met" : "unknown";
 	};
 
+	const launch = launchCountdown(inputs.launch, today);
+	const firstService = firstServiceOf(inputs.launch, today);
 	const criteria: Partial<Record<CriterionKey, CriterionStatus>> = {
 		committed_adults: committedAdults.status,
 		growth_trajectory: growth.status === "unknown" ? "unknown" : growth.status === "stalled" ? "not_met" : "met",
 		financial_base: answer("financial_base_established"),
-		// An actual worship assignment is evidence; no assignment is not proof that nobody agreed to lead.
 		worship_leader: coverage.responsibilities[0]!.people.length ? "met" : "unknown",
 		all_team_leaders: coverage.status,
 		training_complete: training.status,
 		systems_tested: answer("systems_tested"),
+		...c.launchCriteria(launch),
+		first_service_complete: firstService.status,
 	};
 
 	return c.plantFacts.parse({
@@ -317,6 +323,8 @@ export function buildFacts(inputs: FactInputs, asOf: Instant, today: string): c.
 		training,
 		attestations,
 		humanRecords: { interviews: inputs.interviews, fourCs: inputs.fourCs },
+		launch,
+		firstService,
 		criteria,
 	});
 }
@@ -327,7 +335,6 @@ const MANUAL = sql.join(
 	sql`,`,
 );
 
-/** Live people of plant `plant` with at least one valid commitment card, as factInputs.people (JSON). */
 export const peopleJson = (
 	plant: SQL,
 ) => sql`coalesce((SELECT jsonb_agg(jsonb_build_object('id',p.id,'name',p.display_name,'birth',p.birth_date::text,
@@ -340,10 +347,6 @@ export const peopleJson = (
   FROM person p WHERE p.tenant_id=${plant} AND p.state='live'
   AND EXISTS(SELECT FROM commitment k WHERE k.person_id=p.id AND k.plant_id=p.tenant_id AND k.voided_at IS NULL)),'[]'::jsonb)`;
 
-/**
- * The one statement. `x` holds the plant, its zone, the as-of instant and its plant-local date, and exists only when
- * the live Owner or Admin check holds, so every input below reads nothing otherwise.
- */
 function statement(plant: string, ok: SQL, at: SQL) {
 	const held = (m: SQL) => sql`${m}.plant_id=x.plant AND ${m}.status='completed' AND ${m}.retired_at IS NULL
  AND ${m}.occurrence_voided_at IS NULL AND coalesce(${m}.actual_occurrence_at,${m}.starts_at)<=x.at`;
@@ -351,7 +354,6 @@ function statement(plant: string, ok: SQL, at: SQL) {
 	const attended = (m: SQL) =>
 		sql`(SELECT count(*)::int FROM participation pa WHERE pa.meeting_id=${m}.id AND pa.plant_id=${m}.plant_id
  AND pa.removed_at IS NULL AND pa.presence='attended')`;
-	// An outcome is evidence for the duty it was recorded on and for those one contact finished with it (followups).
 	const evidence = sql`(e.obligation_id=o.id OR (e.person_id=o.person_id AND t.id=ANY(e.also_task_ids)))`;
 	return sql`WITH gate AS (SELECT ${ok} AS ok),
  x AS (SELECT pl.id AS plant,pl.timezone AS zone,${at} AS at,(${at} AT TIME ZONE pl.timezone)::date AS today
@@ -381,7 +383,9 @@ function statement(plant: string, ok: SQL, at: SQL) {
    'completion',(SELECT ${iso(sql`e.occurred_at`)} FROM contact_outcome e WHERE e.plant_id=o.plant_id AND ${evidence}
     AND e.voided_at IS NULL AND e.completes_task ORDER BY e.occurred_at,e.id LIMIT 1),
    'contacted',EXISTS(SELECT FROM contact_outcome e WHERE e.plant_id=o.plant_id AND ${evidence}
-    AND e.voided_at IS NULL AND e.outcome='contacted')) ORDER BY o.origin_at,o.id)
+    AND e.voided_at IS NULL AND e.outcome='contacted'),
+   'owned',t.deleted_at IS NULL AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id
+    AND ${eligibleOwner(sql`ta.account_id`, sql`t.plant_id`)})) ORDER BY o.origin_at,o.id)
   FROM obligation o LEFT JOIN LATERAL (SELECT k.* FROM task k WHERE k.obligation_id=o.id AND k.plant_id=o.plant_id
    ORDER BY k.deleted_at NULLS FIRST,k.created_at DESC LIMIT 1) t ON true
   WHERE o.plant_id=x.plant AND o.kind='follow_up'),'[]'::jsonb),
@@ -405,7 +409,10 @@ function statement(plant: string, ok: SQL, at: SQL) {
  'interviews',(SELECT jsonb_build_object('count',count(*)::int,'latestOn',max(i.interviewed_on)::text)
   FROM interview i JOIN person p ON p.id=i.person_id AND p.tenant_id=i.plant_id AND p.state='live' WHERE i.plant_id=x.plant),
  'fourCs',(SELECT jsonb_build_object('count',count(*)::int,'latestOn',max(f.assessed_on)::text)
-  FROM four_cs f JOIN person p ON p.id=f.person_id AND p.tenant_id=f.plant_id AND p.state='live' WHERE f.plant_id=x.plant)
+  FROM four_cs f JOIN person p ON p.id=f.person_id AND p.tenant_id=f.plant_id AND p.state='live' WHERE f.plant_id=x.plant),
+ 'launch',(SELECT jsonb_build_object('target',l.target_date::text,'actual',l.actual_date::text,'status',l.status,
+  'path',l.gathering_path,'reachedOn',l.gathering_reached_on::text,'reachedName',l.gathering_reached_name)
+  FROM launch l WHERE l.plant_id=x.plant)
  ) AS inputs
  FROM gate LEFT JOIN x ON true`;
 }
@@ -425,10 +432,16 @@ class Refusal extends Error {
 	}
 }
 
-/** The fact reader. A clock fixes the as-of instant; without one it is the statement's own time. */
+export async function captureFacts(db: Pick<Database, "execute">, plant: string, at: string | null) {
+	const when = at === null ? sql`statement_timestamp()` : sql`${instant.parse(at)}::timestamptz`;
+	const { rows } = await db.execute(statement(plant, sql`true`, when));
+	const r = factsRow.parse(rows[0]);
+	if (!r.ok || !r.today || !r.at) return null;
+	return buildFacts(factInputs.parse(r.inputs), r.at, r.today);
+}
+
 export function createFacts(config: { clock?: Clock } = {}) {
 	return {
-		/** intelligence.readFacts: the plant's measured facts for its Owner or Admin. One statement, whatever the data size. */
 		async readFacts(
 			db: Pick<Database, "execute">,
 			authority: RequestActor,

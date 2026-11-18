@@ -3,7 +3,7 @@
 import { ArrowDown01Icon, BellIcon, Cancel01Icon, Menu01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Menu, MenuContent, MenuTrigger } from "../controls";
 import { AvatarImage } from "../display/AvatarImage";
 import { cn, EvryBot, HoverGroup, Icon, Lockup, LogoMark, useHoverItem } from "../foundations";
@@ -11,42 +11,28 @@ import { both, useIntentPrefetch } from "../controls/IntentLink";
 import { currentKey, linkPrefetch, type ShellItem, type ShellLink, type ShellNav, type ShellUser } from "./nav";
 import { RailTip, ThemeToggle } from "./ThemeToggle";
 
-/** What the top-bar controls do. The overlays they open (command palette, notifications, Evry) belong to other packages. */
 export type ShellActions = {
 	onSearch: () => void;
 	onNotifications: () => void;
-	/** Whether the notification drop-down is open: the bell announces it as expanded or collapsed. */
 	notificationsOpen: boolean;
-	/** Absent on a page where Evry is off, such as the private check-in: the button stays, disabled, and says so. */
 	onAskEvry?: () => void;
+	askEvryShortcut?: string;
+	askEvryOpen?: boolean;
 };
 
 export type AppShellProps = ShellActions & {
 	nav: ShellNav;
 	user: ShellUser;
-	/** The user menu's items (MenuItem, MenuLabel, MenuSeparator). The name button in the top bar opens it. */
 	userMenu: ReactNode;
-	/** The Overview link behind the logo. */
 	homeHref: string;
-	/** Unread notifications. A dot shows on the bell when there are any. */
 	unread: number;
-	/** Shown above the page, such as the Member role banner. */
 	banner?: ReactNode;
-	/** Dense list pages (People, Meetings, Documents) use the wide content column. */
 	width?: "default" | "wide";
 	children: ReactNode;
 };
 
 const PILL = "bg-surface-raised rounded-nav shadow-nav";
 
-/**
- * The product frame: a top bar of separate pills, an icon rail on the left and a content column (foundations.md, Layout).
- * The top bar and rail span the window; the column stops at 1536px (1920px when wide) and centers beside the rail.
- *
- * Narrow screens (below 1024px) are not drawn in the prototype. There the rail and the top navigation move into one
- * Menu panel under the top bar, so every destination stays one tap away. Below 640px, Search moves into that panel
- * and Ask Evry keeps only the character.
- */
 export function AppShell({
 	nav,
 	user,
@@ -161,16 +147,18 @@ function Topbar({
 						onClick={actions.onAskEvry}
 						disabled={!actions.onAskEvry}
 						title={actions.onAskEvry ? undefined : "Evry is off on this page"}
-						aria-keyshortcuts={actions.onAskEvry ? "Meta+J" : undefined}
-						className="inline-flex h-11 cursor-pointer items-center gap-[9px] rounded-nav-item bg-surface-2 pr-4 pl-2.5 font-medium text-ink transition-[background-color] hover:bg-surface-3 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-surface-2 max-app-xl:pr-3 max-app-sm:px-2.5"
+						aria-keyshortcuts={actions.onAskEvry ? (actions.askEvryShortcut ?? "Meta+J") : undefined}
+						data-shortcut={actions.askEvryShortcut}
+						data-shortcut-claim={actions.askEvryShortcut ? "" : undefined}
+						aria-haspopup={actions.askEvryOpen === undefined ? undefined : "dialog"}
+						aria-expanded={actions.askEvryOpen}
+						className="inline-flex h-11 items-center gap-[9px] rounded-nav-item bg-surface-2 pr-4 pl-2.5 font-medium text-ink transition-[background-color] hover:bg-surface-3 disabled:opacity-45 disabled:hover:bg-surface-2 max-app-xl:pr-3 max-app-sm:px-2.5"
 					>
 						<EvryBot size="sm" />
 						<span className="max-app-sm:sr-only">{actions.onAskEvry ? "Ask Evry" : "Evry is off"}</span>
 					</button>
 				</div>
 
-				{/* The accessible name is the visible text (label in name, WCAG 2.5.3): the name and role line stay in the
-            accessibility tree when narrow screens hide them, and a hidden suffix says what the button opens. */}
 				<Menu>
 					<MenuTrigger
 						className={cn(
@@ -232,7 +220,6 @@ function TopIconButton({
 	label: string;
 	shortcut?: string;
 	onClick: () => void;
-	/** Set for a button that opens a dialog, such as the notification drop-down: its open state. */
 	expanded?: boolean;
 	className?: string;
 	children: ReactNode;
@@ -247,7 +234,7 @@ function TopIconButton({
 			aria-expanded={expanded}
 			onClick={onClick}
 			className={cn(
-				"relative grid size-11 cursor-pointer place-items-center rounded-nav-item text-ink-2 transition-[background-color] hover:bg-surface-2",
+				"relative grid size-11 place-items-center rounded-nav-item text-ink-2 transition-[background-color] hover:bg-surface-2",
 				className,
 			)}
 		>
@@ -321,25 +308,19 @@ function RailItem({ item, current }: { item: ShellItem; current: boolean }) {
 	);
 }
 
-/**
- * The narrow-screen menu: a disclosure button and one panel with every destination and the theme switch. The panel is
- * hidden (so inert) when closed. Esc, a choice or a tap outside closes it, and Esc returns focus to the button.
- */
 function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string | null; onSearch: () => void }) {
 	const [open, setOpen] = useState(false);
 	const panelId = useId();
 	const button = useRef<HTMLButtonElement>(null);
-	const wrapper = useRef<HTMLDivElement>(null);
 	const close = () => setOpen(false);
-
-	useEffect(() => {
-		if (!open) return;
+	const closeOnPointerOutside = useCallback((wrapper: HTMLDivElement | null) => {
+		if (!wrapper) return;
 		const onPointerDown = (e: PointerEvent) => {
-			if (!wrapper.current?.contains(e.target as Node)) setOpen(false);
+			if (!wrapper.contains(e.target as Node)) setOpen(false);
 		};
-		document.addEventListener("pointerdown", onPointerDown);
-		return () => document.removeEventListener("pointerdown", onPointerDown);
-	}, [open]);
+		wrapper.ownerDocument.addEventListener("pointerdown", onPointerDown);
+		return () => wrapper.ownerDocument.removeEventListener("pointerdown", onPointerDown);
+	}, []);
 
 	const onKeyDown = (e: KeyboardEvent) => {
 		if (e.key === "Escape" && open) {
@@ -351,8 +332,7 @@ function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string
 	const rest = [...nav.pages, ...nav.tools];
 
 	return (
-		// Escape from the menu button or any panel link bubbles here and closes the menu; the wrapper is no control.
-		<div ref={wrapper} role="presentation" onKeyDown={onKeyDown} className="app-md:hidden">
+		<div ref={closeOnPointerOutside} role="presentation" onKeyDown={onKeyDown} className="app-md:hidden">
 			<div className={cn(PILL, "flex h-topbar items-center px-2")}>
 				<button
 					ref={button}
@@ -450,7 +430,6 @@ function MenuRow({ item, current, onChoose }: { item: ShellItem; current: boolea
 	);
 }
 
-/** Search sits in the menu only below 640px, where the top bar has no room for it. */
 function MenuSearch({ onChoose }: { onChoose: () => void }) {
 	const { handlers, indicator } = useHoverItem("search");
 	return (

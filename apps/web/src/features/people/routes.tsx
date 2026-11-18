@@ -11,15 +11,11 @@ import type { ReactNode } from "react";
 import { parseQuery, querySearch } from "./model.ts";
 import { PeopleScreen } from "./PeopleScreen.tsx";
 import { PersonScreen } from "./PersonScreen.tsx";
-import { canWrite } from "../shared/seat-role.ts";
+import { canWrite } from "../../components/seat-role.ts";
 import { loadPeople, loadPerson, type Viewer } from "./server.ts";
-import { params } from "../shared/search-params.ts";
-
-// The People routes. The files under apps/web/src/app/(product)/(frame)/people/ only re-export these, so the screens, their
-// data loading and their states stay in this feature folder.
+import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-/** Signed out goes to sign-in and comes back; no seat in a plant sees a lock; a broken setup sees an error. */
 export async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await getViewer();
 	if (v?.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
@@ -82,7 +78,6 @@ export async function PersonPage({
 	const { found, activities, link, survivor } = loaded.value;
 	if (found.status !== "available" || !("stage" in found.person)) notFound();
 	const person = found.person;
-	// REQ-PPL-025: a merged person's links open the survivor, which holds all of its history now.
 	if (person.lifecycle.state === "merged" && survivor?.status === "ok" && survivor.value.status === "available")
 		redirect(`/people/${survivor.value.person.id}?merged`);
 
@@ -131,7 +126,6 @@ function failed() {
 	);
 }
 
-/** A person who is not here: missing, retired out of reach, in another church or a malformed link all read the same. */
 export function PersonNotFound() {
 	return (
 		<>
@@ -157,7 +151,6 @@ export function PersonNotFound() {
 	);
 }
 
-/** The first paint while a People page loads: the list's shape, not a spinner. */
 export function PeopleLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-6">

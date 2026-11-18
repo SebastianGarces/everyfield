@@ -1,7 +1,5 @@
 import type { GetSectionRequest, NotificationChoice, SectionKey, SettingsError, SettingsViewer } from "./port";
 
-// Pure settings rules: which sections exist, which a viewer is offered, and the words for each refusal.
-
 const SECTION_ORDER: readonly SectionKey[] = [
 	"church",
 	"brand",
@@ -24,7 +22,6 @@ export const SECTION_LABEL: Record<SectionKey, string> = {
 	account: "Your account",
 };
 
-/** The sections the product dialog shows. Seats and Sharing are pages of their own (/settings/seats, /settings/sharing). */
 const DIALOG_SECTIONS = [
 	"church",
 	"brand",
@@ -43,13 +40,6 @@ export function parseSectionKey(value: string | undefined): SectionKey | null {
 	return (SECTION_ORDER as readonly string[]).includes(value ?? "") ? (value as SectionKey) : null;
 }
 
-/**
- * The sections this viewer is offered. The server checks authority again on every read and save; this only keeps a
- * section out of the nav when the viewer cannot use it. Church and organization profiles need an Owner or Admin of
- * that exact context, and so do the church brand kit and the church's Wiki source order; notifications and your account are always yours. Seats needs a
- * workspace: without one its page only says it is not available. `slots` names the sections this surface can show, as
- * a section or as a link to their own page, so firstSection never lands on one.
- */
 export function offeredSections(viewer: SettingsViewer, slots: readonly SectionKey[]): SectionKey[] {
 	const admin = viewer.context !== "account" && (viewer.role === "owner" || viewer.role === "admin");
 	return SECTION_ORDER.filter((key) => {
@@ -59,7 +49,7 @@ export function offeredSections(viewer: SettingsViewer, slots: readonly SectionK
 			case "wiki":
 				return viewer.context === "plant" && admin;
 			case "organization":
-				return viewer.context === "organization" && admin;
+				return viewer.context === "organization";
 			case "sharing":
 				return viewer.context === "plant" && slots.includes("sharing");
 			case "seats":
@@ -71,21 +61,15 @@ export function offeredSections(viewer: SettingsViewer, slots: readonly SectionK
 	});
 }
 
-/** Where /settings and the rail's Settings open: the first dialog section this viewer is offered. */
 export function firstSection(viewer: SettingsViewer | null): DialogSection {
 	return (viewer && dialogSection(offeredSections(viewer, [])[0])) ?? "account";
 }
 
-/** The dialog section an address opens. /settings opens the first section this viewer is offered. */
 export function sectionAt(pathname: string, viewer: SettingsViewer | null): DialogSection | null {
 	if (pathname === "/settings") return viewer ? firstSection(viewer) : null;
 	return dialogSection(/^\/settings\/([a-z]+)$/.exec(pathname)?.[1]);
 }
 
-/**
- * The settings-section read a dialog section makes for this viewer; null when the viewer has no such profile, and for
- * the brand kit and the Wiki source order, which have their own reads (brand/, port.wiki).
- */
 export function sectionRequest(viewer: SettingsViewer, section: DialogSection): GetSectionRequest | null {
 	switch (section) {
 		case "church":
@@ -101,7 +85,6 @@ export function sectionRequest(viewer: SettingsViewer, section: DialogSection): 
 	}
 }
 
-/** Only the current Owner can delete the church workspace (REQ-KNOW-066). Admins and Members never see the action. */
 export function canDeleteWorkspace(viewer: SettingsViewer): boolean {
 	return viewer.context === "plant" && viewer.role === "owner";
 }
@@ -125,7 +108,6 @@ export function errorText(error: SettingsError): string {
 	return ERROR_TEXT[error.code];
 }
 
-/** A short reference for support, from the server's correlation id. */
 export function errorReference(error: { correlationId: string }): string {
 	return `EF-${error.correlationId.slice(0, 8).toUpperCase()}`;
 }
@@ -147,12 +129,14 @@ export const CATEGORY_TEXT: Record<Category, { label: string; description: strin
 		label: "Unsubscribes from scheduled email",
 		description: "Someone on an email you scheduled unsubscribes",
 	},
+	residency_confirmation: {
+		label: "Milestone confirmations",
+		description: "Your director confirms a milestone you marked done",
+	},
+	residency_feedback: { label: "Feedback", description: "Your director writes feedback on one of your milestones" },
+	answer_review: { label: "Answers to review", description: "Someone sends you a person's answers to review" },
 };
 
-/**
- * The categories something sends today. Nothing writes launch milestones yet (D-762), so Settings does not offer a
- * choice that nothing reads; its stored choices are kept.
- */
 const SENT: ReadonlySet<Category> = new Set([
 	"task_due",
 	"task_overdue",
@@ -165,9 +149,11 @@ const SENT: ReadonlySet<Category> = new Set([
 	"phase_milestone",
 	"wiki_upstream_review",
 	"scheduled_email_unsubscribe",
+	"residency_confirmation",
+	"residency_feedback",
+	"answer_review",
 ]);
 
-/** The rows of the preference matrix, in the order of CATEGORY_TEXT, with only the sent pairs this audience has. */
 export function preferenceRows(choices: readonly NotificationChoice[]) {
 	return (Object.keys(CATEGORY_TEXT) as Category[])
 		.filter((category) => SENT.has(category))
@@ -178,5 +164,4 @@ export function preferenceRows(choices: readonly NotificationChoice[]) {
 		});
 }
 
-/** Shallow structural equality for drafts made of plain values: one rule, kept in drafts.ts. */
 export { same } from "./drafts.ts";

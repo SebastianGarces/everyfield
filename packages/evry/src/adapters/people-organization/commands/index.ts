@@ -25,17 +25,9 @@ import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../propos
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { failure, problemText } from "../reads/index.ts";
 
-// The reviewed writes for households, tags, skills, notes and imports (WP-064). Each review is one SELECT under the
-// proposal's statement that reads the targets live in the actor's church and saves the native commands' exact
-// arguments, with the revisions the review showed. On approval the executor runs the owning native People commands in
-// its one transaction, each with a request key derived from the effect key, so every change and its audit row commit
-// together or not at all; a record that changed since the review refuses the whole effect. A change that reaches
-// several people (a household's address, a tag) lists each of them in the review and reports each one's result.
-
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
 type Run<A> = (tx: Transaction, context: PeopleContext, args: A, key: string) => Promise<EffectResult>;
 
-/** One reviewed write over native People commands, for the church's Owner or Admin. */
 function reviewed<I, A>(spec: {
 	operation: string;
 	description: string;
@@ -54,7 +46,6 @@ function reviewed<I, A>(spec: {
 		...(spec.current && { current: spec.current }),
 	};
 }
-/** The native reply as the effect's result. */
 function done<T extends { receiptId: string }>(reply: Reply<T>, revision: (value: T) => string): EffectResult {
 	return reply.status === "ok"
 		? { receiptId: reply.value.receiptId, revision: revision(reply.value) }
@@ -64,13 +55,11 @@ function done<T extends { receiptId: string }>(reply: Reply<T>, revision: (value
 const json = (value: unknown) => sql`${JSON.stringify(value ?? null)}::jsonb`;
 const change = (field: string, before: SQL, after: SQL) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${after})`;
-/** The live person `p` in the actor's church. */
 const livePerson = (actor: EvryActor, id: SQL) =>
 	sql`p.id=${id} AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 const personTarget = sql`jsonb_build_object('kind','person','id',p.id,'label',p.display_name)`;
 const householdTarget = sql`jsonb_build_object('kind','household','id',h.id,'label',h.name)`;
 const tagTarget = sql`jsonb_build_object('kind','tag','id',t.id,'label',t.name)`;
-/** A plain reason the review cannot be approved, merged into the review when `when` holds. */
 const refusal = (when: SQL, text: SQL) =>
 	sql`CASE WHEN ${when} THEN jsonb_build_object('refusal',${text}) ELSE '{}'::jsonb END`;
 
@@ -81,7 +70,6 @@ const ADDRESS = [
 	["postalCode", "postal_code"],
 	["country", "country"],
 ] as const;
-/** A row's address as one line, or null when it has none. */
 const addressLine = (a: string) =>
 	sql.raw(`nullif(concat_ws(', ',${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(",")}),'')`);
 const hasAddress = (a: string) =>
@@ -102,9 +90,6 @@ const address = z.strictObject({
 	country: z.string().trim().max(255).nullable().optional(),
 });
 type Address = z.infer<typeof address>;
-/**
- * The before and after of each patched field of row `a` whose value changes. `keys` maps each patch key to its column.
- */
 function fieldChanges(a: string, patch: Record<string, unknown>, keys: Record<string, string>) {
 	const rows = Object.entries(patch)
 		.filter(([, after]) => after !== undefined)
@@ -121,10 +106,6 @@ const personIds = z
 	.min(1)
 	.max(50)
 	.refine((ids) => new Set(ids).size === ids.length, "each person once");
-
-// ---------------------------------------------------------------------------------------------------------------
-// Households (REQ-PPL-009). One current household per person; the household's address reaches its members only
-// through an explicit propagation.
 
 export const createHouseholdWithHead = reviewed({
 	operation: "people.createHouseholdWithHead",
@@ -185,7 +166,6 @@ export const deleteHousehold = reviewed({
 		done(await personFields.deleteHousehold(tx, context, { ...args, requestKey: key }), revisionOf),
 });
 
-/** When a person without an address joins, they take the household's (REQ-PPL-009): each field they gain. */
 const joinedAddress = sql`CASE WHEN NOT ${hasAddress("p")} AND ${hasAddress("h")} THEN (SELECT coalesce(jsonb_agg(
 		jsonb_build_object('field',x.k,'before',NULL,'after',x.v) ORDER BY x.n) FILTER (WHERE nullif(btrim(x.v),'') IS NOT NULL),'[]'::jsonb)
 	FROM (VALUES (1,'street',h.street),(2,'city',h.city),(3,'stateProvince',h.state_province),(4,'postalCode',h.postal_code),(5,'country',h.country)) x(n,k,v))
@@ -281,7 +261,6 @@ export const propagateAddress = reviewed({
 	},
 	async run(tx, context, args: Propagation, key) {
 		let revision = args.expectedRevision;
-		// A move changes the household's own address first, then copies it to every member, in the one transaction.
 		if (Object.keys(args.patch).length) {
 			const moved = await personFields.updateHousehold(tx, context, {
 				requestKey: `${key}:household`,
@@ -307,16 +286,12 @@ export const propagateAddress = reviewed({
 			})),
 		};
 	},
-	// The household's members as they are now, each with their address.
 	current: (
 		p,
 	) => sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',m.id,'label',m.display_name,'value',${addressLine("m")})
 		ORDER BY ${roleOrder("m")}),'[]'::jsonb) FROM person m
 		WHERE m.household_id=(${p}.input->>'householdId')::uuid AND m.tenant_id=${p}.tenant_id AND m.state='live')`,
 });
-
-// ---------------------------------------------------------------------------------------------------------------
-// Tags (REQ-PPL-010). Names that differ only by case or surrounding spaces are the same tag.
 
 export const createTag = reviewed({
 	operation: "people.createTag",
@@ -352,7 +327,6 @@ export const updateTag = reviewed({
 		done(await personFields.updateTag(tx, context, { ...args, requestKey: key }), (v) => v.tag.revision),
 });
 
-/** The live people in this church who have tag `t`. */
 const tagged = sql`(SELECT count(*) FROM person_tag pt JOIN person q ON q.id=pt.person_id AND q.state='live'
 	WHERE pt.tag_id=t.id AND pt.plant_id=t.plant_id)`;
 export const deleteTag = reviewed({
@@ -371,10 +345,6 @@ export const deleteTag = reviewed({
 });
 
 type Tagging = { tag: { id: string } | { create: string }; people: { personId: string; label: string }[] };
-/**
- * One review that puts a tag on, or takes it off, each named live person in this church; no row unless every id is one.
- * The tag is named by id, or by name when assigning: a name no tag has yet is created first.
- */
 function tagReview(actor: EvryActor, ids: string[], tag: SQL, assign: boolean, tagName: string | null) {
 	const name = sql`coalesce((SELECT t.name FROM t),btrim(${tagName}::text))`;
 	const has = sql`EXISTS(SELECT FROM person_tag pt WHERE pt.person_id=ps.id AND pt.plant_id=${actor.owner.id}::uuid AND pt.tag_id=(SELECT t.id FROM t))`;
@@ -392,7 +362,6 @@ function tagReview(actor: EvryActor, ids: string[], tag: SQL, assign: boolean, t
 				'people',(SELECT jsonb_agg(jsonb_build_object('personId',ps.id,'label',ps.display_name) ORDER BY ps.n) FROM ps)) AS args
 		WHERE (SELECT count(*) FROM ps)=${ids.length} AND (EXISTS(SELECT FROM t) OR ${assign && tagName !== null}::boolean)`;
 }
-/** Each person's native tag change in turn; any refusal refuses the whole effect. */
 async function eachPerson(
 	tx: Transaction,
 	context: PeopleContext,
@@ -469,9 +438,6 @@ export const removeTag = reviewed({
 		),
 });
 
-// ---------------------------------------------------------------------------------------------------------------
-// Skills (REQ-PPL-011).
-
 const SKILL_COLUMNS = { name: "name", category: "category", proficiency: "proficiency", notes: "notes" };
 const skillReceipt = (v: { receiptId: string; skills: { revision: string }[] }) => String(v.skills.length);
 export const addSkill = reviewed({
@@ -499,7 +465,6 @@ export const addSkill = reviewed({
 		done(await personFields.addSkill(tx, context, { ...args, requestKey: key }), skillReceipt),
 });
 
-/** The skill `s` with its live person `p` in the actor's church. */
 const liveSkill = (actor: EvryActor, skillId: string) =>
 	sql`FROM person_skill s JOIN person p ON p.id=s.person_id AND p.tenant_id=s.plant_id AND p.state='live'
 	WHERE s.id=${skillId}::uuid AND s.plant_id=${actor.owner.id}::uuid`;
@@ -520,7 +485,6 @@ export const updateSkill = reviewed({
 	}),
 	review(actor, value) {
 		const { name, ...rest } = value.patch;
-		// The skill's name leads, so the card always says which skill changes.
 		return sql`SELECT jsonb_build_object('target',${personTarget},'changes',
 				jsonb_build_array(${change("skill", sql`to_jsonb(s.name)`, name === undefined ? sql`to_jsonb(s.name)` : json(name))})
 				||${fieldChanges("s", rest, SKILL_COLUMNS)}) AS review,
@@ -546,9 +510,6 @@ export const removeSkill = reviewed({
 		done(await personFields.removeSkill(tx, context, { ...args, requestKey: key }), skillReceipt),
 });
 
-// ---------------------------------------------------------------------------------------------------------------
-// Notes (REQ-PPL-008). Only a note's author may edit or delete it; the review says so instead of offering approval.
-
 const noteReceipt = (v: { personRevision: string }) => v.personRevision;
 export const addNote = reviewed({
 	operation: "people.addNote",
@@ -564,7 +525,6 @@ export const addNote = reviewed({
 		done(await peopleWriter.addNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
 });
 
-/** The current note `n` with its live person `p`, and whether the actor wrote it. */
 const liveNote = (actor: EvryActor, noteId: string) =>
 	sql`FROM person_note n JOIN person p ON p.id=n.person_id AND p.tenant_id=n.tenant_id AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'
 	WHERE n.id=${noteId}::uuid AND n.tenant_id=${actor.owner.id}::uuid AND n.removed_at IS NULL`;
@@ -604,11 +564,6 @@ export const deleteNote = reviewed({
 		done(await peopleWriter.deleteNote(tx, context, { ...args, requestKey: key } as never), noteReceipt),
 });
 
-// ---------------------------------------------------------------------------------------------------------------
-// Import (REQ-PPL-018). The review is the preview: every row's planned outcome against today's people. Approval saves
-// the reviewed rows and queues the job that writes them, in the effect's transaction; a church whose people changed
-// since the preview refuses (review_stale) and nothing is saved.
-
 type Preview = z.infer<typeof importPreview>;
 type Choice = z.infer<typeof importChoice>;
 type ImportArgs = {
@@ -617,7 +572,6 @@ type ImportArgs = {
 	reviewDigest: string;
 	choices: { row: number; choice: Choice }[];
 };
-/** Each row's planned outcome, and the native choices: the user's where given, otherwise the preview's suggestion. */
 function plan(preview: Preview, chosen: Map<number, Choice>) {
 	const rows = [];
 	const choices: ImportArgs["choices"] = [];
@@ -669,11 +623,6 @@ const importInput = z
 	});
 const attachedFiles = z.array(attachmentState);
 
-/**
- * The CSV bytes an import reviews. Pasted text is the bytes. An attached file (WP-054) must be in this conversation, not
- * gone and not replaced by a newer file of the same name, and must be the exact file its latest check read: a replaced
- * file or a check of other bytes refuses as file_changed, so the model checks it afresh before any card.
- */
 async function importBytes(actor: EvryActor, value: z.infer<typeof importInput>, context: ReviewContext) {
 	if (value.file !== undefined) return new TextEncoder().encode(value.file);
 	if (!context.conversationId || !context.files) throw new EvryRefusal("attachment_elsewhere");
@@ -701,12 +650,10 @@ export const executeBulkImport = reviewed({
 			if (preview.error.code === "unavailable") return null;
 			throw new EvryRefusal("invalid_input");
 		}
-		// The attached file read now must be the file the check read.
 		if (value.fileDigest !== undefined && preview.value.fileDigest !== value.fileDigest)
 			throw new EvryRefusal("file_changed");
 		const { rows, choices, refusal } = plan(preview.value, new Map(value.choices?.map((c) => [c.row, c.choice])));
 		const args: ImportArgs = {
-			// Kept byte for byte (a leading BOM too), so the run's file digest is the one this review showed.
 			file: new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes),
 			fileDigest: preview.value.fileDigest,
 			reviewDigest: preview.value.reviewDigest,
@@ -737,7 +684,6 @@ export const executeBulkImport = reviewed({
 	},
 });
 
-/** The installed household, tag, skill, note and import reviewed writes, keyed by operation. */
 export const ORGANIZATION_COMMANDS = {
 	"people.addToHousehold": addToHousehold,
 	"people.createHouseholdWithHead": createHouseholdWithHead,

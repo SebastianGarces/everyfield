@@ -26,8 +26,8 @@ import {
 	SegmentedControl,
 } from "@everyfield/ui/controls";
 import { Pagination } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { cn, Icon, useFocusRequest } from "@everyfield/ui/foundations";
+import { useRef, useState, type ReactNode } from "react";
 import {
 	addCount,
 	canReview,
@@ -49,10 +49,7 @@ import {
 
 import { RECONNECTING, type FailedRow, type Notice, type Review } from "./model.ts";
 
-// The four steps of the People CSV import screen. ImportScreen owns the state; these only draw it.
-
 export type StepKey = "upload" | "review" | "import" | "done";
-// ---------------------------------------------------------------------------------------------------------------
 
 const STEPS = [
 	{ key: "upload", label: "Upload" },
@@ -61,7 +58,6 @@ const STEPS = [
 	{ key: "done", label: "Done" },
 ] as const;
 
-/** The step pills from the prototype's import page. They show progress only; the page's buttons move between steps. */
 export function Steps({ current }: { current: StepKey }) {
 	const at = STEPS.findIndex((s) => s.key === current);
 	return (
@@ -108,7 +104,7 @@ export function Steps({ current }: { current: StepKey }) {
 	);
 }
 
-function StepHeading({
+export function StepHeading({
 	heading,
 	children,
 }: {
@@ -122,10 +118,8 @@ function StepHeading({
 	);
 }
 
-function Problem({ notice, actions }: { notice: Notice; actions?: ReactNode }) {
-	const ref = useRef<HTMLDivElement>(null);
-	// An error takes focus when it appears, so the person hears what went wrong and what to do.
-	useEffect(() => ref.current?.focus(), [notice]);
+export function Problem({ notice, actions }: { notice: Notice; actions?: ReactNode }) {
+	const ref = useFocusRequest<HTMLDivElement>(`${notice.title}\n${notice.text}`);
 	return (
 		<Card
 			ref={ref}
@@ -145,25 +139,36 @@ function Problem({ notice, actions }: { notice: Notice; actions?: ReactNode }) {
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
+export type UploadKind = { title: string; accept: string; prompt: string; limits: string; inputLabel: string };
+const CSV_UPLOAD: UploadKind = {
+	title: "Choose a CSV file",
+	accept: ".csv,text/csv",
+	prompt: "Drop a CSV file here, or choose one",
+	limits: "CSV UTF-8, up to 10 MB and 10,000 rows",
+	inputLabel: "Choose a CSV file",
+};
 
 export function UploadStep({
 	heading,
 	checking,
 	error,
 	onFile,
+	kind = CSV_UPLOAD,
+	aside = <TemplateCard />,
 }: {
 	heading: React.RefObject<HTMLHeadingElement | null>;
 	checking: File | null;
 	error: Notice | null;
 	onFile: (file: File) => void;
+	kind?: UploadKind;
+	aside?: ReactNode;
 }) {
 	const [over, setOver] = useState(false);
 	const input = useRef<HTMLInputElement>(null);
 	return (
 		<div className="grid items-start gap-5 app-lg:grid-cols-[minmax(0,1fr)_340px]">
 			<Card className="gap-5">
-				<StepHeading heading={heading}>Choose a CSV file</StepHeading>
+				<StepHeading heading={heading}>{kind.title}</StepHeading>
 				{error ? <Problem notice={error} /> : null}
 				<label
 					onDragOver={(e) => {
@@ -179,27 +184,24 @@ export function UploadStep({
 					}}
 					aria-busy={checking ? true : undefined}
 					className={cn(
-						"flex cursor-pointer flex-col items-center gap-3 rounded-card border border-dashed border-line-2 px-6 py-12 text-center transition-[background-color,border-color] duration-150 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus hover:bg-hover max-app-sm:py-8",
+						"flex flex-col items-center gap-3 rounded-card border border-dashed border-line-2 px-6 py-12 text-center transition-[background-color,border-color] duration-150 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus hover:bg-hover max-app-sm:py-8",
 						over && "border-ink bg-hover",
-						checking && "cursor-progress",
 					)}
 				>
 					<span aria-hidden="true" className="grid size-14 place-items-center rounded-card bg-surface-2 text-text-2">
 						<Icon icon={FileImportIcon} size={24} />
 					</span>
-					<span className="font-medium text-ink">
-						{checking ? `Checking ${checking.name}…` : "Drop a CSV file here, or choose one"}
-					</span>
-					<span className="text-sm text-text-2">CSV UTF-8, up to 10 MB and 10,000 rows</span>
+					<span className="font-medium text-ink">{checking ? `Checking ${checking.name}…` : kind.prompt}</span>
+					<span className="text-sm text-text-2">{kind.limits}</span>
 					<span className={cn(buttonVariants({ variant: "primary" }), "mt-2 pointer-events-none")} aria-hidden="true">
 						{checking ? "Checking…" : "Choose file"}
 					</span>
 					<input
 						ref={input}
 						type="file"
-						accept=".csv,text/csv"
+						accept={kind.accept}
 						className="sr-only"
-						aria-label="Choose a CSV file"
+						aria-label={kind.inputLabel}
 						disabled={checking !== null}
 						onChange={(e) => {
 							const file = e.currentTarget.files?.[0];
@@ -212,32 +214,36 @@ export function UploadStep({
 					{checking ? `Checking ${checking.name}` : ""}
 				</p>
 			</Card>
-			<Card size="sm" className="gap-3">
-				<h3 className="font-semibold text-ink">Start from the template</h3>
-				<p className="text-sm text-text-2 text-pretty">
-					The first row names the columns. Everyfield reads first_name, last_name, email, phone, street, city, state,
-					postal_code, country, source, source_details and notes. Each person needs a first or last name. Other columns
-					are listed and ignored.
-				</p>
-				<p className="text-sm text-text-2 text-pretty">
-					source is one of: {SOURCE_VALUES.join(", ")}. Leave it empty for other.
-				</p>
-				<a
-					href="/api/people/import/template"
-					download
-					className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit")}
-				>
-					<Icon icon={Download04Icon} size={16} />
-					Download template
-				</a>
-			</Card>
+			{aside}
 		</div>
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
+function TemplateCard() {
+	return (
+		<Card size="sm" className="gap-3">
+			<h3 className="font-semibold text-ink">Start from the template</h3>
+			<p className="text-sm text-text-2 text-pretty">
+				The first row names the columns. Everyfield reads first_name, last_name, email, phone, street, city, state,
+				postal_code, country, source, source_details and notes. Each person needs a first or last name. Other columns
+				are listed and ignored.
+			</p>
+			<p className="text-sm text-text-2 text-pretty">
+				source is one of: {SOURCE_VALUES.join(", ")}. Leave it empty for other.
+			</p>
+			<a
+				href="/api/people/import/template"
+				download
+				className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit")}
+			>
+				<Icon icon={Download04Icon} size={16} />
+				Download template
+			</a>
+		</Card>
+	);
+}
 
-function Stat({ label, value, note, tone }: { label: string; value: number; note: string; tone?: string }) {
+export function Stat({ label, value, note, tone }: { label: string; value: number; note: string; tone?: string }) {
 	return (
 		<Card size="sm">
 			<p className="text-md text-text-3">{label}</p>
@@ -282,10 +288,8 @@ export function ReviewStep({
 	const at = Math.min(page, pages);
 	const slice = shown.slice((at - 1) * ROWS_PER_PAGE, at * ROWS_PER_PAGE);
 	const duplicates = counts.existingDuplicates + counts.withinFileDuplicates;
-	// Rows can match both ways; the group counts each row once.
 	const toCheck = rowsIn(preview.rows, "check").length;
 	const ready = counts.valid - toCheck;
-	// A row skipped under its repeat takes away that repeat's review target, so every change rechecks the targets.
 	const choose = (next: Map<number, Choice>) => onChoices(withReviewTargets(preview, next));
 	const setAll = (choice: Choice) => {
 		const next = new Map(choices);
@@ -507,8 +511,6 @@ function RowItem({
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-
 export function ImportStep({
 	heading,
 	receipt,
@@ -541,7 +543,6 @@ export function ImportStep({
 								</Button>
 							</>
 						) : (
-							// The outcome is unknown (UNCONFIRMED): People shows what was saved; nothing here sends the import again.
 							<IntentLink href="/people" className={buttonVariants({ variant: "primary" })}>
 								Go to People
 							</IntentLink>
@@ -593,12 +594,6 @@ export function ImportStep({
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-
-/**
- * The receipt. A partial import offers "Try N rows again" while the server keeps its file; once the file is deleted
- * (7 days after the import stopped), the person uploads the same file again instead (`onRetry` with it).
- */
 export function DoneStep({
 	heading,
 	receipt,
@@ -611,7 +606,6 @@ export function DoneStep({
 	heading: React.RefObject<HTMLHeadingElement | null>;
 	receipt: ImportReceipt;
 	review: Review | null;
-	/** A retry is on its way: the chosen file while it uploads, or true for the kept copy. */
 	working: File | boolean;
 	problem: Notice | null;
 	onRetry: (file?: File) => void;
@@ -620,12 +614,9 @@ export function DoneStep({
 	const { counts } = receipt;
 	const failed = receipt.rows.filter((r): r is FailedRow => r.status === "failed");
 	const invalid = failed.filter((r) => r.reason === "invalid");
-	// Every row the import did not add, each with its reason: the ones that need a fix, the ones the job could not
-	// write and the ones it never reached.
 	const notImported = receipt.rows.filter(
 		(r): r is NotImportedRow => r.status === "failed" || r.status === "remaining",
 	);
-	// Every row still to write: the ones the job tried and could not write, and the ones it never reached.
 	const notSaved = counts.remaining;
 	const partial = receipt.status === "partial";
 	const retry = partial && receipt.fileKept;
@@ -719,7 +710,6 @@ export function DoneStep({
 	);
 }
 
-/** The file button of an expired partial import: the same file, uploaded again to finish its remaining rows. */
 function ChooseAgain({ working, onFile }: { working: File | boolean; onFile: (file: File) => void }) {
 	const busy = working !== false;
 	return (
@@ -728,7 +718,6 @@ function ChooseAgain({ working, onFile }: { working: File | boolean; onFile: (fi
 			className={cn(
 				buttonVariants({ variant: "primary" }),
 				"focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus",
-				busy && "cursor-progress",
 			)}
 		>
 			<Icon icon={FileImportIcon} size={18} />

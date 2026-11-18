@@ -4,12 +4,11 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CommunicationScreen } from "./CommunicationScreen.tsx";
-import { canWrite } from "../shared/seat-role.ts";
-import { communicationViewer, loadCommunicationPage, type Viewer } from "./server.ts";
+import { parseRoute, routeHref } from "./model.ts";
+import { params } from "../../components/search-params.ts";
+import { canWrite } from "../../components/seat-role.ts";
+import { communicationViewer, isReviewedFollowUp, loadCommunicationPage, type Viewer } from "./server.ts";
 
-// The Messages route. apps/web/src/app only re-exports this module. The screen and its states stay in this feature.
-
-/** Signed out goes to sign-in and comes back. No plant seat sees a lock. A broken setup sees an error. */
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const seat = await communicationViewer();
 	if (seat.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
@@ -40,10 +39,14 @@ export const communicationMetadata: Metadata = { title: "Messages", robots: { in
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
 export async function CommunicationPage({ searchParams }: { searchParams?: Search }) {
-	// The address is read on the client from useSearchParams. This awaits it so the page stays dynamic.
-	if (searchParams) await searchParams;
+	const query = searchParams ? Object.fromEntries(params(await searchParams)) : {};
 	const g = await gate("/communication", "Messages");
 	if ("blocked" in g) return g.blocked;
+	const route = parseRoute(query);
+	if (route.kind === "compose" && route.id === "new" && !route.handoff && route.step !== "who")
+		redirect(routeHref({ ...route, step: "who" }));
+	if (route.kind === "history" && route.message && (await isReviewedFollowUp(g.viewer, route.message)))
+		redirect(routeHref({ kind: "compose", id: route.message, step: "review", handoff: null }));
 	const loaded = await loadCommunicationPage(g.viewer);
 	if (loaded.status !== "ok") {
 		return (

@@ -1,0 +1,247 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "phases",
+	"catalog": ["PHASE-001", "PHASE-002", "PHASE-003", "PHASE-004", "PHASE-007", "PHASE-008", "PI-028", "PI-030"],
+	"surfaces": [
+		{
+			"id": "phases.journey",
+			"says": "Where the church is on the Playbook's seven phases: the current phase and its signs, the journey so far, and a reasoned phase change.",
+			"routes": ["/intelligence/journey"],
+			"catalog": ["PHASE-001", "PHASE-002", "PHASE-004", "PHASE-007", "PHASE-008", "PI-028", "PI-030"],
+			"reach": [
+				{
+					"link": "/intelligence/journey"
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "none",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "current",
+					"reach": {
+						"persona": "owner",
+						"open": "/intelligence/journey",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Journey"
+						},
+						{
+							"role": "button",
+							"name": "Change phase"
+						},
+						{
+							"role": "heading",
+							"name": "The seven phases"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/intelligence/journey",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "The journey is for Owners and Admins"
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/intelligence/journey",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fintelligence%2Fjourney"
+						}
+					]
+				},
+				{
+					"id": "loading",
+					"file": "apps/web/src/app/(product)/(frame)/intelligence/journey/loading.tsx",
+					"reach": {
+						"manual": "shows only while the server renders the journey"
+					},
+					"expect": [
+						{
+							"text": "Loading the journey"
+						}
+					]
+				},
+				{
+					"id": "intelligence-loading",
+					"file": "apps/web/src/app/(product)/(frame)/intelligence/loading.tsx",
+					"reach": {
+						"manual": "Plant Intelligence's loading screen, shown while a page outside Plant Intelligence opens this route"
+					},
+					"expect": [
+						{
+							"noText": "Change phase"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "declare",
+					"says": "A church that started mid-journey declares where it was, once; two Admins at once leave one declaration.",
+					"catalog": ["PHASE-001"],
+					"operations": ["phases.declare"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/phases/phases.test.mts",
+								"name": "AC:PHASE-CASE-001 AC:DC-022 AC:DC-032 AC:TARGET-IDN-015 a declaration records where the church was, once, and creation retry keeps it"
+							},
+							{
+								"file": "tests/integration/phases/phases.test.mts",
+								"name": "AC:PHASE-CASE-001 two Admins declaring at the same moment leave exactly one declaration"
+							}
+						],
+						"cases": ["PHASE-CASE-001"],
+						"browser": {
+							"state": "current",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Declare phase"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				},
+				{
+					"id": "readiness",
+					"says": "The signs that a phase is wrapping up are advice: Unknown holds readiness back without failing it.",
+					"catalog": ["PHASE-004", "PHASE-008"],
+					"operations": ["phases.readReadiness"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/phases/phases.test.mts",
+								"name": "AC:PHASE-CASE-004 readiness is an advisory conjunction: Unknown holds it back without failing it"
+							},
+							{
+								"file": "tests/integration/phases/phases.test.mts",
+								"name": "AC:PHASE-CASE-008 AC:B02-032 the catalog has seven phases and the 19 reference keys; Phase 6 is terminal"
+							}
+						],
+						"cases": ["PHASE-CASE-004", "PHASE-CASE-008"],
+						"browser": {
+							"state": "current",
+							"steps": [],
+							"expect": [
+								{
+									"role": "region",
+									"name": "Signs that Phase",
+									"match": "contains"
+								}
+							],
+							"kind": "presence"
+						}
+					}
+				},
+				{
+					"id": "change-phase",
+					"says": "Change phase moves the church to another phase with a reason; the journey shows the move with that reason.",
+					"catalog": ["PHASE-002", "PHASE-007"],
+					"operations": ["phases.transition"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/phases/phases.test.mts",
+								"name": "AC:PHASE-CASE-007 a reasoned move records from, to, direction, reason, actor and time; the history only grows"
+							},
+							{
+								"file": "tests/integration/phases/phases.test.mts",
+								"name": "AC:PHASE-CASE-002 two moves from the same reviewed revision: one wins from Phase 1, the other sees the change"
+							},
+							{
+								"file": "tests/integration/phases/phases.test.mts",
+								"name": "AC:PHASE-CASE-003 the same phase returns a noop receipt and changes nothing else"
+							}
+						],
+						"cases": ["PHASE-CASE-007", "PHASE-CASE-002", "PHASE-CASE-003"],
+						"browser": {
+							"state": "current",
+							"steps": [
+								{
+									"click": {
+										"role": "button",
+										"name": "Change phase"
+									}
+								},
+								{
+									"click": {
+										"role": "combobox",
+										"name": "Move to"
+									}
+								},
+								{
+									"press": "ArrowDown"
+								},
+								{
+									"press": "Enter"
+								},
+								{
+									"type": "Map phase move",
+									"into": "Reason"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Move to Phase",
+										"match": "contains"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "Map phase move",
+									"match": "contains"
+								},
+								{
+									"absent": {
+										"role": "dialog",
+										"name": "Change phase"
+									}
+								}
+							],
+							"kind": "behavior"
+						}
+					}
+				},
+				{
+					"id": "owners-only",
+					"says": "Only a live Owner or Admin seat reads the journey or changes the phase.",
+					"catalog": ["PHASE-007"],
+					"operations": ["phases.readHistory"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/phases/phases.test.mts",
+								"name": "AC:PHASE-CASE-007 only a live Owner or Admin seat reads the journey or changes the phase"
+							}
+						],
+						"cases": ["PHASE-CASE-007"]
+					}
+				}
+			]
+		}
+	]
+}

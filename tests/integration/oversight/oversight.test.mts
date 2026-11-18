@@ -1,7 +1,3 @@
-// Organization oversight reads (WP-047a): the plant directory, one plant's sharing sections and a network's
-// sending-church roster, as a sending church or network seat reads them. Every link, choice and count is set up as
-// the Hill Country example: network N with sending church S (Grace Austin) and plants HP, EC, MF and OC, plus a second
-// network N2 with its own plants.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -28,7 +24,6 @@ const COLUMN: Record<Category, string> = {
 };
 type Owner = Awaited<ReturnType<typeof S.tenant>>;
 
-/** An active link from `subject` (a plant or sending church) to `org`, sharing exactly `shared`. */
 async function link(subject: Owner, org: Owner, shared: readonly Category[] = []) {
 	const column = subject.kind === "plant" ? "plant_id" : "sending_church_id";
 	const r = await S.db.execute(
@@ -69,7 +64,6 @@ async function role(p: Owner, teamId: string, name: string, holders: string[] = 
 			VALUES(${p.id},${id},${h},'2026-01-01')`);
 	return id;
 }
-/** The onboarding lead answer, recording `roleId` as the plant's lead role. */
 async function leadRole(p: Owner, ownerAccount: string, roleId: string, teamId: string, personId: string) {
 	const op = await S.db.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_id)
 		VALUES(${p.id},${ownerAccount},'identity.domain_accepted','create',${p.id}) RETURNING id`);
@@ -123,7 +117,6 @@ before(async () => {
 	emptyChurchOwner = await S.identity(S2, "owner");
 	hpOwner = await S.identity(HP, "owner");
 
-	// Harvest Point shares People and Tasks, and Meetings with none held, with the network; not Ministry teams.
 	hpToN = await link(HP, N, ["people", "tasks", "meetings"]);
 	hpToGA = await link(HP, GA, ALL);
 	await link(EC, N);
@@ -132,24 +125,20 @@ before(async () => {
 	await link(OC, N);
 	await link(GA, N);
 	await link(Q2, N2, ALL);
-	// Westlake is linked to Grace Austin and another network, never to Hill Country.
 	await link(R, GA);
 	await link(R, N2);
 
-	// Dana owns Harvest Point; the lead role the onboarding answer recorded is held by Marcus now.
 	dana = await person(HP, "Dana Ortiz", "leader");
 	marcus = await person(HP, "Marcus Hill", "leader");
 	const leadership = await team(HP, "Leadership");
 	const lead = await role(HP, leadership, "Lead planter", [marcus]);
 	await leadRole(HP, hpOwner.account, lead, leadership, dana);
-	// One person on two teams is still one person.
 	two = await person(HP, "Two Teams", "core_group");
 	await role(HP, await team(HP, "Kids"), "Kids helper", [two]);
 	await role(HP, await team(HP, "Worship"), "Vocals", [two]);
 	await person(HP, "Prospect One", "prospect");
 	await person(HP, "Launch Two", "launch_team");
 
-	// Twelve open top-level tasks, two overdue; plus checklist rows, two waived, one cancelled and one complete.
 	for (let i = 0; i < 10; i++) await task(HP);
 	const parent = await task(HP, { due: "2026-01-02" });
 	await task(HP, { due: "2026-01-03", status: "blocked" });
@@ -158,7 +147,6 @@ before(async () => {
 	await task(HP, { deleted: true });
 	await task(HP, { status: "complete" });
 
-	// Eastside Commons recorded a lead role that no one holds now, and Oak Cliff has no lead answer at all.
 	const ecOwner = await S.identity(EC, "owner");
 	const priya = await person(EC, "Priya Shah");
 	const ecTeam = await team(EC, "Leadership");
@@ -180,7 +168,7 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			stateProvince: "TX",
 			country: "US",
 			phase: 1,
-			launchDate: null,
+			path: { kind: "launch_sunday", date: null },
 			provenance: { kind: "through", sendingChurches: ["Grace Austin"] },
 			leadPlanter: null,
 			region: null,
@@ -193,7 +181,7 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			stateProvince: "TX",
 			country: "US",
 			phase: 1,
-			launchDate: null,
+			path: { kind: "launch_sunday", date: null },
 			provenance: { kind: "through", sendingChurches: ["Grace Austin"] },
 			leadPlanter: "Marcus Hill",
 			region: null,
@@ -206,7 +194,7 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			stateProvince: "TX",
 			country: "US",
 			phase: 1,
-			launchDate: null,
+			path: { kind: "launch_sunday", date: null },
 			provenance: { kind: "direct" },
 			leadPlanter: null,
 			region: null,
@@ -219,21 +207,18 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			stateProvince: "TX",
 			country: "US",
 			phase: 1,
-			launchDate: null,
+			path: { kind: "launch_sunday", date: null },
 			provenance: { kind: "direct" },
 			leadPlanter: null,
 			region: null,
 			health: "limited_visibility",
 		},
 	]);
-	// No street, email, phone or the Owner's name in anything the directory returns.
 	const text = JSON.stringify(rows);
 	for (const secret of ["private street", "12 Private Lane", "@example.test", "555-0100", "Dana"])
 		assert.equal(text.includes(secret), false, secret);
-	// The Member reads the same directory; a plant seat and a foreign network read none of it.
 	assert.deepEqual(await listPlants(S.runtime, await as(networkMember)), directory);
 	assert.equal(await listPlants(S.runtime, await as(hpOwner)), null);
-	// A sending church sees its own directly linked plants.
 	assert.deepEqual(
 		(await listPlants(S.runtime, await as(graceOwner)))!.plants.map((r) => [r.name, r.provenance.kind]),
 		[
@@ -242,10 +227,9 @@ test("AC:TARGET-IDN-023 AC:ORG55-004 AC:ORG55-005 AC:AF-039 the directory lists 
 			["Westlake Church", "direct"],
 		],
 	);
-	// A launch date appears once the plant sets one.
 	await S.db.execute(sql`INSERT INTO launch(plant_id,target_date,status) VALUES(${OC.id},'2027-03-14','scheduled')`);
 	const oc = (await listPlants(S.runtime, await as(networkOwner)))!.plants.find((r) => r.plantId === OC.id);
-	assert.equal(oc!.launchDate, "2027-03-14");
+	assert.deepEqual(oc!.path, { kind: "launch_sunday", date: "2027-03-14" });
 });
 
 test("AC:TARGET-IDN-023 AC:AF-028 AC:AF-035 Harvest Point's sections: shared counts, shared but empty and not shared", async () => {
@@ -281,7 +265,6 @@ test("AC:TARGET-IDN-023 Grace Austin reads every section: meetings, teams, train
 	await meeting(HP, "2026-09-01", [dana, marcus, two]);
 	await meeting(HP, "2026-09-15", [marcus, two]);
 	await meeting(HP, "2026-09-29", [marcus], false);
-	// Required training: two assignments, one complete.
 	const program = await S.db.execute(
 		sql`INSERT INTO training_program(plant_id,name,required) VALUES(${HP.id},'Safe kids',true) RETURNING id, version`,
 	);
@@ -291,8 +274,6 @@ test("AC:TARGET-IDN-023 Grace Austin reads every section: meetings, teams, train
 			VALUES(${HP.id},${programId},${who},${version},'active','2026-01-01')`);
 	await S.db.execute(sql`INSERT INTO training_credit(plant_id,person_id,program_id,kind,version,earned_on)
 		VALUES(${HP.id},${marcus},${programId},'earned',${version},'2026-02-01')`);
-	// Two Wiki reads in this plant's context, one finished and one in progress, of a global article as the reference
-	// import stores it (tests/integration/writes/requests.mjs).
 	const GLOBAL = "00000000-0000-0000-0000-000000000000";
 	const [section, release, article, revision] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
 	const hash = () => randomUUID().replaceAll("-", "").repeat(2);
@@ -334,7 +315,6 @@ test("AC:TARGET-IDN-023 Grace Austin reads every section: meetings, teams, train
 		counts: { teams: 3, roles: 3, rolesFilled: 3, trainingAssigned: 2, trainingComplete: 1 },
 	});
 	assert.deepEqual(view!.sections.wiki, { status: "shared", counts: { finished: 1, inProgress: 1 } });
-	// The same plant's network view keeps its own choices.
 	const network = await getPlant(S.runtime, await as(networkAdmin), HP.id);
 	assert.equal(network!.sections.ministryTeams.status, "withheld");
 	assert.equal(network!.sections.meetings.status, "shared");
@@ -370,7 +350,6 @@ test("AC:AF-029 AC:AF-030 AC:AF-031 AC:AF-040 AC:ORG55-003 turning People off or
 	const grace = await getPlant(S.runtime, await as(graceOwner), HP.id);
 	assert.equal(grace!.sections.people.status, "shared");
 
-	// Harvest Point ends its link with Grace Austin: gone for Grace Austin, still there for the network.
 	await S.call(
 		"associations.end",
 		hpOwner,
@@ -394,12 +373,10 @@ test("AC:AF-029 AC:AF-030 AC:AF-031 AC:AF-040 AC:ORG55-003 turning People off or
 test("AC:AF-035 AC:AF-041 AC:SEC-04 an unlinked plant reads exactly like one that does not exist", async () => {
 	const admin = await as(networkAdmin);
 	for (const id of [Q2.id, R.id, randomUUID(), "not-an-id"]) assert.equal(await getPlant(S.runtime, admin, id), null);
-	// A plant's own seat cannot use the oversight reads for its own plant.
 	assert.equal(await getPlant(S.runtime, await as(hpOwner), HP.id), null);
 });
 
 test("AC:TARGET-IDN-024 the network's roster: linked sending churches, unexpired pending requests and shared plants", async () => {
-	// Cedar Park asked to connect twice: one request is waiting, one expired.
 	for (const [age, email] of [
 		["1 day", "network@example.test"],
 		["31 days", "old-network@example.test"],
@@ -424,12 +401,10 @@ test("AC:TARGET-IDN-024 the network's roster: linked sending churches, unexpired
 		["Eastside Commons"],
 	);
 	assert.equal(grace!.name, "Grace Austin");
-	// Not linked to the network, not a sending church, or a sending church seat asking: not found.
 	assert.equal(await getSendingChurch(S.runtime, await as(networkAdmin), S2.id), null);
 	assert.equal(await getSendingChurch(S.runtime, await as(networkAdmin), HP.id), null);
 	assert.equal(await listSendingChurches(S.runtime, await as(graceOwner)), null);
 	assert.equal(await getSendingChurch(S.runtime, await as(graceOwner), GA.id), null);
-	// The sending church with no linked plants reads an empty directory.
 	assert.deepEqual(await listPlants(S.runtime, await as(emptyChurchOwner)), {
 		organizationName: "Cedar Park Church",
 		plants: [],

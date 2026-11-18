@@ -11,8 +11,8 @@ import {
 	IntentLink,
 } from "@everyfield/ui/controls";
 import { Avatar, StatusBadge } from "@everyfield/ui/display";
-import { cn, Icon } from "@everyfield/ui/foundations";
-import { useRef, useState, useSyncExternalStore } from "react";
+import { cn, Icon, useFocusRequest, useMinuteClock } from "@everyfield/ui/foundations";
+import { useState } from "react";
 import { dueText, lacksOwner, ownerText } from "../tasks/model.ts";
 import { AssignMenu, dutyFrom } from "./duties.tsx";
 import { outcomeSaved } from "../tasks/fresh.tsx";
@@ -32,24 +32,20 @@ import {
 	type OutcomeMutation,
 } from "./model.ts";
 import { ContactEntries, EntryFacts, LastContact, OutcomeBadge } from "./parts.tsx";
-import { focusFirstProblem, SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
+import { SaveButton, SaveNotice, useProblemFocus, useSaveIntent } from "../../components/save/parts.tsx";
 import type { CallData } from "./server.ts";
 
 const OPEN = new Set(["not_started", "in_progress", "blocked"]);
 
-/**
- * The follow-up call (REQ-MTG-022, REQ-MTG-021, REQ-TSK-004): who to reach and how, then what happened. Built for a
- * phone first; on a desktop it sits in the app frame. One save at a time. A saved outcome shows from the answer; the
- * follow-up stays here to record another try when it is still open.
- */
 export function CallScreen({ initial, accountId, admin }: { initial: CallData; accountId: string; admin: boolean }) {
 	const [call, setCall] = useState(initial);
 	const [draft, setDraft] = useState<Draft>(emptyDraft);
 	const [errors, setErrors] = useState<DraftErrors>({});
 	const [saved, setSaved] = useState<OutcomeMutation | null>(null);
 	const lane = useSaveIntent({ explain: problemText });
-	const notice = useRef<HTMLDivElement>(null);
-	const done = useRef<HTMLHeadingElement>(null);
+	const notice = useFocusRequest<HTMLDivElement>(lane.notice?.tone === "refused" ? lane.notice.id : null);
+	const done = useFocusRequest<HTMLHeadingElement>(saved?.record.id);
+	const [focusProblem, refuseProblem] = useProblemFocus();
 	const { task, person, obligation } = call;
 	const open = OPEN.has(task.status);
 	const mine = task.assignees.some((a) => a.accountId === accountId);
@@ -57,16 +53,16 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const owners = task.followUpOwners.length
 		? task.followUpOwners
 		: task.assignees.map((a) => ({ ...a, eligible: true, reason: null }));
-	const now = useNow();
+	const now = useMinuteClock();
 	const left48 =
 		now !== null && obligation?.kind === "first_vision_follow_up" && open ? windowAt(obligation.origin.at, now) : null;
 	const due = dueText(task.due);
 
-	async function submit(form: HTMLFormElement) {
+	async function submit() {
 		const parsed = outcomeInput(draft, { completable: open });
 		if (!parsed.ok) {
 			setErrors(parsed.errors);
-			focusFirstProblem(form);
+			refuseProblem();
 			return;
 		}
 		setErrors({});
@@ -81,7 +77,6 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 				setCall((c) => ({
 					...c,
 					task: value.task ?? c.task,
-					// A finished follow-up has no one left to finish with it, and its record is the entry just saved.
 					others: value.task && !OPEN.has(value.task.status) ? [] : c.others,
 					record:
 						value.task && !OPEN.has(value.task.status) && c.recent ? { ...c.recent, items: [value.record] } : c.record,
@@ -93,15 +88,12 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 							}
 						: c.recent,
 				}));
-				requestAnimationFrame(() => done.current?.focus());
 			},
-			// The answers stay. Out of date: read the follow-up again so the next save uses its latest revision.
 			refused: async (code) => {
 				if (code === "conflict") {
 					const fresh = await loadCall(task.id);
 					if (fresh.status === "ok" && fresh.value.kind === "call") setCall(fresh.value.call);
 				}
-				requestAnimationFrame(() => notice.current?.focus());
 			},
 		});
 	}
@@ -242,12 +234,13 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 						</CardHeading>
 					</CardHeader>
 					<form
+						ref={focusProblem}
 						noValidate
 						className="flex flex-col gap-5"
 						onSubmit={(e) => {
 							e.preventDefault();
 							if (lane.wait) return;
-							void submit(e.currentTarget);
+							void submit();
 						}}
 					>
 						<OutcomeFields
@@ -311,14 +304,4 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 			) : null}
 		</div>
 	);
-}
-
-/** The time now in the browser, once a minute; null on the server and the first render, so hydration matches. */
-const minute = (tick: () => void) => {
-	const t = setInterval(tick, 60_000);
-	return () => clearInterval(t);
-};
-const nowMinute = () => Math.floor(Date.now() / 60_000) * 60_000;
-function useNow(): number | null {
-	return useSyncExternalStore(minute, nowMinute, () => null);
 }

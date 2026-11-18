@@ -20,18 +20,10 @@ import { ZonePicker } from "../settings/flows/ZonePicker";
 import { usePersonalZoneChoice } from "../settings/flows/usePersonalZoneChoice";
 import { OFFLINE_REFERENCE, type Refusal } from "../settings/save";
 import { SaveError } from "../settings/SettingsDialog";
-import { zoneLabel } from "../settings/time";
+import { zoneLabel } from "../../components/time.ts";
 import { CheckInHeader } from "./Header.tsx";
 import { mondayDate, weekStartIn } from "./model.ts";
 
-/**
- * No personal time zone yet (REQ-IDN-033): the check-in week starts on the author's own Monday, so the zone comes first,
- * on this screen. It reuses Settings' preview and save, so the same server rules hold. The picker starts empty: nothing
- * is taken from the church, the device or UTC. The preview names the week the check-in opens on, which is the week that
- * holds now in the chosen zone (privateCare readWeeks), and the save waits for it. After the save the page reloads its
- * server data in place and shows this week's form. A retry of the same save reuses its request key, so a lost reply is
- * never saved twice.
- */
 export function ZoneStep({ name }: { name: string }) {
 	const router = useRouter();
 	const [opening, startOpening] = useTransition();
@@ -143,10 +135,6 @@ export function ZoneStep({ name }: { name: string }) {
 	);
 }
 
-/**
- * A refusal in plain words: the zone was not saved, and why. A lost save reply may hide a saved zone, so that case says
- * so; a retry reuses the request key and cannot save it twice.
- */
 function notSaved(refusal: Refusal, sent: boolean) {
 	if (refusal.reference !== OFFLINE_REFERENCE) return `Your time zone was not saved. ${refusal.message}`;
 	return sent

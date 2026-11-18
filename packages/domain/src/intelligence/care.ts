@@ -8,15 +8,6 @@ import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer } from "../documents/access.ts";
 
-// Private weekly check-ins (WP-039, REQ-PI-038 to REQ-PI-041). A check-in belongs to its original author account and
-// church for good: every statement reads and writes only rows whose author is the request's own account, behind the
-// live Owner or Admin check of that request's seat (C13). Another author's week, a guessed id and a week that does not
-// exist give the same not_found. Nothing here writes a shared audit row, job, notice, log line or trace attribute: the
-// week's own revisions are its history (audit.md, private-care boundary).
-//
-// The author's calendar keeps the zone and instant where its next Monday week starts. A save or zone change first adds
-// the weeks that are due, unanswered, so ordinals never skip; reads show due weeks the same way without writing them.
-
 type Code = c.CareError["code"];
 class Refusal extends Error {
 	readonly code: Code;
@@ -50,7 +41,6 @@ function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	return found.data;
 }
 
-/** The author (the request's own account), its church, the live Owner or Admin condition and the clock. */
 type Scope = { me: string; plant: string; ok: SQL; at: SQL };
 function scopeOf(authority: RequestActor, clock?: Clock): Scope {
 	const viewer = plantViewer(authority);
@@ -69,25 +59,19 @@ const answersJson = (r: SQL) =>
 const revisionJson = (r: SQL, recordedAt: SQL = sql`${r}.recorded_at`) =>
 	sql`jsonb_build_object('revision',${r}.revision,'kind',${r}.kind,'answers',${answersJson(r)},'note',${r}.note,
  'recordedAt',${iso(recordedAt)})`;
-/** The revisions of week `w` up to `upTo`, oldest first. */
 const revisionsOf = (w: SQL, upTo: SQL) =>
 	sql`coalesce((SELECT jsonb_agg(${revisionJson(sql`rv`)} ORDER BY rv.revision) FROM private_week_revision rv
  WHERE rv.week_id=${w}.id AND rv.revision<=${upTo}),'[]'::jsonb)`;
-/** Week `w` as the contract writes it; `current` is an SQL boolean. Its answer and revisions are the row's own. */
 const weekJson = (w: SQL, current: SQL, revisions: SQL) =>
 	sql`jsonb_build_object('id',${w}.id,'ordinal',${w}.ordinal,'zone',${w}.zone,'startsOn',${w}.starts_on,
  'endsOn',${w}.ends_on,'current',${current},'answer',CASE WHEN ${w}.answer_revision>0 THEN jsonb_build_object(
  'answers',${answersJson(w)},'note',${w}.note,'revision',${w}.answer_revision,'answeredAt',${iso(sql`${w}.answered_at`)}) END,
  'revisions',${revisions})`;
-/** Monday 00:00 of the week that holds `at` in `zone`, as an instant. */
 const mondayOf = (at: SQL, zone: SQL) => sql`(date_trunc('week', ${at} AT TIME ZONE ${zone}) AT TIME ZONE ${zone})`;
-/** Monday 00:00 in `zone` of the LocalDate `day` + 7. */
 const weekAfter = (day: SQL, zone: SQL) => sql`((${day}+7)::timestamp AT TIME ZONE ${zone})`;
 
-/** The request's account zone, read only behind the live check: null until the author confirms one in Settings. */
 const accountZone = (s: Scope, extra: SQL = sql``) =>
 	sql`acct AS (SELECT a.personal_timezone AS zone FROM account a WHERE a.id=${s.me}::uuid AND (SELECT ok FROM gate) ${extra})`;
-/** An earlier save or correction of this author with this request key, as it was answered. */
 const priorKey = (s: Scope, key: string) =>
 	sql`prior AS (SELECT r.kind,r.week_id,${answersJson(sql`r`)} AS answers,r.note,
  jsonb_build_object('outcome','saved','revision',r.calendar_revision::text,'week',${weekJson(
@@ -108,7 +92,6 @@ const priorRow = z
 	})
 	.nullable();
 
-/** A stored answer for this key: the same request replays it; another request with the key is refused. */
 function replay(
 	prior: NonNullable<z.infer<typeof priorRow>>,
 	kind: "save" | "correction",
@@ -137,10 +120,6 @@ const pageRow = z.object({
 	total: z.coerce.number(),
 	weeks: z.array(z.unknown()),
 });
-/**
- * One page of weeks, newest first, in one statement: the stored weeks and the due ones after them. A new author's
- * first week is the one that holds now in the personal zone.
- */
 async function readWeeks(db: Pick<Database, "execute">, s: Scope, size: number, page: number) {
 	const { rows } = await db.execute(sql`WITH gate AS (SELECT ${s.ok} AS ok), ${accountZone(s)},
  cal AS (SELECT k.* FROM private_calendar k WHERE k.author_id=${s.me}::uuid AND k.plant_id=${s.plant}::uuid
@@ -167,7 +146,6 @@ async function readWeeks(db: Pick<Database, "execute">, s: Scope, size: number, 
 	return { zone: r.zone, revision: r.revision, total: r.total, weeks: r.weeks.map((w) => c.careWeek.parse(w)) };
 }
 
-/** One history page of twelve weeks; the first page is the strip. */
 async function readPage(db: Pick<Database, "execute">, s: Scope, page: number) {
 	const r = await readWeeks(db, s, c.HISTORY_PAGE, page);
 	const pageCount = Math.max(1, Math.ceil(r.total / c.HISTORY_PAGE));
@@ -185,13 +163,11 @@ const writeRow = z.object({
 });
 type WriteRow = z.infer<typeof writeRow>;
 
-/** A unique request key that a concurrent request of the same author took first. */
 const keyTaken = (error: unknown) =>
 	(error as { code?: string; constraint?: string })?.code === "23505" &&
 	(error as { constraint?: string }).constraint === "private_week_revision_uq_0";
 
 export function createPrivateCare(config: { clock?: Clock } = {}) {
-	/** Runs a write statement; a key a concurrent request took first reads that request's answer instead. */
 	async function write(db: Pick<Database, "execute">, s: Scope, key: string, statement: SQL): Promise<WriteRow> {
 		try {
 			return writeRow.parse((await db.execute(statement)).rows[0]);
@@ -204,7 +180,6 @@ export function createPrivateCare(config: { clock?: Clock } = {}) {
 			return writeRow.parse(rows[0]);
 		}
 	}
-	/** The common refusals of a write that changed nothing, in the order a caller can act on them. */
 	function refuse(r: WriteRow): never {
 		if (!r.ok) deny("access_denied");
 		if (!r.zone) deny("personal_timezone_confirmation_required");
@@ -212,7 +187,6 @@ export function createPrivateCare(config: { clock?: Clock } = {}) {
 	}
 
 	return {
-		/** privateCare.readCurrent (PI-038): the open week, answered or not, and the revision a save names. */
 		async readCurrent(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
@@ -221,14 +195,12 @@ export function createPrivateCare(config: { clock?: Clock } = {}) {
 				return c.careCurrent.parse({ zone: r.zone, revision: r.revision, week: r.weeks[0] });
 			});
 		},
-		/** privateCare.readHistory (PI-040): every week, twelve to a page, newest first; unanswered weeks included. */
 		async readHistory(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
 				return readPage(db, s, parse(c.readHistoryRequest, raw).page);
 			});
 		},
-		/** privateCare.readTrends (PI-039): the twelve-week strip, the first history page. It reads; it raises nothing. */
 		async readTrends(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown = {}) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
@@ -237,11 +209,6 @@ export function createPrivateCare(config: { clock?: Clock } = {}) {
 			});
 		},
 
-		/**
-		 * privateCare.save (PI-038): this week's four answers and note. One statement, no transaction: the live check, the
-		 * locked calendar at the reviewed revision (or a new one when there is none), the due weeks, the answer on the open
-		 * week and its revision. The same answer adds nothing; a request key replays its first answer.
-		 */
 		async save(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
@@ -308,10 +275,6 @@ export function createPrivateCare(config: { clock?: Clock } = {}) {
 			});
 		},
 
-		/**
-		 * privateCare.correct (PI-041): a new answer for one answered week of the author's own calendar. The week, its zone
-		 * and its author stay; the earlier answer stays in its revisions. The same answer adds nothing. One statement.
-		 */
 		async correct(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const s = scopeOf(authority, config.clock);
@@ -368,14 +331,6 @@ export function createPrivateCare(config: { clock?: Clock } = {}) {
 }
 export type PrivateCare = ReturnType<typeof createPrivateCare>;
 
-/**
- * The PersonalTimezoneCalendar of Settings (REQ-IDN-033, packages/contracts/src/settings/server.ts). Settings calls it
- * inside its personal timezone transaction, only for a current Owner or Admin author. `preview` binds each of the
- * author's calendars to the preview at its current revision, here and nowhere else. `apply` keeps every open week: it
- * adds the weeks that are due in the old zone, then starts the next week at the first Monday strictly after `at` in the
- * new zone. A save or another zone change since the preview leaves a calendar unbound, and apply then changes nothing
- * and answers false, so Settings refuses the whole change. One statement each.
- */
 export const personalCalendar = {
 	async preview(tx: Transaction, input: { account: string; previewId: string }) {
 		await tx.execute(sql`UPDATE private_calendar SET preview_handle=${input.previewId}::uuid,preview_revision=revision

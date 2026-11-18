@@ -1,6 +1,3 @@
-// The phase and manual-signal reviewed writes (adapters/intelligence): Evry only prepares the exact review, and the
-// native phases.* or signals.* command runs once, for the approving Owner, after that exact revision is approved.
-// Before approval nothing in the church changes.
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -21,7 +18,6 @@ import { actor, admin, db, otherPlant, plant, setup, sql, teardown } from "../..
 before(setup);
 after(teardown);
 
-/** No forward move here reaches a connected organization, and no write hands a task on. */
 const ports = {
 	reminders: async () => {
 		throw Error("unexpected task reminder replan");
@@ -32,10 +28,6 @@ const ports = {
 };
 const CORE_GROUP = { phase: 1, name: "Core Group Development" };
 const PRAYER_RHYTHM = { key: "prayer_rhythm_established", label: "Corporate prayer rhythm established" };
-/**
- * Core Group Development's exit criteria (docs/reference/phase-exit-criteria.ts), with the status the church's measured
- * facts (WP-040) give them: the church has fewer than 30 committed adults, and the rest have no data yet.
- */
 const CORE_GROUP_CRITERIA = [
 	{ label: "30 committed adults", status: "not met" },
 	...["Growth still moving", "Launch funding viable", "Worship leader identified", "Geographic area set"].map(
@@ -43,7 +35,6 @@ const CORE_GROUP_CRITERIA = [
 	),
 ];
 
-/** A running turn in a new conversation: the only place a proposal can be prepared. */
 async function turn(who: EvryActor) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
 	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
@@ -58,7 +49,6 @@ async function turn(who: EvryActor) {
 	return { propose: (operation: string, input: unknown) => prepareProposal(db, who, run, c.id, { operation, input }) };
 }
 
-/** The trusted approval of the exact revision shown, then the effect run once through the WP-031 queue. */
 async function approveAndRun(who: EvryActor, proposal: Proposal) {
 	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest });
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
@@ -83,7 +73,6 @@ const moves = async (id: string) =>
 			sql`SELECT kind,from_phase,to_phase,reason FROM phase_transition WHERE plant_id=${id} ORDER BY recorded_at,id`,
 		)
 	).rows;
-/** The native command's own audit rows for the effect, keyed by the effect key. */
 const effectAudits = async (proposalId: string) =>
 	(
 		await admin.execute(
@@ -96,7 +85,6 @@ const today = () =>
 		.slice(0, 10);
 
 test("phases.declare is offered only while the church has no declared phase, and records it only after approval", async () => {
-	// The foreign actor is an Admin of a church that has never declared or moved.
 	const adminOfOther = await actor("foreign");
 	const t = await turn(adminOfOther);
 	const proposal = await t.propose("phases.declare", { phase: 0 });
@@ -116,7 +104,6 @@ test("phases.declare is offered only while the church has no declared phase, and
 		[["initial_declaration", 1, 0]],
 	);
 	assert.deepEqual(await effectAudits(proposal.id), [{ actor_id: adminOfOther.accountId, action: "phase.declared" }]);
-	// Declared once: no second declaration is offered.
 	assert.equal(await t.propose("phases.declare", { phase: 2 }), null);
 });
 
@@ -140,7 +127,6 @@ test("a phase move lists the open exit criteria, changes the phase only after ap
 		{ field: "phase", before: CORE_GROUP, after: { phase: 0, name: "Discovery" } },
 		{ field: "direction", before: null, after: "backward" },
 	]);
-	// The same phase is not a move: the card says why and offers no approval.
 	const same = await t.propose("phases.transition", { toPhase: 1, reason: "Still here." });
 	assert.equal(same?.review.refusal, "The church is already in Core Group Development.");
 	assert.deepEqual(await phaseOf(plant), { phase: 1, revision: "1" }, "nothing changes before approval");
@@ -151,12 +137,10 @@ test("a phase move lists the open exit criteria, changes the phase only after ap
 	assert.deepEqual(await moves(plant), [{ kind: "movement", from_phase: 1, to_phase: 2, reason }]);
 	assert.deepEqual(await effectAudits(forward.id), [{ actor_id: owner.accountId, action: "phase.transitioned" }]);
 
-	// The backward review was for phase 1: after the move it is stale and its effect refuses, changing nothing.
 	const stale = await approveAndRun(owner, backward!);
 	assert.deepEqual([stale.outcome, stale.review.receipt?.code], ["refused", "revision_conflict"]);
 	assert.equal((await phaseOf(plant)).phase, 2);
 
-	// A Member may propose none of them, the same floor as the native commands.
 	const member = await actor("member");
 	await assert.rejects(
 		() =>
@@ -201,7 +185,6 @@ test("a reported signal is recorded in the Owner's words only after approval; a 
 			{ field: "detail", before: null, after: words },
 		],
 	});
-	// A date after today is shown with the reason it cannot be approved.
 	const future = await t.propose("signals.attest", {
 		key: "prayer_rhythm_established",
 		value: "yes",
@@ -219,8 +202,6 @@ test("a reported signal is recorded in the Owner's words only after approval; a 
 		sql`SELECT actor_id,action FROM audit_event WHERE tenant_id=${plant} AND action LIKE 'attestation.%'`,
 	);
 	assert.deepEqual(recorded.rows, [{ actor_id: owner.accountId, action: "attestation.recorded" }]);
-	// Recorded once: the same conversation never prepares the applied change again (T-316), and another conversation
-	// shows a second record as already answered.
 	const same = { key: "prayer_rhythm_established", value: "yes", asOf, detail: words };
 	await assert.rejects(t.propose("signals.attest", same), { code: "already_applied" });
 	const again = await (await turn(owner)).propose("signals.attest", same);
@@ -262,7 +243,6 @@ test("a reported signal is recorded in the Owner's words only after approval; a 
 		kinds.rows.map((r) => r.kind),
 		["answered", "corrected", "reaffirmed"],
 	);
-	// A signal that never renews cannot be reaffirmed.
 	const fixed = await t.propose("signals.reaffirm", { key: "values_documented" });
 	assert.equal(fixed?.review.refusal, "This signal doesn't need renewing, so it can't be reaffirmed.");
 });

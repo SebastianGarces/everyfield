@@ -1,8 +1,3 @@
-// The Evry review card's rules (WP-053/ui), as plain data and pure functions. The server's review is the only truth
-// about a prepared change: its review status (pending, approved, cancelled, expired) and the recorded outcome of the
-// approved revision are separate (REQ-EVR-033). The card derives what it shows from that review and the time the
-// approval has left on the server's clock; the browser's clock is never read.
-
 import type { MailReport, RecipientOutcome } from "@everyfield/contracts/communication";
 import { CHANNEL_LABEL } from "../../followups/model.ts";
 import { ROLE_LABEL, SHARING_CATEGORIES, SHARING_CATEGORY_LABEL, ZONE_NAME } from "@everyfield/evry/labels";
@@ -102,25 +97,36 @@ export type Operation =
 	| "signals.correct"
 	| "signals.reaffirm"
 	| SettingsOperation
-	| PipelineOperation;
+	| PipelineOperation
+	| LaunchOperation;
 
-/** An organization's pipeline and program changes (WP-101). */
-export type PipelineOperation = "pipeline.proposeStageMove" | "development.saveProgram";
+export type LaunchOperation =
+	| "launch.schedule"
+	| "launch.postpone"
+	| "launch.recordOutcome"
+	| "launch.submitDebrief"
+	| "launch.publishDebriefSummary"
+	| "launch.completeMilestone"
+	| "launch.reopenMilestone"
+	| "launch.addGuestAttendance"
+	| "launch.correctOutcome";
+export const isLaunch = (operation: Operation): operation is LaunchOperation => operation.startsWith("launch.");
+
+export type PipelineOperation =
+	"pipeline.proposeStageMove" | "development.saveProgram" | "development.draftNextVersion";
 export const isPipeline = (operation: Operation): operation is PipelineOperation =>
-	operation === "pipeline.proposeStageMove" || operation === "development.saveProgram";
-/**
- * A card on which the person types the reason for the change themselves (REQ-MUL-015): Evry proposes only the person and
- * the stage, and the typed reason goes to the native move alone.
- */
+	operation === "pipeline.proposeStageMove" ||
+	operation === "development.saveProgram" ||
+	operation === "development.draftNextVersion";
 export const asksReason = (operation: Operation) => operation === "pipeline.proposeStageMove";
-/** Where an approved pipeline or program change shows: the person's pipeline record, or Programs. */
 export function pipelineLink(review: Pick<Review, "operation" | "review">): { href: string; label: string } {
 	const who = review.review.target;
+	if (review.operation === "development.draftNextVersion" && who)
+		return { href: `/organization/pipeline/programs/${who.id}`, label: "Open the program" };
 	return review.operation === "pipeline.proposeStageMove" && who
 		? { href: `/organization/pipeline/${who.id}`, label: `Open ${who.label}` }
 		: { href: "/organization/pipeline/programs", label: "Open Programs" };
 }
-/** The Tasks and Follow-up reviewed writes (WP-068). They are approved or cancelled as Evry prepared them. */
 type TaskOperation =
 	| "tasks.create"
 	| "tasks.configureRecurrence"
@@ -142,7 +148,6 @@ type TaskOperation =
 	| "followups.recordOutcome"
 	| "followups.correctOutcome";
 
-/** The Ministries reviewed writes (WP-070): shown as before and after, never revised in place. */
 const TEAMS_TITLE = {
 	"teams.create": "Add a ministry",
 	"teams.edit": "Update a ministry",
@@ -175,7 +180,6 @@ const TEAMS_TITLE = {
 type TeamsOperation = keyof typeof TEAMS_TITLE;
 export const isTeams = (operation: Operation): operation is TeamsOperation => operation in TEAMS_TITLE;
 
-/** The seat, church settings, sharing, connection, account and organization changes (T-327). */
 export type SettingsOperation =
 	| "seats.invite"
 	| "seats.resendInvitation"
@@ -192,7 +196,6 @@ export type SettingsOperation =
 	| "account.requestDeletion"
 	| "organizations.updateProfile"
 	| OnboardingOperation;
-/** The setup and Discovery changes (T-345): a church's setup answers, and starting a church or a Discovery space. */
 export type OnboardingOperation =
 	| "onboarding.declareJourney"
 	| "identity.answerLeadOnboarding"
@@ -200,7 +203,6 @@ export type OnboardingOperation =
 	| "onboarding.createPlant"
 	| "discovery.create"
 	| "discovery.convertToPlant";
-/** The household, tag, skill, note and import writes (WP-064), whose reviews are not revised field by field. */
 export type OrganizationOperation =
 	| "people.addToHousehold"
 	| "people.createHouseholdWithHead"
@@ -223,16 +225,13 @@ export type OrganizationOperation =
 	| "people.executeBulkImport";
 
 export type Change = { field: string; before: unknown; after: unknown };
-/** One person a change reaches beyond its target, such as a household member or a person being tagged. */
 export type ReviewedPerson = { id: string; label: string; changes: Change[]; unchanged?: string };
-/** One row of a reviewed import and its planned outcome. */
 export type ReviewedRow = {
 	row: number;
 	outcome: "create" | "create_and_review" | "skip" | "fail";
 	label: string | null;
 	reason: string | null;
 };
-/** What became of one person after approval: changed, or not and why. */
 export type PersonOutcome = { id: string; label: string; outcome: "changed" | "unchanged"; reason?: string };
 export type ImportOutcome = {
 	status: "in_progress" | "complete" | "partial";
@@ -240,7 +239,6 @@ export type ImportOutcome = {
 	failed: { row: number; reason: string }[];
 };
 
-/** evry.readReview, as the API sends it (packages/evry/src/proposals/review.ts, proposalRow). */
 export type Review = {
 	id: string;
 	conversationId: string;
@@ -265,7 +263,6 @@ export type Review = {
 				| "meeting"
 				| "venue"
 				| "church"
-				/** A phase or signal change targets the church itself. */
 				| "plant"
 				| "seat"
 				| "invitation"
@@ -274,23 +271,20 @@ export type Review = {
 				| "account"
 				| "article"
 				| "document"
-				| "template";
+				| "template"
+				| "program";
 			id: string;
 			label: string;
-			/** A Wiki article's target names the exact version reviewed (id), its article and its Wiki page. */
 			articleId?: string;
 			href?: string;
 		} | null;
 		changes: Change[];
 		people?: ReviewedPerson[];
 		rows?: ReviewedRow[];
-		/** Plain facts to know before approving, such as what a time zone change moves. */
 		notes?: string[];
-		/** A plain reason the change cannot be approved as asked; the card shows it and offers no Approve. */
 		refusal?: string;
 		withheld?: true;
 	};
-	/** "failed" is only on rows saved before PR 245, which said "nothing was changed" without proof (R5-3). */
 	outcome: "completed" | "failed" | "refused" | "unknown" | null;
 	executing: boolean;
 	receipt: {
@@ -300,30 +294,17 @@ export type Review = {
 		report?: MailReport;
 		people?: PersonOutcome[];
 		import?: ImportOutcome;
-		/** A refusal because a record changed: the records as they are now. */
 		current?: { id: string; label: string; value: string | null }[];
 	} | null;
-	/** A pending message review whose message changed since: it can only be reviewed again. */
 	stale: boolean;
-	/** The server's time when it answered: the approval's time left is counted from it. */
 	now: string;
 };
 
-/**
- * What the card is now. pending can be approved, revised or cancelled until it expires; running means the approved
- * change is queued or running in the background; the rest are final for this revision, except that an unconfirmed
- * run can be tried again while its approval lasts.
- */
 export type Phase =
 	"pending" | "expired" | "cancelled" | "running" | "completed" | "refused" | "unconfirmed" | "withheld";
 
-/**
- * The approval's time left when the server answered, in milliseconds, on the server's clock. The card waits that long
- * on its own timer, so a browser clock set hours ahead or behind changes nothing.
- */
 export const approvalLeft = (review: Review) => Date.parse(review.expiresAt) - Date.parse(review.now);
 
-/** `lapsed`: the approval's time ran out since the server answered (approvalLeft, counted on the card's timer). */
 export function phaseOf(review: Review, lapsed: boolean): Phase {
 	if (review.outcome === "completed") return "completed";
 	if (review.review.withheld) return "withheld";
@@ -331,21 +312,15 @@ export function phaseOf(review: Review, lapsed: boolean): Phase {
 	if (review.status === "expired") return "expired";
 	if (review.status === "pending") return lapsed ? "expired" : "pending";
 	if (review.outcome === "refused") return "refused";
-	// An old "failed" row is as unproven as "unknown": the change may or may not be saved, and Try again settles it.
 	if (review.outcome === "failed" || review.outcome === "unknown") return "unconfirmed";
 	return "running";
 }
 
-/** An unconfirmed run can go again under the same approval until it expires. */
 export const retryable = (review: Review, lapsed: boolean) =>
 	(review.outcome === "failed" || review.outcome === "unknown") && !lapsed;
 
-// ---------------------------------------------------------------------------------------------------------------
-// What will change: each field with its value before and after, in the words the People screens use.
-
 const FIELD_LABEL: Record<string, string> = {
 	displayName: "Name",
-	// The pipeline and programs (WP-101)
 	pipelineStage: "Stage",
 	programKind: "Kind",
 	director: "Director",
@@ -353,6 +328,20 @@ const FIELD_LABEL: Record<string, string> = {
 	rhythm: "Meets",
 	stages: "Stages",
 	milestones: "Milestones",
+	actualDate: "Launch Sunday",
+	milestone: "Milestone",
+	decisions: "Decisions",
+	guestAnswer: "Guests not entered by name",
+	wentWell: "What went well",
+	toChange: "What to change",
+	operations: "Operations",
+	followUpPlan: "Follow-up plan",
+	supportNeeded: "Support needed",
+	summary: "Summary",
+	addedMilestones: "Milestones added",
+	changedMilestones: "Milestones changed",
+	removedMilestones: "Milestones removed",
+	milestoneOrder: "Milestone order",
 	firstName: "First name",
 	lastName: "Last name",
 	email: "Email",
@@ -407,7 +396,6 @@ const FIELD_LABEL: Record<string, string> = {
 	proficiency: "Level",
 	notes: "Skill notes",
 	note: "Note",
-	// Tasks and follow-ups
 	status: "Status",
 	title: "Title",
 	priority: "Priority",
@@ -421,7 +409,6 @@ const FIELD_LABEL: Record<string, string> = {
 	channel: "How",
 	contactNote: "Note",
 	followUp: "Follow-up",
-	// Ministries
 	description: "Description",
 	archived: "Archived",
 	leadership: "Leadership role",
@@ -455,7 +442,6 @@ const FIELD_LABEL: Record<string, string> = {
 	asOf: "True as of",
 	detail: "In your words",
 	reference: "Written down in",
-	// Meetings and venues: the review already says each value in the church's own words and zone.
 	type: "Type",
 	when: "When",
 	venue: "Venue",
@@ -499,7 +485,6 @@ const FIELD_LABEL: Record<string, string> = {
 	capacity: "Capacity",
 	costDescription: "Cost",
 	active: "Status",
-	// Seats, church settings, sharing, connections and account (T-327)
 	contactEmail: "Contact email",
 	contactPhone: "Contact phone",
 	statementOfFaith: "Statement of faith",
@@ -511,15 +496,15 @@ const FIELD_LABEL: Record<string, string> = {
 	connection: "Connection",
 	recipientEmail: "Sent to",
 	account: "Your login",
-	// Setup and Discovery (T-345)
 	church: "Church",
 	whereYouAre: "Where you are",
 	launchDate: "Launch date",
 	lead: "Lead",
 	setup: "Setup",
 	discovery: "Discovery",
+	yourRole: "Your role",
+	page: "Page",
 	...SHARING_CATEGORY_LABEL,
-	// Documents
 	template: "Template",
 	templateVersion: "Version",
 	notice: "Notice",
@@ -530,7 +515,6 @@ const FIELD_LABEL: Record<string, string> = {
 };
 const KIND_LABEL: Record<string, string> = { core_group: "Core group", launch_team: "Launch team" };
 const COMMITMENT_LABEL: Record<string, string> = { active: "Active", withdrawn: "Withdrawn", unknown: "Not recorded" };
-/** A rating or score with its notes: "Concern · Needs time with the team", "4 of 5". */
 function judgmentText(value: object): string | null {
 	const v = value as { rating?: unknown; score?: unknown; notes?: unknown };
 	const head =
@@ -542,13 +526,16 @@ function judgmentText(value: object): string | null {
 	if (!head) return null;
 	return typeof v.notes === "string" && v.notes ? `${head} · ${v.notes}` : head;
 }
-/** Meetings words for a field another card also uses: a finalize's "tasks" are the tasks it creates, not a sharing category. */
 const MEETINGS_LABEL: Record<string, string> = { tasks: "Tasks it creates" };
-/** A presence change names its person: "presence:Maria Santos" reads "Maria Santos". */
+const LAUNCH_LABEL: Record<string, string> = { guest: "Launch Sunday guest" };
 export const fieldLabel = (field: string, operation?: string) =>
 	field.startsWith("presence:")
 		? field.slice("presence:".length)
-		: ((operation?.startsWith("meetings.") ? MEETINGS_LABEL[field] : undefined) ??
+		: ((operation?.startsWith("meetings.")
+				? MEETINGS_LABEL[field]
+				: operation?.startsWith("launch.")
+					? LAUNCH_LABEL[field]
+					: undefined) ??
 			FIELD_LABEL[field] ??
 			MERGE_FIELD_LABEL[field as MergeField] ??
 			field);
@@ -564,7 +551,6 @@ const DATE_FIELDS = new Set([
 	"asOf",
 ]);
 
-/** Values People shows capitalized: a household role, a skill's category and level, a tag color. */
 const CAPITALIZED = new Set(["householdRole", "category", "proficiency", "color"]);
 const CLASSIFICATION_LABEL: Record<string, string> = { adult: "Adult", child: "Child", unknown: "Not recorded" };
 const dateFormat = new Intl.DateTimeFormat(undefined, {
@@ -581,7 +567,6 @@ const TASK_STATUS: Record<string, string> = {
 	complete: "Complete",
 	no_longer_needed: "No longer needed",
 	deleted: "Deleted",
-	// A checklist item a review adds or removes.
 	added: "Added",
 	removed: "Removed",
 };
@@ -603,14 +588,9 @@ const FREQUENCY: Record<string, string> = {
 	quarterly: "Quarterly",
 	yearly: "Yearly",
 };
-/** What an empty value means for these fields, instead of "Empty". */
 const NONE: Record<string, string> = { owners: "Needs owner", due: "No due date", recurrence: "Doesn't repeat" };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * A church-local date, or date and time, as the reviews write it ("2026-11-16", "2026-11-13 14:05 America/Chicago" or
- * "2026-11-16T09:00"): "Mon, Nov 16, 2026" or "Fri, Nov 13, 2026, 2:05 PM (Chicago time)". The zone is the church's.
- */
 function localWhen(value: string): string {
 	const m = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}):(\d{2}))?(?: (\S+))?$/.exec(value);
 	if (!m) return value;
@@ -628,10 +608,6 @@ function localWhen(value: string): string {
 	const place = m[4]?.split("/").at(-1)?.replaceAll("_", " ");
 	return `${date}, ${time}${place ? ` (${place} time)` : ""}`;
 }
-/**
- * "weekly on Mondays, until 2026-12-31, America/Chicago" as "Weekly on Mondays, until Thu, Dec 31, 2026
- * (America/Chicago)": the series repeats in the church's zone, so the card names it.
- */
 function repeats(value: string) {
 	if (value === "stopped") return "Stops repeating";
 	const all = value.split(", ");
@@ -651,22 +627,17 @@ const DIRECTION_TEXT: Record<string, string> = {
 	backward: "Backward, to an earlier phase",
 };
 const ANSWER_TEXT: Record<string, string> = { yes: "Yes", not_yet: "Not yet", retracted: "Retracted" };
-/** A phase or a signal is reviewed as its number or key with its name: the card shows the name. */
 const named = (value: unknown, name: "name" | "label") =>
 	value && typeof value === "object" && name in value ? String((value as Record<string, unknown>)[name]) : null;
 
-/** A reviewed value as text. Empty values say so; an id (a photo upload) is never shown. */
 export function valueText(field: string, value: unknown): string | null {
 	if (value === null || value === undefined || value === "") return NONE[field] ?? null;
 	if (field === "phase") return named(value, "name");
 	if (field === "signal") return named(value, "label");
 	if (field === "direction") return DIRECTION_TEXT[String(value)] ?? String(value);
 	if (field === "value") return ANSWER_TEXT[String(value)] ?? String(value);
-	// A reaffirmation dates the answer on the day it runs.
 	if (field === "asOf" && value === "today") return "Today, when you approve";
-	// A list (the tasks a finalize creates, an agenda's sections) reads one entry per line on the card.
 	if (Array.isArray(value)) return value.length ? value.map(String).join("\n") : null;
-	// A photo is a stored file: its short reference tells two uploads apart. The card shows the image where People allows it.
 	if (field === "photo") return `Photo ${photoRef(value)}`;
 	if (typeof value === "boolean" && SHARED.has(field)) return value ? "Shared" : "Not shared";
 	const word = WORDS[field]?.[String(value)];
@@ -686,7 +657,6 @@ export function valueText(field: string, value: unknown): string | null {
 		return value === "helpful" ? "Helpful" : value === "unhelpful" ? "Not helpful" : String(value);
 	if (typeof value === "boolean") return value ? "Yes" : "No";
 	if (Array.isArray(value)) return value.map(String).join(", ");
-	// A task category has its Tasks label; a skill category is shown capitalized.
 	if (field === "category" && String(value) in CATEGORY) return CATEGORY[String(value)] ?? String(value);
 	if (CAPITALIZED.has(field) && typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
 	if (DATE_FIELDS.has(field) && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value))
@@ -697,7 +667,6 @@ export function valueText(field: string, value: unknown): string | null {
 	if (field === "priority") return PRIORITY[String(value)] ?? String(value);
 	if ((field === "due" || field === "occurredAt") && typeof value === "string") return localWhen(value);
 	if (field === "recurrence" && typeof value === "string") return repeats(value);
-	// A changed link names its record by id only; the card never shows an id.
 	if (field === "relatedTo" && typeof value === "string" && UUID.test(value)) return "A linked record";
 	if (field === "result") return RESULT_LABEL[value as InterviewResult] ?? String(value);
 	if (field === "kind") return KIND_LABEL[String(value)] ?? String(value);
@@ -707,7 +676,6 @@ export function valueText(field: string, value: unknown): string | null {
 }
 
 const SHARED = new Set<string>(SHARING_CATEGORIES);
-/** The words a reviewed state reads as on the card. */
 const WORDS: Record<string, Record<string, string>> = {
 	role: ROLE_LABEL,
 	access: { ...ROLE_LABEL, removed: "Removed" },
@@ -722,11 +690,9 @@ const WORDS: Record<string, Record<string, string>> = {
 };
 const zoneText = (zone: string) => (ZONE_NAME[zone] ? `${ZONE_NAME[zone]} (${zone})` : zone);
 
-/** The changes Evry makes to seats, church settings, sharing, connections, your account and an organization. */
 export const isSettings = (operation: Operation): operation is SettingsOperation =>
 	/^(seats|plant|church|privacy|associations|account|organizations|onboarding|discovery)\./.test(operation) ||
 	operation === "identity.answerLeadOnboarding";
-/** The Settings section where a seat, settings, sharing, connection, account or organization change shows. */
 export function settingsLink(operation: SettingsOperation): { href: string; label: string } {
 	if (operation.startsWith("seats.")) return { href: "/settings/seats", label: "Open Seats" };
 	if (operation.startsWith("plant.") || operation.startsWith("church."))
@@ -739,17 +705,11 @@ export function settingsLink(operation: SettingsOperation): { href: string; labe
 	return { href: "/settings/sharing", label: "Open Sharing" };
 }
 
-/** A photo review: the card shows the exact upload before it can be approved. */
 export const isPhoto = (operation: Operation) =>
 	operation === "people.setPersonPhoto" || operation === "account.finalizeAvatar";
-/** Where a saved photo of the review's target is read: a person's photo, or the signed-in account's own photo. */
 export const savedPhotoSrc = (target: { kind: string; id: string }, version: string) =>
 	target.kind === "account" ? `/api/accounts/${target.id}/avatar/${version}` : `/people/${target.id}/photo/${version}`;
 
-/**
- * Reviews that list one row per item (a task, a checklist item or a person's follow-up) under the item's name, with
- * the value each row changes. Null for a review of named fields.
- */
 const ITEM_FIELD: Partial<Record<Operation, string>> = {
 	"tasks.bulkComplete": "status",
 	"tasks.bulkReschedule": "due",
@@ -766,16 +726,16 @@ const CREATES = new Set<Operation>([
 	"followups.recordOutcome",
 ]);
 const NO_BEFORE = new Set(["reason", "contactNote", "nextOccurrence"]);
-/** A change shows its value now, then the new one; a new record, a new item, a reason or a note shows only the new. */
 export const showsBefore = (review: Pick<Review, "operation">, change: Change) =>
 	!afterOnly(review, change.field) &&
 	!NO_BEFORE.has(change.field) &&
-	// A Meetings value with nothing before it is new: it shows only what it will be.
-	!(isMeetings(review.operation) && (change.before === null || change.before === undefined)) &&
-	// A document value with nothing before it is new: it shows only what it will be.
+	!(
+		(isMeetings(review.operation) ||
+			isLaunch(review.operation) ||
+			review.operation === "development.draftNextVersion") &&
+		(change.before === null || change.before === undefined)
+	) &&
 	!(isDocument(review.operation) && change.before === null) &&
-	// A phase or signal fact (a signal's words, a move's direction) has nothing before it, and a value a reaffirmation
-	// keeps is said once.
 	!(
 		isIntelligence(review.operation) &&
 		(change.before === null || JSON.stringify(change.before) === JSON.stringify(change.after))
@@ -786,7 +746,6 @@ export const showsBefore = (review: Pick<Review, "operation">, change: Change) =
 
 export const isTasks = (operation: Operation) => operation.startsWith("tasks.") || operation.startsWith("followups.");
 
-/** What the card names as changed: the target, a new task's title, or the number of items a review lists. */
 export function subjectName(review: Review): string {
 	const { target, changes } = review.review;
 	if (target) return target.label;
@@ -797,7 +756,6 @@ export function subjectName(review: Review): string {
 	return `${n.toLocaleString()} ${n === 1 ? "task" : "tasks"}`;
 }
 
-/** The sentence a screen reader hears when an approved change is saved. */
 export function savedText(review: Review): string {
 	const who = review.review.target?.label;
 	if (!isTasks(review.operation)) return who ? `Saved. ${who} is updated.` : "Saved.";
@@ -841,7 +799,6 @@ export function savedText(review: Review): string {
 	}
 }
 
-/** Where the card's done state leads: the person, the task in Tasks, or Tasks. Null when there is nothing to open. */
 export function openAfter(review: Review): { href: string; label: string } | null {
 	const who = review.review.target;
 	if (review.review.withheld || isMail(review.operation)) return null;
@@ -856,33 +813,23 @@ export function openAfter(review: Review): { href: string; label: string } | nul
 		: { href: "/tasks", label: "Open Tasks" };
 }
 
-/**
- * REQ-EVR-011: approval applies only to content the person could inspect. A new photo is approvable once the card
- * shows its exact upload (GET /api/evry/proposals/{id}/photo); until then, or when the upload is gone, it is not.
- */
 export const approvable = (review: Pick<Review, "operation">, uploadShown: boolean) =>
 	!isPhoto(review.operation) || uploadShown;
 
-/** What an empty value is called: no household is "None", and a note, skill or tag that goes away is "Removed". */
 export function emptyText(field: string, after: boolean) {
 	if (field === "photo") return "No photo";
 	if (field === "feedback") return "No vote";
 	if (field === "household" || field === "householdRole") return "None";
-	if (after && ["note", "skill", "category", "proficiency", "tag"].includes(field)) return "Removed";
+	if (after && ["note", "skill", "category", "proficiency", "tag", "removedMilestones"].includes(field))
+		return "Removed";
 	return "Empty";
 }
 
-/** The first 8 characters of a photo's file id, upper case, as people read a reference. */
 export const photoRef = (value: unknown) => String(value).slice(0, 8).toUpperCase();
 
-/** The person's open tasks a stage change or removal hands back as needing an owner, from the review. */
 const handedBack = (changes: readonly Change[]) =>
 	Number(changes.find((c) => c.field === "openTasksNeedingOwner")?.after ?? 0);
 
-/**
- * The changes the card lists as before and after. The task count and a new tag are said once in words instead, and a
- * tag change on several people shows on each of them.
- */
 export const shownChanges = (review: Pick<Review, "operation" | "review">) =>
 	review.review.changes.filter(
 		(c) =>
@@ -957,6 +904,16 @@ const TITLE: Record<Operation, string> = {
 	"organizations.updateProfile": "Update the organization profile",
 	"pipeline.proposeStageMove": "Move to another stage",
 	"development.saveProgram": "Create a program",
+	"launch.schedule": "Set Launch Sunday",
+	"launch.postpone": "Postpone the launch",
+	"launch.recordOutcome": "Record Launch Sunday",
+	"launch.submitDebrief": "Submit the Launch debrief",
+	"launch.publishDebriefSummary": "Publish the Launch summary",
+	"launch.completeMilestone": "Complete a launch milestone",
+	"launch.reopenMilestone": "Reopen a launch milestone",
+	"launch.addGuestAttendance": "Name a Launch Sunday guest",
+	"launch.correctOutcome": "Correct Launch Sunday",
+	"development.draftNextVersion": "Draft the next version",
 	"onboarding.declareJourney": "Where your church is",
 	"identity.answerLeadOnboarding": "Who leads your church",
 	"onboarding.complete": "Finish setup",
@@ -1033,7 +990,6 @@ const TITLE: Record<Operation, string> = {
 };
 export const operationTitle = (operation: Operation) => TITLE[operation];
 
-/** A new record and the facts of a merge have no value before: the card shows only the value they will have. */
 const MERGE_FACTS = new Set([
 	"keeps",
 	"keptDetails",
@@ -1046,28 +1002,19 @@ const MERGE_FACTS = new Set([
 ]);
 export const afterOnly = (review: Pick<Review, "operation">, field: string) =>
 	field === "reason" || MERGE_FACTS.has(field) || (ADDS.has(review.operation) && field !== "stage");
-/** A phase or signal change: the church is its target and the phase journey or Attestations page shows the result. */
 export const isIntelligence = (operation: Operation) => /^(phases|signals)\./.test(operation);
-/** Where the result of a phase or signal change shows. */
 export const intelligencePage = (operation: Operation) =>
 	operation.startsWith("phases.")
 		? { href: "/intelligence", label: "Open the phase journey" }
 		: { href: "/intelligence/attestations", label: "Open attestations" };
-/** The exit criteria of the current phase a forward move leaves open, each with its status in words. */
 export const openCriteria = (review: Review) => {
 	const value = review.review.changes.find((c) => c.field === "openCriteria")?.after;
 	return Array.isArray(value) ? (value as { label: string; status: string }[]) : null;
 };
 
-// ---------------------------------------------------------------------------------------------------------------
-// Email: the five reviewed Communication writes (MAIL51-009). The email service is the only source of "confirmed".
-
 export const isMail = (operation: Operation) => operation.startsWith("communication.");
-/** A Wiki bookmark or vote: the reader's own, with nothing to revise but the request itself. */
 export const isWiki = (operation: Operation) => operation.startsWith("wiki.");
-/** Where the card's target opens: a Wiki article's page, else the person's. */
 export const targetHref = (target: NonNullable<Review["review"]["target"]>) => target.href ?? `/people/${target.id}`;
-/** A Meetings or venue write: its review states each value as the card shows it, and it is revised by asking Evry. */
 export const isMeetings = (operation: Operation) =>
 	operation.startsWith("meetings.") || operation.startsWith("venues.");
 type SendTime = { at: string; zone: string };
@@ -1081,22 +1028,17 @@ const zoneName = (at: string, zone: string, timeZoneName: "short" | "long") =>
 	new Intl.DateTimeFormat("en-US", { timeZoneName, timeZone: zone })
 		.formatToParts(new Date(at))
 		.find((p) => p.type === "timeZoneName")?.value ?? zone;
-/** "Fri, 9:00 AM CST": the day, the time and the zone, in the church's own zone. */
 const sendTime = ({ at, zone }: SendTime) =>
 	`${part(at, zone, { weekday: "short" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneName(at, zone, "short")}`;
-/** "Fri, Nov 6, 9:00 AM CST": the date, the time and the zone, in the church's own zone. */
 export const sendTimeShort = ({ at, zone }: SendTime) =>
 	`${part(at, zone, { weekday: "short", month: "short", day: "numeric" })}, ${part(at, zone, { hour: "numeric", minute: "2-digit" })} ${zoneName(at, zone, "short")}`;
-/** "Fri, Nov 6, 9:00 AM CST (Central Standard Time)": the full date and the zone's name. */
 export const sendTimeFull = ({ at, zone }: SendTime) =>
 	`${sendTimeShort({ at, zone })} (${zoneName(at, zone, "long")})`;
-/** A saved report's time on the card, in the church's zone. */
 export const reportTime = (at: string, review: Review) => {
 	const zone = sendTimeOf(review, "after")?.zone;
 	return zone ? sendTime({ at, zone }) : null;
 };
 
-/** The church-local wall time the Evry tools take back for a review again: "2026-11-06T09:00". */
 function localTime({ at, zone }: SendTime) {
 	const p = Object.fromEntries(
 		new Intl.DateTimeFormat("en-CA", {
@@ -1130,12 +1072,10 @@ type AudienceValue = {
 };
 const audienceOf = (value: unknown): AudienceValue | null =>
 	value && typeof value === "object" && "recipients" in value ? (value as AudienceValue) : null;
-/** The native command's audience, without the counts the review added. */
 function audienceArgs(value: unknown) {
 	const a = audienceOf(value);
 	return a && { groups: a.groups, teamIds: a.teamIds, personIds: a.personIds };
 }
-/** "Launch team, 2 people · 4 with an email address · 1 with no email address". */
 export function audienceText(value: unknown) {
 	const a = audienceOf(value);
 	if (!a) return null;
@@ -1166,7 +1106,6 @@ export const LEFT_OUT_REASON: Record<string, string> = {
 	cancelled: "Cancelled",
 };
 
-/** The report is not confirmed and the email service can be asked again. */
 export const checkable = (review: Review) =>
 	review.outcome === "completed" && review.receipt?.report?.confirmation === "not_confirmed";
 
@@ -1184,7 +1123,6 @@ const MAIL_PENDING: Record<string, string> = {
 	"communication.templates.fork": "Review the copy",
 	"communication.templates.update": "Review the template change",
 };
-/** The head of a review the server refused on the card itself, such as a time outside the window it can hold. */
 const MAIL_REFUSED: Record<string, string> = {
 	"communication.scheduleReviewed": "Can't schedule this email",
 	"communication.rescheduleReviewed": "Can't move this email",
@@ -1192,7 +1130,6 @@ const MAIL_REFUSED: Record<string, string> = {
 	"communication.sendReviewed": "Can't send this email",
 	"communication.templates.update": "Can't edit this template",
 };
-/** The note on a review the Owner dismissed: what stays as it was. */
 export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.saveDraft": "You closed this review. Nothing was saved.",
 	"communication.scheduleReviewed": "You closed this review. The draft stays saved and is not scheduled.",
@@ -1208,7 +1145,6 @@ export const MAIL_DISMISSED: Partial<Record<Operation, string>> = {
 	"communication.templates.fork": "You closed this review. No copy was made.",
 	"communication.templates.update": "You closed this review. The template stays as it was.",
 };
-/** A change that stays inside Messages: nothing is handed to the email service. */
 const LOCAL_ONLY = new Set<Operation>([
 	"communication.saveDraft",
 	"communication.deleteDraft",
@@ -1216,7 +1152,6 @@ const LOCAL_ONLY = new Set<Operation>([
 	"communication.templates.fork",
 	"communication.templates.update",
 ]);
-/** The head of an email card once it has a saved outcome: only what the email service confirmed is called done. */
 export function mailHead(
 	review: Review,
 	phase: string,
@@ -1241,7 +1176,6 @@ export function mailHead(
 			tone: "amber",
 		};
 	if (phase === "refused") return { title: "Refused", tone: "magenta" };
-	// "Cancelled" is the word for a cancel the email service confirmed, so a dismissed review never uses it.
 	if (phase === "cancelled") return { title: "Review closed", tone: "gray" };
 	if (phase !== "completed") return null;
 	const report = review.receipt?.report;
@@ -1280,7 +1214,6 @@ export function mailHead(
 				? { title: `Replacement scheduled for ${reportTime(report.scheduledAt, review)}`, tone: "green" }
 				: { title: "Replacement not confirmed", tone: "amber" };
 		case "send":
-			// Accepted by the email service is "sent", never "delivered": delivery is a later fact Messages records.
 			if (report.confirmation === "confirmed") return { title: "Sent", tone: "green" };
 			return report.confirmation === "not_confirmed"
 				? { title: "Send not confirmed", tone: "amber" }
@@ -1292,15 +1225,11 @@ export function mailHead(
 	}
 }
 
-/** What became of one recipient of the old send, in plain words. */
 export const RECIPIENT_OUTCOME: Record<RecipientOutcome, string> = {
 	cancelled: "Cancelled",
 	sent: "Already sent",
 	open: "Cancel not confirmed",
 };
-
-// ---------------------------------------------------------------------------------------------------------------
-// Documents: the four reviewed Documents writes (WP-080). Each says what it does in the app and links to where it shows.
 
 export const isDocument = (operation: Operation) => operation.startsWith("documents.");
 
@@ -1312,7 +1241,6 @@ const DOCUMENT_CONSEQUENCE: Partial<Record<Operation, string>> = {
 	"documents.designateCoreValues": "Evry marks your own document. It never writes core values for your church.",
 };
 
-/** Where the result of an approved document change shows in the app, and the link's words. */
 export function documentResult(review: Review): { href: string; label: string } | null {
 	const target = review.review.target;
 	if (!target || review.review.withheld) return null;
@@ -1334,7 +1262,6 @@ export function documentResult(review: Review): { href: string; label: string } 
 	}
 }
 
-/** Why a document change was refused, from the saved receipt code. Nothing was changed in each case. */
 export function documentRefusalText(code: string | undefined): string {
 	switch (code) {
 		case "revision_conflict":
@@ -1349,10 +1276,8 @@ export function documentRefusalText(code: string | undefined): string {
 	}
 }
 
-/** The one sentence under the target that says what happens to them beyond the listed fields. */
 export function consequence(review: Review): string | null {
 	if (isDocument(review.operation)) return DOCUMENT_CONSEQUENCE[review.operation] ?? null;
-	// NTF-003: read is only read.
 	if (review.operation === "notifications.markSelectedRead" || review.operation === "notifications.markAllVisibleRead")
 		return "Marking read doesn't complete or change any task.";
 	const tasks = handedBack(review.review.changes);
@@ -1396,7 +1321,6 @@ export function consequence(review: Review): string | null {
 	return owner;
 }
 
-/** "2 people will be added · 1 row skipped · 2 rows fail": the planned outcome of a reviewed import. */
 export function importSummary(rows: readonly ReviewedRow[]) {
 	const n = (outcome: ReviewedRow["outcome"][]) => rows.filter((r) => outcome.includes(r.outcome)).length;
 	const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
@@ -1410,7 +1334,6 @@ export function importSummary(rows: readonly ReviewedRow[]) {
 		.join(" · ");
 }
 
-/** What the outcome of each planned import row is called on the card. */
 export const ROW_OUTCOME: Record<ReviewedRow["outcome"], string> = {
 	create: "Add",
 	create_and_review: "Add, review later",
@@ -1418,10 +1341,6 @@ export const ROW_OUTCOME: Record<ReviewedRow["outcome"], string> = {
 	fail: "Fails",
 };
 
-/**
- * The head of a saved change that reached several people: it counts who changed, so a change that left anyone out
- * never reads as done for everyone.
- */
 export function peopleResult(review: Review): string | null {
 	const people = review.receipt?.people;
 	if (!people?.length) return null;
@@ -1429,10 +1348,6 @@ export function peopleResult(review: Review): string | null {
 	if (changed === people.length) return people.length === 1 ? "Saved" : `Saved for all ${people.length}`;
 	return `${changed} of ${people.length} changed`;
 }
-
-// ---------------------------------------------------------------------------------------------------------------
-// Revise: the owner changes a reviewed value. The native command's input is rebuilt from the review, so a revision
-// sends exactly the reviewed facts with only the edited values changed.
 
 export type FieldKind = "text" | "long" | "date" | "email" | "choice";
 const KIND: Record<string, FieldKind> = {
@@ -1455,7 +1370,6 @@ export const CHOICES: Record<string, { value: string; label: string }[]> = {
 	adultClassification: Object.entries(CLASSIFICATION_LABEL).map(([value, label]) => ({ value, label })),
 };
 
-/** Fields a person may edit in a revision. Photos, the removal itself and the task count are fixed facts. */
 const FIXED = new Set([
 	"photo",
 	"state",
@@ -1466,20 +1380,16 @@ const FIXED = new Set([
 	"signal",
 	"value",
 ]);
-/** Values that may be empty. A name and a reason are required, and a signal's date and words. */
 const REQUIRED = new Set(["displayName", "reason", "stage", "source", "adultClassification", "asOf", "detail"]);
-/** Adult or child is required until a birth date is entered: then it comes from the birth date (REQ-PPL-026). */
 export const isRequired = (field: string, birthDate = false) =>
 	field === "adultClassification" ? !birthDate : REQUIRED.has(field);
 
-/** The review has a birth date, as revised: an edited value wins over the reviewed one. */
 export function hasBirthDate(review: Review, edits: Record<string, string>) {
 	const c = review.review.changes.find((x) => x.field === "birthDate");
 	if (!c) return false;
 	return c.field in edits ? (edits[c.field] ?? "").trim() !== "" : Boolean(c.after);
 }
 
-/** Writes that only add something: their review shows the new values without an empty "before". */
 const ADDS = new Set<Operation>([
 	"people.createPerson",
 	"people.addNote",
@@ -1495,14 +1405,9 @@ const ADDS = new Set<Operation>([
 	"discovery.convertToPlant",
 	"development.saveProgram",
 ]);
-/** The changes that give the account its first church seat, as its Owner. */
 export const seatsAccount = (operation: Operation) =>
 	operation === "onboarding.createPlant" || operation === "discovery.convertToPlant";
 
-/**
- * One Discovery link on a conversion review (field `link:<organization id>`): the organization, then whether it carries
- * over to the church and what the church's link shares. Null for any other field.
- */
 type CarryOver = {
 	organizationId: string;
 	organization: string;
@@ -1522,19 +1427,13 @@ export function carryOver(c: Change): CarryOver | null {
 		share: after.share ?? [],
 	};
 }
-/** "Carries over, sharing Meetings and Wiki", in the card's words. */
 export function carryOverText(link: Pick<CarryOver, "carries" | "share">) {
 	if (!link.carries) return "Doesn't carry over. The link ends.";
 	const shares = SHARING_CATEGORIES.filter((k) => link.share.includes(k)).map((k) => SHARING_CATEGORY_LABEL[k]);
 	return shares.length ? `Carries over, sharing ${shares.join(", ")}` : "Carries over, sharing nothing yet";
 }
-/** The sharing categories a church's link can share, in the Sharing screen's order and words. */
 export const SHARE_CHOICES = SHARING_CATEGORIES.map((k) => ({ value: k, label: SHARING_CATEGORY_LABEL[k] }));
 
-/**
- * The People, phase and signal writes, and turning a Discovery space into a church, whose review can be rebuilt (and,
- * but for a reaffirm, revised) on the card.
- */
 const REVISABLE = new Set<Operation>([
 	"people.createPerson",
 	"people.updatePerson",
@@ -1556,7 +1455,6 @@ export const editableChanges = (review: Review) =>
 				review.operation === "discovery.convertToPlant" ? carryOver(c) !== null : !FIXED.has(c.field),
 			);
 
-/** The native command's input for this review with `edits` applied, or null when the review can't be rebuilt. */
 export function reviseInput(review: Review, edits: Record<string, string> = {}): unknown {
 	if (!REVISABLE.has(review.operation) && !isMail(review.operation)) return null;
 	const { target, changes } = review.review;
@@ -1572,7 +1470,6 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	if (review.operation === "people.createPerson")
 		return Object.fromEntries(changes.map((c) => [c.field, value(c)]).filter(([, v]) => v !== null));
 	if (review.operation === "discovery.convertToPlant") {
-		// Each link as the card shows it, or as revised: a picked link keeps the categories ticked for it.
 		const picks = changes.flatMap((c) => {
 			const link = carryOver(c);
 			if (!link) return [];
@@ -1642,7 +1539,6 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 				...(audience ? { audience } : {}),
 			};
 		}
-		// An expired review of one task's status is prepared again from its task; the others are asked of Evry again.
 		case "tasks.complete":
 		case "tasks.completeOccurrence":
 		case "tasks.reopen":
@@ -1659,7 +1555,6 @@ export function reviseInput(review: Review, edits: Record<string, string> = {}):
 	}
 }
 
-/** The first required value left empty, for the form's own message before anything is sent. */
 export function missingRequired(review: Review, edits: Record<string, string>) {
 	const dated = hasBirthDate(review, edits);
 	return (
@@ -1667,10 +1562,6 @@ export function missingRequired(review: Review, edits: Record<string, string>) {
 	);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Words: refusals and notices say what happened and what to do next, and never more than the server said.
-
-/** Why a seat, Settings, sharing, connection, account or organization change was refused. Nothing changed. */
 export function settingsRefusalText(code: string | undefined): string {
 	switch (code) {
 		case "revision_conflict":
@@ -1712,15 +1603,16 @@ export function settingsRefusalText(code: string | undefined): string {
 	}
 }
 
-/** Why a pipeline or program change was refused. Nothing was changed. */
 export function pipelineRefusalText(
 	code: string | undefined,
 	operation: PipelineOperation,
 	who: string | null,
 ): string {
-	const area = operation === "development.saveProgram" ? "Programs" : "The Pipeline";
+	const area = operation === "pipeline.proposeStageMove" ? "The Pipeline" : "Programs";
 	switch (code) {
 		case "revision_conflict":
+			if (operation === "development.draftNextVersion")
+				return "The program changed since Evry prepared this, so nothing was saved over it. Open the program to see it as it is now, or ask Evry to prepare it again.";
 			return operation === "development.saveProgram"
 				? "Programs changed after Evry prepared this, so nothing was created. Ask Evry to prepare it again."
 				: `${who ?? "This person"}'s stage changed after Evry prepared this, so the move couldn't be applied and nothing moved. This is where they are now.`;
@@ -1733,7 +1625,23 @@ export function pipelineRefusalText(
 	}
 }
 
-/** Why a run was refused, from the saved receipt code. Nothing was changed in each case. */
+export function launchRefusalText(code: string | undefined): string {
+	switch (code) {
+		case "stale_review":
+			return "This milestone's prep tasks changed after Evry prepared this, so nothing was saved. This is how they are now. Ask Evry to prepare it again.";
+		case "revision_conflict":
+			return "The Launch plan changed after Evry prepared this, so nothing was saved. This is how it is now. Ask Evry to prepare it again.";
+		case "derived_evidence_only":
+			return "This milestone follows the submitted debrief. It can't be checked off by hand.";
+		case "access_denied":
+			return "Your seat no longer allows this change, so nothing was saved.";
+		case "source_unavailable":
+			return "This server can't send Launch notifications, so nothing was saved. Mark it complete on the Launch plan.";
+		default:
+			return "The Launch plan refused this change, so nothing was saved.";
+	}
+}
+
 export function refusalText(code: string | undefined, target: string | null, operation?: Operation): string {
 	if (operation && isTasks(operation)) return taskRefusalText(code, target);
 	const meetings = !!operation && isMeetings(operation);
@@ -1779,7 +1687,6 @@ export function refusalText(code: string | undefined, target: string | null, ope
 	}
 }
 
-/** Why a Tasks or Follow-up change was refused when it ran. */
 function taskRefusalText(code: string | undefined, target: string | null): string {
 	switch (code) {
 		case "revision_conflict":
@@ -1810,7 +1717,6 @@ function taskRefusalText(code: string | undefined, target: string | null): strin
 	}
 }
 
-/** Why a Wiki bookmark or vote was refused. Nothing was saved in each case. */
 export function wikiRefusalText(code: string | undefined): string {
 	switch (code) {
 		case "revision_conflict":
@@ -1822,7 +1728,6 @@ export function wikiRefusalText(code: string | undefined): string {
 	}
 }
 
-/** Why a phase or signal change was refused. Nothing was saved in each case. */
 export function intelligenceRefusalText(code: string | undefined): string {
 	switch (code) {
 		case "revision_conflict":
@@ -1843,7 +1748,6 @@ export function intelligenceRefusalText(code: string | undefined): string {
 	}
 }
 
-/** Why an email effect was refused. The email service had not been asked unless the text says otherwise. */
 export function mailRefusalText(code: string | undefined): string {
 	switch (code) {
 		case "revision_conflict":
@@ -1865,7 +1769,6 @@ export function mailRefusalText(code: string | undefined): string {
 	}
 }
 
-/** Why a step after the first one stopped, in a sentence that follows what did happen. */
 export function stoppedReason(code: string | undefined): string {
 	switch (code) {
 		case "stale_review":
@@ -1883,7 +1786,6 @@ export function stoppedReason(code: string | undefined): string {
 	}
 }
 
-/** What the card says after an action the server refused or never answered. */
 export function actionNotice(error: ProjectedError | "lost", mail: boolean): string {
 	if (error === "lost") return "Not confirmed. Check your connection, then try again.";
 	switch (error.code) {
@@ -1904,9 +1806,7 @@ export function actionNotice(error: ProjectedError | "lost", mail: boolean): str
 			return "Some values are not valid. Check them, then update the review.";
 		case "not_found":
 			if (mail) return "This message is no longer waiting to send, so there is nothing to review again.";
-		// falls through
 		case "access_denied":
-			// An earlier approval may already have run, so this says nothing about the change itself.
 			return "Your seat no longer allows this, so Evry can't show the result.";
 		default:
 			return "This did not go through. Try again.";
@@ -1916,26 +1816,15 @@ export function actionNotice(error: ProjectedError | "lost", mail: boolean): str
 const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
 export const clock = (iso: string) => time.format(new Date(iso));
 
-/**
- * The delay before the next read of a running change, counted from the previous reply. An approved change is first
- * readable as saved about 0.5 to 0.75 s after the click (production build, 20 runs), so the first read waits for that
- * and the next reads follow 50 ms apart: Saved shows within the one-second budget. A slower change backs off to one
- * read every 2 seconds.
- */
 export const pollDelay = (attempt: number) => [350, 50, 50, 50, 50, 800, 1200][attempt] ?? 2000;
-
-// ---------------------------------------------------------------------------------------------------------------
-// Notifications: the account's own bell and settings (WP-082). Nothing here names another person.
 
 export const isNotification = (operation: Operation) => operation.startsWith("notifications.");
 
 export type ReviewedNotice = { id: string; title: string; category: string; at: string; zone: string };
 const isNotice = (value: unknown): value is ReviewedNotice =>
 	!!value && typeof value === "object" && "id" in value && "title" in value && "at" in value;
-/** The notices a mark-selected review will mark read, newest first, as the review listed them. */
 export const reviewedNotices = (review: Review) =>
 	review.review.changes.flatMap((c) => (c.field === "notice" && isNotice(c.before) ? [c.before] : []));
-/** "Sat, Nov 7, 9:15 AM": when the notice arrived, in the church's zone. */
 export const noticeWhen = ({ at, zone }: ReviewedNotice) =>
 	new Intl.DateTimeFormat("en-US", {
 		timeZone: zone,
@@ -1947,7 +1836,6 @@ export const noticeWhen = ({ at, zone }: ReviewedNotice) =>
 	}).format(new Date(at));
 
 const NOTICE_CHANNEL: Record<string, string> = { email: "Email", in_app: "In-app" };
-/** Each category a settings review touches, with every channel's value before and after, in the review's order. */
 export function settingChanges(review: Review) {
 	const groups = new Map<string, { channel: string; before: boolean; after: boolean }[]>();
 	for (const c of review.review.changes) {
@@ -1966,7 +1854,6 @@ const isSlot = (value: unknown): value is DigestSlot =>
 	!!value && typeof value === "object" && "cadence" in value && "weekday" in value && "hour" in value;
 const WEEKDAY = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
 const hourText = (hour: number) => `${hour % 12 || 12}:00 ${hour < 12 ? "AM" : "PM"}`;
-/** "Weekly on Mondays at 8:00 AM" or "Daily at 8:00 AM": a digest's schedule for this account. */
 export const digestSchedule = (value: unknown) =>
 	isSlot(value)
 		? value.cadence === "daily"

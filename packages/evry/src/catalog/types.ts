@@ -3,13 +3,6 @@ import type { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import type { NativePorts } from "../proposals/types.ts";
 
-/**
- * One returned row. Only these fields reach the model; the id lets a later read or selection name it again.
- * Selection re-checks `person` rows only. A household, tag, skill, activity, file, import, message, notice, setting,
- * digest, date, record, merge, correction, phase, criterion, signal, document or template row is not a person. An organization pipeline person is a person of that
- * organization. A meeting or venue row names that record; an item row is a part of one (an agenda section, a kit item,
- * a report line). An `article` row's id is the exact Wiki revision it shows.
- */
 export type SourceRow = {
 	kind:
 		| "person"
@@ -49,16 +42,15 @@ export type SourceRow = {
 		| "step"
 		| "relationship"
 		| "stage"
+		| "milestone"
 		| "date"
 		| "article"
 		| "document";
 	id: string;
 	label: string;
-	/** `you: true` marks the signed-in user's own person row (see person-row.ts); no other row carries it. */
 	fields: Record<string, string | number | boolean | null>;
 };
 
-/** A bounded, source-bound read result: the rows, the exact total, whether more exist and what was left out. */
 export type SourceResult = {
 	operation: string;
 	status: "available" | "not_found";
@@ -68,23 +60,15 @@ export type SourceResult = {
 	next: number | null;
 	completeness: "complete" | "partial";
 	exclusions: string[];
-	/** Totals over the rows as the domain counted them, such as roles and people serving church-wide. */
 	facts?: Record<string, string | number | boolean | null>;
 };
 
-/** A reviewed adapter from one model-tool read operation to its native domain read. */
 export type ReadAdapter<I> = {
 	operation: string;
 	description: string;
 	input: z.ZodType<I>;
-	/** Current authority decides availability. Being in the catalog grants nothing. */
 	allowed(actor: EvryActor): boolean;
-	/**
-	 * Reads what the input names outside the read's transaction, such as a file attached in this conversation; its
-	 * answer reaches `invoke` as `loaded`. A read with no conversation's files refuses as attachment_elsewhere.
-	 */
 	load?(input: I, files: ConversationFiles): Promise<unknown>;
-	/** `native` holds the deployment's native services, for a read that needs one (null when it has none). */
 	invoke(
 		tx: Transaction,
 		actor: EvryActor,
@@ -94,5 +78,4 @@ export type ReadAdapter<I> = {
 	): Promise<SourceResult>;
 };
 
-/** The files attached in the turn's own conversation (attachments/store.ts): a file's exact bytes by its id. */
 export type ConversationFiles = { read(attachmentId: string): Promise<Uint8Array> };

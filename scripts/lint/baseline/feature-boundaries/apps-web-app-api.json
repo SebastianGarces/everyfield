@@ -1,0 +1,4 @@
+{
+	"apps/web/src/app/api/cron/jobs/route.ts": 1,
+	"apps/web/src/app/api/evry/conversations/[id]/stream/route.ts": 1
+}

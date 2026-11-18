@@ -21,36 +21,27 @@ import {
 	Select,
 	Textarea,
 } from "@everyfield/ui/controls";
-import { useState, type FormEvent } from "react";
+import { useActionState, useState } from "react";
 import { readGoals, saveGoal } from "./actions";
-import { formatDay, goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } from "./model";
-import { Problem } from "./Problem";
+import { formatPlainDate } from "../../../components/dates.ts";
+import { goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } from "./model";
+import { Problem } from "../../../components/Problem.tsx";
 
 type Goal = PipelineGoals["goals"][number];
-/** A goal counts at most this many things (D-1264). */
 const MAX_COUNTS = 4;
 
-/** What "Plants sent" says until commissioning and plant lineage exist (ADR-001 stage 3). Never a zero. */
 const PLANTS_UNAVAILABLE = "Everyfield will count plants sent once churches are commissioned through it.";
 
-/**
- * The goals area on the Pipeline page (REQ-MUL-007, -009), for every seat: the organization's sending goals, its own
- * pipeline counted by stage kind as of today, and leadership conversations by month and quarter. Counts and dates
- * only: no rates, forecasts or verdicts (ADR-001). Owners and Admins add and edit goals.
- */
 export function GoalsArea({ initial }: { initial: PipelineGoals }) {
-	const [data, setData] = useState(initial);
-	const [seen, setSeen] = useState(initial);
-	if (seen !== initial) {
-		setSeen(initial);
-		setData(initial);
-	}
-	const [editing, setEditing] = useState<Goal | "new" | null>(null);
+	const [local, setLocal] = useState<{ from: PipelineGoals; value: PipelineGoals } | null>(null);
+	const data = local?.from === initial ? local.value : initial;
+	const [editing, setEditing] = useState<Goal | { adding: string } | null>(null);
+	const add = () => setEditing({ adding: crypto.randomUUID() });
 
 	async function saved() {
 		setEditing(null);
 		const answer = await readGoals().catch(() => null);
-		if (answer?.status === "ok") setData(answer.value);
+		if (answer?.status === "ok") setLocal({ from: initial, value: answer.value });
 	}
 
 	return (
@@ -66,7 +57,7 @@ export function GoalsArea({ initial }: { initial: PipelineGoals }) {
 					</CardHeading>
 					{data.canEdit && data.goals.length ? (
 						<CardActions>
-							<Button variant="secondary" size="sm" icon={PlusSignIcon} onClick={() => setEditing("new")}>
+							<Button variant="secondary" size="sm" icon={PlusSignIcon} onClick={add}>
 								Add goal
 							</Button>
 						</CardActions>
@@ -88,7 +79,7 @@ export function GoalsArea({ initial }: { initial: PipelineGoals }) {
 								: "No goals yet. Owners and Admins add them."}
 						</p>
 						{data.canEdit ? (
-							<Button variant="primary" size="sm" icon={PlusSignIcon} onClick={() => setEditing("new")}>
+							<Button variant="primary" size="sm" icon={PlusSignIcon} onClick={add}>
 								Add goal
 							</Button>
 						) : null}
@@ -103,7 +94,8 @@ export function GoalsArea({ initial }: { initial: PipelineGoals }) {
 				<GoalDialog
 					open={editing !== null}
 					onOpenChange={(open) => (open ? null : setEditing(null))}
-					goal={editing === "new" ? null : editing}
+					goal={editing && "adding" in editing ? null : editing}
+					goalId={editing ? ("adding" in editing ? editing.adding : editing.id) : ""}
 					asOf={data.asOf}
 					onSaved={saved}
 				/>
@@ -141,16 +133,12 @@ function GoalItem({ goal, asOf, onEdit }: { goal: Goal; asOf: string; onEdit: ((
 	);
 }
 
-/**
- * The counts the goal chose (D-1264): people who reached a stage of each kind since the goal's counting-from day, as of
- * today. Plain counts and dates, never measured against a target.
- */
 function ChosenCounts({ goal, asOf, canEdit }: { goal: Goal; asOf: string; canEdit: boolean }) {
-	const since = formatDay(goal.countingFrom);
+	const since = formatPlainDate(goal.countingFrom);
 	return (
 		<section aria-label="What this goal counts" className="mt-1 flex flex-col gap-2">
 			<p className="text-xs text-text-3">
-				Counting from {since} · As of {formatDay(asOf)}
+				Counting from {since} · As of {formatPlainDate(asOf)}
 			</p>
 			{goal.counts.length ? (
 				<dl className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
@@ -187,14 +175,13 @@ function Figure({ term, value }: { term: string; value: string }) {
 	);
 }
 
-/** Live people of this organization counted once each by the fixed kind of their stage, as of today. */
 function Today({ data }: { data: PipelineGoals }) {
 	return (
 		<Card>
 			<CardHeader className="mb-3">
 				<CardHeading>
 					<CardTitle size="sm">Your pipeline today</CardTitle>
-					<CardDescription>As of {formatDay(data.asOf)}</CardDescription>
+					<CardDescription>As of {formatPlainDate(data.asOf)}</CardDescription>
 				</CardHeading>
 			</CardHeader>
 			<dl className="flex flex-col text-sm">
@@ -229,7 +216,6 @@ function Today({ data }: { data: PipelineGoals }) {
 	);
 }
 
-/** Leadership conversations by the month and the quarter they happened in, oldest first. A zero stays a zero. */
 function Conversations({ data }: { data: PipelineGoals }) {
 	const { months, quarters } = data.conversations;
 	return (
@@ -279,18 +265,22 @@ function GoalDialog({
 	open,
 	onOpenChange,
 	goal,
+	goalId,
 	asOf,
 	onSaved,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	goal: Goal | null;
+	goalId: string;
 	asOf: string;
 	onSaved: () => void;
 }) {
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent size="sm">{open ? <GoalForm goal={goal} asOf={asOf} onSaved={onSaved} /> : null}</DialogContent>
+			<DialogContent size="sm">
+				{open ? <GoalForm goal={goal} goalId={goalId} asOf={asOf} onSaved={onSaved} /> : null}
+			</DialogContent>
 		</Dialog>
 	);
 }
@@ -300,7 +290,6 @@ type CountRow = { key: string; kind: Goal["counts"][number]["kind"]; label: stri
 type CountErrors = Record<string, { label?: string; kind?: string }>;
 const KIND_OPTIONS = Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }));
 
-/** What is wrong with each count row, by its key: a missing or long name, or a kind an earlier row already counts. */
 function countProblems(rows: readonly CountRow[]): CountErrors {
 	const problems: CountErrors = {};
 	rows.forEach((row, i) => {
@@ -319,7 +308,6 @@ function countProblems(rows: readonly CountRow[]): CountErrors {
 	return problems;
 }
 
-/** A whole number of 0 or more, or the message that says why not. */
 function target(text: string): number | string {
 	if (text.trim() === "") return "Enter a number, or 0.";
 	const n = Number(text);
@@ -329,24 +317,30 @@ function target(text: string): number | string {
 	return n;
 }
 
-/**
- * A goal's targets, year, reason, counting-from day and chosen counts. Adding names the goal's ID once per dialog, so a
- * resend adds one goal.
- */
-function GoalForm({ goal, asOf, onSaved }: { goal: Goal | null; asOf: string; onSaved: () => void }) {
-	const [goalId] = useState(() => goal?.id ?? crypto.randomUUID());
+type GoalState = {
+	errors: Errors;
+	countErrors: CountErrors;
+	problem: string | null;
+	values: { reason: string; from: string };
+};
+
+function GoalForm({
+	goal,
+	goalId,
+	asOf,
+	onSaved,
+}: {
+	goal: Goal | null;
+	goalId: string;
+	asOf: string;
+	onSaved: () => void;
+}) {
 	const [leaders, setLeaders] = useState(goal ? String(goal.leaderTarget) : "");
 	const [plants, setPlants] = useState(goal ? String(goal.plantTarget) : "");
 	const [year, setYear] = useState(goal ? String(goal.targetYear) : "");
-	const [reason, setReason] = useState(goal?.rationale ?? "");
-	const [from, setFrom] = useState<string>(goal?.countingFrom ?? asOf);
 	const [counts, setCounts] = useState<CountRow[]>(() =>
 		(goal?.counts ?? []).map((c) => ({ key: crypto.randomUUID(), kind: c.kind, label: c.label })),
 	);
-	const [errors, setErrors] = useState<Errors>({});
-	const [countErrors, setCountErrors] = useState<CountErrors>({});
-	const [problem, setProblem] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
 	const leaderTarget = target(leaders);
 	const plantTarget = target(plants);
 	const targetYear = Number(year);
@@ -355,40 +349,52 @@ function GoalForm({ goal, asOf, onSaved }: { goal: Goal | null; asOf: string; on
 			? goalHeadline({ leaderTarget, plantTarget, targetYear })
 			: null;
 
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		const next: Errors = {
-			leaders: typeof leaderTarget === "string" ? leaderTarget : undefined,
-			plants: typeof plantTarget === "string" ? plantTarget : undefined,
-			year:
-				Number.isInteger(targetYear) && targetYear >= 2000 && targetYear <= 2200
-					? undefined
-					: "Enter a year between 2000 and 2200.",
-			reason: reason.trim() ? undefined : "Say briefly why this goal matters.",
-			from: !from ? "Enter the date." : from > asOf ? "The counting-from date can’t be after today." : undefined,
-		};
-		const rows = countProblems(counts);
-		setErrors(next);
-		setCountErrors(rows);
-		if (Object.values(next).some(Boolean) || Object.keys(rows).length) return;
-		setSaving(true);
-		const answer = await saveGoal({
-			goalId,
-			expectedRevision: goal?.revision ?? null,
-			leaderTarget,
-			plantTarget,
-			targetYear,
-			rationale: reason.trim(),
-			countingFrom: from,
-			counts: counts.map((c) => ({ kind: c.kind, label: c.label.trim() })),
-		}).catch(() => ({ status: "lost" as const }));
-		setSaving(false);
-		if (answer.status !== "ok") return setProblem(refusalText(answer));
-		onSaved();
-	}
+	const [state, submit, saving] = useActionState(
+		async (last: GoalState, form: FormData): Promise<GoalState> => {
+			const values = { reason: String(form.get("reason") ?? ""), from: String(form.get("from") ?? "") };
+			const errors: Errors = {
+				leaders: typeof leaderTarget === "string" ? leaderTarget : undefined,
+				plants: typeof plantTarget === "string" ? plantTarget : undefined,
+				year:
+					Number.isInteger(targetYear) && targetYear >= 2000 && targetYear <= 2200
+						? undefined
+						: "Enter a year between 2000 and 2200.",
+				reason: values.reason.trim() ? undefined : "Say briefly why this goal matters.",
+				from: !values.from
+					? "Enter the date."
+					: values.from > asOf
+						? "The counting-from date can’t be after today."
+						: undefined,
+			};
+			const countErrors = countProblems(counts);
+			const checked = { errors, countErrors, values };
+			if (Object.values(errors).some(Boolean) || Object.keys(countErrors).length)
+				return { ...checked, problem: last.problem };
+			const answer = await saveGoal({
+				goalId,
+				expectedRevision: goal?.revision ?? null,
+				leaderTarget,
+				plantTarget,
+				targetYear,
+				rationale: values.reason.trim(),
+				countingFrom: values.from,
+				counts: counts.map((c) => ({ kind: c.kind, label: c.label.trim() })),
+			}).catch(() => ({ status: "lost" as const }));
+			if (answer.status !== "ok") return { ...checked, problem: refusalText(answer) };
+			onSaved();
+			return { ...checked, problem: null };
+		},
+		{
+			errors: {},
+			countErrors: {},
+			problem: null,
+			values: { reason: goal?.rationale ?? "", from: goal?.countingFrom ?? asOf },
+		},
+	);
+	const { errors, countErrors, problem } = state;
 
 	return (
-		<form onSubmit={submit} noValidate className="contents">
+		<form action={submit} noValidate className="contents">
 			<DialogHeader
 				title={goal ? "Edit goal" : "Add a sending goal"}
 				description="Saving a goal moves no one and changes no stage."
@@ -427,14 +433,14 @@ function GoalForm({ goal, asOf, onSaved }: { goal: Goal | null; asOf: string; on
 					/>
 				</Field>
 				<Field label="Why this goal" error={errors.reason} hint="A sentence or two your staff will see with the goal.">
-					<Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={1000} />
+					<Textarea name="reason" defaultValue={state.values.reason} rows={3} maxLength={1000} />
 				</Field>
 				<Field
 					label="Counting from"
 					error={errors.from}
 					hint="The goal’s counts include stage moves on or after this day."
 				>
-					<Input type="date" value={from} max={asOf} onChange={(e) => setFrom(e.target.value)} />
+					<Input type="date" name="from" defaultValue={state.values.from} max={asOf} />
 				</Field>
 				<CountsEditor rows={counts} errors={countErrors} onChange={setCounts} />
 				{preview ? (
@@ -453,10 +459,6 @@ function GoalForm({ goal, asOf, onSaved }: { goal: Goal | null; asOf: string; on
 	);
 }
 
-/**
- * The goal's chosen counts (D-1264): up to 4 rows, each a name and the stage kind it counts. A count is the people who
- * reached a stage of that kind since the counting-from day, so a person who moved on stays counted.
- */
 function CountsEditor({
 	rows,
 	errors,

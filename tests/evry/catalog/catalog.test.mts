@@ -139,6 +139,12 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"privacy.getSharing",
 		"onboarding.getResume",
 		"discovery.getProfile",
+		"dashboard.availableActions",
+		"dashboard.metrics",
+		"dashboard.activity",
+		"dashboard.readSetupGaps",
+		"feedback.listOwn",
+		"feedback.getOwnStatus",
 		"pipeline.listPeople",
 		"development.draftPlan",
 		"calendar.getContext",
@@ -152,6 +158,11 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		"documents.read",
 		"documents.readCoreValuesEvidence",
 		"documents.templates.list",
+		"development.readProgram",
+		"launch.readCountdown",
+		"launch.readWorkspace",
+		"launch.readJournal",
+		"launch.readDebrief",
 		"evry.selectReturnedRows",
 	]);
 	for (const id of installed) {
@@ -159,9 +170,6 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		assert.ok(op, id);
 		assert.deepEqual([op.model_tool, op.kind, op.durable_write, generated.has(id)], [true, "query", false, true], id);
 	}
-	// A reviewed write is a flagged durable command the model may only propose; a person approves it. A stage move
-	// proposal is a non-durable query instead (REQ-MUL-015): its card asks the person for the reason, and the durable
-	// move is the native pipeline command, which is never a model tool.
 	for (const [id, write] of Object.entries(REVIEWED_WRITES)) {
 		const op = operations.get(id);
 		assert.ok(op, id);
@@ -174,7 +182,6 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		);
 	}
 	assert.equal(operations.get("pipeline.moveStage")?.model_tool, false);
-	// Every model-tool operation of the teams packages (WP-069 reads, WP-070 reviewed writes) is installed.
 	const teams = [...operations.values()].filter(
 		(op) =>
 			op.model_tool === true && ((op.evry_packages as string[]) ?? []).some((p) => p === "WP-069" || p === "WP-070"),
@@ -186,7 +193,6 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 			...Object.keys(REVIEWED_WRITES).filter((id) => id.startsWith("teams.")),
 		].sort(),
 	);
-	// Runtime operations that are not model tools stay out of the model's reach.
 	for (const id of [
 		"evry.submitTurn",
 		"evry.cancelTurn",
@@ -198,7 +204,6 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		assert.equal(operations.get(id)?.model_tool, false, id);
 });
 
-/** An actor in one exact context. Availability reads only the context and the role, never the database. */
 const as = (contextKind: EvryActor["contextKind"], role: EvryActor["role"]): EvryActor => ({
 	authority: null as never,
 	accountId: "5b6d1f0e-0000-4000-8000-000000000f01",
@@ -232,18 +237,14 @@ test("INV-catalog: the phase and signal tools follow the context: Owner and Admi
 	};
 	for (const role of ["owner", "admin"] as const)
 		assert.deepEqual(phaseTools(as("plant", role)), { ...PHASE_TOOLS, withheld: [] }, role);
-	// A Member's seat leaves the phase journey out, and the catalog says so in the /intelligence page's own words.
 	assert.deepEqual(phaseTools(as("plant", "member")), {
 		phases: [],
 		signals: [],
 		writes: [],
 		withheld: [MEMBER_PHASES],
 	});
-	// Organization seats get no phase or signal tool and no plant read (D-1116): their own tools come from T-311, T-331
-	// and T-327's profile change. An account has none either.
 	for (const actor of [as("sending_church", "owner"), as("sending_network", "admin"), as("account", null)]) {
 		assert.deepEqual(phaseTools(actor), { phases: [], signals: [], writes: [], withheld: [] }, actor.contextKind);
-		// What they read instead (the pipeline, the oversight digest, setup) is their own; no plant read is among it.
 		const plantDomains = [
 			"people",
 			"peopleOrganization",
@@ -272,7 +273,6 @@ const plant = { kind: "plant", id: "00000000-0000-4000-8000-000000000001" } as E
 test("Meetings tools follow the native floor: an organization seat and an account context see none", () => {
 	const meetings = (actor: EvryActor) =>
 		operationsOf(readCatalog(actor)).filter((op) => /^(meetings|venues)\./.test(op));
-	// Every WP-065 model-tool read and every WP-066 model-tool write is installed, and nothing beyond them.
 	const flagged = (pkg: string, kind: string) =>
 		[...operations.values()]
 			.filter((o) => (o.evry_packages as string[]).includes(pkg) && o.model_tool === true && o.kind === kind)
@@ -286,7 +286,6 @@ test("Meetings tools follow the native floor: an organization seat and an accoun
 		[],
 	);
 	assert.deepEqual(meetings(actorAs({ kind: "account", id: plant.id } as never, null)), []);
-	// The public RSVP token reads and commands and notification planning stay native.
 	for (const op of [
 		"meeting.describeRsvpToken",
 		"meeting.answerRsvpToken",
@@ -339,7 +338,7 @@ test("INV-member-capabilities: a Member who may change only their own notificati
 	assert.doesNotMatch(describeCatalog(catalog(["people.updatePerson"])), /Owner or Admin/);
 });
 
-test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the stage move and the program create; every seat reads its pipeline", () => {
+test("INV-organization-catalog: only an organization Owner or Admin gets the two oversight digest tools, the organization profile change, the stage move and the program create; every seat reads its pipeline and programs and may propose a next version, which only a program's director gets a card for", () => {
 	const id = "00000000-0000-4000-8000-0000000000a1";
 	const actor = (owner: EvryActor["owner"], contextKind: EvryActor["contextKind"], role: EvryActor["role"]) =>
 		({
@@ -360,8 +359,7 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 		];
 	};
 	const oversight = ["notifications.previewOversightDigest", "notifications.oversightDigestCadence.set"];
-	// T-327's organization profile change, and WP-101's pipeline and program tools. Plant oversight stays out (WP-073).
-	const pipeline = ["pipeline.listPeople", "development.draftPlan"];
+	const pipeline = ["pipeline.listPeople", "development.draftPlan", "development.readProgram"];
 	for (const role of ["owner", "admin"] as const)
 		assert.deepEqual(
 			tools(actor(organization, "sending_church", role)),
@@ -372,12 +370,14 @@ test("INV-organization-catalog: only an organization Owner or Admin gets the two
 				"organizations.updateProfile",
 				"pipeline.proposeStageMove",
 				"development.saveProgram",
+				"development.draftNextVersion",
 			],
 			role,
 		);
-	// A Member reads the pipeline as their Pipeline page shows it, and drafts a plan, but moves and creates nothing.
-	assert.deepEqual(tools(actor(organization, "sending_church", "member")), pipeline);
-	// An account with no seat gets only its own setup and Discovery tools (T-345), never an oversight digest.
+	assert.deepEqual(tools(actor(organization, "sending_church", "member")), [
+		...pipeline,
+		"development.draftNextVersion",
+	]);
 	assert.deepEqual(tools(actor({ kind: "account", id } as EvryActor["owner"], "account", null)), [
 		"discovery.getProfile",
 		"onboarding.createPlant",

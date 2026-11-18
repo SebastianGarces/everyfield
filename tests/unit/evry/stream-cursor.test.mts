@@ -1,6 +1,3 @@
-// The Evry stream route's cursor: a malformed ?after= reads from the start (sequence 0) for both the access check and
-// the stream, and a valid one is passed through. The route's imports are stubbed so it runs without Next, a database
-// or an account.
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { test } from "node:test";
@@ -40,7 +37,6 @@ async function cursorFor(after: string) {
 		params: Promise.resolve({ id: "c1" }),
 	});
 	assert.equal(response.status, 200);
-	// The stream reads from observeRun as it is consumed.
 	assert.match(await response.text(), /event: idle/);
 	return { read: [...calls.read], observe: [...calls.observe] };
 }

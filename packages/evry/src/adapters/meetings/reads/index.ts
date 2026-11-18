@@ -5,24 +5,8 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
-import {
-	day,
-	inPlant,
-	localWhen,
-	meeting,
-	meetingId,
-	meetingRow,
-	ownerOrAdmin,
-	RSVP,
-	value,
-	venueId,
-} from "../shared.ts";
-
-// The Meetings read tools (WP-065): each calls the native Meetings read the Meetings screens use, under the same domain
-// authority, whose one statement carries the lock-free live access check (C13, C27). Members read meetings, guests,
-// agendas, kits, cards and attendance; reports and the invitation context are Owner or Admin, as natively. An RSVP is
-// the guest's answer, never attendance; a meeting with no attendance recorded is "not recorded", never zero. Prayer and
-// question notes, email opens and venue contact details never reach the model.
+import { localWhen } from "../../../catalog/labels.ts";
+import { day, inPlant, meeting, meetingId, meetingRow, ownerOrAdmin, RSVP, value, venueId } from "../shared.ts";
 
 type Row = SourceRow;
 type Fields = Row["fields"];
@@ -38,17 +22,14 @@ const result = (operation: string, rows: Row[], exclusions: string[] = [], total
 	exclusions,
 });
 const notFound = (operation: string) => result(operation, []);
-/** A found read that has nothing to list is still found: "no upcoming meetings" is an answer, not a missing record. */
 const found = (operation: string, rows: Row[], exclusions: string[] = []): SourceResult => ({
 	...result(operation, rows, exclusions),
 	status: "available",
 });
 const s = (n: number | null | undefined) => (n === null || n === undefined ? null : String(n));
 const NOT_RECORDED = "not recorded";
-/** A report value the native read may not know: "not recorded", never 0. */
 const known = (k: { status: string; value?: number }) => (k.status === "known" ? String(k.value) : NOT_RECORDED);
 
-/** One read tool: `run` calls the native read and shapes its answer into rows. */
 function read<I>(spec: {
 	operation: string;
 	description: string;
@@ -67,7 +48,6 @@ function read<I>(spec: {
 
 const one = z.strictObject({ meetingId });
 const types = z.array(c.meetingType).max(4);
-/** A report window: types default to Vision meetings, dates are church-local and inclusive, limit is the latest N. */
 const report = z.strictObject({
 	types: types.optional(),
 	from: day.optional(),
@@ -77,8 +57,6 @@ const report = z.strictObject({
 type Report = z.infer<typeof report>;
 const reportRequest = (i: Report) =>
 	c.reportRequest.parse({ types: i.types, from: i.from ?? null, to: i.to ?? null, limit: i.limit });
-
-// --- Meetings ---------------------------------------------------------------------------------------------------
 
 const listInput = z.strictObject({
 	window: c.meetingWindow.optional(),
@@ -159,7 +137,6 @@ export const readAgenda = read({
 		});
 		return {
 			...result("meetings.readAgenda", [
-				// The app prints a Vision meeting's agenda (its agenda template); other meetings have no print view.
 				meetingRow(m, {
 					print: m.type === "vision_meeting" ? `/meetings/${m.id}/agenda` : null,
 					agendaMinutes: String(agenda.totalMinutes),
@@ -350,8 +327,6 @@ export const getOwnRsvp = read({
 	},
 });
 
-// --- Attendance, evaluations and reports --------------------------------------------------------------------------
-
 const CLASS: Record<string, string> = { first_time: "first time", returning: "returning", core_group: "core group" };
 export const listAttendance = read({
 	operation: "meetings.listAttendance",
@@ -500,8 +475,6 @@ export const attendanceTrend = read({
 	allowed: ownerOrAdmin,
 	async run(tx, actor, input) {
 		const request = reportRequest(input);
-		// The report counts finalized meetings only; the held meetings around it come from the same list the Meetings page
-		// shows, so a held meeting whose attendance nobody recorded is named as not recorded instead of dropping out.
 		const [trend, held] = await Promise.all([
 			attendanceReader.attendanceTrend(tx, actor.authority, request).then(value),
 			meetingsReader
@@ -622,8 +595,6 @@ export const previewRosterImport = read({
 	},
 });
 
-// --- Venues -------------------------------------------------------------------------------------------------------
-
 const venueRow = (v: z.infer<typeof c.venue>): Row => ({
 	kind: "venue",
 	id: v.id,
@@ -683,7 +654,6 @@ export const venuesHistory = read({
 	},
 });
 
-/** The installed Meetings read tools, in catalog order. */
 export const MEETINGS_READS = [
 	list,
 	get,

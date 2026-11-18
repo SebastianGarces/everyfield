@@ -4342,7 +4342,7 @@
     "id": "NTF-009",
     "title": "Relationship, sharing, phase and launch milestone fanout",
     "module": "notifications",
-    "behavior": "Existing relationship/sharing facts and actual phase advance/launch milestones fan out once per occurrence. Declaration/backward phase movement is not advance. Relationship-ending notice can state its own committed event to the affected plant without reopening departed private data. Ordinary current Owner/Admin eligible notice audiences replace title-derived authority.",
+    "behavior": "Existing relationship/sharing facts and actual phase advance/launch milestones fan out once per occurrence. Declaration/backward phase movement is not advance. Relationship-ending notice can state its own committed event to the affected plant without reopening departed private data. Ordinary current Owner/Admin eligible notice audiences replace title-derived authority. A program director confirming a milestone a linked resident marked done, and writing new feedback on one of that resident's milestones, each send one in-app notice and one email to the currently linked resident only, never to staff or other residents and never adding a seat; the notice names the milestone and the organization and never carries the feedback text. A residency notice is visible and its email sendable only while the recipient's residency link to that organization is current, in place of the seat check; an unlinked enrollee gets none, and linking later sends none for earlier events (D-1414, D-1415, D-1416).",
     "spec_file": "docs/product/communications-notifications.md#notification-product",
     "requirement_ids": [
       "REQ-KNOW-005",
@@ -8107,6 +8107,7 @@
     "operations": [
       "intelligence.describeRunFailure",
       "intelligence.executeDemand",
+      "intelligence.listRunsForReview",
       "intelligence.readAssessmentRun",
       "intelligence.settleRun"
     ],
@@ -10967,7 +10968,7 @@
     "id": "MUL-009",
     "title": "Leadership conversations",
     "module": "people",
-    "behavior": "Current authorized staff log who met whom and the actual conversation date. Count conversations in the organization timezone by month or quarter. The optional short note is readable only by the organization Owner, Admins and the person currently responsible. Other staff may receive permitted counts, never note contents or existence through filtering, search or exports. Resident projections omit staff notes. Conversation notes never enter model input, including calls made by an otherwise authorized reader. Changes retain attributable correction history without judging a person. Logging leadership conversations is human-only. Organization ordinary Person notes use the same Owner/Admin or responsible-staff audience and never enter models. Only the original author with current exact-organization duty may update or remove such a note; removal clears the body and retains only necessary attributable body-free history.",
+    "behavior": "Current authorized staff log who met whom and the actual conversation date. Count conversations in the organization timezone by month or quarter. The optional short note is readable only by the organization Owner, Admins and the person currently responsible. Other staff may receive permitted counts, never note contents or existence through filtering, search or exports. Resident projections omit staff notes. Conversation notes never enter model input, including calls made by an otherwise authorized reader. Changes retain attributable correction history without judging a person. Logging leadership conversations is human-only. Organization ordinary Person notes use the same Owner/Admin or responsible-staff audience and never enter models. Only the original author with current exact-organization duty may update or remove such a note; removal clears the body and retains only necessary attributable body-free history. A pipeline import's kept answers have one more reader: a current organization seat that the Owner or an Admin chose as reviewer reads only the kept answers sent to them, as the note reads now, while the send is not withdrawn and that seat, the note and the person remain, and reads nothing else of the person (D-1507). The notice and email to the reviewer name the person, the group and the sender, never a question or answer.",
     "spec_file": "docs/product/people.md#req-mul-009",
     "requirement_ids": [
       "REQ-MUL-009"
@@ -11054,7 +11055,7 @@
     "id": "MUL-012",
     "title": "Resident completion, director confirmation and feedback",
     "module": "people",
-    "behavior": "A currently linked resident marks their own milestone complete; the current program director confirms separately. Resident completion never supplies director confirmation. For an enrollee without a current accepted resident link in this organization, the current program director may instead record the enrollee completion and confirm it in one dated, attributable native action. That action records the director as recorder and confirmer, the actual completion instant and confirmation instant, and a program-leader-recorded source; the enrolled Person remains the subject. It creates no account link or seat and cannot be used while a current resident link exists. Recheck link status at commit, so a concurrent acceptance refuses this path and requires the linked-resident flow. A subsequent link does not rewrite prior director-recorded facts. Retain correction history for each fact. Hands-on assignments are described milestones; dated feedback is visible only to the linked resident, current director and organization Owner/Admin of either kind. Other staff and foreign residents cannot read feedback. Feedback does not judge calling. Recheck duty, version, link and consent at use. Neither completion path automatically commissions or creates a plant.",
+    "behavior": "A currently linked resident marks their own milestone complete; the current program director confirms separately. Resident completion never supplies director confirmation. For an enrollee without a current accepted resident link in this organization, the current program director may instead record the enrollee completion and confirm it in one dated, attributable native action. That action records the director as recorder and confirmer, the actual completion instant and confirmation instant, and a program-leader-recorded source; the enrolled Person remains the subject. It creates no account link or seat and cannot be used while a current resident link exists. Recheck link status at commit, so a concurrent acceptance refuses this path and requires the linked-resident flow. A subsequent link does not rewrite prior director-recorded facts. Retain correction history for each fact. Hands-on assignments are described milestones; dated feedback is visible only to the linked resident, current director and organization Owner/Admin of either kind. Other staff and foreign residents cannot read feedback. Feedback does not judge calling. Recheck duty, version, link and consent at use. The director's confirmation and new feedback notify the currently linked resident only (REQ-NTF-009), and the notice never carries the feedback text. Neither completion path automatically commissions or creates a plant.",
     "spec_file": "docs/product/people.md#req-mul-012",
     "requirement_ids": [
       "REQ-MUL-012"
@@ -11143,7 +11144,8 @@
       "REQ-MUL-015"
     ],
     "operations": [
-      "development.draftPlan"
+      "development.draftPlan",
+      "development.draftNextVersion"
     ],
     "acceptance_ids": [
       "AC-MUL-015--MUL-015"

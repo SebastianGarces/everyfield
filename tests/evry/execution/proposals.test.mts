@@ -41,12 +41,9 @@ import {
 	work,
 } from "../runtime/support.mts";
 
-// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
-// here would be a bug.
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
-/** The effect ports: no effect here hands a task on or moves a phase forward, so either call would be a bug. */
 const noPorts = {
 	reminders: noReminders,
 	phaseNotices: async () => {
@@ -66,7 +63,6 @@ const lease = (claim: Claim) => ({
 const counted = (start: number) =>
 	queries.slice(start).filter((q) => !/^(BEGIN|COMMIT|ROLLBACK)/i.test(q.trim())).length;
 
-/** Claims the next approved effect through the WP-031 queue and runs it, as the app worker does. */
 async function effects() {
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	if (!claim) return null;
@@ -78,10 +74,6 @@ async function effects() {
 	return { outcome, statements };
 }
 
-/**
- * Runs the next approved effect while another transaction holds the plant row, so the executor passes its first
- * check and then waits for write authority. `during` runs while it waits; then the plant row is released.
- */
 async function stalledEffect(during: (claim: Claim) => Promise<void>, leaseSeconds = 60) {
 	const [claim] = await claimDue(db, ["evry_effect"], 1, leaseSeconds);
 	assert.ok(claim);
@@ -104,7 +96,6 @@ async function stalledEffect(during: (claim: Claim) => Promise<void>, leaseSecon
 	return outcome;
 }
 
-/** Asks Evry for a change in a new conversation, runs the turn and returns the proposal from its review card. */
 async function propose(who: EvryActor, text: string) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
 	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text });
@@ -135,7 +126,6 @@ async function effectJobs(proposalId: string) {
 	);
 	return r.rows.map((row) => row.state as string);
 }
-/** The approval witness a trusted review control sends: the exact revision and digest the person saw. */
 const witness = (p: { revision: number; digest: string }) => ({ revision: p.revision, digest: p.digest });
 async function refusal(promise: Promise<unknown>) {
 	return promise.then(
@@ -166,7 +156,6 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 	await readReview(db, owner, proposal.id);
 	assert.equal(counted(start), 1);
 
-	// Preparing a review inside a running turn is one statement, and needs that turn's current claim.
 	const c = await createConversation(db, owner, { requestKey: randomUUID() });
 	await submitTurn(db, owner, c.id, { requestKey: randomUUID(), text: "hold this turn" });
 	const [turn] = await claimDue(db, ["assistant_turn"], 1, 240);
@@ -183,14 +172,12 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 	await cancelTurn(db, owner, c.id);
 	assert.equal(await prepareProposal(db, owner, run, c.id, call), null);
 
-	// Another account or context sees nothing, and cannot approve.
 	for (const who of ["member", "foreign"] as const) {
 		const other = await actor(who);
 		assert.equal(await refusal(readReview(db, other, proposal.id)), "not_found");
 		assert.equal(await refusal(approveProposal(db, other, proposal.id, witness(proposal), null)), "not_found");
 	}
 
-	// Editing a reviewed fact makes a new revision; the old approval witness no longer applies.
 	start = queries.length;
 	const revised = await reviseProposal(db, owner, proposal.id, {
 		operation: "people.updatePerson",
@@ -207,7 +194,6 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 	);
 	assert.deepEqual(await effectJobs(proposal.id), []);
 
-	// A double confirm queues one effect; the second returns the same approval.
 	start = queries.length;
 	const first = await approveProposal(db, owner, proposal.id, witness(revised), null);
 	assert.equal(counted(start), 1);
@@ -218,7 +204,6 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 	assert.deepEqual([first.replayed, a.replayed, b.replayed, first.proposal.status], [false, true, true, "approved"]);
 	assert.deepEqual(await effectJobs(proposal.id), ["ready"]);
 
-	// Two workers: the effect runs once, in a fixed number of statements.
 	const runs = (await Promise.all([effects(), effects()])).filter((r) => r !== null);
 	assert.deepEqual(
 		runs.map((r) => r.outcome),
@@ -237,7 +222,6 @@ test("AC:UI45-004 AC:UI45-003 AC:INH-REGRESSION-REVISED-APPROVAL AC:INH-REGRESSI
 		["approved", "completed", false, audits[0]!.id],
 	);
 
-	// Confirming, retrying or cancelling again returns the recorded outcome and repeats nothing.
 	assert.equal((await approveProposal(db, owner, proposal.id, witness(revised), null)).proposal.outcome, "completed");
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, false);
 	const cancel = await cancelProposal(db, owner, proposal.id);
@@ -254,7 +238,6 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 	assert.equal(await refusal(approveProposal(db, owner, proposal.id, witness(proposal), null)), "review_expired");
 	assert.equal((await readReview(db, owner, proposal.id)).status, "expired");
 
-	// A fresh review gets a new expiry; an approval that lapses before the effect starts still changes nothing.
 	const fresh = await reviseProposal(db, owner, proposal.id, {
 		operation: "people.updatePerson",
 		revision: 1,
@@ -268,7 +251,6 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 	assert.deepEqual([lapsed.status, lapsed.outcome], ["expired", null]);
 	assert.equal(await refusal(retryUnresolvedEffects(db, owner, proposal.id)), "review_expired");
 
-	// An approval that lapses while the effect waits for write authority does not publish it either.
 	const late = await reviseProposal(db, owner, proposal.id, {
 		operation: "people.updatePerson",
 		revision: 2,
@@ -292,7 +274,6 @@ test("AC:INH-REGRESSION-EXPIRED-APPROVAL AC:UI45-004 AC:SEC-12 an approval at or
 		["expired", "expired", null, []],
 	);
 
-	// Cancel before the effect starts: the queued effect never runs.
 	const again = await reviseProposal(db, owner, proposal.id, {
 		operation: "people.updatePerson",
 		revision: 3,
@@ -353,11 +334,9 @@ test("AC:INH-REGRESSION-REVOKED-SEAT AC:SEC-02 AC:B03-036 AC:SEC-12 INV-tenancy:
 			["refused", "refused", code, expected, []],
 			name,
 		);
-		// A refused effect is never retried under the old approval.
 		assert.equal(await refusal(retryUnresolvedEffects(db, owner, proposal.id)), "review_closed", name);
 	}
 
-	// Signing out the approving session refuses an effect that has not started.
 	const session = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO auth_session(id,user_id,token,expires_at) VALUES(${session},${accounts.owner.user},${randomUUID()},clock_timestamp()+interval '1 hour')`,
@@ -378,9 +357,6 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	const { proposal } = await propose(owner, "Change Rivera's city to Naperville");
 	await approveProposal(db, owner, proposal.id, witness(proposal), null);
 	assert.equal((await readReview(db, owner, proposal.id)).executing, true);
-	// The executor passes its first check, then waits for the plant lock while its 2-second lease runs out. It holds
-	// the job's share lock from its first read, so recovery skips the claim while it runs. When the lock frees, it
-	// must not publish the change, its audit row or an outcome; recovery then replaces the claim.
 	let stalled: Claim | undefined;
 	const outcome = await stalledEffect(async (claim) => {
 		stalled = claim;
@@ -393,7 +369,6 @@ test("AC:EVRY-LEASE-FENCE AC:INH-REGRESSION-RETRY AC:INH-EDGES-12: an executor s
 	assert.equal(outcome, "lost");
 	assert.equal(await recoverLease(admin), 1);
 	assert.deepEqual([await effectAudits(proposal.id), (await person(people.alexRivera)).city], [[], "Chicago"]);
-	// The outcome is unknown, not failed: the retry resumes the same effect key.
 	assert.equal((await readReview(db, owner, proposal.id)).outcome, "unknown");
 	const start = queries.length;
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
@@ -417,7 +392,6 @@ test("AC:UI45-006 AC:EVRY-CONTEXT-BOUNDS a review's fields leave model input onc
 		model: scriptedModel(),
 		middleware: { specificationVersion: "v4", transformParams: async ({ params }) => (calls.push(params), params) },
 	}) as LanguageModelV4;
-	// Robin is retired as the review is saved, before the next model call reads its input.
 	await admin.execute(
 		sql.raw(`CREATE FUNCTION f6_retire() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN
 			UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id='${robin}' AND id::text=NEW.review->'target'->>'id';
@@ -462,12 +436,9 @@ test("AC:EVRY-LEASE-FENCE an executor whose lease expires while it waits for the
 		sql`UPDATE job SET lease_until=clock_timestamp()+interval '2000 milliseconds' WHERE id=${claim.id}`,
 	);
 	let running: Promise<string> | undefined;
-	// Another transaction holds the job row unchanged; the executor reaches publication and waits for its share lock
-	// until the lease has passed.
 	await admin.transaction(async (tx) => {
 		await tx.execute(sql`SELECT id FROM job WHERE id=${claim.id} FOR UPDATE`);
 		running = executeProposal(db, lease(claim), noPorts);
-		// The executor's session (the test runtime role) waits on a lock; its query text is too long to match reliably.
 		for (let waiting = 0, deadline = Date.now() + 20_000; !waiting;) {
 			assert.ok(Date.now() < deadline, "the executor never waited for the job row");
 			const r = await admin.execute(
@@ -492,7 +463,6 @@ test("AC:SEC-02 INV-tenancy: a review read takes no lock that a sign-out or sess
 	const owner = await actor("owner");
 	const { proposal } = await propose(owner, "Change Casey's city to Wheaton");
 	await db.transaction(async (tx) => {
-		// The read's transaction stays open while another connection changes the reader's session.
 		assert.equal((await readReview(tx as unknown as typeof db, owner, proposal.id)).status, "pending");
 		await admin.transaction(async (other) => {
 			await other.execute(sql`SET LOCAL lock_timeout = '2s'`);
@@ -515,11 +485,9 @@ test("INV-effect-recovery: an approved effect that no worker took within 60 s re
 	const start = queries.length;
 	assert.equal((await retryUnresolvedEffects(db, owner, proposal.id)).retried, true);
 	assert.equal(counted(start), 1);
-	// The old job no worker took is superseded, so the next claim takes the new job at once, not the old one first.
 	assert.deepEqual(await effectJobs(proposal.id), ["superseded", "ready"]);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.equal(await executeProposal(db, lease(claim!), noPorts), "completed");
-	// The review reports the saved outcome before the job finishes: nothing the person sees waits for finishClaim.
 	const shown = await readReview(db, owner, proposal.id);
 	assert.deepEqual([shown.outcome, shown.executing], ["completed", false]);
 	assert.equal(await transaction(db, (tx) => finishClaim(tx, claim!, { state: "succeeded" })), true);
@@ -578,7 +546,6 @@ test("INV-budget: a conversation's page read brings every review card's current 
 	await admin.execute(
 		sql`UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id=${ids["Indigo Marsh"]}`,
 	);
-	// A card that names another account's proposal: its review is never read for this owner.
 	const { proposal: theirs } = await propose(await actor("foreign"), "Change Quinn's city to Springfield");
 	await admin.execute(sql`WITH c AS (
 			UPDATE conversation SET last_sequence=last_sequence+1,updated_at=clock_timestamp() WHERE id=${c.id} RETURNING id,last_sequence
@@ -613,11 +580,9 @@ test("INV-budget: a conversation's page read brings every review card's current 
 	}
 	assert.equal(await refusal(readReview(db, owner, theirs.id)), "not_found");
 
-	// The next page (the after cursor) brings the reviews of its own cards only.
 	const later = await readConversation(db, owner, c.id, pending.sequence);
 	assert.deepEqual(Object.keys(later.reviews).sort(), [expired.id, withheld.id, theirs.id].sort());
 
-	// Access to reviewed writes ended: the conversation still reads, but no review does.
 	const seat = sql`account_id=${accounts.owner.id} AND plant_id IS NOT NULL`;
 	await admin.execute(sql`UPDATE seat SET role='member' WHERE ${seat}`);
 	try {

@@ -30,9 +30,9 @@ import { Avatar, Tag } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useCallback, useRef, useState, type FormEvent } from "react";
 import { NotAvailable } from "../../access/AccessStates";
-import { Refusal, useIntent } from "../../organizations/intent";
+import { Refusal, useIntent } from "../../../components/intent.ts";
 import { ProblemLine } from "../../organizations/parts";
-import { useOwnSeatChange } from "../../shell/ProductFrame";
+import { useOwnSeatChange } from "../seat-context.ts";
 import { FormMessage } from "../parts";
 import { readSeats, readSeatsPage, runSeatCommand, type SeatOperation } from "./actions";
 import { RemoveDialog } from "./RemoveDialog";
@@ -55,12 +55,6 @@ import {
 	withRemoved,
 	withRole,
 } from "./model";
-
-// /settings/seats on the real WP-008 API (REQ-IDN-017, REQ-IDN-019). Everyone with a seat reads the roster. Owners and
-// Admins also invite, resend and revoke, and change or remove ordinary seats; the server returns which actions each
-// seat allows, and the page shows only those. A confirmed change updates the lists from its answer, in one request.
-// A refusal means the page was out of date: the lists load again, and while they load nothing that would carry an old
-// revision can be sent.
 
 async function send<T>(op: SeatOperation, command: unknown, schema: { parse: (v: unknown) => T }): Promise<T> {
 	const reply = await runSeatCommand(op, command);
@@ -87,7 +81,6 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 	const attempt = useRef(0);
 	const frameSeat = useOwnSeatChange();
 
-	// A reload belongs to one attempt, so a slow earlier reply never replaces a later one.
 	const reload = useCallback(async () => {
 		const mine = ++attempt.current;
 		setRefreshing(true);
@@ -116,20 +109,14 @@ export function SeatsScreen({ initial }: { initial: SeatsData }) {
 		);
 	const data = state.data;
 	const place = placeWord(data.kind);
-	/** A confirmed answer, applied to the lists on screen. A message, when given, replaces the last one. */
 	const apply: Apply = (change, message) => {
 		setState((s) => ("gone" in s ? s : { ...s, data: change(s.data) }));
 		if (message !== undefined) setStatus(message);
 	};
-	/** The page was out of date: the lists load again. */
 	const stale = () => {
 		setStatus(null);
 		void reload();
 	};
-	/**
-	 * A confirmed change to the viewer's own seat. Demoted to Member, the page keeps the roster and drops what only
-	 * Owners and Admins manage; removed, the page has nothing left to show. The frame shows the new role at once.
-	 */
 	const ownSeat: OwnSeat = (change, message) => {
 		setStatus(message);
 		if (change.removed) {
@@ -213,10 +200,6 @@ function inviteRefused(code: string | null, retryAt: string | null, zone: string
 	}
 }
 
-/**
- * Invite one address to an ordinary seat (seats.invite). When the reply is lost the fields lock and Try again
- * resends that same command, so a retry never carries an edited address or role under the old request key.
- */
 function InviteCard({
 	data,
 	refreshing,
@@ -269,9 +252,7 @@ function InviteCard({
 			setChecked(false);
 			const invitation = result.reply.invitation;
 			onApply((d) => withInvitation(d, invitation), `Invitation sent to ${invitation.recipientEmail}.`);
-		}
-		// The workspace changed since this page loaded: the message stays and the page data loads again at once.
-		else if (stale) onStale();
+		} else if (stale) onStale();
 	}
 
 	return (
@@ -356,7 +337,6 @@ function RosterCard({
 	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
 	const items = data.roster.items;
 	const next = data.roster.next;
-	// The Owner first, then everyone by name. The server pages by seat ID, which says nothing to a reader.
 	const active = items
 		.filter((s) => s.status === "active")
 		.sort(
@@ -385,11 +365,9 @@ function RosterCard({
 			() => true,
 		);
 		const said = `${seat.displayName} is now ${to === "admin" ? "an Admin" : "a Member"}.`;
-		// Your own role decides what this page offers you: the page and the frame follow the answer.
 		if (result.ok && seat.isSelf)
 			onOwnSeat({ seatId: seat.seatId, revision: result.reply.revision, removed: false }, said);
 		else if (result.ok) onApply((d) => withRole(d, seat.seatId, to, result.reply.revision), said);
-		// A refusal means this screen was out of date; load the current roles and revisions at once.
 		else if (result.problem === "refused") onStale();
 	}
 
@@ -420,7 +398,6 @@ function RosterCard({
 				{active.map((seat) => {
 					const canRole = seat.allowedActions.includes("appoint_admin") || seat.allowedActions.includes("demote");
 					const canRemove = seat.allowedActions.includes("remove");
-					// While any command waits or is unconfirmed, only that seat's own controls stay usable.
 					const mine = roleIntent.held === seat.seatId || roleIntent.pending === seat.seatId;
 					const elsewhere = ((held !== null || busy !== null) && !mine) || refreshing;
 					return (
@@ -528,9 +505,7 @@ function RosterCard({
 			) : null}
 			{removed.length ? (
 				<details className="mt-4 border-t border-line pt-3">
-					<summary className="cursor-pointer rounded-sm text-sm font-medium text-text-2">
-						Removed seats ({removed.length})
-					</summary>
+					<summary className="rounded-sm text-sm font-medium text-text-2">Removed seats ({removed.length})</summary>
 					<ul className="mt-2 flex flex-col">
 						{removed.map((seat) => (
 							<li key={seat.seatId} className="flex items-center gap-3 py-2.5">
@@ -557,11 +532,6 @@ function resendRefused(code: string | null, retryAt: string | null, zone: string
 	return "The invitation was not sent again. It may have been accepted or revoked. Reload the list.";
 }
 
-/**
- * Pending invitations (seats.listInvitations, REQ-IDN-017). Resend sends a fresh link and the old one stops working;
- * revoke stops the link. Each row keeps its own frozen command, so a lost reply on one row never sends its request key
- * with another invitation or action.
- */
 function PendingCard({
 	data,
 	invitations,

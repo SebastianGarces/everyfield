@@ -21,9 +21,11 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { useEffect, useState, type FormEvent } from "react";
-import { formatDay, PIPELINE_PATH } from "../board/model";
-import { Problem } from "../board/Problem";
+import { useActionState, useState, useTransition, type FormEvent } from "react";
+import { createRead, useRead } from "../../../components/read.tsx";
+import { formatPlainDate } from "../../../components/dates.ts";
+import { PIPELINE_PATH } from "../board/model";
+import { Problem } from "../../../components/Problem.tsx";
 import {
 	addFeedback,
 	applyVersion,
@@ -39,15 +41,11 @@ import { ReviewParts } from "./VersionReview";
 type Milestone = EnrollmentDetail["milestones"][number];
 const lost = () => ({ status: "lost" as const });
 
-/**
- * One enrollment (REQ-MUL-011, -012): the person's cohort, dates, program stage and next meeting on the version they
- * were enrolled on, and each milestone of that version. The director records and confirms an unlinked enrollee's
- * milestone in one step and writes dated feedback on hands-on assignments, which only the director, the Owner and
- * Admins read. When the program has a newer published version, the director reviews what changes for this person and
- * applies it (REQ-MUL-011); records on milestones the new version drops stay listed under earlier versions.
- */
+const versionReview = createRead((enrollmentId: string) => reviewVersion(enrollmentId).catch(lost), { failed: lost });
+
 export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
-	const [enrollment, setEnrollment] = useState(initial);
+	const [local, setLocal] = useState<{ from: EnrollmentDetail; value: EnrollmentDetail } | null>(null);
+	const enrollment = local?.from === initial ? local.value : initial;
 	const [recording, setRecording] = useState<Milestone | null>(null);
 	const [reviewing, setReviewing] = useState(false);
 	const director = enrollment.viewer.director && enrollment.status === "active";
@@ -56,7 +54,7 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 
 	async function reread() {
 		const answer = await rereadEnrollment(enrollment.id).catch(() => null);
-		if (answer?.status === "ok") setEnrollment(answer.value);
+		if (answer?.status === "ok") setLocal({ from: initial, value: answer.value });
 	}
 
 	const finished = enrollment.milestones.filter((m) => m.completion?.confirmedOn).length;
@@ -91,7 +89,14 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 							</CalloutText>
 						</div>
 						{director ? (
-							<Button variant="primary" className="flex-none" onClick={() => setReviewing(true)}>
+							<Button
+								variant="primary"
+								className="flex-none"
+								onClick={() => {
+									versionReview.prefetch(enrollment.id);
+									setReviewing(true);
+								}}
+							>
 								Apply Version {enrollment.newerVersion.number}
 							</Button>
 						) : null}
@@ -106,12 +111,12 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 					<CardBody>
 						<dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm">
 							<Detail term="Cohort">{enrollment.cohort}</Detail>
-							<Detail term="Started">{formatDay(enrollment.startedOn)}</Detail>
-							<Detail term="Expected end">{formatDay(enrollment.expectedEndOn)}</Detail>
+							<Detail term="Started">{formatPlainDate(enrollment.startedOn)}</Detail>
+							<Detail term="Expected end">{formatPlainDate(enrollment.expectedEndOn)}</Detail>
 							<Detail term="Program stage">{enrollment.stage.label}</Detail>
 							<Detail term="Next meeting">
 								{enrollment.nextMeeting
-									? `${formatMeeting(enrollment.nextMeeting.at, formatDay)} (${enrollment.nextMeeting.timezone})`
+									? `${formatMeeting(enrollment.nextMeeting.at, formatPlainDate)} (${enrollment.nextMeeting.timezone})`
 									: "Not set"}
 							</Detail>
 							<Detail term="Plan">{`Version ${enrollment.versionNumber}`}</Detail>
@@ -237,14 +242,11 @@ function MilestoneRow({
 	milestone: Milestone;
 	enrollment: EnrollmentDetail;
 	director: boolean;
-	/** For a milestone a later version removed: the version its record is on. */
 	recordedOn?: number;
 	onRecord: () => void;
 	onChanged: () => Promise<void>;
 }) {
 	const c = m.completion;
-	// A linked enrollee marks their own milestones, so there is no one-step record; while they don't share milestone
-	// progress, an empty row says nothing about whether it is done.
 	const linked = enrollment.resident.status === "linked";
 	const hidden = enrollment.resident.status === "linked" && enrollment.resident.milestones === "not_shared";
 	const waiting = c !== null && c.confirmedOn === null;
@@ -281,14 +283,14 @@ function MilestoneRow({
 						<>
 							<span className="font-medium text-amber-600">Waiting for confirmation</span>
 							<span className="text-text-2">
-								{c.recorder ?? enrollment.person.name} marked it done {formatDay(c.completedOn)}
+								{c.recorder ?? enrollment.person.name} marked it done {formatPlainDate(c.completedOn)}
 							</span>
 						</>
 					) : c ? (
 						<>
 							<span className="text-ink">
-								{recordedOn ? `Finished on Version ${recordedOn} · ` : ""}Completed {formatDay(c.completedOn)} ·
-								Confirmed {formatDay(c.confirmedOn!)}
+								{recordedOn ? `Finished on Version ${recordedOn} · ` : ""}Completed {formatPlainDate(c.completedOn)} ·
+								Confirmed {formatPlainDate(c.confirmedOn!)}
 							</span>
 							<span className="text-text-2">
 								{c.source === "resident"
@@ -331,7 +333,6 @@ function MilestoneRow({
 	);
 }
 
-/** The director's dated feedback on one hands-on assignment. It describes the work and never judges a calling. */
 function Feedback({
 	milestone,
 	enrollment,
@@ -346,28 +347,22 @@ function Feedback({
 	const [writing, setWriting] = useState(false);
 	const [body, setBody] = useState("");
 	const [feedbackId, setFeedbackId] = useState(() => crypto.randomUUID());
-	const [saving, setSaving] = useState(false);
-	const [problem, setProblem] = useState<string | null>(null);
 	const items = milestone.feedback ?? [];
-
-	async function submit(event: FormEvent) {
-		event.preventDefault();
-		if (!body.trim()) return setProblem("Write the feedback first.");
-		setSaving(true);
-		setProblem(null);
+	const [problem, submit, saving] = useActionState(async (): Promise<string | null> => {
+		if (!body.trim()) return "Write the feedback first.";
 		const answer = await addFeedback({
 			feedbackId,
 			enrollmentId: enrollment.id,
 			milestoneId: milestone.id,
 			body: body.trim(),
 		}).catch(lost);
-		setSaving(false);
-		if (answer.status !== "ok") return setProblem(programProblem(answer));
+		if (answer.status !== "ok") return programProblem(answer);
 		setBody("");
 		setWriting(false);
 		setFeedbackId(crypto.randomUUID());
 		await onChanged();
-	}
+		return null;
+	}, null);
 
 	return (
 		<section
@@ -389,7 +384,7 @@ function Feedback({
 						<li key={f.id} className="flex flex-col gap-0.5 text-sm">
 							<span className="whitespace-pre-wrap [overflow-wrap:anywhere] text-ink">{f.body}</span>
 							<span className="text-xs text-text-3">
-								{f.writer ?? "Former staff"} · {formatDay(f.writtenOn)}
+								{f.writer ?? "Former staff"} · {formatPlainDate(f.writtenOn)}
 							</span>
 						</li>
 					))}
@@ -399,7 +394,7 @@ function Feedback({
 			)}
 			{director ? (
 				writing ? (
-					<form onSubmit={submit} noValidate className="flex flex-col gap-2">
+					<form action={submit} noValidate className="flex flex-col gap-2">
 						<Textarea
 							aria-label={`Feedback on ${milestone.title}`}
 							value={body}
@@ -408,7 +403,7 @@ function Feedback({
 							rows={3}
 							placeholder="What went well, and what to work on next"
 						/>
-						<Problem text={problem} />
+						<Problem text={saving ? null : problem} />
 						<div className="flex justify-end gap-2">
 							<Button variant="ghost" size="sm" onClick={() => setWriting(false)} disabled={saving}>
 								Cancel
@@ -428,7 +423,6 @@ function Feedback({
 	);
 }
 
-/** The director records the day the enrollee finished, and confirms it in the same step (REQ-MUL-012). */
 function RecordDialog({
 	milestone,
 	enrollment,
@@ -487,7 +481,7 @@ function RecordForm({
 					<Input type="date" value={on} max={enrollment.today} onChange={(e) => setOn(e.target.value)} />
 				</Field>
 				<p className="text-sm text-text-2">
-					Confirmed today, {formatDay(enrollment.today)}, with you as recorder and confirmer.
+					Confirmed today, {formatPlainDate(enrollment.today)}, with you as recorder and confirmer.
 				</p>
 				<Problem text={problem} />
 			</DialogBody>
@@ -500,11 +494,6 @@ function RecordForm({
 	);
 }
 
-/**
- * The director's review before applying the program's current version to this enrollment (REQ-MUL-011): what is added,
- * removed and changed for this person, the finished milestones that carry over, and their stage on the new version.
- * Nothing is saved until they confirm. A review that went out of date is refused and replaced with a fresh one.
- */
 function ApplyDialog({
 	open,
 	enrollment,
@@ -534,48 +523,33 @@ function ApplyReview({
 	onClose: () => void;
 	onApplied: () => Promise<void>;
 }) {
-	const [review, setReview] = useState<VersionReview | null>(null);
-	const [stageId, setStageId] = useState("");
-	const [attempt, setAttempt] = useState(0);
-	const [saving, setSaving] = useState(false);
+	const [picked, setPicked] = useState<{ review: VersionReview; stageId: string } | null>(null);
 	const [problem, setProblem] = useState<string | null>(null);
+	const [saving, startSaving] = useTransition();
+	const answer = useRead(versionReview, enrollment.id).value;
+	const review = answer?.status === "ok" ? answer.value : null;
+	const loadProblem = answer && answer.status !== "ok" ? programProblem(answer) : null;
+	const stageId = review && picked?.review === review ? picked.stageId : (review?.stageId ?? "");
 	const name = enrollment.person.name;
 	const number = review?.toNumber ?? enrollment.newerVersion!.number;
 
-	useEffect(() => {
-		let current = true;
-		void reviewVersion(enrollment.id)
-			.catch(lost)
-			.then((answer) => {
-				if (!current) return;
-				if (answer.status !== "ok") {
-					setReview(null);
-					return setProblem(programProblem(answer));
-				}
-				setReview(answer.value);
-				setStageId(answer.value.stageId);
-			});
-		return () => {
-			current = false;
-		};
-	}, [enrollment.id, attempt]);
-
-	async function submit(event: FormEvent) {
+	const submit = (event: FormEvent) => {
 		event.preventDefault();
 		if (!review) return;
-		setSaving(true);
-		setProblem(null);
-		const answer = await applyVersion({
-			enrollmentId: enrollment.id,
-			versionId: review.versionId,
-			stageId,
-			basis: review.basis,
-		}).catch(lost);
-		setSaving(false);
-		if (answer.status === "ok") return onApplied();
-		setProblem(programProblem(answer));
-		if (answer.status === "refused" && answer.refusal.code === "stale_review") setAttempt((n) => n + 1);
-	}
+		startSaving(async () => {
+			setProblem(null);
+			const answer = await applyVersion({
+				enrollmentId: enrollment.id,
+				versionId: review.versionId,
+				stageId,
+				basis: review.basis,
+			}).catch(lost);
+			if (answer.status === "ok") return onApplied();
+			setProblem(programProblem(answer));
+			if (answer.status === "refused" && answer.refusal.code === "stale_review")
+				void versionReview.refresh(enrollment.id);
+		});
+	};
 
 	return (
 		<form onSubmit={submit} noValidate className="contents">
@@ -584,10 +558,10 @@ function ApplyReview({
 				description={`Review what changes for ${name}. Nothing is saved until you confirm.`}
 			/>
 			<DialogBody className="flex flex-col gap-5">
-				<Problem text={problem} />
+				<Problem text={loadProblem ?? problem} />
 				{review ? (
-					<ReviewParts review={review} stageId={stageId} onStageChange={setStageId} />
-				) : problem ? null : (
+					<ReviewParts review={review} stageId={stageId} onStageChange={(id) => setPicked({ review, stageId: id })} />
+				) : loadProblem || problem ? null : (
 					<p className="text-sm text-text-3">Loading the review…</p>
 				)}
 			</DialogBody>

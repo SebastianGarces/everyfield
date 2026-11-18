@@ -5,7 +5,8 @@ import "server-only";
 import type { RequestActor } from "../access/session.ts";
 import { GLOBAL, meSql, PAGE } from "./core.ts";
 
-export type CorpusAccess = { authority: RequestActor; owner: Owner; admin?: boolean };
+export type CorpusAccess =
+	{ authority: RequestActor; owner: Owner; admin?: boolean } | { job: "assessment"; owner: Owner & { kind: "plant" } };
 
 function sourceSql(source: SourceView) {
 	const organizationId = source.kind === "organization" ? source.organizationId : GLOBAL;
@@ -16,12 +17,15 @@ function sourceSql(source: SourceView) {
 	};
 }
 
-/** Visible articles for one actor. One statement. A rejoined affiliation does not reclaim a stored rank. */
 export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 	const pick = sourceSql(source);
 	const owner = access.owner;
 	return sql`
-		${meSql(access.authority, owner, access.admin ?? false)},
+		${
+			"job" in access
+				? sql`me AS (SELECT NULL::uuid AS account_id FROM plant WHERE id=${owner.id}::uuid)`
+				: meSql(access.authority, owner, access.admin ?? false)
+		},
 		release AS (
 			SELECT a.release_id FROM reference_activation a ORDER BY a.activation_number DESC LIMIT 1
 		),
@@ -227,8 +231,6 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 			WHERE ${pick.kind} = 'current'
 				OR (${pick.kind} = 'global' AND c.source_kind = 'global')
 				OR (${pick.kind} = 'organization' AND c.source_id = ${pick.organizationId}::uuid)
-			-- Unranked church copies have no winner (REQ-KNOW-191): the next version in line is read instead, the
-			-- network's, then the global one. Each church copy stays open by name.
 			ORDER BY c.article_id,
 				CASE
 					WHEN c.source_kind = 'church' AND EXISTS (SELECT FROM unordered u WHERE u.article_id = c.article_id)
@@ -263,12 +265,10 @@ export function corpusCtes(access: CorpusAccess, source: SourceView): SQL {
 		)`;
 }
 
-/** The body a reader may see: none under a hide, and none when only unranked church copies remain. */
 export function visibleBodySql(): SQL {
 	return sql`CASE WHEN p.hidden OR (p.order_required AND p.source_kind = 'church') THEN NULL ELSE p.body END`;
 }
 
-/** One article as JSON. A title list (`body: false`) leaves the body out: it shows titles, never the text. */
 export function articleJson({ body = true }: { body?: boolean } = {}): SQL {
 	return sql`json_build_object(
 		'articleId', p.article_id,
@@ -304,15 +304,10 @@ export function articleJson({ body = true }: { body?: boolean } = {}): SQL {
 	)`;
 }
 
-/** The picked articles that match `extra`. The reading and credit joins come later, on the rows a page keeps. */
 function articleFrom(extra: SQL = sql`true`): SQL {
 	return sql`picked p WHERE ${extra}`;
 }
 
-/**
- * The plant's live Wiki sources of one kind in reading order: the stored order first, then sources it does not
- * name yet, by when they joined. The order dialog lists them and a save must name each one.
- */
 function sourceList(access: CorpusAccess, kind: "sending_church" | "sending_network"): SQL {
 	const stored = kind === "sending_church" ? sql`p.churches` : sql`p.networks`;
 	return sql`COALESCE((
@@ -350,7 +345,6 @@ export function pageQuery(access: CorpusAccess, source: SourceView, page: number
 			), '[]'::json) AS articles`;
 }
 
-/** Every matching article in one statement. The count does not grow with the corpus. */
 export function catalogQuery(
 	access: CorpusAccess,
 	source: SourceView,
@@ -377,7 +371,6 @@ export function catalogQuery(
 			), '[]'::json) AS articles`;
 }
 
-/** Navigation ids in one statement: title, slug, phase and section. */
 export function navigationQuery(access: CorpusAccess, source: SourceView): SQL {
 	return sql`WITH ${corpusCtes(access, source)}
 		SELECT

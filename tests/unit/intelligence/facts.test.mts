@@ -1,5 +1,3 @@
-// WP-040 counting rules of Plant Intelligence's measured facts, through the pure builder the read uses, at fixed dates.
-// A silent break here would show a planter a wrong count, a false "stalled" or a guess where the records cannot answer.
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
@@ -38,6 +36,7 @@ const empty = (): FactInputs => ({
 	attestations: [],
 	interviews: { count: 0, latestOn: null },
 	fourCs: { count: 0, latestOn: null },
+	launch: null,
 });
 const facts = (over: Partial<FactInputs>, today = TODAY, asOf = AS_OF) =>
 	buildFacts(factInputs.parse({ ...empty(), ...over }), asOf as never, today);
@@ -75,12 +74,9 @@ test("AC:CA004 AC:CA005 29 known adults and one unclassified person read Unknown
 	assert.equal(f.committedAdults.exact, null);
 	assert.deepEqual(f.committedAdults.needsClassifying, [{ id: unknown.id, name: "Sam Unclassified" }]);
 	assert.equal(f.criteria.committed_adults, "unknown");
-	// The recorded "unknown" classification is the same as none.
 	assert.equal(facts({ people: [...adults(29), person({ manual: "unknown" })] }).committedAdults.status, "unknown");
-	// At most 29 cannot reach 30, so the criterion is Not met without claiming an exact total.
 	const short = facts({ people: [...adults(28), person({ manual: null })] }).committedAdults;
 	assert.deepEqual([short.status, short.known, short.exact], ["not_met", 28, null]);
-	// Thirty established adults meet the criterion even with someone unresolved.
 	assert.equal(facts({ people: [...adults(30), person({ manual: null })] }).committedAdults.status, "met");
 });
 
@@ -93,7 +89,6 @@ test("AC:CA017 growth is on track at 20 days, slowed from 21 to 27 days and stal
 		assert.equal(f.growth.lastAcquiredOn, day(-Number(ago)));
 		assert.equal(f.criteria.growth_trajectory, status === "stalled" ? "not_met" : "met");
 	}
-	// The windows are exactly 28 inclusive dates each: [today−27, today] and [today−55, today−28].
 	const f = facts({
 		people: [
 			person({ signed: [-27] }),
@@ -106,16 +101,13 @@ test("AC:CA017 growth is on track at 20 days, slowed from 21 to 27 days and stal
 		[f.growth.current, f.growth.prior, f.growth.windowStart, f.growth.priorStart],
 		[1, 2, day(-27), day(-55)],
 	);
-	// A repeat signature is not a new adult: the clock runs from the first one.
 	assert.equal(facts({ people: [person({ signed: [-40, -3] })] }).growth.daysSince, 40);
-	// No established date is Unknown, never stalled.
 	assert.deepEqual([facts({}).growth.status, facts({}).growth.reason], ["unknown", "no_acquisition"]);
 });
 
 test("AC:CA017 an old known date cannot prove stalled while an unclassified person signed after it", () => {
 	const f = facts({ people: [person({ signed: [-40] }), person({ signed: [-5], manual: null })] });
 	assert.deepEqual([f.growth.status, f.growth.reason], ["unknown", "unclassified_newer"]);
-	// A recent known adult still proves growth on track.
 	assert.equal(
 		facts({ people: [person({ signed: [-3] }), person({ signed: [-1], manual: null })] }).growth.status,
 		"on_track",
@@ -186,22 +178,26 @@ test("AC:PI-TASK-CONTACT-001 four follow-ups read 2 of 3 on time with No longer 
 	const origin = hours(-72);
 	const f = facts({
 		followUps: [
-			{ originAt: origin as never, state: "complete", completion: hours(-60) as never, contacted: true },
-			// Ticked through an administrative completion: on time, but not contact.
-			{ originAt: origin as never, state: "complete", completion: hours(-30) as never, contacted: false },
-			{ originAt: origin as never, state: "no_longer_needed", completion: null, contacted: false },
-			{ originAt: origin as never, state: "open", completion: null, contacted: false },
+			{ originAt: origin as never, state: "complete", completion: hours(-60) as never, contacted: true, owned: true },
+			{ originAt: origin as never, state: "complete", completion: hours(-30) as never, contacted: false, owned: true },
+			{ originAt: origin as never, state: "no_longer_needed", completion: null, contacted: false, owned: true },
+			{ originAt: origin as never, state: "open", completion: null, contacted: false, owned: true },
 		],
 	});
 	assert.deepEqual(
 		[f.followUps.onTime, f.followUps.measured, f.followUps.noLongerNeeded, f.followUps.contacted, f.followUps.total],
 		[2, 3, 1, 1, 4],
 	);
-	// A follow-up younger than 48 hours is not yet measured; a completion after 48 hours is a miss.
 	const g = facts({
 		followUps: [
-			{ originAt: hours(-10) as never, state: "open", completion: null, contacted: false },
-			{ originAt: hours(-100) as never, state: "complete", completion: hours(-40) as never, contacted: false },
+			{ originAt: hours(-10) as never, state: "open", completion: null, contacted: false, owned: true },
+			{
+				originAt: hours(-100) as never,
+				state: "complete",
+				completion: hours(-40) as never,
+				contacted: false,
+				owned: true,
+			},
 		],
 	});
 	assert.deepEqual([g.followUps.onTime, g.followUps.measured, g.followUps.pending], [0, 1, 1]);
@@ -243,7 +239,6 @@ test("AC:B01-020 training 9 of 10 is not complete, and rounding never clears the
 	assert.deepEqual([f.training.complete, f.training.total, f.training.status], [9, 10, "not_met"]);
 	assert.equal(facts({ training: [program(999, 1000)] }).training.status, "not_met");
 	assert.equal(facts({ training: [program(10, 10)] }).training.status, "met");
-	// Nothing required and assigned is Unknown, not complete.
 	assert.equal(facts({ training: [program(0, 0)] }).training.status, "unknown");
 });
 
@@ -281,6 +276,7 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 		"followUps",
 		"fourCs",
 		"interviews",
+		"launch",
 		"nextVision",
 		"people",
 		"roles",
@@ -292,5 +288,100 @@ test("AC:PI-PURPOSE-001 the fact inputs hold no private care and only a count an
 	assert.deepEqual(Object.keys(factInputs.shape.fourCs.shape).sort(), ["count", "latestOn"]);
 	assert.throws(() =>
 		factInputs.parse({ ...empty(), interviews: { count: 1, latestOn: day(-1), result: "qualified" } }),
+	);
+});
+
+const sunday = {
+	target: null,
+	actual: null,
+	status: "planning",
+	path: "launch_sunday",
+	reachedOn: null,
+	reachedName: null,
+} as const;
+const CONSTITUTED = "Constituted as a church";
+const milestone = (reachedOn: string | null) => ({
+	...sunday,
+	path: "milestone" as const,
+	reachedOn,
+	reachedName: reachedOn ? CONSTITUTED : null,
+});
+
+test("the launch countdown is the plant-local days to a scheduled launch that has not happened", () => {
+	const on = (target: string | null, status: "planning" | "scheduled" | "postponed" | "completed", actual = null) =>
+		facts({ launch: { ...sunday, target, actual, status } }).launch;
+	assert.deepEqual(facts({}).launch, { targetOn: null, daysToLaunch: null });
+	assert.deepEqual(on("2026-12-14", "scheduled"), { targetOn: "2026-12-14", daysToLaunch: 30 });
+	assert.deepEqual(on(TODAY, "scheduled"), { targetOn: TODAY, daysToLaunch: 0 });
+	assert.deepEqual(on("2026-12-14", "planning"), { targetOn: null, daysToLaunch: null });
+	assert.deepEqual(on(null, "postponed"), { targetOn: null, daysToLaunch: null });
+});
+
+test("a reached milestone is First service held on the milestone path; unreached or cleared is Unknown, never Not met", () => {
+	const reached = facts({ launch: milestone("2026-10-11") }, "2026-10-12");
+	assert.equal(reached.criteria.first_service_complete, "met");
+	assert.deepEqual(reached.firstService, {
+		path: "milestone",
+		status: "met",
+		milestone: CONSTITUTED,
+		heldOn: "2026-10-11",
+	});
+	assert.equal(facts({ launch: milestone("2026-10-12") }, "2026-10-12").criteria.first_service_complete, "met");
+	const open = facts({ launch: milestone(null) }, "2026-10-12");
+	assert.equal(open.criteria.first_service_complete, "unknown");
+	assert.deepEqual(open.firstService, { path: "milestone", status: "unknown", milestone: null, heldOn: null });
+	assert.equal(reached.criteria.guest_data_entered, undefined);
+	assert.equal(reached.criteria.debrief_done, undefined);
+});
+
+test("a corrected date moves the evidence", () => {
+	const corrected = facts({ launch: milestone("2026-10-04") }, "2026-10-12");
+	assert.deepEqual(
+		[corrected.criteria.first_service_complete, corrected.firstService],
+		["met", { path: "milestone", status: "met", milestone: CONSTITUTED, heldOn: "2026-10-04" }],
+	);
+});
+
+test("a reached or held day after the facts' plant-local date never counts", () => {
+	const read = (launch: FactInputs["launch"], today: string) =>
+		facts({ launch }, today).criteria.first_service_complete;
+	assert.equal(read(milestone("2026-10-11"), "2026-10-10"), "unknown");
+	assert.equal(read(milestone("2026-10-11"), "2026-10-11"), "met");
+	const held = { ...sunday, status: "completed", actual: "2026-10-11" } as const;
+	assert.equal(read(held, "2026-10-10"), "unknown");
+	assert.equal(read(held, "2026-10-11"), "met");
+	assert.deepEqual(facts({ launch: milestone("2026-10-11") }, "2026-10-10").firstService, {
+		path: "milestone",
+		status: "unknown",
+		milestone: null,
+		heldOn: null,
+	});
+});
+
+test("a Launch Sunday plant counts only an actual Launch Sunday; its launch-date criteria do not change", () => {
+	const at = (launch: FactInputs["launch"]) => facts({ launch }, TODAY);
+	const held = at({ ...sunday, status: "completed", target: null, actual: day(-7) });
+	assert.deepEqual(
+		[held.criteria.first_service_complete, held.firstService],
+		["met", { path: "launch_sunday", status: "met", heldOn: day(-7) }],
+	);
+	assert.equal(held.criteria.launch_date_set, undefined);
+	assert.equal(held.criteria.launch_window, undefined);
+	const states = {
+		none: null,
+		planning: { ...sunday },
+		scheduled: { ...sunday, status: "scheduled", target: day(20) },
+		postponed: { ...sunday, status: "postponed" },
+	} as const;
+	for (const [state, launch] of Object.entries(states)) {
+		const f = at(launch);
+		assert.equal(f.criteria.first_service_complete, "unknown", state);
+		assert.deepEqual(f.firstService, { path: "launch_sunday", status: "unknown", heldOn: null }, state);
+	}
+	const scheduled = at(states.scheduled);
+	assert.deepEqual(
+		[scheduled.criteria.launch_date_set, scheduled.criteria.launch_window],
+		["met", "met"],
+		"a scheduled launch still sets the date and window",
 	);
 });

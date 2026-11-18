@@ -1,0 +1,11 @@
+{
+	"public": {
+		"AddPersonDialog.tsx": "the add-person dialog the overview opens as a quick action",
+		"corrections/model.ts": "correction labels that the organization duplicates screen reuses",
+		"import-export/ImportSteps.tsx": "the CSV import steps the organization import reuses",
+		"import-export/run-imports.ts": "runDueImports, the CSV import runner the scheduler drains each tick",
+		"model.ts": "stage and source labels that Evry, follow-ups and others show",
+		"parts.tsx": "PersonLink for meetings; When and LocalDay until they move to apps/web/src/components",
+		"server.ts": "the Role type the shell reads and the read helper meetings uses until it has its own"
+	}
+}

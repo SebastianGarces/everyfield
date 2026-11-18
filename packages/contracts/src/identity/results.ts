@@ -21,7 +21,6 @@ export const identityError = z.discriminatedUnion("code", [
 	defineSafeError("admission_unavailable", {}, "same_request"),
 	defineSafeError("idempotency_conflict", {}, "never"),
 ]);
-// Mail failure and unknown/missing accounts have the same public recovery result.
 export const passwordRecoveryResult = z.strictObject({ status: z.literal("accepted") });
 export const recoveryCompletedResult = z.strictObject({
 	status: z.literal("password_reset"),
@@ -35,7 +34,6 @@ export const registrationResult = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("pending_domain"), accountId }),
 	z.strictObject({ status: z.literal("active"), accountId }),
 ]);
-// Only actual native self authentication may produce these bounded projections.
 export const registrationStatus = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("pending_domain"), accountId }),
 	z.strictObject({ status: z.literal("active"), accountId }),
@@ -61,9 +59,6 @@ export const registrationOptions = z.strictObject({
 	invitation: registrationContext,
 });
 
-// Adapter-only outcome metadata. The supported credential call happens first.
-// Reporting failure preserves the committed credential result; unknown calls are
-// investigated without a saved password, cookie, reset token or blind replay.
 export const credentialOutcome = z.discriminatedUnion("status", [
 	z.strictObject({ status: z.literal("refused"), correlationId }),
 	z.strictObject({ status: z.literal("unknown"), correlationId }),
@@ -80,7 +75,6 @@ export const credentialOutcome = z.discriminatedUnion("status", [
 ]);
 export type CredentialOutcome = z.infer<typeof credentialOutcome>;
 
-// Removed authors retain no login identifier, credential or inferred ownership.
 export const retainedAttribution = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("account"), accountId }),
 	z.strictObject({ kind: z.literal("removed_account") }),

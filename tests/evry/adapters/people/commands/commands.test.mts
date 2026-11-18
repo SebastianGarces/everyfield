@@ -31,12 +31,9 @@ import {
 } from "../../../runtime/support.mts";
 import type { PrivateStorage } from "../../../../../packages/db/src/schema/storage.ts";
 
-// The task reminder port of a stage change or retirement. These people hold no dated, assigned task, so a replan
-// here would be a bug.
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
-/** The effect ports: no effect here hands a task on or moves a phase forward, so either call would be a bug. */
 const noPorts = {
 	reminders: noReminders,
 	phaseNotices: async () => {
@@ -50,7 +47,6 @@ after(teardown);
 const counted = (start: number) =>
 	queries.slice(start).filter((q) => !/^(BEGIN|COMMIT|ROLLBACK)/i.test(q.trim())).length;
 
-/** A running turn in a new conversation: the only place a proposal can be prepared. */
 async function turn(who: EvryActor) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
 	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
@@ -63,7 +59,6 @@ async function turn(who: EvryActor) {
 		generation: claim.claim_generation,
 	};
 	return {
-		/** prepareProposal as the model's propose_change tool calls it; one statement each. */
 		async propose(operation: string, input: unknown) {
 			const start = queries.length;
 			const proposal = await prepareProposal(db, who, run, c.id, { operation, input });
@@ -73,10 +68,8 @@ async function turn(who: EvryActor) {
 	};
 }
 
-/** The trusted approval of the exact revision shown, then the effect run once through the WP-031 queue. */
 async function approveAndRun(who: EvryActor, proposal: Proposal, storage: PrivateStorage | null = null) {
 	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, storage);
-	// A double confirm queues nothing more.
 	assert.equal(
 		(await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, storage))
 			.replayed,
@@ -101,7 +94,6 @@ async function approveAndRun(who: EvryActor, proposal: Proposal, storage: Privat
 	return { outcome, statements, review: await readReview(db, who, proposal.id) };
 }
 
-/** The audit rows the effect wrote with its change: the native command's own, keyed by the effect key. */
 async function effectAudits(proposalId: string) {
 	const r = await admin.execute(
 		sql`SELECT actor_id,action,subject_id FROM audit_event WHERE request_key LIKE ${"evry:" + proposalId + ":%"}`,
@@ -164,7 +156,6 @@ test("INV-budget: a proposed person is created only after approval, once, with i
 	console.log(JSON.stringify({ effect: "people.createPerson", statements }));
 	assert.equal(statements, 5);
 
-	// Only an Owner or Admin may propose, the same floor as the native command.
 	const member = await actor("member");
 	await assert.rejects(
 		() =>
@@ -200,7 +191,6 @@ test("INV-budget: a stage change hands the person's open tasks back as reviewed,
 		assert.equal(run.outcome, "completed");
 		statements.push(run.statements);
 		assert.equal((await personRow(id)).stage, "attendee");
-		// Each open task was handed back as needing an owner, at the revision the review saw.
 		const handed = await admin.execute(
 			sql`SELECT count(*)::int n FROM task WHERE person_id=${id} AND NOT EXISTS(SELECT FROM task_assignee a WHERE a.task_id=task.id) AND revision=2`,
 		);
@@ -213,14 +203,12 @@ test("INV-budget: a stage change hands the person's open tasks back as reviewed,
 	console.log(JSON.stringify({ effect: "people.changeStatus", statements }));
 	assert.deepEqual(statements, [8, 8], "the effect does not grow with the number of open tasks");
 
-	// A stage change inside the pipeline hands nothing off.
 	const proposal = await t.propose("people.changeStatus", {
 		personId: people.casey,
 		stage: "attendee",
 		reason: "Came twice",
 	});
 	assert.equal(proposal?.review.changes.length, 2);
-	// A task opened after the review makes the native command refuse; nothing changes.
 	const late = await addPerson("Core late", "core_group");
 	const review = await t.propose("people.changeStatus", { personId: late, stage: "prospect", reason: "Paused" });
 	assert.ok(review);
@@ -255,13 +243,11 @@ test("AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE a retirement runs 
 	console.log(JSON.stringify({ effect: "people.deletePerson", statements }));
 	assert.equal(statements, 10);
 	assert.deepEqual([(await personRow(p2)).state, await personRow(p1)], ["retired", p1Before]);
-	// The historical record names P2; the review no longer shows a person that is not current; the receipt stays.
 	assert.deepEqual(await effectAudits(proposal.id), [
 		{ actor_id: owner.accountId, action: "people.retired", subject_id: p2 },
 	]);
 	assert.deepEqual([review.outcome, review.review.target, review.review.withheld], ["completed", null, true]);
 	assert.ok(review.receipt?.receiptId);
-	// Current selectors and new reviews never resolve P2 again, and nothing is proposed against it.
 	assert.deepEqual(
 		(await verifyPeople(db, owner, [p1, p2])).map((r) => r.id),
 		[p1],
@@ -275,7 +261,6 @@ test("AC:PROVIDER48-002 a photo change uses only this church's own verified uplo
 	const t = await turn(owner);
 	const photos = bucket();
 	const upload = (await photos.upload(png)).id;
-	// Another church's verified upload is never proposed.
 	const foreign = randomUUID();
 	await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,sha256,state,upload_key,claim_generation,expires_at)
 		SELECT ${foreign},plant_id,'person_photo','private/'||plant_id||'/'||gen_random_uuid(),'image/png',100,100,${"0".repeat(64)},'ready',${foreign},0,clock_timestamp()+interval '15 minutes'
@@ -325,7 +310,6 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 	const second = await t.propose("people.setPersonPhoto", { personId: target, uploadId: b.id });
 	assert.ok(first && second);
 
-	// The owner gets each proposal's exact bytes: the two uploads differ. One lookup, then the storage layer's two checks.
 	const start = queries.length;
 	const shown = await readStagedPhoto(db, photos.storage, owner, first.id);
 	console.log(JSON.stringify({ read: "evry.readStagedPhoto", statements: counted(start) }));
@@ -333,7 +317,6 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 	assert.deepEqual([Buffer.from(shown.bytes), shown.mediaType], [png, "image/png"]);
 	assert.deepEqual(Buffer.from((await readStagedPhoto(db, photos.storage, owner, second.id)).bytes), other);
 
-	// Nobody else sees it: a member of the church, an admin of another church, a signed-out owner.
 	const refusal = (p: Promise<unknown>) =>
 		p.then(
 			() => "delivered",
@@ -358,14 +341,12 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 		);
 	}
 
-	// An upload whose bytes are gone cannot be shown, so it cannot be approved; nothing is queued.
 	photos.objects.delete(b.key);
 	assert.equal(await refusal(readStagedPhoto(db, photos.storage, owner, second.id)), "not_found");
 	const witness = { revision: second.revision, digest: second.digest };
 	assert.equal(await refusal(approveProposal(db, owner, second.id, witness, photos.storage)), "photo_unavailable");
 	assert.equal(await refusal(approveProposal(db, owner, second.id, witness, null)), "photo_unavailable");
 	assert.equal((await readReview(db, owner, second.id)).status, "pending");
-	// An upload the cleanup worker has taken is refused the same way.
 	const c = await photos.upload(png);
 	const third = await t.propose("people.setPersonPhoto", { personId: target, uploadId: c.id });
 	assert.ok(third);
@@ -381,8 +362,6 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 	);
 	assert.equal(queued.rows[0]!.n, 0, "a refused approval queues nothing");
 
-	// A readable upload approves, bound to the upload just read: the first try, the review, the storage layer's four
-	// checks and the bound approval. Other operations still approve in one statement.
 	const begin = queries.length;
 	const approved = await approveProposal(
 		db,
@@ -409,6 +388,5 @@ test("AC:UI45-003 a photo proposal's owner sees the exact staged upload while th
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: outcome === "failed" ? "failed" : "succeeded" }));
 	assert.equal(outcome, "completed");
 	assert.equal((await personRow(target)).photo_object_id, a.id, "approve saves that exact upload");
-	// Once it is the person's photo it is no longer a staged upload.
 	assert.equal(await refusal(readStagedPhoto(db, photos.storage, owner, first.id)), "not_found");
 });

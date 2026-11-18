@@ -1,6 +1,3 @@
-// The Evry Tasks and Follow-up tools (WP-067 reads, WP-068 reviewed writes) against real rows: each read returns what
-// the Tasks and Follow-ups pages read, and each reviewed write changes nothing until a person approves the exact review,
-// then runs the native command once.
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -25,8 +22,6 @@ import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../r
 const reminders = async () => undefined;
 before(async () => {
 	await setup();
-	// The Owner's account is linked to a leader, so it may own follow-ups (REQ-TSK-012); the Member's is linked to no
-	// one, so it can hold tasks but never own a follow-up.
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state,linked_account_id)
 		VALUES(${randomUUID()},${plant},${plant},'Olive Owner','other',clock_timestamp(),'leader','unknown','unknown',5000,'live',${accounts.owner.id})`);
 	await admin.execute(sql`UPDATE auth_user SET name='Olive Owner' WHERE id=${accounts.owner.user}`);
@@ -42,7 +37,6 @@ const adapters = new Map<string, ReadAdapter<unknown>>(
 const read = async (who: EvryActor, operation: string, input: unknown) =>
 	invokeRead(db, who, adapters.get(operation)!, input);
 
-/** The church's local date `days` from today, by the database clock in America/Chicago. */
 async function localDay(days: number) {
 	const r = await admin.execute(
 		sql`SELECT to_char((clock_timestamp() AT TIME ZONE 'America/Chicago')::date + ${days}::int,'YYYY-MM-DD') AS d`,
@@ -79,7 +73,6 @@ async function person(name: string, stage = "attendee") {
 	return id;
 }
 
-/** A running turn in a new conversation: the only place a proposal can be prepared. */
 async function turn(who: EvryActor) {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
 	await submitTurn(db, who, c.id, { requestKey: randomUUID(), text: "hold this turn" });
@@ -93,7 +86,6 @@ async function turn(who: EvryActor) {
 	};
 	return (operation: string, input: unknown) => prepareProposal(db, who, run, c.id, { operation, input });
 }
-/** The approval of the exact revision shown, then the effect run once through the WP-031 queue. */
 async function approveAndRun(who: EvryActor, proposal: Proposal) {
 	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
@@ -122,7 +114,6 @@ test("AC:GAP-EVR-405 INV-task-windows: overdue and due-today match the Tasks pag
 		done: await task("Old errand", { due: -5, status: "complete", owner: accounts.owner.id }),
 		undated: await task("Someday idea", { owner: accounts.owner.id }),
 	};
-	// A task linked to a Person who shares the Owner's name is not the Owner's task.
 	const namesake = await person("Olive Owner");
 	await task("Visit Olive", { due: 0, personId: namesake });
 
@@ -279,7 +270,6 @@ test("INV-contact-log: a logged call goes in the contact log after approval, nev
 	const notes = await admin.execute(sql`SELECT notes FROM person WHERE id=${jess}`);
 	assert.equal(notes.rows[0]!.notes, "Met at the park.", "her profile notes are unchanged");
 
-	// An attempt is recorded as an attempt: never a conversation that happened.
 	const attempt = await propose("followups.recordOutcome", {
 		personId: jess,
 		outcome: "attempted_no_contact",
@@ -329,7 +319,6 @@ test("AC:EVRY-REAL-CHILD-TASK-PARITY INV-checklist: adding one row and ticking a
 test("INV-checklist-floor: a Member's checklist review keeps each native floor, step by step", async () => {
 	const member = await actor("member");
 	const propose = await turn(member);
-	// The parent is the Owner's; one row of it is the Member's own.
 	const parent = await task("Launch Sunday setup", { due: 5, owner: accounts.owner.id });
 	const mine = await task("Stack the hymnals", { parentId: parent, owner: accounts.member.id });
 	assert.equal(

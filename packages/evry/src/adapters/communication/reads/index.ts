@@ -11,10 +11,6 @@ import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 import { audienceInput, classifiedPeople } from "../audience.ts";
 
-// The Communication reads. Evry finds the church's drafts and scheduled messages by subject and send time, so "cancel
-// the Friday email" names one message id. Only the safe identifying fields reach the model: never a body or an address.
-// Any seat in the church may read them; writes need Owner or Admin.
-
 const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 const listInput = z.strictObject({
 	subject: z.string().trim().min(1).max(200).optional().describe("Words from the subject"),
@@ -38,26 +34,16 @@ const messageRow = z.object({
 
 const mailOf = (message: string) =>
 	`m.tenant_id=${message}.plant_id AND m.logical_key LIKE 'communication/'||${message}.id||'/%'`;
-/**
- * Recipients still to go out for message `c`, so a cancel or a time change has something to act on: waiting in Everyfield
- * for the send time (`scheduled`, T-241), or held by the email service.
- */
 const holding = (message: string) =>
 	`${mailOf(message)} AND m.state IN ('scheduled','accepted','unknown','dispatched')`;
 export const held = sql.raw(`(SELECT count(*)::int FROM mail m WHERE ${holding("c")})`);
-/** Of those, the recipients the email service never answered about: they have no email service id to move by. */
 export const unanswered = sql.raw(
 	`(SELECT count(*)::int FROM mail m WHERE ${mailOf("c")} AND m.state IN ('unknown','dispatched'))`,
 );
-/**
- * Message `c` can still go out. A cancel, a replacement or a sent email changes only mail rows, so a message whose every
- * recipient is finished stays `scheduled`, and the read must not offer it as the one to act on.
- */
 const canStillGoOut = sql.raw(
 	`(c.state='draft' OR NOT EXISTS(SELECT FROM mail m WHERE ${mailOf("c")})
 		OR EXISTS(SELECT FROM mail m WHERE ${mailOf("c")} AND m.state NOT IN ('sent','cancelled','refused','failed')))`,
 );
-/** Of those, the recipients with no cancel asked: a cancel or a sent email in Messages lowers it. */
 export const untouchedMail = (message: string) =>
 	`(SELECT count(*)::int FROM mail m WHERE ${holding(message)} AND m.cancel_requested_at IS NULL)`;
 
@@ -96,7 +82,6 @@ export const listMessages: ReadAdapter<z.infer<typeof listInput>> = {
 					sendsAt: m.sends_at,
 					sendsAtInstant: m.sends_at_instant,
 					zone: m.zone,
-					// A scheduled message the email service holds can be cancelled, moved or replaced; a draft can only be scheduled.
 					handedOff: m.held > 0,
 				},
 			})),
@@ -109,19 +94,10 @@ export const listMessages: ReadAdapter<z.infer<typeof listInput>> = {
 	},
 };
 
-// --- The delivery reads (COM-01, COM-02, COM-03, COM-06, COM-07, COM-009) ---------------------------------------------
-// Each says only what Messages recorded. An open is a tracking pixel the email service saw, never proof that someone
-// read the email, will come, or talked to anyone; an email is never a call. Addresses and bodies never reach the model.
-
 const live = (actor: EvryActor) =>
 	liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined });
-/** A time in the church's own zone, like "Thu 2026-10-15 19:00". `zone` is the church's time zone column. */
 const local = (at: string, zone = "pl.timezone") => `to_char((${at}) AT TIME ZONE ${zone},'Dy YYYY-MM-DD HH24:MI')`;
 
-/**
- * What became of one recipient `m`, in the order a person would ask: left out first, then what the email service said.
- * `sent` is accepted or sent with no delivery confirmed yet; `checking` is a handoff the email service never answered.
- */
 const RESULT = `CASE WHEN m.refusal='unsubscribed' THEN 'unsubscribed'
 	WHEN m.state='cancelled' THEN 'cancelled'
 	WHEN m.bounced_at IS NOT NULL THEN 'bounced'
@@ -131,7 +107,6 @@ const RESULT = `CASE WHEN m.refusal='unsubscribed' THEN 'unsubscribed'
 	WHEN m.state='scheduled' OR (m.state='accepted' AND m.scheduled_at>clock_timestamp()) THEN 'waiting'
 	WHEN m.state IN ('accepted','sent') OR m.sent_at IS NOT NULL THEN 'sent'
 	ELSE 'checking' END`;
-/** When message `c` went out: the first recipient the email service sent, or accepted for sending at once. */
 const sentAt = (c: string) =>
 	`(SELECT min(coalesce(m.sent_at,m.delivered_at,CASE WHEN m.scheduled_at IS NULL THEN m.accepted_at END))
 		FROM mail m WHERE m.tenant_id=${c}.plant_id AND m.communication_id=${c}.id)`;
@@ -208,7 +183,6 @@ export const preview: ReadAdapter<z.infer<typeof previewInput>> = {
 			...(found.meetings ?? []).map((m) => ({
 				kind: "meeting" as const,
 				id: m.id,
-				// An untitled meeting reads as Meetings names it ("Vision Meeting #4").
 				label: meetingTitle({ title: m.title, type: m.type, visionNumber: m.vision }),
 				fields: { startsAt: m.starts, type: m.type },
 			})),
@@ -236,7 +210,6 @@ const getInput = z.strictObject({
 	subject: z.string().trim().min(1).max(200).optional().describe("Words from the subject"),
 });
 
-/** One message `c` with the counts of each recipient result. */
 const messageFacts =
 	sql.raw(`jsonb_build_object('id',c.id,'subject',coalesce(nullif(c.subject,''),'Untitled'),'state',c.state,
 	'sentAt',${local(sentAt("c"))},'scheduledFor',${local("c.scheduled_at")},
@@ -319,7 +292,6 @@ const forPersonInput = z.strictObject({
 		.describe("A person id from an earlier result. Leave it out to list the people no email has gone out to."),
 	limit: z.int().min(1).max(100).optional(),
 });
-/** An email that went out, or may have: anything handed to the email service. Waiting, refused or cancelled is not. */
 const WENT_OUT = `(m.sent_at IS NOT NULL OR m.delivered_at IS NOT NULL OR m.accepted_at IS NOT NULL OR m.state IN ('sent','unknown','dispatched'))`;
 
 export const forPerson: ReadAdapter<z.infer<typeof forPersonInput>> = {
@@ -453,7 +425,6 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 	description:
 		"Who a resend of a sent email would go to and who is left out. delivered_nonopeners needs the email sent at least 24 hours ago with a delivery confirmed: tooSoon and resendFrom say when it can go. proven_failed lists only recipients the email service refused or bounced; one it never answered is still being checked and is never resent. Open tracking is not reliable.",
 	input: resendInput,
-	// The native read is for an Owner or Admin only, as resending is: a Member never gets the tool rather than a refusal.
 	allowed: (actor) => actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin"),
 	async invoke(tx, actor, input): Promise<SourceResult> {
 		const native = await communicationWriter.listResendCandidates(tx, actor.authority, input);
@@ -470,7 +441,6 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 					FROM (SELECT y.id,y.name,y.result,coalesce(y.hard_reason,CASE WHEN row_number() OVER (PARTITION BY y.hard_reason IS NULL,coalesce(y.address_hash,y.id::text) ORDER BY lower(y.name) COLLATE "C",y.id)>1
 						THEN 'duplicate_address' END) AS hard_reason
 					FROM (SELECT DISTINCT ON (p.id) p.id,p.display_name AS name,m.address_hash,${sql.raw(RESULT)} AS result,
-						-- Who no resend may reach now, whatever the email service said before: the same rules as a send.
 						CASE WHEN p.state<>'live' OR btrim(coalesce(p.email,''))='' THEN 'cannot_be_emailed'
 							WHEN ${optedOutSql(sql`c.plant_id`, sql`p.id`)} THEN 'unsubscribed'
 							WHEN EXISTS(SELECT FROM suppression s WHERE s.address_hash=m.address_hash AND s.cleared_at IS NULL) THEN 'blocked'
@@ -494,7 +464,6 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 		if (!found) return notFound("communication.resendCandidates", []);
 		const nonopeners = input.selection === "delivered_nonopeners";
 		const tooSoon = nonopeners && found.too_soon;
-		/** Why a recipient is left out, in words of the facts: their own result, or the 24-hour wait. */
 		const reason = (p: (typeof found.people)[number]) =>
 			p.hard_reason ??
 			(eligible.has(p.id)
@@ -534,7 +503,6 @@ export const resendCandidates: ReadAdapter<z.infer<typeof resendInput>> = {
 	},
 };
 
-/** The installed Communication read tools, in catalog order. */
 export const COMMUNICATION_READS = [
 	listMessages,
 	preview,

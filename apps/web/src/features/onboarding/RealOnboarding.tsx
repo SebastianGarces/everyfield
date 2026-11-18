@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState } from "react";
 import { loadPage } from "../identity/api";
 import { SessionActions } from "../identity/SessionActions";
 import { loadOnboardingEntry, runOnboardingCommand } from "./actions";
@@ -10,7 +10,6 @@ import { createPort } from "./port";
 
 const SIGN_IN = "/signin?returnTo=%2Fonboarding";
 
-/** /onboarding on the real API: the server actions behind the contract-parsing port. */
 export function RealOnboarding({
 	entry,
 	step,
@@ -22,7 +21,7 @@ export function RealOnboarding({
 	articles: Article[];
 	residency?: { organizationName: string } | null;
 }) {
-	const port = useMemo(() => createPort({ entry: loadOnboardingEntry, command: runOnboardingCommand }), []);
+	const [port] = useState(() => createPort({ entry: loadOnboardingEntry, command: runOnboardingCommand }));
 	return (
 		<OnboardingFlow
 			port={port}

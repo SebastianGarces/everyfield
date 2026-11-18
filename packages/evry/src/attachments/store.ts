@@ -8,14 +8,6 @@ import type { EvryActor } from "../context/actor.ts";
 import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
 
-// Files attached in the Evry panel (WP-054, evry.md "Attachment"). The browser puts the file once into the private
-// bucket with a signed, write-once PUT; no request to the app carries it. Each staged file belongs to exactly one
-// conversation of its owner: its upload key names the conversation, and every read checks that key, the owner's live
-// access and the 24-hour staging expiry in one statement. A shared object cleanup job, queued for the expiry, deletes the
-// bytes whether or not the file was used. The message that attaches a file carries its name; a later message attaching
-// a file with the same name replaces it.
-
-/** The frozen attachment limits from evry.md's finite runtime contract: CSV 10 MiB, ten per turn, 24 hours. */
 export const ATTACHMENTS = { csvBytes: 10 * 1024 * 1024, perTurn: 10, stagingHours: 24 } as const;
 
 const stageInput = z.strictObject({
@@ -27,24 +19,15 @@ const stageInput = z.strictObject({
 		.regex(/\.csv$/i),
 	byteLength: z.int().min(1).max(ATTACHMENTS.csvBytes),
 });
-/** An attachment as a message carries it: the staged file's id and the name the person chose. */
 export const attachment = z.strictObject({ id: z.uuid(), name: stageInput.shape.name });
 
-/** The staged file's upload key: the conversation it belongs to and the file. */
 const uploadKey = (conversationId: string, id: string) => `evry-attachment/${conversationId}/${id}`;
-/** File row `f` is a staged attachment of conversation `c` (an alias with `id`). */
 const staged = (f: string, c: string) =>
 	`${f}.purpose='assistant_staging' AND ${f}.upload_key='evry-attachment/'||${c}.id||'/'||${f}.id`;
 export const stagedIn = (f: string, c: string) => sql.raw(staged(f, c));
-/** May attach files: the Owner or Admin of the selected church, who may check a People spreadsheet with Evry. */
 const canAttach = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 
-/**
- * evry.stageAttachment: signs one write-once upload of a CSV into the actor's own conversation. One statement checks the
- * conversation and the live Owner or Admin, inserts the pending file row with its 24-hour expiry and queues its
- * cleanup for then. The PUT URL is signed locally for the exact key, type and length.
- */
 export async function stageAttachment(
 	db: Database,
 	storage: PrivateStorage | null,
@@ -79,12 +62,6 @@ export async function stageAttachment(
 	return { attachment: { id, name: input.name }, upload: signed };
 }
 
-/**
- * The exact bytes of a file attached in this conversation, for one Evry read. One statement checks the owner's live
- * Owner or Admin access, that the file is staged in this very conversation and that its 24 hours have not passed; the
- * bucket is read after it, with no transaction open. A file attached elsewhere refuses as attachment_elsewhere; an
- * expired, cleaned up or never finished upload as attachment_gone.
- */
 export async function readAttachment(
 	db: Database,
 	storage: PrivateStorage | null,
@@ -106,10 +83,6 @@ export async function readAttachment(
 	return object.bytes;
 }
 
-/**
- * The files attached in conversation `c` (an alias), newest first, with what is true of each now and the digest of its
- * latest check. At most 64.
- */
 export const attachmentsOf = (c: string) =>
 	sql.raw(`coalesce((SELECT jsonb_agg(x ORDER BY x."attachedAt" DESC, x.id) FROM (
 		SELECT DISTINCT ON (a.id) a.id,a.name,e.created_at AS "attachedAt",f.expires_at AS "availableUntil",
@@ -131,6 +104,5 @@ export const attachmentState = z.object({
 	attachedAt: z.coerce.date(),
 	availableUntil: z.coerce.date().nullable(),
 	status: z.enum(["available", "replaced", "gone"]),
-	/** The fileDigest of the file's latest people.previewImport check in this conversation, if it was checked. */
 	checkedDigest: z.string().nullable(),
 });

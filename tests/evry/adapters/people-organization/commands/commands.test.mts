@@ -14,14 +14,10 @@ import {
 } from "../../../../../packages/evry/src/index.ts";
 import { READ_DOMAINS } from "../../../../../packages/evry/src/catalog/catalog.ts";
 import { ORGANIZATION_COMMANDS } from "../../../../../packages/evry/src/adapters/people-organization/commands/index.ts";
-import { runDueImports } from "../../../../../apps/web/src/server/people/run-imports.ts";
+import { runDueImports } from "../../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
 import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../../runtime/support.mts";
-
-// WP-064: Evry's reviewed writes for households, tags, skills, notes and imports, through the same path a turn uses:
-// the model's propose_change prepares a review, the Owner approves that exact revision and the effect runs once through
-// the WP-031 queue. Nothing changes before approval; afterwards the native People records hold the change.
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -93,7 +89,6 @@ test("AC:TARGET-PPL-009 AC:HH-04 adding a person to a household shows the househ
 		changes: [
 			{ field: "household", before: null, after: "Martinez household" },
 			{ field: "householdRole", before: null, after: "child" },
-			// Pedro has no address, so he takes the household's (REQ-PPL-009).
 			{ field: "street", before: null, after: "12 Pecan St" },
 			{ field: "city", before: null, after: "San Marcos" },
 		],
@@ -110,7 +105,6 @@ test("AC:TARGET-PPL-009 AC:HH-04 adding a person to a household shows the househ
 	assert.equal(await addressOf(pedro), "12 Pecan St, San Marcos");
 	assert.equal(await notes(pedro), 0);
 
-	// Someone already in a household gets a review that says why it can't be approved, and approval is refused.
 	const again = await propose("people.addToHousehold", { householdId: home, personId: carmen, role: "spouse" });
 	assert.equal(again?.review.refusal, "Carmen Martinez is already in the Martinez household.");
 	await assert.rejects(
@@ -125,7 +119,6 @@ async function nguyens() {
 		minh: await addPerson("Minh Nguyen", { street: "9 Elm St", city: "Austin", household: home, role: "head" }),
 		linh: await addPerson("Linh Nguyen", { street: "9 Elm St", city: "Austin", household: home, role: "spouse" }),
 		bao: await addPerson("Bao Nguyen", { street: "9 Elm St", city: "Austin", household: home, role: "child" }),
-		// Already moved: her own record has the new address.
 		thao: await addPerson("Thao Nguyen", { street: "123 Oak St", city: "Austin", household: home, role: "other" }),
 	};
 	return { home, ids };
@@ -170,7 +163,6 @@ test("INV-revision: a member changed between review and approval refuses the who
 	const { home, ids } = await nguyens();
 	const proposal = await propose("people.propagateAddress", { householdId: home, address: { street: "123 Oak St" } });
 	assert.ok(proposal);
-	// Someone edits Linh in People before the Owner approves.
 	await admin.execute(sql`UPDATE person SET street='77 Bay Rd',revision=revision+1 WHERE id=${ids.linh}`);
 	const { outcome, review } = await approveAndRun(owner, proposal);
 	assert.equal(outcome, "refused");
@@ -218,7 +210,6 @@ test("AC:TARGET-PPL-010 AC:CLN-08 tagging eight people with a new tag is one rev
 	);
 	for (const id of guests) assert.equal(await notes(id), 0);
 
-	// The same tag again by name finds the existing tag: nothing is created, and people who have it are said so.
 	const again = await propose("people.assignTag", { personIds: guests.slice(0, 1), tagName: "Coffee-Oct " });
 	assert.equal(again?.review.target?.label, "coffee-oct");
 	assert.deepEqual(again?.review.people?.[0]?.unchanged, "Already has this tag");
@@ -262,7 +253,6 @@ test("AC:TARGET-PPL-008 a note is added, edited and deleted only through its own
 	assert.equal((await approveAndRun(owner, removed!)).outcome, "completed");
 	assert.notEqual((await one(sql`SELECT removed_at FROM person_note WHERE id=${note.id}`)).removed_at, null);
 
-	// A note someone else wrote: the review says only its author can change it.
 	const other = randomUUID();
 	await admin.execute(sql`INSERT INTO person_note(id,tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at)
 		VALUES(${other},${plant},${plant},${maria},${accounts.member.id},'from the member',clock_timestamp(),clock_timestamp())`);
@@ -330,7 +320,6 @@ test("AC:TARGET-PPL-018 AC:CLN-05 an import's review lists each row's planned ou
 	await runDueImports(db);
 	assert.equal(await imported(), 2);
 
-	// "How did the import go": the latest import, with no request key.
 	const receipt = READ_DOMAINS.peopleOrganization.find((a) => a.operation === "people.getImportReceipt")!;
 	const read = await invokeRead(db, owner, receipt as never, {});
 	const file = read.rows.find((r) => r.kind === "file")!;

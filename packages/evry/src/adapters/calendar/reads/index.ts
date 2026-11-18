@@ -6,13 +6,8 @@ import type { EvryActor } from "../../../context/actor.ts";
 import type { ReadAdapter, SourceResult } from "../../../catalog/types.ts";
 import { calendarContext, resolveLocal } from "../../../calendar/resolve.ts";
 
-// The calendar helpers (WP-085): the church's own calendar, so everyday date words become one exact local date, time and
-// zone before any review card names them. Each reads the church's time zone in one statement with the lock-free live
-// access check (C13, C27); the date math itself is pure (calendar/resolve.ts). Any seat in the church may use them.
-
 const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 
-/** The church's IANA time zone, or null when the actor's access ended. */
 async function churchZone(tx: Transaction, actor: EvryActor) {
 	const r = await tx.execute(sql`SELECT pl.timezone FROM plant pl WHERE pl.id=${actor.owner.id}::uuid
 		AND ${liveRead({ session: actor.session, owner: actor.owner, seatId: actor.seatId ?? undefined })}`);
@@ -52,7 +47,6 @@ export const getContext: ReadAdapter<Record<string, never>> = {
 	async invoke(tx, actor) {
 		const zone = await churchZone(tx, actor);
 		if (!zone) return unavailable("calendar.getContext");
-		// The host clock: the turn's trusted server clock, the same one the system prompt names.
 		const today = calendarContext(zone, new Date());
 		return answer("calendar.getContext", today.today, `Today in ${zone}`, today);
 	},
@@ -94,5 +88,4 @@ export const resolve: ReadAdapter<z.infer<typeof resolveInput>> = {
 	},
 };
 
-/** The installed calendar read tools, in catalog order. */
 export const CALENDAR_READS = [getContext, resolve] as const;

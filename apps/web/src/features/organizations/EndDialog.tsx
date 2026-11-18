@@ -14,23 +14,17 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { useState, type ReactNode } from "react";
-import { useIntent } from "./intent";
+import { useIntent } from "../../components/intent.ts";
 import { ProblemLine } from "./parts";
 import type { ReadHistory } from "./History";
 import type { Relationship } from "./port";
 
-/** `subject`: the plant, sending church or Discovery account leaves. `organization`: the organization ends it. */
 export type Side = "subject" | "organization";
 type HistoryPage = Awaited<ReturnType<ReadHistory>>;
-/** Ends one connection. The answer is the first history page as it is now, or null when nothing was ended. */
 export type EndConnection = (command: ReturnType<typeof endRelationshipRequest.parse>) => Promise<HistoryPage | null>;
 
 const REASON_LIMIT = 1000;
 
-/**
- * Ending exactly one connection (REQ-IDN-021, REQ-IDN-027). Either side's Owner or Admin can end its own link. Other
- * connections stay. The reason is optional and goes to the connection history only.
- */
 export function EndDialog({
 	side,
 	relationship,
@@ -41,13 +35,8 @@ export function EndDialog({
 }: {
 	side: Side;
 	relationship: Relationship;
-	/** The name of the other side of this connection. */
 	otherName: string;
 	end: EndConnection;
-	/**
-	 * After a committed end, with the history as it is now; after closing with an unconfirmed one, with null, and the
-	 * list then loads again.
-	 */
 	onEnded: (history: HistoryPage | null) => void;
 	trigger: ReactNode;
 }) {

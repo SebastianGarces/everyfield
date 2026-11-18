@@ -1,3 +1,4 @@
+import { LENSES } from "@everyfield/contracts/intelligence";
 import * as C from "@everyfield/contracts/oversight";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
@@ -5,31 +6,24 @@ import "server-only";
 import { z } from "zod";
 import { liveRows, type RequestActor } from "../access/session.ts";
 import { linkActive, type Reader } from "../organizations/core.ts";
-import { areaOf, countryKey, latestGeography, stateCode, stateName } from "../organizations/geography.ts";
+import {
+	areaOf,
+	countryKey,
+	latestGeography,
+	stateCode,
+	stateName,
+	unplacedRegion,
+} from "../organizations/geography.ts";
 import { one, parse, refuse, seatOf, write } from "../organizations/seat.ts";
 import { overdueFollowUpsJson } from "../followups/queries.ts";
 import { factInputs, growthDays, peopleJson } from "../intelligence/facts.ts";
 import { preparationJson, requiredTrainingCount } from "./launch.ts";
+import { released, releasedHealth, releasedJson, releasedOf } from "./released.ts";
 
-// The Network Intelligence page (WP-047b, T-372: organizationIntelligence.read, .readHistory, .requestRefresh and
-// .submitFeedback) with the rubric's rule-based patterns NIR-03 to NIR-06 in their fixed wording. A run stores each
-// plant that shares Plant Intelligence findings at that moment, as counts only: its preparation counts, its overdue
-// and unowned follow-ups, its growth clock in days and its saved required-training obligations, each only while it
-// shares the categories that rule reads (D-1420), and its reporting state, country and Region. Every read keeps only
-// the rows of plants that share findings with this organization now, and each rule only while they still share its
-// categories, so turning sharing off removes a plant from every run, past ones included. Patterns are computed at read
-// time from those rows: two distinct qualifying plants per rule, theme and group, never a score or a ranking.
-
-/**
- * organizationIntelligence.requestRefresh: a new run of this organization's portfolio, by an Owner or Admin. The
- * browser names the run id, so a repeated press records one run. Its audit row names the run and how many plants
- * contributed, nothing else.
- */
 export async function requestIntelligenceRefresh(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.refreshRequest, raw);
 		const o = sql`${w.organization}::uuid`;
-		// The growth clock is the facts' own rule (NIR-05), so it is computed here from the same inputs and stored as days.
 		const people = await w.tx.execute(sql`SELECT DISTINCT ON (k.plant_id) k.plant_id,
 	(clock_timestamp() AT TIME ZONE pl.timezone)::date::text AS today, ${peopleJson(sql`k.plant_id`)} AS people
 	FROM affiliation k JOIN plant pl ON pl.id=k.plant_id
@@ -76,11 +70,6 @@ SELECT EXISTS(SELECT FROM r) AS added,
 	});
 }
 
-/**
- * organizationIntelligence.submitFeedback: this Owner's or Admin's own rating of one pattern in one run of their
- * organization. Nobody else reads it, and it changes no pattern, rule or run. The audit row names the run, never the
- * rating.
- */
 export async function submitIntelligenceFeedback(db: Database, authority: RequestActor, raw: unknown) {
 	return write(db, authority, true, async (w) => {
 		const input = parse(C.feedbackRequest, raw);
@@ -121,25 +110,28 @@ const contribution = z.object({
 	required_training: z.int().nullable(),
 	teams: z.boolean(),
 	people: z.boolean(),
-	followups: z.boolean(),
+	meetings: z.boolean(),
+	tasks: z.boolean(),
 	region_key: z.string().nullable(),
+	saved: z.boolean(),
+	city: z.string().nullable(),
 	state_province: z.string().nullable(),
 	country: z.string().nullable(),
+	release_key: z.string().nullable(),
+	release_credit: z.string().nullable(),
+	released,
 });
 const unshared = z.object({
 	plant_id: z.string(),
 	name: z.string(),
 	region_key: z.string().nullable(),
+	saved: z.boolean(),
+	city: z.string().nullable(),
 	state_province: z.string().nullable(),
 	country: z.string().nullable(),
 });
 const iso = (v: string) => sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
-/**
- * organizationIntelligence.read and .readHistory: one run of this organization (the latest without `runId`) grouped
- * at `level`, with every run's date. Null for an actor without a live seat of an organization, or a run id that is not
- * this organization's. One statement with the live seat check (C13).
- */
 export async function readIntelligence(
 	db: Reader,
 	authority: RequestActor,
@@ -153,10 +145,12 @@ export async function readIntelligence(
 		db,
 		seat.live,
 		sql`WITH runs AS (SELECT id, ran_at FROM network_intelligence_run WHERE organization_id=${o}),
-	shown AS (SELECT id FROM runs WHERE ${request.runId === null ? sql`true` : sql`id=${request.runId}::uuid`}
+	shown AS (SELECT id, ran_at FROM runs WHERE ${request.runId === null ? sql`true` : sql`id=${request.runId}::uuid`}
 		ORDER BY ran_at DESC, id DESC LIMIT 1),
+	released_at AS (SELECT CASE WHEN s.id=(SELECT id FROM runs ORDER BY ran_at DESC, id DESC LIMIT 1) THEN clock_timestamp()
+		ELSE s.ran_at END AS at FROM shown s),
 	links AS (SELECT DISTINCT ON (k.plant_id) k.plant_id, k.shared_findings, k.share_ministry_teams, k.share_people,
-		k.share_meetings AND k.share_tasks AS share_followups FROM affiliation k
+		k.share_meetings, k.share_tasks FROM affiliation k
 		WHERE k.organization_id=${o} AND k.plant_id IS NOT NULL AND ${linkActive("k")} ORDER BY k.plant_id)
 	SELECT (SELECT name FROM organization WHERE id=${o}) AS organization_name,
 	(SELECT timezone FROM organization WHERE id=${o}) AS timezone,
@@ -169,11 +163,18 @@ export async function readIntelligence(
 		'days_to_launch', c.days_to_launch, 'unfilled_roles', c.unfilled_roles, 'outstanding_training', c.outstanding_training,
 		'overdue_followups', c.overdue_followups, 'unowned_followups', c.unowned_followups, 'growth_days', c.growth_days,
 		'required_training', c.required_training, 'teams', l.share_ministry_teams, 'people', l.share_people,
-		'followups', l.share_followups, 'region_key', ri.canonical_key, 'state_province', c.state_province,
-		'country', c.country)), '[]')
+		'meetings', l.share_meetings, 'tasks', l.share_tasks, 'region_key', ri.canonical_key, 'saved', g.id IS NOT NULL,
+		'city', g.city, 'state_province', c.state_province, 'country', c.country, 'release_key', gr.release_key,
+		'release_credit', gv.source_credit, 'released', ${releasedJson(sql`c.plant_id`, sql`(SELECT at FROM released_at)`)})),
+		'[]')
 		FROM network_intelligence_plant c JOIN shown s ON s.id=c.run_id JOIN links l ON l.plant_id=c.plant_id AND l.shared_findings
-		JOIN plant p ON p.id=c.plant_id LEFT JOIN reference_item ri ON ri.id=c.region_item_id) AS rows,
+		JOIN plant p ON p.id=c.plant_id LEFT JOIN reference_item ri ON ri.id=c.region_item_id
+		LEFT JOIN LATERAL (SELECT x.* FROM plant_geography x WHERE x.plant_id=c.plant_id AND x.effective_at<=s.ran_at
+			ORDER BY x.effective_at DESC, x.id DESC LIMIT 1) g ON true
+		LEFT JOIN reference_version gv ON gv.id=g.reference_version_id
+		LEFT JOIN reference_release gr ON gr.id=gv.release_id) AS rows,
 	(SELECT coalesce(json_agg(json_build_object('plant_id', p.id, 'name', p.name, 'region_key', ri.canonical_key,
+		'saved', g.id IS NOT NULL, 'city', CASE WHEN g.plant_id IS NULL THEN p.city ELSE g.city END,
 		'state_province', CASE WHEN g.plant_id IS NULL THEN p.state_province ELSE g.state_province END,
 		'country', CASE WHEN g.plant_id IS NULL THEN p.country ELSE g.country END)), '[]')
 		FROM links l JOIN plant p ON p.id=l.plant_id LEFT JOIN LATERAL ${latestGeography(sql`p.id`)} g ON true
@@ -198,6 +199,9 @@ export async function readIntelligence(
 	if (request.runId !== null && r.shown === null) return null;
 	const history = r.history.map((h) => ({ runId: h.id, ranAt: h.ran_at }));
 	const run = history.find((h) => h.runId === r.shown) ?? null;
+	const releases = new Map(
+		r.rows.flatMap((c) => (c.release_key && c.release_credit ? [[c.release_key, c.release_credit] as const] : [])),
+	);
 	return C.intelligenceView.parse({
 		organizationName: r.organization_name,
 		timeZone: r.timezone,
@@ -205,33 +209,51 @@ export async function readIntelligence(
 		run,
 		history,
 		groups: run ? groupsOf(request.level, r.shown_on!, r.rows, r.unshared, r.ratings) : [],
+		geographyReleases: [...releases].sort().map(([key, credit]) => ({ key, credit })),
 		canRefresh: seat.administrator,
 	});
 }
 
-type Placed = { plantId: string; name: string; regionKey: string | null; state: string | null; country: string | null };
-/** A plant's group key and label at `level`, or null when it has no location at that level. */
-function placeOf(level: C.Level, p: Placed): { key: string; label: string } | null {
+type Placed = {
+	plantId: string;
+	name: string;
+	regionKey: string | null;
+	saved: boolean;
+	city: string | null;
+	state: string | null;
+	country: string | null;
+};
+function placeOf(level: C.Level, p: Placed): { key: string; label: string; placement: C.Placement } {
 	const country = countryKey(p.country);
-	if (level === "portfolio") return { key: "portfolio", label: "Whole portfolio" };
+	const placed = (key: string, label: string) => ({ key, label, placement: "placed" as const });
+	const none = (placement: Exclude<C.Placement, "placed">) => ({
+		key: placement,
+		label: placement === "missing" ? MISSING[level] : REGION_STATUS[placement],
+		placement,
+	});
+	if (level === "portfolio") return placed("portfolio", "Whole portfolio");
 	if (level === "country")
-		return country ? { key: country, label: country === "US" ? "United States" : country } : null;
+		return country ? placed(country, country === "US" ? "United States" : country) : none("missing");
 	if (level === "state") {
-		if (!country || !p.state?.trim()) return null;
+		if (!country || !p.state?.trim()) return none("missing");
 		const code = country === "US" ? stateCode(p.state) : null;
-		if (country === "US" && !code) return null;
-		return code
-			? { key: `US:${code}`, label: stateName(code) }
-			: { key: `${country}:${p.state.trim()}`, label: p.state.trim() };
+		if (country === "US" && !code) return none("missing");
+		return code ? placed(`US:${code}`, stateName(code)) : placed(`${country}:${p.state.trim()}`, p.state.trim());
 	}
 	const area = areaOf(p.regionKey);
-	return area ? { key: area.code, label: C.regionLabel(area) } : null;
+	if (area) return placed(area.code, C.regionLabel(area));
+	return none(unplacedRegion(p.saved, { city: p.city, stateProvince: p.state, country: p.country }));
 }
-const UNPLACED: Record<C.Level, string> = {
+const MISSING: Record<C.Level, string> = {
 	region: "No Region set",
 	state: "No state set",
 	country: "No country set",
 	portfolio: "",
+};
+const REGION_STATUS: Record<Exclude<C.Placement, "placed" | "missing">, string> = {
+	unresolved: "Region unresolved",
+	outside_reference: "Outside the official Region list",
+	unsupported_country: "Region not supported outside the United States",
 };
 
 function groupsOf(
@@ -245,19 +267,31 @@ function groupsOf(
 	type Member = { place: Placed; row: Row; counts: C.RuleCounts | null };
 	const members: Member[] = [
 		...contributions.map((c) => {
-			// A plant that stopped sharing a rule's categories keeps no evidence for it: that rule reads as Unknown.
+			const assessment = releasedOf(
+				true,
+				{ people: c.people, meetings: c.meetings, tasks: c.tasks, ministry: c.teams },
+				c.released,
+			);
 			const counts: C.RuleCounts = {
-				overdueFollowUps: c.followups ? c.overdue_followups : null,
-				unownedFollowUps: c.followups ? c.unowned_followups : null,
+				overdueFollowUps: c.meetings && c.tasks ? c.overdue_followups : null,
+				unownedFollowUps: c.meetings && c.tasks ? c.unowned_followups : null,
 				growthDays: c.people ? c.growth_days : null,
 				requiredTraining: c.teams ? c.required_training : null,
 				outstandingTraining: c.teams ? c.outstanding_training : null,
+			};
+			const preparation = {
+				launched: c.launched,
+				daysToLaunch: c.days_to_launch,
+				unfilledRoles: c.teams ? c.unfilled_roles : null,
+				outstandingTraining: counts.outstandingTraining,
 			};
 			return {
 				place: {
 					plantId: c.plant_id,
 					name: c.name,
 					regionKey: c.region_key,
+					saved: c.saved,
+					city: c.city,
 					state: c.state_province,
 					country: c.country,
 				},
@@ -266,13 +300,10 @@ function groupsOf(
 					status: "shared" as const,
 					plantId: c.plant_id,
 					name: c.name,
+					health: C.healthOf(true, preparation, releasedHealth(assessment)),
+					assessment,
 					results: {
-						"NIR-03": C.nearLaunch({
-							launched: c.launched,
-							daysToLaunch: c.days_to_launch,
-							unfilledRoles: c.teams ? c.unfilled_roles : null,
-							outstandingTraining: counts.outstandingTraining,
-						}),
+						"NIR-03": C.nearLaunch(preparation),
 						"NIR-04": C.followUpResult(counts),
 						"NIR-05": C.growthResult(counts),
 						"NIR-06": C.trainingResult(counts),
@@ -285,6 +316,8 @@ function groupsOf(
 				plantId: u.plant_id,
 				name: u.name,
 				regionKey: u.region_key,
+				saved: u.saved,
+				city: u.city,
 				state: u.state_province,
 				country: u.country,
 			},
@@ -292,11 +325,10 @@ function groupsOf(
 			row: { status: "not_shared" as const, plantId: u.plant_id, name: u.name },
 		})),
 	];
-	const groups = new Map<string, { label: string; unplaced: boolean; members: Member[] }>();
+	const groups = new Map<string, { label: string; placement: C.Placement; members: Member[] }>();
 	for (const m of members) {
-		const place = placeOf(level, m.place);
-		const key = place?.key ?? "unplaced";
-		const group = groups.get(key) ?? { label: place?.label ?? UNPLACED[level], unplaced: !place, members: [] };
+		const { key, label, placement } = placeOf(level, m.place);
+		const group = groups.get(key) ?? { label, placement, members: [] };
 		group.members.push(m);
 		groups.set(key, group);
 	}
@@ -308,14 +340,15 @@ function groupsOf(
 				key,
 				label: g.label,
 				rows: members.map((m) => m.row),
-				unplaced: g.unplaced,
-				patterns: g.unplaced ? [] : patternsOf(`${level}:${key}`, asOf, members, ratings),
+				placement: g.placement,
+				patterns: g.placement === "placed" ? patternsOf(`${level}:${key}`, asOf, members, ratings) : [],
 			};
 		})
-		.sort((a, b) => Number(a.unplaced) - Number(b.unplaced) || a.label.localeCompare(b.label));
+		.sort(
+			(a, b) => Number(a.placement !== "placed") - Number(b.placement !== "placed") || a.label.localeCompare(b.label),
+		);
 }
 
-/** Each rule theme of one group where at least two distinct sharing plants qualify, in rule order. */
 function patternsOf(
 	place: string,
 	asOf: string,
@@ -324,12 +357,39 @@ function patternsOf(
 ): z.input<typeof C.intelligencePattern>[] {
 	const shared = members.flatMap((m) =>
 		m.row.status === "shared" && m.counts
-			? [{ plantId: m.row.plantId, name: m.row.name, counts: m.counts, results: m.row.results }]
+			? [
+					{
+						plantId: m.row.plantId,
+						name: m.row.name,
+						counts: m.counts,
+						results: m.row.results,
+						assessment: m.row.assessment,
+					},
+				]
 			: [],
 	);
 	const sum = (plants: typeof shared, of: (c: C.RuleCounts) => number | null) =>
 		plants.reduce((n, p) => n + (of(p.counts) ?? 0), 0);
 	const out: z.input<typeof C.intelligencePattern>[] = [];
+	const assessed = shared.filter((p) => p.assessment.status === "released");
+	for (const { key: lens } of LENSES) {
+		const plants = assessed.filter(
+			(p) => p.assessment.status === "released" && p.assessment.concerns.some((x) => x.lens === lens),
+		);
+		if (plants.length < 2) continue;
+		const key = `NIR-01:${lens}:${place}`;
+		out.push({
+			key,
+			rule: "NIR-01",
+			theme: "shared_concern",
+			lens,
+			support: plants.length,
+			observed: assessed.length,
+			plants: plants.map(({ plantId, name }) => ({ plantId, name })),
+			rating: ratings[key] ?? null,
+			citation: C.citationOf("NIR-01"),
+		});
+	}
 	const add = <R extends C.RuleId>(
 		rule: R,
 		theme: string,
@@ -339,7 +399,6 @@ function patternsOf(
 		const observed = shared.filter((p) => p.results[rule] !== "unknown");
 		const plants = observed.filter((p) => qualifies(p.results[rule]));
 		if (plants.length < 2) return;
-		// NIR-03's key predates the themes, so ratings of earlier runs still find their pattern.
 		const key = rule === "NIR-03" ? `${rule}:${place}` : `${rule}:${theme}:${place}`;
 		out.push({
 			key,
@@ -349,6 +408,7 @@ function patternsOf(
 			observed: observed.length,
 			plants: plants.map(({ plantId, name }) => ({ plantId, name })),
 			rating: ratings[key] ?? null,
+			citation: C.citationOf(rule),
 			...claims(plants),
 		} as z.input<typeof C.intelligencePattern>);
 	};

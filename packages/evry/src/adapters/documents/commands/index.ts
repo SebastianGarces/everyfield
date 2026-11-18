@@ -9,14 +9,6 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 
-// The Documents reviewed writes (WP-080). Each review reads the document live in the actor's church and saves the
-// native command's exact arguments, including the revision the review showed. On approval the executor runs the same
-// native Documents command the app runs, for the approving session, inside its transaction, with the effect key as the
-// request key, so the change and its audit row commit with the saved outcome; anything that changed since the review
-// refuses. Each tool works on the store the app uses for that action: a new document from a template and its export
-// are Church Documents; marking core values is a written document; archive is either, as each list archives it.
-// Only an Owner or Admin may change a document, as in the app.
-
 const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 
@@ -26,31 +18,17 @@ const change = (field: string, before: SQL | null, after: SQL) =>
 const text = (value: string | number) => sql`to_jsonb(${String(value)}::text)`;
 const documentId = z.uuid().describe("A document id from documents.listOwned");
 
-/**
- * The approving session's authority inside the executor's transaction. The executor has already locked and checked it
- * (claimWrite); this takes the same locks again and returns the actor the native Documents commands take.
- */
 async function authorityIn(tx: Transaction, context: PeopleContext) {
 	const claimed = await RequestActor.claimWrite(tx, context.session, context.selected);
 	return claimed?.authority ?? null;
 }
-/**
- * The native Documents commands take the request's database; inside the effect they run on the executor's
- * transaction, so their statements commit or roll back with the saved outcome.
- */
 const asDatabase = (tx: Transaction) => tx as unknown as Database;
-/**
- * The native Documents commands, loaded when an approved effect runs. Their module brings the document renderer, which
- * a review or a read never needs.
- */
 const writer = async () => (await import("@everyfield/domain/documents")).documentsWriter;
 const done = <T>(reply: DocumentsReply<T>, receipt: (value: T) => { id: string; revision: string }): EffectResult => {
 	if (reply.status !== "ok") return { refused: reply.error.code };
 	const r = receipt(reply.value);
 	return { receiptId: r.id, revision: r.revision };
 };
-
-// --- documents.createFromTemplate ---------------------------------------------------------------------------------
 
 const TEMPLATE_IDS = docTemplateSummaries().map((t) => t.id) as [string, ...string[]];
 const createInput = z.strictObject({
@@ -61,7 +39,6 @@ const fillArgs = z.object({
 	input: z.object({ templateId: z.string() }),
 	fill: z.array(z.object({ key: z.string(), value: z.string().nullable() })),
 });
-/** Where a filled-in value comes from, in the words the review card shows. */
 const SOURCE: Record<string, string> = {
 	"church.name": "church name",
 	"church.pastor": "senior pastor",
@@ -99,8 +76,6 @@ export const createFromTemplate: ReviewedWrite<z.infer<typeof createInput>> = {
 		return sql`SELECT jsonb_build_object('target',jsonb_build_object('kind','template','id',${t.templateId}::text,'label',${t.title}::text),
 				'changes',${JSON.stringify(changes)}::jsonb) AS review, ${JSON.stringify(args)}::jsonb AS args`;
 	},
-	// The church's details the review showed are the ones the document freezes: a church name or brand kit that changed
-	// since asks for a new review instead of filling in values nobody saw.
 	async recheck(tx, context, args) {
 		const saved = fillArgs.parse(args);
 		const authority = await authorityIn(tx, context);
@@ -126,8 +101,6 @@ export const createFromTemplate: ReviewedWrite<z.infer<typeof createInput>> = {
 	},
 };
 
-// --- documents.exportNative -----------------------------------------------------------------------------------------
-
 const FORMAT_LABEL = { pdf: "PDF", docx: "Word" } as const;
 const exportInput = z.strictObject({
 	documentId,
@@ -143,7 +116,6 @@ export const exportNative: ReviewedWrite<z.infer<typeof exportInput>> = {
 	input: exportInput,
 	allowed: ownerOrAdmin,
 	review(actor, value) {
-		// Only a live Church Document of this church whose template offers the format, at its current version.
 		return sql`SELECT jsonb_build_object('target',${target},'changes',jsonb_build_array(
 				${change("format", null, text(FORMAT_LABEL[value.format]))},${change("version", null, sql`to_jsonb('Version '||r.version_number)`)})) AS review,
 			jsonb_build_object('input',jsonb_build_object('documentId',d.id,'revision',r.version_number,'format',${value.format}::text)) AS args
@@ -155,16 +127,12 @@ export const exportNative: ReviewedWrite<z.infer<typeof exportInput>> = {
 		const saved = exportArgs.parse(args);
 		const authority = await authorityIn(tx, context);
 		if (!authority) return { refused: "access_denied" };
-		// The file goes to the private bucket inside the effect; a rollback leaves an unreferenced object that the
-		// scheduled cleanup (documents.reconcileOrphans) removes.
 		const reply = await (
 			await writer()
 		).exportNative(asDatabase(tx), authority, { ...saved.input, requestKey: effectKey }, privateStorage());
 		return done(reply, (file) => ({ id: file.id, revision: file.revision }));
 	},
 };
-
-// --- documents.archive ------------------------------------------------------------------------------------------------
 
 const archiveArgs = z.object({
 	store: z.enum(["written", "church"]),
@@ -198,8 +166,6 @@ export const archive: ReviewedWrite<{ documentId: string }> = {
 	},
 };
 
-// --- documents.designateCoreValues -------------------------------------------------------------------------------------
-
 const designateRow = z.object({
 	id: z.uuid(),
 	kind: z.enum(["native", "core_values"]),
@@ -214,7 +180,6 @@ export const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
 	input: z.strictObject({ documentId }),
 	allowed: ownerOrAdmin,
 	async review(actor, value, context) {
-		// The app marks only a live plain written document with text; the review says why any other cannot be marked.
 		const found = await context.db.execute(sql`SELECT d.id, d.kind, d.revision::text AS revision, r.body
 			FROM document d JOIN document_revision r ON r.id=d.current_revision_id AND r.tenant_id=d.tenant_id
 			WHERE d.id=${value.documentId}::uuid AND d.tenant_id=${actor.owner.id}::uuid AND d.archived_at IS NULL
@@ -244,7 +209,6 @@ export const designateCoreValues: ReviewedWrite<{ documentId: string }> = {
 	},
 };
 
-/** The installed Documents reviewed writes, keyed by operation. */
 export const DOCUMENTS_COMMANDS = {
 	"documents.createFromTemplate": createFromTemplate,
 	"documents.exportNative": exportNative,

@@ -1,17 +1,13 @@
-import { drainPeopleImports } from "@/server/people/imports";
+import { drainPeopleImports } from "./drain";
 import { buttonVariants, Card, IntentLink, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { gate } from "../routes.tsx";
-import { canWrite } from "../../shared/seat-role.ts";
+import { canWrite } from "../../../components/seat-role.ts";
 import { ImportScreen, type Initial } from "./ImportScreen.tsx";
 import { readReceipt } from "./server.ts";
 
 export const importMetadata: Metadata = { title: "Import people", robots: { index: false, follow: false } };
 
-/**
- * /people/import. With ?import=<request key> it opens that import's receipt, so a reload or a lost reply never starts a
- * second import. Owners and Admins import; a Member sees why the page is closed to them.
- */
 export async function ImportPage({
 	searchParams,
 }: {

@@ -1,11 +1,6 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 
-// The scripted model's email conversations (T-322), for local previews and tests only: the asks a planter makes about
-// email, answered through the same Communication reads and reviewed writes a qualified model uses. It never sends: a
-// send, resend, retry, delete or template change is only ever proposed, and a chat "ok" is answered with where approval
-// happens. Every fact it says comes from a tool result in this turn.
-
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
 type Result = { operation?: string; status?: string; rows?: Row[]; proposalId?: string; error?: unknown };
@@ -20,11 +15,9 @@ const call = (toolName: string, input: unknown): LanguageModelV4Content => ({
 const read = (operation: string, input: unknown) => [call("communication_read", { operation, input })];
 const propose = (operation: string, input: unknown) => [call("propose_change", { operation, input })];
 
-/** Whether the turn's propose tool offers `domain`'s reviewed writes: a Member proposes only their own notification changes. */
 export const proposesOn = (options: LanguageModelV4CallOptions, domain: string) =>
 	JSON.stringify(options.tools?.find((t) => t.name === "propose_change") ?? {}).includes(`"${domain}.`);
 
-/** Every user message, oldest first. */
 function userTexts(prompt: Prompt) {
 	return prompt
 		.filter((m) => m.role === "user")
@@ -35,7 +28,6 @@ function userTexts(prompt: Prompt) {
 				.join(" "),
 		);
 }
-/** The tool results since the last user message, oldest first: what this turn has read so far. */
 function turnResults(prompt: Prompt): Result[] {
 	const last = prompt.findLastIndex((m) => m.role === "user");
 	return prompt
@@ -60,9 +52,7 @@ const LEFT_OUT: Record<string, string> = {
 	duplicate_address: "the same address as someone who gets it, so it goes once",
 	blocked: "the address is blocked after a bounce",
 };
-/** The ask names Thursday's vision night: of the matching meetings the read found, Thursday's, else the newest. */
 const thursdays = (meetings: Row[]) => meetings.find((m) => /^Thu\b/.test(String(m.fields.startsAt))) ?? meetings[0];
-/** The vision night invitation, from the meeting the audience read found. */
 function invitation(meeting: Row | undefined) {
 	const when = meeting ? String(meeting.fields.startsAt) : "Thursday";
 	const title = meeting?.label ?? "Vision Night";
@@ -74,7 +64,6 @@ function invitation(meeting: Row | undefined) {
 	};
 }
 
-/** The preview read of the draft before the meeting is known. */
 function previewDraft() {
 	const { subject, body } = invitation(undefined);
 	return read("communication.preview", {
@@ -85,7 +74,6 @@ function previewDraft() {
 	});
 }
 
-/** One step of an email conversation, or null when the ask is not one of these. */
 export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Content[] | null {
 	const tools = new Set(options.tools?.map((t) => t.name) ?? []);
 	const canRead = tools.has("communication_read");
@@ -97,11 +85,9 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 	const last = results.at(-1);
 	if (!canRead) return null;
 
-	// A Member may read Messages but never send or change it.
 	if (!canPropose && /\b(send|resend|delete|email (them|everyone|all))\b/i.test(ask))
 		return text("Sending or changing email needs an Owner or Admin of this church. Ask one of them to do it.");
 
-	// COM-01: an unsaved draft, with exactly who it reaches and who is left out. Nothing is saved or sent.
 	if (INVITE.test(ask)) {
 		if (!last) return previewDraft();
 		const draft = invitation(thursdays(rowsOf(last, "meeting")));
@@ -130,7 +116,6 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		);
 	}
 
-	// COM-02: the draft above goes to one exact review. A chat "ok" is never the approval.
 	if (/^\s*(ok|okay|yes|yep|sure)[.!]?\s*$/i.test(ask) && INVITE.test(earlier))
 		return text("Nothing has been sent. Approval happens only on the review card: press Approve there to send it.");
 	if (/^\s*(ok |okay )?send it\b(?! again)/i.test(ask) && INVITE.test(earlier)) {
@@ -148,7 +133,6 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		});
 	}
 
-	// "did you send it?": the latest email and what the email service has reported, never more.
 	if (/\bdid you send it\b/i.test(ask)) {
 		if (!last) return read("communication.get", {});
 		const message = rowsOf(last, "message")[0];
@@ -172,7 +156,6 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		);
 	}
 
-	// COM-03: one person's last email, asking which person first when the name matches more than one.
 	const openAsk = /\bdid (\w+) open my last email\b/i;
 	const opened =
 		openAsk.exec(ask) ?? (openAsk.test(earlier) ? /^\s*([A-Z][\w'-]+(?: [A-Z][\w'-]+)?)\s*\.?\s*$/.exec(ask) : null);
@@ -202,7 +185,6 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		);
 	}
 
-	// GST-04 (email half): emails sent to a household, apart from any call recorded. An email is never a call.
 	const household = /\bdid anyone call the (\w+?)s? yet\b/i.exec(ask);
 	if (household) {
 		if (!last) return [call("people_read", { operation: "people.listPeople", input: { search: household[1] } })];
@@ -228,7 +210,6 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		);
 	}
 
-	// COM-06: the people no email has gone out to, and how that was checked.
 	if (/\bwho hasn['’]?t heard from us\b/i.test(ask)) {
 		if (!last) return read("communication.forPerson", {});
 		const names = rowsOf(last, "person").map((p) => p.label);
@@ -239,7 +220,6 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		);
 	}
 
-	// COM-07: the templates by name, system or church; a system template is copied before it is edited.
 	if (/\bwhat email templates do we have\b/i.test(ask)) {
 		if (!last) return read("communication.templates.list", {});
 		const rows = rowsOf(last, "template");
@@ -285,7 +265,6 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 			: null;
 	}
 
-	// COM-009: a resend to delivered non-openers, only 24 hours after the send.
 	const resendAsk = /\bresend (?:it|the (.+?) email) to the people who didn['’]?t open it\b/i.exec(ask);
 	if (resendAsk) {
 		if (!last) return read("communication.get", resendAsk[1] ? { subject: resendAsk[1] } : {});
@@ -308,7 +287,6 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		return canPropose ? propose("communication.executeResend", { communicationId: message.id }) : null;
 	}
 
-	// "send it again": never while a result is still being checked; a certain failure gets its own review.
 	const againAsk = /\bsend (?:it|the (.+?)) again\b/i.exec(ask);
 	if (againAsk) {
 		if (!last) return read("communication.get", againAsk[1] ? { subject: againAsk[1] } : {});
@@ -326,7 +304,6 @@ export function mailStep(options: LanguageModelV4CallOptions): LanguageModelV4Co
 		return canPropose ? propose("communication.retryProvenFailed", { communicationId: message.id }) : null;
 	}
 
-	// Deleting a saved draft goes through its own review.
 	const remove = /\bdelete the (.+?) draft\b/i.exec(ask);
 	if (remove) {
 		if (!last) return read("communication.list", { state: "draft", subject: remove[1] });

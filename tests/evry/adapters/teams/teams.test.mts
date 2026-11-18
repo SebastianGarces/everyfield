@@ -1,5 +1,3 @@
-// The Ministries adapters end to end (T-320): a read answers from the team roster under the actor's own authority, and
-// a reviewed write changes nothing until its exact review is approved, then runs the native teams command once.
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -39,7 +37,6 @@ const one = async (query: ReturnType<typeof sql>) => (await rows(query))[0]!;
 const adapter = (operation: string) =>
 	READ_DOMAINS.teams.find((a) => a.operation === operation)! as unknown as ReadAdapter<unknown>;
 
-/** A native teams write as the church's Owner, as the Ministries screens make it. */
 async function write<T>(op: (tx: never, c: never, input: unknown) => Promise<unknown>, input: unknown): Promise<T> {
 	const owner = await actor("owner");
 	const reply = (await withTeamsWrite(db, owner.authority, (tx, c) => op(tx as never, c as never, input) as never)) as {
@@ -67,7 +64,6 @@ const assign = async (teamId: string, roleId: string, personId: string) =>
 		input: { roleId, teamId, personId },
 	});
 
-/** A running turn in a new conversation: the only place a proposal can be prepared. */
 async function propose(who: EvryActor, operation: string, input: unknown) {
 	const c = await createConversation(db, who, { requestKey: key() });
 	await submitTurn(db, who, c.id, { requestKey: key(), text: "hold this turn" });
@@ -83,7 +79,6 @@ async function propose(who: EvryActor, operation: string, input: unknown) {
 	await transaction(db, (tx) => finishClaim(tx, claim, { state: "succeeded" }));
 	return proposal;
 }
-/** The trusted approval of the exact revision shown, then the effect run once through the WP-031 queue. */
 async function approveAndRun(who: EvryActor, proposal: Proposal) {
 	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
@@ -187,7 +182,6 @@ test("AC:INH-TRAINING-05 AC:SME53-009 a reported completion adds one history ent
 	assert.equal((await approveAndRun(owner, proposal)).outcome, "completed");
 	assert.deepEqual(await credits(), [{ person_id: people.alexRivera, kind: "earned", on: "2026-10-13" }]);
 	assert.deepEqual(await applicability(), required, "the required list is unchanged");
-	// A completion is one named person's: the reviewed write takes exactly one person, never a group.
 	await assert.rejects(
 		propose(owner, "teams.attestCompletion", { personIds: [people.alexRivera, people.casey], programId: program }),
 	);
@@ -197,7 +191,6 @@ test("AC:SME53-009 INV-stale-review: approving after the role or the person chan
 	const owner = await actor("owner");
 	const usher = await role(hospitality, "Usher");
 	const proposal = (await propose(owner, "teams.assignRole", { roleId: usher, personId: people.alexChen }))!;
-	// The role is renamed after the review was prepared.
 	await write(teamsWriter.editRole as never, {
 		requestKey: key(),
 		expectedRevision: await revision("team_role", usher),
@@ -208,7 +201,6 @@ test("AC:SME53-009 INV-stale-review: approving after the role or the person chan
 	assert.deepEqual([review.outcome, review.receipt?.code], ["refused", "revision_conflict"]);
 	assert.deepEqual(await tenures(people.alexChen!), [], "nothing was assigned");
 
-	// The person is removed from the church after the review was prepared.
 	const parker = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		VALUES(${parker},${plant},${plant},'Parker Lane','other',clock_timestamp(),'attendee','unknown','unknown',500,'live')`);
@@ -232,7 +224,6 @@ test("INV-authority: a Member reads the roster their Ministries screen shows and
 		"the same current people as the native read",
 	);
 	assert.deepEqual(roster, ["Alex Rivera"]);
-	// A Member who leads no ministry prepares no ministry change; the Owner's own review of the same ask is prepared.
 	assert.equal(
 		await propose(member, "teams.assignRole", { roleId: coffee, personId: people.alexChen }).catch(() => null),
 		null,

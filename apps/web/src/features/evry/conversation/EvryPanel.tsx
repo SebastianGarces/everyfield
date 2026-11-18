@@ -14,28 +14,32 @@ import {
 } from "@hugeicons/core-free-icons";
 import { Button, IconButton, SearchInput, Sheet, Skeleton, StatePanel, Tooltip } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
-import { cn, EvryBot, Icon, type EvryMood } from "@everyfield/ui/foundations";
+import { cn, createDebouncer, EvryBot, Icon, useFocusRequest, type EvryMood } from "@everyfield/ui/foundations";
 import { usePathname } from "next/navigation";
 import {
-	useEffect,
+	useCallback,
 	useId,
+	useMemo,
 	useRef,
 	useState,
+	useSyncExternalStore,
+	useTransition,
 	type FormEvent,
 	type KeyboardEvent,
 	type ReactNode,
 	type Ref,
 } from "react";
+import { createRead, useRead } from "@/components/read";
+import { storeContext, useLocalStore, useStore } from "@/components/store";
 import * as api from "./api.ts";
 import {
-	answerText,
 	endNotice,
 	MAX_MESSAGE,
 	pageReferences,
 	resendable,
 	retryable,
 	sendNotice,
-	type Attachment,
+	turnsOf,
 	type Conversation,
 	type Reference,
 	type Send,
@@ -45,24 +49,20 @@ import {
 import { ReviewCard } from "../review/ReviewCard.tsx";
 import { renderMarkdown } from "./view.ts";
 import { ResultCard } from "./ResultCard.tsx";
-import { ATTACH, fileSize, useAttachments, type Picked } from "./attachments.ts";
-import { useConversation } from "./useConversation.ts";
 import { useRowPhotos } from "./useRowPhotos.ts";
-import { AttachButton, AttachedPhoto, useAttachedPhoto } from "./PhotoAttach.tsx";
+import { AttachButton, AttachedPhoto, checkPhoto, stageAttached } from "./PhotoAttach.tsx";
+import { ATTACH, fileSize, putFile, type Picked } from "./attachments.ts";
+import { createEvryPanelStore, type EvryPanelState, type EvryPort, type Stream } from "./EvryPanel.store.ts";
 
-// The Evry panel (WP-051/ui; design/everyfield-ui.html, Evry panel): one private conversation beside any product page,
-// opened from Ask Evry or with Cmd+J (Ctrl+J). It is non-modal, so the page stays usable and the conversation stays the
-// same while the person moves between pages. Esc closes it and focus returns to what opened it.
+const PORT: EvryPort = { ...api, checkPhoto, stagePhoto: stageAttached, putFile };
+const Panel = storeContext<EvryPanelState>("EvryPanel");
+const useActions = () => Panel.useSelect((s) => s.actions);
 
-/**
- * The panel and its opener. Cmd+J or Ctrl+J opens and closes it from anywhere in the product frame. `off` closes it and
- * ignores the shortcut (the private check-in page).
- */
-/**
- * `context` names the church, organization or account the frame works in. When it changes under an open conversation
- * (starting a church or turning a Discovery space into one moves the account into the new church), that conversation
- * stays on screen, and the next message starts a new chat there: the old one belongs to the context the account left.
- */
+const conversations = createRead((search: string, page: number) => api.listConversations(search, page), {
+	failed: () => ({ status: "lost" }) as const,
+	fresh: 1_000,
+});
+
 export function useEvryPanel({
 	inPlant,
 	canAttach = false,
@@ -70,89 +70,102 @@ export function useEvryPanel({
 	context,
 }: {
 	inPlant: boolean;
-	/** The viewer may attach a People spreadsheet here: an Owner or Admin of the church. */
 	canAttach?: boolean;
 	off?: boolean;
 	context: string;
 }) {
-	const [open, setOpen] = useState(false);
-	const c = useConversation(open);
-	const [startedIn, setStartedIn] = useState(context);
-	// The latest conversation loads the first time the panel opens; later opens keep what the panel already has.
-	const show = (next: boolean) => {
-		setOpen(next);
-		if (next) c.ensureLoaded();
-	};
-	const toggle = useRef(() => show(!open));
-	useEffect(() => {
-		toggle.current = () => (off ? setOpen(false) : show(!open));
-	});
-	useEffect(() => {
-		const onKey = (e: globalThis.KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "j") {
-				e.preventDefault();
-				toggle.current();
-			}
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, []);
+	const store = useLocalStore(() => createEvryPanelStore({ context, port: PORT }));
 	return {
-		open: () => show(true),
+		open: useStore(store, (s) => s.open),
+		toggle: () => store.getState().actions.toggle(),
 		element: off ? null : (
-			<EvryPanel
-				c={c}
-				open={open}
-				onOpenChange={show}
-				inPlant={inPlant}
-				canAttach={canAttach}
-				moved={startedIn !== context}
-				onMove={() => setStartedIn(context)}
-			/>
+			<Panel.Provider value={store}>
+				<EvryPanel inPlant={inPlant} canAttach={canAttach} context={context} />
+			</Panel.Provider>
 		),
 	};
 }
 
-function EvryPanel({
-	c,
-	open,
-	onOpenChange,
-	inPlant,
-	canAttach,
-	moved,
-	onMove,
-}: {
-	c: Model;
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
-	inPlant: boolean;
-	canAttach: boolean;
-	/** The frame now works in another context than this conversation's: the next message starts a new chat. */
-	moved: boolean;
-	onMove: () => void;
-}) {
-	const [view, setView] = useState<"chat" | "history">("chat");
-	const [draft, setDraft] = useState("");
+function followEnd() {
+	let stick = true;
+	let pinned = -1;
+	let box: HTMLElement | null = null;
+	const toEnd = () => {
+		if (!stick || !box) return;
+		box.scrollTop = box.scrollHeight;
+		pinned = box.scrollTop;
+	};
+	return {
+		stick: () => {
+			stick = true;
+			toEnd();
+		},
+		box: (node: HTMLDivElement | null) => {
+			if (!node) return;
+			box = node;
+			stick = true;
+			const onScroll = () => {
+				stick = node.scrollTop === pinned || node.scrollHeight - node.scrollTop - node.clientHeight < 80;
+			};
+			node.addEventListener("scroll", onScroll, { passive: true });
+			const resized = new ResizeObserver(toEnd);
+			resized.observe(node);
+			return () => {
+				node.removeEventListener("scroll", onScroll);
+				resized.disconnect();
+				if (box === node) box = null;
+			};
+		},
+		content: (node: HTMLDivElement | null) => {
+			if (!node) return;
+			const grown = new ResizeObserver(toEnd);
+			grown.observe(node);
+			return () => grown.disconnect();
+		},
+	};
+}
+
+function EvryPanel({ inPlant, canAttach, context }: { inPlant: boolean; canAttach: boolean; context: string }) {
+	const actions = useActions();
+	const open = Panel.useSelect((s) => s.open);
+	const view = Panel.useSelect((s) => s.view);
+	const chat = Panel.useSelect((s) => s.chat);
+	const load = Panel.useSelect((s) => s.load);
+	const pipeline = Panel.useSelect((s) => s.pipeline);
+	const [chatVisits, setChatVisits] = useState(0);
+	const [{ box, content, stick }] = useState(followEnd);
 	const composer = useRef<HTMLTextAreaElement>(null);
-	const last = c.turns.at(-1);
-	const streaming = c.state.activeTurnId !== null && last?.id === c.state.activeTurnId;
+	const requestFocus = useFocusRequest<HTMLTextAreaElement>(chatVisits);
+	const composerRef = useCallback(
+		(node: HTMLTextAreaElement | null) => {
+			composer.current = node;
+			requestFocus(node);
+		},
+		[requestFocus],
+	);
+	const turns = useMemo(() => turnsOf(chat.events, chat.live), [chat.events, chat.live]);
+	const last = turns.at(-1);
+	const streaming = chat.activeTurnId !== null && last?.id === chat.activeTurnId;
 	const mood: EvryMood = streaming ? (last.blocks.some((b) => b.kind === "text") ? "talking" : "thinking") : "idle";
+	const focusComposer = () => composer.current?.focus();
 
-	// Focus the composer once the panel has opened (the sheet first records what opened it, for focus return).
-	useEffect(() => {
-		if (!open || view !== "chat") return;
-		const t = setTimeout(() => composer.current?.focus(), 0);
-		return () => clearTimeout(t);
-	}, [open, view]);
-
-	const toChat = () => setView("chat");
+	const toChat = () => {
+		actions.setView("chat");
+		setChatVisits((n) => n + 1);
+	};
 
 	return (
 		<Sheet
 			open={open}
-			onOpenChange={onOpenChange}
+			onOpenChange={actions.show}
 			modal={false}
 			className="w-[560px] max-w-[calc(100vw-24px)]"
+			bodyRef={view === "chat" ? box : undefined}
+			onOpenAutoFocus={(e) => {
+				if (view !== "chat") return;
+				e.preventDefault();
+				focusComposer();
+			}}
 			title={
 				<span className="flex items-center gap-3">
 					<EvryBot size="md" mood={mood} />
@@ -168,66 +181,69 @@ function EvryPanel({
 						size="sm"
 						aria-pressed={view === "history"}
 						className="aria-pressed:bg-surface-2"
-						onClick={() => setView((v) => (v === "history" ? "chat" : "history"))}
+						onClick={() => {
+							if (view === "history") return toChat();
+							conversations.prefetch("", 1);
+							actions.setView("history");
+						}}
 					/>
 				</Tooltip>
 			}
 			footer={
 				view === "chat" ? (
 					<Composer
-						ref={composer}
-						draft={draft}
-						setDraft={setDraft}
-						busy={c.state.activeTurnId !== null}
-						stopping={c.state.stopping}
-						disabled={c.load !== "ready"}
-						conversationId={c.state.conversation?.id ?? null}
-						attach={canAttach ? c.ensureConversation : null}
-						onSend={(text, references, attachments) => {
-							if (moved) {
-								onMove();
-								if (c.state.conversation) c.newChat();
-							}
-							c.send(text, references, attachments);
-							composer.current?.focus();
+						ref={composerRef}
+						busy={chat.activeTurnId !== null}
+						stopping={chat.stopping}
+						disabled={load !== "ready"}
+						conversationId={chat.conversation?.id ?? null}
+						canAttach={canAttach}
+						onSend={(text, references) => {
+							stick();
+							actions.send(text, references, context);
+							focusComposer();
 						}}
 						onStop={() => {
-							void c.cancel();
-							composer.current?.focus();
+							actions.cancel();
+							focusComposer();
 						}}
-						suggestions={c.state.conversation || c.state.sends.length ? [] : suggestionsFor(inPlant, c.pipeline)}
+						suggestions={chat.conversation || chat.sends.length ? [] : suggestionsFor(inPlant, pipeline)}
 					/>
 				) : undefined
 			}
 		>
-			{view === "history" ? (
-				<History
-					current={c.state.conversation?.id ?? null}
-					onNew={() => {
-						c.newChat();
-						toChat();
-					}}
-					onSelect={(id) => {
-						toChat();
-						void c.select(id);
-					}}
-				/>
-			) : (
-				<Chat
-					c={c}
-					focusComposer={() => composer.current?.focus()}
-					onEdit={(s) => {
-						c.discard(s.key);
-						setDraft(s.text);
-						composer.current?.focus();
-					}}
-				/>
-			)}
+			<Following>
+				{(stream) =>
+					view === "history" ? (
+						<History
+							current={chat.conversation?.id ?? null}
+							onNew={() => {
+								actions.newChat();
+								toChat();
+							}}
+							onSelect={(id) => {
+								toChat();
+								actions.select(id);
+							}}
+						/>
+					) : (
+						<Chat
+							stream={stream}
+							turns={turns}
+							contentRef={content}
+							focusComposer={focusComposer}
+							onEdit={(s) => {
+								actions.edit(s);
+								focusComposer();
+							}}
+						/>
+					)
+				}
+			</Following>
 		</Sheet>
 	);
 }
 
-/** An organization seat whose Pipeline page lists people is offered a pipeline question (WP-101). */
 const suggestionsFor = (inPlant: boolean, pipeline: boolean) =>
 	inPlant
 		? ["List the people in this church", "What can you help with?"]
@@ -235,45 +251,41 @@ const suggestionsFor = (inPlant: boolean, pipeline: boolean) =>
 			? ["Who hasn't moved in six months?", "What can you help with?"]
 			: ["What can you help with?"];
 
-// ---------------------------------------------------------------------------------------------------------------
-// Chat
+function Following({ children }: { children: (stream: Stream) => ReactNode }) {
+	const actions = useActions();
+	const panel = Panel.useStoreApi();
+	const stream = useSyncExternalStore(
+		actions.followStream,
+		() => panel.getState().stream,
+		() => "idle" as const,
+	);
+	return children(stream);
+}
 
-type Model = ReturnType<typeof useConversation>;
-
-function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => void; focusComposer: () => void }) {
-	const end = useRef<HTMLDivElement>(null);
-	const { turns, state } = c;
+function Chat({
+	stream,
+	turns,
+	contentRef,
+	onEdit,
+	focusComposer,
+}: {
+	stream: Stream;
+	turns: Turn[];
+	contentRef: (node: HTMLDivElement | null) => (() => void) | undefined;
+	onEdit: (send: Send) => void;
+	focusComposer: () => void;
+}) {
+	const actions = useActions();
+	const state = Panel.useSelect((s) => s.chat);
+	const load = Panel.useSelect((s) => s.load);
+	const photos = useRowPhotos(turns);
+	const problem = Panel.useSelect((s) => s.problem);
+	const retrying = Panel.useSelect((s) => s.retrying);
+	const announcement = Panel.useSelect((s) => s.announcement);
 	const lastTurn = turns.at(-1);
-	const photos = useRowPhotos(state.conversation?.id ?? null, turns);
-
-	// Keep the newest message in view while Evry answers, unless the person scrolled up to read. A new message from the
-	// person always scrolls to the end.
-	const stick = useRef(true);
 	const hasMessages = turns.length > 0 || state.sends.length > 0;
-	useEffect(() => {
-		const box = end.current?.parentElement?.parentElement;
-		if (!box) return;
-		const onScroll = () => (stick.current = box.scrollHeight - box.scrollTop - box.clientHeight < 80);
-		box.addEventListener("scroll", onScroll, { passive: true });
-		// The composer can grow (page context, a long draft) and shrink the list; the end stays in view.
-		const resized = new ResizeObserver(() => stick.current && end.current?.scrollIntoView({ block: "end" }));
-		resized.observe(box);
-		return () => {
-			box.removeEventListener("scroll", onScroll);
-			resized.disconnect();
-		};
-	}, [c.load, hasMessages]);
-	const sent = state.sends.length;
-	useEffect(() => {
-		if (sent) stick.current = true;
-	}, [sent]);
-	// Anything that adds a line at the end: a saved event, a send changing state, a notice.
-	const tail = `${state.events.length}:${state.sends.map((s) => s.state).join()}:${c.stream}:${c.problem}`;
-	useEffect(() => {
-		if (stick.current) end.current?.scrollIntoView({ block: "end" });
-	}, [tail]);
 
-	if (c.load === "idle" || c.load === "loading")
+	if (load === "idle" || load === "loading")
 		return (
 			<div aria-busy="true" className="flex flex-col gap-4">
 				<span className="sr-only">Loading your conversation</span>
@@ -282,14 +294,14 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 				<Skeleton width="70%" />
 			</div>
 		);
-	if (c.load === "failed")
+	if (load === "failed")
 		return (
 			<StatePanel
 				tone="error"
 				title="Evry could not open your conversation"
 				headingLevel="h3"
 				actions={
-					<Button size="sm" onClick={() => void c.reload()}>
+					<Button size="sm" onClick={actions.reload}>
 						Try again
 					</Button>
 				}
@@ -306,16 +318,16 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 					Evry reads the records you can see and answers with the sources it used. It never changes anything without
 					your approval.
 				</p>
-				{c.problem ? (
+				{problem ? (
 					<p role="alert" className="text-sm text-magenta-600">
-						{c.problem}
+						{problem}
 					</p>
 				) : null}
 			</div>
 		);
 
 	return (
-		<div className="flex flex-col gap-4">
+		<div ref={contentRef} className="flex flex-col gap-4">
 			<ol className="flex flex-col gap-4" aria-label="Messages">
 				{turns.map((turn) => (
 					<TurnView
@@ -324,12 +336,11 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 						active={turn.id === state.activeTurnId}
 						stopping={state.stopping}
 						canRetry={turn === lastTurn && retryable(state, turns)}
-						retrying={c.retrying}
+						retrying={retrying}
 						reviews={state.reviews}
 						photos={photos}
-						onSeen={c.seen}
 						onRetry={() => {
-							void c.retry(turn.id);
+							actions.retry(turn.id);
 							focusComposer();
 						}}
 					/>
@@ -339,19 +350,19 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 						key={s.key}
 						send={s}
 						onResend={() => {
-							c.resend(s);
+							actions.resend(s);
 							focusComposer();
 						}}
 						onEdit={() => onEdit(s)}
 					/>
 				))}
 			</ol>
-			{c.stream === "reconnecting" ? (
+			{stream === "reconnecting" ? (
 				<p role="status" className="text-center text-sm text-text-3">
 					Reconnecting…
 				</p>
 			) : null}
-			{c.stream === "lost" && state.activeTurnId ? (
+			{stream === "lost" && state.activeTurnId ? (
 				<div role="alert" className="flex items-center gap-3 rounded-md bg-surface-2 px-4 py-3 text-sm text-text-2">
 					<Icon icon={WifiDisconnected01Icon} size={16} className="flex-none text-text-3" />
 					<span className="flex-1">The connection to Evry was lost. Evry keeps working on the answer.</span>
@@ -359,7 +370,7 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 						size="sm"
 						variant="outline"
 						onClick={() => {
-							c.reconnect();
+							actions.reconnect();
 							focusComposer();
 						}}
 					>
@@ -367,13 +378,14 @@ function Chat({ c, onEdit, focusComposer }: { c: Model; onEdit: (send: Send) => 
 					</Button>
 				</div>
 			) : null}
-			{c.problem ? (
+			{problem ? (
 				<p role="alert" className="text-sm text-magenta-600">
-					{c.problem}
+					{problem}
 				</p>
 			) : null}
-			<Announcer turns={turns} active={state.activeTurnId} />
-			<div ref={end} />
+			<div aria-live="polite" className="sr-only">
+				{announcement}
+			</div>
 		</div>
 	);
 }
@@ -399,7 +411,6 @@ function TurnView({
 	retrying,
 	reviews,
 	photos,
-	onSeen,
 	onRetry,
 }: {
 	turn: Turn;
@@ -409,7 +420,6 @@ function TurnView({
 	retrying: boolean;
 	reviews: State["reviews"];
 	photos: Readonly<Record<string, string>>;
-	onSeen: (proposalId: string) => void;
 	onRetry: () => void;
 }) {
 	const notice = endNotice(turn.end);
@@ -460,7 +470,6 @@ function TurnView({
 									proposalId={block.proposalId}
 									target={block.target}
 									seed={reviews[block.proposalId]}
-									onSeen={onSeen}
 								/>
 							),
 						)}
@@ -525,89 +534,58 @@ function SendView({ send, onResend, onEdit }: { send: Send; onResend: () => void
 	);
 }
 
-/**
- * Screen readers hear when Evry starts and the whole answer once it ends, not every streamed piece. The streamed text
- * itself is not a live region.
- */
-function Announcer({ turns, active }: { turns: Turn[]; active: string | null }) {
-	const [message, setMessage] = useState("");
-	const said = useRef<string | null>(null);
-	const last = turns.at(-1);
-	useEffect(() => {
-		if (active) {
-			if (said.current !== `start:${active}`) setMessage("Evry is answering.");
-			said.current = `start:${active}`;
-			return;
-		}
-		if (!last?.end || said.current === `end:${last.id}`) return;
-		// Only a turn that ended while the panel watched is announced, not the history it opened with.
-		if (said.current === `start:${last.id}`) {
-			const notice = endNotice(last.end);
-			setMessage(notice ? `${notice.title}. ${notice.text}` : `Evry answered: ${answerText(last)}`);
-		}
-		said.current = `end:${last.id}`;
-	}, [active, last]);
-	return (
-		<div aria-live="polite" className="sr-only">
-			{message}
-		</div>
-	);
-}
-
-// ---------------------------------------------------------------------------------------------------------------
-// Composer
-
 function Composer({
 	ref,
-	draft,
-	setDraft,
 	busy,
 	stopping,
 	disabled,
 	conversationId,
-	attach,
+	canAttach,
 	onSend,
 	onStop,
 	suggestions,
 }: {
 	ref: Ref<HTMLTextAreaElement>;
-	draft: string;
-	setDraft: (text: string) => void;
 	busy: boolean;
 	stopping: boolean;
 	disabled: boolean;
-	/** The open conversation: attached files belong to it. */
 	conversationId: string | null;
-	/** Gives the conversation to stage a file in; null when the viewer cannot attach files. */
-	attach: (() => Promise<{ id: string } | null>) | null;
-	onSend: (text: string, references: Reference[], attachments: Attachment[]) => void;
+	canAttach: boolean;
+	onSend: (text: string, references: Reference[]) => void;
 	onStop: () => void;
 	suggestions: string[];
 }) {
+	const actions = useActions();
+	const panel = Panel.useStoreApi();
+	const draft = Panel.useSelect((s) => s.draft);
+	const photo = Panel.useSelect((s) => s.photo);
+	const files = Panel.useSelect((s) => s.files);
+	const fileNotice = Panel.useSelect((s) => s.fileNotice);
+	const picker = useRef<HTMLInputElement>(null);
 	const pathname = usePathname();
 	const [usePage, setUsePage] = useState(true);
 	const page = pageReferences(pathname);
 	const hint = useId();
-	const picker = useRef<HTMLInputElement>(null);
-	const files = useAttachments(attach ?? (async () => null));
-	// A file shows with the conversation it was staged in, or while it waits for its conversation to be created.
-	const shown = files.items.filter((p) => p.conversationId === null || p.conversationId === conversationId);
 	const text = draft.trim();
 	const tooLong = draft.length > MAX_MESSAGE;
-	const attached = useAttachedPhoto();
-	const photo = attached.photo;
-	// A file or photo still uploading holds the message, so "check it" or "use this as my photo" never goes without it.
-	const canSend =
-		!disabled && !busy && text.length > 0 && !tooLong && !files.uploading && photo?.status !== "uploading";
+	const shown = files.filter((p) => p.conversationId === null || p.conversationId === conversationId);
+	const uploading = files.some((p) => p.state === "uploading");
+	const canSend = !disabled && !busy && text.length > 0 && !tooLong && !uploading && photo?.status !== "uploading";
 
-	const submit = (value = text) => {
-		if (disabled || busy || files.uploading || !value || value.length > MAX_MESSAGE || photo?.status === "uploading")
+	const submit = (chosen?: string) => {
+		const { draft: now, photo: attached, files: picked } = panel.getState();
+		const value = chosen ?? now.trim();
+		if (
+			disabled ||
+			busy ||
+			!value ||
+			value.length > MAX_MESSAGE ||
+			attached?.status === "uploading" ||
+			picked.some((p) => p.state === "uploading")
+		)
 			return;
-		const photos = photo?.status === "ready" ? [{ kind: "photo" as const, id: photo.id }] : [];
-		onSend(value, [...(usePage ? page : []), ...photos], files.ready(conversationId));
-		files.clear();
-		setDraft("");
-		attached.clear();
+		const photos = attached?.status === "ready" ? [{ kind: "photo" as const, id: attached.id }] : [];
+		onSend(value, [...(usePage ? page : []), ...photos]);
 	};
 	const onSubmit = (e: FormEvent) => {
 		e.preventDefault();
@@ -662,11 +640,11 @@ function Composer({
 				{shown.length ? (
 					<ul aria-label="Attached files" className="mb-2 flex flex-wrap gap-2">
 						{shown.map((p) => (
-							<FileChip key={p.key} file={p} onRemove={() => files.remove(p.key)} />
+							<FileChip key={p.key} file={p} onRemove={() => actions.removeFile(p.key)} />
 						))}
 					</ul>
 				) : null}
-				{photo ? <AttachedPhoto photo={photo} onRemove={attached.clear} /> : null}
+				{photo ? <AttachedPhoto photo={photo} onRemove={actions.clearPhoto} /> : null}
 				<label className="sr-only" htmlFor={`${hint}-input`}>
 					Message Evry
 				</label>
@@ -674,7 +652,7 @@ function Composer({
 					ref={ref}
 					id={`${hint}-input`}
 					value={draft}
-					onChange={(e) => setDraft(e.target.value)}
+					onChange={(e) => actions.write(e.target.value)}
 					onKeyDown={onKeyDown}
 					rows={2}
 					placeholder="Ask Evry…"
@@ -685,23 +663,23 @@ function Composer({
 				<div className="mt-1 flex items-center justify-between gap-3">
 					<p
 						id={hint}
-						role={files.notice ? "alert" : undefined}
-						className={cn("text-xs", tooLong || files.notice ? "text-magenta-600" : "text-text-3")}
+						role={fileNotice ? "alert" : undefined}
+						className={cn("text-xs", tooLong || fileNotice ? "text-magenta-600" : "text-text-3")}
 					>
 						{tooLong
 							? `Shorten this message to ${MAX_MESSAGE.toLocaleString()} characters (now ${draft.length.toLocaleString()}).`
-							: files.notice
-								? files.notice
+							: fileNotice
+								? fileNotice
 								: busy
 									? "Evry is answering. You can stop it."
-									: files.uploading
+									: uploading
 										? "Attaching the file…"
 										: shown.length
 											? "Say what Evry should do with the file."
 											: "Enter sends. Shift+Enter adds a line."}
 					</p>
 					<div className="flex flex-none items-center gap-1">
-						{attach ? (
+						{canAttach ? (
 							<>
 								<input
 									ref={picker}
@@ -710,7 +688,7 @@ function Composer({
 									multiple
 									hidden
 									onChange={(e) => {
-										files.add([...(e.target.files ?? [])]);
+										actions.addFiles([...(e.target.files ?? [])]);
 										e.target.value = "";
 									}}
 								/>
@@ -731,7 +709,7 @@ function Composer({
 							</Button>
 						) : (
 							<>
-								<AttachButton disabled={disabled} onFile={(file) => void attached.attach(file)} />
+								<AttachButton disabled={disabled} onFile={actions.attach} />
 								<Button
 									type="submit"
 									size="sm"
@@ -751,7 +729,6 @@ function Composer({
 	);
 }
 
-/** One picked file in the composer: its name, its size or upload state, and a way to take it off the message. */
 function FileChip({ file, onRemove }: { file: Picked; onRemove: () => void }) {
 	return (
 		<li
@@ -776,7 +753,6 @@ function FileChip({ file, onRemove }: { file: Picked; onRemove: () => void }) {
 	);
 }
 
-/** The files a sent message carried, inside its bubble. */
 function SentFiles({ files }: { files: readonly { id: string; name: string }[] }) {
 	if (!files.length) return null;
 	return (
@@ -790,9 +766,6 @@ function SentFiles({ files }: { files: readonly { id: string; name: string }[] }
 		</ul>
 	);
 }
-
-// ---------------------------------------------------------------------------------------------------------------
-// History
 
 const DAY = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
 const TIME = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" });
@@ -810,45 +783,53 @@ function History({
 	onNew: () => void;
 	onSelect: (id: string) => void;
 }) {
-	const [search, setSearch] = useState("");
 	const [query, setQuery] = useState("");
-	const [items, setItems] = useState<Conversation[] | null>(null);
-	const [next, setNext] = useState<number | null>(null);
-	const [state, setState] = useState<"loading" | "ready" | "failed" | "more">("loading");
-	const [attempt, setAttempt] = useState(0);
+	const [more, setMore] = useState<{
+		items: Conversation[];
+		next: number | null;
+		status: "loading" | "ready" | "failed";
+	} | null>(null);
+	const [pause] = useState(() => createDebouncer(250));
+	const [searching, startSearch] = useTransition();
+	const asked = useRef("");
+	const first = useRead(conversations, query, 1);
+	const page = first.value?.status === "ok" ? first.value.value : null;
+	const failed = (first.value !== undefined && page === null) || more?.status === "failed";
+	const items = page ? [...page.items, ...(more?.items ?? [])] : null;
+	const next = more ? more.next : (page?.next ?? null);
+	const loading = first.status === "loading" || searching;
 
-	// A search waits until typing pauses, so each pause sends one request.
-	useEffect(() => {
-		let live = true;
-		const q = search.trim();
-		const t = setTimeout(
-			async () => {
-				setState("loading");
-				const r = await api.listConversations(q, 1);
-				if (!live) return;
-				if (r.status !== "ok") return setState("failed");
-				setQuery(q);
-				setItems(r.value.items);
-				setNext(r.value.next);
-				setState("ready");
-			},
-			q === query ? 0 : 250,
+	const search = (value: string) => {
+		const q = value.trim();
+		asked.current = q;
+		pause.run(() =>
+			startSearch(async () => {
+				await conversations.get(q, 1);
+				if (asked.current !== q) return;
+				startSearch(() => {
+					setQuery(q);
+					setMore(null);
+				});
+			}),
 		);
-		return () => {
-			live = false;
-			clearTimeout(t);
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [search, attempt]);
+	};
 
-	const more = async () => {
-		if (next === null) return;
-		setState("more");
+	const tryAgain = () => {
+		setMore(null);
+		if (page) first.reload();
+		else first.retry();
+	};
+
+	const showMore = async () => {
+		if (next === null || !items) return;
+		const shown = more?.items ?? [];
+		setMore({ items: shown, next, status: "loading" });
 		const r = await api.listConversations(query, next);
-		if (r.status !== "ok") return setState("failed");
-		setItems((list) => [...(list ?? []), ...r.value.items]);
-		setNext(r.value.next);
-		setState("ready");
+		setMore(
+			r.status === "ok"
+				? { items: [...shown, ...r.value.items], next: r.value.next, status: "ready" }
+				: { items: shown, next, status: "failed" },
+		);
 	};
 
 	return (
@@ -862,23 +843,22 @@ function History({
 			<SearchInput
 				aria-label="Search conversations"
 				placeholder="Search conversations"
-				value={search}
-				onChange={(e) => setSearch(e.target.value)}
+				onChange={(e) => search(e.target.value)}
 			/>
-			{state === "failed" ? (
+			{failed ? (
 				<StatePanel
 					tone="error"
 					title="History could not load"
 					headingLevel="h3"
 					actions={
-						<Button size="sm" onClick={() => setAttempt((n) => n + 1)}>
+						<Button size="sm" onClick={tryAgain}>
 							Try again
 						</Button>
 					}
 				>
 					Check your connection and try again.
 				</StatePanel>
-			) : state === "loading" && !items ? (
+			) : !items ? (
 				<div aria-busy="true" className="flex flex-col gap-3 py-2">
 					<span className="sr-only">Loading history</span>
 					<Skeleton width="70%" />
@@ -890,7 +870,7 @@ function History({
 					{query ? `No conversations match "${query}".` : "No conversations yet. Ask Evry something to start one."}
 				</p>
 			) : (
-				<ul aria-busy={state === "loading" || undefined} className="-mx-2 flex flex-col">
+				<ul aria-busy={loading || undefined} className="-mx-2 flex flex-col">
 					{(items ?? []).map((item) => (
 						<li key={item.id}>
 							<button
@@ -910,13 +890,13 @@ function History({
 					))}
 				</ul>
 			)}
-			{next !== null && state !== "failed" ? (
+			{next !== null && !failed ? (
 				<Button
 					size="sm"
 					variant="outline"
 					className="self-center"
-					loading={state === "more"}
-					onClick={() => void more()}
+					loading={more?.status === "loading"}
+					onClick={() => void showMore()}
 				>
 					Show more
 				</Button>

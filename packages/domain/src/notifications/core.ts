@@ -5,11 +5,13 @@ import {
 	type NotificationError,
 	type NotificationReply,
 } from "@everyfield/contracts/notifications";
+import { residencyCategories } from "@everyfield/contracts/settings";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { liveResidency, reviewShared } from "../access/pipeline.ts";
 import { RequestActor, requestWrite } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import {
@@ -134,12 +136,6 @@ export function audit(
 export function accountOwner(accountId: string): Owner {
 	return owner.parse({ kind: "account", id: accountId });
 }
-/**
- * C13: one notifications access check as a condition. `account` holds an accepted, current seat in `tenant` (a plant or
- * an organization; Owner or Admin when `admin`), the account is active, and no lifecycle witness hides the account, the
- * seat or the tenant. With `session`, that session is also live and is the account's own: a request's caller. Without
- * it, the check is for a recipient a worker sends to.
- */
 export function seatAccess(input: { account: string; tenant: string; admin?: boolean; session?: string }): SQL {
 	return sql`EXISTS (SELECT FROM seat s JOIN account a ON a.id = s.account_id
 		WHERE s.account_id = ${input.account}::uuid AND (s.plant_id = ${input.tenant}::uuid OR s.organization_id = ${input.tenant}::uuid)
@@ -163,8 +159,9 @@ export function selfSql(session: string, accountId: string): SQL {
 		   AND w.kind = 'account' AND w.opaque_subject_id = i.account_id)
 	)`;
 }
-const categories = notificationCategory.options.map((category) => `'${category}'`).join(",");
-/** Rows the signed-in recipient may see in the feed, the bell, and mark. */
+const quoted = (list: readonly string[]) => list.map((category) => `'${category}'`).join(",");
+const categories = quoted(notificationCategory.options);
+const residency = quoted(residencyCategories);
 export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timestamp()`): SQL {
 	return sql`n.cancelled_at IS NULL AND n.archived_at IS NULL AND ${eligible}
 		AND n.recipient_id = (SELECT account_id FROM me)
@@ -172,11 +169,17 @@ export function noticeVisible(eligible: SQL = sql`n.eligible_at <= clock_timesta
 		AND coalesce((SELECT p.enabled FROM notification_preference p
 			WHERE p.account_id = n.recipient_id AND p.category = split_part(n.logical_key,'/',2) AND p.channel = 'in_app'),
 			split_part(n.logical_key,'/',2) <> 'planter_digest')
-		AND EXISTS (SELECT FROM seat s WHERE s.account_id = n.recipient_id AND s.ended_at IS NULL
+		AND CASE WHEN split_part(n.logical_key,'/',2) IN (${sql.raw(residency)})
+			THEN EXISTS (SELECT FROM residency_link l WHERE l.account_id = n.recipient_id AND l.organization_id = n.tenant_id
+				AND ${liveResidency})
+			ELSE EXISTS (SELECT FROM seat s WHERE s.account_id = n.recipient_id AND s.ended_at IS NULL
 			AND s.accepted_at <= clock_timestamp() AND (s.plant_id = n.tenant_id OR s.organization_id = n.tenant_id)
 			AND NOT EXISTS (SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (
 				w.seat_id = s.id OR (w.kind = 'account' AND w.opaque_subject_id = s.account_id)
-				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = n.tenant_id))))`;
+				OR (w.kind IN ('plant','organization') AND w.opaque_subject_id = n.tenant_id)))) END
+		AND (split_part(n.logical_key,'/',2) <> 'answer_review' OR EXISTS (SELECT FROM answer_review r
+			JOIN seat rv ON rv.id = r.reviewer_seat_id AND rv.account_id = n.recipient_id
+			WHERE r.id = n.source_record_id AND r.organization_id = n.tenant_id AND ${reviewShared}))`;
 }
 export function overdueSql(asOf: string): SQL {
 	return sql`(split_part(n.logical_key,'/',2) = 'task_overdue' OR (
@@ -186,14 +189,12 @@ export function overdueSql(asOf: string): SQL {
 export function jsonValue(value: unknown): unknown {
 	return typeof value === "string" ? JSON.parse(value) : value;
 }
-/** One notification write: its request schema, its operation name, its result and its body. */
 export type NotificationCommand<S extends z.ZodType<{ requestKey: string }>, T> = {
 	schema: S;
 	operation: string;
 	result: z.ZodType<T>;
 	body(tx: Tx, cmd: Command, input: z.output<S>, authority: RequestActor): Promise<T>;
 };
-/** The write as its own native write (D70), for the selected owner. */
 export async function runWrite<S extends z.ZodType<{ requestKey: string }>, T>(
 	db: Database,
 	authority: RequestActor,
@@ -212,10 +213,6 @@ export async function runWrite<S extends z.ZodType<{ requestKey: string }>, T>(
 		return refusal(error);
 	}
 }
-/**
- * The same write inside a caller's transaction whose write gate already holds the approving session's account and seat
- * (RequestActor.claimWrite): an approved Evry review. The account is the gate's own, never one the caller names.
- */
 export async function runLockedWrite<S extends z.ZodType<{ requestKey: string }>, T>(
 	tx: Tx,
 	raw: unknown,

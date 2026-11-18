@@ -1,6 +1,5 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
-import { tasksMount } from "@/server/tasks";
 import type { Transaction } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { followUpReader } from "@everyfield/domain/followups";
@@ -15,14 +14,11 @@ import {
 import "server-only";
 import { HISTORY_PAGE, outcomeOf } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
-
-// The Tasks screens reach the task core here. Pages and actions share the request's one viewer (D59/D60); every read
-// statement rechecks the live seat itself (C13), and every write rechecks authority inside its own statement (D70).
+import { tasksMount } from "./mount.ts";
 
 export type TaskViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
 const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
 
-/** The request's plant seat, or null for a signed-out reader, an organization seat or an account without a seat. */
 export async function taskViewer(): Promise<TaskViewer | null> {
 	const v = await getViewer();
 	const authority = v?.authority;
@@ -37,7 +33,6 @@ const outcome = <T>(reply: TaskReply<T>): Outcome<T> =>
 		? { status: "ok", value: reply.value }
 		: { status: "refused", code: reply.error.code, error: reply.error };
 
-/** One short read transaction. A database failure reads as lost, never as a crash or an empty list. */
 export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
@@ -49,7 +44,6 @@ export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Pr
 	}
 }
 
-/** One native write: the verified actor is bound once and the writer runs in the same transaction. */
 export async function write<T>(
 	viewer: TaskViewer,
 	run: (writer: TaskWriter, tx: Transaction, context: TaskContext) => Promise<TaskReply<T>>,
@@ -64,7 +58,6 @@ export async function write<T>(
 	}
 }
 
-/** The fixed Everyfield checklist catalog: browse, preview and the phase offer (WP-026). */
 export const templates = createTemplateReader();
 
 export const reader = {
@@ -79,12 +72,6 @@ export const reader = {
 		taskReader.statusHistory(tx, v.authority, { taskId, page, limit: 50 }).then(outcome),
 };
 
-/**
- * One open task for its panel, read in one transaction: the task and its first history page (two statements), plus
- * the tasks it waits for when it has any, its series' open occurrence when it repeats and, for a follow-up (a person
- * relation and no parent), the first page of its contact history (one statement each). The history is read on every
- * open, so an outcome recorded on the call screen shows the next time the panel opens (REQ-MTG-022).
- */
 export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: string) {
 	const found = await reader.get(tx, viewer, taskId);
 	if (found.status !== "ok") return found;
@@ -97,7 +84,6 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 	const occurrence = task.recurrence
 		? await taskReader.findOpenOccurrence(tx, viewer.authority, { taskId }).then(outcome)
 		: null;
-	// A refused contact read stays its own outcome, so the panel can offer "Try again" without closing.
 	const contacts =
 		task.relation?.kind === "person" && !task.parentId
 			? await followUpReader
@@ -122,11 +108,6 @@ export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: stri
 	} as const;
 }
 
-/**
- * The Tasks page in one transaction: the list page and its counts, two statements, and for an Owner or Admin the phase
- * offer, one statement more and the Wiki's reading list when an offer is open. A page past the end shows the last page
- * instead (D67). A task named in the address opens with its detail and history, two statements more.
- */
 export async function loadTasksPage(viewer: TaskViewer, query: TaskQuery, open: string | null) {
 	return read(async (tx) => {
 		let list = await reader.list(tx, viewer, query);
@@ -138,7 +119,6 @@ export async function loadTasksPage(viewer: TaskViewer, query: TaskQuery, open: 
 		const counts = await reader.count(tx, viewer, query);
 		if (counts.status !== "ok") return counts;
 		const opened = open ? await loadTask(tx, viewer, open) : null;
-		// A refused or failed offer read leaves the list as it is: the offer simply does not show.
 		const offer = administers(viewer) ? await reader.offer(tx, viewer) : null;
 		return {
 			status: "ok",

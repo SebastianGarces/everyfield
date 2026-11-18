@@ -1,7 +1,3 @@
-// The Evry Documents reviewed writes, approved and run through the WP-031 queue as the app worker runs them. Each effect
-// runs the same native Documents command the app runs, for the approving session, with the effect key as its request
-// key: the change and its audit row commit with the saved outcome. The effect loads the document renderer, whose
-// layouts are .tsx, so this file runs under tsx (the package's test:db).
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -20,7 +16,6 @@ import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queu
 import { actor, admin, db, plant, setup, sql, teardown } from "../../runtime/support.mts";
 import { seedDocument, type Seeded } from "./seed.mts";
 
-/** The process's private bucket, as privateStorage() returns it: a memory fake that holds what the export puts. */
 const objects = new Map<string, Buffer>();
 const storage = {
 	bucket: "synthetic-only",
@@ -36,7 +31,6 @@ const storage = {
 		},
 	},
 };
-// The storage module keeps the process's bucket on globalThis (RT-6c), already loaded by the imports above.
 const shared = globalThis as Record<symbol, { configured?: unknown; checks: WeakMap<object, unknown> } | undefined>;
 (shared[Symbol.for("everyfield.db.privateStorage")] ??= { checks: new WeakMap() }).configured = storage;
 
@@ -73,7 +67,6 @@ async function propose(who: EvryActor, operation: string, input: unknown) {
 	return proposal;
 }
 
-/** The approval of the exact revision shown, then the effect run once, as the app worker runs it. */
 async function approveAndRun(who: EvryActor, proposal: Proposal) {
 	await approveProposal(db, who, proposal.id, { revision: proposal.revision, digest: proposal.digest });
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
@@ -162,7 +155,6 @@ test("an approved archive archives a written document or a Church Document the w
 		[(await documentRow(docs.agenda.id)).archived, (await documentRow(docs.agenda.id)).church_archived],
 		[true, false],
 	);
-	// A Church Document's archive is church_archived_at; archived_at would mean deleted.
 	assert.deepEqual(
 		[(await documentRow(docs.other.id)).archived, (await documentRow(docs.other.id)).church_archived],
 		[false, true],

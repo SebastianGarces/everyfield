@@ -6,14 +6,11 @@ import { redirect } from "next/navigation";
 import { DocumentsScreen } from "./DocumentsScreen.tsx";
 import { parseQuery } from "./model.ts";
 import { canEditDocuments, canStoreDocuments, loadDocuments, writtenScope } from "./server.ts";
-import { params } from "../shared/search-params.ts";
-
-// The documents routes. The files under apps/web/src/app/ only re-export these.
+import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export const documentsMetadata: Metadata = { title: "Documents", robots: { index: false, follow: false } };
 
-/** Signed out goes to sign-in. An active account sees the library. A church seat is required only to preview. */
 export async function DocumentsPage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
 	const viewer = await getViewer();
@@ -26,7 +23,6 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 		<DocumentsScreen
 			templates={loaded.templates}
 			version={loaded.version}
-			query={query}
 			context={loaded.context}
 			canPreview={loaded.canPreview}
 			canEdit={canEditDocuments(viewer.authority)}
@@ -63,7 +59,6 @@ function Failed() {
 	);
 }
 
-/** The first paint while documents load: the page's shape, not a spinner. */
 export function DocumentsLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-5">

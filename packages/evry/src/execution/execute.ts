@@ -12,29 +12,14 @@ import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
 import { refusalCode } from "../proposals/review.ts";
 import type { EffectPorts, EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
 
-/** The executor's claim on one evry_effect job, as the WP-031 queue issued it. Only the current claim may publish. */
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
 
-/**
- * completed or refused: the outcome saved with this attempt. failed: the attempt ended with an error that is not a
- * domain refusal, so nothing is saved and the review reads as unknown (the change may have committed). expired: the
- * approval lapsed before the effect started, so nothing ran. closed: the review was cancelled or revised first. lost:
- * this claim is no longer current.
- */
 export type EffectOutcome = "completed" | "refused" | "failed" | "expired" | "closed" | "lost";
 
-/** This exact claim is still current. */
 const fence = (lease: EffectLease) =>
 	sql`EXISTS(SELECT FROM job j WHERE j.id=${lease.jobId}::uuid AND j.tenant_id=${lease.tenantId}::uuid AND j.state='claimed'
 		AND j.lease_owner=${lease.leaseOwner} AND j.claim_generation=${lease.generation}::bigint AND j.lease_until>clock_timestamp())`;
 
-/**
- * Takes the publication locks before any time is read: the proposal row, then a share lock on the job row, so lease
- * recovery cannot replace the claim before this transaction ends. A predicate inside a locking statement is evaluated
- * before its lock wait and not again for an unchanged row, so the lease and approval expiry are read only by the next
- * statement, after every lock is held. The run itself takes both locks in its first read (executeProposal); a
- * refusal or an expiry, which saves under a new transaction, takes them here.
- */
 async function holdPublicationLocks(tx: Transaction, lease: EffectLease) {
 	await tx.execute(
 		sql`SELECT 1 FROM proposal WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid FOR UPDATE`,
@@ -61,10 +46,6 @@ const locked = z.object({
 	fenced: z.boolean(),
 });
 
-/**
- * The records a refusal because something changed shows as they are now, for the writes that name them (current), read
- * in the statement that saves the refusal.
- */
 const currentState = (() => {
 	const writes = (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter((w) => w.current);
 	if (!writes.length) return sql`NULL::jsonb`;
@@ -74,10 +55,8 @@ const currentState = (() => {
 	)} END`;
 })();
 
-/** The first step committed; the email service step is next. */
 type Reach = { id: string; reach(): Promise<EffectResult> };
 
-/** The approval lapsed or the claim stopped being current, possibly during a wait; the whole transaction rolls back. */
 class Unpublished extends Error {}
 
 class Refused extends Error {
@@ -88,17 +67,6 @@ class Refused extends Error {
 	}
 }
 
-/**
- * evry.executeProposal and evry.expireProposal: runs one approved proposal revision once. One transaction locks the
- * proposal under the current job claim, refuses an approval that lapsed (expiresAt itself is too late), runs the
- * owning native command for the approving session (which checks its live seat and role) with the effect key as its
- * request key and saves the outcome only if the approval is unexpired and the claim still current once the publication
- * locks are held. The native command writes its own audit row with the change, so the effect, its audit record and the
- * saved outcome commit together or not at all. A refusal rolls everything back and then saves the refusal under the
- * same claim. Any other error saves nothing: only a server answer may say that nothing was changed (C58). `ports` are
- * the domains' ports an effect may need (proposals/types.ts); `native` holds the Settings, seat and connection services
- * a command of those areas calls.
- */
 export async function executeProposal(
 	db: Database,
 	lease: EffectLease,
@@ -118,11 +86,7 @@ export async function executeProposal(
 			const p = locked.parse(r.rows[0]);
 			if (!p.fenced) return "lost";
 			if (p.state !== "approved" || p.outcome !== null) return "closed";
-			// A lapsed approval stops an effect that has not started. One that started goes on, so its result is saved and
-			// the card says what the email service holds, never that nothing was done.
 			if (p.expired && !p.reached) throw new Unpublished();
-			// The approving session in the proposal's exact context: its live seat and lifecycle are locked and checked now,
-			// and the native command checks the role on that same lock. A signed-out session has no authority.
 			const session = sessionId.safeParse(p.approved_session_id);
 			if (!session.success) throw new Refused("access_denied");
 			const selected = owner.parse(
@@ -133,13 +97,10 @@ export async function executeProposal(
 			const claimed = await RequestActor.claimWrite(tx, session.data, selected);
 			if (!claimed) throw new Refused("access_denied");
 			const write = REVIEWED_WRITES[p.operation] as ReviewedWrite<unknown>;
-			// A write that reaches the email service cannot run without it; nothing has changed yet.
 			const { reach } = write;
 			if (reach && !mail) throw new Refused("mail_unavailable");
 			const effectKey = `evry:${p.id}:${p.revision}`;
 			const context = { session: session.data, selected };
-			// The same fact that refused the approval also stops an effect that waited in the queue. An effect that already
-			// started changed the message itself, so its retry replays by its keys instead.
 			if (!p.reached) {
 				if (p.stale) throw new Refused("revision_conflict");
 				const changed = await write.recheck?.(tx, context, p.input);
@@ -150,14 +111,10 @@ export async function executeProposal(
 				ports: native,
 			});
 			if ("refused" in result) throw new Refused(refusalCode(result.refused));
-			// The email service is called after this transaction commits, never inside it. The saved mark tells a retry that
-			// this effect started.
 			if (reach && mail && "receiptId" in result) {
 				await tx.execute(sql`UPDATE proposal SET receipt='{"reached":true}'::jsonb WHERE id=${p.id}::uuid`);
 				return { id: p.id, reach: () => reach(db, claimed.authority, p.input, effectKey, result, mail) };
 			}
-			// Publish only if the approval is still unexpired and this claim still current; the first read already holds
-			// the proposal and job locks. Otherwise the change and its audit row roll back with the transaction.
 			const published = await tx.execute(
 				sql`UPDATE proposal SET outcome='completed',receipt=${JSON.stringify(result)}::jsonb,updated_at=clock_timestamp()
 					WHERE id=${p.id}::uuid AND expires_at>clock_timestamp() AND ${fence(lease)}`,
@@ -166,9 +123,6 @@ export async function executeProposal(
 			return "completed";
 		});
 		if (typeof first === "string") return first;
-		// The email service step, outside any transaction. The change above is committed and its domain command replays,
-		// so a retry after a crash asks again with the same keys. The outcome is saved even when the approval lapsed in
-		// between: the change already happened, and only a lost claim stops the save.
 		const reached = await first.reach();
 		if ("refused" in reached) throw new Refused(refusalCode(reached.refused));
 		const saved = await db.transaction(async (tx) => {
@@ -180,7 +134,6 @@ export async function executeProposal(
 		});
 		return saved.rowCount ? "completed" : "lost";
 	} catch (error) {
-		// evry.expireProposal: an approval that lapsed before the effect committed expires under the same claim.
 		if (error instanceof Unpublished) {
 			const expired = await db.transaction(async (tx) => {
 				await holdPublicationLocks(tx, lease);
@@ -207,7 +160,7 @@ export async function executeProposal(
 			await holdPublicationLocks(tx, lease);
 			return tx.execute(sql`
 				UPDATE proposal SET outcome='refused',receipt=jsonb_strip_nulls(jsonb_build_object('code',${refused}::text,
-					'current',CASE WHEN ${refused}::text='revision_conflict' THEN ${currentState} END)),updated_at=clock_timestamp()
+					'current',CASE WHEN ${refused}::text IN ('revision_conflict','stale_review') THEN ${currentState} END)),updated_at=clock_timestamp()
 				WHERE job_id=${lease.jobId}::uuid AND tenant_id=${lease.tenantId}::uuid AND state='approved' AND outcome IS NULL AND ${fence(lease)}`);
 		});
 		return saved.rowCount ? "refused" : "lost";

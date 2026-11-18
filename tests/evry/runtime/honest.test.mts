@@ -1,7 +1,3 @@
-// Evry's honest limits and the facts it keeps (WP-054, WP-085), through the real runtime on the scripted model: DST gaps
-// and folds are asked about, never guessed; a Member is told who can make a change; a bulk request confirms its scope
-// first and no turn fills with review cards; a long history comes in dated pages without private care; and past the
-// message window the conversation's reviews keep their exact outcomes, so an applied change is never prepared again.
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -26,7 +22,6 @@ import { accounts, actor, admin, db, people, plant, setup, sql, teardown, work }
 
 before(async () => {
 	await setup();
-	// 57 people in Prospect: the three named prospects and 54 more.
 	await admin.execute(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)
 		SELECT ${plant}::uuid,${plant}::uuid,'Prospect '||lpad(n::text,2,'0'),'other',clock_timestamp(),'prospect','unknown','unknown',300+n,'live' FROM generate_series(1,54) n`);
 });
@@ -35,7 +30,6 @@ after(teardown);
 async function conversation(who: EvryActor) {
 	return (await createConversation(db, who, { requestKey: randomUUID() })).id;
 }
-/** One turn: the reply, the tool calls with their inputs and the review cards in the conversation. */
 async function say(
 	who: EvryActor,
 	id: string,
@@ -102,7 +96,6 @@ test("AC:SAF-02 a Member asking to change someone is told an Owner or Admin has 
 	assert.deepEqual(await proposals(id), []);
 });
 
-/** A model that, on its first step, asks to delete every person id in the system prompt's verified references. */
 function bulkDeleter(): LanguageModelV4 {
 	let step = 0;
 	return {
@@ -159,7 +152,6 @@ test("AC:SAF-16 INV-review-cards: deleting everyone in Prospect confirms the sco
 	assert.match(reply.text, /^That would remove all 57 people in prospect\. Do you want me to prepare those removals\?/);
 	assert.deepEqual(await proposals(id), []);
 
-	// Even a model that asks for twelve removals in one step gets ten review cards; the rest are refused.
 	const twelve = (
 		await admin.execute(
 			sql`SELECT id FROM person WHERE plant_id=${plant}::uuid AND display_name LIKE 'Prospect %' ORDER BY display_name LIMIT 12`,
@@ -173,7 +165,6 @@ test("AC:SAF-16 INV-review-cards: deleting everyone in Prospect confirms the sco
 });
 
 test("AC:EVR-031 two years of a person's history come in dated pages that continue; private care never appears and a Member sees no record details", async () => {
-	// A note a month for two years, each recorded a week after it happened, and a private care follow-up.
 	await admin.execute(sql`INSERT INTO person_note(tenant_id,plant_id,person_id,author_id,body,occurred_at,recorded_at)
 		SELECT ${plant}::uuid,${plant}::uuid,${people.casey}::uuid,${accounts.owner.id}::uuid,'Private note text '||n,
 			timestamptz '2024-10-15 15:00Z'+make_interval(months=>n),timestamptz '2024-10-22 15:00Z'+make_interval(months=>n)
@@ -187,7 +178,6 @@ test("AC:EVR-031 two years of a person's history come in dated pages that contin
 		assert.deepEqual(first.calls, ["people.listPeople", "people.getActivities"]);
 		const lines = first.text.split("\n");
 		assert.equal(lines[0], "Casey Reed's history, page 1:");
-		// Newest first, each on the date it happened (not the date it was recorded).
 		assert.deepEqual(lines.slice(1, 4), ["- 2026-09-15: Note", "- 2026-08-15: Note", "- 2026-07-15: Note"]);
 		assert.equal(lines.at(-1), "There is more. Ask for page 2 of Casey Reed's history.");
 		const later = await say(me, id, "show me page 3 of the history of Casey Reed");
@@ -199,7 +189,6 @@ test("AC:EVR-031 two years of a person's history come in dated pages that contin
 	}
 });
 
-/** Runs the next approved effect as the app worker does. */
 async function effect() {
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
 	assert.ok(claim);
@@ -224,8 +213,6 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:GAP-EVR-429 past 24 messages and 64 references t
 	assert.equal(await effect(), "completed");
 	assert.equal((await readReview(db, owner, card!.id)).outcome, "completed");
 
-	// Two emails reviewed in this conversation: one still waiting, one approved and accepted by the email service with
-	// delivery not reported yet. Their rows are placed as the review and the effect leave them.
 	const waiting = randomUUID();
 	const sent = randomUUID();
 	for (const [message, subject] of [
@@ -253,7 +240,6 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:GAP-EVR-429 past 24 messages and 64 references t
 			${"1".repeat(64)},'approved',clock_timestamp()+interval '15 minutes',clock_timestamp(),'completed',
 			${JSON.stringify({ receiptId: sent, revision: "2", report })}::jsonb)`);
 
-	// Thirteen more turns: 26 more messages, past the 24 a model call holds, two of them with 64 page references each.
 	const many = (
 		await admin.execute(sql`SELECT id FROM person WHERE plant_id=${plant}::uuid ORDER BY display_name LIMIT 128`)
 	).rows.map((r) => ({ kind: "person" as const, id: r.id as string }));

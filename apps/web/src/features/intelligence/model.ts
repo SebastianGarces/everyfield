@@ -10,12 +10,8 @@ import {
 	type CareWeek,
 	type CareWriteResult,
 } from "@everyfield/contracts/intelligence";
-import { nextMonday } from "../settings/time.ts";
+import { nextMonday } from "../../components/time.ts";
 
-// The check-in screen's pure model: labels, dates, messages and the optimistic strip. No React and no server code, so
-// the UI tests call it directly.
-
-/** A server action's answer: the operation's reply, or "lost" when no database answer came back. */
 export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; error: CareError } | { status: "lost" };
 
 export const AREA: Record<CareArea, { title: string; question: string; short: string }> = {
@@ -30,7 +26,6 @@ export const LEVEL_LABEL: Record<CareLevel, string> = {
 	struggling: "Struggling",
 };
 
-/** The form's answers: an area stays unset until the author picks a level. */
 export type Draft = { answers: Partial<CareAnswers>; note: string };
 export const draftOf = (week: CareWeek | null): Draft =>
 	week?.answer ? { answers: { ...week.answer.answers }, note: week.answer.note ?? "" } : { answers: {}, note: "" };
@@ -38,10 +33,6 @@ export const missingAreas = (draft: Draft) => CARE_AREAS.filter((a) => !draft.an
 export const complete = (draft: Draft): draft is { answers: CareAnswers; note: string } =>
 	missingAreas(draft).length === 0;
 
-/**
- * The form's primary button. A past week is corrected; this week is saved once, then changed. A week counts as saved
- * only once the server has its row, so the optimistic strip during a first save still reads "Save check-in".
- */
 export function submitLabel(week: CareWeek, correcting: boolean) {
 	if (correcting) return "Save correction";
 	return week.id !== null && week.answer !== null ? "Save changes" : "Save check-in";
@@ -61,23 +52,16 @@ const LONG_MONTH = [
 	"November",
 	"December",
 ];
-/** "Oct 5" for a LocalDate. */
 export function shortDate(day: string) {
 	const [, m, d] = day.split("-").map(Number);
 	return `${LONG_MONTH[m! - 1]!.slice(0, 3)} ${d}`;
 }
-/** "Monday, October 5" for a LocalDate that is a Monday. */
 export function mondayDate(day: string) {
 	const [, m, d] = day.split("-").map(Number);
 	return `Monday, ${LONG_MONTH[m! - 1]} ${d}`;
 }
-/**
- * The Monday (a LocalDate) of the week that holds `asOf` in `zone`. A new author's first check-in week is this one in
- * the zone they confirm (privateCare readWeeks), so the zone step previews it before the save.
- */
 export const weekStartIn = (asOf: string, zone: string) =>
 	new Date(Date.parse(nextMonday(asOf, zone)) - 7 * 86_400_000).toISOString().slice(0, 10);
-/** "Oct 6, 9:12 pm" for an instant, in the author's zone. */
 export function savedAt(instant: string, zone: string) {
 	const parts = new Intl.DateTimeFormat("en-US", {
 		timeZone: zone,
@@ -97,7 +81,6 @@ const dayIn = (instant: string, zone: string) => {
 	return `${parts.find((p) => p.type === "month")?.value} ${parts.find((p) => p.type === "day")?.value}`;
 };
 
-/** The line under a week in the strip: this week, skipped, or what its last correction changed. */
 export function weekNote(week: CareWeek, zone: string): { text: string; tone: "plain" | "amber" } | null {
 	if (week.current) return { text: "this week", tone: "plain" };
 	if (!week.answer) return { text: "Skipped", tone: "plain" };
@@ -113,13 +96,11 @@ export function weekNote(week: CareWeek, zone: string): { text: string; tone: "p
 	return { text: `Corrected ${dayIn(last.recordedAt, zone)} · ${what}`, tone: "amber" };
 }
 
-/** The strip with one week shown as the author just answered it, before the server confirms. */
 export function withAnswer(page: CarePage, week: CareWeek, answers: CareAnswers, note: string): CarePage {
 	const answeredAt = instant.parse(new Date().toISOString());
 	const answer = { answers, note: noteOf(note), revision: (week.answer?.revision ?? 0) + 1, answeredAt };
 	return { ...page, weeks: page.weeks.map((w) => (w.ordinal === week.ordinal ? { ...w, answer } : w)) };
 }
-/** The strip after a confirmed save or correction: the server's week and the calendar revision. */
 export function withResult(page: CarePage, result: CareWriteResult): CarePage {
 	return {
 		...page,
@@ -128,7 +109,6 @@ export function withResult(page: CarePage, result: CareWriteResult): CarePage {
 	};
 }
 
-/** What a refusal means for the author, in words. */
 export function refusalText(error: CareError | null): string {
 	switch (error?.code) {
 		case "revision_conflict":

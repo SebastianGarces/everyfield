@@ -1,9 +1,3 @@
-// OPS-126: what each QA login sees on a seeded QA database, through the same domain reads the screens use. qa.test.ts
-// runs it with tsx and the react-server condition, because the domain code is server-only, and asserts on its JSON.
-// The mail reads use the keys the seed got, as the preview does.
-//
-//   DATABASE_URL=<admin URL> QA_ROLE_PASSWORD=<role password> IDENTITY_MAIL_KEY=<key> IDENTITY_ADDRESS_KEY=<key> \
-//     node --conditions=react-server --import tsx qa-probe.ts
 import { randomBytes } from "node:crypto";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase, createDatabase } from "../../../../packages/db/src/client.ts";
@@ -11,7 +5,18 @@ import { liveAccess, RequestActor } from "../../../../packages/domain/src/access
 import { communicationWriter } from "../../../../packages/domain/src/communication/index.ts";
 import { createIdentityService } from "../../../../packages/domain/src/identity/index.ts";
 import { createPrivateCare } from "../../../../packages/domain/src/intelligence/index.ts";
-import { idsIn, namesFor, readHistory, type Viewer } from "../../../../packages/domain/src/organizations/index.ts";
+import {
+	createOrganizationAdapter,
+	idsIn,
+	namesFor,
+	readEnrollment,
+	readHistory,
+	readMyResidency,
+	readPipelineBoard,
+	readPipelineGoals,
+	readPipelinePersonRecord,
+	type Viewer,
+} from "../../../../packages/domain/src/organizations/index.ts";
 import { peopleReader, readPersonPage } from "../../../../packages/domain/src/people/index.ts";
 import { QA_LOGINS, QA_PASSWORD, QA_ROLES, roleUrl } from "../../qa-guard.ts";
 
@@ -50,7 +55,6 @@ const mailKeys = {
 	origin: ORIGIN,
 };
 
-/** Sign in as a person does and read the session the cookie names, before any actor check. */
 async function signInOnly(email: string) {
 	const r = await call("sign-in/email", { email, password: QA_PASSWORD });
 	const signedIn = (await r.json()) as { status: string };
@@ -66,7 +70,6 @@ async function signInOnly(email: string) {
 	return { signedIn: signedIn.status, session };
 }
 
-/** Sign in as a person does, then resolve the actor the session selects. */
 async function signIn(email: string) {
 	const { signedIn, session } = await signInOnly(email);
 	const authority = await RequestActor.resolve(runtime, session.sessionId as never);
@@ -74,7 +77,6 @@ async function signIn(email: string) {
 	return { signedIn, session, authority };
 }
 
-/** A refusal without its correlation id, so the test can compare it exactly. */
 const bare = (reply: unknown) => {
 	const r = reply as { status: string; error?: { correlationId?: string } };
 	return r.status === "refused" && r.error ? { ...r, error: { ...r.error, correlationId: null } } : r;
@@ -94,7 +96,6 @@ try {
 		checkIn: await care.readCurrent(runtime, owner.authority),
 		history: await care.readHistory(runtime, owner.authority, { page: 1 }),
 	};
-	// The 2026-11-04 cases: the delivery message as the Owner opens it, the Admin's own address, the two new logins.
 	const delivery = (await admin.execute(sql`SELECT id FROM communication WHERE subject='QA delivery check'`)).rows[0]!
 		.id as string;
 	out.delivery = await runtime.transaction(async (tx) => ({
@@ -120,7 +121,6 @@ try {
 		const who = await signIn(QA_LOGINS[login]);
 		const context = who.authority.actor.context;
 		const selected = context.owner;
-		// The two reads /settings/sharing makes for this viewer (apps/web/src/features/organizations/routes.tsx).
 		const viewer: Viewer = {
 			kind: selected.kind === "organization" ? selected.organizationKind : selected.kind,
 			session: who.session.sessionId as Viewer["session"],
@@ -144,7 +144,6 @@ try {
 							organization: names![r.pair.organization.id],
 						}))
 					: history,
-			// Planter-private data: the check-in reads for this actor, and the church's people reads.
 			care: {
 				current: bare(await care.readCurrent(runtime, who.authority)),
 				history: bare(await care.readHistory(runtime, who.authority, { page: 1 })),
@@ -163,6 +162,121 @@ try {
 			},
 		};
 	}
+	const personNamed = async (name: string) =>
+		(await admin.execute(sql`SELECT id FROM person WHERE display_name=${name} AND plant_id IS NULL`)).rows[0]!
+			.id as string;
+	const pipelinePeople = {
+		casey: await personNamed("Casey Lee"),
+		jordan: await personNamed("Jordan Reyes"),
+		morgan: await personNamed("Morgan Diaz"),
+	};
+	const enrollmentId = (
+		await admin.execute(sql`SELECT id FROM development_enrollment WHERE person_id=${pipelinePeople.casey}`)
+	).rows[0]!.id as string;
+	type Read = { status: string; value?: any; refusal?: unknown };
+	const value = (r: Read, pick: (v: any) => unknown) => (r.status === "ok" ? pick(r.value) : { refused: r.refusal });
+	for (const login of [
+		"graceOwner",
+		"graceAdmin",
+		"graceDirector",
+		"graceStaff",
+		"graceMember",
+		"hillOwner",
+	] as const) {
+		const who = await signIn(QA_LOGINS[login]);
+		const context = who.authority.actor.context;
+		const owner = context.owner;
+		const organization =
+			owner.kind === "organization"
+				? ((await admin.execute(sql`SELECT name FROM organization WHERE id=${owner.id}`)).rows[0]!.name as string)
+				: null;
+		const records: Record<string, unknown> = {};
+		for (const [key, personId] of Object.entries(pipelinePeople))
+			records[key] = value((await readPipelinePersonRecord(runtime, who.authority, { personId })) as Read, (v) => ({
+				notes: v.notes.flatMap((n: { state: string; body?: string }) => (n.state === "current" ? [n.body] : [])),
+				conversations: v.conversations.length,
+				residency: v.residency.status,
+			}));
+		out[login] = {
+			signedIn: who.signedIn,
+			session: who.session.status,
+			context: { kind: context.kind, role: "role" in context ? context.role : null, organization },
+			board: value((await readPipelineBoard(runtime, who.authority, {})) as Read, (v) => ({
+				audience: v.audience,
+				count: v.stages.reduce((n: number, s: { count: number }) => n + s.count, 0),
+				people: v.stages.flatMap((s: { people: { name: string }[] }) => s.people.map((p) => p.name)).sort(),
+			})),
+			goals: value((await readPipelineGoals(runtime, who.authority)) as Read, (v) => ({
+				goals: v.goals.map((g: { rationale: string }) => g.rationale),
+				conversations: v.conversations.months.reduce((n: number, m: { count: number }) => n + m.count, 0),
+			})),
+			records,
+			enrollment: value((await readEnrollment(runtime, who.authority, { enrollmentId })) as Read, (v) => ({
+				resident: v.resident,
+				milestones: v.milestones.map(
+					(m: { title: string; completion: { source: string; confirmer: string } | null }) => [
+						m.title,
+						m.completion && { source: m.completion.source, confirmer: m.completion.confirmer },
+					],
+				),
+			})),
+		};
+	}
+	const casey = await signIn(QA_LOGINS.resident);
+	const residency = (await readMyResidency(runtime, casey.authority)) as Read;
+	out.resident = {
+		signedIn: casey.signedIn,
+		session: casey.session.status,
+		context: { kind: casey.authority.actor.context.kind, owner: casey.authority.actor.context.owner.kind },
+		residency: value(residency, (v) =>
+			v.status !== "linked"
+				? { status: v.status }
+				: {
+						status: v.status,
+						organizationName: v.organizationName,
+						sharing: v.sharing,
+						milestones: v.enrollments[0].milestones.map(
+							(m: {
+								title: string;
+								completion: { source: string; confirmedOn: string | null } | null;
+								feedback: { body: string }[];
+							}) => [
+								m.title,
+								m.completion && { source: m.completion.source, confirmed: m.completion.confirmedOn !== null },
+								m.feedback.map((f) => f.body),
+							],
+						),
+					},
+		),
+		board: value((await readPipelineBoard(runtime, casey.authority, {})) as Read, () => "read"),
+	};
+	const adapter = createOrganizationAdapter(
+		{ invitation: async () => {}, invalidate: () => sql`SELECT 1` },
+		{ candidates: async () => [] },
+	);
+	const ruth = await signIn(QA_LOGINS.hillOwner);
+	const hill = ruth.authority.actor.context.owner;
+	(out.hillOwner as Record<string, unknown>).aggregate = await runtime.transaction((tx) =>
+		adapter["pipelineSharing.checkAggregateAccess"](
+			tx as never,
+			ruth.session.sessionId as never,
+			hill as never,
+			{
+				network: hill,
+			} as never,
+		),
+	);
+	const daniel = await signIn(QA_LOGINS.owner);
+	(out.owner as Record<string, unknown>).pipeline = {
+		board: value((await readPipelineBoard(runtime, daniel.authority, {})) as Read, () => "read"),
+		goals: value((await readPipelineGoals(runtime, daniel.authority)) as Read, () => "read"),
+		casey: value(
+			(await readPipelinePersonRecord(runtime, daniel.authority, { personId: pipelinePeople.casey })) as Read,
+			() => "read",
+		),
+		enrollment: value((await readEnrollment(runtime, daniel.authority, { enrollmentId })) as Read, () => "read"),
+		residency: value((await readMyResidency(runtime, daniel.authority)) as Read, (v) => v.status),
+	};
 	console.log(JSON.stringify(out));
 } finally {
 	await closeDatabase(runtime);

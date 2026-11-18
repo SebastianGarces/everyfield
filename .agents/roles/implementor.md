@@ -12,19 +12,29 @@ You own the assigned task through a commit evf can review. Your seat's brief and
    changed (outside the repository, as the capture half of `verify-preview` says) and record
    `evf proof add <n> --status met --evidence <path>` for each `verifier` criterion after your last commit.
    UI work: read `ui-designer.md` and use the better-* skills.
+   A change to a feature's surface ships with that surface's map entry: when your diff touches a pending route or a
+   feature with no `feature-map.json`, map at least that surface (`docs/feature-maps/README.md`), or
+   `node tools/ci/feature-maps.ts --check` refuses it. The verifier proves each changed surface by reaching it as the
+   map says.
    An Evry adapter operation or catalog tool change adds or updates its eval cases and names them in your
    summary (`test-standard`).
-4. Run focused tests for the files you change with `node --test <files>`. evf runs `fast-check` and then
+   Adding or changing a 4+ state value set (a `status`, `state`, `stage` or `phase` enum column in
+   `packages/db/src/schema/tables.ts`) ships with its machine table in `packages/contracts/src/machines/` and the
+   chart `node tools/ci/machines.ts --write` generates in `docs/machines/`; `machines --check` refuses it otherwise.
+4. When your diff touches a path named in a `.agents/skills/formal-*/map.json` (today the access helpers, seats and
+   invitations), follow `.agents/skills/maintain-formal-verification/SKILL.md`: update the model and map, and rerun
+   `bin/dev formal` and the conformance test.
+5. Run focused tests for the files you change with `node --test <files>`. evf runs `fast-check` and then
    `bin/dev check --full`; GitHub CI also runs the database suites.
-5. Say what changed, how you checked it and any risk in your summary file.
-6. Close with `evf run done`. Do not push or open a PR: evf does both from your commits.
+6. Say what changed, how you checked it and any risk in your summary file.
+7. Close with `evf run done`. Do not push or open a PR: evf does both from your commits.
 
 Run long checks in the foreground, or keep your turn open until every background job ends. Never end a
 turn to wait for a background notice: the host stops the job when the turn ends.
 
 Open browsers only as the "Browsers and processes" section of `verify-preview` says:
-`bin/dev browser run` for scripted checks, agent-browser with your own `--session` and `close` for
-interactive checks, never the Playwright MCP. Stop only processes you started, by PID or process
+`bin/dev browser run` for scripted checks, `bin/app` (agent-browser underneath, one session) and
+`bin/app close` for interactive checks, never the Playwright MCP. Stop only processes you started, by PID or process
 group, never by name. When a flow shows the change better than a screenshot, record a short
 agent-browser video and name it as proof.
 

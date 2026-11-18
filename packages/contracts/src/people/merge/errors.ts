@@ -1,11 +1,6 @@
 import { z } from "zod";
 import { defineSafeError } from "../../common/values.ts";
 
-/**
- * The reference kinds the registry knows. People references move to the survivor (tags deduplicate). Account links,
- * private authorship and audit history never move. Kinds whose package has not registered its merge behavior block a
- * merge until it does (REQ-PPL-024: each domain proves its own references).
- */
 export const referenceKind = z.enum([
 	"tag",
 	"skill",
@@ -38,10 +33,10 @@ export const referenceKind = z.enum([
 	"team_tenure",
 	"training_assignment",
 	"training_credit",
+	"answer_review",
 ]);
 export const referenceTreatment = z.enum(["move", "deduplicate", "keep", "block"]);
 
-/** Why a merge cannot run. `enrollment_collision`: both organization people are enrolled in the same program. */
 export const mergeBlocker = z.enum([
 	"linked_account_collision",
 	"linked_source",

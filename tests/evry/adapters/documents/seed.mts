@@ -1,6 +1,3 @@
-// Documents for the Documents adapter suites, written as the app stores them: a written document holds a native body,
-// a Church Document holds a template forked with the church's details. Each church gets its own set, so a read in one
-// church can be checked never to return the other's.
 import { randomUUID } from "node:crypto";
 import { forkTemplate, nativeFromText } from "../../../../packages/contracts/src/documents/index.ts";
 import { docTemplateById } from "../../../../packages/domain/src/documents/doc-templates.ts";
@@ -8,7 +5,6 @@ import { admin, sql } from "../../runtime/support.mts";
 
 export type Seeded = { id: string; title: string; text: string | null };
 
-/** One document and its first revision, recorded `daysAgo` days before now. */
 export async function seedDocument(
 	tenant: string,
 	kind: "native" | "core_values" | "church_document",

@@ -1,0 +1,734 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "settings",
+	"catalog": ["IDN-006", "IDN-007", "IDN-010", "IDN-011", "IDN-026", "BRD-001", "BRD-003"],
+	"surfaces": [
+		{
+			"id": "settings.dialog",
+			"says": "Settings: a dialog over the page underneath, one address per section, offering the sections this seat may change.",
+			"routes": ["/settings", "/settings/[section]"],
+			"catalog": ["IDN-010", "IDN-011"],
+			"reach": [
+				{
+					"from": "communication.messages",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "button",
+								"name": "account menu",
+								"match": "contains"
+							}
+						},
+						{
+							"click": {
+								"role": "menuitem",
+								"name": "Your account"
+							}
+						},
+						{
+							"expect": {
+								"url": "/settings/account"
+							}
+						}
+					]
+				},
+				{
+					"link": "/settings/{section}",
+					"fill": {
+						"section": "a section key: church, brand, notifications, wiki-sources or account"
+					}
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "write",
+				"resident": "write",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "church",
+					"reach": {
+						"persona": "owner",
+						"open": "/settings",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "dialog",
+							"name": "Church profile"
+						},
+						{
+							"role": "textbox",
+							"name": "Church name"
+						},
+						{
+							"role": "link",
+							"name": "Brand kit"
+						},
+						{
+							"role": "link",
+							"name": "Your account"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/settings",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "dialog",
+							"name": "Notifications"
+						},
+						{
+							"role": "link",
+							"name": "Your account"
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "Church profile"
+							}
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "Brand kit"
+							}
+						}
+					]
+				},
+				{
+					"id": "signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/settings/account",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fsettings%2Faccount"
+						}
+					]
+				},
+				{
+					"id": "rail-settings-cut-off",
+					"defect": "run it in a window 577 px tall, such as agent-browser's default of 1280 by 577 px or the proof slot's 1440 by 577 px (agent-browser set viewport 1440 577); both show the defect: the rail is a sticky aside of fixed height with no scroll (packages/ui/src/shell/AppShell.tsx:263), and for the Owner its last link, Settings, sits at y 568 to 614 whatever the window height. In a window 614 px or taller it is fully visible and opens Settings, so this state fails there; from 568 to 614 px it is cut off and a click on it opens nothing; below 568 px it is hidden. The account menu and keyboard Enter still open Settings, and the base branch behaves the same",
+					"reach": {
+						"persona": "owner",
+						"open": "/communication",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Settings"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "History"
+						},
+						{
+							"absent": {
+								"role": "dialog",
+								"name": "Church profile"
+							}
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "section-address",
+					"says": "Each section has its own address; choosing one in the dialog's list writes it.",
+					"catalog": ["IDN-010"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/settings/settings.test.mts",
+								"name": "INV-performance: each settings section reads in one statement on the pool, without a transaction"
+							},
+							{
+								"file": "tests/unit/settings/drafts-model.test.mjs",
+								"name": "INV-draft-model: random interleavings keep the invariant"
+							}
+						],
+						"browser": {
+							"kind": "behavior",
+							"state": "church",
+							"steps": [
+								{
+									"click": {
+										"role": "link",
+										"name": "Your account"
+									}
+								}
+							],
+							"expect": [
+								{
+									"url": "/settings/account"
+								},
+								{
+									"role": "dialog",
+									"name": "Your account"
+								},
+								{
+									"role": "textbox",
+									"name": "Your name"
+								}
+							]
+						}
+					},
+					"noOperation": "settings.getSection is implemented as a property of the settings reader (packages/domain/src/settings/sections.ts:497), which the checker does not take for a declaration"
+				},
+				{
+					"id": "church-profile",
+					"says": "An Owner saves the church profile, and the new church name shows across the app.",
+					"catalog": ["IDN-011"],
+					"operations": ["plant.updateProfile"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/settings/settings.test.mts",
+								"name": "AC:TARGET-IDN-010 AC:TARGET-IDN-011 AC:ROLE43-002 AC:ROLE43-005 scoped settings preserve nullable locality and reject stale or foreign saves"
+							}
+						],
+						"cases": ["TARGET-IDN-010", "TARGET-IDN-011"],
+						"browser": {
+							"kind": "behavior",
+							"state": "church",
+							"steps": [
+								{
+									"type": "Harvest Point (QA) Map",
+									"into": "Church name"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save"
+									}
+								},
+								{
+									"expect": {
+										"text": "No unsaved changes."
+									}
+								},
+								{
+									"open": "/overview"
+								}
+							],
+							"expect": [
+								{
+									"text": "Harvest Point (QA) Map",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "settings.account",
+			"says": "Your account: your name, photo, email, password and sessions, and deleting the account.",
+			"routes": [],
+			"endpoints": ["/api/accounts/[accountId]/avatar/[versionId]"],
+			"catalog": ["IDN-006", "IDN-007", "IDN-010"],
+			"reach": [
+				{
+					"from": "settings.dialog",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Your account"
+							}
+						},
+						{
+							"expect": {
+								"url": "/settings/account"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "write",
+				"resident": "write"
+			},
+			"states": [
+				{
+					"id": "account",
+					"reach": {
+						"persona": "member",
+						"open": "/settings/account",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "dialog",
+							"name": "Your account"
+						},
+						{
+							"role": "textbox",
+							"name": "Your name"
+						},
+						{
+							"role": "button",
+							"name": "Add photo"
+						},
+						{
+							"role": "button",
+							"name": "Change password"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "rename",
+					"says": "Saving Your name changes the name the app shows for you, starting with the account menu.",
+					"catalog": ["IDN-010"],
+					"operations": ["settings.saveSection"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/settings/settings.test.mts",
+								"name": "INV-account-revision people/peo-3: Your account and notifications share one revision; a save in one moves the other's and the old revision is refused"
+							}
+						],
+						"browser": {
+							"kind": "behavior",
+							"state": "account",
+							"steps": [
+								{
+									"type": "Ruth Map Allen",
+									"into": "Your name"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save"
+									}
+								},
+								{
+									"expect": {
+										"text": "No unsaved changes."
+									}
+								},
+								{
+									"open": "/overview"
+								}
+							],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Ruth Map Allen",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "photo",
+					"says": "Add photo uploads a private photo that only seat holders who share a church or a current link can load.",
+					"catalog": ["IDN-006"],
+					"operations": ["account.requestAvatarUpload", "account.finalizeAvatar"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/settings/settings.test.mts",
+								"name": "AC:TARGET-IDN-006 AC:SEC-07 AC:PROVIDER48-002 avatar verifies private bytes, atomically changes the reference and denies old/foreign versions"
+							},
+							{
+								"file": "tests/integration/settings/settings.test.mts",
+								"name": "AC:TARGET-IDN-006: seat holders in the same church load each other's current photo; nobody else does"
+							}
+						],
+						"cases": ["TARGET-IDN-006"],
+						"browser": {
+							"kind": "presence",
+							"state": "account",
+							"steps": [],
+							"expect": [
+								{
+									"role": "button",
+									"name": "Add photo"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "settings.brand",
+			"says": "Brand kit: logos, colors with their contrast, fonts and letterhead that church documents use.",
+			"routes": [],
+			"endpoints": ["/api/brand/assets/[id]"],
+			"catalog": ["BRD-001", "BRD-002", "BRD-003"],
+			"reach": [
+				{
+					"from": "settings.dialog",
+					"persona": "owner",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Brand kit"
+							}
+						},
+						{
+							"expect": {
+								"url": "/settings/brand"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"owner": "write",
+				"admin": "write",
+				"member": "none"
+			},
+			"states": [
+				{
+					"id": "kit",
+					"reach": {
+						"persona": "owner",
+						"open": "/settings/brand",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "dialog",
+							"name": "Brand kit"
+						},
+						{
+							"role": "heading",
+							"name": "Logos and images"
+						},
+						{
+							"role": "textbox",
+							"name": "Primary color"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "primary-color",
+					"says": "A saved primary color stays with its contrast reading when the kit opens again.",
+					"catalog": ["BRD-003"],
+					"operations": ["brand.saveSettings"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/branding/branding.test.mts",
+								"name": "AC:CASE-BRD-003 colors, contrast, primary required, revision conflict, audit"
+							}
+						],
+						"cases": ["CASE-BRD-003"],
+						"browser": {
+							"kind": "behavior",
+							"state": "kit",
+							"steps": [
+								{
+									"type": "#2F6F4E",
+									"into": "Primary color"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Save"
+									}
+								},
+								{
+									"expect": {
+										"text": "No unsaved changes."
+									}
+								},
+								{
+									"open": "/settings/brand"
+								}
+							],
+							"expect": [
+								{
+									"text": "passes text",
+									"match": "contains"
+								}
+							]
+						}
+					}
+				},
+				{
+					"id": "logo",
+					"says": "Choose file uploads a logo or image with its alt text; the stored file is a private, trimmed copy that only this church plant's Owner and Admin can load. The tests prove the upload; the browser proof shows the control.",
+					"catalog": ["BRD-002"],
+					"operations": ["brand.uploadAsset"],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/branding/branding.test.mts",
+								"name": "AC:CASE-BRD-002 alt-text-required and unsupported types refuse before anything is stored"
+							},
+							{
+								"file": "tests/integration/branding/branding.test.mts",
+								"name": "AC:CASE-BRD-002 the 960 x 380 SVG is trimmed and stored as a private PNG with a 3.0 aspect ratio"
+							},
+							{
+								"file": "tests/integration/branding/branding.test.mts",
+								"name": "AC:CASE-BRD-002 finalize attaches only this church plant's ready brand_asset file"
+							},
+							{
+								"file": "tests/integration/branding/branding.test.mts",
+								"name": "AC:CASE-BRD-002 a held tag is answered from the authorized read with no storage read, and never for a revoked viewer"
+							}
+						],
+						"cases": ["CASE-BRD-002"],
+						"browser": {
+							"kind": "presence",
+							"state": "kit",
+							"steps": [],
+							"expect": [
+								{
+									"role": "heading",
+									"name": "Logos and images"
+								},
+								{
+									"role": "button",
+									"name": "Choose file"
+								}
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"id": "settings.restricted",
+			"says": "The pages outside the app that a deletion request or an email-change link opens.",
+			"routes": ["/account-deletion", "/workspace-deletion", "/confirm-email"],
+			"catalog": ["IDN-007", "IDN-026"],
+			"reach": [
+				{
+					"link": "/account-deletion"
+				},
+				{
+					"link": "/workspace-deletion"
+				},
+				{
+					"link": "/confirm-email?token={token}",
+					"fill": {
+						"token": "the proof in the email-change message"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "write",
+				"owner": "write"
+			},
+			"states": [
+				{
+					"id": "account-deletion",
+					"reach": {
+						"persona": "visitor",
+						"open": "/account-deletion",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Your account deletion"
+						},
+						{
+							"role": "textbox",
+							"name": "Email"
+						},
+						{
+							"role": "button",
+							"name": "Continue"
+						}
+					]
+				},
+				{
+					"id": "workspace-deletion",
+					"reach": {
+						"persona": "visitor",
+						"open": "/workspace-deletion",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Church workspace deletion"
+						},
+						{
+							"role": "button",
+							"name": "Continue"
+						}
+					]
+				},
+				{
+					"id": "confirm-no-token",
+					"reach": {
+						"persona": "owner",
+						"open": "/confirm-email",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This link does not work"
+						},
+						{
+							"role": "link",
+							"name": "Open Your account"
+						}
+					]
+				},
+				{
+					"id": "confirm-signed-out",
+					"reach": {
+						"persona": "visitor",
+						"open": "/confirm-email",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/signin?returnTo=%2Fconfirm-email"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "deletion-proof",
+					"says": "The deletion page opens a request only for the email and password of an account scheduled for deletion; anything else gets one refusal.",
+					"catalog": ["IDN-026"],
+					"operations": [],
+					"proof": {
+						"tests": [
+							{
+								"file": "tests/integration/settings/settings.test.mts",
+								"name": "AC:DEL58-002 INV-performance: a fresh password proof opens only the account's current request; status and cancel stay small"
+							},
+							{
+								"file": "tests/integration/settings/settings.test.mts",
+								"name": "AC:DEL58-001 AC:DEL58-002 AC:DEL58-003 AC:DEL58-005 AC:TARGET-IDN-026 AC:ROLE43-017 AC:DEL58-004 personal deletion suspends immediately and only fresh exact proof cancels"
+							}
+						],
+						"cases": ["TARGET-IDN-026"],
+						"browser": {
+							"kind": "behavior",
+							"state": "account-deletion",
+							"steps": [
+								{
+									"type": "nobody@example.test",
+									"into": "Email"
+								},
+								{
+									"type": "not-the-password-1",
+									"into": "Password"
+								},
+								{
+									"click": {
+										"role": "button",
+										"name": "Continue"
+									}
+								}
+							],
+							"expect": [
+								{
+									"text": "This email and password do not match an account that is scheduled for deletion.",
+									"match": "contains"
+								}
+							]
+						}
+					},
+					"noOperation": "no code is named account.getDeletionStatus; the deletion status read lives in packages/domain/src/settings/deletion.ts"
+				}
+			]
+		},
+		{
+			"id": "settings.design-preview",
+			"says": "Design previews of the Settings dialog and the restricted pages, with sample data and no database. Production returns 404.",
+			"routes": ["/design/settings/[[...section]]", "/design/restricted/[flow]"],
+			"reach": [
+				{
+					"link": "/design/settings/{section}",
+					"fill": {
+						"section": "a section key, or nothing for the page with Settings closed"
+					}
+				},
+				{
+					"link": "/design/restricted/{flow}",
+					"fill": {
+						"flow": "account-deletion, workspace-deletion or confirm-email"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "settings-section",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/settings/church",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Church profile"
+						},
+						{
+							"role": "link",
+							"name": "Your account"
+						},
+						{
+							"role": "textbox",
+							"name": "Church name"
+						}
+					]
+				},
+				{
+					"id": "restricted-flow",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/restricted/account-deletion",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Your account is scheduled for deletion"
+						},
+						{
+							"role": "button",
+							"name": "Keep my account"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		}
+	]
+}

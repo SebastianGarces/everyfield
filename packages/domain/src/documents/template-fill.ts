@@ -9,19 +9,13 @@ import { docTemplateById } from "./doc-templates.ts";
 import { frozenData, type MergeSources } from "./doc-values.ts";
 import { gateSql, plantScope, rowsOf } from "./scope.ts";
 
-// What a new Church Document fills in from the church: the merge sources createFromTemplate freezes (church-writes.ts)
-// and the read Evry's review shows before anything is made. No renderer is imported here, so the Evry adapters can read
-// it without loading the document layouts.
-
 export type Kit = ReturnType<typeof dataFromRow> | null;
 
-/** The contact line a card prints: the website without its scheme, the phone and the email. */
 export const contactLine = (kit: Kit) =>
 	[kit?.website?.replace(/^https?:\/\//, "").replace(/\/$/, ""), kit?.phone, kit?.email]
 		.filter(Boolean)
 		.join("  ·  ") || null;
 
-/** Where merge values come from now: the church plant (read by `readPlant`) and its brand kit. */
 export function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>, kit: Kit): MergeSources {
 	if (!plant.open) deny("access_denied");
 	if (!plant.subjectOk) deny("unavailable");
@@ -40,15 +34,9 @@ export type TemplateFill = {
 	title: string;
 	version: number;
 	documentClass: c.DocTemplate["class"];
-	/** Each merge field the document prints, with the value createFromTemplate would freeze now and its source. */
 	fields: { key: string; label: string; value: string | null; source: string }[];
 };
 
-/**
- * What "New from template" would fill in from the church for one built-in template, read now and written nowhere:
- * each merge field's value and where it came from, exactly as createFromTemplate freezes them with no overrides. An
- * Owner or Admin only, as making the document is. Two statements: the plant read and the brand kit under the seat check.
- */
 export async function templateFill(db: Pick<Database, "execute">, authority: RequestActor, raw: unknown) {
 	return settle(async (): Promise<TemplateFill> => {
 		const input = parse(c.getTemplateRequest, raw);

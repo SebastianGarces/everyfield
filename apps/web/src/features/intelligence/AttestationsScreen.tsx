@@ -47,7 +47,7 @@ import {
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { RadioGroup } from "radix-ui";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { shortDate } from "./model.ts";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
 import {
@@ -91,23 +91,16 @@ import {
 	type SignalOutcome,
 } from "./signals-model.ts";
 
-/**
- * The Attestations page (prototype #/intelligence/attestations, REQ-PI-014, REQ-PI-015). The seven signals an Owner or
- * Admin answers, by group, each with its answer, author, date, age and renewal state, and the leadership candidates they
- * attest. A save shows at once, then confirms or puts the row back with the reason, keeping what the admin typed. It
- * shows answers only: nothing here scores, ranks or assigns anyone.
- */
 export function AttestationsScreen({ initial, viewerName }: { initial: AttestationsPage; viewerName: string }) {
 	const [page, setPage] = useState(initial);
 	const [dialog, setDialog] = useState<
 		{ kind: "answer"; key: SignalKey } | { kind: "renew" } | { kind: "candidate"; personId: string | null } | null
 	>(null);
 	const toast = useToast();
-	const keys = useRef(new Map<string, string>());
-	/** One request key per distinct request, so a retry after a lost reply replays the first answer. */
+	const [keys] = useState(() => new Map<string, string>());
 	const keyFor = (payload: string) => {
-		if (!keys.current.has(payload)) keys.current.set(payload, crypto.randomUUID());
-		return keys.current.get(payload)!;
+		if (!keys.has(payload)) keys.set(payload, crypto.randomUUID());
+		return keys.get(payload)!;
 	};
 	const sent = async <T,>(call: () => Promise<SignalOutcome<T>>): Promise<SignalOutcome<T>> => {
 		try {
@@ -119,7 +112,6 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 	const entryOf = (key: SignalKey) => page.signals.find((s) => s.key === key)!;
 	const fail = (result: SignalOutcome<unknown>) => refusalText(result.status === "refused" ? result.error : null);
 
-	/** Show `optimistic` at once, send the write, then confirm with a history line or roll back to `entry`. */
 	async function writeSignal(
 		entry: SignalEntry,
 		optimistic: (today: string) => SignalEntry,
@@ -133,13 +125,12 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 			setPage((p) => withSignal(p, entry));
 			return fail(result);
 		}
-		keys.current.delete(payload);
+		keys.delete(payload);
 		const confirmed = result.value.signal;
 		setPage((p) => withHistory(withSignal(p, confirmed), line(confirmed)));
 		return null;
 	}
 
-	/** Answer a signal for the first time or after a retraction, or correct it to the other value. */
 	async function save(entry: SignalEntry, draft: Draft): Promise<string | null> {
 		const what = intent(entry, draft);
 		if (what === "none" || !draft.value) return null;
@@ -182,7 +173,6 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		else toast({ message: "Everyfield could not be reached. Try again in a moment.", tone: "error" });
 	}
 
-	/** Save a candidate attestation, or correct or retract it. */
 	async function saveCandidate(
 		input: Record<string, unknown> & { personId: string },
 		action: "attest" | "correct" | "retract",
@@ -190,6 +180,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		optimistic: CandidateEntry | null,
 	): Promise<string | null> {
 		const before = page.candidates.find((c) => c.personId === input.personId) ?? null;
+		const personBefore = page.people.find((x) => x.id === input.personId);
 		const payload = JSON.stringify([action, revision, input]);
 		if (optimistic) setPage((p) => withCandidate(p, optimistic));
 		const result = await sent(() =>
@@ -201,11 +192,15 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 			setPage((p) =>
 				before
 					? withCandidate(p, before)
-					: { ...p, candidates: p.candidates.filter((c) => c.personId !== input.personId) },
+					: {
+							...p,
+							candidates: p.candidates.filter((c) => c.personId !== input.personId),
+							people: p.people.map((x) => (x.id === input.personId && personBefore ? personBefore : x)),
+						},
 			);
 			return fail(result);
 		}
-		keys.current.delete(payload);
+		keys.delete(payload);
 		const confirmed = result.value.candidate;
 		const kind = action === "attest" ? "answered" : action === "correct" ? "corrected" : "retracted";
 		setPage((p) => withHistory(withCandidate(p, confirmed), candidateLine(confirmed, kind)));
@@ -426,7 +421,6 @@ function SignalRow({ entry, first, onOpen }: { entry: SignalEntry; first: boolea
 	);
 }
 
-/** The Yes and Not yet choice. Neither is chosen until the admin picks one. */
 function Choice({
 	value,
 	onChange,
@@ -451,7 +445,7 @@ function Choice({
 					key={v}
 					value={v}
 					className={cn(
-						"inline-flex cursor-pointer items-center justify-center gap-2 rounded-md bg-surface-2 font-medium text-ink-2 transition-[background-color,box-shadow] duration-150 hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] data-[state=checked]:bg-surface-raised data-[state=checked]:text-ink data-[state=checked]:shadow-[inset_0_0_0_1.5px_var(--ef-ink),var(--ef-shadow-raised)]",
+						"inline-flex items-center justify-center gap-2 rounded-md bg-surface-2 font-medium text-ink-2 transition-[background-color,box-shadow] duration-150 hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ef-focus)] data-[state=checked]:bg-surface-raised data-[state=checked]:text-ink data-[state=checked]:shadow-[inset_0_0_0_1.5px_var(--ef-ink),var(--ef-shadow-raised)]",
 						size === "sm" ? "h-9 text-sm" : "h-11",
 					)}
 				>
@@ -497,8 +491,6 @@ function AnswerDialog({
 }) {
 	const def = definitionOf(entry.key);
 	const group = SIGNAL_GROUPS.find((g) => g.id === def.group)!;
-	// The draft starts from the entry as opened; the optimistic change of its own save never rewrites what is typed.
-	// A newer entry while no save runs, such as the page loaded again after a conflict, shows here and starts again.
 	const [opened, setOpened] = useState(entry);
 	const [draft, setDraft] = useState<Draft>(() => draftOf(opened, page.today));
 	const [error, setError] = useState<string | null>(null);
@@ -648,7 +640,6 @@ function AnswerDialog({
 
 type RowState = { pick: SignalValue | null; state: "idle" | "saving" | "saved" | "failed"; error: string | null };
 
-/** "Renew your monthly answers": each row the admin picks is its own Still true or answer; one failure never undoes another. */
 function RenewDialog({
 	entries,
 	today,
@@ -664,8 +655,6 @@ function RenewDialog({
 	onStillTrue: (entry: SignalEntry) => Promise<string | null>;
 	onReload: () => void;
 }) {
-	// The entries as opened; the optimistic change of a row's own save never shows here. Newer entries while no row
-	// saves, such as the page loaded again after a conflict, replace them, so the next save sends their revision.
 	const [opened, setOpened] = useState(entries);
 	const [rows, setRows] = useState<Record<string, RowState>>(() =>
 		Object.fromEntries(opened.map((e) => [e.key, { pick: null, state: "idle", error: null } as RowState])),
@@ -681,7 +670,6 @@ function RenewDialog({
 			picked.map(async (entry) => {
 				const row = rows[entry.key]!;
 				patch(entry.key, { state: "saving", error: null });
-				// The same answer is "Still true"; the other answer, or a first answer, is its own write.
 				const failure =
 					entry.state === "answered" && row.pick === entry.value
 						? await onStillTrue(entry)
@@ -743,7 +731,7 @@ function RenewDialog({
 										{row.state === "failed" ? (
 											<div role="alert" className="mt-2 text-sm font-medium text-magenta-600">
 												{row.error}{" "}
-												<button type="button" className="cursor-pointer underline" onClick={onReload}>
+												<button type="button" className="underline" onClick={onReload}>
 													Load the latest answers
 												</button>
 											</div>
@@ -850,7 +838,6 @@ function CandidateSection({
 										<b className="font-medium text-ink">{c.authorName ?? "A church admin"}</b> · {shortDate(c.asOf)}
 									</div>
 								</div>
-								{/* A retired Person takes no candidate write: restore them to update the row. */}
 								{c.personState === "live" ? (
 									<Button
 										variant="secondary"
@@ -874,6 +861,18 @@ function CandidateSection({
 	);
 }
 
+const recordedNow = () => new Date().toISOString();
+
+type CandidateDraft = {
+	chosen: string;
+	start: string;
+	end: string;
+	attended: boolean;
+	volunteered: boolean;
+	asOf: string;
+	statement: string;
+};
+
 function CandidateDialog({
 	page,
 	personId,
@@ -896,21 +895,22 @@ function CandidateDialog({
 	onReload: () => void;
 	onDone: (message: string) => void;
 }) {
-	// The form starts from the candidate as opened; a later optimistic change never rewrites what is typed.
 	const [opened] = useState(() => page.candidates.find((c) => c.personId === personId) ?? null);
-	const [chosen, setChosen] = useState<string>(personId ?? "");
-	const [start, setStart] = useState<string>(opened?.periodStart ?? "");
-	const [end, setEnd] = useState<string>(opened?.periodEnd ?? page.today);
-	// A new candidate starts unticked: each behavior is attested only by a deliberate tick.
-	const [attended, setAttended] = useState(opened?.attended ?? false);
-	const [volunteered, setVolunteered] = useState(opened?.volunteered ?? false);
-	const [asOf, setAsOf] = useState<string>(page.today);
-	const [statement, setStatement] = useState(opened?.statement ?? "");
+	const [draft, setDraft] = useState<CandidateDraft>(() => ({
+		chosen: personId ?? "",
+		start: opened?.periodStart ?? "",
+		end: opened?.periodEnd ?? page.today,
+		attended: opened?.attended ?? false,
+		volunteered: opened?.volunteered ?? false,
+		asOf: page.today,
+		statement: opened?.statement ?? "",
+	}));
+	const edit = (change: Partial<CandidateDraft>) => setDraft((d) => ({ ...d, ...change }));
+	const { chosen, start, end, attended, volunteered, asOf, statement } = draft;
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 	const person = page.people.find((p) => p.id === chosen);
 	const current = page.candidates.find((c) => c.personId === chosen) ?? null;
-	// A Person with a retracted statement is recorded again; one with a current statement is corrected.
 	const action = !current || current.state === "retracted" ? "attest" : "correct";
 	const revision = person?.candidateRevision ?? "0";
 	const days = periodDays(start, end);
@@ -948,8 +948,7 @@ function CandidateDialog({
 						asOf: asOf as CandidateEntry["asOf"],
 						statement: statement.trim() || null,
 						authorName: viewerName,
-						// oxlint-disable-next-line react/purity -- run() is an event handler, not render; Oxlint's compiler port reads it as render
-						recordedAt: new Date().toISOString() as CandidateEntry["recordedAt"],
+						recordedAt: recordedNow() as CandidateEntry["recordedAt"],
 						revision: String(BigInt(revision) + 1n) as CandidateEntry["revision"],
 					};
 		const failure = await onSave(input, what, revision, optimistic);
@@ -978,7 +977,7 @@ function CandidateDialog({
 							<Field label="Person" hint="Choose someone in your church's People list.">
 								<Combobox
 									value={chosen ? [chosen] : []}
-									onValueChange={(next) => setChosen(next[0] ?? "")}
+									onValueChange={(next) => edit({ chosen: next[0] ?? "" })}
 									options={page.people.map((p) => ({ value: p.id, label: p.displayName }))}
 									placeholder="Choose a person"
 									searchLabel="Search people"
@@ -991,7 +990,7 @@ function CandidateDialog({
 									type="date"
 									value={start}
 									max={end || page.today}
-									onChange={(e) => setStart(e.target.value)}
+									onChange={(e) => edit({ start: e.target.value })}
 									invalid={orderWrong}
 								/>
 							</Field>
@@ -1000,7 +999,7 @@ function CandidateDialog({
 									type="date"
 									value={end}
 									max={asOf}
-									onChange={(e) => setEnd(e.target.value)}
+									onChange={(e) => edit({ end: e.target.value })}
 									invalid={afterAsOf}
 								/>
 							</Field>
@@ -1008,12 +1007,12 @@ function CandidateDialog({
 						<div className="flex flex-col gap-2.5">
 							<Checkbox
 								checked={attended}
-								onCheckedChange={(v) => setAttended(v === true)}
+								onCheckedChange={(v) => edit({ attended: v === true })}
 								label="Attended every week, unbroken"
 							/>
 							<Checkbox
 								checked={volunteered}
-								onCheckedChange={(v) => setVolunteered(v === true)}
+								onCheckedChange={(v) => edit({ volunteered: v === true })}
 								label="Volunteered every week, unbroken"
 							/>
 						</div>
@@ -1035,7 +1034,7 @@ function CandidateDialog({
 									type="date"
 									value={asOf}
 									max={page.today}
-									onChange={(e) => setAsOf(e.target.value)}
+									onChange={(e) => edit({ asOf: e.target.value })}
 									invalid={future}
 								/>
 							</Field>
@@ -1046,7 +1045,7 @@ function CandidateDialog({
 								maxLength={TEXT_MAX}
 								rows={2}
 								placeholder="What you saw, in your words"
-								onChange={(event) => setStatement(event.target.value)}
+								onChange={(event) => edit({ statement: event.target.value })}
 							/>
 						</Field>
 						{chosen ? (

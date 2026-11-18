@@ -70,9 +70,9 @@
   "contract_status": "Reviewed starting design; builders may change it through a reviewed migration.",
   "as_of": "2026-10-17",
   "implementation_authorized": false,
-  "table_count": 118,
-  "column_count": 1333,
-  "foreign_key_count": 393,
+  "table_count": 123,
+  "column_count": 1404,
+  "foreign_key_count": 409,
   "type_contracts": {
     "text": "UTF8; per-boundary bounded, sanitized only when rendered in rich context.",
     "date": "YYYY-MM-DD local calendar date, never UTC midnight instant.",
@@ -361,7 +361,8 @@
       "assistant_turn",
       "people_import",
       "evry_effect",
-      "feedback_publication"
+      "feedback_publication",
+      "assessment"
     ],
     "job.state": [
       "ready",
@@ -378,6 +379,10 @@
       "scheduled",
       "postponed",
       "completed"
+    ],
+    "launch.gathering_path": [
+      "launch_sunday",
+      "milestone"
     ],
     "launch_debrief.missing_names": [
       "yes",
@@ -489,9 +494,12 @@
       "reference_update",
       "digest",
       "launch",
-      "communication"
+      "communication",
+      "residency",
+      "review"
     ],
     "notice.purpose": [
+      "answer_review",
       "communication_unsubscribed",
       "insight_available",
       "launch_milestone",
@@ -505,6 +513,8 @@
       "reference_update",
       "relationship_decision",
       "relationship_invitation",
+      "residency_confirmation",
+      "residency_feedback",
       "task_assignment",
       "task_due"
     ],
@@ -520,7 +530,10 @@
       "phase_milestone",
       "launch_milestone",
       "wiki_upstream_review",
-      "scheduled_email_unsubscribe"
+      "scheduled_email_unsubscribe",
+      "residency_confirmation",
+      "residency_feedback",
+      "answer_review"
     ],
     "notification_preference.channel": [
       "email",
@@ -675,7 +688,8 @@
     "platform_grant.capability": [
       "feedback_triage",
       "reference_publish",
-      "recovery_operator"
+      "recovery_operator",
+      "assessment_operator"
     ],
     "private_week.spiritual": [
       "steady",
@@ -749,6 +763,7 @@
     "record.kind": [
       "account",
       "affiliation",
+      "answer_review",
       "article_editor_state",
       "article_revision",
       "assessment",
@@ -1389,6 +1404,43 @@
       "Pacific/Wallis",
       "UTC"
     ],
+    "assessment_feedback.rating": [
+      "useful",
+      "not_useful"
+    ],
+    "assessment_insight.role": [
+      "focus",
+      "supporting",
+      "positive"
+    ],
+    "assessment_insight.severity": [
+      "info",
+      "low",
+      "medium",
+      "high"
+    ],
+    "assessment_run.rubric_version": [
+      "v0",
+      "v1"
+    ],
+    "assessment_run.outcome": [
+      "pending",
+      "deferred",
+      "published",
+      "failed",
+      "degraded",
+      "superseded"
+    ],
+    "assessment_run.grounding": [
+      "grounded",
+      "degraded"
+    ],
+    "assessment_run.demand": [
+      "change",
+      "time",
+      "manual",
+      "followup"
+    ],
     "attestation_revision.key": [
       "values_documented",
       "financial_base_established",
@@ -1467,6 +1519,10 @@
       "identity.domain_accepted",
       "identity.email_changed",
       "identity.sessions_revoked",
+      "intelligence.assessed",
+      "intelligence.assessment_opened",
+      "intelligence.feedback_saved",
+      "intelligence.refresh_requested",
       "invitation.changed",
       "invitation.claimed",
       "invitation.revoked",
@@ -7234,6 +7290,32 @@
         "SCHEMA-009",
         "PERSONREF-TRAINING-APPLICABILITY-COMPLETION-MERGE"
       ]
+    },
+    {
+      "table": "answer_review",
+      "columns": [
+        "person_id",
+        "organization_id"
+      ],
+      "target_columns": [
+        "id",
+        "tenant_id"
+      ],
+      "consumer_work_packages": [
+        "WP-102"
+      ],
+      "meaning": "The pipeline person whose kept answers were sent for review (T-385).",
+      "lock_order": "Lock owner and live same-owner source/survivor Persons in UUID order, then consumer row; new references take the same lifecycle locks.",
+      "merge_policy": "Preserve original historical endpoints; refuse conflicting linked accounts, duplicate active same-program enrollments or cross-owner collisions. Never transfer consent, private content or authorship.",
+      "inverse_policy": "Guard exact prior/result revisions and refuse new reference, changed feedback/completion or irreversible disclosure; no partial inverse.",
+      "retirement_policy": "A retired person's sends stay shared; removal on request ends sharing and keeps the send with no note.",
+      "privacy_policy": "Names only the person; the reviewer reads the chosen live answers and nothing else of the person's record.",
+      "immutable_evidence_policy": "Original actor, occurrence and correction evidence stays immutable.",
+      "future_case_ids": [
+        "ADR1-001",
+        "ADR1-005",
+        "ADR1-017"
+      ]
     }
   ],
   "person_snapshot_references": [
@@ -8402,6 +8484,317 @@
       "rls": false
     },
     {
+      "name": "answer_review",
+      "domain": "people",
+      "purpose": "Part of an organization pipeline person's kept answers sent to a named reviewer (T-385, D-1507): one kept-answers note, the chosen question titles and a group name, sent by an Owner or Admin to a current seat of the same organization. The reviewer reads the note's live answers to those questions only (D-1509) and gets no other duty (D-1511).",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-A-056"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-102"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-102"
+        ],
+        "rule": "WP-102 (T-385) sends chosen kept answers for review."
+      },
+      "feature_ids": [
+        "MUL-007",
+        "MUL-008",
+        "MUL-009"
+      ],
+      "acceptance_ids": [
+        "AC-MUL-009--MUL-009"
+      ],
+      "future_case_ids": [
+        "ADR1-009"
+      ],
+      "scope": "people",
+      "invariants": [
+        "Sent only by a current Owner or Admin, only to a current seat of the same organization, and only from a note that holds kept answers.",
+        "Holds question titles and a group name, never an answer: the reviewer reads the note's current answers, and a question the note no longer holds reads as no longer available.",
+        "Shared only while not withdrawn, the reviewer's seat is current, the note is not removed and the person is not removed on request; otherwise the reviewer sees no question or answer text.",
+        "Never enters Evry, model input, search or the pipeline export; its audit rows hold ids, actor and change kind only."
+      ],
+      "revision": "Withdrawal advances it once; a repeated withdrawal changes nothing.",
+      "idempotency": "The browser names the send id, so a repeated send writes one send.",
+      "deletion": "Kept with no note when the note is removed or deleted with a removal on request (REQ-MUL-005), so the reviewer sees it as no longer shared; deleted with the person record.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "organization_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "person_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "note_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "reviewer_seat_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "sender_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "group_name",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "questions",
+          "type": "text[]",
+          "nullable": false
+        },
+        {
+          "note": "",
+          "name": "sent_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "",
+          "name": "withdrawn_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "",
+          "name": "revision",
+          "type": "bigint",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "scope_exception": "The send's note is a person_note of the same organization: the send's write reads it by note, organization and live pipeline person in the same statement. Deleting the note leaves the send with no note, so it reads as no longer shared.",
+          "deletion": {
+            "action": "set null",
+            "policy": "Removing or deleting the note leaves the send with no note: the reviewer sees it as no longer shared."
+          },
+          "columns": [
+            "note_id"
+          ],
+          "references": {
+            "table": "person_note",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "organization_id"
+          ],
+          "references": {
+            "table": "organization",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "person_id",
+            "organization_id"
+          ],
+          "references": {
+            "table": "person",
+            "columns": [
+              "id",
+              "tenant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "scope_exception": "Current reviewer seat belongs to the exact organization. The send's write checks the seat's organization and that it is current; each read checks it again and grants nothing beyond the send.",
+          "deletion": {
+            "action": "restrict",
+            "policy": "Explicit dependency-ordered removal or authorized minimal-attribution detachment. Current grants and removal witnesses apply to retained facts and recovery; a foreign key grants no access."
+          },
+          "columns": [
+            "reviewer_seat_id"
+          ],
+          "references": {
+            "table": "seat",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "restrict"
+        },
+        {
+          "deletion": {
+            "action": "set null",
+            "policy": "Account deletion keeps the send with no sender attribution."
+          },
+          "columns": [
+            "sender_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        }
+      ],
+      "checks": [
+        "((length(btrim(group_name)) >= 1) AND (length(group_name) <= 120))",
+        "((cardinality(questions) >= 1) AND (cardinality(questions) <= 200))",
+        "(revision >= 1)"
+      ],
+      "indexes": {
+        "answer_review_note_idx": {
+          "name": "answer_review_note_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "note_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "answer_review_person_idx": {
+          "name": "answer_review_person_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "person_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "answer_review_reviewer_idx": {
+          "name": "answer_review_reviewer_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "reviewer_seat_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "answer_review_sender_idx": {
+          "name": "answer_review_sender_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "sender_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "answer_review_organization_idx": {
+          "name": "answer_review_organization_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "answer_review_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "answer_review_organization",
+          "answer_review_person",
+          "answer_review_note",
+          "answer_review_reviewer",
+          "answer_review_sender"
+        ],
+        "checks": [
+          "answer_review_revision",
+          "answer_review_group_name",
+          "answer_review_questions"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
       "name": "article_editor_state",
       "domain": "wiki",
       "purpose": "Exact-organization current inherit, edit, hide or draft choice.",
@@ -9382,6 +9775,1071 @@
           "article_revision_ck_2",
           "article_revision_ck_3"
         ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "assessment_feedback",
+      "domain": "intelligence",
+      "purpose": "A reader's own rating of one point of one published Plant Intelligence assessment (REQ-PI-033): useful or not useful with an optional comment, bound to the exact insight, run and rubric version.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-020",
+        "CAP-C-021",
+        "CAP-C-026"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-044"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-044"
+        ],
+        "rule": "WP-044 writes it from intelligence.submitFeedback."
+      },
+      "feature_ids": [
+        "PI-016",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-025",
+        "PI-026",
+        "PI-027",
+        "PI-028",
+        "PI-029",
+        "PI-030",
+        "PI-031",
+        "PI-034",
+        "PI-035",
+        "PI-036",
+        "PI-042"
+      ],
+      "acceptance_ids": [
+        "AC-PI-016--PI-016",
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-025--PI-025",
+        "AC-PI-026--PI-026",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028",
+        "AC-PI-029--PI-029",
+        "AC-PI-030--PI-030",
+        "AC-PI-031--PI-031",
+        "AC-PI-034--PI-034",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-042--PI-042"
+      ],
+      "future_case_ids": [],
+      "scope": "intelligence",
+      "invariants": [
+        "Only its author writes or reads it.",
+        "It never changes the run, its insights, scores or the rubric."
+      ],
+      "revision": "The author's latest rating and comment replace the earlier ones; each change writes an intelligence.feedback_saved audit row.",
+      "idempotency": "Saving the same rating and comment again changes nothing and writes no audit row.",
+      "deletion": "Goes with its insight, run, plant or author account.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "The published run.",
+          "name": "run_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The rated point: its insight ordinal.",
+          "name": "ordinal",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "The assessed plant.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The author: the only account that reads or changes it.",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The run's rubric version when the feedback was given.",
+          "name": "rubric_version",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "useful or not_useful.",
+          "name": "rating",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The optional comment, 1 to 1000 characters; null when blank.",
+          "name": "comment",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "When the latest rating or comment was saved.",
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "run_id",
+        "ordinal",
+        "account_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with its author's account."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the plant in the church purge."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with its run."
+          },
+          "columns": [
+            "run_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "assessment_run",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [
+        "((comment IS NULL) OR ((char_length(comment) >= 1) AND (char_length(comment) <= 1000)))",
+        "rating in ('useful', 'not_useful')"
+      ],
+      "indexes": {
+        "assessment_feedback_plant_idx": {
+          "name": "assessment_feedback_plant_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assessment_feedback_account_idx": {
+          "name": "assessment_feedback_account_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "assessment_feedback_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "assessment_feedback_run",
+          "assessment_feedback_plant",
+          "assessment_feedback_account"
+        ],
+        "checks": [
+          "assessment_feedback_rating",
+          "assessment_feedback_comment"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "assessment_insight",
+      "domain": "intelligence",
+      "purpose": "The insights of a published Plant Intelligence assessment (REQ-PI-023): one per point (focus, supporting, positive) with the severity its model urgency maps to, written in the statement that publishes the run.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-020",
+        "CAP-C-021",
+        "CAP-C-026"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-043"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-043"
+        ],
+        "rule": "WP-043 writes each published assessment's insights with its run."
+      },
+      "feature_ids": [
+        "PI-016",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-025",
+        "PI-026",
+        "PI-027",
+        "PI-028",
+        "PI-029",
+        "PI-030",
+        "PI-031",
+        "PI-034",
+        "PI-035",
+        "PI-036",
+        "PI-042"
+      ],
+      "acceptance_ids": [
+        "AC-PI-016--PI-016",
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-025--PI-025",
+        "AC-PI-026--PI-026",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028",
+        "AC-PI-029--PI-029",
+        "AC-PI-030--PI-030",
+        "AC-PI-031--PI-031",
+        "AC-PI-034--PI-034",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-042--PI-042"
+      ],
+      "future_case_ids": [
+        "ASMT-006"
+      ],
+      "scope": "intelligence",
+      "invariants": [
+        "Written with its published run in one statement, never changed.",
+        "Severity is info, low, medium or high; critical is never produced."
+      ],
+      "revision": "Immutable; no revision.",
+      "idempotency": "Written once with its run.",
+      "deletion": "Goes with its run and its plant.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "The published run.",
+          "name": "run_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The point's order: focus, the supporting points, then positives.",
+          "name": "ordinal",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "The assessed plant.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "focus, supporting or positive.",
+          "name": "role",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "info, low, medium or high, from the model urgency positive, info, watch or urgent.",
+          "name": "severity",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The point's title as published.",
+          "name": "title",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "run_id",
+        "ordinal"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the plant in the church purge."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with its run."
+          },
+          "columns": [
+            "run_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "assessment_run",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [
+        "role in ('focus', 'supporting', 'positive')",
+        "severity in ('info', 'low', 'medium', 'high')"
+      ],
+      "indexes": {
+        "assessment_insight_plant_idx": {
+          "name": "assessment_insight_plant_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "assessment_insight_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "assessment_insight_run",
+          "assessment_insight_plant"
+        ],
+        "checks": [
+          "assessment_insight_role",
+          "assessment_insight_severity"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "assessment_run",
+      "domain": "intelligence",
+      "purpose": "One Plant Intelligence assessment run of a plant (REQ-PI-016 to REQ-PI-019, REQ-PI-026): the exact captured fact snapshot and model input, the reference and rubric versions it read, each draft with the rules it broke, the usage, and the published assessment with its citations when a draft passed every check.",
+      "library_owned": false,
+      "jsonb_keys": {
+        "facts": "The intelligence.readFacts result at the run's as-of instant (plant-facts/1), exactly as captured.",
+        "model_input": "The model-purpose input: phase, as-of, rubric, citable fact entries (counts, statuses and dates only) and the offered methodology passages. Null when guidance couldn't be read.",
+        "drafts": "Each draft in order: ordinal, provider attempts, the model's output and its violations (rule, where, detail).",
+        "result": "`draft`, the published draft (summary, focus, two supporting points, positives), and `citations`, each cited fact (key, label, value) or passage (article, revision, source, section, phase, text, text hash, version).",
+        "delta": "`previousRunId`, `previousAsOf` and `changed`: each citable fact whose value moved since the previous published run (key, label, before, after)."
+      },
+      "capabilities": [
+        "CAP-C-020",
+        "CAP-C-021",
+        "CAP-C-026"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-041",
+        "WP-042",
+        "WP-043"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-041",
+          "WP-042",
+          "WP-043"
+        ],
+        "rule": "WP-041 and WP-042 record each assessment run with its captured input, versions, drafts, usage and published result."
+      },
+      "feature_ids": [
+        "PI-016",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-025",
+        "PI-026",
+        "PI-027",
+        "PI-028",
+        "PI-029",
+        "PI-030",
+        "PI-031",
+        "PI-034",
+        "PI-035",
+        "PI-036",
+        "PI-042"
+      ],
+      "acceptance_ids": [
+        "AC-PI-016--PI-016",
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-025--PI-025",
+        "AC-PI-026--PI-026",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028",
+        "AC-PI-029--PI-029",
+        "AC-PI-030--PI-030",
+        "AC-PI-031--PI-031",
+        "AC-PI-034--PI-034",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-042--PI-042"
+      ],
+      "future_case_ids": [
+        "PI-CASE-011",
+        "PI-CASE-018",
+        "ASMT-011",
+        "ASMT-012"
+      ],
+      "scope": "intelligence",
+      "invariants": [
+        "The captured snapshot (facts, model input, versions, demand) never changes after capture; only progress and outcome advance, and a settled run never changes again.",
+        "Only an outcome of published holds a result and an available_at; a degraded run holds no model input or drafts.",
+        "The model input holds no person, name, note, score, interview result or private check-in.",
+        "The current assessment is the latest published run by available_at and id; no pointer is stored."
+      ],
+      "revision": "The snapshot is frozen by trigger; the outcome moves from pending or deferred to one settled outcome, fenced on the job's current claim.",
+      "idempotency": "One run per plant and demand key (the job's producer key), so a retried or reclaimed job resumes the same run.",
+      "deletion": "Plant-owned derived facts. Runs go with the plant in the church purge; account deletion clears who requested a run.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "Run identity.",
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The assessed plant.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The Owner or Admin who asked for the run; null after their account is deleted.",
+          "name": "requested_by",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "The run's one as-of instant, the facts' own.",
+          "name": "as_of",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "The plant's phase at the run; its methodology passages are for this phase or general.",
+          "name": "phase",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "The facts' source revision digest at capture.",
+          "name": "source_revision",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The fact formula version (plant-facts/1).",
+          "name": "formula_version",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The plant rubric version the run applies (v1).",
+          "name": "rubric_version",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "SHA-256 of the rubric's preserved bytes.",
+          "name": "rubric_sha256",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The activated reference release the run read; null when none was readable.",
+          "name": "reference_release",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "That activation's number; null when none was readable.",
+          "name": "reference_activation",
+          "type": "bigint",
+          "nullable": true
+        },
+        {
+          "note": "The drafter id, such as assessment-scripted.",
+          "name": "model",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "pending, deferred (waiting for the provider until retry_at), published, failed, degraded (guidance couldn't be read) or superseded (an input or the reference changed first).",
+          "name": "outcome",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "grounded, or degraded when the methodology sources couldn't be read.",
+          "name": "grounding",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "Why the run did not publish; null when it did.",
+          "name": "reason",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The captured fact snapshot.",
+          "name": "facts",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "The exact model input.",
+          "name": "model_input",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "note": "Every draft with its violations.",
+          "name": "drafts",
+          "type": "jsonb",
+          "nullable": false
+        },
+        {
+          "note": "The published assessment and its citations.",
+          "name": "result",
+          "type": "jsonb",
+          "nullable": true
+        },
+        {
+          "note": "Provider attempts across drafts.",
+          "name": "attempts",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "Input tokens counted against the run budget.",
+          "name": "input_tokens",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "Output tokens counted against the run budget.",
+          "name": "output_tokens",
+          "type": "integer",
+          "nullable": false
+        },
+        {
+          "note": "When the run row was stored, at capture.",
+          "name": "recorded_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "clock_timestamp()"
+        },
+        {
+          "note": "What asked for the run: change, time, manual or followup.",
+          "name": "demand",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The demand identity, the job's producer key; unique per plant.",
+          "name": "demand_key",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "note": "The snapshot's database instant; a write audited after it is a change the run did not see.",
+          "name": "captured_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "When the run gives up; a deferral never waits past it.",
+          "name": "deadline_at",
+          "type": "timestamptz",
+          "nullable": false
+        },
+        {
+          "note": "Provider attempts spent on the draft in progress.",
+          "name": "pending_attempts",
+          "type": "integer",
+          "nullable": false,
+          "default": 0
+        },
+        {
+          "note": "When a deferred run tries the provider again; set exactly when deferred.",
+          "name": "retry_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "When the run reached its final outcome; null while pending or deferred.",
+          "name": "settled_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "When a published run became current; set exactly when published.",
+          "name": "available_at",
+          "type": "timestamptz",
+          "nullable": true
+        },
+        {
+          "note": "The facts that moved since the previous published run.",
+          "name": "delta",
+          "type": "jsonb",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "unique_keys": [
+        {
+          "columns": [
+            "plant_id",
+            "demand_key"
+          ]
+        },
+        {
+          "columns": [
+            "id",
+            "plant_id"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the plant in the church purge."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
+            "policy": "Deleting the account clears who requested the run; the run stays."
+          },
+          "columns": [
+            "requested_by"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        }
+      ],
+      "checks": [
+        "((attempts >= 0) AND (attempts <= 12) AND (input_tokens >= 0) AND (output_tokens >= 0))",
+        "demand in ('change', 'time', 'manual', 'followup')",
+        "grounding in ('grounded', 'degraded')",
+        "outcome in ('pending', 'deferred', 'published', 'failed', 'degraded', 'superseded')",
+        "((phase >= 0) AND (phase <= 6))",
+        "(((outcome = 'published'::text) = (result IS NOT NULL)) AND ((outcome = 'published'::text) = (available_at IS NOT NULL)) AND ((grounding = 'degraded'::text) = (model_input IS NULL)) AND ((grounding = 'degraded'::text) = (outcome = 'degraded'::text)) AND ((reference_release IS NULL) = (reference_activation IS NULL)) AND ((outcome = 'deferred'::text) = (retry_at IS NOT NULL)) AND ((outcome = ANY (ARRAY['pending'::text, 'deferred'::text])) = (settled_at IS NULL)))",
+        "rubric_version in ('v0', 'v1')"
+      ],
+      "indexes": {
+        "assessment_run_plant_idx": {
+          "name": "assessment_run_plant_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recorded_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assessment_run_requester_idx": {
+          "name": "assessment_run_requester_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "requested_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assessment_run_current_idx": {
+          "name": "assessment_run_current_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "available_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "assessment_run_pkey"
+        ],
+        "unique": [
+          "assessment_run_demand",
+          "assessment_run_owner"
+        ],
+        "foreign": [
+          "assessment_run_plant",
+          "assessment_run_requester"
+        ],
+        "checks": [
+          "assessment_run_phase",
+          "assessment_run_rubric",
+          "assessment_run_outcome",
+          "assessment_run_grounding",
+          "assessment_run_demand_kind",
+          "assessment_run_published",
+          "assessment_run_budget"
+        ]
+      },
+      "policies": {},
+      "rls": false
+    },
+    {
+      "name": "assessment_seen",
+      "domain": "intelligence",
+      "purpose": "An Owner's or Admin's explicit first open of one published Plant Intelligence assessment (REQ-PI-024, REQ-PI-032). The earliest open, or 72 hours after the run became available, releases it to the plant's organizations.",
+      "library_owned": false,
+      "jsonb_keys": {},
+      "capabilities": [
+        "CAP-C-020",
+        "CAP-C-021",
+        "CAP-C-026"
+      ],
+      "replaces": [],
+      "producer_work_packages": [
+        "WP-044"
+      ],
+      "producer_derivation": {
+        "old_target_tables": [],
+        "additional_producers": [
+          "WP-044"
+        ],
+        "rule": "WP-044 writes it from intelligence.markAssessmentSeen."
+      },
+      "feature_ids": [
+        "PI-016",
+        "PI-017",
+        "PI-018",
+        "PI-019",
+        "PI-020",
+        "PI-022",
+        "PI-023",
+        "PI-024",
+        "PI-025",
+        "PI-026",
+        "PI-027",
+        "PI-028",
+        "PI-029",
+        "PI-030",
+        "PI-031",
+        "PI-034",
+        "PI-035",
+        "PI-036",
+        "PI-042"
+      ],
+      "acceptance_ids": [
+        "AC-PI-016--PI-016",
+        "AC-PI-017--PI-017",
+        "AC-PI-018--PI-018",
+        "AC-PI-019--PI-019",
+        "AC-PI-020--PI-020",
+        "AC-PI-022--PI-022",
+        "AC-PI-023--PI-023",
+        "AC-PI-024--PI-024",
+        "AC-PI-025--PI-025",
+        "AC-PI-026--PI-026",
+        "AC-PI-027--PI-027",
+        "AC-PI-028--PI-028",
+        "AC-PI-029--PI-029",
+        "AC-PI-030--PI-030",
+        "AC-PI-031--PI-031",
+        "AC-PI-034--PI-034",
+        "AC-PI-035--PI-035",
+        "AC-PI-036--PI-036",
+        "AC-PI-042--PI-042"
+      ],
+      "future_case_ids": [],
+      "scope": "intelligence",
+      "invariants": [
+        "Written by an explicit open from an eligible Owner or Admin, never by rendering or by an organization seat.",
+        "Never changed after it is written."
+      ],
+      "revision": "Immutable; no revision.",
+      "idempotency": "One row per run and account; a repeated open writes nothing.",
+      "deletion": "Goes with its run, plant or account.",
+      "physical_verified": false,
+      "columns": [
+        {
+          "note": "The opened run.",
+          "name": "run_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The Owner or Admin who opened it.",
+          "name": "account_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "The assessed plant.",
+          "name": "plant_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "note": "When they first opened it.",
+          "name": "seen_at",
+          "type": "timestamptz",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "run_id",
+        "account_id"
+      ],
+      "unique_keys": [],
+      "foreign_keys": [
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the account."
+          },
+          "columns": [
+            "account_id"
+          ],
+          "references": {
+            "table": "account",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with the plant in the church purge."
+          },
+          "columns": [
+            "plant_id"
+          ],
+          "references": {
+            "table": "plant",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "cascade"
+        },
+        {
+          "deletion": {
+            "action": "cascade",
+            "policy": "Goes with its run."
+          },
+          "columns": [
+            "run_id",
+            "plant_id"
+          ],
+          "references": {
+            "table": "assessment_run",
+            "columns": [
+              "id",
+              "plant_id"
+            ]
+          },
+          "on_delete": "cascade"
+        }
+      ],
+      "checks": [],
+      "indexes": {
+        "assessment_seen_plant_idx": {
+          "name": "assessment_seen_plant_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "plant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "assessment_seen_account_idx": {
+          "name": "assessment_seen_account_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "constraint_names": {
+        "primary": [
+          "assessment_seen_pkey"
+        ],
+        "unique": [],
+        "foreign": [
+          "assessment_seen_run",
+          "assessment_seen_plant",
+          "assessment_seen_account"
+        ],
+        "checks": []
       },
       "policies": {},
       "rls": false
@@ -12089,7 +13547,7 @@
         }
       ],
       "checks": [
-        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
+        "action in ('account.deletion_requested','affiliation.approved','affiliation.ended','attestation.corrected','attestation.recorded','branding.changed','communication.draft_deleted','communication.draft_saved','communication.rescheduled','communication.scheduled','communication.send_intended','communication.template_archived','communication.template_created','communication.template_deleted','communication.template_forked','communication.template_updated','deletion.cancelled','deletion.live_purge_completed','development.enrolled','development.feedback_recorded','development.milestone_confirmed','development.milestone_marked','development.milestone_recorded','development.plan_saved','development.program_created','development.version_applied','development.version_published','documents.archived','documents.church_archived','documents.church_restored','documents.branding_changed','documents.copied','documents.created_from_template','documents.designated','documents.export_deleted','documents.exported','documents.generated','documents.imported','documents.purged','documents.saved','documents.template_deleted','documents.template_details_changed','documents.template_saved','documents.template_updated','evry.conversation_created','evry.proposal_approved','evry.proposal_cancelled','evry.proposal_prepared','evry.proposal_retried','evry.proposal_revised','evry.turn_cancelled','evry.turn_retried','evry.turn_submitted','feedback.publication_held','feedback.publication_intended','feedback.publication_unknown','feedback.published','feedback.received','feedback.status_changed','files.finalized','followup.corrected','followup.recorded','identity.credential_changed','identity.credential_observed','identity.domain_accepted','identity.email_changed','identity.sessions_revoked','intelligence.assessed','intelligence.assessment_opened','intelligence.feedback_saved','intelligence.refresh_requested','invitation.changed','invitation.claimed','invitation.revoked','launch.changed','launch.corrected','launch.debrief_submitted','launch.outcome_recorded','launch.summary_published','mail.accepted','mail.cancelled','mail.delivered','mail.reconciled','mail.refused','meetings.changed','meetings.corrected','meetings.finalized','meetings.response_recorded','meetings.rsvp_recorded','membership.created','membership.ended','membership.role_changed','organization.profile_changed','people.corrected','people.created','people.duplicate_dismissed','people.duplicate_restored','people.merged','people.recorded','people.removed','people.restored','people.retired','people.stage_changed','people.unmerged','people.updated','phase.created','phase.declared','phase.transitioned','plant.created','plant.deletion_requested','plant.profile_changed','recovery.copy_expired','recovery.restored','reference.activated','roles.changed','settings.changed','sharing.changed','tasks.changed','tasks.completed','tasks.waived','teams.changed','training.assigned','training.assignment_removed','training.completed','training.corrected','training.revoked','wiki.bookmark_changed','wiki.hidden','wiki.published','wiki.reading_recorded','wiki.source_order_changed')",
         "num_nonnulls(actor_id,actor_token,system_cause)>=1",
         "kind in ('create','edit','correct','retire','restore','merge','unmerge','stage_change','classification_change','commitment_change','assign','remove','accept','revoke','resend','role_change','leader_change','tick','untick','archive','earn','revoke_credit','offer_answer','publish','hide','read','progress','complete','reopen','waive','supersede','finalize','reconcile','noop','triage','suppress','suppression_clear','preference','model_attempt','tool_attempt','effect_result','mail_member','outcome','declaration','movement')",
         "jsonb_typeof(metadata)='object' AND (metadata->'diff' IS NULL OR (jsonb_typeof(metadata->'diff')='object' AND octet_length(convert_to((metadata->'diff')::text,'UTF8'))<=2048))"
@@ -21885,7 +23343,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication')",
+        "kind in ('mail', 'notification', 'digest', 'object_cleanup', 'lifecycle_purge', 'assistant_turn', 'people_import', 'evry_effect', 'feedback_publication', 'assessment')",
         "state in ('ready', 'claimed', 'retry_wait', 'reconcile', 'succeeded', 'failed', 'cancelled', 'superseded')",
         "((attempt_count >= 0) AND (max_attempts >= 1))",
         "(claim_generation >= 0)",
@@ -22129,6 +23587,37 @@
           "name": "outcome_recorded_by",
           "type": "uuid",
           "nullable": true
+        },
+        {
+          "note": "How the church ends its gathering phase (T-296): launch_sunday, or milestone, a milestone an organization it is affiliated with offers. Choosing never changes the date, readiness, tasks or phase.",
+          "name": "gathering_path",
+          "type": "text",
+          "nullable": false,
+          "default": "'launch_sunday'"
+        },
+        {
+          "note": "The organization whose milestone the church uses. Null on Launch Sunday, or once that organization is gone.",
+          "name": "gathering_organization_id",
+          "type": "uuid",
+          "nullable": true
+        },
+        {
+          "note": "The church-local day the milestone was reached; null until recorded or once cleared.",
+          "name": "gathering_reached_on",
+          "type": "date",
+          "nullable": true
+        },
+        {
+          "note": "The milestone's name when it was reached, at most 120 characters. A later rename by the organization never changes it.",
+          "name": "gathering_reached_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "The planter's note on reaching the milestone, at most 2,000 characters.",
+          "name": "gathering_note",
+          "type": "text",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -22171,6 +23660,22 @@
         {
           "deletion": {
             "action": "set_null",
+            "policy": "Removing the organization leaves the church on the milestone path with no offer, which reads as no longer offered; a reached record and its audit history stay."
+          },
+          "columns": [
+            "gathering_organization_id"
+          ],
+          "references": {
+            "table": "organization",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "set_null"
+        },
+        {
+          "deletion": {
+            "action": "set_null",
             "policy": "Deleting the account clears who recorded the outcome; the fact, its time and its audit history stay."
           },
           "columns": [
@@ -22191,6 +23696,10 @@
         "((attendance IS NULL) OR ((attendance >= 0) AND (attendance <= 1000000)))",
         "((decisions IS NULL) OR ((decisions >= 0) AND (decisions <= 1000000)))",
         "((status <> 'postponed'::text) OR (target_date IS NULL))",
+        "(((gathering_reached_name IS NULL) OR (length(gathering_reached_name) <= 120)) AND ((gathering_note IS NULL) OR (length(gathering_note) <= 2000)))",
+        "gathering_path in ('launch_sunday', 'milestone')",
+        "(((gathering_reached_on IS NULL) = (gathering_reached_name IS NULL)) AND ((gathering_reached_on IS NOT NULL) OR (gathering_note IS NULL)))",
+        "((gathering_path = 'milestone'::text) OR ((gathering_organization_id IS NULL) AND (gathering_reached_on IS NULL)))",
         "((outcome_note IS NULL) OR (length(outcome_note) <= 10000))",
         "((actual_date IS NULL) = (outcome_recorded_at IS NULL))"
       ],
@@ -22224,6 +23733,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "launch_gathering_organization_idx": {
+          "name": "launch_gathering_organization_idx",
+          "isUnique": false,
+          "columns": [
+            {
+              "expression": "gathering_organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "constraint_names": {
@@ -22234,7 +23758,8 @@
         "foreign": [
           "launch_fk_0",
           "launch_fk_1",
-          "launch_outcome_recorded_by"
+          "launch_outcome_recorded_by",
+          "launch_gathering_organization"
         ],
         "checks": [
           "launch_ck_0",
@@ -22243,7 +23768,11 @@
           "launch_ck_3",
           "launch_ck_4",
           "launch_outcome_note",
-          "launch_outcome_recorded"
+          "launch_outcome_recorded",
+          "launch_gathering_path",
+          "launch_gathering_sunday",
+          "launch_gathering_reached",
+          "launch_gathering_lengths"
         ]
       },
       "policies": {},
@@ -27593,8 +29122,8 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "category in ('task', 'meeting', 'phase', 'insight', 'relationship', 'reference_update', 'digest', 'launch', 'communication')",
-        "purpose in ('communication_unsubscribed', 'insight_available', 'launch_milestone', 'meeting_evaluation', 'meeting_invitation', 'meeting_reminder', 'oversight_digest', 'phase_offer', 'phase_transition', 'planter_digest', 'reference_update', 'relationship_decision', 'relationship_invitation', 'task_assignment', 'task_due')",
+        "category in ('task', 'meeting', 'phase', 'insight', 'relationship', 'reference_update', 'digest', 'launch', 'communication', 'residency', 'review')",
+        "purpose in ('answer_review', 'communication_unsubscribed', 'insight_available', 'launch_milestone', 'meeting_evaluation', 'meeting_invitation', 'meeting_reminder', 'oversight_digest', 'phase_offer', 'phase_transition', 'planter_digest', 'reference_update', 'relationship_decision', 'relationship_invitation', 'residency_confirmation', 'residency_feedback', 'task_assignment', 'task_due')",
         "(tenant_id <> '00000000-0000-0000-0000-000000000000'::uuid)",
         "timezone in ('Africa/Abidjan', 'Africa/Accra', 'Africa/Addis_Ababa', 'Africa/Algiers', 'Africa/Asmera', 'Africa/Bamako', 'Africa/Bangui', 'Africa/Banjul', 'Africa/Bissau', 'Africa/Blantyre', 'Africa/Brazzaville', 'Africa/Bujumbura', 'Africa/Cairo', 'Africa/Casablanca', 'Africa/Ceuta', 'Africa/Conakry', 'Africa/Dakar', 'Africa/Dar_es_Salaam', 'Africa/Djibouti', 'Africa/Douala', 'Africa/El_Aaiun', 'Africa/Freetown', 'Africa/Gaborone', 'Africa/Harare', 'Africa/Johannesburg', 'Africa/Juba', 'Africa/Kampala', 'Africa/Khartoum', 'Africa/Kigali', 'Africa/Kinshasa', 'Africa/Lagos', 'Africa/Libreville', 'Africa/Lome', 'Africa/Luanda', 'Africa/Lubumbashi', 'Africa/Lusaka', 'Africa/Malabo', 'Africa/Maputo', 'Africa/Maseru', 'Africa/Mbabane', 'Africa/Mogadishu', 'Africa/Monrovia', 'Africa/Nairobi', 'Africa/Ndjamena', 'Africa/Niamey', 'Africa/Nouakchott', 'Africa/Ouagadougou', 'Africa/Porto-Novo', 'Africa/Sao_Tome', 'Africa/Tripoli', 'Africa/Tunis', 'Africa/Windhoek', 'America/Adak', 'America/Anchorage', 'America/Anguilla', 'America/Antigua', 'America/Araguaina', 'America/Argentina/La_Rioja', 'America/Argentina/Rio_Gallegos', 'America/Argentina/Salta', 'America/Argentina/San_Juan', 'America/Argentina/San_Luis', 'America/Argentina/Tucuman', 'America/Argentina/Ushuaia', 'America/Aruba', 'America/Asuncion', 'America/Bahia', 'America/Bahia_Banderas', 'America/Barbados', 'America/Belem', 'America/Belize', 'America/Blanc-Sablon', 'America/Boa_Vista', 'America/Bogota', 'America/Boise', 'America/Buenos_Aires', 'America/Cambridge_Bay', 'America/Campo_Grande', 'America/Cancun', 'America/Caracas', 'America/Catamarca', 'America/Cayenne', 'America/Cayman', 'America/Chicago', 'America/Chihuahua', 'America/Ciudad_Juarez', 'America/Coral_Harbour', 'America/Cordoba', 'America/Costa_Rica', 'America/Coyhaique', 'America/Creston', 'America/Cuiaba', 'America/Curacao', 'America/Danmarkshavn', 'America/Dawson', 'America/Dawson_Creek', 'America/Denver', 'America/Detroit', 'America/Dominica', 'America/Edmonton', 'America/Eirunepe', 'America/El_Salvador', 'America/Fort_Nelson', 'America/Fortaleza', 'America/Glace_Bay', 'America/Godthab', 'America/Goose_Bay', 'America/Grand_Turk', 'America/Grenada', 'America/Guadeloupe', 'America/Guatemala', 'America/Guayaquil', 'America/Guyana', 'America/Halifax', 'America/Havana', 'America/Hermosillo', 'America/Indiana/Knox', 'America/Indiana/Marengo', 'America/Indiana/Petersburg', 'America/Indiana/Tell_City', 'America/Indiana/Vevay', 'America/Indiana/Vincennes', 'America/Indiana/Winamac', 'America/Indianapolis', 'America/Inuvik', 'America/Iqaluit', 'America/Jamaica', 'America/Jujuy', 'America/Juneau', 'America/Kentucky/Monticello', 'America/Kralendijk', 'America/La_Paz', 'America/Lima', 'America/Los_Angeles', 'America/Louisville', 'America/Lower_Princes', 'America/Maceio', 'America/Managua', 'America/Manaus', 'America/Marigot', 'America/Martinique', 'America/Matamoros', 'America/Mazatlan', 'America/Mendoza', 'America/Menominee', 'America/Merida', 'America/Metlakatla', 'America/Mexico_City', 'America/Miquelon', 'America/Moncton', 'America/Monterrey', 'America/Montevideo', 'America/Montserrat', 'America/Nassau', 'America/New_York', 'America/Nome', 'America/Noronha', 'America/North_Dakota/Beulah', 'America/North_Dakota/Center', 'America/North_Dakota/New_Salem', 'America/Ojinaga', 'America/Panama', 'America/Paramaribo', 'America/Phoenix', 'America/Port-au-Prince', 'America/Port_of_Spain', 'America/Porto_Velho', 'America/Puerto_Rico', 'America/Punta_Arenas', 'America/Rankin_Inlet', 'America/Recife', 'America/Regina', 'America/Resolute', 'America/Rio_Branco', 'America/Santarem', 'America/Santiago', 'America/Santo_Domingo', 'America/Sao_Paulo', 'America/Scoresbysund', 'America/Sitka', 'America/St_Barthelemy', 'America/St_Johns', 'America/St_Kitts', 'America/St_Lucia', 'America/St_Thomas', 'America/St_Vincent', 'America/Swift_Current', 'America/Tegucigalpa', 'America/Thule', 'America/Tijuana', 'America/Toronto', 'America/Tortola', 'America/Vancouver', 'America/Whitehorse', 'America/Winnipeg', 'America/Yakutat', 'Antarctica/Casey', 'Antarctica/Davis', 'Antarctica/DumontDUrville', 'Antarctica/Macquarie', 'Antarctica/Mawson', 'Antarctica/McMurdo', 'Antarctica/Palmer', 'Antarctica/Rothera', 'Antarctica/Syowa', 'Antarctica/Troll', 'Antarctica/Vostok', 'Arctic/Longyearbyen', 'Asia/Aden', 'Asia/Almaty', 'Asia/Amman', 'Asia/Anadyr', 'Asia/Aqtau', 'Asia/Aqtobe', 'Asia/Ashgabat', 'Asia/Atyrau', 'Asia/Baghdad', 'Asia/Bahrain', 'Asia/Baku', 'Asia/Bangkok', 'Asia/Barnaul', 'Asia/Beirut', 'Asia/Bishkek', 'Asia/Brunei', 'Asia/Calcutta', 'Asia/Chita', 'Asia/Colombo', 'Asia/Damascus', 'Asia/Dhaka', 'Asia/Dili', 'Asia/Dubai', 'Asia/Dushanbe', 'Asia/Famagusta', 'Asia/Gaza', 'Asia/Hebron', 'Asia/Hong_Kong', 'Asia/Hovd', 'Asia/Irkutsk', 'Asia/Jakarta', 'Asia/Jayapura', 'Asia/Jerusalem', 'Asia/Kabul', 'Asia/Kamchatka', 'Asia/Karachi', 'Asia/Katmandu', 'Asia/Khandyga', 'Asia/Krasnoyarsk', 'Asia/Kuala_Lumpur', 'Asia/Kuching', 'Asia/Kuwait', 'Asia/Macau', 'Asia/Magadan', 'Asia/Makassar', 'Asia/Manila', 'Asia/Muscat', 'Asia/Nicosia', 'Asia/Novokuznetsk', 'Asia/Novosibirsk', 'Asia/Omsk', 'Asia/Oral', 'Asia/Phnom_Penh', 'Asia/Pontianak', 'Asia/Pyongyang', 'Asia/Qatar', 'Asia/Qostanay', 'Asia/Qyzylorda', 'Asia/Rangoon', 'Asia/Riyadh', 'Asia/Saigon', 'Asia/Sakhalin', 'Asia/Samarkand', 'Asia/Seoul', 'Asia/Shanghai', 'Asia/Singapore', 'Asia/Srednekolymsk', 'Asia/Taipei', 'Asia/Tashkent', 'Asia/Tbilisi', 'Asia/Tehran', 'Asia/Thimphu', 'Asia/Tokyo', 'Asia/Tomsk', 'Asia/Ulaanbaatar', 'Asia/Urumqi', 'Asia/Ust-Nera', 'Asia/Vientiane', 'Asia/Vladivostok', 'Asia/Yakutsk', 'Asia/Yekaterinburg', 'Asia/Yerevan', 'Atlantic/Azores', 'Atlantic/Bermuda', 'Atlantic/Canary', 'Atlantic/Cape_Verde', 'Atlantic/Faeroe', 'Atlantic/Madeira', 'Atlantic/Reykjavik', 'Atlantic/South_Georgia', 'Atlantic/St_Helena', 'Atlantic/Stanley', 'Australia/Adelaide', 'Australia/Brisbane', 'Australia/Broken_Hill', 'Australia/Darwin', 'Australia/Eucla', 'Australia/Hobart', 'Australia/Lindeman', 'Australia/Lord_Howe', 'Australia/Melbourne', 'Australia/Perth', 'Australia/Sydney', 'Europe/Amsterdam', 'Europe/Andorra', 'Europe/Astrakhan', 'Europe/Athens', 'Europe/Belgrade', 'Europe/Berlin', 'Europe/Bratislava', 'Europe/Brussels', 'Europe/Bucharest', 'Europe/Budapest', 'Europe/Busingen', 'Europe/Chisinau', 'Europe/Copenhagen', 'Europe/Dublin', 'Europe/Gibraltar', 'Europe/Guernsey', 'Europe/Helsinki', 'Europe/Isle_of_Man', 'Europe/Istanbul', 'Europe/Jersey', 'Europe/Kaliningrad', 'Europe/Kiev', 'Europe/Kirov', 'Europe/Lisbon', 'Europe/Ljubljana', 'Europe/London', 'Europe/Luxembourg', 'Europe/Madrid', 'Europe/Malta', 'Europe/Mariehamn', 'Europe/Minsk', 'Europe/Monaco', 'Europe/Moscow', 'Europe/Oslo', 'Europe/Paris', 'Europe/Podgorica', 'Europe/Prague', 'Europe/Riga', 'Europe/Rome', 'Europe/Samara', 'Europe/San_Marino', 'Europe/Sarajevo', 'Europe/Saratov', 'Europe/Simferopol', 'Europe/Skopje', 'Europe/Sofia', 'Europe/Stockholm', 'Europe/Tallinn', 'Europe/Tirane', 'Europe/Ulyanovsk', 'Europe/Vaduz', 'Europe/Vatican', 'Europe/Vienna', 'Europe/Vilnius', 'Europe/Volgograd', 'Europe/Warsaw', 'Europe/Zagreb', 'Europe/Zurich', 'Indian/Antananarivo', 'Indian/Chagos', 'Indian/Christmas', 'Indian/Cocos', 'Indian/Comoro', 'Indian/Kerguelen', 'Indian/Mahe', 'Indian/Maldives', 'Indian/Mauritius', 'Indian/Mayotte', 'Indian/Reunion', 'Pacific/Apia', 'Pacific/Auckland', 'Pacific/Bougainville', 'Pacific/Chatham', 'Pacific/Easter', 'Pacific/Efate', 'Pacific/Enderbury', 'Pacific/Fakaofo', 'Pacific/Fiji', 'Pacific/Funafuti', 'Pacific/Galapagos', 'Pacific/Gambier', 'Pacific/Guadalcanal', 'Pacific/Guam', 'Pacific/Honolulu', 'Pacific/Kiritimati', 'Pacific/Kosrae', 'Pacific/Kwajalein', 'Pacific/Majuro', 'Pacific/Marquesas', 'Pacific/Midway', 'Pacific/Nauru', 'Pacific/Niue', 'Pacific/Norfolk', 'Pacific/Noumea', 'Pacific/Pago_Pago', 'Pacific/Palau', 'Pacific/Pitcairn', 'Pacific/Ponape', 'Pacific/Port_Moresby', 'Pacific/Rarotonga', 'Pacific/Saipan', 'Pacific/Tahiti', 'Pacific/Tarawa', 'Pacific/Tongatapu', 'Pacific/Truk', 'Pacific/Wake', 'Pacific/Wallis', 'UTC')"
       ],
@@ -27835,7 +29364,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "category in ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review','scheduled_email_unsubscribe')",
+        "category in ('task_due','task_overdue','meeting_announcement','meeting_reminder','planter_digest','oversight_digest','relationship_milestone','sharing_milestone','phase_milestone','launch_milestone','wiki_upstream_review','scheduled_email_unsubscribe','residency_confirmation','residency_feedback','answer_review')",
         "channel in ('email', 'in_app')",
         "cadence in ('daily', 'weekly')",
         "((weekday IS NULL) OR ((weekday >= 0) AND (weekday <= 6)))",
@@ -28480,7 +30009,12 @@
       "domain": "tenancy",
       "purpose": "Immutable sending-church or network identity and editable contact profile.",
       "library_owned": false,
-      "jsonb_keys": {},
+      "jsonb_keys": {
+        "pipeline_import_columns": [
+          "key: a column title with case, spacing and punctuation removed",
+          "value: name, first_name, last_name, email, stage, answer or skip"
+        ]
+      },
       "capabilities": [
         "CAP-A-004",
         "CAP-A-007"
@@ -28669,6 +30203,32 @@
           "name": "statement_of_faith",
           "type": "text",
           "nullable": true
+        },
+        {
+          "note": "The pipeline import's remembered column choices (T-363): normalized column title to the field, answer or skip an Owner or Admin last chose for it. Titles only, never an answer.",
+          "name": "pipeline_import_columns",
+          "type": "jsonb",
+          "nullable": false,
+          "default": "'{}'::jsonb"
+        },
+        {
+          "note": "Whether the organization's plants may end the gathering phase with its milestone instead of Launch Sunday (T-296). Turning it off keeps the name and description.",
+          "name": "gathering_milestone_offered",
+          "type": "boolean",
+          "nullable": false,
+          "default": false
+        },
+        {
+          "note": "The milestone's name, at most 120 characters; required while it is offered.",
+          "name": "gathering_milestone_name",
+          "type": "text",
+          "nullable": true
+        },
+        {
+          "note": "What the milestone means, at most 2,000 characters, shown on its plants' Launch plans.",
+          "name": "gathering_milestone_description",
+          "type": "text",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -28722,6 +30282,8 @@
         "kind in ('sending_church', 'sending_network')",
         "(length(btrim(name)) > 0)",
         "(id <> '00000000-0000-0000-0000-000000000000'::uuid)",
+        "(((NOT gathering_milestone_offered) OR (gathering_milestone_name IS NOT NULL)) AND ((gathering_milestone_name IS NULL) OR ((length(btrim(gathering_milestone_name)) > 0) AND (length(gathering_milestone_name) <= 120))) AND ((gathering_milestone_description IS NULL) OR (length(gathering_milestone_description) <= 2000)))",
+        "(jsonb_typeof(pipeline_import_columns) = 'object'::text)",
         "((statement_of_faith IS NULL) OR ((kind = 'sending_network'::text) AND (length(btrim(statement_of_faith)) > 0) AND (length(statement_of_faith) <= 10000)))",
         "timezone in ('Africa/Abidjan', 'Africa/Accra', 'Africa/Addis_Ababa', 'Africa/Algiers', 'Africa/Asmera', 'Africa/Bamako', 'Africa/Bangui', 'Africa/Banjul', 'Africa/Bissau', 'Africa/Blantyre', 'Africa/Brazzaville', 'Africa/Bujumbura', 'Africa/Cairo', 'Africa/Casablanca', 'Africa/Ceuta', 'Africa/Conakry', 'Africa/Dakar', 'Africa/Dar_es_Salaam', 'Africa/Djibouti', 'Africa/Douala', 'Africa/El_Aaiun', 'Africa/Freetown', 'Africa/Gaborone', 'Africa/Harare', 'Africa/Johannesburg', 'Africa/Juba', 'Africa/Kampala', 'Africa/Khartoum', 'Africa/Kigali', 'Africa/Kinshasa', 'Africa/Lagos', 'Africa/Libreville', 'Africa/Lome', 'Africa/Luanda', 'Africa/Lubumbashi', 'Africa/Lusaka', 'Africa/Malabo', 'Africa/Maputo', 'Africa/Maseru', 'Africa/Mbabane', 'Africa/Mogadishu', 'Africa/Monrovia', 'Africa/Nairobi', 'Africa/Ndjamena', 'Africa/Niamey', 'Africa/Nouakchott', 'Africa/Ouagadougou', 'Africa/Porto-Novo', 'Africa/Sao_Tome', 'Africa/Tripoli', 'Africa/Tunis', 'Africa/Windhoek', 'America/Adak', 'America/Anchorage', 'America/Anguilla', 'America/Antigua', 'America/Araguaina', 'America/Argentina/La_Rioja', 'America/Argentina/Rio_Gallegos', 'America/Argentina/Salta', 'America/Argentina/San_Juan', 'America/Argentina/San_Luis', 'America/Argentina/Tucuman', 'America/Argentina/Ushuaia', 'America/Aruba', 'America/Asuncion', 'America/Bahia', 'America/Bahia_Banderas', 'America/Barbados', 'America/Belem', 'America/Belize', 'America/Blanc-Sablon', 'America/Boa_Vista', 'America/Bogota', 'America/Boise', 'America/Buenos_Aires', 'America/Cambridge_Bay', 'America/Campo_Grande', 'America/Cancun', 'America/Caracas', 'America/Catamarca', 'America/Cayenne', 'America/Cayman', 'America/Chicago', 'America/Chihuahua', 'America/Ciudad_Juarez', 'America/Coral_Harbour', 'America/Cordoba', 'America/Costa_Rica', 'America/Coyhaique', 'America/Creston', 'America/Cuiaba', 'America/Curacao', 'America/Danmarkshavn', 'America/Dawson', 'America/Dawson_Creek', 'America/Denver', 'America/Detroit', 'America/Dominica', 'America/Edmonton', 'America/Eirunepe', 'America/El_Salvador', 'America/Fort_Nelson', 'America/Fortaleza', 'America/Glace_Bay', 'America/Godthab', 'America/Goose_Bay', 'America/Grand_Turk', 'America/Grenada', 'America/Guadeloupe', 'America/Guatemala', 'America/Guayaquil', 'America/Guyana', 'America/Halifax', 'America/Havana', 'America/Hermosillo', 'America/Indiana/Knox', 'America/Indiana/Marengo', 'America/Indiana/Petersburg', 'America/Indiana/Tell_City', 'America/Indiana/Vevay', 'America/Indiana/Vincennes', 'America/Indiana/Winamac', 'America/Indianapolis', 'America/Inuvik', 'America/Iqaluit', 'America/Jamaica', 'America/Jujuy', 'America/Juneau', 'America/Kentucky/Monticello', 'America/Kralendijk', 'America/La_Paz', 'America/Lima', 'America/Los_Angeles', 'America/Louisville', 'America/Lower_Princes', 'America/Maceio', 'America/Managua', 'America/Manaus', 'America/Marigot', 'America/Martinique', 'America/Matamoros', 'America/Mazatlan', 'America/Mendoza', 'America/Menominee', 'America/Merida', 'America/Metlakatla', 'America/Mexico_City', 'America/Miquelon', 'America/Moncton', 'America/Monterrey', 'America/Montevideo', 'America/Montserrat', 'America/Nassau', 'America/New_York', 'America/Nome', 'America/Noronha', 'America/North_Dakota/Beulah', 'America/North_Dakota/Center', 'America/North_Dakota/New_Salem', 'America/Ojinaga', 'America/Panama', 'America/Paramaribo', 'America/Phoenix', 'America/Port-au-Prince', 'America/Port_of_Spain', 'America/Porto_Velho', 'America/Puerto_Rico', 'America/Punta_Arenas', 'America/Rankin_Inlet', 'America/Recife', 'America/Regina', 'America/Resolute', 'America/Rio_Branco', 'America/Santarem', 'America/Santiago', 'America/Santo_Domingo', 'America/Sao_Paulo', 'America/Scoresbysund', 'America/Sitka', 'America/St_Barthelemy', 'America/St_Johns', 'America/St_Kitts', 'America/St_Lucia', 'America/St_Thomas', 'America/St_Vincent', 'America/Swift_Current', 'America/Tegucigalpa', 'America/Thule', 'America/Tijuana', 'America/Toronto', 'America/Tortola', 'America/Vancouver', 'America/Whitehorse', 'America/Winnipeg', 'America/Yakutat', 'Antarctica/Casey', 'Antarctica/Davis', 'Antarctica/DumontDUrville', 'Antarctica/Macquarie', 'Antarctica/Mawson', 'Antarctica/McMurdo', 'Antarctica/Palmer', 'Antarctica/Rothera', 'Antarctica/Syowa', 'Antarctica/Troll', 'Antarctica/Vostok', 'Arctic/Longyearbyen', 'Asia/Aden', 'Asia/Almaty', 'Asia/Amman', 'Asia/Anadyr', 'Asia/Aqtau', 'Asia/Aqtobe', 'Asia/Ashgabat', 'Asia/Atyrau', 'Asia/Baghdad', 'Asia/Bahrain', 'Asia/Baku', 'Asia/Bangkok', 'Asia/Barnaul', 'Asia/Beirut', 'Asia/Bishkek', 'Asia/Brunei', 'Asia/Calcutta', 'Asia/Chita', 'Asia/Colombo', 'Asia/Damascus', 'Asia/Dhaka', 'Asia/Dili', 'Asia/Dubai', 'Asia/Dushanbe', 'Asia/Famagusta', 'Asia/Gaza', 'Asia/Hebron', 'Asia/Hong_Kong', 'Asia/Hovd', 'Asia/Irkutsk', 'Asia/Jakarta', 'Asia/Jayapura', 'Asia/Jerusalem', 'Asia/Kabul', 'Asia/Kamchatka', 'Asia/Karachi', 'Asia/Katmandu', 'Asia/Khandyga', 'Asia/Krasnoyarsk', 'Asia/Kuala_Lumpur', 'Asia/Kuching', 'Asia/Kuwait', 'Asia/Macau', 'Asia/Magadan', 'Asia/Makassar', 'Asia/Manila', 'Asia/Muscat', 'Asia/Nicosia', 'Asia/Novokuznetsk', 'Asia/Novosibirsk', 'Asia/Omsk', 'Asia/Oral', 'Asia/Phnom_Penh', 'Asia/Pontianak', 'Asia/Pyongyang', 'Asia/Qatar', 'Asia/Qostanay', 'Asia/Qyzylorda', 'Asia/Rangoon', 'Asia/Riyadh', 'Asia/Saigon', 'Asia/Sakhalin', 'Asia/Samarkand', 'Asia/Seoul', 'Asia/Shanghai', 'Asia/Singapore', 'Asia/Srednekolymsk', 'Asia/Taipei', 'Asia/Tashkent', 'Asia/Tbilisi', 'Asia/Tehran', 'Asia/Thimphu', 'Asia/Tokyo', 'Asia/Tomsk', 'Asia/Ulaanbaatar', 'Asia/Urumqi', 'Asia/Ust-Nera', 'Asia/Vientiane', 'Asia/Vladivostok', 'Asia/Yakutsk', 'Asia/Yekaterinburg', 'Asia/Yerevan', 'Atlantic/Azores', 'Atlantic/Bermuda', 'Atlantic/Canary', 'Atlantic/Cape_Verde', 'Atlantic/Faeroe', 'Atlantic/Madeira', 'Atlantic/Reykjavik', 'Atlantic/South_Georgia', 'Atlantic/St_Helena', 'Atlantic/Stanley', 'Australia/Adelaide', 'Australia/Brisbane', 'Australia/Broken_Hill', 'Australia/Darwin', 'Australia/Eucla', 'Australia/Hobart', 'Australia/Lindeman', 'Australia/Lord_Howe', 'Australia/Melbourne', 'Australia/Perth', 'Australia/Sydney', 'Europe/Amsterdam', 'Europe/Andorra', 'Europe/Astrakhan', 'Europe/Athens', 'Europe/Belgrade', 'Europe/Berlin', 'Europe/Bratislava', 'Europe/Brussels', 'Europe/Bucharest', 'Europe/Budapest', 'Europe/Busingen', 'Europe/Chisinau', 'Europe/Copenhagen', 'Europe/Dublin', 'Europe/Gibraltar', 'Europe/Guernsey', 'Europe/Helsinki', 'Europe/Isle_of_Man', 'Europe/Istanbul', 'Europe/Jersey', 'Europe/Kaliningrad', 'Europe/Kiev', 'Europe/Kirov', 'Europe/Lisbon', 'Europe/Ljubljana', 'Europe/London', 'Europe/Luxembourg', 'Europe/Madrid', 'Europe/Malta', 'Europe/Mariehamn', 'Europe/Minsk', 'Europe/Monaco', 'Europe/Moscow', 'Europe/Oslo', 'Europe/Paris', 'Europe/Podgorica', 'Europe/Prague', 'Europe/Riga', 'Europe/Rome', 'Europe/Samara', 'Europe/San_Marino', 'Europe/Sarajevo', 'Europe/Saratov', 'Europe/Simferopol', 'Europe/Skopje', 'Europe/Sofia', 'Europe/Stockholm', 'Europe/Tallinn', 'Europe/Tirane', 'Europe/Ulyanovsk', 'Europe/Vaduz', 'Europe/Vatican', 'Europe/Vienna', 'Europe/Vilnius', 'Europe/Volgograd', 'Europe/Warsaw', 'Europe/Zagreb', 'Europe/Zurich', 'Indian/Antananarivo', 'Indian/Chagos', 'Indian/Christmas', 'Indian/Cocos', 'Indian/Comoro', 'Indian/Kerguelen', 'Indian/Mahe', 'Indian/Maldives', 'Indian/Mauritius', 'Indian/Mayotte', 'Indian/Reunion', 'Pacific/Apia', 'Pacific/Auckland', 'Pacific/Bougainville', 'Pacific/Chatham', 'Pacific/Easter', 'Pacific/Efate', 'Pacific/Enderbury', 'Pacific/Fakaofo', 'Pacific/Fiji', 'Pacific/Funafuti', 'Pacific/Galapagos', 'Pacific/Gambier', 'Pacific/Guadalcanal', 'Pacific/Guam', 'Pacific/Honolulu', 'Pacific/Kiritimati', 'Pacific/Kosrae', 'Pacific/Kwajalein', 'Pacific/Majuro', 'Pacific/Marquesas', 'Pacific/Midway', 'Pacific/Nauru', 'Pacific/Niue', 'Pacific/Norfolk', 'Pacific/Noumea', 'Pacific/Pago_Pago', 'Pacific/Palau', 'Pacific/Pitcairn', 'Pacific/Ponape', 'Pacific/Port_Moresby', 'Pacific/Rarotonga', 'Pacific/Saipan', 'Pacific/Tahiti', 'Pacific/Tarawa', 'Pacific/Tongatapu', 'Pacific/Truk', 'Pacific/Wake', 'Pacific/Wallis', 'UTC')"
       ],
@@ -28743,7 +30305,9 @@
           "organization_ck_2",
           "organization_ck_3",
           "organization_timezone_iana",
-          "organization_statement_of_faith"
+          "organization_statement_of_faith",
+          "organization_pipeline_import_columns",
+          "organization_gathering_milestone"
         ]
       },
       "policies": {},
@@ -31737,6 +33301,12 @@
           "type": "bigint",
           "nullable": false,
           "default": "1"
+        },
+        {
+          "note": "The kept question titles of a pipeline import's note (T-385), in file order; null on any other note. A send for review names some of them.",
+          "name": "questions",
+          "type": "text[]",
+          "nullable": true
         }
       ],
       "primary_key": [
@@ -31864,7 +33434,8 @@
         "(revision >= 1)",
         "(((removed_at IS NULL) AND ((length(btrim(body)) >= 1) AND (length(btrim(body)) <= 5000))) OR ((removed_at IS NOT NULL) AND (body = ''::text)))",
         "((plant_id IS NULL) OR (tenant_id = plant_id))",
-        "((participation_id IS NULL) OR (plant_id IS NOT NULL))"
+        "((participation_id IS NULL) OR (plant_id IS NOT NULL))",
+        "((questions IS NULL) OR ((cardinality(questions) >= 1) AND (cardinality(questions) <= 200)))"
       ],
       "indexes": {
         "person_note_ref_0": {
@@ -31975,7 +33546,8 @@
           "person_note_ck_0",
           "person_note_ck_1",
           "person_note_ck_2",
-          "person_note_ck_3"
+          "person_note_ck_3",
+          "person_note_questions"
         ]
       },
       "policies": {},
@@ -34593,7 +36165,7 @@
       ],
       "checks": [
         "(revision >= 1)",
-        "capability in ('feedback_triage', 'reference_publish', 'recovery_operator')"
+        "capability in ('feedback_triage', 'reference_publish', 'recovery_operator', 'assessment_operator')"
       ],
       "indexes": {
         "platform_grant_uq_1": {
@@ -37000,7 +38572,7 @@
         }
       ],
       "checks": [
-        "kind in ('account', 'affiliation', 'article_editor_state', 'article_revision', 'assessment', 'assessment_contributor', 'assessment_fact', 'assignment_feedback', 'attestation', 'commitment', 'communication', 'communication_recipient', 'contact_outcome', 'conversation', 'conversation_entry', 'development_enrollment', 'development_milestone', 'development_program', 'development_program_version', 'development_reading', 'development_stage', 'digest_coverage', 'discovery', 'document', 'document_revision', 'effect', 'enrollment_milestone', 'enrollment_plan', 'feedback', 'feedback_publication', 'file_object', 'finding', 'four_cs', 'generated_document', 'household', 'interview', 'invitation', 'job', 'launch_debrief', 'launch_guest', 'launch_milestone', 'launch_summary', 'leadership_conversation', 'lifecycle_witness', 'mail', 'mail_attempt', 'mail_request', 'meeting', 'meeting_evaluation', 'meeting_item', 'message_template', 'notice', 'notification_preference', 'obligation', 'audit_event', 'organization', 'organization_person_removal', 'participation', 'passage', 'person', 'person_merge', 'person_note', 'person_skill', 'phase_transition', 'pipeline_person', 'pipeline_sharing', 'pipeline_stage', 'pipeline_stage_move', 'plant', 'plant_geography', 'platform_grant', 'prompt_dismissal', 'provider_event', 'reader_feedback', 'reading', 'recurrence', 'reference_activation', 'reference_item', 'reference_release', 'reference_version', 'residency_link', 'responsibility', 'review', 'seat', 'sending_goal', 'suppression', 'tag', 'task', 'team', 'team_role', 'team_tenure', 'training_assignment', 'training_credit', 'training_program', 'training_requirement', 'training_version', 'venue', 'wiki_preference')",
+        "kind in ('account', 'affiliation', 'answer_review', 'article_editor_state', 'article_revision', 'assessment', 'assessment_contributor', 'assessment_fact', 'assignment_feedback', 'attestation', 'commitment', 'communication', 'communication_recipient', 'contact_outcome', 'conversation', 'conversation_entry', 'development_enrollment', 'development_milestone', 'development_program', 'development_program_version', 'development_reading', 'development_stage', 'digest_coverage', 'discovery', 'document', 'document_revision', 'effect', 'enrollment_milestone', 'enrollment_plan', 'feedback', 'feedback_publication', 'file_object', 'finding', 'four_cs', 'generated_document', 'household', 'interview', 'invitation', 'job', 'launch_debrief', 'launch_guest', 'launch_milestone', 'launch_summary', 'leadership_conversation', 'lifecycle_witness', 'mail', 'mail_attempt', 'mail_request', 'meeting', 'meeting_evaluation', 'meeting_item', 'message_template', 'notice', 'notification_preference', 'obligation', 'audit_event', 'organization', 'organization_person_removal', 'participation', 'passage', 'person', 'person_merge', 'person_note', 'person_skill', 'phase_transition', 'pipeline_person', 'pipeline_sharing', 'pipeline_stage', 'pipeline_stage_move', 'plant', 'plant_geography', 'platform_grant', 'prompt_dismissal', 'provider_event', 'reader_feedback', 'reading', 'recurrence', 'reference_activation', 'reference_item', 'reference_release', 'reference_version', 'residency_link', 'responsibility', 'review', 'seat', 'sending_goal', 'suppression', 'tag', 'task', 'team', 'team_role', 'team_tenure', 'training_assignment', 'training_credit', 'training_program', 'training_requirement', 'training_version', 'venue', 'wiki_preference')",
         "((kind <> ALL (ARRAY['account'::text, 'plant'::text, 'organization'::text])) OR (tenant_id = id))"
       ],
       "indexes": {

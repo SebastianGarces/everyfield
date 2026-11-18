@@ -1,19 +1,15 @@
 import { requestDatabase } from "@/server/database";
-import { launchMount } from "@/server/launch";
 import { getViewer } from "@/server/request-context";
-import { launchError, type LaunchReply, type Plan } from "@everyfield/contracts/launch";
+import { launchError, type GatheringOffer, type LaunchReply, type Plan } from "@everyfield/contracts/launch";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createLaunchReader, type LaunchWriter } from "@everyfield/domain/launch";
 import "server-only";
+import { launchMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
-
-// The Launch plan reaches the Launch domain here. Pages and actions share the request's one viewer (D59/D60). Every
-// read and write rechecks the live seat inside its own statement (C13, D70).
 
 export type LaunchViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
 
-/** The request's plant seat, or null for a signed-out reader, an organization seat or an account without a seat. */
 export async function launchViewer(): Promise<LaunchViewer | null> {
 	const v = await getViewer();
 	const authority = v?.authority;
@@ -26,11 +22,18 @@ export const administers = (v: Pick<LaunchViewer, "role">) => v.role !== "member
 
 const reader = createLaunchReader();
 
-/**
- * The /launch page's plan: one statement. When an Owner or Admin opens a dated plan whose readiness is incomplete (a
- * date saved in onboarding, or an interrupted seed), the missing milestones and tasks are created first and the plan
- * is read again (LCH-009). A database failure reads as lost, never as "no launch date".
- */
+export async function loadOffers(viewer: LaunchViewer): Promise<Outcome<GatheringOffer[]> | null> {
+	if (!administers(viewer)) return null;
+	const db = requestDatabase();
+	if (!db) return { status: "lost" };
+	try {
+		return await reader.readGatheringOffers(db, viewer.authority);
+	} catch (error) {
+		console.error(JSON.stringify({ component: "launch", outcome: "offers_read_failed", error: String(error) }));
+		return { status: "lost" };
+	}
+}
+
 export async function loadPlan(viewer: LaunchViewer): Promise<Outcome<Plan>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
@@ -61,7 +64,6 @@ const denied = () =>
 		}),
 	}) as const;
 
-/** One Launch read for the request's viewer, outside the page render (guest matches, Launch history). */
 export async function read<T>(
 	run: (
 		reader: ReturnType<typeof createLaunchReader>,
@@ -81,7 +83,6 @@ export async function read<T>(
 	}
 }
 
-/** One Launch write for the request's viewer. */
 export async function write<T>(
 	run: (writer: LaunchWriter, db: Database, authority: RequestActor) => Promise<LaunchReply<T>>,
 ): Promise<Outcome<T>> {

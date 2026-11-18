@@ -10,33 +10,19 @@ import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin, STATUS_WORDS } from "../reads/index.ts";
 
-// The phase and manual-signal reviewed writes (WP-074 over WP-038 and WP-039). Each review is one SELECT under the
-// proposal's statement: it reads the church's phase or the signal's current answer live and saves the native command's
-// exact arguments, including the revision the review showed. On approval the executor runs the owning native command
-// once, for the approving session, with the effect key as its request key; anything that changed since the review
-// refuses instead of being overwritten. Evry never moves a phase or records a signal by itself.
-
-/** The church the change is about: every phase and signal review targets the selected plant, as `p`. */
 const plant = sql`jsonb_build_object('kind','plant','id',p.id,'label',p.name)`;
 const inPlant = (actor: EvryActor) => sql`FROM plant p WHERE p.id=${actor.owner.id}::uuid`;
 const change = (field: string, before: SQL, after: SQL) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${after})`;
 const json = (value: unknown) => sql`${JSON.stringify(value ?? null)}::jsonb`;
-/** A plain reason the review cannot be approved as asked, merged into the review when `when` holds; a later one wins. */
 const refusal = (when: SQL, text: string) =>
 	sql`CASE WHEN ${when} THEN jsonb_build_object('refusal',${text}::text) ELSE '{}'::jsonb END`;
-/** The church's own calendar day now. */
 const today = sql`(clock_timestamp() AT TIME ZONE p.timezone)::date`;
 
 const refused = (reply: { status: "refused"; error: { code: string } }): EffectResult => ({
 	refused: reply.error.code,
 });
 
-// --- phases ---------------------------------------------------------------------------------------------------
-
-/**
- * Each phase as a review shows it, indexed by phase number: its number, which a revision sends back, and its name.
- */
 const phaseValues = (catalog: c.Catalog) => catalog.phases.map((p) => ({ phase: p.phase, name: p.name }));
 
 const declareInput = z.strictObject({ phase: c.phaseNumber });
@@ -48,7 +34,6 @@ export const declarePhase: ReviewedWrite<z.infer<typeof declareInput>> = {
 	allowed: ownerOrAdmin,
 	async review(actor, value) {
 		const phases = phaseValues(await readCatalog());
-		// Offered only while the declaration slot is unused and the church has never moved: no row otherwise.
 		return sql`SELECT jsonb_build_object('target',${plant},'changes',jsonb_build_array(
 				${change("phase", sql`${json(phases)}->p.phase`, json(phases[value.phase]))})) AS review,
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('phase',${value.phase}::int)) AS args
@@ -81,8 +66,6 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 	async review(actor, value, context) {
 		const [catalog, measured] = await Promise.all([readCatalog(), facts.readFacts(context.db, actor.authority)]);
 		const phases = phaseValues(catalog);
-		// The exit criteria of each phase that are not met, with their status in words, indexed by phase number, from the
-		// church's measured facts (WP-040) as phases.readReadiness and the /intelligence page read them.
 		const results = measured.status === "ok" ? measured.value.criteria : {};
 		const open = readReadiness(catalog, results).map((r) =>
 			r.criteria.filter((x) => x.status !== "met").map((x) => ({ label: x.label, status: STATUS_WORDS[x.status] })),
@@ -109,15 +92,10 @@ export const transitionPhase: ReviewedWrite<z.infer<typeof transitionInput>> = {
 	},
 };
 
-// --- manual signals ---------------------------------------------------------------------------------------------
-
 const signals = createSignals();
-/** A signal as a review shows it: its key, which a revision sends back, and its label. */
 const signal = (key: s.SignalKey) => json({ key, label: s.SIGNAL_DEFINITIONS.find((d) => d.key === key)!.label });
-/** The signal's current row in the church, as `a` (absent while it was never answered). */
 const current = (key: s.SignalKey) =>
 	sql`LEFT JOIN attestation a ON a.plant_id=p.id AND a.key=${key} AND a.person_id IS NULL`;
-/** The current answer as the signal states it: yes, not_yet, or null while retracted or never answered. */
 const answer = sql`to_jsonb(CASE WHEN a.state='answered' THEN CASE WHEN a.answer THEN 'yes' ELSE 'not_yet' END END)`;
 const words = z
 	.string()
@@ -136,10 +114,6 @@ const reference = z
 const afterToday = (date: string) => sql`${date}::date>${today}`;
 const FUTURE = "A signal can't be true as of a date after today.";
 
-/**
- * Runs one native signal command with the approved arguments and the effect key as its request key. Its receipt is the
- * revision row that key wrote.
- */
 const runSignal =
 	(command: typeof signals.attest): ReviewedWrite<unknown>["execute"] =>
 	async (tx, context, args, effectKey, ports, native) => {
@@ -221,7 +195,6 @@ export const reaffirmSignal: ReviewedWrite<z.infer<typeof reaffirmInput>> = {
 	allowed: ownerOrAdmin,
 	review(actor, value) {
 		const renews = s.SIGNAL_DEFINITIONS.find((d) => d.key === value.key)!.reaffirms;
-		// The native command dates the answer on the day it runs, so the review says "today", never a fixed date.
 		return sql`SELECT jsonb_build_object('target',${plant},'changes',jsonb_build_array(
 				${change("signal", sql`NULL`, signal(value.key))},
 				${change("value", answer, answer)},
@@ -235,7 +208,6 @@ export const reaffirmSignal: ReviewedWrite<z.infer<typeof reaffirmInput>> = {
 	execute: runSignal(signals.reaffirm),
 };
 
-/** The installed phase and signal reviewed writes, keyed by operation. */
 export const INTELLIGENCE_COMMANDS = {
 	"phases.declare": declarePhase,
 	"phases.transition": transitionPhase,

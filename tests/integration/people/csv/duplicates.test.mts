@@ -1,9 +1,3 @@
-// T-263 (D-789, D-790): "Not a duplicate" on a pair the CSV import flagged with "Add, review later". An Owner or Admin
-// dismisses it, it leaves the list and shows in the Dismissed view, each dismiss and restore writes one audit row, a
-// repeat writes nothing and a stale pair is refused with nothing written. T-268: the side-by-side review offers it for
-// a listed pair, in whichever order its address names the two people, and dismisses the listed direction. T-265: the
-// People page load counts the same pairs for its header link. Through the public operations, on a scratch
-// schema, the way the web mount runs them (withPeopleWrite with the request's resolved actor).
 import { fixture, ok, refused } from "../../../support/fixture.mts";
 import { sql } from "../../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { after } from "node:test";
@@ -11,7 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
-import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
+import { runDueImports } from "../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { readPair } from "../../../../apps/web/src/features/people/corrections/server.ts";
 import { readPeoplePage } from "../../../../apps/web/src/features/people/page-data.ts";
 import { parseQuery } from "../../../../apps/web/src/features/people/model.ts";
@@ -42,7 +36,6 @@ const actors = [
 	await database.actor({ kind: "plant", id: plants[1] }, "admin"),
 	database.actors.owner,
 ];
-// 0: church A admin, 1: church A member, 2: church B admin, 3: church A owner.
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
 const rows = async (query) => (await admin.execute(query)).rows;
 const read = (who, body) => db.transaction((t) => body(t, ctx(who)));
@@ -62,7 +55,6 @@ async function person(name, input = {}) {
 		),
 	).person;
 }
-/** Imports `names` with "Add, review later", each against an existing person with the same email: one pair each. */
 async function flaggedPairs(names) {
 	const tag = randomUUID().slice(0, 8);
 	const existing = [];
@@ -149,7 +141,6 @@ test("AC:TARGET-PPL-016 a repeated dismiss or restore, or a double click, ends i
 		["people.duplicate_dismissed", "people.duplicate_restored"],
 	);
 
-	// A double click: both requests race, one writes and the other answers that nothing changed.
 	const both = await Promise.all([dismiss(pair), dismiss(pair)]);
 	assert.deepEqual(both.map((r) => ok(r).outcome).sort(), ["changed", "noop"]);
 	assert.equal(await dismissals(pair), 1);
@@ -163,7 +154,6 @@ test("AC:TARGET-PPL-016 a merged, retired or never-flagged pair is refused with 
 		(await rows(sql`SELECT count(*)::int n FROM audit_event WHERE action LIKE 'people.duplicate_%'`))[0].n,
 	];
 
-	// Merge one side of a listed pair, then try to dismiss it.
 	const review = ok(
 		await read(3, (t, c) =>
 			peopleMerge.getMergeReview(t, c, { sourceId: merged.personId, survivorId: merged.withPersonId }),
@@ -185,14 +175,12 @@ test("AC:TARGET-PPL-016 a merged, retired or never-flagged pair is refused with 
 	const counts = await before();
 	refused(await dismiss(merged), "pair_unavailable");
 	refused(await restore(merged), "pair_unavailable");
-	// Two live people the import never paired, and a flagged person with someone else.
 	const a = await person("Ola Unpaired");
 	const b = await person("Pim Unpaired");
 	refused(await dismiss({ personId: a.id, withPersonId: b.id }), "pair_unavailable");
 	refused(await dismiss({ personId: kept.personId, withPersonId: b.id }), "pair_unavailable");
 	assert.deepEqual(await before(), counts, "a refused dismiss or restore writes nothing");
 
-	// Retire one side of a dismissed pair: it leaves the Dismissed view, and Restore is refused.
 	ok(await dismiss(retired));
 	ok(await dismiss(kept));
 	const [{ revision }] = await rows(sql`SELECT revision::text FROM person WHERE id=${sql.param(retired.withPersonId)}`);
@@ -221,12 +209,10 @@ test("AC:TARGET-PPL-016 a merged, retired or never-flagged pair is refused with 
 
 test("AC:TARGET-PPL-016 INV-tenancy only the church's Owners and Admins dismiss, restore or see dismissed pairs", async () => {
 	const [pair] = await flaggedPairs(["Quin"]);
-	// A Member is refused by the domain write and read, not only by the page.
 	refused(await dismiss(pair, 1));
 	refused(await read(1, (t, c) => listDismissedDuplicatePairs(t, c)));
 	assert.equal(await dismissals(pair), 0);
 
-	// Another church's Admin can neither dismiss this church's pair nor see it once it is dismissed.
 	refused(await dismiss(pair, 2), "pair_unavailable");
 	assert.equal(await dismissals(pair), 0);
 	ok(await dismiss(pair, 3));
@@ -237,7 +223,6 @@ test("AC:TARGET-PPL-016 INV-tenancy only the church's Owners and Admins dismiss,
 	assert.deepEqual(mine([pair])(await dismissedList(0)), [pair]);
 });
 
-/** The review page's one read for the pair `person`, `with`, with `keep` staying when given. */
 const review = (person, other, keep = null) => read(0, (t, c) => readPair(t, c, { person, with: other, keep }));
 const listedOn = async (person, other, keep = null) => {
 	const view = await review(person, other, keep);
@@ -250,11 +235,9 @@ test("AC:TARGET-PPL-016 the review of a listed pair names the imported person fi
 	const direction = { personId: pair.personId, withPersonId: pair.withPersonId };
 	assert.deepEqual(await listedOn(pair.personId, pair.withPersonId), direction);
 	assert.deepEqual(await listedOn(pair.withPersonId, pair.personId), direction, "the address names them reversed");
-	// "Keep X instead" reads the review again with the other survivor; the pair is still listed the same way.
 	assert.deepEqual(await listedOn(pair.withPersonId, pair.personId, pair.personId), direction);
 	assert.deepEqual(await listedOn(pair.personId, pair.withPersonId, pair.withPersonId), direction);
 
-	// The screen sends the listed direction, as the list's row does.
 	assert.deepEqual(ok(await dismiss(await listedOn(pair.withPersonId, pair.personId))), { outcome: "changed" });
 	assert.equal(await dismissals(pair), 1);
 	assert.deepEqual(await audits(pair), [
@@ -269,23 +252,19 @@ test("AC:TARGET-PPL-016 the review of a listed pair names the imported person fi
 		},
 	]);
 	assert.deepEqual(mine([pair])(await listed()), []);
-	// Dismissed: the review no longer offers it, in either order.
 	assert.equal(await listedOn(pair.personId, pair.withPersonId), null);
 	assert.equal(await listedOn(pair.withPersonId, pair.personId), null);
-	// Restored: it is offered again.
 	ok(await restore(pair));
 	assert.deepEqual(await listedOn(pair.withPersonId, pair.personId), direction);
 });
 
 test("AC:TARGET-PPL-016 a hint-only pair is not listed, and a dismiss after one side merged is refused with nothing written", async () => {
-	// Two live people with the same email that no import flagged: a duplicate hint, not a listed pair.
 	const email = `sol-${randomUUID().slice(0, 8)}@example.test`;
 	const a = await person("Sol Hint", { email });
 	const b = await person("Sol Hint Too", { email });
 	assert.equal(await listedOn(a.id, b.id), null);
 	assert.equal(await listedOn(b.id, a.id), null);
 
-	// The review loaded with the pair listed; then someone merged one side.
 	const [pair] = await flaggedPairs(["Tam"]);
 	const loaded = await listedOn(pair.withPersonId, pair.personId);
 	const merge = ok(
@@ -309,7 +288,6 @@ test("AC:TARGET-PPL-016 a hint-only pair is not listed, and a dismiss after one 
 	refused(await dismiss(loaded), "pair_unavailable");
 	assert.equal(await dismissals(pair), 0);
 	assert.deepEqual(await audits(pair), []);
-	// Reading again shows where they stand now: merged, with nothing to dismiss.
 	assert.equal((await review(pair.withPersonId, pair.personId)).kind, "merged");
 });
 
@@ -322,10 +300,8 @@ test("AC:TARGET-PPL-016 INV-tenancy the People page load counts the church's lis
 	const label = (k) => (k ? `${k} to review in Duplicates` : null);
 	assert.equal((await page(0)).review, label(n), "the Admin's count is the list's");
 	assert.equal((await page(3)).review, label(n), "the Owner's too");
-	// Church B's Admin never sees church A's pairs in its count.
 	assert.equal((await page(2)).review, label((await listed(2)).length));
 	assert.ok(!ids(await listed(2)).some((x) => x.personId === one.personId));
-	// A Member's page loads as before with no count, also if the pairs read were asked for and refused.
 	for (const pairs of [false, true]) {
 		const member = await page(1, pairs);
 		assert.equal(member.data.kind, "list");
@@ -339,8 +315,6 @@ test("AC:TARGET-PPL-016 INV-tenancy the People page load counts the church's lis
 	ok(await restore(two));
 });
 
-// T-269 (D-844, D-845): each dismiss and restore shows in the Activity of both people in the pair, naming the other one
-// by their current name.
 const feed = async (personId, who = 3) =>
 	ok(await read(who, (t, c) => peopleReader.getActivities(t, c, { personId, kinds: ["activity"], limit: 24 }))).items;
 const reviews = (items) =>
@@ -382,7 +356,6 @@ test("AC:TARGET-PPL-008 a dismiss and its restore show in both people's Activity
 		{ action: "duplicate_restored", actor: by(3), with: imported },
 		{ action: "duplicate_dismissed", actor: by(0), with: imported },
 	]);
-	// The entries hold their place in the person's one time-and-ID order, after the import's "Added to People".
 	const items = await feed(pair.personId);
 	assert.deepEqual(
 		items.map((i) => i.action),
@@ -415,8 +388,6 @@ test("AC:TARGET-PPL-008 the entry names the other person as they are now: rename
 		"still named once retired",
 	);
 
-	// Restore puts the pair back on the list, then a merge of the imported person into the other one: the survivor's
-	// feed shows the merged person's history too, and the entries still name them.
 	ok(await restore(merged));
 	const review = ok(
 		await read(3, (t, c) =>
@@ -455,7 +426,6 @@ test("AC:TARGET-PPL-008 INV-tenancy the feed never shows or names another church
 			people.createPerson(t, c, { requestKey: randomUUID(), input: { displayName: "Vic Other" } }),
 		),
 	).person;
-	// Another church's dismissal that names this church's person, and this church's row that names theirs.
 	const [mine] = await rows(sql`SELECT id FROM audit_event WHERE subject_id=${sql.param(pair.personId)}::uuid
  AND action='people.duplicate_dismissed'`);
 	await admin.execute(sql`INSERT INTO audit_event (tenant_id,actor_id,actor_token,action,kind,subject_type,subject_id,metadata)

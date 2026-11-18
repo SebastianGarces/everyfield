@@ -9,11 +9,6 @@ import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { INVITATION_MAIL } from "../../../apps/web/src/server/invitations/index.ts";
 import { fixture } from "../identity/invitations-support.mts";
 
-// The scheduled runner keeps going when one step throws (T-152). The object cleanup step fails for real: another
-// transaction holds the file's row lock, and the job pool waits at most 200 ms for it. In the same tick the church
-// digest is still planned and delivered and the church invitation mail is still sent, and the body names the failed
-// step. Runs on a suite schema of the shared development database (or CI's disposable one).
-
 type Fixture = Awaited<ReturnType<typeof fixture>>;
 type Body = {
 	status: string;
@@ -77,7 +72,6 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 		return { code: response.status, body: (await response.json()) as Body };
 	};
 
-	// A church whose weekly digest is Monday 08:00 UTC, and its Owner, who reads it in the bell and by email.
 	const s = await f.setup("plant");
 	await f.admin.execute(sql`UPDATE plant SET digest_cadence='weekly' WHERE id=${s.w.id}`);
 	await f.admin
@@ -90,7 +84,6 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${s.w.id},${task},${s.sender.id})`,
 	);
 
-	// 07:59 on Monday 16 November 2026: every step runs, and the planner starts the digest coverage.
 	const quiet = await run("2026-11-16T07:59:00Z");
 	assert.equal(quiet.code, 200, JSON.stringify(quiet.body));
 	assert.deepEqual([quiet.body.status, quiet.body.failed, quiet.body.digests], ["ok", [], 0]);
@@ -98,7 +91,6 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 	assert.deepEqual(quiet.body.steps["lifecycle-purge"], { status: "skipped" });
 	assert.deepEqual(quiet.body.steps["documents-orphans"], { status: "ok", count: { purged: 0, unknown: 0 } });
 
-	// Owed work for 08:00: a seat invitation, and the cleanup of one unreferenced private file.
 	const actor = await f.actor(s.sender.session);
 	await f.invitations.invite(actor, {
 		requestKey: randomUUID(),
@@ -119,14 +111,12 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 		state: "ready",
 		upload_key: randomUUID(),
 		claim_generation: "0",
-		// Still inside its staging window, so only its queued cleanup job may remove it, not the orphan sweep.
 		expires_at: new Date(Date.now() + 3_600_000),
 	});
 	await f.admin
 		.execute(sql`INSERT INTO job(tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
 		VALUES(${s.w.id},'object_cleanup',${file},${"cleanup/" + file},'ready',now(),0,4,0)`);
 
-	// 08:00 while another transaction holds the file row: object cleanup throws, every other step still runs.
 	const logged: string[] = [];
 	const error = console.error;
 	console.error = (...args: unknown[]) => void logged.push(args.map(String).join(" "));
@@ -146,12 +136,10 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 	assert.equal(due.body.removed, 0);
 	assert.deepEqual(deletes, [], "the locked file was not deleted");
 	assert.deepEqual(due.body.steps["documents-orphans"], { status: "ok", count: { purged: 0, unknown: 0 } });
-	// One log line names the failed component and carries no error text or row values.
 	assert.deepEqual(
 		logged.map((line) => JSON.parse(line)),
 		[{ component: "object-cleanup", runner: "scheduled-jobs", outcome: "error" }],
 	);
-	// Digests were planned and delivered in the same tick.
 	assert.deepEqual(due.body.steps["digest-planning"]?.status, "ok");
 	assert.equal(due.body.planned?.queued, 1);
 	assert.deepEqual(due.body.steps["digest-delivery"], { status: "ok", count: 1 });
@@ -165,7 +153,6 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 		sql`SELECT state FROM mail WHERE recipient_account_id=${s.sender.id} AND purpose='planter_digest'`,
 	);
 	assert.deepEqual(email.rows, [{ state: "pending" }], "the digest email is queued for its own sender");
-	// The invitation mail was sent in the same tick.
 	assert.deepEqual(due.body.steps.mail, { status: "ok", count: 1 });
 	assert.equal(due.body.mailed, 1);
 	assert.deepEqual(
@@ -218,7 +205,6 @@ test("INV-scheduled-steps: a throwing notification step names itself and the lat
 });
 
 test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose staging window has passed", async () => {
-	// T-126 (D-879): nothing ran documentsWriter.reconcileOrphans, so a file whose write never finished stayed stored.
 	const removed: string[] = [];
 	const tick = scheduledJobs({
 		secret,
@@ -268,7 +254,6 @@ test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose
 	assert.equal(await state(expired.id), "purged");
 	assert.equal(await state(staging.id), "ready", "a file inside its staging window stays");
 
-	// Without private storage the sweep is skipped and the rest of the tick still runs.
 	const bare = scheduledJobs({
 		secret,
 		db: f.db,

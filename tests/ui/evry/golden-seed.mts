@@ -1,15 +1,3 @@
-// Seeds Hope Fellowship, the golden-set church the Evry evals read (tests/evry/evals/golden-church.mts), into a local
-// preview's tests/ui seed environment, so a person can ask the Done questions of T-318 in the Evry panel. Every task date
-// and the Johnsons' call move with the preview's today (the evals' Mon 9 Nov 2026 becomes today in America/Chicago).
-// The preview runs the scripted model (EVRY_SCRIPTED_MODEL=1), which this seed adds to the preview's env file.
-//
-//   up:     node --env-file=<home apps/web/.env.local> --conditions=react-server --import tsx tests/ui/evry/golden-seed.mts up <preview-url>
-//   state:  … golden-seed.mts johnsons contacted|attempted|admin|none   (criterion 3: the recorded call's outcome)
-//           … golden-seed.mts daniel ana|none                          (criterion 4: Daniel's follow-up owner)
-//   down:   … golden-seed.mts down
-//
-// `up` writes a session cookie for the Owner (Nate Ellis), the Admin (Lena Park), the Member (Priya Shah) and the
-// sending-church seat to $GOLDEN_UI_FIXTURE (default /tmp/everyfield-golden-ui.json).
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { createHmac } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
@@ -20,12 +8,10 @@ import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
 
 const ENV_FILE = fileURLToPath(new URL("../../../apps/web/.env.local", import.meta.url));
 
-/** Whole days from the evals' today (NOW, in America/Chicago) to the preview's today. */
 function shiftDays() {
 	const local = (at: Date) => at.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
 	return Math.round((Date.parse(local(new Date())) - Date.parse(local(NOW))) / 86_400_000);
 }
-/** A Better Auth session cookie for a seeded session token, signed with the preview's identity secret. */
 function cookie(origin: string, token: string, secret: string) {
 	const signature = createHmac("sha256", secret).update(token).digest("base64");
 	const name = origin.startsWith("https:") ? "__Secure-better-auth.session_token" : "better-auth.session_token";
@@ -40,7 +26,6 @@ async function up(origin: string) {
 		await env.admin.execute(
 			sql`UPDATE auth_session SET expires_at=clock_timestamp()+interval '14 days' WHERE token LIKE 'golden-%'`,
 		);
-		// The preview answers with the scripted model; its env file is this seed environment's own.
 		if (!/^EVRY_SCRIPTED_MODEL=1$/m.test(readFileSync(ENV_FILE, "utf8")))
 			appendFileSync(ENV_FILE, "EVRY_SCRIPTED_MODEL=1\n");
 		const cookies = Object.fromEntries(
@@ -53,7 +38,6 @@ async function up(origin: string) {
 	}
 }
 
-/** Puts one fixture fact in the state a criterion asks about, in the preview the fixture was seeded into. */
 async function state(fact: string, value: string) {
 	const { origin } = JSON.parse(readFileSync(fixturePath("golden"), "utf8")) as { origin: string };
 	const env = await openSeedEnvironment(origin);
@@ -68,7 +52,6 @@ async function state(fact: string, value: string) {
 				await run(sql`DELETE FROM contact_outcome WHERE id=${JOHNSON_CALL.id}`);
 				await run(sql`UPDATE task SET status='not_started',completed_at=NULL WHERE id=${taskId("beth")}`);
 			} else if (outcome) {
-				// A removed call comes back as Ana recorded it, on Beth's follow-up, which it completes.
 				const { shiftDays } = JSON.parse(readFileSync(fixturePath("golden"), "utf8")) as { shiftDays: number };
 				const at = new Date(Date.parse(JOHNSON_CALL.at) + shiftDays * 86_400_000).toISOString();
 				await run(sql`INSERT INTO contact_outcome(id,plant_id,person_id,task_id,outcome,occurred_at,recorded_at,contact_channel,completes_task)

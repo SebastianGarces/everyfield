@@ -8,15 +8,13 @@ export const notificationError = safeError;
 export type NotificationError = z.infer<typeof notificationError>;
 export type NotificationReply<T> = Reply<T, NotificationError>;
 
-/**
- * The record a feed entry is about, when its category has a page for it (D-731, D-733). The web maps it to that page;
- * the domain stores no address. An article carries its slug because the Wiki addresses articles by slug.
- */
 export const feedSubject = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("communication"), id: z.uuid() }),
 	z.strictObject({ kind: z.literal("task"), id: z.uuid() }),
 	z.strictObject({ kind: z.literal("meeting"), id: z.uuid() }),
 	z.strictObject({ kind: z.literal("article"), id: z.uuid(), slug: z.string().min(1) }),
+	z.strictObject({ kind: z.literal("residency_milestone"), id: z.uuid() }),
+	z.strictObject({ kind: z.literal("answer_review"), id: z.uuid() }),
 ]);
 export const feedItem = z.strictObject({
 	id: z.uuid(),

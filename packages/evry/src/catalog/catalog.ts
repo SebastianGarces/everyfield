@@ -12,17 +12,15 @@ import { TASK_READS } from "../adapters/tasks/reads/index.ts";
 import { ASSESSMENT_READS } from "../adapters/people-assessments/reads/index.ts";
 import { TEAMS_READS } from "../adapters/teams/reads/index.ts";
 import { ONBOARDING_READS } from "../adapters/onboarding/reads/index.ts";
+import { DASHBOARD_READS } from "../adapters/dashboard/reads/index.ts";
+import { FEEDBACK_READS } from "../adapters/feedback/reads/index.ts";
 import { PIPELINE_READS } from "../adapters/pipeline/reads/index.ts";
 import { WIKI_READS } from "../adapters/wiki/reads/index.ts";
+import { LAUNCH_READS } from "../adapters/launch/reads/index.ts";
 import { allowedWrites, everyOperation, type Offered } from "../proposals/store.ts";
 import { SEAT_READS, SHARING_READS } from "../adapters/settings/index.ts";
 import type { ReadAdapter } from "./types.ts";
 
-/**
- * Every installed read adapter, grouped by domain. Each operation is flagged model_tool in docs/catalog/operations.json
- * and listed in the generated docs/catalog/evry-tools.json; the catalog test holds both lists to this one. A domain
- * gets one bounded read tool whose closed operation discriminator holds only the operations its adapters install.
- */
 export const READ_DOMAINS = {
 	people: PEOPLE_READS,
 	peopleOrganization: ORGANIZATION_READS,
@@ -38,23 +36,20 @@ export const READ_DOMAINS = {
 	seats: SEAT_READS,
 	sharing: SHARING_READS,
 	onboarding: ONBOARDING_READS,
+	dashboard: DASHBOARD_READS,
+	feedback: FEEDBACK_READS,
 	pipeline: PIPELINE_READS,
 	calendar: CALENDAR_READS,
 	wiki: WIKI_READS,
 	documents: DOCUMENTS_READS,
+	launch: LAUNCH_READS,
 } as const satisfies Record<string, readonly Pick<ReadAdapter<unknown>, "operation" | "description" | "allowed">[]>;
 
-/** The runtime's own model tool: pick rows from a result this conversation already returned. */
 export const SELECT_RETURNED_ROWS = "evry.selectReturnedRows";
 
-/** The /intelligence page's words to a Member, whose seat does not include the phase journey or its signals. */
 export const MEMBER_PHASES =
 	"Your Member seat does not include the church's phase journey. Ask an Owner or Admin if you need it.";
 
-/**
- * evry.readCatalog: what this actor may use right now. Current authority filters every adapter, so a plant Owner and
- * an organization Member see different lists, and an account context sees none of the People reads.
- */
 export function readCatalog(actor: EvryActor, offered: Offered = everyOperation) {
 	const domains = Object.entries(READ_DOMAINS)
 		.map(([domain, adapters]) => ({
@@ -68,10 +63,7 @@ export function readCatalog(actor: EvryActor, offered: Offered = everyOperation)
 		context: actor.contextKind,
 		domains,
 		selection: domains.length > 0 ? [SELECT_RETURNED_ROWS] : [],
-		// A reviewed write is only proposed: a person approves the exact review before it runs. Approvals, code, network,
-		// files and SQL are never model tools.
 		reviewedWrites: allowedWrites(actor, offered).map((w) => ({ operation: w.operation, description: w.description })),
-		// What this seat leaves out, said the way its own screen says it, so an answer never guesses past it.
 		withheld: actor.owner.kind === "plant" && actor.role === "member" ? [MEMBER_PHASES] : [],
 	};
 }

@@ -1,7 +1,3 @@
-// T-207: a relationship invitation's emailed proof travels only in the JSON body of POST /api/connections/invitation
-// (rulings U1, D54 and its 2026-11-10 clarification in docs/architecture/decisions.md), never as a server-function
-// argument, so no framework action log or replay payload holds it. The route's imports are stubbed: the organization
-// server records every domain call, and the organizations actions module becomes a recorder of every action argument.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
@@ -19,9 +15,7 @@ process.env.IDENTITY_ORIGIN = ORIGIN;
 type Viewer = { kind: "signed_out" } | { kind: "unavailable" } | { kind: "viewer"; [k: string]: unknown };
 type State = {
 	viewer: Viewer;
-	/** Every domain call the route made, with its arguments. */
 	domain: unknown[][];
-	/** Every server-action call any client module made, with its arguments. */
 	actions: unknown[][];
 };
 const state: State = ((globalThis as { __relationshipInvitation?: State }).__relationshipInvitation = {
@@ -50,8 +44,6 @@ const viewer: Viewer = {
 };
 
 const stub = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-// Every export of the real actions module, each one recording its arguments: a client module that sends the proof to
-// any server function puts it in state.actions.
 const actionNames = [
 	...readFileSync(join(FEATURE, "actions.ts"), "utf8").matchAll(/^export async function (\w+)/gm),
 ].map((m) => m[1]);
@@ -66,9 +58,10 @@ const actions = stub(
 const stubs: Record<string, string> = {
 	"server-only": stub(""),
 	"./actions": actions,
-	// intent.ts holds React hooks and a parameter property Node cannot strip; real.ts needs only its Refusal.
-	"./intent": stub(`export class Refusal extends Error { constructor(code) { super(code); this.code = code; } }`),
-	"@/server/organizations": stub(`
+	"../../components/intent.ts": stub(
+		`export class Refusal extends Error { constructor(code) { super(code); this.code = code; } }`,
+	),
+	"../mount": stub(`
 		const state = globalThis.__relationshipInvitation;
 		export const viewerOf = async () => { state.domain.push(["viewerOf"]); return state.viewer; };
 		export const invitationFor = async (_m, _a, _v, invitationId, proof) => {
@@ -85,7 +78,6 @@ const stubs: Record<string, string> = {
 registerHooks({
 	resolve: (specifier, context, next) => {
 		if (specifier in stubs) return { url: stubs[specifier]!, shortCircuit: true };
-		// The app imports its own modules without an extension; Next resolves them, Node needs the .ts.
 		if (specifier.startsWith(".") && !/\.\w+$/.test(specifier)) return next(`${specifier}.ts`, context);
 		return next(specifier, context);
 	},
@@ -95,7 +87,6 @@ const { relationshipInvitationRoute } = await import(pathToFileURL(join(FEATURE,
 const { readRelationshipInvitation } = await import(pathToFileURL(join(FEATURE, "invitation/client.ts")).href);
 const { realRun } = await import(pathToFileURL(join(FEATURE, "real.ts")).href);
 
-/** Posts `body` to the route as this site's own page does, unless `init` says otherwise. */
 function post(body: string, init: { origin?: string | null; type?: string } = {}) {
 	const headers: Record<string, string> = { "content-type": init.type ?? "application/json" };
 	if (init.origin !== null) headers.origin = init.origin ?? ORIGIN;
@@ -122,7 +113,6 @@ test("the read and the answer send the proof only in the route's body, never in 
 		input: { invitationId: INVITATION, proof: PROOF, decision: "accept" },
 	});
 	const realFetch = globalThis.fetch;
-	// The browser's fetch: a same-origin POST carries the page's Origin.
 	globalThis.fetch = (async (url: string, init: RequestInit) => {
 		sent.push({ url, body: String(init.body) });
 		return relationshipInvitationRoute(
@@ -145,7 +135,6 @@ test("the read and the answer send the proof only in the route's body, never in 
 		sent.every((s) => s.body.includes(PROOF)),
 		"both requests carry the proof in the body",
 	);
-	// The route handed the domain the proof it read from the body, and the answer's command unchanged.
 	assert.deepEqual(state.domain, [
 		["viewerOf"],
 		["invitationFor", INVITATION, PROOF],
@@ -165,7 +154,6 @@ test("the route answers the read as the page did: signed out, unavailable or the
 	reset({ kind: "unavailable" });
 	assert.deepEqual(await (await read(PROOF)).json(), { kind: "unavailable" });
 
-	// A wrong, expired, used or empty proof: the domain finds nothing, and the reply is the one shared refusal.
 	for (const proof of ["Wrong-proof", ""]) {
 		reset(viewer);
 		assert.deepEqual(await (await read(proof)).json(), { kind: "unavailable" });
@@ -187,7 +175,6 @@ test("the route answers the read as the page did: signed out, unavailable or the
 		zone: "America/Chicago",
 	});
 
-	// Answering signed out is refused before the domain is asked.
 	reset({ kind: "signed_out" });
 	response = await post(JSON.stringify({ op: "respond", command: {} }));
 	assert.deepEqual(await response.json(), { status: "refused", code: "unavailable" });

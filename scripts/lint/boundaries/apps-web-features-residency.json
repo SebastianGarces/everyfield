@@ -1,0 +1,6 @@
+{
+	"public": {
+		"context.ts": "the Residency context the shell provides and the organization residency card reads",
+		"model.ts": "milestonePath, the milestone URL notifications link to"
+	}
+}

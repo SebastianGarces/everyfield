@@ -37,16 +37,9 @@ import {
 } from "./table-ops.ts";
 import { Button } from "./tiptap/primitives/button.tsx";
 
-// The settings of the table the cursor is in: rows, columns, the kind of a column, blank write-in rows, the header color
-// and striped rows, and for a budget its line items, categories and signs. Every control has a name and a tooltip. A
-// control that cannot work is disabled and says why, in its tooltip and in the line under the controls. A plain
-// document (no palette) prints nothing, so it gets the same controls without blank rows and header color (T-100).
-
-/** What the editor says when a change would leave a table the format refuses. */
 export const TABLE_REFUSED =
 	"That change would break a table, so nothing changed. Select the whole table, or text in one cell.";
 
-/** A button that does one action to the table, or says why it cannot. */
 function Act({ label, reason, run }: { label: string; reason: string | null; run: () => void }) {
 	return (
 		<Button
@@ -71,7 +64,6 @@ function useTableContext(editor: Editor) {
 	});
 }
 
-/** The index of the first row `next` adds to `t`. */
 const firstNewRow = (t: TableNode, next: TableNode) =>
 	(next.content ?? []).findIndex((row, i) => row !== (t.content ?? [])[i]);
 
@@ -83,7 +75,6 @@ function run(editor: Editor, make: (context: TableContext) => { table: TableNode
 
 const WRITE_IN = FORMAT_LIMITS.writeInRows;
 
-/** The write-in row count, in the format's range. A count outside it shows the format's message and is not applied. */
 function WriteInField({ editor, context }: { editor: Editor; context: TableContext }) {
 	const id = useId();
 	const [draft, setDraft] = useState<string | null>(null);
@@ -94,12 +85,11 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 		text.trim() === ""
 			? `Type a number from ${WRITE_IN.min} to ${WRITE_IN.max}.`
 			: (attrIssue("table", "writeInRows", Number(text)) ?? (lastRow && Number(text) === 0 ? LAST_ROW : null));
-	// Undo or Redo can change the count under a typed draft: the field shows the stored count then.
 	const shown = draft !== null && (issue(draft) || Number(draft) === current) ? draft : String(current);
 	const problem = issue(shown);
 	return (
 		<span className="flex flex-wrap items-center gap-2">
-			<label htmlFor={id} className="cursor-pointer text-sm text-text-2">
+			<label htmlFor={id} className="text-sm text-text-2">
 				Blank rows
 			</label>
 			<Tip text={`How many blank rows to write in by hand, ${WRITE_IN.min} to ${WRITE_IN.max}`}>
@@ -141,14 +131,7 @@ function WriteInField({ editor, context }: { editor: Editor; context: TableConte
 	);
 }
 
-export function TableControls({
-	editor,
-	palette,
-}: {
-	editor: Editor;
-	/** The Church Document's palette for the header color; null in a plain document. */
-	palette: DocBrand["palette"] | null;
-}) {
+export function TableControls({ editor, palette }: { editor: Editor; palette: DocBrand["palette"] | null }) {
 	const context = useTableContext(editor);
 	const zebraId = useId();
 	if (!context) return null;
@@ -159,7 +142,6 @@ export function TableControls({
 	const textAt = labelColumn(table);
 	const sign = signAt(table, at.row);
 
-	// Reasons a control is off because of the table itself, shown under the controls. Where the cursor is stays in tooltips.
 	const reasons = (
 		[
 			["Add row", can.addRow],
@@ -205,7 +187,6 @@ export function TableControls({
 									}
 									const count = Math.max(0, (t.attrs.writeInRows ?? 0) - 1);
 									const typed = (t.content ?? []).length;
-									// With the last blank row gone, the person goes to the last typed row, or else the header.
 									const after: Place = count
 										? place
 										: typed
@@ -256,7 +237,7 @@ export function TableControls({
 							aria-label="Column kind"
 							value={column?.type ?? ""}
 							disabled={can.kind !== null}
-							className="h-9 cursor-pointer rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:cursor-not-allowed disabled:opacity-45"
+							className="h-9 rounded-sm bg-surface px-2 text-md text-ink shadow-[0_0_0_1px_var(--ef-line-2)] outline-none focus-visible:shadow-[0_0_0_2px_var(--ef-focus)] disabled:opacity-45"
 							onMouseDown={(event) => event.stopPropagation()}
 							onChange={(event) => {
 								const kind = event.target.value as Kind;
@@ -299,7 +280,6 @@ export function TableControls({
 							run(editor, ({ table: t, at: place }) => {
 								if (place.row === null) return null;
 								const next = removeRow(t, place.row);
-								// The cursor stays on a line item when one is left, so Remove line item works again from here.
 								const rows = next.content ?? [];
 								const isItem = (index: number) => rows[index] !== undefined && rows[index]?.attrs?.role === undefined;
 								const row = isItem(place.row) ? place.row : isItem(place.row - 1) ? place.row - 1 : place.row;
@@ -362,11 +342,11 @@ export function TableControls({
 					</Labeled>
 				) : null}
 				<Tip text="Shade every second row">
-					<label htmlFor={zebraId} className="flex cursor-pointer items-center gap-2 text-sm text-text-2">
+					<label htmlFor={zebraId} className="flex items-center gap-2 text-sm text-text-2">
 						<input
 							id={zebraId}
 							type="checkbox"
-							className="size-4 cursor-pointer accent-[var(--ef-ink)]"
+							className="size-4 accent-[var(--ef-ink)]"
 							checked={table.attrs.zebra === true}
 							onMouseDown={keepSelection}
 							onChange={(event) =>

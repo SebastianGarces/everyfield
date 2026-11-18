@@ -1,0 +1,8 @@
+{
+	"public": {
+		"PlantIntelligenceBlocked.tsx": "the blocked state that the intelligence routes show",
+		"model.ts": "SHORT_NAME phase labels that oversight, the overview and tasks show",
+		"mount.ts": "phasesMount, the phase notice port Evry's effect worker calls",
+		"server.ts": "administers and phaseViewer, the phase server entry the intelligence routes use"
+	}
+}

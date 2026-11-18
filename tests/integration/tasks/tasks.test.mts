@@ -18,7 +18,7 @@ import {
 import { peopleReader, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 
 let f, writer, reminders, mail, sent, plant, other, owner, member, admin2, foreign;
@@ -26,7 +26,6 @@ const write = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => wr
 const read = (who, op, input) => f.db.transaction((tx) => taskReader[op](tx, who.actor, input));
 const create = async (who, input) =>
 	ok(await write(who, "create", { requestKey: randomUUID(), input: { title: "Task", ...input } })).task;
-// A weekly task, made recurring by the owner; returns it at its current revision.
 async function recurring(input, rule = { frequency: "weekly", until: null }) {
 	const t = await create(owner, input);
 	return ok(
@@ -68,7 +67,6 @@ async function team(w = plant) {
 	return id;
 }
 
-// The meeting domain's reviewed command: its own audit row, the generated work, one write statement.
 const finalize = (
 	meetingId,
 	input,
@@ -101,7 +99,6 @@ const finalize = (
 		if (fault) throw Error("outer_audit_before_commit");
 		return r.value;
 	});
-// Statements this test's runtime pool sends while `body` runs.
 let statements = 0;
 async function counted(body) {
 	const start = statements;
@@ -158,7 +155,6 @@ before(async () => {
 	};
 	owner = await seated(plant, "owner");
 	member = await seated(plant, "member");
-	// A follow-up owner needs a committed Person linked to their account (REQ-TSK-012).
 	await f.admin.execute(sql`INSERT INTO person(tenant_id,plant_id,display_name,source,stage,adult_classification,
 		commitment_state,pipeline_position,state,created_at,linked_account_id) VALUES(${plant.id},${plant.id},'Member Person',
 		'other','core_group','unknown','unknown',0,'live',clock_timestamp(),${member.id})`);
@@ -176,13 +172,11 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 	refused(await attempt({ assigneeIds: [foreign.id] }), "invalid_subject");
 	refused(await attempt({ relation: { kind: "facility", id: randomUUID() } }), "invalid_input");
 	refused(await attempt({ relation: { kind: "person", id: foreignPerson } }), "invalid_subject");
-	// Spring gap: 02:30 does not exist in Chicago, so nothing is saved.
 	const gap = refused(
 		await attempt({ due: { kind: "resolved_instant", local: "2026-03-08T02:30:00" } }),
 		"nonexistent_local_time",
 	);
 	assert.equal(gap.details.local, "2026-03-08T02:30:00");
-	// Fall fold: 01:30 happens twice; the refusal shows both offsets and each choice saves its own instant.
 	const fold = refused(
 		await attempt({ due: { kind: "resolved_instant", local: "2026-11-01T01:30:00" } }),
 		"ambiguous_local_time",
@@ -191,7 +185,6 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 		fold.details.choices.map((c) => c.offsetSeconds),
 		[-18000, -21600],
 	);
-	// A checklist row comes only from createSubtask.
 	refused(await attempt({ parentId: randomUUID() }), "invalid_input");
 	assert.deepEqual(
 		await rows(sql`SELECT (SELECT count(*)::int FROM task) t,(SELECT count(*)::int FROM audit_event) a`),
@@ -204,7 +197,6 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 	}
 	assert.deepEqual(saved, ["2026-11-01T06:30:00.000Z", "2026-11-01T07:30:00.000Z"]);
 
-	// Undated stays undated: no epoch, no today.
 	const request = {
 		requestKey: randomUUID(),
 		input: { title: "  Call the venue  ", priority: "high", category: "facilities" },
@@ -215,7 +207,6 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 	assert.deepEqual([first.task.due, first.task.overdue, first.task.assignees], [{ kind: "undated" }, null, []]);
 	refused(await write(member, "create", { requestKey: randomUUID(), input: { title: "Member task" } }), "unavailable");
 
-	// Edit: omitted fields stay, explicit null clears, a stale revision refuses without a hidden change.
 	const p = await person("Alex Rivera");
 	const edited = ok(
 		await write(owner, "edit", {
@@ -261,7 +252,6 @@ test("AC:TARGET-TSK-002 AC:B03-007 AC:B03-008 AC:B03-009 AC:TARGET-TSK-018 creat
 		["Call the venue", null, "Line one\nLine two"],
 	);
 
-	// Deleting a parent deletes its checklist rows too; both keep their history.
 	const child = await subtask(owner, cleared, "Bring chairs");
 	const withChild = ok(await read(owner, "get", { taskId: first.task.id })).task;
 	assert.deepEqual(
@@ -296,7 +286,6 @@ test("AC:TARGET-TSK-001 AC:B03-001 AC:B03-002 AC:B03-003 views, stable pages, co
 	const mine = { ...b, actor: await f.actor(b.session) };
 	const hospitality = await team(w);
 	const foreignTeam = await team(other);
-	// 51 tasks with the same (null) due key, one dated task and two checklist rows.
 	const undated = [];
 	for (let n = 0; n < 51; n++)
 		undated.push(
@@ -335,7 +324,6 @@ test("AC:TARGET-TSK-001 AC:B03-001 AC:B03-002 AC:B03-003 views, stable pages, co
 		false,
 	);
 
-	// Due state at frozen instants, independent of the host zone.
 	const overdue = async (taskId, asOf) => ok(await read(me, "get", { taskId, asOf })).task.overdue;
 	assert.deepEqual(
 		[await overdue(dated.id, "2026-10-14T03:00:00Z"), await overdue(dated.id, "2026-10-14T05:00:00Z")],
@@ -361,7 +349,6 @@ test("AC:TARGET-TSK-001 AC:B03-001 AC:B03-002 AC:B03-003 views, stable pages, co
 test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per request, reopen and history", async () => {
 	const command = (who, op, t, extra = {}) =>
 		write(who, op, { requestKey: randomUUID(), expectedRevision: t.revision, input: { taskId: t.id, ...extra } });
-	// The assignee changed after the owner looked: the old revision refuses and nothing completes.
 	const t = await create(owner, {
 		title: "Welcome packs",
 		assigneeIds: [admin2.id],
@@ -375,17 +362,14 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 		}),
 	).task;
 	refused(await command(owner, "complete", t), "conflict");
-	// A Member acts only on a task they hold.
 	const others = await create(owner, { title: "Not yours", assigneeIds: [admin2.id] });
 	refused(await command(member, "complete", others), "unavailable");
 	refused(await command(member, "edit", moved, { patch: { title: "Renamed" } }), "unavailable");
 
-	// The assignee may change the status of their own task.
 	const started = ok(await command(member, "changeStatus", moved, { status: "in_progress" })).task;
 	assert.equal(started.status, "in_progress");
 	const request = { requestKey: randomUUID(), expectedRevision: started.revision, input: { taskId: t.id } };
 	const done = ok(await write(member, "complete", request));
-	// A lost response: the same request shows the earlier result and adds no history.
 	assert.deepEqual(ok(await write(member, "complete", request)), done);
 	assert.equal(done.task.status, "complete");
 	assert.ok(done.task.completedAt);
@@ -395,9 +379,7 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 	const same = { requestKey: randomUUID(), expectedRevision: reopened.revision, input: { taskId: t.id } };
 	const again = ok(await write(member, "reopen", same));
 	assert.equal(again.outcome, "noop");
-	// A retried no-op returns the same answer.
 	assert.deepEqual(ok(await write(member, "reopen", same)), again);
-	// A command that changes nothing records exactly one audit row, of kind noop (C98).
 	const keyed = (key) =>
 		rows(
 			sql`SELECT kind, subject_type, subject_id FROM audit_event WHERE tenant_id=${plant.id} AND request_key=${key}`,
@@ -429,12 +411,9 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 			["complete", "not_started", member.id, "person"],
 		],
 	);
-	// Completing a person-linked task records no contact.
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM contact_outcome`), [{ n: 0 }]);
 	refused(await read(foreign, "statusHistory", { taskId: t.id }), "unavailable");
 
-	// A readable task with no status audit row (a direct-SQL seed) reads an empty history, never a denial; a caller
-	// outside its church still gets the refusal, with or without audit rows.
 	const seeded = randomUUID();
 	await f.admin.execute(sql`INSERT INTO task (id, plant_id, title, category, priority, status, created_at, due_kind)
 		VALUES (${seeded}, ${plant.id}, 'Call James', 'general', 'medium', 'not_started', now(), 'undated')`);
@@ -448,7 +427,6 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-015 own-duty completion, one result per re
 	refused(await read(foreign, "statusHistory", { taskId: seeded }), "unavailable");
 	refused(await read(owner, "statusHistory", { taskId: randomUUID() }), "unavailable");
 
-	// An older occurrence cannot reopen while a later one of its series is open; the refusal names it.
 	const older = await create(owner, { title: "Weekly check-in" });
 	const newer = await create(owner, { title: "Weekly check-in" });
 	const series = randomUUID();
@@ -502,7 +480,6 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 	);
 	assert.equal(ok(await read(owner, "statusHistory", { taskId: f1.id })).items[0].source, "generated");
 
-	// A failure before the finalize commits leaves nothing; a retry adds nothing.
 	const settled = await counts();
 	await assert.rejects(finalize(m2, input, true), /outer_audit_before_commit/);
 	assert.deepEqual(await counts(), settled);
@@ -511,11 +488,9 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 		["existing", "existing", "existing"],
 	);
 	assert.deepEqual(await counts(), settled);
-	// Two meetings on the same day give the same person two follow-ups.
 	const second = await finalize(m2, { followUps: [{ personId: p1, assigneeIds: [] }], evaluation: null });
 	assert.notEqual(second[0].obligationId, first[0].obligationId);
 
-	// Waived stays waived through an edit; a deleted task is not recreated; the source relation is protected.
 	const waived = ok(
 		await write(owner, "waive", {
 			requestKey: randomUUID(),
@@ -551,8 +526,6 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 			}),
 			"protected_source",
 		);
-	// Recording the evaluation completes its task inside the same command, attributed as generated work; a repeat
-	// leaves it as it is.
 	const recordEvaluation = () =>
 		auditTransaction(f.db, async (tx) => {
 			await owner.actor.bind(tx, plant);
@@ -590,7 +563,6 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 		],
 	);
 
-	// Retiring Alex Rivera: the open follow-up keeps its historical Person, new references and selectors refuse him.
 	const ctx = { session: owner.actor.session, selected: plant };
 	const review = ok(await f.db.transaction((tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: p1 })));
 	ok(
@@ -662,7 +634,6 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 		(await live(t.id)).map((n) => n.recipient_id),
 		[admin2.id, admin2.id],
 	);
-	// A stale reminder never reaches the former owner.
 	const mailRows = await rows(
 		sql`SELECT id, recipient_account_id recipient, notice_id notice FROM mail WHERE notice_id IN (SELECT id FROM notice WHERE source_record_id=${t.id})`,
 	);
@@ -675,7 +646,6 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 		before.some((id) => allowed.has(id)),
 		false,
 	);
-	// Every write that moves the revision replans the reminders, so the assignee's mail still goes out.
 	const prerequisite = await create(owner, { title: "Sign the lease" });
 	const blocked = ok(
 		await write(owner, "replacePrerequisites", {
@@ -708,7 +678,6 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 		}),
 	);
 	assert.deepEqual(await live(t.id), []);
-	// Reopening a dated, assigned task plans its reminders again; completing an occurrence plans the next one's.
 	const pending = async (task) => (await live(task)).map((n) => [n.recipient_id, n.state]);
 	const twice = [
 		[admin2.id, "pending"],
@@ -742,7 +711,6 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 		}),
 	);
 	assert.deepEqual(await pending(once.id), twice);
-	// Undated or unassigned tasks have no reminders.
 	const undated = await create(owner, { assigneeIds: [member.id] });
 	const unassigned = await create(owner, { due: { kind: "local_date", date: "2099-01-15" } });
 	assert.deepEqual([await notices(undated.id), await notices(unassigned.id)], [[], []]);
@@ -757,7 +725,6 @@ test("INV-statements: page reads are one statement and generated work costs the 
 		const origin = { at: "2099-01-11T00:00:00Z", date: "2099-01-10", zone: "America/Chicago" };
 		return counted(() => finalize(m, { followUps, evaluation: { assigneeIds: [owner.id] } }, false, origin));
 	};
-	// Each generated task is dated and assigned, so each one also gets its two reminders.
 	const [one, five] = [await batch(1), await batch(5)];
 	assert.equal(one, 8);
 	assert.equal(five, one);
@@ -767,7 +734,6 @@ test("INV-statements: page reads are one statement and generated work costs the 
 		),
 		[{ n: 12 }],
 	);
-	// A page read is BEGIN, one query and COMMIT, with few or many tasks on the page.
 	const t = await create(owner, { title: "Read me" });
 	const reads = async () => [
 		await counted(() => read(owner, "list", { limit: 100 })),
@@ -783,8 +749,6 @@ test("INV-statements: page reads are one statement and generated work costs the 
 	for (let n = 0; n < 40; n++) await create(owner, { title: "More " + n, assigneeIds: [member.id] });
 	assert.deepEqual([few, await reads()], [Array(8).fill(3), Array(8).fill(3)]);
 
-	// A bulk completion costs the same statements for one task or twenty, each recurring, dated and assigned, so each
-	// also creates a successor with its reminders.
 	const bulkOf = async (n) => {
 		const items = [];
 		for (let i = 0; i < n; i++) {
@@ -827,7 +791,6 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 	await arrive(second);
 	await dispatch();
 	assert.equal(sent.length, before + 1);
-	// The overdue slot is still owed, once, at the new deadline plus 24 hours.
 	assert.deepEqual(
 		await rows(
 			sql`SELECT split_part(logical_key,'/',2) slot, to_char(eligible_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS".000Z"') eligible_at FROM notice WHERE source_record_id=${t.id} AND cancelled_at IS NULL`,
@@ -841,9 +804,6 @@ test("AC:TARGET-TSK-014 a delivered due reminder is not sent again after the dea
 	);
 });
 
-// A plant-local deadline for an instant, as the task form sends it. The form sends the chosen offset at a fold
-// (REQ-TSK-018), so the helper always sends the offset of this instant: in the repeated hour after a fall-back the
-// wall time alone is ambiguous and the server refuses it.
 function deadline(ms) {
 	const local = new Intl.DateTimeFormat("sv-SE", {
 		timeZone: "America/Chicago",
@@ -859,25 +819,18 @@ function deadline(ms) {
 	const offsetSeconds = (Date.parse(`${local}Z`) - Math.floor(ms / 1000) * 1000) / 1000;
 	return { kind: "resolved_instant", local, offsetSeconds };
 }
-// The mail worker: claim the due mail jobs and send each one through the reminder authorization.
 const dispatch = async () => {
 	for (const claim of await claimDue(f.db, ["mail"], 10)) await mail.dispatch(claim);
 };
-/** The database clock, in epoch milliseconds. */
 async function dbNow() {
 	return Number((await rows(sql`SELECT (extract(epoch FROM clock_timestamp())*1000)::float8 AS ms`))[0].ms);
 }
-/**
- * The clock reaching `ms`, told through the data: every queued mail job due by then becomes due now, and later ones
- * stay where the product put them.
- */
 async function arrive(ms) {
 	await f.admin.execute(
 		sql`UPDATE job SET eligible_at=clock_timestamp()-interval '1 second' WHERE kind='mail' AND state IN ('ready','retry_wait') AND eligible_at<=${new Date(ms).toISOString()}::timestamptz`,
 	);
 }
 test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new assignee", async () => {
-	// Team members with their own Person records, as account links make them.
 	const linked = async (name) => {
 		const a = await f.account();
 		await f.seat(a, plant, "member");
@@ -899,7 +852,6 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 	const due = (await dbNow()) + 86_400_000;
 	const dated = (assigneeId, title) => create(owner, { title, assigneeIds: [assigneeId], due: deadline(due) });
 	const [retired, demoted] = [await dated(leaving.id, "Set up chairs"), await dated(moving.id, "Lead worship")];
-	// Retiring a person hands the duty to another member; leaving the core stages does the same.
 	const review = ok(await warnings(leaving.person));
 	ok(
 		await withPeopleWrite(f.db, owner.actor, (tx, c) =>
@@ -942,8 +894,6 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 	);
 	await arrive(due);
 	await dispatch();
-	// Each duty's due reminder went to its new assignee and was sent, and the overdue one waits for them; the former
-	// assignee's two reminders were withdrawn.
 	const delivered = async (task) =>
 		rows(sql`SELECT n.recipient_id, n.cancelled_at IS NOT NULL cancelled, m.state FROM notice n LEFT JOIN mail m ON m.notice_id=n.id
 			WHERE n.source_record_id=${task} ORDER BY n.cancelled_at IS NOT NULL, n.eligible_at`);
@@ -971,7 +921,6 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 	const due = (await dbNow()) + 86_400_000;
 	const dated = (title) => create(owner, { title, assigneeIds: [leaving.id], due: deadline(due) });
 	const [handed, unowned] = [await dated("Print bulletins"), await dated("Order supplies")];
-	// Removing the seat hands one duty to another member and leaves the other needing an owner.
 	const review = await f.seats.readRemoval(owner.session, plant, { seatId: leaving.seat });
 	const result = await f.seats.remove(
 		owner.actor,
@@ -994,8 +943,6 @@ test("AC:TARGET-TSK-014 AC:TARGET-IDN-019 a duty handed off when a seat is remov
 	assert.equal(result.outcome, "changed");
 	await arrive(due);
 	await dispatch();
-	// The handed duty's due reminder went to its new assignee and was sent, and the overdue one waits for them. The
-	// removed member's reminders were withdrawn from both duties; the duty without an owner reminds nobody.
 	const delivered = async (task) =>
 		(
 			await rows(sql`SELECT n.recipient_id, n.cancelled_at IS NOT NULL cancelled, m.state FROM notice n LEFT JOIN mail m ON m.notice_id=n.id
@@ -1034,13 +981,11 @@ test("INV-tenancy: a seat ended, demoted or signed out after the viewer lookup r
 	];
 	const [removed, demoted, signedOut] = [await seated("admin"), await seated("admin"), await seated("admin")];
 	for (const who of [removed, demoted, signedOut]) for (const [op, input] of reads(who)) ok(await read(who, op, input));
-	// Each change lands after the actor was resolved, as in a request that already looked up its viewer.
 	await f.admin.execute(sql`UPDATE seat SET ended_at=now() WHERE id=${removed.seat}`);
 	await f.admin.execute(sql`UPDATE seat SET role='member' WHERE id=${demoted.seat}`);
 	await f.admin.execute(sql`UPDATE auth_session SET expires_at=now() WHERE id=${signedOut.session}`);
 	for (const who of [removed, signedOut])
 		for (const [op, input] of reads(who)) refused(await read(who, op, input), "unavailable");
-	// A demoted Admin keeps Member reads and loses the Admin-only selectors.
 	assert.equal(ok(await read(demoted, "get", { taskId: t.id })).task.id, t.id);
 	for (const [op, input] of reads(demoted).slice(7)) refused(await read(demoted, op, input), "unavailable");
 });
@@ -1060,7 +1005,6 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 			expectedRevision: parent.revision,
 			input: { parentId: parent.id, title: "Item", ...input },
 		});
-	// Parent P is held by Admin B. Omitted inherits B; an Owner may also name an eligible account or null.
 	const p = await create(owner, { title: "Plan picnic", assigneeIds: [admin2.id] });
 	const inherited = ok(await child(owner, p, {})).task;
 	const c = ok(await child(owner, p, { title: "Call venue", assigneeIds: [member.id] })).task;
@@ -1070,11 +1014,9 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 		[admin2.id, member.id, []],
 	);
 	refused(await child(owner, p, { assigneeIds: [foreign.id] }), "invalid_subject");
-	// One level only: no row under a row, no parent from another church, no stale parent review.
 	refused(await child(owner, c, {}), "invalid_subject");
 	refused(await child(foreign, p, {}), "unavailable");
 	refused(await child(owner, { ...p, revision: "9" }, {}), "conflict");
-	// A Member adds only under a parent they hold, and the row is theirs: no other account, no null.
 	const pa = await create(owner, { title: "Member plan", assigneeIds: [member.id] });
 	const l = ok(await child(member, pa, {})).task;
 	assert.equal(l.assignees[0].accountId, member.id);
@@ -1082,7 +1024,6 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 		refused(await child(member, pa, { assigneeIds }), "access_denied");
 	refused(await child(member, p, {}), "unavailable");
 
-	// The child assignee ticks their row; holding the parent does not let a Member tick someone else's row.
 	const ticked = ok(await tick(member, p, c, true)).task;
 	assert.equal(ticked.status, "complete");
 	refused(await tick(member, p, inherited, true), "unavailable");
@@ -1095,7 +1036,6 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 	});
 	refused(await tick(member, pm, await get(owner, x.id), true), "unavailable");
 	refused(await tick(member, pa, ticked, false), "unavailable");
-	// The last row ticked leaves the parent open: no automatic completion.
 	for (const row of [inherited, unassigned]) ok(await tick(owner, p, row, true));
 	const parent = await get(owner, p.id);
 	assert.deepEqual([parent.status, parent.revision, parent.checklist], ["not_started", "1", { total: 3, complete: 3 }]);
@@ -1113,7 +1053,6 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 		[inherited.id, c.id, unassigned.id],
 	);
 
-	// A row has no deadline, recurrence, source or relation, through the API or directly in the database.
 	refused(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
@@ -1127,7 +1066,6 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 	);
 	await assert.rejects(f.admin.execute(sql`UPDATE task SET prerequisite_ids=ARRAY[${p.id}]::uuid[] WHERE id=${c.id}`));
 
-	// A parent holds at most the 500 rows a task reads back with; the next one refuses and the parent stays readable.
 	const full = await create(owner, { title: "Full" });
 	await f.admin
 		.execute(sql`INSERT INTO task (id, plant_id, title, category, priority, status, created_at, due_kind, parent_id)
@@ -1136,7 +1074,6 @@ test("AC:TARGET-TSK-005 AC:EVRY-REAL-CHILD-TASK-PARITY checklist rows are one-le
 	refused(await child(owner, full, {}), "invalid_input");
 	assert.equal((await get(owner, full.id)).checklistItems.length, 500);
 
-	// Removal retires the row with its history; the parent stays as it was. Owner/Admin only.
 	const remove = (who, row) =>
 		write(who, "removeSubtask", {
 			requestKey: randomUUID(),
@@ -1162,14 +1099,12 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 		await create(owner, { title: "B" }),
 		await create(owner, { title: "C" }),
 	];
-	// A needs B, B needs C; C needing A would close A -> B -> C -> A.
 	const key = randomUUID();
 	const aNeedsB = ok(await replace(owner, a, [b.id], key));
 	assert.deepEqual(ok(await replace(owner, a, [b.id], key)), aNeedsB);
 	ok(await replace(owner, b, [c.id]));
 	refused(await replace(owner, c, [a.id]), "dependency_cycle");
 	assert.deepEqual((await get(owner, c.id)).prerequisiteIds, []);
-	// Self, foreign, deleted and checklist rows are not candidates.
 	const gone = await create(owner, { title: "Gone" });
 	ok(
 		await write(owner, "delete", {
@@ -1183,8 +1118,6 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 	const fresh = await get(owner, c.id);
 	for (const id of [c.id, theirs.id, gone.id, row.id]) refused(await replace(owner, fresh, [id]), "invalid_subject");
 	refused(await replace(member, fresh, [b.id]), "unavailable");
-	// One read names the rows again, by ID: a bulk change's stale rows and the page's badges. A deleted or foreign task
-	// is absent, never an error, and the badge counts open prerequisites only.
 	const named = ok(await read(owner, "listRows", { taskIds: [a.id, b.id, c.id, gone.id, theirs.id] }));
 	assert.deepEqual(Object.fromEntries(named.items.map((t) => [t.title, t.openPrerequisites])), { A: 1, B: 1, C: 0 });
 	assert.deepEqual(
@@ -1194,8 +1127,6 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 		[],
 	);
 
-	// Opposite edges proposed at once: one saves, the other refuses. Also for two disjoint edges that close a
-	// four-task cycle, which no lock on the edge's own tasks would catch.
 	const both = async (pairs) => {
 		const results = await Promise.all(pairs.map(([from, to]) => replace(owner, from, [to.id])));
 		return results.map((r) => (r.status === "ok" ? "ok" : r.error.code)).sort();
@@ -1220,7 +1151,6 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 	);
 	assert.ok(pq && rs);
 
-	// The derived badge counts open live prerequisites, apart from the manual blocked status, and never stops completion.
 	const [open, waived, deleted] = [
 		await create(owner, { title: "Open" }),
 		await create(owner, { title: "Waived" }),
@@ -1258,14 +1188,12 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 		await write(owner, "complete", { requestKey: randomUUID(), expectedRevision: t.revision, input: { taskId: t.id } }),
 	);
 	assert.equal(done.task.status, "complete");
-	// No success credit for the waived or deleted prerequisite: neither has a completion.
 	assert.deepEqual(
 		await rows(
 			sql`SELECT count(*)::int n FROM task WHERE id IN (${waived.id},${deleted.id}) AND completed_at IS NOT NULL`,
 		),
 		[{ n: 0 }],
 	);
-	// The edge change is in the history record with the set before and after.
 	assert.deepEqual(
 		await rows(
 			sql`SELECT before_value, after_value FROM audit_event WHERE subject_id=${a.id} AND after_value ? 'prerequisite_ids'`,
@@ -1278,7 +1206,6 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 	const complete = (who, task, requestKey = randomUUID()) =>
 		write(who, "completeOccurrence", { requestKey, expectedRevision: task.revision, input: { taskId: task.id } });
 	const due = (date) => ({ kind: "local_date", date });
-	// January 31 monthly: the next one is due February 28. A retry returns the same answer and creates nothing.
 	const t = await recurring(
 		{ title: "Pay rent", assigneeIds: [member.id], due: due("2026-01-31") },
 		{ frequency: "monthly", until: null },
@@ -1297,7 +1224,6 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 		first.successor.checklistItems.map((k) => [k.title, k.status]),
 		[["Call venue", "not_started"]],
 	);
-	// The completed occurrence keeps its own checked row; the copy has no due date or completion.
 	assert.equal((await get(owner, t.id)).checklistItems[0].status, "complete");
 	assert.deepEqual(
 		await rows(sql`SELECT due_kind, completed_at, series_id FROM task WHERE parent_id=${first.successor.id}`),
@@ -1306,7 +1232,6 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${t.id}`), [{ n: 1 }]);
 	const open = ok(await read(member, "findOpenOccurrence", { taskId: t.id }));
 	assert.deepEqual(open.open, { taskId: first.successor.id, occurrence: 2, predecessorId: t.id, revision: "1" });
-	// The older occurrence cannot reopen while the next one is open.
 	refused(
 		await write(owner, "reopen", {
 			requestKey: randomUUID(),
@@ -1315,7 +1240,6 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 		}),
 		"open_successor",
 	);
-	// Deleting the open occurrence keeps the series: reopen and complete the older one, and the next task returns.
 	ok(
 		await write(owner, "delete", {
 			requestKey: randomUUID(),
@@ -1339,7 +1263,6 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 		revision: "1",
 	});
 
-	// Leap day yearly, the inclusive end date, and late completion (the next one is already overdue).
 	const cases = [
 		[due("2024-02-29"), { frequency: "yearly", until: null }, due("2025-02-28")],
 		[due("2026-01-31"), { frequency: "monthly", until: "2026-02-28" }, due("2026-02-28")],
@@ -1347,7 +1270,6 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 		[due("2026-01-05"), { frequency: "weekly", until: null }, due("2026-01-12")],
 		[due("2026-01-05"), { frequency: "biweekly", until: null }, due("2026-01-19")],
 		[due("2026-01-15"), { frequency: "quarterly", until: null }, due("2026-04-15")],
-		// Automatic wall time over the spring gap moves forward by the gap: 02:30 becomes 03:30 CDT.
 		[
 			due("2026-03-07"),
 			{ frequency: "daily", until: null, localTime: "02:30" },
@@ -1366,19 +1288,16 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 		assert.deepEqual(result.successor?.due ?? null, expected, JSON.stringify(rule));
 		if (rule.frequency === "weekly") assert.equal(result.successor.overdue, true);
 	}
-	// Undated: one interval from the church-local completion date.
 	const undated = ok(await complete(owner, await recurring({})));
 	const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Chicago" }).format(new Date());
 	const week = new Date(Date.parse(today + "T00:00:00Z") + 7 * 86_400_000).toISOString().slice(0, 10);
 	assert.deepEqual(undated.successor.due, due(week));
 
-	// Two completions at once: one completes and creates the next task, the other refuses.
 	const raced = await recurring({ due: due("2026-05-01") });
 	const results = await Promise.all([complete(owner, raced), complete(owner, raced)]);
 	assert.deepEqual(results.map((r) => (r.status === "ok" ? "ok" : r.error.code)).sort(), ["conflict", "ok"]);
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${raced.id}`), [{ n: 1 }]);
 
-	// A failed checklist copy rolls back the completion too; the same request then completes once.
 	const failing = await recurring({ due: due("2026-06-01") });
 	await subtask(owner, failing, "Fail copy");
 	const fault = "tasks_fail_copy";
@@ -1402,7 +1321,6 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 		["Fail copy"],
 	);
 
-	// Stopping keeps the series and its history; the next completion creates nothing.
 	const stopped = await recurring({ due: due("2026-07-01") });
 	const halted = ok(
 		await write(owner, "configureRecurrence", {
@@ -1413,7 +1331,6 @@ test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates ex
 	).task;
 	assert.equal(halted.recurrence.stopped, true);
 	assert.equal(ok(await complete(owner, halted)).successor, null);
-	// No occurrence count: the strict rule refuses it.
 	refused(
 		await write(owner, "configureRecurrence", {
 			requestKey: randomUUID(),
@@ -1434,7 +1351,6 @@ test("AC:TARGET-TSK-006 saving the same prerequisites in another order is a no-o
 			input: { taskId: t.id, prerequisiteIds: ids },
 		});
 	const saved = ok(await replace(task, [a.id, b.id]));
-	// History is the audit rows that carry a change; a no-op keeps only its request receipt, with no change.
 	const history = async () =>
 		(
 			await rows(
@@ -1459,7 +1375,6 @@ test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped serie
 			expectedRevision: task.revision,
 			input: { taskId: task.id, rule },
 		});
-	// Occurrences 1, 2 and 3 of a weekly series; then the series stops at occurrence 3.
 	const first = await recurring({ title: "Count offering", due: { kind: "local_date", date: "2026-09-07" } });
 	const second = ok(await complete(first)).successor;
 	const third = ok(await complete(second)).successor;
@@ -1477,7 +1392,6 @@ test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped serie
 	});
 	const before = await oldSeries();
 
-	// Occurrence 2 is complete and already has occurrence 3 after it. A monthly rule on it starts a new series.
 	const rule = { frequency: "monthly", until: null, localTime: null };
 	const restarted = ok(await configure(await get(owner, second.id), rule)).task;
 	assert.equal(restarted.occurrenceId, "1");
@@ -1487,12 +1401,10 @@ test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped serie
 		...rule,
 		stopped: false,
 	});
-	// The old series stays stopped, and its other occurrences keep their series, number, status and history.
 	assert.deepEqual(await oldSeries(), before);
 	assert.equal(before.rule[0].stopped, true);
 	assert.equal(ok(await complete(await get(owner, third.id))).successor, null);
 
-	// Reopened and completed, the restarted occurrence adds exactly one next occurrence in the new series.
 	const reopened = ok(
 		await write(owner, "reopen", {
 			requestKey: randomUUID(),
@@ -1506,7 +1418,6 @@ test("AC:TARGET-TSK-007 Make it repeat on an older occurrence of a stopped serie
 		[done.successor.occurrenceId, done.successor.recurrence.seriesId, done.successor.due],
 		["2", restarted.recurrence.seriesId, { kind: "local_date", date: "2026-10-14" }],
 	);
-	// A retry, with the same key or a new one, adds nothing more.
 	assert.deepEqual(ok(await complete(reopened, key)), done);
 	ok(await complete(await get(owner, second.id)));
 	assert.deepEqual(
@@ -1555,7 +1466,6 @@ test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or
 	const boom = await create(owner, { title: "Boom", assigneeIds: [member.id] });
 	const selection = [mine, others, series, series, w, stale, theirs, missing, boom];
 
-	// A fault before commit leaves every task as it was.
 	const fault = "tasks_fail_bulk";
 	await f.admin.execute(
 		sql.raw(`CREATE FUNCTION ${fault}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
@@ -1576,7 +1486,6 @@ test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or
 		),
 		[{ n: 0 }],
 	);
-	// The same request then completes each valid task once; a retry returns the stored answer.
 	const result = ok(await bulk(member, "bulkComplete", selection, {}, key));
 	assert.deepEqual(ok(await bulk(member, "bulkComplete", selection, {}, key)), result);
 	assert.deepEqual(
@@ -1596,7 +1505,6 @@ test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or
 	assert.deepEqual(await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${series.id}`), [{ n: 1 }]);
 	assert.equal((await get(foreign, theirs.id)).status, "not_started");
 
-	// A request where nothing changes still answers each task and replays from its stored receipt.
 	const quiet = [missing, w, stale, await get(owner, mine.id)];
 	const quietKey = randomUUID();
 	const nothing = ok(await bulk(owner, "bulkComplete", quiet, {}, quietKey));
@@ -1606,7 +1514,6 @@ test("AC:TARGET-TSK-008 bulk changes report each task, commit all valid tasks or
 	);
 	assert.deepEqual(ok(await bulk(owner, "bulkComplete", quiet, {}, quietKey)), nothing);
 
-	// Reschedule: Owner/Admin, open top-level tasks only, and an invalid date writes nothing.
 	const later = await create(owner, { title: "Later" });
 	const row = await subtask(owner, later, "Row");
 	const done = await get(owner, mine.id);
@@ -1651,26 +1558,20 @@ test("AC:TARGET-TSK-008 AC:TARGET-TSK-007 a bulk complete names each recurring t
 			[monthly.id, "changed", "Monthly report", due("2026-11-30")],
 		],
 	);
-	// Each successor is the series' live next task, as a single read returns it.
 	for (const i of [result.items[0], result.items[2]]) {
 		const next = await get(owner, i.successor.id);
 		assert.deepEqual([next.status, next.occurrenceId, next.revision], ["not_started", "2", i.successor.revision]);
 	}
-	// A retry with the same request key returns the same answer and adds nothing; the one-off has no successor.
 	assert.deepEqual(ok(await write(owner, "bulkComplete", request)), result);
 	const successors = async (t) => (await rows(sql`SELECT count(*)::int n FROM task WHERE predecessor_id=${t.id}`))[0].n;
 	assert.deepEqual([await successors(weekly), await successors(plain), await successors(monthly)], [1, 0, 1]);
 });
-
-// ---------------------------------------------------------------------------------------------------------------
-// WP-023 F07b: a task has one or more assignees.
 
 test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set and audited", async () => {
 	const assigneeIds = async (id) =>
 		(await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${id} ORDER BY account_id`)).map(
 			(r) => r.account_id,
 		);
-	// One account that cannot hold the task refuses the whole write, names it and creates nothing.
 	const before = (await rows(sql`SELECT count(*)::int n FROM task`))[0].n;
 	const bad = refused(
 		await write(owner, "create", {
@@ -1681,7 +1582,6 @@ test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set
 	);
 	assert.equal(bad.details.accountId, foreign.id);
 	assert.equal((await rows(sql`SELECT count(*)::int n FROM task`))[0].n, before);
-	// A repeated ID collapses to one; more than ten distinct accounts are refused.
 	const t = await create(owner, { title: "Pair", assigneeIds: [member.id, admin2.id, member.id] });
 	assert.deepEqual(t.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
 	assert.deepEqual(await assigneeIds(t.id), [member.id, admin2.id].sort());
@@ -1692,10 +1592,8 @@ test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set
 		}),
 		"invalid_input",
 	);
-	// The list reads by display name, then account ID.
 	const names = t.assignees.map((a) => a.displayName.toLowerCase());
 	assert.deepEqual(names, [...names].sort());
-	// An edit with the list omitted leaves the set; one bad account in a list changes nothing.
 	const same = ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
@@ -1713,7 +1611,6 @@ test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set
 		"invalid_subject",
 	);
 	assert.deepEqual(await assigneeIds(t.id), [member.id, admin2.id].sort());
-	// A change to the set bumps the revision once and writes one audit row with the set before and after.
 	const trimmed = ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
@@ -1728,7 +1625,6 @@ test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set
 	assert.equal(audit.length, 1);
 	assert.deepEqual(audit[0].before_value.assigneeIds, [member.id, admin2.id].sort());
 	assert.deepEqual(audit[0].after_value.assigneeIds, [admin2.id]);
-	// An empty list clears the set: Needs owner.
 	const cleared = ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),
@@ -1741,7 +1637,6 @@ test("AC:TARGET-TSK-002 a list of assignees is checked as a whole, kept as a set
 
 test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 any assignee acts, a Member adds nobody, children and successors keep the set", async () => {
 	const shared = await create(owner, { title: "Shared duty", assigneeIds: [member.id, admin2.id] });
-	// Another Member is not an assignee and cannot complete it; one of the assignees can.
 	const stranger = await (async () => {
 		const a = await f.account();
 		await f.seat(a, plant, "member");
@@ -1755,7 +1650,6 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 any assignee acts, a Member adds nobod
 		}),
 		"unavailable",
 	);
-	// A Member cannot name other accounts on a step; the step inherits the parent's whole set.
 	refused(
 		await write(member, "createSubtask", {
 			requestKey: randomUUID(),
@@ -1766,7 +1660,6 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 any assignee acts, a Member adds nobod
 	);
 	const step = await subtask(member, shared, "Check the list");
 	assert.deepEqual(step.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
-	// The next occurrence of a recurring task copies the set.
 	const weekly = await recurring({
 		title: "Weekly set-up",
 		assigneeIds: [member.id, admin2.id],
@@ -1780,7 +1673,6 @@ test("AC:TARGET-TSK-003 AC:TARGET-TSK-005 any assignee acts, a Member adds nobod
 		}),
 	).successor;
 	assert.deepEqual(next.assignees.map((a) => a.accountId).sort(), [member.id, admin2.id].sort());
-	// One of the assignees completes the shared task, once, and "My tasks" lists it for each of them.
 	const mine = async (who) =>
 		ok(
 			await read(who, "list", {
@@ -1831,7 +1723,6 @@ test("AC:TARGET-TSK-014 each assignee gets their own reminders, and removing one
 		assigneeIds: [member.id, admin2.id],
 		due: { kind: "local_date", date: "2099-01-15" },
 	});
-	// A due and an overdue reminder each.
 	const both = [member.id, admin2.id].sort().flatMap((id) => [id, id]);
 	assert.deepEqual(await live(t.id), both);
 	const trimmed = ok(
@@ -1842,14 +1733,12 @@ test("AC:TARGET-TSK-014 each assignee gets their own reminders, and removing one
 		}),
 	).task;
 	assert.deepEqual(await live(t.id), [admin2.id, admin2.id]);
-	// A stale reminder never reaches the removed assignee.
 	const stale = await rows(
 		sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m JOIN notice n ON n.id=m.notice_id
 			WHERE n.source_record_id=${t.id}`,
 	);
 	const allowed = await f.db.transaction((tx) => authorizeTaskReminders(tx, stale));
 	assert.deepEqual([...new Set(stale.filter((m) => allowed.has(m.id)).map((m) => m.recipient))], [admin2.id]);
-	// Adding one plans theirs.
 	ok(
 		await write(owner, "edit", {
 			requestKey: randomUUID(),

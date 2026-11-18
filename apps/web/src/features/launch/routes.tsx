@@ -3,9 +3,7 @@ import { Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { LaunchScreen } from "./LaunchScreen.tsx";
-import { administers, launchViewer, loadPlan } from "./server.ts";
-
-// The /launch route (WP-045). apps/web/src/app/(product)/(frame)/launch/ only re-exports these.
+import { administers, launchViewer, loadOffers, loadPlan } from "./server.ts";
 
 export const launchMetadata: Metadata = { title: "Launch plan", robots: { index: false, follow: false } };
 
@@ -20,18 +18,22 @@ export async function LaunchPage() {
 			</StatePanel>
 		);
 	}
-	const loaded = await loadPlan(viewer);
-	// A failed load is never "no launch date": the page says it could not load (LCH-008).
+	const [loaded, offers] = await Promise.all([loadPlan(viewer), loadOffers(viewer)]);
 	if (loaded.status !== "ok")
 		return (
 			<StatePanel tone="error" title="The Launch plan could not load">
 				This is a loading problem. Your Launch plan is safe. Reload the page in a moment.
 			</StatePanel>
 		);
-	return <LaunchScreen plan={loaded.value} viewer={{ accountId: viewer.accountId, admin: administers(viewer) }} />;
+	return (
+		<LaunchScreen
+			plan={loaded.value}
+			offers={offers}
+			viewer={{ accountId: viewer.accountId, admin: administers(viewer) }}
+		/>
+	);
 }
 
-/** The first paint while the plan loads: its shape, not a spinner. */
 export function LaunchLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-5">

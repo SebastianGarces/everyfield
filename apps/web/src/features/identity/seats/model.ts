@@ -2,9 +2,7 @@ import { tenantOwner } from "@everyfield/contracts/access";
 import { invitationListResult, seatListResult } from "@everyfield/contracts/identity";
 import type { z } from "zod";
 import type { SeatsRead } from "./actions";
-import { formatDay } from "../../shared/dates.ts";
-
-// Words and pure helpers for Seats and invitations (REQ-IDN-017, REQ-IDN-019).
+import { formatDay } from "../../../components/dates.ts";
 
 export type Roster = z.infer<typeof seatListResult>;
 export type Seat = Roster["items"][number];
@@ -14,7 +12,6 @@ export type WorkspaceKind = "plant" | "sending_church" | "sending_network";
 
 export const ROLE_NAME: Record<Seat["role"], string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
-/** "Oct 3, 4:12 PM CDT" for an instant in the workspace's own time zone, named, for a moment that matters. */
 export function formatMoment(instant: string, zone: string): string {
 	return new Intl.DateTimeFormat("en-US", {
 		timeZone: zone,
@@ -26,10 +23,6 @@ export function formatMoment(instant: string, zone: string): string {
 	}).format(new Date(instant));
 }
 
-/**
- * When this seat joined (REQ-IDN-019). An accepted invitation gives the date it was accepted. A seat from before
- * invitation records says so plainly, so the fallback date is never read as a join date.
- */
 export function joinedText(seat: Seat, zone: string): string {
 	return seat.joined.source === "accepted_invitation"
 		? `Joined ${formatDay(seat.joined.at, zone)}`
@@ -47,7 +40,6 @@ export function emailProblem(value: string, valid: boolean): string | undefined 
 	return undefined;
 }
 
-/** The workspace word used in sentences: a church for plants and sending churches, the network otherwise. */
 export function placeWord(kind: WorkspaceKind): string {
 	return kind === "sending_network" ? "network" : "church";
 }
@@ -63,7 +55,6 @@ export type SeatsData = {
 	invitations: Invitations | null;
 };
 
-/** Parses a ready read at the browser boundary. */
 export function parseSeats(read: Extract<SeatsRead, { status: "ready" }>): SeatsData {
 	return {
 		workspace: tenantOwner.parse(read.workspace),
@@ -77,19 +68,11 @@ export function parseSeats(read: Extract<SeatsRead, { status: "ready" }>): Seats
 	};
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// A confirmed command changes the lists from its answer, so the page sends one request per command and reads the
-// lists again only when the server says the page was out of date.
-
 const mapSeat = (d: SeatsData, seatId: string, change: (s: Seat) => Seat): SeatsData => ({
 	...d,
 	roster: { ...d.roster, items: d.roster.items.map((s) => (s.seatId === seatId ? change(s) : s)) },
 });
 
-/**
- * A seat after a confirmed role change. Which actions a seat allows follows the seat service: an Admin can be demoted
- * or removed, a Member appointed or removed; a seat that allowed none still allows none.
- */
 export function withRole(
 	d: SeatsData,
 	seatId: string,
@@ -108,10 +91,6 @@ export function withRole(
 	}));
 }
 
-/**
- * The page after the viewer demoted their own Admin seat to Member: a Member reads the roster but manages nothing, so
- * the invitation form, the pending invitations and every seat action go away (REQ-IDN-017).
- */
 export function withOwnDemotion(d: SeatsData, seatId: string, revision: Seat["revision"]): SeatsData {
 	return {
 		...d,
@@ -126,12 +105,10 @@ export function withOwnDemotion(d: SeatsData, seatId: string, revision: Seat["re
 	};
 }
 
-/** A seat after a confirmed removal: it moves to Removed seats and allows nothing. */
 export function withRemoved(d: SeatsData, seatId: string, revision: Seat["revision"]): SeatsData {
 	return mapSeat(d, seatId, (s) => ({ ...s, status: "removed", revision, allowedActions: [] }));
 }
 
-/** A sent or resent invitation: a resend replaces its row, a new one comes first. */
 export function withInvitation(d: SeatsData, invitation: PendingInvitation): SeatsData {
 	if (!d.invitations) return d;
 	const items = d.invitations.items;
@@ -147,7 +124,6 @@ export function withInvitation(d: SeatsData, invitation: PendingInvitation): Sea
 	};
 }
 
-/** A revoked invitation leaves the list. */
 export function withoutInvitation(d: SeatsData, invitationId: string): SeatsData {
 	if (!d.invitations) return d;
 	return {
@@ -156,7 +132,6 @@ export function withoutInvitation(d: SeatsData, invitationId: string): SeatsData
 	};
 }
 
-/** The next page of the roster or the invitations, after what the screen holds. Rows it already shows stay once. */
 export function withPage(
 	d: SeatsData,
 	page: { list: "seats"; value: Roster } | { list: "invitations"; value: Invitations },

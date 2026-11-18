@@ -1,11 +1,12 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 
 import { fixture } from "../../support/fixture.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { peopleReader } from "../../../packages/domain/src/people/index.ts";
+import { readAvatar } from "../../../packages/domain/src/settings/avatar.ts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
@@ -24,10 +25,6 @@ const {
 	retirePerson: retirePipelinePerson,
 	saveStages: savePipelineStages,
 } = pipelineWriter;
-
-// The organization pipeline (REQ-MUL-001, -002, -008, -009) against a migrated database: Grace Austin's Owner Dana,
-// Admin Luis and Members Ana (responsible for Casey) and Ben (responsible for no one), and Hill Country Network as a
-// separate organization.
 
 const database = await fixture({ prefix: "pipeline", max: 6 });
 const { admin } = database;
@@ -94,11 +91,10 @@ test("an empty pipeline shows the five starter stages in order and nobody in the
 			["Not continuing", "not_continuing", 0, 0],
 		],
 	);
-	// The responsible-staff picker offers the organization's current seats only.
 	assert.deepEqual(b.staff.map((s) => s.name).sort(), ["Ana", "Ben", "Dana", "Luis"]);
 });
 
-test("an Owner adds a person with an email and responsible staff; nobody outside the organization sees them", async () => {
+test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsible staff; nobody outside the organization sees them", async () => {
 	const b = await board(dana);
 	const added = ok(
 		await addPipelinePerson(db, await authority(dana), {
@@ -110,7 +106,6 @@ test("an Owner adds a person with an email and responsible staff; nobody outside
 		}),
 	);
 	assert.deepEqual(added, { personId: casey, revision: "1", outcome: "changed" });
-	// A repeated request adds nobody else.
 	const again = ok(
 		await addPipelinePerson(db, await authority(dana), {
 			personId: casey,
@@ -128,7 +123,6 @@ test("an Owner adds a person with an email and responsible staff; nobody outside
 		potential.people.map((p) => [p.name, p.email, p.responsible?.name]),
 		[["Casey Lee", "casey@example.test", "Ana"]],
 	);
-	// A seat of another organization cannot be named responsible.
 	const hillSeat = await seatOf(hillOwner.id, hill.id);
 	refusedWith(
 		await addPipelinePerson(db, await authority(dana), {
@@ -140,14 +134,12 @@ test("an Owner adds a person with an email and responsible staff; nobody outside
 		}),
 		"invalid_input",
 	);
-	// Hill Country Network has its own pipeline, without Casey, and cannot open Casey.
 	const other = await board(hillOwner);
 	assert.deepEqual(
 		other.stages.map((s) => s.count),
 		[0, 0, 0, 0, 0],
 	);
 	refusedWith(await record(hillOwner, casey), "unavailable");
-	// Casey is in no plant's People.
 	const plantOwner = database.actors.owner;
 	const plant = await db.transaction((t) =>
 		peopleReader.listPeople(
@@ -162,7 +154,7 @@ test("an Owner adds a person with an email and responsible staff; nobody outside
 	assert.equal((plant as { value: { items: unknown[] } }).value.items.length, 0);
 });
 
-test("an Owner edits a person's name, email and responsible staff", async () => {
+test("AC:ADR1-001 an Owner edits a person's name, email and responsible staff", async () => {
 	const before = ok(await record(dana, casey));
 	const edited = ok(
 		await editPipelinePerson(db, await authority(dana), {
@@ -178,7 +170,6 @@ test("an Owner edits a person's name, email and responsible staff", async () => 
 		[r.name, r.email, r.responsible?.name, r.revision],
 		["Casey Lee-Park", null, "Luis", edited.revision],
 	);
-	// A stale revision is refused.
 	refusedWith(
 		await editPipelinePerson(db, await authority(dana), {
 			personId: casey,
@@ -200,7 +191,7 @@ test("an Owner edits a person's name, email and responsible staff", async () => 
 	);
 });
 
-test("a move needs a reason, and the history shows who moved the person, when and why", async () => {
+test("AC:ADR1-008 a move needs a reason, and the history shows who moved the person, when and why", async () => {
 	const b = await board(luis);
 	const r = ok(await record(luis, casey));
 	refusedWith(
@@ -233,7 +224,6 @@ test("a move needs a reason, and the history shows who moved the person, when an
 		reason: "Started leading a small group",
 	});
 	assert.deepEqual(moved.history.at(-1)!.kind, "placed");
-	// Central audit holds no reason (REQ-MUL-002).
 	const audit = await admin.execute(
 		sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${grace.id}::uuid
 		 AND (coalesce(reason,'') ILIKE '%small group%' OR metadata::text ILIKE '%small group%'
@@ -242,14 +232,12 @@ test("a move needs a reason, and the history shows who moved the person, when an
 	assert.equal(audit.rows[0]!.n, 0);
 });
 
-test("stage edits rename, add and reorder; history keeps the label of the time; occupied stages are not removed", async () => {
+test("AC:ADR1-008 stage edits rename, add and reorder; history keeps the label of the time; occupied stages are not removed", async () => {
 	const b = await board(dana);
 	const stages = b.stages.map((s) => ({ id: s.id, label: s.label, kind: s.kind, expectedRevision: s.revision }));
 	const intern = randomUUID();
 	const renamed = stages.map((s) => (s.label === "Potential leader" ? { ...s, label: "ICNU conversation had" } : s));
-	// Intern, an Apprentice kind, goes first; the rest keep their order.
 	const next = [{ id: intern, label: "Intern", kind: "apprentice", expectedRevision: null }, ...renamed];
-	// Only an Owner or Admin edits stages.
 	refusedWith(await savePipelineStages(db, await authority(ana), { stages: next, removed: [] }), "unavailable");
 	ok(await savePipelineStages(db, await authority(dana), { stages: next, removed: [] }));
 	const saved = await board(dana);
@@ -262,7 +250,6 @@ test("stage edits rename, add and reorder; history keeps the label of the time; 
 		history.filter((h) => h.kind === "moved").map((h) => [h.from, h.to]),
 		[["Potential leader", "Apprentice"]],
 	);
-	// Apprentice holds Casey: removing it is refused and nothing changes.
 	const current = saved.stages.map((s) => ({ id: s.id, label: s.label, kind: s.kind, expectedRevision: s.revision }));
 	const apprentice = current.find((s) => s.label === "Apprentice")!;
 	const refused = await savePipelineStages(db, await authority(dana), {
@@ -277,7 +264,6 @@ test("stage edits rename, add and reorder; history keeps the label of the time; 
 		(await board(dana)).stages.map((s) => s.label),
 		saved.stages.map((s) => s.label),
 	);
-	// An empty stage can go.
 	const internNow = current.find((s) => s.label === "Intern")!;
 	ok(
 		await savePipelineStages(db, await authority(dana), {
@@ -291,7 +277,7 @@ test("stage edits rename, add and reorder; history keeps the label of the time; 
 	);
 });
 
-test("Not continuing is an ordinary move", async () => {
+test("AC:ADR1-008 Not continuing is an ordinary move", async () => {
 	const b = await board(dana);
 	const person = randomUUID();
 	ok(
@@ -314,9 +300,8 @@ test("Not continuing is an ordinary move", async () => {
 	assert.deepEqual(names(await board(dana))["Not continuing"], ["Riley Fox"]);
 });
 
-test("an outside assessment records only that it happened, when and by whom", async () => {
+test("AC:ADR1-008 an outside assessment records only that it happened, when and by whom", async () => {
 	const r = ok(await record(luis, casey));
-	// No result, score or rating field exists.
 	refusedWith(
 		await recordPipelineAssessment(db, await authority(luis), {
 			personId: casey,
@@ -327,7 +312,6 @@ test("an outside assessment records only that it happened, when and by whom", as
 		}),
 		"invalid_input",
 	);
-	// Not a day after today.
 	refusedWith(
 		await recordPipelineAssessment(db, await authority(luis), {
 			personId: casey,
@@ -351,7 +335,7 @@ test("an outside assessment records only that it happened, when and by whom", as
 	});
 });
 
-test("the six-month filter finds people with no stage move since, as of today", async () => {
+test("AC:ADR1-008 the six-month filter finds people with no stage move since, as of today", async () => {
 	const b = await board(dana);
 	ok(
 		await addPipelinePerson(db, await authority(dana), {
@@ -362,7 +346,6 @@ test("the six-month filter finds people with no stage move since, as of today", 
 			stageId: stageId(b, "Resident"),
 		}),
 	);
-	// Jordan's placement happened more than six months ago; Casey's last move two weeks ago.
 	await admin.execute(sql`UPDATE audit_event a SET occurred_at=clock_timestamp()-interval '190 days' FROM pipeline_stage_move m
 	 JOIN pipeline_person pp ON pp.id=m.pipeline_person_id WHERE a.id=m.id AND pp.person_id=${jordan}::uuid`);
 	await admin.execute(sql`UPDATE audit_event a SET occurred_at=clock_timestamp()-interval '16 days' FROM pipeline_stage_move m
@@ -375,7 +358,7 @@ test("the six-month filter finds people with no stage move since, as of today", 
 	assert.equal(stale.asOf, today);
 });
 
-test("a Member with no pipeline duty sees counts only and cannot change anything", async () => {
+test("AC:ADR1-002 a Member with no pipeline duty sees counts only and cannot change anything", async () => {
 	const b = await board(ben, { q: "Casey", stale: true });
 	assert.equal(b.audience, "counts");
 	assert.equal(
@@ -416,7 +399,7 @@ test("a Member with no pipeline duty sees counts only and cannot change anything
 	);
 });
 
-test("responsible staff see their own people and notes, and nothing of anyone else's", async () => {
+test("AC:ADR1-002 AC:ADR1-009 responsible staff see their own people and notes, and nothing of anyone else's", async () => {
 	const b = await board(ana);
 	assert.equal(b.audience, "responsible");
 	assert.deepEqual(
@@ -429,7 +412,6 @@ test("responsible staff see their own people and notes, and nothing of anyone el
 		body: "Jordan is weighing a move to Dallas",
 	});
 	refusedWith(await record(ana, jordan), "unavailable");
-	// Ana's search finds nothing from a note she cannot read.
 	assert.deepEqual(
 		(await board(ana, { q: "Dallas" })).stages.flatMap((s) => s.people),
 		[],
@@ -440,7 +422,7 @@ test("responsible staff see their own people and notes, and nothing of anyone el
 	);
 });
 
-test("a note is read by Owner, Admin and responsible staff only, and only its author edits or removes it", async () => {
+test("AC:ADR1-009 a note is read by Owner, Admin and responsible staff only, and only its author edits or removes it", async () => {
 	const noteId = randomUUID();
 	ok(
 		await addPipelineNote(db, await authority(ana), {
@@ -456,7 +438,6 @@ test("a note is read by Owner, Admin and responsible staff only, and only its au
 			[["Casey asked about Austin seminary", "Ana", reader === ana]],
 		);
 	}
-	// Search finds the note's word for a reader and nothing for Ben.
 	assert.deepEqual(
 		(await board(dana, { q: "seminary" })).stages.flatMap((s) => s.people.map((p) => p.name)),
 		["Casey Lee"],
@@ -479,19 +460,18 @@ test("a note is read by Owner, Admin and responsible staff only, and only its au
 	);
 	ok(await removePipelineNote(db, await authority(ana), { noteId, expectedRevision: edited.revision }));
 	const r = ok(await record(dana, casey));
-	assert.deepEqual(r.notes, [{ state: "removed", id: noteId, author: "Ana", removedOn: r.asOf }]);
+	assert.deepEqual(r.notes, [{ state: "removed", id: noteId, author: "Ana", avatar: null, removedOn: r.asOf }]);
 	assert.deepEqual(
 		(await board(dana, { q: "seminary" })).stages.flatMap((s) => s.people),
 		[],
 	);
-	// The body never reached central audit.
 	const audit = await admin.execute(
 		sql`SELECT count(*)::int AS n FROM audit_event WHERE tenant_id=${grace.id}::uuid AND metadata::text ILIKE '%seminary%'`,
 	);
 	assert.equal(audit.rows[0]!.n, 0);
 });
 
-test("retiring takes a person off the board and counts; restoring puts them back in the same stage", async () => {
+test("AC:ADR1-001 retiring takes a person off the board and counts; restoring puts them back in the same stage", async () => {
 	const before = await board(dana);
 	const resident = before.stages.find((s) => s.label === "Resident")!;
 	const j = ok(await record(dana, jordan));
@@ -511,9 +491,106 @@ test("retiring takes a person off the board and counts; restoring puts them back
 	const kept = ok(await record(dana, jordan));
 	assert.equal(kept.retired, true);
 	assert.deepEqual(kept.history[0]!.kind, "retired");
-	// Luis, Jordan's responsible staff and an Admin, still reads him; a retired person is never in a Member's view.
 	ok(await restorePipelinePerson(db, await authority(dana), { personId: jordan, expectedRevision: kept.revision }));
 	const restored = await board(dana);
 	assert.equal(restored.stages.find((s) => s.label === "Resident")!.count, resident.count);
 	assert.deepEqual(names(restored).Resident, ["Jordan Reyes"]);
+});
+
+const PNG = Buffer.from(
+	"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAADUlEQVQImWPgEpH7DwABpAE8sdwFIwAAAABJRU5ErkJggg==",
+	"base64",
+);
+const photoObjects = new Map<string, Buffer>();
+const photoStorage = {
+	bucket: "synthetic-only",
+	client: {
+		send: async (command: { constructor: { name: string }; input: { Key: string } }) => {
+			if (command.constructor.name === "GetBucketAclCommand")
+				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
+			if (command.constructor.name !== "GetObjectCommand") throw Error("unexpected provider operation");
+			const body = photoObjects.get(command.input.Key)!;
+			return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
+		},
+	},
+};
+async function setAvatar(a: Actor) {
+	const versionId = randomUUID();
+	const key = `private/${a.id}/${versionId}`;
+	photoObjects.set(key, PNG);
+	await admin.execute(sql`INSERT INTO file_object(id,tenant_id,purpose,opaque_key,media_type,max_bytes,byte_count,
+		sha256,state,upload_key,claim_generation) VALUES(${versionId},${a.id},'avatar',${key},'image/png',${PNG.length},
+		${PNG.length},${createHash("sha256").update(PNG).digest("hex")},'ready',${versionId},0)`);
+	await admin.execute(sql`UPDATE account SET avatar_object_id=${versionId} WHERE id=${a.id}`);
+	return { accountId: a.id, versionId };
+}
+const photoRead = (photo: { accountId: string; versionId: string }) =>
+	readAvatar(
+		db,
+		photoStorage as never,
+		{ session: dana.session, selected: { kind: "account", id: dana.id } } as never,
+		photo,
+	).then(
+		(bytes) => (Buffer.from(bytes).equals(PNG) ? "bytes" : "wrong bytes"),
+		(error: Error) => (error.message === "unavailable" ? "refused" : error.message),
+	);
+const noteAuthors = async (reader: Actor) =>
+	ok(await record(reader, casey)).notes.map((n) => [n.state, n.author, n.avatar]);
+
+test("AC:TARGET-IDN-006 a note's author shows their account photo while it is visible in the organization, else initials", async () => {
+	ok(
+		await addPipelineNote(db, await authority(ana), {
+			personId: casey,
+			noteId: randomUUID(),
+			body: "Met Casey's family",
+		}),
+	);
+	assert.deepEqual(await noteAuthors(dana), [
+		["current", "Ana", null],
+		["removed", "Ana", null],
+	]);
+
+	const photo = await setAvatar(ana);
+	for (const reader of [dana, luis, ana])
+		assert.deepEqual(await noteAuthors(reader), [
+			["current", "Ana", photo],
+			["removed", "Ana", photo],
+		]);
+	assert.equal(await photoRead(photo), "bytes");
+
+	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE id=${anaSeat}::uuid`);
+	assert.deepEqual(await noteAuthors(dana), [
+		["current", "Ana", null],
+		["removed", "Ana", null],
+	]);
+	assert.equal(await photoRead(photo), "refused");
+
+	ok(
+		await addPipelineNote(db, await authority(luis), {
+			personId: casey,
+			noteId: randomUUID(),
+			body: "Casey led worship",
+		}),
+	);
+	const luisPhoto = await setAvatar(luis);
+	assert.deepEqual((await noteAuthors(dana))[0], ["current", "Luis", luisPhoto]);
+	await admin.execute(sql`INSERT INTO lifecycle_witness(kind,opaque_subject_id,request_revision,state,witness_checkpoint,
+		cleanup_state,request_id,requested_at,cancel_until) VALUES('account',${luis.id}::uuid,1,'pending_deletion',1,
+		'not_started',${randomUUID()},statement_timestamp(),statement_timestamp()+interval '720 hours')`);
+	assert.deepEqual(await noteAuthors(dana), [
+		["current", "Luis", null],
+		["current", "Ana", null],
+		["removed", "Ana", null],
+	]);
+
+	await admin.execute(
+		sql`UPDATE person_note SET author_id=NULL WHERE tenant_id=${grace.id}::uuid AND person_id=${casey}::uuid`,
+	);
+	assert.deepEqual(await noteAuthors(dana), [
+		["current", null, null],
+		["current", null, null],
+		["removed", null, null],
+	]);
+
+	refusedWith(await record(hillOwner, casey), "unavailable");
 });

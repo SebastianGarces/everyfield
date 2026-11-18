@@ -34,19 +34,11 @@ import { person, reviewed, target, type Receipt } from "../../people/commands/in
 import { mergeReviewOf, unmergePreviewOf } from "../reads/index.ts";
 import { date, id } from "../ids.ts";
 
-// The People assessment-area reviewed writes (WP-062). Each review is one SELECT under the proposal's statement that
-// reads the target live in the actor's church and saves the native command's exact arguments: exactly the ratings,
-// scores, dates and choices the person gave, never one the model filled in (the inputs require every one, so a request
-// that leaves one out cannot be proposed). On approval the executor runs the owning native People command once with the
-// effect key as its request key; anything that changed since the review refuses instead of being overwritten.
-
 const json = (value: unknown) => sql`${JSON.stringify(value)}::jsonb`;
 const change = (field: string, after: unknown, before: SQL = sql`NULL`) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${json(after ?? null)})`;
 const changes = (list: SQL[]) => (list.length ? sql`jsonb_build_array(${sql.join(list, sql`,`)})` : sql`'[]'::jsonb`);
-/** The church's today, for the person `p`. */
 const today = sql`(SELECT (clock_timestamp() AT TIME ZONE pl.timezone)::date FROM plant pl WHERE pl.id=p.plant_id)`;
-/** A review the native command would refuse says so on the card, which then offers no Approve. */
 const refusal = (cases: [when: SQL, text: string][]) =>
 	sql`CASE ${sql.join(
 		cases.map(([when, text]) => sql`WHEN ${when} THEN jsonb_build_object('refusal',${text}::text)`),
@@ -57,7 +49,6 @@ const future = (on: string): [SQL, string] => [
 	"That date is after today in the church's time zone, so it can't be recorded.",
 ];
 const ORDER = sql.raw(`ARRAY[${stage.options.map((s) => `'${s}'`).join(",")}]::text[]`);
-/** REQ-PPL-020: an interview moves an earlier stage to interviewed and a commitment card to core_group. */
 const advance = (to: string) =>
 	sql`CASE WHEN array_position(${ORDER},p.stage::text)<array_position(${ORDER},${to}::text)
 		THEN jsonb_build_array(jsonb_build_object('field','stage','before',to_jsonb(p.stage),'after',to_jsonb(${to}::text))) ELSE '[]'::jsonb END`;
@@ -73,7 +64,6 @@ const commitmentRevision = receipt<{ current: { personRevision: string } }>((v) 
 const ownRevision = receipt<{ revision: string }>((v) => v.revision);
 const survivorRevision = receipt<{ survivorRevision: string }>((v) => v.survivorRevision);
 
-// Every value comes from the user (the descriptions say so once): a criterion or score's notes are plain text.
 const text = z.string().trim().min(1).max(5000).optional();
 const notes = text.describe("Only text the user gave");
 const criterion = z.strictObject({ rating: criterionRating, notes: text });
@@ -114,7 +104,6 @@ const lifecycleInput = z.strictObject({
 	effectiveOn: date.describe("The date it takes effect, YYYY-MM-DD"),
 	reason: notes.describe("Only a reason the user gave"),
 });
-/** Withdraw or reactivate: the person's current commitment changes from `from` to `to`; the stage never changes. */
 function lifecycle(operation: "people.withdrawCommitment" | "people.reactivateCommitment") {
 	const withdraw = operation === "people.withdrawCommitment";
 	const to = withdraw ? "withdrawn" : "active";
@@ -170,9 +159,6 @@ const cardCorrection = z.strictObject({
 	]),
 	reason: z.string().trim().min(1).max(5000).describe("Why, in the user's words"),
 });
-// Record corrections: each correctable field, how its current value reads from the record `r`, and whether a given
-// value replaces it whole (a date, a result) or only the parts the user gave (a rating keeps its notes unless new
-// notes were given).
 const partial = { rating: criterionRating.optional(), score: z.int().min(1).max(5).optional() };
 const interviewChanges = z
 	.strictObject({
@@ -225,7 +211,6 @@ const RECORDS = {
 type Columns = Record<string, unknown>;
 const empty = (field: string, v: Columns) =>
 	Object.values(v).every((x) => x === null || x === "" || (field === "adultClassification" && x === "unknown"));
-/** A field's value in words for the review: its non-empty column values. */
 const columnsText = (v: Columns) =>
 	Object.values(v)
 		.filter((x) => x !== null && x !== "")
@@ -235,7 +220,6 @@ const mergeInput = z.strictObject({
 	sourceId: id.describe("The person who merges in and stops being a separate record"),
 	survivorId: id.describe("The person who stays"),
 });
-/** The installed assessment-area reviewed writes, keyed by operation. */
 export const ASSESSMENT_COMMANDS = {
 	"people.createInterview": reviewed({
 		operation: "people.createInterview",
@@ -362,7 +346,6 @@ export const ASSESSMENT_COMMANDS = {
 		review(actor, v) {
 			const def = RECORDS[v.recordType];
 			const given = Object.entries(v.changes as Record<string, unknown>).filter(([, x]) => x !== undefined);
-			// A rating or score given without notes keeps the notes it has: the parts given replace only those parts.
 			const after = (f: string, x: unknown) =>
 				x !== null && typeof x === "object" ? sql`(${def.read(f)})||${json(x)}` : json(x);
 			const list = given.map(
@@ -401,8 +384,6 @@ export const ASSESSMENT_COMMANDS = {
 			const m = await db.transaction((tx) => mergeReviewOf(tx, actor, v));
 			if (!m) return null;
 			const who = { source: m.source.displayName, survivor: m.survivor.displayName };
-			// The People merge review's default (corrections/model.ts, defaultChoices): the survivor's value stays unless it
-			// has none and the source has one.
 			const fields = m.fields.filter(
 				(f) => empty(f.field, f.survivor as Columns) && !empty(f.field, f.source as Columns),
 			);
@@ -423,7 +404,6 @@ export const ASSESSMENT_COMMANDS = {
 				...fields.map((f) =>
 					change(f.field, columnsText(f.source as Columns), json(columnsText(f.survivor as Columns))),
 				),
-				// The other differing details keep the survivor's values, as the People merge review defaults them.
 				...(kept.length ? [change("keptDetails", listText(kept.map((f) => MERGE_FIELD_LABEL[f.field])))] : []),
 			];
 			const blocked = m.blockers.causes.length ? mergeBlockedText(m.blockers, who) : null;

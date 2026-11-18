@@ -7,15 +7,9 @@ import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { articleHref, inPlant } from "../reads/index.ts";
 
-// The Wiki reviewed writes (WP-078): a bookmark and the reader's own helpful or not helpful vote. Each review reads the
-// article as the planter's Wiki page shows it now, so a draft, hidden or foreign version can never be the target. On
-// approval the executor runs the same native command the Wiki page's button runs, for the approving session, with the
-// effect key as its request key. Churches keep their own writing in Church Documents: no Evry tool edits the Wiki.
-
 const wiki = createWikiProducer();
 const articleId = z.uuid().describe("An articleId from an earlier Wiki result or from the user's page");
 
-/** The article's review target, or null when the planter cannot read it now. */
 async function target(db: Database, actor: EvryActor, id: string) {
 	const reply = await wiki.getArticle(db, actor.authority, { articleId: id });
 	const article = reply.status === "ok" ? reply.value.article : null;
@@ -28,10 +22,6 @@ async function target(db: Database, actor: EvryActor, id: string) {
 		href: articleHref(article.slug),
 	};
 }
-/**
- * The native reply as an effect. A bookmark or vote changes only the approving reader's own Wiki state, so it has no
- * record receipt; `readable` is false when the article could not be read.
- */
 function done<T>(reply: WikiReply<T>, readable: (v: T) => boolean): EffectResult {
 	if (reply.status !== "ok") return { refused: reply.error.code };
 	return readable(reply.value) ? { own: true } : { refused: "access_denied" };
@@ -51,7 +41,6 @@ export const setBookmark: ReviewedWrite<z.infer<typeof bookmarkInput>> = {
 		const article = await target(db, actor, value.articleId);
 		if (!article) return null;
 		const desired = value.desired ?? true;
-		// The reading revision the Wiki page's own button sends: a bookmark changed since the review refuses.
 		return sql`SELECT jsonb_build_object('target',${JSON.stringify(article)}::jsonb,'changes',jsonb_build_array(
 				jsonb_build_object('field','bookmarked','before',coalesce(r.bookmarked,false),'after',${desired}::boolean))) AS review,
 			jsonb_build_object('expectedRevision',coalesce(r.revision::text,'0'),
@@ -87,7 +76,6 @@ export const setFeedback: ReviewedWrite<z.infer<typeof feedbackInput>> = {
 	},
 };
 
-/** The installed Wiki reviewed writes, keyed by operation. */
 export const WIKI_COMMANDS = {
 	"wiki.bookmarks.set": setBookmark,
 	"wiki.feedback.setMine": setFeedback,

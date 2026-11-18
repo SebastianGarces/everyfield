@@ -22,13 +22,14 @@ import {
 	Spinner,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useRead } from "../../components/read.tsx";
 import type { z } from "zod";
 import { When } from "../people/parts.tsx";
 import { AssigneePicker, forgetAssignees } from "../tasks/AssigneePicker.tsx";
 import { dueText, ownerText, ownerWarning } from "../tasks/model.ts";
 import { assignFollowUp, createFollowUp } from "./actions.ts";
-import { forgetOwners, prefetchOwners, warmOn } from "./fetch.ts";
+import { forgetOwners, ownerList, prefetchOwners, warmOn } from "./fetch.ts";
 import {
 	needsOwner,
 	OUTCOME_LABEL,
@@ -40,19 +41,14 @@ import {
 } from "./model.ts";
 import {
 	DialogNotice,
-	focusFirstProblem,
 	NoticeInDialog,
 	SaveButton,
+	useProblemFocus,
 	type SaveIntent,
 } from "../../components/save/parts.tsx";
 
 type TaskDetail = z.infer<typeof tc.taskDetail>;
 
-/**
- * A follow-up the server just created or changed, as the assignment lists show it. An owner this screen already showed
- * keeps the view it had (a retained person who cannot own follow-ups still says so); a person a save just checked reads
- * as eligible.
- */
 export function dutyFrom(task: TaskDetail, previous?: DutyItem): DutyItem {
 	const shown = task.followUpOwners.length
 		? task.followUpOwners
@@ -75,24 +71,10 @@ export function dutyFrom(task: TaskDetail, previous?: DutyItem): DutyItem {
 	};
 }
 
-/** The eligible owners, read on the first sign of intent and again when the menu or form opens (C76). */
-function useOwners(active: boolean) {
-	const [owners, setOwners] = useState<Outcome<Account[]> | null>(null);
-	useEffect(() => {
-		if (!active) return;
-		let live = true;
-		void prefetchOwners().then((r) => live && setOwners(r));
-		return () => {
-			live = false;
-		};
-	}, [active]);
-	return owners;
+function useOwners(active: boolean): Outcome<Account[]> | null {
+	return useRead(active ? ownerList : null).value ?? null;
 }
 
-/**
- * Each owner in the words every screen uses; Owner/Admin get Reassign for someone who cannot own follow-ups. Where the
- * picker beside it already names everyone, only the people who cannot own follow-ups get a line, with their warning.
- */
 function OwnerLines({
 	duty,
 	canReassign,
@@ -126,7 +108,13 @@ function OwnerLines({
 							<span className="text-sm text-text-2">{ownerText(o)}</span>
 						)}
 						{ineligible && canReassign ? (
-							<Menu open={open === o.accountId} onOpenChange={(next) => setOpen(next ? o.accountId : null)}>
+							<Menu
+								open={open === o.accountId}
+								onOpenChange={(next) => {
+									if (next) prefetchOwners();
+									setOpen(next ? o.accountId : null);
+								}}
+							>
 								<MenuTrigger asChild>
 									<Button
 										size="sm"
@@ -181,11 +169,6 @@ function OwnerLines({
 	);
 }
 
-/**
- * Who owns a follow-up, and (Owner/Admin) a picker to give it to up to ten eligible owners or leave it as Needs owner
- * (REQ-TSK-012). Reassign replaces only the person it sits beside. The list loads on intent. The change shows at once
- * and rolls back when the server refuses it.
- */
 export function AssignMenu({
 	duty,
 	lane,
@@ -198,18 +181,13 @@ export function AssignMenu({
 	duty: DutyItem;
 	lane: SaveIntent;
 	canAssign: boolean;
-	/** Name an owner who cannot own follow-ups beside Reassign; false where the screen already names them. */
 	showOwner?: boolean;
-	/** The follow-up as shown: at once when chosen, again from the server's answer, or back on a refusal. */
 	onChange: (duty: DutyItem) => void;
-	/** The server confirmed the change, from `before` to the saved follow-up. Totals update from this, never earlier. */
 	onSaved?: (before: DutyItem, after: DutyItem) => void;
 	onConflict: () => void;
 }) {
-	// The follow-up as it was when the picker opened: what a refusal restores and what "changed" compares with.
 	const opened = useRef(duty);
 	const needs = needsOwner(duty);
-	/** The owner views for a chosen set: people already shown keep their view, new ones read as eligible. */
 	const ownersFor = (ids: string[], names: Record<string, string>): Owner[] =>
 		ids.map(
 			(id) =>
@@ -281,7 +259,6 @@ export function AssignMenu({
 							opened.current = duty;
 							return;
 						}
-						// Closing the list commits the pick session once: a save per toggle would queue behind the last one.
 						const before = opened.current;
 						const same = (a: readonly Owner[], b: readonly Owner[]) =>
 							a
@@ -300,7 +277,6 @@ export function AssignMenu({
 	);
 }
 
-/** A follow-up row's facts: due date (none is never invented), overdue, and the last outcome on it. */
 export function DutyFacts({ duty }: { duty: DutyItem }) {
 	const due = dueText(duty.due);
 	return (
@@ -330,10 +306,6 @@ export function DutyFacts({ duty }: { duty: DutyItem }) {
 
 type AddDraft = { title: string; dated: "undated" | "date"; date: string; owners: string[] };
 
-/**
- * An explicit follow-up with a Person (REQ-PPL-022, REQ-TSK-012): undated unless a date is chosen, with an eligible owner
- * or Needs owner. Nothing creates one in the background. The form keeps its answers while it saves and after a refusal.
- */
 export function AddFollowUpDialog({
 	person,
 	lane,
@@ -345,18 +317,18 @@ export function AddFollowUpDialog({
 	lane: SaveIntent;
 	onClose: () => void;
 	onCreated: (duty: DutyItem) => void;
-	/** Focus back to the button that opened the dialog (useOpener). */
 	returnFocus?: (e: Event) => void;
 }) {
 	const [draft, setDraft] = useState<AddDraft>({ title: "", dated: "undated", date: "", owners: [] });
 	const [dateError, setDateError] = useState<string | null>(null);
 	const owners = useOwners(true);
+	const [focusProblem, refuseProblem] = useProblemFocus();
 	const set = (patch: Partial<AddDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
-	async function submit(form: HTMLFormElement) {
+	async function submit() {
 		if (draft.dated === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(draft.date)) {
 			setDateError("Choose a due date, or choose No date.");
-			return focusFirstProblem(form);
+			return refuseProblem();
 		}
 		setDateError(null);
 		const input = {
@@ -381,11 +353,12 @@ export function AddFollowUpDialog({
 			<Dialog open onOpenChange={(next) => !next && onClose()}>
 				<DialogContent size="sm" onCloseAutoFocus={returnFocus}>
 					<form
+						ref={focusProblem}
 						noValidate
 						className="contents"
 						onSubmit={(e) => {
 							e.preventDefault();
-							if (!lane.wait) void submit(e.currentTarget);
+							if (!lane.wait) void submit();
 						}}
 					>
 						<DialogHeader

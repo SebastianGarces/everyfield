@@ -1,15 +1,3 @@
-// A small church for the household and follow-up evals, seeded as real records into an isolated, migrated schema on
-// Postgres (tests/support/test-database.mts), as golden-church.mts seeds Hope Fellowship. Each suite names its own
-// people, households and plant actors; every read the model calls then runs the real adapter against these rows.
-// Every id the model can see is pinned by the suite, so a replay sends exactly the recorded provider calls.
-//
-// Derived facts come from their source rows, never from a stored label (the technique golden-church.mts documents).
-// Inactivity is the real board's comparison of each person's latest activity with the church's 7 and 14 inactivity
-// days, against the database clock, which evalDatabase (golden-church.mts) pins to golden NOW's frame. So that it
-// reads the same on every run, a person at level none or warning has a recorded activity 2 or 10 days before the seed
-// runs: an audit row that neither the contact log nor a follow-up read lists, so no read shows a time that moves with
-// the clock. An alert-level person has no activity and was created months ago. Coverage is whether a person has an
-// open task.
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { stepCountIs, streamText } from "../../../packages/evry/node_modules/ai/dist/index.js";
 import type { LanguageModelV4 } from "@ai-sdk/provider";
@@ -27,7 +15,6 @@ import type { Database } from "../../support/test-database.mts";
 import { evalDatabase } from "./golden-church.mts";
 import { RECORDED, type ToolCall } from "./golden-harness.mts";
 
-/** A pinned id in the eval namespace, as golden-church.mts writes them. */
 export const id = (n: number) => `5b6d1f0e-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 export const PLANT = id(1);
 
@@ -38,11 +25,8 @@ export type SmallPerson = {
 	city: string;
 	stage: Stage;
 	household?: { id: string; role: "head" | "spouse" | "child" | "other" };
-	/** The inactivity level the seeded activity produces on the real pipeline board. */
 	inactivity?: "none" | "warning" | "alert";
-	/** One open, unassigned task about this person: the board shows them covered. */
 	covered?: boolean;
-	/** The plant actor whose account this person row is linked to: that actor's own row. */
 	linkedTo?: string;
 };
 export type SmallChurchSpec<A extends string> = {
@@ -50,12 +34,10 @@ export type SmallChurchSpec<A extends string> = {
 	timezone: string;
 	households?: { id: string; name: string; city: string; state: string }[];
 	people: SmallPerson[];
-	/** Each plant actor's seat role. Account, user and session ids are pinned from the actor's position. */
 	actors: Record<A, "owner" | "admin">;
 };
 export type SmallChurch<A extends string> = { db: Database; actors: Record<A, EvryActor>; close(): Promise<void> };
 
-/** A fresh schema with the church seeded, the runtime pool the reads use and each actor as the turn builds it. */
 export async function smallChurch<A extends string>(spec: SmallChurchSpec<A>): Promise<SmallChurch<A>> {
 	const database = await evalDatabase({ prefix: "evrysmall" });
 	try {
@@ -74,7 +56,6 @@ export async function smallChurch<A extends string>(spec: SmallChurchSpec<A>): P
 				VALUES(${a.account},${a.user},'active','planter')`);
 			await run(sql`INSERT INTO auth_session(id,user_id,token,expires_at)
 				VALUES(${a.session},${a.user},${`small-${who}`},clock_timestamp()+interval '1 day')`);
-			// Accepted by the database clock, so a host clock ahead of it never makes the seat look unaccepted.
 			await run(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
 				VALUES(${a.account},${PLANT},${spec.actors[who]},clock_timestamp()-interval '1 day')`);
 		}
@@ -118,16 +99,9 @@ const ADAPTERS = new Map<string, ReadAdapter<unknown>>(
 		.flat()
 		.map((a) => [a.operation, a as ReadAdapter<unknown>]),
 );
-/** One real read by operation name, as a test reads the seed back. */
 export const readAs = (db: Database, actor: EvryActor, operation: string, input: unknown): Promise<SourceResult> =>
 	invokeRead(db, actor, ADAPTERS.get(operation)!, input);
 
-/**
- * The read handler of one conversation: each read the model calls runs the real adapter through invokeRead, and is
- * pushed to `calls`. The turn runs a step's tool calls side by side; here they run one after another
- * in call order, and each takes its result id before its first await, so a replay sends exactly the recorded prompt.
- * A refused read answers `source_unavailable`, as the golden harness answers it.
- */
 function realReads(db: Database, actor: EvryActor, calls: ToolCall[]): ToolHandlers["read"] {
 	let queue: Promise<unknown> = Promise.resolve();
 	return (adapter, input) => {
@@ -147,7 +121,6 @@ function realReads(db: Database, actor: EvryActor, calls: ToolCall[]): ToolHandl
 	};
 }
 
-/** One request, as the runtime asks it: the real system prompt and read tools, up to four model steps. */
 export async function converse(model: LanguageModelV4, db: Database, actor: EvryActor, text: string, now: Date) {
 	const calls: ToolCall[] = [];
 	const tools = readTools(actor, realReads(db, actor, calls), RECORDED);
@@ -165,7 +138,6 @@ export async function converse(model: LanguageModelV4, db: Database, actor: Evry
 		system: context.system,
 		messages: context.messages,
 		tools,
-		// Room for a follow-up read and the people it names before the answer (the product allows 24 tool calls).
 		stopWhen: stepCountIs(8),
 		maxRetries: 0,
 		maxOutputTokens: LIMITS.outputTokensPerCall,

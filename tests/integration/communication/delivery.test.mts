@@ -5,7 +5,8 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
-import { GET, POST, resendWebhook } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
+import { GET, POST } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
+import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { ok, refused } from "../../support/fixture.mts";
 
 let f, plant, other, owner, member;
@@ -21,8 +22,6 @@ const rows = async (query) => (await f.admin.execute(query)).rows;
 const write = (who, op, input) =>
 	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
 const day = 86_400_000;
-// The schedule window is checked against the real clock (now to now + 30 days), so the scheduled instants are relative
-// to today, on the hour. A fixed date here stops being accepted once it passes.
 const onTheHour = (ms: number) => new Date(Math.ceil(ms / 3_600_000) * 3_600_000).toISOString();
 const AT = onTheHour(Date.now() + 7 * day);
 const LATER = onTheHour(Date.now() + 8 * day);
@@ -282,8 +281,6 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 			input: { communicationId: saved.communicationId, scheduledAt: AT },
 		}),
 	);
-	// The second call re-sends the 99 unanswered emails under the same key: a different request body, which the email
-	// service answers with no ids (a 409).
 	const carrier = port({
 		async send(_batch, calls) {
 			return calls.send === 1 ? { outcome: "ids", ids: ["prov-0"] } : { outcome: "unknown" };
@@ -347,8 +344,6 @@ test("AC:CASE-COM-005 AC:CASE-COM-006 a short provider batch confirms only the a
 test("AC:MAIL-LEDGER-001 a send whose call throws is unknown, and Check result re-sends the same key and settles it", async () => {
 	const made = await scheduled("Crash", `crash-${key().slice(0, 8)}@example.test`, AT);
 	assert.equal(made.accepted.status, "ok");
-	// The first call reaches the email service but its answer is lost; the email service answers the same key's
-	// repeat with the first result, as Resend's idempotency does.
 	const carrier = port({
 		async send(_batch, calls) {
 			if (calls.send === 1) throw new Error("provider down");
@@ -362,13 +357,11 @@ test("AC:MAIL-LEDGER-001 a send whose call throws is unknown, and Check result r
 	const mid = await mailFor(made.saved.communicationId);
 	assert.equal(mid.length, 1);
 	assert.equal(new Set(mid.map((row) => row.provider_key)).size, 1);
-	// The email service may hold it (T-228): the recipient is unknown until a check.
 	assert.equal(mid[0].outcome, "unknown");
 	assert.equal(mid[0].state, "unknown");
 	const second = ok(
 		await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier, "reconcileProviderOutcome"),
 	);
-	// Check result asked with the same stored request and key: no new handoff and no second email.
 	assert.equal(carrier.calls.send, 2);
 	assert.deepEqual(carrier.keys, [mid[0].provider_key, mid[0].provider_key]);
 	assert.equal(second.providerCalls, 0);
@@ -415,7 +408,6 @@ test("AC:MAIL-KEYWINDOW-001 a check inside the provider window re-sends the same
 			new Date(before.first_dispatched_at).toISOString(),
 		);
 	}
-	// 23 h 50 min: the check re-sends under the first key. 23 h 56 min: past the window, no call at all.
 	assert.equal(carrier.calls.send, 2);
 	assert.equal(carrier.keys[1], carrier.keys[0]);
 	const local = await person("Local", { email: `local-${key().slice(0, 8)}@example.test` });
@@ -584,7 +576,6 @@ test("AC:DEL58-006 AC:MAIL51-004 AC:MAIL51-005 AC:MAIL51-007 cancel, replace, an
 		),
 	);
 	assert.equal(moved.body, "Welcome Alex.");
-	// The scheduled email still waits in Everyfield (T-241), so the time moves there and nothing is sent or asked.
 	assert.equal(moved.rescheduleStatus, "accepted");
 	assert.equal(moved.newCommunications, 0);
 	assert.equal(movePort.calls.send, 0);
@@ -627,7 +618,6 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	);
 	assert.equal(bad.status, 401);
 	assert.equal((await bad.json()).code, "invalid_signature");
-	// An unsigned stream past 16 KB is refused at the limit: the route stops pulling and never buffers the rest.
 	const allEvents = async () => (await rows(sql`SELECT count(*)::int AS n FROM provider_event`))[0].n;
 	const beforeAll = await allEvents();
 	const chunks = 64;
@@ -686,8 +676,6 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	);
 	assert.notEqual(mail.state, "accepted");
 	assert.ok(mail.delivered_at);
-	// AC:T151-6 A correctly signed event of a type this app does not handle is acknowledged, so the email service stops
-	// retrying it, and changes nothing. The same body with a bad signature is still refused.
 	const delayed = await resendWebhook(signed("prov-callback", "delivery_delayed"), () => f.db, secret);
 	assert.equal(delayed.status, 200);
 	assert.deepEqual(await delayed.json(), { stored: false, result: "ignored" });

@@ -9,7 +9,7 @@ import {
 	sendDiscoveryAssociationReceipt,
 } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
-import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { db, runtime, tenant, setup, teardown } from "./support.mts";
 const account = randomUUID(),
 	org = randomUUID(),
@@ -203,7 +203,6 @@ test("INV-wiki: each published upstream change yields only an in-app notice, no 
 	);
 	const article = randomUUID(),
 		state = randomUUID();
-	// A globally owned article is a registered record; the editable state stays in the exact org.
 	await db.execute(
 		querySql`INSERT INTO reference_item(id,kind,canonical_key,tenant_id) VALUES(${querySql.param(article)},'article',${querySql.param("synthetic-" + article)},'00000000-0000-0000-0000-000000000000')`,
 	);

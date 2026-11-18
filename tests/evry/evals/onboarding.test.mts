@@ -1,8 +1,3 @@
-// The setup and Discovery evals (T-345) on the scripted model. Each case in onboarding.cases.json is asked the way the
-// app asks it: a real turn (runTurn) with the real catalog, reads and review cards, for the setup accounts seeded next
-// to Hope Fellowship (setup-church.mts). A case with `approve` is then approved and its effect run through the WP-031
-// queue with the same onboarding producer `/onboarding` uses; its check reads the result back through `/onboarding`'s
-// own read (readOnboardingEntry) and Home's landing rule. No paid model, network or recording.
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -43,13 +38,10 @@ type Case = {
 	calls: string[];
 	answer?: string[];
 	proposal?: { operation: string; target: string; changes?: Change[]; notes?: string[]; refusal?: string | null };
-	/** The owner revises the card first (as its Update review does), and sees these changes. */
 	revise?: { input: unknown; changes: Change[] };
 	approve?: true;
-	/** After approval, the same card is approved again: nothing runs a second time. */
 	retry?: true;
 };
-// A case names a fixture organization by placeholder: its id carries this run's schema prefix.
 const { cases } = JSON.parse(
 	readFileSync(new URL("./onboarding.cases.json", import.meta.url), "utf8")
 		.replaceAll("{NETWORK}", NETWORK)
@@ -58,7 +50,6 @@ const { cases } = JSON.parse(
 
 let close: () => Promise<void>;
 let db: Database;
-/** Every email the native commands queued, in order. */
 const mail: { to: string; purpose: string }[] = [];
 const native: NativePorts = nativePorts(mail);
 const model = selectQualifiedModel({ EVRY_SCRIPTED_MODEL: "1" });
@@ -66,7 +57,6 @@ const freshActor = async (session: string) => {
 	const viewer = await readViewer(db, session as never);
 	return viewer?.authority ? evryActor(viewer.authority) : null;
 };
-/** Each account's actor as it is now: creating a church moves an account from its own context into the church. */
 const actorOf = async (who: SetupName) => (await freshActor(SETUP_SPECS[who].session))!;
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -82,7 +72,6 @@ before(async () => {
 });
 after(() => close?.());
 
-/** One turn as the app runs it: submitted, claimed from the queue, run on the scripted model and finished. */
 async function ask(actor: EvryActor, conversationId: string, text: string) {
 	await submitTurn(db, actor, conversationId, { requestKey: randomUUID(), text, references: [] });
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
@@ -114,7 +103,6 @@ async function ask(actor: EvryActor, conversationId: string, text: string) {
 	return { reads, answer, proposals };
 }
 
-/** The trusted approval of the exact revision shown, then the effect run once through the WP-031 queue. */
 async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	await approveProposal(db, actor, proposal.id, { revision: proposal.revision, digest: proposal.digest }, null);
 	const [claim] = await claimDue(db, ["evry_effect"], 1, 60);
@@ -130,7 +118,6 @@ async function approveAndRun(actor: EvryActor, proposal: Proposal) {
 	return outcome;
 }
 
-// What `/onboarding` shows: its own entry read, for the account as it is now.
 async function onboardingScreen(who: SetupName) {
 	const actor = await actorOf(who);
 	const session = {
@@ -144,7 +131,6 @@ async function onboardingScreen(who: SetupName) {
 	>;
 }
 const resume = async (who: SetupName) => (await onboardingScreen(who)).resume;
-/** Where Home sends the account: its church, or setup while the church's setup is unfinished. */
 async function home(who: SetupName) {
 	const actor = await actorOf(who);
 	const plant =
@@ -158,7 +144,6 @@ async function home(who: SetupName) {
 const rows = async (query: ReturnType<typeof sql>) => (await db.execute(query)).rows as Record<string, unknown>[];
 const discoveryOf = (who: SetupName) =>
 	rows(sql`SELECT (converted_at IS NOT NULL) AS closed FROM discovery WHERE account_id=${SETUP_SPECS[who].account}`);
-/** The church the account now holds, with its phase and the account's own person record there. */
 const churchOf = (who: SetupName) =>
 	rows(sql`SELECT p.name, p.phase, s.role, pe.display_name AS person FROM seat s JOIN plant p ON p.id=s.plant_id
 		LEFT JOIN person pe ON pe.tenant_id=p.id AND pe.linked_account_id=s.account_id
@@ -168,7 +153,6 @@ const seatsOf = (who: SetupName) =>
 		sql`SELECT p.name, s.role FROM seat s JOIN plant p ON p.id=s.plant_id WHERE s.account_id=${SETUP_SPECS[who].account} AND s.ended_at IS NULL`,
 	);
 
-/** What each case shows or changes, read back as `/onboarding` and Home show it; `before` also runs before approval. */
 const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Promise<void> }> = {
 	"ONB-01": {
 		after: async () => {
@@ -292,7 +276,6 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 			assert.deepEqual(await seatsOf("sender"), []);
 		},
 	},
-	// A Member answers no setup question, for themselves or for the Owner: the lead answer stays the Owner's own.
 	"ONB-30": { after: async () => assert.equal((await resume("setupOwner")).lead.answer, "yes") },
 	"ONB-31": { after: async () => assert.equal((await resume("setupOwner")).lead.answer, "yes") },
 	"ONB-28": {
@@ -301,7 +284,6 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 			assert.deepEqual(await churchOf("sender"), [
 				{ name: "Grace Point", phase: 1, role: "owner", person: "Morgan Hale" },
 			]);
-			// Only the picked link carries over, sharing only the picked categories; the Discovery space is closed.
 			assert.deepEqual(
 				await rows(sql`SELECT o.name, a.share_people AS people, a.share_meetings AS meetings FROM affiliation a
 					JOIN organization o ON o.id=a.organization_id JOIN plant p ON p.id=a.plant_id
@@ -321,7 +303,6 @@ const SETTLED: Record<string, { before?: () => Promise<void>; after?: () => Prom
 
 test("INV-evry-onboarding: every setup and Discovery case passes on the scripted model, and each approved change reads back on /onboarding", async () => {
 	for (const c of cases) {
-		// A fresh conversation per case, in the context the account holds now.
 		const actor = await actorOf(c.actor);
 		const conversation = (await createConversation(db, actor, { requestKey: randomUUID() })).id;
 		await SETTLED[c.id]?.before?.();
@@ -359,12 +340,10 @@ test("INV-evry-onboarding: every setup and Discovery case passes on the scripted
 			);
 			assert.deepEqual(proposal.review.changes, c.revise.changes, `${c.id} revised changes`);
 		}
-		// Still nothing changed: the review is only a card.
 		await SETTLED[c.id]?.before?.();
 		if (!c.approve) continue;
 		assert.equal(await approveAndRun(actor, proposal), "completed", `${c.id} runs once approved`);
 		if (c.retry) {
-			// Approving the same card again (a double click or a retried request) queues no second effect.
 			await approveProposal(
 				db,
 				actor,
@@ -374,7 +353,6 @@ test("INV-evry-onboarding: every setup and Discovery case passes on the scripted
 			).catch(() => null);
 			assert.deepEqual(await claimDue(db, ["evry_effect"], 1, 60), [], `${c.id} runs only once`);
 		}
-		// The card still shows its outcome to the same account, even after the change gave it a church seat.
 		assert.equal((await readReview(db, await actorOf(c.actor), proposal.id)).outcome, "completed", `${c.id} card`);
 		await SETTLED[c.id]?.after?.();
 	}

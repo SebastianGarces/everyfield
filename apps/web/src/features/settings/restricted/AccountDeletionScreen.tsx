@@ -2,7 +2,8 @@
 
 import { cancelAccountDeletion, getAccountDeletionStatus, openAccountDeletion } from "../actions";
 import type { DeletionPort, DeletionStatus, Reply } from "../port";
-import { DeletionStatusScreen, useBrowserZone } from "./DeletionStatusScreen";
+import { useBrowserZone } from "@everyfield/ui/foundations";
+import { DeletionStatusScreen } from "./DeletionStatusScreen";
 
 const PORT: DeletionPort = {
 	open: openAccountDeletion,
@@ -10,7 +11,6 @@ const PORT: DeletionPort = {
 	cancel: cancelAccountDeletion,
 };
 
-/** The product's restricted deletion page for your own account (/account-deletion). */
 export function AccountDeletionScreen({
 	initial,
 	requestedUntil,
@@ -25,7 +25,7 @@ export function AccountDeletionScreen({
 			initial={initial}
 			requestedUntil={requestedUntil}
 			now={Date.now}
-			zone={useBrowserZone()}
+			zone={useBrowserZone() ?? "UTC"}
 			signInHref="/signin"
 		/>
 	);

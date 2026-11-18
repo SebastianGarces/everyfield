@@ -13,12 +13,7 @@ export const appointAdminRequest = commandEnvelope(ordinaryTarget.extend({ to: z
 export const demoteSeatRequest = commandEnvelope(
 	ordinaryTarget.extend({ expectedRole: z.literal("admin"), to: z.literal("member") }),
 );
-/**
- * One bound for a removal (ruling D55 revised): the review lists every open duty and every eligible recipient up to it,
- * and remove accepts that many handoffs in one atomic call. A seat beyond it is refused with removal_too_large.
- */
 export const MAX_REMOVAL_ITEMS = 2000;
-// Exact actionable duties are reviewed individually. Eligibility is checked at commit.
 const handoff = z.discriminatedUnion("kind", [
 	z.strictObject({
 		kind: z.literal("assign"),
@@ -36,15 +31,12 @@ export const removeSeatRequest = commandEnvelope(
 			.refine((v) => new Set(v.map((d) => d.dutyId)).size === v.length),
 	}),
 );
-// The removal review (ruling D52): the exact open duties remove will require handoffs for, each with its revision,
-// and the seats that can receive them. Only the workspace's own Owner or Admin may read it.
 export const readRemovalRequest = z.strictObject({ seatId: recordId });
 const removalDuty = z.strictObject({
 	dutyId: recordId,
 	expectedRevision: revision,
 	kind: z.enum(["task", "follow_up", "evaluation", "pipeline_person", "program"]),
 	label: z.string().trim().min(1).max(500),
-	// A program always has a director, so its duty can move to a recipient but never become Needs owner.
 	needsRecipient: z.boolean(),
 });
 export const removalReviewResult = z.strictObject({
@@ -68,7 +60,6 @@ const seatProjection = z
 		revision,
 		status: z.enum(["active", "removed"]),
 		isSelf: z.boolean(),
-		/** The account's current photo, set only while the seat holder may be seen by this workspace (REQ-IDN-006). */
 		avatar: avatarReference.nullable(),
 		joined: seatJoinedProvenance,
 		allowedActions: z
@@ -77,7 +68,6 @@ const seatProjection = z
 			.refine((v) => new Set(v).size === v.length),
 	})
 	.refine((v) => v.role !== "owner" || v.allowedActions.length === 0);
-// Ordinary roster readers get no login identifier, account lookup or invitation data.
 export const seatListResult = z.strictObject({
 	workspace: tenantOwner,
 	items: z.array(seatProjection).max(100),
@@ -109,4 +99,5 @@ export const seatError = z.discriminatedUnion("code", [
 	...safeError.options,
 	defineSafeError("protected_owner", {}, "never"),
 	defineSafeError("removal_too_large", {}, "never"),
+	defineSafeError("required_write_failed", {}, "same_request"),
 ]);

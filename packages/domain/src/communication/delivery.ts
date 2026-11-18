@@ -22,11 +22,6 @@ import { messagesOptOutToken, optedOutSql } from "./opt-out.ts";
 
 const CALL_TIMEOUT_MS = 10_000;
 
-/**
- * `origin` is the deployment's app origin (the one Better Auth uses). RSVP and Unsubscribe links start with it.
- * `optOutKeys` is the NOTIFICATION_OPT_OUT_KEYS ring; without it a Messages email carries no Unsubscribe link, and an
- * unsubscribed person is still refused.
- */
 export type DeliveryKeys = {
 	encryptionKey: Uint8Array;
 	addressKey: Uint8Array;
@@ -34,7 +29,6 @@ export type DeliveryKeys = {
 	origin: string;
 	optOutKeys?: OptOutKeyRing | null;
 };
-/** `headers` holds the RFC 8058 List-Unsubscribe pair, with the same token as the visible Unsubscribe link. */
 export type DeliveryMessage = {
 	to: string;
 	subject: string;
@@ -44,48 +38,28 @@ export type DeliveryMessage = {
 };
 export type DeliveryBatch =
 	{ outcome: "ids"; ids: readonly (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
-/**
- * One answer to a cancel or time change. `done`: the email service confirmed it. `sent`: the email already went out,
- * so it can no longer be cancelled or moved.
- */
 export type ProviderAnswer = { outcome: "done" | "sent" | "unknown" };
 export type DeliveryTransport = {
-	/** One call for the whole batch. `scheduledAt` asks the email service to hold every message until then. */
 	send(
 		batch: { key: string; messages: readonly DeliveryMessage[]; scheduledAt: string | null },
 		signal: AbortSignal,
 	): Promise<DeliveryBatch>;
-	/**
-	 * Cancel each held email by the id the email service gave it at handoff, never by the idempotency key. One answer
-	 * per id, in the same order.
-	 */
 	cancel(providerIds: readonly string[], signal: AbortSignal): Promise<ProviderAnswer[]>;
-	/** Move each held email to `at` by the id the email service gave it at handoff. One answer per id, in order. */
 	reschedule(providerIds: readonly string[], at: string, signal: AbortSignal): Promise<ProviderAnswer[]>;
 };
 
 type Actor = ReturnType<typeof readerOf>;
 type Member = {
-	/** The mail row. */
 	id: string;
-	/** The recipient's place in its batch's frozen request: the index of its email in that batch's provider call. */
 	position: number;
 	state: string;
 	personId: string | null;
 	provider: string | null;
-	/** The send time the email service holds for this recipient; null for a send-now handoff. */
 	scheduledAt: string | null;
 	cancelRequested: boolean;
-	/** Refused before any handoff because the person unsubscribed from this church's email. */
 	unsubscribed: boolean;
 };
 type Mode = "now" | "scheduled" | "lookup";
-/**
- * One frozen request of a message: at most `MAIL_BATCH_LIMIT` recipients, in person-id order, under their own provider
- * key and attempt. `expired`: past the email service's 23 h 55 min idempotency window from its first handoff, so it is
- * never sent again. `messages` holds the frozen email of each recipient still to be handed off, by
- * position; null when it no longer opens.
- */
 type Batch = {
 	requestId: string;
 	attemptId: string;
@@ -95,9 +69,7 @@ type Batch = {
 	messages: ReadonlyMap<number, DeliveryMessage | null>;
 };
 type Update = { id: string; outcome: "accepted" | "refused" | "unknown"; providerId: string | null };
-/** Recipients the email service may still hold: a cancel or time change has an answer to wait for. */
 const holding = (row: Member) => row.state === "accepted" || row.state === "unknown" || row.state === "dispatched";
-/** Recipients Everyfield still holds for the send time: a cancel or time change needs no provider call. */
 const waiting = (row: Member) => row.state === "scheduled";
 
 const one = (result: { rows: unknown[] }) => result.rows[0];
@@ -123,7 +95,6 @@ function seal(key: Buffer, value: string, aad: string) {
 function addressHash(addressKey: Buffer, address: string) {
 	return createHmac("sha256", addressKey).update(address).digest("hex");
 }
-/** The address seal binds the ciphertext to this plant and this mail row. */
 export function addressAad(plantId: string, mailId: string) {
 	return `${plantId}/${mailId}/address`;
 }
@@ -148,7 +119,6 @@ export function mailAddressHash(key: Uint8Array, address: string) {
 	if (addressKey.length !== 32) throw new Error("mail_keys_required");
 	return addressHash(addressKey, address);
 }
-/** C13: the Owner or Admin check of every delivery statement, the same one communication reads make. */
 function adminGate(actor: Actor) {
 	return communicationAccess(actor, actor.session, true);
 }
@@ -158,7 +128,6 @@ function requireActor(authority: RequestActor) {
 	return actor;
 }
 function counts(members: readonly Member[]) {
-	// A recipient waiting in Everyfield for its send time counts as accepted: it goes out then unless they opt out.
 	const accepted = members.filter(
 		(row) => row.state === "accepted" || row.state === "sent" || row.state === "scheduled",
 	);
@@ -254,8 +223,6 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 					WHERE p.id = e.value::uuid AND p.plant_id = c.plant_id AND p.tenant_id = c.plant_id AND p.state = 'live'
 				)
 			) END AS foreign_people,
-			-- Every frozen request of the message, in the person-id order its batches were cut in. A recipient still to be
-			-- handed off carries its sealed email, so a retry sends the frozen bytes without another read.
 			CASE WHEN c.id IS NULL THEN '[]'::jsonb ELSE coalesce((
 				SELECT jsonb_agg(jsonb_build_object('requestId', b.id, 'providerKey', b.provider_key, 'attemptId', b.attempt_id,
 					'expired', b.expired, 'members', b.members) ORDER BY b.first_person, b.id)
@@ -318,7 +285,6 @@ const sealedMessage = z.object({
 	headers: z.record(z.string(), z.string()).optional(),
 });
 
-/** A recipient's frozen email as it was sealed at the handoff, or null when it no longer opens: never sent blank. */
 function openFrozen(
 	encryptionKey: Uint8Array,
 	tenantId: string,
@@ -330,7 +296,6 @@ function openFrozen(
 	return message?.success && to ? { ...message.data, to } : null;
 }
 
-/** The message's stored batches. With `encryptionKey`, each one carries the frozen email of every recipient not yet answered. */
 function batchesOf(raw: unknown, tenantId: string, encryptionKey?: Uint8Array): Batch[] {
 	return storedBatches.parse(asJson(raw) ?? []).map(({ members, ...batch }) => ({
 		...batch,
@@ -353,7 +318,6 @@ async function openLoaded(db: Database, actor: Actor, communicationId: string, e
 	if (!found.subject || !found.body_html) deny("invalid_input");
 	if ((found.foreign_people ?? 0) > 0) deny("access_denied");
 	const audience = c.audienceInput.parse(asJson(found.audience) ?? { groups: [], teamIds: [], personIds: [] });
-	// The audience resolves under the same gate, so a seat or lifecycle that changed since the load reads no one.
 	const resolved = one(
 		await db.execute(sql`SELECT g.allowed, q.people FROM (SELECT ${adminGate(actor)} AS allowed) g
 			LEFT JOIN LATERAL (SELECT ${audiencePeople(actor.plantId, audience)} AS people) q ON g.allowed`),
@@ -368,18 +332,12 @@ async function openLoaded(db: Database, actor: Actor, communicationId: string, e
 	return { found: { ...found, people }, audience, parts, digest };
 }
 
-/**
- * The message's batches. A message handed off before reuses its stored batches: never regrouped, re-frozen or given a
- * new key. Otherwise the audience is frozen now, in person-id order, cut into batches of at most `MAIL_BATCH_LIMIT`, and
- * every mail row, request, member and attempt is written in one statement, so no crash leaves part of it frozen.
- */
 async function prepare(
 	db: Database,
 	actor: Actor,
 	loaded: Awaited<ReturnType<typeof openLoaded>>,
 	keys: ReturnType<typeof keysOf>,
 	mode: Mode,
-	/** The send time the email service holds for a scheduled handoff; null for send now. */
 	heldUntil: string | null,
 	leftOut: readonly string[],
 ): Promise<Batch[]> {
@@ -387,9 +345,7 @@ async function prepare(
 	const frozen = batchesOf(found.batches, actor.plantId, keys.encryptionKey);
 	if (frozen.length) return frozen;
 	if (mode === "lookup") deny("not_found");
-	// A message with an RSVP link needs an open meeting whose guest list the links come from.
 	const linked = usesRsvpLink(found.body_html);
-	// A link needs an https origin; without one the field renders nothing and no token is minted.
 	const canLink = linked && new URL(keys.origin).protocol === "https:";
 	if (linked && (!found.meeting_id || !found.meeting_open)) deny("rsvp_needs_meeting");
 	const guests = new Set(z.array(z.uuid()).parse(asJson(found.guests) ?? []));
@@ -400,8 +356,6 @@ async function prepare(
 		.sort((a, b) => a.id.localeCompare(b.id));
 	const seen = new Set<string>();
 	const address = (row: (typeof people)[number]) => row.email!.trim().toLowerCase();
-	// A left-out person whose address another recipient gets has no mail row: the email reaches that address once, and
-	// Messages history does not count the skipped duplicate as a failed send. Other left-out people stay as refused rows.
 	const out = new Set(leftOut);
 	const reached = new Set(people.filter((row) => !out.has(row.id)).map(address));
 	const unique = people.filter((row) =>
@@ -410,13 +364,11 @@ async function prepare(
 	const rows = unique.map((person, index) => {
 		const address = person.email!.trim().toLowerCase();
 		const id = randomUUID();
-		// Each recipient gets their own message. The raw token lives only in this message and the provider call.
 		const token = canLink && guests.has(person.id) ? newRsvpToken() : null;
 		const merge: Record<MergeKey, string> = {
 			name: person.displayName,
 			rsvp_link: token ? `${keys.origin}/rsvp/${token}` : "",
 		};
-		// The Unsubscribe link names this church and this Person. Its token is the same on every render.
 		const unsubscribe = keys.optOutKeys
 			? `${keys.origin}/unsubscribe/${messagesOptOutToken(keys.optOutKeys, { plantId: actor.plantId, personId: person.id })}`
 			: null;
@@ -462,7 +414,6 @@ async function prepare(
 			to: address,
 		};
 	});
-	// Each batch is its own request: its own frozen member list, request hash, provider key and attempt.
 	const groups = Array.from({ length: Math.ceil(rows.length / c.MAIL_BATCH_LIMIT) }, (_, batch) => {
 		const requestHash = hash(rows.filter((row) => row.batch === batch).map((row) => row.payload_hash));
 		return {
@@ -473,10 +424,7 @@ async function prepare(
 			request_hash: requestHash,
 		};
 	});
-	// One set-based token write in the same statement as the mail rows, for the guests whose message carries a link.
 	const minted = found.meeting_id !== null && rows.some((row) => row.token_hash !== null);
-	// A scheduled handoff waits in Everyfield: the minute runner hands it to the email service at its send time
-	// (runDueScheduled), so an opt-out until then always wins (T-241).
 	const waiting = mode === "scheduled" ? "scheduled" : "dispatched";
 	const tokens = minted
 		? sql`,
@@ -510,7 +458,6 @@ async function prepare(
 						SELECT 1 FROM suppression s WHERE s.address_hash = i.address_hash AND s.cleared_at IS NULL
 					) OR i.person = ANY(${sql.param(leftOut)}::uuid[]) THEN 'refused' ELSE ${waiting} END,
 					clock_timestamp(), ${heldUntil}::timestamptz,
-					-- The person's own opt-out from this church, not the address, decides this refusal (D-284).
 					CASE WHEN i.unsubscribed THEN 'unsubscribed' END
 				FROM (SELECT i.*, ${optedOutSql(sql`${actor.plantId}::uuid`, sql`i.person`)} AS unsubscribed FROM input i) i
 				JOIN gate g ON g.allowed
@@ -610,10 +557,6 @@ async function prepare(
 	});
 }
 
-/**
- * Who records an outcome: a staff member's live seat for a handoff they asked for, or the minute runner for a scheduled
- * email at its send time. The runner has no session; its gate is that the church is not being deleted.
- */
 type Recorder = { plantId: string; gate: SQL; actorId: string | null };
 const staff = (actor: Actor): Recorder => ({
 	plantId: actor.plantId,
@@ -621,10 +564,8 @@ const staff = (actor: Actor): Recorder => ({
 	actorId: actor.accountId,
 });
 
-/** One batch's answers: which recipients the email service accepted, refused or left unknown. */
 type Answered = { batch: Pick<Batch, "requestId" | "attemptId" | "members">; updates: readonly Update[] };
 
-/** Every answered batch's recipients, attempts and audit rows in one statement, however many batches answered. */
 async function record(db: Database, who: Recorder, communicationId: string, answered: readonly Answered[]) {
 	const mails = answered.flatMap(({ batch, updates }) =>
 		updates.map((row) => ({ id: row.id, request: batch.requestId, outcome: row.outcome, provider_id: row.providerId })),
@@ -678,7 +619,6 @@ function combined(base: readonly Member[], updates: readonly Update[]) {
 function applyIds(batch: DeliveryBatch, rows: readonly Pick<Member, "id">[]): Update[] {
 	if (batch.outcome === "unknown") return rows.map((row) => ({ id: row.id, outcome: "unknown", providerId: null }));
 	if (batch.outcome === "refused") return rows.map((row) => ({ id: row.id, outcome: "refused", providerId: null }));
-	// One id per email of the call, in the order the call listed them.
 	return rows.map((row, index) => {
 		const id = batch.ids[index];
 		return id
@@ -687,24 +627,15 @@ function applyIds(batch: DeliveryBatch, rows: readonly Pick<Member, "id">[]): Up
 	});
 }
 
-/**
- * Hand one batch over, or ask about it. A batch the email service never answered, or answered with unknown, is sent
- * under its own stored key with its frozen bytes: the same request, so the email service answers a send that already
- * reached it with its first result and never sends it twice. That is how "Check result" asks. A batch past the
- * idempotency window is never sent again: its open recipients stay unknown. Null: nothing to do. `lost`: the call threw.
- */
 async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 	const open = batch.members.filter((row) => row.state === "dispatched" || row.state === "unknown");
 	if (!open.length) return null;
 	if (batch.expired) return { sent: false, lost: false, updates: applyIds({ outcome: "unknown" }, open) };
 	const ready = open.filter((row) => batch.messages.get(row.position));
-	// A recipient whose frozen email no longer opens is refused when it was never handed off; one the email service may
-	// hold stays unknown.
 	const updates: Update[] = open
 		.filter((row) => !batch.messages.get(row.position))
 		.map((row) => ({ id: row.id, outcome: row.state === "unknown" ? "unknown" : "refused", providerId: null }));
 	if (!ready.length) return { sent: false, lost: false, updates };
-	// A batch the email service may already hold is being checked, not handed off again: no new provider handoff.
 	const sent = !open.some((row) => row.state === "unknown");
 	let answer: DeliveryBatch;
 	let lost = false;
@@ -718,7 +649,6 @@ async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 			signal(),
 		);
 	} catch {
-		// The email service may hold it: the batch is unknown, and the next call sends the same request again to ask.
 		lost = true;
 		answer = { outcome: "unknown" };
 	}
@@ -737,13 +667,10 @@ async function handoff(
 	const actor = requireActor(authority);
 	const opened = await openLoaded(db, actor, input.input.communicationId, input.expectedRevision);
 	const ready = keysOf(keys);
-	// The email service holds a scheduled email for at most 30 days and sends a past time at once. A scheduled
-	// handoff stores the held time on each recipient row; a send-now handoff stores none.
 	const heldUntil = mode === "scheduled" ? opened.found.scheduled_at : null;
 	if (mode === "scheduled" && (!heldUntil || !scheduleAccepted(new Date(), new Date(heldUntil))))
 		deny("schedule_window_exceeded", { providerHandoffs: 0 });
 	const batches = await prepare(db, actor, opened, ready, mode, heldUntil, input.input.leftOut ?? []);
-	// One provider call per batch, in order; every answer is stored in one statement after the last call.
 	const answered: Answered[] = [];
 	let providerCalls = 0;
 	let lost = false;
@@ -765,7 +692,6 @@ async function handoff(
 	return dispatchValue(input.input.communicationId, members, providerCalls, lost ? "accepted_unknown" : "accepted");
 }
 
-/** Hand a scheduled message to the email service now: it goes out at once. */
 export function dispatchReviewed(
 	db: Database,
 	authority: RequestActor,
@@ -775,7 +701,6 @@ export function dispatchReviewed(
 ) {
 	return readReply(() => handoff(db, authority, raw, transport, keys, "now"));
 }
-/** Hand a scheduled message to the email service with its send time; the email service holds it until then. */
 export function handOffScheduled(
 	db: Database,
 	authority: RequestActor,
@@ -805,10 +730,6 @@ async function loadHandoff(db: Database, actor: Actor, communicationId: string, 
 	return { found, members: batchesOf(found.batches, actor.plantId).flatMap((batch) => batch.members) };
 }
 
-/**
- * Ask about every open recipient that has its own email-service id, across every batch, in one transport call. A
- * failed or missing answer leaves the recipient open.
- */
 async function askEach(
 	open: readonly Member[],
 	ask: (providerIds: readonly string[]) => Promise<readonly ProviderAnswer[]>,
@@ -827,11 +748,6 @@ async function askEach(
 	});
 }
 
-/**
- * The confirmed answers and their audit row in one statement. `done` is a confirmed cancel, or the new send time when
- * `movedTo` is set; `sent` means the email already went out. A second run over the same answers changes no row and so
- * writes no audit row.
- */
 async function recordAnswers(
 	db: Database,
 	actor: Actor,
@@ -872,12 +788,6 @@ function answered(members: readonly Member[], answers: readonly Answer[], done: 
 	});
 }
 
-/**
- * Cancel a scheduled message. Recipients still waiting in Everyfield are cancelled at once. An email the email
- * service already holds is cancelled there, one recipient at a time by its own id. The message counts as
- * cancelled only when no recipient is open. A run asks only about open recipients, so a check after the cancel is
- * confirmed sends nothing and writes nothing.
- */
 export function cancelScheduled(db: Database, authority: RequestActor, raw: unknown, transport: DeliveryTransport) {
 	return readReply(async () => {
 		const input = parse(c.cancelScheduledRequest, raw);
@@ -885,9 +795,6 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 		const { found, members } = await loadHandoff(db, actor, input.input.communicationId, input.expectedRevision);
 		const open = members.filter(holding);
 		let next = members;
-		// Recipients still waiting in Everyfield are cancelled at once: the email service never had them. For the ones it
-		// may hold, the request is stored before the calls, so a lost answer still shows as a cancel not confirmed. Both
-		// are one statement across every batch.
 		const local = members.filter(waiting);
 		if (local.length || open.some((row) => !row.cancelRequested)) {
 			await db.execute(sql`WITH local AS (
@@ -946,7 +853,6 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 	});
 }
 
-/** A replacement may start only when the email service holds no recipient of the earlier message. */
 export function replaceScheduled(db: Database, authority: RequestActor, raw: unknown) {
 	return readReply(async () => {
 		const input = parse(c.replaceScheduledRequest, raw);
@@ -962,12 +868,6 @@ export function replaceScheduled(db: Database, authority: RequestActor, raw: unk
 	});
 }
 
-/**
- * Change the send time. Before a scheduled handoff, and for recipients still waiting in Everyfield, only the saved
- * time changes. For an email the email service already holds (handed off before T-241), each accepted recipient
- * moves by its own email-service id; history shows the new time only when every one of them holds it. Running it
- * again with the same time asks only about recipients that still hold the old time.
- */
 export function rescheduleDispatched(
 	db: Database,
 	authority: RequestActor,
@@ -991,7 +891,6 @@ export function rescheduleDispatched(
 					AND revision = ${found.revision}::bigint AND ${adminGate(actor)}
 					RETURNING id
 				), waiting AS (
-					-- Recipients Everyfield still holds move with the saved time; the email service never had them.
 					UPDATE mail m SET scheduled_at = ${requested}::timestamptz
 					WHERE m.tenant_id = ${actor.plantId}::uuid AND m.communication_id = ${found.id}::uuid
 						AND m.state = 'scheduled' AND EXISTS (SELECT 1 FROM updated)
@@ -1003,7 +902,6 @@ export function rescheduleDispatched(
 					jsonb_build_object('scheduled_at', ${requested}::text)
 				FROM updated
 				ON CONFLICT (subject_id, event_key) DO NOTHING`);
-		// Accepted recipients the email service still holds at another time.
 		const holdsOther = (row: Member) =>
 			row.state === "accepted" && row.scheduledAt !== null && row.scheduledAt !== requested;
 		const open = members.filter(holdsOther);
@@ -1060,8 +958,6 @@ export function listOwnSuppression(db: Database, authority: RequestActor, raw: u
 		const email = await accountEmail(db, actor);
 		if (input.address.trim().toLowerCase() !== email) deny("access_denied");
 		const hashValue = addressHash(ready.addressKey, email);
-		// The block and every earlier restore of this one address in one statement, at any number of restores. The
-		// restorer's name is the Person their account links to in the church where they restored it.
 		const row = one(
 			await db.execute(sql`SELECT s.id IS NOT NULL AND s.cleared_at IS NULL AS active,
 				coalesce((
@@ -1202,7 +1098,6 @@ export function sendTransactionalMail(
 	});
 }
 
-/** The church is being deleted: the runner hands off nothing for it and cancels nothing in its name. */
 const churchClosing = (tenant: SQL) => sql`EXISTS (SELECT 1 FROM lifecycle_witness w
 	WHERE w.opaque_subject_id = ${tenant} AND w.state IN ('pending_deletion', 'purging', 'purged', 'revoked'))`;
 
@@ -1225,12 +1120,6 @@ const claimedSchema = z.object({
 	),
 });
 
-/**
- * Claim one due batch of a scheduled email (every recipient of one frozen request, so it goes under its own idempotency
- * key; a message of several batches is claimed one batch at a time) and
- * decide each recipient at the send time, in one statement: a person who unsubscribed from this church, or a blocked
- * address, is refused and never handed off; everyone else is marked sending. Two runners never claim the same email.
- */
 async function claimDue(db: Database) {
 	const raw = one(
 		await db.execute(sql`WITH pick AS MATERIALIZED (
@@ -1253,7 +1142,6 @@ async function claimDue(db: Database) {
 				JOIN mail m ON m.id = mem.mail_id AND m.tenant_id = mem.tenant_id
 				WHERE m.state = 'scheduled'
 			), flipped AS (
-				-- The held time is cleared: the email now goes out at once, like a send now.
 				UPDATE mail m SET
 					state = CASE WHEN d.unsubscribed OR d.blocked THEN 'refused' ELSE 'dispatched' END,
 					refusal = CASE WHEN d.unsubscribed THEN 'unsubscribed' END,
@@ -1278,11 +1166,6 @@ async function claimDue(db: Database) {
 		: null;
 }
 
-/**
- * Hand due scheduled Messages email to the email service: the minute runner's job (T-241). A scheduled email waits in
- * Everyfield until its send time, so a person who unsubscribes before then gets nothing, whether or not the email service
- * can be reached, and everyone else on the email still gets it. It returns how many emails it handed off or settled.
- */
 export async function runDueScheduled(
 	db: Database,
 	transport: DeliveryTransport,
@@ -1311,7 +1194,6 @@ export async function runDueScheduled(
 			cancelRequested: false,
 			unsubscribed: row.unsubscribed,
 		}));
-		// The claim leaves each recipient dispatched or refused, so the batch is sent, never looked up.
 		const batch: Batch = {
 			requestId: claimed.request_id,
 			attemptId: claimed.attempt_id,
@@ -1334,12 +1216,6 @@ const heldSchema = z.array(
 	z.object({ id: z.uuid(), tenant_id: z.uuid(), provider_message_id: z.string(), communication_id: z.uuid() }),
 );
 
-/**
- * Cancel at the email service the emails it already holds (handed off with a send time before T-241) for a person who
- * has since unsubscribed from that church. A cancel the email service does not confirm stays open and the next minute
- * asks again, until the send time passes. A confirmed cancel shows as unsubscribed; an email that already went out
- * shows as sent.
- */
 export async function cancelUnsubscribedHeld(db: Database, transport: DeliveryTransport, limit: number) {
 	const held = heldSchema.parse(
 		(

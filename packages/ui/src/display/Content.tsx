@@ -18,17 +18,13 @@ import {
 	Tick02Icon,
 } from "@hugeicons/core-free-icons";
 import { Accordion, DropdownMenu, Toolbar } from "radix-ui";
-import { useEffect, useState, type ComponentPropsWithRef, type ElementType, type ReactNode } from "react";
+import { type ComponentPropsWithRef, type ElementType, type ReactNode } from "react";
 import { Button, MenuContent, MenuLabel, MenuSeparator, Menu, MenuTrigger } from "../controls";
 import { cn, Icon, type IconSvgElement } from "../foundations";
 import { StatusBadge } from "./Badges";
 
 export type SetupStep = { title: ReactNode; hint?: ReactNode; done: boolean; action?: ReactNode };
 
-/**
- * SetupChecklist (components.md): numbered steps with a title, a hint and an action. A done step shows a tick, is
- * struck through and drops its action; screen readers hear "Done" before it.
- */
 export function SetupChecklist({ steps, label, className }: { steps: SetupStep[]; label: string; className?: string }) {
 	return (
 		<ol aria-label={label} className={cn("flex flex-col", className)}>
@@ -59,7 +55,6 @@ export function SetupChecklist({ steps, label, className }: { steps: SetupStep[]
 	);
 }
 
-/** UiRef (components.md, How-to steps: UI reference): the name of a button or page, written as it looks in the app. */
 export function UiRef({ icon, children }: { icon?: IconSvgElement; children: ReactNode }) {
 	return (
 		<span className="inline-flex items-center gap-[5px] rounded-md bg-surface-2 px-2 py-px align-baseline text-[13px] font-medium whitespace-nowrap text-ink">
@@ -69,7 +64,6 @@ export function UiRef({ icon, children }: { icon?: IconSvgElement; children: Rea
 	);
 }
 
-/** HowTo.Steps (components.md): numbered steps of a help article, each with a bold lead and a sentence or two. */
 export function HowToSteps({
 	steps,
 	className,
@@ -94,10 +88,6 @@ export function HowToSteps({
 		</ol>
 	);
 }
-/**
- * Faq (components.md, FAQ item): Question and Answer on the Accordion primitive. Several can be open at once; each
- * question is a button with aria-expanded, and the plus turns into a cross when open.
- */
 export function FaqList({
 	items,
 	defaultOpen = [],
@@ -115,7 +105,7 @@ export function FaqList({
 				<Accordion.Item key={item.id} value={item.id} className="border-t border-line first:border-t-0">
 					<Accordion.Header asChild>
 						<FaqHeading level={headingLevel}>
-							<Accordion.Trigger className="group/faq flex w-full cursor-pointer items-center gap-3 py-[15px] text-left font-sans font-medium tracking-normal text-ink">
+							<Accordion.Trigger className="group/faq flex w-full items-center gap-3 py-[15px] text-left font-sans font-medium tracking-normal text-ink">
 								<span className="min-w-0 flex-1">{item.question}</span>
 								<Icon
 									icon={Add01Icon}
@@ -137,18 +127,19 @@ function FaqHeading({ level, ...props }: { level: "h2" | "h3" | "h4" } & Compone
 	return <H className="font-body text-base font-medium tracking-normal" {...props} />;
 }
 
-/**
- * Prose (components.md, Wiki tree / TOC / prose): article typography for Wiki and Help bodies. A 700px measure,
- * headings in the display face, quotes in a tinted block and links underlined in green.
- */
-export function Prose({ size = "md", className, ...props }: { size?: "md" | "sm" } & ComponentPropsWithRef<"div">) {
+export function Prose({
+	size = "md",
+	className,
+	...props
+}: { size?: "md" | "sm" | "excerpt" } & ComponentPropsWithRef<"div">) {
 	return (
 		<div
 			className={cn(
 				"mx-auto w-full text-ink-2",
 				size === "md" ? "max-w-[700px] text-base leading-[1.7]" : "text-[15px] leading-[1.65]",
-				"[&_h2]:mt-[34px] [&_h2]:mb-2.5 [&_h2]:text-[26px] [&_h2]:text-ink [&_h2]:scroll-mt-28",
-				"[&_h3]:mt-[26px] [&_h3]:mb-2 [&_h3]:text-[19px] [&_h3]:text-ink [&_h3]:scroll-mt-28",
+				size === "excerpt"
+					? "[&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h2]:font-body [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-ink [&_h2]:scroll-mt-28 [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:font-body [&_h3]:text-[15px] [&_h3]:font-medium [&_h3]:text-ink [&_h3]:scroll-mt-28"
+					: "[&_h2]:mt-[34px] [&_h2]:mb-2.5 [&_h2]:text-[26px] [&_h2]:text-ink [&_h2]:scroll-mt-28 [&_h3]:mt-[26px] [&_h3]:mb-2 [&_h3]:text-[19px] [&_h3]:text-ink [&_h3]:scroll-mt-28",
 				size === "sm" && "[&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:font-title [&_h2]:text-[21px] [&_h3]:text-[17px]",
 				"[&_p]:mb-3.5 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-[22px] [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-[22px] [&_li]:my-1.5",
 				"[&_blockquote]:my-5 [&_blockquote]:rounded-card [&_blockquote]:bg-surface-2 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:font-title [&_blockquote]:tracking-[-0.02em] [&_blockquote]:text-[19px] [&_blockquote]:leading-[1.45] [&_blockquote]:text-ink",
@@ -167,10 +158,6 @@ export type WikiPhase = {
 	items: { id: string; title: string; href: string; read?: boolean }[];
 };
 
-/**
- * WikiTree (components.md): Phase, Item and Read marker on the Accordion primitive. The phase that holds the current
- * article starts open; the current article has aria-current="page"; a read article says so to screen readers.
- */
 export function WikiTree({
 	phases,
 	currentId,
@@ -197,7 +184,7 @@ export function WikiTree({
 						<Accordion.Header>
 							<Accordion.Trigger
 								data-focus-inset=""
-								className="group/ph flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-[9px] text-left font-medium text-ink transition-colors hover:bg-surface-2"
+								className="group/ph flex w-full items-center gap-2.5 rounded-md px-2.5 py-[9px] text-left font-medium text-ink transition-colors hover:bg-surface-2"
 							>
 								<span
 									aria-hidden="true"
@@ -238,33 +225,6 @@ export function WikiTree({
 	);
 }
 
-/**
- * The id of the heading nearest the top of the viewport, for Toc. It watches the given heading ids with an
- * IntersectionObserver and returns the last one that crossed the reading line.
- */
-export function useActiveHeading(ids: string[]): string | undefined {
-	const [active, setActive] = useState<string | undefined>(ids[0]);
-	const key = ids.join("|");
-	useEffect(() => {
-		const els = key
-			.split("|")
-			.map((id) => document.getElementById(id))
-			.filter((el): el is HTMLElement => el !== null);
-		if (els.length === 0) return;
-		const observer = new IntersectionObserver(
-			(entries) => {
-				const above = entries.filter((e) => e.isIntersecting).map((e) => e.target.id);
-				if (above.length) setActive(above[0]);
-			},
-			{ rootMargin: "-96px 0px -66% 0px" },
-		);
-		els.forEach((el) => observer.observe(el));
-		return () => observer.disconnect();
-	}, [key]);
-	return active;
-}
-
-/** Toc (components.md): "On this page" links to the article's headings; the current section is marked. */
 export function Toc({
 	items,
 	current,
@@ -301,10 +261,8 @@ export function Toc({
 
 export type WikiSource = {
 	id: string;
-	/** Two letters for the badge: "AS". */
 	short: string;
 	name: string;
-	/** "Edited version 3 · Sep 12". */
 	meta: string;
 	kind: "network" | "global";
 };
@@ -324,12 +282,6 @@ function OrgBadge({ source, size = "sm" }: { source: WikiSource; size?: "sm" | "
 	);
 }
 
-/**
- * WikiSourceBar (components.md): Source menu, Meta, Back to preferred and Admin tools. Choosing a source changes only
- * what this reader sees now; reading a named source that is not the preferred one outlines the bar in blue and
- * offers the way back. `admin` holds the Hide and Edit actions, shown only to editors. `prefer` offers "Set … as
- * preferred" for the source being read; `status` is the polite live line under the bar that reports that save.
- */
 export function WikiSourceBar({
 	sources,
 	currentId,
@@ -346,11 +298,8 @@ export function WikiSourceBar({
 	currentId: string;
 	preferredId: string;
 	onChoose: (id: string) => void;
-	/** Opens the church's preferred-source setting; without it the menu offers no way there. */
 	onSettings?: () => void;
-	/** Makes the source being read the church's preferred one. `name` is that source's name. */
 	prefer?: { name: string; onSelect: () => void };
-	/** Pass a string (empty at first) to keep the live region mounted before its first message. */
 	status?: string;
 	admin?: ReactNode;
 	adminLabel?: string;
@@ -372,7 +321,7 @@ export function WikiSourceBar({
 				<MenuTrigger asChild>
 					<button
 						type="button"
-						className="inline-flex h-10 cursor-pointer items-center gap-2.5 rounded-md bg-surface-2 pr-3 pl-2 text-ink transition-colors hover:bg-surface-3"
+						className="inline-flex h-10 items-center gap-2.5 rounded-md bg-surface-2 pr-3 pl-2 text-ink transition-colors hover:bg-surface-3"
 					>
 						<OrgBadge source={current} />
 						<span>
@@ -388,7 +337,7 @@ export function WikiSourceBar({
 							<DropdownMenu.RadioItem
 								key={s.id}
 								value={s.id}
-								className="grid cursor-pointer grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md p-2.5 outline-none data-[highlighted]:bg-surface-2"
+								className="grid grid-cols-[30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-md p-2.5 outline-none data-[highlighted]:bg-surface-2"
 							>
 								<OrgBadge source={s} size="md" />
 								<span className="min-w-0">
@@ -453,7 +402,7 @@ export function WikiSourceBar({
 }
 
 const MENU_ACTION =
-	"flex min-h-[38px] cursor-pointer items-center rounded-md px-2.5 py-2 text-md text-ink outline-none data-[highlighted]:bg-surface-2";
+	"flex min-h-[38px] items-center rounded-md px-2.5 py-2 text-md text-ink outline-none data-[highlighted]:bg-surface-2";
 
 export type EditorCommand =
 	"block" | "bold" | "italic" | "link" | "bulletList" | "orderedList" | "quote" | "callout" | "image" | "undo" | "redo";
@@ -474,14 +423,8 @@ const TOOLS: ({ cmd: EditorCommand; label: string; icon: IconSvgElement; toggle?
 ];
 
 const TOOL =
-	"grid size-9 cursor-pointer place-items-center rounded-md text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 aria-pressed:bg-surface-2 aria-pressed:text-ink data-[state=on]:bg-surface-2 data-[state=on]:text-ink";
+	"grid size-9 place-items-center rounded-md text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40 aria-pressed:bg-surface-2 aria-pressed:text-ink data-[state=on]:bg-surface-2 data-[state=on]:text-ink";
 
-/**
- * WikiEditor (components.md): Toolbar, Title, Body blocks, Change marks and the side panel. This is the frame only:
- * the editing engine comes from the editor contract (C-EDITOR, WP-032) and renders into `children`; the toolbar
- * reports commands and shows the engine's active marks. Body blocks marked data-change="changed" or "added" get a
- * blue or green bar in the margin, explained by the key in the toolbar.
- */
 export function WikiEditor({
 	title,
 	onTitleChange,
@@ -496,13 +439,11 @@ export function WikiEditor({
 }: {
 	title: string;
 	onTitleChange: (title: string) => void;
-	/** The current block style shown on the first toolbar button: "Heading 2". */
 	blockLabel?: string;
 	active?: EditorCommand[];
 	disabled?: EditorCommand[];
 	onCommand: (cmd: EditorCommand) => void;
 	changeKey?: boolean;
-	/** The side panel: version, readers, history and hide cards. */
 	aside?: ReactNode;
 	children: ReactNode;
 	className?: string;
@@ -579,7 +520,6 @@ export function WikiEditor({
 	);
 }
 
-/** The "Type / to add a block" hint inside an editor body. */
 export function InsertHint({
 	children = "Type / to add a heading, list, quote, callout or image",
 }: {
@@ -601,7 +541,6 @@ export type Revision = {
 	action?: ReactNode;
 };
 
-/** The History card of the editor side panel: a draft (amber), the published version (green) and older ones. */
 export function RevisionList({ revisions, className }: { revisions: Revision[]; className?: string }) {
 	return (
 		<ol className={cn("flex flex-col", className)}>

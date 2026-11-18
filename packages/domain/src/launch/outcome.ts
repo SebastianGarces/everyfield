@@ -26,10 +26,6 @@ import {
 } from "./core.ts";
 import { planAfter } from "./reads.ts";
 
-// What happened on Launch Sunday (WP-046: LCH-006, 007, 010). Every command locks the church's launch row first, so
-// two tabs never number a version twice, then writes its change and its history row in one statement. None of them
-// moves the planned date or the phase, creates a meeting or a task, or sends anything.
-
 const answersRow = c.debriefAnswers;
 const versionRow = z.object({ id: z.uuid(), revision: z.string(), version: z.int() });
 const lockRow = z.object({
@@ -68,10 +64,6 @@ const versionJson = (d: string, extra: SQL) => {
 	return sql`jsonb_build_object('id',${r}.id,'revision',${r}.revision::text,'version',${r}.version,${extra})`;
 };
 
-/**
- * The command's first statement: its gate, its stored answer if any, the church's launch row locked (created as a
- * planning row when the church has none) and the debrief and summary versions the command decides from.
- */
 async function lock(tx: Transaction, scope: Scope, key: string) {
 	const p = sql`${scope.plantId}::uuid`;
 	const { rows } = await tx.execute(sql`WITH gate AS (SELECT ${scope.admin} AS ok), ${priorKey(scope, key)},
@@ -95,8 +87,7 @@ async function lock(tx: Transaction, scope: Scope, key: string) {
 }
 
 const storedAnswer = z.object({ outcome: z.enum(["changed", "noop"]) });
-/** One history row with the command's stored answer, as the CTE `aud`. `from` names the CTE it runs once per row of. */
-function auditCte(
+export function auditCte(
 	scope: Scope,
 	identity: RequestIdentity,
 	op: string,
@@ -120,9 +111,7 @@ function auditCte(
 	${row.subjectId},${row.before ? JSON.stringify(row.before) : null}::jsonb,${after as SQL},${row.reason ?? null},
 	${keyed(identity, { outcome: "changed" })},${op}::uuid,${JSON.stringify(row.metadata)}::jsonb FROM ${sql.raw(row.from)})`;
 }
-/** The opaque actor attribution the account purge keeps once it clears actor_id (audit.md "Deletion and retention"). */
 const actorToken = (scope: Scope) => hash([scope.plantId, scope.accountId]);
-/** The material evidence revision moves with every change a phase readiness or assessment could read (LCH-007). */
 const evidenceMoved = (scope: Scope) =>
 	sql`mat AS (UPDATE plant SET material_revision=material_revision+1 WHERE id=${scope.plantId}::uuid)`;
 
@@ -135,10 +124,6 @@ const answerSet = (a: c.DebriefAnswers) =>
 	support_needed=${a.supportNeeded},missing_names=${a.missingNames},missing_count=${a.missingCount}::int`;
 
 export function outcomeCommands(clock: Clock) {
-	/**
-	 * One Launch outcome command: the lock, a replay of the same request, the refusals, then `decide`, which writes the
-	 * change or nothing. Every answer is the plan as saved.
-	 */
 	async function command(
 		db: Database,
 		authority: RequestActor,
@@ -161,7 +146,6 @@ export function outcomeCommands(clock: Clock) {
 		});
 	}
 
-	/** The debrief or summary draft fence: the page names the draft it holds and its revision, "0" for none. */
 	function fenced(
 		draft: { id: string; revision: string } | null,
 		q: { draftId: string | null; expectedRevision: string },
@@ -182,7 +166,6 @@ export function outcomeCommands(clock: Clock) {
 				const checked = c.checkDebrief(q.input.answers, submit);
 				if (!checked.ok) deny("invalid_debrief", { problem: checked.problem });
 				const a = checked.answers;
-				// The same answers again change nothing: a draft saved as it is, or a submission equal to the last one.
 				if (!submit && l.draft && sameAnswers(l.draft.answers, a)) return "noop";
 				if (submit && !l.draft && l.submitted && sameAnswers(l.submitted.answers, a)) return "noop";
 				const op = randomUUID();
@@ -196,7 +179,6 @@ export function outcomeCommands(clock: Clock) {
 	missing_names,missing_count,saved_at,saved_by,submitted_at,submitted_by)
 	VALUES(${p},${version},${answerValues(a)},clock_timestamp(),${scope.accountId}::uuid,
 	${submit ? sql`clock_timestamp()` : sql`NULL`},${submit ? sql`${scope.accountId}::uuid` : sql`NULL`}) RETURNING id`;
-				// Only the guest answer is history; the written areas are the planter's own words and stay on the version.
 				const guest = (x: c.DebriefAnswers) => ({ missingNames: x.missingNames, missingCount: x.missingCount });
 				const corrected = submit && l.submitted !== null;
 				await tx.execute(sql`WITH w AS (${write}), ${submit ? sql`${evidenceMoved(scope)},` : sql``}
@@ -243,7 +225,6 @@ export function outcomeCommands(clock: Clock) {
 	VALUES(${p},${version},${body},clock_timestamp(),${scope.accountId}::uuid,
 	${publish ? sql`clock_timestamp()` : sql`NULL`},${publish ? sql`${scope.accountId}::uuid` : sql`NULL`})
 	RETURNING id,source_categories`;
-				// The body is the planter's own text: history names the version, never its words.
 				await tx.execute(sql`WITH w AS (${write}),
  ${auditCte(scope, identity, op, {
 		action: publish ? "launch.summary_published" : "launch.changed",
@@ -261,11 +242,6 @@ export function outcomeCommands(clock: Clock) {
 	}
 
 	return {
-		/**
-		 * launch.recordOutcome (LCH-006): what actually happened on Launch Sunday, beside the planned date, which stays as
-		 * it is. The actual date can't be after the church-local date today; counts are whole numbers 0 to 1,000,000 and
-		 * an empty one stays Not recorded. The plan reads as launched from here on. No meeting, task or phase change.
-		 */
 		async recordOutcome(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.recordOutcomeRequest, raw);
@@ -295,11 +271,6 @@ export function outcomeCommands(clock: Clock) {
 				});
 			});
 		},
-		/**
-		 * launch.correctOutcome (LCH-007): correct the recorded date, counts or note with a reason. History keeps what each
-		 * changed field was and is now (a note only as changed). The same values again add nothing. The phase never moves
-		 * back and no task is created.
-		 */
 		async correctOutcome(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.correctOutcomeRequest, raw);
@@ -341,11 +312,6 @@ export function outcomeCommands(clock: Clock) {
 				});
 			});
 		},
-		/**
-		 * launch.addGuestAttendance (LCH-007): name a Launch Sunday guest. Picking a Person links that live Person of the
-		 * church; typing a name creates a new Person with only that name (no surname, email, phone or account) and links
-		 * it in the same change. A typed name never links or merges by itself. Linking a guest again changes nothing.
-		 */
 		async addGuestAttendance(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(async () => {
 				const q = parse(c.addGuestRequest, raw);
@@ -353,7 +319,6 @@ export function outcomeCommands(clock: Clock) {
 					if (!l.launch.actual_date) deny("not_ready", { needs: "outcome" });
 					const op = randomUUID();
 					const p = sql`${scope.plantId}::uuid`;
-					// `pe` is the live Person to link: an existing one the planter picked, or the one this statement creates.
 					const link = (pe: SQL, created: boolean, extra: SQL) => sql`WITH ${extra}
  pe AS (${pe}),
  g AS (INSERT INTO launch_guest(plant_id,person_id,recorded_by) SELECT ${p},pe.id,${scope.accountId}::uuid FROM pe
@@ -378,13 +343,11 @@ export function outcomeCommands(clock: Clock) {
 							),
 						);
 						const r = z.object({ found: z.int(), added: z.int() }).parse(rows[0]);
-						// A missing, foreign or retired Person reads like any inaccessible one.
 						if (!r.found) deny("access_denied");
 						return r.added ? "changed" : "noop";
 					}
 					const name = c.GUEST_NAME_MAX >= q.input.displayName.trim().length ? q.input.displayName.trim() : "";
 					if (!name) deny("invalid_input");
-					// The People defaults for a new Person, with only the name the planter typed: a Launch Sunday attendee.
 					const row = newPerson(
 						{ selected: authority.actor.context.owner },
 						{
@@ -418,26 +381,15 @@ export function outcomeCommands(clock: Clock) {
 				});
 			});
 		},
-		/** launch.saveDebriefDraft (LCH-010): keep the debrief as it is so far. Anything may be left empty. */
 		async saveDebriefDraft(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(() => debriefCommand(db, authority, raw, false));
 		},
-		/**
-		 * launch.submitDebrief and correction (LCH-010): submit the six-area debrief. Only the guest answer is needed, and
-		 * a Yes needs how many. A later submission is the corrected version; every earlier one stays. Submitting publishes
-		 * nothing and copies nothing into the summary.
-		 */
 		async submitDebrief(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(() => debriefCommand(db, authority, raw, true));
 		},
-		/** launch.saveDebriefSummaryDraft: keep the summary being written. Organizations never read a draft. */
 		async saveDebriefSummaryDraft(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(() => summaryCommand(db, authority, raw, false));
 		},
-		/**
-		 * launch.publishDebriefSummary (REQ-KNOW-112): publish exactly the text the planter previewed as the next version.
-		 * Earlier versions stay. Needs a submitted debrief. No task, contact, email or phase change.
-		 */
 		async publishDebriefSummary(db: Database, authority: RequestActor, raw: unknown) {
 			return settle(() => summaryCommand(db, authority, raw, true));
 		},

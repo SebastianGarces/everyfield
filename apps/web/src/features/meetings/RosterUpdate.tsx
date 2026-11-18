@@ -27,11 +27,6 @@ type Preview = z.infer<typeof c.rosterPreview>;
 type Person = Preview["add"][number];
 const names = (people: Person[]) => people.map((p) => p.displayName);
 
-/**
- * A team meeting's guest list came from its ministry when the meeting was made, and does not follow later changes
- * (REQ-MTG-007). An Owner or Admin can review an update from the ministry: who would be added, removed and kept. Cancel
- * changes nothing; Update applies exactly that review, shown at once and confirmed by the answer.
- */
 export function RosterUpdate({
 	meeting,
 	canWrite,
@@ -95,7 +90,7 @@ export function RosterUpdate({
 				<CardIcon icon={UserGroupIcon} tone="violet" size={36} />
 				<p className="min-w-[220px] flex-1 text-sm text-text-2">
 					The guest list was copied from{" "}
-					<IntentLink href={`/ministries/${team.id}`} className="cursor-pointer font-medium text-ink underline">
+					<IntentLink href={`/ministries/${team.id}`} className="font-medium text-ink underline">
 						{team.name}
 					</IntentLink>{" "}
 					when this meeting was made. It does not follow later changes to the ministry.
@@ -226,7 +221,6 @@ function Group({ title, people, children }: { title: string; people: string[]; c
 	);
 }
 
-/** A person the update adds, as the guest list shows them before the answer. */
 function pending(p: Person): PendingGuest {
 	return {
 		id: `${PENDING}${p.personId}`,

@@ -1,16 +1,9 @@
-# Deterministic checks for every pull request and for main.
-# The required status check is the `ci` job. It passes only when every other job passed. The nightly full run behind
-# local selection, and the bun typecheck shadow, live in nightly.yml (T-216).
-# The database tests run against throwaway PostgreSQL 18 service containers, the major version the shared development
-# database runs (D-861), one for the db job and one per domain census part, with a synthetic password, never against
-# Neon. CI uses no secrets.
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
-  # Dormant until this repository can use a merge queue (OPS-56): the `ci` check then also runs on the queue commit.
   merge_group:
 
 permissions:
@@ -22,85 +15,86 @@ concurrency:
 
 env:
   NODE_VERSION: "24.22.1"
-  # The domain matrix lists census parts 1 to CENSUS_PARTS; the ci job checks their union.
   CENSUS_PARTS: "3"
 
 jobs:
   app:
-    # The production build runs once per CI run, in domain census part 1, with the server-trace test after it (T-216).
     name: app (lint, types, logs, unit)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+        with:
+          fetch-depth: 2
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-      # pnpm comes from corepack at the packageManager version in package.json, installed once. The pnpm store
-      # cache below calls pnpm, so it comes after.
-      - name: pnpm from corepack (retries registry errors)
-        run: .github/scripts/corepack-install.sh
-      - name: pnpm store cache
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
       - name: Formatting (Prettier)
         run: pnpm format:check
-      - name: Lint (ESLint, image locks, colour literals)
+      - name: Lint (Oxlint, ESLint, lint baselines against main, image locks, colour literals)
         run: pnpm lint
-      # TypeScript 7 over every package, then tsconfig.tools.json. The bun shadow (pnpm typecheck:bun) runs nightly.
+      - name: Lint rules stay on, cover every file and only shrink their baselines
+        run: node scripts/lint/check-comments.mjs
       - name: Types
         run: pnpm typecheck
       - name: Server log privacy (next dev with synthetic passwords)
         run: pnpm test:logs
         env:
           NEXT_TELEMETRY_DISABLED: "1"
-      # The documents tests open the Word and Excel exports in LibreOffice, so they paginate with the fonts the files name.
-      # Only the upright DM Sans files: the italic ones alone carry the legacy family name "DM Sans", and LibreOffice would
-      # set all body text in italic.
-      - name: LibreOffice and the document fonts for the documents tests
+      - name: LibreOffice packages from the cache (the runner's Ubuntu mirror can be slow)
+        id: libreoffice-debs
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/libreoffice-debs
+          key: libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2
+          restore-keys: libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2-
+      - name: LibreOffice, with apt's archive cache in the restored directory so only packages it lacks come from the mirror
+        id: libreoffice
         run: |
+          debs="$HOME/libreoffice-debs"
+          mkdir -p "$debs/partial"
+          apt_cache=(-o "Dir::Cache::Archives=$debs" -o APT::Keep-Downloaded-Packages=true -o APT::Sandbox::User=root)
+          echo "Restored $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) cached packages."
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc
+          sudo apt-get install -y --no-install-recommends "${apt_cache[@]}" libreoffice-writer libreoffice-calc
+          sudo apt-get "${apt_cache[@]}" autoclean
+          sudo rm -rf "$debs/partial" "$debs/lock"
+          sudo chown -R "$(id -u):$(id -g)" "$debs"
+          echo "Caching $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) packages, $(du -sh "$debs" | cut -f1)."
+          echo "key=libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2-$(find "$debs" -maxdepth 1 -name '*.deb' -printf '%f\n' | sort | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - name: LibreOffice packages saved to the cache (only when this run's set differs from the restored one)
+        if: ${{ steps.libreoffice.outputs.key != steps.libreoffice-debs.outputs.cache-matched-key }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/libreoffice-debs
+          key: ${{ steps.libreoffice.outputs.key }}
+      - name: The upright DM Sans fonts for the documents tests, and the LibreOffice version
+        run: |
           sudo mkdir -p /usr/local/share/fonts/everyfield
           sudo cp packages/domain/src/documents/fonts/DMSans-{Regular,Medium,Bold}.ttf packages/domain/src/documents/fonts/DMSerifDisplay-Regular.ttf /usr/local/share/fonts/everyfield/
           fc-cache -f
           soffice --version
-      # REQUIRE_SOFFICE=1 makes the LibreOffice checks fail instead of skip when soffice is missing (sofficeTest).
       - name: Package unit tests (each package's test:unit, no database or network)
         run: corepack pnpm -r --if-present test:unit
         env:
           REQUIRE_SOFFICE: "1"
 
   tooling:
-    # The checks that need no database service of their own: documentation, local stack and CI scripts, the product
-    # tools and the wiki tool, run in sequence on one runner so each skips its own setup. The QA seed tests migrate a
-    # Docker Postgres with db:migrate. A failed step still lets the later ones run and report.
     name: tooling (docs, workflow, tools, wiki)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # operation rule and rule placement checks read baseline commits
-      - uses: actions/setup-node@v7
+          fetch-depth: 0
+      - name: Shared setup (Node, pnpm, node_modules)
+        id: setup
+        uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-      # pnpm comes from corepack at the packageManager version in package.json (tools/wiki pins the same), installed
-      # once. The pnpm store cache below calls pnpm, so it comes after.
-      - name: pnpm from corepack (retries registry errors)
-        run: .github/scripts/corepack-install.sh
-      - name: pnpm store cache
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: |
-            pnpm-lock.yaml
-            tools/wiki/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile
+          extra-dirs: tools/wiki
+          save-modules: "false"
       - name: Git identity for test fixtures
         run: |
           git config --global user.name "evf ci"
@@ -121,29 +115,37 @@ jobs:
       - name: Every integration test runs in CI
         if: ${{ !cancelled() }}
         run: node tools/ci/ci-tests.ts
+      - name: State machine charts and column writers
+        if: ${{ !cancelled() }}
+        run: corepack pnpm machines:check
       - name: CI test coverage tool
         if: ${{ !cancelled() }}
         run: node --test tools/ci/tests/*.test.ts
+      - name: Feature maps (routes, proofs and diagrams)
+        if: ${{ !cancelled() }}
+        run: corepack pnpm feature-maps
       - name: QA preview tool
         if: ${{ !cancelled() }}
         run: node --test --disable-warning=ExperimentalWarning tools/qa/tests/*.test.ts
-      # The launchd watcher (ops/actionable-watch). Its one plutil test needs macOS and is skipped here.
       - name: Actionable watcher
         if: ${{ !cancelled() }}
         run: node --test ops/actionable-watch/test/*.test.mts
-      # The wiki tool has its own lockfile outside the workspace.
       - name: Wiki tool install
         if: ${{ !cancelled() }}
         id: wiki-install
         working-directory: tools/wiki
         run: pnpm install --frozen-lockfile --ignore-workspace
+      - name: Shared setup (save node_modules with the wiki tool's)
+        if: ${{ !cancelled() && steps.wiki-install.outcome == 'success' && steps.setup.outputs.modules-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ steps.setup.outputs.modules-paths }}
+          key: ${{ steps.setup.outputs.modules-key }}
       - uses: actions/cache@v6
         if: ${{ !cancelled() && steps.wiki-install.outcome == 'success' }}
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('tools/wiki/pnpm-lock.yaml') }}
-      # The runner image already has the libraries Chromium needs. `--with-deps` ran apt on
-      # every run, and a slow Ubuntu mirror held the job until the timeout cancelled it.
       - name: Chromium for render tests
         if: ${{ !cancelled() && steps.wiki-install.outcome == 'success' }}
         id: chromium
@@ -153,13 +155,19 @@ jobs:
         if: ${{ !cancelled() && steps.chromium.outcome == 'success' }}
         working-directory: tools/wiki
         run: pnpm test
+      - name: agent-browser for the app tool
+        if: ${{ !cancelled() && steps.chromium.outcome == 'success' }}
+        id: agent-browser
+        run: npm install -g agent-browser@0.39.1
+      - name: App verification tool
+        if: ${{ !cancelled() && steps.agent-browser.outcome == 'success' }}
+        env:
+          AGENT_BROWSER_ARGS: --no-sandbox
+        run: |
+          export AGENT_BROWSER_EXECUTABLE_PATH="$(cd tools/wiki && node -e "console.log(require('playwright').chromium.executablePath())")"
+          node --test --disable-warning=ExperimentalWarning tools/app/tests/*.test.ts
 
   db:
-    # Every package with a test:db script except @everyfield/domain, one after another on one Postgres service. Each
-    # suite makes its own random schema in everyfield_ci and drops it at the end, so the suites share the database as
-    # they share the development one. A failed suite still lets the later ones run and report.
-    # The reference database suites run in the domain census instead. `node tools/ci/ci-tests.ts` fails when a package
-    # with test:db runs in no CI step, or when one test file runs in two CI commands.
     name: db (@everyfield/db, evry)
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -179,19 +187,10 @@ jobs:
       EARLY_ACCESS_TEST_DATABASE: "1"
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-      # pnpm comes from corepack at the packageManager version in package.json, installed once. The pnpm store
-      # cache below calls pnpm, so it comes after.
-      - name: pnpm from corepack (retries registry errors)
-        run: .github/scripts/corepack-install.sh
-      - name: pnpm store cache
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
       - name: Migrate the throwaway database
         id: migrate
         run: pnpm db:migrate
@@ -206,9 +205,6 @@ jobs:
         run: pnpm --filter "@everyfield/evry" test:db
 
   domain:
-    # @everyfield/domain runs only the statement census (tests/integration/writes/suites.json, which includes the
-    # reference database suites), split into CENSUS_PARTS parts that run side by side, each on
-    # its own Postgres service. The ci job checks their union.
     name: domain (census part ${{ matrix.part }})
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -217,8 +213,6 @@ jobs:
       matrix:
         include:
           - part: 1
-            # Part 1 counts real HTTP requests on the production build, the one build of the run. It also checks the
-            # build's server traces and saves the Next cache.
             build: true
           - part: 2
           - part: 3
@@ -238,19 +232,10 @@ jobs:
       EARLY_ACCESS_TEST_DATABASE: "1"
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
-      # pnpm comes from corepack at the packageManager version in package.json, installed once. The pnpm store
-      # cache below calls pnpm, so it comes after.
-      - name: pnpm from corepack (retries registry errors)
-        run: .github/scripts/corepack-install.sh
-      - name: pnpm store cache
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
       - name: Migrate the throwaway database
         run: pnpm db:migrate
       - uses: actions/cache@v6
@@ -270,13 +255,9 @@ jobs:
         env:
           EVF_CENSUS_LOGS: ${{ runner.temp }}/census
           EVF_CENSUS_PART: ${{ format('{0}/{1}', matrix.part, env.CENSUS_PARTS) }}
-      # After the census, so a trace failure still lets the part report its counts.
       - name: Server traces hold the runtime reference files (WP-032)
         if: ${{ !cancelled() && steps.build.outcome == 'success' }}
         run: node --test tests/reference/server-trace.test.mjs
-      # Each census part keeps its full logs (behaviors.log holds every inner assertion and its time) and its counts
-      # file. The ci job reads the counts; a failed or timed-out part leaves its logs for reading. A rerun replaces its
-      # part's artifact.
       - name: Statement census part
         if: always()
         uses: actions/upload-artifact@v7
@@ -288,9 +269,6 @@ jobs:
           retention-days: 14
 
   ci:
-    # The one required check. It passes only when every other job passed and the census union holds. The union rules
-    # over the whole census: every budget measured by some part, every declared write exercised, no budget above its
-    # most measured count. It needs no database: it reads the counts files of every passing domain part.
     name: ci
     if: always()
     needs: [app, db, domain, tooling]
@@ -299,10 +277,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         if: needs.domain.result == 'success'
-      - uses: actions/setup-node@v7
+      - name: Shared setup (Node)
         if: needs.domain.result == 'success'
+        uses: ./.github/actions/setup
         with:
           node-version: ${{ env.NODE_VERSION }}
+          install: "false"
       - uses: actions/download-artifact@v8
         if: needs.domain.result == 'success'
         with:

@@ -1,4 +1,3 @@
-// A local HTTPS stand-in for the routine's webhook, for tests only. It never talks to the real routine.
 import { execFileSync } from "node:child_process";
 import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:https";
@@ -12,7 +11,6 @@ export type Seen = {
 	headers: Record<string, string | string[] | undefined>;
 	body: string;
 };
-/** A status code, "hang" (never answer) or "reset" (drop the connection after reading the request). */
 export type Reply = number | "hang" | "reset";
 
 export type FakeRoutine = {
@@ -20,7 +18,6 @@ export type FakeRoutine = {
 	ca: string;
 	caPath: string;
 	seen: Seen[];
-	/** replies are used in order; the last one repeats */
 	replies: Reply[];
 	close(): Promise<void>;
 };
@@ -99,7 +96,6 @@ export async function fakeRoutine(replies: Reply[] = [200]): Promise<FakeRoutine
 	};
 }
 
-/** Writes `webhook.json` the way the README tells Sebastian to: owned by the user, mode 0600. */
 export async function writeConfig(dir: string, config: unknown, mode = 0o600): Promise<string> {
 	const path = join(dir, "webhook.json");
 	await writeFile(path, typeof config === "string" ? config : JSON.stringify(config), { mode });

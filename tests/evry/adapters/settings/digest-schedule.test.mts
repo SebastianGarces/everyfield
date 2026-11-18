@@ -1,7 +1,3 @@
-// T-342: an Owner or Admin changes the church-wide planter digest schedule through Evry (church.digestSchedule.set),
-// only by approving an exact review, and the change runs the same native Settings command the Church section runs. The
-// church is Hope Fellowship (golden-church.mts, America/Chicago, weekly on Sundays at 4 PM); every effect runs through
-// the real queue with the native services the Settings screens use (settings-ports.mts).
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -38,7 +34,6 @@ before(async () => {
 });
 after(() => church?.close());
 
-/** A held turn in a fresh conversation, and the propose_change call the model would make in it. */
 async function turn(who: EvryActor) {
 	const db = church.db;
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
@@ -90,7 +85,6 @@ async function approve(who: EvryActor, proposal: Proposal) {
 	);
 	return { approved, outcome: await runNext(), review: await readReview(church.db, who, proposal.id) };
 }
-/** The schedule Settings > Church shows, from the plant row it reads. */
 const schedule = async () =>
 	(
 		await church.admin.execute(
@@ -155,7 +149,6 @@ test("INV-church-digest-schedule the Owner's Monday 8 AM review changes nothing 
 	]);
 	assert.deepEqual(proposal.review.notes, NOTES);
 	assert.equal(proposal.review.refusal, undefined);
-	// Only a card so far: Settings > Church still shows Sunday at 4 PM.
 	assert.deepEqual(await schedule(), start);
 	const audits = (await churchAudits()).length;
 
@@ -163,7 +156,6 @@ test("INV-church-digest-schedule the Owner's Monday 8 AM review changes nothing 
 	assert.equal(first.outcome, "completed");
 	assert.equal(first.review.outcome, "completed");
 	assert.deepEqual(await schedule(), { cadence: "weekly", weekday: 1, hour: 8, revision: Number(start!.revision) + 1 });
-	// The same audit row the Church section's own save writes (D-1376).
 	const written = await churchAudits();
 	assert.equal(written.length, audits + 1);
 	assert.deepEqual(written.at(-1), {
@@ -171,7 +163,6 @@ test("INV-church-digest-schedule the Owner's Monday 8 AM review changes nothing 
 		metadata: { section: "plant", diff: { digest: true } },
 	});
 
-	// Approving the same card again shows it as already applied and writes nothing.
 	const again = await approve(owner, proposal);
 	assert.equal(again.approved.replayed, true);
 	assert.equal(again.outcome, null, "no second effect is queued");
@@ -179,7 +170,6 @@ test("INV-church-digest-schedule the Owner's Monday 8 AM review changes nothing 
 	assert.equal((await churchAudits()).length, audits + 1);
 	assert.equal((await schedule())!.revision, Number(start!.revision) + 1);
 
-	// The next digest the Owner asks about goes out on the new day and hour.
 	const planterDigest = NOTIFICATION_READS.find((r) => r.operation === "notifications.previewPlanterDigest")!;
 	const next = await invokeRead(church.db, owner, planterDigest as never, {});
 	assert.match(String(next.rows[0]?.fields.sendsAt), /^Mon, [A-Z][a-z]{2} \d{1,2}, 8:00\sAM$/);
@@ -222,7 +212,6 @@ test("INV-church-digest-schedule turning it off saves Off; asking for the schedu
 test("INV-church-digest-schedule a church settings change in Settings after the review makes approval stale, and nothing is saved", async () => {
 	const owner = church.actors.owner;
 	const proposal = await (await turn(owner))({ cadence: "weekly", weekday: 3, hour: 9 });
-	// Someone saves the church's city in Settings > Church, with the same native command the section runs.
 	const current = await schedule();
 	const plant = { kind: "plant", id: PLANT } as const;
 	const context = { session: owner.authority.session, selected: plant } as never;

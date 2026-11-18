@@ -9,11 +9,6 @@ import { inverseConflict, mergeBlocker, referenceKind, referenceTreatment } from
 
 export * from "./errors.ts";
 
-// Duplicate review, merge, guarded Unmerge and record corrections (REQ-PPL-015, 016, 017, 024, 025, REQ-MUL-017).
-// Owner and Admin only, except the merged-person destination, which any reader of the church may follow. The server
-// takes the church or organization from the session and the actor from the request.
-
-/** The Person facts a merge review lets the reviewer take from either side. Plant-only facts exist on plant people. */
 export const mergeField = z.enum([
 	"displayName",
 	"firstName",
@@ -39,11 +34,9 @@ const side = z.strictObject({ personId, revision, displayName: z.string(), linke
 export const mergeReview = z.strictObject({
 	source: side,
 	survivor: side,
-	// Every field whose values differ, with both values, so the reviewer chooses knowingly.
 	fields: z
 		.array(z.strictObject({ field: mergeField, source: z.unknown(), survivor: z.unknown() }))
 		.max(mergeField.options.length),
-	// Plant people only: the stage and current commitment the survivor keeps.
 	stage: z.strictObject({ source: stage, survivor: stage, result: stage }).nullable(),
 	commitment: z
 		.strictObject({
@@ -58,7 +51,6 @@ export const mergeReview = z.strictObject({
 		causes: z.array(mergeBlocker).max(3),
 		references: z.array(referenceKind).max(referenceKind.options.length),
 	}),
-	// The exact state reviewed: both Persons and every reference they hold. A merge against a different state is refused.
 	reviewDigest: digest,
 });
 
@@ -68,7 +60,6 @@ export const mergePeopleRequest = z.strictObject({
 		.strictObject({
 			...pair,
 			reviewDigest: digest,
-			// A field left out keeps the survivor's value.
 			fieldChoices: z.partialRecord(mergeField, mergeSide).default({}),
 		})
 		.refine(distinct),
@@ -88,7 +79,6 @@ export const mergedPersonDestinationRequest = z.strictObject({ personId });
 export const mergedPersonDestination = z.strictObject({
 	personId,
 	status: z.enum(["live", "retired", "merged"]),
-	// The Person to open: the survivor of a merged Person, otherwise the Person itself.
 	destinationId: personId,
 	mergeId: recordId.nullable(),
 });
@@ -101,10 +91,8 @@ export const unmergePreview = z.strictObject({
 	mergedAt: instant,
 	state: z.enum(["merged", "unmerged"]),
 	restores: moved,
-	// Survivor fields the merge changed, which Unmerge sets back.
 	fields: z.array(mergeField).max(mergeField.options.length),
 	conflicts: z.array(inverseConflict).max(3),
-	// The survivor revision this preview saw; Unmerge is refused if it changed.
 	reviewRevision: revision,
 });
 export const unmergePeopleRequest = commandEnvelope(z.strictObject({ mergeId: recordId }));
@@ -119,8 +107,6 @@ export const unmergeResult = z.strictObject({
 	receiptId: recordId,
 });
 
-// REQ-PPL-015: ordinary correction fields only. Original recorder, recorded instant, witness and document stay; stage
-// never replays.
 const notes = z.string().trim().max(5000).nullable();
 const lens = z.strictObject({ score: z.int().min(1).max(5), notes });
 const criterion = z.strictObject({ rating: criterionRating, notes });
@@ -146,13 +132,8 @@ export const interviewCorrection = z
 		nextSteps: notes.optional(),
 	})
 	.refine(someChange);
-// A card's date and kind change through people.correctCommitmentLifecycle; its notes change here.
 export const commitmentCorrection = z.strictObject({ notes });
 export const recordType = z.enum(["assessment", "interview", "commitment"]);
-// The expected revision is the record's. The Person is the one the corrector reviewed: a record that has since moved to
-// another Person, by merge or Unmerge, refuses the correction.
-// The reason is optional: omitted, empty or whitespace-only all mean no reason (D-6).
-/** The longest reason a correction may give, in characters. */
 export const EDIT_REASON_MAX = 5000;
 const editReason = z
 	.string()
@@ -185,7 +166,6 @@ export const recordCorrection = z.strictObject({
 	correctedAt: instant,
 	actor: actorAttribution,
 	reason: z.string().nullable(),
-	// Each changed field with its old and new value, as the record holds it.
 	changes: z.array(z.strictObject({ field: z.string(), old: z.unknown(), new: z.unknown() })).min(1),
 });
 export const recordCorrectionsResult = z.strictObject({
@@ -195,6 +175,5 @@ export const recordCorrectionsResult = z.strictObject({
 	total: z.int().min(0),
 });
 
-// MUL-017: organization people find duplicates of one Person, never a guess at identity.
 export const organizationDuplicatesRequest = z.strictObject({ personId });
 export * from "./copy.ts";

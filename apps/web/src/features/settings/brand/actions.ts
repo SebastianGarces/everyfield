@@ -21,9 +21,6 @@ import {
 	suggestBrandColors,
 } from "./server";
 
-// The brand kit server actions: one per operation the Brand kit section uses. The domain parses each request with the
-// branding contract, and the church comes from the session, never from the browser.
-
 export async function getBrand(): Promise<BrandReply<BrandView>> {
 	return readBrand();
 }

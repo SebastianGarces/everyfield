@@ -1,15 +1,10 @@
 import type { LanguageModelV4CallOptions, LanguageModelV4Content } from "@ai-sdk/provider";
 import { randomUUID } from "node:crypto";
 
-// The scripted model's task and follow-up steps (WP-067, WP-068), for local previews and tests only. Like a model, it
-// reads through the tools the turn offers, one call per step, and answers from what they returned in this turn. It
-// recognizes a fixed set of requests (the T-318 Done questions) and passes on anything else.
-
 type Prompt = LanguageModelV4CallOptions["prompt"];
 type Row = { kind: string; id: string; label: string; fields: Record<string, unknown> };
 type Output = Record<string, unknown> & { operation?: string; rows?: Row[]; total?: number | null; error?: string };
 
-/** Every tool result since the user's last message, in call order. */
 function outputs(prompt: Prompt): Output[] {
 	const found: Output[] = [];
 	for (let i = prompt.length - 1; i >= 0; i--) {
@@ -37,7 +32,6 @@ const day = (value: unknown) => (typeof value === "string" ? value.slice(0, 10) 
 const proposed = (list: Output[]) => list.findLast((o) => typeof o.proposalId === "string");
 const REVIEWED = "I prepared a review. Nothing changes until you approve it.";
 
-/** The church-local date of the next Monday (today when it is Monday), by the trusted clock in the system prompt. */
 function nextMonday(prompt: Prompt) {
 	const system = prompt.find((m) => m.role === "system");
 	const at = /Current time \(trusted server clock\): (\S+?)\.\s/.exec(
@@ -61,10 +55,6 @@ const OUTCOME: Record<string, string> = {
 	no_longer_needed: "the follow-up closed as no longer needed, not a conversation",
 };
 
-/**
- * The next step for a task or follow-up request, or null when the request is not one of these or this context has no
- * task tools. `has(name)` says whether the turn offers that tool.
- */
 export function taskStep(
 	text: string,
 	prompt: Prompt,
@@ -77,7 +67,6 @@ export function taskStep(
 	if (asksTasks && !tasks && !has("followups_read"))
 		return say("I can't read tasks or follow-ups in this context. Switch to a church to ask about its tasks.");
 
-	// "whats overdue": the overdue tasks, then the open follow-ups in their own list.
 	if (/\bwhat'?s overdue\b|\boverdue\b/i.test(text) && tasks) {
 		const overdue = last(out, "tasks.list");
 		if (!overdue) return read("tasks", "tasks.list", { due: "overdue", followUps: "exclude" });
@@ -97,7 +86,6 @@ export function taskStep(
 		);
 	}
 
-	// "Find the task titled 'Pray for the launch'": task data, never a pastoral request.
 	const titled = /\btask (?:titled|called|named)\s+["“'‘]?(.+?)["”'’]?\s*$/i.exec(text);
 	if (titled && tasks) {
 		const found = last(out, "tasks.list");
@@ -112,7 +100,6 @@ export function taskStep(
 		);
 	}
 
-	// "did anyone call the johnsons yet?": each matching person's recorded contact log, never a guess.
 	const called =
 		/\b(?:did anyone|has anyone|have we) (?:call|called|reach|reached|contact|contacted) (?:the )?([a-z][\w'-]+?)s?(?: yet)?\??$/i.exec(
 			text,
@@ -120,7 +107,6 @@ export function taskStep(
 	if (called && has("followups_read")) {
 		const people = last(out, "people.listPeople");
 		if (!people) return read("people", "people.listPeople", { search: called[1] });
-		// One contact log per person, in the order the people came back.
 		const histories = out.filter((o) => o.operation === "followups.listContactHistory");
 		const next = rows(people)[histories.length];
 		if (next) return read("followups", "followups.listContactHistory", { personId: next.id });
@@ -134,7 +120,6 @@ export function taskStep(
 		return say(`${lines.join(" ")} I can't read sent emails yet, so emails aren't included.`);
 	}
 
-	// "who is following up with Daniel?": the follow-up's owner, or that nobody is assigned. No guess.
 	const who = /\bwho is following up with ([A-Z][\w'-]+)/i.exec(text);
 	if (who && has("followups_read")) {
 		const people = last(out, "people.listPeople");
@@ -152,8 +137,6 @@ export function taskStep(
 		);
 	}
 
-	// "who came for the first time last night and still needs a follow up": the latest held meeting's first-time
-	// guests, from its recorded attendance, with that meeting's open follow-ups. Never guessed from stage.
 	if (/\b(first time|first-time|came|attended)\b.*\b(last night|yesterday|meeting)\b/i.test(text)) {
 		if (!has("meetings_read"))
 			return say(
@@ -182,7 +165,6 @@ export function taskStep(
 		);
 	}
 
-	// "log that i called jessica today, she wants to join a group": one recordOutcome review on her follow-up.
 	const logged = /\blog that i (called|texted|emailed|visited|met) ([a-z][\w'-]+)(?: today)?,?\s*(.*)$/i.exec(text);
 	if (logged && has("followups_read") && has("propose_change")) {
 		const done = proposed(out);
@@ -207,7 +189,6 @@ export function taskStep(
 		});
 	}
 
-	// "split the 6 new guests between Carlos and Ana for follow up": who may own follow-ups first.
 	const split = /\bsplit the (\d+) new guests between ([A-Z][\w'-]+) and ([A-Z][\w'-]+)/i.exec(text);
 	if (split && tasks) {
 		const seats = last(out, "tasks.eligibleAssignees");
@@ -222,7 +203,6 @@ export function taskStep(
 				`${list(cannot.map((x) => x.seat?.label ?? x.n))} can't be assigned follow-ups. ${list(named.filter((x) => !cannot.includes(x)).map((x) => x.seat!.label))} can. What would you like to do: give all ${split[1]} to them, or choose someone else?`,
 			);
 	}
-	// "give them all to Ana": one review listing each guest who needs an owner, with that owner.
 	const all = /\bgive (?:them|all of them|all \w+) (?:all )?to ([A-Z][\w'-]+)/i.exec(text);
 	if (all && tasks && has("propose_change")) {
 		if (proposed(out)) return say(REVIEWED);
@@ -238,7 +218,6 @@ export function taskStep(
 		});
 	}
 
-	// "remind me every monday to review the pipeline": one review for a weekly task the user owns.
 	const remind = /\bremind me every (monday|week) to (.+?)\.?$/i.exec(text);
 	if (remind && has("propose_change")) {
 		if (proposed(out)) return say(REVIEWED);
@@ -252,7 +231,6 @@ export function taskStep(
 		});
 	}
 
-	// "what should I focus on this week?": recorded items only, each with its source, plus what couldn't be read.
 	if (/\bfocus on\b/i.test(text) && tasks) {
 		const due = last(out, "tasks.list");
 		if (!due) return read("tasks", "tasks.list", { due: "this_week", followUps: "exclude" });
@@ -284,7 +262,6 @@ export function taskStep(
 		);
 	}
 
-	// "what's due today for me": the user's own tasks due today or overdue, in the church's time zone.
 	if (/\bdue today\b/i.test(text) && tasks) {
 		const due = last(out, "tasks.list");
 		if (!due) return read("tasks", "tasks.list", { due: "today", mine: /\b(me|my|mine)\b/i.test(text) });
@@ -292,7 +269,6 @@ export function taskStep(
 		return say(t.length ? `Due today or overdue: ${t.map(taskLine).join("; ")}.` : "Nothing is due today.");
 	}
 
-	// "complete <task>" / "mark <task> done": find it, then propose; a Member's other tasks refuse with the reason.
 	const complete =
 		/^(?:please )?(?:complete|mark)\s+(?:the\s+)?["“]?(.+?)["”]?(?:\s+task)?(?:\s+as)?(?:\s+(?:done|complete))?\.?$/i.exec(
 			text,
@@ -312,7 +288,6 @@ export function taskStep(
 		return propose("tasks.complete", { taskId: task.id });
 	}
 
-	// "assign <task> to <name>": the account linked to that name; a Person with no seat is refused before any review.
 	const assign = /^assign (?:the )?["“]?(.+?)["”]?(?: task)? to ([A-Z][\w'-]+(?: [A-Z][\w'-]+)?)\.?$/i.exec(text);
 	if (assign && tasks && has("propose_change")) {
 		if (proposed(out)) return say(REVIEWED);
@@ -332,7 +307,6 @@ export function taskStep(
 		return propose("tasks.edit", { taskId: task.id, patch: { assigneeIds: [seat.id] } });
 	}
 
-	// "add <row> to the <task> checklist and tick off <row>": one review for both checklist steps.
 	const checklist =
 		/\badd ["“]?(.+?)["”]? to the (.+?) checklist(?: and (?:tick|check) off ["“]?(.+?)["”]?)?\.?$/i.exec(text);
 	if (checklist && tasks && has("propose_change")) {
@@ -358,5 +332,4 @@ export function taskStep(
 	return null;
 }
 
-/** "Find the task titled 'Pray for the launch'" names prayer as task data: it is an application request. */
 export const TASK_DATA = /\btask (?:titled|called|named)\b/i;

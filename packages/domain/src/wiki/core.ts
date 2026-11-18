@@ -56,7 +56,6 @@ function refused(error: WikiRefusal): WikiReply<never> {
 		}),
 	};
 }
-/** The refusal a caller sees when the session no longer holds the context. */
 export const accessDenied = (): WikiReply<never> => refused(new WikiRefusal("access_denied"));
 function refusal(error: unknown): WikiReply<never> {
 	if (error instanceof WriteUnavailable) return refused(new WikiRefusal("unavailable"));
@@ -75,7 +74,6 @@ export function selectedOwner(authority: RequestActor): Owner {
 	const context = authority.actor.context;
 	return context.kind === "seat" ? context.owner : accountOwner(authority.actor.accountId);
 }
-/** Session account, live seat and role in one condition (C13). */
 export function meSql(authority: RequestActor, selected: Owner, admin = false): SQL {
 	const context = authority.actor.context;
 	const aligned = context.kind === "seat" && sameOwner(context.owner, selected);
@@ -113,7 +111,6 @@ export async function runRead<T>(body: () => Promise<T>): Promise<WikiReply<T>> 
 	}
 }
 type Body<T> = (tx: Transaction, command: Command, input: { requestKey: string }) => Promise<T>;
-/** How one command runs: on its own (runWrite) or inside a transaction that already locked its actor (claimedWrite). */
 export type Runner = <T>(
 	selected: Owner,
 	operation: string,
@@ -122,7 +119,6 @@ export type Runner = <T>(
 	body: Body<T>,
 ) => Promise<WikiReply<T>>;
 
-/** The keyed command inside `tx`: a stored request key replays its answer, a new one runs `body` and its audit row. */
 async function keyed<T>(
 	tx: Transaction,
 	authority: RequestActor,
@@ -164,10 +160,6 @@ export async function runWrite<T>(
 ): Promise<WikiReply<T>> {
 	try {
 		const value = await nativeWrite(db, authority, selected, async (tx) => {
-			// declareWrite starts the gate. lockedWrite repeats that lock and ends a stored-answer run.
-			// The locked row lives on the actor the gate checked. Do not read it back through requestWrite:
-			// a production bundle can load that map from a second copy of the session module, so the read
-			// is empty after a successful lock and the write refuses a live actor.
 			await declareWrite(tx, "established");
 			await lockedWrite(tx);
 			return keyed(tx, authority, selected, operation, input, result, body);
@@ -182,11 +174,6 @@ export const ownWrite =
 	(selected, operation, input, result, body) =>
 		runWrite(db, authority, selected, operation, input, result, body);
 
-/**
- * A session's write authority in `selected`, locked inside a caller's transaction (an Evry effect), with a runner that
- * writes in that same transaction. The lock the caller already holds is reused; a bundle that loaded a second copy of
- * the session module sees none, so it locks again. Null when the session no longer holds the context.
- */
 export async function claimedWrite(
 	tx: Transaction,
 	session: z.infer<typeof sessionId>,

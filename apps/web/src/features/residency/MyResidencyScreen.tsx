@@ -21,33 +21,30 @@ import {
 	PageHeader,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
+import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useState } from "react";
-import { formatDay } from "../organizations/board/model";
-import { Problem } from "../organizations/board/Problem";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { markSubjectRead } from "../notifications/actions";
+import { useReadElsewhere } from "../notifications/feed";
+import { formatPlainDate } from "../../components/dates.ts";
+import { Problem } from "../../components/Problem.tsx";
 import { programProblem, KIND } from "../organizations/programs/model";
-import { useResidency } from "../shell/residency.ts";
+import { useResidency } from "./context.ts";
 import { markMilestone } from "./actions";
 import { articlePath } from "../wiki/model";
-import { meetingDay, meetingTime, readingPath, zoneName } from "./model";
+import { meetingDay, meetingTime, milestoneAnchor, readingPath, zoneName } from "./model";
 
 type Linked = Extract<MyResidency, { status: "linked" }>;
 type Enrollment = Linked["enrollments"][number];
 type Milestone = Enrollment["milestones"][number];
 
-/**
- * My residency (REQ-MUL-013): a linked resident's own program, program stage, next meeting, milestones with their
- * confirmation and the director's feedback, reading list and what the church can see. Leaving the residency, here or
- * in another tab's Sharing card, turns the page into the no-longer-linked state at once.
- */
 export function MyResidencyScreen({ initial }: { initial: MyResidency }) {
 	const frame = useResidency();
 	if (initial.status === "not_linked" || frame.ended) return <NotLinked />;
 	return <LinkedResidency residency={initial} />;
 }
 
-/** The page a saved link opens once the resident left, was never linked or the church ended the link. */
 function NotLinked() {
 	return (
 		<div className="flex flex-col gap-5">
@@ -59,7 +56,6 @@ function NotLinked() {
 					title="You’re no longer linked to a residency"
 					action={
 						<Button asChild variant="primary">
-							{/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
 							<a href="/home">Back to Discovery</a>
 						</Button>
 					}
@@ -72,7 +68,24 @@ function NotLinked() {
 	);
 }
 
+function useOpenedNotice() {
+	const opened = useSearchParams().get("milestone");
+	const readElsewhere = useReadElsewhere();
+	const sent = useRef<string | null>(null);
+	useEffect(() => {
+		if (!opened || sent.current === opened) return;
+		sent.current = opened;
+		void markSubjectRead({ kind: "residency_milestone", id: opened })
+			.then((r) => {
+				if (r.status === "ok" && r.value.markedIds.length) readElsewhere(r.value.markedIds);
+			})
+			.catch(() => undefined);
+	}, [opened, readElsewhere]);
+	return opened;
+}
+
 function LinkedResidency({ residency }: { residency: Linked }) {
+	const opened = useOpenedNotice();
 	const church = residency.organizationName;
 	return (
 		<div className="flex flex-col gap-5">
@@ -87,13 +100,23 @@ function LinkedResidency({ residency }: { residency: Linked }) {
 					</EmptyState>
 				</Card>
 			) : (
-				residency.enrollments.map((e) => <EnrollmentView key={e.id} enrollment={e} residency={residency} />)
+				residency.enrollments.map((e) => (
+					<EnrollmentView key={e.id} enrollment={e} residency={residency} opened={opened} />
+				))
 			)}
 		</div>
 	);
 }
 
-function EnrollmentView({ enrollment: e, residency }: { enrollment: Enrollment; residency: Linked }) {
+function EnrollmentView({
+	enrollment: e,
+	residency,
+	opened,
+}: {
+	enrollment: Enrollment;
+	residency: Linked;
+	opened: string | null;
+}) {
 	const church = residency.organizationName;
 	const [marks, setMarks] = useState<Record<string, Milestone["completion"]>>({});
 	const milestones = e.milestones.map((m) => (m.id in marks ? { ...m, completion: marks[m.id]! } : m));
@@ -118,8 +141,8 @@ function EnrollmentView({ enrollment: e, residency }: { enrollment: Enrollment; 
 						<NextMeeting meeting={e.nextMeeting} timezone={residency.timezone} church={church} />
 						<dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm">
 							<Detail term="Cohort">{e.cohort}</Detail>
-							<Detail term="Started">{formatDay(e.startedOn)}</Detail>
-							<Detail term="Expected end">{formatDay(e.expectedEndOn)}</Detail>
+							<Detail term="Started">{formatPlainDate(e.startedOn)}</Detail>
+							<Detail term="Expected end">{formatPlainDate(e.expectedEndOn)}</Detail>
 						</dl>
 					</CardBody>
 				</Card>
@@ -150,6 +173,7 @@ function EnrollmentView({ enrollment: e, residency }: { enrollment: Enrollment; 
 									<MilestoneRow
 										key={m.id}
 										milestone={m}
+										opened={m.id === opened}
 										enrollmentId={e.id}
 										director={e.program.director}
 										today={residency.today}
@@ -177,7 +201,6 @@ function Detail({ term, children }: { term: string; children: React.ReactNode })
 	);
 }
 
-/** The next meeting in the resident's own zone, naming the church's zone when the two differ. */
 function NextMeeting({
 	meeting,
 	timezone,
@@ -214,15 +237,16 @@ function NextMeeting({
 	);
 }
 
-/** One milestone: open, marked and waiting, or confirmed, with the director's feedback on the resident's own work. */
 function MilestoneRow({
 	milestone: m,
+	opened,
 	enrollmentId,
 	director,
 	today,
 	onMarked,
 }: {
 	milestone: Milestone;
+	opened: boolean;
 	enrollmentId: string;
 	director: string;
 	today: Linked["today"];
@@ -232,7 +256,6 @@ function MilestoneRow({
 	const [problem, setProblem] = useState<string | null>(null);
 	async function mark() {
 		setProblem(null);
-		// Shown at once as waiting; the server confirms it, or the row goes back with a reason.
 		onMarked({ completedOn: today, confirmedOn: null, source: "resident" });
 		const answer = await markMilestone({ enrollmentId, milestoneId: m.id }).catch(() => ({ status: "lost" as const }));
 		if (answer.status !== "ok") {
@@ -245,7 +268,14 @@ function MilestoneRow({
 		}
 	}
 	return (
-		<li className="flex flex-col gap-2 py-3.5 first:pt-0 last:pb-0">
+		<li
+			id={milestoneAnchor(m.id)}
+			aria-current={opened ? "location" : undefined}
+			className={cn(
+				"flex scroll-mt-24 flex-col gap-2 py-3.5",
+				opened ? "-mx-3 rounded-md bg-blue-50 px-3" : "first:pt-0 last:pb-0",
+			)}
+		>
 			<div className="flex flex-wrap items-start gap-x-3 gap-y-2">
 				<span
 					aria-hidden
@@ -269,12 +299,12 @@ function MilestoneRow({
 					{m.description ? <span className="[overflow-wrap:anywhere] text-text-2">{m.description}</span> : null}
 					{c?.confirmedOn ? (
 						<span className="text-ink">
-							Confirmed {formatDay(c.confirmedOn)}
-							<span className="text-text-2"> · Completed {formatDay(c.completedOn)}</span>
+							Confirmed {formatPlainDate(c.confirmedOn)}
+							<span className="text-text-2"> · Completed {formatPlainDate(c.completedOn)}</span>
 						</span>
 					) : c ? (
 						<span className="text-amber-600">
-							Waiting for {director} to confirm · Marked done {formatDay(c.completedOn)}
+							Waiting for {director} to confirm · Marked done {formatPlainDate(c.completedOn)}
 						</span>
 					) : (
 						<span className="text-text-3">Not done yet</span>
@@ -298,7 +328,7 @@ function MilestoneRow({
 							<li key={f.id} className="flex flex-col gap-0.5 text-sm">
 								<span className="whitespace-pre-wrap [overflow-wrap:anywhere] text-ink">{f.body}</span>
 								<span className="text-xs text-text-3">
-									{f.writer ?? "Former staff"} · {formatDay(f.writtenOn)}
+									{f.writer ?? "Former staff"} · {formatPlainDate(f.writtenOn)}
 								</span>
 							</li>
 						))}
@@ -309,7 +339,6 @@ function MilestoneRow({
 	);
 }
 
-/** The reading list: the church's own versions open here, global articles in the Wiki; a withdrawn one opens nothing. */
 function Reading({ readings, church }: { readings: Enrollment["readings"]; church: string }) {
 	return (
 		<Card>
@@ -337,10 +366,7 @@ function Reading({ readings, church }: { readings: Enrollment["readings"]; churc
 							return (
 								<li key={r.id} className="py-3 first:pt-0 last:pb-0">
 									{href ? (
-										<Link
-											href={href}
-											className="group flex cursor-pointer items-start gap-3 rounded-md text-sm outline-offset-4"
-										>
+										<Link href={href} className="group flex items-start gap-3 rounded-md text-sm outline-offset-4">
 											{label}
 											<Icon
 												icon={ArrowRight01Icon}
@@ -368,7 +394,6 @@ function Reading({ readings, church }: { readings: Enrollment["readings"]; churc
 	);
 }
 
-/** What the church can see from the resident's account, and what it never sees. The Sharing card changes it. */
 function Visibility({ residency }: { residency: Linked }) {
 	const church = residency.organizationName;
 	const rows = [

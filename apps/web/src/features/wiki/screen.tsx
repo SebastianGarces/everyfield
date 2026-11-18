@@ -19,7 +19,6 @@ import {
 	OrderSettingsButton,
 	ReadStatus,
 	SourceBar,
-	TocRail,
 	WikiSearchButton,
 } from "./client.tsx";
 import { FixedFrame } from "../../components/frame/FixedFrame.tsx";
@@ -39,8 +38,6 @@ import {
 } from "./model.ts";
 import { ArticleBody } from "./prose.tsx";
 import type { WikiPageData } from "./server.ts";
-
-// The signed-in wiki. The crawler preview does not use this screen.
 
 function Meter({ label, done, total }: { label: string; done: number; total: number }) {
 	const width = total === 0 ? 0 : Math.round((done / total) * 100);
@@ -102,7 +99,7 @@ function StepCard({ step, direction }: { step: Step; direction: "previous" | "ne
 	return (
 		<Link
 			href={step.href}
-			className={`group flex cursor-pointer items-center gap-4 rounded-card bg-surface p-5 shadow-card transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${next ? "flex-row-reverse text-right app-sm:col-start-2" : ""}`}
+			className={`group flex items-center gap-4 rounded-card bg-surface p-5 shadow-card transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${next ? "flex-row-reverse text-right app-sm:col-start-2" : ""}`}
 		>
 			<Icon
 				icon={next ? ArrowRight01Icon : ArrowLeft01Icon}
@@ -120,7 +117,6 @@ function StepCard({ step, direction }: { step: Step; direction: "previous" | "ne
 	);
 }
 
-/** Owner and Admin only: two church versions have no order, so everyone reads the next version in line. */
 function OrderPrompt({ fallback }: { fallback: ArticleVersion | null }) {
 	return (
 		<Card variant="callout" tone="amber" className="mb-6">
@@ -149,7 +145,6 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 			: [];
 	const title = data.editing ? `Edit ${article?.article.title ?? "article"}` : (article?.article.title ?? "Wiki");
 	const phase = article?.article.phase;
-	// The stored credit belongs to the global article, so a church or network version shows its own name instead.
 	const credit = article && !article.version ? humanCredit(article.article.credit) : null;
 	const fixed = !data.editing;
 	const header = (
@@ -208,26 +203,9 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 		/>
 	);
 	const steps = article && !data.editing ? stepsAround(data.tree, article.article.articleId) : null;
-	return (
+	const frame = (
 		<FixedFrame fixed={fixed} className={FRAME}>
-			{article && !data.editing ? (
-				<ArticleSession
-					key={article.article.articleId}
-					articleId={article.article.articleId}
-					slug={article.article.slug}
-					source={source}
-					readingRevision={article.readingRevision}
-					plantId={article.plantId}
-					bookmarked={article.article.bookmarked}
-					observedFraction={article.article.observedFraction}
-					completed={article.article.completed}
-					updated={article.article.updatedLabel}
-				>
-					{header}
-				</ArticleSession>
-			) : (
-				header
-			)}
+			{header}
 			{article && article.sources.length && !data.editing ? (
 				<div className={SOURCE_BAR_GAP}>
 					<SourceBar
@@ -244,7 +222,7 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 				phases={data.tree.phases}
 				more={data.tree.more}
 				currentId={article?.article.articleId}
-				toc={<TocRail items={headings} />}
+				headings={headings}
 				meter={
 					data.phaseRead ? (
 						<Meter
@@ -367,5 +345,23 @@ export function WikiScreen({ data, source }: { data: WikiPageData; source: strin
 				)}
 			</ArticleColumns>
 		</FixedFrame>
+	);
+	return article && !data.editing ? (
+		<ArticleSession
+			key={article.article.articleId}
+			articleId={article.article.articleId}
+			slug={article.article.slug}
+			source={source}
+			readingRevision={article.readingRevision}
+			plantId={article.plantId}
+			bookmarked={article.article.bookmarked}
+			observedFraction={article.article.observedFraction}
+			completed={article.article.completed}
+			updated={article.article.updatedLabel}
+		>
+			{frame}
+		</ArticleSession>
+	) : (
+		frame
 	);
 }

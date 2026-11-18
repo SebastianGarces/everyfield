@@ -3,10 +3,12 @@
 import { Task01Icon, PencilEdit02Icon } from "@hugeicons/core-free-icons";
 import { Field, Input, Radio, RadioGroup, SearchInput, Select, Spinner, Textarea } from "@everyfield/ui/controls";
 import { DESCRIPTION_EXCERPT, MAX_DESCRIPTION, normalizeDescription } from "@everyfield/contracts/tasks";
-import { useEffect, useRef, useState } from "react";
+import { createDebouncer } from "@everyfield/ui/foundations";
+import { useRef, useState } from "react";
+import { createRead, useRead } from "../../components/read.tsx";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Wait } from "../../components/save/model.ts";
-import { offsetText } from "../shared/dates.ts";
+import { offsetText } from "../../components/dates.ts";
 import { createTask, editTask } from "./actions.ts";
 import { AssigneePicker, forgetAssignees } from "./AssigneePicker.tsx";
 import { relationOptions } from "./fetch.ts";
@@ -47,16 +49,10 @@ type Draft = {
 	category: Category;
 	due: DueDraft;
 	assigneeIds: string[];
-	/** Each chosen assignee's name as the form shows it, for the row before the server answers. */
 	assigneeNames: Record<string, string>;
 	relation: Relation;
-	/** The assignee the last refused save named as unable to own follow-ups (`owner_ineligible`). */
 	ineligible?: string;
 };
-/**
- * A save the screen shows before the answer: the row as it will be, the request and the person's text (the form opens
- * again with it after a refusal). `send` takes the save intent's request key; the revision is the one the form showed.
- */
 export type Commit = {
 	before: TaskDetail | null;
 	preview: TaskItem;
@@ -64,7 +60,11 @@ export type Commit = {
 	draft: Draft;
 };
 type Choices = Extract<TaskError, { code: "ambiguous_local_time" }>["details"]["choices"];
+type TimeQuestion = { kind: "skipped" } | { kind: "repeated"; choices: Choices } | null;
 const RELATION_PLURAL = { person: "people", meeting: "meetings", team: "teams" } as const;
+const relations = createRead((kind: RelationKind, search: string) => relationOptions(kind, search), {
+	failed: () => ({ status: "lost" }) as const,
+});
 
 function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 	if (!task)
@@ -90,26 +90,14 @@ function draftOf(task: TaskDetail | null, viewer: Viewer): Draft {
 	};
 }
 
-/**
- * The task form on its card's save lane (C58): the task it was opened on, or null for a new task, and after a refused
- * save the person's values with the server's question, so the form opens again where they left it.
- */
 export type EditForm = {
 	kind: "edit";
 	task: TaskDetail | null;
 	draft?: Draft;
-	/** The two occurrences of a time the clocks repeat, from the server's refusal. */
 	choices?: Choices;
 	problem?: string;
 };
 
-/**
- * New task and Edit task (REQ-TSK-002, REQ-TSK-018). A due date is a day, a church-local time or nothing. A time the
- * clocks skip is refused with a request for another time; a time the clocks repeat shows both occurrences and saves
- * only after the person picks one (B03-008, B03-009). A task a meeting created keeps its category and link. Every save
- * closes the form and shows at once on the list; a refusal opens the form again on the newest copy of the task with
- * the person's own changes on top (R4-2).
- */
 export function TaskDialog({
 	form,
 	latest,
@@ -120,12 +108,9 @@ export function TaskDialog({
 	onCommit,
 }: {
 	form: EditForm | null;
-	/** The newest copy of the edited task this screen holds (a conflict reads it again), or null for a new task. */
 	latest: TaskDetail | null;
 	viewer: Viewer;
-	/** The card's save in flight or unknown: the form keeps its values and cannot submit (C68). */
 	wait: Wait;
-	/** Why the last save of this form was refused, in words. */
 	problem?: string;
 	onClose: () => void;
 	onCommit: (c: Commit) => void;
@@ -157,22 +142,25 @@ function Form({
 	onClose: () => void;
 	onCommit: (c: Commit) => void;
 }) {
-	const [initial] = useState(() => draftOf(task, viewer));
-	// The person's changes from a refused save, on top of the newest copy: a field they did not touch shows its new value.
+	const initial = draftOf(task, viewer);
 	const [draft, setDraft] = useState(() =>
 		form.draft ? rebase(form.draft, draftOf(form.task, viewer), initial) : initial,
 	);
 	const [touched, setTouched] = useState(false);
-	// A follow-up owner refusal names the assignee it is about, not the viewer's seat.
 	const [problem, setProblem] = useState(() =>
 		form.problem === "owner_ineligible" && form.draft
 			? problemText("owner_ineligible", form.draft.assigneeNames[form.draft.ineligible ?? ""])
 			: (refusal ?? null),
 	);
-	const [gap, setGap] = useState(form.problem === "nonexistent_local_time");
-	const [fold, setFold] = useState<Choices | null>(() =>
-		form.choices ? [...form.choices].sort((a, b) => a.instant.localeCompare(b.instant)) : null,
+	const [asked, setAsked] = useState<TimeQuestion>(() =>
+		form.problem === "nonexistent_local_time"
+			? { kind: "skipped" }
+			: form.choices
+				? { kind: "repeated", choices: [...form.choices].sort((a, b) => a.instant.localeCompare(b.instant)) }
+				: null,
 	);
+	const gap = asked?.kind === "skipped";
+	const fold = asked?.kind === "repeated" ? asked.choices : null;
 	const foldBox = useRef<HTMLDivElement>(null);
 	const managed = task?.managed ?? null;
 	const set = (patch: Partial<Draft>) => {
@@ -180,10 +168,8 @@ function Form({
 		setProblem(null);
 	};
 	const setDue = (patch: Partial<DueDraft>) => {
-		// A new day or time is a new question: an earlier occurrence choice or skipped-time warning no longer applies.
 		setDraft((d) => ({ ...d, due: { ...d.due, ...patch, offsetSeconds: undefined } }));
-		setGap(false);
-		setFold(null);
+		setAsked(null);
 		setProblem(null);
 	};
 
@@ -199,7 +185,6 @@ function Form({
 			? `A description can be at most ${MAX_DESCRIPTION.toLocaleString("en-US")} characters. This one has ${descriptionLength.toLocaleString("en-US")}.`
 			: null;
 
-	/** Returns false when the form has missing answers. */
 	function submit(): boolean {
 		setTouched(true);
 		if (!title || !due.ok || descriptionError) return false;
@@ -240,11 +225,8 @@ function Form({
 			const revision = task.revision;
 			send = (key) => editTask(key, revision, task.id, patch);
 		}
-		// A refusal that names an assignee who cannot own follow-ups: the reopened form keeps who it was, and the next
-		// picker open reads the eligible list again.
 		const committed: Draft = { ...draft, ineligible: undefined };
 		send = noticingIneligible(send, forgetAssignees, (accountId) => (committed.ineligible = accountId));
-		// A new time of day shows its day until the server resolves the instant in the church's time zone.
 		const shownDue: Due =
 			due.due.kind === "undated"
 				? { kind: "undated" }
@@ -414,13 +396,10 @@ function AssigneeField({
 	onChange,
 }: {
 	value: string[];
-	/** A follow-up with a person offers only seats that may own one (REQ-TSK-012). */
 	followUp: boolean;
 	names: Record<string, string>;
 	current: TaskItem["assignees"];
-	/** The assignee a refusal named as unable to own follow-ups. */
 	refused?: string;
-	/** The follow-up owner views of the people already on the task, for their warnings. */
 	owners: TaskItem["followUpOwners"];
 	viewer: Viewer;
 	onChange: (ids: string[], names: Record<string, string>) => void;
@@ -441,7 +420,6 @@ function AssigneeField({
 	);
 }
 
-/** Linked to: nothing, or one live person, meeting or team of the church, found by name. */
 function RelationField({
 	value,
 	locked,
@@ -452,23 +430,15 @@ function RelationField({
 	onChange: (v: Relation) => void;
 }) {
 	const [kind, setKind] = useState<RelationKind | "none">(value?.kind ?? "none");
-	const [search, setSearch] = useState("");
-	const [found, setFound] = useState<{ id: string; label: string }[] | "loading" | "failed">([]);
-	const seq = useRef(0);
-	useEffect(() => {
-		if (kind === "none" || locked) return;
-		const n = ++seq.current;
-		const timer = setTimeout(
-			() => {
-				setFound("loading");
-				relationOptions(kind, search)
-					.catch(() => ({ status: "lost" }) as const)
-					.then((r) => n === seq.current && setFound(r.status === "ok" ? r.value.items : "failed"));
-			},
-			search ? 250 : 0,
-		);
-		return () => clearTimeout(timer);
-	}, [kind, search, locked]);
+	const [query, setQuery] = useState("");
+	const [{ run: afterPause, cancel, cancelOnDetach }] = useState(() => createDebouncer(250));
+	const read = useRead(kind === "none" || locked ? null : relations, kind === "none" ? "person" : kind, query);
+	const found =
+		read.value === undefined
+			? ("loading" as const)
+			: read.value.status === "ok"
+				? read.value.value.items
+				: ("failed" as const);
 	if (locked)
 		return (
 			<Field label="Linked to" hint="Set by the meeting that created this task.">
@@ -484,8 +454,10 @@ function RelationField({
 				<Select
 					value={kind}
 					onValueChange={(k) => {
+						if (k !== "none" && !locked) relations.prefetch(k as RelationKind, "");
 						setKind(k as RelationKind | "none");
-						setSearch("");
+						cancel();
+						setQuery("");
 						if (k === "none" || k !== value?.kind) onChange(null);
 					}}
 					options={[
@@ -499,11 +471,17 @@ function RelationField({
 			{kind !== "none" ? (
 				<div className="flex flex-col gap-2 rounded-md bg-surface p-3">
 					<SearchInput
+						key={kind}
+						ref={cancelOnDetach}
 						aria-label={`Search ${RELATION_PLURAL[kind]}`}
 						placeholder={`Search ${RELATION_PLURAL[kind]}`}
-						value={search}
 						maxLength={200}
-						onChange={(e) => setSearch(e.target.value)}
+						onChange={(e) => {
+							const text = e.target.value;
+							if (text) return afterPause(() => setQuery(text));
+							cancel();
+							setQuery("");
+						}}
 					/>
 					{found === "loading" && listed.length === 0 ? (
 						<p className="flex items-center gap-2 px-1 py-2 text-sm text-text-3" role="status">

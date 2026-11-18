@@ -26,17 +26,11 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import { personRow } from "../../../catalog/person-row.ts";
 import type { ReadAdapter, SourceResult, SourceRow } from "../../../catalog/types.ts";
 
-// The Tasks read tools (WP-067): each calls the native Tasks read the Tasks page uses, under the same domain authority,
-// whose statements carry the lock-free live access check (C13, C27). A task row names its owners by their account's
-// name, never by a Person who shares it (GAP-EVR-407). A follow-up is a task too; its row says so, so an answer can list
-// follow-ups apart from other tasks.
-
 export const inPlant = (actor: EvryActor) => actor.owner.kind === "plant" && actor.role !== null;
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
 
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
-/** The native value, or the refusal a person can act on: bad input, or a source this actor cannot read now. */
 export function value<T>(reply: Reply<T>): T {
 	if (reply.status === "ok") return reply.value;
 	throw new EvryRefusal(reply.error.code === "invalid_input" ? "invalid_input" : "source_unavailable");
@@ -57,7 +51,6 @@ export const result = (
 	exclusions,
 });
 
-/** A due date as the church reads it: a local date, or a local date and time with its zone. Null when undated. */
 export function dueText(due: Due): string | null {
 	if (due.kind === "undated") return null;
 	if (due.kind === "local_date") return due.date;
@@ -67,7 +60,6 @@ const dueDate = (due: Due) =>
 	due.kind === "undated" ? null : due.kind === "local_date" ? due.date : due.local.slice(0, 10);
 
 type Account = { accountId: string; displayName: string };
-/** Owners by name, "you" for the signed-in user's own account. Null when the task needs an owner. */
 export const ownerNames = (actor: EvryActor, owners: readonly Account[]) =>
 	owners.length ? owners.map((o) => (o.accountId === actor.accountId ? "you" : o.displayName)).join(", ") : null;
 
@@ -89,13 +81,8 @@ type Item = {
 	managed?: { obligationId: string; kind: string } | null;
 	completedAt?: string | null;
 };
-/** A follow-up is a person follow-up task: its row is marked so an answer lists it apart from other tasks. */
 const isFollowUp = (t: Pick<Item, "category" | "relation" | "parentId">) =>
 	t.category === "follow_up" && t.relation?.kind === "person" && !t.parentId;
-/**
- * One task row. `owners` are the accounts the task is assigned to; a follow-up's owner who can no longer own it is not
- * counted, so the row reads Needs owner (REQ-TSK-012). The revision lets a later review name the exact version.
- */
 export function taskRow(actor: EvryActor, t: Item): SourceRow {
 	const followUp = isFollowUp(t);
 	const owners = followUp && t.followUpOwners ? t.followUpOwners.filter((o) => o.eligible) : t.assignees;
@@ -124,10 +111,6 @@ export function taskRow(actor: EvryActor, t: Item): SourceRow {
 	};
 }
 
-/**
- * The church's local date today and its ISO weekday (1 Monday … 7 Sunday), at the same clock the native list reads
- * overdue from (its asOf), so a due window and the overdue flag never disagree.
- */
 async function churchToday(tx: Transaction, actor: EvryActor) {
 	const zone = await churchZone(tx, actor);
 	const parts = Object.fromEntries(
@@ -144,12 +127,10 @@ async function churchToday(tx: Transaction, actor: EvryActor) {
 	const weekday = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(parts.weekday!) + 1;
 	return { zone, today: `${parts.year}-${parts.month}-${parts.day}`, weekday };
 }
-/** The church's own time zone. */
 export async function churchZone(tx: Transaction, actor: EvryActor) {
 	const r = await tx.execute(sql`SELECT pl.timezone AS zone FROM plant pl WHERE pl.id=${actor.owner.id}::uuid`);
 	return z.object({ zone: z.string() }).parse(r.rows[0]).zone;
 }
-/** An instant as the church reads it: "2026-11-05 15:30 America/Chicago". */
 export function localTime(at: string | null, zone: string) {
 	if (!at) return null;
 	const p = Object.fromEntries(
@@ -171,7 +152,6 @@ const addDays = (date: string, days: number) =>
 	new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 
 const OPEN = ["not_started", "in_progress", "blocked"] as const;
-/** At most this many matched tasks are read for a due window; past it the result says it is partial. */
 const SCAN = 500;
 const listInput = z.strictObject({
 	search: z.string().trim().min(1).max(200).optional().describe("Words from the task title"),
@@ -209,7 +189,6 @@ export const listTasks: ReadAdapter<z.infer<typeof listInput>> = {
 			direction: "asc",
 			limit: 100,
 		};
-		// Every matched task up to SCAN, in the Tasks page's order, then the due window and the follow-up split.
 		const items: Item[] = [];
 		let more = true;
 		for (let page = 1; more && items.length < SCAN; page++) {
@@ -361,7 +340,6 @@ export const statusHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 	},
 };
 
-/** An account row: a seat that may hold a task, named by its account, never by a Person who shares the name. */
 const accountRow = (
 	actor: EvryActor,
 	a: { accountId: string; displayName: string; role: string },
@@ -599,10 +577,6 @@ const receiptRow = z.object({
 	checklists: z.string().nullable(),
 	created: z.int(),
 });
-/**
- * tasks.importReceipt: what a checklist import or a phase offer answer created, read back from its audit record (D70),
- * the same record the native import writes. Owner/Admin, with the lock-free live check in the statement (C27).
- */
 export const importReceipt: ReadAdapter<z.infer<typeof receiptInput>> = {
 	operation: "tasks.importReceipt",
 	description:
@@ -637,7 +611,6 @@ export const importReceipt: ReadAdapter<z.infer<typeof receiptInput>> = {
 	},
 };
 
-/** The installed Tasks read tools, in catalog order. */
 export const TASK_READS = [
 	listTasks,
 	countTasks,

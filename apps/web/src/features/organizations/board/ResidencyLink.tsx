@@ -6,8 +6,8 @@ import { Button, Card, CardBody, CardHeader, CardHeading, CardTitle, ConfirmDial
 import { StatusBadge } from "@everyfield/ui/display";
 import { useState } from "react";
 import { runLinkInvitation } from "./actions";
-import { formatDay } from "./model";
-import { Problem } from "./Problem";
+import { formatPlainDate } from "../../../components/dates.ts";
+import { Problem } from "../../../components/Problem.tsx";
 
 type Record = PipelinePersonRecord;
 
@@ -20,11 +20,6 @@ const PROBLEM: { [code: string]: string } = {
 const problemText = (code: string) =>
 	PROBLEM[code] ?? "This invitation couldn’t be changed. Reload the page and try again.";
 
-/**
- * Whether the person's own Everyfield account is linked to the residency (REQ-MUL-004). An Owner or Admin invites the
- * address on the record, and sees a pending invitation with its date, to resend or revoke. Accepting gives the person
- * no seat; they choose what the organization sees.
- */
 export function ResidencyLink({ record, onChanged }: { record: Record; onChanged: () => Promise<void> }) {
 	const admin = record.audience === "administrator";
 	const link = record.residency;
@@ -50,7 +45,10 @@ export function ResidencyLink({ record, onChanged }: { record: Record; onChanged
 		if (!command) return;
 		const reply = await runLinkInvitation(operation, command).catch(() => null);
 		if (!reply) setProblem("We couldn’t reach Everyfield. Nothing was changed. Try again.");
-		else if (reply.status === "refused") setProblem(problemText(reply.code));
+		else if (reply.status === "refused" && operation !== "invite" && reply.code === "invitation_unavailable") {
+			await onChanged();
+			setProblem(`This invitation was already answered or ended, so nothing changed. The status above is current.`);
+		} else if (reply.status === "refused") setProblem(problemText(reply.code));
 		else await onChanged();
 	}
 	const send = (operation: "invite" | "resend") => async () => {
@@ -88,7 +86,7 @@ export function ResidencyLink({ record, onChanged }: { record: Record; onChanged
 				) : link.status === "pending" ? (
 					<>
 						<p className="text-ink-2">
-							Sent {formatDay(link.sentOn)} to{" "}
+							Sent {formatPlainDate(link.sentOn)} to{" "}
 							<span className="text-ink [overflow-wrap:anywhere]">{link.recipientEmail}</span>. It works for 30 days.
 						</p>
 						<div className="flex flex-wrap gap-2">

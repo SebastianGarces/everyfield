@@ -35,7 +35,6 @@ const StatusTag = ({ status }: { status: FeedbackStatus }) => (
 );
 
 type Item = TriagePage["items"][number];
-/** "Issue published" and "Email sent": where the public issue and the operator email stand. */
 function Delivery({ item, setup }: { item: Item; setup: PublicationSetup }) {
 	const issue = publicationShown(item.publication.state, setup);
 	const mail = operatorMailShown(item.operatorMail, setup);
@@ -47,7 +46,6 @@ function Delivery({ item, setup }: { item: Item; setup: PublicationSetup }) {
 	);
 }
 
-/** The triage list: filters by status and type in the address, 25 at a time with "Show more". */
 export function TriageList({
 	initial,
 	filter,
@@ -158,10 +156,6 @@ export function TriageList({
 
 type Notice = { tone: "info" | "error"; text: string } | null;
 
-/**
- * One feedback for a triager: the words, the private details, the status and its history. A status change shows at
- * once; when someone changed it first, nothing is overwritten and the current status comes back with a notice.
- */
 export function TriageItem({ initial, setup }: { initial: TriageDetail; setup: PublicationSetup }) {
 	const [status, setStatus] = useState(initial.status);
 	const [revision, setRevision] = useState(initial.revision);
@@ -273,10 +267,6 @@ export function TriageItem({ initial, setup }: { initial: TriageDetail; setup: P
 	);
 }
 
-/**
- * The public issue and the operator email: the reference both carry, where each stands, and why it is held. The issue
- * says only the type and area; its state on GitHub never changes the status here.
- */
 function PublicIssue({ item, setup }: { item: TriageDetail; setup: PublicationSetup }) {
 	const issue = publicationShown(item.publication.state, setup);
 	const mail = operatorMailShown(item.operatorMail, setup);
@@ -298,7 +288,7 @@ function PublicIssue({ item, setup }: { item: TriageDetail; setup: PublicationSe
 								href={item.publication.url}
 								target="_blank"
 								rel="noreferrer"
-								className="cursor-pointer font-medium text-ink underline underline-offset-2 [overflow-wrap:anywhere]"
+								className="font-medium text-ink underline underline-offset-2 [overflow-wrap:anywhere]"
 							>
 								{item.publication.url.replace(/^https:\/\//, "")}
 							</a>

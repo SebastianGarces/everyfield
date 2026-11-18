@@ -1,20 +1,13 @@
-// Wiki diagram blocks (WP-034). A fenced block with the info string `diagram <type>` holds a title line, an optional
-// loop line and node lines `- label | detail | note`. This file is the one parser: the app, the PDF and print export,
-// and the wiki authoring tools (by relative path) all call it. It has no runtime imports and uses erasable TypeScript
-// only, so Node can run it with its types stripped.
-
 export const DIAGRAM_TYPES = ["flow", "stages", "cycle", "hierarchy", "timeline"] as const;
 export type DiagramType = (typeof DIAGRAM_TYPES)[number];
 
 export const DIAGRAM_LIMITS = { title: 100, loop: 100, label: 60, detail: 160, note: 40, nodes: 12, depth: 3 } as const;
 
-/** One node. Empty detail and note are left out. In a timeline the note is the time marker. */
 export type DiagramNode = { readonly label: string; readonly detail?: string; readonly note?: string };
 export type HierarchyNode = DiagramNode & { readonly children: readonly HierarchyNode[] };
 
 type NonEmpty<T> = readonly [T, ...T[]];
 
-/** `loop` exists only on flow and cycle, a cycle has two nodes or more and only a hierarchy nests (one root). */
 export type Diagram =
 	| { readonly type: "flow"; readonly title: string; readonly loop?: string; readonly nodes: NonEmpty<DiagramNode> }
 	| {
@@ -32,7 +25,6 @@ export type Diagram =
 			readonly nodes: readonly [HierarchyNode];
 	  };
 
-/** Line 1 is the first body line, after the opening fence. Line 0 is the opening fence (its info string). */
 export type DiagramError = { readonly line: number; readonly message: string };
 
 export type DiagramResult =
@@ -41,26 +33,17 @@ export type DiagramResult =
 const OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
 const CLOSE = /^ {0,3}(`{3,}|~{3,})\s*$/;
 
-/** A fence whose info string starts with the word `diagram`. */
 export function isDiagramInfo(info: string): boolean {
 	return info.split(/\s+/)[0] === "diagram";
 }
 
 export type FencedBlock = {
 	readonly info: string;
-	/** The body lines joined with "\n", byte for byte. */
 	readonly body: string;
-	/** Zero-based index of the opening fence line in the text. */
 	readonly start: number;
-	/** Zero-based index of the line after the block (after the closing fence, or the line count). */
 	readonly end: number;
 };
 
-/**
- * The fenced block that opens at `lines[start]`, or null. A fence is up to three spaces, then three or more backticks
- * or tildes, then the info string. It closes on the same character, at least as long, with nothing after it but
- * spaces. An unterminated fence runs to the end.
- */
 export function fenceAt(lines: readonly string[], start: number): FencedBlock | null {
 	const open = OPEN.exec(lines[start] ?? "");
 	const marker = open?.[1];
@@ -77,7 +60,6 @@ export function fenceAt(lines: readonly string[], start: number): FencedBlock | 
 	return { info, body, start, end: Math.min(close + 1, lines.length) };
 }
 
-/** Every fenced block in `text`. */
 export function fencedBlocks(text: string): FencedBlock[] {
 	const lines = text.split("\n");
 	const blocks: FencedBlock[] = [];
@@ -89,7 +71,6 @@ export function fencedBlocks(text: string): FencedBlock[] {
 	return blocks;
 }
 
-/** A fence as readers see it: a diagram when its `diagram` source parses, otherwise code that shows the source. */
 export function fenceContent(
 	block: FencedBlock,
 ): { readonly kind: "diagram"; readonly diagram: Diagram } | { readonly kind: "code"; readonly text: string } {
@@ -109,7 +90,6 @@ function count(nodes: readonly HierarchyNode[] | readonly DiagramNode[]): number
 	return nodes.reduce((sum, node) => sum + 1 + ("children" in node ? count(node.children) : 0), 0);
 }
 
-/** The text alternative, for example "Flow diagram, 3 steps. Repeats: Each season". */
 export function diagramSummary(diagram: Diagram): string {
 	const n = count(diagram.nodes);
 	const [one, many] = NOUN[diagram.type];
@@ -121,7 +101,6 @@ const length = (text: string) => [...text].length;
 
 type Parsed = { node: DiagramNode; depth: number; line: number };
 
-/** Parses one diagram block. `info` is the fence info string (`diagram flow`), `body` the lines inside the fence. */
 export function parseDiagram(info: string, body: string): DiagramResult {
 	const words = info.trim().split(/\s+/);
 	if (words[0] !== "diagram") return fail([{ line: 0, message: 'The info string must start with "diagram"' }]);
@@ -214,7 +193,6 @@ function fail(errors: DiagramError[]): DiagramResult {
 	return { ok: false, errors: sorted.map(([e]) => e) as unknown as NonEmpty<DiagramError> };
 }
 
-/** Builds the tree from depth-checked nodes: one root, each child one level below its parent. */
 function tree(nodes: Parsed[]): HierarchyNode {
 	type Mutable = DiagramNode & { children: Mutable[] };
 	const root: Mutable = { ...nodes[0]!.node, children: [] };

@@ -23,13 +23,7 @@ import {
 	value,
 } from "../../tasks/reads/index.ts";
 
-// The Follow-up read tools (WP-067): obligations, owners, coverage and the recorded contact log, through the native
-// follow-up reads the Follow-ups page uses. A recorded outcome is what a person said happened: only an effective
-// "contacted" outcome is a conversation that happened (COM-011). An attempt, an administrative completion and "no
-// longer needed" stay distinct, and a missing record never proves that nobody called. Sent emails are not in this log.
-
 type Owner = { accountId: string; displayName: string; eligible: boolean };
-/** The owners who may own the follow-up now; none means it needs an owner (REQ-TSK-012). */
 const owning = (owners: readonly Owner[]) => owners.filter((o) => o.eligible);
 type Duty = {
 	taskId: string;
@@ -45,7 +39,6 @@ type Duty = {
 	lastOutcome: string | null;
 	contacted: { at: string; by: string | null } | null;
 };
-/** One open follow-up task: the person it is for, its owners and its latest recorded outcome. */
 function dutyRow(actor: EvryActor, d: Duty, zone: string): SourceRow {
 	const owners = owning(d.owners);
 	return {
@@ -238,7 +231,6 @@ export const listContactHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 			actor.authority,
 			listContactHistoryRequest.parse({ ...input, limit: input.limit ?? 50 }),
 		);
-		// A foreign, retired-elsewhere or guessed person reads the same as one with no log.
 		if (reply.status !== "ok") return result("followups.listContactHistory", [], []);
 		const log = reply.value;
 		const zone = await churchZone(tx, actor);
@@ -271,7 +263,6 @@ export const listContactHistory: ReadAdapter<z.infer<typeof historyInput>> = {
 	},
 };
 
-/** The installed Follow-up read tools, in catalog order. */
 export const FOLLOWUP_READS = [
 	listFollowUpOwners,
 	readObligations,

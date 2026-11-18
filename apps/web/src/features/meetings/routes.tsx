@@ -20,15 +20,11 @@ import { MeetingScreen } from "./MeetingScreen.tsx";
 import { MeetingsScreen } from "./MeetingsScreen.tsx";
 import { parseQuery, querySearch } from "./model.ts";
 import { RsvpScreen } from "./RsvpScreen.tsx";
-import { canWrite } from "../shared/seat-role.ts";
+import { canWrite } from "../../components/seat-role.ts";
 import { loadCheckIn, loadMeeting, loadMeetings, plantViewer, type Viewer } from "./server.ts";
-import { params } from "../shared/search-params.ts";
-
-// The meetings routes. The files under apps/web/src/app/ only re-export these, so the screens, their data loading and
-// their states stay in this feature folder.
+import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
-/** Signed out goes to sign-in and comes back; no seat in a plant sees a lock; a broken setup sees an error. */
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await plantViewer();
 	if (v.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
@@ -86,10 +82,6 @@ export async function MeetingPage({ params: route }: { params: Promise<{ meeting
 }
 
 export const checkInMetadata: Metadata = { title: "Check-in", robots: { index: false, follow: false } };
-/**
- * Door check-in (phone layout, outside the app frame). Owners and Admins check people in, and so does the leader of a
- * team meeting for that meeting; anyone else sees the meeting page, which says what their seat allows.
- */
 export async function CheckInPage({ params: route }: { params: Promise<{ meetingId: string }> }) {
 	const raw = (await route).meetingId;
 	const v = await plantViewer();
@@ -99,7 +91,6 @@ export async function CheckInPage({ params: route }: { params: Promise<{ meeting
 	if (!v.viewer) redirect(`/meetings/${id.data}`);
 	const loaded = await loadCheckIn(v.viewer, id.data);
 	if (loaded.status === "missing") notFound();
-	// Owners and Admins, or the leader of this team meeting (C74); anyone else sees the meeting page.
 	if (loaded.status === "found" && !canWrite(v.viewer) && !loaded.attendance?.viewerCanMarkAttendance)
 		redirect(`/meetings/${id.data}`);
 	if (loaded.status === "failed")
@@ -113,7 +104,6 @@ export async function CheckInPage({ params: route }: { params: Promise<{ meeting
 	return <CheckInScreen key={loaded.meeting.id} data={loaded} admin={canWrite(v.viewer)} />;
 }
 
-/** A meeting that is not here: missing, deleted, in another church or a malformed link all read the same. */
 export function MeetingNotFound() {
 	return (
 		<>
@@ -139,7 +129,6 @@ export function MeetingNotFound() {
 	);
 }
 
-/** The first paint while a meetings page loads: the page's shape, not a spinner. */
 export function MeetingsLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-5">
@@ -164,7 +153,6 @@ export const rsvpMetadata: Metadata = {
 	robots: { index: false, follow: false },
 	referrer: "no-referrer",
 };
-/** The public RSVP link (COM-010): no session. Opening it only reads; a malformed token reads as unavailable. */
 export async function RsvpPage({ params: route }: { params: Promise<{ token: string }> }) {
 	const raw = (await route).token;
 	const token = rsvpToken.safeParse(raw);

@@ -2,100 +2,80 @@
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import { Combobox, Field, Spinner } from "@everyfield/ui/controls";
-import { Icon } from "@everyfield/ui/foundations";
+import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { resolveAudience, searchRecipients } from "./actions.ts";
-import { audienceSize, plural, type Form } from "./composeModel.ts";
-import { audienceGroups, groupLabel, type Audience, type AudienceSummary, type Recipient, type Team } from "./model.ts";
-
-// Who: groups and teams in a searchable multi-select, people in one To field, then the counts and who is left out.
+import { useId, useState, type ElementType, type KeyboardEvent } from "react";
+import { createRead, useRead, useReadWith } from "../../components/read.tsx";
+import { useStore } from "../../components/store.ts";
+import { resolveAudience } from "./actions.ts";
+import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
+import { audienceSize, plural } from "./composeModel.ts";
+import {
+	audienceGroups,
+	groupLabel,
+	type Audience,
+	type AudienceSummary,
+	type Outcome,
+	type Recipient,
+	type Team,
+} from "./model.ts";
 
 const MAX_CHIPS = 8;
 
-/** The day someone unsubscribed, in the reader's own format. */
 const onDay = (iso: string) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(iso));
-/** Why an unsubscribed person is left out. Nobody on the church's staff can clear it (D-284). */
 const unsubscribedReason = (iso: string) => `Unsubscribed from this church's email on ${onDay(iso)}`;
 
-/** The whole-audience counts, debounced to one request per 300 ms pause. `ready` is false while a request is out. */
-export function useAudienceSummary(audience: Audience) {
-	const key = JSON.stringify(audience);
-	const [done, setDone] = useState<{ key: string; summary: AudienceSummary | null; failed: string | null } | null>(
-		null,
-	);
+const lost = <T,>(): Outcome<T> => ({ status: "lost" });
+
+const audienceSummaries = createRead((audience: Audience) => resolveAudience(audience), {
+	failed: lost<AudienceSummary>,
+});
+const chipAudience = (value: string): Audience => {
+	const [kind, id] = value.split(":") as [string, string];
+	return { groups: kind === "group" ? [id] : [], teamIds: kind === "team" ? [id] : [], personIds: [] };
+};
+const chipCounts = createRead((value: string) => resolveAudience(chipAudience(value)), {
+	failed: lost<AudienceSummary>,
+});
+
+export function useAudienceSummary(audience: Audience, counted: Audience) {
 	const empty = audienceSize(audience) === 0;
-	useEffect(() => {
-		if (empty) return;
-		let live = true;
-		const timer = setTimeout(() => {
-			void resolveAudience(audience).then((result) => {
-				if (!live) return;
-				if (result.status !== "ok") {
-					setDone({ key, summary: null, failed: "The recipient counts did not load. Try again." });
-					return;
-				}
-				setDone({ key, summary: result.value, failed: null });
-			});
-		}, 300);
-		return () => {
-			live = false;
-			clearTimeout(timer);
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [key]);
+	const read = useRead(audienceSize(counted) === 0 ? null : audienceSummaries, counted);
 	if (empty) return { summary: null, failed: null, ready: true };
-	const current = done?.key === key;
-	return { summary: current ? done.summary : null, failed: current ? done.failed : null, ready: current };
+	const current = JSON.stringify(counted) === JSON.stringify(audience) && read.value !== undefined;
+	if (!current || !read.value) return { summary: null, failed: null, ready: false };
+	return read.value.status === "ok"
+		? { summary: read.value.value, failed: null, ready: true }
+		: { summary: null, failed: "The recipient counts did not load. Try again.", ready: true };
 }
 
 export function WhoStep({
-	form,
-	setForm,
+	store,
 	teams,
 	locked,
 	summary,
 	failed,
 }: {
-	form: Form;
-	setForm: (update: (current: Form) => Form) => void;
+	store: ComposeStore;
 	teams: Team[];
 	locked: boolean;
 	summary: AudienceSummary | null;
 	failed: string | null;
 }) {
-	const [counts, setCounts] = useState<Record<string, number>>({});
-	const asked = useRef(new Set<string>());
-
-	const options = useMemo(
-		() => [
-			...audienceGroups.map((group) => ({ value: `group:${group}`, label: groupLabel[group] })),
-			...teams.map((team) => ({ value: `team:${team.id}`, label: team.name, description: "Team" })),
-		],
-		[teams],
-	);
+	const form = useStore(store, (state) => state.form);
+	const edit = useStore(store, (state) => state.actions.edit);
+	const options = [
+		...audienceGroups.map((group) => ({ value: `group:${group}`, label: groupLabel[group] })),
+		...teams.map((team) => ({ value: `team:${team.id}`, label: team.name, description: "Team" })),
+	];
 	const chosen = [
 		...form.audience.groups.map((group) => `group:${group}`),
 		...form.audience.teamIds.map((id) => `team:${id}`),
 	];
 	const labelOf = (value: string) => options.find((option) => option.value === value)?.label ?? value;
 
-	// One request per added chip: the count for that selection alone.
-	useEffect(() => {
-		for (const value of chosen) {
-			if (asked.current.has(value)) continue;
-			asked.current.add(value);
-			const [kind, id] = value.split(":") as [string, string];
-			const audience = { groups: kind === "group" ? [id] : [], teamIds: kind === "team" ? [id] : [], personIds: [] };
-			void resolveAudience(audience).then((result) => {
-				if (result.status === "ok") setCounts((current) => ({ ...current, [value]: result.value.eligibleRecipients }));
-				else asked.current.delete(value);
-			});
-		}
-	});
-
 	const setSelection = (values: string[]) =>
-		setForm((current) => ({
+		edit((current) => ({
 			...current,
 			audience: {
 				...current.audience,
@@ -121,19 +101,30 @@ export function WhoStep({
 					<ul className="flex flex-wrap gap-2" aria-label="Chosen groups and teams">
 						{chosen.map((value) => (
 							<li key={value}>
-								<Chip
-									label={`${labelOf(value)}${counts[value] === undefined ? "" : ` · ${plural(counts[value]!, "person", "people")}`}`}
+								<ChosenChip
+									value={value}
+									label={labelOf(value)}
 									remove={locked ? undefined : () => setSelection(chosen.filter((v) => v !== value))}
-									removeLabel={`Remove ${labelOf(value)}`}
 								/>
 							</li>
 						))}
 					</ul>
 				) : null}
-				<ToField form={form} setForm={setForm} locked={locked} known={summary?.recipients ?? []} />
+				<ToField store={store} locked={locked} known={summary?.recipients ?? []} />
 			</div>
 			<Counts summary={summary} failed={failed} empty={audienceSize(form.audience) === 0} />
 		</div>
+	);
+}
+
+function ChosenChip({ value, label, remove }: { value: string; label: string; remove?: () => void }) {
+	const count = useRead(chipCounts, value).value;
+	return (
+		<Chip
+			label={`${label}${count?.status === "ok" ? ` · ${plural(count.value.eligibleRecipients, "person", "people")}` : ""}`}
+			remove={remove}
+			removeLabel={`Remove ${label}`}
+		/>
 	);
 }
 
@@ -146,7 +137,7 @@ function Chip({ label, remove, removeLabel }: { label: string; remove?: () => vo
 					type="button"
 					aria-label={removeLabel}
 					onClick={remove}
-					className="grid size-6 cursor-pointer place-items-center rounded-sm text-text-2 hover:bg-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
+					className="grid size-6 place-items-center rounded-sm text-text-2 hover:bg-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
 				>
 					<Icon icon={Cancel01Icon} size={16} />
 				</button>
@@ -228,30 +219,25 @@ function Counts({
 	);
 }
 
-/** The To field: type to search people, pick with arrows and Enter, remove with Backspace. */
 function ToField({
-	form,
-	setForm,
+	store,
 	locked,
 	known,
 }: {
-	form: Form;
-	setForm: (update: (current: Form) => Form) => void;
+	store: ComposeStore;
 	locked: boolean;
-	/** Names the audience read returned, for people saved by id only. */
 	known: { id: string; displayName: string; email: string }[];
 }) {
 	const id = useId();
-	const input = useRef<HTMLInputElement>(null);
-	const [query, setQuery] = useState("");
-	const [results, setResults] = useState<Recipient[]>([]);
-	const [open, setOpen] = useState(false);
-	const [active, setActive] = useState(0);
-	const [status, setStatus] = useState<string | null>(null);
-	const [answered, setAnswered] = useState("");
+	const form = useStore(store, (state) => state.form);
+	const { query, searched, open, active } = useStore(store, (state) => state.search);
+	const actions = useStore(store, (state) => state.actions);
 	const [expanded, setExpanded] = useState(false);
 	const [card, setCard] = useState<string | null>(null);
-	const seq = useRef(0);
+	const answer = useReadWith(searched ? recipientSearches : null, [searched], { showPrevious: true });
+	const found = answer.value;
+	const results = found?.status === "ok" ? found.value.people : [];
+	const status = found && found.status !== "ok" ? "The search did not load. Try again." : null;
 	const byId = new Map(known.map((person) => [person.id, person]));
 	const people = form.people.map((person) => ({
 		...person,
@@ -259,43 +245,21 @@ function ToField({
 		email: person.email ?? byId.get(person.id)?.email ?? null,
 	}));
 	const shown = query.trim() ? results : [];
-	// The search for the typed text has not answered yet. The list says nothing until it does.
-	const searching = query.trim() !== "" && answered !== query.trim();
+	const searching = query.trim() !== "" && (searched !== query.trim() || answer.status !== "ready");
 	const visible = expanded ? people : people.slice(0, MAX_CHIPS);
-
-	useEffect(() => {
-		const text = query.trim();
-		const mine = ++seq.current;
-		if (!text) return;
-		const timer = setTimeout(() => {
-			void searchRecipients(text).then((result) => {
-				if (mine !== seq.current) return;
-				setAnswered(text);
-				if (result.status !== "ok") {
-					setStatus("The search did not load. Try again.");
-					return;
-				}
-				setStatus(null);
-				setResults(result.value.people);
-				setActive(0);
-			});
-		}, 300);
-		return () => clearTimeout(timer);
-	}, [query]);
 
 	const picked = new Set(form.audience.personIds);
 	const add = (person: Recipient) => {
 		if (!person.email || person.unsubscribedAt || picked.has(person.id)) return;
-		setForm((current) => ({
+		actions.edit((current) => ({
 			...current,
 			people: [...current.people, person],
 			audience: { ...current.audience, personIds: [...current.audience.personIds, person.id] },
 		}));
-		setQuery("");
-		setResults([]);
+		actions.clearSearch();
 	};
 	const remove = (personId: string) =>
-		setForm((current) => ({
+		actions.edit((current) => ({
 			...current,
 			people: current.people.filter((p) => p.id !== personId),
 			audience: { ...current.audience, personIds: current.audience.personIds.filter((p) => p !== personId) },
@@ -305,8 +269,7 @@ function ToField({
 		if (event.key === "ArrowDown" || event.key === "ArrowUp") {
 			if (shown.length === 0) return;
 			event.preventDefault();
-			setOpen(true);
-			setActive((current) => (current + (event.key === "ArrowDown" ? 1 : -1) + shown.length) % shown.length);
+			actions.move(event.key === "ArrowDown" ? 1 : -1, shown.length);
 		} else if (event.key === "Enter") {
 			const person = shown[active];
 			if (open && person) {
@@ -316,7 +279,7 @@ function ToField({
 		} else if (event.key === "Escape") {
 			if (open) {
 				event.preventDefault();
-				setOpen(false);
+				actions.openList(false);
 			}
 		} else if (event.key === "Backspace" && query === "" && people.length > 0) {
 			remove(people.at(-1)!.id);
@@ -324,14 +287,17 @@ function ToField({
 	};
 
 	const listId = `${id}-list`;
+	const inputId = `${id}-input`;
+	const Box: ElementType = locked ? "div" : "label";
 	return (
 		<Field label="To" hint="Search by name or by the start of an email name. Pick people to add them.">
 			<div className="relative">
-				{/* A pointer shortcut into the search field, which keeps the keyboard path; the box itself is no control. */}
-				<div
-					role="presentation"
-					onClick={() => input.current?.focus()}
-					className="flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-surface-raised px-3 py-2 shadow-[0_0_0_1px_var(--ef-line-2)] focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]"
+				<Box
+					htmlFor={locked ? undefined : inputId}
+					className={cn(
+						"flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-surface-raised px-3 py-2 shadow-[0_0_0_1px_var(--ef-line-2)] focus-within:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)]",
+						!locked && "cursor-text",
+					)}
 				>
 					{visible.map((person) => (
 						<span
@@ -347,11 +313,8 @@ function ToField({
 									type="button"
 									aria-label={`${person.displayName}, details`}
 									aria-describedby={card === person.id ? `${id}-card-${person.id}` : undefined}
-									className="cursor-pointer rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
-									onClick={(event) => {
-										event.stopPropagation();
-										setCard(person.id);
-									}}
+									className="rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
+									onClick={() => setCard(person.id)}
 								>
 									{person.displayName}
 								</button>
@@ -361,11 +324,8 @@ function ToField({
 									<button
 										type="button"
 										aria-label={`Remove ${person.displayName}`}
-										onClick={(event) => {
-											event.stopPropagation();
-											remove(person.id);
-										}}
-										className="grid size-6 cursor-pointer place-items-center rounded-sm text-text-2 hover:bg-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
+										onClick={() => remove(person.id)}
+										className="grid size-6 place-items-center rounded-sm text-text-2 hover:bg-hover hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--ef-focus)]"
 									>
 										<Icon icon={Cancel01Icon} size={16} />
 									</button>
@@ -381,7 +341,7 @@ function ToField({
 									<span className="break-all text-text-2">{person.email ?? "Loading email"}</span>
 									<Link
 										href={`/people/${person.id}`}
-										className="w-fit cursor-pointer font-medium text-ink underline underline-offset-[3px]"
+										className="w-fit font-medium text-ink underline underline-offset-[3px]"
 									>
 										Open person
 									</Link>
@@ -392,18 +352,15 @@ function ToField({
 					{!expanded && people.length > MAX_CHIPS ? (
 						<button
 							type="button"
-							onClick={(event) => {
-								event.stopPropagation();
-								setExpanded(true);
-							}}
-							className="cursor-pointer rounded-md px-2 text-sm font-medium text-ink underline underline-offset-[3px]"
+							onClick={() => setExpanded(true)}
+							className="rounded-md px-2 text-sm font-medium text-ink underline underline-offset-[3px]"
 						>
 							+{people.length - MAX_CHIPS} more
 						</button>
 					) : null}
 					{locked ? null : (
 						<input
-							ref={input}
+							id={inputId}
 							role="combobox"
 							aria-label="Add a person"
 							aria-expanded={open && shown.length > 0}
@@ -412,17 +369,14 @@ function ToField({
 							aria-activedescendant={open && shown[active] ? `${id}-opt-${active}` : undefined}
 							value={query}
 							placeholder={people.length === 0 ? "Type a name" : ""}
-							onChange={(event) => {
-								setQuery(event.target.value);
-								setOpen(true);
-							}}
-							onFocus={() => setOpen(true)}
-							onBlur={() => setOpen(false)}
+							onChange={(event) => actions.type(event.target.value)}
+							onFocus={() => actions.openList(true)}
+							onBlur={() => actions.openList(false)}
 							onKeyDown={onKey}
 							className="min-w-[160px] flex-1 bg-transparent text-md text-ink outline-none placeholder:text-text-3"
 						/>
 					)}
-				</div>
+				</Box>
 				{open && shown.length > 0 ? (
 					<ul
 						id={listId}
@@ -443,10 +397,9 @@ function ToField({
 										event.preventDefault();
 										if (!disabled) add(person);
 									}}
-									className="flex min-h-[40px] flex-wrap items-center justify-between gap-x-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:cursor-not-allowed aria-disabled:text-text-3 aria-selected:bg-surface-2 [&:not([aria-disabled=true])]:cursor-pointer"
+									className="flex min-h-[40px] flex-wrap items-center justify-between gap-x-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:text-text-3 aria-selected:bg-surface-2"
 								>
 									<span className="min-w-0 truncate">{person.displayName}</span>
-									{/* The reason and its date always show in full; on a narrow screen it wraps below the name. */}
 									<span className={`min-w-0 text-sm text-text-3 ${person.unsubscribedAt ? "" : "truncate"}`}>
 										{!person.email
 											? "No email address"

@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+here=$(cd "$(dirname "$0")/.." && pwd)
+tool=prod-identity
+. "$here/bin/lib/node24.sh"
+exec "$node_bin" --disable-warning=ExperimentalWarning "$here/tools/prod-identity/setup.ts" "$@"

@@ -39,11 +39,6 @@ import { STAGE_KEY, STAGE_LABEL } from "../../people/model.ts";
 import type { SourceResult } from "./model.ts";
 import { cardView, type Glyph, type RowView } from "./resultView.ts";
 
-// A source-bound result card (REQ-EVR-024): the rows Evry read, as they are now, with the count, whether more exist and
-// what the read leaves out. A person row (and a follow-up or contact log row) links to the person, and a task row to
-// the task in Tasks; each loads on intent only. A household, tag, skill, activity, file or account row has no page; a
-// seat, invitation or connection row opens its Settings section; a setup step or Discovery link opens setup.
-
 const isStage = (value: string): value is keyof typeof STAGE_KEY => value in STAGE_KEY;
 const GLYPH: Record<Glyph, IconSvgElement> = {
 	person: UserIcon,
@@ -86,6 +81,7 @@ const GLYPH: Record<Glyph, IconSvgElement> = {
 	relationship: Link01Icon,
 	stage: UserMultipleIcon,
 	date: Calendar03Icon,
+	milestone: CheckmarkCircle02Icon,
 };
 
 function Mark({ mark }: { mark: RowView["mark"] }) {
@@ -96,7 +92,6 @@ function Mark({ mark }: { mark: RowView["mark"] }) {
 	return isStage(mark.stage) ? <StageChip stage={STAGE_KEY[mark.stage]}>{STAGE_LABEL[mark.stage]}</StageChip> : null;
 }
 
-/** A long result starts with this many rows; the rest open on request. */
 const FIRST_ROWS = 6;
 
 export function ResultCard({
@@ -108,7 +103,6 @@ export function ResultCard({
 	operation: string;
 	result: SourceResult;
 	originalTotal: number | null;
-	/** The current photo route of each person row, by person id (useRowPhotos). A row without one keeps the initials. */
 	photos: Readonly<Record<string, string>>;
 }) {
 	const [all, setAll] = useState(false);
@@ -169,12 +163,10 @@ export function ResultCard({
 						return (
 							<li key={view.key}>
 								{view.href && view.download ? (
-									// A plain link: the People document route signs a five-minute link only when it is opened, so
-									// nothing may prefetch it.
 									<a
 										href={view.href}
 										data-focus-inset=""
-										className={cn(rowClass, "cursor-pointer transition-[background-color] hover:bg-hover")}
+										className={cn(rowClass, "transition-[background-color] hover:bg-hover")}
 									>
 										{body}
 									</a>
@@ -184,7 +176,7 @@ export function ResultCard({
 										target="_blank"
 										rel="noopener noreferrer"
 										data-focus-inset=""
-										className={cn(rowClass, "cursor-pointer transition-[background-color] hover:bg-hover")}
+										className={cn(rowClass, "transition-[background-color] hover:bg-hover")}
 									>
 										{body}
 									</a>
@@ -201,7 +193,7 @@ export function ResultCard({
 										href={view.file}
 										download
 										data-focus-inset=""
-										className={cn(rowClass, "cursor-pointer transition-[background-color] hover:bg-hover")}
+										className={cn(rowClass, "transition-[background-color] hover:bg-hover")}
 									>
 										{body}
 									</a>

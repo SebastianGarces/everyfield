@@ -1,12 +1,15 @@
 "use server";
 
-import type { DebriefAnswers, GuestMatch, History, Milestone, Plan } from "@everyfield/contracts/launch";
+import type {
+	DebriefAnswers,
+	GatheringOffer,
+	GuestMatch,
+	History,
+	Milestone,
+	Plan,
+} from "@everyfield/contracts/launch";
 import type { Outcome } from "./model.ts";
 import { read, write } from "./server.ts";
-
-// The browser boundary of the Launch plan's writes. Each hands the browser's values to the Launch writer, which parses
-// them with the strict launch contract and rechecks the live Owner or Admin seat inside its statement. A retry with
-// the same request key replays the stored answer. Prep tasks complete and reopen through the Tasks actions.
 
 type DateResult = { outcome: "changed" | "noop"; plan: Plan };
 type MilestoneResult = { outcome: "changed" | "noop"; milestone: Milestone };
@@ -67,7 +70,6 @@ export async function correctOutcome(
 	return write((w, db, authority) => w.correctOutcome(db, authority, { requestKey, expectedRevision, input }));
 }
 
-/** Name a guest: `{ personId }` picks a suggested Person, `{ displayName }` adds a new one. */
 export async function addGuest(requestKey: string, input: unknown): Promise<Outcome<DateResult>> {
 	return write((w, db, authority) => w.addGuestAttendance(db, authority, { requestKey, input }));
 }
@@ -104,7 +106,33 @@ export async function saveSummary(
 	);
 }
 
-/** People of the church a typed guest name may be. Offered only: nothing links until the planter picks one. */
+export async function chooseGatheringPath(
+	requestKey: string,
+	expectedRevision: string,
+	input: unknown,
+): Promise<Outcome<DateResult>> {
+	return write((w, db, authority) => w.choosePath(db, authority, { requestKey, expectedRevision, input }));
+}
+
+export async function saveGathering(
+	requestKey: string,
+	expectedRevision: string,
+	mode: "record" | "correct" | "clear",
+	input: { date?: unknown; note?: unknown; reason?: unknown },
+): Promise<Outcome<DateResult>> {
+	return write((w, db, authority) => {
+		const q = { requestKey, expectedRevision };
+		if (mode === "record")
+			return w.recordGathering(db, authority, { ...q, input: { date: input.date, note: input.note } });
+		if (mode === "correct") return w.correctGathering(db, authority, { ...q, input });
+		return w.clearGathering(db, authority, { ...q, input: { reason: input.reason } });
+	});
+}
+
+export async function readGatheringOffers(): Promise<Outcome<GatheringOffer[]>> {
+	return read((r, db, authority) => r.readGatheringOffers(db, authority));
+}
+
 export async function suggestGuests(query: string): Promise<Outcome<GuestMatch[]>> {
 	return read((r, db, authority) => r.suggestGuests(db, authority, String(query)));
 }

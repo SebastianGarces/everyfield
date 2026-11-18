@@ -28,11 +28,6 @@ import {
 
 export { allowedWrites, everyOperation, REVIEWED_WRITES, staleMessage, type Offered, type Proposal } from "./review.ts";
 
-// Proposal commands are one statement each (D70): live authority, the change, the effect job and one audit row commit
-// together, and zero changed rows means refused, changed or not found. A refusal reads the current review once more to
-// say which, so a repeated approve or cancel returns the known state instead of failing.
-
-/** REQ-EVR-012: approval lapses 15 minutes after the review revision was published. */
 export const REVIEW_MINUTES = 15;
 
 function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
@@ -45,7 +40,6 @@ function adapter(actor: EvryActor, op: Operation): ReviewedWrite<unknown> {
 	if (!write.allowed(actor)) throw new EvryRefusal("access_denied");
 	return write;
 }
-/** Proposal commands: the actor's own proposal under write authority. */
 const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(actor)}`;
 const digest = (revision: SQL) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
@@ -58,7 +52,6 @@ const audit = (action: string, kind: string, alias: string) =>
 		SELECT tenant_id,account_id,${action},${kind},'conversation',conversation_id,
 			jsonb_build_object('proposalId',id,'revision',revision,'digest',digest) FROM ${sql.raw(alias)}`;
 
-/** evry.readReview: the actor's proposal with its current review status and recorded outcome. One lock-free statement. */
 export async function readReview(db: Database, actor: EvryActor, id: string): Promise<Proposal> {
 	const proposalId = parse(z.uuid(), id);
 	const r = await db.execute(currentReview(actor, sql`${proposalId}::uuid`));
@@ -67,12 +60,6 @@ export async function readReview(db: Database, actor: EvryActor, id: string): Pr
 }
 
 const proposeInput = z.strictObject({ operation, input: z.unknown() });
-/**
- * evry.prepareProposal: the running turn proposes one reviewed write. The target is read again under the actor's live
- * authority and the exact review, arguments and digest are saved with a 15-minute expiry. Nothing changes in the
- * domain. Null when the target is not available or the run no longer owns the conversation; already_applied when this
- * conversation already applied the same change. One statement.
- */
 export async function prepareProposal(
 	db: Database,
 	actor: EvryActor,
@@ -95,7 +82,6 @@ export async function prepareProposal(
 			WHERE c.id=${conversationId}::uuid AND c.account_id=${actor.accountId}::uuid AND c.tenant_id=${actor.owner.id}::uuid
 				AND c.active_turn_id=${lease.turnId}::uuid AND ${fence(lease)} AND ${currentAuthority(actor)}
 		), applied AS (
-			-- The same change already applied from this conversation is never prepared again (EVRY-CONTEXT-BOUNDS).
 			SELECT FROM c,r JOIN proposal q ON true WHERE q.conversation_id=c.id AND q.operation=${write.operation}
 				AND q.outcome='completed' AND coalesce(q.input->'input',q.input)=coalesce(r.args->'input',r.args)
 		), p AS (
@@ -112,11 +98,6 @@ export async function prepareProposal(
 }
 
 const reviseInput = z.strictObject({ operation, revision: z.int().min(1), input: z.unknown() });
-/**
- * evry.reviseProposal: the owner changes a reviewed fact. The target is read again, the revision moves on with a new
- * digest and a fresh 15-minute expiry, any approval of the old revision is cleared and its unstarted effect is
- * superseded. A revision whose effect already ran cannot change. One statement.
- */
 export async function reviseProposal(
 	db: Database,
 	actor: EvryActor,
@@ -146,19 +127,11 @@ export async function reviseProposal(
 		SELECT ${projection("x")} AS proposal FROM x`);
 	if (r.rows.length) return proposalRow.parse(r.rows[0]!.proposal);
 	const current = await readReview(db, actor, proposalId);
-	// A message that changed and can no longer be reviewed (it was cancelled or sent) has nothing to review again.
 	if (current.revision === change.revision && current.stale) throw new EvryRefusal("not_found");
 	throw new EvryRefusal(current.revision !== change.revision ? "review_changed" : "review_closed");
 }
 
-/** The reviewed writes whose review shows an uploaded image: nobody may approve an image they could not have seen. */
 const PHOTO_WRITES = ["people.setPersonPhoto", "account.finalizeAvatar"] as const;
-/**
- * A photo proposal's staged upload, while its owner may still review it: the proposal is pending or approved without
- * an outcome and its 15-minute review has not expired, and the upload is still unused and ready. For a person's photo
- * the person is still live in this church and the upload is this church's person photo; for the actor's own photo the
- * upload is their own account's photo upload. Lock-free (C13, C27).
- */
 const staged = (actor: EvryActor, proposalId: string, uploadId: SQL) =>
 	sql`p.id=${proposalId}::uuid AND ${readable(actor)} AND p.operation=ANY(${sql.param([...PHOTO_WRITES])}::text[])
 		AND p.state IN ('pending','approved') AND p.outcome IS NULL AND p.expires_at>clock_timestamp()
@@ -171,10 +144,6 @@ const staged = (actor: EvryActor, proposalId: string, uploadId: SQL) =>
 			AND f.tenant_id=p.account_id AND f.purpose='avatar' AND f.state='ready' AND f.expires_at>clock_timestamp()
 			AND NOT EXISTS(SELECT FROM account o WHERE o.avatar_object_id=f.id)))`;
 
-/**
- * The exact verified bytes of a staged upload. The storage layer checks it again around the byte transfer, each time
- * in one statement with the live check, so a sign-out, an ended seat or an expired review stops delivery.
- */
 async function stagedBytes(
 	db: Database,
 	storage: PrivateStorage | null,
@@ -199,10 +168,6 @@ async function stagedBytes(
 	return { bytes, mediaType };
 }
 
-/**
- * evry.readReview for a photo proposal's staged upload: its exact bytes and image type, for the proposal's owner
- * while the review lasts, so they can see the image they approve. Refuses as not_found otherwise.
- */
 export async function readStagedPhoto(db: Database, storage: PrivateStorage | null, actor: EvryActor, id: string) {
 	const proposalId = parse(z.uuid(), id);
 	const upload = sql`(p.input->'input'->>'uploadId')::uuid`;
@@ -217,24 +182,8 @@ export async function readStagedPhoto(db: Database, storage: PrivateStorage | nu
 const approval = z.strictObject({
 	revision: z.int().min(1),
 	digest: z.string().regex(/^[0-9a-f]{64}$/),
-	/** What the person typed on a card that asks for a reason (REASON_WRITES). It goes to the native command only. */
 	reason: z.string().max(1000).optional(),
 });
-/**
- * evry.approveProposal: the owner's trusted approval of exactly the revision and digest they reviewed, before it
- * expires (expiresAt itself is too late). Binds the approving session and queues the effect as one evry_effect job.
- * Approving the same revision again returns it and queues nothing. One statement.
- *
- * A set-photo proposal approves only after its staged upload was read again, byte for byte, in this request: nobody
- * may approve an image they could not have seen (REQ-EVR-011). The first statement leaves it pending; the review read
- * that follows names the upload, the storage layer reads it under the live check, and the approval runs again bound to
- * that upload. An upload that is gone or unreadable refuses as photo_unavailable and changes nothing.
- *
- * A write that runs in the approval request (approveNow: the organization pipeline and programs) queues no job: once
- * approved, its native command runs here under this request's live authority and its outcome is saved. A card that asks
- * for a reason approves only with one typed, and that text goes to the native command alone: the proposal, its receipt
- * and the conversation never hold it.
- */
 export async function approveProposal(
 	db: Database,
 	actor: EvryActor,
@@ -265,7 +214,6 @@ export async function approveProposal(
 		if (NOW_WRITES.includes(proposal.operation)) return runNow(db, actor, proposal, r.rows[0]!.args, reason);
 		return { proposal, replayed: false };
 	};
-	/** Not approved now: the known state of the review, or why it cannot be approved. */
 	const settled = (current: Proposal) => {
 		if (current.revision !== witness.revision || current.digest !== witness.digest || current.stale)
 			throw new EvryRefusal("review_changed");
@@ -275,7 +223,6 @@ export async function approveProposal(
 	const approved = await approve(null);
 	if (approved) return approved;
 	const current = await readReview(db, actor, proposalId);
-	// A card that asks for a reason was sent without one: nothing changed, and the card still waits for it.
 	if (REASON_WRITES.includes(current.operation) && reason === null && current.status === "pending")
 		throw new EvryRefusal("invalid_input");
 	if (!(PHOTO_WRITES as readonly string[]).includes(current.operation) || current.status !== "pending")
@@ -287,12 +234,6 @@ export async function approveProposal(
 	return (await approve(upload.data)) ?? settled(await readReview(db, actor, proposalId));
 }
 
-/**
- * The native command of an approved write that runs in the approval request (approveNow), under this request's live
- * authority, and its saved outcome: the receipt holds only the new revision, and a refusal because the record changed
- * saves the record as it is now. An error that is not a refusal saves nothing: the change may have committed, so the
- * card reads as unknown after a while.
- */
 async function runNow(db: Database, actor: EvryActor, proposal: Proposal, args: unknown, reason: string | null) {
 	const write = REVIEWED_WRITES[proposal.operation] as ReviewedWrite<unknown>;
 	const result = await write.approveNow!.run(db, actor.authority, args, reason);
@@ -301,15 +242,11 @@ async function runNow(db: Database, actor: EvryActor, proposal: Proposal, args: 
 	await db.execute(sql`
 		UPDATE proposal p SET outcome=${refused ? "refused" : "completed"},updated_at=clock_timestamp(),
 			receipt=CASE WHEN ${refused}::text IS NULL THEN ${refused ? null : JSON.stringify(result)}::jsonb
-				ELSE jsonb_strip_nulls(jsonb_build_object('code',${refused}::text,'current',CASE WHEN ${refused}::text='revision_conflict' THEN ${current} END)) END
+				ELSE jsonb_strip_nulls(jsonb_build_object('code',${refused}::text,'current',CASE WHEN ${refused}::text IN ('revision_conflict','stale_review') THEN ${current} END)) END
 		WHERE p.id=${proposal.id}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.state='approved' AND p.outcome IS NULL`);
 	return { proposal: await readReview(db, actor, proposal.id), replayed: false };
 }
 
-/**
- * evry.cancelProposal: withdraws a pending review or an approved effect that has not run. It waits for an effect that
- * is running and then reports its real outcome; a completed effect stays completed. One statement.
- */
 export async function cancelProposal(db: Database, actor: EvryActor, id: string) {
 	const proposalId = parse(z.uuid(), id);
 	const r = await db.execute(sql`
@@ -326,17 +263,9 @@ export async function cancelProposal(db: Database, actor: EvryActor, id: string)
 	return { proposal: await readReview(db, actor, proposalId), cancelled: false };
 }
 
-/**
- * evry.retryUnresolvedEffects: runs the approved revision again after a failed or unknown attempt, under the same
- * still-valid approval and the same effect key, so an effect that did commit returns its saved receipt. Unknown means
- * its job can no longer make progress (runtime/job.ts). An old job that no worker took is superseded, so the next drain
- * claims the new job first; an old job a worker already holds finds the proposal on the new job and cannot publish. A
- * completed or refused effect is never repeated, and an expired approval needs a new review. One statement.
- */
 export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id: string) {
 	const proposalId = parse(z.uuid(), id);
 	const job = randomUUID();
-	// outcome 'failed' is no longer written, but rows saved before PR 245 may still hold it (D-520), so it stays retryable.
 	const r = await db.execute(sql`
 		WITH x AS (
 			UPDATE proposal p SET outcome=NULL,receipt=CASE WHEN p.receipt ? 'reached' THEN p.receipt END,job_id=${job}::uuid,approved_session_id=${actor.session}::uuid,updated_at=clock_timestamp()
@@ -360,12 +289,6 @@ export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id:
 	);
 }
 
-/**
- * evry.checkProposal: asks the email service again about a completed effect whose report it has not confirmed (a
- * cancel or time change still open). The proposal's owner only, under their live request authority. The call to the
- * email service runs outside any transaction; the new report replaces the saved one in one statement that never
- * replaces a confirmed report. A confirmed or refused effect is returned as it is.
- */
 export async function checkProposal(db: Database, actor: EvryActor, id: string, mail: MailPort | null) {
 	const proposalId = parse(z.uuid(), id);
 	const current = await readReview(db, actor, proposalId);

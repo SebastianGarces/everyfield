@@ -10,39 +10,24 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { inPlant, ownerOrAdmin, value } from "../reads/index.ts";
 
-// The Tasks reviewed writes (WP-068). Each review is one SELECT under the proposal's statement: it reads the task live
-// in the actor's church and saves the native command's exact arguments, including the revision the review showed. On
-// approval the executor runs the native Tasks command once, with the effect key as its request key, so the change and
-// its audit row commit together and a task changed since the review refuses instead of being overwritten. Every native
-// command checks its own role floor again when it runs. A review refuses before any card when the actor could never
-// approve it: a Member asking to change a task assigned to someone else, or an owner who can't hold the task.
-
-/** The task in the actor's church, as `t`: live and top level unless the write names a checklist row. */
 export const liveTask = (actor: EvryActor, taskId: string) =>
 	sql`FROM task t WHERE t.id=${taskId}::uuid AND t.plant_id=${actor.owner.id}::uuid AND t.deleted_at IS NULL`;
 export const taskTarget = sql`jsonb_build_object('kind','task','id',t.id,'label',t.title)`;
 export const change = (field: string, before: SQL | null, after: SQL | null) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before ?? sql`NULL::jsonb`},'after',${after ?? sql`NULL::jsonb`})`;
 export const json = (v: unknown) => sql`${JSON.stringify(v ?? null)}::jsonb`;
-/** `t`'s owners by their account name, in the Tasks page's order, or null when it needs an owner. */
 export const ownersOf = (t: string) =>
 	sql.raw(`(SELECT to_jsonb(string_agg(i.display_name,', ' ORDER BY lower(i.display_name),a.account_id))
 		FROM task_assignee a CROSS JOIN LATERAL seat_identity(a.account_id) i WHERE a.task_id=${t}.id)`);
-/** A stored due date as the church reads it. */
 export const dueOf = (t: string) =>
 	sql.raw(`to_jsonb(CASE ${t}.due_kind WHEN 'date_only' THEN ${t}.due_date::text
 		WHEN 'timed' THEN to_char(${t}.due_date,'YYYY-MM-DD')||' '||to_char(${t}.due_time,'HH24:MI')||' '||${t}.timezone END)`);
 
-/** "me" names the signed-in user's own account; any other value is an account id from tasks.eligibleAssignees. */
 export const assignee = z.union([id, z.literal("me")]);
 const me = (actor: EvryActor, ids: readonly string[]) => [
 	...new Set(ids.map((id) => (id === "me" ? actor.accountId : id))),
 ];
 
-/**
- * The accounts named, each with its name, if every one may hold this kind of task now; otherwise the review refuses
- * before any card: an account without a current seat, or (for a follow-up) one that can't own follow-ups (REQ-TSK-012).
- */
 export async function namedAccounts(
 	context: ReviewContext,
 	actor: EvryActor,
@@ -52,7 +37,6 @@ export async function namedAccounts(
 	return me(actor, raw).length ? (await accountNamer(context, actor, purpose))(raw) : { ids: [], names: [] };
 }
 
-/** Reads the eligible accounts once and checks any number of named lists against them, as namedAccounts does. */
 export async function accountNamer(context: ReviewContext, actor: EvryActor, purpose: "any" | "committed_follow_up") {
 	const seats = await context.db.transaction(async (tx) =>
 		value(await taskReader.eligibleAssignees(tx, actor.authority, { purpose })),
@@ -65,10 +49,6 @@ export async function accountNamer(context: ReviewContext, actor: EvryActor, pur
 	};
 }
 
-/**
- * A Member may change only a task assigned to them: anything else refuses before any card, with the reason. An Owner
- * or Admin may change any task; the native command decides the rest when it runs.
- */
 export async function ownDuty(context: ReviewContext, actor: EvryActor, taskId: string) {
 	if (actor.role !== "member") return;
 	const r = await context.db
@@ -83,10 +63,6 @@ export const done = (reply: Reply<{ receiptId: string; task: { revision: string 
 		? { receiptId: reply.value.receiptId, revision: reply.value.task.revision }
 		: { refused: reply.error.code };
 
-/**
- * One reviewed write whose native commands run in order, each with its own request key derived from the effect key, in
- * the executor's one transaction. The first refusal stops the rest and rolls everything back.
- */
 export function reviewed<I>(spec: {
 	operation: string;
 	description: string;
@@ -112,12 +88,9 @@ export function reviewed<I>(spec: {
 	};
 }
 const writer = (reminders: TaskReminders) => createTaskWriter({ reminders });
-/** The saved native input and the revision the review showed. */
 const saved = z.object({ expectedRevision: z.string(), input: z.record(z.string(), z.unknown()) });
 
 const taskId = id.describe("A task id from an earlier result");
-
-// --- Status changes on one task: complete, completeOccurrence, reopen, changeStatus, waive, delete ----------------
 
 type StatusCommand = "complete" | "completeOccurrence" | "reopen" | "changeStatus" | "waive" | "delete";
 function statusWrite<I extends { taskId: string }>(spec: {
@@ -125,12 +98,9 @@ function statusWrite<I extends { taskId: string }>(spec: {
 	command: StatusCommand;
 	description: string;
 	input: z.ZodType<I>;
-	/** The Member floor: their own task only. Otherwise Owner or Admin. */
 	member: boolean;
 	changes(input: I): SQL;
-	/** The native input beyond the task id. */
 	extra?(input: I): Record<string, unknown>;
-	/** A condition on `t` the native command needs, so a review is never prepared for a change it would refuse. */
 	when?: SQL;
 }) {
 	return reviewed<I>({
@@ -213,8 +183,6 @@ const deleteTask = statusWrite({
 	changes: () => sql`jsonb_build_array(${status("deleted")})`,
 });
 
-// --- tasks.create (with an optional recurrence) and tasks.configureRecurrence --------------------------------------
-
 const WEEKDAY = ["Sundays", "Mondays", "Tuesdays", "Wednesdays", "Thursdays", "Fridays", "Saturdays"];
 const recurrence = z.strictObject({
 	frequency: recurrenceFrequency,
@@ -222,7 +190,6 @@ const recurrence = z.strictObject({
 });
 type Recurrence = z.infer<typeof recurrence>;
 const dueDay = (due: string | undefined) => due?.slice(0, 10) ?? null;
-/** "weekly on Mondays, America/Chicago": the rule as the church reads it, counted from the first due date. */
 function ruleText(rule: Recurrence, first: string | null, zone: SQL) {
 	const day = first ? WEEKDAY[new Date(`${first}T00:00:00Z`).getUTCDay()]! : null;
 	const on = day && /weekly/.test(rule.frequency) ? ` on ${day}` : "";
@@ -230,7 +197,6 @@ function ruleText(rule: Recurrence, first: string | null, zone: SQL) {
 	return sql`to_jsonb(${`${rule.frequency}${on}${until}`}::text||', '||${zone})`;
 }
 const churchZone = (actor: EvryActor) => sql`(SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid)`;
-/** A due value as the review shows it: the church-local date (and time) with the church's zone. */
 const dueText = (due: string | undefined, zone: SQL) =>
 	due ? sql`to_jsonb(${due.replace("T", " ")}::text||' '||${zone})` : sql`NULL::jsonb`;
 
@@ -301,7 +267,6 @@ const configureRecurrence = reviewed<z.infer<typeof recurrenceInput>>({
 	input: recurrenceInput,
 	allowed: ownerOrAdmin,
 	async review(actor, v) {
-		// Weekly and biweekly repeat on the task's due weekday, as the native series counts from its due date.
 		const after = v.rule
 			? sql`to_jsonb(${v.rule.frequency}::text${/weekly/.test(v.rule.frequency) ? sql`||' on '||trim(to_char(t.due_date,'FMDay'))||'s'` : sql``}
 				||${v.rule.until ? `, until ${v.rule.until}` : ""}::text||', '||${churchZone(actor)})`
@@ -322,8 +287,6 @@ const configureRecurrence = reviewed<z.infer<typeof recurrenceInput>>({
 		);
 	},
 });
-
-// --- tasks.edit -------------------------------------------------------------------------------------------------
 
 const editInput = z.strictObject({
 	taskId,
@@ -377,14 +340,11 @@ const editTask = reviewed<z.infer<typeof editInput>>({
 	},
 });
 
-// --- tasks.bulkComplete and tasks.bulkReschedule -----------------------------------------------------------------
-
 const many = z
 	.array(taskId)
 	.min(1)
 	.max(100)
 	.refine((ids) => new Set(ids).size === ids.length, "repeated task");
-/** The named live top-level tasks, as `t`, in title order: each one row of the review, at the revision it showed. */
 const bulkReview = (actor: EvryActor, ids: readonly string[], row: SQL, extra: SQL) =>
 	sql`SELECT jsonb_build_object('target','null'::jsonb,'changes',jsonb_agg(${row} ORDER BY lower(t.title),t.id)) AS review,
 		jsonb_build_object('items',jsonb_agg(jsonb_build_object('taskId',t.id,'expectedRevision',t.revision::text) ORDER BY t.id))||${extra} AS args
@@ -439,12 +399,6 @@ const bulkReschedule = reviewed<z.infer<typeof rescheduleInput>>({
 	},
 });
 
-// --- Checklist rows: tasks.createSubtask, tasks.setSubtaskCompletion and tasks.removeSubtask ------------------------
-//
-// One review may add, tick and remove rows of one parent's checklist: each step runs its own native command (a real
-// child task with its own status and history, EVRY-REAL-CHILD-TASK-PARITY), ticks first, then removals, then additions.
-// The operation names the step the request is mainly about; each of the three needs its own step.
-
 const checklistInput = z.strictObject({
 	parentId: id.describe("The parent task id"),
 	add: z.array(title).max(20).default([]).describe("Titles of new checklist rows"),
@@ -476,8 +430,6 @@ function checklistWrite({
 		input: checklistInput.refine((v) => v[main].length > 0, `${main} needs a row`),
 		allowed: main === "remove" ? ownerOrAdmin : inPlant,
 		async review(actor, v, context) {
-			// Each step keeps its native floor for a Member: adding needs the parent assigned to them, ticking needs the
-			// row assigned to them, and only an Owner or Admin removes a row.
 			if (actor.role === "member") {
 				if (v.remove.length) throw new EvryRefusal("access_denied");
 				if (v.add.length) await ownDuty(context, actor, v.parentId);
@@ -487,7 +439,6 @@ function checklistWrite({
 				...v.tick.map((k) => ({ id: k.taskId, complete: k.complete })),
 				...v.remove.map((id) => ({ id, complete: null })),
 			];
-			// Every named row must be a live checklist row of this parent, or there is no review.
 			return sql`WITH k AS (SELECT c.id,c.title,c.status,c.revision,s.complete,s.n FROM jsonb_to_recordset(${json(steps.map((s, n) => ({ ...s, n })))})
 					s(id uuid,complete boolean,n int) JOIN task c ON c.id=s.id AND c.parent_id=${v.parentId}::uuid AND c.plant_id=${actor.owner.id}::uuid AND c.deleted_at IS NULL)
 				SELECT jsonb_build_object('target',${taskTarget},'changes',
@@ -512,7 +463,6 @@ function checklistWrite({
 				last = done(reply);
 				if ("refused" in last) return last;
 			}
-			// Each addition is checked against the parent's current revision, which an earlier step may have moved.
 			for (const [n, title] of a.add.entries()) {
 				const parent = await tx.execute(
 					sql`SELECT revision::text AS revision FROM task WHERE id=${a.parentId}::uuid AND deleted_at IS NULL`,
@@ -551,7 +501,6 @@ export const removeSubtask = checklistWrite({
 		"Propose removing checklist rows from one task, optionally adding or ticking rows of the same checklist in the same review.",
 });
 
-/** The installed Tasks reviewed writes, keyed by operation. */
 export const TASK_COMMANDS = {
 	"tasks.create": createTask,
 	"tasks.configureRecurrence": configureRecurrence,

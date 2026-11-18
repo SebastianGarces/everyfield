@@ -7,10 +7,6 @@ import Link from "next/link";
 import { ArticleBody } from "../wiki/prose";
 import { MY_RESIDENCY_PATH } from "./model";
 
-/**
- * One church-owned article on the resident's reading list (REQ-MUL-013). It opens only from that list; the church's
- * other articles stay out of reach. An article the church no longer publishes reads as unavailable.
- */
 export function ResidentReadingScreen({ reading }: { reading: ResidentReadingResult }) {
 	const crumbs = [{ label: "My residency", href: MY_RESIDENCY_PATH }];
 	if (reading.status === "unavailable")

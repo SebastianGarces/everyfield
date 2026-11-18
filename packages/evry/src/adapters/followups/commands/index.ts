@@ -23,17 +23,9 @@ import {
 } from "../../tasks/commands/index.ts";
 import { inPlant, ownerOrAdmin } from "../../tasks/reads/index.ts";
 
-// The Follow-up reviewed writes (WP-068): record or correct what happened on a follow-up, create one, assign owners and
-// reopen a generated follow-up, each through the native follow-up or task command. A recorded outcome is what the user
-// said happened, never a guess: "contacted" needs the user's own word that a conversation happened, and it is recorded
-// on the follow-up's contact log, never in the person's profile notes. An owner must be able to own follow-ups
-// (REQ-TSK-012); a review naming one who can't refuses before any card, with the reason.
-
 const followUps = (reminders: TaskReminders) => createFollowUpWriter({ reminders });
-/** An open person follow-up in the actor's church, as `t`. */
 const openFollowUp = sql`t.category='follow_up' AND t.person_id IS NOT NULL AND t.parent_id IS NULL
 	AND t.status IN ('not_started','in_progress','blocked')`;
-// --- followups.recordOutcome ------------------------------------------------------------------------------------
 
 const occurred = z
 	.string()
@@ -59,10 +51,6 @@ const recordInput = z
 	.refine((v) => v.outcome !== "no_longer_needed" || !v.completeTask, "no_longer_needed closes without completing");
 type OutcomeInput = z.infer<typeof recordInput>;
 
-/**
- * The instant the user's words name, in the church's time zone: a time they gave; for a date, noon that day; for today
- * or "now", the review's own time, so a call made "today" is never placed after the moment it is recorded.
- */
 const occurredAt = (actor: EvryActor, when: OutcomeInput["occurred"]) => {
 	const zone = sql`(SELECT timezone FROM plant WHERE id=${actor.owner.id}::uuid)`;
 	if (when === "now") return sql`clock_timestamp()`;
@@ -113,8 +101,6 @@ export const recordOutcome = reviewed<OutcomeInput>({
 			: { refused: reply.error.code };
 	},
 });
-
-// --- followups.correctOutcome -----------------------------------------------------------------------------------
 
 const correctInput = z.strictObject({
 	outcomeId: id.describe("A contact log entry id from followups.listContactHistory"),
@@ -172,8 +158,6 @@ export const correctOutcome = reviewed<z.infer<typeof correctInput>>({
 	},
 });
 
-// --- tasks.createFollowUp ---------------------------------------------------------------------------------------
-
 const createInput = z.strictObject({
 	personId: id.describe("A person id from an earlier result"),
 	title: title.optional().describe('Defaults to "Follow up with <name>"'),
@@ -212,11 +196,6 @@ export const createFollowUp = reviewed<z.infer<typeof createInput>>({
 		);
 	},
 });
-
-// --- tasks.assignFollowUp ---------------------------------------------------------------------------------------
-//
-// One review may assign several follow-ups ("split the new guests between Carlos and Ana"): each is its own native
-// assignment, in one transaction, so all of them change or none.
 
 const assignInput = z.strictObject({
 	items: z
@@ -271,11 +250,6 @@ export const assignFollowUp = reviewed<z.infer<typeof assignInput>>({
 	},
 });
 
-// --- tasks.reopenObligation -------------------------------------------------------------------------------------
-//
-// A meeting's generated follow-up closed as no longer needed (or completed) is reopened through its current task, the
-// same native reopen the Tasks page uses: the obligation keeps its identity and its waiver is cleared.
-
 const reopenInput = z.strictObject({
 	obligationId: id.describe("An obligationId from followups.readObligations"),
 });
@@ -309,7 +283,6 @@ export const reopenObligation = reviewed<z.infer<typeof reopenInput>>({
 	},
 });
 
-/** The installed Follow-up reviewed writes, keyed by operation. */
 export const FOLLOWUP_COMMANDS = {
 	"tasks.createFollowUp": createFollowUp,
 	"tasks.assignFollowUp": assignFollowUp,

@@ -5,10 +5,6 @@ import { IntentLink } from "./IntentLink";
 
 export type Crumb = { label: string; href?: string };
 
-/**
- * Breadcrumb (components.md): a nav landmark with an ordered list. The last item is the current page and is not a
- * link. Separators are decorative. Links prefetch on intent only (hover, touch or keyboard focus), never because they are in view.
- */
 export function Breadcrumb({ items, className }: { items: Crumb[]; className?: string }) {
 	return (
 		<nav aria-label="Breadcrumb" className={className}>
@@ -24,7 +20,7 @@ export function Breadcrumb({ items, className }: { items: Crumb[]; className?: s
 							) : item.href ? (
 								<IntentLink
 									href={item.href}
-									className="cursor-pointer rounded-xs underline-offset-[3px] transition-colors hover:text-ink hover:underline"
+									className="rounded-xs underline-offset-[3px] transition-colors hover:text-ink hover:underline"
 								>
 									{item.label}
 								</IntentLink>
@@ -44,14 +40,11 @@ type PageHeaderProps = {
 	title: ReactNode;
 	breadcrumb?: Crumb[];
 	subtitle?: ReactNode;
-	/** Buttons and controls on the right. Below 640px they move under the title. */
 	actions?: ReactNode;
-	/** xl is the large title used on design-system and hub pages. */
 	size?: "default" | "xl";
 	className?: string;
 };
 
-/** The page header (components.md, Page header): Breadcrumb, Title (the page's h1), Subtitle and Actions. */
 export function PageHeader({ title, breadcrumb, subtitle, actions, size = "default", className }: PageHeaderProps) {
 	return (
 		<header

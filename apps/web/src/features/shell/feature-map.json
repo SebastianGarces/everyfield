@@ -1,0 +1,245 @@
+{
+	"$schema": "../../../feature-map.schema.json",
+	"feature": "shell",
+	"catalog": [],
+	"surfaces": [
+		{
+			"id": "shell.frame",
+			"says": "The product frame around every signed-in page: the rail with the pages this persona may open, search, notifications, Ask Evry and the account menu. Each page's own map says where its rail link leads.",
+			"routes": [],
+			"reach": [
+				{
+					"link": "/home"
+				}
+			],
+			"personas": {
+				"owner": "read",
+				"member": "read",
+				"network": "read",
+				"resident": "read",
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "owner",
+					"reach": {
+						"persona": "owner",
+						"open": "/overview",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "navigation",
+							"name": "Main"
+						},
+						{
+							"role": "link",
+							"name": "Messages"
+						},
+						{
+							"role": "link",
+							"name": "Plant Intelligence"
+						},
+						{
+							"role": "button",
+							"name": "Ask Evry"
+						},
+						{
+							"role": "button",
+							"name": "account menu",
+							"match": "contains"
+						}
+					]
+				},
+				{
+					"id": "member",
+					"reach": {
+						"persona": "member",
+						"open": "/overview",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "link",
+							"name": "Messages"
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "Plant Intelligence"
+							}
+						}
+					]
+				},
+				{
+					"id": "organization",
+					"reach": {
+						"persona": "network",
+						"open": "/network",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "link",
+							"name": "Pipeline"
+						},
+						{
+							"role": "link",
+							"name": "Sent for review"
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "Meetings"
+							}
+						}
+					]
+				},
+				{
+					"id": "residency-account",
+					"reach": {
+						"persona": "resident",
+						"open": "/notifications",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "link",
+							"name": "My residency"
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "People"
+							}
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "shell.design-preview",
+			"says": "A design preview of the product frame as an Owner, a Member or a residency account, with sample data and no database. Production returns 404.",
+			"routes": ["/design", "/design/shell/[role]/[[...page]]"],
+			"reach": [
+				{
+					"link": "/design"
+				},
+				{
+					"link": "/design/shell/{role}/{page}",
+					"fill": {
+						"role": "owner, member or residency",
+						"page": "a rail page key, or nothing for the first page"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "owner",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/design/shell/owner"
+						},
+						{
+							"role": "heading",
+							"name": "Preview as"
+						},
+						{
+							"role": "link",
+							"name": "Plant Intelligence"
+						}
+					]
+				},
+				{
+					"id": "owner-page",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/shell/owner",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "People"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/design/shell/owner/people"
+						},
+						{
+							"role": "heading",
+							"name": "People"
+						}
+					]
+				},
+				{
+					"id": "residency",
+					"reach": {
+						"persona": "visitor",
+						"open": "/design/shell/residency",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "My residency"
+						},
+						{
+							"absent": {
+								"role": "link",
+								"name": "People"
+							}
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "shell.health",
+			"says": "The liveness check an uptime monitor calls: it answers status ok with the server time and reads no database.",
+			"routes": [],
+			"endpoints": ["/api/health"],
+			"reach": [
+				{
+					"link": "/api/health"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "live",
+					"reach": {
+						"persona": "visitor",
+						"open": "/api/health",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/api/health"
+						},
+						{
+							"text": "ok",
+							"match": "contains"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		}
+	]
+}

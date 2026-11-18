@@ -16,25 +16,13 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 
-// The People reviewed writes. Each review is one SELECT under the proposal's statement: it reads the target live in
-// the actor's church and saves the native command's exact arguments, including the revisions the review showed. On
-// approval the executor runs the owning native People command once, with the effect key as its request key, so the
-// change and its audit row commit together; anything that changed since the review refuses instead of being
-// overwritten.
-
-/** The Owner or Admin of the selected church: the actors who may change People, and review import duplicates. */
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
-/** The live person in the actor's church, as `p`. */
 export const target = (actor: EvryActor, personId: string) =>
 	sql`FROM person p WHERE p.id=${personId}::uuid AND p.tenant_id=${actor.owner.id}::uuid AND p.plant_id=${actor.owner.id}::uuid AND p.state='live'`;
 export const person = sql`jsonb_build_object('kind','person','id',p.id,'label',p.display_name)`;
 const change = (field: string, before: SQL, after: unknown) =>
 	sql`jsonb_build_object('field',${field}::text,'before',${before},'after',${JSON.stringify(after ?? null)}::jsonb)`;
-/**
- * The person's open tasks, each handed back as "needs an owner" at the revision the review saw. The native command
- * refuses when the open tasks changed since, so a task is never handed off unreviewed.
- */
 const openTasks = sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('kind','needs_owner','dutyId',t.id,'expectedRevision',t.revision::text) ORDER BY t.id),'[]'::jsonb)
 	FROM task t WHERE t.plant_id=p.plant_id AND (t.person_id=p.id OR EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id AND ta.account_id=p.linked_account_id))
 		AND t.deleted_at IS NULL AND t.status NOT IN ('complete','no_longer_needed'))`;
@@ -42,10 +30,6 @@ const tasksChange = (handoffs: SQL) =>
 	sql`CASE WHEN jsonb_array_length(${handoffs})>0 THEN jsonb_build_array(jsonb_build_object('field','openTasksNeedingOwner','before',NULL,'after',jsonb_array_length(${handoffs}))) ELSE '[]'::jsonb END`;
 
 export type Receipt = { receiptId: string; revision: string };
-/**
- * One reviewed write: `review` selects the review and `args`, the native request without its request key; `run` is
- * the native command.
- */
 export function reviewed<I, R extends z.ZodType>(spec: {
 	operation: string;
 	description: string;
@@ -169,7 +153,6 @@ const setPersonPhoto = reviewed({
 		"Propose making a photo the user uploaded in this church the person's photo. Nothing changes until the user approves the exact review.",
 	input: z.strictObject({ personId, uploadId: z.uuid() }),
 	review(actor, value) {
-		// Only this church's own verified, unexpired upload that no person uses yet, as the native command requires.
 		return sql`SELECT jsonb_build_object('target',${person},'changes',jsonb_build_array(${change("photo", sql`to_jsonb(p.photo_object_id)`, value.uploadId)})) AS review,
 			jsonb_build_object('expectedRevision',p.revision::text,'input',jsonb_build_object('personId',p.id,'uploadId',${value.uploadId}::uuid)) AS args
 			${target(actor, value.personId)} AND EXISTS(SELECT FROM file_object f WHERE f.id=${value.uploadId}::uuid AND f.tenant_id=p.tenant_id
@@ -193,7 +176,6 @@ const removePersonPhoto = reviewed({
 	run: async (tx, context, request) => photoReceipt(await personFields.removePersonPhoto(tx, context, request)),
 });
 
-/** The installed People reviewed writes, keyed by operation. */
 export const PEOPLE_COMMANDS = {
 	"people.createPerson": createPerson,
 	"people.updatePerson": updatePerson,

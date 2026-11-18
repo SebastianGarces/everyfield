@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "project_id": "everyfield-v3",
-  "revision": 167,
-  "updated_at": "2026-11-13T21:06:03.735Z",
+  "revision": 168,
+  "updated_at": "2026-11-14T00:00:00.000Z",
   "packages": {
     "WP-001": {
       "status": "in_progress",
@@ -3079,11 +3079,96 @@
       "notes": ""
     },
     "WP-092": {
-      "status": "not_started",
-      "revision": 0,
-      "updated_at": null,
-      "evidence": [],
-      "notes": ""
+      "status": "in_progress",
+      "revision": 3,
+      "updated_at": "2026-11-14T00:00:00.000Z",
+      "evidence": [
+        {
+          "path": "tests/integration/target/sql/knowledge/deletion-deadline.test.mts",
+          "commit": "e67fb79c119f8865df9470a2596169befce58708",
+          "test": "AC:DEL58-003 in tests/integration/target/sql/knowledge/deletion-deadline.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-393 slice 1: cancel before the deadline, refused at it, stale proof refused after a newer request."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/deletion-delivery.test.mts",
+          "commit": "e67fb79c119f8865df9470a2596169befce58708",
+          "test": "AC:DEL58-006 in tests/integration/target/sql/knowledge/deletion-delivery.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-393 slice 1: no new handoff, held mail left to reconcile, sent mail not recalled, issued URL keeps its TTL and no new URL."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/message-templates.test.mts",
+          "commit": "e67fb79c119f8865df9470a2596169befce58708",
+          "test": "AC:GAP-REF-006 in tests/integration/target/sql/knowledge/message-templates.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-393 slice 1: repeat install of seven templates keeps the fork; missing merge field, foreign caller and unavailable source refused."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/unmerge.test.mts",
+          "commit": "e67fb79c119f8865df9470a2596169befce58708",
+          "test": "AC:SCHEMA-010 in tests/integration/target/sql/knowledge/unmerge.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-393 slice 1: changed post-merge state refused with inverse_conflict; clean state inverts once; no provider undo or resend."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-deletion.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:ORG55-008 in tests/integration/target/sql/knowledge/restore-deletion.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: a pre-purge snapshot restored before copy expiry shows A purged from the current witness and hides A's body, email and avatar; on 2026-11-27 the copy has expired and nothing restores."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-deletion.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:DEL58-008 in tests/integration/target/sql/knowledge/restore-deletion.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: a recopy claiming a later expiry is refused through the candidate check's original-expiry map; the restored recopy keeps the witness expiry, hides A and refuses its cancel."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-files.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:OPS54-002 in tests/integration/target/sql/knowledge/restore-files.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: a restored database missing one ready file's bytes fails, drops the target and keeps the customer-data gate blocked."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-files.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:REC59-003 in tests/integration/target/sql/knowledge/restore-files.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: bytes of D-v1 under a database row pointing at D-v2 fail closed, naming the file id only, with nothing issuable."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-files.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:REC59-004 in tests/integration/target/sql/knowledge/restore-files.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: the drill clock measures 1 h lost and 4 h to recover, meeting the internal targets with no customer SLA; 5 h misses."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/restore-receipts.test.mts",
+          "commit": "dbee8e80b1185bde35d1b8986a77ba20a55c93ba",
+          "test": "AC:REC59-006 in tests/integration/target/sql/knowledge/restore-receipts.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-394 slice 2: an old copy restores no expired body, sends no mail, publishes no issue and keeps the expiry; its rows take the accepted receipt and issue 7."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/encrypted-copy.test.mts",
+          "commit": "56eb357bd20058b5f896a095777e097f50ce1da1",
+          "test": "AC:BKT60-002 in tests/integration/target/sql/knowledge/encrypted-copy.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-395 slice 3: maintenance.createEncryptedCopy (ops/maintenance/copy.mts) seals the 2026-10-13 image and ready bytes with AES-256-GCM, records checksums, key version and subject expiry 2026-10-20T16:00:00Z; only the restricted backup key from a private file opens it; another key or a changed copy is refused; the 2026-10-19 recopy keeps the expiry; A gets nothing through documents.download. Local crypto and fakes only: G-RECOVERY stays open."
+        },
+        {
+          "path": "tests/integration/target/sql/knowledge/readiness.test.mts",
+          "commit": "56eb357bd20058b5f896a095777e097f50ce1da1",
+          "test": "AC:BKT60-004 in tests/integration/target/sql/knowledge/readiness.test.mts (node --test on Postgres; CI census through tests/integration/writes/suites.json)",
+          "result": "passed",
+          "note": "T-395 slice 3: ops.readiness (ops/maintenance/readiness.mts) reports customer_data_gate blocked and build_gate_from_backup false, naming each missing item of cost approval, host schedule, key exclusion and coherent restore; a restore rehearsal does not count. It never reads ready here (WP-058 closes it with live evidence); G-RECOVERY stays open."
+        }
+      ],
+      "notes": "T-393 slice 1 (D-1552, D-1554): DEL58-003, DEL58-006, GAP-REF-006 and SCHEMA-010 run. T-394 slice 2: the isolated restore rehearsal (ops/maintenance/restore.mts) runs ORG55-008, DEL58-008, OPS54-002, REC59-003, REC59-004 and REC59-006 on a throwaway Postgres and a fake object store; G-RECOVERY stays open. T-395 slice 3: the local encrypted copy (ops/maintenance/copy.mts) and readiness report (ops/maintenance/readiness.mts) run BKT60-002 and BKT60-004; G-RECOVERY stays open, with no real bucket, host, schedule, key escrow or spend. Not done: the WP-049 and WP-055 dependencies remain."
     },
     "WP-093": {
       "status": "not_started",

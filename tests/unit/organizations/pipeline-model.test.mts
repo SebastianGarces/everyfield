@@ -1,16 +1,14 @@
-// The Pipeline stage review lists exactly what will change before anything saves (REQ-MUL-008), and the board's
-// filters live in the address (D67).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
 	boardHref,
-	formatDay,
 	goalHeadline,
 	monthLabel,
 	queryFromSearch,
 	refusalText,
 	stageChanges,
 } from "../../../apps/web/src/features/organizations/board/model.ts";
+import { formatPlainDate } from "../../../apps/web/src/components/dates.ts";
 
 const starters = [
 	{ id: "a", label: "Potential leader", kind: "potential_leader" },
@@ -45,7 +43,7 @@ test("the board's filters round-trip through the address, and anything unreadabl
 	assert.equal(boardHref(query), "/organization/pipeline?view=retired&stale=1&q=Dallas&page=3");
 	assert.deepEqual(queryFromSearch({ view: "other", page: "-2" }), { view: "board", stale: false, q: "", page: 1 });
 	assert.equal(boardHref(queryFromSearch({})), "/organization/pipeline");
-	assert.equal(formatDay("2026-10-02"), "Oct 2, 2026");
+	assert.equal(formatPlainDate("2026-10-02"), "Oct 2, 2026");
 });
 
 test("a goal reads in words from its own targets and year", () => {
@@ -70,7 +68,6 @@ test("a refused negative target or future conversation date says why in plain wo
 	const refused = (field: string) => refusalText({ status: "refused", refusal: { code: "invalid_input", field } });
 	assert.equal(refused("plantTarget"), "Targets can’t be less than 0.");
 	assert.equal(refused("occurredOn"), "The date can’t be after today.");
-	// A goal's chosen counts: the server names the count's position, which the copy does not need.
 	assert.equal(refused("countingFrom"), "The counting-from date can’t be after today.");
 	assert.equal(refused("counts"), "A goal can have up to 4 counts.");
 	assert.equal(refused("counts.1.kind"), "This goal already counts that stage kind. Choose another kind.");

@@ -50,17 +50,15 @@ const markRow = z.object({
 	changed: z.boolean(),
 });
 
-/**
- * The record an entry is about, from what the notice already stores (D-733): the scheduled email, task or meeting is
- * its source record. A Wiki review names the published global revision in its key; the entry links to that article by
- * the revision's slug. Every other category, and a review whose revision is not a published global one, has none.
- */
 const subjectSql = sql`CASE split_part(n.logical_key,'/',2)
 	WHEN 'scheduled_email_unsubscribe' THEN json_build_object('kind','communication','id',n.source_record_id)
 	WHEN 'task_due' THEN json_build_object('kind','task','id',n.source_record_id)
 	WHEN 'task_overdue' THEN json_build_object('kind','task','id',n.source_record_id)
 	WHEN 'meeting_announcement' THEN json_build_object('kind','meeting','id',n.source_record_id)
 	WHEN 'meeting_reminder' THEN json_build_object('kind','meeting','id',n.source_record_id)
+	WHEN 'residency_confirmation' THEN json_build_object('kind','residency_milestone','id',split_part(n.logical_key,'/',5))
+	WHEN 'residency_feedback' THEN json_build_object('kind','residency_milestone','id',split_part(n.logical_key,'/',5))
+	WHEN 'answer_review' THEN json_build_object('kind','answer_review','id',n.source_record_id)
 	WHEN 'wiki_upstream_review' THEN (
 		SELECT json_build_object('kind','article','id',r.article_id,'slug',r.slug) FROM article_revision r
 		WHERE r.id = CASE WHEN split_part(n.logical_key,'/',3) ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
@@ -150,10 +148,6 @@ export async function readFeed(
 	});
 }
 
-/**
- * The feed's first page, the unread count of the same category and the account revision that marks carry, in one
- * statement (REQ-NTF-003). The feed page and the bell open read this.
- */
 export async function readFeedPage(
 	db: Pick<Database, "execute">,
 	authority: RequestActor,
@@ -205,7 +199,6 @@ async function mark(
 	ids: string[] | null,
 	cutoff: string | null,
 ) {
-	// eligibleAt is an instant, so it stops at milliseconds. Include that whole millisecond.
 	const eligible = cutoff
 		? sql`n.eligible_at < ${cutoff}::timestamptz + interval '1 millisecond' AND n.eligible_at <= clock_timestamp()`
 		: sql`n.eligible_at <= clock_timestamp()`;

@@ -8,12 +8,9 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ActivityCard, CardFailed, CardLoading, LaunchCard, MetricsCards, MetricsLoading } from "./cards.tsx";
 import { GetStarted, QuickActions } from "./client.tsx";
+import { IntelligenceCard } from "./IntelligenceCard.tsx";
 import { phaseText } from "./model.ts";
-import { loadActivity, loadFrame, loadLaunch, loadMetrics } from "./server.ts";
-
-// The /overview route (WP-048), a church plant's home. apps/web/src/app/(product)/(frame)/overview/ only re-exports
-// these. The server decides who may see it from the seat and the saved setup (ADM-004); each card then reads on its
-// own and streams in behind its own loading state.
+import { loadActivity, loadFrame, loadIntelligence, loadLaunch, loadMetrics } from "./server.ts";
 
 export const overviewMetadata: Metadata = { title: "Overview", robots: { index: false, follow: false } };
 
@@ -24,7 +21,6 @@ export async function OverviewPage() {
 	const db = requestDatabase();
 	const plant =
 		viewer.status === "active" && db ? await dashboardReader.resolveHome(db, viewer.authority ?? null) : "none";
-	// An unfinished church goes back to its setup step, an organization seat to its home, an account to Discovery.
 	const home = landingFor({ status: viewer.status, plant });
 	if (home !== DASHBOARD_HOME) redirect(home);
 
@@ -55,6 +51,11 @@ export async function OverviewPage() {
 			<Suspense fallback={<MetricsLoading />}>
 				<Metrics />
 			</Suspense>
+			{ready && ready.role !== "member" ? (
+				<Suspense fallback={<CardLoading label="Plant Intelligence" height={260} />}>
+					<Intelligence />
+				</Suspense>
+			) : null}
 			<div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<Suspense fallback={<CardLoading label="recent changes" height={520} />}>
 					<RecentChanges />
@@ -73,6 +74,9 @@ export async function OverviewPage() {
 async function Metrics() {
 	return <MetricsCards loaded={await loadMetrics()} />;
 }
+async function Intelligence() {
+	return <IntelligenceCard loaded={await loadIntelligence()} />;
+}
 async function RecentChanges() {
 	return <ActivityCard loaded={await loadActivity()} />;
 }
@@ -80,7 +84,6 @@ async function Launch({ admin }: { admin: boolean }) {
 	return <LaunchCard loaded={await loadLaunch()} admin={admin} />;
 }
 
-/** The first paint while the page decides and reads: its shape, not a spinner. */
 export function OverviewLoading() {
 	return (
 		<div aria-busy="true" className="flex flex-col gap-5">
