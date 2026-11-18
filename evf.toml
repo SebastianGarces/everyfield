@@ -13,6 +13,37 @@ name = "full-check"
 run = ["bin/dev", "check", "--full"]
 timeout_minutes = 25
 
+[[check]]
+name = "db-packages"
+run = ["sh", "-c", "set -e; export CI=true EARLY_ACCESS_TEST_DATABASE=1; corepack pnpm db:migrate; python3 packages/db/src/schema/generate.py --check; corepack pnpm --filter @everyfield/db test:db; corepack pnpm --filter @everyfield/evry test:db"]
+timeout_minutes = 30
+heavy = true
+
+[[check]]
+name = "census"
+run = ["sh", "-c", "set -e; export CI=true EARLY_ACCESS_TEST_DATABASE=1; corepack pnpm db:migrate; NEXT_TELEMETRY_DISABLED=1 corepack pnpm build; corepack pnpm --filter @everyfield/domain test:db; node --test tests/reference/server-trace.test.mjs"]
+timeout_minutes = 45
+heavy = true
+
+[slot_postgres]
+image = "pgvector/pgvector:0.8.7-pg18"
+database = "everyfield_ci"
+refuse_files = [
+  "apps/web/.env",
+  "apps/web/.env.local",
+  "apps/web/.env.production",
+  "apps/web/.env.production.local",
+]
+
+[signoff]
+context = "evf/checks"
+heavy_jobs = [
+  "db (@everyfield/db, evry)",
+  "domain (census part 1)",
+  "domain (census part 2)",
+  "domain (census part 3)",
+]
+
 [guards]
 heavy = [
   "tsc", "tsc *", "*/tsc", "*/tsc *", "env *tsc", "env *tsc *",
