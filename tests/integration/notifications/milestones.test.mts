@@ -10,7 +10,7 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import {
 	authorizeNotificationMail,
 	createNotificationWorker,
-} from "../../../apps/web/src/server/jobs/notification-worker.ts";
+} from "../../../apps/web/src/features/notifications/worker.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 
 after(S.teardown);

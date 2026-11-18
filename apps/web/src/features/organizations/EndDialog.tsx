@@ -14,7 +14,7 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { useState, type ReactNode } from "react";
-import { useIntent } from "./intent";
+import { useIntent } from "../../components/intent.ts";
 import { ProblemLine } from "./parts";
 import type { ReadHistory } from "./History";
 import type { Relationship } from "./port";

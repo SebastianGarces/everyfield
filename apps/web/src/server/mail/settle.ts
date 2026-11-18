@@ -1,8 +1,8 @@
 import "server-only";
 
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
-import { jobDatabase } from "../../server/database.ts";
-import { mailCallbackHandler } from "../../server/jobs/webhook.ts";
+import { jobDatabase } from "../database.ts";
+import { mailCallbackHandler } from "../jobs/webhook.ts";
 
 const secret = (() => {
 	const key = randomBytes(32);

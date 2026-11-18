@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { runDueObjectCleanup } from "../../../../apps/web/src/server/jobs/object-cleanup.ts";
-import { runDueImports } from "../../../../apps/web/src/server/people/run-imports.ts";
+import { runDueImports } from "../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { scheduledJobs } from "../../../../apps/web/src/server/jobs/scheduled.ts";
 import {
 	executeStoredImport,
