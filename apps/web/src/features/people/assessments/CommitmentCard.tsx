@@ -297,7 +297,7 @@ export function CommitmentCard({
 	const badge = STATE_BADGE[state];
 	return (
 		<Card className="min-w-0">
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
 						<CardTitle size="sm">Commitment</CardTitle>
@@ -307,7 +307,7 @@ export function CommitmentCard({
 							</StatusBadge>
 						) : null}
 					</div>
-					<CardDescription className="text-sm">
+					<CardDescription className="leading-(--text-sm--line-height)">
 						{initial === null ? (
 							"Did not load"
 						) : state === "unknown" ? (

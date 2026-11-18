@@ -1,6 +1,7 @@
-import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
+import { fileProblems, importProblem, resolveImport, routeFeatures } from "./boundaries.mjs";
 import { existsSync, readFileSync } from "node:fs";
-import { area, commentsExempt, ratchet, repoPath, sqlMarkers } from "./ratchet.mjs";
+import { join } from "node:path";
+import { area, commentsExempt, ratchet, repoPath, root, sqlMarkers } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
 const RESEND_HOST = "api.resend.com";
@@ -77,6 +78,64 @@ const privateCareScope = {
 			JSXIdentifier: (node) => check(node.name, node),
 			Literal: (node) => check(text(node), node),
 			TemplateElement: (node) => check(text(node), node),
+		};
+	},
+};
+
+export const TABLE_WRITERS = {
+	phase_transition: {
+		owner: "packages/domain/src/phases/",
+		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
+	},
+};
+const INSERT_INTO = /\binsert\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+
+const tableWriters = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		const report = (node, table) => {
+			const { owner, why } = TABLE_WRITERS[table];
+			if (!path.startsWith(owner))
+				context.report({
+					node,
+					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here.`,
+				});
+		};
+		const check = (value, node) => {
+			for (const [, table] of value?.matchAll(INSERT_INTO) ?? [])
+				if (Object.hasOwn(TABLE_WRITERS, table.toLowerCase())) report(node, table.toLowerCase());
+		};
+		const aliases = new Map();
+		const tableOf = (node) =>
+			node?.type === "Identifier"
+				? aliases.get(node.name)
+				: node?.type === "MemberExpression" && Object.hasOwn(TABLE_WRITERS, memberName(node))
+					? memberName(node)
+					: undefined;
+		const bind = (id, table) => {
+			if (id?.type === "Identifier" && table) aliases.set(id.name, table);
+		};
+		return {
+			Literal: (node) => check(text(node), node),
+			TemplateElement: (node) => check(text(node), node),
+			ImportSpecifier: (node) => {
+				const imported = nameOf(node.imported);
+				if (Object.hasOwn(TABLE_WRITERS, imported)) bind(node.local, imported);
+			},
+			VariableDeclarator: (node) => {
+				if (node.id.type === "Identifier") bind(node.id, tableOf(node.init));
+				if (node.id.type !== "ObjectPattern") return;
+				for (const p of node.id.properties) {
+					const key = p.type === "Property" ? keyName(p.key, p.computed) : null;
+					if (Object.hasOwn(TABLE_WRITERS, key))
+						bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, key);
+				}
+			},
+			CallExpression: (node) => {
+				const table = tableOf(node.arguments[0]);
+				if (memberName(node.callee) === "insert" && table) report(node, table);
+			},
 		};
 	},
 };
@@ -285,14 +344,12 @@ export const INTERACTIVE_ROLES = [
 	"tab",
 	"treeitem",
 ];
-const POINTER_HANDLERS = new Set([
-	"onClick",
-	"onDoubleClick",
-	"onMouseDown",
-	"onMouseUp",
-	"onPointerDown",
-	"onPointerUp",
-]);
+const POINTER_HANDLERS = new Set(
+	["onClick", "onDoubleClick", "onMouseDown", "onMouseUp", "onPointerDown", "onPointerUp"].flatMap((name) => [
+		name,
+		`${name}Capture`,
+	]),
+);
 const CURSOR_UTILITY = /^!?(?:[^\s:]+:)*!?cursor-(?:pointer|default|auto)!?$/;
 
 const nameOf = (node) => (node.type === "Identifier" ? node.name : node.value);
@@ -683,6 +740,22 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 		own,
 	);
 });
+
+export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
+const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
+const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
+
+const storageClient = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === STORAGE_MODULE || !PRODUCT_CODE.test(path)) return {};
+		const message = `Only ${STORAGE_MODULE} reaches the object store and signs its URLs: the browser gets the app's own authenticated routes, never a storage key or a signed URL.`;
+		return moduleSources((node, name) => {
+			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
+		});
+	},
+};
 
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
@@ -1229,24 +1302,28 @@ const literalAttribute = (element, name) => {
 	return value?.type === "Literal" && typeof value.value === "string" ? value.value : null;
 };
 
+const hostTag = (name) =>
+	name.type === "JSXIdentifier" ? name.name : name.type === "JSXMemberExpression" ? name.property.name : null;
+
 const acceptsHost = (host, element) => {
 	const [, tag, required] = host.match(/^([a-z]+)(?:\[([a-z-]+)\])?$/);
 	return (
-		element.name.name === tag &&
+		hostTag(element.name) === tag &&
 		(!required || element.attributes.some((a) => a.type === "JSXAttribute" && a.name.name === required))
 	);
 };
 
 const clickableHost = ratcheted("clickable-host", (context, push) => ({
 	JSXOpeningElement(node) {
-		if (node.name.type !== "JSXIdentifier" || !/^[a-z]/.test(node.name.name)) return;
+		const tag = hostTag(node.name);
+		if (!tag || !/^[a-z]/.test(tag)) return;
 		if (INTERACTIVE_HOSTS.some((host) => acceptsHost(host, node))) return;
 		const handler = node.attributes.find((a) => a.type === "JSXAttribute" && POINTER_HANDLERS.has(a.name.name));
 		if (!handler || INTERACTIVE_ROLES.includes(literalAttribute(node, "role"))) return;
 		push({
 			node: handler,
 			fn: enclosingName(node),
-			message: `${handler.name.name} on a <${node.name.name}> makes an element clickable that is not a control, so it gets no pointer cursor, focus or keyboard activation. Use a button, a link or a packages/ui primitive.`,
+			message: `${handler.name.name} on a <${tag}> makes an element clickable that is not a control, so it gets no pointer cursor, focus or keyboard activation. Use a button, a link or a packages/ui primitive.`,
 		});
 	},
 }));
@@ -1357,6 +1434,50 @@ const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
 	};
 });
 
+const READ_ROUTE = /^apps\/web\/src\/app\/(?:.+\/)?(?:page\.tsx|layout\.tsx|route\.ts)$/;
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const SERVER_ACTIONS = /^\s*["']use server["']/;
+
+const exportedNames = (statement) =>
+	statement.type !== "ExportNamedDeclaration"
+		? []
+		: statement.declaration
+			? statement.declaration.type === "VariableDeclaration"
+				? statement.declaration.declarations.map((d) => d.id.name)
+				: [statement.declaration.id?.name]
+			: statement.specifiers.map((s) => nameOf(s.exported));
+
+const isServerActions = (path) => {
+	try {
+		return SERVER_ACTIONS.test(readFileSync(join(root, path), "utf8"));
+	} catch {
+		return false;
+	}
+};
+
+const routeReads = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!READ_ROUTE.test(from)) return {};
+		const imports = [];
+		return {
+			...moduleSources((node, spec) => imports.push([node, spec])),
+			"Program:exit"(program) {
+				if (program.body.some((s) => exportedNames(s).some((name) => WRITE_METHODS.has(name)))) return;
+				for (const [node, spec] of imports) {
+					const to = resolveImport(from, spec).to;
+					if (to && isServerActions(to))
+						context.report({
+							node,
+							message: `A page, a layout and a GET route handler only read, so they never import a server action module (${spec} starts with "use server"). Read through the feature's routes or read module, and let it hand the action to the client as a prop.`,
+						});
+				}
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -1366,11 +1487,13 @@ export default {
 		"model-module": modelModule,
 		"no-inner-html": noInnerHtml,
 		"no-effects": noEffects,
+		"table-writers": tableWriters,
 		"max-state": maxState,
 		"no-timers": noTimers,
 		"request-actor": requestActor,
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
+		"storage-client": storageClient,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
@@ -1379,5 +1502,6 @@ export default {
 		"no-render-writes": noRenderWrites,
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
+		"route-reads": routeReads,
 	},
 };

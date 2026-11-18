@@ -3,9 +3,9 @@ import type { RequestActor } from "@everyfield/domain/access";
 import type { Database } from "@everyfield/db/client";
 import { readMyResidency, readResidentReading } from "@everyfield/domain/organizations";
 import "server-only";
-import { requestDatabase } from "../database";
-import { getViewer } from "../request-context";
-import type { ProgramAnswer } from "./programs";
+import { requestDatabase } from "../../server/database";
+import { getViewer } from "../../server/request-context";
+import type { ProgramAnswer } from "../organizations/programs/mount";
 
 export async function residentActor(): Promise<RequestActor | "signed_out" | null> {
 	const v = await getViewer();

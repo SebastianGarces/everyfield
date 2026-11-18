@@ -260,7 +260,7 @@ function CardsSection() {
 				)}
 
 				<Card as="section" aria-labelledby="card-scroll">
-					<CardHeader className="mb-2.5">
+					<CardHeader>
 						<CardHeading>
 							<CardTitle id="card-scroll" size="sm">
 								Header and scroll area
@@ -861,7 +861,7 @@ function OverlaysSection() {
 										Maria signed a commitment card on Oct 6. Moving her to core group adds her to the 50-person
 										benchmark count.
 									</p>
-									<CardInset className="mt-4 bg-surface">
+									<CardInset className="mt-4">
 										<div className="flex flex-wrap items-center gap-4">
 											<div>
 												<p className="text-sm text-text-3">Now</p>
@@ -1317,7 +1317,7 @@ function CompositionMap() {
 				aria-label="Feature compositions table"
 				tabIndex={0}
 				data-focus-inset=""
-				className="overflow-x-auto p-0"
+				className="overflow-x-auto"
 			>
 				<table className="w-full min-w-[620px] text-left text-md">
 					<thead className="text-sm text-text-3">
