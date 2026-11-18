@@ -209,6 +209,29 @@ export function Row({ on }) {
 	]);
 });
 
+test("INV-lint: a pointer handler on a motion element or in its capture phase is a clickable host like any other", () => {
+	const source = `import { motion } from "motion/react";
+import { m } from "@/components/motion/m";
+export function Card({ on }) {
+	return (
+		<section>
+			<motion.div onClick={on} />
+			<m.span onPointerDownCapture={on} />
+			<div onClickCapture={on} />
+			<motion.button onClick={on} />
+			<m.a href="/x" onClickCapture={on} />
+			<motion.div role="button" onClick={on} />
+		</section>
+	);
+}
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/Card.tsx": source }), [
+		"apps/web/src/features/x/Card.tsx:6 clickable-host",
+		"apps/web/src/features/x/Card.tsx:7 clickable-host",
+		"apps/web/src/features/x/Card.tsx:8 clickable-host",
+	]);
+});
+
 test("INV-lint: history writes, popstate, the Navigation API, the address fragment and an in-app address carrying a one-time link value are reported outside the location store, in every spelling", () => {
 	const source = `export function go(mode, href) {
 	window.history.pushState(null, "", href);
