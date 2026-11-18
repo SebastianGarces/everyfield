@@ -1,7 +1,7 @@
 import { privateStorage } from "@everyfield/db/schema";
 import { cleanupDatabase, jobDatabase } from "@/server/database";
 import { digestMailPass, digestsMount } from "@/server/jobs/digest";
-import { noticeMailPass, notificationsMount } from "@/server/jobs/notification-worker";
+import { noticeMailPass, notificationsMount } from "@/features/notifications/worker";
 import { tasksMount } from "@/features/tasks/mount";
 import { runDueInvitationMail } from "@/server/invitations";
 import { identityMailPass } from "@/server/identity";
@@ -10,7 +10,7 @@ import { onboardingMailPass } from "@/server/onboarding";
 import { settingsMailPass } from "@/features/settings/mail";
 import { feedbackMailPass } from "@/features/feedback/mail";
 import { feedbackPublicationMount } from "@/features/feedback/publication";
-import { deliveryTransport, mailReady, queuedMailTransport } from "@/features/communication/mail";
+import { deliveryTransport, mailReady, queuedMailTransport } from "@/server/mail/transport";
 import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
 import { assessmentsMount } from "@/server/jobs/assessment";
 

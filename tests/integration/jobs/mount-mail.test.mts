@@ -9,7 +9,7 @@ import { executeWrites } from "../../../packages/domain/src/operations/writes.ts
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
 import { resendRecorder } from "../communication/resend-recorder.mts";
-import { queuedMailTransport } from "../../../apps/web/src/features/communication/mail.ts";
+import { queuedMailTransport } from "../../../apps/web/src/server/mail/transport.ts";
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
