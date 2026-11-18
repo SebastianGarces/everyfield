@@ -57,7 +57,11 @@ export function HeroPanel({ eyebrow, headline, subhead, primary, secondary, note
 									{primary.label}
 								</ButtonLink>
 								{secondary ? (
-									<ButtonLink href={secondary.href} variant="secondary" className="!shadow-none hover:bg-cream">
+									<ButtonLink
+										href={secondary.href}
+										variant="secondary"
+										className="shadow-none hover:bg-cream hover:shadow-none"
+									>
 										{secondary.label}
 									</ButtonLink>
 								) : null}
