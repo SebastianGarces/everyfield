@@ -20,9 +20,9 @@ import { MeetingScreen } from "./MeetingScreen.tsx";
 import { MeetingsScreen } from "./MeetingsScreen.tsx";
 import { parseQuery, querySearch } from "./model.ts";
 import { RsvpScreen } from "./RsvpScreen.tsx";
-import { canWrite } from "../shared/seat-role.ts";
+import { canWrite } from "../../components/seat-role.ts";
 import { loadCheckIn, loadMeeting, loadMeetings, plantViewer, type Viewer } from "./server.ts";
-import { params } from "../shared/search-params.ts";
+import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {

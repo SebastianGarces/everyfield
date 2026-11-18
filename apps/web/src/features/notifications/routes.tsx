@@ -5,7 +5,7 @@ import { parseQuery, querySearch } from "./model.ts";
 import { NotificationsScreen } from "./NotificationsScreen.tsx";
 import { OptOutScreen, type OptOutView } from "./OptOutScreen.tsx";
 import { call, loadFeedPage, notificationActor, notificationsMount } from "./server.ts";
-import { params } from "../shared/search-params.ts";
+import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export const notificationsMetadata: Metadata = { title: "Notifications", robots: { index: false, follow: false } };

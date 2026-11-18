@@ -22,7 +22,7 @@ import { Await, createRead, useRead } from "../../components/read.tsx";
 import { changeVenue, createVenue, getVenue, listVenues } from "./actions.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
 import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
-import { MONTHS } from "../shared/dates.ts";
+import { MONTHS } from "../../components/dates.ts";
 
 type History = Extract<Awaited<ReturnType<typeof getVenue>>, { status: "ok" }>["value"];
 type Screen =

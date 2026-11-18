@@ -33,7 +33,7 @@ import type {
 	TrackingRow,
 } from "./model.ts";
 import { read as readMeeting } from "../meetings/server.ts";
-import { canWrite } from "../shared/seat-role.ts";
+import { canWrite } from "../../components/seat-role.ts";
 import { communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
 import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
 import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "./mail.ts";

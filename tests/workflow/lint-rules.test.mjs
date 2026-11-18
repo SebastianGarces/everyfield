@@ -517,10 +517,10 @@ test("INV-lint: imports across feature, route, platform and package boundaries a
 		"apps/web/src/features/tasks/model.ts": "export const a = 1;\n",
 		"apps/web/src/features/tasks/private.ts": "export const b = 1;\n",
 		"apps/web/src/features/shell/Frame.tsx": "export const d = 1;\n",
-		"apps/web/src/features/shared/dates.ts": `import { a } from "../tasks/model";\nexport const c = a;\n`,
+		"apps/web/src/components/dates.ts": `import { a } from "../features/tasks/model";\nexport const c = a;\n`,
 		"apps/web/src/features/people/Panel.tsx": `import { a } from "../tasks/model";
 import { b } from "@/features/tasks/private";
-import { c } from "../shared/dates";
+import { c } from "../../components/dates";
 import { d } from "../shell/Frame";
 import { e } from "@everyfield/domain/people/internal";
 import type { F } from "../../app/x/page";
@@ -565,6 +565,7 @@ export const w = [core, q, s, contract];
 			"apps/web/src/app/x/opengraph-image.tsx:2",
 			"apps/web/src/app/x/page.tsx:2",
 			"apps/web/src/app/x/page.tsx:4",
+			"apps/web/src/components/dates.ts:1",
 			"apps/web/src/features/people/Hidden.ts:1",
 			"apps/web/src/features/people/Hidden.ts:2",
 			"apps/web/src/features/people/Hidden.ts:3",
@@ -572,7 +573,6 @@ export const w = [core, q, s, contract];
 			"apps/web/src/features/people/Panel.tsx:4",
 			"apps/web/src/features/people/Panel.tsx:5",
 			"apps/web/src/features/people/Panel.tsx:6",
-			"apps/web/src/features/shared/dates.ts:1",
 			"apps/web/src/server/jobs/mail.ts:1",
 			"apps/web/src/server/tasks/index.ts:1",
 			"packages/contracts/src/index.ts:1",

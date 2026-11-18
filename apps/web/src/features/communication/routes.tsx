@@ -5,8 +5,8 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { CommunicationScreen } from "./CommunicationScreen.tsx";
 import { parseRoute, routeHref } from "./model.ts";
-import { params } from "../shared/search-params.ts";
-import { canWrite } from "../shared/seat-role.ts";
+import { params } from "../../components/search-params.ts";
+import { canWrite } from "../../components/seat-role.ts";
 import { communicationViewer, isReviewedFollowUp, loadCommunicationPage, type Viewer } from "./server.ts";
 
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {

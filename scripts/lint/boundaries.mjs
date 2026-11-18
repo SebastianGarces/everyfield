@@ -174,12 +174,7 @@ export function importProblem(from, spec, here = zone(from)) {
 			`${here.name}/ sits below the features and may not import features/${there.name} (${spec}). Move this code into features/${there.name}, or move what both need down into ${here.name}/ or a package.`,
 		];
 	}
-	if (there.name === here.name || there.name === "shared") return null;
-	if (here.name === "shared")
-		return [
-			"shared-leaf",
-			`features/shared imports no feature (${spec}). Move what it needs into features/shared too.`,
-		];
+	if (there.name === here.name) return null;
 	if (data.compositionFeatures.includes(there.name)) {
 		if (data.exceptions.includes(`${from} ${t.to}`)) return null;
 		return [
@@ -192,7 +187,7 @@ export function importProblem(from, spec, here = zone(from)) {
 
 const deep = ({ name, rest }) => [
 	"feature-deep",
-	`features/${name}/${rest} is private to features/${name}. Import a file features/${name} lists as public in scripts/lint/boundaries/apps-web-features-${name}.json, add this file to that list with its reason if other features are meant to use it, or move code several features share down into features/shared, apps/web/src/components or a package.`,
+	`features/${name}/${rest} is private to features/${name}. Import a file features/${name} lists as public in scripts/lint/boundaries/apps-web-features-${name}.json, add this file to that list with its reason if other features are meant to use it, or move code several features share down into apps/web/src/components or a package.`,
 ];
 
 export function fileProblems(from, program) {
@@ -208,7 +203,7 @@ export function fileProblems(from, program) {
 		problems.push([
 			program,
 			"app-file",
-			"app/ holds route files and Next metadata files only. Move this module into the feature it serves (or features/shared) and import it from there.",
+			"app/ holds route files and Next metadata files only. Move this module into the feature it serves (or apps/web/src/components) and import it from there.",
 		]);
 	if (
 		isRouteFile(from) &&
@@ -229,8 +224,7 @@ export function routeFeatures(from, imports) {
 	const features = new Map();
 	for (const [node, spec] of imports) {
 		const there = zone(resolveImport(from, spec).to ?? "");
-		if (there.kind === "feature" && there.name !== "shared" && !features.has(there.name))
-			features.set(there.name, node);
+		if (there.kind === "feature" && !features.has(there.name)) features.set(there.name, node);
 	}
 	if (features.size < 2) return null;
 	const [, [, node]] = [...features];
