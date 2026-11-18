@@ -6,20 +6,6 @@ import { FastCheckError, mergeBase } from "./fast-check.ts";
 type Trigger = { paths?: string[]; added?: string };
 type Item = { id: string; trigger: Trigger; check: string; source: string };
 
-export const CHECKLIST = "docs/reliability-checklist.json";
-export const NO_MATCH = "No checklist items match this diff.";
-
-function parse(text: string): Item[] {
-	const items: unknown = JSON.parse(text);
-	const valid = (item: Item) =>
-		["id", "check", "source"].every((key) => typeof item[key as keyof Item] === "string") &&
-		typeof item.trigger === "object" &&
-		(Array.isArray(item.trigger.paths) || typeof item.trigger.added === "string");
-	if (!Array.isArray(items) || !items.every(valid))
-		throw new FastCheckError(`${CHECKLIST} is malformed; run python3 docs/check-all.py.`);
-	return items;
-}
-
 function addedLines(root: string, sha: string): Map<string, string[]> {
 	const run = spawnSync("git", ["diff", "--no-color", "--no-ext-diff", "--no-renames", "-U0", sha, "HEAD"], {
 		cwd: root,
@@ -39,7 +25,7 @@ function addedLines(root: string, sha: string): Map<string, string[]> {
 	return files;
 }
 
-export function matching(items: Item[], files: Map<string, string[]>): Item[] {
+function matching(items: Item[], files: Map<string, string[]>): Item[] {
 	return items.filter(({ trigger }) => {
 		const added = trigger.added === undefined ? undefined : new RegExp(trigger.added);
 		return [...files].some(
@@ -50,12 +36,12 @@ export function matching(items: Item[], files: Map<string, string[]>): Item[] {
 	});
 }
 
-export function render(items: Item[]): string {
-	if (!items.length) return NO_MATCH;
+function render(items: Item[]): string {
+	if (!items.length) return "No checklist items match this diff.";
 	return items.map((item) => `${item.id}\n  Check: ${item.check}\n  Source: ${item.source}`).join("\n\n");
 }
 
 export function checklist(root: string, baseRef?: string): string {
-	const items = parse(readFileSync(join(root, CHECKLIST), "utf8"));
+	const items: Item[] = JSON.parse(readFileSync(join(root, "docs/reliability-checklist.json"), "utf8"));
 	return render(matching(items, addedLines(root, mergeBase(root, baseRef).sha)));
 }
