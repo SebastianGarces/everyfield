@@ -5,7 +5,7 @@ import { Button, Card, CardBody, Field, Input, PageHeader, Radio, RadioGroup, Se
 import { useRouter } from "next/navigation";
 import { useActionState, useState, type ReactNode } from "react";
 import { PIPELINE_PATH } from "../board/model";
-import { Problem } from "../board/Problem";
+import { Problem } from "../../../components/Problem.tsx";
 import { createProgram } from "./actions";
 import { programHref, programProblem, PROGRAMS_PATH } from "./model";
 import { PlanEditor, planFrom, type PlanDraft } from "./PlanEditor";
