@@ -278,6 +278,7 @@ test("INV-census: a statement sent once per row fails as N+1 inside its budget u
 	const shape = "insert into note (id, body) values (?)";
 	const rows = [
 		sample("people.addNotes", 4, 3, 0, { [shape]: 3 }),
+		sample("people.addNotes", 6, 5, 0, { [shape]: 5 }),
 		sample("people.addNote", 4, 2, 0, { [shape]: 2 }),
 		sample("people.addNote", 9, 3, 1, { [shape]: 6 }),
 		sample("GET /people", 5, 0, 0, { "select * from person where id = ?": 4 }),
@@ -288,7 +289,7 @@ test("INV-census: a statement sent once per row fails as N+1 inside its budget u
 		"GET /people": { limit: 5 },
 	};
 	assert.deepEqual(checkSamples(rows, limits), [
-		`people.addNotes: N+1, sends the same statement 3 times in one run: ${shape}; batch it into one set-based statement, or give limits.json a repeats reason`,
+		`people.addNotes: N+1, sends the same statement 5 times in one run: ${shape}; batch it into one set-based statement, or give limits.json a repeats reason`,
 		"GET /people: N+1, sends the same statement 4 times in one run: select * from person where id = ?; batch it into one set-based statement, or give limits.json a repeats reason",
 	]);
 	const explained = {

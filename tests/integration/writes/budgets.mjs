@@ -86,6 +86,7 @@ function measure(rows, limits) {
 			(row.writes > 0 || Object.hasOwn(limits, budgetName(limits, row.name))),
 	);
 	const measured = new Map();
+	const repeated = new Map();
 	for (const sample of samples) {
 		const name = budgetName(limits, sample.name);
 		const budget = limits[name];
@@ -104,11 +105,15 @@ function measure(rows, limits) {
 			);
 		for (const [shape, count] of perRow(sample)) {
 			entry.repeated = true;
-			if (!budget.repeats?.trim())
-				problems.push(
-					`${sample.name}: N+1, sends the same statement ${count} times in one run: ${shape.slice(0, 200)}; batch it into one set-based statement, or give limits.json a repeats reason`,
-				);
+			const key = name + "\0" + shape;
+			if (!budget.repeats?.trim()) repeated.set(key, Math.max(count, repeated.get(key) ?? 0));
 		}
+	}
+	for (const [key, count] of repeated) {
+		const [name, shape] = key.split("\0");
+		problems.push(
+			`${name}: N+1, sends the same statement ${count} times in one run: ${shape.slice(0, 200)}; batch it into one set-based statement, or give limits.json a repeats reason`,
+		);
 	}
 	return { problems, measured };
 }

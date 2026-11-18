@@ -431,7 +431,8 @@
 	},
 	"branding/files.uploadBrandAsset": {
 		"limit": 13,
-		"reason": "One statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 4 read, 3 write, 4 transaction, 2 locked read."
+		"reason": "One statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 4 read, 3 write, 4 transaction, 2 locked read.",
+		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. One upload stores one file, so the check repeats three times."
 	},
 	"documents.acceptTemplateChanges": {
 		"limit": 3
@@ -469,11 +470,13 @@
 	"documents.exportNative": {
 		"limit": 22,
 		"retry": 26,
-		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset reads the logo in 8 statements whatever the timing. putPrivateObject claims the file in one transaction (inserting it unless a rival already did) and, unless the file is already ready, finalizes it in a second, so the provider call holds no lock; an update that finds the rival already finalized adds one replay read. Then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write. A race winner whose rival claimed the file: 6 read, 8 transaction, 4 locked read, 3 write. A caller that finds the rival's row in its first read: 2 read. The loser of a same-request-key race finds the winner's row, then reads the winner's saved export in a rerun of one statement: begin, the row with its file and gate, commit. Its runs: it finds the file ready, 6 read, 8 transaction, 4 locked read, 1 write; it finalizes the rival's claim first, 7 read, 10 transaction, 4 locked read, 3 write; the rival finalized first, 8 read, 10 transaction, 4 locked read, 3 write; it claimed and finalized first, 7 read, 10 transaction, 4 locked read, 4 write; it claimed first and the rival finalized first (issue #758), 8 read, 10 transaction, 4 locked read, 4 write, the most: each step above runs at most once, and the INV-idempotency double-export test in documents/church.test.mts forces this order on every census."
+		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset reads the logo in 8 statements whatever the timing. putPrivateObject claims the file in one transaction (inserting it unless a rival already did) and, unless the file is already ready, finalizes it in a second, so the provider call holds no lock; an update that finds the rival already finalized adds one replay read. Then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write. A race winner whose rival claimed the file: 6 read, 8 transaction, 4 locked read, 3 write. A caller that finds the rival's row in its first read: 2 read. The loser of a same-request-key race finds the winner's row, then reads the winner's saved export in a rerun of one statement: begin, the row with its file and gate, commit. Its runs: it finds the file ready, 6 read, 8 transaction, 4 locked read, 1 write; it finalizes the rival's claim first, 7 read, 10 transaction, 4 locked read, 3 write; the rival finalized first, 8 read, 10 transaction, 4 locked read, 3 write; it claimed and finalized first, 7 read, 10 transaction, 4 locked read, 4 write; it claimed first and the rival finalized first (issue #758), 8 read, 10 transaction, 4 locked read, 4 write, the most: each step above runs at most once, and the INV-idempotency double-export test in documents/church.test.mts forces this order on every census.",
+		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. A saved export reads one logo, so the check repeats a fixed three to five times."
 	},
 	"documents.generate": {
 		"limit": 31,
-		"reason": "The saved file is stored before the generated row. With a brand kit the render first reads the church theme's images (T-190): readBrandAsset claims and finalizes each file in its own transactions, 8 statements an image, and an outward-facing card reads the logo and the cover photo. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run, a card with both images: 9 read, 12 transaction, 6 locked read, 4 write. With no kit: 5 read, 4 transaction, 2 locked read, 4 write."
+		"reason": "The saved file is stored before the generated row. With a brand kit the render first reads the church theme's images (T-190): readBrandAsset claims and finalizes each file in its own transactions, 8 statements an image, and an outward-facing card reads the logo and the cover photo. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run, a card with both images: 9 read, 12 transaction, 6 locked read, 4 write. With no kit: 5 read, 4 transaction, 2 locked read, 4 write.",
+		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. A brand kit adds one read per theme image, the logo and the cover photo at most, so the check repeats at most seven times."
 	},
 	"documents.history.get": {
 		"limit": 1
@@ -483,13 +486,15 @@
 	},
 	"documents.importTextOrWord": {
 		"limit": 14,
-		"reason": "An import stores the original bytes before the native revision. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement writes the revision and its audit. Its largest first run: 4 read, 4 transaction, 2 locked read, 4 write."
+		"reason": "An import stores the original bytes before the native revision. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement writes the revision and its audit. Its largest first run: 4 read, 4 transaction, 2 locked read, 4 write.",
+		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. One import stores one file, so the check repeats three times."
 	},
 	"documents.listCopySources": {
 		"limit": 1
 	},
 	"documents.preview": {
-		"limit": 17
+		"limit": 17,
+		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. A preview reads the theme's logo and cover photo at most, so the check and the file row repeat four times."
 	},
 	"documents.printAgenda": {
 		"limit": 1
@@ -697,11 +702,13 @@
 	},
 	"lifecycle.purge": {
 		"limit": 28,
-		"reason": "Background deletion after the cancellation deadline, not a user request (RT-6a reviewed, kept). Three committed stages around the external storage removal so a crash resumes at the right stage: each stage authorizes, locks the root and re-reads the witness; the content purge and subject purge are one database function each; the owned-file removal adds its own claim and purge statements. The scheduled worker (T-128) authorizes each stage with its job's claim fence (one locked read per stage) and lists the subject's files once (one read), so a lost lease stops the purge before it writes. Largest run, one owned file: 8 transaction, 10 locked read, 7 read, 3 write."
+		"reason": "Background deletion after the cancellation deadline, not a user request (RT-6a reviewed, kept). Three committed stages around the external storage removal so a crash resumes at the right stage: each stage authorizes, locks the root and re-reads the witness; the content purge and subject purge are one database function each; the owned-file removal adds its own claim and purge statements. The scheduled worker (T-128) authorizes each stage with its job's claim fence (one locked read per stage) and lists the subject's files once (one read), so a lost lease stops the purge before it writes. Largest run, one owned file: 8 transaction, 10 locked read, 7 read, 3 write.",
+		"repeats": "Each of the three committed stages runs its claim fence and re-reads the account, the plant and the deletion request, so those statements repeat once per stage, three times, not per row."
 	},
 	"mail.dispatch": {
 		"limit": 21,
-		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, mail lock, lifecycle and seat reads, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 25 on main after #257); the repeated fence and finishClaim statements belong to the shared WP-031 queue (RT-6 finishClaim follow-up)."
+		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, mail lock, lifecycle and seat reads, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 25 on main after #257); the repeated fence and finishClaim statements belong to the shared WP-031 queue (RT-6 finishClaim follow-up).",
+		"repeats": "The queue's claim fence (lockClaim) opens each transaction of one mail's dispatch: before the provider call, after it, and in finishClaim, with a fourth when the job checkpoints. A fixed count per mail, not per row."
 	},
 	"mail.enqueue": {
 		"limit": 3
@@ -1480,7 +1487,8 @@
 	"people/fields/index.uploadPersonPhoto": {
 		"limit": 16,
 		"retry": 4,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 6 transaction, 3 locked read, 4 read, 3 write."
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 6 transaction, 3 locked read, 4 read, 3 write.",
+		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. One upload stores one file, so the seat check repeats four times."
 	},
 	"pipeline.addNote": {
 		"limit": 4,
@@ -1688,7 +1696,8 @@
 	},
 	"settings/avatar.uploadAvatar": {
 		"limit": 12,
-		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 2 locked read, 3 read, 3 write."
+		"reason": "Above the pattern today; RT-6 reviews it. Its largest first run: 4 transaction, 2 locked read, 3 read, 3 write.",
+		"repeats": "The private storage protocol (putPrivateObject, readAuthorizedObject) runs the caller's authority check, and reads the stored file row, in each of its short transactions (claim, finalize, and a replay read when a rival finished first) so the provider call holds no lock. One upload stores one file, so the account check repeats three times."
 	},
 	"settings/core.withSettingsWrite": {
 		"limit": 9,
@@ -2123,7 +2132,8 @@
 	"assessments.job.runNext": {
 		"limit": 19,
 		"retry": 9,
-		"reason": "One assessment job claim run to its outcome, in the scheduled tick and never in a request: the claim with its stored run (1); for a new demand the repeatable-read snapshot transaction that stores the pending run (BEGIN, lock timeout, the facts statement, the retrieval statement under a savepoint, the run insert, COMMIT: 8); one fenced reservation before each provider dispatch (at most 12 across three drafts); on the paid model (D92) each dispatch also reserves its worst case in model_spend and settles it (2 more, 1 when the call fails or reports its whole reservation); then the source revision recheck and one statement that publishes or settles the run with its audit row and the job's end (2). The suites' longest run is 19: a capture and three rejected paid drafts. A resumed run skips the capture. The retry is a degraded run whose savepoint rolled back when the methodology could not be read."
+		"reason": "One assessment job claim run to its outcome, in the scheduled tick and never in a request: the claim with its stored run (1); for a new demand the repeatable-read snapshot transaction that stores the pending run (BEGIN, lock timeout, the facts statement, the retrieval statement under a savepoint, the run insert, COMMIT: 8); one fenced reservation before each provider dispatch (at most 12 across three drafts); on the paid model (D92) each dispatch also reserves its worst case in model_spend and settles it (2 more, 1 when the call fails or reports its whole reservation); then the source revision recheck and one statement that publishes or settles the run with its audit row and the job's end (2). The suites' longest run is 19: a capture and three rejected paid drafts. A resumed run skips the capture. The retry is a degraded run whose savepoint rolled back when the methodology could not be read.",
+		"repeats": "The claim fence runs before each provider dispatch, and on the paid model each dispatch reserves and settles model_spend: a capture and at most three drafts, so up to four, bounded by the draft limit, not by rows."
 	},
 	"assessments.listRunsForReview": {
 		"limit": 1
