@@ -1,4 +1,4 @@
-import { pipelineActor, pipelinePeopleRead } from "@/server/organizations/pipeline";
+import { pipelineActor, pipelinePeopleRead } from "../pipeline-mount";
 import { listOrganizationDuplicatePairs } from "@everyfield/domain/people";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
