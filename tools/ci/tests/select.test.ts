@@ -125,6 +125,7 @@ test("INV-ci-select: selection table: docs, one package, tools, lockfile, workfl
 				typecheck: "package source: packages/ui/src/controls/Button.tsx",
 				"test:unit": "package source: packages/ui/src/controls/Button.tsx",
 				"test:db": "package source: packages/ui/src/controls/Button.tsx",
+				"feature-maps": "feature map input: packages/ui/src/controls/Button.tsx",
 			},
 			tests: {},
 			filters: ["...@everyfield/ui"],
@@ -137,6 +138,7 @@ test("INV-ci-select: selection table: docs, one package, tools, lockfile, workfl
 				typecheck: "package source: packages/db/src/client.ts",
 				"test:unit": "package source: packages/db/src/client.ts",
 				"test:db": "package source: packages/db/src/client.ts",
+				"feature-maps": "feature map input: packages/db/src/client.ts",
 			},
 			tests: {},
 			filters: ["...@everyfield/db"],
@@ -209,6 +211,7 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				typecheck: "package test outside its package: tests/integration/db/unit.test.mts",
 				"test:unit": "package test outside its package: tests/integration/db/unit.test.mts",
 				"test:db": "package test outside its package: tests/integration/db/unit.test.mts",
+				"feature-maps": "feature map input: tests/integration/db/unit.test.mts",
 				"ci-coverage": "package test outside its package: tests/integration/db/unit.test.mts",
 			},
 			tests: {},
@@ -222,6 +225,7 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				typecheck: "package test outside its package: tests/evry/runtime/turn.test.mts",
 				"test:unit": "package test outside its package: tests/evry/runtime/turn.test.mts",
 				"test:db": "package test outside its package: tests/evry/runtime/turn.test.mts",
+				"feature-maps": "feature map input: tests/evry/runtime/turn.test.mts",
 				"ci-coverage": "package test outside its package: tests/evry/runtime/turn.test.mts",
 			},
 			tests: {},
@@ -235,6 +239,7 @@ test("INV-ci-select: the map selects through child-process coverage and package 
 				typecheck: "package test outside its package: tests/unit/tasks/model.test.mjs",
 				"test:unit": "package test outside its package: tests/unit/tasks/model.test.mjs",
 				"test:db": "package test outside its package: tests/unit/tasks/model.test.mjs",
+				"feature-maps": "feature map input: tests/unit/tasks/model.test.mjs",
 				"ci-coverage": "package test outside its package: tests/unit/tasks/model.test.mjs",
 			},
 			tests: {},
@@ -251,6 +256,7 @@ test("INV-ci-select: tests that read files as text are selected when those files
 				typecheck: "package source: packages/evry/src/adapters/people/reads/list.ts",
 				"test:unit": "package source: packages/evry/src/adapters/people/reads/list.ts",
 				"test:db": "package source: packages/evry/src/adapters/people/reads/list.ts",
+				"feature-maps": "feature map input: packages/evry/src/adapters/people/reads/list.ts",
 				workflow: "runs tests/workflow/evry-evals-coverage.test.mjs",
 			},
 			tests: {
@@ -281,6 +287,7 @@ test("INV-ci-select: tests that read files as text are selected when those files
 				typecheck: "package source: apps/web/src/features/settings/actions.ts",
 				"test:unit": "package source: apps/web/src/features/settings/actions.ts",
 				"test:db": "package source: apps/web/src/features/settings/actions.ts",
+				"feature-maps": "feature map input: apps/web/src/features/settings/actions.ts",
 				workflow: "runs tests/workflow/server-logs.test.mjs",
 			},
 			tests: {
@@ -289,6 +296,23 @@ test("INV-ci-select: tests that read files as text are selected when those files
 			filters: ["...@everyfield/web"],
 		}),
 	);
+	await t.test("INV-ci-select: a feature map or the operation catalog runs the feature-maps check", () => {
+		const featureMap = "apps/web/src/features/people/feature-map.json";
+		const catalog = "docs/catalog/operations.json";
+		assertSelected(selectChecks([featureMap, catalog], map, context), {
+			checks: {
+				lint: `package source: ${featureMap}`,
+				typecheck: `package source: ${featureMap}`,
+				"test:unit": `package source: ${featureMap}`,
+				"test:db": `package source: ${featureMap}`,
+				docs: `documentation: ${catalog}`,
+				"feature-maps": `feature map input: ${featureMap}; feature map input: ${catalog}`,
+				workflow: "runs tests/workflow/server-logs.test.mjs",
+			},
+			tests: { "tests/workflow/server-logs.test.mjs": `web app under a dev server: ${featureMap}` },
+			filters: ["...@everyfield/web"],
+		});
+	});
 	await t.test("INV-ci-select: a file read as text, or under a listed directory, reaches the test via the map", () =>
 		assertSelected(
 			selectChecks(

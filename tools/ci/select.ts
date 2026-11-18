@@ -4,6 +4,7 @@ export const CHECKS = {
 	lint: { kind: "package", script: "lint" },
 	typecheck: { kind: "package", script: "typecheck" },
 	"test:unit": { kind: "package", script: "test:unit" },
+	"feature-maps": { kind: "command", command: ["node", "tools/ci/feature-maps.ts", "--check"] },
 	"test:db": { kind: "package", script: "test:db" },
 	docs: { kind: "command", command: ["python3", "docs/check-all.py"] },
 	"ci-coverage": { kind: "command", command: ["node", "tools/ci/ci-tests.ts"] },
@@ -86,6 +87,20 @@ export const RULES: readonly Rule[] = [
 		checks: ["docs"],
 	},
 	{ name: "wiki tool", paths: ["tools/wiki/**"], checks: ["docs"] },
+	{
+		name: "feature map input",
+		paths: [
+			"apps/web/**",
+			"packages/*/src/**",
+			"docs/catalog/**",
+			"docs/feature-maps/**",
+			"tests/integration/**",
+			"tests/evry/**",
+			"tests/ui/**",
+			"tests/unit/**",
+		],
+		checks: ["feature-maps"],
+	},
 	{
 		name: "role prompts and evf roles",
 		paths: [".agents/role-prompts/**", ".agents/roles/**", "evf.toml"],

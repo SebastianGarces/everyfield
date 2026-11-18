@@ -106,7 +106,7 @@ test("T-41 a one-package change runs its package checks through the merge-base a
 	assert.equal(record.mergeBase, base);
 	assert.equal(record.mode, "selected");
 	assert.equal(record.result, "passed");
-	assert.deepEqual(ran(record), ["lint", "typecheck", "test:unit", "test:db"]);
+	assert.deepEqual(ran(record), ["lint", "typecheck", "test:unit", "feature-maps", "test:db"]);
 	const filter = `--filter ...[${base}] --filter ...@everyfield/ui`;
 	assert.deepEqual(
 		record.checks.filter((c) => c.run).map(({ id, command, result, tests }) => ({ id, command, result, tests })),
@@ -114,6 +114,12 @@ test("T-41 a one-package change runs its package checks through the merge-base a
 			{ id: "lint", command: `corepack pnpm ${filter} --if-present run lint`, result: "passed", tests: null },
 			{ id: "typecheck", command: null, result: "skipped", tests: null },
 			{ id: "test:unit", command: `corepack pnpm ${filter} --if-present run test:unit`, result: "passed", tests: 5 },
+			{
+				id: "feature-maps",
+				command: `${process.execPath} tools/ci/feature-maps.ts --check`,
+				result: "passed",
+				tests: null,
+			},
 			{ id: "test:db", command: null, result: "skipped", tests: null },
 		],
 	);
@@ -222,6 +228,7 @@ test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs e
 		"lint",
 		"typecheck",
 		"test:unit",
+		"feature-maps",
 		"test:db",
 		"docs",
 		"ci-coverage",

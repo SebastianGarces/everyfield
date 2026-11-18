@@ -270,8 +270,9 @@ test("at send time a notice goes only to an account still seated, at the same ad
 		],
 		[
 			"personal deletion pending",
-			(a) =>
-				admin.insert(t.lifecycle_witness).values({
+			(a) => {
+				const now = Date.now();
+				return admin.insert(t.lifecycle_witness).values({
 					kind: "account",
 					opaque_subject_id: a.id,
 					account_id: a.id,
@@ -280,11 +281,12 @@ test("at send time a notice goes only to an account still seated, at the same ad
 					requester_opaque_id: a.id,
 					request_revision: "1",
 					state: "pending_deletion",
-					requested_at: new Date(),
-					cancel_until: new Date(Date.now() + 30 * 86400_000),
+					requested_at: new Date(now),
+					cancel_until: new Date(now + 30 * 86400_000),
 					witness_checkpoint: "1",
 					cleanup_state: "not_started",
-				}),
+				});
+			},
 		],
 	];
 	for (const [name, change] of changes) {
@@ -319,6 +321,7 @@ test("replays and refusals queue no notice", async () => {
 
 	const late = await church();
 	const requestId = randomUUID();
+	const now = Date.now();
 	await admin.insert(t.lifecycle_witness).values({
 		kind: "plant",
 		opaque_subject_id: late.p.id,
@@ -328,8 +331,8 @@ test("replays and refusals queue no notice", async () => {
 		requester_opaque_id: late.owner.id,
 		request_revision: "1",
 		state: "pending_deletion",
-		requested_at: new Date(Date.now() - 31 * 86400_000),
-		cancel_until: new Date(Date.now() - 86400_000),
+		requested_at: new Date(now - 31 * 86400_000),
+		cancel_until: new Date(now - 86400_000),
 		witness_checkpoint: "1",
 		cleanup_state: "not_started",
 	});
