@@ -308,8 +308,10 @@ reaches agree with `shellNav` both ways for every persona; personas are QA seed 
 and residency link match what the seed creates; a behavior proof checks more than the address after it acts;
 on a surface that polls, a waiting check follows every open, click, press and upload; and every name, label
 and text in a step equals (or, for `contains`, is part of) a string literal or JSX text, comments excluded, in the
-feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly) or the QA seed, or was
-typed earlier in the same steps.
+feature's folder, `packages/ui/src`, the shell (each with the modules it imports directly, by a relative or `@/`
+path, and the JSON files those modules import) or the QA seed, or was typed earlier in the same steps. The app
+map (`apps/web/src/app/feature-map.json`) owns the routes no one feature does, such as the public site, and
+its folder is all of `apps/web/src/app`.
 
 It cannot catch, and only running the browser steps catches:
 
