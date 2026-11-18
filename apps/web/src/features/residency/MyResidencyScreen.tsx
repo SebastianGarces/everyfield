@@ -27,8 +27,8 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { markSubjectRead } from "../notifications/actions";
 import { useReadElsewhere } from "../notifications/feed";
-import { formatDay } from "../organizations/board/model";
-import { Problem } from "../organizations/board/Problem";
+import { formatPlainDate } from "../../components/dates.ts";
+import { Problem } from "../../components/Problem.tsx";
 import { programProblem, KIND } from "../organizations/programs/model";
 import { useResidency } from "./context.ts";
 import { markMilestone } from "./actions";
@@ -141,8 +141,8 @@ function EnrollmentView({
 						<NextMeeting meeting={e.nextMeeting} timezone={residency.timezone} church={church} />
 						<dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm">
 							<Detail term="Cohort">{e.cohort}</Detail>
-							<Detail term="Started">{formatDay(e.startedOn)}</Detail>
-							<Detail term="Expected end">{formatDay(e.expectedEndOn)}</Detail>
+							<Detail term="Started">{formatPlainDate(e.startedOn)}</Detail>
+							<Detail term="Expected end">{formatPlainDate(e.expectedEndOn)}</Detail>
 						</dl>
 					</CardBody>
 				</Card>
@@ -299,12 +299,12 @@ function MilestoneRow({
 					{m.description ? <span className="[overflow-wrap:anywhere] text-text-2">{m.description}</span> : null}
 					{c?.confirmedOn ? (
 						<span className="text-ink">
-							Confirmed {formatDay(c.confirmedOn)}
-							<span className="text-text-2"> · Completed {formatDay(c.completedOn)}</span>
+							Confirmed {formatPlainDate(c.confirmedOn)}
+							<span className="text-text-2"> · Completed {formatPlainDate(c.completedOn)}</span>
 						</span>
 					) : c ? (
 						<span className="text-amber-600">
-							Waiting for {director} to confirm · Marked done {formatDay(c.completedOn)}
+							Waiting for {director} to confirm · Marked done {formatPlainDate(c.completedOn)}
 						</span>
 					) : (
 						<span className="text-text-3">Not done yet</span>
@@ -328,7 +328,7 @@ function MilestoneRow({
 							<li key={f.id} className="flex flex-col gap-0.5 text-sm">
 								<span className="whitespace-pre-wrap [overflow-wrap:anywhere] text-ink">{f.body}</span>
 								<span className="text-xs text-text-3">
-									{f.writer ?? "Former staff"} · {formatDay(f.writtenOn)}
+									{f.writer ?? "Former staff"} · {formatPlainDate(f.writtenOn)}
 								</span>
 							</li>
 						))}
