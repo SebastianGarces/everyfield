@@ -14,7 +14,7 @@ import {
 } from "../../../../../packages/evry/src/index.ts";
 import { READ_DOMAINS } from "../../../../../packages/evry/src/catalog/catalog.ts";
 import { ORGANIZATION_COMMANDS } from "../../../../../packages/evry/src/adapters/people-organization/commands/index.ts";
-import { runDueImports } from "../../../../../apps/web/src/server/people/run-imports.ts";
+import { runDueImports } from "../../../../../apps/web/src/features/people/import-export/run-imports.ts";
 import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
 import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
 import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../../runtime/support.mts";
