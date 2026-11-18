@@ -811,6 +811,36 @@
 					}
 				}
 			]
+		},
+		{
+			"id": "communication.delivery-callbacks",
+			"says": "The Resend webhook that records delivery, bounce and open callbacks for sent mail: it refuses any method but a signed POST.",
+			"routes": [],
+			"endpoints": ["/api/webhooks/resend"],
+			"reach": [
+				{
+					"link": "/api/webhooks/resend"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "refused",
+					"reach": {
+						"persona": "visitor",
+						"open": "/api/webhooks/resend",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/api/webhooks/resend"
+						}
+					]
+				}
+			],
+			"behaviors": []
 		}
 	]
 }

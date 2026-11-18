@@ -8,6 +8,7 @@ flowchart LR
   rail(["rail"])
   s0_link1(["link /communication?message={communicationId}"])
   s3_link0(["email unsubscribeUrl"])
+  s4_link0(["link /api/webhooks/resend"])
   s0["communication.messages<br/>/communication"]
   rail -- "Messages" --> s0
   s0_link1 --> s0
@@ -34,6 +35,9 @@ flowchart LR
   s3 -.- s3_st0(("invalid"))
   s3 -.- s3_st1(("open (setup)"))
   s3 --- s3_b0["unsubscribe-and-undo<br/>tests + cases + browser behavior"]
+  s4["communication.delivery-callbacks<br/>no page"]
+  s4_link0 --> s4
+  s4 -.- s4_st0(("refused"))
 ```
 
 ## Surfaces
@@ -388,3 +392,26 @@ agent-browser find role button click --name "Undo" --exact
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "You will get email from"
 ```
+
+### communication.delivery-callbacks
+
+The Resend webhook that records delivery, bounce and open callbacks for sent mail: it refuses any method but a signed POST.
+
+- Routes: none
+- Endpoints: `/api/webhooks/resend`
+- Personas: `visitor` read
+
+Reach:
+
+- Link `/api/webhooks/resend`
+
+States:
+
+- **refused**: URL `/api/webhooks/resend`. As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/api/webhooks/resend"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/api/webhooks/resend"
+```
+

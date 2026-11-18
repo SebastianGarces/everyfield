@@ -6,10 +6,14 @@ Personas, sign-in and what the checker cannot catch: [README](README.md).
 ```mermaid
 flowchart LR
   s0_link0(["link /design/access/{flow}"])
+  s1_link0(["link /api/cron/access-retention"])
   s0["access.design-preview<br/>/design/access/[flow]"]
   s0_link0 --> s0
   s0 -.- s0_st0(("staff-notes"))
   s0 -.- s0_st1(("pending"))
+  s1["access.request-retention<br/>no page"]
+  s1_link0 --> s1
+  s1 -.- s1_st0(("refused"))
 ```
 
 ## Surfaces
@@ -44,5 +48,27 @@ agent-browser open "$ORIGIN/design/access/pending"
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Finish setting up" --exact
 agent-browser find role link text --name "Set up your church" --exact
+```
+
+### access.request-retention
+
+The daily cron that expires old early-access requests: it refuses any caller without the cron secret.
+
+- Routes: none
+- Endpoints: `/api/cron/access-retention`
+- Personas: `visitor` read
+
+Reach:
+
+- Link `/api/cron/access-retention`
+
+States:
+
+- **refused**: URL `/api/cron/access-retention`. As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/api/cron/access-retention"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/api/cron/access-retention"
 ```
 

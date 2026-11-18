@@ -3,10 +3,7 @@
 	"routes": [
 		"/",
 		"/access",
-		"/api/cron/access-retention",
 		"/api/cron/jobs",
-		"/api/health",
-		"/api/webhooks/resend",
 		"/apple-icon",
 		"/design/controls",
 		"/design/display",

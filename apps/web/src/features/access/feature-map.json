@@ -61,6 +61,36 @@
 				}
 			],
 			"behaviors": []
+		},
+		{
+			"id": "access.request-retention",
+			"says": "The daily cron that expires old early-access requests: it refuses any caller without the cron secret.",
+			"routes": [],
+			"endpoints": ["/api/cron/access-retention"],
+			"reach": [
+				{
+					"link": "/api/cron/access-retention"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "refused",
+					"reach": {
+						"persona": "visitor",
+						"open": "/api/cron/access-retention",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/api/cron/access-retention"
+						}
+					]
+				}
+			],
+			"behaviors": []
 		}
 	]
 }
