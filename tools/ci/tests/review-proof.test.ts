@@ -212,6 +212,7 @@ test("INV-review-proof: a touched machine fails on a stale or missing chart, a m
 test("INV-review-proof: a diff that touches no machine prints no Machines table and needs no coverage file", () => {
 	const result = run(["tools/ci/feature-maps.ts"], []);
 	assert.deepEqual(result.problems, []);
+	assert.match(run([MACHINE_TABLE], []).report, /### Machines/, "control: a machine diff prints the table");
 	assert.equal(
 		result.report,
 		"No app proof needed: the diff changes only tooling, docs, tests or agent instructions (1 file(s)).\n",

@@ -357,6 +357,8 @@ test("INV-machines: --check passes a 3-state column, a 4+ value column of anothe
 	const r = repo();
 	try {
 		assert.equal(r.cli("--write").status, 0);
+		r.put(schema, tables({ ...columns, task: { status: ["todo", "doing", "blocked", "done", "dropped"] } }));
+		assert.equal(r.cli("--check").status, 1, "control: the same fixture refuses a changed unmachined column");
 		const passing: [string, Record<string, Record<string, string[]>>][] = [
 			["unchanged main", columns],
 			["3-state column", { ...columns, launch: { state: ["draft", "open", "archived"] } }],
