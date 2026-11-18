@@ -117,7 +117,7 @@ module.exports = async function promote({ github, context, core, exec }, options
 
   const [command, args] = promoteCommand(target.id, scope);
   try {
-    await exec.exec(command, args, { env: { ...env, VERCEL_TOKEN: env.VERCEL_TOKEN } });
+    await exec.exec(command, args, { env });
   } catch (error) {
     return fail(core, `vercel promote failed for deployment ${target.id} (${host}) at ${sha}: ${error.message}`);
   }
@@ -125,4 +125,3 @@ module.exports = async function promote({ github, context, core, exec }, options
   return { outcome: 'promoted', sha, deployment: target.id, previous: current };
 };
 module.exports.promoteCommand = promoteCommand;
-module.exports.VERCEL_CLI = VERCEL_CLI;

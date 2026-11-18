@@ -140,7 +140,6 @@ test('INV-promote: promotes the Vercel production deployment for the exact green
 
 test('INV-promote: the command omits --scope when no Vercel scope is configured', () => {
   assert.deepEqual(promote.promoteCommand('dpl_x', ''), ['npx', ['--yes', 'vercel@65.11.0', 'promote', 'dpl_x', '--yes']]);
-  assert.match(promote.VERCEL_CLI, /^vercel@\d+\.\d+\.\d+$/);
 });
 
 test('INV-promote: without an exact built deployment nothing is promoted and the job fails naming the sha', async () => {
