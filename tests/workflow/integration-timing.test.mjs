@@ -41,10 +41,7 @@ const EXEMPT = {
 		why: "the census sample's ms field reports real time, which is its job; nothing asserts on it",
 		hits: [
 			["performance.now", "const started = performance.now();"],
-			[
-				"performance.now",
-				'emit({ kind: "sample", ...counts, name: label, status, ms: Math.round(performance.now() - started) });',
-			],
+			["performance.now", "ms: Math.round(performance.now() - started),"],
 		],
 	},
 	"tests/integration/identity/invitations.test.mts": {
