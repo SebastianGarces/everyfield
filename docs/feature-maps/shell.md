@@ -8,6 +8,10 @@ flowchart LR
   s0_link0(["link /home"])
   s1_link0(["link /design"])
   s1_link1(["link /design/shell/{role}/{page}"])
+  s2_link0(["link /design/controls"])
+  s2_link1(["link /design/display"])
+  s2_link2(["link /design/foundations"])
+  s3_link0(["link /api/health"])
   s0["shell.frame<br/>no page"]
   s0_link0 --> s0
   s0 -.- s0_st0(("owner"))
@@ -20,6 +24,16 @@ flowchart LR
   s1 -.- s1_st0(("owner"))
   s1 -.- s1_st1(("owner-page"))
   s1 -.- s1_st2(("residency"))
+  s2["shell.package-preview<br/>/design/controls /design/display /design/foundations"]
+  s2_link0 --> s2
+  s2_link1 --> s2
+  s2_link2 --> s2
+  s2 -.- s2_st0(("controls"))
+  s2 -.- s2_st1(("display"))
+  s2 -.- s2_st2(("foundations"))
+  s3["shell.health<br/>no page"]
+  s3_link0 --> s3
+  s3 -.- s3_st0(("live"))
 ```
 
 ## Surfaces
@@ -119,5 +133,70 @@ agent-browser open "$ORIGIN/design/shell/residency"
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "My residency" --exact
 ! agent-browser find role link text --name "People" --exact
+```
+
+### shell.package-preview
+
+Design previews of the shared UI package inside the product frame as an Owner: controls, display parts and foundations, with sample data and no database. Production returns 404.
+
+- Routes: `/design/controls`, `/design/display`, `/design/foundations`
+- Personas: `visitor` read
+
+Reach:
+
+- Link `/design/controls`
+- Link `/design/display`
+- Link `/design/foundations`
+
+States:
+
+- **controls**: heading "Controls"; heading "Card". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/design/controls"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Controls" --exact
+agent-browser find role heading text --name "Card" --exact
+```
+
+- **display**: heading "Display"; heading "Badges, chips and avatars". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/design/display"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Display" --exact
+agent-browser find role heading text --name "Badges, chips and avatars" --exact
+```
+
+- **foundations**: heading "Foundations"; heading "Logo". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/design/foundations"
+agent-browser wait --load networkidle
+agent-browser find role heading text --name "Foundations" --exact
+agent-browser find role heading text --name "Logo" --exact
+```
+
+### shell.health
+
+The liveness check an uptime monitor calls: it answers status ok with the server time and reads no database.
+
+- Routes: none
+- Endpoints: `/api/health`
+- Personas: `visitor` read
+
+Reach:
+
+- Link `/api/health`
+
+States:
+
+- **live**: URL `/api/health`; text containing "ok". As `visitor`, on the QA seed:
+
+```bash
+agent-browser open "$ORIGIN/api/health"
+agent-browser wait --load networkidle
+agent-browser wait --url "**/api/health"
+agent-browser wait --text "ok"
 ```
 

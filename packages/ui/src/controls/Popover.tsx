@@ -66,7 +66,7 @@ export function Tooltip({ content, tone = "dark", side = "top", delay = 300, chi
 						className={cn(
 							"ef-pop z-50 inline-flex items-center gap-2.5 text-md whitespace-nowrap",
 							tone === "dark"
-								? "rounded-md bg-ink px-2.5 py-1.5 text-sm font-medium text-on-ink shadow-pop"
+								? "rounded-md bg-ink px-2.5 py-1.5 leading-(--text-sm--line-height) font-medium text-on-ink shadow-pop"
 								: "rounded-pill bg-surface-raised px-4 py-2 text-ink shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]",
 						)}
 					>

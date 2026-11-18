@@ -501,10 +501,10 @@ function RelationField({
 								const hit = listed.find((c) => c.id === id);
 								if (hit) onChange({ kind, id: hit.id, label: hit.label });
 							}}
-							className="max-h-[220px] gap-0 overflow-y-auto px-1"
+							className="max-h-[220px] gap-y-0 overflow-y-auto px-1"
 						>
 							{listed.map((c) => (
-								<Radio key={c.id} value={c.id} label={c.label} className="py-2" />
+								<Radio key={c.id} value={c.id} label={c.label} />
 							))}
 						</RadioGroup>
 					)}

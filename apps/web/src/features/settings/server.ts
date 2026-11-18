@@ -28,7 +28,7 @@ import { z } from "zod";
 import { mailEnv } from "../../server/mail-env.ts";
 import { database } from "../../server/database.ts";
 import { enqueueJob, queueJobs } from "../../server/jobs/queue.ts";
-import { current as organizationMount } from "../../server/organizations/index.ts";
+import { current as organizationMount } from "../organizations/mount.ts";
 import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
