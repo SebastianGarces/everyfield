@@ -1,8 +1,8 @@
 "use server";
 
-import { pipelineWrite } from "@/server/organizations/pipeline";
+import { pipelineWrite } from "../organizations/pipeline-mount";
 import { requestDatabase } from "@/server/database";
-import { oversightViewer } from "@/server/oversight";
+import { oversightViewer } from "./server.ts";
 import { level, type IntelligenceView } from "@everyfield/contracts/oversight";
 import { submitIntelligenceFeedback, readIntelligence, requestIntelligenceRefresh } from "@everyfield/domain/oversight";
 

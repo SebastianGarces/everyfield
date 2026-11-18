@@ -9,16 +9,16 @@ import { executeWrites } from "../../../packages/domain/src/operations/writes.ts
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
 import { resendRecorder } from "../communication/resend-recorder.mts";
-import { queuedMailTransport } from "../../../apps/web/src/features/communication/mail.ts";
+import { queuedMailTransport } from "../../../apps/web/src/server/mail/transport.ts";
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
-import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/server/onboarding/index.ts";
+import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/features/onboarding/mount.ts";
 import {
 	current as organizationMount,
 	organizationMailPass,
-} from "../../../apps/web/src/server/organizations/index.ts";
+} from "../../../apps/web/src/features/organizations/mount.ts";
 
 const database = await testDatabase({ prefix: "t127", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 6 });
 const { admin } = database;

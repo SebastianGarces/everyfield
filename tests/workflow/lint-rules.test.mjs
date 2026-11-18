@@ -209,6 +209,29 @@ export function Row({ on }) {
 	]);
 });
 
+test("INV-lint: a pointer handler on a motion element or in its capture phase is a clickable host like any other", () => {
+	const source = `import { motion } from "motion/react";
+import { m } from "@/components/motion/m";
+export function Card({ on }) {
+	return (
+		<section>
+			<motion.div onClick={on} />
+			<m.span onPointerDownCapture={on} />
+			<div onClickCapture={on} />
+			<motion.button onClick={on} />
+			<m.a href="/x" onClickCapture={on} />
+			<motion.div role="button" onClick={on} />
+		</section>
+	);
+}
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/Card.tsx": source }), [
+		"apps/web/src/features/x/Card.tsx:6 clickable-host",
+		"apps/web/src/features/x/Card.tsx:7 clickable-host",
+		"apps/web/src/features/x/Card.tsx:8 clickable-host",
+	]);
+});
+
 test("INV-lint: history writes, popstate, the Navigation API, the address fragment and an in-app address carrying a one-time link value are reported outside the location store, in every spelling", () => {
 	const source = `export function go(mode, href) {
 	window.history.pushState(null, "", href);
@@ -414,6 +437,65 @@ export function Panel() {
 			"apps/web/src/features/x/Panel.tsx:9 zustand-shape",
 		].sort(),
 	);
+});
+
+test("INV-lint: a model module that imports React, the server or the database, or reads the clock or the browser, is reported", () => {
+	const impure = `"use client";
+import { useState } from "react";
+import "server-only";
+import type { Database } from "@everyfield/db/client";
+import { db } from "@everyfield/db/client";
+export const at = () => Date.now();
+export const day = () => new Date();
+export const stored = () => window.localStorage;
+export const parsed = (iso: string, d: Database) => [new Date(iso), d, useState, db];
+`;
+	const pure = `import type { ReactNode } from "react";
+import { parse } from "../../components/dates.ts";
+export const later = (now: Date, ms: number) => new Date(now.getTime() + ms);
+export const label = (node: ReactNode) => [node, parse];
+`;
+	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": impure }), [
+		"apps/web/src/components/save/model.ts:1 model-module",
+		"apps/web/src/components/save/model.ts:2 model-module",
+		"apps/web/src/components/save/model.ts:3 model-module",
+		"apps/web/src/components/save/model.ts:5 model-module",
+		"apps/web/src/components/save/model.ts:6 model-module",
+		"apps/web/src/components/save/model.ts:7 model-module",
+		"apps/web/src/components/save/model.ts:8 model-module",
+	]);
+	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": pure }), []);
+	const disguised = `const D = Date;
+const { now } = performance;
+const tick = Date.now;
+export const reads = () => [
+	Date(),
+	D.now(),
+	new D(),
+	Date["now"](),
+	now(),
+	tick(),
+	new globalThis.Date(),
+	self.performance.now(),
+	location.href,
+	history.length,
+];
+export const typed = (node: import("react").ReactNode, at: number) => [node, Date.UTC(2026, 0, 1), new Date(at)];
+`;
+	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": disguised }), [
+		"apps/web/src/components/save/model.ts:10 model-module",
+		"apps/web/src/components/save/model.ts:11 model-module",
+		"apps/web/src/components/save/model.ts:11 model-module",
+		"apps/web/src/components/save/model.ts:12 model-module",
+		"apps/web/src/components/save/model.ts:12 model-module",
+		"apps/web/src/components/save/model.ts:13 model-module",
+		"apps/web/src/components/save/model.ts:14 model-module",
+		"apps/web/src/components/save/model.ts:5 model-module",
+		"apps/web/src/components/save/model.ts:6 model-module",
+		"apps/web/src/components/save/model.ts:7 model-module",
+		"apps/web/src/components/save/model.ts:8 model-module",
+		"apps/web/src/components/save/model.ts:9 model-module",
+	]);
 });
 
 test("INV-lint: a createRead or useLocalRead loader only loads its key: a call of a read, optionally mapped, and nothing else", () => {
@@ -1215,5 +1297,21 @@ export function Report() {
 			hit.endsWith("no-render-writes"),
 		),
 		[],
+	);
+});
+
+test("INV-lint: a page, a layout or a GET route handler that imports a server action module is reported, a route that also writes is not", () => {
+	const actions = `"use server";\nexport async function save() {}\n`;
+	const reads = `export async function load() {}\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": actions,
+			"apps/web/src/features/x/reads.ts": reads,
+			"apps/web/src/app/x/page.tsx": `export { save as default } from "@/features/x/actions";\n`,
+			"apps/web/src/app/x/layout.tsx": `export { load as default } from "@/features/x/reads";\n`,
+			"apps/web/src/app/x/read/route.ts": `export { save as GET } from "../../../features/x/actions";\n`,
+			"apps/web/src/app/x/write/route.ts": `export { save as GET, save as POST } from "@/features/x/actions";\n`,
+		}).filter((hit) => hit.endsWith("route-reads")),
+		["apps/web/src/app/x/page.tsx:1 route-reads", "apps/web/src/app/x/read/route.ts:1 route-reads"],
 	);
 });

@@ -1,4 +1,4 @@
-import { drainPeopleImports } from "@/server/people/imports";
+import { drainPeopleImports } from "./drain";
 import { buttonVariants, Card, IntentLink, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { gate } from "../routes.tsx";

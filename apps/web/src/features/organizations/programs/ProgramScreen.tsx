@@ -26,8 +26,9 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useState, useTransition, type ReactNode } from "react";
-import { formatDay, PIPELINE_PATH } from "../board/model";
-import { Problem } from "../board/Problem";
+import { formatPlainDate } from "../../../components/dates.ts";
+import { PIPELINE_PATH } from "../board/model";
+import { Problem } from "../../../components/Problem.tsx";
 import { enroll, publishVersion, rereadProgram, savePlan } from "./actions";
 import { ApplyVersionsDialog, versionReviews } from "./ApplyVersions";
 import { enrollmentHref, KIND, monthRange, programProblem, PROGRAMS_PATH, readingHref, RHYTHM } from "./model";
@@ -54,7 +55,7 @@ export function ProgramScreen({ initial, organizationId }: { initial: ProgramDet
 	}
 
 	const status = published
-		? `Version ${published.number} published ${formatDay(published.publishedOn!)}`
+		? `Version ${published.number} published ${formatPlainDate(published.publishedOn!)}`
 		: `Draft of Version ${nextNumber}`;
 
 	return (
@@ -227,7 +228,7 @@ function PlanView({ version, organizationId }: { version: ProgramVersion; organi
 			<dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm">
 				<Detail term="Version">
 					{version.publishedOn
-						? `Version ${version.number}, published ${formatDay(version.publishedOn)}`
+						? `Version ${version.number}, published ${formatPlainDate(version.publishedOn)}`
 						: `Version ${version.number}, draft`}
 				</Detail>
 				<Detail term="Meeting rhythm">{RHYTHM[version.rhythm]}</Detail>

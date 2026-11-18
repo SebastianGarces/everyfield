@@ -2,10 +2,10 @@ import type { AnswerReview, ReviewList } from "@everyfield/contracts/organizatio
 import { ArrowRight01Icon, FileSearchIcon } from "@hugeicons/core-free-icons";
 import { Card, CardBody, EmptyState, IntentLink, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import { Icon } from "@everyfield/ui/foundations";
-import { formatDay } from "../board/model";
+import { formatPlainDate } from "../../../components/dates.ts";
 import { REVIEWS_PATH, reviewPath } from "./model";
 
-const from = (sender: string | null, sentOn: string) => `From ${sender ?? "former staff"} · ${formatDay(sentOn)}`;
+const from = (sender: string | null, sentOn: string) => `From ${sender ?? "former staff"} · ${formatPlainDate(sentOn)}`;
 
 export function ReviewsScreen({ list }: { list: ReviewList }) {
 	return (
