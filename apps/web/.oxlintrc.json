@@ -1290,6 +1290,47 @@
 			}
 		},
 		{
+			"files": [
+				"src/components/save/model.ts",
+				"src/features/assessment-review/model.ts",
+				"src/features/communication/body.ts",
+				"src/features/communication/model.ts",
+				"src/features/documents/church/editor/table-model.ts",
+				"src/features/documents/model.ts",
+				"src/features/evry/conversation/model.ts",
+				"src/features/evry/review/model.ts",
+				"src/features/identity/seats/model.ts",
+				"src/features/intelligence/assessment-model.ts",
+				"src/features/intelligence/facts-model.ts",
+				"src/features/launch/model.ts",
+				"src/features/meetings/model.ts",
+				"src/features/meetings/page-state.ts",
+				"src/features/onboarding/model.ts",
+				"src/features/organizations/board/model.ts",
+				"src/features/organizations/data/model.ts",
+				"src/features/organizations/import/model.ts",
+				"src/features/organizations/model.ts",
+				"src/features/organizations/programs/model.ts",
+				"src/features/organizations/reviews/model.ts",
+				"src/features/oversight/model.ts",
+				"src/features/overview/model.ts",
+				"src/features/people/corrections/model.ts",
+				"src/features/people/fields/model.ts",
+				"src/features/people/import-export/model.ts",
+				"src/features/people/model.ts",
+				"src/features/phases/model.ts",
+				"src/features/residency/model.ts",
+				"src/features/settings/brand/model.ts",
+				"src/features/settings/model.ts",
+				"src/features/settings/time.ts",
+				"src/features/teams/model.ts",
+				"src/features/wiki/model.ts"
+			],
+			"rules": {
+				"everyfield/model-module": "error"
+			}
+		},
+		{
 			"files": ["src/app/layout.tsx"],
 			"rules": {
 				"everyfield/no-inner-html": "off"

@@ -8,7 +8,7 @@ import type { DeletionStatus, DigestSchedule, PlantOwner, PlantSettings, Section
 import { attempt } from "../save";
 import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
 import { useDraft, useSection, useSettings } from "../store";
-import { hourLabel, WEEKDAYS, zoneLabel } from "../time";
+import { hourLabel, WEEKDAYS, zoneLabel } from "../../../components/time.ts";
 import { PlantTimezoneDialog } from "../flows/PlantTimezoneDialog";
 import { ReportingRegion } from "../flows/RegionPicker";
 import { WorkspaceDeletionDialog } from "../flows/DeletionDialogs";

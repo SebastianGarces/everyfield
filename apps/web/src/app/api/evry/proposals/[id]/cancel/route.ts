@@ -1,8 +1,3 @@
-import { cancelProposal } from "@everyfield/evry";
-import { evryResponse } from "@/server/evry";
+export { proposalCancelPost as POST } from "@/server/evry/http";
 
 export const dynamic = "force-dynamic";
-export const POST = async (_request: Request, { params }: { params: Promise<{ id: string }> }) => {
-	const { id } = await params;
-	return evryResponse((db, actor) => cancelProposal(db, actor, id));
-};
