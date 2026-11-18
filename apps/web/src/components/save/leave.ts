@@ -1,11 +1,9 @@
 import { useSyncExternalStore } from "react";
 import { currentAddress, fullAddress, onNavigation, onTraversal, writeAddress } from "../location.ts";
 
-type Hold = (go: () => void) => boolean;
 export type LeaveRequest = { readonly leave: () => void; readonly stay: () => void };
 export type LeaveBeacon = { readonly url: string; readonly body: unknown };
 
-let hold: Hold | null = null;
 let request: LeaveRequest | null = null;
 let released = false;
 let followed: HTMLAnchorElement | null = null;
@@ -14,13 +12,6 @@ let leaving = false;
 let home: string | null = null;
 const requestReaders = new Set<() => void>();
 const sentBeacons = new WeakMap<Element, string>();
-
-export function holdLeave(next: Hold): () => void {
-	hold = next;
-	return () => {
-		if (hold === next) hold = null;
-	};
-}
 
 const holding = () => document.querySelector("[data-unsaved][data-leave-hold]") !== null;
 
@@ -48,7 +39,6 @@ function ask(leave: () => void, stay: () => void = () => {}) {
 }
 
 export function leavePage(go: () => void): void {
-	if (hold?.(go)) return;
 	if (!holding()) return go();
 	ask(() => {
 		released = true;
