@@ -5,7 +5,8 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
-import { GET, POST, resendWebhook } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
+import { GET, POST } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
+import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { ok, refused } from "../../support/fixture.mts";
 
 let f, plant, other, owner, member;

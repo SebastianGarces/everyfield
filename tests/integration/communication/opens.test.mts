@@ -5,7 +5,7 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { attendanceReader, meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
-import { resendWebhook } from "../../../apps/web/src/app/api/webhooks/resend/route.ts";
+import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { ok } from "../../support/fixture.mts";
 
 let f, plant, owner, member;

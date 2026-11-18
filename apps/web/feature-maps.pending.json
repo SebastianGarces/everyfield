@@ -1,19 +1,4 @@
 {
 	"$schema": "./feature-map.schema.json#/$defs/pending",
-	"routes": [
-		"/",
-		"/access",
-		"/api/cron/access-retention",
-		"/api/health",
-		"/api/webhooks/resend",
-		"/apple-icon",
-		"/design/controls",
-		"/design/display",
-		"/design/foundations",
-		"/oversight",
-		"/privacy",
-		"/robots.txt",
-		"/sitemap.xml",
-		"/terms"
-	]
+	"routes": ["/design/controls", "/design/display", "/design/foundations"]
 }
