@@ -8,7 +8,7 @@ const HEX = /(?<![0-9A-Za-z&])#[0-9A-Fa-f]{3,8}(?![0-9A-Za-z])/;
 const FN =
 	/(?<![A-Za-z-])(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(\s*(?:[\d.+-]|from(?![A-Za-z])|var\(|none(?![A-Za-z]))/i;
 const ALLOWED = {
-	"app/viewport.ts": "the theme-color meta tag (Next viewport metadata) takes a literal colour",
+	"components/viewport.ts": "the theme-color meta tag (Next viewport metadata) takes a literal colour",
 	"app/apple-icon.tsx": "next/og renders the icon without the page's CSS, so it cannot read a variable",
 	"features/settings/brand/BrandSection.tsx": "the native color input needs a hex value while the typed color is empty",
 	"features/settings/brand/fixtures.ts":
