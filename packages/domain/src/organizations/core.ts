@@ -31,8 +31,15 @@ export { currentActor, sameOwner };
 export type Actor = Extract<Awaited<ReturnType<typeof currentActor>>, { status: "active" }>;
 export const administrator = (a: Actor) => a.context.kind === "seat" && a.context.role !== "member";
 export const unavailable = () => ({ status: "unavailable" }) as const;
+export class OrganizationRefusal extends Error {
+	readonly code: string;
+	constructor(code: string) {
+		super(code);
+		this.code = code;
+	}
+}
 export function refuse(code = "unavailable"): never {
-	throw new Error(code);
+	throw new OrganizationRefusal(code);
 }
 export function checkRevision(expected: string, actual: string) {
 	if (expected !== actual) refuse("stale_revision");

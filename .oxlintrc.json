@@ -50,6 +50,12 @@
 	},
 	"overrides": [
 		{
+			"files": ["packages/*/src/**"],
+			"rules": {
+				"everyfield/no-error-message-match": "error"
+			}
+		},
+		{
 			"files": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
 			"rules": {
 				"constructor-super": "off",
