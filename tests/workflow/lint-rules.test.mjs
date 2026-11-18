@@ -680,6 +680,28 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
 });
 
+test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {
+	const forge = `import { RequestActor } from "@everyfield/domain/access";
+export const a = (s: string, x: never) => RequestActor.of(s, x);
+export const b = (s: string, x: never) => RequestActor["of"](s, x);
+export const c = (s: string) => RequestActor.resolve({} as never, s);
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/wiki/forge.ts": forge,
+			"apps/web/src/features/x/forge.ts": forge,
+			"packages/domain/src/access/session.ts": forge,
+			"tests/integration/x/forge.test.mts": forge,
+		}),
+		[
+			"apps/web/src/features/x/forge.ts:2 request-actor",
+			"apps/web/src/features/x/forge.ts:3 request-actor",
+			"packages/domain/src/wiki/forge.ts:2 request-actor",
+			"packages/domain/src/wiki/forge.ts:3 request-actor",
+		],
+	);
+});
+
 test("INV-lint: a survivor whose reason marks it temporary must name the evf task that removes it", () => {
 	const path = "packages/ui/src/Panel.tsx";
 	const run = (reason) => {

@@ -96,6 +96,24 @@ const noInnerHtml = {
 	},
 };
 
+export const SESSION_MODULE = "packages/domain/src/access/session.ts";
+const PRODUCT_SOURCE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
+
+const requestActor = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === SESSION_MODULE || !PRODUCT_SOURCE.test(path)) return {};
+		const message = `Only ${SESSION_MODULE} builds a RequestActor from a session and an actor: resolve it with RequestActor.resolve or claim a write, so authority always comes from the server session.`;
+		return {
+			MemberExpression: (node) => {
+				if (node.object.type === "Identifier" && node.object.name === "RequestActor" && memberName(node) === "of")
+					context.report({ node, message });
+			},
+		};
+	},
+};
+
 const IMPURE_GLOBALS = new Set(["process", "fetch", "Date", "require"]);
 const typeOnly = (node) =>
 	node.importKind === "type" || (node.specifiers.length > 0 && node.specifiers.every((s) => s.importKind === "type"));
@@ -1242,6 +1260,7 @@ export default {
 		"no-effects": noEffects,
 		"max-state": maxState,
 		"no-timers": noTimers,
+		"request-actor": requestActor,
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"no-cursor-utility": noCursorUtility,

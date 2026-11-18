@@ -41,6 +41,7 @@
 		"typescript/prefer-namespace-keyword": "error",
 		"typescript/triple-slash-reference": "error",
 		"everyfield/resend-senders": "error",
+		"everyfield/request-actor": "error",
 		"everyfield/no-comments": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/max-state": "error",
