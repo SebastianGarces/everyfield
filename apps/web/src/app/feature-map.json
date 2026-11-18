@@ -1,7 +1,7 @@
 {
 	"$schema": "../../feature-map.schema.json",
 	"feature": "app",
-	"catalog": [],
+	"catalog": ["ADM-006", "ADM-007"],
 	"surfaces": [
 		{
 			"id": "app.cron-jobs",
@@ -27,6 +27,474 @@
 					"expect": [
 						{
 							"text": "unauthorized"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "app.home",
+			"says": "The public home page for church planters: the hero with its demo animation, the phases, what Evry does, the oversight teaser and links to request early access. It needs no sign-in.",
+			"routes": ["/"],
+			"catalog": ["ADM-006"],
+			"reach": [
+				{
+					"link": "/"
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "visitor",
+					"reach": {
+						"persona": "visitor",
+						"open": "/",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "From calling to Launch Sunday."
+						},
+						{
+							"role": "link",
+							"name": "Request early access"
+						},
+						{
+							"role": "heading",
+							"name": "Everything a church plant needs, in the order you need it."
+						},
+						{
+							"role": "link",
+							"name": "Learn more about the oversight view"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "app.oversight-page",
+			"says": "The public page for sending churches and networks: a sample dashboard of the plants they send, the trust cards and the questions people ask, with a link that opens the access form already set to a network.",
+			"routes": ["/oversight"],
+			"catalog": ["ADM-006"],
+			"reach": [
+				{
+					"from": "app.home",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Churches & Networks"
+							}
+						}
+					]
+				},
+				{
+					"from": "app.home",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Learn more about the oversight view"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "visitor",
+					"reach": {
+						"persona": "visitor",
+						"open": "/",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Churches & Networks"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/oversight"
+						},
+						{
+							"role": "heading",
+							"name": "See every church plant you send."
+						},
+						{
+							"role": "columnheader",
+							"name": "Church plant"
+						},
+						{
+							"role": "link",
+							"name": "Talk to us about your network"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		},
+		{
+			"id": "app.access-request",
+			"says": "The one early access form: the visitor says who they are, then gives contact and church or network details step by step, and sends. Each step is checked on the server before the next. Sending emails the Everyfield owner through the mail provider directly, with no capture outbox, so no browser step here presses the final send; the tests prove it.",
+			"routes": ["/access"],
+			"catalog": ["ADM-006"],
+			"reach": [
+				{
+					"from": "app.home",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Request early access"
+							}
+						}
+					]
+				},
+				{
+					"from": "app.oversight-page",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Talk to us about your network"
+							}
+						}
+					]
+				},
+				{
+					"link": "/access?role={role}",
+					"fill": {
+						"role": "planter, church or network, which picks the first answer"
+					}
+				}
+			],
+			"personas": {
+				"visitor": "write"
+			},
+			"states": [
+				{
+					"id": "choose",
+					"reach": {
+						"persona": "visitor",
+						"open": "/access",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Request early access"
+						},
+						{
+							"role": "heading",
+							"name": "Which of these describes you?"
+						},
+						{
+							"role": "radio",
+							"name": "Church planter"
+						},
+						{
+							"role": "radio",
+							"name": "Sending network"
+						}
+					]
+				},
+				{
+					"id": "choose-required",
+					"reach": {
+						"persona": "visitor",
+						"open": "/access",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "Choose the one that describes you.",
+							"match": "contains"
+						},
+						{
+							"role": "heading",
+							"name": "Which of these describes you?"
+						}
+					]
+				},
+				{
+					"id": "contact",
+					"reach": {
+						"persona": "visitor",
+						"open": "/access",
+						"path": [
+							{
+								"click": {
+									"role": "radio",
+									"name": "Church planter"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "How can we reach you?"
+						},
+						{
+							"role": "textbox",
+							"name": "Your name"
+						},
+						{
+							"role": "button",
+							"name": "Back"
+						}
+					]
+				},
+				{
+					"id": "email-invalid",
+					"reach": {
+						"persona": "visitor",
+						"open": "/access",
+						"path": [
+							{
+								"click": {
+									"role": "radio",
+									"name": "Church planter"
+								}
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							},
+							{
+								"type": "Sam Field",
+								"into": "Your name"
+							},
+							{
+								"type": "not-an-email",
+								"into": "Email"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "Enter an email address, such as name@example.com.",
+							"match": "contains"
+						},
+						{
+							"role": "heading",
+							"name": "How can we reach you?"
+						}
+					]
+				},
+				{
+					"id": "network-from-link",
+					"reach": {
+						"persona": "visitor",
+						"open": "/access?role=network",
+						"path": [
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							},
+							{
+								"type": "Sam Field",
+								"into": "Your name"
+							},
+							{
+								"type": "sam@example.org",
+								"into": "Email"
+							},
+							{
+								"click": {
+									"role": "button",
+									"name": "Continue"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "Which network are you with?"
+						},
+						{
+							"role": "textbox",
+							"name": "Network name"
+						}
+					]
+				}
+			],
+			"behaviors": [
+				{
+					"id": "send",
+					"says": "A complete request is stored with every field and sends one email to the owner; the same email and form within 24 hours sends nothing more, five requests per email and twenty per address an hour are the limit, a filled honeypot gets a receipt with nothing stored, and a failed store or mail never claims success.",
+					"catalog": ["ADM-006"],
+					"operations": [],
+					"noOperation": "The form's server action calls `receiveAccessRequest` (`packages/domain/src/early-access/index.ts`); the catalog's `marketing.requestInvitation` names no code.",
+					"proof": {
+						"tests": [
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: accepted forms normalize email, store every field and send one complete owner email each"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: 24-hour duplicates use normalized email and form without another row or email"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: five valid attempts per normalized email in 24 hours then email refusal"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: twenty attempts per IP in one hour then IP refusal"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: honeypot receives a fake receipt with no data, limit attempts or email"
+							},
+							{
+								"file": "packages/domain/test/requests.test.ts",
+								"name": "INV-access: mail rejection, missing receipt and timeout never claim success; retry keeps original row and payload"
+							}
+						]
+					}
+				}
+			]
+		},
+		{
+			"id": "app.legal",
+			"says": "The public privacy policy and terms, linked from every public page's footer and from the access form.",
+			"routes": ["/privacy", "/terms"],
+			"catalog": ["ADM-007"],
+			"reach": [
+				{
+					"from": "app.home",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Privacy policy"
+							}
+						}
+					]
+				},
+				{
+					"from": "app.home",
+					"persona": "visitor",
+					"path": [
+						{
+							"click": {
+								"role": "link",
+								"name": "Terms"
+							}
+						}
+					]
+				}
+			],
+			"personas": {
+				"visitor": "read"
+			},
+			"states": [
+				{
+					"id": "privacy",
+					"reach": {
+						"persona": "visitor",
+						"open": "/",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Privacy policy"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/privacy"
+						},
+						{
+							"role": "heading",
+							"name": "Privacy policy"
+						},
+						{
+							"role": "heading",
+							"name": "What we collect"
+						},
+						{
+							"role": "heading",
+							"name": "Ask for a copy, a correction or deletion"
+						}
+					]
+				},
+				{
+					"id": "terms",
+					"reach": {
+						"persona": "visitor",
+						"open": "/",
+						"path": [
+							{
+								"click": {
+									"role": "link",
+									"name": "Terms"
+								}
+							}
+						],
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"url": "/terms"
+						},
+						{
+							"role": "heading",
+							"name": "Terms"
+						},
+						{
+							"role": "heading",
+							"name": "Your requests"
 						}
 					]
 				}
