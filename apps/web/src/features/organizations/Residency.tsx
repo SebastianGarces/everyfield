@@ -13,7 +13,7 @@ import { useCallback, useId, useState } from "react";
 import type { z } from "zod";
 import { NotAvailable } from "../access/AccessStates";
 import { useResidency } from "../shell/residency.ts";
-import { useIntent, useLoad } from "./intent";
+import { useIntent, useLoad } from "../../components/intent.ts";
 import { PrivateLine, ProblemLine } from "./parts";
 import type { Run } from "./port";
 
