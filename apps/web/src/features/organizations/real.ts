@@ -19,7 +19,7 @@ import {
 import type { ConnectionsData } from "./Connections";
 import { respondRelationshipInvitation } from "./invitation/client.ts";
 import type { ReadHistory } from "./History";
-import { Refusal } from "./intent";
+import { Refusal } from "../../components/intent.ts";
 import type { EndConnection } from "./EndDialog";
 import type { ReadDisclosure } from "./InviteDialog";
 import type { ReadConsent, SaveConsent } from "./Pipeline";

@@ -12,7 +12,7 @@ import {
 	selectQualifiedModel,
 } from "@everyfield/evry";
 import "server-only";
-import { deliveryTransport, mailReady } from "../../features/communication/mail.ts";
+import { deliveryTransport, mailReady } from "../mail/transport.ts";
 import { claimDue, finishJob } from "../jobs/queue.ts";
 import { evryNative } from "./native.ts";
 

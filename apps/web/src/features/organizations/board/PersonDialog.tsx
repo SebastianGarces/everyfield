@@ -15,7 +15,7 @@ import {
 import { useActionState, useState } from "react";
 import { addPerson, editPerson } from "./actions";
 import { refusalText } from "./model";
-import { Problem } from "./Problem";
+import { Problem } from "../../../components/Problem.tsx";
 
 type Staff = PipelineBoard["staff"];
 type Stages = PipelineBoard["stages"];

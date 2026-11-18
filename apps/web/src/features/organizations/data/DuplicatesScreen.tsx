@@ -19,7 +19,7 @@ import { createRead, useRead } from "../../../components/read.tsx";
 import type { z } from "zod";
 import { blockerText, counted, FIELD_LABEL, fieldText, type Columns } from "../../people/corrections/model";
 import { PIPELINE_PATH } from "../board/model";
-import { Problem } from "../board/Problem";
+import { Problem } from "../../../components/Problem.tsx";
 import { mergePeople, reviewMerge, undoMerge } from "./actions";
 
 type Pairs = z.infer<typeof organizationDuplicatePairs>;

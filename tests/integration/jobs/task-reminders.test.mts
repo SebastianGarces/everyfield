@@ -8,7 +8,7 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { taskReminderTimes } from "../../../apps/web/src/server/jobs/calendar.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
-import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 
 let reminders, mail, sent;
 const people = {};
