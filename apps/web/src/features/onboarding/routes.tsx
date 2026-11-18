@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { onboardingEntry } from "@/server/onboarding";
+import { onboardingEntry } from "./mount";
 import { ownResidencyLinks } from "@/server/organizations";
 import { getViewer } from "@/server/request-context";
 import { ORGANIZATION_HOME } from "@everyfield/contracts/identity";
