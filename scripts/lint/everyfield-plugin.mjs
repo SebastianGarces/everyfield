@@ -82,6 +82,64 @@ const privateCareScope = {
 	},
 };
 
+export const TABLE_WRITERS = {
+	phase_transition: {
+		owner: "packages/domain/src/phases/",
+		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
+	},
+};
+const INSERT_INTO = /\binsert\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+
+const tableWriters = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		const report = (node, table) => {
+			const { owner, why } = TABLE_WRITERS[table];
+			if (!path.startsWith(owner))
+				context.report({
+					node,
+					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here.`,
+				});
+		};
+		const check = (value, node) => {
+			for (const [, table] of value?.matchAll(INSERT_INTO) ?? [])
+				if (Object.hasOwn(TABLE_WRITERS, table.toLowerCase())) report(node, table.toLowerCase());
+		};
+		const aliases = new Map();
+		const tableOf = (node) =>
+			node?.type === "Identifier"
+				? aliases.get(node.name)
+				: node?.type === "MemberExpression" && Object.hasOwn(TABLE_WRITERS, memberName(node))
+					? memberName(node)
+					: undefined;
+		const bind = (id, table) => {
+			if (id?.type === "Identifier" && table) aliases.set(id.name, table);
+		};
+		return {
+			Literal: (node) => check(text(node), node),
+			TemplateElement: (node) => check(text(node), node),
+			ImportSpecifier: (node) => {
+				const imported = nameOf(node.imported);
+				if (Object.hasOwn(TABLE_WRITERS, imported)) bind(node.local, imported);
+			},
+			VariableDeclarator: (node) => {
+				if (node.id.type === "Identifier") bind(node.id, tableOf(node.init));
+				if (node.id.type !== "ObjectPattern") return;
+				for (const p of node.id.properties) {
+					const key = p.type === "Property" ? keyName(p.key, p.computed) : null;
+					if (Object.hasOwn(TABLE_WRITERS, key))
+						bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, key);
+				}
+			},
+			CallExpression: (node) => {
+				const table = tableOf(node.arguments[0]);
+				if (memberName(node.callee) === "insert" && table) report(node, table);
+			},
+		};
+	},
+};
+
 const noInnerHtml = {
 	meta: { type: "problem" },
 	create(context) {
@@ -624,6 +682,22 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 		own,
 	);
 });
+
+export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
+const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
+const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
+
+const storageClient = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === STORAGE_MODULE || !PRODUCT_CODE.test(path)) return {};
+		const message = `Only ${STORAGE_MODULE} reaches the object store and signs its URLs: the browser gets the app's own authenticated routes, never a storage key or a signed URL.`;
+		return moduleSources((node, name) => {
+			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
+		});
+	},
+};
 
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
@@ -1355,10 +1429,12 @@ export default {
 		"model-module": modelModule,
 		"no-inner-html": noInnerHtml,
 		"no-effects": noEffects,
+		"table-writers": tableWriters,
 		"max-state": maxState,
 		"no-timers": noTimers,
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
+		"storage-client": storageClient,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
