@@ -1474,6 +1474,12 @@
 	"people/duplicates.restoreDuplicatePair": {
 		"limit": 3
 	},
+	"flags/values.readFlags": {
+		"limit": 1
+	},
+	"flags/values.setFlag": {
+		"limit": 1
+	},
 	"people/csv/index.signPeopleImport": {
 		"limit": 1
 	},
