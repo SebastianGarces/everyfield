@@ -413,6 +413,7 @@ function databaseTests(
 }
 
 export const LIMITS = "tests/integration/writes/limits.json";
+const NEXT_RETRY = "Retry the same command to continue";
 const CENSUS_PROBLEM = /^\s*\+\s+'(.+)',?$/gm;
 
 function census(entry: CheckRecord["checks"][number], { root, env, run, postgres }: DatabaseOptions) {
@@ -434,9 +435,14 @@ function census(entry: CheckRecord["checks"][number], { root, env, run, postgres
 			process.stderr.write(text.endsWith("\n") || !text ? text : text + "\n");
 			return text;
 		};
-		console.error(`check census: ${build.join(" ")}`);
-		const built = run(build[0]!, build.slice(1), { cwd: root, env: { ...dbEnv, NEXT_TELEMETRY_DISABLED: "1" } });
-		show(built.output);
+		const buildOnce = () => {
+			console.error(`check census: ${build.join(" ")}`);
+			const r = run(build[0]!, build.slice(1), { cwd: root, env: { ...dbEnv, NEXT_TELEMETRY_DISABLED: "1" } });
+			show(r.output);
+			return r;
+		};
+		let built = buildOnce();
+		if (built.status !== 0 && built.output.includes(NEXT_RETRY)) built = buildOnce();
 		if (built.status !== 0) {
 			entry.result = "failed";
 			entry.detail = "the production build for the request budgets failed";

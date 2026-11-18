@@ -484,6 +484,28 @@ test("INV-check-census: a packages/domain change runs the whole census on a prod
 	assert.ok(censusRun.env.EVF_CENSUS_TIGHTENED, "the census gets a folder for the tightened limits.json");
 });
 
+test("INV-check-census: a build Next.js stops once with its retry notice runs once more; a real build failure fails", async (t) => {
+	for (const [outputs, result, builds] of [
+		[["Error [SecurityFatalError]: ...\nRetry the same command to continue the original task.", "ok"], "passed", 2],
+		[["Type error: x", "ok"], "failed", 1],
+	] as const)
+		await t.test(String(result), (t) => {
+			const { root, home } = repo(t, { "packages/domain/src/a.ts": "export const a = 1;\n" }, DB_PACKAGES);
+			const { run: base, commands } = fakeDb({ listed: ["@everyfield/domain"] });
+			let n = 0;
+			const run: Runner = (command, args, options) => {
+				if (!args.includes("build")) return base(command, args, options);
+				const output = outputs[n++]!;
+				return { status: output === "ok" ? 0 : 1, stdout: output, output };
+			};
+			const { record } = check({ root, full: false, home, run, database: noWait });
+			assert.equal(censusEntry(record).result, result);
+			assert.equal(n, builds);
+			if (result === "failed")
+				assert.equal(censusEntry(record).detail, "the production build for the request budgets failed");
+		});
+});
+
 test("INV-check-census: a docs-only diff skips the census and says why", (t) => {
 	const { root, home } = repo(t, { "docs/a.md": "b\n" }, DB_PACKAGES);
 	const { run, commands } = fakeDb({ listed: [] });
