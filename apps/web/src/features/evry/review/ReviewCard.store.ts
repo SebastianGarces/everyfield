@@ -31,7 +31,7 @@ export type ReviewPort = Pick<
 	"readReview" | "readStagedPhoto" | "approve" | "revise" | "cancel" | "retry" | "check"
 > & { refresh: () => void };
 
-export type Shown = Review | null | "lost";
+export type Shown = Review | "unavailable" | "lost";
 
 export type ReviewState = {
 	shown: Read<[string], Shown>;
@@ -67,10 +67,10 @@ export const NOT_DONE: Record<Action, string> = {
 
 export type Current = Omit<ReviewState, "shown"> & { review: Review | null; load: Load };
 
-export const reviewOf = (value: Shown | undefined) => (value && value !== "lost" ? value : null);
+export const reviewOf = (value: Shown | undefined) => (typeof value === "object" ? value : null);
 
 export const loadOf = (value: Shown | undefined): Load =>
-	value === undefined ? "loading" : value === "lost" ? "lost" : value === null ? "unavailable" : "ready";
+	value === undefined ? "loading" : typeof value === "string" ? value : "ready";
 
 export const lapsedOf = (state: Pick<Current, "review" | "ranOut">) =>
 	!!state.review && (approvalLeft(state.review) <= 0 || state.ranOut === state.review);
@@ -124,15 +124,17 @@ export function createReviewStore(init: {
 		(proposal: string) =>
 			port
 				.readReview(proposal)
-				.then((reply): Shown => (reply.status === "ok" ? reply.value : reply.status === "refused" ? null : "lost")),
-		{ failed: (): Shown => "lost", fresh: Infinity, keep: () => true },
+				.then((reply): Shown =>
+					reply.status === "ok" ? reply.value : reply.status === "refused" ? "unavailable" : "lost",
+				),
+		{ failed: (): Shown => "lost", fresh: Infinity },
 	);
-	if (init.seed !== undefined) shown.seed(init.seed, id);
+	if (init.seed !== undefined) shown.seed(init.seed ?? "unavailable", id);
 
 	return createStore<ReviewState>()((set, get, store) => {
 		const value = () => shown.peek(id)?.value;
 		const view = (): Current => ({ ...get(), review: reviewOf(value()), load: loadOf(value()) });
-		const write = (next: Review | null) => shown.patch(() => next, id);
+		const write = (next: Shown) => shown.patch(() => next, id);
 
 		const note = (review: Review | null, ranOut: Review | null = get().ranOut) => {
 			if (!review || !seatsAccount(review.operation)) return;
@@ -150,7 +152,7 @@ export function createReviewStore(init: {
 			if (g !== generation) return null;
 			if (reply.status === "ok") write(reply.value);
 			else if (reply.status === "refused") {
-				write(null);
+				write("unavailable");
 				set((s) => ({ outcome: { ...s.outcome, notice: null } }));
 			}
 			return reply;
@@ -244,7 +246,7 @@ export function createReviewStore(init: {
 			};
 			if (lost) return set({ busy: null, outcome });
 			if (refused) {
-				write(null);
+				write("unavailable");
 				return set({ busy: null, outcome });
 			}
 			const code = reply.status === "refused" ? reply.error.code : null;
@@ -289,7 +291,7 @@ export function createReviewStore(init: {
 					},
 				}));
 			open = null;
-			write(reread.status === "refused" ? null : reread.value);
+			write(reread.status === "refused" ? "unavailable" : reread.value);
 			if (reread.status === "refused")
 				return set((s) => ({ busy: null, outcome: { ...s.outcome, notice: null, unknown: null } }));
 			set((s) => ({

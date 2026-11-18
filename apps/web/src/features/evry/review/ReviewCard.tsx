@@ -117,7 +117,7 @@ import {
 
 type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown";
 
-function useReview(proposalId: string, seed: Review | null | undefined) {
+export function useReview(proposalId: string, seed: Review | null | undefined) {
 	const router = useRouter();
 	const store = useLocalStore(() =>
 		createReviewStore({
