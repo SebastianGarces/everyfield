@@ -286,7 +286,7 @@ test("INV-machines: a two-column machine's writer is guarded only by a filter on
 			assert.equal(result.status, 1, name);
 			assert.match(
 				result.stderr,
-				/a\.ts:1: (?:update|insert|drizzle) writes proposal\.state outside the evry-proposal machine's guard/,
+				/a\.ts:1: (?:update|insert|drizzle) writes proposal\.state or proposal\.outcome outside the evry-proposal machine's guard/,
 				name,
 			);
 			execFileSync("git", ["rm", "-q", "-f", a], { cwd: r.root });

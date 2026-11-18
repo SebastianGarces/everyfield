@@ -630,7 +630,9 @@ export function checkMachines(root: string, write = false): string[] {
 		for (const w of writers)
 			if (!w.guard)
 				problems.push(
-					`${w.file}:${w.line}: ${w.statement} writes ${m.table}.${m.column} outside the ${m.id} machine's guard.`,
+					`${w.file}:${w.line}: ${w.statement} writes ${columnsOf(m)
+						.map((c) => `${m.table}.${c}`)
+						.join(" or ")} outside the ${m.id} machine's guard.`,
 				);
 		for (const s of unreachableStates(m)) problems.push(`${m.id}: state ${s} has no incoming edge.`);
 		for (const s of m.unwritten ?? [])
