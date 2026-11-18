@@ -66,6 +66,7 @@
 		"everyfield/resend-senders": "error",
 		"everyfield/no-comments": "error",
 		"everyfield/no-effects": "error",
+		"everyfield/storage-client": "error",
 		"everyfield/max-state": "error",
 		"everyfield/no-sql-comments": "error"
 	},
