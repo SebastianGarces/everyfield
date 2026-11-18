@@ -598,7 +598,14 @@ function oldRows(rows: Array<Record<string, unknown>>, before: Array<Record<stri
 				!(r.t === "communication" && row(r).subject === "QA delivery check") &&
 				!(r.t === "seat" && !seats.has(row(r).account_id)),
 		)
-		.map((r) => (r.t === "plant" ? { ...r, row: { ...row(r), material_revision: null } } : r));
+		.map((r) =>
+			r.t === "plant"
+				? {
+						...r,
+						row: { ...row(r), material_revision: null, street: null, state_province: null, country: null },
+					}
+				: r,
+		);
 }
 const LAST_WEEK = {
 	answers: { spiritual: "steady", family: "strained", financial: "steady", pace: "strained" },
@@ -874,7 +881,7 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 	assert.deepEqual(upgrade, [
 		`QA seed wrote: login ${QA_LOGINS.network}, login ${QA_LOGINS.sending}, login ${QA_LOGINS.member2}, ` +
 			`login ${QA_LOGINS.signup}, login ${QA_LOGINS.triage}, feedback triage grant, spare member seat Owen Price, ` +
-			`${NOV4_MAIL}, ` +
+			`${NOV4_MAIL.replace("message QA delivery check", "church mailing address, message QA delivery check")}, ` +
 			`${ORGS.network}, ${ORGS.network} admin seat, ` +
 			`connection ${ORGS.network}, ${ORGS.sending}, ${ORGS.sending} owner seat, connection ${ORGS.sending}, ` +
 			`login ${QA_LOGINS.riverside}, church Riverside (QA), onboarding Riverside (QA), person Ana Lee in Riverside (QA), ` +
@@ -883,6 +890,11 @@ test("INV-qa-seed: the seed stays idempotent, and a branch seeded before the org
 		", owner timezone, 13 check-in weeks.",
 	]);
 	assert.deepEqual(oldRows(await church(), beforeChurch), oldRows(beforeChurch, beforeChurch));
+	const addressed = (await church()).find((r) => r.t === "plant")!.row as Record<string, unknown>;
+	assert.deepEqual(
+		[addressed.street, addressed.state_province, addressed.country],
+		["1200 Congress Ave", "TX", "United States"],
+	);
 	assert.deepEqual(
 		(await logins()).filter(
 			(l) =>
