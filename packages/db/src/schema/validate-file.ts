@@ -1,6 +1,7 @@
 import "server-only";
 import { Worker } from "node:worker_threads";
 import sharp from "sharp";
+import { StorageError } from "./storage-error.ts";
 
 const PARSE_MS = 3000;
 const STARTUP_MS = 30_000;
@@ -89,26 +90,26 @@ export async function validateCommitment(
 	mediaType: string,
 	pdf: { entry?: string; parseMs?: number } = {},
 ): Promise<void> {
-	if (!bytes.length || bytes.length > 10 * 1024 * 1024) throw new Error("invalid_file");
+	if (!bytes.length || bytes.length > 10 * 1024 * 1024) throw new StorageError("invalid_file");
 	if (mediaType === "image/jpeg" || mediaType === "image/png") {
 		try {
 			const image = sharp(bytes, { limitInputPixels: 16_000_000, failOn: "warning", animated: false });
 			const metadata = await image.metadata();
-			if (metadata.format !== (mediaType === "image/jpeg" ? "jpeg" : "png")) throw new Error("invalid_file");
+			if (metadata.format !== (mediaType === "image/jpeg" ? "jpeg" : "png")) throw new StorageError("invalid_file");
 			await image.raw().timeout({ seconds: 3 }).toBuffer();
 		} catch {
-			throw new Error("invalid_file");
+			throw new StorageError("invalid_file");
 		}
 		return;
 	}
 	if (mediaType !== "application/pdf" || Buffer.from(bytes.subarray(0, 5)).toString() !== "%PDF-")
-		throw new Error("invalid_file");
-	if (!(await parsePdf(bytes, pdf.entry, pdf.parseMs ?? PARSE_MS))) throw new Error("invalid_file");
+		throw new StorageError("invalid_file");
+	if (!(await parsePdf(bytes, pdf.entry, pdf.parseMs ?? PARSE_MS))) throw new StorageError("invalid_file");
 }
 
 export async function validateAvatar(bytes: Uint8Array, mediaType: string): Promise<void> {
 	if (!bytes.length || bytes.length > 3 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(mediaType))
-		throw Error("invalid_avatar");
+		throw new StorageError("invalid_avatar");
 	try {
 		const image = sharp(bytes, { limitInputPixels: 16_000_000, failOn: "warning", animated: false });
 		const metadata = await image.metadata();
@@ -116,9 +117,9 @@ export async function validateAvatar(bytes: Uint8Array, mediaType: string): Prom
 			metadata.format !== (mediaType === "image/jpeg" ? "jpeg" : mediaType === "image/png" ? "png" : "webp") ||
 			(metadata.pages ?? 1) !== 1
 		)
-			throw Error("invalid_avatar");
+			throw new StorageError("invalid_avatar");
 		await image.raw().timeout({ seconds: 3 }).toBuffer();
 	} catch {
-		throw Error("invalid_avatar");
+		throw new StorageError("invalid_avatar");
 	}
 }
