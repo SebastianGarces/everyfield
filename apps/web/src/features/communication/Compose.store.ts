@@ -34,9 +34,7 @@ export const recipientSearches = createRead((text: string) => searchRecipients(t
 	failed: (): Outcome<{ people: Recipient[] }> => ({ status: "lost" }),
 });
 
-const answered = (text: string) => text !== "" && recipientSearches.peek(text)?.value !== undefined;
-
-export type PersonSearch = { query: string; searched: string; previous: string; open: boolean; active: number };
+export type PersonSearch = { query: string; searched: string; open: boolean; active: number };
 
 export type ComposeState = {
 	form: Form;
@@ -114,7 +112,7 @@ export function createComposeStore(init: { opening: Opened; templates: readonly 
 		scheduledId: null,
 		counted: form.audience,
 		previewed: form.text,
-		search: { query: "", searched: "", previous: "", open: false, active: 0 },
+		search: { query: "", searched: "", open: false, active: 0 },
 		actions: {
 			edit: (update) => {
 				const before = get().form;
@@ -141,19 +139,10 @@ export function createComposeStore(init: { opening: Opened; templates: readonly 
 				set((state) => ({ search: { ...state.search, query, open: true } }));
 				if (!text) {
 					searchPause.cancel();
-					set((state) => ({ search: { ...state.search, searched: "", previous: "" } }));
+					set((state) => ({ search: { ...state.search, searched: "" } }));
 					return;
 				}
-				searchPause.run(() =>
-					set(({ search }) => ({
-						search: {
-							...search,
-							searched: text,
-							previous: answered(search.searched) ? search.searched : search.previous,
-							active: 0,
-						},
-					})),
-				);
+				searchPause.run(() => set(({ search }) => ({ search: { ...search, searched: text, active: 0 } })));
 			},
 			openList: (open) => set((state) => ({ search: { ...state.search, open } })),
 			move: (step, length) =>
@@ -162,7 +151,7 @@ export function createComposeStore(init: { opening: Opened; templates: readonly 
 				})),
 			clearSearch: () => {
 				searchPause.cancel();
-				set((state) => ({ search: { ...state.search, query: "", searched: "", previous: "" } }));
+				set((state) => ({ search: { ...state.search, query: "", searched: "" } }));
 			},
 		},
 	}));

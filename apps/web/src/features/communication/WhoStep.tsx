@@ -5,7 +5,7 @@ import { Combobox, Field, Spinner } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useId, useState, type ElementType, type KeyboardEvent } from "react";
-import { createRead, useRead } from "../../components/read.tsx";
+import { createRead, useRead, useReadWith } from "../../components/read.tsx";
 import { useStore } from "../../components/store.ts";
 import { resolveAudience } from "./actions.ts";
 import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
@@ -230,12 +230,12 @@ function ToField({
 }) {
 	const id = useId();
 	const form = useStore(store, (state) => state.form);
-	const { query, searched, previous, open, active } = useStore(store, (state) => state.search);
+	const { query, searched, open, active } = useStore(store, (state) => state.search);
 	const actions = useStore(store, (state) => state.actions);
 	const [expanded, setExpanded] = useState(false);
 	const [card, setCard] = useState<string | null>(null);
-	const answer = useRead(searched ? recipientSearches : null, searched).value;
-	const found = answer ?? (previous ? recipientSearches.peek(previous)?.value : undefined);
+	const answer = useReadWith(searched ? recipientSearches : null, [searched], { showPrevious: true });
+	const found = answer.value;
 	const results = found?.status === "ok" ? found.value.people : [];
 	const status = found && found.status !== "ok" ? "The search did not load. Try again." : null;
 	const byId = new Map(known.map((person) => [person.id, person]));
@@ -245,7 +245,7 @@ function ToField({
 		email: person.email ?? byId.get(person.id)?.email ?? null,
 	}));
 	const shown = query.trim() ? results : [];
-	const searching = query.trim() !== "" && (searched !== query.trim() || answer === undefined);
+	const searching = query.trim() !== "" && (searched !== query.trim() || answer.status !== "ready");
 	const visible = expanded ? people : people.slice(0, MAX_CHIPS);
 
 	const picked = new Set(form.audience.personIds);
