@@ -4,6 +4,7 @@ import * as c from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
 import { addressAad, openText, type DeliveryKeys } from "./delivery.ts";
+import { hasMailingAddressSql } from "./address.ts";
 import { optedOutAtSql } from "./opt-out.ts";
 import {
 	administers,
@@ -83,6 +84,8 @@ function hubState(plantId: string) {
 		WHEN ${any(sql`m.state = 'cancelled'`)} AND NOT ${any(sql`m.state NOT IN ('cancelled', 'refused', 'failed')`)} THEN 'cancelled'
 		WHEN ${any(sql`m.cancel_requested_at IS NOT NULL AND m.state IN ('accepted', 'unknown')`)} THEN 'cancel_unconfirmed'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL AND m.scheduled_at IS DISTINCT FROM c.scheduled_at`)} THEN 'time_unconfirmed'
+		WHEN ${any(sql`m.state = 'scheduled' AND m.scheduled_at <= clock_timestamp()`)}
+			AND NOT ${hasMailingAddressSql(sql`${plantId}::uuid`)} THEN 'held'
 		WHEN ${any(sql`m.state = 'scheduled'`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted' AND m.scheduled_at IS NOT NULL`)} THEN 'scheduled'
 		WHEN ${any(sql`m.state = 'accepted'`)} THEN 'sending'

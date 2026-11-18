@@ -14,6 +14,7 @@ import { createNotificationProducer } from "../../../packages/domain/src/notific
 import { hubLabel } from "../../../apps/web/src/features/communication/model.ts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider } from "./scheduled-support.mts";
+import { MAILING } from "./church-address.mts";
 
 let f;
 const ring = { current: randomBytes(32), previous: [] };
@@ -32,7 +33,7 @@ const now = () => new Date();
 const rows = async (query) => (await f.admin.execute(query)).rows;
 
 async function church() {
-	const w = await f.workspace();
+	const w = await f.workspace("plant", MAILING);
 	await f.admin.execute(sql`UPDATE plant SET timezone = ${ZONE} WHERE id = ${w.id}::uuid`);
 	return w;
 }

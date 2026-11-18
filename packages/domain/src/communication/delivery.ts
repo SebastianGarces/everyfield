@@ -6,6 +6,7 @@ import {
 	plainText,
 	renderBody,
 	renderEmailHtml,
+	renderEmailText,
 	renderTransactional,
 	scheduleAccepted,
 	usesRsvpLink,
@@ -13,6 +14,7 @@ import {
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
+import { churchAddressSql, churchMailingAddress, hasMailingAddressSql } from "./address.ts";
 import { audiencePeople, reviewedParts } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
@@ -197,6 +199,7 @@ const loadedSchema = z.object({
 	meeting_open: z.boolean().nullable(),
 	guests: z.unknown().nullable(),
 	church_name: z.string().nullable(),
+	church_address: z.unknown().nullable(),
 });
 
 type Loaded = z.infer<typeof loadedSchema>;
@@ -207,6 +210,7 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 		await db.execute(sql`SELECT g.allowed, c.id, c.revision::text AS revision, c.state, c.subject, c.body_html, c.body_text,
 			c.audience, c.review_digest, c.meeting_id,
 			(SELECT pl.name FROM plant pl WHERE pl.id = c.plant_id) AS church_name,
+			${churchAddressSql(sql`c.plant_id`)} AS church_address,
 			CASE WHEN c.meeting_id IS NULL THEN false ELSE EXISTS (
 				SELECT 1 FROM meeting mt WHERE mt.id = c.meeting_id AND mt.plant_id = c.plant_id AND ${meetingOpenSql("mt")}
 			) END AS meeting_open,
@@ -345,6 +349,8 @@ async function prepare(
 	const frozen = batchesOf(found.batches, actor.plantId, keys.encryptionKey);
 	if (frozen.length) return frozen;
 	if (mode === "lookup") deny("not_found");
+	const mailingAddress = churchMailingAddress(found.church_address);
+	if (mailingAddress === null) deny("mailing_address_missing");
 	const linked = usesRsvpLink(found.body_html);
 	const canLink = linked && new URL(keys.origin).protocol === "https:";
 	if (linked && (!found.meeting_id || !found.meeting_open)) deny("rsvp_needs_meeting");
@@ -367,12 +373,13 @@ async function prepare(
 		const unsubscribe = keys.optOutKeys
 			? `${keys.origin}/unsubscribe/${messagesOptOutToken(keys.optOutKeys, { plantId: actor.plantId, personId: person.id })}`
 			: null;
-		const html = renderEmailHtml(found.body_html!, merge, {
+		const context = {
 			churchName: found.church_name ?? "",
+			mailingAddress,
 			...(unsubscribe ? { unsubscribeUrl: unsubscribe } : {}),
-		});
-		const body = plainText(renderBody(found.body_html!, merge)) || found.subject!;
-		const text = unsubscribe ? `${body}\n\n--\nUnsubscribe: ${unsubscribe}` : body;
+		};
+		const html = renderEmailHtml(found.body_html!, merge, context);
+		const text = renderEmailText(plainText(renderBody(found.body_html!, merge)) || found.subject!, context);
 		const headers = unsubscribe
 			? { "List-Unsubscribe": `<${unsubscribe}/one-click>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
 			: undefined;
@@ -1122,6 +1129,7 @@ async function claimDue(db: Database) {
 				JOIN mail_request_member mem ON mem.mail_id = m.id AND mem.tenant_id = m.tenant_id
 				WHERE m.purpose = 'communication' AND m.state = 'scheduled' AND m.scheduled_at IS NOT NULL
 					AND m.scheduled_at <= clock_timestamp() AND NOT ${churchClosing(sql`m.tenant_id`)}
+					AND ${hasMailingAddressSql(sql`m.tenant_id`)}
 				ORDER BY m.scheduled_at, mem.request_id
 				LIMIT 1
 			), locked AS MATERIALIZED (

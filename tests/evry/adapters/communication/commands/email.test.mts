@@ -133,6 +133,9 @@ const unsubscribe = (person: string) =>
 
 before(async () => {
 	await setup();
+	await admin.execute(
+		sql`UPDATE plant SET street='12 Mill Road', city='Austin', country='United States' WHERE id=${plant}`,
+	);
 	const emails: [string, string][] = [
 		[people.alexRivera!, "alex.rivera@example.test"],
 		[people.alexChen!, "alex.chen@example.test"],

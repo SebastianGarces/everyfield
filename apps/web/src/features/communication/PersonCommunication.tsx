@@ -7,7 +7,7 @@ import { History } from "./HistoryPanel.tsx";
 import type { Outcome } from "./model.ts";
 
 const previewContexts = createRead(() => readPreviewContext(), {
-	failed: (): Outcome<{ churchName: string; origin: string }> => ({ status: "lost" }),
+	failed: (): Outcome<{ churchName: string; mailingAddress: string | null; origin: string }> => ({ status: "lost" }),
 });
 
 export function PersonCommunication({ personId, canWrite }: { personId: string; canWrite: boolean }) {
@@ -35,6 +35,7 @@ export function PersonCommunication({ personId, canWrite }: { personId: string; 
 							keepScope
 							onOpen={() => setSaved(true)}
 							churchName={preview.value.churchName}
+							mailingAddress={preview.value.mailingAddress}
 							origin={preview.value.origin}
 						/>
 					</div>

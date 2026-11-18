@@ -7,6 +7,7 @@ import { communicationWriter, withCommunicationWrite } from "../../../packages/d
 import { addressAad, mailAddressHash } from "../../../packages/domain/src/communication/delivery.ts";
 import { sealAddress } from "./sealed-address.mts";
 import { ok, refused } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
 
 let f, plant, other, owner, member, stranger, foreign;
 const keys = {
@@ -97,8 +98,8 @@ async function outcome(taskId, personId, name, future = false) {
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
-	other = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
+	other = await f.workspace("plant", MAILING);
 	const seated = async (workspace, roleName) => {
 		const account = await f.account();
 		await f.seat(account, workspace, roleName);

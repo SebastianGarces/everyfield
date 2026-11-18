@@ -1,6 +1,24 @@
 import { FONT, escapeHtml, renderBody, type RenderMode } from "./html.ts";
 
-export type EmailContext = { churchName: string; unsubscribeUrl?: string };
+export type EmailContext = { churchName: string; mailingAddress: string | null; unsubscribeUrl?: string };
+export type ChurchAddress = {
+	street: string | null;
+	city: string | null;
+	stateProvince: string | null;
+	country: string | null;
+};
+
+const MISSING_ADDRESS = "Mailing address missing. Add it in Church profile before this email can go out.";
+
+const line = (value: string | null) => value?.replace(/\s+/g, " ").trim() || null;
+
+export function mailingAddress(address: ChurchAddress): string | null {
+	const street = line(address.street);
+	const city = line(address.city);
+	const country = line(address.country);
+	if (!street || !city || !country) return null;
+	return [street, city, line(address.stateProvince), country].filter(Boolean).join(", ");
+}
 
 const INK = "#181D19";
 
@@ -31,6 +49,27 @@ function initials(name: string): string {
 	return letters.join("") || "•";
 }
 
+function requireAddress(context: EmailContext, mode: RenderMode): string | null {
+	if (mode === "send" && context.mailingAddress === null) throw new Error("mailing_address_required");
+	return context.mailingAddress;
+}
+
+function addressLine(church: string, address: string | null): string {
+	if (address === null) return `<span data-mailing-address="missing" style="color:#B42318;">${MISSING_ADDRESS}</span>`;
+	return `<span data-mailing-address>${church} · ${escapeHtml(address)}</span>`;
+}
+
+export function renderEmailText(body: string, context: EmailContext, mode: RenderMode = "send"): string {
+	const church = context.churchName.trim() || "Your church";
+	const address = requireAddress(context, mode);
+	const footer = [
+		`You get this email because you are part of ${church}.`,
+		address === null ? MISSING_ADDRESS : `${church} · ${address}`,
+		...(context.unsubscribeUrl ? [`Unsubscribe: ${context.unsubscribeUrl}`] : []),
+	];
+	return `${body}\n\n--\n${footer.join("\n")}`;
+}
+
 function unsubscribeLink(url: string | undefined): string {
 	if (!url) return "";
 	return ` <a href="${escapeHtml(url)}" style="color:#666A64;text-decoration:underline;">Unsubscribe</a>`;
@@ -43,6 +82,7 @@ export function renderEmailHtml(
 	mode: RenderMode = "send",
 ): string {
 	const church = escapeHtml(context.churchName.trim() || "Your church");
+	const address = requireAddress(context, mode);
 	const content = inlineStyles(renderBody(body, merge, mode));
 	return (
 		`<!DOCTYPE html><html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head>` +
@@ -59,7 +99,7 @@ export function renderEmailHtml(
 		`<td style="padding-left:10px;font-family:${FONT};font-size:15px;font-weight:600;color:${INK};">${church}</td>` +
 		`</tr></table></td></tr>` +
 		`<tr><td bgcolor="#FFFFFF" style="background-color:#FFFFFF;padding:30px 30px 28px 30px;font-family:${FONT};font-size:16px;line-height:1.6;color:#3A3F3B;">${content}</td></tr>` +
-		`<tr><td align="center" style="padding:18px 10px 0 10px;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#666A64;">You get this email because you are part of ${church}.${unsubscribeLink(context.unsubscribeUrl)}</td></tr>` +
+		`<tr><td align="center" style="padding:18px 10px 0 10px;font-family:${FONT};font-size:12.5px;line-height:1.6;color:#666A64;">You get this email because you are part of ${church}.${unsubscribeLink(context.unsubscribeUrl)}<br>${addressLine(church, address)}</td></tr>` +
 		`</table>` +
 		`<!--[if mso]></td></tr></table><![endif]-->` +
 		`</td></tr></table></body></html>`

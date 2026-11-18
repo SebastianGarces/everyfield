@@ -290,8 +290,8 @@ export async function seedHope(admin: Database, { seatNames = false }: SeedOptio
 		[PLANT, "Hope Fellowship", 0, 16],
 		[EMPTY_PLANT, "New Hope", 1, 8],
 	] as const)
-		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision,city,state_province,country)
-			VALUES(${plant},${name},'America/Chicago',7,14,${weekday},${hour},1,1,'Austin','TX','US')`);
+		await run(sql`INSERT INTO plant(id,name,timezone,warning_days,alert_days,digest_weekday,digest_hour,phase,material_revision,street,city,state_province,country)
+			VALUES(${plant},${name},'America/Chicago',7,14,${weekday},${hour},1,1,'1200 Congress Ave','Austin','TX','US')`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision)
 		VALUES(${ORGANIZATION},'sending_church','Hill Country Church','America/Chicago',1)`);
 	await run(sql`INSERT INTO organization(id,kind,name,timezone,material_revision,description)

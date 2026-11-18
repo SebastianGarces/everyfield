@@ -8,6 +8,7 @@ import { answerRsvpToken, describeRsvpToken } from "../../../packages/domain/src
 import { renderEmailHtml } from "../../../packages/contracts/src/communication/email.ts";
 import { renderBody } from "../../../packages/contracts/src/communication/html.ts";
 import { ok, refused } from "../../support/fixture.mts";
+import { MAILING, MAILING_LINE } from "./church-address.mts";
 
 let f, plant, owner;
 const origin = "https://app.example.test";
@@ -116,7 +117,7 @@ const messageFor = (sent, address) => sent.find((m) => m.to === address);
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };
@@ -275,7 +276,11 @@ test("AC:COM-010 the preview equals the sent message apart from the name and the
 	const [church] = await rows(sql`SELECT name FROM plant WHERE id = ${plant.id}`);
 	assert.equal(
 		sent.html,
-		renderEmailHtml(BODY, { name: "Gus Pike", rsvp_link: link.url }, { churchName: church.name }),
+		renderEmailHtml(
+			BODY,
+			{ name: "Gus Pike", rsvp_link: link.url },
+			{ churchName: church.name, mailingAddress: MAILING_LINE },
+		),
 	);
 	assert.equal(preview.previewBody, renderBody(BODY, { name: "Sample Person", rsvp_link: `${origin}/rsvp/preview` }));
 });
@@ -324,7 +329,7 @@ test("AC:COM-010 an http app origin sends no link and mints no token", async () 
 });
 
 test("AC:COM-010 the preview shows a labeled placeholder when no https link is possible, and a send never does", () => {
-	const context = { churchName: "Grace" };
+	const context = { churchName: "Grace", mailingAddress: MAILING_LINE };
 	for (const merge of [{ name: "Sam", rsvp_link: "http://localhost:3000/rsvp/preview" }, { name: "Sam" }]) {
 		const preview = renderEmailHtml(BODY, merge, context, "preview");
 		assert.ok(preview.includes("data-rsvp-placeholder"));

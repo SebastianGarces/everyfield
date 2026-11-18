@@ -138,8 +138,8 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		});
 		return { id: a.id, user: a.user, session: a.session, email: address };
 	}
-	async function workspace(kind = "plant") {
-		if (kind === "plant") return seed.plant({ name: "Synthetic plant", timezone: "UTC" });
+	async function workspace(kind = "plant", columns = {}) {
+		if (kind === "plant") return seed.plant({ name: "Synthetic plant", timezone: "UTC", ...columns });
 		return seed.organization(kind, { name: "Synthetic organization" });
 	}
 	async function seat(a, w, role = "owner") {

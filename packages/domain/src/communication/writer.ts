@@ -17,6 +17,7 @@ import {
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
+import { churchAddressSql, churchMailingAddress } from "./address.ts";
 import { meetingOpenSql } from "../meetings/tokens.ts";
 import { audiencePeople, recipientsDigest, reviewedParts, summarizeAudience } from "./audience.ts";
 import { optedOutAtSql } from "./opt-out.ts";
@@ -526,11 +527,13 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 					whenLive(
 						communicationAccess(cmd.actor, context.session, true),
 						sql`SELECT ${audiencePeople(cmd.actor.plantId, current.audience)} AS people,
-							${meetingOpen(current.meeting_id, cmd.actor.plantId)} AS meeting_open`,
+							${meetingOpen(current.meeting_id, cmd.actor.plantId)} AS meeting_open,
+							${churchAddressSql(sql`${cmd.actor.plantId}::uuid`)} AS church_address`,
 					),
 				),
-			) as { allowed: boolean; people: unknown; meeting_open: boolean };
+			) as { allowed: boolean; people: unknown; meeting_open: boolean; church_address: unknown };
 			if (peopleRaw.allowed !== true) deny("access_denied");
+			if (churchMailingAddress(peopleRaw.church_address) === null) deny("mailing_address_missing");
 			if (usesRsvpLink(current.body_html) && !peopleRaw.meeting_open) deny("rsvp_needs_meeting");
 			const people = peopleRaw.people;
 			const parts = reviewedParts(people);
@@ -780,6 +783,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 					(${input.meetingId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${input.meetingId ?? null}::uuid AND m.plant_id = ${reader.plantId}::uuid)) AS meeting_ok,
 					${meetingOpen(input.meetingId ?? null, reader.plantId)} AS meeting_open,
 					(SELECT pl.name FROM plant pl WHERE pl.id = ${reader.plantId}::uuid) AS church_name,
+					${churchAddressSql(sql`${reader.plantId}::uuid`)} AS church_address,
 					(${input.templateId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM message_template t WHERE t.id = ${input.templateId ?? null}::uuid AND t.plant_id = ${reader.plantId}::uuid)) AS template_ok,
 					(${input.communicationId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM communication c WHERE c.id = ${input.communicationId ?? null}::uuid AND c.plant_id = ${reader.plantId}::uuid)) AS known,
 					(SELECT c.subject FROM communication c WHERE c.id = ${input.communicationId ?? null}::uuid AND c.plant_id = ${reader.plantId}::uuid) AS subject,
@@ -794,6 +798,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 			meeting_ok: z.boolean(),
 			meeting_open: z.boolean(),
 			church_name: z.string().nullable(),
+			church_address: z.unknown(),
 			template_ok: z.boolean(),
 			known: z.boolean(),
 			subject: z.string().nullable(),
@@ -815,7 +820,12 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 		deny("stale_review", { previewBody, scriptExecution: false, providerCalls: 0 });
 	return c.previewResult.parse({
 		previewBody,
-		previewHtml: renderEmailHtml(input.bodyHtml, merge, { churchName: found.church_name ?? "" }, "preview"),
+		previewHtml: renderEmailHtml(
+			input.bodyHtml,
+			merge,
+			{ churchName: found.church_name ?? "", mailingAddress: churchMailingAddress(found.church_address) },
+			"preview",
+		),
 		scriptExecution: false,
 		providerCalls: 0,
 		eligibleEmails: summary.eligibleEmails,
@@ -998,12 +1008,13 @@ async function churchName(tx: Tx, authority: RequestActor) {
 		await tx.execute(
 			whenLive(
 				communicationAccess(reader, reader.session, false),
-				sql`SELECT (SELECT name FROM plant WHERE id = ${reader.plantId}::uuid) AS name`,
+				sql`SELECT (SELECT name FROM plant WHERE id = ${reader.plantId}::uuid) AS name,
+					${churchAddressSql(sql`${reader.plantId}::uuid`)} AS address`,
 			),
 		),
-	) as { allowed: boolean; name: string | null };
+	) as { allowed: boolean; name: string | null; address: unknown };
 	requireAllowed(raw.allowed);
-	return c.churchNameResult.parse({ churchName: raw.name });
+	return c.churchNameResult.parse({ churchName: raw.name, mailingAddress: churchMailingAddress(raw.address) });
 }
 async function teams(tx: Tx, authority: RequestActor) {
 	const reader = readerOf(authority);

@@ -9,6 +9,7 @@ import { hubLabel } from "../../../apps/web/src/features/communication/model.ts"
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
 
 let f, churchA, churchB, ownerA, ownerB;
 const ring = { current: randomBytes(32), previous: [] };
@@ -94,8 +95,8 @@ const statusOf = (view, who) => view.recipients.find((row) => row.personId === w
 
 before(async () => {
 	f = await fixture();
-	churchA = await f.workspace();
-	churchB = await f.workspace();
+	churchA = await f.workspace("plant", MAILING);
+	churchB = await f.workspace("plant", MAILING);
 	const a = await f.account();
 	await f.seat(a, churchA, "owner");
 	ownerA = { ...a, actor: await f.actor(a.session) };

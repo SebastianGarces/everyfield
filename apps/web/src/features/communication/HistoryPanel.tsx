@@ -22,6 +22,7 @@ import {
 	saveResend,
 	sendReviewed,
 } from "./actions.ts";
+import { MailingAddressPrompt } from "./MailingAddressPrompt.tsx";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { deliveryName, Tile, Totals, when } from "./SentTotals.tsx";
 import {
@@ -170,6 +171,7 @@ function useHistory(list: ListQuery) {
 const stateTone: Record<HubState, string> = {
 	draft: "bg-surface-2 text-text-2",
 	scheduled: "bg-amber-100 text-amber-600",
+	held: "bg-magenta-50 text-magenta-600",
 	not_scheduled: "bg-magenta-50 text-magenta-600",
 	unsubscribed: "bg-surface-2 text-text-2",
 	sending: "bg-amber-100 text-amber-600",
@@ -261,6 +263,11 @@ function heldStatus(view: MessageView): { title: string; body: string } {
 				title: `Scheduled for ${when(detail.scheduledAt)}`,
 				body: `It goes to ${plural(totals.reachable, "person", "people")} then. Anyone who unsubscribes before then gets nothing.${unsubscribedNote(totals.unsubscribed)}`,
 			};
+		case "held":
+			return {
+				title: "Held: no mailing address",
+				body: `It was due ${when(detail.scheduledAt)} and has not gone out. Add your church's mailing address in Church profile and it goes out within a minute. You can also cancel it.`,
+			};
 		case "unsubscribed":
 			return {
 				title: "Not sent: unsubscribed",
@@ -321,7 +328,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 	const state = view.totals.state;
 	const status = heldStatus(view);
 	const requestedAt = view.detail.requestedAt;
-	const held = state === "scheduled" || state === "time_unconfirmed";
+	const held = state === "scheduled" || state === "time_unconfirmed" || state === "held";
 	const unconfirmed = state === "cancel_unconfirmed" || state === "time_unconfirmed";
 	const action = (name: string, label: string, run: () => void, variant: "primary" | "secondary" = "secondary") => (
 		<Button
@@ -339,6 +346,11 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 				<h3 className={`text-md font-medium ${unconfirmed ? "text-magenta-600" : "text-ink"}`}>{status.title}</h3>
 				<p className="text-sm text-text-2">{status.body}</p>
 			</div>
+			{state === "held" ? (
+				<MailingAddressPrompt>
+					Every email from this church shows its mailing address at the bottom. This one waits until the address is set.
+				</MailingAddressPrompt>
+			) : null}
 			{actions.notice ? <ResultNotice notice={actions.notice} /> : null}
 			<div className="flex flex-wrap gap-2">
 				{state === "cancel_unconfirmed" ? action("cancel", "Check again", actions.onCheckCancel, "primary") : null}
@@ -360,7 +372,7 @@ function ScheduledPanel({ view, actions }: { view: MessageView; actions: Schedul
 					? action("replace", "Check replacement", actions.onReplace)
 					: null}
 			</div>
-			{held || state === "not_scheduled" ? (
+			{(held && state !== "held") || state === "not_scheduled" ? (
 				<div className="flex flex-wrap items-end gap-3">
 					<Field label="Change send time" hint="From now through the next 30 days." error={error}>
 						<Input
@@ -400,6 +412,7 @@ function Detail({
 	onMeeting,
 	keepScope,
 	churchName,
+	mailingAddress,
 	origin,
 	scheduled,
 	notice,
@@ -415,6 +428,7 @@ function Detail({
 	onMeeting: (meetingId: string) => void;
 	keepScope: boolean;
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 	scheduled: ScheduledActions | null;
 	notice: Notice | null;
@@ -438,7 +452,7 @@ function Detail({
 	const sample = pickSampleName(detail.communicationId);
 	const as = named[Math.min(shownAs, Math.max(0, named.length - 1))]?.name ?? sample;
 	const totals = view.totals;
-	const heldStates: HubState[] = ["scheduled", "time_unconfirmed", "cancel_unconfirmed"];
+	const heldStates: HubState[] = ["scheduled", "held", "time_unconfirmed", "cancel_unconfirmed"];
 	const stateWhen = detail.sentAt
 		? `Sent ${when(detail.sentAt)}`
 		: detail.scheduledAt && heldStates.includes(totals.state)
@@ -492,7 +506,14 @@ function Detail({
 			<Totals totals={view.totals} />
 			{detail.bodyHtml ? (
 				<PreviewStage
-					input={{ bodyHtml: detail.bodyHtml, name: as, hasMeeting: detail.meetingId !== null, origin, churchName }}
+					input={{
+						bodyHtml: detail.bodyHtml,
+						name: as,
+						hasMeeting: detail.meetingId !== null,
+						origin,
+						churchName,
+						mailingAddress,
+					}}
 					chrome={{ from: churchName, to: as, subject: detail.subject ?? "" }}
 					toolbar={
 						named.length > 1 ? (
@@ -616,6 +637,7 @@ type BrowserProps = {
 	onCompose?: (id: string, step: "write" | "review", replace: boolean) => void;
 	onNew?: () => void;
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 	banner?: string | null;
 };
@@ -637,6 +659,7 @@ function Browser({
 	onCompose,
 	onNew,
 	churchName,
+	mailingAddress,
 	origin,
 	banner,
 }: BrowserProps) {
@@ -891,6 +914,7 @@ function Browser({
 							onMeeting={onMeeting}
 							keepScope={keepScope}
 							churchName={churchName}
+							mailingAddress={mailingAddress}
 							origin={origin}
 							scheduled={actions}
 							notice={notice}
@@ -1049,6 +1073,7 @@ export function History({
 	onCompose,
 	onNew,
 	churchName,
+	mailingAddress,
 	origin,
 	banner = null,
 }: {
@@ -1062,6 +1087,7 @@ export function History({
 	onCompose?: (id: string, step: "write" | "review", replace: boolean) => void;
 	onNew?: () => void;
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 	banner?: string | null;
 }) {
@@ -1157,6 +1183,7 @@ export function History({
 				onCompose={onCompose}
 				onNew={onNew}
 				churchName={churchName}
+				mailingAddress={mailingAddress}
 				origin={origin}
 				banner={banner}
 				title={

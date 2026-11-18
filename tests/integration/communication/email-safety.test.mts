@@ -30,6 +30,7 @@ import { fixture } from "../identity/invitations-support.mts";
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
 
 const TYPED = "real.person@example.com";
 const APPROVED = "delivered+qa-maria@resend.dev";
@@ -77,7 +78,7 @@ let world = null;
 async function database() {
 	if (world) return world;
 	const f = await fixture({ mailKeys });
-	const plant = await f.workspace();
+	const plant = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	world = { f, plant, owner: await f.actor(account.session) };

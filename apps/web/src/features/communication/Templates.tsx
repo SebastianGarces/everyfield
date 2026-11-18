@@ -34,6 +34,7 @@ export function Templates({
 	selected,
 	onSelect,
 	churchName,
+	mailingAddress,
 	origin,
 }: {
 	templates: Template[];
@@ -42,6 +43,7 @@ export function Templates({
 	selected: string | null;
 	onSelect: (id: string | null) => void;
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 }) {
 	const creating = selected === "new";
@@ -56,6 +58,7 @@ export function Templates({
 			setTemplates={setTemplates}
 			onSelect={onSelect}
 			churchName={churchName}
+			mailingAddress={mailingAddress}
 			origin={origin}
 		/>
 	);
@@ -128,6 +131,7 @@ function Editor({
 	setTemplates,
 	onSelect,
 	churchName,
+	mailingAddress,
 	origin,
 }: {
 	template: Template | null;
@@ -136,6 +140,7 @@ function Editor({
 	setTemplates: (next: Template[] | ((rows: Template[]) => Template[])) => void;
 	onSelect: (id: string | null) => void;
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 }) {
 	const keys = useKeys();
@@ -351,7 +356,14 @@ function Editor({
 				</div>
 				<PreviewStage
 					live={textToBody(fields.text)}
-					input={{ bodyHtml: textToBody(previewed), name: sample, hasMeeting: invitation, origin, churchName }}
+					input={{
+						bodyHtml: textToBody(previewed),
+						name: sample,
+						hasMeeting: invitation,
+						origin,
+						churchName,
+						mailingAddress,
+					}}
 					chrome={{ from: churchName, to: sample, subject: fields.subject }}
 				/>
 			</div>

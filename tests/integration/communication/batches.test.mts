@@ -15,6 +15,7 @@ import {
 } from "../../../packages/domain/src/communication/delivery.ts";
 import { atSendTime } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
 
 let f, plant, owner;
 const keys = {
@@ -34,7 +35,7 @@ const write = (op, input) =>
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
 	const account = await f.account();
 	await f.seat(account, plant, "owner");
 	owner = { ...account, actor: await f.actor(account.session) };

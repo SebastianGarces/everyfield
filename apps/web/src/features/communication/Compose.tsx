@@ -487,6 +487,7 @@ function ComposeForm({
 							hasMeeting,
 							origin: data.origin,
 							churchName: data.churchName,
+							mailingAddress: data.mailingAddress,
 						}}
 						chrome={chrome}
 					/>
@@ -501,6 +502,7 @@ function ComposeForm({
 					summary={summary}
 					meeting={meeting}
 					churchName={data.churchName}
+					mailingAddress={data.mailingAddress}
 					origin={data.origin}
 					sampleName={SAMPLE}
 					canSend={eligible > 0 && audienceSize(form.audience) > 0}

@@ -17,6 +17,10 @@ import { POST as oneClick } from "../../../apps/web/src/features/communication/u
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime } from "./scheduled-support.mts";
 import { ok, refused } from "../../support/fixture.mts";
+import { MAILING, MAILING_LINE } from "./church-address.mts";
+
+const footer = (url) =>
+	`\n\n--\nYou get this email because you are part of Synthetic plant.\nSynthetic plant · ${MAILING_LINE}\nUnsubscribe: ${url}`;
 
 let f, churchA, churchB, ownerA, ownerB, memberA;
 const origin = "https://app.example.test";
@@ -102,8 +106,8 @@ async function unsubscribe(church, who) {
 
 before(async () => {
 	f = await fixture();
-	churchA = await f.workspace();
-	churchB = await f.workspace();
+	churchA = await f.workspace("plant", MAILING);
+	churchB = await f.workspace("plant", MAILING);
 	const a = await f.account();
 	await f.seat(a, churchA, "owner");
 	ownerA = { ...a, actor: await f.actor(a.session) };
@@ -123,7 +127,7 @@ test("AC:CASE-NTF-016 an announcement ends with an Unsubscribe link whose token 
 	const { url, token } = linkOf(email);
 	assert.ok(email.html.indexOf("Hello Ana.") < email.html.indexOf(">Unsubscribe</a>"));
 	assert.equal(email.html.slice(email.html.indexOf(">Unsubscribe</a>")).includes("<a "), false);
-	assert.ok(email.text.endsWith(`\n\n--\nUnsubscribe: ${url}`), email.text);
+	assert.ok(email.text.endsWith(footer(url)), email.text);
 	assert.deepEqual(email.headers, {
 		"List-Unsubscribe": `<${url}/one-click>`,
 		"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
@@ -166,7 +170,7 @@ test("AC:CASE-NTF-016 a meeting invitation carries the same Unsubscribe link and
 		"List-Unsubscribe": `<${url}/one-click>`,
 		"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
 	});
-	assert.ok(email.text.endsWith(`\n\n--\nUnsubscribe: ${url}`));
+	assert.ok(email.text.endsWith(footer(url)), email.text);
 });
 
 test("AC:CASE-NTF-016 a retried handoff sends the same body and headers under the same idempotency key", async () => {

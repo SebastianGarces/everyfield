@@ -17,6 +17,7 @@ import { queueJobs } from "../../../../../apps/web/src/server/jobs/queue.ts";
 import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, refused, seeds } from "../../../../support/fixture.mts";
 import { freezeClock } from "./support.mts";
+import { MAILING } from "../../../communication/church-address.mts";
 
 const DELETE_AT = new Date("2026-10-13T16:00:00.000Z");
 const SEND_AT = "2026-10-20T16:00:00.000Z";
@@ -71,7 +72,7 @@ let plant, owner, actor;
 before(async () => {
 	mock.timers.enable({ apis: ["Date"], now: DELETE_AT.getTime() });
 	await freezeClock(admin, schema, DELETE_AT);
-	plant = await seed.plant({ name: "Harvest Point" });
+	plant = await seed.plant({ name: "Harvest Point", ...MAILING });
 	owner = await seed.actor(plant, "owner");
 	actor = await RequestActor.resolve(db, owner.session);
 	assert.ok(actor instanceof RequestActor);

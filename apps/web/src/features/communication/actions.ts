@@ -534,7 +534,9 @@ export async function readMeetingContext(meetingId: string): Promise<Outcome<Mee
 	};
 }
 
-export async function readPreviewContext(): Promise<Outcome<{ churchName: string; origin: string }>> {
+export async function readPreviewContext(): Promise<
+	Outcome<{ churchName: string; mailingAddress: string | null; origin: string }>
+> {
 	const viewer = await seat();
 	if (!viewer) return denied;
 	const origin = appOrigin();
@@ -542,6 +544,6 @@ export async function readPreviewContext(): Promise<Outcome<{ churchName: string
 	return read(viewer, async (tx) => {
 		const church = await communicationWriter.readChurchName(tx, viewer.authority);
 		if (church.status !== "ok") return church;
-		return { status: "ok", value: { churchName: church.value.churchName, origin } };
+		return { status: "ok", value: { ...church.value, origin } };
 	});
 }

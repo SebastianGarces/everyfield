@@ -7,6 +7,7 @@ import { scheduleAccepted, systemTemplates } from "../../../packages/contracts/s
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { communicationWriter, withCommunicationWrite } from "../../../packages/domain/src/communication/index.ts";
 import { ok, refused } from "../../support/fixture.mts";
+import { MAILING } from "./church-address.mts";
 
 let f, plant, other, owner, member, foreign;
 const write = (who, op, input) =>
@@ -77,8 +78,8 @@ const templateInput = (patch = {}) => ({
 
 before(async () => {
 	f = await fixture();
-	plant = await f.workspace();
-	other = await f.workspace();
+	plant = await f.workspace("plant", MAILING);
+	other = await f.workspace("plant", MAILING);
 	await f.admin.execute(sql`UPDATE plant SET timezone = 'America/Chicago' WHERE id IN (${plant.id},${other.id})`);
 	const seated = async (w, roleName) => {
 		const account = await f.account();

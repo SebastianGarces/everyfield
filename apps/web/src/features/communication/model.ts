@@ -78,6 +78,7 @@ export type PageData = {
 	templates: Template[];
 	teams: Team[];
 	churchName: string;
+	mailingAddress: string | null;
 	origin: string;
 };
 
@@ -105,6 +106,8 @@ function refusalText(code: string): string {
 			return "Check the subject, the message, and that at least one person can receive it.";
 		case "rsvp_needs_meeting":
 			return "This message has an RSVP link. Start it from the meeting, or remove the RSVP line.";
+		case "mailing_address_missing":
+			return "Sending is held. Add your church's mailing address in Church profile, then send again. Nothing was sent.";
 		case "unavailable":
 			return "Email delivery is not set up on this server. Nothing was sent.";
 		default:
@@ -222,6 +225,7 @@ export function restoreText(report: RestoreReport): string {
 export const hubStates = [
 	"draft",
 	"scheduled",
+	"held",
 	"not_scheduled",
 	"unsubscribed",
 	"sending",
@@ -237,6 +241,7 @@ export type HubState = (typeof hubStates)[number];
 export const hubLabel: Record<HubState, string> = {
 	draft: "Draft",
 	scheduled: "Scheduled",
+	held: "Held: no mailing address",
 	not_scheduled: "Not scheduled",
 	unsubscribed: "Not sent: unsubscribed",
 	sending: "Sending",
