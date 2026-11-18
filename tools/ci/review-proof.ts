@@ -13,7 +13,7 @@ import {
 	type FeatureMap,
 } from "./feature-maps.ts";
 import { census, chartCurrent, page, render, SCHEMA_TABLES, sameValues, schemaColumns, tableFile } from "./machines.ts";
-import { machines } from "../../packages/contracts/src/machines/index.ts";
+import { columnsOf, machines } from "../../packages/contracts/src/machines/index.ts";
 
 type Surface = FeatureMap["surfaces"][number];
 type Reach = Surface["reach"][number];
@@ -75,7 +75,10 @@ function machineProof(root: string, changed: string[], evidence: string, base?: 
 		const writers = census(root, m);
 		const touched =
 			changes.has(tableFile(m)) ||
-			(schema !== undefined && !sameValues(schema.head.get(key), schema.before.get(key))) ||
+			(schema !== undefined &&
+				columnsOf(m).some(
+					(c) => !sameValues(schema.head.get(`${m.table}.${c}`), schema.before.get(`${m.table}.${c}`)),
+				)) ||
 			writers.some((w) => changes.has(w.file));
 		if (!touched) continue;
 		if (!chartCurrent(root, m, render(m, writers)))
