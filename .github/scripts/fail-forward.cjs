@@ -33,6 +33,34 @@ function logExcerpt(log, chars) {
   const end = error === -1 ? lines.length : error + 1;
   return lines.slice(Math.max(0, end - 200), end).join('\n').slice(-chars);
 }
+const SHA = /^[0-9a-f]{40}$/;
+const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+function trailers(message) {
+  const paragraphs = String(message || '').trim().split(/\n[ \t]*\n/);
+  const found = {};
+  if (paragraphs.length < 2) return found;
+  for (const line of paragraphs.at(-1).split('\n')) {
+    const match = /^([A-Za-z0-9-]+):[ \t]*(.*?)[ \t]*$/.exec(line);
+    if (match && !Object.hasOwn(found, match[1].toLowerCase())) found[match[1].toLowerCase()] = match[2];
+  }
+  return found;
+}
+async function autoRevert(github, repo, commit) {
+  const sha = trailers(commit?.message)['evf-revert-of'];
+  if (!sha || !SHA.test(sha)) return;
+  let subject = 'subject unavailable: the reverted commit could not be read';
+  let task;
+  try {
+    const message = (await github.rest.repos.getCommit({ ...repo, ref: sha })).data.commit.message;
+    subject = clean(message.split('\n')[0] || 'no subject').slice(0, 200);
+    const named = trailers(message)['evf-task'];
+    if (named && TASK_ID.test(named)) task = named;
+  } catch (error) { if (![404, 422].includes(error.status)) throw error; }
+  return { sha, subject, task: task || 'unknown (the reverted commit has no Evf-Task trailer)' };
+}
+function describeRevert(revert, sha) {
+  return `${sha} is an evf auto-revert of ${revert.sha} ("${revert.subject}"). Reverted task: ${revert.task}.`;
+}
 const DETAIL_BUDGET = 60000;
 const LOG_BUDGET = 48000;
 const MORE_RESERVE = 200;
@@ -63,8 +91,9 @@ async function recover({ github, context, core }, run, workflow, options) {
   if (!failed) return;
   const comparison = await github.rest.repos.compareCommitsWithBasehead({ ...repo, basehead: `${failed}...${run.head_sha}` });
   if (!['ahead', 'identical'].includes(comparison.data.status)) return;
+  const revert = await autoRevert(github, repo, run.head_commit);
   await github.rest.issues.createComment({ ...repo, issue_number: issue.number,
-    body: `${workflow.recovered} passed again at ${run.head_sha}, which contains the failed commit ${failed}: ${run.html_url}\n\nThe fail-forward workflow closed this incident.` });
+    body: `${workflow.recovered} passed again at ${run.head_sha}, which contains the failed commit ${failed}: ${run.html_url}\n\n${revert ? `${describeRevert(revert, run.head_sha)}\n\n` : ''}The fail-forward workflow closed this incident.` });
   await github.rest.issues.update({ ...repo, issue_number: issue.number, state: 'closed', state_reason: 'completed' });
   core.info(`Closed failure issue: ${issue.html_url}`);
   return issue.number;
@@ -113,6 +142,8 @@ module.exports = async function report({ github, context, core }, options = {}) 
     detail = details.join('\n\n') || (run.conclusion === 'startup_failure'
       ? `${workflow.name} did not start (startup_failure), so no job ran. A workflow file is usually invalid. Open the run link for the error.`
       : 'No failed job details were returned. Open the run link.');
+    const revert = await autoRevert(github, repo, run.head_commit);
+    if (revert) detail = `### Auto-revert\n\nThe failing commit ${describeRevert(revert, sha)}\n\n${detail}`;
   } else if (context.eventName === 'deployment_status') {
     const { deployment: deploy, deployment_status: status } = context.payload;
     if (!['failure', 'error'].includes(status.state) || deploy.environment?.toLowerCase() !== 'production' ||

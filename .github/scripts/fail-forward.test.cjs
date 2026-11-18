@@ -219,3 +219,60 @@ test('INV-ci-incident: a nightly run that never started is reported on the night
   assert.equal(p.issues[0].title, 'P0: Nightly failed on main');
   assert.match(p.issues[0].body, /Nightly did not start \(startup_failure\)/);
 });
+
+function reverts(p, commits) {
+  const read = [];
+  p.github.rest.repos.getCommit = async ({ ref }) => {
+    read.push(ref);
+    if (!Object.hasOwn(commits, ref)) throw Object.assign(new Error('missing'), { status: 404 });
+    return { data: { commit: { message: commits[ref] } } };
+  };
+  return read;
+}
+const REVERTED = 'b'.repeat(40);
+const REVERT = 'c'.repeat(40);
+const revertCommit = { id: REVERT, message: `Revert "Add the digest time"\n\nThis reverts commit ${REVERTED}.\n\nEvf-Revert-Of: ${REVERTED}` };
+
+test('INV-fail-forward: a red main at an evf auto-revert names the reverted commit and its task', async () => {
+  const p = provider();
+  const read = reverts(p, { [REVERTED]: 'Add the digest time\n\nBody text.\n\nEvf-Task: T-321\nEvf-Review: v-9' });
+  assert.equal(await report({ ...p, context: ci({ head_sha: REVERT, head_commit: revertCommit }) }), 1);
+  assert.deepEqual(read, [REVERTED]);
+  const body = p.issues[0].body;
+  assert.match(body, new RegExp(`Commit: ${REVERT}`));
+  assert.match(body, new RegExp(`### Auto-revert\\n\\nThe failing commit ${REVERT} is an evf auto-revert of ${REVERTED} \\("Add the digest time"\\)\\. Reverted task: T-321\\.`));
+  assert.match(body, /compile failed: fixture failure/);
+});
+
+test('INV-fail-forward: an auto-revert of a commit without Evf-Task says the task is unknown', async () => {
+  const p = provider();
+  reverts(p, { [REVERTED]: 'Add the digest time\n\nNo trailers here.' });
+  assert.equal(await report({ ...p, context: ci({ head_sha: REVERT, head_commit: revertCommit }) }), 1);
+  assert.match(p.issues[0].body, new RegExp(`auto-revert of ${REVERTED} \\("Add the digest time"\\)\\. Reverted task: unknown`));
+
+  const missing = provider();
+  reverts(missing, {});
+  assert.equal(await report({ ...missing, context: ci({ head_sha: REVERT, head_commit: revertCommit }) }), 1);
+  assert.match(missing.issues[0].body, new RegExp(`auto-revert of ${REVERTED} \\("subject unavailable[^"]*"\\)\\. Reverted task: unknown`));
+});
+
+test('INV-fail-forward: a commit that only mentions a revert outside its trailers is not an auto-revert', async () => {
+  const p = provider();
+  const read = reverts(p, { [REVERTED]: 'x\n\nEvf-Task: T-1' });
+  for (const message of [`Evf-Revert-Of: ${REVERTED}`, `Subject\n\nEvf-Revert-Of: ${REVERTED.slice(0, 12)}`, `Subject\n\nEvf-Revert-Of: ${REVERTED}\n\nTrailing paragraph.`]) {
+    assert.equal(await report({ ...p, context: ci({ head_commit: { message } }) }), 1);
+    assert.doesNotMatch(p.issues[0].body, /Auto-revert/);
+  }
+  assert.deepEqual(read, []);
+});
+
+test('INV-ci-incident: green main at the auto-revert of the failed commit closes the incident naming both commits and the task', async () => {
+  const p = provider();
+  reverts(p, { [REVERTED]: 'Add the digest time\n\nEvf-Task: T-321' });
+  assert.equal(await report({ ...p, context: ci({ head_sha: REVERTED, head_commit: { id: REVERTED, message: 'Add the digest time\n\nEvf-Task: T-321' } }) }), 1);
+  assert.doesNotMatch(p.issues[0].body, /Auto-revert/);
+  assert.equal(await report({ ...p, context: ci({ conclusion: 'success', head_sha: REVERT, head_commit: revertCommit, html_url: 'https://github.com/run/12' }) }), 1);
+  assert.equal(p.issues[0].state, 'closed');
+  assert.equal(p.comments.length, 1);
+  assert.match(p.comments[0].body, new RegExp(`^Main CI passed again at ${REVERT}, which contains the failed commit ${REVERTED}: https://github.com/run/12\\n\\n${REVERT} is an evf auto-revert of ${REVERTED} \\("Add the digest time"\\)\\. Reverted task: T-321\\.\\n\\nThe fail-forward workflow closed this incident\\.$`));
+});
