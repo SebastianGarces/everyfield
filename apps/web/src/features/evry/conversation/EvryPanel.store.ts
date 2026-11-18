@@ -46,7 +46,7 @@ export type EvryPanelState = {
 	announcement: string;
 	actions: {
 		show: (open: boolean) => void;
-		shortcut: (off: boolean) => void;
+		toggle: () => void;
 		setView: (view: View) => void;
 		write: (draft: string) => void;
 		send: (text: string, references: Reference[], context: string) => void;
@@ -309,7 +309,7 @@ export function createEvryPanelStore(init: { context: string; port: EvryPort }):
 			announcement: "",
 			actions: {
 				show,
-				shortcut: (off) => show(off ? false : !get().open),
+				toggle: () => show(!get().open),
 				setView: (view) => {
 					if (view === get().view) return;
 					if (view === "history") dropPhoto();

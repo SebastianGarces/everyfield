@@ -15,7 +15,6 @@ import { cn, createDebouncer, EvryBot, Icon, useFocusRequest, type EvryMood } fr
 import { usePathname } from "next/navigation";
 import {
 	useCallback,
-	useEffect,
 	useId,
 	useMemo,
 	useRef,
@@ -28,7 +27,7 @@ import {
 	type Ref,
 } from "react";
 import { createRead, useRead } from "@/components/read";
-import { storeContext, useLocalStore } from "@/components/store";
+import { storeContext, useLocalStore, useStore } from "@/components/store";
 import * as api from "./api.ts";
 import {
 	endNotice,
@@ -62,18 +61,9 @@ const conversations = createRead((search: string, page: number) => api.listConve
 
 export function useEvryPanel({ inPlant, off = false, context }: { inPlant: boolean; off?: boolean; context: string }) {
 	const store = useLocalStore(() => createEvryPanelStore({ context, port: PORT }));
-	useEffect(() => {
-		const onKey = (e: globalThis.KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "j") {
-				e.preventDefault();
-				store.getState().actions.shortcut(off);
-			}
-		};
-		window.addEventListener("keydown", onKey);
-		return () => window.removeEventListener("keydown", onKey);
-	}, [store, off]);
 	return {
-		open: () => store.getState().actions.show(true),
+		open: useStore(store, (s) => s.open),
+		toggle: () => store.getState().actions.toggle(),
 		element: off ? null : (
 			<Panel.Provider value={store}>
 				<EvryPanel inPlant={inPlant} context={context} />
