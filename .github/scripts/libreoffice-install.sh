@@ -16,10 +16,10 @@ fetch() {
 }
 
 use_main_mirror() {
-  for list in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources; do
-    [ -f "$list" ] && sudo sed -i -E 's#https?://[a-z0-9.-]+\.archive\.ubuntu\.com/ubuntu#http://archive.ubuntu.com/ubuntu#g' "$list"
-  done
-  return 0
+  local mirrors=/etc/apt/apt-mirrors.txt
+  [ -f "$mirrors" ] || return 0
+  sudo sed -i -E '/:\/\/[a-z0-9.-]+\.archive\.ubuntu\.com\//d' "$mirrors"
+  grep -q '://archive\.ubuntu\.com/' "$mirrors" || echo 'http://archive.ubuntu.com/ubuntu/' | sudo tee -a "$mirrors" >/dev/null
 }
 
 if install_cached; then
