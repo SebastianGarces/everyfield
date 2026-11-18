@@ -1,4 +1,4 @@
-export type FlagKind = "release" | "kill" | "ops";
+type FlagKind = "release" | "kill" | "ops";
 type Day = `${number}-${number}-${number}`;
 
 export type FlagDeclaration = {

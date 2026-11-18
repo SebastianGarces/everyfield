@@ -12,7 +12,7 @@ type ScopeKind = (typeof SCOPES)[number];
 
 const storedValue = z.object({ name: z.string(), scope: z.enum(SCOPES), value: z.boolean() });
 
-export class FlagValues<R extends Registry = typeof registry> {
+class FlagValues<R extends Registry = typeof registry> {
 	readonly #declared: R;
 	readonly #stored: ReadonlyMap<string, boolean>;
 	constructor(declared: R, stored: readonly z.infer<typeof storedValue>[]) {
@@ -54,20 +54,13 @@ export async function readFlags<R extends Registry = typeof registry>(
 	return new FlagValues(declared, z.array(storedValue).parse(rows));
 }
 
-export type FlagScope = { kind: "global" } | { kind: "workspace"; id: string } | { kind: "account"; id: string };
+type FlagScope = { kind: "global" } | { kind: "workspace"; id: string } | { kind: "account"; id: string };
 
 const scopeTenants: Record<ScopeKind, readonly string[]> = {
 	global: ["global"],
 	workspace: ["plant", "organization"],
 	account: ["account"],
 };
-
-const changeRow = z.object({
-	found: z.boolean(),
-	changed: z.boolean(),
-	before: z.boolean().nullable(),
-	after: z.boolean().nullable(),
-});
 
 export async function setFlag<R extends Registry = typeof registry>(
 	db: Db,
@@ -94,10 +87,6 @@ export async function setFlag<R extends Registry = typeof registry>(
   SELECT ${tenant}::uuid,${operator}::uuid,'flags.changed','edit','feature_flag',c.id,
    jsonb_build_object('value',c.before),jsonb_build_object('value',c.after),
    jsonb_build_object('flag',${flag}::text,'scope',${scope.kind}::text) FROM changed c RETURNING 1
-) SELECT EXISTS(SELECT FROM scope) AS found,EXISTS(SELECT FROM audit) AS changed,
- coalesce((SELECT before FROM changed),(SELECT value FROM prior)) AS before,
- CASE WHEN EXISTS(SELECT FROM changed) THEN (SELECT after FROM changed) ELSE (SELECT value FROM prior) END AS after`);
-	const row = changeRow.parse(rows[0]);
-	if (!row.found) throw Error(`flag_scope_unavailable: ${scope.kind}`);
-	return { changed: row.changed, before: row.before, after: row.after };
+) SELECT EXISTS(SELECT FROM scope) AS found`);
+	if (!z.object({ found: z.boolean() }).parse(rows[0]).found) throw Error(`flag_scope_unavailable: ${scope.kind}`);
 }

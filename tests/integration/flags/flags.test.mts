@@ -154,12 +154,7 @@ test("each value change writes one audit row naming the actor, flag, scope and b
 		[{ kind: "workspace", id: plantA.id }, null, plantA.id],
 		[{ kind: "global" }, null, GLOBAL_TENANT],
 	] as const;
-	const results = [];
-	for (const [scope, value] of changes) results.push(await set("test-audit", scope, value));
-	assert.deepEqual(
-		results.map((r) => r.changed),
-		[true, true, true, true, true, true],
-	);
+	for (const [scope, value] of changes) await set("test-audit", scope, value);
 	const rows = await audit();
 	assert.deepEqual(
 		rows.map(({ subject, ...row }) => row),
@@ -174,9 +169,9 @@ test("each value change writes one audit row naming the actor, flag, scope and b
 		})),
 	);
 	assert.equal(new Set(rows.map((r) => r.subject)).size, 3, "one subject per flag and scope");
-	assert.deepEqual(await set("test-audit", { kind: "global" }, null), { changed: false, before: null, after: null });
+	await set("test-audit", { kind: "global" }, null);
 	await set("test-audit", { kind: "global" }, true);
-	assert.deepEqual(await set("test-audit", { kind: "global" }, true), { changed: false, before: true, after: true });
+	await set("test-audit", { kind: "global" }, true);
 	assert.equal((await audit()).length, changes.length + 1, "an unchanged value writes no audit row");
 });
 
