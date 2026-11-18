@@ -62,10 +62,10 @@ import {
 import { actorName, EntryFacts, LastContact, OutcomeBadge, useOpener } from "./parts.tsx";
 import {
 	DialogNotice,
-	focusFirstProblem,
 	NoticeInDialog,
 	SaveButton,
 	SaveNotice,
+	useProblemFocus,
 	useSaveIntent,
 	type SaveIntent,
 } from "../../components/save/parts.tsx";
@@ -476,12 +476,13 @@ function OutcomeDialog({
 	const [draft, setDraft] = useState<Draft>(() => (editing.kind === "correct" ? draftOf(editing.item) : emptyDraft()));
 	const [reason, setReason] = useState("");
 	const [errors, setErrors] = useState<DraftErrors & { reason?: string }>({});
+	const [focusProblem, refuseProblem] = useProblemFocus();
 	const outcomes =
 		editing.kind === "correct" && editing.item.taskId !== null
 			? OUTCOMES
 			: OUTCOMES.filter((o) => o !== "no_longer_needed");
 
-	async function submit(form: HTMLFormElement) {
+	async function submit() {
 		const why = editing.kind === "record" ? null : reasonOf(reason);
 		const parsed = editing.kind === "withdraw" ? null : outcomeInput(draft, { completable: false });
 		const next: typeof errors = {
@@ -489,7 +490,7 @@ function OutcomeDialog({
 			...(why && !why.ok ? { reason: why.error } : {}),
 		};
 		setErrors(next);
-		if (Object.keys(next).length) return focusFirstProblem(form);
+		if (Object.keys(next).length) return refuseProblem();
 		const reasonText = why?.ok ? why.reason : "";
 		let send: (key: string) => Promise<Awaited<ReturnType<typeof recordOutcome>>>;
 		if (editing.kind === "record") {
@@ -534,11 +535,12 @@ function OutcomeDialog({
 			<Dialog open onOpenChange={(open) => !open && onClose()}>
 				<DialogContent size="md" onCloseAutoFocus={returnFocus}>
 					<form
+						ref={focusProblem}
 						noValidate
 						className="contents"
 						onSubmit={(e) => {
 							e.preventDefault();
-							if (!lane.wait) void submit(e.currentTarget);
+							if (!lane.wait) void submit();
 						}}
 					>
 						<DialogHeader
