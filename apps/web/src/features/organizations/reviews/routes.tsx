@@ -1,4 +1,4 @@
-import { loadAnswerReview, loadAnswerReviews, pipelineActor } from "@/server/organizations/pipeline";
+import { loadAnswerReview, loadAnswerReviews, pipelineActor } from "../pipeline-mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
