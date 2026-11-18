@@ -793,6 +793,33 @@ function history() {
 	return { dir, path, renamed, write, base };
 }
 
+test("INV-storage: only the storage module reaches the object store client and its URL signer, in product code", () => {
+	const reach = `import { S3Client } from "@aws-sdk/client-s3";
+export { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+export const later = () => import("@aws-sdk/client-s3");
+export type Client = import("@aws-sdk/client-s3").S3Client;
+export const client = S3Client;
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/documents/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/db/src/schema/storage.ts": reach,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[
+			"apps/web/src/features/x/reach.ts:1 storage-client",
+			"apps/web/src/features/x/reach.ts:2 storage-client",
+			"apps/web/src/features/x/reach.ts:3 storage-client",
+			"apps/web/src/features/x/reach.ts:4 storage-client",
+			"packages/domain/src/documents/reach.ts:1 storage-client",
+			"packages/domain/src/documents/reach.ts:2 storage-client",
+			"packages/domain/src/documents/reach.ts:3 storage-client",
+			"packages/domain/src/documents/reach.ts:4 storage-client",
+		],
+	);
+});
+
 test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
 	const { dir, path, renamed, write, base } = history();
 	const growth = (entries, ...moves) => {
