@@ -15,6 +15,7 @@ import {
 	loadAffiliation,
 	loadAffiliations,
 	pairOf,
+	OrganizationRefusal,
 	type Actor,
 	type OrganizationEffects,
 	type Reader,
@@ -421,7 +422,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 					current = { section: "organization", values: effect.current };
 					events.push(...effect.events);
 				} catch (e) {
-					if (e instanceof Error && e.message === "stale_revision") deny("conflict");
+					if (e instanceof OrganizationRefusal && e.code === "stale_revision") deny("conflict");
 					throw e;
 				}
 				break;
