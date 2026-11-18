@@ -5,7 +5,7 @@
 	"surfaces": [
 		{
 			"id": "app.cron-jobs",
-			"says": "The scheduler endpoint the platform cron calls: with the exact bearer it runs every feature's due jobs and mail passes in one tick; any other call gets 401 and nothing runs.",
+			"says": "The scheduler endpoint the platform cron calls: with the exact bearer it runs every feature's due jobs and mail passes in one tick; a call without that bearer gets 401 and runs nothing, and a deployment with no cron secret set answers 503.",
 			"routes": [],
 			"endpoints": ["/api/cron/jobs"],
 			"reach": [
@@ -26,7 +26,8 @@
 					},
 					"expect": [
 						{
-							"text": "unauthorized"
+							"text": "unauthorized",
+							"match": "contains"
 						}
 					]
 				}
