@@ -14,7 +14,7 @@ import {
 } from "../../../packages/domain/src/settings/index.ts";
 import { peopleMerge, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
-import { nextMonday } from "../../../apps/web/src/features/settings/time.ts";
+import { nextMonday } from "../../../apps/web/src/components/time.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
