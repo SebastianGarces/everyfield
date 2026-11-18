@@ -63,7 +63,7 @@ for (const [property, from, to] of [
 	[
 		"StatementSeesLiveAccess",
 		"ReadAdmits(q, cur, session) == LiveCheck(q, cur, session)",
-		"ReadAdmits(q, cur, session) == TRUE",
+		'ReadAdmits(q, cur, session) == LiveCheck(q, cur, "live")',
 	],
 	["OwnerSeatFixed", '    /\\ targetRole # "owner"\n', ""],
 ] as const)
