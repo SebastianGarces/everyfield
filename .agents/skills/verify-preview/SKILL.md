@@ -174,7 +174,8 @@ unknown surface id. Never approve while it fails. A changed surface with no map 
 `node tools/ci/feature-maps.ts --check` refuses a branch that changes a pending route or a feature with no map, and the
 author maps it. When it passes it prints one row per proved surface with its feature, how users reach it and what
 proves it, next to the files it found. Paste that table as the report's Proof section, with the file links pointed at
-the published evidence.
+the published evidence. When the diff touches a state machine, the output also has a Machines table (step 5): paste it
+too.
 
 ## 4. UI changes
 
@@ -249,10 +250,14 @@ node "$E/probe.mjs" <args> 2>&1 | tee "$E/probe.log"
 
 A change with both parts gets both. A tooling-only change gets its commands rerun as the probe.
 
-A change that touches a state machine (a table in `packages/contracts/src/machines/`, or a writer its census lists)
-also attaches the machine's chart, `docs/machines/<id>.md`, and its coverage report: run the proof test the chart names
-with `EVF_MACHINE_COVERAGE="$E/<id>.jsonl"`, then `node tools/ci/machines.ts coverage "$E/<id>.jsonl" | tee
-"$E/<id>-coverage.txt"`. Anything short of every edge, stay, refusal and state is unmet.
+A change that touches a state machine (its table in `packages/contracts/src/machines/`, its column's values in
+`packages/db/src/schema/tables.ts`, or a file its writer census lists) also proves the machine: run the proof test its
+chart names with `EVF_MACHINE_COVERAGE="$E/<id>.jsonl"`, then `node tools/ci/machines.ts coverage "$E/<id>.jsonl" | tee
+"$E/<id>-coverage.txt"`. The coverage file is named `<id>-coverage.txt`. `pnpm review-proof` (step 3) then prints a
+Machines table with each touched machine's id, column, table file and generated `docs/machines/<id>.md` chart, and fails
+while the chart is stale or missing or the coverage file is missing or has a `missing:` line. A diff that adds or
+changes a 4+ state value set (a `status`, `state`, `stage` or `phase` enum column) with no machine table fails
+`node tools/ci/machines.ts --check`. Never approve while `pnpm review-proof` or `machines --check` fails.
 
 ## 6. Publish
 
@@ -336,7 +341,8 @@ is a blocking finding: ask for changes.
 
 <The table `pnpm review-proof` printed: one row per changed surface with its feature, how users reach it, what proves
 it and links to its 390 and 1440 px screenshots or recording. For a tooling-only review: "No app proof needed", with
-the check's output.>
+the check's output. For a diff touching a machine or a 4+ state value set: the Machines table it printed, linking each
+machine's table and `docs/machines/<id>.md` chart, and its `<id>-coverage.txt`.>
 
 ## Checks
 
