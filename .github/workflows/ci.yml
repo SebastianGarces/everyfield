@@ -42,10 +42,35 @@ jobs:
         run: pnpm test:logs
         env:
           NEXT_TELEMETRY_DISABLED: "1"
-      - name: LibreOffice and the upright DM Sans fonts for the documents tests
+      - name: LibreOffice packages from the cache (the runner's Ubuntu mirror can be slow)
+        id: libreoffice-debs
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/libreoffice-debs
+          key: libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2
+          restore-keys: libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2-
+      - name: LibreOffice, with apt's archive cache in the restored directory so only packages it lacks come from the mirror
+        id: libreoffice
         run: |
+          debs="$HOME/libreoffice-debs"
+          mkdir -p "$debs/partial"
+          apt_cache=(-o "Dir::Cache::Archives=$debs" -o APT::Keep-Downloaded-Packages=true -o APT::Sandbox::User=root)
+          echo "Restored $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) cached packages."
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libreoffice-writer libreoffice-calc
+          sudo apt-get install -y --no-install-recommends "${apt_cache[@]}" libreoffice-writer libreoffice-calc
+          sudo apt-get "${apt_cache[@]}" autoclean
+          sudo rm -rf "$debs/partial" "$debs/lock"
+          sudo chown -R "$(id -u):$(id -g)" "$debs"
+          echo "Caching $(find "$debs" -maxdepth 1 -name '*.deb' | wc -l) packages, $(du -sh "$debs" | cut -f1)."
+          echo "key=libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2-$(find "$debs" -maxdepth 1 -name '*.deb' -printf '%f\n' | sort | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      - name: LibreOffice packages saved to the cache (only when this run's set differs from the restored one)
+        if: ${{ steps.libreoffice.outputs.key != steps.libreoffice-debs.outputs.cache-matched-key }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/libreoffice-debs
+          key: ${{ steps.libreoffice.outputs.key }}
+      - name: The upright DM Sans fonts for the documents tests, and the LibreOffice version
+        run: |
           sudo mkdir -p /usr/local/share/fonts/everyfield
           sudo cp packages/domain/src/documents/fonts/DMSans-{Regular,Medium,Bold}.ttf packages/domain/src/documents/fonts/DMSerifDisplay-Regular.ttf /usr/local/share/fonts/everyfield/
           fc-cache -f
