@@ -186,7 +186,7 @@ function PreviewPage({
 					<div className="mt-4 flex flex-wrap items-center gap-2">
 						<Select
 							aria-label="Failure for the next call"
-							className="w-[340px] max-w-full"
+							className="max-w-full"
 							options={FAULTS}
 							value={fault}
 							onValueChange={(v) => {

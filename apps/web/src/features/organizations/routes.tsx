@@ -15,7 +15,7 @@ import {
 	subjectFacts,
 	targetsFor,
 	viewerOf,
-} from "@/server/organizations";
+} from "./mount";
 import { pipelineAggregateAccessRequest } from "@everyfield/contracts/organizations";
 import { RealRespond } from "./RealRespond";
 import { RealSharing, type SharingPageData } from "./RealSharing";

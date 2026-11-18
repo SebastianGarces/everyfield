@@ -5,7 +5,7 @@ import { settingsCommands } from "../../features/settings/server.ts";
 import { invitationService, invitationServiceOn } from "../invitations/index.ts";
 import { launchMount } from "../../features/launch/mount.ts";
 import { onboardingMount } from "../../features/onboarding/mount.ts";
-import { current as organizationMount } from "../organizations/index.ts";
+import { current as organizationMount } from "../../features/organizations/mount.ts";
 
 export function evryNative(): NativePorts | null {
 	const settings = settingsCommands();

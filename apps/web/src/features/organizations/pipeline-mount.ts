@@ -12,8 +12,8 @@ import {
 } from "@everyfield/domain/organizations";
 import { PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
-import { requestDatabase } from "../database";
-import { getViewer } from "../request-context";
+import { requestDatabase } from "../../server/database";
+import { getViewer } from "../../server/request-context";
 
 export type PipelineAnswer<T> = PipelineReply<T> | { status: "lost" };
 

@@ -113,7 +113,6 @@ export function WikiSearchButton() {
 					shortcut="/"
 					{...shortcutMark("/")}
 					aria-label="Search the wiki"
-					boxClassName="w-[280px]"
 					onClick={open}
 					onKeyDown={(event) => {
 						if (event.key !== "Enter" && event.key !== " " && event.key !== "/") return;
@@ -202,7 +201,6 @@ function SearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (op
 							value={asked.phase}
 							options={PHASES}
 							onValueChange={(next) => ask(query, next, 1)}
-							className="w-[240px]"
 						/>
 					</form>
 					<SearchBody result={shown?.result ?? null} pending={pending} query={query.trim()} />
