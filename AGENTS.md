@@ -28,8 +28,8 @@ evf numbers tasks T-<n>. WP-NNN, FB-<n> and OPS-<n> stay as labels and in histor
 ## Pinging Jonah
 
 Outside a seat, when you need Jonah, run `evf ping need --kind decision|gate|question|stuck|limit|merge --msg "<1-2 sentences>"`
-and wait. When done, run `evf ping done --kind done --msg "<what finished>" --link <PR or file>` (add `--task T-<n>`).
-In a seat, evf pings him itself for `evf ask owner`, a stuck or environment failure, a usage limit and a landing.
+and wait; when done, `evf ping done --kind done|progress|report --msg "<what finished>" --link <PR or file>`. In a seat, evf
+pings him for `evf ask owner`, stuck or environment failures, usage limits and landings: never `ping done`; `ping need` only if nothing else fits.
 
 ## Rules
 
