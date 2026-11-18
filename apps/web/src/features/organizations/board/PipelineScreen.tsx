@@ -10,7 +10,8 @@ import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
 import { readBoard } from "./actions";
 import { GoalsArea } from "./GoalsArea";
-import { boardHref, formatDay, PIPELINE_PATH, plural } from "./model";
+import { formatPlainDate } from "../../../components/dates.ts";
+import { boardHref, PIPELINE_PATH, plural } from "./model";
 import { PersonDialog, type Saved } from "./PersonDialog";
 import { PipelineTabs } from "./PipelineTabs";
 import { StageEditor } from "./StageEditor";
@@ -187,7 +188,7 @@ function Toolbar({ board }: { board: PipelineBoard }) {
 					)}
 				>
 					No stage move in 6 months
-					<span className={query.stale ? "text-amber-600" : "text-text-3"}>· as of {formatDay(board.asOf)}</span>
+					<span className={query.stale ? "text-amber-600" : "text-text-3"}>· as of {formatPlainDate(board.asOf)}</span>
 				</Link>
 			)}
 			{board.audience === "administrator" ? (
@@ -268,7 +269,9 @@ function PersonCard({ person, stage }: { person: Card; stage?: string }) {
 						.filter(Boolean)
 						.join(" · ")}
 				</p>
-				{person.lastMovedOn ? <p className="text-xs text-text-3">Last move {formatDay(person.lastMovedOn)}</p> : null}
+				{person.lastMovedOn ? (
+					<p className="text-xs text-text-3">Last move {formatPlainDate(person.lastMovedOn)}</p>
+				) : null}
 			</div>
 		</article>
 	);
