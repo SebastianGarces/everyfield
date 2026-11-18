@@ -859,7 +859,7 @@
 						],
 						"cases": ["CASE-NTF-010"]
 					},
-					"noOperation": "resendWebhook verifies the signature and applyMailCallback records the outcome; it is a provider callback, not a catalog operation"
+					"noOperation": "the Resend webhook handler (server/jobs/webhook-route.ts) verifies the signature and the mail callback job records the outcome; it is a provider callback, not a catalog operation"
 				}
 			]
 		}

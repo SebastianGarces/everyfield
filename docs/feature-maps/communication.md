@@ -421,7 +421,7 @@ agent-browser wait --text "method_not_allowed"
 
 A signed callback records one delivery outcome for the sent mail, and a callback with a bad signature writes nothing.
 
-- No operation: resendWebhook verifies the signature and applyMailCallback records the outcome; it is a provider callback, not a catalog operation
+- No operation: the Resend webhook handler (server/jobs/webhook-route.ts) verifies the signature and the mail callback job records the outcome; it is a provider callback, not a catalog operation
 - Catalog: NTF-010
 - Cases: CASE-NTF-010
 - Test: `tests/integration/communication/delivery.test.mts`: `AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one outcome and a bad signature writes nothing`
