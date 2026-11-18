@@ -4,7 +4,7 @@ import type { VersionReview } from "@everyfield/contracts/organizations";
 import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader } from "@everyfield/ui/controls";
 import { useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../components/read.tsx";
-import { Problem } from "../board/Problem";
+import { Problem } from "../../../components/Problem.tsx";
 import { applyVersions, reviewVersions } from "./actions";
 import { programProblem } from "./model";
 import { ReviewParts } from "./VersionReview";

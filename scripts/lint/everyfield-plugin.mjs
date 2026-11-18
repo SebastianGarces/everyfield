@@ -1,6 +1,7 @@
-import { fileProblems, importProblem, routeFeatures } from "./boundaries.mjs";
+import { fileProblems, importProblem, resolveImport, routeFeatures } from "./boundaries.mjs";
 import { existsSync, readFileSync } from "node:fs";
-import { area, commentsExempt, ratchet, repoPath, sqlMarkers } from "./ratchet.mjs";
+import { join } from "node:path";
+import { area, commentsExempt, ratchet, repoPath, root, sqlMarkers } from "./ratchet.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
 const RESEND_HOST = "api.resend.com";
@@ -50,7 +51,7 @@ const resendSenders = {
 	meta: { type: "problem" },
 	create(context) {
 		const message =
-			"Only the guarded senders (mail.ts, server/jobs/resend.ts, early-access) may reach Resend: send mail through them, so mailRecipientAllowed runs first.";
+			"Only the guarded senders (server/mail/transport.ts, server/jobs/resend.ts, early-access) may reach Resend: send mail through them, so mailRecipientAllowed runs first.";
 		const host = (node) => {
 			if (text(node)?.includes(RESEND_HOST)) context.report({ node, message });
 		};
@@ -126,6 +127,73 @@ const pureModule = {
 	},
 };
 
+const RUNTIME_MODULES =
+	/^(?:react|react-dom|next|server-only|client-only|zustand|@everyfield\/db|node:)(?:\/|$)|^node:/;
+const RUNTIME_GLOBALS = new Set([
+	"window",
+	"document",
+	"navigator",
+	"location",
+	"history",
+	"localStorage",
+	"sessionStorage",
+	"process",
+	"fetch",
+	"globalThis",
+	"self",
+]);
+const CLOCKS = new Set(["Date", "performance"]);
+const GLOBAL_OBJECTS = new Set(["globalThis", "self", "window"]);
+
+const modelModule = {
+	meta: { type: "problem" },
+	create(context) {
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `A model module is pure: it takes the clock, the browser and the server as arguments and imports none of them. Remove the ${what}.`,
+			});
+		const aliases = new Map();
+		const clockOf = (node) => {
+			if (node?.type === "Identifier") return aliases.get(node.name) ?? (CLOCKS.has(node.name) ? node.name : null);
+			if (node?.type !== "MemberExpression") return null;
+			const name = memberName(node);
+			if (CLOCKS.has(name) && node.object.type === "Identifier" && GLOBAL_OBJECTS.has(node.object.name)) return name;
+			return name === "now" && clockOf(node.object) ? "now" : null;
+		};
+		const sources = moduleSources((node, name) => {
+			if (node.type === "TSImportType" || node.importKind === "type" || node.exportKind === "type") return;
+			if (RUNTIME_MODULES.test(name) && !(node.type === "ImportDeclaration" && typeOnly(node)))
+				report(node, `import of ${name}`);
+		});
+		return {
+			...sources,
+			ExpressionStatement: (node) =>
+				typeof node.directive === "string" && node.directive.startsWith("use ") && report(node, `"${node.directive}"`),
+			VariableDeclarator: (node) => {
+				if (node.id.type === "Identifier") {
+					const clock = clockOf(node.init);
+					if (clock) aliases.set(node.id.name, clock);
+					return;
+				}
+				if (node.id.type !== "ObjectPattern" || !clockOf(node.init)) return;
+				for (const p of node.id.properties)
+					if (p.type === "Property" && keyName(p.key, p.computed) === "now" && p.value.type === "Identifier")
+						aliases.set(p.value.name, "now");
+			},
+			NewExpression: (node) =>
+				clockOf(node.callee) === "Date" && node.arguments.length === 0 && report(node, "clock read (new Date())"),
+			CallExpression: (node) => {
+				if (isRequire(node)) return sources.CallExpression(node);
+				const clock = clockOf(node.callee);
+				if (clock === "now") report(node, "clock read (now())");
+				else if (clock === "Date") report(node, "clock read (Date())");
+			},
+			Identifier: (node) => RUNTIME_GLOBALS.has(node.name) && isReference(node) && report(node, `use of ${node.name}`),
+		};
+	},
+};
+
 const EFFECT_HOOKS = new Set(["useEffect", "useLayoutEffect", "useInsertionEffect"]);
 const STATE_HOOKS = new Set(["useState", "useReducer"]);
 const MAX_STATE = 4;
@@ -160,14 +228,12 @@ export const INTERACTIVE_ROLES = [
 	"tab",
 	"treeitem",
 ];
-const POINTER_HANDLERS = new Set([
-	"onClick",
-	"onDoubleClick",
-	"onMouseDown",
-	"onMouseUp",
-	"onPointerDown",
-	"onPointerUp",
-]);
+const POINTER_HANDLERS = new Set(
+	["onClick", "onDoubleClick", "onMouseDown", "onMouseUp", "onPointerDown", "onPointerUp"].flatMap((name) => [
+		name,
+		`${name}Capture`,
+	]),
+);
 const CURSOR_UTILITY = /^!?(?:[^\s:]+:)*!?cursor-(?:pointer|default|auto)!?$/;
 
 const nameOf = (node) => (node.type === "Identifier" ? node.name : node.value);
@@ -1104,24 +1170,28 @@ const literalAttribute = (element, name) => {
 	return value?.type === "Literal" && typeof value.value === "string" ? value.value : null;
 };
 
+const hostTag = (name) =>
+	name.type === "JSXIdentifier" ? name.name : name.type === "JSXMemberExpression" ? name.property.name : null;
+
 const acceptsHost = (host, element) => {
 	const [, tag, required] = host.match(/^([a-z]+)(?:\[([a-z-]+)\])?$/);
 	return (
-		element.name.name === tag &&
+		hostTag(element.name) === tag &&
 		(!required || element.attributes.some((a) => a.type === "JSXAttribute" && a.name.name === required))
 	);
 };
 
 const clickableHost = ratcheted("clickable-host", (context, push) => ({
 	JSXOpeningElement(node) {
-		if (node.name.type !== "JSXIdentifier" || !/^[a-z]/.test(node.name.name)) return;
+		const tag = hostTag(node.name);
+		if (!tag || !/^[a-z]/.test(tag)) return;
 		if (INTERACTIVE_HOSTS.some((host) => acceptsHost(host, node))) return;
 		const handler = node.attributes.find((a) => a.type === "JSXAttribute" && POINTER_HANDLERS.has(a.name.name));
 		if (!handler || INTERACTIVE_ROLES.includes(literalAttribute(node, "role"))) return;
 		push({
 			node: handler,
 			fn: enclosingName(node),
-			message: `${handler.name.name} on a <${node.name.name}> makes an element clickable that is not a control, so it gets no pointer cursor, focus or keyboard activation. Use a button, a link or a packages/ui primitive.`,
+			message: `${handler.name.name} on a <${tag}> makes an element clickable that is not a control, so it gets no pointer cursor, focus or keyboard activation. Use a button, a link or a packages/ui primitive.`,
 		});
 	},
 }));
@@ -1232,12 +1302,57 @@ const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
 	};
 });
 
+const READ_ROUTE = /^apps\/web\/src\/app\/(?:.+\/)?(?:page\.tsx|layout\.tsx|route\.ts)$/;
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const SERVER_ACTIONS = /^\s*["']use server["']/;
+
+const exportedNames = (statement) =>
+	statement.type !== "ExportNamedDeclaration"
+		? []
+		: statement.declaration
+			? statement.declaration.type === "VariableDeclaration"
+				? statement.declaration.declarations.map((d) => d.id.name)
+				: [statement.declaration.id?.name]
+			: statement.specifiers.map((s) => nameOf(s.exported));
+
+const isServerActions = (path) => {
+	try {
+		return SERVER_ACTIONS.test(readFileSync(join(root, path), "utf8"));
+	} catch {
+		return false;
+	}
+};
+
+const routeReads = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!READ_ROUTE.test(from)) return {};
+		const imports = [];
+		return {
+			...moduleSources((node, spec) => imports.push([node, spec])),
+			"Program:exit"(program) {
+				if (program.body.some((s) => exportedNames(s).some((name) => WRITE_METHODS.has(name)))) return;
+				for (const [node, spec] of imports) {
+					const to = resolveImport(from, spec).to;
+					if (to && isServerActions(to))
+						context.report({
+							node,
+							message: `A page, a layout and a GET route handler only read, so they never import a server action module (${spec} starts with "use server"). Read through the feature's routes or read module, and let it hand the action to the client as a prop.`,
+						});
+				}
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
 		"resend-senders": resendSenders,
 		"private-care-scope": privateCareScope,
 		"pure-module": pureModule,
+		"model-module": modelModule,
 		"no-inner-html": noInnerHtml,
 		"no-effects": noEffects,
 		"max-state": maxState,
@@ -1252,5 +1367,6 @@ export default {
 		"no-render-writes": noRenderWrites,
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
+		"route-reads": routeReads,
 	},
 };

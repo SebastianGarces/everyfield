@@ -23,8 +23,9 @@ import {
 } from "@everyfield/ui/controls";
 import { useActionState, useState } from "react";
 import { readGoals, saveGoal } from "./actions";
-import { formatDay, goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } from "./model";
-import { Problem } from "./Problem";
+import { formatPlainDate } from "../../../components/dates.ts";
+import { goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } from "./model";
+import { Problem } from "../../../components/Problem.tsx";
 
 type Goal = PipelineGoals["goals"][number];
 const MAX_COUNTS = 4;
@@ -133,11 +134,11 @@ function GoalItem({ goal, asOf, onEdit }: { goal: Goal; asOf: string; onEdit: ((
 }
 
 function ChosenCounts({ goal, asOf, canEdit }: { goal: Goal; asOf: string; canEdit: boolean }) {
-	const since = formatDay(goal.countingFrom);
+	const since = formatPlainDate(goal.countingFrom);
 	return (
 		<section aria-label="What this goal counts" className="mt-1 flex flex-col gap-2">
 			<p className="text-xs text-text-3">
-				Counting from {since} · As of {formatDay(asOf)}
+				Counting from {since} · As of {formatPlainDate(asOf)}
 			</p>
 			{goal.counts.length ? (
 				<dl className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
@@ -180,7 +181,7 @@ function Today({ data }: { data: PipelineGoals }) {
 			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm">Your pipeline today</CardTitle>
-					<CardDescription>As of {formatDay(data.asOf)}</CardDescription>
+					<CardDescription>As of {formatPlainDate(data.asOf)}</CardDescription>
 				</CardHeading>
 			</CardHeader>
 			<dl className="flex flex-col text-sm">

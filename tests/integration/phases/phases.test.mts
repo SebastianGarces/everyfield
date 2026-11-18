@@ -15,7 +15,7 @@ import {
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { phaseNotices } from "../../../apps/web/src/server/phases/notices.ts";
+import { phaseNotices } from "../../../apps/web/src/features/phases/notices.ts";
 import { ok, refused } from "../../support/fixture.mts";
 
 let f, writer, onboarding;
