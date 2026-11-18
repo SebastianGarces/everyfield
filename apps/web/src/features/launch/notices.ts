@@ -1,6 +1,6 @@
 import type { LaunchNotices } from "@everyfield/domain/launch";
 import "server-only";
-import type { createNotificationService } from "../jobs/notifications.ts";
+import type { createNotificationService } from "../../server/jobs/notifications.ts";
 
 export function launchNotices(service: ReturnType<typeof createNotificationService>): LaunchNotices {
 	return (tx, done) => {
