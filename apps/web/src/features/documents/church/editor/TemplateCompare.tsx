@@ -201,8 +201,8 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 					<span className="sr-only" role="status">
 						Comparing with the template
 					</span>
-					<Skeleton className="h-40 w-full rounded-card" />
-					<Skeleton className="h-40 w-full rounded-card" />
+					<Skeleton className="h-40 w-full" />
+					<Skeleton className="h-40 w-full" />
 				</div>
 			) : load.kind === "failed" ? (
 				<div className="rounded-card bg-surface-raised p-6 shadow-[0_0_0_1px_var(--ef-line)]">

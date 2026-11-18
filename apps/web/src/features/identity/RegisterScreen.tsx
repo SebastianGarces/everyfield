@@ -194,7 +194,7 @@ function RegisterFlow({ kinds }: { kinds: Kind[] }) {
 					<RadioGroup
 						value={kind}
 						onValueChange={(value) => setKind(accountKind.parse(value))}
-						className="mt-1 gap-0"
+						className="mt-1 gap-y-0"
 						aria-labelledby={kindLabel}
 					>
 						{kinds.map((k) => (

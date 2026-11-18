@@ -1,5 +1,5 @@
+import { cn } from "@everyfield/ui/foundations";
 import type { ReactNode } from "react";
-import { cn } from "./cn";
 
 type DisplaySize = "hero" | "h1" | "h2" | "h3";
 const SIZE: Record<DisplaySize, string> = {

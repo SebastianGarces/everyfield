@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { observeIntersection } from "@everyfield/ui/foundations";
+import { cn, observeIntersection } from "@everyfield/ui/foundations";
 import { useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { shortcutMark } from "../save/leave.ts";
 import { buttonClass } from "../ButtonLink";
-import { cn } from "../cn";
 
 type NavLink = { href: string; label: string; current: boolean };
 type Which = "inflow" | "pill";
