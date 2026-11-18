@@ -155,6 +155,64 @@ const noInnerHtml = {
 	},
 };
 
+export const SESSION_MODULE = "packages/domain/src/access/session.ts";
+const PRODUCT_SOURCE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
+
+const ACTOR_CLASS = "RequestActor";
+const ACTOR_STATICS = new Set(["resolve", "claimWrite"]);
+const staticKey = (node) =>
+	keyName(node.property, node.computed) ?? (node.computed ? literalArgument(node.property) : null);
+
+const requestActor = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === SESSION_MODULE || !PRODUCT_SOURCE.test(path)) return {};
+		const built = `Only ${SESSION_MODULE} builds a RequestActor from a session and an actor: resolve it with RequestActor.resolve or claim a write, so authority always comes from the server session.`;
+		const passed = `Reach RequestActor only through a named static member (RequestActor.resolve, RequestActor.claimWrite), so only ${SESSION_MODULE} builds one from a session and an actor.`;
+		const locals = new Set([ACTOR_CLASS]);
+		const isClass = (node) =>
+			(node.type === "Identifier" && locals.has(node.name)) ||
+			(node.type === "MemberExpression" && staticKey(node) === ACTOR_CLASS);
+		const throughMember = (node) => node.parent?.type === "MemberExpression" && node.parent.object === node;
+		return {
+			Program(program) {
+				for (const s of program.body)
+					if (s.type === "ImportDeclaration" && s.importKind !== "type")
+						for (const spec of s.specifiers)
+							if (
+								spec.type === "ImportSpecifier" &&
+								spec.importKind !== "type" &&
+								nameOf(spec.imported) === ACTOR_CLASS
+							)
+								locals.add(spec.local.name);
+			},
+			MemberExpression(node) {
+				if (isClass(node.object)) {
+					const key = staticKey(node);
+					if (key === null || key === "of") context.report({ node, message: built });
+					else if (!ACTOR_STATICS.has(key)) context.report({ node, message: passed });
+				}
+				if (staticKey(node) === ACTOR_CLASS && !throughMember(node)) context.report({ node, message: passed });
+			},
+			Identifier(node) {
+				if (locals.has(node.name) && isValueReference(node) && !throughMember(node))
+					context.report({ node, message: passed });
+			},
+			ExportSpecifier(node) {
+				const local = nameOf(node.local);
+				if ((local === ACTOR_CLASS || locals.has(local)) && nameOf(node.exported) !== ACTOR_CLASS)
+					context.report({ node, message: passed });
+			},
+			Property(node) {
+				const renamed = node.value.type !== "Identifier" || node.value.name !== ACTOR_CLASS;
+				if (node.parent.type === "ObjectPattern" && keyName(node.key, node.computed) === ACTOR_CLASS && renamed)
+					context.report({ node, message: passed });
+			},
+		};
+	},
+};
+
 const IMPURE_GLOBALS = new Set(["process", "fetch", "Date", "require"]);
 const typeOnly = (node) =>
 	node.importKind === "type" || (node.specifiers.length > 0 && node.specifiers.every((s) => s.importKind === "type"));
@@ -1432,6 +1490,7 @@ export default {
 		"table-writers": tableWriters,
 		"max-state": maxState,
 		"no-timers": noTimers,
+		"request-actor": requestActor,
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
