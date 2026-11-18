@@ -1,4 +1,49 @@
 {
+	"no-global-listeners": {
+		"packages/ui/src/foundations/browser.ts": [
+			{
+				"function": "subscribe",
+				"count": 2,
+				"reason": "The media-query subscription behind useMediaQuery and useReducedMotion: useSyncExternalStore calls it once per reading component, which adds its own change listener to that query's MediaQueryList and removes it when the component stops reading; a media query has no other change signal."
+			},
+			{
+				"function": "subscribeVisibility",
+				"count": 2,
+				"reason": "The tab-visibility subscription behind useDocumentHidden: useSyncExternalStore calls it once per reading component, which adds its own visibilitychange listener on the document and removes it when the component stops reading; nothing else says the tab was hidden or shown."
+			}
+		],
+		"packages/ui/src/foundations/evry-life.ts": [
+			{
+				"function": "start",
+				"count": 3,
+				"reason": "The Evry bot animation loop's page inputs, added once when the first bot mounts: reduced-motion changes, tab visibility (an idle hidden tab costs no frames) and pointer moves for the bots' gaze; every bot on the page shares this one set."
+			},
+			{
+				"function": "off",
+				"count": 3,
+				"reason": "Removes the same three page inputs of the Evry bot animation loop when the last bot on the page unmounts."
+			}
+		],
+		"packages/ui/src/foundations/form-reset.ts": [
+			{
+				"function": null,
+				"count": 1,
+				"reason": "One capture listener for the form reset event, added once at module load in the browser: controlled fields ask duringFormReset whether a change comes from a native form reset, which no field event says; it is page-wide because a reset can come from any form."
+			}
+		],
+		"packages/ui/src/foundations/observe.ts": [
+			{
+				"function": "observeScroll",
+				"count": 2,
+				"reason": "The one shared scroll observer for a node's position (active heading, reading progress): where the page itself scrolls (no scroll column), only the window's scroll event says the node moved. Added when the node attaches and removed when it detaches; no observer reports a continuous position"
+			},
+			{
+				"function": "observeSize",
+				"count": 2,
+				"reason": "The viewport option re-measures the node when the window is resized, for layouts that depend on the viewport and not on the node's own box (which the ResizeObserver already covers). Added when the node attaches and removed when it detaches"
+			}
+		]
+	},
 	"no-timers": {
 		"packages/ui/src/foundations/debounce.ts": [
 			{
@@ -24,20 +69,6 @@
 				"function": "subscribeMinute",
 				"count": 1,
 				"reason": "The one shared minute clock behind relative times and the 48-hour call window, replacing the two intervals the app had: the passing minute is the behavior and nothing else signals it; one interval for all subscribers, cleared with the last"
-			}
-		]
-	},
-	"no-global-listeners": {
-		"packages/ui/src/foundations/observe.ts": [
-			{
-				"function": "observeScroll",
-				"count": 2,
-				"reason": "The one shared scroll observer for a node's position (active heading, reading progress): where the page itself scrolls (no scroll column), only the window's scroll event says the node moved. Added when the node attaches and removed when it detaches; no observer reports a continuous position"
-			},
-			{
-				"function": "observeSize",
-				"count": 2,
-				"reason": "The viewport option re-measures the node when the window is resized, for layouts that depend on the viewport and not on the node's own box (which the ResizeObserver already covers). Added when the node attaches and removed when it detaches"
 			}
 		]
 	}

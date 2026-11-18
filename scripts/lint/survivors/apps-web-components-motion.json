@@ -1,0 +1,18 @@
+{
+	"no-timers": {
+		"apps/web/src/components/motion/m.tsx": [
+			{
+				"function": "offs",
+				"count": 1,
+				"reason": "Writes each MotionValue change of an m element's style in Motion's render step, with the frame's other writes: the bind ref callback subscribes each value when the element attaches and unsubscribes when it detaches, as Motion's own m components batch their writes."
+			}
+		],
+		"apps/web/src/components/motion/scene.tsx": [
+			{
+				"function": "follow",
+				"count": 1,
+				"reason": "Writes animated text (typing, counters) in Motion's render step, with the frame's other writes: the follow ref callback subscribes to the text's MotionValue when the span attaches and unsubscribes when it detaches, so React never renders per frame and a value is written once per frame."
+			}
+		]
+	}
+}

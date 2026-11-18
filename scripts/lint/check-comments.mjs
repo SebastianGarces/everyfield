@@ -40,9 +40,8 @@ const SURVIVORS = "scripts/lint/survivors";
 const CONFIGS = {
 	".oxlintrc.json": {
 		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],
-		"packages/*/src/**": ["no-timers", "feature-boundaries"],
-		"packages/ui/src/**": ["no-cursor-utility"],
-		"packages/ui/src/foundations/observe.ts": ["no-global-listeners"],
+		"packages/*/src/**": ["no-timers", "no-render-writes", "feature-boundaries"],
+		"packages/ui/src/**": ["no-cursor-utility", "no-global-listeners"],
 	},
 	"apps/web/.oxlintrc.json": {
 		"*": ["no-comments", "no-effects", "max-state", "no-sql-comments"],
@@ -54,6 +53,7 @@ const CONFIGS = {
 			"no-global-listeners",
 			"zustand-shape",
 			"read-loader",
+			"no-render-writes",
 			"feature-boundaries",
 		],
 	},

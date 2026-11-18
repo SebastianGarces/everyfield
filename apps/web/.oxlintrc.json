@@ -1284,6 +1284,7 @@
 				"everyfield/no-global-listeners": "error",
 				"everyfield/zustand-shape": "error",
 				"everyfield/read-loader": "error",
+				"everyfield/no-render-writes": "error",
 				"everyfield/feature-boundaries": "error"
 			}
 		},
