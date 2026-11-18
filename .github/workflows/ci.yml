@@ -124,6 +124,9 @@ jobs:
       - name: Feature maps (routes, proofs and diagrams)
         if: ${{ !cancelled() }}
         run: corepack pnpm feature-maps
+      - name: Added migrations work with the code before and after them (expand, then a marked contract)
+        if: ${{ !cancelled() }}
+        run: corepack pnpm migrations:safety
       - name: QA preview tool
         if: ${{ !cancelled() }}
         run: node --test --disable-warning=ExperimentalWarning tools/qa/tests/*.test.ts

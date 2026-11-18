@@ -225,6 +225,7 @@ test("T-41 --full, the verifier mode, ignores selection: a docs-only diff runs e
 		"test:db",
 		"docs",
 		"ci-coverage",
+		"migration-safety",
 		"workflow",
 		"tools-ci",
 		"tools-qa",
