@@ -1,10 +1,3 @@
-import { readConversation } from "@everyfield/evry";
-import { evryResponse } from "@/server/evry";
+export { conversationGet as GET } from "@/server/evry/http";
 
 export const dynamic = "force-dynamic";
-export const GET = async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
-	const { id } = await params;
-	return evryResponse((db, actor) =>
-		readConversation(db, actor, id, Number(new URL(request.url).searchParams.get("after") ?? 0)),
-	);
-};
