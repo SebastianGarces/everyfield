@@ -559,6 +559,22 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 	);
 });
 
+export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
+const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
+const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
+
+const storageClient = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === STORAGE_MODULE || !PRODUCT_CODE.test(path)) return {};
+		const message = `Only ${STORAGE_MODULE} reaches the object store and signs its URLs: the browser gets the app's own authenticated routes, never a storage key or a signed URL.`;
+		return moduleSources((node, name) => {
+			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
+		});
+	},
+};
+
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
@@ -1244,6 +1260,7 @@ export default {
 		"no-timers": noTimers,
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
+		"storage-client": storageClient,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
