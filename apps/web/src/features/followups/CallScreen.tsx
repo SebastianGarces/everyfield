@@ -32,7 +32,7 @@ import {
 	type OutcomeMutation,
 } from "./model.ts";
 import { ContactEntries, EntryFacts, LastContact, OutcomeBadge } from "./parts.tsx";
-import { focusFirstProblem, SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
+import { SaveButton, SaveNotice, useProblemFocus, useSaveIntent } from "../../components/save/parts.tsx";
 import type { CallData } from "./server.ts";
 
 const OPEN = new Set(["not_started", "in_progress", "blocked"]);
@@ -45,6 +45,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const lane = useSaveIntent({ explain: problemText });
 	const notice = useFocusRequest<HTMLDivElement>(lane.notice?.tone === "refused" ? lane.notice.id : null);
 	const done = useFocusRequest<HTMLHeadingElement>(saved?.record.id);
+	const [focusProblem, refuseProblem] = useProblemFocus();
 	const { task, person, obligation } = call;
 	const open = OPEN.has(task.status);
 	const mine = task.assignees.some((a) => a.accountId === accountId);
@@ -57,11 +58,11 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 		now !== null && obligation?.kind === "first_vision_follow_up" && open ? windowAt(obligation.origin.at, now) : null;
 	const due = dueText(task.due);
 
-	async function submit(form: HTMLFormElement) {
+	async function submit() {
 		const parsed = outcomeInput(draft, { completable: open });
 		if (!parsed.ok) {
 			setErrors(parsed.errors);
-			focusFirstProblem(form);
+			refuseProblem();
 			return;
 		}
 		setErrors({});
@@ -233,12 +234,13 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 						</CardHeading>
 					</CardHeader>
 					<form
+						ref={focusProblem}
 						noValidate
 						className="flex flex-col gap-5"
 						onSubmit={(e) => {
 							e.preventDefault();
 							if (lane.wait) return;
-							void submit(e.currentTarget);
+							void submit();
 						}}
 					>
 						<OutcomeFields
