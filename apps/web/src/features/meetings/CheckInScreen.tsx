@@ -228,7 +228,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						setSearch(e.target.value);
 						setArrived(null);
 					}}
-					className="h-[46px]"
 				/>
 			</header>
 

@@ -113,7 +113,6 @@ export function WikiSearchButton() {
 					shortcut="/"
 					{...shortcutMark("/")}
 					aria-label="Search the wiki"
-					boxClassName="w-[280px]"
 					onClick={open}
 					onKeyDown={(event) => {
 						if (event.key !== "Enter" && event.key !== " " && event.key !== "/") return;
