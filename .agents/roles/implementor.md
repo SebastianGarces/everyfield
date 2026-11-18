@@ -30,8 +30,8 @@ Run long checks in the foreground, or keep your turn open until every background
 turn to wait for a background notice: the host stops the job when the turn ends.
 
 Open browsers only as the "Browsers and processes" section of `verify-preview` says:
-`bin/dev browser run` for scripted checks, agent-browser with your own `--session` and `close` for
-interactive checks, never the Playwright MCP. Stop only processes you started, by PID or process
+`bin/dev browser run` for scripted checks, `bin/app` (agent-browser underneath, one session) and
+`bin/app close` for interactive checks, never the Playwright MCP. Stop only processes you started, by PID or process
 group, never by name. When a flow shows the change better than a screenshot, record a short
 agent-browser video and name it as proof.
 

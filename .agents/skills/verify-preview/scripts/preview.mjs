@@ -33,8 +33,8 @@ if (mode === "production" && git(project, "status", "--porcelain")) throw new Er
 
 const env = composeEnv(join(root, "apps/web/.env.local"), join(project, "apps/web/.env.local"));
 git(root, "fetch", "--quiet", "origin", "main");
-const resetScript = git(root, "show", "origin/main:packages/db/scripts/reset-dev.ts");
-const devHosts = [...(/developmentHosts = new Set\(\[([^\]]+)\]/.exec(resetScript)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+const hostsSource = git(root, "show", "origin/main:packages/db/src/development.ts");
+const devHosts = [...(/developmentHosts\b[^=]*= new Set\(\[([^\]]+)\]/.exec(hostsSource)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 assertDevelopmentDatabase(env, devHosts);
 
 const nvm = join(homedir(), ".nvm/versions/node");
