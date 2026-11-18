@@ -442,6 +442,37 @@ export const label = (node: ReactNode) => [node, parse];
 		"apps/web/src/components/save/model.ts:8 model-module",
 	]);
 	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": pure }), []);
+	const disguised = `const D = Date;
+const { now } = performance;
+const tick = Date.now;
+export const reads = () => [
+	Date(),
+	D.now(),
+	new D(),
+	Date["now"](),
+	now(),
+	tick(),
+	new globalThis.Date(),
+	self.performance.now(),
+	location.href,
+	history.length,
+];
+export const typed = (node: import("react").ReactNode, at: number) => [node, Date.UTC(2026, 0, 1), new Date(at)];
+`;
+	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": disguised }), [
+		"apps/web/src/components/save/model.ts:10 model-module",
+		"apps/web/src/components/save/model.ts:11 model-module",
+		"apps/web/src/components/save/model.ts:11 model-module",
+		"apps/web/src/components/save/model.ts:12 model-module",
+		"apps/web/src/components/save/model.ts:12 model-module",
+		"apps/web/src/components/save/model.ts:13 model-module",
+		"apps/web/src/components/save/model.ts:14 model-module",
+		"apps/web/src/components/save/model.ts:5 model-module",
+		"apps/web/src/components/save/model.ts:6 model-module",
+		"apps/web/src/components/save/model.ts:7 model-module",
+		"apps/web/src/components/save/model.ts:8 model-module",
+		"apps/web/src/components/save/model.ts:9 model-module",
+	]);
 });
 
 test("INV-lint: a createRead or useLocalRead loader only loads its key: a call of a read, optionally mapped, and nothing else", () => {

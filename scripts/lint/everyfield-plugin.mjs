@@ -132,12 +132,17 @@ const RUNTIME_GLOBALS = new Set([
 	"window",
 	"document",
 	"navigator",
+	"location",
+	"history",
 	"localStorage",
 	"sessionStorage",
 	"process",
 	"fetch",
+	"globalThis",
+	"self",
 ]);
-const CLOCK_CALLS = new Set(["Date.now", "performance.now"]);
+const CLOCKS = new Set(["Date", "performance"]);
+const GLOBAL_OBJECTS = new Set(["globalThis", "self", "window"]);
 
 const modelModule = {
 	meta: { type: "problem" },
@@ -147,25 +152,41 @@ const modelModule = {
 				node,
 				message: `A model module is pure: it takes the clock, the browser and the server as arguments and imports none of them. Remove the ${what}.`,
 			});
+		const aliases = new Map();
+		const clockOf = (node) => {
+			if (node?.type === "Identifier") return aliases.get(node.name) ?? (CLOCKS.has(node.name) ? node.name : null);
+			if (node?.type !== "MemberExpression") return null;
+			const name = memberName(node);
+			if (CLOCKS.has(name) && node.object.type === "Identifier" && GLOBAL_OBJECTS.has(node.object.name)) return name;
+			return name === "now" && clockOf(node.object) ? "now" : null;
+		};
+		const sources = moduleSources((node, name) => {
+			if (node.type === "TSImportType" || node.importKind === "type" || node.exportKind === "type") return;
+			if (RUNTIME_MODULES.test(name) && !(node.type === "ImportDeclaration" && typeOnly(node)))
+				report(node, `import of ${name}`);
+		});
 		return {
-			...moduleSources((node, name) => {
-				if (RUNTIME_MODULES.test(name) && !(node.type === "ImportDeclaration" && typeOnly(node)))
-					report(node, `import of ${name}`);
-			}),
+			...sources,
 			ExpressionStatement: (node) =>
 				typeof node.directive === "string" && node.directive.startsWith("use ") && report(node, `"${node.directive}"`),
+			VariableDeclarator: (node) => {
+				if (node.id.type === "Identifier") {
+					const clock = clockOf(node.init);
+					if (clock) aliases.set(node.id.name, clock);
+					return;
+				}
+				if (node.id.type !== "ObjectPattern" || !clockOf(node.init)) return;
+				for (const p of node.id.properties)
+					if (p.type === "Property" && keyName(p.key, p.computed) === "now" && p.value.type === "Identifier")
+						aliases.set(p.value.name, "now");
+			},
 			NewExpression: (node) =>
-				node.callee.type === "Identifier" &&
-				node.callee.name === "Date" &&
-				node.arguments.length === 0 &&
-				report(node, "clock read (new Date())"),
+				clockOf(node.callee) === "Date" && node.arguments.length === 0 && report(node, "clock read (new Date())"),
 			CallExpression: (node) => {
-				const callee = node.callee;
-				const name =
-					callee.type === "MemberExpression" && callee.object.type === "Identifier" && !callee.computed
-						? `${callee.object.name}.${callee.property.name}`
-						: null;
-				if (CLOCK_CALLS.has(name)) report(node, `clock read (${name}())`);
+				if (isRequire(node)) return sources.CallExpression(node);
+				const clock = clockOf(node.callee);
+				if (clock === "now") report(node, "clock read (now())");
+				else if (clock === "Date") report(node, "clock read (Date())");
 			},
 			Identifier: (node) => RUNTIME_GLOBALS.has(node.name) && isReference(node) && report(node, `use of ${node.name}`),
 		};
