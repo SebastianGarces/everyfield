@@ -21,7 +21,7 @@ import {
 } from "@everyfield/ui/controls";
 import { useState, type ReactNode } from "react";
 import type { z } from "zod";
-import { Refusal, useIntent } from "../../organizations/intent";
+import { Refusal, useIntent } from "../../../components/intent.ts";
 import { ProblemLine } from "../../organizations/parts";
 import { readRemovalReview, runSeatCommand } from "./actions";
 import type { Seat } from "./model";
