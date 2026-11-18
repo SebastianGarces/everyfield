@@ -596,8 +596,8 @@ test("AC:CASE-COM-012 in dev capture mode schedule, cancel, time change and Chec
 	const { mkdtemp, rm, writeFile } = await import("node:fs/promises");
 	const { tmpdir } = await import("node:os");
 	const { join } = await import("node:path");
-	const { deliveryTransport } = await import("../../../apps/web/src/features/communication/mail.ts");
-	const { NO_ANSWER_FILE } = await import("../../../apps/web/src/features/communication/capture.ts");
+	const { deliveryTransport } = await import("../../../apps/web/src/server/mail/transport.ts");
+	const { NO_ANSWER_FILE } = await import("../../../apps/web/src/server/mail/capture.ts");
 	const outbox = await mkdtemp(join(tmpdir(), "wp028-outbox-"));
 	const saved = process.env.EVERYFIELD_DEV_OUTBOX;
 	process.env.EVERYFIELD_DEV_OUTBOX = outbox;

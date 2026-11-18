@@ -13,13 +13,13 @@ import { receiveAccessRequest } from "../../../packages/domain/src/early-access/
 import { withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/people.ts";
 import { GET as outboxRoute } from "../../../apps/web/src/app/api/dev/outbox/route.ts";
-import { NO_ANSWER_FILE } from "../../../apps/web/src/features/communication/capture.ts";
+import { NO_ANSWER_FILE } from "../../../apps/web/src/server/mail/capture.ts";
 import {
 	anticipateProvider,
 	deliveryTransport,
 	mailReady,
 	queuedMailTransport,
-} from "../../../apps/web/src/features/communication/mail.ts";
+} from "../../../apps/web/src/server/mail/transport.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
 import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
