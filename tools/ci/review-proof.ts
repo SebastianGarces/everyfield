@@ -12,6 +12,8 @@ import {
 	SCHEMA_FILE,
 	type FeatureMap,
 } from "./feature-maps.ts";
+import { census, chartCurrent, page, render, SCHEMA_TABLES, sameValues, schemaColumns, tableFile } from "./machines.ts";
+import { machines } from "../../packages/contracts/src/machines/index.ts";
 
 type Surface = FeatureMap["surfaces"][number];
 type Reach = Surface["reach"][number];
@@ -63,7 +65,66 @@ function provesText(surface: Surface): string {
 		.join("<br>");
 }
 
-export function reviewProof(root: string, changed: string[], evidence: string, proved: string[]): ProofResult {
+function machineProof(root: string, changed: string[], evidence: string, base?: string) {
+	const problems: string[] = [];
+	const rows: string[] = [];
+	const changes = new Set(changed);
+	const schema = changes.has(SCHEMA_TABLES) ? schemaColumns(root, base) : undefined;
+	for (const m of machines) {
+		const key = `${m.table}.${m.column}`;
+		const writers = census(root, m);
+		const touched =
+			changes.has(tableFile(m)) ||
+			(schema !== undefined && !sameValues(schema.head.get(key), schema.before.get(key))) ||
+			writers.some((w) => changes.has(w.file));
+		if (!touched) continue;
+		if (!chartCurrent(root, m, render(m, writers)))
+			problems.push(`${m.id}: ${page(m)} is missing or differs from its table; run node tools/ci/machines.ts --write.`);
+		const name = `${m.id}-coverage.txt`,
+			file = join(evidence, name);
+		let summary = "none";
+		if (!existsSync(file))
+			problems.push(
+				`${m.id}: ${file} is missing; run ${m.proof} with EVF_MACHINE_COVERAGE set, then node tools/ci/machines.ts coverage <file> > ${file}.`,
+			);
+		else {
+			const lines = readFileSync(file, "utf8").split("\n");
+			const at = lines.findIndex((l) => l.startsWith(`${m.id}: `));
+			const line = lines[at];
+			const rest = lines.slice(at + 1),
+				end = rest.findIndex((l) => !/^\s+missing:/.test(l));
+			const missing = end < 0 ? rest : rest.slice(0, end);
+			if (line === undefined) problems.push(`${m.id}: ${file} has no "${m.id}:" coverage line.`);
+			else if (missing.length || [...line.matchAll(/(\d+)\/(\d+)/g)].some(([, seen, all]) => seen !== all))
+				problems.push(
+					`${m.id}: ${file} does not show every edge, stay, refusal and state: ${[line, ...missing].map((l) => l.trim()).join("; ")}`,
+				);
+			else summary = `[${name}](${name}): ${line.slice(m.id.length + 2)}`;
+		}
+		rows.push(
+			`| ${m.id} | \`${key}\` | [${tableFile(m)}](${tableFile(m)}) | [${page(m)}](${page(m)}) | ${cell(summary)} |`,
+		);
+	}
+	const report = rows.length
+		? [
+				"### Machines",
+				"",
+				"| Machine | Column | Table | Chart | Coverage |",
+				"|---|---|---|---|---|",
+				...rows,
+				"",
+			].join("\n")
+		: "";
+	return { problems, report };
+}
+
+export function reviewProof(
+	root: string,
+	changed: string[],
+	evidence: string,
+	proved: string[],
+	base?: string,
+): ProofResult {
 	const problems: string[] = [];
 	const loaded = loadMaps(root);
 	problems.push(...loaded.problems);
@@ -155,7 +216,13 @@ export function reviewProof(root: string, changed: string[], evidence: string, p
 		: needed
 			? ""
 			: `No app proof needed: the diff changes only tooling, docs, tests or agent instructions (${changed.length} file(s)).\n`;
-	return { problems: [...new Set(problems)], needed, report };
+	const machine = machineProof(root, changed, evidence, base);
+	problems.push(...machine.problems);
+	return {
+		problems: [...new Set(problems)],
+		needed,
+		report: report + (report && machine.report ? "\n" : "") + machine.report,
+	};
 }
 
 if (import.meta.main) {
@@ -181,6 +248,7 @@ if (import.meta.main) {
 		changedFiles(head, base, "HEAD"),
 		evidence,
 		parsed.positionals,
+		base,
 	);
 	process.stdout.write(report);
 	for (const p of problems) console.error(p);

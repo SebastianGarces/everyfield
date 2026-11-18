@@ -1157,6 +1157,13 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"exactly 390 or 1440 px wide and an unknown surface id, and prints each proved surface's map entry as the review's",
 		"Proof table. A diff of only tooling, docs, tests or agent instructions needs no app proof.",
 		"",
+		"A diff that touches a state machine (its table in `packages/contracts/src/machines/`, its column's values or a file",
+		"its writer census lists) also gets a Machines table in that output: each machine's id, column, table file and",
+		"generated `docs/machines/<id>.md` chart. It fails while the chart is stale or the evidence folder lacks",
+		"`<id>-coverage.txt` showing every edge, stay, refusal and state. A diff that adds or changes a `status`, `state`,",
+		"`stage` or `phase` enum column with 4 or more values and no machine table fails `node tools/ci/machines.ts --check`,",
+		"so it ships with its machine table and chart.",
+		"",
 	].join("\n");
 }
 
@@ -1188,7 +1195,7 @@ const gitIn =
 	(...args: string[]) =>
 		execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
 
-function mergeBase(root: string, ref = "origin/main"): string | null {
+export function mergeBase(root: string, ref = "origin/main"): string | null {
 	try {
 		return gitIn(root)("merge-base", "HEAD", ref);
 	} catch {
