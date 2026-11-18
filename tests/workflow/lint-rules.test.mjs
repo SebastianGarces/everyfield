@@ -762,6 +762,46 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
 });
 
+test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {
+	const forge = `import { RequestActor, RequestActor as RA } from "@everyfield/domain/access";
+import * as access from "@everyfield/domain/access";
+import type { RequestActor as Typed } from "@everyfield/domain/access";
+export const a = (s: string, x: never) => RequestActor.of(s, x);
+export const b = (s: string, x: never) => RequestActor["of"](s, x);
+export const c = (s: string, x: never) => RA.of(s, x);
+export const d = (s: string, x: never) => access.RequestActor.of(s, x);
+export const e = (s: string, x: never) => RequestActor[\`of\`](s, x);
+export const f = (k: "of") => RequestActor[k];
+export const g = () => Reflect.get(RequestActor, "of");
+export const { of } = RequestActor;
+export const h = RA;
+export const i = access.RequestActor;
+export const j = (s: string) => RequestActor.resolve({} as never, s);
+export const k = (s: string) => access.RequestActor.claimWrite({} as never, s, {} as never);
+export type Held = Typed | RequestActor;
+export { RequestActor as Authority } from "@everyfield/domain/access";
+export { RA as Authority2, RequestActor };
+export const l = async () => (await import("@everyfield/domain/access")).RequestActor.claimWrite;
+export const m = async () => {
+	const { RequestActor: R } = await import("@everyfield/domain/access");
+	return R;
+};
+export const n = () => Reflect.construct(RequestActor.prototype.constructor, []);
+`;
+	const reported = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 17, 18, 21, 24];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/wiki/forge.ts": forge,
+			"apps/web/src/features/x/forge.ts": forge,
+			"packages/domain/src/access/session.ts": forge,
+			"tests/integration/x/forge.test.mts": forge,
+		}),
+		["apps/web/src/features/x/forge.ts", "packages/domain/src/wiki/forge.ts"]
+			.flatMap((file) => reported.map((line) => `${file}:${line} request-actor`))
+			.sort(),
+	);
+});
+
 test("INV-lint: a survivor whose reason marks it temporary must name the evf task that removes it", () => {
 	const path = "packages/ui/src/Panel.tsx";
 	const run = (reason) => {
