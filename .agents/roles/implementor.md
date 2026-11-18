@@ -18,6 +18,9 @@ You own the assigned task through a commit evf can review. Your seat's brief and
    map says.
    An Evry adapter operation or catalog tool change adds or updates its eval cases and names them in your
    summary (`test-standard`).
+   Adding or changing a 4+ state value set (a `status`, `state`, `stage` or `phase` enum column in
+   `packages/db/src/schema/tables.ts`) ships with its machine table in `packages/contracts/src/machines/` and the
+   chart `node tools/ci/machines.ts --write` generates in `docs/machines/`; `machines --check` refuses it otherwise.
 4. When your diff touches a path named in a `.agents/skills/formal-*/map.json` (today the access helpers, seats and
    invitations), follow `.agents/skills/maintain-formal-verification/SKILL.md`: update the model and map, and rerun
    `bin/dev formal` and the conformance test.

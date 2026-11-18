@@ -13,6 +13,7 @@ import {
 	type Refusal,
 } from "../../packages/contracts/src/machines/index.ts";
 import * as registry from "../../packages/contracts/src/machines/index.ts";
+import { mergeBase } from "./feature-maps.ts";
 
 export type Writer = {
 	readonly file: string;
@@ -251,7 +252,87 @@ export function render(m: MachineShape, declaredRefusals: readonly Refusal[], wr
 	].join("\n");
 }
 
-const page = (m: MachineShape) => `docs/machines/${m.id}.md`;
+export const page = (m: MachineShape) => `docs/machines/${m.id}.md`;
+export const tableFile = (m: MachineShape) => `packages/contracts/src/machines/${m.id}.ts`;
+export const SCHEMA_TABLES = "packages/db/src/schema/tables.ts";
+const STATE_NAME = /^(?:status|state|stage|phase)$|_(?:status|state|stage|phase)$/;
+const STATE_MINIMUM = 4;
+
+export function enumColumns(text: string): Map<string, string[]> {
+	const columns = new Map<string, string[]>();
+	const source = ts.createSourceFile(SCHEMA_TABLES, text, ts.ScriptTarget.Latest, true);
+	const stringArg = (call: ts.CallExpression, i: number) => {
+		const arg = call.arguments[i];
+		return arg && ts.isStringLiteralLike(arg) ? arg.text : undefined;
+	};
+	const visit = (node: ts.Node) => {
+		if (ts.isCallExpression(node) && node.expression.getText(source) === "pgTable") {
+			const table = stringArg(node, 0),
+				body = node.arguments[1];
+			if (table !== undefined && body) collect(table, body);
+		}
+		ts.forEachChild(node, visit);
+	};
+	const collect = (table: string, node: ts.Node) => {
+		if (ts.isCallExpression(node) && node.expression.getText(source) === "text") {
+			const column = stringArg(node, 0),
+				options = node.arguments[1];
+			const list =
+				options &&
+				ts.isObjectLiteralExpression(options) &&
+				options.properties.find(
+					(p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && p.name.getText(source) === "enum",
+				)?.initializer;
+			if (column !== undefined && list && ts.isArrayLiteralExpression(list))
+				columns.set(
+					`${table}.${column}`,
+					list.elements.filter(ts.isStringLiteralLike).map((e) => e.text),
+				);
+		}
+		ts.forEachChild(node, (child) => collect(table, child));
+	};
+	visit(source);
+	return columns;
+}
+
+export const sameValues = (a: readonly string[] = [], b: readonly string[] = []) =>
+	a.length === b.length && [...a].sort().join("\0") === [...b].sort().join("\0");
+
+export function showAt(root: string, base: string, file: string): string {
+	try {
+		return execFileSync("git", ["show", `${base}:${file}`], {
+			cwd: root,
+			encoding: "utf8",
+			stdio: ["ignore", "pipe", "ignore"],
+			maxBuffer: 64 * 1024 * 1024,
+		});
+	} catch {
+		return "";
+	}
+}
+
+export function checkStateColumns(root: string, base: string): string[] {
+	const headFile = join(root, SCHEMA_TABLES);
+	const head = enumColumns(existsSync(headFile) ? readFileSync(headFile, "utf8") : "");
+	const before = enumColumns(showAt(root, base, SCHEMA_TABLES));
+	const covered = new Set(machines.map((m) => `${m.table}.${m.column}`));
+	const problems: string[] = [];
+	for (const [key, values] of head) {
+		const [table, column] = key.split(".") as [string, string];
+		if (!STATE_NAME.test(column) || values.length < STATE_MINIMUM) continue;
+		if (covered.has(key) || sameValues(values, before.get(key))) continue;
+		const id = `${table}-${column}`.replace(/_/g, "-");
+		problems.push(
+			`${SCHEMA_TABLES}: ${key} has ${values.length} states (${values.join(", ")}) and no machine table. Add packages/contracts/src/machines/${id}.ts with table "${table}" and column "${column}", export it from packages/contracts/src/machines/index.ts, then run node tools/ci/machines.ts --write.`,
+		);
+	}
+	return problems;
+}
+
+export const chartCurrent = (root: string, m: MachineShape, expected: string) => {
+	const path = join(root, page(m));
+	return existsSync(path) && readFileSync(path, "utf8") === expected;
+};
 
 export function checkMachines(root: string, write = false): string[] {
 	const problems: string[] = [];
@@ -269,7 +350,7 @@ export function checkMachines(root: string, write = false): string[] {
 		if (write) {
 			mkdirSync(dirname(path), { recursive: true });
 			writeFileSync(path, expected);
-		} else if (!existsSync(path) || readFileSync(path, "utf8") !== expected)
+		} else if (!chartCurrent(root, m, expected))
 			problems.push(`${page(m)} differs from its table: run node tools/ci/machines.ts --write.`);
 	}
 	return problems;
@@ -308,8 +389,21 @@ if (import.meta.main) {
 		console.error("usage: node tools/ci/machines.ts --check | --write | census | coverage <file>");
 		process.exit(2);
 	}
-	const problems = checkMachines(process.cwd(), mode === "--write");
+	const root = process.cwd();
+	const problems = checkMachines(root, mode === "--write");
+	if (mode === "--check") {
+		const base = mergeBase(root);
+		problems.push(
+			...(base
+				? checkStateColumns(root, base)
+				: [
+						"machines: no merge base with origin/main (run git fetch origin main), so the rule that a changed 4+ state column needs a machine table was not checked.",
+					]),
+		);
+	}
 	for (const p of problems) console.error(p);
 	if (problems.length) process.exit(1);
-	console.log(`machines: ${machines.length} machine(s), charts current, every writer the census sees is guarded.`);
+	console.log(
+		`machines: ${machines.length} machine(s), charts current, every writer the census sees is guarded, every changed 4+ state column has a machine.`,
+	);
 }
