@@ -1,0 +1,37 @@
+{
+	"$schema": "../../feature-map.schema.json",
+	"feature": "app",
+	"catalog": [],
+	"surfaces": [
+		{
+			"id": "app.cron-jobs",
+			"says": "The scheduler endpoint the platform cron calls: with the exact bearer it runs every feature's due jobs and mail passes in one tick; any other call gets 401 and nothing runs.",
+			"routes": [],
+			"endpoints": ["/api/cron/jobs"],
+			"reach": [
+				{
+					"link": "/api/cron/jobs"
+				}
+			],
+			"personas": {
+				"visitor": "none"
+			},
+			"states": [
+				{
+					"id": "refused",
+					"reach": {
+						"persona": "visitor",
+						"open": "/api/cron/jobs",
+						"seed": "qa"
+					},
+					"expect": [
+						{
+							"text": "unauthorized"
+						}
+					]
+				}
+			],
+			"behaviors": []
+		}
+	]
+}
