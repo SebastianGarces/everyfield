@@ -27,9 +27,29 @@ function repo() {
 	};
 	for (const m of machines) put(m.proof, "");
 	put(writer, guarded);
+	put(schema, tables(columns));
+	execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-qm", "main"], { cwd: root });
+	execFileSync("git", ["update-ref", "refs/remotes/origin/main", "HEAD"], { cwd: root });
 	const cli = (...args: string[]) => spawnSync(process.execPath, [tool, ...args], { cwd: root, encoding: "utf8" });
 	return { root, put, cli, close: () => rmSync(root, { recursive: true, force: true }) };
 }
+
+const schema = "packages/db/src/schema/tables.ts";
+const meetingStates = ["planning", "ready", "in_progress", "completed", "cancelled"];
+const columns: Record<string, Record<string, string[]>> = {
+	meeting: { status: meetingStates },
+	launch: { state: ["draft", "open", "closed"] },
+	task: { status: ["todo", "doing", "blocked", "done"] },
+};
+const tables = (shape: Record<string, Record<string, string[]>>) =>
+	Object.entries(shape)
+		.map(
+			([table, cols]) =>
+				`export const ${table} = pgTable("${table}", {\n\tid: uuid("id").notNull(),\n${Object.entries(cols)
+					.map(([col, values]) => `\t${col}: text("${col}", { enum: ${JSON.stringify(values)} }).notNull(),\n`)
+					.join("")}});\n`,
+		)
+		.join("");
 
 test("INV-machines: a guarded writer and a current chart pass; a stale chart and each unguarded writer fail", () => {
 	const r = repo();
@@ -304,6 +324,80 @@ test("INV-machines: the coverage report fails until every declared edge, stay an
 			/^meeting-status: edges 1\/26, stays 0\/1, refusals 0\/55, no-ops 0\/20, states 1\/5$/m,
 		);
 		assert.match(partial.stdout, /missing: edge meetings\.changeStatus planning ready/);
+	} finally {
+		r.close();
+	}
+});
+
+test("INV-machines: --check refuses a changed or new 4+ state column with no machine table, naming the column, its values and the file to add", () => {
+	const r = repo();
+	try {
+		assert.equal(r.cli("--write").status, 0);
+		r.put(schema, tables({ ...columns, launch: { state: ["draft", "open", "closed", "archived"] } }));
+		const fourth = r.cli("--check");
+		assert.equal(fourth.status, 1);
+		assert.equal(
+			fourth.stderr.trim(),
+			`${schema}: launch.state has 4 states (draft, open, closed, archived) and no machine table. Add packages/contracts/src/machines/launch-state.ts with table "launch" and column "state", export it from packages/contracts/src/machines/index.ts, then run node tools/ci/machines.ts --write.`,
+		);
+
+		r.put(schema, tables({ ...columns, mail: { delivery_status: ["queued", "sent", "bounced", "failed"] } }));
+		const added = r.cli("--check");
+		assert.equal(added.status, 1);
+		assert.match(
+			added.stderr,
+			/mail\.delivery_status has 4 states \(queued, sent, bounced, failed\) and no machine table\. Add packages\/contracts\/src\/machines\/mail-delivery-status\.ts/,
+		);
+	} finally {
+		r.close();
+	}
+});
+
+test("INV-machines: --check passes a 3-state column, a 4+ value column of another name, an unchanged unmachined column and a machined column's new values", () => {
+	const r = repo();
+	try {
+		assert.equal(r.cli("--write").status, 0);
+		r.put(schema, tables({ ...columns, task: { status: ["todo", "doing", "blocked", "done", "dropped"] } }));
+		assert.equal(r.cli("--check").status, 1, "control: the same fixture refuses a changed unmachined column");
+		const passing: [string, Record<string, Record<string, string[]>>][] = [
+			["unchanged main", columns],
+			["3-state column", { ...columns, launch: { state: ["draft", "open", "archived"] } }],
+			[
+				"4+ values under other names",
+				{
+					...columns,
+					thing: {
+						kind: ["a", "b", "c", "d"],
+						category: ["a", "b", "c", "d"],
+						priority: ["a", "b", "c", "d"],
+						statuses: ["a", "b", "c", "d"],
+					},
+				},
+			],
+			[
+				"reordered values of an unmachined column",
+				{ ...columns, task: { status: ["done", "todo", "doing", "blocked"] } },
+			],
+			["machined column's values", { ...columns, meeting: { status: [...meetingStates, "postponed"] } }],
+		];
+		for (const [name, shape] of passing) {
+			r.put(schema, tables(shape));
+			const result = r.cli("--check");
+			assert.equal(result.status, 0, `${name}: ${result.stderr}`);
+		}
+	} finally {
+		r.close();
+	}
+});
+
+test("INV-machines: --check fails and says so when there is no merge base with origin/main", () => {
+	const r = repo();
+	try {
+		assert.equal(r.cli("--write").status, 0);
+		execFileSync("git", ["update-ref", "-d", "refs/remotes/origin/main"], { cwd: r.root });
+		const result = r.cli("--check");
+		assert.equal(result.status, 1);
+		assert.match(result.stderr, /no merge base with origin\/main \(run git fetch origin main\)/);
 	} finally {
 		r.close();
 	}
