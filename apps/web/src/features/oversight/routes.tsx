@@ -7,7 +7,7 @@ import {
 	oversightViewer,
 	type Loaded,
 	type OversightViewer,
-} from "@/server/oversight";
+} from "./server.ts";
 import { Button, Card, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";

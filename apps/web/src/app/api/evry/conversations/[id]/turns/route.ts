@@ -1,13 +1,4 @@
-import { submitTurn } from "@everyfield/evry";
-import { drainTurns, evryResponse } from "@/server/evry";
+export { conversationTurnsPost as POST } from "@/server/evry/http";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-export const POST = async (request: Request, { params }: { params: Promise<{ id: string }> }) => {
-	const { id } = await params;
-	return evryResponse(async (db, actor) => {
-		const submitted = await submitTurn(db, actor, id, await request.json().catch(() => null));
-		if (!submitted.replayed) drainTurns();
-		return submitted;
-	});
-};
