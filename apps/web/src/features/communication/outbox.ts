@@ -2,7 +2,7 @@ import "server-only";
 
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { outboxFolder, type Captured } from "./capture.ts";
+import { outboxFolder, type Captured } from "../../server/mail/capture.ts";
 
 export async function readOutbox(directory = outboxFolder()): Promise<Captured[]> {
 	const names = await readdir(directory).catch(() => []);

@@ -2,6 +2,7 @@
 	"public": {
 		"Bell.tsx": "the notification bell the shell composes into the frame",
 		"actions.ts": "markSubjectRead, which the resident page calls when a notice opens it",
-		"feed.tsx": "NotificationsProvider, which the shell provides, and useReadElsewhere, which the resident page calls after its mark"
+		"feed.tsx": "NotificationsProvider, which the shell provides, and useReadElsewhere, which the resident page calls after its mark",
+		"worker.ts": "the notification worker and notice mail pass the cron route and the scheduler run"
 	}
 }
