@@ -225,7 +225,8 @@
 	},
 	"PUT /api/brand/assets/[id]": {
 		"limit": 14,
-		"reason": "The session lookup, then uploadBrandAsset (13): one statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 5 read, 3 write, 4 transaction, 2 locked read. The route adds only the session lookup."
+		"reason": "The session lookup, then uploadBrandAsset (13): one statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 5 read, 3 write, 4 transaction, 2 locked read. The route adds only the session lookup.",
+		"repeats": "The request runs branding/files.uploadBrandAsset, whose private storage protocol runs the seat check in each of its short transactions (claim and finalize) and once for the stored bytes, so the check repeats three times for one file, not per row."
 	},
 	"GET /api/brand/assets/[id]": {
 		"limit": 9
