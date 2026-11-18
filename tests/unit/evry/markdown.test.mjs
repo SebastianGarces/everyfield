@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createRequire } from "node:module";
 import { renderMarkdown } from "../../../apps/web/src/features/evry/conversation/view.ts";
-import { safeHref } from "../../../apps/web/src/features/evry/conversation/markdown.ts";
+import { safeHref } from "../../../apps/web/src/components/markdown.ts";
 import { EMPTY, merge, mergeLive, turnsOf } from "../../../apps/web/src/features/evry/conversation/model.ts";
 
 const web = createRequire(new URL("../../../apps/web/package.json", import.meta.url));
