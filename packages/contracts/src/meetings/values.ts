@@ -19,16 +19,6 @@ export const kitCategory = z.enum(["essential", "materials", "setup", "av", "org
 export const reminderSlot = z.enum(["announcement", "day_7", "day_3", "day_1"]);
 export const reason = z.string().trim().min(1).max(2000);
 
-export const statusTransitions: Readonly<
-	Record<z.infer<typeof meetingStatus>, readonly z.infer<typeof meetingStatus>[]>
-> = {
-	planning: ["ready", "in_progress", "cancelled"],
-	ready: ["planning", "in_progress", "cancelled"],
-	in_progress: ["ready", "completed", "cancelled"],
-	completed: ["in_progress"],
-	cancelled: ["planning"],
-};
-
 export const enteredTime = {
 	date: localDate,
 	time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
