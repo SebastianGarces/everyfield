@@ -170,7 +170,9 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 			}}
 			onNotifications={bell.open}
 			notificationsOpen={bell.expanded}
-			onAskEvry={privatePage ? undefined : evry.open}
+			onAskEvry={privatePage ? undefined : evry.toggle}
+			askEvryOpen={privatePage ? undefined : evry.open}
+			askEvryShortcut="Meta+J Control+J"
 			banner={banner}
 		>
 			<SettingsOpener value={dialog.open}>{children}</SettingsOpener>
