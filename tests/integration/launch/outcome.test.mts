@@ -16,7 +16,7 @@ import { peopleMerge, peopleReader, peopleUnmerge, peopleWriter } from "../../..
 import { createPhaseWriter, phaseReader } from "../../../packages/domain/src/phases/index.ts";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { seatedNotificationService } from "../../../apps/web/src/server/jobs/seated-notifications.ts";
-import { launchNotices } from "../../../apps/web/src/server/launch/notices.ts";
+import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
 
 const TODAY = frozenClock(instant.parse("2026-10-12T17:00:00.000Z"));
 let f, reader, writer, phases;

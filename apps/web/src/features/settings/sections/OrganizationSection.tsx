@@ -13,7 +13,7 @@ import type { OrganizationOwner, SectionResult } from "../port";
 import { attempt } from "../save";
 import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
 import { useDraft, useSection, useSettings } from "../store";
-import { zoneLabel } from "../time";
+import { zoneLabel } from "../../../components/time.ts";
 
 type Organization = Extract<SectionResult, { section: "organization" }>;
 type Available = Extract<Organization["values"], { status: "available" }>;
