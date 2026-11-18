@@ -34,10 +34,16 @@ export type RefusalCode<S extends string, E extends string, R extends string> = 
 	readonly code: R;
 };
 
+export type Product<S extends string> = {
+	readonly column: string;
+	readonly states: { readonly [K in S]: readonly [string, string | null] };
+};
+
 export type MachineDefinition<S extends string, E extends string, G extends string, Subject, R extends string> = {
 	readonly id: string;
 	readonly table: string;
 	readonly column: string;
+	readonly product?: Product<NoInfer<S>>;
 	readonly states: readonly S[];
 	readonly events: readonly E[];
 	readonly refusal: R;
@@ -50,6 +56,7 @@ export type MachineDefinition<S extends string, E extends string, G extends stri
 	readonly stays: readonly Stay<NoInfer<S>, NoInfer<E>, NoInfer<G>>[];
 	readonly unchangedIsNoop: readonly NoInfer<E>[];
 	readonly decided?: readonly NoInfer<E>[];
+	readonly unwritten?: readonly NoInfer<S>[];
 	readonly notes?: readonly string[];
 	readonly proof: string;
 };
@@ -69,6 +76,7 @@ export type MachineShape = {
 	readonly id: string;
 	readonly table: string;
 	readonly column: string;
+	readonly product?: Product<string>;
 	readonly states: readonly string[];
 	readonly events: readonly string[];
 	readonly refusal: string;
@@ -81,9 +89,27 @@ export type MachineShape = {
 	readonly stays: readonly Stay<string, string, string>[];
 	readonly unchangedIsNoop: readonly string[];
 	readonly decided?: readonly string[];
+	readonly unwritten?: readonly string[];
 	readonly notes?: readonly string[];
 	readonly proof: string;
 };
+
+export const PRODUCT_SEPARATOR = "_";
+
+export const columnsOf = (m: MachineShape): readonly string[] =>
+	m.product ? [m.column, m.product.column] : [m.column];
+
+export function part(m: MachineShape, state: string, column: string): string | null | undefined {
+	if (!m.product) return column === m.column ? state : undefined;
+	const pair = m.product.states[state];
+	return pair === undefined
+		? undefined
+		: column === m.column
+			? pair[0]
+			: column === m.product.column
+				? pair[1]
+				: undefined;
+}
 
 const many = <T extends string>(value: OneOrMany<T> | undefined): readonly T[] =>
 	value === undefined ? [] : typeof value === "string" ? [value] : value;
@@ -100,6 +126,9 @@ export function machine<
 	Subject,
 	const R extends string,
 >(definition: MachineDefinition<S, E, G, Subject, R>): Machine<S, E, G, Subject, R> {
+	for (const [state, pair] of Object.entries<readonly [string, string | null]>(definition.product?.states ?? {}))
+		if (pair.filter((value) => value !== null).join(PRODUCT_SEPARATOR) !== state)
+			throw new Error(`${definition.id}: state ${state} must be its column values joined by "${PRODUCT_SEPARATOR}".`);
 	const transitions = definition.edges.flatMap((edge) =>
 		many(edge.from).flatMap((from) =>
 			many(edge.to).map((to) => ({
@@ -196,7 +225,10 @@ export function refusalOf(m: MachineShape, event: string, from: string): string 
 
 export function reachable(m: MachineShape, subject: unknown): readonly string[] {
 	const facts = m.facts ?? [];
-	const seen = new Set(m.entries.filter((e) => applies(m.guards, e, subject, facts)).map((e) => e.to));
+	const seen = new Set([
+		...m.entries.filter((e) => applies(m.guards, e, subject, facts)).map((e) => e.to),
+		...(m.unwritten ?? []),
+	]);
 	const queue = [...seen];
 	for (let at = queue.shift(); at !== undefined; at = queue.shift())
 		for (const t of m.transitions)
@@ -341,11 +373,13 @@ export function mermaid(m: MachineShape): string {
 		"stateDiagram-v2",
 		...[...arrows].map(([pair, labels]) => `  ${pair}: ${labels.join(" / ")}`),
 		...m.stays.flatMap((s) => s.in.map((state) => `  note right of ${state} : stays on ${label(s.event, s)}`)),
+		...(m.unwritten ?? []).map((state) => `  note left of ${state} : no product code writes this state`),
 	].join("\n");
 }
 
 export function unreachableStates(m: MachineShape): readonly string[] {
 	const reached = new Set([
+		...(m.unwritten ?? []),
 		...m.entries.map((e) => e.to),
 		...m.transitions.filter((t) => t.from !== t.to).map((t) => t.to),
 	]);
