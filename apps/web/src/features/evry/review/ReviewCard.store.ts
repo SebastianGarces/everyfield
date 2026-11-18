@@ -1,4 +1,5 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
+import { createRead, type Read } from "../../../components/read.tsx";
 import type { Reply } from "../conversation/api.ts";
 import type * as api from "./api.ts";
 import {
@@ -30,9 +31,10 @@ export type ReviewPort = Pick<
 	"readReview" | "readStagedPhoto" | "approve" | "revise" | "cancel" | "retry" | "check"
 > & { refresh: () => void };
 
+export type Shown = Review | null | "lost";
+
 export type ReviewState = {
-	review: Review | null;
-	load: Load;
+	shown: Read<[string], Shown>;
 	busy: Busy;
 	outcome: Outcome;
 	ranOut: Review | null;
@@ -63,10 +65,17 @@ export const NOT_DONE: Record<Action, string> = {
 	recheck: "Evry could not ask the email service again. Check again.",
 };
 
-export const lapsedOf = (state: Pick<ReviewState, "review" | "ranOut">) =>
+export type Current = Omit<ReviewState, "shown"> & { review: Review | null; load: Load };
+
+export const reviewOf = (value: Shown | undefined) => (value && value !== "lost" ? value : null);
+
+export const loadOf = (value: Shown | undefined): Load =>
+	value === undefined ? "loading" : value === "lost" ? "lost" : value === null ? "unavailable" : "ready";
+
+export const lapsedOf = (state: Pick<Current, "review" | "ranOut">) =>
 	!!state.review && (approvalLeft(state.review) <= 0 || state.ranOut === state.review);
 
-export const phaseNow = (state: Pick<ReviewState, "review" | "ranOut" | "load">) =>
+export const phaseNow = (state: Pick<Current, "review" | "ranOut" | "load">) =>
 	state.load === "ready" && state.review ? phaseOf(state.review, lapsedOf(state)) : null;
 
 export function uploadOf(review: Review | null): string | null {
@@ -75,7 +84,7 @@ export function uploadOf(review: Review | null): string | null {
 	return typeof after === "string" ? after : null;
 }
 
-export function photoWanted(state: Pick<ReviewState, "review" | "ranOut" | "load" | "photo">): string | null {
+export function photoWanted(state: Current): string | null {
 	const upload = uploadOf(state.review);
 	if (upload === null || phaseNow(state) !== "pending") return null;
 	return state.photo?.upload === upload ? null : upload;
@@ -98,7 +107,6 @@ export function createReviewStore(init: {
 	let generation = 0;
 	let readers = 0;
 	let unwatch = () => {};
-	let reading = false;
 	let photoRead: { upload: string; run: number } | null = null;
 	let photoRun = 0;
 	let poll: number | null = null;
@@ -112,8 +120,20 @@ export function createReviewStore(init: {
 		settled: (now: Review) => Notice | null;
 	} | null = null;
 	let awaiting = false;
+	const shown = createRead(
+		(proposal: string) =>
+			port
+				.readReview(proposal)
+				.then((reply): Shown => (reply.status === "ok" ? reply.value : reply.status === "refused" ? null : "lost")),
+		{ failed: (): Shown => "lost", fresh: Infinity, keep: () => true },
+	);
+	if (init.seed !== undefined) shown.seed(init.seed, id);
 
 	return createStore<ReviewState>()((set, get, store) => {
+		const value = () => shown.peek(id)?.value;
+		const view = (): Current => ({ ...get(), review: reviewOf(value()), load: loadOf(value()) });
+		const write = (next: Review | null) => shown.patch(() => next, id);
+
 		const note = (review: Review | null, ranOut: Review | null = get().ranOut) => {
 			if (!review || !seatsAccount(review.operation)) return;
 			const phase = phaseOf(review, lapsedOf({ review, ranOut }));
@@ -124,29 +144,16 @@ export function createReviewStore(init: {
 			}
 		};
 
-		const show = (next: Review) => {
-			set({ review: next, load: "ready" });
-			note(next);
-		};
-
-		const gone = () => set((s) => ({ load: "unavailable", outcome: { ...s.outcome, notice: null } }));
-
 		const read = async () => {
 			const g = generation;
 			const reply = await port.readReview(id);
 			if (g !== generation) return null;
-			if (reply.status === "ok") show(reply.value);
-			else if (reply.status === "refused") gone();
+			if (reply.status === "ok") write(reply.value);
+			else if (reply.status === "refused") {
+				write(null);
+				set((s) => ({ outcome: { ...s.outcome, notice: null } }));
+			}
 			return reply;
-		};
-
-		const load = () => {
-			if (reading) return;
-			reading = true;
-			void read().then((reply) => {
-				reading = false;
-				if (reply?.status === "lost") set({ load: "lost" });
-			});
 		};
 
 		const stopPoll = () => {
@@ -187,9 +194,8 @@ export function createReviewStore(init: {
 		};
 
 		const sync = () => {
-			const state = get();
+			const state = view();
 			const watched = readers > 0;
-			if (watched && state.load === "loading") load();
 
 			const review = state.review;
 			const counting = phaseNow(state) === "pending" || phaseNow(state) === "unconfirmed";
@@ -216,7 +222,7 @@ export function createReviewStore(init: {
 			done: (now: Review, before: Review) => boolean,
 			settled: (now: Review) => Notice | null = () => null,
 		) {
-			const before = get().review;
+			const before = view().review;
 			if (get().busy !== null || !before) return;
 			const g = ++generation;
 			set((s) => ({ busy: action, outcome: { ...s.outcome, notice: null } }));
@@ -237,7 +243,10 @@ export function createReviewStore(init: {
 				unknown: lost ? { action, revision: before.revision } : null,
 			};
 			if (lost) return set({ busy: null, outcome });
-			if (refused) return set({ busy: null, outcome, load: "unavailable" });
+			if (refused) {
+				write(null);
+				return set({ busy: null, outcome });
+			}
 			const code = reply.status === "refused" ? reply.error.code : null;
 			const notice: Notice | null =
 				current && (reply.status === "ok" || done(current, before))
@@ -248,8 +257,8 @@ export function createReviewStore(init: {
 								text: actionNotice(reply.status === "refused" ? reply.error : "lost", isMail(before.operation)),
 								tone: "error",
 							};
-			set({ busy: null, outcome: { ...outcome, notice }, ...(current && { review: current, load: "ready" }) });
-			if (current) note(current);
+			if (current) write(current);
+			set({ busy: null, outcome: { ...outcome, notice } });
 		}
 
 		const approve = (reason = typed) => {
@@ -280,16 +289,11 @@ export function createReviewStore(init: {
 					},
 				}));
 			open = null;
+			write(reread.status === "refused" ? null : reread.value);
 			if (reread.status === "refused")
-				return set((s) => ({
-					busy: null,
-					load: "unavailable",
-					outcome: { ...s.outcome, notice: null, unknown: null },
-				}));
+				return set((s) => ({ busy: null, outcome: { ...s.outcome, notice: null, unknown: null } }));
 			set((s) => ({
 				busy: null,
-				review: reread.value,
-				load: "ready",
 				outcome: {
 					...s.outcome,
 					unknown: null,
@@ -298,14 +302,12 @@ export function createReviewStore(init: {
 						: { text: NOT_DONE[unknown.action], tone: "error" },
 				},
 			}));
-			note(reread.value);
 		};
 
 		note(init.seed ?? null, null);
 
 		return {
-			review: init.seed ?? null,
-			load: init.seed === undefined ? "loading" : init.seed ? "ready" : "unavailable",
+			shown,
 			busy: null,
 			outcome: NONE,
 			ranOut: null,
@@ -315,7 +317,14 @@ export function createReviewStore(init: {
 					const off = store.subscribe(listener);
 					readers++;
 					if (readers === 1) {
-						unwatch = store.subscribe(sync);
+						const stops = [
+							store.subscribe(sync),
+							shown.connect(() => {
+								note(view().review);
+								sync();
+							}, id),
+						];
+						unwatch = () => stops.forEach((stop) => stop());
 						sync();
 					}
 					return () => {
@@ -326,10 +335,7 @@ export function createReviewStore(init: {
 						sync();
 					};
 				},
-				reload: () => {
-					set({ load: "loading" });
-					load();
-				},
+				reload: () => void shown.retry(id),
 				approve,
 				cancel: () =>
 					act(

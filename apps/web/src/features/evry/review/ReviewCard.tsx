@@ -103,8 +103,17 @@ import {
 	type Review,
 } from "./model.ts";
 import { NativeImage } from "@/components/native";
+import { useRead } from "@/components/read";
 import { useLocalStore } from "@/components/store";
-import { createReviewStore, lapsedOf, uploadOf, type Action, type Notice } from "./ReviewCard.store.ts";
+import {
+	createReviewStore,
+	lapsedOf,
+	loadOf,
+	reviewOf,
+	uploadOf,
+	type Action,
+	type Notice,
+} from "./ReviewCard.store.ts";
 
 type View = Phase | "loading" | "lost" | "unavailable" | "photo_unavailable" | "unknown";
 
@@ -118,8 +127,11 @@ function useReview(proposalId: string, seed: Review | null | undefined) {
 		}),
 	);
 	const state = useSyncExternalStore(store.getState().actions.follow, store.getState, store.getState);
-	const { review, load, photo, outcome, actions } = state;
-	const lapsed = lapsedOf(state);
+	const { value } = useRead(state.shown, proposalId);
+	const { photo, outcome, actions, ranOut } = state;
+	const review = reviewOf(value);
+	const load = loadOf(value);
+	const lapsed = lapsedOf({ review, ranOut });
 	const view: Exclude<View, "photo_unavailable" | "unknown"> =
 		load === "ready" && review ? phaseOf(review, lapsed) : load === "ready" ? "loading" : load;
 	const upload = uploadOf(review);
