@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { machines } from "../../../packages/contracts/src/machines/index.ts";
 import { checkMachines } from "../machines.ts";
 import { reviewProof } from "../review-proof.ts";
 import { fixture, put } from "./feature-map-fixture.ts";
@@ -38,7 +39,7 @@ function run(
 	const root = fixture();
 	const evidence = mkdtempSync(join(tmpdir(), "review-proof-"));
 	try {
-		put(root, "tests/integration/meetings/status-machine.test.mts", "");
+		for (const m of machines) put(root, m.proof, "");
 		put(root, WRITER, "const insert = sql`INSERT INTO meeting (id, status) VALUES (${id}::uuid, 'planning')`;\n");
 		put(root, SCHEMA, schema(STATES));
 		const git = (...args: string[]) => execFileSync("git", args, { cwd: root, stdio: "ignore" });

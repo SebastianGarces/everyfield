@@ -23,7 +23,7 @@ import {
 	showAt,
 	tableFile,
 } from "./machines.ts";
-import { machines, refusals } from "../../packages/contracts/src/machines/index.ts";
+import { machines } from "../../packages/contracts/src/machines/index.ts";
 
 type Surface = FeatureMap["surfaces"][number];
 type Reach = Surface["reach"][number];
@@ -93,7 +93,7 @@ function machineProof(root: string, changed: string[], evidence: string, base?: 
 			(schema !== undefined && !sameValues(schema.head.get(key), schema.before.get(key))) ||
 			writers.some((w) => changes.has(w.file));
 		if (!touched) continue;
-		if (!chartCurrent(root, m, render(m, refusals(m), writers)))
+		if (!chartCurrent(root, m, render(m, writers)))
 			problems.push(`${m.id}: ${page(m)} is missing or differs from its table; run node tools/ci/machines.ts --write.`);
 		const name = `${m.id}-coverage.txt`,
 			file = join(evidence, name);
