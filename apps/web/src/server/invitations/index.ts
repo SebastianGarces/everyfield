@@ -18,6 +18,9 @@ const env = z.object({
 
 export const INVITATION_MAIL = MAIL_PASSES.mail;
 
+export const invitationLink = (origin: string, path: string, invitationId: string, proof: string) =>
+	`${origin}${path}?invitation=${invitationId}#${proof}`;
+
 function invitationMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
 	return createMailService({
