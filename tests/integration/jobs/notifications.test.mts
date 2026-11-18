@@ -9,7 +9,7 @@ import {
 	sendDiscoveryAssociationReceipt,
 } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
-import { taskReminders } from "../../../apps/web/src/server/tasks/reminders.ts";
+import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { db, runtime, tenant, setup, teardown } from "./support.mts";
 const account = randomUUID(),
 	org = randomUUID(),
