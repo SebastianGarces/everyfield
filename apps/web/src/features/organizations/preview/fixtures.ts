@@ -1,6 +1,6 @@
 import * as C from "@everyfield/contracts/organizations";
 import type { z } from "zod";
-import { Refusal } from "../intent";
+import { Refusal } from "../../../components/intent.ts";
 import type { InviteTarget } from "../InviteDialog";
 import type {
 	Disclosure,

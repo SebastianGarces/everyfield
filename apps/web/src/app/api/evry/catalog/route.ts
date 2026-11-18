@@ -1,5 +1,3 @@
-import { readCatalog } from "@everyfield/evry";
-import { evryResponse } from "@/server/evry";
+export { catalogGet as GET } from "@/server/evry/http";
 
 export const dynamic = "force-dynamic";
-export const GET = () => evryResponse(async (_db, actor) => readCatalog(actor));
