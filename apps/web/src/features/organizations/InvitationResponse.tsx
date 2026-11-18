@@ -5,7 +5,7 @@ import { CheckmarkCircle02Icon, HierarchyIcon } from "@hugeicons/core-free-icons
 import { Button, Card, CardIcon, ConfirmDialog, StatePanel } from "@everyfield/ui/controls";
 import { useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
-import { useIntent } from "./intent";
+import { useIntent } from "../../components/intent.ts";
 import { NEVER_SHARED, subjectName } from "./model";
 import { formatDay } from "../../components/dates.ts";
 import { PrivateLine, ProblemLine } from "./parts";

@@ -8,7 +8,7 @@ import { useCallback, useState } from "react";
 import { NotAvailable } from "../access/AccessStates";
 import { EndDialog, type EndConnection, type Side } from "./EndDialog";
 import { HistoryList, otherSide, type ReadHistory } from "./History";
-import { useIntent, useLoad } from "./intent";
+import { useIntent, useLoad } from "../../components/intent.ts";
 import { InviteDialog, type InviteTarget, type ReadDisclosure } from "./InviteDialog";
 import { kindLabel, subjectOf } from "./model";
 import { formatDay } from "../../components/dates.ts";
