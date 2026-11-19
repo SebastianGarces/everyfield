@@ -11,7 +11,7 @@ import { canWrite } from "../../components/seat-role.ts";
 import { logFailure } from "@everyfield/domain/log";
 import type { WriteTx } from "@everyfield/domain/access";
 
-type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
+type Peopled = NonNullable<Awaited<ReturnType<typeof getViewer>>["people"]>;
 export type Viewer = Peopled;
 
 type Reply<T> = MeetingsReply<T> | { status: "failed" };
@@ -21,7 +21,6 @@ export async function read<T>(
 	run: (db: Database, authority: Viewer["authority"]) => Promise<MeetingsReply<T>>,
 ): Promise<Reply<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		return await run(db, viewer.authority);
 	} catch (error) {
@@ -35,7 +34,6 @@ export async function write<T>(
 	run: (tx: WriteTx, context: MeetingsContext) => Promise<MeetingsReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return outcome(await withMeetingsWrite(db, viewer.authority, run));
 	} catch (error) {
@@ -61,7 +59,7 @@ const value = <T>(r: Reply<T>): T | null => (r.status === "ok" ? r.value : null)
 
 export async function plantViewer() {
 	const v = await getViewer();
-	return { viewer: v?.people ?? null, signedOut: !v || v.status === "unauthenticated", ok: v !== null };
+	return { viewer: v.people ?? null, signedOut: v.status === "unauthenticated" };
 }
 
 export type MeetingsView = Awaited<ReturnType<typeof loadMeetings>>;
@@ -93,7 +91,6 @@ export async function loadMeetings(viewer: Viewer, query: MeetingsQuery) {
 
 async function readAgendaTemplate(viewer: Viewer, meetingId: string) {
 	const db = requestDatabase();
-	if (!db) return null;
 	try {
 		const reply = await documentsReader["templates.contextual"](db, viewer.authority, { meetingId });
 		return reply.status === "ok" ? (reply.value.templates[0]?.id ?? null) : null;

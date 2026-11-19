@@ -3,18 +3,13 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, before, test } from "node:test";
+import { setServerEnv } from "../../support/server-env.mts";
 import { isTestDeployment } from "../../../packages/db/src/deployment.ts";
 import type { ProviderKey } from "../../../packages/contracts/src/common/values.ts";
 import type { Captured } from "../../../apps/web/src/server/mail/capture.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { deliveryTransport, mailReady } from "../../../apps/web/src/server/mail/transport.ts";
 
-const keys = {
-	IDENTITY_MAIL_KEY: "a".repeat(64),
-	IDENTITY_ADDRESS_KEY: "b".repeat(64),
-	IDENTITY_MAIL_FROM: "church@everyfield.test",
-	IDENTITY_ORIGIN: "https://app.everyfield.test",
-};
 const storedKey = (key: string) => key as ProviderKey;
 const saved = { ...process.env };
 let outbox = "";
@@ -25,7 +20,7 @@ before(async () => {
 });
 const setEnv = (values: Record<string, string | undefined>) => {
 	for (const name of ["RESEND_API_KEY", "VERCEL_ENV"]) delete process.env[name];
-	Object.assign(process.env, keys);
+	setServerEnv();
 	for (const [name, value] of Object.entries(values)) {
 		if (value === undefined) delete process.env[name];
 		else process.env[name] = value;
@@ -83,7 +78,7 @@ test("AC:CASE-COM-003 a development server records each send and calls no provid
 });
 
 test("AC:CASE-COM-003 production sending posts to the provider unchanged", async () => {
-	setEnv({ VERCEL_ENV: "production", RESEND_API_KEY: "re_live_key", IDENTITY_MAIL_FROM: "church@resend.dev" });
+	setEnv({ VERCEL_ENV: "production", RESEND_API_KEY: "re_live_key" });
 	const ready = mailReady();
 	assert.equal(ready?.apiKey, "re_live_key");
 	const calls: string[] = [];
@@ -202,9 +197,8 @@ test("AC:CASE-COM-012 a silent capture answers nothing, so each not-confirmed st
 	const id = held.outcome === "ids" ? held.ids[0]! : "";
 	const before = (await readOutbox(outbox)).length;
 	assert.deepEqual(await silent.cancel([id], signal()), [{ outcome: "unknown" }]);
-	assert.deepEqual(await silent.reschedule([id], new Date(Date.now() + 5 * 86_400_000).toISOString(), signal()), [
-		{ outcome: "unknown" },
-	]);
+	const later = new Date(Date.now() + 5 * 86_400_000).toISOString();
+	assert.deepEqual(await silent.reschedule([id], later, signal()), [{ outcome: "unknown" }]);
 	assert.deepEqual(
 		await silent.send(
 			{

@@ -8,7 +8,7 @@ const noSeat = { status: "refused", code: "unavailable" } as const;
 type Seat = Viewer;
 
 async function seat(): Promise<Seat | null> {
-	return (await getViewer())?.people ?? null;
+	return (await getViewer()).people ?? null;
 }
 
 const command = (requestKey: string, expectedRevision: string, input: unknown) => ({

@@ -29,8 +29,8 @@ export function refused(error: DocumentsError): DocumentOutcome<never> {
 }
 
 export async function runAs<T>(actor: RequestActor | null, read: Read<T>) {
+	if (!actor) return { status: "lost" } as const;
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" } as const;
 	try {
 		return await read(db, actor);
 	} catch (error) {

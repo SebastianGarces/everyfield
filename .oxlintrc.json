@@ -49,6 +49,7 @@
 		"everyfield/no-effects": "error",
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",
+		"everyfield/server-config": "error",
 		"everyfield/max-state": "error",
 		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error"
@@ -133,7 +134,7 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**"],
+			"files": ["packages/contracts/src/**", "packages/reference/src/**"],
 			"rules": {
 				"typescript/no-non-null-assertion": "error"
 			}

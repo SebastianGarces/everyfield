@@ -28,7 +28,7 @@ export function outcome<T, U>(reply: Reply<T>, map: (value: T) => U): Outcome<U>
 
 export async function boundary<T>(run: (viewer: Viewer) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const v = await getViewer();
-	return v?.people ? run(v.people) : denied;
+	return v.people ? run(v.people) : denied;
 }
 
 export async function parsed<S extends z.ZodType, T>(

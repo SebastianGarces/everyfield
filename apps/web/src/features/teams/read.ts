@@ -9,7 +9,7 @@ import { loadPersonTraining, loadTraining } from "./training/server.ts";
 const team = z.strictObject({ teamId: z.string() });
 
 export const GET = defineReads(
-	async () => (await getViewer())?.people ?? null,
+	async () => (await getViewer()).people ?? null,
 	"unavailable",
 	(get) => ({
 		team: get(team, async (v, { teamId }) => {

@@ -22,7 +22,7 @@ export async function oversightViewer(): Promise<
 	{ kind: "signed_out" } | { kind: "other" } | { kind: "organization"; viewer: OversightViewer }
 > {
 	const v = await getViewer();
-	if (!v || v.status === "unauthenticated") return { kind: "signed_out" };
+	if (v.status === "unauthenticated") return { kind: "signed_out" };
 	const context = v.authority?.actor.context;
 	if (!v.authority || context?.kind !== "seat" || context.owner.kind !== "organization") return { kind: "other" };
 	return {
@@ -35,7 +35,6 @@ export type Loaded<T> = { status: "ok"; value: T } | { status: "missing" } | { s
 
 async function load<T>(read: (db: Database) => Promise<T | null>): Promise<Loaded<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		const value = await read(db);
 		return value === null ? { status: "missing" } : { status: "ok", value };

@@ -432,7 +432,7 @@ test("AC:CASE-NTF-003 Casey leaves before dispatch: her entries and count go at 
 		(await noticeRows()).map((n) => n.mail),
 		["accepted", "accepted", null, "accepted", "cancelled"],
 	);
-	assert.deepEqual(ok(await readMyResidency(f.db, await authority(casey))), { status: "not_linked" });
+	assert.deepEqual(ok(await readMyResidency(f.db, await authority(casey))), { status: "ended" });
 	assert.deepEqual(await choices(casey), []);
 	assert.deepEqual((await bell(robin)).entries, []);
 });

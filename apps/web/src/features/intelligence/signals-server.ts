@@ -21,7 +21,6 @@ const report = <O extends string>(outcome: LogWord<O>, error: unknown) =>
 
 export async function loadAttestations(viewer: CareViewer): Promise<SignalOutcome<AttestationsPage>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await signals.readAttestations(db, viewer.authority, {});
 	} catch (error) {
@@ -45,7 +44,6 @@ export async function runSignals<T extends SignalWriteResult | CandidateWriteRes
 			}),
 		};
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await body(signals, db, viewer.authority);
 	} catch (error) {

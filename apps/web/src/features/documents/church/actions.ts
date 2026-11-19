@@ -17,8 +17,8 @@ export async function createChurchDocument(
 	mergeFields?: unknown,
 ): Promise<ChurchActionResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	let id: string;
 	try {
 		const reply = await documentsWriter.createFromTemplate(db, actor, { templateId, requestKey, mergeFields });
@@ -41,8 +41,8 @@ export async function saveChurchDocument(
 	body: unknown,
 ): Promise<SaveResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.saveNative(db, actor, { documentId, expectedRevision, body });
 		if (reply.status !== "ok") {
@@ -66,8 +66,8 @@ export type BrandingResult =
 
 export async function setChurchBranding(documentId: string, useChurchBranding: boolean): Promise<BrandingResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.setBranding(db, actor, { documentId, useChurchBranding });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
@@ -80,8 +80,8 @@ export async function setChurchBranding(documentId: string, useChurchBranding: b
 
 export async function deleteChurchDocument(documentId: string, expectedRevision: string): Promise<ChurchActionResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.deleteChurch(db, actor, { documentId, expectedRevision });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
@@ -95,8 +95,8 @@ export async function deleteChurchDocument(documentId: string, expectedRevision:
 
 export async function archiveChurchDocument(documentId: string, expectedRevision: string): Promise<ChurchActionResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.archiveChurch(db, actor, { documentId, expectedRevision });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
@@ -110,8 +110,8 @@ export async function archiveChurchDocument(documentId: string, expectedRevision
 
 export async function restoreChurchDocument(documentId: string): Promise<ChurchActionResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.restoreChurch(db, actor, { documentId });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
@@ -128,8 +128,8 @@ export type TemplateSaveResult =
 
 export async function saveChurchTemplate(input: unknown): Promise<TemplateSaveResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.saveChurchTemplate(db, actor, input);
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
@@ -148,8 +148,8 @@ export type TemplateUpdateResult =
 
 export async function updateChurchTemplate(input: unknown): Promise<TemplateUpdateResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.updateChurchTemplate(db, actor, input);
 		if (reply.status !== "ok") return { ...refusedWith(reply.error.code), code: reply.error.code };
@@ -168,8 +168,8 @@ export type TemplateEditResult =
 
 export async function editChurchTemplate(input: unknown): Promise<TemplateEditResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.editChurchTemplate(db, actor, input);
 		if (reply.status !== "ok") return { ...refusedWith(reply.error.code), code: reply.error.code };
@@ -185,8 +185,8 @@ export async function deleteChurchTemplate(
 	templateId: string,
 ): Promise<{ status: "deleted" } | { status: "refused"; message: string } | { status: "lost" }> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.deleteChurchTemplate(db, actor, { templateId });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
@@ -202,8 +202,8 @@ export type DeleteExportResult = { status: "deleted" } | { status: "refused"; me
 
 export async function deleteSavedExport(documentId: string, exportId: string): Promise<DeleteExportResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.deleteExport(db, actor, { documentId, exportId });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
@@ -228,8 +228,8 @@ export async function acceptTemplateChanges(
 	accept: unknown,
 ): Promise<AcceptResult> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsWriter.acceptTemplateChanges(db, actor, {
 			documentId,
