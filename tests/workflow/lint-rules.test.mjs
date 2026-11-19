@@ -105,35 +105,42 @@ export function Panel() {
 }
 `;
 
-test("INV-sql-name: a parameter pasted into sql.raw is typed as a fixed name, never string, in product code", () => {
-	const reach = `import { sql, type SqlLiteral } from "@everyfield/db/query";
+test("INV-sql-name: a value pasted into sql.raw is a fixed name, never string, in product code", () => {
+	const reach = `import { sql, sql as s, type SqlLiteral } from "@everyfield/db/query";
 export const a = (alias: string) => sql.raw(\`\${alias}.id\`);
 export const b = (alias) => sql.raw(alias);
 export const c = <A extends string>(alias: SqlLiteral<A>) => sql.raw(\`\${alias}.id\`);
 export const d = (alias: "m" | "n") => sql.raw(alias);
 export const e = (on: boolean) => sql.raw(on ? "x" : "y");
-const quote = (v: string) => v;
-export const f = (v: string) => sql.raw(quote(v));
+const literal = (v: string) => v;
+export const f = (v: string) => sql.raw(literal(v));
 export const g = (row: { from: string }) => sql.raw(row.from);
 export const h = <F extends string>(row: { from: SqlLiteral<F> }) => sql.raw(row.from);
 export function i(col: string) { return sql\`\${sql.raw(\`r.\${col}\`)}\`; }
+export const j = (v: string) => sql.raw(String(v));
+export const k = (v: string) => sql.raw(\`\${String(v)}.id\`);
+export const l = (v: string) => s.raw(v);
+const r = sql.raw;
+export const m = (v: string) => r(v);
+type Row = { name: string };
+export const n = (v: Row["name"]) => sql.raw(v);
+export const o = (v: keyof Record<string, 1>) => sql.raw(v);
+export const p = (v: string) => { const x = v; return sql.raw(x); };
+export const q = () => { let y = "a"; return sql.raw(y); };
+const COLS = ["a", "b"] as const;
+export const t = (v: (typeof COLS)[number]) => sql.raw(v);
+export const u = () => { const z = \`\${COLS[0]}.id\`; return sql.raw(z); };
 `;
+	const reported = [2, 3, 9, 11, 12, 13, 14, 16, 18, 19, 20, 21];
 	assert.deepEqual(
 		lint({
 			"packages/domain/src/people/reach.ts": reach,
 			"apps/web/src/features/x/reach.ts": reach,
 			"tests/integration/x/reach.test.mts": reach,
 		}),
-		[
-			"apps/web/src/features/x/reach.ts:11 raw-sql-literal",
-			"apps/web/src/features/x/reach.ts:2 raw-sql-literal",
-			"apps/web/src/features/x/reach.ts:3 raw-sql-literal",
-			"apps/web/src/features/x/reach.ts:9 raw-sql-literal",
-			"packages/domain/src/people/reach.ts:11 raw-sql-literal",
-			"packages/domain/src/people/reach.ts:2 raw-sql-literal",
-			"packages/domain/src/people/reach.ts:3 raw-sql-literal",
-			"packages/domain/src/people/reach.ts:9 raw-sql-literal",
-		],
+		["apps/web/src/features/x/reach.ts", "packages/domain/src/people/reach.ts"]
+			.flatMap((file) => reported.map((line) => `${file}:${line} raw-sql-literal`))
+			.sort(),
 	);
 });
 

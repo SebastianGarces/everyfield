@@ -69,11 +69,11 @@ const ADDRESS = [
 	["postalCode", "postal_code"],
 	["country", "country"],
 ] as const;
-const addressLine = (a: string) =>
+const addressLine = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql.raw(`nullif(concat_ws(', ',${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(",")}),'')`);
-const hasAddress = (a: string) =>
+const hasAddress = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql.raw(`(${ADDRESS.map(([, col]) => `nullif(btrim(${a}.${col}),'')`).join(" IS NOT NULL OR ")} IS NOT NULL)`);
-const sameAddress = (a: string, b: string) =>
+const sameAddress = <AName extends string, BName extends string>(a: SqlLiteral<AName>, b: SqlLiteral<BName>) =>
 	sql.raw(
 		`(${ADDRESS.map(([, col]) => `${a}.${col}`).join(",")}) IS NOT DISTINCT FROM (${ADDRESS.map(([, col]) => `${b}.${col}`).join(",")})`,
 	);
