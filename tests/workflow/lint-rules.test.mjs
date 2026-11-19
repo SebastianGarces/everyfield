@@ -865,6 +865,34 @@ export const client = S3Client;
 	);
 });
 
+test("INV-deployment: only the deployment module reads VERCEL or VERCEL_ENV, in product code", () => {
+	const reach = `export const a = process.env.VERCEL_ENV === "production";
+export const b = process.env["VERCEL"] === "1";
+export const c = (env) => env.VERCEL_ENV;
+const { VERCEL_ENV: named } = process.env;
+export const d = named;
+export const e = process.env.VERCEL_URL;
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/mail/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/db/src/deployment.ts": "export const named = (env) => env.VERCEL_ENV ?? env.VERCEL;\n",
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[
+			"apps/web/src/features/x/reach.ts:1 deployment-env",
+			"apps/web/src/features/x/reach.ts:2 deployment-env",
+			"apps/web/src/features/x/reach.ts:3 deployment-env",
+			"apps/web/src/features/x/reach.ts:4 deployment-env",
+			"packages/domain/src/mail/reach.ts:1 deployment-env",
+			"packages/domain/src/mail/reach.ts:2 deployment-env",
+			"packages/domain/src/mail/reach.ts:3 deployment-env",
+			"packages/domain/src/mail/reach.ts:4 deployment-env",
+		],
+	);
+});
+
 test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
 	const { dir, path, renamed, write, base } = history();
 	const growth = (entries, ...moves) => {

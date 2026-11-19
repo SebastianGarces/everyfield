@@ -275,6 +275,8 @@ const isReference = (node) => {
 	return !parent.type.startsWith("TS");
 };
 
+const PURE_IMPORTS = new Set(["@everyfield/db/deployment"]);
+
 const pureModule = {
 	meta: { type: "problem" },
 	create(context) {
@@ -284,7 +286,10 @@ const pureModule = {
 				message: `This module is a pure rule that reads only its arguments and does no I/O. Remove the ${what}.`,
 			});
 		return {
-			ImportDeclaration: (node) => typeOnly(node) || report(node, "value import (a type import is fine)"),
+			ImportDeclaration: (node) =>
+				typeOnly(node) ||
+				PURE_IMPORTS.has(node.source.value) ||
+				report(node, "value import (a type import or a pure module is fine)"),
 			ImportExpression: (node) => report(node, "dynamic import"),
 			AwaitExpression: (node) => report(node, "await"),
 			ForOfStatement: (node) => node.await && report(node, "for await"),
@@ -812,6 +817,31 @@ const storageClient = {
 		return moduleSources((node, name) => {
 			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
 		});
+	},
+};
+
+export const DEPLOYMENT_MODULE = "packages/db/src/deployment.ts";
+const DEPLOYMENT_VARIABLES = new Set(["VERCEL", "VERCEL_ENV"]);
+
+const deploymentEnv = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === DEPLOYMENT_MODULE || !PRODUCT_CODE.test(path)) return {};
+		const report = (node) =>
+			context.report({
+				node,
+				message: `Ask ${DEPLOYMENT_MODULE} where the code runs (isProduction, isTestDeployment, runsOffVercel, trustsVercelForwardedFor): it is the one reader of VERCEL and VERCEL_ENV, and an unrecognized value fails closed there.`,
+			});
+		return {
+			MemberExpression(node) {
+				if (DEPLOYMENT_VARIABLES.has(memberName(node))) report(node);
+			},
+			Property(node) {
+				if (node.parent?.type === "ObjectPattern" && DEPLOYMENT_VARIABLES.has(keyName(node.key, node.computed)))
+					report(node);
+			},
+		};
 	},
 };
 
@@ -1652,6 +1682,7 @@ export default {
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
+		"deployment-env": deploymentEnv,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,

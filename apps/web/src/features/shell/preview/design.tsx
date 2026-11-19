@@ -1,8 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { isTestDeployment } from "@everyfield/db/deployment";
 
 export function DesignLayout({ children }: { children: ReactNode }) {
-	if (process.env.VERCEL_ENV === "production") notFound();
+	if (!isTestDeployment(process.env)) notFound();
 	return children;
 }
 
