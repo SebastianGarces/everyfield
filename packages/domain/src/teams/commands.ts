@@ -96,25 +96,16 @@ async function lockTeamAndPerson(tx: Tx, w: Writer, teamId: string, personId: st
 	const row = await oneRow(
 		tx,
 		sql`WITH t AS MATERIALIZED (${teamLock(w, teamId)})
-			SELECT t.*, who.found AS "personFound", who.stage AS "personStage", who.state AS "personState",
-				who.revision AS "personRevision", who.position AS "personPosition"
+			SELECT t.*, to_jsonb(who) AS person
 			FROM t
 			LEFT JOIN LATERAL (
-				SELECT true AS found, stage, state, revision::text AS revision, pipeline_position::text AS position
+				SELECT stage, state, revision::text AS revision, pipeline_position::text AS "pipelinePosition"
 				FROM person WHERE person.id = ${personId}::uuid AND person.tenant_id = t."plantId"
 				FOR UPDATE
 			) who ON true`,
 	);
 	if (!row) deny();
-	const person = row.personFound
-		? {
-				stage: row.personStage,
-				state: row.personState,
-				revision: row.personRevision,
-				pipelinePosition: row.personPosition,
-			}
-		: undefined;
-	return { team: teamRow.parse(row), person };
+	return { team: teamRow.parse(row), person: row.person };
 }
 async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | null): Promise<RoleRow> {
 	const person = personId ?? "00000000-0000-0000-0000-000000000000";
