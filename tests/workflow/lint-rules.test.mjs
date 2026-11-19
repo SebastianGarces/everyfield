@@ -721,7 +721,7 @@ const commitAll = (dir, message) => {
 	return git(dir, "rev-parse", "HEAD");
 };
 
-test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, ignore-file and new migration comments and every directive", () => {
+test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, ignore-file and new migration comments and every directive", () => {
 	const files = {
 		"packages/ui/src/a.css": `a { color: red; } /* why */\n.b::after { content: "/* not */"; }\n`,
 		"tsconfig.x.json": `{\n\t// why\n\t"a": "http://x"\n}\n`,
@@ -731,6 +731,9 @@ test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, ignore-file and
 		"packages/db/migrations/20990101000000_new.sql": `select '--not';\n-- why\n`,
 		"packages/ui/src/b.ts": `export const a = 1;\n// ${DISABLE} x\n/* ${OX_DISABLE} */\n`,
 		"docs/x.css": `/* exempt */\n`,
+		"tools/x.py": `#!/usr/bin/env python3\nprint(f"PR #{1}", '#not', """\n# not\n""")  # why\n`,
+		"ops/x.plist": `<plist><string>&lt;!-- not --&gt;</string>\n<!-- why -->\n</plist>\n`,
+		"docs/x.py": `# exempt\n`,
 	};
 	const dir = sandbox();
 	git(dir, "init", "-q");
@@ -747,9 +750,11 @@ test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, ignore-file and
 		".github/workflows/x.yml:1: 1",
 		".gitignore:1: 1",
 		"bin/tool:2: 1",
+		"ops/x.plist:2: 1",
 		"packages/db/migrations/20990101000000_new.sql:2: 1",
 		"packages/ui/src/a.css:1: 1",
 		"packages/ui/src/b.ts: 2",
+		"tools/x.py:4: 1",
 		"tsconfig.x.json:2: 1",
 	]);
 });
