@@ -24,23 +24,35 @@ const css = (k: string, v: Value) =>
 			: String(v);
 const kebab = (k: string) => (k.startsWith("--") ? k : k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase()));
 
-function useResolved(style: MStyle | undefined) {
-	const [first] = useState(() => new Map<string, Value>());
-	if (!style) return undefined;
-	const out: Record<string, Value> = {};
-	for (const [k, v] of Object.entries(style)) {
-		if (isMotionValue(v)) {
-			if (!first.has(k)) first.set(k, (v as Live).get());
-			out[k] = first.get(k);
-		} else out[k] = v as Value;
-	}
-	return out as CSSProperties;
-}
-
 type Node = HTMLElement | SVGElement;
+
+type Binding = { live: (readonly [string, Live])[]; first: Map<string, Value> };
 
 const liveEntries = (style: MStyle | undefined) =>
 	Object.entries(style ?? {}).flatMap(([k, v]) => (isMotionValue(v) ? [[k, v as Live] as const] : []));
+
+const bindingOf = (style: MStyle | undefined): Binding => {
+	const live = liveEntries(style);
+	return { live, first: new Map(live.map(([k, mv]) => [k, mv.get()])) };
+};
+
+const sameLive = (a: Binding["live"], b: Binding["live"]) =>
+	a.length === b.length && a.every(([k, mv], i) => b[i]![0] === k && b[i]![1] === mv);
+
+function useBinding(style: MStyle | undefined) {
+	const [binding, setBinding] = useState(() => bindingOf(style));
+	if (sameLive(binding.live, liveEntries(style))) return binding;
+	const next = bindingOf(style);
+	setBinding(next);
+	return next;
+}
+
+function resolved(style: MStyle | undefined, first: Binding["first"]) {
+	if (!style) return undefined;
+	const out: Record<string, Value> = {};
+	for (const [k, v] of Object.entries(style)) out[k] = first.has(k) ? first.get(k) : (v as Value);
+	return out as CSSProperties;
+}
 
 function forward(ref: unknown, node: Node | null) {
 	if (typeof ref === "function") ref(node);
@@ -49,7 +61,7 @@ function forward(ref: unknown, node: Node | null) {
 
 function make<T extends keyof JSX.IntrinsicElements>(tag: T) {
 	function M({ style, ref, ...rest }: Props<T>) {
-		const [live] = useState(() => liveEntries(style));
+		const { live, first } = useBinding(style);
 		const bind = useCallback(
 			(node: Node | null) => {
 				forward(ref, node);
@@ -68,8 +80,7 @@ function make<T extends keyof JSX.IntrinsicElements>(tag: T) {
 			[ref, live],
 		);
 		const Tag = tag as ElementType;
-		const resolved = useResolved(style);
-		return <Tag {...rest} ref={bind} style={resolved} />;
+		return <Tag {...rest} ref={bind} style={resolved(style, first)} />;
 	}
 	M.displayName = "m." + tag;
 	return M;
