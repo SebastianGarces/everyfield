@@ -27,7 +27,7 @@ export async function MyResidencyPage() {
 	const authority = await account(MY_RESIDENCY_PATH);
 	if (!authority) return refused;
 	const residency = await loadMyResidency(authority);
-	if (residency.status !== "ok") return refused;
+	if (residency.status !== "ok" || residency.value.status === "not_linked") return refused;
 	return <MyResidencyScreen initial={residency.value} />;
 }
 

@@ -73,12 +73,19 @@ SELECT g.allowed,(SELECT jsonb_build_object('organizationName',o.name,'timezone'
       AND c.tenant_id=st.organization_id WHERE st.organization_id=r.organization_id AND st.article_id=r.article_id
       AND st.state='published') END AS slug) z
    WHERE r.version_id=e.version_id AND r.organization_id=e.organization_id),'[]'::jsonb))
-  ORDER BY e.started_on,e.id) FROM e CROSS JOIN o),'[]'::jsonb) AS enrollments
+  ORDER BY e.started_on,e.id) FROM e CROSS JOIN o),'[]'::jsonb) AS enrollments,
+ EXISTS(SELECT FROM residency_link x WHERE x.account_id=${me.accountId}::uuid AND x.ended_at IS NOT NULL) AS ended
 FROM g`);
 		const row = z
-			.object({ allowed: z.boolean(), link: z.record(z.string(), z.unknown()).nullable(), enrollments: z.unknown() })
+			.object({
+				allowed: z.boolean(),
+				link: z.record(z.string(), z.unknown()).nullable(),
+				enrollments: z.unknown(),
+				ended: z.boolean(),
+			})
 			.parse(r.rows[0]);
-		if (!row.allowed || !row.link) return C.myResidency.parse({ status: "not_linked" });
+		if (!row.allowed) return C.myResidency.parse({ status: "not_linked" });
+		if (!row.link) return C.myResidency.parse({ status: row.ended ? "ended" : "not_linked" });
 		return C.myResidency.parse({ status: "linked", ...row.link, enrollments: row.enrollments });
 	});
 }
