@@ -1296,7 +1296,7 @@ export function Panel({ start, keep }) {
 	);
 }
 function attach(node) {
-	if (undefined != node) console.info("attached");
+	if (undefined != node) report("attached");
 }
 `;
 	assert.deepEqual(lint({ "apps/web/src/features/x/Old.tsx": source }), [
