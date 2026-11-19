@@ -416,7 +416,7 @@ const pureModule = {
 };
 
 export const LOG_MODULE = "packages/domain/src/log.ts";
-const LOGGED_CODE = /^(?:apps\/web\/src|packages\/domain\/src)\//;
+const LOGGED_CODE = /^(?:apps\/web\/src|packages\/(?:domain|evry)\/src)\//;
 
 const CONSOLE_MODULES = new Set(["console", "node:console"]);
 const CONSOLE_HOSTS = new Set(["globalThis", "global", "self", "window"]);
