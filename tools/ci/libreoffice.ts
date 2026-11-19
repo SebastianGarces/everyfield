@@ -23,7 +23,7 @@ const arch = values.arch;
 const debs = values.debs;
 const retryWait = Number(values["retry-wait"]);
 const githubOutput = process.env.GITHUB_OUTPUT;
-if (!arch || !githubOutput || !Number.isFinite(retryWait) || retryWait < 0) {
+if (!arch || !githubOutput) {
 	process.stderr.write(
 		"usage: GITHUB_OUTPUT=<file> node tools/ci/libreoffice.ts --arch <runner.arch> [--debs <dir>] [--retry-wait <seconds>]\n",
 	);
@@ -150,15 +150,8 @@ function newestOfEach(files: string[]): string[] {
 }
 
 function missingPackages(output: string): string[] {
-	const names = new Set<string>();
-	const patterns = [
-		/Failed to fetch \S*\/([^/\s_]+)_[^/\s]*\.deb/g,
-		/Unable to locate package (\S+)/g,
-		/Depends: (\S+) but it is not (?:installable|going to be installed)/g,
-		/Package '?([^'\s]+)'? has no installation candidate/g,
-	];
-	for (const pattern of patterns) for (const match of output.matchAll(pattern)) if (match[1]) names.add(match[1]);
-	return [...names].sort();
+	const names = Array.from(output.matchAll(/Failed to fetch \S*\/([^/\s_]+)_[^/\s]*\.deb/g), (match) => match[1] ?? "");
+	return [...new Set(names)].sort();
 }
 
 mkdirSync(join(debs, "partial"), { recursive: true });
