@@ -80,19 +80,24 @@ function cachedDebs(): string[] {
 const order = (c: string): number =>
 	c === "~" ? -1 : c === "" ? 0 : /[A-Za-z]/.test(c) ? c.charCodeAt(0) : c.charCodeAt(0) + 256;
 
+const nonDigit = (s: string, i: number): string => {
+	const c = s[i] ?? "";
+	return /\d/.test(c) ? "" : c;
+};
+
 function comparePart(a: string, b: string): number {
 	let i = 0;
 	let j = 0;
 	while (i < a.length || j < b.length) {
-		while ((i < a.length && !/\d/.test(a[i])) || (j < b.length && !/\d/.test(b[j]))) {
-			const x = i < a.length && !/\d/.test(a[i]) ? a[i] : "";
-			const y = j < b.length && !/\d/.test(b[j]) ? b[j] : "";
+		while (nonDigit(a, i) || nonDigit(b, j)) {
+			const x = nonDigit(a, i);
+			const y = nonDigit(b, j);
 			if (order(x) !== order(y)) return order(x) - order(y);
 			if (x) i++;
 			if (y) j++;
 		}
-		const da = /^\d*/.exec(a.slice(i))![0];
-		const db = /^\d*/.exec(b.slice(j))![0];
+		const da = /^\d*/.exec(a.slice(i))?.[0] ?? "";
+		const db = /^\d*/.exec(b.slice(j))?.[0] ?? "";
 		i += da.length;
 		j += db.length;
 		const diff = Number(da || 0) - Number(db || 0);
@@ -152,7 +157,7 @@ function missingPackages(output: string): string[] {
 		/Depends: (\S+) but it is not (?:installable|going to be installed)/g,
 		/Package '?([^'\s]+)'? has no installation candidate/g,
 	];
-	for (const pattern of patterns) for (const match of output.matchAll(pattern)) names.add(match[1]);
+	for (const pattern of patterns) for (const match of output.matchAll(pattern)) if (match[1]) names.add(match[1]);
 	return [...names].sort();
 }
 

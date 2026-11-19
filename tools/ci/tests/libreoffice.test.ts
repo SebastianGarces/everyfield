@@ -136,10 +136,10 @@ test("with a working mirror it refreshes, installs writer and calc, downloads on
 	});
 	assert.equal(r.status, 0, r.log);
 	assert.deepEqual(r.calls.map(command), ["update", "install", "autoclean"]);
-	assert.ok(r.calls[0].includes("--error-on=any"));
-	assert.deepEqual(r.calls[1].slice(-2), ["libreoffice-writer", "libreoffice-calc"]);
-	assert.deepEqual(localDebs(r.calls[1]), []);
-	assert.ok(r.calls[1].includes(`Dir::Cache::Archives=${r.debs}`));
+	assert.ok((r.calls[0] ?? []).includes("--error-on=any"));
+	assert.deepEqual((r.calls[1] ?? []).slice(-2), ["libreoffice-writer", "libreoffice-calc"]);
+	assert.deepEqual(localDebs(r.calls[1] ?? []), []);
+	assert.ok((r.calls[1] ?? []).includes(`Dir::Cache::Archives=${r.debs}`));
 	assert.deepEqual(r.downloaded, [GST_NEW, CALC]);
 	assert.deepEqual(r.files, [CALC, GST_NEW, WRITER].sort());
 	assert.equal(r.githubOutput, keyOf(r.files));
@@ -169,10 +169,10 @@ test("when the index refresh fails and the mirror is down, it installs from the 
 	assert.equal(r.status, 0, r.log);
 	assert.deepEqual(r.calls.map(command), ["update", "update", "update", "install"]);
 	assert.deepEqual(
-		localDebs(r.calls[3]).map((file) => file.slice(r.debs.length + 1)),
+		localDebs(r.calls[3] ?? []).map((file) => file.slice(r.debs.length + 1)),
 		[CALC, GST_NEW, WRITER, "libx_1.0-1ubuntu0.1_amd64.deb", "liby_2.0-1_all.deb"].sort(),
 	);
-	assert.deepEqual(r.calls[3].slice(-2), ["libreoffice-writer", "libreoffice-calc"]);
+	assert.deepEqual((r.calls[3] ?? []).slice(-2), ["libreoffice-writer", "libreoffice-calc"]);
 	assert.deepEqual(r.downloaded, []);
 	assert.deepEqual(r.files, [...cached].sort());
 	assert.equal(r.githubOutput, keyOf(r.files));
