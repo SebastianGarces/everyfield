@@ -20,7 +20,7 @@ async function up(origin: string) {
 		origin,
 		secret,
 		trustedIp: () => env.loopback("people", ip),
-		enqueueMail: async () => {},
+		enqueueMail: async () => randomUUID(),
 		diagnostic: () => {},
 	});
 	const host = new URL(origin).host;
@@ -67,7 +67,7 @@ async function up(origin: string) {
 	const owner = await account("Daniel Reyes", "owner@people-preview.example.test");
 
 	const noop = async () => {};
-	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop });
+	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
 	const created = await gatedTransaction(runtime, (tx) =>
 		onboarding.createPlant(
 			tx,
