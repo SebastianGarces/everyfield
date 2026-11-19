@@ -1,11 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { onboardingCommand, onboardingEntry, type Op } from "./mount";
-
-export async function loadOnboardingEntry() {
-	return onboardingEntry();
-}
+import { onboardingCommand, type Op } from "./mount";
 
 const op = z.enum(["createPlant", "createDiscovery", "convertDiscovery", "declareJourney", "answerLead", "complete"]);
 

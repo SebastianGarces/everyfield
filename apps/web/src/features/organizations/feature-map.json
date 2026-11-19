@@ -24,7 +24,7 @@
 			"id": "organizations.pipeline",
 			"says": "A sending church's or network's pipeline board: one column per stage, search and the six-month filter in the address, goals, Add person and Export.",
 			"routes": ["/organization/pipeline"],
-			"endpoints": ["/organization/pipeline/export"],
+			"endpoints": ["/organization/pipeline/export", "/organization/pipeline/read"],
 			"catalog": ["MUL-001", "MUL-005", "MUL-007", "MUL-008"],
 			"reach": [
 				{
@@ -698,6 +698,7 @@
 				"/organization/pipeline/programs/new",
 				"/organization/pipeline/programs/[programId]"
 			],
+			"endpoints": ["/organization/pipeline/programs/read"],
 			"catalog": ["MUL-010", "MUL-011"],
 			"reach": [
 				{
@@ -1182,6 +1183,7 @@
 			"id": "organizations.sharing",
 			"says": "Sharing and privacy: connections and what each one sees, pipeline totals, and a resident's residency choices.",
 			"routes": ["/settings/sharing"],
+			"endpoints": ["/connections/read"],
 			"catalog": ["IDN-020", "IDN-022", "MUL-003", "MUL-016"],
 			"reach": [
 				{

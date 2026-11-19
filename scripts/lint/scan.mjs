@@ -58,6 +58,33 @@ function hashComments(text) {
 	});
 }
 
+function pythonComments(text) {
+	if (!text.includes("#")) return [];
+	const lines = [];
+	for (let i = 0; i < text.length; i++) {
+		const c = text[i];
+		if (c === '"' || c === "'") {
+			const close = text.startsWith(c.repeat(3), i) ? c.repeat(3) : c;
+			for (i += close.length; i < text.length && !text.startsWith(close, i); i++) {
+				if (text[i] === "\\") i++;
+				else if (close.length === 1 && text[i] === "\n") break;
+			}
+			i += close.length - 1;
+		} else if (c === "#") {
+			if (i !== 0 || text[1] !== "!") lines.push(lineAt(text, i));
+			const end = text.indexOf("\n", i);
+			i = end === -1 ? text.length : end;
+		}
+	}
+	return lines;
+}
+
+function xmlComments(text) {
+	const lines = [];
+	for (let at = text.indexOf("<!--"); at !== -1; at = text.indexOf("<!--", at + 4)) lines.push(lineAt(text, at));
+	return lines;
+}
+
 function sqlComments(text) {
 	const lines = [];
 	for (let i = 0; i < text.length; i++) {
@@ -88,6 +115,8 @@ export function commentScanner(path) {
 	if (/\.jsonc?$/.test(path)) return scannerComments;
 	if (path.endsWith(".css")) return cssComments;
 	if (/\.(ya?ml|toml|sh)$/.test(path) || HASH_FILES.has(basename(path))) return hashComments;
+	if (path.endsWith(".py")) return pythonComments;
+	if (/\.(plist|xml)$/.test(path)) return xmlComments;
 	if (/^bin\/[^/.]+$/.test(path) || path.startsWith("tools/git-hooks/")) return hashComments;
 	return null;
 }
