@@ -205,6 +205,99 @@ const noErrorMessageMatch = {
 	},
 };
 
+const unwrapped = (node) => {
+	let at = node;
+	while (
+		at &&
+		["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "ParenthesizedExpression"].includes(at.type)
+	)
+		at = at.expression;
+	return at;
+};
+function emptyAnswer(node) {
+	const at = unwrapped(node);
+	if (!at) return null;
+	if (at.type === "ArrayExpression" && at.elements.length === 0) return "an empty list";
+	if ((at.type === "NewExpression" || at.type === "CallExpression") && at.callee.type === "Identifier") {
+		if (at.callee.name === "Array" && at.arguments.length === 0) return "an empty list";
+	}
+	if (at.type === "Literal" && at.value === 0) return "a zero";
+	if (at.type === "ConditionalExpression") return emptyAnswer(at.consequent) ?? emptyAnswer(at.alternate);
+	if (at.type === "LogicalExpression") return emptyAnswer(at.right);
+	if (at.type === "ObjectExpression") {
+		const props = at.properties.filter((p) => p.type === "Property");
+		if (props.some((p) => keyName(p.key, p.computed) === "status" && literalArgument(p.value) === "ok"))
+			return "an ok result";
+		for (const p of props) {
+			const inner = emptyAnswer(p.value);
+			if (inner) return inner;
+		}
+	}
+	return null;
+}
+
+const readsMember = (node, name) => {
+	const at = unwrapped(node);
+	if (!at || typeof at !== "object") return false;
+	if (
+		at.type === "MemberExpression" &&
+		unwrapped(at.object)?.type === "Identifier" &&
+		unwrapped(at.object).name === name
+	)
+		return true;
+	if (at.type === "BinaryExpression" && at.operator === "instanceof" && unwrapped(at.left)?.name === name) return true;
+	return Object.entries(at).some(
+		([key, value]) =>
+			key !== "parent" &&
+			(Array.isArray(value) ? value : [value]).some(
+				(child) => child && typeof child.type === "string" && !FUNCTIONS.has(child.type) && readsMember(child, name),
+			),
+	);
+};
+
+const failureNotEmpty = {
+	meta: { type: "problem" },
+	create(context) {
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `A failed read never shows as ${what}: return the failure (lost, refused or unavailable), or narrow the catch with an if on the caught error (its code or class) for the one error that means nothing is there.`,
+			});
+		const check = (node, value) => {
+			const what = emptyAnswer(value);
+			if (what) report(node, what);
+		};
+		const walk = (node, caught) => {
+			if (!node || typeof node.type !== "string" || FUNCTIONS.has(node.type)) return;
+			if (node.type === "IfStatement" && caught && readsMember(node.test, caught)) return;
+			if (node.type === "ReturnStatement") check(node, node.argument);
+			if (node.type === "AssignmentExpression") check(node, node.right);
+			if (node.type === "VariableDeclarator") check(node, node.init);
+			for (const [key, value] of Object.entries(node))
+				if (key !== "parent") for (const child of Array.isArray(value) ? value : [value]) walk(child, caught);
+		};
+		const handler = (fn) => {
+			if (fn?.type !== "ArrowFunctionExpression" && fn?.type !== "FunctionExpression") return;
+			const caught = fn.params[0]?.type === "Identifier" ? fn.params[0].name : null;
+			if (fn.body.type === "BlockStatement") for (const statement of fn.body.body) walk(statement, caught);
+			else check(fn, fn.body);
+		};
+		return {
+			CatchClause: (node) => {
+				const caught = node.param?.type === "Identifier" ? node.param.name : null;
+				for (const statement of node.body.body) walk(statement, caught);
+			},
+			CallExpression: (node) => {
+				const callee = node.callee;
+				if (callee.type !== "MemberExpression") return;
+				const name = keyName(callee.property, callee.computed);
+				if (name === "catch") handler(node.arguments[0]);
+				if (name === "then") handler(node.arguments[1]);
+			},
+		};
+	},
+};
+
 export const SESSION_MODULE = "packages/domain/src/access/session.ts";
 const PRODUCT_SOURCE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
 
@@ -1312,6 +1405,60 @@ const noRenderWrites = ratcheted("no-render-writes", (context, push) => {
 	};
 });
 
+const STORE_ACTIONS = "actions";
+const readsOnlyActions = (call) => {
+	const parent = call.parent;
+	if (parent?.type === "MemberExpression" && parent.object === call) return memberName(parent) === STORE_ACTIONS;
+	return (
+		parent?.type === "VariableDeclarator" &&
+		parent.init === call &&
+		parent.id.type === "ObjectPattern" &&
+		parent.id.properties.every((p) => p.type === "Property" && !p.computed && nameOf(p.key) === STORE_ACTIONS)
+	);
+};
+const subscribedSnapshot = (node) => {
+	const fn = callerOf(node);
+	const call = fn?.parent;
+	return (
+		call?.type === "CallExpression" &&
+		(call.callee.type === "Identifier" ? call.callee.name : memberName(call.callee)) === "useSyncExternalStore" &&
+		call.arguments.indexOf(fn) > 0
+	);
+};
+
+const noRenderGetState = {
+	meta: { type: "problem" },
+	create(context) {
+		const jsx = /\.[jt]sx$/.test(context.filename);
+		const aliases = new Set();
+		const calls = [];
+		return {
+			VariableDeclarator(node) {
+				if (memberName(node.init) === "getState" && node.id.type === "Identifier") aliases.add(node.id.name);
+				if (node.id.type !== "ObjectPattern") return;
+				for (const p of node.id.properties)
+					if (p.type === "Property" && !p.computed && nameOf(p.key) === "getState" && p.value.type === "Identifier")
+						aliases.add(p.value.name);
+			},
+			CallExpression(node) {
+				if (node.arguments.length) return;
+				if (memberName(node.callee) === "getState" || node.callee.type === "Identifier") calls.push(node);
+			},
+			"Program:exit"() {
+				for (const node of calls) {
+					if (node.callee.type === "Identifier" && !aliases.has(node.callee.name)) continue;
+					if (readsOnlyActions(node) || subscribedSnapshot(node) || !rendering(node, jsx)) continue;
+					context.report({
+						node,
+						message:
+							"getState() reads the store once while rendering and does not subscribe, so this render keeps showing the old value when the store changes. Select the value with useStore or the store context's useSelect, or read getState() inside the event handler or callback that needs it.",
+					});
+				}
+			},
+		};
+	},
+};
+
 const CHAIN = new Set(["then", "catch", "finally"]);
 const mapsOnly = (fn) =>
 	fn === undefined ||
@@ -1658,11 +1805,13 @@ export default {
 		"zustand-shape": zustandShape,
 		"read-loader": readLoader,
 		"no-render-writes": noRenderWrites,
+		"no-render-get-state": noRenderGetState,
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
 		"no-error-message-match": noErrorMessageMatch,
 		"route-reads": routeReads,
 		"route-segment-defaults": routeSegmentDefaults,
 		"render-reads": renderReads,
+		"failure-not-empty": failureNotEmpty,
 	},
 };

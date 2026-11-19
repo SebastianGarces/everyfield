@@ -25,6 +25,7 @@
 		"machines:check": "node tools/ci/machines.ts --check",
 		"machines:write": "node tools/ci/machines.ts --write",
 		"feature-maps": "node tools/ci/feature-maps.ts --check",
+		"knip": "knip --include files,exports,types",
 		"review-proof": "node tools/ci/review-proof.ts",
 		"format": "prettier --write \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\"",
 		"format:check": "prettier --check \"{apps,ops,packages,tools,scripts,tests}/**/*.{ts,tsx,mts,cts,js,mjs,cjs,css,json}\" \"*.{ts,tsx,js,mjs,cjs,css,json}\" \".prettierrc\""
@@ -32,6 +33,7 @@
 	"devDependencies": {
 		"bun": "1.4.4",
 		"eslint-config-prettier": "10.1.8",
+		"knip": "6.43.0",
 		"prettier": "3.9.10",
 		"typescript-7": "npm:typescript@7.0.2"
 	}

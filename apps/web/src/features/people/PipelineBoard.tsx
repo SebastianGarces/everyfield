@@ -128,7 +128,7 @@ export function PipelineBoard({
 			</div>
 			{moving ? (
 				<StageDialog
-					key={moving.store.getState().saved.id}
+					key={moving.card.person.id}
 					open
 					onOpenChange={(open) => !open && setMoving(null)}
 					store={moving.store}
