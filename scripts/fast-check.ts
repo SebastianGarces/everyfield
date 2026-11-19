@@ -30,11 +30,16 @@ const quote = (arg: string) => (/^[\w./@:=+-]+$/.test(arg) ? arg : `'${arg.repla
 const command = (args: string[]) => args.map(quote).join(" ");
 const inside = (dir: string, file: string) => file === dir || file.startsWith(dir + sep);
 
-export function changedFiles(root: string, baseRef?: string): { ref: string; sha: string; files: string[] } {
+export function mergeBase(root: string, baseRef?: string): { ref: string; sha: string } {
 	const ref =
 		baseRef ?? (git(root, ["rev-parse", "--verify", "--quiet", "origin/main"]) !== undefined ? "origin/main" : "main");
 	const sha = git(root, ["merge-base", ref, "HEAD"]);
 	if (!sha) throw new FastCheckError(`No merge base between ${ref} and HEAD. Pass --base <ref>.`);
+	return { ref, sha };
+}
+
+export function changedFiles(root: string, baseRef?: string): { ref: string; sha: string; files: string[] } {
+	const { ref, sha } = mergeBase(root, baseRef);
 	const listed = git(root, ["diff", "--name-only", "-z", "--diff-filter=d", sha, "HEAD"]) ?? "";
 	const files = listed
 		.split("\0")
