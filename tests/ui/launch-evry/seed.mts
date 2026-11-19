@@ -51,7 +51,7 @@ export async function seedLaunchEvry(env: {
 		origin,
 		secret,
 		trustedIp: () => env.address(ip),
-		enqueueMail: async () => {},
+		enqueueMail: async () => randomUUID(),
 		diagnostic: () => {},
 	});
 	const host = new URL(origin).host;
@@ -96,7 +96,7 @@ export async function seedLaunchEvry(env: {
 	}
 
 	const noop = async () => {};
-	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop } as never);
+	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
 	const ctx = (a: Account, selected: Plant | { kind: "account"; id: string }) =>
 		({ session: a.sessionId, selected }) as never;
 	async function plant(owner: Account, name: string, city: string): Promise<Plant> {

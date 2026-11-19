@@ -36,7 +36,7 @@ export async function seedOversight(env: {
 		origin,
 		secret,
 		trustedIp: () => env.address(ip),
-		enqueueMail: async () => {},
+		enqueueMail: async () => randomUUID(),
 		diagnostic: () => {},
 	});
 	const host = new URL(origin).host;
@@ -94,7 +94,7 @@ export async function seedOversight(env: {
 	}
 
 	const noop = async () => {};
-	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop } as never);
+	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
 	const ctx = (a: Account, selected: Owner | { kind: "account"; id: string }) =>
 		({ session: a.sessionId, selected }) as never;
 	const ok = <T,>(r: { status: string; value?: unknown }, what: string) => {

@@ -54,7 +54,7 @@ async function up(origin: string) {
 		return { email, accountId: s.accountId, sessionId: s.sessionId };
 	}
 	const noop = async () => {};
-	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop });
+	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
 	const churchOf = async (who: { sessionId: string; accountId: string }, name: string) => {
 		const made = await runtime.transaction((tx) =>
 			onboarding.createPlant(
