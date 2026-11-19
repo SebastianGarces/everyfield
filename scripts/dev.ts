@@ -13,6 +13,8 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
         checks.json record outside the repo and prints its path. Selection reads the coverage map of the latest
         green GitHub nightly (.github/workflows/nightly.yml), downloaded with gh; without one it runs everything
+        --full takes about 9 minutes alone and about 15 minutes each with six evf check slots side by side, test:db
+        on Docker Postgres included, plus the census (a production build and the whole statement census) when it runs
         checks: lint, typecheck, test:unit, test:db, census, docs, ci-coverage, workflow, tools-ci, tools-qa, tools-app, github-scripts, ops-watch
         test:db runs the selected packages' database tests on a throwaway local Postgres (CI's image in Docker,
         removed when the run ends), so it needs Docker; it never uses the shared development database
@@ -39,6 +41,9 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command. Its
         formal step fails a branch that changes a file in a .agents/skills/formal-*/map.json without that map or its
         model, unless a branch commit has the trailer "Formal-model: unchanged"
+  dev checklist [--base <ref>]   prints each docs/reliability-checklist.json item whose trigger matches the diff since
+        the merge base of origin/main (else main): path globs match changed paths, the regex matches added lines.
+        Verifiers answer each printed item in the review report; it never blocks landing
   app help                                 interactive browser checks of this worktree's app (bin/app: agent-browser
         underneath, one line per result, one session, a local seeded app with app up)
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
@@ -119,6 +124,14 @@ async function fastCheckCommand(args: string[]): Promise<number> {
 	return report.ok ? 0 : 1;
 }
 
+async function checklistCommand(args: string[]): Promise<number> {
+	const options = [...args],
+		base = take(options, "--base");
+	if (options.length) return usage();
+	console.log((await import("./checklist.ts")).checklist(root, base));
+	return 0;
+}
+
 const HOOKS = "tools/git-hooks";
 
 function hooks(args: string[]): number {
@@ -151,6 +164,8 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return (await import("./nightly.ts")).nightlyCommand(args);
 		case "fast-check":
 			return fastCheckCommand(args);
+		case "checklist":
+			return checklistCommand(args);
 		case "formal":
 			return (await import("../tools/formal/formal.ts")).formalCommand(args, root);
 		case "hooks":

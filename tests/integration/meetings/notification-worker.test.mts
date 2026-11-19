@@ -18,6 +18,7 @@ import {
 	createNotificationWorker,
 } from "../../../apps/web/src/features/notifications/worker.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const database = await testDatabase({ prefix: "t229", max: 6 });
 const { admin } = database;
@@ -31,7 +32,7 @@ const ok = (result) => {
 	assert.equal(result.status, "ok", JSON.stringify(result));
 	return result.value;
 };
-const run = (op, input) => db.transaction((t) => op(t, ctx, input));
+const run = (op, input) => gatedTransaction(db, (t) => op(t, ctx, input));
 const key = () => randomUUID();
 const day = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 const people: Record<string, string> = {};
@@ -100,7 +101,6 @@ function service(authorize = authorizeNotificationMail) {
 const secret = "cron-" + randomUUID();
 const request = () => new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } });
 const tick = scheduledJobs({
-	secret,
 	db,
 	storage: null,
 	cleanup: null,

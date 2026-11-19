@@ -1,5 +1,6 @@
 export const WRITE_PATTERN = 6;
 const REPEAT_LIMIT = 2;
+const PROMISE = /\b(?:reviews? it|for now|later|until|today|revisit|temporar(?:y|ily))\b/i;
 
 const kindsText = (kinds = {}) =>
 	Object.entries(kinds)
@@ -10,6 +11,20 @@ const most = (samples) => Math.max(...samples.map((s) => s.count));
 
 const perRow = (sample) =>
 	sample.rollbacks ? [] : Object.entries(sample.repeats ?? {}).filter(([, count]) => count > REPEAT_LIMIT);
+
+const KINDS = ["transaction", "locked read", "read", "write"];
+const mix = (counts) =>
+	KINDS.filter((kind) => counts[kind])
+		.map((kind) => `${counts[kind]} ${kind}`)
+		.join(", ");
+function statedMix(reason) {
+	const sentence = /Its largest first run[^:.]*: ([^.]*)\./.exec(reason)?.[1];
+	if (sentence === undefined) return null;
+	const counts = {};
+	for (const [, n, kind] of sentence.matchAll(/(\d+) (transaction|locked read|read|write)\b/g))
+		counts[kind] = (counts[kind] ?? 0) + Number(n);
+	return mix(counts);
+}
 
 export function budgetName(limits, name) {
 	return Object.hasOwn(limits, name) ? name : name.split(":")[0];
@@ -32,6 +47,23 @@ export function checkBudgets(rows, limits) {
 			problems.push(
 				`${name}: ${measuredMost} statements is above the ${WRITE_PATTERN}-statement write pattern; add a reason`,
 			);
+		const over = entry.write && measuredMost > WRITE_PATTERN;
+		const promise = over && budget.reason?.match(PROMISE);
+		if (promise)
+			problems.push(
+				`${name}: its reason promises ("${promise[0]}") instead of naming the structural cause of each statement`,
+			);
+		const largest = entry.limit.filter((s) => s.count === measuredMost);
+		if (over && budget.reason?.trim() && largest.length) {
+			const stated = statedMix(budget.reason);
+			const measured = largest.map((s) => mix(s.kinds));
+			if (!measured.includes(stated))
+				problems.push(
+					stated === null
+						? `${name}: its reason must state the measured statement mix: "Its largest first run: ${measured[0]}."`
+						: `${name}: its reason states a largest first run of ${stated}, but it sent ${measured.join(" or ")}`,
+				);
+		}
 		if (name.startsWith("GET ")) {
 			const counts = [...new Set(entry.limit.map((s) => s.count))];
 			if (counts.length > 1)

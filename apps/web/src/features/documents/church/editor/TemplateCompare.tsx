@@ -17,7 +17,9 @@ import { Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@every
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
 import { useId, useMemo, useState } from "react";
 import { createRead, useRead } from "../../../../components/read.tsx";
-import { acceptTemplateChanges, compareWithTemplate, type CompareResult } from "../actions.ts";
+import { acceptTemplateChanges } from "../actions.ts";
+import type { CompareResult } from "../../read.ts";
+import { compareWithTemplate } from "../../fetch.ts";
 import { blockLabel, PAPER_LABEL } from "../labels.ts";
 import { editorExtensions, type FieldValues } from "./extensions.ts";
 import { paletteVars } from "./paper.ts";
@@ -201,8 +203,8 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 					<span className="sr-only" role="status">
 						Comparing with the template
 					</span>
-					<Skeleton className="h-40 w-full rounded-card" />
-					<Skeleton className="h-40 w-full rounded-card" />
+					<Skeleton className="h-40 w-full" />
+					<Skeleton className="h-40 w-full" />
 				</div>
 			) : load.kind === "failed" ? (
 				<div className="rounded-card bg-surface-raised p-6 shadow-[0_0_0_1px_var(--ef-line)]">

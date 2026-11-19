@@ -140,7 +140,6 @@ export function CorrectDialog({
 			/>
 			<Field label="Reason" hint="The reason stays in the history." error={touched ? reason : null}>
 				<Textarea
-					className={fieldText}
 					value={f.reason}
 					rows={3}
 					maxLength={REASON_MAX}

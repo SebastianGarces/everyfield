@@ -13,6 +13,7 @@ import {
 	CardInset,
 	CardTitle,
 	Checkbox,
+	Count,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -23,7 +24,7 @@ import {
 	SegmentedControl,
 	Spinner,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useRef, useState } from "react";
@@ -33,7 +34,8 @@ import { loadMeetingFollowUps } from "../followups/fetch.ts";
 import { preferredOwners } from "../followups/model.ts";
 import { ownerText } from "../tasks/model.ts";
 import { AssigneePicker, warmAssignees } from "../tasks/AssigneePicker.tsx";
-import { evaluationHistory, previewSettlement, setPresence } from "./actions.ts";
+import { previewSettlement, setPresence } from "./actions.ts";
+import { evaluationHistory } from "./fetch.ts";
 import {
 	CLASSIFICATION_LABEL,
 	deltaText,
@@ -73,7 +75,6 @@ export function usePresence({
 	onSaved: (answer: PresenceAnswer) => void;
 	onStale: () => void;
 }) {
-	const toast = useToast();
 	const lanes = useRowLanes(problemText);
 	const [asked] = useState(() => new Map<string, Presence>());
 	function set(who: Who, presence: Presence) {
@@ -148,7 +149,7 @@ export function AttendanceCard({
 	const held = lane.wait !== null || blocked;
 	return (
 		<Card as="section" aria-labelledby="attendance-title" aria-busy={settling || undefined}>
-			<CardHeader className="mb-3.5">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="attendance-title">Attendance</CardTitle>
 					<CardDescription>
@@ -187,7 +188,7 @@ export function AttendanceCard({
 			{final ? (
 				<dl className="mt-4 grid grid-cols-3 gap-2">
 					{(Object.keys(CLASSIFICATION_LABEL) as Classification[]).map((k) => (
-						<CardInset key={k} className="flex flex-col gap-0.5 px-3 py-2.5">
+						<CardInset key={k} className="flex flex-col gap-0.5">
 							<dt className="text-xs text-text-3">{CLASSIFICATION_LABEL[k]}</dt>
 							<dd className="font-semibold text-ink tabular-nums">{counts[k]}</dd>
 						</CardInset>
@@ -452,7 +453,6 @@ function SettleForm({
 										}
 										checked={ids.includes(p.personId)}
 										onCheckedChange={(on) => actions.toggle(p.personId, on === true)}
-										className="py-2"
 									/>
 								))}
 							</div>
@@ -726,7 +726,7 @@ export function EvaluationCard({
 					<ul className="mt-4 grid grid-cols-4 gap-3 max-app-lg:grid-cols-2">
 						{FACTORS.map((f) => (
 							<li key={f.key}>
-								<CardInset className="flex flex-col gap-2 px-3.5 py-3">
+								<CardInset className="flex flex-col gap-2">
 									<span className="flex items-baseline justify-between gap-3">
 										<span className="text-sm text-text-2">{f.label}</span>
 										<b className="font-semibold text-ink tabular-nums">
@@ -920,7 +920,13 @@ function EvaluationForm({
 					<p className="flex items-center justify-between gap-3 rounded-md bg-surface-2 px-4 py-3" aria-live="polite">
 						<span className="text-text-2">Average</span>
 						<span className="font-semibold text-ink tabular-nums">
-							{complete ? scoreText(averageOf(scores as Scores)) : `${8 - missing.length} of 8 scored`}
+							{complete ? (
+								scoreText(averageOf(scores as Scores))
+							) : (
+								<>
+									<Count value={8 - missing.length} /> of 8 scored
+								</>
+							)}
 						</span>
 					</p>
 					<Field

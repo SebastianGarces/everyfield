@@ -34,16 +34,10 @@ async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer }
 			<>
 				<PageHeader size="xl" title={title} />
 				<Card>
-					{v.ok ? (
-						<StatePanel tone="lock" icon={LockKeyIcon} title="Meetings are not part of your seat" headingLevel="h2">
-							Meetings belong to a church plant workspace. Your account has no current seat in one, so there is nothing
-							to show here.
-						</StatePanel>
-					) : (
-						<StatePanel tone="error" title="We could not load meetings" headingLevel="h2">
-							This is a loading problem. Nothing was changed. Try again in a moment.
-						</StatePanel>
-					)}
+					<StatePanel tone="lock" icon={LockKeyIcon} title="Meetings are not part of your seat" headingLevel="h2">
+						Meetings belong to a church plant workspace. Your account has no current seat in one, so there is nothing to
+						show here.
+					</StatePanel>
 				</Card>
 			</>
 		),
@@ -135,8 +129,8 @@ export function MeetingsLoading() {
 			<span className="sr-only" role="status">
 				Loading meetings
 			</span>
-			<Skeleton className="h-14 w-60 rounded-card" />
-			<Skeleton className="h-[120px] rounded-card" />
+			<Skeleton className="h-14 w-60" />
+			<Skeleton className="h-[120px]" />
 			<Card className="gap-4">
 				<div className="flex flex-wrap gap-3">
 					<Skeleton className="h-10 w-48 rounded-md" />
@@ -156,8 +150,8 @@ export const rsvpMetadata: Metadata = {
 export async function RsvpPage({ params: route }: { params: Promise<{ token: string }> }) {
 	const raw = (await route).token;
 	const token = rsvpToken.safeParse(raw);
-	const db = requestDatabase();
-	const view =
-		token.success && db ? await describeRsvpToken(db, { token: token.data }) : ({ state: "unavailable" } as const);
+	const view = token.success
+		? await describeRsvpToken(requestDatabase(), { token: token.data })
+		: ({ state: "unavailable" } as const);
 	return <RsvpScreen token={raw} view={view} />;
 }

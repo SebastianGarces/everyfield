@@ -93,7 +93,7 @@ function count(nodes: readonly HierarchyNode[] | readonly DiagramNode[]): number
 export function diagramSummary(diagram: Diagram): string {
 	const n = count(diagram.nodes);
 	const [one, many] = NOUN[diagram.type];
-	const name = diagram.type[0]!.toUpperCase() + diagram.type.slice(1);
+	const name = diagram.type.charAt(0).toUpperCase() + diagram.type.slice(1);
 	return `${name} diagram, ${n} ${n === 1 ? one : many}${diagram.loop ? `. Repeats: ${diagram.loop}` : ""}`;
 }
 
@@ -173,11 +173,12 @@ export function parseDiagram(info: string, body: string): DiagramResult {
 	if (title === undefined && !errors.some((e) => e.message.startsWith("title must")))
 		errors.unshift({ line: 1, message: "Missing title: the first line must be title: <text>" });
 	if (!nodes.length) error(lastLine, "No nodes: add at least one line - label | detail | note");
-	if (type === "cycle" && nodes.length === 1) error(nodes[0]!.line, "A cycle needs at least 2 nodes");
-	if (errors.length || title === undefined) return fail(errors);
+	const [root, ...rest] = nodes;
+	if (type === "cycle" && root && !rest.length) error(root.line, "A cycle needs at least 2 nodes");
+	if (errors.length || title === undefined || !root) return fail(errors);
 	const list = nodes.map((parsed) => parsed.node) as unknown as NonEmpty<DiagramNode>;
 	const extra = loop ? { loop } : {};
-	if (type === "hierarchy") return { ok: true, diagram: { type, title, nodes: [tree(nodes)] } };
+	if (type === "hierarchy") return { ok: true, diagram: { type, title, nodes: [tree(root, rest)] } };
 	if (type === "cycle")
 		return { ok: true, diagram: { type, title, ...extra, nodes: list as readonly [DiagramNode, DiagramNode] } };
 	if (type === "flow") return { ok: true, diagram: { type, title, ...extra, nodes: list } };
@@ -193,14 +194,16 @@ function fail(errors: DiagramError[]): DiagramResult {
 	return { ok: false, errors: sorted.map(([e]) => e) as unknown as NonEmpty<DiagramError> };
 }
 
-function tree(nodes: Parsed[]): HierarchyNode {
+function tree(first: Parsed, rest: readonly Parsed[]): HierarchyNode {
 	type Mutable = DiagramNode & { children: Mutable[] };
-	const root: Mutable = { ...nodes[0]!.node, children: [] };
+	const root: Mutable = { ...first.node, children: [] };
 	const stack: Mutable[] = [root];
-	for (const parsed of nodes.slice(1)) {
+	for (const parsed of rest) {
 		const node: Mutable = { ...parsed.node, children: [] };
+		const parent = stack[parsed.depth - 1];
+		if (!parent) throw Error("diagram_depth_unchecked");
 		stack.length = parsed.depth;
-		stack.at(-1)!.children.push(node);
+		parent.children.push(node);
 		stack.push(node);
 	}
 	return root;

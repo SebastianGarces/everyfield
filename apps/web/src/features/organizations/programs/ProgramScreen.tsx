@@ -29,7 +29,8 @@ import { useActionState, useState, useTransition, type ReactNode } from "react";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { PIPELINE_PATH } from "../board/model";
 import { Problem } from "../../../components/Problem.tsx";
-import { enroll, publishVersion, rereadProgram, savePlan } from "./actions";
+import { enroll, publishVersion, savePlan } from "./actions";
+import { rereadProgram } from "./fetch.ts";
 import { ApplyVersionsDialog, versionReviews } from "./ApplyVersions";
 import { enrollmentHref, KIND, monthRange, programProblem, PROGRAMS_PATH, readingHref, RHYTHM } from "./model";
 import { draftFrom, PlanEditor, planFrom, type PlanDraft } from "./PlanEditor";
@@ -323,7 +324,7 @@ function Enrollments({ program, onApplied }: { program: ProgramDetail; onApplied
 	const tooMany = chosen.length > APPLY_VERSION_LIMIT;
 	return (
 		<Card>
-			<CardHeader className={selecting ? "mb-4 flex-wrap" : undefined}>
+			<CardHeader className={selecting ? "flex-wrap" : undefined}>
 				<CardHeading>
 					<CardTitle>Enrolled</CardTitle>
 				</CardHeading>

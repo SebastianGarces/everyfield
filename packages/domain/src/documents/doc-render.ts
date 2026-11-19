@@ -1,5 +1,5 @@
 import { ledgerTables, type EveryfieldDoc } from "@everyfield/contracts/documents";
-import { renderDocumentWithLayout } from "@formepdf/core";
+import { renderDocumentWithLayout, type ElementInfo } from "@formepdf/core";
 import type { ExportTheme } from "./church-theme.ts";
 import { renderDocDocx } from "./doc-docx.ts";
 import { fieldValues, printedDoc } from "./doc-values.ts";
@@ -17,11 +17,11 @@ import { ARTIFACT_MAX, RenderFailed, renderContext, renderPdfElement, unsafe, ty
 import { NEUTRAL_THEME, type RenderTheme } from "./theme.ts";
 import { buildLedgerWorkbook } from "./xlsx.ts";
 
-type LaidElement = { bookmark?: string; nodeType?: string; y: number; height: number; children?: LaidElement[] };
+type LaidElement = ElementInfo & { bookmark?: string };
 
 async function splitPoint(ctx: ReturnType<typeof renderContext>, doc: EveryfieldDoc): Promise<FlowMode> {
-	const laid = await renderDocumentWithLayout(docElement(ctx, doc, { kind: "probe" }) as never);
-	const pages = laid.layout.pages as unknown as { elements: LaidElement[] }[];
+	const laid = await renderDocumentWithLayout(docElement(ctx, doc, { kind: "probe" }));
+	const pages: { elements: LaidElement[] }[] = laid.layout.pages;
 	if (pages.length < 2) return { kind: "single" };
 	const mark = (e: LaidElement | undefined) =>
 		e?.bookmark?.startsWith(PROBE_MARK) ? Number(e.bookmark.slice(PROBE_MARK.length)) : null;
@@ -33,7 +33,7 @@ async function splitPoint(ctx: ReturnType<typeof renderContext>, doc: Everyfield
 }
 
 async function checkOffsets(ctx: ReturnType<typeof renderContext>, doc: EveryfieldDoc, mode: FlowMode) {
-	const laid = await renderDocumentWithLayout(docElement(ctx, doc, mode, "probe") as never);
+	const laid = await renderDocumentWithLayout(docElement(ctx, doc, mode, "probe"));
 	const offsets = new Map<string, number>();
 	const walk = (node: LaidElement, cell: LaidElement | null) => {
 		if (node.bookmark?.startsWith(CHECK_MARK) && cell && !offsets.has(node.bookmark)) {
@@ -42,8 +42,7 @@ async function checkOffsets(ctx: ReturnType<typeof renderContext>, doc: Everyfie
 		}
 		for (const child of node.children ?? []) walk(child, node.nodeType === "TableCell" ? node : cell);
 	};
-	for (const page of laid.layout.pages as unknown as { elements: LaidElement[] }[])
-		for (const element of page.elements) walk(element, null);
+	for (const page of laid.layout.pages) for (const element of page.elements) walk(element, null);
 	return offsets as CheckOffsets;
 }
 

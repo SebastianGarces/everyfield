@@ -4,8 +4,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
-import { RequestActor } from "../../../packages/domain/src/access/index.ts";
-import { executeWrites } from "../../../packages/domain/src/operations/writes.ts";
+import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/index.ts";
+import { executeWrites, gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
 import { resendRecorder } from "../communication/resend-recorder.mts";
@@ -50,7 +50,6 @@ const secret = "cron-" + randomUUID();
 type Body = { status: string; mailed: number; steps: Record<string, { status: string; count?: unknown }> };
 async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"]) {
 	const response = await scheduledJobs({
-		secret,
 		db,
 		storage: null,
 		cleanup: null,
@@ -90,8 +89,8 @@ async function connection() {
 	const church = owner.parse(await seed.organization("sending_church", { name: "First Church" }));
 	const m = organizationMount()!;
 	const session = sessionId.parse(actor.session);
-	const run = <T,>(body: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>) =>
-		m.db.transaction(async (tx) => {
+	const run = <T,>(body: (tx: WriteTx) => Promise<T>) =>
+		gatedTransaction(m.db, async (tx) => {
 			if (!(await RequestActor.claimWrite(tx, session, plant))) throw Error("unavailable");
 			return body(tx);
 		});
@@ -159,7 +158,7 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 		VALUES(${changer.id},'email_change',${hex()},${newAddress},clock_timestamp()+interval '1 hour')`);
 	const settings = settingsMail()!;
 	const correlationId = randomUUID();
-	await db.transaction(async (tx) => {
+	await gatedTransaction(db, async (tx) => {
 		const writes: Parameters<typeof executeWrites>[1][number][] = [];
 		await settings.deliverVerification(tx, { accountId: changer.id, address: newAddress, token: "t-" + hex() }, writes);
 		await settings.securityNotice(
@@ -172,7 +171,7 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 
 	const founder = await planter();
 	const onboarding = onboardingMount()!;
-	await onboarding.db.transaction((tx) =>
+	await gatedTransaction(onboarding.db, (tx) =>
 		onboarding.producer.createPlant(
 			tx,
 			{ session: founder.session, selected: { kind: "account", id: founder.id } } as never,
@@ -194,7 +193,7 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	const foreign = [`invitation/${randomUUID()}/1`];
 	const association = `association/${randomUUID()}/1/${reader.id}`;
 	for (const logicalKey of [...foreign, association])
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			permissive.enqueue(tx, {
 				owner: { kind: "account", id: reader.id },
 				purpose: "discovery_receipt",
@@ -252,6 +251,47 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	for (const name of ["identity-mail", "organization-mail", "settings-mail", "onboarding-mail"])
 		assert.deepEqual(quiet.body.steps[name], { status: "skipped" });
 	assert.equal(quiet.status, 200);
+});
+
+test("INV-mount-mail: the relationship mount sends only relationship invitations to a typed address, nothing else under its keys", async () => {
+	const reader = await seed.actor(null);
+	const permissive = createMailService({
+		db,
+		encryptionKey: Buffer.from(process.env.IDENTITY_MAIL_KEY!, "hex"),
+		addressKey: Buffer.from(process.env.IDENTITY_ADDRESS_KEY!, "hex"),
+		from: "other@example.test",
+		authorize: async (_tx, list) => new Set(list.map((m) => m.id)),
+	});
+	const queued = [
+		{ purpose: "relationship_invitation", recipient: reader.id },
+		{ purpose: "discovery_receipt", recipient: null },
+	] as const;
+	const keys: string[] = [];
+	for (const mail of queued) {
+		const logicalKey = `relationship/${randomUUID()}/1`;
+		keys.push(logicalKey);
+		await db.transaction((tx) =>
+			permissive.enqueue(tx, {
+				owner: { kind: "account", id: reader.id },
+				purpose: mail.purpose,
+				logicalKey,
+				recipient: mail.recipient,
+				address: reader.email,
+				content: { subject: "Other", text: "Other" },
+				operation: null,
+				notice: null,
+				eligibleAt: new Date().toISOString(),
+			}),
+		);
+	}
+	resend.take();
+	const { body } = await tick({ organization: organizationMailPass(transport()) });
+	assert.equal(body.steps["organization-mail"]?.status, "ok");
+	assert.deepEqual(
+		resend.take().filter((c) => (c.body as { to: string }).to === reader.email),
+		[],
+	);
+	for (const key of keys) assert.notDeepEqual(await mailState(key), ["accepted"], key);
 });
 
 test("INV-mount-mail: a relationship invitation resent on day 29 keeps its original expiry in the result and the mail", async () => {

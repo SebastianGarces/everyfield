@@ -6,7 +6,7 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 133 of 136. Not yet mapped: 3, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 152 of 152. Not yet mapped: 0, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
@@ -126,7 +126,8 @@ flowchart LR
   subgraph f21["shell"]
     f21s0["shell.frame"]
     f21s1["shell.design-preview"]
-    f21s2["shell.health"]
+    f21s2["shell.package-preview"]
+    f21s3["shell.health"]
   end
   subgraph f22["tasks"]
     f22s0["tasks.list"]
@@ -236,6 +237,7 @@ flowchart LR
   links -.-> f21s0
   links -.-> f21s1
   links -.-> f21s2
+  links -.-> f21s3
   rail -- "Tasks" --> f22s0
   f22s0 --> f22s1
   links -.-> f22s1
@@ -262,28 +264,28 @@ flowchart LR
 | [access](access.md) | [`apps/web/src/features/access/feature-map.json`](../../apps/web/src/features/access/feature-map.json) | 2 | 2 | 1 | 0 | 0 |
 | [assessment-review](assessment-review.md) | [`apps/web/src/features/assessment-review/feature-map.json`](../../apps/web/src/features/assessment-review/feature-map.json) | 1 | 2 | 1 | 0 | 0 |
 | [boundaries](boundaries.md) | [`apps/web/src/features/boundaries/feature-map.json`](../../apps/web/src/features/boundaries/feature-map.json) | 2 | 0 | 0 | 0 | 0 |
-| [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 4 | 8 | 8 | 0 |
-| [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 11 | 9 | 6 | 3 |
-| [evry](evry.md) | [`apps/web/src/features/evry/feature-map.json`](../../apps/web/src/features/evry/feature-map.json) | 2 | 15 | 5 | 2 | 1 |
-| [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 4 | 3 | 3 | 0 |
+| [communication](communication.md) | [`apps/web/src/features/communication/feature-map.json`](../../apps/web/src/features/communication/feature-map.json) | 4 | 5 | 8 | 8 | 0 |
+| [documents](documents.md) | [`apps/web/src/features/documents/feature-map.json`](../../apps/web/src/features/documents/feature-map.json) | 5 | 12 | 9 | 6 | 3 |
+| [evry](evry.md) | [`apps/web/src/features/evry/feature-map.json`](../../apps/web/src/features/evry/feature-map.json) | 2 | 16 | 5 | 2 | 1 |
+| [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 5 | 3 | 3 | 0 |
 | [followups](followups.md) | [`apps/web/src/features/followups/feature-map.json`](../../apps/web/src/features/followups/feature-map.json) | 2 | 3 | 5 | 3 | 1 |
-| [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 10 | 11 | 4 | 1 |
-| [intelligence](intelligence.md) | [`apps/web/src/features/intelligence/feature-map.json`](../../apps/web/src/features/intelligence/feature-map.json) | 4 | 4 | 4 | 2 | 1 |
-| [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 1 | 5 | 3 | 1 |
-| [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 5 | 10 | 4 | 4 |
+| [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 11 | 11 | 4 | 1 |
+| [intelligence](intelligence.md) | [`apps/web/src/features/intelligence/feature-map.json`](../../apps/web/src/features/intelligence/feature-map.json) | 4 | 5 | 4 | 2 | 1 |
+| [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 2 | 5 | 3 | 1 |
+| [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 6 | 10 | 4 | 4 |
 | [notifications](notifications.md) | [`apps/web/src/features/notifications/feature-map.json`](../../apps/web/src/features/notifications/feature-map.json) | 2 | 4 | 5 | 0 | 1 |
-| [onboarding](onboarding.md) | [`apps/web/src/features/onboarding/feature-map.json`](../../apps/web/src/features/onboarding/feature-map.json) | 3 | 2 | 5 | 3 | 1 |
-| [organizations](organizations.md) | [`apps/web/src/features/organizations/feature-map.json`](../../apps/web/src/features/organizations/feature-map.json) | 10 | 17 | 18 | 11 | 3 |
+| [onboarding](onboarding.md) | [`apps/web/src/features/onboarding/feature-map.json`](../../apps/web/src/features/onboarding/feature-map.json) | 3 | 3 | 5 | 3 | 1 |
+| [organizations](organizations.md) | [`apps/web/src/features/organizations/feature-map.json`](../../apps/web/src/features/organizations/feature-map.json) | 10 | 20 | 18 | 11 | 3 |
 | [oversight](oversight.md) | [`apps/web/src/features/oversight/feature-map.json`](../../apps/web/src/features/oversight/feature-map.json) | 3 | 5 | 4 | 3 | 0 |
 | [overview](overview.md) | [`apps/web/src/features/overview/feature-map.json`](../../apps/web/src/features/overview/feature-map.json) | 1 | 1 | 4 | 1 | 1 |
-| [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 4 | 12 | 11 | 6 | 2 |
+| [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 4 | 13 | 11 | 6 | 2 |
 | [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
 | [residency](residency.md) | [`apps/web/src/features/residency/feature-map.json`](../../apps/web/src/features/residency/feature-map.json) | 1 | 2 | 2 | 1 | 0 |
-| [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 9 | 7 | 5 | 2 |
-| [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 3 | 3 | 0 | 0 | 0 |
+| [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 10 | 7 | 5 | 2 |
+| [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 4 | 6 | 0 | 0 | 0 |
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
-| [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 2 | 4 | 3 | 1 |
-| [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 2 | 6 | 3 | 1 |
+| [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 3 | 4 | 3 | 1 |
+| [wiki](wiki.md) | [`apps/web/src/features/wiki/feature-map.json`](../../apps/web/src/features/wiki/feature-map.json) | 2 | 3 | 6 | 3 | 1 |
 | [app](app.md) | [`apps/web/src/app/feature-map.json`](../../apps/web/src/app/feature-map.json) | 7 | 10 | 2 | 0 | 0 |
 
 ## Become a persona
@@ -353,8 +355,15 @@ A browser proof marked presence only shows that the control is there; the listed
 The network-idle wait suits pages that go quiet after each action. On a page that keeps fetching (for example
 `/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there. Such a
 surface sets `polls` to say what keeps fetching: its commands get no network-idle wait, and the checker requires the
-check after each open, click, press or upload to be one that waits (a URL, `noText`, or `contains` text, printed as
-`wait --url`, `wait --fn` and `wait --text`).
+check after each open, click, press or upload to be one that waits (a URL, `noText` or text, printed as `wait --url`,
+`wait --fn` and `wait --text`).
+
+Text checks refuse text that has no box or is not painted: text under `display: none` or `visibility: hidden`
+(such as a message waiting for a press) does not count. Text that is rendered but visually hidden still counts:
+screen-reader-only (`sr-only`), zero-size, off-screen, clipped, `opacity: 0` or `font-size: 0` text matches. A
+`contains` check waits for the page's rendered text to include its words (`wait --text`). An exact check waits for
+an element whose whole rendered text is its words, or, on a bare JSON response, for a JSON value equal to them
+(`wait --fn`).
 
 ## Changing a feature, and the review proof
 

@@ -6,8 +6,8 @@ import { Button, Card, CardDescription, CardHeader, CardHeading, CardTitle, Skel
 import { KeyValue, KeyValueList } from "@everyfield/ui/display";
 import type { ReactNode } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
-import { visionReport } from "./actions.ts";
-import { CLASSIFICATION_LABEL, scoreText, type Classification, type Outcome } from "./model.ts";
+import { visionReport } from "./fetch.ts";
+import { CLASSIFICATION_LABEL, scoreText, type Classification } from "./model.ts";
 import type { MeetingsReport } from "./server.ts";
 
 const BAR: Record<Classification, string> = {
@@ -18,14 +18,14 @@ const BAR: Record<Classification, string> = {
 const ORDER: Classification[] = ["core_group", "returning", "first_time"];
 
 const visionReports = createRead(() => visionReport(), {
-	failed: (): Outcome<MeetingsReport> => ({ status: "lost" }),
+	failed: () => ({ status: "lost" }) as const,
 });
 
 export function VisionReport({ thisYear }: { thisYear: number }) {
 	const report = useRead(visionReports);
 	const card = (busy: boolean, body: ReactNode) => (
 		<Card as="section" aria-labelledby="vision-report" aria-busy={busy || undefined}>
-			<CardHeader className="mb-2">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="vision-report">Vision meetings</CardTitle>
 					<CardDescription>

@@ -21,7 +21,7 @@ import { useReadWith, createRead } from "../../../components/read.tsx";
 import { RecordDialog } from "../../../components/save/parts.tsx";
 import { useLocalStore, useStore } from "../../../components/store.ts";
 import { problemText } from "../parts.tsx";
-import { findHouseholds } from "./actions.ts";
+import { findHouseholds } from "../fetch.ts";
 import { createJoinHouseholdStore } from "./JoinHouseholdDialog.store.ts";
 import { addressLine, ROLE_LABEL, ROLES, type Household, type HouseholdRole, type HouseholdSummary } from "./model.ts";
 
@@ -313,7 +313,7 @@ export function JoinHouseholdDialog({
 									aria-describedby={touched && !choice ? "household-choice-error" : undefined}
 									value={choice}
 									onValueChange={actions.choose}
-									className="gap-0 px-4"
+									className="gap-y-0 px-4"
 								>
 									{items.map((h) => (
 										<Radio

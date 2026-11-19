@@ -14,7 +14,7 @@ export const documentsMetadata: Metadata = { title: "Documents", robots: { index
 export async function DocumentsPage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
 	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated") redirect("/signin?returnTo=%2Fdocuments");
+	if (viewer.status === "unauthenticated") redirect("/signin?returnTo=%2Fdocuments");
 	if (viewer.status !== "active" || !viewer.authority) return <Unavailable />;
 	const loaded = await loadDocuments(viewer.authority, query);
 	if (loaded.status === "failed") return <Failed />;
@@ -65,13 +65,13 @@ export function DocumentsLoading() {
 			<span className="sr-only" role="status">
 				Loading documents
 			</span>
-			<Skeleton className="h-14 w-64 rounded-card" />
+			<Skeleton className="h-14 w-64" />
 			<Skeleton className="h-10 w-full max-w-xl rounded-md" />
 			<div className="grid gap-4 sm:grid-cols-2">
-				<Skeleton className="h-40 rounded-card" />
-				<Skeleton className="h-40 rounded-card" />
-				<Skeleton className="h-40 rounded-card" />
-				<Skeleton className="h-40 rounded-card" />
+				<Skeleton className="h-40" />
+				<Skeleton className="h-40" />
+				<Skeleton className="h-40" />
+				<Skeleton className="h-40" />
 			</div>
 		</div>
 	);

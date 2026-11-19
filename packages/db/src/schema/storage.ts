@@ -12,7 +12,9 @@ import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Database, Transaction } from "../client.ts";
 import { file_object, audit_event } from "./tables.ts";
+import { StorageError } from "./storage-error.ts";
 import { validateCommitment } from "./validate-file.ts";
+import { isProduction } from "../deployment.ts";
 type FileObjectRow = typeof file_object.$inferSelect;
 
 export type FilePurpose = FileObjectRow["purpose"];
@@ -30,7 +32,7 @@ const storageEnv = z.object({
 });
 const PRODUCTION_BUCKET = "everyfield";
 export function privateStorageFrom(env: Record<string, string | undefined>): PrivateStorage | null {
-	if (env.AWS_BUCKET_NAME === PRODUCTION_BUCKET && env.VERCEL_ENV !== "production")
+	if (env.AWS_BUCKET_NAME === PRODUCTION_BUCKET && !isProduction(env))
 		throw new Error(`The "${PRODUCTION_BUCKET}" bucket is for production only. Set AWS_BUCKET_NAME to everyfield-dev.`);
 	const parsed = storageEnv.safeParse(env);
 	if (!parsed.success) return null;
@@ -60,7 +62,7 @@ export type ResourceAuthorizer = (
 	file: FileIdentity,
 	intent: "put" | "read" | "cleanup",
 ) => Promise<FileAuthorization | null>;
-const unavailable = () => new Error("unavailable");
+const unavailable = () => new StorageError("unavailable");
 function providerFailure(): never {
 	throw unavailable();
 }
@@ -81,6 +83,9 @@ async function authorized(
 		return file;
 	});
 }
+const UPLOAD_KEY_PART = /^[A-Za-z0-9_:.-]+$/;
+const isUploadKey = (key: string) =>
+	key.length <= 200 && key.split("/").every((part) => UPLOAD_KEY_PART.test(part) && part !== "." && part !== "..");
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 export async function putPrivateObject(
 	db: Database,
@@ -88,9 +93,9 @@ export async function putPrivateObject(
 	authorize: ResourceAuthorizer,
 	input: { tenantId: string; purpose: FilePurpose; mediaType: string; bytes: Uint8Array; uploadKey: string },
 ) {
-	if (!input.uploadKey.trim() || input.uploadKey.length > 200) throw new Error("invalid_upload_key");
+	if (!isUploadKey(input.uploadKey)) throw new StorageError("invalid_upload_key");
 	await assertPrivateBucket(storage);
-	if (!input.bytes.length || input.bytes.length > 10 * 1024 * 1024) throw new Error("invalid_file");
+	if (!input.bytes.length || input.bytes.length > 10 * 1024 * 1024) throw new StorageError("invalid_file");
 	if (input.purpose === "commitment") await validateCommitment(input.bytes, input.mediaType);
 	const sha256 = hash(input.bytes);
 	const file = await db.transaction(async (tx) => {
@@ -211,7 +216,7 @@ export function assertPrivateBucket(storage: PrivateStorage): Promise<void> {
 		.catch(providerFailure)
 		.then((acl) => {
 			if (!acl.Grants?.length || acl.Grants.some((g) => /AllUsers|AuthenticatedUsers/.test(g.Grantee?.URI ?? "")))
-				throw new Error("private_bucket_required");
+				throw new StorageError("private_bucket_required");
 		});
 	privateChecks.set(storage, check);
 	check.catch(() => privateChecks.delete(storage));

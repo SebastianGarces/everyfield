@@ -83,7 +83,7 @@ export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 					<CalloutLabel tone="green" icon={Tick02Icon}>
 						Marked not a duplicate
 					</CalloutLabel>
-					<CalloutText className="text-sm">
+					<CalloutText className="leading-(--text-sm--line-height)">
 						{confirmation}{" "}
 						<IntentLink href={DISMISSED_HREF} className="font-semibold text-ink underline underline-offset-2">
 							See dismissed pairs
@@ -109,7 +109,7 @@ export function DuplicatePairs({ pairs }: { pairs: Pairs }) {
 				</Card>
 			) : (
 				<Card as="section" aria-labelledby="pairs-title">
-					<CardHeader className="mb-1">
+					<CardHeader>
 						<CardHeading>
 							<CardTitle as="h2" id="pairs-title">
 								{pairs.completeness === "partial" ? `First ${count} to review` : `${count} to review`}
@@ -184,7 +184,7 @@ export function DismissedPairs({ pairs }: { pairs: Dismissed }) {
 				</Card>
 			) : (
 				<Card as="section" aria-labelledby="dismissed-title">
-					<CardHeader className="mb-1">
+					<CardHeader>
 						<CardHeading>
 							<CardTitle as="h2" id="dismissed-title">
 								{pairs.completeness === "partial" ? `Latest ${count} dismissed` : `${count} dismissed`}

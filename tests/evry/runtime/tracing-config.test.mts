@@ -35,7 +35,11 @@ test("INV-tracing: missing Langfuse keys write one tracing_disabled line with th
 });
 
 test("INV-tracing: an environment name Langfuse rejects is refused: uppercase, a langfuse prefix and the empty string", async () => {
-	for (const environment of ["Production", "langfuse-preview", ""]) {
+	for (const [environment, shown] of [
+		["Production", "not-a-word"],
+		["langfuse-preview", "langfuse-preview"],
+		["", "not-a-word"],
+	]) {
 		const env = {
 			...keys,
 			LANGFUSE_BASE_URL: "https://us.cloud.langfuse.com",
@@ -49,7 +53,7 @@ test("INV-tracing: an environment name Langfuse rejects is refused: uppercase, a
 				event: "tracing_disabled",
 				reason: "invalid_environment",
 				baseUrlHost: "us.cloud.langfuse.com",
-				environment,
+				environment: shown,
 				environmentValid: false,
 			},
 		]);
@@ -96,7 +100,7 @@ test("INV-privacy: a refusal line shows the base URL's host and never its user i
 			event: "tracing_disabled",
 			reason: "invalid_environment",
 			baseUrlHost: "us.cloud.langfuse.com",
-			environment: "Preview",
+			environment: "not-a-word",
 			environmentValid: false,
 		},
 	]);

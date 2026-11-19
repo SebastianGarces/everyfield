@@ -5,7 +5,14 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repo = fileURLToPath(new URL("../../", import.meta.url));
-const ROOT = "tests/integration";
+const ROOTS = [
+	"tests/integration",
+	"tests/evry/adapters",
+	"tests/evry/catalog",
+	"tests/evry/execution",
+	"tests/evry/runtime",
+	"tests/unit",
+];
 const SOURCE = /\.(mts|mjs|ts|js)$/;
 
 const EXEMPT = {
@@ -232,15 +239,29 @@ function check(files, exempt = EXEMPT) {
 	return { violations, stale };
 }
 
-function integrationFiles() {
-	return readdirSync(join(repo, ROOT), { recursive: true })
-		.filter((name) => SOURCE.test(name))
-		.sort()
-		.map((name) => ({ path: `${ROOT}/${name}`, source: readFileSync(join(repo, ROOT, name), "utf8") }));
+function scannedFiles() {
+	return ROOTS.flatMap((root) =>
+		readdirSync(join(repo, root), { recursive: true })
+			.filter((name) => SOURCE.test(name))
+			.sort()
+			.map((name) => ({ path: `${root}/${name}`, source: readFileSync(join(repo, root, name), "utf8") })),
+	);
 }
 
-test("T-261: no file under tests/integration sleeps, polls the clock or asserts on wall-clock time", () => {
-	const files = integrationFiles();
+test("T-261: no file under tests/integration, tests/unit or the Evry adapter, catalog, execution and runtime tests sleeps, polls the clock or asserts on wall-clock time", () => {
+	const files = scannedFiles();
+	assert.ok(
+		files.some((file) => file.path === "tests/evry/runtime/streaming.test.mts"),
+		"the scan reaches the Evry runtime tests",
+	);
+	assert.ok(
+		files.some((file) => file.path === "tests/evry/execution/proposals.test.mts"),
+		"the scan reaches the Evry execution tests",
+	);
+	assert.ok(
+		files.some((file) => file.path === "tests/unit/save/model.test.mjs"),
+		"the scan reaches the unit tests",
+	);
 	assert.ok(
 		files.some((file) => file.path === "tests/integration/writes/counter.mjs"),
 		"the scan reaches writes/*.mjs",

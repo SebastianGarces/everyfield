@@ -1,6 +1,6 @@
 import * as c from "@everyfield/contracts/intelligence";
 import type { Catalog, CriterionKey, CriterionStatus } from "@everyfield/contracts/phases";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { readinessOf } from "../phases/readiness.ts";
@@ -67,7 +67,7 @@ export function criteriaOf(catalog: Catalog, phase: number, facts: unknown): c.A
 	);
 }
 
-export const concernsSql = (r: string) => {
+export const concernsSql = <RName extends string>(r: SqlLiteral<RName>) => {
 	const run = sql.raw(r);
 	return sql`(SELECT coalesce(json_agg(json_build_object('ordinal',e.n-1,'urgency',e.p->>'urgency','keys',e.p->'citations',
 	'evidence',(SELECT coalesce(json_agg(json_build_object('key',k.v,'label',f.cite->>'label','value',f.cite->'value')
@@ -101,7 +101,7 @@ export const releasedRun = (plant: SQL, now: SQL) => sql`(SELECT r.* FROM assess
 	ORDER BY r.available_at DESC,r.id DESC LIMIT 1)`;
 
 const UNKNOWN_WITH_STATUS = new Set(["followUps", "training", "cohesion"]);
-export const trendCellsSql = (r: string) =>
+export const trendCellsSql = <RName extends string>(r: SqlLiteral<RName>) =>
 	sql`json_build_array(${sql.join(
 		c.TREND_FACTS.map(({ key }) => {
 			const [group, field] = key.split(".") as [string, string];

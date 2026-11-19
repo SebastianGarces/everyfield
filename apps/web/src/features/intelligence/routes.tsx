@@ -21,7 +21,7 @@ export async function CheckInPage() {
 	const viewer = await careViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(CHECK_IN_PATH)}`);
+		if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(CHECK_IN_PATH)}`);
 		return <Blocked title="The weekly check-in belongs to a church plant">{SEAT_TEXT}</Blocked>;
 	}
 	if (viewer.role === "member")
@@ -68,10 +68,10 @@ export function CheckInLoading() {
 			<span className="sr-only" role="status">
 				Loading your check-in
 			</span>
-			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-14 w-80" />
 			<div className="grid grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
-				<Skeleton className="h-[520px] rounded-card" />
-				<Skeleton className="h-[520px] rounded-card" />
+				<Skeleton className="h-[520px]" />
+				<Skeleton className="h-[520px]" />
 			</div>
 		</div>
 	);
@@ -83,7 +83,7 @@ export async function AttestationsPage() {
 	const viewer = await careViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated")
+		if (v.status === "unauthenticated")
 			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/attestations")}`);
 		return <NoChurchPlantSeat />;
 	}
@@ -109,15 +109,15 @@ export function AttestationsLoading() {
 			<span className="sr-only" role="status">
 				Loading the attestations
 			</span>
-			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-14 w-80" />
 			<Skeleton className="h-10 w-72 rounded-md" />
 			<div className="grid grid-cols-4 gap-4 max-app-md:grid-cols-2">
-				<Skeleton className="h-28 rounded-card" />
-				<Skeleton className="h-28 rounded-card" />
-				<Skeleton className="h-28 rounded-card" />
-				<Skeleton className="h-28 rounded-card" />
+				<Skeleton className="h-28" />
+				<Skeleton className="h-28" />
+				<Skeleton className="h-28" />
+				<Skeleton className="h-28" />
 			</div>
-			<Skeleton className="h-72 rounded-card" />
+			<Skeleton className="h-72" />
 		</div>
 	);
 }
@@ -129,7 +129,7 @@ async function ownerOrAdmin(path: string) {
 	const viewer = await phaseViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
+		if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
 		return { blocked: <NoChurchPlantSeat /> } as const;
 	}
 	if (!administers(viewer))
@@ -170,12 +170,12 @@ export function PlantIntelligenceLoading() {
 			<span className="sr-only" role="status">
 				Loading Plant Intelligence
 			</span>
-			<Skeleton className="h-14 w-80 rounded-card" />
+			<Skeleton className="h-14 w-80" />
 			<Skeleton className="h-10 w-96 max-w-full rounded-md" />
-			<Skeleton className="h-28 rounded-card" />
+			<Skeleton className="h-28" />
 			<div className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 max-app-md:grid-cols-1">
-				<Skeleton className="h-[300px] rounded-card" />
-				<Skeleton className="h-[300px] rounded-card" />
+				<Skeleton className="h-[300px]" />
+				<Skeleton className="h-[300px]" />
 			</div>
 		</div>
 	);

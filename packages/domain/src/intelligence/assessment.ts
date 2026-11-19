@@ -1,7 +1,7 @@
 import { instant, type Clock } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -71,7 +71,8 @@ function scopeOf(authority: RequestActor) {
 	if (!viewer || viewer.access.role === "member") deny("access_denied");
 	return { me: viewer.accountId, plant: viewer.plantId, ok: liveRead(viewer.access, true) };
 }
-export const iso = (v: string) => sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+export const iso = <VName extends string>(v: SqlLiteral<VName>) =>
+	sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
 const inputBound = (call: Omit<DraftCall, "maxOutputTokens">) =>
 	Buffer.byteLength(JSON.stringify({ input: call.input, feedback: call.feedback })) + 512;

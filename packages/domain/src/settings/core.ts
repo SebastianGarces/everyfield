@@ -1,13 +1,20 @@
 import { accountId, requestIdentity, sameOwner, sessionId, tenantId, type Owner } from "@everyfield/contracts/common";
 import { settingsError } from "@everyfield/contracts/settings";
 import type { SettingsContext, SettingsReply } from "@everyfield/contracts/settings/server";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, currentActor, currentWriteAllowed, liveOwner, RequestActor } from "../access/session.ts";
+import {
+	boundWrite,
+	currentActor,
+	currentWriteAllowed,
+	liveOwner,
+	RequestActor,
+	type WriteTx,
+} from "../access/session.ts";
 import {
 	auditSavepoint,
 	auditTransaction,
@@ -21,7 +28,7 @@ import {
 import { canonical, hash } from "../operations/canonical.ts";
 import { appendEvent } from "../organizations/core.ts";
 export { appendEvent, canonical, sameOwner };
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export type Context = SettingsContext;
 export type WriteContext = SettingsContext;
 export const now = sql<Date>`clock_timestamp()`.mapWith((v: string) => new Date(v));

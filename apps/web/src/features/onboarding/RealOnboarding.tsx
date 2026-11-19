@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { loadPage } from "../identity/api";
 import { SessionActions } from "../identity/SessionActions";
-import { loadOnboardingEntry, runOnboardingCommand } from "./actions";
+import { runOnboardingCommand } from "./actions";
+import { loadOnboardingEntry } from "./fetch.ts";
 import type { Entry, StepKey } from "./model";
 import { OnboardingFlow, type Article } from "./OnboardingFlow";
 import { createPort } from "./port";

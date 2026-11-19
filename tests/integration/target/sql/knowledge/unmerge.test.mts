@@ -12,6 +12,7 @@ import {
 } from "../../../../../packages/domain/src/people/index.ts";
 import { trainingReader, trainingWriter } from "../../../../../packages/domain/src/teams/index.ts";
 import { fixture, ok, refused } from "../../../../support/fixture.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 const database = await fixture({ prefix: "wp092unm", clock: new Date("2026-10-13T16:00:00.000Z") });
 const { admin } = database;
@@ -21,7 +22,7 @@ const Q = (await database.plant()).id;
 const A = database.actors.admin;
 const B = await database.actor({ kind: "plant", id: Q }, "admin");
 const ctx = (actor = A) => ({ session: actor.session, selected: { kind: "plant", id: actor === B ? Q : P } });
-const tx = (body) => db.transaction(body);
+const tx = (body) => gatedTransaction(db, body);
 const key = () => randomUUID();
 const rows = async (query) => (await admin.execute(query)).rows;
 const one = async (query) => (await rows(query))[0];

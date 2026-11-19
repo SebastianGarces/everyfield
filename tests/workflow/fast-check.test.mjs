@@ -169,6 +169,31 @@ function formalFixture() {
 	return fx;
 }
 
+test("INV-lint: a pnpm-workspace.yaml exclusion, a packages entry other than folder/* or a list form the reader does not parse is refused, so pnpm -r skips no package the lint checks count", async () => {
+	const { lintRuns } = await import("../../scripts/fast-check.ts");
+	const dir = temp("fast-check-workspace-");
+	writeFileSync(join(dir, "package.json"), "{}\n");
+	const runs = (body) => {
+		writeFileSync(join(dir, "pnpm-workspace.yaml"), body);
+		return () => lintRuns(dir);
+	};
+	assert.throws(
+		runs('packages:\n  - packages/*\n  - "!packages/x"\nonlyBuiltDependencies:\n  - bun\n'),
+		/lists !packages\/x:/,
+	);
+	assert.throws(runs('packages:\n  - apps/*\n\n  - packages/*\n  - "!packages/x"\n'), /lists !packages\/x:/);
+	assert.throws(runs("packages:\n  - packages/**\n  - tools/x\n"), /lists packages\/\*\*, tools\/x:/);
+	assert.throws(runs("packages: [apps/*]\n"), /a form this reader does not parse \(packages: \[apps\/\*\]\)/);
+	assert.throws(runs("packages:\nonlyBuiltDependencies:\n  - bun\n"), /lists no packages:/);
+	assert.throws(runs("packages:\n  - apps/*\n  extra: x\n"), /a packages line this reader does not parse \(extra: x\)/);
+	assert.throws(runs("onlyBuiltDependencies:\n  - bun\n"), /has no packages list:/);
+	mkdirSync(join(dir, "packages"));
+	mkdirSync(join(dir, "apps"));
+	assert.deepEqual(runs("packages:\n- apps/*\n- packages/*\n")(), []);
+	assert.deepEqual(runs("packages:\n  - apps/*\n\n  - packages/*\nonlyBuiltDependencies:\n  - bun\n")(), []);
+	assert.deepEqual(runs("packages: []\n")(), []);
+});
+
 test("fast-check's formal step fails a branch that changes a mapped file without its map or model, and names the map, model and maintain skill", () => {
 	const fx = formalFixture();
 	fx.commit({ [SESSION]: "// lockWriteAuthority\n// one more line\n", "docs/note.md": "A note.\n" });
@@ -350,13 +375,23 @@ test("fast-check lints a changed file in tests/{integration,evry,ui,workflow} wi
 
 test("fast-check typechecks a changed tool file with the root typecheck:tools script, beside the package typecheck (T-176)", () => {
 	const fx = fixture();
+	const manifest = JSON.parse(readFileSync(join(repo, "package.json"), "utf8"));
+	manifest.scripts["typecheck:tools"] =
+		"node_modules/typescript-7/bin/tsc -b tsconfig.tools.json tests/unit/tsconfig.json";
 	fx.commit({
+		"package.json": JSON.stringify(manifest, null, "\t") + "\n",
 		"tsconfig.tools.json": `{
 	// Only the fixture's tool folder.
 	"compilerOptions": { "strict": true, "noEmit": true, "module": "nodenext", "types": [] },
 	"include": ["tools/qa/**/*.ts"]
 }
 `,
+		"tests/unit/tsconfig.json": `{
+	"compilerOptions": { "strict": true, "noEmit": true, "module": "nodenext", "types": [] },
+	"include": ["./**/*.mts"]
+}
+`,
+		"tests/unit/ok.test.mts": "export const ok = 1;\n",
 		"tools/qa/wrong.ts": 'export const w: number = "s";\n',
 		"packages/demo/src/wrong.ts": 'export const w: number = "s";\n',
 	});
@@ -370,6 +405,15 @@ test("fast-check typechecks a changed tool file with the root typecheck:tools sc
 
 	fx.commit({ "tools/qa/wrong.ts": "export const w: number = 1;\n", "packages/demo/src/wrong.ts": "export {};\n" });
 	assert.equal(fx.check().step("typecheck").status, "passed");
+
+	fx.commit({ "tests/unit/wrong.test.mts": 'export const w: number = "s";\n' });
+	const unit = fx.check().step("typecheck");
+	assert.equal(
+		unit.status,
+		"failed",
+		"a test folder the tools typecheck builds is checked when one of its files changes",
+	);
+	assert.deepEqual(unit.files, ["tests/unit/wrong.test.mts"]);
 });
 
 test("fast-check runs both linters of an Oxlint-first lint script and reports what each one finds (T-43)", () => {

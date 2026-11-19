@@ -13,13 +13,14 @@ import {
 	StatePanel,
 	Switch,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { useOptimistic, useState, useTransition } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
-import { changeVenue, createVenue, getVenue, listVenues } from "./actions.ts";
+import { changeVenue, createVenue } from "./actions.ts";
+import { getVenue, listVenues } from "./fetch.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
 import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { MONTHS } from "../../components/dates.ts";
@@ -52,7 +53,7 @@ export function VenuesSheet({
 					? "Where your meetings happen. A meeting keeps the place details it was saved with."
 					: undefined
 			}
-			className="w-[480px]"
+			size="lg"
 		>
 			{!open ? null : screen.kind === "list" ? (
 				<Places
@@ -90,7 +91,7 @@ const PLACES_SEARCH_PAUSE_MS = 300;
 export const places = createRead(
 	(archived: boolean, query: string) =>
 		listVenues({ archived: archived ? "include" : "exclude", ...(query ? { search: query } : {}), limit: 100 }),
-	{ failed: (): Outcome<{ items: Venue[]; total: number }> => ({ status: "lost" }) },
+	{ failed: () => ({ status: "lost" }) as const },
 );
 
 function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: string) => void; onAdd: () => void }) {
@@ -153,7 +154,6 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 							tone="error"
 							title="Places did not load"
 							headingLevel="h3"
-							className="py-8"
 							actions={
 								<Button variant="secondary" size="sm" onClick={list.retry}>
 									Try again
@@ -208,7 +208,6 @@ function Place({
 	onBack: () => void;
 	onEdit: (venue: Venue) => void;
 }) {
-	const toast = useToast();
 	const details = useRead(placeDetails, id);
 	const fromSaved: Outcome<History> | null = saved
 		? { status: "ok", value: { status: "available", venue: saved, history: [] } }
@@ -240,7 +239,7 @@ function Place({
 		return (
 			<div className="flex flex-col gap-3">
 				{back}
-				<StatePanel tone="error" title="This place did not load" headingLevel="h3" className="py-8">
+				<StatePanel tone="error" title="This place did not load" headingLevel="h3">
 					{got.status === "ok" ? "It may have been removed." : "Nothing was changed. Try again in a moment."}
 				</StatePanel>
 			</div>
@@ -307,7 +306,7 @@ function Place({
 					)}
 				</div>
 			) : null}
-			<SaveNotice {...archive.noticeProps} dialogOpen={false} className="" />
+			<SaveNotice {...archive.noticeProps} dialogOpen={false} />
 			{canWrite ? (
 				<ConfirmDialog
 					open={archiving}
@@ -540,7 +539,7 @@ function VenueForm({ venue: opened, onDone }: { venue?: Venue; onDone: (id: stri
 					<Input value={draft.reason} onChange={set("reason")} maxLength={2000} autoComplete="off" readOnly={pending} />
 				</Field>
 			) : null}
-			<SaveNotice {...lane.noticeProps} dialogOpen={false} className="" />
+			<SaveNotice {...lane.noticeProps} dialogOpen={false} />
 			<div className="flex flex-wrap justify-end gap-2.5">
 				<Button variant="secondary" type="button" onClick={() => onDone(venue?.id ?? null)} disabled={pending}>
 					Cancel

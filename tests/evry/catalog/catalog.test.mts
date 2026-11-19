@@ -123,7 +123,7 @@ test("AC:INH-REGRESSION-CAPABILITIES INV-catalog: every installed model tool is 
 		assert.ok(op, id);
 		assert.deepEqual(
 			[op.model_tool, op.kind, op.durable_write, op.evry_review, generated.has(id)],
-			"approveNow" in write && write.approveNow.reason
+			"approveNow" in write && write.approveNow?.reason
 				? [true, "query", false, false, true]
 				: [true, "command", true, true, true],
 			id,

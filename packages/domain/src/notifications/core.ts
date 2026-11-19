@@ -6,13 +6,13 @@ import {
 	type NotificationReply,
 } from "@everyfield/contracts/notifications";
 import { residencyCategories } from "@everyfield/contracts/settings";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveResidency, reviewShared } from "../access/pipeline.ts";
-import { RequestActor, requestWrite } from "../access/session.ts";
+import { RequestActor, requestWrite, type WriteTx } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import {
 	declareWrite,
@@ -24,7 +24,7 @@ import {
 	type AuditWrite,
 } from "../operations/writes.ts";
 
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export const PAGE = 50;
 class NotificationRefusal extends Error {
 	readonly code: NotificationError["code"];

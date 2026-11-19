@@ -5,18 +5,17 @@ import {
 	pipelineDuty,
 } from "@everyfield/contracts/access";
 import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
-import type { Transaction } from "@everyfield/db/client";
 import { alias, and, eq, isNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
-import { currentActor, liveOwner, liveRead, observedActor } from "./session.ts";
+import { currentActor, liveOwner, liveRead, observedActor, type WriteTx } from "./session.ts";
 
 const development_enrollment_e = alias(tables.development_enrollment, "e");
 const development_program_p = alias(tables.development_program, "p");
 
 export async function readPipelinePerson(
-	tx: Transaction,
+	tx: WriteTx,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	raw: unknown,
@@ -105,7 +104,7 @@ export const reviewShared = sql<boolean>`(r.withdrawn_at IS NULL
   AND rw.organization_id=r.organization_id))`;
 
 export async function readOwnResidency(
-	tx: Transaction,
+	tx: WriteTx,
 	session: z.infer<typeof sessionId>,
 	organization: Owner,
 	raw: unknown,

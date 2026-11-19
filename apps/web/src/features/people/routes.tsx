@@ -18,8 +18,8 @@ import { params } from "../../components/search-params.ts";
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await getViewer();
-	if (v?.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
-	if (v?.people) return { viewer: v.people };
+	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (v.people) return { viewer: v.people };
 	return {
 		blocked: (
 			<>
@@ -157,12 +157,12 @@ export function PeopleLoading() {
 			<span className="sr-only" role="status">
 				Loading people
 			</span>
-			<Skeleton className="h-14 w-60 rounded-card" />
+			<Skeleton className="h-14 w-60" />
 			<Card className="gap-4">
 				<div className="flex flex-wrap gap-3">
-					<Skeleton className="h-11 w-[320px] max-w-full rounded-card" />
-					<Skeleton className="h-11 w-28 rounded-card" />
-					<Skeleton className="h-11 w-28 rounded-card" />
+					<Skeleton className="h-11 w-[320px] max-w-full" />
+					<Skeleton className="h-11 w-28" />
+					<Skeleton className="h-11 w-28" />
 				</div>
 				<TableSkeleton rows={6} />
 			</Card>

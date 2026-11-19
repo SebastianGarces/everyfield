@@ -20,7 +20,7 @@ export const churchDocumentMetadata: Metadata = { title: "Church document", robo
 
 async function activeViewer(returnTo: string) {
 	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
 	return viewer.status === "active" ? viewer : null;
 }
 
@@ -165,7 +165,7 @@ export function ChurchLoading() {
 			<span className="sr-only" role="status">
 				Loading
 			</span>
-			<Skeleton className="h-14 w-72 rounded-card" />
+			<Skeleton className="h-14 w-72" />
 			<Skeleton className="h-6 w-96 max-w-full rounded-md" />
 			<Skeleton className="mx-auto aspect-[612/792] w-full max-w-[880px] rounded-none" />
 		</div>

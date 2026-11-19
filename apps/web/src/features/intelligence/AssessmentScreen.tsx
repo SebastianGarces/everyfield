@@ -46,19 +46,16 @@ import {
 	Spinner,
 	StatePanel,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, observeIntersection, type IconSvgElement } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
-import {
-	markAssessmentSeen,
-	resolveAssessmentCitation,
-	submitAssessmentFeedback,
-	type ActionOutcome,
-} from "./assessment-actions.ts";
+import { markAssessmentSeen, submitAssessmentFeedback } from "./assessment-actions.ts";
+import type { ActionOutcome } from "./assessment-model.ts";
+import { resolveAssessmentCitation } from "./fetch.ts";
 import {
 	coldStartTitle,
 	CRITERION,
@@ -318,7 +315,6 @@ function Feedback({
 	initial: OwnFeedback | null;
 	light?: boolean;
 }) {
-	const toast = useToast();
 	const [saved, setSaved] = useState(initial);
 	const [writing, setWriting] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);

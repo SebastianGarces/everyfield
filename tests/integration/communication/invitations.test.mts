@@ -9,6 +9,7 @@ import { queuedMailTransport } from "../../../apps/web/src/server/mail/transport
 import { createMailService, runDueMail } from "../../../apps/web/src/server/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { INVITATION_MAIL } from "../../../apps/web/src/server/invitations/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f;
 const rows = async (query) => (await f.admin.execute(query)).rows;
@@ -45,7 +46,6 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 	);
 	const secret = "cron-" + randomUUID();
 	const tick = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: null,
 		cleanup: null,
@@ -110,7 +110,7 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 				lookup: async () => ({ kind: "unknown" }),
 			},
 		});
-		const other = await f.db.transaction((tx) =>
+		const other = await gatedTransaction(f.db, (tx) =>
 			organizationMail.enqueue(tx, {
 				owner: { kind: "plant", id: s.w.id },
 				purpose: "relationship_invitation",

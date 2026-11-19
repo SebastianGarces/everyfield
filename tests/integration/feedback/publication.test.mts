@@ -31,7 +31,9 @@ const INBOX = "feedback-team@example.test";
 const hex = () => randomBytes(32).toString("hex");
 Object.assign(process.env, {
 	IDENTITY_DATABASE_URL: database.logins.runtime.url.href,
+	IDENTITY_AUTH_DATABASE_URL: database.logins.runtime.url.href,
 	IDENTITY_ORIGIN: "https://app.example.test",
+	IDENTITY_SECRET: hex(),
 	IDENTITY_MAIL_KEY: hex(),
 	IDENTITY_ADDRESS_KEY: hex(),
 	IDENTITY_MAIL_FROM: "everyfield@example.test",
@@ -117,7 +119,6 @@ async function mailRun(transport?: MailTransport) {
 }
 const cron = (feedbackPublication: ReturnType<typeof feedbackPublicationMount>) =>
 	scheduledJobs({
-		secret: "s",
 		db,
 		storage: null,
 		cleanup: null,
@@ -161,7 +162,7 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 		title: "Bug report — Documents",
 		body: `A product bug report was submitted for Documents. Private details are retained for authorized triage. Reference: ${reference}.`,
 	});
-	const outbound = JSON.stringify(received.map((r) => [r.path, r.body]));
+	const outbound = JSON.stringify(received.map((r) => [r.path, r.body])).replaceAll(reference, "");
 	for (const canary of [...CANARIES, daniel.email, sent.id, "/documents"])
 		assert.equal(outbound.includes(canary), false, canary);
 
@@ -200,7 +201,7 @@ test("AC:PUBLIC-SERIALIZER-001 AC:PUB57-003 INV-privacy the public issue is the 
 		`A product bug report was submitted for Documents. Private details are retained for authorized triage. Reference: ${reference}.\n\nPublic issue: ${issue.url}\n\nTriage it in Everyfield: https://app.example.test/feedback/triage`,
 	);
 	for (const canary of [...CANARIES, daniel.email])
-		assert.equal(JSON.stringify(mail[0]).includes(canary), false, canary);
+		assert.equal(JSON.stringify(mail[0]).replaceAll(reference, "").includes(canary), false, canary);
 	assert.equal((await triage(sent.id)).operatorMail, "sent");
 	assert.deepEqual((await triage(sent.id)).publication, { state: "published", heldReason: null, url: issue.url });
 
