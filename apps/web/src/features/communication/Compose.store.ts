@@ -34,7 +34,7 @@ export const recipientSearches = createRead((text: string) => searchRecipients(t
 	failed: (): Outcome<{ people: Recipient[] }> => ({ status: "lost" }),
 });
 
-export type PersonSearch = { query: string; searched: string; open: boolean; active: number };
+export type PersonSearch = { query: string; searched: string; open: boolean };
 
 export type ComposeState = {
 	form: Form;
@@ -61,7 +61,6 @@ export type ComposeState = {
 		scheduled: (id: string) => void;
 		type: (query: string) => void;
 		openList: (open: boolean) => void;
-		move: (step: number, length: number) => void;
 		clearSearch: () => void;
 	};
 };
@@ -112,7 +111,7 @@ export function createComposeStore(init: { opening: Opened; templates: readonly 
 		scheduledId: null,
 		counted: form.audience,
 		previewed: form.text,
-		search: { query: "", searched: "", open: false, active: 0 },
+		search: { query: "", searched: "", open: false },
 		actions: {
 			edit: (update) => {
 				const before = get().form;
@@ -142,13 +141,9 @@ export function createComposeStore(init: { opening: Opened; templates: readonly 
 					set((state) => ({ search: { ...state.search, searched: "" } }));
 					return;
 				}
-				searchPause.run(() => set(({ search }) => ({ search: { ...search, searched: text, active: 0 } })));
+				searchPause.run(() => set(({ search }) => ({ search: { ...search, searched: text } })));
 			},
 			openList: (open) => set((state) => ({ search: { ...state.search, open } })),
-			move: (step, length) =>
-				set((state) => ({
-					search: { ...state.search, open: true, active: (state.search.active + step + length) % length },
-				})),
 			clearSearch: () => {
 				searchPause.cancel();
 				set((state) => ({ search: { ...state.search, query: "", searched: "" } }));
