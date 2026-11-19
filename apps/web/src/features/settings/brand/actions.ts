@@ -1,28 +1,20 @@
 "use server";
 
-import type {
-	BrandKit,
-	BrandReply,
-	BrandUploadTicket,
-	FinalizeBrandUpload,
-	RequestBrandUpload,
-	ResetBrandRequest,
-	SaveBrandRequest,
-} from "../port";
+import type { BrandKit, BrandReply, BrandUploadTicket } from "../port";
 import { finalizeBrandUpload, requestBrandUpload, resetBrandKit, saveBrandKit } from "./server";
 
-export async function saveBrand(request: SaveBrandRequest): Promise<BrandReply<BrandKit>> {
+export async function saveBrand(request: unknown): Promise<BrandReply<BrandKit>> {
 	return saveBrandKit(request);
 }
 
-export async function resetBrand(request: ResetBrandRequest): Promise<BrandReply<BrandKit>> {
+export async function resetBrand(request: unknown): Promise<BrandReply<BrandKit>> {
 	return resetBrandKit(request);
 }
 
-export async function requestAssetUpload(request: RequestBrandUpload): Promise<BrandReply<BrandUploadTicket>> {
+export async function requestAssetUpload(request: unknown): Promise<BrandReply<BrandUploadTicket>> {
 	return requestBrandUpload(request);
 }
 
-export async function finalizeAssetUpload(request: FinalizeBrandUpload): Promise<BrandReply<BrandKit>> {
+export async function finalizeAssetUpload(request: unknown): Promise<BrandReply<BrandKit>> {
 	return finalizeBrandUpload(request);
 }

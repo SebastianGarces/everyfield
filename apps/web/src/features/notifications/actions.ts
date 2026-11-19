@@ -6,7 +6,6 @@ import { newRequestKey, type Outcome, type OptOut, type Reply } from "./model.ts
 import { call, notificationActor, optOutReady, type Mount } from "./server.ts";
 
 type Marked = { markedIds: string[] };
-type Envelope = { requestKey: string; expectedRevision: string };
 type Marker = (m: Mount, actor: RequestActor) => Promise<Reply<Marked>>;
 
 async function mark(run: Marker): Promise<Outcome<Marked>> {
@@ -15,16 +14,16 @@ async function mark(run: Marker): Promise<Outcome<Marked>> {
 	return call((m) => run(m, actor));
 }
 
-export async function markRead(envelope: Envelope, noticeId: string): Promise<Outcome<Marked>> {
-	return mark((m, actor) => m.producer.markRead(m.db, actor, { ...envelope, input: { noticeId } }));
+export async function markRead(command: unknown): Promise<Outcome<Marked>> {
+	return mark((m, actor) => m.producer.markRead(m.db, actor, command));
 }
 
-export async function markSelectedRead(envelope: Envelope, noticeIds: string[]): Promise<Outcome<Marked>> {
-	return mark((m, actor) => m.producer.markSelectedRead(m.db, actor, { ...envelope, input: { noticeIds } }));
+export async function markSelectedRead(command: unknown): Promise<Outcome<Marked>> {
+	return mark((m, actor) => m.producer.markSelectedRead(m.db, actor, command));
 }
 
-export async function markAllVisibleRead(envelope: Envelope, cutoff: string): Promise<Outcome<Marked>> {
-	return mark((m, actor) => m.producer.markAllVisibleRead(m.db, actor, { ...envelope, input: { cutoff } }));
+export async function markAllVisibleRead(command: unknown): Promise<Outcome<Marked>> {
+	return mark((m, actor) => m.producer.markAllVisibleRead(m.db, actor, command));
 }
 export async function markSubjectRead(raw: unknown): Promise<Outcome<Marked>> {
 	const subject = feedSubject.safeParse(raw);

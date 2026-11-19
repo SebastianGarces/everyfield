@@ -2291,7 +2291,8 @@ const renderReads = {
 	},
 };
 
-const READ_NAME = /^(?:load|read|get|list|find|search|suggest|preview|compare)(?:[A-Z]|$)/;
+const READ_NAME =
+	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print)(?:[A-Z]|$)/;
 
 const READ_HOME =
 	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through getReads in the feature's fetch.ts.";
@@ -2329,8 +2330,8 @@ const noReadActions = ratcheted("no-read-actions", (context, push) => {
 			if (d?.type === "FunctionDeclaration") exported(d.id);
 			if (d?.type === "VariableDeclaration") for (const v of d.declarations) boundNames(v.id).forEach(exported);
 			for (const spec of node.specifiers ?? []) {
-				const name = nameOf(spec.exported);
-				if (spec.exportKind !== "type" && READ_NAME.test(name)) report(spec, name);
+				const name = [nameOf(spec.local), nameOf(spec.exported)].find((n) => READ_NAME.test(n));
+				if (spec.exportKind !== "type" && name) report(spec, name);
 			}
 		},
 		ExportDefaultDeclaration(node) {
@@ -2348,6 +2349,115 @@ const noReadActions = ratcheted("no-read-actions", (context, push) => {
 		FunctionDeclaration: inline,
 		FunctionExpression: inline,
 		ArrowFunctionExpression: inline,
+	};
+});
+
+const WIRE_KEYWORDS = new Set([
+	"TSUnknownKeyword",
+	"TSStringKeyword",
+	"TSNumberKeyword",
+	"TSBooleanKeyword",
+	"TSNullKeyword",
+	"TSUndefinedKeyword",
+]);
+
+const wireType = (type) =>
+	WIRE_KEYWORDS.has(type.type) ||
+	(type.type === "TSTypeReference" &&
+		type.typeName.type === "Identifier" &&
+		type.typeName.name === "FormData" &&
+		!type.typeArguments) ||
+	(type.type === "TSUnionType" && type.types.every(wireType));
+
+const PRIMITIVE_DEFAULT = new Set(["string", "number", "boolean"]);
+
+const wireParam = (param) => {
+	if (param.type === "AssignmentPattern") {
+		if (param.left.typeAnnotation) return wireParam(param.left);
+		return param.right.type === "Literal" && PRIMITIVE_DEFAULT.has(typeof param.right.value);
+	}
+	if (param.type !== "Identifier" || !param.typeAnnotation) return false;
+	return wireType(param.typeAnnotation.typeAnnotation);
+};
+
+const WIRE_HOME =
+	"A server action is a public POST endpoint: whatever the type says, its arguments arrive as untrusted JSON. Type each parameter unknown, string, number, boolean or FormData, and parse it once at the boundary, in the domain operation it reaches.";
+
+const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) => {
+	const moduleActions = SERVER_ACTIONS.test(context.sourceCode.text);
+	const check = (fn, name) => {
+		for (const param of fn.params)
+			if (!wireParam(param)) push({ node: param, fn: name, message: `${name} takes a typed parameter. ${WIRE_HOME}` });
+	};
+	const FUNCTION = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
+	const wrapped = (node) => {
+		if (!node) return [];
+		if (FUNCTION.has(node.type)) return [node];
+		if (node.type === "CallExpression") return node.arguments.flatMap(wrapped);
+		if (node.type === "TSAsExpression" || node.type === "TSSatisfiesExpression") return wrapped(node.expression);
+		return [];
+	};
+	const locals = new Map();
+	const exportedLocals = [];
+	const inline = (node) => {
+		if (declaresServer(node)) check(node, functionName(node) ?? "an inline server action");
+	};
+	const exportedValue = (init, name) => {
+		for (const fn of wrapped(init)) if (!declaresServer(fn)) check(fn, name);
+	};
+	return {
+		FunctionDeclaration(node) {
+			if (node.id) locals.set(node.id.name, node);
+			inline(node);
+		},
+		VariableDeclarator(node) {
+			if (node.id.type === "Identifier" && node.init) locals.set(node.id.name, node.init);
+		},
+		FunctionExpression: inline,
+		ArrowFunctionExpression: inline,
+		ExportNamedDeclaration(node) {
+			if (!moduleActions || node.exportKind === "type") return;
+			if (node.source) {
+				for (const spec of node.specifiers ?? [])
+					if (spec.exportKind !== "type")
+						push({
+							node: spec,
+							fn: nameOf(spec.exported),
+							message: `${nameOf(spec.exported)} is re-exported from ${node.source.value}, so this rule cannot see its parameters. Declare the server action in this module. ${WIRE_HOME}`,
+						});
+				return;
+			}
+			const d = node.declaration;
+			if (d?.type === "FunctionDeclaration" && !declaresServer(d)) check(d, d.id.name);
+			if (d?.type === "VariableDeclaration")
+				for (const v of d.declarations) if (v.id.type === "Identifier") exportedValue(v.init, v.id.name);
+			for (const spec of node.specifiers ?? [])
+				if (spec.exportKind !== "type") exportedLocals.push([nameOf(spec.local), nameOf(spec.exported)]);
+		},
+		ExportDefaultDeclaration(node) {
+			if (!moduleActions) return;
+			const d = node.declaration;
+			if (d.type === "Identifier") exportedLocals.push([d.name, "default"]);
+			else if (d.type === "FunctionDeclaration") {
+				if (!declaresServer(d)) check(d, d.id?.name ?? "default");
+			} else exportedValue(d, "default");
+		},
+		ExportAllDeclaration(node) {
+			if (!moduleActions || node.exportKind === "type") return;
+			push({
+				node,
+				fn: "*",
+				message: `export * from ${node.source.value} in a "use server" module exports actions this rule cannot see. Declare each server action in this module. ${WIRE_HOME}`,
+			});
+		},
+		"Program:exit"() {
+			for (const [local, exported] of exportedLocals) {
+				const value = locals.get(local);
+				if (value?.type === "FunctionDeclaration") {
+					if (!declaresServer(value)) check(value, exported);
+				} else exportedValue(value, exported);
+			}
+		},
 	};
 });
 
@@ -2388,6 +2498,7 @@ export default {
 		"route-segment-defaults": routeSegmentDefaults,
 		"render-reads": renderReads,
 		"no-read-actions": noReadActions,
+		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 	},
 };
