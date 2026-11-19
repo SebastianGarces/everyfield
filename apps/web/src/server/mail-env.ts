@@ -1,3 +1,4 @@
+import { logLine } from "@everyfield/domain/log";
 import { z } from "zod";
 
 const hexKey = z.string().regex(/^[a-f0-9]{64}$/);
@@ -16,6 +17,13 @@ export const identityEnv = {
 	...mailEnv,
 };
 
-export function missingIdentitySettings(vars: Readonly<Record<string, string | undefined>>) {
-	return Object.keys(identityEnv).filter((key) => !vars[key]);
+export function refuseMissingIdentitySettings() {
+	const missing = Object.keys(identityEnv).filter((key) => !process.env[key]);
+	if (!missing.length) return;
+	logLine({
+		component: "server",
+		event: "settings_missing",
+		...Object.fromEntries(missing.map((key) => [key, true] as const)),
+	});
+	process.exit(1);
 }

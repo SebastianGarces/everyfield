@@ -1,15 +1,7 @@
-import { logFailure, logInfo, logLine } from "@everyfield/domain/log";
+import { logFailure, logInfo } from "@everyfield/domain/log";
 export async function register() {
 	if (process.env.NEXT_RUNTIME !== "nodejs") return;
-	const missing = (await import("./server/mail-env.ts")).missingIdentitySettings(process.env);
-	if (missing.length) {
-		logLine({
-			component: "server",
-			event: "settings_missing",
-			...Object.fromEntries(missing.map((key) => [key, true] as const)),
-		});
-		process.exit(1);
-	}
+	(await import("./server/mail-env.ts")).refuseMissingIdentitySettings();
 	const { privateStorage, assertPrivateBucket } = await import("@everyfield/db/schema");
 	const storage = privateStorage();
 	if (storage)
