@@ -79,13 +79,6 @@
 				"no-restricted-imports": [
 					"error",
 					{
-						"paths": [
-							{
-								"name": "motion/react",
-								"importNames": ["motion"],
-								"message": "Use m from motion/react: ProductRoot's LazyMotion loads the animation features after the page starts, and motion would put all of them in the first load."
-							}
-						],
 						"patterns": [
 							{
 								"group": [
