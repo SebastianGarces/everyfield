@@ -1,12 +1,6 @@
 "use server";
 
-import {
-	loadPipelineBoard,
-	loadPipelineGoals,
-	loadPipelinePerson,
-	pipelineActor,
-	pipelineWrite,
-} from "../pipeline-mount";
+import { pipelineActor, pipelineWrite } from "../pipeline-mount";
 import { invitationService } from "@/server/invitations";
 import { pipelineWriter, reviewWriter } from "@everyfield/domain/organizations";
 import { answer, refused, type Reply } from "../../identity/server";
@@ -55,24 +49,6 @@ export async function logConversation(input: unknown) {
 }
 export async function correctConversation(input: unknown) {
 	return pipelineWrite((db, authority) => pipelineWriter.correctConversation(db, authority, input));
-}
-
-export async function readGoals() {
-	const who = await pipelineActor();
-	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
-	return loadPipelineGoals(who.authority);
-}
-
-export async function readBoard(query: unknown) {
-	const who = await pipelineActor();
-	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
-	return loadPipelineBoard(who.authority, query);
-}
-
-export async function readPerson(personId: string) {
-	const who = await pipelineActor();
-	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } } as const;
-	return loadPipelinePerson(who.authority, personId);
 }
 
 export async function runLinkInvitation(

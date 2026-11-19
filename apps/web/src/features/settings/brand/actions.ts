@@ -4,26 +4,12 @@ import type {
 	BrandKit,
 	BrandReply,
 	BrandUploadTicket,
-	BrandView,
 	FinalizeBrandUpload,
 	RequestBrandUpload,
 	ResetBrandRequest,
 	SaveBrandRequest,
-	SuggestBrandColors,
-	SuggestedColors,
 } from "../port";
-import {
-	finalizeBrandUpload,
-	readBrand,
-	requestBrandUpload,
-	resetBrandKit,
-	saveBrandKit,
-	suggestBrandColors,
-} from "./server";
-
-export async function getBrand(): Promise<BrandReply<BrandView>> {
-	return readBrand();
-}
+import { finalizeBrandUpload, requestBrandUpload, resetBrandKit, saveBrandKit } from "./server";
 
 export async function saveBrand(request: SaveBrandRequest): Promise<BrandReply<BrandKit>> {
 	return saveBrandKit(request);
@@ -39,8 +25,4 @@ export async function requestAssetUpload(request: RequestBrandUpload): Promise<B
 
 export async function finalizeAssetUpload(request: FinalizeBrandUpload): Promise<BrandReply<BrandKit>> {
 	return finalizeBrandUpload(request);
-}
-
-export async function suggestColors(request: SuggestBrandColors): Promise<BrandReply<SuggestedColors>> {
-	return suggestBrandColors(request);
 }

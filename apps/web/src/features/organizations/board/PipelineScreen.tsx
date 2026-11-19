@@ -8,7 +8,7 @@ import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type CSSProperties } from "react";
-import { readBoard } from "./actions";
+import { readBoard } from "./fetch.ts";
 import { GoalsArea } from "./GoalsArea";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { boardHref, PIPELINE_PATH, plural } from "./model";
