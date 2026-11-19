@@ -12,7 +12,8 @@ import {
 } from "@everyfield/ui/controls";
 import { useRef, useState, useTransition } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
-import { readOwnSuppression, restoreOwnSuppression } from "./actions.ts";
+import { restoreOwnSuppression } from "./actions.ts";
+import { readOwnSuppression } from "./fetch.ts";
 import { outcomeText, restoreText, type Outcome, type RestoreReport, type SuppressionReport } from "./model.ts";
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
