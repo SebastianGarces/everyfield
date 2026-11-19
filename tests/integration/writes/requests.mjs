@@ -38,6 +38,7 @@ const port = await new Promise((resolve) => {
 	});
 });
 const origin = `http://127.0.0.1:${port}`;
+const readInput = (input) => encodeURIComponent(JSON.stringify(input));
 const database = await testDatabase({ prefix: "wp011rq", roles: { runtime: ["runtime"], auth: ["auth"] }, max: 2 });
 const { admin } = database,
 	{ runtime, auth: authDb } = database.pools;
@@ -442,8 +443,12 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
 		["GET /tasks/follow-ups", "/tasks/follow-ups", owner.cookie],
-		["GET /tasks/read?what=blocking", `/tasks/read?what=blocking&id=${followUpId}`, owner.cookie],
-		["GET /tasks/read?what=rows", `/tasks/read?what=rows&id=${followUpId}`, owner.cookie],
+		[
+			"GET /tasks/read?what=blocking",
+			`/tasks/read?what=blocking&in=${readInput({ taskIds: [followUpId] })}`,
+			owner.cookie,
+		],
+		["GET /tasks/read?what=rows", `/tasks/read?what=rows&in=${readInput({ taskIds: [followUpId] })}`, owner.cookie],
 		["GET /wiki", "/wiki", owner.cookie],
 		["GET /wiki/[slug]", "/wiki/census-lead", owner.cookie],
 		["GET /wiki/[slug] (crawler)", "/wiki/census-lead", "", 200, { "user-agent": "Googlebot/2.1" }],
@@ -475,7 +480,7 @@ try {
 		["GET /settings/sharing", "/settings/sharing", resident.cookie],
 		["GET /settings/sharing (plant)", "/settings/sharing", owner.cookie],
 		["GET /notifications", "/notifications", owner.cookie],
-		["GET /notifications/read?what=count", "/notifications/read?what=count", owner.cookie],
+		["GET /notifications/read?what=count", `/notifications/read?what=count&in=${readInput({})}`, owner.cookie],
 		["GET /ministries", "/ministries", owner.cookie],
 		["GET /ministries?view=chart", "/ministries?view=chart", owner.cookie],
 		["GET /ministries/[teamId]", `/ministries/${ministry.id}`, owner.cookie],
@@ -581,6 +586,15 @@ try {
 		member.cookie,
 	);
 	assert.equal(memberSkill.status, "refused", JSON.stringify(memberSkill));
+	const duties = async (input) =>
+		(
+			await fetch(`${origin}/follow-ups/read?what=duties&in=${readInput(input)}`, {
+				headers: { cookie: member.cookie },
+			})
+		).json();
+	assert.deepEqual(await duties({ page: 1 }), { status: "refused", code: "invalid_input" });
+	const personDuties = await duties({ personId, page: 1 });
+	assert.equal(personDuties.status, "ok", JSON.stringify(personDuties));
 	const tagKey = randomUUID();
 	const tagged = await act("POST people.fields.addPersonTag", page, fields, "addPersonTag", [
 		tagKey,
