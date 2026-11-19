@@ -3,8 +3,8 @@
 import { ArrowDown01Icon, BellIcon, Cancel01Icon, Menu01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Menu, MenuContent, MenuTrigger } from "../controls";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
+import { Menu, MenuContent, MenuTrigger, Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "../controls";
 import { AvatarImage } from "../display/AvatarImage";
 import { cn, EvryBot, HoverGroup, Icon, Lockup, LogoMark, useHoverItem } from "../foundations";
 import { both, useIntentPrefetch } from "../controls/IntentLink";
@@ -95,8 +95,12 @@ function Topbar({
 	current: string | null;
 	actions: ShellActions;
 }) {
+	const header = useRef<HTMLElement>(null);
 	return (
-		<header className="sticky top-0 z-20 col-span-full flex items-center gap-[14px] bg-[linear-gradient(var(--ef-frame)_78%,transparent)] pt-[22px] pr-6 pb-2 pl-[22px] *:flex-none *:whitespace-nowrap max-app-xl:gap-2.5 max-app-md:gap-2 max-app-md:px-3 max-app-md:pt-3 app-2xl:grid app-2xl:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)]">
+		<header
+			ref={header}
+			className="sticky top-0 z-20 col-span-full flex items-center gap-[14px] bg-[linear-gradient(var(--ef-frame)_78%,transparent)] pt-[22px] pr-6 pb-2 pl-[22px] *:flex-none *:whitespace-nowrap max-app-xl:gap-2.5 max-app-md:gap-2 max-app-md:px-3 max-app-md:pt-3 app-2xl:grid app-2xl:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)]"
+		>
 			<Link
 				href={homeHref}
 				aria-label="Everyfield, Overview"
@@ -122,7 +126,7 @@ function Topbar({
 				</HoverGroup>
 			</nav>
 
-			<NarrowMenu nav={nav} current={current} onSearch={actions.onSearch} />
+			<NarrowMenu nav={nav} current={current} onSearch={actions.onSearch} anchor={header} />
 
 			<div className="flex items-center gap-[14px] max-app-xl:gap-2.5 max-app-md:ml-auto max-app-md:gap-2 app-2xl:justify-self-end">
 				<div className={cn(PILL, "flex h-topbar items-center gap-1.5 px-2")}>
@@ -308,48 +312,34 @@ function RailItem({ item, current }: { item: ShellItem; current: boolean }) {
 	);
 }
 
-function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string | null; onSearch: () => void }) {
+function NarrowMenu({
+	nav,
+	current,
+	onSearch,
+	anchor,
+}: {
+	nav: ShellNav;
+	current: string | null;
+	onSearch: () => void;
+	anchor: RefObject<HTMLElement | null>;
+}) {
 	const [open, setOpen] = useState(false);
-	const panelId = useId();
-	const button = useRef<HTMLButtonElement>(null);
 	const close = () => setOpen(false);
-	const closeOnPointerOutside = useCallback((wrapper: HTMLDivElement | null) => {
-		if (!wrapper) return;
-		const onPointerDown = (e: PointerEvent) => {
-			if (!wrapper.contains(e.target as Node)) setOpen(false);
-		};
-		wrapper.ownerDocument.addEventListener("pointerdown", onPointerDown);
-		return () => wrapper.ownerDocument.removeEventListener("pointerdown", onPointerDown);
-	}, []);
-
-	const onKeyDown = (e: KeyboardEvent) => {
-		if (e.key === "Escape" && open) {
-			e.stopPropagation();
-			setOpen(false);
-			button.current?.focus();
-		}
-	};
 	const rest = [...nav.pages, ...nav.tools];
 
 	return (
-		<div ref={closeOnPointerOutside} role="presentation" onKeyDown={onKeyDown} className="app-md:hidden">
-			<div className={cn(PILL, "flex h-topbar items-center px-2")}>
-				<button
-					ref={button}
-					type="button"
-					aria-expanded={open}
-					aria-controls={panelId}
-					onClick={() => setOpen((o) => !o)}
-					className="inline-flex h-11 items-center gap-2 rounded-nav-item px-3 text-nav text-ink-2 transition-[background-color] hover:bg-surface-2 aria-expanded:bg-ink aria-expanded:text-on-ink"
-				>
+		<Popover open={open} onOpenChange={setOpen}>
+			<PopoverAnchor virtualRef={anchor as RefObject<HTMLElement>} />
+			<div className={cn(PILL, "flex h-topbar items-center px-2 app-md:hidden")}>
+				<PopoverTrigger className="inline-flex h-11 items-center gap-2 rounded-nav-item px-3 text-nav text-ink-2 transition-[background-color] hover:bg-surface-2 aria-expanded:bg-ink aria-expanded:text-on-ink">
 					<Icon icon={open ? Cancel01Icon : Menu01Icon} size={24} />
 					<span className="max-app-sm:sr-only">Menu</span>
-				</button>
+				</PopoverTrigger>
 			</div>
-			<div
-				id={panelId}
-				hidden={!open}
-				className="absolute inset-x-3 top-full mt-2 max-h-[calc(100dvh-104px)] overflow-y-auto rounded-card bg-surface-raised p-3 shadow-pop"
+			<PopoverContent
+				label="Menu"
+				align="center"
+				className="w-[calc(var(--radix-popover-trigger-width)-24px)] max-h-[calc(100dvh-104px)] overflow-y-auto p-3 shadow-pop app-md:hidden"
 			>
 				<nav aria-label="Main">
 					<HoverGroup current={current} className="grid gap-1 app-sm:grid-cols-2">
@@ -376,8 +366,8 @@ function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string
 				)}
 				<div className="mx-3 my-3 h-px bg-line-2" />
 				<ThemeToggle variant="menu" />
-			</div>
-		</div>
+			</PopoverContent>
+		</Popover>
 	);
 }
 
