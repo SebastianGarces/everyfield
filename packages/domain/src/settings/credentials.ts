@@ -8,7 +8,7 @@ import { credentialOutcome, type CredentialOutcome } from "@everyfield/contracts
 import * as n from "@everyfield/contracts/settings/native";
 import type { CredentialProducer, SettingsContext } from "@everyfield/contracts/settings/server";
 import { identityAuth } from "../identity/auth.ts";
-import { executeWrites } from "../operations/writes.ts";
+import { executeWrites, gatedTransaction } from "../operations/writes.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
 import { writeVisibility } from "../access/session.ts";
 import { now, hash, deny, Refusal, recover, parse } from "./core.ts";
@@ -169,7 +169,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			await budget.finish(reservation, valid);
 			if (!found || !valid) deny("proof_invalid");
 			const provenAt = new Date();
-			const opened = await config.db.transaction(async (tx) => {
+			const opened = await gatedTransaction(config.db, async (tx) => {
 				const w = t.lifecycle_witness;
 				const [current] = await tx
 					.select({ account: t.account.id, subject: w.opaque_subject_id, requestId: w.request_id })

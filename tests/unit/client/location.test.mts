@@ -45,6 +45,7 @@ const location = {
 Object.assign(globalThis, {
 	window: Object.assign(new EventTarget(), {
 		HTMLIFrameElement: class {},
+		navigation: new EventTarget(),
 		location,
 		history,
 		sessionStorage: {
@@ -105,6 +106,21 @@ test("INV-link: a one-time link value brought in by a same-document navigation l
 	assert.equal(stored.get("ef-invitation-proof"), "second");
 	store.forgetOneTimeLinkValue("invitation");
 	assert.equal(stored.has("ef-invitation-proof"), false);
+});
+
+test("INV-link: a one-time link value brought in by a router navigation leaves the address through a replace Next's router sees, and is handed to its page", () => {
+	const routerState = { __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: "tree", kept: "entry" };
+	history.pushState(routerState, "", "/invitation?from=router#proof=third");
+	const before = history.length;
+	window.navigation.dispatchEvent(new Event("navigatesuccess"));
+	assert.equal(at.pathname + at.search + at.hash, "/invitation?from=router");
+	assert.equal(history.length, before);
+	assert.deepEqual(history.state, { __PRIVATE_NEXTJS_INTERNALS_TREE: "tree", kept: "entry" });
+	assert.equal(stored.get("ef-invitation-proof"), "third");
+	store.forgetOneTimeLinkValue("invitation");
+	history.pushState(null, "", "/people?token=t5#proof=x");
+	window.navigation.dispatchEvent(new Event("navigatesuccess"));
+	assert.equal(at.pathname + at.search + at.hash, "/people?token=t5#proof=x");
 });
 
 test("INV-location: the address hash reader shows the fragment after an in-page link, a store write, Back and Forward, and nothing on the server", async () => {
