@@ -1291,7 +1291,8 @@
 				"everyfield/no-render-writes": "error",
 				"everyfield/feature-boundaries": "error",
 				"everyfield/route-reads": "error",
-				"everyfield/route-segment-defaults": "error"
+				"everyfield/route-segment-defaults": "error",
+				"everyfield/render-reads": "error"
 			}
 		},
 		{
