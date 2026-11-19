@@ -437,6 +437,16 @@ function fakeDb({
 	return { run, calls, commands: () => calls.map((c) => c.command) };
 }
 const noWait = { readyTimeoutMs: 0, sleep: () => {}, watch: () => () => {} };
+function callerEnv(t: { after(fn: () => void): void }, values: Record<string, string | undefined>) {
+	const saved = Object.fromEntries(Object.keys(values).map((key) => [key, process.env[key]]));
+	const set = (entries: Record<string, string | undefined>) => {
+		for (const [key, value] of Object.entries(entries))
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+	};
+	t.after(() => set(saved));
+	set(values);
+}
 const dbEntry = (record: CheckRecord) => record.checks.find((c) => c.id === "test:db")!;
 
 test("T-105 a packages/domain change runs no census: test:db is skipped with the reason", (t) => {
@@ -455,6 +465,7 @@ test("T-105 a packages/domain change runs no census: test:db is skipped with the
 });
 
 test("T-105 a full run runs every test:db but the census, one after another on one throwaway Postgres", (t) => {
+	callerEnv(t, { EVF_NODE_TEST_FLAGS: undefined });
 	const { root, home } = repo(t, { "docs/a.md": "b\n" }, DB_PACKAGES);
 	const { run, calls, commands } = fakeDb({
 		listed: ["@everyfield/db", "@everyfield/domain", "@everyfield/evry", "@everyfield/ui"],
@@ -597,6 +608,7 @@ test("T-105 the throwaway database uses the image of GitHub CI's db job", () => 
 });
 
 test("T-490 every child of a full run gets the checkout's private TMPDIR and the capped parallelism", (t) => {
+	callerEnv(t, { EVF_NODE_TEST_FLAGS: undefined, NODE_OPTIONS: undefined });
 	const { root, home } = repo(t, { "docs/a.md": "b\n" }, DB_PACKAGES);
 	const { run, calls } = fakeDb({ listed: ["@everyfield/db", "@everyfield/ui"] });
 	const { record } = check({ root, full: true, home, run, database: noWait });
@@ -622,21 +634,11 @@ test("T-490 every child of a full run gets the checkout's private TMPDIR and the
 
 test("T-490 a caller's EVF_NODE_TEST_FLAGS and NODE_OPTIONS reach the children with the caps", (t) => {
 	const { root, home } = repo(t, { "packages/ui/src/button.ts": "export const x = 1;\n" });
-	const saved = { flags: process.env.EVF_NODE_TEST_FLAGS, options: process.env.NODE_OPTIONS };
-	t.after(() => {
-		for (const [key, value] of [
-			["EVF_NODE_TEST_FLAGS", saved.flags],
-			["NODE_OPTIONS", saved.options],
-		] as const)
-			if (value === undefined) delete process.env[key];
-			else process.env[key] = value;
-	});
-	process.env.EVF_NODE_TEST_FLAGS = "--test-concurrency=1";
-	process.env.NODE_OPTIONS = "--max-old-space-size=4096";
+	callerEnv(t, { EVF_NODE_TEST_FLAGS: "--test-concurrency=2", NODE_OPTIONS: "--max-old-space-size=4096" });
 	const { run, calls } = fakeDb({ listed: ["@everyfield/ui"] });
 	check({ root, full: false, home, run, database: noWait });
 	assert.ok(calls.length);
-	for (const c of calls) assert.equal(c.env.EVF_NODE_TEST_FLAGS, "--test-concurrency=1", c.command);
+	for (const c of calls) assert.equal(c.env.EVF_NODE_TEST_FLAGS, "--test-concurrency=2", c.command);
 	assert.equal(
 		calls.find((c) => c.command.endsWith("run lint"))!.env.NODE_OPTIONS,
 		`--max-old-space-size=4096 ${OXLINT_PRELOAD}`,
