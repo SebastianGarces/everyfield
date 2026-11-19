@@ -22,22 +22,27 @@ async function exportOf(
 	const ready = mountFor(actor);
 	if (ready.status !== "ready") return ready;
 	const source = sourceInput(parseSource(sourceRaw ?? undefined));
-	try {
-		const reply =
-			kind === "pdf"
-				? await ready.mount.producer.exportPdf(ready.mount.db, ready.actor, { articleId, source })
-				: await ready.mount.producer.printArticle(ready.mount.db, ready.actor, { articleId, source });
-		if (reply.status !== "ok") return reply.error.code === "access_denied" ? { status: "denied" } : { status: "lost" };
-		if (reply.value.errorCode || (kind === "pdf" && !reply.value.bytes && !reply.value.fontFailureOffersPrintFallback))
+	return transient(
+		{ component: "wiki", outcome: "export-failed" },
+		async () => {
+			const reply =
+				kind === "pdf"
+					? await ready.mount.producer.exportPdf(ready.mount.db, ready.actor, { articleId, source })
+					: await ready.mount.producer.printArticle(ready.mount.db, ready.actor, { articleId, source });
+			if (reply.status !== "ok")
+				return reply.error.code === "access_denied" ? { status: "denied" } : { status: "lost" };
+			if (
+				reply.value.errorCode ||
+				(kind === "pdf" && !reply.value.bytes && !reply.value.fontFailureOffersPrintFallback)
+			)
+				return { status: "denied" };
+			if (reply.value.bytes) return { status: "pdf", bytes: reply.value.bytes };
+			if (reply.value.html)
+				return { status: "print", html: reply.value.html, fallback: reply.value.fontFailureOffersPrintFallback };
 			return { status: "denied" };
-		if (reply.value.bytes) return { status: "pdf", bytes: reply.value.bytes };
-		if (reply.value.html)
-			return { status: "print", html: reply.value.html, fallback: reply.value.fontFailureOffersPrintFallback };
-		return { status: "denied" };
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "export-failed" }, error);
-		return { status: "lost" };
-	}
+		},
+		LOST,
+	);
 }
 
 const exportInput = z.strictObject({ articleId: z.string(), source: z.string().nullable() });
