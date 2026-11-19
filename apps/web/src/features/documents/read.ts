@@ -1,4 +1,5 @@
 import { requestDatabase } from "@/server/database";
+import { privateStorage } from "@everyfield/db/schema";
 import { documentFormat, type ChurchCompare, type ChurchTemplateSummary } from "@everyfield/contracts/documents";
 import { documentsReader, documentsWriter } from "@everyfield/domain/documents";
 import "server-only";
@@ -6,7 +7,7 @@ import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
 import { refusedWith } from "./church/refusal.ts";
 import type { CopySource, OwnedView, Resolved, SavedFile } from "./model.ts";
-import { presentOwned, presentSaved, refused, runAs, type DocumentOutcome } from "./outcome.ts";
+import { presentOwned, presentSaved, refused, runAs, storageMissing, type DocumentOutcome } from "./outcome.ts";
 import { documentActor } from "./server.ts";
 import { logFailure } from "@everyfield/domain/log";
 
@@ -85,6 +86,18 @@ export const GET = defineReads(
 				return { status: "lost" };
 			}
 		}),
+		download: get(
+			z.strictObject({ documentId: z.string() }),
+			async ({ actor }, input): Promise<DocumentOutcome<{ url: string }>> => {
+				const storage = privateStorage();
+				if (!storage) return storageMissing;
+				return runAs(actor, async (db, a) => {
+					const reply = await documentsWriter.download(db, a, input, storage);
+					if (reply.status === "refused") return refused(reply.error);
+					return { status: "ok", value: { url: reply.value.url } };
+				});
+			},
+		),
 		compare: get(z.strictObject({ documentId: z.string() }), async ({ actor }, input): Promise<CompareResult> => {
 			const db = requestDatabase();
 			if (!actor || !db) return { status: "lost" };

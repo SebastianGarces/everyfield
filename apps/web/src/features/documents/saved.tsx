@@ -5,9 +5,8 @@ import { Button, Card, EmptyState, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { useState } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
-import { downloadSavedDocument } from "./actions.ts";
 import type { DocumentOutcome } from "./outcome.ts";
-import { listSavedDocuments } from "./fetch.ts";
+import { downloadSavedDocument, listSavedDocuments } from "./fetch.ts";
 import { FORMAT_LABEL, documentProblem, savedWhen, type SavedFile } from "./model.ts";
 
 export const savedDocuments = createRead(() => listSavedDocuments(), {
@@ -31,7 +30,13 @@ export function SavedHistory({ enabled }: { enabled: boolean }) {
 			return;
 		}
 		if (result.status === "refused") {
-			setNote(documentProblem(result.code, result.problem, "This download did not start. Try again."));
+			setNote(
+				documentProblem(
+					result.code,
+					"problem" in result ? result.problem : undefined,
+					"This download did not start. Try again.",
+				),
+			);
 			return;
 		}
 		const opened = window.open(result.value.url, "_blank", "noopener,noreferrer");
