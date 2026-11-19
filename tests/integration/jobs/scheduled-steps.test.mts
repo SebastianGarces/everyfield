@@ -47,7 +47,6 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 		},
 	});
 	const tick = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: {
 			bucket: "synthetic-only",
@@ -166,7 +165,6 @@ test("INV-scheduled-steps: a throwing object cleanup step still lets digests and
 test("INV-scheduled-steps: a throwing notification step names itself and the later steps still run", async () => {
 	let messages = 0;
 	const failing = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: null,
 		cleanup: null,
@@ -207,7 +205,6 @@ test("INV-scheduled-steps: a throwing notification step names itself and the lat
 test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose staging window has passed", async () => {
 	const removed: string[] = [];
 	const tick = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: {
 			bucket: "synthetic-only",
@@ -255,7 +252,6 @@ test("INV-scheduled-steps: each tick sweeps an unreferenced documents file whose
 	assert.equal(await state(staging.id), "ready", "a file inside its staging window stays");
 
 	const bare = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: null,
 		cleanup: null,

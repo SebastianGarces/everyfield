@@ -45,7 +45,6 @@ test("AC:CASE-NTF-013 the scheduled runner hands a seat and a residency invitati
 	);
 	const secret = "cron-" + randomUUID();
 	const tick = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: null,
 		cleanup: null,

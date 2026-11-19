@@ -787,7 +787,6 @@ test("a password-reset request reaches the capture outbox within one runner tick
 
 			const cron = "cron-" + randomUUID();
 			const tick = await scheduledJobs({
-				secret: cron,
 				db: f.db,
 				storage: null,
 				cleanup: null,

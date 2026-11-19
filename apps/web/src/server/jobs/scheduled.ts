@@ -15,7 +15,6 @@ import {
 import "server-only";
 import { runEffects, runTurns } from "../evry/worker.ts";
 import { runDueImports } from "../../features/people/import-export/run-imports.ts";
-import { cronRoute } from "../platform/cron.ts";
 import { transaction } from "../platform/database.ts";
 import { planDigests, type DigestWorker } from "./digest.ts";
 import { runDuePurges } from "./lifecycle-purge.ts";
@@ -41,7 +40,6 @@ export function scheduledMessages(db: Database, transport: DeliveryTransport, ke
 }
 
 export function scheduledJobs(config: {
-	secret: string | undefined;
 	db: Database | null;
 	storage: PrivateStorage | null;
 	cleanup: Database | null;
@@ -55,7 +53,7 @@ export function scheduledJobs(config: {
 	assessments?: { drafter: Drafter } | null;
 	now?: () => Date;
 }) {
-	return cronRoute(config.secret, async () => {
+	return async (): Promise<Response> => {
 		const db = config.db;
 		if (!db) return Response.json({ status: "unavailable" }, { status: 503 });
 		const until = Date.now() + START_MS;
@@ -130,5 +128,5 @@ export function scheduledJobs(config: {
 			{ status: failed.length ? "failed" : "ok", ...counts, failed, steps: report },
 			{ status: failed.length ? 500 : 200 },
 		);
-	});
+	};
 }
