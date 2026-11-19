@@ -110,7 +110,7 @@ export const GET = defineReads(
 			),
 		),
 		page: get(c.personRequest, async (viewer, v): Promise<Outcome<PersonPage>> => {
-			const page = await readPersonPageNow(viewer, v.personId).catch(() => null);
+			const page = await readPersonPageNow(viewer, v.personId);
 			return page ? { status: "ok", value: page } : { status: "lost" };
 		}),
 		records: get(c.personRequest, async (viewer, v) =>
