@@ -22,7 +22,8 @@ import {
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
-import { addWalkIn, reloadCheckIn, setPresence, settleAttendance } from "./actions.ts";
+import { addWalkIn, setPresence, settleAttendance } from "./actions.ts";
+import { reloadCheckIn } from "./fetch.ts";
 import {
 	DialogNotice,
 	NoticeInDialog,

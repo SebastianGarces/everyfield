@@ -11,6 +11,7 @@ import { SEED } from "../../../packages/domain/src/launch/catalog.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const PASSWORD = "Oversight-preview-pass-1";
 type Owner = { kind: "plant"; id: string } | { kind: "organization"; id: string; organizationKind: OrgKind };
@@ -112,7 +113,7 @@ export async function seedOversight(env: {
 		opts: { phase: number; lead: boolean; launch?: string },
 	) {
 		const created = ok<{ plant: { kind: "plant"; id: string } }>(
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				onboarding.createPlant(tx, ctx(owner, { kind: "account", id: owner.accountId }), {
 					requestKey: randomUUID(),
 					expectedRevision: "1",
@@ -124,7 +125,7 @@ export async function seedOversight(env: {
 		const p = created.plant;
 		if (opts.lead)
 			ok(
-				await runtime.transaction(async (tx) =>
+				await gatedTransaction(runtime, async (tx) =>
 					onboarding.answerLead(tx, ctx(owner, p), {
 						requestKey: randomUUID(),
 						expectedRevision: await revision(p),
@@ -149,7 +150,7 @@ export async function seedOversight(env: {
 	}
 
 	async function person(owner: Account, p: Owner, displayName: string, stage: string) {
-		const r = await runtime.transaction((tx) =>
+		const r = await gatedTransaction(runtime, (tx) =>
 			peopleWriter.createPerson(tx as never, ctx(owner, p), {
 				requestKey: randomUUID(),
 				input: {
@@ -177,7 +178,7 @@ export async function seedOversight(env: {
 		geographyReference,
 	);
 	const write = (a: Account, selected: Owner, name: string, expectedRevision: string, input: unknown) =>
-		runtime.transaction(async (tx) => {
+		gatedTransaction(runtime, async (tx) => {
 			if (!(await RequestActor.claimWrite(tx, a.sessionId as never, selected as never))) throw Error("unavailable");
 			return (api as never as Record<string, (...args: unknown[]) => Promise<unknown>>)[name]!(
 				tx,

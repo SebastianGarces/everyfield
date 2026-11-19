@@ -13,6 +13,7 @@ import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
 import { randomUUID } from "node:crypto";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const church = await goldenChurch();
 after(church.close);
@@ -23,7 +24,7 @@ let feedbackId: string | undefined;
 async function sentFeedback() {
 	if (feedbackId) return feedbackId;
 	const authority = (await setupActor(SETUP_SPECS.setupOwner.session)).authority;
-	const r = await church.db.transaction((tx) =>
+	const r = await gatedTransaction(church.db, (tx) =>
 		feedbackWriter.submit(
 			tx as never,
 			authority,

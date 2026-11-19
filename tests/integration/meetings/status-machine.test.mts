@@ -12,11 +12,12 @@ import {
 } from "../../../packages/contracts/src/machines/index.ts";
 import { meetingsWriter as meetings } from "../../../packages/domain/src/meetings/index.ts";
 import { fixture, ok, refused } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const database = await fixture({ prefix: "machine", max: 4 });
 const db = database.pools.runtime;
 const ctx = { session: database.actors.owner.session, selected: { kind: "plant", id: database.tenant.id } };
-const run = (op, input) => db.transaction((tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
+const run = (op, input) => gatedTransaction(db, (tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
 const day = (days) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 const heldAt = (days) => new Date(Date.now() - days * 86_400_000).toISOString();
 const reason = "Model-based walk";

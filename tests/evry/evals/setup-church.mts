@@ -8,6 +8,7 @@ import { withMeetingsWrite, meetingsWriter } from "../../../packages/domain/src/
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import type { NativePorts } from "../../../packages/evry/src/index.ts";
 import { GRACE_AUSTIN, NETWORK, PLANT } from "./golden-church.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 type Spec = { account: string; user: string; session: string; name: string };
@@ -51,7 +52,7 @@ export async function seedSetup(admin: Database, runtime: Database, native: Nati
 		session: SETUP_SPECS[who].session,
 		selected: { kind: "account", id: SETUP_SPECS[who].account },
 	});
-	const created = await runtime.transaction(async (tx) =>
+	const created = await gatedTransaction(runtime, async (tx) =>
 		ok<{ plant: { id: string } }>(
 			await native.onboarding.createPlant(
 				tx,
@@ -67,7 +68,7 @@ export async function seedSetup(admin: Database, runtime: Database, native: Nati
 	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at,ended_at)
 		VALUES(${SETUP_SPECS.former.account},${PLANT},'member',clock_timestamp()-interval '30 days',clock_timestamp()-interval '2 days')`);
 	for (const who of ["discovery", "sender"] as const)
-		await runtime.transaction(async (tx) =>
+		await gatedTransaction(runtime, async (tx) =>
 			ok(await native.onboarding.createDiscovery(tx, as(who) as never, command({}) as never)),
 		);
 	const link = (who: SetupName, organization: string) =>
@@ -97,7 +98,7 @@ const peopleCtx = (who: SetupName, plant: string) => ({
 	selected: { kind: "plant" as const, id: plant },
 });
 async function addPerson(admin: Database, runtime: Database, plant: string, name: string, daysAgo = 0) {
-	const person = await runtime.transaction(async (tx) =>
+	const person = await gatedTransaction(runtime, async (tx) =>
 		ok<{ person: { id: string } }>(
 			(await peopleWriter.createPerson(
 				tx as never,
@@ -139,7 +140,7 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 	).rows;
 	if (!plantRow) throw Error(`no plant ${plant}`);
 	const { revision } = plantRow;
-	await runtime.transaction(async (tx) =>
+	await gatedTransaction(runtime, async (tx) =>
 		ok(await native.onboarding.complete(tx, owner as never, command({}, revision) as never)),
 	);
 	const [me] = (
@@ -151,7 +152,7 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 	for (const [name, days, active] of OVERVIEW_PEOPLE) {
 		ids[name] = await addPerson(admin, runtime, plant, name, days);
 		if (active)
-			await runtime.transaction(async (tx) =>
+			await gatedTransaction(runtime, async (tx) =>
 				ok(
 					(await peopleWriter.updatePerson(
 						tx as never,
@@ -183,7 +184,7 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${plant},${task},${SETUP_SPECS.setupOwner.account})`,
 	);
 	const sam = await viewerOf(runtime, "seatless");
-	const other = await runtime.transaction(async (tx) =>
+	const other = await gatedTransaction(runtime, async (tx) =>
 		ok<{ id: string }>(
 			(await feedbackWriter.submit(
 				tx as never,
