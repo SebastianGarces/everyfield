@@ -5,6 +5,7 @@ import { z } from "zod";
 import { committed, nativeWrite, notes, plantAdmin } from "../../native.ts";
 import { COLUMN } from "../../sharing/commands/index.ts";
 import { SHARING_CATEGORIES, SHARING_CATEGORY_LABEL } from "../../../catalog/labels.ts";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
 const KIND_TEXT = { sending_church: "sending church", sending_network: "network" } as const;
 
@@ -33,7 +34,7 @@ export const invite = nativeWrite({
 			subject: { kind: "plant" as const, id: actor.owner.id },
 			organization: { kind: "organization" as const, id: organization.id, organizationKind: organization.kind },
 		};
-		const disclosure = await db.transaction(async (tx) => {
+		const disclosure = await gatedTransaction(db, async (tx) => {
 			actor.authority.observe(tx);
 			return readSharingDisclosure(tx, actor.session as never, actor.owner, pair);
 		});

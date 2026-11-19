@@ -1778,11 +1778,12 @@ test("INV-lint: a route module or server-only module that calls a server action 
 	);
 });
 
-test("INV-lint: a read exported from a server action module or declared as an inline server action is reported, a write or a server-only read is not", () => {
+test("INV-lint: a read exported from a server action module, under its own name or renamed, or declared as an inline server action is reported, a write or a server-only read is not", () => {
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function readThing() {}\nexport const listThings = async () => [];\nexport async function saveThing() {}\nexport async function reader() {}\nasync function loadInner() {}\nexport { loadInner as loadAlias };\nexport const { findOne, saveOne } = { findOne: async () => 1, saveOne: async () => 2 };\n`,
 			"apps/web/src/features/x/default.ts": `"use server";\nexport default async function readDefault() {}\n`,
+			"apps/web/src/features/x/hidden.ts": `"use server";\nasync function readHidden() {}\nasync function reloadRow() {}\nexport { readHidden as default, reloadRow as saveRow };\nexport async function downloadFile() {}\n`,
 			"apps/web/src/features/x/all.ts": `"use server";\nexport * from "./reads.ts";\n`,
 			"apps/web/src/features/x/reads.ts": `export async function readFromAll() {}\n`,
 			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function readInline() {\n\t\t"use server";\n\t}\n\tasync function saveInline() {\n\t\t"use server";\n\t}\n\treturn [readInline, saveInline];\n}\n`,
@@ -1796,6 +1797,33 @@ test("INV-lint: a read exported from a server action module or declared as an in
 			"apps/web/src/features/x/actions.ts:8 no-read-actions",
 			"apps/web/src/features/x/all.ts:2 no-read-actions",
 			"apps/web/src/features/x/default.ts:2 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:5 no-read-actions",
+		],
+	);
+});
+
+test("INV-lint: a server action parameter typed as a trusted shape is reported, also wrapped in a call or re-exported, unknown, primitives, FormData and their unions are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\ntype Input = { id: string };\nexport async function save(input: Input) {}\nexport async function mode(kind: "a" | "b") {}\nexport async function list(ids: string[]) {}\nexport const arrow = async ({ id }: { id: string }) => id;\nasync function hidden(input: Input) {}\nexport { hidden as renamed };\nexport async function fine(a: unknown, b: string, c: number | null, d?: boolean, e: FormData = new FormData(), f = "now") {}\nasync function local(input: Input) {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function inline(input: { id: string }) {\n\t\t"use server";\n\t}\n\treturn inline;\n}\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function save(input: { id: string }) {}\n`,
+			"apps/web/src/features/x/wrapped.ts": `"use server";\nconst wrap = <T>(f: T) => f;\nexport const saved = wrap(async (input: { id: string }) => input);\nconst inner = wrap(async (ids: string[]) => ids);\nexport { inner };\nexport const fine = wrap(async (input: unknown) => input);\n`,
+			"apps/web/src/features/x/again.ts": `"use server";\nexport { save } from "./server.ts";\nexport * from "./server.ts";\n`,
+		}).filter((hit) => hit.endsWith("action-params-unknown")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:3 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:4 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:5 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:6 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:7 action-params-unknown",
+			"apps/web/src/features/x/again.ts:2 action-params-unknown",
+			"apps/web/src/features/x/again.ts:3 action-params-unknown",
+			"apps/web/src/features/x/wrapped.ts:3 action-params-unknown",
+			"apps/web/src/features/x/wrapped.ts:4 action-params-unknown",
 		],
 	);
 });

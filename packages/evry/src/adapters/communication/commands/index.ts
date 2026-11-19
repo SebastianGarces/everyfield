@@ -23,6 +23,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, MailPort, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { held, unanswered, untouchedMail } from "../reads/index.ts";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
 const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -458,7 +459,7 @@ async function replaceStep(
 	if (!gate.value.replacementAllowed) return stopped(counts.open > 0 ? "not_confirmed" : "blocked");
 	const session = authority.session;
 	const owner = authority.actor.context.owner;
-	const scheduled = await db.transaction(async (tx) => {
+	const scheduled = await gatedTransaction(db, async (tx) => {
 		if (!(await RequestActor.claimWrite(tx, session, owner))) return null;
 		const context: CommunicationContext = { session, selected: owner };
 		const draft = await communicationWriter.saveDraft(tx, context, {

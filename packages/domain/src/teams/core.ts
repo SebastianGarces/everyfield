@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, liveRead, RequestActor, type requestWrite } from "../access/session.ts";
+import { boundWrite, liveRead, RequestActor, type requestWrite, type WriteTx } from "../access/session.ts";
 import {
 	auditSavepoint,
 	declareWrite,
@@ -19,7 +19,7 @@ import {
 	type AuditWrite,
 } from "../operations/writes.ts";
 
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export type Reader = Pick<Transaction, "execute">;
 export type TeamsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 

@@ -10,7 +10,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { lock as lockSeats } from "../identity/invitation-core.ts";
-import { executeWrites } from "../operations/writes.ts";
+import { executeWrites, gatedTransaction } from "../operations/writes.ts";
 import {
 	appendEvent,
 	begin,
@@ -412,7 +412,7 @@ export function createLifecycleCleanup(
 	},
 ) {
 	return async (input: DeletionRequest) => {
-		const claimed = await db.transaction(async (tx) => {
+		const claimed = await gatedTransaction(db, async (tx) => {
 			if (!(await config.authorize(tx, input))) deny();
 			await root(tx, input.subject);
 			const w = await witness(tx, input.subject);
@@ -440,7 +440,7 @@ export function createLifecycleCleanup(
 			return { complete: false as const };
 		});
 		if (claimed.complete) return claimed.value;
-		await db.transaction(async (tx) => {
+		await gatedTransaction(db, async (tx) => {
 			if (!(await config.authorize(tx, input))) deny();
 			await root(tx, input.subject);
 			const w = await witness(tx, input.subject);
@@ -451,7 +451,7 @@ export function createLifecycleCleanup(
 			);
 		});
 		if (!(await config.removeOwnedResources(input))) return { status: "purging" as const };
-		return db.transaction(async (tx) => {
+		return gatedTransaction(db, async (tx) => {
 			if (!(await config.authorize(tx, input))) deny();
 			await root(tx, input.subject);
 			const w = await witness(tx, input.subject);
