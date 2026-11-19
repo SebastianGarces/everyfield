@@ -13,6 +13,12 @@ export type DocumentOutcome<T> =
 	| { status: "refused"; code: DocumentsError["code"]; problem?: string; path?: string }
 	| { status: "lost" };
 
+export const storageMissing = {
+	status: "refused" as const,
+	code: "unavailable" as const,
+	problem: "Saving is not available right now.",
+};
+
 export function refused(error: DocumentsError): DocumentOutcome<never> {
 	const issue = error.code === "invalid_input" ? error.details.issues[0] : undefined;
 	return issue
