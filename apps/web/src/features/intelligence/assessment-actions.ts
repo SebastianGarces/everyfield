@@ -12,7 +12,7 @@ import type {
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createAssessments, type Assessments } from "@everyfield/domain/intelligence";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 const assessments = createAssessments();
 
@@ -23,15 +23,14 @@ async function run<T>(
 	component: "refresh" | "seen" | "feedback" | "citation",
 	body: (a: Assessments, db: Database, authority: RequestActor) => Promise<AssessmentReply<T>>,
 ): Promise<ActionOutcome<T>> {
-	const viewer = await getViewer();
-	if (!viewer.authority) return { status: "signed_out" };
+	const { authority } = await getViewer();
+	if (!authority) return { status: "signed_out" };
 	const db = requestDatabase();
-	try {
-		return await body(assessments, db, viewer.authority);
-	} catch (error) {
-		logFailure({ component: "assessment", outcome: `${component}_failed` }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "assessment", outcome: `${component}_failed` },
+		() => body(assessments, db, authority),
+		LOST,
+	);
 }
 
 export async function markAssessmentSeen(runId: unknown): Promise<ActionOutcome<SeenReceipt>> {
