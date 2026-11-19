@@ -89,7 +89,7 @@ sofficeTest(
 			assert.ok(pdf.includes(words(line)), `the PDF has "${line}"`);
 			assert.ok(converted.includes(words(line)), `the Word file has "${line}"`);
 		}
-		assert.match(converted, /01 Purpose/);
+		assert.match(converted, /(?<!\d)1 Purpose/);
 		assert.equal(pdfPageTexts.length, 2);
 		assert.equal(pages.length, pdfPageTexts.length, "LibreOffice gives the PDF's page count");
 		assert.match(converted, /Page 1 of 2/, "LibreOffice fills PAGE and NUMPAGES");
