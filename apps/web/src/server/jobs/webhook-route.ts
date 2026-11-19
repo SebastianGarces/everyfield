@@ -2,7 +2,7 @@ import type { Database } from "@everyfield/db/client";
 import { jobDatabase } from "../database";
 import { applyMailCallback } from "./webhook";
 import { readBoundedBody } from "@everyfield/domain/operations";
-import { Refusal, safeBoundary, safeResponse } from "../platform/boundary";
+import { Refusal, safeBoundary, safeResponse, signedRoute } from "../platform/boundary";
 import { verifyCallback } from "../platform/webhook";
 
 export async function resendWebhook(
@@ -32,6 +32,6 @@ export function resendWebhookGet() {
 	return safeResponse({ code: "method_not_allowed" }, 405);
 }
 
-export function resendWebhookPost(request: Request) {
+export const resendWebhookPost = signedRoute(function resendWebhookPost(request: Request) {
 	return resendWebhook(request, () => jobDatabase());
-}
+});
