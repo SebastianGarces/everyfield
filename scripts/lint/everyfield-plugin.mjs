@@ -815,6 +815,34 @@ const storageClient = {
 	},
 };
 
+export const MINTS = new Map([
+	[
+		"issueRestrictedDeletionSession",
+		["packages/domain/src/settings/deletion.ts", "packages/domain/src/settings/credentials.ts"],
+	],
+]);
+
+const mintCallers = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!PRODUCT_CODE.test(path)) return {};
+		const report = (node, name) => {
+			const allowed = MINTS.get(name);
+			if (!allowed || allowed.includes(path)) return;
+			context.report({
+				node,
+				message: `Only ${allowed.join(" and ")} may name ${name}: it mints an authority, so no other module may reach it.`,
+			});
+		};
+		return {
+			Identifier: (node) =>
+				(node.parent?.type !== "ExportSpecifier" || node.parent.local === node) && report(node, node.name),
+			Literal: (node) => typeof node.value === "string" && report(node, node.value),
+		};
+	},
+};
+
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
@@ -1652,6 +1680,7 @@ export default {
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
+		"mint-callers": mintCallers,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,

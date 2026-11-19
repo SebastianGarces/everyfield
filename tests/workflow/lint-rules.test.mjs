@@ -865,6 +865,32 @@ export const client = S3Client;
 	);
 });
 
+test("INV-mint: only the settings credentials module reaches the restricted deletion session mint, in product code", () => {
+	const reach = `import { issueRestrictedDeletionSession as mint } from "./deletion.ts";
+export { issueRestrictedDeletionSession } from "./deletion.ts";
+import * as deletion from "./deletion.ts";
+export const a = deletion.issueRestrictedDeletionSession;
+export const b = deletion["issueRestrictedDeletionSession"];
+export const c = async () => (await import("./deletion.ts")).issueRestrictedDeletionSession;
+export const d = mint;
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/settings/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/domain/src/settings/credentials.ts": reach,
+			"packages/domain/src/settings/deletion.ts": "export async function issueRestrictedDeletionSession() {}\n",
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[1, 2, 4, 5, 6]
+			.flatMap((line) => [
+				`apps/web/src/features/x/reach.ts:${line} mint-callers`,
+				`packages/domain/src/settings/reach.ts:${line} mint-callers`,
+			])
+			.sort(),
+	);
+});
+
 test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
 	const { dir, path, renamed, write, base } = history();
 	const growth = (entries, ...moves) => {
