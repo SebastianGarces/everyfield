@@ -6,7 +6,7 @@ import { readBoundedBody } from "@everyfield/domain/operations";
 import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
-import { transient } from "../../../server/platform/transient.ts";
+import { transient, unexpected } from "../../../server/platform/transient.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const reply = (body: unknown) => Response.json(body, { headers: NO_STORE });
@@ -27,7 +27,7 @@ async function handle(request: Request, step: "preview" | "save") {
 		.formData()
 		.catch((error: unknown) => {
 			if (error instanceof TypeError) return null;
-			throw error;
+			throw unexpected({ component: "pipeline", outcome: "import_form_failed" }, error);
 		});
 	const file = form?.get("file");
 	const fields = form?.get("request");

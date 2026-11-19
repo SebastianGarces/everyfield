@@ -6,6 +6,7 @@ import { createAssessments, createFacts } from "@everyfield/domain/intelligence"
 import { readCatalog } from "@everyfield/domain/phases";
 import "server-only";
 import { isTransient, logFailure, type LogWord } from "@everyfield/domain/log";
+import { unexpected } from "../../server/platform/transient.ts";
 
 const assessments = createAssessments();
 const facts = createFacts();
@@ -28,7 +29,8 @@ export async function loadAssessment(
 		if (view.status !== "ok" || measured.status !== "ok") return { status: "denied" };
 		return { status: "ok", value: { view: view.value, facts: measured.value, catalog } };
 	} catch (error) {
-		if (!isTransient(error)) throw error;
+		if (!isTransient(error))
+			throw unexpected({ component: "plant-intelligence", what: "assessment", outcome: "read_failed" }, error);
 		report("assessment", error);
 		return { status: "lost" };
 	}
@@ -43,7 +45,8 @@ export async function loadTrends(
 		if (history.status !== "ok") return { status: "denied" };
 		return { status: "ok", value: { history: history.value, catalog } };
 	} catch (error) {
-		if (!isTransient(error)) throw error;
+		if (!isTransient(error))
+			throw unexpected({ component: "plant-intelligence", what: "trends", outcome: "read_failed" }, error);
 		report("trends", error);
 		return { status: "lost" };
 	}

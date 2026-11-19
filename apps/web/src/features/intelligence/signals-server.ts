@@ -13,6 +13,7 @@ import "server-only";
 import type { SignalOutcome } from "./signals-model.ts";
 import { careViewer, type CareViewer } from "./server.ts";
 import { isTransient, logFailure, type LogWord } from "@everyfield/domain/log";
+import { unexpected } from "../../server/platform/transient.ts";
 
 const signals = createSignals();
 
@@ -24,7 +25,7 @@ export async function loadAttestations(viewer: CareViewer): Promise<SignalOutcom
 	try {
 		return await signals.readAttestations(db, viewer.authority, {});
 	} catch (error) {
-		if (!isTransient(error)) throw error;
+		if (!isTransient(error)) throw unexpected({ component: "signals", outcome: "read_failed" }, error);
 		report("read_failed", error);
 		return { status: "lost" };
 	}
@@ -48,7 +49,7 @@ export async function runSignals<T extends SignalWriteResult | CandidateWriteRes
 	try {
 		return await body(signals, db, viewer.authority);
 	} catch (error) {
-		if (!isTransient(error)) throw error;
+		if (!isTransient(error)) throw unexpected({ component: "signals", outcome: "call_failed" }, error);
 		report("call_failed", error);
 		return { status: "lost" };
 	}
