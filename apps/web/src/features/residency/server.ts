@@ -10,7 +10,6 @@ import { logFailure } from "@everyfield/domain/log";
 
 export async function residentActor(): Promise<RequestActor | "signed_out" | null> {
 	const v = await getViewer();
-	if (!v) return null;
 	if (v.status === "unauthenticated") return "signed_out";
 	return v.status === "active" && v.authority ? v.authority : null;
 }
@@ -26,7 +25,6 @@ export async function residentCall<T>(
 		actor = who;
 	}
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await run(db, actor);
 	} catch (error) {

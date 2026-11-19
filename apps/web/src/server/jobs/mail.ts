@@ -12,6 +12,7 @@ import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "@everyfi
 import { transaction } from "../platform/database.ts";
 import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
 import { logLine } from "@everyfield/domain/log";
+import { serverEnv, type ServerEnv } from "../config.ts";
 
 const owner = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("account"), id: z.uuid() }),
@@ -104,7 +105,7 @@ const stored = z.object({
 const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
 export type MailUnsubscribe = { origin: string; keys: OptOutKeyRing } | null;
 type OptOut = { category: z.infer<typeof notificationCategory>; revision: string };
-export function mailUnsubscribe(env: Readonly<Record<string, string | undefined>> = process.env): MailUnsubscribe {
+export function mailUnsubscribe(env: ServerEnv = serverEnv()): MailUnsubscribe {
 	const keys = parseKeyRing(env.NOTIFICATION_OPT_OUT_KEYS);
 	const origin = z.url().safeParse(env.IDENTITY_ORIGIN);
 	return keys && origin.success ? { origin: new URL(origin.data).origin, keys } : null;

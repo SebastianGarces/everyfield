@@ -3,7 +3,7 @@
 import { feedSubject } from "@everyfield/contracts/notifications";
 import type { RequestActor } from "@everyfield/domain/access";
 import { newRequestKey, type Outcome, type OptOut, type Reply } from "./model.ts";
-import { call, notificationActor, notificationsMount, type Mount } from "./server.ts";
+import { call, notificationActor, optOutReady, type Mount } from "./server.ts";
 
 type Marked = { markedIds: string[] };
 type Marker = (m: Mount, actor: RequestActor) => Promise<Reply<Marked>>;
@@ -44,7 +44,7 @@ export async function markSubjectRead(raw: unknown): Promise<Outcome<Marked>> {
 }
 
 async function optOut(run: (m: Mount) => Promise<Reply<OptOut>>): Promise<Outcome<OptOut>> {
-	if (!notificationsMount()?.optOut) return { status: "refused", code: "unavailable" };
+	if (!optOutReady()) return { status: "refused", code: "unavailable" };
 	return call(run);
 }
 

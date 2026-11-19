@@ -17,8 +17,7 @@ export const overviewMetadata: Metadata = { title: "Overview", robots: { index: 
 
 export async function OverviewPage() {
 	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated")
-		redirect(`/signin?returnTo=${encodeURIComponent(DASHBOARD_HOME)}`);
+	if (viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(DASHBOARD_HOME)}`);
 	const db = requestDatabase();
 	const framing = loadFrame();
 	const plant =

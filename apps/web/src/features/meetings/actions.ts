@@ -29,7 +29,7 @@ type Run<T> = (tx: WriteTx, ctx: MeetingsContext) => Promise<MeetingsReply<T>>;
 
 async function act<T>(run: Run<T>): Promise<Outcome<T>> {
 	const v = await getViewer();
-	if (!v?.people) return noSeat;
+	if (!v.people) return noSeat;
 	return write(v.people, run);
 }
 const command = (requestKey: string, expectedRevision: string, input: unknown) => ({
@@ -97,7 +97,7 @@ export async function updateRoster(requestKey: string, meetingId: string, add: u
 
 export async function populateKit(requestKey: string, expectedRevision: string, meetingId: string) {
 	const v = await getViewer();
-	if (!v?.people) return noSeat;
+	if (!v.people) return noSeat;
 	const done = await write(v.people, (tx, ctx) =>
 		meetingsWriter.populateKit(tx, ctx, command(requestKey, expectedRevision, { meetingId })),
 	);
@@ -168,7 +168,6 @@ export async function clearCard(
 let attendanceWriter: AttendanceWriter | undefined;
 async function settle<T>(run: (w: AttendanceWriter) => Run<T>): Promise<Outcome<T>> {
 	const mount = tasksMount();
-	if (!mount) return noSeat;
 	attendanceWriter ??= createAttendanceWriter({ reminders: mount.reminders });
 	return act(run(attendanceWriter));
 }
@@ -188,7 +187,7 @@ export async function addWalkIn(requestKey: string, input: unknown) {
 export async function settleAttendance(mode: unknown, requestKey: string, expectedRevision: string, input: unknown) {
 	if (mode !== "finalize" && mode !== "reconcile") return { status: "refused", code: "invalid_input" } as const;
 	const v = await getViewer();
-	if (!v?.people) return noSeat;
+	if (!v.people) return noSeat;
 	const done = await settle(
 		(w) => (tx, ctx) =>
 			(mode === "finalize" ? w.finalizeAttendance : w.reconcileAttendance)(tx, ctx, {
@@ -211,9 +210,9 @@ export async function previewSettlement(
 ): Promise<Outcome<Finalization>> {
 	if (mode !== "finalize" && mode !== "reconcile") return { status: "refused", code: "invalid_input" } as const;
 	const v = await getViewer();
+	if (!v.people) return noSeat;
 	const mount = tasksMount();
 	const db = requestDatabase();
-	if (!v?.people || !mount || !db) return noSeat;
 	attendanceWriter ??= createAttendanceWriter({ reminders: mount.reminders });
 	const w = attendanceWriter;
 	try {
@@ -252,7 +251,6 @@ export async function changeVenue(op: unknown, requestKey: string, expectedRevis
 
 export async function answerRsvp(token: unknown, rsvp: unknown): Promise<Outcome<{ rsvp: string }>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		const r = await answerRsvpToken(db, { token, rsvp });
 		return r.status === "ok" ? r : { status: "refused", code: r.error.code };
@@ -263,7 +261,6 @@ export async function answerRsvp(token: unknown, rsvp: unknown): Promise<Outcome
 }
 export async function readRsvpLink(token: unknown): Promise<Outcome<z.infer<typeof rsvpTokenView>>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return { status: "ok", value: await describeRsvpToken(db, { token }) };
 	} catch (error) {

@@ -23,7 +23,7 @@ export type DocumentsLoad =
 
 export async function documentActor(): Promise<RequestActor | null> {
 	const viewer = await getViewer();
-	if (!viewer || viewer.status !== "active") return null;
+	if (viewer.status !== "active") return null;
 	return viewer.authority;
 }
 
@@ -38,8 +38,8 @@ export async function readPreview(
 	overrides: Record<string, string>,
 ): Promise<PreviewOutcome> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsReader.preview(db, actor, { templateId, format, overrides }, privateStorage());
 		if (reply.status === "refused") {
@@ -88,7 +88,6 @@ function present(value: {
 
 export async function loadDocuments(authority: RequestActor, query: DocumentsQuery): Promise<DocumentsLoad> {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		const list = await documentsReader["templates.list"](db, authority, {});
 		if (list.status !== "ok") return { status: "refused" };

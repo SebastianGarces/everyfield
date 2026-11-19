@@ -14,6 +14,9 @@ const ERROR_CODE = /^(?:[0-9A-Z]{5}|E[A-Z0-9_]{1,31})$/;
 
 export const asLogId = (value: string): Checked => (UUID.test(value) ? value : "not-an-id") as Checked;
 export const asLogWord = (value: string): Checked => (WORD.test(value) ? value : "not-a-word") as Checked;
+const ENV_NAMES = /^[A-Z][A-Z0-9_]{0,63}(?:,[A-Z][A-Z0-9_]{0,63}){0,31}$/;
+export const asLogNames = (names: readonly string[]): Checked =>
+	(ENV_NAMES.test(names.join(",")) ? names.join(",") : "not-names") as Checked;
 export const asLogHost = (value: string): Checked => (HOST.test(value) ? value : "not-a-host") as Checked;
 
 export type ErrorClass = { readonly name: string; readonly code: string | null };

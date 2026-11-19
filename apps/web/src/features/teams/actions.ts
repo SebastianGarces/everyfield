@@ -12,7 +12,7 @@ type Context = Parameters<typeof teamsWriter.create>[1];
 type Run<T> = (tx: WriteTx, ctx: Context) => Promise<TeamsReply<T>>;
 
 async function seat() {
-	return (await getViewer())?.people ?? null;
+	return (await getViewer()).people ?? null;
 }
 async function change<T>(run: Run<T>): Promise<Outcome<T>> {
 	const v = await seat();

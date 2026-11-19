@@ -49,8 +49,8 @@ export async function loadLibrary(
 ): Promise<
 	Load<{ documents: ChurchSummary[]; templates: DocTemplateSummary[]; churchTemplates: ChurchTemplateSummary[] }>
 > {
+	if (!hasPlantSeat(authority)) return { status: "refused" };
 	const db = requestDatabase();
-	if (!db || !hasPlantSeat(authority)) return db ? { status: "refused" } : { status: "failed" };
 	try {
 		const reply = await documentsWriter.listChurch(db, authority, {});
 		if (reply.status !== "ok") return { status: "refused" };
@@ -70,7 +70,6 @@ export async function loadLibrary(
 
 export async function loadArchived(authority: RequestActor): Promise<Load<ArchivedChurchSummary[]>> {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		const reply = await documentsWriter.listArchivedChurch(db, authority, {});
 		return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
@@ -97,7 +96,6 @@ export async function loadChurchDocument(
 	| { status: "deleted" }
 > {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		const readOnly = () =>
 			documentsWriter
@@ -161,8 +159,8 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 	const format = url.searchParams.get("format") ?? "pdf";
 	const revision = url.searchParams.get("revision");
 	const actor = await documentActor();
+	if (!actor) return gone();
 	const db = requestDatabase();
-	if (!actor || !db) return gone();
 	try {
 		const reply = await documentsWriter.readChurchFile(
 			db,
@@ -196,8 +194,8 @@ export async function savedExportRoute(
 	const exportId = recordId.safeParse(raw.exportId);
 	if (!documentId.success || !exportId.success) return gone();
 	const actor = await documentActor();
+	if (!actor) return gone();
 	const db = requestDatabase();
-	if (!actor || !db) return gone();
 	try {
 		const reply = await documentsWriter.readExportFile(
 			db,
@@ -249,8 +247,8 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 	if (!body || typeof body.revision !== "string" || !/^[0-9]{1,7}$/.test(body.revision))
 		return answer(refused("invalid_input"));
 	const [actor, viewer] = await Promise.all([documentActor(), getViewer()]);
+	if (!actor) return answer({ status: "lost" });
 	const db = requestDatabase();
-	if (!actor || !db) return answer({ status: "lost" });
 	try {
 		const reply = await documentsWriter.exportNative(
 			db,
@@ -273,7 +271,7 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 				revision: done.source?.revision ?? Number(body.revision),
 				format: done.format,
 				generatedAt: done.generatedAt,
-				creatorName: viewer?.displayName || null,
+				creatorName: viewer.displayName || null,
 				digest: done.digest,
 				byteCount: done.byteCount,
 				downloadName: done.downloadName,

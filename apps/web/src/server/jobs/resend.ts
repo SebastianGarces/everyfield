@@ -3,11 +3,12 @@ import { z } from "zod";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
 import { capture, captured, isCaptureId } from "../mail/capture.ts";
 import type { MailTransport, TransportOutcome } from "./mail.ts";
+import { serverEnv } from "../config.ts";
 const accepted = z.object({ id: z.string().min(1).max(128) });
 export function createResendTransport(
 	apiKey: string,
 	request: typeof fetch = fetch,
-	env: MailEnv = process.env,
+	env: MailEnv = serverEnv(),
 ): MailTransport {
 	if (!apiKey.trim()) throw Error("mail_provider_unconfigured");
 	async function call(path: string, init: RequestInit): Promise<Response> {

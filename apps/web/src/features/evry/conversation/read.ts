@@ -13,7 +13,7 @@ export const GET = defineReads(
 		photos: get(personPhotosRequest, async ({ viewer }, input) => {
 			const db = requestDatabase();
 			const none: Record<string, string> = {};
-			if (!viewer?.people || !db) return { status: "ok", value: none } as const;
+			if (!viewer.people) return { status: "ok", value: none } as const;
 			try {
 				const reply = await readPersonPhotos(db, new PeopleReadContext(viewer.people.authority), input);
 				if (reply.status !== "ok") return { status: "ok", value: none } as const;

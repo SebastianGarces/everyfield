@@ -20,7 +20,7 @@ export const churchDocumentMetadata: Metadata = { title: "Church document", robo
 
 async function activeViewer(returnTo: string) {
 	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
 	return viewer.status === "active" ? viewer : null;
 }
 
