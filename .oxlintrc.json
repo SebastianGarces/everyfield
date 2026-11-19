@@ -122,6 +122,7 @@
 			"rules": {
 				"everyfield/no-timers": "error",
 				"everyfield/no-render-writes": "error",
+				"everyfield/no-render-get-state": "error",
 				"everyfield/feature-boundaries": "error",
 				"everyfield/table-writers": "error"
 			}
