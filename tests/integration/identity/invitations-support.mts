@@ -14,7 +14,7 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { refuse } from "../../../packages/domain/src/identity/invitation-core.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
-import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 export const key = randomUUID;
 export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
