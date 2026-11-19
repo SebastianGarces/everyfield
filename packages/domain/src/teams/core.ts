@@ -200,15 +200,23 @@ type TeamWrite =
 	| "teams.revokeCompletion"
 	| "teams.recompleteTraining";
 
-type LeaderGate = string | ((tx: Tx, w: Writer) => Promise<string | undefined>);
-async function allow(tx: Tx, w: Writer, leaderOf?: LeaderGate) {
-	if (w.admin) return;
+export type TeamOwned = { table: "responsibility" | "team_role"; id: string };
+type LeaderGate = string | TeamOwned | ((tx: Tx, w: Writer) => Promise<string | undefined>);
+async function leaderTeam(tx: Tx, w: Writer, leaderOf?: LeaderGate) {
+	if (typeof leaderOf === "object")
+		return sql`(SELECT team_id FROM ${sql.identifier(leaderOf.table)}
+			WHERE id = ${leaderOf.id}::uuid AND plant_id = ${w.plant.id}::uuid)`;
 	const teamId = typeof leaderOf === "function" ? await leaderOf(tx, w) : leaderOf;
 	if (!teamId) deny("access_denied");
+	return sql`${teamId}::uuid`;
+}
+async function allow(tx: Tx, w: Writer, leaderOf?: LeaderGate) {
+	if (w.admin) return;
+	const teamId = await leaderTeam(tx, w, leaderOf);
 	const found = await tx.execute(sql`SELECT 1 AS ok FROM person p
 		JOIN team t ON t.leader_person_id = p.id AND t.plant_id = p.tenant_id
 		WHERE p.linked_account_id = ${w.accountId}::uuid AND p.state = 'live' AND p.tenant_id = ${w.plant.id}::uuid
-			AND t.id = ${teamId}::uuid AND t.archived_at IS NULL`);
+			AND t.id = ${teamId} AND t.archived_at IS NULL`);
 	if (!found.rows[0]) deny("access_denied");
 }
 export async function command<T>(

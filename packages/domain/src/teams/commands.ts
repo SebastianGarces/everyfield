@@ -5,7 +5,7 @@ import "server-only";
 import { z } from "zod";
 import type { AuditWrite } from "../operations/writes.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people/people.ts";
-import { command, deny, next, parse, reply, type TeamsContext, type Tx, type Writer } from "./core.ts";
+import { command, deny, next, parse, reply, type TeamOwned, type TeamsContext, type Tx, type Writer } from "./core.ts";
 import { catalogRole, catalogTeam, offerRemains, TEMPLATE_VERSION, unknownSelection } from "./templates.ts";
 
 const text = z.string().nullable();
@@ -70,10 +70,8 @@ async function oneRow(tx: Tx, query: SQL) {
 	const found = await tx.execute(query);
 	return found.rows[0] as Record<string, unknown> | undefined;
 }
-async function lockTeam(tx: Tx, w: Writer, teamId: string): Promise<TeamRow> {
-	const row = await oneRow(
-		tx,
-		sql`SELECT t.id, t.revision::text AS revision, t.name, t.description, t.icon,
+function teamLock(w: Writer, teamId: string) {
+	return sql`SELECT t.id, t.plant_id AS "plantId", t.revision::text AS revision, t.name, t.description, t.icon,
 			t.template_key AS "templateKey", t.state, (t.archived_at IS NOT NULL) AS archived,
 			t.sort_order AS "sortOrder", t.leader_person_id AS "leaderPersonId",
 			t.leader_source AS "leaderSource", t.leader_role_id AS "leaderRoleId",
@@ -81,10 +79,42 @@ async function lockTeam(tx: Tx, w: Writer, teamId: string): Promise<TeamRow> {
 				JOIN team_role r ON r.id = tn.role_id
 				JOIN person p ON p.id = tn.person_id AND p.state = 'live'
 				WHERE r.team_id = t.id AND tn.ended_on IS NULL AND r.retired_at IS NULL) AS "activeCount"
-			FROM team t WHERE t.id = ${teamId}::uuid AND t.plant_id = ${w.plant.id}::uuid FOR UPDATE`,
-	);
+			FROM team t WHERE t.id = ${teamId}::uuid AND t.plant_id = ${w.plant.id}::uuid FOR UPDATE`;
+}
+async function lockTeam(tx: Tx, w: Writer, teamId: string): Promise<TeamRow> {
+	const row = await oneRow(tx, teamLock(w, teamId));
 	if (!row) deny();
 	return teamRow.parse(row);
+}
+const appointee = z.object({
+	stage: z.string().nullable(),
+	state: z.literal("live"),
+	revision: z.string(),
+	pipelinePosition: z.string().nullable(),
+});
+async function lockTeamAndPerson(tx: Tx, w: Writer, teamId: string, personId: string) {
+	const row = await oneRow(
+		tx,
+		sql`WITH t AS MATERIALIZED (${teamLock(w, teamId)})
+			SELECT t.*, who.found AS "personFound", who.stage AS "personStage", who.state AS "personState",
+				who.revision AS "personRevision", who.position AS "personPosition"
+			FROM t
+			LEFT JOIN LATERAL (
+				SELECT true AS found, stage, state, revision::text AS revision, pipeline_position::text AS position
+				FROM person WHERE person.id = ${personId}::uuid AND person.tenant_id = t."plantId"
+				FOR UPDATE
+			) who ON true`,
+	);
+	if (!row) deny();
+	const person = row.personFound
+		? {
+				stage: row.personStage,
+				state: row.personState,
+				revision: row.personRevision,
+				pipelinePosition: row.personPosition,
+			}
+		: undefined;
+	return { team: teamRow.parse(row), person };
 }
 async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | null): Promise<RoleRow> {
 	const person = personId ?? "00000000-0000-0000-0000-000000000000";
@@ -814,23 +844,11 @@ export const teamsWriter = {
 		return reply(tx, async () => {
 			const input = parse(c.appointLeaderRequest, raw);
 			return command(tx, ctx, "teams.appointLeader", input, async (w, audit) => {
-				const before = await lockTeam(tx, w, input.input.teamId);
+				const { team: before, person } = await lockTeamAndPerson(tx, w, input.input.teamId, input.input.personId);
 				expectRevision(before.revision, input.expectedRevision);
 				if (before.archived) deny();
-				const person = await oneRow(
-					tx,
-					sql`SELECT stage, state, revision::text AS revision, pipeline_position::text AS "pipelinePosition"
-						FROM person WHERE id = ${input.input.personId}::uuid AND tenant_id = ${w.plant.id}::uuid FOR UPDATE`,
-				);
-				const who = z
-					.object({
-						stage: z.string().nullable(),
-						state: z.string(),
-						revision: z.string(),
-						pipelinePosition: z.string().nullable(),
-					})
-					.safeParse(person);
-				if (!who.success || who.data.state !== "live") deny("invalid_subject");
+				const who = appointee.safeParse(person);
+				if (!who.success) deny("invalid_subject");
 				const noop = before.leaderPersonId === input.input.personId && before.leaderSource === "explicit";
 				if (!noop) {
 					audit.writes
@@ -951,14 +969,8 @@ export const teamsWriter = {
 	},
 };
 
-function roleTeam(roleId: string) {
-	return async (tx: Tx, w: Writer) => {
-		const found = await oneRow(
-			tx,
-			sql`SELECT team_id AS "teamId" FROM team_role WHERE id = ${roleId}::uuid AND plant_id = ${w.plant.id}::uuid`,
-		);
-		return typeof found?.teamId === "string" ? found.teamId : undefined;
-	};
+function roleTeam(roleId: string): TeamOwned {
+	return { table: "team_role", id: roleId };
 }
 function membershipNoop(audit: AuditWrite, personId: string, stage: string, teamId: string) {
 	return {

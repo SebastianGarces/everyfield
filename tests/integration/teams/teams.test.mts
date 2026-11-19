@@ -960,3 +960,92 @@ test("AC:PERSONREF-TEAM-ROLE-LEADER-RETIRE retirement ends the open role and kee
 	const leader = (await admin.execute(sql`SELECT leader_person_id FROM team WHERE id=${team.id}`)).rows[0];
 	assert.equal(leader.leader_person_id, null);
 });
+
+test("INV-tenancy a non-admin cannot edit or retire a missing, foreign or other team's role, or lead an archived team or as a retired person", async () => {
+	const linked = await admin.execute(
+		sql`SELECT id FROM person WHERE linked_account_id=${actors[1].id} AND tenant_id=${P} AND state='live'`,
+	);
+	const lead = linked.rows[0]?.id ?? (await person("Role gate lead", { account: actors[1].id }));
+	const led = await makeTeam("Gate led desk");
+	const other = await makeTeam("Gate other desk");
+	const foreign = await makeTeam("Gate foreign desk", 3);
+	ok(
+		await run(teamsWriter.appointLeader, {
+			requestKey: key(),
+			expectedRevision: await rev("team", led.id),
+			input: { teamId: led.id, personId: lead },
+		}),
+	);
+	const mine = await makeRole(led.id, "Gate mine");
+	const theirs = await makeRole(other.id, "Gate theirs");
+	const abroad = ok(
+		await run(teamsWriter.createRole, { requestKey: key(), input: { teamId: foreign.id, name: "Gate abroad" } }, 3),
+	).role;
+	const attempt = async (roleId, who, op) =>
+		run(
+			op === "edit" ? teamsWriter.editRole : teamsWriter.retireRole,
+			{
+				requestKey: key(),
+				expectedRevision:
+					(await admin.execute(sql`SELECT revision::text AS r FROM team_role WHERE id=${roleId}`)).rows[0]?.r ?? "1",
+				input: op === "edit" ? { roleId, name: "Gate renamed" } : { roleId },
+			},
+			who,
+		);
+	const denied = async (roleId) => {
+		for (const op of ["edit", "retire"]) refused(await attempt(roleId, 1, op), "access_denied");
+	};
+	const stored = () =>
+		admin.execute(sql`SELECT name, retired_at FROM team_role WHERE id IN (${mine.id}, ${theirs.id}, ${abroad.id})
+			ORDER BY name`);
+	const unchanged = (await stored()).rows;
+	for (const roleId of [randomUUID(), abroad.id, theirs.id]) await denied(roleId);
+	await admin.execute(sql`UPDATE team SET archived_at=clock_timestamp() WHERE id=${led.id}`);
+	await denied(mine.id);
+	await admin.execute(sql`UPDATE team SET archived_at=NULL WHERE id=${led.id}`);
+	await admin.execute(sql`UPDATE person SET state='retired' WHERE id=${lead}`);
+	try {
+		await denied(mine.id);
+	} finally {
+		await admin.execute(sql`UPDATE person SET state='live' WHERE id=${lead}`);
+	}
+	assert.deepEqual((await stored()).rows, unchanged);
+	assert.equal(ok(await attempt(mine.id, 1, "edit")).role.name, "Gate renamed");
+	ok(await attempt(mine.id, 1, "retire"));
+	assert.equal(ok(await attempt(theirs.id, 2, "edit")).role.name, "Gate renamed");
+	ok(await attempt(theirs.id, 2, "retire"));
+	assert.equal(
+		await count(sql`SELECT count(*)::int AS n FROM team_role WHERE id IN (${mine.id}, ${theirs.id})
+			AND retired_at IS NOT NULL`),
+		2,
+	);
+});
+
+test("AC:TARGET-TEAM-004 a leader is appointed only from a live person of this church onto a live team", async () => {
+	const team = await makeTeam("Appoint desk");
+	const live = await person("Appoint live");
+	const retired = await person("Appoint retired");
+	await admin.execute(sql`UPDATE person SET state='retired' WHERE id=${retired}`);
+	const abroad = await person("Appoint abroad", { plant: Q });
+	const appoint = async (personId, teamId = team.id, expectedRevision) =>
+		run(teamsWriter.appointLeader, {
+			requestKey: key(),
+			expectedRevision:
+				expectedRevision ??
+				(await admin.execute(sql`SELECT revision::text AS r FROM team WHERE id=${teamId}`)).rows[0]?.r ??
+				"1",
+			input: { teamId, personId },
+		});
+	const unchanged = await rev("team", team.id);
+	for (const personId of [retired, abroad, randomUUID()]) refused(await appoint(personId), "invalid_subject");
+	refused(await appoint(live, team.id, String(Number(unchanged) + 1)), "conflict");
+	refused(await appoint(live, randomUUID()), "unavailable");
+	assert.equal(await rev("team", team.id), unchanged);
+	await admin.execute(sql`UPDATE team SET archived_at=clock_timestamp() WHERE id=${team.id}`);
+	refused(await appoint(live), "unavailable");
+	await admin.execute(sql`UPDATE team SET archived_at=NULL WHERE id=${team.id}`);
+	const appointed = ok(await appoint(live));
+	assert.equal(appointed.outcome, "changed");
+	assert.equal(appointed.team.leaderPersonId, live);
+	assert.equal(ok(await appoint(live)).outcome, "noop");
+});

@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import type { AuditWrite } from "../../operations/writes.ts";
-import { command, deny, next, parse, reply, type TeamsContext, type Tx, type Writer } from "../core.ts";
+import { command, deny, next, parse, reply, type TeamOwned, type TeamsContext, type Tx, type Writer } from "../core.ts";
 import { catalogVersion, responsibilityReview, type PlaybookLine } from "./playbook.ts";
 import {
 	insertCustom,
@@ -86,15 +86,8 @@ async function lockRow(tx: Tx, w: Writer, responsibilityId: string): Promise<Row
 	if (!row) deny();
 	return rowLock.parse(row);
 }
-function teamOf(responsibilityId: string) {
-	return async (tx: Tx, w: Writer) => {
-		const found = await oneRow(
-			tx,
-			sql`SELECT team_id AS "teamId" FROM responsibility
-				WHERE id = ${responsibilityId}::uuid AND plant_id = ${w.plant.id}::uuid`,
-		);
-		return typeof found?.teamId === "string" ? found.teamId : undefined;
-	};
+function teamOf(responsibilityId: string): TeamOwned {
+	return { table: "responsibility", id: responsibilityId };
 }
 function freshLines(catalog: readonly PlaybookLine[], team: TeamLock, active: ReadonlySet<string>): OfferLine[] {
 	const stored = new Set(team.lines.map((line) => line.line));
