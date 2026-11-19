@@ -64,7 +64,7 @@ function calloutBlock(lines: string[]): WikiBlock {
 	});
 	return {
 		kind: "callout",
-		label: type ? type[0]!.toUpperCase() + type.slice(1) : "",
+		label: type ? type.charAt(0).toUpperCase() + type.slice(1) : "",
 		text: inner.filter(Boolean).join("\n"),
 		lines,
 	};
@@ -90,7 +90,8 @@ function markdownBlocks(lines: string[]): WikiBlock[] {
 			blocks.push({ kind: "blank", lines: [line] });
 			index++;
 		} else if (heading) {
-			blocks.push({ kind: "heading", level: heading[1]!.length, text: heading[2] ?? "", lines: [line] });
+			const [, marks = "", text = ""] = heading;
+			blocks.push({ kind: "heading", level: marks.length, text, lines: [line] });
 			index++;
 		} else if (BREAK.test(line)) {
 			blocks.push({ kind: "break", lines: [line] });
