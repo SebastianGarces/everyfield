@@ -248,11 +248,10 @@ function templateSummary(row: TemplateRow) {
 	});
 }
 
-type Kit = ReturnType<typeof dataFromRow> | null;
-
-function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>, kit: Kit): MergeSources {
+function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>): MergeSources {
 	if (!plant.open) deny("access_denied");
 	if (!plant.subjectOk) deny("unavailable");
+	const { kit } = plant;
 	return {
 		churchName: plant.churchName ?? "",
 		pastorName: plant.pastorName,
@@ -365,7 +364,7 @@ export const churchWriter = {
 				{ personId: null, meetingId: null, teamId: null },
 				churchTemplate ? sql`(SELECT ${churchTemplateOf(scope, churchTemplate)} WHERE ${gateSql(scope, true)})` : undefined,
 			);
-			const sources = mergeSources(plant, plant.open && plant.subjectOk ? plant.kit : null);
+			const sources = mergeSources(plant);
 			const stored = plant.extra as { title: string; body: string } | null;
 			const template = builtIn ?? storedTemplate(stored?.body ?? null) ?? deny("unavailable");
 			const title = stored?.title ?? template.title;
