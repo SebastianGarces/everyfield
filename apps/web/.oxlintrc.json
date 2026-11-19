@@ -1289,6 +1289,7 @@
 				"everyfield/zustand-shape": "error",
 				"everyfield/read-loader": "error",
 				"everyfield/no-render-writes": "error",
+				"everyfield/no-render-get-state": "error",
 				"everyfield/feature-boundaries": "error",
 				"everyfield/route-reads": "error",
 				"everyfield/route-segment-defaults": "error",
