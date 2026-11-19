@@ -11,7 +11,7 @@ import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
 import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import { transaction } from "../platform/database.ts";
 import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
-import { logLine } from "@everyfield/domain/log";
+import { logFailure, logLine } from "@everyfield/domain/log";
 import { serverEnv, type ServerEnv } from "../config.ts";
 
 const owner = z.discriminatedUnion("kind", [
@@ -533,7 +533,8 @@ export function createMailService(config: {
 		let outcome: TransportOutcome;
 		try {
 			outcome = await send.send(prepared.payload, prepared.key, AbortSignal.timeout(10_000));
-		} catch {
+		} catch (error) {
+			logFailure({ component: "mail", outcome: "send_failed" }, error);
 			outcome = { kind: "unknown" };
 		}
 		const recorded = await transaction(config.db, async (tx) => {
@@ -599,7 +600,8 @@ export function createMailService(config: {
 		let observed: TransportOutcome;
 		try {
 			observed = await provider.lookup(m.provider_message_id, AbortSignal.timeout(10_000));
-		} catch {
+		} catch (error) {
+			logFailure({ component: "mail", outcome: "lookup_failed" }, error);
 			return { kind: "unknown" } as const;
 		}
 		if (observed.kind !== "accepted") return { kind: "unknown" } as const;
@@ -653,7 +655,8 @@ export function createMailService(config: {
 		let observed: TransportOutcome;
 		try {
 			observed = await provider.lookup(providerId, AbortSignal.timeout(10_000));
-		} catch {
+		} catch (error) {
+			logFailure({ component: "mail", outcome: "recovery_lookup_failed" }, error);
 			return { kind: "unknown" } as const;
 		}
 		if (observed.kind !== "accepted" || observed.id !== providerId) return { kind: "unknown" } as const;
