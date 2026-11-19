@@ -18,7 +18,7 @@ import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { PersonPicker } from "../../meetings/dialogs.tsx";
 import { dayText, plural } from "../model.ts";
-import { loadPersonTraining } from "./actions.ts";
+import { loadPersonTraining } from "../fetch.ts";
 import {
 	latestByProgram,
 	personForm,
