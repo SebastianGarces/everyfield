@@ -12,7 +12,9 @@ registerHooks({
 export const headers = async () => new Headers({ cookie: "vercel-flag-overrides=x" });
 export const cookies = async () => ({ get: (n) => cookies.get(n), getAll: () => [...cookies.values()] });`);
 		if (specifier === "./database")
-			return fake(`export const requestDatabase = () => ({ execute: async () => ({ rows: [${JSON.stringify(stored)}] }) });`);
+			return fake(
+				`export const requestDatabase = () => ({ execute: async () => ({ rows: [${JSON.stringify(stored)}] }) });`,
+			);
 		if (specifier === "./request-context") return fake(`export const getViewer = async () => null;`);
 		return next(specifier, context);
 	},
