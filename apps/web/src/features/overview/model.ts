@@ -7,6 +7,13 @@ export type Loaded<T> = { status: "ok"; value: T } | { status: "denied" } | { st
 
 export const phaseText = (phase: number) => `Phase ${phase} · ${SHORT_NAME[phase] ?? ""}`;
 
+const ROLE_TEXT = { owner: "Owner", admin: "Admin", member: "Member" } as const;
+
+export const overviewSubtitle = (
+	frame: { plantName: string; phase: number; role: keyof typeof ROLE_TEXT },
+	showRole: boolean,
+) => [frame.plantName, phaseText(frame.phase), ...(showRole ? [ROLE_TEXT[frame.role]] : [])].join(" · ");
+
 export const METRICS = [
 	{
 		key: "recruited",
