@@ -104,11 +104,12 @@ after(teardown);
 
 test("INV-oversight-preview the next oversight digest is what the runner compiles and renders for its send time, with plant names, dates and counts only", async () => {
 	const before = await effects();
+	const from = civil(Date.now() - 2 * DAY);
 	const result = await preview();
 	const [head, ...lines] = result.rows;
 	assert.equal(head!.id, "next");
 	assert.match(String(head!.fields.sendsAt), /, 7:00 AM$/);
-	assert.equal(head!.fields.from, civil(Date.now() - 2 * DAY));
+	assert.equal(head!.fields.from, from);
 	assert.equal(head!.fields.cadence, "daily");
 	assert.equal(head!.fields.sent, true);
 	const to = String(head!.fields.to);
