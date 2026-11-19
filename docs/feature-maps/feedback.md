@@ -91,6 +91,7 @@ agent-browser find role link text --name "Idea" --exact
 Sent feedback: what you sent with Send feedback and where each one stands.
 
 - Routes: `/feedback`, `/feedback/[feedbackId]`
+- Endpoints: `/feedback/read`
 - Personas: `owner` read, `admin` read, `member` read, `resident` read, `signup` read, `triage` read, `network` read, `visitor` none
 - Catalog: ADM-001
 

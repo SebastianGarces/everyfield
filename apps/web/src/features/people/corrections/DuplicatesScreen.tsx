@@ -35,7 +35,8 @@ import { keyFor, STAGE_KEY, STAGE_LABEL, type KeyedPayload, type StageValue } fr
 import { writeAddress } from "../../../components/location.ts";
 import type { Outcome } from "../../../components/save/model.ts";
 import { fresh, LocalDay, When } from "../parts.tsx";
-import { dismissPair, mergeDestination, mergePair, reviewPair, type Merged } from "./actions.ts";
+import { dismissPair, mergePair, type Merged } from "./actions.ts";
+import { mergeDestination, reviewPair } from "../fetch.ts";
 import { leaveConfirmation } from "./DuplicatePairs.tsx";
 import {
 	blockerText,

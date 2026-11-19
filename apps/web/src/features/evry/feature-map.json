@@ -26,7 +26,8 @@
 				"/api/evry/conversations/[id]/turns",
 				"/api/evry/conversations/[id]/stream",
 				"/api/evry/conversations/[id]/cancel",
-				"/api/evry/conversations/[id]/retry"
+				"/api/evry/conversations/[id]/retry",
+				"/api/evry/photos"
 			],
 			"catalog": ["EVR-003", "EVR-005", "EVR-008", "EVR-021", "EVR-029"],
 			"reach": [
