@@ -105,7 +105,7 @@ const stored = z.object({
 const lockedMail = stored.extend({
 	created_at: z.coerce.date(),
 	blocked: z.boolean(),
-	notice: z.object({ category: z.string(), purpose: z.string(), logical_key: z.string() }).nullable(),
+	notice: z.object({ category: z.string(), logical_key: z.string() }).nullable(),
 	preference: z.object({ enabled: z.boolean(), revision: z.string() }).nullable(),
 });
 type LockedMail = z.infer<typeof lockedMail>;
@@ -187,7 +187,7 @@ export function createMailService(config: {
    barriers AS MATERIALIZED (SELECT w.id FROM lifecycle_witness w
     WHERE w.opaque_subject_id IN (SELECT tenant_id FROM checked UNION SELECT recipient_account_id FROM checked)
     AND w.state IN ('pending_deletion','purging','purged','revoked') FOR SHARE OF w),
-   notices AS MATERIALIZED (SELECT n.category,n.purpose,n.logical_key FROM notice n JOIN checked c ON n.id=c.notice_id AND n.tenant_id=c.tenant_id
+   notices AS MATERIALIZED (SELECT n.category,n.logical_key FROM notice n JOIN checked c ON n.id=c.notice_id AND n.tenant_id=c.tenant_id
     WHERE n.cancelled_at IS NULL AND NOT EXISTS(SELECT FROM barriers) FOR SHARE OF n)
    SELECT m.*,EXISTS(SELECT FROM barriers) AS blocked,(SELECT to_json(n) FROM notices n) AS notice,
     (SELECT json_build_object('enabled',p.enabled,'revision',p.unsubscribe_revision::text) FROM notification_preference p

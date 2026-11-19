@@ -28,16 +28,12 @@ const wire = z.object({
 	created_at: z.iso.datetime(),
 	data: z.object({ email_id: z.string().min(1).max(128), bounce: z.object({ type: z.string() }).optional() }),
 });
-const eventSchema = z.object({
+const lockedSchema = z.object({
 	id: z.uuid(),
 	message_id: z.string(),
 	kind: z.enum(kinds),
-	occurred_at: z.date(),
-	safe_payload: z.object({ hard_bounce: z.boolean() }),
-	processed_at: z.date().nullable(),
-});
-const lockedSchema = eventSchema.extend({
 	occurred_at: z.coerce.date(),
+	safe_payload: z.object({ hard_bounce: z.boolean() }),
 	processed_at: z.coerce.date().nullable(),
 	matches: z.array(
 		z.object({ id: z.uuid(), tenant_id: z.uuid(), address_hash: z.string().nullable(), job_id: z.uuid().nullable() }),
