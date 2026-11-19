@@ -12,7 +12,7 @@ import {
 } from "../../../packages/evry/src/index.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { cronRoute } from "../../../apps/web/src/server/platform/cron.ts";
-import { claimDue, finishJob } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue, finishJob } from "../../../packages/domain/src/jobs/queue.ts";
 import { actor, admin, db, people, queries, setup, sql, teardown, work } from "../../evry/runtime/support.mts";
 import { setServerEnv } from "../../support/server-env.mts";
 

@@ -54,10 +54,12 @@ const locked = z.object({
 });
 
 const currentState = (() => {
-	const writes = (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).filter((w) => w.current);
+	const writes = (Object.values(REVIEWED_WRITES) as ReviewedWrite<unknown>[]).flatMap((w) =>
+		w.current ? [{ operation: w.operation, current: w.current }] : [],
+	);
 	if (!writes.length) return sql`NULL::jsonb`;
 	return sql`CASE proposal.operation ${sql.join(
-		writes.map((w) => sql`WHEN ${w.operation} THEN ${w.current!(sql`proposal`)}`),
+		writes.map((w) => sql`WHEN ${w.operation} THEN ${w.current(sql`proposal`)}`),
 		sql` `,
 	)} END`;
 })();

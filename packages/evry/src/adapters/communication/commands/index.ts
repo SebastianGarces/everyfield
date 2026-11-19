@@ -137,7 +137,9 @@ const SAMPLE_NAME = "RECIPIENT_NAME_TOKEN_7F3A";
 async function audienceFacts(context: ReviewContext, plantId: string, audience: AudienceValue) {
 	const { mail } = context;
 	if (!mail) return null;
-	const raw = (await context.db.execute(sql`SELECT ${audiencePeople(plantId, audience)} AS people`)).rows[0]!.people;
+	const [row] = (await context.db.execute(sql`SELECT ${audiencePeople(plantId, audience)} AS people`)).rows;
+	if (!row) throw new Error("The audience query returned no row");
+	const raw = row.people;
 	const hashes = Object.fromEntries(
 		z
 			.array(z.object({ email: z.string().nullable() }))
@@ -577,7 +579,9 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 	async recheck(tx, context, args) {
 		const saved = savedReplace.parse(args);
 		const now = await tx.execute(sql`SELECT ${audiencePeople(context.selected.id, saved.input.audience)} AS people`);
-		return recipientsDigest(now.rows[0]!.people) === saved.recipientsDigest ? null : "stale_review";
+		const [row] = now.rows;
+		if (!row) throw new Error("The audience query returned no row");
+		return recipientsDigest(row.people) === saved.recipientsDigest ? null : "stale_review";
 	},
 	execute: checkedOnly,
 	reach: (db, authority, args, effectKey, _first, mail) =>

@@ -15,7 +15,7 @@ import {
 } from "@everyfield/evry";
 import "server-only";
 import { deliveryTransport, mailReady } from "../mail/transport.ts";
-import { claimDue, finishJob } from "../jobs/queue.ts";
+import { claimDue, finishJob } from "@everyfield/domain/jobs";
 import { evryNative } from "./native.ts";
 
 export function evryMail(paused: boolean): MailPort | null {

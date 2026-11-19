@@ -20,9 +20,9 @@ import {
 	type Proposal,
 } from "../../../../../packages/evry/src/index.ts";
 import { listMessages } from "../../../../../packages/evry/src/adapters/communication/reads/index.ts";
-import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
+import { transaction } from "../../../../../packages/domain/src/jobs/transaction.ts";
 import { receiveMailCallback, replayStoredCallbacks } from "../../../../../apps/web/src/server/jobs/webhook.ts";
-import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue, finishClaim } from "../../../../../packages/domain/src/jobs/queue.ts";
 import {
 	accounts,
 	actor,

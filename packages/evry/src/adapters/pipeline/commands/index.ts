@@ -191,9 +191,14 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 		readings: base.readings.map((r) => ({ revisionId: r.revisionId })),
 	});
 	if (!plan.success) throw new EvryRefusal("invalid_input");
+	const baseOf = (lineage: string) => {
+		const was = byLineage.get(lineage);
+		if (!was) throw new Error("A kept milestone has no base milestone");
+		return was;
+	};
 	const kept = milestones.filter((m) => byLineage.has(m.lineage));
 	const edited = kept.filter((m) => {
-		const was = byLineage.get(m.lineage)!;
+		const was = baseOf(m.lineage);
 		return was.title !== m.title || was.description !== m.description || was.handsOn !== m.handsOn;
 	});
 	const added = milestones.filter((m) => !byLineage.has(m.lineage));
@@ -222,7 +227,7 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 			? [
 					{
 						field: "changedMilestones",
-						before: edited.map((m) => byLineage.get(m.lineage)!.title),
+						before: edited.map((m) => baseOf(m.lineage).title),
 						after: edited.map((m) => m.title),
 					},
 				]
@@ -232,7 +237,7 @@ export function nextVersionReview(program: ProgramDetail, value: NextPlan) {
 			? [
 					{
 						field: "milestoneOrder",
-						before: keptOrder.map((l) => byLineage.get(l)!.title),
+						before: keptOrder.map((l) => baseOf(l).title),
 						after: kept.map((m) => m.title),
 					},
 				]

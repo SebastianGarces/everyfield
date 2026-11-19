@@ -11,18 +11,16 @@ import { launchStep } from "./scripted-launch.ts";
 import { overviewStep } from "./scripted-overview.ts";
 import { pipelineStep } from "./scripted-pipeline.ts";
 import { settingsStep } from "./scripted-settings.ts";
+import { captured } from "./captured.ts";
 
 type Prompt = LanguageModelV4CallOptions["prompt"];
 const lastUserText = (prompt: Prompt) => {
-	for (let i = prompt.length - 1; i >= 0; i--) {
-		const m = prompt[i]!;
-		if (m.role === "user")
-			return m.content
-				.filter((p) => p.type === "text")
-				.map((p) => p.text)
-				.join(" ");
-	}
-	return "";
+	const m = prompt.findLast((message) => message.role === "user");
+	if (!m) return "";
+	return m.content
+		.filter((p) => p.type === "text")
+		.map((p) => p.text)
+		.join(" ");
 };
 const lastToolOutput = (prompt: Prompt): Record<string, unknown> | null => {
 	const m = prompt.at(-1);
@@ -81,7 +79,8 @@ function emailStep(text: string, canPropose: boolean, canRead: boolean, result: 
 		return [
 			toolCall("communication_read", {
 				operation: "communication.list",
-				input: schedule || relative ? { state: "draft" } : { state: "scheduled", sendOn: nextDate(target[1]!) },
+				input:
+					schedule || relative ? { state: "draft" } : { state: "scheduled", sendOn: nextDate(captured(target, 1)) },
 			}),
 		];
 	if (result.error === "mail_paused")
@@ -97,25 +96,28 @@ function emailStep(text: string, canPropose: boolean, canRead: boolean, result: 
 	if (schedule)
 		return propose("communication.scheduleReviewed", {
 			communicationId,
-			sendAt: `${nextDate(schedule[1]!)}T${clock(schedule[2]!, schedule[3]!)}`,
+			sendAt: `${nextDate(captured(schedule, 1))}T${clock(captured(schedule, 2), captured(schedule, 3))}`,
 		});
 	if (relative) {
-		const days = relative[1]!.toLowerCase() === "yesterday" ? -1 : Number(/\d+/.exec(relative[1]!)![0]);
+		const days =
+			captured(relative, 1).toLowerCase() === "yesterday" ? -1 : Number(/\d+/.exec(captured(relative, 1))?.[0]);
 		const date = new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 		return propose("communication.scheduleReviewed", {
 			communicationId,
-			sendAt: `${date}T${clock(relative[2]!, relative[3]!)}`,
+			sendAt: `${date}T${clock(captured(relative, 2), captured(relative, 3))}`,
 		});
 	}
 	if (move)
 		return propose("communication.rescheduleReviewed", {
 			communicationId,
-			sendAt: `${nextDate(move[2]!)}T${clock(move[3]!, move[4]!)}`,
+			sendAt: `${nextDate(captured(move, 2))}T${clock(captured(move, 3), captured(move, 4))}`,
 		});
 	if (cancel) return propose("communication.cancelScheduledReviewed", { communicationId });
 	return propose(
 		"communication.replaceScheduledReviewed",
-		body ? { communicationId, body: body[2]!.trim() } : { communicationId, audience: { groups: ["launch_team"] } },
+		body
+			? { communicationId, body: captured(body, 2).trim() }
+			: { communicationId, audience: { groups: ["launch_team"] } },
 	);
 }
 
@@ -183,7 +185,7 @@ function notificationStep(
 		});
 	if (cadence && tools.propose)
 		return propose(tools.oversight ? "notifications.oversightDigestCadence.set" : "notifications.digestCadence.set", {
-			cadence: cadence[1]!.toLowerCase(),
+			cadence: captured(cadence, 1).toLowerCase(),
 		});
 	if (!tools.read) return null;
 	if (preview) {
@@ -216,7 +218,7 @@ function notificationStep(
 	if (!result) return read("notifications.feed", { unread: true });
 	const groups = byArea((result.rows as Notice[] | undefined) ?? []);
 	if (those && tools.propose) {
-		const size = NUMBER[those[1]!.toLowerCase()] ?? Number(those[1]);
+		const size = NUMBER[captured(those, 1).toLowerCase()] ?? Number(those[1]);
 		const group = groups.find(([, rows]) => rows.length === size)?.[1];
 		if (!group) return [{ type: "text", text: `Which ${those[1]} do you mean?` }];
 		return propose("notifications.markSelectedRead", { noticeIds: group.map((r) => r.id) });
@@ -236,13 +238,12 @@ function notificationStep(
 type Row = { id: string; kind: string; label: string; fields: Record<string, unknown> };
 function turnOutputs(prompt: Prompt): Record<string, unknown>[] {
 	const out: Record<string, unknown>[] = [];
-	for (let i = prompt.length - 1; i >= 0 && prompt[i]!.role !== "user"; i--) {
-		const m = prompt[i]!;
+	for (const m of prompt.slice(prompt.findLastIndex((message) => message.role === "user") + 1)) {
 		if (m.role !== "tool") continue;
 		const parts = m.content.flatMap((p) =>
 			p.type === "tool-result" && p.output.type === "json" ? [p.output.value] : [],
 		);
-		out.unshift(...(parts as Record<string, unknown>[]));
+		out.push(...(parts as Record<string, unknown>[]));
 	}
 	return out;
 }
@@ -282,7 +283,8 @@ function peopleOrganizationStep(
 	const matched = Object.entries(ORGANIZATION).find(([, re]) => re.test(text));
 	if (!matched) return null;
 	const [kind, re] = matched;
-	const m = re.exec(text)!;
+	const m = re.exec(text);
+	if (!m) return null;
 	if (outputs.some((o) => typeof o.proposalId === "string"))
 		return [{ type: "text" as const, text: "I prepared a review. Nothing changes until you approve it." }];
 	const done = outputs.find((o) => o.error);
@@ -316,8 +318,8 @@ function peopleOrganizationStep(
 	const first = (n: number, k = "person") => rowsOf(outputs[n], k)[0];
 	switch (kind) {
 		case "household": {
-			if (outputs.length === 0) return [people(m[1]!)];
-			if (outputs.length === 1) return [org("people.listHouseholds", { search: m[2]! })];
+			if (outputs.length === 0) return [people(captured(m, 1))];
+			if (outputs.length === 1) return [org("people.listHouseholds", { search: captured(m, 2) })];
 			const person = first(0),
 				home = first(1, "household");
 			if (!person || !home) return [{ type: "text" as const, text: "I can't find that person or household." }];
@@ -328,50 +330,55 @@ function peopleOrganizationStep(
 			});
 		}
 		case "move": {
-			if (!outputs.length) return [org("people.listHouseholds", { search: m[1]! })];
+			if (!outputs.length) return [org("people.listHouseholds", { search: captured(m, 1) })];
 			const home = first(0, "household");
 			if (!home) return [{ type: "text" as const, text: "I can't find that household." }];
-			return propose("people.propagateAddress", { householdId: home.id, address: { street: title(m[2]!.trim()) } });
+			return propose("people.propagateAddress", {
+				householdId: home.id,
+				address: { street: title(captured(m, 2).trim()) },
+			});
 		}
 		case "tag": {
-			const names = m[1]!.split(/,\s*|\s+and\s+/).filter(Boolean);
+			const names = captured(m, 1)
+				.split(/,\s*|\s+and\s+/)
+				.filter(Boolean);
 			if (!outputs.length) return names.map(people);
 			const ids = outputs.map((o) => rowsOf(o, "person")[0]?.id).filter(Boolean);
 			if (ids.length !== names.length) return [{ type: "text" as const, text: "I can't find everyone you named." }];
-			return propose("people.assignTag", { personIds: ids, tagName: m[2]! });
+			return propose("people.assignTag", { personIds: ids, tagName: captured(m, 2) });
 		}
 		case "note": {
-			if (!outputs.length) return [people(m[1]!)];
+			if (!outputs.length) return [people(captured(m, 1))];
 			const person = first(0);
-			return person ? propose("people.addNote", { personId: person.id, body: m[2]!.trim() }) : null;
+			return person ? propose("people.addNote", { personId: person.id, body: captured(m, 2).trim() }) : null;
 		}
 		case "editNote":
 		case "deleteNote": {
-			if (!outputs.length) return [people(m[1]!)];
+			if (!outputs.length) return [people(captured(m, 1))];
 			const person = first(0);
 			if (!person) return null;
 			if (outputs.length === 1) return [org("people.getActivities", { personId: person.id, kinds: ["note"] })];
 			const note = rowsOf(outputs[1], "activity").find((r) => r.fields.kind === "note");
 			if (!note) return [{ type: "text" as const, text: `${person.label} has no note I can change.` }];
 			return kind === "editNote"
-				? propose("people.editNote", { noteId: note.id, body: m[2]!.trim(), reason: "Updated in Evry" })
+				? propose("people.editNote", { noteId: note.id, body: captured(m, 2).trim(), reason: "Updated in Evry" })
 				: propose("people.deleteNote", { noteId: note.id, reason: "Removed in Evry" });
 		}
 		case "skill": {
-			if (!outputs.length) return [people(m[1]!)];
+			if (!outputs.length) return [people(captured(m, 1))];
 			const person = first(0);
-			const skill = m[2]!.toLowerCase();
+			const skill = captured(m, 2).toLowerCase();
 			return person
 				? propose("people.addSkill", {
 						personId: person.id,
 						name: title(skill),
 						category: SKILL_CATEGORY[skill] ?? "other",
-						proficiency: m[3]!.toLowerCase(),
+						proficiency: captured(m, 3).toLowerCase(),
 					})
 				: null;
 		}
 		case "import":
-			return propose("people.executeBulkImport", { file: m[1]!.trim() });
+			return propose("people.executeBulkImport", { file: captured(m, 1).trim() });
 	}
 }
 
@@ -456,7 +463,7 @@ function meetingsStep(
 	const rsvp = /\brsvp'?d for (.+?)\??$/i.exec(text);
 	if (rsvp) {
 		if (!outputs.length) return read("meetings.list", { window: "upcoming" });
-		const wanted = rsvp[1]!.replace(/'s\b/g, "").toLowerCase();
+		const wanted = captured(rsvp, 1).replace(/'s\b/g, "").toLowerCase();
 		if (outputs.length === 1) {
 			const rows = rowsOf(last, "meeting");
 			const day = DAYS.find((d) => wanted.includes(d));
@@ -466,12 +473,13 @@ function meetingsStep(
 						/vision/i.test(`${r.label} ${String(r.fields.type)}`)
 					: r.label.toLowerCase().includes(wanted.replace(/^the /, "")),
 			);
-			if (matches.length > 1)
+			const [firstMatch] = matches;
+			if (firstMatch && matches.length > 1)
 				return say(
-					`${matches.length} meetings are called ${matches[0]!.label}: ${matches.map((m) => String(m.fields.when)).join(" and ")}. Which one do you mean?`,
+					`${matches.length} meetings are called ${firstMatch.label}: ${matches.map((m) => String(m.fields.when)).join(" and ")}. Which one do you mean?`,
 				);
-			if (!matches.length) return say("I can't find that meeting in Meetings.");
-			return read("meetings.listGuests", { meetingId: matches[0]!.id });
+			if (!firstMatch) return say("I can't find that meeting in Meetings.");
+			return read("meetings.listGuests", { meetingId: firstMatch.id });
 		}
 		const guests = rowsOf(last, "person");
 		const groups = RSVP_GROUPS.map(([value, title]) => {
@@ -480,19 +488,20 @@ function meetingsStep(
 		});
 		return say(`RSVPs (answers to the invitation, not attendance):\n\n${groups.join("\n")}`);
 	}
-	if (/\bagenda for (\w+)/i.test(text)) {
+	const agenda = /\bagenda for (\w+)/i.exec(text);
+	if (agenda) {
 		if (!outputs.length) return read("meetings.list", { window: "upcoming" });
 		if (outputs.length === 1) {
-			const day = /\bagenda for (\w+)/i.exec(text)![1]!.toLowerCase();
+			const day = captured(agenda, 1).toLowerCase();
 			const m = rowsOf(last, "meeting").find((r) => weekday(String(r.fields.date)) === DAYS.indexOf(day));
 			return m
 				? read("meetings.readAgenda", { meetingId: m.id })
 				: say(`I can't find a meeting on ${day} in Meetings.`);
 		}
 		const [meeting, ...sections] = rowsOf(last);
-		if (!sections.length) return say("That meeting has no saved agenda.");
+		if (!meeting || !sections.length) return say("That meeting has no saved agenda.");
 		return say(
-			`The saved agenda for ${meeting!.label}:\n\n${sections.map((s) => `${String(s.fields.order)}. ${s.label} (${String(s.fields.starts)}, ${String(s.fields.minutes)} min)`).join("\n")}\n\n[Print the agenda](${String(meeting!.fields.print)}) from the app.`,
+			`The saved agenda for ${meeting.label}:\n\n${sections.map((s) => `${String(s.fields.order)}. ${s.label} (${String(s.fields.starts)}, ${String(s.fields.minutes)} min)`).join("\n")}\n\n[Print the agenda](${String(meeting.fields.print)}) from the app.`,
 		);
 	}
 	if (/\bvision kit\b/i.test(text)) {
@@ -519,11 +528,15 @@ function meetingsStep(
 		);
 	}
 	const setUp = SET_UP.exec(text);
-	if (setUp || (pickedDay && asked)) {
-		const [, hour, ampm, place] = (setUp ?? asked)!;
-		if (!outputs.length) return read("venues.list", { search: place!.split(" ")[0] });
+	const chosen = setUp ?? (pickedDay && asked);
+	if (chosen) {
+		const hour = captured(chosen, 1),
+			ampm = captured(chosen, 2),
+			place = captured(chosen, 3);
+		if (!outputs.length) return read("venues.list", { search: place.split(" ")[0] });
 		const venues = rowsOf(outputs[0], "venue");
-		if (venues.length !== 1)
+		const [venue] = venues;
+		if (!venue || venues.length !== 1)
 			return say(
 				venues.length
 					? `More than one saved venue matches "${place}": ${venues.map((v) => v.label).join(", ")}. Which one?`
@@ -531,19 +544,19 @@ function meetingsStep(
 			);
 		const first = nextWeekday(4),
 			second = addDays(first, 7);
-		if (setUp)
+		if (setUp || !pickedDay)
 			return say(
-				`Do you mean ${dayName(first)} or ${dayName(second)}? I'll set it for ${hour} ${ampm!.toUpperCase()} Central at ${venues[0]!.label}.`,
+				`Do you mean ${dayName(first)} or ${dayName(second)}? I'll set it for ${hour} ${ampm.toUpperCase()} Central at ${venue.label}.`,
 			);
-		const day = Number(pickedDay![1] ?? /\d+/.exec(pickedDay![2] ?? "")?.[0]);
+		const day = Number(pickedDay[1] ?? /\d+/.exec(pickedDay[2] ?? "")?.[0]);
 		const date = [first, second].find((d) => Number(d.slice(8)) === day);
 		if (!date) return say(`Do you mean ${dayName(first)} or ${dayName(second)}?`);
 		return can("meetings.schedule")
 			? propose("meetings.schedule", {
 					type: "vision_meeting",
 					date,
-					time: clock(hour!, ampm!),
-					venueId: venues[0]!.id,
+					time: clock(hour, ampm),
+					venueId: venue.id,
 				})
 			: say("An Owner or Admin has to schedule that meeting.");
 	}
@@ -558,7 +571,9 @@ function meetingsStep(
 	}
 	const finalize = /\bmark (.+?) as attended and finalize\b/i.exec(text);
 	if (finalize) {
-		const names = finalize[1]!.split(/,\s*|\s+and\s+/).filter(Boolean);
+		const names = captured(finalize, 1)
+			.split(/,\s*|\s+and\s+/)
+			.filter(Boolean);
 		if (!outputs.length) return read("meetings.list", { window: "past", types: ["vision_meeting"] });
 		if (outputs.length === 1) {
 			const target = addDays(localToday(), -7);
@@ -575,7 +590,8 @@ function meetingsStep(
 		const ids = [...new Set([...already, ...chosen].map((p) => p.id))];
 		if (chosen.length !== names.length)
 			return say(`I can't find all of ${names.join(", ")} on that meeting's guest list.`);
-		return propose("meetings.finalizeAttendance", { meetingId: head!.id, attendeeIds: ids });
+		if (!head) return say("I can't find that meeting's guest list.");
+		return propose("meetings.finalizeAttendance", { meetingId: head.id, attendeeIds: ids });
 	}
 	if (/\bscore last night'?s vision meeting\b/i.test(text))
 		return say(
@@ -670,11 +686,12 @@ function respond(options: LanguageModelV4CallOptions): LanguageModelV4Content[] 
 			];
 		}
 		const rows = (result.rows as { id: string; label: string; fields: { city: string | null } }[] | undefined) ?? [];
-		if (change && canPropose && rows.length === 1)
+		const [only] = rows;
+		if (change && canPropose && only && rows.length === 1)
 			return [
 				toolCall("propose_change", {
 					operation: "people.updatePerson",
-					input: { personId: rows[0]!.id, patch: { [change[2]!.toLowerCase()]: change[3] } },
+					input: { personId: only.id, patch: { [captured(change, 2).toLowerCase()]: change[3] } },
 				}),
 			];
 		if (/\bevery\b/i.test(text) && typeof result.next === "number")

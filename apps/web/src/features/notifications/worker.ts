@@ -23,7 +23,7 @@ import { z } from "zod";
 import { reviewPath } from "../organizations/reviews/model.ts";
 import { milestonePath } from "../residency/model.ts";
 import { serverConfig } from "../../server/config.ts";
-import { transaction } from "../../server/platform/database.ts";
+import { transaction } from "@everyfield/domain/jobs";
 import {
 	MAIL_PASSES,
 	mailUnsubscribe,
@@ -41,7 +41,7 @@ import {
 	recoverLease,
 	type Claim,
 	type JobResult,
-} from "../../server/jobs/queue.ts";
+} from "@everyfield/domain/jobs";
 import {
 	accountNotificationService,
 	mountMailService,

@@ -10,7 +10,7 @@ import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createNotificationProducer, issueMailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
 import { ok, seeds } from "../../support/fixture.mts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import {
 	createMailService,
 	claimUnknownMail,
@@ -20,7 +20,7 @@ import {
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
 import { protectedTemplate } from "../../../apps/web/src/server/jobs/templates.ts";
-import { claimDue, recoverLease } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue, recoverLease } from "../../../packages/domain/src/jobs/queue.ts";
 import {
 	receiveMailCallback,
 	mailCallbackHandler,
