@@ -951,6 +951,184 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 	);
 });
 
+const DDL_RUNNERS = new Set(["packages/db/src/schema/migrate.ts", "packages/db/src/schema/drift.ts"]);
+const ESCAPING_HELPERS = new Set(["literal", "finishStatement", "lockPrefix", "identifier"]);
+const COMPARISONS = new Set(["===", "!==", "==", "!=", "<", ">", "<=", ">=", "in", "instanceof"]);
+
+const constantType = (type) =>
+	type?.type === "TSTypeQuery" || (type?.type === "TSIndexedAccessType" && constantType(type.objectType));
+
+function literalOnly(type, aliases) {
+	switch (type?.type) {
+		case "TSLiteralType":
+			return true;
+		case "TSIndexedAccessType":
+			return constantType(type);
+		case "TSTypeOperator":
+			return type.operator === "keyof" && type.typeAnnotation?.type === "TSTypeQuery";
+		case "TSUnionType":
+			return type.types.every((t) => literalOnly(t, aliases));
+		case "TSIntersectionType":
+			return type.types.some((t) => literalOnly(t, aliases));
+		case "TSTypeReference": {
+			const name = type.typeName.type === "Identifier" ? type.typeName.name : null;
+			return name === "SqlLiteral" || (name !== null && aliases.has(name));
+		}
+		default:
+			return false;
+	}
+}
+
+function memberType(node, annotation) {
+	const parent = node.parent;
+	if (parent?.type !== "MemberExpression" || parent.object !== node || annotation?.type !== "TSTypeLiteral")
+		return annotation;
+	const name = memberName(parent);
+	const member = annotation.members.find(
+		(m) => m.type === "TSPropertySignature" && keyName(m.key, m.computed) === name,
+	);
+	return member?.typeAnnotation?.typeAnnotation;
+}
+
+const calleeName = (callee) => (callee.type === "Identifier" ? callee.name : memberName(callee));
+
+const rawSqlLiteral = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!PRODUCT_CODE.test(path) || DDL_RUNNERS.has(path)) return {};
+		const aliases = new Set();
+		const sqlNames = new Set(["sql"]);
+		const rawNames = new Set();
+		let inside = 0;
+		const isRawSql = (node) =>
+			node.type === "CallExpression" &&
+			((node.callee.type === "MemberExpression" &&
+				node.callee.object.type === "Identifier" &&
+				sqlNames.has(node.callee.object.name) &&
+				memberName(node.callee) === "raw") ||
+				(node.callee.type === "Identifier" && rawNames.has(node.callee.name)));
+		const pasted = (node) => {
+			for (let child = node, parent = node.parent; parent; child = parent, parent = parent.parent) {
+				if (isRawSql(parent)) return true;
+				if (parent.type === "CallExpression" && parent.arguments.includes(child))
+					if (ESCAPING_HELPERS.has(calleeName(parent.callee))) return false;
+				if (parent.type === "ConditionalExpression" && parent.test === child) return false;
+				if (parent.type === "BinaryExpression" && COMPARISONS.has(parent.operator)) return false;
+				if (parent.type === "UnaryExpression" && parent.operator === "!") return false;
+			}
+			return false;
+		};
+		const variableOf = (node) => {
+			for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+				const variable = scope.set?.get(node.name);
+				if (variable) return { variable, scope };
+			}
+			return null;
+		};
+		const fixed = (node, seen = new Set()) => {
+			switch (node?.type) {
+				case "Literal":
+					return true;
+				case "TemplateLiteral":
+					return node.expressions.every((e) => fixed(e, seen));
+				case "ConditionalExpression":
+					return fixed(node.consequent, seen) && fixed(node.alternate, seen);
+				case "LogicalExpression":
+				case "BinaryExpression":
+					return fixed(node.left, seen) && fixed(node.right, seen);
+				case "CallExpression":
+					return ESCAPING_HELPERS.has(calleeName(node.callee));
+				case "TSAsExpression":
+				case "TSSatisfiesExpression":
+				case "TSNonNullExpression":
+					return fixed(node.expression, seen);
+				case "MemberExpression":
+					return fixed(node.object, seen) && (!node.computed || fixed(node.property, seen) || moduleLevel(node.object));
+				case "ArrayExpression":
+					return node.elements.every((e) => fixed(e, seen));
+				case "Identifier":
+					return safe(node, seen);
+				default:
+					return false;
+			}
+		};
+		const moduleLevel = (node) => {
+			const root = node.type === "MemberExpression" ? node.object : node;
+			if (root.type === "MemberExpression") return moduleLevel(root);
+			const found = root.type === "Identifier" ? variableOf(root) : null;
+			return Boolean(found && (found.scope.type === "module" || found.scope.type === "global"));
+		};
+		const bound = (pattern, name, init) => {
+			if (pattern === name) return init;
+			if (pattern.type !== "ArrayPattern") return null;
+			const index = pattern.elements.indexOf(name);
+			const pick = (value) =>
+				value?.type === "ArrayExpression"
+					? value.elements[index]
+					: value?.type === "ConditionalExpression"
+						? { type: "ConditionalExpression", consequent: pick(value.consequent), alternate: pick(value.alternate) }
+						: null;
+			return index < 0 ? null : pick(init);
+		};
+		const safe = (node, seen = new Set()) => {
+			const found = variableOf(node);
+			if (!found) return true;
+			const { variable, scope } = found;
+			const def = variable.defs?.[0];
+			if (!def || seen.has(def)) return true;
+			seen.add(def);
+			if (def.type === "ImportBinding" || def.type === "FunctionName" || def.type === "ClassName") return true;
+			if (def.type === "Parameter") {
+				const callback = def.node.parent?.type === "CallExpression" && def.node.parent.arguments.includes(def.node);
+				const annotation = memberType(node, def.name.typeAnnotation?.typeAnnotation);
+				if (!def.name.typeAnnotation && callback) return true;
+				const generic = def.node.typeParameters?.params ?? [];
+				const bound =
+					annotation?.type === "TSTypeReference" &&
+					annotation.typeName.type === "Identifier" &&
+					generic.find((g) => g.name.name === annotation.typeName.name);
+				return literalOnly(annotation, aliases) || Boolean(bound && literalOnly(bound.constraint, aliases));
+			}
+			if (def.type === "Variable") {
+				if (scope.type === "module" || scope.type === "global") return true;
+				if (literalOnly(def.name.typeAnnotation?.typeAnnotation, aliases)) return true;
+				return def.parent?.kind === "const" && fixed(bound(def.node.id, def.name, def.node.init), seen);
+			}
+			return false;
+		};
+		return {
+			ImportSpecifier(node) {
+				if ((node.imported.name ?? node.imported.value) === "sql") sqlNames.add(node.local.name);
+			},
+			VariableDeclarator(node) {
+				const init = node.init;
+				if (node.id.type !== "Identifier" || init?.type !== "MemberExpression") return;
+				if (init.object.type === "Identifier" && sqlNames.has(init.object.name) && memberName(init) === "raw")
+					rawNames.add(node.id.name);
+			},
+			TSTypeAliasDeclaration(node) {
+				if (node.parent?.type === "Program" || node.parent?.parent?.type === "Program")
+					if (literalOnly(node.typeAnnotation, aliases)) aliases.add(node.id.name);
+			},
+			CallExpression(node) {
+				if (isRawSql(node)) inside++;
+			},
+			"CallExpression:exit"(node) {
+				if (isRawSql(node)) inside--;
+			},
+			Identifier(node) {
+				if (inside === 0 || !isValueReference(node) || !pasted(node) || safe(node)) return;
+				context.report({
+					node,
+					message:
+						"A value pasted into sql.raw is a fixed SQL name: type a parameter as a literal union, keyof typeof a constant, or SqlLiteral<A> from @everyfield/db/query, build a local only from those, or escape it through literal, identifier, lockPrefix or finishStatement.",
+				});
+			},
+		};
+	},
+};
+
 export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
 const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
 const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
@@ -1885,6 +2063,7 @@ export default {
 		"table-writers": tableWriters,
 		"max-state": maxState,
 		"no-timers": noTimers,
+		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
 		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,

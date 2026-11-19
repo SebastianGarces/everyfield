@@ -1,7 +1,7 @@
 import { localDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createLaunchReader, createLaunchWriter } from "@everyfield/domain/launch";
 import { z } from "zod";
@@ -489,7 +489,7 @@ const correctionInput = z.strictObject({
 	decisions: z.int().nullable().optional(),
 	reason: z.string().max(4000),
 });
-const fieldId = (field: string) =>
+const fieldId = <FieldName extends string>(field: SqlLiteral<FieldName>) =>
 	sql.raw(`overlay(overlay(md5(x.id::text||':${field}') placing '4' from 13) placing '8' from 17)::uuid`);
 const outcomeNow = (p: SQL) => sql`(SELECT jsonb_build_array(
 	jsonb_build_object('id',${fieldId("actualDate")},'label','Date held','value',

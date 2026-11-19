@@ -1,6 +1,6 @@
 import * as c from "@everyfield/contracts/meetings";
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQLWrapper } from "@everyfield/db/query";
+import { sql, type SQLWrapper, type SqlLiteral } from "@everyfield/db/query";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -11,7 +11,7 @@ const TOKEN_DAYS = 7;
 export const rsvpTokenDigest = (token: string) => createHash("sha256").update(token).digest("hex");
 
 const ANSWERING_SQL = c.answeringStatuses.map((s) => `'${s}'`).join(", ");
-export const meetingOpenSql = (alias: string) =>
+export const meetingOpenSql = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql`${sql.raw(alias)}.retired_at IS NULL AND ${sql.raw(alias)}.status IN (${sql.raw(ANSWERING_SQL)})`;
 
 export const newRsvpToken = () => randomBytes(32).toString("base64url");
