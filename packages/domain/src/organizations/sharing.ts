@@ -1,9 +1,8 @@
 import { writeActor, loadAffiliations, type Reader } from "./core.ts";
 import { revision, type Owner, type sessionId } from "@everyfield/contracts/common";
-import { liveRead, type RequestActor } from "../access/session.ts";
+import { liveRead, type RequestActor, type WriteTx } from "../access/session.ts";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
 import { and, eq, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
@@ -42,7 +41,7 @@ const columns = {
 } as const;
 export function sharingOperations(
 	effects: OrganizationEffects,
-): Pick<OrganizationAdapter<Transaction>, "privacy.getSharing" | "privacy.setSharing"> {
+): Pick<OrganizationAdapter<WriteTx>, "privacy.getSharing" | "privacy.setSharing"> {
 	return {
 		async "privacy.getSharing"(tx, session, selected, raw) {
 			const q = Q.readSharingRequest.parse(raw),
@@ -128,7 +127,7 @@ export async function readPlantSharing(db: Reader, authority: RequestActor, orga
 }
 
 export async function readSharingDisclosure(
-	tx: Transaction,
+	tx: WriteTx,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	raw: unknown,
@@ -184,7 +183,7 @@ const disclosureRow = z.object({
 });
 
 export async function applySharingMutation(
-	tx: Transaction,
+	tx: WriteTx,
 	a: NonNullable<Awaited<ReturnType<typeof loadAffiliation>>>,
 	c: Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>,
 	nextChoices: ReturnType<typeof choices>,

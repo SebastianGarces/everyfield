@@ -8,6 +8,7 @@ import { readAnswerableInvitation } from "../../../packages/domain/src/organizat
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 after(S.teardown);
 const accepted = (v: unknown) => {
 	const r = Q.acceptedInvitationResult.parse(v);
@@ -563,7 +564,7 @@ test("INV-lock-order: a link write holds its gate's account and root and the org
 					await side.execute(
 						sql`SELECT (SELECT 1 FROM account WHERE id=${sql.param(untouched)} FOR UPDATE),(SELECT 1 FROM plant WHERE id=${sql.param(untouched)} FOR UPDATE)`,
 					);
-				await S.db.transaction(async (hold) => {
+				await gatedTransaction(S.db, async (hold) => {
 					await hold.execute(sql`SELECT 1 FROM affiliation WHERE id=${sql.param(link)} FOR UPDATE`);
 					const holder = await pid(hold);
 					write = row.run(s).then(

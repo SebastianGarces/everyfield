@@ -1,6 +1,6 @@
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { runLockedWrite } from "./core.ts";
-import { RequestActor } from "../access/session.ts";
+import { RequestActor, type WriteTx } from "../access/session.ts";
 import {
 	cancelTaskReminders,
 	publishWikiUpstream,
@@ -85,12 +85,11 @@ export {
 } from "./digest.ts";
 
 export const lockedNotificationWrites = {
-	markSelectedRead: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, markSelectedReadCommand),
-	markAllVisibleRead: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, markAllVisibleReadCommand),
-	setPreferences: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, setPreferencesCommand),
-	setDigestCadence: (tx: Transaction, raw: unknown) => runLockedWrite(tx, raw, setDigestCadenceCommand),
-	setOversightDigestCadence: (tx: Transaction, raw: unknown) =>
-		runLockedWrite(tx, raw, setOversightDigestCadenceCommand),
+	markSelectedRead: (tx: WriteTx, raw: unknown) => runLockedWrite(tx, raw, markSelectedReadCommand),
+	markAllVisibleRead: (tx: WriteTx, raw: unknown) => runLockedWrite(tx, raw, markAllVisibleReadCommand),
+	setPreferences: (tx: WriteTx, raw: unknown) => runLockedWrite(tx, raw, setPreferencesCommand),
+	setDigestCadence: (tx: WriteTx, raw: unknown) => runLockedWrite(tx, raw, setDigestCadenceCommand),
+	setOversightDigestCadence: (tx: WriteTx, raw: unknown) => runLockedWrite(tx, raw, setOversightDigestCadenceCommand),
 };
 export { readFeedPage } from "./feed.ts";
 export { getPreferences } from "./preferences.ts";

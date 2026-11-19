@@ -30,6 +30,7 @@ import {
 	saveCommitmentDocument,
 	signCommitmentDocument,
 } from "../../../../packages/domain/src/people/index.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -51,7 +52,7 @@ const today = (
 	await database.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`)
 ).rows[0].d;
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const tx = (body) => db.transaction(body);
+const tx = (body) => gatedTransaction(db, body);
 const key = () => randomUUID();
 const rows = async (query) => (await admin.execute(query)).rows;
 const count = async (table, personId) =>
@@ -256,7 +257,7 @@ function privateStorage() {
 	};
 	return { bucket: "synthetic-only", client: signer, uploads, reads };
 }
-const authorityOf = (who) => db.transaction((t) => RequestActor.resolve(t, actors[who].session));
+const authorityOf = (who) => gatedTransaction(db, (t) => RequestActor.resolve(t, actors[who].session));
 
 test("AC:GAP-PPL-014 AC:TARGET-PPL-014 AC:CA021 AC:TARGET-PPL-026 commitments: card and Core Group together; dated withdrawal and reactivation keep stage and first acquisition; corrections with history", async () => {
 	const alex = await person("Alex Rivera"),
@@ -990,14 +991,14 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 	const p = await person("Morgan Lee");
 	ok(await assess(p.id, day(1)));
 	ok(await interview(p.id, "qualified"));
-	const actor = await db.transaction((t) => RequestActor.resolve(t, actors[3].session));
+	const actor = await gatedTransaction(db, (t) => RequestActor.resolve(t, actors[3].session));
 	assert.ok(actor instanceof RequestActor);
 	const reads = {
 		getAssessments: (t, c) => assessments.getAssessments(t, c, { personId: p.id }),
 		getInterviews: (t, c) => interviews.getInterviews(t, c, { personId: p.id }),
 		getCommitments: (t, c) => commitments.getCommitments(t, c, { personId: p.id }),
 	};
-	const run = (read) => db.transaction((t) => read(t, new PeopleReadContext(actor)));
+	const run = (read) => gatedTransaction(db, (t) => read(t, new PeopleReadContext(actor)));
 	for (const read of Object.values(reads)) ok(await run(read));
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[3].id)}`);
 	try {

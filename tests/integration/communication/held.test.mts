@@ -14,6 +14,7 @@ import {
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, plant, owner;
 const ZONE = "America/Chicago";
@@ -26,7 +27,8 @@ const keys = {
 const DAY = 86_400_000;
 const key = () => randomUUID();
 const rows = async (query) => (await f.admin.execute(query)).rows;
-const read = (op, input, extra) => f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input, extra));
+const read = (op, input, extra) =>
+	gatedTransaction(f.db, (tx) => communicationWriter[op](tx, owner.actor, input, extra));
 
 function plantTime(weekday, hour, from = new Date()) {
 	const format = new Intl.DateTimeFormat("en-US", {

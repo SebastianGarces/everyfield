@@ -10,3 +10,7 @@ export const listMinistries = () => get("ministries");
 export const previewRoster = (meetingId: string) => get("roster", { meetingId });
 export const listVenues = (request: z.input<typeof listVenuesRequest>) => get("venues", request);
 export const getVenue = (venueId: string) => get("venue", { venueId });
+export const reloadMeeting = (meetingId: string) => get("meeting", { meetingId });
+export const visionReport = () => get("report");
+export const reloadCheckIn = (meetingId: string) => get("checkIn", { meetingId });
+export const evaluationHistory = (meetingId: string) => get("evaluations", { meetingId });
