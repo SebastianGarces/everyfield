@@ -105,16 +105,10 @@ export async function measure(name, body, options = {}) {
 			status = result?.status ?? "returned";
 			return result;
 		} finally {
-			const { first, last, steps, ...counts } = frame;
+			const { first, last, steps, ...measured } = frame;
+			const counts = measured.writes > 0 ? { ...measured, steps } : measured;
 			const label = options.byFirst && first ? frame.name + ":" + first : frame.name;
-			emit({
-				kind: "sample",
-				...counts,
-				...(counts.writes > 0 ? { steps } : {}),
-				name: label,
-				status,
-				ms: Math.round(performance.now() - started),
-			});
+			emit({ kind: "sample", ...counts, name: label, status, ms: Math.round(performance.now() - started) });
 		}
 	});
 }
