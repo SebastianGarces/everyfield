@@ -379,12 +379,15 @@ try {
 	};
 	const get = async (name, path, cookie, status = 200, headers = {}) => {
 		const r = await fetch(origin + path, {
-			headers: { ...headers, "x-evf-request": name, cookie },
+			headers: { ...headers, ...(name ? { "x-evf-request": name } : {}), cookie },
 			redirect: "manual",
 		});
-		await r.text();
+		const body = await r.text();
 		assert.equal(r.status, status, `${name}: HTTP ${r.status}`);
+		return body;
 	};
+	const read = async (name, path, what, input, cookie = owner.cookie) =>
+		JSON.parse(await get(name, `${path}?what=${what}&in=${readInput(input)}`, cookie));
 	const act = async (name, page, file, action, args, cookie = owner.cookie) => {
 		const r = await fetch(origin + page, {
 			method: "POST",
@@ -828,7 +831,7 @@ try {
 	]);
 	assert.equal(corrected.status, "ok", JSON.stringify(corrected));
 	careRevision = corrected.value.revision;
-	const olderWeeks = await act("POST intelligence.readCheckInHistory", "/me/check-in", care, "readCheckInHistory", [2]);
+	const olderWeeks = await read("GET /me/check-in/read?what=history", "/me/check-in/read", "history", { page: 2 });
 	assert.equal(olderWeeks.status, "ok", JSON.stringify(olderWeeks));
 
 	const sigs = "apps/web/src/features/intelligence/signals-actions.ts";
