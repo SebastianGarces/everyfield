@@ -36,7 +36,8 @@ import { KeyValue, KeyValueList, StageChip, StatusBadge } from "@everyfield/ui/d
 import Link from "next/link";
 import { useOptimistic, useRef, useState, type ComponentProps } from "react";
 import type { z } from "zod";
-import { reloadPerson, type Receipt } from "./actions.ts";
+import { type Receipt } from "./actions.ts";
+import { reloadPerson, loadPersonPage } from "./fetch.ts";
 import { ActivityCard, type Activities, type EntryFields, type Item } from "./ActivityCard.tsx";
 import { CLASSIFICATION_LABEL, SOURCE_LABEL, STAGE_KEY, STAGE_LABEL, withEntry } from "./model.ts";
 import type { Outcome } from "../../components/save/model.ts";
@@ -54,9 +55,9 @@ import { RecordsSection, type CorrectedRecord } from "./assessments/RecordsSecti
 import { EditRecordDialog } from "./corrections/EditRecordDialog.tsx";
 import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
 import { recordsIntent, recordsRead, unmergeRead } from "./corrections/intent.ts";
-import type { DuplicateHints as Hints } from "./corrections/server.ts";
+import type { DuplicateHints as Hints, PersonPage } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
-import { loadPersonPage, type PersonPage, type Unmerged } from "./corrections/actions.ts";
+import { type Unmerged } from "./corrections/actions.ts";
 import { Problem } from "./corrections/parts.tsx";
 import { PersonCommunication } from "../communication/PersonCommunication.tsx";
 import { PersonFollowUps } from "../followups/PersonFollowUps.tsx";

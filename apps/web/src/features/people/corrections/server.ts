@@ -17,6 +17,9 @@ import {
 } from "@everyfield/domain/people";
 import type { z } from "zod";
 import { defaultSurvivor, fieldText, type Households, type ListedPair, type MergeField } from "./model.ts";
+import type { PersonRecords } from "../assessments/model.ts";
+import type { PersonFields } from "../fields/model.ts";
+import { readPersonView, type Viewer } from "../server.ts";
 
 type Review = z.infer<typeof c.mergeReview>;
 type PersonResult = z.infer<typeof c.personResult>;
@@ -140,3 +143,25 @@ export async function readRecords(tx: Transaction, ctx: PeopleContext, personId:
 	};
 }
 export type Records = Extract<Awaited<ReturnType<typeof readRecords>>, { status: "ok" }>["value"];
+
+type PlantPerson = z.infer<typeof c.plantPerson>;
+export type PersonPage = {
+	person: PlantPerson;
+	activities: z.infer<typeof c.activitiesResult> | null;
+	fields: PersonFields | null;
+	records: PersonRecords | null;
+	duplicates: DuplicateHints | null;
+};
+export async function readPersonPageNow(v: Viewer, personId: PersonId): Promise<PersonPage | null> {
+	const r = await readPersonView(v, personId);
+	if (r.status !== "ok") return null;
+	const { found, activities, fields, records, duplicates } = r.value;
+	if (found.status !== "available" || !("stage" in found.person)) return null;
+	return {
+		person: found.person,
+		activities: activities?.status === "ok" ? activities.value : null,
+		fields,
+		records,
+		duplicates,
+	};
+}

@@ -19,7 +19,8 @@ import type { Wait } from "../../../components/save/model.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import { throughStore } from "../person.store.ts";
 import { LocalDay, usePersonState } from "../parts.tsx";
-import { loadAssessments, recordAssessment } from "./actions.ts";
+import { recordAssessment } from "./actions.ts";
+import { loadAssessments } from "../fetch.ts";
 import {
 	firstName,
 	LENS_LABEL,

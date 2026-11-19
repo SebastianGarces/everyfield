@@ -382,9 +382,12 @@ try {
 			headers: { ...headers, "x-evf-request": name, cookie },
 			redirect: "manual",
 		});
-		await r.text();
+		const body = await r.text();
 		assert.equal(r.status, status, `${name}: HTTP ${r.status}`);
+		return body;
 	};
+	const read = async (name, path, what, input, cookie = owner.cookie) =>
+		JSON.parse(await get(name, `${path}?what=${what}&in=${readInput(input)}`, cookie));
 	const act = async (name, page, file, action, args, cookie = owner.cookie) => {
 		const r = await fetch(origin + page, {
 			method: "POST",
@@ -606,9 +609,9 @@ try {
 		{ personId, name: "Hosts" },
 	]);
 	assert.deepEqual(tagReplay.value.tags, tagged.value.tags);
-	const skills = await act("POST people.fields.readSkills", page, fields, "readSkills", [personId]);
+	const skills = await read("GET /people/read?what=skills", "/people/read", "skills", { personId });
 	assert.equal(skills.value.length, 1);
-	const photo = await act("POST people.fields.readPhoto", page, fields, "readPhoto", [personId]);
+	const photo = await read("GET /people/read?what=photo", "/people/read", "photo", { personId });
 	assert.deepEqual(photo.value, { status: "absent" });
 	const tasked = await act("POST tasks.createTask", "/tasks", "apps/web/src/features/tasks/actions.ts", "createTask", [
 		randomUUID(),

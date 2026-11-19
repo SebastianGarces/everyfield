@@ -34,13 +34,8 @@ import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/s
 import { newerRevision, STAGE_LABEL } from "../model.ts";
 import { throughStore } from "../person.store.ts";
 import { LocalDay, usePersonState } from "../parts.tsx";
-import {
-	changeCommitment,
-	correctCommitment,
-	loadCommitments,
-	recordCommitment,
-	type CommitmentSaved,
-} from "./actions.ts";
+import { changeCommitment, correctCommitment, recordCommitment, type CommitmentSaved } from "./actions.ts";
+import { loadCommitments } from "../fetch.ts";
 import {
 	blankCommitment,
 	CorrectionDialog,
