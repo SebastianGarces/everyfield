@@ -1428,6 +1428,12 @@
 					}
 				]
 			}
+		},
+		{
+			"files": ["src/server/flags.types.ts"],
+			"rules": {
+				"typescript/ban-ts-comment": "off"
+			}
 		}
 	]
 }

@@ -9,7 +9,8 @@
 		"apps/web/scripts/render-share-images.mjs": "Image approvals hash these exact source bytes alongside the generated share images (.prettierignore)",
 		"apps/web/scripts/render-mesh-images.mjs": "Image approvals hash these exact source bytes alongside the generated mesh images (.prettierignore)",
 		"apps/web/src/marketing/logo-symbols.ts": "Image approvals hash these exact source bytes alongside the generated logo assets (.prettierignore)",
-		"tests/integration/documents/fixtures/format/**": "Fixtures moved from the retired doc-format prototype keep their bytes (.prettierignore)"
+		"tests/integration/documents/fixtures/format/**": "Fixtures moved from the retired doc-format prototype keep their bytes (.prettierignore)",
+		"apps/web/src/server/flags.types.ts": "The flag registry's type-level test (T-470): each TypeScript expect-error directive there is the assertion that a read of an unregistered flag, or a declaration missing a field, fails typecheck"
 	},
 	"configs": {
 		".oxlintrc.json": {
@@ -99,6 +100,9 @@
 				},
 				"src/features/intelligence/**": {
 					"everyfield/private-care-scope": "The intelligence feature owns the private-care tables and operations"
+				},
+				"src/server/flags.types.ts": {
+					"typescript/ban-ts-comment": "The flag registry's type-level test (T-470): each TypeScript expect-error directive there is the assertion that a read of an unregistered flag, or a declaration missing a field, fails typecheck"
 				}
 			}
 		},
