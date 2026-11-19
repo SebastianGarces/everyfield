@@ -16,7 +16,10 @@ export const asLogWord = (value: string): Checked => (WORD.test(value) ? value :
 export type ErrorClass = { readonly name: string; readonly code: string | null };
 
 export function errorClass(error: unknown): ErrorClass {
-	const name = !(error instanceof Error) ? typeof error : ERROR_NAME.test(error.name) ? error.name : "Error";
+	const named = [error instanceof Error ? error.name : null, (error as object | null)?.constructor?.name]
+		.filter((n): n is string => typeof n === "string" && n !== "Error" && ERROR_NAME.test(n))
+		.at(0);
+	const name = !(error instanceof Error) ? typeof error : (named ?? "Error");
 	let current: unknown = error;
 	for (let depth = 0; depth < 4 && current && typeof current === "object"; depth += 1) {
 		const code = (current as { code?: unknown }).code;

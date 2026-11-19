@@ -296,24 +296,41 @@ const pureModule = {
 export const LOG_MODULE = "packages/domain/src/log.ts";
 const LOGGED_CODE = /^(?:apps\/web\/src|packages\/domain\/src)\//;
 
+const CONSOLE_MODULES = new Set(["console", "node:console"]);
+const CONSOLE_HOSTS = new Set(["globalThis", "global", "self", "window"]);
+const PROCESS_STREAMS = new Set(["stdout", "stderr"]);
+
 const serverLog = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
 		if (path === LOG_MODULE || !LOGGED_CODE.test(path)) return {};
 		let client = false;
-		return {
-			Program(node) {
-				client = node.body.some((s) => s.type === "ExpressionStatement" && s.directive === "use client");
+		const report = (node) =>
+			client ||
+			context.report({
+				node,
+				message: `Log through ${LOG_MODULE} (logLine, logInfo, logFailure): it writes fixed words, numbers, checked ids and an error's class and code, never error text or row values.`,
+			});
+		const global = (node, names) => node?.type === "Identifier" && names.has(node.name) && !declared(context, node);
+		const processObject = (node) =>
+			global(node, new Set(["process"])) || (memberName(node) === "process" && global(node.object, CONSOLE_HOSTS));
+		return merge(
+			moduleSources((node, name) => CONSOLE_MODULES.has(name) && report(node)),
+			{
+				Program(node) {
+					client = node.body.some((s) => s.type === "ExpressionStatement" && s.directive === "use client");
+				},
+				Identifier(node) {
+					if (node.name === "console" && isValueReference(node) && !declared(context, node)) report(node);
+				},
+				MemberExpression(node) {
+					const name = memberName(node);
+					if (name === "console" && global(node.object, CONSOLE_HOSTS)) report(node);
+					if (PROCESS_STREAMS.has(name) && processObject(node.object)) report(node);
+				},
 			},
-			Identifier(node) {
-				if (client || node.name !== "console" || !isValueReference(node) || declared(context, node)) return;
-				context.report({
-					node,
-					message: `Log through ${LOG_MODULE} (logLine, logInfo, logFailure): it writes fixed words, numbers, checked ids and an error's class and code, never error text or row values.`,
-				});
-			},
-		};
+		);
 	},
 };
 

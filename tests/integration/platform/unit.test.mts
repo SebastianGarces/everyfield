@@ -49,7 +49,7 @@ test("INV-privacy: a failed statement's values and an error's text never reach t
 	assert.deepEqual(
 		lines.map((line) => JSON.parse(line)),
 		[
-			{ component: "people", outcome: "write_failed", error: { name: "Error", code: "23505" } },
+			{ component: "people", outcome: "write_failed", error: { name: "DrizzleQueryError", code: "23505" } },
 			{ component: "people", outcome: "read_failed", error: { name: "Error", code: null } },
 			{ component: "people", outcome: "thrown", error: { name: "string", code: null } },
 			{ component: "people", outcome: "named", error: { name: "Error", code: null } },

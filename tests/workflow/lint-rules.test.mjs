@@ -128,8 +128,20 @@ test("INV-privacy: server code logs only through the log module", () => {
 export const b = () => console.log("warm");
 const c = console;
 const { warn } = console;
-export const d = [c, warn];
+import nodeConsole from "node:console";
+import { error as err } from "console";
+export const e = () => globalThis.console.error("x");
+export const f = () => globalThis["console"].error("x");
+export const g = () => self.console.error("x");
+export const h = () => window.console.error("x");
+export const i = () => process.stderr.write("x");
+export const j = () => process.stdout.write("x");
+export const k = () => require("node:console");
+export const l = () => import("node:console");
+export const m = () => globalThis.process.stderr.write("x");
+export const d = [c, warn, nodeConsole, err];
 `;
+	const lines = Array.from({ length: 15 }, (_, n) => n + 1);
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/server.ts": reach,
@@ -138,16 +150,9 @@ export const d = [c, warn];
 			"packages/domain/src/log.ts": reach,
 			"tests/integration/x/reach.test.mts": reach,
 		}),
-		[
-			"apps/web/src/features/x/server.ts:1 server-log",
-			"apps/web/src/features/x/server.ts:2 server-log",
-			"apps/web/src/features/x/server.ts:3 server-log",
-			"apps/web/src/features/x/server.ts:4 server-log",
-			"packages/domain/src/people/reach.ts:1 server-log",
-			"packages/domain/src/people/reach.ts:2 server-log",
-			"packages/domain/src/people/reach.ts:3 server-log",
-			"packages/domain/src/people/reach.ts:4 server-log",
-		],
+		["apps/web/src/features/x/server.ts", "packages/domain/src/people/reach.ts"]
+			.flatMap((file) => lines.map((line) => `${file}:${line} server-log`))
+			.sort(),
 	);
 });
 
