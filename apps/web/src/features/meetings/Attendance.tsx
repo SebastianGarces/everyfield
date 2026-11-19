@@ -13,6 +13,7 @@ import {
 	CardInset,
 	CardTitle,
 	Checkbox,
+	Count,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -918,7 +919,13 @@ function EvaluationForm({
 					<p className="flex items-center justify-between gap-3 rounded-md bg-surface-2 px-4 py-3" aria-live="polite">
 						<span className="text-text-2">Average</span>
 						<span className="font-semibold text-ink tabular-nums">
-							{complete ? scoreText(averageOf(scores as Scores)) : `${8 - missing.length} of 8 scored`}
+							{complete ? (
+								scoreText(averageOf(scores as Scores))
+							) : (
+								<>
+									<Count value={8 - missing.length} /> of 8 scored
+								</>
+							)}
 						</span>
 					</p>
 					<Field

@@ -5,6 +5,7 @@ import { timeText } from "@everyfield/contracts/common";
 import { ArrowLeft01Icon, CheckListIcon, Tick02Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import {
 	Button,
+	Count,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -206,7 +207,7 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 					</div>
 					<StatusBadge status="positive" size="sm">
 						<span className="tabular-nums">
-							{here.length} of {guests.length}
+							<Count value={here.length} /> of <Count value={guests.length} />
 						</span>
 						<span className="sr-only"> checked in</span>
 					</StatusBadge>
