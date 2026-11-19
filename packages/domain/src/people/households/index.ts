@@ -56,7 +56,7 @@ const householdJson = (plant: string, id: SQL) =>
    'country',m.country)) FROM person m WHERE m.household_id=h.id AND m.tenant_id=h.plant_id AND m.state='live'),'[]'))
  FROM household h WHERE h.id=${id} AND h.plant_id=${plant}::uuid)`;
 function household(raw: unknown): Household {
-	if (!raw) deny();
+	if (!raw) deny("unavailable");
 	return householdRow.parse(raw);
 }
 async function readHousehold(tx: Tx, plant: string, id: string, visible: SQL = sql`true`): Promise<Household> {
@@ -124,7 +124,7 @@ export const households = {
  count(*) OVER ()::int AS total
  FROM household h WHERE g.allowed AND h.plant_id=${plant}::uuid AND strpos(lower(h.name),${term})>0
  ORDER BY lower(h.name),h.id LIMIT ${input.limit} OFFSET ${(input.page - 1) * input.limit}) x ON true`);
-			if (result.rows[0]?.allowed !== true) deny();
+			if (result.rows[0]?.allowed !== true) deny("unavailable");
 			const rows = z
 				.array(householdRow.omit({ members: true }).extend({ members: z.number(), total: z.number() }))
 				.parse(result.rows.filter((row) => row.id !== null));
