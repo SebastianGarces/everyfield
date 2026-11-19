@@ -23,7 +23,8 @@ import { useState, type ReactNode } from "react";
 import type { z } from "zod";
 import { Refusal, useIntent } from "../../../components/intent.ts";
 import { ProblemLine } from "../../organizations/parts";
-import { readRemovalReview, runSeatCommand } from "./actions";
+import { runSeatCommand } from "./actions";
+import { readRemovalReview } from "./fetch.ts";
 import type { Seat } from "./model";
 
 type Review = z.infer<typeof removalReviewResult>;

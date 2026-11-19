@@ -11,7 +11,7 @@ test("INV-spend: the Evry turn picks the scripted model only off Vercel, on any 
 		["local, paid and scripted", { ...PAID, ...SCRIPTED }, "evry-scripted"],
 		["local, paid", PAID, "gpt-6-luna"],
 		["local, neither", {}, null],
-		...["production", "preview", "development", "staging"].flatMap(
+		...["production", "preview", "development", "staging", ""].flatMap(
 			(vercel): [string, Record<string, string | undefined>, string | null][] => [
 				[`${vercel}, scripted`, { ...SCRIPTED, VERCEL_ENV: vercel }, null],
 				[`${vercel}, paid and scripted`, { ...PAID, ...SCRIPTED, VERCEL_ENV: vercel }, "gpt-6-luna"],

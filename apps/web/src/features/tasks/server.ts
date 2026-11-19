@@ -1,7 +1,6 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
-import type { Transaction } from "@everyfield/db/client";
-import type { RequestActor } from "@everyfield/domain/access";
+import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 import { followUpReader } from "@everyfield/domain/followups";
 import {
 	createTemplateReader,
@@ -15,6 +14,8 @@ import "server-only";
 import { HISTORY_PAGE, outcomeOf } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
 import { tasksMount } from "./mount.ts";
+import { logFailure } from "@everyfield/domain/log";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
 export type TaskViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
 const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
@@ -33,27 +34,27 @@ const outcome = <T>(reply: TaskReply<T>): Outcome<T> =>
 		? { status: "ok", value: reply.value }
 		: { status: "refused", code: reply.error.code, error: reply.error };
 
-export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
+export async function read<T>(run: (tx: WriteTx) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
 	try {
-		return await db.transaction(run);
+		return await gatedTransaction(db, run);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "tasks", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "tasks", outcome: "read_failed" }, error);
 		return { status: "lost" };
 	}
 }
 
 export async function write<T>(
 	viewer: TaskViewer,
-	run: (writer: TaskWriter, tx: Transaction, context: TaskContext) => Promise<TaskReply<T>>,
+	run: (writer: TaskWriter, tx: WriteTx, context: TaskContext) => Promise<TaskReply<T>>,
 ): Promise<Outcome<T>> {
 	const mount = tasksMount();
 	if (!mount) return { status: "lost" };
 	try {
 		return outcome(await withTaskWrite(mount.db, viewer.authority, (tx, ctx) => run(mount.writer, tx, ctx)));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "tasks", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "tasks", outcome: "write_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -61,18 +62,16 @@ export async function write<T>(
 export const templates = createTemplateReader();
 
 export const reader = {
-	offer: (tx: Transaction, v: TaskViewer, transitionId?: string) =>
+	offer: (tx: WriteTx, v: TaskViewer, transitionId?: string) =>
 		templates.readPhaseOffer(tx, v.authority, transitionId ? { transitionId } : {}).then(outcome),
-	list: (tx: Transaction, v: TaskViewer, q: TaskQuery) =>
-		taskReader.list(tx, v.authority, listRequest(q)).then(outcome),
-	count: (tx: Transaction, v: TaskViewer, q: TaskQuery) =>
-		taskReader.count(tx, v.authority, countRequest(q)).then(outcome),
-	get: (tx: Transaction, v: TaskViewer, taskId: string) => taskReader.get(tx, v.authority, { taskId }).then(outcome),
-	history: (tx: Transaction, v: TaskViewer, taskId: string, page = 1) =>
+	list: (tx: WriteTx, v: TaskViewer, q: TaskQuery) => taskReader.list(tx, v.authority, listRequest(q)).then(outcome),
+	count: (tx: WriteTx, v: TaskViewer, q: TaskQuery) => taskReader.count(tx, v.authority, countRequest(q)).then(outcome),
+	get: (tx: WriteTx, v: TaskViewer, taskId: string) => taskReader.get(tx, v.authority, { taskId }).then(outcome),
+	history: (tx: WriteTx, v: TaskViewer, taskId: string, page = 1) =>
 		taskReader.statusHistory(tx, v.authority, { taskId, page, limit: 50 }).then(outcome),
 };
 
-export async function loadTask(tx: Transaction, viewer: TaskViewer, taskId: string) {
+export async function loadTask(tx: WriteTx, viewer: TaskViewer, taskId: string) {
 	const found = await reader.get(tx, viewer, taskId);
 	if (found.status !== "ok") return found;
 	if (found.value.status !== "available") return { status: "refused", code: "unavailable" } as const;

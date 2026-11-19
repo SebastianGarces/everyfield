@@ -4,8 +4,8 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { sql } from "../../../packages/db/src/query.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
-import { RequestActor } from "../../../packages/domain/src/access/index.ts";
-import { executeWrites } from "../../../packages/domain/src/operations/writes.ts";
+import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/index.ts";
+import { executeWrites, gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
 import { resendRecorder } from "../communication/resend-recorder.mts";
@@ -89,8 +89,8 @@ async function connection() {
 	const church = owner.parse(await seed.organization("sending_church", { name: "First Church" }));
 	const m = organizationMount()!;
 	const session = sessionId.parse(actor.session);
-	const run = <T,>(body: (tx: Parameters<Parameters<typeof db.transaction>[0]>[0]) => Promise<T>) =>
-		m.db.transaction(async (tx) => {
+	const run = <T,>(body: (tx: WriteTx) => Promise<T>) =>
+		gatedTransaction(m.db, async (tx) => {
 			if (!(await RequestActor.claimWrite(tx, session, plant))) throw Error("unavailable");
 			return body(tx);
 		});
@@ -158,7 +158,7 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 		VALUES(${changer.id},'email_change',${hex()},${newAddress},clock_timestamp()+interval '1 hour')`);
 	const settings = settingsMail()!;
 	const correlationId = randomUUID();
-	await db.transaction(async (tx) => {
+	await gatedTransaction(db, async (tx) => {
 		const writes: Parameters<typeof executeWrites>[1][number][] = [];
 		await settings.deliverVerification(tx, { accountId: changer.id, address: newAddress, token: "t-" + hex() }, writes);
 		await settings.securityNotice(
@@ -171,7 +171,7 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 
 	const founder = await planter();
 	const onboarding = onboardingMount()!;
-	await onboarding.db.transaction((tx) =>
+	await gatedTransaction(onboarding.db, (tx) =>
 		onboarding.producer.createPlant(
 			tx,
 			{ session: founder.session, selected: { kind: "account", id: founder.id } } as never,
@@ -193,7 +193,7 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	const foreign = [`invitation/${randomUUID()}/1`];
 	const association = `association/${randomUUID()}/1/${reader.id}`;
 	for (const logicalKey of [...foreign, association])
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			permissive.enqueue(tx, {
 				owner: { kind: "account", id: reader.id },
 				purpose: "discovery_receipt",

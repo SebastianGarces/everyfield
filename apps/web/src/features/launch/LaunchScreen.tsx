@@ -58,11 +58,11 @@ import {
 	chooseGatheringPath,
 	completeMilestone,
 	postponeLaunch,
-	readGatheringOffers,
 	reopenMilestone,
 	saveGathering,
 	setLaunchDate,
 } from "./actions.ts";
+import { readGatheringOffers } from "./fetch.ts";
 import { DebriefCard, SummaryCard } from "./Debrief.tsx";
 import { GatheringCard, GatheringChoice, type Offers } from "./Gathering.tsx";
 import { LaunchHistory } from "./History.tsx";

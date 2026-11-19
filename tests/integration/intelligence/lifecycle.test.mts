@@ -18,13 +18,15 @@ import {
 	requestIntelligenceRefresh,
 	submitIntelligenceFeedback,
 } from "../../../packages/domain/src/oversight/intelligence.ts";
-import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/index.ts";
+import { deletionOperations } from "../../../packages/domain/src/settings/index.ts";
+import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { eligibleOwner } from "../../../packages/domain/src/tasks/owner.ts";
 import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
 import { runDuePurges } from "../../../apps/web/src/server/jobs/lifecycle-purge.ts";
 import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { ok, refused } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "./assessment-church.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let c0: Church;
 let clockMs = Date.now();
@@ -101,7 +103,7 @@ async function signIn(p: Plant): Promise<Plant> {
 async function requestDeletion(p: Plant) {
 	const { revision } = await c0.one(sql`SELECT revision::text AS revision FROM plant WHERE id=${p.id}`);
 	return ok(
-		await c0.db.transaction((tx) =>
+		await gatedTransaction(c0.db, (tx) =>
 			deletion.requestWorkspaceDeletion(
 				tx,
 				p.ctx as never,
@@ -112,13 +114,13 @@ async function requestDeletion(p: Plant) {
 }
 async function cancel(p: Plant, pending: { subject: unknown; requestId: string; revision: string }) {
 	const request = { subject: pending.subject, requestId: pending.requestId };
-	const handle = await c0.db.transaction((tx) =>
+	const handle = await gatedTransaction(c0.db, (tx) =>
 		issueRestrictedDeletionSession(tx, request as never, async () => ({
 			accountId: p.owner.id,
 			provenAt: new Date(Date.now() - 1000),
 		})),
 	);
-	return c0.db.transaction((tx) =>
+	return gatedTransaction(c0.db, (tx) =>
 		deletion.cancelWorkspaceDeletion(tx, handle, command(request, pending.revision) as never),
 	);
 }
@@ -126,7 +128,7 @@ async function share(s: Portfolio, p: Plant, category: string, enabled: boolean)
 	const a = await c0.one(sql`SELECT revision::text AS revision,consent_revision::text AS consent FROM affiliation
 		WHERE id=${p.affiliation}`);
 	const organization = { kind: "organization", id: s.s1.id, organizationKind: "sending_network" };
-	await c0.db.transaction((tx) =>
+	await gatedTransaction(c0.db, (tx) =>
 		sharing["privacy.setSharing"](
 			tx,
 			p.owner.session as never,
@@ -176,7 +178,7 @@ test("AC:TEN-007 after A's account deletion and its purge, P keeps A's shared re
 	);
 	const { revision } = await c0.one(sql`SELECT revision::text AS revision FROM account WHERE id=${a.id}`);
 	const pending = ok(
-		await c0.db.transaction((tx) =>
+		await gatedTransaction(c0.db, (tx) =>
 			deletion.requestAccountDeletion(
 				tx,
 				{ session: a.session, selected: { kind: "account", id: a.id } } as never,

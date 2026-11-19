@@ -17,6 +17,7 @@ import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { phaseNotices } from "../../../apps/web/src/features/phases/notices.ts";
 import { ok, refused } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, writer, onboarding;
 let faultyNotices = false;
@@ -44,7 +45,7 @@ async function church(name = "Harvest Point") {
 	await f.admin.execute(sql`UPDATE account SET registration_kind='planter' WHERE id=${a.id}`);
 	const create = { requestKey: randomUUID(), expectedRevision: "1", input: { name, confirmed: true } };
 	const run = () =>
-		f.db.transaction((tx) =>
+		gatedTransaction(f.db, (tx) =>
 			onboarding.createPlant(tx, { session: a.session, selected: { kind: "account", id: a.id } }, create),
 		);
 	const created = ok(await run());
@@ -242,13 +243,13 @@ test("AC:PHASE-CASE-001 two Admins declaring at the same moment leave exactly on
 test("AC:DC-022 onboarding and the journey view share one declaration slot", async () => {
 	const { plant, owner } = await church();
 	const ctx = { session: owner.session, selected: plant };
-	const resume = ok(await f.db.transaction((tx) => onboarding.getResume(tx, ctx, {})));
+	const resume = ok(await gatedTransaction(f.db, (tx) => onboarding.getResume(tx, ctx, {})));
 	const journey = {
 		requestKey: randomUUID(),
 		expectedRevision: resume.revision,
 		input: { journey: { answer: "existing", phase: 2 }, launch: { answer: "no_date" } },
 	};
-	const saved = ok(await f.db.transaction((tx) => onboarding.declareJourney(tx, ctx, journey)));
+	const saved = ok(await gatedTransaction(f.db, (tx) => onboarding.declareJourney(tx, ctx, journey)));
 	assert.equal(saved.currentPhase, 2);
 	refused(await declare(owner, 3, saved.revision), "already_declared");
 	const h = ok(await history(owner));
@@ -269,7 +270,7 @@ test("AC:DC-022 onboarding and the journey view share one declaration slot", asy
 		expectedRevision: moved.state.revision,
 		input: { journey: { answer: "existing", phase: 4 }, launch: { answer: "no_date" } },
 	};
-	refused(await f.db.transaction((tx) => onboarding.declareJourney(tx, octx, late)), "already_declared");
+	refused(await gatedTransaction(f.db, (tx) => onboarding.declareJourney(tx, octx, late)), "already_declared");
 });
 
 test("AC:PHASE-CASE-009 phases are integers 0 to 6, reasons are trimmed and the reserved sentence is refused", async () => {
@@ -493,7 +494,7 @@ test("AC:CASE-NTF-009 a phase notice mails no organization seat that has not acc
 	const mailRows = await rows(sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m
 		JOIN notice n ON n.id=m.notice_id JOIN phase_transition t ON t.id=n.source_record_id WHERE t.plant_id=${plant.id}`);
 	assert.equal(mailRows.length, 1);
-	const allowed = () => f.db.transaction((tx) => authorizePhaseNotices(tx, mailRows));
+	const allowed = () => gatedTransaction(f.db, (tx) => authorizePhaseNotices(tx, mailRows));
 	assert.equal((await allowed()).size, 1);
 	await f.admin.execute(sql`UPDATE seat SET accepted_at=clock_timestamp()+interval '1 day'
 		WHERE account_id=${linked.owner.id} AND organization_id=${linked.org.id}`);

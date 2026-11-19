@@ -3,18 +3,16 @@
 import { headers } from "next/headers";
 import { receiveAccessRequest } from "@everyfield/domain/early-access";
 import { trustedIdentityIp } from "@everyfield/domain/identity";
-import { HONEYPOT, type AccessRequestFields, type AccessRequestKind, type AccessRequestResult } from "./contract";
+import { HONEYPOT, type AccessRequestResult } from "./contract";
 import { FIELD_NAMES, LAST_STEP, afterReply, back, isWho, kindOf, next, requestFields, type FormState } from "./steps";
+import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
 
-export async function submitAccessRequest(
-	kind: AccessRequestKind,
-	fields: AccessRequestFields,
-): Promise<AccessRequestResult> {
-	const ip = trustedIdentityIp({ headers: await headers() }, process.env.VERCEL === "1");
+export async function submitAccessRequest(kind: unknown, fields: unknown): Promise<AccessRequestResult> {
+	const ip = trustedIdentityIp({ headers: await headers() }, trustsVercelForwardedFor(process.env));
 	return receiveAccessRequest(kind, fields, ip);
 }
 
-export async function stepAccessForm(_: FormState, data: FormData): Promise<FormState> {
+export async function stepAccessForm(_: unknown, data: FormData): Promise<FormState> {
 	const str = (k: string) => {
 		const v = data.get(k);
 		return typeof v === "string" ? v : undefined;

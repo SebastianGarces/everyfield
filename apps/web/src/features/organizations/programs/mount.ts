@@ -5,6 +5,7 @@ import { readEnrollment, readProgram, readPrograms } from "@everyfield/domain/or
 import "server-only";
 import { requestDatabase } from "../../../server/database";
 import { pipelineActor } from "../pipeline-mount";
+import { logFailure } from "@everyfield/domain/log";
 
 export type ProgramAnswer<T> = ProgramReply<T> | { status: "lost" };
 
@@ -23,7 +24,7 @@ export async function programCall<T>(
 	try {
 		return await run(db, actor);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "programs", outcome: "failed", error: String(error) }));
+		logFailure({ component: "programs", outcome: "failed" }, error);
 		return { status: "lost" };
 	}
 }

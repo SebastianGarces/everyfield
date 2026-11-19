@@ -17,7 +17,9 @@ import { Button, Checkbox, SegmentedControl, Skeleton, StatePanel } from "@every
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
 import { useId, useMemo, useState } from "react";
 import { createRead, useRead } from "../../../../components/read.tsx";
-import { acceptTemplateChanges, compareWithTemplate, type CompareResult } from "../actions.ts";
+import { acceptTemplateChanges } from "../actions.ts";
+import type { CompareResult } from "../../read.ts";
+import { compareWithTemplate } from "../../fetch.ts";
 import { blockLabel, PAPER_LABEL } from "../labels.ts";
 import { editorExtensions, type FieldValues } from "./extensions.ts";
 import { paletteVars } from "./paper.ts";

@@ -1,10 +1,14 @@
 import { getViewer } from "@/server/request-context";
+import { listVenuesRequest } from "@everyfield/contracts/meetings";
+import { attendanceReader, rosterReader, venuesReader } from "@everyfield/domain/meetings";
 import { searchPeople } from "@everyfield/domain/people";
 import "server-only";
 import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
 import { read as readPeople } from "../people/server.ts";
+import { readMinistries } from "../teams/server.ts";
 import type { Outcome } from "./model.ts";
+import { loadCheckIn, loadMeeting, loadReport, outcome, read } from "./server.ts";
 
 const PEOPLE_FOUND = 8;
 
@@ -20,6 +24,28 @@ export const GET = defineReads(
 				if (r.status === "refused") return { status: "refused", code: r.error.code };
 				return { status: "ok", value: r.value };
 			},
+		),
+		ministries: get(z.undefined(), (viewer) => readMinistries(viewer)),
+		roster: get(z.strictObject({ meetingId: z.string() }), async (viewer, v) =>
+			outcome(await read(viewer, (db, a) => rosterReader.previewRosterImport(db, a, v))),
+		),
+		venues: get(listVenuesRequest, async (viewer, request) =>
+			outcome(await read(viewer, (db, a) => venuesReader.list(db, a, request))),
+		),
+		venue: get(z.strictObject({ venueId: z.string() }), async (viewer, v) =>
+			outcome(await read(viewer, (db, a) => venuesReader.get(db, a, v))),
+		),
+		meeting: get(z.strictObject({ meetingId: z.string() }), async (viewer, v) => ({
+			status: "ok" as const,
+			value: await loadMeeting(viewer, v.meetingId),
+		})),
+		report: get(z.undefined(), async (viewer) => ({ status: "ok" as const, value: await loadReport(viewer) })),
+		checkIn: get(z.strictObject({ meetingId: z.string() }), async (viewer, v) => ({
+			status: "ok" as const,
+			value: await loadCheckIn(viewer, v.meetingId),
+		})),
+		evaluations: get(z.strictObject({ meetingId: z.string() }), async (viewer, v) =>
+			outcome(await read(viewer, (db, a) => attendanceReader.evaluationHistory(db, a, v))),
 		),
 	}),
 );

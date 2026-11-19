@@ -159,7 +159,7 @@ States:
 agent-browser open "$ORIGIN/intelligence/attestations"
 agent-browser wait --load networkidle
 agent-browser find role region text --name "Prayer" --exact
-agent-browser find text "Answer" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Answer\")"
 agent-browser find role button text --name "Record a candidate" --exact
 ! agent-browser find role button text --name "Update"
 ```
@@ -192,6 +192,7 @@ agent-browser wait --text "Answer saved."
 My weekly check-in: four private answers each week, only the author sees them, with a twelve-week strip to correct.
 
 - Routes: `/me/check-in`
+- Endpoints: `/me/check-in/read`
 - Personas: `owner` write, `admin` write, `member` none
 - Catalog: PI-038, PI-039, PI-040, PI-041
 

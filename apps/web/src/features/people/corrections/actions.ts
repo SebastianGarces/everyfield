@@ -1,6 +1,5 @@
 "use server";
 
-import { personId } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
 import {
 	dismissDuplicatePair,
@@ -9,83 +8,25 @@ import {
 	recordCorrections,
 	restoreDuplicatePair,
 } from "@everyfield/domain/people";
-import { z } from "zod";
+import type { z } from "zod";
 import { boundary, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../../../components/save/model.ts";
-import { read, readPersonView, write, type Viewer } from "../server.ts";
-import type { PersonFields } from "../fields/model.ts";
-import type { PersonRecords } from "../assessments/model.ts";
-import {
-	readPair,
-	readRecords,
-	readUnmerge,
-	type DuplicateHints,
-	type PairView,
-	type Records,
-	type UnmergeView,
-} from "./server.ts";
-
-type PlantPerson = z.infer<typeof c.plantPerson>;
-const pairRequest = z.strictObject({ person: personId, with: personId, keep: personId.nullable() });
-
-export async function reviewPair(query: unknown): Promise<Outcome<PairView>> {
-	return boundary(pairRequest, query, async (v, q): Promise<Outcome<PairView>> => {
-		const r = await read(v, async (tx, ctx) => ({ status: "ok", value: await readPair(tx, ctx, q) }));
-		return r.status === "ok" ? { status: "ok", value: r.value } : { status: "lost" };
-	});
-}
+import { write } from "../server.ts";
+import { readPersonPageNow, type PersonPage } from "./page.ts";
 
 export type PairChange = z.infer<typeof c.duplicatePairChange>;
 export async function dismissPair(input: unknown): Promise<Outcome<PairChange>> {
-	return boundary(c.duplicatePairRequest, input, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => dismissDuplicatePair(tx, ctx, request)), (r) => r),
-	);
+	return boundary(async (v) => outcome(await write(v, (tx, ctx) => dismissDuplicatePair(tx, ctx, input)), (r) => r));
 }
 export async function restorePair(input: unknown): Promise<Outcome<PairChange>> {
-	return boundary(c.duplicatePairRequest, input, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => restoreDuplicatePair(tx, ctx, request)), (r) => r),
-	);
+	return boundary(async (v) => outcome(await write(v, (tx, ctx) => restoreDuplicatePair(tx, ctx, input)), (r) => r));
 }
 
 export type Merged = z.infer<typeof c.mergeResult>;
 export async function mergePair(requestKey: string, input: unknown): Promise<Outcome<Merged>> {
-	return boundary(c.mergePeopleRequest, { requestKey, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => peopleMerge.mergePeople(tx, ctx, request)), (r) => r),
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => peopleMerge.mergePeople(tx, ctx, { requestKey, input })), (r) => r),
 	);
-}
-
-export async function mergeDestination(sourceId: string): Promise<Outcome<z.infer<typeof c.mergedPersonDestination>>> {
-	return boundary(c.mergedPersonDestinationRequest, { personId: sourceId }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => peopleMerge.mergedPersonDestination(tx, ctx, request)), (r) => r),
-	);
-}
-
-export async function unmergePreview(mergeId: string): Promise<Outcome<UnmergeView>> {
-	return boundary(c.unmergePreviewRequest, { mergeId }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => readUnmerge(tx, ctx, request.mergeId)), (r) => r),
-	);
-}
-
-type PersonId = z.infer<typeof c.personRequest>["personId"];
-export type PersonPage = {
-	person: PlantPerson;
-	activities: z.infer<typeof c.activitiesResult> | null;
-	fields: PersonFields | null;
-	records: PersonRecords | null;
-	duplicates: DuplicateHints | null;
-};
-async function readPersonPageNow(v: Viewer, personId: PersonId): Promise<PersonPage | null> {
-	const r = await readPersonView(v, personId);
-	if (r.status !== "ok") return null;
-	const { found, activities, fields, records, duplicates } = r.value;
-	if (found.status !== "available" || !("stage" in found.person)) return null;
-	return {
-		person: found.person,
-		activities: activities?.status === "ok" ? activities.value : null,
-		fields,
-		records,
-		duplicates,
-	};
 }
 
 export type Unmerged = { result: z.infer<typeof c.unmergeResult>; receipt: Receipt; page: PersonPage | null };
@@ -94,25 +35,17 @@ export async function unmergePair(
 	expectedRevision: string,
 	mergeId: string,
 ): Promise<Outcome<Unmerged>> {
-	return boundary(c.unmergePeopleRequest, { requestKey, expectedRevision, input: { mergeId } }, async (v, request) => {
-		const done = outcome(await write(v, (tx, ctx) => peopleUnmerge.unmergePeople(tx, ctx, request)), (r) => r);
+	return boundary(async (v) => {
+		const done = outcome(
+			await write(v, (tx, ctx) =>
+				peopleUnmerge.unmergePeople(tx, ctx, { requestKey, expectedRevision, input: { mergeId } }),
+			),
+			(r) => r,
+		);
 		if (done.status !== "ok") return done;
 		const page = await readPersonPageNow(v, done.value.survivorId).catch(() => null);
 		return { status: "ok", value: { result: done.value, receipt: receipt(done.value), page } };
 	});
-}
-
-export async function loadPersonPage(personId: string): Promise<Outcome<PersonPage>> {
-	return boundary(c.personRequest, { personId }, async (v, request): Promise<Outcome<PersonPage>> => {
-		const page = await readPersonPageNow(v, request.personId).catch(() => null);
-		return page ? { status: "ok", value: page } : { status: "lost" };
-	});
-}
-
-export async function loadRecords(id: string): Promise<Outcome<Records>> {
-	return boundary(c.personRequest, { personId: id }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => readRecords(tx, ctx, request.personId)), (r) => r),
-	);
 }
 
 export type Corrected = { result: z.infer<typeof c.correctionResult>; receipt: Receipt };
@@ -121,10 +54,15 @@ export async function correctRecord(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<Corrected>> {
-	return boundary(c.correctPersonRecordRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => recordCorrections.correctPersonRecord(tx, ctx, request)), (r) => ({
-			result: r,
-			receipt: receipt(r),
-		})),
+	return boundary(async (v) =>
+		outcome(
+			await write(v, (tx, ctx) =>
+				recordCorrections.correctPersonRecord(tx, ctx, { requestKey, expectedRevision, input }),
+			),
+			(r) => ({
+				result: r,
+				receipt: receipt(r),
+			}),
+		),
 	);
 }

@@ -672,11 +672,9 @@ export async function checkFeatureMaps(root: string, options: CheckOptions): Pro
 				for (const item of [...steps, ...observables.map((o) => ({ expect: o }))]) {
 					if ("expect" in item) {
 						const o = (item as { expect: Observable }).expect;
-						const waits = "url" in o || "noText" in o || ("text" in o && o.match === "contains");
+						const waits = "url" in o || "noText" in o || "text" in o;
 						if (acted && !waits)
-							problems.push(
-								at(`${where}: ${s} polls, so the check after "${acted}" must wait (URL, noText or contains text)`),
-							);
+							problems.push(at(`${where}: ${s} polls, so the check after "${acted}" must wait (URL, noText or text)`));
 						acted = null;
 					} else if (!("type" in item)) {
 						if (acted)
@@ -882,9 +880,14 @@ function command(step: Step | Observable): string {
 	if ("url" in step) return `agent-browser wait --url ${q("**" + step.url.replace(/\{[A-Za-z]+\}/g, "*"))}`;
 	if ("role" in step) return `agent-browser find role ${step.role} text --name ${q(step.name)}${exact(step)}`;
 	return (step.match ?? "exact") === "exact"
-		? `agent-browser find text ${q(step.text)} text --exact`
+		? `agent-browser wait --fn ${q(visibleTextIs(step.text))}`
 		: `agent-browser wait --text ${q(step.text)}`;
 }
+
+const visibleTextIs = (text: string) =>
+	"((x,l=[])=>/json/.test(document.contentType)" +
+	"?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x))" +
+	`:[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(${q(text)})`;
 
 function commands(steps: Step[], expect: Observable[] = [], polls = false): string[] {
 	return [
@@ -1153,8 +1156,15 @@ function overviewDoc(maps: LoadedMap[], personas: Record<string, Persona>, pendi
 		"The network-idle wait suits pages that go quiet after each action. On a page that keeps fetching (for example",
 		"`/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there. Such a",
 		"surface sets `polls` to say what keeps fetching: its commands get no network-idle wait, and the checker requires the",
-		"check after each open, click, press or upload to be one that waits (a URL, `noText`, or `contains` text, printed as",
-		"`wait --url`, `wait --fn` and `wait --text`).",
+		"check after each open, click, press or upload to be one that waits (a URL, `noText` or text, printed as `wait --url`,",
+		"`wait --fn` and `wait --text`).",
+		"",
+		"Text checks refuse text that has no box or is not painted: text under `display: none` or `visibility: hidden`",
+		"(such as a message waiting for a press) does not count. Text that is rendered but visually hidden still counts:",
+		"screen-reader-only (`sr-only`), zero-size, off-screen, clipped, `opacity: 0` or `font-size: 0` text matches. A",
+		"`contains` check waits for the page's rendered text to include its words (`wait --text`). An exact check waits for",
+		"an element whose whole rendered text is its words, or, on a bare JSON response, for a JSON value equal to them",
+		"(`wait --fn`).",
 		"",
 		"## Changing a feature, and the review proof",
 		"",

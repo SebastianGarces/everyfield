@@ -31,6 +31,7 @@ import {
 	actor,
 	admin,
 	db,
+	gatedWriter,
 	people,
 	plant,
 	otherPlant,
@@ -41,6 +42,7 @@ import {
 	teardown,
 	work,
 } from "./support.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 before(setup);
 after(teardown);
@@ -112,12 +114,10 @@ async function events(who: EvryActor, id: string) {
 test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded pages report the exact total, partial completeness and the next page; the 24-tool budget stops truthfully", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner, "Show all people and tell me the exact total.");
-	const started = performance.now();
 	assert.equal(await work(), "succeeded");
-	const seconds = (performance.now() - started) / 1000;
-	const firstCard = await admin.execute(
-		sql`SELECT extract(epoch FROM (SELECT min(created_at) FROM conversation_event WHERE conversation_id=${id} AND kind='tool_result') - (SELECT created_at FROM conversation_event WHERE conversation_id=${id} AND kind='user_message'))::float s`,
-	);
+	const since = (kind: string, pick: "min" | "max") =>
+		sql`extract(epoch FROM (SELECT ${sql.raw(pick)}(created_at) FROM conversation_event WHERE conversation_id=${id} AND kind=${kind}) - (SELECT created_at FROM conversation_event WHERE conversation_id=${id} AND kind='user_message'))::float`;
+	const timing = await admin.execute(sql`SELECT ${since("tool_result", "min")} card, ${since("status", "max")} turn`);
 	const { cards, text, status } = await events(owner, id);
 	const total = (await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant} AND state='live'`))
 		.rows[0]!.n;
@@ -136,8 +136,8 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.deepEqual([status.state, status.reason, status.usage.toolCalls], ["completed", "completed", 1]);
 	console.log(
 		JSON.stringify({
-			turnSeconds: Number(seconds.toFixed(2)),
-			submitToFirstCardSeconds: Number(firstCard.rows[0]!.s.toFixed(2)),
+			submitToEndSeconds: Number(timing.rows[0]!.turn.toFixed(2)),
+			submitToFirstCardSeconds: Number(timing.rows[0]!.card.toFixed(2)),
 		}),
 	);
 
@@ -492,13 +492,20 @@ test("INV-spend-limit: every paid model call reserves its byte-bounded worst cas
 
 	const one = await reservation("Show all people.");
 	const cap = (await charged()) + one + Math.floor(one / 2);
-	const slow = [0, 1, 2].map(() => priced(cap, () => new Promise((r) => setTimeout(r, 300))));
+	const turns: Promise<unknown>[] = [];
+	let reachedModel = 0;
+	const slow = [0, 1, 2].map((i) =>
+		priced(cap, async () => {
+			if (++reachedModel === 1) await Promise.all(turns.filter((_, j) => j !== i));
+		}),
+	);
 	const ids = [
 		await ask(owner, "Show all people."),
 		await ask(owner, "Show all people."),
 		await ask(owner, "Show all people."),
 	];
-	await Promise.all(slow.map((m) => work(m.model)));
+	turns.push(...slow.map((m) => work(m.model)));
+	await Promise.all(turns);
 	assert.deepEqual(slow.map((m) => Math.min(m.calls(), 1)).toSorted(), [0, 0, 1]);
 	const ends = await Promise.all(ids.map(async (c) => (await events(owner, c)).status));
 	assert.equal(ends.filter((e) => e.error?.code === "model_unavailable").length >= 2, true);
@@ -856,45 +863,14 @@ test("AC:EVRY-RETRY-CANCEL two transient model retries with 1 s then 3 s backoff
 
 test("AC:INH-CROSS-08 AC:EVRY-RETRY-CANCEL INV-run-fence cancel stops model work and new tools at the next save; a run without its lease cannot publish", async () => {
 	const owner = await actor("owner");
-	const base = scriptedModel();
-	const slow: LanguageModelV4 = {
-		...base,
-		async doStream(options) {
-			if (options.responseFormat?.type === "json") return base.doStream(options);
-			const words = Array.from({ length: 40 }, (_, n) => `word${n} `);
-			return {
-				stream: new ReadableStream({
-					async start(c) {
-						c.enqueue({ type: "text-start", id: "t" });
-						for (const delta of words) {
-							if (options.abortSignal?.aborted) return c.error(options.abortSignal.reason);
-							c.enqueue({ type: "text-delta", id: "t", delta });
-							await new Promise((r) => setTimeout(r, 100));
-						}
-						c.enqueue({ type: "text-end", id: "t" });
-						c.enqueue({
-							type: "finish",
-							finishReason: { unified: "stop", raw: undefined },
-							usage: {
-								inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-								outputTokens: { total: 1, text: 1, reasoning: 0 },
-							},
-						});
-						c.close();
-					},
-				}),
-			};
-		},
-	};
+	const slow = gatedWriter(Array.from({ length: 40 }, (_, n) => `word${n} `));
 	const id = await ask(owner, "Write a long overview of the people list.");
-	const running = work(qualified(slow));
-	for (
-		let n = 0;
-		n < 100 && !(await readConversation(db, owner, id)).events.some((e) => e.kind === "assistant_text");
-		n++
-	)
-		await new Promise((r) => setTimeout(r, 50));
+	const running = work(slow.model);
+	slow.release();
+	for await (const e of observeConversation(db, owner, id, 0, AbortSignal.timeout(5_000)))
+		if (e.kind === "assistant_text") break;
 	assert.equal((await cancelTurn(db, owner, id)).cancelled, true);
+	slow.release(Infinity);
 	assert.equal(await running, "lost");
 	const saved = (await readConversation(db, owner, id)).events;
 	assert.equal(saved.at(-1)!.kind, "status");
@@ -1072,9 +1048,10 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	const racing = {
 		...listPeople,
 		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
-			const started = performance.now();
-			await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${who.accountId}`);
-			assert.ok(performance.now() - started < 2_000, "the seat end does not wait for the read");
+			await admin.transaction(async (t) => {
+				await t.execute(sql`SELECT 1 FROM seat WHERE account_id=${who.accountId} FOR NO KEY UPDATE NOWAIT`);
+				await t.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${who.accountId}`);
+			});
 			return listPeople.invoke(tx, who, input);
 		},
 	};
@@ -1093,9 +1070,10 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	const signOut = {
 		...listPeople,
 		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
-			const started = performance.now();
-			await admin.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`);
-			assert.ok(performance.now() - started < 2_000, "sign-out does not wait for the read");
+			await admin.transaction(async (t) => {
+				await t.execute(sql`SELECT 1 FROM auth_session WHERE id=${accounts.owner.session} FOR UPDATE NOWAIT`);
+				await t.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`);
+			});
 			return listPeople.invoke(tx, who, input);
 		},
 	};
@@ -1114,7 +1092,7 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	await invokeRead(db, owner, listPeople, find);
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
 	const plain = queries.length;
-	await db.transaction((tx) => listPeople.invoke(tx, owner, find));
+	await gatedTransaction(db, (tx) => listPeople.invoke(tx, owner, find));
 	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 1);
 });
 
