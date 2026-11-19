@@ -202,6 +202,7 @@ type SheetProps = {
 	children: ReactNode;
 	size?: keyof typeof SHEET_WIDTH;
 	onOpenAutoFocus?: (event: Event) => void;
+	onCloseAutoFocus?: (event: Event) => void;
 	onEscapeKeyDown?: (event: KeyboardEvent) => void;
 	bodyRef?: Ref<HTMLDivElement>;
 };
@@ -224,11 +225,12 @@ export function Sheet({
 	children,
 	size = "md",
 	onOpenAutoFocus,
+	onCloseAutoFocus,
 	onEscapeKeyDown,
 	bodyRef,
 }: SheetProps) {
 	const container = usePortalContainer();
-	const focus = useReturnFocus({ onOpenAutoFocus });
+	const focus = useReturnFocus({ onOpenAutoFocus, onCloseAutoFocus });
 	const phone = useMediaQuery("(width < 640px)");
 	const content = {
 		"aria-modal": modal ? ("true" as const) : undefined,

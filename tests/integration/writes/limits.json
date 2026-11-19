@@ -137,9 +137,6 @@
 	"GET /tasks/follow-ups": {
 		"limit": 5
 	},
-	"GET /tasks/read?what=blocking": {
-		"limit": 4
-	},
 	"GET /tasks/read?what=rows": {
 		"limit": 4
 	},
@@ -155,7 +152,7 @@
 	"POST notifications.markSelectedRead": {
 		"limit": 6
 	},
-	"POST communication.readMeetingContext": {
+	"GET /communication/read?what=context": {
 		"limit": 2
 	},
 	"POST people.addNote": {
@@ -191,10 +188,10 @@
 		"limit": 7,
 		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt runs the gate and its reads and meets the stored key at its write; one read then answers the stored result (RT-6b). The first attempt is the established write (people.addSkill, 6 with the session lookup). Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
 	},
-	"POST people.fields.readPhoto": {
+	"GET /people/read?what=photo": {
 		"limit": 4
 	},
-	"POST people.fields.readSkills": {
+	"GET /people/read?what=skills": {
 		"limit": 4
 	},
 	"POST people.updatePerson": {
@@ -219,9 +216,8 @@
 	"POST settings.brand.removeAsset": {
 		"limit": 2
 	},
-	"POST settings.brand.suggestColors": {
-		"limit": 10,
-		"reason": "The action only reads, but budgets.mjs counts every POST as a write. The session lookup, then suggestColors (9) in the domain: the kit and file select and the statements of readAuthorizedObject. The action adds only the session lookup. Its largest first run: 4 transaction, 2 locked read, 4 read."
+	"GET /settings/read?what=colors": {
+		"limit": 10
 	},
 	"PUT /api/brand/assets/[id]": {
 		"limit": 14,
@@ -278,7 +274,7 @@
 	"POST intelligence.correctCheckIn": {
 		"limit": 2
 	},
-	"POST intelligence.readCheckInHistory": {
+	"GET /me/check-in/read?what=history": {
 		"limit": 2
 	},
 	"accountPerson.ensureAccountPerson": {

@@ -1,5 +1,4 @@
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
-import type { Transaction } from "@everyfield/db/client";
 import { consentOperations } from "./consent.ts";
 export { readPipelineConsents } from "./consent.ts";
 import type { OrganizationEffects, RelationshipNotice } from "./core.ts";
@@ -12,7 +11,7 @@ import { sharingOperations } from "./sharing.ts";
 export function createOrganizationAdapter(
 	effects: OrganizationEffects,
 	geography: GeographyReference,
-): OrganizationAdapter<Transaction> {
+): OrganizationAdapter<WriteTx> {
 	return {
 		...relationshipCommands(effects),
 		...sharingOperations(effects),
@@ -56,6 +55,7 @@ export {
 	readVersionReviews,
 	searchReadings,
 } from "./programs.ts";
+import type { WriteTx } from "../access/session.ts";
 export { geographyReference, installGeographyRelease, readReportingLocation, suggestRegions } from "./geography.ts";
 export { pipelineDataWriter, readPipelineExport } from "./data.ts";
 export { readMyResidency, readResidentReading, residentWriter } from "./residency.ts";

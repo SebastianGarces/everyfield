@@ -57,6 +57,7 @@ export function stated(
 	entry: SignalEntry,
 	change: { value: SignalValue; asOf: string; detail: string; reference: string },
 	today: string,
+	recordedAt: string,
 	authorName: string | null,
 ): SignalEntry {
 	const age = Math.max(0, daysBetween(change.asOf, today));
@@ -68,13 +69,13 @@ export function stated(
 		detail: change.detail.trim() || null,
 		reference: change.reference.trim() || null,
 		authorName,
-		recordedAt: new Date().toISOString() as SignalEntry["recordedAt"],
+		recordedAt: recordedAt as SignalEntry["recordedAt"],
 		revision: String(BigInt(entry.revision) + 1n) as SignalEntry["revision"],
 		ageDays: age,
 		renewal: renewalOf(entry.key, "answered", age),
 	};
 }
-export function retracted(entry: SignalEntry, authorName: string | null): SignalEntry {
+export function retracted(entry: SignalEntry, recordedAt: string, authorName: string | null): SignalEntry {
 	return {
 		...entry,
 		state: "retracted",
@@ -82,17 +83,23 @@ export function retracted(entry: SignalEntry, authorName: string | null): Signal
 		detail: null,
 		reference: null,
 		authorName,
-		recordedAt: new Date().toISOString() as SignalEntry["recordedAt"],
+		recordedAt: recordedAt as SignalEntry["recordedAt"],
 		revision: String(BigInt(entry.revision) + 1n) as SignalEntry["revision"],
 		ageDays: null,
 		renewal: { status: "unknown" },
 	};
 }
-export function reaffirmed(entry: SignalEntry, today: string, authorName: string | null): SignalEntry {
+export function reaffirmed(
+	entry: SignalEntry,
+	today: string,
+	recordedAt: string,
+	authorName: string | null,
+): SignalEntry {
 	return stated(
 		entry,
 		{ value: entry.value!, asOf: today, detail: entry.detail ?? "", reference: entry.reference ?? "" },
 		today,
+		recordedAt,
 		authorName,
 	);
 }

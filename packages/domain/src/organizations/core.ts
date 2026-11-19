@@ -1,5 +1,5 @@
 import { writeAction } from "../operations/actions.ts";
-import { RequestActor, requestWrite } from "../access/session.ts";
+import { RequestActor, requestWrite, type WriteTx } from "../access/session.ts";
 import { sessionId } from "@everyfield/contracts/common";
 import {
 	accountId,
@@ -19,7 +19,7 @@ import {
 } from "@everyfield/contracts/organizations";
 import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
-import { and, eq, getTableColumns, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
+import { and, eq, getTableColumns, sql, type SQL, type SQLWrapper, type SqlLiteral } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { currentActor } from "@everyfield/domain/access";
 import { createHash, randomUUID } from "node:crypto";
@@ -45,7 +45,7 @@ export function checkRevision(expected: string, actual: string) {
 	if (expected !== actual) refuse("stale_revision");
 }
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
-export async function writeActor(tx: Transaction, session: string, selected: Owner) {
+export async function writeActor(tx: WriteTx, session: string, selected: Owner) {
 	const bound = requestWrite(tx) ?? (await RequestActor.claimWrite(tx, sessionId.parse(session), selected));
 	if (!bound || bound.authority.session !== session || !sameOwner(bound.selected, selected)) refuse();
 	return bound.actor;
@@ -87,11 +87,11 @@ const receivingOrganization = alias(tables.organization, "receiving_organization
 const sendingOrganization = alias(tables.organization, "sending_organization");
 export type Reader = Pick<Transaction, "select" | "execute">;
 const organizationFirst = sql<boolean>`EXISTS(SELECT FROM organization o WHERE o.id=${tables.affiliation.organization_id} FOR NO KEY UPDATE)`;
-const linkLive = (a: string) => {
-	const c = (column: string) => sql.raw(`${a}.${column}`);
+const linkLive = <AName extends string>(a: SqlLiteral<AName>) => {
+	const c = <ColumnName extends string>(column: SqlLiteral<ColumnName>) => sql.raw(`${a}.${column}`);
 	return sql<boolean>`(NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.state NOT IN ('active','cancelled') AND (w.affiliation_id=${c("id")} OR (w.opaque_subject_id IN (${c("organization_id")},${c("plant_id")},${c("account_id")},${c("sending_church_id")}) AND w.kind IN ('account','plant','organization')))) AND (${c("account_id")} IS NULL OR EXISTS(SELECT FROM discovery d WHERE d.account_id=${c("account_id")} AND d.converted_at IS NULL)))`;
 };
-export const linkActive = (a: string) =>
+export const linkActive = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql<boolean>`(${sql.raw(a)}.ended_at IS NULL AND ${sql.raw(a)}.accepted_at<=clock_timestamp() AND ${linkLive(a)})`;
 export async function loadAffiliations(tx: Reader, predicate: SQL, write = false) {
 	const live = linkLive("affiliation");
@@ -175,7 +175,7 @@ export type RelationshipNotice = {
 	operationId: string;
 };
 type Command = { requestKey: string; expectedRevision: string; input: unknown };
-export async function beginCommand(tx: Transaction, actor: Actor, selected: Owner, name: string, command: Command) {
+export async function beginCommand(tx: WriteTx, actor: Actor, selected: Owner, name: string, command: Command) {
 	const identity = requestIdentity.parse({
 		owner: selected,
 		actorId: actor.accountId,
@@ -192,7 +192,7 @@ export async function beginCommand(tx: Transaction, actor: Actor, selected: Owne
 	return { kind: "new" as const, id: claim.id, identity, writes: claim.writes, events: claim.events };
 }
 export type NewCommand = Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>;
-export async function finishCommand<T>(tx: Transaction, c: NewCommand, result: () => T): Promise<T> {
+export async function finishCommand<T>(tx: WriteTx, c: NewCommand, result: () => T): Promise<T> {
 	const output = result();
 	await finishAudit(tx, c, c.identity, output);
 	return output;

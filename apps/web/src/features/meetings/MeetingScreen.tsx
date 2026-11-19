@@ -59,12 +59,12 @@ import {
 	completePractice,
 	correctOccurrence,
 	correctPractice,
-	reloadMeeting,
 	correctEvaluation,
 	recordEvaluation,
 	saveOwnRsvp,
 	settleAttendance,
 } from "./actions.ts";
+import { reloadMeeting } from "./fetch.ts";
 import {
 	AttendanceCard,
 	attendanceAfter,

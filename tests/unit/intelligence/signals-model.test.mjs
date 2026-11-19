@@ -18,6 +18,7 @@ import {
 import { MANUAL_SIGNALS } from "../../../docs/reference/manual-signals.ts";
 
 const TODAY = "2026-10-13";
+const AT = "2026-10-13T15:00:00.000Z";
 const blank = (key) => ({
 	key,
 	state: "unanswered",
@@ -56,12 +57,12 @@ test("INV-signals: an answer shows at once, counts follow, and a refusal puts th
 	const entry = before.signals.find((s) => s.key === "prayer_in_gatherings");
 	const optimistic = withSignal(
 		before,
-		stated(entry, { value: "yes", asOf: "2026-10-01", detail: " Weekly ", reference: "" }, TODAY, "Daniel"),
+		stated(entry, { value: "yes", asOf: "2026-10-01", detail: " Weekly ", reference: "" }, TODAY, AT, "Daniel"),
 	);
 	const shown = optimistic.signals.find((s) => s.key === entry.key);
 	assert.deepEqual(
-		[shown.state, shown.value, shown.detail, shown.ageDays, shown.revision],
-		["answered", "yes", "Weekly", 12, "1"],
+		[shown.state, shown.value, shown.detail, shown.ageDays, shown.revision, shown.recordedAt],
+		["answered", "yes", "Weekly", 12, "1", AT],
 	);
 	assert.deepEqual(optimistic.counts, { current: 1, needsRenewing: 0, notAnswered: 6 });
 	assert.deepEqual(withSignal(optimistic, entry).counts, before.counts);
@@ -72,12 +73,13 @@ test("INV-signals: a retraction reads Retracted and Unknown, never no; Still tru
 		blank("core_group_giving"),
 		{ value: "not_yet", asOf: "2026-08-01", detail: "", reference: "" },
 		TODAY,
+		AT,
 		"Daniel",
 	);
 	assert.equal(answered.renewal.status, "needs_renewing");
-	assert.equal(reaffirmed(answered, TODAY, "Daniel").ageDays, 0);
-	assert.equal(reaffirmed(answered, TODAY, "Daniel").value, "not_yet");
-	const gone = retracted(answered, "Daniel");
+	assert.equal(reaffirmed(answered, TODAY, AT, "Daniel").ageDays, 0);
+	assert.equal(reaffirmed(answered, TODAY, AT, "Daniel").value, "not_yet");
+	const gone = retracted(answered, AT, "Daniel");
 	assert.deepEqual(
 		[answerLabel(gone), gone.value, gone.renewal.status, actionLabel(gone)],
 		["Retracted", null, "unknown", "Answer"],
@@ -91,6 +93,7 @@ test("INV-signals: saving needs a choice; the same value is not a correction; ca
 		blank("systems_tested"),
 		{ value: "yes", asOf: TODAY, detail: "", reference: "" },
 		TODAY,
+		AT,
 		"D",
 	);
 	assert.equal(intent(blank("systems_tested"), { value: null }), "none");
@@ -120,6 +123,7 @@ test("BUG-PR551 (signals/com-16): a cleared True as of date is left out of the r
 		blank("prayer_rhythm_established"),
 		{ ...draft, asOf: statedAsOf(draft, TODAY) },
 		TODAY,
+		AT,
 		"Daniel Reyes",
 	);
 	assert.deepEqual([shown.asOf, shown.ageDays, shown.detail], [TODAY, 0, "Thursdays"]);

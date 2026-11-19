@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import { PATH_HEADER } from "@/proxy";
+import { EMAIL_CHANGE_PROOF_COOKIE, PATH_HEADER } from "@/proxy";
 import { getViewer } from "@/server/request-context";
 import { instant } from "@everyfield/contracts/common";
 import { confirmEmailChange } from "./actions";
@@ -31,10 +31,11 @@ export async function SettingsIndexPage() {
 
 export async function sectionSeed(viewer: SettingsViewer | null): Promise<SectionSeed | null> {
 	const section = sectionAt((await headers()).get(PATH_HEADER) ?? "", viewer);
-	if (viewer && section === "brand" && offeredSections(viewer, []).includes("brand")) return { brand: readBrand() };
+	if (viewer && section === "brand" && offeredSections(viewer, []).includes("brand"))
+		return { brand: getViewer().then(readBrand) };
 	const request = viewer && section ? sectionRequest(viewer, section) : null;
 	if (!request) return null;
-	return { request, value: readSection(request) };
+	return { request, value: getViewer().then((session) => readSection(session, request)) };
 }
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -68,12 +69,9 @@ export const confirmEmailMetadata: Metadata = {
 	referrer: "no-referrer",
 };
 
-export async function ConfirmEmailPage({ searchParams }: { searchParams: Search }) {
-	const token = one((await searchParams).token);
+export async function ConfirmEmailPage() {
 	const v = await getViewer();
-	if (!v || v.status === "unauthenticated") {
-		const back = token ? `/confirm-email?token=${encodeURIComponent(token)}` : "/confirm-email";
-		redirect(`/signin?returnTo=${encodeURIComponent(back)}`);
-	}
-	return <ConfirmEmailScreen proof={token} confirm={confirmEmailChange} accountHref="/settings/account" />;
+	if (!v || v.status === "unauthenticated") redirect("/signin?returnTo=%2Fconfirm-email");
+	const proof = (await cookies()).get(EMAIL_CHANGE_PROOF_COOKIE)?.value ?? null;
+	return <ConfirmEmailScreen proof={proof} confirm={confirmEmailChange} accountHref="/settings/account" />;
 }

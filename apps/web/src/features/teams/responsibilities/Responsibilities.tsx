@@ -36,11 +36,9 @@ import {
 	completeResponsibility,
 	deleteResponsibility,
 	editResponsibility,
-	listResponsibilities,
 	offerResponsibilities,
-	previewResponsibilities,
-	readTeamRevision,
 } from "./actions.ts";
+import { listResponsibilities, previewResponsibilities, readTeamRevision } from "../fetch.ts";
 
 type Page = z.infer<typeof c.responsibilityPage>;
 type Item = Page["items"][number];

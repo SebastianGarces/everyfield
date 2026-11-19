@@ -53,12 +53,9 @@ import { cn, Icon, observeIntersection, type IconSvgElement } from "@everyfield/
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
-import {
-	markAssessmentSeen,
-	resolveAssessmentCitation,
-	submitAssessmentFeedback,
-	type ActionOutcome,
-} from "./assessment-actions.ts";
+import { markAssessmentSeen, submitAssessmentFeedback } from "./assessment-actions.ts";
+import type { ActionOutcome } from "./assessment-model.ts";
+import { resolveAssessmentCitation } from "./fetch.ts";
 import {
 	coldStartTitle,
 	CRITERION,

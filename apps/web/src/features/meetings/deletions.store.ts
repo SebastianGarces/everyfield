@@ -1,6 +1,7 @@
 import { toast } from "@everyfield/ui/controls";
 import { createStore } from "zustand/vanilla";
-import { deleteMeeting, reloadMeeting } from "./actions.ts";
+import { deleteMeeting } from "./actions.ts";
+import { reloadMeeting } from "./fetch.ts";
 import { sendTwice } from "../../components/save/model.ts";
 import { problemText } from "./model.ts";
 

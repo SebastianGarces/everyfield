@@ -4,10 +4,12 @@ import type { MeetingsContext } from "@everyfield/domain/meetings";
 import { documentsReader } from "@everyfield/domain/documents";
 import { attendanceReader, meetingsReader, withMeetingsWrite } from "@everyfield/domain/meetings";
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import "server-only";
 import { isFiltered, listRequest, NEXT_REQUEST, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
 import { canWrite } from "../../components/seat-role.ts";
+import { logFailure } from "@everyfield/domain/log";
+import type { WriteTx } from "@everyfield/domain/access";
 
 type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
 export type Viewer = Peopled;
@@ -23,21 +25,21 @@ export async function read<T>(
 	try {
 		return await run(db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "meetings", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }
 
 export async function write<T>(
 	viewer: Viewer,
-	run: (tx: Transaction, context: MeetingsContext) => Promise<MeetingsReply<T>>,
+	run: (tx: WriteTx, context: MeetingsContext) => Promise<MeetingsReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
 	try {
 		return outcome(await withMeetingsWrite(db, viewer.authority, run));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "meetings", outcome: "write_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -96,7 +98,7 @@ async function readAgendaTemplate(viewer: Viewer, meetingId: string) {
 		const reply = await documentsReader["templates.contextual"](db, viewer.authority, { meetingId });
 		return reply.status === "ok" ? (reply.value.templates[0]?.id ?? null) : null;
 	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "agenda_template_failed", error: String(error) }));
+		logFailure({ component: "meetings", outcome: "agenda_template_failed" }, error);
 		return null;
 	}
 }

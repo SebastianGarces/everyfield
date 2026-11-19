@@ -9,6 +9,7 @@ import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/se
 import { createOnboardingProducer, withOnboardingWrite, readOnboardingEntry } from "@everyfield/domain/onboarding";
 import { getViewer } from "../../server/request-context";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../../server/jobs/mail";
+import type { WriteTx } from "@everyfield/domain/access";
 
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
 type Reply = { status: "ok"; value: unknown } | { status: "refused"; error: z.infer<typeof c.onboardingError> };
@@ -88,10 +89,9 @@ export function onboardingMount() {
 	return mount;
 }
 
-export async function onboardingEntry() {
+export async function onboardingEntry(session: Awaited<ReturnType<typeof getViewer>>) {
 	const m = onboardingMount();
 	if (!m) return { kind: "elsewhere", reason: "unavailable" } as const;
-	const session = await getViewer();
 	if (!session) return { kind: "elsewhere", reason: "unavailable" } as const;
 	return readOnboardingEntry(m.db, m.producer, session, session.authority, session.verified);
 }
@@ -112,10 +112,8 @@ export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> 
 	});
 	const account = write({ kind: "account", id: s.accountId });
 	const p = m.producer;
-	const run = (
-		context: OnboardingWriteContext,
-		body: (tx: Parameters<Parameters<Database["transaction"]>[0]>[0]) => Promise<Reply>,
-	) => withOnboardingWrite(m.db, s.authority ?? undefined, context, body);
+	const run = (context: OnboardingWriteContext, body: (tx: WriteTx) => Promise<Reply>) =>
+		withOnboardingWrite(m.db, s.authority ?? undefined, context, body);
 	switch (op) {
 		case "createPlant": {
 			const q = c.createPlantRequest.safeParse(input);

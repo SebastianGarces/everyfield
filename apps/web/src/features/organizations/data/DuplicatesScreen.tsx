@@ -20,7 +20,8 @@ import type { z } from "zod";
 import { blockerText, counted, FIELD_LABEL, fieldText, type Columns } from "../../people/corrections/model";
 import { PIPELINE_PATH } from "../board/model";
 import { Problem } from "../../../components/Problem.tsx";
-import { mergePeople, reviewMerge, undoMerge } from "./actions";
+import { mergePeople, undoMerge } from "./actions";
+import { reviewMerge } from "../board/fetch";
 
 type Pairs = z.infer<typeof organizationDuplicatePairs>;
 type Pair = Pairs["items"][number];

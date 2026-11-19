@@ -20,6 +20,7 @@ import { pipelineDataWriter } from "../../../packages/domain/src/organizations/d
 import { pipelineWriter, readPipelineBoard } from "../../../packages/domain/src/organizations/pipeline.ts";
 import { seeds } from "../../support/fixture.mts";
 import { fixture, key } from "./invitations-support.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, seed, associations;
 const proofs = new Map();
@@ -57,7 +58,7 @@ after(() => f?.close());
 const command = (input, expectedRevision) => ({ requestKey: key(), expectedRevision, input });
 const authority = (who) => f.actor(who.session);
 const relate = (name, who, input) =>
-	f.db.transaction(async (tx) => {
+	gatedTransaction(f.db, async (tx) => {
 		if (!(await RequestActor.claimWrite(tx, who.session, who.selected))) throw Error("unavailable");
 		return associations[name](tx, who.session, who.selected, input);
 	});

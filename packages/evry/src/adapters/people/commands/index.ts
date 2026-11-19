@@ -1,4 +1,3 @@
-import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
 import { contactColumns, peopleWriter, personFields } from "@everyfield/domain/people";
 import type { TaskReminders } from "@everyfield/domain/tasks";
@@ -15,6 +14,7 @@ import {
 import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 export const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -37,7 +37,7 @@ function reviewed<I, R extends z.ZodType>(spec: {
 	review(actor: EvryActor, input: I): SQL;
 	request: R;
 	run(
-		tx: Transaction,
+		tx: WriteTx,
 		context: PeopleContext,
 		request: z.output<R>,
 		reminders: TaskReminders,

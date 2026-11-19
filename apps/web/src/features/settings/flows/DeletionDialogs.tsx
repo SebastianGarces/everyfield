@@ -16,7 +16,7 @@ import {
 import { useState } from "react";
 import type { DeletionStatus, FlowPort, SectionResult } from "../port";
 import { useWrite } from "../save";
-import { SaveError } from "../SettingsDialog";
+import { SaveError } from "../SaveError";
 import { useFlows } from "../store";
 
 type PlantSection = Extract<SectionResult, { section: "plant" }>;

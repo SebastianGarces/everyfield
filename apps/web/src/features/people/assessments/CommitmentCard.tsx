@@ -30,17 +30,13 @@ import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useOptimistic, useRef, useState, useTransition } from "react";
 import type { Outcome } from "../../../components/save/model.ts";
+import { localToday } from "../../../components/clock.ts";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import { newerRevision, STAGE_LABEL } from "../model.ts";
 import { throughStore } from "../person.store.ts";
 import { LocalDay, usePersonState } from "../parts.tsx";
-import {
-	changeCommitment,
-	correctCommitment,
-	loadCommitments,
-	recordCommitment,
-	type CommitmentSaved,
-} from "./actions.ts";
+import { changeCommitment, correctCommitment, recordCommitment, type CommitmentSaved } from "./actions.ts";
+import { loadCommitments } from "../fetch.ts";
 import {
 	blankCommitment,
 	CorrectionDialog,
@@ -56,7 +52,6 @@ import {
 	advancedStage,
 	firstName,
 	KIND_LABEL,
-	today,
 	withCard,
 	withRecord,
 	type Commitment,
@@ -344,14 +339,18 @@ export function CommitmentCard({
 										<MenuItem
 											icon={UserRemove01Icon}
 											danger
-											onSelect={() => dialog.open({ form: "withdraw", draft: { effectiveOn: today(), reason: "" } })}
+											onSelect={() =>
+												dialog.open({ form: "withdraw", draft: { effectiveOn: localToday(), reason: "" } })
+											}
 										>
 											Withdraw commitment
 										</MenuItem>
 									) : (
 										<MenuItem
 											icon={UserCheck01Icon}
-											onSelect={() => dialog.open({ form: "reactivate", draft: { effectiveOn: today(), reason: "" } })}
+											onSelect={() =>
+												dialog.open({ form: "reactivate", draft: { effectiveOn: localToday(), reason: "" } })
+											}
 										>
 											Reactivate commitment
 										</MenuItem>

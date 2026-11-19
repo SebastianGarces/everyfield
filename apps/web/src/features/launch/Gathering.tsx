@@ -29,7 +29,8 @@ import {
 	toast,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
-import type { chooseGatheringPath, readGatheringOffers, saveGathering } from "./actions.ts";
+import type { chooseGatheringPath, saveGathering } from "./actions.ts";
+import type { readGatheringOffers } from "./fetch.ts";
 import {
 	GATHERING_MESSAGE,
 	longDate,

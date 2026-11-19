@@ -4,7 +4,7 @@ import { Download04Icon, HierarchyIcon } from "@hugeicons/core-free-icons";
 import { Button, EmptyState, IntentLink, Switch, toast } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { useState } from "react";
-import { exportChart } from "./actions.ts";
+import { exportChart } from "./fetch.ts";
 import type { ChartNode } from "./model.ts";
 import { LeaderLine, TeamIcon } from "./parts.tsx";
 
