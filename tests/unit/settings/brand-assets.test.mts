@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { test } from "node:test";
+import { recordId } from "../../../packages/contracts/src/common/values.ts";
 import { ASSET_MAX_BYTES } from "../../../packages/contracts/src/branding/values.ts";
 import {
 	ALT_REQUIRED,
@@ -166,7 +167,7 @@ test("AC:CASE-BRD-006 the preview places the stored assets and keeps the type fa
 	const kit = await kitOf(port());
 	const none = themeOf("Harvest Point Church", formOf(kit), "formal/legal", kit.assets).layout;
 	assert.equal(none.documentClass === "formal/legal" && none.headerLogo, null);
-	const ref = (alt: string) => ({ fileId: randomUUID(), alt });
+	const ref = (alt: string) => ({ fileId: recordId.parse(randomUUID()), alt });
 	const assets = {
 		...kit.assets,
 		full_logo: ref("Logo"),

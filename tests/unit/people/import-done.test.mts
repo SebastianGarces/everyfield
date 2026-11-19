@@ -69,12 +69,13 @@ test("BUG-PR551 (people/peo-7): a partial Done screen lists every row that did n
 		["Skipped", 1],
 		["Did not save", 3],
 		["Needed a fix", 1],
-	])
+	] as const)
 		assert.match(page, new RegExp(`${label} ${value} `), label);
 
 	const list = html.match(/<ul aria-label="Rows not imported"[^>]*>(.*?)<\/ul>/s);
 	assert.ok(list, "the Rows not imported list shows");
-	const items = [...list[1].matchAll(/<li[^>]*>(.*?)<\/li>/gs)].map((m) => text(m[1]));
+	const [, rows = ""] = list;
+	const items = [...rows.matchAll(/<li[^>]*>(.*?)<\/li>/gs)].map(([, item = ""]) => text(item));
 	assert.deepEqual(items, [
 		"Row 2 Needs a fix Add a first or last name",
 		"Row 3 Not saved Could not be saved. Try it again.",

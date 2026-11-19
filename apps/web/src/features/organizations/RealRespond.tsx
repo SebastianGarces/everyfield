@@ -3,13 +3,13 @@
 import * as C from "@everyfield/contracts/organizations";
 import { Button, Card, Skeleton } from "@everyfield/ui/controls";
 import { useMemo } from "react";
-import { currentOneTimeLinkValue, useOneTimeLinkValue } from "../../components/location.ts";
+import { currentOneTimeLinkValue, spendOneTimeLinkValue, useOneTimeLinkValue } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
 import { AuthFrame, AuthHeading } from "../identity/AuthFrame";
 import { readRelationshipInvitation } from "./invitation/client.ts";
 import type { RelationshipInvitationRead } from "./invitation/handler.ts";
 import { InvitationResponse } from "./InvitationResponse";
-import type { Invitation } from "./port";
+import type { Invitation, Run } from "./port";
 import { createNames, realRun } from "./real";
 
 type State =
@@ -32,6 +32,12 @@ function stateOf(read: RelationshipInvitationRead, invitationId: string): State 
 		zone: read.zone,
 	};
 }
+
+const answer: Run = (operation, input) =>
+	realRun(operation, input).then((reply) => {
+		spendOneTimeLinkValue("connections/respond");
+		return reply;
+	});
 
 const invitations = createRead(
 	(invitationId: string) =>
@@ -78,7 +84,7 @@ export function RealRespond({ invitationId }: { invitationId: string | null }) {
 						proof={state.kind === "invitation" ? proof : ""}
 						nameOf={names.nameOf}
 						zone={state.kind === "invitation" ? state.zone : "UTC"}
-						run={realRun}
+						run={answer}
 						connectionsHref="/settings/sharing"
 					/>
 				)}

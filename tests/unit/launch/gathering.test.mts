@@ -9,33 +9,37 @@ const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement } = web("react");
 const { AppRouterContext } = web("next/dist/shared/lib/app-router-context.shared-runtime");
 const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {} };
+import { recordId } from "../../../packages/contracts/src/common/values.ts";
+import { plan as launchPlan, type Plan } from "../../../packages/contracts/src/launch/index.ts";
+import type { Offers } from "../../../apps/web/src/features/launch/Gathering.tsx";
 const { GatheringCard, GatheringChoice } = await import("../../../apps/web/src/features/launch/Gathering.tsx");
 
-const text = (element) =>
+const text = (element: unknown) =>
 	renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router }, element))
 		.replace(/<[^>]+>/g, " ")
 		.replace(/&#x27;/g, "'")
 		.replace(/\s+/g, " ")
 		.trim();
-const HILL = "00000000-0000-4000-8000-0000000000a1";
-const plan = (path) => ({
-	today: "2026-10-12",
-	timeZone: "America/Chicago",
-	launch: null,
-	path,
-	revision: "1",
-	milestones: [],
-	outcome: null,
-	guests: { count: 0, named: [] },
-	evidence: {
-		guestNamesEntered: { status: "unknown", remaining: null },
-		debriefDone: { status: "unknown" },
-		submittedAt: null,
-	},
-	debrief: { draft: null, submitted: null },
-	summary: { draft: null, published: [] },
-	preparation: { launched: false, daysToLaunch: null, unfilledRoles: null, outstandingTraining: null },
-});
+const HILL = recordId.parse("00000000-0000-4000-8000-0000000000a1");
+const plan = (path: unknown): Plan =>
+	launchPlan.parse({
+		today: "2026-10-12",
+		timeZone: "America/Chicago",
+		launch: null,
+		path,
+		revision: "1",
+		milestones: [],
+		outcome: null,
+		guests: { count: 0, named: [] },
+		evidence: {
+			guestNamesEntered: { status: "unknown", remaining: null },
+			debriefDone: { status: "unknown" },
+			submittedAt: null,
+		},
+		debrief: { draft: null, submitted: null },
+		summary: { draft: null, published: [] },
+		preparation: { launched: false, daysToLaunch: null, unfilledRoles: null, outstandingTraining: null },
+	});
 const milestone = {
 	kind: "milestone",
 	organizationId: HILL,
@@ -49,7 +53,7 @@ const act = {
 	offers: async () => null,
 };
 const keys = { keyFor: () => "k", settle() {} };
-const screen = (p, offers, admin = true) =>
+const screen = (p: Plan, offers: Offers, admin = true) =>
 	text(
 		createElement(
 			"div",
@@ -60,8 +64,8 @@ const screen = (p, offers, admin = true) =>
 			createElement(GatheringChoice, { act, plan: p, offers: admin ? offers : null, keys, onPlan() {}, onOffers() {} }),
 		),
 	);
-const lost = { status: "lost" };
-const offered = {
+const lost: Offers = { status: "lost" };
+const offered: Offers = {
 	status: "ok",
 	value: [
 		{
