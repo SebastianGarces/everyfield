@@ -832,7 +832,7 @@ try {
 	]);
 	assert.equal(corrected.status, "ok", JSON.stringify(corrected));
 	careRevision = corrected.value.revision;
-	const olderWeeks = await act("POST intelligence.readCheckInHistory", "/me/check-in", care, "readCheckInHistory", [2]);
+	const olderWeeks = await read("GET /me/check-in/read?what=history", "/me/check-in/read", "history", { page: 2 });
 	assert.equal(olderWeeks.status, "ok", JSON.stringify(olderWeeks));
 
 	const sigs = "apps/web/src/features/intelligence/signals-actions.ts";
