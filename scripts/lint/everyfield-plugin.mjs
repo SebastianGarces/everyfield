@@ -1512,16 +1512,17 @@ const noCursorUtility = ratcheted("no-cursor-utility", (context, push) => {
 const jsxName = (name) =>
 	name?.type === "JSXIdentifier" ? name.name : name?.type === "JSXMemberExpression" ? jsxName(name.property) : null;
 
+const childNodes = (node) =>
+	Object.entries(node)
+		.filter(([key]) => key !== "parent" && key !== "loc" && key !== "range")
+		.flatMap(([, v]) => (Array.isArray(v) ? v : [v]))
+		.filter((v) => v && typeof v.type === "string");
+
 function stringsIn(node, out = []) {
 	if (!node || typeof node !== "object") return out;
 	if (node.type === "Literal" && typeof node.value === "string") out.push(node.value);
 	else if (node.type === "TemplateElement") out.push(node.value.cooked ?? node.value.raw);
-	for (const key of Object.keys(node))
-		if (key !== "parent" && key !== "loc" && key !== "range") {
-			const v = node[key];
-			if (Array.isArray(v)) v.forEach((c) => stringsIn(c, out));
-			else if (v && typeof v.type === "string") stringsIn(v, out);
-		}
+	for (const child of childNodes(node)) stringsIn(child, out);
 	return out;
 }
 
@@ -1549,12 +1550,7 @@ function identifiersIn(node, out = []) {
 		if (!node.computed && node.property.type === "Identifier") out.push(`.${node.property.name}`);
 		return out;
 	}
-	for (const key of Object.keys(node))
-		if (key !== "parent" && key !== "loc" && key !== "range") {
-			const v = node[key];
-			if (Array.isArray(v)) v.forEach((c) => identifiersIn(c, out));
-			else if (v && typeof v.type === "string") identifiersIn(v, out);
-		}
+	for (const child of childNodes(node)) identifiersIn(child, out);
 	return out;
 }
 

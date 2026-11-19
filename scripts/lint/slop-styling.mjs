@@ -1,9 +1,9 @@
 export const SCOPE = /^(?:apps\/web\/src\/features\/|packages\/ui\/src\/)/;
 
-export const LABEL_UTILITY = "section-label";
-export const LABEL_TRACKING = "var(--ef-label-tracking)";
+const LABEL_UTILITY = "section-label";
+const LABEL_TRACKING = "var(--ef-label-tracking)";
 
-export const APPROVED_SURFACES = {
+const APPROVED_SURFACES = {
 	"ef-insight": "the gradient card surface (InsightCard)",
 	"ef-scroll-fade": "the fade mask at the end of a scrolling list",
 	"ef-top-fade": "the fade under the sticky top bar",
@@ -14,31 +14,29 @@ export const APPROVED_SURFACES = {
 	'[data-ef-node="spacer"]': "the hatched fill that marks an empty spacer block in the document editor",
 };
 
-export const BEIGE_HEX = new Set(
-	[
-		"f5f5dc",
-		"f6f0e9",
-		"faf0e6",
-		"fdf5e6",
-		"fff8dc",
-		"faebd7",
-		"ffebcd",
-		"ffefd5",
-		"ffe4c4",
-		"f5deb3",
-		"d2b48c",
-		"eee8d5",
-		"f5f0e8",
-		"f4ecd8",
-		"efe6d8",
-		"ede4d3",
-		"e8dcc8",
-		"fbf6ed",
-		"f7f3ec",
-		"faf7f2",
-		"fcfbf8",
-	].map((h) => h.toLowerCase()),
-);
+const BEIGE_HEX = new Set([
+	"f5f5dc",
+	"f6f0e9",
+	"faf0e6",
+	"fdf5e6",
+	"fff8dc",
+	"faebd7",
+	"ffebcd",
+	"ffefd5",
+	"ffe4c4",
+	"f5deb3",
+	"d2b48c",
+	"eee8d5",
+	"f5f0e8",
+	"f4ecd8",
+	"efe6d8",
+	"ede4d3",
+	"e8dcc8",
+	"fbf6ed",
+	"f7f3ec",
+	"faf7f2",
+	"fcfbf8",
+]);
 const BEIGE_NAMES =
 	/\b(?:beige|linen|oldlace|cornsilk|antiquewhite|blanchedalmond|papayawhip|bisque|wheat|tan|ivory)\b/i;
 
@@ -87,7 +85,7 @@ const splitLayers = (value) => {
 };
 
 const LENGTH = /^-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)?$/;
-export function glowLayer(value) {
+function glowLayer(value) {
 	return splitLayers(value).some((layer) => {
 		const parts = layer.split(/\s+/);
 		if (parts.includes("inset")) return false;
@@ -158,14 +156,12 @@ export function styleProblems(props) {
 	if (typeof family === "string" && isSerifFamily(family)) out.push(["serif", `fontFamily: ${family}`]);
 	if (typeof family === "string" && isMonoFamily(family) && /uppercase/i.test(String(get("textTransform") ?? "")))
 		out.push(["mono-uppercase", "fontFamily monospace with textTransform uppercase"]);
-	for (const name of ["background", "backgroundColor", "color", "borderColor"]) {
+	for (const name of ["background", "backgroundColor", "borderColor"]) {
 		const v = get(name);
-		if (typeof v === "string" && BEIGE_NAMES.test(v) && name !== "color") out.push(["beige", `${name}: ${v}`]);
+		if (typeof v === "string" && BEIGE_NAMES.test(v)) out.push(["beige", `${name}: ${v}`]);
 	}
-	for (const name of ["filter"]) {
-		const v = get(name);
-		if (typeof v === "string" && blurPx(v) >= 16) out.push(["orb", `${name}: ${v}`]);
-	}
+	const filter = get("filter");
+	if (typeof filter === "string" && blurPx(filter) >= 16) out.push(["orb", `filter: ${filter}`]);
 	const shadow = get("boxShadow");
 	if (typeof shadow === "string" && glowLayer(shadow)) out.push(["orb", `boxShadow: ${shadow}`]);
 	return out;
@@ -176,7 +172,7 @@ const approvedSelector = (selector) =>
 		name.startsWith("[") ? selector.includes(name) : new RegExp(`\\.${name}(?![\\w-])`).test(selector),
 	);
 
-export function cssBlocks(text) {
+function cssBlocks(text) {
 	const blocks = [];
 	const stack = [];
 	let buf = "";
@@ -256,8 +252,9 @@ export function labelLike(classes) {
 			/^tracking-(?:wide|wider|widest)$/.test(c) ||
 			(/^tracking-\[([^\]]+)\]$/.test(c) && positiveLength(c.slice(10, -1))),
 	);
-	if (bare.includes(LABEL_UTILITY)) return true;
-	return (bare.includes("uppercase") || tracked) && (bare.some((c) => SMALL_CLASS.test(c)) || tracked);
+	return (
+		bare.includes(LABEL_UTILITY) || tracked || (bare.includes("uppercase") && bare.some((c) => SMALL_CLASS.test(c)))
+	);
 }
 
 export function headingLike(name, classes) {
