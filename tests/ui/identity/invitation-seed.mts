@@ -3,6 +3,7 @@ import { createIdentityService } from "../../../packages/domain/src/identity/ind
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const PASSWORD = "Invite-preview-pass-1";
 
@@ -56,7 +57,7 @@ async function up(origin: string) {
 	const noop = async () => {};
 	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
 	const churchOf = async (who: { sessionId: string; accountId: string }, name: string) => {
-		const made = await runtime.transaction((tx) =>
+		const made = await gatedTransaction(runtime, (tx) =>
 			onboarding.createPlant(
 				tx,
 				{ session: who.sessionId, selected: { kind: "account", id: who.accountId } } as never,

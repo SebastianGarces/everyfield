@@ -24,6 +24,7 @@ import {
 	closedTo,
 	type Store,
 } from "./support.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 const REQUESTED = new Date("2026-10-13T16:00:00.000Z");
 const SNAPSHOT_AT = new Date("2026-11-19T16:00:00.000Z");
@@ -87,7 +88,7 @@ before(async () => {
 
 	const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
 	const requested = ok(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			api.requestAccountDeletion(
 				tx,
 				{ session: a.session, selected: subject },
@@ -151,10 +152,10 @@ async function privateVisible(target: string, store: Store) {
 
 async function cancelThrough(target: string) {
 	const pool = database.connect("admin", { schema: target, max: 1 });
-	const proof = await pool.transaction((tx) =>
+	const proof = await gatedTransaction(pool, (tx) =>
 		issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({ accountId: a.id, provenAt: new Date() })),
 	);
-	return pool.transaction((tx) => api.cancelAccountDeletion(tx, proof, command({ subject, requestId })));
+	return gatedTransaction(pool, (tx) => api.cancelAccountDeletion(tx, proof, command({ subject, requestId })));
 }
 
 const witnessIn = async (target: string) =>

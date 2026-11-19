@@ -4,6 +4,7 @@ import { command, current } from "../organizations/mount";
 import { correctReportingLocationRequest } from "@everyfield/contracts/organizations";
 import type { RegionArea } from "@everyfield/contracts/oversight";
 import { getViewer } from "@/server/request-context";
+import { z } from "zod";
 import { locality, plantSeat } from "./region-reads";
 
 export type Locality = { city: string | null; stateProvince: string | null; country: string | null };
@@ -21,26 +22,29 @@ export type RegionRead =
 export type RegionSuggestion = { regionItemId: string; area: RegionArea };
 
 export type RegionSave = { status: "ok" } | { status: "conflict" } | { status: "refused"; code: string };
-export async function saveRegion(input: {
-	requestKey: string;
-	expectedRevision: string;
-	locality: Locality;
-	referenceVersionId: string;
-	regionItemId: string | null;
-}): Promise<RegionSave> {
+const regionSave = z.object({
+	requestKey: z.unknown(),
+	expectedRevision: z.unknown(),
+	locality,
+	referenceVersionId: z.unknown(),
+	regionItemId: z.unknown(),
+});
+
+export async function saveRegion(raw: unknown): Promise<RegionSave> {
 	const seat = plantSeat(await getViewer());
 	const m = current();
-	const place = locality.safeParse(input.locality);
+	const input = regionSave.safeParse(raw);
 	if (!seat || !m) return { status: "refused", code: "unavailable" };
-	if (!place.success) return { status: "refused", code: "invalid_input" };
+	if (!input.success) return { status: "refused", code: "invalid_input" };
+	const { locality: place, ...rest } = input.data;
 	const request = correctReportingLocationRequest.safeParse({
-		requestKey: input.requestKey,
-		expectedRevision: input.expectedRevision,
+		requestKey: rest.requestKey,
+		expectedRevision: rest.expectedRevision,
 		input: {
 			plant: seat.plant,
-			locality: place.data,
-			referenceVersionId: input.referenceVersionId,
-			regionItemId: input.regionItemId,
+			locality: place,
+			referenceVersionId: rest.referenceVersionId,
+			regionItemId: rest.regionItemId,
 		},
 	});
 	if (!request.success) return { status: "refused", code: "invalid_input" };

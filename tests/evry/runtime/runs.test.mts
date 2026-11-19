@@ -42,6 +42,7 @@ import {
 	teardown,
 	work,
 } from "./support.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 before(setup);
 after(teardown);
@@ -1091,7 +1092,7 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	await invokeRead(db, owner, listPeople, find);
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
 	const plain = queries.length;
-	await db.transaction((tx) => listPeople.invoke(tx, owner, find));
+	await gatedTransaction(db, (tx) => listPeople.invoke(tx, owner, find));
 	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 1);
 });
 

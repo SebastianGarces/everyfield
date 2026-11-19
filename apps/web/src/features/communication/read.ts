@@ -4,17 +4,22 @@ import { meetingsReader } from "@everyfield/domain/meetings";
 import "server-only";
 import { z } from "zod";
 import { canWrite } from "../../components/seat-role.ts";
-import { appOrigin } from "../../server/mail/transport.ts";
+import { appOrigin, mailReady } from "../../server/mail/transport.ts";
 import { defineReads } from "../../server/platform/reads.ts";
 import { read as readMeeting } from "../meetings/server.ts";
 import type {
+	DeliveryTotals,
 	Draft,
 	HistoryPage,
 	MeetingContext,
 	MeetingHistory,
+	MessageDetail,
+	MessageView,
+	NamedRecipient,
 	Outcome,
 	PersonHistory,
 	Recipient,
+	ResendReview,
 	SuppressionReport,
 	Template,
 	TrackingRow,
@@ -94,6 +99,57 @@ export const GET = defineReads(seat, "access_denied", (get) => ({
 			},
 		};
 	}),
+	message: get(
+		z.strictObject({ communicationId: z.string() }),
+		({ viewer }, { communicationId }): Promise<Outcome<MessageView>> => {
+			const keys = mailReady()?.keys;
+			return read(viewer, async (tx) => {
+				const detail = await communicationWriter.getDetail(tx, viewer.authority, { id: communicationId }, keys);
+				if (detail.status !== "ok") return detail;
+				const totals = await communicationWriter.getDeliveryTotals(tx, viewer.authority, { communicationId });
+				if (totals.status !== "ok") return totals;
+				const recipients = await communicationWriter.listHistoryRecipients(
+					tx,
+					viewer.authority,
+					{ communicationId, limit: 100 },
+					keys,
+				);
+				if (recipients.status !== "ok") return recipients;
+				return {
+					status: "ok",
+					value: {
+						detail: detail.value satisfies MessageDetail,
+						totals: totals.value satisfies DeliveryTotals,
+						recipients: recipients.value.items satisfies NamedRecipient[],
+						recipientsComplete: recipients.value.complete,
+					},
+				};
+			});
+		},
+	),
+	resend: get(
+		z.strictObject({ communicationId: z.string() }),
+		({ viewer }, { communicationId }): Promise<Outcome<ResendReview>> =>
+			canWrite(viewer)
+				? read(viewer, async (tx) => {
+						const result = await communicationWriter.listResendCandidates(tx, viewer.authority, {
+							communicationId,
+							selection: "delivered_nonopeners",
+						});
+						if (result.status !== "ok") return result;
+						return {
+							status: "ok",
+							value: {
+								communicationId: result.value.communicationId,
+								eligibleIds: result.value.eligibleIds,
+								eligibleNames: result.value.eligibleNames,
+								excludedNames: result.value.excludedNames,
+								confirmedDelivery: result.value.confirmedDelivery,
+							},
+						};
+					})
+				: Promise.resolve(denied),
+	),
 	preview: get(z.undefined(), async ({ viewer }): Promise<Outcome<{ churchName: string; origin: string }>> => {
 		const origin = appOrigin();
 		if (origin === null) return { status: "refused", code: "unavailable" };
