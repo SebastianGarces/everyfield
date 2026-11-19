@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readBoundedBody } from "../../../packages/domain/src/operations/index.ts";
 import { safeBoundary, safeResponse } from "../../../apps/web/src/server/platform/boundary.ts";
 import { DrizzleQueryError } from "../../../packages/db/src/query.ts";
-import { asLogId, asLogWord, logFailure, logLine } from "../../../packages/domain/src/log.ts";
+import { asLogHost, asLogId, asLogWord, logFailure, logLine } from "../../../packages/domain/src/log.ts";
 import { createRequire } from "node:module";
 
 const { DatabaseError } = createRequire(new URL("../../../packages/db/package.json", import.meta.url))("pg");
@@ -46,6 +46,7 @@ test("INV-privacy: a failed statement's values and an error's text never reach t
 	logFailure({ component: "people", outcome: "thrown" }, canary);
 	logFailure({ component: "people", outcome: "named" }, Object.assign(new Error("x"), { name: canary, code: canary }));
 	logLine({ component: asLogWord(canary), id: asLogId(canary), word: asLogWord("people-import") });
+	logLine({ host: asLogHost(canary), named: asLogHost("cloud.langfuse.com"), local: asLogHost("127.0.0.1:3000") });
 	assert.deepEqual(
 		lines.map((line) => JSON.parse(line)),
 		[
@@ -54,6 +55,7 @@ test("INV-privacy: a failed statement's values and an error's text never reach t
 			{ component: "people", outcome: "thrown", error: { name: "string", code: null } },
 			{ component: "people", outcome: "named", error: { name: "Error", code: null } },
 			{ component: "not-a-word", id: "not-an-id", word: "people-import" },
+			{ host: "not-a-host", named: "cloud.langfuse.com", local: "127.0.0.1:3000" },
 		],
 	);
 	assert.equal(lines.join("\n").includes("canary"), false);

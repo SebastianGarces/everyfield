@@ -190,11 +190,12 @@ export const d = [c, warn, nodeConsole, err, stderr, stdout, error];
 		lint({
 			"apps/web/src/features/x/server.ts": reach,
 			"packages/domain/src/people/reach.ts": reach,
+			"packages/evry/src/runtime/reach.ts": reach,
 			"apps/web/src/features/x/Panel.tsx": `"use client";\n${reach}`,
 			"packages/domain/src/log.ts": reach,
 			"tests/integration/x/reach.test.mts": reach,
 		}),
-		["apps/web/src/features/x/server.ts", "packages/domain/src/people/reach.ts"]
+		["apps/web/src/features/x/server.ts", "packages/domain/src/people/reach.ts", "packages/evry/src/runtime/reach.ts"]
 			.flatMap((file) => lines.map((line) => `${file}:${line} server-log`))
 			.sort(),
 	);

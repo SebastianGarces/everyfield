@@ -80,15 +80,15 @@ test("INV-tracing: a valid configuration registers and writes one tracing_regist
 	]);
 });
 
-test("INV-tracing: OpenTelemetry's own messages at WARN and above go to console.error as otel_diag lines", async () => {
+test("INV-tracing: OpenTelemetry's own messages at WARN and above go to console.error as otel_diag lines with their level and error class only", async () => {
 	const { lines } = await logged(() => {
 		diag.info("below the level");
 		diag.warn("export slow", { attempt: 2 });
 		diag.error("export broke", new Error("socket hang up"));
 	});
 	assert.deepEqual(lines, [
-		{ component: "evry", event: "otel_diag", level: "warn", message: 'export slow {"attempt":2}' },
-		{ component: "evry", event: "otel_diag", level: "error", message: "export broke socket hang up" },
+		{ component: "evry", event: "otel_diag", level: "warn" },
+		{ component: "evry", event: "otel_diag", level: "error", error: { name: "Error", code: null } },
 	]);
 });
 
@@ -101,10 +101,16 @@ test("INV-tracing: a refused export writes trace_export_failed with the HTTP sta
 	});
 	assert.equal(result, "done");
 	assert.deepEqual(events(lines, "trace_export_failed"), [
-		{ component: "evry", event: "trace_export_failed", code: "FAILED", httpStatus: 401, message: "Unauthorized" },
+		{
+			component: "evry",
+			event: "trace_export_failed",
+			code: "FAILED",
+			httpStatus: 401,
+			error: { name: "OTLPExporterError", code: null },
+		},
 	]);
 	assert.deepEqual(events(lines, "traces_flush_failed"), [
-		{ component: "evry", event: "traces_flush_failed", message: "Unauthorized" },
+		{ component: "evry", event: "traces_flush_failed", error: { name: "object", code: null } },
 	]);
 	assert.ok(authorization.length > 0, "the export reached the stand-in with its auth header");
 });
@@ -142,7 +148,7 @@ test("INV-tracing: a second registration names each global it could not set", as
 		],
 	);
 	assert.ok(
-		events(lines, "otel_diag").some((line) => String(line.message).includes("duplicate registration")),
+		events(lines, "otel_diag").some((line) => line.level === "error"),
 		"OpenTelemetry's own refusal shows as otel_diag",
 	);
 });
@@ -167,13 +173,17 @@ test("INV-tracing: a console that throws never fails registration, a flush or a 
 	}
 });
 
-test("INV-privacy: no tracing log line holds a key, the auth header, or the base URL's user info or token", () => {
+test("INV-privacy: no tracing log line holds a key, the auth header, the base URL's user info or token, or a message's text", () => {
 	assert.ok(written.length >= 8, "every log path above wrote");
 	const text = written.join("\n");
 	for (const secret of [
 		...Object.values(secrets),
 		...authorization,
 		...authorization.map((value) => value.replace(/^Basic /, "")),
+		"socket hang up",
+		"export slow",
+		"Unauthorized",
+		"duplicate registration",
 	])
 		assert.ok(!text.includes(secret), secret);
 });
