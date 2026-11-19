@@ -4,6 +4,7 @@ import { describeInvitationRequest, invitationDescriptionResult } from "@everyfi
 import { z } from "zod";
 import { invitationService } from "@/server/invitations";
 import { answer, refused, type Reply } from "../server";
+import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 export type InvitationRead = {
 	description: unknown;
@@ -40,9 +41,7 @@ async function asSelf(call: (sessionId: string) => Promise<unknown>): Promise<Re
 	return answer(() => call(session.sessionId));
 }
 
-export async function invitationRoute(incoming: Request): Promise<Response> {
-	const origin = process.env.IDENTITY_ORIGIN;
-	if (!origin || incoming.headers.get("origin") !== new URL(origin).origin) return json(refused("access_denied"), 403);
+export const invitationRoute = mutatingRoute(async function invitationRoute(incoming: Request): Promise<Response> {
 	if (incoming.headers.get("content-type")?.split(";")[0] !== "application/json")
 		return json(refused("invalid_input"), 415);
 	const text = await incoming.text();
@@ -64,4 +63,4 @@ export async function invitationRoute(incoming: Request): Promise<Response> {
 			v.op === "accept_seat" ? service.accept(session, v.command) : service.respondResident(session, v.command),
 		),
 	);
-}
+});
