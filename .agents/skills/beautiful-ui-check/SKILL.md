@@ -8,7 +8,24 @@ description: Use before building or changing any UI component. Checks https://be
 Run this before you build a new component or rework an existing one. The aim is to start from a crafted
 component when one fits, not to add a dependency.
 
-## 1. Look for a fit
+## 1. Gather references when the screen has no prototype
+
+`design/everyfield-ui.html` is the brand prototype. When the screen you are building or changing has no frame there,
+collect 3 to 6 real-product references before you design it: Mobbin (https://mobbin.com), Linear, Notion and
+beautifului.dev itself. Save each screenshot outside the repository, in the task evidence folder:
+
+```bash
+E=$(git rev-parse --path-format=absolute --git-common-dir)/evf-evidence/<task>/references
+mkdir -p "$E"
+```
+
+Write `$E/notes.md` with one line for each reference: its product, its URL or Mobbin flow, and what it gives this
+screen (layout, density, empty state, how an action is confirmed). Take one idea from each and compose them in
+Everyfield's own tokens and voice. Never copy a reference 1:1. Name the folder in your summary.
+
+When the prototype has the screen, follow the prototype and skip this step.
+
+## 2. Look for a fit
 
 Open https://beautifului.dev. The homepage shows each component live, numbered 01 to 21. The registry index at
 https://beautifului.dev/r/registry.json lists the same set by registry name:
@@ -35,27 +52,32 @@ component only as a reference. Never ship two versions of the same thing.
 
 Write down what you found, including "nothing fits", in your summary.
 
-## 2. Say how it installs
+## 3. Install it through the registry
 
-beautifului.dev is a shadcn registry. Its items follow `https://ui.shadcn.com/schema/registry-item.json` at
-`https://www.beautifului.dev/r/<name>.json`, so the published route is:
+beautifului.dev is a shadcn registry (items at `https://www.beautifului.dev/r/<name>.json`, schema
+`https://ui.shadcn.com/schema/registry-item.json`); it publishes no npm package. The repo-root `components.json`
+names it as the `@beautifului` registry, next to our aliases (`@everyfield/ui/controls`, `/display`,
+`/foundations`, resolved by the root `tsconfig.json` into `packages/ui/src/`) and our CSS
+(`packages/ui/src/foundations/product.css`). Run from the repository root, dry run first:
 
+```bash
+npx shadcn@latest add @beautifului/<name> --dry-run          # the files and dependencies it would write
+npx shadcn@latest add @beautifului/<name> --dry-run --view   # their contents
+npx shadcn@latest view @beautifului/<name>                   # the raw item JSON
 ```
-npx shadcn@latest add https://www.beautifului.dev/r/<name>.json
-```
 
-The site publishes no npm package. Each item pulls in `foundation` (a Tailwind v4 `foundation.css` with its own
-color and shadow tokens, plus the `shadow-plugin` import), and usually `button` (needs `class-variance-authority`) and
-other support items through `registryDependencies`. Files land at `components/primitives/*.tsx`,
-`components/atoms/*.tsx` and `app/beautifui/foundation.css`, and they import `cn` from `@/lib/utils`.
+The full URL works the same way: `npx shadcn@latest add https://www.beautifului.dev/r/<name>.json --dry-run`.
 
-This repo has no `components.json`, and those paths and tokens are not ours. So take the copy route: fetch the item
-JSON (`curl -sL https://www.beautifului.dev/r/<name>.json`), read `files[].content` and each `registryDependencies`
-item, and port the code by hand. Name the item and URL you ported in your summary. The site is MIT licensed
-(https://beautifului.dev/license): keep that credit in your summary or commit message, not in a code comment.
-Check the registry again when you use it, because its items change.
+beautifului.dev items set an explicit `target` on every file, which shadcn follows instead of our aliases (and
+`--path` does not change it). A real `add` would write `app/beautifui/foundation.css`, `components/primitives/*.tsx`
+and `components/atoms/*.tsx` at the repository root. So never run `add` without `--dry-run` for a beautifului.dev
+item: read the files with `--view`, follow each `registryDependencies` item (`foundation` is a Tailwind v4 CSS file
+with its own tokens; `button` needs `class-variance-authority`), and port the code into `packages/ui` by hand
+(step 4). Name the item you ported in your summary. The site is MIT licensed (https://beautifului.dev/license): keep
+that credit in your summary or commit message, not in a code comment. Read the registry again when you use it,
+because its items change.
 
-## 3. Adapt it to Everyfield
+## 4. Adapt it to Everyfield
 
 Port, don't paste. The result must read like the rest of `packages/ui`:
 
@@ -63,7 +85,8 @@ Port, don't paste. The result must read like the rest of `packages/ui`:
   Everyfield's tokens in `packages/ui/src/foundations/product.css` and the Tailwind theme. Dark mode is
   `data-theme="dark"`, not a `.dark` class.
 - Primitives: use our `Button`, `Menu`, `Popover`, `Dialog`, `Icon` and `cn` from `packages/ui`, not the
-  item's atoms. Overlays use the Radix-based controls already there.
+  item's atoms. Overlays use the Radix-based controls already there. Inside `packages/ui`, import with relative
+  paths like the files around it, not through `@everyfield/ui/...`.
 - Placement: shared primitives go in `packages/ui/src/<group>/` and its `index.ts`; feature-only UI goes in
   `apps/web/src/features/<feature>/` and imports other features only through their public files
   (`everyfield/feature-boundaries`).
@@ -78,12 +101,21 @@ Port, don't paste. The result must read like the rest of `packages/ui`:
   - click handlers only on real controls (`everyfield/clickable-host`).
 - Then apply `better-interface` and the other better-* skills, and prove it with 390 and 1440 px screenshots.
 
-## 4. When nothing fits
+## 5. When nothing fits
 
-Fall back to the route in `.agents/roles/ui-designer.md`: new components come from the shadcn CLI, adapted the same
-way as step 3. Say in your summary which beautifului.dev items you checked and why none fit.
+Fall back to the route in `.agents/roles/ui-designer.md`: new components come from the shadcn CLI. With the root
+`components.json`, shadcn's own items do follow our aliases: `npx shadcn@latest add <name> --dry-run` lists targets
+such as `packages/ui/src/controls/<name>.tsx`. Then:
 
-## 5. Library choices
+- If the dry run says `overwrite`, Everyfield already has that primitive (the file system ignores case, so
+  `button.tsx` hits `Button.tsx`). Improve ours; never pass `--overwrite`.
+- Otherwise run the `add`, then adapt the file as in step 4: rename it to PascalCase, replace the `cn` package
+  import with our `cn`, do not add the `cn` dependency, and drop any `:root` or `.dark` variables shadcn writes
+  into `product.css` in favour of our tokens.
+
+Say in your summary which beautifului.dev items you checked and why none fit.
+
+## 6. Library choices
 
 When a component needs a library (toasts, drawers, command menus, charts, drag and drop, virtualization, motion,
 state), read `.agents/skills/pick-ui-library/SKILL.md` and follow its pick. It sets `disable-model-invocation`, so
