@@ -1860,6 +1860,88 @@ const readLoader = {
 	},
 };
 
+const READ_KEYS = new Map([
+	["useRead", 1],
+	["useReadWith", 1],
+	["useLocalRead", 2],
+]);
+const READ_METHODS = new Set(["get", "peek", "prefetch", "seed", "refresh", "retry", "forget", "key"]);
+const LINK_VALUE_SOURCES = new Set(["useOneTimeLinkValue", "currentOneTimeLinkValue"]);
+
+function references(node, found, outsideFunctions = false) {
+	if (!node || typeof node.type !== "string") return;
+	if (outsideFunctions && FUNCTIONS.has(node.type)) return;
+	if (node.type === "Identifier") found(node);
+	for (const [key, value] of Object.entries(node)) {
+		if (key === "parent") continue;
+		if (Array.isArray(value)) for (const item of value) references(item, found, outsideFunctions);
+		else if (value && typeof value === "object") references(value, found, outsideFunctions);
+	}
+}
+
+const linkValueKey = {
+	meta: { type: "problem" },
+	create(context) {
+		const carried = new Set();
+		const reads = new Set();
+		const hooks = new Map(READ_KEYS);
+		const carries = (node) => {
+			let found = false;
+			references(
+				node,
+				(id) => {
+					if (LINK_VALUE_SOURCES.has(id.name) || carried.has(id.name)) found = true;
+				},
+				true,
+			);
+			return found;
+		};
+		const taint = (target, value) => {
+			if (value && carries(value)) references(target, (id) => carried.add(id.name));
+		};
+		const report = (args) => {
+			for (const arg of args)
+				if (carries(arg))
+					context.report({
+						node: arg,
+						message:
+							"A one-time link value never keys a read: the key outlives the page in a module cache. Key the read by the record and let its loader take the value with currentOneTimeLinkValue inside the loader.",
+					});
+		};
+		return {
+			ImportSpecifier(node) {
+				reads.add(node.local.name);
+			},
+			VariableDeclarator(node) {
+				if (node.id.type === "Identifier" && node.init?.type === "Identifier" && hooks.has(node.init.name))
+					hooks.set(node.id.name, hooks.get(node.init.name));
+				if (
+					node.id.type === "Identifier" &&
+					node.init?.type === "CallExpression" &&
+					node.init.callee.name === "createRead"
+				)
+					reads.add(node.id.name);
+				taint(node.id, node.init);
+			},
+			AssignmentExpression(node) {
+				taint(node.left, node.right);
+			},
+			CallExpression(node) {
+				const callee = node.callee;
+				if (callee.type === "Identifier" && hooks.has(callee.name))
+					return report(node.arguments.slice(hooks.get(callee.name)));
+				if (
+					callee.type === "MemberExpression" &&
+					callee.object.type === "Identifier" &&
+					reads.has(callee.object.name) &&
+					READ_METHODS.has(memberName(callee) ?? "")
+				)
+					report(node.arguments);
+			},
+		};
+	},
+};
+
 const BUNDLER_IGNORE = /^\s*(?:webpackIgnore|turbopackIgnore):\s*true\s*$/;
 const DIRECTIVE =
 	/^\s*(?:@ts-|\/\s*<|(?:eslint|oxlint)-(?:disable|enable)|eslint-env\b|globals?\s|(?:biome|prettier)-ignore|[#@]__|(?:c8|istanbul|v8|node:coverage)\s+ignore|@jsx)/;
@@ -2343,6 +2425,7 @@ export default {
 		"no-global-listeners": noGlobalListeners,
 		"zustand-shape": zustandShape,
 		"read-loader": readLoader,
+		"link-value-key": linkValueKey,
 		"no-render-writes": noRenderWrites,
 		"no-render-get-state": noRenderGetState,
 		"feature-boundaries": featureBoundaries,

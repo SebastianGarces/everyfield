@@ -235,7 +235,7 @@ const subscribeLinkValue = (listener: Listener) => {
 	return () => void linkValueReaders.delete(listener);
 };
 
-function linkValueNow(name: OneTimeLinkName): string | null {
+export function currentOneTimeLinkValue(name: OneTimeLinkName): string | null {
 	const at = oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, false);
 	if (at?.name !== name) return null;
 	if (at.value !== null || at.key === null) return at.value;
@@ -249,7 +249,7 @@ function linkValueNow(name: OneTimeLinkName): string | null {
 export function useOneTimeLinkValue(name: OneTimeLinkName): string | null | undefined {
 	return useSyncExternalStore(
 		subscribeLinkValue,
-		() => linkValueNow(name),
+		() => currentOneTimeLinkValue(name),
 		() => undefined,
 	);
 }
