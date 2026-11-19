@@ -1,25 +1,17 @@
 type Env = Readonly<Record<string, string | undefined>>;
 
-export type Deployment = {
-	readonly kind: "local" | "development" | "preview" | "production" | "unrecognized";
-	readonly onVercel: boolean;
-};
+export type DeploymentKind = "local" | "development" | "preview" | "production" | "unrecognized";
 
-export function deployment(env: Env): Deployment {
+export function deploymentKind(env: Env): DeploymentKind {
 	const named = env.VERCEL_ENV;
-	const kind =
-		named === undefined
-			? "local"
-			: named === "development" || named === "preview" || named === "production"
-				? named
-				: "unrecognized";
-	return { kind, onVercel: env.VERCEL === "1" };
+	if (named === undefined) return "local";
+	return named === "development" || named === "preview" || named === "production" ? named : "unrecognized";
 }
 
-export const isProduction = (env: Env): boolean => deployment(env).kind === "production";
+export const isProduction = (env: Env): boolean => deploymentKind(env) === "production";
 export const isTestDeployment = (env: Env): boolean => {
-	const { kind } = deployment(env);
+	const kind = deploymentKind(env);
 	return kind === "local" || kind === "development" || kind === "preview";
 };
-export const runsOffVercel = (env: Env): boolean => deployment(env).kind === "local";
-export const trustsVercelForwardedFor = (env: Env): boolean => deployment(env).onVercel;
+export const runsOffVercel = (env: Env): boolean => deploymentKind(env) === "local";
+export const trustsVercelForwardedFor = (env: Env): boolean => env.VERCEL === "1";
