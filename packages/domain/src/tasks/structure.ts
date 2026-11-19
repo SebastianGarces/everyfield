@@ -28,6 +28,7 @@ import {
 	mutation,
 	newTask,
 	noop,
+	recount,
 	reminderChange,
 	references,
 	setStatus,
@@ -224,7 +225,7 @@ export function structureWriter(reminders: TaskReminders) {
 					const r = setStatus(tx, cmd, row, { status: "complete" });
 					return {
 						value: c.occurrenceMutation.parse({
-							...mutation(cmd, r.row, r.outcome),
+							...mutation(cmd, r.row, r.outcome, r.recounted),
 							successor: r.successor && detailOf(r.successor, now()),
 						}),
 						after: syncAll(reminders, tx, r.changes),
@@ -242,7 +243,7 @@ export function structureWriter(reminders: TaskReminders) {
 						if (row.status === "no_longer_needed") return "closed";
 						if (row.status === "complete") return "noop";
 						const r = setStatus(tx, cmd, row, { status: "complete", source: "bulk" });
-						return { row: r.row.revision, changes: r.changes, successor: r.successor };
+						return { row: r.row, changes: r.changes, successor: r.successor };
 					}),
 				);
 			});
@@ -270,7 +271,7 @@ export function structureWriter(reminders: TaskReminders) {
 							afterRevision: next.revision,
 							source: "bulk",
 						});
-						return { row: next.revision, changes: [reminderChange(cmd.actor.plantId, row, next)] };
+						return { row: next, changes: [reminderChange(cmd.actor.plantId, row, next)] };
 					});
 				});
 			});
@@ -285,7 +286,7 @@ export function structureWriter(reminders: TaskReminders) {
 			row: LockedTask,
 		) =>
 			| z.infer<typeof c.bulkOutcome>
-			| { row: string; changes: readonly ReturnType<typeof reminderChange>[]; successor?: TaskRow | null },
+			| { row: TaskRow; changes: readonly ReturnType<typeof reminderChange>[]; successor?: TaskRow | null },
 	) {
 		const selected = [...new Map(items.map((i) => [i.taskId, i])).values()];
 		const rows = await loadTasks(
@@ -294,6 +295,7 @@ export function structureWriter(reminders: TaskReminders) {
 			selected.map((i) => i.taskId),
 		);
 		const pending: ReturnType<typeof reminderChange>[] = [];
+		const moves: Parameters<typeof recount>[0][number][] = [];
 		const remaining: string[] = [];
 		const asOf = now();
 		const results = selected.map((item) => {
@@ -312,7 +314,8 @@ export function structureWriter(reminders: TaskReminders) {
 			const r = apply(row);
 			if (typeof r === "string") return done(r);
 			pending.push(...r.changes);
-			return done("changed", r.row, r.successor ?? null);
+			moves.push({ from: row, to: r.row });
+			return done("changed", r.row.revision, r.successor ?? null);
 		});
 		return {
 			value: c.bulkResult.parse({
@@ -320,6 +323,7 @@ export function structureWriter(reminders: TaskReminders) {
 				items: results,
 				changed: results.filter((r) => r.outcome === "changed").length,
 				remaining,
+				recounted: recount(moves),
 			}),
 			after: syncAll(reminders, tx, pending),
 		};

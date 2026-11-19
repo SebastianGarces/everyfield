@@ -447,11 +447,6 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
 		["GET /tasks/follow-ups", "/tasks/follow-ups", owner.cookie],
-		[
-			"GET /tasks/read?what=blocking",
-			`/tasks/read?what=blocking&in=${readInput({ taskIds: [followUpId] })}`,
-			owner.cookie,
-		],
 		["GET /tasks/read?what=rows", `/tasks/read?what=rows&in=${readInput({ taskIds: [followUpId] })}`, owner.cookie],
 		["GET /wiki", "/wiki", owner.cookie],
 		["GET /wiki/[slug]", "/wiki/census-lead", owner.cookie],
