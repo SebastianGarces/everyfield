@@ -5,7 +5,6 @@ import {
 	type CommunicationContext,
 	type CommunicationReply,
 } from "@everyfield/domain/communication";
-import { meetingsReader } from "@everyfield/domain/meetings";
 import type { Transaction } from "@everyfield/db/client";
 import type {
 	AudienceSummary,
@@ -13,30 +12,22 @@ import type {
 	DeliveryReport,
 	DeliveryTotals,
 	Draft,
-	HistoryPage,
-	MeetingHistory,
 	MessageDetail,
-	MeetingContext,
 	MessageView,
 	NamedRecipient,
 	Outcome,
-	PersonHistory,
-	Recipient,
 	ReplaceReport,
 	RescheduleReport,
 	ResendReview,
 	RestoreReport,
 	SavedResend,
 	HandoffResult,
-	SuppressionReport,
 	Template,
-	TrackingRow,
 } from "./model.ts";
-import { read as readMeeting } from "../meetings/server.ts";
 import { canWrite } from "../../components/seat-role.ts";
 import { communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
 import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
-import { anticipateProvider, appOrigin, deliveryTransport, mailReady } from "../../server/mail/transport.ts";
+import { anticipateProvider, deliveryTransport, mailReady } from "../../server/mail/transport.ts";
 
 type Scheduled = Draft & { scheduledAt: string };
 const denied = { status: "refused", code: "access_denied" } as const;
@@ -108,21 +99,6 @@ async function scheduleDraft(
 			input: { communicationId: saved.value.communicationId, scheduledAt },
 		});
 	});
-}
-
-export async function rescheduleReviewed(
-	requestKey: string,
-	expectedRevision: string,
-	communicationId: string,
-	scheduledAt: string,
-): Promise<Outcome<Scheduled>> {
-	return change((tx, context) =>
-		communicationWriter.rescheduleReviewed(tx, context, {
-			requestKey,
-			expectedRevision,
-			input: { communicationId, scheduledAt },
-		}),
-	);
 }
 
 export async function sendReviewed(
@@ -238,23 +214,6 @@ export async function rescheduleDispatched(
 	};
 }
 
-export async function readDraft(communicationId: string): Promise<Outcome<Draft>> {
-	return look((tx, viewer) => communicationWriter.get(tx, viewer.authority, { id: communicationId }));
-}
-
-export async function readOwnSuppression(): Promise<Outcome<SuppressionReport>> {
-	const gate = await communicationViewer();
-	if (!gate.viewer || !canWrite(gate.viewer)) return denied;
-	const address = gate.email;
-	if (!address) return denied;
-	const result = await deliver((db, viewer, mail) =>
-		communicationWriter.listForSelf(db, viewer.authority, { address }, mail.keys),
-	);
-	if (result.status !== "ok") return result;
-	const { active, restores } = result.value;
-	return { status: "ok", value: { address: result.value.address, active, restores } };
-}
-
 export async function restoreOwnSuppression(requestKey: string, reason: string): Promise<Outcome<RestoreReport>> {
 	const gate = await communicationViewer();
 	if (!gate.viewer || !canWrite(gate.viewer)) return denied;
@@ -269,14 +228,6 @@ export async function restoreOwnSuppression(requestKey: string, reason: string):
 
 export async function resolveAudience(input: unknown): Promise<Outcome<AudienceSummary>> {
 	return look((tx, viewer) => communicationWriter.readAudience(tx, viewer.authority, input));
-}
-
-export async function searchRecipients(query: string): Promise<Outcome<{ people: Recipient[] }>> {
-	return look((tx, viewer) => communicationWriter.readRecipients(tx, viewer.authority, { query }));
-}
-
-export async function readMeetingTemplate(meetingType: string): Promise<Outcome<Template>> {
-	return look((tx, viewer) => communicationWriter.readMeetingTemplate(tx, viewer.authority, { meetingType }));
 }
 
 export async function createTemplate(requestKey: string, input: unknown): Promise<Outcome<Template>> {
@@ -347,54 +298,6 @@ export async function deleteTemplate(
 	templateId: string,
 ): Promise<Outcome<TemplateChange>> {
 	return removeTemplate("delete", requestKey, expectedRevision, templateId);
-}
-
-export async function readHistory(query: {
-	limit?: unknown;
-	cursor?: unknown;
-	state?: unknown;
-	channel?: unknown;
-	meetingId?: unknown;
-	personId?: unknown;
-	query?: unknown;
-}): Promise<Outcome<HistoryPage>> {
-	const viewer = await seat();
-	if (!viewer) return denied;
-	return read(viewer, (tx) => communicationWriter.listHistory(tx, viewer.authority, query));
-}
-
-export async function readPersonHistory(personId: string, cursor?: string): Promise<Outcome<PersonHistory>> {
-	const viewer = await seat();
-	if (!viewer) return denied;
-	return read(viewer, (tx) =>
-		communicationWriter.listForPerson(tx, viewer.authority, {
-			personId,
-			limit: 50,
-			...(cursor ? { cursor } : {}),
-		}),
-	);
-}
-
-export async function readMeetingHistory(meetingId: string, cursor?: string): Promise<Outcome<MeetingHistory>> {
-	const viewer = await seat();
-	if (!viewer) return denied;
-	return read(viewer, (tx) =>
-		communicationWriter.listForMeeting(tx, viewer.authority, {
-			meetingId,
-			limit: 50,
-			...(cursor ? { cursor } : {}),
-		}),
-	);
-}
-
-export async function readMeetingTracking(meetingId: string): Promise<Outcome<{ items: TrackingRow[] }>> {
-	const viewer = await seat();
-	if (!viewer) return denied;
-	return read(viewer, async (tx) => {
-		const result = await communicationWriter.listMeetingTracking(tx, viewer.authority, { meetingId });
-		if (result.status !== "ok") return result;
-		return { status: "ok", value: { items: result.value.items } };
-	});
 }
 
 export async function openMessage(communicationId: string): Promise<Outcome<MessageView>> {
@@ -511,37 +414,4 @@ export async function handOff(
 			sendReviewed(keys.send, revision, communicationId, scheduledAt === null ? "now" : "held"),
 	};
 	return scheduledAt === null ? chainSendNow(steps) : chainHandoff(steps, scheduledAt);
-}
-
-export async function readMeetingContext(meetingId: string): Promise<Outcome<MeetingContext>> {
-	const viewer = await seat();
-	if (!viewer || !canWrite(viewer)) return denied;
-	const context = await readMeeting(viewer, (db, a) => meetingsReader.communicationContext(db, a, { meetingId }));
-	if (context.status === "failed") return { status: "lost" };
-	if (context.status === "refused") return { status: "refused", code: "not_found" };
-	const { meeting: m, guests } = context.value;
-	return {
-		status: "ok",
-		value: {
-			id: m.id,
-			type: m.type,
-			title: m.displayTitle,
-			date: m.localDate,
-			time: m.localTime,
-			place: m.venue?.name ?? null,
-			guests: guests.map((g) => ({ id: g.personId, displayName: g.displayName })),
-		},
-	};
-}
-
-export async function readPreviewContext(): Promise<Outcome<{ churchName: string; origin: string }>> {
-	const viewer = await seat();
-	if (!viewer) return denied;
-	const origin = appOrigin();
-	if (origin === null) return { status: "refused", code: "unavailable" };
-	return read(viewer, async (tx) => {
-		const church = await communicationWriter.readChurchName(tx, viewer.authority);
-		if (church.status !== "ok") return church;
-		return { status: "ok", value: { churchName: church.value.churchName, origin } };
-	});
 }

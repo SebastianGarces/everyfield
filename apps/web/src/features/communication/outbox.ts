@@ -5,7 +5,10 @@ import { join } from "node:path";
 import { outboxFolder, type Captured } from "../../server/mail/capture.ts";
 
 export async function readOutbox(directory = outboxFolder()): Promise<Captured[]> {
-	const names = await readdir(directory).catch(() => []);
+	const names = await readdir(directory).catch((error: NodeJS.ErrnoException) => {
+		if (error.code === "ENOENT") return [];
+		throw error;
+	});
 	const entries = await Promise.all(
 		names
 			.filter((name) => /^capture-[0-9a-f-]{36}\.json$/.test(name))

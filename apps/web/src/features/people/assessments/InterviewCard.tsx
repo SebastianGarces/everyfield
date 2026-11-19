@@ -20,11 +20,13 @@ import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useId, useOptimistic, useState, useTransition } from "react";
 import type { Wait } from "../../../components/save/model.ts";
+import { localToday } from "../../../components/clock.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import { STAGE_LABEL } from "../model.ts";
 import { throughStore } from "../person.store.ts";
 import { LocalDay, usePersonState } from "../parts.tsx";
-import { loadInterviews, recordInterview } from "./actions.ts";
+import { recordInterview } from "./actions.ts";
+import { loadInterviews } from "../fetch.ts";
 import {
 	advancedStage,
 	CRITERIA,
@@ -35,7 +37,6 @@ import {
 	RESULT_LABEL,
 	RESULT_STATUS,
 	RESULTS,
-	today,
 	withRecord,
 	type CriterionKey,
 	type Interview,
@@ -54,7 +55,7 @@ type Draft = {
 type Editing = { draft: Draft; problem?: string };
 const RATING_OPTIONS = RATINGS.map((r) => ({ value: r, label: RATING_LABEL[r] }));
 const blank = (): Draft => ({
-	occurredOn: today(),
+	occurredOn: localToday(),
 	result: "",
 	nextSteps: "",
 	maturity: { rating: "", notes: "" },
@@ -157,7 +158,7 @@ export function InterviewCard({
 
 	return (
 		<Card className="min-w-0">
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
 						<CardTitle size="sm">Interview</CardTitle>
@@ -167,7 +168,7 @@ export function InterviewCard({
 							</StatusBadge>
 						) : null}
 					</div>
-					<CardDescription className="text-sm">
+					<CardDescription className="leading-(--text-sm--line-height)">
 						{latest ? (
 							<>
 								<LocalDay day={latest.occurredOn} /> ·{" "}
@@ -361,7 +362,7 @@ function InterviewDialog({
 				<Input
 					type="date"
 					value={draft.occurredOn}
-					max={today()}
+					max={localToday()}
 					onChange={(e) => setDraft((d) => ({ ...d, occurredOn: e.target.value }))}
 				/>
 			</Field>
@@ -394,10 +395,10 @@ function InterviewDialog({
 					aria-describedby={touched && draft.result === "" ? `${resultId}-error` : undefined}
 					value={draft.result}
 					onValueChange={(result) => setDraft((d) => ({ ...d, result: result as Result }))}
-					className="grid grid-cols-2 gap-x-4 max-app-sm:grid-cols-1"
+					className="grid grid-cols-2 max-app-sm:grid-cols-1"
 				>
 					{RESULTS.map((r) => (
-						<Radio key={r} value={r} label={RESULT_LABEL[r]} className="py-2" />
+						<Radio key={r} value={r} label={RESULT_LABEL[r]} />
 					))}
 				</RadioGroup>
 				<div aria-live="polite" className="empty:hidden">

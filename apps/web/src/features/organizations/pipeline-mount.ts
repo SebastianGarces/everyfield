@@ -6,6 +6,7 @@ import {
 	readAnswerReview,
 	readAnswerReviews,
 	readPipelineBoard,
+	readPipelineChoices,
 	readPipelineExport,
 	readPipelineGoals,
 	readPipelinePersonRecord,
@@ -14,6 +15,7 @@ import { PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
+import { logFailure } from "@everyfield/domain/log";
 
 export type PipelineAnswer<T> = PipelineReply<T> | { status: "lost" };
 
@@ -33,7 +35,7 @@ async function guarded<R>(run: () => Promise<R>): Promise<R | { status: "lost" }
 	try {
 		return await run();
 	} catch (error) {
-		console.error(JSON.stringify({ component: "pipeline", outcome: "failed", error: String(error) }));
+		logFailure({ component: "pipeline", outcome: "failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -42,6 +44,12 @@ export async function loadPipelineBoard(authority: RequestActor, query: unknown)
 	const db = requestDatabase();
 	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelineBoard(db, authority, query));
+}
+
+export async function loadPipelineChoices(authority: RequestActor) {
+	const db = requestDatabase();
+	if (!db) return { status: "lost" } as const;
+	return guarded(() => readPipelineChoices(db, authority));
 }
 
 export async function loadPipelineGoals(authority: RequestActor) {

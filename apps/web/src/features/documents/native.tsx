@@ -18,7 +18,9 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
-import { copyToChurch, loadCopySources, loadWrittenDocuments, type DocumentOutcome } from "./actions.ts";
+import { copyToChurch } from "./actions.ts";
+import type { DocumentOutcome } from "./outcome.ts";
+import { loadCopySources, loadWrittenDocuments } from "./fetch.ts";
 import { documentProblem, type CopySource, type OwnedView } from "./model.ts";
 import { SECTION } from "./written/notes.tsx";
 

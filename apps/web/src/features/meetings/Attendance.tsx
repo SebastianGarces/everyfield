@@ -148,7 +148,7 @@ export function AttendanceCard({
 	const held = lane.wait !== null || blocked;
 	return (
 		<Card as="section" aria-labelledby="attendance-title" aria-busy={settling || undefined}>
-			<CardHeader className="mb-3.5">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle id="attendance-title">Attendance</CardTitle>
 					<CardDescription>
@@ -187,7 +187,7 @@ export function AttendanceCard({
 			{final ? (
 				<dl className="mt-4 grid grid-cols-3 gap-2">
 					{(Object.keys(CLASSIFICATION_LABEL) as Classification[]).map((k) => (
-						<CardInset key={k} className="flex flex-col gap-0.5 px-3 py-2.5">
+						<CardInset key={k} className="flex flex-col gap-0.5">
 							<dt className="text-xs text-text-3">{CLASSIFICATION_LABEL[k]}</dt>
 							<dd className="font-semibold text-ink tabular-nums">{counts[k]}</dd>
 						</CardInset>
@@ -452,7 +452,6 @@ function SettleForm({
 										}
 										checked={ids.includes(p.personId)}
 										onCheckedChange={(on) => actions.toggle(p.personId, on === true)}
-										className="py-2"
 									/>
 								))}
 							</div>
@@ -726,7 +725,7 @@ export function EvaluationCard({
 					<ul className="mt-4 grid grid-cols-4 gap-3 max-app-lg:grid-cols-2">
 						{FACTORS.map((f) => (
 							<li key={f.key}>
-								<CardInset className="flex flex-col gap-2 px-3.5 py-3">
+								<CardInset className="flex flex-col gap-2">
 									<span className="flex items-baseline justify-between gap-3">
 										<span className="text-sm text-text-2">{f.label}</span>
 										<b className="font-semibold text-ink tabular-nums">

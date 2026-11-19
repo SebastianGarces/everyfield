@@ -93,26 +93,14 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 	const admin = administers(viewer);
 	const loaded = await read(async (tx): Promise<Outcome<Data>> => {
 		if (!admin) {
-			const own = (p: number) =>
-				followUpReader.listFollowUpOwners(tx, viewer.authority, { owner: viewer.accountId, page: p, limit: 50 });
-			let mine = outcomeOf(await own(page));
-			if (mine.status === "ok" && mine.value.items.length === 0 && page > 1)
-				mine = outcomeOf(await own(Math.max(1, Math.ceil(mine.value.matched / 50))));
+			const mine = outcomeOf(
+				await followUpReader.listFollowUpOwners(tx, viewer.authority, { owner: viewer.accountId, page, limit: 50 }),
+			);
 			return mine.status === "ok" ? { status: "ok", value: { kind: "mine", owners: mine.value } } : mine;
 		}
-		let r = outcomeOf(
+		const r = outcomeOf(
 			await followUpReader.followUpCoverage(tx, viewer.authority, { coverage: filter, page, limit: COVERAGE_PAGE }),
 		);
-		if (r.status === "ok" && r.value.items.length === 0 && page > 1) {
-			const last = Math.max(1, Math.ceil(r.value.total / COVERAGE_PAGE));
-			r = outcomeOf(
-				await followUpReader.followUpCoverage(tx, viewer.authority, {
-					coverage: filter,
-					page: last,
-					limit: COVERAGE_PAGE,
-				}),
-			);
-		}
 		if (r.status !== "ok") return r;
 		const owners = await readOwners(tx, viewer);
 		return {
@@ -156,7 +144,7 @@ export function FollowUpsLoading() {
 						</div>
 					))}
 				</Card>
-				<Skeleton shape="block" className="h-40 rounded-card max-app-lg:hidden" />
+				<Skeleton shape="block" className="h-40 max-app-lg:hidden" />
 			</div>
 		</div>
 	);

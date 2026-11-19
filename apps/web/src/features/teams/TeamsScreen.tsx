@@ -27,7 +27,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useAddress, writeAddress } from "../../components/location.ts";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
-import { createTeam, reloadTeams } from "./actions.ts";
+import { createTeam } from "./actions.ts";
+import { reloadTeams } from "./fetch.ts";
 import { optional, TeamDialog, type TeamForm } from "./dialogs.tsx";
 import { isLeadership, newSetup, plural, problemText, type SetupForm, type Team } from "./model.ts";
 import { OrgChart } from "./OrgChart.tsx";
@@ -194,7 +195,7 @@ export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: 
 								<InsightTop>
 									<InsightPill icon={Alert02Icon}>Needs a leader</InsightPill>
 								</InsightTop>
-								<InsightTitle id="leaderless-title" size="sm" className="mt-4">
+								<InsightTitle id="leaderless-title" size="sm">
 									{leaderless.length === 1
 										? `${leaderless[0]!.name} has no leader`
 										: `${plural(leaderless.length, "ministry", "ministries")} have no leader`}

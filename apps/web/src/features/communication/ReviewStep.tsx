@@ -167,7 +167,7 @@ export function ReviewStep({
 				<div className="flex">
 					<Button
 						variant="primary"
-						className="flex-1 rounded-r-none"
+						className="rounded-r-none"
 						disabled={!canSend || busy}
 						onClick={() => onPlan({ kind: "now" })}
 					>

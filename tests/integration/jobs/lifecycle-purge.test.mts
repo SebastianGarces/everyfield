@@ -70,6 +70,7 @@ before(async () => {
 			if (!request) throw Error("missing_native_request");
 			return { request, trustedIp: "198.51.100.21", viewer: null };
 		},
+		diagnostic: () => {},
 		responseCookies: async () => {},
 		deliverVerification: async () => {},
 		securityNotice: async () => {},
@@ -105,7 +106,7 @@ before(async () => {
 			throw Error("not expected");
 		},
 	});
-	tick = scheduledJobs({ secret: cron, db, storage, cleanup: cleanupDb, reminders: null, digests: null, mail: null });
+	tick = scheduledJobs({ db, storage, cleanup: cleanupDb, reminders: null, digests: null, mail: null });
 });
 after(database.close);
 
@@ -332,7 +333,7 @@ test("INV-executor: without the cleanup login the tick skips the purge, runs the
 		{ storage, cleanup: null },
 		{ storage: null, cleanup: cleanupDb },
 	]) {
-		const skip = scheduledJobs({ secret: cron, db, reminders: null, digests: null, mail: null, ...config });
+		const skip = scheduledJobs({ db, reminders: null, digests: null, mail: null, ...config });
 		const response = await skip(
 			new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${cron}` } }),
 		);

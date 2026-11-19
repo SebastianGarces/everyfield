@@ -81,7 +81,7 @@ flowchart LR
 A sending church's or network's pipeline board: one column per stage, search and the six-month filter in the address, goals, Add person and Export.
 
 - Routes: `/organization/pipeline`
-- Endpoints: `/organization/pipeline/export`
+- Endpoints: `/organization/pipeline/export`, `/organization/pipeline/read`
 - Personas: `graceOwner` write, `network` write, `hillOwner` write, `graceDirector` read, `resident` none, `owner` none, `visitor` none
 - Catalog: MUL-001, MUL-005, MUL-007, MUL-008
 
@@ -405,6 +405,7 @@ agent-browser find role link text --name "Map Import Applicant" --exact
 The Programs tab: the organization's residencies and apprenticeships, a new program from the template or blank, and each program's plan and enrolled people.
 
 - Routes: `/organization/pipeline/programs`, `/organization/pipeline/programs/new`, `/organization/pipeline/programs/[programId]`
+- Endpoints: `/organization/pipeline/programs/read`
 - Personas: `graceOwner` write, `network` write, `hillOwner` write, `graceDirector` write, `resident` none
 - Catalog: MUL-010, MUL-011
 
@@ -566,7 +567,7 @@ agent-browser find role link click --name "Casey Lee" --exact
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Casey Lee" --exact
 agent-browser find role heading text --name "Enrollment" --exact
-agent-browser find text "Clear outline and a warm close. Next time, slow down in the second point." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Clear outline and a warm close. Next time, slow down in the second point.\")"
 ```
 
 #### organizations.enrollment#confirm-milestone
@@ -625,6 +626,7 @@ The receiving seat reads only the chosen questions and their answers; a withdraw
 Sharing and privacy: connections and what each one sees, pipeline totals, and a resident's residency choices.
 
 - Routes: `/settings/sharing`
+- Endpoints: `/connections/read`
 - Personas: `owner` write, `network` write, `graceOwner` write, `hillOwner` write, `graceDirector` read, `resident` write, `signup` none
 - Catalog: IDN-020, IDN-022, MUL-003, MUL-016
 
@@ -726,7 +728,7 @@ agent-browser find role switch click --name "Share pipeline totals with"
 agent-browser wait --load networkidle
 agent-browser open "$ORIGIN/settings/sharing"
 agent-browser wait --load networkidle
-agent-browser find text "Not shared" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Not shared\")"
 agent-browser find role switch click --name "Share pipeline totals with"
 agent-browser wait --load networkidle
 agent-browser open "$ORIGIN/settings/sharing"

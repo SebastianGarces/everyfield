@@ -20,7 +20,9 @@ import { MERGE_VALUE_MAX } from "@everyfield/contracts/documents";
 import { startTransition, useActionState, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { fullAddress, writeAddress, useAddress } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
-import { generateDocument, resolveDocument, type DocumentOutcome } from "./actions.ts";
+import { generateDocument } from "./actions.ts";
+import type { DocumentOutcome } from "./outcome.ts";
+import { resolveDocument } from "./fetch.ts";
 import { createChurchDocument, type ChurchActionResult } from "./church/actions.ts";
 import { PdfPreview } from "./PdfPreview.tsx";
 import { Thumbnail } from "./Thumbnail.tsx";
@@ -638,7 +640,7 @@ function TemplatePanel({
 					{preview.kind === "pdf" ? (
 						<PdfPreview key={preview.key} title={template.name} pageSize={template.pageSize} bytes={preview.bytes} />
 					) : preview.kind === "message" ? (
-						<StatePanel tone="error" title="Preview unavailable" headingLevel="h3" className="py-8">
+						<StatePanel tone="error" title="Preview unavailable" headingLevel="h3">
 							{preview.text}
 						</StatePanel>
 					) : canPreview ? (

@@ -3,6 +3,7 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import { dashboardWriter } from "@everyfield/domain/dashboard";
+import { logFailure } from "@everyfield/domain/log";
 
 export async function dismissPrompt(prompt: unknown): Promise<{ status: "ok" | "failed" }> {
 	const authority = (await getViewer())?.authority;
@@ -12,7 +13,7 @@ export async function dismissPrompt(prompt: unknown): Promise<{ status: "ok" | "
 		const reply = await dashboardWriter.dismissPrompt(db, authority, { prompt });
 		return { status: reply.status === "ok" ? "ok" : "failed" };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "overview", outcome: "dismiss_failed", error: String(error) }));
+		logFailure({ component: "overview", outcome: "dismiss_failed" }, error);
 		return { status: "failed" };
 	}
 }

@@ -138,9 +138,9 @@ export function Prose({
 				"mx-auto w-full text-ink-2",
 				size === "md" ? "max-w-[700px] text-base leading-[1.7]" : "text-[15px] leading-[1.65]",
 				size === "excerpt"
-					? "[&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h2]:font-body [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-ink [&_h2]:scroll-mt-28 [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:font-body [&_h3]:text-[15px] [&_h3]:font-medium [&_h3]:text-ink [&_h3]:scroll-mt-28"
+					? "[&>:first-child]:mt-0 [&>:last-child:not(h2,h3)]:mb-0 [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h2]:font-body [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-ink [&_h2]:scroll-mt-28 [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:font-body [&_h3]:text-[15px] [&_h3]:font-medium [&_h3]:text-ink [&_h3]:scroll-mt-28"
 					: "[&_h2]:mt-[34px] [&_h2]:mb-2.5 [&_h2]:text-[26px] [&_h2]:text-ink [&_h2]:scroll-mt-28 [&_h3]:mt-[26px] [&_h3]:mb-2 [&_h3]:text-[19px] [&_h3]:text-ink [&_h3]:scroll-mt-28",
-				size === "sm" && "[&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:font-title [&_h2]:text-[21px] [&_h3]:text-[17px]",
+				size === "sm" && "[&_h2]:font-title",
 				"[&_p]:mb-3.5 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-[22px] [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-[22px] [&_li]:my-1.5",
 				"[&_blockquote]:my-5 [&_blockquote]:rounded-card [&_blockquote]:bg-surface-2 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:font-title [&_blockquote]:tracking-[-0.02em] [&_blockquote]:text-[19px] [&_blockquote]:leading-[1.45] [&_blockquote]:text-ink",
 				"[&_cite]:mt-2 [&_cite]:block [&_cite]:font-body [&_cite]:tracking-normal [&_cite]:text-[13px] [&_cite]:text-text-3 [&_cite]:not-italic",
@@ -331,7 +331,7 @@ export function WikiSourceBar({
 					</button>
 				</MenuTrigger>
 				<MenuContent className="max-h-[var(--radix-dropdown-menu-content-available-height)] w-[380px] max-w-[calc(100vw-24px)] overflow-y-auto">
-					<MenuLabel className="text-sm font-semibold text-ink">Read this article from</MenuLabel>
+					<MenuLabel className="font-semibold">Read this article from</MenuLabel>
 					<DropdownMenu.RadioGroup value={currentId} onValueChange={onChoose}>
 						{sources.map((s) => (
 							<DropdownMenu.RadioItem
@@ -507,7 +507,7 @@ export function WikiEditor({
 				/>
 				<Prose
 					className={cn(
-						"m-0 min-h-[520px]",
+						"my-0 min-h-[520px]",
 						"[&_[data-change]]:relative [&_[data-change]]:before:absolute [&_[data-change]]:before:top-1 [&_[data-change]]:before:bottom-1 [&_[data-change]]:before:-left-[22px] [&_[data-change]]:before:w-[3px] [&_[data-change]]:before:rounded-md [&_[data-change]]:before:content-[''] [&_[data-change=changed]]:before:bg-blue-500 [&_[data-change=added]]:before:bg-green-500",
 						"max-app-sm:[&_[data-change]]:before:-left-3",
 					)}

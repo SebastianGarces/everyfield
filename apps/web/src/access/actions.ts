@@ -5,12 +5,13 @@ import { receiveAccessRequest } from "@everyfield/domain/early-access";
 import { trustedIdentityIp } from "@everyfield/domain/identity";
 import { HONEYPOT, type AccessRequestFields, type AccessRequestKind, type AccessRequestResult } from "./contract";
 import { FIELD_NAMES, LAST_STEP, afterReply, back, isWho, kindOf, next, requestFields, type FormState } from "./steps";
+import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
 
 export async function submitAccessRequest(
 	kind: AccessRequestKind,
 	fields: AccessRequestFields,
 ): Promise<AccessRequestResult> {
-	const ip = trustedIdentityIp({ headers: await headers() }, process.env.VERCEL === "1");
+	const ip = trustedIdentityIp({ headers: await headers() }, trustsVercelForwardedFor(process.env));
 	return receiveAccessRequest(kind, fields, ip);
 }
 

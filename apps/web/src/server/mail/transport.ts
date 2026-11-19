@@ -9,7 +9,9 @@ import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-reci
 import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import type { MailTransport } from "../jobs/mail.ts";
 import { createResendTransport } from "../jobs/resend.ts";
-import { capture, captureAllowed, captured, captureSilent, changeCaptured, isCaptureId } from "./capture.ts";
+import type { Database } from "@everyfield/db/client";
+import { isTestDeployment } from "@everyfield/db/deployment";
+import { capture, captured, changeCaptured, isCaptureId } from "./capture.ts";
 import { settleCaptured } from "./settle.ts";
 
 const env = z.object({
@@ -121,7 +123,15 @@ export type MailReady = {
 };
 
 type Outgoing = { to: string; subject: string; html: string; text: string; headers?: Readonly<Record<string, string>> };
-type Batch = { outcome: "ids"; ids: (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
+type Batch =
+	| { outcome: "ids"; ids: (string | null)[]; afterRecord?: (db: Database) => Promise<void> }
+	| { outcome: "unknown" }
+	| { outcome: "refused" };
+
+export type CaptureOptions = {
+	settle?: (db: Database, ids: readonly string[]) => Promise<void>;
+	silent?: boolean;
+};
 
 export function appOrigin(): string | null {
 	const parsed = z.url().safeParse(process.env.IDENTITY_ORIGIN);
@@ -138,7 +148,7 @@ export function mailReady(): MailReady | null {
 	});
 	if (!parsed.success) return null;
 	const apiKey = parsed.data.RESEND_API_KEY ?? null;
-	if (apiKey === null && !captureAllowed(process.env)) return null;
+	if (apiKey === null && !isTestDeployment(process.env)) return null;
 	const encryptionKey = Buffer.from(parsed.data.IDENTITY_MAIL_KEY, "hex");
 	const addressKey = Buffer.from(parsed.data.IDENTITY_ADDRESS_KEY, "hex");
 	if (encryptionKey.equals(addressKey)) return null;
@@ -198,7 +208,7 @@ const instantOf = (text: string) => Date.parse(text.replace(" ", "T").replace(/(
 export function deliveryTransport(
 	ready: MailReady,
 	request: typeof fetch = fetch,
-	settle: (ids: readonly string[]) => void = settleCaptured,
+	{ settle = settleCaptured, silent = false }: CaptureOptions = {},
 	environment: MailEnv = process.env,
 ): DeliveryTransport {
 	const call = (path: string, init: RequestInit & { signal: AbortSignal }) =>
@@ -229,7 +239,7 @@ export function deliveryTransport(
 
 	async function change(id: string, movedTo: string | null, signal: AbortSignal): Promise<"done" | "sent" | "unknown"> {
 		if (isCaptureId(id)) {
-			if (await captureSilent()) return "unknown";
+			if (silent) return "unknown";
 			return changeCaptured(id, movedTo);
 		}
 		if (ready.apiKey === null) return "unknown";
@@ -261,7 +271,7 @@ export function deliveryTransport(
 		const isApproved = (message: Outgoing) => ready.apiKey !== null && mailRecipientAllowed(environment, message.to);
 		const approved = messages.filter(isApproved);
 		const toCapture = messages.filter((message) => !isApproved(message));
-		if (toCapture.length > 0 && (await captureSilent())) return { outcome: "unknown" };
+		if (toCapture.length > 0 && silent) return { outcome: "unknown" };
 		const batch: Batch =
 			approved.length > 0 ? await postApproved(key, approved, scheduledAt, signal) : { outcome: "ids", ids: [] };
 		if (batch.outcome !== "ids") return batch;
@@ -277,7 +287,6 @@ export function deliveryTransport(
 		}
 		const captureIds = captures.map((c) => c.id);
 		const fresh = captures.filter((c) => c.fresh).map((c) => c.id);
-		if (fresh.length > 0 && scheduledAt === null) settle(fresh);
 		let nextSent = 0;
 		let nextCaptured = 0;
 		return {
@@ -285,6 +294,7 @@ export function deliveryTransport(
 			ids: messages.map((message) =>
 				isApproved(message) ? (batch.ids[nextSent++] ?? null) : captureIds[nextCaptured++]!,
 			),
+			...(fresh.length > 0 && scheduledAt === null ? { afterRecord: (db: Database) => settle(db, fresh) } : {}),
 		};
 	}
 

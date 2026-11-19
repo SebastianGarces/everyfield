@@ -5,6 +5,7 @@ import { Field, Input, Radio, RadioGroup, SearchInput, Select, Spinner, Textarea
 import { DESCRIPTION_EXCERPT, MAX_DESCRIPTION, normalizeDescription } from "@everyfield/contracts/tasks";
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { useRef, useState } from "react";
+import { localToday } from "../../components/clock.ts";
 import { createRead, useRead } from "../../components/read.tsx";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Wait } from "../../components/save/model.ts";
@@ -264,7 +265,7 @@ function Form({
 			priority: draft.priority,
 			category: draft.category,
 			due: shownDue,
-			overdue: task && sameDue(draft.due, initial.due) ? task.overdue : previewOverdue(due.due),
+			overdue: task && sameDue(draft.due, initial.due) ? task.overdue : previewOverdue(due.due, localToday()),
 			assignees: draft.assigneeIds.map((id) => ({
 				accountId: id as never,
 				displayName: draft.assigneeNames[id] ?? task?.assignees.find((a) => a.accountId === id)?.displayName ?? "",
@@ -501,10 +502,10 @@ function RelationField({
 								const hit = listed.find((c) => c.id === id);
 								if (hit) onChange({ kind, id: hit.id, label: hit.label });
 							}}
-							className="max-h-[220px] gap-0 overflow-y-auto px-1"
+							className="max-h-[220px] gap-y-0 overflow-y-auto px-1"
 						>
 							{listed.map((c) => (
-								<Radio key={c.id} value={c.id} label={c.label} className="py-2" />
+								<Radio key={c.id} value={c.id} label={c.label} />
 							))}
 						</RadioGroup>
 					)}

@@ -114,12 +114,13 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 
 	async function writeSignal(
 		entry: SignalEntry,
-		optimistic: (today: string) => SignalEntry,
+		optimistic: (today: string, recordedAt: string) => SignalEntry,
 		payload: string,
 		send: (requestKey: string) => Promise<SignalOutcome<SignalWriteResult>>,
 		line: (confirmed: SignalEntry) => HumanRevision,
 	): Promise<string | null> {
-		setPage((p) => withSignal(p, optimistic(p.today)));
+		const recordedAt = new Date().toISOString();
+		setPage((p) => withSignal(p, optimistic(p.today, recordedAt)));
 		const result = await sent(() => send(keyFor(payload)));
 		if (result.status !== "ok") {
 			setPage((p) => withSignal(p, entry));
@@ -138,7 +139,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		const input = signalInput(entry.key, value, draft);
 		return writeSignal(
 			entry,
-			(today) => stated(entry, { ...draft, value, asOf: statedAsOf(draft, today) }, today, viewerName),
+			(today, at) => stated(entry, { ...draft, value, asOf: statedAsOf(draft, today) }, today, at, viewerName),
 			JSON.stringify([what, entry.revision, input]),
 			(key) =>
 				what === "attest"
@@ -151,7 +152,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		const input = { action: "retract", key: entry.key };
 		return writeSignal(
 			entry,
-			() => retracted(entry, viewerName),
+			(_, at) => retracted(entry, at, viewerName),
 			JSON.stringify(["retract", entry.revision, input]),
 			(key) => correctSignal(key, entry.revision, input),
 			(confirmed) => historyLine(confirmed, "retracted", null),
@@ -161,7 +162,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 		const input = { key: entry.key, expectedValue: entry.value };
 		return writeSignal(
 			entry,
-			(today) => reaffirmed(entry, today, viewerName),
+			(today, at) => reaffirmed(entry, today, at, viewerName),
 			JSON.stringify(["reaffirm", entry.revision, input]),
 			(key) => reaffirmSignal(key, entry.revision, input),
 			(confirmed) => historyLine(confirmed, "reaffirmed", confirmed.value),
@@ -230,18 +231,8 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 			<div className="mb-5 grid grid-cols-4 gap-4 max-app-md:grid-cols-2">
 				<Stat label="Signals" value={page.signals.length} note="You answer these seven" />
 				<Stat label="Current" value={page.counts.current} note="Answered and up to date" />
-				<Stat
-					label="Needs renewing"
-					value={page.counts.needsRenewing}
-					tone={page.counts.needsRenewing ? "amber" : undefined}
-					note="Monthly answers older than 30 days"
-				/>
-				<Stat
-					label="Not answered"
-					value={page.counts.notAnswered}
-					tone={page.counts.notAnswered ? "amber" : undefined}
-					note="Shown as Unknown, never as no"
-				/>
+				<Stat label="Needs renewing" value={page.counts.needsRenewing} note="Monthly answers older than 30 days" />
+				<Stat label="Not answered" value={page.counts.notAnswered} note="Shown as Unknown, never as no" />
 			</div>
 			{SIGNAL_GROUPS.map((group) => {
 				const rows = signalsIn(page, group.id);
@@ -256,7 +247,7 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 								{group.title}
 							</h2>
 						</div>
-						<Card className="!p-0">
+						<Card className="p-0 max-app-sm:p-0">
 							<ul>
 								{rows.map((entry, i) => (
 									<SignalRow
@@ -321,15 +312,11 @@ const GROUP_ICON: Record<(typeof SIGNAL_GROUPS)[number]["id"], IconSvgElement> =
 	foundations: MapsLocation01Icon,
 };
 
-function Stat({ label, value, note, tone }: { label: string; value: number; note: string; tone?: "amber" }) {
+function Stat({ label, value, note }: { label: string; value: number; note: string }) {
 	return (
 		<Card size="sm">
 			<div className="text-xs font-semibold text-text-3">{label}</div>
-			<div
-				className={cn("mt-1 font-display text-title-lg leading-none text-ink", tone === "amber" && "text-amber-600")}
-			>
-				{value}
-			</div>
+			<div className="mt-1 font-display text-title-lg leading-none text-ink">{value}</div>
 			<div className="mt-2 text-sm text-text-3">{note}</div>
 		</Card>
 	);
@@ -794,7 +781,7 @@ function CandidateSection({
 					Leadership candidates
 				</h2>
 			</div>
-			<Card className="!p-0">
+			<Card className="p-0 max-app-sm:p-0">
 				<CardHeader className="flex-wrap px-[18px] pt-4">
 					<CardHeading>
 						<CardTitle size="sm">Attended and volunteered, {CANDIDATE_DAYS} days unbroken</CardTitle>

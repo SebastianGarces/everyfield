@@ -48,7 +48,10 @@ export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boole
 
 function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const toast = useToast();
-	const [data, setData] = useState(loaded);
+	const [local, setLocal] = useState<{ from: CheckInData; value: CheckInData } | null>(null);
+	const data = local?.from === loaded ? local.value : loaded;
+	const setData = (change: (d: CheckInData) => CheckInData) =>
+		setLocal((last) => ({ from: loaded, value: change(last?.from === loaded ? last.value : loaded) }));
 	const [arrived, setArrived] = useState<string | null>(null);
 	const [search, setSearch] = useState("");
 	const door = useSaveIntent<DoorForm>({ explain: problemText });
@@ -59,8 +62,9 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 	const stale = () =>
 		reloadCheckIn(m.id).then(
 			(r) => {
-				if (r.status !== "ok" || r.value.status !== "found") return false;
-				setData(r.value);
+				const fresh = r.status === "ok" && r.value.status === "found" ? r.value : null;
+				if (!fresh) return false;
+				setData(() => fresh);
 				return true;
 			},
 			() => false,
@@ -228,7 +232,6 @@ function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
 						setSearch(e.target.value);
 						setArrived(null);
 					}}
-					className="h-[46px]"
 				/>
 			</header>
 
@@ -487,7 +490,7 @@ function WalkInDialog({
 								label="Who"
 								value={mode}
 								onValueChange={setMode}
-								className="flex w-full [&>*]:flex-1 [&>*]:justify-center"
+								className="w-full [&>*]:flex-1 [&>*]:justify-center"
 								options={[
 									{ value: "existing", label: "In People" },
 									{ value: "new", label: "Someone new" },

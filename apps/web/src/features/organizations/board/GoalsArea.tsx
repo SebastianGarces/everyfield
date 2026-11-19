@@ -22,7 +22,8 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { useActionState, useState } from "react";
-import { readGoals, saveGoal } from "./actions";
+import { saveGoal } from "./actions";
+import { readGoals } from "./fetch.ts";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } from "./model";
 import { Problem } from "../../../components/Problem.tsx";
@@ -178,7 +179,7 @@ function Figure({ term, value }: { term: string; value: string }) {
 function Today({ data }: { data: PipelineGoals }) {
 	return (
 		<Card>
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm">Your pipeline today</CardTitle>
 					<CardDescription>As of {formatPlainDate(data.asOf)}</CardDescription>
@@ -220,7 +221,7 @@ function Conversations({ data }: { data: PipelineGoals }) {
 	const { months, quarters } = data.conversations;
 	return (
 		<Card>
-			<CardHeader className="mb-3">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm">Leadership conversations</CardTitle>
 					<CardDescription>“I see in you” conversations staff logged, by the day they happened.</CardDescription>

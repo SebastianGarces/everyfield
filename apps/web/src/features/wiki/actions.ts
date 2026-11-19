@@ -2,16 +2,9 @@
 
 import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { revalidatePath } from "next/cache";
-import { articlePath, parseSource, sourceInput } from "./model.ts";
-import {
-	editorContext,
-	logSearchLost,
-	organizationNames,
-	plantContext,
-	runSearch,
-	wikiActor,
-	wikiMount,
-} from "./server.ts";
+import { parseSource, sourceInput } from "./model.ts";
+import { editorContext, plantContext, mountFor, wikiActor } from "./server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type WriteOk = {
 	status: "ok";
@@ -26,13 +19,7 @@ export type WriteResult = WriteOk | { status: "denied" } | { status: "conflict" 
 type ReadingKey = { requestKey: string; articleId: string; plantId?: string };
 type Envelope = ReadingKey & { expectedRevision: string };
 
-async function actorMount() {
-	const actor = await wikiActor();
-	const mount = wikiMount();
-	if (actor === "down" || !mount) return { status: "lost" as const };
-	if (!actor) return { status: "denied" as const };
-	return { status: "ready" as const, actor, mount };
-}
+const actorMount = async () => mountFor(await wikiActor());
 
 function mapReading(value: {
 	errorCode: "content_access_denied" | null;
@@ -64,7 +51,7 @@ export async function recordArticleView(envelope: ReadingKey): Promise<WriteResu
 		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
 		return mapReading(reply.value);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "view-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "view-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -84,7 +71,7 @@ export async function saveProgress(envelope: ReadingKey, fraction: string): Prom
 		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
 		return mapReading(reply.value);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "progress-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "progress-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -101,7 +88,7 @@ export async function saveBookmark(envelope: Envelope, desired: boolean): Promis
 		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
 		return mapReading(reply.value);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "bookmark-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "bookmark-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -124,55 +111,11 @@ export type SearchResult =
 	| { status: "denied" }
 	| { status: "lost" };
 
-export async function searchWiki(
-	query: string,
-	phase: number | null,
-	page: number,
-	sourceRaw: string | null,
-): Promise<SearchResult> {
-	const actor = await wikiActor();
-	if (actor === "down") {
-		logSearchLost("actor-down");
-		return { status: "lost" };
-	}
-	if (!actor) return { status: "denied" };
-	const result = await runSearch(actor, query, phase, page, parseSource(sourceRaw ?? undefined));
-	if (result === "lost" || result === "denied") return { status: result };
-	if (result.status === "empty") return { status: "empty" };
-	if (result.status === "unavailable") return { status: "unavailable" };
-	return { status: "results", hits: result.hits, nextPage: result.nextPage };
-}
-
 export type GuideResult =
 	| { status: "found"; title: string; section: string | null; excerpt: string; href: string }
 	| { status: "missing" }
 	| { status: "denied" }
 	| { status: "unavailable" };
-
-export async function loadGuide(route: string): Promise<GuideResult> {
-	const ready = await actorMount();
-	if (ready.status === "denied") return { status: "denied" };
-	if (ready.status === "lost") return { status: "unavailable" };
-	try {
-		const reply = await ready.mount.producer.contextGuide(ready.mount.db, ready.actor, {
-			route: route.slice(0, 200),
-		});
-		if (reply.status !== "ok")
-			return reply.error.code === "access_denied" ? { status: "denied" } : { status: "unavailable" };
-		const guide = reply.value;
-		if (!guide.found || !guide.title || !guide.slug || !guide.body) return { status: "missing" };
-		return {
-			status: "found",
-			title: guide.title,
-			section: guide.citation,
-			excerpt: guide.body,
-			href: articlePath(guide.slug),
-		};
-	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "guide-failed", error: String(error) }));
-		return { status: "unavailable" };
-	}
-}
 
 export type ExportResult =
 	| { status: "pdf"; bytes: string }
@@ -197,7 +140,7 @@ async function exportOf(articleId: string, sourceRaw: string | null, kind: "pdf"
 			return { status: "print", html: reply.value.html, fallback: reply.value.fontFailureOffersPrintFallback };
 		return { status: "denied" };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "export-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "export-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -215,30 +158,6 @@ export type OrderRead =
 	| { status: "ok"; revision: string; churches: OrderRow[]; networks: OrderRow[] }
 	| { status: "denied" }
 	| { status: "lost" };
-
-export async function readSourceOrder(): Promise<OrderRead> {
-	const ready = await actorMount();
-	if (ready.status !== "ready") return ready;
-	if (!plantContext(ready.actor).canOrder) return { status: "denied" };
-	try {
-		const reply = await ready.mount.producer.listArticles(ready.mount.db, ready.actor, { page: 1 });
-		if (reply.status !== "ok") return { status: "denied" };
-		const names = await organizationNames([...reply.value.churches, ...reply.value.networks]);
-		const row = (id: string, kind: "church" | "network"): OrderRow => ({
-			id,
-			name: names.get(id) ?? `${kind === "church" ? "Church" : "Network"} ${id.slice(0, 4)}`,
-		});
-		return {
-			status: "ok",
-			revision: reply.value.orderRevision,
-			churches: reply.value.churches.map((id) => row(id, "church")),
-			networks: reply.value.networks.map((id) => row(id, "network")),
-		};
-	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "order-read-failed", error: String(error) }));
-		return { status: "lost" };
-	}
-}
 
 export type OrderSave =
 	| { status: "ok"; revision: string }
@@ -271,7 +190,7 @@ export async function saveSourceOrder(
 		if (reply.value.errorCode) return { status: "denied" };
 		return { status: "ok", revision: reply.value.revision };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "order-save-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "order-save-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -298,7 +217,7 @@ export async function setFeedback(input: {
 		if (vote !== "helpful" && vote !== "unhelpful") return { status: "lost" };
 		return { status: "ok", vote };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "feedback-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "feedback-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -372,11 +291,11 @@ async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgC
 		try {
 			refreshWiki(cachePath);
 		} catch (refreshError) {
-			console.error(JSON.stringify({ component: "wiki", outcome: "revalidate-failed", error: String(refreshError) }));
+			logFailure({ component: "wiki", outcome: "revalidate-failed" }, refreshError);
 		}
 		return { status: "ok", revision: nextRevision(command.expectedRevision), state: reply.value.state };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "organization-write-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "organization-write-failed" }, error);
 		return { status: "lost" };
 	}
 }

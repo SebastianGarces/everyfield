@@ -1,5 +1,6 @@
 import { sql } from "@everyfield/db/query";
 import "server-only";
+import { asLogId, logLine } from "@everyfield/domain/log";
 import { nextCookies } from "better-auth/next-js";
 import { after } from "next/server";
 import { createHmac } from "node:crypto";
@@ -9,6 +10,8 @@ import { mailEnv } from "../mail-env.ts";
 import { createIdentityService, trustedIdentityIp, type IdentityConfig } from "@everyfield/domain/identity";
 import { invitationService } from "../invitations";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
+import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
+import { mutatingRoute } from "../platform/boundary.ts";
 
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
@@ -95,9 +98,9 @@ function identityMount() {
 			scheduleDelivery: after,
 			origin: v.IDENTITY_ORIGIN,
 			secret: v.IDENTITY_SECRET,
-			trustedIp: (request) => trustedIdentityIp(request, process.env.VERCEL === "1"),
+			trustedIp: (request) => trustedIdentityIp(request, trustsVercelForwardedFor(process.env)),
 			enqueueMail: identityMailQueue(v),
-			diagnostic: (value) => console.error(JSON.stringify({ component: "identity", ...value })),
+			diagnostic: (value) => logLine({ component: "identity", ...value, correlationId: asLogId(value.correlationId) }),
 			invitations: invitationService() ?? undefined,
 		});
 	}
@@ -118,3 +121,5 @@ export function requestAuth() {
 	if (!mount) throw Error("identity_unavailable");
 	return mount.auth;
 }
+
+export const identityWrite = mutatingRoute(identityHandler);

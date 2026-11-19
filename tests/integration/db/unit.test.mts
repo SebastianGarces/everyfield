@@ -31,3 +31,28 @@ process.stdout.write(JSON.stringify({ locale: new Intl.Collator().resolvedOption
 	for (const run of runs)
 		assert.deepEqual({ text: run.text, hash: run.hash }, { text: expected, hash: digest }, run.locale);
 });
+
+test("INV-jobs: a queued job row holds identifiers, keys, state and timing, never a payload", async () => {
+	const { getTableColumns } = await import("../../../packages/db/src/query.ts");
+	const { job } = await import("../../../packages/db/src/schema/tables.ts");
+	assert.deepEqual(Object.keys(getTableColumns(job)).sort(), [
+		"attempt_count",
+		"checkpoint_key",
+		"claim_generation",
+		"eligible_at",
+		"error_code",
+		"finished_at",
+		"id",
+		"kind",
+		"lease_owner",
+		"lease_until",
+		"max_attempts",
+		"next_attempt_at",
+		"producer_key",
+		"revision",
+		"source_revision",
+		"state",
+		"subject_record_id",
+		"tenant_id",
+	]);
+});

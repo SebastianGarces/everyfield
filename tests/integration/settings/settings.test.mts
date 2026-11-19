@@ -8,12 +8,12 @@ import { sql, eq, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import {
 	createLifecycleCleanup,
-	issueRestrictedDeletionSession,
 	createAccountCredentials,
 	uploadAvatar,
 	readAvatar,
 	withSettingsWrite,
 } from "../../../packages/domain/src/settings/index.ts";
+import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { settingsApi } from "./settings-api.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
@@ -39,6 +39,7 @@ const origin = "http://settings.localhost";
 const ingress = new Map();
 const trustedIps = new Map();
 const deliveries = [];
+const diagnostics = [];
 const secret = randomBytes(40).toString("hex");
 const denied = refusedWith({ details: {} });
 const command = (input = {}, expectedRevision = "1", requestKey = randomUUID()) => ({
@@ -153,6 +154,7 @@ before(async () => {
 			return { request, trustedIp: trustedIps.get(c.session) ?? "198.51.100.21", viewer };
 		},
 		responseCookies: async () => {},
+		diagnostic: (value) => diagnostics.push(value),
 		deliverVerification: async (_tx, i) => {
 			deliveries.push(i);
 		},
@@ -1215,6 +1217,7 @@ test("AC:TARGET-IDN-008 AC:ROLE43-018 password proof precedes unchanged refusal;
 	faults = false;
 	assert.equal(changed.status, "succeeded");
 	assert.deepEqual(changed.reporting, { status: "pending_investigation" });
+	assert.deepEqual(diagnostics.splice(0), [{ correlationId: changed.correlationId, outcome: "reporting_pending" }]);
 	const sessions = await admin.select().from(t.auth_session).where(eq(t.auth_session.user_id, a.user));
 	assert.equal(sessions.length, 1);
 	assert.equal(

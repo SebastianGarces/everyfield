@@ -11,6 +11,7 @@ import {
 import "server-only";
 import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
+import { logFailure } from "@everyfield/domain/log";
 
 export type OversightViewer = {
 	authority: RequestActor;
@@ -39,7 +40,7 @@ async function load<T>(read: (db: Database) => Promise<T | null>): Promise<Loade
 		const value = await read(db);
 		return value === null ? { status: "missing" } : { status: "ok", value };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "oversight", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "oversight", outcome: "read_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -48,9 +49,7 @@ export const loadDirectory = (v: OversightViewer) => load((db) => listPlants(db,
 export const loadPlant = (v: OversightViewer, plantId: string) =>
 	load((db) =>
 		getPlant(db, v.authority, plantId, (section, error) =>
-			console.error(
-				JSON.stringify({ component: "oversight", outcome: "section_failed", section, error: String(error) }),
-			),
+			logFailure({ component: "oversight", outcome: "section_failed", section }, error),
 		),
 	);
 export const loadRoster = (v: OversightViewer) => load((db) => listSendingChurches(db, v.authority));

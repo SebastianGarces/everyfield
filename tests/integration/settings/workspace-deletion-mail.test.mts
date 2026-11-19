@@ -5,7 +5,8 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { and, eq, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/index.ts";
+import { deletionOperations } from "../../../packages/domain/src/settings/index.ts";
+import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { notificationCategory } from "../../../packages/contracts/src/settings/values.ts";
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { deadline } from "../../../apps/web/src/features/settings/deletion-mail.ts";
@@ -165,6 +166,10 @@ async function queueChurchMail(p: Church, a: Person, logicalKey: string) {
 	await executeWrites(admin, writes);
 	return id;
 }
+const deletionWindow = (requestedAt: number) => ({
+	requested_at: new Date(requestedAt),
+	cancel_until: new Date(requestedAt + 30 * 86400_000),
+});
 const mailState = async (id: string) =>
 	(await admin.select({ state: t.mail.state }).from(t.mail).where(eq(t.mail.id, id)))[0]!.state;
 
@@ -280,8 +285,7 @@ test("at send time a notice goes only to an account still seated, at the same ad
 					requester_opaque_id: a.id,
 					request_revision: "1",
 					state: "pending_deletion",
-					requested_at: new Date(),
-					cancel_until: new Date(Date.now() + 30 * 86400_000),
+					...deletionWindow(Date.now()),
 					witness_checkpoint: "1",
 					cleanup_state: "not_started",
 				}),
@@ -328,8 +332,7 @@ test("replays and refusals queue no notice", async () => {
 		requester_opaque_id: late.owner.id,
 		request_revision: "1",
 		state: "pending_deletion",
-		requested_at: new Date(Date.now() - 31 * 86400_000),
-		cancel_until: new Date(Date.now() - 86400_000),
+		...deletionWindow(Date.now() - 31 * 86400_000),
 		witness_checkpoint: "1",
 		cleanup_state: "not_started",
 	});
