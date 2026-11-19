@@ -1,6 +1,6 @@
 "use client";
 
-import type { PipelineBoard } from "@everyfield/contracts/organizations";
+import type { PipelineChoices } from "@everyfield/contracts/organizations";
 import {
 	Button,
 	Dialog,
@@ -17,8 +17,8 @@ import { addPerson, editPerson } from "./actions";
 import { refusalText } from "./model";
 import { Problem } from "../../../components/Problem.tsx";
 
-type Staff = PipelineBoard["staff"];
-type Stages = PipelineBoard["stages"];
+type Staff = PipelineChoices["staff"];
+type Stages = PipelineChoices["stages"];
 const NOBODY = "none";
 
 export type PersonValues = { name: string; email: string | null; responsibleSeatId: string | null; stageId: string };
