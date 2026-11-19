@@ -13,6 +13,5 @@ export async function readSeats() {
 	const r = await answered(get("seats"));
 	return r.status === "refused" ? ({ status: "unavailable" } as const) : r;
 }
-export const readSeatsPage = (list: "seats" | "invitations", after: string) =>
-	answered(get("page", { list, after }));
+export const readSeatsPage = (list: "seats" | "invitations", after: string) => answered(get("page", { list, after }));
 export const readRemovalReview = (seatId: string) => answered(get("removal", { seatId }));
