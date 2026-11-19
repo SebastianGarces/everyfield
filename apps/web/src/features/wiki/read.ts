@@ -4,7 +4,7 @@ import { defineReads } from "../../server/platform/reads.ts";
 import type { GuideResult, OrderRead, OrderRow, SearchResult } from "./actions.ts";
 import { articlePath, parseSource } from "./model.ts";
 import { mountFor, organizationNames, plantContext, runSearch, wikiActor } from "./server.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 const search = z.strictObject({
 	query: z.string(),
@@ -28,48 +28,50 @@ export const GET = defineReads(
 		guide: get(z.strictObject({ route: z.string() }), async ({ actor }, v): Promise<GuideResult> => {
 			const ready = mountFor(actor);
 			if (ready.status === "denied") return { status: "denied" };
-			try {
-				const reply = await ready.mount.producer.contextGuide(ready.mount.db, ready.actor, {
-					route: v.route.slice(0, 200),
-				});
-				if (reply.status !== "ok")
-					return reply.error.code === "access_denied" ? { status: "denied" } : { status: "unavailable" };
-				const guide = reply.value;
-				if (!guide.found || !guide.title || !guide.slug || !guide.body) return { status: "missing" };
-				return {
-					status: "found",
-					title: guide.title,
-					section: guide.citation,
-					excerpt: guide.body,
-					href: articlePath(guide.slug),
-				};
-			} catch (error) {
-				logFailure({ component: "wiki", outcome: "guide-failed" }, error);
-				return { status: "unavailable" };
-			}
+			return transient(
+				{ component: "wiki", outcome: "guide-failed" },
+				async () => {
+					const reply = await ready.mount.producer.contextGuide(ready.mount.db, ready.actor, {
+						route: v.route.slice(0, 200),
+					});
+					if (reply.status !== "ok")
+						return reply.error.code === "access_denied" ? { status: "denied" } : { status: "unavailable" };
+					const guide = reply.value;
+					if (!guide.found || !guide.title || !guide.slug || !guide.body) return { status: "missing" };
+					return {
+						status: "found",
+						title: guide.title,
+						section: guide.citation,
+						excerpt: guide.body,
+						href: articlePath(guide.slug),
+					};
+				},
+				{ status: "unavailable" },
+			);
 		}),
 		order: get(z.undefined(), async ({ actor }): Promise<OrderRead> => {
 			const ready = mountFor(actor);
 			if (ready.status !== "ready") return ready;
 			if (!plantContext(ready.actor).canOrder) return { status: "denied" };
-			try {
-				const reply = await ready.mount.producer.listArticles(ready.mount.db, ready.actor, { page: 1 });
-				if (reply.status !== "ok") return { status: "denied" };
-				const names = await organizationNames(ready.mount, [...reply.value.churches, ...reply.value.networks]);
-				const row = (id: string, kind: "church" | "network"): OrderRow => ({
-					id,
-					name: names.get(id) ?? `${kind === "church" ? "Church" : "Network"} ${id.slice(0, 4)}`,
-				});
-				return {
-					status: "ok",
-					revision: reply.value.orderRevision,
-					churches: reply.value.churches.map((id) => row(id, "church")),
-					networks: reply.value.networks.map((id) => row(id, "network")),
-				};
-			} catch (error) {
-				logFailure({ component: "wiki", outcome: "order-read-failed" }, error);
-				return { status: "lost" };
-			}
+			return transient(
+				{ component: "wiki", outcome: "order-read-failed" },
+				async () => {
+					const reply = await ready.mount.producer.listArticles(ready.mount.db, ready.actor, { page: 1 });
+					if (reply.status !== "ok") return { status: "denied" };
+					const names = await organizationNames(ready.mount, [...reply.value.churches, ...reply.value.networks]);
+					const row = (id: string, kind: "church" | "network"): OrderRow => ({
+						id,
+						name: names.get(id) ?? `${kind === "church" ? "Church" : "Network"} ${id.slice(0, 4)}`,
+					});
+					return {
+						status: "ok",
+						revision: reply.value.orderRevision,
+						churches: reply.value.churches.map((id) => row(id, "church")),
+						networks: reply.value.networks.map((id) => row(id, "network")),
+					};
+				},
+				LOST,
+			);
 		}),
 	}),
 );
