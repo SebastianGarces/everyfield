@@ -3,6 +3,7 @@
 import { getViewer } from "@/server/request-context";
 import { trainingWriter } from "@everyfield/domain/teams";
 import { write } from "../server.ts";
+import { readRosterPreview } from "./server.ts";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
 
@@ -27,6 +28,12 @@ export async function correctProgram(
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return write(viewer, (tx, ctx) => trainingWriter.correctProgram(tx, ctx, { requestKey, expectedRevision, input }));
+}
+
+export async function previewRoster(programId: string, personIds: string[]) {
+	const viewer = await seat();
+	if (!viewer) return noSeat;
+	return readRosterPreview(viewer, programId, personIds);
 }
 
 export async function saveRoster(
