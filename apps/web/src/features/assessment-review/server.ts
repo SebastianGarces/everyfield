@@ -5,7 +5,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createAssessments } from "@everyfield/domain/intelligence";
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export const assessments = createAssessments();
 

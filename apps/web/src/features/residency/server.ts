@@ -6,7 +6,7 @@ import "server-only";
 import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
 import type { ProgramAnswer } from "../organizations/programs/mount";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export async function residentActor(): Promise<RequestActor | "signed_out" | null> {
 	const v = await getViewer();

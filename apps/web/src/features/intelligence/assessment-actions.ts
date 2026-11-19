@@ -12,7 +12,7 @@ import type {
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createAssessments, type Assessments } from "@everyfield/domain/intelligence";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 const assessments = createAssessments();
 

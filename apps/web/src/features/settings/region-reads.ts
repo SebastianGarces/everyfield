@@ -4,7 +4,7 @@ import { readReportingLocation, suggestRegions } from "@everyfield/domain/organi
 import "server-only";
 import { z } from "zod";
 import type { RegionRead, RegionSuggestion } from "./region";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 type Session = Awaited<ReturnType<typeof getViewer>>;
 

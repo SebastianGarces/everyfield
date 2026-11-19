@@ -12,7 +12,7 @@ import "server-only";
 import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
 import { logFailure } from "@everyfield/domain/log";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type OversightViewer = {
 	authority: RequestActor;
