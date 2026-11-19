@@ -5,7 +5,9 @@ import { Button, Card, EmptyState, Skeleton } from "@everyfield/ui/controls";
 import { Tag } from "@everyfield/ui/display";
 import { useState } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
-import { downloadSavedDocument, listSavedDocuments, type DocumentOutcome } from "./actions.ts";
+import { downloadSavedDocument } from "./actions.ts";
+import type { DocumentOutcome } from "./outcome.ts";
+import { listSavedDocuments } from "./fetch.ts";
 import { FORMAT_LABEL, documentProblem, savedWhen, type SavedFile } from "./model.ts";
 
 export const savedDocuments = createRead(() => listSavedDocuments(), {

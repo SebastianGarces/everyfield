@@ -153,7 +153,7 @@ agent-browser wait --load networkidle
 agent-browser wait --url "**/feedback/*"
 agent-browser find role heading text --name "Feedback" --exact
 agent-browser find role link text --name "Sent feedback" --exact
-agent-browser find text "None yet" text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"None yet\")"
 ```
 
 ### feedback.triage

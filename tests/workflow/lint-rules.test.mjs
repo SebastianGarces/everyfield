@@ -105,6 +105,45 @@ export function Panel() {
 }
 `;
 
+test("INV-sql-name: a value pasted into sql.raw is a fixed name, never string, in product code", () => {
+	const reach = `import { sql, sql as s, type SqlLiteral } from "@everyfield/db/query";
+export const a = (alias: string) => sql.raw(\`\${alias}.id\`);
+export const b = (alias) => sql.raw(alias);
+export const c = <A extends string>(alias: SqlLiteral<A>) => sql.raw(\`\${alias}.id\`);
+export const d = (alias: "m" | "n") => sql.raw(alias);
+export const e = (on: boolean) => sql.raw(on ? "x" : "y");
+const literal = (v: string) => v;
+export const f = (v: string) => sql.raw(literal(v));
+export const g = (row: { from: string }) => sql.raw(row.from);
+export const h = <F extends string>(row: { from: SqlLiteral<F> }) => sql.raw(row.from);
+export function i(col: string) { return sql\`\${sql.raw(\`r.\${col}\`)}\`; }
+export const j = (v: string) => sql.raw(String(v));
+export const k = (v: string) => sql.raw(\`\${String(v)}.id\`);
+export const l = (v: string) => s.raw(v);
+const r = sql.raw;
+export const m = (v: string) => r(v);
+type Row = { name: string };
+export const n = (v: Row["name"]) => sql.raw(v);
+export const o = (v: keyof Record<string, 1>) => sql.raw(v);
+export const p = (v: string) => { const x = v; return sql.raw(x); };
+export const q = () => { let y = "a"; return sql.raw(y); };
+const COLS = ["a", "b"] as const;
+export const t = (v: (typeof COLS)[number]) => sql.raw(v);
+export const u = () => { const z = \`\${COLS[0]}.id\`; return sql.raw(z); };
+`;
+	const reported = [2, 3, 9, 11, 12, 13, 14, 16, 18, 19, 20, 21];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/people/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		["apps/web/src/features/x/reach.ts", "packages/domain/src/people/reach.ts"]
+			.flatMap((file) => reported.map((line) => `${file}:${line} raw-sql-literal`))
+			.sort(),
+	);
+});
+
 test("INV-lint: every import form of an effect hook is reported", () => {
 	const hits = lint({ "packages/ui/src/effects.tsx": EFFECTS });
 	assert.deepEqual(
@@ -132,6 +171,32 @@ test("INV-lint: a fifth state hook in a component or hook is reported, a nested 
 		"apps/web/src/features/x/state.tsx:30 max-state",
 		"apps/web/src/features/x/state.tsx:7 max-state",
 	]);
+});
+
+test("INV-mint: only the settings credentials module reaches the restricted deletion session mint, in product code", () => {
+	const reach = `import { issueRestrictedDeletionSession as mint } from "./deletion.ts";
+export { issueRestrictedDeletionSession } from "./deletion.ts";
+import * as deletion from "./deletion.ts";
+export const a = deletion.issueRestrictedDeletionSession;
+export const b = deletion["issueRestrictedDeletionSession"];
+export const c = async () => (await import("./deletion.ts")).issueRestrictedDeletionSession;
+export const d = mint;
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/settings/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/domain/src/settings/credentials.ts": reach,
+			"packages/domain/src/settings/deletion.ts": "export async function issueRestrictedDeletionSession() {}\n",
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[1, 2, 4, 5, 6]
+			.flatMap((line) => [
+				`apps/web/src/features/x/reach.ts:${line} mint-callers`,
+				`packages/domain/src/settings/reach.ts:${line} mint-callers`,
+			])
+			.sort(),
+	);
 });
 
 test("INV-lint: timers, fixed waits and flushSync are reported in product code and not in tests or tools", () => {
@@ -892,6 +957,30 @@ export const client = S3Client;
 	);
 });
 
+test("INV-deployment: only the deployment module reads VERCEL or VERCEL_ENV, in product code", () => {
+	const reach = `export const a = process.env.VERCEL_ENV === "production";
+export const b = process.env["VERCEL"] === "1";
+export const c = (env) => env.VERCEL_ENV;
+const { VERCEL_ENV: named } = process.env;
+export const d = process.env[\`VERCEL_ENV\`];
+const key = "VERCEL_ENV";
+export const e = z.object({ VERCEL: z.literal("1") }).safeParse(process.env).success;
+export const f = [named, key, process.env.VERCEL_URL];
+`;
+	const lines = [1, 2, 3, 4, 5, 6, 7];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/mail/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/db/src/deployment.ts": "export const named = (env) => env.VERCEL_ENV ?? env.VERCEL;\n",
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		["apps/web/src/features/x/reach.ts", "packages/domain/src/mail/reach.ts"]
+			.flatMap((file) => lines.map((line) => `${file}:${line} deployment-env`))
+			.sort(),
+	);
+});
+
 test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
 	const { dir, path, renamed, write, base } = history();
 	const growth = (entries, ...moves) => {
@@ -1625,5 +1714,27 @@ test("INV-lint: a route module or server-only module that calls a server action 
 			"apps/web/src/features/x/store.ts": `import { read } from "./actions";\nexport const load = () => read();\n`,
 		}).filter((hit) => hit.endsWith("render-reads")),
 		["apps/web/src/features/x/routes.tsx:3 render-reads", "apps/web/src/features/x/server.ts:3 render-reads"],
+	);
+});
+
+test("INV-lint: a read exported from a server action module or declared as an inline server action is reported, a write or a server-only read is not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function readThing() {}\nexport const listThings = async () => [];\nexport async function saveThing() {}\nexport async function reader() {}\nasync function loadInner() {}\nexport { loadInner as loadAlias };\nexport const { findOne, saveOne } = { findOne: async () => 1, saveOne: async () => 2 };\n`,
+			"apps/web/src/features/x/default.ts": `"use server";\nexport default async function readDefault() {}\n`,
+			"apps/web/src/features/x/all.ts": `"use server";\nexport * from "./reads.ts";\n`,
+			"apps/web/src/features/x/reads.ts": `export async function readFromAll() {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function readInline() {\n\t\t"use server";\n\t}\n\tasync function saveInline() {\n\t\t"use server";\n\t}\n\treturn [readInline, saveInline];\n}\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function readThing() {}\n`,
+		}).filter((hit) => hit.endsWith("no-read-actions")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 no-read-actions",
+			"apps/web/src/features/x/actions.ts:2 no-read-actions",
+			"apps/web/src/features/x/actions.ts:3 no-read-actions",
+			"apps/web/src/features/x/actions.ts:7 no-read-actions",
+			"apps/web/src/features/x/actions.ts:8 no-read-actions",
+			"apps/web/src/features/x/all.ts:2 no-read-actions",
+			"apps/web/src/features/x/default.ts:2 no-read-actions",
+		],
 	);
 });

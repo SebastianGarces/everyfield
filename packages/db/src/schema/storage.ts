@@ -14,6 +14,7 @@ import type { Database, Transaction } from "../client.ts";
 import { file_object, audit_event } from "./tables.ts";
 import { StorageError } from "./storage-error.ts";
 import { validateCommitment } from "./validate-file.ts";
+import { isProduction } from "../deployment.ts";
 type FileObjectRow = typeof file_object.$inferSelect;
 
 export type FilePurpose = FileObjectRow["purpose"];
@@ -31,7 +32,7 @@ const storageEnv = z.object({
 });
 const PRODUCTION_BUCKET = "everyfield";
 export function privateStorageFrom(env: Record<string, string | undefined>): PrivateStorage | null {
-	if (env.AWS_BUCKET_NAME === PRODUCTION_BUCKET && env.VERCEL_ENV !== "production")
+	if (env.AWS_BUCKET_NAME === PRODUCTION_BUCKET && !isProduction(env))
 		throw new Error(`The "${PRODUCTION_BUCKET}" bucket is for production only. Set AWS_BUCKET_NAME to everyfield-dev.`);
 	const parsed = storageEnv.safeParse(env);
 	if (!parsed.success) return null;

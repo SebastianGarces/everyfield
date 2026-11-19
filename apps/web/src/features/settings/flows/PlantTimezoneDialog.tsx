@@ -5,7 +5,7 @@ import { Button, Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader }
 import { useState } from "react";
 import type { PlantTimezonePreview, SectionResult } from "../port";
 import { useWrite } from "../save";
-import { SaveError } from "../SettingsDialog";
+import { SaveError } from "../SaveError";
 import { useSettings } from "../store";
 import { formatInstant, formatLocalDate, zoneLabel } from "../../../components/time.ts";
 import { ZonePicker } from "./ZonePicker";
