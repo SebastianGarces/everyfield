@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import { ServerConfigError, serverConfig, serverConfigProblem } from "../config.ts";
+import { unexpected } from "./transient.ts";
 
 export const privateHeaders = {
 	"Cache-Control": "private, no-store",
@@ -55,7 +56,8 @@ export const configured =
 		try {
 			return await handler(request, ...rest);
 		} catch (error) {
-			if (!(error instanceof ServerConfigError)) throw error;
+			const failure = unexpected({ component: "route", outcome: "failed" }, error);
+			if (!(failure instanceof ServerConfigError)) throw failure;
 			return safeResponse({ code: "unavailable" satisfies Refusal["code"] }, 503);
 		}
 	};

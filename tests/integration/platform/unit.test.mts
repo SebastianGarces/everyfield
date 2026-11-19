@@ -5,6 +5,7 @@ import { safeBoundary, safeResponse } from "../../../apps/web/src/server/platfor
 import { DrizzleQueryError } from "../../../packages/db/src/query.ts";
 import { asLogId, asLogWord, logFailure, logLine } from "../../../packages/domain/src/log.ts";
 import { createRequire } from "node:module";
+import { LOST, transient } from "../../../apps/web/src/server/platform/transient.ts";
 
 const { DatabaseError } = createRequire(new URL("../../../packages/db/package.json", import.meta.url))("pg");
 
@@ -57,4 +58,39 @@ test("INV-privacy: a failed statement's values and an error's text never reach t
 		],
 	);
 	assert.equal(lines.join("\n").includes("canary"), false);
+});
+
+test("INV-privacy: a failure that is not transient leaves the server without its statement, values or text", async (t) => {
+	const lines: string[] = [];
+	t.mock.method(console, "error", (line: string) => void lines.push(line));
+	const canary = "typed.by.a.person@example.test";
+	const statement = `insert into person (email) values ($1) returning ${canary}`;
+	const cause = Object.assign(new DatabaseError(`permission denied for table person ${canary}`, 0, "error"), {
+		code: "42501",
+		detail: `Failing row contains (${canary}).`,
+	});
+	const thrown = await transient(
+		{ component: "people", outcome: "write_failed" },
+		() => Promise.reject(new DrizzleQueryError(statement, [canary], cause)),
+		LOST,
+	).then(
+		() => assert.fail("a permission failure is not answered as lost"),
+		(error: unknown) => error,
+	);
+	assert.ok(thrown instanceof Error);
+	assert.deepEqual(
+		[thrown.name, thrown.message, thrown.cause, thrown.stack?.includes(canary)],
+		["ServerFailure", "server_failure", undefined, false],
+	);
+	assert.deepEqual(
+		lines.map((line) => JSON.parse(line)),
+		[{ component: "people", outcome: "write_failed", error: { name: "DrizzleQueryError", code: "42501" } }],
+	);
+	const transientCause = Object.assign(new DatabaseError("terminating connection", 0, "error"), { code: "57P01" });
+	assert.deepEqual(
+		await transient({ component: "people", outcome: "write_failed" }, () => Promise.reject(transientCause), LOST),
+		LOST,
+	);
+	assert.equal([...lines, String(Object.keys(thrown))].join("\n").includes(canary), false);
+	assert.equal(lines.join("\n").includes("insert into"), false);
 });
