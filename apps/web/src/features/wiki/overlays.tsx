@@ -208,12 +208,7 @@ function GuideBody({ result }: { result: GuideResult | null }) {
 				<p className="text-sm text-text-3">From the Wiki</p>
 				<h3 className="mt-0.5 font-title text-[21px] leading-tight tracking-[-0.02em] text-ink">{result.title}</h3>
 			</header>
-			<ArticleBody
-				size="sm"
-				contentType="safe_mdx"
-				body={result.excerpt}
-				className="[&>:first-child]:mt-0! [&>:last-child]:mb-0 [&_h2]:mt-5! [&_h2]:mb-1.5! [&_h2]:font-body! [&_h2]:text-[16px]! [&_h2]:font-semibold [&_h3]:mt-4! [&_h3]:mb-1! [&_h3]:font-body! [&_h3]:text-[15px]! [&_h3]:font-medium"
-			/>
+			<ArticleBody size="excerpt" contentType="safe_mdx" body={result.excerpt} />
 			<Link
 				href={result.href}
 				className="self-start font-medium text-ink underline decoration-green-500 decoration-2 underline-offset-[3px]"
