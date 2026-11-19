@@ -9,7 +9,6 @@ import type {
 	AvatarUpload,
 	CredentialOutcome,
 	DeletionStatus,
-	GetSectionRequest,
 	PersonalTimezonePreview,
 	PersonalTimezoneResult,
 	PlantTimezonePreview,
@@ -18,20 +17,8 @@ import type {
 	SavedSection,
 	SaveChurchRequest,
 	SaveSectionRequest,
-	SectionResult,
 } from "./port";
-import {
-	cancelRestrictedDeletion,
-	credential,
-	openRestrictedDeletion,
-	readSection,
-	restrictedStatus,
-	run,
-} from "./server";
-
-export async function getSection(request: GetSectionRequest): Promise<Reply<SectionResult>> {
-	return readSection(request);
-}
+import { cancelRestrictedDeletion, credential, openRestrictedDeletion, restrictedStatus, run } from "./server";
 
 export async function saveSection(request: SaveSectionRequest): Promise<Reply<SavedSection>> {
 	return run(
