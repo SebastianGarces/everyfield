@@ -1,4 +1,5 @@
 import "server-only";
+import { logFailure, type LogWord } from "@everyfield/domain/log";
 import { owner, sessionId, type Owner } from "@everyfield/contracts/common";
 import { sectionResult, settingsError, type SettingsError } from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
@@ -33,7 +34,6 @@ import { current as organizationMount } from "../organizations/mount.ts";
 import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
-import { logFailure, type LogWord } from "@everyfield/domain/log";
 
 type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
 type Signed = SectionViewer & { accountId: string };
