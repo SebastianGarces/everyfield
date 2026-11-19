@@ -1,4 +1,5 @@
 export const WRITE_PATTERN = 6;
+const PROMISE = /\b(?:reviews? it|for now|later|until|today|revisit|temporar(?:y|ily))\b/i;
 
 const kindsText = (kinds = {}) =>
 	Object.entries(kinds)
@@ -28,6 +29,11 @@ export function checkBudgets(rows, limits) {
 		if (over && !budget.reason?.trim())
 			problems.push(
 				`${name}: limit ${budget.limit} is above the ${WRITE_PATTERN}-statement write pattern; add a reason`,
+			);
+		const promise = over && budget.reason?.match(PROMISE);
+		if (promise)
+			problems.push(
+				`${name}: its reason promises ("${promise[0]}") instead of naming the structural cause of each statement`,
 			);
 		if (!over && budget.reason !== undefined) problems.push(`${name}: within the pattern; remove its reason`);
 		if (name.startsWith("GET ")) {

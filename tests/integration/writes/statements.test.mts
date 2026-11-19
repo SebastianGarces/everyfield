@@ -141,7 +141,7 @@ test(
 	},
 );
 
-test("INV-census: a budget fails on growth, slack, an unexplained write above six and a growing page", () => {
+test("INV-census: a budget fails on growth, slack, an unexplained or promised write above six and a growing page", () => {
 	const sample = (name: string, count: number, writes = 1, rollbacks = 0) => ({
 		kind: "sample",
 		name,
@@ -156,6 +156,7 @@ test("INV-census: a budget fails on growth, slack, an unexplained write above si
 		sample("people.addNote", 5),
 		sample("people.addNote", 7, 1, 1),
 		sample("tasks.edit", 9),
+		sample("tasks.move", 8),
 		sample("GET /people", 4, 0),
 		sample("GET /people", 5, 0),
 	];
@@ -163,6 +164,7 @@ test("INV-census: a budget fails on growth, slack, an unexplained write above si
 		"POST people.createPerson": { limit: 2 },
 		"people.addNote": { limit: 6, retry: 7 },
 		"tasks.edit": { limit: 9 },
+		"tasks.move": { limit: 8, reason: "Above the pattern today; RT-6 reviews it." },
 		"GET /people": { limit: 5 },
 		"retired.write": { limit: 3 },
 	};
@@ -170,6 +172,7 @@ test("INV-census: a budget fails on growth, slack, an unexplained write above si
 		"POST people.createPerson: 3 statements, limit 2 (1 write, 2 read)",
 		"people.addNote: 5 statements at most, limit 6; set it to 5",
 		"tasks.edit: limit 9 is above the 6-statement write pattern; add a reason",
+		'tasks.move: its reason promises ("today") instead of naming the structural cause of each statement',
 		"GET /people: 4 and 5 statements as its data grows; a page read must be fixed",
 		"retired.write: budgeted but never measured; remove it or exercise it",
 	]);
