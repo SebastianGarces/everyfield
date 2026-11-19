@@ -139,9 +139,14 @@ export const j = () => process.stdout.write("x");
 export const k = () => require("node:console");
 export const l = () => import("node:console");
 export const m = () => globalThis.process.stderr.write("x");
-export const d = [c, warn, nodeConsole, err];
+import proc from "node:process";
+export const n = () => proc.stderr.write("x");
+import { stderr } from "process";
+const { stdout } = process;
+const { error } = console;
+export const d = [c, warn, nodeConsole, err, stderr, stdout, error];
 `;
-	const lines = Array.from({ length: 15 }, (_, n) => n + 1);
+	const lines = [...Array.from({ length: 15 }, (_, n) => n + 1), 17, 18, 19, 20];
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/server.ts": reach,

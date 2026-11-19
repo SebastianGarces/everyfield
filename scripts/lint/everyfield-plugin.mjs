@@ -299,6 +299,7 @@ const LOGGED_CODE = /^(?:apps\/web\/src|packages\/domain\/src)\//;
 const CONSOLE_MODULES = new Set(["console", "node:console"]);
 const CONSOLE_HOSTS = new Set(["globalThis", "global", "self", "window"]);
 const PROCESS_STREAMS = new Set(["stdout", "stderr"]);
+const PROCESS_MODULES = new Set(["process", "node:process"]);
 
 const serverLog = {
 	meta: { type: "problem" },
@@ -313,8 +314,11 @@ const serverLog = {
 				message: `Log through ${LOG_MODULE} (logLine, logInfo, logFailure): it writes fixed words, numbers, checked ids and an error's class and code, never error text or row values.`,
 			});
 		const global = (node, names) => node?.type === "Identifier" && names.has(node.name) && !declared(context, node);
+		const processImports = new Set();
 		const processObject = (node) =>
-			global(node, new Set(["process"])) || (memberName(node) === "process" && global(node.object, CONSOLE_HOSTS));
+			global(node, new Set(["process"])) ||
+			(node?.type === "Identifier" && processImports.has(node.name)) ||
+			(memberName(node) === "process" && global(node.object, CONSOLE_HOSTS));
 		return merge(
 			moduleSources((node, name) => CONSOLE_MODULES.has(name) && report(node)),
 			{
@@ -323,6 +327,17 @@ const serverLog = {
 				},
 				Identifier(node) {
 					if (node.name === "console" && isValueReference(node) && !declared(context, node)) report(node);
+				},
+				ImportDeclaration(node) {
+					if (!PROCESS_MODULES.has(node.source.value)) return;
+					for (const spec of node.specifiers)
+						if (spec.type !== "ImportSpecifier") processImports.add(spec.local.name);
+						else if (PROCESS_STREAMS.has(spec.imported.name ?? spec.imported.value)) report(spec);
+				},
+				VariableDeclarator(node) {
+					if (node.id.type !== "ObjectPattern" || !processObject(node.init)) return;
+					for (const p of node.id.properties)
+						if (p.type === "Property" && PROCESS_STREAMS.has(keyName(p.key, p.computed))) report(p);
 				},
 				MemberExpression(node) {
 					const name = memberName(node);
