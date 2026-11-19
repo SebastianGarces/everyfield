@@ -4,7 +4,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { documentsWriter } from "@everyfield/domain/documents";
 import "server-only";
 import { writtenView, type WrittenView } from "../model.ts";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../../server/platform/transient.ts";
 
 export type WrittenLoad = { status: "ok"; value: WrittenView } | { status: "missing" } | { status: "failed" };
 

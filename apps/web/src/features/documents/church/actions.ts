@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import { documentActor } from "../server.ts";
 import { refusedWith } from "./refusal.ts";
 import type { LogWord } from "@everyfield/domain/log";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../../server/platform/transient.ts";
 
 const denied = { ...refusedWith("access_denied"), code: "access_denied" } as const;
 const write = <const O extends string, T>(outcome: LogWord<O>, body: () => Promise<T>) =>

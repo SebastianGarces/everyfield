@@ -15,7 +15,7 @@ import {
 	type Template,
 } from "./model.ts";
 import { logLine } from "@everyfield/domain/log";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type DocumentsLoad =
 	| { status: "ok"; templates: Template[]; version: string; context: Resolved | null; canPreview: boolean }

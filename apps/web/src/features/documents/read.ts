@@ -8,7 +8,7 @@ import { refusedWith } from "./church/refusal.ts";
 import type { CopySource, OwnedView, Resolved, SavedFile } from "./model.ts";
 import { presentOwned, presentSaved, refused, runAs, type DocumentOutcome } from "./outcome.ts";
 import { documentActor } from "./server.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type CompareResult =
 	{ status: "ok"; compare: ChurchCompare } | { status: "refused"; code: string; message: string } | { status: "lost" };

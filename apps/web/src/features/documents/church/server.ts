@@ -19,7 +19,7 @@ import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES } from "./refusal.ts";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../../server/platform/transient.ts";
 
 export type ChurchView = {
 	id: string;

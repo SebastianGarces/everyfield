@@ -8,7 +8,7 @@ import type { DocumentOutcome } from "../outcome.ts";
 import { writtenView, type WrittenView } from "../model.ts";
 import { documentActor } from "../server.ts";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../../server/platform/transient.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const answer = (outcome: DocumentOutcome<WrittenView>) => Response.json(outcome, { headers: NO_STORE });

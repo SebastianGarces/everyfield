@@ -4,7 +4,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import "server-only";
 import type { OwnedView, SavedFile } from "./model.ts";
 import type { Database } from "@everyfield/db/client";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type Read<T> = (db: Database, actor: RequestActor) => Promise<DocumentOutcome<T>>;
 
