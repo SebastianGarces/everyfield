@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { createConversation, readConversation, runTurn, submitTurn } from "../../../packages/evry/src/index.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { evryActor, type QualifiedModel } from "../../../packages/evry/src/index.ts";
-import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
 import { readSwitches, setFlag, type KillSwitch } from "../../../packages/domain/src/flags/index.ts";
 import { endNotice, sendNotice, type TurnEnd } from "../../../apps/web/src/features/evry/conversation/model.ts";
