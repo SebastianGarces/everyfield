@@ -26,9 +26,6 @@ export type Loaded = {
 	occurrence: Occurrence | null;
 };
 export const loadTask = (taskId: string): Promise<Outcome<Loaded>> => get("task", { taskId });
-export const loadBlocking = (
-	taskIds: readonly string[],
-): Promise<Outcome<{ id: string; openPrerequisites: number }[]>> => get("blocking", { taskIds: [...taskIds] });
 export const loadRows = (taskIds: readonly string[]): Promise<Outcome<{ items: TaskItem[] }>> =>
 	get("rows", { taskIds: [...taskIds] });
 export const prerequisiteCandidates = (taskId: string, search: string): Promise<Outcome<{ items: Candidate[] }>> =>
