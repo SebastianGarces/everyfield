@@ -1,7 +1,7 @@
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { createRead } from "../../components/read.tsx";
-import { searchRecipients } from "./actions.ts";
+import { searchRecipients } from "./fetch.ts";
 import { bodyToTextResult } from "./body.ts";
 import { blankForm, draftPayload, formFrom, type Form } from "./composeModel.ts";
 import {

@@ -161,7 +161,7 @@ agent-browser find role heading text --name "Export people" --exact
 One person: profile, stage and its history, Activity, records, photo and commitment documents.
 
 - Routes: `/people/[personId]`
-- Endpoints: `/people/[personId]/photo/[versionId]`, `/people/[personId]/commitments/[commitmentId]/document`
+- Endpoints: `/people/[personId]/photo/[versionId]`, `/people/[personId]/commitments/[commitmentId]/document`, `/people/read`
 - Personas: `owner` write, `admin` write, `member` read
 - Catalog: PPL-002, PPL-003, PPL-005, PPL-006, PPL-008, PPL-014
 
