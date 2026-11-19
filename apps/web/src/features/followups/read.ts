@@ -19,10 +19,12 @@ export const GET = defineReads(taskViewer, "access_denied", (get) => ({
 	person: get(c.listContactHistoryRequest.pick({ personId: true }), (viewer, v) =>
 		read(async (tx) => ({ status: "ok" as const, value: await readPersonFollowUps(tx, viewer.authority, v.personId) })),
 	),
-	duties: get(c.listFollowUpOwnersRequest.pick({ personId: true, page: true }), (viewer, v) =>
-		read(async (tx) =>
-			outcomeOf(await followUpReader.listFollowUpOwners(tx, viewer.authority, { ...v, limit: PERSON_PAGE })),
-		),
+	duties: get(
+		c.listFollowUpOwnersRequest.pick({ personId: true, page: true }).required({ personId: true }),
+		(viewer, v) =>
+			read(async (tx) =>
+				outcomeOf(await followUpReader.listFollowUpOwners(tx, viewer.authority, { ...v, limit: PERSON_PAGE })),
+			),
 	),
 	obligations: get(c.readObligationsRequest.pick({ personId: true, meetingId: true, page: true }), (viewer, v) =>
 		read(async (tx) =>

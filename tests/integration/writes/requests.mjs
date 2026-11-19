@@ -586,6 +586,15 @@ try {
 		member.cookie,
 	);
 	assert.equal(memberSkill.status, "refused", JSON.stringify(memberSkill));
+	const duties = async (input) =>
+		(
+			await fetch(`${origin}/follow-ups/read?what=duties&in=${readInput(input)}`, {
+				headers: { cookie: member.cookie },
+			})
+		).json();
+	assert.deepEqual(await duties({ page: 1 }), { status: "refused", code: "invalid_input" });
+	const personDuties = await duties({ personId, page: 1 });
+	assert.equal(personDuties.status, "ok", JSON.stringify(personDuties));
 	const tagKey = randomUUID();
 	const tagged = await act("POST people.fields.addPersonTag", page, fields, "addPersonTag", [
 		tagKey,
