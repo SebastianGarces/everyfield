@@ -4,7 +4,7 @@ import { defineReads } from "../../server/platform/reads.ts";
 import type { GuideResult, OrderRead, OrderRow, SearchResult } from "./actions.ts";
 import { articlePath, parseSource } from "./model.ts";
 import { mountFor, organizationNames, plantContext, runSearch, wikiActor } from "./server.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 const search = z.strictObject({
 	query: z.string(),

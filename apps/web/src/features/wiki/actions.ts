@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { parseSource, sourceInput } from "./model.ts";
 import { editorContext, plantContext, mountFor, wikiActor } from "./server.ts";
 import { isTransient, logFailure } from "@everyfield/domain/log";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 type WriteOk = {
 	status: "ok";

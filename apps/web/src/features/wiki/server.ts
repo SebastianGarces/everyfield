@@ -24,7 +24,7 @@ import {
 import { isTransient, logFailure, logLine, type LogWord } from "@everyfield/domain/log";
 import { parseJson } from "../../server/platform/json.ts";
 import { mutatingRoute } from "../../server/platform/boundary.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 type Producer = ReturnType<typeof createWikiProducer>;
 type Mount = { db: Database; producer: Producer };
