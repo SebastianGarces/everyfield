@@ -43,6 +43,7 @@ import { Avatar } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { useRouter } from "next/navigation";
 import { useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { localToday } from "../../components/clock.ts";
 import { useAddress, writeAddress } from "../../components/location.ts";
 import { createRead, useRead } from "../../components/read.tsx";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
@@ -95,7 +96,7 @@ import { MeetingsCard } from "./MeetingsCard.tsx";
 import { ChartTree } from "./OrgChart.tsx";
 import { LeaderLine, TeamBadge, TeamIcon } from "./parts.tsx";
 import { SetupDialog } from "./Setup.tsx";
-import { apply, today, type Change } from "./page-state.ts";
+import { apply, type Change } from "./page-state.ts";
 import { ResponsibilitiesPanel } from "./responsibilities/Responsibilities.tsx";
 import type { TeamView } from "./server.ts";
 
@@ -264,18 +265,18 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			what: `The role ${facts.name}`,
 			done: form.roleId ? "saved" : "added",
 			form,
-			change: { kind: "role", role: shown, today: today() },
+			change: { kind: "role", role: shown, today: localToday() },
 			send: (key) => (form.roleId ? editRole(key, form.revision, form.roleId, facts) : createRole(key, t.id, facts)),
-			confirm: (r) => ({ kind: "role", role: r.role, today: today() }),
+			confirm: (r) => ({ kind: "role", role: r.role, today: localToday() }),
 		});
 	}
 	function retire(role: Role) {
 		save(roleLane, {
 			what: `The role ${role.name}`,
 			done: "retired",
-			change: { kind: "role", role: { ...role, retired: true }, today: today() },
+			change: { kind: "role", role: { ...role, retired: true }, today: localToday() },
 			send: (key) => retireRole(key, role.revision, role.id),
-			confirm: (r) => ({ kind: "role", role: r.role, today: today() }),
+			confirm: (r) => ({ kind: "role", role: r.role, today: localToday() }),
 			ok: () => toast({ tone: "success", message: `${role.name} is retired. Its history stays.` }),
 		});
 	}
@@ -287,9 +288,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 			what: `${person.name} in ${role.name}`,
 			done: "added",
 			form,
-			change: { kind: "fill", role, person, today: today(), derive: true },
+			change: { kind: "fill", role, person, today: localToday(), derive: true },
 			send: (key) => assignRole(key, role.revision, t.id, role.id, person.id),
-			confirm: () => ({ kind: "fill", role, person, today: today(), derive: true }),
+			confirm: () => ({ kind: "fill", role, person, today: localToday(), derive: true }),
 			ok: (result) => {
 				toast(
 					result.warning === "overload"
@@ -306,9 +307,9 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		save(peopleLane, {
 			what: `${name}'s place on ${t.name}`,
 			done: "ended",
-			change: { kind: "leave", personId, today: today() },
+			change: { kind: "leave", personId, today: localToday() },
 			send: (key) => endMembership(key, t.revision, t.id, personId),
-			confirm: () => ({ kind: "leave", personId, today: today() }),
+			confirm: () => ({ kind: "leave", personId, today: localToday() }),
 			ok: () => toast({ tone: "success", message: `${name} is no longer on ${t.name}. Their history stays.` }),
 		});
 	}
@@ -318,9 +319,15 @@ export function TeamScreen({ data: loaded }: { data: TeamView }) {
 		save(peopleLane, {
 			what: `${m.name} in ${role.name}`,
 			done: "added",
-			change: { kind: "fill", role, person: { id: m.personId, name: m.name }, today: today(), derive: false },
+			change: { kind: "fill", role, person: { id: m.personId, name: m.name }, today: localToday(), derive: false },
 			send: (key) => reactivateMembership(key, role.revision, role.id, m.personId),
-			confirm: () => ({ kind: "fill", role, person: { id: m.personId, name: m.name }, today: today(), derive: false }),
+			confirm: () => ({
+				kind: "fill",
+				role,
+				person: { id: m.personId, name: m.name },
+				today: localToday(),
+				derive: false,
+			}),
 			ok: () => toast({ tone: "success", message: `${m.name} is back in ${role.name}.` }),
 		});
 	}
