@@ -1,6 +1,7 @@
 import { requestDatabase } from "@/server/database";
 import { readFlag } from "@/server/flags";
-import { getViewer, signIn } from "@/server/request-context";
+import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { DASHBOARD_HOME, landingFor } from "@everyfield/contracts/identity";
 import { dashboardReader } from "@everyfield/domain/dashboard";
 import { PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";

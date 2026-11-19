@@ -1,4 +1,4 @@
-import { signIn } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { pipelineActor, pipelinePeopleRead } from "../pipeline-mount";
 import { listOrganizationDuplicatePairs } from "@everyfield/domain/people";
 import { Card } from "@everyfield/ui/controls";

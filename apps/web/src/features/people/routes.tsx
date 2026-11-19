@@ -1,4 +1,5 @@
-import { getViewer, signIn } from "@/server/request-context";
+import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { privateStorage } from "@everyfield/db/schema";
 import { LockKeyIcon, UserSearch01Icon } from "@hugeicons/core-free-icons";
 import { personRequest } from "@everyfield/contracts/people";

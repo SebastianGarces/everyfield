@@ -1561,25 +1561,35 @@ test("INV-lint: product code that recognises a caught error by its message text 
 
 test("INV-lint: a hand-written sign-in redirect in web code is reported, signIn and other redirects are not", () => {
 	const source = `import { redirect as go, notFound } from "next/navigation";
-import { signIn } from "@/server/request-context";
+import * as nav from "next/navigation";
+import { signIn } from "@/server/sign-in";
+const TO = "/signin?returnTo=%2Fhome";
+const BASE = "/signin";
+let moving = "/signin?returnTo=%2Fx";
 export function gate(path: string, out: boolean) {
 	if (out) go(\`/signin?returnTo=\${encodeURIComponent(path)}\`);
 	if (!path) go("/signin?returnTo=%2Fhome");
 	if (path === "/x") go("/signin?returnTo=" + encodeURIComponent(path));
+	if (path === "/a") nav.redirect(\`/signin?returnTo=\${path}\`);
+	if (path === "/b") go(TO);
+	if (path === "/c") go("/signin" + "?returnTo=" + path);
+	if (path === "/d") nav.permanentRedirect(\`\${BASE}?returnTo=\${path}\`);
 	if (path === "/y") go("/signin");
 	if (path === "/z") go("/home");
+	if (path === "/m") go(moving);
 	if (out) signIn(path);
 	notFound();
 }
 `;
-	assert.deepEqual(
-		lint({ "apps/web/src/features/x/routes.tsx": source, "apps/web/src/server/request-context.ts": source }),
-		[
-			"apps/web/src/features/x/routes.tsx:4 sign-in-redirect",
-			"apps/web/src/features/x/routes.tsx:5 sign-in-redirect",
-			"apps/web/src/features/x/routes.tsx:6 sign-in-redirect",
-		],
-	);
+	assert.deepEqual(lint({ "apps/web/src/features/x/routes.tsx": source, "apps/web/src/server/sign-in.ts": source }), [
+		"apps/web/src/features/x/routes.tsx:10 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:11 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:12 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:13 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:14 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:8 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:9 sign-in-redirect",
+	]);
 });
 
 test("INV-lint: comments inside SQL templates and query strings are reported, a listed marker is not", () => {
