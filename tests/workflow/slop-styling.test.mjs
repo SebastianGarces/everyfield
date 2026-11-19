@@ -227,7 +227,13 @@ export function headingNumbers(headings) {
 	return numbers;
 }
 `;
-	assert.deepEqual(at(path, lint({ [path]: source })), ["1 counter", "6 counter", "10 counter", "14 counter", "26 counter"]);
+	assert.deepEqual(at(path, lint({ [path]: source })), [
+		"1 counter",
+		"6 counter",
+		"10 counter",
+		"14 counter",
+		"26 counter",
+	]);
 });
 
 test("INV-lint: glowing orbs and decorative gradients are reported; the named surfaces and rings pass", () => {
