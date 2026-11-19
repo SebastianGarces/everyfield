@@ -8,7 +8,7 @@ import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@ever
 import "server-only";
 import { phasesMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
-import { readDb, writeTx } from "../../server/platform/tx.ts";
+import { readDb, guardedWrite } from "../../server/platform/tx.ts";
 
 export const administers = (v: Pick<PlantSeat, "role">) => v.role !== "member";
 
@@ -41,7 +41,7 @@ export async function write<T>(
 	const viewer = await plantSeat();
 	if (!viewer) return { status: "refused", error: denied() };
 	const mount = phasesMount();
-	return writeTx("phases", () => run(mount.writer, mount.db, viewer.authority));
+	return guardedWrite("phases", () => run(mount.writer, mount.db, viewer.authority));
 }
 const denied = () =>
 	phasesError.parse({ code: "access_denied", details: {}, correlationId: crypto.randomUUID(), retry: "never" });

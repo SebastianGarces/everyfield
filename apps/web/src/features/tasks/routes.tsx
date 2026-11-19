@@ -1,4 +1,5 @@
-import { getViewer, signIn } from "@/server/request-context";
+import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { recordId } from "@everyfield/contracts/common";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";

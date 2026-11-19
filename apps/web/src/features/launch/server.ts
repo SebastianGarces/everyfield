@@ -8,7 +8,7 @@ import "server-only";
 import { launchMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
 import { LOST, transient } from "../../server/platform/transient.ts";
-import { readDb, writeTx } from "../../server/platform/tx.ts";
+import { readDb, guardedWrite } from "../../server/platform/tx.ts";
 
 export const administers = (v: Pick<PlantSeat, "role">) => v.role !== "member";
 
@@ -66,5 +66,5 @@ export async function write<T>(
 	const viewer = await plantSeat();
 	if (!viewer) return denied();
 	const mount = launchMount();
-	return writeTx("launch", () => run(mount.writer, mount.db, viewer.authority));
+	return guardedWrite("launch", () => run(mount.writer, mount.db, viewer.authority));
 }

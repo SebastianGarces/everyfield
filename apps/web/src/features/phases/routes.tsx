@@ -1,4 +1,4 @@
-import { requireSeat } from "@/server/request-context";
+import { requireSeat } from "@/server/sign-in";
 import { Skeleton } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { JourneyScreen } from "./JourneyScreen.tsx";

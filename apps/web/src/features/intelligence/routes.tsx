@@ -1,4 +1,4 @@
-import { requireSeat } from "@/server/request-context";
+import { requireSeat } from "@/server/sign-in";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";

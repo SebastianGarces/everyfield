@@ -8,7 +8,6 @@ import type { Refused } from "@everyfield/contracts/common";
 import { requestDatabase } from "./database";
 import { serverConfigProblem } from "./config.ts";
 import { cookies, headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { cache } from "react";
 import { requestAuth } from "./identity";
 
@@ -73,23 +72,13 @@ export const getViewer = cache(async () => {
 	};
 });
 
-type Viewer = Awaited<ReturnType<typeof getViewer>>;
+export type Viewer = Awaited<ReturnType<typeof getViewer>>;
 export type PlantSeat = NonNullable<Viewer["people"]> & { accountName: string };
 
-const seatOf = (v: Viewer): PlantSeat | null => v.people && { ...v.people, accountName: v.displayName ?? "" };
-
-export function signIn(returnTo: string): never {
-	redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
-}
+export const seatOf = (v: Viewer): PlantSeat | null => v.people && { ...v.people, accountName: v.displayName ?? "" };
 
 export async function plantSeat(): Promise<PlantSeat | null> {
 	return seatOf(await getViewer());
-}
-
-export async function requireSeat(returnTo: string): Promise<PlantSeat | null> {
-	const v = await getViewer();
-	if (v.status === "unauthenticated") signIn(returnTo);
-	return seatOf(v);
 }
 
 export async function seated<const C extends string, R>(
