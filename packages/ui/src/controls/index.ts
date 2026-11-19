@@ -22,6 +22,8 @@ export {
 } from "./Card";
 export { Checkbox, Radio, RadioGroup, Switch } from "./Choice";
 export { Combobox, FilterChip, type ComboboxOption } from "./Combobox";
+export { Command, keepKeyInField } from "./Command";
+export { Count } from "./Count";
 export { CommandPalette, type CommandGroup, type CommandItem } from "./CommandPalette";
 export { DateRangePicker, formatRange, type DatePreset, type DateRange } from "./DateRangePicker";
 export {
@@ -66,4 +68,4 @@ export { Select, type SelectOption } from "./Select";
 export { Spinner } from "./Spinner";
 export { EmptyState, PageState, Skeleton, StatePanel, type StateTone } from "./States";
 export { CountChip, SegmentedControl, Tab, Tabs, TabsList, TabsPanel, type SegmentOption } from "./Tabs";
-export { ToastProvider, useToast, type ToastInput, type ToastTone } from "./Toast";
+export { toast, Toaster, type ToastInput, type ToastTone } from "./Toaster";
