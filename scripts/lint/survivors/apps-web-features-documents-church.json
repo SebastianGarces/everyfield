@@ -1,0 +1,11 @@
+{
+	"no-slop-styling": {
+		"apps/web/src/features/documents/church/editor/extensions.ts": [
+			{
+				"function": "headingNumbers",
+				"count": 1,
+				"reason": "The editor shows numbered H2 headings as 01, 02 to match the exported PDF and Word documents, which pad them the same way in packages/domain outside this rule's scope. Changing only the editor would make it disagree with the export. Follow-up T-528 settles plain heading numbering across the editor, PDF and Word together."
+			}
+		]
+	}
+}
