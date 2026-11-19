@@ -9,6 +9,7 @@ import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/ta
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { randomUUID } from "node:crypto";
 import { dropSeed, openSeedEnvironment, writeFixture } from "../seed-env.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const PASSWORD = "Launch-preview-pass-1";
 type Account = { cookie: string; accountId: string; sessionId: string; email: string };
@@ -51,7 +52,7 @@ export async function seedLaunchEvry(env: {
 		origin,
 		secret,
 		trustedIp: () => env.address(ip),
-		enqueueMail: async () => {},
+		enqueueMail: async () => randomUUID(),
 		diagnostic: () => {},
 	});
 	const host = new URL(origin).host;
@@ -96,12 +97,12 @@ export async function seedLaunchEvry(env: {
 	}
 
 	const noop = async () => {};
-	const onboarding = createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop } as never);
+	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
 	const ctx = (a: Account, selected: Plant | { kind: "account"; id: string }) =>
 		({ session: a.sessionId, selected }) as never;
 	async function plant(owner: Account, name: string, city: string): Promise<Plant> {
 		const created = ok<{ plant: Plant }>(
-			(await runtime.transaction((tx) =>
+			(await gatedTransaction(runtime, (tx) =>
 				onboarding.createPlant(tx, ctx(owner, { kind: "account", id: owner.accountId }), {
 					requestKey: randomUUID(),
 					expectedRevision: "1",
@@ -117,7 +118,7 @@ export async function seedLaunchEvry(env: {
 		admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at)
 			VALUES(${a.accountId},${p.id},${role},clock_timestamp()-interval '1 minute')`);
 	async function person(owner: Account, p: Plant, displayName: string, stage: string) {
-		const r = await runtime.transaction((tx) =>
+		const r = await gatedTransaction(runtime, (tx) =>
 			peopleWriter.createPerson(tx as never, ctx(owner, p), {
 				requestKey: randomUUID(),
 				input: { displayName, stage, source: "other" },
@@ -282,7 +283,7 @@ export async function seedLaunchEvry(env: {
 			`guest ${displayName}`,
 		);
 	ok(
-		(await runtime.transaction((tx) =>
+		(await gatedTransaction(runtime, (tx) =>
 			peopleWriter.createPerson(tx as never, ctx(hugo, lakeside), {
 				requestKey: randomUUID(),
 				input: { displayName: "Maria Lopez", email: "maria.lopez@example.test", stage: "prospect", source: "other" },

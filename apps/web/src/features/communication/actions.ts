@@ -5,7 +5,6 @@ import {
 	type CommunicationContext,
 	type CommunicationReply,
 } from "@everyfield/domain/communication";
-import type { Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import type {
 	AudienceSummary,
@@ -24,6 +23,7 @@ import { canWrite } from "../../components/seat-role.ts";
 import { communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
 import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
 import { anticipateProvider, deliveryTransport } from "../../server/mail/transport.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 type Scheduled = Draft & { scheduledAt: string };
 const denied = { status: "refused", code: "access_denied" } as const;
@@ -34,14 +34,14 @@ async function seat(): Promise<Viewer | null> {
 }
 
 async function change<T>(
-	run: (tx: Transaction, context: CommunicationContext) => Promise<CommunicationReply<T>>,
+	run: (tx: WriteTx, context: CommunicationContext) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
 	const viewer = await seat();
 	if (!viewer || !canWrite(viewer)) return denied;
 	return write(viewer, run);
 }
 
-async function look<T>(run: (tx: Transaction, viewer: Viewer) => Promise<CommunicationReply<T>>): Promise<Outcome<T>> {
+async function look<T>(run: (tx: WriteTx, viewer: Viewer) => Promise<CommunicationReply<T>>): Promise<Outcome<T>> {
 	const viewer = await seat();
 	if (!viewer || !canWrite(viewer)) return denied;
 	return read(viewer, (tx) => run(tx, viewer));

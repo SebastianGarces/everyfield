@@ -4,11 +4,12 @@ import type { MeetingsContext } from "@everyfield/domain/meetings";
 import { documentsReader } from "@everyfield/domain/documents";
 import { attendanceReader, meetingsReader, withMeetingsWrite } from "@everyfield/domain/meetings";
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import "server-only";
 import { isFiltered, listRequest, NEXT_REQUEST, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
 import { canWrite } from "../../components/seat-role.ts";
 import { LOST, transient } from "../../server/platform/transient.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 type Peopled = NonNullable<Awaited<ReturnType<typeof getViewer>>["people"]>;
 export type Viewer = Peopled;
@@ -27,7 +28,7 @@ export async function read<T>(
 
 export async function write<T>(
 	viewer: Viewer,
-	run: (tx: Transaction, context: MeetingsContext) => Promise<MeetingsReply<T>>,
+	run: (tx: WriteTx, context: MeetingsContext) => Promise<MeetingsReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	return transient(

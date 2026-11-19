@@ -416,7 +416,7 @@ const pureModule = {
 };
 
 export const LOG_MODULE = "packages/domain/src/log.ts";
-const LOGGED_CODE = /^(?:apps\/web\/src|packages\/domain\/src)\//;
+const LOGGED_CODE = /^(?:apps\/web\/src|packages\/(?:domain|evry)\/src)\//;
 
 const CONSOLE_MODULES = new Set(["console", "node:console"]);
 const CONSOLE_HOSTS = new Set(["globalThis", "global", "self", "window"]);
@@ -1934,27 +1934,67 @@ const subscribedSnapshot = (node) => {
 	);
 };
 
+const bare = (node) => {
+	let at = unwrapped(node);
+	while (at?.type === "ChainExpression") at = unwrapped(at.expression);
+	return at;
+};
+function variableOf(context, id) {
+	for (let scope = context.sourceCode.getScope(id); scope; scope = scope.upper) {
+		const variable = scope.set?.get(id.name);
+		if (variable) return variable;
+	}
+	return null;
+}
+
 const noRenderGetState = {
 	meta: { type: "problem" },
 	create(context) {
 		const jsx = /\.[jt]sx$/.test(context.filename);
-		const aliases = new Set();
+		const bound = [];
 		const calls = [];
+		const aliases = new Set();
+		const reads = (expression) => {
+			const node = bare(expression);
+			if (!node) return false;
+			if (node.type === "Identifier") return aliases.has(variableOf(context, node));
+			if (node.type === "CallExpression")
+				return memberName(bare(node.callee)) === "bind" && reads(bare(node.callee).object);
+			return memberName(node) === "getState";
+		};
+		const bind = (target, value) => {
+			const id = target?.type === "AssignmentPattern" ? target.left : target;
+			if (id?.type === "Identifier") bound.push({ id, value });
+		};
 		return {
+			ObjectPattern(node) {
+				for (const p of node.properties)
+					if (p.type === "Property" && !p.computed && nameOf(p.key) === "getState") bind(p.value, null);
+			},
 			VariableDeclarator(node) {
-				if (memberName(node.init) === "getState" && node.id.type === "Identifier") aliases.add(node.id.name);
-				if (node.id.type !== "ObjectPattern") return;
-				for (const p of node.id.properties)
-					if (p.type === "Property" && !p.computed && nameOf(p.key) === "getState" && p.value.type === "Identifier")
-						aliases.add(p.value.name);
+				if (node.id.type === "Identifier" && node.init) bind(node.id, node.init);
+			},
+			AssignmentExpression(node) {
+				if (node.operator === "=" && node.left.type === "Identifier") bind(node.left, node.right);
 			},
 			CallExpression(node) {
-				if (node.arguments.length) return;
-				if (memberName(node.callee) === "getState" || node.callee.type === "Identifier") calls.push(node);
+				calls.push(node);
 			},
 			"Program:exit"() {
+				for (let grew = true; grew;) {
+					grew = false;
+					for (const { id, value } of bound) {
+						const variable = variableOf(context, id);
+						if (!variable || aliases.has(variable) || (value !== null && !reads(value))) continue;
+						aliases.add(variable);
+						grew = true;
+					}
+				}
 				for (const node of calls) {
-					if (node.callee.type === "Identifier" && !aliases.has(node.callee.name)) continue;
+					const callee = bare(node.callee);
+					const direct = !node.arguments.length && reads(callee);
+					const through = ["call", "apply"].includes(memberName(callee)) && reads(callee.object);
+					if (!direct && !through) continue;
 					if (readsOnlyActions(node) || subscribedSnapshot(node) || !rendering(node, jsx)) continue;
 					context.report({
 						node,
@@ -1999,6 +2039,88 @@ const readLoader = {
 						message:
 							"A createRead or useLocalRead loader only loads its key: one call of a server read or fetch, optionally mapped with then/catch/finally arrows that return a value. Anything else (marking read, navigation, focus, a timer, a write) would run once per key when the first reader subscribes, a mount hook with no cleanup.",
 					});
+			},
+		};
+	},
+};
+
+const READ_KEYS = new Map([
+	["useRead", 1],
+	["useReadWith", 1],
+	["useLocalRead", 2],
+]);
+const READ_METHODS = new Set(["get", "peek", "prefetch", "seed", "refresh", "retry", "forget", "key"]);
+const LINK_VALUE_SOURCES = new Set(["useOneTimeLinkValue", "currentOneTimeLinkValue"]);
+
+function references(node, found, outsideFunctions = false) {
+	if (!node || typeof node.type !== "string") return;
+	if (outsideFunctions && FUNCTIONS.has(node.type)) return;
+	if (node.type === "Identifier") found(node);
+	for (const [key, value] of Object.entries(node)) {
+		if (key === "parent") continue;
+		if (Array.isArray(value)) for (const item of value) references(item, found, outsideFunctions);
+		else if (value && typeof value === "object") references(value, found, outsideFunctions);
+	}
+}
+
+const linkValueKey = {
+	meta: { type: "problem" },
+	create(context) {
+		const carried = new Set();
+		const reads = new Set();
+		const hooks = new Map(READ_KEYS);
+		const carries = (node) => {
+			let found = false;
+			references(
+				node,
+				(id) => {
+					if (LINK_VALUE_SOURCES.has(id.name) || carried.has(id.name)) found = true;
+				},
+				true,
+			);
+			return found;
+		};
+		const taint = (target, value) => {
+			if (value && carries(value)) references(target, (id) => carried.add(id.name));
+		};
+		const report = (args) => {
+			for (const arg of args)
+				if (carries(arg))
+					context.report({
+						node: arg,
+						message:
+							"A one-time link value never keys a read: the key outlives the page in a module cache. Key the read by the record and let its loader take the value with currentOneTimeLinkValue inside the loader.",
+					});
+		};
+		return {
+			ImportSpecifier(node) {
+				reads.add(node.local.name);
+			},
+			VariableDeclarator(node) {
+				if (node.id.type === "Identifier" && node.init?.type === "Identifier" && hooks.has(node.init.name))
+					hooks.set(node.id.name, hooks.get(node.init.name));
+				if (
+					node.id.type === "Identifier" &&
+					node.init?.type === "CallExpression" &&
+					node.init.callee.name === "createRead"
+				)
+					reads.add(node.id.name);
+				taint(node.id, node.init);
+			},
+			AssignmentExpression(node) {
+				taint(node.left, node.right);
+			},
+			CallExpression(node) {
+				const callee = node.callee;
+				if (callee.type === "Identifier" && hooks.has(callee.name))
+					return report(node.arguments.slice(hooks.get(callee.name)));
+				if (
+					callee.type === "MemberExpression" &&
+					callee.object.type === "Identifier" &&
+					reads.has(callee.object.name) &&
+					READ_METHODS.has(memberName(callee) ?? "")
+				)
+					report(node.arguments);
 			},
 		};
 	},
@@ -2489,6 +2611,7 @@ export default {
 		"no-global-listeners": noGlobalListeners,
 		"zustand-shape": zustandShape,
 		"read-loader": readLoader,
+		"link-value-key": linkValueKey,
 		"no-render-writes": noRenderWrites,
 		"no-render-get-state": noRenderGetState,
 		"feature-boundaries": featureBoundaries,
