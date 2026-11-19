@@ -25,7 +25,7 @@ function boot(removed: readonly string[], emptied: readonly string[] = []) {
 			"-e",
 			`await (await import(${JSON.stringify(instrumentation)})).register(); console.log("served");`,
 		],
-		{ env, encoding: "utf8", timeout: 30_000 },
+		{ env: env as NodeJS.ProcessEnv, encoding: "utf8", timeout: 30_000 },
 	);
 	return { status: child.status, stdout: child.stdout, stderr: child.stderr };
 }
