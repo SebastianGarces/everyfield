@@ -561,7 +561,7 @@ test("INV-lock-order: a link write holds its gate's account and root and the org
 			await S.db.transaction(async (side) => {
 				if (untouched)
 					await side.execute(
-						sql`SELECT (SELECT 1 FROM account WHERE id=${sql.param(untouched)} FOR NO KEY UPDATE),(SELECT 1 FROM plant WHERE id=${sql.param(untouched)} FOR NO KEY UPDATE)`,
+						sql`SELECT (SELECT 1 FROM account WHERE id=${sql.param(untouched)} FOR UPDATE),(SELECT 1 FROM plant WHERE id=${sql.param(untouched)} FOR UPDATE)`,
 					);
 				await S.db.transaction(async (hold) => {
 					await hold.execute(sql`SELECT 1 FROM affiliation WHERE id=${sql.param(link)} FOR UPDATE`);
