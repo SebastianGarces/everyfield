@@ -112,6 +112,19 @@ export async function loadAffiliations(tx: Reader, predicate: SQL, write = false
 	const rows = await (write ? query.for("update", { of: tables.affiliation }) : query);
 	return rows.map((row) => affiliationSchema.parse(row));
 }
+export const affiliationJson = affiliationSchema.extend({
+	accepted_at: z.coerce.date(),
+	ended_at: z.coerce.date().nullable(),
+});
+export const lockingAffiliations = (predicate: SQL) =>
+	sql`SELECT l.id, l.plant_id, l.account_id, l.sending_church_id, l.organization_id, ro.name AS organization_name,
+ ro.kind AS organization_kind, so.kind AS subject_kind, l.accepted_at, l.ended_at, l.invitation_id,
+ l.revision::text AS revision, l.consent_revision::text AS consent_revision, l.share_people, l.share_meetings,
+ l.share_tasks, l.share_ministry_teams, l.share_wiki, l.share_activity, l.shared_findings,
+ ${linkLive("l")} AS live, ${linkActive("l")} AS active
+ FROM affiliation l JOIN organization ro ON ro.id=l.organization_id LEFT JOIN organization so ON so.id=l.sending_church_id
+ WHERE ${predicate} AND EXISTS(SELECT FROM organization o WHERE o.id=l.organization_id FOR NO KEY UPDATE)
+ ORDER BY l.id FOR UPDATE OF l`;
 export async function loadAffiliation(tx: Transaction, id: string, write = false): Promise<Affiliation | null> {
 	return (await loadAffiliations(tx, eq(tables.affiliation.id, id), write))[0] ?? null;
 }

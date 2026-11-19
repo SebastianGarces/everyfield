@@ -1,6 +1,6 @@
 import { z } from "zod";
 import * as tables from "@everyfield/db/tables";
-import { and, asc, desc, eq, gt, isNull, or, sql } from "@everyfield/db/query";
+import { and, asc, desc, eq, gt, isNull, or, sql, type SQL } from "@everyfield/db/query";
 import { alias } from "@everyfield/db/query";
 import "server-only";
 import { randomUUID } from "node:crypto";
@@ -14,6 +14,16 @@ const platform_grant_g = alias(tables.platform_grant, "g");
 const account_a = alias(tables.account, "a");
 const reference_activation_a = alias(tables.reference_activation, "a");
 const reference_release_r = alias(tables.reference_release, "r");
+const storedRelease = {
+	artifact_locator: tables.reference_release.artifact_locator,
+	manifest_hash: tables.reference_release.manifest_hash,
+	state: tables.reference_release.state,
+	chunker_version: tables.reference_release.chunker_version,
+	embedding_profile: tables.reference_release.embedding_profile,
+	embedding_dimensions: tables.reference_release.embedding_dimensions,
+	expected_passages: tables.reference_release.expected_passages,
+	tenant_id: tables.reference_release.tenant_id,
+};
 
 type ReferenceErrorCode =
 	| "access_denied"
@@ -40,11 +50,12 @@ export class ReferenceRefusal extends Error {
 export interface ReferenceAuthority {
 	actorId: string;
 	review: { commandDigest: string; approvalLocator: string; approvalHash: string };
+	session: SQL;
 }
 export interface ReferenceDependencies {
 	loadArtifact: (locator: string) => Promise<unknown>;
 	policyFor: (key: string) => ValidationPolicy;
-	authorize: (tx: Transaction, command: Promotion) => Promise<ReferenceAuthority | null>;
+	authorize: (command: Promotion) => ReferenceAuthority | null;
 }
 export interface ActivationReceipt {
 	operationId: string;
@@ -62,7 +73,7 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 		command: Promotion,
 		requestDigest: string,
 	): Promise<ReferenceAuthority> {
-		const authority = await deps.authorize(tx, command);
+		const authority = deps.authorize(command);
 		if (!authority || authority.review.commandDigest !== requestDigest) throw new ReferenceRefusal("access_denied");
 		const grant = await tx
 			.select({ id: platform_grant_g.id })
@@ -86,7 +97,7 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 							),
 						),
 					),
-					eq(account_a.registration_state, "active"),
+					and(eq(account_a.registration_state, "active"), authority.session),
 				),
 			)
 			.for("share", { of: [platform_grant_g, account_a] });
@@ -138,9 +149,9 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 			const saved = (
 				await tx
 					.select({
+						...storedRelease,
 						id: tables.reference_release.id,
-						manifest_hash: tables.reference_release.manifest_hash,
-						state: tables.reference_release.state,
+						historical: sql<boolean>`EXISTS(SELECT FROM reference_activation h WHERE h.release_id="reference_release"."id")`,
 					})
 					.from(tables.reference_release)
 					.where(eq(tables.reference_release.release_key, bundle.key))
@@ -148,14 +159,10 @@ export function referenceService(db: Database, deps: ReferenceDependencies) {
 			)[0];
 			if (saved && (saved.manifest_hash !== command.manifestHash || saved.state !== "validated"))
 				throw new ReferenceRefusal("immutable_conflict");
-			if (command.kind === "rollback") {
-				const historical =
-					saved && (await tx.execute(sql`SELECT 1 FROM reference_activation WHERE release_id=${sql.param(saved.id)}`));
-				if (!historical?.rowCount) throw new ReferenceRefusal("rollback_unavailable");
-			}
+			if (command.kind === "rollback" && !saved?.historical) throw new ReferenceRefusal("rollback_unavailable");
 			const releaseId =
 				saved?.id ?? (await install(tx, bundle, artifactLocator, command.manifestHash, authority.review));
-			await verifyStored(tx, bundle, releaseId);
+			await verifyStored(tx, bundle, releaseId, saved);
 			const operationId = randomUUID();
 			const unchanged = current?.release_id === releaseId;
 			const activationId = unchanged ? current.id : randomUUID();
@@ -336,22 +343,15 @@ async function install(
 		.where(eq(tables.reference_release.id, id));
 	return id;
 }
-async function verifyStored(tx: Transaction, bundle: ReferenceGeneration, id: string): Promise<void> {
-	const release = (
-		await tx
-			.select({
-				artifact_locator: tables.reference_release.artifact_locator,
-				manifest_hash: tables.reference_release.manifest_hash,
-				state: tables.reference_release.state,
-				chunker_version: tables.reference_release.chunker_version,
-				embedding_profile: tables.reference_release.embedding_profile,
-				embedding_dimensions: tables.reference_release.embedding_dimensions,
-				expected_passages: tables.reference_release.expected_passages,
-				tenant_id: tables.reference_release.tenant_id,
-			})
-			.from(tables.reference_release)
-			.where(eq(tables.reference_release.id, id))
-	)[0];
+async function verifyStored(
+	tx: Transaction,
+	bundle: ReferenceGeneration,
+	id: string,
+	locked?: Pick<typeof tables.reference_release.$inferSelect, keyof typeof storedRelease>,
+): Promise<void> {
+	const release =
+		locked ??
+		(await tx.select(storedRelease).from(tables.reference_release).where(eq(tables.reference_release.id, id)))[0];
 	if (
 		!release ||
 		release.manifest_hash !== hash(canonical(bundle)) ||

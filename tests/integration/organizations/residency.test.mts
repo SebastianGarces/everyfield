@@ -71,7 +71,7 @@ const adapter = createOrganizationAdapter(
 		invalidate: (_tx, v) =>
 			sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(v.sourceId)} AND kind='digest' AND false`,
 	},
-	{ candidates: async () => [] },
+	{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 );
 async function asResident(name: "residency.setSharing" | "residency.leave", input: unknown) {
 	const owner = { kind: "account" as const, id: casey.id };

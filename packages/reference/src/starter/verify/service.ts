@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { sql } from "@everyfield/db/query";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import "server-only";
 import { promotion } from "@everyfield/contracts/reference";
 import type { Promotion, ReferencePassage, ReferenceProfile } from "@everyfield/contracts/reference";
@@ -126,21 +126,7 @@ function failedRebuild(reason: string, usageTokens = 0) {
 		usageTokens,
 	};
 }
-async function authorizeCaller(
-	tx: Transaction,
-	caller: WikiCaller,
-	command: Promotion,
-	source: WikiSource,
-): Promise<ReferenceAuthority | null> {
-	const selected = await tx.execute(sql`
-		SELECT s.id
-		FROM auth_session s
-		JOIN account a ON a.id = ${caller.actorId}::uuid AND a.auth_user_id = s.user_id
-		WHERE s.id = ${caller.sessionId}::uuid
-		  AND s.user_id = ${caller.userId}::uuid
-		  AND s.expires_at > clock_timestamp()
-	`);
-	if (selected.rows.length !== 1) return null;
+function authorizeCaller(caller: WikiCaller, command: Promotion, source: WikiSource): ReferenceAuthority {
 	return {
 		actorId: caller.actorId,
 		review: {
@@ -148,6 +134,11 @@ async function authorizeCaller(
 			approvalLocator: source.version,
 			approvalHash: source.payloadSha256,
 		},
+		session: sql`EXISTS(SELECT FROM auth_session s
+		JOIN account a ON a.id = ${caller.actorId}::uuid AND a.auth_user_id = s.user_id
+		WHERE s.id = ${caller.sessionId}::uuid
+		  AND s.user_id = ${caller.userId}::uuid
+		  AND s.expires_at > clock_timestamp())`,
 	};
 }
 
@@ -184,7 +175,7 @@ export function referenceService(db: Database, deps: WikiDependencies = {}) {
 				if (key !== bundle.key) throw new WikiRefusal("incomplete_candidate", "policy");
 				return wikiPolicy(source, bundle, deferDerivatives);
 			},
-			authorize: (tx, command) => authorizeCaller(tx, caller, command, source),
+			authorize: (command) => authorizeCaller(caller, command, source),
 		});
 		try {
 			return await promoter.promote(parsed.data, bundle.key);

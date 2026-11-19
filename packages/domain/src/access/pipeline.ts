@@ -5,7 +5,7 @@ import {
 	pipelineDuty,
 } from "@everyfield/contracts/access";
 import { owner, type Owner, type sessionId } from "@everyfield/contracts/common";
-import { alias, and, eq, isNull, sql } from "@everyfield/db/query";
+import { alias, and, eq, isNull, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
@@ -134,6 +134,16 @@ export async function readOwnResidency(
 		revision: links[0]!.revision,
 	});
 }
+
+export const ownResidency = (
+	session: z.infer<typeof sessionId>,
+	account: Owner,
+	link: { organizationId: SQL; personId: SQL },
+) => sql<boolean>`(EXISTS(SELECT FROM organization ro JOIN tenant rt ON rt.id=ro.id WHERE ro.id=${link.organizationId}
+  AND rt.kind='organization' AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=ro.id
+   AND w.kind='organization' AND w.state NOT IN ('active','cancelled')))
+ AND (SELECT count(*) FROM residency_link l WHERE l.organization_id=${link.organizationId} AND l.person_id=${link.personId}
+  AND l.account_id=${account.id}::uuid AND ${liveResidency} AND ${liveRead({ session, owner: account })})=1)`;
 
 const isAdministrator = (actor: { context: { kind: string; role?: string } }) =>
 	actor.context.kind === "seat" && actor.context.role !== "member";
