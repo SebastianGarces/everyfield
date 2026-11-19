@@ -60,12 +60,7 @@ export const invite = nativeWrite({
 			FROM organization o JOIN plant pl ON pl.id=${actor.owner.id}::uuid WHERE o.id=${organization.id}::uuid`;
 	},
 	async run(tx, context, request, { ports }) {
-		const sent = await ports.organizations["associations.invite"](
-			tx,
-			context.session,
-			context.selected,
-			request as never,
-		);
+		const sent = await ports.organizations["associations.invite"](tx, context.session, context.selected, request);
 		return { receiptId: sent.invitationId, revision: sent.revision };
 	},
 });
@@ -97,7 +92,7 @@ export const end = nativeWrite({
 			WHERE a.plant_id=${actor.owner.id}::uuid AND a.organization_id=${value.organizationId}::uuid AND a.ended_at IS NULL`;
 	},
 	async run(tx, context, request, { ports }) {
-		committed(await ports.organizations["associations.end"](tx, context.session, context.selected, request as never));
+		committed(await ports.organizations["associations.end"](tx, context.session, context.selected, request));
 	},
 });
 

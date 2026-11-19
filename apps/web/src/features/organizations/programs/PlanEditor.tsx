@@ -4,7 +4,7 @@ import type { ProgramPlan, ProgramRhythm, ProgramVersion } from "@everyfield/con
 import { ArrowDown01Icon, ArrowUp01Icon, Delete02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { Button, Checkbox, Field, IconButton, Input, SearchInput, Select, Textarea } from "@everyfield/ui/controls";
 import { useId, useState, type ReactNode } from "react";
-import { findReadings } from "./actions";
+import { findReadings } from "./fetch.ts";
 import { RHYTHM } from "./model";
 
 export type PlanDraft = {

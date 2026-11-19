@@ -11,7 +11,8 @@ import { PasswordDialog } from "../flows/PasswordDialog";
 import { PersonalTimezone } from "../flows/PersonalTimezone";
 import type { DeletionStatus, SectionResult, SettingsViewer } from "../port";
 import { attempt } from "../save";
-import { SaveError, SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
+import { SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
+import { SaveError } from "../SaveError";
 import { useDraft, useSection, useSettings } from "../store";
 
 type Account = Extract<SectionResult, { section: "account" }>;

@@ -6,7 +6,7 @@ import { Button, Card, EmptyState } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { loadOwnFeedback } from "./actions.ts";
+import { loadOwnFeedback } from "./fetch.ts";
 import { CATEGORY_NAME, dateLabel, STATUS_NAME, STATUS_TONE } from "./model.ts";
 
 function StatusTag({ item }: { item: OwnFeedback }) {
