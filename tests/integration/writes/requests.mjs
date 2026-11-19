@@ -609,9 +609,9 @@ try {
 		{ personId, name: "Hosts" },
 	]);
 	assert.deepEqual(tagReplay.value.tags, tagged.value.tags);
-	const skills = await act("POST people.fields.readSkills", page, fields, "readSkills", [personId]);
+	const skills = await read("GET /people/read?what=skills", "/people/read", "skills", { personId });
 	assert.equal(skills.value.length, 1);
-	const photo = await act("POST people.fields.readPhoto", page, fields, "readPhoto", [personId]);
+	const photo = await read("GET /people/read?what=photo", "/people/read", "photo", { personId });
 	assert.deepEqual(photo.value, { status: "absent" });
 	const tasked = await act("POST tasks.createTask", "/tasks", "apps/web/src/features/tasks/actions.ts", "createTask", [
 		randomUUID(),
