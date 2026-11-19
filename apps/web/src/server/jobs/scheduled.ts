@@ -12,10 +12,10 @@ import {
 	type DeliveryKeys,
 	type DeliveryTransport,
 } from "@everyfield/domain/communication";
-import { timingSafeEqual } from "node:crypto";
 import "server-only";
 import { runEffects, runTurns } from "../evry/worker.ts";
 import { runDueImports } from "../../features/people/import-export/run-imports.ts";
+import { cronRoute } from "../platform/cron.ts";
 import { transaction } from "../platform/database.ts";
 import { planDigests, type DigestWorker } from "./digest.ts";
 import { runDuePurges } from "./lifecycle-purge.ts";
@@ -55,12 +55,7 @@ export function scheduledJobs(config: {
 	assessments?: { drafter: Drafter } | null;
 	now?: () => Date;
 }) {
-	return async (request: Request): Promise<Response> => {
-		if (!config.secret) return Response.json({ status: "unavailable" }, { status: 503 });
-		const expected = Buffer.from(`Bearer ${config.secret}`);
-		const actual = Buffer.from(request.headers.get("authorization") ?? "");
-		if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
-			return Response.json({ status: "unauthorized" }, { status: 401 });
+	return cronRoute(config.secret, async () => {
 		const db = config.db;
 		if (!db) return Response.json({ status: "unavailable" }, { status: 503 });
 		const until = Date.now() + START_MS;
@@ -135,5 +130,5 @@ export function scheduledJobs(config: {
 			{ status: failed.length ? "failed" : "ok", ...counts, failed, steps: report },
 			{ status: failed.length ? 500 : 200 },
 		);
-	};
+	});
 }
