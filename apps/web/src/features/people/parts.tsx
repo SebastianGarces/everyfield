@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useSyncExternalStore, type ComponentProps } from "react";
 import type * as people from "@everyfield/contracts/people";
 import type { z } from "zod";
-import { statusWarnings } from "./actions.ts";
+import { statusWarnings } from "./fetch.ts";
 import type { Outcome } from "../../components/save/model.ts";
 import { createRead, useRead } from "../../components/read.tsx";
 import { useLocalStore } from "../../components/store.ts";

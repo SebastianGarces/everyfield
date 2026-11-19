@@ -21,6 +21,7 @@ import {
 	sql,
 	teardown,
 } from "../../../runtime/support.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 before(setup);
 after(teardown);
@@ -97,20 +98,19 @@ test("AC:SEC-02 INV-tenancy: the photo read, duplicate hints and the reference c
 	await photo(people.alexRivera);
 	const session = (await admin.execute(sql`SELECT * FROM auth_session WHERE id=${accounts.owner.session}`)).rows[0]!;
 	try {
-		await db.transaction(async (tx) => {
-			assert.equal((await getPersonPhoto.invoke(tx, owner, { personId: people.alexRivera })).status, "available");
+		await gatedTransaction(db, async (tx) => {
+			assert.equal((await getPersonPhoto.invoke(tx, owner, { personId: people.alexRivera }, null)).status, "available");
 			assert.equal((await verifyPeople(tx, owner, [people.alexRivera])).length, 1);
-			assert.equal((await checkForDuplicates.invoke(tx, owner, { displayName: "Alex Rivera" })).rows.length, 1);
-			const started = performance.now();
+			assert.equal((await checkForDuplicates.invoke(tx, owner, { displayName: "Alex Rivera" }, null)).rows.length, 1);
 			await admin.transaction(async (signOut) => {
 				await signOut.execute(sql`SET LOCAL lock_timeout='2s'`);
+				await signOut.execute(sql`SELECT 1 FROM auth_session WHERE id=${accounts.owner.session} FOR UPDATE NOWAIT`);
 				await signOut.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`);
 			});
-			assert.ok(performance.now() - started < 2_000, "sign-out does not wait for the read");
-			assert.deepEqual(await getPersonPhoto.invoke(tx, owner, { personId: people.alexRivera }), nothing);
+			assert.deepEqual(await getPersonPhoto.invoke(tx, owner, { personId: people.alexRivera }, null), nothing);
 			assert.deepEqual(await verifyPeople(tx, owner, [people.alexRivera]), []);
 			await assert.rejects(
-				() => checkForDuplicates.invoke(tx, owner, { displayName: "Alex Rivera" }),
+				() => checkForDuplicates.invoke(tx, owner, { displayName: "Alex Rivera" }, null),
 				(e: { code?: string }) => e.code === "source_unavailable",
 			);
 		});
@@ -148,23 +148,23 @@ test("AC:AC-EVR-108--EVR-108 AC:AC-EVR-READ--EVR-108 duplicate hints match norma
 	]);
 	assert.deepEqual(await hints({ displayName: "Sam Lake" }), [["Sam Lake", "potential", "name"]]);
 	assert.deepEqual(await hints({ email: "lakes@example.test" }), [["Sam Lake", "exact", "email"]]);
-	for (const input of [
+	const unmatched: Record<string, string>[] = [
 		{},
 		{ phone: "555" },
 		{ email: "x" },
 		{ displayName: "%" },
 		{ displayName: "_ Lake" },
 		{ email: "%@example.test" },
-	])
-		assert.deepEqual(await hints(input), [], JSON.stringify(input));
+	];
+	for (const input of unmatched) assert.deepEqual(await hints(input), [], JSON.stringify(input));
 	assert.deepEqual(await hints({ email: "lakes@example.test", excludePersonId: sibling } as never), []);
 
 	let start = queries.length;
 	await invokeRead(db, member, checkForDuplicates, { email: "jordan@example.test" });
 	assert.equal(counted(start), 2);
 	start = queries.length;
-	await db.transaction((tx) =>
-		checkForDuplicates.invoke(tx, member, { email: "jordan@example.test", displayName: "Jordan Lake" }),
+	await gatedTransaction(db, (tx) =>
+		checkForDuplicates.invoke(tx, member, { email: "jordan@example.test", displayName: "Jordan Lake" }, null),
 	);
 	assert.equal(counted(start), 1);
 	assert.ok(jordan);

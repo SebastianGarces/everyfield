@@ -8,6 +8,7 @@ import { owner, sessionId } from "../../../packages/contracts/src/common/index.t
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createNotificationProducer, issueEmailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const database = await testDatabase({ prefix: "wp030" });
 const { admin } = database;
@@ -84,7 +85,7 @@ async function notice(row) {
 }
 const count = async (q) => Number((await admin.execute(q)).rows[0].n);
 async function orgCall(name, person, input) {
-	return db.transaction(async (tx) => {
+	return gatedTransaction(db, async (tx) => {
 		if (!(await RequestActor.claimWrite(tx, sessionId.parse(person.session), person.selected)))
 			throw new Error("unavailable");
 		return orgs[name](tx, sessionId.parse(person.session), person.selected, input);

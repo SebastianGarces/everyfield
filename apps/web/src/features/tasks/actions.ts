@@ -1,8 +1,8 @@
 "use server";
 
 import * as c from "@everyfield/contracts/tasks";
-import type { z } from "zod";
-import type { BulkResult, OfferAnswered, Outcome, Rule, Saved, TemplateImport } from "./model.ts";
+import { z } from "zod";
+import type { BulkResult, OfferAnswered, Outcome, Saved, TemplateImport } from "./model.ts";
 import { taskViewer, write, type TaskViewer } from "./server.ts";
 
 const denied = { status: "refused", code: "access_denied" } as const;
@@ -17,6 +17,7 @@ const saved = (r: z.infer<typeof c.taskMutation> & { successor?: z.infer<typeof 
 	task: r.task,
 	receiptId: r.receiptId,
 	changed: r.outcome === "changed",
+	recounted: r.recounted,
 	...(r.successor !== undefined ? { successor: r.successor } : {}),
 });
 const savedOf = <T extends Parameters<typeof saved>[0]>(r: Outcome<T>): Outcome<Saved> =>
@@ -45,22 +46,27 @@ export async function deleteTask(
 	return boundary(async (v) => savedOf(await write(v, (w, tx, ctx) => w.delete(tx, ctx, request))));
 }
 
-export type StatusAction =
-	| { kind: "complete" }
-	| { kind: "reopen" }
-	| { kind: "waive"; reason: string | null }
-	| { kind: "status"; status: "not_started" | "in_progress" | "blocked" };
+const statusAction = z.discriminatedUnion("kind", [
+	z.object({ kind: z.literal("complete") }),
+	z.object({ kind: z.literal("reopen") }),
+	z.object({ kind: z.literal("waive"), reason: z.string().nullable() }),
+	z.object({ kind: z.literal("status"), status: z.enum(["not_started", "in_progress", "blocked"]) }),
+]);
+export type StatusAction = z.input<typeof statusAction>;
 
 export async function changeTaskStatus(
 	requestKey: string,
 	expectedRevision: string,
 	taskId: string,
-	action: StatusAction,
+	raw: unknown,
 ): Promise<Outcome<Saved>> {
+	const parsed = statusAction.safeParse(raw);
+	if (!parsed.success) return invalid;
+	const action = parsed.data;
 	const envelope = { requestKey, expectedRevision };
 	const run = <T extends Parameters<typeof saved>[0]>(fn: (v: TaskViewer) => Promise<Outcome<T>>) =>
 		boundary(async (v) => savedOf(await fn(v)));
-	switch (action?.kind) {
+	switch (action.kind) {
 		case "complete":
 			return run((v) => write(v, (w, tx, ctx) => w.completeOccurrence(tx, ctx, { ...envelope, input: { taskId } })));
 		case "reopen":
@@ -70,12 +76,9 @@ export async function changeTaskStatus(
 			return run((v) => write(v, (w, tx, ctx) => w.waive(tx, ctx, { ...envelope, input })));
 		}
 		case "status": {
-			if (!["not_started", "in_progress", "blocked"].includes(action.status)) return invalid;
 			const input = { taskId, status: action.status };
 			return run((v) => write(v, (w, tx, ctx) => w.changeStatus(tx, ctx, { ...envelope, input })));
 		}
-		default:
-			return invalid;
 	}
 }
 
@@ -84,7 +87,7 @@ export async function addStep(
 	parentRevision: string,
 	parentId: string,
 	title: string,
-	assigneeIds?: string[],
+	assigneeIds?: unknown,
 ): Promise<Outcome<Saved>> {
 	const input = { parentId, title, ...(assigneeIds !== undefined ? { assigneeIds } : {}) };
 	return boundary(async (v) =>
@@ -126,7 +129,7 @@ export async function setPrerequisites(
 	requestKey: string,
 	expectedRevision: string,
 	taskId: string,
-	prerequisiteIds: string[],
+	prerequisiteIds: unknown,
 ): Promise<Outcome<Saved>> {
 	return boundary(async (v) =>
 		savedOf(
@@ -141,7 +144,7 @@ export async function setRecurrence(
 	requestKey: string,
 	expectedRevision: string,
 	taskId: string,
-	rule: Rule | null,
+	rule: unknown,
 ): Promise<Outcome<Saved>> {
 	return boundary(async (v) =>
 		savedOf(
@@ -152,29 +155,24 @@ export async function setRecurrence(
 	);
 }
 
-type BulkItems = { taskId: string; expectedRevision: string }[];
-export async function bulkComplete(requestKey: string, items: BulkItems): Promise<Outcome<BulkResult>> {
+export async function bulkComplete(requestKey: string, items: unknown): Promise<Outcome<BulkResult>> {
 	return boundary((v) => write(v, (w, tx, ctx) => w.bulkComplete(tx, ctx, { requestKey, items })));
 }
-export async function bulkReschedule(requestKey: string, items: BulkItems, due: unknown): Promise<Outcome<BulkResult>> {
+export async function bulkReschedule(requestKey: string, items: unknown, due: unknown): Promise<Outcome<BulkResult>> {
 	return boundary((v) => write(v, (w, tx, ctx) => w.bulkReschedule(tx, ctx, { requestKey, items, due })));
 }
 
-export async function importTemplate(
-	requestKey: string,
-	input: { catalogVersion: number; checklistKey: string; itemKeys: string[] },
-): Promise<Outcome<TemplateImport>> {
+export async function importTemplate(requestKey: string, input: unknown): Promise<Outcome<TemplateImport>> {
 	return boundary((v) => write(v, (w, tx, ctx) => w.importTemplate(tx, ctx, { requestKey, input })));
 }
-export async function answerOffer(
-	requestKey: string,
-	input: { transitionId: string; catalogVersion: number; checklistKeys: string[] },
-): Promise<Outcome<OfferAnswered>> {
+const offerAnswer = z.object({ transitionId: z.unknown(), checklistKeys: z.array(z.unknown()) });
+export async function answerOffer(requestKey: string, input: unknown): Promise<Outcome<OfferAnswered>> {
+	const offer = offerAnswer.safeParse(input);
+	if (!offer.success) return invalid;
+	const { transitionId, checklistKeys } = offer.data;
 	return boundary((v) =>
-		input.checklistKeys.length
+		checklistKeys.length
 			? write(v, (w, tx, ctx) => w.acceptPhaseOffer(tx, ctx, { requestKey, input }))
-			: write(v, (w, tx, ctx) =>
-					w.declinePhaseOffer(tx, ctx, { requestKey, input: { transitionId: input.transitionId } }),
-				),
+			: write(v, (w, tx, ctx) => w.declinePhaseOffer(tx, ctx, { requestKey, input: { transitionId } })),
 	);
 }

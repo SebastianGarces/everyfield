@@ -7,7 +7,7 @@
 			"id": "documents.library",
 			"says": "Documents: fill a template and download or save it, and open what was written for the church or for you.",
 			"routes": ["/documents"],
-			"endpoints": ["/documents/preview"],
+			"endpoints": ["/documents/preview", "/documents/read"],
 			"catalog": ["DOC-001", "DOC-002", "DOC-003", "DOC-016"],
 			"polls": "the template list keeps fetching PDF page previews, so the page never goes network-idle",
 			"reach": [

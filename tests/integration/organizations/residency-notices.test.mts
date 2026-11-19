@@ -27,6 +27,7 @@ import {
 	authorizeNotificationMail,
 	createNotificationWorker,
 } from "../../../apps/web/src/features/notifications/worker.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const ORIGIN = "http://app.example.test";
 let f: Awaited<ReturnType<typeof fixture>>;
@@ -113,7 +114,7 @@ async function leave(a: Actor) {
 		)
 	).rows[0] as { id: string; revision: string; consent: string };
 	const owner = { kind: "account" as const, id: a.id };
-	await f.db.transaction(async (tx) => {
+	await gatedTransaction(f.db, async (tx) => {
 		if (!(await RequestActor.claimWrite(tx, sessionId.parse(a.session), owner))) throw Error("unavailable");
 		return adapter["residency.leave"](tx, sessionId.parse(a.session), owner, {
 			requestKey: randomUUID(),
@@ -431,7 +432,7 @@ test("AC:CASE-NTF-003 Casey leaves before dispatch: her entries and count go at 
 		(await noticeRows()).map((n) => n.mail),
 		["accepted", "accepted", null, "accepted", "cancelled"],
 	);
-	assert.deepEqual(ok(await readMyResidency(f.db, await authority(casey))), { status: "not_linked" });
+	assert.deepEqual(ok(await readMyResidency(f.db, await authority(casey))), { status: "ended" });
 	assert.deepEqual(await choices(casey), []);
 	assert.deepEqual((await bell(robin)).entries, []);
 });

@@ -156,9 +156,30 @@ export async function lockClaim(tx: Transaction, claim: Claim): Promise<boolean>
     AND claim_generation=${claim.claim_generation} AND lease_owner=${claim.lease_owner} AND source_revision IS NOT DISTINCT FROM ${claim.source_revision}::bigint AND lease_until>clock_timestamp() FOR UPDATE`);
 	return r.rowCount === 1;
 }
+const JOB_CODES = [
+	"stale",
+	"passed",
+	"suppressed",
+	"notification_failed",
+	"import_interrupted",
+	"digest_failed",
+	"feedback_removed",
+	"github_unknown",
+	"not_current",
+	"removal_unconfirmed",
+	"conflict",
+	"deadline_passed",
+	"purge_unavailable",
+	"authority_changed",
+	"idempotency_expired",
+	"provider_unknown",
+	"provider_refused",
+	"nothing_to_delete",
+] as const;
+type JobCode = (typeof JOB_CODES)[number];
 export type JobResult =
-	| { state: "succeeded" | "cancelled" | "superseded" | "failed" | "reconcile"; code?: string }
-	| { state: "retry_wait"; retryAfterSeconds?: number; code: string };
+	| { state: "succeeded" | "cancelled" | "superseded" | "failed" | "reconcile"; code?: JobCode }
+	| { state: "retry_wait"; retryAfterSeconds?: number; code: JobCode };
 const literal = (value: string) =>
 	`'${z
 		.string()
@@ -179,7 +200,7 @@ function finishStatement(claim: Claim, result: JobResult) {
 		.min(0)
 		.parse(result.state === "retry_wait" ? (result.retryAfterSeconds ?? 0) : 0);
 	const exhausted = "attempt_count>=max_attempts";
-	const code = result.code === undefined ? "NULL" : literal(result.code);
+	const code = result.code === undefined ? "NULL" : literal(z.enum(JOB_CODES).parse(result.code));
 	const set =
 		state === "retry_wait"
 			? `state=CASE WHEN ${exhausted} THEN 'failed' ELSE 'retry_wait' END,error_code=${code},lease_owner=NULL,lease_until=NULL,

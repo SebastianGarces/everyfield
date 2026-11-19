@@ -1791,6 +1791,12 @@
 			"table_name": "document_revision"
 		},
 		{
+			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.feature_flag DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"tenant_id\"')",
+			"enabled": "O",
+			"name": "assert_record_binding",
+			"table_name": "feature_flag"
+		},
+		{
 			"definition": "CREATE CONSTRAINT TRIGGER assert_record_binding AFTER INSERT OR UPDATE ON <schema>.feedback DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION assert_record_binding('\"account_id\"')",
 			"enabled": "O",
 			"name": "assert_record_binding",
@@ -2221,6 +2227,12 @@
 			"enabled": "O",
 			"name": "bind_record",
 			"table_name": "document_revision"
+		},
+		{
+			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.feature_flag FOR EACH ROW EXECUTE FUNCTION feature_flag_bind_record()",
+			"enabled": "O",
+			"name": "bind_record",
+			"table_name": "feature_flag"
 		},
 		{
 			"definition": "CREATE TRIGGER bind_record AFTER INSERT OR UPDATE ON <schema>.feedback FOR EACH ROW EXECUTE FUNCTION feedback_bind_record()",
@@ -2884,6 +2896,11 @@
 			"arguments": "",
 			"definition": "CREATE OR REPLACE FUNCTION <schema>.document_revision_owner()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n  IF NEW.current_revision_id IS NOT NULL AND NOT EXISTS(\n    SELECT FROM document_revision WHERE id=NEW.current_revision_id AND document_id=NEW.id AND tenant_id=NEW.tenant_id\n  ) THEN RAISE EXCEPTION 'foreign_document_revision' USING ERRCODE='23514'; END IF;\n  IF NEW.kind='launch_summary' AND NOT EXISTS(SELECT FROM tenant WHERE id=NEW.tenant_id AND kind='plant') THEN\n    RAISE EXCEPTION 'launch_summary_requires_plant' USING ERRCODE='23514';\n  END IF;\n  RETURN NEW;\nEND $function$\n",
 			"name": "document_revision_owner"
+		},
+		{
+			"arguments": "",
+			"definition": "CREATE OR REPLACE FUNCTION <schema>.feature_flag_bind_record()\n RETURNS trigger\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO '<schema>', 'pg_catalog', 'pg_temp'\nAS $function$\nBEGIN\n  IF TG_OP='UPDATE' AND (NEW.id <> OLD.id OR NEW.tenant_id <> OLD.tenant_id OR NEW.name <> OLD.name) THEN RAISE EXCEPTION 'immutable_record_id' USING ERRCODE='23514'; END IF;\n  INSERT INTO record(id,kind,tenant_id) VALUES (NEW.id,'feature_flag',NEW.tenant_id) ON CONFLICT DO NOTHING;\n  PERFORM 1 FROM record WHERE id=NEW.id AND kind='feature_flag' AND tenant_id=NEW.tenant_id FOR KEY SHARE;\n  IF NOT FOUND THEN RAISE EXCEPTION 'record_subtype_owner_mismatch' USING ERRCODE='23514'; END IF;\n  RETURN NEW;\nEND $function$\n",
+			"name": "feature_flag_bind_record"
 		},
 		{
 			"arguments": "",
@@ -6502,6 +6519,27 @@
 			"is_grantable": false,
 			"kind": "table",
 			"object": "enrollment_milestone",
+			"privilege_type": "UPDATE"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "feature_flag",
+			"privilege_type": "INSERT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "feature_flag",
+			"privilege_type": "SELECT"
+		},
+		{
+			"grantee": "everyfield_runtime",
+			"is_grantable": false,
+			"kind": "table",
+			"object": "feature_flag",
 			"privilege_type": "UPDATE"
 		},
 		{

@@ -1,11 +1,11 @@
 import { owner, requestIdentity, sameOwner, timeZone, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/tasks";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { randomUUID } from "node:crypto";
 import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, RequestActor } from "../access/session.ts";
+import { boundWrite, RequestActor, type WriteTx } from "../access/session.ts";
 import {
 	auditSavepoint,
 	declareWrite,
@@ -17,7 +17,7 @@ import {
 	type AuditWrite,
 } from "../operations/writes.ts";
 
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export type TaskContext = { session: RequestActor["session"]; selected: Owner };
 export type TaskReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.TaskError };
 type Code = c.TaskError["code"];

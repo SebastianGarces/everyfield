@@ -16,7 +16,7 @@ import {
 	Spinner,
 	StatePanel,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import type * as c from "@everyfield/contracts/teams/responsibilities";
 import { useId, useOptimistic, useRef, useState, useTransition } from "react";
@@ -36,11 +36,9 @@ import {
 	completeResponsibility,
 	deleteResponsibility,
 	editResponsibility,
-	listResponsibilities,
 	offerResponsibilities,
-	previewResponsibilities,
-	readTeamRevision,
 } from "./actions.ts";
+import { listResponsibilities, previewResponsibilities, readTeamRevision } from "../fetch.ts";
 
 type Page = z.infer<typeof c.responsibilityPage>;
 type Item = Page["items"][number];
@@ -130,7 +128,6 @@ export function ResponsibilitiesPanel({
 	canOffer: boolean;
 	onTeamRevision: (revision: string) => void;
 }) {
-	const toast = useToast();
 	const [, startTransition] = useTransition();
 	const lane = useSaveIntent<TextForm>({ explain: problemText });
 	const ticks = useRowLanes(problemText);
@@ -442,7 +439,6 @@ function OfferCard({
 	onDecided: (result: OfferDecision, lines: readonly Line[], chosen: ReadonlySet<string>) => void;
 	onConflict: () => void;
 }) {
-	const toast = useToast();
 	const [, startTransition] = useTransition();
 	const preview = useRead(previews, teamId);
 	const [picked, setPicked] = useState<string[]>([]);

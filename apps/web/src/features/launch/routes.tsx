@@ -11,7 +11,7 @@ export async function LaunchPage() {
 	const viewer = await launchViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/launch")}`);
+		if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/launch")}`);
 		return (
 			<StatePanel tone="lock" title="The Launch plan belongs to a church">
 				Choose a church plant seat to see its Launch plan.

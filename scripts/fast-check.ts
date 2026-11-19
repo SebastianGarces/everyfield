@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
-import { extname, join, matchesGlob, relative, resolve, sep } from "node:path";
+import { dirname, extname, join, matchesGlob, relative, resolve, sep } from "node:path";
 
 export type StepName = "format" | "lint" | "typecheck" | "formal";
 export type Step = {
@@ -30,11 +30,16 @@ const quote = (arg: string) => (/^[\w./@:=+-]+$/.test(arg) ? arg : `'${arg.repla
 const command = (args: string[]) => args.map(quote).join(" ");
 const inside = (dir: string, file: string) => file === dir || file.startsWith(dir + sep);
 
-export function changedFiles(root: string, baseRef?: string): { ref: string; sha: string; files: string[] } {
+export function mergeBase(root: string, baseRef?: string): { ref: string; sha: string } {
 	const ref =
 		baseRef ?? (git(root, ["rev-parse", "--verify", "--quiet", "origin/main"]) !== undefined ? "origin/main" : "main");
 	const sha = git(root, ["merge-base", ref, "HEAD"]);
 	if (!sha) throw new FastCheckError(`No merge base between ${ref} and HEAD. Pass --base <ref>.`);
+	return { ref, sha };
+}
+
+export function changedFiles(root: string, baseRef?: string): { ref: string; sha: string; files: string[] } {
+	const { ref, sha } = mergeBase(root, baseRef);
 	const listed = git(root, ["diff", "--name-only", "-z", "--diff-filter=d", sha, "HEAD"]) ?? "";
 	const files = listed
 		.split("\0")
@@ -86,16 +91,47 @@ function rootLints(root: string): Pkg[] {
 
 function toolsProject(root: string): { script: string; include: string[] } | undefined {
 	const script: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["typecheck:tools"];
-	const project = typeof script === "string" ? / -p (\S+)/.exec(script)?.[1] : undefined;
-	if (typeof script !== "string" || !project || !existsSync(join(root, project))) return undefined;
-	const config = JSON.parse(readFileSync(join(root, project), "utf8").replace(/^\s*\/\/.*$/gm, ""));
-	return { script, include: config.include ?? [] };
+	if (typeof script !== "string") return undefined;
+	const projects = / -[bp] ((?:\S+\.json ?)+)/.exec(script)?.[1]?.trim().split(" ") ?? [];
+	const found = projects.filter((project) => existsSync(join(root, project)));
+	if (!found.length) return undefined;
+	const include = found.flatMap((project) => {
+		const config = JSON.parse(readFileSync(join(root, project), "utf8").replace(/^\s*\/\/.*$/gm, ""));
+		const base = dirname(project);
+		return (config.include ?? []).map((glob: string) => join(base, glob));
+	});
+	return { script, include };
+}
+
+function workspaceParents(yaml: string): string[] {
+	const refuse = (why: string): never => {
+		throw new Error(
+			`pnpm-workspace.yaml ${why}: list packages as "packages:" then one "- <folder>/*" line each, with no ! exclusion, so the lint and typecheck checks cover every package pnpm -r runs.`,
+		);
+	};
+	const lines = yaml.split("\n");
+	const at = lines.findIndex((line) => /^packages:/.test(line));
+	if (at === -1) return refuse("has no packages list");
+	if (/^packages:\s*\[\s*\]\s*$/.test(lines[at]!)) return [];
+	if (!/^packages:\s*$/.test(lines[at]!))
+		return refuse(`writes the list in a form this reader does not parse (${lines[at]})`);
+	const globs: string[] = [];
+	for (const line of lines.slice(at + 1)) {
+		if (!line.trim()) continue;
+		const item = /^\s*-\s+["']?([^"'\s]+)["']?\s*$/.exec(line);
+		if (!item && !/^\s/.test(line)) break;
+		if (!item) return refuse(`has a packages line this reader does not parse (${line.trim()})`);
+		globs.push(item[1]!);
+	}
+	if (!globs.length) return refuse("lists no packages");
+	const refused = globs.filter((glob) => !/^[^!*]+\/\*$/.test(glob));
+	if (refused.length) return refuse(`lists ${refused.join(", ")}`);
+	return globs.map((glob) => glob.slice(0, -2));
 }
 
 function workspacePackages(root: string): Pkg[] {
-	const yaml = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
-	const dirs = [...yaml.matchAll(/^\s*-\s*["']?([^"'\s]+)\/\*["']?\s*$/gm)].flatMap(([, parent]) =>
-		readdirSync(join(root, parent!)).map((name) => join(root, parent!, name)),
+	const dirs = workspaceParents(readFileSync(join(root, "pnpm-workspace.yaml"), "utf8")).flatMap((parent) =>
+		readdirSync(join(root, parent)).map((name) => join(root, parent, name)),
 	);
 	return dirs
 		.filter((dir) => existsSync(join(dir, "package.json")))

@@ -13,6 +13,7 @@ import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const database = await testDatabase({
 	prefix: "t128",
@@ -70,6 +71,7 @@ before(async () => {
 			if (!request) throw Error("missing_native_request");
 			return { request, trustedIp: "198.51.100.21", viewer: null };
 		},
+		diagnostic: () => {},
 		responseCookies: async () => {},
 		deliverVerification: async () => {},
 		securityNotice: async () => {},
@@ -190,7 +192,7 @@ test("AC:TARGET-IDN-032 after Delete my account and the grace period, a schedule
 	const avatar = await file(a.id);
 	await admin.update(t.account).set({ avatar_object_id: avatar.id }).where(eq(t.account.id, a.id));
 	const pending = ok(
-		await db.transaction((tx) => api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }, "1"))),
+		await gatedTransaction(db, (tx) => api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }, "1"))),
 	);
 	assert.equal(pending.status, "pending_deletion");
 	const opened = await openDeletion(a);
@@ -229,7 +231,7 @@ test("AC:TARGET-IDN-032 a removal the provider does not confirm keeps the accoun
 	const a = await member();
 	const kept = await file(a.id);
 	ok(
-		await db.transaction(async (tx) =>
+		await gatedTransaction(db, async (tx) =>
 			api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }, await revisionOf(a.id))),
 		),
 	);
@@ -261,13 +263,17 @@ test("AC:TARGET-IDN-032 a cancelled request's purge job is superseded and purges
 	const a = await member();
 	const kept = await file(a.id);
 	const pending = ok(
-		await db.transaction(async (tx) =>
+		await gatedTransaction(db, async (tx) =>
 			api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }, await revisionOf(a.id))),
 		),
 	);
 	const opened = ok(await openDeletion(a));
 	const request = { subject: opened.subject, requestId: opened.requestId };
-	ok(await db.transaction((tx) => api.cancelAccountDeletion(tx, opened.session, command(request, pending.revision))));
+	ok(
+		await gatedTransaction(db, (tx) =>
+			api.cancelAccountDeletion(tx, opened.session, command(request, pending.revision)),
+		),
+	);
 	const w = await witnessOf(a.id);
 	await admin.execute(
 		sql`UPDATE job SET eligible_at=eligible_at-interval '31 days' WHERE kind='lifecycle_purge' AND subject_record_id=${w.id}`,
@@ -283,7 +289,7 @@ test("AC:TARGET-IDN-032 AC:DEL58-005 a workspace deletion purges through the sam
 	const church = async () => {
 		const a = await member();
 		const created = ok(
-			await db.transaction((tx) =>
+			await gatedTransaction(db, (tx) =>
 				onboarding.createPlant(tx, ctx(a), command({ name: "Harvest Point", confirmed: true }, "1")),
 			),
 		);
@@ -294,7 +300,7 @@ test("AC:TARGET-IDN-032 AC:DEL58-005 a workspace deletion purges through the sam
 	const [doomed, kept] = [await file(deleted.p.id), await file(other.p.id)];
 	const [plant] = await admin.select().from(t.plant).where(eq(t.plant.id, deleted.p.id));
 	ok(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			api.requestWorkspaceDeletion(
 				tx,
 				ctx(deleted.a, deleted.p),
@@ -322,7 +328,7 @@ test("AC:TARGET-IDN-032 AC:DEL58-005 a workspace deletion purges through the sam
 test("INV-executor: without the cleanup login the tick skips the purge, runs the other workers and still answers 200", async () => {
 	const a = await member();
 	ok(
-		await db.transaction(async (tx) =>
+		await gatedTransaction(db, async (tx) =>
 			api.requestAccountDeletion(tx, ctx(a), command({ confirmed: true }, await revisionOf(a.id))),
 		),
 	);

@@ -6,7 +6,12 @@ import { fixture } from "../identity/invitations-support.mts";
 import { requestIdentity } from "../../../packages/contracts/src/common/index.ts";
 import { followUpDueDate } from "../../../packages/contracts/src/tasks/index.ts";
 import { within48Hours } from "../../../packages/contracts/src/followups/index.ts";
-import { auditTransaction, finishAudit, prepareWrite } from "../../../packages/domain/src/operations/writes.ts";
+import {
+	auditTransaction,
+	finishAudit,
+	prepareWrite,
+	gatedTransaction,
+} from "../../../packages/domain/src/operations/writes.ts";
 import {
 	authorizeTaskReminders,
 	createTaskWriter,
@@ -30,7 +35,7 @@ import { ok, refused } from "../../support/fixture.mts";
 let f, followups, tasks, reminders;
 const write = (who, op, input) => withFollowUpWrite(f.db, who.actor, (tx, ctx) => followups[op](tx, ctx, input));
 const taskWrite = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => tasks[op](tx, ctx, input));
-const read = (who, op, input) => f.db.transaction((tx) => followUpReader[op](tx, who.actor, input));
+const read = (who, op, input) => gatedTransaction(f.db, (tx) => followUpReader[op](tx, who.actor, input));
 const rows = async (q) => (await f.admin.execute(q)).rows;
 const key = () => randomUUID();
 const hours = (iso, h) => new Date(Date.parse(iso) + h * 3_600_000).toISOString();
@@ -47,7 +52,7 @@ async function church() {
 }
 async function person(c, name, fields = {}) {
 	const ctx = { session: c.owner.actor.session, selected: c.w };
-	const r = await f.db.transaction((tx) =>
+	const r = await gatedTransaction(f.db, (tx) =>
 		peopleWriter.createPerson(tx, ctx, { requestKey: key(), input: { displayName: name } }),
 	);
 	const id = ok(r).person.id;
@@ -315,7 +320,7 @@ test("AC:TARGET-COM-011 AC:TARGET-MTG-022 AC:ROLE43-008 contact log: only an eff
 	);
 	assert.deepEqual([done.task.status, done.record.contact, done.record.completedTask], ["complete", false, true]);
 	const activity = ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			peopleReader.getActivities(tx, new PeopleReadContext(c.owner.actor), { personId: alex, kinds: ["follow_up"] }),
 		),
 	);
@@ -512,7 +517,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	const ctx = { session: c.owner.actor.session, selected: c.w };
 	const current = (await rows(sql`SELECT revision::text r FROM person WHERE id=${casey}`))[0].r;
 	ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			peopleWriter.changeStatus(
 				tx,
 				ctx,
@@ -749,7 +754,7 @@ test("AC:TARGET-PPL-007 INV-inactivity: a card warns after the church's inactivi
 	};
 	const levels = async () => {
 		const pipeline = ok(
-			await f.db.transaction((tx) => peopleReader.getPipelineData(tx, new PeopleReadContext(c.member.actor), {})),
+			await gatedTransaction(f.db, (tx) => peopleReader.getPipelineData(tx, new PeopleReadContext(c.member.actor), {})),
 		);
 		const cards = pipeline.groups.flatMap((g) => g.cards);
 		return Object.fromEntries(
@@ -812,7 +817,7 @@ test("AC:TARGET-TSK-012 AC:TARGET-TSK-013 one owner view: every read names a fol
 	const shape = (o) => o && [o.accountId, o.eligible, o.reason];
 	const owners = ok(await read(c.member, "listFollowUpOwners", { personId: pia })).items;
 	const coverage = ok(await read(c.admin, "followUpCoverage", { personId: pia })).items[0].duties;
-	const list = ok(await f.db.transaction((tx) => taskReader.list(tx, c.admin.actor, {}))).items;
+	const list = ok(await gatedTransaction(f.db, (tx) => taskReader.list(tx, c.admin.actor, {}))).items;
 	for (const [account, [ok_, reason]] of Object.entries(expected)) {
 		const id = taskOf[account];
 		const views = [
@@ -882,9 +887,11 @@ test("AC:TARGET-TSK-012 task assignment, create and edit refuse a follow-up owne
 	).task;
 	assert.deepEqual([edited.assignees[0].accountId, edited.followUpOwners[0].eligible], [ready.id, true]);
 	const names = (r) => ok(r).items.map((i) => i.accountId);
-	const all = names(await f.db.transaction((tx) => taskReader.eligibleAssignees(tx, c.owner.actor, {})));
+	const all = names(await gatedTransaction(f.db, (tx) => taskReader.eligibleAssignees(tx, c.owner.actor, {})));
 	const eligibleOnly = names(
-		await f.db.transaction((tx) => taskReader.eligibleAssignees(tx, c.owner.actor, { purpose: "committed_follow_up" })),
+		await gatedTransaction(f.db, (tx) =>
+			taskReader.eligibleAssignees(tx, c.owner.actor, { purpose: "committed_follow_up" }),
+		),
 	);
 	assert.ok(all.includes(unlinked.id) && all.includes(ready.id));
 	assert.deepEqual(eligibleOnly, [ready.id]);
@@ -965,7 +972,7 @@ test("AC:TARGET-MTG-022 AC:TARGET-MTG-021 one follow-up state: a done follow-up 
 	);
 	assert.equal(ok(await read(c.owner, "listFollowUpOwners", { personId: sol })).items.length, 0);
 	const activity = ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			peopleReader.getActivities(tx, new PeopleReadContext(c.owner.actor), { personId: sol, kinds: ["follow_up"] }),
 		),
 	);

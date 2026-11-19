@@ -14,12 +14,13 @@ import {
 	IntentLink,
 	Spinner,
 	StatePanel,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { useState, useTransition } from "react";
 import type { z } from "zod";
 import { SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
-import { previewRoster, updateRoster } from "./actions.ts";
+import { updateRoster } from "./actions.ts";
+import { previewRoster } from "./fetch.ts";
 import { problemText, type Detail, type Guest, type Outcome } from "./model.ts";
 import { PENDING, type Change, type PendingGuest } from "./page-state.ts";
 
@@ -39,7 +40,6 @@ export function RosterUpdate({
 	onUpdated: (added: Guest[], removedPersonIds: string[]) => void;
 }) {
 	const team = meeting.team;
-	const toast = useToast();
 	const lane = useSaveIntent({ explain: rosterProblem });
 	const [, startTransition] = useTransition();
 	const [open, setOpen] = useState(false);

@@ -6,6 +6,8 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createPrivateCare, type PrivateCare } from "@everyfield/domain/intelligence";
 import "server-only";
 import type { Outcome } from "./model.ts";
+import { isTransient, logFailure, type LogWord } from "@everyfield/domain/log";
+import { unexpected } from "../../server/platform/transient.ts";
 
 const care = createPrivateCare();
 
@@ -13,33 +15,32 @@ export type CareViewer = { authority: RequestActor; displayName: string; role: "
 
 export async function careViewer(): Promise<CareViewer | null> {
 	const v = await getViewer();
-	const authority = v?.authority;
+	const authority = v.authority;
 	if (!authority) return null;
 	const ctx = authority.actor.context;
 	if (ctx.kind !== "seat" || ctx.owner.kind !== "plant") return null;
 	return { authority, displayName: v.displayName ?? "", role: ctx.role };
 }
 
-const report = (outcome: string, error: unknown) =>
-	console.error(
-		JSON.stringify({ component: "private-care", outcome, kind: (error as { code?: string })?.code ?? "unknown" }),
-	);
+const report = <O extends string>(outcome: LogWord<O>, error: unknown) =>
+	logFailure({ component: "private-care", outcome }, error);
 
 export async function loadCheckIn(viewer: CareViewer): Promise<Outcome<CarePage>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await care.readTrends(db, viewer.authority, {});
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "private-care", outcome: "read_failed" }, error);
 		report("read_failed", error);
 		return { status: "lost" };
 	}
 }
 
-export async function run<T>(
-	body: (care: PrivateCare, db: Database, authority: RequestActor) => Promise<CareReply<T>>,
-): Promise<Outcome<T>> {
-	const viewer = await careViewer();
+type Body<T> = (care: PrivateCare, db: Database, authority: RequestActor) => Promise<CareReply<T>>;
+
+export const run = async <T>(body: Body<T>) => runAs(await careViewer(), body);
+
+export async function runAs<T>(viewer: CareViewer | null, body: Body<T>): Promise<Outcome<T>> {
 	if (!viewer)
 		return {
 			status: "refused",
@@ -51,10 +52,10 @@ export async function run<T>(
 			}),
 		};
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await body(care, db, viewer.authority);
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "private-care", outcome: "call_failed" }, error);
 		report("call_failed", error);
 		return { status: "lost" };
 	}

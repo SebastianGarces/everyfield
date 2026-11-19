@@ -1,6 +1,5 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
-import type { Transaction } from "@everyfield/db/client";
 import {
 	communicationWriter,
 	withCommunicationWrite,
@@ -11,23 +10,27 @@ import "server-only";
 import type { Outcome, PageData } from "./model.ts";
 import { appOrigin, mailReady, type MailReady } from "../../server/mail/transport.ts";
 import { canWrite } from "../../components/seat-role.ts";
+import { LOST, transient } from "../../server/platform/transient.ts";
+import type { WriteTx } from "@everyfield/domain/access";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
-type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
+type Peopled = NonNullable<Awaited<ReturnType<typeof getViewer>>["people"]>;
 export type Viewer = Peopled;
 
 export async function communicationViewer() {
-	try {
-		const viewer = await getViewer();
-		return {
-			viewer: viewer?.people ?? null,
-			email: viewer?.email ?? null,
-			signedOut: !viewer || viewer.status === "unauthenticated",
-			ok: viewer !== null,
-		};
-	} catch (error) {
-		console.error(JSON.stringify({ component: "communication", outcome: "viewer_failed", error: String(error) }));
-		return { viewer: null, email: null, signedOut: false, ok: false };
-	}
+	return transient(
+		{ component: "communication", outcome: "viewer_failed" },
+		async () => {
+			const viewer = await getViewer();
+			return {
+				viewer: viewer.people ?? null,
+				email: viewer.email ?? null,
+				signedOut: viewer.status === "unauthenticated",
+				ok: true,
+			};
+		},
+		{ viewer: null, email: null, signedOut: false, ok: false },
+	);
 }
 
 const outcome = <T>(reply: CommunicationReply<T>): Outcome<T> =>
@@ -35,30 +38,28 @@ const outcome = <T>(reply: CommunicationReply<T>): Outcome<T> =>
 
 export async function read<T>(
 	viewer: Viewer,
-	run: (tx: Transaction) => Promise<CommunicationReply<T>>,
+	run: (tx: WriteTx) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return outcome(await db.transaction((tx) => run(tx)));
-	} catch (error) {
-		console.error(JSON.stringify({ component: "communication", outcome: "read_failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "communication", outcome: "read_failed" },
+		async () => outcome(await gatedTransaction(db, (tx) => run(tx))),
+		LOST,
+	);
 }
 
 export async function write<T>(
 	viewer: Viewer,
-	run: (tx: Transaction, context: CommunicationContext) => Promise<CommunicationReply<T>>,
+	run: (tx: WriteTx, context: CommunicationContext) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return outcome(await withCommunicationWrite(db, viewer.authority, run));
-	} catch (error) {
-		console.error(JSON.stringify({ component: "communication", outcome: "write_failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "communication", outcome: "write_failed" },
+		async () => {
+			return outcome(await withCommunicationWrite(db, viewer.authority, run));
+		},
+		LOST,
+	);
 }
 
 export async function deliver<T>(
@@ -68,24 +69,23 @@ export async function deliver<T>(
 		mail: MailReady,
 	) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
-	const seat = await communicationViewer();
-	if (!seat.viewer || !canWrite(seat.viewer)) return { status: "refused", code: "access_denied" };
+	return deliverAs(await communicationViewer(), run);
+}
+
+export async function deliverAs<T>(
+	seat: Awaited<ReturnType<typeof communicationViewer>>,
+	run: Parameters<typeof deliver<T>>[0],
+): Promise<Outcome<T>> {
+	const viewer = seat.viewer;
+	if (!viewer || !canWrite(viewer)) return { status: "refused", code: "access_denied" };
 	const mail = mailReady();
 	if (!mail) return { status: "refused", code: "unavailable" };
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return outcome(await run(db, seat.viewer, mail));
-	} catch (error) {
-		console.error(
-			JSON.stringify({
-				component: "communication",
-				outcome: "delivery_failed",
-				error: error instanceof Error ? error.name : "error",
-			}),
-		);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "communication", outcome: "delivery_failed" },
+		async () => outcome(await run(db, viewer, mail)),
+		LOST,
+	);
 }
 
 export function loadCommunicationPage(viewer: Viewer): Promise<Outcome<PageData>> {

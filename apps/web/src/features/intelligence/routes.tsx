@@ -21,7 +21,7 @@ export async function CheckInPage() {
 	const viewer = await careViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(CHECK_IN_PATH)}`);
+		if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(CHECK_IN_PATH)}`);
 		return <Blocked title="The weekly check-in belongs to a church plant">{SEAT_TEXT}</Blocked>;
 	}
 	if (viewer.role === "member")
@@ -83,7 +83,7 @@ export async function AttestationsPage() {
 	const viewer = await careViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated")
+		if (v.status === "unauthenticated")
 			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/attestations")}`);
 		return <NoChurchPlantSeat />;
 	}
@@ -129,7 +129,7 @@ async function ownerOrAdmin(path: string) {
 	const viewer = await phaseViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
+		if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
 		return { blocked: <NoChurchPlantSeat /> } as const;
 	}
 	if (!administers(viewer))
