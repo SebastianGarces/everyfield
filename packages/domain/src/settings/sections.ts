@@ -2,12 +2,11 @@ import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import { revision as revisionValue, type Owner } from "@everyfield/contracts/common";
 import * as q from "@everyfield/contracts/settings";
 import type { SettingsProducer, SettingsReply } from "@everyfield/contracts/settings/server";
-import type { Transaction } from "@everyfield/db/client";
 import { and, eq, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import "server-only";
 import { z } from "zod";
-import { liveRead, type RequestActor } from "../access/session.ts";
+import { liveRead, type RequestActor, type WriteTx } from "../access/session.ts";
 import {
 	active,
 	administrator,
@@ -54,7 +53,7 @@ export interface SettingsEffects {
 	): Promise<string>;
 }
 export interface SectionDependencies {
-	organizations: OrganizationAdapter<Transaction>;
+	organizations: OrganizationAdapter<WriteTx>;
 	organizationEffects: OrganizationEffects;
 	effects: SettingsEffects;
 	suppression(db: Reader, email: string): Promise<"clear" | "suppressed" | "unavailable">;

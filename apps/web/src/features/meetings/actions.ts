@@ -20,13 +20,13 @@ import {
 import { tasksMount } from "../tasks/mount.ts";
 import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meetings";
 import { z } from "zod";
-import type { Transaction } from "@everyfield/db/client";
 import type { Finalization, Outcome } from "./model.ts";
 import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
 import { logFailure } from "@everyfield/domain/log";
+import type { WriteTx } from "@everyfield/domain/access";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
-type Run<T> = (tx: Transaction, ctx: MeetingsContext) => Promise<MeetingsReply<T>>;
+type Run<T> = (tx: WriteTx, ctx: MeetingsContext) => Promise<MeetingsReply<T>>;
 
 async function act<T>(run: Run<T>): Promise<Outcome<T>> {
 	const v = await getViewer();

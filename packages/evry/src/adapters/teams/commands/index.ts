@@ -1,4 +1,3 @@
-import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { meetingsWriter } from "@everyfield/domain/meetings";
 import {
@@ -43,6 +42,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import { recordId } from "../ids.ts";
 import type { EffectResult, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 type TeamsContext = Parameters<typeof teamsWriter.create>[1];
 
@@ -87,7 +87,7 @@ export function reviewed<I, R extends z.ZodType>(spec: {
 	input: z.ZodType<I>;
 	review(actor: EvryActor, input: I, context: ReviewContext): SQL | Promise<SQL | null>;
 	request: R;
-	run(tx: Transaction, context: TeamsContext, request: z.output<R>): Promise<TeamsReply<unknown>>;
+	run(tx: WriteTx, context: TeamsContext, request: z.output<R>): Promise<TeamsReply<unknown>>;
 }): ReviewedWrite<I> {
 	return {
 		operation: spec.operation,

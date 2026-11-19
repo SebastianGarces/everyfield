@@ -5,7 +5,6 @@ import { drainObjectCleanup } from "@/server/jobs/drain-object-cleanup";
 import { requestKey, revision } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
-import type { Transaction } from "@everyfield/db/client";
 import { peopleReader, personFields as f, uploadPersonPhoto } from "@everyfield/domain/people";
 import { z } from "zod";
 import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
@@ -15,9 +14,10 @@ import type { ChurchTag, HouseholdResult, PersonTag, PhotoResult, Skill } from "
 import { privateStorage } from "@everyfield/db/schema";
 import { leave } from "./leave.ts";
 import { peopleContext } from "./server.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 type PlantPerson = z.infer<typeof c.plantPerson>;
-type Tx = Transaction;
+type Tx = WriteTx;
 type PersonId = z.infer<typeof c.personRequest>["personId"];
 type Ctx = PeopleWriteContext;
 

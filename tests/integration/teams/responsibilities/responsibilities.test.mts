@@ -18,6 +18,7 @@ import {
 import { TEMPLATES, reviewDigest } from "../../../../packages/domain/src/teams/templates.ts";
 import { playbookTeam } from "../../../../packages/reference/src/playbook.ts";
 import { fixture, ok, refused } from "../../../support/fixture.mts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 const database = await fixture({ prefix: "wp018", max: 6 });
@@ -38,7 +39,7 @@ const freeze = JSON.parse(
 );
 const referenceKeys = [...new Set(Object.values(REFERENCE_TEAM_KEY))];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: who === 3 ? Q : P } });
-const tx = (body) => db.transaction(body);
+const tx = (body) => gatedTransaction(db, body);
 const run = (op, input, who = 0) => tx((t) => op(t, ctx(who), input));
 const key = () => randomUUID();
 const viewer = async (who = 0) => {
