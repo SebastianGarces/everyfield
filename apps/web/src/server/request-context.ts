@@ -87,3 +87,10 @@ export async function requireSeat(returnTo: string): Promise<PlantSeat | null> {
 	if (v.status === "unauthenticated") signIn(returnTo);
 	return v.people;
 }
+
+export const SEAT_DENIED = { status: "refused", code: "access_denied" } as const;
+
+export async function seated<R>(run: (seat: PlantSeat) => Promise<R>): Promise<R | typeof SEAT_DENIED> {
+	const seat = await plantSeat();
+	return seat ? run(seat) : SEAT_DENIED;
+}
