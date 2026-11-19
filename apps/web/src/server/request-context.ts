@@ -73,20 +73,23 @@ export const getViewer = cache(async () => {
 	};
 });
 
-export type PlantSeat = NonNullable<Awaited<ReturnType<typeof getViewer>>["people"]>;
+type Viewer = Awaited<ReturnType<typeof getViewer>>;
+export type PlantSeat = NonNullable<Viewer["people"]> & { accountName: string };
+
+const seatOf = (v: Viewer): PlantSeat | null => v.people && { ...v.people, accountName: v.displayName ?? "" };
 
 export function signIn(returnTo: string): never {
 	redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
 }
 
 export async function plantSeat(): Promise<PlantSeat | null> {
-	return (await getViewer()).people;
+	return seatOf(await getViewer());
 }
 
 export async function requireSeat(returnTo: string): Promise<PlantSeat | null> {
 	const v = await getViewer();
 	if (v.status === "unauthenticated") signIn(returnTo);
-	return v.people;
+	return seatOf(v);
 }
 
 export async function seated<const C extends string, R>(
