@@ -375,8 +375,8 @@ export const taskReader = {
 				v = parse(c.getTaskRequest, raw);
 			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`, true));
 			const row = found && lockedTask.parse(found);
-			if (!row || row.deleted_at) return c.taskResult.parse({ status: "unavailable" });
-			return c.taskResult.parse({ status: "available", task: detailOf(row, v.asOf ?? now()) });
+			if (!row || row.deleted_at) return { status: "unavailable" } satisfies z.output<typeof c.taskResult>;
+			return { status: "available", task: detailOf(row, v.asOf ?? now()) } satisfies z.output<typeof c.taskResult>;
 		});
 	},
 	async statusHistory(tx: Tx, authority: RequestActor, raw: unknown) {
@@ -603,7 +603,7 @@ export const taskReader = {
 					revision: revision.nullable(),
 				})
 				.parse(found);
-			if (!row.series_id) return c.openOccurrence.parse({ status: "not_recurring" });
+			if (!row.series_id) return { status: "not_recurring" } satisfies z.output<typeof c.openOccurrence>;
 			return c.openOccurrence.parse({
 				status: "series",
 				seriesId: row.series_id,
