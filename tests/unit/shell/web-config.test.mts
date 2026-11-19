@@ -10,6 +10,7 @@ const { getPathMatch } = require("next/dist/shared/lib/router/utils/path-match.j
 type Header = { key: string; value: string };
 type Rule = { source: string; headers: Header[] };
 
+assert.ok(config.headers, "next.config sets response headers");
 const rules: Rule[] = await config.headers();
 const value = (rule: Rule | undefined, key: string) => rule?.headers.find((h) => h.key === key)?.value;
 const served = (url: string, key: string) => {
