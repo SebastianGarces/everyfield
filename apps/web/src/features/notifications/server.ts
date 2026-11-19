@@ -7,7 +7,7 @@ import { createNotificationProducer, parseKeyRing } from "@everyfield/domain/not
 import { randomBytes } from "node:crypto";
 import "server-only";
 import { stamped, type FeedPage, type FeedQuery, type Outcome, type Reply } from "./model.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 type Producer = ReturnType<typeof createNotificationProducer>;
 export type Mount = { db: Database; producer: Producer; optOut: boolean };
@@ -34,12 +34,13 @@ const outcome = <T>(reply: Reply<T>): Outcome<T> =>
 
 export async function call<T>(run: (m: Mount) => Promise<Reply<T>>): Promise<Outcome<T>> {
 	const mount = notificationsMount();
-	try {
-		return outcome(await run(mount));
-	} catch (error) {
-		logFailure({ component: "notifications", outcome: "failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "notifications", outcome: "failed" },
+		async () => {
+			return outcome(await run(mount));
+		},
+		LOST,
+	);
 }
 
 export async function loadFeedPage(actor: RequestActor, query: FeedQuery): Promise<Outcome<FeedPage>> {
