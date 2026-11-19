@@ -16,6 +16,7 @@ import {
 } from "@everyfield/ui/controls";
 import { startTransition, useOptimistic, useState, useTransition } from "react";
 import type { Wait } from "../../../components/save/model.ts";
+import { localToday } from "../../../components/clock.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import { throughStore } from "../person.store.ts";
 import { LocalDay, usePersonState } from "../parts.tsx";
@@ -24,7 +25,6 @@ import {
 	firstName,
 	LENS_LABEL,
 	LENSES,
-	today,
 	totalOf,
 	withRecord,
 	type Assessment,
@@ -38,7 +38,7 @@ type Draft = { occurredOn: string } & Record<Lens, { score: string; notes: strin
 type Editing = { draft: Draft; problem?: string };
 const SCORES = ["1", "2", "3", "4", "5"].map((v) => ({ value: v, label: v }));
 const blank = (): Draft => ({
-	occurredOn: today(),
+	occurredOn: localToday(),
 	committed: { score: "", notes: "" },
 	compelled: { score: "", notes: "" },
 	contagious: { score: "", notes: "" },
@@ -301,7 +301,7 @@ function AssessmentDialog({
 				<Input
 					type="date"
 					value={draft.occurredOn}
-					max={today()}
+					max={localToday()}
 					onChange={(e) => setDraft((d) => ({ ...d, occurredOn: e.target.value }))}
 				/>
 			</Field>

@@ -49,5 +49,5 @@ export async function loadFeedPage(actor: RequestActor, query: FeedQuery): Promi
 			...(query.unread ? { unread: true } : {}),
 		}),
 	);
-	return stamped(page);
+	return stamped(page, Date.now());
 }
