@@ -1,3 +1,4 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import { historyQuery } from "@everyfield/contracts/communication";
 import { communicationWriter } from "@everyfield/domain/communication";
 import { meetingsReader } from "@everyfield/domain/meetings";
@@ -16,7 +17,6 @@ import type {
 	MessageDetail,
 	MessageView,
 	NamedRecipient,
-	Outcome,
 	PersonHistory,
 	Recipient,
 	ResendReview,

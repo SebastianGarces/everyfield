@@ -1,3 +1,4 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { createRead } from "../../components/read.tsx";
@@ -9,7 +10,6 @@ import {
 	type Audience,
 	type Draft,
 	type MeetingContext,
-	type Outcome,
 	type Recipient,
 	type Template,
 } from "./model.ts";
