@@ -5,7 +5,8 @@
 	"start": ["corepack", "pnpm", "--filter", "@everyfield/web", "exec", "next", "start", "--hostname", "127.0.0.1"],
 	"env": {
 		"NEXT_TELEMETRY_DISABLED": "1",
-		"IDENTITY_ORIGIN": "${PREVIEW_URL}"
+		"IDENTITY_ORIGIN": "${PREVIEW_URL}",
+		"FLAGS_SECRET": "IeGTgBcgrmjQeQiEW4yS6zK5D6No9wPQH29r15vRkIs"
 	},
 	"timeoutSeconds": 300
 }

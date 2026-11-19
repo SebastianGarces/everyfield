@@ -249,6 +249,7 @@ function deployCheckout(
 			...mailKeys,
 			NOTIFICATION_OPT_OUT_KEYS: randomBytes(32).toString("base64"),
 			CRON_SECRET: cronSecret,
+			FLAGS_SECRET: randomBytes(32).toString("base64url"),
 			LIFECYCLE_CLEANUP_DATABASE_URL: p.direct,
 			...(p.recipients.length ? { EMAIL_TEST_RECIPIENTS: p.recipients.join(",") } : {}),
 		};
