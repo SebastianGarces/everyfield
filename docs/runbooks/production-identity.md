@@ -26,14 +26,18 @@ already has it.
    read -rs PROD_IDENTITY_ADMIN_URL && export PROD_IDENTITY_ADMIN_URL
    ```
 
-2. Dry run. This uses a read-only session and `vercel env ls` (names only), and changes nothing:
+2. Dry run. This uses a read-only session, `vercel env ls` for the setting names and a shape check of the hand-set
+   settings Vercel Production already has, and changes nothing:
 
    ```sh
    bin/prod-identity --origin https://<production origin>
    ```
 
    Check the printed target endpoint (`ep-gentle-dust-...`, marked PRODUCTION), the logins, the grants, the settings it
-   would generate (masked) and the "set by hand" list. Fix any "Apply would refuse" line first.
+   would generate (masked) and the "set by hand" list. The shape check reads `IDENTITY_MAIL_FROM` with
+   `vercel env pull` into a temporary file outside any git tree, deletes it before the run ends and prints only
+   "right shape", "wrong shape: <expected shape>" or "cannot check" (for example a value stored as sensitive). A wrong
+   shape is listed under "Apply would refuse". Fix any "Apply would refuse" line first.
 
 3. Apply. Pass `--confirm` with the endpoint id the plan printed, or leave it out and type the id at the prompt:
 
@@ -67,7 +71,12 @@ the existing logins new passwords and overwrites their URLs (`--force`). Never r
   authentication error.
 - Sign-in works on the production origin: sign in with an existing account, and request a password reset to see mail
   queue and send.
-- The dry run now reports each generated setting as "already present" and each login as "keep".
+- The dry run now reports each generated setting as "already present" and each login as "keep". Rerun it and
+  confirm that every hand-set setting under "Shape of the hand-set settings" reports "right shape". Check a
+  "cannot check" setting by hand in the Vercel dashboard.
+- When production refuses its identity or mail settings, Vercel logs show one `settings_refused` line per check
+  (`identity` or `mail`) that names each refused setting, by name only, never its value. Boot then logs
+  `warm_failed` with the error name `IdentitySettingsRefused`. Fix the named settings and redeploy.
 
 ## Roll back
 

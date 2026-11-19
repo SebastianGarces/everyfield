@@ -1,11 +1,12 @@
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
-import { parseArgs } from "node:util";
+import { parseArgs, parseEnv } from "node:util";
+import { mailEnv } from "../../apps/web/src/server/mail-env.ts";
 import { PROD_ENDPOINT, Redactor, roleUrl } from "../qa/qa-guard.ts";
 
 export const ADMIN_ENV = "PROD_IDENTITY_ADMIN_URL";
@@ -70,6 +71,21 @@ export const BY_HAND: Readonly<Record<string, string>> = {
 	LANGFUSE_BASE_URL: "optional Evry tracing",
 	LANGFUSE_TRACING_ENVIRONMENT: "optional Evry tracing",
 };
+export const SHAPES = {
+	IDENTITY_MAIL_FROM: { rule: mailEnv.IDENTITY_MAIL_FROM, shape: "a bare address such as mail@example.com" },
+} as const;
+export type Shape = { name: string; state: "right shape" | "cannot check" | `wrong shape: ${string}` };
+
+export function shapes(production: Set<string> | null, values: ReadonlyMap<string, string> | null): Shape[] {
+	return Object.entries(SHAPES)
+		.filter(([name]) => production?.has(name))
+		.map(([name, { rule, shape }]) => {
+			const value = values?.get(name);
+			if (!value) return { name, state: "cannot check" };
+			return { name, state: rule.safeParse(value).success ? "right shape" : `wrong shape: ${shape}` };
+		});
+}
+
 export const NOT_IN_PRODUCTION = [
 	"EMAIL_TEST_RECIPIENTS",
 	"PLATFORM_PROOF_SECRET",
@@ -87,6 +103,7 @@ export type Observed = {
 	roles: Map<string, Role>;
 	production: Set<string> | null;
 	preview: Set<string> | null;
+	shapes: Shape[];
 };
 export type LoginStep = { login: Login; action: "create" | "keep" | "rotate"; granted: boolean; force: boolean };
 export type Plan = {
@@ -94,6 +111,7 @@ export type Plan = {
 	keys: { name: KeyName | "IDENTITY_ORIGIN"; generate: boolean }[];
 	refusals: string[];
 	report: { name: string; state: string }[];
+	shapes: Shape[];
 };
 
 export function plan(seen: Observed, rotate: boolean): Plan {
@@ -117,6 +135,9 @@ export function plan(seen: Observed, rotate: boolean): Plan {
 			);
 		return { login, action: "keep", granted, force };
 	});
+	for (const s of seen.shapes)
+		if (s.state.startsWith("wrong shape"))
+			refusals.push(`${s.name} in Vercel Production is the ${s.state}. Set it again with --force, then rerun.`);
 	const keys = (["IDENTITY_ORIGIN", ...Object.keys(KEYS)] as (KeyName | "IDENTITY_ORIGIN")[]).map((name) => ({
 		name,
 		generate: !inProduction(name),
@@ -142,7 +163,7 @@ export function plan(seen: Observed, rotate: boolean): Plan {
 			state: inProduction(name) ? "PRESENT, but production must leave it unset" : "leave unset in production",
 		})),
 	];
-	return { logins, keys, refusals, report };
+	return { logins, keys, refusals, report, shapes: seen.shapes };
 }
 
 const reportedByScript = (name: string) =>
@@ -271,6 +292,36 @@ function vercelNames(environment: "production" | "preview"): Set<string> | null 
 	return names;
 }
 
+function vercelValues(names: readonly string[]): Map<string, string> | null {
+	if (!names.length) return new Map();
+	const dir = mkdtempSync(join(tmpdir(), "prod-identity-"));
+	const file = join(dir, "production.env");
+	try {
+		if (insideGitTree(file)) return null;
+		const r = spawnSync(
+			"vercel",
+			[
+				"env",
+				"pull",
+				file,
+				"--environment",
+				"production",
+				"--yes",
+				"--project",
+				VERCEL_TARGET.project,
+				"--scope",
+				VERCEL_TARGET.scope,
+			],
+			{ cwd: dir, stdio: "ignore" },
+		);
+		if (r.error || r.status !== 0 || !existsSync(file)) return null;
+		const pulled = parseEnv(readFileSync(file, "utf8"));
+		return new Map(names.flatMap((name) => (pulled[name] ? [[name, pulled[name]] as const] : [])));
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+}
+
 function insideGitTree(path: string): boolean {
 	let dir = dirname(path);
 	while (!existsSync(dir)) dir = dirname(dir);
@@ -283,7 +334,8 @@ const HELP = `Usage: bin/prod-identity --origin <https origin> [--apply --confir
 
 One-time production identity setup (T-396). Reads the admin (database owner) connection string from the
 ${ADMIN_ENV} environment variable, never from a flag. Without --apply it is a dry run: a read-only
-database session and a read of Vercel's setting names (vercel env ls), then the plan, with every value masked.
+database session, a read of Vercel's setting names (vercel env ls) and a shape check of the hand-set settings
+Vercel Production holds (vercel env pull into a temporary file it deletes), then the plan. It prints no value it reads.
 
   --origin <url>        Required. The production origin, set as IDENTITY_ORIGIN (e.g. https://everyfield.app).
   --apply               Create the three production logins, generate the missing keys and write the Vercel
@@ -330,10 +382,14 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
 			`Target: endpoint ${db.endpoint}, database ${db.database}${prod ? " (the PRODUCTION endpoint)" : " (not the production endpoint)"}.`,
 		);
 
+		const production = vercelNames("production");
+		const values = vercelValues(Object.keys(SHAPES).filter((name) => production?.has(name)));
+		redactor.add(...(values?.values() ?? []));
 		const seen: Observed = {
 			roles: await observeRoles(db.direct),
-			production: vercelNames("production"),
+			production,
 			preview: vercelNames("preview"),
+			shapes: shapes(production, values),
 		};
 		const rotate = opts["rotate-passwords"];
 		const p = plan(seen, rotate);
@@ -357,6 +413,10 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
 		say("\nEvery setting production needs:");
 		const width = Math.max(...p.report.map((r) => r.name.length));
 		for (const r of p.report) say(`  ${r.name.padEnd(width)}  ${r.state}`);
+		if (p.shapes.length) {
+			say("\nShape of the hand-set settings Vercel Production has (values are never printed):");
+			for (const s of p.shapes) say(`  ${s.name.padEnd(width)}  ${s.state}`);
+		}
 		if (p.refusals.length)
 			say(`\n${opts.apply ? "Refused" : "Apply would refuse"}:\n${p.refusals.map((r) => `  - ${r}`).join("\n")}`);
 

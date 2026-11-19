@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { MAIL_BATCH_LIMIT } from "@everyfield/contracts/communication";
-import { mailEnv } from "../mail-env.ts";
+import { checkSettings, mailEnv, refuseSettings } from "../mail-env.ts";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
@@ -139,25 +139,25 @@ export function appOrigin(): string | null {
 }
 
 export function mailReady(): MailReady | null {
-	const parsed = env.safeParse({
+	const v = checkSettings("mail", env, {
 		IDENTITY_MAIL_KEY: process.env.IDENTITY_MAIL_KEY,
 		IDENTITY_ADDRESS_KEY: process.env.IDENTITY_ADDRESS_KEY,
 		IDENTITY_MAIL_FROM: process.env.IDENTITY_MAIL_FROM,
 		IDENTITY_ORIGIN: process.env.IDENTITY_ORIGIN,
 		RESEND_API_KEY: process.env.RESEND_API_KEY?.trim() || undefined,
 	});
-	if (!parsed.success) return null;
-	const apiKey = parsed.data.RESEND_API_KEY ?? null;
-	if (apiKey === null && !isTestDeployment(process.env)) return null;
-	const encryptionKey = Buffer.from(parsed.data.IDENTITY_MAIL_KEY, "hex");
-	const addressKey = Buffer.from(parsed.data.IDENTITY_ADDRESS_KEY, "hex");
-	if (encryptionKey.equals(addressKey)) return null;
+	if (!v) return null;
+	const apiKey = v.RESEND_API_KEY ?? null;
+	if (apiKey === null && !isTestDeployment(process.env)) return refuseSettings("mail", ["RESEND_API_KEY"]);
+	const encryptionKey = Buffer.from(v.IDENTITY_MAIL_KEY, "hex");
+	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
+	if (encryptionKey.equals(addressKey)) return refuseSettings("mail", ["IDENTITY_MAIL_KEY", "IDENTITY_ADDRESS_KEY"]);
 	return {
 		keys: {
 			encryptionKey,
 			addressKey,
-			from: parsed.data.IDENTITY_MAIL_FROM,
-			origin: parsed.data.IDENTITY_ORIGIN,
+			from: v.IDENTITY_MAIL_FROM,
+			origin: v.IDENTITY_ORIGIN,
 			optOutKeys: parseKeyRing(process.env.NOTIFICATION_OPT_OUT_KEYS),
 		},
 		apiKey,

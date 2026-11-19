@@ -6,7 +6,7 @@ import { after } from "next/server";
 import { createHmac } from "node:crypto";
 import { database } from "../database";
 import { z } from "zod";
-import { mailEnv } from "../mail-env.ts";
+import { checkSettings, mailEnv } from "../mail-env.ts";
 import { createIdentityService, trustedIdentityIp, type IdentityConfig } from "@everyfield/domain/identity";
 import { invitationService } from "../invitations";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
@@ -68,26 +68,31 @@ function identityMailQueue(v: z.infer<typeof env>): IdentityConfig["enqueueMail"
 		});
 }
 
+const settings = () => checkSettings("identity", env, process.env);
+
+export class IdentitySettingsRefused extends Error {
+	override name = "IdentitySettingsRefused";
+}
+
 export function identityMailEnqueue(): IdentityConfig["enqueueMail"] | null {
-	const parsed = env.safeParse(process.env);
-	return parsed.success ? identityMailQueue(parsed.data) : null;
+	const v = settings();
+	return v ? identityMailQueue(v) : null;
 }
 
 export function identityMailPass(transport: MailTransport): MailPass | null {
-	const parsed = env.safeParse(process.env);
-	if (!parsed.success) return null;
-	const db = database(parsed.data.IDENTITY_DATABASE_URL),
-		mail = identityMail(parsed.data, transport);
+	const v = settings();
+	if (!v) return null;
+	const db = database(v.IDENTITY_DATABASE_URL),
+		mail = identityMail(v, transport);
 	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.identity, limit, until);
 }
 
 let service: ReturnType<typeof createIdentityService> | undefined;
 function identityMount() {
-	const parsed = env.safeParse(process.env);
-	if (!parsed.success) return null;
+	const v = settings();
+	if (!v) return null;
 	if (!service) {
-		const v = parsed.data,
-			db = database(v.IDENTITY_DATABASE_URL),
+		const db = database(v.IDENTITY_DATABASE_URL),
 			authDb = database(v.IDENTITY_AUTH_DATABASE_URL),
 			admissionDb = db;
 		service = createIdentityService({
@@ -118,7 +123,7 @@ export function identityHandler(request: Request): Promise<Response> {
 
 export function requestAuth() {
 	const mount = identityMount();
-	if (!mount) throw Error("identity_unavailable");
+	if (!mount) throw new IdentitySettingsRefused("identity_unavailable");
 	return mount.auth;
 }
 
