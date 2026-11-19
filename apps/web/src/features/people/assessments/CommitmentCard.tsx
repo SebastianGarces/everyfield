@@ -24,7 +24,7 @@ import {
 	MenuItem,
 	MenuSeparator,
 	MenuTrigger,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
@@ -89,7 +89,6 @@ export function CommitmentCard({
 	documentsEnabled,
 	corrected,
 }: RecordProps<Commitments> & { documentsEnabled: boolean }) {
-	const toast = useToast();
 	const history = useHistory(
 		initial,
 		(page) => loadCommitments(personId, page),
