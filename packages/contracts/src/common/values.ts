@@ -46,8 +46,12 @@ export type Lost = { status: "lost" };
 export type Refused<Code extends string, Extra extends object = object> = { status: "refused"; code: Code } & Extra;
 export type Outcome<T, Code extends string = string, Extra extends object = object> =
 	{ status: "ok"; value: T } | Refused<Code, Extra> | Lost;
-export const outcomeOf = <T, E extends { code: string }>(reply: Reply<T, E>): Outcome<T, E["code"]> =>
-	reply.status === "ok" ? { status: "ok", value: reply.value } : { status: "refused", code: reply.error.code };
+export const outcomeOf = <T, E extends { code: string }>(reply: Reply<T, E> | Lost): Outcome<T, E["code"]> =>
+	reply.status === "refused"
+		? { status: "refused", code: reply.error.code }
+		: reply.status === "ok"
+			? { status: "ok", value: reply.value }
+			: reply;
 export type RetryEligibility = "never" | "refresh" | "same_request" | "reconcile";
 export function defineSafeError<
 	const Code extends string,
