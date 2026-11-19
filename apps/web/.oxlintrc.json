@@ -1399,12 +1399,7 @@
 			}
 		},
 		{
-			"files": [
-				"src/features/settings/ProductSettings.tsx",
-				"src/features/settings/sections/**",
-				"src/features/settings/brand/BrandSection.tsx",
-				"src/features/settings/preview/**"
-			],
+			"files": ["src/features/settings/ProductSettings.tsx"],
 			"rules": {
 				"no-restricted-imports": [
 					"error",
