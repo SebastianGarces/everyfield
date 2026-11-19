@@ -21,21 +21,34 @@ export type ServerEnv = Readonly<Record<string, string | undefined>>;
 export class ServerConfigError extends Error {
 	readonly names: readonly string[];
 	constructor(names: readonly string[]) {
-		super(`server_config_invalid: ${names.join(", ")}`);
+		super("server_config_missing");
 		this.name = "ServerConfigError";
 		this.names = names;
 	}
 }
 
-let parsed: ServerConfig | undefined;
+let parsed: { config: ServerConfig } | { problem: ServerConfigError } | undefined;
 
-export function serverConfig(): ServerConfig {
+function parse() {
 	if (parsed) return parsed;
 	const result = required.safeParse(process.env);
-	if (!result.success)
-		throw new ServerConfigError([...new Set(result.error.issues.map((issue) => String(issue.path[0])))].sort());
-	parsed = Object.freeze(result.data);
+	parsed = result.success
+		? { config: Object.freeze(result.data) }
+		: {
+				problem: new ServerConfigError([...new Set(result.error.issues.map((issue) => String(issue.path[0])))].sort()),
+			};
 	return parsed;
+}
+
+export const serverConfigProblem = (): ServerConfigError | null => {
+	const result = parse();
+	return "problem" in result ? result.problem : null;
+};
+
+export function serverConfig(): ServerConfig {
+	const result = parse();
+	if ("problem" in result) throw result.problem;
+	return result.config;
 }
 
 export const serverEnv = (): ServerEnv => process.env;

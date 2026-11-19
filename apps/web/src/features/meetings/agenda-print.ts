@@ -19,8 +19,8 @@ export async function agendaRoute(request: Request, context: { params: Promise<{
 		return NextResponse.redirect(signin);
 	}
 	const id = meetingIdSchema.safeParse(raw);
-	const db = requestDatabase();
 	if (!id.success || viewer.status !== "active" || !viewer.authority) return missing();
+	const db = requestDatabase();
 	try {
 		const reply = await documentsReader.printAgenda(db, viewer.authority, { meetingId: id.data });
 		if (reply.status === "refused") return reply.error.code === "render_failed" ? failed() : missing();

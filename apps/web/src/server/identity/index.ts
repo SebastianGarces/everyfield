@@ -11,7 +11,7 @@ import { createIdentityService, trustedIdentityIp, type IdentityConfig } from "@
 import { invitationService } from "../invitations";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
-import { mutatingRoute } from "../platform/boundary.ts";
+import { configured, mutatingRoute } from "../platform/boundary.ts";
 
 function identityMail(v: ServerConfig, transport?: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
@@ -93,7 +93,7 @@ function identityMount() {
 	return service;
 }
 
-export const identityHandler = (request: Request): Promise<Response> => identityMount().handle(request);
+export const identityHandler = configured((request: Request): Promise<Response> => identityMount().handle(request));
 
 export function requestAuth() {
 	return identityMount().auth;

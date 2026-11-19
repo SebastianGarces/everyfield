@@ -29,10 +29,10 @@ export async function saveRegion(input: {
 	regionItemId: string | null;
 }): Promise<RegionSave> {
 	const seat = plantSeat(await getViewer());
-	const m = current();
 	const place = locality.safeParse(input.locality);
 	if (!seat) return { status: "refused", code: "unavailable" };
 	if (!place.success) return { status: "refused", code: "invalid_input" };
+	const m = current();
 	const request = correctReportingLocationRequest.safeParse({
 		requestKey: input.requestKey,
 		expectedRevision: input.expectedRevision,

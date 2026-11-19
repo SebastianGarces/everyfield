@@ -25,8 +25,8 @@ export async function GET(
 		return same ? new Response(null, { status: 304, headers }) : gone();
 	}
 	const storage = privateStorage();
-	const db = requestDatabase();
 	if (!storage) return gone();
+	const db = requestDatabase();
 	const photo = await readPersonPhoto(db, storage, peopleContext(v.people), p.data).catch(() => null);
 	if (photo?.status !== "ok") return gone();
 	return new Response(Buffer.from(photo.value.bytes), {

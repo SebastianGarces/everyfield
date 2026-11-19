@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { serverConfig } from "../config.ts";
+import { ServerConfigError, serverConfig, serverConfigProblem } from "../config.ts";
 
 export const privateHeaders = {
 	"Cache-Control": "private, no-store",
@@ -40,16 +40,28 @@ export type RouteKind = "session" | "token" | "signed";
 type Handler<A extends unknown[]> = (request: Request, ...rest: A) => Response | Promise<Response>;
 export type Route<A extends unknown[]> = Handler<A> & { readonly [ROUTE_KIND]: RouteKind };
 
-const appOrigin = () => new URL(serverConfig().IDENTITY_ORIGIN).origin;
+const appOrigin = (request: Request) =>
+	new URL(serverConfigProblem() ? request.url : serverConfig().IDENTITY_ORIGIN).origin;
 
 export function sameOriginRequest(request: Request): boolean {
 	const site = request.headers.get("sec-fetch-site");
 	if (site !== null) return site === "same-origin";
-	return request.headers.get("origin") === appOrigin();
+	return request.headers.get("origin") === appOrigin(request);
 }
 
+export const configured =
+	<A extends unknown[]>(handler: Handler<A>): Handler<A> =>
+	async (request, ...rest) => {
+		try {
+			return await handler(request, ...rest);
+		} catch (error) {
+			if (!(error instanceof ServerConfigError)) throw error;
+			return safeResponse({ code: "unavailable" satisfies Refusal["code"] }, 503);
+		}
+	};
+
 const marked = <A extends unknown[]>(kind: RouteKind, handler: Handler<A>): Route<A> =>
-	Object.defineProperty(handler, ROUTE_KIND, { value: kind }) as Route<A>;
+	Object.defineProperty(configured(handler), ROUTE_KIND, { value: kind }) as Route<A>;
 
 export const mutatingRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> =>
 	marked("session", (request: Request, ...rest: A) =>

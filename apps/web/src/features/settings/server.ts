@@ -225,8 +225,8 @@ export async function readSection(
 	raw: unknown,
 ): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
 	const viewer = signedAs(session);
-	const ops = settingsMount();
 	if (!viewer) return refusal("access_denied");
+	const ops = settingsMount();
 	try {
 		return await ops.sections.getSection(ops.db, viewer, raw);
 	} catch (error) {
@@ -242,13 +242,13 @@ export async function run<S extends z.ZodType, T>(
 	operation: (ops: Mount, tx: Transaction, context: Context, input: z.output<S>) => Promise<SettingsReply<T>>,
 ): Promise<SettingsReply<T>> {
 	const viewer = await signedIn();
-	const ops = settingsMount();
 	if (!viewer) return refusal("access_denied");
 	const input = schema.safeParse(raw);
 	if (!input.success) return refusal("invalid_input");
 	const self = ["account", "notifications"].includes(section(input.data));
 	const selected = self ? owner.parse({ kind: "account", id: viewer.accountId }) : viewer.authority.actor.context.owner;
 	const context = { session: viewer.authority.session, selected };
+	const ops = settingsMount();
 	try {
 		return await withSettingsWrite(ops.db, viewer.authority, context, (tx) => operation(ops, tx, context, input.data));
 	} catch (error) {
@@ -263,10 +263,10 @@ export async function credential<S extends z.ZodType, T>(
 	operation: (ops: Mount["credentials"], context: Context, input: z.output<S>) => Promise<T>,
 ): Promise<T | { status: "refused"; error: SettingsError }> {
 	const viewer = await signedIn();
-	const ops = settingsMount();
 	if (!viewer) return refusal("access_denied");
 	const input = schema.safeParse(raw);
 	if (!input.success) return refusal("invalid_input");
+	const ops = settingsMount();
 	const context = {
 		session: viewer.authority.session,
 		selected: owner.parse({ kind: "account", id: viewer.accountId }),
@@ -281,8 +281,9 @@ export async function credential<S extends z.ZodType, T>(
 
 export async function storeAvatarBytes(accountId: string, uploadId: string, bytes: Uint8Array) {
 	const viewer = await signedIn();
+	if (!viewer || viewer.accountId !== accountId) return "unavailable" as const;
 	const ops = settingsMount();
-	if (!viewer || !ops.storage || viewer.accountId !== accountId) return "unavailable" as const;
+	if (!ops.storage) return "unavailable" as const;
 	const context = { session: viewer.authority.session, selected: owner.parse({ kind: "account", id: accountId }) };
 	try {
 		await uploadAvatar(ops.db, ops.storage, context, { uploadId, bytes });
@@ -300,8 +301,9 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 
 export async function avatarBytes(accountId: string, versionId: string) {
 	const viewer = await signedIn();
+	if (!viewer) return null;
 	const ops = settingsMount();
-	if (!viewer || !ops.storage) return null;
+	if (!ops.storage) return null;
 	const context = {
 		session: viewer.authority.session,
 		selected: owner.parse({ kind: "account", id: viewer.accountId }),
@@ -365,9 +367,9 @@ async function restricted(kind: "account" | "plant"): Promise<Restricted | null>
 }
 
 export async function restrictedStatus(kind: "account" | "plant") {
-	const ops = settingsMount(),
-		session = await restricted(kind);
+	const session = await restricted(kind);
 	if (!session) return refusal("proof_invalid");
+	const ops = settingsMount();
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const { request } = session;
 	return logged("restricted_status_failed", () =>
@@ -380,9 +382,9 @@ export async function restrictedStatus(kind: "account" | "plant") {
 }
 
 export async function cancelRestrictedDeletion(kind: "account" | "plant", expectedRevision: string) {
-	const ops = settingsMount(),
-		session = await restricted(kind);
+	const session = await restricted(kind);
 	if (!session) return refusal("proof_invalid");
+	const ops = settingsMount();
 	const command = { requestKey: randomUUID(), expectedRevision, input: session.request };
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const reply = await logged("restricted_cancel_failed", () =>

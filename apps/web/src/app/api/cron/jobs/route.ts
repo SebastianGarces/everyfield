@@ -13,13 +13,14 @@ import { feedbackPublicationMount } from "@/features/feedback/publication";
 import { deliveryTransport, mailReady, queuedMailTransport } from "@/server/mail/transport";
 import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
 import { cronRoute } from "@/server/platform/cron";
+import { configured } from "@/server/platform/boundary";
 import { assessmentsMount } from "@/server/jobs/assessment";
 import { serverEnv } from "@/server/config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-export function GET(request: Request): Promise<Response> {
+export const GET = configured(function GET(request: Request): Promise<Response> {
 	const db = jobDatabase();
 	const ready = mailReady();
 	return cronRoute(
@@ -48,4 +49,4 @@ export function GET(request: Request): Promise<Response> {
 				: undefined,
 		}),
 	)(request);
-}
+});

@@ -38,8 +38,8 @@ export async function readPreview(
 	overrides: Record<string, string>,
 ): Promise<PreviewOutcome> {
 	const actor = await documentActor();
-	const db = requestDatabase();
 	if (!actor) return { status: "lost" };
+	const db = requestDatabase();
 	try {
 		const reply = await documentsReader.preview(db, actor, { templateId, format, overrides }, privateStorage());
 		if (reply.status === "refused") {

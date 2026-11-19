@@ -23,8 +23,8 @@ async function load<T, C extends string>(
 	) => Promise<DashboardReply<T> | LaunchReply<T> | AssessmentReply<T>>,
 ): Promise<Loaded<T>> {
 	const authority = (await getViewer()).authority;
-	const db = requestDatabase();
 	if (!authority) return { status: "lost" };
+	const db = requestDatabase();
 	try {
 		const reply = await run(db, authority);
 		return reply.status === "ok" ? { status: "ok", value: reply.value } : { status: "denied" };

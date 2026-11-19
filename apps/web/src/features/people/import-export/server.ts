@@ -78,10 +78,10 @@ async function jsonBody(request: Request): Promise<unknown> {
 
 async function importDeps() {
 	const v = await viewer();
-	const db = requestDatabase();
 	if (!v) return refused("access_denied");
 	const storage = privateStorage();
 	if (!storage) return refused("storage_unavailable");
+	const db = requestDatabase();
 	return { v, db, storage };
 }
 

@@ -26,7 +26,12 @@ const env = z.object({
 	FEEDBACK_GITHUB_API: z.url().optional(),
 });
 export function githubConfig(source: ServerEnv = serverEnv()): GitHubConfig | null {
-	const parsed = env.safeParse(source);
+	const parsed = env.safeParse({
+		FEEDBACK_GITHUB_REPOSITORY: source.FEEDBACK_GITHUB_REPOSITORY,
+		FEEDBACK_GITHUB_REPOSITORY_ID: source.FEEDBACK_GITHUB_REPOSITORY_ID,
+		FEEDBACK_GITHUB_TOKEN: source.FEEDBACK_GITHUB_TOKEN,
+		FEEDBACK_GITHUB_API: source.FEEDBACK_GITHUB_API,
+	});
 	if (!parsed.success) return null;
 	const v = parsed.data;
 	return {

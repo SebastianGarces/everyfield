@@ -17,8 +17,8 @@ export function plantSeat(v: Session) {
 
 export async function readRegion(session: Session): Promise<RegionRead> {
 	const seat = plantSeat(session);
-	const db = requestDatabase();
 	if (!seat) return { status: "denied" };
+	const db = requestDatabase();
 	try {
 		const r = await readReportingLocation(db, seat.authority);
 		return r ? { status: "ok", ...r } : { status: "denied" };
@@ -38,9 +38,9 @@ export const locality = z.strictObject({ city: text, stateProvince: text, countr
 
 export async function suggestRegion(session: Session, raw: unknown): Promise<RegionSuggestion[] | null> {
 	const seat = plantSeat(session);
-	const db = requestDatabase();
 	const place = locality.safeParse(raw);
 	if (!seat || !place.success) return null;
+	const db = requestDatabase();
 	try {
 		return await suggestRegions(db, seat.authority, place.data);
 	} catch (error) {

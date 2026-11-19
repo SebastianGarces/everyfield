@@ -94,7 +94,6 @@ export async function viewerOf(): Promise<
 	| { kind: "unavailable" }
 	| { kind: "viewer"; viewer: Viewer; mount: Mount; authority: RequestActor }
 > {
-	const m = current();
 	const s = await getViewer();
 	if (s.status === "unauthenticated") return { kind: "signed_out" };
 	if (s.status !== "active") return { kind: "unavailable" };
@@ -114,7 +113,7 @@ export async function viewerOf(): Promise<
 					: "account";
 	return {
 		kind: "viewer",
-		mount: m,
+		mount: current(),
 		authority,
 		viewer: {
 			kind,

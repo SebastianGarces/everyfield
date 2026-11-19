@@ -7,8 +7,8 @@ import { logFailure } from "@everyfield/domain/log";
 
 export async function dismissPrompt(prompt: unknown): Promise<{ status: "ok" | "failed" }> {
 	const authority = (await getViewer()).authority;
-	const db = requestDatabase();
 	if (!authority) return { status: "failed" };
+	const db = requestDatabase();
 	try {
 		const reply = await dashboardWriter.dismissPrompt(db, authority, { prompt });
 		return { status: reply.status === "ok" ? "ok" : "failed" };

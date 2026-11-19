@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { parseQuery, querySearch } from "./model.ts";
 import { NotificationsScreen } from "./NotificationsScreen.tsx";
 import { OptOutScreen, type OptOutView } from "./OptOutScreen.tsx";
-import { call, loadFeedPage, notificationActor, notificationsMount } from "./server.ts";
+import { call, loadFeedPage, notificationActor, optOutReady } from "./server.ts";
 import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -41,7 +41,7 @@ export async function OptOutPage({ params: route }: { params: Promise<{ token: s
 }
 
 async function describe(token: string): Promise<OptOutView> {
-	if (!notificationsMount().optOut) return { state: "unavailable" };
+	if (!optOutReady()) return { state: "unavailable" };
 	const r = await call(({ db, producer }) => producer.describeEmailOptOut(db, { token }));
 	if (r.status === "lost") return { state: "unavailable" };
 	if (r.status === "refused") return { state: "invalid" };

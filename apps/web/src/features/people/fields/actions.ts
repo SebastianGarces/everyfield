@@ -238,8 +238,8 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 	if (!mime.success || file.size < 1 || file.size > c.PHOTO_MAX_BYTES) return invalid;
 	return boundary(c.personFieldsRequest, { personId }, async (v) => {
 		const storage = privateStorage();
-		const db = requestDatabase();
 		if (!storage) return { status: "refused", code: "storage_unavailable" };
+		const db = requestDatabase();
 		const staged = outcome(
 			await write(v, (tx, ctx) =>
 				f.requestPersonPhotoUpload(tx, ctx, { requestKey, personId, mime: mime.data, byteLength: file.size }),

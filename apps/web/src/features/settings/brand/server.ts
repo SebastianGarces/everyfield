@@ -24,8 +24,8 @@ type Call<T> = (db: Db, actor: NonNullable<Actor>) => Promise<BrandReply<T>>;
 const run = async <T, O extends string>(outcome: LogWord<O>, call: Call<T>) => runAs(await getViewer(), outcome, call);
 
 async function runAs<T, O extends string>(viewer: Session, outcome: LogWord<O>, call: Call<T>) {
-	const db = requestDatabase();
 	if (viewer.status !== "active" || !viewer.authority) return unavailable();
+	const db = requestDatabase();
 	try {
 		return await call(db, viewer.authority);
 	} catch (error) {

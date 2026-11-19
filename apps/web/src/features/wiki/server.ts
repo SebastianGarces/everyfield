@@ -23,6 +23,7 @@ import {
 } from "./model.ts";
 import { logFailure, logLine, type LogWord } from "@everyfield/domain/log";
 import { mutatingRoute } from "../../server/platform/boundary.ts";
+import { ServerConfigError } from "../../server/config.ts";
 
 type Producer = ReturnType<typeof createWikiProducer>;
 type Mount = { db: Database; producer: Producer };
@@ -142,8 +143,8 @@ export async function organizationNames(mount: Mount, ids: string[]): Promise<Ma
 export type Preview = { crawler: boolean; allowed: boolean; title: string | null; excerpt: string | null };
 
 export const loadPreview = cache(async (path: string, userAgent: string): Promise<Preview | null> => {
-	const mount = wikiMount();
 	try {
+		const mount = wikiMount();
 		const reply = await mount.producer.renderGlobalPreview(mount.db, { path, userAgent });
 		if (reply.status !== "ok") return null;
 		return {
@@ -153,6 +154,7 @@ export const loadPreview = cache(async (path: string, userAgent: string): Promis
 			excerpt: reply.value.excerpt,
 		};
 	} catch (error) {
+		if (error instanceof ServerConfigError) return null;
 		logFailure({ component: "wiki", outcome: "preview-failed" }, error);
 		return null;
 	}
@@ -254,9 +256,9 @@ export async function loadWiki(
 	source: SourceChoice,
 	editing = false,
 ): Promise<WikiPageData | "lost" | "signed-out"> {
-	const mount = wikiMount();
 	const actor = await wikiActor();
 	if (!actor) return "signed-out";
+	const mount = wikiMount();
 	const seat = plantContext(actor);
 	const editor = editorContext(actor);
 	try {
@@ -510,8 +512,8 @@ export const progressRoute = mutatingRoute(async function progressRoute(request:
 		return new Response(null, { status: 400 });
 	}
 	const actor = await wikiActor();
-	const mount = wikiMount();
 	if (!actor) return new Response(null, { status: 401 });
+	const mount = wikiMount();
 	try {
 		const reply = await mount.producer.updateProgress(mount.db, actor, {
 			requestKey: body.requestKey,

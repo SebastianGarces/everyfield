@@ -14,6 +14,8 @@ export type Mount = { db: Database; producer: Producer; optOut: boolean };
 
 let mount: Mount | undefined;
 
+export const optOutReady = (): boolean => parseKeyRing(serverEnv().NOTIFICATION_OPT_OUT_KEYS) !== null;
+
 export function notificationsMount(): Mount {
 	if (!mount) {
 		const ring = parseKeyRing(serverEnv().NOTIFICATION_OPT_OUT_KEYS);
