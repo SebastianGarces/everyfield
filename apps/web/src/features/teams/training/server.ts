@@ -5,6 +5,7 @@ import { trainingReader } from "@everyfield/domain/teams";
 import "server-only";
 import { outcome, type Viewer as Seat } from "../server.ts";
 import type { Outcome, PersonLoad, TrainingLoad } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type Authority = Seat["authority"];
 
@@ -14,7 +15,7 @@ async function read<T>(viewer: Seat, run: (db: Database, authority: Authority) =
 	try {
 		return await run(db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "training", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "training", outcome: "read_failed" }, error);
 		return { status: "failed" } as const;
 	}
 }

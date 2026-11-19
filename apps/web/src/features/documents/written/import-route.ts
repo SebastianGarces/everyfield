@@ -7,6 +7,7 @@ import "server-only";
 import type { DocumentOutcome } from "../outcome.ts";
 import { writtenView, type WrittenView } from "../model.ts";
 import { documentActor } from "../server.ts";
+import { logFailure } from "@everyfield/domain/log";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
@@ -48,7 +49,7 @@ export const importRoute = mutatingRoute(async function importRoute(request: Req
 		}
 		return answer({ status: "ok", value: writtenView(reply.value) });
 	} catch (error) {
-		console.error(JSON.stringify({ component: "documents", outcome: "import_failed", error: String(error) }));
+		logFailure({ component: "documents", outcome: "import_failed" }, error);
 		return answer({ status: "lost" });
 	}
 });

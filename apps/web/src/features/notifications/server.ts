@@ -6,6 +6,7 @@ import { createNotificationProducer, parseKeyRing } from "@everyfield/domain/not
 import { randomBytes } from "node:crypto";
 import "server-only";
 import { stamped, type FeedPage, type FeedQuery, type Outcome, type Reply } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type Producer = ReturnType<typeof createNotificationProducer>;
 export type Mount = { db: Database; producer: Producer; optOut: boolean };
@@ -37,7 +38,7 @@ export async function call<T>(run: (m: Mount) => Promise<Reply<T>>): Promise<Out
 	try {
 		return outcome(await run(mount));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "notifications", outcome: "failed", error: String(error) }));
+		logFailure({ component: "notifications", outcome: "failed" }, error);
 		return { status: "lost" };
 	}
 }

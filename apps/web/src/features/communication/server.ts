@@ -11,6 +11,7 @@ import "server-only";
 import type { Outcome, PageData } from "./model.ts";
 import { appOrigin, mailReady, type MailReady } from "../../server/mail/transport.ts";
 import { canWrite } from "../../components/seat-role.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
 export type Viewer = Peopled;
@@ -25,7 +26,7 @@ export async function communicationViewer() {
 			ok: viewer !== null,
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "communication", outcome: "viewer_failed", error: String(error) }));
+		logFailure({ component: "communication", outcome: "viewer_failed" }, error);
 		return { viewer: null, email: null, signedOut: false, ok: false };
 	}
 }
@@ -42,7 +43,7 @@ export async function read<T>(
 	try {
 		return outcome(await db.transaction((tx) => run(tx)));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "communication", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "communication", outcome: "read_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -56,7 +57,7 @@ export async function write<T>(
 	try {
 		return outcome(await withCommunicationWrite(db, viewer.authority, run));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "communication", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "communication", outcome: "write_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -83,13 +84,7 @@ export async function deliverAs<T>(
 	try {
 		return outcome(await run(db, seat.viewer, mail));
 	} catch (error) {
-		console.error(
-			JSON.stringify({
-				component: "communication",
-				outcome: "delivery_failed",
-				error: error instanceof Error ? error.name : "error",
-			}),
-		);
+		logFailure({ component: "communication", outcome: "delivery_failed" }, error);
 		return { status: "lost" };
 	}
 }

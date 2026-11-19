@@ -5,6 +5,7 @@ import type { Database } from "@everyfield/db/client";
 import type { CommunicationReply } from "@everyfield/domain/communication";
 import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import type { Outcome } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type UnsubscribeMount = { db: Database; ring: OptOutKeyRing };
 
@@ -23,13 +24,7 @@ export async function unsubscribeCall<T>(
 		const reply = await run(mount);
 		return reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
 	} catch (error) {
-		console.error(
-			JSON.stringify({
-				component: "communication",
-				outcome: "unsubscribe_failed",
-				error: error instanceof Error ? error.name : "error",
-			}),
-		);
+		logFailure({ component: "communication", outcome: "unsubscribe_failed" }, error);
 		return { status: "lost" };
 	}
 }

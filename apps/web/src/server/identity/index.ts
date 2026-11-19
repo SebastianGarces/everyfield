@@ -1,5 +1,6 @@
 import { sql } from "@everyfield/db/query";
 import "server-only";
+import { asLogId, logLine } from "@everyfield/domain/log";
 import { nextCookies } from "better-auth/next-js";
 import { after } from "next/server";
 import { createHmac } from "node:crypto";
@@ -99,7 +100,7 @@ function identityMount() {
 			secret: v.IDENTITY_SECRET,
 			trustedIp: (request) => trustedIdentityIp(request, trustsVercelForwardedFor(process.env)),
 			enqueueMail: identityMailQueue(v),
-			diagnostic: (value) => console.error(JSON.stringify({ component: "identity", ...value })),
+			diagnostic: (value) => logLine({ component: "identity", ...value, correlationId: asLogId(value.correlationId) }),
 			invitations: invitationService() ?? undefined,
 		});
 	}

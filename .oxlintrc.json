@@ -45,6 +45,7 @@
 		"everyfield/request-actor": "error",
 		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
+		"everyfield/server-log": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",

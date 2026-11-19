@@ -201,7 +201,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 	const setReport = (report: Report | null) => changePage(() => ({ report }));
 	const listed = () => pageStore.getState().items;
 
-	const store = useLocalStore(() => createTasksStore({ opened: loaded.opened }));
+	const store = useLocalStore(() => createTasksStore({ opened: loaded.opened, report: (line) => console.error(line) }));
 	const details = useStore(store, (s) => s.details);
 	const openId = useStore(store, (s) => s.openId);
 	const dialogFor = useStore(store, (s) => s.dialogFor);

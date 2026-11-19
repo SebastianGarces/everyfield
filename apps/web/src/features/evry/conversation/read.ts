@@ -4,6 +4,7 @@ import { listPhotoRoute, personPhotosRequest } from "@everyfield/contracts/peopl
 import { PeopleReadContext, readPersonPhotos } from "@everyfield/domain/people";
 import "server-only";
 import { defineReads } from "../../../server/platform/reads.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export const GET = defineReads(
 	async () => ({ viewer: await getViewer() }),
@@ -21,7 +22,7 @@ export const GET = defineReads(
 				);
 				return { status: "ok", value: photos } as const;
 			} catch (error) {
-				console.error(JSON.stringify({ component: "evry", outcome: "row_photos_failed", error: String(error) }));
+				logFailure({ component: "evry", outcome: "row_photos_failed" }, error);
 				return { status: "lost" } as const;
 			}
 		}),
