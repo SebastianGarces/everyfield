@@ -3,7 +3,6 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { area, commentsExempt, ratchet, repoPath, root, sqlMarkers } from "./ratchet.mjs";
 import {
-	COUNTER_NAME,
 	COUNTER_TEXT,
 	SCOPE,
 	TIME_NAME,
@@ -2216,10 +2215,8 @@ const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
 			if (memberName(node.callee) !== "padStart") return;
 			const [width, fill] = node.arguments;
 			if (staticValue(width) !== 2 || staticValue(fill) !== "0") return;
-			const inJsx = node.parent?.type === "JSXExpressionContainer";
-			const names = identifiersIn(node.callee.object);
-			const counting = names.some((n) => COUNTER_NAME.test(n) || n === ".length");
-			if (inJsx || (counting && !timeContext(node))) report(node, "counter", 'padStart(2, "0")');
+			const timeValue = identifiersIn(node.callee.object).some((n) => TIME_NAME.test(n.replace(/^\./, "")));
+			if (!timeValue && !timeContext(node)) report(node, "counter", 'padStart(2, "0")');
 		},
 		JSXElement(node) {
 			const kids = node.children.filter((c) => !(c.type === "JSXText" && !c.value.trim()));

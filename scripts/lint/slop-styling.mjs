@@ -267,5 +267,4 @@ export function headingLike(name, classes) {
 }
 
 export const COUNTER_TEXT = /^\s*0\d\.?\s*$/;
-export const COUNTER_NAME = /^(?:i|j|idx|index|step|steps|position|rank|order|ordinal|number|num|count)$/i;
-export const TIME_NAME = /(?:day|month|year|hour|minute|second|min|sec|time|date|^hh$|^mm$|^ss$)/i;
+export const TIME_NAME = /(?:day|month|year|hour|minute|second|min|sec|time|date|^hh$|^mm$|^ss$|^[hms]$)/i;

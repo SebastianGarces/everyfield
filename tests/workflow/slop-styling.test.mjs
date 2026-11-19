@@ -219,8 +219,15 @@ export function today(now, i) {
 	const day = String(now.getDate() + i).padStart(2, "0");
 	return \`2026-11-\${day}\`;
 }
+export const Time = ({ m }) => <span>{String(m).padStart(2, "0")}</span>;
+export function headingNumbers(headings) {
+	const numbers = new Map();
+	let h2 = 0;
+	for (const pos of headings) numbers.set(pos, String((h2 += 1)).padStart(2, "0"));
+	return numbers;
+}
 `;
-	assert.deepEqual(at(path, lint({ [path]: source })), ["1 counter", "6 counter", "10 counter", "14 counter"]);
+	assert.deepEqual(at(path, lint({ [path]: source })), ["1 counter", "6 counter", "10 counter", "14 counter", "26 counter"]);
 });
 
 test("INV-lint: glowing orbs and decorative gradients are reported; the named surfaces and rings pass", () => {

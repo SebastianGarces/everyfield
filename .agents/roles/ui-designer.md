@@ -44,9 +44,11 @@ and `packages/ui/src/**`:
 - Serif type outside `--ef-font-display` and `--ef-font-title` (`font-display`, `font-title`, heading defaults).
 - Beige palettes: `stone-*` and beige literals such as `#F5F5DC` or `#F6F0E9`. Cream is the brand color only
   through its `cream` token.
-- Zero-padded step counters (`01`, `02`, `padStart(2, "0")` on a step number). Use a list or a plain number.
+- Zero-padded step counters (`01`, `02`, or `padStart(2, "0")` whose result is not a time or date). Use a list or a
+  plain number.
 - Glowing orbs (large blurs, colored glow shadows) and gradients outside a named surface: `ef-insight` (the
-  gradient card), `ef-scroll-fade`, `ef-top-fade`, `ef-skel`, `ef-ring`, `ef-none-swatch`, `hatch`.
+  gradient card), `ef-scroll-fade`, `ef-top-fade`, `ef-skel`, `ef-ring`, `ef-none-swatch`, `hatch` and the
+  document spacer (`[data-ef-node="spacer"]`).
 
 Where better-typography differs, this file wins. Use no em dashes in UI copy: use a period, comma or colon.
 Uppercase comes only through `section-label`, and a section label never sits above a heading as an eyebrow.
