@@ -62,7 +62,7 @@ export async function readAdministrator(tx: Transaction, session: string, select
 	return actor;
 }
 export async function writeAsAdministrator<T>(
-	db: Database,
+	db: Database | Transaction,
 	authority: RequestActor,
 	selected: Owner,
 	body: (tx: Transaction, bound: NonNullable<Awaited<ReturnType<RequestActor["bind"]>>>) => Promise<T>,
