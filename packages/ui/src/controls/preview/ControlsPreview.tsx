@@ -108,7 +108,7 @@ import {
 	TooltipSep,
 	type DateRange,
 } from "..";
-import { ACTIVITY, COMMANDS, PRESETS, STAGES, TAGS, TONES_PREVIEW } from "./fixtures";
+import { ACTIVITY, COMMANDS, DEFAULT_RANGE, PRESETS, STAGES, TAGS, TONES_PREVIEW } from "./fixtures";
 
 type Group = "all" | "surfaces" | "actions" | "inputs" | "overlays" | "feedback";
 
@@ -387,7 +387,7 @@ function InsightSection() {
 }
 
 function ButtonsSection() {
-	const [range, setRange] = useState<DateRange>(PRESETS[1]!.range);
+	const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
 	const [saving, setSaving] = useState(false);
 	return (
 		<Section index={3} title="Buttons" code="<Button variant size icon loading> · <IconButton variant size label>">
