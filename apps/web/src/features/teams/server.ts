@@ -8,7 +8,7 @@ import type { Database } from "@everyfield/db/client";
 import { teamsReader, withParents, withTeamsWrite } from "@everyfield/domain/teams";
 import "server-only";
 import type { ChartNode, ListedTeam, Member, Role, Team } from "./model.ts";
-import { readDb, writeTx } from "../../server/platform/tx.ts";
+import { readDb, guardedWrite } from "../../server/platform/tx.ts";
 import type { WriteTx } from "@everyfield/domain/access";
 
 export type { Viewer };
@@ -25,7 +25,7 @@ export async function write<T>(
 	viewer: Viewer,
 	run: (tx: WriteTx, context: Parameters<Parameters<typeof withTeamsWrite>[2]>[1]) => Promise<TeamsReply<T>>,
 ): Promise<Outcome<T>> {
-	return writeTx("teams", async () => outcomeOf(await withTeamsWrite(requestDatabase(), viewer.authority, run)));
+	return guardedWrite("teams", async () => outcomeOf(await withTeamsWrite(requestDatabase(), viewer.authority, run)));
 }
 
 const value = <T>(r: Reply<T>): T | null => (r.status === "ok" ? r.value : null);

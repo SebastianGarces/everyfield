@@ -10,7 +10,7 @@ import "server-only";
 import { isFiltered, listRequest, NEXT_REQUEST, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
 import { canWrite } from "../../components/seat-role.ts";
 import { transient } from "../../server/platform/transient.ts";
-import { readDb, writeTx } from "../../server/platform/tx.ts";
+import { readDb, guardedWrite } from "../../server/platform/tx.ts";
 import type { WriteTx } from "@everyfield/domain/access";
 
 export type Viewer = PlantSeat;
@@ -28,7 +28,9 @@ export async function write<T>(
 	viewer: Viewer,
 	run: (tx: WriteTx, context: MeetingsContext) => Promise<MeetingsReply<T>>,
 ): Promise<Outcome<T>> {
-	return writeTx("meetings", async () => outcome(await withMeetingsWrite(requestDatabase(), viewer.authority, run)));
+	return guardedWrite("meetings", async () =>
+		outcome(await withMeetingsWrite(requestDatabase(), viewer.authority, run)),
+	);
 }
 
 export function outcome<T>(reply: Reply<T>): Outcome<T> {

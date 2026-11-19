@@ -1,4 +1,5 @@
-import { getViewer, signIn } from "@/server/request-context";
+import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { TEXT_TEMPLATE_IDS } from "@everyfield/domain/documents";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";

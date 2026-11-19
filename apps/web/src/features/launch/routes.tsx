@@ -1,4 +1,5 @@
-import { getViewer, signIn } from "@/server/request-context";
+import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { LaunchScreen } from "./LaunchScreen.tsx";
