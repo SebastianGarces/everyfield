@@ -1335,13 +1335,47 @@ function walkOwn(node, visit) {
 	return false;
 }
 
-const handles = (body, param) =>
+const TERMINAL = new Set(["ReturnStatement", "ThrowStatement"]);
+const reachable = (node) => {
+	const block = node.parent;
+	if (block?.type !== "BlockStatement") return true;
+	const at = block.body.indexOf(node);
+	return !block.body.slice(0, at).some((s) => TERMINAL.has(s.type));
+};
+const isLostValue = (node) =>
+	(node?.type === "Identifier" && node.name === "LOST") ||
+	(node?.type === "ObjectExpression" &&
+		node.properties.some(
+			(p) =>
+				p.type === "Property" &&
+				keyName(p.key, p.computed) === "status" &&
+				p.value.type === "Literal" &&
+				p.value.value === "lost",
+		));
+const returned = (node) => {
+	const parent = node.parent?.type === "AwaitExpression" ? node.parent.parent : node.parent;
+	return (
+		parent?.type === "ReturnStatement" ||
+		(FUNCTIONS.has(parent?.type) && parent.body === (node.parent?.type === "AwaitExpression" ? node.parent : node))
+	);
+};
+
+function handles(handler, body, param) {
+	let thrown = false;
+	let handed = false;
+	let logged = false;
+	let lost = handler && handler.body.type !== "BlockStatement" && isLostValue(handler.body);
 	walkOwn(body, (node) => {
-		if (node.type === "ThrowStatement") return true;
+		if (node.type === "ThrowStatement" && reachable(node)) thrown = true;
+		if (node.type === "ReturnStatement" && isLostValue(node.argument)) lost = true;
 		if (node.type !== "CallExpression") return false;
-		if (node.callee.type === "Identifier" && LOG_CALLS.has(node.callee.name)) return true;
-		return !!param && node.arguments.some((a) => a.type === "Identifier" && a.name === param);
+		if (node.callee.type === "Identifier" && LOG_CALLS.has(node.callee.name)) logged = true;
+		else if (param && node.arguments.some((a) => a.type === "Identifier" && a.name === param) && returned(node))
+			handed = true;
+		return false;
 	});
+	return thrown || handed || (logged && !lost);
+}
 
 const noSilentCatch = {
 	meta: { type: "problem" },
@@ -1350,7 +1384,7 @@ const noSilentCatch = {
 		if (!WEB_CODE.test(path) || path === "apps/web/src/server/platform/transient.ts") return {};
 		let server = SERVER_CODE.test(path);
 		const message =
-			"A server catch must rethrow, log through @everyfield/domain/log, or hand the error on: use transient() for a failure that may be retried, and catch only the error class you answer.";
+			"A server catch must rethrow, return the error handed to a handler, or log it through @everyfield/domain/log without answering lost: use transient() for a failure that may be retried, and catch only the error class you answer.";
 		const pending = [];
 		return {
 			Program(node) {
@@ -1362,14 +1396,18 @@ const noSilentCatch = {
 			},
 			CatchClause(node) {
 				const param = node.param?.type === "Identifier" ? node.param.name : null;
-				if (!handles(node.body, param)) pending.push(node);
+				if (!handles(null, node.body, param)) pending.push(node);
 			},
 			CallExpression(node) {
-				if (memberName(node.callee) !== "catch") return;
-				const handler = node.arguments[0];
-				if (!handler || !FUNCTIONS.has(handler.type)) return;
+				const name = memberName(node.callee);
+				const handler = name === "catch" ? node.arguments[0] : name === "then" ? node.arguments[1] : undefined;
+				if (!handler) return;
+				if (!FUNCTIONS.has(handler.type)) {
+					if (handler.type === "Identifier" || handler.type === "MemberExpression") pending.push(node);
+					return;
+				}
 				const param = handler.params[0]?.type === "Identifier" ? handler.params[0].name : null;
-				if (!handles(handler.body, param)) pending.push(node);
+				if (!handles(handler, handler.body, param)) pending.push(node);
 			},
 			"Program:exit"() {
 				if (server) for (const node of pending) context.report({ node, message });

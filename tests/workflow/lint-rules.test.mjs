@@ -1062,25 +1062,44 @@ export const p = require("node:process").env;
 	);
 });
 
-test("INV-failures: a server catch rethrows, logs or hands the error on; a client file is not checked", () => {
+test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
 	const code = `import "server-only";
 import { logFailure, logLine } from "@everyfield/domain/log";
 export async function a(run) {
 	try {
 		return await run();
 	} catch {
-		return { status: "lost" };
+		return null;
 	}
 }
 export const b = (run) => run().catch(() => null);
-export async function c(run) {
+export const c = (run, handler) => run().catch(handler);
+export const d = (run) => run().then((v) => v, () => null);
+export async function e(run) {
 	try {
 		return await run();
 	} catch (error) {
-		return { status: "lost", seen: error instanceof Error };
+		void String(error);
+		return null;
 	}
 }
-export async function d(run) {
+export async function f(run) {
+	try {
+		return await run();
+	} catch (error) {
+		return null;
+		throw error;
+	}
+}
+export async function g(run) {
+	try {
+		return await run();
+	} catch (error) {
+		logFailure({ component: "x", outcome: "failed" }, error);
+		return { status: "lost" };
+	}
+}
+export async function h(run) {
 	try {
 		return await run();
 	} catch (error) {
@@ -1088,23 +1107,26 @@ export async function d(run) {
 		return null;
 	}
 }
-export async function e(run) {
+export async function i(run) {
 	try {
 		return await run();
 	} catch (error) {
 		logFailure({ component: "x", outcome: "failed" }, error);
-		return null;
+		return { status: "unknown" };
 	}
 }
-export const f = (run, answer) => run().catch((error) => answer(error));
-export const g = (run) => run().catch(() => logLine({ component: "x", outcome: "error" }));
-export const h = (run) => run().catch(() => {
-	const later = () => {
-		throw new Error("not here");
-	};
-	return later;
-});
+export const j = (run, answer) => run().catch((error) => answer(error));
+export const k = (run) => run().catch(() => logLine({ component: "x", outcome: "error" }));
+export const l = (schema) => schema.catch("fallback");
+export async function m(run, refusalOf) {
+	try {
+		return await run();
+	} catch (error) {
+		return refusalOf(error);
+	}
+}
 `;
+	const hits = [6, 10, 11, 12, 16, 24, 32];
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/server.ts": code,
@@ -1113,8 +1135,8 @@ export const h = (run) => run().catch(() => {
 			"apps/web/src/server/platform/transient.ts": code,
 		}),
 		[
-			...[6, 10, 14, 36].map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
-			...[5, 9, 13, 35].map((line) => `apps/web/src/server/jobs/x.ts:${line} no-silent-catch`),
+			...hits.map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
+			...hits.map((line) => `apps/web/src/server/jobs/x.ts:${line - 1} no-silent-catch`),
 		].sort(),
 	);
 });
