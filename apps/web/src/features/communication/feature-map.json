@@ -251,7 +251,7 @@
 			"id": "communication.compose",
 			"says": "New message: Who, Write, then Review and send, each step in the address, ending in Send now or a schedule.",
 			"routes": [],
-			"endpoints": ["/api/dev/outbox"],
+			"endpoints": ["/api/dev/outbox", "/communication/read"],
 			"catalog": ["COM-003", "COM-004", "COM-012", "NTF-016"],
 			"reach": [
 				{

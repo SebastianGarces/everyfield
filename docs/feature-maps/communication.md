@@ -158,7 +158,7 @@ agent-browser find text "Map restore check" text --exact
 New message: Who, Write, then Review and send, each step in the address, ending in Send now or a schedule.
 
 - Routes: none
-- Endpoints: `/api/dev/outbox`
+- Endpoints: `/api/dev/outbox`, `/communication/read`
 - Personas: `owner` write, `admin` write, `member` none
 - Catalog: COM-003, COM-004, COM-012, NTF-016
 

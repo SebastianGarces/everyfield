@@ -20,11 +20,9 @@ import {
 	rosterWriter,
 } from "@everyfield/domain/meetings";
 import { tasksMount } from "../tasks/mount.ts";
-import { searchPeople as findPeople } from "@everyfield/domain/people";
 import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meetings";
 import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
-import { read as readPeople } from "../people/server.ts";
 import { readMinistries } from "../teams/server.ts";
 import type { Finalization, Outcome } from "./model.ts";
 import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
@@ -191,17 +189,6 @@ export async function clearCard(
 	return act((tx, ctx) =>
 		guestsWriter.clearCard(tx, ctx, command(requestKey, expectedRevision, { meetingId, personId, reason })),
 	);
-}
-
-export async function searchPeople(search: unknown): Promise<Outcome<{ id: string; name: string; detail: string }[]>> {
-	const v = await getViewer();
-	if (!v?.people) return noSeat;
-	const query = z.string().trim().max(255).safeParse(search);
-	if (!query.success) return { status: "refused", code: "invalid_input" };
-	const r = await readPeople(v.people, (tx, ctx) => findPeople(tx, ctx, query.data, 8));
-	if (r.status === "failed") return { status: "lost" };
-	if (r.status === "refused") return { status: "refused", code: r.error.code };
-	return { status: "ok", value: r.value };
 }
 
 let attendanceWriter: AttendanceWriter | undefined;
