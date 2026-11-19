@@ -103,7 +103,13 @@ async function list(deps: FlagDeps, declared: Registry) {
 		]),
 	];
 	const widths = rows[0]!.map((_, i) => Math.max(...rows.map((row) => row[i]!.length)));
-	for (const row of rows) deps.out(row.map((cell, i) => cell.padEnd(widths[i]!)).join("  ").trimEnd());
+	for (const row of rows)
+		deps.out(
+			row
+				.map((cell, i) => cell.padEnd(widths[i]!))
+				.join("  ")
+				.trimEnd(),
+		);
 }
 
 async function show(deps: FlagDeps, declared: Registry, name: string | undefined) {
@@ -179,7 +185,8 @@ async function set(deps: FlagDeps, declared: Registry, args: string[]) {
 	}
 	if (account !== undefined) {
 		const id = EMAIL.test(account) ? await readAccountIdByEmail(deps.db, account) : account;
-		if (id === null) throw new FlagError(`No single account signs in as ${account} in ${deps.target}. Nothing changed.`);
+		if (id === null)
+			throw new FlagError(`No single account signs in as ${account} in ${deps.target}. Nothing changed.`);
 		if (!UUID.test(id)) throw new FlagError(`--account ${account} is not an account id (a uuid) or a sign-in email.`);
 		scope = { kind: "account", id };
 	}

@@ -92,7 +92,10 @@ test("the Flags Explorer discovery route lists every registry flag for a valid a
 	configure({ FLAGS_SECRET: secret, VERCEL_ENV: "preview" });
 	assert.equal((await discover()).status, 401);
 	assert.equal((await discover("Bearer not-a-proof")).status, 401);
-	assert.equal((await discover(`Bearer ${await createAccessProof(randomBytes(32).toString("base64url"))}`)).status, 401);
+	assert.equal(
+		(await discover(`Bearer ${await createAccessProof(randomBytes(32).toString("base64url"))}`)).status,
+		401,
+	);
 	const ok = await discover(`Bearer ${await createAccessProof(secret)}`);
 	assert.equal(ok.status, 200);
 	const body = (await ok.json()) as { definitions: Record<string, { defaultValue: boolean; options: unknown[] }> };

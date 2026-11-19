@@ -27,7 +27,11 @@ const refusal = (fn: () => unknown) => {
 test("bin/flag targets the shared development database by default and never reads the production setting", () => {
 	Reflect.deleteProperty(process.env, "NODE_ENV");
 	Reflect.deleteProperty(process.env, "CI");
-	const { args, target } = resolveTarget(["list"], { DATABASE_URL: DEV, FLAG_PRODUCTION_DATABASE_URL: PROD }, neverNeon);
+	const { args, target } = resolveTarget(
+		["list"],
+		{ DATABASE_URL: DEV, FLAG_PRODUCTION_DATABASE_URL: PROD },
+		neverNeon,
+	);
 	assert.deepEqual(args, ["list"]);
 	assert.equal(target.label, "the shared development database (ep-autumn-dew-b8ltidky)");
 	assert.ok("url" in target && new URL(target.url).hostname.startsWith("ep-autumn-dew"));
@@ -50,7 +54,9 @@ test("bin/flag refuses a production DATABASE_URL without --production, and --pro
 		"FLAG_PRODUCTION_DATABASE_URL does not name the production endpoint. Nothing changed.",
 	);
 	assert.equal(
-		refusal(() => resolveTarget(["list", "--production"], { CI: "true", FLAG_PRODUCTION_DATABASE_URL: PROD }, neverNeon)),
+		refusal(() =>
+			resolveTarget(["list", "--production"], { CI: "true", FLAG_PRODUCTION_DATABASE_URL: PROD }, neverNeon),
+		),
 		"bin/flag --production never runs under CI.",
 	);
 	const { args, target } = resolveTarget(["list", "--production"], { FLAG_PRODUCTION_DATABASE_URL: PROD }, neverNeon);
@@ -66,9 +72,18 @@ test("--qa <id> targets that QA preview's Neon branch and refuses one that serve
 	const { target } = resolveTarget(["show", "x", "--qa", "qa-nora-1a2b"], {}, neon(QA));
 	assert.equal(target.label, "the QA branch qa-nora-1a2b (ep-qa-branch-a1)");
 	assert.deepEqual(asked[0]!.slice(0, 2), ["connection-string", "qa-nora-1a2b"]);
-	assert.equal(refusal(() => resolveTarget(["list", "--qa", "qa-x"], {}, neon(PROD))), "The Neon branch qa-x is not a QA branch. Nothing changed.");
-	assert.equal(refusal(() => resolveTarget(["list", "--qa", "qa-x"], {}, neon(DEV))), "The Neon branch qa-x is not a QA branch. Nothing changed.");
-	assert.equal(refusal(() => resolveTarget(["list", "--qa", "prod"], {}, neverNeon)), "prod is not a QA preview id (bin/qa list).");
+	assert.equal(
+		refusal(() => resolveTarget(["list", "--qa", "qa-x"], {}, neon(PROD))),
+		"The Neon branch qa-x is not a QA branch. Nothing changed.",
+	);
+	assert.equal(
+		refusal(() => resolveTarget(["list", "--qa", "qa-x"], {}, neon(DEV))),
+		"The Neon branch qa-x is not a QA branch. Nothing changed.",
+	);
+	assert.equal(
+		refusal(() => resolveTarget(["list", "--qa", "prod"], {}, neverNeon)),
+		"prod is not a QA preview id (bin/qa list).",
+	);
 });
 
 test("under CI with no flag database the nightly lister skips with one line, and --file is never attempted", async () => {

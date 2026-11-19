@@ -84,7 +84,11 @@ const audits = async (name) =>
 
 test("list prints every registry flag with its kind, default, owner, task, expiry and stored global value", async () => {
 	await setFlag(f.admin, { flag: "cli-list", scope: { kind: "global" }, value: true, operator: operator.id }, declared);
-	await setFlag(f.admin, { flag: "cli-kill", scope: { kind: "global" }, value: false, operator: operator.id }, declared);
+	await setFlag(
+		f.admin,
+		{ flag: "cli-kill", scope: { kind: "global" }, value: false, operator: operator.id },
+		declared,
+	);
 	const r = await cli(["list"]);
 	assert.equal(r.code, 0);
 	assert.deepEqual(r.err, ["bin/flag: target a throwaway test database"]);
@@ -104,7 +108,11 @@ test("list prints every registry flag with its kind, default, owner, task, expir
 });
 
 test("show prints one flag's declaration, global value and every workspace and account override; an unknown name is refused", async () => {
-	await setFlag(f.admin, { flag: "cli-show", scope: { kind: "global" }, value: false, operator: operator.id }, declared);
+	await setFlag(
+		f.admin,
+		{ flag: "cli-show", scope: { kind: "global" }, value: false, operator: operator.id },
+		declared,
+	);
 	await setFlag(
 		f.admin,
 		{ flag: "cli-show", scope: { kind: "workspace", id: plant.id }, value: true, operator: operator.id },
@@ -146,8 +154,22 @@ test("set --workspace and --account (by id or sign-in email) store the override 
 		].sort((a, b) => a.tenant.localeCompare(b.tenant)),
 	);
 	assert.deepEqual(await audits("cli-target"), [
-		{ tenant: plant.id, actor: null, cause: "bin/flag", before: null, after: true, metadata: { flag: "cli-target", scope: "workspace" } },
-		{ tenant: account.id, actor: null, cause: "bin/flag", before: null, after: false, metadata: { flag: "cli-target", scope: "account" } },
+		{
+			tenant: plant.id,
+			actor: null,
+			cause: "bin/flag",
+			before: null,
+			after: true,
+			metadata: { flag: "cli-target", scope: "workspace" },
+		},
+		{
+			tenant: account.id,
+			actor: null,
+			cause: "bin/flag",
+			before: null,
+			after: false,
+			metadata: { flag: "cli-target", scope: "account" },
+		},
 	]);
 	const shown = await cli(["show", "cli-target"]);
 	assert.ok(shown.out.includes(`    workspace (plant) ${plant.id}: on`), shown.out.join("\n"));
@@ -164,17 +186,45 @@ test("set --workspace and --account (by id or sign-in email) store the override 
 test("set refuses a wrong-kind, unknown or missing id and a missing scope, and writes nothing", async () => {
 	const before = [await stored("cli-target"), await audits("cli-target")];
 	const refusals = [
-		[["set", "cli-target", "on", "--workspace", account.id], 1, `No plant or organization ${account.id} in a throwaway test database. Nothing changed.`],
-		[["set", "cli-target", "on", "--account", plant.id], 1, `No account ${plant.id} in a throwaway test database. Nothing changed.`],
-		[["set", "cli-target", "on", "--account", "00000000-0000-4000-8000-000000000001"], 1, "No account 00000000-0000-4000-8000-000000000001 in a throwaway test database. Nothing changed."],
-		[["set", "cli-target", "on", "--account", "nora"], 1, "--account nora is not an account id (a uuid) or a sign-in email."],
-		[["set", "cli-target", "on", "--account", "nobody@example.test"], 1, "No single account signs in as nobody@example.test in a throwaway test database. Nothing changed."],
+		[
+			["set", "cli-target", "on", "--workspace", account.id],
+			1,
+			`No plant or organization ${account.id} in a throwaway test database. Nothing changed.`,
+		],
+		[
+			["set", "cli-target", "on", "--account", plant.id],
+			1,
+			`No account ${plant.id} in a throwaway test database. Nothing changed.`,
+		],
+		[
+			["set", "cli-target", "on", "--account", "00000000-0000-4000-8000-000000000001"],
+			1,
+			"No account 00000000-0000-4000-8000-000000000001 in a throwaway test database. Nothing changed.",
+		],
+		[
+			["set", "cli-target", "on", "--account", "nora"],
+			1,
+			"--account nora is not an account id (a uuid) or a sign-in email.",
+		],
+		[
+			["set", "cli-target", "on", "--account", "nobody@example.test"],
+			1,
+			"No single account signs in as nobody@example.test in a throwaway test database. Nothing changed.",
+		],
 		[["set", "cli-target", "on", "--workspace", "plant-a"], 1, "--workspace plant-a is not an id (a uuid)."],
 		[["set", "cli-target", "on", "--workspace"], 2, "--workspace needs a value."],
 		[["set", "cli-target", "on"], 2, "Give exactly one of --workspace <id>, --account <id> or --all."],
-		[["set", "cli-target", "on", "--all", "--account", account.id], 2, "Give exactly one of --workspace <id>, --account <id> or --all."],
+		[
+			["set", "cli-target", "on", "--all", "--account", account.id],
+			2,
+			"Give exactly one of --workspace <id>, --account <id> or --all.",
+		],
 		[["set", "cli-target", "maybe", "--all"], 2, "Say on, off or clear."],
-		[["set", "not-registered", "on", "--all"], 1, "No flag not-registered in the registry (packages/domain/src/flags/registry.ts)."],
+		[
+			["set", "not-registered", "on", "--all"],
+			1,
+			"No flag not-registered in the registry (packages/domain/src/flags/registry.ts).",
+		],
 	];
 	for (const [argv, code, message] of refusals) {
 		const r = await cli(argv);
@@ -194,10 +244,28 @@ test("set --all turns a release flag on for everyone only when evf flip status s
 		[flip("open", "D-9001"), `${lead} evf flip status says open (D-9001). ${ask}`],
 		[flip("declined", "D-9002"), `${lead} evf flip status says declined (D-9002). ${ask}`],
 		[flip("none"), `${lead} evf flip status says none. ${ask}`],
-		[{ "flip status": () => ({ status: 2, stdout: "", stderr: "error: no such command\n" }) }, `${lead} evf flip status failed (exit 2): error: no such command ${ask}`],
-		[{ "flip status": () => ({ status: null, stdout: "", stderr: "" }) }, `${lead} evf is not reachable here, so the flip cannot be checked. ${ask}`],
-		[{ "flip status": () => ({ status: 0, stdout: "approved", stderr: "" }) }, `${lead} evf flip status printed output bin/flag cannot read. ${ask}`],
-		[{ "flip status": () => ({ status: 0, stdout: JSON.stringify({ flag: "other", state: "approved", decision: "D-1" }), stderr: "" }) }, `${lead} evf flip status answered for other, not cli-flip. ${ask}`],
+		[
+			{ "flip status": () => ({ status: 2, stdout: "", stderr: "error: no such command\n" }) },
+			`${lead} evf flip status failed (exit 2): error: no such command ${ask}`,
+		],
+		[
+			{ "flip status": () => ({ status: null, stdout: "", stderr: "" }) },
+			`${lead} evf is not reachable here, so the flip cannot be checked. ${ask}`,
+		],
+		[
+			{ "flip status": () => ({ status: 0, stdout: "approved", stderr: "" }) },
+			`${lead} evf flip status printed output bin/flag cannot read. ${ask}`,
+		],
+		[
+			{
+				"flip status": () => ({
+					status: 0,
+					stdout: JSON.stringify({ flag: "other", state: "approved", decision: "D-1" }),
+					stderr: "",
+				}),
+			},
+			`${lead} evf flip status answered for other, not cli-flip. ${ask}`,
+		],
 	];
 	for (const [answers, message] of cases) {
 		const { evf, calls } = stubEvf(answers);
@@ -247,7 +315,8 @@ test("stale lists release flags on for everyone and unchanged for 14 or more day
 	const r = await cli(["stale"]);
 	assert.equal(r.code, 0, r.message);
 	const [row] = (
-		await f.admin.execute(sql`SELECT max(a.occurred_at) AS at FROM audit_event a JOIN feature_flag f ON f.id=a.subject_id
+		await f.admin
+			.execute(sql`SELECT max(a.occurred_at) AS at FROM audit_event a JOIN feature_flag f ON f.id=a.subject_id
  WHERE f.name='cli-stale-15'`)
 	).rows;
 	const since = new Date(row.at);

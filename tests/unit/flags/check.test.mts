@@ -16,10 +16,16 @@ const declared = {
 } as const;
 
 const sources = [
-	{ path: "apps/web/src/features/a/routes.tsx", text: `const on = await readFlag("live-release");\nreadFlag('expired-release');` },
+	{
+		path: "apps/web/src/features/a/routes.tsx",
+		text: `const on = await readFlag("live-release");\nreadFlag('expired-release');`,
+	},
 	{ path: "apps/web/src/features/b/server.ts", text: "await readFlag(`expired-kill`)" },
 	{ path: "packages/domain/src/people/x.ts", text: `(await readFlags(db, actor)).value("read-by-value")` },
-	{ path: "packages/domain/src/flags/registry.ts", text: `readFlag("unread-ops"); readFlag("read-only-by-declarations")` },
+	{
+		path: "packages/domain/src/flags/registry.ts",
+		text: `readFlag("unread-ops"); readFlag("read-only-by-declarations")`,
+	},
 	{ path: "apps/web/src/server/flags.ts", text: `readFlag("unread-ops")` },
 	{ path: "apps/web/src/server/flags.types.ts", text: `readFlag("read-only-by-declarations")` },
 	{ path: "apps/web/src/features/c/notes.ts", text: `const name = "unread-ops"; readFlag("unread-ops-v2");` },
@@ -36,7 +42,9 @@ test("the flag check fails on a release flag past its expires date and on a regi
 test("a release flag is still live on its expires date, and a kill or ops flag never expires the check", () => {
 	const problems = flagProblems(declared, sources, "2026-12-31");
 	assert.ok(!problems.some((p) => p.includes("expired")), problems.join("\n"));
-	assert.ok(flagProblems(declared, sources, "2028-01-01").some((p) => p.startsWith("release flag live-release expired")));
+	assert.ok(
+		flagProblems(declared, sources, "2028-01-01").some((p) => p.startsWith("release flag live-release expired")),
+	);
 	assert.ok(!flagProblems(declared, sources, "2028-01-01").some((p) => p.includes("expired-kill")));
 });
 
@@ -45,7 +53,11 @@ test("the real registry passes the flag check on this tree today", () => {
 	assert.ok(repoSources(root).some((s) => s.path === "apps/web/src/features/overview/routes.tsx"));
 	const lines: string[] = [];
 	assert.equal(
-		checkCommand(root, (l) => lines.push(l), (l) => lines.push(l)),
+		checkCommand(
+			root,
+			(l) => lines.push(l),
+			(l) => lines.push(l),
+		),
 		0,
 		lines.join("\n"),
 	);

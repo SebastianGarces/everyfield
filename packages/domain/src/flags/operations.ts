@@ -14,10 +14,19 @@ export async function readGlobalValues<R extends Registry = typeof registry>(
 ): Promise<ReadonlyMap<keyof R & string, boolean | null>> {
 	const { rows } = await db.execute(sql`SELECT f.name, f.value FROM feature_flag f
  WHERE f.tenant_id=${GLOBAL_TENANT}::uuid AND f.name=ANY(${sql.param(Object.keys(declared))}::text[])`);
-	return new Map(z.array(globalRow).parse(rows).map((row) => [row.name as keyof R & string, row.value]));
+	return new Map(
+		z
+			.array(globalRow)
+			.parse(rows)
+			.map((row) => [row.name as keyof R & string, row.value]),
+	);
 }
 
-const overrideRow = z.object({ tenant: z.string(), kind: z.enum(["plant", "organization", "account"]), value: z.boolean() });
+const overrideRow = z.object({
+	tenant: z.string(),
+	kind: z.enum(["plant", "organization", "account"]),
+	value: z.boolean(),
+});
 export type FlagOverride = z.infer<typeof overrideRow>;
 
 export async function readOverrides(db: Db, name: string): Promise<readonly FlagOverride[]> {

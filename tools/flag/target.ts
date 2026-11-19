@@ -56,7 +56,8 @@ export function resolveTarget(argv: readonly string[], env: Env, neon: Neon): { 
 			"--project-id",
 			NEON_PROJECT,
 		]);
-		if (found.status !== 0) throw new FlagError(`neonctl found no Neon branch ${qa} (bin/qa list shows the open ones).`);
+		if (found.status !== 0)
+			throw new FlagError(`neonctl found no Neon branch ${qa} (bin/qa list shows the open ones).`);
 		const url = new URL(found.stdout.trim());
 		const endpoint = endpointOf(url);
 		if (endpoint.startsWith(PROD_ENDPOINT) || endpoint.startsWith(DEV_ENDPOINT))

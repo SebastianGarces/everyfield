@@ -3,7 +3,11 @@ import { join, resolve } from "node:path";
 import { registry, type Registry } from "../../packages/domain/src/flags/registry.ts";
 
 export const SOURCE_GLOBS = ["apps/*/src/**/*.{ts,tsx}", "packages/*/src/**/*.{ts,tsx}"];
-export const NOT_READERS = ["packages/domain/src/flags/", "apps/web/src/server/flags.ts", "apps/web/src/server/flags.types.ts"];
+export const NOT_READERS = [
+	"packages/domain/src/flags/",
+	"apps/web/src/server/flags.ts",
+	"apps/web/src/server/flags.types.ts",
+];
 
 export type Source = { path: string; text: string };
 
@@ -12,7 +16,9 @@ const reads = (name: string) =>
 	new RegExp(`(?:\\breadFlag\\s*\\(|\\.value\\s*\\()\\s*(["'\`])${escape(name)}\\1\\s*\\)`);
 
 export function flagProblems(declared: Registry, sources: readonly Source[], today: string): string[] {
-	const readers = sources.filter((s) => !NOT_READERS.some((p) => s.path === p || (p.endsWith("/") && s.path.startsWith(p))));
+	const readers = sources.filter(
+		(s) => !NOT_READERS.some((p) => s.path === p || (p.endsWith("/") && s.path.startsWith(p))),
+	);
 	const problems: string[] = [];
 	for (const [name, flag] of Object.entries(declared)) {
 		if (flag.kind === "release" && Date.parse(flag.expires) < Date.parse(today))
