@@ -211,7 +211,7 @@ const SHEET_WIDTH = { md: "w-[420px]", lg: "w-[480px]", xl: "w-[560px]" } as con
 const SHEET_SIDE =
 	"ef-sheet fixed top-3 right-3 bottom-3 z-50 flex max-w-[calc(100vw-24px)] flex-col rounded-card bg-surface-raised text-md text-ink shadow-pop outline-none";
 const SHEET_DRAWER =
-	"fixed inset-x-0 bottom-0 z-50 flex h-[calc(100dvh-40px)] flex-col rounded-t-card bg-surface-raised text-md text-ink shadow-pop outline-none";
+	"fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100dvh-40px)] flex-col rounded-t-card bg-surface-raised text-md text-ink shadow-pop outline-none";
 
 export function Sheet({
 	open,
