@@ -33,6 +33,7 @@ import { current as organizationMount } from "../organizations/mount.ts";
 import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
+import { logFailure, type LogWord } from "@everyfield/domain/log";
 
 type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
 type Signed = SectionViewer & { accountId: string };
@@ -234,7 +235,7 @@ export async function readSection(raw: unknown): Promise<SettingsReply<z.infer<t
 	try {
 		return await ops.sections.getSection(ops.db, viewer, raw);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "read_failed" }, error);
 		return refusal("temporary");
 	}
 }
@@ -256,7 +257,7 @@ export async function run<S extends z.ZodType, T>(
 	try {
 		return await withSettingsWrite(ops.db, viewer.authority, context, (tx) => operation(ops, tx, context, input.data));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "write_failed" }, error);
 		return refusal("unknown");
 	}
 }
@@ -278,7 +279,7 @@ export async function credential<S extends z.ZodType, T>(
 	try {
 		return await operation(ops.credentials, context, input.data);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "credential_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "credential_failed" }, error);
 		return refusal("unknown");
 	}
 }
@@ -297,7 +298,7 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 			(error instanceof StorageError && error.code === "invalid_avatar")
 		)
 			return "invalid" as const;
-		console.error(JSON.stringify({ component: "settings", outcome: "avatar_upload_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "avatar_upload_failed" }, error);
 		return "unavailable" as const;
 	}
 }
@@ -333,7 +334,7 @@ export async function openRestrictedDeletion(kind: "account" | "plant", raw: unk
 	const opened = await (
 		kind === "account" ? ops.credentials.openAccountDeletion(raw, ip) : ops.credentials.openWorkspaceDeletion(raw, ip)
 	).catch((error) => {
-		console.error(JSON.stringify({ component: "settings", outcome: "restricted_open_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "restricted_open_failed" }, error);
 		return { status: "refused" as const, code: "unknown" as const };
 	});
 	if (opened.status === "refused")
@@ -406,11 +407,14 @@ export async function cancelRestrictedDeletion(kind: "account" | "plant", expect
 
 const refused = async (code: keyof typeof RETRY) => refusal(code);
 
-async function logged<T>(outcome: string, body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
+async function logged<T, O extends string>(
+	outcome: LogWord<O>,
+	body: () => Promise<SettingsReply<T>>,
+): Promise<SettingsReply<T>> {
 	try {
 		return await body();
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome, error: String(error) }));
+		logFailure({ component: "settings", outcome }, error);
 		return refusal("unknown");
 	}
 }

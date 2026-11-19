@@ -26,6 +26,7 @@ import {
 	type Owners,
 	type ObligationPage,
 } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export { COVERAGE_PAGE, taskViewer, type TaskViewer };
 
@@ -35,7 +36,7 @@ export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Pr
 	try {
 		return await db.transaction(run);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "followups", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "followups", outcome: "read_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -54,7 +55,7 @@ export async function write<T>(
 	try {
 		return outcomeOf(await withFollowUpWrite(mount.db, viewer.authority, (tx, ctx) => run(w, tx, ctx)));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "followups", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "followups", outcome: "write_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -94,7 +95,7 @@ export async function loadPersonFollowUps(authority: RequestActor, personId: str
 	try {
 		return await db.transaction((tx) => readPersonFollowUps(tx, authority, personId));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "followups", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "followups", outcome: "read_failed" }, error);
 		return null;
 	}
 }

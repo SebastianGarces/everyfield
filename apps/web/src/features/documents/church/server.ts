@@ -17,6 +17,7 @@ import { readBoundedBody } from "@everyfield/domain/operations";
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES } from "./refusal.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export type ChurchView = {
 	id: string;
@@ -61,7 +62,7 @@ export async function loadLibrary(
 			},
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }
@@ -73,7 +74,7 @@ export async function loadArchived(authority: RequestActor): Promise<Load<Archiv
 		const reply = await documentsWriter.listArchivedChurch(db, authority, {});
 		return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }
@@ -143,7 +144,7 @@ export async function loadChurchDocument(
 			},
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }
@@ -180,7 +181,7 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 			},
 		});
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "file_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "file_failed" }, error);
 		return gone(500);
 	}
 }
@@ -221,9 +222,7 @@ export async function savedExportRoute(
 			},
 		});
 	} catch (error) {
-		console.error(
-			JSON.stringify({ component: "church-documents", outcome: "export_file_failed", error: String(error) }),
-		);
+		logFailure({ component: "church-documents", outcome: "export_file_failed" }, error);
 		return gone(500);
 	}
 }
@@ -279,7 +278,7 @@ export async function saveExportRoute(request: Request, { params }: { params: Pr
 			},
 		});
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "export_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "export_failed" }, error);
 		return answer({ status: "lost" });
 	}
 }

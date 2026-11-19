@@ -12,6 +12,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { documentActor } from "../server.ts";
 import { refusedWith } from "./refusal.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export type ChurchActionResult = { status: "refused"; message: string } | { status: "lost" };
 
@@ -29,7 +30,7 @@ export async function createChurchDocument(
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 		id = reply.value.id;
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "create_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "create_failed" }, error);
 		return { status: "lost" };
 	}
 	revalidatePath("/documents/church");
@@ -60,7 +61,7 @@ export async function saveChurchDocument(
 		}
 		return { status: "saved", revision: reply.value.revision };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "save_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "save_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -77,7 +78,7 @@ export async function setChurchBranding(documentId: string, useChurchBranding: b
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 		return { status: "saved", useChurchBranding: reply.value.useChurchBranding };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "branding_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "branding_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -90,7 +91,7 @@ export async function deleteChurchDocument(documentId: string, expectedRevision:
 		const reply = await documentsWriter.deleteChurch(db, actor, { documentId, expectedRevision });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "delete_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "delete_failed" }, error);
 		return { status: "lost" };
 	}
 	revalidatePath("/documents/church");
@@ -105,7 +106,7 @@ export async function archiveChurchDocument(documentId: string, expectedRevision
 		const reply = await documentsWriter.archiveChurch(db, actor, { documentId, expectedRevision });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "archive_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "archive_failed" }, error);
 		return { status: "lost" };
 	}
 	revalidatePath("/documents/church");
@@ -120,7 +121,7 @@ export async function restoreChurchDocument(documentId: string): Promise<ChurchA
 		const reply = await documentsWriter.restoreChurch(db, actor, { documentId });
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "restore_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "restore_failed" }, error);
 		return { status: "lost" };
 	}
 	revalidatePath("/documents/church");
@@ -146,9 +147,7 @@ export async function saveChurchTemplate(input: {
 		revalidatePath("/documents/church");
 		return { status: "saved", template: reply.value };
 	} catch (error) {
-		console.error(
-			JSON.stringify({ component: "church-documents", outcome: "template_save_failed", error: String(error) }),
-		);
+		logFailure({ component: "church-documents", outcome: "template_save_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -164,9 +163,7 @@ export async function listChurchTemplates(): Promise<
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 		return { status: "ok", templates: reply.value.templates };
 	} catch (error) {
-		console.error(
-			JSON.stringify({ component: "church-documents", outcome: "template_list_failed", error: String(error) }),
-		);
+		logFailure({ component: "church-documents", outcome: "template_list_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -192,9 +189,7 @@ export async function updateChurchTemplate(input: {
 		revalidatePath("/documents/church");
 		return { status: "updated", template: reply.value };
 	} catch (error) {
-		console.error(
-			JSON.stringify({ component: "church-documents", outcome: "template_update_failed", error: String(error) }),
-		);
+		logFailure({ component: "church-documents", outcome: "template_update_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -219,9 +214,7 @@ export async function editChurchTemplate(input: {
 		revalidatePath("/documents/church");
 		return { status: "saved", template: reply.value };
 	} catch (error) {
-		console.error(
-			JSON.stringify({ component: "church-documents", outcome: "template_edit_failed", error: String(error) }),
-		);
+		logFailure({ component: "church-documents", outcome: "template_edit_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -238,9 +231,7 @@ export async function deleteChurchTemplate(
 		revalidatePath("/documents/church");
 		return { status: "deleted" };
 	} catch (error) {
-		console.error(
-			JSON.stringify({ component: "church-documents", outcome: "template_delete_failed", error: String(error) }),
-		);
+		logFailure({ component: "church-documents", outcome: "template_delete_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -256,9 +247,7 @@ export async function deleteSavedExport(documentId: string, exportId: string): P
 		if (reply.status !== "ok") return refusedWith(reply.error.code);
 		return { status: "deleted" };
 	} catch (error) {
-		console.error(
-			JSON.stringify({ component: "church-documents", outcome: "export_delete_failed", error: String(error) }),
-		);
+		logFailure({ component: "church-documents", outcome: "export_delete_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -276,7 +265,7 @@ export async function compareWithTemplate(documentId: string): Promise<CompareRe
 			return { status: "refused", code: reply.error.code, message: refusedWith(reply.error.code).message };
 		return { status: "ok", compare: reply.value };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "compare_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "compare_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -310,7 +299,7 @@ export async function acceptTemplateChanges(
 			return { status: "refused", code: reply.error.code, message: refusedWith(reply.error.code).message };
 		return { status: "accepted", revision: reply.value.revision, document: reply.value.body };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "accept_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "accept_failed" }, error);
 		return { status: "lost" };
 	}
 }

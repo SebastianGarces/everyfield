@@ -21,6 +21,7 @@ import {
 	type SourceRow,
 	type TreeModel,
 } from "./model.ts";
+import { logFailure, logLine, type LogWord } from "@everyfield/domain/log";
 
 type Producer = ReturnType<typeof createWikiProducer>;
 type Mount = { db: Database; producer: Producer };
@@ -105,7 +106,7 @@ async function editorRevision(mount: Mount, organizationId: string, articleId: s
 			currentType: row.currentType,
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "editor-revision-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "editor-revision-failed" }, error);
 		return "lost";
 	}
 }
@@ -155,7 +156,7 @@ export const loadPreview = cache(async (path: string, userAgent: string): Promis
 			excerpt: reply.value.excerpt,
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "preview-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "preview-failed" }, error);
 		return null;
 	}
 });
@@ -171,7 +172,7 @@ async function articleOf(
 	try {
 		return await mount.producer.getArticle(mount.db, actor, { articleId, source: sourceInput(source) });
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "article-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "article-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -232,7 +233,7 @@ async function feedbackVote(
 			? mine.value.currentVote
 			: null;
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "feedback-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "feedback-failed" }, error);
 		return null;
 	}
 }
@@ -246,7 +247,7 @@ async function sourceOrder(
 		if (reply.status !== "ok") return null;
 		return { revision: reply.value.orderRevision, churches: reply.value.churches, networks: reply.value.networks };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "order-read-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "order-read-failed" }, error);
 		return null;
 	}
 }
@@ -430,7 +431,7 @@ export async function loadWiki(
 							};
 						}
 					} catch (error) {
-						console.error(JSON.stringify({ component: "wiki", outcome: "draft-failed", error: String(error) }));
+						logFailure({ component: "wiki", outcome: "draft-failed" }, error);
 						draftLost = true;
 					}
 				}
@@ -455,13 +456,13 @@ export async function loadWiki(
 			draftLost,
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "page-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "page-failed" }, error);
 		return "lost";
 	}
 }
 
-export function logSearchLost(cause: string): void {
-	console.error(JSON.stringify({ component: "wiki", outcome: "search-lost", cause }));
+export function logSearchLost<C extends string>(cause: LogWord<C>): void {
+	logLine({ component: "wiki", outcome: "search-lost", cause });
 }
 
 export async function runSearch(
@@ -502,7 +503,7 @@ export async function runSearch(
 			nextPage: reply.value.nextCursor,
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "search-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "search-failed" }, error);
 		return "lost";
 	}
 }
@@ -532,7 +533,7 @@ export async function progressRoute(request: Request): Promise<Response> {
 		});
 		return new Response(null, { status: reply.status === "ok" && !reply.value.errorCode ? 204 : 409 });
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "progress-beacon-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "progress-beacon-failed" }, error);
 		return new Response(null, { status: 400 });
 	}
 }

@@ -7,6 +7,7 @@ import { correctReportingLocationRequest } from "@everyfield/contracts/organizat
 import type { RegionArea } from "@everyfield/contracts/oversight";
 import { readReportingLocation, suggestRegions } from "@everyfield/domain/organizations";
 import { z } from "zod";
+import { logFailure } from "@everyfield/domain/log";
 
 export type Locality = { city: string | null; stateProvince: string | null; country: string | null };
 export type RegionRead =
@@ -39,7 +40,7 @@ export async function readRegion(): Promise<RegionRead> {
 		const r = await readReportingLocation(db, seat.authority);
 		return r ? { status: "ok", ...r } : { status: "denied" };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "region_read_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "region_read_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -60,7 +61,7 @@ export async function suggestRegion(raw: Locality): Promise<RegionSuggestion[] |
 	try {
 		return await suggestRegions(db, seat.authority, place.data);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "region_suggest_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "region_suggest_failed" }, error);
 		return null;
 	}
 }

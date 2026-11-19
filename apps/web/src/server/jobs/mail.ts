@@ -10,6 +10,7 @@ import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
 import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import { transaction } from "../platform/database.ts";
 import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
+import { logLine } from "@everyfield/domain/log";
 
 const owner = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("account"), id: z.uuid() }),
@@ -801,7 +802,7 @@ export async function runDueMail(
 	let claimed = 0;
 	const run = async (claim: Claim) => {
 		claimed++;
-		await mail.dispatch(claim).catch(() => console.error(JSON.stringify({ component: "mail", outcome: "error" })));
+		await mail.dispatch(claim).catch(() => logLine({ component: "mail", outcome: "error" }));
 	};
 	while (claimed < limit && Date.now() < until) {
 		const [claim] = await claimUnknownMail(db, prefixes);

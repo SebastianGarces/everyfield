@@ -7,6 +7,7 @@ import type { Database } from "@everyfield/db/client";
 import { trainingReader, trainingWriter } from "@everyfield/domain/teams";
 import { outcome, write } from "../server.ts";
 import type { Outcome, PersonLoad, TrainingLoad } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Seat = NonNullable<Awaited<ReturnType<typeof seat>>>;
@@ -22,7 +23,7 @@ async function read<T>(viewer: Seat, run: (db: Database, authority: Authority) =
 	try {
 		return await run(db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "training", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "training", outcome: "read_failed" }, error);
 		return { status: "failed" } as const;
 	}
 }

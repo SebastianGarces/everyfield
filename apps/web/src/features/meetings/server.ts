@@ -8,6 +8,7 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import "server-only";
 import { isFiltered, listRequest, NEXT_REQUEST, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
 import { canWrite } from "../../components/seat-role.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
 export type Viewer = Peopled;
@@ -23,7 +24,7 @@ export async function read<T>(
 	try {
 		return await run(db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "meetings", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }
@@ -37,7 +38,7 @@ export async function write<T>(
 	try {
 		return outcome(await withMeetingsWrite(db, viewer.authority, run));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "meetings", outcome: "write_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -96,7 +97,7 @@ async function readAgendaTemplate(viewer: Viewer, meetingId: string) {
 		const reply = await documentsReader["templates.contextual"](db, viewer.authority, { meetingId });
 		return reply.status === "ok" ? (reply.value.templates[0]?.id ?? null) : null;
 	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "agenda_template_failed", error: String(error) }));
+		logFailure({ component: "meetings", outcome: "agenda_template_failed" }, error);
 		return null;
 	}
 }

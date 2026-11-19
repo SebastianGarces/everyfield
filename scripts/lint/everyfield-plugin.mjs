@@ -815,6 +815,30 @@ const storageClient = {
 	},
 };
 
+export const LOG_MODULE = "packages/domain/src/log.ts";
+const LOGGED_CODE = /^(?:apps\/web\/src|packages\/domain\/src)\//;
+
+const serverLog = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === LOG_MODULE || !LOGGED_CODE.test(path)) return {};
+		let client = false;
+		return {
+			Program(node) {
+				client = node.body.some((s) => s.type === "ExpressionStatement" && s.directive === "use client");
+			},
+			Identifier(node) {
+				if (client || node.name !== "console" || !isValueReference(node) || declared(context, node)) return;
+				context.report({
+					node,
+					message: `Log through ${LOG_MODULE} (logLine, logInfo, logFailure): it writes fixed words, numbers, checked ids and an error's class and code, never error text or row values.`,
+				});
+			},
+		};
+	},
+};
+
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
@@ -1652,6 +1676,7 @@ export default {
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
+		"server-log": serverLog,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,

@@ -19,6 +19,7 @@ import {
 } from "@everyfield/domain/people";
 import { listRequest, parseQuery } from "../model.ts";
 import { read, type Viewer } from "../server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 type Answer = { status: "ok"; value: unknown } | { status: "refused"; code: string; line?: number };
@@ -96,7 +97,7 @@ export async function uploadRoute(request: Request) {
 	try {
 		return answer(await signPeopleImport(deps.db, deps.storage, deps.v.authority, input));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "people-import", outcome: "sign_failed", error: String(error) }));
+		logFailure({ component: "people-import", outcome: "sign_failed" }, error);
 		return lost();
 	}
 }
@@ -110,7 +111,7 @@ export async function previewRoute(request: Request) {
 		if (reply.status !== "ok") return answer(reply);
 		return streamed({ status: "ok", value: reply.value });
 	} catch (error) {
-		console.error(JSON.stringify({ component: "people-import", outcome: "preview_failed", error: String(error) }));
+		logFailure({ component: "people-import", outcome: "preview_failed" }, error);
 		return lost();
 	}
 }
@@ -124,7 +125,7 @@ export async function importRoute(request: Request) {
 		if (reply.status === "ok") drainPeopleImports();
 		return answer(reply);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "people-import", outcome: "import_failed", error: String(error) }));
+		logFailure({ component: "people-import", outcome: "import_failed" }, error);
 		return lost();
 	}
 }
@@ -138,7 +139,7 @@ export async function retryRoute(request: Request) {
 		if (reply.status === "ok") drainPeopleImports();
 		return answer(reply);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "people-import", outcome: "retry_failed", error: String(error) }));
+		logFailure({ component: "people-import", outcome: "retry_failed" }, error);
 		return lost();
 	}
 }

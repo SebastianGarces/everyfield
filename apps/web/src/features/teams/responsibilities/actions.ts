@@ -7,6 +7,7 @@ import type { Database } from "@everyfield/db/client";
 import { responsibilityReader, responsibilityWriter } from "@everyfield/domain/teams";
 import type { Outcome } from "../model.ts";
 import { outcome, readRevision, write, type Viewer } from "../server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Seat = Viewer;
@@ -24,7 +25,7 @@ async function read<T>(
 	try {
 		return outcome(await run(db, viewer.authority));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "responsibilities", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "responsibilities", outcome: "read_failed" }, error);
 		return { status: "lost" };
 	}
 }

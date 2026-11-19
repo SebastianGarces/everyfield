@@ -5,6 +5,7 @@ import { getViewer } from "@/server/request-context";
 import { listPhotoRoute } from "@everyfield/contracts/people";
 import { PeopleReadContext, readPersonPhotos } from "@everyfield/domain/people";
 import { requestAvatarUpload } from "../../settings/actions";
+import { logFailure } from "@everyfield/domain/log";
 
 export async function readRowPhotos(personIds: unknown): Promise<Record<string, string>> {
 	const v = await getViewer();
@@ -15,7 +16,7 @@ export async function readRowPhotos(personIds: unknown): Promise<Record<string, 
 		if (reply.status !== "ok") return {};
 		return Object.fromEntries(reply.value.photos.map((p) => [p.personId, listPhotoRoute(p.photo)]));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "evry", outcome: "row_photos_failed", error: String(error) }));
+		logFailure({ component: "evry", outcome: "row_photos_failed" }, error);
 		return {};
 	}
 }

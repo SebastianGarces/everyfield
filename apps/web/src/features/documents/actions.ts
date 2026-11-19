@@ -13,6 +13,7 @@ import {
 	type WrittenView,
 } from "./model.ts";
 import { documentActor } from "./server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export type DocumentOutcome<T> =
 	| { status: "ok"; value: T }
@@ -38,7 +39,7 @@ async function run<T>(
 	try {
 		return await read(db, actor);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "documents", outcome: "action_failed", error: String(error) }));
+		logFailure({ component: "documents", outcome: "action_failed" }, error);
 		return { status: "lost" } as const;
 	}
 }

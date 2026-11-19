@@ -13,6 +13,7 @@ import type {
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createAssessments, type Assessments } from "@everyfield/domain/intelligence";
+import { logFailure } from "@everyfield/domain/log";
 
 const assessments = createAssessments();
 
@@ -20,7 +21,7 @@ export type ActionOutcome<T> =
 	{ status: "ok"; value: T } | { status: "refused"; error: AssessmentError } | { status: "signed_out" | "lost" };
 
 async function run<T>(
-	component: string,
+	component: "refresh" | "seen" | "feedback" | "citation",
 	body: (a: Assessments, db: Database, authority: RequestActor) => Promise<AssessmentReply<T>>,
 ): Promise<ActionOutcome<T>> {
 	const viewer = await getViewer();
@@ -30,13 +31,7 @@ async function run<T>(
 	try {
 		return await body(assessments, db, viewer.authority);
 	} catch (error) {
-		console.error(
-			JSON.stringify({
-				component: "assessment",
-				outcome: `${component}_failed`,
-				code: (error as { code?: string })?.code ?? null,
-			}),
-		);
+		logFailure({ component: "assessment", outcome: `${component}_failed` }, error);
 		return { status: "lost" };
 	}
 }

@@ -12,6 +12,7 @@ import {
 	wikiActor,
 	wikiMount,
 } from "./server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type WriteOk = {
 	status: "ok";
@@ -64,7 +65,7 @@ export async function recordArticleView(envelope: ReadingKey): Promise<WriteResu
 		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
 		return mapReading(reply.value);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "view-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "view-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -84,7 +85,7 @@ export async function saveProgress(envelope: ReadingKey, fraction: string): Prom
 		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
 		return mapReading(reply.value);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "progress-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "progress-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -101,7 +102,7 @@ export async function saveBookmark(envelope: Envelope, desired: boolean): Promis
 		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
 		return mapReading(reply.value);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "bookmark-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "bookmark-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -169,7 +170,7 @@ export async function loadGuide(route: string): Promise<GuideResult> {
 			href: articlePath(guide.slug),
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "guide-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "guide-failed" }, error);
 		return { status: "unavailable" };
 	}
 }
@@ -197,7 +198,7 @@ async function exportOf(articleId: string, sourceRaw: string | null, kind: "pdf"
 			return { status: "print", html: reply.value.html, fallback: reply.value.fontFailureOffersPrintFallback };
 		return { status: "denied" };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "export-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "export-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -235,7 +236,7 @@ export async function readSourceOrder(): Promise<OrderRead> {
 			networks: reply.value.networks.map((id) => row(id, "network")),
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "order-read-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "order-read-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -271,7 +272,7 @@ export async function saveSourceOrder(
 		if (reply.value.errorCode) return { status: "denied" };
 		return { status: "ok", revision: reply.value.revision };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "order-save-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "order-save-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -298,7 +299,7 @@ export async function setFeedback(input: {
 		if (vote !== "helpful" && vote !== "unhelpful") return { status: "lost" };
 		return { status: "ok", vote };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "feedback-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "feedback-failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -372,11 +373,11 @@ async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgC
 		try {
 			refreshWiki(cachePath);
 		} catch (refreshError) {
-			console.error(JSON.stringify({ component: "wiki", outcome: "revalidate-failed", error: String(refreshError) }));
+			logFailure({ component: "wiki", outcome: "revalidate-failed" }, refreshError);
 		}
 		return { status: "ok", revision: nextRevision(command.expectedRevision), state: reply.value.state };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "wiki", outcome: "organization-write-failed", error: String(error) }));
+		logFailure({ component: "wiki", outcome: "organization-write-failed" }, error);
 		return { status: "lost" };
 	}
 }

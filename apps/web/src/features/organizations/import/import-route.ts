@@ -4,6 +4,7 @@ import { pipelineActor } from "../pipeline-mount";
 import { pipelineImportLimits } from "@everyfield/contracts/organizations";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
+import { logFailure } from "@everyfield/domain/log";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const reply = (body: unknown) => Response.json(body, { headers: NO_STORE });
@@ -40,7 +41,7 @@ async function handle(request: Request, step: "preview" | "save") {
 				: await pipelineImportWriter.importPeople(db, who.authority, input),
 		);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "pipeline", outcome: `import_${step}_failed`, error: String(error) }));
+		logFailure({ component: "pipeline", outcome: `import_${step}_failed` }, error);
 		return reply({ status: "lost" });
 	}
 }

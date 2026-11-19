@@ -6,6 +6,7 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import { teamsReader, withParents, withTeamsWrite } from "@everyfield/domain/teams";
 import "server-only";
 import type { ChartNode, ListedTeam, Member, Outcome, Role, Team } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export type { Viewer };
 export const isAdmin = (v: Viewer) => v.role === "owner" || v.role === "admin";
@@ -19,7 +20,7 @@ async function read<T>(viewer: Viewer, run: (db: Database, a: Authority) => Prom
 	try {
 		return await run(db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "teams", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "teams", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }
@@ -33,7 +34,7 @@ export async function write<T>(
 	try {
 		return outcome(await withTeamsWrite(db, viewer.authority, run));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "teams", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "teams", outcome: "write_failed" }, error);
 		return { status: "lost" };
 	}
 }

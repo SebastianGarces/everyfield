@@ -8,6 +8,7 @@ import { HISTORY_PAGE } from "./assessments/server.ts";
 import { loadPersonFollowUps } from "../followups/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 import { canWrite } from "../../components/seat-role.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export type Viewer = NonNullable<ReturnType<typeof peopleViewer>>;
 export type Role = Viewer["role"];
@@ -28,7 +29,7 @@ async function readOnPool<T>(
 	try {
 		return await run(store, new PeopleReadContext(viewer.authority));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "people", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "people", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }
@@ -42,7 +43,7 @@ export async function write<T>(
 	try {
 		return await withPeopleWrite(store, viewer.authority, run);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "people", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "people", outcome: "write_failed" }, error);
 		return { status: "failed" };
 	}
 }
