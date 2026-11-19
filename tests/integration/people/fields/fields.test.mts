@@ -129,6 +129,16 @@ test("AC:GAP-PPL-010 AC:TARGET-PPL-010 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RET
 		),
 		"conflict",
 	);
+	const elsewhere = ok(
+		await write(2, async (t, c) =>
+			fields.updateTag(t, c, {
+				requestKey: key(),
+				expectedRevision: foreign.revision,
+				input: { tagId: foreign.id, name: "Family" },
+			}),
+		),
+	);
+	assert.deepEqual([elsewhere.outcome, elsewhere.tag.name], ["changed", "Family"]);
 
 	const assign = { requestKey: key(), input: { personId: alex.id, tagId: north.tag.id } };
 	ok(

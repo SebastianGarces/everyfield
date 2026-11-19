@@ -1372,9 +1372,8 @@
 		"retry": 4
 	},
 	"people.createTag": {
-		"limit": 5,
-		"retry": 3,
-		"reads": "T-498: 2 reads in a row (read of tag, then read of person+person_tag+tag); the follow-up merges them or says why they cannot be one statement."
+		"limit": 4,
+		"retry": 3
 	},
 	"people.deleteHousehold": {
 		"limit": 4,
@@ -1407,7 +1406,7 @@
 		"limit": 7,
 		"retry": 6,
 		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people locked in id order, one read of both full rows with the merge check, then one statement that moves every reference and writes the merge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
-		"reads": "T-498: 2 reads in a row (locked read of person, then read of attestation+commitment+commitment_change+contact_outcome+development_enrollment+four_cs+interview+invitation+launch_guest+mail+meeting_kit_item+obligation+participation+person+person_note+person_skill+person_tag+record_correction+task+team+team_tenure+training_assignment); the follow-up merges them or says why they cannot be one statement."
+		"reads": "Both people are locked in id order as a statement of their own before their full rows are read: a statement's snapshot predates its locks and a lock refreshes only the rows it locks (C88), so a read of the references joined to the lock would miss what a people write that held either person committed while this write waited, and the merge would leave those rows on the merged person."
 	},
 	"people.mergedPersonDestination": {
 		"limit": 2
@@ -1470,7 +1469,7 @@
 		"limit": 7,
 		"retry": 6,
 		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people of the merge locked, one read of the merge record with the unmerge check, then one statement that moves the references back and writes the unmerge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
-		"reads": "T-498: 2 reads in a row (locked read of person+person_merge, then read of attestation+commitment+commitment_change+contact_outcome+development_enrollment+four_cs+interview+invitation+launch_guest+mail+meeting_kit_item+obligation+participation+person+person_merge+person_note+person_skill+person_tag+record_correction+task+team+team_tenure+training_assignment); the follow-up merges them or says why they cannot be one statement."
+		"reads": "Both people of the merge are locked as a statement of their own before the merge record and their full rows are read: a statement's snapshot predates its locks and a lock refreshes only the rows it locks (C88), so a read of the references joined to the lock would miss what a people write that held either person committed while this write waited, and the unmerge check would compare stale references."
 	},
 	"people.updateHousehold": {
 		"limit": 4
@@ -1484,9 +1483,8 @@
 		"retry": 6
 	},
 	"people.updateTag": {
-		"limit": 5,
-		"retry": 6,
-		"reads": "T-498: 2 reads in a row (read of person+person_tag+tag, then read of tag); the follow-up merges them or says why they cannot be one statement."
+		"limit": 4,
+		"retry": 6
 	},
 	"people.withdrawCommitment": {
 		"limit": 6,
@@ -1562,7 +1560,7 @@
 		"limit": 16,
 		"retry": 4,
 		"reason": "The photo bytes go to private storage between three short transactions, so the provider call holds no lock: the session check and the staged file locked to record its size and hash; the session check, the file-key advisory lock, the file locked again and the session checked once more before the upload; then the session check, the file marked ready and its audit. Its largest first run: 6 transaction, 3 locked read, 4 read, 3 write.",
-		"reads": "T-498: 2 reads in a row (read of account+discovery+lifecycle_witness+organization+person+seat+tenant, then locked read of file_object); the follow-up merges them or says why they cannot be one statement."
+		"reads": "Each of the three transactions opens with the shared session check (currentActor in packages/domain/src/access/session.ts, the actor resolver every request and the private-storage authority use, held by the formal permissions model); the staged file's lock cannot join that one shared statement without changing the gate for every caller."
 	},
 	"pipeline.addNote": {
 		"limit": 4,
