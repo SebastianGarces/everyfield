@@ -44,7 +44,7 @@ export async function onboardingEntry(tx: Database | Transaction, actor: EvryAct
 		sessionId: actor.session,
 		expiresAt: new Date(Date.now() + 60_000).toISOString(),
 	};
-	return readOnboardingEntry(tx as Database, native.onboarding, session as never, actor.authority, true);
+	return readOnboardingEntry(tx, native.onboarding, session as never, actor.authority, true);
 }
 
 const step = (id: string, label: string, saved: boolean, answer: string | null): SourceRow => ({
