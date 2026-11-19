@@ -245,7 +245,13 @@
 }
 
 [data-product-root] [data-sonner-toast] {
+	width: var(--width);
 	transition-timing-function: var(--ef-slide-ease);
+}
+@media (max-width: 600px) {
+	[data-product-root] [data-sonner-toast] {
+		width: calc(100% - var(--mobile-offset-left) * 2);
+	}
 }
 
 [data-product-root] .ef-light-island [data-variant="light"] {
