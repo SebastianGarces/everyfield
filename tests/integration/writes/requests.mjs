@@ -662,10 +662,14 @@ try {
 		assert.equal(r.status, "ok", JSON.stringify(r));
 		return r.value;
 	};
-	await outcome("person", { kind: "person", personId: maria.id }, {
-		outcome: "contacted",
-		occurredAt: tried.value.record.occurredAt,
-	});
+	await outcome(
+		"person",
+		{ kind: "person", personId: maria.id },
+		{
+			outcome: "contacted",
+			occurredAt: tried.value.record.occurredAt,
+		},
+	);
 	const dropped = await outcome("no longer needed", await followUp(), { outcome: "no_longer_needed" });
 	assert.equal(dropped.task.status, "no_longer_needed");
 	const other = await followUp();
