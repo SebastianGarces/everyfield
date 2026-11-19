@@ -392,6 +392,8 @@ const isReference = (node) => {
 	return !parent.type.startsWith("TS");
 };
 
+const PURE_IMPORTS = new Set(["@everyfield/db/deployment"]);
+
 const pureModule = {
 	meta: { type: "problem" },
 	create(context) {
@@ -401,7 +403,10 @@ const pureModule = {
 				message: `This module is a pure rule that reads only its arguments and does no I/O. Remove the ${what}.`,
 			});
 		return {
-			ImportDeclaration: (node) => typeOnly(node) || report(node, "value import (a type import is fine)"),
+			ImportDeclaration: (node) =>
+				typeOnly(node) ||
+				PURE_IMPORTS.has(node.source.value) ||
+				report(node, "value import (a type import or a pure module is fine)"),
 			ImportExpression: (node) => report(node, "dynamic import"),
 			AwaitExpression: (node) => report(node, "await"),
 			ForOfStatement: (node) => node.await && report(node, "for await"),
@@ -573,7 +578,9 @@ const keyName = (key, computed) =>
 		? key.name
 		: key.type === "Literal" && typeof key.value === "string"
 			? key.value
-			: null;
+			: key.type === "TemplateLiteral" && key.expressions.length === 0
+				? (key.quasis[0]?.value.cooked ?? null)
+				: null;
 const memberName = (node) => (node?.type === "MemberExpression" ? keyName(node.property, node.computed) : null);
 const isMember = (node, objects, names) =>
 	node?.type === "MemberExpression" &&
@@ -1107,6 +1114,37 @@ const storageClient = {
 		return moduleSources((node, name) => {
 			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
 		});
+	},
+};
+
+export const DEPLOYMENT_MODULE = "packages/db/src/deployment.ts";
+const DEPLOYMENT_VARIABLES = new Set(["VERCEL", "VERCEL_ENV"]);
+
+const deploymentEnv = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === DEPLOYMENT_MODULE || !PRODUCT_CODE.test(path)) return {};
+		const report = (node) =>
+			context.report({
+				node,
+				message: `Ask ${DEPLOYMENT_MODULE} where the code runs (isProduction, isTestDeployment, runsOffVercel, trustsVercelForwardedFor): it is the one reader of VERCEL and VERCEL_ENV, and an unrecognized value fails closed there.`,
+			});
+		const named = (key) => !key.computed && key.type === "Identifier" && DEPLOYMENT_VARIABLES.has(key.name);
+		return {
+			MemberExpression(node) {
+				if (!node.computed && named(node.property)) report(node);
+			},
+			Property(node) {
+				if (!node.computed && named(node.key)) report(node);
+			},
+			Literal(node) {
+				if (DEPLOYMENT_VARIABLES.has(node.value)) report(node);
+			},
+			TemplateLiteral(node) {
+				if (node.expressions.length === 0 && DEPLOYMENT_VARIABLES.has(node.quasis[0]?.value.cooked)) report(node);
+			},
+		};
 	},
 };
 
@@ -2003,6 +2041,7 @@ export default {
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
+		"deployment-env": deploymentEnv,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
