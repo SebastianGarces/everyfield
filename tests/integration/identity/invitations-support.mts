@@ -10,7 +10,7 @@ import {
 	createIdentityService,
 } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { refuse } from "../../../packages/domain/src/identity/invitation-core.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";

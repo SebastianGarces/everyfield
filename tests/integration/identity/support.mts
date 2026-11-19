@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { once } from "node:events";
 import { testDatabase } from "../../support/test-database.mts";
 import { createIdentityService } from "../../../packages/domain/src/identity/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 
 export async function fixture() {

@@ -10,7 +10,7 @@ import { feedbackMailPass } from "../../../apps/web/src/features/feedback/mail.t
 import { feedbackPublicationMount } from "../../../apps/web/src/features/feedback/publication.ts";
 import { runDueFeedbackPublication } from "../../../apps/web/src/server/jobs/feedback-publication.ts";
 import { githubIssues } from "../../../apps/web/src/server/jobs/github.ts";
-import type { MailPayload, MailTransport } from "../../../apps/web/src/server/jobs/mail.ts";
+import type { MailPayload, MailTransport } from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";

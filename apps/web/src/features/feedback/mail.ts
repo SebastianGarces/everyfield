@@ -4,13 +4,7 @@ import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { database } from "../../server/database.ts";
 import type { OperatorMail, OperatorNotice } from "../../server/jobs/feedback-publication.ts";
-import {
-	createMailService,
-	MAIL_PASSES,
-	runDueMail,
-	type MailPass,
-	type MailTransport,
-} from "../../server/jobs/mail.ts";
+import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "@everyfield/domain/jobs";
 import { serverConfig, serverEnv, type ServerConfig, type ServerEnv } from "../../server/config.ts";
 
 const operatorAddress = z.email().max(320);

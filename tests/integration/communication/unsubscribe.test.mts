@@ -8,7 +8,7 @@ import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { createNotificationProducer } from "../../../packages/domain/src/notifications/index.ts";
 import { GET as outboxRoute } from "../../../apps/web/src/app/api/dev/outbox/route.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
-import { createMailService, mailPurpose, mailUnsubscribe } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService, mailPurpose, mailUnsubscribe } from "../../../packages/domain/src/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";

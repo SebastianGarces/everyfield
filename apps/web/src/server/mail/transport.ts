@@ -7,7 +7,7 @@ import { serverConfig, serverEnv } from "../config.ts";
 import type { DeliveryTransport } from "@everyfield/domain/communication";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
 import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
-import type { MailTransport } from "../jobs/mail.ts";
+import type { MailTransport } from "@everyfield/domain/jobs";
 import { createResendTransport } from "../jobs/resend.ts";
 import type { Database } from "@everyfield/db/client";
 import { isTestDeployment } from "@everyfield/db/deployment";

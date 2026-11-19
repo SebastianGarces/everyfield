@@ -6,7 +6,7 @@ import { seeds, waitingOnLock as sharedWaitingOnLock } from "../../support/fixtu
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/index.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 
 const database = await testDatabase({ prefix: "wp007", max: 8 });

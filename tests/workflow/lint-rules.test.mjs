@@ -934,7 +934,7 @@ export const e: string = "x";
 	assert.deepEqual(hits("packages/domain/src/notifications/x.ts"), [1, 3, 4, 7, 8]);
 	assert.deepEqual(hits("apps/web/src/features/x/mail.ts"), [1, 3, 4, 7, 8]);
 	assert.deepEqual(hits("packages/domain/src/communication/delivery.ts"), []);
-	assert.deepEqual(hits("apps/web/src/server/jobs/mail.ts"), []);
+	assert.deepEqual(hits("packages/domain/src/jobs/mail.ts"), []);
 });
 
 test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {

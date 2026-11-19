@@ -308,7 +308,7 @@ const staticKey = (node) =>
 
 const PROVIDER_KEY_MINTS = new Set([
 	"packages/domain/src/communication/delivery.ts",
-	"apps/web/src/server/jobs/mail.ts",
+	"packages/domain/src/jobs/mail.ts",
 ]);
 const PROVIDER_KEY = "ProviderKey";
 const PROVIDER_KEY_HOME = "packages/contracts/src/common/values.ts";
