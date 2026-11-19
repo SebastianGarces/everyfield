@@ -1776,3 +1776,21 @@ test("INV-lint: a read exported from a server action module or declared as an in
 		],
 	);
 });
+
+test("INV-lint: a server action parameter typed as a trusted shape is reported, unknown, primitives, FormData and their unions are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\ntype Input = { id: string };\nexport async function save(input: Input) {}\nexport async function mode(kind: "a" | "b") {}\nexport async function list(ids: string[]) {}\nexport const arrow = async ({ id }: { id: string }) => id;\nasync function hidden(input: Input) {}\nexport { hidden as renamed };\nexport async function fine(a: unknown, b: string, c: number | null, d?: boolean, e: FormData = new FormData(), f = "now") {}\nasync function local(input: Input) {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function inline(input: { id: string }) {\n\t\t"use server";\n\t}\n\treturn inline;\n}\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function save(input: { id: string }) {}\n`,
+		}).filter((hit) => hit.endsWith("action-params-unknown")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:3 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:4 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:5 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:6 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:7 action-params-unknown",
+		],
+	);
+});
