@@ -1383,13 +1383,72 @@
 				"src/features/settings/ProductSettings.tsx",
 				"src/features/settings/sections/**",
 				"src/features/settings/brand/BrandSection.tsx",
-				"src/features/settings/preview/**",
-				"src/features/evry/conversation/panel.tsx",
-				"src/features/feedback/FeedbackOverlay.tsx",
-				"src/features/wiki/chrome.tsx"
+				"src/features/settings/preview/**"
 			],
 			"rules": {
-				"no-restricted-imports": "off"
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/EvryPanel.tsx", "**/FeedbackDialog.tsx", "**/overlays.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/features/evry/conversation/panel.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/SettingsDialog", "**/SettingsDialog.tsx", "**/FeedbackDialog.tsx", "**/overlays.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/features/feedback/FeedbackOverlay.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/EvryPanel.tsx", "**/SettingsDialog", "**/SettingsDialog.tsx", "**/overlays.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/features/wiki/chrome.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/EvryPanel.tsx", "**/SettingsDialog", "**/SettingsDialog.tsx", "**/FeedbackDialog.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
 			}
 		}
 	]
