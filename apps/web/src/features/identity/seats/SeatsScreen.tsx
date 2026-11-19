@@ -34,7 +34,8 @@ import { Refusal, useIntent } from "../../../components/intent.ts";
 import { ProblemLine } from "../../organizations/parts";
 import { useOwnSeatChange } from "../seat-context.ts";
 import { FormMessage } from "../parts";
-import { readSeats, readSeatsPage, runSeatCommand, type SeatOperation } from "./actions";
+import { runSeatCommand, type SeatOperation } from "./actions";
+import { readSeats, readSeatsPage } from "./fetch.ts";
 import { RemoveDialog } from "./RemoveDialog";
 import {
 	emailProblem,

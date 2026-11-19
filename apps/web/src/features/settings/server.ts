@@ -227,8 +227,11 @@ function refusal(code: keyof typeof RETRY): { status: "refused"; error: Settings
 	};
 }
 
-export async function readSection(raw: unknown): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
-	const viewer = await signedIn();
+export async function readSection(
+	session: Session,
+	raw: unknown,
+): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
+	const viewer = signedAs(session);
 	const ops = settingsMount();
 	if (!viewer || !ops) return refusal("access_denied");
 	try {
@@ -415,9 +418,12 @@ async function logged<T>(outcome: string, body: () => Promise<SettingsReply<T>>)
 	}
 }
 
-async function signedIn(): Promise<Signed | null> {
-	const v = await getViewer();
+export type Session = Awaited<ReturnType<typeof getViewer>>;
+
+function signedAs(v: Session): Signed | null {
 	if (v?.status !== "active" || !v.authority) return null;
 	const principal = { display_name: v.displayName, email: v.email, verified: v.verified };
 	return { authority: v.authority, principal, accountId: v.accountId };
 }
+
+const signedIn = async () => signedAs(await getViewer());

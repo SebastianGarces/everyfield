@@ -670,7 +670,7 @@ try {
 	const all = await marking("POST notifications.markAllVisibleRead", "markAllVisibleRead", new Date().toISOString());
 	assert.deepEqual(all, { status: "ok", value: { markedIds: [owned[2]] } });
 	const settings = "apps/web/src/features/settings/actions.ts";
-	const section = await act(null, "/settings", settings, "getSection", [{ section: "account" }]);
+	const { value: section } = await read(null, "/settings/read", "section", { section: "account" });
 	assert.equal(section.status, "ok", JSON.stringify(section));
 	const saved = await act("POST settings.saveSection (account)", "/settings", settings, "saveSection", [
 		{
@@ -762,20 +762,21 @@ try {
 	assert.equal(missed.status, 200);
 	assert.equal((await missed.arrayBuffer()).byteLength > 0, true);
 	assert.equal(objectReads(), readsBefore + 1);
-	const suggested = await act("POST settings.brand.suggestColors", "/settings/brand", brandActions, "suggestColors", [
-		{ assetKind: "full_logo" },
-	]);
+	const { value: suggested } = await read("GET /settings/read?what=colors", "/settings/read", "colors", {
+		assetKind: "full_logo",
+	});
 	assert.equal(suggested.status, "ok", JSON.stringify(suggested));
 	assert.equal(suggested.value.suggestedPrimary, "#2E7D32");
 	for (const [action, args] of [
 		["requestAssetUpload", [{ slot: "mark", mediaType: "image/png", byteLength: logo.length, altText: "x" }]],
 		["finalizeAssetUpload", [{ uploadId: ticket.value.uploadId, slot: "mark", altText: "x", expectedRevision: "2" }]],
-		["suggestColors", [{ assetKind: "full_logo" }]],
 		["saveBrand", [{ expectedRevision: "2", patch: { assets: { full_logo: null } } }]],
 	]) {
 		const denial = await act(null, "/settings/brand", brandActions, action, args, member.cookie);
 		assert.deepEqual([denial.status, denial.error?.code], ["refused", "access_denied"], action);
 	}
+	const colorDenial = await read(null, "/settings/read", "colors", { assetKind: "full_logo" }, member.cookie);
+	assert.deepEqual([colorDenial.value.status, colorDenial.value.error?.code], ["refused", "access_denied"]);
 	assert.equal((await asset(null, "PUT", ticket.value.uploadId, member.cookie, logo)).status, 403);
 	for (const cookie of [member.cookie, ""]) {
 		assert.equal((await asset(null, "GET", fileId, cookie)).status, 404);
