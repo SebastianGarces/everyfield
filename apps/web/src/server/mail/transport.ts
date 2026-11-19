@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 import { MAIL_BATCH_LIMIT } from "@everyfield/contracts/communication";
 import { serverConfig, serverEnv } from "../config.ts";
+import { asLogNames, logLine } from "@everyfield/domain/log";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
@@ -133,14 +134,25 @@ export type CaptureOptions = {
 
 export const appOrigin = (): string => new URL(serverConfig().IDENTITY_ORIGIN).origin;
 
+const refused = new Set<string>();
+
+function mailRefused(names: readonly string[]): null {
+	const key = names.join(",");
+	if (!refused.has(key)) {
+		refused.add(key);
+		logLine({ component: "mail", event: "settings_refused", settings: asLogNames(names) });
+	}
+	return null;
+}
+
 export function mailReady(): MailReady | null {
 	const config = serverConfig(),
 		env = serverEnv();
 	const apiKey = env.RESEND_API_KEY?.trim() || null;
-	if (apiKey === null && !isTestDeployment(env)) return null;
+	if (apiKey === null && !isTestDeployment(env)) return mailRefused(["RESEND_API_KEY"]);
 	const encryptionKey = Buffer.from(config.IDENTITY_MAIL_KEY, "hex");
 	const addressKey = Buffer.from(config.IDENTITY_ADDRESS_KEY, "hex");
-	if (encryptionKey.equals(addressKey)) return null;
+	if (encryptionKey.equals(addressKey)) return mailRefused(["IDENTITY_ADDRESS_KEY", "IDENTITY_MAIL_KEY"]);
 	return {
 		keys: {
 			encryptionKey,
