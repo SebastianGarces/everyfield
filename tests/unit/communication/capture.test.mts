@@ -197,9 +197,8 @@ test("AC:CASE-COM-012 a silent capture answers nothing, so each not-confirmed st
 	const id = held.outcome === "ids" ? held.ids[0]! : "";
 	const before = (await readOutbox(outbox)).length;
 	assert.deepEqual(await silent.cancel([id], signal()), [{ outcome: "unknown" }]);
-	assert.deepEqual(await silent.reschedule([id], new Date(Date.now() + 5 * 86_400_000).toISOString(), signal()), [
-		{ outcome: "unknown" },
-	]);
+	const later = new Date(Date.now() + 5 * 86_400_000).toISOString();
+	assert.deepEqual(await silent.reschedule([id], later, signal()), [{ outcome: "unknown" }]);
 	assert.deepEqual(
 		await silent.send(
 			{
