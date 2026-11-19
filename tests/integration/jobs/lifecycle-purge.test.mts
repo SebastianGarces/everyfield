@@ -70,6 +70,7 @@ before(async () => {
 			if (!request) throw Error("missing_native_request");
 			return { request, trustedIp: "198.51.100.21", viewer: null };
 		},
+		diagnostic: () => {},
 		responseCookies: async () => {},
 		deliverVerification: async () => {},
 		securityNotice: async () => {},
