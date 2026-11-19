@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
@@ -8,9 +8,11 @@ import {
 	check as runCheck,
 	type CheckOptions,
 	type CheckRecord,
+	checkTmp,
 	type Gh,
 	MAP_ARTIFACT,
 	NIGHTLY_WORKFLOW,
+	OXLINT_PRELOAD,
 	REPO,
 	type Runner,
 	spawnRunner,
@@ -113,7 +115,12 @@ test("T-41 a one-package change runs its package checks through the merge-base a
 		[
 			{ id: "lint", command: `corepack pnpm ${filter} --if-present run lint`, result: "passed", tests: null },
 			{ id: "typecheck", command: null, result: "skipped", tests: null },
-			{ id: "test:unit", command: `corepack pnpm ${filter} --if-present run test:unit`, result: "passed", tests: 5 },
+			{
+				id: "test:unit",
+				command: `corepack pnpm ${filter} --workspace-concurrency=2 --if-present run test:unit`,
+				result: "passed",
+				tests: 5,
+			},
 			{ id: "test:db", command: null, result: "skipped", tests: null },
 		],
 	);
@@ -430,6 +437,16 @@ function fakeDb({
 	return { run, calls, commands: () => calls.map((c) => c.command) };
 }
 const noWait = { readyTimeoutMs: 0, sleep: () => {}, watch: () => () => {} };
+function callerEnv(t: { after(fn: () => void): void }, values: Record<string, string | undefined>) {
+	const saved = Object.fromEntries(Object.keys(values).map((key) => [key, process.env[key]]));
+	const set = (entries: Record<string, string | undefined>) => {
+		for (const [key, value] of Object.entries(entries))
+			if (value === undefined) delete process.env[key];
+			else process.env[key] = value;
+	};
+	t.after(() => set(saved));
+	set(values);
+}
 const dbEntry = (record: CheckRecord) => record.checks.find((c) => c.id === "test:db")!;
 
 test("T-105 a packages/domain change runs no census: test:db is skipped with the reason", (t) => {
@@ -448,6 +465,7 @@ test("T-105 a packages/domain change runs no census: test:db is skipped with the
 });
 
 test("T-105 a full run runs every test:db but the census, one after another on one throwaway Postgres", (t) => {
+	callerEnv(t, { EVF_NODE_TEST_FLAGS: undefined });
 	const { root, home } = repo(t, { "docs/a.md": "b\n" }, DB_PACKAGES);
 	const { run, calls, commands } = fakeDb({
 		listed: ["@everyfield/db", "@everyfield/domain", "@everyfield/evry", "@everyfield/ui"],
@@ -500,7 +518,15 @@ test("T-105 a full run runs every test:db but the census, one after another on o
 	for (const c of calls.filter((c) => c.command.includes("db:migrate") || c.command.includes("test:db")))
 		assert.deepEqual(
 			{ ...c.env, PATH: undefined },
-			{ PATH: undefined, DATABASE_URL: url, DATABASE_URL_UNPOOLED: url, EARLY_ACCESS_TEST_DATABASE: "1", CI: "true" },
+			{
+				PATH: undefined,
+				TMPDIR: checkTmp(root, home),
+				EVF_NODE_TEST_FLAGS: "--test-concurrency=3",
+				DATABASE_URL: url,
+				DATABASE_URL_UNPOOLED: url,
+				EARLY_ACCESS_TEST_DATABASE: "1",
+				CI: "true",
+			},
 		);
 	for (const c of calls.filter((c) => !c.command.includes("db:migrate") && !c.command.includes("test:db")))
 		assert.equal(c.env.DATABASE_URL, undefined, c.command);
@@ -579,4 +605,89 @@ test("T-105 the throwaway database uses the image of GitHub CI's db job", () => 
 	const ci = readFileSync(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
 	const job = ci.split(/^  db:\n/m)[1]!.split(/^  \S/m)[0]!;
 	assert.equal(job.match(/^\s+image: (\S+)$/m)?.[1], IMAGE);
+});
+
+test("T-490 every child of a full run gets the checkout's private TMPDIR and the capped parallelism", (t) => {
+	callerEnv(t, { EVF_NODE_TEST_FLAGS: undefined, NODE_OPTIONS: undefined });
+	const { root, home } = repo(t, { "docs/a.md": "b\n" }, DB_PACKAGES);
+	const { run, calls } = fakeDb({ listed: ["@everyfield/db", "@everyfield/ui"] });
+	const { record } = check({ root, full: true, home, run, database: noWait });
+	const tmp = checkTmp(root, home);
+	assert.ok(tmp.startsWith(home) && !tmp.startsWith(root), tmp);
+	assert.ok(existsSync(tmp));
+	for (const id of ["lint", "test:unit", "test:db", "docs", "workflow"])
+		assert.ok(
+			calls.some((c) => c.env.TMPDIR === tmp && c.command.includes(id === "docs" ? "check-all" : id)),
+			id,
+		);
+	for (const c of calls) {
+		assert.equal(c.env.TMPDIR, tmp, c.command);
+		assert.equal(c.env.EVF_NODE_TEST_FLAGS, "--test-concurrency=3", c.command);
+		assert.equal(c.env.NODE_OPTIONS, c.command.endsWith("run lint") ? OXLINT_PRELOAD : undefined, c.command);
+	}
+	assert.equal(
+		record.checks.find((c) => c.id === "test:unit")!.command,
+		"corepack pnpm -r --workspace-concurrency=2 --if-present run test:unit",
+	);
+	assert.equal(sh(root, "status", "--porcelain", "--ignored"), "");
+});
+
+test("T-490 a caller's EVF_NODE_TEST_FLAGS and NODE_OPTIONS reach the children with the caps", (t) => {
+	const { root, home } = repo(t, { "packages/ui/src/button.ts": "export const x = 1;\n" });
+	callerEnv(t, { EVF_NODE_TEST_FLAGS: "--test-concurrency=2", NODE_OPTIONS: "--max-old-space-size=4096" });
+	const { run, calls } = fakeDb({ listed: ["@everyfield/ui"] });
+	check({ root, full: false, home, run, database: noWait });
+	assert.ok(calls.length);
+	for (const c of calls) assert.equal(c.env.EVF_NODE_TEST_FLAGS, "--test-concurrency=2", c.command);
+	assert.equal(
+		calls.find((c) => c.command.endsWith("run lint"))!.env.NODE_OPTIONS,
+		`--max-old-space-size=4096 ${OXLINT_PRELOAD}`,
+	);
+});
+
+test("T-490 each run empties its own TMPDIR first and leaves another checkout's alone", (t) => {
+	const one = repo(t, { "scripts/dev.ts": "export const y = 2;\n" });
+	const two = repo(t, { "scripts/dev.ts": "export const y = 3;\n" });
+	const mine = checkTmp(one.root, one.home);
+	const theirs = checkTmp(two.root, one.home);
+	assert.notEqual(mine, theirs);
+	for (const dir of [mine, theirs]) {
+		mkdirSync(join(dir, "tsx-501"), { recursive: true });
+		writeFileSync(join(dir, "tsx-501", "stale.json"), "{}");
+	}
+	let seen: string[] | undefined;
+	const { run } = fake();
+	const { record } = check({
+		root: one.root,
+		full: false,
+		home: one.home,
+		run: (command, args, options) => {
+			seen ??= readdirSync(options.env.TMPDIR!);
+			return run(command, args, options);
+		},
+	});
+	assert.equal(record.result, "passed");
+	assert.deepEqual(seen, []);
+	assert.ok(!existsSync(join(mine, "tsx-501")));
+	assert.ok(existsSync(join(theirs, "tsx-501", "stale.json")));
+});
+
+test("T-490 the lint preload adds --threads=3 to oxlint's arguments only, and keeps a thread count already given", (t) => {
+	const dir = mkdtempSync(join(tmpdir(), "evf-check-oxlint-"));
+	t.after(() => rmSync(dir, { recursive: true, force: true }));
+	const print = "console.log(JSON.stringify(process.argv.slice(2)))";
+	for (const script of ["oxlint/bin/oxlint", "eslint/bin/eslint.js"]) {
+		mkdirSync(dirname(join(dir, script)), { recursive: true });
+		writeFileSync(join(dir, script), print);
+	}
+	const argv = (script: string, ...args: string[]) =>
+		JSON.parse(
+			execFileSync(process.execPath, [join(dir, script), ...args], {
+				encoding: "utf8",
+				env: { ...process.env, NODE_OPTIONS: OXLINT_PRELOAD },
+			}),
+		);
+	assert.deepEqual(argv("oxlint/bin/oxlint", "-c", "x.json", "."), ["-c", "x.json", ".", "--threads=3"]);
+	assert.deepEqual(argv("oxlint/bin/oxlint", "--threads=1", "."), ["--threads=1", "."]);
+	assert.deepEqual(argv("eslint/bin/eslint.js", "."), ["."]);
 });

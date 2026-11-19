@@ -59,7 +59,7 @@ import {
 	type OutcomeMutation,
 	type Outcome,
 } from "./model.ts";
-import { actorName, EntryFacts, LastContact, OutcomeBadge, useOpener } from "./parts.tsx";
+import { actorName, EntryFacts, LastContact, OutcomeBadge } from "./parts.tsx";
 import {
 	DialogNotice,
 	NoticeInDialog,
@@ -114,7 +114,6 @@ function FollowUpsCard({
 	const [duties, setDuties] = useState<DutyItem[]>(initial.duties?.items ?? []);
 	const [obligations, setObligations] = useState(initial.obligations?.items ?? []);
 	const [adding, setAdding] = useState(false);
-	const addOpener = useOpener();
 	const lane = useSaveIntent({ explain: problemText });
 	const failed = initial.duties === null;
 	const moreDuties = useMore(
@@ -156,8 +155,7 @@ function FollowUpsCard({
 						variant="secondary"
 						icon={Add01Icon}
 						disabled={lane.wait !== null}
-						onClick={(e) => {
-							addOpener.mark(e);
+						onClick={() => {
 							setAdding(true);
 						}}
 						{...warmOn(prefetchOwners)}
@@ -254,7 +252,6 @@ function FollowUpsCard({
 			) : null}
 			{adding ? (
 				<AddFollowUpDialog
-					returnFocus={addOpener.returnFocus}
 					person={person}
 					lane={lane}
 					onClose={() => setAdding(false)}
@@ -282,7 +279,6 @@ function ContactLogCard({
 }) {
 	const [log, setLog] = useState(initial);
 	const [editing, setEditing] = useState<Editing | null>(null);
-	const opener = useOpener();
 	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
 	const lane = useSaveIntent({ explain: problemText });
 	const first = person.label.split(" ")[0] || person.label;
@@ -342,8 +338,7 @@ function ContactLogCard({
 						variant="secondary"
 						icon={Call02Icon}
 						disabled={lane.wait !== null}
-						onClick={(e) => {
-							opener.mark(e);
+						onClick={() => {
 							setEditing({ kind: "record" });
 						}}
 					>
@@ -399,8 +394,6 @@ function ContactLogCard({
 												<IconButton
 													icon={MoreHorizontalIcon}
 													label="Change this entry"
-													onPointerDown={opener.mark}
-													onKeyDown={opener.mark}
 													size="sm"
 													disabled={lane.wait !== null}
 												/>
@@ -433,7 +426,6 @@ function ContactLogCard({
 			)}
 			{editing ? (
 				<OutcomeDialog
-					returnFocus={opener.returnFocus}
 					editing={editing}
 					personId={person.id}
 					first={first}
@@ -462,10 +454,8 @@ function OutcomeDialog({
 	onClose,
 	onSaved,
 	onConflict,
-	returnFocus,
 }: {
 	editing: Editing;
-	returnFocus: (e: Event) => void;
 	personId: string;
 	first: string;
 	lane: SaveIntent;
@@ -484,7 +474,7 @@ function OutcomeDialog({
 
 	async function submit() {
 		const why = editing.kind === "record" ? null : reasonOf(reason);
-		const parsed = editing.kind === "withdraw" ? null : outcomeInput(draft, { completable: false });
+		const parsed = editing.kind === "withdraw" ? null : outcomeInput(draft, { completable: false, now: new Date() });
 		const next: typeof errors = {
 			...(parsed && !parsed.ok ? parsed.errors : {}),
 			...(why && !why.ok ? { reason: why.error } : {}),
@@ -533,7 +523,7 @@ function OutcomeDialog({
 	return (
 		<NoticeInDialog {...lane.noticeProps}>
 			<Dialog open onOpenChange={(open) => !open && onClose()}>
-				<DialogContent size="md" onCloseAutoFocus={returnFocus}>
+				<DialogContent size="md">
 					<form
 						ref={focusProblem}
 						noValidate

@@ -41,11 +41,16 @@
 		"typescript/prefer-namespace-keyword": "error",
 		"typescript/triple-slash-reference": "error",
 		"everyfield/resend-senders": "error",
+		"everyfield/raw-sql-literal": "error",
 		"everyfield/request-actor": "error",
+		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
+		"everyfield/server-log": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/storage-client": "error",
+		"everyfield/deployment-env": "error",
 		"everyfield/max-state": "error",
+		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error"
 	},
 	"overrides": [
@@ -106,6 +111,12 @@
 			}
 		},
 		{
+			"files": ["tests/workflow/**/*.ts"],
+			"rules": {
+				"typescript/no-explicit-any": "error"
+			}
+		},
+		{
 			"files": ["tests/**/*.cjs"],
 			"rules": {
 				"typescript/no-require-imports": "off"
@@ -122,6 +133,12 @@
 			}
 		},
 		{
+			"files": ["packages/contracts/src/**"],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
 			"files": ["packages/evry/src/**", "packages/domain/src/**"],
 			"rules": {
 				"everyfield/private-care-scope": "error"
@@ -134,7 +151,7 @@
 			}
 		},
 		{
-			"files": ["packages/domain/src/mail-recipients.ts"],
+			"files": ["packages/domain/src/mail-recipients.ts", "packages/db/src/deployment.ts"],
 			"rules": {
 				"everyfield/pure-module": "error"
 			}

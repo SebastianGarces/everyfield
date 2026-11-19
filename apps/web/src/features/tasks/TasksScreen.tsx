@@ -39,6 +39,7 @@ import { KeyValue, KeyValueList, Pagination, StatusBadge } from "@everyfield/ui/
 import { cn, createDebouncer, Icon } from "@everyfield/ui/foundations";
 import { usePathname, useRouter } from "next/navigation";
 import { useId, useOptimistic, useState, useSyncExternalStore, useTransition, type ReactNode } from "react";
+import { localToday } from "../../components/clock.ts";
 import { writeAddress } from "../../components/location.ts";
 import type { SaveLane, SaveSpec, Wait } from "../../components/save/model.ts";
 import { NoticeInDialog, SaveNotice } from "../../components/save/parts.tsx";
@@ -200,7 +201,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 	const setReport = (report: Report | null) => changePage(() => ({ report }));
 	const listed = () => pageStore.getState().items;
 
-	const store = useLocalStore(() => createTasksStore({ opened: loaded.opened }));
+	const store = useLocalStore(() => createTasksStore({ opened: loaded.opened, report: (line) => console.error(line) }));
 	const details = useStore(store, (s) => s.details);
 	const openId = useStore(store, (s) => s.openId);
 	const dialogFor = useStore(store, (s) => s.dialogFor);
@@ -610,7 +611,12 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 		const after = (t: TaskItem, revision: string): TaskItem =>
 			kind === "complete"
 				? { ...t, revision: revision as never, status: "complete", completedAt: new Date().toISOString() as never }
-				: { ...t, revision: revision as never, due: due as TaskItem["due"], overdue: previewOverdue(due!) };
+				: {
+						...t,
+						revision: revision as never,
+						due: due as TaskItem["due"],
+						overdue: previewOverdue(due!, localToday()),
+					};
 		actions.startBulk(
 			selectedTasks.map((t) => t.id),
 			() =>

@@ -209,7 +209,9 @@ test("the route refuses other origins, other content types, oversize and off-sch
 		const response = await pending();
 		assert.equal(response.status, status, name);
 		noStore(response);
-		assert.equal((await response.json()).status, "refused", name);
+		const body = await response.json();
+		if (status === 403) assert.deepEqual(body, { code: "origin_denied" }, name);
+		else assert.equal(body.status, "refused", name);
 		assert.deepEqual(state.domain, [], `${name} reached the domain`);
 	}
 });

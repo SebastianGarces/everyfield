@@ -8,7 +8,8 @@ import { useId, useRef, useState } from "react";
 import { useRead } from "../../../components/read.tsx";
 import type { OrderRead, OrderRow } from "../port";
 import { newRequestKey } from "../port";
-import { SaveError, SaveFooter, SectionBody } from "../SettingsDialog";
+import { SaveFooter, SectionBody } from "../SettingsDialog";
+import { SaveError } from "../SaveError";
 import { useDraft, useReads, useSettings } from "../store";
 import {
 	moved,

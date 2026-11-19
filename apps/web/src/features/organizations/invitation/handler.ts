@@ -1,6 +1,7 @@
 import "server-only";
 import { command, invitationFor, namesFor, subjectFacts, viewerOf, type Reply } from "../mount";
 import { z } from "zod";
+import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 export type RelationshipInvitationRead =
 	| { kind: "signed_out" }
@@ -38,9 +39,9 @@ async function respond(input: unknown): Promise<Reply<unknown>> {
 	);
 }
 
-export async function relationshipInvitationRoute(incoming: Request): Promise<Response> {
-	const origin = process.env.IDENTITY_ORIGIN;
-	if (!origin || incoming.headers.get("origin") !== new URL(origin).origin) return json(refused("access_denied"), 403);
+export const relationshipInvitationRoute = mutatingRoute(async function relationshipInvitationRoute(
+	incoming: Request,
+): Promise<Response> {
 	if (incoming.headers.get("content-type")?.split(";")[0] !== "application/json")
 		return json(refused("invalid_input"), 415);
 	const text = await incoming.text();
@@ -55,4 +56,4 @@ export async function relationshipInvitationRoute(incoming: Request): Promise<Re
 	if (!body.success) return json(refused("invalid_input"), 400);
 	const v = body.data;
 	return json(v.op === "read" ? await read(v.invitationId, v.proof) : await respond(v.command));
-}
+});

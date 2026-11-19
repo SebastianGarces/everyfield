@@ -2,6 +2,7 @@ import "server-only";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import { brandAsset, storeBrandBytes } from "./server";
 import { ASSET_MAX_BYTES } from "@everyfield/contracts/branding";
+import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 const PRIVATE = { "Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff" };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -9,7 +10,7 @@ const REFUSAL_STATUS = { invalid_file: 422, access_denied: 403, unavailable: 503
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function brandAssetPut(request: Request, { params }: Params) {
+export const brandAssetPut = mutatingRoute(async function brandAssetPut(request: Request, { params }: Params) {
 	const { id } = await params;
 	const declared = Number(request.headers.get("content-length") ?? NaN);
 	if (!UUID.test(id)) return new Response(null, { status: 404, headers: PRIVATE });
@@ -21,7 +22,7 @@ export async function brandAssetPut(request: Request, { params }: Params) {
 	const { code, correlationId } = stored.error;
 	const status = REFUSAL_STATUS[code as keyof typeof REFUSAL_STATUS] ?? 422;
 	return Response.json({ code, correlationId }, { status, headers: PRIVATE });
-}
+});
 
 export async function brandAssetGet(request: Request, { params }: Params) {
 	const { id } = await params;

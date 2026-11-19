@@ -27,6 +27,7 @@ import {
 } from "./mail.ts";
 import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue.ts";
 import { mountMailService } from "./seated-notifications.ts";
+import { logLine } from "@everyfield/domain/log";
 
 const PLAN_LIMIT = 500;
 const DIGESTS_PER_RUN = 20;
@@ -218,7 +219,7 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 				});
 				if (outcome === "sent") sent++;
 			} catch {
-				console.error(JSON.stringify({ component: "digest", outcome: "error" }));
+				logLine({ component: "digest", outcome: "error" });
 				await finishJob(db, claim, { state: "retry_wait", code: "digest_failed" });
 			}
 		}

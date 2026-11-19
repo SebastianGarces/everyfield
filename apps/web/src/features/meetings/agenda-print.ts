@@ -4,6 +4,7 @@ import { getViewer } from "@/server/request-context";
 import { meetingId as meetingIdSchema } from "@everyfield/contracts/meetings";
 import { documentsReader } from "@everyfield/domain/documents";
 import { NextResponse } from "next/server";
+import { logFailure } from "@everyfield/domain/log";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const missing = () =>
@@ -33,7 +34,7 @@ export async function agendaRoute(request: Request, context: { params: Promise<{
 			},
 		});
 	} catch (error) {
-		console.error(JSON.stringify({ component: "documents", outcome: "agenda_print_failed", error: String(error) }));
+		logFailure({ component: "documents", outcome: "agenda_print_failed" }, error);
 		return failed();
 	}
 }

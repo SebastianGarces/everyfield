@@ -1,11 +1,12 @@
 import "server-only";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import { readPreview } from "./server.ts";
+import { mutatingRoute } from "../../server/platform/boundary.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const BODY_MAX = 64 * 1024;
 
-export async function previewRoute(request: Request) {
+export const previewRoute = mutatingRoute(async function previewRoute(request: Request) {
 	let raw: unknown;
 	try {
 		const bytes = await readBoundedBody(request, BODY_MAX);
@@ -32,4 +33,4 @@ export async function previewRoute(request: Request) {
 		}
 	}
 	return Response.json(await readPreview(body.templateId, body.format, overrides), { headers: NO_STORE });
-}
+});

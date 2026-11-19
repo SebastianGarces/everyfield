@@ -105,6 +105,45 @@ export function Panel() {
 }
 `;
 
+test("INV-sql-name: a value pasted into sql.raw is a fixed name, never string, in product code", () => {
+	const reach = `import { sql, sql as s, type SqlLiteral } from "@everyfield/db/query";
+export const a = (alias: string) => sql.raw(\`\${alias}.id\`);
+export const b = (alias) => sql.raw(alias);
+export const c = <A extends string>(alias: SqlLiteral<A>) => sql.raw(\`\${alias}.id\`);
+export const d = (alias: "m" | "n") => sql.raw(alias);
+export const e = (on: boolean) => sql.raw(on ? "x" : "y");
+const literal = (v: string) => v;
+export const f = (v: string) => sql.raw(literal(v));
+export const g = (row: { from: string }) => sql.raw(row.from);
+export const h = <F extends string>(row: { from: SqlLiteral<F> }) => sql.raw(row.from);
+export function i(col: string) { return sql\`\${sql.raw(\`r.\${col}\`)}\`; }
+export const j = (v: string) => sql.raw(String(v));
+export const k = (v: string) => sql.raw(\`\${String(v)}.id\`);
+export const l = (v: string) => s.raw(v);
+const r = sql.raw;
+export const m = (v: string) => r(v);
+type Row = { name: string };
+export const n = (v: Row["name"]) => sql.raw(v);
+export const o = (v: keyof Record<string, 1>) => sql.raw(v);
+export const p = (v: string) => { const x = v; return sql.raw(x); };
+export const q = () => { let y = "a"; return sql.raw(y); };
+const COLS = ["a", "b"] as const;
+export const t = (v: (typeof COLS)[number]) => sql.raw(v);
+export const u = () => { const z = \`\${COLS[0]}.id\`; return sql.raw(z); };
+`;
+	const reported = [2, 3, 9, 11, 12, 13, 14, 16, 18, 19, 20, 21];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/people/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		["apps/web/src/features/x/reach.ts", "packages/domain/src/people/reach.ts"]
+			.flatMap((file) => reported.map((line) => `${file}:${line} raw-sql-literal`))
+			.sort(),
+	);
+});
+
 test("INV-lint: every import form of an effect hook is reported", () => {
 	const hits = lint({ "packages/ui/src/effects.tsx": EFFECTS });
 	assert.deepEqual(
@@ -123,6 +162,44 @@ test("INV-lint: every import form of an effect hook is reported", () => {
 	);
 });
 
+test("INV-privacy: server code logs only through the log module", () => {
+	const reach = `export const a = (error) => console.error(String(error));
+export const b = () => console.log("warm");
+const c = console;
+const { warn } = console;
+import nodeConsole from "node:console";
+import { error as err } from "console";
+export const e = () => globalThis.console.error("x");
+export const f = () => globalThis["console"].error("x");
+export const g = () => self.console.error("x");
+export const h = () => window.console.error("x");
+export const i = () => process.stderr.write("x");
+export const j = () => process.stdout.write("x");
+export const k = () => require("node:console");
+export const l = () => import("node:console");
+export const m = () => globalThis.process.stderr.write("x");
+import proc from "node:process";
+export const n = () => proc.stderr.write("x");
+import { stderr } from "process";
+const { stdout } = process;
+const { error } = console;
+export const d = [c, warn, nodeConsole, err, stderr, stdout, error];
+`;
+	const lines = [...Array.from({ length: 15 }, (_, n) => n + 1), 17, 18, 19, 20];
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/server.ts": reach,
+			"packages/domain/src/people/reach.ts": reach,
+			"apps/web/src/features/x/Panel.tsx": `"use client";\n${reach}`,
+			"packages/domain/src/log.ts": reach,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		["apps/web/src/features/x/server.ts", "packages/domain/src/people/reach.ts"]
+			.flatMap((file) => lines.map((line) => `${file}:${line} server-log`))
+			.sort(),
+	);
+});
+
 test("INV-lint: a fifth state hook in a component or hook is reported, a nested callback's is not", () => {
 	const five = (name) =>
 		`export function ${name}() {\n\tconst a = useState(0);\n\tconst b = useState(0);\n\tconst c = React.useState(0);\n\tconst [d] = useReducer((s) => s, 0);\n\tconst [e] = useState(0);\n\tconst nested = () => useState(0);\n\treturn [a, b, c, d, e, nested];\n}\n`;
@@ -132,6 +209,32 @@ test("INV-lint: a fifth state hook in a component or hook is reported, a nested 
 		"apps/web/src/features/x/state.tsx:30 max-state",
 		"apps/web/src/features/x/state.tsx:7 max-state",
 	]);
+});
+
+test("INV-mint: only the settings credentials module reaches the restricted deletion session mint, in product code", () => {
+	const reach = `import { issueRestrictedDeletionSession as mint } from "./deletion.ts";
+export { issueRestrictedDeletionSession } from "./deletion.ts";
+import * as deletion from "./deletion.ts";
+export const a = deletion.issueRestrictedDeletionSession;
+export const b = deletion["issueRestrictedDeletionSession"];
+export const c = async () => (await import("./deletion.ts")).issueRestrictedDeletionSession;
+export const d = mint;
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/settings/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/domain/src/settings/credentials.ts": reach,
+			"packages/domain/src/settings/deletion.ts": "export async function issueRestrictedDeletionSession() {}\n",
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[1, 2, 4, 5, 6]
+			.flatMap((line) => [
+				`apps/web/src/features/x/reach.ts:${line} mint-callers`,
+				`packages/domain/src/settings/reach.ts:${line} mint-callers`,
+			])
+			.sort(),
+	);
 });
 
 test("INV-lint: timers, fixed waits and flushSync are reported in product code and not in tests or tools", () => {
@@ -721,7 +824,7 @@ const commitAll = (dir, message) => {
 	return git(dir, "rev-parse", "HEAD");
 };
 
-test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, ignore-file and new migration comments and every directive", () => {
+test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, ignore-file and new migration comments and every directive", () => {
 	const files = {
 		"packages/ui/src/a.css": `a { color: red; } /* why */\n.b::after { content: "/* not */"; }\n`,
 		"tsconfig.x.json": `{\n\t// why\n\t"a": "http://x"\n}\n`,
@@ -731,6 +834,9 @@ test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, ignore-file and
 		"packages/db/migrations/20990101000000_new.sql": `select '--not';\n-- why\n`,
 		"packages/ui/src/b.ts": `export const a = 1;\n// ${DISABLE} x\n/* ${OX_DISABLE} */\n`,
 		"docs/x.css": `/* exempt */\n`,
+		"tools/x.py": `#!/usr/bin/env python3\nprint(f"PR #{1}", '#not', """\n# not\n""")  # why\n`,
+		"ops/x.plist": `<plist><string>&lt;!-- not --&gt;</string>\n<!-- why -->\n</plist>\n`,
+		"docs/x.py": `# exempt\n`,
 	};
 	const dir = sandbox();
 	git(dir, "init", "-q");
@@ -747,9 +853,11 @@ test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, ignore-file and
 		".github/workflows/x.yml:1: 1",
 		".gitignore:1: 1",
 		"bin/tool:2: 1",
+		"ops/x.plist:2: 1",
 		"packages/db/migrations/20990101000000_new.sql:2: 1",
 		"packages/ui/src/a.css:1: 1",
 		"packages/ui/src/b.ts: 2",
+		"tools/x.py:4: 1",
 		"tsconfig.x.json:2: 1",
 	]);
 });
@@ -765,6 +873,28 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.equal(status, 1);
 	assert.match(out, /override for src\/x\.tsx, rule everyfield\/no-effects needs its reason/);
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
+});
+
+test("INV-mail: only the two mail modules that read or store the mail_request row name ProviderKey, in product code", () => {
+	const source = `import type { ProviderKey as PK } from "@everyfield/contracts/common";
+import type * as common from "@everyfield/contracts/common";
+import { type ProviderKey } from "@everyfield/contracts/common";
+export type { ProviderKey } from "@everyfield/contracts/common";
+type Local = PK;
+export const a = "x" as Local;
+export const b = "x" as unknown as common.ProviderKey[];
+export const c = (k: string): k is import("@everyfield/contracts/common").ProviderKey => k.length > 0;
+export const d = (k: unknown) => k as ProviderKey | undefined;
+export const e: string = "x";
+`;
+	const hits = (path) =>
+		lint({ [path]: source, "tests/integration/x.test.mts": source })
+			.filter((hit) => hit.endsWith("provider-key-mint"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10));
+	assert.deepEqual(hits("packages/domain/src/notifications/x.ts"), [1, 3, 4, 7, 8]);
+	assert.deepEqual(hits("apps/web/src/features/x/mail.ts"), [1, 3, 4, 7, 8]);
+	assert.deepEqual(hits("packages/domain/src/communication/delivery.ts"), []);
+	assert.deepEqual(hits("apps/web/src/server/jobs/mail.ts"), []);
 });
 
 test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {
@@ -862,6 +992,30 @@ export const client = S3Client;
 			"packages/domain/src/documents/reach.ts:3 storage-client",
 			"packages/domain/src/documents/reach.ts:4 storage-client",
 		],
+	);
+});
+
+test("INV-deployment: only the deployment module reads VERCEL or VERCEL_ENV, in product code", () => {
+	const reach = `export const a = process.env.VERCEL_ENV === "production";
+export const b = process.env["VERCEL"] === "1";
+export const c = (env) => env.VERCEL_ENV;
+const { VERCEL_ENV: named } = process.env;
+export const d = process.env[\`VERCEL_ENV\`];
+const key = "VERCEL_ENV";
+export const e = z.object({ VERCEL: z.literal("1") }).safeParse(process.env).success;
+export const f = [named, key, process.env.VERCEL_URL];
+`;
+	const lines = [1, 2, 3, 4, 5, 6, 7];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/mail/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/db/src/deployment.ts": "export const named = (env) => env.VERCEL_ENV ?? env.VERCEL;\n",
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		["apps/web/src/features/x/reach.ts", "packages/domain/src/mail/reach.ts"]
+			.flatMap((file) => lines.map((line) => `${file}:${line} deployment-env`))
+			.sort(),
 	);
 });
 
@@ -1160,6 +1314,69 @@ test("INV-lint: the base tree is linted at its real path, so path exemptions hol
 	);
 });
 
+test("INV-lint: in the app a caught failure never becomes an empty list, a zero or an ok result", () => {
+	const source = `export async function f(read: () => Promise<string[]>) {
+	try {
+		return { status: "ok", value: await read() };
+	} catch {
+		return { status: "ok", value: [] } as const;
+	}
+}
+export const g = (read: () => Promise<string[]>) => read().catch(() => []);
+export const h = (read: () => Promise<number>) => read().catch(function () { return 0; });
+export async function i(read: () => Promise<string[]>) {
+	let names: string[] | null = null;
+	try {
+		names = await read();
+	} catch {
+		names = [];
+	}
+	try {
+		return await read();
+	} catch (e) {
+		if (e) return [];
+		throw e;
+	}
+}
+export async function j(read: () => Promise<string[]>) {
+	try {
+		return await read();
+	} catch {
+		const none: string[] = [];
+		return none;
+	}
+}
+export async function k(read: () => Promise<string[]>) {
+	try {
+		return await read();
+	} catch (e) {
+		if ((e as { code?: string }).code === "ENOENT") return new Array<string>();
+		return e ? [] : [];
+	}
+}
+export const l = (read: () => Promise<string[]>) => read().then((x) => x, () => []);
+export const m = (read: () => Promise<{ items: string[] }>) => read().catch(() => ({ items: [] }));
+export const n = (read: () => Promise<string[]>) => read().catch(() => new Array<string>());
+export async function o(read: () => Promise<string[]>) {
+	try {
+		return await read();
+	} catch (error) {
+		if (error instanceof RangeError) return [];
+		return { status: "lost" } as const;
+	}
+}
+export const p = (read: () => Promise<string[] | null>) => read().catch(() => null);
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/server.ts": source, "packages/domain/src/x.ts": source }).filter((hit) =>
+			hit.endsWith("failure-not-empty"),
+		),
+		[5, 8, 9, 15, 20, 28, 37, 40, 41, 42]
+			.map((line) => `apps/web/src/features/x/server.ts:${line} failure-not-empty`)
+			.sort(),
+	);
+});
+
 test("INV-lint: product code that recognises a caught error by its message text is reported", () => {
 	const source = `export function f(error: unknown, p: Promise<void>) {
 	if (error instanceof Error && error.message === "unavailable") return 1;
@@ -1268,7 +1485,7 @@ export function Panel({ start, keep }) {
 	);
 }
 function attach(node) {
-	if (undefined != node) console.info("attached");
+	if (undefined != node) report("attached");
 }
 `;
 	assert.deepEqual(lint({ "apps/web/src/features/x/Old.tsx": source }), [
@@ -1535,5 +1752,27 @@ test("INV-lint: a route module or server-only module that calls a server action 
 			"apps/web/src/features/x/store.ts": `import { read } from "./actions";\nexport const load = () => read();\n`,
 		}).filter((hit) => hit.endsWith("render-reads")),
 		["apps/web/src/features/x/routes.tsx:3 render-reads", "apps/web/src/features/x/server.ts:3 render-reads"],
+	);
+});
+
+test("INV-lint: a read exported from a server action module or declared as an inline server action is reported, a write or a server-only read is not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function readThing() {}\nexport const listThings = async () => [];\nexport async function saveThing() {}\nexport async function reader() {}\nasync function loadInner() {}\nexport { loadInner as loadAlias };\nexport const { findOne, saveOne } = { findOne: async () => 1, saveOne: async () => 2 };\n`,
+			"apps/web/src/features/x/default.ts": `"use server";\nexport default async function readDefault() {}\n`,
+			"apps/web/src/features/x/all.ts": `"use server";\nexport * from "./reads.ts";\n`,
+			"apps/web/src/features/x/reads.ts": `export async function readFromAll() {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function readInline() {\n\t\t"use server";\n\t}\n\tasync function saveInline() {\n\t\t"use server";\n\t}\n\treturn [readInline, saveInline];\n}\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function readThing() {}\n`,
+		}).filter((hit) => hit.endsWith("no-read-actions")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 no-read-actions",
+			"apps/web/src/features/x/actions.ts:2 no-read-actions",
+			"apps/web/src/features/x/actions.ts:3 no-read-actions",
+			"apps/web/src/features/x/actions.ts:7 no-read-actions",
+			"apps/web/src/features/x/actions.ts:8 no-read-actions",
+			"apps/web/src/features/x/all.ts:2 no-read-actions",
+			"apps/web/src/features/x/default.ts:2 no-read-actions",
+		],
 	);
 });
