@@ -105,6 +105,45 @@ export function Panel() {
 }
 `;
 
+test("INV-sql-name: a value pasted into sql.raw is a fixed name, never string, in product code", () => {
+	const reach = `import { sql, sql as s, type SqlLiteral } from "@everyfield/db/query";
+export const a = (alias: string) => sql.raw(\`\${alias}.id\`);
+export const b = (alias) => sql.raw(alias);
+export const c = <A extends string>(alias: SqlLiteral<A>) => sql.raw(\`\${alias}.id\`);
+export const d = (alias: "m" | "n") => sql.raw(alias);
+export const e = (on: boolean) => sql.raw(on ? "x" : "y");
+const literal = (v: string) => v;
+export const f = (v: string) => sql.raw(literal(v));
+export const g = (row: { from: string }) => sql.raw(row.from);
+export const h = <F extends string>(row: { from: SqlLiteral<F> }) => sql.raw(row.from);
+export function i(col: string) { return sql\`\${sql.raw(\`r.\${col}\`)}\`; }
+export const j = (v: string) => sql.raw(String(v));
+export const k = (v: string) => sql.raw(\`\${String(v)}.id\`);
+export const l = (v: string) => s.raw(v);
+const r = sql.raw;
+export const m = (v: string) => r(v);
+type Row = { name: string };
+export const n = (v: Row["name"]) => sql.raw(v);
+export const o = (v: keyof Record<string, 1>) => sql.raw(v);
+export const p = (v: string) => { const x = v; return sql.raw(x); };
+export const q = () => { let y = "a"; return sql.raw(y); };
+const COLS = ["a", "b"] as const;
+export const t = (v: (typeof COLS)[number]) => sql.raw(v);
+export const u = () => { const z = \`\${COLS[0]}.id\`; return sql.raw(z); };
+`;
+	const reported = [2, 3, 9, 11, 12, 13, 14, 16, 18, 19, 20, 21];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/people/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		["apps/web/src/features/x/reach.ts", "packages/domain/src/people/reach.ts"]
+			.flatMap((file) => reported.map((line) => `${file}:${line} raw-sql-literal`))
+			.sort(),
+	);
+});
+
 test("INV-lint: every import form of an effect hook is reported", () => {
 	const hits = lint({ "packages/ui/src/effects.tsx": EFFECTS });
 	assert.deepEqual(
@@ -132,6 +171,32 @@ test("INV-lint: a fifth state hook in a component or hook is reported, a nested 
 		"apps/web/src/features/x/state.tsx:30 max-state",
 		"apps/web/src/features/x/state.tsx:7 max-state",
 	]);
+});
+
+test("INV-mint: only the settings credentials module reaches the restricted deletion session mint, in product code", () => {
+	const reach = `import { issueRestrictedDeletionSession as mint } from "./deletion.ts";
+export { issueRestrictedDeletionSession } from "./deletion.ts";
+import * as deletion from "./deletion.ts";
+export const a = deletion.issueRestrictedDeletionSession;
+export const b = deletion["issueRestrictedDeletionSession"];
+export const c = async () => (await import("./deletion.ts")).issueRestrictedDeletionSession;
+export const d = mint;
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/settings/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/domain/src/settings/credentials.ts": reach,
+			"packages/domain/src/settings/deletion.ts": "export async function issueRestrictedDeletionSession() {}\n",
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[1, 2, 4, 5, 6]
+			.flatMap((line) => [
+				`apps/web/src/features/x/reach.ts:${line} mint-callers`,
+				`packages/domain/src/settings/reach.ts:${line} mint-callers`,
+			])
+			.sort(),
+	);
 });
 
 test("INV-lint: timers, fixed waits and flushSync are reported in product code and not in tests or tools", () => {
@@ -889,6 +954,30 @@ export const client = S3Client;
 			"packages/domain/src/documents/reach.ts:3 storage-client",
 			"packages/domain/src/documents/reach.ts:4 storage-client",
 		],
+	);
+});
+
+test("INV-deployment: only the deployment module reads VERCEL or VERCEL_ENV, in product code", () => {
+	const reach = `export const a = process.env.VERCEL_ENV === "production";
+export const b = process.env["VERCEL"] === "1";
+export const c = (env) => env.VERCEL_ENV;
+const { VERCEL_ENV: named } = process.env;
+export const d = process.env[\`VERCEL_ENV\`];
+const key = "VERCEL_ENV";
+export const e = z.object({ VERCEL: z.literal("1") }).safeParse(process.env).success;
+export const f = [named, key, process.env.VERCEL_URL];
+`;
+	const lines = [1, 2, 3, 4, 5, 6, 7];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/mail/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/db/src/deployment.ts": "export const named = (env) => env.VERCEL_ENV ?? env.VERCEL;\n",
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		["apps/web/src/features/x/reach.ts", "packages/domain/src/mail/reach.ts"]
+			.flatMap((file) => lines.map((line) => `${file}:${line} deployment-env`))
+			.sort(),
 	);
 });
 

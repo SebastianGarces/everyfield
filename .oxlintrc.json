@@ -41,12 +41,15 @@
 		"typescript/prefer-namespace-keyword": "error",
 		"typescript/triple-slash-reference": "error",
 		"everyfield/resend-senders": "error",
+		"everyfield/raw-sql-literal": "error",
 		"everyfield/request-actor": "error",
 		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/storage-client": "error",
+		"everyfield/deployment-env": "error",
 		"everyfield/max-state": "error",
+		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error"
 	},
 	"overrides": [
@@ -147,7 +150,7 @@
 			}
 		},
 		{
-			"files": ["packages/domain/src/mail-recipients.ts"],
+			"files": ["packages/domain/src/mail-recipients.ts", "packages/db/src/deployment.ts"],
 			"rules": {
 				"everyfield/pure-module": "error"
 			}

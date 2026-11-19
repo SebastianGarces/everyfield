@@ -201,6 +201,7 @@ type SheetProps = {
 	children: ReactNode;
 	className?: string;
 	onOpenAutoFocus?: (event: Event) => void;
+	onCloseAutoFocus?: (event: Event) => void;
 	onEscapeKeyDown?: (event: KeyboardEvent) => void;
 	bodyRef?: Ref<HTMLDivElement>;
 };
@@ -217,11 +218,12 @@ export function Sheet({
 	children,
 	className,
 	onOpenAutoFocus,
+	onCloseAutoFocus,
 	onEscapeKeyDown,
 	bodyRef,
 }: SheetProps) {
 	const container = usePortalContainer();
-	const focus = useReturnFocus({ onOpenAutoFocus });
+	const focus = useReturnFocus({ onOpenAutoFocus, onCloseAutoFocus });
 	return (
 		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
 			{trigger ? <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger> : null}

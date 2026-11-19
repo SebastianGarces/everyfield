@@ -1,5 +1,5 @@
 import type { Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { meetingsWriter } from "@everyfield/domain/meetings";
 import {
 	responsibilityReader,
@@ -113,22 +113,31 @@ const name = z.string().trim().min(1).max(200);
 const text = z.string().trim().min(1).max(2000);
 const date = z.iso.date();
 
-const teamFields = (value: Record<string, unknown>, before: (column: string) => SQL) =>
-	Object.entries({ name: "name", description: "description", state: "state" }).flatMap(([field, column]) =>
+const TEAM_COLUMNS = [
+	["name", "name"],
+	["description", "description"],
+	["state", "state"],
+] as const;
+const ROLE_COLUMNS = [
+	["name", "name"],
+	["description", "description"],
+	["leadership", "leadership"],
+	["timeCommitment", "time_commitment"],
+	["desiredSkills", "desired_skills"],
+] as const;
+const teamFields = (value: Record<string, unknown>, before: (column: (typeof TEAM_COLUMNS)[number][1]) => SQL) =>
+	TEAM_COLUMNS.flatMap(([field, column]) =>
 		value[field] === undefined ? [] : [change(field, before(column), json(value[field]))],
 	);
-const roleFields = (value: Record<string, unknown>, before: (column: string) => SQL) =>
-	Object.entries({
-		name: "name",
-		description: "description",
-		leadership: "leadership",
-		timeCommitment: "time_commitment",
-		desiredSkills: "desired_skills",
-	}).flatMap(([field, column]) =>
+const roleFields = (value: Record<string, unknown>, before: (column: (typeof ROLE_COLUMNS)[number][1]) => SQL) =>
+	ROLE_COLUMNS.flatMap(([field, column]) =>
 		value[field] === undefined ? [] : [change(field, before(column), json(value[field]))],
 	);
 const none = () => sql`NULL::jsonb`;
-const column = (alias: string) => (name: string) => sql.raw(`to_jsonb(${alias}.${name})`);
+const column =
+	<AliasName extends string>(alias: SqlLiteral<AliasName>) =>
+	<Name extends string>(name: SqlLiteral<Name>) =>
+		sql.raw(`to_jsonb(${alias}.${name})`);
 
 const teamFacts = {
 	description: text.nullable().optional(),
