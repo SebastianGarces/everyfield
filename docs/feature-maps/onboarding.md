@@ -260,12 +260,11 @@ Reach:
 
 States:
 
-- **new-planter**: URL `/design/onboarding?step=church`; heading "Start your church"; combobox "Preview account". As `visitor`, on the QA seed:
+- **new-planter**: heading "Start your church"; combobox "Preview account". As `visitor`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/design/onboarding"
 agent-browser wait --load networkidle
-agent-browser wait --url "**/design/onboarding?step=church"
 agent-browser find role heading text --name "Start your church" --exact
 agent-browser find role combobox text --name "Preview account" --exact
 ```
