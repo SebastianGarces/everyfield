@@ -4,27 +4,7 @@ import { z } from "zod";
 import { invitationService } from "@/server/invitations";
 import { tasksMount } from "../../tasks/mount.ts";
 import { answer, refused, type Reply } from "../server";
-import { loadSeats, workspaceViewer, type SeatsRead } from "./server";
-
-export async function readSeats(): Promise<SeatsRead> {
-	return loadSeats();
-}
-
-export async function readSeatsPage(list: "seats" | "invitations", after: string): Promise<Reply> {
-	const w = await workspaceViewer();
-	const service = invitationService();
-	if (!w || !service) return refused("unavailable");
-	const { mount, selected, authority } = w;
-	return list === "seats"
-		? answer(() => mount.seats.list(authority, { workspace: selected, after }))
-		: answer(() => service.list(authority, { workspace: selected, after }));
-}
-
-export async function readRemovalReview(seatId: string): Promise<Reply> {
-	const w = await workspaceViewer();
-	if (!w) return refused("unavailable");
-	return answer(() => w.mount.seats.readRemoval(w.viewer.session, w.selected, { seatId }));
-}
+import { workspaceViewer } from "./server";
 
 const operation = z.enum(["invite", "resend", "revoke", "appointAdmin", "demote", "remove"]);
 export type SeatOperation = z.infer<typeof operation>;

@@ -6,7 +6,7 @@ Each feature directory under `apps/web/src/features/` describes its surfaces: th
 reaches them, the states a verifier can open and the tests, cases and browser steps that prove each behavior.
 Print one surface with `node tools/ci/feature-maps.ts show <surface-id>`.
 
-Routes mapped: 142 of 142. Not yet mapped: 0, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
+Routes mapped: 144 of 144. Not yet mapped: 0, listed in [`apps/web/feature-maps.pending.json`](../../apps/web/feature-maps.pending.json).
 
 ```mermaid
 flowchart LR
@@ -269,7 +269,7 @@ flowchart LR
 | [evry](evry.md) | [`apps/web/src/features/evry/feature-map.json`](../../apps/web/src/features/evry/feature-map.json) | 2 | 15 | 5 | 2 | 1 |
 | [feedback](feedback.md) | [`apps/web/src/features/feedback/feature-map.json`](../../apps/web/src/features/feedback/feature-map.json) | 3 | 4 | 3 | 3 | 0 |
 | [followups](followups.md) | [`apps/web/src/features/followups/feature-map.json`](../../apps/web/src/features/followups/feature-map.json) | 2 | 3 | 5 | 3 | 1 |
-| [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 10 | 11 | 4 | 1 |
+| [identity](identity.md) | [`apps/web/src/features/identity/feature-map.json`](../../apps/web/src/features/identity/feature-map.json) | 8 | 11 | 11 | 4 | 1 |
 | [intelligence](intelligence.md) | [`apps/web/src/features/intelligence/feature-map.json`](../../apps/web/src/features/intelligence/feature-map.json) | 4 | 4 | 4 | 2 | 1 |
 | [launch](launch.md) | [`apps/web/src/features/launch/feature-map.json`](../../apps/web/src/features/launch/feature-map.json) | 2 | 1 | 5 | 3 | 1 |
 | [meetings](meetings.md) | [`apps/web/src/features/meetings/feature-map.json`](../../apps/web/src/features/meetings/feature-map.json) | 4 | 6 | 10 | 4 | 4 |
@@ -281,7 +281,7 @@ flowchart LR
 | [people](people.md) | [`apps/web/src/features/people/feature-map.json`](../../apps/web/src/features/people/feature-map.json) | 4 | 13 | 11 | 6 | 2 |
 | [phases](phases.md) | [`apps/web/src/features/phases/feature-map.json`](../../apps/web/src/features/phases/feature-map.json) | 1 | 1 | 4 | 1 | 2 |
 | [residency](residency.md) | [`apps/web/src/features/residency/feature-map.json`](../../apps/web/src/features/residency/feature-map.json) | 1 | 2 | 2 | 1 | 0 |
-| [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 9 | 7 | 5 | 2 |
+| [settings](settings.md) | [`apps/web/src/features/settings/feature-map.json`](../../apps/web/src/features/settings/feature-map.json) | 5 | 10 | 7 | 5 | 2 |
 | [shell](shell.md) | [`apps/web/src/features/shell/feature-map.json`](../../apps/web/src/features/shell/feature-map.json) | 4 | 6 | 0 | 0 | 0 |
 | [tasks](tasks.md) | [`apps/web/src/features/tasks/feature-map.json`](../../apps/web/src/features/tasks/feature-map.json) | 3 | 2 | 8 | 4 | 1 |
 | [teams](teams.md) | [`apps/web/src/features/teams/feature-map.json`](../../apps/web/src/features/teams/feature-map.json) | 2 | 2 | 4 | 3 | 1 |
