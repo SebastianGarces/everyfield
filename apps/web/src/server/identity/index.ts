@@ -70,7 +70,7 @@ function identityMailQueue(v: z.infer<typeof env>): IdentityConfig["enqueueMail"
 
 const settings = () => checkSettings("identity", env, process.env);
 
-export class IdentitySettingsRefused extends Error {
+class IdentitySettingsRefused extends Error {
 	override name = "IdentitySettingsRefused";
 }
 
