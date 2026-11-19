@@ -772,6 +772,28 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
 });
 
+test("INV-mail: only the two mail modules that read or store the mail_request row name ProviderKey, in product code", () => {
+	const source = `import type { ProviderKey as PK } from "@everyfield/contracts/common";
+import type * as common from "@everyfield/contracts/common";
+import { type ProviderKey } from "@everyfield/contracts/common";
+export type { ProviderKey } from "@everyfield/contracts/common";
+type Local = PK;
+export const a = "x" as Local;
+export const b = "x" as unknown as common.ProviderKey[];
+export const c = (k: string): k is import("@everyfield/contracts/common").ProviderKey => k.length > 0;
+export const d = (k: unknown) => k as ProviderKey | undefined;
+export const e: string = "x";
+`;
+	const hits = (path) =>
+		lint({ [path]: source, "tests/integration/x.test.mts": source })
+			.filter((hit) => hit.endsWith("provider-key-mint"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10));
+	assert.deepEqual(hits("packages/domain/src/notifications/x.ts"), [1, 3, 4, 7, 8]);
+	assert.deepEqual(hits("apps/web/src/features/x/mail.ts"), [1, 3, 4, 7, 8]);
+	assert.deepEqual(hits("packages/domain/src/communication/delivery.ts"), []);
+	assert.deepEqual(hits("apps/web/src/server/jobs/mail.ts"), []);
+});
+
 test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {
 	const forge = `import { RequestActor, RequestActor as RA } from "@everyfield/domain/access";
 import * as access from "@everyfield/domain/access";
