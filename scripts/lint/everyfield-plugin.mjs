@@ -636,6 +636,34 @@ function isValueReference(node) {
 	return true;
 }
 
+export const MINTS = new Map([
+	[
+		"issueRestrictedDeletionSession",
+		["packages/domain/src/settings/deletion.ts", "packages/domain/src/settings/credentials.ts"],
+	],
+]);
+
+const mintCallers = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!PRODUCT_CODE.test(path)) return {};
+		const report = (node, name) => {
+			const allowed = MINTS.get(name);
+			if (!allowed || allowed.includes(path)) return;
+			context.report({
+				node,
+				message: `Only ${allowed.join(" and ")} may name ${name}: it mints an authority, so no other module may reach it.`,
+			});
+		};
+		return {
+			Identifier: (node) =>
+				(node.parent?.type !== "ExportSpecifier" || node.parent.local === node) && report(node, node.name),
+			Literal: (node) => typeof node.value === "string" && report(node, node.value),
+		};
+	},
+};
+
 function declared(context, node) {
 	for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
 		const variable = scope.set?.get(node.name);
@@ -1864,6 +1892,7 @@ export default {
 		"storage-client": storageClient,
 		"deployment-env": deploymentEnv,
 		"no-cursor-utility": noCursorUtility,
+		"mint-callers": mintCallers,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
 		"zustand-shape": zustandShape,

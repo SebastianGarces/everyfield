@@ -4,11 +4,8 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { eq, sql } from "../../../../../packages/db/src/query.ts";
 import * as t from "../../../../../packages/db/src/schema/tables.ts";
-import {
-	createLifecycleCleanup,
-	deletionOperations,
-	issueRestrictedDeletionSession,
-} from "../../../../../packages/domain/src/settings/index.ts";
+import { createLifecycleCleanup, deletionOperations } from "../../../../../packages/domain/src/settings/index.ts";
+import { issueRestrictedDeletionSession } from "../../../../../packages/domain/src/settings/deletion.ts";
 import { RequestActor, readViewer } from "../../../../../packages/domain/src/access/session.ts";
 import { feedbackWriter } from "../../../../../packages/domain/src/feedback/index.ts";
 import { queueJobs } from "../../../../../apps/web/src/server/jobs/queue.ts";
