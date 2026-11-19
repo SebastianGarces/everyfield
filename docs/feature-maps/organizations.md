@@ -566,7 +566,7 @@ agent-browser find role link click --name "Casey Lee" --exact
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Casey Lee" --exact
 agent-browser find role heading text --name "Enrollment" --exact
-agent-browser find text "Clear outline and a warm close. Next time, slow down in the second point." text --exact
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Clear outline and a warm close. Next time, slow down in the second point.\")"
 ```
 
 #### organizations.enrollment#confirm-milestone
@@ -726,7 +726,7 @@ agent-browser find role switch click --name "Share pipeline totals with"
 agent-browser wait --load networkidle
 agent-browser open "$ORIGIN/settings/sharing"
 agent-browser wait --load networkidle
-agent-browser find text "Not shared" text --exact
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Not shared\")"
 agent-browser find role switch click --name "Share pipeline totals with"
 agent-browser wait --load networkidle
 agent-browser open "$ORIGIN/settings/sharing"

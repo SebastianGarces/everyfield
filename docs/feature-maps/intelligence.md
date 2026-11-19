@@ -159,7 +159,7 @@ States:
 agent-browser open "$ORIGIN/intelligence/attestations"
 agent-browser wait --load networkidle
 agent-browser find role region text --name "Prayer" --exact
-agent-browser find text "Answer" text --exact
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Answer\")"
 agent-browser find role button text --name "Record a candidate" --exact
 ! agent-browser find role button text --name "Update"
 ```

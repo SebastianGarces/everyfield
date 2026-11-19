@@ -167,12 +167,12 @@ agent-browser wait --load networkidle
 agent-browser find role heading text --name "Review before saving" --exact
 agent-browser find role button click --name "Approve" --exact
 agent-browser wait --load networkidle
-agent-browser find text "Approved by you" text --exact
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Approved by you\")"
 agent-browser open "$ORIGIN/people"
 agent-browser wait --load networkidle
 agent-browser find role link click --name "Maria Santos" --exact
 agent-browser wait --load networkidle
-agent-browser find text "Dallas" text --exact
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Dallas\")"
 ```
 
 #### evry.review#revise-or-cancel

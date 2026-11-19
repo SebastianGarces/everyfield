@@ -242,8 +242,8 @@ Change stage moves a person to another stage with a reason, after the recorded-e
 ```bash
 agent-browser find role button click --name "Change stage" --exact
 agent-browser wait --load networkidle
-agent-browser find text "New stage" text --exact
-agent-browser find text "Reason" text --exact
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"New stage\")"
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Reason\")"
 ```
 
 #### people.person#retire-restore

@@ -72,8 +72,8 @@ agent-browser wait --load networkidle
 agent-browser find role link click --name "Harvest Point (QA)"
 agent-browser wait --load networkidle
 agent-browser find role heading text --name "Harvest Point (QA)" --exact
-agent-browser find text "Planned Launch Sunday" text --exact
-agent-browser find text "Plant health" text --exact
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Planned Launch Sunday\")"
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Plant health\")"
 ```
 
 - **not-available**: heading "This page is not available". As `owner`, on the QA seed:
@@ -99,7 +99,7 @@ A plant in the directory opens its own view with what it shares and its launch a
 agent-browser find role link click --name "Harvest Point (QA)"
 agent-browser wait --load networkidle
 agent-browser wait --url "**/network/plants/*"
-agent-browser find text "Planned Launch Sunday" text --exact
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Planned Launch Sunday\")"
 agent-browser find role heading text --name "Harvest Point (QA)" --exact
 ```
 
@@ -233,7 +233,7 @@ agent-browser find role button click --name "Refresh" --exact
 agent-browser wait --load networkidle
 agent-browser open "$ORIGIN/network/intelligence"
 agent-browser wait --load networkidle
-agent-browser find text "Latest run" text --exact
+agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Latest run\")"
 agent-browser find role region text --name "Whole portfolio" --exact
 agent-browser find role navigation text --name "Group by" --exact
 ```

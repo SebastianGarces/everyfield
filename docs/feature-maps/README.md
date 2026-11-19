@@ -355,8 +355,13 @@ A browser proof marked presence only shows that the control is there; the listed
 The network-idle wait suits pages that go quiet after each action. On a page that keeps fetching (for example
 `/documents`, or import progress) it runs to its 25 s timeout and still succeeds, so it proves nothing there. Such a
 surface sets `polls` to say what keeps fetching: its commands get no network-idle wait, and the checker requires the
-check after each open, click, press or upload to be one that waits (a URL, `noText`, or `contains` text, printed as
-`wait --url`, `wait --fn` and `wait --text`).
+check after each open, click, press or upload to be one that waits (a URL, `noText` or text, printed as `wait --url`,
+`wait --fn` and `wait --text`).
+
+Text checks see only rendered text, as a reader does: text in the page but hidden (`display: none` or
+`visibility: hidden`, such as a message waiting for a press) does not count. A `contains` check waits for the
+visible text to include its words (`wait --text`). An exact check waits for a visible element whose whole rendered
+text is its words, or, on a bare JSON response, for a JSON value equal to them (`wait --fn`).
 
 ## Changing a feature, and the review proof
 
