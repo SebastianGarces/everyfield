@@ -8,13 +8,24 @@ exports.statementKind = function statementKind(text) {
 const platform = [
 	{
 		name: "session lookup",
-		pattern: /\brequest_session\(/,
+		matches: (text) => /\brequest_session\(/.test(text),
 		reason: "every signed-in request turns its cookie into a viewer before any feature code runs",
 	},
 	{
 		name: "write gate",
-		pattern: /"write_gate"/,
+		matches: (text) => /"write_gate"/.test(text),
 		reason: "every established write locks its account, seat and church before it reads its own rows",
+	},
+	{
+		name: "request-key claim",
+		matches: (text) => /JOIN audit_event a\s+ON a\.tenant_id=\S+ AND a\.request_key=/.test(text),
+		reason:
+			"prepareWrite's one shared statement checks write visibility and the request key for every keyed write on the older path; folding it into a command's own read is the move to the established or single path",
+	},
+	{
+		name: "auth library",
+		matches: (text, tables) => tables.length > 0 && tables.every((t) => t.startsWith("auth_")),
+		reason: "Better Auth's adapter issues its session, user and account reads one by one; our code does not shape them",
 	},
 ];
 exports.platform = platform;
@@ -54,11 +65,12 @@ exports.resultValues = (result) =>
 
 exports.statementStep = function statementStep(text, values, previous) {
 	const kind = exports.statementKind(text);
-	const skip = platform.find((p) => p.pattern.test(text))?.name;
+	const tables = kind === "transaction" ? [] : tablesOf(text);
+	const skip = platform.find((p) => p.matches(text, tables))?.name;
 	const params = collect(values ?? [], new Set());
 	return {
 		kind,
-		tables: kind === "transaction" ? [] : tablesOf(text),
+		tables,
 		linked: previous ? [...params].some((v) => previous.has(v)) : false,
 		...(skip ? { skip } : {}),
 	};
