@@ -1,4 +1,5 @@
 import { sameKey, type DocDifference } from "./compare.ts";
+import { backwards, pairs, scores } from "./scores.ts";
 
 export type WordRun = { op: "kept" | "removed" | "added"; text: string; from: number; to: number };
 export type ChangeNote = "formatting" | "spacing" | "settings";
@@ -79,21 +80,29 @@ function walk(nodes: readonly Rec[]): { lines: Line[]; shape: string[]; settings
 type Op = { op: "kept"; unit: Unit; twin: Unit } | { op: "removed" | "added"; unit: Unit };
 
 function diff(a: readonly Unit[], b: readonly Unit[]): Op[] {
-	const n = a.length;
-	const m = b.length;
-	const lcs = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
-	for (let i = n - 1; i >= 0; i--)
-		for (let j = m - 1; j >= 0; j--)
-			lcs[i]![j] = a[i]!.match === b[j]!.match ? lcs[i + 1]![j + 1]! + 1 : Math.max(lcs[i + 1]![j]!, lcs[i]![j + 1]!);
+	const lcs = scores(a.length, b.length);
+	const bBack = backwards(b);
+	for (const [i, x] of backwards(a))
+		for (const [j, y] of bBack)
+			lcs.set(i, j, x.match === y.match ? lcs.at(i + 1, j + 1) + 1 : Math.max(lcs.at(i + 1, j), lcs.at(i, j + 1)));
 	const ops: Op[] = [];
 	let i = 0;
 	let j = 0;
-	while (i < n || j < m) {
-		if (i < n && j < m && a[i]!.match === b[j]!.match) ops.push({ op: "kept", unit: a[i++]!, twin: b[j++]! });
-		else if (i < n && (j >= m || lcs[i + 1]![j]! >= lcs[i]![j + 1]!)) ops.push({ op: "removed", unit: a[i++]! });
-		else ops.push({ op: "added", unit: b[j++]! });
+	for (;;) {
+		const x = a[i];
+		const y = b[j];
+		if (x && y && x.match === y.match) {
+			ops.push({ op: "kept", unit: x, twin: y });
+			i++;
+			j++;
+		} else if (x && (!y || lcs.at(i + 1, j) >= lcs.at(i, j + 1))) {
+			ops.push({ op: "removed", unit: x });
+			i++;
+		} else if (y) {
+			ops.push({ op: "added", unit: y });
+			j++;
+		} else return absorbSpaces(ops);
 	}
-	return absorbSpaces(ops);
 }
 
 function absorbSpaces(ops: readonly Op[]): Op[] {
@@ -125,13 +134,14 @@ function runs(ops: readonly Op[], side: "removed" | "added"): WordRun[] {
 		.filter((op) => op.op === "kept" || op.op === side)
 		.map((op) => ({ op: op.op, unit: op.op === "kept" && side === "added" ? op.twin : op.unit }));
 	const changed = (k: number) => own[k] !== undefined && own[k].op !== "kept";
+	const changedSpace = (k: number) => changed(k) && own[k]?.unit.word === false;
 	for (let k = 0; k < own.length; k++) {
-		if (!changed(k) || own[k]!.unit.word) continue;
+		if (!changedSpace(k)) continue;
 		let start = k;
-		while (changed(start - 1) && !own[start - 1]!.unit.word) start--;
+		while (changedSpace(start - 1)) start--;
 		let end = k;
-		while (changed(end + 1) && !own[end + 1]!.unit.word) end++;
-		if (!changed(start - 1) || !changed(end + 1)) for (let i = start; i <= end; i++) own[i]!.op = "kept";
+		while (changedSpace(end + 1)) end++;
+		if (!changed(start - 1) || !changed(end + 1)) for (const item of own.slice(start, end + 1)) item.op = "kept";
 		k = end;
 	}
 	const out: WordRun[] = [];
@@ -155,15 +165,16 @@ function compareSides(mine: readonly Rec[] | string, theirs: readonly Rec[] | st
 	if (a.table || b.table || a.lines.length === 0 || a.lines.length !== b.lines.length) return { show: "whole" };
 	if (a.shape.join() !== b.shape.join()) return { show: "whole" };
 	const settings = a.settings.join() !== b.settings.join();
-	const ops = a.lines.map((line, k) => diff(line.units, b.lines[k]!.units));
+	const lines = pairs(a.lines, b.lines);
+	const ops = lines.map(([line, twin]) => diff(line.units, twin.units));
 	const words = (side: "removed" | "added") =>
 		ops.flat().filter((o) => o.unit.word && (o.op === "kept" || o.op === side)).length;
 	const kept = ops.flat().filter((o) => o.op === "kept" && o.unit.word).length;
 	const changed = ops.some((line) => line.some((o) => o.op !== "kept"));
 	if (!changed) {
 		const notes: ChangeNote[] = [];
-		if (a.lines.some((line, k) => line.exact !== b.lines[k]!.exact)) notes.push("spacing");
-		else if (a.lines.some((line, k) => line.marked !== b.lines[k]!.marked)) notes.push("formatting");
+		if (lines.some(([line, twin]) => line.exact !== twin.exact)) notes.push("spacing");
+		else if (lines.some(([line, twin]) => line.marked !== twin.marked)) notes.push("formatting");
 		if (settings) notes.push("settings");
 		return notes.length ? { show: "notes", notes } : { show: "whole" };
 	}
