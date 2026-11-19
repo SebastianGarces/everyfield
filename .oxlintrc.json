@@ -135,7 +135,7 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**", "packages/reference/src/**", "packages/ui/src/**"],
+			"files": ["packages/contracts/src/**", "packages/reference/src/**", "packages/ui/src/**", "packages/evry/src/**"],
 			"rules": {
 				"typescript/no-non-null-assertion": "error"
 			}
