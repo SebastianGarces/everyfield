@@ -1,9 +1,8 @@
-import { requestWrite } from "../access/session.ts";
+import { requestWrite, type WriteTx } from "../access/session.ts";
 import { writeActor } from "./core.ts";
 import { revision } from "@everyfield/contracts/common";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
 import { and, desc, eq, isNotNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
@@ -41,7 +40,7 @@ const profileRow = z.object({
 });
 export interface GeographyReference {
 	candidates(
-		tx: Transaction,
+		tx: WriteTx,
 		input: {
 			referenceVersionId: string;
 			locality: { city: string | null; stateProvince: string | null; country: string | null };
@@ -52,7 +51,7 @@ export function profileOperations(
 	effects: OrganizationEffects,
 	geography: GeographyReference,
 ): Pick<
-	OrganizationAdapter<Transaction>,
+	OrganizationAdapter<WriteTx>,
 	"organizations.getProfile" | "organizations.updateProfile" | "organizations.correctReportingLocation"
 > {
 	return {
@@ -182,7 +181,7 @@ export function profileOperations(
 }
 
 export async function applyOrganizationProfile(
-	tx: Transaction,
+	tx: WriteTx,
 	c: Extract<Awaited<ReturnType<typeof beginCommand>>, { kind: "new" }>,
 	id: string,
 	input: z.infer<typeof Q.updateOrganizationProfileRequest>["input"]["patch"],

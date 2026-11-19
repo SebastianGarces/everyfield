@@ -36,6 +36,7 @@ import {
 	sql,
 	teardown,
 } from "../../../runtime/support.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 const CALLBACK_SECRET = "whsec_" + randomBytes(32).toString("base64");
 function signedCallback(messageId: string, kind: string) {
@@ -286,7 +287,9 @@ test("approving a draft saves it in Messages drafts with no mail and no email se
 	assert.equal(draft!.state, "draft");
 	assert.match(draft!.body_text, /Hello team\./);
 	assert.deepEqual(draft!.audience.personIds, audience().personIds);
-	const found = await db.transaction((tx) => listMessages.invoke(tx, owner, { state: "draft", subject: "Draft only" }));
+	const found = await gatedTransaction(db, (tx) =>
+		listMessages.invoke(tx, owner, { state: "draft", subject: "Draft only" }),
+	);
 	assert.equal(found.rows[0]!.id, done.review.receipt!.receiptId);
 	assert.deepEqual(
 		(
@@ -438,7 +441,7 @@ test("approving a schedule saves it scheduled, reports counts without saying del
 		{ state: "refused", n: 2 },
 		{ state: "scheduled", n: 2 },
 	]);
-	const found = await db.transaction((tx) =>
+	const found = await gatedTransaction(db, (tx) =>
 		listMessages.invoke(tx, owner, { state: "scheduled", subject: "Scheduled once" }),
 	);
 	assert.equal(found.rows[0]!.fields.handedOff, true);
@@ -775,7 +778,7 @@ const inMessages = {
 	async edit(who: EvryActor, id: string) {
 		const [row] = await rows(sql`SELECT revision::text AS r,body_html,audience FROM communication WHERE id=${id}`);
 		const context = { session: who.session, selected: who.owner };
-		const reply = await db.transaction(async (tx) =>
+		const reply = await gatedTransaction(db, async (tx) =>
 			communicationWriter.saveDraft(tx, context as never, {
 				requestKey: randomUUID(),
 				expectedRevision: row!.r,
@@ -950,7 +953,7 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 	const friday = localAt(2, "09:00");
 	await scheduledMessage(owner, service, "Friday volunteer reminder", friday);
 	await scheduledMessage(owner, service, "Saturday cookout", localAt(3, "12:00"));
-	const byDate = await db.transaction((tx) => listMessages.invoke(tx, owner, { sendOn: friday.slice(0, 10) }));
+	const byDate = await gatedTransaction(db, (tx) => listMessages.invoke(tx, owner, { sendOn: friday.slice(0, 10) }));
 	assert.deepEqual(
 		byDate.rows.map((r) => r.label),
 		["Friday volunteer reminder"],
@@ -960,7 +963,7 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 		new Date(byDate.rows[0]!.fields.sendsAtInstant as string).toISOString().slice(0, 10),
 		friday.slice(0, 10),
 	);
-	const bySubject = await db.transaction((tx) =>
+	const bySubject = await gatedTransaction(db, (tx) =>
 		listMessages.invoke(tx, owner, { subject: "cookout", state: "scheduled" }),
 	);
 	assert.deepEqual(
@@ -968,7 +971,7 @@ test("Evry finds messages by subject and send time; a member reads but cannot wr
 		["Saturday cookout"],
 	);
 	assert.doesNotMatch(JSON.stringify(byDate), /example\.test|Come to Sunday/, "no address or body reaches the model");
-	const memberReads = await db.transaction((tx) => listMessages.invoke(tx, member, {}));
+	const memberReads = await gatedTransaction(db, (tx) => listMessages.invoke(tx, member, {}));
 	assert.ok(memberReads.rows.length >= 2, "a member reads drafts and scheduled messages");
 	const writes = (who: EvryActor) =>
 		readCatalog(who)
@@ -999,7 +1002,7 @@ test("the read offers only a message that can still go out, so a replaced origin
 	const service = emailService();
 	const when = localAt(6);
 	const sendOn = when.slice(0, 10);
-	const list = () => db.transaction((tx) => listMessages.invoke(tx, owner, { sendOn }));
+	const list = () => gatedTransaction(db, (tx) => listMessages.invoke(tx, owner, { sendOn }));
 
 	const cancelled = await scheduledMessage(owner, service, "Read cancelled", when);
 	const t = await turn(owner, service.port);
@@ -1159,7 +1162,7 @@ test("each read and effect stays within its budget in limits.json and no transac
 	const service = emailService();
 	await scheduledMessage(owner, service, "Budget read");
 	const start = queries.length;
-	await db.transaction((tx) => listMessages.invoke(tx, owner, { state: "scheduled" }));
+	await gatedTransaction(db, (tx) => listMessages.invoke(tx, owner, { state: "scheduled" }));
 	const sent = queries.length - start;
 	assert.ok(sent <= limits["communication.list"]!.limit, `communication.list sent ${sent} statements`);
 

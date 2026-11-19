@@ -28,6 +28,7 @@ import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
 import { receiveMailCallback } from "../../apps/web/src/server/jobs/webhook.ts";
 import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
+import { gatedTransaction } from "../../packages/domain/src/operations/writes.ts";
 
 const CHURCH = "Harvest Point (QA)";
 const RIVERSIDE = { name: "Riverside (QA)", city: "Dallas", owner: "Rachel Moss" } as const;
@@ -239,7 +240,7 @@ async function fill(
 
 	const noop = async () => {};
 	const onboarding = createOnboardingProducer({ relationships: noop, enqueue: noop });
-	const write = <T>(run: (tx: never) => Promise<T>) => runtime.transaction((tx) => run(tx as never));
+	const write = <T>(run: (tx: never) => Promise<T>) => gatedTransaction(runtime, (tx) => run(tx as never));
 	async function church(name: string, city: string, ownerAccount: string, ownerEmail: string, label: string) {
 		let id = (await rows(admin, sql`SELECT id FROM plant WHERE name=${name} ORDER BY id LIMIT 1`))[0]?.id as
 			string | undefined;
@@ -518,7 +519,7 @@ async function fill(
 				WHERE r.${column}=${subject.id} AND r.organization_id=${organization.id} AND i.state='pending'`,
 		);
 		for (const i of stale)
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				organizations["associations.revokeInvitation"](
 					tx,
 					s,
@@ -542,7 +543,7 @@ async function fill(
 			subject.kind === "plant"
 				? { kind: "plant", subject, organization }
 				: { kind: "sending_church", subject, organization };
-		const invited = await runtime.transaction((tx) =>
+		const invited = await gatedTransaction(runtime, (tx) =>
 			organizations["associations.invite"](
 				tx,
 				s,
@@ -551,7 +552,7 @@ async function fill(
 			),
 		);
 		const answer = (await sessionOf(recipient)) as never;
-		await runtime.transaction((tx) =>
+		await gatedTransaction(runtime, (tx) =>
 			organizations["associations.acceptInvitation"](
 				tx,
 				answer,
@@ -1036,7 +1037,7 @@ async function multiplication(m: Multiplication): Promise<void> {
 	)[0]! as { id: string; revision: string; shared: boolean };
 	if (!link.shared) {
 		const s = (await m.sessionOf(QA_LOGINS.graceOwner)) as never;
-		await runtime.transaction((tx) =>
+		await gatedTransaction(runtime, (tx) =>
 			m.organizations["pipelineSharing.setConsent"](
 				tx,
 				s,
@@ -1118,7 +1119,7 @@ async function mailCases(
 		for (const name of DELIVERY_TO) personIds.push((await p.personId(name))!.id);
 		ok(
 			"delivery message",
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				communicationWriter.saveDraft(tx as never, c as never, {
 					requestKey: randomUUID(),
 					input: {
@@ -1133,7 +1134,7 @@ async function mailCases(
 		const at = new Date(Math.ceil((Date.now() + 60_000) / 60_000) * 60_000).toISOString();
 		ok(
 			"schedule delivery message",
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				communicationWriter.scheduleReviewed(tx as never, c as never, {
 					requestKey: randomUUID(),
 					expectedRevision: draft.revision,
@@ -1257,7 +1258,7 @@ async function checkIns(
 	const care = createPrivateCare({ clock: { now: () => now as Instant } });
 	const actor = await RequestActor.resolve(runtime, (await ownerSession()) as never);
 	if (!(actor instanceof RequestActor)) throw Error(`check-in actor: ${JSON.stringify(actor)}`);
-	await runtime.transaction(async (tx) => {
+	await gatedTransaction(runtime, async (tx) => {
 		for (const [index, [spiritual, family, financial, pace, note]] of CHECK_INS.entries()) {
 			now = times[index]!;
 			ok(
