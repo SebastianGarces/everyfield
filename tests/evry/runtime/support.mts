@@ -30,7 +30,7 @@ const seats: Record<Who, [string | null, string | null, string | null]> = {
 export const accounts = Object.fromEntries(
 	(Object.keys(seats) as Who[]).map((who) => [who, { id: randomUUID(), user: randomUUID(), session: randomUUID() }]),
 ) as Record<Who, { id: string; user: string; session: string }>;
-export const people: Record<string, string> = {};
+export const people = { alexRivera: "", alexChen: "", casey: "", foreign: "" };
 
 export async function actor(who: Who) {
 	const viewer = await readViewer(db, accounts[who].session as never);
@@ -118,7 +118,7 @@ async function person(tenant: string, name: string, city: string | null, positio
 export async function setup() {
 	db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args: unknown[]) {
+		client.query = function (this: typeof client, ...args: unknown[]) {
 			const text = typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text;
 			const values = (args[0] as { values?: unknown[] }).values ?? (Array.isArray(args[1]) ? args[1] : []);
 			queries.push(text);
