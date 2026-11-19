@@ -1,3 +1,4 @@
+import { signIn } from "@/server/sign-in";
 import { requestDatabase } from "@/server/database";
 import { Calendar03Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { meetingId as meetingIdSchema, rsvpToken } from "@everyfield/contracts/meetings";
@@ -27,7 +28,7 @@ import { params } from "../../components/search-params.ts";
 type Search = Promise<Record<string, string | string[] | undefined>>;
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await plantViewer();
-	if (v.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (v.signedOut) signIn(returnTo);
 	if (v.viewer) return { viewer: v.viewer };
 	return {
 		blocked: (
@@ -79,7 +80,7 @@ export const checkInMetadata: Metadata = { title: "Check-in", robots: { index: f
 export async function CheckInPage({ params: route }: { params: Promise<{ meetingId: string }> }) {
 	const raw = (await route).meetingId;
 	const v = await plantViewer();
-	if (v.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(`/meetings/${raw}/check-in`)}`);
+	if (v.signedOut) signIn(`/meetings/${raw}/check-in`);
 	const id = meetingIdSchema.safeParse(raw);
 	if (!id.success) notFound();
 	if (!v.viewer) redirect(`/meetings/${id.data}`);

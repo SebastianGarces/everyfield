@@ -84,6 +84,7 @@
 		"everyfield/no-sql-comments": "error",
 		"everyfield/no-error-message-match": "error",
 		"everyfield/no-slop-styling": "error",
+		"everyfield/sign-in-redirect": "error",
 		"no-restricted-imports": [
 			"error",
 			{
