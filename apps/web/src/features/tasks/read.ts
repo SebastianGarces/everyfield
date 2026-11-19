@@ -11,7 +11,9 @@ const refusalOf = <T>(r: { status: "ok"; value: T } | { status: "refused"; error
 
 export const GET = defineReads(taskViewer, "access_denied", (get) => ({
 	task: get(c.getTaskRequest, (viewer, v) => read((tx) => loadTask(tx, viewer, v.taskId))),
-	history: get(c.statusHistoryRequest, (viewer, v) => read((tx) => reader.history(tx, viewer, v.taskId, v.page))),
+	history: get(c.statusHistoryRequest.omit({ limit: true }), (viewer, v) =>
+		read((tx) => reader.history(tx, viewer, v.taskId, v.page)),
+	),
 	blocking: get(c.taskRowsRequest, async (viewer, v) => {
 		const r = await read(async (tx) => refusalOf(await taskReader.listRows(tx, viewer.authority, v)));
 		return r.status === "ok"
