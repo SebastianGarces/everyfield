@@ -13,6 +13,9 @@ Use Node 24 and the pnpm version in the root `package.json`. Run commands from t
 Next loads `apps/web/.env.local`; values already set in the shell take precedence. Keep values out of Git, logs and
 chat. This list names every variable `src/` reads, never a value.
 
+The server refuses to start, with one `settings_missing` log line naming the keys, when any of the seven
+`IDENTITY_*` settings below is unset or empty.
+
 - `IDENTITY_DATABASE_URL`: the app's Postgres connection, for product reads and writes and the job runner's pool.
 - `IDENTITY_AUTH_DATABASE_URL`: the separate Postgres connection the sign-in layer uses.
 - `IDENTITY_ORIGIN`: the app's public origin, used to build links in mail and invitations.

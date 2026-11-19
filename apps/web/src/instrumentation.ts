@@ -1,6 +1,11 @@
 import { logFailure, logInfo } from "@everyfield/domain/log";
 export async function register() {
 	if (process.env.NEXT_RUNTIME !== "nodejs") return;
+	const missing = (await import("./server/mail-env.ts")).missingIdentitySettings(process.env);
+	if (missing.length) {
+		console.error(JSON.stringify({ component: "server", event: "settings_missing", missing }));
+		process.exit(1);
+	}
 	const { privateStorage, assertPrivateBucket } = await import("@everyfield/db/schema");
 	const storage = privateStorage();
 	if (storage)

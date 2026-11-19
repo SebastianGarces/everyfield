@@ -7,3 +7,15 @@ export const mailEnv = {
 	IDENTITY_ADDRESS_KEY: hexKey,
 	IDENTITY_MAIL_FROM: z.email(),
 };
+
+export const identityEnv = {
+	IDENTITY_DATABASE_URL: z.string().min(1),
+	IDENTITY_AUTH_DATABASE_URL: z.string().min(1),
+	IDENTITY_ORIGIN: z.url(),
+	IDENTITY_SECRET: z.string().min(32),
+	...mailEnv,
+};
+
+export function missingIdentitySettings(vars: Readonly<Record<string, string | undefined>>): string[] {
+	return Object.keys(identityEnv).filter((key) => !vars[key]);
+}

@@ -55,6 +55,13 @@ already has it.
 6. Redeploy production (`vercel redeploy` on the current production deployment, or push to main), then
    `unset PROD_IDENTITY_ADMIN_URL`.
 
+The server refuses to start without the seven identity settings: `IDENTITY_DATABASE_URL`,
+`IDENTITY_AUTH_DATABASE_URL`, `IDENTITY_ORIGIN`, `IDENTITY_SECRET`, `IDENTITY_MAIL_KEY`, `IDENTITY_ADDRESS_KEY` and
+`IDENTITY_MAIL_FROM` (T-525). A deployment missing any of them, or holding an empty one, stops at boot: every
+request fails, and the Vercel function logs show one line naming the missing keys, never a value, for example
+`{"component":"server","event":"settings_missing","missing":["IDENTITY_MAIL_FROM"]}`. Set all seven in Vercel
+Production before you redeploy. To recover, add each named setting and redeploy.
+
 Rerunning `--apply` is safe. It keeps existing logins and their passwords, re-asserts the grants and generates only
 the settings Vercel Production lacks. It refuses while an earlier commands file is still waiting. It also refuses
 when a login exists but Vercel lacks its URL, because the password cannot be read back. `--rotate-passwords` then gives
