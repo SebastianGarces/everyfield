@@ -1,10 +1,13 @@
+"use client";
+
 import { ControlsPreview } from "@everyfield/ui/controls/preview";
 import { ShellPreview } from "@everyfield/ui/shell/preview";
+import { shortcutMark } from "../../../components/save/leave.ts";
 
 export function ControlsPreviewPage() {
 	return (
 		<ShellPreview role="owner">
-			<ControlsPreview />
+			<ControlsPreview paletteShortcut={shortcutMark("Meta+K Control+K", { claim: true })} />
 		</ShellPreview>
 	);
 }
