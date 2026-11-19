@@ -7,7 +7,8 @@ import { useState, type ComponentProps } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
 import { unsavedMark } from "../../components/save/leave.ts";
-import { deleteDraft, readDraft, readMeetingContext, readMeetingTemplate, saveDraft, handOff } from "./actions.ts";
+import { deleteDraft, saveDraft, handOff } from "./actions.ts";
+import { readDraft, readMeetingContext, readMeetingTemplate } from "./fetch.ts";
 import { bodyToTextResult, textToBody } from "./body.ts";
 import {
 	audienceSize,
