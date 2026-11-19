@@ -1290,7 +1290,8 @@
 				"everyfield/read-loader": "error",
 				"everyfield/no-render-writes": "error",
 				"everyfield/feature-boundaries": "error",
-				"everyfield/route-reads": "error"
+				"everyfield/route-reads": "error",
+				"everyfield/render-reads": "error"
 			}
 		},
 		{
