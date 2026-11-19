@@ -34,7 +34,7 @@ flowchart LR
 The Playbook wiki: a home with what to read next, search, and every article's address.
 
 - Routes: `/wiki/[[...slug]]`
-- Endpoints: `/api/wiki/progress`
+- Endpoints: `/api/wiki/progress`, `/api/wiki/read`
 - Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` write, `triage` write, `visitor` none
 - Catalog: WIKI-001, WIKI-002, WIKI-003, WIKI-004, WIKI-011
 

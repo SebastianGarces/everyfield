@@ -4,7 +4,7 @@ import { privateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import "server-only";
-import type { DocumentOutcome } from "../actions.ts";
+import type { DocumentOutcome } from "../outcome.ts";
 import { writtenView, type WrittenView } from "../model.ts";
 import { documentActor } from "../server.ts";
 
