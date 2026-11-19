@@ -1,5 +1,5 @@
 import "server-only";
-import { asLogId, logFailure, logLine, type LogWord } from "@everyfield/domain/log";
+import { asLogId, isTransient, logFailure, logLine, type LogWord } from "@everyfield/domain/log";
 import { owner, sessionId, type Owner } from "@everyfield/contracts/common";
 import { sectionResult, settingsError, type SettingsError } from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
@@ -35,6 +35,8 @@ import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
+import { transient } from "@/server/platform/transient";
+import { parseJson } from "../../server/platform/json.ts";
 
 type Viewer = Awaited<ReturnType<typeof getViewer>>;
 type Signed = SectionViewer & { accountId: string };
@@ -227,12 +229,11 @@ export async function readSection(
 	const viewer = signedAs(session);
 	if (!viewer) return refusal("access_denied");
 	const ops = settingsMount();
-	try {
-		return await ops.sections.getSection(ops.db, viewer, raw);
-	} catch (error) {
-		logFailure({ component: "settings", outcome: "read_failed" }, error);
-		return refusal("temporary");
-	}
+	return transient(
+		{ component: "settings", outcome: "read_failed" },
+		() => ops.sections.getSection(ops.db, viewer, raw),
+		refusal("temporary"),
+	);
 }
 
 export async function run<S extends z.ZodType, T>(
@@ -249,12 +250,11 @@ export async function run<S extends z.ZodType, T>(
 	const selected = self ? owner.parse({ kind: "account", id: viewer.accountId }) : viewer.authority.actor.context.owner;
 	const context = { session: viewer.authority.session, selected };
 	const ops = settingsMount();
-	try {
-		return await withSettingsWrite(ops.db, viewer.authority, context, (tx) => operation(ops, tx, context, input.data));
-	} catch (error) {
-		logFailure({ component: "settings", outcome: "write_failed" }, error);
-		return refusal("unknown");
-	}
+	return transient(
+		{ component: "settings", outcome: "write_failed" },
+		() => withSettingsWrite(ops.db, viewer.authority, context, (tx) => operation(ops, tx, context, input.data)),
+		refusal("unknown"),
+	);
 }
 
 export async function credential<S extends z.ZodType, T>(
@@ -271,19 +271,17 @@ export async function credential<S extends z.ZodType, T>(
 		session: viewer.authority.session,
 		selected: owner.parse({ kind: "account", id: viewer.accountId }),
 	};
-	try {
-		return await operation(ops.credentials, context, input.data);
-	} catch (error) {
-		logFailure({ component: "settings", outcome: "credential_failed" }, error);
-		return refusal("unknown");
-	}
+	return transient(
+		{ component: "settings", outcome: "credential_failed" },
+		() => operation(ops.credentials, context, input.data),
+		refusal("unknown"),
+	);
 }
 
 export async function storeAvatarBytes(accountId: string, uploadId: string, bytes: Uint8Array) {
 	const viewer = await signedIn();
-	if (!viewer || viewer.accountId !== accountId) return "unavailable" as const;
 	const ops = settingsMount();
-	if (!ops.storage) return "unavailable" as const;
+	if (!viewer || !ops.storage || viewer.accountId !== accountId) return "unavailable" as const;
 	const context = { session: viewer.authority.session, selected: owner.parse({ kind: "account", id: accountId }) };
 	try {
 		await uploadAvatar(ops.db, ops.storage, context, { uploadId, bytes });
@@ -294,6 +292,7 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 			(error instanceof StorageError && error.code === "invalid_avatar")
 		)
 			return "invalid" as const;
+		if (!isTransient(error)) throw error;
 		logFailure({ component: "settings", outcome: "avatar_upload_failed" }, error);
 		return "unavailable" as const;
 	}
@@ -301,9 +300,8 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 
 export async function avatarBytes(accountId: string, versionId: string) {
 	const viewer = await signedIn();
-	if (!viewer) return null;
 	const ops = settingsMount();
-	if (!ops.storage) return null;
+	if (!viewer || !ops.storage) return null;
 	const context = {
 		session: viewer.authority.session,
 		selected: owner.parse({ kind: "account", id: viewer.accountId }),
@@ -327,12 +325,14 @@ export async function openRestrictedDeletion(kind: "account" | "plant", raw: unk
 	const ops = settingsMount();
 	const request = new Request(`${ops.origin}/`, { headers: await headers() });
 	const ip = trustedIdentityIp(request, trustsVercelForwardedFor(serverEnv()));
-	const opened = await (
-		kind === "account" ? ops.credentials.openAccountDeletion(raw, ip) : ops.credentials.openWorkspaceDeletion(raw, ip)
-	).catch((error) => {
-		logFailure({ component: "settings", outcome: "restricted_open_failed" }, error);
-		return { status: "refused" as const, code: "unknown" as const };
-	});
+	const opened = await transient(
+		{ component: "settings", outcome: "restricted_open_failed" },
+		() =>
+			kind === "account"
+				? ops.credentials.openAccountDeletion(raw, ip)
+				: ops.credentials.openWorkspaceDeletion(raw, ip),
+		{ status: "refused", code: "unknown" } as const,
+	);
 	if (opened.status === "refused")
 		return refusal(
 			opened.code === "temporary" || opened.code === "unknown" || opened.code === "invalid_input"
@@ -358,18 +358,14 @@ export async function openRestrictedDeletion(kind: "account" | "plant", raw: unk
 async function restricted(kind: "account" | "plant"): Promise<Restricted | null> {
 	const raw = (await cookies()).get(DELETION_COOKIE)?.value;
 	if (!raw) return null;
-	try {
-		const session = restrictedCookie.parse(JSON.parse(raw));
-		return session.request.subject.kind === kind ? session : null;
-	} catch {
-		return null;
-	}
+	const session = restrictedCookie.safeParse(parseJson(raw));
+	return session.success && session.data.request.subject.kind === kind ? session.data : null;
 }
 
 export async function restrictedStatus(kind: "account" | "plant") {
-	const session = await restricted(kind);
+	const ops = settingsMount(),
+		session = await restricted(kind);
 	if (!session) return refusal("proof_invalid");
-	const ops = settingsMount();
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const { request } = session;
 	return logged("restricted_status_failed", () =>
@@ -382,9 +378,9 @@ export async function restrictedStatus(kind: "account" | "plant") {
 }
 
 export async function cancelRestrictedDeletion(kind: "account" | "plant", expectedRevision: string) {
-	const session = await restricted(kind);
+	const ops = settingsMount(),
+		session = await restricted(kind);
 	if (!session) return refusal("proof_invalid");
-	const ops = settingsMount();
 	const command = { requestKey: randomUUID(), expectedRevision, input: session.request };
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const reply = await logged("restricted_cancel_failed", () =>
@@ -407,12 +403,7 @@ async function logged<T, O extends string>(
 	outcome: LogWord<O>,
 	body: () => Promise<SettingsReply<T>>,
 ): Promise<SettingsReply<T>> {
-	try {
-		return await body();
-	} catch (error) {
-		logFailure({ component: "settings", outcome }, error);
-		return refusal("unknown");
-	}
+	return transient({ component: "settings", outcome }, body, refusal("unknown"));
 }
 
 export type Session = Awaited<ReturnType<typeof getViewer>>;

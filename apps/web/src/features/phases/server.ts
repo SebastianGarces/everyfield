@@ -9,7 +9,7 @@ import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@ever
 import "server-only";
 import { phasesMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "@/server/platform/transient";
 
 type PhaseViewer = {
 	authority: RequestActor;
@@ -33,26 +33,27 @@ const launch = createLaunchReader();
 
 export async function loadJourney(viewer: PhaseViewer) {
 	const db = requestDatabase();
-	try {
-		const [history, catalog, measured, journal] = await Promise.all([
-			phaseReader.readHistory(db, viewer.authority),
-			readCatalog(),
-			facts.readFacts(db, viewer.authority),
-			launch.readJournal(db, viewer.authority),
-		]);
-		if (history.status !== "ok") return { status: "refused", error: history.error } as const;
-		if (measured.status !== "ok") return { status: "refused", error: measured.error } as const;
-		if (journal.status !== "ok") return { status: "refused", error: journal.error } as const;
-		const readiness = readReadiness(catalog, measured.value.criteria);
-		const launchDates = journal.value.entries.filter((e) => e.change.kind === "date");
-		return {
-			status: "ok",
-			value: { history: history.value, catalog, readiness, facts: measured.value, launchDates },
-		} as const;
-	} catch (error) {
-		logFailure({ component: "phases", outcome: "read_failed" }, error);
-		return { status: "lost" } as const;
-	}
+	return transient(
+		{ component: "phases", outcome: "read_failed" },
+		async () => {
+			const [history, catalog, measured, journal] = await Promise.all([
+				phaseReader.readHistory(db, viewer.authority),
+				readCatalog(),
+				facts.readFacts(db, viewer.authority),
+				launch.readJournal(db, viewer.authority),
+			]);
+			if (history.status !== "ok") return { status: "refused", error: history.error } as const;
+			if (measured.status !== "ok") return { status: "refused", error: measured.error } as const;
+			if (journal.status !== "ok") return { status: "refused", error: journal.error } as const;
+			const readiness = readReadiness(catalog, measured.value.criteria);
+			const launchDates = journal.value.entries.filter((e) => e.change.kind === "date");
+			return {
+				status: "ok",
+				value: { history: history.value, catalog, readiness, facts: measured.value, launchDates },
+			} as const;
+		},
+		LOST,
+	);
 }
 
 export async function write<T>(
@@ -61,12 +62,11 @@ export async function write<T>(
 	const viewer = await phaseViewer();
 	if (!viewer) return { status: "refused", error: denied() };
 	const mount = phasesMount();
-	try {
-		return await run(mount.writer, mount.db, viewer.authority);
-	} catch (error) {
-		logFailure({ component: "phases", outcome: "write_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "phases", outcome: "write_failed" },
+		() => run(mount.writer, mount.db, viewer.authority),
+		LOST,
+	);
 }
 const denied = () =>
 	phasesError.parse({ code: "access_denied", details: {}, correlationId: crypto.randomUUID(), retry: "never" });

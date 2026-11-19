@@ -3,17 +3,18 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import { dashboardWriter } from "@everyfield/domain/dashboard";
-import { logFailure } from "@everyfield/domain/log";
+import { transient } from "@/server/platform/transient";
 
 export async function dismissPrompt(prompt: unknown): Promise<{ status: "ok" | "failed" }> {
 	const authority = (await getViewer()).authority;
 	if (!authority) return { status: "failed" };
 	const db = requestDatabase();
-	try {
-		const reply = await dashboardWriter.dismissPrompt(db, authority, { prompt });
-		return { status: reply.status === "ok" ? "ok" : "failed" };
-	} catch (error) {
-		logFailure({ component: "overview", outcome: "dismiss_failed" }, error);
-		return { status: "failed" };
-	}
+	return transient(
+		{ component: "overview", outcome: "dismiss_failed" },
+		async () => {
+			const reply = await dashboardWriter.dismissPrompt(db, authority, { prompt });
+			return { status: reply.status === "ok" ? "ok" : "failed" };
+		},
+		{ status: "failed" },
+	);
 }
