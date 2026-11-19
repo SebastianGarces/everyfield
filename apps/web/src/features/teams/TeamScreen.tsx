@@ -38,7 +38,7 @@ import {
 	Tabs,
 	TabsList,
 	TabsPanel,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
@@ -114,7 +114,6 @@ type PersonFlow = { kind: "leader" } | { kind: "member"; role: Role | null };
 
 export function TeamScreen({ data: loaded }: { data: TeamView }) {
 	const router = useRouter();
-	const toast = useToast();
 	const [local, setLocal] = useState<{ from: TeamView; value: TeamView } | null>(null);
 	const data = local?.from === loaded ? local.value : loaded;
 	const setData = (change: (d: TeamView) => TeamView) =>
