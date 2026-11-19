@@ -1,5 +1,5 @@
 import "server-only";
-import { logFailure, type LogWord } from "@everyfield/domain/log";
+import { asLogId, logFailure, logLine, type LogWord } from "@everyfield/domain/log";
 import { owner, sessionId, type Owner } from "@everyfield/contracts/common";
 import { sectionResult, settingsError, type SettingsError } from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
@@ -128,7 +128,7 @@ function create(v: z.infer<typeof env>) {
 			};
 		},
 		later: after,
-		diagnostic: (value) => console.error(JSON.stringify({ component: "settings", ...value })),
+		diagnostic: (value) => logLine({ component: "settings", ...value, correlationId: asLogId(value.correlationId) }),
 		async responseCookies(_ctx, list) {
 			const jar = await cookies();
 			for (const cookie of list.map(parseSetCookie)) if (cookie) jar.set(cookie);
