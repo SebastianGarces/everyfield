@@ -379,7 +379,7 @@ try {
 	};
 	const get = async (name, path, cookie, status = 200, headers = {}) => {
 		const r = await fetch(origin + path, {
-			headers: { ...headers, "x-evf-request": name, cookie },
+			headers: { ...headers, ...(name ? { "x-evf-request": name } : {}), cookie },
 			redirect: "manual",
 		});
 		const body = await r.text();
