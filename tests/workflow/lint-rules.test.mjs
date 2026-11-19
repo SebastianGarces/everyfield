@@ -870,9 +870,12 @@ test("INV-deployment: only the deployment module reads VERCEL or VERCEL_ENV, in 
 export const b = process.env["VERCEL"] === "1";
 export const c = (env) => env.VERCEL_ENV;
 const { VERCEL_ENV: named } = process.env;
-export const d = named;
-export const e = process.env.VERCEL_URL;
+export const d = process.env[\`VERCEL_ENV\`];
+const key = "VERCEL_ENV";
+export const e = z.object({ VERCEL: z.literal("1") }).safeParse(process.env).success;
+export const f = [named, key, process.env.VERCEL_URL];
 `;
+	const lines = [1, 2, 3, 4, 5, 6, 7];
 	assert.deepEqual(
 		lint({
 			"packages/domain/src/mail/reach.ts": reach,
@@ -880,16 +883,9 @@ export const e = process.env.VERCEL_URL;
 			"packages/db/src/deployment.ts": "export const named = (env) => env.VERCEL_ENV ?? env.VERCEL;\n",
 			"tests/integration/x/reach.test.mts": reach,
 		}),
-		[
-			"apps/web/src/features/x/reach.ts:1 deployment-env",
-			"apps/web/src/features/x/reach.ts:2 deployment-env",
-			"apps/web/src/features/x/reach.ts:3 deployment-env",
-			"apps/web/src/features/x/reach.ts:4 deployment-env",
-			"packages/domain/src/mail/reach.ts:1 deployment-env",
-			"packages/domain/src/mail/reach.ts:2 deployment-env",
-			"packages/domain/src/mail/reach.ts:3 deployment-env",
-			"packages/domain/src/mail/reach.ts:4 deployment-env",
-		],
+		["apps/web/src/features/x/reach.ts", "packages/domain/src/mail/reach.ts"]
+			.flatMap((file) => lines.map((line) => `${file}:${line} deployment-env`))
+			.sort(),
 	);
 });
 

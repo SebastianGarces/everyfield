@@ -461,7 +461,9 @@ const keyName = (key, computed) =>
 		? key.name
 		: key.type === "Literal" && typeof key.value === "string"
 			? key.value
-			: null;
+			: key.type === "TemplateLiteral" && key.expressions.length === 0
+				? (key.quasis[0]?.value.cooked ?? null)
+				: null;
 const memberName = (node) => (node?.type === "MemberExpression" ? keyName(node.property, node.computed) : null);
 const isMember = (node, objects, names) =>
 	node?.type === "MemberExpression" &&
@@ -833,13 +835,19 @@ const deploymentEnv = {
 				node,
 				message: `Ask ${DEPLOYMENT_MODULE} where the code runs (isProduction, isTestDeployment, runsOffVercel, trustsVercelForwardedFor): it is the one reader of VERCEL and VERCEL_ENV, and an unrecognized value fails closed there.`,
 			});
+		const named = (key) => !key.computed && key.type === "Identifier" && DEPLOYMENT_VARIABLES.has(key.name);
 		return {
 			MemberExpression(node) {
-				if (DEPLOYMENT_VARIABLES.has(memberName(node))) report(node);
+				if (!node.computed && named(node.property)) report(node);
 			},
 			Property(node) {
-				if (node.parent?.type === "ObjectPattern" && DEPLOYMENT_VARIABLES.has(keyName(node.key, node.computed)))
-					report(node);
+				if (!node.computed && named(node.key)) report(node);
+			},
+			Literal(node) {
+				if (DEPLOYMENT_VARIABLES.has(node.value)) report(node);
+			},
+			TemplateLiteral(node) {
+				if (node.expressions.length === 0 && DEPLOYMENT_VARIABLES.has(node.quasis[0]?.value.cooked)) report(node);
 			},
 		};
 	},
