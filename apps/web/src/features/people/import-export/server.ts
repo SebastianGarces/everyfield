@@ -9,6 +9,7 @@ import {
 	type PeopleReply,
 } from "@everyfield/contracts/people";
 import { privateStorage } from "@everyfield/db/schema";
+import { readBoundedBody } from "@everyfield/domain/operations";
 import {
 	executeStoredImport,
 	peopleCsv,
@@ -43,25 +44,6 @@ async function viewer(): Promise<Viewer | null> {
 	return (await getViewer())?.people ?? null;
 }
 const BODY_LIMIT = importLimits.rows * 48 + 64 * 1024;
-async function boundedBody(request: Request, limit = BODY_LIMIT): Promise<Uint8Array<ArrayBuffer> | null> {
-	if (Number(request.headers.get("content-length") ?? 0) > limit) return null;
-	const chunks: Uint8Array[] = [];
-	let size = 0;
-	if (request.body)
-		for await (const chunk of request.body) {
-			size += chunk.byteLength;
-			if (size > limit) return null;
-			chunks.push(chunk);
-		}
-	const body = new Uint8Array(size);
-	let at = 0;
-	for (const chunk of chunks) {
-		body.set(chunk, at);
-		at += chunk.byteLength;
-	}
-	return body;
-}
-
 export async function templateRoute() {
 	if (!(await viewer())) return new Response(null, { status: 403, headers: NO_STORE });
 	const file = peopleCsv.generateCsvTemplate();
@@ -88,7 +70,7 @@ function streamed(body: Answer) {
 }
 
 async function jsonBody(request: Request): Promise<unknown> {
-	const body = await boundedBody(request);
+	const body = await readBoundedBody(request, BODY_LIMIT);
 	if (!body) return undefined;
 	try {
 		return JSON.parse(new TextDecoder().decode(body)) as unknown;

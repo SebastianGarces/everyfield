@@ -15,24 +15,6 @@ export class Refusal extends Error {
 		this.status = status;
 	}
 }
-export async function boundedBytes(request: Request, limit: number): Promise<Uint8Array> {
-	const reader = request.body?.getReader();
-	if (!reader) return new Uint8Array();
-	const chunks: Uint8Array[] = [];
-	let length = 0;
-	try {
-		for (;;) {
-			const item = await reader.read();
-			if (item.done) break;
-			length += item.value.byteLength;
-			if (length > limit) throw new Refusal("invalid_input", 413);
-			chunks.push(item.value);
-		}
-	} finally {
-		await reader.cancel();
-	}
-	return Buffer.concat(chunks);
-}
 export function safeResponse(body: unknown, status = 200) {
 	return Response.json(body, { status, headers: privateHeaders });
 }
