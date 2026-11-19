@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PageHeader, SegmentedControl, ToastProvider } from "../../controls";
+import { PageHeader, SegmentedControl } from "../../controls";
 import { ContentSection, ProseSizesSection } from "./PreviewContent";
 import { BadgesSection, ListsSection, PhotoSection, TableSection } from "./PreviewData";
 import { PipelineSection } from "./PreviewPipeline";
@@ -19,7 +19,7 @@ export function DisplayPreview() {
 	const [group, setGroup] = useState<Group>("all");
 	const show = (g: Group) => group === "all" || group === g;
 	return (
-		<ToastProvider>
+		<>
 			<PageHeader
 				size="xl"
 				breadcrumb={[{ label: "Design system", href: "/design/foundations" }, { label: "Display" }]}
@@ -37,6 +37,6 @@ export function DisplayPreview() {
 				{show("data") ? <PhotoSection index={6} /> : null}
 				{show("content") ? <ProseSizesSection index={7} /> : null}
 			</div>
-		</ToastProvider>
+		</>
 	);
 }
