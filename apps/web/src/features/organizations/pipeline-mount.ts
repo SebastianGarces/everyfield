@@ -11,7 +11,7 @@ import {
 	readPipelineGoals,
 	readPipelinePersonRecord,
 } from "@everyfield/domain/organizations";
-import { PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
+import { PeopleReadContext, peopleMerge, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
@@ -98,10 +98,20 @@ async function asSeat<T>(
 ): Promise<PeopleAnswer<T>> {
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return { status: "refused", error: { code: "unavailable" } } as PeopleReply<T>;
+	return asAuthority(who.authority, run);
+}
+async function asAuthority<T>(
+	authority: RequestActor,
+	run: (db: Database, authority: RequestActor) => Promise<PeopleReply<T>>,
+): Promise<PeopleAnswer<T>> {
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
-	return guarded(() => run(db, who.authority));
+	return guarded(() => run(db, authority));
 }
+export const loadMergeReview = (authority: RequestActor, input: unknown) =>
+	asAuthority(authority, (db) =>
+		gatedTransaction(db, (tx) => peopleMerge.getMergeReview(tx, new PeopleReadContext(authority), input)),
+	);
 export const pipelinePeopleRead = <T>(run: (tx: WriteTx, ctx: PeopleContext) => Promise<PeopleReply<T>>) =>
 	asSeat((db, authority) => gatedTransaction(db, (tx) => run(tx, new PeopleReadContext(authority))));
 export const pipelinePeopleWrite = <T>(run: (tx: WriteTx, ctx: PeopleWriteContext) => Promise<PeopleReply<T>>) =>

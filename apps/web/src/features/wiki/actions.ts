@@ -3,7 +3,6 @@
 import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { parseSource, sourceInput } from "./model.ts";
 import { editorContext, plantContext, mountFor, wikiActor } from "./server.ts";
 import { logFailure } from "@everyfield/domain/log";
 
@@ -133,36 +132,6 @@ export type ExportResult =
 	| { status: "print"; html: string; fallback: boolean }
 	| { status: "denied" }
 	| { status: "lost" };
-
-async function exportOf(articleId: string, sourceRaw: string | null, kind: "pdf" | "print"): Promise<ExportResult> {
-	const ready = await actorMount();
-	if (ready.status !== "ready") return ready;
-	const source = sourceInput(parseSource(sourceRaw ?? undefined));
-	try {
-		const reply =
-			kind === "pdf"
-				? await ready.mount.producer.exportPdf(ready.mount.db, ready.actor, { articleId, source })
-				: await ready.mount.producer.printArticle(ready.mount.db, ready.actor, { articleId, source });
-		if (reply.status !== "ok") return reply.error.code === "access_denied" ? { status: "denied" } : { status: "lost" };
-		if (reply.value.errorCode || (kind === "pdf" && !reply.value.bytes && !reply.value.fontFailureOffersPrintFallback))
-			return { status: "denied" };
-		if (reply.value.bytes) return { status: "pdf", bytes: reply.value.bytes };
-		if (reply.value.html)
-			return { status: "print", html: reply.value.html, fallback: reply.value.fontFailureOffersPrintFallback };
-		return { status: "denied" };
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "export-failed" }, error);
-		return { status: "lost" };
-	}
-}
-
-export async function downloadPdf(articleId: string, sourceRaw: string | null): Promise<ExportResult> {
-	return exportOf(articleId, sourceRaw, "pdf");
-}
-
-export async function printCopy(articleId: string, sourceRaw: string | null): Promise<ExportResult> {
-	return exportOf(articleId, sourceRaw, "print");
-}
 
 export type OrderRow = { id: string; name: string };
 export type OrderRead =

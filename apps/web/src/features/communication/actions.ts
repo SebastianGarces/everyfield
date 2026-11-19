@@ -10,15 +10,10 @@ import type {
 	AudienceSummary,
 	CancelReport,
 	DeliveryReport,
-	DeliveryTotals,
 	Draft,
-	MessageDetail,
-	MessageView,
-	NamedRecipient,
 	Outcome,
 	ReplaceReport,
 	RescheduleReport,
-	ResendReview,
 	RestoreReport,
 	SavedResend,
 	HandoffResult,
@@ -27,7 +22,7 @@ import type {
 import { canWrite } from "../../components/seat-role.ts";
 import { communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
 import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
-import { anticipateProvider, deliveryTransport, mailReady } from "../../server/mail/transport.ts";
+import { anticipateProvider, deliveryTransport } from "../../server/mail/transport.ts";
 import type { WriteTx } from "@everyfield/domain/access";
 
 type Scheduled = Draft & { scheduledAt: string };
@@ -299,54 +294,6 @@ export async function deleteTemplate(
 	templateId: string,
 ): Promise<Outcome<TemplateChange>> {
 	return removeTemplate("delete", requestKey, expectedRevision, templateId);
-}
-
-export async function openMessage(communicationId: string): Promise<Outcome<MessageView>> {
-	const viewer = await seat();
-	if (!viewer) return denied;
-	const keys = mailReady()?.keys;
-	return read(viewer, async (tx) => {
-		const detail = await communicationWriter.getDetail(tx, viewer.authority, { id: communicationId }, keys);
-		if (detail.status !== "ok") return detail;
-		const totals = await communicationWriter.getDeliveryTotals(tx, viewer.authority, { communicationId });
-		if (totals.status !== "ok") return totals;
-		const recipients = await communicationWriter.listHistoryRecipients(
-			tx,
-			viewer.authority,
-			{ communicationId, limit: 100 },
-			keys,
-		);
-		if (recipients.status !== "ok") return recipients;
-		return {
-			status: "ok",
-			value: {
-				detail: detail.value satisfies MessageDetail,
-				totals: totals.value satisfies DeliveryTotals,
-				recipients: recipients.value.items satisfies NamedRecipient[],
-				recipientsComplete: recipients.value.complete,
-			},
-		};
-	});
-}
-
-export async function reviewResend(communicationId: string): Promise<Outcome<ResendReview>> {
-	return look(async (tx, viewer) => {
-		const result = await communicationWriter.listResendCandidates(tx, viewer.authority, {
-			communicationId,
-			selection: "delivered_nonopeners",
-		});
-		if (result.status !== "ok") return result;
-		return {
-			status: "ok",
-			value: {
-				communicationId: result.value.communicationId,
-				eligibleIds: result.value.eligibleIds,
-				eligibleNames: result.value.eligibleNames,
-				excludedNames: result.value.excludedNames,
-				confirmedDelivery: result.value.confirmedDelivery,
-			},
-		};
-	});
 }
 
 export async function saveResend(requestKey: string, communicationId: string): Promise<Outcome<SavedResend>> {
