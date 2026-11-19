@@ -19,7 +19,7 @@ import {
 	unavailable,
 	type OrganizationEffects,
 } from "./core.ts";
-const GLOBAL = "00000000-0000-0000-0000-000000000000";
+import { GLOBAL } from "../wiki/core.ts";
 const profileRow = z.object({
 	name: z.string(),
 	city: z.string().nullable(),
