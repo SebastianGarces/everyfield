@@ -30,12 +30,11 @@ import { AuthFooter, AuthHeading } from "../AuthFrame";
 import { refusalMessage } from "../messages";
 import { FormMessage, Outcome, PasswordInput } from "../parts";
 import { AFTER_SIGN_IN, SignInForm } from "../SignInScreen";
-import { acceptSeatInvitation, readInvitation, respondResidentInvitation } from "./client";
+import { acceptSeatInvitation, readInvitation, respondResidentInvitation, tabStore } from "./client";
 import {
 	formatExpiry,
 	joinTitle,
 	ROLE_TEXT,
-	tabStore,
 	type Description,
 	type Held,
 	type ResidentCommand,

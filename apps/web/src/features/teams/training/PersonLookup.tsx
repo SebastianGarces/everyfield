@@ -14,6 +14,7 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { useState } from "react";
+import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { PersonPicker } from "../../meetings/dialogs.tsx";
 import { dayText, plural } from "../model.ts";
@@ -350,14 +351,14 @@ function ProgramHistory({
 							<Button
 								variant="danger"
 								disabled={busy}
-								onClick={() => onOpen(personForm("revoke", row.program!, person))}
+								onClick={() => onOpen(personForm("revoke", localToday(), row.program!, person))}
 							>
 								Revoke completion
 							</Button>
 							<Button
 								variant="outline"
 								disabled={busy}
-								onClick={() => onOpen(personForm("redo", row.program!, person))}
+								onClick={() => onOpen(personForm("redo", localToday(), row.program!, person))}
 							>
 								Record again
 							</Button>
@@ -366,7 +367,7 @@ function ProgramHistory({
 						<Button
 							variant="primary"
 							disabled={busy}
-							onClick={() => onOpen(personForm("complete", row.program!, person))}
+							onClick={() => onOpen(personForm("complete", localToday(), row.program!, person))}
 						>
 							Record completion
 						</Button>

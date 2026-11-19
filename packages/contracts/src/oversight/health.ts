@@ -150,7 +150,11 @@ export const intelligenceRow = z.discriminatedUnion("status", [
 ]);
 export type IntelligenceRow = z.infer<typeof intelligenceRow>;
 
-export const lensLabel = (key: z.infer<typeof lensKey>) => LENSES.find((l) => l.key === key)!.label;
+export function lensLabel(key: z.infer<typeof lensKey>): string {
+	const lens = LENSES.find((l) => l.key === key);
+	if (!lens) throw Error("unknown_lens");
+	return lens.label;
+}
 
 const patternBase = {
 	key: z.string(),
