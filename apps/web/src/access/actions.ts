@@ -6,9 +6,10 @@ import { trustedIdentityIp } from "@everyfield/domain/identity";
 import { HONEYPOT, type AccessRequestResult } from "./contract";
 import { FIELD_NAMES, LAST_STEP, afterReply, back, isWho, kindOf, next, requestFields, type FormState } from "./steps";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
+import { serverEnv } from "../server/config.ts";
 
 export async function submitAccessRequest(kind: unknown, fields: unknown): Promise<AccessRequestResult> {
-	const ip = trustedIdentityIp({ headers: await headers() }, trustsVercelForwardedFor(process.env));
+	const ip = trustedIdentityIp({ headers: await headers() }, trustsVercelForwardedFor(serverEnv()));
 	return receiveAccessRequest(kind, fields, ip);
 }
 

@@ -6,7 +6,7 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { parseArgs, parseEnv } from "node:util";
-import { mailEnv } from "../../apps/web/src/server/mail-env.ts";
+import { mailKeys } from "../../apps/web/src/server/config.ts";
 import { PROD_ENDPOINT, Redactor, roleUrl } from "../qa/qa-guard.ts";
 
 export const ADMIN_ENV = "PROD_IDENTITY_ADMIN_URL";
@@ -72,7 +72,7 @@ export const BY_HAND: Readonly<Record<string, string>> = {
 	LANGFUSE_TRACING_ENVIRONMENT: "optional Evry tracing",
 };
 const SHAPES = {
-	IDENTITY_MAIL_FROM: { rule: mailEnv.IDENTITY_MAIL_FROM, shape: "a bare address such as mail@example.com" },
+	IDENTITY_MAIL_FROM: { rule: mailKeys.shape.IDENTITY_MAIL_FROM, shape: "a bare address such as mail@example.com" },
 } as const;
 export type Shape = { name: string; state: "right shape" | "cannot check" | `wrong shape: ${string}` };
 

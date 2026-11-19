@@ -12,7 +12,6 @@ async function read<T>(
 	run: (db: Database, authority: Viewer["authority"]) => Promise<TeamsReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return outcome(await run(db, viewer.authority));
 	} catch (error) {

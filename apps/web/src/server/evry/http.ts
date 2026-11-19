@@ -19,7 +19,8 @@ import {
 	submitTurn,
 } from "@everyfield/evry";
 import { mutatingRoute, privateHeaders } from "../platform/boundary";
-import { drainEffects, drainTurns, errorResponse, evryDatabase, evryMail, evryResponse, requestActor } from "./index";
+import { drainEffects, drainTurns, errorResponse, evryMail, evryResponse, requestActor } from "./index";
+import { requestDatabase } from "../database";
 import { evryNative } from "./native";
 
 type IdParams = { params: Promise<{ id: string }> };
@@ -102,7 +103,7 @@ export const proposalCheckPost = mutatingRoute(async (_request: Request, { param
 export const proposalPhotoGet = async (_request: Request, { params }: IdParams) => {
 	const { id } = await params;
 	try {
-		const photo = await readStagedPhoto(evryDatabase(), privateStorage(), await requestActor(), id);
+		const photo = await readStagedPhoto(requestDatabase(), privateStorage(), await requestActor(), id);
 		return new Response(Buffer.from(photo.bytes), {
 			headers: { ...privateHeaders, "Content-Type": photo.mediaType, "Content-Length": String(photo.bytes.length) },
 		});

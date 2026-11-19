@@ -22,7 +22,7 @@ import "server-only";
 import { z } from "zod";
 import { reviewPath } from "../organizations/reviews/model.ts";
 import { milestonePath } from "../residency/model.ts";
-import { mailEnv } from "../../server/mail-env.ts";
+import { serverConfig } from "../../server/config.ts";
 import { transaction } from "../../server/platform/database.ts";
 import {
 	MAIL_PASSES,
@@ -221,13 +221,11 @@ export async function authorizeNotificationMail(
 }
 
 let mounted: NotificationWorker | undefined;
-export function notificationsMount(db: Database | null): NotificationWorker | null {
-	const v = z.object(mailEnv).safeParse(process.env);
-	if (!db || !v.success) return null;
-	const origin = z.url().safeParse(process.env.IDENTITY_ORIGIN);
+export function notificationsMount(db: Database): NotificationWorker {
+	const config = serverConfig();
 	mounted ??= createNotificationWorker({
-		mail: mountMailService({ db, env: v.data, authorize: authorizeNotificationMail, unsubscribe: mailUnsubscribe() }),
-		origin: origin.success ? new URL(origin.data).origin : null,
+		mail: mountMailService({ db, env: config, authorize: authorizeNotificationMail, unsubscribe: mailUnsubscribe() }),
+		origin: new URL(config.IDENTITY_ORIGIN).origin,
 	});
 	return mounted;
 }
@@ -239,12 +237,10 @@ const authorizeNoticeMail: AuthorizeMail = async (tx, mail) => {
 	return granted;
 };
 
-export function noticeMailPass(db: Database | null, transport: MailTransport): MailPass | null {
-	const v = z.object(mailEnv).safeParse(process.env);
-	if (!db || !v.success) return null;
+export function noticeMailPass(db: Database, transport: MailTransport): MailPass {
 	const mail = mountMailService({
 		db,
-		env: v.data,
+		env: serverConfig(),
 		authorize: authorizeNoticeMail,
 		unsubscribe: mailUnsubscribe(),
 		transport,

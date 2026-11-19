@@ -14,7 +14,7 @@ export const onboardingMetadata: Metadata = { title: "Set up your church", robot
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function OnboardingPage({ searchParams }: { searchParams: Search }) {
 	const viewer = await getViewer();
-	const context = viewer?.authority?.actor.context;
+	const context = viewer.authority?.actor.context;
 	if (context?.kind === "seat" && context.owner.kind === "organization") redirect(ORGANIZATION_HOME);
 	const load = parseEntry(await onboardingEntry(await getViewer()));
 	if (load.kind === "signed_out") redirect("/signin?returnTo=%2Fonboarding");

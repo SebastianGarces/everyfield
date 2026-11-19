@@ -6,22 +6,14 @@ import { after } from "next/server";
 import { createHmac } from "node:crypto";
 import { database } from "../database";
 import { z } from "zod";
-import { checkSettings, mailEnv } from "../mail-env.ts";
+import { serverConfig, serverEnv, type ServerConfig } from "../config.ts";
 import { createIdentityService, trustedIdentityIp, type IdentityConfig } from "@everyfield/domain/identity";
 import { invitationService } from "../invitations";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
-import { mutatingRoute } from "../platform/boundary.ts";
+import { configured, mutatingRoute } from "../platform/boundary.ts";
 
-const env = z.object({
-	IDENTITY_DATABASE_URL: z.string().min(1),
-	IDENTITY_AUTH_DATABASE_URL: z.string().min(1),
-	IDENTITY_ORIGIN: z.url(),
-	IDENTITY_SECRET: z.string().min(32),
-	...mailEnv,
-});
-
-function identityMail(v: z.infer<typeof env>, transport?: MailTransport) {
+function identityMail(v: ServerConfig, transport?: MailTransport) {
 	const addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
 	return createMailService({
 		db: database(v.IDENTITY_DATABASE_URL),
@@ -52,7 +44,7 @@ function identityMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	});
 }
 
-function identityMailQueue(v: z.infer<typeof env>): IdentityConfig["enqueueMail"] {
+function identityMailQueue(v: ServerConfig): IdentityConfig["enqueueMail"] {
 	const mail = identityMail(v);
 	return (tx, m) =>
 		mail.enqueue(tx, {
@@ -68,20 +60,10 @@ function identityMailQueue(v: z.infer<typeof env>): IdentityConfig["enqueueMail"
 		});
 }
 
-const settings = () => checkSettings("identity", env, process.env);
+export const identityMailEnqueue = (): IdentityConfig["enqueueMail"] => identityMailQueue(serverConfig());
 
-class IdentitySettingsRefused extends Error {
-	override name = "IdentitySettingsRefused";
-}
-
-export function identityMailEnqueue(): IdentityConfig["enqueueMail"] | null {
-	const v = settings();
-	return v ? identityMailQueue(v) : null;
-}
-
-export function identityMailPass(transport: MailTransport): MailPass | null {
-	const v = settings();
-	if (!v) return null;
+export function identityMailPass(transport: MailTransport): MailPass {
+	const v = serverConfig();
 	const db = database(v.IDENTITY_DATABASE_URL),
 		mail = identityMail(v, transport);
 	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.identity, limit, until);
@@ -89,10 +71,9 @@ export function identityMailPass(transport: MailTransport): MailPass | null {
 
 let service: ReturnType<typeof createIdentityService> | undefined;
 function identityMount() {
-	const v = settings();
-	if (!v) return null;
 	if (!service) {
-		const db = database(v.IDENTITY_DATABASE_URL),
+		const v = serverConfig(),
+			db = database(v.IDENTITY_DATABASE_URL),
 			authDb = database(v.IDENTITY_AUTH_DATABASE_URL),
 			admissionDb = db;
 		service = createIdentityService({
@@ -103,28 +84,19 @@ function identityMount() {
 			scheduleDelivery: after,
 			origin: v.IDENTITY_ORIGIN,
 			secret: v.IDENTITY_SECRET,
-			trustedIp: (request) => trustedIdentityIp(request, trustsVercelForwardedFor(process.env)),
+			trustedIp: (request) => trustedIdentityIp(request, trustsVercelForwardedFor(serverEnv())),
 			enqueueMail: identityMailQueue(v),
 			diagnostic: (value) => logLine({ component: "identity", ...value, correlationId: asLogId(value.correlationId) }),
-			invitations: invitationService() ?? undefined,
+			invitations: invitationService(),
 		});
 	}
 	return service;
 }
 
-export function identityHandler(request: Request): Promise<Response> {
-	const mount = identityMount();
-	return mount
-		? mount.handle(request)
-		: Promise.resolve(
-				Response.json({ code: "unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store" } }),
-			);
-}
+export const identityHandler = configured((request: Request): Promise<Response> => identityMount().handle(request));
 
 export function requestAuth() {
-	const mount = identityMount();
-	if (!mount) throw new IdentitySettingsRefused("identity_unavailable");
-	return mount.auth;
+	return identityMount().auth;
 }
 
 export const identityWrite = mutatingRoute(identityHandler);

@@ -95,14 +95,12 @@ async function roomHas(id: string, text: string) {
 	const room = liveRoom(id);
 	while (!room.text.includes(text)) await room.next(AbortSignal.timeout(5_000));
 }
-const lives = (seen: Seen[]) =>
-	seen.filter((s) => "live" in s.item).map((s) => ({ at: s.at, ...(s.item as any).live }));
+const lives = (seen: Seen[]) => seen.flatMap((s) => ("live" in s.item ? [{ at: s.at, ...s.item.live }] : []));
 const liveText = (seen: Seen[]) =>
 	lives(seen)
 		.map((p) => p.text)
 		.join("");
-const saved = (seen: Seen[]) =>
-	seen.filter((s) => "event" in s.item).map((s) => (s.item as any).event as ConversationEvent);
+const saved = (seen: Seen[]) => seen.flatMap((s) => ("event" in s.item ? [s.item.event] : []));
 const savedText = (events: ConversationEvent[]) =>
 	events
 		.filter((e) => e.kind === "assistant_text")

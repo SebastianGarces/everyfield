@@ -75,8 +75,8 @@ export const GET = defineReads(
 			}),
 		),
 		templates: get(z.undefined(), async ({ actor }): Promise<ChurchTemplates> => {
+			if (!actor) return { status: "lost" };
 			const db = requestDatabase();
-			if (!actor || !db) return { status: "lost" };
 			try {
 				const reply = await documentsWriter.listChurch(db, actor, {});
 				if (reply.status !== "ok") return refusedWith(reply.error.code);
@@ -99,8 +99,8 @@ export const GET = defineReads(
 			},
 		),
 		compare: get(z.strictObject({ documentId: z.string() }), async ({ actor }, input): Promise<CompareResult> => {
+			if (!actor) return { status: "lost" };
 			const db = requestDatabase();
-			if (!actor || !db) return { status: "lost" };
 			try {
 				const reply = await documentsWriter.readTemplateCompare(db, actor, input);
 				if (reply.status !== "ok")

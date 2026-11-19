@@ -67,8 +67,8 @@ export async function signCommitmentUpload(
 ): Promise<Outcome<z.infer<typeof c.commitmentDocumentUpload>>> {
 	return boundary(async (v) => {
 		const storage = privateStorage();
+		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const db = requestDatabase();
-		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
 		const signed = await signCommitmentDocument(
 			db,
 			storage,
@@ -86,8 +86,8 @@ export async function saveCommitmentWithDocument(
 ): Promise<Outcome<CommitmentSaved>> {
 	return boundary(async (v) => {
 		const storage = privateStorage();
+		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const db = requestDatabase();
-		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
 		const saved = await saveCommitmentDocument(db, storage, v.authority, { requestKey, input }).catch(lost);
 		return outcome(saved, (r) => ({
 			commitment: r.commitment,

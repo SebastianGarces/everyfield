@@ -32,7 +32,6 @@ export { COVERAGE_PAGE, taskViewer, type TaskViewer };
 
 export async function read<T>(run: (tx: WriteTx) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await gatedTransaction(db, run);
 	} catch (error) {
@@ -49,7 +48,6 @@ export async function write<T>(
 	run: (w: Writer, tx: WriteTx, ctx: TaskContext) => Promise<FollowUpReply<T>>,
 ): Promise<Outcome<T>> {
 	const mount = tasksMount();
-	if (!mount) return { status: "lost" };
 	writer ??= createFollowUpWriter({ reminders: mount.reminders });
 	const w = writer;
 	try {
@@ -91,7 +89,6 @@ export async function readPersonFollowUps(
 
 export async function loadPersonFollowUps(authority: RequestActor, personId: string): Promise<PersonFollowUps | null> {
 	const db = requestDatabase();
-	if (!db) return null;
 	try {
 		return await gatedTransaction(db, (tx) => readPersonFollowUps(tx, authority, personId));
 	} catch (error) {

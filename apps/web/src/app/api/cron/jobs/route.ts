@@ -13,27 +13,29 @@ import { feedbackPublicationMount } from "@/features/feedback/publication";
 import { deliveryTransport, mailReady, queuedMailTransport } from "@/server/mail/transport";
 import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
 import { cronRoute } from "@/server/platform/cron";
+import { configured } from "@/server/platform/boundary";
 import { assessmentsMount } from "@/server/jobs/assessment";
+import { serverEnv } from "@/server/config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-export function GET(request: Request): Promise<Response> {
+export const GET = configured(function GET(request: Request): Promise<Response> {
 	const db = jobDatabase();
 	const ready = mailReady();
 	return cronRoute(
-		process.env.CRON_SECRET,
+		serverEnv().CRON_SECRET,
 		scheduledJobs({
 			db,
 			storage: privateStorage(),
 			cleanup: cleanupDatabase(),
-			reminders: tasksMount()?.reminders ?? null,
+			reminders: tasksMount().reminders,
 			digests: digestsMount(db),
 			notifications: notificationsMount(db),
 			feedbackPublication: feedbackPublicationMount(db),
 			assessments: assessmentsMount(db),
 			mail: ready ? (limit, until) => runDueInvitationMail(queuedMailTransport(ready), limit, until) : null,
-			messages: ready && db ? scheduledMessages(db, deliveryTransport(ready), ready.keys) : null,
+			messages: ready ? scheduledMessages(db, deliveryTransport(ready), ready.keys) : null,
 			mountMail: ready
 				? {
 						identity: identityMailPass(queuedMailTransport(ready)),
@@ -47,4 +49,4 @@ export function GET(request: Request): Promise<Response> {
 				: undefined,
 		}),
 	)(request);
-}
+});

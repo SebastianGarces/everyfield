@@ -74,9 +74,11 @@ the existing logins new passwords and overwrites their URLs (`--force`). Never r
 - The dry run now reports each generated setting as "already present" and each login as "keep". Rerun it and
   confirm that every hand-set setting under "Shape of the hand-set settings" reports "right shape". Check a
   "cannot check" setting by hand in the Vercel dashboard.
-- When production refuses its identity or mail settings, Vercel logs show one `settings_refused` line per check
-  (`identity` or `mail`) that names each refused setting, by name only, never its value. Boot then logs
-  `warm_failed` with the error name `IdentitySettingsRefused`. Fix the named settings and redeploy.
+- When production refuses its identity or mail settings, Vercel logs name each refused setting, by name only, never
+  its value. A missing or malformed identity setting gives one `config_missing` line at boot (`missing` lists the
+  names); boot then skips warming, and code that needs the settings fails with the error name `ServerConfigError`.
+  A mail refusal (no `RESEND_API_KEY` in production, or equal mail and address keys) gives one `settings_refused`
+  line from `mail`. Fix the named settings and redeploy.
 
 ## Roll back
 

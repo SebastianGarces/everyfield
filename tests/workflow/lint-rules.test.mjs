@@ -194,7 +194,7 @@ export const d = [c, warn, nodeConsole, err, stderr, stdout, error];
 			"apps/web/src/features/x/Panel.tsx": `"use client";\n${reach}`,
 			"packages/domain/src/log.ts": reach,
 			"tests/integration/x/reach.test.mts": reach,
-		}),
+		}).filter((hit) => hit.endsWith(" server-log")),
 		["apps/web/src/features/x/server.ts", "packages/domain/src/people/reach.ts", "packages/evry/src/runtime/reach.ts"]
 			.flatMap((file) => lines.map((line) => `${file}:${line} server-log`))
 			.sort(),
@@ -574,6 +574,8 @@ export const label = (node: ReactNode) => [node, parse];
 		"apps/web/src/components/save/model.ts:8 model-module",
 	]);
 	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": pure }), []);
+	for (const file of ["apps/web/src/features/tasks/fresh-model.ts", "apps/web/src/features/wiki/page-state.ts"])
+		assert.deepEqual(lint({ [file]: "export const at = () => Date.now();\n" }), [`${file}:1 model-module`]);
 	const disguised = `const D = Date;
 const { now } = performance;
 const tick = Date.now;
@@ -1050,10 +1052,53 @@ export const f = [named, key, process.env.VERCEL_URL];
 			"apps/web/src/features/x/reach.ts": reach,
 			"packages/db/src/deployment.ts": "export const named = (env) => env.VERCEL_ENV ?? env.VERCEL;\n",
 			"tests/integration/x/reach.test.mts": reach,
-		}),
+		}).filter((hit) => hit.endsWith(" deployment-env")),
 		["apps/web/src/features/x/reach.ts", "packages/domain/src/mail/reach.ts"]
 			.flatMap((file) => lines.map((line) => `${file}:${line} deployment-env`))
 			.sort(),
+	);
+});
+
+test("INV-config: web code reads the server environment only through the config module, and never parses all of it per call", () => {
+	const reach = `import { serverEnv } from "../../server/config.ts";
+export const a = process.env.IDENTITY_DATABASE_URL;
+export const b = process.env["CRON_SECRET"];
+const { PGOPTIONS } = process.env;
+export const c = globalThis.process.env.IDENTITY_ORIGIN;
+export const d = z.object({ CRON_SECRET: z.string() }).safeParse(serverEnv());
+export const e = schema.parse(serverEnv());
+export const f = process.env.NEXT_RUNTIME === "nodejs";
+export const g = serverEnv().CRON_SECRET;
+export const h = (process) => process.env.X;
+export function i(source = serverEnv()) {
+	return schema.safeParse(source);
+}
+const copy = serverEnv();
+export const j = schema.parse(copy);
+export const k = schema.parse({ ...serverEnv(), EXTRA: "1" });
+export const l = Reflect.get(process, "env");
+const { env } = process;
+export const m = process.cwd();
+export const n = schema.parse({ CRON_SECRET: serverEnv().CRON_SECRET });
+export const o = { process: 1 };
+`;
+	const imports = `import nodeProcess from "node:process";
+import { env as named } from "process";
+export const p = require("node:process").env;
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/reach.ts": reach,
+			"apps/web/src/server/config.ts":
+				"export const serverEnv = () => process.env;\nexport const all = schema.parse(process.env);\n",
+			"packages/domain/src/x/reach.ts": "export const a = process.env.IDENTITY_DATABASE_URL;\n",
+			"apps/web/src/features/x/imports.ts": imports,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[
+			...[1, 2, 3].map((line) => `apps/web/src/features/x/imports.ts:${line} server-config`),
+			...[2, 3, 4, 5, 6, 7, 12, 15, 16, 17, 18].map((line) => `apps/web/src/features/x/reach.ts:${line} server-config`),
+		].sort(),
 	);
 });
 
