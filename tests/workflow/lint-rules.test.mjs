@@ -1661,7 +1661,7 @@ export function Report() {
 	);
 });
 
-test("INV-lint: a store read with getState() while rendering is reported, also through a destructured or assigned getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not", () => {
+test("INV-lint: a store read with getState() while rendering is reported, also through a destructured, defaulted, assigned, bound or passed getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not, and a same-named binding elsewhere is not an alias", () => {
 	const source = `import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { useStore } from "@/components/store";
 export function Card({ store, ids }) {
@@ -1693,13 +1693,36 @@ export function Aliased({ store }) {
 	const onClick = () => read().count;
 	return <button onClick={onClick}>{getState().count + read().count}</button>;
 }
+export function Bound({ store, getState: given }) {
+	const bound = store.getState.bind(store);
+	let later;
+	later = store.getState;
+	const { getState: fallback = null } = store;
+	const onClick = () => bound().count + later().count;
+	const a = store.getState.bind(store)().a;
+	const b = bound().b;
+	const c = later().c;
+	const d = fallback().d;
+	const e = given().e;
+	const f = store.getState.call(store).f;
+	return <button onClick={onClick}>{a + b + c + d + e + f}</button>;
+}
+export function Handler({ store }) {
+	const pick = store.getState;
+	return <button onClick={() => pick().count}>Go</button>;
+}
+export function Unrelated({ pick }) {
+	return <p>{pick()}</p>;
+}
 `;
 	assert.deepEqual(
 		lint({ "apps/web/src/features/x/Card.tsx": source, "packages/ui/src/Card.tsx": source }).filter((hit) =>
 			hit.endsWith("no-render-get-state"),
 		),
 		["apps/web/src/features/x/Card.tsx", "packages/ui/src/Card.tsx"]
-			.flatMap((path) => [4, 5, 6, 7, 15, 21, 30, 30].map((line) => `${path}:${line} no-render-get-state`))
+			.flatMap((path) =>
+				[4, 5, 6, 7, 15, 21, 30, 30, 38, 39, 40, 41, 42, 43].map((line) => `${path}:${line} no-render-get-state`),
+			)
 			.sort(),
 	);
 });
