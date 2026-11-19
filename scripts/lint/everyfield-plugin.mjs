@@ -1638,26 +1638,61 @@ const renderReads = {
 
 const READ_NAME = /^(?:load|read|get|list|find|search|suggest|preview|compare)(?:[A-Z]|$)/;
 
+const READ_HOME =
+	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through getReads in the feature's fetch.ts.";
+
+const boundNames = (pattern) => {
+	if (!pattern) return [];
+	if (pattern.type === "Identifier") return [pattern];
+	if (pattern.type === "ObjectPattern")
+		return pattern.properties.flatMap((p) => boundNames(p.type === "RestElement" ? p.argument : p.value));
+	if (pattern.type === "ArrayPattern") return pattern.elements.flatMap(boundNames);
+	if (pattern.type === "AssignmentPattern") return boundNames(pattern.left);
+	if (pattern.type === "RestElement") return boundNames(pattern.argument);
+	return [];
+};
+
+const declaresServer = (fn) =>
+	fn.body?.type === "BlockStatement" && fn.body.body.some((s) => s.directive === "use server");
+
 const noReadActions = ratcheted("no-read-actions", (context, push) => {
-	if (!SERVER_ACTIONS.test(context.sourceCode.text)) return {};
-	const report = (node, name) =>
-		push({
-			node,
-			fn: name,
-			message: `${name} is a read exported from a "use server" module. Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through getReads in the feature's fetch.ts.`,
-		});
+	const moduleActions = SERVER_ACTIONS.test(context.sourceCode.text);
+	const report = (node, name, where = `a read exported from a "use server" module`) =>
+		push({ node, fn: name, message: `${name} is ${where}. ${READ_HOME}` });
+	const exported = (id) => {
+		if (moduleActions && id && READ_NAME.test(id.name)) report(id, id.name);
+	};
+	const inline = (fn) => {
+		if (!declaresServer(fn)) return;
+		const name = functionName(fn);
+		if (name && READ_NAME.test(name)) report(fn, name, `a read declared as an inline "use server" function`);
+	};
 	return {
 		ExportNamedDeclaration(node) {
+			if (!moduleActions || node.exportKind === "type") return;
 			const d = node.declaration;
-			if (d?.type === "FunctionDeclaration" && d.id && READ_NAME.test(d.id.name)) report(d.id, d.id.name);
-			if (d?.type === "VariableDeclaration")
-				for (const v of d.declarations)
-					if (v.id.type === "Identifier" && READ_NAME.test(v.id.name)) report(v.id, v.id.name);
+			if (d?.type === "FunctionDeclaration") exported(d.id);
+			if (d?.type === "VariableDeclaration") for (const v of d.declarations) boundNames(v.id).forEach(exported);
 			for (const spec of node.specifiers ?? []) {
 				const name = nameOf(spec.exported);
-				if (spec.exportKind !== "type" && node.exportKind !== "type" && READ_NAME.test(name)) report(spec, name);
+				if (spec.exportKind !== "type" && READ_NAME.test(name)) report(spec, name);
 			}
 		},
+		ExportDefaultDeclaration(node) {
+			const d = node.declaration;
+			if (d.type === "FunctionDeclaration" || d.type === "Identifier") exported(d.type === "Identifier" ? d : d.id);
+		},
+		ExportAllDeclaration(node) {
+			if (!moduleActions || node.exportKind === "type") return;
+			push({
+				node,
+				fn: "*",
+				message: `export * from ${node.source.value} in a "use server" module exports functions this rule cannot see, reads included. Name each server action this module exports. ${READ_HOME}`,
+			});
+		},
+		FunctionDeclaration: inline,
+		FunctionExpression: inline,
+		ArrowFunctionExpression: inline,
 	};
 });
 
