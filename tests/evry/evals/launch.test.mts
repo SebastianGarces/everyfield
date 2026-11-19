@@ -641,7 +641,10 @@ const SETTLED: Record<
 		},
 		after: async () => {
 			const [maria] = await peopleNamed(MATCH.name);
-			assert.ok((await outcomeNow()).guests.includes(String(maria!.id)), "the existing Maria Lopez is a guest");
+			assert.ok(
+				(await outcomeNow()).guests.some((guest) => guest === String(maria!.id)),
+				"the existing Maria Lopez is a guest",
+			);
 			assert.equal(await livePeople(), kept.people, "no Person is created");
 			assert.deepEqual(
 				(await entriesOf("guest")).filter((e) => e.change.name === MATCH.name).map((e) => e.change),
@@ -661,7 +664,7 @@ const SETTLED: Record<
 				[MATCH.email, null],
 			);
 			const guests = (await outcomeNow()).guests;
-			assert.ok(marias.every((m) => guests.includes(String(m.id))));
+			assert.ok(marias.every((m) => guests.some((guest) => guest === String(m.id))));
 		},
 	},
 	"LAU-45": {
@@ -783,7 +786,7 @@ test("INV-evry-launch: every Launch case passes on the scripted model, and each 
 		if (c.setup === "guestMatch") await seedGuestMatch(db);
 		if (c.setup === "outcomeNote") await seedOutcomeNote(db);
 		const actor = await actorOf(c.actor);
-		const conversation = c.continue
+		const conversation: string = c.continue
 			? previous!
 			: (await createConversation(db, actor, { requestKey: randomUUID() })).id;
 		previous = conversation;
