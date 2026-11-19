@@ -91,6 +91,7 @@ Portless uses HTTPS by default. Trust its CA before browser review, in the brows
 skill describes the CA setup and a disposable HTTP test supervisor. Never shut down another agent's supervisor.
 
 Preview startup runs no database creation, migration, seed, email or provider setup. Marketing pages render without
-provider credentials. For product work, supply the shared development database's settings in the shell or this
+provider credentials: `bin/dev stack up` and verify-preview's `preview.mjs` give a preview throwaway values for any
+`IDENTITY_*` setting its env lacks, with the database on an unreachable port, so it boots and sign-in stays off. For product work, supply the shared development database's settings in the shell or this
 worktree's ignored `apps/web/.env.local`; production snapshots do not copy ignored env files. Never copy production
 settings into a preview or print secrets. Portless isolates processes and dependencies, not the shared database.
