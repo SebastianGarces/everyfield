@@ -43,17 +43,12 @@ export function MessageEditor({
 	children?: ReactNode;
 }) {
 	const area = useRef<HTMLTextAreaElement>(null);
+	const list = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState<Open | null>(null);
-	const [active, setActive] = useState("");
 	const fields = fieldsFor(hasMeeting);
-	const matching = (at: Open | null) => (at ? fields.filter((field) => field.key.startsWith(at.query)) : []);
-	const shown = matching(open);
+	const shown = open ? fields.filter((field) => field.key.startsWith(open.query)) : [];
 	const listed = open !== null && shown.length > 0;
-	const reopen = (el: HTMLTextAreaElement) => {
-		const at = openAt(el);
-		setOpen(at);
-		setActive(matching(at)[0]?.key ?? "");
-	};
+	const reopen = (el: HTMLTextAreaElement) => setOpen(openAt(el));
 
 	const insert = (field: MergeField, from?: number) => {
 		const el = area.current;
@@ -70,6 +65,7 @@ export function MessageEditor({
 		if (!listed) return keepKeyInField(event);
 		if (event.key === "Tab") {
 			event.preventDefault();
+			const active = list.current?.querySelector('[cmdk-item][aria-selected="true"]')?.getAttribute("data-value");
 			insert(shown.find((field) => field.key === active) ?? shown[0]!, open.from);
 		} else if (event.key === "Escape") {
 			event.preventDefault();
@@ -89,18 +85,12 @@ export function MessageEditor({
 				/>
 			</Field>
 			<Field label="Message" error={bodyError}>
-				<Command
-					shouldFilter={false}
-					vimBindings={false}
-					label="Fields"
-					value={active}
-					onValueChange={setActive}
-					className="relative"
-				>
-					<Command.Input asChild value={open?.query ?? ""}>
+				<Command shouldFilter={false} vimBindings={false} label="Fields" className="relative">
+					<Command.Input asChild value={shown.map((field) => field.key).join(" ")}>
 						<Textarea
 							ref={area}
 							id={undefined}
+							cmdk-input={undefined}
 							value={text}
 							disabled={disabled}
 							rows={11}
@@ -119,6 +109,7 @@ export function MessageEditor({
 						/>
 					</Command.Input>
 					<Command.List
+						ref={list}
 						label="Fields"
 						hidden={!listed}
 						style={open ? { top: open.top, left: open.left } : undefined}

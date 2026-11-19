@@ -282,6 +282,7 @@ function ToField({
 	};
 
 	const inputId = `${id}-input`;
+	const listState = { "aria-expanded": listed };
 	const Box: ElementType = locked ? "div" : "label";
 	return (
 		<Field label="To" hint="Search by name or by the start of an email name. Pick people to add them.">
@@ -353,11 +354,13 @@ function ToField({
 						</button>
 					) : null}
 					{locked ? null : (
-						<Command.Input asChild value={query}>
+						<Command.Input asChild value={shown.map((person) => person.id).join(" ")}>
 							<input
 								id={inputId}
 								aria-label="Add a person"
 								aria-labelledby={undefined}
+								cmdk-input={undefined}
+								{...listState}
 								value={query}
 								placeholder={people.length === 0 ? "Type a name" : ""}
 								onChange={(event) => actions.type(event.target.value)}
