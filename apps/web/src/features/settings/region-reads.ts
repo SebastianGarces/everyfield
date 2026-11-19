@@ -4,7 +4,7 @@ import { readReportingLocation, suggestRegions } from "@everyfield/domain/organi
 import "server-only";
 import { z } from "zod";
 import type { RegionRead, RegionSuggestion } from "./region";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "@/server/platform/transient";
 
 type Session = Awaited<ReturnType<typeof getViewer>>;
 
@@ -19,13 +19,14 @@ export async function readRegion(session: Session): Promise<RegionRead> {
 	const seat = plantSeat(session);
 	if (!seat) return { status: "denied" };
 	const db = requestDatabase();
-	try {
-		const r = await readReportingLocation(db, seat.authority);
-		return r ? { status: "ok", ...r } : { status: "denied" };
-	} catch (error) {
-		logFailure({ component: "settings", outcome: "region_read_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "settings", outcome: "region_read_failed" },
+		async () => {
+			const r = await readReportingLocation(db, seat.authority);
+			return r ? { status: "ok", ...r } : { status: "denied" };
+		},
+		LOST,
+	);
 }
 
 const text = z
@@ -41,10 +42,9 @@ export async function suggestRegion(session: Session, raw: unknown): Promise<Reg
 	const place = locality.safeParse(raw);
 	if (!seat || !place.success) return null;
 	const db = requestDatabase();
-	try {
-		return await suggestRegions(db, seat.authority, place.data);
-	} catch (error) {
-		logFailure({ component: "settings", outcome: "region_suggest_failed" }, error);
-		return null;
-	}
+	return transient(
+		{ component: "settings", outcome: "region_suggest_failed" },
+		() => suggestRegions(db, seat.authority, place.data),
+		null,
+	);
 }

@@ -6,7 +6,7 @@ import "server-only";
 import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
 import type { ProgramAnswer } from "../organizations/programs/mount";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "@/server/platform/transient";
 
 export async function residentActor(): Promise<RequestActor | "signed_out" | null> {
 	const v = await getViewer();
@@ -25,12 +25,7 @@ export async function residentCall<T>(
 		actor = who;
 	}
 	const db = requestDatabase();
-	try {
-		return await run(db, actor);
-	} catch (error) {
-		logFailure({ component: "residency", outcome: "failed" }, error);
-		return { status: "lost" };
-	}
+	return transient({ component: "residency", outcome: "failed" }, () => run(db, actor), LOST);
 }
 
 export const loadMyResidency = (authority: RequestActor) => residentCall((db, a) => readMyResidency(db, a), authority);
