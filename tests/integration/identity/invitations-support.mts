@@ -15,6 +15,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { refuse } from "../../../packages/domain/src/identity/invitation-core.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 export const key = randomUUID;
 export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 	const database = await testDatabase({ prefix: "wp008", max: 8 });
@@ -43,7 +44,7 @@ export async function fixture({ lockTimeout = "0", mailKeys = null } = {}) {
 		},
 	});
 	async function actor(session: string) {
-		const a = await db.transaction((tx) => RequestActor.resolve(tx, sessionId.parse(session)));
+		const a = await gatedTransaction(db, (tx) => RequestActor.resolve(tx, sessionId.parse(session)));
 		if (!(a instanceof RequestActor)) refuse();
 		return a;
 	}

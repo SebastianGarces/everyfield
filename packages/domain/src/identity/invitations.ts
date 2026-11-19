@@ -8,7 +8,7 @@ import * as t from "@everyfield/db/tables";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { liveAccess, liveRead, liveRows, RequestActor } from "../access/session.ts";
+import { liveAccess, liveRead, liveRows, RequestActor, type WriteTx } from "../access/session.ts";
 import { timedTransaction, timeouts, transaction } from "./budget.ts";
 import { lastWrite } from "../operations/writes.ts";
 import * as d from "./invitation-core.ts";
@@ -68,10 +68,10 @@ export function createInvitationService(config: InvitationConfig) {
 	const origin = new URL(config.origin).origin;
 	if (origin !== config.origin) throw Error("canonical_origin_required");
 	const addressHash = (s: string) => createHmac("sha256", config.budgetSecret).update(s).digest("hex");
-	async function enqueue(tx: Transaction, cmd: d.Command, input: InvitationMail) {
+	async function enqueue(tx: WriteTx, cmd: d.Command, input: InvitationMail) {
 		return config.enqueueMail(tx, input, cmd);
 	}
-	async function description(tx: Transaction, i: d.Invitation) {
+	async function description(tx: WriteTx, i: d.Invitation) {
 		const { selected, name } = await d.workspace(tx, i.tenant_id);
 		return pendingOf(i, selected, name);
 	}
@@ -91,7 +91,7 @@ export function createInvitationService(config: InvitationConfig) {
 			resendAvailableAt: new Date((i.resent_at ?? i.created_at).getTime() + 60000).toISOString(),
 		});
 	}
-	async function mail(tx: Transaction, i: d.Invitation, cmd: d.Command, proof: string) {
+	async function mail(tx: WriteTx, i: d.Invitation, cmd: d.Command, proof: string) {
 		const { selected, name } = await d.workspace(tx, i.tenant_id),
 			url = new URL("/invitation", origin);
 		url.hash = new URLSearchParams({ proof }).toString();
@@ -110,7 +110,7 @@ export function createInvitationService(config: InvitationConfig) {
 					: `${i.inviter_description} invited you to link your account to ${name}. You can accept or decline. This link does not add a workspace seat.\n\nReview the invitation: ${url.href}\n\nExpires ${d.expires(i).toISOString()}.`,
 		});
 	}
-	async function activePerson(tx: Transaction, organization: string, id: string) {
+	async function activePerson(tx: WriteTx, organization: string, id: string) {
 		const [p] = await tx
 			.select()
 			.from(t.person)
@@ -129,7 +129,7 @@ export function createInvitationService(config: InvitationConfig) {
 		return p;
 	}
 	async function lockSourcePerson(
-		tx: Transaction,
+		tx: WriteTx,
 		source: Pick<d.Invitation, "purpose" | "tenant_id" | "resident_person_id">,
 	) {
 		if (source.purpose === "residency_link" && source.resident_person_id)
@@ -138,7 +138,7 @@ export function createInvitationService(config: InvitationConfig) {
  AND EXISTS(SELECT FROM r) FOR UPDATE OF p`);
 	}
 	async function charge(
-		tx: Transaction,
+		tx: WriteTx,
 		selected: Owner & { kind: "plant" | "organization" },
 		email: string,
 		resident: boolean,

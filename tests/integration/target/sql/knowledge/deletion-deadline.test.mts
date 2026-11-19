@@ -11,6 +11,7 @@ import { queueJobs } from "../../../../../apps/web/src/server/jobs/queue.ts";
 import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, refusedWith, seeds } from "../../../../support/fixture.mts";
 import { freezeClock } from "./support.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 const REQUESTED = new Date("2026-10-13T16:00:00.000Z");
 const DEADLINE = new Date("2026-11-12T16:00:00.000Z");
@@ -68,7 +69,7 @@ async function pendingDeletion() {
 }
 
 const restricted = (a, subject, requestId, at: Date) =>
-	admin.transaction((tx) =>
+	gatedTransaction(admin, (tx) =>
 		issueRestrictedDeletionSession(tx, { subject, requestId }, async () => ({ accountId: a.id, provenAt: at })),
 	);
 
@@ -91,7 +92,9 @@ test("AC:DEL58-003 the restricted session cancels only the current request, and 
 			await freezeClock(admin, schema, BEFORE);
 			const { a, subject, requestId, witness } = await pendingDeletion();
 			const proof = await restricted(a, subject, requestId, BEFORE);
-			const status = ok(await db.transaction((tx) => api.getAccountDeletionStatus(tx, proof, { subject, requestId })));
+			const status = ok(
+				await gatedTransaction(db, (tx) => api.getAccountDeletionStatus(tx, proof, { subject, requestId })),
+			);
 			assert.deepEqual(status, {
 				status: "pending_deletion",
 				subject,
@@ -104,7 +107,7 @@ test("AC:DEL58-003 the restricted session cancels only the current request, and 
 			assert.equal(ordinaryDataBeforeCancel, false);
 
 			const cancelled = ok(
-				await db.transaction((tx) => api.cancelAccountDeletion(tx, proof, command({ subject, requestId }))),
+				await gatedTransaction(db, (tx) => api.cancelAccountDeletion(tx, proof, command({ subject, requestId }))),
 			);
 			const cancelAllowed = cancelled.status === "cancelled";
 			assert.equal(cancelAllowed, true);
@@ -120,7 +123,7 @@ test("AC:DEL58-003 the restricted session cancels only the current request, and 
 			});
 			const [account] = await admin.select().from(t.account).where(eq(t.account.id, a.id));
 			const newer = ok(
-				await db.transaction((tx) =>
+				await gatedTransaction(db, (tx) =>
 					api.requestAccountDeletion(
 						tx,
 						{ session, selected: subject },
@@ -132,8 +135,8 @@ test("AC:DEL58-003 the restricted session cancels only the current request, and 
 			assert.equal(newer.revision, "2");
 			assert.notEqual(newer.requestId, requestId);
 			const stale = [
-				await db.transaction((tx) => api.cancelAccountDeletion(tx, proof, command({ subject, requestId }))),
-				await db.transaction((tx) =>
+				await gatedTransaction(db, (tx) => api.cancelAccountDeletion(tx, proof, command({ subject, requestId }))),
+				await gatedTransaction(db, (tx) =>
 					api.cancelAccountDeletion(tx, proof, command({ subject, requestId: newer.requestId }, "2")),
 				),
 			];
@@ -152,7 +155,7 @@ test("AC:DEL58-003 the restricted session cancels only the current request, and 
 			await freezeClock(admin, schema, DEADLINE);
 			const { a, subject, requestId, witness } = await pendingDeletion();
 			const proof = await restricted(a, subject, requestId, DEADLINE);
-			const refused = await db.transaction((tx) =>
+			const refused = await gatedTransaction(db, (tx) =>
 				api.cancelAccountDeletion(tx, proof, command({ subject, requestId })),
 			);
 			denied(refused, "deadline_passed");
