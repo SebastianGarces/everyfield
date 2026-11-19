@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, before, test } from "node:test";
-import { capture, captureAllowed, NO_ANSWER_FILE } from "../../../apps/web/src/server/mail/capture.ts";
+import { captureAllowed, type Captured } from "../../../apps/web/src/server/mail/capture.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { deliveryTransport, mailReady } from "../../../apps/web/src/server/mail/transport.ts";
 
@@ -58,7 +58,9 @@ test("AC:CASE-COM-003 a development server records each send and calls no provid
 	assert.ok(ready && ready.apiKey === null);
 	const refuseFetch: typeof fetch = () => Promise.reject(new Error("provider called"));
 	const settled: string[] = [];
-	const result = await deliveryTransport(ready, refuseFetch, (ids) => settled.push(...ids)).send(
+	const result = await deliveryTransport(ready, refuseFetch, {
+		settle: async (_db, ids) => void settled.push(...ids),
+	}).send(
 		{
 			key: "k-1",
 			messages: [{ to: "maria@example.test", subject: "Hello", html: "<p>Hi Maria</p>", text: "Hi Maria" }],
@@ -67,6 +69,8 @@ test("AC:CASE-COM-003 a development server records each send and calls no provid
 		AbortSignal.timeout(1_000),
 	);
 	assert.equal(result.outcome, "ids");
+	assert.deepEqual(settled, []);
+	if (result.outcome === "ids") await result.afterRecord?.(null as never);
 	assert.deepEqual(settled, result.outcome === "ids" ? result.ids.filter((id): id is string => id !== null) : []);
 	assert.equal(settled.length, 1);
 	const [entry] = await readOutbox(outbox);
@@ -85,23 +89,35 @@ test("AC:CASE-COM-003 production sending posts to the provider unchanged", async
 		return Response.json({ data: [{ id: "provider-1" }] });
 	};
 	const before = (await readOutbox(outbox)).length;
-	const settled: string[] = [];
-	const result = await deliveryTransport(ready!, provider, (ids) => settled.push(...ids)).send(
+	const result = await deliveryTransport(ready!, provider, {
+		settle: async () => assert.fail("a provider send settles nothing"),
+	}).send(
 		{ key: "k-2", messages: [{ to: "a@example.test", subject: "S", html: "<p>x</p>", text: "x" }], scheduledAt: null },
 		AbortSignal.timeout(1_000),
 	);
 	assert.deepEqual(calls, ["https://api.resend.com/emails/batch"]);
 	assert.deepEqual(result, { outcome: "ids", ids: ["provider-1"] });
 	assert.equal((await readOutbox(outbox)).length, before);
-	assert.deepEqual(settled, []);
 });
 
 test("INV-communication-outbox: the outbox lists newest first", async () => {
 	const dir = await mkdtemp(join(tmpdir(), "outbox-test-"));
-	const message = { from: "f@x.test", to: "t@x.test", html: "h", text: "t" };
-	await capture({ ...message, subject: "first" }, null, "first", dir);
-	await new Promise((done) => setTimeout(done, 5));
-	await capture({ ...message, subject: "second" }, null, "second", dir);
+	const entry = (subject: string, at: string, n: number): Captured => ({
+		id: `capture-0000000${n}-0000-0000-0000-000000000000`,
+		at,
+		from: "f@x.test",
+		to: "t@x.test",
+		subject,
+		html: "h",
+		text: "t",
+		scheduledAt: null,
+		cancelled: false,
+	});
+	for (const captured of [
+		entry("first", "2026-11-18T10:00:00.000Z", 1),
+		entry("second", "2026-11-18T10:00:00.001Z", 2),
+	])
+		await writeFile(join(dir, `${captured.id}.json`), JSON.stringify(captured));
 	assert.deepEqual(
 		(await readOutbox(dir)).map((e) => e.subject),
 		["second", "first"],
@@ -112,11 +128,9 @@ test("AC:CASE-COM-012 a scheduled capture waits in the outbox, and cancel and ti
 	setEnv({});
 	const ready = mailReady()!;
 	const settled: string[] = [];
-	const capture = deliveryTransport(
-		ready,
-		() => Promise.reject(new Error("provider called")),
-		(ids) => settled.push(...ids),
-	);
+	const capture = deliveryTransport(ready, () => Promise.reject(new Error("provider called")), {
+		settle: async (_db, ids) => void settled.push(...ids),
+	});
 	const signal = () => AbortSignal.timeout(1_000);
 	const friday = new Date(Date.now() + 3 * 86_400_000).toISOString();
 	const saturday = new Date(Date.now() + 4 * 86_400_000).toISOString();
@@ -162,14 +176,12 @@ test("AC:CASE-COM-012 a scheduled capture waits in the outbox, and cancel and ti
 	assert.deepEqual(await capture.reschedule([sentId], saturday, signal()), [{ outcome: "sent" }]);
 });
 
-test("AC:CASE-COM-012 the no-answer switch makes the capture answer nothing, so each not-confirmed state can be shown", async () => {
+test("AC:CASE-COM-012 a silent capture answers nothing, so each not-confirmed state can be shown", async () => {
 	setEnv({});
 	const ready = mailReady()!;
-	const capture = deliveryTransport(
-		ready,
-		() => Promise.reject(new Error("provider called")),
-		() => {},
-	);
+	const refuse = () => Promise.reject(new Error("provider called"));
+	const capture = deliveryTransport(ready, refuse, { settle: async () => {} });
+	const silent = deliveryTransport(ready, refuse, { silent: true });
 	const signal = () => AbortSignal.timeout(1_000);
 	const friday = new Date(Date.now() + 3 * 86_400_000).toISOString();
 	const held = await capture.send(
@@ -182,26 +194,21 @@ test("AC:CASE-COM-012 the no-answer switch makes the capture answer nothing, so 
 	);
 	const id = held.outcome === "ids" ? held.ids[0]! : "";
 	const before = (await readOutbox(outbox)).length;
-	await writeFile(join(outbox, NO_ANSWER_FILE), "");
-	try {
-		assert.deepEqual(await capture.cancel([id], signal()), [{ outcome: "unknown" }]);
-		assert.deepEqual(await capture.reschedule([id], new Date(Date.now() + 5 * 86_400_000).toISOString(), signal()), [
-			{ outcome: "unknown" },
-		]);
-		assert.deepEqual(
-			await capture.send(
-				{
-					key: "k-q2",
-					messages: [{ to: "eli@example.test", subject: "Q", html: "<p>e</p>", text: "e" }],
-					scheduledAt: null,
-				},
-				signal(),
-			),
-			{ outcome: "unknown" },
-		);
-		assert.equal((await readOutbox(outbox)).length, before);
-	} finally {
-		await rm(join(outbox, NO_ANSWER_FILE));
-	}
+	assert.deepEqual(await silent.cancel([id], signal()), [{ outcome: "unknown" }]);
+	assert.deepEqual(await silent.reschedule([id], new Date(Date.now() + 5 * 86_400_000).toISOString(), signal()), [
+		{ outcome: "unknown" },
+	]);
+	assert.deepEqual(
+		await silent.send(
+			{
+				key: "k-q2",
+				messages: [{ to: "eli@example.test", subject: "Q", html: "<p>e</p>", text: "e" }],
+				scheduledAt: null,
+			},
+			signal(),
+		),
+		{ outcome: "unknown" },
+	);
+	assert.equal((await readOutbox(outbox)).length, before);
 	assert.deepEqual(await capture.cancel([id], signal()), [{ outcome: "done" }]);
 });
