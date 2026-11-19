@@ -1,15 +1,37 @@
 import { requestDatabase } from "@/server/database";
-import type { AssessmentHistory, AssessmentView, PlantFacts } from "@everyfield/contracts/intelligence";
+import { getViewer } from "@/server/request-context";
+import type {
+	AssessmentHistory,
+	AssessmentReply,
+	AssessmentView,
+	PlantFacts,
+} from "@everyfield/contracts/intelligence";
+import type { Database } from "@everyfield/db/client";
 import type { Catalog } from "@everyfield/contracts/phases";
 import type { RequestActor } from "@everyfield/domain/access";
-import { createAssessments, createFacts } from "@everyfield/domain/intelligence";
+import { createAssessments, createFacts, type Assessments } from "@everyfield/domain/intelligence";
 import { readCatalog } from "@everyfield/domain/phases";
 import "server-only";
+import type { ActionOutcome } from "./assessment-model.ts";
 import { isTransient, logFailure, type LogWord } from "@everyfield/domain/log";
-import { unexpected } from "../../server/platform/transient.ts";
+import { LOST, transient, unexpected } from "../../server/platform/transient.ts";
 
 const assessments = createAssessments();
 const facts = createFacts();
+
+export async function runAssessment<T>(
+	component: "refresh" | "seen" | "feedback" | "citation",
+	body: (a: Assessments, db: Database, authority: RequestActor) => Promise<AssessmentReply<T>>,
+): Promise<ActionOutcome<T>> {
+	const { authority } = await getViewer();
+	if (!authority) return { status: "signed_out" };
+	const db = requestDatabase();
+	return transient(
+		{ component: "assessment", outcome: `${component}_failed` },
+		() => body(assessments, db, authority),
+		LOST,
+	);
+}
 
 export type Loaded<T> = { status: "ok"; value: T } | { status: "denied" | "lost" };
 

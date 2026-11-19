@@ -1,8 +1,8 @@
 import "server-only";
 import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
-import type { GuideResult, OrderRead, OrderRow, SearchResult } from "./actions.ts";
-import { articlePath, parseSource } from "./model.ts";
+import type { ExportResult, GuideResult, OrderRead, OrderRow, SearchResult } from "./actions.ts";
+import { articlePath, parseSource, sourceInput } from "./model.ts";
 import { mountFor, organizationNames, plantContext, runSearch, wikiActor } from "./server.ts";
 import { logFailure } from "@everyfield/domain/log";
 
@@ -12,6 +12,35 @@ const search = z.strictObject({
 	page: z.number(),
 	source: z.string().nullable(),
 });
+
+async function exportOf(
+	actor: Awaited<ReturnType<typeof wikiActor>>,
+	articleId: string,
+	sourceRaw: string | null,
+	kind: "pdf" | "print",
+): Promise<ExportResult> {
+	const ready = mountFor(actor);
+	if (ready.status !== "ready") return ready;
+	const source = sourceInput(parseSource(sourceRaw ?? undefined));
+	try {
+		const reply =
+			kind === "pdf"
+				? await ready.mount.producer.exportPdf(ready.mount.db, ready.actor, { articleId, source })
+				: await ready.mount.producer.printArticle(ready.mount.db, ready.actor, { articleId, source });
+		if (reply.status !== "ok") return reply.error.code === "access_denied" ? { status: "denied" } : { status: "lost" };
+		if (reply.value.errorCode || (kind === "pdf" && !reply.value.bytes && !reply.value.fontFailureOffersPrintFallback))
+			return { status: "denied" };
+		if (reply.value.bytes) return { status: "pdf", bytes: reply.value.bytes };
+		if (reply.value.html)
+			return { status: "print", html: reply.value.html, fallback: reply.value.fontFailureOffersPrintFallback };
+		return { status: "denied" };
+	} catch (error) {
+		logFailure({ component: "wiki", outcome: "export-failed" }, error);
+		return { status: "lost" };
+	}
+}
+
+const exportInput = z.strictObject({ articleId: z.string(), source: z.string().nullable() });
 
 export const GET = defineReads(
 	async () => ({ actor: await wikiActor() }),
@@ -48,6 +77,8 @@ export const GET = defineReads(
 				return { status: "unavailable" };
 			}
 		}),
+		pdf: get(exportInput, ({ actor }, v) => exportOf(actor, v.articleId, v.source, "pdf")),
+		print: get(exportInput, ({ actor }, v) => exportOf(actor, v.articleId, v.source, "print")),
 		order: get(z.undefined(), async ({ actor }): Promise<OrderRead> => {
 			const ready = mountFor(actor);
 			if (ready.status !== "ready") return ready;
