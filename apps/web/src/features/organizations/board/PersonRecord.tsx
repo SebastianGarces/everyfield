@@ -23,16 +23,8 @@ import {
 } from "@everyfield/ui/controls";
 import { Avatar } from "@everyfield/ui/display";
 import { useActionState, useState, useTransition, type FormEvent, type ReactNode } from "react";
-import {
-	addNote,
-	editNote,
-	movePerson,
-	readPerson,
-	recordAssessment,
-	removeNote,
-	restorePerson,
-	retirePerson,
-} from "./actions";
+import { addNote, editNote, movePerson, recordAssessment, removeNote, restorePerson, retirePerson } from "./actions";
+import { readPerson } from "./fetch.ts";
 import { ConversationsCard } from "./Conversations";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { changedText, PIPELINE_PATH, refusalText } from "./model";
