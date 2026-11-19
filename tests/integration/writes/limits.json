@@ -647,9 +647,9 @@
 		"reads": "T-504: 2 reads in a row (read of account, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"identity.handle:resume-registration": {
-		"limit": 16,
+		"limit": 15,
 		"retry": 13,
-		"reason": "RT-6a: the session read (4, Better Auth adapter and readIdentitySession) and invitations.resume (12, see that entry). Its largest first run: 2 transaction, 6 locked read, 6 read, 2 write.",
+		"reason": "RT-6a: the session read (4, Better Auth adapter and readIdentitySession) and invitations.resume (11, see that entry). Its largest first run: 2 transaction, 5 locked read, 6 read, 2 write.",
 		"reads": "T-504: 2 reads in a row (read of account, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"identity.handle:revoke-other-sessions": {
@@ -672,8 +672,8 @@
 		"limit": 2
 	},
 	"invitations.accept": {
-		"limit": 12,
-		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the account's seats and links locked together; the account's Person (ensureAccountPerson: its account and plant lock, the linked Person read and the write); one final statement with every change and audit row; COMMIT. Each lock is its own statement because a statement's snapshot predates its locks (C88). RT-6a brought it from 28 to 12. Its largest first run: 2 transaction, 6 locked read, 2 read, 2 write.",
+		"limit": 11,
+		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the account's seats and links locked together; the account's Person (ensureAccountPerson: one locked read of its account, plant and linked Person, then the write); one final statement with every change and audit row; COMMIT. Each lock is its own statement because a statement's snapshot predates its locks (C88). RT-6a brought it from 28 to 12, and folding ensureAccountPerson's locks into one read to 11. Its largest first run: 2 transaction, 5 locked read, 2 read, 2 write.",
 		"reads": "T-504: 3 reads in a row (read of tenant, then locked read of invitation+organization+tenant, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.invite": {
@@ -694,8 +694,8 @@
 		"reads": "T-504: 3 reads in a row (locked read of organization+person, then locked read of invitation+organization+tenant, then locked read of organization+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.resume": {
-		"limit": 12,
-		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 12 statements (was 29). Its largest first run: 2 transaction, 6 locked read, 2 read, 2 write.",
+		"limit": 11,
+		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 11 statements (was 29). Its largest first run: 2 transaction, 5 locked read, 2 read, 2 write.",
 		"reads": "T-504: 3 reads in a row (read of tenant, then locked read of invitation+organization+tenant, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.revoke": {
