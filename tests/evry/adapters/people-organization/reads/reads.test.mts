@@ -501,12 +501,11 @@ test("INV-tenancy: a household read takes no lock a sign-out waits for, and the 
 	try {
 		await db.transaction(async (tx) => {
 			assert.equal((await getHousehold.invoke(tx, owner, { householdId: home }, null)).status, "available");
-			const started = performance.now();
 			await admin.transaction(async (signOut) => {
 				await signOut.execute(sql`SET LOCAL lock_timeout='2s'`);
+				await signOut.execute(sql`SELECT 1 FROM auth_session WHERE id=${accounts.owner.session} FOR UPDATE NOWAIT`);
 				await signOut.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`);
 			});
-			assert.ok(performance.now() - started < 2_000, "sign-out does not wait for the read");
 			assert.equal((await getHousehold.invoke(tx, owner, { householdId: home }, null)).status, "not_found");
 		});
 	} finally {
