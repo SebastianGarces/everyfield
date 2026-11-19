@@ -799,22 +799,6 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 	);
 });
 
-export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
-const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
-const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
-
-const storageClient = {
-	meta: { type: "problem" },
-	create(context) {
-		const path = repoPath(context.filename);
-		if (path === STORAGE_MODULE || !PRODUCT_CODE.test(path)) return {};
-		const message = `Only ${STORAGE_MODULE} reaches the object store and signs its URLs: the browser gets the app's own authenticated routes, never a storage key or a signed URL.`;
-		return moduleSources((node, name) => {
-			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
-		});
-	},
-};
-
 const isRawSql = (node) =>
 	node.type === "CallExpression" &&
 	node.callee.type === "MemberExpression" &&
@@ -914,6 +898,22 @@ const rawSqlLiteral = {
 				});
 			},
 		};
+	},
+};
+
+export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
+const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
+const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
+
+const storageClient = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === STORAGE_MODULE || !PRODUCT_CODE.test(path)) return {};
+		const message = `Only ${STORAGE_MODULE} reaches the object store and signs its URLs: the browser gets the app's own authenticated routes, never a storage key or a signed URL.`;
+		return moduleSources((node, name) => {
+			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
+		});
 	},
 };
 
@@ -1750,11 +1750,11 @@ export default {
 		"table-writers": tableWriters,
 		"max-state": maxState,
 		"no-timers": noTimers,
+		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
-		"raw-sql-literal": rawSqlLiteral,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
