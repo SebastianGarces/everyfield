@@ -21,9 +21,11 @@ export const GET = defineReads(
 				(r) => r,
 			),
 		),
-		witnesses: get(c.listPeopleRequest.omit({ limit: true }), async (viewer, v) =>
+		witnesses: get(c.listPeopleRequest.pick({ search: true }), async (viewer, v) =>
 			outcome(
-				await read(viewer, (tx, ctx) => peopleReader.listPeople(tx, ctx, { ...v, limit: WITNESSES_FOUND })),
+				await read(viewer, (tx, ctx) =>
+					peopleReader.listPeople(tx, ctx, c.listPeopleRequest.parse({ search: v.search, limit: WITNESSES_FOUND })),
+				),
 				(r) => r.items.map((p) => ({ id: p.id, name: p.displayName, detail: p.email ?? p.phone ?? "" })),
 			),
 		),
