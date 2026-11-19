@@ -663,12 +663,15 @@ try {
 		await admin.execute(sql`SELECT revision::text AS revision FROM account WHERE id=${owner.accountId}`)
 	).rows;
 	const envelope = () => ({ requestKey: randomUUID(), expectedRevision: revision });
-	const marking = (name, action, input) => act(name, "/notifications", notifications, action, [envelope(), input]);
-	const marked = await marking("POST notifications.markRead", "markRead", owned[0]);
+	const marking = (name, action, input) =>
+		act(name, "/notifications", notifications, action, [{ ...envelope(), input }]);
+	const marked = await marking("POST notifications.markRead", "markRead", { noticeId: owned[0] });
 	assert.deepEqual(marked, { status: "ok", value: { markedIds: [owned[0]] } });
-	const selected = await marking("POST notifications.markSelectedRead", "markSelectedRead", [owned[1]]);
+	const selected = await marking("POST notifications.markSelectedRead", "markSelectedRead", { noticeIds: [owned[1]] });
 	assert.deepEqual(selected, { status: "ok", value: { markedIds: [owned[1]] } });
-	const all = await marking("POST notifications.markAllVisibleRead", "markAllVisibleRead", new Date().toISOString());
+	const all = await marking("POST notifications.markAllVisibleRead", "markAllVisibleRead", {
+		cutoff: new Date().toISOString(),
+	});
 	assert.deepEqual(all, { status: "ok", value: { markedIds: [owned[2]] } });
 	const settings = "apps/web/src/features/settings/actions.ts";
 	const { value: section } = await read(null, "/settings/read", "section", { section: "account" });

@@ -97,7 +97,7 @@ export async function replaceAgenda(
 	);
 }
 
-export async function updateRoster(requestKey: string, meetingId: string, add: string[], remove: string[]) {
+export async function updateRoster(requestKey: string, meetingId: string, add: unknown, remove: unknown) {
 	return act((tx, ctx) => rosterWriter.copyTeamRoster(tx, ctx, { requestKey, input: { meetingId, add, remove } }));
 }
 
@@ -190,9 +190,7 @@ async function settle<T>(run: (w: AttendanceWriter) => Run<T>): Promise<Outcome<
 	attendanceWriter ??= createAttendanceWriter({ reminders: mount.reminders });
 	return act(run(attendanceWriter));
 }
-type Presence = "attended" | "absent" | "excused";
-
-export async function setPresence(requestKey: string, meetingId: string, personId: string, presence: Presence) {
+export async function setPresence(requestKey: string, meetingId: string, personId: string, presence: unknown) {
 	return settle(
 		(w) => (tx, ctx) =>
 			presence === "attended"
@@ -205,12 +203,7 @@ export async function setPresence(requestKey: string, meetingId: string, personI
 export async function addWalkIn(requestKey: string, input: unknown) {
 	return act((tx, ctx) => guestsWriter.createWalkInContact(tx, ctx, { requestKey, input }));
 }
-export async function settleAttendance(
-	mode: "finalize" | "reconcile",
-	requestKey: string,
-	expectedRevision: string,
-	input: unknown,
-) {
+export async function settleAttendance(mode: unknown, requestKey: string, expectedRevision: string, input: unknown) {
 	if (mode !== "finalize" && mode !== "reconcile") return { status: "refused", code: "invalid_input" } as const;
 	const v = await getViewer();
 	if (!v?.people) return noSeat;
@@ -230,7 +223,7 @@ export async function settleAttendance(
 	};
 }
 export async function previewSettlement(
-	mode: "finalize" | "reconcile",
+	mode: unknown,
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<Finalization>> {
@@ -272,13 +265,8 @@ export async function addAttendeeNote(requestKey: string, meetingId: string, per
 export async function createVenue(requestKey: string, input: unknown) {
 	return act((tx, ctx) => venuesWriter.create(tx, ctx, { requestKey, input }));
 }
-export async function changeVenue(
-	op: "edit" | "correct" | "archive" | "restore",
-	requestKey: string,
-	expectedRevision: string,
-	input: unknown,
-) {
-	if (!["edit", "correct", "archive", "restore"].includes(op))
+export async function changeVenue(op: unknown, requestKey: string, expectedRevision: string, input: unknown) {
+	if (op !== "edit" && op !== "correct" && op !== "archive" && op !== "restore")
 		return { status: "refused", code: "invalid_input" } as const;
 	return act((tx, ctx) => venuesWriter[op](tx, ctx, command(requestKey, expectedRevision, input)));
 }
