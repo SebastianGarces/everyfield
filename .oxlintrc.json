@@ -49,6 +49,7 @@
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",
 		"everyfield/max-state": "error",
+		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error"
 	},
 	"overrides": [

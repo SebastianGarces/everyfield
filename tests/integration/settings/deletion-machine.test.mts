@@ -14,11 +14,8 @@ import {
 	reachable,
 	refusals,
 } from "../../../packages/contracts/src/machines/index.ts";
-import {
-	createLifecycleCleanup,
-	deletionOperations,
-	issueRestrictedDeletionSession,
-} from "../../../packages/domain/src/settings/index.ts";
+import { createLifecycleCleanup, deletionOperations } from "../../../packages/domain/src/settings/index.ts";
+import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
 import { readCurrentManifest, restoreWithCurrentManifest } from "../../../ops/maintenance/restore.mts";
 import { testDatabase } from "../../support/test-database.mts";
