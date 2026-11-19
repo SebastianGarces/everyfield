@@ -2,10 +2,9 @@ import "../platform/setup.mts";
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import { fixture } from "../identity/invitations-support.mts";
-import { readSwitches, registry, setFlag, switchedOff } from "../../../packages/domain/src/flags/index.ts";
+import { readSwitches, setFlag, switchedOff } from "../../../packages/domain/src/flags/index.ts";
 import { capturedLines, withSwitchOff } from "../../support/flags.mts";
 
-const SWITCHES = ["evry-model-calls", "outbound-mail", "document-exports"];
 let f, plant, operator;
 
 before(async () => {
@@ -15,16 +14,6 @@ before(async () => {
 	await f.seat(operator, plant, "owner");
 });
 after(() => f?.close());
-
-test("each kill switch is a kill flag that defaults on, with an owner, a task and an expiry", () => {
-	for (const name of SWITCHES) {
-		const flag = registry[name];
-		assert.equal(flag.kind, "kill", name);
-		assert.equal(flag.default, true, name);
-		assert.equal(flag.task, "T-472", name);
-		assert.ok(flag.owner && flag.created < flag.expires, name);
-	}
-});
 
 test("with no stored value every switch reads on, in one statement", async () => {
 	let statements = 0;

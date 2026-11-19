@@ -63,7 +63,7 @@ export async function readReview(db: Database, actor: EvryActor, id: string): Pr
 	return proposalRow.parse(r.rows[0]!.proposal);
 }
 
-export function refuseWhileMailPaused(
+function refuseWhileMailPaused(
 	write: Pick<ReviewedWrite<unknown>, "sendsMail">,
 	mail: MailPort | null,
 	action: "evry.prepareProposal" | "evry.approveProposal",

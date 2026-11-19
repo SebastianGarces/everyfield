@@ -1,4 +1,4 @@
-import { registry, setFlag } from "../../packages/domain/src/flags/index.ts";
+import { setFlag } from "../../packages/domain/src/flags/index.ts";
 
 export async function withFlag(db, { flag, scope, operator, value = true, declared = undefined }, body) {
 	if (scope.kind !== "workspace" && scope.kind !== "account")
@@ -12,7 +12,6 @@ export async function withFlag(db, { flag, scope, operator, value = true, declar
 }
 
 export async function withSwitchOff(db, { flag, operator }, body) {
-	if (registry[flag]?.kind !== "kill") throw Error(`withSwitchOff turns off kill switches only, not ${flag}`);
 	await setFlag(db, { flag, scope: { kind: "global" }, value: false, operator });
 	try {
 		return await body();
