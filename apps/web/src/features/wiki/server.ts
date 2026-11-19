@@ -21,9 +21,11 @@ import {
 	type SourceRow,
 	type TreeModel,
 } from "./model.ts";
-import { logFailure, logLine, type LogWord } from "@everyfield/domain/log";
+import { isTransient, logFailure, logLine, type LogWord } from "@everyfield/domain/log";
+import { parseJson } from "../../server/platform/json.ts";
 import { mutatingRoute } from "../../server/platform/boundary.ts";
 import { ServerConfigError } from "../../server/config.ts";
+import { LOST, transient, unexpected } from "../../server/platform/transient.ts";
 
 type Producer = ReturnType<typeof createWikiProducer>;
 type Mount = { db: Database; producer: Producer };
@@ -68,46 +70,47 @@ type StoredEditor = {
 async function editorRevision(mount: Mount, organizationId: string, articleId: string): Promise<StoredEditor | "lost"> {
 	const draft = alias(article_revision, "wiki_draft_revision");
 	const current = alias(article_revision, "wiki_current_revision");
-	try {
-		const rows = await mount.db
-			.select({
-				revision: article_editor_state.revision,
-				state: article_editor_state.state,
-				draftBody: draft.body,
-				draftType: draft.content_type,
-				currentBody: current.body,
-				currentType: current.content_type,
-			})
-			.from(article_editor_state)
-			.leftJoin(draft, eq(draft.id, article_editor_state.draft_revision_id))
-			.leftJoin(current, eq(current.id, article_editor_state.current_revision_id))
-			.where(
-				and(eq(article_editor_state.organization_id, organizationId), eq(article_editor_state.article_id, articleId)),
-			)
-			.limit(1);
-		const row = rows[0];
-		if (!row) {
+	return transient(
+		{ component: "wiki", outcome: "editor-revision-failed" },
+		async () => {
+			const rows = await mount.db
+				.select({
+					revision: article_editor_state.revision,
+					state: article_editor_state.state,
+					draftBody: draft.body,
+					draftType: draft.content_type,
+					currentBody: current.body,
+					currentType: current.content_type,
+				})
+				.from(article_editor_state)
+				.leftJoin(draft, eq(draft.id, article_editor_state.draft_revision_id))
+				.leftJoin(current, eq(current.id, article_editor_state.current_revision_id))
+				.where(
+					and(eq(article_editor_state.organization_id, organizationId), eq(article_editor_state.article_id, articleId)),
+				)
+				.limit(1);
+			const row = rows[0];
+			if (!row) {
+				return {
+					revision: "0",
+					state: null,
+					draftBody: null,
+					draftType: null,
+					currentBody: null,
+					currentType: null,
+				};
+			}
 			return {
-				revision: "0",
-				state: null,
-				draftBody: null,
-				draftType: null,
-				currentBody: null,
-				currentType: null,
+				revision: row.revision,
+				state: row.state,
+				draftBody: row.draftBody,
+				draftType: row.draftType,
+				currentBody: row.currentBody,
+				currentType: row.currentType,
 			};
-		}
-		return {
-			revision: row.revision,
-			state: row.state,
-			draftBody: row.draftBody,
-			draftType: row.draftType,
-			currentBody: row.currentBody,
-			currentType: row.currentType,
-		};
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "editor-revision-failed" }, error);
-		return "lost";
-	}
+		},
+		"lost",
+	);
 }
 
 async function readingRevision(mount: Mount, actor: RequestActor, articleId: string): Promise<string> {
@@ -143,21 +146,24 @@ export async function organizationNames(mount: Mount, ids: string[]): Promise<Ma
 export type Preview = { crawler: boolean; allowed: boolean; title: string | null; excerpt: string | null };
 
 export const loadPreview = cache(async (path: string, userAgent: string): Promise<Preview | null> => {
-	try {
-		const mount = wikiMount();
-		const reply = await mount.producer.renderGlobalPreview(mount.db, { path, userAgent });
-		if (reply.status !== "ok") return null;
-		return {
-			crawler: reply.value.crawler,
-			allowed: reply.value.publicPreviewAllowed,
-			title: reply.value.title,
-			excerpt: reply.value.excerpt,
-		};
-	} catch (error) {
+	return transient(
+		{ component: "wiki", outcome: "preview-failed" },
+		async () => {
+			const mount = wikiMount();
+			const reply = await mount.producer.renderGlobalPreview(mount.db, { path, userAgent });
+			if (reply.status !== "ok") return null;
+			return {
+				crawler: reply.value.crawler,
+				allowed: reply.value.publicPreviewAllowed,
+				title: reply.value.title,
+				excerpt: reply.value.excerpt,
+			};
+		},
+		null,
+	).catch((error: unknown) => {
 		if (error instanceof ServerConfigError) return null;
-		logFailure({ component: "wiki", outcome: "preview-failed" }, error);
-		return null;
-	}
+		throw error;
+	});
 });
 
 type Got = { article: WikiArticle | null; errorCode: "content_access_denied" | null };
@@ -168,12 +174,13 @@ async function articleOf(
 	articleId: string,
 	source: SourceChoice,
 ): Promise<Reply<Got> | { status: "lost" }> {
-	try {
-		return await mount.producer.getArticle(mount.db, actor, { articleId, source: sourceInput(source) });
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "article-failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "wiki", outcome: "article-failed" },
+		async () => {
+			return await mount.producer.getArticle(mount.db, actor, { articleId, source: sourceInput(source) });
+		},
+		LOST,
+	);
 }
 
 type ArticleBlock = "denied" | "hidden" | "order" | null;
@@ -226,29 +233,31 @@ async function feedbackVote(
 	actor: Parameters<typeof plantContext>[0],
 	articleId: string,
 ): Promise<"helpful" | "unhelpful" | null> {
-	try {
-		const mine = await mount.producer.getMine(mount.db, actor, { articleId });
-		return mine.status === "ok" && (mine.value.currentVote === "helpful" || mine.value.currentVote === "unhelpful")
-			? mine.value.currentVote
-			: null;
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "feedback-failed" }, error);
-		return null;
-	}
+	return transient(
+		{ component: "wiki", outcome: "feedback-failed" },
+		async () => {
+			const mine = await mount.producer.getMine(mount.db, actor, { articleId });
+			return mine.status === "ok" && (mine.value.currentVote === "helpful" || mine.value.currentVote === "unhelpful")
+				? mine.value.currentVote
+				: null;
+		},
+		null,
+	);
 }
 
 async function sourceOrder(
 	mount: NonNullable<ReturnType<typeof wikiMount>>,
 	actor: Parameters<typeof plantContext>[0],
 ): Promise<SourceOrder | null> {
-	try {
-		const reply = await mount.producer.listArticles(mount.db, actor, { page: 1 });
-		if (reply.status !== "ok") return null;
-		return { revision: reply.value.orderRevision, churches: reply.value.churches, networks: reply.value.networks };
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "order-read-failed" }, error);
-		return null;
-	}
+	return transient(
+		{ component: "wiki", outcome: "order-read-failed" },
+		async () => {
+			const reply = await mount.producer.listArticles(mount.db, actor, { page: 1 });
+			if (reply.status !== "ok") return null;
+			return { revision: reply.value.orderRevision, churches: reply.value.churches, networks: reply.value.networks };
+		},
+		null,
+	);
 }
 
 export async function loadWiki(
@@ -256,9 +265,9 @@ export async function loadWiki(
 	source: SourceChoice,
 	editing = false,
 ): Promise<WikiPageData | "lost" | "signed-out"> {
+	const mount = wikiMount();
 	const actor = await wikiActor();
 	if (!actor) return "signed-out";
-	const mount = wikiMount();
 	const seat = plantContext(actor);
 	const editor = editorContext(actor);
 	try {
@@ -429,6 +438,7 @@ export async function loadWiki(
 							};
 						}
 					} catch (error) {
+						if (!isTransient(error)) throw unexpected({ component: "wiki", outcome: "draft-failed" }, error);
 						logFailure({ component: "wiki", outcome: "draft-failed" }, error);
 						draftLost = true;
 					}
@@ -454,6 +464,7 @@ export async function loadWiki(
 			draftLost,
 		};
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "wiki", outcome: "page-failed" }, error);
 		logFailure({ component: "wiki", outcome: "page-failed" }, error);
 		return "lost";
 	}
@@ -477,40 +488,41 @@ export async function runSearch(
 	| { status: "results"; hits: Listed[]; nextPage: string | null }
 > {
 	const mount = wikiMount();
-	try {
-		const reply = await mount.producer.search(mount.db, actor, {
-			query: query.slice(0, 200),
-			phase,
-			page,
-			source: sourceInput(source),
-		});
-		if (reply.status !== "ok") {
-			if (reply.error.code === "access_denied") return "denied";
-			logSearchLost(reply.error.code);
-			return "lost";
-		}
-		if (reply.value.status === "unavailable") return { status: "unavailable" };
-		if (reply.value.status === "empty") return { status: "empty" };
-		return {
-			status: "results",
-			hits: reply.value.results.map((article) => ({ ...listed(article), excerpt: article.snippet ?? article.excerpt })),
-			nextPage: reply.value.nextCursor,
-		};
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "search-failed" }, error);
-		return "lost";
-	}
+	return transient(
+		{ component: "wiki", outcome: "search-failed" },
+		async () => {
+			const reply = await mount.producer.search(mount.db, actor, {
+				query: query.slice(0, 200),
+				phase,
+				page,
+				source: sourceInput(source),
+			});
+			if (reply.status !== "ok") {
+				if (reply.error.code === "access_denied") return "denied";
+				logSearchLost(reply.error.code);
+				return "lost";
+			}
+			if (reply.value.status === "unavailable") return { status: "unavailable" };
+			if (reply.value.status === "empty") return { status: "empty" };
+			return {
+				status: "results",
+				hits: reply.value.results.map((article) => ({
+					...listed(article),
+					excerpt: article.snippet ?? article.excerpt,
+				})),
+				nextPage: reply.value.nextCursor,
+			};
+		},
+		"lost",
+	);
 }
 
 export const progressRoute = mutatingRoute(async function progressRoute(request: Request): Promise<Response> {
 	const text = await request.text();
 	if (text.length > 1000) return new Response(null, { status: 413 });
-	let body: { requestKey?: unknown; articleId?: unknown; fraction?: unknown; plantId?: unknown };
-	try {
-		body = JSON.parse(text);
-	} catch {
-		return new Response(null, { status: 400 });
-	}
+	const body = parseJson(text) as
+		{ requestKey?: unknown; articleId?: unknown; fraction?: unknown; plantId?: unknown } | undefined;
+	if (body === undefined) return new Response(null, { status: 400 });
 	const actor = await wikiActor();
 	if (!actor) return new Response(null, { status: 401 });
 	const mount = wikiMount();
@@ -525,6 +537,7 @@ export const progressRoute = mutatingRoute(async function progressRoute(request:
 		});
 		return new Response(null, { status: reply.status === "ok" && !reply.value.errorCode ? 204 : 409 });
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "wiki", outcome: "progress-beacon-failed" }, error);
 		logFailure({ component: "wiki", outcome: "progress-beacon-failed" }, error);
 		return new Response(null, { status: 400 });
 	}

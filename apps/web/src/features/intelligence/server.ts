@@ -6,7 +6,8 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createPrivateCare, type PrivateCare } from "@everyfield/domain/intelligence";
 import "server-only";
 import type { Outcome } from "./model.ts";
-import { logFailure, type LogWord } from "@everyfield/domain/log";
+import { isTransient, logFailure, type LogWord } from "@everyfield/domain/log";
+import { unexpected } from "../../server/platform/transient.ts";
 
 const care = createPrivateCare();
 
@@ -29,6 +30,7 @@ export async function loadCheckIn(viewer: CareViewer): Promise<Outcome<CarePage>
 	try {
 		return await care.readTrends(db, viewer.authority, {});
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "private-care", outcome: "read_failed" }, error);
 		report("read_failed", error);
 		return { status: "lost" };
 	}
@@ -53,6 +55,7 @@ export async function runAs<T>(viewer: CareViewer | null, body: Body<T>): Promis
 	try {
 		return await body(care, db, viewer.authority);
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "private-care", outcome: "call_failed" }, error);
 		report("call_failed", error);
 		return { status: "lost" };
 	}

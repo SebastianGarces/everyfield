@@ -78,6 +78,7 @@
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",
 		"everyfield/server-config": "error",
+		"everyfield/no-silent-catch": "error",
 		"everyfield/max-state": "error",
 		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error",
@@ -1426,6 +1427,12 @@
 						]
 					}
 				]
+			}
+		},
+		{
+			"files": ["src/server/flags.types.ts"],
+			"rules": {
+				"typescript/ban-ts-comment": "off"
 			}
 		}
 	]

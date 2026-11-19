@@ -35,6 +35,10 @@ export function errorClass(error: unknown): ErrorClass {
 	return { name, code: null };
 }
 
+const TRANSIENT = new Set(["40001", "40P01", "08000", "08003", "08006", "57P01", "53300", "ECONNRESET", "ETIMEDOUT"]);
+
+export const isTransient = (error: unknown): boolean => TRANSIENT.has(errorClass(error).code ?? "");
+
 export function logLine<const F extends Record<string, Value>>(fields: LogFields<F>): void {
 	console.error(JSON.stringify(fields));
 }

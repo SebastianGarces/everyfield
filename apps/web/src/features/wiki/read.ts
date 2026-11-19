@@ -4,7 +4,7 @@ import { defineReads } from "../../server/platform/reads.ts";
 import type { ExportResult, GuideResult, OrderRead, OrderRow, SearchResult } from "./actions.ts";
 import { articlePath, parseSource, sourceInput } from "./model.ts";
 import { mountFor, organizationNames, plantContext, runSearch, wikiActor } from "./server.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 const search = z.strictObject({
 	query: z.string(),
@@ -22,22 +22,27 @@ async function exportOf(
 	const ready = mountFor(actor);
 	if (ready.status !== "ready") return ready;
 	const source = sourceInput(parseSource(sourceRaw ?? undefined));
-	try {
-		const reply =
-			kind === "pdf"
-				? await ready.mount.producer.exportPdf(ready.mount.db, ready.actor, { articleId, source })
-				: await ready.mount.producer.printArticle(ready.mount.db, ready.actor, { articleId, source });
-		if (reply.status !== "ok") return reply.error.code === "access_denied" ? { status: "denied" } : { status: "lost" };
-		if (reply.value.errorCode || (kind === "pdf" && !reply.value.bytes && !reply.value.fontFailureOffersPrintFallback))
+	return transient(
+		{ component: "wiki", outcome: "export-failed" },
+		async () => {
+			const reply =
+				kind === "pdf"
+					? await ready.mount.producer.exportPdf(ready.mount.db, ready.actor, { articleId, source })
+					: await ready.mount.producer.printArticle(ready.mount.db, ready.actor, { articleId, source });
+			if (reply.status !== "ok")
+				return reply.error.code === "access_denied" ? { status: "denied" } : { status: "lost" };
+			if (
+				reply.value.errorCode ||
+				(kind === "pdf" && !reply.value.bytes && !reply.value.fontFailureOffersPrintFallback)
+			)
+				return { status: "denied" };
+			if (reply.value.bytes) return { status: "pdf", bytes: reply.value.bytes };
+			if (reply.value.html)
+				return { status: "print", html: reply.value.html, fallback: reply.value.fontFailureOffersPrintFallback };
 			return { status: "denied" };
-		if (reply.value.bytes) return { status: "pdf", bytes: reply.value.bytes };
-		if (reply.value.html)
-			return { status: "print", html: reply.value.html, fallback: reply.value.fontFailureOffersPrintFallback };
-		return { status: "denied" };
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "export-failed" }, error);
-		return { status: "lost" };
-	}
+		},
+		LOST,
+	);
 }
 
 const exportInput = z.strictObject({ articleId: z.string(), source: z.string().nullable() });
@@ -57,25 +62,26 @@ export const GET = defineReads(
 		guide: get(z.strictObject({ route: z.string() }), async ({ actor }, v): Promise<GuideResult> => {
 			const ready = mountFor(actor);
 			if (ready.status === "denied") return { status: "denied" };
-			try {
-				const reply = await ready.mount.producer.contextGuide(ready.mount.db, ready.actor, {
-					route: v.route.slice(0, 200),
-				});
-				if (reply.status !== "ok")
-					return reply.error.code === "access_denied" ? { status: "denied" } : { status: "unavailable" };
-				const guide = reply.value;
-				if (!guide.found || !guide.title || !guide.slug || !guide.body) return { status: "missing" };
-				return {
-					status: "found",
-					title: guide.title,
-					section: guide.citation,
-					excerpt: guide.body,
-					href: articlePath(guide.slug),
-				};
-			} catch (error) {
-				logFailure({ component: "wiki", outcome: "guide-failed" }, error);
-				return { status: "unavailable" };
-			}
+			return transient(
+				{ component: "wiki", outcome: "guide-failed" },
+				async () => {
+					const reply = await ready.mount.producer.contextGuide(ready.mount.db, ready.actor, {
+						route: v.route.slice(0, 200),
+					});
+					if (reply.status !== "ok")
+						return reply.error.code === "access_denied" ? { status: "denied" } : { status: "unavailable" };
+					const guide = reply.value;
+					if (!guide.found || !guide.title || !guide.slug || !guide.body) return { status: "missing" };
+					return {
+						status: "found",
+						title: guide.title,
+						section: guide.citation,
+						excerpt: guide.body,
+						href: articlePath(guide.slug),
+					};
+				},
+				{ status: "unavailable" },
+			);
 		}),
 		pdf: get(exportInput, ({ actor }, v) => exportOf(actor, v.articleId, v.source, "pdf")),
 		print: get(exportInput, ({ actor }, v) => exportOf(actor, v.articleId, v.source, "print")),
@@ -83,24 +89,25 @@ export const GET = defineReads(
 			const ready = mountFor(actor);
 			if (ready.status !== "ready") return ready;
 			if (!plantContext(ready.actor).canOrder) return { status: "denied" };
-			try {
-				const reply = await ready.mount.producer.listArticles(ready.mount.db, ready.actor, { page: 1 });
-				if (reply.status !== "ok") return { status: "denied" };
-				const names = await organizationNames(ready.mount, [...reply.value.churches, ...reply.value.networks]);
-				const row = (id: string, kind: "church" | "network"): OrderRow => ({
-					id,
-					name: names.get(id) ?? `${kind === "church" ? "Church" : "Network"} ${id.slice(0, 4)}`,
-				});
-				return {
-					status: "ok",
-					revision: reply.value.orderRevision,
-					churches: reply.value.churches.map((id) => row(id, "church")),
-					networks: reply.value.networks.map((id) => row(id, "network")),
-				};
-			} catch (error) {
-				logFailure({ component: "wiki", outcome: "order-read-failed" }, error);
-				return { status: "lost" };
-			}
+			return transient(
+				{ component: "wiki", outcome: "order-read-failed" },
+				async () => {
+					const reply = await ready.mount.producer.listArticles(ready.mount.db, ready.actor, { page: 1 });
+					if (reply.status !== "ok") return { status: "denied" };
+					const names = await organizationNames(ready.mount, [...reply.value.churches, ...reply.value.networks]);
+					const row = (id: string, kind: "church" | "network"): OrderRow => ({
+						id,
+						name: names.get(id) ?? `${kind === "church" ? "Church" : "Network"} ${id.slice(0, 4)}`,
+					});
+					return {
+						status: "ok",
+						revision: reply.value.orderRevision,
+						churches: reply.value.churches.map((id) => row(id, "church")),
+						networks: reply.value.networks.map((id) => row(id, "network")),
+					};
+				},
+				LOST,
+			);
 		}),
 	}),
 );
