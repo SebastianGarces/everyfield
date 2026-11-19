@@ -16,6 +16,7 @@ import {
 import { accountPersonProducer, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 type Value = string | number | boolean | Value[] | { [key: string]: Value };
 type Entries = Record<string, Record<string, Value>>;
@@ -159,7 +160,7 @@ class World {
 		return s;
 	}
 	async authority(key: string) {
-		const actor = await fx.pools.runtime.transaction((tx) =>
+		const actor = await gatedTransaction(fx.pools.runtime, (tx) =>
 			RequestActor.resolve(tx, sessionId.parse(this.session(key).id)),
 		);
 		if (!(actor instanceof RequestActor)) throw new Unresolved(actor.status);

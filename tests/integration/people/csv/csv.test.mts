@@ -20,6 +20,7 @@ import {
 	retryStoredImport,
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -39,8 +40,8 @@ const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "pla
 const rows = async (query) => (await admin.execute(query)).rows;
 const count = async (table) => (await rows(sql.raw(`SELECT count(*)::int n FROM ${table}`)))[0].n;
 const bytes = (text) => new TextEncoder().encode(text);
-const read = (who, body) => db.transaction((t) => body(t, ctx(who)));
-const actor = async (who = 0) => db.transaction((t) => RequestActor.resolve(t, actors[who].session));
+const read = (who, body) => gatedTransaction(db, (t) => body(t, ctx(who)));
+const actor = async (who = 0) => gatedTransaction(db, (t) => RequestActor.resolve(t, actors[who].session));
 const write = async (who, body) => withPeopleWrite(db, await actor(who), body);
 const preview = (text, who = 0) => read(who, (t, c) => csv.previewImport(t, c, { file: bytes(text) }));
 const header = "first_name,last_name,email,phone,street,city,state,postal_code,country,source,source_details,notes\r\n";
@@ -144,7 +145,7 @@ test("AC:TARGET-PPL-018 the server reads the file honestly, previews duplicates 
 
 	refused(await preview(file, 1));
 	refused(
-		await db.transaction((t) =>
+		await gatedTransaction(db, (t) =>
 			csv.previewImport(
 				t,
 				{ session: actors[0].session, selected: { kind: "plant", id: plants[1] } },
@@ -325,7 +326,7 @@ test("AC:TARGET-PPL-018 INV-jobs an import whose worker loses its lease resumes 
 	try {
 		const [claim] = await claimDue(db, ["people_import"]);
 		assert.equal(await runPeopleImport(db, claim), "lost");
-		assert.equal(await db.transaction((tx) => finishClaim(tx, claim, { state: "failed" })), false);
+		assert.equal(await gatedTransaction(db, (tx) => finishClaim(tx, claim, { state: "failed" })), false);
 	} finally {
 		await admin.execute(
 			sql.raw(`DROP TRIGGER expire_lease ON ${schema}.person; DROP FUNCTION ${schema}.expire_lease()`),
@@ -798,19 +799,19 @@ test("AC:TARGET-PPL-019 AC:PERSONREF-HOUSEHOLD-TAG-SKILL-NOTE-RETIRE INV-tenancy
 	const foreign = ok(await exported({}, 2));
 	assert.equal(foreign.receipt.returned, 0);
 	refused(
-		await db.transaction((t) =>
+		await gatedTransaction(db, (t) =>
 			csv.exportPeople(t, { session: actors[0].session, selected: { kind: "plant", id: plants[1] } }, {}),
 		),
 	);
 	refused(
-		await db.transaction((t) =>
+		await gatedTransaction(db, (t) =>
 			csv.exportPeople(t, { session: actors[0].session, selected: { kind: "organization", id: randomUUID() } }, {}),
 		),
 	);
 	const owner = await actor(0);
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[0].id)}`);
 	try {
-		refused(await db.transaction((t) => csv.exportPeople(t, new PeopleReadContext(owner), {})));
+		refused(await gatedTransaction(db, (t) => csv.exportPeople(t, new PeopleReadContext(owner), {})));
 	} finally {
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${sql.param(actors[0].id)}`);
 	}

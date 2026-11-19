@@ -81,6 +81,7 @@ import { phasesCases, seedPhases } from "./tenancy-phases.mts";
 import { seedSettings, settingsCases } from "./tenancy-settings.mts";
 import { seedTasks, tasksCases } from "./tenancy-tasks.mts";
 import { seedTeams, teamsCases } from "./tenancy-teams.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const baselinePath = fileURLToPath(new URL("./tenancy-baseline.json", import.meta.url));
@@ -327,7 +328,7 @@ async function seedChurchA() {
 		),
 	);
 	const review = ok(
-		await f.db.transaction((t) =>
+		await gatedTransaction(f.db, (t) =>
 			peopleMerge.getMergeReview(t, new PeopleReadContext(ownerA.actor), {
 				sourceId: source.id,
 				survivorId: survivor.id,
@@ -349,7 +350,7 @@ async function seedChurchA() {
 			`${MARK}-Third,alpha-tenancy-import@example.test\r\n`,
 	);
 	const preview = ok(
-		await f.db.transaction((t) => peopleCsv.previewImport(t, new PeopleReadContext(ownerA.actor), { file })),
+		await gatedTransaction(f.db, (t) => peopleCsv.previewImport(t, new PeopleReadContext(ownerA.actor), { file })),
 	);
 	a.importKey = key();
 	ok(
@@ -365,7 +366,7 @@ async function seedChurchA() {
 	);
 	await runDueImports(f.db, 10);
 	const listedPairs = ok(
-		await f.db.transaction((t) => listDuplicatePairs(t, new PeopleReadContext(ownerA.actor))),
+		await gatedTransaction(f.db, (t) => listDuplicatePairs(t, new PeopleReadContext(ownerA.actor))),
 	).items;
 	const again = listedPairs.find((p) => p.person.displayName === `${MARK}-Again`);
 	a.listedPair = { a: again.with.id, b: again.person.id };
@@ -467,12 +468,12 @@ const plain = async (body) => ({ status: "ok", value: await body() });
 
 function cases(who) {
 	const comms = (op, input, deliveryKeys) =>
-		f.db.transaction((tx) =>
+		gatedTransaction(f.db, (tx) =>
 			input === undefined
 				? communicationWriter[op](tx, who.actor)
 				: communicationWriter[op](tx, who.actor, input, deliveryKeys),
 		);
-	const reads = (body) => f.db.transaction((tx) => body(tx, new PeopleReadContext(who.actor)));
+	const reads = (body) => gatedTransaction(f.db, (tx) => body(tx, new PeopleReadContext(who.actor)));
 	const comm = (name, run, expected) => [`communication:communicationWriter.${name}`, { run, expected }];
 	const ppl = (name, run, expected) => [`people:${name}`, { run, expected }];
 	const area = (name, run, expected) => [name, { run, expected }];
@@ -480,7 +481,7 @@ function cases(who) {
 	return new Map([
 		area(
 			"meetings:meetingsReader.pageGuests",
-			() => f.db.transaction((t) => meetingsReader.pageGuests(t, who.actor, { meetingId: a.meeting })),
+			() => gatedTransaction(f.db, (t) => meetingsReader.pageGuests(t, who.actor, { meetingId: a.meeting })),
 			unavailable,
 		),
 		comm("readPreview", () => comms("readPreview", { bodyHtml: "<p>Hi</p>", meetingId: a.meeting }), {

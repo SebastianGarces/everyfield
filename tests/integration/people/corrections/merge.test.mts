@@ -20,6 +20,7 @@ import {
 	readPersonPage,
 	recordCorrections,
 } from "../../../../packages/domain/src/people/index.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const database = await fixture({ prefix: "wp015" });
 const { admin, schema } = database;
@@ -37,7 +38,7 @@ const today = (
 	await database.admin.execute(sql`SELECT (clock_timestamp() AT TIME ZONE 'America/Chicago')::date::text d`)
 ).rows[0].d;
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const tx = (body) => db.transaction(body);
+const tx = (body) => gatedTransaction(db, body);
 const key = () => randomUUID();
 const rows = async (query) => (await admin.execute(query)).rows;
 const one = async (query) => (await rows(query))[0];

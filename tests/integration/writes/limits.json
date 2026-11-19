@@ -137,9 +137,6 @@
 	"GET /tasks/follow-ups": {
 		"limit": 5
 	},
-	"GET /tasks/read?what=blocking": {
-		"limit": 4
-	},
 	"GET /tasks/read?what=rows": {
 		"limit": 4
 	},
