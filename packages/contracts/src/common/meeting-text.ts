@@ -39,8 +39,10 @@ export function durationText(minutes: number): string {
 }
 
 export function sectionStarts(localTime: string, sections: readonly { minutes: number }[]): string[] {
-	return sections.reduce<string[]>(
-		(all, _, i) => [...all, i === 0 ? localTime : addMinutes(all[i - 1]!, sections[i - 1]!.minutes)],
-		[],
-	);
+	let at = localTime;
+	return sections.map((section) => {
+		const start = at;
+		at = addMinutes(at, section.minutes);
+		return start;
+	});
 }
