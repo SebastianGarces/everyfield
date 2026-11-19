@@ -1,4 +1,4 @@
-import { and, inArray, eq, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
+import { and, eq, isNull, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 
 import { declareWrite, executeWrites } from "../operations/writes.ts";
@@ -9,24 +9,29 @@ import type { PeopleWriter, AccountPersonProducer } from "@everyfield/contracts/
 import { accountId, owner, recordId, revision } from "@everyfield/contracts/common";
 import {
 	deny,
+	evidenceJson,
+	evidenceOf,
 	expected,
 	live,
 	hash,
 	lockedWrite,
+	lockPersonWith,
 	mutation,
 	parse,
 	patchPerson,
 	contactValues,
 	personChanges,
 	person,
+	personQuery,
 	personRow,
 	project,
+	projectWith,
 	reply,
 	replyWithoutSavepoint,
 } from "./core.ts";
-import type { Context, WriteContext, Tx, Person } from "./core.ts";
-import { columnStages, isCommitted, openDutiesOf } from "./pipeline.ts";
-import { lockTasks } from "../tasks/queries.ts";
+import type { Context, LockedReads, WriteContext, Tx, Person } from "./core.ts";
+import { columnStages, committedStagesSql, isCommitted, openDutiesOf } from "./pipeline.ts";
+import { lockingTasks, managedTaskRows } from "../tasks/queries.ts";
 import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
 
 export function appendPerson(
@@ -120,9 +125,30 @@ async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: s
 		needsOwner,
 	};
 }
-async function openDuties(tx: Tx, ctx: Context, p: Person) {
-	if (ctx.selected.kind !== "plant") return [];
-	return lockTasks(tx, ctx.selected.id, openDutiesOf(p.id, p.linked_account_id));
+const handoffRows = z.object({
+	duties: managedTaskRows,
+	targets: z.array(z.object({ id: z.uuid(), state: personRow.shape.state, linked_account_id: z.uuid().nullable() })),
+	seats: z.array(z.uuid()),
+});
+type HandoffRows = z.infer<typeof handoffRows>;
+function handoffReads(ctx: Context, choices: z.infer<typeof c.handoffChoice>[], reaches: SQL, also?: LockedReads) {
+	const plant = ctx.selected.id,
+		duties = choices.map((choice) => choice.dutyId),
+		matched = new Set(duties).size === duties.length,
+		targets = matched ? choices.flatMap((choice) => (choice.kind === "assign" ? [choice.toPersonId] : [])) : [];
+	const open = openDutiesOf(sql`(SELECT id FROM subject)`, sql`(SELECT linked_account_id FROM subject)`);
+	return {
+		with: sql`${also?.with ? sql`${also.with}, ` : sql``}duties AS MATERIALIZED (${lockingTasks(plant, sql`${open} AND ${reaches}`)}),
+		targets AS MATERIALIZED (SELECT x.id, x.state, x.linked_account_id FROM person x
+			WHERE x.id=ANY(${sql.param(targets)}::uuid[]) AND x.tenant_id=${plant}::uuid
+			AND (SELECT count(*) FROM duties)=${duties.length} AND NOT EXISTS (SELECT FROM duties d WHERE d.id<>ALL(${sql.param(duties)}::uuid[]))
+			ORDER BY x.id FOR UPDATE OF x),
+		seats AS MATERIALIZED (SELECT s.account_id FROM seat s WHERE s.account_id IN (SELECT linked_account_id FROM targets)
+			AND s.plant_id=${plant}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() FOR SHARE OF s)`,
+		columns: sql`${also ? sql`${also.columns}, ` : sql``}(SELECT coalesce(json_agg(d ORDER BY d.id),'[]') FROM duties d) AS duties,
+			(SELECT coalesce(json_agg(x ORDER BY x.id),'[]') FROM targets x) AS targets,
+			(SELECT coalesce(json_agg(s.account_id),'[]') FROM seats s) AS seats`,
+	};
 }
 async function handoff(
 	tx: Tx,
@@ -130,9 +156,9 @@ async function handoff(
 	p: Person,
 	choices: z.infer<typeof c.handoffChoice>[],
 	reminders: TaskReminders,
+	{ duties, targets, seats }: HandoffRows,
 ) {
-	const duties = await openDuties(tx, ctx, p),
-		byId = new Map(choices.map((c) => [c.dutyId, c]));
+	const byId = new Map(choices.map((c) => [c.dutyId, c]));
 	if (
 		byId.size !== choices.length ||
 		duties.length !== choices.length ||
@@ -140,31 +166,6 @@ async function handoff(
 	)
 		deny("conflict");
 
-	const assignments = choices.filter((choice) => choice.kind === "assign");
-	const targetIds = assignments.map((choice) => choice.toPersonId);
-	const targets = targetIds.length
-		? await tx
-				.select()
-				.from(tables.person)
-				.where(and(inArray(tables.person.id, targetIds), eq(tables.person.tenant_id, ctx.selected.id)))
-				.orderBy(tables.person.id)
-				.for("update")
-		: [];
-	const accounts = targets.flatMap((target) => (target.linked_account_id ? [target.linked_account_id] : []));
-	const seats = accounts.length
-		? await tx
-				.select({ account: tables.seat.account_id })
-				.from(tables.seat)
-				.where(
-					and(
-						inArray(tables.seat.account_id, accounts),
-						eq(tables.seat.plant_id, ctx.selected.id),
-						isNull(tables.seat.ended_at),
-						sql`${tables.seat.accepted_at}<=clock_timestamp()`,
-					),
-				)
-				.for("share")
-		: [];
 	const needsOwner: string[] = [];
 	const changes = duties.map((duty) => {
 		const choice = byId.get(recordId.parse(duty.id))!;
@@ -176,7 +177,7 @@ async function handoff(
 		const target = targets.find((target) => target.id === choice.toPersonId);
 		if (!target || target.state !== "live") deny();
 		if (target.id === p.id) deny("invalid_subject");
-		if (!seats.some((seat) => seat.account === target.linked_account_id)) deny();
+		if (!seats.some((seat) => seat === target.linked_account_id)) deny();
 		return { id: duty.id, account: target.linked_account_id };
 	});
 	if (changes.length) {
@@ -254,12 +255,23 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 			const input = parse(c.changeStatusRequest, raw);
 			return c.plantPersonMutationResult.parse(
 				await mutation(tx, ctx, "people.changeStatus", input, async (_a, id, audit) => {
-					const before = await person(tx, ctx, input.input.personId, true);
+					const reaches = sql`EXISTS (SELECT FROM subject WHERE subject.state='live'
+						AND subject.revision=${input.expectedRevision}::bigint AND subject.stage=ANY(${committedStagesSql()})
+						AND NOT ${input.input.stage}::text=ANY(${committedStagesSql()}))`;
+					const { person: before, row } = await lockPersonWith(
+						tx,
+						ctx,
+						input.input.personId,
+						handoffReads(ctx, input.input.handoffs, reaches),
+					);
 					live(before);
 					expected(before, input.expectedRevision);
 					const noop = before.stage === input.input.stage;
 					const leaving = isCommitted(before.stage) && !isCommitted(input.input.stage);
-					const needsOwner = !noop && leaving ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
+					const needsOwner =
+						!noop && leaving
+							? await handoff(tx, ctx, before, input.input.handoffs, reminders, handoffRows.parse(row))
+							: [];
 					if (!leaving && input.input.handoffs.length) deny("invalid_input");
 					const position = sameColumn(before.stage!, input.input.stage)
 						? before.pipeline_position
@@ -349,19 +361,28 @@ async function retire(
 	reminders: TaskReminders,
 ) {
 	return mutation(tx, ctx, "people.deletePerson", input, async (_a, id, audit) => {
-		const before = await person(tx, ctx, input.input.personId, true);
+		const reviewed = sql`review AS MATERIALIZED (SELECT material_revision::text AS material_revision FROM plant
+			WHERE id=${ctx.selected.id}::uuid AND EXISTS (SELECT FROM subject WHERE subject.revision=${input.expectedRevision}::bigint
+			AND subject.state<>'merged') FOR SHARE)`;
+		const reaches = sql`EXISTS (SELECT FROM subject WHERE subject.state='live' AND subject.revision=${input.expectedRevision}::bigint)
+			AND (SELECT material_revision FROM review)=${input.input.reviewRevision}::text`;
+		const { person: before, row } = await lockPersonWith(
+			tx,
+			ctx,
+			input.input.personId,
+			handoffReads(ctx, input.input.handoffs, reaches, {
+				with: reviewed,
+				columns: sql`(SELECT material_revision FROM review) AS review`,
+			}),
+		);
 		expected(before, input.expectedRevision);
 		if (before.state === "merged") deny("use_reviewed_unmerge");
-		const review = (
-			await tx
-				.select({ material_revision: tables.plant.material_revision })
-				.from(tables.plant)
-				.where(eq(tables.plant.id, ctx.selected.id))
-				.for("share")
-		)[0]!.material_revision;
-		if (input.input.reviewRevision !== review) deny("conflict");
+		if (input.input.reviewRevision !== row.review) deny("conflict");
 		let after = before;
-		const needsOwner = before.state === "live" ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
+		const needsOwner =
+			before.state === "live"
+				? await handoff(tx, ctx, before, input.input.handoffs, reminders, handoffRows.parse(row))
+				: [];
 		if (before.state === "live") {
 			const [updated] = await tx
 				.update(tables.person)
@@ -458,6 +479,17 @@ async function restore(tx: Tx, ctx: WriteContext, input: z.infer<typeof c.restor
 		};
 	});
 }
+const lockedNote = z.object({ author_id: z.uuid().nullable(), revision, body: z.string() });
+const noteRead = (ctx: Context, noteId: string): LockedReads => ({
+	columns: sql`(SELECT jsonb_build_object('author_id',n.author_id,'revision',n.revision::text,'body',n.body)
+		FROM person_note n WHERE n.id=${noteId}::uuid AND n.tenant_id=${ctx.selected.id}::uuid AND n.person_id=subject.id
+		AND n.removed_at IS NULL AND subject.state='live' FOR UPDATE OF n) AS note`,
+});
+const participationRead = (ctx: Context, meetingId: string, personRevision: string): LockedReads => ({
+	columns: sql`(SELECT coalesce(json_agg(x.id),'[]') FROM (SELECT q.id FROM participation q
+		WHERE q.meeting_id=${meetingId}::uuid AND q.person_id=subject.id AND q.plant_id=${ctx.selected.id}::uuid
+		AND subject.state='live' AND subject.revision=${personRevision}::bigint FOR SHARE OF q) x) AS participations`,
+});
 type NoteInput =
 	z.infer<typeof c.addNoteRequest> | z.infer<typeof c.editNoteRequest> | z.infer<typeof c.deleteNoteRequest>;
 async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "edit" | "delete") {
@@ -467,30 +499,27 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 		kind === "add" ? "people.addNote" : kind === "edit" ? "people.editNote" : "people.deleteNote",
 		input,
 		async (actor, id, audit) => {
-			const before = await person(tx, ctx, input.input.personId, true);
-			live(before);
+			const meetingId = "meetingId" in input.input ? (input.input.meetingId ?? null) : null;
 			const noteId = "noteId" in input.input ? input.input.noteId : randomUUID();
+			if (meetingId) await declareWrite(tx, "established");
+			const reads =
+				kind !== "add"
+					? noteRead(ctx, noteId)
+					: meetingId
+						? participationRead(ctx, meetingId, input.expectedRevision)
+						: null;
+			const { person: before, row } = reads
+				? await lockPersonWith(tx, ctx, input.input.personId, reads)
+				: { person: await person(tx, ctx, input.input.personId, true), row: {} };
+			live(before);
 			let noteRevision = "1";
 			if (kind === "add") {
 				expected(before, input.expectedRevision);
 				let participation: string | null = null;
-				if ("meetingId" in input.input && input.input.meetingId) {
-					await declareWrite(tx, "established");
-					const r = await tx
-						.select({ id: tables.participation.id })
-						.from(tables.participation)
-						.where(
-							and(
-								and(
-									eq(tables.participation.meeting_id, input.input.meetingId),
-									eq(tables.participation.person_id, before.id),
-								),
-								eq(tables.participation.plant_id, ctx.selected.id),
-							),
-						)
-						.for("share");
+				if (meetingId) {
+					const r = z.array(z.uuid()).parse(row.participations);
 					if (r.length !== 1) deny();
-					participation = r[0]!.id;
+					participation = r[0]!;
 				}
 				if (!("body" in input.input)) deny("invalid_input");
 				audit.writes.push(
@@ -507,21 +536,9 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 					}),
 				);
 			} else {
-				const r = await tx
-					.select()
-					.from(tables.person_note)
-					.where(
-						and(
-							and(
-								and(eq(tables.person_note.id, noteId), eq(tables.person_note.tenant_id, ctx.selected.id)),
-								eq(tables.person_note.person_id, before.id),
-							),
-							isNull(tables.person_note.removed_at),
-						),
-					)
-					.for("update");
-				if (!r.length || r[0]!.author_id !== actor) deny();
-				if (r[0]!.revision !== input.expectedRevision) deny("conflict");
+				const found = lockedNote.nullable().parse(row.note);
+				if (!found || found.author_id !== actor) deny();
+				if (found.revision !== input.expectedRevision) deny("conflict");
 				const body = kind === "delete" ? "" : "body" in input.input ? input.input.body : deny("invalid_input");
 				audit.events.push({
 					id,
@@ -532,7 +549,7 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 					actor_token: hash([ctx.selected.id, actor]),
 					action: "people.updated",
 					kind: "edit",
-					before_value: { body: r[0]!.body },
+					before_value: { body: found.body },
 					after_value: { body },
 					reason: "reason" in input.input ? input.input.reason : null,
 					metadata: { category: "note", noteId, correction: true },
@@ -548,7 +565,7 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 						})
 						.where(eq(tables.person_note.id, noteId)),
 				);
-				noteRevision = (BigInt(r[0]!.revision) + 1n).toString();
+				noteRevision = (BigInt(found.revision) + 1n).toString();
 			}
 			audit.writes.push(
 				tx
@@ -584,17 +601,14 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 				correction ? "people.correctAdultClassification" : "people.recordAdultClassification",
 				input,
 				async (_a, id, audit) => {
-					const before = await person(tx, ctx, input.input.personId, true);
+					const { person: before, row } = await lockPersonWith(tx, ctx, input.input.personId, {
+						columns: sql`${evidenceJson(ctx.selected.id, sql`subject.id`)} AS evidence`,
+					});
 					live(before);
 					expected(before, input.expectedRevision);
 					if (before.birth_date) deny("invalid_input", { reason: "birth_date_decides" });
-					const { today } = (
-						await tx
-							.select({ today: sql<string>`((clock_timestamp() AT TIME ZONE ${tables.plant.timezone}))::date` })
-							.from(tables.plant)
-							.where(eq(tables.plant.id, ctx.selected.id))
-					)[0]!;
-					if (input.input.occurredOn > today) deny("invalid_input", { reason: "future_date" });
+					if (input.input.occurredOn > z.string().parse(before.plant_today))
+						deny("invalid_input", { reason: "future_date" });
 					audit.writes.push(
 						tx
 							.update(tables.person)
@@ -610,7 +624,12 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 						revision: String(BigInt(before.revision) + 1n),
 					});
 					return {
-						value: await output(tx, ctx, after, id),
+						value: {
+							person: projectWith(ctx, [after], evidenceOf(row.evidence))[0]!,
+							receiptId: id,
+							outcome: "changed",
+							needsOwner: [],
+						},
 						subject: before.id,
 						action: correction ? "people.corrected" : "people.recorded",
 						before,
@@ -676,51 +695,60 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 			const input = raw,
 				selected = owner.parse(input.owner);
 			if (selected.kind !== "plant") deny();
+			const ctx = { selected };
+			let reviewed: string | null = null,
+				candidates: string[] = [],
+				row: Record<string, unknown> = {};
 			if (input.selection.kind !== "first") {
-				const locked =
-					await tx.execute(sql`WITH a AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE)
-	 SELECT (SELECT count(*) FROM a)::int AS accounts, (SELECT count(*) FROM (SELECT id FROM plant WHERE id=${selected.id}::uuid
-	 AND EXISTS(SELECT FROM a) FOR UPDATE) p)::int AS plants`);
-				if (!z.object({ accounts: z.number() }).parse(locked.rows[0]).accounts) deny();
-				const exact = await tx
-					.select({ id: tables.person.id })
-					.from(tables.person)
-					.where(
-						and(
-							and(eq(tables.person.plant_id, selected.id), eq(tables.person.linked_account_id, input.accountId)),
-							eq(tables.person.state, "live"),
-						),
-					)
-					.for("update");
+				const selection = input.selection,
+					looks = selection.kind === "resolve" || selection.kind === "reviewed_contact";
+				reviewed =
+					selection.kind === "reviewed_contact" &&
+					selection.person.owner.id === selected.id &&
+					selection.person.owner.kind === "plant"
+						? selection.person.personId
+						: null;
+				const found = looks
+					? sql`, found AS MATERIALIZED (SELECT p.id FROM person p JOIN access_account_contact(${sql.param(input.accountId)}) a
+						ON lower(p.email)=lower(a.email) WHERE EXISTS (SELECT FROM acct) AND NOT EXISTS (SELECT FROM exact) AND p.plant_id=${sql.param(selected.id)}
+						AND p.state='live' AND p.linked_account_id IS NULL AND a.verified ORDER BY p.id LIMIT 100 FOR UPDATE OF p)`
+					: sql``;
+				const subject = reviewed
+					? sql`, subject AS MATERIALIZED (${personQuery(tx, ctx, reviewed, sql`EXISTS (SELECT FROM acct) AND NOT EXISTS (SELECT FROM exact) AND (SELECT count(*) FROM found)>=0`).getSQL()} FOR UPDATE OF ${tables.person})`
+					: sql``;
+				const r =
+					await tx.execute(sql`WITH acct AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE),
+					pl AS MATERIALIZED (SELECT id FROM plant WHERE id=${selected.id}::uuid AND EXISTS(SELECT FROM acct) FOR UPDATE),
+					exact AS MATERIALIZED (SELECT id FROM person WHERE plant_id IN (SELECT id FROM pl)
+					AND linked_account_id=${input.accountId}::uuid AND state='live' FOR UPDATE)${found}${subject}
+					SELECT (SELECT count(*) FROM acct)::int AS accounts, (SELECT coalesce(json_agg(e.id),'[]') FROM exact e) AS exact,
+					${looks ? sql`(SELECT coalesce(json_agg(f.id ORDER BY f.id),'[]') FROM found f)` : sql`'[]'::json`} AS found
+					${reviewed ? sql`, s.*` : sql``} FROM (SELECT 1) seed ${reviewed ? sql`LEFT JOIN subject s ON true` : sql``}`);
+				row = r.rows[0]!;
+				if (!z.object({ accounts: z.number() }).parse(row).accounts) deny();
+				const exact = z.array(z.uuid()).parse(row.exact);
 				if (exact.length)
 					return c.accountPersonResolution.parse({
 						status: "linked",
-						personId: exact[0]!.id,
+						personId: exact[0]!,
 					});
+				candidates = z.array(z.uuid()).parse(row.found);
 			}
-			const ctx = { selected };
-			const candidates = () =>
-				tx.execute(
-					sql`SELECT p.id FROM person p JOIN access_account_contact(${sql.param(input.accountId)}) a ON lower(p.email)=lower(a.email) WHERE p.plant_id=${sql.param(selected.id)} AND p.state='live' AND p.linked_account_id IS NULL AND a.verified ORDER BY p.id LIMIT 100 FOR UPDATE OF p`,
-				);
-			if (input.selection.kind === "resolve") {
-				const found = await candidates();
-				return found.rowCount
+			if (input.selection.kind === "resolve")
+				return candidates.length
 					? c.accountPersonResolution.parse({
 							status: "needs_selection",
-							candidatePersonIds: found.rows.map((p) => p.id),
+							candidatePersonIds: candidates,
 						})
 					: deny("invalid_subject");
-			}
 			const writes: SQLWrapper[] = [];
 			let before: Person | undefined, linked: Person;
 			if (input.selection.kind === "reviewed_contact") {
-				const found = await candidates();
-				if (input.selection.person.owner.id !== selected.id || input.selection.person.owner.kind !== "plant") deny();
-				before = await person(tx, ctx, input.selection.person.personId, true);
+				if (!reviewed || row.id === null) deny();
+				before = personRow.parse(row);
 				live(before);
 				expected(before, input.selection.person.revision);
-				if (before.linked_account_id || !found.rows.some((x) => x.id === before!.id)) deny();
+				if (before.linked_account_id || !candidates.includes(before.id)) deny();
 				linked = personRow.parse({
 					...before,
 					linked_account_id: input.accountId,

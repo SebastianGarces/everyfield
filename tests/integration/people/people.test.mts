@@ -497,6 +497,77 @@ test("AC:TARGET-PPL-006 assigning a duty to someone already on it keeps them on 
 	);
 });
 
+test("INV-person-lock: retiring locks the person, the review, the duty and the member it moves to in one read and refuses as before", async () => {
+	const leaving = await create("Hands off"),
+		takes = await create("Takes over"),
+		member = (await database.actor({ kind: "plant", id: plants[0] }, "member")).id;
+	await admin.execute(sql`UPDATE person SET linked_account_id=${sql.param(member)} WHERE id=${sql.param(takes.id)}`);
+	const duty = randomUUID();
+	await admin.execute(
+		sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,person_id) VALUES(${sql.param(duty)},${sql.param(plants[0])},'Visit','follow_up','medium','not_started',clock_timestamp(),'undated',${sql.param(leaving.id)})`,
+	);
+	const review = ok(await tx((t) => read.getStatusWarnings(t, ctx(), { personId: leaving.id }))).reviewRevision;
+	const retire = (reviewRevision, handoffs, expectedRevision = leaving.revision) =>
+		tx((t) =>
+			write.retirePerson(
+				t,
+				ctx(),
+				{
+					requestKey: randomUUID(),
+					expectedRevision,
+					input: { personId: leaving.id, reason: "Retire", reviewRevision, handoffs },
+				},
+				noReminders,
+			),
+		);
+	const assign = [{ kind: "assign", dutyId: duty, expectedRevision: "1", toPersonId: takes.id }];
+	refused(await retire(review, assign, String(BigInt(leaving.revision) + 1n)), "conflict");
+	refused(await retire(String(BigInt(review) + 1n), assign), "conflict");
+	refused(await retire(review, []), "conflict");
+	refused(await retire(review, [...assign, ...assign]), "conflict");
+	refused(await retire(review, [{ ...assign[0], toPersonId: leaving.id }]), "invalid_subject");
+	let release, locked;
+	const held = new Promise((resolve) => (release = resolve)),
+		holding = new Promise((resolve) => (locked = resolve));
+	const other = admin.transaction(async (b) => {
+		await b.execute(sql`SELECT 1 FROM person WHERE id=${sql.param(takes.id)}::uuid FOR UPDATE`);
+		locked();
+		await held;
+	});
+	await holding;
+	const mine = retire(review, assign);
+	assert.ok(await waitingOnLock(db), "the retirement waits for the member the duty moves to");
+	release();
+	await other;
+	assert.equal(ok(await mine).person.lifecycle.state, "retired");
+	assert.deepEqual(
+		(await admin.execute(sql`SELECT account_id FROM task_assignee WHERE task_id=${sql.param(duty)}`)).rows,
+		[{ account_id: member }],
+	);
+});
+
+test("INV-person-lock: a reviewed contact that changed, is linked elsewhere or is no candidate is refused as before", async () => {
+	const account = (await database.actor({ kind: "plant", id: plants[0] }, "member")).id;
+	const contact = await create("Reviewed contact", { email: account + "@example.test" }),
+		other = await create("Not a contact", { email: "someone-else@example.test" });
+	const review = (person, revision = person.revision) =>
+		tx((t) =>
+			accounts.ensureAccountPerson(t, {
+				accountId: account,
+				owner: ctx().selected,
+				selection: {
+					kind: "reviewed_contact",
+					person: { owner: ctx().selected, personId: person.id, revision, state: "live" },
+				},
+			}),
+		);
+	refused(await review(contact, String(BigInt(contact.revision) + 1n)), "conflict");
+	refused(await review(other));
+	refused(await review({ id: randomUUID(), revision: "1" }));
+	assert.equal(ok(await review(contact)).personId, contact.id);
+	assert.deepEqual(ok(await review(other)), { status: "linked", personId: contact.id });
+});
+
 test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, complete handoffs, retirement and guarded restore", async () => {
 	let p = await create("Lifecycle");
 	const result = ok(

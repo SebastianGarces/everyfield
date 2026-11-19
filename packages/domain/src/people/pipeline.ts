@@ -15,5 +15,5 @@ export const columnStages = (column: Column): Stage[] => (column === "core_group
 
 export const committedStagesSql = (): SQL => sql`${sql.param([...COMMITTED_STAGES])}::text[]`;
 
-export const openDutiesOf = (personId: string, linkedAccountId: string | null): SQL =>
+export const openDutiesOf = (personId: string | SQL, linkedAccountId: string | SQL | null): SQL =>
 	sql`(t.person_id=${personId}::uuid OR ${assignedTo("t", sql`${linkedAccountId}::uuid`)}) AND t.deleted_at IS NULL AND t.status NOT IN ('complete','no_longer_needed')`;

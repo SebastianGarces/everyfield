@@ -290,8 +290,7 @@
 		"limit": 2
 	},
 	"accountPerson.ensureAccountPerson": {
-		"limit": 5,
-		"reads": "T-497: 3 reads in a row (locked read of person, then locked read of person, then locked read of organization_person_removal+person+plant); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"communication.archiveTemplate": {
 		"limit": 2
@@ -1318,9 +1317,7 @@
 		"reads": "T-506: 2 reads in a row (locked read of organization+residency_link, then read of lifecycle_witness+organization+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.addNote": {
-		"limit": 7,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the meeting participation the note names locked, then one statement with the note and its audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
-		"reads": "T-497: 2 reads in a row (locked read of organization_person_removal+person+plant, then locked read of participation); the follow-up merges them or says why they cannot be one statement."
+		"limit": 6
 	},
 	"people.addSkill": {
 		"limit": 6,
@@ -1335,15 +1332,12 @@
 		"retry": 5
 	},
 	"people.changeStatus": {
-		"limit": 10,
-		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10). Its largest first run: 1 transaction, 6 locked read, 3 write.",
-		"reads": "T-497: 4 reads in a row (locked read of organization_person_removal+person+plant, then locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of person, then locked read of seat); the follow-up merges them or says why they cannot be one statement."
+		"limit": 7,
+		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014): the write gate, one locked read of the person with its open duties, the members they move to and those members' seats, the assignee change, then the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10), and one statement with the stage change and its audit. Its largest first run: 1 transaction, 3 locked read, 3 write."
 	},
 	"people.correctAdultClassification": {
-		"limit": 8,
-		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the church's current date in its timezone (a future occurredOn is refused) and the person's latest commitment read (a signed commitment decides the classification), then one statement with the change and its audit. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements. The church-date refusal reads the church timezone before refusing: 6 statements (2 transaction, 2 locked read, 2 read).",
-		"reads": "T-497: 2 reads in a row (locked read of organization_person_removal+person+plant, then read of plant); the follow-up merges them or says why they cannot be one statement."
+		"limit": 6,
+		"retry": 5
 	},
 	"people.correctCommitmentLifecycle": {
 		"limit": 6
@@ -1381,18 +1375,14 @@
 		"retry": 5
 	},
 	"people.deleteNote": {
-		"limit": 7,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the note locked (only its author or an admin removes it), then one statement with the removal and its audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
-		"reads": "T-497: 2 reads in a row (locked read of organization_person_removal+person+plant, then locked read of person_note); the follow-up merges them or says why they cannot be one statement."
+		"limit": 6
 	},
 	"people.deleteTag": {
 		"limit": 4
 	},
 	"people.editNote": {
-		"limit": 7,
-		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the note locked (only its author edits it), then one statement with the edit and its audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
-		"reads": "T-497: 2 reads in a row (locked read of organization_person_removal+person+plant, then locked read of person_note); the follow-up merges them or says why they cannot be one statement."
+		"limit": 6,
+		"retry": 5
 	},
 	"people.findDuplicates": {
 		"limit": 2
@@ -1423,10 +1413,8 @@
 		"limit": 6
 	},
 	"people.recordAdultClassification": {
-		"limit": 8,
-		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the church's current date in its timezone (a future occurredOn is refused) and the person's latest commitment read (a signed commitment decides the classification), then one statement with the change and its audit. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements. The church-date refusal reads the church timezone before refusing: 6 statements (2 transaction, 2 locked read, 2 read).",
-		"reads": "T-497: 2 reads in a row (locked read of organization_person_removal+person+plant, then read of plant); the follow-up merges them or says why they cannot be one statement."
+		"limit": 6,
+		"retry": 5
 	},
 	"people.removeFromHousehold": {
 		"limit": 4
@@ -1454,10 +1442,9 @@
 		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the person's state and pipeline position restored, then one statement that bumps the revision of each pipeline column the person returns to, with the audit. Its largest first run: 2 transaction, 2 locked read, 1 read, 2 write."
 	},
 	"people.retirePerson": {
-		"limit": 12,
-		"retry": 7,
-		"reason": "Handing a dated, assigned duty to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10). Its largest first run: 1 transaction, 7 locked read, 4 write.",
-		"reads": "T-497: 3 reads in a row (locked read of organization_person_removal+person+plant, then locked read of plant, then locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team); the follow-up merges them or says why they cannot be one statement."
+		"limit": 8,
+		"retry": 5,
+		"reason": "Handing a dated, assigned duty to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014): the write gate, one locked read of the person with the church's review revision, its open duties, the members they move to and those members' seats, the assignee change, the shared reminder sync (notifications.syncTaskReminders) with its 2 statements (F10), the person retired (its row comes back for the reply), then one statement with the tenure, team and column changes and the audit. Its largest first run: 1 transaction, 3 locked read, 4 write."
 	},
 	"people.setHouseholdRole": {
 		"limit": 4
@@ -1504,16 +1491,15 @@
 	},
 	"people/core.withPeopleWrite": {
 		"limit": 6,
-		"retry": 9,
-		"reads": "T-497: 2 reads in a row (read of person, then read of organization_person_removal+person+plant); the follow-up merges them or says why they cannot be one statement."
+		"retry": 9
 	},
 	"people/core.withPeopleWrite:people.assignTag": {
 		"limit": 5,
 		"retry": 6
 	},
 	"people/core.withPeopleWrite:people.changeStatus": {
-		"limit": 11,
-		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 6 locked read, 3 write."
+		"limit": 8,
+		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 3 locked read, 3 write."
 	},
 	"people/core.withPeopleWrite:people.removeFromHousehold": {
 		"limit": 7,
@@ -1521,8 +1507,8 @@
 		"reason": "Leave-and-delete: the last member leaves and the empty household is deleted in one transaction, two producer writes (people.removeFromHousehold, people.deleteHousehold) at the revision the leave answers. Its largest first run: 2 transaction, 1 locked read, 2 read, 2 write. A plain leave stays within the pattern."
 	},
 	"people/core.withPeopleWrite:people.retirePerson": {
-		"limit": 13,
-		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 7 locked read, 4 write."
+		"limit": 9,
+		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 3 locked read, 4 write."
 	},
 	"people/core.withPeopleWrite:people/csv/index.executeBulkImport": {
 		"limit": 5,

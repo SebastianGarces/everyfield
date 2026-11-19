@@ -360,11 +360,12 @@ test("AC:TARGET-PPL-009 AC:PERSONREF-PERSON-REDIRECT-MERGE-HISTORY-RETIRE househ
 	refused(await propagate(preview.household.revision), "conflict");
 	assert.equal((await rows(sql`SELECT street FROM person WHERE id=${sql.param(casey.id)}`))[0].street, "1 Own St");
 	refused(await propagate(edited.household.revision, reviewed.slice(1)), "conflict");
+	const caseyRevision = await revisionOf(casey.id);
 	ok(
 		await write(0, async (t, c) =>
 			people.updatePerson(t, c, {
 				requestKey: key(),
-				expectedRevision: await revisionOf(casey.id),
+				expectedRevision: caseyRevision,
 				input: { personId: casey.id, patch: { street: "2 New St" } },
 			}),
 		),
