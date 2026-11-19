@@ -3,7 +3,6 @@ import { notificationCategory as category } from "@everyfield/contracts/settings
 import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
-import { readAccountContacts } from "@everyfield/domain/identity";
 import { reminderSeats } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
@@ -502,20 +501,27 @@ export async function sendOnboardingRelationships(
 ) {
 	if (!inputs.length) return;
 	const organizations = [...new Set(inputs.map((i) => i.pair.organization.id))];
-	const owners = await tx.execute(
-		sql`SELECT organization_id,account_id FROM seat WHERE organization_id=ANY(${sql.param(organizations)}::uuid[]) AND role='owner' AND ended_at IS NULL AND accepted_at<=clock_timestamp()`,
-	);
+	const actors = [...new Set(inputs.flatMap((i) => (i.actorId ? [i.actorId] : [])))];
+	const read = await tx.execute(sql`WITH owners AS MATERIALIZED (
+    SELECT organization_id,account_id FROM seat WHERE organization_id=ANY(${sql.param(organizations)}::uuid[]) AND role='owner' AND ended_at IS NULL AND accepted_at<=clock_timestamp()
+   ) SELECT (SELECT coalesce(json_agg(owners),'[]') FROM owners) AS owners,
+    (SELECT coalesce(json_agg(json_build_object('id',a.id,'email',c.email)),'[]') FROM account a CROSS JOIN LATERAL access_account_contact(a.id) c
+     WHERE a.id=ANY(${sql.param(actors)}::uuid[]) OR a.id IN (SELECT account_id FROM owners)) AS contacts`);
+	const found = z
+		.object({
+			owners: z.array(z.object({ organization_id: z.uuid(), account_id: z.uuid() })),
+			contacts: z.array(z.object({ id: z.uuid(), email: z.email() })),
+		})
+		.parse(read.rows[0]);
 	const notices = inputs.flatMap((i) =>
 		[
 			...new Set([
 				...(i.actorId ? [i.actorId] : []),
-				...owners.rows
-					.filter((r) => r.organization_id === i.pair.organization.id)
-					.map((r) => z.uuid().parse(r.account_id)),
+				...found.owners.filter((r) => r.organization_id === i.pair.organization.id).map((r) => r.account_id),
 			]),
 		].map((recipient) => ({ i, recipient })),
 	);
-	const addresses = await readAccountContacts(tx, [...new Set(notices.map((n) => n.recipient))]);
+	const addresses = new Map(found.contacts.map((c) => [c.id, c.email]));
 	await mail.enqueueMany(
 		tx,
 		notices.map(({ i, recipient }) => {

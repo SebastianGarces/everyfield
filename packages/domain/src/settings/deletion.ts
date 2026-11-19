@@ -118,13 +118,36 @@ async function root(tx: Tx, subject: DeletionSubject) {
 		if (!p) deny();
 	}
 }
-async function witness(tx: Tx, subject: DeletionSubject) {
-	const [w] = await tx
-		.select()
-		.from(t.lifecycle_witness)
-		.where(and(eq(t.lifecycle_witness.kind, subject.kind), eq(t.lifecycle_witness.opaque_subject_id, subject.id)))
-		.for("update");
-	return w;
+async function lockedWitness(tx: Tx, subject: DeletionSubject) {
+	const root =
+		subject.kind === "account"
+			? tx
+					.$with("purge_root")
+					.as(tx.select({ id: t.account.id }).from(t.account).where(eq(t.account.id, subject.id)).for("update"))
+			: tx
+					.$with("purge_root")
+					.as(tx.select({ id: t.plant.id }).from(t.plant).where(eq(t.plant.id, subject.id)).for("update"));
+	const witness = tx.$with("purge_witness").as(
+		tx
+			.select(getTableColumns(t.lifecycle_witness))
+			.from(t.lifecycle_witness)
+			.where(
+				and(
+					eq(t.lifecycle_witness.kind, subject.kind),
+					eq(t.lifecycle_witness.opaque_subject_id, subject.id),
+					sql`EXISTS(SELECT FROM ${root})`,
+				),
+			)
+			.for("update"),
+	);
+	const w = alias(t.lifecycle_witness, "purge_witness");
+	const [row] = await tx
+		.with(root, witness)
+		.select({ witness: w })
+		.from(root)
+		.leftJoin(witness, sql`true`);
+	if (!row) deny();
+	return row.witness ?? undefined;
 }
 async function proven(tx: Tx, handle: string, subject: DeletionSubject) {
 	const proof = tx.$with("restricted_proof").as(
@@ -414,8 +437,7 @@ export function createLifecycleCleanup(
 	return async (input: DeletionRequest) => {
 		const claimed = await gatedTransaction(db, async (tx) => {
 			if (!(await config.authorize(tx, input))) deny();
-			await root(tx, input.subject);
-			const w = await witness(tx, input.subject);
+			const w = await lockedWitness(tx, input.subject);
 			if (!w || w.request_id !== input.requestId || w.request_revision !== input.revision) deny("conflict");
 			if (holds(deletionMachine, "lifecycle.purge", w.state, { kind: input.subject.kind }))
 				return { complete: true as const, value: status(w) };
@@ -442,8 +464,7 @@ export function createLifecycleCleanup(
 		if (claimed.complete) return claimed.value;
 		await gatedTransaction(db, async (tx) => {
 			if (!(await config.authorize(tx, input))) deny();
-			await root(tx, input.subject);
-			const w = await witness(tx, input.subject);
+			const w = await lockedWitness(tx, input.subject);
 			if (!w || w.request_id !== input.requestId || w.request_revision !== input.revision || w.state !== "purging")
 				deny("conflict");
 			await tx.execute(
@@ -453,8 +474,7 @@ export function createLifecycleCleanup(
 		if (!(await config.removeOwnedResources(input))) return { status: "purging" as const };
 		return gatedTransaction(db, async (tx) => {
 			if (!(await config.authorize(tx, input))) deny();
-			await root(tx, input.subject);
-			const w = await witness(tx, input.subject);
+			const w = await lockedWitness(tx, input.subject);
 			if (
 				!w ||
 				w.request_id !== input.requestId ||

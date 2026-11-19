@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
+import { and, eq, isNull, sql, type SQLWrapper } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import "server-only";
 import { defaultChannelEnabled, notificationCategory } from "@everyfield/contracts/settings";
@@ -102,6 +102,13 @@ const stored = z.object({
 	job_id: z.uuid().nullable(),
 	created_at: z.date(),
 });
+const lockedMail = stored.extend({
+	created_at: z.coerce.date(),
+	blocked: z.boolean(),
+	notice: z.object({ category: z.string(), purpose: z.string(), logical_key: z.string() }).nullable(),
+	preference: z.object({ enabled: z.boolean(), revision: z.string() }).nullable(),
+});
+type LockedMail = z.infer<typeof lockedMail>;
 const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
 export type MailUnsubscribe = { origin: string; keys: OptOutKeyRing } | null;
 type OptOut = { category: z.infer<typeof notificationCategory>; revision: string };
@@ -174,62 +181,32 @@ export function createMailService(config: {
 		logicalKey: m.logical_key,
 	});
 	const aad = (id: string, tenant: string, purpose: string) => `${tenant}/${id}/${purpose}`;
-	async function live(tx: Transaction, m: z.infer<typeof stored>): Promise<false | { optOut: OptOut | null }> {
-		const barriers = await tx
-			.select({ id: tables.lifecycle_witness.id })
-			.from(tables.lifecycle_witness)
-			.where(
-				and(
-					inArray(
-						tables.lifecycle_witness.opaque_subject_id,
-						[m.tenant_id, m.recipient_account_id].filter((value): value is string => value !== null),
-					),
-					sql<boolean>`(${tables.lifecycle_witness.state} IN ('pending_deletion', 'purging', 'purged', 'revoked'))`,
-				),
-			)
-			.for("share");
-		if (barriers.length) return false;
+	async function lockMail(tx: Transaction, mail: SQLWrapper, live: SQLWrapper) {
+		const row = await tx.execute(sql`WITH m AS MATERIALIZED (SELECT * FROM mail WHERE ${mail} FOR UPDATE),
+   checked AS MATERIALIZED (SELECT * FROM m WHERE ${live}),
+   barriers AS MATERIALIZED (SELECT w.id FROM lifecycle_witness w
+    WHERE w.opaque_subject_id IN (SELECT tenant_id FROM checked UNION SELECT recipient_account_id FROM checked)
+    AND w.state IN ('pending_deletion','purging','purged','revoked') FOR SHARE OF w),
+   notices AS MATERIALIZED (SELECT n.category,n.purpose,n.logical_key FROM notice n JOIN checked c ON n.id=c.notice_id AND n.tenant_id=c.tenant_id
+    WHERE n.cancelled_at IS NULL AND NOT EXISTS(SELECT FROM barriers) FOR SHARE OF n)
+   SELECT m.*,EXISTS(SELECT FROM barriers) AS blocked,(SELECT to_json(n) FROM notices n) AS notice,
+    (SELECT json_build_object('enabled',p.enabled,'revision',p.unsubscribe_revision::text) FROM notification_preference p
+     JOIN checked c ON p.account_id=c.recipient_account_id JOIN notices n ON p.category=split_part(n.logical_key,'/',2)
+     WHERE p.channel='email' LIMIT 1) AS preference
+   FROM m`);
+		return lockedMail.optional().parse(row.rows[0]);
+	}
+	async function live(tx: Transaction, m: LockedMail): Promise<false | { optOut: OptOut | null }> {
+		if (m.blocked) return false;
 		let optOut: OptOut | null = null;
 		if (m.notice_id) {
-			const notice = await tx
-				.select({
-					id: tables.notice.id,
-					category: tables.notice.category,
-					purpose: tables.notice.purpose,
-					logical_key: tables.notice.logical_key,
-				})
-				.from(tables.notice)
-				.where(
-					and(
-						and(eq(tables.notice.id, m.notice_id), eq(tables.notice.tenant_id, m.tenant_id)),
-						isNull(tables.notice.cancelled_at),
-					),
-				)
-				.for("share");
-			if (notice.length !== 1) return false;
-			const row = z.object({ category: z.string(), purpose: z.string(), logical_key: z.string() }).parse(notice[0]);
-			if (row.category === "reference_update") return false;
-			const parsedPreference = notificationCategory.safeParse(row.logical_key.split("/")[1]);
+			if (!m.notice) return false;
+			if (m.notice.category === "reference_update") return false;
+			const parsedPreference = notificationCategory.safeParse(m.notice.logical_key.split("/")[1]);
 			if (!parsedPreference.success) return false;
 			const preference = parsedPreference.data;
-			const choice = await tx
-				.select({
-					enabled: tables.notification_preference.enabled,
-					revision: sql<string>`${tables.notification_preference.unsubscribe_revision}::text`,
-				})
-				.from(tables.notification_preference)
-				.where(
-					and(
-						and(
-							eq(tables.notification_preference.account_id, sql`${m.recipient_account_id}`),
-							eq(tables.notification_preference.category, sql`${preference}`),
-						),
-						eq(tables.notification_preference.channel, "email"),
-					),
-				);
-			if (!(choice[0]?.enabled ?? defaultChannelEnabled(preference, "email"))) return false;
-			if (OPTIONAL_PURPOSES.has(m.purpose))
-				optOut = { category: preference, revision: z.string().parse(choice[0]?.revision ?? "0") };
+			if (!(m.preference?.enabled ?? defaultChannelEnabled(preference, "email"))) return false;
+			if (OPTIONAL_PURPOSES.has(m.purpose)) optOut = { category: preference, revision: m.preference?.revision ?? "0" };
 		} else if (m.purpose === "planter_digest" || m.purpose === "oversight_digest") return false;
 		return (await config.authorize(tx, [authority(m)])).has(m.id) && { optOut };
 	}
@@ -457,12 +434,12 @@ export function createMailService(config: {
 		const send = transport();
 		const prepared = await transaction(config.db, async (tx) => {
 			if (claim.kind !== "mail" || !(await lockClaim(tx, claim))) return null;
-			const row = await tx
-				.select()
-				.from(tables.mail)
-				.where(and(eq(tables.mail.id, sql`${claim.subject_record_id}`), eq(tables.mail.tenant_id, claim.tenant_id)))
-				.for("update");
-			const m = stored.parse(row[0]);
+			const m = await lockMail(
+				tx,
+				sql`mail.id=${claim.subject_record_id} AND mail.tenant_id=${claim.tenant_id}`,
+				sql`m.state IN ('pending','refused','unknown','dispatched') AND m.revision::text=${claim.source_revision}`,
+			);
+			if (!m) throw Error("mail_unavailable");
 			if (!["pending", "refused", "unknown", "dispatched"].includes(m.state)) {
 				await finishClaim(tx, claim, { state: m.state === "cancelled" ? "cancelled" : "succeeded" });
 				return null;
@@ -606,14 +583,8 @@ export function createMailService(config: {
 		}
 		if (observed.kind !== "accepted") return { kind: "unknown" } as const;
 		return transaction(config.db, async (tx) => {
-			const current = await tx
-				.select()
-				.from(tables.mail)
-				.where(and(eq(tables.mail.id, mailId), eq(tables.mail.state, "unknown")))
-				.for("update");
-			if (!current.length) return { kind: "unknown" } as const;
-			const actual = stored.parse(current[0]);
-			if (!(await live(tx, actual))) return { kind: "unknown" } as const;
+			const actual = await lockMail(tx, sql`mail.id=${mailId} AND mail.state='unknown'`, sql`true`);
+			if (!actual || !(await live(tx, actual))) return { kind: "unknown" } as const;
 			await tx
 				.update(tables.mail)
 				.set({
