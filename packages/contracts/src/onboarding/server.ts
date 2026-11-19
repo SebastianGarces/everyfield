@@ -1,6 +1,5 @@
 import type { z } from "zod";
 import type { Owner, sessionId, Reply } from "../common/values.ts";
-import type * as request from "./requests.ts";
 import type * as result from "./results.ts";
 
 type Scope = Extract<Owner, { kind: "account" | "plant" }>;
@@ -12,41 +11,41 @@ export interface OnboardingProducer<Tx> {
 	createPlant(
 		tx: Tx,
 		context: OnboardingWriteContext,
-		input: z.infer<typeof request.createPlantRequest>,
+		raw: unknown,
 	): Promise<OnboardingReply<z.infer<typeof result.createPlantResult>>>;
 	createDiscovery(
 		tx: Tx,
 		context: OnboardingWriteContext,
-		input: z.infer<typeof request.createDiscoveryRequest>,
+		raw: unknown,
 	): Promise<OnboardingReply<z.infer<typeof result.createDiscoveryResult>>>;
 	getDiscoveryProfile(
 		tx: Tx,
 		context: OnboardingContext,
-		input: z.infer<typeof request.getDiscoveryProfileRequest>,
+		raw: unknown,
 	): Promise<OnboardingReply<z.infer<typeof result.discoveryProfileResult>>>;
 	convertDiscovery(
 		tx: Tx,
 		context: OnboardingWriteContext,
-		input: z.infer<typeof request.convertDiscoveryRequest>,
+		raw: unknown,
 	): Promise<OnboardingReply<z.infer<typeof result.convertDiscoveryResult>>>;
 	answerLead(
 		tx: Tx,
 		context: OnboardingWriteContext,
-		input: z.infer<typeof request.answerLeadRequest>,
+		raw: unknown,
 	): Promise<OnboardingReply<z.infer<typeof result.leadAnswerResult>>>;
 	declareJourney(
 		tx: Tx,
 		context: OnboardingWriteContext,
-		input: z.infer<typeof request.declareJourneyRequest>,
+		raw: unknown,
 	): Promise<OnboardingReply<z.infer<typeof result.journeyResult>>>;
 	complete(
 		tx: Tx,
 		context: OnboardingWriteContext,
-		input: z.infer<typeof request.completeOnboardingRequest>,
+		raw: unknown,
 	): Promise<OnboardingReply<z.infer<typeof result.completeOnboardingResult>>>;
 	getResume(
 		tx: Tx,
 		context: OnboardingContext,
-		input: z.infer<typeof request.getResumeRequest>,
+		raw: unknown,
 	): Promise<OnboardingReply<z.infer<typeof result.resumeResult>>>;
 }
