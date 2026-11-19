@@ -17,6 +17,7 @@ const saved = (r: z.infer<typeof c.taskMutation> & { successor?: z.infer<typeof 
 	task: r.task,
 	receiptId: r.receiptId,
 	changed: r.outcome === "changed",
+	recounted: r.recounted,
 	...(r.successor !== undefined ? { successor: r.successor } : {}),
 });
 const savedOf = <T extends Parameters<typeof saved>[0]>(r: Outcome<T>): Outcome<Saved> =>

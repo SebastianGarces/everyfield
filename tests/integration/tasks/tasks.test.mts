@@ -1202,6 +1202,40 @@ test("AC:TARGET-TSK-006 prerequisites never form a cycle, even proposed at once,
 	);
 });
 
+test("AC:TARGET-TSK-006 a write that settles, reopens or deletes a prerequisite answers with the new counts of the tasks waiting on it", async () => {
+	const command = (op, task, input = {}) =>
+		write(owner, op, {
+			requestKey: randomUUID(),
+			expectedRevision: task.revision,
+			input: { taskId: task.id, ...input },
+		});
+	const [one, two, three] = await Promise.all(["One", "Two", "Three"].map((title) => create(owner, { title })));
+	const needs = async (title, ids) =>
+		ok(await command("replacePrerequisites", await create(owner, { title }), { prerequisiteIds: ids })).task;
+	const both = await needs("Both", [one.id, two.id]);
+	const all = await needs("All", [one.id, two.id, three.id]);
+	const counts = (answer) =>
+		Object.fromEntries(answer.recounted.map((r) => [r.taskId === both.id ? "Both" : "All", r.openPrerequisites]));
+
+	const done = ok(await command("complete", one));
+	assert.deepEqual(counts(done), { Both: 1, All: 2 });
+	assert.deepEqual(ok(await command("changeStatus", two, { status: "in_progress" })).recounted, []);
+	assert.deepEqual(counts(ok(await command("reopen", done.task))), { Both: 2, All: 3 });
+	const fresh = await Promise.all([one, two].map((t) => get(owner, t.id)));
+	const bulk = ok(
+		await write(owner, "bulkComplete", {
+			requestKey: randomUUID(),
+			items: fresh.map((t) => ({ taskId: t.id, expectedRevision: t.revision })),
+		}),
+	);
+	assert.deepEqual(counts(bulk), { Both: 0, All: 1 });
+	assert.deepEqual(counts(ok(await command("delete", three))), { All: 0 });
+	assert.deepEqual(
+		ok(await read(owner, "listRows", { taskIds: [both.id, all.id] })).items.map((t) => t.openPrerequisites),
+		[0, 0],
+	);
+});
+
 test("AC:TARGET-TSK-007 AC:TARGET-TSK-018 completing a recurring task creates exactly one next task with a fresh checklist", async () => {
 	const complete = (who, task, requestKey = randomUUID()) =>
 		write(who, "completeOccurrence", { requestKey, expectedRevision: task.revision, input: { taskId: task.id } });

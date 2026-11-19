@@ -273,6 +273,21 @@ export function update(plantId: string, row: TaskRow, next: TaskRow): SQL[] {
 	return [task, ...setWrites(plantId, row.id, idsOf(row.assignees), v.assigneeIds)];
 }
 
+const blocks = (row: Pick<TaskRow, "status" | "deleted_at">) => row.deleted_at === null && OPEN(row.status);
+export function recount(moves: readonly { from: LockedTask; to: Pick<TaskRow, "status" | "deleted_at"> }[]) {
+	const before = new Map<string, number>(),
+		after = new Map<string, number>();
+	for (const { from, to } of moves) {
+		const delta = Number(blocks(to)) - Number(blocks(from));
+		for (const w of from.waiting) {
+			before.set(w.id, w.open);
+			after.set(w.id, (after.get(w.id) ?? w.open) + delta);
+		}
+	}
+	return [...after]
+		.filter(([id, open]) => open !== before.get(id))
+		.map(([taskId, openPrerequisites]) => ({ taskId, openPrerequisites }));
+}
 export function setStatus(
 	tx: Tx,
 	cmd: AuditCommand,
@@ -281,7 +296,7 @@ export function setStatus(
 ) {
 	if (row.status === input.status) {
 		if (input.source !== "generated") noop(cmd, row);
-		return { row, outcome: "noop" as const, changes: [], successor: null };
+		return { row, outcome: "noop" as const, changes: [], successor: null, recounted: [] };
 	}
 	const reopening = !OPEN(row.status) && OPEN(input.status);
 	if (reopening && row.open_successor) deny("open_successor", { successorId: row.open_successor });
@@ -341,6 +356,7 @@ export function setStatus(
 			successor ? reminderChange(cmd.actor.plantId, null, successor) : undefined,
 		],
 		successor,
+		recounted: recount([{ from: row, to: next }]),
 	};
 }
 export function changeTo(
@@ -351,7 +367,7 @@ export function changeTo(
 	input: Parameters<typeof setStatus>[3],
 ) {
 	const r = setStatus(tx, cmd, row, input);
-	return { value: mutation(cmd, r.row, r.outcome), after: syncAll(reminders, tx, r.changes) };
+	return { value: mutation(cmd, r.row, r.outcome, r.recounted), after: syncAll(reminders, tx, r.changes) };
 }
 export function newTask(
 	zone: TimeZone,
@@ -390,11 +406,17 @@ export function newTask(
 		...fields,
 	};
 }
-export function mutation(cmd: AuditCommand, row: TaskRow, outcome: "changed" | "noop") {
+export function mutation(
+	cmd: AuditCommand,
+	row: TaskRow,
+	outcome: "changed" | "noop",
+	recounted: z.input<typeof c.recounted> = [],
+) {
 	return c.taskMutation.parse({
 		task: detailOf(row, instant.parse(new Date().toISOString())),
 		receiptId: cmd.id,
 		outcome,
+		recounted,
 	});
 }
 
@@ -538,7 +560,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 						child_complete: 0,
 					};
 					return {
-						value: mutation(cmd, next, "changed"),
+						value: mutation(cmd, next, "changed", recount([{ from: row, to: next }])),
 						after: syncReminders(reminders, tx, cmd.actor.plantId, row, next),
 					};
 				});
