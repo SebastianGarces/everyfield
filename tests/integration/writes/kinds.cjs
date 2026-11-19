@@ -28,7 +28,6 @@ const platform = [
 		reason: "Better Auth's adapter issues its session, user and account reads one by one; our code does not shape them",
 	},
 ];
-exports.platform = platform;
 
 const keywords = new Set(["lateral", "of", "only", "select", "values"]);
 function tablesOf(text) {
@@ -57,7 +56,7 @@ function collect(value, into, depth = 0) {
 	else if (typeof value === "object") for (const v of Object.values(value)) collect(v, into, depth + 1);
 	return into;
 }
-exports.resultValues = (result) =>
+const resultValues = (result) =>
 	collect(
 		[result].flat().map((r) => r?.rows),
 		new Set(),
@@ -81,7 +80,7 @@ exports.captureResult = function captureResult(args, outcome, settle) {
 	if (at >= 0) {
 		const callback = args[at];
 		args[at] = function (error, result) {
-			if (!error) settle(exports.resultValues(result));
+			if (!error) settle(resultValues(result));
 			return Reflect.apply(callback, this, [error, result]);
 		};
 		return outcome(args);
@@ -89,7 +88,7 @@ exports.captureResult = function captureResult(args, outcome, settle) {
 	const returned = outcome(args);
 	if (returned && typeof returned.then === "function")
 		returned.then(
-			(result) => settle(exports.resultValues(result)),
+			(result) => settle(resultValues(result)),
 			() => {},
 		);
 	return returned;
