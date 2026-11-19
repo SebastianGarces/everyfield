@@ -13,6 +13,7 @@ import {
 	readPipelineChoices,
 	readPipelinePersonRecord,
 } from "../../../packages/domain/src/organizations/pipeline.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const {
 	addNote: addPipelineNote,
@@ -157,7 +158,7 @@ test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsib
 	);
 	refusedWith(await record(hillOwner, casey), "unavailable");
 	const plantOwner = database.actors.owner;
-	const plant = await db.transaction((t) =>
+	const plant = await gatedTransaction(db, (t) =>
 		peopleReader.listPeople(
 			t,
 			{ session: plantOwner.session as never, selected: database.tenant as never },

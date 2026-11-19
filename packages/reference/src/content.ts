@@ -26,7 +26,7 @@ export function safeMdx(body: string, slugs: ReadonlySet<string>): boolean {
 			}
 			if (node.type === "link" || node.type === "definition" || node.type === "image") {
 				if (!safeHref.safeParse(node.url).success || typeof node.url !== "string") return false;
-				if (node.url.startsWith("/wiki/") && !slugs.has(node.url.slice(6).split("#")[0]!)) return false;
+				if (node.url.startsWith("/wiki/") && !slugs.has(node.url.slice(6).split("#", 1)[0] ?? "")) return false;
 				if (node.type === "image") return false;
 			}
 			return !Array.isArray(node.children) || node.children.every(visit);

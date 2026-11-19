@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 import { errorReference } from "../model";
 import type { BrandError, BrandView } from "../port";
 import { OFFLINE_REFERENCE, type Refusal } from "../save";
-import { SaveFooter, SectionBody } from "../SettingsDialog";
+import { SaveFooter, SectionBody } from "../SectionParts";
 import { SaveError } from "../SaveError";
 import { useDraft, useSettings } from "../store";
 import { AssetsGroup } from "./AssetsGroup";

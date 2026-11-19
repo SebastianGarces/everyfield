@@ -67,7 +67,7 @@ const GROUPS = [
 	{ config: ".oxlintrc.json", cwd: ".", owns: () => true },
 ];
 
-function lintIn(dir, paths) {
+function lintIn(dir, paths, code = /^everyfield\(([\w-]+)\)$/) {
 	const hits = [];
 	for (const group of GROUPS) {
 		const mine = paths.filter((path) => GROUPS.find((g) => g.owns(path)) === group);
@@ -79,7 +79,7 @@ function lintIn(dir, paths) {
 			{ cwd, encoding: "utf8", env: env(dir) },
 		);
 		for (const d of JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{"))).diagnostics) {
-			const rule = /^everyfield\(([\w-]+)\)$/.exec(d.code ?? "")?.[1];
+			const rule = code.exec(d.code ?? "")?.[1];
 			if (rule && rule !== "resend-senders")
 				hits.push(`${relative(dir, resolve(cwd, d.filename))}:${d.labels?.[0]?.span.line ?? 1} ${rule}`);
 		}
@@ -190,11 +190,12 @@ export const d = [c, warn, nodeConsole, err, stderr, stdout, error];
 		lint({
 			"apps/web/src/features/x/server.ts": reach,
 			"packages/domain/src/people/reach.ts": reach,
+			"packages/evry/src/runtime/reach.ts": reach,
 			"apps/web/src/features/x/Panel.tsx": `"use client";\n${reach}`,
 			"packages/domain/src/log.ts": reach,
 			"tests/integration/x/reach.test.mts": reach,
 		}).filter((hit) => hit.endsWith(" server-log")),
-		["apps/web/src/features/x/server.ts", "packages/domain/src/people/reach.ts"]
+		["apps/web/src/features/x/server.ts", "packages/domain/src/people/reach.ts", "packages/evry/src/runtime/reach.ts"]
 			.flatMap((file) => lines.map((line) => `${file}:${line} server-log`))
 			.sort(),
 	);
@@ -573,6 +574,8 @@ export const label = (node: ReactNode) => [node, parse];
 		"apps/web/src/components/save/model.ts:8 model-module",
 	]);
 	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": pure }), []);
+	for (const file of ["apps/web/src/features/tasks/fresh-model.ts", "apps/web/src/features/wiki/page-state.ts"])
+		assert.deepEqual(lint({ [file]: "export const at = () => Date.now();\n" }), [`${file}:1 model-module`]);
 	const disguised = `const D = Date;
 const { now } = performance;
 const tick = Date.now;
@@ -625,6 +628,43 @@ export const useI = (id) => useLocalRead(async (key) => { markSeen(key); return 
 		"apps/web/src/features/x/reads.ts:8 read-loader",
 		"apps/web/src/features/x/reads.ts:9 read-loader",
 	]);
+});
+
+test("INV-link: a one-time link value never keys a read, directly or through a value derived from it", () => {
+	const source = `import { useOneTimeLinkValue, currentOneTimeLinkValue } from "../../components/location.ts";
+import { createRead, useLocalRead, useRead, useReadWith } from "../../components/read.tsx";
+import { people } from "./reads.ts";
+const reads = createRead((id) => load(id, currentOneTimeLinkValue("invitation")), { failed: () => null });
+export function A({ id }) {
+	const linked = useOneTimeLinkValue("invitation");
+	const proof = linked ?? "";
+	const { value } = { value: proof };
+	const a = useRead(reads, id, proof);
+	const b = useRead(reads, id, value);
+	const c = useLocalRead(load, options, useOneTimeLinkValue("invitation"));
+	const d = useRead(reads, id, currentOneTimeLinkValue("invitation"));
+	const e = useReadWith(reads, [id, linked]);
+	let later;
+	later = linked;
+	const f = useRead(reads, id, later);
+	const readAs = useRead;
+	const g = readAs(reads, id, linked);
+	reads.prefetch(id, linked);
+	people.get(id, proof);
+	const [held] = useState(linked);
+	const h = useRead(reads, id, held);
+	const fine = useRead(reads, id);
+	const alsoFine = useLocalRead((key) => load(key, currentOneTimeLinkValue("invitation")), options, id);
+	reads.prefetch(id);
+	return [a, b, c, d, e, f, g, h, fine, alsoFine, proof];
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Respond.tsx": source }),
+		[9, 10, 11, 12, 13, 16, 18, 19, 20, 22]
+			.map((line) => `apps/web/src/features/x/Respond.tsx:${line} link-value-key`)
+			.sort(),
+	);
 });
 
 function cursorRuleSelectors(css, cursor) {
@@ -1704,7 +1744,7 @@ export function Report() {
 	);
 });
 
-test("INV-lint: a store read with getState() while rendering is reported, also through a destructured or assigned getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not", () => {
+test("INV-lint: a store read with getState() while rendering is reported, also through a destructured, defaulted, assigned, bound or passed getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not, and a same-named binding elsewhere is not an alias", () => {
 	const source = `import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { useStore } from "@/components/store";
 export function Card({ store, ids }) {
@@ -1736,15 +1776,62 @@ export function Aliased({ store }) {
 	const onClick = () => read().count;
 	return <button onClick={onClick}>{getState().count + read().count}</button>;
 }
+export function Bound({ store, getState: given }) {
+	const bound = store.getState.bind(store);
+	let later;
+	later = store.getState;
+	const { getState: fallback = null } = store;
+	const onClick = () => bound().count + later().count;
+	const a = store.getState.bind(store)().a;
+	const b = bound().b;
+	const c = later().c;
+	const d = fallback().d;
+	const e = given().e;
+	const f = store.getState.call(store).f;
+	return <button onClick={onClick}>{a + b + c + d + e + f}</button>;
+}
+export function Handler({ store }) {
+	const pick = store.getState;
+	return <button onClick={() => pick().count}>Go</button>;
+}
+export function Unrelated({ pick }) {
+	return <p>{pick()}</p>;
+}
 `;
 	assert.deepEqual(
 		lint({ "apps/web/src/features/x/Card.tsx": source, "packages/ui/src/Card.tsx": source }).filter((hit) =>
 			hit.endsWith("no-render-get-state"),
 		),
 		["apps/web/src/features/x/Card.tsx", "packages/ui/src/Card.tsx"]
-			.flatMap((path) => [4, 5, 6, 7, 15, 21, 30, 30].map((line) => `${path}:${line} no-render-get-state`))
+			.flatMap((path) =>
+				[4, 5, 6, 7, 15, 21, 30, 30, 38, 39, 40, 41, 42, 43].map((line) => `${path}:${line} no-render-get-state`),
+			)
 			.sort(),
 	);
+});
+
+test("INV-lint: only an overlay's lazy entry imports it, so no static chain from a product page reaches it; the parts its sections share import freely", () => {
+	const settings = "apps/web/src/features/settings";
+	const files = {
+		[`${settings}/ProductSettings.tsx`]:
+			'import type { SettingsDialogProps } from "./SettingsDialog";\nexport const load = () => import("./SettingsDialog");\nexport type P = SettingsDialogProps;\n',
+		[`${settings}/sections/ChurchSection.tsx`]:
+			'import { SectionBody } from "../SettingsDialog";\nimport { SaveFooter } from "../SectionParts";\nexport const parts = [SectionBody, SaveFooter];\n',
+		[`${settings}/brand/BrandSection.tsx`]:
+			'import { SectionBody } from "../SettingsDialog";\nexport const parts = [SectionBody];\n',
+		[`${settings}/preview/SettingsPreview.tsx`]:
+			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../ProductSettings";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
+		"apps/web/src/features/evry/conversation/panel.tsx":
+			'import { SettingsDialog } from "../../settings/SettingsDialog";\nexport const load = () => import("./EvryPanel.tsx");\nexport const dialog = SettingsDialog;\n',
+		"apps/web/src/features/shell/Frame.tsx":
+			'import { ChurchSection } from "../settings/sections/ChurchSection";\nexport const section = ChurchSection;\n',
+	};
+	assert.deepEqual(lintIn(sandbox(files), Object.keys(files), /^eslint\((no-restricted-imports)\)$/), [
+		"apps/web/src/features/evry/conversation/panel.tsx:1 no-restricted-imports",
+		`${settings}/brand/BrandSection.tsx:1 no-restricted-imports`,
+		`${settings}/preview/SettingsPreview.tsx:1 no-restricted-imports`,
+		`${settings}/sections/ChurchSection.tsx:1 no-restricted-imports`,
+	]);
 });
 
 test("INV-lint: a page, a layout or a GET route handler that imports a server action module is reported, a route that also writes is not", () => {
