@@ -27,7 +27,7 @@ class FakeNode extends EventTarget {
 	get ownerDocument() {
 		return fakeDocument;
 	}
-	get firstChild() {
+	get firstChild(): FakeNode | null {
 		return this.childNodes[0] ?? null;
 	}
 	appendChild(child: FakeNode) {
