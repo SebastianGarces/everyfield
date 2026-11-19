@@ -1755,11 +1755,12 @@ test("INV-lint: a route module or server-only module that calls a server action 
 	);
 });
 
-test("INV-lint: a read exported from a server action module or declared as an inline server action is reported, a write or a server-only read is not", () => {
+test("INV-lint: a read exported from a server action module, under its own name or renamed, or declared as an inline server action is reported, a write or a server-only read is not", () => {
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function readThing() {}\nexport const listThings = async () => [];\nexport async function saveThing() {}\nexport async function reader() {}\nasync function loadInner() {}\nexport { loadInner as loadAlias };\nexport const { findOne, saveOne } = { findOne: async () => 1, saveOne: async () => 2 };\n`,
 			"apps/web/src/features/x/default.ts": `"use server";\nexport default async function readDefault() {}\n`,
+			"apps/web/src/features/x/hidden.ts": `"use server";\nasync function readHidden() {}\nasync function reloadRow() {}\nexport { readHidden as default, reloadRow as saveRow };\nexport async function downloadFile() {}\n`,
 			"apps/web/src/features/x/all.ts": `"use server";\nexport * from "./reads.ts";\n`,
 			"apps/web/src/features/x/reads.ts": `export async function readFromAll() {}\n`,
 			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function readInline() {\n\t\t"use server";\n\t}\n\tasync function saveInline() {\n\t\t"use server";\n\t}\n\treturn [readInline, saveInline];\n}\n`,
@@ -1773,6 +1774,9 @@ test("INV-lint: a read exported from a server action module or declared as an in
 			"apps/web/src/features/x/actions.ts:8 no-read-actions",
 			"apps/web/src/features/x/all.ts:2 no-read-actions",
 			"apps/web/src/features/x/default.ts:2 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:5 no-read-actions",
 		],
 	);
 });

@@ -17,3 +17,5 @@ export const readMeetingHistory = (meetingId: string, cursor?: string) =>
 export const readMeetingTracking = (meetingId: string) => get("tracking", { meetingId });
 export const readMeetingContext = (meetingId: string) => get("context", { meetingId });
 export const readPreviewContext = () => get("preview");
+export const openMessage = (communicationId: string) => get("message", { communicationId });
+export const reviewResend = (communicationId: string) => get("resend", { communicationId });

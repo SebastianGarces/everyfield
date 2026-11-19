@@ -11,3 +11,4 @@ export const loadCopySources = () => get("sources");
 export const listChurchTemplates = () => get("templates");
 export const compareWithTemplate = (documentId: string) =>
 	refusalAs(get("compare", { documentId }), () => ({ status: "lost" }) as const);
+export const downloadSavedDocument = (documentId: string) => get("download", { documentId });
