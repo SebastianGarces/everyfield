@@ -19,7 +19,7 @@ const setup = [
 	{ name: "complete", schema: completeOnboardingRequest, input: {} },
 ];
 
-test("INV-onboarding-authority: a setup command names no plant, so it acts only on the account's own plant seat", () => {
+test("INV-onboarding-authority: a setup command request carries no plant, at the envelope or the input", () => {
 	for (const { name, schema, input } of setup) {
 		assert.equal(schema.safeParse(envelope(input)).success, true, name);
 		for (const named of [
