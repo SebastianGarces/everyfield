@@ -35,7 +35,7 @@ import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
-import { transient } from "../../server/platform/transient.ts";
+import { transient, unexpected } from "../../server/platform/transient.ts";
 import { parseJson } from "../../server/platform/json.ts";
 
 type Viewer = Awaited<ReturnType<typeof getViewer>>;
@@ -280,8 +280,9 @@ export async function credential<S extends z.ZodType, T>(
 
 export async function storeAvatarBytes(accountId: string, uploadId: string, bytes: Uint8Array) {
 	const viewer = await signedIn();
+	if (!viewer || viewer.accountId !== accountId) return "unavailable" as const;
 	const ops = settingsMount();
-	if (!viewer || !ops.storage || viewer.accountId !== accountId) return "unavailable" as const;
+	if (!ops.storage) return "unavailable" as const;
 	const context = { session: viewer.authority.session, selected: owner.parse({ kind: "account", id: accountId }) };
 	try {
 		await uploadAvatar(ops.db, ops.storage, context, { uploadId, bytes });
@@ -292,7 +293,7 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 			(error instanceof StorageError && error.code === "invalid_avatar")
 		)
 			return "invalid" as const;
-		if (!isTransient(error)) throw error;
+		if (!isTransient(error)) throw unexpected({ component: "settings", outcome: "avatar_upload_failed" }, error);
 		logFailure({ component: "settings", outcome: "avatar_upload_failed" }, error);
 		return "unavailable" as const;
 	}
@@ -300,8 +301,9 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 
 export async function avatarBytes(accountId: string, versionId: string) {
 	const viewer = await signedIn();
+	if (!viewer) return null;
 	const ops = settingsMount();
-	if (!viewer || !ops.storage) return null;
+	if (!ops.storage) return null;
 	const context = {
 		session: viewer.authority.session,
 		selected: owner.parse({ kind: "account", id: viewer.accountId }),
@@ -363,9 +365,9 @@ async function restricted(kind: "account" | "plant"): Promise<Restricted | null>
 }
 
 export async function restrictedStatus(kind: "account" | "plant") {
-	const ops = settingsMount(),
-		session = await restricted(kind);
+	const session = await restricted(kind);
 	if (!session) return refusal("proof_invalid");
+	const ops = settingsMount();
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const { request } = session;
 	return logged("restricted_status_failed", () =>
@@ -378,9 +380,9 @@ export async function restrictedStatus(kind: "account" | "plant") {
 }
 
 export async function cancelRestrictedDeletion(kind: "account" | "plant", expectedRevision: string) {
-	const ops = settingsMount(),
-		session = await restricted(kind);
+	const session = await restricted(kind);
 	if (!session) return refusal("proof_invalid");
+	const ops = settingsMount();
 	const command = { requestKey: randomUUID(), expectedRevision, input: session.request };
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const reply = await logged("restricted_cancel_failed", () =>
