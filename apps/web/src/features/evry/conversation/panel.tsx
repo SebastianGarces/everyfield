@@ -3,7 +3,7 @@
 import { EvryBot } from "@everyfield/ui/foundations";
 import { Sheet } from "@everyfield/ui/controls";
 import { Suspense } from "react";
-import { lazyModule, LoadState, Opened, useLazyModule } from "@/components/lazy";
+import { lazyModule, LoadFailed, Opened, useLazyModule } from "@/components/lazy";
 import { storeContext, useLocalStore, useStore } from "@/components/store";
 import * as api from "./api.ts";
 import { createEvryPanelStore, type EvryPanelState, type EvryPort } from "./EvryPanel.store.ts";
@@ -28,7 +28,7 @@ export function useEvryPanel({ inPlant, off = false, context }: PanelProps & { o
 		element: off ? null : (
 			<Panel.Provider value={store}>
 				<Opened open={open}>
-					<Suspense fallback={<Unloaded />}>
+					<Suspense fallback={null}>
 						<Loaded inPlant={inPlant} context={context} />
 					</Suspense>
 				</Opened>
@@ -40,10 +40,10 @@ export function useEvryPanel({ inPlant, off = false, context }: PanelProps & { o
 function Loaded(props: PanelProps) {
 	const loaded = useLazyModule(panel);
 	if (loaded.module) return <loaded.module.EvryPanel {...props} />;
-	return <Unloaded retry={loaded.retry} />;
+	return <Failed retry={loaded.retry} />;
 }
 
-function Unloaded({ retry }: { retry?: () => void }) {
+function Failed({ retry }: { retry: () => void }) {
 	const open = Panel.useSelect((s) => s.open);
 	const show = Panel.useSelect((s) => s.actions.show);
 	return (
@@ -54,13 +54,13 @@ function Unloaded({ retry }: { retry?: () => void }) {
 			className="w-[560px] max-w-[calc(100vw-24px)]"
 			title={
 				<span className="flex items-center gap-3">
-					<EvryBot size="md" mood={retry ? "idle" : "thinking"} />
+					<EvryBot size="md" mood="idle" />
 					Evry
 				</span>
 			}
 			description="Reads and drafts. You approve every change."
 		>
-			<LoadState what="Evry" retry={retry} />
+			<LoadFailed what="Evry" retry={retry} />
 		</Sheet>
 	);
 }

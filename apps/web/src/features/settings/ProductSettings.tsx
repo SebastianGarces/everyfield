@@ -5,7 +5,7 @@ import { avatarRoute } from "@everyfield/contracts/settings";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogBody, DialogContent, DialogHeader } from "@everyfield/ui/controls";
 import { Suspense, useRef, useState } from "react";
-import { lazyModule, LoadState, Opened, useLazyModule } from "../../components/lazy.tsx";
+import { lazyModule, LoadFailed, Opened, useLazyModule } from "../../components/lazy.tsx";
 import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
 import { readSourceOrder, saveSourceOrder } from "../wiki/actions";
@@ -77,7 +77,7 @@ const dialog = lazyModule(() => import("./SettingsDialog"));
 function LazySettingsDialog(props: SettingsDialogProps) {
 	return (
 		<Opened open={props.section !== null}>
-			<Suspense fallback={<Unloaded {...props} />}>
+			<Suspense fallback={null}>
 				<Loaded {...props} />
 			</Suspense>
 		</Opened>
@@ -87,10 +87,10 @@ function LazySettingsDialog(props: SettingsDialogProps) {
 function Loaded(props: SettingsDialogProps) {
 	const loaded = useLazyModule(dialog);
 	if (loaded.module) return <loaded.module.SettingsDialog {...props} />;
-	return <Unloaded {...props} retry={loaded.retry} />;
+	return <Failed {...props} retry={loaded.retry} />;
 }
 
-function Unloaded({ section, onNavigate, retry }: SettingsDialogProps & { retry?: () => void }) {
+function Failed({ section, onNavigate, retry }: SettingsDialogProps & { retry: () => void }) {
 	return (
 		<Dialog open={section !== null} onOpenChange={(open) => (open ? undefined : onNavigate(null))}>
 			<DialogContent
@@ -100,7 +100,7 @@ function Unloaded({ section, onNavigate, retry }: SettingsDialogProps & { retry?
 			>
 				<DialogHeader title="Settings" />
 				<DialogBody className="grid place-items-center">
-					<LoadState what="Settings" retry={retry} />
+					<LoadFailed what="Settings" retry={retry} />
 				</DialogBody>
 			</DialogContent>
 		</Dialog>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Spinner, StatePanel } from "@everyfield/ui/controls";
+import { Button, StatePanel } from "@everyfield/ui/controls";
 import { use, useReducer, useState, type ReactNode } from "react";
 
 type Loaded<M> = { status: "ready"; module: M } | { status: "failed" };
@@ -48,13 +48,7 @@ export function Opened({ open, children }: { open: boolean; children: ReactNode 
 	return opened ? children : null;
 }
 
-export function LoadState({ what, retry }: { what: string; retry?: () => void }) {
-	if (!retry)
-		return (
-			<p role="status" className="flex items-center justify-center gap-2 px-6 py-16 text-text-2">
-				<Spinner size={16} /> Loading {what.toLowerCase()}
-			</p>
-		);
+export function LoadFailed({ what, retry }: { what: string; retry: () => void }) {
 	return (
 		<StatePanel
 			tone="error"
