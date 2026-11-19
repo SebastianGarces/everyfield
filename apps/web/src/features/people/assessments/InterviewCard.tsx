@@ -25,7 +25,8 @@ import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../.
 import { STAGE_LABEL } from "../model.ts";
 import { throughStore } from "../person.store.ts";
 import { LocalDay, usePersonState } from "../parts.tsx";
-import { loadInterviews, recordInterview } from "./actions.ts";
+import { recordInterview } from "./actions.ts";
+import { loadInterviews } from "../fetch.ts";
 import {
 	advancedStage,
 	CRITERIA,

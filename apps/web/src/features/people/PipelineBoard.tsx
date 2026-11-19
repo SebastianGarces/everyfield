@@ -15,7 +15,8 @@ import {
 import { PersonCard, PipelineColumn, StageChip, StatusBadge } from "@everyfield/ui/display";
 import { useMemo, useState, type DragEvent } from "react";
 import type { z } from "zod";
-import { loadColumn, reorderPipeline } from "./actions.ts";
+import { reorderPipeline } from "./actions.ts";
+import { loadColumn } from "./fetch.ts";
 import { useRouter } from "next/navigation";
 import {
 	columnCards,

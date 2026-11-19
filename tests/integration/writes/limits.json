@@ -191,10 +191,10 @@
 		"limit": 7,
 		"reason": "A replay of the same request key after a lost answer (the save lane sends it once more): the first attempt runs the gate and its reads and meets the stored key at its write; one read then answers the stored result (RT-6b). The first attempt is the established write (people.addSkill, 6 with the session lookup). Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
 	},
-	"POST people.fields.readPhoto": {
+	"GET /people/read?what=photo": {
 		"limit": 4
 	},
-	"POST people.fields.readSkills": {
+	"GET /people/read?what=skills": {
 		"limit": 4
 	},
 	"POST people.updatePerson": {
