@@ -9,5 +9,6 @@ Feature-flag operations for Everyfield (T-471). `bin/flag help` lists every comm
   loads from the main checkout's `apps/web/.env.local` when unset), a QA preview's Neon branch with `--qa <id>`, and
   production only with `--production` and `FLAG_PRODUCTION_DATABASE_URL` from Sebastian's production env. No seat,
   test or CI job runs the production path.
-- `check.ts`: the expiry and dead-flag check that `apps/web` lint runs (`node tools/flag/check.ts`).
+- `check.ts`: the expiry and dead-flag check (`bin/flag check`). `tests/unit/flags/check.test.mts` runs it on the real
+  tree in `apps/web` `test:unit`, so `bin/dev check` and required CI fail on an expired or unread flag.
 - `main.ts`: the entry `bin/flag` runs with `--conditions=react-server`.
