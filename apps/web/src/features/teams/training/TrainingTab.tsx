@@ -34,11 +34,11 @@ import {
 	attestService,
 	correctProgram,
 	createProgram,
-	loadTraining,
 	recompleteTraining,
 	revokeCompletion,
 	saveRoster,
 } from "./actions.ts";
+import { loadTraining } from "../fetch.ts";
 import { AssignDialog, checkRoster, CompletionDialog, CorrectDialog, CreateDialog, ServiceDialog } from "./dialogs.tsx";
 import { PersonLookup } from "./PersonLookup.tsx";
 import {
