@@ -26,7 +26,7 @@ import { createRead, useRead } from "../../../components/read.tsx";
 import type { Outcome, Wait } from "../../../components/save/model.ts";
 import { RecordDialog } from "../../../components/save/parts.tsx";
 import { LocalDay } from "../parts.tsx";
-import { findWitnesses } from "./actions.ts";
+import { findWitnesses } from "../fetch.ts";
 import { KIND_LABEL, today, type Commitment, type Kind } from "./model.ts";
 import { ChoiceField, recordProblem } from "./parts.tsx";
 
