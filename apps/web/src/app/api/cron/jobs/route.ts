@@ -14,7 +14,6 @@ import { deliveryTransport, mailReady, queuedMailTransport } from "@/server/mail
 import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
 import { assessmentsMount } from "@/server/jobs/assessment";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
