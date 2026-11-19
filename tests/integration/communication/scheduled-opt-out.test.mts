@@ -343,7 +343,6 @@ test("AC:CASE-NTF-016 the every-minute cron call hands a due scheduled email off
 		WHERE logical_key LIKE ${"communication/" + message.id + "/%"} AND state = 'scheduled'`);
 	const secret = "cron-" + key();
 	const tick = scheduledJobs({
-		secret,
 		db: f.db,
 		storage: null,
 		cleanup: null,

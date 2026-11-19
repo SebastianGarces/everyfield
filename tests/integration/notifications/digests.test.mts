@@ -58,7 +58,6 @@ before(async () => {
 	});
 	worker = createDigestWorker({ mail, origin: "https://everyfield.test" });
 	tick = scheduledJobs({
-		secret,
 		db: runtime,
 		storage: null,
 		cleanup: null,

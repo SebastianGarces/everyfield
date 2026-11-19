@@ -1,8 +1,8 @@
 import "server-only";
 import { requestDatabase } from "@/server/database";
-import { boundedBytes, Refusal } from "@/server/platform/boundary";
 import { pipelineActor } from "../pipeline-mount";
 import { pipelineImportLimits } from "@everyfield/contracts/organizations";
+import { readBoundedBody } from "@everyfield/domain/operations";
 import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
@@ -20,12 +20,9 @@ async function handle(request: Request, step: "preview" | "save") {
 	if (!db) return reply({ status: "lost" });
 	let input: Record<string, unknown>;
 	try {
-		const bytes = await boundedBytes(request, BODY_MAX).catch((error: unknown) => {
-			if (error instanceof Refusal) return null;
-			throw error;
-		});
+		const bytes = await readBoundedBody(request, BODY_MAX);
 		if (!bytes) return tooLarge();
-		const form = await new Response(bytes as BodyInit, {
+		const form = await new Response(bytes, {
 			headers: { "Content-Type": request.headers.get("content-type") ?? "" },
 		}).formData();
 		const file = form.get("file");
