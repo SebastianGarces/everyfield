@@ -629,7 +629,9 @@ export const useI = (id) => useLocalRead(async (key) => { markSeen(key); return 
 
 test("INV-link: a one-time link value never keys a read, directly or through a value derived from it", () => {
 	const source = `import { useOneTimeLinkValue, currentOneTimeLinkValue } from "../../components/location.ts";
-import { useLocalRead, useRead } from "../../components/read.tsx";
+import { createRead, useLocalRead, useRead, useReadWith } from "../../components/read.tsx";
+import { people } from "./reads.ts";
+const reads = createRead((id) => load(id, currentOneTimeLinkValue("invitation")), { failed: () => null });
 export function A({ id }) {
 	const linked = useOneTimeLinkValue("invitation");
 	const proof = linked ?? "";
@@ -637,16 +639,29 @@ export function A({ id }) {
 	const a = useRead(reads, id, proof);
 	const b = useRead(reads, id, value);
 	const c = useLocalRead(load, options, useOneTimeLinkValue("invitation"));
-	const d = useRead(reads, id);
-	const e = useLocalRead((key) => load(key, currentOneTimeLinkValue("invitation")), options, id);
-	return [a, b, c, d, e, proof];
+	const d = useRead(reads, id, currentOneTimeLinkValue("invitation"));
+	const e = useReadWith(reads, [id, linked]);
+	let later;
+	later = linked;
+	const f = useRead(reads, id, later);
+	const readAs = useRead;
+	const g = readAs(reads, id, linked);
+	reads.prefetch(id, linked);
+	people.get(id, proof);
+	const [held] = useState(linked);
+	const h = useRead(reads, id, held);
+	const fine = useRead(reads, id);
+	const alsoFine = useLocalRead((key) => load(key, currentOneTimeLinkValue("invitation")), options, id);
+	reads.prefetch(id);
+	return [a, b, c, d, e, f, g, h, fine, alsoFine, proof];
 }
 `;
-	assert.deepEqual(lint({ "apps/web/src/features/x/Respond.tsx": source }), [
-		"apps/web/src/features/x/Respond.tsx:7 link-value-key",
-		"apps/web/src/features/x/Respond.tsx:8 link-value-key",
-		"apps/web/src/features/x/Respond.tsx:9 link-value-key",
-	]);
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Respond.tsx": source }),
+		[9, 10, 11, 12, 13, 16, 18, 19, 20, 22]
+			.map((line) => `apps/web/src/features/x/Respond.tsx:${line} link-value-key`)
+			.sort(),
+	);
 });
 
 function cursorRuleSelectors(css, cursor) {
