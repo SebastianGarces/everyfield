@@ -1,3 +1,5 @@
+export { taskReminderTimes } from "./calendar.ts";
+export { authorizeDigestMail, createDigestWorker, planDigests, type DigestWorker } from "./digest.ts";
 export { runDuePurges } from "./lifecycle-purge.ts";
 export {
 	claimUnknownMail,
@@ -21,6 +23,12 @@ export {
 	type RecoveryEvidence,
 	type TransportOutcome,
 } from "./mail.ts";
+export {
+	createNotificationService,
+	sendDiscoveryAssociationReceipt,
+	sendOnboardingRelationships,
+	type NoticeInput,
+} from "./notifications.ts";
 export { runDueObjectCleanup } from "./object-cleanup.ts";
 export {
 	checkpoint,
@@ -40,6 +48,12 @@ export {
 	type JobKind,
 	type JobResult,
 } from "./queue.ts";
+export {
+	accountNotificationService,
+	mountMailService,
+	seatedNotificationService,
+	type MailKeys,
+} from "./seated-notifications.ts";
 export { protectedTemplate } from "./templates.ts";
 export { transaction } from "./transaction.ts";
 export { applyMailCallback, callbackVisibility, replayStoredCallbacks } from "./webhook.ts";

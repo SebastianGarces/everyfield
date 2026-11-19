@@ -81,7 +81,7 @@ const standalone = {
 	],
 	"/packages/domain/src/jobs/mail.ts": ["claimUnknownMail"],
 	"/packages/domain/src/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
-	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
+	"/packages/domain/src/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
 
 export async function measure(name, body, options = {}) {
