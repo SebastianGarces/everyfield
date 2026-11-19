@@ -50,14 +50,8 @@ import { RadioGroup } from "radix-ui";
 import { useState } from "react";
 import { shortDate } from "./model.ts";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
-import {
-	attestCandidate,
-	attestSignal,
-	correctCandidate,
-	correctSignal,
-	reaffirmSignal,
-	reloadAttestations,
-} from "./signals-actions.ts";
+import { attestCandidate, attestSignal, correctCandidate, correctSignal, reaffirmSignal } from "./signals-actions.ts";
+import { reloadAttestations } from "./fetch.ts";
 import {
 	actionLabel,
 	agoText,

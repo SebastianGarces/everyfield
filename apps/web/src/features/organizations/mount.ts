@@ -1,10 +1,10 @@
 import { owner, type Owner } from "@everyfield/contracts/common";
 import * as C from "@everyfield/contracts/organizations";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import { liveAccess, type RequestActor } from "@everyfield/domain/access";
+import { liveAccess, type RequestActor, type WriteTx } from "@everyfield/domain/access";
 import { createSeatService } from "@everyfield/domain/identity";
-import { auditTransaction } from "@everyfield/domain/operations";
+import { auditTransaction, gatedTransaction } from "@everyfield/domain/operations";
 import {
 	createOrganizationAdapter,
 	geographyReference,
@@ -156,7 +156,7 @@ export async function command<T>(
 	m: Mount,
 	authority: RequestActor,
 	selected: Owner,
-	body: (tx: Transaction, session: Viewer["session"], selected: Owner) => Promise<T>,
+	body: (tx: WriteTx, session: Viewer["session"], selected: Owner) => Promise<T>,
 ): Promise<Reply<T>> {
 	try {
 		const value = await auditTransaction(m.db, async (tx) => {
@@ -173,12 +173,12 @@ export async function query<T>(
 	m: Mount,
 	authority: RequestActor,
 	selected: Owner,
-	body: (tx: Transaction, session: Viewer["session"], selected: Owner) => Promise<T>,
+	body: (tx: WriteTx, session: Viewer["session"], selected: Owner) => Promise<T>,
 ): Promise<Reply<T>> {
 	try {
 		return {
 			status: "ok",
-			value: await m.db.transaction((tx) => {
+			value: await gatedTransaction(m.db, (tx) => {
 				authority.observe(tx);
 				return body(tx, authority.session, selected);
 			}),
