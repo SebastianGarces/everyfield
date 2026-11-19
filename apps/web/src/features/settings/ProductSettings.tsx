@@ -5,7 +5,7 @@ import { avatarRoute } from "@everyfield/contracts/settings";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogBody, DialogContent, DialogHeader } from "@everyfield/ui/controls";
 import { Suspense, useRef, useState } from "react";
-import { lazyModule, LoadFailed, Opened, useLazyModule } from "../../components/lazy.tsx";
+import { lazyModule, LoadFailed, Opened, useLazyModule, type Failure } from "../../components/lazy.tsx";
 import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
 import { readSourceOrder, saveSourceOrder } from "../wiki/actions";
@@ -87,20 +87,21 @@ function LazySettingsDialog(props: SettingsDialogProps) {
 function Loaded(props: SettingsDialogProps) {
 	const loaded = useLazyModule(dialog);
 	if (loaded.module) return <loaded.module.SettingsDialog {...props} />;
-	return <Failed {...props} retry={loaded.retry} />;
+	return <Failed {...props} failure={loaded} />;
 }
 
-function Failed({ section, onNavigate, retry }: SettingsDialogProps & { retry: () => void }) {
+function Failed({ section, onNavigate, failure }: SettingsDialogProps & { failure: Failure }) {
 	return (
 		<Dialog open={section !== null} onOpenChange={(open) => (open ? undefined : onNavigate(null))}>
 			<DialogContent
 				size="lg"
 				aria-describedby={undefined}
+				onCloseAutoFocus={failure.keepFocusOnRetry}
 				className="h-[min(720px,calc(100dvh-24px))] max-w-[1040px] overflow-hidden bg-surface"
 			>
 				<DialogHeader title="Settings" />
 				<DialogBody className="grid place-items-center">
-					<LoadFailed what="Settings" retry={retry} />
+					<LoadFailed what="Settings" retry={failure.retry} />
 				</DialogBody>
 			</DialogContent>
 		</Dialog>

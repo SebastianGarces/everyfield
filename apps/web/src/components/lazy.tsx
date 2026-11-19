@@ -29,15 +29,21 @@ export function lazyModule<M>(load: () => Promise<M>): LazyModule<M> {
 	};
 }
 
-export function useLazyModule<M>(lazy: LazyModule<M>): { module: M } | { module: null; retry: () => void } {
+export type Failure = { module: null; retry: () => void; keepFocusOnRetry: (event: Event) => void };
+
+export function useLazyModule<M>(lazy: LazyModule<M>): { module: M } | Failure {
 	const [, retried] = useReducer((attempt: number) => attempt + 1, 0);
-	const loaded = use(lazy.current());
+	const attempt = lazy.current();
+	const loaded = use(attempt);
 	if (loaded.status === "ready") return { module: loaded.module };
 	return {
 		module: null,
 		retry: () => {
 			lazy.preload();
 			retried();
+		},
+		keepFocusOnRetry: (event) => {
+			if (lazy.current() !== attempt) event.preventDefault();
 		},
 	};
 }

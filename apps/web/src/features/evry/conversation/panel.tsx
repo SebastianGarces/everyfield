@@ -3,7 +3,7 @@
 import { EvryBot } from "@everyfield/ui/foundations";
 import { Sheet } from "@everyfield/ui/controls";
 import { Suspense } from "react";
-import { lazyModule, LoadFailed, Opened, useLazyModule } from "@/components/lazy";
+import { lazyModule, LoadFailed, Opened, useLazyModule, type Failure } from "@/components/lazy";
 import { storeContext, useLocalStore, useStore } from "@/components/store";
 import * as api from "./api.ts";
 import { createEvryPanelStore, type EvryPanelState, type EvryPort } from "./EvryPanel.store.ts";
@@ -40,10 +40,10 @@ export function useEvryPanel({ inPlant, off = false, context }: PanelProps & { o
 function Loaded(props: PanelProps) {
 	const loaded = useLazyModule(panel);
 	if (loaded.module) return <loaded.module.EvryPanel {...props} />;
-	return <Failed retry={loaded.retry} />;
+	return <Failed failure={loaded} />;
 }
 
-function Failed({ retry }: { retry: () => void }) {
+function Failed({ failure }: { failure: Failure }) {
 	const open = Panel.useSelect((s) => s.open);
 	const show = Panel.useSelect((s) => s.actions.show);
 	return (
@@ -51,6 +51,7 @@ function Failed({ retry }: { retry: () => void }) {
 			open={open}
 			onOpenChange={show}
 			modal={false}
+			onCloseAutoFocus={failure.keepFocusOnRetry}
 			className="w-[560px] max-w-[calc(100vw-24px)]"
 			title={
 				<span className="flex items-center gap-3">
@@ -60,7 +61,7 @@ function Failed({ retry }: { retry: () => void }) {
 			}
 			description="Reads and drafts. You approve every change."
 		>
-			<LoadFailed what="Evry" retry={retry} />
+			<LoadFailed what="Evry" retry={failure.retry} />
 		</Sheet>
 	);
 }
