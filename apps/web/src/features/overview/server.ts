@@ -10,7 +10,8 @@ import { createLaunchReader } from "@everyfield/domain/launch";
 import { cache } from "react";
 import "server-only";
 import type { Loaded } from "./model.ts";
-import { logFailure, type LogWord } from "@everyfield/domain/log";
+import { type LogWord } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 const launch = createLaunchReader();
 const assessments = createAssessments();
@@ -25,13 +26,14 @@ async function load<T, C extends string>(
 	const authority = (await getViewer()).authority;
 	if (!authority) return { status: "lost" };
 	const db = requestDatabase();
-	try {
-		const reply = await run(db, authority);
-		return reply.status === "ok" ? { status: "ok", value: reply.value } : { status: "denied" };
-	} catch (error) {
-		logFailure({ component: "overview", card, outcome: "read_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "overview", card, outcome: "read_failed" },
+		async () => {
+			const reply = await run(db, authority);
+			return reply.status === "ok" ? { status: "ok", value: reply.value } : { status: "denied" };
+		},
+		LOST,
+	);
 }
 
 export const loadFrame = cache((): Promise<Loaded<OverviewFrame>> =>
