@@ -7,6 +7,7 @@ import { avatarReference } from "@everyfield/contracts/settings";
 import { requestDatabase } from "./database";
 import { serverConfigProblem } from "./config.ts";
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { cache } from "react";
 import { requestAuth } from "./identity";
 
@@ -70,3 +71,19 @@ export const getViewer = cache(async () => {
 		avatar: v.avatar && avatarReference.parse({ accountId: v.accountId, versionId: v.avatar }),
 	};
 });
+
+export type PlantSeat = NonNullable<Awaited<ReturnType<typeof getViewer>>["people"]>;
+
+export function signIn(returnTo: string): never {
+	redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+}
+
+export async function plantSeat(): Promise<PlantSeat | null> {
+	return (await getViewer()).people;
+}
+
+export async function requireSeat(returnTo: string): Promise<PlantSeat | null> {
+	const v = await getViewer();
+	if (v.status === "unauthenticated") signIn(returnTo);
+	return v.people;
+}

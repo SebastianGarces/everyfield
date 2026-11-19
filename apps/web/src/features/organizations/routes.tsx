@@ -1,5 +1,5 @@
+import { signIn } from "@/server/request-context";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { Card } from "@everyfield/ui/controls";
 import { NotAvailable } from "../access/AccessStates";
 import {
@@ -25,7 +25,7 @@ export const respondMetadata: Metadata = { title: "Connection request", robots: 
 
 export async function SharingPage() {
 	const who = await viewerOf();
-	if (who.kind === "signed_out") redirect("/signin?returnTo=%2Fsettings%2Fsharing");
+	if (who.kind === "signed_out") signIn("/settings/sharing");
 	const refused = (
 		<div className="py-12">
 			<Card className="mx-auto max-w-[560px]">

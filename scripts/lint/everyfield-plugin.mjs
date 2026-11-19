@@ -2583,6 +2583,40 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 	};
 });
 
+export const REQUEST_CONTEXT = "apps/web/src/server/request-context.ts";
+const leadingText = (node) =>
+	node?.type === "Literal" && typeof node.value === "string"
+		? node.value
+		: node?.type === "TemplateLiteral"
+			? node.quasis[0].value.cooked
+			: node?.type === "BinaryExpression" && node.operator === "+"
+				? leadingText(node.left)
+				: null;
+const signInRedirect = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === REQUEST_CONTEXT || !WEB_CODE.test(path)) return {};
+		const redirects = new Set();
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value !== "next/navigation") return;
+				for (const spec of node.specifiers)
+					if (spec.type === "ImportSpecifier" && ["redirect", "permanentRedirect"].includes(nameOf(spec.imported)))
+						redirects.add(spec.local.name);
+			},
+			CallExpression(node) {
+				if (node.callee.type !== "Identifier" || !redirects.has(node.callee.name)) return;
+				if (!(leadingText(node.arguments[0]) ?? "").startsWith("/signin?")) return;
+				context.report({
+					node,
+					message: "Send a signed-out visitor to sign in with signIn(returnTo) from server/request-context.",
+				});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -2623,5 +2657,6 @@ export default {
 		"no-read-actions": noReadActions,
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
+		"sign-in-redirect": signInRedirect,
 	},
 };

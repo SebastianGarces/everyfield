@@ -1,8 +1,7 @@
-import { getViewer } from "@/server/request-context";
+import { getViewer, signIn } from "@/server/request-context";
 import { TEXT_TEMPLATE_IDS } from "@everyfield/domain/documents";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { DocumentsScreen } from "./DocumentsScreen.tsx";
 import { parseQuery } from "./model.ts";
 import { canEditDocuments, canStoreDocuments, loadDocuments, writtenScope } from "./server.ts";
@@ -14,7 +13,7 @@ export const documentsMetadata: Metadata = { title: "Documents", robots: { index
 export async function DocumentsPage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
 	const viewer = await getViewer();
-	if (viewer.status === "unauthenticated") redirect("/signin?returnTo=%2Fdocuments");
+	if (viewer.status === "unauthenticated") signIn("/documents");
 	if (viewer.status !== "active" || !viewer.authority) return <Unavailable />;
 	const loaded = await loadDocuments(viewer.authority, query);
 	if (loaded.status === "failed") return <Failed />;

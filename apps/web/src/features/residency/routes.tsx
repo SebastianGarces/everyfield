@@ -1,7 +1,7 @@
+import { signIn } from "@/server/request-context";
 import { loadMyResidency, loadResidentReading, residentActor } from "./server";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { NotAvailable } from "../access/AccessStates";
 import { MyResidencyScreen } from "./MyResidencyScreen";
 import { MY_RESIDENCY_PATH, readingPath } from "./model";
@@ -19,7 +19,7 @@ const refused = (
 
 async function account(path: string) {
 	const who = await residentActor();
-	if (who === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
+	if (who === "signed_out") signIn(path);
 	return who;
 }
 

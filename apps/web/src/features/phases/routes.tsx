@@ -1,7 +1,6 @@
-import { getViewer } from "@/server/request-context";
+import { getViewer, signIn } from "@/server/request-context";
 import { Skeleton } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { JourneyScreen } from "./JourneyScreen.tsx";
 import { NoChurchPlantSeat, PlantIntelligenceBlocked } from "./PlantIntelligenceBlocked.tsx";
 import { administers, loadJourney, phaseViewer } from "./server.ts";
@@ -12,7 +11,7 @@ export async function JourneyPage() {
 	const viewer = await phaseViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/journey")}`);
+		if (v.status === "unauthenticated") signIn("/intelligence/journey");
 		return <NoChurchPlantSeat />;
 	}
 	if (!administers(viewer))

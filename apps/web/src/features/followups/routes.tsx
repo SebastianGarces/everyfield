@@ -1,11 +1,11 @@
-import { getViewer } from "@/server/request-context";
+import { getViewer, signIn } from "@/server/request-context";
 import { recordId } from "@everyfield/contracts/common";
 import { followUpReader } from "@everyfield/domain/followups";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { buttonVariants, Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { Fresh } from "../tasks/fresh.tsx";
 import { CallScreen } from "./CallScreen.tsx";
@@ -22,7 +22,7 @@ async function gate(returnTo: string, title: string): Promise<{ viewer: TaskView
 	const viewer = await taskViewer();
 	if (viewer) return { viewer };
 	const v = await getViewer();
-	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (v.status === "unauthenticated") signIn(returnTo);
 	return {
 		blocked: (
 			<Blocked title={title}>

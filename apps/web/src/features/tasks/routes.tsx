@@ -1,9 +1,8 @@
-import { getViewer } from "@/server/request-context";
+import { getViewer, signIn } from "@/server/request-context";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { recordId } from "@everyfield/contracts/common";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { parseQuery, querySearch } from "./model.ts";
 import { Fresh } from "./fresh.tsx";
 import { loadTasksPage, taskViewer } from "./server.ts";
@@ -20,8 +19,7 @@ export async function TasksPage({ searchParams }: { searchParams: Search }) {
 	const viewer = await taskViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (v.status === "unauthenticated")
-			redirect(`/signin?returnTo=${encodeURIComponent("/tasks" + querySearch(query))}`);
+		if (v.status === "unauthenticated") signIn("/tasks" + querySearch(query));
 		return (
 			<Blocked>
 				<StatePanel tone="lock" icon={LockKeyIcon} title="Tasks are not part of your seat" headingLevel="h2">

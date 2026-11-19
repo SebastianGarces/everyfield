@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { EMAIL_CHANGE_PROOF_COOKIE, PATH_HEADER } from "@/proxy";
-import { getViewer } from "@/server/request-context";
+import { getViewer, signIn } from "@/server/request-context";
 import { instant } from "@everyfield/contracts/common";
 import { confirmEmailChange } from "./actions";
 import { readBrand } from "./brand/server";
@@ -19,13 +19,13 @@ export async function SettingsSectionPage({ params }: { params: Promise<{ sectio
 	const section = dialogSection((await params).section);
 	if (!section) notFound();
 	const v = await getViewer();
-	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(`/settings/${section}`)}`);
+	if (v.status === "unauthenticated") signIn(`/settings/${section}`);
 	return <h1 className="sr-only">Settings</h1>;
 }
 
 export async function SettingsIndexPage() {
 	const v = await getViewer();
-	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/settings")}`);
+	if (v.status === "unauthenticated") signIn("/settings");
 	return <h1 className="sr-only">Settings</h1>;
 }
 
@@ -71,7 +71,7 @@ export const confirmEmailMetadata: Metadata = {
 
 export async function ConfirmEmailPage() {
 	const v = await getViewer();
-	if (v.status === "unauthenticated") redirect("/signin?returnTo=%2Fconfirm-email");
+	if (v.status === "unauthenticated") signIn("/confirm-email");
 	const proof = (await cookies()).get(EMAIL_CHANGE_PROOF_COOKIE)?.value ?? null;
 	return <ConfirmEmailScreen proof={proof} confirm={confirmEmailChange} accountHref="/settings/account" />;
 }
