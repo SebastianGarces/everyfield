@@ -43,13 +43,13 @@ async function setup(listing: Record<string, number>) {
 		requests.push(`${req.method} ${virtual ? "virtual" : ""}${req.url}`);
 		if (req.method === "PUT")
 			types[decodeURIComponent(req.url!.replace(/^.*\/[0-9a-f]{32}\//, ""))] = req.headers["content-type"];
-		const bucket = req.url!.split(/[/?]/)[1];
+		const [, bucket = ""] = req.url!.split(/[/?]/);
 		const status = virtual
 			? req.url!.startsWith("/?")
 				? 403
 				: 200
-			: req.method === "GET" && bucket in listing
-				? listing[bucket]
+			: req.method === "GET"
+				? (listing[bucket] ?? 200)
 				: 200;
 		req.resume().on("end", () => res.writeHead(status).end(""));
 	});
@@ -197,7 +197,7 @@ test("OPS-33 publish: an evidence file that links to .env.prod or out of the fol
 			["notes.txt", join(t.repo, ".env.prod")],
 			["other.txt", outside],
 			["index.html", join(t.repo, ".env.prod")],
-		]) {
+		] as const) {
 			symlinkSync(targetPath, join(t.evidence, name));
 			const r = await t.publish();
 			rmSync(join(t.evidence, name));
