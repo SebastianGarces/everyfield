@@ -15,7 +15,6 @@ import { scheduledJobs, scheduledMessages } from "@/server/jobs/scheduled";
 import { cronRoute } from "@/server/platform/cron";
 import { assessmentsMount } from "@/server/jobs/assessment";
 
-export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 

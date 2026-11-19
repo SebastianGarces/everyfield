@@ -1,4 +1,10 @@
-import { loadPipelineBoard, loadPipelineGoals, loadPipelinePerson, pipelineActor } from "../pipeline-mount";
+import {
+	loadPipelineBoard,
+	loadPipelineChoices,
+	loadPipelineGoals,
+	loadPipelinePerson,
+	pipelineActor,
+} from "../pipeline-mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
@@ -36,17 +42,17 @@ export async function PipelinePersonPage({ params }: { params: Promise<{ personI
 	const who = await pipelineActor();
 	if (who.kind === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(`${PIPELINE_PATH}/${personId}`)}`);
 	if (who.kind !== "seat") return refused;
-	const [record, board] = await Promise.all([
+	const [record, choices] = await Promise.all([
 		loadPipelinePerson(who.authority, personId),
-		loadPipelineBoard(who.authority, {}),
+		loadPipelineChoices(who.authority),
 	]);
-	if (record.status !== "ok" || board.status !== "ok") return refused;
+	if (record.status !== "ok" || choices.status !== "ok") return refused;
 	return (
 		<PersonRecord
 			initial={record.value}
-			stages={board.value.stages}
-			staff={board.value.staff}
-			organization={board.value.organizationName}
+			stages={choices.value.stages}
+			staff={choices.value.staff}
+			organization={choices.value.organizationName}
 		/>
 	);
 }

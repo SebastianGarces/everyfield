@@ -15,7 +15,7 @@ import { createDebouncer } from "@everyfield/ui/foundations";
 import { useId, useState, type ReactNode } from "react";
 import { Await, createRead, useRead, type ReadState } from "../../components/read.tsx";
 import type { PersonHit } from "@everyfield/domain/people";
-import { searchPeople } from "./actions.ts";
+import { searchPeople } from "./fetch.ts";
 import type { Wait } from "../../components/save/model.ts";
 import { RecordDialog } from "../../components/save/parts.tsx";
 import type { Outcome } from "./model.ts";

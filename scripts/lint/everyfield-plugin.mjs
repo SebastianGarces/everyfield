@@ -1528,6 +1528,80 @@ const routeReads = {
 	},
 };
 
+const PER_REQUEST_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
+
+const segmentDefault = (path, program, name, value) => {
+	if (name === "runtime") return value === "nodejs";
+	if (name !== "dynamic") return false;
+	if (value === "auto") return true;
+	if (value !== "force-dynamic") return false;
+	if (/\/(?:page|layout)\.tsx$/.test(path)) return path.startsWith("apps/web/src/app/(product)/");
+	return (
+		path.includes("/[") ||
+		program.body.some((s) => exportedNames(s).some((exported) => PER_REQUEST_METHODS.has(exported)))
+	);
+};
+
+const routeSegmentDefaults = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!path.startsWith("apps/web/src/app/")) return {};
+		return {
+			"Program:exit"(program) {
+				for (const statement of program.body) {
+					if (statement.type !== "ExportNamedDeclaration" || statement.declaration?.type !== "VariableDeclaration")
+						continue;
+					for (const d of statement.declaration.declarations) {
+						if (d.id.type !== "Identifier" || d.init?.type !== "Literal") continue;
+						if (!segmentDefault(path, program, d.id.name, d.init.value)) continue;
+						context.report({
+							node: d,
+							message: `export const ${d.id.name} = ${JSON.stringify(d.init.value)} repeats Next's default here: nodejs is the default runtime, every page under (product) is dynamic because the product layout reads cookies, and a route handler with a dynamic segment or a non-GET method runs per request. Delete it.`,
+						});
+					}
+				}
+			},
+		};
+	},
+};
+
+const MODULE_DIRECTIVE = /^\s*["']use (?:server|client)["']/;
+const ROUTE_MODULE = /^apps\/web\/src\/(?:app\/.+\/(?:page|layout|route)\.tsx?|features\/.+\/routes\.tsx?)$/;
+
+const renderReads = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!from.startsWith("apps/web/src/") || MODULE_DIRECTIVE.test(context.sourceCode.text)) return {};
+		let server = ROUTE_MODULE.test(from);
+		const actions = new Set();
+		const calls = [];
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value === "server-only") server = true;
+				if (node.importKind === "type") return;
+				const to = resolveImport(from, node.source.value).to;
+				if (!to || !isServerActions(to)) return;
+				for (const s of node.specifiers) if (s.importKind !== "type") actions.add(s.local.name);
+			},
+			CallExpression(node) {
+				const callee = node.callee.type === "MemberExpression" ? node.callee.object : node.callee;
+				if (callee.type === "Identifier") calls.push([node, callee.name]);
+			},
+			"Program:exit"() {
+				if (!server) return;
+				for (const [node, name] of calls)
+					if (actions.has(name))
+						context.report({
+							node,
+							message: `Server code calls ${name}, a server action. Actions are the client's mutation endpoint and Next runs them one at a time; call the server function the action wraps instead.`,
+						});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -1554,5 +1628,7 @@ export default {
 		"no-sql-comments": noSqlComments,
 		"no-error-message-match": noErrorMessageMatch,
 		"route-reads": routeReads,
+		"route-segment-defaults": routeSegmentDefaults,
+		"render-reads": renderReads,
 	},
 };

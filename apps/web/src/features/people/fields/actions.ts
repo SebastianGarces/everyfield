@@ -159,12 +159,6 @@ const membershipSaved = (r: { value: HouseholdAnswer; person?: PlantPerson }): M
 });
 const asMember = (value: HouseholdAnswer) => membershipSaved({ value });
 
-export async function findHouseholds(search: string, page = 1): Promise<Outcome<z.infer<typeof c.householdsPage>>> {
-	return boundary(c.listHouseholdsRequest, { search, page, limit: 20 }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => f.listHouseholds(tx, ctx, request)), (r) => r),
-	);
-}
-
 export async function readHousehold(personId: string): Promise<Outcome<HouseholdResult>> {
 	return boundary(c.personFieldsRequest, { personId }, async (v, request) =>
 		outcome(await read(v, (tx, ctx) => f.getHousehold(tx, ctx, request)), (r) => r),

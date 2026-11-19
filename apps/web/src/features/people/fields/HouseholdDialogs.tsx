@@ -21,7 +21,7 @@ import { useReadWith, createRead } from "../../../components/read.tsx";
 import { RecordDialog } from "../../../components/save/parts.tsx";
 import { useLocalStore, useStore } from "../../../components/store.ts";
 import { problemText } from "../parts.tsx";
-import { findHouseholds } from "./actions.ts";
+import { findHouseholds } from "../fetch.ts";
 import { createJoinHouseholdStore } from "./JoinHouseholdDialog.store.ts";
 import { addressLine, ROLE_LABEL, ROLES, type Household, type HouseholdRole, type HouseholdSummary } from "./model.ts";
 
