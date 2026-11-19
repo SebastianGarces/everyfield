@@ -30,7 +30,7 @@ import { identityAuth } from "./auth.ts";
 import { attemptBudget, IdentityRefusal, RateLimited, transaction } from "./budget.ts";
 import { InvitationRefusal } from "./invitation-core.ts";
 import type { createInvitationService } from "./invitations.ts";
-import { readIdentityAccount, readIdentitySession, userRow } from "./reads.ts";
+import { lookupIdentityAccount, readIdentityAccount, readIdentitySession, userRow } from "./reads.ts";
 
 export type IdentityMail = {
 	accountId: string;
@@ -287,12 +287,9 @@ export function createIdentityService(config: IdentityConfig) {
 				await budget.finish(reservation, result.ok);
 				if (!result.ok) throw new IdentityRefusal("invalid_credentials", 401);
 				const resultBody = z.object({ user: z.object({ id: z.uuid() }) }).parse(await result.json());
-				if (!(await account(resultBody.user.id))) {
-					const exists = await config.db
-						.select({ id: tables.account.id })
-						.from(tables.account)
-						.where(eq(tables.account.auth_user_id, resultBody.user.id));
-					if (exists.length) throw new IdentityRefusal("unauthenticated", 401);
+				const found = await lookupIdentityAccount(config.db, resultBody.user.id);
+				if (found?.blocked) throw new IdentityRefusal("unauthenticated", 401);
+				if (!found) {
 					const native = await config.authDb
 						.select({ email: tables.auth_user.email, created_at: tables.auth_user.created_at })
 						.from(tables.auth_user)

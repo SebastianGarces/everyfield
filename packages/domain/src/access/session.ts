@@ -54,15 +54,16 @@ const seatRow = z.strictObject({
 	revision,
 	accepted_at: z.coerce.date(),
 });
-export async function liveOwner(tx: Transaction, selected: Owner, lock = true): Promise<boolean> {
-	if (selected.kind === "global") return false;
-	const root =
-		selected.kind === "plant" ? tables.plant : selected.kind === "account" ? tables.account : tables.organization;
-	const hiddenBy = and(
+const hiddenBy = (selected: Owner) =>
+	and(
 		eq(tables.lifecycle_witness.opaque_subject_id, selected.id),
 		eq(tables.lifecycle_witness.kind, sql`${selected.kind}`),
 		sql<boolean>`(${tables.lifecycle_witness.state} NOT IN ('active', 'cancelled'))`,
 	);
+export async function liveOwner(tx: Transaction, selected: Owner, lock = true): Promise<boolean> {
+	if (selected.kind === "global") return false;
+	const root =
+		selected.kind === "plant" ? tables.plant : selected.kind === "account" ? tables.account : tables.organization;
 	const query = tx
 		.select({ kind: tenant_t.kind, organization_kind: organization_o.kind })
 		.from(root)
@@ -73,7 +74,9 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 				? eq(root.id, selected.id)
 				: and(
 						eq(root.id, selected.id),
-						notExists(tx.select({ id: tables.lifecycle_witness.id }).from(tables.lifecycle_witness).where(hiddenBy)),
+						notExists(
+							tx.select({ id: tables.lifecycle_witness.id }).from(tables.lifecycle_witness).where(hiddenBy(selected)),
+						),
 					),
 		);
 	const roots = await (lock ? query.for("share", { of: root }) : query);
@@ -83,14 +86,16 @@ export async function liveOwner(tx: Transaction, selected: Owner, lock = true): 
 		(selected.kind === "organization" && roots[0]!.organization_kind !== selected.organizationKind)
 	)
 		return false;
-	if (!lock) return true;
+	return !lock || !(await ownerHidden(tx, selected));
+}
+export async function ownerHidden(tx: Transaction, selected: Owner): Promise<boolean> {
 	const hidden = await tx
 		.select({ id: tables.lifecycle_witness.id })
 		.from(tables.lifecycle_witness)
-		.where(hiddenBy)
+		.where(hiddenBy(selected))
 		.limit(1)
 		.for("share");
-	return hidden.length === 0;
+	return hidden.length > 0;
 }
 async function readSession(db: Executor, session: z.infer<typeof sessionId>, requested?: Owner, lock = true) {
 	const handle = sessionId.parse(session);

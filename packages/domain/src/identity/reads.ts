@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { and, eq, sql } from "@everyfield/db/query";
+import { eq, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { liveRead } from "../access/session.ts";
 import type { Owner, sessionId } from "@everyfield/contracts/common";
@@ -14,20 +14,22 @@ export const userRow = z.object({
 	registration_digest: z.string().nullable(),
 });
 
+export async function lookupIdentityAccount(db: Database, authUser: string) {
+	const [row] = await db
+		.select({
+			account: tables.account,
+			blocked: sql<boolean>`EXISTS(SELECT FROM lifecycle_witness w WHERE w.opaque_subject_id=account.id
+ AND w.state IN ('pending_deletion', 'purging', 'purged', 'revoked'))`,
+		})
+		.from(tables.account)
+		.where(eq(tables.account.auth_user_id, authUser))
+		.limit(1);
+	return row ? { account: userRow.parse(row.account), blocked: row.blocked } : null;
+}
+
 export async function readIdentityAccount(db: Database, authUser: string) {
-	const rows = await db.select().from(tables.account).where(eq(tables.account.auth_user_id, authUser));
-	if (!rows.length) return null;
-	const account = userRow.parse(rows[0]);
-	const blocked = await db
-		.select({ id: tables.lifecycle_witness.id })
-		.from(tables.lifecycle_witness)
-		.where(
-			and(
-				eq(tables.lifecycle_witness.opaque_subject_id, account.id),
-				sql<boolean>`(${tables.lifecycle_witness.state} IN ('pending_deletion', 'purging', 'purged', 'revoked'))`,
-			),
-		);
-	return blocked.length ? null : account;
+	const found = await lookupIdentityAccount(db, authUser);
+	return found && !found.blocked ? found.account : null;
 }
 
 export async function readIdentitySession(
