@@ -205,6 +205,60 @@ const noErrorMessageMatch = {
 	},
 };
 
+const unwrapped = (node) => {
+	let at = node;
+	while (
+		at &&
+		["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "ParenthesizedExpression"].includes(at.type)
+	)
+		at = at.expression;
+	return at;
+};
+function emptyAnswer(node) {
+	const at = unwrapped(node);
+	if (!at) return null;
+	if (at.type === "ArrayExpression" && at.elements.length === 0) return "an empty list";
+	if (at.type === "Literal" && at.value === 0) return "a zero";
+	if (
+		at.type === "ObjectExpression" &&
+		at.properties.some(
+			(p) => p.type === "Property" && keyName(p.key, p.computed) === "status" && literalArgument(p.value) === "ok",
+		)
+	)
+		return "an ok result";
+	return null;
+}
+
+const failureNotEmpty = {
+	meta: { type: "problem" },
+	create(context) {
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `A failed read never shows as ${what}: return the failure (lost, refused or unavailable), or narrow the catch to the one error that means nothing is there.`,
+			});
+		const direct = (block) => {
+			for (const statement of block.body)
+				if (statement.type === "ReturnStatement") {
+					const what = emptyAnswer(statement.argument);
+					if (what) report(statement, what);
+				}
+		};
+		return {
+			CatchClause: (node) => direct(node.body),
+			CallExpression: (node) => {
+				const callee = node.callee;
+				if (callee.type !== "MemberExpression" || keyName(callee.property, callee.computed) !== "catch") return;
+				const handler = node.arguments[0];
+				if (handler?.type !== "ArrowFunctionExpression" && handler?.type !== "FunctionExpression") return;
+				if (handler.body.type === "BlockStatement") return direct(handler.body);
+				const what = emptyAnswer(handler.body);
+				if (what) report(handler, what);
+			},
+		};
+	},
+};
+
 export const SESSION_MODULE = "packages/domain/src/access/session.ts";
 const PRODUCT_SOURCE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
 
@@ -1664,5 +1718,6 @@ export default {
 		"route-reads": routeReads,
 		"route-segment-defaults": routeSegmentDefaults,
 		"render-reads": renderReads,
+		"failure-not-empty": failureNotEmpty,
 	},
 };

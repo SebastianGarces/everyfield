@@ -1160,6 +1160,38 @@ test("INV-lint: the base tree is linted at its real path, so path exemptions hol
 	);
 });
 
+test("INV-lint: in the app a caught failure never becomes an empty list, a zero or an ok result", () => {
+	const source = `export async function f(read: () => Promise<string[]>) {
+	try {
+		return { status: "ok", value: await read() };
+	} catch {
+		return { status: "ok", value: [] } as const;
+	}
+}
+export const g = (read: () => Promise<string[]>) => read().catch(() => []);
+export const h = (read: () => Promise<number>) => read().catch(function () { return 0; });
+export async function i(read: () => Promise<string[]>) {
+	try {
+		return await read();
+	} catch (error) {
+		if ((error as { code?: string }).code === "ENOENT") return [];
+		return { status: "lost" } as const;
+	}
+}
+export const j = (read: () => Promise<string[] | null>) => read().catch(() => null);
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/server.ts": source, "packages/domain/src/x.ts": source }).filter((hit) =>
+			hit.endsWith("failure-not-empty"),
+		),
+		[
+			"apps/web/src/features/x/server.ts:5 failure-not-empty",
+			"apps/web/src/features/x/server.ts:8 failure-not-empty",
+			"apps/web/src/features/x/server.ts:9 failure-not-empty",
+		],
+	);
+});
+
 test("INV-lint: product code that recognises a caught error by its message text is reported", () => {
 	const source = `export function f(error: unknown, p: Promise<void>) {
 	if (error instanceof Error && error.message === "unavailable") return 1;

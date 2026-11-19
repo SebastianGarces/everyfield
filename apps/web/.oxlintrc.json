@@ -1292,7 +1292,8 @@
 				"everyfield/feature-boundaries": "error",
 				"everyfield/route-reads": "error",
 				"everyfield/route-segment-defaults": "error",
-				"everyfield/render-reads": "error"
+				"everyfield/render-reads": "error",
+				"everyfield/failure-not-empty": "error"
 			}
 		},
 		{
