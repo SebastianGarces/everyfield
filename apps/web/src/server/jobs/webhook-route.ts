@@ -1,7 +1,8 @@
 import type { Database } from "@everyfield/db/client";
 import { jobDatabase } from "../database";
 import { applyMailCallback } from "./webhook";
-import { boundedBytes, safeBoundary, safeResponse } from "../platform/boundary";
+import { readBoundedBody } from "@everyfield/domain/operations";
+import { Refusal, safeBoundary, safeResponse } from "../platform/boundary";
 import { verifyCallback } from "../platform/webhook";
 
 export async function resendWebhook(
@@ -12,7 +13,8 @@ export async function resendWebhook(
 	if (request.method !== "POST") return safeResponse({ code: "method_not_allowed" }, 405);
 	if (secret.length < 32) return safeResponse({ code: "unavailable" }, 404);
 	return safeBoundary(async () => {
-		const bytes = await boundedBytes(request, 16_384);
+		const bytes = await readBoundedBody(request, 16_384);
+		if (!bytes) throw new Refusal("invalid_input", 413);
 		let key: string;
 		try {
 			key = verifyCallback(bytes, request.headers, secret);

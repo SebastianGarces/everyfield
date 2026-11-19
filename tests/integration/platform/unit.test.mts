@@ -1,16 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { safeBoundary, safeResponse, boundedBytes } from "../../../apps/web/src/server/platform/boundary.ts";
+import { readBoundedBody } from "../../../packages/domain/src/operations/index.ts";
+import { safeBoundary, safeResponse } from "../../../apps/web/src/server/platform/boundary.ts";
 
 test("INV-request-boundary: bounded bodies and safe errors", async () => {
 	const request = new Request("https://preview.localhost/path", { method: "POST" });
 	assert.equal(
-		Buffer.from(await boundedBytes(new Request(request.url, { method: "POST", body: "1234" }), 4)).toString(),
+		Buffer.from(
+			(await readBoundedBody(new Request(request.url, { method: "POST", body: "1234" }), 4)) ?? [],
+		).toString(),
 		"1234",
 	);
-	await assert.rejects(() => boundedBytes(new Request(request.url, { method: "POST", body: "12345" }), 4), {
-		message: "invalid_input",
-	});
+	assert.equal(await readBoundedBody(new Request(request.url, { method: "POST", body: "12345" }), 4), null);
 	const response = await safeBoundary(async () => {
 		throw new Error("DB-SECRET-CANARY private-care details");
 	});
