@@ -8,6 +8,7 @@
 		"erasableSyntaxOnly": true,
 		"verbatimModuleSyntax": true,
 		"resolveJsonModule": true,
+		"allowJs": true,
 		"jsx": "react-jsx",
 		"strict": true,
 		"noUncheckedIndexedAccess": true,
@@ -23,6 +24,7 @@
 		"tools/app/**/*.ts",
 		"tools/prod-identity/**/*.ts",
 		"tools/formal/**/*.ts",
-		"ops/actionable-watch/**/*.mts"
+		"ops/actionable-watch/**/*.mts",
+		"tests/workflow/**/*.ts"
 	]
 }
