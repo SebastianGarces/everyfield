@@ -15,7 +15,7 @@ import { PeopleReadContext, peopleMerge, withPeopleWrite } from "@everyfield/dom
 import "server-only";
 import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
 
 export type PipelineAnswer<T> = PipelineReply<T> | { status: "lost" };
@@ -32,12 +32,7 @@ export async function pipelineActor(): Promise<
 }
 
 async function guarded<R>(run: () => Promise<R>): Promise<R | { status: "lost" }> {
-	try {
-		return await run();
-	} catch (error) {
-		logFailure({ component: "pipeline", outcome: "failed" }, error);
-		return { status: "lost" };
-	}
+	return transient({ component: "pipeline", outcome: "failed" }, () => run(), LOST);
 }
 
 export async function loadPipelineBoard(authority: RequestActor, query: unknown) {
