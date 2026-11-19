@@ -142,7 +142,7 @@ test(
 	},
 );
 
-test("INV-census: a budget fails on growth, slack, an unexplained write above six and a growing page", () => {
+test("INV-census: a budget fails on growth, slack, a write above six without its measured statement mix, a promised review and a growing page", () => {
 	const sample = (name: string, count: number, writes = 1, rollbacks = 0) => ({
 		kind: "sample",
 		name,
@@ -157,6 +157,9 @@ test("INV-census: a budget fails on growth, slack, an unexplained write above si
 		sample("people.addNote", 5),
 		sample("people.addNote", 7, 1, 1),
 		sample("tasks.edit", 9),
+		...["tasks.move", "tasks.pause", "tasks.later", "tasks.copy", "tasks.split", "tasks.merge"].map((name) =>
+			sample(name, 8),
+		),
 		sample("GET /people", 4, 0),
 		sample("GET /people", 5, 0),
 	];
@@ -164,6 +167,15 @@ test("INV-census: a budget fails on growth, slack, an unexplained write above si
 		"POST people.createPerson": { limit: 2 },
 		"people.addNote": { limit: 6, retry: 7 },
 		"tasks.edit": { limit: 9 },
+		"tasks.move": { limit: 8, reason: "Above the pattern; RT-6 will look at it." },
+		"tasks.pause": { limit: 8, reason: "Pending a follow-up review (RT-6)." },
+		"tasks.later": { limit: 8, reason: "TODO: RT-6" },
+		"tasks.copy": {
+			limit: 8,
+			reason: "Above the pattern today; RT-6 reviews it. Its largest first run: 7 read, 1 write.",
+		},
+		"tasks.split": { limit: 8, reason: "One read per field. Its largest first run: 6 read, 2 write." },
+		"tasks.merge": { limit: 8, reason: "One read per copied field. Its largest first run: 7 read, 1 write." },
 		"GET /people": { limit: 5 },
 		"retired.write": { limit: 3 },
 	};
@@ -171,6 +183,11 @@ test("INV-census: a budget fails on growth, slack, an unexplained write above si
 		"POST people.createPerson: 3 statements, limit 2 (1 write, 2 read)",
 		"people.addNote: 5 statements at most, limit 6; set it to 5",
 		"tasks.edit: limit 9 is above the 6-statement write pattern; add a reason",
+		...["tasks.move", "tasks.pause", "tasks.later"].map(
+			(name) => `${name}: its reason must state the measured statement mix: "Its largest first run: 7 read, 1 write."`,
+		),
+		'tasks.copy: its reason promises ("today") instead of naming the structural cause of each statement',
+		"tasks.split: its reason states a largest first run of 6 read, 2 write, but it sent 7 read, 1 write",
 		"GET /people: 4 and 5 statements as its data grows; a page read must be fixed",
 		"retired.write: budgeted but never measured; remove it or exercise it",
 	]);
