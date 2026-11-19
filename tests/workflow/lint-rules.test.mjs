@@ -721,7 +721,7 @@ const commitAll = (dir, message) => {
 	return git(dir, "rev-parse", "HEAD");
 };
 
-test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, ignore-file and new migration comments and every directive", () => {
+test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, Python, plist, ignore-file and new migration comments and every directive", () => {
 	const files = {
 		"packages/ui/src/a.css": `a { color: red; } /* why */\n.b::after { content: "/* not */"; }\n`,
 		"tsconfig.x.json": `{\n\t// why\n\t"a": "http://x"\n}\n`,
@@ -731,6 +731,9 @@ test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, ignore-file and
 		"packages/db/migrations/20990101000000_new.sql": `select '--not';\n-- why\n`,
 		"packages/ui/src/b.ts": `export const a = 1;\n// ${DISABLE} x\n/* ${OX_DISABLE} */\n`,
 		"docs/x.css": `/* exempt */\n`,
+		"tools/x.py": `#!/usr/bin/env python3\nprint(f"PR #{1}", '#not', """\n# not\n""")  # why\n`,
+		"ops/x.plist": `<plist><string>&lt;!-- not --&gt;</string>\n<!-- why -->\n</plist>\n`,
+		"docs/x.py": `# exempt\n`,
 	};
 	const dir = sandbox();
 	git(dir, "init", "-q");
@@ -747,9 +750,11 @@ test("INV-lint: the comment check finds CSS, JSONC, YAML, shell, ignore-file and
 		".github/workflows/x.yml:1: 1",
 		".gitignore:1: 1",
 		"bin/tool:2: 1",
+		"ops/x.plist:2: 1",
 		"packages/db/migrations/20990101000000_new.sql:2: 1",
 		"packages/ui/src/a.css:1: 1",
 		"packages/ui/src/b.ts: 2",
+		"tools/x.py:4: 1",
 		"tsconfig.x.json:2: 1",
 	]);
 });
@@ -1463,6 +1468,49 @@ export function Report() {
 			hit.endsWith("no-render-writes"),
 		),
 		[],
+	);
+});
+
+test("INV-lint: a store read with getState() while rendering is reported, also through a destructured or assigned getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not", () => {
+	const source = `import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useStore } from "@/components/store";
+export function Card({ store, ids }) {
+	const count = store.getState().count;
+	const [first] = useState(() => store.getState().first);
+	const sorted = useMemo(() => store.getState().items.slice(), [store]);
+	const rows = ids.map((id) => store.getState().rows[id]);
+	const { actions } = store.getState();
+	const save = store.getState().actions.save;
+	const shown = useSyncExternalStore(store.subscribe, () => store.getState().shown);
+	const picked = useStore(store, (s) => s.picked);
+	const hold = useCallback(() => store.getState().actions.hold(), [store]);
+	const latest = () => store.getState().count;
+	return (
+		<button key={store.getState().id} onClick={() => save(store.getState().draft)} onBlur={hold}>
+			{String(count) + first + sorted + rows + actions + shown + picked + latest}
+		</button>
+	);
+}
+export function useDraft(store) {
+	return store.getState().draft;
+}
+export function draftOf(store) {
+	return store.getState().draft;
+}
+export function Aliased({ store }) {
+	const { getState } = store;
+	const read = store.getState;
+	const onClick = () => read().count;
+	return <button onClick={onClick}>{getState().count + read().count}</button>;
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Card.tsx": source, "packages/ui/src/Card.tsx": source }).filter((hit) =>
+			hit.endsWith("no-render-get-state"),
+		),
+		["apps/web/src/features/x/Card.tsx", "packages/ui/src/Card.tsx"]
+			.flatMap((path) => [4, 5, 6, 7, 15, 21, 30, 30].map((line) => `${path}:${line} no-render-get-state`))
+			.sort(),
 	);
 });
 

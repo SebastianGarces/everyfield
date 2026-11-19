@@ -413,7 +413,7 @@ export function dueInputOf(d: DueDraft): { ok: true; due: DueInput } | { ok: fal
 		},
 	};
 }
-export function previewOverdue(due: DueInput, today = new Date().toLocaleDateString("en-CA")): boolean | null {
+export function previewOverdue(due: DueInput, today: string): boolean | null {
 	if (due.kind === "undated") return null;
 	if (due.kind === "local_date") return due.date < today;
 	return null;
