@@ -68,8 +68,8 @@
 		"everyfield/no-comments": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/storage-client": "error",
-		"everyfield/mint-callers": "error",
 		"everyfield/max-state": "error",
+		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error",
 		"everyfield/no-error-message-match": "error"
 	},
