@@ -339,6 +339,10 @@ function NarrowMenu({
 			<PopoverContent
 				label="Menu"
 				align="center"
+				onOpenAutoFocus={(event) => {
+					event.preventDefault();
+					(event.currentTarget as HTMLElement).querySelector<HTMLElement>("a[href]")?.focus();
+				}}
 				className="w-[calc(var(--radix-popover-trigger-width)-24px)] max-h-[calc(100dvh-104px)] overflow-y-auto p-3 shadow-pop app-md:hidden"
 			>
 				<nav aria-label="Main">
