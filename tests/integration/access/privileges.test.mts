@@ -8,6 +8,7 @@ import { database, transaction, id, account, plant } from "./support.mts";
 import { waitingOnLock } from "../../support/fixture.mts";
 import { migrate, migrationArtifact } from "../../../packages/db/src/schema/migrate.ts";
 import { currentActor } from "../../../packages/domain/src/access/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 async function permissions(db, schema) {
 	return (
@@ -177,7 +178,7 @@ test("INV-revocation: a session revoke waits for an in-flight authority transact
 		announced = resolve;
 	});
 	let pid;
-	const active = db.runtime.transaction(async (tx) => {
+	const active = gatedTransaction(db.runtime, async (tx) => {
 		assert.deepEqual(await currentActor(tx, a.session, selected), {
 			status: "active",
 			accountId: a.id,
@@ -199,7 +200,7 @@ test("INV-revocation: a session revoke waits for an in-flight authority transact
 		release();
 		await active;
 		await deleting;
-		assert.deepEqual(await db.runtime.transaction((tx) => currentActor(tx, a.session, selected)), {
+		assert.deepEqual(await gatedTransaction(db.runtime, (tx) => currentActor(tx, a.session, selected)), {
 			status: "unavailable",
 		});
 	} finally {

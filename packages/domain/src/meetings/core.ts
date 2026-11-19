@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 import { hash } from "../operations/canonical.ts";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, liveRead, RequestActor, type requestWrite } from "../access/session.ts";
+import { boundWrite, liveRead, RequestActor, type requestWrite, type WriteTx } from "../access/session.ts";
 import {
 	auditSavepoint,
 	declareWrite,
@@ -17,9 +17,10 @@ import {
 	prepareWrite,
 	WriteUnavailable,
 	type AuditWrite,
+	gatedTransaction,
 } from "../operations/writes.ts";
 
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export type Reader = Pick<Transaction, "execute">;
 export type MeetingsContext = { session: z.infer<typeof sessionId>; selected: Owner };
 
@@ -113,17 +114,15 @@ export async function previewMeetingsWrite<T>(
 ): Promise<MeetingsReply<T>> {
 	const selected = authority.actor.context.owner;
 	return settleWrite(() =>
-		db
-			.transaction(async (tx) => {
-				if (!(await authority.bind(tx, selected))) throw new WriteUnavailable();
-				const result = await body(tx, { session: authority.session, selected });
-				if (result.status === "refused") throw new Refusal(result.error.code, result.error.details);
-				throw new Preview(result.value);
-			})
-			.catch((error: unknown) => {
-				if (error instanceof Preview) return error.value as T;
-				throw error;
-			}),
+		gatedTransaction(db, async (tx) => {
+			if (!(await authority.bind(tx, selected))) throw new WriteUnavailable();
+			const result = await body(tx, { session: authority.session, selected });
+			if (result.status === "refused") throw new Refusal(result.error.code, result.error.details);
+			throw new Preview(result.value);
+		}).catch((error: unknown) => {
+			if (error instanceof Preview) return error.value as T;
+			throw error;
+		}),
 	);
 }
 export async function read<T>(

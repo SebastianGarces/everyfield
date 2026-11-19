@@ -6,6 +6,7 @@ import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-ho
 import { ExportResultCode } from "@opentelemetry/core";
 import { type SpanExporter, TracerProvider } from "@opentelemetry/sdk-trace";
 import { registerTelemetry } from "ai";
+import { asLogHost, asLogWord, logFailure, logInfo, logLine } from "@everyfield/domain/log";
 import { createHash } from "node:crypto";
 
 export type Claimed = { claimStart: Date; claimEnd: Date };
@@ -20,31 +21,20 @@ const quietly = <T>(body: () => T): T | undefined => {
 };
 
 const state = ((globalThis as { [key: symbol]: unknown })[Symbol.for("everyfield.evry.tracing")] ??= {
-	hidden: new Set<string>(),
 	exported: 0,
-}) as { hidden: Set<string>; exported: number; provider?: TracerProvider };
+}) as { exported: number; provider?: TracerProvider };
 
-function log(stream: "log" | "error", line: { event: string } & Metadata) {
-	quietly(() => {
-		let text = JSON.stringify({ component: "evry", ...line });
-		for (const value of state.hidden) text = text.replaceAll(value, "[redacted]");
-		console[stream](text);
-	});
-}
-
-const describe = (value: unknown): string =>
-	value instanceof Error
-		? value.message
-		: typeof value === "string"
-			? value
-			: Array.isArray(value)
-				? value.map(describe).join("; ")
-				: (quietly(() => JSON.stringify(value)) ?? "");
-
+type DiagLevel = "error" | "warn" | "info" | "debug" | "verbose";
 const otelDiag =
-	(level: string) =>
+	(level: DiagLevel) =>
 	(message: string, ...args: unknown[]) =>
-		log("error", { event: "otel_diag", level, message: [message, ...args.map(describe)].join(" ") });
+		quietly(() => {
+			const error = args.find((arg) => arg instanceof Error);
+			const template = asLogWord(`m${createHash("sha256").update(String(message)).digest("hex").slice(0, 12)}`);
+			const fields = { component: "evry", event: "otel_diag", level, template } as const;
+			if (error) logFailure(fields, error);
+			else logLine(fields);
+		});
 const diagLogger: DiagLogger = {
 	error: otelDiag("error"),
 	warn: otelDiag("warn"),
@@ -65,12 +55,17 @@ function watchExports(processor: LangfuseSpanProcessor) {
 		send(spans, (result) => {
 			if (result.code !== ExportResultCode.SUCCESS) {
 				const status = (result.error as { code?: unknown } | undefined)?.code;
-				log("error", {
-					event: "trace_export_failed",
-					code: ExportResultCode[result.code],
-					httpStatus: typeof status === "number" ? status : null,
-					message: result.error?.message ?? null,
-				});
+				quietly(() =>
+					logFailure(
+						{
+							component: "evry",
+							event: "trace_export_failed",
+							code: "FAILED",
+							httpStatus: typeof status === "number" ? status : null,
+						},
+						result.error ?? null,
+					),
+				);
 			}
 			done(result);
 		});
@@ -83,12 +78,13 @@ export function registerTracing(env: Record<string, string | undefined> = proces
 	const baseUrl = env.LANGFUSE_BASE_URL ?? DEFAULT_BASE_URL;
 	const parsed = baseUrl === baseUrl.trim() ? URL.parse(baseUrl) : null;
 	const url = parsed?.protocol === "http:" || parsed?.protocol === "https:" ? parsed : null;
-	const credentials = publicKey && secretKey && Buffer.from(`${publicKey}:${secretKey}`).toString("base64");
-	for (const value of [publicKey, secretKey, credentials, parsed?.username, parsed?.password])
-		if (value) state.hidden.add(value);
-	for (const value of [parsed?.search, parsed?.hash]) if (value && value.length > 1) state.hidden.add(value.slice(1));
 	const environmentValid = environment === undefined || ENVIRONMENT.test(environment);
-	const config = { baseUrlHost: url?.host ?? null, environment: environment ?? null, environmentValid };
+	const config = {
+		component: "evry",
+		baseUrlHost: url ? asLogHost(url.host) : null,
+		environment: environment === undefined ? null : asLogWord(environment),
+		environmentValid,
+	} as const;
 	const reason =
 		!publicKey || !secretKey
 			? "missing_keys"
@@ -98,18 +94,18 @@ export function registerTracing(env: Record<string, string | undefined> = proces
 					? "invalid_environment"
 					: undefined;
 	if (reason) {
-		log("error", { event: "tracing_disabled", reason, ...config });
+		quietly(() => logLine({ ...config, event: "tracing_disabled", reason }));
 		return false;
 	}
 	const processor = new LangfuseSpanProcessor({ publicKey, secretKey, baseUrl, environment });
 	watchExports(processor);
 	diag.setLogger(diagLogger, DiagLogLevel.WARN);
-	log("log", { event: "tracing_registered", ...config });
+	quietly(() => logInfo({ ...config, event: "tracing_registered" }));
 	if (!context.setGlobalContextManager(new AsyncLocalStorageContextManager().enable()))
-		log("error", { event: "tracing_not_global", which: "setGlobalContextManager" });
+		quietly(() => logLine({ component: "evry", event: "tracing_not_global", which: "setGlobalContextManager" }));
 	const provider = new TracerProvider({ spanProcessors: [processor] });
 	if (trace.setGlobalTracerProvider(provider)) state.provider = provider;
-	else log("error", { event: "tracing_not_global", which: "setGlobalTracerProvider" });
+	else quietly(() => logLine({ component: "evry", event: "tracing_not_global", which: "setGlobalTracerProvider" }));
 	registerTelemetry(new LangfuseVercelAiSdkIntegration());
 	return true;
 }
@@ -121,13 +117,12 @@ export async function flushTraces() {
 	const before = state.exported;
 	try {
 		await provider.forceFlush();
-		log("log", {
-			event: "traces_flushed",
-			spans: state.exported - before,
-			ms: Math.round(performance.now() - started),
-		});
+		const spans = state.exported - before;
+		const ms = Math.round(performance.now() - started);
+		quietly(() => logInfo({ component: "evry", event: "traces_flushed", spans, ms }));
 	} catch (error) {
-		log("error", { event: "traces_flush_failed", message: describe(error) });
+		const first = Array.isArray(error) ? (error.find((e) => e instanceof Error) ?? error) : error;
+		quietly(() => logFailure({ component: "evry", event: "traces_flush_failed" }, first));
 	}
 }
 

@@ -2,11 +2,12 @@ import { requestDatabase } from "@/server/database";
 import { read as readMeetings, type Viewer } from "../meetings/server.ts";
 import { meetingsReader } from "@everyfield/domain/meetings";
 import type { TeamsReply } from "@everyfield/contracts/teams";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { teamsReader, withParents, withTeamsWrite } from "@everyfield/domain/teams";
 import "server-only";
 import type { ChartNode, ListedTeam, Member, Outcome, Role, Team } from "./model.ts";
 import { logFailure } from "@everyfield/domain/log";
+import type { WriteTx } from "@everyfield/domain/access";
 
 export type { Viewer };
 export const isAdmin = (v: Viewer) => v.role === "owner" || v.role === "admin";
@@ -26,7 +27,7 @@ async function read<T>(viewer: Viewer, run: (db: Database, a: Authority) => Prom
 
 export async function write<T>(
 	viewer: Viewer,
-	run: (tx: Transaction, context: Parameters<Parameters<typeof withTeamsWrite>[2]>[1]) => Promise<TeamsReply<T>>,
+	run: (tx: WriteTx, context: Parameters<Parameters<typeof withTeamsWrite>[2]>[1]) => Promise<TeamsReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	try {

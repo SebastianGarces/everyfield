@@ -73,7 +73,7 @@ test("INV-security: every route that writes is built with a route wrapper that n
 });
 
 test("INV-security: a session route refuses a write from another site or of unknown origin before it runs", async () => {
-	const refused = [
+	const refused: Record<string, string>[] = [
 		{ "sec-fetch-site": "cross-site", origin: ORIGIN },
 		{ "sec-fetch-site": "same-site", origin: ORIGIN },
 		{ "sec-fetch-site": "none" },

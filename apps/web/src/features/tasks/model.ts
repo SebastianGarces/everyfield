@@ -29,7 +29,14 @@ export type TemplateImport = z.infer<typeof c.templateImport>;
 export type PhaseOffer = z.infer<typeof c.phaseOffer>;
 export type OpenOffer = Extract<PhaseOffer, { status: "open" }>;
 export type OfferAnswered = z.infer<typeof c.offerAnswered>;
-export type Saved = { task: TaskDetail; receiptId: string; changed: boolean; successor?: TaskDetail | null };
+export type Recount = z.infer<typeof c.recounted>[number];
+export type Saved = {
+	task: TaskDetail;
+	receiptId: string;
+	changed: boolean;
+	recounted: Recount[];
+	successor?: TaskDetail | null;
+};
 
 export type Outcome<T> =
 	| { status: "ok"; value: T }
@@ -198,24 +205,6 @@ export function withBlockers(items: readonly Prerequisite[], changed: readonly B
 	});
 	return { items: next, open: next.filter(blocks).length };
 }
-
-export class BadgeReads {
-	#newest = 0;
-	start(search: string) {
-		return { n: ++this.#newest, scope: listScopeOf(search) };
-	}
-	end() {
-		this.#newest++;
-	}
-	applies(read: { n: number; scope: string }, search: string) {
-		return read.n === this.#newest && listScopeOf(search) === read.scope;
-	}
-}
-const listScopeOf = (search: string) => {
-	const p = new URLSearchParams(search);
-	p.delete("task");
-	return p.toString();
-};
 
 export function bulkOutcomeText(outcome: BulkOutcome, kind: "complete" | "reschedule"): string {
 	switch (outcome) {
