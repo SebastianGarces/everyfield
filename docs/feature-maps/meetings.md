@@ -141,7 +141,7 @@ agent-browser find role dialog text --name "Places" --exact
 One meeting: its status, guests and RSVPs, kit, agenda, results and evaluation.
 
 - Routes: `/meetings/[meetingId]`
-- Endpoints: `/meetings/[meetingId]/agenda`
+- Endpoints: `/meetings/[meetingId]/agenda`, `/meetings/read`
 - Personas: `owner` write, `admin` write, `member` read
 - Catalog: MTG-001, MTG-002, MTG-005, MTG-007, MTG-012, MTG-013, MTG-014
 

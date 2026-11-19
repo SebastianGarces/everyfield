@@ -1,5 +1,4 @@
 import { sameKey, type DocDifference } from "./compare.ts";
-import type { Region } from "./types.ts";
 
 export type WordRun = { op: "kept" | "removed" | "added"; text: string; from: number; to: number };
 export type ChangeNote = "formatting" | "spacing" | "settings";
@@ -180,9 +179,8 @@ function compareSides(mine: readonly Rec[] | string, theirs: readonly Rec[] | st
 export function wordChanges(d: DocDifference): WordChanges | null {
 	if (d.document === null || d.template === null || d.part === "page") return null;
 	if (d.part === "title") return compareSides(d.document, d.template);
-	if (d.part === "body") return compareSides([d.document as Rec], [d.template as Rec]);
-	const region = (r: Region) => r.content as unknown as Rec[];
-	const sides = compareSides(region(d.document), region(d.template));
+	if (d.part === "body") return compareSides([d.document], [d.template]);
+	const sides = compareSides(d.document.content, d.template.content);
 	if (d.document.pages === d.template.pages || sides.show === "whole") return sides;
 	return { ...sides, notes: [...new Set([...sides.notes, "settings" as const])] };
 }
