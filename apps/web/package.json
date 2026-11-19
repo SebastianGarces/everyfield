@@ -6,7 +6,7 @@
 		"dev": "next dev",
 		"build": "next build",
 		"start": "next start",
-		"lint": "oxlint -c .oxlintrc.json --max-warnings=0 . && eslint --max-warnings=0 . && node scripts/render-share-images.mjs --check && node scripts/render-mesh-images.mjs --check && node scripts/check-color-literals.mjs && node scripts/check-type-scale.mjs && node scripts/check-corners.mjs",
+		"lint": "oxlint -c .oxlintrc.json --max-warnings=0 . && eslint --max-warnings=0 . && node scripts/render-share-images.mjs --check && node scripts/render-mesh-images.mjs --check && node scripts/check-color-literals.mjs && node scripts/check-type-scale.mjs && node scripts/check-corners.mjs && node scripts/check-slop-styling.mjs",
 		"typecheck": "../../node_modules/typescript-7/bin/tsc --noEmit -p tsconfig.typecheck.json",
 		"typecheck:bun": "../../node_modules/.bin/bun check -p tsconfig.typecheck.json --no-script --no-pretty --all",
 		"share-images": "node scripts/render-share-images.mjs",
