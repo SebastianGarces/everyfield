@@ -3,12 +3,10 @@ import type { DocumentsError } from "@everyfield/contracts/documents";
 import type { RequestActor } from "@everyfield/domain/access";
 import "server-only";
 import type { OwnedView, SavedFile } from "./model.ts";
-import { logFailure } from "@everyfield/domain/log";
+import type { Database } from "@everyfield/db/client";
+import { LOST, transient } from "@/server/platform/transient";
 
-export type Read<T> = (
-	db: NonNullable<ReturnType<typeof requestDatabase>>,
-	actor: RequestActor,
-) => Promise<DocumentOutcome<T>>;
+export type Read<T> = (db: Database, actor: RequestActor) => Promise<DocumentOutcome<T>>;
 
 export type DocumentOutcome<T> =
 	| { status: "ok"; value: T }
@@ -22,15 +20,9 @@ export function refused(error: DocumentsError): DocumentOutcome<never> {
 		: { status: "refused", code: error.code };
 }
 
-export async function runAs<T>(actor: RequestActor | null, read: Read<T>) {
-	if (!actor) return { status: "lost" } as const;
-	const db = requestDatabase();
-	try {
-		return await read(db, actor);
-	} catch (error) {
-		logFailure({ component: "documents", outcome: "action_failed" }, error);
-		return { status: "lost" } as const;
-	}
+export async function runAs<T>(actor: RequestActor | null, read: Read<T>): Promise<DocumentOutcome<T>> {
+	if (!actor) return { status: "refused", code: "access_denied" };
+	return transient({ component: "documents", outcome: "action_failed" }, () => read(requestDatabase(), actor), LOST);
 }
 
 export function presentSaved(value: SavedFile): SavedFile {

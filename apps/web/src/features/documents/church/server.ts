@@ -17,8 +17,9 @@ import { readBoundedBody } from "@everyfield/domain/operations";
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES } from "./refusal.ts";
-import { logFailure } from "@everyfield/domain/log";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
+import { parseJson } from "../../../server/platform/json.ts";
+import { transient } from "@/server/platform/transient";
 
 export type ChurchView = {
 	id: string;
@@ -51,32 +52,34 @@ export async function loadLibrary(
 > {
 	if (!hasPlantSeat(authority)) return { status: "refused" };
 	const db = requestDatabase();
-	try {
-		const reply = await documentsWriter.listChurch(db, authority, {});
-		if (reply.status !== "ok") return { status: "refused" };
-		return {
-			status: "ok",
-			value: {
-				documents: reply.value.documents,
-				templates: docTemplateSummaries(),
-				churchTemplates: reply.value.templates,
-			},
-		};
-	} catch (error) {
-		logFailure({ component: "church-documents", outcome: "read_failed" }, error);
-		return { status: "failed" };
-	}
+	return transient(
+		{ component: "church-documents", outcome: "read_failed" },
+		async () => {
+			const reply = await documentsWriter.listChurch(db, authority, {});
+			if (reply.status !== "ok") return { status: "refused" };
+			return {
+				status: "ok",
+				value: {
+					documents: reply.value.documents,
+					templates: docTemplateSummaries(),
+					churchTemplates: reply.value.templates,
+				},
+			};
+		},
+		{ status: "failed" },
+	);
 }
 
 export async function loadArchived(authority: RequestActor): Promise<Load<ArchivedChurchSummary[]>> {
 	const db = requestDatabase();
-	try {
-		const reply = await documentsWriter.listArchivedChurch(db, authority, {});
-		return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
-	} catch (error) {
-		logFailure({ component: "church-documents", outcome: "read_failed" }, error);
-		return { status: "failed" };
-	}
+	return transient(
+		{ component: "church-documents", outcome: "read_failed" },
+		async () => {
+			const reply = await documentsWriter.listArchivedChurch(db, authority, {});
+			return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
+		},
+		{ status: "failed" },
+	);
 }
 
 export async function loadChurchDocument(
@@ -96,56 +99,60 @@ export async function loadChurchDocument(
 	| { status: "deleted" }
 > {
 	const db = requestDatabase();
-	try {
-		const readOnly = () =>
-			documentsWriter
-				.readChurch(db, authority, { documentId })
-				.then((r) =>
-					r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {}, template: null } } : r,
-				);
-		const [first, saved, history] = await Promise.all([
-			canManageChurch(authority) ? documentsWriter.readChurchForEdit(db, authority, { documentId }) : readOnly(),
-			documentsWriter.listExports(db, authority, { documentId }),
-			documentsWriter["history.list"](db, authority, { documentId }),
-		]);
-		if (saved.status !== "ok" && saved.error.code === "deleted") return { status: "deleted" };
-		const reply =
-			first.status !== "ok" && first.error.code === "unavailable" && saved.status === "ok" && canManageChurch(authority)
-				? await readOnly()
-				: first;
-		if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
-		const d = reply.value;
-		return {
-			status: "ok",
-			value: {
-				view: {
-					id: d.id,
-					title: d.title,
-					templateId: d.templateId,
-					templateVersion: d.templateVersion,
-					templateName: d.templateName,
-					documentClass: d.documentClass,
-					revision: d.revision,
-					formats: d.formats,
-					useChurchBranding: d.useChurchBranding,
-					page: sheetOf(d.body.page),
-					archived: d.archived,
+	return transient(
+		{ component: "church-documents", outcome: "read_failed" },
+		async () => {
+			const readOnly = () =>
+				documentsWriter
+					.readChurch(db, authority, { documentId })
+					.then((r) =>
+						r.status === "ok" ? { ...r, value: { ...r.value, brands: null, mergeValues: {}, template: null } } : r,
+					);
+			const [first, saved, history] = await Promise.all([
+				canManageChurch(authority) ? documentsWriter.readChurchForEdit(db, authority, { documentId }) : readOnly(),
+				documentsWriter.listExports(db, authority, { documentId }),
+				documentsWriter["history.list"](db, authority, { documentId }),
+			]);
+			if (saved.status !== "ok" && saved.error.code === "deleted") return { status: "deleted" };
+			const reply =
+				first.status !== "ok" &&
+				first.error.code === "unavailable" &&
+				saved.status === "ok" &&
+				canManageChurch(authority)
+					? await readOnly()
+					: first;
+			if (reply.status !== "ok" || saved.status !== "ok" || history.status !== "ok") return { status: "refused" };
+			const d = reply.value;
+			return {
+				status: "ok",
+				value: {
+					view: {
+						id: d.id,
+						title: d.title,
+						templateId: d.templateId,
+						templateVersion: d.templateVersion,
+						templateName: d.templateName,
+						documentClass: d.documentClass,
+						revision: d.revision,
+						formats: d.formats,
+						useChurchBranding: d.useChurchBranding,
+						page: sheetOf(d.body.page),
+						archived: d.archived,
+					},
+					document: d.body,
+					brands: d.brands,
+					mergeValues: d.mergeValues,
+					exports: saved.value.exports,
+					revisions: history.value.revisions
+						.map((r) => ({ number: r.number, recordedAt: r.recordedAt, savedBy: r.authorName, formats: r.formats }))
+						.toSorted((a, b) => b.number - a.number),
+					revisionsTruncated: history.value.truncated,
+					template: d.template,
 				},
-				document: d.body,
-				brands: d.brands,
-				mergeValues: d.mergeValues,
-				exports: saved.value.exports,
-				revisions: history.value.revisions
-					.map((r) => ({ number: r.number, recordedAt: r.recordedAt, savedBy: r.authorName, formats: r.formats }))
-					.toSorted((a, b) => b.number - a.number),
-				revisionsTruncated: history.value.truncated,
-				template: d.template,
-			},
-		};
-	} catch (error) {
-		logFailure({ component: "church-documents", outcome: "read_failed" }, error);
-		return { status: "failed" };
-	}
+			};
+		},
+		{ status: "failed" },
+	);
 }
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
@@ -161,28 +168,29 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 	const actor = await documentActor();
 	if (!actor) return gone();
 	const db = requestDatabase();
-	try {
-		const reply = await documentsWriter.readChurchFile(
-			db,
-			actor,
-			{ documentId, format, ...(revision === null ? {} : { revision: Number(revision) }) },
-			privateStorage(),
-		);
-		if (reply.status !== "ok") return gone(reply.error.code === "invalid_input" ? 400 : 404);
-		const file = reply.value;
-		return new Response(Buffer.from(file.bytes, "base64"), {
-			headers: {
-				...NO_STORE,
-				"Content-Type": file.mediaType,
-				"Content-Disposition": `inline; filename="${file.downloadName}"`,
-				"X-Content-SHA256": file.digest,
-				"X-Content-Type-Options": "nosniff",
-			},
-		});
-	} catch (error) {
-		logFailure({ component: "church-documents", outcome: "file_failed" }, error);
-		return gone(500);
-	}
+	return transient(
+		{ component: "church-documents", outcome: "file_failed" },
+		async () => {
+			const reply = await documentsWriter.readChurchFile(
+				db,
+				actor,
+				{ documentId, format, ...(revision === null ? {} : { revision: Number(revision) }) },
+				privateStorage(),
+			);
+			if (reply.status !== "ok") return gone(reply.error.code === "invalid_input" ? 400 : 404);
+			const file = reply.value;
+			return new Response(Buffer.from(file.bytes, "base64"), {
+				headers: {
+					...NO_STORE,
+					"Content-Type": file.mediaType,
+					"Content-Disposition": `inline; filename="${file.downloadName}"`,
+					"X-Content-SHA256": file.digest,
+					"X-Content-Type-Options": "nosniff",
+				},
+			});
+		},
+		gone(500),
+	);
 }
 
 export async function savedExportRoute(
@@ -196,34 +204,35 @@ export async function savedExportRoute(
 	const actor = await documentActor();
 	if (!actor) return gone();
 	const db = requestDatabase();
-	try {
-		const reply = await documentsWriter.readExportFile(
-			db,
-			actor,
-			{ documentId: documentId.data, exportId: exportId.data },
-			privateStorage(),
-		);
-		if (reply.status !== "ok" && reply.error.code === "deleted") {
-			return new Response(null, {
-				status: 303,
-				headers: { ...NO_STORE, Location: `/documents/church/${documentId.data}` },
+	return transient(
+		{ component: "church-documents", outcome: "export_file_failed" },
+		async () => {
+			const reply = await documentsWriter.readExportFile(
+				db,
+				actor,
+				{ documentId: documentId.data, exportId: exportId.data },
+				privateStorage(),
+			);
+			if (reply.status !== "ok" && reply.error.code === "deleted") {
+				return new Response(null, {
+					status: 303,
+					headers: { ...NO_STORE, Location: `/documents/church/${documentId.data}` },
+				});
+			}
+			if (reply.status !== "ok") return gone();
+			const file = reply.value;
+			return new Response(Buffer.from(file.bytes, "base64"), {
+				headers: {
+					...NO_STORE,
+					"Content-Type": file.mediaType,
+					"Content-Disposition": `attachment; filename="${file.downloadName}"`,
+					"X-Content-SHA256": file.digest,
+					"X-Content-Type-Options": "nosniff",
+				},
 			});
-		}
-		if (reply.status !== "ok") return gone();
-		const file = reply.value;
-		return new Response(Buffer.from(file.bytes, "base64"), {
-			headers: {
-				...NO_STORE,
-				"Content-Type": file.mediaType,
-				"Content-Disposition": `attachment; filename="${file.downloadName}"`,
-				"X-Content-SHA256": file.digest,
-				"X-Content-Type-Options": "nosniff",
-			},
-		});
-	} catch (error) {
-		logFailure({ component: "church-documents", outcome: "export_file_failed" }, error);
-		return gone(500);
-	}
+		},
+		gone(500),
+	);
 }
 
 export type ExportResult =
@@ -235,11 +244,11 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 	request: Request,
 	{ params }: { params: Promise<{ documentId: string }> },
 ) {
-	const bytes = await readBoundedBody(request, BODY_MAX).catch(() => null);
+	const bytes = await readBoundedBody(request, BODY_MAX);
 	if (!bytes) return answer(refused("invalid_input"));
 	const documentId = recordId.safeParse((await params).documentId);
 	if (!documentId.success) return answer(refused("unavailable"));
-	const body = (await new Response(bytes).json().catch(() => null)) as {
+	const body = parseJson(bytes) as {
 		revision?: unknown;
 		format?: unknown;
 		requestKey?: unknown;
@@ -247,40 +256,41 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 	if (!body || typeof body.revision !== "string" || !/^[0-9]{1,7}$/.test(body.revision))
 		return answer(refused("invalid_input"));
 	const [actor, viewer] = await Promise.all([documentActor(), getViewer()]);
-	if (!actor) return answer({ status: "lost" });
+	if (!actor) return answer(refused("access_denied"));
 	const db = requestDatabase();
-	try {
-		const reply = await documentsWriter.exportNative(
-			db,
-			actor,
-			{
-				documentId: documentId.data,
-				revision: Number(body.revision),
-				format: body.format,
-				requestKey: body.requestKey,
-			},
-			privateStorage(),
-		);
-		if (reply.status !== "ok") return answer(refused(reply.error.code));
-		const done = reply.value;
-		return answer({
-			status: "saved",
-			saved: {
-				id: done.id,
-				documentId: documentId.data,
-				revision: done.source?.revision ?? Number(body.revision),
-				format: done.format,
-				generatedAt: done.generatedAt,
-				creatorName: viewer.displayName || null,
-				digest: done.digest,
-				byteCount: done.byteCount,
-				downloadName: done.downloadName,
-			},
-		});
-	} catch (error) {
-		logFailure({ component: "church-documents", outcome: "export_failed" }, error);
-		return answer({ status: "lost" });
-	}
+	return transient(
+		{ component: "church-documents", outcome: "export_failed" },
+		async () => {
+			const reply = await documentsWriter.exportNative(
+				db,
+				actor,
+				{
+					documentId: documentId.data,
+					revision: Number(body.revision),
+					format: body.format,
+					requestKey: body.requestKey,
+				},
+				privateStorage(),
+			);
+			if (reply.status !== "ok") return answer(refused(reply.error.code));
+			const done = reply.value;
+			return answer({
+				status: "saved",
+				saved: {
+					id: done.id,
+					documentId: documentId.data,
+					revision: done.source?.revision ?? Number(body.revision),
+					format: done.format,
+					generatedAt: done.generatedAt,
+					creatorName: viewer.displayName || null,
+					digest: done.digest,
+					byteCount: done.byteCount,
+					downloadName: done.downloadName,
+				},
+			});
+		},
+		answer({ status: "lost" }),
+	);
 });
 
 function refused(code: string): ExportResult {

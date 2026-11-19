@@ -14,12 +14,15 @@ import {
 	type Resolved,
 	type Template,
 } from "./model.ts";
-import { logFailure, logLine } from "@everyfield/domain/log";
+import { logLine } from "@everyfield/domain/log";
+import { LOST, transient } from "@/server/platform/transient";
 
 export type DocumentsLoad =
 	| { status: "ok"; templates: Template[]; version: string; context: Resolved | null; canPreview: boolean }
 	| { status: "refused" }
 	| { status: "failed" };
+
+const FAILED = { status: "failed" } as const;
 
 export async function documentActor(): Promise<RequestActor | null> {
 	const viewer = await getViewer();
@@ -38,31 +41,30 @@ export async function readPreview(
 	overrides: Record<string, string>,
 ): Promise<PreviewOutcome> {
 	const actor = await documentActor();
-	if (!actor) return { status: "lost" };
-	const db = requestDatabase();
-	try {
-		const reply = await documentsReader.preview(db, actor, { templateId, format, overrides }, privateStorage());
-		if (reply.status === "refused") {
-			const path = reply.error.code === "invalid_input" ? reply.error.details.issues[0]?.path : undefined;
-			return path ? { status: "refused", code: reply.error.code, path } : { status: "refused", code: reply.error.code };
-		}
-		const value = reply.value;
-		return {
-			status: "ok",
-			value: {
-				templateId: value.templateId,
-				format: value.format,
-				fields: value.fields,
-				missing: value.missing,
-				complete: value.complete,
-				artifact: value.artifact,
-				brandKit: value.brandKit,
-			},
-		};
-	} catch (error) {
-		logFailure({ component: "documents", outcome: "action_failed" }, error);
-		return { status: "lost" };
+	if (!actor) return { status: "refused", code: "access_denied" };
+	const reply = await transient(
+		{ component: "documents", outcome: "action_failed" },
+		() => documentsReader.preview(requestDatabase(), actor, { templateId, format, overrides }, privateStorage()),
+		LOST,
+	);
+	if (reply.status === "lost") return reply;
+	if (reply.status === "refused") {
+		const path = reply.error.code === "invalid_input" ? reply.error.details.issues[0]?.path : undefined;
+		return path ? { status: "refused", code: reply.error.code, path } : { status: "refused", code: reply.error.code };
 	}
+	const value = reply.value;
+	return {
+		status: "ok",
+		value: {
+			templateId: value.templateId,
+			format: value.format,
+			fields: value.fields,
+			missing: value.missing,
+			complete: value.complete,
+			artifact: value.artifact,
+			brandKit: value.brandKit,
+		},
+	};
 }
 
 export function hasPlantSeat(authority: RequestActor) {
@@ -88,31 +90,32 @@ function present(value: {
 
 export async function loadDocuments(authority: RequestActor, query: DocumentsQuery): Promise<DocumentsLoad> {
 	const db = requestDatabase();
-	try {
-		const list = await documentsReader["templates.list"](db, authority, {});
-		if (list.status !== "ok") return { status: "refused" };
-		const templates = list.value.templates;
-		const chosen = choose(filterTemplates(templates, query), query.template);
-		const canPreview = hasPlantSeat(authority);
-		if (!chosen || !canPreview) {
-			return { status: "ok", templates, version: list.value.version, context: null, canPreview };
-		}
-		const resolved = await documentsReader.resolveContext(db, authority, {
-			templateId: chosen.id,
-			format: offeredFormat(chosen, query.format),
-		});
-		if (resolved.status === "ok") {
-			return { status: "ok", templates, version: list.value.version, context: present(resolved.value), canPreview };
-		}
-		if (resolved.error.code === "unavailable") {
-			return { status: "ok", templates, version: list.value.version, context: null, canPreview: false };
-		}
-		logLine({ component: "documents", outcome: "resolve_refused", code: resolved.error.code });
-		return { status: "failed" };
-	} catch (error) {
-		logFailure({ component: "documents", outcome: "read_failed" }, error);
-		return { status: "failed" };
-	}
+	return transient(
+		{ component: "documents", outcome: "read_failed" },
+		async (): Promise<DocumentsLoad> => {
+			const list = await documentsReader["templates.list"](db, authority, {});
+			if (list.status !== "ok") return { status: "refused" };
+			const templates = list.value.templates;
+			const chosen = choose(filterTemplates(templates, query), query.template);
+			const canPreview = hasPlantSeat(authority);
+			if (!chosen || !canPreview) {
+				return { status: "ok", templates, version: list.value.version, context: null, canPreview };
+			}
+			const resolved = await documentsReader.resolveContext(db, authority, {
+				templateId: chosen.id,
+				format: offeredFormat(chosen, query.format),
+			});
+			if (resolved.status === "ok") {
+				return { status: "ok", templates, version: list.value.version, context: present(resolved.value), canPreview };
+			}
+			if (resolved.error.code === "unavailable") {
+				return { status: "ok", templates, version: list.value.version, context: null, canPreview: false };
+			}
+			logLine({ component: "documents", outcome: "resolve_refused", code: resolved.error.code });
+			return { status: "failed" };
+		},
+		FAILED,
+	);
 }
 
 export function writtenScope(authority: RequestActor): "church" | "account" | null {
