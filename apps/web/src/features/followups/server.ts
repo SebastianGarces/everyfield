@@ -25,19 +25,14 @@ import {
 	type Owners,
 	type ObligationPage,
 } from "./model.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
 
 export { COVERAGE_PAGE, taskViewer, type TaskViewer };
 
 export async function read<T>(run: (tx: WriteTx) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	try {
-		return await gatedTransaction(db, run);
-	} catch (error) {
-		logFailure({ component: "followups", outcome: "read_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient({ component: "followups", outcome: "read_failed" }, () => gatedTransaction(db, run), LOST);
 }
 export const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
 
@@ -50,12 +45,13 @@ export async function write<T>(
 	const mount = tasksMount();
 	writer ??= createFollowUpWriter({ reminders: mount.reminders });
 	const w = writer;
-	try {
-		return outcomeOf(await withFollowUpWrite(mount.db, viewer.authority, (tx, ctx) => run(w, tx, ctx)));
-	} catch (error) {
-		logFailure({ component: "followups", outcome: "write_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "followups", outcome: "write_failed" },
+		async () => {
+			return outcomeOf(await withFollowUpWrite(mount.db, viewer.authority, (tx, ctx) => run(w, tx, ctx)));
+		},
+		LOST,
+	);
 }
 
 export async function readOwners(tx: WriteTx, viewer: TaskViewer): Promise<Outcome<Account[]>> {
@@ -89,12 +85,11 @@ export async function readPersonFollowUps(
 
 export async function loadPersonFollowUps(authority: RequestActor, personId: string): Promise<PersonFollowUps | null> {
 	const db = requestDatabase();
-	try {
-		return await gatedTransaction(db, (tx) => readPersonFollowUps(tx, authority, personId));
-	} catch (error) {
-		logFailure({ component: "followups", outcome: "read_failed" }, error);
-		return null;
-	}
+	return transient(
+		{ component: "followups", outcome: "read_failed" },
+		() => gatedTransaction(db, (tx) => readPersonFollowUps(tx, authority, personId)),
+		null,
+	);
 }
 
 export type CallData = {

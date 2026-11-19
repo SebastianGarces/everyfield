@@ -2,6 +2,7 @@ import { flushTraces, observeRun, projectError, readConversation } from "@everyf
 import { after as afterResponse } from "next/server";
 import { errorResponse, requestActor } from "@/server/evry";
 import { requestDatabase } from "@/server/database";
+import { logFailure } from "@everyfield/domain/log";
 
 export const maxDuration = 300;
 
@@ -33,6 +34,7 @@ export const GET = async (request: Request, { params }: { params: Promise<{ id: 
 					);
 				controller.enqueue(encoder.encode("event: idle\ndata: {}\n\n"));
 			} catch (error) {
+				logFailure({ component: "evry", outcome: "stream_failed" }, error);
 				controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify(projectError(error))}\n\n`));
 			} finally {
 				clearInterval(heartbeat);
