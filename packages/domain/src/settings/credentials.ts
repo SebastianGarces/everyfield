@@ -12,7 +12,7 @@ import { executeWrites, gatedTransaction } from "../operations/writes.ts";
 import { attemptBudget, IdentityRefusal } from "../identity/budget.ts";
 import { writeVisibility } from "../access/session.ts";
 import { now, hash, deny, Refusal, recover, parse } from "./core.ts";
-import { issueRestrictedDeletionSession } from "./deletion.ts";
+import { issueAccountDeletionSession, issueRestrictedDeletionSession } from "./deletion.ts";
 export interface CredentialConfig {
 	db: Database;
 	authDb: Database;
@@ -170,19 +170,18 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			if (!found || !valid) deny("proof_invalid");
 			const provenAt = new Date();
 			const opened = await gatedTransaction(config.db, async (tx) => {
+				if (kind === "account") return issueAccountDeletionSession(tx, found.user.id, provenAt);
 				const w = t.lifecycle_witness;
 				const [current] = await tx
 					.select({ account: t.account.id, subject: w.opaque_subject_id, requestId: w.request_id })
 					.from(t.account)
 					.innerJoin(
 						w,
-						kind === "account"
-							? and(eq(w.kind, "account"), eq(w.opaque_subject_id, t.account.id))
-							: and(
-									eq(w.kind, "plant"),
-									eq(w.requester_opaque_id, t.account.id),
-									inArray(w.state, ["pending_deletion", "purging"]),
-								),
+						and(
+							eq(w.kind, "plant"),
+							eq(w.requester_opaque_id, t.account.id),
+							inArray(w.state, ["pending_deletion", "purging"]),
+						),
 					)
 					.where(eq(t.account.auth_user_id, found.user.id))
 					.orderBy(desc(w.requested_at))

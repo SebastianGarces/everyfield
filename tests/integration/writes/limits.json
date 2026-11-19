@@ -1683,10 +1683,10 @@
 		"retry": 3
 	},
 	"settings.cancelWorkspaceDeletion": {
-		"limit": 10,
-		"retry": 6,
-		"reason": "A restricted deletion session: its proof is checked in its own transaction before the write. Then the savepoint and its release; the workspace deletion advisory lock; the restricted proof locked; the requester's seat locked; the pending witness read; one read gives each open seat's contact; their cancel notices join the witness write (T-272). A cancel at or after the deadline, or with no pending request, is refused and rolls back (T-195): 6 statements. Its largest first run: 4 transaction, 3 locked read, 2 read, 1 write.",
-		"reads": "T-505: 3 reads in a row (locked read of account+identity_proof+lifecycle_witness+plant, then locked read of seat, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
+		"limit": 8,
+		"retry": 4,
+		"reason": "A restricted deletion session: its proof is checked in its own transaction before the write. Then the savepoint and its release; the workspace deletion advisory lock; one locked read takes the restricted proof, the requester's account, the church, the pending witness and the requester's owner seat with its revoked check, in that order; one read gives each open seat's contact; their cancel notices join the witness write (T-272). A cancel at or after the deadline, or with no pending request, is refused and rolls back (T-195): 4 statements. Its largest first run: 4 transaction, 2 locked read, 1 read, 1 write.",
+		"reads": "2 reads in a row (the restricted proof read, then each open seat's contact): the contacts are read only after the deletion machine in code allows the cancel, so a cancel that is already done, at a stale revision or past its deadline returns without reading every member's address. Folding the contacts into the proof read would copy the machine's guards into SQL, and the status read shares that proof read without needing any contact."
 	},
 	"settings.changePassword": {
 		"limit": 13,
@@ -1700,10 +1700,9 @@
 		"limit": 6
 	},
 	"settings.openAccountDeletion": {
-		"limit": 10,
+		"limit": 9,
 		"retry": 7,
-		"reason": "Credential checks run through Better Auth, which reads the user and its password account in separate statements; two attempt-budget reserves bracket them (identifier and network). Then BEGIN; the account with its pending witness read; the account and the deletion subject locked; the earlier proofs superseded; the restricted proof inserted; COMMIT. Credentials that open no personal request (a workspace-only requester, T-195) are refused and roll back: 7 statements. Its largest first run: 2 transaction, 1 locked read, 3 read, 4 write.",
-		"reads": "T-505: 2 reads in a row (read of account+lifecycle_witness, then locked read of account+lifecycle_witness+plant); the follow-up merges them or says why they cannot be one statement."
+		"reason": "Credential checks run through Better Auth, which reads the user and its password account in separate statements; two attempt-budget reserves bracket them (identifier and network). Then BEGIN; one locked read finds the account by its sign-in user and locks it, then its pending witness; the earlier proofs superseded; the restricted proof inserted; COMMIT. Credentials that open no personal request (a workspace-only requester, T-195) are refused and roll back: 7 statements. Its largest first run: 2 transaction, 1 locked read, 2 read, 4 write."
 	},
 	"settings.openWorkspaceDeletion": {
 		"limit": 11,
@@ -1711,9 +1710,7 @@
 		"reason": "Credential checks run through Better Auth, which reads the user and its password account in separate statements; two attempt-budget reserves bracket them (identifier and network). Then BEGIN; the account with its pending witness read; the workspace deletion advisory lock, which a workspace request takes before its witness (T-195); the account and the workspace locked; the earlier proofs superseded; the restricted proof inserted; COMMIT. A different account's credentials, or no pending request, get the wrong-credentials refusal and roll back: 7 statements. Its largest first run: 2 transaction, 2 locked read, 3 read, 4 write."
 	},
 	"settings.previewPersonalTimezone": {
-		"limit": 7,
-		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the requester's seat read, the workspace kind locked and the lifecycle witness locked, then the preview insert, which the confirm step applies at its expected revision. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
-		"reads": "T-505: 2 reads in a row (read of seat, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
+		"limit": 5
 	},
 	"settings.previewPlantTimezone": {
 		"limit": 7,
@@ -1735,10 +1732,9 @@
 		"reason": "The session read with its seats and the user's profile read; the attempt-budget reserve; Better Auth's session and user reads and the new address's availability read; then BEGIN; the account locked; the earlier proofs superseded; one statement with the proof and its mail; COMMIT; then the attempt's final state. Its largest first run: 2 transaction, 1 locked read, 5 read, 4 write."
 	},
 	"settings.requestWorkspaceDeletion": {
-		"limit": 10,
+		"limit": 9,
 		"retry": 3,
-		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the church locked, the current witness locked with the open-request check, the witness insert, the workspace suspended by its database function, one read gives each open seat's contact, then one statement with the purge job, the notices (T-272) and the audit. Through the settings producer the app mounts, the actor's lifecycle read is included. Its largest first run: 2 transaction, 3 locked read, 3 read, 2 write.",
-		"reads": "T-505: 2 reads in a row (locked read of plant, then locked read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
+		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the request-key claim, one locked read takes the church and then its current witness with the open-request check, the witness insert, the workspace suspended by its database function, one read gives each open seat's contact, then one statement with the purge job, the notices (T-272) and the audit. Through the settings producer the app mounts, the request-key claim is not sent: 8 statements. Its largest first run: 2 transaction, 2 locked read, 3 read, 2 write."
 	},
 	"settings.saveChurch": {
 		"limit": 4
@@ -1767,16 +1763,14 @@
 		"limit": 6
 	},
 	"settings.setPersonalTimezone": {
-		"limit": 10,
+		"limit": 7,
 		"retry": 5,
-		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the preview locked at its expected revision, the requester's seat read, the workspace kind and the lifecycle witness locked, the digest job planned at the new time, then one statement with the account change and its audit. Its largest first run: 2 transaction, 4 locked read, 2 read, 2 write.",
-		"reads": "T-505: 3 reads in a row (locked read of settings_preview, then read of seat, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
+		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the request-key claim, one locked read takes the preview at its expected revision and, when the zone changes, the church of the requester's calendar seat and its lifecycle witness, the digest job planned at the new time, then one statement with the account change and its audit. Its largest first run: 2 transaction, 2 locked read, 1 read, 2 write."
 	},
 	"settings.setPlantTimezone": {
-		"limit": 8,
-		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the preview locked at its expected revision, the church's dated tasks locked (their due dates move with the zone), the reminder job planned, then one statement with the church change, the moved tasks and the audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 2 write.",
-		"reads": "T-505: 2 reads in a row (locked read of settings_preview, then locked read of task); the follow-up merges them or says why they cannot be one statement."
+		"limit": 7,
+		"retry": 5,
+		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the request-key claim, one locked read takes the preview at its expected revision and then the church's dated tasks (their due dates move with the zone), the reminder job planned, then one statement with the church change, the moved tasks and the audit. Its largest first run: 2 transaction, 2 locked read, 1 read, 2 write."
 	},
 	"settings.updatePlantProfile": {
 		"limit": 4
@@ -1787,10 +1781,9 @@
 		"reads": "T-502: 2 reads in a row (locked read of file_object, then read of account+seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings/core.withSettingsWrite": {
-		"limit": 9,
+		"limit": 8,
 		"retry": 7,
-		"reason": "BEGIN and COMMIT around a settings producer write. The largest, a workspace deletion request: the write gate, the church and the current witness locked, the witness insert, the suspension function, the read of each open seat's contact for its notice (T-272), and one final statement with the job, notices and audit. Its largest first run: 2 transaction, 3 locked read, 2 read, 2 write.",
-		"reads": "T-505: 2 reads in a row (locked read of plant, then locked read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
+		"reason": "BEGIN and COMMIT around a settings producer write. The largest, a workspace deletion request: the write gate, one locked read of the church and then its current witness, the witness insert, the suspension function, the read of each open seat's contact for its notice (T-272), and one final statement with the job, notices and audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 2 write."
 	},
 	"settings/deletion.issueRestrictedDeletionSession": {
 		"limit": 4

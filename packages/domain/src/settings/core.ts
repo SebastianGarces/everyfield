@@ -1,20 +1,13 @@
-import { accountId, requestIdentity, sameOwner, sessionId, tenantId, type Owner } from "@everyfield/contracts/common";
+import { accountId, requestIdentity, sameOwner, sessionId, type Owner } from "@everyfield/contracts/common";
 import { settingsError } from "@everyfield/contracts/settings";
 import type { SettingsContext, SettingsReply } from "@everyfield/contracts/settings/server";
 import type { Database } from "@everyfield/db/client";
-import { and, eq, isNull, sql } from "@everyfield/db/query";
+import { eq, sql, type SQL } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import {
-	boundWrite,
-	currentActor,
-	currentWriteAllowed,
-	liveOwner,
-	RequestActor,
-	type WriteTx,
-} from "../access/session.ts";
+import { boundWrite, currentActor, currentWriteAllowed, RequestActor, type WriteTx } from "../access/session.ts";
 import {
 	auditSavepoint,
 	auditTransaction,
@@ -184,20 +177,12 @@ export const preference = (a: typeof t.account.$inferSelect) =>
 	a.personal_timezone === null
 		? { status: "unconfirmed" as const }
 		: { status: "confirmed" as const, timeZone: a.personal_timezone, revision: a.personal_timezone_revision };
+export const calendarSeat = (account: SQL) =>
+	sql<boolean>`coalesce((SELECT e.kind='plant' AND NOT EXISTS(SELECT FROM (SELECT 1 FROM lifecycle_witness h WHERE h.kind='plant' AND h.opaque_subject_id=e.id AND h.state NOT IN ('active','cancelled') LIMIT 1 FOR SHARE) x)
+ FROM (SELECT p.id, n.kind FROM seat s JOIN plant p ON p.id=s.plant_id JOIN tenant n ON n.id=p.id WHERE s.account_id=${account} AND s.ended_at IS NULL AND s.role IN ('owner','admin') AND NOT EXISTS(SELECT FROM lifecycle_witness w WHERE w.seat_id=s.id AND w.state NOT IN ('active','cancelled')) LIMIT 1 FOR SHARE OF p) e), false)`;
 export async function calendarEligible(tx: Tx, id: string) {
-	const [s] = await tx
-		.select()
-		.from(t.seat)
-		.where(
-			and(
-				eq(t.seat.account_id, id),
-				isNull(t.seat.ended_at),
-				sql`${t.seat.role} IN ('owner','admin')`,
-				sql`${t.seat.plant_id} IS NOT NULL`,
-				sql`NOT EXISTS (SELECT FROM ${t.lifecycle_witness} w WHERE w.seat_id=${t.seat.id} AND w.state NOT IN ('active','cancelled'))`,
-			),
-		);
-	return !!s && (await liveOwner(tx, { kind: "plant", id: tenantId.parse(s.plant_id) }));
+	const read = await tx.execute(sql`SELECT ${calendarSeat(sql`${id}::uuid`)} AS eligible`);
+	return z.object({ eligible: z.boolean() }).parse(read.rows[0]).eligible;
 }
 
 export async function withSettingsWrite<T>(

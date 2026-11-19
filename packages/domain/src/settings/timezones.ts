@@ -16,7 +16,7 @@ import type {
 	PersonalTimezoneCalendar,
 	SettingsProducer,
 } from "@everyfield/contracts/settings/server";
-import { and, asc, eq, isNull, sql } from "@everyfield/db/query";
+import { alias, and, asc, eq, getTableColumns, isNull, sql, type SQL } from "@everyfield/db/query";
 import { canonicalTimeZone } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
@@ -27,6 +27,7 @@ import {
 	auditChange,
 	begin,
 	calendarEligible,
+	calendarSeat,
 	deny,
 	finish,
 	hash,
@@ -53,20 +54,23 @@ function automatic(date: string, hour: number, zone: string) {
 	if (resolved.kind !== "resolved") throw Error("automatic_calendar_unresolved");
 	return resolved;
 }
-async function schedule(tx: Tx, plant: typeof t.plant.$inferSelect, zone: string, asOf: string) {
-	const tasks = await tx
+const datedTasks = (tx: Tx, plant: string, gate: SQL = sql`true`) =>
+	tx
 		.select({ id: t.task.id, date: t.task.due_date, revision: t.task.revision })
 		.from(t.task)
 		.where(
 			and(
-				eq(t.task.plant_id, plant.id),
+				eq(t.task.plant_id, plant),
 				eq(t.task.due_kind, "date_only"),
 				isNull(t.task.deleted_at),
 				sql`${t.task.status} NOT IN ('complete','no_longer_needed')`,
+				gate,
 			),
 		)
 		.orderBy(asc(t.task.id))
 		.for("share");
+const datedTask = z.object({ id: z.string(), date: z.string().nullable(), revision: z.string() });
+function schedule(plant: typeof t.plant.$inferSelect, zone: string, asOf: string, tasks: z.infer<typeof datedTask>[]) {
 	const reminders = [];
 	const preservedTaskDates = [];
 	const warnings = new Set<"dst_fold_earlier" | "dst_gap_shifted" | "more_results">();
@@ -143,7 +147,7 @@ export function timezoneOperations(
 				const asOf = clock.at.toISOString(),
 					expiresAt = new Date(clock.at.getTime() + 15 * 60_000).toISOString(),
 					previewId = randomUUID();
-				const plan = await schedule(s, a.plant, newZone, asOf);
+				const plan = schedule(a.plant, newZone, asOf, await datedTasks(s, a.plant.id));
 				const value = q.plantTimezonePreview.parse({
 					previewId,
 					plant: v.plant,
@@ -178,24 +182,35 @@ export function timezoneOperations(
 				const c = await begin(s, ctx, a.account.id, "plant.setTimezone", v);
 				if (c.kind === "replay") return q.plantTimezoneResult.parse(c.value);
 				revision(v.expectedRevision, a.plant.revision);
+				const preview = s.$with("timezone_preview").as(
+					s
+						.select(getTableColumns(t.settings_preview))
+						.from(t.settings_preview)
+						.where(
+							and(
+								eq(t.settings_preview.id, v.input.previewId),
+								eq(t.settings_preview.account_id, a.account.id),
+								eq(t.settings_preview.tenant_id, a.plant.id),
+								eq(t.settings_preview.kind, "plant_timezone"),
+							),
+						)
+						.for("update"),
+				);
+				const tasks = s.$with("timezone_tasks").as(datedTasks(s, a.plant.id, sql`EXISTS(SELECT FROM ${preview})`));
 				const [found] = await s
-					.select({ saved: t.settings_preview, at: now })
-					.from(t.settings_preview)
-					.where(
-						and(
-							eq(t.settings_preview.id, v.input.previewId),
-							eq(t.settings_preview.account_id, a.account.id),
-							eq(t.settings_preview.tenant_id, a.plant.id),
-							eq(t.settings_preview.kind, "plant_timezone"),
-						),
-					)
-					.for("update");
+					.with(preview, tasks)
+					.select({
+						saved: alias(t.settings_preview, "timezone_preview"),
+						at: now,
+						tasks: sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('id',${tasks.id},'date',${tasks.date},'revision',${tasks.revision}::text) ORDER BY ${tasks.id}),'[]') FROM ${tasks})`,
+					})
+					.from(preview);
 				const at = injectedClock ? new Date(injectedClock.now()) : found?.at;
 				if (!found || !at || found.saved.expires_at <= at) deny("stale_preview");
 				const saved = found.saved;
 				const plan = parse(z.object({ preview: q.plantTimezonePreview, sources: z.string() }), saved.value);
 				if (plan.preview.newZone !== zone || saved.expected_revision !== a.plant.revision) deny("stale_preview");
-				const current = await schedule(s, a.plant, zone, plan.preview.asOf);
+				const current = schedule(a.plant, zone, plan.preview.asOf, z.array(datedTask).parse(found.tasks));
 				if (current.sources !== plan.sources) deny("stale_preview");
 				const changed = a.plant.timezone !== zone;
 				const next = changed ? String(BigInt(a.plant.revision) + 1n) : a.plant.revision;
@@ -269,18 +284,32 @@ export function timezoneOperations(
 				const c = await begin(s, { ...ctx }, a.account.id, "account.setPersonalTimezone", v);
 				if (c.kind === "replay") return personalReply(zone, personalRecord.parse(c.value).revision);
 				revision(v.expectedRevision, a.account.personal_timezone_revision);
+				const preview = s.$with("personal_preview").as(
+					s
+						.select(getTableColumns(t.settings_preview))
+						.from(t.settings_preview)
+						.where(
+							and(
+								eq(t.settings_preview.id, v.input.previewId),
+								eq(t.settings_preview.account_id, a.account.id),
+								eq(t.settings_preview.tenant_id, a.account.id),
+								eq(t.settings_preview.kind, "personal_timezone"),
+							),
+						)
+						.for("update"),
+				);
+				const saving = alias(t.settings_preview, "personal_preview");
 				const [found] = await s
-					.select({ saved: t.settings_preview, at: now })
-					.from(t.settings_preview)
-					.where(
-						and(
-							eq(t.settings_preview.id, v.input.previewId),
-							eq(t.settings_preview.account_id, a.account.id),
-							eq(t.settings_preview.tenant_id, a.account.id),
-							eq(t.settings_preview.kind, "personal_timezone"),
-						),
-					)
-					.for("update");
+					.with(preview)
+					.select({
+						saved: saving,
+						at: now,
+						eligible:
+							calendar && a.account.personal_timezone !== zone
+								? calendarSeat(sql`${saving.account_id}`)
+								: sql<boolean>`false`,
+					})
+					.from(preview);
 				const at = injectedClock ? new Date(injectedClock.now()) : found?.at;
 				if (!found || !at || found.saved.expires_at <= at) deny("stale_preview");
 				const saved = found.saved;
@@ -290,7 +319,7 @@ export function timezoneOperations(
 				if (a.account.personal_timezone !== zone) {
 					if (
 						calendar &&
-						(await calendarEligible(s, a.account.id)) &&
+						found.eligible &&
 						!(await calendar.apply(s, { account: a.account.id, previewId: saved.id, zone, at: at.toISOString() }))
 					)
 						deny("conflict");
