@@ -133,7 +133,7 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**"],
+			"files": ["packages/contracts/src/**", "packages/reference/src/**"],
 			"rules": {
 				"typescript/no-non-null-assertion": "error"
 			}
