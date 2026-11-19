@@ -15,6 +15,7 @@ import type { ChurchTag, HouseholdResult, PersonTag, PhotoResult, Skill } from "
 import { privateStorage } from "@everyfield/db/schema";
 import { leave } from "./leave.ts";
 import { peopleContext } from "./server.ts";
+import { transient } from "../../../server/platform/transient.ts";
 
 type PlantPerson = z.infer<typeof c.plantPerson>;
 type Tx = Transaction;
@@ -248,10 +249,11 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 		);
 		if (staged.status !== "ok") return staged;
 		const bytes = new Uint8Array(await file.arrayBuffer());
-		const stored = await uploadPersonPhoto(db, storage, peopleContext(v), {
-			uploadId: staged.value.uploadId,
-			bytes,
-		}).catch(() => ({ status: "failed" }) as const);
+		const stored = await transient(
+			{ component: "people", outcome: "photo_upload_failed" },
+			() => uploadPersonPhoto(db, storage, peopleContext(v), { uploadId: staged.value.uploadId, bytes }),
+			{ status: "failed" } as const,
+		);
 		if (stored.status !== "ok")
 			return stored.status === "failed" ? { status: "lost" } : { status: "refused", code: stored.error.code };
 		return drainAfter(

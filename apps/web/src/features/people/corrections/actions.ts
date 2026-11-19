@@ -42,7 +42,7 @@ export async function unmergePair(
 	return boundary(c.unmergePeopleRequest, { requestKey, expectedRevision, input: { mergeId } }, async (v, request) => {
 		const done = outcome(await write(v, (tx, ctx) => peopleUnmerge.unmergePeople(tx, ctx, request)), (r) => r);
 		if (done.status !== "ok") return done;
-		const page = await readPersonPageNow(v, done.value.survivorId).catch(() => null);
+		const page = await readPersonPageNow(v, done.value.survivorId);
 		return { status: "ok", value: { result: done.value, receipt: receipt(done.value), page } };
 	});
 }

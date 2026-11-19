@@ -17,7 +17,7 @@ import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "../fields/server.ts";
 import type { Assessment, Commitment, Commitments, CommitmentStatus, Interview } from "./model.ts";
 import { HISTORY_PAGE } from "./server.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { transient } from "../../../server/platform/transient.ts";
 
 type RecordedPerson = z.infer<typeof c.recordedPerson>;
 export type AssessmentSaved = { assessment: Assessment; person: RecordedPerson; receipt: Receipt };
@@ -69,13 +69,9 @@ export async function signCommitmentUpload(
 		const storage = privateStorage();
 		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const db = requestDatabase();
-		const signed = await signCommitmentDocument(
-			db,
-			storage,
-			peopleContext(v),
-			v.authority.actor.accountId,
-			request,
-		).catch(lost);
+		const signed = await guarded(() =>
+			signCommitmentDocument(db, storage, peopleContext(v), v.authority.actor.accountId, request),
+		);
 		return outcome(signed, (r) => r);
 	});
 }
@@ -88,7 +84,7 @@ export async function saveCommitmentWithDocument(
 		const storage = privateStorage();
 		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const db = requestDatabase();
-		const saved = await saveCommitmentDocument(db, storage, v.authority, request).catch(lost);
+		const saved = await guarded(() => saveCommitmentDocument(db, storage, v.authority, request));
 		return outcome(saved, (r) => ({
 			commitment: r.commitment,
 			person: r.person,
@@ -97,10 +93,8 @@ export async function saveCommitmentWithDocument(
 		}));
 	});
 }
-const lost = (error: unknown) => {
-	logFailure({ component: "people", outcome: "write_failed" }, error);
-	return { status: "failed" } as const;
-};
+const guarded = <T>(body: () => Promise<T>) =>
+	transient({ component: "people", outcome: "write_failed" }, body, { status: "failed" } as const);
 
 export async function changeCommitment(
 	change: "withdraw" | "reactivate",

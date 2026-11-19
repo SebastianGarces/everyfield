@@ -8,7 +8,7 @@ import { HISTORY_PAGE } from "./assessments/server.ts";
 import { loadPersonFollowUps } from "../followups/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 import { canWrite } from "../../components/seat-role.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { transient } from "../../server/platform/transient.ts";
 
 export type Viewer = NonNullable<ReturnType<typeof peopleViewer>>;
 export type Role = Viewer["role"];
@@ -25,12 +25,11 @@ async function readOnPool<T>(
 	run: (db: Database, context: PeopleReadContext) => Promise<PeopleReply<T>>,
 ): Promise<PeopleReply<T> | { status: "failed" }> {
 	const store = requestDatabase();
-	try {
-		return await run(store, new PeopleReadContext(viewer.authority));
-	} catch (error) {
-		logFailure({ component: "people", outcome: "read_failed" }, error);
-		return { status: "failed" };
-	}
+	return transient(
+		{ component: "people", outcome: "read_failed" },
+		() => run(store, new PeopleReadContext(viewer.authority)),
+		{ status: "failed" },
+	);
 }
 
 export async function write<T>(
@@ -38,12 +37,11 @@ export async function write<T>(
 	run: (tx: Transaction, context: PeopleWriteContext) => Promise<PeopleReply<T>>,
 ): Promise<PeopleReply<T> | { status: "failed" }> {
 	const store = requestDatabase();
-	try {
-		return await withPeopleWrite(store, viewer.authority, run);
-	} catch (error) {
-		logFailure({ component: "people", outcome: "write_failed" }, error);
-		return { status: "failed" };
-	}
+	return transient(
+		{ component: "people", outcome: "write_failed" },
+		() => withPeopleWrite(store, viewer.authority, run),
+		{ status: "failed" },
+	);
 }
 
 export type { PeopleData, PeopleView } from "./page-data.ts";
