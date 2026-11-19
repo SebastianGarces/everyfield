@@ -68,7 +68,13 @@ export async function deliver<T>(
 		mail: MailReady,
 	) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
-	const seat = await communicationViewer();
+	return deliverAs(await communicationViewer(), run);
+}
+
+export async function deliverAs<T>(
+	seat: Awaited<ReturnType<typeof communicationViewer>>,
+	run: Parameters<typeof deliver<T>>[0],
+): Promise<Outcome<T>> {
 	if (!seat.viewer || !canWrite(seat.viewer)) return { status: "refused", code: "access_denied" };
 	const mail = mailReady();
 	if (!mail) return { status: "refused", code: "unavailable" };

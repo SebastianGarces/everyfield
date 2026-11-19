@@ -1063,13 +1063,9 @@ try {
 		writtenDocument.revision,
 	);
 	for (const [name, path, cookie, status, headers] of pages) await get(name, path, cookie, status, headers);
-	const composed = await act(
-		"POST communication.readMeetingContext",
-		"/communication",
-		"apps/web/src/features/communication/actions.ts",
-		"readMeetingContext",
-		[visionMeeting],
-	);
+	const composed = await read("GET /communication/read?what=context", "/communication/read", "context", {
+		meetingId: visionMeeting,
+	});
 	assert.equal(composed.status, "ok", JSON.stringify(composed));
 	assert.equal(composed.value.guests.length, 103);
 

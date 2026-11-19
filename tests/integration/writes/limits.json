@@ -155,7 +155,7 @@
 	"POST notifications.markSelectedRead": {
 		"limit": 6
 	},
-	"POST communication.readMeetingContext": {
+	"GET /communication/read?what=context": {
 		"limit": 2
 	},
 	"POST people.addNote": {
