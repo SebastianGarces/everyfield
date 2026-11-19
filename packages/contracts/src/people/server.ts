@@ -46,32 +46,32 @@ export interface PeopleWriter<Tx, Reminders> {
 	addNote(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.addNoteRequest>,
+		input: unknown,
 	): Promise<PeopleReply<z.infer<typeof result.noteMutationResult>>>;
 	editNote(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.editNoteRequest>,
+		input: unknown,
 	): Promise<PeopleReply<z.infer<typeof result.noteMutationResult>>>;
 	deleteNote(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.deleteNoteRequest>,
+		input: unknown,
 	): Promise<PeopleReply<z.infer<typeof result.noteMutationResult>>>;
 	recordAdultClassification(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.classifyAdultRequest>,
+		input: unknown,
 	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 	correctAdultClassification(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.classifyAdultRequest>,
+		input: unknown,
 	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 	reorderPipeline(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.reorderPipelineRequest>,
+		input: unknown,
 	): Promise<
 		PeopleReply<{ receiptId: z.infer<typeof import("../common/values.ts").operationId>; outcome: "changed" | "noop" }>
 	>;
@@ -79,29 +79,29 @@ export interface PeopleWriter<Tx, Reminders> {
 	createPerson(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.createPersonRequest>,
+		input: unknown,
 	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 	updatePerson(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.updatePersonRequest>,
+		input: unknown,
 	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 	changeStatus(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.changeStatusRequest>,
+		input: unknown,
 		reminders: Reminders,
 	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 	retirePerson(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.retirePersonRequest>,
+		input: unknown,
 		reminders: Reminders,
 	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 	restorePerson(
 		tx: Tx,
 		context: PeopleWriteContext,
-		input: z.infer<typeof request.restorePersonRequest>,
+		input: unknown,
 	): Promise<PeopleReply<z.infer<typeof result.plantPersonMutationResult>>>;
 }
 export interface AccountPersonProducer<Tx> {
