@@ -975,6 +975,51 @@ test("AC:TARGET-MTG-022 AC:TARGET-MTG-021 one follow-up state: a done follow-up 
 	);
 });
 
+test("INV-statements an outcome locks its task and reads its Person in one statement, whatever it finishes", async () => {
+	const c = await church();
+	const lee = await person(c, "Lee Park");
+	const origin = { at: "2026-09-14T15:00:00Z", date: "2026-09-14", zone: "America/Chicago" };
+	const vision = await generated(c, lee, "Vision C", origin);
+	const generatedTask = vision.obligation.task;
+	const followUp = async (input) =>
+		ok(await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: lee, ...input } })).task;
+	const save = async (target, outcome, extra = {}) => {
+		let saved;
+		const n = await counted(async () => {
+			saved = ok(await record(c.owner, target, outcome, { occurredAt: "2026-09-14T18:00:00Z", ...extra }));
+		});
+		return { n, saved };
+	};
+
+	const plain = await save(onTask(generatedTask), "attempted_no_contact");
+	assert.deepEqual(
+		[plain.n, plain.saved.task.status, plain.saved.lastConfirmedContactAt, plain.saved.record.meetingId],
+		[5, "not_started", null, vision.meetingId],
+	);
+	const byPerson = await save({ kind: "person", personId: lee }, "contacted");
+	assert.deepEqual(
+		[byPerson.n, byPerson.saved.task, byPerson.saved.lastConfirmedContactAt],
+		[5, null, "2026-09-14T18:00:00.000Z"],
+	);
+	const dropped = await save(onTask(await followUp({})), "no_longer_needed");
+	assert.deepEqual([dropped.n, dropped.saved.task.status], [5, "no_longer_needed"]);
+	const other = await followUp({ title: "Send Lee the packet" });
+	const finished = await save(onTask(plain.saved.task), "contacted", { completeTask: true });
+	assert.deepEqual(
+		[finished.n, finished.saved.task.status, finished.saved.record.alsoFinished.map((x) => [x.taskId, x.origin.kind])],
+		[5, "complete", [[other.id, "added"]]],
+	);
+
+	const holder = await c.seated("member");
+	await committed(c, holder, "leader");
+	const dated = await followUp({ assigneeIds: [holder.id], due: { kind: "local_date", date: "2099-01-15" } });
+	const due = sql`SELECT count(*)::int n FROM notice WHERE source_record_id=${dated.id} AND cancelled_at IS NULL`;
+	assert.deepEqual(await rows(due), [{ n: 2 }]);
+	const completed = await save(onTask(dated), "attempted_no_contact", { completeTask: true });
+	assert.deepEqual([completed.n, completed.saved.task.status], [6, "complete"]);
+	assert.deepEqual(await rows(due), [{ n: 0 }]);
+});
+
 test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hold", async () => {
 	const c = await church();
 	const me = c.member;
