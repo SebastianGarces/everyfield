@@ -14,6 +14,6 @@ export function readDb<const C extends string, T>(component: LogWord<C>, run: (d
 	return transient({ component, outcome: "read_failed" }, () => run(requestDatabase()), LOST);
 }
 
-export function writeTx<const C extends string, T>(component: LogWord<C>, run: (db: Database) => Promise<T>) {
-	return transient({ component, outcome: "write_failed" }, () => run(requestDatabase()), LOST);
+export function writeTx<const C extends string, T>(component: LogWord<C>, run: () => Promise<T>) {
+	return transient({ component, outcome: "write_failed" }, run, LOST);
 }
