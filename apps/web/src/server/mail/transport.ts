@@ -10,7 +10,8 @@ import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notificatio
 import type { MailTransport } from "../jobs/mail.ts";
 import { createResendTransport } from "../jobs/resend.ts";
 import type { Database } from "@everyfield/db/client";
-import { capture, captureAllowed, captured, changeCaptured, isCaptureId } from "./capture.ts";
+import { isTestDeployment } from "@everyfield/db/deployment";
+import { capture, captured, changeCaptured, isCaptureId } from "./capture.ts";
 import { settleCaptured } from "./settle.ts";
 
 const env = z.object({
@@ -147,7 +148,7 @@ export function mailReady(): MailReady | null {
 	});
 	if (!parsed.success) return null;
 	const apiKey = parsed.data.RESEND_API_KEY ?? null;
-	if (apiKey === null && !captureAllowed(process.env)) return null;
+	if (apiKey === null && !isTestDeployment(process.env)) return null;
 	const encryptionKey = Buffer.from(parsed.data.IDENTITY_MAIL_KEY, "hex");
 	const addressKey = Buffer.from(parsed.data.IDENTITY_ADDRESS_KEY, "hex");
 	if (encryptionKey.equals(addressKey)) return null;

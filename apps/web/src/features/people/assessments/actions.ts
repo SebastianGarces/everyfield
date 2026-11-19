@@ -12,18 +12,10 @@ import {
 import { z } from "zod";
 import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../../../components/save/model.ts";
-import { read, write } from "../server.ts";
+import { write } from "../server.ts";
 import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "../fields/server.ts";
-import type {
-	Assessment,
-	Assessments,
-	Commitment,
-	Commitments,
-	CommitmentStatus,
-	Interview,
-	Interviews,
-} from "./model.ts";
+import type { Assessment, Commitment, Commitments, CommitmentStatus, Interview } from "./model.ts";
 import { HISTORY_PAGE } from "./server.ts";
 import { logFailure } from "@everyfield/domain/log";
 
@@ -150,21 +142,5 @@ export async function correctCommitment(
 			}),
 			(r) => r,
 		),
-	);
-}
-
-export async function loadAssessments(personId: string, page: number): Promise<Outcome<Assessments>> {
-	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => assessments.getAssessments(tx, ctx, request)), (r) => r),
-	);
-}
-export async function loadInterviews(personId: string, page: number): Promise<Outcome<Interviews>> {
-	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => interviews.getInterviews(tx, ctx, request)), (r) => r),
-	);
-}
-export async function loadCommitments(personId: string, page: number): Promise<Outcome<Commitments>> {
-	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => commitments.getCommitments(tx, ctx, request)), (r) => r),
 	);
 }

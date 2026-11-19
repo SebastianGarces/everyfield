@@ -537,3 +537,10 @@ export async function progressRoute(request: Request): Promise<Response> {
 		return new Response(null, { status: 400 });
 	}
 }
+
+export function mountFor(actor: Awaited<ReturnType<typeof wikiActor>>) {
+	const mount = wikiMount();
+	if (actor === "down" || !mount) return { status: "lost" as const };
+	if (!actor) return { status: "denied" as const };
+	return { status: "ready" as const, actor, mount };
+}

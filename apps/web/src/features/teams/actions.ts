@@ -5,18 +5,7 @@ import { teamsWriter } from "@everyfield/domain/teams";
 import type { Transaction } from "@everyfield/db/client";
 import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Outcome } from "./model.ts";
-import {
-	loadTeam,
-	loadTeams,
-	outcome,
-	readCatalog,
-	readExport,
-	readHistory,
-	write,
-	type TeamView,
-	type TeamsView,
-	type Viewer,
-} from "./server.ts";
+import { write } from "./server.ts";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Context = Parameters<typeof teamsWriter.create>[1];
@@ -106,25 +95,6 @@ export async function correctTenure(requestKey: string, expectedRevision: string
 	return change((tx, ctx) => teamsWriter.correctTenure(tx, ctx, command(requestKey, expectedRevision, input)));
 }
 
-export async function reloadTeam(teamId: string): Promise<Outcome<TeamView | null>> {
-	const v = await seat();
-	if (!v) return noSeat;
-	const view = await loadTeam(v, teamId);
-	if (view.status === "failed") return { status: "lost" };
-	return { status: "ok", value: view.status === "found" ? view : null };
-}
-export async function teamHistory(teamId: string) {
-	const v = await seat();
-	if (!v) return noSeat;
-	return outcome(await readHistory(v, teamId));
-}
-
-export async function templateCatalog() {
-	const v = await seat();
-	if (!v) return noSeat;
-	return outcome(await readCatalog(v));
-}
-
 type Selection = { teamKey: string; roleKeys: string[]; destinationTeamId?: string };
 export async function importTemplates(
 	requestKey: string,
@@ -141,16 +111,4 @@ export async function importTemplates(
 	);
 	if (done.status !== "ok") return done;
 	return { status: "ok", value: { newTeams: done.value.newTeams, newRoles: done.value.newSelectedRoles } };
-}
-export async function reloadTeams(): Promise<Outcome<TeamsView>> {
-	const v = await seat();
-	if (!v) return noSeat;
-	return { status: "ok", value: await loadTeams(v) };
-}
-
-export async function exportChart(includeArchived: boolean) {
-	const v: Viewer | null = await seat();
-	if (!v) return noSeat;
-	const r = outcome(await readExport(v, includeArchived === true));
-	return r.status === "ok" ? ({ status: "ok", value: { svg: r.value.svg, pdf: r.value.pdf } } as const) : r;
 }

@@ -6,6 +6,7 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { executeWrites } from "@everyfield/domain/operations";
+import type { ProviderKey } from "@everyfield/contracts/common";
 import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
 import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import { transaction } from "../platform/database.ts";
@@ -77,8 +78,9 @@ export type MailPayload = Readonly<{
 	html: string;
 	headers?: Readonly<Record<string, string>>;
 }>;
+const providerKey = z.string().transform((key) => key as ProviderKey);
 export interface MailTransport {
-	send(payload: MailPayload, key: string, signal: AbortSignal): Promise<TransportOutcome>;
+	send(payload: MailPayload, key: ProviderKey, signal: AbortSignal): Promise<TransportOutcome>;
 	lookup(id: string, signal: AbortSignal): Promise<TransportOutcome>;
 }
 const stored = z.object({
@@ -489,7 +491,7 @@ export function createMailService(config: {
         r.first_dispatched_at+interval '23 hours 55 minutes'<=clock_timestamp() AS expired
         FROM mail_request r JOIN mail_request_member mm ON mm.request_id=r.id WHERE mm.mail_id=${m.id} FOR UPDATE OF r`);
 			const r = z
-				.object({ id: z.uuid(), provider_key: z.string(), request_hash: z.string(), expired: z.boolean() })
+				.object({ id: z.uuid(), provider_key: providerKey, request_hash: z.string(), expired: z.boolean() })
 				.parse(request.rows[0]);
 			if (r.request_hash !== m.payload_hash) throw Error("mail_manifest_changed");
 			if (r.expired) {

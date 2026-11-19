@@ -2,7 +2,7 @@ import { IMPORT_BYTES_MAX, IMPORT_TOO_LARGE, nativeText, type DocNode } from "@e
 import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { createStore, type StoreApi } from "zustand/vanilla";
-import type { DocumentOutcome } from "../actions.ts";
+import type { DocumentOutcome } from "../outcome.ts";
 import { clean } from "../church/editor/document-json.ts";
 import { blocksFromEditor, blocksToEditor } from "../church/editor/table-json.ts";
 import { documentProblem, type WrittenView } from "../model.ts";

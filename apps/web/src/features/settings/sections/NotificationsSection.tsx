@@ -17,7 +17,8 @@ import { preferenceRows } from "../model";
 import type { NotificationChoice, NotificationPatch, SectionResult } from "../port";
 import { newRequestKey } from "../port";
 import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
-import { AutoSaveFooter, SaveError, SectionBody } from "../SettingsDialog";
+import { AutoSaveFooter, SectionBody } from "../SettingsDialog";
+import { SaveError } from "../SaveError";
 import { useSection, useSettings } from "../store";
 
 type Notifications = Extract<SectionResult, { section: "notifications" }>;

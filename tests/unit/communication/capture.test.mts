@@ -3,7 +3,8 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, before, test } from "node:test";
-import { captureAllowed, type Captured } from "../../../apps/web/src/server/mail/capture.ts";
+import { isTestDeployment } from "../../../packages/db/src/deployment.ts";
+import type { Captured } from "../../../apps/web/src/server/mail/capture.ts";
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { deliveryTransport, mailReady } from "../../../apps/web/src/server/mail/transport.ts";
 
@@ -34,15 +35,15 @@ afterEach(() => {
 });
 
 test("AC:CASE-COM-003 the capture outbox opens in local, development or preview, with or without a provider key", () => {
-	assert.equal(captureAllowed({}), true);
-	assert.equal(captureAllowed({ VERCEL_ENV: "development" }), true);
-	assert.equal(captureAllowed({ VERCEL_ENV: "preview" }), true);
-	assert.equal(captureAllowed({ VERCEL_ENV: "production" }), false);
-	assert.equal(captureAllowed({ VERCEL_ENV: "something-new" }), false);
-	assert.equal(captureAllowed({ RESEND_API_KEY: "re_live" }), true);
-	assert.equal(captureAllowed({ VERCEL_ENV: "preview", RESEND_API_KEY: "re_live" }), true);
-	assert.equal(captureAllowed({ VERCEL_ENV: "production", RESEND_API_KEY: "re_live" }), false);
-	assert.equal(captureAllowed({ VERCEL_ENV: "something-new", RESEND_API_KEY: "re_live" }), false);
+	assert.equal(isTestDeployment({}), true);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "development" }), true);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "preview" }), true);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "production" }), false);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "something-new" }), false);
+	assert.equal(isTestDeployment({ RESEND_API_KEY: "re_live" }), true);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "preview", RESEND_API_KEY: "re_live" }), true);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "production", RESEND_API_KEY: "re_live" }), false);
+	assert.equal(isTestDeployment({ VERCEL_ENV: "something-new", RESEND_API_KEY: "re_live" }), false);
 });
 
 test("AC:CASE-COM-003 production without a provider key is not ready, so nothing is recorded or sent", () => {

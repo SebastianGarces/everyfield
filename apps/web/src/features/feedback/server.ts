@@ -20,10 +20,14 @@ export const publicationSetup = (): PublicationSetup => ({
 export type Run<T> =
 	{ status: "ok"; value: T } | { status: "refused"; code: string } | { status: "signed_out" | "lost" };
 
-export async function run<T>(
-	operation: (db: Database, authority: RequestActor) => Promise<FeedbackReply<T>>,
+type Operation<T> = (db: Database, authority: RequestActor) => Promise<FeedbackReply<T>>;
+
+export const run = async <T>(operation: Operation<T>) => runAs(await getViewer(), operation);
+
+export async function runAs<T>(
+	viewer: Awaited<ReturnType<typeof getViewer>>,
+	operation: Operation<T>,
 ): Promise<Run<T>> {
-	const viewer = await getViewer();
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };
 	if (!viewer?.authority) return { status: "signed_out" };
