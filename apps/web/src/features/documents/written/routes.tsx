@@ -13,7 +13,7 @@ const BACK = [{ label: "Documents", href: "/documents" }];
 export async function WrittenDocumentPage({ params }: { params: Promise<{ documentId: string }> }) {
 	const raw = (await params).documentId;
 	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated")
+	if (viewer.status === "unauthenticated")
 		redirect(`/signin?returnTo=${encodeURIComponent(`/documents/written/${raw}`)}`);
 	const authority = viewer.status === "active" ? viewer.authority : null;
 	const scope = authority ? writtenScope(authority) : null;

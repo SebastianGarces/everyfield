@@ -21,13 +21,14 @@ import {
 	SegmentedControl,
 	StatePanel,
 	Switch,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { useAddress, writeAddress } from "../../components/location.ts";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
-import { createTeam, reloadTeams } from "./actions.ts";
+import { createTeam } from "./actions.ts";
+import { reloadTeams } from "./fetch.ts";
 import { optional, TeamDialog, type TeamForm } from "./dialogs.tsx";
 import { isLeadership, newSetup, plural, problemText, type SetupForm, type Team } from "./model.ts";
 import { OrgChart } from "./OrgChart.tsx";
@@ -41,7 +42,6 @@ const NEW_TEAM: TeamForm = { mode: "create", name: "", description: "", icon: "t
 
 export function TeamsScreen({ view: initial, admin }: { view: TeamsView; admin: boolean }) {
 	const router = useRouter();
-	const toast = useToast();
 	const [local, setLocal] = useState<{ from: TeamsView; value: TeamsView } | null>(null);
 	const view = local?.from === initial ? local.value : initial;
 	const [draft, setDraft] = useState<TeamView | null>(null);

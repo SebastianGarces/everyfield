@@ -23,8 +23,9 @@ import { cn, EvryBot, Icon, type IconSvgElement } from "@everyfield/ui/foundatio
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useId, useState, useTransition, type ReactNode } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
-import { loadSendContext, sendFeedback, type DialogContext } from "./actions.ts";
-import { CATEGORIES, counter, PROMPT, readPageDetails, timeLabel, type PageDetails } from "./model.ts";
+import { sendFeedback, type DialogContext } from "./actions.ts";
+import { loadSendContext } from "./fetch.ts";
+import { CATEGORIES, counter, pageDetails, PROMPT, timeLabel, type PageDetails } from "./model.ts";
 
 const ICON: Record<FeedbackCategory, IconSvgElement> = {
 	bug: Bug01Icon,
@@ -50,6 +51,17 @@ export function FeedbackDialog({
 		</Dialog>
 	);
 }
+
+const readPageDetails = (): PageDetails =>
+	pageDetails({
+		heading: document.querySelector("#main h1")?.textContent?.trim() || null,
+		theme: document.querySelector("[data-product-root]")?.getAttribute("data-theme") ?? null,
+		pathname: window.location.pathname,
+		userAgent: navigator.userAgent,
+		width: window.innerWidth,
+		height: window.innerHeight,
+		openedAt: new Date(),
+	});
 
 const sendContexts = createRead(() => loadSendContext(), {
 	failed: () => ({ status: "lost" as const }),

@@ -1,12 +1,11 @@
 "use server";
 
-import { requestDatabase } from "@/server/database";
 import { command, current } from "../organizations/mount";
-import { getViewer } from "@/server/request-context";
 import { correctReportingLocationRequest } from "@everyfield/contracts/organizations";
 import type { RegionArea } from "@everyfield/contracts/oversight";
-import { readReportingLocation, suggestRegions } from "@everyfield/domain/organizations";
+import { getViewer } from "@/server/request-context";
 import { z } from "zod";
+import { locality, plantSeat } from "./region-reads";
 
 export type Locality = { city: string | null; stateProvince: string | null; country: string | null };
 export type RegionRead =
@@ -22,70 +21,30 @@ export type RegionRead =
 	| { status: "lost" };
 export type RegionSuggestion = { regionItemId: string; area: RegionArea };
 
-async function plantSeat() {
-	const v = await getViewer();
-	const authority = v?.status === "active" ? v.authority : null;
-	const context = authority?.actor.context;
-	if (!authority || context?.kind !== "seat" || context.owner.kind !== "plant") return null;
-	return { authority, plant: context.owner };
-}
-
-export async function readRegion(): Promise<RegionRead> {
-	const seat = await plantSeat();
-	const db = requestDatabase();
-	if (!seat) return { status: "denied" };
-	if (!db) return { status: "lost" };
-	try {
-		const r = await readReportingLocation(db, seat.authority);
-		return r ? { status: "ok", ...r } : { status: "denied" };
-	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "region_read_failed", error: String(error) }));
-		return { status: "lost" };
-	}
-}
-
-const text = z
-	.string()
-	.trim()
-	.max(200)
-	.nullable()
-	.transform((v) => v || null);
-const locality = z.strictObject({ city: text, stateProvince: text, country: text });
-
-export async function suggestRegion(raw: Locality): Promise<RegionSuggestion[] | null> {
-	const seat = await plantSeat();
-	const db = requestDatabase();
-	const place = locality.safeParse(raw);
-	if (!seat || !db || !place.success) return null;
-	try {
-		return await suggestRegions(db, seat.authority, place.data);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "region_suggest_failed", error: String(error) }));
-		return null;
-	}
-}
-
 export type RegionSave = { status: "ok" } | { status: "conflict" } | { status: "refused"; code: string };
-export async function saveRegion(input: {
-	requestKey: string;
-	expectedRevision: string;
-	locality: Locality;
-	referenceVersionId: string;
-	regionItemId: string | null;
-}): Promise<RegionSave> {
-	const seat = await plantSeat();
+const regionSave = z.object({
+	requestKey: z.unknown(),
+	expectedRevision: z.unknown(),
+	locality,
+	referenceVersionId: z.unknown(),
+	regionItemId: z.unknown(),
+});
+
+export async function saveRegion(raw: unknown): Promise<RegionSave> {
+	const seat = plantSeat(await getViewer());
+	const input = regionSave.safeParse(raw);
+	if (!seat) return { status: "refused", code: "unavailable" };
+	if (!input.success) return { status: "refused", code: "invalid_input" };
+	const { locality: place, ...rest } = input.data;
 	const m = current();
-	const place = locality.safeParse(input.locality);
-	if (!seat || !m) return { status: "refused", code: "unavailable" };
-	if (!place.success) return { status: "refused", code: "invalid_input" };
 	const request = correctReportingLocationRequest.safeParse({
-		requestKey: input.requestKey,
-		expectedRevision: input.expectedRevision,
+		requestKey: rest.requestKey,
+		expectedRevision: rest.expectedRevision,
 		input: {
 			plant: seat.plant,
-			locality: place.data,
-			referenceVersionId: input.referenceVersionId,
-			regionItemId: input.regionItemId,
+			locality: place,
+			referenceVersionId: rest.referenceVersionId,
+			regionItemId: rest.regionItemId,
 		},
 	});
 	if (!request.success) return { status: "refused", code: "invalid_input" };

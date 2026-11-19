@@ -2,10 +2,12 @@ import { requestDatabase } from "@/server/database";
 import { read as readMeetings, type Viewer } from "../meetings/server.ts";
 import { meetingsReader } from "@everyfield/domain/meetings";
 import type { TeamsReply } from "@everyfield/contracts/teams";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { teamsReader, withParents, withTeamsWrite } from "@everyfield/domain/teams";
 import "server-only";
 import type { ChartNode, ListedTeam, Member, Outcome, Role, Team } from "./model.ts";
+import { LOST, transient } from "../../server/platform/transient.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 export type { Viewer };
 export const isAdmin = (v: Viewer) => v.role === "owner" || v.role === "admin";
@@ -15,27 +17,23 @@ type Authority = Viewer["authority"];
 
 async function read<T>(viewer: Viewer, run: (db: Database, a: Authority) => Promise<TeamsReply<T>>): Promise<Reply<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
-	try {
-		return await run(db, viewer.authority);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "teams", outcome: "read_failed", error: String(error) }));
-		return { status: "failed" };
-	}
+	return transient({ component: "teams", outcome: "read_failed" }, () => run(db, viewer.authority), {
+		status: "failed",
+	});
 }
 
 export async function write<T>(
 	viewer: Viewer,
-	run: (tx: Transaction, context: Parameters<Parameters<typeof withTeamsWrite>[2]>[1]) => Promise<TeamsReply<T>>,
+	run: (tx: WriteTx, context: Parameters<Parameters<typeof withTeamsWrite>[2]>[1]) => Promise<TeamsReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return outcome(await withTeamsWrite(db, viewer.authority, run));
-	} catch (error) {
-		console.error(JSON.stringify({ component: "teams", outcome: "write_failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "teams", outcome: "write_failed" },
+		async () => {
+			return outcome(await withTeamsWrite(db, viewer.authority, run));
+		},
+		LOST,
+	);
 }
 
 export function outcome<T>(reply: Reply<T>): Outcome<T> {

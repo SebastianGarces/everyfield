@@ -26,14 +26,18 @@ export function outcome<T, U>(reply: Reply<T>, map: (value: T) => U): Outcome<U>
 	return { status: "ok", value: map(reply.value) };
 }
 
-export async function boundary<S extends z.ZodType, T>(
+export async function boundary<T>(run: (viewer: Viewer) => Promise<Outcome<T>>): Promise<Outcome<T>> {
+	const v = await getViewer();
+	return v.people ? run(v.people) : denied;
+}
+
+export async function parsed<S extends z.ZodType, T>(
 	schema: S,
 	raw: unknown,
 	run: (viewer: Viewer, input: z.output<S>) => Promise<Outcome<T>>,
 ): Promise<Outcome<T>> {
-	const v = await getViewer();
-	if (!v?.people) return denied;
-	const input = schema.safeParse(raw);
-	if (!input.success) return invalid;
-	return run(v.people, input.data);
+	return boundary(async (v) => {
+		const input = schema.safeParse(raw);
+		return input.success ? run(v, input.data) : invalid;
+	});
 }

@@ -49,7 +49,7 @@ test("INV-debounce: only the last call runs, once; cancel, flush and detaching i
 	mock.timers.tick(200);
 	debouncer.run(() => ran.push("b"));
 	mock.timers.tick(299);
-	assert.deepEqual(ran, []);
+	assert.equal(ran.length, 0);
 	mock.timers.tick(1);
 	assert.deepEqual(ran, ["b"]);
 	mock.timers.tick(1000);
@@ -273,12 +273,14 @@ test("INV-cn: every theme token in the stylesheets merges only within its own ut
 	};
 	const seen = new Set<string>();
 	for (const css of sheets)
-		for (const [, group, name] of css.matchAll(
+		for (const [, group = "", name = ""] of css.matchAll(
 			/--(text|shadow|radius|container|spacing|ease|animate|font)-([a-z0-9]+(?:-[a-z0-9]+)*):/g,
 		)) {
 			if (seen.has(`${group}-${name}`)) continue;
 			seen.add(`${group}-${name}`);
-			const [before, after, merged] = checks[group]!(name!);
+			const check = checks[group];
+			assert.ok(check, `${group} has a merge check`);
+			const [before, after, merged] = check(name);
 			assert.equal(ui.cn(before, after), merged, `${group} token ${name}`);
 		}
 	assert.ok(seen.size > 40);

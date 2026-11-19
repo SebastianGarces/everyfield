@@ -13,6 +13,11 @@ Object.assign(globalThis, {
 const { createRoot } = web("react-dom/client");
 const { act, createElement, StrictMode } = web("react");
 const { AppRouterContext } = web("next/dist/shared/lib/app-router-context.shared-runtime");
+Object.assign(globalThis.document, {
+	head: { appendChild() {} },
+	createElement: () => ({ appendChild() {} }),
+	createTextNode: () => ({}),
+});
 const { useReview } = await import("../../../apps/web/src/features/evry/review/ReviewCard.tsx");
 
 const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {} };

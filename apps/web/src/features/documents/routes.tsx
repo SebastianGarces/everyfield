@@ -14,7 +14,7 @@ export const documentsMetadata: Metadata = { title: "Documents", robots: { index
 export async function DocumentsPage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
 	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated") redirect("/signin?returnTo=%2Fdocuments");
+	if (viewer.status === "unauthenticated") redirect("/signin?returnTo=%2Fdocuments");
 	if (viewer.status !== "active" || !viewer.authority) return <Unavailable />;
 	const loaded = await loadDocuments(viewer.authority, query);
 	if (loaded.status === "failed") return <Failed />;

@@ -17,6 +17,8 @@ export type SeatsRead =
 			invitations: unknown;
 	  };
 
+export type Workspace = NonNullable<Awaited<ReturnType<typeof workspaceViewer>>>;
+
 export async function workspaceViewer() {
 	const who = await viewerOf();
 	if (who.kind !== "viewer") return null;
@@ -26,10 +28,9 @@ export async function workspaceViewer() {
 	return { viewer, mount, authority: who.authority, kind: viewer.kind, selected: viewer.selected };
 }
 
-export async function loadSeats(): Promise<SeatsRead> {
-	const w = await workspaceViewer();
+export async function loadSeats(w: Workspace | null): Promise<SeatsRead> {
 	const service = invitationService();
-	if (!w || !service) return { status: "unavailable" };
+	if (!w) return { status: "unavailable" };
 	const { viewer, mount, selected, authority } = w;
 	const [roster, invitations, facts, names] = await Promise.all([
 		answer(() => mount.seats.list(authority, { workspace: selected })),

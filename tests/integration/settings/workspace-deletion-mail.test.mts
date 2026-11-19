@@ -5,13 +5,14 @@ import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { closeDatabase } from "../../../packages/db/src/client.ts";
 import { and, eq, sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/index.ts";
+import { deletionOperations } from "../../../packages/domain/src/settings/index.ts";
+import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { notificationCategory } from "../../../packages/contracts/src/settings/values.ts";
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { deadline } from "../../../apps/web/src/features/settings/deletion-mail.ts";
 import { createMailService, type MailPayload } from "../../../apps/web/src/server/jobs/mail.ts";
 import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
-import { executeWrites } from "../../../packages/domain/src/operations/writes.ts";
+import { executeWrites, gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { testDatabase } from "../../support/test-database.mts";
 import { ok, refusedWith, seeds } from "../../support/fixture.mts";
 
@@ -22,12 +23,14 @@ const seed = seeds(admin);
 const hex = () => randomBytes(32).toString("hex");
 Object.assign(process.env, {
 	IDENTITY_DATABASE_URL: database.logins.runtime.url.href,
+	IDENTITY_AUTH_DATABASE_URL: database.logins.runtime.url.href,
 	IDENTITY_ORIGIN: "https://app.example.test",
+	IDENTITY_SECRET: hex(),
 	IDENTITY_MAIL_KEY: hex(),
 	IDENTITY_ADDRESS_KEY: hex(),
 	IDENTITY_MAIL_FROM: "everyfield@example.test",
 });
-const effects = settingsMail()!;
+const effects = settingsMail();
 const deletion = deletionOperations({
 	queue: (tx, i) =>
 		queueJobs(tx, [
@@ -93,7 +96,7 @@ async function signIn(a: Person) {
 }
 async function request(a: Person, p: Church, requestKey = randomUUID()) {
 	const [row] = await admin.select({ revision: t.plant.revision }).from(t.plant).where(eq(t.plant.id, p.id));
-	return db.transaction((tx) =>
+	return gatedTransaction(db, (tx) =>
 		deletion.requestWorkspaceDeletion(
 			tx,
 			{ session: a.session, selected: p } as never,
@@ -102,13 +105,13 @@ async function request(a: Person, p: Church, requestKey = randomUUID()) {
 	);
 }
 async function cancel(owner: Person, p: Church, status: { requestId: string; revision: string }) {
-	const proof = await admin.transaction((tx) =>
+	const proof = await gatedTransaction(admin, (tx) =>
 		issueRestrictedDeletionSession(tx, { subject: p, requestId: status.requestId }, async () => ({
 			accountId: owner.id,
 			provenAt: new Date(),
 		})),
 	);
-	return db.transaction((tx) =>
+	return gatedTransaction(db, (tx) =>
 		deletion.cancelWorkspaceDeletion(tx, proof, {
 			requestKey: randomUUID(),
 			expectedRevision: status.revision,

@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { serverEnv, type ServerEnv } from "../config.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 const GITHUB_TIMEOUT_MS = 10_000;
 const GITHUB_API = "https://api.github.com";
@@ -24,8 +26,13 @@ const env = z.object({
 	FEEDBACK_GITHUB_TOKEN: z.string().min(1),
 	FEEDBACK_GITHUB_API: z.url().optional(),
 });
-export function githubConfig(source: Readonly<Record<string, string | undefined>> = process.env): GitHubConfig | null {
-	const parsed = env.safeParse(source);
+export function githubConfig(source: ServerEnv = serverEnv()): GitHubConfig | null {
+	const parsed = env.safeParse({
+		FEEDBACK_GITHUB_REPOSITORY: source.FEEDBACK_GITHUB_REPOSITORY,
+		FEEDBACK_GITHUB_REPOSITORY_ID: source.FEEDBACK_GITHUB_REPOSITORY_ID,
+		FEEDBACK_GITHUB_TOKEN: source.FEEDBACK_GITHUB_TOKEN,
+		FEEDBACK_GITHUB_API: source.FEEDBACK_GITHUB_API,
+	});
 	if (!parsed.success) return null;
 	const v = parsed.data;
 	return {
@@ -80,7 +87,8 @@ export function githubIssues(
 				return found.success
 					? { kind: "created", issue: { number: found.data.number, url: found.data.html_url } }
 					: { kind: "unknown" };
-			} catch {
+			} catch (error) {
+				logFailure({ component: "github", outcome: "create_failed" }, error);
 				return { kind: "unknown" };
 			}
 		},
@@ -96,7 +104,8 @@ export function githubIssues(
 					.filter((item) => !item.pull_request && item.body?.includes(`Reference: ${reference}.`))
 					.map((item) => ({ number: item.number, url: item.html_url }));
 				return { kind: "found", issues };
-			} catch {
+			} catch (error) {
+				logFailure({ component: "github", outcome: "search_failed" }, error);
 				return { kind: "failed" };
 			}
 		},

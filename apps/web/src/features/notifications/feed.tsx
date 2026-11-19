@@ -1,6 +1,6 @@
 "use client";
 
-import { useToast } from "@everyfield/ui/controls";
+import { toast } from "@everyfield/ui/controls";
 import type { Loadable } from "@everyfield/ui/display";
 import { useBrowserZone, useDocumentHidden, useMinuteClock } from "@everyfield/ui/foundations";
 import { useMemo, useRef, useState, type ReactNode } from "react";
@@ -111,7 +111,6 @@ const fromPage = (page: FeedPage): Ready => ({
 });
 
 export function useFeed(query: FeedQuery, initial: FeedPage | null) {
-	const toast = useToast();
 	const { stand, withdraw, confirm } = Account.useSelect((s) => s.actions);
 	const marks = Account.useSelect((s) => s.marks);
 	const account = Account.useSelect((s) => s.account);
@@ -210,9 +209,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 			toast({
 				tone: "error",
 				message: markProblem(r),
-				...(r.status === "lost"
-					? { action: { label: "Try again", altText: "Mark it read again from the list", onSelect: () => void go() } }
-					: {}),
+				...(r.status === "lost" ? { action: { label: "Try again", onSelect: () => void go() } } : {}),
 			});
 		};
 		void go();
@@ -221,8 +218,8 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 	const markOne = (item: FeedItem) => {
 		if (item.read) return;
 		const ids = readTogether(item, shown?.items ?? []);
-		if (ids.length === 1) mark(new Set(ids), 1, (e) => markRead(e, item.id));
-		else mark(new Set(ids), ids.length, (e) => markSelectedRead(e, ids));
+		if (ids.length === 1) mark(new Set(ids), 1, (e) => markRead({ ...e, input: { noticeId: item.id } }));
+		else mark(new Set(ids), ids.length, (e) => markSelectedRead({ ...e, input: { noticeIds: ids } }));
 	};
 
 	const markAll = () => {
@@ -235,7 +232,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 			mark(
 				new Set(open.map((i) => i.id)),
 				before,
-				(e) => markAllVisibleRead(e, cutoff),
+				(e) => markAllVisibleRead({ ...e, input: { cutoff } }),
 				(marked) => {
 					if (marked >= before) return;
 					setState((s) => (s.status === "ready" ? { ...s, unread: before - marked } : s));
@@ -247,7 +244,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		}
 		for (let i = 0; i < open.length; i += 50) {
 			const chunk = open.slice(i, i + 50).map((n) => n.id);
-			mark(new Set(chunk), chunk.length, (e) => markSelectedRead(e, chunk));
+			mark(new Set(chunk), chunk.length, (e) => markSelectedRead({ ...e, input: { noticeIds: chunk } }));
 		}
 	};
 

@@ -1,18 +1,162 @@
+import { historyQuery } from "@everyfield/contracts/communication";
 import { communicationWriter } from "@everyfield/domain/communication";
+import { meetingsReader } from "@everyfield/domain/meetings";
 import "server-only";
 import { z } from "zod";
 import { canWrite } from "../../components/seat-role.ts";
+import { appOrigin, mailReady } from "../../server/mail/transport.ts";
 import { defineReads } from "../../server/platform/reads.ts";
-import type { Outcome, Recipient } from "./model.ts";
-import { communicationViewer, read } from "./server.ts";
+import { read as readMeeting } from "../meetings/server.ts";
+import type {
+	DeliveryTotals,
+	Draft,
+	HistoryPage,
+	MeetingContext,
+	MeetingHistory,
+	MessageDetail,
+	MessageView,
+	NamedRecipient,
+	Outcome,
+	PersonHistory,
+	Recipient,
+	ResendReview,
+	SuppressionReport,
+	Template,
+	TrackingRow,
+} from "./model.ts";
+import { communicationViewer, deliverAs, read } from "./server.ts";
 
-async function writer() {
-	const { viewer } = await communicationViewer();
-	return viewer && canWrite(viewer) ? viewer : null;
+const HISTORY_PAGE = 50;
+const denied = { status: "refused", code: "access_denied" } as const;
+const page = { cursor: z.string().optional() };
+
+async function seat() {
+	const gate = await communicationViewer();
+	return gate.viewer ? { ...gate, viewer: gate.viewer } : null;
 }
 
-export const GET = defineReads(writer, "access_denied", (get) => ({
-	recipients: get(z.string(), (viewer, query): Promise<Outcome<{ people: Recipient[] }>> =>
-		read(viewer, (tx) => communicationWriter.readRecipients(tx, viewer.authority, { query })),
+export const GET = defineReads(seat, "access_denied", (get) => ({
+	recipients: get(z.string(), ({ viewer }, query): Promise<Outcome<{ people: Recipient[] }>> =>
+		canWrite(viewer)
+			? read(viewer, (tx) => communicationWriter.readRecipients(tx, viewer.authority, { query }))
+			: Promise.resolve(denied),
 	),
+	draft: get(z.strictObject({ communicationId: z.string() }), ({ viewer }, v): Promise<Outcome<Draft>> =>
+		canWrite(viewer)
+			? read(viewer, (tx) => communicationWriter.get(tx, viewer.authority, { id: v.communicationId }))
+			: Promise.resolve(denied),
+	),
+	template: get(z.strictObject({ meetingType: z.string() }), ({ viewer }, v): Promise<Outcome<Template>> =>
+		canWrite(viewer)
+			? read(viewer, (tx) => communicationWriter.readMeetingTemplate(tx, viewer.authority, v))
+			: Promise.resolve(denied),
+	),
+	suppression: get(z.undefined(), async (gate): Promise<Outcome<SuppressionReport>> => {
+		if (!canWrite(gate.viewer)) return denied;
+		const address = gate.email;
+		if (!address) return denied;
+		const result = await deliverAs(gate, (db, viewer, mail) =>
+			communicationWriter.listForSelf(db, viewer.authority, { address }, mail.keys),
+		);
+		if (result.status !== "ok") return result;
+		const { active, restores } = result.value;
+		return { status: "ok", value: { address: result.value.address, active, restores } };
+	}),
+	history: get(historyQuery, ({ viewer }, query): Promise<Outcome<HistoryPage>> =>
+		read(viewer, (tx) => communicationWriter.listHistory(tx, viewer.authority, query)),
+	),
+	person: get(z.strictObject({ personId: z.string(), ...page }), ({ viewer }, v): Promise<Outcome<PersonHistory>> =>
+		read(viewer, (tx) => communicationWriter.listForPerson(tx, viewer.authority, { ...v, limit: HISTORY_PAGE })),
+	),
+	meeting: get(z.strictObject({ meetingId: z.string(), ...page }), ({ viewer }, v): Promise<Outcome<MeetingHistory>> =>
+		read(viewer, (tx) => communicationWriter.listForMeeting(tx, viewer.authority, { ...v, limit: HISTORY_PAGE })),
+	),
+	tracking: get(
+		z.strictObject({ meetingId: z.string() }),
+		({ viewer }, v): Promise<Outcome<{ items: TrackingRow[] }>> =>
+			read(viewer, async (tx) => {
+				const result = await communicationWriter.listMeetingTracking(tx, viewer.authority, v);
+				if (result.status !== "ok") return result;
+				return { status: "ok", value: { items: result.value.items } };
+			}),
+	),
+	context: get(z.strictObject({ meetingId: z.string() }), async ({ viewer }, v): Promise<Outcome<MeetingContext>> => {
+		if (!canWrite(viewer)) return denied;
+		const context = await readMeeting(viewer, (db, a) => meetingsReader.communicationContext(db, a, v));
+		if (context.status === "failed") return { status: "lost" };
+		if (context.status === "refused") return { status: "refused", code: "not_found" };
+		const { meeting: m, guests } = context.value;
+		return {
+			status: "ok",
+			value: {
+				id: m.id,
+				type: m.type,
+				title: m.displayTitle,
+				date: m.localDate,
+				time: m.localTime,
+				place: m.venue?.name ?? null,
+				guests: guests.map((g) => ({ id: g.personId, displayName: g.displayName })),
+			},
+		};
+	}),
+	message: get(
+		z.strictObject({ communicationId: z.string() }),
+		({ viewer }, { communicationId }): Promise<Outcome<MessageView>> => {
+			const keys = mailReady()?.keys;
+			return read(viewer, async (tx) => {
+				const detail = await communicationWriter.getDetail(tx, viewer.authority, { id: communicationId }, keys);
+				if (detail.status !== "ok") return detail;
+				const totals = await communicationWriter.getDeliveryTotals(tx, viewer.authority, { communicationId });
+				if (totals.status !== "ok") return totals;
+				const recipients = await communicationWriter.listHistoryRecipients(
+					tx,
+					viewer.authority,
+					{ communicationId, limit: 100 },
+					keys,
+				);
+				if (recipients.status !== "ok") return recipients;
+				return {
+					status: "ok",
+					value: {
+						detail: detail.value satisfies MessageDetail,
+						totals: totals.value satisfies DeliveryTotals,
+						recipients: recipients.value.items satisfies NamedRecipient[],
+						recipientsComplete: recipients.value.complete,
+					},
+				};
+			});
+		},
+	),
+	resend: get(
+		z.strictObject({ communicationId: z.string() }),
+		({ viewer }, { communicationId }): Promise<Outcome<ResendReview>> =>
+			canWrite(viewer)
+				? read(viewer, async (tx) => {
+						const result = await communicationWriter.listResendCandidates(tx, viewer.authority, {
+							communicationId,
+							selection: "delivered_nonopeners",
+						});
+						if (result.status !== "ok") return result;
+						return {
+							status: "ok",
+							value: {
+								communicationId: result.value.communicationId,
+								eligibleIds: result.value.eligibleIds,
+								eligibleNames: result.value.eligibleNames,
+								excludedNames: result.value.excludedNames,
+								confirmedDelivery: result.value.confirmedDelivery,
+							},
+						};
+					})
+				: Promise.resolve(denied),
+	),
+	preview: get(z.undefined(), async ({ viewer }): Promise<Outcome<{ churchName: string; origin: string }>> => {
+		const origin = appOrigin();
+		if (origin === null) return { status: "refused", code: "unavailable" };
+		return read(viewer, async (tx) => {
+			const church = await communicationWriter.readChurchName(tx, viewer.authority);
+			if (church.status !== "ok") return church;
+			return { status: "ok", value: { churchName: church.value.churchName, origin } };
+		});
+	}),
 }));

@@ -12,20 +12,20 @@ import { createSignals, type Signals } from "@everyfield/domain/intelligence";
 import "server-only";
 import type { SignalOutcome } from "./signals-model.ts";
 import { careViewer, type CareViewer } from "./server.ts";
+import { isTransient, logFailure, type LogWord } from "@everyfield/domain/log";
+import { unexpected } from "../../server/platform/transient.ts";
 
 const signals = createSignals();
 
-const report = (outcome: string, error: unknown) =>
-	console.error(
-		JSON.stringify({ component: "signals", outcome, kind: (error as { code?: string })?.code ?? "unknown" }),
-	);
+const report = <O extends string>(outcome: LogWord<O>, error: unknown) =>
+	logFailure({ component: "signals", outcome }, error);
 
 export async function loadAttestations(viewer: CareViewer): Promise<SignalOutcome<AttestationsPage>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await signals.readAttestations(db, viewer.authority, {});
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "signals", outcome: "read_failed" }, error);
 		report("read_failed", error);
 		return { status: "lost" };
 	}
@@ -46,10 +46,10 @@ export async function runSignals<T extends SignalWriteResult | CandidateWriteRes
 			}),
 		};
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await body(signals, db, viewer.authority);
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "signals", outcome: "call_failed" }, error);
 		report("call_failed", error);
 		return { status: "lost" };
 	}

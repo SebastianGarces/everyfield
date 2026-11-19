@@ -13,13 +13,14 @@ import {
 	StatePanel,
 	Switch,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { useOptimistic, useState, useTransition } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
-import { changeVenue, createVenue, getVenue, listVenues } from "./actions.ts";
+import { changeVenue, createVenue } from "./actions.ts";
+import { getVenue, listVenues } from "./fetch.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
 import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { MONTHS } from "../../components/dates.ts";
@@ -52,7 +53,7 @@ export function VenuesSheet({
 					? "Where your meetings happen. A meeting keeps the place details it was saved with."
 					: undefined
 			}
-			className="w-[480px]"
+			size="lg"
 		>
 			{!open ? null : screen.kind === "list" ? (
 				<Places
@@ -90,7 +91,7 @@ const PLACES_SEARCH_PAUSE_MS = 300;
 export const places = createRead(
 	(archived: boolean, query: string) =>
 		listVenues({ archived: archived ? "include" : "exclude", ...(query ? { search: query } : {}), limit: 100 }),
-	{ failed: (): Outcome<{ items: Venue[]; total: number }> => ({ status: "lost" }) },
+	{ failed: () => ({ status: "lost" }) as const },
 );
 
 function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: string) => void; onAdd: () => void }) {
@@ -207,7 +208,6 @@ function Place({
 	onBack: () => void;
 	onEdit: (venue: Venue) => void;
 }) {
-	const toast = useToast();
 	const details = useRead(placeDetails, id);
 	const fromSaved: Outcome<History> | null = saved
 		? { status: "ok", value: { status: "available", venue: saved, history: [] } }

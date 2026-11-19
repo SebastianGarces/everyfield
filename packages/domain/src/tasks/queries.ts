@@ -1,6 +1,6 @@
 import { instant, localDateTime, revision, timeZone, type Instant } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/tasks";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
@@ -74,6 +74,7 @@ const taskRow = z.object({
 });
 export type TaskRow = z.infer<typeof taskRow>;
 const lockedTask = taskRow.extend({
+	waiting: z.array(z.strictObject({ id: z.uuid(), open: z.int() })),
 	checklist: taskRow.shape.checklist
 		.unwrap()
 		.nullable()
@@ -84,12 +85,16 @@ const lockedTask = taskRow.extend({
 });
 export type LockedTask = z.infer<typeof lockedTask>;
 
+const openPrerequisites = <TaskName extends string>(task: SqlLiteral<TaskName>) => {
+	const t = sql.raw(task);
+	return sql`(SELECT count(*)::int FROM task q WHERE q.id=ANY(${t}.prerequisite_ids) AND q.plant_id=${t}.plant_id
+		AND q.deleted_at IS NULL AND q.status NOT IN ('complete','no_longer_needed'))`;
+};
 const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, t.category, t.priority, t.status,
 	t.created_at, t.completed_at, t.deleted_at, ${assigneesOf("t")} AS assignees, t.due_kind, t.due_date::text AS due_date,
 	t.due_time::text AS due_time, t.timezone, t.due_at, t.person_id, t.meeting_id, t.team_id, t.parent_id, t.series_id,
 	t.predecessor_id, t.prerequisite_ids::text[] AS prerequisite_ids,
-	(SELECT count(*)::int FROM task q WHERE q.id=ANY(t.prerequisite_ids) AND q.plant_id=t.plant_id AND q.deleted_at IS NULL
-		AND q.status NOT IN ('complete','no_longer_needed')) AS open_prerequisites,
+	${openPrerequisites("t")} AS open_prerequisites,
 	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind,
 	coalesce(p.display_name, m.title, tm.name) AS relation_label, pl.timezone AS plant_zone,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS child_total,
@@ -108,6 +113,8 @@ const checklist = sql`(SELECT jsonb_agg(jsonb_build_object('id',k.id,'revision',
 	FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS checklist,
 	(SELECT jsonb_build_object('id',r.id,'frequency',r.interval,'until',r.end_date,'local_time',to_char(r.local_time,'HH24:MI'),
 		'stopped',r.stopped_at IS NOT NULL) FROM recurrence r WHERE r.id=t.series_id AND r.plant_id=t.plant_id) AS rule,
+	(SELECT coalesce(jsonb_agg(jsonb_build_object('id',d.id,'open',${openPrerequisites("d")}) ORDER BY d.id),'[]'::jsonb)
+		FROM task d WHERE t.id=ANY(d.prerequisite_ids) AND d.plant_id=t.plant_id AND d.deleted_at IS NULL) AS waiting,
 	EXISTS(SELECT FROM task n WHERE n.predecessor_id=t.id AND n.series_id=t.series_id AND n.plant_id=t.plant_id
 		AND n.deleted_at IS NULL) AS has_successor,
 	(t.person_id IS NULL OR p.state='live') AND (t.team_id IS NULL OR tm.archived_at IS NULL) AS relation_live`;
@@ -125,8 +132,10 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
 	return r.rows[0] ? lockedTask.parse(r.rows[0]) : null;
 }
+export const lockingTasks = (plantId: string, which: SQL) =>
+	sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`;
 export async function lockTasks(tx: Tx, plantId: string, which: SQL) {
-	const r = await tx.execute(sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`);
+	const r = await tx.execute(lockingTasks(plantId, which));
 	return z.array(lockedTask).parse(r.rows);
 }
 export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[]) {

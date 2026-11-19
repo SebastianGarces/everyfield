@@ -95,10 +95,8 @@ export function HandoffDialog({
 	h,
 	former,
 	onClose,
-	returnFocus,
 }: {
 	h: Handoff;
-	returnFocus?: (e: Event) => void;
 	former: readonly (Account & { open: number })[];
 	onClose: () => void;
 }) {
@@ -111,7 +109,7 @@ export function HandoffDialog({
 	return (
 		<NoticeInDialog {...lane.noticeProps}>
 			<Dialog open onOpenChange={(next) => !next && onClose()}>
-				<DialogContent size="lg" onCloseAutoFocus={returnFocus}>
+				<DialogContent size="lg">
 					<form
 						noValidate
 						className="contents"

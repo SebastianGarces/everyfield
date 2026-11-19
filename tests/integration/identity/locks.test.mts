@@ -15,6 +15,7 @@ import {
 } from "../../../packages/domain/src/people/index.ts";
 import { readPeoplePage, readPersonPage } from "../../../apps/web/src/features/people/page-data.ts";
 import { parseQuery } from "../../../apps/web/src/features/people/model.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 let f;
 before(async () => {
 	f = await fixture({ lockTimeout: "1s" });
@@ -30,11 +31,11 @@ const outcome = (p) =>
 
 test("BUG-PR124: People membership read takes no account write lock", async () => {
 	const s = await f.setup();
-	await f.admin.transaction(async (tx) => {
+	await gatedTransaction(f.admin, async (tx) => {
 		await tx.select().from(t.account).where(eq(t.account.id, s.sender.id)).for("share");
 		const member = await f.seats.readCurrentMembership(s.sender.session);
 		assert.equal(member.status, "active");
-		const page = await f.db.transaction((tx) =>
+		const page = await gatedTransaction(f.db, (tx) =>
 			peopleReader.listPeople(
 				tx,
 				{
@@ -330,7 +331,7 @@ test("INV-identity: current actor preserves authority in one database round trip
 		await test.test(`INV-identity: ${c.name}`, async () => {
 			const trips = [];
 			for (let n = 0; n < 3; n++) {
-				await f.db.transaction(async (tx) => {
+				await gatedTransaction(f.db, async (tx) => {
 					statements = [];
 					recording = true;
 					let result;
@@ -347,7 +348,9 @@ test("INV-identity: current actor preserves authority in one database round trip
 			assert.deepEqual(trips, [1, 1, 1], `${c.name}: ${trips.join(", ")} round trips, expected one statement each`);
 
 			if (!["foreign account", "seatless workspace"].includes(c.name)) {
-				const resolved = await f.db.transaction((tx) => RequestActor.resolve(tx, sessionId.parse(c.account.session)));
+				const resolved = await gatedTransaction(f.db, (tx) =>
+					RequestActor.resolve(tx, sessionId.parse(c.account.session)),
+				);
 				assert.deepEqual(resolved instanceof RequestActor ? resolved.actor : resolved, c.expected);
 			}
 			assert.equal(
@@ -406,7 +409,7 @@ test("INV-pages INV-request-page: a page past the end reads the last page; revok
 		assert.ok(viewer);
 		assert.equal(viewer.displayName, "Request Person 00");
 		assert.equal(viewer.ownPersonId, ids[0]);
-		return f.db.transaction((tx) => page(tx, new PeopleReadContext(viewer.authority)));
+		return gatedTransaction(f.db, (tx) => page(tx, new PeopleReadContext(viewer.authority)));
 	}
 	const list = await pageRead((tx, ctx) =>
 		readPeoplePage(tx, ctx, parseQuery(new URLSearchParams("search=Request+Person"))),
@@ -431,7 +434,7 @@ test("INV-pages INV-request-page: a page past the end reads the last page; revok
 	assert.deepEqual(person.value.link, { status: "ok", value: { status: "linked", personId: ids[0] } });
 	await f.admin.update(t.seat).set({ ended_at: new Date() }).where(eq(t.seat.id, seat));
 	const stale = Object.assign(new PeopleReadContext(viewer.authority), {});
-	const changed = await f.db.transaction((tx) =>
+	const changed = await gatedTransaction(f.db, (tx) =>
 		peopleWriter.updatePerson(tx, stale, {
 			requestKey: key(),
 			expectedRevision: "1",

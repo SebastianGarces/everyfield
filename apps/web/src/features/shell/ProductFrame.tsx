@@ -2,13 +2,13 @@
 
 import { BookOpen02Icon, MessageEdit01Icon, Settings02Icon } from "@hugeicons/core-free-icons";
 import { DASHBOARD_HOME, LANDING_ROUTE, ORGANIZATION_HOME } from "@everyfield/contracts/identity";
-import { ToastProvider, useToast } from "@everyfield/ui/controls";
+import { toast, Toaster } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
-import { FeedbackDialog } from "../feedback/FeedbackDialog.tsx";
+import { useEvryPanel } from "../evry/conversation/panel.tsx";
+import { FeedbackOverlay, whenFeedbackLoaded } from "../feedback/FeedbackOverlay.tsx";
 import { OwnSeat } from "../identity/seat-context.ts";
 import { evryOff } from "../intelligence/path.ts";
 import { useNotificationBell } from "../notifications/Bell.tsx";
@@ -55,7 +55,8 @@ export function ProductFrame({ settings: initial, seed, residency = null, ...pro
 						: { ...settings, role },
 		}));
 	return (
-		<ToastProvider>
+		<>
+			<Toaster />
 			<OwnSeat value={change}>
 				<Residency value={residencyState}>
 					<NotificationsProvider account={initial?.accountId ?? ""}>
@@ -65,12 +66,11 @@ export function ProductFrame({ settings: initial, seed, residency = null, ...pro
 					</NotificationsProvider>
 				</Residency>
 			</OwnSeat>
-		</ToastProvider>
+		</>
 	);
 }
 
 function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
-	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
 	const pathname = usePathname();
 	const privatePage = evryOff(pathname);
@@ -115,7 +115,9 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 		key: "feedback",
 		label: "Send feedback",
 		icon: MessageEdit01Icon,
-		onSelect: () => setFeedback(true),
+		onSelect: () => {
+			whenFeedbackLoaded(() => setFeedback(true));
+		},
 	} as const;
 	const organization = settings?.context === "organization";
 	const rail = shellNav(
@@ -177,7 +179,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 			{dialog.element}
 			{evry.element}
 			{bell.element}
-			<FeedbackDialog open={feedback} onOpenChange={setFeedback} name={name} />
+			<FeedbackOverlay open={feedback} onOpenChange={setFeedback} name={name} />
 		</AppShell>
 	);
 }

@@ -2,34 +2,25 @@
 
 import { getViewer } from "@/server/request-context";
 import { teamsWriter } from "@everyfield/domain/teams";
-import type { Transaction } from "@everyfield/db/client";
 import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Outcome } from "./model.ts";
-import {
-	loadTeam,
-	loadTeams,
-	outcome,
-	readCatalog,
-	readExport,
-	readHistory,
-	write,
-	type TeamView,
-	type TeamsView,
-	type Viewer,
-} from "./server.ts";
+import { write } from "./server.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Context = Parameters<typeof teamsWriter.create>[1];
-type Run<T> = (tx: Transaction, ctx: Context) => Promise<TeamsReply<T>>;
+type Run<T> = (tx: WriteTx, ctx: Context) => Promise<TeamsReply<T>>;
 
 async function seat() {
-	return (await getViewer())?.people ?? null;
+	return (await getViewer()).people ?? null;
 }
 async function change<T>(run: Run<T>): Promise<Outcome<T>> {
 	const v = await seat();
 	if (!v) return noSeat;
 	return write(v, run);
 }
+const withIds = (fields: unknown, ids: Record<string, string>) =>
+	fields && typeof fields === "object" && !Array.isArray(fields) ? { ...fields, ...ids } : fields;
 const command = (requestKey: string, expectedRevision: string, input: unknown) => ({
 	requestKey,
 	expectedRevision,
@@ -43,14 +34,17 @@ export async function createTeam(requestKey: string, input: unknown) {
 }
 
 export async function changeTeam(
-	op: "edit" | "archive" | "restore",
+	op: unknown,
 	requestKey: string,
 	expectedRevision: string,
 	teamId: string,
-	patch: Record<string, unknown> = {},
+	patch: unknown = {},
 ) {
-	if (!["edit", "archive", "restore"].includes(op)) return { status: "refused", code: "invalid_input" } as const;
-	return change((tx, ctx) => teamsWriter[op](tx, ctx, command(requestKey, expectedRevision, { ...patch, teamId })));
+	if (op !== "edit" && op !== "archive" && op !== "restore")
+		return { status: "refused", code: "invalid_input" } as const;
+	return change((tx, ctx) =>
+		teamsWriter[op](tx, ctx, command(requestKey, expectedRevision, withIds(patch, { teamId }))),
+	);
 }
 
 export async function appointLeader(requestKey: string, expectedRevision: string, teamId: string, personId: string) {
@@ -59,17 +53,12 @@ export async function appointLeader(requestKey: string, expectedRevision: string
 	);
 }
 
-export async function createRole(requestKey: string, teamId: string, input: Record<string, unknown>) {
-	return change((tx, ctx) => teamsWriter.createRole(tx, ctx, { requestKey, input: { ...input, teamId } }));
+export async function createRole(requestKey: string, teamId: string, input: unknown) {
+	return change((tx, ctx) => teamsWriter.createRole(tx, ctx, { requestKey, input: withIds(input, { teamId }) }));
 }
-export async function editRole(
-	requestKey: string,
-	expectedRevision: string,
-	roleId: string,
-	patch: Record<string, unknown>,
-) {
+export async function editRole(requestKey: string, expectedRevision: string, roleId: string, patch: unknown) {
 	return change((tx, ctx) =>
-		teamsWriter.editRole(tx, ctx, command(requestKey, expectedRevision, { ...patch, roleId })),
+		teamsWriter.editRole(tx, ctx, command(requestKey, expectedRevision, withIds(patch, { roleId }))),
 	);
 }
 export async function retireRole(requestKey: string, expectedRevision: string, roleId: string) {
@@ -102,34 +91,14 @@ export async function reactivateMembership(
 	);
 }
 
-export async function correctTenure(requestKey: string, expectedRevision: string, input: Record<string, unknown>) {
+export async function correctTenure(requestKey: string, expectedRevision: string, input: unknown) {
 	return change((tx, ctx) => teamsWriter.correctTenure(tx, ctx, command(requestKey, expectedRevision, input)));
 }
 
-export async function reloadTeam(teamId: string): Promise<Outcome<TeamView | null>> {
-	const v = await seat();
-	if (!v) return noSeat;
-	const view = await loadTeam(v, teamId);
-	if (view.status === "failed") return { status: "lost" };
-	return { status: "ok", value: view.status === "found" ? view : null };
-}
-export async function teamHistory(teamId: string) {
-	const v = await seat();
-	if (!v) return noSeat;
-	return outcome(await readHistory(v, teamId));
-}
-
-export async function templateCatalog() {
-	const v = await seat();
-	if (!v) return noSeat;
-	return outcome(await readCatalog(v));
-}
-
-type Selection = { teamKey: string; roleKeys: string[]; destinationTeamId?: string };
 export async function importTemplates(
 	requestKey: string,
 	version: string,
-	selections: Selection[],
+	selections: unknown,
 ): Promise<Outcome<{ newTeams: number; newRoles: number }>> {
 	const v = await seat();
 	if (!v) return noSeat;
@@ -141,16 +110,4 @@ export async function importTemplates(
 	);
 	if (done.status !== "ok") return done;
 	return { status: "ok", value: { newTeams: done.value.newTeams, newRoles: done.value.newSelectedRoles } };
-}
-export async function reloadTeams(): Promise<Outcome<TeamsView>> {
-	const v = await seat();
-	if (!v) return noSeat;
-	return { status: "ok", value: await loadTeams(v) };
-}
-
-export async function exportChart(includeArchived: boolean) {
-	const v: Viewer | null = await seat();
-	if (!v) return noSeat;
-	const r = outcome(await readExport(v, includeArchived === true));
-	return r.status === "ok" ? ({ status: "ok", value: { svg: r.value.svg, pdf: r.value.pdf } } as const) : r;
 }

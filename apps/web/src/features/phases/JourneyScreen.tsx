@@ -35,7 +35,7 @@ import {
 	PageHeader,
 	Select,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge, type Status } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
@@ -82,7 +82,6 @@ const STATUS: Record<Readiness["criteria"][number]["status"], { status: Status; 
 };
 
 export function JourneyScreen({ history, catalog, readiness, facts, launchDates, viewer }: Props) {
-	const toast = useToast();
 	const [journey, setJourney] = useState<Journey>({ state: history.state, entries: history.entries });
 	const [dialog, setDialog] = useState<JourneyDialog>(null);
 	const [receipt, setReceipt] = useState<string | null>(null);
