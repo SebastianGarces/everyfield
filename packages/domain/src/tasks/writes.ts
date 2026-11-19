@@ -73,7 +73,10 @@ export const assigneeFacts = (plantId: string, ids: readonly string[] | SQL) => 
 		${ownerReason(sql`x.id`, sql`${plantId}::uuid`)} AS reason,
 		${lockOwner(sql`x.id`, sql`${plantId}::uuid`)} AS locked
 		FROM unnest(${Array.isArray(ids) ? sql`${sql.param([...new Set(ids)].sort())}::uuid[]` : ids}) AS x(id)) u)`;
-export const joiningOf = (task: SQL, ids: readonly string[]) => sql`ARRAY(SELECT DISTINCT x FROM unnest(${sql.param([...ids])}::uuid[]) x
+export const joiningOf = (
+	task: SQL,
+	ids: readonly string[],
+) => sql`ARRAY(SELECT DISTINCT x FROM unnest(${sql.param([...ids])}::uuid[]) x
 	JOIN ${task} ON NOT EXISTS(SELECT FROM task_assignee a WHERE a.task_id=${task}.id AND a.account_id=x))`;
 const assigneeFactRows = z.array(
 	z.object({ id: accountId, name: z.string().nullable(), reason: z.string().nullable() }),
@@ -116,11 +119,7 @@ export function checkReferences(facts: unknown, input: ReferenceInput) {
 	if (input.relation && label === null) deny("invalid_subject");
 	return { assignees, relationLabel: label };
 }
-export async function references(
-	tx: Tx,
-	plantId: string,
-	input: ReferenceInput & { assigneeIds?: readonly string[] },
-) {
+export async function references(tx: Tx, plantId: string, input: ReferenceInput & { assigneeIds?: readonly string[] }) {
 	const r = await tx.execute(sql`SELECT ${referenceColumns(plantId, input.assigneeIds ?? [], input.relation)}`);
 	return checkReferences(r.rows[0], input);
 }
