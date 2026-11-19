@@ -34,8 +34,10 @@ export {
 	DialogContent,
 	DialogFooter,
 	DialogHeader,
+	DialogTitle,
 	DialogTrigger,
 	Sheet,
+	usePhone,
 } from "./Dialog";
 export { Field, Input, Kbd, SearchInput, Textarea, useFieldControl } from "./Field";
 export { both, IntentLink, useIntentPrefetch } from "./IntentLink";

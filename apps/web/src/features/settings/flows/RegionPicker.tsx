@@ -154,7 +154,7 @@ function RegionDialog({
 	};
 
 	return (
-		<Dialog open onOpenChange={(o) => (o ? null : onClose())}>
+		<Dialog drawer open onOpenChange={(o) => (o ? null : onClose())}>
 			<DialogContent size="md">
 				<DialogHeader
 					icon={MapsLocation01Icon}

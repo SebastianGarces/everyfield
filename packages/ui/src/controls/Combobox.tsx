@@ -2,8 +2,10 @@
 
 import { ArrowDown01Icon, Cancel01Icon, Search01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Command } from "cmdk";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { cn, Icon, type IconSvgElement } from "../foundations";
+import { Button, IconButton } from "./Button";
+import { Dialog, DialogClose, DialogContent, DialogTitle, DialogTrigger, usePhone } from "./Dialog";
 import { inputBox, inputInvalid, useFieldControl } from "./Field";
 import { Popover, PopoverContent, PopoverTrigger } from "./Popover";
 import { Spinner } from "./Spinner";
@@ -19,6 +21,7 @@ type ListProps = {
 	loading?: boolean;
 	error?: { message: string; onRetry: () => void };
 	emptyText?: string;
+	close?: ReactNode;
 };
 
 function OptionList({
@@ -30,18 +33,27 @@ function OptionList({
 	loading,
 	error,
 	emptyText = "No matches",
+	close,
 }: ListProps) {
+	const fill = Boolean(close);
 	return (
-		<Command loop className="flex flex-col">
-			<div className="flex items-center gap-2.5 border-b border-line px-2.5 pb-1.5">
+		<Command loop className={cn("flex flex-col", fill && "min-h-0 flex-1 px-3")}>
+			<div className={cn("flex items-center gap-2.5 border-b border-line px-2.5", fill ? "pt-2 pb-2" : "pb-1.5")}>
 				<Icon icon={Search01Icon} size={16} className="text-text-3" />
 				<Command.Input
 					placeholder={searchLabel}
 					aria-label={searchLabel}
 					className="h-10 min-w-0 flex-1 bg-transparent text-md text-ink outline-none placeholder:text-text-3 focus-visible:outline-none"
 				/>
+				{close}
 			</div>
-			<Command.List className="max-h-[280px] overflow-y-auto pt-1.5" aria-label={searchLabel}>
+			<Command.List
+				className={cn(
+					"overflow-y-auto pt-1.5",
+					fill ? "min-h-0 flex-1 overscroll-contain pb-[max(12px,env(safe-area-inset-bottom))]" : "max-h-[280px]",
+				)}
+				aria-label={searchLabel}
+			>
 				{error ? (
 					<div role="alert" className="flex flex-col items-start gap-2 px-2.5 py-3 text-sm text-text-2">
 						<span>{error.message}</span>
@@ -74,7 +86,10 @@ function OptionList({
 									keywords={o.description ? [o.description] : undefined}
 									disabled={o.disabled}
 									onSelect={() => onSelect(o.value)}
-									className="relative flex min-h-[38px] items-center gap-2.5 rounded-md px-2.5 py-1.5 text-md text-ink transition-[background-color] duration-150 select-none data-[disabled=true]:opacity-45 data-[selected=true]:bg-surface-2"
+									className={cn(
+										"relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-md text-ink transition-[background-color] duration-150 select-none data-[disabled=true]:opacity-45 data-[selected=true]:bg-surface-2",
+										fill ? "min-h-11" : "min-h-[38px]",
+									)}
 								>
 									{multiple ? (
 										<span
@@ -101,7 +116,7 @@ function OptionList({
 	);
 }
 
-type ComboboxProps = Omit<ListProps, "onSelect" | "multiple"> & {
+type ComboboxProps = Omit<ListProps, "onSelect" | "multiple" | "close"> & {
 	onValueChange: (value: string[]) => void;
 	multiple?: boolean;
 	placeholder?: string;
@@ -130,47 +145,68 @@ export function Combobox({
 }: ComboboxProps) {
 	const [open, setOpen] = useState(false);
 	const control = useFieldControl({ id, "aria-invalid": invalid, trigger: true });
+	const phone = usePhone();
 	const labels = options.filter((o) => value.includes(o.value)).map((o) => o.label);
-	return (
-		<Popover
-			open={open}
-			onOpenChange={(next) => {
-				setOpen(next);
-				onOpenChange?.(next);
-			}}
-		>
-			<PopoverTrigger
-				role="combobox"
-				aria-haspopup="listbox"
-				{...control}
-				className={cn(
-					inputBox,
-					control["aria-invalid"]
-						? inputInvalid
-						: "focus-visible:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none",
-					"justify-between text-left",
-					className,
-				)}
-			>
+	const change = (next: boolean) => {
+		setOpen(next);
+		onOpenChange?.(next);
+	};
+	const trigger = {
+		role: "combobox",
+		...control,
+		className: cn(
+			inputBox,
+			control["aria-invalid"]
+				? inputInvalid
+				: "focus-visible:shadow-[0_0_0_1px_var(--ef-ink),0_0_0_4px_color-mix(in_srgb,var(--ef-focus)_28%,transparent)] focus-visible:outline-none",
+			"justify-between text-left",
+			className,
+		),
+		children: (
+			<>
 				<span className={cn("min-w-0 flex-1 truncate", !labels.length && "text-text-3")}>
 					{labels.length ? labels.join(", ") : placeholder}
 				</span>
 				<Icon icon={ArrowDown01Icon} size={16} className="text-text-3" />
-			</PopoverTrigger>
-			<PopoverContent label={list.searchLabel} className="w-[var(--radix-popover-trigger-width)] min-w-[260px]">
-				<OptionList
-					{...list}
-					options={options}
-					value={value}
-					multiple={multiple}
-					onSelect={(v) => {
-						onValueChange(toggle(value, v, multiple));
-						if (!multiple) {
-							setOpen(false);
-							onOpenChange?.(false);
+			</>
+		),
+	};
+	const choose = (v: string) => {
+		onValueChange(toggle(value, v, multiple));
+		if (!multiple) change(false);
+	};
+	if (phone)
+		return (
+			<Dialog drawer open={open} onOpenChange={change}>
+				<DialogTrigger {...trigger} />
+				<DialogContent aria-describedby={undefined} className="h-[min(480px,calc(100dvh-40px))]">
+					<DialogTitle className="sr-only">{list.searchLabel}</DialogTitle>
+					<OptionList
+						{...list}
+						options={options}
+						value={value}
+						multiple={multiple}
+						onSelect={choose}
+						close={
+							<DialogClose asChild>
+								{multiple ? (
+									<Button size="sm" variant="secondary">
+										Done
+									</Button>
+								) : (
+									<IconButton icon={Cancel01Icon} label="Close" size="sm" />
+								)}
+							</DialogClose>
 						}
-					}}
-				/>
+					/>
+				</DialogContent>
+			</Dialog>
+		);
+	return (
+		<Popover open={open} onOpenChange={change}>
+			<PopoverTrigger aria-haspopup="listbox" {...trigger} />
+			<PopoverContent label={list.searchLabel} className="w-[var(--radix-popover-trigger-width)] min-w-[260px]">
+				<OptionList {...list} options={options} value={value} multiple={multiple} onSelect={choose} />
 			</PopoverContent>
 		</Popover>
 	);

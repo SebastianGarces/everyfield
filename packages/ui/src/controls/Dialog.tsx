@@ -2,7 +2,15 @@
 
 import { Alert02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { AlertDialog, Dialog as DialogPrimitive } from "radix-ui";
-import { useState, type ComponentPropsWithRef, type ReactNode, type Ref } from "react";
+import {
+	createContext,
+	use,
+	useState,
+	type ComponentProps,
+	type ComponentPropsWithRef,
+	type ReactNode,
+	type Ref,
+} from "react";
 import { Drawer } from "vaul";
 import { cn, useMediaQuery, type IconSvgElement } from "../foundations";
 import { InlineAlert } from "./Alert";
@@ -10,9 +18,51 @@ import { Button, IconButton } from "./Button";
 import { CardIcon, type Tone } from "./Card";
 import { usePortalContainer, useReturnFocus } from "./overlay-portal";
 
-export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export const DialogClose = DialogPrimitive.Close;
+export const DialogTitle = DialogPrimitive.Title;
+
+const PHONE = "(width < 640px)";
+const InDrawer = createContext(false);
+
+export function usePhone() {
+	return useMediaQuery(PHONE);
+}
+
+type DialogProps = ComponentProps<typeof DialogPrimitive.Root> & { drawer?: boolean; dismissible?: boolean };
+
+export function Dialog({ drawer = false, dismissible, ...props }: DialogProps) {
+	const phone = usePhone();
+	if (!drawer || !phone) return <DialogPrimitive.Root {...props} />;
+	return (
+		<InDrawer value>
+			<Drawer.Root autoFocus dismissible={dismissible} {...props} />
+		</InDrawer>
+	);
+}
+
+const DRAWER =
+	"fixed inset-x-0 bottom-0 z-50 flex max-h-[calc(100dvh-40px)] flex-col rounded-t-card bg-surface-raised text-md text-ink shadow-pop outline-none";
+
+function DrawerContent({
+	className,
+	children,
+	onOpenAutoFocus,
+	onCloseAutoFocus,
+	...props
+}: ComponentPropsWithRef<typeof Drawer.Content>) {
+	const container = usePortalContainer();
+	const focus = useReturnFocus({ onOpenAutoFocus, onCloseAutoFocus });
+	return (
+		<Drawer.Portal container={container}>
+			<Drawer.Overlay className="fixed inset-0 z-50 bg-ink-fixed/28" />
+			<Drawer.Content aria-modal="true" {...props} {...focus} className={cn(DRAWER, className)}>
+				<span aria-hidden="true" className="ef-grip mx-auto mt-2 h-1 w-9 flex-none rounded-pill" />
+				{children}
+			</Drawer.Content>
+		</Drawer.Portal>
+	);
+}
 
 const SCRIM = "ef-scrim fixed inset-0 z-50 bg-ink-fixed/28 backdrop-blur-[2px]";
 const PANEL =
@@ -23,7 +73,11 @@ type DialogContentProps = ComponentPropsWithRef<typeof DialogPrimitive.Content> 
 	size?: keyof typeof WIDTH;
 };
 
-export function DialogContent({
+export function DialogContent({ size, ...props }: DialogContentProps) {
+	return use(InDrawer) ? <DrawerContent {...props} /> : <CenteredContent size={size} {...props} />;
+}
+
+function CenteredContent({
 	size = "md",
 	className,
 	children,
@@ -52,9 +106,12 @@ type DialogHeaderProps = {
 	actions?: ReactNode;
 };
 
+const HEAD = "flex flex-none items-start gap-4 px-7 pb-4 max-app-sm:px-5";
+const headTop = (drawer: boolean) => (drawer ? "pt-3" : "pt-[26px] max-app-sm:pt-5");
+
 export function DialogHeader({ title, description, icon, tone = "ink", closable = true, actions }: DialogHeaderProps) {
 	return (
-		<div className="flex flex-none items-start gap-4 px-7 pt-[26px] pb-4 max-app-sm:px-5 max-app-sm:pt-5">
+		<div className={cn(HEAD, headTop(use(InDrawer)))}>
 			{icon ? <CardIcon icon={icon} tone={tone} /> : null}
 			<div className="min-w-0 flex-1">
 				<DialogPrimitive.Title className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink text-balance">
@@ -84,7 +141,8 @@ export function DialogFooter({ className, ...props }: ComponentPropsWithRef<"div
 	return (
 		<div
 			className={cn(
-				"flex flex-none flex-wrap items-center justify-end gap-2.5 px-7 pt-6 pb-[26px] max-app-sm:px-5 max-app-sm:pb-5 max-app-sm:*:flex-1",
+				"flex flex-none flex-wrap items-center justify-end gap-2.5 px-7 pt-6 max-app-sm:px-5 max-app-sm:*:flex-1",
+				use(InDrawer) ? "pb-[max(20px,env(safe-area-inset-bottom))]" : "pb-[26px] max-app-sm:pb-5",
 				className,
 			)}
 			{...props}
@@ -144,51 +202,71 @@ export function ConfirmDialog({
 		}
 	};
 
+	const phone = usePhone();
+	const P = phone ? DRAWER_PARTS : ALERT_PARTS;
+	const body = (
+		<>
+			<div className={cn(HEAD, headTop(phone))}>
+				{tone === "danger" ? <CardIcon icon={Alert02Icon} tone="magenta" /> : null}
+				<div className="min-w-0 flex-1">
+					<P.Title className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink text-balance">
+						{title}
+					</P.Title>
+					{description ? <P.Description className="mt-1 text-md text-text-2">{description}</P.Description> : null}
+				</div>
+			</div>
+			{consequences?.length ? (
+				<div className="min-h-0 flex-1 overflow-y-auto px-7 max-app-sm:px-5">
+					<ul className="flex flex-col gap-2 rounded-md bg-surface px-5 py-4 text-text-2">
+						{consequences.map((c, i) => (
+							<li key={i} className="flex gap-2.5">
+								<span aria-hidden="true" className="mt-[9px] size-1.5 flex-none rounded-full bg-text-3" />
+								{c}
+							</li>
+						))}
+					</ul>
+				</div>
+			) : null}
+			<InlineAlert className="px-7 pt-4 max-app-sm:px-5">{error}</InlineAlert>
+			<DialogFooter>
+				<P.Cancel asChild>
+					<Button variant="secondary" disabled={pending}>
+						{cancelLabel}
+					</Button>
+				</P.Cancel>
+				<Button variant={tone === "danger" ? "danger" : "primary"} loading={pending} onClick={confirm}>
+					{confirmLabel}
+				</Button>
+			</DialogFooter>
+		</>
+	);
+
+	if (phone)
+		return (
+			<Dialog drawer dismissible={!pending} open={isOpen} onOpenChange={setOpen}>
+				{trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
+				<DialogContent role="alertdialog">{body}</DialogContent>
+			</Dialog>
+		);
 	return (
 		<AlertDialog.Root open={isOpen} onOpenChange={setOpen}>
 			{trigger ? <AlertDialog.Trigger asChild>{trigger}</AlertDialog.Trigger> : null}
 			<AlertDialog.Portal container={container}>
 				<AlertDialog.Overlay className={SCRIM} />
 				<AlertDialog.Content aria-modal="true" className={cn(PANEL, WIDTH.sm)} {...focus}>
-					<div className="flex flex-none items-start gap-4 px-7 pt-[26px] pb-4 max-app-sm:px-5 max-app-sm:pt-5">
-						{tone === "danger" ? <CardIcon icon={Alert02Icon} tone="magenta" /> : null}
-						<div className="min-w-0 flex-1">
-							<AlertDialog.Title className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink text-balance">
-								{title}
-							</AlertDialog.Title>
-							{description ? (
-								<AlertDialog.Description className="mt-1 text-md text-text-2">{description}</AlertDialog.Description>
-							) : null}
-						</div>
-					</div>
-					{consequences?.length ? (
-						<div className="min-h-0 flex-1 overflow-y-auto px-7 max-app-sm:px-5">
-							<ul className="flex flex-col gap-2 rounded-md bg-surface px-5 py-4 text-text-2">
-								{consequences.map((c, i) => (
-									<li key={i} className="flex gap-2.5">
-										<span aria-hidden="true" className="mt-[9px] size-1.5 flex-none rounded-full bg-text-3" />
-										{c}
-									</li>
-								))}
-							</ul>
-						</div>
-					) : null}
-					<InlineAlert className="px-7 pt-4 max-app-sm:px-5">{error}</InlineAlert>
-					<div className="flex flex-none flex-wrap items-center justify-end gap-2.5 px-7 pt-6 pb-[26px] max-app-sm:px-5 max-app-sm:pb-5 max-app-sm:*:flex-1">
-						<AlertDialog.Cancel asChild>
-							<Button variant="secondary" disabled={pending}>
-								{cancelLabel}
-							</Button>
-						</AlertDialog.Cancel>
-						<Button variant={tone === "danger" ? "danger" : "primary"} loading={pending} onClick={confirm}>
-							{confirmLabel}
-						</Button>
-					</div>
+					{body}
 				</AlertDialog.Content>
 			</AlertDialog.Portal>
 		</AlertDialog.Root>
 	);
 }
+
+const ALERT_PARTS = { Title: AlertDialog.Title, Description: AlertDialog.Description, Cancel: AlertDialog.Cancel };
+const DRAWER_PARTS = {
+	Title: DialogPrimitive.Title,
+	Description: DialogPrimitive.Description,
+	Cancel: DialogPrimitive.Close,
+};
 
 type SheetProps = {
 	open?: boolean;
@@ -210,8 +288,6 @@ type SheetProps = {
 const SHEET_WIDTH = { md: "w-[420px]", lg: "w-[480px]", xl: "w-[560px]" } as const;
 const SHEET_SIDE =
 	"ef-sheet fixed top-3 right-3 bottom-3 z-50 flex max-w-[calc(100vw-24px)] flex-col rounded-card bg-surface-raised text-md text-ink shadow-pop outline-none";
-const SHEET_DRAWER =
-	"fixed inset-x-0 bottom-0 z-50 flex h-[calc(100dvh-40px)] flex-col rounded-t-card bg-surface-raised text-md text-ink shadow-pop outline-none";
 
 export function Sheet({
 	open,
@@ -231,10 +307,9 @@ export function Sheet({
 }: SheetProps) {
 	const container = usePortalContainer();
 	const focus = useReturnFocus({ onOpenAutoFocus, onCloseAutoFocus });
-	const phone = useMediaQuery("(width < 640px)");
+	const phone = usePhone();
 	const content = {
 		"aria-modal": modal ? ("true" as const) : undefined,
-		...focus,
 		onEscapeKeyDown,
 		onInteractOutside: modal ? undefined : (e: Event) => e.preventDefault(),
 	};
@@ -268,23 +343,24 @@ export function Sheet({
 	);
 	if (phone)
 		return (
-			<Drawer.Root open={open} onOpenChange={onOpenChange} modal={modal} autoFocus>
-				{trigger ? <Drawer.Trigger asChild>{trigger}</Drawer.Trigger> : null}
-				<Drawer.Portal container={container}>
-					<Drawer.Overlay className="fixed inset-0 z-50 bg-ink-fixed/28" />
-					<Drawer.Content {...content} className={SHEET_DRAWER}>
-						<span aria-hidden="true" className="ef-grip mx-auto mt-2 h-1 w-9 flex-none rounded-pill" />
-						{parts}
-					</Drawer.Content>
-				</Drawer.Portal>
-			</Drawer.Root>
+			<Dialog drawer open={open} onOpenChange={onOpenChange} modal={modal}>
+				{trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
+				<DialogContent
+					{...content}
+					onOpenAutoFocus={onOpenAutoFocus}
+					onCloseAutoFocus={onCloseAutoFocus}
+					className="h-[calc(100dvh-40px)]"
+				>
+					{parts}
+				</DialogContent>
+			</Dialog>
 		);
 	return (
 		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
 			{trigger ? <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger> : null}
 			<DialogPrimitive.Portal container={container}>
 				{modal ? <DialogPrimitive.Overlay className={cn(SCRIM, "backdrop-blur-none")} /> : null}
-				<DialogPrimitive.Content {...content} className={cn(SHEET_SIDE, SHEET_WIDTH[size])}>
+				<DialogPrimitive.Content {...content} {...focus} className={cn(SHEET_SIDE, SHEET_WIDTH[size])}>
 					{parts}
 				</DialogPrimitive.Content>
 			</DialogPrimitive.Portal>
