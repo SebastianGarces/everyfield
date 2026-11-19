@@ -140,3 +140,33 @@ test("INV-location: the address hash reader shows the fragment after an in-page 
 	assert.equal(shown, "#faq-seats", "Forward");
 	await act(async () => root.unmount());
 });
+
+test("INV-link: a spent one-time link value leaves storage at once and stays readable only until its page is left", async () => {
+	let seen: string | null | undefined;
+	function Reader() {
+		seen = store.useOneTimeLinkValue("invitation");
+		return null;
+	}
+	at = new URL("https://everyfield.test/invitation#proof=spent-1");
+	window.dispatchEvent(new Event("popstate"));
+	assert.equal(stored.get("ef-invitation-proof"), "spent-1");
+	const root = createRoot(
+		Object.assign(new EventTarget(), { nodeType: 1, nodeName: "DIV", tagName: "DIV", ownerDocument: document }),
+	);
+	await act(async () => root.render(createElement(Reader)));
+	assert.equal(seen, "spent-1");
+	await act(async () => store.spendOneTimeLinkValue("invitation"));
+	assert.equal(stored.has("ef-invitation-proof"), false);
+	assert.equal(seen, "spent-1", "the answered page still shows its outcome");
+	store.routerTransitionStarted("/people", "push");
+	await act(async () => root.unmount());
+	history.pushState(null, "", "/people");
+	at = new URL("https://everyfield.test/invitation");
+	window.dispatchEvent(new Event("popstate"));
+	const again = createRoot(
+		Object.assign(new EventTarget(), { nodeType: 1, nodeName: "DIV", tagName: "DIV", ownerDocument: document }),
+	);
+	await act(async () => again.render(createElement(Reader)));
+	assert.equal(seen, null, "back on the page, the value is gone");
+	await act(async () => again.unmount());
+});
