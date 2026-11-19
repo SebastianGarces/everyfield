@@ -28,7 +28,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { serverConfig, serverEnv, type ServerConfig } from "../../server/config.ts";
 import { database } from "../../server/database.ts";
-import { enqueueJob, queueJobs } from "../../server/jobs/queue.ts";
+import { enqueueJob, queueJobs } from "@everyfield/domain/jobs";
 import { current as organizationMount } from "../organizations/mount.ts";
 import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";

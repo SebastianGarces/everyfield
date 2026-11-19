@@ -4,7 +4,7 @@ import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/i
 import { randomBytes } from "node:crypto";
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
-import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 let url: URL;
 try {
 	url = assertDevelopmentDatabase(process.env.JOBS_TEST_CONNECTION);

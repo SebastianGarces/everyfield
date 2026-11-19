@@ -6,7 +6,7 @@ import "server-only";
 import { z } from "zod";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import { Refusal, safeBoundary, safeResponse } from "../platform/boundary.ts";
-import { transaction } from "../platform/database.ts";
+import { transaction } from "@everyfield/domain/jobs";
 import { verifyCallback } from "../platform/webhook.ts";
 import { logFailure } from "@everyfield/domain/log";
 const provider_event_e = alias(tables.provider_event, "e");

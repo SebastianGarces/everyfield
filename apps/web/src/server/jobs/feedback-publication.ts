@@ -3,10 +3,9 @@ import { sql, type SQL } from "@everyfield/db/query";
 import { issueHash, publicIssue, type PublicIssue } from "@everyfield/domain/feedback/public";
 import "server-only";
 import { z } from "zod";
-import { transaction } from "../platform/database.ts";
+import { transaction, claimDue, finishClaim, lockClaim, recoverLease, type Claim } from "@everyfield/domain/jobs";
 import type { HeldReason } from "@everyfield/contracts/feedback";
 import type { IssueClient, IssueLink } from "./github.ts";
-import { claimDue, finishClaim, lockClaim, recoverLease, type Claim } from "./queue.ts";
 import { logLine } from "@everyfield/domain/log";
 
 export type OperatorMail = (notice: OperatorNotice) => SQL;
