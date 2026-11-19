@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
-import { readSourceOrder, saveSourceOrder } from "../wiki/actions";
+import { saveSourceOrder } from "../wiki/actions";
+import { readSourceOrder } from "../wiki/fetch.ts";
 import { readRegion, saveRegion, suggestRegion } from "./region";
 import { SettingsGuide } from "../wiki/chrome.tsx";
 import {
