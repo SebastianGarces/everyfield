@@ -2205,44 +2205,72 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 			if (!wireParam(param)) push({ node: param, fn: name, message: `${name} takes a typed parameter. ${WIRE_HOME}` });
 	};
 	const FUNCTION = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
+	const wrapped = (node) => {
+		if (!node) return [];
+		if (FUNCTION.has(node.type)) return [node];
+		if (node.type === "CallExpression") return node.arguments.flatMap(wrapped);
+		if (node.type === "TSAsExpression" || node.type === "TSSatisfiesExpression") return wrapped(node.expression);
+		return [];
+	};
 	const locals = new Map();
 	const exportedLocals = [];
+	const inline = (node) => {
+		if (declaresServer(node)) check(node, functionName(node) ?? "an inline server action");
+	};
+	const exportedValue = (init, name) => {
+		for (const fn of wrapped(init)) if (!declaresServer(fn)) check(fn, name);
+	};
 	return {
 		FunctionDeclaration(node) {
 			if (node.id) locals.set(node.id.name, node);
-			if (declaresServer(node)) check(node, functionName(node) ?? "an inline server action");
+			inline(node);
 		},
 		VariableDeclarator(node) {
-			if (node.id.type === "Identifier" && FUNCTION.has(node.init?.type)) locals.set(node.id.name, node.init);
+			if (node.id.type === "Identifier" && node.init) locals.set(node.id.name, node.init);
 		},
-		FunctionExpression(node) {
-			if (declaresServer(node)) check(node, functionName(node) ?? "an inline server action");
-		},
-		ArrowFunctionExpression(node) {
-			if (declaresServer(node)) check(node, functionName(node) ?? "an inline server action");
-		},
+		FunctionExpression: inline,
+		ArrowFunctionExpression: inline,
 		ExportNamedDeclaration(node) {
 			if (!moduleActions || node.exportKind === "type") return;
+			if (node.source) {
+				for (const spec of node.specifiers ?? [])
+					if (spec.exportKind !== "type")
+						push({
+							node: spec,
+							fn: nameOf(spec.exported),
+							message: `${nameOf(spec.exported)} is re-exported from ${node.source.value}, so this rule cannot see its parameters. Declare the server action in this module. ${WIRE_HOME}`,
+						});
+				return;
+			}
 			const d = node.declaration;
 			if (d?.type === "FunctionDeclaration" && !declaresServer(d)) check(d, d.id.name);
 			if (d?.type === "VariableDeclaration")
-				for (const v of d.declarations)
-					if (v.id.type === "Identifier" && FUNCTION.has(v.init?.type) && !declaresServer(v.init))
-						check(v.init, v.id.name);
-			if (!node.source)
-				for (const spec of node.specifiers ?? [])
-					if (spec.exportKind !== "type") exportedLocals.push([nameOf(spec.local), nameOf(spec.exported)]);
+				for (const v of d.declarations) if (v.id.type === "Identifier") exportedValue(v.init, v.id.name);
+			for (const spec of node.specifiers ?? [])
+				if (spec.exportKind !== "type") exportedLocals.push([nameOf(spec.local), nameOf(spec.exported)]);
 		},
 		ExportDefaultDeclaration(node) {
 			if (!moduleActions) return;
 			const d = node.declaration;
-			if (FUNCTION.has(d.type) && !declaresServer(d)) check(d, d.id?.name ?? "default");
 			if (d.type === "Identifier") exportedLocals.push([d.name, "default"]);
+			else if (d.type === "FunctionDeclaration") {
+				if (!declaresServer(d)) check(d, d.id?.name ?? "default");
+			} else exportedValue(d, "default");
+		},
+		ExportAllDeclaration(node) {
+			if (!moduleActions || node.exportKind === "type") return;
+			push({
+				node,
+				fn: "*",
+				message: `export * from ${node.source.value} in a "use server" module exports actions this rule cannot see. Declare each server action in this module. ${WIRE_HOME}`,
+			});
 		},
 		"Program:exit"() {
 			for (const [local, exported] of exportedLocals) {
-				const fn = locals.get(local);
-				if (fn && !declaresServer(fn)) check(fn, exported);
+				const value = locals.get(local);
+				if (value?.type === "FunctionDeclaration") {
+					if (!declaresServer(value)) check(value, exported);
+				} else exportedValue(value, exported);
 			}
 		},
 	};
