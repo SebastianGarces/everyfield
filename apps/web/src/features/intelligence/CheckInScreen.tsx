@@ -29,7 +29,8 @@ import {
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { RadioGroup } from "radix-ui";
 import { startTransition, useActionState, useOptimistic, useRef, useState, useTransition } from "react";
-import { correctCheckIn, readCheckInHistory, saveCheckIn } from "./actions.ts";
+import { correctCheckIn, saveCheckIn } from "./actions.ts";
+import { readCheckInHistory } from "./fetch.ts";
 import {
 	AREA,
 	complete,
