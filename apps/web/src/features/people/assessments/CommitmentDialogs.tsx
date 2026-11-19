@@ -22,12 +22,13 @@ import {
 } from "@everyfield/ui/controls";
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { useId, useRef, useState } from "react";
+import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import type { Outcome, Wait } from "../../../components/save/model.ts";
 import { RecordDialog } from "../../../components/save/parts.tsx";
 import { LocalDay } from "../parts.tsx";
 import { findWitnesses } from "../fetch.ts";
-import { KIND_LABEL, today, type Commitment, type Kind } from "./model.ts";
+import { KIND_LABEL, type Commitment, type Kind } from "./model.ts";
 import { ChoiceField, recordProblem } from "./parts.tsx";
 
 const DOCUMENT_TYPES = commitmentMime.options;
@@ -53,7 +54,7 @@ export type CommitmentDraft = {
 };
 export const blankCommitment = (): CommitmentDraft => ({
 	kind: "core_group",
-	occurredOn: today(),
+	occurredOn: localToday(),
 	witness: { kind: "none" },
 	notes: "",
 	file: null,
@@ -128,7 +129,7 @@ export function RecordCommitmentDialog({
 					<Input
 						type="date"
 						value={draft.occurredOn}
-						max={today()}
+						max={localToday()}
 						onChange={(e) => set({ occurredOn: e.target.value })}
 					/>
 				</Field>
@@ -424,7 +425,7 @@ export function LifecycleDialog({
 					type="date"
 					value={draft.effectiveOn}
 					min={since ?? undefined}
-					max={today()}
+					max={localToday()}
 					onChange={(e) => setDraft((d) => ({ ...d, effectiveOn: e.target.value }))}
 				/>
 			</Field>
@@ -517,7 +518,7 @@ export function CorrectionDialog({
 						<Input
 							type="date"
 							value={draft.occurredOn}
-							max={today()}
+							max={localToday()}
 							onChange={(e) => set({ occurredOn: e.target.value })}
 						/>
 					</Field>
