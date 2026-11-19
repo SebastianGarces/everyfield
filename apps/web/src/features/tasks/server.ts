@@ -15,7 +15,7 @@ import "server-only";
 import { HISTORY_PAGE, outcomeOf } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
 import { tasksMount } from "./mount.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type TaskViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
 const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";

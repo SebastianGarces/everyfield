@@ -7,7 +7,7 @@ import { createNotificationProducer, parseKeyRing } from "@everyfield/domain/not
 import { randomBytes } from "node:crypto";
 import "server-only";
 import { stamped, type FeedPage, type FeedQuery, type Outcome, type Reply } from "./model.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 type Producer = ReturnType<typeof createNotificationProducer>;
 export type Mount = { db: Database; producer: Producer; optOut: boolean };

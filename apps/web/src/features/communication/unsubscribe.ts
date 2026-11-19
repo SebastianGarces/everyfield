@@ -6,7 +6,7 @@ import type { CommunicationReply } from "@everyfield/domain/communication";
 import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import type { Outcome } from "./model.ts";
 import { serverEnv } from "../../server/config.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 type UnsubscribeMount = { db: Database; ring: OptOutKeyRing };
 

@@ -9,7 +9,7 @@ import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@ever
 import "server-only";
 import { phasesMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 type PhaseViewer = {
 	authority: RequestActor;

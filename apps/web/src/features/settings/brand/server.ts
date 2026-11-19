@@ -9,7 +9,7 @@ import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import type { BrandView } from "../port";
 import { type LogWord } from "@everyfield/domain/log";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../../server/platform/transient.ts";
 
 type Db = NonNullable<ReturnType<typeof requestDatabase>>;
 type Actor = Awaited<ReturnType<typeof getViewer>>["authority"];

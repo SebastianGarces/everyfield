@@ -11,7 +11,7 @@ import { cache } from "react";
 import "server-only";
 import type { Loaded } from "./model.ts";
 import { type LogWord } from "@everyfield/domain/log";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 const launch = createLaunchReader();
 const assessments = createAssessments();

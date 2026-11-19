@@ -26,7 +26,7 @@ import {
 	type Owners,
 	type ObligationPage,
 } from "./model.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export { COVERAGE_PAGE, taskViewer, type TaskViewer };
 

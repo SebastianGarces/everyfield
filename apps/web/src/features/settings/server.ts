@@ -35,7 +35,7 @@ import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../server/platform/transient.ts";
 import { parseJson } from "../../server/platform/json.ts";
 
 type Viewer = Awaited<ReturnType<typeof getViewer>>;

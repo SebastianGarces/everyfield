@@ -11,7 +11,7 @@ import "server-only";
 import type { Outcome, PageData } from "./model.ts";
 import { appOrigin, mailReady, type MailReady } from "../../server/mail/transport.ts";
 import { canWrite } from "../../components/seat-role.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 type Peopled = NonNullable<Awaited<ReturnType<typeof getViewer>>["people"]>;
 export type Viewer = Peopled;

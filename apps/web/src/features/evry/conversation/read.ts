@@ -4,7 +4,7 @@ import { listPhotoRoute, personPhotosRequest } from "@everyfield/contracts/peopl
 import { PeopleReadContext, readPersonPhotos } from "@everyfield/domain/people";
 import "server-only";
 import { defineReads } from "../../../server/platform/reads.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../../server/platform/transient.ts";
 
 export const GET = defineReads(
 	async () => ({ viewer: await getViewer() }),

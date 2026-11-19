@@ -7,7 +7,7 @@ import { createLaunchReader, type LaunchWriter } from "@everyfield/domain/launch
 import "server-only";
 import { launchMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type LaunchViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
 

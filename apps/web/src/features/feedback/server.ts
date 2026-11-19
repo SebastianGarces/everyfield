@@ -8,7 +8,7 @@ import { githubConfig } from "@/server/jobs/github";
 import { getViewer } from "@/server/request-context";
 import type { PublicationSetup } from "./model.ts";
 import { operatorMailConfigured } from "./mail.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export { appVersion } from "../../server/app-version.ts";
 
