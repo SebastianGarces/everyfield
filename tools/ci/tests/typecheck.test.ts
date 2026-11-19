@@ -5,6 +5,7 @@ import {
 	accessSync,
 	constants,
 	existsSync,
+	globSync,
 	mkdirSync,
 	mkdtempSync,
 	readdirSync,
@@ -206,16 +207,21 @@ test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, too
 		"tests/unit/tsconfig.json",
 		"tests/ui/tsconfig.json",
 		"tests/evry/tsconfig.json",
+		"tests/integration/*/tsconfig.json",
 	];
 	assert.equal(rootPkg.scripts["typecheck:tools"], `node_modules/typescript-7/bin/tsc -b ${projects.join(" ")}`);
-	const files = projects.flatMap((project) => {
-		const listed = spawnSync(join(repo, "node_modules/typescript-7/bin/tsc"), ["-p", project, "--listFilesOnly"], {
-			cwd: repo,
-			encoding: "utf8",
+	const integration = globSync("tests/integration/*/tsconfig.json", { cwd: repo }).sort();
+	assert.ok(integration.length > 0, "the integration glob finds a folder project");
+	const files = projects
+		.flatMap((glob) => (glob.includes("*") ? integration : [glob]))
+		.flatMap((project) => {
+			const listed = spawnSync(join(repo, "node_modules/typescript-7/bin/tsc"), ["-p", project, "--listFilesOnly"], {
+				cwd: repo,
+				encoding: "utf8",
+			});
+			assert.equal(listed.status, 0, listed.stderr);
+			return listed.stdout.split("\n").map((file) => file.trim().slice(repo.length + 1));
 		});
-		assert.equal(listed.status, 0, listed.stderr);
-		return listed.stdout.split("\n").map((file) => file.trim().slice(repo.length + 1));
-	});
 	for (const file of [
 		"scripts/fast-check.ts",
 		"tools/ci/typecheck.ts",
@@ -229,6 +235,13 @@ test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, too
 		"tests/evry/runtime/runs.test.mts",
 	])
 		assert.ok(files.includes(file), `${file} is in the tools program`);
+	for (const project of integration) {
+		const folder = project.slice(0, -"tsconfig.json".length);
+		assert.ok(
+			files.some((file) => file.startsWith(folder) && /\.m?ts$/.test(file)),
+			`${folder} is in the tools program`,
+		);
+	}
 });
 
 test("INV-typecheck: every package's typecheck runs tsc, and its typecheck:bun the pinned bun 1.4.4, never a global bun", (t) => {
