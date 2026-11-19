@@ -22,6 +22,7 @@ export {
 } from "./Card";
 export { Checkbox, Radio, RadioGroup, Switch } from "./Choice";
 export { Combobox, FilterChip, type ComboboxOption } from "./Combobox";
+export { Command, keepKeyInField } from "./Command";
 export { CommandPalette, type CommandGroup, type CommandItem } from "./CommandPalette";
 export { DateRangePicker, formatRange, type DatePreset, type DateRange } from "./DateRangePicker";
 export {
