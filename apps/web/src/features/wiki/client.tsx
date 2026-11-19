@@ -17,21 +17,14 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import { leaveBeaconMark, shortcutMark } from "../../components/save/leave.ts";
 import { useLocalStore, useShallow, useStore } from "../../components/store.ts";
-import {
-	downloadPdf,
-	printCopy,
-	recordArticleView,
-	saveBookmark,
-	saveProgress,
-	saveSourceOrder,
-	type OrderSave,
-} from "./actions.ts";
+import { recordArticleView, saveBookmark, saveProgress, saveSourceOrder, type OrderSave } from "./actions.ts";
 import {
 	createArticleSessionStore,
 	type SessionPort,
 	type SessionSeed,
 	type SessionStore,
 } from "./ArticleSession.store.ts";
+import { downloadPdf, printCopy } from "./fetch.ts";
 import { useOpenSettings, useSettingsLink } from "../settings/opener.tsx";
 import { ARTICLE_FIXED, BELOW_WIDE_ONLY, GRID, GRID_FIXED, RAIL_FIXED, RAIL_STICKY, RAIL_TOC_PAD } from "./layout.ts";
 import { type ArticleVersion, preferredOrder, type SourceOrder, type SourceRow } from "./model.ts";
