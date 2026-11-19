@@ -55,7 +55,8 @@ import { RecordsSection, type CorrectedRecord } from "./assessments/RecordsSecti
 import { EditRecordDialog } from "./corrections/EditRecordDialog.tsx";
 import { DuplicateHints } from "./corrections/DuplicateHints.tsx";
 import { recordsIntent, recordsRead, unmergeRead } from "./corrections/intent.ts";
-import type { DuplicateHints as Hints, PersonPage } from "./corrections/server.ts";
+import type { PersonPage } from "./corrections/page.ts";
+import type { DuplicateHints as Hints } from "./corrections/server.ts";
 import { UnmergeDialog } from "./corrections/UnmergeDialog.tsx";
 import type { Unmerged } from "./corrections/actions.ts";
 import { Problem } from "./corrections/parts.tsx";
