@@ -85,7 +85,7 @@ test("INV-jobs: default and explicit leases meet the execution limits", async ()
 		);
 	}
 });
-test("INV-jobs: safe checkpoints resume, external effects reconcile, exhausted jobs stop", async () => {
+test("INV-jobs INV-privacy: safe checkpoints resume, external effects reconcile, exhausted jobs stop, and only a fixed code is stored", async () => {
 	for (const external of [false, true]) {
 		const id = await create(1);
 		const [claim] = await claimDue(runtime, ["object_cleanup"]);
@@ -102,15 +102,21 @@ test("INV-jobs: safe checkpoints resume, external effects reconcile, exhausted j
 	}
 	const id = await create();
 	const [claim] = await claimDue(runtime, ["object_cleanup"]);
+	for (const code of ["busy'; --", "Key (email)=(someone@example.test) already exists"])
+		await assert.rejects(finishJob(runtime, claim, { state: "retry_wait", code, retryAfterSeconds: 900 } as never));
 	assert.equal(
-		await finishJob(runtime, claim, { state: "retry_wait", code: "busy'; --", retryAfterSeconds: 900 }),
+		(await db.execute(querySql`SELECT state,error_code FROM job WHERE id=${querySql.param(id)}`)).rows[0].error_code,
+		null,
+	);
+	assert.equal(
+		await finishJob(runtime, claim, { state: "retry_wait", code: "provider_unknown", retryAfterSeconds: 900 }),
 		true,
 	);
 	const wait = await db.execute(
 		querySql`SELECT round(extract(epoch FROM next_attempt_at-clock_timestamp()))::int seconds,state,error_code FROM job WHERE id=${querySql.param(id)}`,
 	);
 	assert.ok(wait.rows[0].seconds >= 899 && wait.rows[0].seconds <= 900);
-	assert.deepEqual([wait.rows[0].state, wait.rows[0].error_code], ["retry_wait", "busy'; --"]);
+	assert.deepEqual([wait.rows[0].state, wait.rows[0].error_code], ["retry_wait", "provider_unknown"]);
 	assert.deepEqual(await claimDue(runtime, ["object_cleanup"]), []);
 });
 test("INV-jobs: a retry on the last attempt waits instead of failing when the worker saved progress and reset its budget", async () => {

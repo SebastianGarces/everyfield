@@ -1,4 +1,4 @@
-import { captureAllowed } from "../../server/mail/capture.ts";
+import { isTestDeployment } from "@everyfield/db/deployment";
 import { readOutbox } from "./outbox.ts";
 
 const escape = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -12,7 +12,7 @@ const html = (body: string) =>
 	});
 
 export async function outboxRoute(request: Request) {
-	if (!captureAllowed(process.env)) return new Response(null, { status: 404 });
+	if (!isTestDeployment(process.env)) return new Response(null, { status: 404 });
 	const entries = await readOutbox();
 	const id = new URL(request.url).searchParams.get("id");
 	if (id !== null) {

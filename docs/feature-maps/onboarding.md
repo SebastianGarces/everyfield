@@ -37,6 +37,7 @@ flowchart LR
 The account's way into a church: create one, or explore first in a private Discovery space. A member, an organization seat and a signed-out visitor are each sent elsewhere.
 
 - Routes: `/onboarding`
+- Endpoints: `/onboarding/read`
 - Personas: `signup` write, `triage` write, `resident` write, `owner` write, `member` read, `network` none, `visitor` none
 - Catalog: IDN-013, IDN-016
 

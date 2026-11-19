@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { createRead, useRead } from "@/components/read";
 import type { Turn } from "./model.ts";
-import { readRowPhotos } from "./photoActions.ts";
+import { readRowPhotos } from "./fetch.ts";
 import { cardView } from "./resultView.ts";
 
 const BATCH = 100;
