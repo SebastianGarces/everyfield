@@ -6,7 +6,8 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createPrivateCare, type PrivateCare } from "@everyfield/domain/intelligence";
 import "server-only";
 import type { Outcome } from "./model.ts";
-import { logFailure, type LogWord } from "@everyfield/domain/log";
+import { isTransient, logFailure, type LogWord } from "@everyfield/domain/log";
+import { unexpected } from "../../server/platform/transient.ts";
 
 const care = createPrivateCare();
 
@@ -14,7 +15,7 @@ export type CareViewer = { authority: RequestActor; displayName: string; role: "
 
 export async function careViewer(): Promise<CareViewer | null> {
 	const v = await getViewer();
-	const authority = v?.authority;
+	const authority = v.authority;
 	if (!authority) return null;
 	const ctx = authority.actor.context;
 	if (ctx.kind !== "seat" || ctx.owner.kind !== "plant") return null;
@@ -26,10 +27,10 @@ const report = <O extends string>(outcome: LogWord<O>, error: unknown) =>
 
 export async function loadCheckIn(viewer: CareViewer): Promise<Outcome<CarePage>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await care.readTrends(db, viewer.authority, {});
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "private-care", outcome: "read_failed" }, error);
 		report("read_failed", error);
 		return { status: "lost" };
 	}
@@ -51,10 +52,10 @@ export async function runAs<T>(viewer: CareViewer | null, body: Body<T>): Promis
 			}),
 		};
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await body(care, db, viewer.authority);
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "private-care", outcome: "call_failed" }, error);
 		report("call_failed", error);
 		return { status: "lost" };
 	}

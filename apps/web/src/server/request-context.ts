@@ -4,7 +4,9 @@ import { signedSessionToken } from "@everyfield/domain/identity";
 import { peopleViewer } from "@everyfield/domain/people";
 import { sessionResult } from "@everyfield/contracts/identity";
 import { avatarReference } from "@everyfield/contracts/settings";
+import type { Refused } from "@everyfield/contracts/common";
 import { requestDatabase } from "./database";
+import { serverConfigProblem } from "./config.ts";
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { requestAuth } from "./identity";
@@ -16,8 +18,6 @@ const getSession = cache(async () => {
 });
 
 export const getViewer = cache(async () => {
-	const db = requestDatabase();
-	if (!db) return null;
 	const unauthenticated = {
 		status: "unauthenticated",
 		authority: null,
@@ -28,6 +28,8 @@ export const getViewer = cache(async () => {
 		email: null,
 		avatar: null,
 	} as const;
+	if (serverConfigProblem()) return unauthenticated;
+	const db = requestDatabase();
 	const auth = await requestAuth().$context;
 	const jar = await cookies();
 	const token = signedSessionToken(jar.get(auth.authCookies.sessionToken.name)?.value, auth.secret);
@@ -69,3 +71,20 @@ export const getViewer = cache(async () => {
 		avatar: v.avatar && avatarReference.parse({ accountId: v.accountId, versionId: v.avatar }),
 	};
 });
+
+export type Viewer = Awaited<ReturnType<typeof getViewer>>;
+export type PlantSeat = NonNullable<Viewer["people"]> & { accountName: string };
+
+export const seatOf = (v: Viewer): PlantSeat | null => v.people && { ...v.people, accountName: v.displayName ?? "" };
+
+export async function plantSeat(): Promise<PlantSeat | null> {
+	return seatOf(await getViewer());
+}
+
+export async function seated<const C extends string, R>(
+	refusal: C,
+	run: (seat: PlantSeat) => Promise<R>,
+): Promise<R | Refused<C>> {
+	const seat = await plantSeat();
+	return seat ? run(seat) : { status: "refused", code: refusal };
+}

@@ -5,20 +5,15 @@ import {
 	type CommunicationContext,
 	type CommunicationReply,
 } from "@everyfield/domain/communication";
-import type { Transaction } from "@everyfield/db/client";
+import { z } from "zod";
 import type {
 	AudienceSummary,
 	CancelReport,
 	DeliveryReport,
-	DeliveryTotals,
 	Draft,
-	MessageDetail,
-	MessageView,
-	NamedRecipient,
 	Outcome,
 	ReplaceReport,
 	RescheduleReport,
-	ResendReview,
 	RestoreReport,
 	SavedResend,
 	HandoffResult,
@@ -27,7 +22,8 @@ import type {
 import { canWrite } from "../../components/seat-role.ts";
 import { communicationViewer, deliver, read, write, type Viewer } from "./server.ts";
 import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
-import { anticipateProvider, deliveryTransport, mailReady } from "../../server/mail/transport.ts";
+import { anticipateProvider, deliveryTransport } from "../../server/mail/transport.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 type Scheduled = Draft & { scheduledAt: string };
 const denied = { status: "refused", code: "access_denied" } as const;
@@ -38,14 +34,14 @@ async function seat(): Promise<Viewer | null> {
 }
 
 async function change<T>(
-	run: (tx: Transaction, context: CommunicationContext) => Promise<CommunicationReply<T>>,
+	run: (tx: WriteTx, context: CommunicationContext) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
 	const viewer = await seat();
 	if (!viewer || !canWrite(viewer)) return denied;
 	return write(viewer, run);
 }
 
-async function look<T>(run: (tx: Transaction, viewer: Viewer) => Promise<CommunicationReply<T>>): Promise<Outcome<T>> {
+async function look<T>(run: (tx: WriteTx, viewer: Viewer) => Promise<CommunicationReply<T>>): Promise<Outcome<T>> {
 	const viewer = await seat();
 	if (!viewer || !canWrite(viewer)) return denied;
 	return read(viewer, (tx) => run(tx, viewer));
@@ -105,7 +101,7 @@ export async function sendReviewed(
 	requestKey: string,
 	expectedRevision: string,
 	communicationId: string,
-	when: "now" | "held" = "now",
+	when: unknown = "now",
 ): Promise<Outcome<DeliveryReport>> {
 	const result = await deliver((db, viewer, mail) => {
 		anticipateProvider(mail);
@@ -300,54 +296,6 @@ export async function deleteTemplate(
 	return removeTemplate("delete", requestKey, expectedRevision, templateId);
 }
 
-export async function openMessage(communicationId: string): Promise<Outcome<MessageView>> {
-	const viewer = await seat();
-	if (!viewer) return denied;
-	const keys = mailReady()?.keys;
-	return read(viewer, async (tx) => {
-		const detail = await communicationWriter.getDetail(tx, viewer.authority, { id: communicationId }, keys);
-		if (detail.status !== "ok") return detail;
-		const totals = await communicationWriter.getDeliveryTotals(tx, viewer.authority, { communicationId });
-		if (totals.status !== "ok") return totals;
-		const recipients = await communicationWriter.listHistoryRecipients(
-			tx,
-			viewer.authority,
-			{ communicationId, limit: 100 },
-			keys,
-		);
-		if (recipients.status !== "ok") return recipients;
-		return {
-			status: "ok",
-			value: {
-				detail: detail.value satisfies MessageDetail,
-				totals: totals.value satisfies DeliveryTotals,
-				recipients: recipients.value.items satisfies NamedRecipient[],
-				recipientsComplete: recipients.value.complete,
-			},
-		};
-	});
-}
-
-export async function reviewResend(communicationId: string): Promise<Outcome<ResendReview>> {
-	return look(async (tx, viewer) => {
-		const result = await communicationWriter.listResendCandidates(tx, viewer.authority, {
-			communicationId,
-			selection: "delivered_nonopeners",
-		});
-		if (result.status !== "ok") return result;
-		return {
-			status: "ok",
-			value: {
-				communicationId: result.value.communicationId,
-				eligibleIds: result.value.eligibleIds,
-				eligibleNames: result.value.eligibleNames,
-				excludedNames: result.value.excludedNames,
-				confirmedDelivery: result.value.confirmedDelivery,
-			},
-		};
-	});
-}
-
 export async function saveResend(requestKey: string, communicationId: string): Promise<Outcome<SavedResend>> {
 	return change(async (tx, context) => {
 		const result = await communicationWriter.executeResend(tx, context, {
@@ -399,12 +347,23 @@ async function scheduleExisting(
 	});
 }
 
+const handOffKeys = z.object({ save: z.string(), schedule: z.string(), send: z.string() });
+const handOffTarget = z.discriminatedUnion("kind", [
+	z.object({ kind: z.literal("draft"), input: z.unknown() }),
+	z.object({ kind: z.literal("reviewed"), communicationId: z.string() }),
+]);
+
 export async function handOff(
-	keys: { save: string; schedule: string; send: string },
+	rawKeys: unknown,
 	expectedRevision: string | null,
-	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
+	rawTarget: unknown,
 	scheduledAt: string | null,
 ): Promise<Outcome<HandoffResult>> {
+	const parsedKeys = handOffKeys.safeParse(rawKeys);
+	const parsedTarget = handOffTarget.safeParse(rawTarget);
+	if (!parsedKeys.success || !parsedTarget.success) return { status: "refused", code: "invalid_input" };
+	const keys = parsedKeys.data;
+	const target = parsedTarget.data;
 	const steps = {
 		schedule: (at: string) =>
 			target.kind === "draft"

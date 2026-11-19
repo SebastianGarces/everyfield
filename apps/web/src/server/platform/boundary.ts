@@ -1,5 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { ServerConfigError, serverConfig, serverConfigProblem } from "../config.ts";
+import { unexpected } from "./transient.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export const privateHeaders = {
 	"Cache-Control": "private, no-store",
@@ -25,6 +28,7 @@ export async function safeBoundary(body: () => Promise<Response>): Promise<Respo
 		result.headers.set("X-Request-Id", id);
 		return result;
 	} catch (error) {
+		if (!(error instanceof Refusal)) logFailure({ component: "route", outcome: "failed" }, error);
 		const response = safeResponse(
 			{ code: error instanceof Refusal ? error.code : "unavailable", requestId: id },
 			error instanceof Refusal ? error.status : 503,
@@ -39,10 +43,8 @@ export type RouteKind = "session" | "token" | "signed";
 type Handler<A extends unknown[]> = (request: Request, ...rest: A) => Response | Promise<Response>;
 export type Route<A extends unknown[]> = Handler<A> & { readonly [ROUTE_KIND]: RouteKind };
 
-const appOrigin = (request: Request) => {
-	const configured = process.env.IDENTITY_ORIGIN;
-	return configured ? new URL(configured).origin : new URL(request.url).origin;
-};
+const appOrigin = (request: Request) =>
+	new URL(serverConfigProblem() ? request.url : serverConfig().IDENTITY_ORIGIN).origin;
 
 export function sameOriginRequest(request: Request): boolean {
 	const site = request.headers.get("sec-fetch-site");
@@ -50,8 +52,20 @@ export function sameOriginRequest(request: Request): boolean {
 	return request.headers.get("origin") === appOrigin(request);
 }
 
+export const configured =
+	<A extends unknown[]>(handler: Handler<A>): Handler<A> =>
+	async (request, ...rest) => {
+		try {
+			return await handler(request, ...rest);
+		} catch (error) {
+			const failure = unexpected({ component: "route", outcome: "failed" }, error);
+			if (!(failure instanceof ServerConfigError)) throw failure;
+			return safeResponse({ code: "unavailable" satisfies Refusal["code"] }, 503);
+		}
+	};
+
 const marked = <A extends unknown[]>(kind: RouteKind, handler: Handler<A>): Route<A> =>
-	Object.defineProperty(handler, ROUTE_KIND, { value: kind }) as Route<A>;
+	Object.defineProperty(configured(handler), ROUTE_KIND, { value: kind }) as Route<A>;
 
 export const mutatingRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> =>
 	marked("session", (request: Request, ...rest: A) =>

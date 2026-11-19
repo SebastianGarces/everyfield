@@ -13,7 +13,7 @@ import {
 	Input,
 	IntentLink,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { useOptimistic, useState, useTransition } from "react";
 import type { z } from "zod";
@@ -26,7 +26,6 @@ type Role = z.infer<typeof c.assignmentRow>;
 type Form = { role: Role; startedOn: string; endedOn: string; reason: string; problem?: string };
 
 export function MinistryRoles({ initial, canCorrect }: { initial: Role[]; canCorrect: boolean }) {
-	const toast = useToast();
 	const [roles, setRoles] = useState(initial);
 	const [shown, project] = useOptimistic(roles, (list: Role[], next: Role) =>
 		list.map((r) => (r.tenureId === next.tenureId ? next : r)),

@@ -1,8 +1,8 @@
 import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { NoChurchPlantSeat, PlantIntelligenceBlocked } from "../phases/PlantIntelligenceBlocked.tsx";
 import { administers, phaseViewer } from "../phases/server.ts";
 import { AssessmentScreen } from "./AssessmentScreen.tsx";
@@ -21,7 +21,7 @@ export async function CheckInPage() {
 	const viewer = await careViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(CHECK_IN_PATH)}`);
+		if (v.status === "unauthenticated") signIn(CHECK_IN_PATH);
 		return <Blocked title="The weekly check-in belongs to a church plant">{SEAT_TEXT}</Blocked>;
 	}
 	if (viewer.role === "member")
@@ -83,8 +83,7 @@ export async function AttestationsPage() {
 	const viewer = await careViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated")
-			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/attestations")}`);
+		if (v.status === "unauthenticated") signIn("/intelligence/attestations");
 		return <NoChurchPlantSeat />;
 	}
 	if (viewer.role === "member")
@@ -129,7 +128,7 @@ async function ownerOrAdmin(path: string) {
 	const viewer = await phaseViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
+		if (v.status === "unauthenticated") signIn(path);
 		return { blocked: <NoChurchPlantSeat /> } as const;
 	}
 	if (!administers(viewer))

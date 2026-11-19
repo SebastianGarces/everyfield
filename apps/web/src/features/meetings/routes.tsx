@@ -1,3 +1,4 @@
+import { signIn } from "@/server/sign-in";
 import { requestDatabase } from "@/server/database";
 import { Calendar03Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { meetingId as meetingIdSchema, rsvpToken } from "@everyfield/contracts/meetings";
@@ -27,23 +28,17 @@ import { params } from "../../components/search-params.ts";
 type Search = Promise<Record<string, string | string[] | undefined>>;
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await plantViewer();
-	if (v.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (v.signedOut) signIn(returnTo);
 	if (v.viewer) return { viewer: v.viewer };
 	return {
 		blocked: (
 			<>
 				<PageHeader size="xl" title={title} />
 				<Card>
-					{v.ok ? (
-						<StatePanel tone="lock" icon={LockKeyIcon} title="Meetings are not part of your seat" headingLevel="h2">
-							Meetings belong to a church plant workspace. Your account has no current seat in one, so there is nothing
-							to show here.
-						</StatePanel>
-					) : (
-						<StatePanel tone="error" title="We could not load meetings" headingLevel="h2">
-							This is a loading problem. Nothing was changed. Try again in a moment.
-						</StatePanel>
-					)}
+					<StatePanel tone="lock" icon={LockKeyIcon} title="Meetings are not part of your seat" headingLevel="h2">
+						Meetings belong to a church plant workspace. Your account has no current seat in one, so there is nothing to
+						show here.
+					</StatePanel>
 				</Card>
 			</>
 		),
@@ -85,7 +80,7 @@ export const checkInMetadata: Metadata = { title: "Check-in", robots: { index: f
 export async function CheckInPage({ params: route }: { params: Promise<{ meetingId: string }> }) {
 	const raw = (await route).meetingId;
 	const v = await plantViewer();
-	if (v.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(`/meetings/${raw}/check-in`)}`);
+	if (v.signedOut) signIn(`/meetings/${raw}/check-in`);
 	const id = meetingIdSchema.safeParse(raw);
 	if (!id.success) notFound();
 	if (!v.viewer) redirect(`/meetings/${id.data}`);
@@ -156,8 +151,8 @@ export const rsvpMetadata: Metadata = {
 export async function RsvpPage({ params: route }: { params: Promise<{ token: string }> }) {
 	const raw = (await route).token;
 	const token = rsvpToken.safeParse(raw);
-	const db = requestDatabase();
-	const view =
-		token.success && db ? await describeRsvpToken(db, { token: token.data }) : ({ state: "unavailable" } as const);
+	const view = token.success
+		? await describeRsvpToken(requestDatabase(), { token: token.data })
+		: ({ state: "unavailable" } as const);
 	return <RsvpScreen token={raw} view={view} />;
 }

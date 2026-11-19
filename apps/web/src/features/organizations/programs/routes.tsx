@@ -1,8 +1,8 @@
+import { signIn } from "@/server/sign-in";
 import { pipelineActor } from "../pipeline-mount";
 import { loadEnrollment, loadProgram, loadPrograms } from "./mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { LANDING_ROUTE } from "@everyfield/contracts/identity";
 import { NotAvailable } from "../../access/AccessStates";
 import { EnrollmentScreen } from "./EnrollmentScreen";
@@ -23,7 +23,7 @@ const refused = (
 
 async function seat(path: string) {
 	const who = await pipelineActor();
-	if (who.kind === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(path)}`);
+	if (who.kind === "signed_out") signIn(path);
 	return who.kind === "seat" ? who.authority : null;
 }
 

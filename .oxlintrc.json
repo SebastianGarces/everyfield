@@ -49,6 +49,8 @@
 		"everyfield/no-effects": "error",
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",
+		"everyfield/server-config": "error",
+		"everyfield/no-silent-catch": "error",
 		"everyfield/max-state": "error",
 		"everyfield/mint-callers": "error",
 		"everyfield/no-sql-comments": "error"
@@ -111,7 +113,7 @@
 			}
 		},
 		{
-			"files": ["tests/workflow/**/*.ts"],
+			"files": ["tests/workflow/**/*.ts", "tests/unit/**/*.mts", "tests/ui/**/*.mts"],
 			"rules": {
 				"typescript/no-explicit-any": "error"
 			}
@@ -133,7 +135,7 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**"],
+			"files": ["packages/contracts/src/**", "packages/reference/src/**", "packages/ui/src/**", "packages/evry/src/**"],
 			"rules": {
 				"typescript/no-non-null-assertion": "error"
 			}

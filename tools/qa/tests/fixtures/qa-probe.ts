@@ -19,6 +19,7 @@ import {
 } from "../../../../packages/domain/src/organizations/index.ts";
 import { peopleReader, readPersonPage } from "../../../../packages/domain/src/people/index.ts";
 import { QA_LOGINS, QA_PASSWORD, QA_ROLES, roleUrl } from "../../qa-guard.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const ORIGIN = "https://qa-probe.everyfield.invalid";
 const source = process.env.DATABASE_URL!,
@@ -98,7 +99,7 @@ try {
 	};
 	const delivery = (await admin.execute(sql`SELECT id FROM communication WHERE subject='QA delivery check'`)).rows[0]!
 		.id as string;
-	out.delivery = await runtime.transaction(async (tx) => ({
+	out.delivery = await gatedTransaction(runtime, async (tx) => ({
 		totals: await communicationWriter.getDeliveryTotals(tx as never, owner.authority, { communicationId: delivery }),
 		recipients: await communicationWriter.listHistoryRecipients(
 			tx as never,
@@ -151,10 +152,10 @@ try {
 			},
 			people: {
 				list: bare(
-					await runtime.transaction((tx) => peopleReader.listPeople(tx as never, plantCtx, { page: 1 } as never)),
+					await gatedTransaction(runtime, (tx) => peopleReader.listPeople(tx as never, plantCtx, { page: 1 } as never)),
 				),
 				person: bare(
-					await runtime.transaction((tx) =>
+					await gatedTransaction(runtime, (tx) =>
 						peopleReader.getPerson(tx as never, plantCtx, { personId: danielPerson } as never),
 					),
 				),
@@ -256,7 +257,7 @@ try {
 	);
 	const ruth = await signIn(QA_LOGINS.hillOwner);
 	const hill = ruth.authority.actor.context.owner;
-	(out.hillOwner as Record<string, unknown>).aggregate = await runtime.transaction((tx) =>
+	(out.hillOwner as Record<string, unknown>).aggregate = await gatedTransaction(runtime, (tx) =>
 		adapter["pipelineSharing.checkAggregateAccess"](
 			tx as never,
 			ruth.session.sessionId as never,

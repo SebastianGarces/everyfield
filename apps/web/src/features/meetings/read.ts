@@ -1,6 +1,6 @@
 import { getViewer } from "@/server/request-context";
 import { listVenuesRequest } from "@everyfield/contracts/meetings";
-import { rosterReader, venuesReader } from "@everyfield/domain/meetings";
+import { attendanceReader, rosterReader, venuesReader } from "@everyfield/domain/meetings";
 import { searchPeople } from "@everyfield/domain/people";
 import "server-only";
 import { z } from "zod";
@@ -8,12 +8,12 @@ import { defineReads } from "../../server/platform/reads.ts";
 import { read as readPeople } from "../people/server.ts";
 import { readMinistries } from "../teams/server.ts";
 import type { Outcome } from "./model.ts";
-import { outcome, read } from "./server.ts";
+import { loadCheckIn, loadMeeting, loadReport, outcome, read } from "./server.ts";
 
 const PEOPLE_FOUND = 8;
 
 export const GET = defineReads(
-	async () => (await getViewer())?.people ?? null,
+	async () => (await getViewer()).people ?? null,
 	"unavailable",
 	(get) => ({
 		people: get(
@@ -34,6 +34,18 @@ export const GET = defineReads(
 		),
 		venue: get(z.strictObject({ venueId: z.string() }), async (viewer, v) =>
 			outcome(await read(viewer, (db, a) => venuesReader.get(db, a, v))),
+		),
+		meeting: get(z.strictObject({ meetingId: z.string() }), async (viewer, v) => ({
+			status: "ok" as const,
+			value: await loadMeeting(viewer, v.meetingId),
+		})),
+		report: get(z.undefined(), async (viewer) => ({ status: "ok" as const, value: await loadReport(viewer) })),
+		checkIn: get(z.strictObject({ meetingId: z.string() }), async (viewer, v) => ({
+			status: "ok" as const,
+			value: await loadCheckIn(viewer, v.meetingId),
+		})),
+		evaluations: get(z.strictObject({ meetingId: z.string() }), async (viewer, v) =>
+			outcome(await read(viewer, (db, a) => attendanceReader.evaluationHistory(db, a, v))),
 		),
 	}),
 );

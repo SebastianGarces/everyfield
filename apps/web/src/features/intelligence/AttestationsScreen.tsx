@@ -42,7 +42,7 @@ import {
 	Input,
 	PageHeader,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
@@ -50,14 +50,8 @@ import { RadioGroup } from "radix-ui";
 import { useState } from "react";
 import { shortDate } from "./model.ts";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
-import {
-	attestCandidate,
-	attestSignal,
-	correctCandidate,
-	correctSignal,
-	reaffirmSignal,
-	reloadAttestations,
-} from "./signals-actions.ts";
+import { attestCandidate, attestSignal, correctCandidate, correctSignal, reaffirmSignal } from "./signals-actions.ts";
+import { reloadAttestations } from "./fetch.ts";
 import {
 	actionLabel,
 	agoText,
@@ -96,7 +90,6 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 	const [dialog, setDialog] = useState<
 		{ kind: "answer"; key: SignalKey } | { kind: "renew" } | { kind: "candidate"; personId: string | null } | null
 	>(null);
-	const toast = useToast();
 	const [keys] = useState(() => new Map<string, string>());
 	const keyFor = (payload: string) => {
 		if (!keys.has(payload)) keys.set(payload, crypto.randomUUID());

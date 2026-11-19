@@ -8,39 +8,28 @@ import { readRosterPreview } from "./server.ts";
 const noSeat = { status: "refused", code: "unavailable" } as const;
 
 async function seat() {
-	return (await getViewer())?.people ?? null;
+	return (await getViewer()).people ?? null;
 }
 
-export async function createProgram(
-	requestKey: string,
-	input: { name: string; required: boolean; teamId: string | null },
-) {
+export async function createProgram(requestKey: string, input: unknown) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return write(viewer, (tx, ctx) => trainingWriter.createProgram(tx, ctx, { requestKey, input }));
 }
 
-export async function correctProgram(
-	requestKey: string,
-	expectedRevision: string,
-	input: { programId: string; name: string; required: boolean; reason: string },
-) {
+export async function correctProgram(requestKey: string, expectedRevision: string, input: unknown) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return write(viewer, (tx, ctx) => trainingWriter.correctProgram(tx, ctx, { requestKey, expectedRevision, input }));
 }
 
-export async function previewRoster(programId: string, personIds: string[]) {
+export async function previewRoster(programId: string, personIds: unknown) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return readRosterPreview(viewer, programId, personIds);
 }
 
-export async function saveRoster(
-	requestKey: string,
-	expectedRevision: string,
-	input: { programId: string; personIds: string[]; rosterDigest: string },
-) {
+export async function saveRoster(requestKey: string, expectedRevision: string, input: unknown) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return write(viewer, (tx, ctx) =>
@@ -48,42 +37,30 @@ export async function saveRoster(
 	);
 }
 
-export async function attestCompletion(
-	requestKey: string,
-	expectedRevision: string,
-	input: { kind: "program"; personId: string; programId: string; earnedOn: string },
-) {
+export async function attestCompletion(requestKey: string, expectedRevision: string, input: unknown) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return write(viewer, (tx, ctx) => trainingWriter.attestCompletion(tx, ctx, { requestKey, expectedRevision, input }));
 }
 
-export async function attestService(
-	requestKey: string,
-	input: { personId: string; attendanceDays: number; volunteerDays: number },
-) {
+export async function attestService(requestKey: string, input: unknown) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return write(viewer, (tx, ctx) =>
-		trainingWriter.attestCompletion(tx, ctx, { requestKey, input: { kind: "service", ...input } }),
+		trainingWriter.attestCompletion(tx, ctx, {
+			requestKey,
+			input: input && typeof input === "object" ? { kind: "service", ...input } : input,
+		}),
 	);
 }
 
-export async function revokeCompletion(
-	requestKey: string,
-	expectedRevision: string,
-	input: { personId: string; programId: string },
-) {
+export async function revokeCompletion(requestKey: string, expectedRevision: string, input: unknown) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return write(viewer, (tx, ctx) => trainingWriter.revokeCompletion(tx, ctx, { requestKey, expectedRevision, input }));
 }
 
-export async function recompleteTraining(
-	requestKey: string,
-	expectedRevision: string,
-	input: { personId: string; programId: string; earnedOn: string },
-) {
+export async function recompleteTraining(requestKey: string, expectedRevision: string, input: unknown) {
 	const viewer = await seat();
 	if (!viewer) return noSeat;
 	return write(viewer, (tx, ctx) =>

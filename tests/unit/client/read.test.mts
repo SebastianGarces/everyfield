@@ -15,11 +15,13 @@ const { act, createElement } = web("react");
 const { renderToString } = web("react-dom/server");
 const { createRead, useLocalRead, useReadWith } = await import("../../../apps/web/src/components/read.tsx");
 
+type Loaded = { status: "ok"; value: string; servedAt?: number } | { status: "lost" };
+
 const settled = () => new Promise((resolve) => setImmediate(resolve));
 
 function counted() {
 	let calls = 0;
-	const read = createRead(async (id: string) => ({ status: "ok" as const, value: `${id}-${++calls}` }), {
+	const read = createRead(async (id: string): Promise<Loaded> => ({ status: "ok", value: `${id}-${++calls}` }), {
 		failed: () => ({ status: "lost" as const }),
 	});
 	return { read, calls: () => calls };
@@ -59,7 +61,7 @@ test("INV-read: a read started by an event is the one the reader shows, with no 
 	stop();
 
 	let kept = 0;
-	const warm = createRead(async (id: string) => ({ status: "ok" as const, value: `${id}-${++kept}` }), {
+	const warm = createRead(async (id: string): Promise<Loaded> => ({ status: "ok", value: `${id}-${++kept}` }), {
 		failed: () => ({ status: "lost" as const }),
 		fresh: 15_000,
 	});
@@ -94,7 +96,7 @@ test("INV-read: a prefetched or seeded entry older than its fresh window is not 
 	mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
 	t.after(() => mock.timers.reset());
 	let calls = 0;
-	const read = createRead(async (id: string) => ({ status: "ok" as const, value: `${id}-${++calls}` }), {
+	const read = createRead(async (id: string): Promise<Loaded> => ({ status: "ok", value: `${id}-${++calls}` }), {
 		failed: () => ({ status: "lost" as const }),
 		fresh: 15_000,
 	});
@@ -119,7 +121,7 @@ test("INV-read: a subscriber that knows a newer server read reloads an older ent
 	let served = 1_000;
 	let calls = 0;
 	const count = createRead(
-		async (account: string) => ({ status: "ok" as const, value: `${account}-${++calls}`, servedAt: served }),
+		async (account: string): Promise<Loaded> => ({ status: "ok", value: `${account}-${++calls}`, servedAt: served }),
 		{
 			failed: () => ({ status: "lost" as const }),
 			fresh: 60_000,
@@ -156,7 +158,9 @@ test("INV-read: a subscriber that knows a newer server read reloads an older ent
 
 test("INV-read: a patch made while the entry loads is applied exactly once to the value that arrives", async () => {
 	let release: (value: string[]) => void = () => {};
-	const list = createRead(() => new Promise<string[]>((resolve) => (release = resolve)), { failed: () => [] });
+	const list = createRead<[string], string[]>(() => new Promise<string[]>((resolve) => (release = resolve)), {
+		failed: () => [],
+	});
 	const stop = list.connect(() => {}, "team");
 	let applied = 0;
 	list.patch((rows) => (applied++, [...rows, "added"]), "team");

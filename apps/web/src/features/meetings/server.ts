@@ -4,13 +4,14 @@ import type { MeetingsContext } from "@everyfield/domain/meetings";
 import { documentsReader } from "@everyfield/domain/documents";
 import { attendanceReader, meetingsReader, withMeetingsWrite } from "@everyfield/domain/meetings";
 import type { MeetingsReply } from "@everyfield/contracts/meetings";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import "server-only";
 import { isFiltered, listRequest, NEXT_REQUEST, pageCount, type MeetingsQuery, type Outcome } from "./model.ts";
 import { canWrite } from "../../components/seat-role.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
-type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
+type Peopled = NonNullable<Awaited<ReturnType<typeof getViewer>>["people"]>;
 export type Viewer = Peopled;
 
 type Reply<T> = MeetingsReply<T> | { status: "failed" };
@@ -20,27 +21,23 @@ export async function read<T>(
 	run: (db: Database, authority: Viewer["authority"]) => Promise<MeetingsReply<T>>,
 ): Promise<Reply<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
-	try {
-		return await run(db, viewer.authority);
-	} catch (error) {
-		logFailure({ component: "meetings", outcome: "read_failed" }, error);
-		return { status: "failed" };
-	}
+	return transient({ component: "meetings", outcome: "read_failed" }, () => run(db, viewer.authority), {
+		status: "failed",
+	});
 }
 
 export async function write<T>(
 	viewer: Viewer,
-	run: (tx: Transaction, context: MeetingsContext) => Promise<MeetingsReply<T>>,
+	run: (tx: WriteTx, context: MeetingsContext) => Promise<MeetingsReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return outcome(await withMeetingsWrite(db, viewer.authority, run));
-	} catch (error) {
-		logFailure({ component: "meetings", outcome: "write_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "meetings", outcome: "write_failed" },
+		async () => {
+			return outcome(await withMeetingsWrite(db, viewer.authority, run));
+		},
+		LOST,
+	);
 }
 
 export function outcome<T>(reply: Reply<T>): Outcome<T> {
@@ -60,7 +57,7 @@ const value = <T>(r: Reply<T>): T | null => (r.status === "ok" ? r.value : null)
 
 export async function plantViewer() {
 	const v = await getViewer();
-	return { viewer: v?.people ?? null, signedOut: !v || v.status === "unauthenticated", ok: v !== null };
+	return { viewer: v.people ?? null, signedOut: v.status === "unauthenticated" };
 }
 
 export type MeetingsView = Awaited<ReturnType<typeof loadMeetings>>;
@@ -92,14 +89,14 @@ export async function loadMeetings(viewer: Viewer, query: MeetingsQuery) {
 
 async function readAgendaTemplate(viewer: Viewer, meetingId: string) {
 	const db = requestDatabase();
-	if (!db) return null;
-	try {
-		const reply = await documentsReader["templates.contextual"](db, viewer.authority, { meetingId });
-		return reply.status === "ok" ? (reply.value.templates[0]?.id ?? null) : null;
-	} catch (error) {
-		logFailure({ component: "meetings", outcome: "agenda_template_failed" }, error);
-		return null;
-	}
+	return transient(
+		{ component: "meetings", outcome: "agenda_template_failed" },
+		async () => {
+			const reply = await documentsReader["templates.contextual"](db, viewer.authority, { meetingId });
+			return reply.status === "ok" ? (reply.value.templates[0]?.id ?? null) : null;
+		},
+		null,
+	);
 }
 
 export async function loadMeeting(viewer: Viewer, meetingId: string) {

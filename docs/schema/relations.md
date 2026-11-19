@@ -134,6 +134,7 @@ Generated from `target.json`. Compound FK owner pairs and named exceptions are p
 | `enrollment_milestone(enrollment_id, organization_id)` | `development_enrollment(id, organization_id)` | restrict |  |
 | `enrollment_milestone(milestone_id, version_id, organization_id)` | `development_milestone(id, version_id, organization_id)` | restrict |  |
 | `enrollment_milestone(recorder_id)` | `account(id)` | restrict |  |
+| `feature_flag(tenant_id)` | `tenant(id)` | restrict |  |
 | `feedback(account_id)` | `account(id)` | restrict |  |
 | `feedback(id, account_id)` | `record(id, tenant_id)` | restrict |  |
 | `file_object(tenant_id)` | `tenant(id)` | restrict |  |

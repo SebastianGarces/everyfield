@@ -5,19 +5,20 @@ import { drainObjectCleanup } from "@/server/jobs/drain-object-cleanup";
 import { requestKey, revision } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/people";
 import type { PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
-import type { Transaction } from "@everyfield/db/client";
 import { peopleReader, personFields as f, uploadPersonPhoto } from "@everyfield/domain/people";
 import { z } from "zod";
-import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
+import { boundary, invalid, outcome, parsed, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../../../components/save/model.ts";
 import { write } from "../server.ts";
 import type { ChurchTag, HouseholdResult, PersonTag, PhotoResult, Skill } from "./model.ts";
 import { privateStorage } from "@everyfield/db/schema";
 import { leave } from "./leave.ts";
 import { peopleContext } from "./server.ts";
+import { transient } from "../../../server/platform/transient.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 type PlantPerson = z.infer<typeof c.plantPerson>;
-type Tx = Transaction;
+type Tx = WriteTx;
 type PersonId = z.infer<typeof c.personRequest>["personId"];
 type Ctx = PeopleWriteContext;
 
@@ -46,7 +47,7 @@ export async function addPersonTag(
 	requestKey: string,
 	input: unknown,
 ): Promise<Outcome<{ tags: PersonTag[]; created: ChurchTag | null; receipt: Receipt }>> {
-	return boundary(addTagInput, input, async (v, i) =>
+	return parsed(addTagInput, input, async (v, i) =>
 		outcome(
 			await write(v, async (tx, ctx) => {
 				let created: ChurchTag | null = null;
@@ -72,14 +73,17 @@ export async function removePersonTag(
 	requestKey: string,
 	input: unknown,
 ): Promise<Outcome<{ tags: PersonTag[]; receipt: Receipt }>> {
-	return boundary(c.tagAssignmentRequest, { requestKey, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.removeTag(tx, ctx, request)), (r) => ({ tags: r.tags, receipt: receipt(r) })),
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => f.removeTag(tx, ctx, { requestKey, input })), (r) => ({
+			tags: r.tags,
+			receipt: receipt(r),
+		})),
 	);
 }
 
 export async function createChurchTag(requestKey: string, input: unknown): Promise<Outcome<ChurchTag>> {
-	return boundary(c.createTagRequest, { requestKey, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.createTag(tx, ctx, request)), (r) => r.tag),
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => f.createTag(tx, ctx, { requestKey, input })), (r) => r.tag),
 	);
 }
 
@@ -88,8 +92,8 @@ export async function updateChurchTag(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<ChurchTag>> {
-	return boundary(c.updateTagRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.updateTag(tx, ctx, request)), (r) => r.tag),
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => f.updateTag(tx, ctx, { requestKey, expectedRevision, input })), (r) => r.tag),
 	);
 }
 
@@ -98,11 +102,14 @@ export async function deleteChurchTag(
 	expectedRevision: string,
 	tagId: string,
 ): Promise<Outcome<{ tagId: string; removedLinks: number }>> {
-	return boundary(c.deleteTagRequest, { requestKey, expectedRevision, input: { tagId } }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.deleteTag(tx, ctx, request)), (r) => ({
-			tagId: r.tagId,
-			removedLinks: r.removedLinks,
-		})),
+	return boundary(async (v) =>
+		outcome(
+			await write(v, (tx, ctx) => f.deleteTag(tx, ctx, { requestKey, expectedRevision, input: { tagId } })),
+			(r) => ({
+				tagId: r.tagId,
+				removedLinks: r.removedLinks,
+			}),
+		),
 	);
 }
 
@@ -113,8 +120,8 @@ const skillsSaved = (r: { skills: Skill[]; receiptId: string; outcome: "changed"
 });
 
 export async function addSkill(requestKey: string, input: unknown): Promise<Outcome<SkillsSaved>> {
-	return boundary(c.addSkillRequest, { requestKey, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.addSkill(tx, ctx, request)), skillsSaved),
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => f.addSkill(tx, ctx, { requestKey, input })), skillsSaved),
 	);
 }
 
@@ -123,8 +130,8 @@ export async function updateSkill(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<SkillsSaved>> {
-	return boundary(c.updateSkillRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.updateSkill(tx, ctx, request)), skillsSaved),
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => f.updateSkill(tx, ctx, { requestKey, expectedRevision, input })), skillsSaved),
 	);
 }
 
@@ -133,8 +140,11 @@ export async function removeSkill(
 	expectedRevision: string,
 	skillId: string,
 ): Promise<Outcome<SkillsSaved>> {
-	return boundary(c.removeSkillRequest, { requestKey, expectedRevision, input: { skillId } }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.removeSkill(tx, ctx, request)), skillsSaved),
+	return boundary(async (v) =>
+		outcome(
+			await write(v, (tx, ctx) => f.removeSkill(tx, ctx, { requestKey, expectedRevision, input: { skillId } })),
+			skillsSaved,
+		),
 	);
 }
 
@@ -152,8 +162,11 @@ export async function startHousehold(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<MembershipSaved>> {
-	return boundary(c.createHouseholdWithHeadRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.createHouseholdWithHead(tx, ctx, request)), asMember),
+	return boundary(async (v) =>
+		outcome(
+			await write(v, (tx, ctx) => f.createHouseholdWithHead(tx, ctx, { requestKey, expectedRevision, input })),
+			asMember,
+		),
 	);
 }
 
@@ -162,8 +175,8 @@ export async function joinHousehold(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<MembershipSaved>> {
-	return boundary(c.addToHouseholdRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.addToHousehold(tx, ctx, request)), asMember),
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => f.addToHousehold(tx, ctx, { requestKey, expectedRevision, input })), asMember),
 	);
 }
 
@@ -172,8 +185,11 @@ export async function setHouseholdRole(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<MembershipSaved>> {
-	return boundary(c.setHouseholdRoleRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.setHouseholdRole(tx, ctx, request)), asMember),
+	return boundary(async (v) =>
+		outcome(
+			await write(v, (tx, ctx) => f.setHouseholdRole(tx, ctx, { requestKey, expectedRevision, input })),
+			asMember,
+		),
 	);
 }
 
@@ -186,7 +202,7 @@ export async function leaveHousehold(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<MembershipSaved>> {
-	return boundary(leaveInput, input, async (v, i) => {
+	return parsed(leaveInput, input, async (v, i) => {
 		const request = { requestKey, expectedRevision, input: { personId: i.personId } };
 		const saved = await write(v, async (tx, ctx) =>
 			andPerson(tx, ctx, i.personId, await leave(tx, ctx, request, i.deleteEmpty)),
@@ -200,8 +216,11 @@ export async function updateHousehold(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<HouseholdResult>> {
-	return boundary(c.updateHouseholdRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.updateHousehold(tx, ctx, request)), (r) => r.result),
+	return boundary(async (v) =>
+		outcome(
+			await write(v, (tx, ctx) => f.updateHousehold(tx, ctx, { requestKey, expectedRevision, input })),
+			(r) => r.result,
+		),
 	);
 }
 
@@ -210,8 +229,8 @@ export async function propagateAddress(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<MembershipSaved & { updatedPeople: number }>> {
-	return boundary(c.propagateAddressRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => f.propagateAddress(tx, ctx, request)), (r) => ({
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => f.propagateAddress(tx, ctx, { requestKey, expectedRevision, input })), (r) => ({
 			...asMember(r),
 			updatedPeople: r.updatedPeople ?? 0,
 		})),
@@ -236,10 +255,10 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 	const { requestKey, expectedRevision, personId, file } = parsed.data;
 	const mime = c.photoMime.safeParse(file.type);
 	if (!mime.success || file.size < 1 || file.size > c.PHOTO_MAX_BYTES) return invalid;
-	return boundary(c.personFieldsRequest, { personId }, async (v) => {
+	return boundary(async (v) => {
 		const storage = privateStorage();
+		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const db = requestDatabase();
-		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
 		const staged = outcome(
 			await write(v, (tx, ctx) =>
 				f.requestPersonPhotoUpload(tx, ctx, { requestKey, personId, mime: mime.data, byteLength: file.size }),
@@ -248,10 +267,11 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 		);
 		if (staged.status !== "ok") return staged;
 		const bytes = new Uint8Array(await file.arrayBuffer());
-		const stored = await uploadPersonPhoto(db, storage, peopleContext(v), {
-			uploadId: staged.value.uploadId,
-			bytes,
-		}).catch(() => ({ status: "failed" }) as const);
+		const stored = await transient(
+			{ component: "people", outcome: "photo_upload_failed" },
+			() => uploadPersonPhoto(db, storage, peopleContext(v), { uploadId: staged.value.uploadId, bytes }),
+			{ status: "failed" } as const,
+		);
 		if (stored.status !== "ok")
 			return stored.status === "failed" ? { status: "lost" } : { status: "refused", code: stored.error.code };
 		return drainAfter(
@@ -274,16 +294,18 @@ export async function removePhoto(
 	expectedRevision: string,
 	personId: string,
 ): Promise<Outcome<PhotoSaved>> {
-	return boundary(
-		c.removePersonPhotoRequest,
-		{ requestKey, expectedRevision, input: { personId } },
-		async (v, request) =>
-			drainAfter(
-				outcome(await write(v, (tx, ctx) => f.removePersonPhoto(tx, ctx, request)), (r) => ({
+	return boundary(async (v) =>
+		drainAfter(
+			outcome(
+				await write(v, (tx, ctx) =>
+					f.removePersonPhoto(tx, ctx, { requestKey, expectedRevision, input: { personId } }),
+				),
+				(r) => ({
 					photo: r.photo,
 					personRevision: r.personRevision,
 					receipt: receipt(r),
-				})),
+				}),
 			),
+		),
 	);
 }

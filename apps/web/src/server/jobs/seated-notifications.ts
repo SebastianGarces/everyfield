@@ -2,14 +2,13 @@ import type { Database } from "@everyfield/db/client";
 import { readAccountContacts } from "@everyfield/domain/identity";
 import { reminderRecipients } from "@everyfield/domain/tasks";
 import "server-only";
-import type { z } from "zod";
-import type { mailEnv } from "../mail-env.ts";
+import type { MailKeys } from "../config.ts";
 import { createMailService, type AuthorizeMail, type MailTransport, type MailUnsubscribe } from "./mail.ts";
 import { createNotificationService } from "./notifications.ts";
 
 export function mountMailService(config: {
 	db: Database;
-	env: z.infer<z.ZodObject<typeof mailEnv>>;
+	env: MailKeys;
 	authorize: AuthorizeMail;
 	unsubscribe?: MailUnsubscribe;
 	transport?: MailTransport;

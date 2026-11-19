@@ -16,6 +16,7 @@ import {
 	listSendingChurches,
 	readIntelligence,
 } from "../../../packages/domain/src/oversight/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const proofs = new Map();
 const api = createOrganizationAdapter(
@@ -51,7 +52,7 @@ export async function seedOrganizations(t) {
 	const networkOwner = await f.account();
 	await f.seat(networkOwner, network, "owner");
 	const write = (session, selected, name, expectedRevision, input) =>
-		f.db.transaction(async (tx) => {
+		gatedTransaction(f.db, async (tx) => {
 			if (!(await RequestActor.claimWrite(tx, session, selected))) throw Error("unavailable");
 			return api[name](tx, session, selected, { requestKey: key(), expectedRevision, input });
 		});

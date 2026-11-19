@@ -1,4 +1,5 @@
 import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { privateStorage } from "@everyfield/db/schema";
 import { LockKeyIcon, UserSearch01Icon } from "@hugeicons/core-free-icons";
 import { personRequest } from "@everyfield/contracts/people";
@@ -18,8 +19,8 @@ import { params } from "../../components/search-params.ts";
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await getViewer();
-	if (v?.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
-	if (v?.people) return { viewer: v.people };
+	if (v.status === "unauthenticated") signIn(returnTo);
+	if (v.people) return { viewer: v.people };
 	return {
 		blocked: (
 			<>

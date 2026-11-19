@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { serverEnv } from "../config.ts";
 
 export type Captured = {
 	id: string;
@@ -19,7 +20,7 @@ export type Captured = {
 };
 
 export const outboxFolder = (): string =>
-	process.env.EVERYFIELD_DEV_OUTBOX?.trim() || join(tmpdir(), "everyfield-dev-outbox");
+	serverEnv().EVERYFIELD_DEV_OUTBOX?.trim() || join(tmpdir(), "everyfield-dev-outbox");
 
 export const isCaptureId = (id: string): boolean => id.startsWith("capture-");
 
@@ -50,7 +51,10 @@ export async function captured(id: string): Promise<boolean> {
 	if (!/^capture-[0-9a-f-]{36}$/.test(id)) return false;
 	return access(join(outboxFolder(), `${id}.json`)).then(
 		() => true,
-		() => false,
+		(error: NodeJS.ErrnoException) => {
+			if (error.code === "ENOENT") return false;
+			throw error;
+		},
 	);
 }
 
@@ -59,7 +63,10 @@ export async function changeCaptured(id: string, movedTo: string | null): Promis
 	const file = join(outboxFolder(), `${id}.json`);
 	const entry = await readFile(file, "utf8").then(
 		(text) => JSON.parse(text) as Captured,
-		() => null,
+		(error: NodeJS.ErrnoException) => {
+			if (error.code === "ENOENT") return null;
+			throw error;
+		},
 	);
 	if (!entry) return "unknown";
 	const held = entry.scheduledAt === null ? null : Date.parse(entry.scheduledAt);

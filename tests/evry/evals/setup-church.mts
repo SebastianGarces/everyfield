@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
+import { createPersonRequest, updatePersonRequest } from "../../../packages/contracts/src/people/requests.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
 import { withMeetingsWrite, meetingsWriter } from "../../../packages/domain/src/meetings/index.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import type { NativePorts } from "../../../packages/evry/src/index.ts";
 import { GRACE_AUSTIN, NETWORK, PLANT } from "./golden-church.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const id = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, "0")}`;
 type Spec = { account: string; user: string; session: string; name: string };
@@ -50,7 +52,7 @@ export async function seedSetup(admin: Database, runtime: Database, native: Nati
 		session: SETUP_SPECS[who].session,
 		selected: { kind: "account", id: SETUP_SPECS[who].account },
 	});
-	const created = await runtime.transaction(async (tx) =>
+	const created = await gatedTransaction(runtime, async (tx) =>
 		ok<{ plant: { id: string } }>(
 			await native.onboarding.createPlant(
 				tx,
@@ -66,7 +68,7 @@ export async function seedSetup(admin: Database, runtime: Database, native: Nati
 	await admin.execute(sql`INSERT INTO seat(account_id,plant_id,role,accepted_at,ended_at)
 		VALUES(${SETUP_SPECS.former.account},${PLANT},'member',clock_timestamp()-interval '30 days',clock_timestamp()-interval '2 days')`);
 	for (const who of ["discovery", "sender"] as const)
-		await runtime.transaction(async (tx) =>
+		await gatedTransaction(runtime, async (tx) =>
 			ok(await native.onboarding.createDiscovery(tx, as(who) as never, command({}) as never)),
 		);
 	const link = (who: SetupName, organization: string) =>
@@ -96,12 +98,13 @@ const peopleCtx = (who: SetupName, plant: string) => ({
 	selected: { kind: "plant" as const, id: plant },
 });
 async function addPerson(admin: Database, runtime: Database, plant: string, name: string, daysAgo = 0) {
-	const person = await runtime.transaction(async (tx) =>
+	const person = await gatedTransaction(runtime, async (tx) =>
 		ok<{ person: { id: string } }>(
-			(await peopleWriter.createPerson(tx as never, peopleCtx("setupOwner", plant) as never, {
-				requestKey: randomUUID(),
-				input: { displayName: name },
-			})) as never,
+			(await peopleWriter.createPerson(
+				tx as never,
+				peopleCtx("setupOwner", plant) as never,
+				createPersonRequest.parse({ requestKey: randomUUID(), input: { displayName: name } }),
+			)) as never,
 		),
 	);
 	const id = person.person.id;
@@ -132,10 +135,12 @@ async function schedule(admin: Database, runtime: Database, plant: string, input
 
 export async function seedOverview(admin: Database, runtime: Database, native: NativePorts, plant: string) {
 	const owner = peopleCtx("setupOwner", plant);
-	const [{ revision }] = (await admin.execute(sql`SELECT revision::text FROM plant WHERE id=${plant}`)).rows as {
-		revision: string;
-	}[];
-	await runtime.transaction(async (tx) =>
+	const [plantRow] = (
+		await admin.execute<{ revision: string }>(sql`SELECT revision::text FROM plant WHERE id=${plant}`)
+	).rows;
+	if (!plantRow) throw Error(`no plant ${plant}`);
+	const { revision } = plantRow;
+	await gatedTransaction(runtime, async (tx) =>
 		ok(await native.onboarding.complete(tx, owner as never, command({}, revision) as never)),
 	);
 	const [me] = (
@@ -147,13 +152,17 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 	for (const [name, days, active] of OVERVIEW_PEOPLE) {
 		ids[name] = await addPerson(admin, runtime, plant, name, days);
 		if (active)
-			await runtime.transaction(async (tx) =>
+			await gatedTransaction(runtime, async (tx) =>
 				ok(
-					(await peopleWriter.updatePerson(tx as never, owner as never, {
-						requestKey: randomUUID(),
-						expectedRevision: "1",
-						input: { personId: ids[name], patch: { city: "Austin" } },
-					})) as never,
+					(await peopleWriter.updatePerson(
+						tx as never,
+						owner as never,
+						updatePersonRequest.parse({
+							requestKey: randomUUID(),
+							expectedRevision: "1",
+							input: { personId: ids[name], patch: { city: "Austin" } },
+						}),
+					)) as never,
 				),
 			);
 	}
@@ -175,7 +184,7 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${plant},${task},${SETUP_SPECS.setupOwner.account})`,
 	);
 	const sam = await viewerOf(runtime, "seatless");
-	const other = await runtime.transaction(async (tx) =>
+	const other = await gatedTransaction(runtime, async (tx) =>
 		ok<{ id: string }>(
 			(await feedbackWriter.submit(
 				tx as never,

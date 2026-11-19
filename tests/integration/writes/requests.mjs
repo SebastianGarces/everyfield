@@ -21,6 +21,7 @@ import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 import { CATALOG } from "../../../packages/domain/src/tasks/catalog.ts";
 import { p as wordParagraph, storedZip } from "../documents/fixtures/word.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -101,7 +102,7 @@ try {
 	const owner = await account("Owner"),
 		member = await account("Member");
 	const noop = async () => {};
-	const created = await runtime.transaction((tx) =>
+	const created = await gatedTransaction(runtime, (tx) =>
 		createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop }).createPlant(
 			tx,
 			{ session: owner.sessionId, selected: { kind: "account", id: owner.accountId } },
@@ -174,14 +175,14 @@ try {
 	};
 	const writtenDocument = await saveWritten(nativeFromText("Welcome to the church plant."));
 	const person = async (displayName) => {
-		const r = await runtime.transaction((tx) =>
+		const r = await gatedTransaction(runtime, (tx) =>
 			peopleWriter.createPerson(tx, ctx, { requestKey: randomUUID(), input: { displayName, stage: "prospect" } }),
 		);
 		assert.equal(r.status, "ok");
 		return r.value.person;
 	};
 	const note = async (p, body) => {
-		const r = await runtime.transaction((tx) =>
+		const r = await gatedTransaction(runtime, (tx) =>
 			peopleWriter.addNote(tx, ctx, {
 				requestKey: randomUUID(),
 				expectedRevision: p.revision,
@@ -212,7 +213,7 @@ try {
 			ON CONFLICT DO NOTHING`);
 	await notices(3);
 	const teams = async (op, input) => {
-		const r = await runtime.transaction((tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
+		const r = await gatedTransaction(runtime, (tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
 		assert.equal(r.status, "ok", JSON.stringify(r));
 		return r.value;
 	};
@@ -446,11 +447,6 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
 		["GET /tasks/follow-ups", "/tasks/follow-ups", owner.cookie],
-		[
-			"GET /tasks/read?what=blocking",
-			`/tasks/read?what=blocking&in=${readInput({ taskIds: [followUpId] })}`,
-			owner.cookie,
-		],
 		["GET /tasks/read?what=rows", `/tasks/read?what=rows&in=${readInput({ taskIds: [followUpId] })}`, owner.cookie],
 		["GET /wiki", "/wiki", owner.cookie],
 		["GET /wiki/[slug]", "/wiki/census-lead", owner.cookie],
@@ -649,6 +645,54 @@ try {
 		],
 	);
 	assert.equal(outcomeCorrected.status, "ok", JSON.stringify(outcomeCorrected));
+	const followUp = async (due = sql`'undated',NULL`) => {
+		const [{ id, revision }] = (
+			await admin.execute(
+				sql`INSERT INTO task(plant_id,title,category,priority,status,created_at,due_kind,due_date,person_id,creator_id) VALUES(${plant.id},'Call Maria Santos','follow_up','medium','not_started',clock_timestamp(),${due},${maria.id},${owner.accountId}) RETURNING id, revision::text AS revision`,
+			)
+		).rows;
+		return { kind: "task", taskId: id, expectedRevision: revision };
+	};
+	const outcome = async (name, target, input) => {
+		const r = await act(`POST followups.recordOutcome (${name})`, `/people/${maria.id}`, followups, "recordOutcome", [
+			randomUUID(),
+			{ target, channel: "phone", notes: null, completeTask: false, ...input },
+		]);
+		assert.equal(r.status, "ok", JSON.stringify(r));
+		return r.value;
+	};
+	await outcome(
+		"person",
+		{ kind: "person", personId: maria.id },
+		{
+			outcome: "contacted",
+			occurredAt: tried.value.record.occurredAt,
+		},
+	);
+	const dropped = await outcome("no longer needed", await followUp(), { outcome: "no_longer_needed" });
+	assert.equal(dropped.task.status, "no_longer_needed");
+	const other = await followUp();
+	const [{ revision: triedRevision }] = (
+		await admin.execute(sql`SELECT revision::text AS revision FROM task WHERE id=${followUpId}`)
+	).rows;
+	const finished = await outcome(
+		"contacted, complete task",
+		{ kind: "task", taskId: followUpId, expectedRevision: triedRevision },
+		{ outcome: "contacted", occurredAt: tried.value.record.occurredAt, completeTask: true },
+	);
+	assert.deepEqual(
+		finished.record.alsoFinished.map((x) => x.taskId),
+		[other.taskId],
+	);
+	const dated = await followUp(sql`'date_only','2099-01-15'`);
+	await admin.execute(
+		sql`INSERT INTO task_assignee(plant_id,task_id,account_id) VALUES(${plant.id},${dated.taskId},${owner.accountId})`,
+	);
+	const completed = await outcome("complete dated assigned task", dated, {
+		outcome: "attempted_no_contact",
+		completeTask: true,
+	});
+	assert.equal(completed.task.status, "complete");
 	const emailed = await act("POST people.createPerson (with email)", "/people", people, "createPerson", [
 		randomUUID(),
 		{ displayName: "Reachable guest", email: "guest@example.com" },
@@ -662,12 +706,15 @@ try {
 		await admin.execute(sql`SELECT revision::text AS revision FROM account WHERE id=${owner.accountId}`)
 	).rows;
 	const envelope = () => ({ requestKey: randomUUID(), expectedRevision: revision });
-	const marking = (name, action, input) => act(name, "/notifications", notifications, action, [envelope(), input]);
-	const marked = await marking("POST notifications.markRead", "markRead", owned[0]);
+	const marking = (name, action, input) =>
+		act(name, "/notifications", notifications, action, [{ ...envelope(), input }]);
+	const marked = await marking("POST notifications.markRead", "markRead", { noticeId: owned[0] });
 	assert.deepEqual(marked, { status: "ok", value: { markedIds: [owned[0]] } });
-	const selected = await marking("POST notifications.markSelectedRead", "markSelectedRead", [owned[1]]);
+	const selected = await marking("POST notifications.markSelectedRead", "markSelectedRead", { noticeIds: [owned[1]] });
 	assert.deepEqual(selected, { status: "ok", value: { markedIds: [owned[1]] } });
-	const all = await marking("POST notifications.markAllVisibleRead", "markAllVisibleRead", new Date().toISOString());
+	const all = await marking("POST notifications.markAllVisibleRead", "markAllVisibleRead", {
+		cutoff: new Date().toISOString(),
+	});
 	assert.deepEqual(all, { status: "ok", value: { markedIds: [owned[2]] } });
 	const settings = "apps/web/src/features/settings/actions.ts";
 	const { value: section } = await read(null, "/settings/read", "section", { section: "account" });

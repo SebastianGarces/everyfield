@@ -5,7 +5,6 @@ import { getViewer } from "@/server/request-context";
 import { redirect } from "next/navigation";
 import {
 	answerRsvpToken,
-	attendanceReader,
 	describeRsvpToken,
 	createAttendanceWriter,
 	guestsWriter,
@@ -20,23 +19,18 @@ import {
 import { tasksMount } from "../tasks/mount.ts";
 import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meetings";
 import { z } from "zod";
-import type { Transaction } from "@everyfield/db/client";
 import type { Finalization, Outcome } from "./model.ts";
-import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { outcome, read, readAnalytics, write } from "./server.ts";
+import { LOST, transient } from "../../server/platform/transient.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
-type Run<T> = (tx: Transaction, ctx: MeetingsContext) => Promise<MeetingsReply<T>>;
+type Run<T> = (tx: WriteTx, ctx: MeetingsContext) => Promise<MeetingsReply<T>>;
 
 async function act<T>(run: Run<T>): Promise<Outcome<T>> {
 	const v = await getViewer();
-	if (!v?.people) return noSeat;
+	if (!v.people) return noSeat;
 	return write(v.people, run);
-}
-async function look<T>(run: (viewer: Viewer) => Promise<Outcome<T>>): Promise<Outcome<T>> {
-	const v = await getViewer();
-	if (!v?.people) return noSeat;
-	return run(v.people);
 }
 const command = (requestKey: string, expectedRevision: string, input: unknown) => ({
 	requestKey,
@@ -97,25 +91,13 @@ export async function replaceAgenda(
 	);
 }
 
-export async function updateRoster(requestKey: string, meetingId: string, add: string[], remove: string[]) {
+export async function updateRoster(requestKey: string, meetingId: string, add: unknown, remove: unknown) {
 	return act((tx, ctx) => rosterWriter.copyTeamRoster(tx, ctx, { requestKey, input: { meetingId, add, remove } }));
-}
-
-export async function reloadMeeting(meetingId: string) {
-	return look(async (v) => ({ status: "ok" as const, value: await loadMeeting(v, meetingId) }));
-}
-
-export async function visionReport() {
-	return look(async (v) => ({ status: "ok" as const, value: await loadReport(v) }));
-}
-
-export async function reloadCheckIn(meetingId: string) {
-	return look(async (v) => ({ status: "ok" as const, value: await loadCheckIn(v, meetingId) }));
 }
 
 export async function populateKit(requestKey: string, expectedRevision: string, meetingId: string) {
 	const v = await getViewer();
-	if (!v?.people) return noSeat;
+	if (!v.people) return noSeat;
 	const done = await write(v.people, (tx, ctx) =>
 		meetingsWriter.populateKit(tx, ctx, command(requestKey, expectedRevision, { meetingId })),
 	);
@@ -186,13 +168,10 @@ export async function clearCard(
 let attendanceWriter: AttendanceWriter | undefined;
 async function settle<T>(run: (w: AttendanceWriter) => Run<T>): Promise<Outcome<T>> {
 	const mount = tasksMount();
-	if (!mount) return noSeat;
 	attendanceWriter ??= createAttendanceWriter({ reminders: mount.reminders });
 	return act(run(attendanceWriter));
 }
-type Presence = "attended" | "absent" | "excused";
-
-export async function setPresence(requestKey: string, meetingId: string, personId: string, presence: Presence) {
+export async function setPresence(requestKey: string, meetingId: string, personId: string, presence: unknown) {
 	return settle(
 		(w) => (tx, ctx) =>
 			presence === "attended"
@@ -205,15 +184,10 @@ export async function setPresence(requestKey: string, meetingId: string, personI
 export async function addWalkIn(requestKey: string, input: unknown) {
 	return act((tx, ctx) => guestsWriter.createWalkInContact(tx, ctx, { requestKey, input }));
 }
-export async function settleAttendance(
-	mode: "finalize" | "reconcile",
-	requestKey: string,
-	expectedRevision: string,
-	input: unknown,
-) {
+export async function settleAttendance(mode: unknown, requestKey: string, expectedRevision: string, input: unknown) {
 	if (mode !== "finalize" && mode !== "reconcile") return { status: "refused", code: "invalid_input" } as const;
 	const v = await getViewer();
-	if (!v?.people) return noSeat;
+	if (!v.people) return noSeat;
 	const done = await settle(
 		(w) => (tx, ctx) =>
 			(mode === "finalize" ? w.finalizeAttendance : w.reconcileAttendance)(tx, ctx, {
@@ -230,40 +204,39 @@ export async function settleAttendance(
 	};
 }
 export async function previewSettlement(
-	mode: "finalize" | "reconcile",
+	mode: unknown,
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<Finalization>> {
 	if (mode !== "finalize" && mode !== "reconcile") return { status: "refused", code: "invalid_input" } as const;
 	const v = await getViewer();
+	const people = v.people;
+	if (!people) return noSeat;
 	const mount = tasksMount();
 	const db = requestDatabase();
-	if (!v?.people || !mount || !db) return noSeat;
 	attendanceWriter ??= createAttendanceWriter({ reminders: mount.reminders });
 	const w = attendanceWriter;
-	try {
-		return outcome(
-			await previewMeetingsWrite(db, v.people.authority, (tx, ctx) =>
-				(mode === "finalize" ? w.finalizeAttendance : w.reconcileAttendance)(tx, ctx, {
-					requestKey: crypto.randomUUID(),
-					expectedRevision,
-					input,
-				}),
-			),
-		);
-	} catch (error) {
-		logFailure({ component: "meetings", outcome: "preview_failed" }, error);
-		return { status: "lost" } as const;
-	}
+	return transient(
+		{ component: "meetings", outcome: "preview_failed" },
+		async () => {
+			return outcome(
+				await previewMeetingsWrite(db, people.authority, (tx, ctx) =>
+					(mode === "finalize" ? w.finalizeAttendance : w.reconcileAttendance)(tx, ctx, {
+						requestKey: crypto.randomUUID(),
+						expectedRevision,
+						input,
+					}),
+				),
+			);
+		},
+		LOST,
+	);
 }
 export async function recordEvaluation(requestKey: string, input: unknown) {
 	return settle((w) => (tx, ctx) => w.recordEvaluation(tx, ctx, { requestKey, input }));
 }
 export async function correctEvaluation(requestKey: string, expectedRevision: string, input: unknown) {
 	return settle((w) => (tx, ctx) => w.correctEvaluation(tx, ctx, { requestKey, expectedRevision, input }));
-}
-export async function evaluationHistory(meetingId: string) {
-	return look(async (v) => outcome(await read(v, (db, a) => attendanceReader.evaluationHistory(db, a, { meetingId }))));
 }
 export async function addAttendeeNote(requestKey: string, meetingId: string, personId: string, text: string) {
 	return settle((w) => (tx, ctx) => w.addAttendeeNote(tx, ctx, { requestKey, input: { meetingId, personId, text } }));
@@ -272,35 +245,30 @@ export async function addAttendeeNote(requestKey: string, meetingId: string, per
 export async function createVenue(requestKey: string, input: unknown) {
 	return act((tx, ctx) => venuesWriter.create(tx, ctx, { requestKey, input }));
 }
-export async function changeVenue(
-	op: "edit" | "correct" | "archive" | "restore",
-	requestKey: string,
-	expectedRevision: string,
-	input: unknown,
-) {
-	if (!["edit", "correct", "archive", "restore"].includes(op))
+export async function changeVenue(op: unknown, requestKey: string, expectedRevision: string, input: unknown) {
+	if (op !== "edit" && op !== "correct" && op !== "archive" && op !== "restore")
 		return { status: "refused", code: "invalid_input" } as const;
 	return act((tx, ctx) => venuesWriter[op](tx, ctx, command(requestKey, expectedRevision, input)));
 }
 
 export async function answerRsvp(token: unknown, rsvp: unknown): Promise<Outcome<{ rsvp: string }>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		const r = await answerRsvpToken(db, { token, rsvp });
-		return r.status === "ok" ? r : { status: "refused", code: r.error.code };
-	} catch (error) {
-		logFailure({ component: "meetings", outcome: "rsvp_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "meetings", outcome: "rsvp_failed" },
+		async () => {
+			const r = await answerRsvpToken(db, { token, rsvp });
+			return r.status === "ok" ? r : { status: "refused", code: r.error.code };
+		},
+		LOST,
+	);
 }
 export async function readRsvpLink(token: unknown): Promise<Outcome<z.infer<typeof rsvpTokenView>>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return { status: "ok", value: await describeRsvpToken(db, { token }) };
-	} catch (error) {
-		logFailure({ component: "meetings", outcome: "rsvp_read_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "meetings", outcome: "rsvp_read_failed" },
+		async () => {
+			return { status: "ok", value: await describeRsvpToken(db, { token }) };
+		},
+		LOST,
+	);
 }

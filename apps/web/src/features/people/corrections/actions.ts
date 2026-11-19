@@ -16,20 +16,16 @@ import { readPersonPageNow, type PersonPage } from "./page.ts";
 
 export type PairChange = z.infer<typeof c.duplicatePairChange>;
 export async function dismissPair(input: unknown): Promise<Outcome<PairChange>> {
-	return boundary(c.duplicatePairRequest, input, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => dismissDuplicatePair(tx, ctx, request)), (r) => r),
-	);
+	return boundary(async (v) => outcome(await write(v, (tx, ctx) => dismissDuplicatePair(tx, ctx, input)), (r) => r));
 }
 export async function restorePair(input: unknown): Promise<Outcome<PairChange>> {
-	return boundary(c.duplicatePairRequest, input, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => restoreDuplicatePair(tx, ctx, request)), (r) => r),
-	);
+	return boundary(async (v) => outcome(await write(v, (tx, ctx) => restoreDuplicatePair(tx, ctx, input)), (r) => r));
 }
 
 export type Merged = z.infer<typeof c.mergeResult>;
 export async function mergePair(requestKey: string, input: unknown): Promise<Outcome<Merged>> {
-	return boundary(c.mergePeopleRequest, { requestKey, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => peopleMerge.mergePeople(tx, ctx, request)), (r) => r),
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => peopleMerge.mergePeople(tx, ctx, { requestKey, input })), (r) => r),
 	);
 }
 
@@ -39,10 +35,15 @@ export async function unmergePair(
 	expectedRevision: string,
 	mergeId: string,
 ): Promise<Outcome<Unmerged>> {
-	return boundary(c.unmergePeopleRequest, { requestKey, expectedRevision, input: { mergeId } }, async (v, request) => {
-		const done = outcome(await write(v, (tx, ctx) => peopleUnmerge.unmergePeople(tx, ctx, request)), (r) => r);
+	return boundary(async (v) => {
+		const done = outcome(
+			await write(v, (tx, ctx) =>
+				peopleUnmerge.unmergePeople(tx, ctx, { requestKey, expectedRevision, input: { mergeId } }),
+			),
+			(r) => r,
+		);
 		if (done.status !== "ok") return done;
-		const page = await readPersonPageNow(v, done.value.survivorId).catch(() => null);
+		const page = await readPersonPageNow(v, done.value.survivorId);
 		return { status: "ok", value: { result: done.value, receipt: receipt(done.value), page } };
 	});
 }
@@ -53,10 +54,15 @@ export async function correctRecord(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<Corrected>> {
-	return boundary(c.correctPersonRecordRequest, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => recordCorrections.correctPersonRecord(tx, ctx, request)), (r) => ({
-			result: r,
-			receipt: receipt(r),
-		})),
+	return boundary(async (v) =>
+		outcome(
+			await write(v, (tx, ctx) =>
+				recordCorrections.correctPersonRecord(tx, ctx, { requestKey, expectedRevision, input }),
+			),
+			(r) => ({
+				result: r,
+				receipt: receipt(r),
+			}),
+		),
 	);
 }

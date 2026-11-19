@@ -67,7 +67,7 @@ const GROUPS = [
 	{ config: ".oxlintrc.json", cwd: ".", owns: () => true },
 ];
 
-function lintIn(dir, paths) {
+function lintIn(dir, paths, code = /^everyfield\(([\w-]+)\)$/) {
 	const hits = [];
 	for (const group of GROUPS) {
 		const mine = paths.filter((path) => GROUPS.find((g) => g.owns(path)) === group);
@@ -79,7 +79,7 @@ function lintIn(dir, paths) {
 			{ cwd, encoding: "utf8", env: env(dir) },
 		);
 		for (const d of JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{"))).diagnostics) {
-			const rule = /^everyfield\(([\w-]+)\)$/.exec(d.code ?? "")?.[1];
+			const rule = code.exec(d.code ?? "")?.[1];
 			if (rule && rule !== "resend-senders")
 				hits.push(`${relative(dir, resolve(cwd, d.filename))}:${d.labels?.[0]?.span.line ?? 1} ${rule}`);
 		}
@@ -190,11 +190,12 @@ export const d = [c, warn, nodeConsole, err, stderr, stdout, error];
 		lint({
 			"apps/web/src/features/x/server.ts": reach,
 			"packages/domain/src/people/reach.ts": reach,
+			"packages/evry/src/runtime/reach.ts": reach,
 			"apps/web/src/features/x/Panel.tsx": `"use client";\n${reach}`,
 			"packages/domain/src/log.ts": reach,
 			"tests/integration/x/reach.test.mts": reach,
-		}),
-		["apps/web/src/features/x/server.ts", "packages/domain/src/people/reach.ts"]
+		}).filter((hit) => hit.endsWith(" server-log")),
+		["apps/web/src/features/x/server.ts", "packages/domain/src/people/reach.ts", "packages/evry/src/runtime/reach.ts"]
 			.flatMap((file) => lines.map((line) => `${file}:${line} server-log`))
 			.sort(),
 	);
@@ -573,6 +574,8 @@ export const label = (node: ReactNode) => [node, parse];
 		"apps/web/src/components/save/model.ts:8 model-module",
 	]);
 	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": pure }), []);
+	for (const file of ["apps/web/src/features/tasks/fresh-model.ts", "apps/web/src/features/wiki/page-state.ts"])
+		assert.deepEqual(lint({ [file]: "export const at = () => Date.now();\n" }), [`${file}:1 model-module`]);
 	const disguised = `const D = Date;
 const { now } = performance;
 const tick = Date.now;
@@ -625,6 +628,43 @@ export const useI = (id) => useLocalRead(async (key) => { markSeen(key); return 
 		"apps/web/src/features/x/reads.ts:8 read-loader",
 		"apps/web/src/features/x/reads.ts:9 read-loader",
 	]);
+});
+
+test("INV-link: a one-time link value never keys a read, directly or through a value derived from it", () => {
+	const source = `import { useOneTimeLinkValue, currentOneTimeLinkValue } from "../../components/location.ts";
+import { createRead, useLocalRead, useRead, useReadWith } from "../../components/read.tsx";
+import { people } from "./reads.ts";
+const reads = createRead((id) => load(id, currentOneTimeLinkValue("invitation")), { failed: () => null });
+export function A({ id }) {
+	const linked = useOneTimeLinkValue("invitation");
+	const proof = linked ?? "";
+	const { value } = { value: proof };
+	const a = useRead(reads, id, proof);
+	const b = useRead(reads, id, value);
+	const c = useLocalRead(load, options, useOneTimeLinkValue("invitation"));
+	const d = useRead(reads, id, currentOneTimeLinkValue("invitation"));
+	const e = useReadWith(reads, [id, linked]);
+	let later;
+	later = linked;
+	const f = useRead(reads, id, later);
+	const readAs = useRead;
+	const g = readAs(reads, id, linked);
+	reads.prefetch(id, linked);
+	people.get(id, proof);
+	const [held] = useState(linked);
+	const h = useRead(reads, id, held);
+	const fine = useRead(reads, id);
+	const alsoFine = useLocalRead((key) => load(key, currentOneTimeLinkValue("invitation")), options, id);
+	reads.prefetch(id);
+	return [a, b, c, d, e, f, g, h, fine, alsoFine, proof];
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Respond.tsx": source }),
+		[9, 10, 11, 12, 13, 16, 18, 19, 20, 22]
+			.map((line) => `apps/web/src/features/x/Respond.tsx:${line} link-value-key`)
+			.sort(),
+	);
 });
 
 function cursorRuleSelectors(css, cursor) {
@@ -1012,10 +1052,132 @@ export const f = [named, key, process.env.VERCEL_URL];
 			"apps/web/src/features/x/reach.ts": reach,
 			"packages/db/src/deployment.ts": "export const named = (env) => env.VERCEL_ENV ?? env.VERCEL;\n",
 			"tests/integration/x/reach.test.mts": reach,
-		}),
+		}).filter((hit) => hit.endsWith(" deployment-env")),
 		["apps/web/src/features/x/reach.ts", "packages/domain/src/mail/reach.ts"]
 			.flatMap((file) => lines.map((line) => `${file}:${line} deployment-env`))
 			.sort(),
+	);
+});
+
+test("INV-config: web code reads the server environment only through the config module, and never parses all of it per call", () => {
+	const reach = `import { serverEnv } from "../../server/config.ts";
+export const a = process.env.IDENTITY_DATABASE_URL;
+export const b = process.env["CRON_SECRET"];
+const { PGOPTIONS } = process.env;
+export const c = globalThis.process.env.IDENTITY_ORIGIN;
+export const d = z.object({ CRON_SECRET: z.string() }).safeParse(serverEnv());
+export const e = schema.parse(serverEnv());
+export const f = process.env.NEXT_RUNTIME === "nodejs";
+export const g = serverEnv().CRON_SECRET;
+export const h = (process) => process.env.X;
+export function i(source = serverEnv()) {
+	return schema.safeParse(source);
+}
+const copy = serverEnv();
+export const j = schema.parse(copy);
+export const k = schema.parse({ ...serverEnv(), EXTRA: "1" });
+export const l = Reflect.get(process, "env");
+const { env } = process;
+export const m = process.cwd();
+export const n = schema.parse({ CRON_SECRET: serverEnv().CRON_SECRET });
+export const o = { process: 1 };
+`;
+	const imports = `import nodeProcess from "node:process";
+import { env as named } from "process";
+export const p = require("node:process").env;
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/reach.ts": reach,
+			"apps/web/src/server/config.ts":
+				"export const serverEnv = () => process.env;\nexport const all = schema.parse(process.env);\n",
+			"packages/domain/src/x/reach.ts": "export const a = process.env.IDENTITY_DATABASE_URL;\n",
+			"apps/web/src/features/x/imports.ts": imports,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[
+			...[1, 2, 3].map((line) => `apps/web/src/features/x/imports.ts:${line} server-config`),
+			...[2, 3, 4, 5, 6, 7, 12, 15, 16, 17, 18].map((line) => `apps/web/src/features/x/reach.ts:${line} server-config`),
+		].sort(),
+	);
+});
+
+test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
+	const code = `import "server-only";
+import { logFailure, logLine } from "@everyfield/domain/log";
+export async function a(run) {
+	try {
+		return await run();
+	} catch {
+		return null;
+	}
+}
+export const b = (run) => run().catch(() => null);
+export const c = (run, handler) => run().catch(handler);
+export const d = (run) => run().then((v) => v, () => null);
+export async function e(run) {
+	try {
+		return await run();
+	} catch (error) {
+		void String(error);
+		return null;
+	}
+}
+export async function f(run) {
+	try {
+		return await run();
+	} catch (error) {
+		return null;
+		throw error;
+	}
+}
+export async function g(run) {
+	try {
+		return await run();
+	} catch (error) {
+		logFailure({ component: "x", outcome: "failed" }, error);
+		return { status: "lost" };
+	}
+}
+export async function h(run) {
+	try {
+		return await run();
+	} catch (error) {
+		if (!(error instanceof TypeError)) throw error;
+		return null;
+	}
+}
+export async function i(run) {
+	try {
+		return await run();
+	} catch (error) {
+		logFailure({ component: "x", outcome: "failed" }, error);
+		return { status: "unknown" };
+	}
+}
+export const j = (run, answer) => run().catch((error) => answer(error));
+export const k = (run) => run().catch(() => logLine({ component: "x", outcome: "error" }));
+export const l = (schema) => schema.catch("fallback");
+export async function m(run, refusalOf) {
+	try {
+		return await run();
+	} catch (error) {
+		return refusalOf(error);
+	}
+}
+`;
+	const hits = [6, 10, 11, 12, 16, 24, 32];
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/server.ts": code,
+			"apps/web/src/server/jobs/x.ts": code.replace('import "server-only";\n', ""),
+			"apps/web/src/features/x/Client.tsx": `"use client";\n${code.replace('import "server-only";\n', "")}`,
+			"apps/web/src/server/platform/transient.ts": code,
+		}),
+		[
+			...hits.map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
+			...hits.map((line) => `apps/web/src/server/jobs/x.ts:${line - 1} no-silent-catch`),
+		].sort(),
 	);
 });
 
@@ -1397,6 +1559,39 @@ test("INV-lint: product code that recognises a caught error by its message text 
 	]);
 });
 
+test("INV-lint: a hand-written sign-in redirect in web code is reported, signIn and other redirects are not", () => {
+	const source = `import { redirect as go, notFound } from "next/navigation";
+import * as nav from "next/navigation";
+import { signIn } from "@/server/sign-in";
+const TO = "/signin?returnTo=%2Fhome";
+const BASE = "/signin";
+let moving = "/signin?returnTo=%2Fx";
+export function gate(path: string, out: boolean) {
+	if (out) go(\`/signin?returnTo=\${encodeURIComponent(path)}\`);
+	if (!path) go("/signin?returnTo=%2Fhome");
+	if (path === "/x") go("/signin?returnTo=" + encodeURIComponent(path));
+	if (path === "/a") nav.redirect(\`/signin?returnTo=\${path}\`);
+	if (path === "/b") go(TO);
+	if (path === "/c") go("/signin" + "?returnTo=" + path);
+	if (path === "/d") nav.permanentRedirect(\`\${BASE}?returnTo=\${path}\`);
+	if (path === "/y") go("/signin");
+	if (path === "/z") go("/home");
+	if (path === "/m") go(moving);
+	if (out) signIn(path);
+	notFound();
+}
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/routes.tsx": source, "apps/web/src/server/sign-in.ts": source }), [
+		"apps/web/src/features/x/routes.tsx:10 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:11 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:12 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:13 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:14 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:8 sign-in-redirect",
+		"apps/web/src/features/x/routes.tsx:9 sign-in-redirect",
+	]);
+});
+
 test("INV-lint: comments inside SQL templates and query strings are reported, a listed marker is not", () => {
 	const source = `import { sql as q } from "drizzle-orm";
 export const sql = (s: TemplateStringsArray, ...v: unknown[]) => [s, v];
@@ -1661,7 +1856,7 @@ export function Report() {
 	);
 });
 
-test("INV-lint: a store read with getState() while rendering is reported, also through a destructured or assigned getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not", () => {
+test("INV-lint: a store read with getState() while rendering is reported, also through a destructured, defaulted, assigned, bound or passed getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not, and a same-named binding elsewhere is not an alias", () => {
 	const source = `import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { useStore } from "@/components/store";
 export function Card({ store, ids }) {
@@ -1693,15 +1888,62 @@ export function Aliased({ store }) {
 	const onClick = () => read().count;
 	return <button onClick={onClick}>{getState().count + read().count}</button>;
 }
+export function Bound({ store, getState: given }) {
+	const bound = store.getState.bind(store);
+	let later;
+	later = store.getState;
+	const { getState: fallback = null } = store;
+	const onClick = () => bound().count + later().count;
+	const a = store.getState.bind(store)().a;
+	const b = bound().b;
+	const c = later().c;
+	const d = fallback().d;
+	const e = given().e;
+	const f = store.getState.call(store).f;
+	return <button onClick={onClick}>{a + b + c + d + e + f}</button>;
+}
+export function Handler({ store }) {
+	const pick = store.getState;
+	return <button onClick={() => pick().count}>Go</button>;
+}
+export function Unrelated({ pick }) {
+	return <p>{pick()}</p>;
+}
 `;
 	assert.deepEqual(
 		lint({ "apps/web/src/features/x/Card.tsx": source, "packages/ui/src/Card.tsx": source }).filter((hit) =>
 			hit.endsWith("no-render-get-state"),
 		),
 		["apps/web/src/features/x/Card.tsx", "packages/ui/src/Card.tsx"]
-			.flatMap((path) => [4, 5, 6, 7, 15, 21, 30, 30].map((line) => `${path}:${line} no-render-get-state`))
+			.flatMap((path) =>
+				[4, 5, 6, 7, 15, 21, 30, 30, 38, 39, 40, 41, 42, 43].map((line) => `${path}:${line} no-render-get-state`),
+			)
 			.sort(),
 	);
+});
+
+test("INV-lint: only an overlay's lazy entry imports it, so no static chain from a product page reaches it; the parts its sections share import freely", () => {
+	const settings = "apps/web/src/features/settings";
+	const files = {
+		[`${settings}/ProductSettings.tsx`]:
+			'import type { SettingsDialogProps } from "./SettingsDialog";\nexport const load = () => import("./SettingsDialog");\nexport type P = SettingsDialogProps;\n',
+		[`${settings}/sections/ChurchSection.tsx`]:
+			'import { SectionBody } from "../SettingsDialog";\nimport { SaveFooter } from "../SectionParts";\nexport const parts = [SectionBody, SaveFooter];\n',
+		[`${settings}/brand/BrandSection.tsx`]:
+			'import { SectionBody } from "../SettingsDialog";\nexport const parts = [SectionBody];\n',
+		[`${settings}/preview/SettingsPreview.tsx`]:
+			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../ProductSettings";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
+		"apps/web/src/features/evry/conversation/panel.tsx":
+			'import { SettingsDialog } from "../../settings/SettingsDialog";\nexport const load = () => import("./EvryPanel.tsx");\nexport const dialog = SettingsDialog;\n',
+		"apps/web/src/features/shell/Frame.tsx":
+			'import { ChurchSection } from "../settings/sections/ChurchSection";\nexport const section = ChurchSection;\n',
+	};
+	assert.deepEqual(lintIn(sandbox(files), Object.keys(files), /^eslint\((no-restricted-imports)\)$/), [
+		"apps/web/src/features/evry/conversation/panel.tsx:1 no-restricted-imports",
+		`${settings}/brand/BrandSection.tsx:1 no-restricted-imports`,
+		`${settings}/preview/SettingsPreview.tsx:1 no-restricted-imports`,
+		`${settings}/sections/ChurchSection.tsx:1 no-restricted-imports`,
+	]);
 });
 
 test("INV-lint: a page, a layout or a GET route handler that imports a server action module is reported, a route that also writes is not", () => {
@@ -1755,11 +1997,12 @@ test("INV-lint: a route module or server-only module that calls a server action 
 	);
 });
 
-test("INV-lint: a read exported from a server action module or declared as an inline server action is reported, a write or a server-only read is not", () => {
+test("INV-lint: a read exported from a server action module, under its own name or renamed, or declared as an inline server action is reported, a write or a server-only read is not", () => {
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function readThing() {}\nexport const listThings = async () => [];\nexport async function saveThing() {}\nexport async function reader() {}\nasync function loadInner() {}\nexport { loadInner as loadAlias };\nexport const { findOne, saveOne } = { findOne: async () => 1, saveOne: async () => 2 };\n`,
 			"apps/web/src/features/x/default.ts": `"use server";\nexport default async function readDefault() {}\n`,
+			"apps/web/src/features/x/hidden.ts": `"use server";\nasync function readHidden() {}\nasync function reloadRow() {}\nexport { readHidden as default, reloadRow as saveRow };\nexport async function downloadFile() {}\n`,
 			"apps/web/src/features/x/all.ts": `"use server";\nexport * from "./reads.ts";\n`,
 			"apps/web/src/features/x/reads.ts": `export async function readFromAll() {}\n`,
 			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function readInline() {\n\t\t"use server";\n\t}\n\tasync function saveInline() {\n\t\t"use server";\n\t}\n\treturn [readInline, saveInline];\n}\n`,
@@ -1773,6 +2016,33 @@ test("INV-lint: a read exported from a server action module or declared as an in
 			"apps/web/src/features/x/actions.ts:8 no-read-actions",
 			"apps/web/src/features/x/all.ts:2 no-read-actions",
 			"apps/web/src/features/x/default.ts:2 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:5 no-read-actions",
+		],
+	);
+});
+
+test("INV-lint: a server action parameter typed as a trusted shape is reported, also wrapped in a call or re-exported, unknown, primitives, FormData and their unions are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\ntype Input = { id: string };\nexport async function save(input: Input) {}\nexport async function mode(kind: "a" | "b") {}\nexport async function list(ids: string[]) {}\nexport const arrow = async ({ id }: { id: string }) => id;\nasync function hidden(input: Input) {}\nexport { hidden as renamed };\nexport async function fine(a: unknown, b: string, c: number | null, d?: boolean, e: FormData = new FormData(), f = "now") {}\nasync function local(input: Input) {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function inline(input: { id: string }) {\n\t\t"use server";\n\t}\n\treturn inline;\n}\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function save(input: { id: string }) {}\n`,
+			"apps/web/src/features/x/wrapped.ts": `"use server";\nconst wrap = <T>(f: T) => f;\nexport const saved = wrap(async (input: { id: string }) => input);\nconst inner = wrap(async (ids: string[]) => ids);\nexport { inner };\nexport const fine = wrap(async (input: unknown) => input);\n`,
+			"apps/web/src/features/x/again.ts": `"use server";\nexport { save } from "./server.ts";\nexport * from "./server.ts";\n`,
+		}).filter((hit) => hit.endsWith("action-params-unknown")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:3 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:4 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:5 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:6 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:7 action-params-unknown",
+			"apps/web/src/features/x/again.ts:2 action-params-unknown",
+			"apps/web/src/features/x/again.ts:3 action-params-unknown",
+			"apps/web/src/features/x/wrapped.ts:3 action-params-unknown",
+			"apps/web/src/features/x/wrapped.ts:4 action-params-unknown",
 		],
 	);
 });

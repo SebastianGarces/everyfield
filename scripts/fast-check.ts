@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, globSync, readdirSync, readFileSync } from "node:fs";
-import { extname, join, matchesGlob, relative, resolve, sep } from "node:path";
+import { dirname, extname, join, matchesGlob, relative, resolve, sep } from "node:path";
 
 export type StepName = "format" | "lint" | "typecheck" | "formal";
 export type Step = {
@@ -91,10 +91,18 @@ function rootLints(root: string): Pkg[] {
 
 function toolsProject(root: string): { script: string; include: string[] } | undefined {
 	const script: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["typecheck:tools"];
-	const project = typeof script === "string" ? / -p (\S+)/.exec(script)?.[1] : undefined;
-	if (typeof script !== "string" || !project || !existsSync(join(root, project))) return undefined;
-	const config = JSON.parse(readFileSync(join(root, project), "utf8").replace(/^\s*\/\/.*$/gm, ""));
-	return { script, include: config.include ?? [] };
+	if (typeof script !== "string") return undefined;
+	const projects = / -[bp] ((?:\S+\.json ?)+)/.exec(script)?.[1]?.trim().split(" ") ?? [];
+	const found = projects.flatMap((project) =>
+		project.includes("*") ? globSync(project, { cwd: root }).sort() : existsSync(join(root, project)) ? [project] : [],
+	);
+	if (!found.length) return undefined;
+	const include = found.flatMap((project) => {
+		const config = JSON.parse(readFileSync(join(root, project), "utf8").replace(/^\s*\/\/.*$/gm, ""));
+		const base = dirname(project);
+		return (config.include ?? []).map((glob: string) => join(base, glob));
+	});
+	return { script, include };
 }
 
 function workspaceParents(yaml: string): string[] {

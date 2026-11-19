@@ -52,7 +52,7 @@ function Failed({ failure }: { failure: Failure }) {
 			onOpenChange={show}
 			modal={false}
 			onCloseAutoFocus={failure.keepFocusOnRetry}
-			className="w-[560px] max-w-[calc(100vw-24px)]"
+			size="xl"
 			title={
 				<span className="flex items-center gap-3">
 					<EvryBot size="md" mood="idle" />
