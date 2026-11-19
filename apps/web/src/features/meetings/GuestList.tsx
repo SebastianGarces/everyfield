@@ -33,7 +33,7 @@ import {
 	SegmentedControl,
 	StatePanel,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { instant } from "@everyfield/contracts/common";
 import { answeringStatuses } from "@everyfield/contracts/meetings";
@@ -148,7 +148,6 @@ export function GuestList({
 	onCard: (personId: string, card: CardEntry | null) => void;
 	onStale: () => void;
 }) {
-	const toast = useToast();
 	const [chosenFilter, setChosenFilter] = useState<{ value: Filter; at: number }>({ value: "all", at: cardsRequest });
 	const filter = chosenFilter.at === cardsRequest ? chosenFilter.value : "all";
 	const [removing, setRemoving] = useState<Guest | null>(null);

@@ -1102,6 +1102,85 @@ export const p = require("node:process").env;
 	);
 });
 
+test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
+	const code = `import "server-only";
+import { logFailure, logLine } from "@everyfield/domain/log";
+export async function a(run) {
+	try {
+		return await run();
+	} catch {
+		return null;
+	}
+}
+export const b = (run) => run().catch(() => null);
+export const c = (run, handler) => run().catch(handler);
+export const d = (run) => run().then((v) => v, () => null);
+export async function e(run) {
+	try {
+		return await run();
+	} catch (error) {
+		void String(error);
+		return null;
+	}
+}
+export async function f(run) {
+	try {
+		return await run();
+	} catch (error) {
+		return null;
+		throw error;
+	}
+}
+export async function g(run) {
+	try {
+		return await run();
+	} catch (error) {
+		logFailure({ component: "x", outcome: "failed" }, error);
+		return { status: "lost" };
+	}
+}
+export async function h(run) {
+	try {
+		return await run();
+	} catch (error) {
+		if (!(error instanceof TypeError)) throw error;
+		return null;
+	}
+}
+export async function i(run) {
+	try {
+		return await run();
+	} catch (error) {
+		logFailure({ component: "x", outcome: "failed" }, error);
+		return { status: "unknown" };
+	}
+}
+export const j = (run, answer) => run().catch((error) => answer(error));
+export const k = (run) => run().catch(() => logLine({ component: "x", outcome: "error" }));
+export const l = (schema) => schema.catch("fallback");
+export async function m(run, refusalOf) {
+	try {
+		return await run();
+	} catch (error) {
+		return refusalOf(error);
+	}
+}
+`;
+	const hits = [6, 10, 11, 12, 16, 24, 32];
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/server.ts": code,
+			"apps/web/src/server/jobs/x.ts": code.replace('import "server-only";\n', ""),
+			"apps/web/src/features/x/Client.tsx": `"use client";\n${code.replace('import "server-only";\n', "")}`,
+			"apps/web/src/server/platform/transient.ts": code,
+		}),
+		[
+			...hits.map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
+			...hits.map((line) => `apps/web/src/server/jobs/x.ts:${line - 1} no-silent-catch`),
+		].sort(),
+	);
+});
+
 test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
 	const { dir, path, renamed, write, base } = history();
 	const growth = (entries, ...moves) => {

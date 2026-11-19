@@ -13,7 +13,8 @@ import { createAssessments, createFacts, type Assessments } from "@everyfield/do
 import { readCatalog } from "@everyfield/domain/phases";
 import "server-only";
 import type { ActionOutcome } from "./assessment-model.ts";
-import { logFailure, type LogWord } from "@everyfield/domain/log";
+import { isTransient, logFailure, type LogWord } from "@everyfield/domain/log";
+import { LOST, transient, unexpected } from "../../server/platform/transient.ts";
 
 const assessments = createAssessments();
 const facts = createFacts();
@@ -22,15 +23,14 @@ export async function runAssessment<T>(
 	component: "refresh" | "seen" | "feedback" | "citation",
 	body: (a: Assessments, db: Database, authority: RequestActor) => Promise<AssessmentReply<T>>,
 ): Promise<ActionOutcome<T>> {
-	const viewer = await getViewer();
-	if (!viewer.authority) return { status: "signed_out" };
+	const { authority } = await getViewer();
+	if (!authority) return { status: "signed_out" };
 	const db = requestDatabase();
-	try {
-		return await body(assessments, db, viewer.authority);
-	} catch (error) {
-		logFailure({ component: "assessment", outcome: `${component}_failed` }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "assessment", outcome: `${component}_failed` },
+		() => body(assessments, db, authority),
+		LOST,
+	);
 }
 
 export type Loaded<T> = { status: "ok"; value: T } | { status: "denied" | "lost" };
@@ -51,6 +51,8 @@ export async function loadAssessment(
 		if (view.status !== "ok" || measured.status !== "ok") return { status: "denied" };
 		return { status: "ok", value: { view: view.value, facts: measured.value, catalog } };
 	} catch (error) {
+		if (!isTransient(error))
+			throw unexpected({ component: "plant-intelligence", what: "assessment", outcome: "read_failed" }, error);
 		report("assessment", error);
 		return { status: "lost" };
 	}
@@ -65,6 +67,8 @@ export async function loadTrends(
 		if (history.status !== "ok") return { status: "denied" };
 		return { status: "ok", value: { history: history.value, catalog } };
 	} catch (error) {
+		if (!isTransient(error))
+			throw unexpected({ component: "plant-intelligence", what: "trends", outcome: "read_failed" }, error);
 		report("trends", error);
 		return { status: "lost" };
 	}
