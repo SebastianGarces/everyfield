@@ -42,7 +42,7 @@ import {
 	Input,
 	PageHeader,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, type IconSvgElement } from "@everyfield/ui/foundations";
@@ -96,7 +96,6 @@ export function AttestationsScreen({ initial, viewerName }: { initial: Attestati
 	const [dialog, setDialog] = useState<
 		{ kind: "answer"; key: SignalKey } | { kind: "renew" } | { kind: "candidate"; personId: string | null } | null
 	>(null);
-	const toast = useToast();
 	const [keys] = useState(() => new Map<string, string>());
 	const keyFor = (payload: string) => {
 		if (!keys.has(payload)) keys.set(payload, crypto.randomUUID());

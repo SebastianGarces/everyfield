@@ -1,6 +1,6 @@
 "use client";
 
-import { useToast } from "@everyfield/ui/controls";
+import { toast } from "@everyfield/ui/controls";
 import type { Loadable } from "@everyfield/ui/display";
 import { useBrowserZone, useDocumentHidden, useMinuteClock } from "@everyfield/ui/foundations";
 import { useMemo, useRef, useState, type ReactNode } from "react";
@@ -111,7 +111,6 @@ const fromPage = (page: FeedPage): Ready => ({
 });
 
 export function useFeed(query: FeedQuery, initial: FeedPage | null) {
-	const toast = useToast();
 	const { stand, withdraw, confirm } = Account.useSelect((s) => s.actions);
 	const marks = Account.useSelect((s) => s.marks);
 	const account = Account.useSelect((s) => s.account);
@@ -210,9 +209,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 			toast({
 				tone: "error",
 				message: markProblem(r),
-				...(r.status === "lost"
-					? { action: { label: "Try again", altText: "Mark it read again from the list", onSelect: () => void go() } }
-					: {}),
+				...(r.status === "lost" ? { action: { label: "Try again", onSelect: () => void go() } } : {}),
 			});
 		};
 		void go();

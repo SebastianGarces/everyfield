@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
-import { Button, Sheet, Skeleton, StatePanel, useToast } from "@everyfield/ui/controls";
+import { Button, Sheet, Skeleton, StatePanel, toast } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useId, useRef, useState, useTransition } from "react";
@@ -32,7 +32,6 @@ export const phaseName = (phase: number) => `Phase ${phase} · ${SHORT_NAME[phas
 const previews = createRead((key: string) => loadPreview(key), { failed: () => ({ status: "lost" }) as const });
 
 export function Templates({ year, onImported }: { year: number; onImported: (tasks: TaskItem[]) => void }) {
-	const toast = useToast();
 	const [open, setOpen] = useState(false);
 	const [catalog, setCatalog] = useState<Load<TemplateCatalog>>({ status: "loading" });
 	const [chosen, setChosen] = useState<string | null>(null);

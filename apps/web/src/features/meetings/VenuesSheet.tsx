@@ -13,7 +13,7 @@ import {
 	StatePanel,
 	Switch,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/display";
 import { createDebouncer } from "@everyfield/ui/foundations";
@@ -207,7 +207,6 @@ function Place({
 	onBack: () => void;
 	onEdit: (venue: Venue) => void;
 }) {
-	const toast = useToast();
 	const details = useRead(placeDetails, id);
 	const fromSaved: Outcome<History> | null = saved
 		? { status: "ok", value: { status: "available", venue: saved, history: [] } }

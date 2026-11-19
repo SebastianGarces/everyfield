@@ -102,10 +102,10 @@ import {
 	TabsList,
 	TabsPanel,
 	Textarea,
-	ToastProvider,
+	toast,
+	Toaster,
 	Tooltip,
 	TooltipSep,
-	useToast,
 	type DateRange,
 } from "..";
 import { ACTIVITY, COMMANDS, PRESETS, STAGES, TAGS, TONES_PREVIEW } from "./fixtures";
@@ -127,7 +127,8 @@ export function ControlsPreview({ paletteShortcut }: { paletteShortcut: Shortcut
 	const [group, setGroup] = useState<Group>("all");
 	const show = (g: Group) => group === "all" || group === g;
 	return (
-		<ToastProvider>
+		<>
+			<Toaster />
 			<PageHeader
 				size="xl"
 				breadcrumb={[{ label: "Design system", href: "/design/foundations" }, { label: "Controls" }]}
@@ -148,7 +149,7 @@ export function ControlsPreview({ paletteShortcut }: { paletteShortcut: Shortcut
 				{show("surfaces") ? <StickyFooterSection /> : null}
 				{group === "all" ? <CompositionMap /> : null}
 			</div>
-		</ToastProvider>
+		</>
 	);
 }
 
@@ -743,7 +744,6 @@ function SelectionSection() {
 }
 
 function RowMenu({ name }: { name: string }) {
-	const toast = useToast();
 	return (
 		<Menu>
 			<Tooltip content="More actions">
@@ -768,7 +768,7 @@ function RowMenu({ name }: { name: string }) {
 					onSelect={() =>
 						toast({
 							message: "Follow-up created for Tom.",
-							action: { label: "View task", altText: "Open Tasks to view the follow-up", onSelect: () => {} },
+							action: { label: "View task", onSelect: () => {} },
 						})
 					}
 				>
@@ -791,7 +791,6 @@ function RowMenu({ name }: { name: string }) {
 }
 
 function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark }) {
-	const toast = useToast();
 	const [palette, setPalette] = useState(false);
 	const [guide, setGuide] = useState(false);
 	const [answer, setAnswer] = useState<((hidden: boolean) => void) | null>(null);
@@ -869,7 +868,7 @@ function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark })
 											onClick={() =>
 												toast({
 													message: "Maria moved to core group.",
-													action: { label: "View Maria", altText: "Open People to view Maria", onSelect: () => {} },
+													action: { label: "View Maria", onSelect: () => {} },
 												})
 											}
 										>
@@ -977,7 +976,7 @@ function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark })
 							onClick={() =>
 								toast({
 									message: "Maria moved to core group.",
-									action: { label: "View Maria", altText: "Open People to view Maria", onSelect: () => {} },
+									action: { label: "View Maria", onSelect: () => {} },
 								})
 							}
 						>

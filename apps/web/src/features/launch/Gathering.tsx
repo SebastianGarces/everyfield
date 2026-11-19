@@ -26,7 +26,7 @@ import {
 	InsightTop,
 	Input,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { useState } from "react";
 import type { chooseGatheringPath, readGatheringOffers, saveGathering } from "./actions.ts";
@@ -64,7 +64,6 @@ function useSwitch(
 	onPlan: (p: Plan) => void,
 	onOffers: (o: Offers) => void,
 ) {
-	const toast = useToast();
 	const [busy, setBusy] = useState<string | null>(null);
 	async function choose(organizationId: string | null) {
 		const input = organizationId ? { path: "milestone", organizationId } : { path: "launch_sunday" };

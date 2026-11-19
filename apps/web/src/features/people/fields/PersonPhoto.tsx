@@ -13,7 +13,7 @@ import {
 	PopoverAnchor,
 	PopoverContent,
 	Spinner,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { Avatar, initials } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
@@ -58,7 +58,6 @@ export function PersonPhoto({
 	onSaved: (receipt: Receipt) => void;
 	onConflict: () => void;
 }) {
-	const toast = useToast();
 	usePersonState(store);
 	const lane = useSaveIntent<{ problem?: string }>({
 		explain: photoRefusal,

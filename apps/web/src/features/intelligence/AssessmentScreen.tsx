@@ -46,7 +46,7 @@ import {
 	Spinner,
 	StatePanel,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, observeIntersection, type IconSvgElement } from "@everyfield/ui/foundations";
@@ -318,7 +318,6 @@ function Feedback({
 	initial: OwnFeedback | null;
 	light?: boolean;
 }) {
-	const toast = useToast();
 	const [saved, setSaved] = useState(initial);
 	const [writing, setWriting] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);

@@ -31,7 +31,7 @@ import {
 	PageHeader,
 	SearchInput,
 	SegmentedControl,
-	useToast,
+	toast,
 	buttonVariants,
 	IntentLink,
 } from "@everyfield/ui/controls";
@@ -182,7 +182,6 @@ function Notices({ lanes }: { lanes: [string, SaveLane<TaskForm>][] }) {
 export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; viewer: Viewer; year: number }) {
 	const router = useRouter();
 	const pathname = usePathname();
-	const toast = useToast();
 	const admin = viewer.role !== "member";
 	const [navigating, startNav] = useTransition();
 	const [, startAction] = useTransition();
@@ -422,7 +421,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 		toast({
 			tone: "success",
 			message: when ? `Added the next “${next.title}”, due ${when}.` : `Added the next “${next.title}”.`,
-			action: { label: "Open it", altText: "Open the next occurrence", onSelect: () => open(next.id) },
+			action: { label: "Open it", onSelect: () => open(next.id) },
 		});
 	};
 
@@ -714,7 +713,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 				? undefined
 				: {
 						label: "Show it",
-						altText: "Open the task",
 						onSelect: () => open(value.task.id),
 					},
 		});

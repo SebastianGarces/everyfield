@@ -23,7 +23,7 @@ import {
 	SegmentedControl,
 	Spinner,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useRef, useState } from "react";
@@ -73,7 +73,6 @@ export function usePresence({
 	onSaved: (answer: PresenceAnswer) => void;
 	onStale: () => void;
 }) {
-	const toast = useToast();
 	const lanes = useRowLanes(problemText);
 	const [asked] = useState(() => new Map<string, Presence>());
 	function set(who: Who, presence: Presence) {

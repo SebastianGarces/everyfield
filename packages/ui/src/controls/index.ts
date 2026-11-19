@@ -66,4 +66,4 @@ export { Select, type SelectOption } from "./Select";
 export { Spinner } from "./Spinner";
 export { EmptyState, PageState, Skeleton, StatePanel, type StateTone } from "./States";
 export { CountChip, SegmentedControl, Tab, Tabs, TabsList, TabsPanel, type SegmentOption } from "./Tabs";
-export { ToastProvider, useToast, type ToastInput, type ToastTone } from "./Toast";
+export { toast, Toaster, type ToastInput, type ToastTone } from "./Toaster";

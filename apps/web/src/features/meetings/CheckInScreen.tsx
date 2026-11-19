@@ -16,8 +16,8 @@ import {
 	iconButtonVariants,
 	SearchInput,
 	SegmentedControl,
-	ToastProvider,
-	useToast,
+	toast,
+	Toaster,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon, prefersReducedMotion } from "@everyfield/ui/foundations";
@@ -40,14 +40,14 @@ import type { CheckInData } from "./server.ts";
 
 export function CheckInScreen({ data, admin }: { data: CheckInData; admin: boolean }) {
 	return (
-		<ToastProvider>
+		<>
+			<Toaster />
 			<CheckIn loaded={data} admin={admin} />
-		</ToastProvider>
+		</>
 	);
 }
 
 function CheckIn({ loaded, admin }: { loaded: CheckInData; admin: boolean }) {
-	const toast = useToast();
 	const [data, setData] = useState(loaded);
 	const [arrived, setArrived] = useState<string | null>(null);
 	const [search, setSearch] = useState("");
