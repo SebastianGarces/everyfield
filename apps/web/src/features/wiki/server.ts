@@ -24,7 +24,8 @@ import {
 import { isTransient, logFailure, logLine, type LogWord } from "@everyfield/domain/log";
 import { parseJson } from "../../server/platform/json.ts";
 import { mutatingRoute } from "../../server/platform/boundary.ts";
-import { LOST, transient } from "../../server/platform/transient.ts";
+import { ServerConfigError } from "../../server/config.ts";
+import { LOST, transient, unexpected } from "../../server/platform/transient.ts";
 
 type Producer = ReturnType<typeof createWikiProducer>;
 type Mount = { db: Database; producer: Producer };
@@ -145,10 +146,10 @@ export async function organizationNames(mount: Mount, ids: string[]): Promise<Ma
 export type Preview = { crawler: boolean; allowed: boolean; title: string | null; excerpt: string | null };
 
 export const loadPreview = cache(async (path: string, userAgent: string): Promise<Preview | null> => {
-	const mount = wikiMount();
 	return transient(
 		{ component: "wiki", outcome: "preview-failed" },
 		async () => {
+			const mount = wikiMount();
 			const reply = await mount.producer.renderGlobalPreview(mount.db, { path, userAgent });
 			if (reply.status !== "ok") return null;
 			return {
@@ -159,7 +160,10 @@ export const loadPreview = cache(async (path: string, userAgent: string): Promis
 			};
 		},
 		null,
-	);
+	).catch((error: unknown) => {
+		if (error instanceof ServerConfigError) return null;
+		throw error;
+	});
 });
 
 type Got = { article: WikiArticle | null; errorCode: "content_access_denied" | null };
@@ -434,7 +438,7 @@ export async function loadWiki(
 							};
 						}
 					} catch (error) {
-						if (!isTransient(error)) throw error;
+						if (!isTransient(error)) throw unexpected({ component: "wiki", outcome: "draft-failed" }, error);
 						logFailure({ component: "wiki", outcome: "draft-failed" }, error);
 						draftLost = true;
 					}
@@ -460,7 +464,7 @@ export async function loadWiki(
 			draftLost,
 		};
 	} catch (error) {
-		if (!isTransient(error)) throw error;
+		if (!isTransient(error)) throw unexpected({ component: "wiki", outcome: "page-failed" }, error);
 		logFailure({ component: "wiki", outcome: "page-failed" }, error);
 		return "lost";
 	}
@@ -533,7 +537,7 @@ export const progressRoute = mutatingRoute(async function progressRoute(request:
 		});
 		return new Response(null, { status: reply.status === "ok" && !reply.value.errorCode ? 204 : 409 });
 	} catch (error) {
-		if (!isTransient(error)) throw error;
+		if (!isTransient(error)) throw unexpected({ component: "wiki", outcome: "progress-beacon-failed" }, error);
 		logFailure({ component: "wiki", outcome: "progress-beacon-failed" }, error);
 		return new Response(null, { status: 400 });
 	}

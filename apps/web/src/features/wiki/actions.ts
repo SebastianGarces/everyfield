@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { parseSource, sourceInput } from "./model.ts";
 import { editorContext, plantContext, mountFor, wikiActor } from "./server.ts";
 import { isTransient, logFailure } from "@everyfield/domain/log";
-import { LOST, transient } from "../../server/platform/transient.ts";
+import { LOST, transient, unexpected } from "../../server/platform/transient.ts";
 
 type WriteOk = {
 	status: "ok";
@@ -308,7 +308,7 @@ async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgC
 		}
 		return { status: "ok", revision: nextRevision(command.expectedRevision), state: reply.value.state };
 	} catch (error) {
-		if (!isTransient(error)) throw error;
+		if (!isTransient(error)) throw unexpected({ component: "wiki", outcome: "organization-write-failed" }, error);
 		logFailure({ component: "wiki", outcome: "organization-write-failed" }, error);
 		return { status: "lost" };
 	}
