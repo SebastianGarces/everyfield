@@ -130,7 +130,7 @@ export function EvryPanel({ inPlant, context }: { inPlant: boolean; context: str
 			open={open}
 			onOpenChange={actions.show}
 			modal={false}
-			className="w-[560px] max-w-[calc(100vw-24px)]"
+			size="xl"
 			bodyRef={view === "chat" ? box : undefined}
 			onOpenAutoFocus={(e) => {
 				if (view !== "chat") return;
