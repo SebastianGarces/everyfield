@@ -3,7 +3,7 @@ import { sql } from "@everyfield/db/query";
 import { createHmac } from "node:crypto";
 import { z } from "zod";
 import { database } from "../../server/database.ts";
-import type { OperatorMail, OperatorNotice } from "../../server/jobs/feedback-publication.ts";
+import type { OperatorMail, OperatorNotice } from "@everyfield/domain/jobs";
 import {
 	createMailService,
 	MAIL_PASSES,

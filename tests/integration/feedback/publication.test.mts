@@ -8,7 +8,7 @@ import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
 import { publicIssue } from "../../../packages/domain/src/feedback/public.ts";
 import { feedbackMailPass } from "../../../apps/web/src/features/feedback/mail.ts";
 import { feedbackPublicationMount } from "../../../apps/web/src/features/feedback/publication.ts";
-import { runDueFeedbackPublication } from "../../../apps/web/src/server/jobs/feedback-publication.ts";
+import { runDueFeedbackPublication } from "../../../packages/domain/src/jobs/feedback-publication.ts";
 import { githubIssues } from "../../../apps/web/src/server/jobs/github.ts";
 import type { MailPayload, MailTransport } from "../../../apps/web/src/server/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";

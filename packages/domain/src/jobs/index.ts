@@ -1,3 +1,13 @@
+export {
+	runDueFeedbackPublication,
+	type CreateOutcome,
+	type IssueClient,
+	type IssueLink,
+	type OperatorMail,
+	type OperatorNotice,
+	type PublicationConfig,
+	type SearchOutcome,
+} from "./feedback-publication.ts";
 export { runDuePurges } from "./lifecycle-purge.ts";
 export { runDueObjectCleanup } from "./object-cleanup.ts";
 export {
