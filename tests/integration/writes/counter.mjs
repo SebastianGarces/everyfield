@@ -151,10 +151,10 @@ function measureWrapper(name, body) {
 }
 globalThis.__evfWriteCounts = { measure, measureWrapper, decorate, observeDatabase };
 
-export function instrument(path, source, listed = standalone) {
+export function instrument(path, source, listed) {
 	const ast = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true),
 		edits = [];
-	const names = listed[path.slice(root.length)] ?? [],
+	const names = (listed ?? standalone)[path.slice(root.length)] ?? [],
 		declared = new Set();
 	const localAliases = path.endsWith("/jobs/notifications.ts") ? { enqueueMany: "notifications.enqueueMany" } : {};
 	function walk(n) {
