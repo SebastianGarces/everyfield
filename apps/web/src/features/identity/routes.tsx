@@ -27,8 +27,8 @@ export async function SignInPage({ searchParams }: { searchParams: Search }) {
 
 export const homeMetadata: Metadata = { title: "Home", robots: { index: false, follow: false } };
 export async function HomePage({ searchParams }: { searchParams: Search }) {
-	const returnTo = one((await searchParams).returnTo);
-	const viewer = await getViewer();
+	const [search, viewer] = await Promise.all([searchParams, getViewer()]);
+	const returnTo = one(search.returnTo);
 	if (!viewer || viewer.status === "unauthenticated") redirect("/signin");
 	const db = requestDatabase();
 	const plant =
