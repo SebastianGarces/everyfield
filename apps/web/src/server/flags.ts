@@ -30,6 +30,8 @@ const flags = Object.fromEntries(Object.keys(registry).map((key) => [key, declar
 	[N in FlagName]: ReturnType<typeof declare>;
 };
 
+const requestWithoutOverrideCookie = cache(() => new Request("http://flags.invalid/"));
+
 export function readFlag(name: FlagName): Promise<boolean> {
-	return flags[name]();
+	return flags[name](requestWithoutOverrideCookie());
 }
