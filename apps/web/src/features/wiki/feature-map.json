@@ -7,7 +7,7 @@
 			"id": "wiki.reader",
 			"says": "The Playbook wiki: a home with what to read next, search, and every article's address.",
 			"routes": ["/wiki/[[...slug]]"],
-			"endpoints": ["/api/wiki/progress"],
+			"endpoints": ["/api/wiki/progress", "/api/wiki/read"],
 			"catalog": ["WIKI-001", "WIKI-002", "WIKI-003", "WIKI-004", "WIKI-011"],
 			"reach": [
 				{
