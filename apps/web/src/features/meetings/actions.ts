@@ -235,10 +235,10 @@ export async function previewSettlement(
 ): Promise<Outcome<Finalization>> {
 	if (mode !== "finalize" && mode !== "reconcile") return { status: "refused", code: "invalid_input" } as const;
 	const v = await getViewer();
-	const db = requestDatabase();
 	const people = v.people;
 	if (!people) return noSeat;
 	const mount = tasksMount();
+	const db = requestDatabase();
 	attendanceWriter ??= createAttendanceWriter({ reminders: mount.reminders });
 	const w = attendanceWriter;
 	return transient(
