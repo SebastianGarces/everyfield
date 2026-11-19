@@ -33,6 +33,7 @@ import { current as organizationMount } from "../organizations/mount.ts";
 import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
+import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
 
 type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
 type Signed = SectionViewer & { accountId: string };
@@ -118,7 +119,7 @@ function create(v: z.infer<typeof env>) {
 			const viewer = await signedIn();
 			return {
 				request,
-				trustedIp: trustedIdentityIp(request, process.env.VERCEL === "1"),
+				trustedIp: trustedIdentityIp(request, trustsVercelForwardedFor(process.env)),
 				viewer: viewer && {
 					accountId: viewer.accountId,
 					email: viewer.principal.email,
@@ -332,7 +333,7 @@ export async function openRestrictedDeletion(kind: "account" | "plant", raw: unk
 	const ops = settingsMount();
 	if (!ops) return refusal("access_denied");
 	const request = new Request(`${ops.origin}/`, { headers: await headers() });
-	const ip = trustedIdentityIp(request, process.env.VERCEL === "1");
+	const ip = trustedIdentityIp(request, trustsVercelForwardedFor(process.env));
 	const opened = await (
 		kind === "account" ? ops.credentials.openAccountDeletion(raw, ip) : ops.credentials.openWorkspaceDeletion(raw, ip)
 	).catch((error) => {
