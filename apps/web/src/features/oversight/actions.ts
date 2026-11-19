@@ -14,7 +14,7 @@ export async function refreshIntelligence(
 	if (ran.status !== "ok") return ran.status === "lost" ? { status: "lost" } : { status: "refused" };
 	const who = await oversightViewer();
 	const db = requestDatabase();
-	if (who.kind !== "organization" || !db) return { status: "lost" };
+	if (who.kind !== "organization") return { status: "lost" };
 	const view = await readIntelligence(db, who.viewer.authority, {
 		level: level.catch("portfolio").parse(shownLevel),
 		runId,

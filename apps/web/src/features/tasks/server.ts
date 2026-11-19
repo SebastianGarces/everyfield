@@ -22,7 +22,7 @@ const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
 
 export async function taskViewer(): Promise<TaskViewer | null> {
 	const v = await getViewer();
-	const authority = v?.authority;
+	const authority = v.authority;
 	if (!authority) return null;
 	const ctx = authority.actor.context;
 	if (ctx.kind !== "seat" || ctx.owner.kind !== "plant") return null;
@@ -36,7 +36,6 @@ const outcome = <T>(reply: TaskReply<T>): Outcome<T> =>
 
 export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await db.transaction(run);
 	} catch (error) {
@@ -50,7 +49,6 @@ export async function write<T>(
 	run: (writer: TaskWriter, tx: Transaction, context: TaskContext) => Promise<TaskReply<T>>,
 ): Promise<Outcome<T>> {
 	const mount = tasksMount();
-	if (!mount) return { status: "lost" };
 	try {
 		return outcome(await withTaskWrite(mount.db, viewer.authority, (tx, ctx) => run(mount.writer, tx, ctx)));
 	} catch (error) {

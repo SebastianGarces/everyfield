@@ -11,7 +11,7 @@ import type { BrandView } from "../port";
 import { logFailure, type LogWord } from "@everyfield/domain/log";
 
 type Db = NonNullable<ReturnType<typeof requestDatabase>>;
-type Actor = NonNullable<Awaited<ReturnType<typeof getViewer>>>["authority"];
+type Actor = Awaited<ReturnType<typeof getViewer>>["authority"];
 
 const unavailable = (): BrandReply<never> => ({
 	status: "refused",
@@ -25,7 +25,7 @@ const run = async <T, O extends string>(outcome: LogWord<O>, call: Call<T>) => r
 
 async function runAs<T, O extends string>(viewer: Session, outcome: LogWord<O>, call: Call<T>) {
 	const db = requestDatabase();
-	if (!db || viewer?.status !== "active" || !viewer.authority) return unavailable();
+	if (viewer.status !== "active" || !viewer.authority) return unavailable();
 	try {
 		return await call(db, viewer.authority);
 	} catch (error) {

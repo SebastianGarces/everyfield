@@ -13,17 +13,17 @@ import { appOrigin, mailReady, type MailReady } from "../../server/mail/transpor
 import { canWrite } from "../../components/seat-role.ts";
 import { logFailure } from "@everyfield/domain/log";
 
-type Peopled = NonNullable<NonNullable<Awaited<ReturnType<typeof getViewer>>>["people"]>;
+type Peopled = NonNullable<Awaited<ReturnType<typeof getViewer>>["people"]>;
 export type Viewer = Peopled;
 
 export async function communicationViewer() {
 	try {
 		const viewer = await getViewer();
 		return {
-			viewer: viewer?.people ?? null,
-			email: viewer?.email ?? null,
-			signedOut: !viewer || viewer.status === "unauthenticated",
-			ok: viewer !== null,
+			viewer: viewer.people ?? null,
+			email: viewer.email ?? null,
+			signedOut: viewer.status === "unauthenticated",
+			ok: true,
 		};
 	} catch (error) {
 		logFailure({ component: "communication", outcome: "viewer_failed" }, error);
@@ -39,7 +39,6 @@ export async function read<T>(
 	run: (tx: Transaction) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return outcome(await db.transaction((tx) => run(tx)));
 	} catch (error) {
@@ -53,7 +52,6 @@ export async function write<T>(
 	run: (tx: Transaction, context: CommunicationContext) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return outcome(await withCommunicationWrite(db, viewer.authority, run));
 	} catch (error) {
@@ -80,7 +78,6 @@ export async function deliverAs<T>(
 	const mail = mailReady();
 	if (!mail) return { status: "refused", code: "unavailable" };
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return outcome(await run(db, seat.viewer, mail));
 	} catch (error) {

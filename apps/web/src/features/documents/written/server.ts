@@ -12,7 +12,6 @@ export async function loadWritten(authority: RequestActor, raw: string): Promise
 	const id = recordId.safeParse(raw);
 	if (!id.success) return { status: "missing" };
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		const reply = await documentsWriter.read(db, authority, { documentId: id.data });
 		if (reply.status !== "ok") return { status: "missing" };

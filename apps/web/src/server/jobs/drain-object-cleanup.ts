@@ -6,8 +6,7 @@ import { runDueObjectCleanup } from "./object-cleanup.ts";
 
 export function drainObjectCleanup() {
 	after(async () => {
-		const db = requestDatabase();
 		const storage = privateStorage();
-		if (db && storage) await runDueObjectCleanup(db, storage, 4);
+		if (storage) await runDueObjectCleanup(requestDatabase(), storage, 4);
 	});
 }

@@ -27,7 +27,7 @@ import { cookies, headers } from "next/headers";
 import { after } from "next/server";
 import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
-import { mailEnv } from "../../server/mail-env.ts";
+import { serverConfig, serverEnv, type ServerConfig } from "../../server/config.ts";
 import { database } from "../../server/database.ts";
 import { enqueueJob, queueJobs } from "../../server/jobs/queue.ts";
 import { current as organizationMount } from "../organizations/mount.ts";
@@ -36,22 +36,15 @@ import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
 
-type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
+type Viewer = Awaited<ReturnType<typeof getViewer>>;
 type Signed = SectionViewer & { accountId: string };
-type Mount = NonNullable<ReturnType<typeof create>>;
+type Mount = ReturnType<typeof create>;
 type Context = { session: RequestActor["session"]; selected: Owner };
 
-const env = z.object({
-	IDENTITY_AUTH_DATABASE_URL: z.string().min(1),
-	IDENTITY_ORIGIN: z.url(),
-	IDENTITY_SECRET: z.string().min(32),
-	...mailEnv,
-});
 let mount: ReturnType<typeof create> | undefined;
-function create(v: z.infer<typeof env>) {
+function create(v: ServerConfig) {
 	const organizations = organizationMount();
 	const mail = settingsMail();
-	if (!organizations || !mail) return null;
 	const db = organizations.db,
 		origin = v.IDENTITY_ORIGIN,
 		addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
@@ -120,7 +113,7 @@ function create(v: z.infer<typeof env>) {
 			const viewer = await signedIn();
 			return {
 				request,
-				trustedIp: trustedIdentityIp(request, trustsVercelForwardedFor(process.env)),
+				trustedIp: trustedIdentityIp(request, trustsVercelForwardedFor(serverEnv())),
 				viewer: viewer && {
 					accountId: viewer.accountId,
 					email: viewer.principal.email,
@@ -148,9 +141,7 @@ function create(v: z.infer<typeof env>) {
 	};
 }
 function settingsMount() {
-	const v = env.safeParse(process.env);
-	if (!v.success) return null;
-	mount ??= create(v.data);
+	mount ??= create(serverConfig());
 	return mount;
 }
 
@@ -193,7 +184,6 @@ function parseSetCookie(header: string) {
 
 export function settingsCommands() {
 	const ops = settingsMount();
-	if (!ops) return null;
 	return {
 		settings: {
 			updatePlantProfile: ops.sections.updatePlantProfile,
@@ -205,8 +195,8 @@ export function settingsCommands() {
 	};
 }
 
-export function settingsViewerOf(v: Viewer | null): SettingsViewer | null {
-	const authority = v?.authority;
+export function settingsViewerOf(v: Viewer): SettingsViewer | null {
+	const authority = v.authority;
 	if (!authority || v.status !== "active") return null;
 	const context = authority.actor.context;
 	if (context.kind !== "seat") return { context: "account", accountId: v.accountId };
@@ -236,7 +226,7 @@ export async function readSection(
 ): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
 	const viewer = signedAs(session);
 	const ops = settingsMount();
-	if (!viewer || !ops) return refusal("access_denied");
+	if (!viewer) return refusal("access_denied");
 	try {
 		return await ops.sections.getSection(ops.db, viewer, raw);
 	} catch (error) {
@@ -253,7 +243,7 @@ export async function run<S extends z.ZodType, T>(
 ): Promise<SettingsReply<T>> {
 	const viewer = await signedIn();
 	const ops = settingsMount();
-	if (!viewer || !ops) return refusal("access_denied");
+	if (!viewer) return refusal("access_denied");
 	const input = schema.safeParse(raw);
 	if (!input.success) return refusal("invalid_input");
 	const self = ["account", "notifications"].includes(section(input.data));
@@ -274,7 +264,7 @@ export async function credential<S extends z.ZodType, T>(
 ): Promise<T | { status: "refused"; error: SettingsError }> {
 	const viewer = await signedIn();
 	const ops = settingsMount();
-	if (!viewer || !ops) return refusal("access_denied");
+	if (!viewer) return refusal("access_denied");
 	const input = schema.safeParse(raw);
 	if (!input.success) return refusal("invalid_input");
 	const context = {
@@ -292,7 +282,7 @@ export async function credential<S extends z.ZodType, T>(
 export async function storeAvatarBytes(accountId: string, uploadId: string, bytes: Uint8Array) {
 	const viewer = await signedIn();
 	const ops = settingsMount();
-	if (!viewer || !ops?.storage || viewer.accountId !== accountId) return "unavailable" as const;
+	if (!viewer || !ops.storage || viewer.accountId !== accountId) return "unavailable" as const;
 	const context = { session: viewer.authority.session, selected: owner.parse({ kind: "account", id: accountId }) };
 	try {
 		await uploadAvatar(ops.db, ops.storage, context, { uploadId, bytes });
@@ -311,7 +301,7 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 export async function avatarBytes(accountId: string, versionId: string) {
 	const viewer = await signedIn();
 	const ops = settingsMount();
-	if (!viewer || !ops?.storage) return null;
+	if (!viewer || !ops.storage) return null;
 	const context = {
 		session: viewer.authority.session,
 		selected: owner.parse({ kind: "account", id: viewer.accountId }),
@@ -333,9 +323,8 @@ type Restricted = z.infer<typeof restrictedCookie>;
 
 export async function openRestrictedDeletion(kind: "account" | "plant", raw: unknown) {
 	const ops = settingsMount();
-	if (!ops) return refusal("access_denied");
 	const request = new Request(`${ops.origin}/`, { headers: await headers() });
-	const ip = trustedIdentityIp(request, trustsVercelForwardedFor(process.env));
+	const ip = trustedIdentityIp(request, trustsVercelForwardedFor(serverEnv()));
 	const opened = await (
 		kind === "account" ? ops.credentials.openAccountDeletion(raw, ip) : ops.credentials.openWorkspaceDeletion(raw, ip)
 	).catch((error) => {
@@ -378,7 +367,7 @@ async function restricted(kind: "account" | "plant"): Promise<Restricted | null>
 export async function restrictedStatus(kind: "account" | "plant") {
 	const ops = settingsMount(),
 		session = await restricted(kind);
-	if (!ops || !session) return refusal("proof_invalid");
+	if (!session) return refusal("proof_invalid");
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const { request } = session;
 	return logged("restricted_status_failed", () =>
@@ -393,7 +382,7 @@ export async function restrictedStatus(kind: "account" | "plant") {
 export async function cancelRestrictedDeletion(kind: "account" | "plant", expectedRevision: string) {
 	const ops = settingsMount(),
 		session = await restricted(kind);
-	if (!ops || !session) return refusal("proof_invalid");
+	if (!session) return refusal("proof_invalid");
 	const command = { requestKey: randomUUID(), expectedRevision, input: session.request };
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const reply = await logged("restricted_cancel_failed", () =>
@@ -427,7 +416,7 @@ async function logged<T, O extends string>(
 export type Session = Awaited<ReturnType<typeof getViewer>>;
 
 function signedAs(v: Session): Signed | null {
-	if (v?.status !== "active" || !v.authority) return null;
+	if (v.status !== "active" || !v.authority) return null;
 	const principal = { display_name: v.displayName, email: v.email, verified: v.verified };
 	return { authority: v.authority, principal, accountId: v.accountId };
 }

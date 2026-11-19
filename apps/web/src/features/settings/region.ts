@@ -31,7 +31,7 @@ export async function saveRegion(input: {
 	const seat = plantSeat(await getViewer());
 	const m = current();
 	const place = locality.safeParse(input.locality);
-	if (!seat || !m) return { status: "refused", code: "unavailable" };
+	if (!seat) return { status: "refused", code: "unavailable" };
 	if (!place.success) return { status: "refused", code: "invalid_input" };
 	const request = correctReportingLocationRequest.safeParse({
 		requestKey: input.requestKey,

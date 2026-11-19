@@ -11,7 +11,6 @@ type Authority = Seat["authority"];
 
 async function read<T>(viewer: Seat, run: (db: Database, authority: Authority) => Promise<TeamsReply<T>>) {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" } as const;
 	try {
 		return await run(db, viewer.authority);
 	} catch (error) {

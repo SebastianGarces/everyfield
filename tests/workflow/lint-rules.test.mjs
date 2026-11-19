@@ -1019,6 +1019,30 @@ export const f = [named, key, process.env.VERCEL_URL];
 	);
 });
 
+test("INV-config: web code reads the server environment only through the config module, and never parses all of it per call", () => {
+	const reach = `import { serverEnv } from "../../server/config.ts";
+export const a = process.env.IDENTITY_DATABASE_URL;
+export const b = process.env["CRON_SECRET"];
+const { PGOPTIONS } = process.env;
+export const c = globalThis.process.env.IDENTITY_ORIGIN;
+export const d = z.object({ CRON_SECRET: z.string() }).safeParse(serverEnv());
+export const e = schema.parse(serverEnv());
+export const f = process.env.NEXT_RUNTIME === "nodejs";
+export const g = serverEnv().CRON_SECRET;
+export const h = (process) => process.env.X;
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/reach.ts": reach,
+			"apps/web/src/server/config.ts":
+				"export const serverEnv = () => process.env;\nexport const all = schema.parse(process.env);\n",
+			"packages/domain/src/x/reach.ts": "export const a = process.env.IDENTITY_DATABASE_URL;\n",
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[2, 3, 4, 5, 6, 7].map((line) => `apps/web/src/features/x/reach.ts:${line} server-config`),
+	);
+});
+
 test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
 	const { dir, path, renamed, write, base } = history();
 	const growth = (entries, ...moves) => {

@@ -13,7 +13,7 @@ import { outcome, read } from "./server.ts";
 const PEOPLE_FOUND = 8;
 
 export const GET = defineReads(
-	async () => (await getViewer())?.people ?? null,
+	async () => (await getViewer()).people ?? null,
 	"unavailable",
 	(get) => ({
 		people: get(

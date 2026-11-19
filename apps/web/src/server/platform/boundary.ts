@@ -1,5 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { serverConfig } from "../config.ts";
 
 export const privateHeaders = {
 	"Cache-Control": "private, no-store",
@@ -39,15 +40,12 @@ export type RouteKind = "session" | "token" | "signed";
 type Handler<A extends unknown[]> = (request: Request, ...rest: A) => Response | Promise<Response>;
 export type Route<A extends unknown[]> = Handler<A> & { readonly [ROUTE_KIND]: RouteKind };
 
-const appOrigin = (request: Request) => {
-	const configured = process.env.IDENTITY_ORIGIN;
-	return configured ? new URL(configured).origin : new URL(request.url).origin;
-};
+const appOrigin = () => new URL(serverConfig().IDENTITY_ORIGIN).origin;
 
 export function sameOriginRequest(request: Request): boolean {
 	const site = request.headers.get("sec-fetch-site");
 	if (site !== null) return site === "same-origin";
-	return request.headers.get("origin") === appOrigin(request);
+	return request.headers.get("origin") === appOrigin();
 }
 
 const marked = <A extends unknown[]>(kind: RouteKind, handler: Handler<A>): Route<A> =>

@@ -68,7 +68,7 @@ export async function signCommitmentUpload(
 	return boundary(c.signCommitmentDocumentRequest, input, async (v, request) => {
 		const storage = privateStorage();
 		const db = requestDatabase();
-		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
+		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const signed = await signCommitmentDocument(
 			db,
 			storage,
@@ -87,7 +87,7 @@ export async function saveCommitmentWithDocument(
 	return boundary(c.saveCommitmentDocumentRequest, { requestKey, input }, async (v, request) => {
 		const storage = privateStorage();
 		const db = requestDatabase();
-		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
+		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const saved = await saveCommitmentDocument(db, storage, v.authority, request).catch(lost);
 		return outcome(saved, (r) => ({
 			commitment: r.commitment,

@@ -23,7 +23,6 @@ export async function pipelineActor(): Promise<
 	{ kind: "signed_out" } | { kind: "unavailable" } | { kind: "seat"; authority: RequestActor }
 > {
 	const v = await getViewer();
-	if (!v) return { kind: "unavailable" };
 	if (v.status === "unauthenticated") return { kind: "signed_out" };
 	const authority = v.authority;
 	const context = authority?.actor.context;
@@ -42,36 +41,30 @@ async function guarded<R>(run: () => Promise<R>): Promise<R | { status: "lost" }
 
 export async function loadPipelineBoard(authority: RequestActor, query: unknown) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelineBoard(db, authority, query));
 }
 
 export async function loadPipelineChoices(authority: RequestActor) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelineChoices(db, authority));
 }
 
 export async function loadPipelineGoals(authority: RequestActor) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelineGoals(db, authority));
 }
 
 export async function loadPipelinePerson(authority: RequestActor, personId: string) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelinePersonRecord(db, authority, { personId }));
 }
 
 export async function loadAnswerReviews(authority: RequestActor) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readAnswerReviews(db, authority));
 }
 export async function loadAnswerReview(authority: RequestActor, reviewId: string) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readAnswerReview(db, authority, { reviewId }));
 }
 
@@ -81,13 +74,11 @@ export async function pipelineWrite<T>(
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } };
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	return guarded(() => run(db, who.authority));
 }
 
 export async function loadPipelineExport(authority: RequestActor) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelineExport(db, authority));
 }
 
@@ -98,7 +89,6 @@ async function asSeat<T>(
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return { status: "refused", error: { code: "unavailable" } } as PeopleReply<T>;
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	return guarded(() => run(db, who.authority));
 }
 export const pipelinePeopleRead = <T>(run: (tx: Transaction, ctx: PeopleContext) => Promise<PeopleReply<T>>) =>

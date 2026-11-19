@@ -45,7 +45,7 @@ export async function markSubjectRead(raw: unknown): Promise<Outcome<Marked>> {
 }
 
 async function optOut(run: (m: Mount) => Promise<Reply<OptOut>>): Promise<Outcome<OptOut>> {
-	if (!notificationsMount()?.optOut) return { status: "refused", code: "unavailable" };
+	if (!notificationsMount().optOut) return { status: "refused", code: "unavailable" };
 	return call(run);
 }
 

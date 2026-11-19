@@ -3,7 +3,7 @@ import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
 import type { GuideResult, OrderRead, OrderRow, SearchResult } from "./actions.ts";
 import { articlePath, parseSource } from "./model.ts";
-import { logSearchLost, mountFor, organizationNames, plantContext, runSearch, wikiActor } from "./server.ts";
+import { mountFor, organizationNames, plantContext, runSearch, wikiActor } from "./server.ts";
 import { logFailure } from "@everyfield/domain/log";
 
 const search = z.strictObject({
@@ -18,10 +18,6 @@ export const GET = defineReads(
 	"denied",
 	(get) => ({
 		search: get(search, async ({ actor }, v): Promise<SearchResult> => {
-			if (actor === "down") {
-				logSearchLost("actor-down");
-				return { status: "lost" };
-			}
 			if (!actor) return { status: "denied" };
 			const result = await runSearch(actor, v.query, v.phase, v.page, parseSource(v.source ?? undefined));
 			if (result === "lost" || result === "denied") return { status: result };
@@ -32,7 +28,6 @@ export const GET = defineReads(
 		guide: get(z.strictObject({ route: z.string() }), async ({ actor }, v): Promise<GuideResult> => {
 			const ready = mountFor(actor);
 			if (ready.status === "denied") return { status: "denied" };
-			if (ready.status === "lost") return { status: "unavailable" };
 			try {
 				const reply = await ready.mount.producer.contextGuide(ready.mount.db, ready.actor, {
 					route: v.route.slice(0, 200),

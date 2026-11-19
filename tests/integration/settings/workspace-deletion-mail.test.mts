@@ -23,12 +23,14 @@ const seed = seeds(admin);
 const hex = () => randomBytes(32).toString("hex");
 Object.assign(process.env, {
 	IDENTITY_DATABASE_URL: database.logins.runtime.url.href,
+	IDENTITY_AUTH_DATABASE_URL: database.logins.runtime.url.href,
 	IDENTITY_ORIGIN: "https://app.example.test",
+	IDENTITY_SECRET: hex(),
 	IDENTITY_MAIL_KEY: hex(),
 	IDENTITY_ADDRESS_KEY: hex(),
 	IDENTITY_MAIL_FROM: "everyfield@example.test",
 });
-const effects = settingsMail()!;
+const effects = settingsMail();
 const deletion = deletionOperations({
 	queue: (tx, i) =>
 		queueJobs(tx, [

@@ -31,16 +31,13 @@ type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code:
 const MOUNT: unique symbol = Symbol.for("everyfield.web.wiki");
 const slot = globalThis as { [MOUNT]?: Mount };
 
-export function wikiMount(): Mount | null {
-	const db = requestDatabase();
-	if (!db) return null;
-	if (!slot[MOUNT]) slot[MOUNT] = { db, producer: createWikiProducer() };
+export function wikiMount(): Mount {
+	slot[MOUNT] ??= { db: requestDatabase(), producer: createWikiProducer() };
 	return slot[MOUNT];
 }
 
-export async function wikiActor(): Promise<RequestActor | null | "down"> {
+export async function wikiActor(): Promise<RequestActor | null> {
 	const viewer = await getViewer();
-	if (!viewer) return "down";
 	if (viewer.status !== "active" || !viewer.authority) return null;
 	return viewer.authority;
 }
@@ -146,7 +143,6 @@ export type Preview = { crawler: boolean; allowed: boolean; title: string | null
 
 export const loadPreview = cache(async (path: string, userAgent: string): Promise<Preview | null> => {
 	const mount = wikiMount();
-	if (!mount) return null;
 	try {
 		const reply = await mount.producer.renderGlobalPreview(mount.db, { path, userAgent });
 		if (reply.status !== "ok") return null;
@@ -260,7 +256,6 @@ export async function loadWiki(
 ): Promise<WikiPageData | "lost" | "signed-out"> {
 	const mount = wikiMount();
 	const actor = await wikiActor();
-	if (actor === "down" || !mount) return "lost";
 	if (!actor) return "signed-out";
 	const seat = plantContext(actor);
 	const editor = editorContext(actor);
@@ -480,10 +475,6 @@ export async function runSearch(
 	| { status: "results"; hits: Listed[]; nextPage: string | null }
 > {
 	const mount = wikiMount();
-	if (!mount) {
-		logSearchLost("no-mount");
-		return "lost";
-	}
 	try {
 		const reply = await mount.producer.search(mount.db, actor, {
 			query: query.slice(0, 200),
@@ -520,7 +511,6 @@ export const progressRoute = mutatingRoute(async function progressRoute(request:
 	}
 	const actor = await wikiActor();
 	const mount = wikiMount();
-	if (actor === "down" || !mount) return new Response(null, { status: 503 });
 	if (!actor) return new Response(null, { status: 401 });
 	try {
 		const reply = await mount.producer.updateProgress(mount.db, actor, {
@@ -539,8 +529,6 @@ export const progressRoute = mutatingRoute(async function progressRoute(request:
 });
 
 export function mountFor(actor: Awaited<ReturnType<typeof wikiActor>>) {
-	const mount = wikiMount();
-	if (actor === "down" || !mount) return { status: "lost" as const };
 	if (!actor) return { status: "denied" as const };
-	return { status: "ready" as const, actor, mount };
+	return { status: "ready" as const, actor, mount: wikiMount() };
 }

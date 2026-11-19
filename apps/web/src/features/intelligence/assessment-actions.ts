@@ -24,9 +24,8 @@ async function run<T>(
 	body: (a: Assessments, db: Database, authority: RequestActor) => Promise<AssessmentReply<T>>,
 ): Promise<ActionOutcome<T>> {
 	const viewer = await getViewer();
-	if (!viewer?.authority) return { status: "signed_out" };
+	if (!viewer.authority) return { status: "signed_out" };
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await body(assessments, db, viewer.authority);
 	} catch (error) {

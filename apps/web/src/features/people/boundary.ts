@@ -32,7 +32,7 @@ export async function boundary<S extends z.ZodType, T>(
 	run: (viewer: Viewer, input: z.output<S>) => Promise<Outcome<T>>,
 ): Promise<Outcome<T>> {
 	const v = await getViewer();
-	if (!v?.people) return denied;
+	if (!v.people) return denied;
 	const input = schema.safeParse(raw);
 	if (!input.success) return invalid;
 	return run(v.people, input.data);

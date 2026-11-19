@@ -19,7 +19,6 @@ export async function loadAssessment(
 	authority: RequestActor,
 ): Promise<Loaded<{ view: AssessmentView; facts: PlantFacts; catalog: Catalog }>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		const [view, measured, catalog] = await Promise.all([
 			assessments.readAssessment(db, authority, {}),
@@ -38,7 +37,6 @@ export async function loadTrends(
 	authority: RequestActor,
 ): Promise<Loaded<{ history: AssessmentHistory; catalog: Catalog }>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		const [history, catalog] = await Promise.all([assessments.readHistory(db, authority, {}), readCatalog()]);
 		if (history.status !== "ok") return { status: "denied" };

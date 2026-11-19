@@ -239,7 +239,7 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 	return boundary(c.personFieldsRequest, { personId }, async (v) => {
 		const storage = privateStorage();
 		const db = requestDatabase();
-		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
+		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const staged = outcome(
 			await write(v, (tx, ctx) =>
 				f.requestPersonPhotoUpload(tx, ctx, { requestKey, personId, mime: mime.data, byteLength: file.size }),

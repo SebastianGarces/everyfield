@@ -57,7 +57,7 @@ export async function runLinkInvitation(
 ): Promise<Reply> {
 	const who = await pipelineActor();
 	const service = invitationService();
-	if (who.kind !== "seat" || !service) return refused("unavailable");
+	if (who.kind !== "seat") return refused("unavailable");
 	const organization = who.authority.actor.context.owner;
 	if (operation === "invite")
 		return answer(() =>

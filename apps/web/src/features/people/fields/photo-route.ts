@@ -16,7 +16,7 @@ export async function GET(
 ) {
 	const p = params.safeParse(await raw);
 	const v = await getViewer();
-	if (!p.success || !v?.people) return gone();
+	if (!p.success || !v.people) return gone();
 	const etag = `"${p.data.versionId}"`;
 	const headers = { "Cache-Control": "private, no-cache", ETag: etag, "X-Content-Type-Options": "nosniff" };
 	if (request.headers.get("if-none-match") === etag) {
@@ -26,7 +26,7 @@ export async function GET(
 	}
 	const storage = privateStorage();
 	const db = requestDatabase();
-	if (!storage || !db) return gone();
+	if (!storage) return gone();
 	const photo = await readPersonPhoto(db, storage, peopleContext(v.people), p.data).catch(() => null);
 	if (photo?.status !== "ok") return gone();
 	return new Response(Buffer.from(photo.value.bytes), {

@@ -16,7 +16,6 @@ type Authority = Viewer["authority"];
 
 async function read<T>(viewer: Viewer, run: (db: Database, a: Authority) => Promise<TeamsReply<T>>): Promise<Reply<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		return await run(db, viewer.authority);
 	} catch (error) {
@@ -30,7 +29,6 @@ export async function write<T>(
 	run: (tx: Transaction, context: Parameters<Parameters<typeof withTeamsWrite>[2]>[1]) => Promise<TeamsReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return outcome(await withTeamsWrite(db, viewer.authority, run));
 	} catch (error) {

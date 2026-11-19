@@ -10,7 +10,7 @@ export const POST = tokenRoute(async function POST(
 ) {
 	const body = new URLSearchParams(await request.text());
 	if (body.get("List-Unsubscribe") !== "One-Click") return reply(400);
-	if (!notificationsMount()?.optOut) return reply(404);
+	if (!notificationsMount().optOut) return reply(404);
 	const token = (await params).token;
 	const r = await call(({ db, producer }) => producer.applyEmailOptOut(db, { token }));
 	if (r.status === "lost") return reply(503);

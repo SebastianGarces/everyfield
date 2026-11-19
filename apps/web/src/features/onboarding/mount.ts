@@ -1,7 +1,7 @@
 import { sendOnboardingRelationships } from "../../server/jobs/notifications";
 import "server-only";
 import { z } from "zod";
-import { mailEnv } from "../../server/mail-env.ts";
+import { serverConfig, type ServerConfig } from "../../server/config.ts";
 import type { Database } from "@everyfield/db/client";
 import { database } from "../../server/database";
 import * as c from "@everyfield/contracts/onboarding";
@@ -13,13 +13,7 @@ import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTra
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";
 type Reply = { status: "ok"; value: unknown } | { status: "refused"; error: z.infer<typeof c.onboardingError> };
 
-const env = z.object({
-	IDENTITY_DATABASE_URL: z.string().min(1),
-	IDENTITY_ORIGIN: z.url(),
-	...mailEnv,
-});
-
-function onboardingMail(v: z.infer<typeof env>, transport?: MailTransport) {
+function onboardingMail(v: ServerConfig, transport?: MailTransport) {
 	return createMailService({
 		db: database(v.IDENTITY_DATABASE_URL),
 		encryptionKey: Buffer.from(v.IDENTITY_MAIL_KEY, "hex"),
@@ -39,16 +33,15 @@ function onboardingMail(v: z.infer<typeof env>, transport?: MailTransport) {
 	});
 }
 
-export function onboardingMailPass(transport: MailTransport): MailPass | null {
-	const v = env.safeParse(process.env);
-	if (!v.success) return null;
-	const db = database(v.data.IDENTITY_DATABASE_URL),
-		mail = onboardingMail(v.data, transport);
+export function onboardingMailPass(transport: MailTransport): MailPass {
+	const v = serverConfig();
+	const db = database(v.IDENTITY_DATABASE_URL),
+		mail = onboardingMail(v, transport);
 	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.onboarding, limit, until);
 }
 
 let mount: ReturnType<typeof create> | undefined;
-function create(v: z.infer<typeof env>) {
+function create(v: ServerConfig) {
 	const db: Database = database(v.IDENTITY_DATABASE_URL);
 	const mail = onboardingMail(v);
 	const producer = createOnboardingProducer({
@@ -82,16 +75,12 @@ function create(v: z.infer<typeof env>) {
 	return { db, producer, origin: v.IDENTITY_ORIGIN };
 }
 export function onboardingMount() {
-	const v = env.safeParse(process.env);
-	if (!v.success) return null;
-	mount ??= create(v.data);
+	mount ??= create(serverConfig());
 	return mount;
 }
 
 export async function onboardingEntry(session: Awaited<ReturnType<typeof getViewer>>) {
 	const m = onboardingMount();
-	if (!m) return { kind: "elsewhere", reason: "unavailable" } as const;
-	if (!session) return { kind: "elsewhere", reason: "unavailable" } as const;
 	return readOnboardingEntry(m.db, m.producer, session, session.authority, session.verified);
 }
 
@@ -102,9 +91,8 @@ const refusal = (code: "unavailable" | "invalid_input"): Reply => ({
 
 export async function onboardingCommand(op: Op, input: unknown): Promise<Reply> {
 	const m = onboardingMount();
-	if (!m) return refusal("unavailable");
 	const s = await getViewer();
-	if (!s || s.status === "unauthenticated") return refusal("unavailable");
+	if (s.status === "unauthenticated") return refusal("unavailable");
 	const write = (selected: OnboardingWriteContext["selected"]): OnboardingWriteContext => ({
 		session: s.sessionId,
 		selected,

@@ -38,7 +38,7 @@ function answer<T>(reply: PeopleReply<T> | { status: "failed" }, ok: (value: T) 
 }
 
 async function viewer(): Promise<Viewer | null> {
-	return (await getViewer())?.people ?? null;
+	return (await getViewer()).people ?? null;
 }
 const BODY_LIMIT = importLimits.rows * 48 + 64 * 1024;
 export async function templateRoute() {
@@ -79,7 +79,7 @@ async function jsonBody(request: Request): Promise<unknown> {
 async function importDeps() {
 	const v = await viewer();
 	const db = requestDatabase();
-	if (!v || !db) return refused("access_denied");
+	if (!v) return refused("access_denied");
 	const storage = privateStorage();
 	if (!storage) return refused("storage_unavailable");
 	return { v, db, storage };

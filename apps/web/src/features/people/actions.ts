@@ -12,7 +12,6 @@ import { boundary, outcome, receipt, type Receipt } from "./boundary.ts";
 import { write } from "./server.ts";
 
 type PlantPerson = z.infer<typeof c.plantPerson>;
-const unplanned = { status: "refused", code: "unavailable" } as const;
 type Saved = { person: PlantPerson; receipt: Receipt };
 type NoteSaved = {
 	personRevision: z.infer<typeof revision>;
@@ -56,8 +55,7 @@ export async function changeStatus(
 ): Promise<Outcome<Saved & { columns: ColumnOrder[] }>> {
 	const left = c.pipelineColumn.safeParse(from);
 	return boundary(c.changeStatusRequest, { requestKey, expectedRevision, input }, async (v, request) => {
-		const reminders = tasksMount()?.reminders;
-		if (!reminders) return unplanned;
+		const { reminders } = tasksMount();
 		return outcome(
 			await write(v, async (tx, ctx) => {
 				const done = await peopleWriter.changeStatus(tx, ctx, request, reminders);
@@ -84,8 +82,7 @@ export async function retirePerson(
 	input: unknown,
 ): Promise<Outcome<Saved>> {
 	return boundary(c.retirePersonRequest, { requestKey, expectedRevision, input }, async (v, request) => {
-		const reminders = tasksMount()?.reminders;
-		if (!reminders) return unplanned;
+		const { reminders } = tasksMount();
 		return outcome(await write(v, (tx, ctx) => peopleWriter.retirePerson(tx, ctx, request, reminders)), (r) => ({
 			person: r.person,
 			receipt: receipt(r),

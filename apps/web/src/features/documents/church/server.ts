@@ -50,7 +50,7 @@ export async function loadLibrary(
 	Load<{ documents: ChurchSummary[]; templates: DocTemplateSummary[]; churchTemplates: ChurchTemplateSummary[] }>
 > {
 	const db = requestDatabase();
-	if (!db || !hasPlantSeat(authority)) return db ? { status: "refused" } : { status: "failed" };
+	if (!hasPlantSeat(authority)) return { status: "refused" };
 	try {
 		const reply = await documentsWriter.listChurch(db, authority, {});
 		if (reply.status !== "ok") return { status: "refused" };
@@ -70,7 +70,6 @@ export async function loadLibrary(
 
 export async function loadArchived(authority: RequestActor): Promise<Load<ArchivedChurchSummary[]>> {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		const reply = await documentsWriter.listArchivedChurch(db, authority, {});
 		return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
@@ -97,7 +96,6 @@ export async function loadChurchDocument(
 	| { status: "deleted" }
 > {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		const readOnly = () =>
 			documentsWriter
@@ -162,7 +160,7 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 	const revision = url.searchParams.get("revision");
 	const actor = await documentActor();
 	const db = requestDatabase();
-	if (!actor || !db) return gone();
+	if (!actor) return gone();
 	try {
 		const reply = await documentsWriter.readChurchFile(
 			db,
@@ -197,7 +195,7 @@ export async function savedExportRoute(
 	if (!documentId.success || !exportId.success) return gone();
 	const actor = await documentActor();
 	const db = requestDatabase();
-	if (!actor || !db) return gone();
+	if (!actor) return gone();
 	try {
 		const reply = await documentsWriter.readExportFile(
 			db,
@@ -250,7 +248,7 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 		return answer(refused("invalid_input"));
 	const [actor, viewer] = await Promise.all([documentActor(), getViewer()]);
 	const db = requestDatabase();
-	if (!actor || !db) return answer({ status: "lost" });
+	if (!actor) return answer({ status: "lost" });
 	try {
 		const reply = await documentsWriter.exportNative(
 			db,
@@ -273,7 +271,7 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 				revision: done.source?.revision ?? Number(body.revision),
 				format: done.format,
 				generatedAt: done.generatedAt,
-				creatorName: viewer?.displayName || null,
+				creatorName: viewer.displayName || null,
 				digest: done.digest,
 				byteCount: done.byteCount,
 				downloadName: done.downloadName,

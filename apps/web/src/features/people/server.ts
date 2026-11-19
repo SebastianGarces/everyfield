@@ -25,7 +25,6 @@ async function readOnPool<T>(
 	run: (db: Database, context: PeopleReadContext) => Promise<PeopleReply<T>>,
 ): Promise<PeopleReply<T> | { status: "failed" }> {
 	const store = requestDatabase();
-	if (!store) return { status: "failed" };
 	try {
 		return await run(store, new PeopleReadContext(viewer.authority));
 	} catch (error) {
@@ -39,7 +38,6 @@ export async function write<T>(
 	run: (tx: Transaction, context: PeopleWriteContext) => Promise<PeopleReply<T>>,
 ): Promise<PeopleReply<T> | { status: "failed" }> {
 	const store = requestDatabase();
-	if (!store) return { status: "failed" };
 	try {
 		return await withPeopleWrite(store, viewer.authority, run);
 	} catch (error) {

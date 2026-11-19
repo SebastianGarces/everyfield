@@ -19,13 +19,13 @@ export async function SettingsSectionPage({ params }: { params: Promise<{ sectio
 	const section = dialogSection((await params).section);
 	if (!section) notFound();
 	const v = await getViewer();
-	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(`/settings/${section}`)}`);
+	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(`/settings/${section}`)}`);
 	return <h1 className="sr-only">Settings</h1>;
 }
 
 export async function SettingsIndexPage() {
 	const v = await getViewer();
-	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/settings")}`);
+	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/settings")}`);
 	return <h1 className="sr-only">Settings</h1>;
 }
 
@@ -72,7 +72,7 @@ export const confirmEmailMetadata: Metadata = {
 export async function ConfirmEmailPage({ searchParams }: { searchParams: Search }) {
 	const token = one((await searchParams).token);
 	const v = await getViewer();
-	if (!v || v.status === "unauthenticated") {
+	if (v.status === "unauthenticated") {
 		const back = token ? `/confirm-email?token=${encodeURIComponent(token)}` : "/confirm-email";
 		redirect(`/signin?returnTo=${encodeURIComponent(back)}`);
 	}

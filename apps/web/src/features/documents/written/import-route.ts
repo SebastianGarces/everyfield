@@ -37,7 +37,7 @@ export const importRoute = mutatingRoute(async function importRoute(request: Req
 		return answer({ status: "refused", code: "unavailable", problem: "Saving is not available right now." });
 	const actor = await documentActor();
 	const db = requestDatabase();
-	if (!actor || !db) return answer({ status: "lost" });
+	if (!actor) return answer({ status: "lost" });
 	try {
 		const reply = await documentsWriter.importTextOrWord(db, actor, input, storage);
 		if (reply.status === "refused") {

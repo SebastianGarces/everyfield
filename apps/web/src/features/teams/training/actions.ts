@@ -8,7 +8,7 @@ import { readRosterPreview } from "./server.ts";
 const noSeat = { status: "refused", code: "unavailable" } as const;
 
 async function seat() {
-	return (await getViewer())?.people ?? null;
+	return (await getViewer()).people ?? null;
 }
 
 export async function createProgram(

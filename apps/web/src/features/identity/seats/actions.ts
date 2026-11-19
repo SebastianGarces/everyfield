@@ -13,7 +13,7 @@ export async function runSeatCommand(name: SeatOperation, command: unknown): Pro
 	const op = operation.safeParse(name);
 	const w = await workspaceViewer();
 	const service = invitationService();
-	if (!op.success || !w || !service) return refused("unavailable");
+	if (!op.success || !w) return refused("unavailable");
 	const { mount, selected } = w;
 	const s = w.authority;
 	switch (op.data) {
@@ -28,8 +28,7 @@ export async function runSeatCommand(name: SeatOperation, command: unknown): Pro
 		case "demote":
 			return answer(() => mount.seats.demote(s, selected, command));
 		case "remove": {
-			const reminders = tasksMount()?.reminders;
-			if (!reminders) return refused("unavailable");
+			const { reminders } = tasksMount();
 			return answer(() => mount.seats.remove(s, selected, command, reminders));
 		}
 	}

@@ -1,6 +1,7 @@
 import { logFailure, logInfo } from "@everyfield/domain/log";
 export async function register() {
 	if (process.env.NEXT_RUNTIME !== "nodejs") return;
+	(await import("./server/config")).serverConfig();
 	const { privateStorage, assertPrivateBucket } = await import("@everyfield/db/schema");
 	const storage = privateStorage();
 	if (storage)

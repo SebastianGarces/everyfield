@@ -41,7 +41,7 @@ export async function OptOutPage({ params: route }: { params: Promise<{ token: s
 }
 
 async function describe(token: string): Promise<OptOutView> {
-	if (!notificationsMount()?.optOut) return { state: "unavailable" };
+	if (!notificationsMount().optOut) return { state: "unavailable" };
 	const r = await call(({ db, producer }) => producer.describeEmailOptOut(db, { token }));
 	if (r.status === "lost") return { state: "unavailable" };
 	if (r.status === "refused") return { state: "invalid" };

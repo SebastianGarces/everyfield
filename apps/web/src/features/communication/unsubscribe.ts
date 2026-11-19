@@ -6,13 +6,13 @@ import type { CommunicationReply } from "@everyfield/domain/communication";
 import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import type { Outcome } from "./model.ts";
 import { logFailure } from "@everyfield/domain/log";
+import { serverEnv } from "../../server/config.ts";
 
 type UnsubscribeMount = { db: Database; ring: OptOutKeyRing };
 
 function unsubscribeMount(): UnsubscribeMount | null {
-	const db = requestDatabase();
-	const ring = parseKeyRing(process.env.NOTIFICATION_OPT_OUT_KEYS);
-	return db && ring ? { db, ring } : null;
+	const ring = parseKeyRing(serverEnv().NOTIFICATION_OPT_OUT_KEYS);
+	return ring && { db: requestDatabase(), ring };
 }
 
 export async function unsubscribeCall<T>(

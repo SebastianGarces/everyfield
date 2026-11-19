@@ -3,12 +3,13 @@ import { existsSync, globSync, statSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
+import { setServerEnv } from "../../support/server-env.mts";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const SRC = fileURLToPath(new URL("../../../apps/web/src/", import.meta.url));
 const ORIGIN = "https://app.everyfield.test";
 const WRITES = ["POST", "PUT", "PATCH", "DELETE"];
-process.env.IDENTITY_ORIGIN = ORIGIN;
+setServerEnv({ IDENTITY_ORIGIN: ORIGIN });
 
 const withExtension = (path: string) =>
 	[path, `${path}.ts`, `${path}.tsx`, join(path, "index.ts")].find((p) => existsSync(p) && statSync(p).isFile()) ??

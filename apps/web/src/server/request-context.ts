@@ -17,7 +17,6 @@ const getSession = cache(async () => {
 
 export const getViewer = cache(async () => {
 	const db = requestDatabase();
-	if (!db) return null;
 	const unauthenticated = {
 		status: "unauthenticated",
 		authority: null,

@@ -1232,6 +1232,45 @@ const deploymentEnv = {
 	},
 };
 
+export const SERVER_CONFIG = "apps/web/src/server/config.ts";
+const WEB_CODE = /^apps\/web\/src\//;
+const ENV_PARSERS = new Set(["parse", "safeParse", "parseAsync", "safeParseAsync"]);
+
+const isProcess = (node, context) =>
+	(node?.type === "Identifier" && node.name === "process" && !declared(context, node)) ||
+	(memberName(node) === "process" && isHost(node.object, context, GLOBAL_HOSTS));
+
+const serverConfig = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === SERVER_CONFIG || !WEB_CODE.test(path)) return {};
+		return {
+			MemberExpression(node) {
+				if (memberName(node) !== "env" || !isProcess(node.object, context)) return;
+				if (node.parent?.type === "MemberExpression" && memberName(node.parent) === "NEXT_RUNTIME") return;
+				context.report({
+					node,
+					message: `Read the server environment through ${SERVER_CONFIG}: serverConfig() for the values every deployment has (parsed once at start-up), serverEnv() for optional integrations.`,
+				});
+			},
+			CallExpression(node) {
+				const argument = node.arguments[0];
+				if (
+					ENV_PARSERS.has(memberName(node.callee)) &&
+					argument?.type === "CallExpression" &&
+					argument.callee.type === "Identifier" &&
+					argument.callee.name === "serverEnv"
+				)
+					context.report({
+						node,
+						message: `Do not parse the whole server environment per call: add the value to ${SERVER_CONFIG}, which parses it once at start-up.`,
+					});
+			},
+		};
+	},
+};
+
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
@@ -2187,6 +2226,7 @@ export default {
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
 		"deployment-env": deploymentEnv,
+		"server-config": serverConfig,
 		"no-cursor-utility": noCursorUtility,
 		"mint-callers": mintCallers,
 		"no-raw-history": noRawHistory,

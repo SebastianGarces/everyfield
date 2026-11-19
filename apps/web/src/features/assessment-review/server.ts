@@ -17,8 +17,7 @@ export async function run<T>(
 ): Promise<Run<T>> {
 	const viewer = await getViewer();
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	if (!viewer?.authority) return { status: "signed_out" };
+	if (!viewer.authority) return { status: "signed_out" };
 	try {
 		const reply = await operation(db, viewer.authority);
 		return reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };

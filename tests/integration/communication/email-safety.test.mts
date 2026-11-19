@@ -191,6 +191,7 @@ async function queuedInvitation(address, env, request) {
 	const mailed = await withProcessEnv(
 		{
 			IDENTITY_DATABASE_URL: f.runtimeUrl,
+			IDENTITY_AUTH_DATABASE_URL: f.runtimeUrl,
 			IDENTITY_ORIGIN: "https://app.example.test",
 			IDENTITY_SECRET: "s".repeat(32),
 			IDENTITY_MAIL_KEY: mailKeys.encryptionKey.toString("hex"),

@@ -22,7 +22,7 @@ async function gate(returnTo: string, title: string): Promise<{ viewer: TaskView
 	const viewer = await taskViewer();
 	if (viewer) return { viewer };
 	const v = await getViewer();
-	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
 	return {
 		blocked: (
 			<Blocked title={title}>

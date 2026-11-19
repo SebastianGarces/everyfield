@@ -18,7 +18,7 @@ export async function GET(
 	const v = await getViewer();
 	const storage = privateStorage();
 	const db = requestDatabase();
-	if (!p.success || !v?.people || !storage || !db) return gone();
+	if (!p.success || !v.people || !storage) return gone();
 	const link = await getCommitmentDownload(db, storage, peopleContext(v.people), {
 		commitmentId: p.data.commitmentId,
 	}).catch(() => null);
