@@ -6,6 +6,7 @@ import {
 	type CommunicationReply,
 } from "@everyfield/domain/communication";
 import type { Transaction } from "@everyfield/db/client";
+import { z } from "zod";
 import type {
 	AudienceSummary,
 	CancelReport,
@@ -100,7 +101,7 @@ export async function sendReviewed(
 	requestKey: string,
 	expectedRevision: string,
 	communicationId: string,
-	when: "now" | "held" = "now",
+	when: unknown = "now",
 ): Promise<Outcome<DeliveryReport>> {
 	const result = await deliver((db, viewer, mail) => {
 		anticipateProvider(mail);
@@ -346,12 +347,23 @@ async function scheduleExisting(
 	});
 }
 
+const handOffKeys = z.object({ save: z.string(), schedule: z.string(), send: z.string() });
+const handOffTarget = z.discriminatedUnion("kind", [
+	z.object({ kind: z.literal("draft"), input: z.unknown() }),
+	z.object({ kind: z.literal("reviewed"), communicationId: z.string() }),
+]);
+
 export async function handOff(
-	keys: { save: string; schedule: string; send: string },
+	rawKeys: unknown,
 	expectedRevision: string | null,
-	target: { kind: "draft"; input: unknown } | { kind: "reviewed"; communicationId: string },
+	rawTarget: unknown,
 	scheduledAt: string | null,
 ): Promise<Outcome<HandoffResult>> {
+	const parsedKeys = handOffKeys.safeParse(rawKeys);
+	const parsedTarget = handOffTarget.safeParse(rawTarget);
+	if (!parsedKeys.success || !parsedTarget.success) return { status: "refused", code: "invalid_input" };
+	const keys = parsedKeys.data;
+	const target = parsedTarget.data;
 	const steps = {
 		schedule: (at: string) =>
 			target.kind === "draft"

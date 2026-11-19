@@ -2,7 +2,8 @@
 
 import { privateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
-import type { Format, OwnedView, SavedFile, WrittenView } from "./model.ts";
+import { z } from "zod";
+import type { OwnedView, SavedFile, WrittenView } from "./model.ts";
 import { documentActor } from "./server.ts";
 import {
 	presentOwned,
@@ -18,8 +19,8 @@ const run = async <T>(read: Read<T>) => runAs(await documentActor(), read);
 
 export async function generateDocument(
 	templateId: string,
-	format: Format,
-	overrides: Record<string, string>,
+	format: unknown,
+	overrides: unknown,
 	requestKey: string,
 ): Promise<DocumentOutcome<SavedFile>> {
 	const storage = privateStorage();
@@ -31,12 +32,15 @@ export async function generateDocument(
 	});
 }
 
-export async function saveOwnedDocument(input: {
-	title: string;
-	body: unknown;
-	documentId?: string;
-	expectedRevision: string;
-}): Promise<DocumentOutcome<{ id: string; revision: string; kind: WrittenView["kind"] }>> {
+const ownedDraft = z
+	.object({ title: z.unknown(), body: z.unknown(), documentId: z.unknown(), expectedRevision: z.unknown() })
+	.partial();
+
+export async function saveOwnedDocument(
+	raw: unknown,
+): Promise<DocumentOutcome<{ id: string; revision: string; kind: WrittenView["kind"] }>> {
+	const parsed = ownedDraft.safeParse(raw);
+	const input = parsed.success ? parsed.data : {};
 	return run(async (db, actor) => {
 		const reply = await documentsWriter.saveNative(db, actor, {
 			title: input.title,
@@ -71,11 +75,7 @@ export async function designateOwnedDocument(
 	});
 }
 
-export async function copyToChurch(input: {
-	documentId: string;
-	revisionId: string;
-	requestKey: string;
-}): Promise<DocumentOutcome<{ id: string }>> {
+export async function copyToChurch(input: unknown): Promise<DocumentOutcome<{ id: string }>> {
 	return run(async (db, actor) => {
 		const reply = await documentsWriter.useForChurch(db, actor, input);
 		if (reply.status === "refused") return refused(reply.error);

@@ -2,6 +2,7 @@
 
 import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { editorContext, plantContext, mountFor, wikiActor } from "./server.ts";
 import { logFailure } from "@everyfield/domain/log";
 
@@ -15,8 +16,9 @@ type WriteOk = {
 };
 export type WriteResult = WriteOk | { status: "denied" } | { status: "conflict" } | { status: "lost" };
 
-type ReadingKey = { requestKey: string; articleId: string; plantId?: string };
-type Envelope = ReadingKey & { expectedRevision: string };
+const readingKey = z.object({ requestKey: z.string(), articleId: z.string(), plantId: z.string().optional() });
+const bookmarkKey = readingKey.extend({ expectedRevision: z.string() });
+const invalidKey = { status: "denied" } as const;
 
 const actorMount = async () => mountFor(await wikiActor());
 
@@ -39,7 +41,10 @@ function mapReading(value: {
 	};
 }
 
-export async function recordArticleView(envelope: ReadingKey): Promise<WriteResult> {
+export async function recordArticleView(raw: unknown): Promise<WriteResult> {
+	const key = readingKey.safeParse(raw);
+	if (!key.success) return invalidKey;
+	const envelope = key.data;
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
 	try {
@@ -55,7 +60,10 @@ export async function recordArticleView(envelope: ReadingKey): Promise<WriteResu
 	}
 }
 
-export async function saveProgress(envelope: ReadingKey, fraction: string): Promise<WriteResult> {
+export async function saveProgress(raw: unknown, fraction: unknown): Promise<WriteResult> {
+	const key = readingKey.safeParse(raw);
+	if (!key.success) return invalidKey;
+	const envelope = key.data;
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
 	try {
@@ -75,7 +83,10 @@ export async function saveProgress(envelope: ReadingKey, fraction: string): Prom
 	}
 }
 
-export async function saveBookmark(envelope: Envelope, desired: boolean): Promise<WriteResult> {
+export async function saveBookmark(raw: unknown, desired: unknown): Promise<WriteResult> {
+	const key = bookmarkKey.safeParse(raw);
+	if (!key.success) return invalidKey;
+	const envelope = key.data;
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
 	try {
@@ -139,8 +150,8 @@ export type OrderSave =
 export async function saveSourceOrder(
 	requestKey: string,
 	expectedRevision: string,
-	churches: string[],
-	networks: string[],
+	churches: unknown,
+	networks: unknown,
 ): Promise<OrderSave> {
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
@@ -167,11 +178,12 @@ export async function saveSourceOrder(
 export type FeedbackResult =
 	{ status: "ok"; vote: "helpful" | "unhelpful" } | { status: "denied" } | { status: "conflict" } | { status: "lost" };
 
-export async function setFeedback(input: {
-	requestKey: string;
-	articleId: string;
-	vote: "helpful" | "unhelpful";
-}): Promise<FeedbackResult> {
+const feedbackVote = z.object({ requestKey: z.string(), articleId: z.string(), vote: z.unknown() });
+
+export async function setFeedback(raw: unknown): Promise<FeedbackResult> {
+	const parsed = feedbackVote.safeParse(raw);
+	if (!parsed.success) return { status: "denied" };
+	const input = parsed.data;
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
 	if (!plantContext(ready.actor).plantId) return { status: "denied" };
@@ -199,14 +211,15 @@ export type OrgResult =
 	| { status: "review" }
 	| { status: "lost" };
 
-type OrgCommand = {
-	requestKey: string;
-	expectedRevision: string;
-	articleId: string;
-	organizationId: string;
-	body?: string;
-	cachePath?: string;
-};
+const orgCommand = z.object({
+	requestKey: z.string(),
+	expectedRevision: z.string(),
+	articleId: z.string(),
+	organizationId: z.string(),
+	body: z.string().optional(),
+	cachePath: z.string().optional(),
+});
+type OrgCommand = z.output<typeof orgCommand>;
 
 function nextRevision(current: string): string {
 	return (BigInt(current) + 1n).toString();
@@ -269,15 +282,20 @@ async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgC
 	}
 }
 
-export async function saveWikiDraft(command: OrgCommand): Promise<OrgResult> {
-	return orgWrite(command.expectedRevision === "0" ? "add" : "edit", command);
+export async function saveWikiDraft(raw: unknown): Promise<OrgResult> {
+	const command = orgCommand.safeParse(raw);
+	if (!command.success) return { status: "invalid" };
+	return orgWrite(command.data.expectedRevision === "0" ? "add" : "edit", command.data);
 }
 
-export async function publishWikiArticle(command: OrgCommand): Promise<OrgResult> {
-	return orgWrite("publish", command);
+export async function publishWikiArticle(raw: unknown): Promise<OrgResult> {
+	const command = orgCommand.safeParse(raw);
+	if (!command.success) return { status: "invalid" };
+	return orgWrite("publish", command.data);
 }
 
-export async function hideWikiSource(command: OrgCommand): Promise<OrgResult> {
-	if (command.expectedRevision === "0") return { status: "invalid" };
-	return orgWrite("hide", command);
+export async function hideWikiSource(raw: unknown): Promise<OrgResult> {
+	const command = orgCommand.safeParse(raw);
+	if (!command.success || command.data.expectedRevision === "0") return { status: "invalid" };
+	return orgWrite("hide", command.data);
 }
