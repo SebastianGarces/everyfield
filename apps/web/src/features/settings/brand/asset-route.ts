@@ -1,4 +1,5 @@
 import "server-only";
+import { readBoundedBody } from "@everyfield/domain/operations";
 import { brandAsset, storeBrandBytes } from "./server";
 import { ASSET_MAX_BYTES } from "@everyfield/contracts/branding";
 
@@ -12,8 +13,8 @@ export async function brandAssetPut(request: Request, { params }: Params) {
 	const { id } = await params;
 	const declared = Number(request.headers.get("content-length") ?? NaN);
 	if (!UUID.test(id)) return new Response(null, { status: 404, headers: PRIVATE });
-	if (!(declared > 0 && declared <= ASSET_MAX_BYTES)) return refusal("invalid_file", 413);
-	const bytes = new Uint8Array(await request.arrayBuffer());
+	const bytes = declared > 0 ? await readBoundedBody(request, ASSET_MAX_BYTES) : null;
+	if (!bytes) return refusal("invalid_file", 413);
 	if (bytes.length !== declared) return refusal("invalid_file", 400);
 	const stored = await storeBrandBytes(id, bytes);
 	if (stored.status === "ok") return new Response(null, { status: 204, headers: PRIVATE });

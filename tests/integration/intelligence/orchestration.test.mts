@@ -37,7 +37,6 @@ after(() => c0?.database.close());
 
 async function tick(drafter = scripted()) {
 	const run = scheduledJobs({
-		secret,
 		db: c0.db,
 		storage: null,
 		cleanup: null,

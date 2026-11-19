@@ -117,7 +117,6 @@ async function mailRun(transport?: MailTransport) {
 }
 const cron = (feedbackPublication: ReturnType<typeof feedbackPublicationMount>) =>
 	scheduledJobs({
-		secret: "s",
 		db,
 		storage: null,
 		cleanup: null,
