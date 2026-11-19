@@ -1636,6 +1636,31 @@ const renderReads = {
 	},
 };
 
+const READ_NAME = /^(?:load|read|get|list|find|search|suggest|preview|compare)(?:[A-Z]|$)/;
+
+const noReadActions = ratcheted("no-read-actions", (context, push) => {
+	if (!SERVER_ACTIONS.test(context.sourceCode.text)) return {};
+	const report = (node, name) =>
+		push({
+			node,
+			fn: name,
+			message: `${name} is a read exported from a "use server" module. Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through getReads in the feature's fetch.ts.`,
+		});
+	return {
+		ExportNamedDeclaration(node) {
+			const d = node.declaration;
+			if (d?.type === "FunctionDeclaration" && d.id && READ_NAME.test(d.id.name)) report(d.id, d.id.name);
+			if (d?.type === "VariableDeclaration")
+				for (const v of d.declarations)
+					if (v.id.type === "Identifier" && READ_NAME.test(v.id.name)) report(v.id, v.id.name);
+			for (const spec of node.specifiers ?? []) {
+				const name = nameOf(spec.exported);
+				if (spec.exportKind !== "type" && node.exportKind !== "type" && READ_NAME.test(name)) report(spec, name);
+			}
+		},
+	};
+});
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -1664,5 +1689,6 @@ export default {
 		"route-reads": routeReads,
 		"route-segment-defaults": routeSegmentDefaults,
 		"render-reads": renderReads,
+		"no-read-actions": noReadActions,
 	},
 };

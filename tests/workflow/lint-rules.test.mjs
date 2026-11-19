@@ -1494,3 +1494,17 @@ test("INV-lint: a route module or server-only module that calls a server action 
 		["apps/web/src/features/x/routes.tsx:3 render-reads", "apps/web/src/features/x/server.ts:3 render-reads"],
 	);
 });
+
+test("INV-lint: a read exported from a server action module is reported, a write or a read in a server-only module is not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function readThing() {}\nexport const listThings = async () => [];\nexport async function saveThing() {}\nexport async function reader() {}\nasync function loadInner() {}\nexport { loadInner as loadAlias };\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function readThing() {}\n`,
+		}).filter((hit) => hit.endsWith("no-read-actions")),
+		[
+			"apps/web/src/features/x/actions.ts:2 no-read-actions",
+			"apps/web/src/features/x/actions.ts:3 no-read-actions",
+			"apps/web/src/features/x/actions.ts:7 no-read-actions",
+		],
+	);
+});
