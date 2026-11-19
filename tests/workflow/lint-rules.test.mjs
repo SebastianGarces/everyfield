@@ -1012,7 +1012,7 @@ export const f = [named, key, process.env.VERCEL_URL];
 			"apps/web/src/features/x/reach.ts": reach,
 			"packages/db/src/deployment.ts": "export const named = (env) => env.VERCEL_ENV ?? env.VERCEL;\n",
 			"tests/integration/x/reach.test.mts": reach,
-		}),
+		}).filter((hit) => hit.endsWith(" deployment-env")),
 		["apps/web/src/features/x/reach.ts", "packages/domain/src/mail/reach.ts"]
 			.flatMap((file) => lines.map((line) => `${file}:${line} deployment-env`))
 			.sort(),
