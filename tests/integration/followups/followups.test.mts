@@ -606,6 +606,15 @@ test("AC:TARGET-TSK-012 AC:TARGET-PPL-022 AC:GAP-PPL-022 only a currently eligib
 	assert.equal(back.assignees[0].accountId, eligible.id);
 });
 
+test("INV-paging a follow-up page past the end answers with the last page in the same read", async () => {
+	const c = await church();
+	for (const name of ["Ada", "Bea", "Cy"]) await person(c, name, { stage: "prospect" });
+	const past = ok(await read(c.owner, "followUpCoverage", { page: 9, limit: 2 }));
+	assert.deepEqual([past.page, past.items.length, past.total, past.next], [2, 1, 3, null]);
+	const empty = ok(await read(c.owner, "listFollowUpOwners", { page: 4, limit: 2 }));
+	assert.deepEqual([empty.page, empty.items, empty.matched, empty.next], [1, [], 0, null]);
+});
+
 test("AC:TARGET-TSK-013 INV-statements handoff moves reviewed open follow-ups or nothing; reads cost one statement", async () => {
 	const c = await church();
 	const alex = await person(c, "Alex");
