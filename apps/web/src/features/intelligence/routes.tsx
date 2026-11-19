@@ -1,40 +1,36 @@
-import { getViewer, signIn } from "@/server/request-context";
+import { requireSeat } from "@/server/request-context";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { NoChurchPlantSeat, PlantIntelligenceBlocked } from "../phases/PlantIntelligenceBlocked.tsx";
-import { administers, phaseViewer } from "../phases/server.ts";
+import { administers } from "../phases/server.ts";
 import { AssessmentScreen } from "./AssessmentScreen.tsx";
 import { loadAssessment, loadTrends } from "./assessment-server.ts";
 import { AttestationsScreen } from "./AttestationsScreen.tsx";
 import { TrendsScreen } from "./TrendsScreen.tsx";
 import { CheckInScreen } from "./CheckInScreen.tsx";
 import { CHECK_IN_PATH } from "./path.ts";
-import { careViewer, loadCheckIn } from "./server.ts";
+import { loadCheckIn } from "./server.ts";
 import { loadAttestations } from "./signals-server.ts";
 import { ZoneStep } from "./ZoneStep.tsx";
 
 export const checkInMetadata: Metadata = { title: "Weekly check-in", robots: { index: false, follow: false } };
 
 export async function CheckInPage() {
-	const viewer = await careViewer();
-	if (!viewer) {
-		const v = await getViewer();
-		if (v.status === "unauthenticated") signIn(CHECK_IN_PATH);
-		return <Blocked title="The weekly check-in belongs to a church plant">{SEAT_TEXT}</Blocked>;
-	}
+	const viewer = await requireSeat(CHECK_IN_PATH);
+	if (!viewer) return <Blocked title="The weekly check-in belongs to a church plant">{SEAT_TEXT}</Blocked>;
 	if (viewer.role === "member")
 		return <Blocked title="The weekly check-in is for Owners and Admins">{SEAT_TEXT}</Blocked>;
 	const loaded = await loadCheckIn(viewer);
 	if (loaded.status === "refused" && loaded.error.code === "personal_timezone_confirmation_required")
-		return <ZoneStep name={viewer.displayName} />;
+		return <ZoneStep name={viewer.accountName} />;
 	if (loaded.status !== "ok")
 		return (
 			<Blocked title="We could not load your check-in" tone="error">
 				This is a loading problem. Your check-ins are safe. Reload the page in a moment.
 			</Blocked>
 		);
-	return <CheckInScreen initial={loaded.value} name={viewer.displayName} />;
+	return <CheckInScreen initial={loaded.value} name={viewer.accountName} />;
 }
 
 const SEAT_TEXT =
@@ -79,12 +75,8 @@ export function CheckInLoading() {
 export const attestationsMetadata: Metadata = { title: "Attestations", robots: { index: false, follow: false } };
 
 export async function AttestationsPage() {
-	const viewer = await careViewer();
-	if (!viewer) {
-		const v = await getViewer();
-		if (v.status === "unauthenticated") signIn("/intelligence/attestations");
-		return <NoChurchPlantSeat />;
-	}
+	const viewer = await requireSeat("/intelligence/attestations");
+	if (!viewer) return <NoChurchPlantSeat />;
 	if (viewer.role === "member")
 		return (
 			<PlantIntelligenceBlocked title="Attestations are for Owners and Admins">
@@ -98,7 +90,7 @@ export async function AttestationsPage() {
 				This is a loading problem. Your answers are safe. Reload the page in a moment.
 			</PlantIntelligenceBlocked>
 		);
-	return <AttestationsScreen initial={loaded.value} viewerName={viewer.displayName} />;
+	return <AttestationsScreen initial={loaded.value} viewerName={viewer.accountName} />;
 }
 
 export function AttestationsLoading() {
@@ -124,12 +116,8 @@ export const intelligenceMetadata: Metadata = { title: "Plant Intelligence", rob
 export const trendsMetadata: Metadata = { title: "Trends", robots: { index: false, follow: false } };
 
 async function ownerOrAdmin(path: string) {
-	const viewer = await phaseViewer();
-	if (!viewer) {
-		const v = await getViewer();
-		if (v.status === "unauthenticated") signIn(path);
-		return { blocked: <NoChurchPlantSeat /> } as const;
-	}
+	const viewer = await requireSeat(path);
+	if (!viewer) return { blocked: <NoChurchPlantSeat /> } as const;
 	if (!administers(viewer))
 		return {
 			blocked: (
