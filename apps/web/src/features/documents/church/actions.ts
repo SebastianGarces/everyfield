@@ -1,12 +1,7 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import {
-	type ChurchCompare,
-	type CompareView,
-	type ChurchTemplateSummary,
-	type DocDocument,
-} from "@everyfield/contracts/documents";
+import type { CompareView, ChurchTemplateSummary, DocDocument } from "@everyfield/contracts/documents";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -152,22 +147,6 @@ export async function saveChurchTemplate(input: {
 	}
 }
 
-export async function listChurchTemplates(): Promise<
-	{ status: "ok"; templates: ChurchTemplateSummary[] } | { status: "refused"; message: string } | { status: "lost" }
-> {
-	const actor = await documentActor();
-	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
-	try {
-		const reply = await documentsWriter.listChurch(db, actor, {});
-		if (reply.status !== "ok") return refusedWith(reply.error.code);
-		return { status: "ok", templates: reply.value.templates };
-	} catch (error) {
-		logFailure({ component: "church-documents", outcome: "template_list_failed" }, error);
-		return { status: "lost" };
-	}
-}
-
 export type TemplateUpdateResult =
 	| { status: "updated"; template: ChurchTemplateSummary }
 	| { status: "refused"; code: string; message: string }
@@ -248,24 +227,6 @@ export async function deleteSavedExport(documentId: string, exportId: string): P
 		return { status: "deleted" };
 	} catch (error) {
 		logFailure({ component: "church-documents", outcome: "export_delete_failed" }, error);
-		return { status: "lost" };
-	}
-}
-
-export type CompareResult =
-	{ status: "ok"; compare: ChurchCompare } | { status: "refused"; code: string; message: string } | { status: "lost" };
-
-export async function compareWithTemplate(documentId: string): Promise<CompareResult> {
-	const actor = await documentActor();
-	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
-	try {
-		const reply = await documentsWriter.readTemplateCompare(db, actor, { documentId });
-		if (reply.status !== "ok")
-			return { status: "refused", code: reply.error.code, message: refusedWith(reply.error.code).message };
-		return { status: "ok", compare: reply.value };
-	} catch (error) {
-		logFailure({ component: "church-documents", outcome: "compare_failed" }, error);
 		return { status: "lost" };
 	}
 }

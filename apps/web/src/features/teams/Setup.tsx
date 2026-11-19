@@ -17,7 +17,8 @@ import { Icon } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save/parts.tsx";
-import { importTemplates, templateCatalog } from "./actions.ts";
+import { importTemplates } from "./actions.ts";
+import { templateCatalog } from "./fetch.ts";
 import { plural, type Catalog, type Outcome, type SetupForm } from "./model.ts";
 
 type SetupInto = {

@@ -8,12 +8,12 @@ import { sql, eq, and } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
 import {
 	createLifecycleCleanup,
-	issueRestrictedDeletionSession,
 	createAccountCredentials,
 	uploadAvatar,
 	readAvatar,
 	withSettingsWrite,
 } from "../../../packages/domain/src/settings/index.ts";
+import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { settingsApi } from "./settings-api.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";

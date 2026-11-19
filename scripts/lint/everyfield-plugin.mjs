@@ -205,6 +205,99 @@ const noErrorMessageMatch = {
 	},
 };
 
+const unwrapped = (node) => {
+	let at = node;
+	while (
+		at &&
+		["TSAsExpression", "TSSatisfiesExpression", "TSNonNullExpression", "ParenthesizedExpression"].includes(at.type)
+	)
+		at = at.expression;
+	return at;
+};
+function emptyAnswer(node) {
+	const at = unwrapped(node);
+	if (!at) return null;
+	if (at.type === "ArrayExpression" && at.elements.length === 0) return "an empty list";
+	if ((at.type === "NewExpression" || at.type === "CallExpression") && at.callee.type === "Identifier") {
+		if (at.callee.name === "Array" && at.arguments.length === 0) return "an empty list";
+	}
+	if (at.type === "Literal" && at.value === 0) return "a zero";
+	if (at.type === "ConditionalExpression") return emptyAnswer(at.consequent) ?? emptyAnswer(at.alternate);
+	if (at.type === "LogicalExpression") return emptyAnswer(at.right);
+	if (at.type === "ObjectExpression") {
+		const props = at.properties.filter((p) => p.type === "Property");
+		if (props.some((p) => keyName(p.key, p.computed) === "status" && literalArgument(p.value) === "ok"))
+			return "an ok result";
+		for (const p of props) {
+			const inner = emptyAnswer(p.value);
+			if (inner) return inner;
+		}
+	}
+	return null;
+}
+
+const readsMember = (node, name) => {
+	const at = unwrapped(node);
+	if (!at || typeof at !== "object") return false;
+	if (
+		at.type === "MemberExpression" &&
+		unwrapped(at.object)?.type === "Identifier" &&
+		unwrapped(at.object).name === name
+	)
+		return true;
+	if (at.type === "BinaryExpression" && at.operator === "instanceof" && unwrapped(at.left)?.name === name) return true;
+	return Object.entries(at).some(
+		([key, value]) =>
+			key !== "parent" &&
+			(Array.isArray(value) ? value : [value]).some(
+				(child) => child && typeof child.type === "string" && !FUNCTIONS.has(child.type) && readsMember(child, name),
+			),
+	);
+};
+
+const failureNotEmpty = {
+	meta: { type: "problem" },
+	create(context) {
+		const report = (node, what) =>
+			context.report({
+				node,
+				message: `A failed read never shows as ${what}: return the failure (lost, refused or unavailable), or narrow the catch with an if on the caught error (its code or class) for the one error that means nothing is there.`,
+			});
+		const check = (node, value) => {
+			const what = emptyAnswer(value);
+			if (what) report(node, what);
+		};
+		const walk = (node, caught) => {
+			if (!node || typeof node.type !== "string" || FUNCTIONS.has(node.type)) return;
+			if (node.type === "IfStatement" && caught && readsMember(node.test, caught)) return;
+			if (node.type === "ReturnStatement") check(node, node.argument);
+			if (node.type === "AssignmentExpression") check(node, node.right);
+			if (node.type === "VariableDeclarator") check(node, node.init);
+			for (const [key, value] of Object.entries(node))
+				if (key !== "parent") for (const child of Array.isArray(value) ? value : [value]) walk(child, caught);
+		};
+		const handler = (fn) => {
+			if (fn?.type !== "ArrowFunctionExpression" && fn?.type !== "FunctionExpression") return;
+			const caught = fn.params[0]?.type === "Identifier" ? fn.params[0].name : null;
+			if (fn.body.type === "BlockStatement") for (const statement of fn.body.body) walk(statement, caught);
+			else check(fn, fn.body);
+		};
+		return {
+			CatchClause: (node) => {
+				const caught = node.param?.type === "Identifier" ? node.param.name : null;
+				for (const statement of node.body.body) walk(statement, caught);
+			},
+			CallExpression: (node) => {
+				const callee = node.callee;
+				if (callee.type !== "MemberExpression") return;
+				const name = keyName(callee.property, callee.computed);
+				if (name === "catch") handler(node.arguments[0]);
+				if (name === "then") handler(node.arguments[1]);
+			},
+		};
+	},
+};
+
 export const SESSION_MODULE = "packages/domain/src/access/session.ts";
 const PRODUCT_SOURCE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
 
@@ -212,6 +305,30 @@ const ACTOR_CLASS = "RequestActor";
 const ACTOR_STATICS = new Set(["resolve", "claimWrite"]);
 const staticKey = (node) =>
 	keyName(node.property, node.computed) ?? (node.computed ? literalArgument(node.property) : null);
+
+const PROVIDER_KEY_MINTS = new Set([
+	"packages/domain/src/communication/delivery.ts",
+	"apps/web/src/server/jobs/mail.ts",
+]);
+const PROVIDER_KEY = "ProviderKey";
+const PROVIDER_KEY_HOME = "packages/contracts/src/common/values.ts";
+
+const providerKeyMint = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (PROVIDER_KEY_MINTS.has(path) || path === PROVIDER_KEY_HOME || !PRODUCT_SOURCE.test(path)) return {};
+		const message = `A ProviderKey is the key stored on its mail_request row: only ${[...PROVIDER_KEY_MINTS].join(" and ")} name the type, where they read or store that row, so a retry never reaches the provider with a fresh key.`;
+		const named = (node) => node?.type === "Identifier" && node.name === PROVIDER_KEY;
+		const report = (node) => context.report({ node, message });
+		return {
+			ImportSpecifier: (node) => named(node.imported) && report(node),
+			ExportSpecifier: (node) => (named(node.local) || named(node.exported)) && report(node),
+			TSQualifiedName: (node) => named(node.right) && report(node),
+			TSImportType: (node) => (named(node.qualifier) || named(node.qualifier?.right)) && report(node),
+		};
+	},
+};
 
 const requestActor = {
 	meta: { type: "problem" },
@@ -275,6 +392,8 @@ const isReference = (node) => {
 	return !parent.type.startsWith("TS");
 };
 
+const PURE_IMPORTS = new Set(["@everyfield/db/deployment"]);
+
 const pureModule = {
 	meta: { type: "problem" },
 	create(context) {
@@ -284,7 +403,10 @@ const pureModule = {
 				message: `This module is a pure rule that reads only its arguments and does no I/O. Remove the ${what}.`,
 			});
 		return {
-			ImportDeclaration: (node) => typeOnly(node) || report(node, "value import (a type import is fine)"),
+			ImportDeclaration: (node) =>
+				typeOnly(node) ||
+				PURE_IMPORTS.has(node.source.value) ||
+				report(node, "value import (a type import or a pure module is fine)"),
 			ImportExpression: (node) => report(node, "dynamic import"),
 			AwaitExpression: (node) => report(node, "await"),
 			ForOfStatement: (node) => node.await && report(node, "for await"),
@@ -512,7 +634,9 @@ const keyName = (key, computed) =>
 		? key.name
 		: key.type === "Literal" && typeof key.value === "string"
 			? key.value
-			: null;
+			: key.type === "TemplateLiteral" && key.expressions.length === 0
+				? (key.quasis[0]?.value.cooked ?? null)
+				: null;
 const memberName = (node) => (node?.type === "MemberExpression" ? keyName(node.property, node.computed) : null);
 const isMember = (node, objects, names) =>
 	node?.type === "MemberExpression" &&
@@ -567,6 +691,34 @@ function isValueReference(node) {
 	for (let up = p; up?.type.startsWith("TS"); up = up.parent) if (!VALUE_TS.has(up.type)) return false;
 	return true;
 }
+
+export const MINTS = new Map([
+	[
+		"issueRestrictedDeletionSession",
+		["packages/domain/src/settings/deletion.ts", "packages/domain/src/settings/credentials.ts"],
+	],
+]);
+
+const mintCallers = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!PRODUCT_CODE.test(path)) return {};
+		const report = (node, name) => {
+			const allowed = MINTS.get(name);
+			if (!allowed || allowed.includes(path)) return;
+			context.report({
+				node,
+				message: `Only ${allowed.join(" and ")} may name ${name}: it mints an authority, so no other module may reach it.`,
+			});
+		};
+		return {
+			Identifier: (node) =>
+				(node.parent?.type !== "ExportSpecifier" || node.parent.local === node) && report(node, node.name),
+			Literal: (node) => typeof node.value === "string" && report(node, node.value),
+		};
+	},
+};
 
 function declared(context, node) {
 	for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
@@ -855,6 +1007,184 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 	);
 });
 
+const DDL_RUNNERS = new Set(["packages/db/src/schema/migrate.ts", "packages/db/src/schema/drift.ts"]);
+const ESCAPING_HELPERS = new Set(["literal", "finishStatement", "lockPrefix", "identifier"]);
+const COMPARISONS = new Set(["===", "!==", "==", "!=", "<", ">", "<=", ">=", "in", "instanceof"]);
+
+const constantType = (type) =>
+	type?.type === "TSTypeQuery" || (type?.type === "TSIndexedAccessType" && constantType(type.objectType));
+
+function literalOnly(type, aliases) {
+	switch (type?.type) {
+		case "TSLiteralType":
+			return true;
+		case "TSIndexedAccessType":
+			return constantType(type);
+		case "TSTypeOperator":
+			return type.operator === "keyof" && type.typeAnnotation?.type === "TSTypeQuery";
+		case "TSUnionType":
+			return type.types.every((t) => literalOnly(t, aliases));
+		case "TSIntersectionType":
+			return type.types.some((t) => literalOnly(t, aliases));
+		case "TSTypeReference": {
+			const name = type.typeName.type === "Identifier" ? type.typeName.name : null;
+			return name === "SqlLiteral" || (name !== null && aliases.has(name));
+		}
+		default:
+			return false;
+	}
+}
+
+function memberType(node, annotation) {
+	const parent = node.parent;
+	if (parent?.type !== "MemberExpression" || parent.object !== node || annotation?.type !== "TSTypeLiteral")
+		return annotation;
+	const name = memberName(parent);
+	const member = annotation.members.find(
+		(m) => m.type === "TSPropertySignature" && keyName(m.key, m.computed) === name,
+	);
+	return member?.typeAnnotation?.typeAnnotation;
+}
+
+const calleeName = (callee) => (callee.type === "Identifier" ? callee.name : memberName(callee));
+
+const rawSqlLiteral = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!PRODUCT_CODE.test(path) || DDL_RUNNERS.has(path)) return {};
+		const aliases = new Set();
+		const sqlNames = new Set(["sql"]);
+		const rawNames = new Set();
+		let inside = 0;
+		const isRawSql = (node) =>
+			node.type === "CallExpression" &&
+			((node.callee.type === "MemberExpression" &&
+				node.callee.object.type === "Identifier" &&
+				sqlNames.has(node.callee.object.name) &&
+				memberName(node.callee) === "raw") ||
+				(node.callee.type === "Identifier" && rawNames.has(node.callee.name)));
+		const pasted = (node) => {
+			for (let child = node, parent = node.parent; parent; child = parent, parent = parent.parent) {
+				if (isRawSql(parent)) return true;
+				if (parent.type === "CallExpression" && parent.arguments.includes(child))
+					if (ESCAPING_HELPERS.has(calleeName(parent.callee))) return false;
+				if (parent.type === "ConditionalExpression" && parent.test === child) return false;
+				if (parent.type === "BinaryExpression" && COMPARISONS.has(parent.operator)) return false;
+				if (parent.type === "UnaryExpression" && parent.operator === "!") return false;
+			}
+			return false;
+		};
+		const variableOf = (node) => {
+			for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+				const variable = scope.set?.get(node.name);
+				if (variable) return { variable, scope };
+			}
+			return null;
+		};
+		const fixed = (node, seen = new Set()) => {
+			switch (node?.type) {
+				case "Literal":
+					return true;
+				case "TemplateLiteral":
+					return node.expressions.every((e) => fixed(e, seen));
+				case "ConditionalExpression":
+					return fixed(node.consequent, seen) && fixed(node.alternate, seen);
+				case "LogicalExpression":
+				case "BinaryExpression":
+					return fixed(node.left, seen) && fixed(node.right, seen);
+				case "CallExpression":
+					return ESCAPING_HELPERS.has(calleeName(node.callee));
+				case "TSAsExpression":
+				case "TSSatisfiesExpression":
+				case "TSNonNullExpression":
+					return fixed(node.expression, seen);
+				case "MemberExpression":
+					return fixed(node.object, seen) && (!node.computed || fixed(node.property, seen) || moduleLevel(node.object));
+				case "ArrayExpression":
+					return node.elements.every((e) => fixed(e, seen));
+				case "Identifier":
+					return safe(node, seen);
+				default:
+					return false;
+			}
+		};
+		const moduleLevel = (node) => {
+			const root = node.type === "MemberExpression" ? node.object : node;
+			if (root.type === "MemberExpression") return moduleLevel(root);
+			const found = root.type === "Identifier" ? variableOf(root) : null;
+			return Boolean(found && (found.scope.type === "module" || found.scope.type === "global"));
+		};
+		const bound = (pattern, name, init) => {
+			if (pattern === name) return init;
+			if (pattern.type !== "ArrayPattern") return null;
+			const index = pattern.elements.indexOf(name);
+			const pick = (value) =>
+				value?.type === "ArrayExpression"
+					? value.elements[index]
+					: value?.type === "ConditionalExpression"
+						? { type: "ConditionalExpression", consequent: pick(value.consequent), alternate: pick(value.alternate) }
+						: null;
+			return index < 0 ? null : pick(init);
+		};
+		const safe = (node, seen = new Set()) => {
+			const found = variableOf(node);
+			if (!found) return true;
+			const { variable, scope } = found;
+			const def = variable.defs?.[0];
+			if (!def || seen.has(def)) return true;
+			seen.add(def);
+			if (def.type === "ImportBinding" || def.type === "FunctionName" || def.type === "ClassName") return true;
+			if (def.type === "Parameter") {
+				const callback = def.node.parent?.type === "CallExpression" && def.node.parent.arguments.includes(def.node);
+				const annotation = memberType(node, def.name.typeAnnotation?.typeAnnotation);
+				if (!def.name.typeAnnotation && callback) return true;
+				const generic = def.node.typeParameters?.params ?? [];
+				const bound =
+					annotation?.type === "TSTypeReference" &&
+					annotation.typeName.type === "Identifier" &&
+					generic.find((g) => g.name.name === annotation.typeName.name);
+				return literalOnly(annotation, aliases) || Boolean(bound && literalOnly(bound.constraint, aliases));
+			}
+			if (def.type === "Variable") {
+				if (scope.type === "module" || scope.type === "global") return true;
+				if (literalOnly(def.name.typeAnnotation?.typeAnnotation, aliases)) return true;
+				return def.parent?.kind === "const" && fixed(bound(def.node.id, def.name, def.node.init), seen);
+			}
+			return false;
+		};
+		return {
+			ImportSpecifier(node) {
+				if ((node.imported.name ?? node.imported.value) === "sql") sqlNames.add(node.local.name);
+			},
+			VariableDeclarator(node) {
+				const init = node.init;
+				if (node.id.type !== "Identifier" || init?.type !== "MemberExpression") return;
+				if (init.object.type === "Identifier" && sqlNames.has(init.object.name) && memberName(init) === "raw")
+					rawNames.add(node.id.name);
+			},
+			TSTypeAliasDeclaration(node) {
+				if (node.parent?.type === "Program" || node.parent?.parent?.type === "Program")
+					if (literalOnly(node.typeAnnotation, aliases)) aliases.add(node.id.name);
+			},
+			CallExpression(node) {
+				if (isRawSql(node)) inside++;
+			},
+			"CallExpression:exit"(node) {
+				if (isRawSql(node)) inside--;
+			},
+			Identifier(node) {
+				if (inside === 0 || !isValueReference(node) || !pasted(node) || safe(node)) return;
+				context.report({
+					node,
+					message:
+						"A value pasted into sql.raw is a fixed SQL name: type a parameter as a literal union, keyof typeof a constant, or SqlLiteral<A> from @everyfield/db/query, build a local only from those, or escape it through literal, identifier, lockPrefix or finishStatement.",
+				});
+			},
+		};
+	},
+};
+
 export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
 const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
 const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
@@ -868,6 +1198,37 @@ const storageClient = {
 		return moduleSources((node, name) => {
 			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
 		});
+	},
+};
+
+export const DEPLOYMENT_MODULE = "packages/db/src/deployment.ts";
+const DEPLOYMENT_VARIABLES = new Set(["VERCEL", "VERCEL_ENV"]);
+
+const deploymentEnv = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === DEPLOYMENT_MODULE || !PRODUCT_CODE.test(path)) return {};
+		const report = (node) =>
+			context.report({
+				node,
+				message: `Ask ${DEPLOYMENT_MODULE} where the code runs (isProduction, isTestDeployment, runsOffVercel, trustsVercelForwardedFor): it is the one reader of VERCEL and VERCEL_ENV, and an unrecognized value fails closed there.`,
+			});
+		const named = (key) => !key.computed && key.type === "Identifier" && DEPLOYMENT_VARIABLES.has(key.name);
+		return {
+			MemberExpression(node) {
+				if (!node.computed && named(node.property)) report(node);
+			},
+			Property(node) {
+				if (!node.computed && named(node.key)) report(node);
+			},
+			Literal(node) {
+				if (DEPLOYMENT_VARIABLES.has(node.value)) report(node);
+			},
+			TemplateLiteral(node) {
+				if (node.expressions.length === 0 && DEPLOYMENT_VARIABLES.has(node.quasis[0]?.value.cooked)) report(node);
+			},
+		};
 	},
 };
 
@@ -1368,6 +1729,60 @@ const noRenderWrites = ratcheted("no-render-writes", (context, push) => {
 	};
 });
 
+const STORE_ACTIONS = "actions";
+const readsOnlyActions = (call) => {
+	const parent = call.parent;
+	if (parent?.type === "MemberExpression" && parent.object === call) return memberName(parent) === STORE_ACTIONS;
+	return (
+		parent?.type === "VariableDeclarator" &&
+		parent.init === call &&
+		parent.id.type === "ObjectPattern" &&
+		parent.id.properties.every((p) => p.type === "Property" && !p.computed && nameOf(p.key) === STORE_ACTIONS)
+	);
+};
+const subscribedSnapshot = (node) => {
+	const fn = callerOf(node);
+	const call = fn?.parent;
+	return (
+		call?.type === "CallExpression" &&
+		(call.callee.type === "Identifier" ? call.callee.name : memberName(call.callee)) === "useSyncExternalStore" &&
+		call.arguments.indexOf(fn) > 0
+	);
+};
+
+const noRenderGetState = {
+	meta: { type: "problem" },
+	create(context) {
+		const jsx = /\.[jt]sx$/.test(context.filename);
+		const aliases = new Set();
+		const calls = [];
+		return {
+			VariableDeclarator(node) {
+				if (memberName(node.init) === "getState" && node.id.type === "Identifier") aliases.add(node.id.name);
+				if (node.id.type !== "ObjectPattern") return;
+				for (const p of node.id.properties)
+					if (p.type === "Property" && !p.computed && nameOf(p.key) === "getState" && p.value.type === "Identifier")
+						aliases.add(p.value.name);
+			},
+			CallExpression(node) {
+				if (node.arguments.length) return;
+				if (memberName(node.callee) === "getState" || node.callee.type === "Identifier") calls.push(node);
+			},
+			"Program:exit"() {
+				for (const node of calls) {
+					if (node.callee.type === "Identifier" && !aliases.has(node.callee.name)) continue;
+					if (readsOnlyActions(node) || subscribedSnapshot(node) || !rendering(node, jsx)) continue;
+					context.report({
+						node,
+						message:
+							"getState() reads the store once while rendering and does not subscribe, so this render keeps showing the old value when the store changes. Select the value with useStore or the store context's useSelect, or read getState() inside the event handler or callback that needs it.",
+					});
+				}
+			},
+		};
+	},
+};
+
 const CHAIN = new Set(["then", "catch", "finally"]);
 const mapsOnly = (fn) =>
 	fn === undefined ||
@@ -1704,22 +2119,28 @@ export default {
 		"table-writers": tableWriters,
 		"max-state": maxState,
 		"no-timers": noTimers,
+		"raw-sql-literal": rawSqlLiteral,
 		"request-actor": requestActor,
+		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"server-log": serverLog,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
+		"deployment-env": deploymentEnv,
 		"no-cursor-utility": noCursorUtility,
+		"mint-callers": mintCallers,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
 		"zustand-shape": zustandShape,
 		"read-loader": readLoader,
 		"no-render-writes": noRenderWrites,
+		"no-render-get-state": noRenderGetState,
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
 		"no-error-message-match": noErrorMessageMatch,
 		"route-reads": routeReads,
 		"route-segment-defaults": routeSegmentDefaults,
 		"render-reads": renderReads,
+		"failure-not-empty": failureNotEmpty,
 	},
 };

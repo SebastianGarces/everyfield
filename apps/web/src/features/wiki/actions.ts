@@ -2,16 +2,8 @@
 
 import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { revalidatePath } from "next/cache";
-import { articlePath, parseSource, sourceInput } from "./model.ts";
-import {
-	editorContext,
-	logSearchLost,
-	organizationNames,
-	plantContext,
-	runSearch,
-	wikiActor,
-	wikiMount,
-} from "./server.ts";
+import { parseSource, sourceInput } from "./model.ts";
+import { editorContext, plantContext, mountFor, wikiActor } from "./server.ts";
 import { logFailure } from "@everyfield/domain/log";
 
 type WriteOk = {
@@ -27,13 +19,7 @@ export type WriteResult = WriteOk | { status: "denied" } | { status: "conflict" 
 type ReadingKey = { requestKey: string; articleId: string; plantId?: string };
 type Envelope = ReadingKey & { expectedRevision: string };
 
-async function actorMount() {
-	const actor = await wikiActor();
-	const mount = wikiMount();
-	if (actor === "down" || !mount) return { status: "lost" as const };
-	if (!actor) return { status: "denied" as const };
-	return { status: "ready" as const, actor, mount };
-}
+const actorMount = async () => mountFor(await wikiActor());
 
 function mapReading(value: {
 	errorCode: "content_access_denied" | null;
@@ -125,55 +111,11 @@ export type SearchResult =
 	| { status: "denied" }
 	| { status: "lost" };
 
-export async function searchWiki(
-	query: string,
-	phase: number | null,
-	page: number,
-	sourceRaw: string | null,
-): Promise<SearchResult> {
-	const actor = await wikiActor();
-	if (actor === "down") {
-		logSearchLost("actor-down");
-		return { status: "lost" };
-	}
-	if (!actor) return { status: "denied" };
-	const result = await runSearch(actor, query, phase, page, parseSource(sourceRaw ?? undefined));
-	if (result === "lost" || result === "denied") return { status: result };
-	if (result.status === "empty") return { status: "empty" };
-	if (result.status === "unavailable") return { status: "unavailable" };
-	return { status: "results", hits: result.hits, nextPage: result.nextPage };
-}
-
 export type GuideResult =
 	| { status: "found"; title: string; section: string | null; excerpt: string; href: string }
 	| { status: "missing" }
 	| { status: "denied" }
 	| { status: "unavailable" };
-
-export async function loadGuide(route: string): Promise<GuideResult> {
-	const ready = await actorMount();
-	if (ready.status === "denied") return { status: "denied" };
-	if (ready.status === "lost") return { status: "unavailable" };
-	try {
-		const reply = await ready.mount.producer.contextGuide(ready.mount.db, ready.actor, {
-			route: route.slice(0, 200),
-		});
-		if (reply.status !== "ok")
-			return reply.error.code === "access_denied" ? { status: "denied" } : { status: "unavailable" };
-		const guide = reply.value;
-		if (!guide.found || !guide.title || !guide.slug || !guide.body) return { status: "missing" };
-		return {
-			status: "found",
-			title: guide.title,
-			section: guide.citation,
-			excerpt: guide.body,
-			href: articlePath(guide.slug),
-		};
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "guide-failed" }, error);
-		return { status: "unavailable" };
-	}
-}
 
 export type ExportResult =
 	| { status: "pdf"; bytes: string }
@@ -216,30 +158,6 @@ export type OrderRead =
 	| { status: "ok"; revision: string; churches: OrderRow[]; networks: OrderRow[] }
 	| { status: "denied" }
 	| { status: "lost" };
-
-export async function readSourceOrder(): Promise<OrderRead> {
-	const ready = await actorMount();
-	if (ready.status !== "ready") return ready;
-	if (!plantContext(ready.actor).canOrder) return { status: "denied" };
-	try {
-		const reply = await ready.mount.producer.listArticles(ready.mount.db, ready.actor, { page: 1 });
-		if (reply.status !== "ok") return { status: "denied" };
-		const names = await organizationNames(ready.mount, [...reply.value.churches, ...reply.value.networks]);
-		const row = (id: string, kind: "church" | "network"): OrderRow => ({
-			id,
-			name: names.get(id) ?? `${kind === "church" ? "Church" : "Network"} ${id.slice(0, 4)}`,
-		});
-		return {
-			status: "ok",
-			revision: reply.value.orderRevision,
-			churches: reply.value.churches.map((id) => row(id, "church")),
-			networks: reply.value.networks.map((id) => row(id, "network")),
-		};
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "order-read-failed" }, error);
-		return { status: "lost" };
-	}
-}
 
 export type OrderSave =
 	| { status: "ok"; revision: string }

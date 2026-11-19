@@ -34,6 +34,7 @@ import { current as organizationMount } from "../organizations/mount.ts";
 import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
+import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
 
 type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
 type Signed = SectionViewer & { accountId: string };
@@ -119,7 +120,7 @@ function create(v: z.infer<typeof env>) {
 			const viewer = await signedIn();
 			return {
 				request,
-				trustedIp: trustedIdentityIp(request, process.env.VERCEL === "1"),
+				trustedIp: trustedIdentityIp(request, trustsVercelForwardedFor(process.env)),
 				viewer: viewer && {
 					accountId: viewer.accountId,
 					email: viewer.principal.email,
@@ -229,8 +230,11 @@ function refusal(code: keyof typeof RETRY): { status: "refused"; error: Settings
 	};
 }
 
-export async function readSection(raw: unknown): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
-	const viewer = await signedIn();
+export async function readSection(
+	session: Session,
+	raw: unknown,
+): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
+	const viewer = signedAs(session);
 	const ops = settingsMount();
 	if (!viewer || !ops) return refusal("access_denied");
 	try {
@@ -331,7 +335,7 @@ export async function openRestrictedDeletion(kind: "account" | "plant", raw: unk
 	const ops = settingsMount();
 	if (!ops) return refusal("access_denied");
 	const request = new Request(`${ops.origin}/`, { headers: await headers() });
-	const ip = trustedIdentityIp(request, process.env.VERCEL === "1");
+	const ip = trustedIdentityIp(request, trustsVercelForwardedFor(process.env));
 	const opened = await (
 		kind === "account" ? ops.credentials.openAccountDeletion(raw, ip) : ops.credentials.openWorkspaceDeletion(raw, ip)
 	).catch((error) => {
@@ -420,9 +424,12 @@ async function logged<T, O extends string>(
 	}
 }
 
-async function signedIn(): Promise<Signed | null> {
-	const v = await getViewer();
+export type Session = Awaited<ReturnType<typeof getViewer>>;
+
+function signedAs(v: Session): Signed | null {
 	if (v?.status !== "active" || !v.authority) return null;
 	const principal = { display_name: v.displayName, email: v.email, verified: v.verified };
 	return { authority: v.authority, principal, accountId: v.accountId };
 }
+
+const signedIn = async () => signedAs(await getViewer());

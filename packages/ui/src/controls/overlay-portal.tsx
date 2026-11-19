@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useSyncExternalStore } from "react";
+import { focusOrigin } from "../foundations/focus";
 
 const subscribe = () => () => {};
 
@@ -17,9 +18,9 @@ export function usePortalContainer(): HTMLElement | null {
 type AutoFocusHandler = (event: Event) => void;
 
 function openerOf(active: Element | null): HTMLElement | null {
-	if (!(active instanceof HTMLElement) || active === document.body) return null;
-	const button = active.closest('[role="menu"]')?.getAttribute("aria-labelledby");
-	return (button && document.getElementById(button)) || active;
+	const origin = focusOrigin(active);
+	const button = origin?.closest('[role="menu"]')?.getAttribute("aria-labelledby");
+	return (button && document.getElementById(button)) || origin;
 }
 
 export function useReturnFocus(own: { onOpenAutoFocus?: AutoFocusHandler; onCloseAutoFocus?: AutoFocusHandler } = {}) {

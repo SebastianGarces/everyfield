@@ -66,13 +66,13 @@ const denied = () =>
 	}) as const;
 
 export async function read<T>(
+	viewer: LaunchViewer | null,
 	run: (
 		reader: ReturnType<typeof createLaunchReader>,
 		db: Database,
 		authority: RequestActor,
 	) => Promise<LaunchReply<T>>,
 ): Promise<Outcome<T>> {
-	const viewer = await launchViewer();
 	if (!viewer) return denied();
 	const db = requestDatabase();
 	if (!db) return { status: "lost" };

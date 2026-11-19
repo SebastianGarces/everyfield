@@ -10,6 +10,7 @@ import { mailEnv } from "../mail-env.ts";
 import { createIdentityService, trustedIdentityIp, type IdentityConfig } from "@everyfield/domain/identity";
 import { invitationService } from "../invitations";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
+import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
 
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
@@ -96,7 +97,7 @@ function identityMount() {
 			scheduleDelivery: after,
 			origin: v.IDENTITY_ORIGIN,
 			secret: v.IDENTITY_SECRET,
-			trustedIp: (request) => trustedIdentityIp(request, process.env.VERCEL === "1"),
+			trustedIp: (request) => trustedIdentityIp(request, trustsVercelForwardedFor(process.env)),
 			enqueueMail: identityMailQueue(v),
 			diagnostic: (value) => logLine({ component: "identity", ...value, correlationId: asLogId(value.correlationId) }),
 			invitations: invitationService() ?? undefined,

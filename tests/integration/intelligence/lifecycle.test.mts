@@ -18,7 +18,8 @@ import {
 	requestIntelligenceRefresh,
 	submitIntelligenceFeedback,
 } from "../../../packages/domain/src/oversight/intelligence.ts";
-import { deletionOperations, issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/index.ts";
+import { deletionOperations } from "../../../packages/domain/src/settings/index.ts";
+import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { eligibleOwner } from "../../../packages/domain/src/tasks/owner.ts";
 import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
 import { runDuePurges } from "../../../apps/web/src/server/jobs/lifecycle-purge.ts";
