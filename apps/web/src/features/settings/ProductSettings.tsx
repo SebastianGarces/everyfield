@@ -3,7 +3,9 @@
 import { DASHBOARD_HOME } from "@everyfield/contracts/identity";
 import { avatarRoute } from "@everyfield/contracts/settings";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { Dialog, DialogBody, DialogContent, DialogHeader } from "@everyfield/ui/controls";
+import { Suspense, useRef, useState } from "react";
+import { lazyModule, LoadState, Opened, useLazyModule } from "../../components/lazy.tsx";
 import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
 import { readSourceOrder, saveSourceOrder } from "../wiki/actions";
@@ -37,7 +39,7 @@ import {
 import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
-import { SettingsDialog } from "./SettingsDialog";
+import type { SettingsDialogProps } from "./SettingsDialog";
 import { SettingsProvider } from "./store";
 
 const PORT: SettingsPort = {
@@ -69,6 +71,41 @@ const PORT: SettingsPort = {
 	},
 };
 const hrefFor = (key: SectionKey) => `/settings/${key}`;
+
+const dialog = lazyModule(() => import("./SettingsDialog"));
+
+function LazySettingsDialog(props: SettingsDialogProps) {
+	return (
+		<Opened open={props.section !== null}>
+			<Suspense fallback={<Unloaded {...props} />}>
+				<Loaded {...props} />
+			</Suspense>
+		</Opened>
+	);
+}
+
+function Loaded(props: SettingsDialogProps) {
+	const loaded = useLazyModule(dialog);
+	if (loaded.module) return <loaded.module.SettingsDialog {...props} />;
+	return <Unloaded {...props} retry={loaded.retry} />;
+}
+
+function Unloaded({ section, onNavigate, retry }: SettingsDialogProps & { retry?: () => void }) {
+	return (
+		<Dialog open={section !== null} onOpenChange={(open) => (open ? undefined : onNavigate(null))}>
+			<DialogContent
+				size="lg"
+				aria-describedby={undefined}
+				className="h-[min(720px,calc(100dvh-24px))] max-w-[1040px] overflow-hidden bg-surface"
+			>
+				<DialogHeader title="Settings" />
+				<DialogBody className="grid place-items-center">
+					<LoadState what="Settings" retry={retry} />
+				</DialogBody>
+			</DialogContent>
+		</Dialog>
+	);
+}
 
 const pathOf = (href: string | null) => href?.split("?")[0] ?? null;
 
@@ -107,6 +144,7 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 
 	const navigate = (key: SectionKey | null) => {
 		if (key) {
+			dialog.preload();
 			if (!section) setUnderneath(currentAddress());
 			writeAddress(hrefFor(key));
 		} else if (underneath) {
@@ -117,7 +155,7 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 
 	const element = viewer ? (
 		<SettingsProvider key={`${viewer.accountId}-${viewer.context}`} port={port} viewer={viewer} seed={seed}>
-			<SettingsDialog
+			<LazySettingsDialog
 				section={section}
 				onNavigate={navigate}
 				hrefFor={hrefFor}

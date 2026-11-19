@@ -74,6 +74,36 @@
 	},
 	"overrides": [
 		{
+			"files": ["src/features/shell/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"paths": [
+							{
+								"name": "motion/react",
+								"importNames": ["motion"],
+								"message": "Use m from motion/react: ProductRoot's LazyMotion loads the animation features after the page starts, and motion would put all of them in the first load."
+							}
+						],
+						"patterns": [
+							{
+								"group": [
+									"**/EvryPanel.tsx",
+									"**/SettingsDialog",
+									"**/SettingsDialog.tsx",
+									"**/FeedbackDialog.tsx",
+									"**/overlays.tsx"
+								],
+								"allowTypeImports": true,
+								"message": "The frame loads this overlay on first open through its feature's lazy entry (FeedbackOverlay, evry/conversation/panel, useProductSettings, wiki/chrome); a static import puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
 			"files": ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
 			"rules": {
 				"react/display-name": "error",
