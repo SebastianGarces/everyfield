@@ -3,8 +3,8 @@
 import { ArrowDown01Icon, BellIcon, Cancel01Icon, Menu01Icon, Search01Icon } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Menu, MenuContent, MenuTrigger } from "../controls";
+import { useState, type ReactNode } from "react";
+import { Menu, MenuContent, MenuTrigger, Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "../controls";
 import { AvatarImage } from "../display/AvatarImage";
 import { cn, EvryBot, HoverGroup, Icon, Lockup, LogoMark, useHoverItem } from "../foundations";
 import { both, useIntentPrefetch } from "../controls/IntentLink";
@@ -95,97 +95,111 @@ function Topbar({
 	current: string | null;
 	actions: ShellActions;
 }) {
+	const [menuOpen, setMenuOpen] = useState(false);
 	return (
-		<header className="sticky top-0 z-20 col-span-full flex items-center gap-[14px] bg-[linear-gradient(var(--ef-frame)_78%,transparent)] pt-[22px] pr-6 pb-2 pl-[22px] *:flex-none *:whitespace-nowrap max-app-xl:gap-2.5 max-app-md:gap-2 max-app-md:px-3 max-app-md:pt-3 app-2xl:grid app-2xl:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)]">
-			<Link
-				href={homeHref}
-				aria-label="Everyfield, Overview"
-				className={cn(PILL, "flex h-topbar items-center px-6 text-ink max-app-lg:px-2.5 app-2xl:justify-self-start")}
-			>
-				<Lockup className="h-[26px] w-auto max-app-lg:hidden" />
-				<span className="grid size-10 flex-none place-items-center app-lg:hidden">
-					<LogoMark className="h-auto w-6" />
-				</span>
-			</Link>
-
-			<nav
-				aria-label="Main"
-				className={cn(
-					PILL,
-					"mx-auto flex h-topbar flex-[0_1_auto] items-center px-2 max-app-md:hidden app-2xl:mx-0 app-2xl:justify-self-center",
-				)}
-			>
-				<HoverGroup current={current} className="flex items-center gap-0.5">
-					{nav.main.map((link) => (
-						<TopNavItem key={link.key} link={link} current={current === link.key} />
-					))}
-				</HoverGroup>
-			</nav>
-
-			<NarrowMenu nav={nav} current={current} onSearch={actions.onSearch} />
-
-			<div className="flex items-center gap-[14px] max-app-xl:gap-2.5 max-app-md:ml-auto max-app-md:gap-2 app-2xl:justify-self-end">
-				<div className={cn(PILL, "flex h-topbar items-center gap-1.5 px-2")}>
-					<TopIconButton label="Search" shortcut="Meta+K" onClick={actions.onSearch} className="max-app-sm:hidden">
-						<Icon icon={Search01Icon} size={24} />
-					</TopIconButton>
-					<TopIconButton
-						label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
-						onClick={actions.onNotifications}
-						expanded={actions.notificationsOpen}
-					>
-						<Icon icon={BellIcon} size={24} />
-						{unread > 0 && (
-							<span
-								aria-hidden="true"
-								className="absolute top-[7px] right-[7px] size-2 rounded-full bg-amber-500 ring-2 ring-surface-raised"
-							/>
-						)}
-					</TopIconButton>
-					<button
-						type="button"
-						onClick={actions.onAskEvry}
-						disabled={!actions.onAskEvry}
-						title={actions.onAskEvry ? undefined : "Evry is off on this page"}
-						aria-keyshortcuts={actions.onAskEvry ? (actions.askEvryShortcut ?? "Meta+J") : undefined}
-						data-shortcut={actions.askEvryShortcut}
-						data-shortcut-claim={actions.askEvryShortcut ? "" : undefined}
-						aria-haspopup={actions.askEvryOpen === undefined ? undefined : "dialog"}
-						aria-expanded={actions.askEvryOpen}
-						className="inline-flex h-11 items-center gap-[9px] rounded-nav-item bg-surface-2 pr-4 pl-2.5 font-medium text-ink transition-[background-color] hover:bg-surface-3 disabled:opacity-45 disabled:hover:bg-surface-2 max-app-xl:pr-3 max-app-sm:px-2.5"
-					>
-						<EvryBot size="sm" />
-						<span className="max-app-sm:sr-only">{actions.onAskEvry ? "Ask Evry" : "Evry is off"}</span>
-					</button>
-				</div>
-
-				<Menu>
-					<MenuTrigger
+		<Popover open={menuOpen} onOpenChange={setMenuOpen}>
+			<PopoverAnchor asChild>
+				<header className="sticky top-0 z-20 col-span-full flex items-center gap-[14px] bg-[linear-gradient(var(--ef-frame)_78%,transparent)] pt-[22px] pr-6 pb-2 pl-[22px] *:flex-none *:whitespace-nowrap max-app-xl:gap-2.5 max-app-md:gap-2 max-app-md:px-3 max-app-md:pt-3 app-2xl:grid app-2xl:grid-cols-[minmax(max-content,1fr)_auto_minmax(max-content,1fr)]">
+					<Link
+						href={homeHref}
+						aria-label="Everyfield, Overview"
 						className={cn(
 							PILL,
-							"flex h-topbar items-center gap-3 pr-4 pl-2.5 text-left transition-[background-color] hover:bg-surface-2 data-[state=open]:bg-surface-2 max-app-xl:pr-3.5 max-app-sm:pr-2.5",
+							"flex h-topbar items-center px-6 text-ink max-app-lg:px-2.5 app-2xl:justify-self-start",
 						)}
 					>
-						<span
-							aria-hidden="true"
-							className="relative grid size-10 flex-none place-items-center overflow-hidden rounded-full bg-green-100 text-md font-semibold text-green-700"
-						>
-							{user.initials}
-							{user.photo ? <AvatarImage key={user.photo} src={user.photo} /> : null}
+						<Lockup className="h-[26px] w-auto max-app-lg:hidden" />
+						<span className="grid size-10 flex-none place-items-center app-lg:hidden">
+							<LogoMark className="h-auto w-6" />
 						</span>
-						<span className="leading-[1.2] max-app-lg:sr-only">
-							<span className="block text-nav font-semibold">{user.name}</span>
-							<span className="block text-xs text-text-3 max-app-xl:sr-only">{user.detail}</span>
-						</span>
-						<span className="sr-only">, account menu</span>
-						<Icon icon={ArrowDown01Icon} size={16} className="text-text-3 max-app-sm:hidden" />
-					</MenuTrigger>
-					<MenuContent align="end" className="w-[260px]">
-						{userMenu}
-					</MenuContent>
-				</Menu>
-			</div>
-		</header>
+					</Link>
+
+					<nav
+						aria-label="Main"
+						className={cn(
+							PILL,
+							"mx-auto flex h-topbar flex-[0_1_auto] items-center px-2 max-app-md:hidden app-2xl:mx-0 app-2xl:justify-self-center",
+						)}
+					>
+						<HoverGroup current={current} className="flex items-center gap-0.5">
+							{nav.main.map((link) => (
+								<TopNavItem key={link.key} link={link} current={current === link.key} />
+							))}
+						</HoverGroup>
+					</nav>
+
+					<NarrowMenu
+						nav={nav}
+						current={current}
+						onSearch={actions.onSearch}
+						open={menuOpen}
+						onOpenChange={setMenuOpen}
+					/>
+
+					<div className="flex items-center gap-[14px] max-app-xl:gap-2.5 max-app-md:ml-auto max-app-md:gap-2 app-2xl:justify-self-end">
+						<div className={cn(PILL, "flex h-topbar items-center gap-1.5 px-2")}>
+							<TopIconButton label="Search" shortcut="Meta+K" onClick={actions.onSearch} className="max-app-sm:hidden">
+								<Icon icon={Search01Icon} size={24} />
+							</TopIconButton>
+							<TopIconButton
+								label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
+								onClick={actions.onNotifications}
+								expanded={actions.notificationsOpen}
+							>
+								<Icon icon={BellIcon} size={24} />
+								{unread > 0 && (
+									<span
+										aria-hidden="true"
+										className="absolute top-[7px] right-[7px] size-2 rounded-full bg-amber-500 ring-2 ring-surface-raised"
+									/>
+								)}
+							</TopIconButton>
+							<button
+								type="button"
+								onClick={actions.onAskEvry}
+								disabled={!actions.onAskEvry}
+								title={actions.onAskEvry ? undefined : "Evry is off on this page"}
+								aria-keyshortcuts={actions.onAskEvry ? (actions.askEvryShortcut ?? "Meta+J") : undefined}
+								data-shortcut={actions.askEvryShortcut}
+								data-shortcut-claim={actions.askEvryShortcut ? "" : undefined}
+								aria-haspopup={actions.askEvryOpen === undefined ? undefined : "dialog"}
+								aria-expanded={actions.askEvryOpen}
+								className="inline-flex h-11 items-center gap-[9px] rounded-nav-item bg-surface-2 pr-4 pl-2.5 font-medium text-ink transition-[background-color] hover:bg-surface-3 disabled:opacity-45 disabled:hover:bg-surface-2 max-app-xl:pr-3 max-app-sm:px-2.5"
+							>
+								<EvryBot size="sm" />
+								<span className="max-app-sm:sr-only">{actions.onAskEvry ? "Ask Evry" : "Evry is off"}</span>
+							</button>
+						</div>
+
+						<Menu>
+							<MenuTrigger
+								className={cn(
+									PILL,
+									"flex h-topbar items-center gap-3 pr-4 pl-2.5 text-left transition-[background-color] hover:bg-surface-2 data-[state=open]:bg-surface-2 max-app-xl:pr-3.5 max-app-sm:pr-2.5",
+								)}
+							>
+								<span
+									aria-hidden="true"
+									className="relative grid size-10 flex-none place-items-center overflow-hidden rounded-full bg-green-100 text-md font-semibold text-green-700"
+								>
+									{user.initials}
+									{user.photo ? <AvatarImage key={user.photo} src={user.photo} /> : null}
+								</span>
+								<span className="leading-[1.2] max-app-lg:sr-only">
+									<span className="block text-nav font-semibold">{user.name}</span>
+									<span className="block text-xs text-text-3 max-app-xl:sr-only">{user.detail}</span>
+								</span>
+								<span className="sr-only">, account menu</span>
+								<Icon icon={ArrowDown01Icon} size={16} className="text-text-3 max-app-sm:hidden" />
+							</MenuTrigger>
+							<MenuContent align="end" className="w-[260px]">
+								{userMenu}
+							</MenuContent>
+						</Menu>
+					</div>
+				</header>
+			</PopoverAnchor>
+		</Popover>
 	);
 }
 
@@ -308,48 +322,38 @@ function RailItem({ item, current }: { item: ShellItem; current: boolean }) {
 	);
 }
 
-function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string | null; onSearch: () => void }) {
-	const [open, setOpen] = useState(false);
-	const panelId = useId();
-	const button = useRef<HTMLButtonElement>(null);
-	const close = () => setOpen(false);
-	const closeOnPointerOutside = useCallback((wrapper: HTMLDivElement | null) => {
-		if (!wrapper) return;
-		const onPointerDown = (e: PointerEvent) => {
-			if (!wrapper.contains(e.target as Node)) setOpen(false);
-		};
-		wrapper.ownerDocument.addEventListener("pointerdown", onPointerDown);
-		return () => wrapper.ownerDocument.removeEventListener("pointerdown", onPointerDown);
-	}, []);
-
-	const onKeyDown = (e: KeyboardEvent) => {
-		if (e.key === "Escape" && open) {
-			e.stopPropagation();
-			setOpen(false);
-			button.current?.focus();
-		}
-	};
+function NarrowMenu({
+	nav,
+	current,
+	onSearch,
+	open,
+	onOpenChange,
+}: {
+	nav: ShellNav;
+	current: string | null;
+	onSearch: () => void;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+}) {
+	const close = () => onOpenChange(false);
 	const rest = [...nav.pages, ...nav.tools];
 
 	return (
-		<div ref={closeOnPointerOutside} role="presentation" onKeyDown={onKeyDown} className="app-md:hidden">
-			<div className={cn(PILL, "flex h-topbar items-center px-2")}>
-				<button
-					ref={button}
-					type="button"
-					aria-expanded={open}
-					aria-controls={panelId}
-					onClick={() => setOpen((o) => !o)}
-					className="inline-flex h-11 items-center gap-2 rounded-nav-item px-3 text-nav text-ink-2 transition-[background-color] hover:bg-surface-2 aria-expanded:bg-ink aria-expanded:text-on-ink"
-				>
+		<>
+			<div className={cn(PILL, "flex h-topbar items-center px-2 app-md:hidden")}>
+				<PopoverTrigger className="inline-flex h-11 items-center gap-2 rounded-nav-item px-3 text-nav text-ink-2 transition-[background-color] hover:bg-surface-2 aria-expanded:bg-ink aria-expanded:text-on-ink">
 					<Icon icon={open ? Cancel01Icon : Menu01Icon} size={24} />
 					<span className="max-app-sm:sr-only">Menu</span>
-				</button>
+				</PopoverTrigger>
 			</div>
-			<div
-				id={panelId}
-				hidden={!open}
-				className="absolute inset-x-3 top-full mt-2 max-h-[calc(100dvh-104px)] overflow-y-auto rounded-card bg-surface-raised p-3 shadow-pop"
+			<PopoverContent
+				label="Menu"
+				align="center"
+				onOpenAutoFocus={(event) => {
+					event.preventDefault();
+					(event.currentTarget as HTMLElement).querySelector<HTMLElement>("a[href]")?.focus();
+				}}
+				className="w-[calc(var(--radix-popover-trigger-width)-24px)] max-h-[calc(100dvh-104px)] overflow-y-auto overscroll-contain p-3 shadow-pop app-md:hidden"
 			>
 				<nav aria-label="Main">
 					<HoverGroup current={current} className="grid gap-1 app-sm:grid-cols-2">
@@ -376,8 +380,8 @@ function NarrowMenu({ nav, current, onSearch }: { nav: ShellNav; current: string
 				)}
 				<div className="mx-3 my-3 h-px bg-line-2" />
 				<ThemeToggle variant="menu" />
-			</div>
-		</div>
+			</PopoverContent>
+		</>
 	);
 }
 
