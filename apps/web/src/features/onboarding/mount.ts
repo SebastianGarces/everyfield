@@ -88,10 +88,9 @@ export function onboardingMount() {
 	return mount;
 }
 
-export async function onboardingEntry() {
+export async function onboardingEntry(session: Awaited<ReturnType<typeof getViewer>>) {
 	const m = onboardingMount();
 	if (!m) return { kind: "elsewhere", reason: "unavailable" } as const;
-	const session = await getViewer();
 	if (!session) return { kind: "elsewhere", reason: "unavailable" } as const;
 	return readOnboardingEntry(m.db, m.producer, session, session.authority, session.verified);
 }

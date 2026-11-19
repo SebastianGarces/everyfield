@@ -26,6 +26,7 @@ import {
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { useState, useTransition } from "react";
+import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import { dayText, type Outcome } from "../model.ts";
@@ -34,11 +35,11 @@ import {
 	attestService,
 	correctProgram,
 	createProgram,
-	loadTraining,
 	recompleteTraining,
 	revokeCompletion,
 	saveRoster,
 } from "./actions.ts";
+import { loadTraining } from "../fetch.ts";
 import { AssignDialog, checkRoster, CompletionDialog, CorrectDialog, CreateDialog, ServiceDialog } from "./dialogs.tsx";
 import { PersonLookup } from "./PersonLookup.tsx";
 import {
@@ -423,10 +424,14 @@ function ProgramRow({
 			</div>
 			{writable ? (
 				<div className="flex flex-wrap items-center gap-2">
-					<Button variant="primary" disabled={busy} onClick={() => onOpen(personForm("complete", program))}>
+					<Button
+						variant="primary"
+						disabled={busy}
+						onClick={() => onOpen(personForm("complete", localToday(), program))}
+					>
 						Record completion
 					</Button>
-					<Button variant="danger" disabled={busy} onClick={() => onOpen(personForm("revoke", program))}>
+					<Button variant="danger" disabled={busy} onClick={() => onOpen(personForm("revoke", localToday(), program))}>
 						Revoke completion
 					</Button>
 					<Button variant="outline" icon={FileEditIcon} disabled={busy} onClick={() => onOpen(correctForm(program))}>
@@ -437,7 +442,7 @@ function ProgramRow({
 							<IconButton icon={MoreHorizontalIcon} label={`More actions for ${program.name}`} disabled={busy} />
 						</MenuTrigger>
 						<MenuContent>
-							<MenuItem onSelect={() => onOpen(personForm("redo", program))}>Record again</MenuItem>
+							<MenuItem onSelect={() => onOpen(personForm("redo", localToday(), program))}>Record again</MenuItem>
 							{program.required ? (
 								<MenuItem onSelect={() => onOpen(assignForm(program))}>Choose who must finish</MenuItem>
 							) : null}
