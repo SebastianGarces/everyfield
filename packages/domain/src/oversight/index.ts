@@ -263,18 +263,18 @@ export async function getPlant(
 		FROM (${directory(uuid(org.id), sql`p.id=${p}`, nowOf(clock))}) d`,
 	);
 	if (!rows?.[0]) return null;
-	const [summary, ...read] = await Promise.all([
-		createLaunchReader().readPublishedSummary(db, authority, plantId),
-		...KEYS.map((key) =>
-			readSection(db, authority, org, plantId, key).catch((error: unknown) => {
-				report(key, error);
-				return { status: "unavailable" as const };
-			}),
-		),
-	]);
-	const sections = Object.fromEntries(KEYS.map((key, i) => [key, read[i]]));
+	const sections: Partial<Record<C.SectionKey, unknown>> = {};
+	for (const key of KEYS) {
+		try {
+			sections[key] = await readSection(db, authority, org, plantId, key);
+		} catch (error) {
+			report(key, error);
+			sections[key] = { status: "unavailable" };
+		}
+	}
 	const row = rows[0];
 	const launch = row.launch ? plantLaunchOf(row.launch, row.preparation) : { status: "withheld" };
+	const summary = await createLaunchReader().readPublishedSummary(db, authority, plantId);
 	return C.plantView.parse({
 		plant: plantRow(row),
 		timeZone: row.timezone,

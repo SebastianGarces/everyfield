@@ -65,7 +65,8 @@ export function library() {
 }
 
 async function loadLibrary() {
-	const [starter, version] = await Promise.all([loadStarter(), referenceArtifactSha256()]);
+	const starter = await loadStarter();
+	const version = await referenceArtifactSha256();
 	const withFacts = async (template: CatalogTemplate): Promise<LibraryTemplate> => {
 		const facts = await libraryFacts(template.id);
 		if (!facts) throw new Error(`Template ${template.id} has no template file and no registry entry.`);
@@ -93,7 +94,9 @@ async function loadLibrary() {
 			),
 		};
 	});
-	return { version, templates: await Promise.all([...rows, ...files].map(withFacts)) };
+	const templates: LibraryTemplate[] = [];
+	for (const template of [...rows, ...files]) templates.push(await withFacts(template));
+	return { version, templates };
 }
 
 export function templateView(template: LibraryTemplate) {
