@@ -8,7 +8,9 @@ type Listener = () => void;
 type EntryChange = { navigationType: "push" | "replace" | "reload" | "traverse" | null };
 type EntryChanges = {
 	addEventListener(type: "currententrychange", listener: (event: EntryChange) => void): void;
+	addEventListener(type: "navigatesuccess", listener: () => void): void;
 	removeEventListener(type: "currententrychange", listener: (event: EntryChange) => void): void;
+	removeEventListener(type: "navigatesuccess", listener: () => void): void;
 };
 
 export type AddressParams = Omit<URLSearchParams, "append" | "delete" | "set" | "sort">;
@@ -72,6 +74,27 @@ const storeWindow: LinkWindow = {
 	},
 };
 
+const ROUTER_MARKS = new Set(["__NA", "_N"]);
+const withoutRouterMarks = (state: unknown) =>
+	state && typeof state === "object"
+		? Object.fromEntries(Object.entries(state).filter(([key]) => !ROUTER_MARKS.has(key)))
+		: state;
+
+const routerWindow: LinkWindow = {
+	get location() {
+		return window.location;
+	},
+	history: {
+		get state() {
+			return withoutRouterMarks(window.history.state);
+		},
+		replaceState: storeWindow.history.replaceState,
+	},
+	get sessionStorage() {
+		return window.sessionStorage;
+	},
+};
+
 const readLinkValues = () => {
 	for (const reader of linkValueReaders) reader();
 };
@@ -100,13 +123,24 @@ export function routerTransitionStarted(href: string, type: RouterNavigation): v
 	for (const listener of [...navigations]) listener(to + target.hash, type);
 }
 
+function routerArrived() {
+	if (!oneTimeLinkValue(ONE_TIME_LINK_VALUES, routerWindow, true)?.value) return;
+	readLinkValues();
+	for (const listener of changes) listener();
+}
+
 function routerWrote(event: EntryChange) {
 	if (writing || event.navigationType === "traverse") return;
 	routerBehind = false;
 	shown = fullAddress();
 }
 
-type Installed = { popstate: () => void; hashchange: () => void; entry: (event: EntryChange) => void };
+type Installed = {
+	popstate: () => void;
+	hashchange: () => void;
+	entry: (event: EntryChange) => void;
+	arrived: () => void;
+};
 const INSTALLED = Symbol.for("everyfield.location");
 
 if (typeof window !== "undefined") {
@@ -117,11 +151,13 @@ if (typeof window !== "undefined") {
 		window.removeEventListener("popstate", previous.popstate);
 		window.removeEventListener("hashchange", previous.hashchange);
 		navigation?.removeEventListener("currententrychange", previous.entry);
+		navigation?.removeEventListener("navigatesuccess", previous.arrived);
 	}
-	host[INSTALLED] = { popstate: traversed, hashchange: hashChanged, entry: routerWrote };
+	host[INSTALLED] = { popstate: traversed, hashchange: hashChanged, entry: routerWrote, arrived: routerArrived };
 	window.addEventListener("popstate", traversed);
 	window.addEventListener("hashchange", hashChanged);
 	navigation?.addEventListener("currententrychange", routerWrote);
+	navigation?.addEventListener("navigatesuccess", routerArrived);
 }
 
 const subscribe = (listener: Listener) => {
