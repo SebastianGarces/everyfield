@@ -379,12 +379,15 @@ try {
 	};
 	const get = async (name, path, cookie, status = 200, headers = {}) => {
 		const r = await fetch(origin + path, {
-			headers: { ...headers, "x-evf-request": name, cookie },
+			headers: { ...headers, ...(name ? { "x-evf-request": name } : {}), cookie },
 			redirect: "manual",
 		});
-		await r.text();
+		const body = await r.text();
 		assert.equal(r.status, status, `${name}: HTTP ${r.status}`);
+		return body;
 	};
+	const read = async (name, path, what, input, cookie = owner.cookie) =>
+		JSON.parse(await get(name, `${path}?what=${what}&in=${readInput(input)}`, cookie));
 	const act = async (name, page, file, action, args, cookie = owner.cookie) => {
 		const r = await fetch(origin + page, {
 			method: "POST",
@@ -606,9 +609,9 @@ try {
 		{ personId, name: "Hosts" },
 	]);
 	assert.deepEqual(tagReplay.value.tags, tagged.value.tags);
-	const skills = await act("POST people.fields.readSkills", page, fields, "readSkills", [personId]);
+	const skills = await read("GET /people/read?what=skills", "/people/read", "skills", { personId });
 	assert.equal(skills.value.length, 1);
-	const photo = await act("POST people.fields.readPhoto", page, fields, "readPhoto", [personId]);
+	const photo = await read("GET /people/read?what=photo", "/people/read", "photo", { personId });
 	assert.deepEqual(photo.value, { status: "absent" });
 	const tasked = await act("POST tasks.createTask", "/tasks", "apps/web/src/features/tasks/actions.ts", "createTask", [
 		randomUUID(),
@@ -667,7 +670,7 @@ try {
 	const all = await marking("POST notifications.markAllVisibleRead", "markAllVisibleRead", new Date().toISOString());
 	assert.deepEqual(all, { status: "ok", value: { markedIds: [owned[2]] } });
 	const settings = "apps/web/src/features/settings/actions.ts";
-	const section = await act(null, "/settings", settings, "getSection", [{ section: "account" }]);
+	const { value: section } = await read(null, "/settings/read", "section", { section: "account" });
 	assert.equal(section.status, "ok", JSON.stringify(section));
 	const saved = await act("POST settings.saveSection (account)", "/settings", settings, "saveSection", [
 		{
@@ -759,20 +762,21 @@ try {
 	assert.equal(missed.status, 200);
 	assert.equal((await missed.arrayBuffer()).byteLength > 0, true);
 	assert.equal(objectReads(), readsBefore + 1);
-	const suggested = await act("POST settings.brand.suggestColors", "/settings/brand", brandActions, "suggestColors", [
-		{ assetKind: "full_logo" },
-	]);
+	const { value: suggested } = await read("GET /settings/read?what=colors", "/settings/read", "colors", {
+		assetKind: "full_logo",
+	});
 	assert.equal(suggested.status, "ok", JSON.stringify(suggested));
 	assert.equal(suggested.value.suggestedPrimary, "#2E7D32");
 	for (const [action, args] of [
 		["requestAssetUpload", [{ slot: "mark", mediaType: "image/png", byteLength: logo.length, altText: "x" }]],
 		["finalizeAssetUpload", [{ uploadId: ticket.value.uploadId, slot: "mark", altText: "x", expectedRevision: "2" }]],
-		["suggestColors", [{ assetKind: "full_logo" }]],
 		["saveBrand", [{ expectedRevision: "2", patch: { assets: { full_logo: null } } }]],
 	]) {
 		const denial = await act(null, "/settings/brand", brandActions, action, args, member.cookie);
 		assert.deepEqual([denial.status, denial.error?.code], ["refused", "access_denied"], action);
 	}
+	const colorDenial = await read(null, "/settings/read", "colors", { assetKind: "full_logo" }, member.cookie);
+	assert.deepEqual([colorDenial.value.status, colorDenial.value.error?.code], ["refused", "access_denied"]);
 	assert.equal((await asset(null, "PUT", ticket.value.uploadId, member.cookie, logo)).status, 403);
 	for (const cookie of [member.cookie, ""]) {
 		assert.equal((await asset(null, "GET", fileId, cookie)).status, 404);
@@ -828,7 +832,7 @@ try {
 	]);
 	assert.equal(corrected.status, "ok", JSON.stringify(corrected));
 	careRevision = corrected.value.revision;
-	const olderWeeks = await act("POST intelligence.readCheckInHistory", "/me/check-in", care, "readCheckInHistory", [2]);
+	const olderWeeks = await read("GET /me/check-in/read?what=history", "/me/check-in/read", "history", { page: 2 });
 	assert.equal(olderWeeks.status, "ok", JSON.stringify(olderWeeks));
 
 	const sigs = "apps/web/src/features/intelligence/signals-actions.ts";
@@ -1059,13 +1063,9 @@ try {
 		writtenDocument.revision,
 	);
 	for (const [name, path, cookie, status, headers] of pages) await get(name, path, cookie, status, headers);
-	const composed = await act(
-		"POST communication.readMeetingContext",
-		"/communication",
-		"apps/web/src/features/communication/actions.ts",
-		"readMeetingContext",
-		[visionMeeting],
-	);
+	const composed = await read("GET /communication/read?what=context", "/communication/read", "context", {
+		meetingId: visionMeeting,
+	});
 	assert.equal(composed.status, "ok", JSON.stringify(composed));
 	assert.equal(composed.value.guests.length, 103);
 

@@ -1,4 +1,5 @@
 import { FORMAT_SCHEMA } from "./schema.ts";
+import { backwards, pairs, scores } from "./scores.ts";
 import type { BlockNode, DocDocument, DocTemplate, FieldDecl, Origin, PageSetup, Region } from "./types.ts";
 
 type DifferenceKind = "template-only" | "document-only" | "changed" | "removed" | "both";
@@ -25,8 +26,8 @@ function normal(value: unknown): unknown {
 		if (key === "attrs" && spec) {
 			const attrs: Rec = {};
 			const given = isRec(value.attrs) ? value.attrs : {};
-			for (const name of Object.keys(spec.attrs).sort()) {
-				const v = given[name] ?? spec.attrs[name]!.default;
+			for (const [name, declared] of Object.entries(spec.attrs).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+				const v = given[name] ?? declared.default;
 				if (v !== undefined) attrs[name] = normal(v);
 			}
 			if (Object.keys(attrs).length) out.attrs = attrs;
@@ -88,42 +89,47 @@ type Step =
 	| { op: "template-only"; template: BlockNode };
 
 function align(doc: readonly BlockNode[], tpl: readonly BlockNode[]): Step[] {
-	const a = doc.map(key);
-	const b = tpl.map(key);
-	const n = doc.length;
-	const m = tpl.length;
-	const same = n + m + 1;
-	const score = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(0));
-	for (let i = n - 1; i >= 0; i--)
-		for (let j = m - 1; j >= 0; j--) {
-			const pair = a[i] === b[j] ? same : doc[i]!.type === tpl[j]!.type ? 1 : -1;
-			score[i]![j] = Math.max(score[i + 1]![j]!, score[i]![j + 1]!, pair > 0 ? pair + score[i + 1]![j + 1]! : -1);
+	const docs = doc.map((block) => ({ block, key: key(block) }));
+	const tpls = tpl.map((block) => ({ block, key: key(block) }));
+	const same = doc.length + tpl.length + 1;
+	const pairScore = (d: (typeof docs)[number], t: (typeof tpls)[number]) =>
+		d.key === t.key ? same : d.block.type === t.block.type ? 1 : -1;
+	const score = scores(doc.length, tpl.length);
+	const tplsBack = backwards(tpls);
+	for (const [i, d] of backwards(docs))
+		for (const [j, t] of tplsBack) {
+			const pair = pairScore(d, t);
+			score.set(i, j, Math.max(score.at(i + 1, j), score.at(i, j + 1), pair > 0 ? pair + score.at(i + 1, j + 1) : -1));
 		}
 	const steps: Step[] = [];
 	let i = 0;
 	let j = 0;
-	while (i < n || j < m) {
-		if (i < n && j < m) {
-			const pair = a[i] === b[j] ? same : doc[i]!.type === tpl[j]!.type ? 1 : -1;
-			if (pair > 0 && score[i]![j] === pair + score[i + 1]![j + 1]!) {
+	for (;;) {
+		const d = docs[i];
+		const t = tpls[j];
+		if (d && t) {
+			const pair = pairScore(d, t);
+			if (pair > 0 && score.at(i, j) === pair + score.at(i + 1, j + 1)) {
 				steps.push(
-					pair === same ? { op: "same", document: doc[i]! } : { op: "changed", document: doc[i]!, template: tpl[j]! },
+					pair === same ? { op: "same", document: d.block } : { op: "changed", document: d.block, template: t.block },
 				);
 				i++;
 				j++;
-				continue;
+			} else if (score.at(i, j) === score.at(i + 1, j)) {
+				steps.push({ op: "document-only", document: d.block });
+				i++;
+			} else {
+				steps.push({ op: "template-only", template: t.block });
+				j++;
 			}
-			if (score[i]![j] === score[i + 1]![j]) {
-				steps.push({ op: "document-only", document: doc[i++]! });
-				continue;
-			}
-			steps.push({ op: "template-only", template: tpl[j++]! });
-			continue;
-		}
-		if (i < n) steps.push({ op: "document-only", document: doc[i++]! });
-		else steps.push({ op: "template-only", template: tpl[j++]! });
+		} else if (d) {
+			steps.push({ op: "document-only", document: d.block });
+			i++;
+		} else if (t) {
+			steps.push({ op: "template-only", template: t.block });
+			j++;
+		} else return steps;
 	}
-	return steps;
 }
 
 type Picked = {
@@ -195,10 +201,11 @@ type Track = {
 	inserts: BlockNode[][];
 };
 function track(side: readonly BlockNode[], base: readonly BlockNode[]): Track {
-	const out: Track = { at: [], inserts: [[]] };
+	let gap: BlockNode[] = [];
+	const out: Track = { at: [], inserts: [gap] };
 	for (const step of align(side, base)) {
 		if (step.op === "document-only") {
-			out.inserts.at(-1)!.push(step.document);
+			gap.push(step.document);
 			continue;
 		}
 		out.at.push(
@@ -206,7 +213,8 @@ function track(side: readonly BlockNode[], base: readonly BlockNode[]): Track {
 				? { block: null, edited: false }
 				: { block: step.document, edited: step.op === "changed" },
 		);
-		out.inserts.push([]);
+		gap = [];
+		out.inserts.push(gap);
 	}
 	return out;
 }
@@ -244,10 +252,10 @@ function threeWay(doc: DocDocument, base: DocTemplate, current: DocTemplate): Pl
 	const mine = track(doc.body.content ?? [], baseBlocks);
 	const theirs = track(current.body.content ?? [], baseBlocks);
 	const slots: { keep: BlockNode[]; take: BlockNode[]; id: number | null }[] = [];
-	for (let k = 0; k <= baseBlocks.length; k++) {
-		const added = mine.inserts[k]!;
+	const places = pairs(mine.at, theirs.at);
+	for (const [k, [added, incoming]] of pairs(mine.inserts, theirs.inserts).entries()) {
 		slots.push({ keep: added, take: added, id: null });
-		for (const block of theirs.inserts[k]!) {
+		for (const block of incoming) {
 			if (added.some((own) => key(own) === key(block))) continue;
 			slots.push({
 				keep: [],
@@ -255,9 +263,9 @@ function threeWay(doc: DocDocument, base: DocTemplate, current: DocTemplate): Pl
 				id: add({ part: "body", kind: "template-only", document: null, template: block }),
 			});
 		}
-		if (k === baseBlocks.length) break;
-		const own = mine.at[k]!;
-		const now = theirs.at[k]!;
+		const place = places[k];
+		if (!place) break;
+		const [own, now] = place;
 		const keep = own.block ? [own.block] : [];
 		if (!own.block || (now.block && !now.edited) || (now.block && key(now.block) === key(own.block))) {
 			slots.push({ keep, take: keep, id: null });

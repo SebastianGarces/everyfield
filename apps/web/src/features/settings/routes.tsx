@@ -31,10 +31,11 @@ export async function SettingsIndexPage() {
 
 export async function sectionSeed(viewer: SettingsViewer | null): Promise<SectionSeed | null> {
 	const section = sectionAt((await headers()).get(PATH_HEADER) ?? "", viewer);
-	if (viewer && section === "brand" && offeredSections(viewer, []).includes("brand")) return { brand: readBrand() };
+	if (viewer && section === "brand" && offeredSections(viewer, []).includes("brand"))
+		return { brand: getViewer().then(readBrand) };
 	const request = viewer && section ? sectionRequest(viewer, section) : null;
 	if (!request) return null;
-	return { request, value: readSection(request) };
+	return { request, value: getViewer().then((session) => readSection(session, request)) };
 }
 
 type Search = Promise<Record<string, string | string[] | undefined>>;

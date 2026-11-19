@@ -474,7 +474,7 @@ function OutcomeDialog({
 
 	async function submit() {
 		const why = editing.kind === "record" ? null : reasonOf(reason);
-		const parsed = editing.kind === "withdraw" ? null : outcomeInput(draft, { completable: false });
+		const parsed = editing.kind === "withdraw" ? null : outcomeInput(draft, { completable: false, now: new Date() });
 		const next: typeof errors = {
 			...(parsed && !parsed.ok ? parsed.errors : {}),
 			...(why && !why.ok ? { reason: why.error } : {}),

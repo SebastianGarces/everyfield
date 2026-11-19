@@ -13,7 +13,8 @@ import { KeyValue, KeyValueList, List, ListRow, Tag } from "@everyfield/ui/displ
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { changeFeedbackStatus, loadTriage } from "./actions.ts";
+import { changeFeedbackStatus } from "./actions.ts";
+import { loadTriage } from "./fetch.ts";
 import {
 	CATEGORIES,
 	CATEGORY_NAME,
