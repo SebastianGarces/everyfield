@@ -43,7 +43,7 @@ export async function unmergePair(
 			(r) => r,
 		);
 		if (done.status !== "ok") return done;
-		const page = await readPersonPageNow(v, done.value.survivorId).catch(() => null);
+		const page = await readPersonPageNow(v, done.value.survivorId);
 		return { status: "ok", value: { result: done.value, receipt: receipt(done.value), page } };
 	});
 }

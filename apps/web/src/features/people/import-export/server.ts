@@ -19,8 +19,9 @@ import {
 } from "@everyfield/domain/people";
 import { listRequest, parseQuery } from "../model.ts";
 import { read, type Viewer } from "../server.ts";
-import { logFailure } from "@everyfield/domain/log";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
+import { parseJson } from "../../../server/platform/json.ts";
+import { transient } from "../../../server/platform/transient.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 type Answer = { status: "ok"; value: unknown } | { status: "refused"; code: string; line?: number };
@@ -68,12 +69,7 @@ function streamed(body: Answer) {
 
 async function jsonBody(request: Request): Promise<unknown> {
 	const body = await readBoundedBody(request, BODY_LIMIT);
-	if (!body) return undefined;
-	try {
-		return JSON.parse(new TextDecoder().decode(body)) as unknown;
-	} catch {
-		return undefined;
-	}
+	return body ? parseJson(body) : undefined;
 }
 
 async function importDeps() {
@@ -89,54 +85,58 @@ export const uploadRoute = mutatingRoute(async function uploadRoute(request: Req
 	const deps = await importDeps();
 	if (deps instanceof Response) return deps;
 	const input = await jsonBody(request);
-	try {
-		return answer(await signPeopleImport(deps.db, deps.storage, deps.v.authority, input));
-	} catch (error) {
-		logFailure({ component: "people-import", outcome: "sign_failed" }, error);
-		return lost();
-	}
+	return transient(
+		{ component: "people-import", outcome: "sign_failed" },
+		async () => {
+			return answer(await signPeopleImport(deps.db, deps.storage, deps.v.authority, input));
+		},
+		lost(),
+	);
 });
 
 export const previewRoute = mutatingRoute(async function previewRoute(request: Request) {
 	const deps = await importDeps();
 	if (deps instanceof Response) return deps;
 	const input = await jsonBody(request);
-	try {
-		const reply = await previewStoredImport(deps.db, deps.storage, deps.v.authority, input);
-		if (reply.status !== "ok") return answer(reply);
-		return streamed({ status: "ok", value: reply.value });
-	} catch (error) {
-		logFailure({ component: "people-import", outcome: "preview_failed" }, error);
-		return lost();
-	}
+	return transient(
+		{ component: "people-import", outcome: "preview_failed" },
+		async () => {
+			const reply = await previewStoredImport(deps.db, deps.storage, deps.v.authority, input);
+			if (reply.status !== "ok") return answer(reply);
+			return streamed({ status: "ok", value: reply.value });
+		},
+		lost(),
+	);
 });
 
 export const importRoute = mutatingRoute(async function importRoute(request: Request) {
 	const deps = await importDeps();
 	if (deps instanceof Response) return deps;
 	const input = await jsonBody(request);
-	try {
-		const reply = await executeStoredImport(deps.db, deps.storage, deps.v.authority, input);
-		if (reply.status === "ok") drainPeopleImports();
-		return answer(reply);
-	} catch (error) {
-		logFailure({ component: "people-import", outcome: "import_failed" }, error);
-		return lost();
-	}
+	return transient(
+		{ component: "people-import", outcome: "import_failed" },
+		async () => {
+			const reply = await executeStoredImport(deps.db, deps.storage, deps.v.authority, input);
+			if (reply.status === "ok") drainPeopleImports();
+			return answer(reply);
+		},
+		lost(),
+	);
 });
 
 export const retryRoute = mutatingRoute(async function retryRoute(request: Request) {
 	const deps = await importDeps();
 	if (deps instanceof Response) return deps;
 	const input = await jsonBody(request);
-	try {
-		const reply = await retryStoredImport(deps.db, deps.storage, deps.v.authority, input);
-		if (reply.status === "ok") drainPeopleImports();
-		return answer(reply);
-	} catch (error) {
-		logFailure({ component: "people-import", outcome: "retry_failed" }, error);
-		return lost();
-	}
+	return transient(
+		{ component: "people-import", outcome: "retry_failed" },
+		async () => {
+			const reply = await retryStoredImport(deps.db, deps.storage, deps.v.authority, input);
+			if (reply.status === "ok") drainPeopleImports();
+			return answer(reply);
+		},
+		lost(),
+	);
 });
 
 export function readReceipt(v: Viewer, requestKey: unknown) {
