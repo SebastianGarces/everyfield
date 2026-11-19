@@ -1,5 +1,5 @@
 import type { Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { PeopleReadContext, peopleCsv, peopleWriter, personFields } from "@everyfield/domain/people";
 import {
 	householdName,
@@ -77,7 +77,7 @@ const sameAddress = (a: string, b: string) =>
 	sql.raw(
 		`(${ADDRESS.map(([, col]) => `${a}.${col}`).join(",")}) IS NOT DISTINCT FROM (${ADDRESS.map(([, col]) => `${b}.${col}`).join(",")})`,
 	);
-const roleOrder = (a: string) =>
+const roleOrder = <AName extends string>(a: SqlLiteral<AName>) =>
 	sql.raw(
 		`CASE ${a}.household_role WHEN 'head' THEN 1 WHEN 'spouse' THEN 2 WHEN 'child' THEN 3 ELSE 4 END,${a}.display_name,${a}.id`,
 	);
@@ -89,7 +89,11 @@ const address = z.strictObject({
 	country: z.string().trim().max(255).nullable().optional(),
 });
 type Address = z.infer<typeof address>;
-function fieldChanges(a: string, patch: Record<string, unknown>, keys: Record<string, string>) {
+function fieldChanges<AName extends string>(
+	a: SqlLiteral<AName>,
+	patch: Record<string, unknown>,
+	keys: Record<string, string>,
+) {
 	const rows = Object.entries(patch)
 		.filter(([, after]) => after !== undefined)
 		.map(([field, after], n) => ({ n, field, col: keys[field]!, after }));

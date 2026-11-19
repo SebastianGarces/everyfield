@@ -865,6 +865,38 @@ export const client = S3Client;
 	);
 });
 
+test("INV-sql-name: a parameter pasted into sql.raw is typed as a fixed name, never string, in product code", () => {
+	const reach = `import { sql, type SqlLiteral } from "@everyfield/db/query";
+export const a = (alias: string) => sql.raw(\`\${alias}.id\`);
+export const b = (alias) => sql.raw(alias);
+export const c = <A extends string>(alias: SqlLiteral<A>) => sql.raw(\`\${alias}.id\`);
+export const d = (alias: "m" | "n") => sql.raw(alias);
+export const e = (on: boolean) => sql.raw(on ? "x" : "y");
+const quote = (v: string) => v;
+export const f = (v: string) => sql.raw(quote(v));
+export const g = (row: { from: string }) => sql.raw(row.from);
+export const h = <F extends string>(row: { from: SqlLiteral<F> }) => sql.raw(row.from);
+export function i(col: string) { return sql\`\${sql.raw(\`r.\${col}\`)}\`; }
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/people/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[
+			"apps/web/src/features/x/reach.ts:11 raw-sql-literal",
+			"apps/web/src/features/x/reach.ts:2 raw-sql-literal",
+			"apps/web/src/features/x/reach.ts:3 raw-sql-literal",
+			"apps/web/src/features/x/reach.ts:9 raw-sql-literal",
+			"packages/domain/src/people/reach.ts:11 raw-sql-literal",
+			"packages/domain/src/people/reach.ts:2 raw-sql-literal",
+			"packages/domain/src/people/reach.ts:3 raw-sql-literal",
+			"packages/domain/src/people/reach.ts:9 raw-sql-literal",
+		],
+	);
+});
+
 test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
 	const { dir, path, renamed, write, base } = history();
 	const growth = (entries, ...moves) => {

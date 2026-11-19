@@ -815,6 +815,108 @@ const storageClient = {
 	},
 };
 
+const isRawSql = (node) =>
+	node.type === "CallExpression" &&
+	node.callee.type === "MemberExpression" &&
+	node.callee.object.type === "Identifier" &&
+	node.callee.object.name === "sql" &&
+	memberName(node.callee) === "raw";
+
+function literalOnly(type, aliases) {
+	switch (type?.type) {
+		case "TSLiteralType":
+		case "TSIndexedAccessType":
+			return true;
+		case "TSTypeOperator":
+			return type.operator === "keyof";
+		case "TSUnionType":
+			return type.types.every((t) => literalOnly(t, aliases));
+		case "TSIntersectionType":
+			return type.types.some((t) => literalOnly(t, aliases));
+		case "TSTypeReference": {
+			const name = type.typeName.type === "Identifier" ? type.typeName.name : null;
+			return name === "SqlLiteral" || (name !== null && aliases.has(name));
+		}
+		default:
+			return false;
+	}
+}
+
+const COMPARISONS = new Set(["===", "!==", "==", "!=", "<", ">", "<=", ">=", "in", "instanceof"]);
+
+function pasted(node) {
+	for (let child = node, parent = node.parent; parent; child = parent, parent = parent.parent) {
+		if (isRawSql(parent)) return true;
+		if (parent.type === "CallExpression" && parent.arguments.includes(child)) return false;
+		if (parent.type === "ConditionalExpression" && parent.test === child) return false;
+		if (parent.type === "BinaryExpression" && COMPARISONS.has(parent.operator)) return false;
+		if (parent.type === "UnaryExpression" && parent.operator === "!") return false;
+	}
+	return false;
+}
+
+function memberType(node, annotation) {
+	const parent = node.parent;
+	if (parent?.type !== "MemberExpression" || parent.object !== node || annotation?.type !== "TSTypeLiteral")
+		return annotation;
+	const name = memberName(parent);
+	const member = annotation.members.find(
+		(m) => m.type === "TSPropertySignature" && keyName(m.key, m.computed) === name,
+	);
+	return member?.typeAnnotation?.typeAnnotation;
+}
+
+const rawSqlLiteral = {
+	meta: { type: "problem" },
+	create(context) {
+		if (!PRODUCT_CODE.test(repoPath(context.filename))) return {};
+		const aliases = new Set();
+		let inside = 0;
+		const parameterType = (node) => {
+			for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+				const variable = scope.set?.get(node.name);
+				if (!variable) continue;
+				const def = variable.defs?.[0];
+				if (def?.type !== "Parameter") return null;
+				const callback = def.node.parent?.type === "CallExpression" && def.node.parent.arguments.includes(def.node);
+				const annotation = def.name.typeAnnotation?.typeAnnotation;
+				if (!annotation && callback) return null;
+				return { annotation, generic: def.node.typeParameters?.params ?? [] };
+			}
+			return null;
+		};
+		return {
+			TSTypeAliasDeclaration(node) {
+				if (node.parent?.type === "Program" || node.parent?.parent?.type === "Program")
+					if (literalOnly(node.typeAnnotation, aliases)) aliases.add(node.id.name);
+			},
+			CallExpression(node) {
+				if (isRawSql(node)) inside++;
+			},
+			"CallExpression:exit"(node) {
+				if (isRawSql(node)) inside--;
+			},
+			Identifier(node) {
+				if (inside === 0 || !isValueReference(node) || !pasted(node)) return;
+				const param = parameterType(node);
+				if (!param) return;
+				const { generic } = param;
+				const annotation = memberType(node, param.annotation);
+				const bound =
+					annotation?.type === "TSTypeReference" &&
+					annotation.typeName.type === "Identifier" &&
+					generic.find((g) => g.name.name === annotation.typeName.name);
+				if (literalOnly(annotation, aliases) || (bound && literalOnly(bound.constraint, aliases))) return;
+				context.report({
+					node,
+					message:
+						"A parameter that reaches sql.raw is a fixed SQL name: type it as a literal union, keyof a constant, or SqlLiteral<A> from @everyfield/db/query, never string.",
+				});
+			},
+		};
+	},
+};
+
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
@@ -1652,6 +1754,7 @@ export default {
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
+		"raw-sql-literal": rawSqlLiteral,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
