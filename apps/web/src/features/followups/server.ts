@@ -1,7 +1,6 @@
 import { requestDatabase } from "@/server/database";
 import { tasksMount } from "../tasks/mount.ts";
 import { personId as personIdOf } from "@everyfield/contracts/common";
-import type { Transaction } from "@everyfield/db/client";
 import {
 	createFollowUpWriter,
 	followUpReader,
@@ -9,7 +8,7 @@ import {
 	type FollowUpReply,
 } from "@everyfield/domain/followups";
 import { PeopleReadContext, peopleReader } from "@everyfield/domain/people";
-import type { RequestActor } from "@everyfield/domain/access";
+import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 import { taskReader, type TaskContext } from "@everyfield/domain/tasks";
 import "server-only";
 import type { TaskDetail } from "../tasks/model.ts";
@@ -27,13 +26,14 @@ import {
 	type ObligationPage,
 } from "./model.ts";
 import { logFailure } from "@everyfield/domain/log";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
 export { COVERAGE_PAGE, taskViewer, type TaskViewer };
 
-export async function read<T>(run: (tx: Transaction) => Promise<Outcome<T>>): Promise<Outcome<T>> {
+export async function read<T>(run: (tx: WriteTx) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	try {
-		return await db.transaction(run);
+		return await gatedTransaction(db, run);
 	} catch (error) {
 		logFailure({ component: "followups", outcome: "read_failed" }, error);
 		return { status: "lost" };
@@ -45,7 +45,7 @@ let writer: ReturnType<typeof createFollowUpWriter> | undefined;
 type Writer = ReturnType<typeof createFollowUpWriter>;
 export async function write<T>(
 	viewer: TaskViewer,
-	run: (w: Writer, tx: Transaction, ctx: TaskContext) => Promise<FollowUpReply<T>>,
+	run: (w: Writer, tx: WriteTx, ctx: TaskContext) => Promise<FollowUpReply<T>>,
 ): Promise<Outcome<T>> {
 	const mount = tasksMount();
 	writer ??= createFollowUpWriter({ reminders: mount.reminders });
@@ -58,7 +58,7 @@ export async function write<T>(
 	}
 }
 
-export async function readOwners(tx: Transaction, viewer: TaskViewer): Promise<Outcome<Account[]>> {
+export async function readOwners(tx: WriteTx, viewer: TaskViewer): Promise<Outcome<Account[]>> {
 	const seats = await taskReader.eligibleAssignees(tx, viewer.authority, { purpose: "committed_follow_up" });
 	return seats.status === "ok"
 		? {
@@ -77,7 +77,7 @@ export type PersonFollowUps = {
 	duties: Owners | null;
 };
 export async function readPersonFollowUps(
-	tx: Transaction,
+	tx: WriteTx,
 	authority: RequestActor,
 	personId: string,
 ): Promise<PersonFollowUps> {
@@ -90,7 +90,7 @@ export async function readPersonFollowUps(
 export async function loadPersonFollowUps(authority: RequestActor, personId: string): Promise<PersonFollowUps | null> {
 	const db = requestDatabase();
 	try {
-		return await db.transaction((tx) => readPersonFollowUps(tx, authority, personId));
+		return await gatedTransaction(db, (tx) => readPersonFollowUps(tx, authority, personId));
 	} catch (error) {
 		logFailure({ component: "followups", outcome: "read_failed" }, error);
 		return null;
@@ -108,7 +108,7 @@ export type CallData = {
 export type CallRead =
 	{ kind: "call"; call: CallData } | { kind: "not_follow_up"; taskId: string } | { kind: "missing" };
 
-export async function loadCall(tx: Transaction, viewer: TaskViewer, taskId: string): Promise<Outcome<CallRead>> {
+export async function loadCall(tx: WriteTx, viewer: TaskViewer, taskId: string): Promise<Outcome<CallRead>> {
 	const found = await taskReader.get(tx, viewer.authority, { taskId });
 	if (found.status !== "ok") return { status: "refused", code: found.error.code };
 	if (found.value.status !== "available" || found.value.task.deleted)

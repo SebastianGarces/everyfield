@@ -1,10 +1,10 @@
 import { owner, requestIdentity, sameOwner, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/communication";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, RequestActor } from "../access/session.ts";
+import { boundWrite, RequestActor, type WriteTx } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import {
 	auditSavepoint,
@@ -18,7 +18,7 @@ import {
 } from "../operations/writes.ts";
 import { writeAction } from "../operations/actions.ts";
 
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export type CommunicationContext = { session: RequestActor["session"]; selected: Owner };
 export type CommunicationReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.CommunicationError };
 type Code = c.CommunicationError["code"];

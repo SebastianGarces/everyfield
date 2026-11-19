@@ -25,7 +25,13 @@ import { newBudget } from "../../../apps/web/src/features/documents/church/edito
 import { fieldValues, frozenData } from "../../../packages/domain/src/documents/doc-values.ts";
 
 const ROOT = join(import.meta.dirname, "../../..");
-const readJson = (path: string) => JSON.parse(readFileSync(path, "utf8")) as Record<string, any>;
+type Manifest = {
+	license?: string;
+	dependencies?: Record<string, string>;
+	devDependencies?: Record<string, string>;
+	optionalDependencies?: Record<string, string>;
+};
+const readJson = (path: string): Manifest => JSON.parse(readFileSync(path, "utf8"));
 
 function workspacePackages() {
 	const dirs = [ROOT, ...["apps", "packages"].flatMap((d) => readdirSync(join(ROOT, d)).map((n) => join(ROOT, d, n)))];

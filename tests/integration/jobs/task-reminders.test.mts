@@ -9,6 +9,7 @@ import { createNotificationService } from "../../../apps/web/src/server/jobs/not
 import { taskReminderTimes } from "../../../apps/web/src/server/jobs/calendar.ts";
 import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let reminders, mail, sent;
 const people = {};
@@ -98,7 +99,7 @@ async function put(name, t) {
 		created: t.created ?? false,
 	};
 }
-const sync = (sources) => runtime.transaction((tx) => reminders(tx, sources));
+const sync = (sources) => gatedTransaction(runtime, (tx) => reminders(tx, sources));
 const times = (due) =>
 	Object.fromEntries(taskReminderTimes(due.kind === "date_only" ? { ...due, zone } : due).map((t) => [t.slot, t.at]));
 

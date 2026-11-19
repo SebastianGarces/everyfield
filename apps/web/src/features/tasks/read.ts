@@ -14,15 +14,6 @@ export const GET = defineReads(taskViewer, "access_denied", (get) => ({
 	history: get(c.statusHistoryRequest.omit({ limit: true }), (viewer, v) =>
 		read((tx) => reader.history(tx, viewer, v.taskId, v.page)),
 	),
-	blocking: get(c.taskRowsRequest, async (viewer, v) => {
-		const r = await read(async (tx) => refusalOf(await taskReader.listRows(tx, viewer.authority, v)));
-		return r.status === "ok"
-			? {
-					status: "ok" as const,
-					value: r.value.items.map((t) => ({ id: t.id, openPrerequisites: t.openPrerequisites })),
-				}
-			: r;
-	}),
 	rows: get(c.taskRowsRequest, (viewer, v) =>
 		read(async (tx) => refusalOf(await taskReader.listRows(tx, viewer.authority, v))),
 	),
