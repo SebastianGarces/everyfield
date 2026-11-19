@@ -1,7 +1,7 @@
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { after, test } from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import * as S from "../organizations/support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
@@ -34,7 +34,6 @@ function service(authorize = authorizeNotificationMail) {
 		},
 	});
 }
-const secret = "cron-" + randomUUID();
 const tick = scheduledJobs({
 	db,
 	storage: null,
@@ -46,9 +45,7 @@ const tick = scheduledJobs({
 	now: () => new Date(),
 });
 async function runTick() {
-	const response = await tick(
-		new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } }),
-	);
+	const response = await tick();
 	const body = await response.json();
 	assert.equal(response.status, 200, JSON.stringify(body));
 	return body;
@@ -120,6 +117,7 @@ const jobs = async (affiliation: string) =>
 const feed = createNotificationProducer({ optOutKey: randomBytes(32), now: () => new Date() });
 async function bell(who: Identity) {
 	const reader = await RequestActor.resolve(db, who.session);
+	assert.ok(reader instanceof RequestActor, JSON.stringify(reader));
 	const result = await feed.readFeed(db, reader, {});
 	assert.equal(result.status, "ok", JSON.stringify(result));
 	return result.value.items
@@ -194,10 +192,10 @@ test("AC:CASE-NTF-009 AC:NOTIFY47-005 the scheduled tick tells the plant's Owner
 	assert.deepEqual(await bell(link.oa), []);
 	const outside = await S.db.execute(sql`SELECT count(*)::int AS n FROM notice n
 		WHERE n.source_record_id=${sql.param(link.id)} AND n.recipient_id IN (${sql.param(c.member.account)},${sql.param(link.oa.account)})`);
-	assert.equal(outside.rows[0].n, 0);
+	assert.equal(outside.rows[0]?.n, 0);
 	const mailed = await S.db.execute(sql`SELECT count(*)::int AS n FROM mail
 		WHERE recipient_account_id IN (${sql.param(c.member.account)},${sql.param(link.oa.account)}) AND purpose='notification'`);
-	assert.equal(mailed.rows[0].n, 0);
+	assert.equal(mailed.rows[0]?.n, 0);
 });
 
 test("AC:CASE-NTF-009 an occurrence is sent while its fact holds: a sharing change keeps an earlier approval, an end stops it", async () => {

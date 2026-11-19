@@ -69,7 +69,7 @@ before(async () => {
 	counted.db = createDatabase(runtimeSettings);
 	counted.db.$client.on("connect", (client) => {
 		const query = client.query;
-		client.query = function (...args: unknown[]) {
+		client.query = function (this: unknown, ...args: unknown[]) {
 			counted.queries.push(typeof args[0] === "string" ? args[0] : (args[0] as { text: string }).text);
 			return Reflect.apply(query, this, args);
 		} as typeof client.query;

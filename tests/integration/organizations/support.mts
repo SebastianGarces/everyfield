@@ -112,7 +112,7 @@ export async function write<T>(actor: Actor, body: (c: WriteTx) => Promise<T>): 
 	});
 }
 export async function call(name: keyof typeof api, actor: Actor, input: unknown) {
-	const run = (c: WriteTx) => api[name](c, actor.session, actor.selected, input as never);
+	const run = (c: WriteTx): Promise<unknown> => api[name](c, actor.session, actor.selected, input as never);
 	return reads.has(name) ? tx(run) : write(actor, run);
 }
 export const waitingOnLock = () => sharedWaitingOnLock(runtime);
@@ -124,7 +124,9 @@ export async function affiliation(
 	const r =
 		await db.execute(sql`INSERT INTO affiliation(plant_id,account_id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
  VALUES(${sql.param(plant.kind === "plant" ? plant.id : null)},${sql.param(plant.kind === "account" ? plant.id : null)},${sql.param(plant.kind === "organization" ? plant.id : null)},${sql.param(org.id)},clock_timestamp(),${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)}) RETURNING id`);
-	return r.rows[0].id;
+	const [row] = r.rows;
+	if (!row) throw Error("The affiliation insert returned no row");
+	return row.id;
 }
 export async function race<A, B>(holder: Actor, held: (c: WriteTx) => Promise<A>, rival: () => Promise<B>) {
 	let bound!: () => void;
