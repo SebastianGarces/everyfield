@@ -379,12 +379,15 @@ try {
 	};
 	const get = async (name, path, cookie, status = 200, headers = {}) => {
 		const r = await fetch(origin + path, {
-			headers: { ...headers, "x-evf-request": name, cookie },
+			headers: { ...headers, ...(name ? { "x-evf-request": name } : {}), cookie },
 			redirect: "manual",
 		});
-		await r.text();
+		const body = await r.text();
 		assert.equal(r.status, status, `${name}: HTTP ${r.status}`);
+		return body;
 	};
+	const read = async (name, path, what, input, cookie = owner.cookie) =>
+		JSON.parse(await get(name, `${path}?what=${what}&in=${readInput(input)}`, cookie));
 	const act = async (name, page, file, action, args, cookie = owner.cookie) => {
 		const r = await fetch(origin + page, {
 			method: "POST",
@@ -1059,13 +1062,9 @@ try {
 		writtenDocument.revision,
 	);
 	for (const [name, path, cookie, status, headers] of pages) await get(name, path, cookie, status, headers);
-	const composed = await act(
-		"POST communication.readMeetingContext",
-		"/communication",
-		"apps/web/src/features/communication/actions.ts",
-		"readMeetingContext",
-		[visionMeeting],
-	);
+	const composed = await read("GET /communication/read?what=context", "/communication/read", "context", {
+		meetingId: visionMeeting,
+	});
 	assert.equal(composed.status, "ok", JSON.stringify(composed));
 	assert.equal(composed.value.guests.length, 103);
 
