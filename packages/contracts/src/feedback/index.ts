@@ -16,14 +16,15 @@ const TOKEN_ROUTES = new Set(["invite", "rsvp", "unsubscribe", "email-preference
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function canonicalAddress(raw: string | null | undefined): string | null {
 	if (!raw) return null;
-	const path = raw.split(/[?#]/, 1)[0]!;
+	const path = raw.replace(/[?#][\s\S]*$/, "");
 	if (!path.startsWith("/") || path.startsWith("//")) return null;
 	const segments = path.split("/");
-	const kept = segments.map((segment, i) =>
-		(i > 0 && TOKEN_ROUTES.has(segments[i - 1]!)) || (/^[A-Za-z0-9_.~-]{24,}$/.test(segment) && !UUID.test(segment))
-			? "[token]"
-			: segment,
-	);
+	let previous = "";
+	const kept = segments.map((segment) => {
+		const token = TOKEN_ROUTES.has(previous) || (/^[A-Za-z0-9_.~-]{24,}$/.test(segment) && !UUID.test(segment));
+		previous = segment;
+		return token ? "[token]" : segment;
+	});
 	const address = kept.join("/");
 	return address.length <= 500 ? address : null;
 }

@@ -28,7 +28,8 @@ import { createRead, useRead } from "../../../components/read.tsx";
 import type { Outcome } from "../../../components/save/model.ts";
 import { DialogNotice, type SaveIntent } from "../../../components/save/parts.tsx";
 import { FormProblem, problemText } from "../parts.tsx";
-import { createChurchTag, deleteChurchTag, listChurchTags, updateChurchTag } from "./actions.ts";
+import { createChurchTag, deleteChurchTag, updateChurchTag } from "./actions.ts";
+import { listChurchTags } from "../fetch.ts";
 import { TAG_COLOR_LABEL, TAG_COLORS, tagLook, type ChurchTag } from "./model.ts";
 
 export const churchTags = createRead((): Promise<Outcome<ChurchTag[]>> => listChurchTags(), {

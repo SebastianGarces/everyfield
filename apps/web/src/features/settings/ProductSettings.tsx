@@ -9,21 +9,13 @@ import { lazyModule, LoadFailed, Opened, useLazyModule, type Failure } from "../
 import { currentAddress, onTraversal, usePath, writeAddress } from "../../components/location.ts";
 import { loadPage } from "../identity/api";
 import { readSourceOrder, saveSourceOrder } from "../wiki/actions";
-import { readRegion, saveRegion, suggestRegion } from "./region";
+import { saveRegion } from "./region";
 import { SettingsGuide } from "../wiki/chrome.tsx";
-import {
-	finalizeAssetUpload,
-	getBrand,
-	requestAssetUpload,
-	resetBrand,
-	saveBrand,
-	suggestColors,
-} from "./brand/actions";
+import { finalizeAssetUpload, requestAssetUpload, resetBrand, saveBrand } from "./brand/actions";
 import { assetSrc, uploadBytes } from "./brand/bytes";
 import {
 	changePassword,
 	finalizeAvatar,
-	getSection,
 	previewPersonalTimezone,
 	previewPlantTimezone,
 	removeAvatar,
@@ -36,6 +28,7 @@ import {
 	setPersonalTimezone,
 	setPlantTimezone,
 } from "./actions";
+import { getSection, getBrand, suggestColors, readRegion, suggestRegion } from "./fetch.ts";
 import { uploadAvatarBytes } from "./flows/avatarBytes";
 import { sectionAt, type DialogSection } from "./model";
 import type { DeletionStatus, SectionKey, SectionSeed, SettingsPort, SettingsViewer } from "./port";
