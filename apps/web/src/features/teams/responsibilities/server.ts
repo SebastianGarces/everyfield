@@ -5,6 +5,7 @@ import { responsibilityReader } from "@everyfield/domain/teams";
 import "server-only";
 import type { Outcome } from "../model.ts";
 import { outcome, type Viewer } from "../server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 async function read<T>(
 	viewer: Viewer,
@@ -15,7 +16,7 @@ async function read<T>(
 	try {
 		return outcome(await run(db, viewer.authority));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "responsibilities", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "responsibilities", outcome: "read_failed" }, error);
 		return { status: "lost" };
 	}
 }

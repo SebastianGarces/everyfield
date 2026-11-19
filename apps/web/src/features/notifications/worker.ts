@@ -47,6 +47,7 @@ import {
 	mountMailService,
 	seatedNotificationService,
 } from "../../server/jobs/seated-notifications.ts";
+import { logLine } from "@everyfield/domain/log";
 
 const NOTICES_PER_RUN = 20;
 const slotOf = (key: string) => reminderSlot.parse(key.split("/")[1]);
@@ -190,7 +191,7 @@ export function createNotificationWorker(config: {
 				});
 				if (outcome === "planned") sent++;
 			} catch {
-				console.error(JSON.stringify({ component: "notification", outcome: "error" }));
+				logLine({ component: "notification", outcome: "error" });
 				await finishJob(db, claim, { state: "retry_wait", code: "notification_failed" });
 			}
 		}

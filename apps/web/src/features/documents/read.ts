@@ -8,6 +8,7 @@ import { refusedWith } from "./church/refusal.ts";
 import type { CopySource, OwnedView, Resolved, SavedFile } from "./model.ts";
 import { presentOwned, presentSaved, refused, runAs, type DocumentOutcome } from "./outcome.ts";
 import { documentActor } from "./server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export type CompareResult =
 	{ status: "ok"; compare: ChurchCompare } | { status: "refused"; code: string; message: string } | { status: "lost" };
@@ -80,9 +81,7 @@ export const GET = defineReads(
 				if (reply.status !== "ok") return refusedWith(reply.error.code);
 				return { status: "ok", templates: reply.value.templates };
 			} catch (error) {
-				console.error(
-					JSON.stringify({ component: "church-documents", outcome: "template_list_failed", error: String(error) }),
-				);
+				logFailure({ component: "church-documents", outcome: "template_list_failed" }, error);
 				return { status: "lost" };
 			}
 		}),
@@ -95,9 +94,7 @@ export const GET = defineReads(
 					return { status: "refused", code: reply.error.code, message: refusedWith(reply.error.code).message };
 				return { status: "ok", compare: reply.value };
 			} catch (error) {
-				console.error(
-					JSON.stringify({ component: "church-documents", outcome: "compare_failed", error: String(error) }),
-				);
+				logFailure({ component: "church-documents", outcome: "compare_failed" }, error);
 				return { status: "lost" };
 			}
 		}),

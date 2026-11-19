@@ -23,6 +23,7 @@ import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
 import type { Finalization, Outcome } from "./model.ts";
 import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Run<T> = (tx: Transaction, ctx: MeetingsContext) => Promise<MeetingsReply<T>>;
@@ -251,7 +252,7 @@ export async function previewSettlement(
 			),
 		);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "preview_failed", error: String(error) }));
+		logFailure({ component: "meetings", outcome: "preview_failed" }, error);
 		return { status: "lost" } as const;
 	}
 }
@@ -289,7 +290,7 @@ export async function answerRsvp(token: unknown, rsvp: unknown): Promise<Outcome
 		const r = await answerRsvpToken(db, { token, rsvp });
 		return r.status === "ok" ? r : { status: "refused", code: r.error.code };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "rsvp_failed", error: String(error) }));
+		logFailure({ component: "meetings", outcome: "rsvp_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -299,7 +300,7 @@ export async function readRsvpLink(token: unknown): Promise<Outcome<z.infer<type
 	try {
 		return { status: "ok", value: await describeRsvpToken(db, { token }) };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "meetings", outcome: "rsvp_read_failed", error: String(error) }));
+		logFailure({ component: "meetings", outcome: "rsvp_read_failed" }, error);
 		return { status: "lost" };
 	}
 }

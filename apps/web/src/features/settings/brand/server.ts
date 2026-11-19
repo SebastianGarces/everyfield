@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import type { BrandView } from "../port";
+import { logFailure, type LogWord } from "@everyfield/domain/log";
 
 type Db = NonNullable<ReturnType<typeof requestDatabase>>;
 type Actor = NonNullable<Awaited<ReturnType<typeof getViewer>>>["authority"];
@@ -20,15 +21,15 @@ const unavailable = (): BrandReply<never> => ({
 type Session = Awaited<ReturnType<typeof getViewer>>;
 type Call<T> = (db: Db, actor: NonNullable<Actor>) => Promise<BrandReply<T>>;
 
-const run = async <T>(outcome: string, call: Call<T>) => runAs(await getViewer(), outcome, call);
+const run = async <T, O extends string>(outcome: LogWord<O>, call: Call<T>) => runAs(await getViewer(), outcome, call);
 
-async function runAs<T>(viewer: Session, outcome: string, call: Call<T>) {
+async function runAs<T, O extends string>(viewer: Session, outcome: LogWord<O>, call: Call<T>) {
 	const db = requestDatabase();
 	if (!db || viewer?.status !== "active" || !viewer.authority) return unavailable();
 	try {
 		return await call(db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "brand", outcome, error: String(error) }));
+		logFailure({ component: "brand", outcome }, error);
 		return unavailable();
 	}
 }

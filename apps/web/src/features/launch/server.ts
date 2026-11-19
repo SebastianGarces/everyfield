@@ -7,6 +7,7 @@ import { createLaunchReader, type LaunchWriter } from "@everyfield/domain/launch
 import "server-only";
 import { launchMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export type LaunchViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
 
@@ -29,7 +30,7 @@ export async function loadOffers(viewer: LaunchViewer): Promise<Outcome<Gatherin
 	try {
 		return await reader.readGatheringOffers(db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "launch", outcome: "offers_read_failed", error: String(error) }));
+		logFailure({ component: "launch", outcome: "offers_read_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -48,7 +49,7 @@ export async function loadPlan(viewer: LaunchViewer): Promise<Outcome<Plan>> {
 		const again = await reader.readPlan(db, viewer.authority);
 		return again.status === "ok" ? { status: "ok", value: again.value.plan } : again;
 	} catch (error) {
-		console.error(JSON.stringify({ component: "launch", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "launch", outcome: "read_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -78,7 +79,7 @@ export async function read<T>(
 	try {
 		return await run(reader, db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "launch", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "launch", outcome: "read_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -93,7 +94,7 @@ export async function write<T>(
 	try {
 		return await run(mount.writer, mount.db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "launch", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "launch", outcome: "write_failed" }, error);
 		return { status: "lost" };
 	}
 }

@@ -4,6 +4,7 @@ import { defineReads } from "../../server/platform/reads.ts";
 import type { GuideResult, OrderRead, OrderRow, SearchResult } from "./actions.ts";
 import { articlePath, parseSource } from "./model.ts";
 import { logSearchLost, mountFor, organizationNames, plantContext, runSearch, wikiActor } from "./server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 const search = z.strictObject({
 	query: z.string(),
@@ -48,7 +49,7 @@ export const GET = defineReads(
 					href: articlePath(guide.slug),
 				};
 			} catch (error) {
-				console.error(JSON.stringify({ component: "wiki", outcome: "guide-failed", error: String(error) }));
+				logFailure({ component: "wiki", outcome: "guide-failed" }, error);
 				return { status: "unavailable" };
 			}
 		}),
@@ -71,7 +72,7 @@ export const GET = defineReads(
 					networks: reply.value.networks.map((id) => row(id, "network")),
 				};
 			} catch (error) {
-				console.error(JSON.stringify({ component: "wiki", outcome: "order-read-failed", error: String(error) }));
+				logFailure({ component: "wiki", outcome: "order-read-failed" }, error);
 				return { status: "lost" };
 			}
 		}),
