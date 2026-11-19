@@ -8,7 +8,7 @@ import { currentAddress, onTraversal, usePath, writeAddress } from "../../compon
 import { loadPage } from "../identity/api";
 import { readSourceOrder, saveSourceOrder } from "../wiki/actions";
 import { readRegion, saveRegion, suggestRegion } from "./region";
-import { SettingsGuide } from "../wiki/client.tsx";
+import { SettingsGuide } from "../wiki/chrome.tsx";
 import {
 	finalizeAssetUpload,
 	getBrand,

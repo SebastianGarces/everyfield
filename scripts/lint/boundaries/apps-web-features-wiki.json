@@ -1,7 +1,7 @@
 {
 	"public": {
 		"actions.ts": "source order reads and saves that settings call",
-		"client.tsx": "SettingsGuide and WikiChrome, which settings and the shell use",
+		"chrome.tsx": "SettingsGuide and WikiChrome, which settings and the shell use",
 		"model.ts": "articlePath, the article URL the resident view links to",
 		"prose.tsx": "ArticleBody, which the resident reading screen renders"
 	}
