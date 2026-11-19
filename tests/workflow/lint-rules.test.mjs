@@ -67,7 +67,7 @@ const GROUPS = [
 	{ config: ".oxlintrc.json", cwd: ".", owns: () => true },
 ];
 
-function lintIn(dir, paths) {
+function lintIn(dir, paths, code = /^everyfield\(([\w-]+)\)$/) {
 	const hits = [];
 	for (const group of GROUPS) {
 		const mine = paths.filter((path) => GROUPS.find((g) => g.owns(path)) === group);
@@ -79,7 +79,7 @@ function lintIn(dir, paths) {
 			{ cwd, encoding: "utf8", env: env(dir) },
 		);
 		for (const d of JSON.parse(ran.stdout.slice(ran.stdout.indexOf("{"))).diagnostics) {
-			const rule = /^everyfield\(([\w-]+)\)$/.exec(d.code ?? "")?.[1];
+			const rule = code.exec(d.code ?? "")?.[1];
 			if (rule && rule !== "resend-senders")
 				hits.push(`${relative(dir, resolve(cwd, d.filename))}:${d.labels?.[0]?.span.line ?? 1} ${rule}`);
 		}
@@ -1725,6 +1725,30 @@ export function Unrelated({ pick }) {
 			)
 			.sort(),
 	);
+});
+
+test("INV-lint: only an overlay's lazy entry imports it, so no static chain from a product page reaches it; the parts its sections share import freely", () => {
+	const settings = "apps/web/src/features/settings";
+	const files = {
+		[`${settings}/ProductSettings.tsx`]:
+			'import type { SettingsDialogProps } from "./SettingsDialog";\nexport const load = () => import("./SettingsDialog");\nexport type P = SettingsDialogProps;\n',
+		[`${settings}/sections/ChurchSection.tsx`]:
+			'import { SectionBody } from "../SettingsDialog";\nimport { SaveFooter } from "../SectionParts";\nexport const parts = [SectionBody, SaveFooter];\n',
+		[`${settings}/brand/BrandSection.tsx`]:
+			'import { SectionBody } from "../SettingsDialog";\nexport const parts = [SectionBody];\n',
+		[`${settings}/preview/SettingsPreview.tsx`]:
+			'import { SettingsDialog } from "../SettingsDialog";\nimport { LazySettingsDialog } from "../ProductSettings";\nexport const dialogs = [SettingsDialog, LazySettingsDialog];\n',
+		"apps/web/src/features/evry/conversation/panel.tsx":
+			'import { SettingsDialog } from "../../settings/SettingsDialog";\nexport const load = () => import("./EvryPanel.tsx");\nexport const dialog = SettingsDialog;\n',
+		"apps/web/src/features/shell/Frame.tsx":
+			'import { ChurchSection } from "../settings/sections/ChurchSection";\nexport const section = ChurchSection;\n',
+	};
+	assert.deepEqual(lintIn(sandbox(files), Object.keys(files), /^eslint\((no-restricted-imports)\)$/), [
+		"apps/web/src/features/evry/conversation/panel.tsx:1 no-restricted-imports",
+		`${settings}/brand/BrandSection.tsx:1 no-restricted-imports`,
+		`${settings}/preview/SettingsPreview.tsx:1 no-restricted-imports`,
+		`${settings}/sections/ChurchSection.tsx:1 no-restricted-imports`,
+	]);
 });
 
 test("INV-lint: a page, a layout or a GET route handler that imports a server action module is reported, a route that also writes is not", () => {
