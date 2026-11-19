@@ -11,7 +11,7 @@ import { LoadableView } from "@everyfield/ui/display";
 import { useState } from "react";
 import type { OrganizationOwner, SectionResult } from "../port";
 import { attempt } from "../save";
-import { SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
+import { SaveFooter, SectionBody, SettingRow } from "../SectionParts";
 import { SaveError } from "../SaveError";
 import { useDraft, useSection, useSettings } from "../store";
 import { zoneLabel } from "../../../components/time.ts";
