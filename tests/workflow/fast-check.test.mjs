@@ -169,18 +169,29 @@ function formalFixture() {
 	return fx;
 }
 
-test("INV-lint: a pnpm-workspace.yaml exclusion or a packages entry other than folder/* is refused, so pnpm -r skips no package the lint checks count", async () => {
+test("INV-lint: a pnpm-workspace.yaml exclusion, a packages entry other than folder/* or a list form the reader does not parse is refused, so pnpm -r skips no package the lint checks count", async () => {
 	const { lintRuns } = await import("../../scripts/fast-check.ts");
 	const dir = temp("fast-check-workspace-");
 	writeFileSync(join(dir, "package.json"), "{}\n");
-	const workspace = (body) => writeFileSync(join(dir, "pnpm-workspace.yaml"), body);
-	workspace('packages:\n  - packages/*\n  - "!packages/x"\nonlyBuiltDependencies:\n  - bun\n');
-	assert.throws(() => lintRuns(dir), /pnpm-workspace\.yaml lists !packages\/x: every packages entry/);
-	workspace("packages:\n  - packages/**\n  - tools/x\n");
-	assert.throws(() => lintRuns(dir), /lists packages\/\*\*, tools\/x:/);
+	const runs = (body) => {
+		writeFileSync(join(dir, "pnpm-workspace.yaml"), body);
+		return () => lintRuns(dir);
+	};
+	assert.throws(
+		runs('packages:\n  - packages/*\n  - "!packages/x"\nonlyBuiltDependencies:\n  - bun\n'),
+		/lists !packages\/x:/,
+	);
+	assert.throws(runs('packages:\n  - apps/*\n\n  - packages/*\n  - "!packages/x"\n'), /lists !packages\/x:/);
+	assert.throws(runs("packages:\n  - packages/**\n  - tools/x\n"), /lists packages\/\*\*, tools\/x:/);
+	assert.throws(runs("packages: [apps/*]\n"), /a form this reader does not parse \(packages: \[apps\/\*\]\)/);
+	assert.throws(runs("packages:\nonlyBuiltDependencies:\n  - bun\n"), /lists no packages:/);
+	assert.throws(runs("packages:\n  - apps/*\n  extra: x\n"), /a packages line this reader does not parse \(extra: x\)/);
+	assert.throws(runs("onlyBuiltDependencies:\n  - bun\n"), /has no packages list:/);
 	mkdirSync(join(dir, "packages"));
-	workspace("packages:\n  - packages/*\nonlyBuiltDependencies:\n  - bun\n");
-	assert.deepEqual(lintRuns(dir), []);
+	mkdirSync(join(dir, "apps"));
+	assert.deepEqual(runs("packages:\n- apps/*\n- packages/*\n")(), []);
+	assert.deepEqual(runs("packages:\n  - apps/*\n\n  - packages/*\nonlyBuiltDependencies:\n  - bun\n")(), []);
+	assert.deepEqual(runs("packages: []\n")(), []);
 });
 
 test("fast-check's formal step fails a branch that changes a mapped file without its map or model, and names the map, model and maintain skill", () => {

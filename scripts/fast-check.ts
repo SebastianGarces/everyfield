@@ -93,13 +93,28 @@ function toolsProject(root: string): { script: string; include: string[] } | und
 }
 
 function workspaceParents(yaml: string): string[] {
-	const block = /^packages:[ \t]*\n((?:[ \t]+.*(?:\n|$))*)/m.exec(yaml)?.[1] ?? "";
-	const globs = [...block.matchAll(/^\s*-\s*["']?([^"'\s]+)["']?\s*$/gm)].map(([, glob]) => glob!);
-	const refused = globs.filter((glob) => !/^[^!*]+\/\*$/.test(glob));
-	if (refused.length)
+	const refuse = (why: string): never => {
 		throw new Error(
-			`pnpm-workspace.yaml lists ${refused.join(", ")}: every packages entry is a folder followed by /*, with no ! exclusion, so the lint and typecheck checks cover every package pnpm -r runs.`,
+			`pnpm-workspace.yaml ${why}: list packages as "packages:" then one "- <folder>/*" line each, with no ! exclusion, so the lint and typecheck checks cover every package pnpm -r runs.`,
 		);
+	};
+	const lines = yaml.split("\n");
+	const at = lines.findIndex((line) => /^packages:/.test(line));
+	if (at === -1) return refuse("has no packages list");
+	if (/^packages:\s*\[\s*\]\s*$/.test(lines[at]!)) return [];
+	if (!/^packages:\s*$/.test(lines[at]!))
+		return refuse(`writes the list in a form this reader does not parse (${lines[at]})`);
+	const globs: string[] = [];
+	for (const line of lines.slice(at + 1)) {
+		if (!line.trim()) continue;
+		const item = /^\s*-\s+["']?([^"'\s]+)["']?\s*$/.exec(line);
+		if (!item && !/^\s/.test(line)) break;
+		if (!item) return refuse(`has a packages line this reader does not parse (${line.trim()})`);
+		globs.push(item[1]!);
+	}
+	if (!globs.length) return refuse("lists no packages");
+	const refused = globs.filter((glob) => !/^[^!*]+\/\*$/.test(glob));
+	if (refused.length) return refuse(`lists ${refused.join(", ")}`);
 	return globs.map((glob) => glob.slice(0, -2));
 }
 
