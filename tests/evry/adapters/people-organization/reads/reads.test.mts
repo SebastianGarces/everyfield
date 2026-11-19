@@ -34,6 +34,7 @@ import {
 	sql,
 	teardown,
 } from "../../../runtime/support.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 before(setup);
 after(teardown);
@@ -473,7 +474,7 @@ test("AC:TARGET-PPL-018 AC:EVRY-FAMILY-PEOPLE-CORE a member can read the import 
 	const reviewed = await invokeRead(db, owner, previewImport, { file: fresh });
 	const digest = reviewed.rows[0]!.fields;
 	const requestKey = randomUUID();
-	const authority = await db.transaction((tx) => RequestActor.resolve(tx, accounts.owner.session as never));
+	const authority = await gatedTransaction(db, (tx) => RequestActor.resolve(tx, accounts.owner.session as never));
 	assert.ok(authority instanceof RequestActor);
 	const submitted = await executeBulkImport(db, authority, {
 		requestKey,
@@ -499,7 +500,7 @@ test("INV-tenancy: a household read takes no lock a sign-out waits for, and the 
 	const home = await addHousehold(plant, "Lock Home");
 	const session = (await admin.execute(sql`SELECT * FROM auth_session WHERE id=${accounts.owner.session}`)).rows[0]!;
 	try {
-		await db.transaction(async (tx) => {
+		await gatedTransaction(db, async (tx) => {
 			assert.equal((await getHousehold.invoke(tx, owner, { householdId: home }, null)).status, "available");
 			const started = performance.now();
 			await admin.transaction(async (signOut) => {

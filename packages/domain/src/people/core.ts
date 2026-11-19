@@ -1,5 +1,5 @@
 import { requestIdentity } from "@everyfield/contracts/common";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import {
 	and,
 	desc,
@@ -19,7 +19,7 @@ import "server-only";
 import { z } from "zod";
 import { effectiveAdult, plantTodaySql } from "./adult.ts";
 import { readPipelinePerson } from "../access/pipeline.ts";
-import { boundWrite, currentActor, liveRead, RequestActor } from "../access/session.ts";
+import { boundWrite, currentActor, liveRead, RequestActor, type WriteTx } from "../access/session.ts";
 import {
 	auditSavepoint,
 	finishAudit,
@@ -37,7 +37,7 @@ import { revision } from "@everyfield/contracts/common";
 import type { PeopleContext, PeopleReply, PeopleWriteContext } from "@everyfield/contracts/people";
 import * as c from "@everyfield/contracts/people";
 
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export class PeopleReadContext {
 	readonly authority: RequestActor;
 	constructor(authority: RequestActor) {

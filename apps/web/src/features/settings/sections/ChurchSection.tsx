@@ -6,7 +6,7 @@ import { useState } from "react";
 import { canDeleteWorkspace } from "../model";
 import type { DeletionStatus, DigestSchedule, PlantOwner, PlantSettings, SectionResult } from "../port";
 import { attempt } from "../save";
-import { SaveFooter, SectionBody, SettingRow } from "../SettingsDialog";
+import { SaveFooter, SectionBody, SettingRow } from "../SectionParts";
 import { SaveError } from "../SaveError";
 import { useDraft, useSection, useSettings } from "../store";
 import { hourLabel, WEEKDAYS, zoneLabel } from "../../../components/time.ts";

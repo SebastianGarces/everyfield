@@ -26,6 +26,7 @@ import {
 import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
 import { ok } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "../intelligence/assessment-church.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let c0: Church;
 const job = createAssessmentJob();
@@ -89,7 +90,7 @@ async function save(p: Plant, where: Locality, code: string | null) {
 	const region = code === null ? null : offered.find((c) => c.area.code === code)!.regionItemId;
 	assert.ok(code === null || region, `the picker offers ${code}`);
 	const selected = { kind: "plant" as const, id: p.id };
-	await c0.db.transaction(async (tx) => {
+	await gatedTransaction(c0.db, async (tx) => {
 		assert.ok(await RequestActor.claimWrite(tx, p.owner.session as never, selected as never));
 		return api["organizations.correctReportingLocation"](
 			tx,

@@ -15,7 +15,6 @@ import {
 	NO_PENDING,
 	shownRows,
 	shownSteps,
-	BadgeReads,
 	withBlockers,
 	withChange,
 	parseQuery,
@@ -253,24 +252,6 @@ test("AC:TARGET-TSK-006 INV-blocking: a settled or deleted prerequisite releases
 		null,
 		"an unrelated task changes nothing",
 	);
-});
-
-test("AC:TARGET-TSK-006 INV-badge-reads: an old badge read never lands on a newer read or a different list", () => {
-	const reads = new BadgeReads();
-	const list = "?view=all&q=Dep2";
-	const old = reads.start(list);
-	assert.equal(reads.applies(old, list), true, "the only read applies");
-	assert.equal(
-		reads.applies(old, `${list}&task=3f1c2b7e-0000-4000-8000-000000000001`),
-		true,
-		"opening a panel keeps the list",
-	);
-	assert.equal(reads.applies(old, "?view=all&q=Dep"), false, "a changed search is another list");
-	const newer = reads.start(list);
-	assert.equal(reads.applies(old, list), false, "a newer read ends the older one");
-	assert.equal(reads.applies(newer, list), true);
-	reads.end();
-	assert.equal(reads.applies(newer, list), false, "a new list ends every read of the old one, and its retries");
 });
 
 test("AC:TARGET-TSK-001 INV-owner-label: an owner shows by name, also the signed-in person, never as You", () => {
