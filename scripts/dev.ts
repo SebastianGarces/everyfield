@@ -13,6 +13,8 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
         checks.json record outside the repo and prints its path. Selection reads the coverage map of the latest
         green GitHub nightly (.github/workflows/nightly.yml), downloaded with gh; without one it runs everything
+        --full takes about 9 minutes alone and about 15 minutes each with six evf check slots side by side, test:db
+        on Docker Postgres included
         checks: lint, typecheck, test:unit, test:db, docs, ci-coverage, workflow, tools-ci, tools-qa, tools-app, github-scripts, ops-watch
         test:db runs the selected packages' database tests on a throwaway local Postgres (CI's image in Docker,
         removed when the run ends), so it needs Docker; it never uses the shared development database
