@@ -1113,7 +1113,12 @@ function ReviseForm({
 								optional={!isRequired(c.field, dated)}
 							>
 								{kind === "choice" ? (
-									<Select options={CHOICES[c.field]!} value={edits[c.field]} onValueChange={set} disabled={locked} />
+									<Select
+										options={CHOICES[c.field]!}
+										value={edits[c.field] ?? ""}
+										onValueChange={set}
+										disabled={locked}
+									/>
 								) : kind === "long" ? (
 									<Textarea value={edits[c.field]} onChange={(e) => set(e.target.value)} rows={3} disabled={locked} />
 								) : (

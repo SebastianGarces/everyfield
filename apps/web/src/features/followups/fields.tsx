@@ -84,7 +84,7 @@ export function OutcomeFields({
 			{reached ? (
 				<Field label="How" optional>
 					<Select
-						value={draft.channel || undefined}
+						value={draft.channel}
 						onValueChange={(v) => set({ channel: v as Draft["channel"] })}
 						placeholder="Choose how"
 						options={CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABEL[c] }))}

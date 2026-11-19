@@ -32,6 +32,7 @@ flowchart LR
 Launch Sunday's date and countdown, its readiness, and the outcome form once the day arrives.
 
 - Routes: `/launch`
+- Endpoints: `/launch/read`
 - Personas: `owner` write, `admin` write, `member` read, `visitor` none
 - Catalog: LCH-001, LCH-003, LCH-006, LCH-007, LCH-008
 

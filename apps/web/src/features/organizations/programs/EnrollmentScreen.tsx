@@ -26,14 +26,8 @@ import { createRead, useRead } from "../../../components/read.tsx";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { PIPELINE_PATH } from "../board/model";
 import { Problem } from "../../../components/Problem.tsx";
-import {
-	addFeedback,
-	applyVersion,
-	confirmMilestone,
-	recordMilestone,
-	rereadEnrollment,
-	reviewVersion,
-} from "./actions";
+import { addFeedback, applyVersion, confirmMilestone, recordMilestone } from "./actions";
+import { rereadEnrollment, reviewVersion } from "./fetch.ts";
 import { formatMeeting, KIND, programHref, programProblem, PROGRAMS_PATH } from "./model";
 import { Detail } from "./ProgramScreen";
 import { ReviewParts } from "./VersionReview";

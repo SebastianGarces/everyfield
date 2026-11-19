@@ -32,12 +32,12 @@ import {
 	joinHousehold,
 	leaveHousehold,
 	propagateAddress,
-	readHousehold,
 	setHouseholdRole,
 	startHousehold,
 	updateHousehold,
 	type MembershipSaved,
 } from "./actions.ts";
+import { readHousehold } from "../fetch.ts";
 import {
 	CopyAddressDialog,
 	EditHouseholdDialog,
