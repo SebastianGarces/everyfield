@@ -2107,7 +2107,8 @@ const renderReads = {
 	},
 };
 
-const READ_NAME = /^(?:load|read|get|list|find|search|suggest|preview|compare)(?:[A-Z]|$)/;
+const READ_NAME =
+	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print)(?:[A-Z]|$)/;
 
 const READ_HOME =
 	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through getReads in the feature's fetch.ts.";
@@ -2145,8 +2146,8 @@ const noReadActions = ratcheted("no-read-actions", (context, push) => {
 			if (d?.type === "FunctionDeclaration") exported(d.id);
 			if (d?.type === "VariableDeclaration") for (const v of d.declarations) boundNames(v.id).forEach(exported);
 			for (const spec of node.specifiers ?? []) {
-				const name = nameOf(spec.exported);
-				if (spec.exportKind !== "type" && READ_NAME.test(name)) report(spec, name);
+				const name = [nameOf(spec.local), nameOf(spec.exported)].find((n) => READ_NAME.test(n));
+				if (spec.exportKind !== "type" && name) report(spec, name);
 			}
 		},
 		ExportDefaultDeclaration(node) {

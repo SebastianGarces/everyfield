@@ -4,15 +4,17 @@ import { privateStorage } from "@everyfield/db/schema";
 import { documentsWriter } from "@everyfield/domain/documents";
 import type { Format, OwnedView, SavedFile, WrittenView } from "./model.ts";
 import { documentActor } from "./server.ts";
-import { presentOwned, presentSaved, refused, runAs, type DocumentOutcome, type Read } from "./outcome.ts";
+import {
+	presentOwned,
+	presentSaved,
+	refused,
+	runAs,
+	storageMissing,
+	type DocumentOutcome,
+	type Read,
+} from "./outcome.ts";
 
 const run = async <T>(read: Read<T>) => runAs(await documentActor(), read);
-
-const storageMissing = {
-	status: "refused" as const,
-	code: "unavailable" as const,
-	problem: "Saving is not available right now.",
-};
 
 export async function generateDocument(
 	templateId: string,
@@ -26,16 +28,6 @@ export async function generateDocument(
 		const reply = await documentsWriter.generate(db, actor, { templateId, format, overrides, requestKey }, storage);
 		if (reply.status === "refused") return refused(reply.error);
 		return { status: "ok", value: presentSaved(reply.value) };
-	});
-}
-
-export async function downloadSavedDocument(documentId: string): Promise<DocumentOutcome<{ url: string }>> {
-	const storage = privateStorage();
-	if (!storage) return storageMissing;
-	return run(async (db, actor) => {
-		const reply = await documentsWriter.download(db, actor, { documentId }, storage);
-		if (reply.status === "refused") return refused(reply.error);
-		return { status: "ok", value: { url: reply.value.url } };
 	});
 }
 

@@ -5,7 +5,6 @@ import { getViewer } from "@/server/request-context";
 import { redirect } from "next/navigation";
 import {
 	answerRsvpToken,
-	attendanceReader,
 	describeRsvpToken,
 	createAttendanceWriter,
 	guestsWriter,
@@ -22,7 +21,7 @@ import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meeting
 import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
 import type { Finalization, Outcome } from "./model.ts";
-import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
+import { outcome, read, readAnalytics, write } from "./server.ts";
 import { logFailure } from "@everyfield/domain/log";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
@@ -32,11 +31,6 @@ async function act<T>(run: Run<T>): Promise<Outcome<T>> {
 	const v = await getViewer();
 	if (!v?.people) return noSeat;
 	return write(v.people, run);
-}
-async function look<T>(run: (viewer: Viewer) => Promise<Outcome<T>>): Promise<Outcome<T>> {
-	const v = await getViewer();
-	if (!v?.people) return noSeat;
-	return run(v.people);
 }
 const command = (requestKey: string, expectedRevision: string, input: unknown) => ({
 	requestKey,
@@ -99,18 +93,6 @@ export async function replaceAgenda(
 
 export async function updateRoster(requestKey: string, meetingId: string, add: string[], remove: string[]) {
 	return act((tx, ctx) => rosterWriter.copyTeamRoster(tx, ctx, { requestKey, input: { meetingId, add, remove } }));
-}
-
-export async function reloadMeeting(meetingId: string) {
-	return look(async (v) => ({ status: "ok" as const, value: await loadMeeting(v, meetingId) }));
-}
-
-export async function visionReport() {
-	return look(async (v) => ({ status: "ok" as const, value: await loadReport(v) }));
-}
-
-export async function reloadCheckIn(meetingId: string) {
-	return look(async (v) => ({ status: "ok" as const, value: await loadCheckIn(v, meetingId) }));
 }
 
 export async function populateKit(requestKey: string, expectedRevision: string, meetingId: string) {
@@ -261,9 +243,6 @@ export async function recordEvaluation(requestKey: string, input: unknown) {
 }
 export async function correctEvaluation(requestKey: string, expectedRevision: string, input: unknown) {
 	return settle((w) => (tx, ctx) => w.correctEvaluation(tx, ctx, { requestKey, expectedRevision, input }));
-}
-export async function evaluationHistory(meetingId: string) {
-	return look(async (v) => outcome(await read(v, (db, a) => attendanceReader.evaluationHistory(db, a, { meetingId }))));
 }
 export async function addAttendeeNote(requestKey: string, meetingId: string, personId: string, text: string) {
 	return settle((w) => (tx, ctx) => w.addAttendeeNote(tx, ctx, { requestKey, input: { meetingId, personId, text } }));
