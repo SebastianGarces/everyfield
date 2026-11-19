@@ -21,6 +21,7 @@ import {
 	sql,
 	teardown,
 } from "../../../runtime/support.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 before(setup);
 after(teardown);
@@ -97,7 +98,7 @@ test("AC:SEC-02 INV-tenancy: the photo read, duplicate hints and the reference c
 	await photo(people.alexRivera);
 	const session = (await admin.execute(sql`SELECT * FROM auth_session WHERE id=${accounts.owner.session}`)).rows[0]!;
 	try {
-		await db.transaction(async (tx) => {
+		await gatedTransaction(db, async (tx) => {
 			assert.equal((await getPersonPhoto.invoke(tx, owner, { personId: people.alexRivera })).status, "available");
 			assert.equal((await verifyPeople(tx, owner, [people.alexRivera])).length, 1);
 			assert.equal((await checkForDuplicates.invoke(tx, owner, { displayName: "Alex Rivera" })).rows.length, 1);
@@ -163,7 +164,7 @@ test("AC:AC-EVR-108--EVR-108 AC:AC-EVR-READ--EVR-108 duplicate hints match norma
 	await invokeRead(db, member, checkForDuplicates, { email: "jordan@example.test" });
 	assert.equal(counted(start), 2);
 	start = queries.length;
-	await db.transaction((tx) =>
+	await gatedTransaction(db, (tx) =>
 		checkForDuplicates.invoke(tx, member, { email: "jordan@example.test", displayName: "Jordan Lake" }),
 	);
 	assert.equal(counted(start), 1);

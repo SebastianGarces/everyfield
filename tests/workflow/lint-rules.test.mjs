@@ -1661,7 +1661,7 @@ export function Report() {
 	);
 });
 
-test("INV-lint: a store read with getState() while rendering is reported, also through a destructured or assigned getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not", () => {
+test("INV-lint: a store read with getState() while rendering is reported, also through a destructured, defaulted, assigned, bound or passed getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not, and a same-named binding elsewhere is not an alias", () => {
 	const source = `import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { useStore } from "@/components/store";
 export function Card({ store, ids }) {
@@ -1693,13 +1693,36 @@ export function Aliased({ store }) {
 	const onClick = () => read().count;
 	return <button onClick={onClick}>{getState().count + read().count}</button>;
 }
+export function Bound({ store, getState: given }) {
+	const bound = store.getState.bind(store);
+	let later;
+	later = store.getState;
+	const { getState: fallback = null } = store;
+	const onClick = () => bound().count + later().count;
+	const a = store.getState.bind(store)().a;
+	const b = bound().b;
+	const c = later().c;
+	const d = fallback().d;
+	const e = given().e;
+	const f = store.getState.call(store).f;
+	return <button onClick={onClick}>{a + b + c + d + e + f}</button>;
+}
+export function Handler({ store }) {
+	const pick = store.getState;
+	return <button onClick={() => pick().count}>Go</button>;
+}
+export function Unrelated({ pick }) {
+	return <p>{pick()}</p>;
+}
 `;
 	assert.deepEqual(
 		lint({ "apps/web/src/features/x/Card.tsx": source, "packages/ui/src/Card.tsx": source }).filter((hit) =>
 			hit.endsWith("no-render-get-state"),
 		),
 		["apps/web/src/features/x/Card.tsx", "packages/ui/src/Card.tsx"]
-			.flatMap((path) => [4, 5, 6, 7, 15, 21, 30, 30].map((line) => `${path}:${line} no-render-get-state`))
+			.flatMap((path) =>
+				[4, 5, 6, 7, 15, 21, 30, 30, 38, 39, 40, 41, 42, 43].map((line) => `${path}:${line} no-render-get-state`),
+			)
 			.sort(),
 	);
 });
@@ -1779,11 +1802,12 @@ test("INV-lint: a route module or server-only module that calls a server action 
 	);
 });
 
-test("INV-lint: a read exported from a server action module or declared as an inline server action is reported, a write or a server-only read is not", () => {
+test("INV-lint: a read exported from a server action module, under its own name or renamed, or declared as an inline server action is reported, a write or a server-only read is not", () => {
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function readThing() {}\nexport const listThings = async () => [];\nexport async function saveThing() {}\nexport async function reader() {}\nasync function loadInner() {}\nexport { loadInner as loadAlias };\nexport const { findOne, saveOne } = { findOne: async () => 1, saveOne: async () => 2 };\n`,
 			"apps/web/src/features/x/default.ts": `"use server";\nexport default async function readDefault() {}\n`,
+			"apps/web/src/features/x/hidden.ts": `"use server";\nasync function readHidden() {}\nasync function reloadRow() {}\nexport { readHidden as default, reloadRow as saveRow };\nexport async function downloadFile() {}\n`,
 			"apps/web/src/features/x/all.ts": `"use server";\nexport * from "./reads.ts";\n`,
 			"apps/web/src/features/x/reads.ts": `export async function readFromAll() {}\n`,
 			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function readInline() {\n\t\t"use server";\n\t}\n\tasync function saveInline() {\n\t\t"use server";\n\t}\n\treturn [readInline, saveInline];\n}\n`,
@@ -1797,6 +1821,33 @@ test("INV-lint: a read exported from a server action module or declared as an in
 			"apps/web/src/features/x/actions.ts:8 no-read-actions",
 			"apps/web/src/features/x/all.ts:2 no-read-actions",
 			"apps/web/src/features/x/default.ts:2 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:4 no-read-actions",
+			"apps/web/src/features/x/hidden.ts:5 no-read-actions",
+		],
+	);
+});
+
+test("INV-lint: a server action parameter typed as a trusted shape is reported, also wrapped in a call or re-exported, unknown, primitives, FormData and their unions are not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\ntype Input = { id: string };\nexport async function save(input: Input) {}\nexport async function mode(kind: "a" | "b") {}\nexport async function list(ids: string[]) {}\nexport const arrow = async ({ id }: { id: string }) => id;\nasync function hidden(input: Input) {}\nexport { hidden as renamed };\nexport async function fine(a: unknown, b: string, c: number | null, d?: boolean, e: FormData = new FormData(), f = "now") {}\nasync function local(input: Input) {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function inline(input: { id: string }) {\n\t\t"use server";\n\t}\n\treturn inline;\n}\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function save(input: { id: string }) {}\n`,
+			"apps/web/src/features/x/wrapped.ts": `"use server";\nconst wrap = <T>(f: T) => f;\nexport const saved = wrap(async (input: { id: string }) => input);\nconst inner = wrap(async (ids: string[]) => ids);\nexport { inner };\nexport const fine = wrap(async (input: unknown) => input);\n`,
+			"apps/web/src/features/x/again.ts": `"use server";\nexport { save } from "./server.ts";\nexport * from "./server.ts";\n`,
+		}).filter((hit) => hit.endsWith("action-params-unknown")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:3 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:4 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:5 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:6 action-params-unknown",
+			"apps/web/src/features/x/actions.ts:7 action-params-unknown",
+			"apps/web/src/features/x/again.ts:2 action-params-unknown",
+			"apps/web/src/features/x/again.ts:3 action-params-unknown",
+			"apps/web/src/features/x/wrapped.ts:3 action-params-unknown",
+			"apps/web/src/features/x/wrapped.ts:4 action-params-unknown",
 		],
 	);
 });

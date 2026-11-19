@@ -6,6 +6,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { refuse } from "./invitation-core.ts";
+import type { WriteTx } from "../access/session.ts";
 
 type IdentityRefusalCode =
 	| "invalid_input"
@@ -34,16 +35,13 @@ export class RateLimited extends IdentityRefusal {
 	}
 }
 export const timeouts = sql`set_config('statement_timeout','10s',true)||set_config('lock_timeout','5s',true)`;
-export function transaction<T>(db: Database | Transaction, body: (tx: Transaction) => Promise<T>): Promise<T> {
+export function transaction<T>(db: Database | Transaction, body: (tx: WriteTx) => Promise<T>): Promise<T> {
 	return timedTransaction(db, async (tx) => {
 		await tx.execute(sql`SELECT ${timeouts}`);
 		return body(tx);
 	});
 }
-export async function timedTransaction<T>(
-	db: Database | Transaction,
-	body: (tx: Transaction) => Promise<T>,
-): Promise<T> {
+export async function timedTransaction<T>(db: Database | Transaction, body: (tx: WriteTx) => Promise<T>): Promise<T> {
 	try {
 		return await auditTransaction(db, body);
 	} catch (error) {
