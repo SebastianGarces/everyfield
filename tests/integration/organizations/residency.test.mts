@@ -659,7 +659,7 @@ test("AC:ADR1-003 AC:ADR1-013 Casey leaves: My residency is gone at once and Gra
 		expectedRevision: l.revision,
 		input: { linkId: l.id, expectedConsentRevision: l.consent },
 	});
-	assert.deepEqual(await mine(), { status: "not_linked" });
+	assert.deepEqual(await mine(), { status: "ended" });
 	assert.equal(await navLink(casey), null);
 	assert.deepEqual((await record(luis)).residency, { status: "not_linked" });
 	const shown = await enrollment(ana);
