@@ -1,4 +1,3 @@
-import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { createSeatService } from "@everyfield/domain/identity";
 import { invitationRevokedResult, invitationSentResult, inviteSeatRequest } from "@everyfield/contracts/identity";
@@ -87,11 +86,7 @@ export const changeOrdinaryRole = nativeWrite({
 			${seat(actor, value.seatId)}`;
 	},
 	async run(tx, context, request, { authority }) {
-		const changed = await createSeatService(tx as unknown as Database).changeOrdinaryRole(
-			authority,
-			context.selected,
-			request,
-		);
+		const changed = await createSeatService(tx).changeOrdinaryRole(authority, context.selected, request);
 		return { revision: changed.revision };
 	},
 });
@@ -114,12 +109,7 @@ export const remove = nativeWrite({
 			WHERE s.id=${value.seatId}::uuid AND s.plant_id=${actor.owner.id}::uuid AND s.ended_at IS NULL AND s.role IN ('admin','member')`;
 	},
 	async run(tx, context, request, { authority, reminders }) {
-		const removed = await createSeatService(tx as unknown as Database).remove(
-			authority,
-			context.selected,
-			request,
-			reminders,
-		);
+		const removed = await createSeatService(tx).remove(authority, context.selected, request, reminders);
 		return { revision: removed.revision };
 	},
 });
