@@ -1,7 +1,7 @@
 import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { LaunchScreen } from "./LaunchScreen.tsx";
 import { administers, launchViewer, loadOffers, loadPlan } from "./server.ts";
 
@@ -11,7 +11,7 @@ export async function LaunchPage() {
 	const viewer = await launchViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/launch")}`);
+		if (v.status === "unauthenticated") signIn("/launch");
 		return (
 			<StatePanel tone="lock" title="The Launch plan belongs to a church">
 				Choose a church plant seat to see its Launch plan.
