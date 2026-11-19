@@ -13,10 +13,25 @@ const personRow = z.object({
 	optedOutAt: z.string().nullable(),
 });
 
+type AudienceLists = { groups: SQL; teamIds: SQL; personIds: SQL };
+
 export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
-	const groups = JSON.stringify(audience.groups);
-	const teamIds = JSON.stringify(audience.teamIds);
-	const personIds = JSON.stringify(audience.personIds);
+	return peopleOf(plantId, {
+		groups: sql`${JSON.stringify(audience.groups)}::jsonb`,
+		teamIds: sql`${JSON.stringify(audience.teamIds)}::jsonb`,
+		personIds: sql`${JSON.stringify(audience.personIds)}::jsonb`,
+	});
+}
+
+export function storedAudiencePeople(plantId: string, audience: SQL): SQL {
+	return peopleOf(plantId, {
+		groups: sql`coalesce(${audience}->'groups', '[]'::jsonb)`,
+		teamIds: sql`coalesce(${audience}->'teamIds', '[]'::jsonb)`,
+		personIds: sql`coalesce(${audience}->'personIds', '[]'::jsonb)`,
+	});
+}
+
+function peopleOf(plantId: string, { groups, teamIds, personIds }: AudienceLists): SQL {
 	return sql`coalesce((
 		SELECT jsonb_agg(jsonb_build_object('id', id, 'displayName', display_name, 'email', email, 'n', n,
 			'optedOutAt', ${optedOutAtSql(sql`${plantId}::uuid`, sql`counted.id`)}))
@@ -24,7 +39,7 @@ export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
 			SELECT id, display_name, email, count(*)::int AS n
 			FROM (
 				SELECT p.id, p.display_name, p.email
-				FROM jsonb_array_elements_text(${personIds}::jsonb) AS e(value)
+				FROM jsonb_array_elements_text(${personIds}) AS e(value)
 				JOIN person p ON p.id = e.value::uuid
 				WHERE p.plant_id = ${plantId}::uuid AND p.tenant_id = ${plantId}::uuid AND p.state = 'live'
 				UNION ALL
@@ -32,12 +47,12 @@ export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
 				FROM person p
 				WHERE p.plant_id = ${plantId}::uuid AND p.tenant_id = ${plantId}::uuid AND p.state = 'live'
 				AND (
-					EXISTS (SELECT 1 FROM jsonb_array_elements_text(${groups}::jsonb) g(value) WHERE g.value = 'all')
-					OR (p.stage = 'core_group' AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(${groups}::jsonb) g(value) WHERE g.value = 'core_group'))
-					OR (p.stage = 'launch_team' AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(${groups}::jsonb) g(value) WHERE g.value = 'launch_team'))
-					OR (p.stage = 'prospect' AND p.linked_account_id IS NULL AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(${groups}::jsonb) g(value) WHERE g.value = 'prospects'))
+					EXISTS (SELECT 1 FROM jsonb_array_elements_text(${groups}) g(value) WHERE g.value = 'all')
+					OR (p.stage = 'core_group' AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(${groups}) g(value) WHERE g.value = 'core_group'))
+					OR (p.stage = 'launch_team' AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(${groups}) g(value) WHERE g.value = 'launch_team'))
+					OR (p.stage = 'prospect' AND p.linked_account_id IS NULL AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(${groups}) g(value) WHERE g.value = 'prospects'))
 					OR (
-						EXISTS (SELECT 1 FROM jsonb_array_elements_text(${groups}::jsonb) g(value) WHERE g.value = 'leaders')
+						EXISTS (SELECT 1 FROM jsonb_array_elements_text(${groups}) g(value) WHERE g.value = 'leaders')
 						AND (
 							p.stage = 'leader'
 							OR EXISTS (
@@ -64,7 +79,7 @@ export function audiencePeople(plantId: string, audience: AudienceInput): SQL {
 				JOIN team t ON t.id = r.team_id AND t.plant_id = r.plant_id
 				WHERE p.plant_id = ${plantId}::uuid AND p.tenant_id = ${plantId}::uuid AND p.state = 'live'
 				AND t.state IN ('active', 'forming') AND t.archived_at IS NULL
-				AND t.id IN (SELECT value::uuid FROM jsonb_array_elements_text(${teamIds}::jsonb) s(value))
+				AND t.id IN (SELECT value::uuid FROM jsonb_array_elements_text(${teamIds}) s(value))
 			) picked
 			GROUP BY id, display_name, email
 		) counted

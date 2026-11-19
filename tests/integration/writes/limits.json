@@ -309,19 +309,16 @@
 		"limit": 2
 	},
 	"communication.deleteTemplate": {
-		"limit": 3,
-		"reads": "T-501: 2 reads in a row (locked read of account+message_template+seat, then read of account+communication+seat); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"communication.dispatchAttempt": {
-		"limit": 4,
-		"reads": "T-501: 2 reads in a row (read of account+communication+mail+mail_attempt+mail_request+mail_request_member+meeting+participation+person+plant+seat, then read of account+person+person_email_opt_out+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
+		"limit": 3
 	},
 	"communication.executeResend": {
 		"limit": 2
 	},
 	"communication.forkTemplate": {
-		"limit": 3,
-		"reads": "T-501: 2 reads in a row (locked read of account+seat, then read of account+message_template+seat); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"communication.getDeliveryTotals": {
 		"limit": 1
@@ -339,8 +336,7 @@
 		"limit": 1
 	},
 	"communication.handOffScheduled": {
-		"limit": 3,
-		"reads": "T-501: 2 reads in a row (read of account+communication+mail+mail_attempt+mail_request+mail_request_member+meeting+participation+person+plant+seat, then read of account+person+person_email_opt_out+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"communication.list": {
 		"limit": 3
@@ -388,8 +384,7 @@
 		"limit": 2
 	},
 	"communication.reconcileProviderOutcome": {
-		"limit": 3,
-		"reads": "T-501: 2 reads in a row (read of account+communication+mail+mail_attempt+mail_request+mail_request_member+meeting+participation+person+plant+seat, then read of account+person+person_email_opt_out+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"communication.replaceScheduledReviewed": {
 		"limit": 1
@@ -407,12 +402,10 @@
 		"limit": 2
 	},
 	"communication.scheduleReviewed": {
-		"limit": 3,
-		"reads": "T-501: 2 reads in a row (locked read of account+communication+seat, then read of account+meeting+person+person_email_opt_out+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"communication.sendReviewed": {
-		"limit": 4,
-		"reads": "T-501: 2 reads in a row (read of account+communication+mail+mail_attempt+mail_request+mail_request_member+meeting+participation+person+plant+seat, then read of account+person+person_email_opt_out+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
+		"limit": 3
 	},
 	"communication.sendTransactional": {
 		"limit": 3

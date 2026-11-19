@@ -14,7 +14,7 @@ import {
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
-import { audiencePeople, reviewedParts } from "./audience.ts";
+import { reviewedParts, storedAudiencePeople } from "./audience.ts";
 import { z } from "zod";
 import { administers, deny, hash, parse, readReply, readerOf } from "./core.ts";
 import { meetingOpenSql, newRsvpToken, rsvpTokenDigest, rsvpTokenUpdate } from "../meetings/tokens.ts";
@@ -204,7 +204,7 @@ const loadedSchema = z.object({
 
 type Loaded = z.infer<typeof loadedSchema>;
 
-async function loadAudience(db: Database, actor: Actor, communicationId: string): Promise<Loaded> {
+async function loadAudience(db: Database, actor: Actor, communicationId: string, resolve = false): Promise<Loaded> {
 	const gate = adminGate(actor);
 	const raw = one(
 		await db.execute(sql`SELECT g.allowed, c.id, c.revision::text AS revision, c.state, c.subject, c.body_html, c.body_text,
@@ -218,7 +218,7 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 				WHERE pt.meeting_id = c.meeting_id AND pt.plant_id = c.plant_id AND pt.removed_at IS NULL
 			) END AS guests,
 			to_char(c.scheduled_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS scheduled_at,
-			'[]'::jsonb AS people,
+			${resolve ? sql`CASE WHEN c.id IS NULL THEN '[]'::jsonb ELSE ${storedAudiencePeople(actor.plantId, sql`c.audience`)} END` : sql`'[]'::jsonb`} AS people,
 			CASE WHEN c.id IS NULL THEN 0 ELSE (
 				SELECT count(*)::int FROM jsonb_array_elements_text(coalesce(c.audience->'personIds', '[]'::jsonb)) e(value)
 				WHERE NOT EXISTS (
@@ -315,19 +315,14 @@ function batchesOf(raw: unknown, tenantId: string, encryptionKey?: Uint8Array): 
 }
 
 async function openLoaded(db: Database, actor: Actor, communicationId: string, expectedRevision: string) {
-	const found = loadedSchema.parse(await loadAudience(db, actor, communicationId));
+	const found = await loadAudience(db, actor, communicationId, true);
 	if (found.allowed !== true) deny("access_denied");
 	if (!found.id) deny("not_found");
 	if (found.revision !== expectedRevision || found.state !== "scheduled") deny("conflict");
 	if (!found.subject || !found.body_html) deny("invalid_input");
 	if ((found.foreign_people ?? 0) > 0) deny("access_denied");
 	const audience = c.audienceInput.parse(asJson(found.audience) ?? { groups: [], teamIds: [], personIds: [] });
-	const resolved = one(
-		await db.execute(sql`SELECT g.allowed, q.people FROM (SELECT ${adminGate(actor)} AS allowed) g
-			LEFT JOIN LATERAL (SELECT ${audiencePeople(actor.plantId, audience)} AS people) q ON g.allowed`),
-	) as { allowed?: boolean; people?: unknown } | undefined;
-	if (resolved?.allowed !== true) deny("access_denied");
-	const people = resolved.people ?? [];
+	const people = found.people ?? [];
 	const parts = reviewedParts(people);
 	if (!parts.people.length) deny("invalid_input");
 	const digest = hash({ subject: found.subject, body: found.body_html, people: parts.people, emails: parts.emails });

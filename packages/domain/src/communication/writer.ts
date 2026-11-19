@@ -18,7 +18,13 @@ import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
 import { communicationAccess } from "./access.ts";
 import { meetingOpenSql } from "../meetings/tokens.ts";
-import { audiencePeople, recipientsDigest, reviewedParts, summarizeAudience } from "./audience.ts";
+import {
+	audiencePeople,
+	recipientsDigest,
+	reviewedParts,
+	storedAudiencePeople,
+	summarizeAudience,
+} from "./audience.ts";
 import { optedOutAtSql } from "./opt-out.ts";
 import { personSearchMatch } from "../people/search.ts";
 import {
@@ -90,6 +96,7 @@ const draftRow = z.object({
 	review_digest: z.string().nullable(),
 });
 type DraftRow = z.infer<typeof draftRow>;
+const schedulingRow = draftRow.extend({ people: z.unknown(), meeting_open: z.boolean() });
 const templateRow = z.object({
 	id: z.uuid(),
 	revision: z.string(),
@@ -103,6 +110,7 @@ const templateRow = z.object({
 	archived_at: z.string().nullable(),
 });
 type TemplateRow = z.infer<typeof templateRow>;
+const deletingRow = templateRow.extend({ referenced: z.boolean() });
 
 function asDraft(row: DraftRow) {
 	return c.draftResult.parse({
@@ -159,6 +167,21 @@ function templateSelect(actor: Command["actor"], session: string, id: string) {
 		to_char(archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS archived_at
 		FROM message_template WHERE id = ${id}::uuid AND plant_id = ${actor.plantId}::uuid AND ${communicationAccess(actor, session, true)} FOR UPDATE`;
 }
+function schedulingSelect(actor: Command["actor"], session: string, id: string) {
+	return sql`WITH d AS (${draftSelect(actor, session, id)})
+		SELECT d.*, ${storedAudiencePeople(actor.plantId, sql`d.audience`)} AS people,
+			${meetingOpen(sql`d.meeting_id`, actor.plantId)} AS meeting_open
+		FROM d`;
+}
+function lockedDraft<T extends DraftRow>(
+	row: z.ZodSafeParseResult<T>,
+	revision: string,
+	states: readonly DraftRow["state"][],
+) {
+	if (!row.success) deny("not_found");
+	if (row.data.revision !== revision || !states.includes(row.data.state)) deny("conflict");
+	return row.data;
+}
 async function lockDraft(
 	tx: Tx,
 	actor: Command["actor"],
@@ -167,16 +190,15 @@ async function lockDraft(
 	revision: string,
 	states: readonly DraftRow["state"][],
 ) {
-	const row = draftRow.safeParse(one(await tx.execute(draftSelect(actor, session, id))));
-	if (!row.success) deny("not_found");
-	if (row.data.revision !== revision || !states.includes(row.data.state)) deny("conflict");
-	return row.data;
+	return lockedDraft(draftRow.safeParse(one(await tx.execute(draftSelect(actor, session, id)))), revision, states);
 }
-async function lockTemplate(tx: Tx, actor: Command["actor"], session: string, id: string, revision: string) {
-	const row = templateRow.safeParse(one(await tx.execute(templateSelect(actor, session, id))));
+function lockedTemplate<T extends TemplateRow>(row: z.ZodSafeParseResult<T>, revision: string) {
 	if (!row.success) deny("not_found");
 	if (row.data.revision !== revision) deny("conflict");
 	return row.data;
+}
+async function lockTemplate(tx: Tx, actor: Command["actor"], session: string, id: string, revision: string) {
+	return lockedTemplate(templateRow.safeParse(one(await tx.execute(templateSelect(actor, session, id)))), revision);
 }
 async function subjects(
 	tx: Tx,
@@ -199,8 +221,8 @@ async function subjects(
 	if (raw.allowed !== true) deny("access_denied");
 	if (!raw.meeting_ok || !raw.template_ok) deny("invalid_subject");
 }
-function meetingOpen(meetingId: string | null, plantId: string) {
-	return sql`(${meetingId}::uuid IS NOT NULL AND EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${meetingId}::uuid
+function meetingOpen(meetingId: SQL, plantId: string) {
+	return sql`(${meetingId} IS NOT NULL AND EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${meetingId}
 		AND m.plant_id = ${plantId}::uuid AND ${meetingOpenSql("m")}))`;
 }
 function storedBody(value: string | null | undefined): string | null {
@@ -511,28 +533,15 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 		if (!administers(cmd.actor)) deny("access_denied");
 		const at = new Date(input.input.scheduledAt);
 		if (!scheduleAccepted(new Date(), at)) deny("schedule_window_exceeded", { providerHandoffs: 0 });
-		const current = await lockDraft(
-			tx,
-			cmd.actor,
-			context.session,
-			input.input.communicationId,
-			input.expectedRevision,
-			onlyTime ? ["scheduled"] : ["draft", "reviewed"],
-		);
+		const id = input.input.communicationId;
 		if (!onlyTime) {
+			const { people, meeting_open, ...current } = lockedDraft(
+				schedulingRow.safeParse(one(await tx.execute(schedulingSelect(cmd.actor, context.session, id)))),
+				input.expectedRevision,
+				["draft", "reviewed"],
+			);
 			if (!current.subject || !current.body_html) deny("invalid_input");
-			const peopleRaw = one(
-				await tx.execute(
-					whenLive(
-						communicationAccess(cmd.actor, context.session, true),
-						sql`SELECT ${audiencePeople(cmd.actor.plantId, current.audience)} AS people,
-							${meetingOpen(current.meeting_id, cmd.actor.plantId)} AS meeting_open`,
-					),
-				),
-			) as { allowed: boolean; people: unknown; meeting_open: boolean };
-			if (peopleRaw.allowed !== true) deny("access_denied");
-			if (usesRsvpLink(current.body_html) && !peopleRaw.meeting_open) deny("rsvp_needs_meeting");
-			const people = peopleRaw.people;
+			if (usesRsvpLink(current.body_html) && !meeting_open) deny("rsvp_needs_meeting");
 			const parts = reviewedParts(people);
 			if (!parts.people.length) deny("invalid_input");
 			const shown = input.input.recipientsDigest;
@@ -562,6 +571,7 @@ async function schedule(tx: Tx, context: CommunicationContext, raw: unknown, onl
 				scheduledAt: at.toISOString(),
 			});
 		}
+		const current = await lockDraft(tx, cmd.actor, context.session, id, input.expectedRevision, ["scheduled"]);
 		const revision = bump(current.revision);
 		const moved = { ...current, revision, scheduled_at: at.toISOString() };
 		cmd.writes
@@ -610,14 +620,18 @@ async function forkTemplate(tx: Tx, context: CommunicationContext, raw: unknown)
 	if (!source) deny("invalid_subject");
 	return command(tx, context, "communication.templates.fork", input, async (cmd) => {
 		if (!administers(cmd.actor)) deny("access_denied");
-		await tx.execute(
-			sql`SELECT pg_advisory_xact_lock(hashtext(${cmd.actor.plantId}), hashtext(${source.sourceKey})) WHERE ${communicationAccess(cmd.actor, context.session, true)}`,
-		);
 		const existing = templateRow.safeParse(
 			one(
-				await tx.execute(sql`SELECT id, revision::text AS revision, source_key, name, description, category, meeting_type, subject, body_html,
-					to_char(archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS archived_at
-					FROM message_template WHERE plant_id = ${cmd.actor.plantId}::uuid AND source_key = ${source.sourceKey} AND ${communicationAccess(cmd.actor, context.session, true)}`),
+				await tx.execute(sql`WITH l AS MATERIALIZED (
+						SELECT true AS locked FROM (SELECT pg_advisory_xact_lock(hashtext(${cmd.actor.plantId}), hashtext(${source.sourceKey}))) x
+						WHERE ${communicationAccess(cmd.actor, context.session, true)}
+					)
+					SELECT t.* FROM l CROSS JOIN LATERAL (
+						SELECT id, revision::text AS revision, source_key, name, description, category, meeting_type, subject, body_html,
+						to_char(archived_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS archived_at
+						FROM message_template WHERE l.locked AND plant_id = ${cmd.actor.plantId}::uuid AND source_key = ${source.sourceKey}
+						AND ${communicationAccess(cmd.actor, context.session, true)}
+					) t`),
 			),
 		);
 		if (existing.success && !existing.data.archived_at) return asTemplate(existing.data);
@@ -736,17 +750,17 @@ async function deleteTemplate(tx: Tx, context: CommunicationContext, raw: unknow
 	const input = parse(c.templateIdRequest, raw);
 	return command(tx, context, "communication.templates.delete", input, async (cmd) => {
 		if (!administers(cmd.actor)) deny("access_denied");
-		const current = await lockTemplate(tx, cmd.actor, context.session, input.input.templateId, input.expectedRevision);
-		const used = one(
-			await tx.execute(
-				whenLive(
-					communicationAccess(cmd.actor, context.session, true),
-					sql`SELECT EXISTS (SELECT 1 FROM communication c WHERE c.template_id = ${current.id}::uuid AND c.plant_id = ${cmd.actor.plantId}::uuid) AS referenced`,
+		const { referenced, ...current } = lockedTemplate(
+			deletingRow.safeParse(
+				one(
+					await tx.execute(sql`WITH t AS (${templateSelect(cmd.actor, context.session, input.input.templateId)})
+						SELECT t.*, EXISTS (SELECT 1 FROM communication c WHERE c.template_id = t.id AND c.plant_id = ${cmd.actor.plantId}::uuid) AS referenced
+						FROM t`),
 				),
 			),
-		) as { allowed: boolean; referenced: boolean | null };
-		if (used.allowed !== true) deny("access_denied");
-		if (used.referenced) deny("referenced");
+			input.expectedRevision,
+		);
+		if (referenced) deny("referenced");
 		cmd.writes.push(
 			sql`DELETE FROM message_template WHERE id = ${current.id}::uuid AND plant_id = ${cmd.actor.plantId}::uuid AND revision = ${current.revision}::bigint AND ${communicationAccess(cmd.actor, context.session, true)}`,
 		);
@@ -778,7 +792,7 @@ async function preview(tx: Tx, authority: RequestActor, request: unknown, previe
 				communicationAccess(reader, reader.session, true),
 				sql`SELECT
 					(${input.meetingId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM meeting m WHERE m.id = ${input.meetingId ?? null}::uuid AND m.plant_id = ${reader.plantId}::uuid)) AS meeting_ok,
-					${meetingOpen(input.meetingId ?? null, reader.plantId)} AS meeting_open,
+					${meetingOpen(sql`${input.meetingId ?? null}::uuid`, reader.plantId)} AS meeting_open,
 					(SELECT pl.name FROM plant pl WHERE pl.id = ${reader.plantId}::uuid) AS church_name,
 					(${input.templateId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM message_template t WHERE t.id = ${input.templateId ?? null}::uuid AND t.plant_id = ${reader.plantId}::uuid)) AS template_ok,
 					(${input.communicationId ?? null}::uuid IS NULL OR EXISTS (SELECT 1 FROM communication c WHERE c.id = ${input.communicationId ?? null}::uuid AND c.plant_id = ${reader.plantId}::uuid)) AS known,
