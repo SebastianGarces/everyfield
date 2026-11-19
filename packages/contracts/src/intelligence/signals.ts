@@ -176,7 +176,9 @@ export function renewalOf(
 	ageDays: number | null,
 ): Renewal {
 	if (state !== "answered" || ageDays === null) return { status: "unknown" };
-	if (!SIGNAL_DEFINITIONS.find((d) => d.key === key)!.reaffirms) return { status: "does_not_expire" };
+	const definition = SIGNAL_DEFINITIONS.find((d) => d.key === key);
+	if (!definition) throw Error("unknown_signal");
+	if (!definition.reaffirms) return { status: "does_not_expire" };
 	return ageDays <= REAFFIRM_WINDOW_DAYS
 		? { status: "current", daysLeft: REAFFIRM_WINDOW_DAYS - ageDays }
 		: { status: "needs_renewing" };
