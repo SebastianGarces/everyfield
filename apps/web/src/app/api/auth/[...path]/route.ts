@@ -1,11 +1,11 @@
-import { identityHandler } from "@/server/identity";
+import { identityHandler, identityWrite } from "@/server/identity";
 export const maxDuration = 30;
 export {
-	identityHandler as DELETE,
+	identityWrite as DELETE,
 	identityHandler as GET,
 	identityHandler as HEAD,
 	identityHandler as OPTIONS,
-	identityHandler as PATCH,
-	identityHandler as POST,
-	identityHandler as PUT,
+	identityWrite as PATCH,
+	identityWrite as POST,
+	identityWrite as PUT,
 };
