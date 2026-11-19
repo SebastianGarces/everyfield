@@ -1,6 +1,6 @@
 import { documentsError, type DocumentsError, type DocumentsReply } from "@everyfield/contracts/documents";
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
+import { sql, type SQL } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -116,9 +116,11 @@ export async function readPlant(
 	db: Reader,
 	viewer: PlantViewer,
 	subject: { personId: string | null; meetingId: string | null; teamId: string | null },
-): Promise<PlantRead> {
+	extra: SQL = sql`NULL`,
+): Promise<PlantRead & { extra: unknown }> {
 	const found =
-		await db.execute(sql`SELECT a.access_live, q.subject_ok, q.church_name, q.pastor_name, q.launch_date, q.meeting, q.statement, q.kit
+		await db.execute(sql`SELECT a.access_live, q.subject_ok, q.church_name, q.pastor_name, q.launch_date, q.meeting, q.statement, q.kit,
+			${extra} AS extra
 		FROM (SELECT ${liveRead(viewer.access, false)} AND EXISTS(SELECT FROM live_session(${viewer.access.session}::uuid) s
 			WHERE s.registration_state='active' AND s.account_id=${viewer.accountId}::uuid) AS access_live) a
 		LEFT JOIN LATERAL (
@@ -156,11 +158,14 @@ export async function readPlant(
 				meeting?: unknown;
 				statement?: unknown;
 				kit?: Record<string, unknown> | null;
+				extra?: unknown;
 		  }
 		| undefined;
-	if (!row || row.access_live !== true) return { open: false };
-	if (row.subject_ok !== true) return { open: true, subjectOk: false };
+	const read = { extra: row?.extra ?? null };
+	if (!row || row.access_live !== true) return { ...read, open: false };
+	if (row.subject_ok !== true) return { ...read, open: true, subjectOk: false };
 	return {
+		...read,
 		open: true,
 		subjectOk: true,
 		churchName: asText(row.church_name),
