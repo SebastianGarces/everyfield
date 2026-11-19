@@ -8,7 +8,7 @@ import { githubConfig } from "@/server/jobs/github";
 import { getViewer } from "@/server/request-context";
 import type { PublicationSetup } from "./model.ts";
 import { operatorMailConfigured } from "./mail.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export { appVersion } from "../../server/app-version.ts";
 
@@ -28,15 +28,17 @@ export async function runAs<T>(
 	viewer: Awaited<ReturnType<typeof getViewer>>,
 	operation: Operation<T>,
 ): Promise<Run<T>> {
-	if (!viewer.authority) return { status: "signed_out" };
+	const authority = viewer.authority;
+	if (!authority) return { status: "signed_out" };
 	const db = requestDatabase();
-	try {
-		const reply = await operation(db, viewer.authority);
-		return reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
-	} catch (error) {
-		logFailure({ component: "feedback", outcome: "failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "feedback", outcome: "failed" },
+		async () => {
+			const reply = await operation(db, authority);
+			return reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
+		},
+		LOST,
+	);
 }
 
 export { feedbackWriter };

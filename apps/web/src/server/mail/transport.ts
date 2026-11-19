@@ -13,6 +13,8 @@ import type { Database } from "@everyfield/db/client";
 import { isTestDeployment } from "@everyfield/db/deployment";
 import { capture, captured, changeCaptured, isCaptureId } from "./capture.ts";
 import { settleCaptured } from "./settle.ts";
+import { parseJson } from "../platform/json.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 const batchBody = z.object({
 	data: z.array(z.object({ id: z.string().min(1).max(128).optional() })).max(MAIL_BATCH_LIMIT),
@@ -67,7 +69,8 @@ async function loadDomains(apiKey: string): Promise<DomainList> {
 				parsed.data.data.filter((row) => row.status === "verified").map((row) => row.name.toLowerCase()),
 			),
 		};
-	} catch {
+	} catch (error) {
+		logFailure({ component: "resend", outcome: "domains_failed" }, error);
 		return { failed: true };
 	}
 }
@@ -238,11 +241,12 @@ export function deliveryTransport(
 					: { method: "PATCH", signal, body: JSON.stringify({ scheduled_at: movedTo }) },
 			);
 			if (response.ok) {
-				const parsed = emailBody.pick({ id: true }).safeParse(await response.json().catch(() => null));
+				const parsed = emailBody.pick({ id: true }).safeParse(parseJson(await response.text()));
 				if (parsed.success && parsed.data.id === id) return "done";
 			} else await response.body?.cancel();
 			return await inspect(id, movedTo, signal);
-		} catch {
+		} catch (error) {
+			logFailure({ component: "resend", outcome: "change_failed" }, error);
 			return "unknown";
 		}
 	}
@@ -268,7 +272,8 @@ export function deliveryTransport(
 					capture({ from: ready.keys.from, ...message }, scheduledAt, `${key}/${JSON.stringify(message)}`),
 				),
 			);
-		} catch {
+		} catch (error) {
+			logFailure({ component: "mail", outcome: "capture_failed" }, error);
 			return { outcome: "unknown" };
 		}
 		const captureIds = captures.map((c) => c.id);
@@ -311,7 +316,8 @@ export function deliveryTransport(
 			let body: unknown;
 			try {
 				body = await response.json();
-			} catch {
+			} catch (error) {
+				logFailure({ component: "resend", outcome: "batch_body_failed" }, error);
 				return { outcome: "unknown" };
 			}
 			const parsed = batchBody.safeParse(body);

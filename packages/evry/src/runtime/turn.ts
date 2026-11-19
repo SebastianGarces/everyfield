@@ -24,6 +24,7 @@ import { liveRoom } from "./live.ts";
 import { modelTools, proposalForModel, refusalForModel, resultForModel } from "./tools.ts";
 import { meteredModel } from "./spend.ts";
 import { traced, traceTurn, type Claimed } from "./trace.ts";
+import { isTransient } from "@everyfield/domain/log";
 
 export type RunDeps = {
 	db: Database;
@@ -36,14 +37,6 @@ export type RunDeps = {
 const WITHHELD_TEXT = "[An earlier part of this answer used a source that is no longer available.]";
 
 export type RunOutcome = "succeeded" | "failed" | "lost";
-
-const TRANSIENT_SQL = new Set(["40001", "40P01", "08000", "08003", "08006", "57P01", "53300"]);
-const transientRead = (error: unknown) => {
-	const code =
-		(error as { code?: unknown; cause?: { code?: unknown } })?.code ??
-		(error as { cause?: { code?: unknown } })?.cause?.code;
-	return typeof code === "string" && (TRANSIENT_SQL.has(code) || code === "ECONNRESET" || code === "ETIMEDOUT");
-};
 
 export async function runTurn(deps: RunDeps, lease: RunLease, claimed?: Claimed): Promise<RunOutcome> {
 	const turn = await loadTurn(deps.db, lease);
@@ -261,7 +254,7 @@ async function run(
 				try {
 					result = await invokeRead(db, fresh, adapter, input, deps.native ?? null);
 				} catch (error) {
-					if (attempt < LIMITS.readRetries && transientRead(error)) continue;
+					if (attempt < LIMITS.readRetries && isTransient(error)) continue;
 					const still = await deps.freshActor(session).catch(() => null);
 					const lost = error instanceof EvryRefusal && error.code === "access_denied";
 					if (!lost && still && sameContext(still, fresh) && still.role === fresh.role)

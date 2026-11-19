@@ -7,7 +7,7 @@ import { createLaunchReader, type LaunchWriter } from "@everyfield/domain/launch
 import "server-only";
 import { launchMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type LaunchViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
 
@@ -26,29 +26,29 @@ const reader = createLaunchReader();
 export async function loadOffers(viewer: LaunchViewer): Promise<Outcome<GatheringOffer[]> | null> {
 	if (!administers(viewer)) return null;
 	const db = requestDatabase();
-	try {
-		return await reader.readGatheringOffers(db, viewer.authority);
-	} catch (error) {
-		logFailure({ component: "launch", outcome: "offers_read_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "launch", outcome: "offers_read_failed" },
+		() => reader.readGatheringOffers(db, viewer.authority),
+		LOST,
+	);
 }
 
 export async function loadPlan(viewer: LaunchViewer): Promise<Outcome<Plan>> {
 	const db = requestDatabase();
-	try {
-		const first = await reader.readPlan(db, viewer.authority);
-		if (first.status !== "ok") return first;
-		if (!first.value.repair || !administers(viewer)) return { status: "ok", value: first.value.plan };
-		const mount = launchMount();
-		const repaired = await mount.writer.ensureReadiness(mount.db, viewer.authority);
-		if (repaired.status !== "ok") return { status: "ok", value: first.value.plan };
-		const again = await reader.readPlan(db, viewer.authority);
-		return again.status === "ok" ? { status: "ok", value: again.value.plan } : again;
-	} catch (error) {
-		logFailure({ component: "launch", outcome: "read_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "launch", outcome: "read_failed" },
+		async () => {
+			const first = await reader.readPlan(db, viewer.authority);
+			if (first.status !== "ok") return first;
+			if (!first.value.repair || !administers(viewer)) return { status: "ok", value: first.value.plan };
+			const mount = launchMount();
+			const repaired = await mount.writer.ensureReadiness(mount.db, viewer.authority);
+			if (repaired.status !== "ok") return { status: "ok", value: first.value.plan };
+			const again = await reader.readPlan(db, viewer.authority);
+			return again.status === "ok" ? { status: "ok", value: again.value.plan } : again;
+		},
+		LOST,
+	);
 }
 
 const denied = () =>
@@ -72,12 +72,7 @@ export async function read<T>(
 ): Promise<Outcome<T>> {
 	if (!viewer) return denied();
 	const db = requestDatabase();
-	try {
-		return await run(reader, db, viewer.authority);
-	} catch (error) {
-		logFailure({ component: "launch", outcome: "read_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient({ component: "launch", outcome: "read_failed" }, () => run(reader, db, viewer.authority), LOST);
 }
 
 export async function write<T>(
@@ -86,10 +81,9 @@ export async function write<T>(
 	const viewer = await launchViewer();
 	if (!viewer) return denied();
 	const mount = launchMount();
-	try {
-		return await run(mount.writer, mount.db, viewer.authority);
-	} catch (error) {
-		logFailure({ component: "launch", outcome: "write_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "launch", outcome: "write_failed" },
+		() => run(mount.writer, mount.db, viewer.authority),
+		LOST,
+	);
 }
