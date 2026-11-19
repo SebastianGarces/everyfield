@@ -14,7 +14,7 @@ import { outcomeOf } from "@everyfield/contracts/common";
 import { HISTORY_PAGE } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
 import { tasksMount } from "./mount.ts";
-import { readTx, writeTx } from "../../server/platform/tx.ts";
+import { readTx, guardedWrite } from "../../server/platform/tx.ts";
 
 const administers = (v: Pick<PlantSeat, "role">) => v.role !== "member";
 
@@ -28,7 +28,7 @@ export async function write<T>(
 	run: (writer: TaskWriter, tx: WriteTx, context: TaskContext) => Promise<TaskReply<T>>,
 ): Promise<Outcome<T>> {
 	const mount = tasksMount();
-	return writeTx("tasks", async () =>
+	return guardedWrite("tasks", async () =>
 		outcome(await withTaskWrite(mount.db, viewer.authority, (tx, ctx) => run(mount.writer, tx, ctx))),
 	);
 }

@@ -1,4 +1,4 @@
-import { signIn } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { requestDatabase } from "@/server/database";
 import { Calendar03Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { meetingId as meetingIdSchema, rsvpToken } from "@everyfield/contracts/meetings";

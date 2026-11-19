@@ -25,7 +25,7 @@ import {
 	type ObligationPage,
 } from "./model.ts";
 import { transient } from "../../server/platform/transient.ts";
-import { writeTx } from "../../server/platform/tx.ts";
+import { guardedWrite } from "../../server/platform/tx.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
 
 export { COVERAGE_PAGE };
@@ -41,7 +41,7 @@ export async function write<T>(
 	const mount = tasksMount();
 	writer ??= createFollowUpWriter({ reminders: mount.reminders });
 	const w = writer;
-	return writeTx("followups", async () =>
+	return guardedWrite("followups", async () =>
 		outcomeOf(await withFollowUpWrite(mount.db, viewer.authority, (tx, ctx) => run(w, tx, ctx))),
 	);
 }
