@@ -21,7 +21,7 @@ class FakeElement {
 	submits = 0;
 	constructor(
 		readonly tag: string,
-		readonly attributes: Record<string, string> = {},
+		readonly attributes: Record<string, string | undefined> = {},
 	) {}
 	matches(selector: string) {
 		return selector.split(",").some((part) => matchesOne(this, part.trim()));
@@ -49,7 +49,7 @@ class FakeAnchor extends FakeElement {
 	get origin() {
 		return new URL(this.href).origin;
 	}
-	click() {
+	override click() {
 		super.click();
 		click(this);
 	}

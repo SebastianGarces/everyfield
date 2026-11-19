@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { instant } from "../../../packages/contracts/src/common/time.ts";
 import type { FeedItem } from "../../../apps/web/src/features/notifications/model.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -19,7 +20,7 @@ const base: FeedItem = {
 	category: "scheduled_email_unsubscribe",
 	title: "Ana Ruiz unsubscribed from a scheduled email",
 	body: null,
-	eligibleAt: "2026-11-11T15:00:00.000Z",
+	eligibleAt: instant.parse("2026-11-11T15:00:00.000Z"),
 	read: false,
 	dueLocalDate: null,
 	overdue: false,
