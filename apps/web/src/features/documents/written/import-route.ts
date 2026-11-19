@@ -7,14 +7,13 @@ import "server-only";
 import type { DocumentOutcome } from "../actions.ts";
 import { writtenView, type WrittenView } from "../model.ts";
 import { documentActor } from "../server.ts";
+import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const answer = (outcome: DocumentOutcome<WrittenView>) => Response.json(outcome, { headers: NO_STORE });
 const tooLarge = () => answer({ status: "refused", code: "invalid_input", problem: IMPORT_TOO_LARGE });
 
-export async function importRoute(request: Request) {
-	const site = request.headers.get("sec-fetch-site");
-	if (site !== null && site !== "same-origin") return new Response(null, { status: 403, headers: NO_STORE });
+export const importRoute = mutatingRoute(async function importRoute(request: Request) {
 	let bytes: Uint8Array | null;
 	try {
 		bytes = await readBoundedBody(request, IMPORT_BYTES_MAX);
@@ -52,4 +51,4 @@ export async function importRoute(request: Request) {
 		console.error(JSON.stringify({ component: "documents", outcome: "import_failed", error: String(error) }));
 		return answer({ status: "lost" });
 	}
-}
+});

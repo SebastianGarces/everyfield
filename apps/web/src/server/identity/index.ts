@@ -9,6 +9,7 @@ import { mailEnv } from "../mail-env.ts";
 import { createIdentityService, trustedIdentityIp, type IdentityConfig } from "@everyfield/domain/identity";
 import { invitationService } from "../invitations";
 import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
+import { mutatingRoute } from "../platform/boundary.ts";
 
 const env = z.object({
 	IDENTITY_DATABASE_URL: z.string().min(1),
@@ -118,3 +119,5 @@ export function requestAuth() {
 	if (!mount) throw Error("identity_unavailable");
 	return mount.auth;
 }
+
+export const identityWrite = mutatingRoute(identityHandler);
