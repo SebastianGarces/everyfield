@@ -8,7 +8,7 @@ type FeedbackProps = { open: boolean; onOpenChange: (open: boolean) => void; nam
 
 const feedback = lazyModule(() => import("./FeedbackDialog.tsx"));
 
-export const preloadFeedback = feedback.preload;
+export const whenFeedbackLoaded = feedback.whenLoaded;
 
 export function FeedbackOverlay(props: FeedbackProps) {
 	return (

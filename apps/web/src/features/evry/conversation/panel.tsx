@@ -22,8 +22,8 @@ export function useEvryPanel({ inPlant, off = false, context }: PanelProps & { o
 	return {
 		open,
 		toggle: () => {
-			panel.preload();
-			store.getState().actions.toggle();
+			if (store.getState().open) store.getState().actions.toggle();
+			else panel.whenLoaded(() => store.getState().actions.show(true));
 		},
 		element: off ? null : (
 			<Panel.Provider value={store}>

@@ -46,7 +46,12 @@
 		"nextjs/no-duplicate-head": "error",
 		"nextjs/no-head-import-in-document": "error",
 		"nextjs/no-script-component-in-head": "error",
-		"typescript/ban-ts-comment": ["error", { "ts-expect-error": true }],
+		"typescript/ban-ts-comment": [
+			"error",
+			{
+				"ts-expect-error": true
+			}
+		],
 		"typescript/no-duplicate-enum-values": "error",
 		"typescript/no-empty-object-type": "error",
 		"typescript/no-explicit-any": "error",
@@ -70,32 +75,27 @@
 		"everyfield/storage-client": "error",
 		"everyfield/max-state": "error",
 		"everyfield/no-sql-comments": "error",
-		"everyfield/no-error-message-match": "error"
-	},
-	"overrides": [
-		{
-			"files": ["src/features/shell/**"],
-			"rules": {
-				"no-restricted-imports": [
-					"error",
+		"everyfield/no-error-message-match": "error",
+		"no-restricted-imports": [
+			"error",
+			{
+				"patterns": [
 					{
-						"patterns": [
-							{
-								"group": [
-									"**/EvryPanel.tsx",
-									"**/SettingsDialog",
-									"**/SettingsDialog.tsx",
-									"**/FeedbackDialog.tsx",
-									"**/overlays.tsx"
-								],
-								"allowTypeImports": true,
-								"message": "The frame loads this overlay on first open through its feature's lazy entry (FeedbackOverlay, evry/conversation/panel, useProductSettings, wiki/chrome); a static import puts it in every product page's first load."
-							}
-						]
+						"group": [
+							"**/EvryPanel.tsx",
+							"**/SettingsDialog",
+							"**/SettingsDialog.tsx",
+							"**/FeedbackDialog.tsx",
+							"**/overlays.tsx"
+						],
+						"allowTypeImports": true,
+						"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
 					}
 				]
 			}
-		},
+		]
+	},
+	"overrides": [
 		{
 			"files": ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
 			"rules": {
@@ -1376,6 +1376,20 @@
 			"files": ["src/features/intelligence/**"],
 			"rules": {
 				"everyfield/private-care-scope": "off"
+			}
+		},
+		{
+			"files": [
+				"src/features/settings/ProductSettings.tsx",
+				"src/features/settings/sections/**",
+				"src/features/settings/brand/BrandSection.tsx",
+				"src/features/settings/preview/**",
+				"src/features/evry/conversation/panel.tsx",
+				"src/features/feedback/FeedbackOverlay.tsx",
+				"src/features/wiki/chrome.tsx"
+			],
+			"rules": {
+				"no-restricted-imports": "off"
 			}
 		}
 	]

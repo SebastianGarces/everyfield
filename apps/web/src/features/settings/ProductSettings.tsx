@@ -144,11 +144,12 @@ export function useProductSettings(viewer: SettingsViewer | null, seed: SectionS
 	}));
 
 	const navigate = (key: SectionKey | null) => {
-		if (key) {
-			dialog.preload();
-			if (!section) setUnderneath(currentAddress());
-			writeAddress(hrefFor(key));
-		} else if (underneath) {
+		if (key)
+			dialog.whenLoaded(() => {
+				if (!section) setUnderneath(currentAddress());
+				writeAddress(hrefFor(key));
+			});
+		else if (underneath) {
 			writeAddress(underneath);
 			refreshUnderneath();
 		} else router.push(viewer?.context === "plant" ? DASHBOARD_HOME : "/settings/sharing");

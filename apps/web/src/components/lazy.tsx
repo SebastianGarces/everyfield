@@ -4,26 +4,38 @@ import { Button, StatePanel } from "@everyfield/ui/controls";
 import { use, useReducer, useState, type ReactNode } from "react";
 
 type Loaded<M> = { status: "ready"; module: M } | { status: "failed" };
+type Loading<M> = Promise<Loaded<M>> & { status?: "fulfilled"; value?: Loaded<M> };
 
-export type LazyModule<M> = { preload: () => void; current: () => Promise<Loaded<M>> };
+export type LazyModule<M> = {
+	preload: () => void;
+	whenLoaded: (then: () => void) => void;
+	current: () => Promise<Loaded<M>>;
+};
 
 export function lazyModule<M>(load: () => Promise<M>): LazyModule<M> {
-	let loading: Promise<Loaded<M>> | null = null;
-	let failed = false;
+	let loading: Loading<M> | null = null;
 	const start = () => {
-		failed = false;
-		loading = load().then(
+		const attempt: Loading<M> = load().then(
 			(module): Loaded<M> => ({ status: "ready", module }),
-			(): Loaded<M> => {
-				failed = true;
-				return { status: "failed" };
-			},
+			(): Loaded<M> => ({ status: "failed" }),
 		);
-		return loading;
+		void attempt.then((value) => {
+			attempt.status = "fulfilled";
+			attempt.value = value;
+		});
+		loading = attempt;
+		return attempt;
+	};
+	const preload = () => {
+		if (!loading || loading.value?.status === "failed") start();
 	};
 	return {
-		preload: () => {
-			if (!loading || failed) start();
+		preload,
+		whenLoaded: (then) => {
+			preload();
+			const attempt = loading!;
+			if (attempt.status === "fulfilled") then();
+			else void attempt.then(then);
 		},
 		current: () => loading ?? start(),
 	};

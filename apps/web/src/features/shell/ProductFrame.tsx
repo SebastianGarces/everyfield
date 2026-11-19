@@ -8,7 +8,7 @@ import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useEvryPanel } from "../evry/conversation/panel.tsx";
-import { FeedbackOverlay, preloadFeedback } from "../feedback/FeedbackOverlay.tsx";
+import { FeedbackOverlay, whenFeedbackLoaded } from "../feedback/FeedbackOverlay.tsx";
 import { OwnSeat } from "../identity/seat-context.ts";
 import { evryOff } from "../intelligence/path.ts";
 import { useNotificationBell } from "../notifications/Bell.tsx";
@@ -116,8 +116,7 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 		label: "Send feedback",
 		icon: MessageEdit01Icon,
 		onSelect: () => {
-			preloadFeedback();
-			setFeedback(true);
+			whenFeedbackLoaded(() => setFeedback(true));
 		},
 	} as const;
 	const organization = settings?.context === "organization";
