@@ -2,6 +2,7 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { invokeRead } from "../../../../../packages/evry/src/index.ts";
+import * as values from "../../../../../packages/contracts/src/common/values.ts";
 import { EvryRefusal } from "../../../../../packages/evry/src/context/errors.ts";
 import {
 	exportPeople,
@@ -85,7 +86,7 @@ async function addHousehold(tenant: string, name: string) {
 	const id = randomUUID();
 	await admin.execute(sql`INSERT INTO household(id,plant_id,name,street,city,postal_code)
 		VALUES(${id},${tenant},${name},${STREET},'Oak Park',${POSTAL})`);
-	return id;
+	return values.recordId.parse(id);
 }
 
 test("AC:AC-EVR-143--EVR-143 AC:AC-EVR-READ--EVR-143 AC:TARGET-PPL-019 the pipeline and the export stay inside this church, hide contact values and use one fixed statement count", async () => {
@@ -231,12 +232,12 @@ test("AC:AC-EVR-113--EVR-113 AC:AC-EVR-READ--EVR-113 AC:AC-EVR-114--EVR-114 AC:A
 	hidden(both, [STREET, POSTAL, PERSON_STREET, EMAIL, PHONE, "Former Home"]);
 	const members = await invokeRead(db, member, getHouseholdMembers, { householdId: home });
 	assert.deepEqual(members, { ...both, operation: "people.getHouseholdMembers" });
-	const byPerson = await invokeRead(db, member, getHousehold, { personId: people.alexRivera });
+	const byPerson = await invokeRead(db, member, getHousehold, { personId: values.personId.parse(people.alexRivera) });
 	assert.deepEqual(
 		byPerson.rows.map((item) => item.id),
 		[home, people.alexRivera, sam],
 	);
-	assert.deepEqual(await invokeRead(db, member, getHousehold, { personId: people.casey }), {
+	assert.deepEqual(await invokeRead(db, member, getHousehold, { personId: values.personId.parse(people.casey) }), {
 		operation: "people.getHousehold",
 		status: "available",
 		rows: [],
@@ -247,7 +248,10 @@ test("AC:AC-EVR-113--EVR-113 AC:AC-EVR-READ--EVR-113 AC:AC-EVR-114--EVR-114 AC:A
 		exclusions: ["street", "postal code", "state", "country", "email", "phone"],
 	});
 	assert.equal((await invokeRead(db, member, getHousehold, { householdId: foreignHome })).status, "not_found");
-	assert.equal((await invokeRead(db, member, getHousehold, { householdId: randomUUID() })).status, "not_found");
+	assert.equal(
+		(await invokeRead(db, member, getHousehold, { householdId: values.recordId.parse(randomUUID()) })).status,
+		"not_found",
+	);
 	assert.equal((await invokeRead(db, await actor("foreign"), getHousehold, { householdId: home })).status, "not_found");
 
 	const page1 = queries.length;
@@ -447,13 +451,9 @@ test("AC:TARGET-PPL-018 AC:EVRY-FAMILY-PEOPLE-CORE a member can read the import 
 			["Row 3", "invalid", null],
 		],
 	);
-	assert.deepEqual(
-		preview.rows
-			.find((item) => item.label === "Row 3")
-			?.fields.problems?.split(",")
-			.sort(),
-		["invalid_email", "name_required"],
-	);
+	const problems = preview.rows.find((item) => item.label === "Row 3")?.fields.problems;
+	assert.ok(typeof problems === "string");
+	assert.deepEqual(problems.split(",").sort(), ["invalid_email", "name_required"]);
 	assert.deepEqual(
 		preview.rows.filter((item) => item.kind === "person").map((item) => [item.id, item.label, item.fields.match]),
 		[[people.alexRivera, "Alex Rivera", "exact"]],
@@ -501,14 +501,14 @@ test("INV-tenancy: a household read takes no lock a sign-out waits for, and the 
 	const session = (await admin.execute(sql`SELECT * FROM auth_session WHERE id=${accounts.owner.session}`)).rows[0]!;
 	try {
 		await gatedTransaction(db, async (tx) => {
-			assert.equal((await getHousehold.invoke(tx, owner, { householdId: home })).status, "available");
+			assert.equal((await getHousehold.invoke(tx, owner, { householdId: home }, null)).status, "available");
 			const started = performance.now();
 			await admin.transaction(async (signOut) => {
 				await signOut.execute(sql`SET LOCAL lock_timeout='2s'`);
 				await signOut.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`);
 			});
 			assert.ok(performance.now() - started < 2_000, "sign-out does not wait for the read");
-			assert.equal((await getHousehold.invoke(tx, owner, { householdId: home })).status, "not_found");
+			assert.equal((await getHousehold.invoke(tx, owner, { householdId: home }, null)).status, "not_found");
 		});
 	} finally {
 		await admin.execute(
