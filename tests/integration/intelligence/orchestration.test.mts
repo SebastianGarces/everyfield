@@ -18,6 +18,7 @@ import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/sc
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { ok } from "../../support/fixture.mts";
 import { church, type Church } from "./assessment-church.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const DAY = 86_400_000;
 let c0: Church;
@@ -123,7 +124,7 @@ test("a new committed adult publishes a new assessment dated after the change; t
 		{ key: "committedAdults.count", label: "Committed adults", before: 30, after: 31 },
 	);
 
-	const failed = await c0.db.transaction((t) =>
+	const failed = await gatedTransaction(c0.db, (t) =>
 		commitments.createCommitment(
 			t as never,
 			p.ctx as never,
@@ -135,7 +136,7 @@ test("a new committed adult publishes a new assessment dated after the change; t
 	);
 	assert.equal(failed.status, "refused");
 	const person = ok(
-		await c0.db.transaction((t) =>
+		await gatedTransaction(c0.db, (t) =>
 			peopleWriter.createPerson(
 				t as never,
 				p.ctx as never,
@@ -150,7 +151,7 @@ test("a new committed adult publishes a new assessment dated after the change; t
 	await drain();
 	const settled = (await runs(p)).length;
 	ok(
-		await c0.db.transaction((t) =>
+		await gatedTransaction(c0.db, (t) =>
 			peopleWriter.createPerson(
 				t as never,
 				p.ctx as never,
@@ -162,7 +163,7 @@ test("a new committed adult publishes a new assessment dated after the change; t
 		),
 	);
 	ok(
-		await c0.db.transaction((t) =>
+		await gatedTransaction(c0.db, (t) =>
 			peopleWriter.updatePerson(
 				t as never,
 				p.ctx as never,

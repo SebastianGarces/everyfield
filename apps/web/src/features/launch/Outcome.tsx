@@ -23,7 +23,8 @@ import {
 import { createDebouncer, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useRef, useState } from "react";
-import { addGuest, correctOutcome, recordOutcome, suggestGuests } from "./actions.ts";
+import { addGuest, correctOutcome, recordOutcome } from "./actions.ts";
+import { suggestGuests } from "./fetch.ts";
 import {
 	countText,
 	longDate,

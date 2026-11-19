@@ -17,6 +17,8 @@ import { readBoundedBody } from "@everyfield/domain/operations";
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES } from "./refusal.ts";
+import { logFailure } from "@everyfield/domain/log";
+import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 export type ChurchView = {
 	id: string;
@@ -47,8 +49,8 @@ export async function loadLibrary(
 ): Promise<
 	Load<{ documents: ChurchSummary[]; templates: DocTemplateSummary[]; churchTemplates: ChurchTemplateSummary[] }>
 > {
+	if (!hasPlantSeat(authority)) return { status: "refused" };
 	const db = requestDatabase();
-	if (!db || !hasPlantSeat(authority)) return db ? { status: "refused" } : { status: "failed" };
 	try {
 		const reply = await documentsWriter.listChurch(db, authority, {});
 		if (reply.status !== "ok") return { status: "refused" };
@@ -61,19 +63,18 @@ export async function loadLibrary(
 			},
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }
 
 export async function loadArchived(authority: RequestActor): Promise<Load<ArchivedChurchSummary[]>> {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		const reply = await documentsWriter.listArchivedChurch(db, authority, {});
 		return reply.status === "ok" ? { status: "ok", value: reply.value.documents } : { status: "refused" };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }
@@ -95,7 +96,6 @@ export async function loadChurchDocument(
 	| { status: "deleted" }
 > {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		const readOnly = () =>
 			documentsWriter
@@ -143,7 +143,7 @@ export async function loadChurchDocument(
 			},
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }
@@ -159,8 +159,8 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 	const format = url.searchParams.get("format") ?? "pdf";
 	const revision = url.searchParams.get("revision");
 	const actor = await documentActor();
+	if (!actor) return gone();
 	const db = requestDatabase();
-	if (!actor || !db) return gone();
 	try {
 		const reply = await documentsWriter.readChurchFile(
 			db,
@@ -180,7 +180,7 @@ export async function churchFileRoute(request: Request, { params }: { params: Pr
 			},
 		});
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "file_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "file_failed" }, error);
 		return gone(500);
 	}
 }
@@ -194,8 +194,8 @@ export async function savedExportRoute(
 	const exportId = recordId.safeParse(raw.exportId);
 	if (!documentId.success || !exportId.success) return gone();
 	const actor = await documentActor();
+	if (!actor) return gone();
 	const db = requestDatabase();
-	if (!actor || !db) return gone();
 	try {
 		const reply = await documentsWriter.readExportFile(
 			db,
@@ -221,9 +221,7 @@ export async function savedExportRoute(
 			},
 		});
 	} catch (error) {
-		console.error(
-			JSON.stringify({ component: "church-documents", outcome: "export_file_failed", error: String(error) }),
-		);
+		logFailure({ component: "church-documents", outcome: "export_file_failed" }, error);
 		return gone(500);
 	}
 }
@@ -233,9 +231,10 @@ export type ExportResult =
 const BODY_MAX = 4 * 1024;
 const answer = (result: ExportResult) => Response.json(result, { headers: NO_STORE });
 
-export async function saveExportRoute(request: Request, { params }: { params: Promise<{ documentId: string }> }) {
-	const site = request.headers.get("sec-fetch-site");
-	if (site !== null && site !== "same-origin") return gone(403);
+export const saveExportRoute = mutatingRoute(async function saveExportRoute(
+	request: Request,
+	{ params }: { params: Promise<{ documentId: string }> },
+) {
 	const bytes = await readBoundedBody(request, BODY_MAX).catch(() => null);
 	if (!bytes) return answer(refused("invalid_input"));
 	const documentId = recordId.safeParse((await params).documentId);
@@ -248,8 +247,8 @@ export async function saveExportRoute(request: Request, { params }: { params: Pr
 	if (!body || typeof body.revision !== "string" || !/^[0-9]{1,7}$/.test(body.revision))
 		return answer(refused("invalid_input"));
 	const [actor, viewer] = await Promise.all([documentActor(), getViewer()]);
+	if (!actor) return answer({ status: "lost" });
 	const db = requestDatabase();
-	if (!actor || !db) return answer({ status: "lost" });
 	try {
 		const reply = await documentsWriter.exportNative(
 			db,
@@ -272,17 +271,17 @@ export async function saveExportRoute(request: Request, { params }: { params: Pr
 				revision: done.source?.revision ?? Number(body.revision),
 				format: done.format,
 				generatedAt: done.generatedAt,
-				creatorName: viewer?.displayName || null,
+				creatorName: viewer.displayName || null,
 				digest: done.digest,
 				byteCount: done.byteCount,
 				downloadName: done.downloadName,
 			},
 		});
 	} catch (error) {
-		console.error(JSON.stringify({ component: "church-documents", outcome: "export_failed", error: String(error) }));
+		logFailure({ component: "church-documents", outcome: "export_failed" }, error);
 		return answer({ status: "lost" });
 	}
-}
+});
 
 function refused(code: string): ExportResult {
 	return { status: "refused", message: EXPORT_MESSAGES[code] ?? EXPORT_MESSAGES.unavailable! };

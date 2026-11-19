@@ -6,10 +6,10 @@ import "server-only";
 import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
 import type { ProgramAnswer } from "../organizations/programs/mount";
+import { logFailure } from "@everyfield/domain/log";
 
 export async function residentActor(): Promise<RequestActor | "signed_out" | null> {
 	const v = await getViewer();
-	if (!v) return null;
 	if (v.status === "unauthenticated") return "signed_out";
 	return v.status === "active" && v.authority ? v.authority : null;
 }
@@ -25,11 +25,10 @@ export async function residentCall<T>(
 		actor = who;
 	}
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await run(db, actor);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "residency", outcome: "failed", error: String(error) }));
+		logFailure({ component: "residency", outcome: "failed" }, error);
 		return { status: "lost" };
 	}
 }

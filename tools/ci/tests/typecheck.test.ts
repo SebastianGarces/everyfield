@@ -200,18 +200,22 @@ test("INV-typecheck: a failing typecheck:tools fails the run after every package
 	}
 });
 
-test("INV-typecheck: pnpm typecheck runs tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch", () => {
-	assert.equal(rootPkg.scripts["typecheck:tools"], "node_modules/typescript-7/bin/tsc -p tsconfig.tools.json");
-	const listed = spawnSync(
-		join(repo, "node_modules/typescript-7/bin/tsc"),
-		["-p", "tsconfig.tools.json", "--listFilesOnly"],
-		{
+test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch, and the own tsconfig.json of each typechecked tests folder", () => {
+	const projects = [
+		"tsconfig.tools.json",
+		"tests/unit/tsconfig.json",
+		"tests/ui/tsconfig.json",
+		"tests/evry/tsconfig.json",
+	];
+	assert.equal(rootPkg.scripts["typecheck:tools"], `node_modules/typescript-7/bin/tsc -b ${projects.join(" ")}`);
+	const files = projects.flatMap((project) => {
+		const listed = spawnSync(join(repo, "node_modules/typescript-7/bin/tsc"), ["-p", project, "--listFilesOnly"], {
 			cwd: repo,
 			encoding: "utf8",
-		},
-	);
-	assert.equal(listed.status, 0, listed.stderr);
-	const files = listed.stdout.split("\n").map((file) => file.trim().slice(repo.length + 1));
+		});
+		assert.equal(listed.status, 0, listed.stderr);
+		return listed.stdout.split("\n").map((file) => file.trim().slice(repo.length + 1));
+	});
 	for (const file of [
 		"scripts/fast-check.ts",
 		"tools/ci/typecheck.ts",
@@ -220,6 +224,9 @@ test("INV-typecheck: pnpm typecheck runs tsconfig.tools.json over scripts, tools
 		"tools/qa/tests/qa.test.ts",
 		"ops/actionable-watch/run.mts",
 		"ops/actionable-watch/test/run.test.mts",
+		"tests/unit/client/read.test.mts",
+		"tests/ui/people/seed.mts",
+		"tests/evry/runtime/runs.test.mts",
 	])
 		assert.ok(files.includes(file), `${file} is in the tools program`);
 });

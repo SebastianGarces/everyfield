@@ -4,6 +4,7 @@ import { getViewer } from "@/server/request-context";
 import { meetingId as meetingIdSchema } from "@everyfield/contracts/meetings";
 import { documentsReader } from "@everyfield/domain/documents";
 import { NextResponse } from "next/server";
+import { logFailure } from "@everyfield/domain/log";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const missing = () =>
@@ -12,15 +13,14 @@ const missing = () =>
 export async function agendaRoute(request: Request, context: { params: Promise<{ meetingId: string }> }) {
 	const raw = (await context.params).meetingId;
 	const viewer = await getViewer();
-	if (!viewer || viewer.status === "unauthenticated") {
+	if (viewer.status === "unauthenticated") {
 		const signin = new URL("/signin", request.url);
 		signin.searchParams.set("returnTo", `/meetings/${encodeURIComponent(raw)}/agenda`);
 		return NextResponse.redirect(signin);
 	}
 	const id = meetingIdSchema.safeParse(raw);
-	const db = requestDatabase();
 	if (!id.success || viewer.status !== "active" || !viewer.authority) return missing();
-	if (!db) return new Response("Try again in a moment.", { status: 503, headers: NO_STORE });
+	const db = requestDatabase();
 	try {
 		const reply = await documentsReader.printAgenda(db, viewer.authority, { meetingId: id.data });
 		if (reply.status === "refused") return reply.error.code === "render_failed" ? failed() : missing();
@@ -33,7 +33,7 @@ export async function agendaRoute(request: Request, context: { params: Promise<{
 			},
 		});
 	} catch (error) {
-		console.error(JSON.stringify({ component: "documents", outcome: "agenda_print_failed", error: String(error) }));
+		logFailure({ component: "documents", outcome: "agenda_print_failed" }, error);
 		return failed();
 	}
 }

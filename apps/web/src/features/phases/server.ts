@@ -9,6 +9,7 @@ import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@ever
 import "server-only";
 import { phasesMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type PhaseViewer = {
 	authority: RequestActor;
@@ -19,7 +20,7 @@ type PhaseViewer = {
 
 export async function phaseViewer(): Promise<PhaseViewer | null> {
 	const v = await getViewer();
-	const authority = v?.authority;
+	const authority = v.authority;
 	if (!authority) return null;
 	const ctx = authority.actor.context;
 	if (ctx.kind !== "seat" || ctx.owner.kind !== "plant") return null;
@@ -32,7 +33,6 @@ const launch = createLaunchReader();
 
 export async function loadJourney(viewer: PhaseViewer) {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" } as const;
 	try {
 		const [history, catalog, measured, journal] = await Promise.all([
 			phaseReader.readHistory(db, viewer.authority),
@@ -50,7 +50,7 @@ export async function loadJourney(viewer: PhaseViewer) {
 			value: { history: history.value, catalog, readiness, facts: measured.value, launchDates },
 		} as const;
 	} catch (error) {
-		console.error(JSON.stringify({ component: "phases", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "phases", outcome: "read_failed" }, error);
 		return { status: "lost" } as const;
 	}
 }
@@ -61,11 +61,10 @@ export async function write<T>(
 	const viewer = await phaseViewer();
 	if (!viewer) return { status: "refused", error: denied() };
 	const mount = phasesMount();
-	if (!mount) return { status: "lost" };
 	try {
 		return await run(mount.writer, mount.db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "phases", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "phases", outcome: "write_failed" }, error);
 		return { status: "lost" };
 	}
 }

@@ -1,4 +1,5 @@
 import { requestDatabase } from "@/server/database";
+import { serverEnv } from "@/server/config";
 import { getViewer } from "@/server/request-context";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
@@ -6,26 +7,26 @@ import { createNotificationProducer, parseKeyRing } from "@everyfield/domain/not
 import { randomBytes } from "node:crypto";
 import "server-only";
 import { stamped, type FeedPage, type FeedQuery, type Outcome, type Reply } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type Producer = ReturnType<typeof createNotificationProducer>;
 export type Mount = { db: Database; producer: Producer; optOut: boolean };
 
-let slot: { url: string; mount: Mount } | undefined;
+let mount: Mount | undefined;
 
-export function notificationsMount(): Mount | null {
-	const db = requestDatabase();
-	const url = process.env.IDENTITY_DATABASE_URL;
-	if (!db || !url) return null;
-	if (slot?.url !== url) {
-		const ring = parseKeyRing(process.env.NOTIFICATION_OPT_OUT_KEYS);
+export const optOutReady = (): boolean => parseKeyRing(serverEnv().NOTIFICATION_OPT_OUT_KEYS) !== null;
+
+export function notificationsMount(): Mount {
+	if (!mount) {
+		const ring = parseKeyRing(serverEnv().NOTIFICATION_OPT_OUT_KEYS);
 		const producer = createNotificationProducer({ optOutKeys: ring ?? { current: randomBytes(32) } });
-		slot = { url, mount: { db, producer, optOut: ring !== null } };
+		mount = { db: requestDatabase(), producer, optOut: ring !== null };
 	}
-	return slot.mount;
+	return mount;
 }
 
 export async function notificationActor(): Promise<RequestActor | null> {
-	return (await getViewer())?.authority ?? null;
+	return (await getViewer()).authority ?? null;
 }
 
 const outcome = <T>(reply: Reply<T>): Outcome<T> =>
@@ -33,11 +34,10 @@ const outcome = <T>(reply: Reply<T>): Outcome<T> =>
 
 export async function call<T>(run: (m: Mount) => Promise<Reply<T>>): Promise<Outcome<T>> {
 	const mount = notificationsMount();
-	if (!mount) return { status: "lost" };
 	try {
 		return outcome(await run(mount));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "notifications", outcome: "failed", error: String(error) }));
+		logFailure({ component: "notifications", outcome: "failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -49,5 +49,5 @@ export async function loadFeedPage(actor: RequestActor, query: FeedQuery): Promi
 			...(query.unread ? { unread: true } : {}),
 		}),
 	);
-	return stamped(page);
+	return stamped(page, Date.now());
 }

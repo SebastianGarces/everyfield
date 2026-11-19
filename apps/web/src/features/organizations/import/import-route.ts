@@ -4,6 +4,8 @@ import { pipelineActor } from "../pipeline-mount";
 import { pipelineImportLimits } from "@everyfield/contracts/organizations";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
+import { logFailure } from "@everyfield/domain/log";
+import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const reply = (body: unknown) => Response.json(body, { headers: NO_STORE });
@@ -11,13 +13,10 @@ const tooLarge = () => reply({ status: "refused", refusal: { code: "file_refused
 const BODY_MAX = pipelineImportLimits.bytes + 256 * 1024;
 
 async function handle(request: Request, step: "preview" | "save") {
-	const site = request.headers.get("sec-fetch-site");
-	if (site !== null && site !== "same-origin") return new Response(null, { status: 403, headers: NO_STORE });
 	if (Number(request.headers.get("content-length") ?? 0) > BODY_MAX) return tooLarge();
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return reply({ status: "refused", refusal: { code: "unavailable" } });
 	const db = requestDatabase();
-	if (!db) return reply({ status: "lost" });
 	let input: Record<string, unknown>;
 	try {
 		const bytes = await readBoundedBody(request, BODY_MAX);
@@ -40,10 +39,10 @@ async function handle(request: Request, step: "preview" | "save") {
 				: await pipelineImportWriter.importPeople(db, who.authority, input),
 		);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "pipeline", outcome: `import_${step}_failed`, error: String(error) }));
+		logFailure({ component: "pipeline", outcome: `import_${step}_failed` }, error);
 		return reply({ status: "lost" });
 	}
 }
 
-export const previewRoute = (request: Request) => handle(request, "preview");
-export const saveRoute = (request: Request) => handle(request, "save");
+export const previewRoute = mutatingRoute((request: Request) => handle(request, "preview"));
+export const saveRoute = mutatingRoute((request: Request) => handle(request, "save"));

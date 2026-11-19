@@ -12,19 +12,12 @@ import {
 import { z } from "zod";
 import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../../../components/save/model.ts";
-import { read, write } from "../server.ts";
+import { write } from "../server.ts";
 import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "../fields/server.ts";
-import type {
-	Assessment,
-	Assessments,
-	Commitment,
-	Commitments,
-	CommitmentStatus,
-	Interview,
-	Interviews,
-} from "./model.ts";
+import type { Assessment, Commitment, Commitments, CommitmentStatus, Interview } from "./model.ts";
 import { HISTORY_PAGE } from "./server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type RecordedPerson = z.infer<typeof c.recordedPerson>;
 export type AssessmentSaved = { assessment: Assessment; person: RecordedPerson; receipt: Receipt };
@@ -39,8 +32,8 @@ export type LifecycleSaved = { current: CommitmentStatus; receipt: Receipt };
 export type CorrectionSaved = { commitments: Commitments; receipt: Receipt };
 
 export async function recordAssessment(requestKey: string, input: unknown): Promise<Outcome<AssessmentSaved>> {
-	return boundary(c.createAssessmentRequest, { requestKey, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => assessments.createAssessment(tx, ctx, request)), (r) => ({
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => assessments.createAssessment(tx, ctx, { requestKey, input })), (r) => ({
 			assessment: r.assessment,
 			person: r.person,
 			receipt: receipt(r),
@@ -49,8 +42,8 @@ export async function recordAssessment(requestKey: string, input: unknown): Prom
 }
 
 export async function recordInterview(requestKey: string, input: unknown): Promise<Outcome<InterviewSaved>> {
-	return boundary(c.createInterviewRequest, { requestKey, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => interviews.createInterview(tx, ctx, request)), (r) => ({
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => interviews.createInterview(tx, ctx, { requestKey, input })), (r) => ({
 			interview: r.interview,
 			person: r.person,
 			receipt: receipt(r),
@@ -59,8 +52,8 @@ export async function recordInterview(requestKey: string, input: unknown): Promi
 }
 
 export async function recordCommitment(requestKey: string, input: unknown): Promise<Outcome<CommitmentSaved>> {
-	return boundary(c.createCommitmentRequest, { requestKey, input }, async (v, request) =>
-		outcome(await write(v, (tx, ctx) => commitments.createCommitment(tx, ctx, request)), (r) => ({
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => commitments.createCommitment(tx, ctx, { requestKey, input })), (r) => ({
 			commitment: r.commitment,
 			person: r.person,
 			current: r.current,
@@ -72,16 +65,16 @@ export async function recordCommitment(requestKey: string, input: unknown): Prom
 export async function signCommitmentUpload(
 	input: unknown,
 ): Promise<Outcome<z.infer<typeof c.commitmentDocumentUpload>>> {
-	return boundary(c.signCommitmentDocumentRequest, input, async (v, request) => {
+	return boundary(async (v) => {
 		const storage = privateStorage();
+		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const db = requestDatabase();
-		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
 		const signed = await signCommitmentDocument(
 			db,
 			storage,
 			peopleContext(v),
 			v.authority.actor.accountId,
-			request,
+			input,
 		).catch(lost);
 		return outcome(signed, (r) => r);
 	});
@@ -91,11 +84,11 @@ export async function saveCommitmentWithDocument(
 	requestKey: string,
 	input: unknown,
 ): Promise<Outcome<CommitmentSaved>> {
-	return boundary(c.saveCommitmentDocumentRequest, { requestKey, input }, async (v, request) => {
+	return boundary(async (v) => {
 		const storage = privateStorage();
+		if (!storage) return { status: "refused", code: "storage_unavailable" };
 		const db = requestDatabase();
-		if (!storage || !db) return { status: "refused", code: "storage_unavailable" };
-		const saved = await saveCommitmentDocument(db, storage, v.authority, request).catch(lost);
+		const saved = await saveCommitmentDocument(db, storage, v.authority, { requestKey, input }).catch(lost);
 		return outcome(saved, (r) => ({
 			commitment: r.commitment,
 			person: r.person,
@@ -105,26 +98,28 @@ export async function saveCommitmentWithDocument(
 	});
 }
 const lost = (error: unknown) => {
-	console.error(JSON.stringify({ component: "people", outcome: "write_failed", error: String(error) }));
+	logFailure({ component: "people", outcome: "write_failed" }, error);
 	return { status: "failed" } as const;
 };
 
 export async function changeCommitment(
-	change: "withdraw" | "reactivate",
+	change: unknown,
 	requestKey: string,
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<LifecycleSaved>> {
-	const schema = change === "withdraw" ? c.withdrawCommitmentRequest : c.reactivateCommitmentRequest;
-	return boundary(schema, { requestKey, expectedRevision, input }, async (v, request) =>
-		outcome(
-			await write(v, (tx, ctx) =>
-				change === "withdraw"
-					? commitments.withdrawCommitment(tx, ctx, request)
-					: commitments.reactivateCommitment(tx, ctx, request),
-			),
-			(r) => ({ current: r.current, receipt: receipt(r) }),
-		),
+	const run =
+		change === "withdraw"
+			? commitments.withdrawCommitment
+			: change === "reactivate"
+				? commitments.reactivateCommitment
+				: null;
+	if (!run) return invalid;
+	return boundary(async (v) =>
+		outcome(await write(v, (tx, ctx) => run(tx, ctx, { requestKey, expectedRevision, input })), (r) => ({
+			current: r.current,
+			receipt: receipt(r),
+		})),
 	);
 }
 
@@ -136,10 +131,10 @@ export async function correctCommitment(
 ): Promise<Outcome<CorrectionSaved>> {
 	const person = c.personRequest.safeParse({ personId });
 	if (!person.success) return invalid;
-	return boundary(c.correctCommitmentRequest, { requestKey, expectedRevision, input }, async (v, request) =>
+	return boundary(async (v) =>
 		outcome(
 			await write(v, async (tx, ctx) => {
-				const done = await commitments.correctCommitmentLifecycle(tx, ctx, request);
+				const done = await commitments.correctCommitmentLifecycle(tx, ctx, { requestKey, expectedRevision, input });
 				if (done.status !== "ok") return done;
 				const page = { personId: person.data.personId, limit: HISTORY_PAGE, page: 1 };
 				const now = await commitments.getCommitments(tx, ctx, page);
@@ -149,21 +144,5 @@ export async function correctCommitment(
 			}),
 			(r) => r,
 		),
-	);
-}
-
-export async function loadAssessments(personId: string, page: number): Promise<Outcome<Assessments>> {
-	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => assessments.getAssessments(tx, ctx, request)), (r) => r),
-	);
-}
-export async function loadInterviews(personId: string, page: number): Promise<Outcome<Interviews>> {
-	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => interviews.getInterviews(tx, ctx, request)), (r) => r),
-	);
-}
-export async function loadCommitments(personId: string, page: number): Promise<Outcome<Commitments>> {
-	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => commitments.getCommitments(tx, ctx, request)), (r) => r),
 	);
 }

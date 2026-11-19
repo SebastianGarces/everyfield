@@ -1,13 +1,13 @@
 import "server-only";
+import { asLogId, logFailure, logLine, type LogWord } from "@everyfield/domain/log";
 import { owner, sessionId, type Owner } from "@everyfield/contracts/common";
 import { sectionResult, settingsError, type SettingsError } from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import type { SettingsReply } from "@everyfield/contracts/settings/server";
-import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull } from "@everyfield/db/query";
 import { privateStorage, StorageError } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
-import type { RequestActor } from "@everyfield/domain/access";
+import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 import { personalCalendar } from "@everyfield/domain/intelligence";
 import { trustedIdentityIp } from "@everyfield/domain/identity";
 import {
@@ -26,37 +26,32 @@ import { cookies, headers } from "next/headers";
 import { after } from "next/server";
 import { createHmac, randomUUID } from "node:crypto";
 import { z } from "zod";
-import { mailEnv } from "../../server/mail-env.ts";
+import { serverConfig, serverEnv, type ServerConfig } from "../../server/config.ts";
 import { database } from "../../server/database.ts";
 import { enqueueJob, queueJobs } from "../../server/jobs/queue.ts";
 import { current as organizationMount } from "../organizations/mount.ts";
 import { getViewer } from "../../server/request-context.ts";
 import { settingsMail } from "./mail.ts";
 import type { SettingsViewer } from "./port.ts";
+import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
-type Viewer = NonNullable<Awaited<ReturnType<typeof getViewer>>>;
+type Viewer = Awaited<ReturnType<typeof getViewer>>;
 type Signed = SectionViewer & { accountId: string };
-type Mount = NonNullable<ReturnType<typeof create>>;
+type Mount = ReturnType<typeof create>;
 type Context = { session: RequestActor["session"]; selected: Owner };
 
-const env = z.object({
-	IDENTITY_AUTH_DATABASE_URL: z.string().min(1),
-	IDENTITY_ORIGIN: z.url(),
-	IDENTITY_SECRET: z.string().min(32),
-	...mailEnv,
-});
 let mount: ReturnType<typeof create> | undefined;
-function create(v: z.infer<typeof env>) {
+function create(v: ServerConfig) {
 	const organizations = organizationMount();
 	const mail = settingsMail();
-	if (!organizations || !mail) return null;
 	const db = organizations.db,
 		origin = v.IDENTITY_ORIGIN,
 		addressKey = Buffer.from(v.IDENTITY_ADDRESS_KEY, "hex");
 	const addressHash = (address: string) =>
 		createHmac("sha256", addressKey).update(address.trim().toLowerCase()).digest("hex");
 	const effects = {
-		replan: (tx: Transaction, i: { owner: Owner; revision: string; operationId: string; kind: string }) =>
+		replan: (tx: WriteTx, i: { owner: Owner; revision: string; operationId: string; kind: string }) =>
 			enqueueJob(tx, {
 				tenant: i.owner.id,
 				kind: "digest",
@@ -118,7 +113,7 @@ function create(v: z.infer<typeof env>) {
 			const viewer = await signedIn();
 			return {
 				request,
-				trustedIp: trustedIdentityIp(request, process.env.VERCEL === "1"),
+				trustedIp: trustedIdentityIp(request, trustsVercelForwardedFor(serverEnv())),
 				viewer: viewer && {
 					accountId: viewer.accountId,
 					email: viewer.principal.email,
@@ -127,6 +122,7 @@ function create(v: z.infer<typeof env>) {
 			};
 		},
 		later: after,
+		diagnostic: (value) => logLine({ component: "settings", ...value, correlationId: asLogId(value.correlationId) }),
 		async responseCookies(_ctx, list) {
 			const jar = await cookies();
 			for (const cookie of list.map(parseSetCookie)) if (cookie) jar.set(cookie);
@@ -145,9 +141,7 @@ function create(v: z.infer<typeof env>) {
 	};
 }
 function settingsMount() {
-	const v = env.safeParse(process.env);
-	if (!v.success) return null;
-	mount ??= create(v.data);
+	mount ??= create(serverConfig());
 	return mount;
 }
 
@@ -190,7 +184,6 @@ function parseSetCookie(header: string) {
 
 export function settingsCommands() {
 	const ops = settingsMount();
-	if (!ops) return null;
 	return {
 		settings: {
 			updatePlantProfile: ops.sections.updatePlantProfile,
@@ -202,8 +195,8 @@ export function settingsCommands() {
 	};
 }
 
-export function settingsViewerOf(v: Viewer | null): SettingsViewer | null {
-	const authority = v?.authority;
+export function settingsViewerOf(v: Viewer): SettingsViewer | null {
+	const authority = v.authority;
 	if (!authority || v.status !== "active") return null;
 	const context = authority.actor.context;
 	if (context.kind !== "seat") return { context: "account", accountId: v.accountId };
@@ -227,14 +220,17 @@ function refusal(code: keyof typeof RETRY): { status: "refused"; error: Settings
 	};
 }
 
-export async function readSection(raw: unknown): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
-	const viewer = await signedIn();
+export async function readSection(
+	session: Session,
+	raw: unknown,
+): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
+	const viewer = signedAs(session);
+	if (!viewer) return refusal("access_denied");
 	const ops = settingsMount();
-	if (!viewer || !ops) return refusal("access_denied");
 	try {
 		return await ops.sections.getSection(ops.db, viewer, raw);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "read_failed" }, error);
 		return refusal("temporary");
 	}
 }
@@ -243,20 +239,20 @@ export async function run<S extends z.ZodType, T>(
 	schema: S,
 	raw: unknown,
 	section: (input: z.output<S>) => string,
-	operation: (ops: Mount, tx: Transaction, context: Context, input: z.output<S>) => Promise<SettingsReply<T>>,
+	operation: (ops: Mount, tx: WriteTx, context: Context, input: z.output<S>) => Promise<SettingsReply<T>>,
 ): Promise<SettingsReply<T>> {
 	const viewer = await signedIn();
-	const ops = settingsMount();
-	if (!viewer || !ops) return refusal("access_denied");
+	if (!viewer) return refusal("access_denied");
 	const input = schema.safeParse(raw);
 	if (!input.success) return refusal("invalid_input");
 	const self = ["account", "notifications"].includes(section(input.data));
 	const selected = self ? owner.parse({ kind: "account", id: viewer.accountId }) : viewer.authority.actor.context.owner;
 	const context = { session: viewer.authority.session, selected };
+	const ops = settingsMount();
 	try {
 		return await withSettingsWrite(ops.db, viewer.authority, context, (tx) => operation(ops, tx, context, input.data));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "write_failed" }, error);
 		return refusal("unknown");
 	}
 }
@@ -267,10 +263,10 @@ export async function credential<S extends z.ZodType, T>(
 	operation: (ops: Mount["credentials"], context: Context, input: z.output<S>) => Promise<T>,
 ): Promise<T | { status: "refused"; error: SettingsError }> {
 	const viewer = await signedIn();
-	const ops = settingsMount();
-	if (!viewer || !ops) return refusal("access_denied");
+	if (!viewer) return refusal("access_denied");
 	const input = schema.safeParse(raw);
 	if (!input.success) return refusal("invalid_input");
+	const ops = settingsMount();
 	const context = {
 		session: viewer.authority.session,
 		selected: owner.parse({ kind: "account", id: viewer.accountId }),
@@ -278,15 +274,16 @@ export async function credential<S extends z.ZodType, T>(
 	try {
 		return await operation(ops.credentials, context, input.data);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "credential_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "credential_failed" }, error);
 		return refusal("unknown");
 	}
 }
 
 export async function storeAvatarBytes(accountId: string, uploadId: string, bytes: Uint8Array) {
 	const viewer = await signedIn();
+	if (!viewer || viewer.accountId !== accountId) return "unavailable" as const;
 	const ops = settingsMount();
-	if (!viewer || !ops?.storage || viewer.accountId !== accountId) return "unavailable" as const;
+	if (!ops.storage) return "unavailable" as const;
 	const context = { session: viewer.authority.session, selected: owner.parse({ kind: "account", id: accountId }) };
 	try {
 		await uploadAvatar(ops.db, ops.storage, context, { uploadId, bytes });
@@ -297,15 +294,16 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 			(error instanceof StorageError && error.code === "invalid_avatar")
 		)
 			return "invalid" as const;
-		console.error(JSON.stringify({ component: "settings", outcome: "avatar_upload_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "avatar_upload_failed" }, error);
 		return "unavailable" as const;
 	}
 }
 
 export async function avatarBytes(accountId: string, versionId: string) {
 	const viewer = await signedIn();
+	if (!viewer) return null;
 	const ops = settingsMount();
-	if (!viewer || !ops?.storage) return null;
+	if (!ops.storage) return null;
 	const context = {
 		session: viewer.authority.session,
 		selected: owner.parse({ kind: "account", id: viewer.accountId }),
@@ -327,13 +325,12 @@ type Restricted = z.infer<typeof restrictedCookie>;
 
 export async function openRestrictedDeletion(kind: "account" | "plant", raw: unknown) {
 	const ops = settingsMount();
-	if (!ops) return refusal("access_denied");
 	const request = new Request(`${ops.origin}/`, { headers: await headers() });
-	const ip = trustedIdentityIp(request, process.env.VERCEL === "1");
+	const ip = trustedIdentityIp(request, trustsVercelForwardedFor(serverEnv()));
 	const opened = await (
 		kind === "account" ? ops.credentials.openAccountDeletion(raw, ip) : ops.credentials.openWorkspaceDeletion(raw, ip)
 	).catch((error) => {
-		console.error(JSON.stringify({ component: "settings", outcome: "restricted_open_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "restricted_open_failed" }, error);
 		return { status: "refused" as const, code: "unknown" as const };
 	});
 	if (opened.status === "refused")
@@ -370,13 +367,13 @@ async function restricted(kind: "account" | "plant"): Promise<Restricted | null>
 }
 
 export async function restrictedStatus(kind: "account" | "plant") {
-	const ops = settingsMount(),
-		session = await restricted(kind);
-	if (!ops || !session) return refusal("proof_invalid");
+	const session = await restricted(kind);
+	if (!session) return refusal("proof_invalid");
+	const ops = settingsMount();
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const { request } = session;
 	return logged("restricted_status_failed", () =>
-		ops.db.transaction((tx) =>
+		gatedTransaction(ops.db, (tx) =>
 			kind === "account"
 				? ops.deletion.getAccountDeletionStatus(tx, context, N.getAccountDeletionStatusRequest.parse(request))
 				: ops.deletion.getWorkspaceDeletionStatus(tx, context, N.getWorkspaceDeletionStatusRequest.parse(request)),
@@ -385,13 +382,13 @@ export async function restrictedStatus(kind: "account" | "plant") {
 }
 
 export async function cancelRestrictedDeletion(kind: "account" | "plant", expectedRevision: string) {
-	const ops = settingsMount(),
-		session = await restricted(kind);
-	if (!ops || !session) return refusal("proof_invalid");
+	const session = await restricted(kind);
+	if (!session) return refusal("proof_invalid");
+	const ops = settingsMount();
 	const command = { requestKey: randomUUID(), expectedRevision, input: session.request };
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const reply = await logged("restricted_cancel_failed", () =>
-		ops.db.transaction((tx) => {
+		gatedTransaction(ops.db, (tx) => {
 			if (kind === "account") {
 				const v = N.cancelAccountDeletionRequest.safeParse(command);
 				return v.success ? ops.deletion.cancelAccountDeletion(tx, context, v.data) : refused("invalid_input");
@@ -406,18 +403,24 @@ export async function cancelRestrictedDeletion(kind: "account" | "plant", expect
 
 const refused = async (code: keyof typeof RETRY) => refusal(code);
 
-async function logged<T>(outcome: string, body: () => Promise<SettingsReply<T>>): Promise<SettingsReply<T>> {
+async function logged<T, O extends string>(
+	outcome: LogWord<O>,
+	body: () => Promise<SettingsReply<T>>,
+): Promise<SettingsReply<T>> {
 	try {
 		return await body();
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome, error: String(error) }));
+		logFailure({ component: "settings", outcome }, error);
 		return refusal("unknown");
 	}
 }
 
-async function signedIn(): Promise<Signed | null> {
-	const v = await getViewer();
-	if (v?.status !== "active" || !v.authority) return null;
+export type Session = Awaited<ReturnType<typeof getViewer>>;
+
+function signedAs(v: Session): Signed | null {
+	if (v.status !== "active" || !v.authority) return null;
 	const principal = { display_name: v.displayName, email: v.email, verified: v.verified };
 	return { authority: v.authority, principal, accountId: v.accountId };
 }
+
+const signedIn = async () => signedAs(await getViewer());

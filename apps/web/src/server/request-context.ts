@@ -5,6 +5,7 @@ import { peopleViewer } from "@everyfield/domain/people";
 import { sessionResult } from "@everyfield/contracts/identity";
 import { avatarReference } from "@everyfield/contracts/settings";
 import { requestDatabase } from "./database";
+import { serverConfigProblem } from "./config.ts";
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { requestAuth } from "./identity";
@@ -16,8 +17,6 @@ const getSession = cache(async () => {
 });
 
 export const getViewer = cache(async () => {
-	const db = requestDatabase();
-	if (!db) return null;
 	const unauthenticated = {
 		status: "unauthenticated",
 		authority: null,
@@ -28,6 +27,8 @@ export const getViewer = cache(async () => {
 		email: null,
 		avatar: null,
 	} as const;
+	if (serverConfigProblem()) return unauthenticated;
+	const db = requestDatabase();
 	const auth = await requestAuth().$context;
 	const jar = await cookies();
 	const token = signedSessionToken(jar.get(auth.authCookies.sessionToken.name)?.value, auth.secret);

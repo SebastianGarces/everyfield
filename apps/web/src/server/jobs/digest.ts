@@ -14,7 +14,7 @@ import {
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { mailEnv } from "../mail-env.ts";
+import { serverConfig } from "../config.ts";
 import { transaction } from "../platform/database.ts";
 import {
 	MAIL_PASSES,
@@ -27,6 +27,7 @@ import {
 } from "./mail.ts";
 import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue.ts";
 import { mountMailService } from "./seated-notifications.ts";
+import { logLine } from "@everyfield/domain/log";
 
 const PLAN_LIMIT = 500;
 const DIGESTS_PER_RUN = 20;
@@ -218,7 +219,7 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 				});
 				if (outcome === "sent") sent++;
 			} catch {
-				console.error(JSON.stringify({ component: "digest", outcome: "error" }));
+				logLine({ component: "digest", outcome: "error" });
 				await finishJob(db, claim, { state: "retry_wait", code: "digest_failed" });
 			}
 		}
@@ -254,27 +255,20 @@ export const authorizeDigestMail: AuthorizeMail = async (tx, list) => {
 	return allowed;
 };
 
-const env = z.object({
-	...mailEnv,
-	IDENTITY_ORIGIN: z.url(),
-});
 let mounted: DigestWorker | undefined;
-export function digestsMount(db: Database | null): DigestWorker | null {
-	const v = env.safeParse(process.env);
-	if (!db || !v.success) return null;
+export function digestsMount(db: Database): DigestWorker {
+	const config = serverConfig();
 	mounted ??= createDigestWorker({
-		origin: v.data.IDENTITY_ORIGIN,
-		mail: mountMailService({ db, env: v.data, authorize: authorizeDigestMail, unsubscribe: mailUnsubscribe() }),
+		origin: config.IDENTITY_ORIGIN,
+		mail: mountMailService({ db, env: config, authorize: authorizeDigestMail, unsubscribe: mailUnsubscribe() }),
 	});
 	return mounted;
 }
 
-export function digestMailPass(db: Database | null, transport: MailTransport): MailPass | null {
-	const v = env.safeParse(process.env);
-	if (!db || !v.success) return null;
+export function digestMailPass(db: Database, transport: MailTransport): MailPass {
 	const mail = mountMailService({
 		db,
-		env: v.data,
+		env: serverConfig(),
 		authorize: authorizeDigestMail,
 		unsubscribe: mailUnsubscribe(),
 		transport,

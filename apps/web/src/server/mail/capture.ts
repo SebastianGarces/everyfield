@@ -4,8 +4,7 @@ import { createHash } from "node:crypto";
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-type Env = Readonly<Record<string, string | undefined>>;
+import { serverEnv } from "../config.ts";
 
 export type Captured = {
 	id: string;
@@ -21,11 +20,7 @@ export type Captured = {
 };
 
 export const outboxFolder = (): string =>
-	process.env.EVERYFIELD_DEV_OUTBOX?.trim() || join(tmpdir(), "everyfield-dev-outbox");
-
-export function captureAllowed(env: Env): boolean {
-	return env.VERCEL_ENV === undefined || env.VERCEL_ENV === "development" || env.VERCEL_ENV === "preview";
-}
+	serverEnv().EVERYFIELD_DEV_OUTBOX?.trim() || join(tmpdir(), "everyfield-dev-outbox");
 
 export const isCaptureId = (id: string): boolean => id.startsWith("capture-");
 

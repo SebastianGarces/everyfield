@@ -1,5 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { ServerConfigError, serverConfig, serverConfigProblem } from "../config.ts";
 
 export const privateHeaders = {
 	"Cache-Control": "private, no-store",
@@ -33,3 +34,42 @@ export async function safeBoundary(body: () => Promise<Response>): Promise<Respo
 		return response;
 	}
 }
+
+export const ROUTE_KIND = Symbol.for("everyfield.route-kind");
+export type RouteKind = "session" | "token" | "signed";
+type Handler<A extends unknown[]> = (request: Request, ...rest: A) => Response | Promise<Response>;
+export type Route<A extends unknown[]> = Handler<A> & { readonly [ROUTE_KIND]: RouteKind };
+
+const appOrigin = (request: Request) =>
+	new URL(serverConfigProblem() ? request.url : serverConfig().IDENTITY_ORIGIN).origin;
+
+export function sameOriginRequest(request: Request): boolean {
+	const site = request.headers.get("sec-fetch-site");
+	if (site !== null) return site === "same-origin";
+	return request.headers.get("origin") === appOrigin(request);
+}
+
+export const configured =
+	<A extends unknown[]>(handler: Handler<A>): Handler<A> =>
+	async (request, ...rest) => {
+		try {
+			return await handler(request, ...rest);
+		} catch (error) {
+			if (!(error instanceof ServerConfigError)) throw error;
+			return safeResponse({ code: "unavailable" satisfies Refusal["code"] }, 503);
+		}
+	};
+
+const marked = <A extends unknown[]>(kind: RouteKind, handler: Handler<A>): Route<A> =>
+	Object.defineProperty(configured(handler), ROUTE_KIND, { value: kind }) as Route<A>;
+
+export const mutatingRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> =>
+	marked("session", (request: Request, ...rest: A) =>
+		sameOriginRequest(request)
+			? handler(request, ...rest)
+			: safeResponse({ code: "origin_denied" satisfies Refusal["code"] }, 403),
+	);
+
+export const tokenRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> => marked("token", handler);
+
+export const signedRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> => marked("signed", handler);

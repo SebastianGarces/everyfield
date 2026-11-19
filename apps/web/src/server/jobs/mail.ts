@@ -6,10 +6,13 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { executeWrites } from "@everyfield/domain/operations";
+import type { ProviderKey } from "@everyfield/contracts/common";
 import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
 import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import { transaction } from "../platform/database.ts";
 import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
+import { logLine } from "@everyfield/domain/log";
+import { serverEnv, type ServerEnv } from "../config.ts";
 
 const owner = z.discriminatedUnion("kind", [
 	z.strictObject({ kind: z.literal("account"), id: z.uuid() }),
@@ -76,8 +79,9 @@ export type MailPayload = Readonly<{
 	html: string;
 	headers?: Readonly<Record<string, string>>;
 }>;
+const providerKey = z.string().transform((key) => key as ProviderKey);
 export interface MailTransport {
-	send(payload: MailPayload, key: string, signal: AbortSignal): Promise<TransportOutcome>;
+	send(payload: MailPayload, key: ProviderKey, signal: AbortSignal): Promise<TransportOutcome>;
 	lookup(id: string, signal: AbortSignal): Promise<TransportOutcome>;
 }
 const stored = z.object({
@@ -101,7 +105,7 @@ const stored = z.object({
 const OPTIONAL_PURPOSES: ReadonlySet<string> = new Set(["notification", "planter_digest", "oversight_digest"]);
 export type MailUnsubscribe = { origin: string; keys: OptOutKeyRing } | null;
 type OptOut = { category: z.infer<typeof notificationCategory>; revision: string };
-export function mailUnsubscribe(env: Readonly<Record<string, string | undefined>> = process.env): MailUnsubscribe {
+export function mailUnsubscribe(env: ServerEnv = serverEnv()): MailUnsubscribe {
 	const keys = parseKeyRing(env.NOTIFICATION_OPT_OUT_KEYS);
 	const origin = z.url().safeParse(env.IDENTITY_ORIGIN);
 	return keys && origin.success ? { origin: new URL(origin.data).origin, keys } : null;
@@ -488,7 +492,7 @@ export function createMailService(config: {
         r.first_dispatched_at+interval '23 hours 55 minutes'<=clock_timestamp() AS expired
         FROM mail_request r JOIN mail_request_member mm ON mm.request_id=r.id WHERE mm.mail_id=${m.id} FOR UPDATE OF r`);
 			const r = z
-				.object({ id: z.uuid(), provider_key: z.string(), request_hash: z.string(), expired: z.boolean() })
+				.object({ id: z.uuid(), provider_key: providerKey, request_hash: z.string(), expired: z.boolean() })
 				.parse(request.rows[0]);
 			if (r.request_hash !== m.payload_hash) throw Error("mail_manifest_changed");
 			if (r.expired) {
@@ -801,7 +805,7 @@ export async function runDueMail(
 	let claimed = 0;
 	const run = async (claim: Claim) => {
 		claimed++;
-		await mail.dispatch(claim).catch(() => console.error(JSON.stringify({ component: "mail", outcome: "error" })));
+		await mail.dispatch(claim).catch(() => logLine({ component: "mail", outcome: "error" }));
 	};
 	while (claimed < limit && Date.now() < until) {
 		const [claim] = await claimUnknownMail(db, prefixes);

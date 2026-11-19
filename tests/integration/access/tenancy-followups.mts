@@ -4,6 +4,7 @@ import {
 	withFollowUpWrite,
 } from "../../../packages/domain/src/followups/index.ts";
 import { planNoReminders } from "./tenancy-meetings.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const followups = createFollowUpWriter({ reminders: planNoReminders });
 const asOf = "2026-11-01T12:00:00.000Z";
@@ -12,7 +13,7 @@ export async function seedFollowUps(t) {
 	const { a, MARK, key, ok } = t;
 	const write = (op, input) => withFollowUpWrite(t.f.db, t.ownerA.actor, (tx, c) => followups[op](tx, c, input));
 	const duty = ok(
-		await t.f.db.transaction((tx) => followUpReader.readObligations(tx, t.ownerA.actor, { meetingId: a.vision })),
+		await gatedTransaction(t.f.db, (tx) => followUpReader.readObligations(tx, t.ownerA.actor, { meetingId: a.vision })),
 	).items.find((o) => o.person?.id === a.blair);
 	const assigned = ok(
 		await write("assignFollowUp", {
@@ -38,7 +39,7 @@ export async function seedFollowUps(t) {
 
 export function followUpsCases(t, who) {
 	const { a } = t;
-	const read = (op, input) => t.f.db.transaction((tx) => followUpReader[op](tx, who.actor, input));
+	const read = (op, input) => gatedTransaction(t.f.db, (tx) => followUpReader[op](tx, who.actor, input));
 	const f = (name, input, expected) => [`followups:followUpReader.${name}`, { run: () => read(name, input), expected }];
 	const unavailable = { refused: "unavailable" };
 	const page = { page: 1, next: null, completeness: "complete" };

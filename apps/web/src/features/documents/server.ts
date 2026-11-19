@@ -14,6 +14,7 @@ import {
 	type Resolved,
 	type Template,
 } from "./model.ts";
+import { logFailure, logLine } from "@everyfield/domain/log";
 
 export type DocumentsLoad =
 	| { status: "ok"; templates: Template[]; version: string; context: Resolved | null; canPreview: boolean }
@@ -22,7 +23,7 @@ export type DocumentsLoad =
 
 export async function documentActor(): Promise<RequestActor | null> {
 	const viewer = await getViewer();
-	if (!viewer || viewer.status !== "active") return null;
+	if (viewer.status !== "active") return null;
 	return viewer.authority;
 }
 
@@ -37,8 +38,8 @@ export async function readPreview(
 	overrides: Record<string, string>,
 ): Promise<PreviewOutcome> {
 	const actor = await documentActor();
+	if (!actor) return { status: "lost" };
 	const db = requestDatabase();
-	if (!actor || !db) return { status: "lost" };
 	try {
 		const reply = await documentsReader.preview(db, actor, { templateId, format, overrides }, privateStorage());
 		if (reply.status === "refused") {
@@ -59,7 +60,7 @@ export async function readPreview(
 			},
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "documents", outcome: "action_failed", error: String(error) }));
+		logFailure({ component: "documents", outcome: "action_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -87,7 +88,6 @@ function present(value: {
 
 export async function loadDocuments(authority: RequestActor, query: DocumentsQuery): Promise<DocumentsLoad> {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" };
 	try {
 		const list = await documentsReader["templates.list"](db, authority, {});
 		if (list.status !== "ok") return { status: "refused" };
@@ -107,10 +107,10 @@ export async function loadDocuments(authority: RequestActor, query: DocumentsQue
 		if (resolved.error.code === "unavailable") {
 			return { status: "ok", templates, version: list.value.version, context: null, canPreview: false };
 		}
-		console.error(JSON.stringify({ component: "documents", outcome: "resolve_refused", code: resolved.error.code }));
+		logLine({ component: "documents", outcome: "resolve_refused", code: resolved.error.code });
 		return { status: "failed" };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "documents", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "documents", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }

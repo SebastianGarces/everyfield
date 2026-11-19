@@ -5,6 +5,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createAssessments } from "@everyfield/domain/intelligence";
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
+import { logFailure } from "@everyfield/domain/log";
 
 export const assessments = createAssessments();
 
@@ -15,20 +16,13 @@ export async function run<T>(
 	operation: (db: Database, authority: RequestActor) => Promise<AssessmentReply<T>>,
 ): Promise<Run<T>> {
 	const viewer = await getViewer();
+	if (!viewer.authority) return { status: "signed_out" };
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	if (!viewer?.authority) return { status: "signed_out" };
 	try {
 		const reply = await operation(db, viewer.authority);
 		return reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
 	} catch (error) {
-		console.error(
-			JSON.stringify({
-				component: "assessment-review",
-				outcome: "failed",
-				code: (error as { code?: string })?.code ?? null,
-			}),
-		);
+		logFailure({ component: "assessment-review", outcome: "failed" }, error);
 		return { status: "lost" };
 	}
 }

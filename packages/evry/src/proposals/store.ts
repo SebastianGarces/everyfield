@@ -1,5 +1,5 @@
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
 import { photoMediaType } from "@everyfield/domain/people";
 import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/contracts/machines";
@@ -47,10 +47,10 @@ const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(ac
 const digest = (revision: SQL) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
 const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
-const effectJob = (job: string, alias: string) =>
+const effectJob = <AliasName extends string>(job: string, alias: SqlLiteral<AliasName>) =>
 	sql`INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
 		SELECT ${job}::uuid,tenant_id,'evry_effect',conversation_id,id||':'||revision||':'||${job},'ready',clock_timestamp(),0,1,0 FROM ${sql.raw(alias)}`;
-const audit = (action: string, kind: string, alias: string) =>
+const audit = <AliasName extends string>(action: string, kind: string, alias: SqlLiteral<AliasName>) =>
 	sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
 		SELECT tenant_id,account_id,${action},${kind},'conversation',conversation_id,
 			jsonb_build_object('proposalId',id,'revision',revision,'digest',digest) FROM ${sql.raw(alias)}`;

@@ -13,34 +13,23 @@ import {
 } from "@everyfield/ui/controls";
 import { usePathname } from "next/navigation";
 import { createContext, Suspense, use, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazyModule, Opened, useLazyModule } from "../../components/lazy.tsx";
 import { guides } from "./guides.ts";
 
-type Loaded = { status: "ready"; overlays: typeof import("./overlays.tsx") } | { status: "failed" };
 type OverlayProps = { open: boolean; onOpenChange: (open: boolean) => void };
 
-const NOT_LOADED: Promise<Loaded> = Promise.resolve({ status: "failed" });
-let loading: Promise<Loaded> | null = null;
+const overlays = lazyModule(() => import("./overlays.tsx"));
 
-export function preloadOverlays(): void {
-	loading ??= import("./overlays.tsx").then(
-		(overlays): Loaded => ({ status: "ready", overlays }),
-		(): Loaded => {
-			loading = null;
-			return { status: "failed" };
-		},
-	);
-}
-
-const loadedOverlays = () => loading ?? NOT_LOADED;
+export const preloadOverlays = overlays.preload;
 
 function SearchOverlay(props: OverlayProps) {
-	const loaded = use(loadedOverlays());
-	return loaded.status === "ready" ? <loaded.overlays.SearchDialog {...props} /> : <SearchUnavailable {...props} />;
+	const loaded = useLazyModule(overlays);
+	return loaded.module ? <loaded.module.SearchDialog {...props} /> : <SearchUnavailable {...props} />;
 }
 
 function GuideOverlay(props: OverlayProps) {
-	const loaded = use(loadedOverlays());
-	return loaded.status === "ready" ? <loaded.overlays.GuideSheet {...props} /> : <GuideUnavailable {...props} />;
+	const loaded = useLazyModule(overlays);
+	return loaded.module ? <loaded.module.GuideSheet {...props} /> : <GuideUnavailable {...props} />;
 }
 
 function SearchUnavailable({ open, onOpenChange }: OverlayProps) {
@@ -89,12 +78,6 @@ function GuideUnavailable({ open, onOpenChange }: OverlayProps) {
 			<p>The guide could not be loaded. Try again.</p>
 		</Sheet>
 	);
-}
-
-function Opened({ open, children }: { open: boolean; children: ReactNode }) {
-	const [opened, setOpened] = useState(open);
-	if (open && !opened) setOpened(true);
-	return opened ? children : null;
 }
 
 const Chrome = createContext<{ openSearch: () => void; toggleGuide: () => void; guideOpen: boolean } | null>(null);

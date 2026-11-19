@@ -2,7 +2,7 @@ import { calendarContext, timeZone, type Clock, type RequestIdentity } from "@ev
 import type { LocalDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import type { Database, Transaction } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
@@ -53,13 +53,13 @@ type Locked = Omit<z.infer<typeof lockRow>, "launch" | "timezone"> & {
 	launch: NonNullable<z.infer<typeof lockRow>["launch"]>;
 	today: LocalDate;
 };
-const answersJson = (d: string) => {
+const answersJson = <DName extends string>(d: SqlLiteral<DName>) => {
 	const r = sql.raw(d);
 	return sql`jsonb_build_object('wentWell',${r}.went_well,'toChange',${r}.to_change,'operations',${r}.operations,
 	'followUpPlan',${r}.follow_up_plan,'supportNeeded',${r}.support_needed,'missingNames',${r}.missing_names,
 	'missingCount',${r}.missing_count)`;
 };
-const versionJson = (d: string, extra: SQL) => {
+const versionJson = <DName extends string>(d: SqlLiteral<DName>, extra: SQL) => {
 	const r = sql.raw(d);
 	return sql`jsonb_build_object('id',${r}.id,'revision',${r}.revision::text,'version',${r}.version,${extra})`;
 };
@@ -87,7 +87,7 @@ async function lock(tx: Transaction, scope: Scope, key: string) {
 }
 
 const storedAnswer = z.object({ outcome: z.enum(["changed", "noop"]) });
-export function auditCte(
+export function auditCte<From extends string>(
 	scope: Scope,
 	identity: RequestIdentity,
 	op: string,
@@ -100,7 +100,7 @@ export function auditCte(
 		after: object | SQL;
 		reason?: string | null;
 		metadata: object;
-		from: string;
+		from: SqlLiteral<From>;
 	},
 ) {
 	const after =
