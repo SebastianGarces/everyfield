@@ -9,6 +9,7 @@ import { hubLabel } from "../../../apps/web/src/features/communication/model.ts"
 import { resendRecorder } from "./resend-recorder.mts";
 import { atSendTime, heldAtProvider, minuteRunner } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, churchA, churchB, ownerA, ownerB;
 const ring = { current: randomBytes(32), previous: [] };
@@ -80,7 +81,8 @@ async function unsubscribe(church, who) {
 	return ok(await applyMessagesOptOut(f.db, ring, now, { token }));
 }
 
-const read = (who, op, input, extra) => f.db.transaction((tx) => communicationWriter[op](tx, who.actor, input, extra));
+const read = (who, op, input, extra) =>
+	gatedTransaction(f.db, (tx) => communicationWriter[op](tx, who.actor, input, extra));
 async function shown(who, id) {
 	const page = ok(await read(who, "listHistory", { limit: 100 }));
 	return {

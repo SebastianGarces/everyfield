@@ -10,6 +10,7 @@ import {
 } from "@everyfield/domain/people";
 import type { z } from "zod";
 import { isFiltered, listRequest, pageCount, pairsToReview, type PeopleQuery } from "./model.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 export type PeopleData =
 	| { kind: "list"; page: z.infer<typeof people.peoplePage> }
@@ -18,7 +19,7 @@ export type PeopleData =
 export type PeopleView = { query: PeopleQuery; data: PeopleData; workspaceEmpty: boolean; review: string | null };
 
 export async function readPeoplePage(
-	tx: Transaction,
+	tx: WriteTx,
 	ctx: PeopleContext,
 	query: PeopleQuery,
 	{ pairs = false } = {},
@@ -48,7 +49,7 @@ export async function readPeoplePage(
 	};
 }
 
-async function readReview(tx: Transaction, ctx: PeopleContext) {
+async function readReview(tx: WriteTx, ctx: PeopleContext) {
 	const r = await listDuplicatePairs(tx, ctx);
 	return pairsToReview(r.status === "ok" ? r.value : null);
 }

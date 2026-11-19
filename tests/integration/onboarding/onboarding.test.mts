@@ -19,6 +19,7 @@ import { accountPersonProducer } from "../../../packages/domain/src/people/index
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const database = await testDatabase({ prefix: "wp009", max: 6 });
 const { admin } = database;
@@ -35,7 +36,7 @@ const ctx = (a, selected = { kind: "account", id: a.id }) => ({
 	session: a.session,
 	selected,
 });
-const call = (name, a, q, selected) => db.transaction((tx) => api[name](tx, ctx(a, selected), q));
+const call = (name, a, q, selected) => gatedTransaction(db, (tx) => api[name](tx, ctx(a, selected), q));
 async function actor(kind = "planter", state = "active") {
 	const a = { id: randomUUID(), user: randomUUID(), session: randomUUID() };
 	await admin.execute(
@@ -367,7 +368,7 @@ test("AC:TARGET-IDN-015 a lock timeout or statement timeout refuses as temporary
 		await locked;
 		let result;
 		try {
-			result = await db.transaction(async (tx) => {
+			result = await gatedTransaction(db, async (tx) => {
 				await tx.execute(sql.raw(`SET LOCAL ${setting}='200ms'`));
 				return api.declareJourney(tx, ctx(f.a, f.p), q);
 			});
@@ -1127,7 +1128,7 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 		});
 	let conversionPid;
 	const endPid = [];
-	const converting = db.transaction(async (tx) => {
+	const converting = gatedTransaction(db, async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
 		conversionPid = (await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid;
 		const result = await api.convertDiscovery(
@@ -1145,7 +1146,7 @@ test("INV-discovery-race: a conversion and an organization ending its link seria
 		return result;
 	});
 	await held;
-	const ending = db.transaction(async (tx) => {
+	const ending = gatedTransaction(db, async (tx) => {
 		await tx.execute(sql`SET LOCAL statement_timeout='8s'`);
 		endPid.push((await tx.execute(sql`SELECT pg_backend_pid() pid`)).rows[0].pid);
 		return associations["associations.end"](
@@ -1234,7 +1235,7 @@ test("AC:DC-001 AC:DC-027 account drafts stay private through conversion; resume
 	assert.equal((await resume(f)).values, "recorded");
 	const { peopleWriter } = await import("../../../packages/domain/src/people/index.ts");
 	const added = ok(
-		await db.transaction((tx) =>
+		await gatedTransaction(db, (tx) =>
 			peopleWriter.createPerson(tx, ctx(f.a, f.p), {
 				requestKey: randomUUID(),
 				input: { displayName: "Actual additional Person" },
@@ -1295,7 +1296,7 @@ test("AC:TARGET-IDN-013 AC:TARGET-IDN-016 active seatless accounts explicitly ch
 });
 
 async function verifiedWriteActor(session: string) {
-	return db.transaction(async (tx) => {
+	return gatedTransaction(db, async (tx) => {
 		const actor = await RequestActor.resolve(tx, writeSessionId.parse(session));
 		if (!(actor instanceof RequestActor)) throw Error("verified_actor_required");
 		return actor;
@@ -1483,7 +1484,7 @@ test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session 
 		kind: "elsewhere",
 		reason: "member",
 	});
-	denied(await db.transaction((tx) => api.getResume(tx, new OnboardingReadContext(owner), {})));
+	denied(await gatedTransaction(db, (tx) => api.getResume(tx, new OnboardingReadContext(owner), {})));
 
 	const d = await discovery();
 	const explorer = (await readViewer(db, writeSessionId.parse(d.a.session))).authority;
@@ -1492,7 +1493,7 @@ test("AC:TARGET-IDN-029 onboarding reads: a request actor whose seat or session 
 		.update(t.auth_session)
 		.set({ expires_at: new Date(0) })
 		.where(eq(t.auth_session.id, d.a.session));
-	denied(await db.transaction((tx) => api.getDiscoveryProfile(tx, new OnboardingReadContext(explorer), {})));
+	denied(await gatedTransaction(db, (tx) => api.getDiscoveryProfile(tx, new OnboardingReadContext(explorer), {})));
 	assert.deepEqual(await readOnboardingEntry(db, api, session(d.a), explorer, true), {
 		kind: "elsewhere",
 		reason: "unavailable",
