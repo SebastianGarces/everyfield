@@ -111,7 +111,7 @@
 			}
 		},
 		{
-			"files": ["tests/workflow/**/*.ts", "tests/unit/**/*.mts"],
+			"files": ["tests/workflow/**/*.ts", "tests/unit/**/*.mts", "tests/ui/**/*.mts"],
 			"rules": {
 				"typescript/no-explicit-any": "error"
 			}

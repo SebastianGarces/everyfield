@@ -201,7 +201,7 @@ test("INV-typecheck: a failing typecheck:tools fails the run after every package
 });
 
 test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch, and the own tsconfig.json of each typechecked tests folder", () => {
-	const projects = ["tsconfig.tools.json", "tests/unit/tsconfig.json"];
+	const projects = ["tsconfig.tools.json", "tests/unit/tsconfig.json", "tests/ui/tsconfig.json"];
 	assert.equal(rootPkg.scripts["typecheck:tools"], `node_modules/typescript-7/bin/tsc -b ${projects.join(" ")}`);
 	const files = projects.flatMap((project) => {
 		const listed = spawnSync(join(repo, "node_modules/typescript-7/bin/tsc"), ["-p", project, "--listFilesOnly"], {
@@ -220,6 +220,7 @@ test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, too
 		"ops/actionable-watch/run.mts",
 		"ops/actionable-watch/test/run.test.mts",
 		"tests/unit/client/read.test.mts",
+		"tests/ui/people/seed.mts",
 	])
 		assert.ok(files.includes(file), `${file} is in the tools program`);
 });
