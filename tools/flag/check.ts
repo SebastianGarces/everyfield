@@ -2,8 +2,8 @@ import { globSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { registry, type Registry } from "../../packages/domain/src/flags/registry.ts";
 
-export const SOURCE_GLOBS = ["apps/*/src/**/*.{ts,tsx}", "packages/*/src/**/*.{ts,tsx}"];
-export const NOT_READERS = [
+const SOURCE_GLOBS = ["apps/*/src/**/*.{ts,tsx}", "packages/*/src/**/*.{ts,tsx}"];
+const NOT_READERS = [
 	"packages/domain/src/flags/",
 	"apps/web/src/server/flags.ts",
 	"apps/web/src/server/flags.types.ts",
@@ -39,7 +39,7 @@ export function repoSources(root: string): Source[] {
 		.map((path) => ({ path, text: readFileSync(join(root, path), "utf8") }));
 }
 
-export const todayUtc = (now = new Date()) => now.toISOString().slice(0, 10);
+const todayUtc = (now = new Date()) => now.toISOString().slice(0, 10);
 
 export function checkCommand(root: string, out = console.log, err = console.error): number {
 	const problems = flagProblems(registry, repoSources(root), todayUtc());

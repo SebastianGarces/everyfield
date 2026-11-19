@@ -2,7 +2,7 @@ import { assertDevelopmentDatabase, developmentHosts } from "../../packages/db/s
 import { DEV_ENDPOINT, NEON_PROJECT, PROD_ENDPOINT } from "../qa/qa-guard.ts";
 import { FlagError } from "./flag.ts";
 
-export const PRODUCTION_ENV = "FLAG_PRODUCTION_DATABASE_URL";
+const PRODUCTION_ENV = "FLAG_PRODUCTION_DATABASE_URL";
 
 type Env = Readonly<Record<string, string | undefined>>;
 export type Target = { label: string; url: string } | { label: string; missing: true };

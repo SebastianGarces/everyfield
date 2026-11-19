@@ -65,8 +65,8 @@ export class FlagError extends Error {
 	}
 }
 
-export const OPERATOR = { cause: "bin/flag" } as const;
-export const STALE_DAYS = 14;
+const OPERATOR = { cause: "bin/flag" } as const;
+const STALE_DAYS = 14;
 
 const onOff = (value: boolean | null | undefined) => (value === true ? "on" : value === false ? "off" : "unset");
 const shellQuote = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
@@ -215,8 +215,8 @@ export function removalAsk(name: string, flag: Registry[string], since: Date) {
 	return `Remove the release flag ${name} (owner ${flag.owner}, from ${flag.task}). It has been on for everyone since ${day(since)}. Delete its entry in packages/domain/src/flags/registry.ts, the off branch at every readFlag("${name}") and the tests of the off path; typecheck then names any read that is left (docs/architecture/patterns.md, Feature flags).`;
 }
 
-export const removalTitle = (name: string) => `Remove the ${name} feature flag`;
-export const removalLabel = (name: string) => `flag:${name}`;
+const removalTitle = (name: string) => `Remove the ${name} feature flag`;
+const removalLabel = (name: string) => `flag:${name}`;
 const AUTHOR = "bin/flag stale";
 
 type OpenTask = { id: number; label: string | null; lifecycle: string };

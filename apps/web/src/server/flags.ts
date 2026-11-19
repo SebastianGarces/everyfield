@@ -44,7 +44,7 @@ const flags = Object.fromEntries(Object.keys(registry).map((key) => [key, declar
 	[N in FlagName]: ReturnType<typeof declare>;
 };
 
-export const overridesAllowed = (): boolean => {
+const overridesAllowed = (): boolean => {
 	const env = serverEnv();
 	return Boolean(env.FLAGS_SECRET) && isTestDeployment(env);
 };
