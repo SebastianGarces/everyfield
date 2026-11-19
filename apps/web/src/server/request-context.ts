@@ -4,6 +4,7 @@ import { signedSessionToken } from "@everyfield/domain/identity";
 import { peopleViewer } from "@everyfield/domain/people";
 import { sessionResult } from "@everyfield/contracts/identity";
 import { avatarReference } from "@everyfield/contracts/settings";
+import type { Refused } from "@everyfield/contracts/common";
 import { requestDatabase } from "./database";
 import { serverConfigProblem } from "./config.ts";
 import { cookies, headers } from "next/headers";
@@ -88,9 +89,10 @@ export async function requireSeat(returnTo: string): Promise<PlantSeat | null> {
 	return v.people;
 }
 
-export const SEAT_DENIED = { status: "refused", code: "access_denied" } as const;
-
-export async function seated<R>(run: (seat: PlantSeat) => Promise<R>): Promise<R | typeof SEAT_DENIED> {
+export async function seated<const C extends string, R>(
+	refusal: C,
+	run: (seat: PlantSeat) => Promise<R>,
+): Promise<R | Refused<C>> {
 	const seat = await plantSeat();
-	return seat ? run(seat) : SEAT_DENIED;
+	return seat ? run(seat) : { status: "refused", code: refusal };
 }
