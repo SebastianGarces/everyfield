@@ -12,7 +12,7 @@ import type { z } from "zod";
 import { boundary, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../../../components/save/model.ts";
 import { write } from "../server.ts";
-import { readPersonPageNow, type PersonPage } from "./server.ts";
+import { readPersonPageNow, type PersonPage } from "./page.ts";
 
 export type PairChange = z.infer<typeof c.duplicatePairChange>;
 export async function dismissPair(input: unknown): Promise<Outcome<PairChange>> {

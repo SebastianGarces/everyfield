@@ -15,7 +15,8 @@ import type { Outcome } from "../../components/save/model.ts";
 import { defineReads } from "../../server/platform/reads.ts";
 import { HISTORY_PAGE } from "./assessments/server.ts";
 import { invalid, outcome } from "./boundary.ts";
-import { readPair, readPersonPageNow, readRecords, readUnmerge, type PersonPage } from "./corrections/server.ts";
+import { readPersonPageNow, type PersonPage } from "./corrections/page.ts";
+import { readPair, readRecords, readUnmerge } from "./corrections/server.ts";
 import { parseQuery } from "./model.ts";
 import { loadPeople, loadPerson, read } from "./server.ts";
 
