@@ -1507,6 +1507,49 @@ export function Report() {
 	);
 });
 
+test("INV-lint: a store read with getState() while rendering is reported, also through a destructured or assigned getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not", () => {
+	const source = `import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useStore } from "@/components/store";
+export function Card({ store, ids }) {
+	const count = store.getState().count;
+	const [first] = useState(() => store.getState().first);
+	const sorted = useMemo(() => store.getState().items.slice(), [store]);
+	const rows = ids.map((id) => store.getState().rows[id]);
+	const { actions } = store.getState();
+	const save = store.getState().actions.save;
+	const shown = useSyncExternalStore(store.subscribe, () => store.getState().shown);
+	const picked = useStore(store, (s) => s.picked);
+	const hold = useCallback(() => store.getState().actions.hold(), [store]);
+	const latest = () => store.getState().count;
+	return (
+		<button key={store.getState().id} onClick={() => save(store.getState().draft)} onBlur={hold}>
+			{String(count) + first + sorted + rows + actions + shown + picked + latest}
+		</button>
+	);
+}
+export function useDraft(store) {
+	return store.getState().draft;
+}
+export function draftOf(store) {
+	return store.getState().draft;
+}
+export function Aliased({ store }) {
+	const { getState } = store;
+	const read = store.getState;
+	const onClick = () => read().count;
+	return <button onClick={onClick}>{getState().count + read().count}</button>;
+}
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/Card.tsx": source, "packages/ui/src/Card.tsx": source }).filter((hit) =>
+			hit.endsWith("no-render-get-state"),
+		),
+		["apps/web/src/features/x/Card.tsx", "packages/ui/src/Card.tsx"]
+			.flatMap((path) => [4, 5, 6, 7, 15, 21, 30, 30].map((line) => `${path}:${line} no-render-get-state`))
+			.sort(),
+	);
+});
+
 test("INV-lint: a page, a layout or a GET route handler that imports a server action module is reported, a route that also writes is not", () => {
 	const actions = `"use server";\nexport async function save() {}\n`;
 	const reads = `export async function load() {}\n`;
