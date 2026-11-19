@@ -18,6 +18,7 @@ import {
 	readPersonPage,
 	personFields as fields,
 } from "../../../packages/domain/src/people/index.ts";
+import { gatedTransaction, lockedWrite, nativeWrite } from "../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -51,7 +52,7 @@ const orgCtx = () =>
 		organizationKind: "sending_church",
 	});
 async function tx(body) {
-	return db.transaction(body);
+	return gatedTransaction(db, body);
 }
 
 async function create(name = "Jamie", fields = {}) {
@@ -1441,6 +1442,18 @@ test("INV-reads (C22): a People read holds no lock on the reader's session, so s
 			}
 		});
 	assert.deepEqual(waited, []);
+});
+
+test("BUG-locked-actor: a second copy of the session module reads the actor the write gate locked", async () => {
+	const seated = await seatedReader("admin", { kind: "plant", id: plants[0] });
+	const authority = seated.reader.authority;
+	const second = await import("../../../packages/domain/src/access/session.ts?second-copy");
+	assert.notEqual(second.requestWrite, (await import("../../../packages/domain/src/access/session.ts")).requestWrite);
+	const seen = await nativeWrite(db, authority, authority.actor.context.owner, async (tx) => {
+		const locked = await lockedWrite(tx);
+		return [locked?.actor.accountId, second.requestWrite(tx)?.actor.accountId, second.boundWrite(tx)?.selected];
+	});
+	assert.deepEqual(seen, [authority.actor.accountId, authority.actor.accountId, authority.actor.context.owner]);
 });
 
 test("INV-revocation INV-idempotency: a native write checks the seat in its own statement, and a retry replays", async () => {

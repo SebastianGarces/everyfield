@@ -18,6 +18,7 @@ import { nextMonday } from "../../../apps/web/src/components/time.ts";
 import { evryActor } from "../../../packages/evry/src/context/actor.ts";
 import { READ_DOMAINS, readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, care, tz, deletion;
 let now = "2026-10-13T16:00:00.000Z";
@@ -61,10 +62,10 @@ const footprint = (who) =>
 		(SELECT revision::text FROM private_calendar WHERE author_id=${who.id}) revision`);
 const accountCtx = (who) => ({ session: who.session, selected: { kind: "account", id: who.id } });
 async function previewZone(who, timeZone) {
-	return ok(await f.db.transaction((tx) => tz.previewPersonalTimezone(tx, accountCtx(who), { timeZone })));
+	return ok(await gatedTransaction(f.db, (tx) => tz.previewPersonalTimezone(tx, accountCtx(who), { timeZone })));
 }
 function setZone(who, preview, requestKey = randomUUID()) {
-	return f.db.transaction((tx) =>
+	return gatedTransaction(f.db, (tx) =>
 		tz.setPersonalTimezone(tx, accountCtx(who), {
 			requestKey,
 			expectedRevision: preview.expectedRevision,
@@ -268,10 +269,10 @@ test("AC:B03-019 AC:B03-013 AC:B03-017 a church timezone change never rekeys per
 	const saved = ok(await save(a, STRAINED, "0"));
 	const ctx = { session: a.session, selected: { kind: "plant", id: w.id } };
 	const preview = ok(
-		await f.db.transaction((tx) => tz.previewPlantTimezone(tx, ctx, { plant: w, timeZone: "Europe/London" })),
+		await gatedTransaction(f.db, (tx) => tz.previewPlantTimezone(tx, ctx, { plant: w, timeZone: "Europe/London" })),
 	);
 	const changed = ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			tz.setPlantTimezone(tx, ctx, {
 				requestKey: randomUUID(),
 				expectedRevision: preview.expectedRevision,
@@ -434,7 +435,7 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 	const ctx = { session: b.session, selected: { kind: "plant", id: w.id } };
 	const person = async (displayName) =>
 		ok(
-			await f.db.transaction((tx) =>
+			await gatedTransaction(f.db, (tx) =>
 				peopleWriter.createPerson(tx, ctx, {
 					requestKey: randomUUID(),
 					input: { displayName, adultClassification: "adult" },
@@ -445,10 +446,12 @@ test("AC:ROLE43-011 AC:SCHEMA-007 merges, relinks and role edits leave every che
 		casey = await person("Casey Rivera");
 	await f.admin.execute(sql`UPDATE person SET linked_account_id=${a.id} WHERE id=${casey.id}`);
 	const review = ok(
-		await f.db.transaction((tx) => peopleMerge.getMergeReview(tx, ctx, { sourceId: alex.id, survivorId: casey.id })),
+		await gatedTransaction(f.db, (tx) =>
+			peopleMerge.getMergeReview(tx, ctx, { sourceId: alex.id, survivorId: casey.id }),
+		),
 	);
 	ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			peopleMerge.mergePeople(tx, ctx, {
 				requestKey: randomUUID(),
 				input: { sourceId: alex.id, survivorId: casey.id, reviewDigest: review.reviewDigest, fieldChoices: {} },
@@ -578,7 +581,7 @@ test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 deletion hides the author's c
 	ok(await save(owner, STEADY, "0"));
 	const accountRevision = (await one(sql`SELECT revision::text AS r FROM account WHERE id=${a.id}`)).r;
 	ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			deletion.requestAccountDeletion(tx, accountCtx(a), {
 				requestKey: randomUUID(),
 				expectedRevision: accountRevision,
@@ -603,7 +606,7 @@ test("AC:ROLE43-018 AC:DEL58-005 AC:TARGET-IDN-032 deletion hides the author's c
 	ok(await save(o, STEADY, "0"));
 	const plantRevision = (await one(sql`SELECT revision::text AS r FROM plant WHERE id=${other.id}`)).r;
 	ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			deletion.requestWorkspaceDeletion(
 				tx,
 				{ session: o.session, selected: { kind: "plant", id: other.id } },

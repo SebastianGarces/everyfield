@@ -1,3 +1,4 @@
+import type { Transaction } from "@everyfield/db/client";
 import { accountId, instant, resolveCalendar, revision, type TimeZone } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/tasks";
 import { and, eq, isNull, sql, type SQL, type SQLWrapper } from "@everyfield/db/query";
@@ -37,7 +38,7 @@ export type ReminderSource = {
 	open: boolean;
 	created: boolean;
 };
-export type TaskReminders = (tx: Tx, sources: readonly ReminderSource[]) => Promise<unknown>;
+export type TaskReminders = (tx: Transaction, sources: readonly ReminderSource[]) => Promise<unknown>;
 
 type DueColumns = Pick<TaskRow, "due_kind" | "due_date" | "due_time" | "timezone" | "due_at">;
 export function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): DueColumns {

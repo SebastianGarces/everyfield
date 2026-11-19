@@ -6,7 +6,7 @@ import type {
 	OnboardingReply,
 	OnboardingWriteContext,
 } from "@everyfield/contracts/onboarding/server";
-import type { Database, Transaction } from "@everyfield/db/client";
+import type { Database } from "@everyfield/db/client";
 import { and, eq, isNull, sql } from "@everyfield/db/query";
 import * as t from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
@@ -21,10 +21,11 @@ import {
 	liveRead,
 	lockWriteAuthority,
 	requestWrite,
+	type WriteTx,
 } from "../access/session.ts";
 import { WriteUnavailable, auditSavepoint, auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
 
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export class OnboardingReadContext {
 	readonly authority: RequestActor;
 	readonly selected: OnboardingContext["selected"];
