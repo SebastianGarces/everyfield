@@ -21,7 +21,7 @@ import { listRequest, parseQuery } from "../model.ts";
 import { read, type Viewer } from "../server.ts";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../../server/platform/transient.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 type Answer = { status: "ok"; value: unknown } | { status: "refused"; code: string; line?: number };

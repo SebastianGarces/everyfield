@@ -17,7 +17,7 @@ import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "../fields/server.ts";
 import type { Assessment, Commitment, Commitments, CommitmentStatus, Interview } from "./model.ts";
 import { HISTORY_PAGE } from "./server.ts";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../../server/platform/transient.ts";
 
 type RecordedPerson = z.infer<typeof c.recordedPerson>;
 export type AssessmentSaved = { assessment: Assessment; person: RecordedPerson; receipt: Receipt };

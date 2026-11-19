@@ -15,7 +15,7 @@ import type { ChurchTag, HouseholdResult, PersonTag, PhotoResult, Skill } from "
 import { privateStorage } from "@everyfield/db/schema";
 import { leave } from "./leave.ts";
 import { peopleContext } from "./server.ts";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../../server/platform/transient.ts";
 
 type PlantPerson = z.infer<typeof c.plantPerson>;
 type Tx = Transaction;

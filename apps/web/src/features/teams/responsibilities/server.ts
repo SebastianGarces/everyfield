@@ -5,7 +5,7 @@ import { responsibilityReader } from "@everyfield/domain/teams";
 import "server-only";
 import type { Outcome } from "../model.ts";
 import { outcome, type Viewer } from "../server.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../../server/platform/transient.ts";
 
 async function read<T>(
 	viewer: Viewer,

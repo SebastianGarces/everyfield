@@ -6,7 +6,7 @@ import { z } from "zod";
 import { read } from "../server.ts";
 import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "./server.ts";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../../server/platform/transient.ts";
 
 const params = z.object({ personId: z.uuid(), versionId: z.uuid() });
 const gone = () => new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });

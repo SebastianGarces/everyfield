@@ -4,7 +4,7 @@ import { getViewer } from "@/server/request-context";
 import { meetingId as meetingIdSchema } from "@everyfield/contracts/meetings";
 import { documentsReader } from "@everyfield/domain/documents";
 import { NextResponse } from "next/server";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../server/platform/transient.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const missing = () =>

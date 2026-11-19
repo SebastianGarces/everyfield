@@ -5,7 +5,7 @@ import { getCommitmentDownload } from "@everyfield/domain/people";
 import { z } from "zod";
 import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "../fields/server.ts";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../../server/platform/transient.ts";
 
 const params = z.object({ personId: z.uuid(), commitmentId: z.uuid() });
 const gone = () =>

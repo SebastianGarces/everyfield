@@ -8,7 +8,7 @@ import { HISTORY_PAGE } from "./assessments/server.ts";
 import { loadPersonFollowUps } from "../followups/server.ts";
 import { readPeoplePage, readPersonPage } from "./page-data.ts";
 import { canWrite } from "../../components/seat-role.ts";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../server/platform/transient.ts";
 
 export type Viewer = NonNullable<ReturnType<typeof peopleViewer>>;
 export type Role = Viewer["role"];

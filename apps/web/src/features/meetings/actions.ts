@@ -23,7 +23,7 @@ import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
 import type { Finalization, Outcome } from "./model.ts";
 import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Run<T> = (tx: Transaction, ctx: MeetingsContext) => Promise<MeetingsReply<T>>;

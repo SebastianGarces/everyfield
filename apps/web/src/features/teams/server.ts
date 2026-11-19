@@ -6,7 +6,7 @@ import type { Database, Transaction } from "@everyfield/db/client";
 import { teamsReader, withParents, withTeamsWrite } from "@everyfield/domain/teams";
 import "server-only";
 import type { ChartNode, ListedTeam, Member, Outcome, Role, Team } from "./model.ts";
-import { LOST, transient } from "@/server/platform/transient";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type { Viewer };
 export const isAdmin = (v: Viewer) => v.role === "owner" || v.role === "admin";

@@ -5,7 +5,7 @@ import { trainingReader } from "@everyfield/domain/teams";
 import "server-only";
 import { outcome, type Viewer as Seat } from "../server.ts";
 import type { Outcome, PersonLoad, TrainingLoad } from "./model.ts";
-import { transient } from "@/server/platform/transient";
+import { transient } from "../../../server/platform/transient.ts";
 
 type Authority = Seat["authority"];
 
