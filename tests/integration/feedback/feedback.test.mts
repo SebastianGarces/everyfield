@@ -1,4 +1,4 @@
-import { fixture, ok, refused } from "../../support/fixture.mts";
+import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { feedbackWriter, authorizeTriage } from "../../../packages/domain/src/feedback/index.ts";
@@ -17,14 +17,14 @@ await admin.execute(
 	sql`INSERT INTO platform_grant (account_id, capability) VALUES (${triager.id}::uuid, 'feedback_triage')`,
 );
 
-const authority = async (who: { session: string }) => {
+const authority = async (who: Actor) => {
 	const actor = await RequestActor.resolve(db, who.session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
 	return actor;
 };
 const rowsOf = async (query: ReturnType<typeof sql>) => (await admin.execute(query)).rows as Record<string, any>[];
 const server = { appVersion: "3.0.0-test" };
-const send = async (who: { session: string }, input: Record<string, unknown>) =>
+const send = async (who: Actor, input: Record<string, unknown>) =>
 	feedbackWriter.submit(db, await authority(who), { requestKey: randomUUID(), category: "bug", ...input }, server);
 
 test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from the seat, strips the address and saves a resend once", async () => {

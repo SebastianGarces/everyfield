@@ -11,7 +11,7 @@ import { notificationCategory } from "../../../packages/contracts/src/settings/v
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { deadline } from "../../../apps/web/src/features/settings/deletion-mail.ts";
 import { createMailService, type MailPayload } from "../../../apps/web/src/server/jobs/mail.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { executeWrites, gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { testDatabase } from "../../support/test-database.mts";
 import { ok, refusedWith, seeds } from "../../support/fixture.mts";

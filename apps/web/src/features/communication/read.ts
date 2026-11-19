@@ -83,7 +83,7 @@ export const GET = defineReads(seat, "access_denied", (get) => ({
 	context: get(z.strictObject({ meetingId: z.string() }), async ({ viewer }, v): Promise<Outcome<MeetingContext>> => {
 		if (!canWrite(viewer)) return denied;
 		const context = await readMeeting(viewer, (db, a) => meetingsReader.communicationContext(db, a, v));
-		if (context.status === "failed") return { status: "lost" };
+		if (context.status === "lost") return context;
 		if (context.status === "refused") return { status: "refused", code: "not_found" };
 		const { meeting: m, guests } = context.value;
 		return {

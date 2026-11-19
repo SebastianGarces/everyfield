@@ -9,8 +9,15 @@ import { executeWrites } from "@everyfield/domain/operations";
 import type { ProviderKey } from "@everyfield/contracts/common";
 import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
 import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
-import { transaction } from "../platform/database.ts";
-import { finishClaim, lockClaim, checkpoint, claimSchema, DEFAULT_LEASE_SECONDS, type Claim } from "./queue.ts";
+import {
+	transaction,
+	finishClaim,
+	lockClaim,
+	checkpoint,
+	claimSchema,
+	DEFAULT_LEASE_SECONDS,
+	type Claim,
+} from "@everyfield/domain/jobs";
 import { logFailure, logLine } from "@everyfield/domain/log";
 import { serverEnv, type ServerEnv } from "../config.ts";
 
