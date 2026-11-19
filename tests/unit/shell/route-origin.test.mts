@@ -15,6 +15,7 @@ const withExtension = (path: string) =>
 	path;
 registerHooks({
 	resolve: (specifier, context, next) => {
+		if (specifier === "server-only") return { url: "data:text/javascript,", shortCircuit: true };
 		if (specifier.startsWith("@/"))
 			return next(pathToFileURL(withExtension(join(SRC, specifier.slice(2)))).href, context);
 		if (specifier.startsWith(".") && context.parentURL?.startsWith("file:") && !/\.\w+$/.test(specifier))
