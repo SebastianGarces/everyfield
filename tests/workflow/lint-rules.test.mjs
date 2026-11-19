@@ -134,6 +134,32 @@ test("INV-lint: a fifth state hook in a component or hook is reported, a nested 
 	]);
 });
 
+test("INV-mint: only the settings credentials module reaches the restricted deletion session mint, in product code", () => {
+	const reach = `import { issueRestrictedDeletionSession as mint } from "./deletion.ts";
+export { issueRestrictedDeletionSession } from "./deletion.ts";
+import * as deletion from "./deletion.ts";
+export const a = deletion.issueRestrictedDeletionSession;
+export const b = deletion["issueRestrictedDeletionSession"];
+export const c = async () => (await import("./deletion.ts")).issueRestrictedDeletionSession;
+export const d = mint;
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/settings/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/domain/src/settings/credentials.ts": reach,
+			"packages/domain/src/settings/deletion.ts": "export async function issueRestrictedDeletionSession() {}\n",
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[1, 2, 4, 5, 6]
+			.flatMap((line) => [
+				`apps/web/src/features/x/reach.ts:${line} mint-callers`,
+				`packages/domain/src/settings/reach.ts:${line} mint-callers`,
+			])
+			.sort(),
+	);
+});
+
 test("INV-lint: timers, fixed waits and flushSync are reported in product code and not in tests or tools", () => {
 	const timers = `import { flushSync } from "react-dom";
 import { setTimeout as sleep, scheduler } from "node:timers/promises";
