@@ -1062,6 +1062,63 @@ export const p = require("node:process").env;
 	);
 });
 
+test("INV-failures: a server catch rethrows, logs or hands the error on; a client file is not checked", () => {
+	const code = `import "server-only";
+import { logFailure, logLine } from "@everyfield/domain/log";
+export async function a(run) {
+	try {
+		return await run();
+	} catch {
+		return { status: "lost" };
+	}
+}
+export const b = (run) => run().catch(() => null);
+export async function c(run) {
+	try {
+		return await run();
+	} catch (error) {
+		return { status: "lost", seen: error instanceof Error };
+	}
+}
+export async function d(run) {
+	try {
+		return await run();
+	} catch (error) {
+		if (!(error instanceof TypeError)) throw error;
+		return null;
+	}
+}
+export async function e(run) {
+	try {
+		return await run();
+	} catch (error) {
+		logFailure({ component: "x", outcome: "failed" }, error);
+		return null;
+	}
+}
+export const f = (run, answer) => run().catch((error) => answer(error));
+export const g = (run) => run().catch(() => logLine({ component: "x", outcome: "error" }));
+export const h = (run) => run().catch(() => {
+	const later = () => {
+		throw new Error("not here");
+	};
+	return later;
+});
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/server.ts": code,
+			"apps/web/src/server/jobs/x.ts": code.replace('import "server-only";\n', ""),
+			"apps/web/src/features/x/Client.tsx": `"use client";\n${code.replace('import "server-only";\n', "")}`,
+			"apps/web/src/server/platform/transient.ts": code,
+		}),
+		[
+			...[6, 10, 14, 36].map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
+			...[5, 9, 13, 35].map((line) => `apps/web/src/server/jobs/x.ts:${line} no-silent-catch`),
+		].sort(),
+	);
+});
+
 test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
 	const { dir, path, renamed, write, base } = history();
 	const growth = (entries, ...moves) => {

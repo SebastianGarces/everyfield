@@ -19,7 +19,8 @@ export async function resendWebhook(
 		let key: string;
 		try {
 			key = verifyCallback(bytes, request.headers, secret);
-		} catch {
+		} catch (error) {
+			if (!(error instanceof Refusal)) throw error;
 			return safeResponse({ code: "invalid_signature" }, 401);
 		}
 		const result = await applyMailCallback(resolveDb(), bytes, key);

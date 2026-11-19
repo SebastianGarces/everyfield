@@ -1316,6 +1316,68 @@ const serverConfig = {
 	},
 };
 
+const SERVER_CODE = /^apps\/web\/src\/(?:server\/|app\/.*\/route\.tsx?$)/;
+const LOG_CALLS = new Set(["logFailure", "logLine", "logInfo"]);
+
+function walkOwn(node, visit) {
+	if (!node || typeof node.type !== "string") return false;
+	if (visit(node)) return true;
+	for (const key of Object.keys(node)) {
+		if (key === "parent") continue;
+		const value = node[key];
+		const children = Array.isArray(value) ? value : [value];
+		for (const child of children) {
+			if (!child || typeof child.type !== "string") continue;
+			if (FUNCTIONS.has(child.type)) continue;
+			if (walkOwn(child, visit)) return true;
+		}
+	}
+	return false;
+}
+
+const handles = (body, param) =>
+	walkOwn(body, (node) => {
+		if (node.type === "ThrowStatement") return true;
+		if (node.type !== "CallExpression") return false;
+		if (node.callee.type === "Identifier" && LOG_CALLS.has(node.callee.name)) return true;
+		return !!param && node.arguments.some((a) => a.type === "Identifier" && a.name === param);
+	});
+
+const noSilentCatch = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path) || path === "apps/web/src/server/platform/transient.ts") return {};
+		let server = SERVER_CODE.test(path);
+		const message =
+			"A server catch must rethrow, log through @everyfield/domain/log, or hand the error on: use transient() for a failure that may be retried, and catch only the error class you answer.";
+		const pending = [];
+		return {
+			Program(node) {
+				server ||= node.body.some(
+					(s) =>
+						(s.type === "ExpressionStatement" && s.directive === "use server") ||
+						(s.type === "ImportDeclaration" && s.source.value === "server-only"),
+				);
+			},
+			CatchClause(node) {
+				const param = node.param?.type === "Identifier" ? node.param.name : null;
+				if (!handles(node.body, param)) pending.push(node);
+			},
+			CallExpression(node) {
+				if (memberName(node.callee) !== "catch") return;
+				const handler = node.arguments[0];
+				if (!handler || !FUNCTIONS.has(handler.type)) return;
+				const param = handler.params[0]?.type === "Identifier" ? handler.params[0].name : null;
+				if (!handles(handler.body, param)) pending.push(node);
+			},
+			"Program:exit"() {
+				if (server) for (const node of pending) context.report({ node, message });
+			},
+		};
+	},
+};
+
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
@@ -2272,6 +2334,7 @@ export default {
 		"storage-client": storageClient,
 		"deployment-env": deploymentEnv,
 		"server-config": serverConfig,
+		"no-silent-catch": noSilentCatch,
 		"no-cursor-utility": noCursorUtility,
 		"mint-callers": mintCallers,
 		"no-raw-history": noRawHistory,
