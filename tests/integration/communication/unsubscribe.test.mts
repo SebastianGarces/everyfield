@@ -10,9 +10,9 @@ import { GET as outboxRoute } from "../../../apps/web/src/app/api/dev/outbox/rou
 import { readOutbox } from "../../../apps/web/src/features/communication/outbox.ts";
 import { createMailService, mailPurpose, mailUnsubscribe } from "../../../apps/web/src/server/jobs/mail.ts";
 import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
-import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
+import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { db, runtime, setup, teardown, tenant } from "../jobs/support.mts";
 
 const ORIGIN = "https://app.everyfield.test";

@@ -21,8 +21,8 @@ import {
 	trainingWriter,
 	withTeamsWrite,
 } from "../../../../packages/domain/src/teams/index.ts";
-import { transaction } from "../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, people, plant, setup, sql, teardown } from "../../runtime/support.mts";
 
 before(setup);

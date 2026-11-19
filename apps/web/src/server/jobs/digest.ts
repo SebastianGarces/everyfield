@@ -15,7 +15,7 @@ import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { serverConfig } from "../config.ts";
-import { transaction } from "../platform/database.ts";
+import { transaction, claimDue, finishClaim, finishJob, lockClaim, type Claim } from "@everyfield/domain/jobs";
 import {
 	MAIL_PASSES,
 	mailUnsubscribe,
@@ -25,7 +25,6 @@ import {
 	type MailPass,
 	type MailTransport,
 } from "./mail.ts";
-import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue.ts";
 import { mountMailService } from "./seated-notifications.ts";
 import { logLine } from "@everyfield/domain/log";
 
