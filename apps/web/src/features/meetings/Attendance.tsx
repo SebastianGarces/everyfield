@@ -33,7 +33,8 @@ import { loadMeetingFollowUps } from "../followups/fetch.ts";
 import { preferredOwners } from "../followups/model.ts";
 import { ownerText } from "../tasks/model.ts";
 import { AssigneePicker, warmAssignees } from "../tasks/AssigneePicker.tsx";
-import { evaluationHistory, previewSettlement, setPresence } from "./actions.ts";
+import { previewSettlement, setPresence } from "./actions.ts";
+import { evaluationHistory } from "./fetch.ts";
 import {
 	CLASSIFICATION_LABEL,
 	deltaText,

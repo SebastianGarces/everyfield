@@ -5,7 +5,6 @@ import { getViewer } from "@/server/request-context";
 import { redirect } from "next/navigation";
 import {
 	answerRsvpToken,
-	attendanceReader,
 	describeRsvpToken,
 	createAttendanceWriter,
 	guestsWriter,
@@ -22,7 +21,7 @@ import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meeting
 import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
 import type { Finalization, Outcome } from "./model.ts";
-import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
+import { outcome, read, readAnalytics, write } from "./server.ts";
 import { logFailure } from "@everyfield/domain/log";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
@@ -32,11 +31,6 @@ async function act<T>(run: Run<T>): Promise<Outcome<T>> {
 	const v = await getViewer();
 	if (!v?.people) return noSeat;
 	return write(v.people, run);
-}
-async function look<T>(run: (viewer: Viewer) => Promise<Outcome<T>>): Promise<Outcome<T>> {
-	const v = await getViewer();
-	if (!v?.people) return noSeat;
-	return run(v.people);
 }
 const command = (requestKey: string, expectedRevision: string, input: unknown) => ({
 	requestKey,
@@ -97,20 +91,8 @@ export async function replaceAgenda(
 	);
 }
 
-export async function updateRoster(requestKey: string, meetingId: string, add: string[], remove: string[]) {
+export async function updateRoster(requestKey: string, meetingId: string, add: unknown, remove: unknown) {
 	return act((tx, ctx) => rosterWriter.copyTeamRoster(tx, ctx, { requestKey, input: { meetingId, add, remove } }));
-}
-
-export async function reloadMeeting(meetingId: string) {
-	return look(async (v) => ({ status: "ok" as const, value: await loadMeeting(v, meetingId) }));
-}
-
-export async function visionReport() {
-	return look(async (v) => ({ status: "ok" as const, value: await loadReport(v) }));
-}
-
-export async function reloadCheckIn(meetingId: string) {
-	return look(async (v) => ({ status: "ok" as const, value: await loadCheckIn(v, meetingId) }));
 }
 
 export async function populateKit(requestKey: string, expectedRevision: string, meetingId: string) {
@@ -190,9 +172,7 @@ async function settle<T>(run: (w: AttendanceWriter) => Run<T>): Promise<Outcome<
 	attendanceWriter ??= createAttendanceWriter({ reminders: mount.reminders });
 	return act(run(attendanceWriter));
 }
-type Presence = "attended" | "absent" | "excused";
-
-export async function setPresence(requestKey: string, meetingId: string, personId: string, presence: Presence) {
+export async function setPresence(requestKey: string, meetingId: string, personId: string, presence: unknown) {
 	return settle(
 		(w) => (tx, ctx) =>
 			presence === "attended"
@@ -205,12 +185,7 @@ export async function setPresence(requestKey: string, meetingId: string, personI
 export async function addWalkIn(requestKey: string, input: unknown) {
 	return act((tx, ctx) => guestsWriter.createWalkInContact(tx, ctx, { requestKey, input }));
 }
-export async function settleAttendance(
-	mode: "finalize" | "reconcile",
-	requestKey: string,
-	expectedRevision: string,
-	input: unknown,
-) {
+export async function settleAttendance(mode: unknown, requestKey: string, expectedRevision: string, input: unknown) {
 	if (mode !== "finalize" && mode !== "reconcile") return { status: "refused", code: "invalid_input" } as const;
 	const v = await getViewer();
 	if (!v?.people) return noSeat;
@@ -230,7 +205,7 @@ export async function settleAttendance(
 	};
 }
 export async function previewSettlement(
-	mode: "finalize" | "reconcile",
+	mode: unknown,
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<Finalization>> {
@@ -262,9 +237,6 @@ export async function recordEvaluation(requestKey: string, input: unknown) {
 export async function correctEvaluation(requestKey: string, expectedRevision: string, input: unknown) {
 	return settle((w) => (tx, ctx) => w.correctEvaluation(tx, ctx, { requestKey, expectedRevision, input }));
 }
-export async function evaluationHistory(meetingId: string) {
-	return look(async (v) => outcome(await read(v, (db, a) => attendanceReader.evaluationHistory(db, a, { meetingId }))));
-}
 export async function addAttendeeNote(requestKey: string, meetingId: string, personId: string, text: string) {
 	return settle((w) => (tx, ctx) => w.addAttendeeNote(tx, ctx, { requestKey, input: { meetingId, personId, text } }));
 }
@@ -272,13 +244,8 @@ export async function addAttendeeNote(requestKey: string, meetingId: string, per
 export async function createVenue(requestKey: string, input: unknown) {
 	return act((tx, ctx) => venuesWriter.create(tx, ctx, { requestKey, input }));
 }
-export async function changeVenue(
-	op: "edit" | "correct" | "archive" | "restore",
-	requestKey: string,
-	expectedRevision: string,
-	input: unknown,
-) {
-	if (!["edit", "correct", "archive", "restore"].includes(op))
+export async function changeVenue(op: unknown, requestKey: string, expectedRevision: string, input: unknown) {
+	if (op !== "edit" && op !== "correct" && op !== "archive" && op !== "restore")
 		return { status: "refused", code: "invalid_input" } as const;
 	return act((tx, ctx) => venuesWriter[op](tx, ctx, command(requestKey, expectedRevision, input)));
 }
