@@ -29,7 +29,8 @@ import {
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { RadioGroup } from "radix-ui";
 import { startTransition, useActionState, useOptimistic, useRef, useState, useTransition } from "react";
-import { correctCheckIn, readCheckInHistory, saveCheckIn } from "./actions.ts";
+import { correctCheckIn, saveCheckIn } from "./actions.ts";
+import { readCheckInHistory } from "./fetch.ts";
 import {
 	AREA,
 	complete,
@@ -79,9 +80,9 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 	const [draft, setDraft] = useState<FormDraft>(() => formOf(initial.weeks[0]!));
 	const [pages, showAnswer] = useOptimistic(
 		{ strip, older },
-		(p, a: { week: CareWeek; answers: CareAnswers; note: string }) => ({
-			strip: withAnswer(p.strip, a.week, a.answers, a.note),
-			older: p.older ? withAnswer(p.older, a.week, a.answers, a.note) : null,
+		(p, a: { week: CareWeek; answers: CareAnswers; note: string; at: string }) => ({
+			strip: withAnswer(p.strip, a.week, a.answers, a.note, a.at),
+			older: p.older ? withAnswer(p.older, a.week, a.answers, a.note, a.at) : null,
 		}),
 	);
 	const [paging, startPaging] = useTransition();
@@ -105,7 +106,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 				incomplete: prev.origin === intent.origin && prev.incomplete,
 			};
 		const { draft: sentDraft, answers, week, correcting, revision } = intent;
-		showAnswer({ week, answers, note: sentDraft.note });
+		showAnswer({ week, answers, note: sentDraft.note, at: new Date().toISOString() });
 		const payload = JSON.stringify({ id: week.id, revision, answers, note: sentDraft.note });
 		if (sent.current?.payload !== payload) sent.current = { payload, key: crypto.randomUUID() };
 		const key = sent.current.key;
@@ -293,7 +294,7 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 						<CalloutLabel tone="violet" icon={LockKeyIcon}>
 							Private to you
 						</CalloutLabel>
-						<CalloutText className="text-sm">
+						<CalloutText className="leading-(--text-sm--line-height)">
 							Only you can read your check-ins. They are never shown to your team, other Admins, your network or sending
 							church, and never sent to Evry. They do not affect Plant Intelligence or any score. Evry is off while this
 							page is open.
@@ -303,7 +304,9 @@ export function CheckInScreen({ initial, name }: { initial: CarePage; name: stri
 						<CardHeader>
 							<CardHeading>
 								<CardTitle size="sm">{older ? `Earlier weeks, page ${older.page}` : "Your last 12 weeks"}</CardTitle>
-								<CardDescription className="text-sm">Select the pencil to correct a past week</CardDescription>
+								<CardDescription className="leading-(--text-sm--line-height)">
+									Select the pencil to correct a past week
+								</CardDescription>
 							</CardHeading>
 						</CardHeader>
 						<Strip page={shown} editing={editing.ordinal} onCorrect={choose} />
@@ -457,7 +460,7 @@ function Strip({ page, editing, onCorrect }: { page: CarePage; editing: number; 
 										label={`Correct the week of ${shortDate(week.startsOn)}`}
 										title="Correct this week"
 										onClick={() => onCorrect(week)}
-										className="size-7 text-text-3 shadow-none hover:bg-surface-2 hover:text-ink"
+										className="text-text-3 shadow-none hover:text-ink"
 									/>
 								) : null}
 							</td>

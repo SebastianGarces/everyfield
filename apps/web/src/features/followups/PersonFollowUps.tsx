@@ -144,7 +144,7 @@ function FollowUpsCard({
 	const vision = obligations.filter((o) => o.kind === "first_vision_follow_up");
 	return (
 		<Card as="section" aria-labelledby="followups-title">
-			<CardHeader className="mb-2">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm" id="followups-title">
 						Follow-ups
@@ -330,7 +330,7 @@ function ContactLogCard({
 
 	return (
 		<Card as="section" aria-labelledby="contact-log-title" id="contact-log" className="scroll-mt-24">
-			<CardHeader className="mb-1">
+			<CardHeader>
 				<CardHeading>
 					<CardTitle size="sm" id="contact-log-title">
 						Contact log
@@ -484,7 +484,7 @@ function OutcomeDialog({
 
 	async function submit() {
 		const why = editing.kind === "record" ? null : reasonOf(reason);
-		const parsed = editing.kind === "withdraw" ? null : outcomeInput(draft, { completable: false });
+		const parsed = editing.kind === "withdraw" ? null : outcomeInput(draft, { completable: false, now: new Date() });
 		const next: typeof errors = {
 			...(parsed && !parsed.ok ? parsed.errors : {}),
 			...(why && !why.ok ? { reason: why.error } : {}),
@@ -574,13 +574,7 @@ function OutcomeDialog({
 							)}
 							{editing.kind !== "record" ? (
 								<Field label="Reason" error={errors.reason} hint="Kept in the log with your name.">
-									<Textarea
-										value={reason}
-										maxLength={500}
-										rows={2}
-										className="min-h-16"
-										onChange={(e) => setReason(e.target.value)}
-									/>
+									<Textarea value={reason} maxLength={500} rows={2} onChange={(e) => setReason(e.target.value)} />
 								</Field>
 							) : null}
 						</DialogBody>

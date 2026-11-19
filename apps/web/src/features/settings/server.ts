@@ -5,7 +5,7 @@ import * as N from "@everyfield/contracts/settings/native";
 import type { SettingsReply } from "@everyfield/contracts/settings/server";
 import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull } from "@everyfield/db/query";
-import { privateStorage } from "@everyfield/db/schema";
+import { privateStorage, StorageError } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
 import { personalCalendar } from "@everyfield/domain/intelligence";
@@ -15,6 +15,7 @@ import {
 	createAccountCredentials,
 	deletionOperations,
 	readAvatar,
+	Refusal,
 	sectionOperations,
 	timezoneOperations,
 	uploadAvatar,
@@ -226,8 +227,11 @@ function refusal(code: keyof typeof RETRY): { status: "refused"; error: Settings
 	};
 }
 
-export async function readSection(raw: unknown): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
-	const viewer = await signedIn();
+export async function readSection(
+	session: Session,
+	raw: unknown,
+): Promise<SettingsReply<z.infer<typeof sectionResult>>> {
+	const viewer = signedAs(session);
 	const ops = settingsMount();
 	if (!viewer || !ops) return refusal("access_denied");
 	try {
@@ -291,8 +295,11 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 		await uploadAvatar(ops.db, ops.storage, context, { uploadId, bytes });
 		return "stored" as const;
 	} catch (error) {
-		const code = error instanceof Error ? error.message : "";
-		if (code === "invalid_input" || code === "invalid_avatar") return "invalid" as const;
+		if (
+			(error instanceof Refusal && error.code === "invalid_input") ||
+			(error instanceof StorageError && error.code === "invalid_avatar")
+		)
+			return "invalid" as const;
 		console.error(JSON.stringify({ component: "settings", outcome: "avatar_upload_failed", error: String(error) }));
 		return "unavailable" as const;
 	}
@@ -308,8 +315,9 @@ export async function avatarBytes(accountId: string, versionId: string) {
 	};
 	try {
 		return await readAvatar(ops.db, ops.storage, context, { accountId, versionId });
-	} catch {
-		return null;
+	} catch (error) {
+		if (error instanceof Refusal || error instanceof StorageError) return null;
+		throw error;
 	}
 }
 
@@ -410,9 +418,12 @@ async function logged<T>(outcome: string, body: () => Promise<SettingsReply<T>>)
 	}
 }
 
-async function signedIn(): Promise<Signed | null> {
-	const v = await getViewer();
+export type Session = Awaited<ReturnType<typeof getViewer>>;
+
+function signedAs(v: Session): Signed | null {
 	if (v?.status !== "active" || !v.authority) return null;
 	const principal = { display_name: v.displayName, email: v.email, verified: v.verified };
 	return { authority: v.authority, principal, accountId: v.accountId };
 }
+
+const signedIn = async () => signedAs(await getViewer());

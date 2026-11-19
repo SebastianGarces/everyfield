@@ -50,7 +50,6 @@ const secret = "cron-" + randomUUID();
 type Body = { status: string; mailed: number; steps: Record<string, { status: string; count?: unknown }> };
 async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"]) {
 	const response = await scheduledJobs({
-		secret,
 		db,
 		storage: null,
 		cleanup: null,

@@ -52,6 +52,7 @@ import {
 	readMyResidency,
 	readResidentReading,
 	readPipelineBoard,
+	readPipelineChoices,
 	readPipelineConsents,
 	previewPipelineImport,
 	readPipelineExport,
@@ -730,6 +731,13 @@ function cases(who) {
 			"organizations:readPipelineBoard",
 			{
 				run: () => plain(() => readPipelineBoard(f.db, who.actor, {})),
+				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
+			},
+		],
+		[
+			"organizations:readPipelineChoices",
+			{
+				run: () => plain(() => readPipelineChoices(f.db, who.actor)),
 				expected: { value: { status: "refused", refusal: { code: "unavailable" } }, control: null },
 			},
 		],

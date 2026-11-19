@@ -10,7 +10,7 @@ import { peopleReader, personFields as f, uploadPersonPhoto } from "@everyfield/
 import { z } from "zod";
 import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../../../components/save/model.ts";
-import { read, write } from "../server.ts";
+import { write } from "../server.ts";
 import type { ChurchTag, HouseholdResult, PersonTag, PhotoResult, Skill } from "./model.ts";
 import { privateStorage } from "@everyfield/db/schema";
 import { leave } from "./leave.ts";
@@ -36,12 +36,6 @@ async function andPerson<T>(
 	if (done.status !== "ok") return done;
 	const person = await savedPerson(tx, ctx, personId);
 	return person.status === "ok" ? { status: "ok", value: { value: done.value, person: person.value } } : person;
-}
-
-export async function listChurchTags(): Promise<Outcome<ChurchTag[]>> {
-	return boundary(c.listTagsRequest, {}, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => f.listTags(tx, ctx, request)), (r) => r.items),
-	);
 }
 
 const addTagInput = z.union([
@@ -118,12 +112,6 @@ const skillsSaved = (r: { skills: Skill[]; receiptId: string; outcome: "changed"
 	receipt: receipt(r),
 });
 
-export async function readSkills(personId: string): Promise<Outcome<Skill[]>> {
-	return boundary(c.personFieldsRequest, { personId }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => f.getPersonSkills(tx, ctx, request)), (r) => r.skills),
-	);
-}
-
 export async function addSkill(requestKey: string, input: unknown): Promise<Outcome<SkillsSaved>> {
 	return boundary(c.addSkillRequest, { requestKey, input }, async (v, request) =>
 		outcome(await write(v, (tx, ctx) => f.addSkill(tx, ctx, request)), skillsSaved),
@@ -158,18 +146,6 @@ const membershipSaved = (r: { value: HouseholdAnswer; person?: PlantPerson }): M
 	receipt: receipt(r.value),
 });
 const asMember = (value: HouseholdAnswer) => membershipSaved({ value });
-
-export async function findHouseholds(search: string, page = 1): Promise<Outcome<z.infer<typeof c.householdsPage>>> {
-	return boundary(c.listHouseholdsRequest, { search, page, limit: 20 }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => f.listHouseholds(tx, ctx, request)), (r) => r),
-	);
-}
-
-export async function readHousehold(personId: string): Promise<Outcome<HouseholdResult>> {
-	return boundary(c.personFieldsRequest, { personId }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => f.getHousehold(tx, ctx, request)), (r) => r),
-	);
-}
 
 export async function startHousehold(
 	requestKey: string,
@@ -291,12 +267,6 @@ export async function uploadPhoto(form: FormData): Promise<Outcome<PhotoSaved>> 
 			),
 		);
 	});
-}
-
-export async function readPhoto(personId: string): Promise<Outcome<PhotoResult>> {
-	return boundary(c.personFieldsRequest, { personId }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => f.getPersonPhoto(tx, ctx, request)), (r) => r),
-	);
 }
 
 export async function removePhoto(

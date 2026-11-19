@@ -76,7 +76,7 @@ export function mergeVariables(input: string): string[] {
 	const keys = sanitizeHtml(input)
 		.split(/(<[^>]*>)/)
 		.filter((part) => !part.startsWith("<"))
-		.flatMap((part) => [...part.matchAll(MERGE_FIELD())].map((m) => m[1]!.toLowerCase()));
+		.flatMap((part) => [...part.matchAll(MERGE_FIELD())].map(([, key = ""]) => key.toLowerCase()));
 	return [...new Set(keys)].filter((key) => key !== "rsvp_link");
 }
 
@@ -101,12 +101,18 @@ export function renderBody(input: string, merge: Readonly<Record<string, string>
 		.replace(/<p>\s*<\/p>/g, "");
 }
 
-const entities: Record<string, string> = { lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " };
+const entities = new Map([
+	["lt", "<"],
+	["gt", ">"],
+	["quot", '"'],
+	["#39", "'"],
+	["nbsp", " "],
+]);
 
 const decodeText = (markup: string): string =>
 	markup
 		.replace(/<[^>]+>/g, " ")
-		.replace(/&(lt|gt|quot|#39|nbsp);/g, (_m, name: string) => entities[name]!)
+		.replace(/&(lt|gt|quot|#39|nbsp);/g, (entity, name: string) => entities.get(name) ?? entity)
 		.replaceAll("&amp;", "&");
 
 export function plainText(input: string): string {
@@ -114,10 +120,11 @@ export function plainText(input: string): string {
 		.split(/(<a\s+href="[^"]*"[^>]*>[\s\S]*?<\/a>)/)
 		.map((part, index) => {
 			if (index % 2 === 0) return decodeText(part);
-			const [, href, inner] = /^<a\s+href="([^"]*)"[^>]*>([\s\S]*?)<\/a>$/.exec(part)!;
-			const url = href!.replaceAll("&amp;", "&");
-			const label = decodeText(inner!.replace(/<[^>]+>/g, "")).trim();
-			return label && label !== url ? ` ${label} ${url} ` : ` ${url} `;
+			return part.replace(/^<a\s+href="([^"]*)"[^>]*>([\s\S]*?)<\/a>$/, (_link, href: string, inner: string) => {
+				const url = href.replaceAll("&amp;", "&");
+				const label = decodeText(inner.replace(/<[^>]+>/g, "")).trim();
+				return label && label !== url ? ` ${label} ${url} ` : ` ${url} `;
+			});
 		})
 		.join("")
 		.replace(/\s+/g, " ")

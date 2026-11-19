@@ -35,15 +35,15 @@ export function BrandPreview({
 	return (
 		<AssetSrc value={assetSrc}>
 			<Tabs value={tab} onValueChange={(next) => setTab(next as DocumentClass)}>
-				<TabsList aria-label="Document class" className="gap-5! max-app-sm:gap-3!">
+				<TabsList aria-label="Document class" className="gap-5 max-app-sm:gap-3">
 					{CLASSES.map((c) => (
-						<Tab key={c.value} value={c.value} className="text-[14px]! max-app-sm:text-[13px]!">
+						<Tab key={c.value} value={c.value} className="text-[14px] max-app-sm:text-[13px]">
 							{c.label}
 						</Tab>
 					))}
 				</TabsList>
 				{CLASSES.map((c) => (
-					<TabsPanel key={c.value} value={c.value} className="pt-4">
+					<TabsPanel key={c.value} value={c.value}>
 						<Sheet theme={themeOf(churchName, form, c.value, assets)} />
 					</TabsPanel>
 				))}

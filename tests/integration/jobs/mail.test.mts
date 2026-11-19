@@ -474,7 +474,6 @@ function queue(svc: ReturnType<typeof recorded>["svc"], logicalKey: string, extr
 const cron = "cron-" + randomUUID();
 async function tick(mountMail: Parameters<typeof scheduledJobs>[0]["mountMail"]) {
 	const response = await scheduledJobs({
-		secret: cron,
 		db: runtime,
 		storage: null,
 		cleanup: null,

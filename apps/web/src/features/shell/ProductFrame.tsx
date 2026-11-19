@@ -21,7 +21,7 @@ import { Residency, useResidency, type ResidencyState } from "../residency/conte
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "../people/server.ts";
-import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
+import { useWikiChrome, WikiChrome } from "../wiki/chrome.tsx";
 
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 

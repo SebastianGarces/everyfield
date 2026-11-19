@@ -19,12 +19,13 @@ export async function OverviewPage() {
 	if (!viewer || viewer.status === "unauthenticated")
 		redirect(`/signin?returnTo=${encodeURIComponent(DASHBOARD_HOME)}`);
 	const db = requestDatabase();
+	const framing = loadFrame();
 	const plant =
 		viewer.status === "active" && db ? await dashboardReader.resolveHome(db, viewer.authority ?? null) : "none";
 	const home = landingFor({ status: viewer.status, plant });
 	if (home !== DASHBOARD_HOME) redirect(home);
 
-	const frame = await loadFrame();
+	const frame = await framing;
 	if (frame.status === "denied")
 		return (
 			<StatePanel tone="lock" title="You do not have access to this church">
@@ -44,7 +45,6 @@ export async function OverviewPage() {
 						? `${ready.plantName} · ${phaseText(ready.phase)}`
 						: "Your church's name and phase could not load. Reload the page in a moment."
 				}
-				className="mb-1"
 			/>
 			{ready ? <GetStarted frame={ready} /> : null}
 			{failed ? <CardFailed what="Your next steps" loaded={failed} /> : null}
@@ -90,7 +90,7 @@ export function OverviewLoading() {
 			<span className="sr-only" role="status">
 				Loading your overview
 			</span>
-			<Skeleton className="h-14 w-72 rounded-card" />
+			<Skeleton className="h-14 w-72" />
 			<MetricsLoading />
 			<div className="grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] items-start gap-5 max-app-md:grid-cols-1">
 				<CardLoading label="recent changes" height={520} />

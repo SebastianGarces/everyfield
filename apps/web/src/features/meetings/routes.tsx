@@ -135,8 +135,8 @@ export function MeetingsLoading() {
 			<span className="sr-only" role="status">
 				Loading meetings
 			</span>
-			<Skeleton className="h-14 w-60 rounded-card" />
-			<Skeleton className="h-[120px] rounded-card" />
+			<Skeleton className="h-14 w-60" />
+			<Skeleton className="h-[120px]" />
 			<Card className="gap-4">
 				<div className="flex flex-wrap gap-3">
 					<Skeleton className="h-10 w-48 rounded-md" />

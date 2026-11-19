@@ -27,7 +27,8 @@ function initials(name: string): string {
 		.split(/\s+/)
 		.filter(Boolean)
 		.slice(0, 2)
-		.map((word) => Array.from(word)[0]!.toUpperCase());
+		.flatMap((word) => Array.from(word).slice(0, 1))
+		.map((letter) => letter.toUpperCase());
 	return letters.join("") || "•";
 }
 

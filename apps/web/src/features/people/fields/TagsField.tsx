@@ -9,7 +9,8 @@ import type { Outcome, Wait } from "../../../components/save/model.ts";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
 import { PersonLink } from "../parts.tsx";
-import { addPersonTag, listChurchTags, removePersonTag } from "./actions.ts";
+import { addPersonTag, removePersonTag } from "./actions.ts";
+import { listChurchTags } from "../fetch.ts";
 import { ManageTagsDialog } from "./ManageTagsDialog.tsx";
 import { tagLook, type ChurchTag, type PersonTag } from "./model.ts";
 import { churchTags, tagProblem } from "./ManageTagsDialog.tsx";
@@ -117,11 +118,11 @@ export function TagsField({
 						}}
 					>
 						<PopoverTrigger asChild>
-							<Button variant="ghost" size="sm" icon={Add01Icon} className="h-[26px] px-2 text-text-2">
+							<Button variant="ghost" size="sm" icon={Add01Icon} className="text-text-2">
 								Add tag
 							</Button>
 						</PopoverTrigger>
-						<PopoverContent label="Tags" align="start" className="w-[300px] p-0">
+						<PopoverContent label="Tags" align="start" className="w-[300px]">
 							<TagPicker
 								church={church}
 								chosen={shown}
@@ -168,7 +169,7 @@ function TagChip({ tag, onRemove, wait = null }: { tag: PersonTag; onRemove?: ()
 	const look = tagLook(tag.color);
 	const pending = tag.id.startsWith("new:");
 	return (
-		<Tag tone={look.tone} className="max-w-full gap-0 px-0" aria-busy={pending || undefined}>
+		<Tag tone={look.tone} className="max-w-full" aria-busy={pending || undefined}>
 			{pending ? (
 				<span className="flex min-w-0 items-center gap-1.5 px-2.5">
 					<span className="truncate">{tag.name}</span>

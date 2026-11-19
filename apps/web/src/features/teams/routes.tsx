@@ -109,15 +109,15 @@ export function TeamsLoading() {
 			<span className="sr-only" role="status">
 				Loading ministries
 			</span>
-			<Skeleton className="h-14 w-60 rounded-card" />
+			<Skeleton className="h-14 w-60" />
 			<div className="grid grid-cols-3 gap-5 max-app-lg:grid-cols-2 max-app-sm:grid-cols-1">
-				<Skeleton className="h-[150px] rounded-card" />
-				<Skeleton className="h-[150px] rounded-card" />
-				<Skeleton className="h-[150px] rounded-card max-app-sm:hidden" />
+				<Skeleton className="h-[150px]" />
+				<Skeleton className="h-[150px]" />
+				<Skeleton className="h-[150px] max-app-sm:hidden" />
 			</div>
 			<div className="grid grid-cols-[repeat(auto-fill,minmax(232px,1fr))] gap-4">
 				{Array.from({ length: 6 }, (_, i) => (
-					<Skeleton key={i} className="h-[184px] rounded-card" />
+					<Skeleton key={i} className="h-[184px]" />
 				))}
 			</div>
 		</div>

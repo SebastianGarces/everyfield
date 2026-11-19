@@ -2,7 +2,6 @@ import { flushTraces, observeRun, projectError, readConversation } from "@everyf
 import { after as afterResponse } from "next/server";
 import { errorResponse, evryDatabase, requestActor } from "@/server/evry";
 
-export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export const GET = async (request: Request, { params }: { params: Promise<{ id: string }> }) => {

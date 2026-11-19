@@ -1,15 +1,8 @@
 "use server";
 
-import type {
-	DebriefAnswers,
-	GatheringOffer,
-	GuestMatch,
-	History,
-	Milestone,
-	Plan,
-} from "@everyfield/contracts/launch";
+import type { DebriefAnswers, Milestone, Plan } from "@everyfield/contracts/launch";
 import type { Outcome } from "./model.ts";
-import { read, write } from "./server.ts";
+import { write } from "./server.ts";
 
 type DateResult = { outcome: "changed" | "noop"; plan: Plan };
 type MilestoneResult = { outcome: "changed" | "noop"; milestone: Milestone };
@@ -127,16 +120,4 @@ export async function saveGathering(
 		if (mode === "correct") return w.correctGathering(db, authority, { ...q, input });
 		return w.clearGathering(db, authority, { ...q, input: { reason: input.reason } });
 	});
-}
-
-export async function readGatheringOffers(): Promise<Outcome<GatheringOffer[]>> {
-	return read((r, db, authority) => r.readGatheringOffers(db, authority));
-}
-
-export async function suggestGuests(query: string): Promise<Outcome<GuestMatch[]>> {
-	return read((r, db, authority) => r.suggestGuests(db, authority, String(query)));
-}
-
-export async function readLaunchHistory(): Promise<Outcome<History>> {
-	return read((r, db, authority) => r.readJournal(db, authority));
 }

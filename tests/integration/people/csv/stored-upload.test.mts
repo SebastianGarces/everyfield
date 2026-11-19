@@ -290,7 +290,6 @@ const stoppedAgo = (importId, interval) =>
  WHERE id=(SELECT job_id FROM person_import WHERE id=${sql.param(importId)})`);
 const cron = "synthetic-cron-secret";
 const tick = scheduledJobs({
-	secret: cron,
 	db,
 	storage: null,
 	cleanup: null,

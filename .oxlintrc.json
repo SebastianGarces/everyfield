@@ -41,12 +41,21 @@
 		"typescript/prefer-namespace-keyword": "error",
 		"typescript/triple-slash-reference": "error",
 		"everyfield/resend-senders": "error",
+		"everyfield/request-actor": "error",
+		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
 		"everyfield/no-effects": "error",
+		"everyfield/storage-client": "error",
 		"everyfield/max-state": "error",
 		"everyfield/no-sql-comments": "error"
 	},
 	"overrides": [
+		{
+			"files": ["packages/*/src/**"],
+			"rules": {
+				"everyfield/no-error-message-match": "error"
+			}
+		},
 		{
 			"files": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
 			"rules": {
@@ -98,6 +107,12 @@
 			}
 		},
 		{
+			"files": ["tests/workflow/**/*.ts"],
+			"rules": {
+				"typescript/no-explicit-any": "error"
+			}
+		},
+		{
 			"files": ["tests/**/*.cjs"],
 			"rules": {
 				"typescript/no-require-imports": "off"
@@ -108,7 +123,15 @@
 			"rules": {
 				"everyfield/no-timers": "error",
 				"everyfield/no-render-writes": "error",
-				"everyfield/feature-boundaries": "error"
+				"everyfield/no-render-get-state": "error",
+				"everyfield/feature-boundaries": "error",
+				"everyfield/table-writers": "error"
+			}
+		},
+		{
+			"files": ["packages/contracts/src/**"],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
 			}
 		},
 		{
@@ -171,6 +194,7 @@
 				"everyfield/no-inner-html": "error",
 				"everyfield/no-cursor-utility": "error",
 				"everyfield/no-global-listeners": "error",
+				"everyfield/no-raw-history": "error",
 				"jsx-a11y/no-static-element-interactions": "error",
 				"jsx-a11y/click-events-have-key-events": "error"
 			}

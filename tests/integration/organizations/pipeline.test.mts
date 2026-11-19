@@ -10,6 +10,7 @@ import { readAvatar } from "../../../packages/domain/src/settings/avatar.ts";
 import {
 	pipelineWriter,
 	readPipelineBoard,
+	readPipelineChoices,
 	readPipelinePersonRecord,
 } from "../../../packages/domain/src/organizations/pipeline.ts";
 
@@ -92,6 +93,21 @@ test("an empty pipeline shows the five starter stages in order and nobody in the
 		],
 	);
 	assert.deepEqual(b.staff.map((s) => s.name).sort(), ["Ana", "Ben", "Dana", "Luis"]);
+});
+
+test("AC:ADR1-008 a person page offers the board's stages and staff without reading anyone on the board", async () => {
+	const b = await board(dana);
+	const choices = ok(await readPipelineChoices(db, await authority(dana)));
+	assert.deepEqual(choices, {
+		organizationName: b.organizationName,
+		stages: b.stages.map(({ id, label, kind }) => ({ id, label, kind })),
+		staff: b.staff,
+	});
+	assert.deepEqual(ok(await readPipelineChoices(db, await authority(ana))).staff, []);
+	assert.equal(
+		ok(await readPipelineChoices(db, await authority(hillOwner))).organizationName === b.organizationName,
+		false,
+	);
 });
 
 test("AC:ADR1-001 AC:ADR1-002 an Owner adds a person with an email and responsible staff; nobody outside the organization sees them", async () => {

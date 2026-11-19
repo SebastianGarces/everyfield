@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { DESCRIPTION_MAX, feedbackCategory } from "@everyfield/contracts/feedback";
 import { feedbackWriter } from "@everyfield/domain/feedback";
@@ -48,7 +47,7 @@ export const submit = nativeWrite({
 	async run(tx, _context, request, { authority, ports }) {
 		const saved = settled(
 			await feedbackWriter.submit(
-				tx as unknown as Database,
+				tx,
 				authority,
 				{ ...request, requestKey: requestKeyOf(request.requestKey) },
 				{ appVersion: ports.appVersion },
