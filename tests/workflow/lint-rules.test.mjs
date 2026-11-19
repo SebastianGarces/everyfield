@@ -123,6 +123,34 @@ test("INV-lint: every import form of an effect hook is reported", () => {
 	);
 });
 
+test("INV-privacy: server code logs only through the log module", () => {
+	const reach = `export const a = (error) => console.error(String(error));
+export const b = () => console.log("warm");
+const c = console;
+const { warn } = console;
+export const d = [c, warn];
+`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/server.ts": reach,
+			"packages/domain/src/people/reach.ts": reach,
+			"apps/web/src/features/x/Panel.tsx": `"use client";\n${reach}`,
+			"packages/domain/src/log.ts": reach,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[
+			"apps/web/src/features/x/server.ts:1 server-log",
+			"apps/web/src/features/x/server.ts:2 server-log",
+			"apps/web/src/features/x/server.ts:3 server-log",
+			"apps/web/src/features/x/server.ts:4 server-log",
+			"packages/domain/src/people/reach.ts:1 server-log",
+			"packages/domain/src/people/reach.ts:2 server-log",
+			"packages/domain/src/people/reach.ts:3 server-log",
+			"packages/domain/src/people/reach.ts:4 server-log",
+		],
+	);
+});
+
 test("INV-lint: a fifth state hook in a component or hook is reported, a nested callback's is not", () => {
 	const five = (name) =>
 		`export function ${name}() {\n\tconst a = useState(0);\n\tconst b = useState(0);\n\tconst c = React.useState(0);\n\tconst [d] = useReducer((s) => s, 0);\n\tconst [e] = useState(0);\n\tconst nested = () => useState(0);\n\treturn [a, b, c, d, e, nested];\n}\n`;
@@ -861,34 +889,6 @@ export const client = S3Client;
 			"packages/domain/src/documents/reach.ts:2 storage-client",
 			"packages/domain/src/documents/reach.ts:3 storage-client",
 			"packages/domain/src/documents/reach.ts:4 storage-client",
-		],
-	);
-});
-
-test("INV-privacy: server code logs only through the log module", () => {
-	const reach = `export const a = (error) => console.error(String(error));
-export const b = () => console.log("warm");
-const c = console;
-const { warn } = console;
-export const d = [c, warn];
-`;
-	assert.deepEqual(
-		lint({
-			"apps/web/src/features/x/server.ts": reach,
-			"packages/domain/src/people/reach.ts": reach,
-			"apps/web/src/features/x/Panel.tsx": `"use client";\n${reach}`,
-			"packages/domain/src/log.ts": reach,
-			"tests/integration/x/reach.test.mts": reach,
-		}),
-		[
-			"apps/web/src/features/x/server.ts:1 server-log",
-			"apps/web/src/features/x/server.ts:2 server-log",
-			"apps/web/src/features/x/server.ts:3 server-log",
-			"apps/web/src/features/x/server.ts:4 server-log",
-			"packages/domain/src/people/reach.ts:1 server-log",
-			"packages/domain/src/people/reach.ts:2 server-log",
-			"packages/domain/src/people/reach.ts:3 server-log",
-			"packages/domain/src/people/reach.ts:4 server-log",
 		],
 	);
 });

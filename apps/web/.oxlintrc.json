@@ -66,9 +66,9 @@
 		"everyfield/resend-senders": "error",
 		"everyfield/request-actor": "error",
 		"everyfield/no-comments": "error",
+		"everyfield/server-log": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/storage-client": "error",
-		"everyfield/server-log": "error",
 		"everyfield/max-state": "error",
 		"everyfield/no-sql-comments": "error",
 		"everyfield/no-error-message-match": "error"

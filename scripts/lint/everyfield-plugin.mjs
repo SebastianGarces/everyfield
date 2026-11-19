@@ -293,6 +293,30 @@ const pureModule = {
 	},
 };
 
+export const LOG_MODULE = "packages/domain/src/log.ts";
+const LOGGED_CODE = /^(?:apps\/web\/src|packages\/domain\/src)\//;
+
+const serverLog = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === LOG_MODULE || !LOGGED_CODE.test(path)) return {};
+		let client = false;
+		return {
+			Program(node) {
+				client = node.body.some((s) => s.type === "ExpressionStatement" && s.directive === "use client");
+			},
+			Identifier(node) {
+				if (client || node.name !== "console" || !isValueReference(node) || declared(context, node)) return;
+				context.report({
+					node,
+					message: `Log through ${LOG_MODULE} (logLine, logInfo, logFailure): it writes fixed words, numbers, checked ids and an error's class and code, never error text or row values.`,
+				});
+			},
+		};
+	},
+};
+
 const RUNTIME_MODULES =
 	/^(?:react|react-dom|next|server-only|client-only|zustand|@everyfield\/db|node:)(?:\/|$)|^node:/;
 const RUNTIME_GLOBALS = new Set([
@@ -812,30 +836,6 @@ const storageClient = {
 		return moduleSources((node, name) => {
 			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
 		});
-	},
-};
-
-export const LOG_MODULE = "packages/domain/src/log.ts";
-const LOGGED_CODE = /^(?:apps\/web\/src|packages\/domain\/src)\//;
-
-const serverLog = {
-	meta: { type: "problem" },
-	create(context) {
-		const path = repoPath(context.filename);
-		if (path === LOG_MODULE || !LOGGED_CODE.test(path)) return {};
-		let client = false;
-		return {
-			Program(node) {
-				client = node.body.some((s) => s.type === "ExpressionStatement" && s.directive === "use client");
-			},
-			Identifier(node) {
-				if (client || node.name !== "console" || !isValueReference(node) || declared(context, node)) return;
-				context.report({
-					node,
-					message: `Log through ${LOG_MODULE} (logLine, logInfo, logFailure): it writes fixed words, numbers, checked ids and an error's class and code, never error text or row values.`,
-				});
-			},
-		};
 	},
 };
 
@@ -1674,9 +1674,9 @@ export default {
 		"no-timers": noTimers,
 		"request-actor": requestActor,
 		"no-comments": noComments,
+		"server-log": serverLog,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
-		"server-log": serverLog,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
