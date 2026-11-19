@@ -354,7 +354,7 @@ function ToField({
 						</button>
 					) : null}
 					{locked ? null : (
-						<Command.Input asChild value={shown.map((person) => person.id).join(" ")}>
+						<Command.Input asChild value={listed ? shown.map((person) => person.id).join(" ") : ""}>
 							<input
 								id={inputId}
 								aria-label="Add a person"
