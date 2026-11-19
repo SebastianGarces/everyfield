@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import {
 	Add01Icon,
@@ -57,7 +58,6 @@ import {
 	type ObligationItem,
 	type OutcomeItem,
 	type OutcomeMutation,
-	type Outcome,
 } from "./model.ts";
 import { actorName, EntryFacts, LastContact, OutcomeBadge } from "./parts.tsx";
 import {
