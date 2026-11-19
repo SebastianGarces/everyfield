@@ -90,8 +90,7 @@ function outcomeVariant(input) {
 	if (input?.target?.kind === "person") return ":person";
 	if (input?.outcome === "no_longer_needed") return ":no_longer_needed";
 	if (!input?.completeTask) return ":task";
-	if (input.outcome === "contacted") return ":contacted_complete";
-	return ["attempted_no_contact", "administrative_completion"].includes(input.outcome) ? ":complete" : ":task";
+	return input.outcome === "contacted" ? ":contacted_complete" : ":complete";
 }
 
 export async function measure(name, body, options = {}) {
