@@ -31,9 +31,7 @@ export const updateProfile = nativeWrite({
 			FROM organization o WHERE o.id=${actor.owner.id}::uuid`;
 	},
 	async run(tx, context, request, { ports }) {
-		committed(
-			await ports.organizations["organizations.updateProfile"](tx, context.session, context.selected, request as never),
-		);
+		committed(await ports.organizations["organizations.updateProfile"](tx, context.session, context.selected, request));
 	},
 });
 

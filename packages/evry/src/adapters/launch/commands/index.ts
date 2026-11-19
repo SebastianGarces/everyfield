@@ -1,6 +1,6 @@
 import { localDate } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
-import type { Database } from "@everyfield/db/client";
+import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createLaunchReader, createLaunchWriter } from "@everyfield/domain/launch";
@@ -49,7 +49,7 @@ function launchWrite<I, L = undefined>(spec: {
 	lookup?(db: Database, actor: EvryActor, input: I): Promise<L | null>;
 	prepare(plan: c.Plan, input: I, found: L): Prepared | null;
 	run(
-		tx: Database,
+		tx: Transaction,
 		authority: RequestActor,
 		args: Record<string, unknown>,
 		key: string,
@@ -79,13 +79,7 @@ function launchWrite<I, L = undefined>(spec: {
 			return sql`SELECT ${JSON.stringify(review)}::jsonb AS review, ${JSON.stringify(p.args)}::jsonb AS args`;
 		},
 		async execute(tx, _context, args, effectKey, _reminders, native) {
-			return spec.run(
-				tx as unknown as Database,
-				native.authority,
-				args as Record<string, unknown>,
-				effectKey,
-				native.ports,
-			);
+			return spec.run(tx, native.authority, args as Record<string, unknown>, effectKey, native.ports);
 		},
 		current: spec.current ?? launchSundayNow,
 	};
