@@ -5,6 +5,7 @@ import { getCommitmentDownload } from "@everyfield/domain/people";
 import { z } from "zod";
 import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "../fields/server.ts";
+import { transient } from "@/server/platform/transient";
 
 const params = z.object({ personId: z.uuid(), commitmentId: z.uuid() });
 const gone = () =>
@@ -17,11 +18,14 @@ export async function GET(
 	const p = params.safeParse(await raw);
 	const v = await getViewer();
 	const storage = privateStorage();
-	if (!p.success || !v.people || !storage) return gone();
+	const people = v.people;
+	if (!p.success || !people || !storage) return gone();
 	const db = requestDatabase();
-	const link = await getCommitmentDownload(db, storage, peopleContext(v.people), {
-		commitmentId: p.data.commitmentId,
-	}).catch(() => null);
+	const link = await transient(
+		{ component: "people", outcome: "document_link_failed" },
+		() => getCommitmentDownload(db, storage, peopleContext(people), { commitmentId: p.data.commitmentId }),
+		null,
+	);
 	if (link?.status !== "ok") return gone();
 	return new Response(null, {
 		status: 303,

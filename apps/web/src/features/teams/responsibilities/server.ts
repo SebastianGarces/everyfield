@@ -5,19 +5,20 @@ import { responsibilityReader } from "@everyfield/domain/teams";
 import "server-only";
 import type { Outcome } from "../model.ts";
 import { outcome, type Viewer } from "../server.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "@/server/platform/transient";
 
 async function read<T>(
 	viewer: Viewer,
 	run: (db: Database, authority: Viewer["authority"]) => Promise<TeamsReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	try {
-		return outcome(await run(db, viewer.authority));
-	} catch (error) {
-		logFailure({ component: "responsibilities", outcome: "read_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "responsibilities", outcome: "read_failed" },
+		async () => {
+			return outcome(await run(db, viewer.authority));
+		},
+		LOST,
+	);
 }
 
 export function listResponsibilities(v: Viewer, teamId: string, page: number) {
