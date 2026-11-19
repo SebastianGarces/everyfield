@@ -46,7 +46,7 @@ import {
 	Input,
 	PageHeader,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
@@ -102,7 +102,6 @@ export function LaunchScreen({
 	offers: Offers;
 	viewer: Viewer;
 }) {
-	const toast = useToast();
 	const [plan, setPlan] = useState(initial);
 	const [offers, setOffers] = useState(initialOffers);
 	const milestone = plan.path.kind === "milestone" ? plan.path : null;
@@ -527,7 +526,6 @@ function MilestoneRow({
 	onMilestone: (m: Milestone) => void;
 	onTask: (t: PrepTask) => void;
 }) {
-	const toast = useToast();
 	const panel = useId();
 	const [busy, setBusy] = useState(false);
 	const [stale, setStale] = useState(false);
@@ -666,7 +664,6 @@ function TaskRow({
 	viewer: Viewer;
 	onTask: (t: PrepTask) => void;
 }) {
-	const toast = useToast();
 	const [saving, setSaving] = useState(false);
 	const mine = task.assignees.some((a) => a.accountId === viewer.accountId);
 	async function toggle() {
