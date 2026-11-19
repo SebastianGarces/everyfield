@@ -23,11 +23,14 @@ import type { NotificationWorker } from "../../features/notifications/worker.ts"
 import { runDueObjectCleanup } from "./object-cleanup.ts";
 import { replayStoredCallbacks } from "./webhook.ts";
 import { asLogWord, logLine } from "@everyfield/domain/log";
+import { readSwitches, switchedOff, type KillSwitch } from "@everyfield/domain/flags";
 
 const START_MS = 60_000;
 
-type StepStatus = { status: "ok"; count: unknown } | { status: "skipped" } | { status: "failed" };
-type Step = readonly [component: string, key: string | null, run: (() => Promise<unknown>) | null];
+type StepStatus =
+	{ status: "ok"; count: unknown } | { status: "skipped" } | { status: "paused" } | { status: "failed" };
+type Run = () => Promise<unknown>;
+type Step = readonly [component: string, key: string | null, run: Run | null | { paused: KillSwitch }];
 
 async function sweepOrphans(db: Database, storage: PrivateStorage) {
 	const reply = await documentsWriter.reconcileOrphans(db, storage);
@@ -65,9 +68,12 @@ export function scheduledJobs(config: {
 		const assessments = config.assessments ?? null;
 		const now = config.now;
 		const assessing = createAssessmentJob(now ? { clock: { now: () => instant.parse(now().toISOString()) } } : {});
+		const switches = await readSwitches(db);
+		const held = (name: KillSwitch, run: Run | null) => (run && !switches[name] ? { paused: name } : run);
+		const mailing = (run: Run | null) => held("outbound-mail", run);
 		const pass = (name: keyof NonNullable<typeof config.mountMail>): Step => {
 			const run = config.mountMail?.[name] ?? null;
-			return [`${name}-mail`, null, run && (() => run(20, until))];
+			return [`${name}-mail`, null, mailing(run && (() => run(20, until)))];
 		};
 		const steps: Step[] = [
 			["close-lost-jobs", "closed", () => transaction(db, (tx) => closeLostJobs(tx))],
@@ -76,16 +82,23 @@ export function scheduledJobs(config: {
 			["object-cleanup", "removed", storage && (() => runDueObjectCleanup(db, storage, 4, until))],
 			["documents-orphans", null, storage && (() => sweepOrphans(db, storage))],
 			["lifecycle-purge", "purged", cleanup && storage && (() => runDuePurges(db, cleanup, storage, 2, until))],
-			["evry-effect", "effects", reminders && (() => runEffects(db, reminders, 4, until))],
-			["assistant-turn", "turns", () => runTurns(db, 4, until)],
+			["evry-effect", "effects", reminders && (() => runEffects(db, switches, reminders, 4, until))],
+			["assistant-turn", "turns", () => runTurns(db, switches, 4, until)],
 			["digest-planning", "planned", digests && (() => planDigests(db, asOf))],
 			["digest-delivery", "digests", digests && (() => digests.run(db, asOf, undefined, until))],
 			["notification", "notified", notifications && (() => notifications.run(db, asOf, undefined, until))],
 			["assessment-demand", null, assessments && (() => assessing.scheduleAssessments(db))],
-			["assessment", null, assessments && (() => runAssessmentBatch(assessing, db, assessments.drafter, 2, until))],
+			[
+				"assessment",
+				null,
+				held(
+					"evry-model-calls",
+					assessments && (() => runAssessmentBatch(assessing, db, assessments.drafter, 2, until)),
+				),
+			],
 			["feedback-publication", null, feedbackPublication && (() => feedbackPublication(10, until))],
 			["mail-expiry", null, () => expireStaleMail(db)],
-			["mail", "mailed", mail && (() => mail(20, until))],
+			["mail", "mailed", mailing(mail && (() => mail(20, until)))],
 			pass("identity"),
 			pass("organization"),
 			pass("settings"),
@@ -93,7 +106,7 @@ export function scheduledJobs(config: {
 			pass("notice"),
 			pass("digest"),
 			pass("feedback"),
-			["messages", "messages", messages && (() => messages(20, until))],
+			["messages", "messages", mailing(messages && (() => messages(20, until)))],
 			["mail-callbacks", null, () => replayStoredCallbacks(db)],
 		];
 		const counts: Record<string, unknown> = {
@@ -112,6 +125,11 @@ export function scheduledJobs(config: {
 		for (const [component, key, run] of steps) {
 			if (!run) {
 				report[component] = { status: "skipped" };
+				continue;
+			}
+			if (typeof run !== "function") {
+				switchedOff(switches, run.paused, asLogWord(component));
+				report[component] = { status: "paused" };
 				continue;
 			}
 			try {

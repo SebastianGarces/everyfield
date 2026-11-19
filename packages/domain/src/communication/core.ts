@@ -51,6 +51,7 @@ const retry: Record<Code, string> = {
 	rsvp_needs_meeting: "never",
 	missing_merge_variable: "never",
 	cancel_unconfirmed: "never",
+	mail_paused: "same_request",
 };
 function refused(error: CommunicationRefusal): CommunicationReply<never> {
 	return {

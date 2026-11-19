@@ -24,9 +24,16 @@ import { communicationViewer, deliver, read, write, type Viewer } from "./server
 import { chainHandoff, chainSendNow } from "./sendNowChain.ts";
 import { anticipateProvider, deliveryTransport } from "../../server/mail/transport.ts";
 import type { WriteTx } from "@everyfield/domain/access";
+import { switchedOff } from "@everyfield/domain/flags";
+import { requestSwitches } from "../../server/switches.ts";
 
 type Scheduled = Draft & { scheduledAt: string };
 const denied = { status: "refused", code: "access_denied" } as const;
+const mailPaused = { status: "refused", code: "mail_paused" } as const;
+
+async function mailHeld(action: "communication.executeResend" | "communication.handOff"): Promise<boolean> {
+	return switchedOff(await requestSwitches(), "outbound-mail", action);
+}
 
 async function seat(): Promise<Viewer | null> {
 	const gate = await communicationViewer();
@@ -103,6 +110,7 @@ export async function sendReviewed(
 	communicationId: string,
 	when: unknown = "now",
 ): Promise<Outcome<DeliveryReport>> {
+	const paused = !(await requestSwitches())["outbound-mail"];
 	const result = await deliver((db, viewer, mail) => {
 		anticipateProvider(mail);
 		const handOff = when === "now" ? communicationWriter.sendReviewed : communicationWriter.handOffScheduled;
@@ -110,7 +118,7 @@ export async function sendReviewed(
 			db,
 			viewer.authority,
 			{ requestKey, expectedRevision, input: { communicationId } },
-			deliveryTransport(mail),
+			deliveryTransport(mail, fetch, { paused }),
 			mail.keys,
 		);
 	});
@@ -297,6 +305,7 @@ export async function deleteTemplate(
 }
 
 export async function saveResend(requestKey: string, communicationId: string): Promise<Outcome<SavedResend>> {
+	if (await mailHeld("communication.executeResend")) return mailPaused;
 	return change(async (tx, context) => {
 		const result = await communicationWriter.executeResend(tx, context, {
 			requestKey,
@@ -362,6 +371,7 @@ export async function handOff(
 	const parsedKeys = handOffKeys.safeParse(rawKeys);
 	const parsedTarget = handOffTarget.safeParse(rawTarget);
 	if (!parsedKeys.success || !parsedTarget.success) return { status: "refused", code: "invalid_input" };
+	if (await mailHeld("communication.handOff")) return mailPaused;
 	const keys = parsedKeys.data;
 	const target = parsedTarget.data;
 	const steps = {

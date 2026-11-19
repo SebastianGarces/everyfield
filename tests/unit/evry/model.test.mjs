@@ -6,9 +6,12 @@ import {
 	merge,
 	opened,
 	pageReferences,
+	resendable,
 	retryable,
+	sendNotice,
 	turnsOf,
 } from "../../../apps/web/src/features/evry/conversation/model.ts";
+import { actionNotice, mailRefusalText } from "../../../apps/web/src/features/evry/review/model.ts";
 
 const T = "11111111-1111-4111-8111-111111111111";
 const at = "2026-10-21T00:00:00Z";
@@ -125,4 +128,32 @@ test("INV-turns: live text of a turn with a withheld text is never shown", () =>
 		turn.blocks.map((b) => [b.kind, b.text]),
 		[["text", ""]],
 	);
+});
+
+test("a paused Evry or paused email says what stopped, that nothing changed and what to do, and names no switch, flag or code", () => {
+	const paused = (code, retry) => ({ code, correlationId: "x", retry, outcome: "refused" });
+	const send = {
+		key: "k",
+		text: "Who joined?",
+		references: [],
+		state: "refused",
+		error: paused("model_paused", "new_turn"),
+		sequence: null,
+	};
+	const turn = endNotice({ state: "failed", reason: "failed", error: paused("model_paused", "new_turn") });
+	const texts = [
+		sendNotice(send),
+		`${turn.title}: ${turn.text}`,
+		actionNotice(paused("mail_paused", "same_request"), true),
+		mailRefusalText("mail_paused"),
+	];
+	for (const text of texts) {
+		assert.match(text, /paused/i);
+		assert.doesNotMatch(text, /kill|switch|flag|_paused|model_|error/i);
+	}
+	assert.equal(turn.tone, "neutral");
+	assert.match(sendNotice(send), /nothing was saved\. Your message is still here/);
+	assert.equal(resendable(send), true, "the typed message can be sent again");
+	const failed = end(2, { state: "failed", reason: "failed", error: paused("model_paused", "new_turn") });
+	assert.equal(retryable({ ...EMPTY, events: [ask(1), failed], activeTurnId: null }, turnsOf([ask(1), failed])), true);
 });

@@ -84,6 +84,13 @@ function emailStep(text: string, canPropose: boolean, canRead: boolean, result: 
 				input: schedule || relative ? { state: "draft" } : { state: "scheduled", sendOn: nextDate(target[1]!) },
 			}),
 		];
+	if (result.error === "mail_paused")
+		return [
+			{
+				type: "text" as const,
+				text: "Sending email is paused for now, so I didn't prepare this. Nothing was sent or scheduled. You can ask me again later.",
+			},
+		];
 	const first = (result.rows as { id: string }[] | undefined)?.[0];
 	if (!first || typeof result.proposalId === "string") return null;
 	const communicationId = first.id;

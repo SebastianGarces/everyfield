@@ -21,6 +21,7 @@ Its `save()` writes the file on a recording run. Every call is keyed by `callKey
 | `onboarding.test.mts` | `onboarding.cases.json`                                                                                                  | Setup and Discovery tools (scripted model)                                            |
 | `pipeline.test.mts`   | `pipeline.cases.json`                                                                                                    | Organization pipeline and program tools (scripted model)                              |
 | `launch.test.mts`     | `launch.cases.json`                                                                                                      | Launch plan reads and reviewed changes (scripted model)                               |
+| `kill-switches.test.mts` | `kill-switches.cases.json`                                                                                            | Evry with a kill switch off: model calls paused (zero calls), outbound mail paused     |
 
 ## The settings suite (scripted model)
 
@@ -100,6 +101,15 @@ time. A correction card changes only the fields named, keeps the outcome note, a
 shows the outcome as it is now. Each refusal (not recorded, already a guest, no or long name, no or long reason, a date
 after today, a count out of range, the same values) makes no card, and the card itself refuses them too. The recorded
 suites leave these tools out too.
+
+## The kill-switch suite
+
+`kill-switches.test.mts` (T-472) runs on Hope Fellowship with a kill switch turned off globally
+(`docs/runbooks/kill-switches.md`). KILL-01 turns off `evry-model-calls`: a question queued before the flip ends with
+the paused code, a new one is refused at submit, the answer is the Evry panel's paused notice, and the replay model
+records zero calls, so `kill-switches.recorded.json` holds none for it. KILL-02 turns off `outbound-mail` and asks Evry
+to schedule the saved draft: the schedule review is refused before anything is prepared, no send reaches the email
+service, and the recorded answer says email is paused and nothing was sent or scheduled. Only these cases were recorded.
 
 ## The household and follow-up suites
 

@@ -72,6 +72,16 @@ export function resultForModel(resultId: number, result: SourceResult): ModelRep
 	return JSON.parse(scrub(JSON.stringify({ ...value, rows, truncatedRows: result.rows.length - rows.length })));
 }
 
+const REFUSAL_DETAIL: Partial<Record<string, string>> = {
+	mail_paused:
+		"Sending email is paused for everyone right now, so nothing was prepared, scheduled or sent. Tell the user that email is paused, that nothing was sent, and that they can ask again later.",
+};
+
+export function refusalForModel(code: string): ModelReply {
+	const detail = REFUSAL_DETAIL[code];
+	return detail ? { error: code, detail } : { error: code };
+}
+
 export function proposalForModel(proposal: Pick<Proposal, "id" | "expiresAt" | "review">): ModelReply {
 	const target = proposal.review.target;
 	const people = (proposal.review.people ?? []).map((p) => ({

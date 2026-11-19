@@ -37,6 +37,7 @@ import {
 	teardown,
 } from "../../../runtime/support.mts";
 import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
+import { readSwitches, setFlag } from "../../../../../packages/domain/src/flags/index.ts";
 
 const CALLBACK_SECRET = "whsec_" + randomBytes(32).toString("base64");
 function signedCallback(messageId: string, kind: string) {
@@ -98,6 +99,7 @@ function emailService() {
 			origin: "https://app.example.test",
 		},
 		transport: {
+			paused: false,
 			async send(batch) {
 				calls.send.push({
 					key: batch.key,
@@ -1216,4 +1218,85 @@ test("each read and effect stays within its budget in limits.json and no transac
 	const cancel = await review("communication.cancelScheduledReviewed", { communicationId: replaced }, 1);
 	await effect(cancel, ["communication.cancelScheduledReviewed"]);
 	assert.equal(service.calls.cancel.at(-1)!.openTransactions, 0);
+});
+
+test("with outbound-mail off, Evry refuses to prepare or approve a send, refuses an approved one before it runs, and sends nothing; back on, the send goes out", async () => {
+	const owner = await actor("owner");
+	const service = emailService();
+	const operator = accounts.owner.id;
+	const flip = (value: boolean | null) =>
+		setFlag(db, { flag: "outbound-mail", scope: { kind: "global" }, value, operator });
+	const portFor = async (): Promise<MailPort> => ({
+		...service.port,
+		transport: { ...service.port.transport, paused: !(await readSwitches(db))["outbound-mail"] },
+	});
+	const first = await savedDraft(owner, service.port, "Held one");
+	const second = await savedDraft(owner, service.port, "Approved before the pause");
+	const ready = await (
+		await turn(owner, service.port)
+	).propose("communication.scheduleReviewed", {
+		communicationId: first.id,
+		sendAt: localAt(3),
+	});
+	const queued = await (
+		await turn(owner, service.port)
+	).propose("communication.scheduleReviewed", {
+		communicationId: second.id,
+		sendAt: localAt(3),
+	});
+	assert.ok(ready && queued);
+	await approveProposal(db, owner, queued.id, { revision: queued.revision, digest: queued.digest }, null, service.port);
+	const proposals = async () => (await rows(sql`SELECT count(*)::int n FROM proposal`))[0]!.n;
+	const logged: string[] = [];
+	const write = console.error;
+	console.error = (line: unknown) => void logged.push(String(line));
+	await flip(false);
+	try {
+		const paused = await portFor();
+		const before = await proposals();
+		await assert.rejects(
+			(await turn(owner, paused)).propose("communication.scheduleReviewed", {
+				communicationId: first.id,
+				sendAt: localAt(4),
+			}),
+			{ code: "mail_paused" },
+		);
+		assert.equal(await proposals(), before, "nothing is prepared");
+		await assert.rejects(
+			approveProposal(db, owner, ready.id, { revision: ready.revision, digest: ready.digest }, null, paused),
+			{ code: "mail_paused" },
+		);
+		assert.equal((await readReview(db, owner, ready.id)).status, "pending", "the proposal stays unexecuted");
+		assert.equal(await runNext(paused), "refused");
+		const refused = await readReview(db, owner, queued.id);
+		assert.equal(refused.outcome, "refused");
+		assert.equal(refused.receipt!.code, "mail_paused");
+		assert.deepEqual(
+			(
+				await rows(sql`SELECT state FROM communication WHERE id = ANY(${sql.param([first.id, second.id])}::uuid[])`)
+			).map((r) => r.state),
+			["draft", "draft"],
+			"no schedule was written",
+		);
+		assert.equal(service.calls.send.length, 0, "no send reached the email service");
+	} finally {
+		console.error = write;
+		await flip(null);
+	}
+	assert.deepEqual(
+		logged.map((l) => JSON.parse(l)),
+		["evry.prepareProposal", "evry.approveProposal", "evry.executeProposal"].map((action) => ({
+			component: "kill-switch",
+			switch: "outbound-mail",
+			action,
+			outcome: "refused",
+		})),
+	);
+	const on = await portFor();
+	await approveProposal(db, owner, ready.id, { revision: ready.revision, digest: ready.digest }, null, on);
+	assert.equal(await runNext(on), "completed");
+	assert.equal((await readReview(db, owner, ready.id)).outcome, "completed");
+	assert.equal((await rows(sql`SELECT state FROM communication WHERE id=${first.id}`))[0]!.state, "scheduled");
+	assert.equal(await sendWhenDue(first.id, service), 1);
+	assert.equal(service.calls.send.length, 1, "back on, the send goes out once, with no restart");
 });

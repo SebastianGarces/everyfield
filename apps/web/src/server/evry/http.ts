@@ -1,5 +1,6 @@
 import "server-only";
 import { privateStorage } from "@everyfield/db/schema";
+import { readSwitches } from "@everyfield/domain/flags";
 import {
 	approveProposal,
 	cancelProposal,
@@ -84,7 +85,15 @@ export const proposalGet = async (_request: Request, { params }: IdParams) => {
 export const proposalApprovePost = mutatingRoute(async (request: Request, { params }: IdParams) => {
 	const { id } = await params;
 	return evryResponse(async (db, actor) => {
-		const approved = await approveProposal(db, actor, id, await request.json().catch(() => null), privateStorage());
+		const mail = evryMail(!(await readSwitches(db))["outbound-mail"]);
+		const approved = await approveProposal(
+			db,
+			actor,
+			id,
+			await request.json().catch(() => null),
+			privateStorage(),
+			mail,
+		);
 		if (!approved.replayed || approved.proposal.executing) drainEffects();
 		return approved;
 	});
@@ -97,7 +106,7 @@ export const proposalCancelPost = mutatingRoute(async (_request: Request, { para
 
 export const proposalCheckPost = mutatingRoute(async (_request: Request, { params }: IdParams) => {
 	const { id } = await params;
-	return evryResponse(async (db, actor) => checkProposal(db, actor, id, evryMail()));
+	return evryResponse(async (db, actor) => checkProposal(db, actor, id, evryMail(false)));
 });
 
 export const proposalPhotoGet = async (_request: Request, { params }: IdParams) => {
@@ -124,6 +133,6 @@ export const proposalRetryPost = mutatingRoute(async (_request: Request, { param
 export const proposalRevisePost = mutatingRoute(async (request: Request, { params }: IdParams) => {
 	const { id } = await params;
 	return evryResponse(async (db, actor) =>
-		reviseProposal(db, actor, id, await request.json().catch(() => null), evryMail(), evryNative()),
+		reviseProposal(db, actor, id, await request.json().catch(() => null), evryMail(false), evryNative()),
 	);
 });

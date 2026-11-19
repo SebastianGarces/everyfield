@@ -21,6 +21,7 @@ export const communicationError = z.discriminatedUnion("code", [
 		"never",
 	),
 	defineSafeError("cancel_unconfirmed", { replacementIntents: z.literal(0) }, "never"),
+	defineSafeError("mail_paused", { providerCalls: z.literal(0) }, "same_request"),
 ]);
 export type CommunicationError = z.infer<typeof communicationError>;
 

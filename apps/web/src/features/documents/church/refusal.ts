@@ -15,4 +15,6 @@ export const EXPORT_MESSAGES: Record<string, string> = {
 	conflict: "The document changed after this page opened, so nothing was saved. Reload the page and try again.",
 	access_denied: "You no longer have access to this document, so nothing was saved.",
 	invalid_input: "That format is not offered for this document, so nothing was saved.",
+	exports_paused:
+		"Saving exports is paused for now, so nothing was saved or downloaded. Exports you saved earlier still download. Try again later.",
 };

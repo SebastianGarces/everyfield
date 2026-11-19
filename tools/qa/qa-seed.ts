@@ -1146,6 +1146,7 @@ async function mailCases(
 		const actor = await RequestActor.resolve(runtime, c.session as never);
 		if (!(actor instanceof RequestActor)) throw Error(`delivery actor: ${JSON.stringify(actor)}`);
 		const accepting: DeliveryTransport = {
+			paused: false,
 			send: async (batch) => ({ outcome: "ids", ids: batch.messages.map(() => `qa-seed-${randomUUID()}`) }),
 			cancel: async (ids) => ids.map(() => ({ outcome: "unknown" })),
 			reschedule: async (ids) => ids.map(() => ({ outcome: "unknown" })),

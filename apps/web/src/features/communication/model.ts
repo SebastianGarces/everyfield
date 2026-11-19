@@ -107,6 +107,8 @@ function refusalText(code: string): string {
 			return "This message has an RSVP link. Start it from the meeting, or remove the RSVP line.";
 		case "unavailable":
 			return "Email delivery is not set up on this server. Nothing was sent.";
+		case "mail_paused":
+			return "Sending email is paused for now. Nothing was sent, and this message did not change. Try again later.";
 		default:
 			return "Unable to save. Try again in a moment.";
 	}

@@ -1,0 +1,329 @@
+{
+	"model": "gpt-6-luna",
+	"recordedAt": "2026-11-19T19:34:53.974Z",
+	"spend": {
+		"newCalls": 4,
+		"newMicroUsd": 8284,
+		"allCalls": 4,
+		"allMicroUsd": 8284
+	},
+	"calls": {
+		"25c43f74c9ae32cd": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_012ebec38dc1d6d8006aff4f59bc7887d2964f9dce128e99b3",
+					"timestamp": "2026-11-19T19:34:50.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_012ebec38dc1d6d8006aff4f5ab5dc87d2bad32e0857b4d466:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_012ebec38dc1d6d8006aff4f5ab5dc87d2bad32e0857b4d466",
+							"reasoningEncryptedContent": "gAAAAABq_09a_MPby5Eqw3hgy3H2bKb4hcTZbWZsa2Qhe0V-8nnyXtb8bpD-xEzlAuVdvDh3uHb54ev0wIch3UZgcgpvpGqO4dj9M3s-QqhdHOk0R8RVBAo-2yrkL4J59HmxNs8spEv3fG7zUpMDBK1oQVjcbbCUvpX8oBz_WUr2nU6qHdubGAk7ibtHxw3EZYpMyQseU-TXRvjDY6MGmhBeXwjWbb2_Wn9_FzJ2ZwQTWnlk8DBEj1Xe0tCZKZ3XNN1Uv0xeYq-0_NbKd98BxTjlv1pb08TRyAkZf4aJBvY46WQPuGS7lSXTCC_oP7c20iQ8U1avizQ9L46EFSIwqZ1oEFSc7zxciNhTGyicknEM0Yzd8Mq09-_90k8cvF6Mgemj5LmLRHdc8_3NqiWD8-MWSZCBfSKMGSl3rQ1NEpBU-0BO2JzSnO-QA2K-JR_2CeiYGoBQCsG3Gokqz9kZoUnuMNWh29WyoieCkXrDzAG4D9_GZ_osnLoM3llL4CIEy5ylBgdeMwH-WgQidIq-as5q7OEJy2LBU7b93U4OxZc6_bsiwZkIs0Z4HSfcYwv0TkVMfr7BPg-HQh_FuteLXQI5-8X3wCcryacZM4rWOvrNCMnPf_ANJOGrjSeZq8QZGIYrAOuQ2JROvcNwqFo9lmk6mKuR09DMYireJilpObNbRQkstG0FG0RVRVeIFAfA_b5v7cFMmxkSPyK0ViFhX-GvSQWE5pLbFXEH_U4P8piMzLmDtwO-pgvSCpba8sIvRWofPPQpd43jjK9N9v4nr0o-QKfukBTkiR72eMUUyyw99-v7Ge8viIeeEd6dUKI7NZJnsC7n83D9ieSepQKOf4xMcW_tGMMWUCc82d4xOaupoAKBy-vAnfD4JYad_4aPSnjxcnOB8yZUixp3BHHHoHcf69Wt2QShuNMtqTjy9AOH2C2KhPNTGJ0vOmo9UKRl2_cFfY1b9EfCsA4cgn8CVtf86WVHqfmUwUm8gqUXY4IU20BkqLkMNqX2yjwMmJglW-2gZMlxZ7YK-S7vv6GbEWE2AP3vyMWJdpe_mMGsgYBYEYcK__ZFIcvhyBBr1RMQAp1I1ZnczYZhhxSLWQVvmRrayfzFyypbBgGFQywdZ8T0yY_Avzj8VjuqUkPajJKGyy9LOTbrOWjgQImNXoQLdKXMZIaWqbKP--gAU0xsqhtuzbDFEp4pcayPRb860y1yAmNtH5jiejn_y98PHiZ9iaLVOeQAFf3w_cCXkldpO-S5q1W1osVfgCKvIQNcaR_abENbPkexu0QSm5KCYyX1UeINVCF6x_LzUZmn1uaFTqtRUgVlaqFmR4ImYdv8ZpATuufgJJb0icCdAibB4oETHJv-WAxkp8p7LMhfGUY4d_MHACvGZCu_WxE="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_012ebec38dc1d6d8006aff4f5ab5dc87d2bad32e0857b4d466:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_012ebec38dc1d6d8006aff4f5ab5dc87d2bad32e0857b4d466",
+							"reasoningEncryptedContent": "gAAAAABq_09a5Su-zKLuSJfBES9HLbTluhRTTxqj6hegNbVegVosX4ex17C_Shotl52Aw6S516bcwTvpGmo7iGsev1BEL_L23oVxgbDl67s4VLHbN-HJGw4EMt9my6aXH119p65QVD4bM1MlimSuEG4tnAQRMqNNHizFXDzCDaScbNMsQy3fSmLXxDfbyjl6TvgK_5A0M9qNMWWgOebzHg-Jo-74ZdtczI0kBIukPP7iq9Xhw0452gFZ9PqAYBeXx84g2-Va5NhM7m0gE1EybekyVGUpe9MVCSmRUDi96nZl-zbmprTO0K_lNIyjjSnHTg0KyBvIA-Zi02DAYH8-OC3CjjKmsVQp2iWt-GtJB1KOspmVTAmRjoCKCE8MUs-eJuLzju1F9R4p_1S5MiUNbKYwOHMFZ3loAfiO7nw-zASDYxZ3y0sP7pcNJCfF1G9ijCvc7yyX71BFPoEBshZ9PehDEwonythwINpVwjnu-XBtgHWRfJzAn3XcBIT58gic0th8biykEGkdX24cEffRU1X6t1FS_zB-XwM0ABfqHAishOhbmgs3gVUt2AErAEZBBOEkrFGdMPi_GC7thrm6KMu_GSecXFo4jyrdJP5Rq41mjami5nDN_uIdp_atrJGnMw2J2XIbq_ZQbOd8oKqHK6SUkRWpiaR8IJu4vaGdqxeCh8ktlW19K61pJwjC27xsm8L80GmZrB_21ybWJmqJ8BKoFXhHvF1tcyG-PpAzaqdbZmtBuTKeH4EX2grjP-z4zN01446GfaRQYP0i1gFBfNrwqyEsdEH5cfSpSReLanMCs_XpUOPF7ZIEIyh3w2rBpQMMrXaHTPJ8I3apFp-zZTMCIJKQf4ad6pNjyPo1kV5-dSfHX8Z8WV2cunrNENn6OOa4Tfl_PnuTIC-xTTQI4K1exs6RYBA46y9sh_EMckAT07dQ6zxbRf4pneDiF_PR36rM8opWrnapfYsUxog2f3OGp0l5un2z-s5NskcbDKkxkSXgZZP4cdsVw-jiKYNMz9FBzmlJmCyO8CS7b5zEd9WrVtKxPnv4AqqUwVQ6z4nCJ1up3rz9XUy1nQwJQY7UovKZjaV9q6f3tcz1DvvPaUQEtR8f5jNPHNElvX59CXh3SvApWnzLgtZsyh0mx1J3ZXrW-Sm374kUfCF1g6dpynq1EhoNrJac49tn-dNksBES4H6-Rdx7cep5huB1timOTs66x9nMENUOvT74E0Qn_NRCGJl70PK6IVOQQk4NaAHQ_x1mQwvrrEnEJMuMmYsIbYGujMXa2ws1i1lHjkozaSEqivD5e0TR7255FAZDqMNMMjr_0aiG04mTySQO3IgrdgKeXiOa7ojEQMm3WgHN_-WNKrrCNQ75IBO4pyK6sbRLxp9-eqTjOsZr05mEbzoyawI6XyFLDOOxma_P3M6h52nlkKrNq93ABtWV8tiChP6Ssy9vgE1isez5wjNLGxHIOrHj3y4sSfUPmyn3Hg1GS64D7JzFUmSTNQaEeuT7Hx6QCfEf6Ib_T7ShXgZ2u8XoublnxzxkZ-mbh3Ai_-fu2jxRTTpS9f9iit4JOg2hAe-EhDvaNY4tUNvgowBiXdX1AruYSzOJ6x9vTIY1LKkMrgHUzvcUdpChbV5vcpPYykVmfNZE1qu29kB6Ctkxd5-gRuNb-zse88Eo6WF7-WRIeEurl1V-t2fuE9DUkTcXOTTpSbWGccUIk0LTRumEJfjcVVqjzuz3j5Mypnd8cQsOOGutKLcpeuulRXQL1_CK1PLItm_5cdDQuJeitd75yDY7JUkwdzZcuNVYfoX3DMl4RI_kSsWK6zxATiKtM7m1Q3qJd0IGaGskFZNLPdKVlGQHN9QFo3OvZ9f5ikRs7JUHqWm3n0Y1SeVwUm0i821-Lj15Q13xEDoLaZU="
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_ZOw1iLVr3WdJpkJd1kDWUbAF",
+					"toolName": "propose_change"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_ZOw1iLVr3WdJpkJd1kDWUbAF",
+					"delta": "{\"operation\":\"communication.scheduleReviewed\",\"input\":{\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"2026-11-13T09:00\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_ZOw1iLVr3WdJpkJd1kDWUbAF"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_ZOw1iLVr3WdJpkJd1kDWUbAF",
+					"toolName": "propose_change",
+					"input": "{\"operation\":\"communication.scheduleReviewed\",\"input\":{\"communicationId\":\"5b6d1f0e-0000-4000-8000-000000000c01\",\"sendAt\":\"2026-11-13T09:00\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_012ebec38dc1d6d8006aff4f5af5c087d2ad76a9680d48b90b"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 27204,
+							"noCache": 3,
+							"cacheRead": 26972,
+							"cacheWrite": 229
+						},
+						"outputTokens": {
+							"total": 88,
+							"text": 66,
+							"reasoning": 22
+						},
+						"raw": {
+							"input_tokens": 27204,
+							"input_tokens_details": {
+								"cache_write_tokens": 229,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 229
+								},
+								"cached_tokens": 26972
+							},
+							"output_tokens": 88,
+							"output_tokens_details": {
+								"reasoning_tokens": 22
+							},
+							"total_tokens": 27292
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_012ebec38dc1d6d8006aff4f59bc7887d2964f9dce128e99b3",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 27204,
+				"output": 88
+			}
+		},
+		"36bd69d293a80a19": {
+			"kind": "generate",
+			"content": [
+				{
+					"type": "text",
+					"text": "{\"kind\":\"application\"}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_0ee4b8f04b24c949006aff4f56484087d287df45efef71a754",
+							"phase": "final_answer"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 118,
+				"output": 12
+			}
+		},
+		"b1d173aeb79830c4": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_012ebec38dc1d6d8006aff4f5bce7487d2945fe957a42a779c",
+					"timestamp": "2026-11-19T19:34:52.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "text-start",
+					"id": "msg_012ebec38dc1d6d8006aff4f5d477087d2b028f8a9647545c5",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_012ebec38dc1d6d8006aff4f5d477087d2b028f8a9647545c5",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "text-delta",
+					"id": "msg_012ebec38dc1d6d8006aff4f5d477087d2b028f8a9647545c5",
+					"delta": "Email sending is paused for everyone right now, so I couldn’t prepare the scheduling review. Nothing was scheduled or sent. You can ask me again later."
+				},
+				{
+					"type": "text-end",
+					"id": "msg_012ebec38dc1d6d8006aff4f5d477087d2b028f8a9647545c5",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "msg_012ebec38dc1d6d8006aff4f5d477087d2b028f8a9647545c5",
+							"phase": "final_answer"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "stop"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 27353,
+							"noCache": 3,
+							"cacheRead": 27201,
+							"cacheWrite": 149
+						},
+						"outputTokens": {
+							"total": 35,
+							"text": 35,
+							"reasoning": 0
+						},
+						"raw": {
+							"input_tokens": 27353,
+							"input_tokens_details": {
+								"cache_write_tokens": 149,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 149
+								},
+								"cached_tokens": 27201
+							},
+							"output_tokens": 35,
+							"output_tokens_details": {
+								"reasoning_tokens": 0
+							},
+							"total_tokens": 27388
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_012ebec38dc1d6d8006aff4f5bce7487d2945fe957a42a779c",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 27353,
+				"output": 35
+			}
+		},
+		"f91127b2c40e2120": {
+			"kind": "stream",
+			"parts": [
+				{
+					"type": "stream-start",
+					"warnings": []
+				},
+				{
+					"type": "response-metadata",
+					"id": "resp_012ebec38dc1d6d8006aff4f56e43087d284e41f182c639362",
+					"timestamp": "2026-11-19T19:34:47.000Z",
+					"modelId": "gpt-6-luna"
+				},
+				{
+					"type": "reasoning-start",
+					"id": "rs_012ebec38dc1d6d8006aff4f5837a887d2a65a3a1784b83e12:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_012ebec38dc1d6d8006aff4f5837a887d2a65a3a1784b83e12",
+							"reasoningEncryptedContent": "gAAAAABq_09Y1INnfj48suEvCpqtPk1uzh1okYNZqFUJyq1OxyRVd_7u9EjhvEiYCqdH6D6lgN118JZ_lqZ-TFpSwii8Ci5eTBU3Smdfx8B0k_XOKBBffcnM2wC-UoTThZCN7FZoJUjHiLF9TIEhXEpLFdatJLWN1TrRM3Qh6txMDU2g1XAccHzD78GeytcLLrQqSXCuy8px8oX9TZ7VkaqmSrHyRsnrtN6Eo5lmUUd5YSpmlKp8gzWZel9dpg23UPQY_K19yZx5wR4y_CbDAZvtlNyTupLijZaxXX_jB7ZPSGyq35L9HRl7nkw8CLYc6zfsXWjPrDzkylhndGwvLCzI5oxyFRFsOGRb-YjjcLucIxxaoZ91AtwOrs2RDQkH4vk10KYDNmFro01DgxbQ2bKIfjEALkdvYUdXczCSY2GO_KY7bhQaPTEV_rxiB2iG0GnvHkc3pMd8RdgyFEbJhqYXmaBvrbLivj6UHEU8EmtYfjaTZEZPB2kWfNAzOJeaSTDblvWSL6PaWgGGTBLv4BZWqGBzHcFbx_CTnLWDe1XKGjkGyINNyJsekiUs9IPRJw4Qiytyp4qbSAx0GbrvgHJjdlVRK_9y3DgZBI9-ccichueoOh34n_wunXd-J6jrISQMBTM9f7A41q3xA--TP5X72cwNHoMYwBSnhvY8GdZkTmYV9KkHKyHrsnoL72xfxE18sHvpHFG4XvXO7MURRkVyKiU9IZrXBZNLtSKfV0d3_RPSfc6djfJiMcG5uv1HctNC7zXw5moUkz2arV-YwnSXcVo4-cLX18P45aHLrwZc9g1_nrNlkYPDBPjurhJnRM8pO2FISKWY6inC_3iJVzL7vXK-0w3S24b2P-kiVZTBJiueRxByUvJ6Et8YWPpt_xk-UPN9d6FIqrlUW4RuUrXRE3d5jlXPetlkqks09CfRwt_3tEbrd25ttZDlP7D6K-dboe1gmETITVr9_LyyJRgwcy_n_cQB2iKMmBmxZDl_idMV9wHJKIRnlO8S2yXojP9_Zyv-Td4-YhyVDXLKLbDpQ_ALjxtOR-oMVjXqbsmN5hQc21XK9aWvh0tAFNlYl1uCvzVWpgFaMXm6sCjF7VKH6YI5qLHe4l8QcFw4BK02IXFsVp9mKttVHTq0jPuPmtPovR2BMDFml6f98zUwW2vWT8r2lfHMi-40LuR8lAzYCrE7ufQuA-718vzp9MtoEw3PHbtA1Hs0J8p81vzpN3aF_B35DppRe0k9AmjXxMxhLuAoX_F5_WxglKdUHjRaxkwk1fWS_feb7w6lXkxWIhH44yJxxuzNd8QXGPDopkMD-Md4k4SQnMn4RzfnM9OFIRuq2J9HGj6DshYrGgQSfQTSVPKOTlRZJLxOpjrtiTUz4LSPGgBlWLI="
+						}
+					}
+				},
+				{
+					"type": "reasoning-end",
+					"id": "rs_012ebec38dc1d6d8006aff4f5837a887d2a65a3a1784b83e12:0",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "rs_012ebec38dc1d6d8006aff4f5837a887d2a65a3a1784b83e12",
+							"reasoningEncryptedContent": "gAAAAABq_09YMtYFMTGLb43Ggh65ymhXD83ATPB3xacB5SttM3KUMmDb1Oq1JuWPH9s8yK3w05QKw9P1KcsUSHRWSfJDKvk2pnhXvSrE6I7bXAdU0ZEDNOAF37yUv8x0fPAixnViiGH6fK4DaWMlZCAT_HliWTcsE95RAL4Ehg1rH7YKldaqQ-zkgsA1W5xKNnj-ze_DzE-2MCAT3Zh_G2zkOcUco8lsr0pjqgEuQNEEoUOIpcia4qUd7_aZ1qIKZ8SfchBtpNOslSFcJIKw5UYRBEewS2m7COcKRBHjTZgbUY4j2fMubdEYWLkYft5OdmXH39x5YlTaXildmqYsswY3GPG3PY7hz3uraZNa-CgNsCJ1KGlI3V7m8QWTKzGXG7dIbRiDHiMtPS_ShfhS7T5YNG6HxUNozm73O6YgGtY3gEY1eTgi-ump8QR5v6FC5uy4IbzilrV7dUZ-9ePe8ooLWW22xN25a3CaEMmYFKFj_ZbDUeSdmJwtKLlC6E2CVqk16-6m0j_Sp89bfrlPYHy___T9LyFz0gEh_aFIWDp32I0BesYhFV44VtP7ki5GcPWsk0GJs-Xq_wOyPiaBU7g_jujE6Qhl9yRNiN2Hb71BaV3PNSXpgii5wOAlhe6QxzZk5pL5OjsOum6DDRfCBKjPVLx42H5YJEBe1jJLvfzrdb7wk4YnnXCXsf_m6ItV3-vrxy-XLzVSfvDRG3825JA3zpxmvhK6G21hfBnQoa1Ktt_bv8TOYO5rACHA8fw8lLzpBpXh6nMHvzcZkNqfQT7P1wqh5q3X0XvdOQ9jF62JS6ObYQ-6SR2z8468EJ4jfLywKX7mtOHPui4nJsD2dCBmJZBvlSEfvetC9xvBzNDTImGEnQVZSwCNeGVj4p_-GQ2zHU2BNFkXQiqkmpY5mK7XGmUsyy53RG89LUtbmRnCw8Csk0VQvagWu094bclKU0lomgd-M5IvN4hgirY3fVXEorQKw1N6QpZ5u-fREAnboZugvfrBLGFllO9BxlJv4IsgAhq-q6ETjBQB0I5T8HVWxcASpbvH7jSGw62zTuQVryswkfE554wbKncdc1GcpsbxfL8dp7emcf_nd8itKQ8iWmzjQAT7ah_PwFJzO6yu6E0SLeNGQ9k4gBq_5LOJnSzKcdq7r45OkSZDIU5Cv5NzOWJ6Qulngo8oOQOHzb9F7t54AwQIXaQmXT4Bxi1q-nI09kffpE5pYq8_9bHCWddjB52vOY5lUKv1tZC3t8g7pC2lg-1nVcLuwMGv_3r9lsCceX6g2naxdvgzTje2ovjsVhRE6XgGsEYbyqlVT1ZL5eBNsmRqDT6DTYOBCZujPN8i1tpue5xBL6QiYLbmQQKRsJaGZrNFN6Hpip5KAbdguv-8fzxlFeQGziCQ1KobpAF42ln5QqcuwsaWI2nbThWYwvfeI-MOBtMhd1EPN-aoBC5lZQezRqBRbUJo4tUkczjSJV6PFYsxyba4OqKUL5MiKb_wEnDJDu1hFGU8VW6c9bDZTxOzePjEJ5i22iSsNuAGwTUZD2CHmFdp4HTiM-t1doW3Vv6h2u0kyC7f4xxon-8zvaavL9N5WD2zQAMNoGUnVD51jx5DCgrv80uVAIJPhPBA0t7rxT3ix0hb5KHMVJJcTc0Ov_Szu2vexzPjfe1Ck63Eh93WC0xgRyutzlhaMXqeGIwJhKap7yw6bjynv-oSXZmDwg_Vgclo2tratEneAdAjFmX3d50uXcdCjBUaVsYdowUGVj96oM6C6VgdruUMsbK48lx-QjKO2k7erimpTE1JgExmSeMZ0wVLIMp3gFLVx8Ul-OHzlCGF1VmP2kbmmItHEinY1P-S4sOWEymtMaZigqPkaqPm1o72_8VnNOUx44ZfmQJGv3WDvxLcGjKFOrC0oE7RkzlTzImu3Fr8sKKmAIFWnGPqRXgHfK7F-On8vj1Fc9K9iWYux61cxBiu2iFTctQZ0_NAjiQTNA55A7YQy-Yr5JAEK3kor4p7W8XdlU-jrtmsbwMHUcAx0Mg6Lym8Flu7OChiO8TMcZO4qrnmyRYJsQUnHrzWcD7lu_NacbQ2lgRkmuNuKkb8zUnh2rLVn8kgW4v-JdhYg66U9yM0hY56yAl7hUrAneixFg4m72_aX0HDOvACPmB-E0mKpS3DCM68pI6_S5h8Zcc6TeYz5-BUfK2MDvE411o-TKKWRg552fduBDs7U4V5V-Lyf87e8mhu6Sj9c1wTKzUJmMUSuMOO3RCLst7CmDkf2yH6pOOWQDLAPhRlU4oa6VePdYA_gJK_Pq-p8g-vzpl8MH1DyI8LwxNZyjdqKBZIvuL8m8Fdo2VxRG2hLjjBim6SbQdYp9YEZemcUgC2PlBody90ecC91n-KTbTx155zLxAYchiTqX--l009UMDxY1589YMBH6Agz5ii4Dcnb8hPpKHAV2MT"
+						}
+					}
+				},
+				{
+					"type": "tool-input-start",
+					"id": "call_oUYcdZ0W6xAeKfebMIelsJYB",
+					"toolName": "communication_read"
+				},
+				{
+					"type": "tool-input-delta",
+					"id": "call_oUYcdZ0W6xAeKfebMIelsJYB",
+					"delta": "{\"operation\":\"communication.list\",\"input\":{\"subject\":\"Sunday's interest meeting\",\"state\":\"draft\"}}"
+				},
+				{
+					"type": "tool-input-end",
+					"id": "call_oUYcdZ0W6xAeKfebMIelsJYB"
+				},
+				{
+					"type": "tool-call",
+					"toolCallId": "call_oUYcdZ0W6xAeKfebMIelsJYB",
+					"toolName": "communication_read",
+					"input": "{\"operation\":\"communication.list\",\"input\":{\"subject\":\"Sunday's interest meeting\",\"state\":\"draft\"}}",
+					"providerMetadata": {
+						"openai": {
+							"itemId": "fc_012ebec38dc1d6d8006aff4f58f10487d282d0297f220681e5"
+						}
+					}
+				},
+				{
+					"type": "finish",
+					"finishReason": {
+						"unified": "tool-calls"
+					},
+					"usage": {
+						"inputTokens": {
+							"total": 26975,
+							"noCache": 3,
+							"cacheRead": 0,
+							"cacheWrite": 26972
+						},
+						"outputTokens": {
+							"total": 100,
+							"text": 34,
+							"reasoning": 66
+						},
+						"raw": {
+							"input_tokens": 26975,
+							"input_tokens_details": {
+								"cache_write_tokens": 26972,
+								"cache_write_tokens_details": {
+									"ttl_12h_tokens": 0,
+									"ttl_30m_tokens": 26972
+								},
+								"cached_tokens": 0
+							},
+							"output_tokens": 100,
+							"output_tokens_details": {
+								"reasoning_tokens": 66
+							},
+							"total_tokens": 27075
+						}
+					},
+					"providerMetadata": {
+						"openai": {
+							"responseId": "resp_012ebec38dc1d6d8006aff4f56e43087d284e41f182c639362",
+							"serviceTier": "default",
+							"reasoningContext": "all_turns"
+						}
+					}
+				}
+			],
+			"usage": {
+				"input": 26975,
+				"output": 100
+			}
+		}
+	}
+}

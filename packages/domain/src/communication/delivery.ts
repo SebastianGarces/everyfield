@@ -13,6 +13,7 @@ import {
 	type MergeKey,
 } from "@everyfield/contracts/communication";
 import type { RequestActor } from "../access/session.ts";
+import { logRefusal } from "../flags/index.ts";
 import { communicationAccess } from "./access.ts";
 import { audiencePeople, reviewedParts } from "./audience.ts";
 import { z } from "zod";
@@ -49,6 +50,7 @@ export type DeliveryTransport = {
 	): Promise<DeliveryBatch>;
 	cancel(providerIds: readonly string[], signal: AbortSignal): Promise<ProviderAnswer[]>;
 	reschedule(providerIds: readonly string[], at: string, signal: AbortSignal): Promise<ProviderAnswer[]>;
+	readonly paused: boolean;
 };
 
 type Actor = ReturnType<typeof readerOf>;
@@ -664,6 +666,10 @@ async function handoff(
 	mode: Mode,
 ) {
 	const input = parse(c.dispatchRequest, raw);
+	if (mode !== "lookup" && transport.paused) {
+		logRefusal("outbound-mail", mode === "now" ? "communication.sendReviewed" : "communication.handOffScheduled");
+		deny("mail_paused", { providerCalls: 0 });
+	}
 	const actor = requireActor(authority);
 	const opened = await openLoaded(db, actor, input.input.communicationId, input.expectedRevision);
 	const ready = keysOf(keys);

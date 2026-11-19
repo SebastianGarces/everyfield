@@ -127,7 +127,7 @@ test("INV-budget: an idle scheduled run sends a fixed number of statements, and 
 	const start = queries.length;
 	await run();
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
-	assert.equal(sent.length, 10, sent.join("\n---\n"));
+	assert.equal(sent.length, 11, sent.join("\n---\n"));
 	await ask(await actor("owner"), "Find Casey");
 	const [claim] = await claimDue(db, ["assistant_turn"], 1, 240);
 	const before = queries.length;

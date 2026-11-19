@@ -17,6 +17,8 @@ type ErrorCode =
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
+	| "model_paused"
+	| "mail_paused"
 	| "source_unavailable"
 	| "interrupted"
 	| "review_changed"
@@ -297,6 +299,12 @@ export function endNotice(end: TurnEnd | null): Notice | null {
 				title: "Evry can't answer yet",
 				text: "Evry's AI model is not turned on yet. Your message is saved, so you can try again later.",
 			};
+		case "model_paused":
+			return {
+				tone: "neutral",
+				title: "Evry is paused",
+				text: "Evry stopped before it read or changed anything. Your message is saved, so you can try again later.",
+			};
 		case "source_unavailable":
 			return {
 				tone: "error",
@@ -327,6 +335,8 @@ export function sendNotice(send: Send): string | null {
 			return "Not sent. Evry is still answering your last message. Stop it or wait, then send again.";
 		case "invalid_input":
 			return "Not sent. A message can have up to 8,000 characters.";
+		case "model_paused":
+			return "Not sent. Evry is paused for now, so nothing was saved. Your message is still here. Send it again later.";
 		case "access_denied":
 		case "not_found":
 			return "Not sent. You no longer have access to this conversation.";

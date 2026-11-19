@@ -31,7 +31,7 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 	const owner = await actor("owner");
 	const key = randomUUID();
 	const created = await statements(() => createConversation(db, owner, { requestKey: key }));
-	assert.equal(created.count, 1, "create is one statement");
+	assert.equal(created.count, 2, "create is the kill-switch read and one statement");
 	assert.deepEqual(
 		await createConversation(db, owner, { requestKey: key }),
 		created.value,
@@ -43,7 +43,7 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 
 	const first = { requestKey: randomUUID(), text: "Show my people.", references: [] };
 	const submitted = await statements(() => submitTurn(db, owner, c.id, first));
-	assert.equal(submitted.count, 1, "submit is one statement");
+	assert.equal(submitted.count, 2, "submit is the kill-switch read and one statement");
 	const before = await counts();
 	assert.deepEqual(await submitTurn(db, owner, c.id, first), { ...submitted.value, replayed: true });
 	assert.deepEqual(await counts(), before, "a repeated submit writes nothing");
@@ -77,7 +77,7 @@ test("AC:UI45-001 AC:UI45-002 AC:INH-REGRESSION-SESSION-NAVIGATION AC:EVRY-RETRY
 
 	const retryKey = randomUUID();
 	const retry = await statements(() => retryTurn(db, owner, c.id, { requestKey: retryKey }));
-	assert.equal(retry.count, 2, "retry is one lookup and one submit statement");
+	assert.equal(retry.count, 3, "retry is one lookup, the kill-switch read and one submit statement");
 	const retried = retry.value;
 	assert.equal(retried.replayed, false);
 	assert.equal(await work(), "succeeded");

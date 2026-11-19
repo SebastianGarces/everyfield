@@ -8,7 +8,9 @@ import { runsOffVercel } from "@everyfield/db/deployment";
 export type Price = { input: number; output: number; longContextAbove: number };
 export type Spend = { price: Price; capMicroUsd: number };
 export type QualifiedModel =
-	{ status: "qualified"; id: string; model: LanguageModelV4; spend?: Spend } | { status: "unavailable" };
+	| { status: "qualified"; id: string; model: LanguageModelV4; spend?: Spend }
+	| { status: "unavailable" }
+	| { status: "paused" };
 
 const OPENAI: Record<string, Price> = { "gpt-6-luna": { input: 0.1, output: 0.5, longContextAbove: 272_000 } };
 const DEFAULT_CAP_USD = 20;
