@@ -1,7 +1,7 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
 import { SaveLane, type LaneOptions } from "../../components/save/model.ts";
 import type { Report } from "./bulk.tsx";
-import { BadgeReads, problemText, type TaskCounts, type TaskItem } from "./model.ts";
+import { problemText, type TaskCounts, type TaskItem } from "./model.ts";
 import type { EditForm } from "./TaskDialog.tsx";
 import type { DetailState, PanelEdit } from "./TaskSheet.tsx";
 import type { TasksAnswer } from "./TasksScreen.tsx";
@@ -44,12 +44,9 @@ export type TasksPageData = {
 	total: number;
 	selected: ReadonlySet<string>;
 	report: Report | null;
-	badgesStale: boolean;
-	readingBadges: boolean;
 };
 
 export type TasksPageState = TasksPageData & {
-	badgeReads: BadgeReads;
 	actions: { change: (change: (page: TasksPageData) => Partial<TasksPageData>) => void };
 };
 
@@ -62,9 +59,6 @@ export function createTasksPageStore(answer: TasksAnswer): TasksPageStore {
 		total: answer.page.total,
 		selected: new Set(),
 		report: null,
-		badgesStale: false,
-		readingBadges: false,
-		badgeReads: new BadgeReads(),
 		actions: { change: (change) => set(change(get())) },
 	}));
 }

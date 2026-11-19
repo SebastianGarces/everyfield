@@ -1,7 +1,13 @@
 import "server-only";
 import { z } from "zod";
 import { defineReads } from "../../../server/platform/reads.ts";
-import { loadPipelineBoard, loadPipelineGoals, loadPipelinePerson, pipelineActor } from "../pipeline-mount";
+import {
+	loadMergeReview,
+	loadPipelineBoard,
+	loadPipelineGoals,
+	loadPipelinePerson,
+	pipelineActor,
+} from "../pipeline-mount";
 
 export const GET = defineReads(
 	async () => {
@@ -13,5 +19,6 @@ export const GET = defineReads(
 		goals: get(z.undefined(), (authority) => loadPipelineGoals(authority)),
 		board: get(z.unknown(), (authority, query) => loadPipelineBoard(authority, query)),
 		person: get(z.strictObject({ personId: z.string() }), (authority, v) => loadPipelinePerson(authority, v.personId)),
+		merge: get(z.unknown(), (authority, input) => loadMergeReview(authority, input)),
 	}),
 );

@@ -17,6 +17,7 @@ import {
 	withPeopleWrite,
 } from "../../../../packages/domain/src/people/index.ts";
 import { leave } from "../../../../apps/web/src/features/people/fields/leave.ts";
+import { gatedTransaction } from "../../../../packages/domain/src/operations/writes.ts";
 
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
@@ -33,7 +34,7 @@ const plants = [database.tenant.id, (await database.plant()).id],
 		await database.actor({ kind: "plant", id: plants[1] }, "admin"),
 	];
 const ctx = (who = 0) => ({ session: actors[who].session, selected: { kind: "plant", id: plants[who === 2 ? 1 : 0] } });
-const tx = (body) => db.transaction(body);
+const tx = (body) => gatedTransaction(db, body);
 const write = async (who, body) =>
 	withPeopleWrite(db, await tx((t) => RequestActor.resolve(t, actors[who].session)), body);
 const key = () => randomUUID();
@@ -806,7 +807,7 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 			}),
 		),
 	);
-	const actor = await db.transaction((t) => RequestActor.resolve(t, actors[1].session));
+	const actor = await gatedTransaction(db, (t) => RequestActor.resolve(t, actors[1].session));
 	assert.ok(actor instanceof RequestActor);
 	const reads = {
 		listTags: (t, c) => fields.listTags(t, c, {}),
@@ -819,7 +820,7 @@ test("INV-tenancy C13: a seat ended after the request resolved its actor reads n
 		getPersonPhoto: (t, c) => fields.getPersonPhoto(t, c, { personId: p.id }),
 		readPersonPhoto: (_t, c) => readPersonPhoto(db, storage, c, { personId: p.id, versionId: pending.uploadId }),
 	};
-	const run = (read) => db.transaction((t) => read(t, new PeopleReadContext(actor)));
+	const run = (read) => gatedTransaction(db, (t) => read(t, new PeopleReadContext(actor)));
 	for (const read of Object.values(reads)) ok(await run(read));
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${sql.param(actors[1].id)}`);
 	try {

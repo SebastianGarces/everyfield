@@ -17,6 +17,7 @@ import { createPhaseWriter, phaseReader } from "../../../packages/domain/src/pha
 import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
 import { seatedNotificationService } from "../../../apps/web/src/server/jobs/seated-notifications.ts";
 import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const TODAY = frozenClock(instant.parse("2026-10-12T17:00:00.000Z"));
 let f, reader, writer, phases;
@@ -663,7 +664,7 @@ test("AC:PERSONREF-LAUNCH-NAMED-GUEST-MERGE AC:PERSONREF-LAUNCH-NAMED-GUEST-UNME
 	];
 	for (const id of [alex1, alex2]) ok(await guest(c.owner, { personId: id }));
 	ok(await debrief(c.owner, await plan(c.owner), { missingNames: "yes", missingCount: 3 }, true));
-	const read = (body) => f.db.transaction((t) => body(t, new PeopleReadContext(c.owner.actor)));
+	const read = (body) => gatedTransaction(f.db, (t) => body(t, new PeopleReadContext(c.owner.actor)));
 	const write = (body) => withPeopleWrite(f.db, c.owner.actor, body);
 	const merge = async (sourceId, survivorId) => {
 		const r = ok(await read((t, ctx) => peopleMerge.getMergeReview(t, ctx, { sourceId, survivorId })));
@@ -708,7 +709,7 @@ test("AC:PERSONREF-LAUNCH-NAMED-GUEST-MERGE AC:PERSONREF-LAUNCH-NAMED-GUEST-UNME
 test("AC:PERSONREF-LAUNCH-NAMED-GUEST-RETIRE a retired guest leaves the roster and keeps the link as history", async () => {
 	const c = await launched();
 	const mara = ok(await guest(c.owner, { displayName: "Mara" })).plan.guests.named[0].personId;
-	const read = (body) => f.db.transaction((t) => body(t, new PeopleReadContext(c.owner.actor)));
+	const read = (body) => gatedTransaction(f.db, (t) => body(t, new PeopleReadContext(c.owner.actor)));
 	const { reviewRevision } = ok(await read((t, ctx) => peopleReader.getStatusWarnings(t, ctx, { personId: mara })));
 	const { revision } = await one(sql`SELECT revision::text FROM person WHERE id=${mara}`);
 	ok(
