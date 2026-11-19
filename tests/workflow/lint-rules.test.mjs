@@ -574,6 +574,8 @@ export const label = (node: ReactNode) => [node, parse];
 		"apps/web/src/components/save/model.ts:8 model-module",
 	]);
 	assert.deepEqual(lint({ "apps/web/src/components/save/model.ts": pure }), []);
+	for (const file of ["apps/web/src/features/tasks/fresh-model.ts", "apps/web/src/features/wiki/page-state.ts"])
+		assert.deepEqual(lint({ [file]: "export const at = () => Date.now();\n" }), [`${file}:1 model-module`]);
 	const disguised = `const D = Date;
 const { now } = performance;
 const tick = Date.now;
