@@ -81,7 +81,7 @@ flowchart LR
 A sending church's or network's pipeline board: one column per stage, search and the six-month filter in the address, goals, Add person and Export.
 
 - Routes: `/organization/pipeline`
-- Endpoints: `/organization/pipeline/export`
+- Endpoints: `/organization/pipeline/export`, `/organization/pipeline/read`
 - Personas: `graceOwner` write, `network` write, `hillOwner` write, `graceDirector` read, `resident` none, `owner` none, `visitor` none
 - Catalog: MUL-001, MUL-005, MUL-007, MUL-008
 
@@ -405,6 +405,7 @@ agent-browser find role link text --name "Map Import Applicant" --exact
 The Programs tab: the organization's residencies and apprenticeships, a new program from the template or blank, and each program's plan and enrolled people.
 
 - Routes: `/organization/pipeline/programs`, `/organization/pipeline/programs/new`, `/organization/pipeline/programs/[programId]`
+- Endpoints: `/organization/pipeline/programs/read`
 - Personas: `graceOwner` write, `network` write, `hillOwner` write, `graceDirector` write, `resident` none
 - Catalog: MUL-010, MUL-011
 
@@ -625,6 +626,7 @@ The receiving seat reads only the chosen questions and their answers; a withdraw
 Sharing and privacy: connections and what each one sees, pipeline totals, and a resident's residency choices.
 
 - Routes: `/settings/sharing`
+- Endpoints: `/connections/read`
 - Personas: `owner` write, `network` write, `graceOwner` write, `hillOwner` write, `graceDirector` read, `resident` write, `signup` none
 - Catalog: IDN-020, IDN-022, MUL-003, MUL-016
 

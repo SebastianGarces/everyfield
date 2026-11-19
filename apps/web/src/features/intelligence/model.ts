@@ -96,8 +96,8 @@ export function weekNote(week: CareWeek, zone: string): { text: string; tone: "p
 	return { text: `Corrected ${dayIn(last.recordedAt, zone)} · ${what}`, tone: "amber" };
 }
 
-export function withAnswer(page: CarePage, week: CareWeek, answers: CareAnswers, note: string): CarePage {
-	const answeredAt = instant.parse(new Date().toISOString());
+export function withAnswer(page: CarePage, week: CareWeek, answers: CareAnswers, note: string, at: string): CarePage {
+	const answeredAt = instant.parse(at);
 	const answer = { answers, note: noteOf(note), revision: (week.answer?.revision ?? 0) + 1, answeredAt };
 	return { ...page, weeks: page.weeks.map((w) => (w.ordinal === week.ordinal ? { ...w, answer } : w)) };
 }

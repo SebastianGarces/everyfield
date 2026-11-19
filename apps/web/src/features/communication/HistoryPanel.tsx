@@ -10,11 +10,6 @@ import { useLocalStore, useStore } from "../../components/store.ts";
 import {
 	cancelScheduled,
 	openMessage,
-	readDraft,
-	readHistory,
-	readMeetingHistory,
-	readMeetingTracking,
-	readPersonHistory,
 	reconcileDelivery,
 	replaceScheduled,
 	rescheduleDispatched,
@@ -22,6 +17,7 @@ import {
 	saveResend,
 	sendReviewed,
 } from "./actions.ts";
+import { readDraft, readHistory, readMeetingHistory, readMeetingTracking, readPersonHistory } from "./fetch.ts";
 import { PreviewStage } from "./EmailFrame.tsx";
 import { deliveryName, Tile, Totals, when } from "./SentTotals.tsx";
 import {

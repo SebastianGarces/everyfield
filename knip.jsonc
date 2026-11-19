@@ -1,12 +1,12 @@
 {
 	"$schema": "https://unpkg.com/knip@6.43.0/schema-jsonc.json",
+	"ignoreExportsUsedInFile": true,
 	"workspaces": {
 		".": {
 			"entry": [
 				"tests/**/*.{js,mjs,cjs,ts,mts,cts,tsx}",
 				"scripts/**/*.{js,mjs,cjs,ts,mts,cts}",
 				"tools/**/*.{js,mjs,cjs,ts,mts,cts}",
-				"bin/**/*.{js,mjs,cjs,ts,mts,cts}",
 				"ops/**/*.{js,mjs,cjs,ts,mts,cts}",
 				"docs/**/*.{js,mjs,cjs,ts,mts,cts}",
 				".agents/**/*.{js,mjs,cjs,ts,mts,cts}",
@@ -14,16 +14,20 @@
 			],
 			"project": ["**/*.{js,mjs,cjs,ts,mts,cts,tsx}"],
 		},
-		"apps/*": {
-			"entry": ["scripts/**/*.{js,mjs,cjs,ts,mts,cts}", "**/*.test.{js,mjs,cjs,ts,mts,cts,tsx}"],
+		"apps/web": {
+			"entry": ["scripts/**/*.{js,mjs,cjs,ts,mts,cts}"],
 		},
-		"packages/*": {
-			"entry": [
-				"test/**/*.{js,mjs,cjs,ts,mts,cts,tsx}",
-				"scripts/**/*.{js,mjs,cjs,ts,mts,cts}",
-				"**/*.test.{js,mjs,cjs,ts,mts,cts,tsx}",
-				"*.{js,mjs,cjs}",
-			],
+		"packages/contracts": {
+			"entry": ["src/**/*.test.{ts,mts,tsx}"],
+		},
+		"packages/db": {
+			"entry": ["scripts/**/*.{js,mjs,cjs,ts,mts,cts}", "src/schema/check-current.ts"],
+		},
+		"packages/domain": {
+			"entry": ["test/**/*.{js,mjs,cjs,ts,mts,cts,tsx}", "scripts/**/*.{js,mjs,cjs,ts,mts,cts}"],
+		},
+		"packages/reference": {
+			"entry": ["*.{js,mjs,cjs}"],
 		},
 	},
 }
