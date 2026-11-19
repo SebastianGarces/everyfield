@@ -1,4 +1,6 @@
 import { requestDatabase } from "@/server/database";
+import type { PlantSeat } from "@/server/request-context";
+import { outcomeOf, type Outcome } from "@everyfield/contracts/common";
 import { tasksMount } from "../tasks/mount.ts";
 import { personId as personIdOf } from "@everyfield/contracts/common";
 import {
@@ -12,49 +14,39 @@ import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 import { taskReader, type TaskContext } from "@everyfield/domain/tasks";
 import "server-only";
 import type { TaskDetail } from "../tasks/model.ts";
-import { taskViewer, type TaskViewer } from "../tasks/server.ts";
 import {
 	COVERAGE_PAGE,
 	HISTORY_PAGE,
-	outcomeOf,
 	type Account,
 	type ContactHistory,
 	type DutyItem,
 	type ObligationItem,
-	type Outcome,
 	type Owners,
 	type ObligationPage,
 } from "./model.ts";
-import { LOST, transient } from "../../server/platform/transient.ts";
+import { transient } from "../../server/platform/transient.ts";
+import { writeTx } from "../../server/platform/tx.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
 
-export { COVERAGE_PAGE, taskViewer, type TaskViewer };
+export { COVERAGE_PAGE };
 
-export async function read<T>(run: (tx: WriteTx) => Promise<Outcome<T>>): Promise<Outcome<T>> {
-	const db = requestDatabase();
-	return transient({ component: "followups", outcome: "read_failed" }, () => gatedTransaction(db, run), LOST);
-}
-export const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
+export const administers = (v: Pick<PlantSeat, "role">) => v.role !== "member";
 
 let writer: ReturnType<typeof createFollowUpWriter> | undefined;
 type Writer = ReturnType<typeof createFollowUpWriter>;
 export async function write<T>(
-	viewer: TaskViewer,
+	viewer: PlantSeat,
 	run: (w: Writer, tx: WriteTx, ctx: TaskContext) => Promise<FollowUpReply<T>>,
 ): Promise<Outcome<T>> {
 	const mount = tasksMount();
 	writer ??= createFollowUpWriter({ reminders: mount.reminders });
 	const w = writer;
-	return transient(
-		{ component: "followups", outcome: "write_failed" },
-		async () => {
-			return outcomeOf(await withFollowUpWrite(mount.db, viewer.authority, (tx, ctx) => run(w, tx, ctx)));
-		},
-		LOST,
+	return writeTx("followups", async () =>
+		outcomeOf(await withFollowUpWrite(mount.db, viewer.authority, (tx, ctx) => run(w, tx, ctx))),
 	);
 }
 
-export async function readOwners(tx: WriteTx, viewer: TaskViewer): Promise<Outcome<Account[]>> {
+export async function readOwners(tx: WriteTx, viewer: PlantSeat): Promise<Outcome<Account[]>> {
 	const seats = await taskReader.eligibleAssignees(tx, viewer.authority, { purpose: "committed_follow_up" });
 	return seats.status === "ok"
 		? {
@@ -103,7 +95,7 @@ export type CallData = {
 export type CallRead =
 	{ kind: "call"; call: CallData } | { kind: "not_follow_up"; taskId: string } | { kind: "missing" };
 
-export async function loadCall(tx: WriteTx, viewer: TaskViewer, taskId: string): Promise<Outcome<CallRead>> {
+export async function loadCall(tx: WriteTx, viewer: PlantSeat, taskId: string): Promise<Outcome<CallRead>> {
 	const found = await taskReader.get(tx, viewer.authority, { taskId });
 	if (found.status !== "ok") return { status: "refused", code: found.error.code };
 	if (found.value.status !== "available" || found.value.task.deleted)

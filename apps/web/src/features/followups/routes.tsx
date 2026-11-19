@@ -1,4 +1,4 @@
-import { getViewer, signIn } from "@/server/request-context";
+import { requireSeat, type PlantSeat } from "@/server/request-context";
 import { recordId } from "@everyfield/contracts/common";
 import { followUpReader } from "@everyfield/domain/followups";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
@@ -10,19 +10,18 @@ import type { ReactNode } from "react";
 import { Fresh } from "../tasks/fresh.tsx";
 import { CallScreen } from "./CallScreen.tsx";
 import { FollowUpsScreen, type Data, type Filter } from "./FollowUpsScreen.tsx";
-import { outcomeOf, type Outcome } from "./model.ts";
-import { administers, COVERAGE_PAGE, loadCall, read, readOwners, taskViewer, type TaskViewer } from "./server.ts";
+import { outcomeOf, type Outcome } from "@everyfield/contracts/common";
+import { readTx } from "../../server/platform/tx.ts";
+import { administers, COVERAGE_PAGE, loadCall, readOwners } from "./server.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const robots = { index: false, follow: false };
 export const callMetadata: Metadata = { title: "Follow-up", robots };
 export const followUpsMetadata: Metadata = { title: "Follow-ups", robots };
 
-async function gate(returnTo: string, title: string): Promise<{ viewer: TaskViewer } | { blocked: ReactNode }> {
-	const viewer = await taskViewer();
+async function gate(returnTo: string, title: string): Promise<{ viewer: PlantSeat } | { blocked: ReactNode }> {
+	const viewer = await requireSeat(returnTo);
 	if (viewer) return { viewer };
-	const v = await getViewer();
-	if (v.status === "unauthenticated") signIn(returnTo);
 	return {
 		blocked: (
 			<Blocked title={title}>
@@ -58,7 +57,7 @@ export async function FollowUpCallPage({ params }: { params: Promise<{ taskId: s
 	const g = await gate(`/follow-ups/${raw}`, "Follow-up");
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
-	const loaded = await read((tx) => loadCall(tx, viewer, id.data));
+	const loaded = await readTx("followups", (tx) => loadCall(tx, viewer, id.data));
 	if (loaded.status !== "ok") return <LoadFailed title="Follow-up" />;
 	if (loaded.value.kind === "missing") notFound();
 	if (loaded.value.kind === "not_follow_up")
@@ -91,7 +90,7 @@ export async function FollowUpsPage({ searchParams }: { searchParams: Search }) 
 	if ("blocked" in g) return g.blocked;
 	const { viewer } = g;
 	const admin = administers(viewer);
-	const loaded = await read(async (tx): Promise<Outcome<Data>> => {
+	const loaded = await readTx("followups", async (tx): Promise<Outcome<Data>> => {
 		if (!admin) {
 			const mine = outcomeOf(
 				await followUpReader.listFollowUpOwners(tx, viewer.authority, { owner: viewer.accountId, page, limit: 50 }),

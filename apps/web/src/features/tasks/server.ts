@@ -1,6 +1,5 @@
-import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
-import type { RequestActor, WriteTx } from "@everyfield/domain/access";
+import type { PlantSeat } from "@/server/request-context";
+import type { WriteTx } from "@everyfield/domain/access";
 import { followUpReader } from "@everyfield/domain/followups";
 import {
 	createTemplateReader,
@@ -11,61 +10,42 @@ import {
 	type TaskWriter,
 } from "@everyfield/domain/tasks";
 import "server-only";
-import { HISTORY_PAGE, outcomeOf } from "../followups/model.ts";
+import { outcomeOf } from "@everyfield/contracts/common";
+import { HISTORY_PAGE } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
 import { tasksMount } from "./mount.ts";
-import { LOST, transient } from "../../server/platform/transient.ts";
-import { gatedTransaction } from "@everyfield/domain/operations";
+import { readTx, writeTx } from "../../server/platform/tx.ts";
 
-export type TaskViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
-const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
-
-export async function taskViewer(): Promise<TaskViewer | null> {
-	const v = await getViewer();
-	const authority = v.authority;
-	if (!authority) return null;
-	const ctx = authority.actor.context;
-	if (ctx.kind !== "seat" || ctx.owner.kind !== "plant") return null;
-	return { authority, accountId: authority.actor.accountId, role: ctx.role };
-}
+const administers = (v: Pick<PlantSeat, "role">) => v.role !== "member";
 
 const outcome = <T>(reply: TaskReply<T>): Outcome<T> =>
 	reply.status === "ok"
 		? { status: "ok", value: reply.value }
 		: { status: "refused", code: reply.error.code, error: reply.error };
 
-export async function read<T>(run: (tx: WriteTx) => Promise<Outcome<T>>): Promise<Outcome<T>> {
-	const db = requestDatabase();
-	return transient({ component: "tasks", outcome: "read_failed" }, () => gatedTransaction(db, run), LOST);
-}
-
 export async function write<T>(
-	viewer: TaskViewer,
+	viewer: PlantSeat,
 	run: (writer: TaskWriter, tx: WriteTx, context: TaskContext) => Promise<TaskReply<T>>,
 ): Promise<Outcome<T>> {
 	const mount = tasksMount();
-	return transient(
-		{ component: "tasks", outcome: "write_failed" },
-		async () => {
-			return outcome(await withTaskWrite(mount.db, viewer.authority, (tx, ctx) => run(mount.writer, tx, ctx)));
-		},
-		LOST,
+	return writeTx("tasks", async () =>
+		outcome(await withTaskWrite(mount.db, viewer.authority, (tx, ctx) => run(mount.writer, tx, ctx))),
 	);
 }
 
 export const templates = createTemplateReader();
 
 export const reader = {
-	offer: (tx: WriteTx, v: TaskViewer, transitionId?: string) =>
+	offer: (tx: WriteTx, v: PlantSeat, transitionId?: string) =>
 		templates.readPhaseOffer(tx, v.authority, transitionId ? { transitionId } : {}).then(outcome),
-	list: (tx: WriteTx, v: TaskViewer, q: TaskQuery) => taskReader.list(tx, v.authority, listRequest(q)).then(outcome),
-	count: (tx: WriteTx, v: TaskViewer, q: TaskQuery) => taskReader.count(tx, v.authority, countRequest(q)).then(outcome),
-	get: (tx: WriteTx, v: TaskViewer, taskId: string) => taskReader.get(tx, v.authority, { taskId }).then(outcome),
-	history: (tx: WriteTx, v: TaskViewer, taskId: string, page = 1) =>
+	list: (tx: WriteTx, v: PlantSeat, q: TaskQuery) => taskReader.list(tx, v.authority, listRequest(q)).then(outcome),
+	count: (tx: WriteTx, v: PlantSeat, q: TaskQuery) => taskReader.count(tx, v.authority, countRequest(q)).then(outcome),
+	get: (tx: WriteTx, v: PlantSeat, taskId: string) => taskReader.get(tx, v.authority, { taskId }).then(outcome),
+	history: (tx: WriteTx, v: PlantSeat, taskId: string, page = 1) =>
 		taskReader.statusHistory(tx, v.authority, { taskId, page, limit: 50 }).then(outcome),
 };
 
-export async function loadTask(tx: WriteTx, viewer: TaskViewer, taskId: string) {
+export async function loadTask(tx: WriteTx, viewer: PlantSeat, taskId: string) {
 	const found = await reader.get(tx, viewer, taskId);
 	if (found.status !== "ok") return found;
 	if (found.value.status !== "available") return { status: "refused", code: "unavailable" } as const;
@@ -101,8 +81,8 @@ export async function loadTask(tx: WriteTx, viewer: TaskViewer, taskId: string) 
 	} as const;
 }
 
-export async function loadTasksPage(viewer: TaskViewer, query: TaskQuery, open: string | null) {
-	return read(async (tx) => {
+export async function loadTasksPage(viewer: PlantSeat, query: TaskQuery, open: string | null) {
+	return readTx("tasks", async (tx) => {
 		let list = await reader.list(tx, viewer, query);
 		if (list.status === "ok" && list.value.items.length === 0 && query.page > 1) {
 			query = { ...query, page: pageCount(list.value.total) };
