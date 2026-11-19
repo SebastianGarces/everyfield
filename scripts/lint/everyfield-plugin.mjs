@@ -1566,6 +1566,42 @@ const routeSegmentDefaults = {
 	},
 };
 
+const MODULE_DIRECTIVE = /^\s*["']use (?:server|client)["']/;
+const ROUTE_MODULE = /^apps\/web\/src\/(?:app\/.+\/(?:page|layout|route)\.tsx?|features\/.+\/routes\.tsx?)$/;
+
+const renderReads = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!from.startsWith("apps/web/src/") || MODULE_DIRECTIVE.test(context.sourceCode.text)) return {};
+		let server = ROUTE_MODULE.test(from);
+		const actions = new Set();
+		const calls = [];
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value === "server-only") server = true;
+				if (node.importKind === "type") return;
+				const to = resolveImport(from, node.source.value).to;
+				if (!to || !isServerActions(to)) return;
+				for (const s of node.specifiers) if (s.importKind !== "type") actions.add(s.local.name);
+			},
+			CallExpression(node) {
+				const callee = node.callee.type === "MemberExpression" ? node.callee.object : node.callee;
+				if (callee.type === "Identifier") calls.push([node, callee.name]);
+			},
+			"Program:exit"() {
+				if (!server) return;
+				for (const [node, name] of calls)
+					if (actions.has(name))
+						context.report({
+							node,
+							message: `Server code calls ${name}, a server action. Actions are the client's mutation endpoint and Next runs them one at a time; call the server function the action wraps instead.`,
+						});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -1593,5 +1629,6 @@ export default {
 		"no-error-message-match": noErrorMessageMatch,
 		"route-reads": routeReads,
 		"route-segment-defaults": routeSegmentDefaults,
+		"render-reads": renderReads,
 	},
 };
