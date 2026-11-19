@@ -15,6 +15,7 @@ import { PeopleReadContext, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
+import { logFailure } from "@everyfield/domain/log";
 
 export type PipelineAnswer<T> = PipelineReply<T> | { status: "lost" };
 
@@ -34,7 +35,7 @@ async function guarded<R>(run: () => Promise<R>): Promise<R | { status: "lost" }
 	try {
 		return await run();
 	} catch (error) {
-		console.error(JSON.stringify({ component: "pipeline", outcome: "failed", error: String(error) }));
+		logFailure({ component: "pipeline", outcome: "failed" }, error);
 		return { status: "lost" };
 	}
 }

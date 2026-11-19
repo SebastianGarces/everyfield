@@ -7,6 +7,7 @@ import { transaction } from "../platform/database.ts";
 import type { HeldReason } from "@everyfield/contracts/feedback";
 import type { IssueClient, IssueLink } from "./github.ts";
 import { claimDue, finishClaim, lockClaim, recoverLease, type Claim } from "./queue.ts";
+import { logLine } from "@everyfield/domain/log";
 
 export type OperatorMail = (notice: OperatorNotice) => SQL;
 export type OperatorNotice = {
@@ -159,9 +160,7 @@ export async function runDueFeedbackPublication(
 		const [claim] = await claimDue(db, ["feedback_publication"], 1);
 		if (!claim) break;
 		claimed++;
-		await publish(db, claim, config).catch(() =>
-			console.error(JSON.stringify({ component: "feedback-publication", outcome: "error" })),
-		);
+		await publish(db, claim, config).catch(() => logLine({ component: "feedback-publication", outcome: "error" }));
 	}
 	return claimed;
 }

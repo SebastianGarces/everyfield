@@ -5,16 +5,15 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createAssessments, createFacts } from "@everyfield/domain/intelligence";
 import { readCatalog } from "@everyfield/domain/phases";
 import "server-only";
+import { logFailure, type LogWord } from "@everyfield/domain/log";
 
 const assessments = createAssessments();
 const facts = createFacts();
 
 export type Loaded<T> = { status: "ok"; value: T } | { status: "denied" | "lost" };
 
-const report = (what: string, error: unknown) =>
-	console.error(
-		JSON.stringify({ component: "plant-intelligence", what, outcome: "read_failed", error: String(error) }),
-	);
+const report = <W extends string>(what: LogWord<W>, error: unknown) =>
+	logFailure({ component: "plant-intelligence", what, outcome: "read_failed" }, error);
 
 export async function loadAssessment(
 	authority: RequestActor,

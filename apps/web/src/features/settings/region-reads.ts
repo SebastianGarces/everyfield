@@ -4,6 +4,7 @@ import { readReportingLocation, suggestRegions } from "@everyfield/domain/organi
 import "server-only";
 import { z } from "zod";
 import type { RegionRead, RegionSuggestion } from "./region";
+import { logFailure } from "@everyfield/domain/log";
 
 type Session = Awaited<ReturnType<typeof getViewer>>;
 
@@ -23,7 +24,7 @@ export async function readRegion(session: Session): Promise<RegionRead> {
 		const r = await readReportingLocation(db, seat.authority);
 		return r ? { status: "ok", ...r } : { status: "denied" };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "region_read_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "region_read_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -44,7 +45,7 @@ export async function suggestRegion(session: Session, raw: unknown): Promise<Reg
 	try {
 		return await suggestRegions(db, seat.authority, place.data);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "settings", outcome: "region_suggest_failed", error: String(error) }));
+		logFailure({ component: "settings", outcome: "region_suggest_failed" }, error);
 		return null;
 	}
 }

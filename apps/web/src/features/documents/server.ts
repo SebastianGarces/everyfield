@@ -14,6 +14,7 @@ import {
 	type Resolved,
 	type Template,
 } from "./model.ts";
+import { logFailure, logLine } from "@everyfield/domain/log";
 
 export type DocumentsLoad =
 	| { status: "ok"; templates: Template[]; version: string; context: Resolved | null; canPreview: boolean }
@@ -59,7 +60,7 @@ export async function readPreview(
 			},
 		};
 	} catch (error) {
-		console.error(JSON.stringify({ component: "documents", outcome: "action_failed", error: String(error) }));
+		logFailure({ component: "documents", outcome: "action_failed" }, error);
 		return { status: "lost" };
 	}
 }
@@ -107,10 +108,10 @@ export async function loadDocuments(authority: RequestActor, query: DocumentsQue
 		if (resolved.error.code === "unavailable") {
 			return { status: "ok", templates, version: list.value.version, context: null, canPreview: false };
 		}
-		console.error(JSON.stringify({ component: "documents", outcome: "resolve_refused", code: resolved.error.code }));
+		logLine({ component: "documents", outcome: "resolve_refused", code: resolved.error.code });
 		return { status: "failed" };
 	} catch (error) {
-		console.error(JSON.stringify({ component: "documents", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "documents", outcome: "read_failed" }, error);
 		return { status: "failed" };
 	}
 }

@@ -19,6 +19,7 @@ import {
 } from "@everyfield/domain/people";
 import { listRequest, parseQuery } from "../model.ts";
 import { read, type Viewer } from "../server.ts";
+import { logFailure } from "@everyfield/domain/log";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
@@ -91,7 +92,7 @@ export const uploadRoute = mutatingRoute(async function uploadRoute(request: Req
 	try {
 		return answer(await signPeopleImport(deps.db, deps.storage, deps.v.authority, input));
 	} catch (error) {
-		console.error(JSON.stringify({ component: "people-import", outcome: "sign_failed", error: String(error) }));
+		logFailure({ component: "people-import", outcome: "sign_failed" }, error);
 		return lost();
 	}
 });
@@ -105,7 +106,7 @@ export const previewRoute = mutatingRoute(async function previewRoute(request: R
 		if (reply.status !== "ok") return answer(reply);
 		return streamed({ status: "ok", value: reply.value });
 	} catch (error) {
-		console.error(JSON.stringify({ component: "people-import", outcome: "preview_failed", error: String(error) }));
+		logFailure({ component: "people-import", outcome: "preview_failed" }, error);
 		return lost();
 	}
 });
@@ -119,7 +120,7 @@ export const importRoute = mutatingRoute(async function importRoute(request: Req
 		if (reply.status === "ok") drainPeopleImports();
 		return answer(reply);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "people-import", outcome: "import_failed", error: String(error) }));
+		logFailure({ component: "people-import", outcome: "import_failed" }, error);
 		return lost();
 	}
 });
@@ -133,7 +134,7 @@ export const retryRoute = mutatingRoute(async function retryRoute(request: Reque
 		if (reply.status === "ok") drainPeopleImports();
 		return answer(reply);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "people-import", outcome: "retry_failed", error: String(error) }));
+		logFailure({ component: "people-import", outcome: "retry_failed" }, error);
 		return lost();
 	}
 });
