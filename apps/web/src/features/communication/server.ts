@@ -1,6 +1,6 @@
 import type { Outcome } from "@everyfield/contracts/common";
 import { requestDatabase } from "@/server/database";
-import { getViewer, type PlantSeat } from "@/server/request-context";
+import { getViewer, plantSeat, type PlantSeat } from "@/server/request-context";
 import { outcomeOf } from "@everyfield/contracts/common";
 import {
 	communicationWriter,
@@ -24,7 +24,7 @@ export async function communicationViewer() {
 		async () => {
 			const viewer = await getViewer();
 			return {
-				viewer: viewer.people ?? null,
+				viewer: await plantSeat(),
 				email: viewer.email ?? null,
 				signedOut: viewer.status === "unauthenticated",
 				ok: true,
