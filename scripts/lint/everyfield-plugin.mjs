@@ -2314,9 +2314,7 @@ const staticValue = (node) =>
 		? node.value
 		: node?.type === "TemplateLiteral" && node.expressions.length === 0
 			? node.quasis[0].value.cooked
-			: node?.type === "UnaryExpression" && node.operator === "-" && node.argument.type === "Literal"
-				? -node.argument.value
-				: undefined;
+			: undefined;
 
 function identifiersIn(node, out = []) {
 	if (!node || typeof node !== "object") return out;

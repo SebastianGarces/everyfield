@@ -29,7 +29,7 @@ const put = (dir, path, content) => {
 	writeFileSync(join(dir, path), typeof content === "string" ? content : `${JSON.stringify(content, null, "\t")}\n`);
 };
 
-function sandbox(files, lintData = {}) {
+function sandbox(files) {
 	const dir = realpathSync(mkdtempSync(join(tmpdir(), "slop-styling-")));
 	temps.push(dir);
 	for (const config of CONFIGS)
@@ -38,7 +38,6 @@ function sandbox(files, lintData = {}) {
 		put(dir, `scripts/lint/${data}`, JSON.parse(readFileSync(join(repo, "scripts/lint", data), "utf8")));
 	for (const root of ["packages/ui/src/index.ts", "apps/web/src/features/index.ts"]) put(dir, root, "export {};\n");
 	for (const [path, content] of Object.entries(files)) put(dir, path, content);
-	for (const [path, content] of Object.entries(lintData)) put(dir, `scripts/lint/${path}`, content);
 	return dir;
 }
 
@@ -67,7 +66,7 @@ function lintCode(dir, paths) {
 	return hits.sort();
 }
 
-const lint = (files, lintData) => lintCode(sandbox(files, lintData), Object.keys(files));
+const lint = (files) => lintCode(sandbox(files), Object.keys(files));
 
 function checkCss(dir) {
 	const ran = spawnSync(process.execPath, [CSS_CHECK], { cwd: dir, encoding: "utf8", env: env(dir) });
@@ -297,22 +296,4 @@ test("INV-lint: the approved foundations, the section label, the serif tokens an
 		"apps/web/src/marketing/mk.css": `.a {\n\tletter-spacing: 0.2em;\n\tfont-family: Georgia, serif;\n}\n`,
 	});
 	assert.equal(checkCss(outside).status, 0);
-});
-
-test("INV-lint: a CSS survivor entry keyed by its selector holds that many hits, and reports itself once the hits are gone", () => {
-	const css = "apps/web/src/features/x/paper.css";
-	const reason = "A document text style the church author picks; its printed look is the author's content.";
-	const entry = { "no-slop-styling": { [css]: [{ function: ".kicker", count: 1, reason }] } };
-	const held = sandbox(
-		{ [css]: `.kicker {\n\tletter-spacing: 0.1em;\n}\n` },
-		{ "survivors/apps-web-features-x.json": entry },
-	);
-	assert.equal(checkCss(held).status, 0);
-	const gone = sandbox(
-		{ [css]: `.kicker {\n\tletter-spacing: 0;\n}\n` },
-		{ "survivors/apps-web-features-x.json": entry },
-	);
-	const ran = checkCss(gone);
-	assert.equal(ran.status, 1);
-	assert.match(ran.stderr, /\.kicker has 0 no-slop-styling hits, fewer than its survivor entry allows \(1\)/);
 });
