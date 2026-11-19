@@ -1171,24 +1171,55 @@ test("INV-lint: in the app a caught failure never becomes an empty list, a zero 
 export const g = (read: () => Promise<string[]>) => read().catch(() => []);
 export const h = (read: () => Promise<number>) => read().catch(function () { return 0; });
 export async function i(read: () => Promise<string[]>) {
+	let names: string[] | null = null;
+	try {
+		names = await read();
+	} catch {
+		names = [];
+	}
+	try {
+		return await read();
+	} catch (e) {
+		if (e) return [];
+		throw e;
+	}
+}
+export async function j(read: () => Promise<string[]>) {
+	try {
+		return await read();
+	} catch {
+		const none: string[] = [];
+		return none;
+	}
+}
+export async function k(read: () => Promise<string[]>) {
+	try {
+		return await read();
+	} catch (e) {
+		if ((e as { code?: string }).code === "ENOENT") return new Array<string>();
+		return e ? [] : [];
+	}
+}
+export const l = (read: () => Promise<string[]>) => read().then((x) => x, () => []);
+export const m = (read: () => Promise<{ items: string[] }>) => read().catch(() => ({ items: [] }));
+export const n = (read: () => Promise<string[]>) => read().catch(() => new Array<string>());
+export async function o(read: () => Promise<string[]>) {
 	try {
 		return await read();
 	} catch (error) {
-		if ((error as { code?: string }).code === "ENOENT") return [];
+		if (error instanceof RangeError) return [];
 		return { status: "lost" } as const;
 	}
 }
-export const j = (read: () => Promise<string[] | null>) => read().catch(() => null);
+export const p = (read: () => Promise<string[] | null>) => read().catch(() => null);
 `;
 	assert.deepEqual(
 		lint({ "apps/web/src/features/x/server.ts": source, "packages/domain/src/x.ts": source }).filter((hit) =>
 			hit.endsWith("failure-not-empty"),
 		),
-		[
-			"apps/web/src/features/x/server.ts:5 failure-not-empty",
-			"apps/web/src/features/x/server.ts:8 failure-not-empty",
-			"apps/web/src/features/x/server.ts:9 failure-not-empty",
-		],
+		[5, 8, 9, 15, 20, 28, 37, 40, 41, 42]
+			.map((line) => `apps/web/src/features/x/server.ts:${line} failure-not-empty`)
+			.sort(),
 	);
 });
 
