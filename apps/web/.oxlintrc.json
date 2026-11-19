@@ -1313,6 +1313,8 @@
 				"src/features/identity/seats/model.ts",
 				"src/features/intelligence/assessment-model.ts",
 				"src/features/intelligence/facts-model.ts",
+				"src/features/intelligence/model.ts",
+				"src/features/intelligence/signals-model.ts",
 				"src/features/launch/model.ts",
 				"src/features/meetings/model.ts",
 				"src/features/meetings/page-state.ts",
