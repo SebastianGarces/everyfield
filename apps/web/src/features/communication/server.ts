@@ -1,6 +1,6 @@
 import type { Outcome } from "@everyfield/contracts/common";
 import { requestDatabase } from "@/server/database";
-import { getViewer, plantSeat, type PlantSeat } from "@/server/request-context";
+import { getViewer, seatOf, type PlantSeat } from "@/server/request-context";
 import { outcomeOf } from "@everyfield/contracts/common";
 import {
 	communicationWriter,
@@ -13,7 +13,7 @@ import type { PageData } from "./model.ts";
 import { appOrigin, mailReady, type MailReady } from "../../server/mail/transport.ts";
 import { canWrite } from "../../components/seat-role.ts";
 import { LOST, transient } from "../../server/platform/transient.ts";
-import { readTx, writeTx } from "../../server/platform/tx.ts";
+import { readTx, guardedWrite } from "../../server/platform/tx.ts";
 import type { WriteTx } from "@everyfield/domain/access";
 
 export type Viewer = PlantSeat;
@@ -24,7 +24,7 @@ export async function communicationViewer() {
 		async () => {
 			const viewer = await getViewer();
 			return {
-				viewer: await plantSeat(),
+				viewer: seatOf(viewer),
 				email: viewer.email ?? null,
 				signedOut: viewer.status === "unauthenticated",
 				ok: true,
@@ -45,7 +45,7 @@ export async function write<T>(
 	viewer: Viewer,
 	run: (tx: WriteTx, context: CommunicationContext) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
-	return writeTx("communication", async () =>
+	return guardedWrite("communication", async () =>
 		outcomeOf(await withCommunicationWrite(requestDatabase(), viewer.authority, run)),
 	);
 }
