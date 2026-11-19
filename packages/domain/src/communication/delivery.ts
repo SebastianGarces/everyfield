@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "@everyfield/db/query";
 import type { Database } from "@everyfield/db/client";
+import { providerKey, type ProviderKey } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/communication";
 import {
 	plainText,
@@ -43,7 +44,7 @@ export type DeliveryBatch =
 export type ProviderAnswer = { outcome: "done" | "sent" | "unknown" };
 export type DeliveryTransport = {
 	send(
-		batch: { key: string; messages: readonly DeliveryMessage[]; scheduledAt: string | null },
+		batch: { key: ProviderKey; messages: readonly DeliveryMessage[]; scheduledAt: string | null },
 		signal: AbortSignal,
 	): Promise<DeliveryBatch>;
 	cancel(providerIds: readonly string[], signal: AbortSignal): Promise<ProviderAnswer[]>;
@@ -65,7 +66,7 @@ type Mode = "now" | "scheduled" | "lookup";
 type Batch = {
 	requestId: string;
 	attemptId: string;
-	providerKey: string;
+	providerKey: ProviderKey;
 	expired: boolean;
 	members: Member[];
 	messages: ReadonlyMap<number, DeliveryMessage | null>;
@@ -261,7 +262,7 @@ const sealedPayload = z.object({ v: z.literal(1), sealed: z.string() });
 const storedBatches = z.array(
 	z.object({
 		requestId: z.uuid(),
-		providerKey: z.string(),
+		providerKey,
 		attemptId: z.uuid(),
 		expired: z.boolean(),
 		members: z.array(
@@ -417,7 +418,7 @@ async function prepare(
 			batch,
 			id: randomUUID(),
 			attempt: randomUUID(),
-			provider_key: `communication/${found.id}/${requestHash}`,
+			provider_key: providerKey.parse(`communication/${found.id}/${requestHash}`),
 			request_hash: requestHash,
 		};
 	});
@@ -1031,7 +1032,7 @@ export function sendTransactionalMail(
 		const attemptId = randomUUID();
 		const logical = `password_reset/${actor.accountId}/${input.requestKey}`;
 		const payloadHash = hash({ purpose: "password_reset", accountId: actor.accountId, address, from: ready.from });
-		const providerKey = `password_reset/${payloadHash}/${input.requestKey}`;
+		const resetKey = providerKey.parse(`password_reset/${payloadHash}/${input.requestKey}`);
 		const sealed = seal(
 			ready.encryptionKey,
 			JSON.stringify({ subject: rendered.subject, text: rendered.text, html: rendered.html, from: ready.from }),
@@ -1051,7 +1052,7 @@ export function sendTransactionalMail(
 					RETURNING id
 				), req AS (
 					INSERT INTO mail_request (id, tenant_id, provider_key, request_hash, first_dispatched_at)
-					SELECT ${requestId}::uuid, ${actor.plantId}::uuid, ${providerKey}, ${payloadHash}, clock_timestamp()
+					SELECT ${requestId}::uuid, ${actor.plantId}::uuid, ${resetKey}, ${payloadHash}, clock_timestamp()
 					FROM ins RETURNING id
 				), mem AS (
 					INSERT INTO mail_request_member (request_id, tenant_id, mail_id, position)
@@ -1076,7 +1077,7 @@ export function sendTransactionalMail(
 			try {
 				const batch = await transport.send(
 					{
-						key: providerKey,
+						key: resetKey,
 						messages: [{ to: address, subject: rendered.subject, html: rendered.html, text: rendered.text }],
 						scheduledAt: null,
 					},
@@ -1105,7 +1106,7 @@ const churchClosing = (tenant: SQL) => sql`EXISTS (SELECT 1 FROM lifecycle_witne
 const claimedSchema = z.object({
 	request_id: z.uuid(),
 	tenant_id: z.uuid(),
-	provider_key: z.string(),
+	provider_key: providerKey,
 	attempt_id: z.uuid(),
 	communication_id: z.uuid(),
 	members: z.array(
