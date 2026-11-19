@@ -37,7 +37,9 @@ export type DeliveryMessage = {
 	headers?: Readonly<Record<string, string>>;
 };
 export type DeliveryBatch =
-	{ outcome: "ids"; ids: readonly (string | null)[] } | { outcome: "unknown" } | { outcome: "refused" };
+	| { outcome: "ids"; ids: readonly (string | null)[]; afterRecord?: (db: Database) => Promise<void> }
+	| { outcome: "unknown" }
+	| { outcome: "refused" };
 export type ProviderAnswer = { outcome: "done" | "sent" | "unknown" };
 export type DeliveryTransport = {
 	send(
@@ -647,7 +649,8 @@ async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 		lost = true;
 		answer = { outcome: "unknown" };
 	}
-	return { sent, lost, updates: [...updates, ...applyIds(answer, ready)] };
+	const afterRecord = answer.outcome === "ids" ? answer.afterRecord : undefined;
+	return { sent, lost, updates: [...updates, ...applyIds(answer, ready)], afterRecord };
 }
 
 async function handoff(
@@ -667,6 +670,7 @@ async function handoff(
 		deny("schedule_window_exceeded", { providerHandoffs: 0 });
 	const batches = await prepare(db, actor, opened, ready, mode, heldUntil, input.input.leftOut ?? []);
 	const answered: Answered[] = [];
+	const afterRecord: ((db: Database) => Promise<void>)[] = [];
 	let providerCalls = 0;
 	let lost = false;
 	for (const batch of batches) {
@@ -675,8 +679,10 @@ async function handoff(
 		if (result.sent) providerCalls += 1;
 		lost ||= result.lost;
 		if (result.updates) answered.push({ batch, updates: result.updates });
+		if (result.afterRecord) afterRecord.push(result.afterRecord);
 	}
 	if (answered.length) await record(db, staff(actor), input.input.communicationId, answered);
+	for (const settle of afterRecord) await settle(db);
 	const next = new Map(answered.flatMap(({ updates }) => updates.map((row) => [row.id, row])));
 	const members = batches.flatMap((batch) =>
 		batch.members.map((row) => {
@@ -1203,6 +1209,7 @@ export async function runDueScheduled(
 		};
 		const result = await handOffBatch(transport, batch);
 		await record(db, who, claimed.communication_id, [{ batch, updates: result?.updates ?? [] }]);
+		await result?.afterRecord?.(db);
 	}
 	return handled;
 }

@@ -6,6 +6,7 @@ import {
 	readAnswerReview,
 	readAnswerReviews,
 	readPipelineBoard,
+	readPipelineChoices,
 	readPipelineExport,
 	readPipelineGoals,
 	readPipelinePersonRecord,
@@ -42,6 +43,12 @@ export async function loadPipelineBoard(authority: RequestActor, query: unknown)
 	const db = requestDatabase();
 	if (!db) return { status: "lost" } as const;
 	return guarded(() => readPipelineBoard(db, authority, query));
+}
+
+export async function loadPipelineChoices(authority: RequestActor) {
+	const db = requestDatabase();
+	if (!db) return { status: "lost" } as const;
+	return guarded(() => readPipelineChoices(db, authority));
 }
 
 export async function loadPipelineGoals(authority: RequestActor) {

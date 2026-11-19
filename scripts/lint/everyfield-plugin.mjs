@@ -590,22 +590,30 @@ const LIFECYCLE_METHODS = new Set([
 ]);
 const EXISTENCE_TESTS = new Set(["IfStatement", "ConditionalExpression", "LogicalExpression", "UnaryExpression"]);
 
+const isUseCallback = (callee) => (callee.type === "Identifier" ? callee.name : memberName(callee)) === "useCallback";
+
 function refCallback(context, value) {
-	if (value?.type === "CallExpression" && value.callee.type === "Identifier" && value.callee.name === "useCallback")
-		return refCallback(context, value.arguments[0]);
+	if (value?.type === "CallExpression" && isUseCallback(value.callee)) return refCallback(context, value.arguments[0]);
 	if (value?.type === "ArrowFunctionExpression" || value?.type === "FunctionExpression") return value;
 	if (value?.type !== "Identifier") return null;
 	for (let scope = context.sourceCode.getScope(value); scope; scope = scope.upper) {
 		const def = scope.set?.get(value.name)?.defs?.[0];
-		if (def) return def.node.type === "VariableDeclarator" ? refCallback(context, def.node.init) : null;
+		if (!def) continue;
+		if (def.node.type === "FunctionDeclaration") return def.node;
+		return def.node.type === "VariableDeclarator" ? refCallback(context, def.node.init) : null;
 	}
 	return null;
 }
+
+const isNothing = (node) =>
+	(node?.type === "Literal" && node.value === null && node.raw === "null") ||
+	(node?.type === "Identifier" && node.name === "undefined");
 
 const onlyTested = (reference) => {
 	const id = reference.identifier;
 	const p = id.parent;
 	if (p?.type === "UnaryExpression") return p.operator === "!";
+	if (p?.type === "BinaryExpression" && EQUALITY.has(p.operator)) return isNothing(p.left === id ? p.right : p.left);
 	return EXISTENCE_TESTS.has(p?.type) && (p.test === id || (p.type === "LogicalExpression" && p.left === id));
 };
 
@@ -1186,12 +1194,38 @@ const RENDER_CALLBACKS = {
 	useSyncExternalStore: [1, 2],
 };
 
+const ITERATORS = new Set([
+	"forEach",
+	"map",
+	"flatMap",
+	"filter",
+	"find",
+	"findIndex",
+	"findLast",
+	"findLastIndex",
+	"some",
+	"every",
+	"reduce",
+	"reduceRight",
+]);
+const iterationCall = (fn) => {
+	const call = fn?.parent;
+	return call?.type === "CallExpression" && call.arguments.includes(fn) && ITERATORS.has(memberName(call.callee) ?? "")
+		? call
+		: null;
+};
+const callerOf = (node) => {
+	let fn = nearestFunction(node);
+	for (let call = iterationCall(fn); call; call = iterationCall(fn)) fn = nearestFunction(call);
+	return fn;
+};
+
 const ROUTE_HANDLERS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
 const renders = (name, jsx) =>
 	/^use[A-Z0-9]/.test(name) || (jsx && !ROUTE_HANDLERS.has(name) && (name === "default" || /^[A-Z]/.test(name)));
 
 function rendering(node, jsx) {
-	const fn = nearestFunction(node);
+	const fn = callerOf(node);
 	if (!fn) return false;
 	const name = functionName(fn);
 	if (name && renders(name, jsx)) return true;
@@ -1242,7 +1276,7 @@ const noRenderWrites = ratcheted("no-render-writes", (context, push) => {
 		"Program:exit"() {
 			const writers = new Map();
 			const owner = (node) => {
-				const fn = nearestFunction(node);
+				const fn = callerOf(node);
 				const named = fn?.parent?.type === "VariableDeclarator" ? fn.parent.id : fn?.id;
 				return named && moduleBinding(context, named) ? named.name : null;
 			};
@@ -1528,6 +1562,80 @@ const routeReads = {
 	},
 };
 
+const PER_REQUEST_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
+
+const segmentDefault = (path, program, name, value) => {
+	if (name === "runtime") return value === "nodejs";
+	if (name !== "dynamic") return false;
+	if (value === "auto") return true;
+	if (value !== "force-dynamic") return false;
+	if (/\/(?:page|layout)\.tsx$/.test(path)) return path.startsWith("apps/web/src/app/(product)/");
+	return (
+		path.includes("/[") ||
+		program.body.some((s) => exportedNames(s).some((exported) => PER_REQUEST_METHODS.has(exported)))
+	);
+};
+
+const routeSegmentDefaults = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!path.startsWith("apps/web/src/app/")) return {};
+		return {
+			"Program:exit"(program) {
+				for (const statement of program.body) {
+					if (statement.type !== "ExportNamedDeclaration" || statement.declaration?.type !== "VariableDeclaration")
+						continue;
+					for (const d of statement.declaration.declarations) {
+						if (d.id.type !== "Identifier" || d.init?.type !== "Literal") continue;
+						if (!segmentDefault(path, program, d.id.name, d.init.value)) continue;
+						context.report({
+							node: d,
+							message: `export const ${d.id.name} = ${JSON.stringify(d.init.value)} repeats Next's default here: nodejs is the default runtime, every page under (product) is dynamic because the product layout reads cookies, and a route handler with a dynamic segment or a non-GET method runs per request. Delete it.`,
+						});
+					}
+				}
+			},
+		};
+	},
+};
+
+const MODULE_DIRECTIVE = /^\s*["']use (?:server|client)["']/;
+const ROUTE_MODULE = /^apps\/web\/src\/(?:app\/.+\/(?:page|layout|route)\.tsx?|features\/.+\/routes\.tsx?)$/;
+
+const renderReads = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!from.startsWith("apps/web/src/") || MODULE_DIRECTIVE.test(context.sourceCode.text)) return {};
+		let server = ROUTE_MODULE.test(from);
+		const actions = new Set();
+		const calls = [];
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value === "server-only") server = true;
+				if (node.importKind === "type") return;
+				const to = resolveImport(from, node.source.value).to;
+				if (!to || !isServerActions(to)) return;
+				for (const s of node.specifiers) if (s.importKind !== "type") actions.add(s.local.name);
+			},
+			CallExpression(node) {
+				const callee = node.callee.type === "MemberExpression" ? node.callee.object : node.callee;
+				if (callee.type === "Identifier") calls.push([node, callee.name]);
+			},
+			"Program:exit"() {
+				if (!server) return;
+				for (const [node, name] of calls)
+					if (actions.has(name))
+						context.report({
+							node,
+							message: `Server code calls ${name}, a server action. Actions are the client's mutation endpoint and Next runs them one at a time; call the server function the action wraps instead.`,
+						});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -1554,5 +1662,7 @@ export default {
 		"no-sql-comments": noSqlComments,
 		"no-error-message-match": noErrorMessageMatch,
 		"route-reads": routeReads,
+		"route-segment-defaults": routeSegmentDefaults,
+		"render-reads": renderReads,
 	},
 };

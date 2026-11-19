@@ -180,6 +180,7 @@
 				"everyfield/no-inner-html": "error",
 				"everyfield/no-cursor-utility": "error",
 				"everyfield/no-global-listeners": "error",
+				"everyfield/no-raw-history": "error",
 				"jsx-a11y/no-static-element-interactions": "error",
 				"jsx-a11y/click-events-have-key-events": "error"
 			}
