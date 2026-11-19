@@ -560,7 +560,7 @@ test("INV-calendar-revision: canonical named zones and full int64 precision in r
 	await rejected("UPDATE plant SET revision=revision+1 WHERE id=$1", [p], "22003");
 	await admin.execute(querySql`UPDATE plant SET revision=1 WHERE id=${querySql.param(p)}`);
 });
-test("INV-storage: an upload key is a stable key, never a path, and a refused key reaches neither the database nor the provider", async () => {
+test("INV-storage: a malformed upload key is refused before any statement or provider call", async () => {
 	let providerCalls = 0;
 	const untouched = {
 		bucket: "synthetic-only",
