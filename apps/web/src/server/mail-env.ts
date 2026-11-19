@@ -16,8 +16,6 @@ export const identityEnv = {
 	...mailEnv,
 };
 
-export type IdentitySetting = keyof typeof identityEnv;
-
-export function missingIdentitySettings(vars: Readonly<Record<string, string | undefined>>): IdentitySetting[] {
-	return (Object.keys(identityEnv) as IdentitySetting[]).filter((key) => !vars[key]);
+export function missingIdentitySettings(vars: Readonly<Record<string, string | undefined>>) {
+	return Object.keys(identityEnv).filter((key) => !vars[key]);
 }

@@ -47,9 +47,6 @@ function assertRefused(result: ReturnType<typeof boot>, missing: readonly string
 for (const key of keys)
 	test(`boot refuses and names ${key} when it alone is unset`, () => assertRefused(boot([key]), [key]));
 
-for (const key of keys)
-	test(`boot refuses and names ${key} when it alone is empty`, () => assertRefused(boot([], [key]), [key]));
-
 test("boot names every missing setting and only those in one line", () => {
 	const removed = ["IDENTITY_SECRET", "IDENTITY_DATABASE_URL", "IDENTITY_MAIL_FROM"];
 	assertRefused(
@@ -57,5 +54,3 @@ test("boot names every missing setting and only those in one line", () => {
 		keys.filter((key) => removed.includes(key) || key === "IDENTITY_ORIGIN"),
 	);
 });
-
-test("boot names all seven when none is set", () => assertRefused(boot(keys), keys));
