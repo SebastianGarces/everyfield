@@ -1027,6 +1027,44 @@ test("INV-statements an outcome locks its task and reads its Person in one state
 	assert.deepEqual(await rows(due), [{ n: 0 }]);
 });
 
+test("INV-statements an owner change locks its follow-ups and reads the new owner in one statement", async () => {
+	const c = await church();
+	const rae = await person(c, "Rae Moss");
+	const holder = await c.seated("member");
+	await committed(c, holder);
+	const recipient = await c.seated("member");
+	await committed(c, recipient);
+	const task = ok(await write(c.owner, "createFollowUp", { requestKey: key(), input: { personId: rae } })).task;
+	const step = async (op, input) => {
+		let value;
+		const n = await counted(async () => {
+			value = ok(await write(c.owner, op, { requestKey: key(), ...input }));
+		});
+		return { n, value };
+	};
+	const assign = (from, ids) =>
+		step("assignFollowUp", { expectedRevision: from.revision, input: { taskId: task.id, assigneeIds: ids } });
+	const joined = await assign(task, [holder.id]);
+	const same = await assign(joined.value.task, [holder.id]);
+	const handed = await step("executeHandoff", {
+		input: {
+			fromAccountId: holder.id,
+			toAccountId: recipient.id,
+			items: [{ taskId: task.id, expectedRevision: joined.value.task.revision }],
+		},
+	});
+	assert.deepEqual(
+		[
+			joined.value.task.assignees.map((a) => a.accountId),
+			same.value.outcome,
+			handed.value.moved.map((m) => m.taskId),
+			await rows(sql`SELECT account_id FROM task_assignee WHERE task_id=${task.id}`),
+		],
+		[[holder.id], "noop", [task.id], [{ account_id: recipient.id }]],
+	);
+	assert.deepEqual([joined.n, same.n, handed.n], [5, 5, 5]);
+});
+
 test("AC:TARGET-MTG-022 a Member's contact finishes only the follow-ups they hold", async () => {
 	const c = await church();
 	const me = c.member;

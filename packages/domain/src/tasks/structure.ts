@@ -16,12 +16,15 @@ import {
 	type TaskContext,
 	type Tx,
 } from "./core.ts";
-import { detailOf, loadTask, loadTasks, type LockedTask, type TaskRow } from "./queries.ts";
+import { detailOf, loadTasks, lockTaskWith, type LockedTask, type TaskRow } from "./queries.ts";
 import {
+	assigneeFacts,
 	audited,
 	auditCreated,
 	bump,
 	changeTo,
+	checkAssignees,
+	checkCurrent,
 	current,
 	dueColumns,
 	insertTasks,
@@ -30,7 +33,6 @@ import {
 	noop,
 	recount,
 	reminderChange,
-	references,
 	setStatus,
 	syncAll,
 	syncReminders,
@@ -52,9 +54,15 @@ export function structureWriter(reminders: TaskReminders) {
 				const input = parse(c.createSubtaskRequest, raw);
 				return command(tx, context, "tasks.createSubtask", input, async (cmd) => {
 					const v = input.input;
-					const parent = await loadTask(tx, cmd.actor.plantId, v.parentId, true);
-					if (!parent || parent.deleted_at) deny();
 					const admin = administers(cmd.actor);
+					const locked = await lockTaskWith(
+						tx,
+						cmd.actor.plantId,
+						v.parentId,
+						() => sql`${assigneeFacts(cmd.actor.plantId, admin ? (v.assigneeIds ?? []) : [])} AS owners`,
+					);
+					const parent = locked.task;
+					if (!parent || parent.deleted_at) deny();
 					if (!admin && !parent.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny();
 					if (!admin && v.assigneeIds !== undefined) deny("access_denied");
 					if (parent.parent_id) deny("invalid_subject");
@@ -63,9 +71,7 @@ export function structureWriter(reminders: TaskReminders) {
 					const assignees =
 						v.assigneeIds === undefined
 							? parent.assignees.filter((a) => a.seated)
-							: v.assigneeIds.length
-								? (await references(tx, cmd.actor.plantId, { assigneeIds: v.assigneeIds })).assignees
-								: [];
+							: checkAssignees(locked.facts.owners, false);
 					const row = newTask(parent.plant_zone, {
 						title: v.title,
 						category: parent.category,
@@ -117,25 +123,28 @@ export function structureWriter(reminders: TaskReminders) {
 				return command(tx, context, "tasks.replacePrerequisites", input, async (cmd) => {
 					if (!administers(cmd.actor)) deny();
 					const v = input.input;
-					const row = await current(tx, cmd, v.taskId, input.expectedRevision, false);
-					if (row.parent_id) deny("invalid_subject");
 					const ids = v.prerequisiteIds as string[];
+					const plant = cmd.actor.plantId;
+					const locked = await lockTaskWith(tx, plant, v.taskId, (k) => {
+						const added = sql`ARRAY(SELECT x FROM unnest(${sql.param(ids)}::uuid[]) x, ${k}
+							WHERE x<>ALL(${k}.prerequisite_ids::uuid[]))`;
+						return sql`(SELECT count(*)::int FROM task WHERE id=ANY(${added}) AND plant_id=${plant}::uuid
+							AND parent_id IS NULL AND deleted_at IS NULL) AS valid,
+						EXISTS(WITH RECURSIVE reach(id) AS (
+							SELECT unnest(${added})
+							UNION SELECT u.id FROM reach r JOIN task t ON t.id=r.id AND t.plant_id=${plant}::uuid
+								AND t.deleted_at IS NULL CROSS JOIN LATERAL unnest(t.prerequisite_ids) u(id))
+							SELECT FROM reach WHERE id=${v.taskId}::uuid) AS cycle,
+						(SELECT count(*)::int FROM task WHERE id=ANY(${sql.param(ids)}::uuid[]) AND plant_id=${plant}::uuid
+							AND deleted_at IS NULL AND status NOT IN ('complete','no_longer_needed')) AS open`;
+					});
+					const row = checkCurrent(cmd, locked.task, input.expectedRevision, false);
+					if (row.parent_id) deny("invalid_subject");
 					const added = ids.filter((id) => !row.prerequisite_ids.includes(id));
 					if (added.includes(row.id)) deny("invalid_subject");
 					if (added.length === 0 && ids.length === row.prerequisite_ids.length)
 						return { value: mutation(cmd, noop(cmd, row).row, "noop") };
-					const plant = cmd.actor.plantId;
-					const r = await tx.execute(sql`SELECT
-						(SELECT count(*)::int FROM task WHERE id=ANY(${sql.param(added)}::uuid[]) AND plant_id=${plant}::uuid
-							AND parent_id IS NULL AND deleted_at IS NULL) AS valid,
-						EXISTS(WITH RECURSIVE reach(id) AS (
-							SELECT unnest(${sql.param(added)}::uuid[])
-							UNION SELECT u.id FROM reach r JOIN task t ON t.id=r.id AND t.plant_id=${plant}::uuid
-								AND t.deleted_at IS NULL CROSS JOIN LATERAL unnest(t.prerequisite_ids) u(id))
-							SELECT FROM reach WHERE id=${row.id}::uuid) AS cycle,
-						(SELECT count(*)::int FROM task WHERE id=ANY(${sql.param(ids)}::uuid[]) AND plant_id=${plant}::uuid
-							AND deleted_at IS NULL AND status NOT IN ('complete','no_longer_needed')) AS open`);
-					const found = z.object({ valid: z.int(), cycle: z.boolean(), open: z.int() }).parse(r.rows[0]);
+					const found = z.object({ valid: z.int(), cycle: z.boolean(), open: z.int() }).parse(locked.facts);
 					if (found.valid !== added.length) deny("invalid_subject");
 					if (found.cycle) deny("dependency_cycle");
 					const next: TaskRow = {

@@ -583,8 +583,7 @@
 		"limit": 1
 	},
 	"followups.assignFollowUp": {
-		"limit": 3,
-		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of person+seat); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"followups.correctOutcome": {
 		"limit": 2
@@ -593,8 +592,7 @@
 		"limit": 4
 	},
 	"followups.executeHandoff": {
-		"limit": 3,
-		"reads": "T-499: 2 reads in a row (locked read of person+seat+task, then locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"followups.recordOutcome:task": {
 		"limit": 2
@@ -1820,8 +1818,7 @@
 		"limit": 4
 	},
 	"tasks.createSubtask": {
-		"limit": 3,
-		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of meeting+person+seat+team); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"tasks.declinePhaseOffer": {
 		"limit": 2
@@ -1830,8 +1827,7 @@
 		"limit": 3
 	},
 	"tasks.edit": {
-		"limit": 5,
-		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of meeting+person+seat+team); the follow-up merges them or says why they cannot be one statement."
+		"limit": 4
 	},
 	"tasks.importTemplate": {
 		"limit": 2
@@ -1843,8 +1839,7 @@
 		"limit": 4
 	},
 	"tasks.replacePrerequisites": {
-		"limit": 5,
-		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then read of reach+task); the follow-up merges them or says why they cannot be one statement."
+		"limit": 4
 	},
 	"tasks.setSubtaskCompletion": {
 		"limit": 2

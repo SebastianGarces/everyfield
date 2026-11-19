@@ -5,7 +5,7 @@ import "server-only";
 import { z } from "zod";
 import { administers, auditRow, changes, command, deny, parse, type TaskContext, type Tx } from "../tasks/core.ts";
 import { idsOf, sortPeople } from "../tasks/assignees.ts";
-import { loadTask, loadTasks, type TaskRow } from "../tasks/queries.ts";
+import { lockingTasks, lockTaskWith, managedTaskRows, type TaskRow } from "../tasks/queries.ts";
 import {
 	assigneeFacts,
 	audited,
@@ -14,6 +14,7 @@ import {
 	checkAssignees,
 	dueColumns,
 	insertTasks,
+	joiningOf,
 	mutation,
 	newTask,
 	reminderChange,
@@ -77,19 +78,17 @@ export function assignmentWriter(reminders: TaskReminders) {
 					if (!administers(cmd.actor)) deny();
 					const v = input.input,
 						plant = cmd.actor.plantId;
-					const row = await loadTask(tx, plant, v.taskId, true);
+					const locked = await lockTaskWith(
+						tx,
+						plant,
+						v.taskId,
+						(k) => sql`${assigneeFacts(plant, joiningOf(k, v.assigneeIds))} AS owners`,
+					);
+					const row = locked.task;
 					if (!row || !isFollowUp(row)) deny();
 					if (row.revision !== input.expectedRevision) deny("conflict");
 					if (!isOpen(row)) deny("invalid_subject");
-					const held = idsOf(row.assignees),
-						joining = v.assigneeIds.filter((id) => !held.includes(id));
-					const added = joining.length
-						? checkAssignees(
-								(await tx.execute(sql`SELECT ${assigneeFacts(plant, joining)} AS owners`)).rows[0]?.owners,
-								true,
-								"owner_ineligible",
-							)
-						: [];
+					const added = checkAssignees(locked.facts.owners, true, "owner_ineligible");
 					const next: TaskRow = {
 						...row,
 						assignees: sortPeople(
@@ -125,23 +124,29 @@ export function assignmentWriter(reminders: TaskReminders) {
 					if (!administers(cmd.actor)) deny();
 					const v = input.input,
 						plant = cmd.actor.plantId;
-					const r = await tx.execute(sql`SELECT ${ownerName(plant, v.toAccountId)} AS recipient,
+					const items = sql.param(v.items.map((i) => i.taskId));
+					const r = await tx.execute(sql`WITH k AS (${lockingTasks(plant, sql`t.id=ANY(${items}::uuid[])`)})
+						SELECT f.*, CASE WHEN f.recipient IS NOT NULL AND NOT f.protected
+							THEN (SELECT coalesce(json_agg(k ORDER BY k.id),'[]') FROM k) END AS tasks
+						FROM (SELECT ${ownerName(plant, v.toAccountId)} AS recipient,
 						EXISTS(SELECT FROM seat s WHERE s.account_id=${v.fromAccountId}::uuid AND s.plant_id=${plant}::uuid
 							AND s.role='owner' AND s.ended_at IS NULL) AS protected,
 						(SELECT coalesce(jsonb_agg(t.id ORDER BY t.id),'[]') FROM task t
 							JOIN person p ON p.id=t.person_id AND p.tenant_id=t.plant_id AND p.state='live'
 							WHERE t.plant_id=${plant}::uuid AND ${followUpTask(sql`t`)} AND t.status IN ${OPEN}
-							AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id AND ta.account_id=${v.fromAccountId}::uuid)) AS open`);
+							AND EXISTS(SELECT FROM task_assignee ta WHERE ta.task_id=t.id AND ta.account_id=${v.fromAccountId}::uuid)) AS open
+						OFFSET 0) f`);
 					const facts = z
-						.object({ recipient: z.string().nullable(), protected: z.boolean(), open: z.array(z.uuid()) })
+						.object({
+							recipient: z.string().nullable(),
+							protected: z.boolean(),
+							open: z.array(z.uuid()),
+							tasks: managedTaskRows.nullable(),
+						})
 						.parse(r.rows[0]);
 					if (facts.protected) refuse("protected_owner");
 					if (facts.recipient === null) refuse("handoff_target_ineligible");
-					const rows = await loadTasks(
-						tx,
-						plant,
-						v.items.map((i) => i.taskId),
-					);
+					const rows = new Map((facts.tasks ?? []).map((row) => [row.id, row]));
 					const moved = [],
 						reminderChanges = [];
 					for (const item of v.items) {
