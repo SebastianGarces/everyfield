@@ -1820,6 +1820,51 @@ const readLoader = {
 	},
 };
 
+const READ_KEYS = new Map([
+	["useRead", 1],
+	["useLocalRead", 2],
+]);
+
+function references(node, found) {
+	if (!node || typeof node.type !== "string") return;
+	if (node.type === "Identifier") found(node);
+	for (const [key, value] of Object.entries(node)) {
+		if (key === "parent") continue;
+		if (Array.isArray(value)) for (const item of value) references(item, found);
+		else if (value && typeof value === "object") references(value, found);
+	}
+}
+
+const linkValueKey = {
+	meta: { type: "problem" },
+	create(context) {
+		const carried = new Set();
+		const carries = (node) => {
+			let found = false;
+			references(node, (id) => {
+				if (id.name === "useOneTimeLinkValue" || carried.has(id.name)) found = true;
+			});
+			return found;
+		};
+		return {
+			VariableDeclarator(node) {
+				if (node.init && carries(node.init)) references(node.id, (id) => carried.add(id.name));
+			},
+			CallExpression(node) {
+				const from = node.callee.type === "Identifier" ? READ_KEYS.get(node.callee.name) : undefined;
+				if (from === undefined) return;
+				for (const arg of node.arguments.slice(from))
+					if (carries(arg))
+						context.report({
+							node: arg,
+							message:
+								"A one-time link value never keys a read: the key outlives the page in a module cache. Key the read by the record and let its loader take the value with currentOneTimeLinkValue.",
+						});
+			},
+		};
+	},
+};
+
 const BUNDLER_IGNORE = /^\s*(?:webpackIgnore|turbopackIgnore):\s*true\s*$/;
 const DIRECTIVE =
 	/^\s*(?:@ts-|\/\s*<|(?:eslint|oxlint)-(?:disable|enable)|eslint-env\b|globals?\s|(?:biome|prettier)-ignore|[#@]__|(?:c8|istanbul|v8|node:coverage)\s+ignore|@jsx)/;
@@ -2193,6 +2238,7 @@ export default {
 		"no-global-listeners": noGlobalListeners,
 		"zustand-shape": zustandShape,
 		"read-loader": readLoader,
+		"link-value-key": linkValueKey,
 		"no-render-writes": noRenderWrites,
 		"no-render-get-state": noRenderGetState,
 		"feature-boundaries": featureBoundaries,

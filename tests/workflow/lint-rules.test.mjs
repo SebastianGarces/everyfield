@@ -627,6 +627,28 @@ export const useI = (id) => useLocalRead(async (key) => { markSeen(key); return 
 	]);
 });
 
+test("INV-link: a one-time link value never keys a read, directly or through a value derived from it", () => {
+	const source = `import { useOneTimeLinkValue, currentOneTimeLinkValue } from "../../components/location.ts";
+import { useLocalRead, useRead } from "../../components/read.tsx";
+export function A({ id }) {
+	const linked = useOneTimeLinkValue("invitation");
+	const proof = linked ?? "";
+	const { value } = { value: proof };
+	const a = useRead(reads, id, proof);
+	const b = useRead(reads, id, value);
+	const c = useLocalRead(load, options, useOneTimeLinkValue("invitation"));
+	const d = useRead(reads, id);
+	const e = useLocalRead((key) => load(key, currentOneTimeLinkValue("invitation")), options, id);
+	return [a, b, c, d, e, proof];
+}
+`;
+	assert.deepEqual(lint({ "apps/web/src/features/x/Respond.tsx": source }), [
+		"apps/web/src/features/x/Respond.tsx:7 link-value-key",
+		"apps/web/src/features/x/Respond.tsx:8 link-value-key",
+		"apps/web/src/features/x/Respond.tsx:9 link-value-key",
+	]);
+});
+
 function cursorRuleSelectors(css, cursor) {
 	const rule = css.match(new RegExp(`(:where\\((?:[^{}])*?)\\{\\s*cursor:\\s*${cursor};`));
 	assert.ok(rule, `controls.css has a :where() rule that sets cursor: ${cursor}`);
