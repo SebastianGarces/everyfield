@@ -128,6 +128,7 @@ function create(v: z.infer<typeof env>) {
 			};
 		},
 		later: after,
+		diagnostic: (value) => console.error(JSON.stringify({ component: "settings", ...value })),
 		async responseCookies(_ctx, list) {
 			const jar = await cookies();
 			for (const cookie of list.map(parseSetCookie)) if (cookie) jar.set(cookie);
