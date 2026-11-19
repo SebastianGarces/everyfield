@@ -19,7 +19,7 @@ import { previewPersonalTimezone, setPersonalTimezone } from "../settings/action
 import { ZonePicker } from "../settings/flows/ZonePicker";
 import { usePersonalZoneChoice } from "../settings/flows/usePersonalZoneChoice";
 import { OFFLINE_REFERENCE, type Refusal } from "../settings/save";
-import { SaveError } from "../settings/SettingsDialog";
+import { SaveError } from "../settings/SaveError";
 import { zoneLabel } from "../../components/time.ts";
 import { CheckInHeader } from "./Header.tsx";
 import { mondayDate, weekStartIn } from "./model.ts";
