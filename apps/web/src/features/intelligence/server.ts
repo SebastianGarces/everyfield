@@ -36,10 +36,11 @@ export async function loadCheckIn(viewer: CareViewer): Promise<Outcome<CarePage>
 	}
 }
 
-export async function run<T>(
-	body: (care: PrivateCare, db: Database, authority: RequestActor) => Promise<CareReply<T>>,
-): Promise<Outcome<T>> {
-	const viewer = await careViewer();
+type Body<T> = (care: PrivateCare, db: Database, authority: RequestActor) => Promise<CareReply<T>>;
+
+export const run = async <T>(body: Body<T>) => runAs(await careViewer(), body);
+
+export async function runAs<T>(viewer: CareViewer | null, body: Body<T>): Promise<Outcome<T>> {
 	if (!viewer)
 		return {
 			status: "refused",

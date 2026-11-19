@@ -36,8 +36,8 @@ export type FeedPage = { feed: Feed; unread: number; revision: string; at: numbe
 
 export type UnreadCount = { count: number; at: number };
 
-export const stamped = <T extends object>(outcome: Outcome<T>): Outcome<T & { at: number }> =>
-	outcome.status === "ok" ? { status: "ok", value: { ...outcome.value, at: Date.now() } } : outcome;
+export const stamped = <T extends object>(outcome: Outcome<T>, at: number): Outcome<T & { at: number }> =>
+	outcome.status === "ok" ? { status: "ok", value: { ...outcome.value, at } } : outcome;
 
 export type FeedQuery = { unread: boolean; category: Category | null };
 
