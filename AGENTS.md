@@ -97,7 +97,7 @@ Each `[role.*]` in `evf.toml` and the role notes its `.agents/role-prompts/<role
 | Permissions model, its TLC check and conformance test | `.agents/skills/formal-permissions/SKILL.md` |
 | A diff touches a path in a formal `map.json` | `.agents/skills/maintain-formal-verification/SKILL.md` |
 | Previews | `.agents/skills/portless-preview/SKILL.md`, then the Everyfield rules in "Shared preview service" of `verify-preview` |
-| UI quality | better-interface and the better-* suite |
+| UI quality | better-interface and the better-* suite; before building a component `.agents/skills/beautiful-ui-check/SKILL.md`, for a library choice `.agents/skills/pick-ui-library/SKILL.md` |
 | Browser runs, preview stack, logs | `bin/dev help` |
 | Interactive browser checks, local seeded app | `bin/app help` |
 | QA previews | `docs/runbooks/qa-preview.md` |
