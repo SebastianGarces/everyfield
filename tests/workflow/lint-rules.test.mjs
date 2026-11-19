@@ -1436,6 +1436,28 @@ test("INV-lint: a page, a layout or a GET route handler that imports a server ac
 	);
 });
 
+test("INV-lint: a runtime or dynamic segment export that repeats Next's default is reported, one that changes behavior is not", () => {
+	const get = `export async function GET() {\n\treturn new Response("ok");\n}\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/app/(product)/x/page.tsx": `export const dynamic = "force-dynamic";\nexport default function Page() {\n\treturn null;\n}\n`,
+			"apps/web/src/app/(product)/x/[id]/route.ts": `export const runtime = "nodejs";\nexport const dynamic = "force-dynamic";\n${get}`,
+			"apps/web/src/app/api/x/route.ts": `export const dynamic = "force-dynamic";\n${get}export const POST = GET;\n`,
+			"apps/web/src/app/api/auto/route.ts": `export const dynamic = "auto";\n${get}`,
+			"apps/web/src/app/api/fixed/route.ts": `export const dynamic = "force-dynamic";\nexport const maxDuration = 60;\n${get}`,
+			"apps/web/src/app/api/static/route.ts": `export const dynamic = "force-static";\n${get}`,
+			"apps/web/src/app/(marketing)/y/page.tsx": `export const dynamic = "force-dynamic";\nexport default function Page() {\n\treturn null;\n}\n`,
+		}).filter((hit) => hit.endsWith("route-segment-defaults")),
+		[
+			"apps/web/src/app/(product)/x/[id]/route.ts:1 route-segment-defaults",
+			"apps/web/src/app/(product)/x/[id]/route.ts:2 route-segment-defaults",
+			"apps/web/src/app/(product)/x/page.tsx:1 route-segment-defaults",
+			"apps/web/src/app/api/auto/route.ts:1 route-segment-defaults",
+			"apps/web/src/app/api/x/route.ts:1 route-segment-defaults",
+		],
+	);
+});
+
 test("INV-lint: a route module or server-only module that calls a server action is reported, one that passes it on or a client store that calls it is not", () => {
 	const actions = `"use server";\nexport async function read() {}\nexport async function save() {}\n`;
 	assert.deepEqual(
