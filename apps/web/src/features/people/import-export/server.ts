@@ -20,6 +20,7 @@ import {
 import { listRequest, parseQuery } from "../model.ts";
 import { read, type Viewer } from "../server.ts";
 import { logFailure } from "@everyfield/domain/log";
+import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 type Answer = { status: "ok"; value: unknown } | { status: "refused"; code: string; line?: number };
@@ -34,11 +35,6 @@ function answer<T>(reply: PeopleReply<T> | { status: "failed" }, ok: (value: T) 
 		return json({ status: "refused", code: reply.error.code, ...(line ? { line } : {}) });
 	}
 	return json({ status: "ok", value: ok(reply.value) });
-}
-
-function crossSite(request: Request) {
-	const site = request.headers.get("sec-fetch-site");
-	return site !== null && site !== "same-origin";
 }
 
 async function viewer(): Promise<Viewer | null> {
@@ -80,8 +76,7 @@ async function jsonBody(request: Request): Promise<unknown> {
 	}
 }
 
-async function importDeps(request: Request) {
-	if (crossSite(request)) return refused("access_denied");
+async function importDeps() {
 	const v = await viewer();
 	const db = requestDatabase();
 	if (!v || !db) return refused("access_denied");
@@ -90,8 +85,8 @@ async function importDeps(request: Request) {
 	return { v, db, storage };
 }
 
-export async function uploadRoute(request: Request) {
-	const deps = await importDeps(request);
+export const uploadRoute = mutatingRoute(async function uploadRoute(request: Request) {
+	const deps = await importDeps();
 	if (deps instanceof Response) return deps;
 	const input = await jsonBody(request);
 	try {
@@ -100,10 +95,10 @@ export async function uploadRoute(request: Request) {
 		logFailure({ component: "people-import", outcome: "sign_failed" }, error);
 		return lost();
 	}
-}
+});
 
-export async function previewRoute(request: Request) {
-	const deps = await importDeps(request);
+export const previewRoute = mutatingRoute(async function previewRoute(request: Request) {
+	const deps = await importDeps();
 	if (deps instanceof Response) return deps;
 	const input = await jsonBody(request);
 	try {
@@ -114,10 +109,10 @@ export async function previewRoute(request: Request) {
 		logFailure({ component: "people-import", outcome: "preview_failed" }, error);
 		return lost();
 	}
-}
+});
 
-export async function importRoute(request: Request) {
-	const deps = await importDeps(request);
+export const importRoute = mutatingRoute(async function importRoute(request: Request) {
+	const deps = await importDeps();
 	if (deps instanceof Response) return deps;
 	const input = await jsonBody(request);
 	try {
@@ -128,10 +123,10 @@ export async function importRoute(request: Request) {
 		logFailure({ component: "people-import", outcome: "import_failed" }, error);
 		return lost();
 	}
-}
+});
 
-export async function retryRoute(request: Request) {
-	const deps = await importDeps(request);
+export const retryRoute = mutatingRoute(async function retryRoute(request: Request) {
+	const deps = await importDeps();
 	if (deps instanceof Response) return deps;
 	const input = await jsonBody(request);
 	try {
@@ -142,7 +137,7 @@ export async function retryRoute(request: Request) {
 		logFailure({ component: "people-import", outcome: "retry_failed" }, error);
 		return lost();
 	}
-}
+});
 
 export function readReceipt(v: Viewer, requestKey: unknown) {
 	const input = importReceiptRequest.safeParse({ requestKey });
