@@ -2,12 +2,11 @@ import { writeActor } from "./core.ts";
 import { accountId, recordId, revision, tenantId, type Owner, type sessionId } from "@everyfield/contracts/common";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import type { Transaction } from "@everyfield/db/client";
 import { alias } from "@everyfield/db/columns";
 import { and, eq, getTableColumns, inArray, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { readOwnResidency } from "@everyfield/domain/access";
-import { liveRead, type RequestActor } from "../access/session.ts";
+import { liveRead, type RequestActor, type WriteTx } from "../access/session.ts";
 import { z } from "zod";
 import { auditSavepoint } from "../operations/writes.ts";
 import {
@@ -43,7 +42,7 @@ const residentRow = z.object({
 	share_milestones: z.boolean(),
 	organization_kind: z.enum(["sending_church", "sending_network"]),
 });
-async function loadResident(tx: Transaction, id: string, write = false) {
+async function loadResident(tx: WriteTx, id: string, write = false) {
 	const query = tx
 		.select({ ...getTableColumns(tables.residency_link), organization_kind: tables.organization.kind })
 		.from(tables.residency_link)
@@ -107,7 +106,7 @@ export async function readPipelineConsents(db: Reader, authority: RequestActor, 
 export function consentOperations(
 	effects: OrganizationEffects,
 ): Pick<
-	OrganizationAdapter<Transaction>,
+	OrganizationAdapter<WriteTx>,
 	| "residency.readSharing"
 	| "residency.setSharing"
 	| "residency.leave"
@@ -277,7 +276,7 @@ export function consentOperations(
 		},
 	};
 	async function changeResident(
-		tx: Transaction,
+		tx: WriteTx,
 		session: z.infer<typeof sessionId>,
 		selected: Owner,
 		raw: unknown,

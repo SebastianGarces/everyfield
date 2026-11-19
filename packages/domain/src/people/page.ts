@@ -32,6 +32,7 @@ import { interviewsJson, interviewsOf } from "./interviews/index.ts";
 import { activitiesJson, activityFeed, peopleReader } from "./queries.ts";
 import { personSkills, personSkillsJson, personTags, personTagsJson } from "./tags-skills/index.ts";
 import { personTenures, personTenuresJson } from "../teams/reads.ts";
+import { gatedTransaction } from "../operations/writes.ts";
 
 export type PersonPageParts = { fields?: boolean; records?: number; duplicates?: boolean };
 
@@ -78,7 +79,7 @@ export async function readPersonPage(
 				ministries: null,
 			};
 		};
-		return "rollback" in db ? run(db) : db.transaction(run);
+		return "rollback" in db ? run(db) : gatedTransaction(db, run);
 	});
 }
 

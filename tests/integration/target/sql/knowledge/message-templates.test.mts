@@ -9,6 +9,7 @@ import { RequestActor } from "../../../../../packages/domain/src/access/session.
 import { communicationWriter, withCommunicationWrite } from "../../../../../packages/domain/src/communication/index.ts";
 import { messageTemplateInstaller } from "../../../../../packages/reference/src/message-templates.ts";
 import { fixture, ok, refused } from "../../../../support/fixture.mts";
+import { gatedTransaction } from "../../../../../packages/domain/src/operations/writes.ts";
 
 const SOURCE = {
 	path: "docs/reference/communication-system-templates.ts",
@@ -101,7 +102,7 @@ test("AC:GAP-REF-006 seven system templates install twice without overwriting a 
 		assert.equal(second.sourceSha256, SOURCE.sha256);
 		assert.equal(await sourceHash(), SOURCE.sha256);
 
-		const listed = ok(await db.transaction((tx) => communicationWriter.listTemplates(tx, A.actor)));
+		const listed = ok(await gatedTransaction(db, (tx) => communicationWriter.listTemplates(tx, A.actor)));
 		const forkShown = listed.templates.find((t) => t.sourceKey === "vision-meeting-invitation");
 		assert.equal(forkShown.origin, "plant");
 		assert.equal(forkShown.subject, "Our invitation");
@@ -121,7 +122,7 @@ test("AC:GAP-REF-006 seven system templates install twice without overwriting a 
 		async () => {
 			const before = await writes();
 			const error = refused(
-				await db.transaction((tx) =>
+				await gatedTransaction(db, (tx) =>
 					communicationWriter.readPreview(tx, A.actor, {
 						bodyHtml: fork.bodyHtml,
 						templateId: fork.templateId,
@@ -133,7 +134,7 @@ test("AC:GAP-REF-006 seven system templates install twice without overwriting a 
 			assert.deepEqual(error.details, { missing: ["name"], providerCalls: 0 });
 			assert.deepEqual(await writes(), before);
 			const shown = ok(
-				await db.transaction((tx) =>
+				await gatedTransaction(db, (tx) =>
 					communicationWriter.readPreview(tx, A.actor, {
 						bodyHtml: fork.bodyHtml,
 						templateId: fork.templateId,
