@@ -311,13 +311,11 @@ export function AddFollowUpDialog({
 	lane,
 	onClose,
 	onCreated,
-	returnFocus,
 }: {
 	person: { id: string; label: string };
 	lane: SaveIntent;
 	onClose: () => void;
 	onCreated: (duty: DutyItem) => void;
-	returnFocus?: (e: Event) => void;
 }) {
 	const [draft, setDraft] = useState<AddDraft>({ title: "", dated: "undated", date: "", owners: [] });
 	const [dateError, setDateError] = useState<string | null>(null);
@@ -351,7 +349,7 @@ export function AddFollowUpDialog({
 	return (
 		<NoticeInDialog {...lane.noticeProps}>
 			<Dialog open onOpenChange={(next) => !next && onClose()}>
-				<DialogContent size="sm" onCloseAutoFocus={returnFocus}>
+				<DialogContent size="sm">
 					<form
 						ref={focusProblem}
 						noValidate
