@@ -11,6 +11,7 @@ import {
 } from "../../../packages/domain/src/intelligence/index.ts";
 import { commitments, peopleWriter, recordCorrections } from "../../../packages/domain/src/people/index.ts";
 import { ok, refusedWith } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 let f, facts, signals, care;
 const ZONE = "America/Chicago";
@@ -43,7 +44,7 @@ async function plant() {
 		ctx: { session: a.session, selected: { kind: "plant", id: w.id } },
 	};
 }
-const tx = (body) => f.db.transaction(body);
+const tx = (body) => gatedTransaction(f.db, body);
 async function person(o, displayName, input = { adultClassification: "adult" }) {
 	return ok(
 		await tx((t) =>
