@@ -59,7 +59,7 @@ export function CallScreen({ initial, accountId, admin }: { initial: CallData; a
 	const due = dueText(task.due);
 
 	async function submit() {
-		const parsed = outcomeInput(draft, { completable: open });
+		const parsed = outcomeInput(draft, { completable: open, now: new Date() });
 		if (!parsed.ok) {
 			setErrors(parsed.errors);
 			refuseProblem();
