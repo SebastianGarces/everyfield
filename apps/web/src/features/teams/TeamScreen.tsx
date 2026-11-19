@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import {
 	Add01Icon,
@@ -87,7 +88,6 @@ import {
 	stampText,
 	type HistoryEntry,
 	type Member,
-	type Outcome,
 	type Role,
 	type SetupForm,
 } from "./model.ts";

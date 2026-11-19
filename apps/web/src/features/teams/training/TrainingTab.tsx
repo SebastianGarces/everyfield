@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import {
 	Add01Icon,
@@ -29,7 +30,7 @@ import { useState, useTransition } from "react";
 import { localToday } from "../../../components/clock.ts";
 import { createRead, useRead } from "../../../components/read.tsx";
 import { NoticeInDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
-import { dayText, type Outcome } from "../model.ts";
+import { dayText } from "../model.ts";
 import {
 	attestCompletion,
 	attestService,

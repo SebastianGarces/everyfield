@@ -1,4 +1,4 @@
-import { signIn } from "@/server/request-context";
+import { requireSeat } from "@/server/request-context";
 import { requestDatabase } from "@/server/database";
 import { Calendar03Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { meetingId as meetingIdSchema, rsvpToken } from "@everyfield/contracts/meetings";
@@ -22,14 +22,13 @@ import { MeetingsScreen } from "./MeetingsScreen.tsx";
 import { parseQuery, querySearch } from "./model.ts";
 import { RsvpScreen } from "./RsvpScreen.tsx";
 import { canWrite } from "../../components/seat-role.ts";
-import { loadCheckIn, loadMeeting, loadMeetings, plantViewer, type Viewer } from "./server.ts";
+import { loadCheckIn, loadMeeting, loadMeetings, type Viewer } from "./server.ts";
 import { params } from "../../components/search-params.ts";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
-	const v = await plantViewer();
-	if (v.signedOut) signIn(returnTo);
-	if (v.viewer) return { viewer: v.viewer };
+	const viewer = await requireSeat(returnTo);
+	if (viewer) return { viewer };
 	return {
 		blocked: (
 			<>
@@ -79,14 +78,13 @@ export async function MeetingPage({ params: route }: { params: Promise<{ meeting
 export const checkInMetadata: Metadata = { title: "Check-in", robots: { index: false, follow: false } };
 export async function CheckInPage({ params: route }: { params: Promise<{ meetingId: string }> }) {
 	const raw = (await route).meetingId;
-	const v = await plantViewer();
-	if (v.signedOut) signIn(`/meetings/${raw}/check-in`);
+	const viewer = await requireSeat(`/meetings/${raw}/check-in`);
 	const id = meetingIdSchema.safeParse(raw);
 	if (!id.success) notFound();
-	if (!v.viewer) redirect(`/meetings/${id.data}`);
-	const loaded = await loadCheckIn(v.viewer, id.data);
+	if (!viewer) redirect(`/meetings/${id.data}`);
+	const loaded = await loadCheckIn(viewer, id.data);
 	if (loaded.status === "missing") notFound();
-	if (loaded.status === "found" && !canWrite(v.viewer) && !loaded.attendance?.viewerCanMarkAttendance)
+	if (loaded.status === "found" && !canWrite(viewer) && !loaded.attendance?.viewerCanMarkAttendance)
 		redirect(`/meetings/${id.data}`);
 	if (loaded.status === "failed")
 		return (
@@ -96,7 +94,7 @@ export async function CheckInPage({ params: route }: { params: Promise<{ meeting
 				</StatePanel>
 			</main>
 		);
-	return <CheckInScreen key={loaded.meeting.id} data={loaded} admin={canWrite(v.viewer)} />;
+	return <CheckInScreen key={loaded.meeting.id} data={loaded} admin={canWrite(viewer)} />;
 }
 
 export function MeetingNotFound() {
