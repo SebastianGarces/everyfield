@@ -13,7 +13,7 @@ export async function refreshIntelligence(
 	const ran = await pipelineWrite((db, authority) => requestIntelligenceRefresh(db, authority, { runId }));
 	if (ran.status !== "ok") return ran.status === "lost" ? { status: "lost" } : { status: "refused" };
 	const who = await oversightViewer();
-	if (who.kind !== "organization") return { status: "lost" };
+	if (who.kind !== "organization") return { status: "refused" };
 	const db = requestDatabase();
 	const view = await readIntelligence(db, who.viewer.authority, {
 		level: level.catch("portfolio").parse(shownLevel),

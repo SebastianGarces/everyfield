@@ -4,8 +4,9 @@ import { pipelineActor } from "../pipeline-mount";
 import { pipelineImportLimits } from "@everyfield/contracts/organizations";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
-import { logFailure } from "@everyfield/domain/log";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
+import { parseJson } from "../../../server/platform/json.ts";
+import { transient, unexpected } from "../../../server/platform/transient.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const reply = (body: unknown) => Response.json(body, { headers: NO_STORE });
@@ -17,31 +18,32 @@ async function handle(request: Request, step: "preview" | "save") {
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return reply({ status: "refused", refusal: { code: "unavailable" } });
 	const db = requestDatabase();
-	let input: Record<string, unknown>;
-	try {
-		const bytes = await readBoundedBody(request, BODY_MAX);
-		if (!bytes) return tooLarge();
-		const form = await new Response(bytes, {
-			headers: { "Content-Type": request.headers.get("content-type") ?? "" },
-		}).formData();
-		const file = form.get("file");
-		const json = form.get("request");
-		if (!(file instanceof File) || typeof json !== "string")
-			return reply({ status: "refused", refusal: { code: "invalid_input" } });
-		input = { ...JSON.parse(json), fileName: file.name, file: new Uint8Array(await file.arrayBuffer()) };
-	} catch {
-		return reply({ status: "refused", refusal: { code: "invalid_input" } });
-	}
-	try {
-		return reply(
-			step === "preview"
-				? await previewPipelineImport(db, who.authority, input)
-				: await pipelineImportWriter.importPeople(db, who.authority, input),
-		);
-	} catch (error) {
-		logFailure({ component: "pipeline", outcome: `import_${step}_failed` }, error);
-		return reply({ status: "lost" });
-	}
+	const invalid = () => reply({ status: "refused", refusal: { code: "invalid_input" } });
+	const bytes = await readBoundedBody(request, BODY_MAX);
+	if (!bytes) return tooLarge();
+	const form = await new Response(bytes, {
+		headers: { "Content-Type": request.headers.get("content-type") ?? "" },
+	})
+		.formData()
+		.catch((error: unknown) => {
+			if (error instanceof TypeError) return null;
+			throw unexpected({ component: "pipeline", outcome: "import_form_failed" }, error);
+		});
+	const file = form?.get("file");
+	const fields = form?.get("request");
+	const parsed = typeof fields === "string" ? parseJson(fields) : undefined;
+	if (!(file instanceof File) || !parsed || typeof parsed !== "object") return invalid();
+	const input = { ...parsed, fileName: file.name, file: new Uint8Array(await file.arrayBuffer()) };
+	return transient(
+		{ component: "pipeline", outcome: `import_${step}_failed` },
+		async () =>
+			reply(
+				step === "preview"
+					? await previewPipelineImport(db, who.authority, input)
+					: await pipelineImportWriter.importPeople(db, who.authority, input),
+			),
+		reply({ status: "lost" }),
+	);
 }
 
 export const previewRoute = mutatingRoute((request: Request) => handle(request, "preview"));

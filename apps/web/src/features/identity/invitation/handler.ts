@@ -5,6 +5,7 @@ import { z } from "zod";
 import { invitationService } from "@/server/invitations";
 import { answer, refused, type Reply } from "../server";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
+import { parseJson } from "../../../server/platform/json.ts";
 
 export type InvitationRead = {
 	description: unknown;
@@ -45,12 +46,8 @@ export const invitationRoute = mutatingRoute(async function invitationRoute(inco
 		return json(refused("invalid_input"), 415);
 	const text = await incoming.text();
 	if (text.length > 24576) return json(refused("invalid_input"), 413);
-	let raw: unknown;
-	try {
-		raw = JSON.parse(text);
-	} catch {
-		return json(refused("invalid_input"), 400);
-	}
+	const raw = parseJson(text);
+	if (raw === undefined) return json(refused("invalid_input"), 400);
 	const body = request.safeParse(raw);
 	if (!body.success) return json(refused("invalid_input"), 400);
 	const service = invitationService();

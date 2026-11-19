@@ -149,6 +149,11 @@ test("OPS-76: each preview resolves IDENTITY_ORIGIN to its own URL, whatever its
 				const seeded = mode === "development" && name === "one";
 				for (const key of IDENTITY_KEYS)
 					assert.equal(Boolean(resolved[key]), !(seeded && key === "IDENTITY_SECRET"), `${mode} ${name} ${key}`);
+				assert.equal(
+					Buffer.from(resolved.FLAGS_SECRET, "base64url").length,
+					32,
+					"a development-only Flags Explorer key",
+				);
 				urls.add(preview.url);
 			}
 		}

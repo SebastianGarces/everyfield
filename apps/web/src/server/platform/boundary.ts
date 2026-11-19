@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { ServerConfigError, serverConfig, serverConfigProblem } from "../config.ts";
 import { unexpected } from "./transient.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export const privateHeaders = {
 	"Cache-Control": "private, no-store",
@@ -27,6 +28,7 @@ export async function safeBoundary(body: () => Promise<Response>): Promise<Respo
 		result.headers.set("X-Request-Id", id);
 		return result;
 	} catch (error) {
+		if (!(error instanceof Refusal)) logFailure({ component: "route", outcome: "failed" }, error);
 		const response = safeResponse(
 			{ code: error instanceof Refusal ? error.code : "unavailable", requestId: id },
 			error instanceof Refusal ? error.status : 503,

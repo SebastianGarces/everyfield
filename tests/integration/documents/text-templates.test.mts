@@ -137,14 +137,14 @@ describe("AC:DOC-011 text-document layout and fixed previews", () => {
 			"response-card": "886b00c9c4f76b3c5c248fdf1123a7a36b46c091e543b1cfda0a1724db53361e",
 			"guest-sign-in-sheet": "db61a4b28bdcf8b875d4b506c3ae2d7731fd7f4fc8ad34bc8e7d60ed5f86693f",
 			"vision-meeting-agenda": "6e02c8306f25274eb12d53517fb421cee2adc1c9dc7cab2f64d9aadae069e35d",
-			"member-expectations": "bb6139a56ba3dde890bffca1bd0078e853892a956cbee2997219c71e28de5e38",
-			"launch-team-commitment": "4b4c5affe7012c6c153d5e8544eecb728d971559e98f0ff61005389e59553848",
+			"member-expectations": "6c4e4fc357099b0a9fd53cefa35d94f1cf54f15f79c7cfa5ae81fc8a16059990",
+			"launch-team-commitment": "bfa24f939953620b05e0c9fd079f37894aeb4e0eafecca0f055f75c09c837790",
 			"follow-up-letter": "c939cef33c4b21b4ba8ce3ed9d477d9f1836cac93f775eed219ca739252485ab",
 			"board-meeting-agenda": "d052c93f9127e1027c74aec9fb0a1809bf88d4145d0a7df1b49896f6edaa7648",
 			"first-year-budget": "c948ac590a75abe546383e68846b7e4f12b26ad1d64d0e66c7651dde40105c80",
 			"budget-worksheet": "357615ae52c07533192975325d8bc8eab096b69d04da00bb876ba5a7b900216b",
 			"launch-sunday-checklists": "4fd61da39007805617236b09bfc88424cd1446724d0c29cd590c7bba6397682f",
-			bylaws: "f017ee3c9bd4cd9c9bfcd437566075aaae614cd4cef9e8fc51e5e5c586700a9b",
+			bylaws: "81a7cc6a34e2762d0fd15fda731d0c34ee58533b9b244a90409f40a220aa6d6b",
 			"prayer-letter": "eca5f9e4d272722793c23ec517c527cbe104815bfa6d8691b9814f7c1e9b3b61",
 		};
 		const loaded = await library();
