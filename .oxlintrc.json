@@ -128,6 +128,12 @@
 			}
 		},
 		{
+			"files": ["packages/contracts/src/**"],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
 			"files": ["packages/evry/src/**", "packages/domain/src/**"],
 			"rules": {
 				"everyfield/private-care-scope": "error"
