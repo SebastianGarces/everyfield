@@ -123,7 +123,10 @@ function isAuditRetry(error: unknown): boolean {
 		.safeParse(error);
 	return found.success;
 }
-export async function auditTransaction<T>(db: Database, body: (tx: Transaction) => Promise<T>): Promise<T> {
+export async function auditTransaction<T>(
+	db: Database | Transaction,
+	body: (tx: Transaction) => Promise<T>,
+): Promise<T> {
 	try {
 		return await db.transaction(body);
 	} catch (error) {
