@@ -1187,6 +1187,69 @@ test("INV-lint: the base tree is linted at its real path, so path exemptions hol
 	);
 });
 
+test("INV-lint: in the app a caught failure never becomes an empty list, a zero or an ok result", () => {
+	const source = `export async function f(read: () => Promise<string[]>) {
+	try {
+		return { status: "ok", value: await read() };
+	} catch {
+		return { status: "ok", value: [] } as const;
+	}
+}
+export const g = (read: () => Promise<string[]>) => read().catch(() => []);
+export const h = (read: () => Promise<number>) => read().catch(function () { return 0; });
+export async function i(read: () => Promise<string[]>) {
+	let names: string[] | null = null;
+	try {
+		names = await read();
+	} catch {
+		names = [];
+	}
+	try {
+		return await read();
+	} catch (e) {
+		if (e) return [];
+		throw e;
+	}
+}
+export async function j(read: () => Promise<string[]>) {
+	try {
+		return await read();
+	} catch {
+		const none: string[] = [];
+		return none;
+	}
+}
+export async function k(read: () => Promise<string[]>) {
+	try {
+		return await read();
+	} catch (e) {
+		if ((e as { code?: string }).code === "ENOENT") return new Array<string>();
+		return e ? [] : [];
+	}
+}
+export const l = (read: () => Promise<string[]>) => read().then((x) => x, () => []);
+export const m = (read: () => Promise<{ items: string[] }>) => read().catch(() => ({ items: [] }));
+export const n = (read: () => Promise<string[]>) => read().catch(() => new Array<string>());
+export async function o(read: () => Promise<string[]>) {
+	try {
+		return await read();
+	} catch (error) {
+		if (error instanceof RangeError) return [];
+		return { status: "lost" } as const;
+	}
+}
+export const p = (read: () => Promise<string[] | null>) => read().catch(() => null);
+`;
+	assert.deepEqual(
+		lint({ "apps/web/src/features/x/server.ts": source, "packages/domain/src/x.ts": source }).filter((hit) =>
+			hit.endsWith("failure-not-empty"),
+		),
+		[5, 8, 9, 15, 20, 28, 37, 40, 41, 42]
+			.map((line) => `apps/web/src/features/x/server.ts:${line} failure-not-empty`)
+			.sort(),
+	);
+});
+
 test("INV-lint: product code that recognises a caught error by its message text is reported", () => {
 	const source = `export function f(error: unknown, p: Promise<void>) {
 	if (error instanceof Error && error.message === "unavailable") return 1;
