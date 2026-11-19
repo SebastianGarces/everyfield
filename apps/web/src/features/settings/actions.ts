@@ -3,7 +3,6 @@
 import * as S from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import { drainObjectCleanup } from "@/server/jobs/drain-object-cleanup";
-import type { z } from "zod";
 import type {
 	AvatarResult,
 	AvatarUpload,
@@ -15,12 +14,10 @@ import type {
 	PlantTimezoneResult,
 	Reply,
 	SavedSection,
-	SaveChurchRequest,
-	SaveSectionRequest,
 } from "./port";
 import { cancelRestrictedDeletion, credential, openRestrictedDeletion, restrictedStatus, run } from "./server";
 
-export async function saveSection(request: SaveSectionRequest): Promise<Reply<SavedSection>> {
+export async function saveSection(request: unknown): Promise<Reply<SavedSection>> {
 	return run(
 		S.saveSectionRequest,
 		request,
@@ -29,7 +26,7 @@ export async function saveSection(request: SaveSectionRequest): Promise<Reply<Sa
 	);
 }
 
-export async function saveChurch(request: SaveChurchRequest): Promise<Reply<SavedSection>> {
+export async function saveChurch(request: unknown): Promise<Reply<SavedSection>> {
 	return run(
 		S.saveChurchRequest,
 		request,
@@ -38,9 +35,7 @@ export async function saveChurch(request: SaveChurchRequest): Promise<Reply<Save
 	);
 }
 
-export async function previewPlantTimezone(
-	request: z.input<typeof S.previewPlantTimezoneRequest>,
-): Promise<Reply<PlantTimezonePreview>> {
+export async function previewPlantTimezone(request: unknown): Promise<Reply<PlantTimezonePreview>> {
 	return run(
 		S.previewPlantTimezoneRequest,
 		request,
@@ -49,9 +44,7 @@ export async function previewPlantTimezone(
 	);
 }
 
-export async function setPlantTimezone(
-	request: z.input<typeof S.setPlantTimezoneRequest>,
-): Promise<Reply<PlantTimezoneResult>> {
+export async function setPlantTimezone(request: unknown): Promise<Reply<PlantTimezoneResult>> {
 	return run(
 		S.setPlantTimezoneRequest,
 		request,
@@ -60,9 +53,7 @@ export async function setPlantTimezone(
 	);
 }
 
-export async function requestAvatarUpload(
-	request: z.input<typeof S.requestAvatarUpload>,
-): Promise<Reply<AvatarUpload>> {
+export async function requestAvatarUpload(request: unknown): Promise<Reply<AvatarUpload>> {
 	return run(
 		S.requestAvatarUpload,
 		request,
@@ -71,7 +62,7 @@ export async function requestAvatarUpload(
 	);
 }
 
-export async function finalizeAvatar(request: z.input<typeof S.finalizeAvatarRequest>): Promise<Reply<AvatarResult>> {
+export async function finalizeAvatar(request: unknown): Promise<Reply<AvatarResult>> {
 	drainObjectCleanup();
 	return run(
 		S.finalizeAvatarRequest,
@@ -81,7 +72,7 @@ export async function finalizeAvatar(request: z.input<typeof S.finalizeAvatarReq
 	);
 }
 
-export async function removeAvatar(request: z.input<typeof S.removeAvatarRequest>): Promise<Reply<AvatarResult>> {
+export async function removeAvatar(request: unknown): Promise<Reply<AvatarResult>> {
 	drainObjectCleanup();
 	return run(
 		S.removeAvatarRequest,
@@ -91,19 +82,17 @@ export async function removeAvatar(request: z.input<typeof S.removeAvatarRequest
 	);
 }
 
-export async function requestEmailChange(
-	request: z.input<typeof N.requestEmailChange>,
-): Promise<Reply<{ status: "verification_requested" }>> {
+export async function requestEmailChange(request: unknown): Promise<Reply<{ status: "verification_requested" }>> {
 	return credential(N.requestEmailChange, request, (ops, context, r) => ops.requestEmailChange(context, r));
 }
 
-export async function confirmEmailChange(request: z.input<typeof N.confirmEmailChange>): Promise<CredentialOutcome> {
+export async function confirmEmailChange(request: unknown): Promise<CredentialOutcome> {
 	return outcome(
 		await credential(N.confirmEmailChange, request, (ops, context, r) => ops.confirmEmailChange(context, r)),
 	);
 }
 
-export async function changePassword(request: z.input<typeof N.changePasswordRequest>): Promise<CredentialOutcome> {
+export async function changePassword(request: unknown): Promise<CredentialOutcome> {
 	return outcome(
 		await credential(N.changePasswordRequest, request, (ops, context, r) => ops.changePassword(context, r)),
 	);
@@ -117,9 +106,7 @@ function outcome(
 		: reply;
 }
 
-export async function previewPersonalTimezone(
-	request: z.input<typeof N.previewPersonalTimezoneRequest>,
-): Promise<Reply<PersonalTimezonePreview>> {
+export async function previewPersonalTimezone(request: unknown): Promise<Reply<PersonalTimezonePreview>> {
 	return run(
 		N.previewPersonalTimezoneRequest,
 		request,
@@ -128,9 +115,7 @@ export async function previewPersonalTimezone(
 	);
 }
 
-export async function setPersonalTimezone(
-	request: z.input<typeof N.setPersonalTimezoneRequest>,
-): Promise<Reply<PersonalTimezoneResult>> {
+export async function setPersonalTimezone(request: unknown): Promise<Reply<PersonalTimezoneResult>> {
 	return run(
 		N.setPersonalTimezoneRequest,
 		request,
@@ -139,9 +124,7 @@ export async function setPersonalTimezone(
 	);
 }
 
-export async function requestAccountDeletion(
-	request: z.input<typeof S.requestAccountDeletion>,
-): Promise<Reply<DeletionStatus>> {
+export async function requestAccountDeletion(request: unknown): Promise<Reply<DeletionStatus>> {
 	return run(
 		S.requestAccountDeletion,
 		request,
@@ -150,9 +133,7 @@ export async function requestAccountDeletion(
 	);
 }
 
-export async function openAccountDeletion(
-	request: z.input<typeof N.openAccountDeletionRequest>,
-): Promise<Reply<DeletionStatus>> {
+export async function openAccountDeletion(request: unknown): Promise<Reply<DeletionStatus>> {
 	return openRestrictedDeletion("account", request);
 }
 
@@ -164,9 +145,7 @@ export async function cancelAccountDeletion(expectedRevision: string): Promise<R
 	return cancelRestrictedDeletion("account", expectedRevision);
 }
 
-export async function requestWorkspaceDeletion(
-	request: z.input<typeof S.requestWorkspaceDeletion>,
-): Promise<Reply<DeletionStatus>> {
+export async function requestWorkspaceDeletion(request: unknown): Promise<Reply<DeletionStatus>> {
 	return run(
 		S.requestWorkspaceDeletion,
 		request,
@@ -175,9 +154,7 @@ export async function requestWorkspaceDeletion(
 	);
 }
 
-export async function openWorkspaceDeletion(
-	request: z.input<typeof N.openAccountDeletionRequest>,
-): Promise<Reply<DeletionStatus>> {
+export async function openWorkspaceDeletion(request: unknown): Promise<Reply<DeletionStatus>> {
 	return openRestrictedDeletion("plant", request);
 }
 

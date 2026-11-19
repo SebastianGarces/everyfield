@@ -1,7 +1,7 @@
 "use server";
 
 import { requestDatabase } from "@/server/database";
-import type { CompareView, ChurchTemplateSummary, DocDocument } from "@everyfield/contracts/documents";
+import type { ChurchTemplateSummary, DocDocument } from "@everyfield/contracts/documents";
 import { documentsWriter } from "@everyfield/domain/documents";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -14,7 +14,7 @@ export type ChurchActionResult = { status: "refused"; message: string } | { stat
 export async function createChurchDocument(
 	templateId: string,
 	requestKey: string,
-	mergeFields?: Record<string, string>,
+	mergeFields?: unknown,
 ): Promise<ChurchActionResult> {
 	const actor = await documentActor();
 	const db = requestDatabase();
@@ -126,13 +126,7 @@ export async function restoreChurchDocument(documentId: string): Promise<ChurchA
 export type TemplateSaveResult =
 	{ status: "saved"; template: ChurchTemplateSummary } | { status: "refused"; message: string } | { status: "lost" };
 
-export async function saveChurchTemplate(input: {
-	documentId: string;
-	revision: number;
-	name: string;
-	description: string;
-	requestKey: string;
-}): Promise<TemplateSaveResult> {
+export async function saveChurchTemplate(input: unknown): Promise<TemplateSaveResult> {
 	const actor = await documentActor();
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
@@ -152,13 +146,7 @@ export type TemplateUpdateResult =
 	| { status: "refused"; code: string; message: string }
 	| { status: "lost" };
 
-export async function updateChurchTemplate(input: {
-	templateId: string;
-	expectedVersion: number;
-	documentId: string;
-	revision: number;
-	requestKey: string;
-}): Promise<TemplateUpdateResult> {
+export async function updateChurchTemplate(input: unknown): Promise<TemplateUpdateResult> {
 	const actor = await documentActor();
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
@@ -178,12 +166,7 @@ export type TemplateEditResult =
 	| { status: "refused"; code: string; message: string }
 	| { status: "lost" };
 
-export async function editChurchTemplate(input: {
-	templateId: string;
-	name: string;
-	description: string;
-	requestKey: string;
-}): Promise<TemplateEditResult> {
+export async function editChurchTemplate(input: unknown): Promise<TemplateEditResult> {
 	const actor = await documentActor();
 	const db = requestDatabase();
 	if (!actor || !db) return { status: "lost" };
@@ -240,9 +223,9 @@ export async function acceptTemplateChanges(
 	documentId: string,
 	expectedRevision: string,
 	templateHash: string,
-	view: CompareView,
+	view: unknown,
 	key: string,
-	accept: number[] | "all",
+	accept: unknown,
 ): Promise<AcceptResult> {
 	const actor = await documentActor();
 	const db = requestDatabase();

@@ -1,16 +1,9 @@
-import { getReads, type ReadResult } from "../../components/get-reads.ts";
-import type { ReadRefusal } from "../../server/platform/reads.ts";
+import { getReads, refusalAs } from "../../components/get-reads.ts";
 import type { GET } from "./read.ts";
 
 const get = getReads<typeof GET>("/launch/read");
-const refusedByRead = <T>(r: ReadResult<T, string>): r is ReadRefusal<string> =>
-	typeof r === "object" && r !== null && "code" in r;
+const lost = () => ({ status: "lost" }) as const;
 
-async function settled<T>(read: Promise<ReadResult<T, string>>) {
-	const r = await read;
-	return refusedByRead(r) ? ({ status: "lost" } as const) : r;
-}
-
-export const readGatheringOffers = () => settled(get("offers"));
-export const suggestGuests = (query: string) => settled(get("guests", { query }));
-export const readLaunchHistory = () => settled(get("history"));
+export const readGatheringOffers = () => refusalAs(get("offers"), lost);
+export const suggestGuests = (query: string) => refusalAs(get("guests", { query }), lost);
+export const readLaunchHistory = () => refusalAs(get("history"), lost);
