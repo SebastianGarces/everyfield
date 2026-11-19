@@ -166,7 +166,7 @@ async function currentCreation<
 }
 export function creation(effects: OnboardingEffects) {
 	return {
-		async createPlant(tx: Tx, ctx: WriteContext, raw: z.infer<typeof c.createPlantRequest>) {
+		async createPlant(tx: Tx, ctx: WriteContext, raw: unknown) {
 			return reply(tx, async () => {
 				const q = parse(c.createPlantRequest, raw),
 					a = await eligible(tx, ctx, "planter");
@@ -203,7 +203,7 @@ export function creation(effects: OnboardingEffects) {
 				}));
 			});
 		},
-		async createDiscovery(tx: Tx, ctx: WriteContext, raw: z.infer<typeof c.createDiscoveryRequest>) {
+		async createDiscovery(tx: Tx, ctx: WriteContext, raw: unknown) {
 			return reply(tx, async () => {
 				const q = parse(c.createDiscoveryRequest, raw),
 					a = await eligible(tx, ctx, "discovery");
@@ -257,7 +257,7 @@ export function creation(effects: OnboardingEffects) {
 				}));
 			});
 		},
-		async convertDiscovery(tx: Tx, ctx: WriteContext, raw: z.infer<typeof c.convertDiscoveryRequest>) {
+		async convertDiscovery(tx: Tx, ctx: WriteContext, raw: unknown) {
 			return reply(tx, async () => {
 				const q = parse(c.convertDiscoveryRequest, raw),
 					a = await eligible(tx, ctx, "discovery");

@@ -206,7 +206,8 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 	const openId = useStore(store, (s) => s.openId);
 	const dialogFor = useStore(store, (s) => s.dialogFor);
 	const deleting = useStore(store, (s) => s.deleting);
-	const { lanes, actions } = store.getState();
+	const lanes = useStore(store, (s) => s.lanes);
+	const { actions } = store.getState();
 	useSyncExternalStore(lanes.subscribe, lanes.version, lanes.version);
 	const known = () => store.getState().details;
 	const setDetails = actions.details;
