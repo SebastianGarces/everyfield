@@ -22,7 +22,7 @@ export const GET = defineReads(
 				return { status: "ok", value: photos } as const;
 			} catch (error) {
 				console.error(JSON.stringify({ component: "evry", outcome: "row_photos_failed", error: String(error) }));
-				return { status: "ok", value: none } as const;
+				return { status: "lost" } as const;
 			}
 		}),
 	}),
