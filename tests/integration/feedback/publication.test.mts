@@ -1,5 +1,5 @@
 import "../platform/setup.mts";
-import { fixture, ok, refused } from "../../support/fixture.mts";
+import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
 import { fakeGitHub } from "../../support/fake-github.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase } from "../../../packages/db/src/client.ts";
@@ -55,7 +55,7 @@ after(async () => {
 	await database.close();
 });
 
-const authority = async (who: { session: string }) => {
+const authority = async (who: Actor) => {
 	const actor = await RequestActor.resolve(db, who.session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
 	return actor;
@@ -126,7 +126,7 @@ const cron = (feedbackPublication: ReturnType<typeof feedbackPublicationMount>) 
 		mail: null,
 		digests: null,
 		feedbackPublication,
-	})(new Request("https://app.example.test/api/cron/jobs", { headers: { authorization: "Bearer s" } }));
+	})();
 
 test("AC:CASE-ADM-003 with no repository configured nothing reaches GitHub or the inbox, and configuring it later publishes the waiting feedback", async () => {
 	const sent = await send();

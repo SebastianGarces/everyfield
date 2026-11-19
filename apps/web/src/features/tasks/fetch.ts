@@ -1,7 +1,8 @@
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
 import { getReads } from "../../components/get-reads.ts";
-import type { ContactHistory, Outcome as ReadOutcome } from "../followups/model.ts";
+import type { Outcome as ReadOutcome } from "@everyfield/contracts/common";
+import type { ContactHistory } from "../followups/model.ts";
 import type {
 	Candidate,
 	Occurrence,

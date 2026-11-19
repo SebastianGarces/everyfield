@@ -1,6 +1,7 @@
 import { requestDatabase } from "@/server/database";
 import { readFlag } from "@/server/flags";
 import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { DASHBOARD_HOME, landingFor } from "@everyfield/contracts/identity";
 import { dashboardReader } from "@everyfield/domain/dashboard";
 import { PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
@@ -17,7 +18,7 @@ export const overviewMetadata: Metadata = { title: "Overview", robots: { index: 
 
 export async function OverviewPage() {
 	const viewer = await getViewer();
-	if (viewer.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(DASHBOARD_HOME)}`);
+	if (viewer.status === "unauthenticated") signIn(DASHBOARD_HOME);
 	const db = requestDatabase();
 	const framing = loadFrame();
 	const plant =
