@@ -277,7 +277,7 @@
 	"POST intelligence.correctCheckIn": {
 		"limit": 2
 	},
-	"POST intelligence.readCheckInHistory": {
+	"GET /me/check-in/read?what=history": {
 		"limit": 2
 	},
 	"accountPerson.ensureAccountPerson": {

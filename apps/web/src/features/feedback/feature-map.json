@@ -139,6 +139,7 @@
 			"id": "feedback.own",
 			"says": "Sent feedback: what you sent with Send feedback and where each one stands.",
 			"routes": ["/feedback", "/feedback/[feedbackId]"],
+			"endpoints": ["/feedback/read"],
 			"catalog": ["ADM-001"],
 			"reach": [
 				{
