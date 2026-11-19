@@ -45,7 +45,7 @@ export async function loadPersonTraining(viewer: Seat, personId: string): Promis
 	};
 }
 
-export async function previewRoster(viewer: Seat, programId: string, personIds: string[]) {
+export async function readRosterPreview(viewer: Seat, programId: string, personIds: string[]) {
 	return outcome(
 		await read(viewer, (db, authority) =>
 			trainingReader.readRequiredTrainingPreview(db, authority, { programId, personIds }),

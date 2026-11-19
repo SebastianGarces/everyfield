@@ -4,7 +4,7 @@ import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
 import { listResponsibilities, previewResponsibilities } from "./responsibilities/server.ts";
 import { loadTeam, loadTeams, outcome, readCatalog, readExport, readHistory, readRevision } from "./server.ts";
-import { loadPersonTraining, loadTraining, previewRoster } from "./training/server.ts";
+import { loadPersonTraining, loadTraining } from "./training/server.ts";
 
 const team = z.strictObject({ teamId: z.string() });
 
@@ -31,8 +31,5 @@ export const GET = defineReads(
 		revision: get(team, async (v, { teamId }) => outcome(await readRevision(v, teamId))),
 		training: get(team, (v, { teamId }) => loadTraining(v, teamId)),
 		person: get(z.strictObject({ personId: z.string() }), (v, { personId }) => loadPersonTraining(v, personId)),
-		roster: get(z.strictObject({ programId: z.string(), personIds: z.array(z.string()) }), (v, input) =>
-			previewRoster(v, input.programId, input.personIds),
-		),
 	}),
 );

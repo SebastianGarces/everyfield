@@ -12,7 +12,6 @@ export const listResponsibilities = (teamId: string, page: number) => get("respo
 export const previewResponsibilities = (teamId: string) => get("offer", { teamId });
 export const readTeamRevision = (teamId: string) => get("revision", { teamId });
 export const loadTraining = (teamId: string) => get("training", { teamId });
-export const previewRoster = (programId: string, personIds: string[]) => get("roster", { programId, personIds });
 
 export async function loadPersonTraining(personId: string) {
 	const r = await get("person", { personId });
