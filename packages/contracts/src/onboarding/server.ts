@@ -8,44 +8,44 @@ export type OnboardingWriteContext = OnboardingContext;
 export type OnboardingReply<T> = Reply<T, z.infer<typeof result.onboardingError>>;
 
 export interface OnboardingProducer<Tx> {
-	createPlant(
+	createPlant: (
 		tx: Tx,
 		context: OnboardingWriteContext,
 		raw: unknown,
-	): Promise<OnboardingReply<z.infer<typeof result.createPlantResult>>>;
-	createDiscovery(
+	) => Promise<OnboardingReply<z.infer<typeof result.createPlantResult>>>;
+	createDiscovery: (
 		tx: Tx,
 		context: OnboardingWriteContext,
 		raw: unknown,
-	): Promise<OnboardingReply<z.infer<typeof result.createDiscoveryResult>>>;
-	getDiscoveryProfile(
+	) => Promise<OnboardingReply<z.infer<typeof result.createDiscoveryResult>>>;
+	getDiscoveryProfile: (
 		tx: Tx,
 		context: OnboardingContext,
 		raw: unknown,
-	): Promise<OnboardingReply<z.infer<typeof result.discoveryProfileResult>>>;
-	convertDiscovery(
+	) => Promise<OnboardingReply<z.infer<typeof result.discoveryProfileResult>>>;
+	convertDiscovery: (
 		tx: Tx,
 		context: OnboardingWriteContext,
 		raw: unknown,
-	): Promise<OnboardingReply<z.infer<typeof result.convertDiscoveryResult>>>;
-	answerLead(
+	) => Promise<OnboardingReply<z.infer<typeof result.convertDiscoveryResult>>>;
+	answerLead: (
 		tx: Tx,
 		context: OnboardingWriteContext,
 		raw: unknown,
-	): Promise<OnboardingReply<z.infer<typeof result.leadAnswerResult>>>;
-	declareJourney(
+	) => Promise<OnboardingReply<z.infer<typeof result.leadAnswerResult>>>;
+	declareJourney: (
 		tx: Tx,
 		context: OnboardingWriteContext,
 		raw: unknown,
-	): Promise<OnboardingReply<z.infer<typeof result.journeyResult>>>;
-	complete(
+	) => Promise<OnboardingReply<z.infer<typeof result.journeyResult>>>;
+	complete: (
 		tx: Tx,
 		context: OnboardingWriteContext,
 		raw: unknown,
-	): Promise<OnboardingReply<z.infer<typeof result.completeOnboardingResult>>>;
-	getResume(
+	) => Promise<OnboardingReply<z.infer<typeof result.completeOnboardingResult>>>;
+	getResume: (
 		tx: Tx,
 		context: OnboardingContext,
 		raw: unknown,
-	): Promise<OnboardingReply<z.infer<typeof result.resumeResult>>>;
+	) => Promise<OnboardingReply<z.infer<typeof result.resumeResult>>>;
 }
