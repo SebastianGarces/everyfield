@@ -19,7 +19,12 @@ function boot(removed: readonly string[], emptied: readonly string[] = []) {
 	for (const key of keys) if (!removed.includes(key)) env[key] = emptied.includes(key) ? "" : values[key];
 	const child = spawnSync(
 		process.execPath,
-		["--conditions=react-server", "--input-type=module", "-e", `await (await import(${JSON.stringify(instrumentation)})).register(); console.log("served");`],
+		[
+			"--conditions=react-server",
+			"--input-type=module",
+			"-e",
+			`await (await import(${JSON.stringify(instrumentation)})).register(); console.log("served");`,
+		],
 		{ env, encoding: "utf8", timeout: 30_000 },
 	);
 	return { status: child.status, stdout: child.stdout, stderr: child.stderr };
@@ -30,8 +35,13 @@ function assertRefused(result: ReturnType<typeof boot>, missing: readonly string
 	assert.doesNotMatch(result.stdout, /served/);
 	const lines = result.stderr.split("\n").filter(Boolean);
 	assert.equal(lines.length, 1, result.stderr);
-	assert.deepEqual(JSON.parse(lines[0]!), { component: "server", event: "settings_missing", missing });
-	for (const value of Object.values(values)) assert.ok(!result.stderr.includes(value), "a setting value reached the output");
+	assert.deepEqual(JSON.parse(lines[0]!), {
+		component: "server",
+		event: "settings_missing",
+		...Object.fromEntries(missing.map((key) => [key, true])),
+	});
+	for (const value of Object.values(values))
+		assert.ok(!result.stderr.includes(value), "a setting value reached the output");
 }
 
 for (const key of keys)
