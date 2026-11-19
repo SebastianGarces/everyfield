@@ -17,6 +17,7 @@ import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "../fields/server.ts";
 import type { Assessment, Commitment, Commitments, CommitmentStatus, Interview } from "./model.ts";
 import { HISTORY_PAGE } from "./server.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type RecordedPerson = z.infer<typeof c.recordedPerson>;
 export type AssessmentSaved = { assessment: Assessment; person: RecordedPerson; receipt: Receipt };
@@ -97,7 +98,7 @@ export async function saveCommitmentWithDocument(
 	});
 }
 const lost = (error: unknown) => {
-	console.error(JSON.stringify({ component: "people", outcome: "write_failed", error: String(error) }));
+	logFailure({ component: "people", outcome: "write_failed" }, error);
 	return { status: "failed" } as const;
 };
 

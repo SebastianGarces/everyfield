@@ -92,7 +92,10 @@ export type TasksState = {
 
 export type TasksStore = StoreApi<TasksState>;
 
-export function createTasksStore(init: { opened: TasksAnswer["opened"] }): TasksStore {
+export function createTasksStore(init: {
+	opened: TasksAnswer["opened"];
+	report: NonNullable<LaneOptions["report"]>;
+}): TasksStore {
 	let formLane: string | null = null;
 	let bulkHeld: readonly string[] = [];
 	let bulkChosen: readonly string[] = [];
@@ -100,7 +103,7 @@ export function createTasksStore(init: { opened: TasksAnswer["opened"] }): Tasks
 	return createStore<TasksState>()((set, get) => {
 		const lanes: Lanes = new Lanes((id): LaneOptions => ({
 			explain: (code) => problemText(code as never),
-			report: (line) => console.error(line),
+			report: init.report,
 			busy:
 				id === BULK
 					? (): boolean => bulkChosen.some((t) => lanes.of(t).wait() !== null)

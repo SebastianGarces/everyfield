@@ -6,6 +6,7 @@ import type { RequestActor } from "@everyfield/domain/access";
 import { createPrivateCare, type PrivateCare } from "@everyfield/domain/intelligence";
 import "server-only";
 import type { Outcome } from "./model.ts";
+import { logFailure, type LogWord } from "@everyfield/domain/log";
 
 const care = createPrivateCare();
 
@@ -20,10 +21,8 @@ export async function careViewer(): Promise<CareViewer | null> {
 	return { authority, displayName: v.displayName ?? "", role: ctx.role };
 }
 
-const report = (outcome: string, error: unknown) =>
-	console.error(
-		JSON.stringify({ component: "private-care", outcome, kind: (error as { code?: string })?.code ?? "unknown" }),
-	);
+const report = <O extends string>(outcome: LogWord<O>, error: unknown) =>
+	logFailure({ component: "private-care", outcome }, error);
 
 export async function loadCheckIn(viewer: CareViewer): Promise<Outcome<CarePage>> {
 	const db = requestDatabase();

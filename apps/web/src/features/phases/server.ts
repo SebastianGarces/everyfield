@@ -9,6 +9,7 @@ import { phaseReader, readCatalog, readReadiness, type PhaseWriter } from "@ever
 import "server-only";
 import { phasesMount } from "./mount.ts";
 import type { Outcome } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 type PhaseViewer = {
 	authority: RequestActor;
@@ -50,7 +51,7 @@ export async function loadJourney(viewer: PhaseViewer) {
 			value: { history: history.value, catalog, readiness, facts: measured.value, launchDates },
 		} as const;
 	} catch (error) {
-		console.error(JSON.stringify({ component: "phases", outcome: "read_failed", error: String(error) }));
+		logFailure({ component: "phases", outcome: "read_failed" }, error);
 		return { status: "lost" } as const;
 	}
 }
@@ -65,7 +66,7 @@ export async function write<T>(
 	try {
 		return await run(mount.writer, mount.db, viewer.authority);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "phases", outcome: "write_failed", error: String(error) }));
+		logFailure({ component: "phases", outcome: "write_failed" }, error);
 		return { status: "lost" };
 	}
 }

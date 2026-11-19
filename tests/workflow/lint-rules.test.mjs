@@ -162,6 +162,44 @@ test("INV-lint: every import form of an effect hook is reported", () => {
 	);
 });
 
+test("INV-privacy: server code logs only through the log module", () => {
+	const reach = `export const a = (error) => console.error(String(error));
+export const b = () => console.log("warm");
+const c = console;
+const { warn } = console;
+import nodeConsole from "node:console";
+import { error as err } from "console";
+export const e = () => globalThis.console.error("x");
+export const f = () => globalThis["console"].error("x");
+export const g = () => self.console.error("x");
+export const h = () => window.console.error("x");
+export const i = () => process.stderr.write("x");
+export const j = () => process.stdout.write("x");
+export const k = () => require("node:console");
+export const l = () => import("node:console");
+export const m = () => globalThis.process.stderr.write("x");
+import proc from "node:process";
+export const n = () => proc.stderr.write("x");
+import { stderr } from "process";
+const { stdout } = process;
+const { error } = console;
+export const d = [c, warn, nodeConsole, err, stderr, stdout, error];
+`;
+	const lines = [...Array.from({ length: 15 }, (_, n) => n + 1), 17, 18, 19, 20];
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/server.ts": reach,
+			"packages/domain/src/people/reach.ts": reach,
+			"apps/web/src/features/x/Panel.tsx": `"use client";\n${reach}`,
+			"packages/domain/src/log.ts": reach,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		["apps/web/src/features/x/server.ts", "packages/domain/src/people/reach.ts"]
+			.flatMap((file) => lines.map((line) => `${file}:${line} server-log`))
+			.sort(),
+	);
+});
+
 test("INV-lint: a fifth state hook in a component or hook is reported, a nested callback's is not", () => {
 	const five = (name) =>
 		`export function ${name}() {\n\tconst a = useState(0);\n\tconst b = useState(0);\n\tconst c = React.useState(0);\n\tconst [d] = useReducer((s) => s, 0);\n\tconst [e] = useState(0);\n\tconst nested = () => useState(0);\n\treturn [a, b, c, d, e, nested];\n}\n`;
@@ -1447,7 +1485,7 @@ export function Panel({ start, keep }) {
 	);
 }
 function attach(node) {
-	if (undefined != node) console.info("attached");
+	if (undefined != node) report("attached");
 }
 `;
 	assert.deepEqual(lint({ "apps/web/src/features/x/Old.tsx": source }), [

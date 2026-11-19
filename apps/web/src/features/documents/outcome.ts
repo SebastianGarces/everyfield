@@ -3,6 +3,7 @@ import type { DocumentsError } from "@everyfield/contracts/documents";
 import type { RequestActor } from "@everyfield/domain/access";
 import "server-only";
 import type { OwnedView, SavedFile } from "./model.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 export type Read<T> = (
 	db: NonNullable<ReturnType<typeof requestDatabase>>,
@@ -27,7 +28,7 @@ export async function runAs<T>(actor: RequestActor | null, read: Read<T>) {
 	try {
 		return await read(db, actor);
 	} catch (error) {
-		console.error(JSON.stringify({ component: "documents", outcome: "action_failed", error: String(error) }));
+		logFailure({ component: "documents", outcome: "action_failed" }, error);
 		return { status: "lost" } as const;
 	}
 }

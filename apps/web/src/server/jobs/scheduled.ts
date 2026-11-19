@@ -22,6 +22,7 @@ import { expireStaleMail, type MailPass, type MailPassName } from "./mail.ts";
 import type { NotificationWorker } from "../../features/notifications/worker.ts";
 import { runDueObjectCleanup } from "./object-cleanup.ts";
 import { replayStoredCallbacks } from "./webhook.ts";
+import { asLogWord, logLine } from "@everyfield/domain/log";
 
 const START_MS = 60_000;
 
@@ -119,7 +120,7 @@ export function scheduledJobs(config: {
 				report[component] = { status: "ok", count: count ?? null };
 				if (key) counts[key] = count;
 			} catch {
-				console.error(JSON.stringify({ component, runner: "scheduled-jobs", outcome: "error" }));
+				logLine({ component: asLogWord(component), runner: "scheduled-jobs", outcome: "error" });
 				report[component] = { status: "failed" };
 			}
 		}
