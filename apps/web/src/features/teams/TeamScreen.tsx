@@ -54,10 +54,9 @@ import {
 	editRole,
 	endMembership,
 	reactivateMembership,
-	reloadTeam,
 	retireRole,
-	teamHistory,
 } from "./actions.ts";
+import { reloadTeam, teamHistory } from "./fetch.ts";
 import {
 	LEADER_ICON,
 	optional,

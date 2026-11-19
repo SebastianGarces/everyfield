@@ -23,7 +23,7 @@ import {
 import { createDebouncer } from "@everyfield/ui/foundations";
 import { useState } from "react";
 import { createRead, useRead } from "../../../components/read.tsx";
-import { previewRoster } from "./actions.ts";
+import { previewRoster } from "../fetch.ts";
 
 const fieldText = "text-[16px]";
 
