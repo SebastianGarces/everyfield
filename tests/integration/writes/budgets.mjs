@@ -43,11 +43,11 @@ export function checkBudgets(rows, limits) {
 			continue;
 		}
 		const measuredMost = entry.limit.length ? most(entry.limit) : budget.limit;
-		if (entry.write && measuredMost > WRITE_PATTERN && !budget.reason?.trim())
+		const over = entry.write && measuredMost > WRITE_PATTERN;
+		if (over && !budget.reason?.trim())
 			problems.push(
 				`${name}: ${measuredMost} statements is above the ${WRITE_PATTERN}-statement write pattern; add a reason`,
 			);
-		const over = entry.write && measuredMost > WRITE_PATTERN;
 		const promise = over && budget.reason?.match(PROMISE);
 		if (promise)
 			problems.push(
