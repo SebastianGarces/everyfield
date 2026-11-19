@@ -3,6 +3,7 @@ import { listOrganizationDuplicatePairs } from "@everyfield/domain/people";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { LANDING_ROUTE } from "@everyfield/contracts/identity";
 import { NotAvailable } from "../../access/AccessStates";
 import { PIPELINE_PATH } from "../board/model";
 import { DuplicatesScreen } from "./DuplicatesScreen";
@@ -18,7 +19,7 @@ export async function DuplicatesPage() {
 		return (
 			<div className="py-12">
 				<Card className="mx-auto max-w-[560px]">
-					<NotAvailable scope="page" homeHref={PIPELINE_PATH} />
+					<NotAvailable scope="page" homeHref={LANDING_ROUTE} />
 				</Card>
 			</div>
 		);

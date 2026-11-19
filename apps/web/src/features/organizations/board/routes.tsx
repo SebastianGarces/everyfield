@@ -8,6 +8,7 @@ import {
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { LANDING_ROUTE } from "@everyfield/contracts/identity";
 import { NotAvailable } from "../../access/AccessStates";
 import { PIPELINE_PATH, queryFromSearch } from "./model";
 import { PersonRecord } from "./PersonRecord";
@@ -20,7 +21,7 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 const refused = (
 	<div className="py-12">
 		<Card className="mx-auto max-w-[560px]">
-			<NotAvailable scope="page" homeHref={PIPELINE_PATH} />
+			<NotAvailable scope="page" homeHref={LANDING_ROUTE} />
 		</Card>
 	</div>
 );

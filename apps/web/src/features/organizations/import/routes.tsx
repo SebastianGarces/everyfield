@@ -2,6 +2,7 @@ import { loadPipelineBoard, pipelineActor } from "../pipeline-mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { LANDING_ROUTE } from "@everyfield/contracts/identity";
 import { NotAvailable } from "../../access/AccessStates";
 import { PIPELINE_PATH } from "../board/model";
 import { PipelineImportScreen } from "./ImportScreen";
@@ -17,7 +18,7 @@ export async function PipelineImportPage() {
 		return (
 			<div className="py-12">
 				<Card className="mx-auto max-w-[560px]">
-					<NotAvailable scope="page" homeHref={PIPELINE_PATH} />
+					<NotAvailable scope="page" homeHref={LANDING_ROUTE} />
 				</Card>
 			</div>
 		);
