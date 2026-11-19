@@ -132,8 +132,10 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
 	return r.rows[0] ? lockedTask.parse(r.rows[0]) : null;
 }
+export const lockingTasks = (plantId: string, which: SQL) =>
+	sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`;
 export async function lockTasks(tx: Tx, plantId: string, which: SQL) {
-	const r = await tx.execute(sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`);
+	const r = await tx.execute(lockingTasks(plantId, which));
 	return z.array(lockedTask).parse(r.rows);
 }
 export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[]) {

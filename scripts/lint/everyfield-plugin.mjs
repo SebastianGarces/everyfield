@@ -2583,6 +2583,73 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 	};
 });
 
+export const SIGN_IN_MODULE = "apps/web/src/server/sign-in.ts";
+const REDIRECTS = ["redirect", "permanentRedirect"];
+function leadingText(context, node, seen = new Set()) {
+	if (node?.type === "Literal" && typeof node.value === "string") return node.value;
+	if (node?.type === "TemplateLiteral") {
+		let text = node.quasis[0].value.cooked;
+		for (const [n, expression] of node.expressions.entries()) {
+			const part = leadingText(context, expression, seen);
+			if (part === null) return text;
+			text += part + node.quasis[n + 1].value.cooked;
+		}
+		return text;
+	}
+	if (node?.type === "BinaryExpression" && node.operator === "+") {
+		const left = leadingText(context, node.left, seen);
+		if (left === null) return null;
+		const right = leadingText(context, node.right, seen);
+		return right === null ? left : left + right;
+	}
+	if (node?.type === "TSAsExpression" || node?.type === "TSSatisfiesExpression")
+		return leadingText(context, node.expression, seen);
+	if (node?.type !== "Identifier" || seen.has(node.name)) return null;
+	seen.add(node.name);
+	for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+		const def = scope.set?.get(node.name)?.defs?.[0];
+		if (!def) continue;
+		return def.node.type === "VariableDeclarator" && def.parent?.kind === "const"
+			? leadingText(context, def.node.init, seen)
+			: null;
+	}
+	return null;
+}
+const signInRedirect = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === SIGN_IN_MODULE || !WEB_CODE.test(path)) return {};
+		const redirects = new Set();
+		const namespaces = new Set();
+		const isRedirect = (callee) =>
+			(callee.type === "Identifier" && redirects.has(callee.name)) ||
+			(callee.type === "MemberExpression" &&
+				callee.object.type === "Identifier" &&
+				namespaces.has(callee.object.name) &&
+				REDIRECTS.includes(callee.computed ? literalArgument(callee.property) : callee.property.name));
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value !== "next/navigation") return;
+				for (const spec of node.specifiers) {
+					if (spec.type === "ImportSpecifier" && REDIRECTS.includes(nameOf(spec.imported)))
+						redirects.add(spec.local.name);
+					if (spec.type === "ImportNamespaceSpecifier" || spec.type === "ImportDefaultSpecifier")
+						namespaces.add(spec.local.name);
+				}
+			},
+			CallExpression(node) {
+				if (!isRedirect(node.callee)) return;
+				if (!(leadingText(context, node.arguments[0]) ?? "").startsWith("/signin?")) return;
+				context.report({
+					node,
+					message: "Send a signed-out visitor to sign in with signIn(returnTo) from server/sign-in.",
+				});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -2623,5 +2690,6 @@ export default {
 		"no-read-actions": noReadActions,
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
+		"sign-in-redirect": signInRedirect,
 	},
 };

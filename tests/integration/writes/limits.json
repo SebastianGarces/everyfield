@@ -230,8 +230,20 @@
 		"limit": 5
 	},
 	"POST followups.recordOutcome": {
+		"limit": 6
+	},
+	"POST followups.recordOutcome (person)": {
+		"limit": 6
+	},
+	"POST followups.recordOutcome (no longer needed)": {
+		"limit": 6
+	},
+	"POST followups.recordOutcome (contacted, complete task)": {
+		"limit": 6
+	},
+	"POST followups.recordOutcome (complete dated assigned task)": {
 		"limit": 7,
-		"reason": "The session lookup, then the established followups.recordOutcome on a follow-up task (6), which locks the task as well as the person. The call page updates from the answer, so no page reads follow the write (T-234: 14 before). Its largest first run: 1 read, 2 transaction, 3 locked read, 1 write."
+		"reason": "The session lookup, BEGIN, the write gate, the one locked read of the task with its Person's facts, the write and COMMIT (6), then the shared reminder sync (notifications.syncTaskReminders) for the completed dated, assigned task (F10). The call page updates from the answer, so no page reads follow the write (T-234). Its largest first run: 1 read, 2 transaction, 2 locked read, 2 write."
 	},
 	"POST followups.correctOutcome": {
 		"limit": 6
@@ -278,7 +290,8 @@
 		"limit": 2
 	},
 	"accountPerson.ensureAccountPerson": {
-		"limit": 5
+		"limit": 5,
+		"reads": "T-497: 3 reads in a row (locked read of person, then locked read of person, then locked read of organization_person_removal+person+plant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"communication.archiveTemplate": {
 		"limit": 2
@@ -296,16 +309,19 @@
 		"limit": 2
 	},
 	"communication.deleteTemplate": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-501: 2 reads in a row (locked read of account+message_template+seat, then read of account+communication+seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"communication.dispatchAttempt": {
-		"limit": 4
+		"limit": 4,
+		"reads": "T-501: 2 reads in a row (read of account+communication+mail+mail_attempt+mail_request+mail_request_member+meeting+participation+person+plant+seat, then read of account+person+person_email_opt_out+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
 	},
 	"communication.executeResend": {
 		"limit": 2
 	},
 	"communication.forkTemplate": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-501: 2 reads in a row (locked read of account+seat, then read of account+message_template+seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"communication.getDeliveryTotals": {
 		"limit": 1
@@ -323,7 +339,8 @@
 		"limit": 1
 	},
 	"communication.handOffScheduled": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-501: 2 reads in a row (read of account+communication+mail+mail_attempt+mail_request+mail_request_member+meeting+participation+person+plant+seat, then read of account+person+person_email_opt_out+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
 	},
 	"communication.list": {
 		"limit": 3
@@ -371,7 +388,8 @@
 		"limit": 2
 	},
 	"communication.reconcileProviderOutcome": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-501: 2 reads in a row (read of account+communication+mail+mail_attempt+mail_request+mail_request_member+meeting+participation+person+plant+seat, then read of account+person+person_email_opt_out+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
 	},
 	"communication.replaceScheduledReviewed": {
 		"limit": 1
@@ -389,10 +407,12 @@
 		"limit": 2
 	},
 	"communication.scheduleReviewed": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-501: 2 reads in a row (locked read of account+communication+seat, then read of account+meeting+person+person_email_opt_out+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
 	},
 	"communication.sendReviewed": {
-		"limit": 4
+		"limit": 4,
+		"reads": "T-501: 2 reads in a row (read of account+communication+mail+mail_attempt+mail_request+mail_request_member+meeting+participation+person+plant+seat, then read of account+person+person_email_opt_out+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
 	},
 	"communication.sendTransactional": {
 		"limit": 3
@@ -427,10 +447,12 @@
 	},
 	"branding/files.uploadBrandAsset": {
 		"limit": 13,
-		"reason": "One statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 4 read, 3 write, 4 transaction, 2 locked read."
+		"reason": "One statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 4 read, 3 write, 4 transaction, 2 locked read.",
+		"reads": "T-502: 2 reads in a row (locked read of file_object, then read of seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"documents.acceptTemplateChanges": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-502: 2 reads in a row (read of church_brand_kit+document+document_revision+seat, then read of affiliation+church_brand_kit+launch+organization+person+plant+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
 	},
 	"documents.archive": {
 		"limit": 1
@@ -442,7 +464,8 @@
 		"limit": 1
 	},
 	"documents.createFromTemplate": {
-		"limit": 4
+		"limit": 4,
+		"reads": "T-502: 2 reads in a row (read of affiliation+church_brand_kit+launch+organization+person+plant+seat+team+team_role+team_tenure, then read of church_brand_kit+seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"documents.deleteChurch": {
 		"limit": 1
@@ -465,11 +488,13 @@
 	"documents.exportNative": {
 		"limit": 22,
 		"retry": 26,
-		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset reads the logo in 8 statements whatever the timing. putPrivateObject claims the file in one transaction (inserting it unless a rival already did) and, unless the file is already ready, finalizes it in a second, so the provider call holds no lock; an update that finds the rival already finalized adds one replay read. Then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write. A race winner whose rival claimed the file: 6 read, 8 transaction, 4 locked read, 3 write. A caller that finds the rival's row in its first read: 2 read. The loser of a same-request-key race finds the winner's row, then reads the winner's saved export in a rerun of one statement: begin, the row with its file and gate, commit. Its runs: it finds the file ready, 6 read, 8 transaction, 4 locked read, 1 write; it finalizes the rival's claim first, 7 read, 10 transaction, 4 locked read, 3 write; the rival finalized first, 8 read, 10 transaction, 4 locked read, 3 write; it claimed and finalized first, 7 read, 10 transaction, 4 locked read, 4 write; it claimed first and the rival finalized first (issue #758), 8 read, 10 transaction, 4 locked read, 4 write, the most: each step above runs at most once, and the INV-idempotency double-export test in documents/church.test.mts forces this order on every census."
+		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset reads the logo in 8 statements whatever the timing. putPrivateObject claims the file in one transaction (inserting it unless a rival already did) and, unless the file is already ready, finalizes it in a second, so the provider call holds no lock; an update that finds the rival already finalized adds one replay read. Then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write. A race winner whose rival claimed the file: 6 read, 8 transaction, 4 locked read, 3 write. A caller that finds the rival's row in its first read: 2 read. The loser of a same-request-key race finds the winner's row, then reads the winner's saved export in a rerun of one statement: begin, the row with its file and gate, commit. Its runs: it finds the file ready, 6 read, 8 transaction, 4 locked read, 1 write; it finalizes the rival's claim first, 7 read, 10 transaction, 4 locked read, 3 write; the rival finalized first, 8 read, 10 transaction, 4 locked read, 3 write; it claimed and finalized first, 7 read, 10 transaction, 4 locked read, 4 write; it claimed first and the rival finalized first (issue #758), 8 read, 10 transaction, 4 locked read, 4 write, the most: each step above runs at most once, and the INV-idempotency double-export test in documents/church.test.mts forces this order on every census.",
+		"reads": "T-502: 2 reads in a row (locked read of file_object, then read of seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"documents.generate": {
 		"limit": 31,
-		"reason": "The saved file is stored before the generated row. With a brand kit the render first reads the church theme's images (T-190): readBrandAsset claims and finalizes each file in its own transactions, 8 statements an image, and an outward-facing card reads the logo and the cover photo. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run, a card with both images: 9 read, 12 transaction, 6 locked read, 4 write. With no kit: 5 read, 4 transaction, 2 locked read, 4 write."
+		"reason": "The saved file is stored before the generated row. With a brand kit the render first reads the church theme's images (T-190): readBrandAsset claims and finalizes each file in its own transactions, 8 statements an image, and an outward-facing card reads the logo and the cover photo. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run, a card with both images: 9 read, 12 transaction, 6 locked read, 4 write. With no kit: 5 read, 4 transaction, 2 locked read, 4 write.",
+		"reads": "T-502: 2 reads in a row (read of affiliation+church_brand_kit+launch+organization+person+plant+seat+team+team_role+team_tenure, then read of file_object+generated_document+seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"documents.history.get": {
 		"limit": 1
@@ -495,7 +520,8 @@
 	},
 	"documents.reconcileOrphans": {
 		"limit": 13,
-		"reason": "Each unreferenced object is claimed and purged in its own transactions around the provider delete, and this run purged two. Its largest first run: 3 read, 4 transaction, 2 locked read, 4 write."
+		"reason": "Each unreferenced object is claimed and purged in its own transactions around the provider delete, and this run purged two. Its largest first run: 3 read, 4 transaction, 2 locked read, 4 write.",
+		"reads": "T-502: 2 reads in a row (locked read of file_object, then read of no table); the follow-up merges them or says why they cannot be one statement."
 	},
 	"documents.resolveContext": {
 		"limit": 1
@@ -532,7 +558,8 @@
 	"early-access/index.receiveAccessRequest": {
 		"limit": 10,
 		"retry": 5,
-		"reason": "A public request with no session or seat to gate it. BEGIN; two advisory locks, one for the email and one for the network key, so concurrent requests from either count each other; the two attempt counts inside the rate window; the attempt insert; the open-request read for the email; the request insert with its mail payload; COMMIT; then the provider's mail id is recorded in its own statement after the send, so the provider call holds no lock. A rate-limited request rolls back after its first count: 5 statements. Its largest first run: 2 transaction, 2 locked read, 3 read, 3 write."
+		"reason": "A public request with no session or seat to gate it. BEGIN; two advisory locks, one for the email and one for the network key, so concurrent requests from either count each other; the two attempt counts inside the rate window; the attempt insert; the open-request read for the email; the request insert with its mail payload; COMMIT; then the provider's mail id is recorded in its own statement after the send, so the provider call holds no lock. A rate-limited request rolls back after its first count: 5 statements. Its largest first run: 2 transaction, 2 locked read, 3 read, 3 write.",
+		"reads": "T-506: 2 reads in a row (read of early_access_attempt, then read of early_access_attempt); the follow-up merges them or says why they cannot be one statement."
 	},
 	"feedback.admin.changeStatus": {
 		"limit": 1
@@ -556,7 +583,8 @@
 		"limit": 1
 	},
 	"followups.assignFollowUp": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of person+seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"followups.correctOutcome": {
 		"limit": 2
@@ -565,10 +593,23 @@
 		"limit": 4
 	},
 	"followups.executeHandoff": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-499: 2 reads in a row (locked read of person+seat+task, then locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team); the follow-up merges them or says why they cannot be one statement."
 	},
-	"followups.recordOutcome": {
-		"limit": 4
+	"followups.recordOutcome:task": {
+		"limit": 2
+	},
+	"followups.recordOutcome:person": {
+		"limit": 2
+	},
+	"followups.recordOutcome:no_longer_needed": {
+		"limit": 2
+	},
+	"followups.recordOutcome:contacted_complete": {
+		"limit": 2
+	},
+	"followups.recordOutcome:complete": {
+		"limit": 3
 	},
 	"followups/core.withFollowUpWrite": {
 		"limit": 7,
@@ -588,12 +629,14 @@
 		"limit": 1
 	},
 	"identity.handle:get-session": {
-		"limit": 5
+		"limit": 5,
+		"reads": "T-504: 2 reads in a row (read of account, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"identity.handle:register": {
 		"limit": 24,
 		"retry": 13,
-		"reason": "An invitation registration describes its invitation once; the eligibility check reuses that answer, so the budget fell from 33 to 24 (peo-39). Better Auth owns the user and its password account, so the registration is three committed steps: the attempt budget reserve; an eligibility transaction (timeouts, the invitation read and locked, the clock, the workspace kind read and locked, the lifecycle lock); the invitation re-read by its token and address; the attempt's identifier write; Better Auth's own transaction (user lookup, user insert, password account insert); the user read back; the account transaction (timeouts, account insert, account read); and the attempt's final state. Each step commits before the next so an auth failure leaves no half account. Its largest first run: 6 transaction, 3 locked read, 9 read, 6 write."
+		"reason": "An invitation registration describes its invitation once; the eligibility check reuses that answer, so the budget fell from 33 to 24 (peo-39). Better Auth owns the user and its password account, so the registration is three committed steps: the attempt budget reserve; an eligibility transaction (timeouts, the invitation read and locked, the clock, the workspace kind read and locked, the lifecycle lock); the invitation re-read by its token and address; the attempt's identifier write; Better Auth's own transaction (user lookup, user insert, password account insert); the user read back; the account transaction (timeouts, account insert, account read); and the attempt's final state. Each step commits before the next so an auth failure leaves no half account. Its largest first run: 6 transaction, 3 locked read, 9 read, 6 write.",
+		"reads": "T-504: 5 reads in a row (read of invitation, then locked read of invitation+tenant, then read of tenant, then read of organization+plant+tenant, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"identity.handle:request-password-reset": {
 		"limit": 2
@@ -601,23 +644,27 @@
 	"identity.handle:reset-password": {
 		"limit": 26,
 		"retry": 26,
-		"reason": "Better Auth's reset flow sends its own statements: the token lookup, the account, lifecycle and current password reads, a reset audit row, two verification reads and the expired-token sweep, the user read; then its transaction consumes the token, deletes the identifier's other tokens and every session of the user, reads and updates the password account. After it, one transaction sends the password-changed notice: timeouts, the audit row, the recipient's account and contact locked, and one mail statement. Its largest first run: 4 transaction, 2 locked read, 12 read, 8 write."
+		"reason": "Better Auth's reset flow sends its own statements: the token lookup, the account, lifecycle and current password reads, a reset audit row, two verification reads and the expired-token sweep, the user read; then its transaction consumes the token, deletes the identifier's other tokens and every session of the user, reads and updates the password account. After it, one transaction sends the password-changed notice: timeouts, the audit row, the recipient's account and contact locked, and one mail statement. Its largest first run: 4 transaction, 2 locked read, 12 read, 8 write.",
+		"reads": "T-504: 2 reads in a row (read of account, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"identity.handle:resume-registration": {
 		"limit": 16,
 		"retry": 13,
-		"reason": "RT-6a: the session read (4, Better Auth adapter and readIdentitySession) and invitations.resume (12, see that entry). Its largest first run: 2 transaction, 6 locked read, 6 read, 2 write."
+		"reason": "RT-6a: the session read (4, Better Auth adapter and readIdentitySession) and invitations.resume (12, see that entry). Its largest first run: 2 transaction, 6 locked read, 6 read, 2 write.",
+		"reads": "T-504: 2 reads in a row (read of account, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"identity.handle:revoke-other-sessions": {
 		"limit": 9,
-		"reason": "Better Auth's endpoint, with no transaction of its own: the session middleware reads the session and its user twice (cookie check, then the fresh-session check), Everyfield's account and lifecycle reads gate it, then the user's sessions are listed, the current session is read again and the others are deleted. Its largest first run: 8 read, 1 write."
+		"reason": "Better Auth's endpoint, with no transaction of its own: the session middleware reads the session and its user twice (cookie check, then the fresh-session check), Everyfield's account and lifecycle reads gate it, then the user's sessions are listed, the current session is read again and the others are deleted. Its largest first run: 8 read, 1 write.",
+		"reads": "T-504: 2 reads in a row (read of account, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"identity.handle:send-verification-email": {
 		"limit": 2
 	},
 	"identity.handle:sign-in/email": {
 		"limit": 9,
-		"reason": "Two attempt-budget reserves (one for the identifier, one for the network), Better Auth's user and password account reads and its session insert, then Everyfield's account lookups (account, account by user, the user's email and creation time) and the attempt's workspace read for the landing. Its largest first run: 6 read, 3 write."
+		"reason": "Two attempt-budget reserves (one for the identifier, one for the network), Better Auth's user and password account reads and its session insert, then Everyfield's account lookups (account, account by user, the user's email and creation time) and the attempt's workspace read for the landing. Its largest first run: 6 read, 3 write.",
+		"reads": "T-504: 2 reads in a row (read of account, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"identity.handle:sign-out": {
 		"limit": 5
@@ -627,7 +674,8 @@
 	},
 	"invitations.accept": {
 		"limit": 12,
-		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the account's seats and links locked together; the account's Person (ensureAccountPerson: its account and plant lock, the linked Person read and the write); one final statement with every change and audit row; COMMIT. Each lock is its own statement because a statement's snapshot predates its locks (C88). RT-6a brought it from 28 to 12. Its largest first run: 2 transaction, 6 locked read, 2 read, 2 write."
+		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the account's seats and links locked together; the account's Person (ensureAccountPerson: its account and plant lock, the linked Person read and the write); one final statement with every change and audit row; COMMIT. Each lock is its own statement because a statement's snapshot predates its locks (C88). RT-6a brought it from 28 to 12. Its largest first run: 2 transaction, 6 locked read, 2 read, 2 write.",
+		"reads": "T-504: 3 reads in a row (read of tenant, then locked read of invitation+organization+tenant, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.invite": {
 		"limit": 6
@@ -638,19 +686,23 @@
 	},
 	"invitations.resend": {
 		"limit": 12,
-		"reason": "BEGIN; the write gate; the invitation read, then its organization and resident person locked (a residency link resend), then the invitation itself locked; the lifecycle read; the clock read for the resend window; the resident person locked for its address; the clock read for the new expiry; the invitation update with the new token; one statement with the mail and audit; COMMIT. Its largest first run: 2 transaction, 4 locked read, 4 read, 2 write."
+		"reason": "BEGIN; the write gate; the invitation read, then its organization and resident person locked (a residency link resend), then the invitation itself locked; the lifecycle read; the clock read for the resend window; the resident person locked for its address; the clock read for the new expiry; the invitation update with the new token; one statement with the mail and audit; COMMIT. Its largest first run: 2 transaction, 4 locked read, 4 read, 2 write.",
+		"reads": "T-504: 2 reads in a row (read of invitation, then locked read of invitation+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.respondResident": {
 		"limit": 14,
-		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the source Person lock; the competing link read; the organization link lock (and insert when new); the link's witness; one final statement with the link, the Person's account link (after the link, by dependency) and every audit row; COMMIT. RT-6a brought it from 26. Its largest first run: 2 transaction, 7 locked read, 3 read, 2 write."
+		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the source Person lock; the competing link read; the organization link lock (and insert when new); the link's witness; one final statement with the link, the Person's account link (after the link, by dependency) and every audit row; COMMIT. RT-6a brought it from 26. Its largest first run: 2 transaction, 7 locked read, 3 read, 2 write.",
+		"reads": "T-504: 3 reads in a row (locked read of organization+person, then locked read of invitation+organization+tenant, then locked read of organization+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.resume": {
 		"limit": 12,
-		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 12 statements (was 29). Its largest first run: 2 transaction, 6 locked read, 2 read, 2 write."
+		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 12 statements (was 29). Its largest first run: 2 transaction, 6 locked read, 2 read, 2 write.",
+		"reads": "T-504: 3 reads in a row (read of tenant, then locked read of invitation+organization+tenant, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.revoke": {
 		"limit": 10,
-		"reason": "BEGIN; the write gate; the invitation read, then its organization and resident person locked (a residency link invitation), then the invitation itself locked; the lifecycle read; the clock read; the invitation update; one statement with the audit; COMMIT. Its largest first run: 2 transaction, 3 locked read, 3 read, 2 write."
+		"reason": "BEGIN; the write gate; the invitation read, then its organization and resident person locked (a residency link invitation), then the invitation itself locked; the lifecycle read; the clock read; the invitation update; one statement with the audit; COMMIT. Its largest first run: 2 transaction, 3 locked read, 3 read, 2 write.",
+		"reads": "T-504: 2 reads in a row (read of invitation, then locked read of invitation+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"jobs/mail.claimUnknownMail": {
 		"limit": 1
@@ -659,7 +711,8 @@
 		"limit": 5
 	},
 	"jobs/notifications.sendOnboardingRelationships": {
-		"limit": 4
+		"limit": 4,
+		"reads": "T-503: 3 reads in a row (read of seat, then read of account, then locked read of account+lifecycle_witness+mail+organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"jobs/queue.checkpoint": {
 		"limit": 2
@@ -685,29 +738,36 @@
 	"jobs/webhook.applyMailCallback": {
 		"limit": 15,
 		"retry": 10,
-		"reason": "Background job, not a user request. The provider event is stored in its own committed transaction first (timeout, insert), so a crash keeps the callback; then the apply transaction: timeout, the event and the mail locked, the mail state update, the address lock and suppression upsert for a bounce or complaint, the event marked processed, the job finished and the audit row. Its largest first run: 4 transaction, 3 locked read, 2 read, 6 write."
+		"reason": "Background job, not a user request. The provider event is stored in its own committed transaction first (timeout, insert), so a crash keeps the callback; then the apply transaction: timeout, the event and the mail locked, the mail state update, the address lock and suppression upsert for a bounce or complaint, the event marked processed, the job finished and the audit row. Its largest first run: 4 transaction, 3 locked read, 2 read, 6 write.",
+		"reads": "T-503: 2 reads in a row (locked read of provider_event, then locked read of mail); the follow-up merges them or says why they cannot be one statement."
 	},
 	"jobs/webhook.applyStoredCallback": {
 		"limit": 9,
-		"reason": "Background job, not a user request: the scheduled runner's mail-callbacks step applies each stored provider callback whose email now has its provider id, one event per transaction, so the census measures one event and the bounded scan (at most 100 events) is not one budget. Statement timeout, event and mail locked reads, then mail, event, job and audit writes. Its largest first run: 2 transaction, 2 locked read, 1 read, 4 write."
+		"reason": "Background job, not a user request: the scheduled runner's mail-callbacks step applies each stored provider callback whose email now has its provider id, one event per transaction, so the census measures one event and the bounded scan (at most 100 events) is not one budget. Statement timeout, event and mail locked reads, then mail, event, job and audit writes. Its largest first run: 2 transaction, 2 locked read, 1 read, 4 write.",
+		"reads": "T-503: 2 reads in a row (locked read of provider_event, then locked read of mail); the follow-up merges them or says why they cannot be one statement."
 	},
 	"lifecycle.purge": {
 		"limit": 28,
-		"reason": "Background deletion after the cancellation deadline, not a user request (RT-6a reviewed, kept). Three committed stages around the external storage removal so a crash resumes at the right stage: each stage authorizes, locks the root and re-reads the witness; the content purge and subject purge are one database function each; the owned-file removal adds its own claim and purge statements. The scheduled worker (T-128) authorizes each stage with its job's claim fence (one locked read per stage) and lists the subject's files once (one read), so a lost lease stops the purge before it writes. Its largest first run, one owned file: 8 transaction, 10 locked read, 7 read, 3 write."
+		"reason": "Background deletion after the cancellation deadline, not a user request (RT-6a reviewed, kept). Three committed stages around the external storage removal so a crash resumes at the right stage: each stage authorizes, locks the root and re-reads the witness; the content purge and subject purge are one database function each; the owned-file removal adds its own claim and purge statements. The scheduled worker (T-128) authorizes each stage with its job's claim fence (one locked read per stage) and lists the subject's files once (one read), so a lost lease stops the purge before it writes. Its largest first run, one owned file: 8 transaction, 10 locked read, 7 read, 3 write.",
+		"reads": "T-503: 2 reads in a row (locked read of account, then locked read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"mail.dispatch": {
 		"limit": 21,
-		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, mail lock, lifecycle and seat reads, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 25 on main after #257); the repeated fence and finishClaim statements belong to the shared WP-031 queue. Its largest first run: 4 transaction, 9 locked read, 4 read, 4 write."
+		"reason": "Background job, not a user request. Two short transactions around the provider call, which must hold no lock: claim fence, mail lock, lifecycle and seat reads, address lock, suppression read, request lock, one write statement, checkpoint; then fence, one write statement with the outcome audit, finishClaim. RT-6a batched the writes (was 25 on main after #257); the repeated fence and finishClaim statements belong to the shared WP-031 queue. Its largest first run: 4 transaction, 9 locked read, 4 read, 4 write.",
+		"reads": "T-503: 2 reads in a row (locked read of mail, then locked read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"mail.enqueue": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-503: 2 reads in a row (locked read of account+lifecycle_witness+mail+organization+plant+tenant, then locked read of account); the follow-up merges them or says why they cannot be one statement."
 	},
 	"mail.enqueueMany": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-503: 2 reads in a row (locked read of account+lifecycle_witness+mail+organization+plant+tenant, then locked read of account+notice+task); the follow-up merges them or says why they cannot be one statement."
 	},
 	"mail.reconcileUnknownOutcome": {
 		"limit": 11,
-		"reason": "Background job, not a user request. The unlocked mail read decides whether the provider must be asked; after the provider lookup, which holds no lock, one transaction: the statement timeout, the mail locked, the recipient's live seat and the operator's grant locked, then the mail, job and audit writes. Its largest first run: 2 transaction, 3 locked read, 3 read, 3 write."
+		"reason": "Background job, not a user request. The unlocked mail read decides whether the provider must be asked; after the provider lookup, which holds no lock, one transaction: the statement timeout, the mail locked, the recipient's live seat and the operator's grant locked, then the mail, job and audit writes. Its largest first run: 2 transaction, 3 locked read, 3 read, 3 write.",
+		"reads": "T-503: 2 reads in a row (locked read of mail, then locked read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"mail.recordProviderReceipt": {
 		"limit": 17,
@@ -1114,10 +1174,12 @@
 		"limit": 1
 	},
 	"notifications.enqueue": {
-		"limit": 6
+		"limit": 6,
+		"reads": "T-503: 2 reads in a row (locked read of affiliation+answer_review+article_editor_state+development_enrollment+launch_milestone+mail+meeting+notice+notification_preference+organization+phase_transition+seat+task+tenant, then locked read of seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"notifications.enqueueMany": {
-		"limit": 6
+		"limit": 6,
+		"reads": "T-503: 2 reads in a row (locked read of affiliation+answer_review+article_editor_state+development_enrollment+launch_milestone+mail+meeting+notice+notification_preference+organization+phase_transition+seat+task+tenant, then locked read of seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"notifications.getPreferences": {
 		"limit": 1
@@ -1189,12 +1251,14 @@
 	"onboarding.convertDiscovery": {
 		"limit": 16,
 		"retry": 7,
-		"reason": "Provisions a church from a discovery profile: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (owner and contact reads, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27; per HTTP request without relationships it is 12 (was 16), and the screen's entry reload after it is one statement. Its largest first run: 2 transaction, 5 locked read, 3 read, 6 write."
+		"reason": "Provisions a church from a discovery profile: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (owner and contact reads, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27; per HTTP request without relationships it is 12 (was 16), and the screen's entry reload after it is one statement. Its largest first run: 2 transaction, 5 locked read, 3 read, 6 write.",
+		"reads": "T-506: 3 reads in a row (locked read of seat, then locked read of account+affiliation+discovery+organization+seat, then locked read of affiliation+organization); the follow-up merges them or says why they cannot be one statement."
 	},
 	"onboarding.createDiscovery": {
 		"limit": 8,
 		"retry": 5,
-		"reason": "The producer's savepoint and its release; the write gate; the lifecycle read; the setup check (seated, open discovery); the account's affiliations and its wiki readings, which the discovery copies; the discovery insert. A replay of a stored request key answers after the gate and one read: 5 statements. Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write."
+		"reason": "The producer's savepoint and its release; the write gate; the lifecycle read; the setup check (seated, open discovery); the account's affiliations and its wiki readings, which the discovery copies; the discovery insert. A replay of a stored request key answers after the gate and one read: 5 statements. Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write.",
+		"reads": "T-506: 2 reads in a row (read of affiliation+organization, then read of article_revision+organization+reading+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"onboarding.createPlant": {
 		"limit": 8,
@@ -1233,7 +1297,8 @@
 	},
 	"organizations.organizations.correctReportingLocation": {
 		"limit": 10,
-		"reason": "The lifecycle read; the plant locked; the official Region's current reference version locked, the official-list candidate read and the Region item locked (WP-047b); the plant's current geography row locked; then the new geography row, the plant revision, the affiliated organizations' revisions and the superseded digest jobs, one statement each because each table's change is its own invalidation. Its largest first run, with an official Region chosen: 2 read, 4 locked read, 4 write."
+		"reason": "The lifecycle read; the plant locked; the official Region's current reference version locked, the official-list candidate read and the Region item locked (WP-047b); the plant's current geography row locked; then the new geography row, the plant revision, the affiliated organizations' revisions and the superseded digest jobs, one statement each because each table's change is its own invalidation. Its largest first run, with an official Region chosen: 2 read, 4 locked read, 4 write.",
+		"reads": "T-506: 3 reads in a row (locked read of reference_item+reference_release+reference_version, then read of reference_item+reference_release+reference_version, then locked read of reference_item); the follow-up merges them or says why they cannot be one statement."
 	},
 	"organizations.organizations.updateProfile": {
 		"limit": 2
@@ -1245,14 +1310,17 @@
 		"limit": 3
 	},
 	"organizations.residency.leave": {
-		"limit": 6
+		"limit": 6,
+		"reads": "T-506: 2 reads in a row (locked read of organization+residency_link, then read of lifecycle_witness+organization+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"organizations.residency.setSharing": {
-		"limit": 6
+		"limit": 6,
+		"reads": "T-506: 2 reads in a row (locked read of organization+residency_link, then read of lifecycle_witness+organization+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.addNote": {
 		"limit": 7,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the meeting participation the note names locked, then one statement with the note and its audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the meeting participation the note names locked, then one statement with the note and its audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-497: 2 reads in a row (locked read of organization_person_removal+person+plant, then locked read of participation); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.addSkill": {
 		"limit": 6,
@@ -1268,12 +1336,14 @@
 	},
 	"people.changeStatus": {
 		"limit": 10,
-		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10). Its largest first run: 1 transaction, 6 locked read, 3 write."
+		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10). Its largest first run: 1 transaction, 6 locked read, 3 write.",
+		"reads": "T-497: 4 reads in a row (locked read of organization_person_removal+person+plant, then locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of person, then locked read of seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.correctAdultClassification": {
 		"limit": 8,
 		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the church's current date in its timezone (a future occurredOn is refused) and the person's latest commitment read (a signed commitment decides the classification), then one statement with the change and its audit. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements. The church-date refusal reads the church timezone before refusing: 6 statements (2 transaction, 2 locked read, 2 read)."
+		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the church's current date in its timezone (a future occurredOn is refused) and the person's latest commitment read (a signed commitment decides the classification), then one statement with the change and its audit. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements. The church-date refusal reads the church timezone before refusing: 6 statements (2 transaction, 2 locked read, 2 read).",
+		"reads": "T-497: 2 reads in a row (locked read of organization_person_removal+person+plant, then read of plant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.correctCommitmentLifecycle": {
 		"limit": 6
@@ -1303,7 +1373,8 @@
 	},
 	"people.createTag": {
 		"limit": 5,
-		"retry": 3
+		"retry": 3,
+		"reads": "T-498: 2 reads in a row (read of tag, then read of person+person_tag+tag); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.deleteHousehold": {
 		"limit": 4,
@@ -1311,7 +1382,8 @@
 	},
 	"people.deleteNote": {
 		"limit": 7,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the note locked (only its author or an admin removes it), then one statement with the removal and its audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the note locked (only its author or an admin removes it), then one statement with the removal and its audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-497: 2 reads in a row (locked read of organization_person_removal+person+plant, then locked read of person_note); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.deleteTag": {
 		"limit": 4
@@ -1319,7 +1391,8 @@
 	"people.editNote": {
 		"limit": 7,
 		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the note locked (only its author edits it), then one statement with the edit and its audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the note locked (only its author edits it), then one statement with the edit and its audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-497: 2 reads in a row (locked read of organization_person_removal+person+plant, then locked read of person_note); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.findDuplicates": {
 		"limit": 2
@@ -1333,7 +1406,8 @@
 	"people.mergePeople": {
 		"limit": 7,
 		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people locked in id order, one read of both full rows with the merge check, then one statement that moves every reference and writes the merge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people locked in id order, one read of both full rows with the merge check, then one statement that moves every reference and writes the merge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
+		"reads": "T-498: 2 reads in a row (locked read of person, then read of attestation+commitment+commitment_change+contact_outcome+development_enrollment+four_cs+interview+invitation+launch_guest+mail+meeting_kit_item+obligation+participation+person+person_note+person_skill+person_tag+record_correction+task+team+team_tenure+training_assignment); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.mergedPersonDestination": {
 		"limit": 2
@@ -1351,7 +1425,8 @@
 	"people.recordAdultClassification": {
 		"limit": 8,
 		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the church's current date in its timezone (a future occurredOn is refused) and the person's latest commitment read (a signed commitment decides the classification), then one statement with the change and its audit. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements. The church-date refusal reads the church timezone before refusing: 6 statements (2 transaction, 2 locked read, 2 read)."
+		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the church's current date in its timezone (a future occurredOn is refused) and the person's latest commitment read (a signed commitment decides the classification), then one statement with the change and its audit. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write. The birth_date_decides refusal follows the unlocked first read, so the write reruns the established way: 5 statements. The church-date refusal reads the church timezone before refusing: 6 statements (2 transaction, 2 locked read, 2 read).",
+		"reads": "T-497: 2 reads in a row (locked read of organization_person_removal+person+plant, then read of plant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.removeFromHousehold": {
 		"limit": 4
@@ -1381,7 +1456,8 @@
 	"people.retirePerson": {
 		"limit": 12,
 		"retry": 7,
-		"reason": "Handing a dated, assigned duty to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10). Its largest first run: 1 transaction, 7 locked read, 4 write."
+		"reason": "Handing a dated, assigned duty to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10). Its largest first run: 1 transaction, 7 locked read, 4 write.",
+		"reads": "T-497: 3 reads in a row (locked read of organization_person_removal+person+plant, then locked read of plant, then locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.setHouseholdRole": {
 		"limit": 4
@@ -1393,7 +1469,8 @@
 	"people.unmergePeople": {
 		"limit": 7,
 		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people of the merge locked, one read of the merge record with the unmerge check, then one statement that moves the references back and writes the unmerge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people of the merge locked, one read of the merge record with the unmerge check, then one statement that moves the references back and writes the unmerge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
+		"reads": "T-498: 2 reads in a row (locked read of person+person_merge, then read of attestation+commitment+commitment_change+contact_outcome+development_enrollment+four_cs+interview+invitation+launch_guest+mail+meeting_kit_item+obligation+participation+person+person_merge+person_note+person_skill+person_tag+record_correction+task+team+team_tenure+training_assignment); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.updateHousehold": {
 		"limit": 4
@@ -1408,7 +1485,8 @@
 	},
 	"people.updateTag": {
 		"limit": 5,
-		"retry": 6
+		"retry": 6,
+		"reads": "T-498: 2 reads in a row (read of person+person_tag+tag, then read of tag); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people.withdrawCommitment": {
 		"limit": 6,
@@ -1426,7 +1504,8 @@
 	},
 	"people/core.withPeopleWrite": {
 		"limit": 6,
-		"retry": 9
+		"retry": 9,
+		"reads": "T-497: 2 reads in a row (read of person, then read of organization_person_removal+person+plant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"people/core.withPeopleWrite:people.assignTag": {
 		"limit": 5,
@@ -1482,7 +1561,8 @@
 	"people/fields/index.uploadPersonPhoto": {
 		"limit": 16,
 		"retry": 4,
-		"reason": "The photo bytes go to private storage between three short transactions, so the provider call holds no lock: the session check and the staged file locked to record its size and hash; the session check, the file-key advisory lock, the file locked again and the session checked once more before the upload; then the session check, the file marked ready and its audit. Its largest first run: 6 transaction, 3 locked read, 4 read, 3 write."
+		"reason": "The photo bytes go to private storage between three short transactions, so the provider call holds no lock: the session check and the staged file locked to record its size and hash; the session check, the file-key advisory lock, the file locked again and the session checked once more before the upload; then the session check, the file marked ready and its audit. Its largest first run: 6 transaction, 3 locked read, 4 read, 3 write.",
+		"reads": "T-498: 2 reads in a row (read of account+discovery+lifecycle_witness+organization+person+seat+tenant, then locked read of file_object); the follow-up merges them or says why they cannot be one statement."
 	},
 	"pipeline.addNote": {
 		"limit": 4,
@@ -1556,7 +1636,8 @@
 	},
 	"reference.installApprovedWiki": {
 		"limit": 24,
-		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write."
+		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write.",
+		"reads": "T-506: 2 reads in a row (read of account+auth_session, then locked read of account+platform_grant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"reference.installMessageTemplates": {
 		"limit": 2
@@ -1566,30 +1647,36 @@
 	},
 	"reference.promote": {
 		"limit": 24,
-		"reason": "Platform operator publication, not a user request (RT-6a reviewed, kept). A preflight transaction checks the operator's grant before the protected artifact is read (4); then one transaction: the global publication lock, the grant again at the commit boundary, the request-key read, the current activation, the release lock, a set-based install (one statement per table), a re-read of every stored derivative before activation and one activation statement with its audit. Its largest first run: 4 transaction, 6 locked read, 7 read, 7 write."
+		"reason": "Platform operator publication, not a user request (RT-6a reviewed, kept). A preflight transaction checks the operator's grant before the protected artifact is read (4); then one transaction: the global publication lock, the grant again at the commit boundary, the request-key read, the current activation, the release lock, a set-based install (one statement per table), a re-read of every stored derivative before activation and one activation statement with its audit. Its largest first run: 4 transaction, 6 locked read, 7 read, 7 write.",
+		"reads": "T-506: 2 reads in a row (locked read of reference_release, then read of reference_release); the follow-up merges them or says why they cannot be one statement."
 	},
 	"reference.rebuildEmbeddings": {
 		"limit": 24,
-		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write."
+		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write.",
+		"reads": "T-506: 2 reads in a row (read of account+auth_session, then locked read of account+platform_grant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"seats.appointAdmin": {
 		"limit": 7,
-		"reason": "BEGIN; the write gate (seat and session in one locked statement); the lifecycle read; the target seat's account locked, then the seat itself, so a role change and a removal of the same member serialize; one statement with the seat change and its audit; COMMIT. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "BEGIN; the write gate (seat and session in one locked statement); the lifecycle read; the target seat's account locked, then the seat itself, so a role change and a removal of the same member serialize; one statement with the seat change and its audit; COMMIT. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-504: 2 reads in a row (locked read of account+seat, then locked read of seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"seats.changeOrdinaryRole": {
 		"limit": 7,
-		"reason": "BEGIN; the write gate (seat and session in one locked statement); the lifecycle read; the target seat's account locked, then the seat itself, so a role change and a removal of the same member serialize; one statement with the seat change and its audit; COMMIT. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "BEGIN; the write gate (seat and session in one locked statement); the lifecycle read; the target seat's account locked, then the seat itself, so a role change and a removal of the same member serialize; one statement with the seat change and its audit; COMMIT. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-504: 2 reads in a row (locked read of account+seat, then locked read of seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"seats.demote": {
 		"limit": 7,
-		"reason": "BEGIN; the write gate (seat and session in one locked statement); the lifecycle read; the target seat's account locked, then the seat itself, so a role change and a removal of the same member serialize; one statement with the seat change and its audit; COMMIT. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "BEGIN; the write gate (seat and session in one locked statement); the lifecycle read; the target seat's account locked, then the seat itself, so a role change and a removal of the same member serialize; one statement with the seat change and its audit; COMMIT. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-504: 2 reads in a row (locked read of account+seat, then locked read of seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"seats.readRemoval": {
 		"limit": 7
 	},
 	"seats.remove": {
 		"limit": 14,
-		"reason": "The bare-obligation update left with obligation.assignee_id (F07b), so the budget fell from 15 to 14. BEGIN; the write gate; the lifecycle read; the seat's account and the seat locked; the member's open tasks, the remaining seats and the member's teams locked for handover; the seat ended; the removed seat's sessions revoked; one statement with the handed-over tasks. Handing a dated, assigned task to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (1 locked read, 1 write). A removal without such a task sends 12. Its largest first run: 2 transaction, 7 locked read, 2 read, 3 write."
+		"reason": "The bare-obligation update left with obligation.assignee_id (F07b), so the budget fell from 15 to 14. BEGIN; the write gate; the lifecycle read; the seat's account and the seat locked; the member's open tasks, the remaining seats and the member's teams locked for handover; the seat ended; the removed seat's sessions revoked; one statement with the handed-over tasks. Handing a dated, assigned task to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014); the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (1 locked read, 1 write). A removal without such a task sends 12. Its largest first run: 2 transaction, 7 locked read, 2 read, 3 write.",
+		"reads": "T-504: 3 reads in a row (locked read of account+seat, then locked read of seat, then locked read of plant+task+task_assignee); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings.cancelAccountDeletion": {
 		"limit": 4,
@@ -1598,7 +1685,8 @@
 	"settings.cancelWorkspaceDeletion": {
 		"limit": 10,
 		"retry": 6,
-		"reason": "A restricted deletion session: its proof is checked in its own transaction before the write. Then the savepoint and its release; the workspace deletion advisory lock; the restricted proof locked; the requester's seat locked; the pending witness read; one read gives each open seat's contact; their cancel notices join the witness write (T-272). A cancel at or after the deadline, or with no pending request, is refused and rolls back (T-195): 6 statements. Its largest first run: 4 transaction, 3 locked read, 2 read, 1 write."
+		"reason": "A restricted deletion session: its proof is checked in its own transaction before the write. Then the savepoint and its release; the workspace deletion advisory lock; the restricted proof locked; the requester's seat locked; the pending witness read; one read gives each open seat's contact; their cancel notices join the witness write (T-272). A cancel at or after the deadline, or with no pending request, is refused and rolls back (T-195): 6 statements. Its largest first run: 4 transaction, 3 locked read, 2 read, 1 write.",
+		"reads": "T-505: 3 reads in a row (locked read of account+identity_proof+lifecycle_witness+plant, then locked read of seat, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings.changePassword": {
 		"limit": 13,
@@ -1614,7 +1702,8 @@
 	"settings.openAccountDeletion": {
 		"limit": 10,
 		"retry": 7,
-		"reason": "Credential checks run through Better Auth, which reads the user and its password account in separate statements; two attempt-budget reserves bracket them (identifier and network). Then BEGIN; the account with its pending witness read; the account and the deletion subject locked; the earlier proofs superseded; the restricted proof inserted; COMMIT. Credentials that open no personal request (a workspace-only requester, T-195) are refused and roll back: 7 statements. Its largest first run: 2 transaction, 1 locked read, 3 read, 4 write."
+		"reason": "Credential checks run through Better Auth, which reads the user and its password account in separate statements; two attempt-budget reserves bracket them (identifier and network). Then BEGIN; the account with its pending witness read; the account and the deletion subject locked; the earlier proofs superseded; the restricted proof inserted; COMMIT. Credentials that open no personal request (a workspace-only requester, T-195) are refused and roll back: 7 statements. Its largest first run: 2 transaction, 1 locked read, 3 read, 4 write.",
+		"reads": "T-505: 2 reads in a row (read of account+lifecycle_witness, then locked read of account+lifecycle_witness+plant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings.openWorkspaceDeletion": {
 		"limit": 11,
@@ -1623,7 +1712,8 @@
 	},
 	"settings.previewPersonalTimezone": {
 		"limit": 7,
-		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the requester's seat read, the workspace kind locked and the lifecycle witness locked, then the preview insert, which the confirm step applies at its expected revision. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the requester's seat read, the workspace kind locked and the lifecycle witness locked, then the preview insert, which the confirm step applies at its expected revision. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-505: 2 reads in a row (read of seat, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings.previewPlantTimezone": {
 		"limit": 7,
@@ -1647,7 +1737,8 @@
 	"settings.requestWorkspaceDeletion": {
 		"limit": 10,
 		"retry": 3,
-		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the church locked, the current witness locked with the open-request check, the witness insert, the workspace suspended by its database function, one read gives each open seat's contact, then one statement with the purge job, the notices (T-272) and the audit. Through the settings producer the app mounts, the actor's lifecycle read is included. Its largest first run: 2 transaction, 3 locked read, 3 read, 2 write."
+		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the church locked, the current witness locked with the open-request check, the witness insert, the workspace suspended by its database function, one read gives each open seat's contact, then one statement with the purge job, the notices (T-272) and the audit. Through the settings producer the app mounts, the actor's lifecycle read is included. Its largest first run: 2 transaction, 3 locked read, 3 read, 2 write.",
+		"reads": "T-505: 2 reads in a row (locked read of plant, then locked read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings.saveChurch": {
 		"limit": 4
@@ -1678,24 +1769,28 @@
 	"settings.setPersonalTimezone": {
 		"limit": 10,
 		"retry": 5,
-		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the preview locked at its expected revision, the requester's seat read, the workspace kind and the lifecycle witness locked, the digest job planned at the new time, then one statement with the account change and its audit. Its largest first run: 2 transaction, 4 locked read, 2 read, 2 write."
+		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the preview locked at its expected revision, the requester's seat read, the workspace kind and the lifecycle witness locked, the digest job planned at the new time, then one statement with the account change and its audit. Its largest first run: 2 transaction, 4 locked read, 2 read, 2 write.",
+		"reads": "T-505: 3 reads in a row (locked read of settings_preview, then read of seat, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings.setPlantTimezone": {
 		"limit": 8,
 		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the preview locked at its expected revision, the church's dated tasks locked (their due dates move with the zone), the reminder job planned, then one statement with the church change, the moved tasks and the audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 2 write."
+		"reason": "The producer's savepoint and its release around the shared settings write: the write gate (seat and session in one locked statement), the lifecycle read, the preview locked at its expected revision, the church's dated tasks locked (their due dates move with the zone), the reminder job planned, then one statement with the church change, the moved tasks and the audit. Its largest first run: 2 transaction, 3 locked read, 1 read, 2 write.",
+		"reads": "T-505: 2 reads in a row (locked read of settings_preview, then locked read of task); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings.updatePlantProfile": {
 		"limit": 4
 	},
 	"settings/avatar.uploadAvatar": {
 		"limit": 12,
-		"reason": "The avatar bytes go to private storage between transactions, so the provider call holds no lock: the staged file's size and hash recorded; BEGIN, the session check, the file-key advisory lock, the file locked and the session checked again before the upload, COMMIT; then BEGIN, the session check, the file marked ready and its audit, COMMIT. Its largest first run: 4 transaction, 2 locked read, 3 read, 3 write."
+		"reason": "The avatar bytes go to private storage between transactions, so the provider call holds no lock: the staged file's size and hash recorded; BEGIN, the session check, the file-key advisory lock, the file locked and the session checked again before the upload, COMMIT; then BEGIN, the session check, the file marked ready and its audit, COMMIT. Its largest first run: 4 transaction, 2 locked read, 3 read, 3 write.",
+		"reads": "T-502: 2 reads in a row (locked read of file_object, then read of account+seat); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings/core.withSettingsWrite": {
 		"limit": 9,
 		"retry": 7,
-		"reason": "BEGIN and COMMIT around a settings producer write. The largest, a workspace deletion request: the write gate, the church and the current witness locked, the witness insert, the suspension function, the read of each open seat's contact for its notice (T-272), and one final statement with the job, notices and audit. Its largest first run: 2 transaction, 3 locked read, 2 read, 2 write."
+		"reason": "BEGIN and COMMIT around a settings producer write. The largest, a workspace deletion request: the write gate, the church and the current witness locked, the witness insert, the suspension function, the read of each open seat's contact for its notice (T-272), and one final statement with the job, notices and audit. Its largest first run: 2 transaction, 3 locked read, 2 read, 2 write.",
+		"reads": "T-505: 2 reads in a row (locked read of plant, then locked read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"settings/deletion.issueRestrictedDeletionSession": {
 		"limit": 4
@@ -1725,7 +1820,8 @@
 		"limit": 4
 	},
 	"tasks.createSubtask": {
-		"limit": 3
+		"limit": 3,
+		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of meeting+person+seat+team); the follow-up merges them or says why they cannot be one statement."
 	},
 	"tasks.declinePhaseOffer": {
 		"limit": 2
@@ -1734,7 +1830,8 @@
 		"limit": 3
 	},
 	"tasks.edit": {
-		"limit": 5
+		"limit": 5,
+		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then locked read of meeting+person+seat+team); the follow-up merges them or says why they cannot be one statement."
 	},
 	"tasks.importTemplate": {
 		"limit": 2
@@ -1746,7 +1843,8 @@
 		"limit": 4
 	},
 	"tasks.replacePrerequisites": {
-		"limit": 5
+		"limit": 5,
+		"reads": "T-499: 2 reads in a row (locked read of meeting+obligation+person+plant+recurrence+task+task_assignee+team, then read of reach+task); the follow-up merges them or says why they cannot be one statement."
 	},
 	"tasks.setSubtaskCompletion": {
 		"limit": 2
@@ -1775,7 +1873,8 @@
 	},
 	"teams.appointLeader": {
 		"limit": 7,
-		"reason": "The appointment locks the person row as well as the team. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "The appointment locks the person row as well as the team. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-500: 2 reads in a row (locked read of person+team+team_role+team_tenure, then locked read of person); the follow-up merges them or says why they cannot be one statement."
 	},
 	"teams.archive": {
 		"limit": 6,
@@ -1788,12 +1887,14 @@
 	"teams.attestCompletion": {
 		"limit": 7,
 		"retry": 5,
-		"reason": "Attest locks the program, the person and the latest credit before it inserts the earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "Attest locks the program, the person and the latest credit before it inserts the earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-500: 2 reads in a row (locked read of training_program, then locked read of person+team_role+team_tenure+training_assignment+training_credit); the follow-up merges them or says why they cannot be one statement."
 	},
 	"teams.completeResponsibility": {
 		"limit": 8,
 		"retry": 5,
-		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "T-500: 2 reads in a row (read of responsibility, then read of person+team); the follow-up merges them or says why they cannot be one statement."
 	},
 	"teams.correctTenure": {
 		"limit": 6,
@@ -1817,7 +1918,8 @@
 	"teams.deleteResponsibility": {
 		"limit": 8,
 		"retry": 5,
-		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "T-500: 2 reads in a row (read of responsibility, then read of person+team); the follow-up merges them or says why they cannot be one statement."
 	},
 	"teams.edit": {
 		"limit": 6,
@@ -1826,16 +1928,19 @@
 	"teams.editResponsibility": {
 		"limit": 8,
 		"retry": 5,
-		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+		"reason": "A non-admin leader resolves the responsibility team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "T-500: 2 reads in a row (read of responsibility, then read of person+team); the follow-up merges them or says why they cannot be one statement."
 	},
 	"teams.editRole": {
 		"limit": 8,
 		"retry": 5,
-		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "T-500: 2 reads in a row (read of team_role, then read of person+team); the follow-up merges them or says why they cannot be one statement."
 	},
 	"teams.endMembership": {
 		"limit": 7,
-		"reason": "Ending a membership counts the open tenures after the team lock. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write."
+		"reason": "Ending a membership counts the open tenures after the team lock. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
+		"reads": "T-500: 2 reads in a row (locked read of person+team+team_role+team_tenure, then read of person+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
 	},
 	"teams.initialize": {
 		"limit": 6,
@@ -1875,7 +1980,8 @@
 	"teams.recompleteTraining": {
 		"limit": 7,
 		"retry": 5,
-		"reason": "Recomplete locks the program, the person and the latest credit before it appends an earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "Recomplete locks the program, the person and the latest credit before it appends an earned row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-500: 2 reads in a row (locked read of training_program, then locked read of person+team_role+team_tenure+training_assignment+training_credit); the follow-up merges them or says why they cannot be one statement."
 	},
 	"teams.restore": {
 		"limit": 6
@@ -1883,12 +1989,14 @@
 	"teams.retireRole": {
 		"limit": 8,
 		"retry": 5,
-		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write."
+		"reason": "A non-admin leader resolves the role team, then checks that they lead it. Its largest first run: 2 transaction, 2 locked read, 3 read, 1 write.",
+		"reads": "T-500: 2 reads in a row (read of team_role, then read of person+team); the follow-up merges them or says why they cannot be one statement."
 	},
 	"teams.revokeCompletion": {
 		"limit": 7,
 		"retry": 6,
-		"reason": "Revoke locks the program, the person and the latest credit before it inserts the revoked row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write."
+		"reason": "Revoke locks the program, the person and the latest credit before it inserts the revoked row. Its largest first run: 2 transaction, 3 locked read, 1 read, 1 write.",
+		"reads": "T-500: 2 reads in a row (locked read of training_program, then locked read of person+team_role+team_tenure+training_assignment+training_credit); the follow-up merges them or says why they cannot be one statement."
 	},
 	"teams.setRequiredTrainingParticipants": {
 		"limit": 8,

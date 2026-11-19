@@ -1,0 +1,8 @@
+#!/bin/sh
+set -e
+here=$(cd "$(dirname "$0")/.." && pwd)
+tool=flag
+. "$here/bin/lib/node24.sh"
+main=$(dirname "$(git -C "$here" rev-parse --path-format=absolute --git-common-dir)")
+exec "$node_bin" --conditions=react-server --disable-warning=ExperimentalWarning \
+  --env-file-if-exists="$main/apps/web/.env.local" "$here/tools/flag/main.ts" "$@"
