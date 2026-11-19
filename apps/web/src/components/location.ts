@@ -104,6 +104,7 @@ function takeLinkValue(): void {
 }
 
 function traversed() {
+	spent = null;
 	const from = shown === null ? null : urlOf(shown);
 	takeLinkValue();
 	shown = fullAddress();
@@ -120,6 +121,7 @@ export function routerTransitionStarted(href: string, type: RouterNavigation): v
 	const to = target.pathname + target.search;
 	knownAddress();
 	if (type !== "traverse" && to === currentAddress()) return;
+	spent = null;
 	for (const listener of [...navigations]) listener(to + target.hash, type);
 }
 
@@ -235,7 +237,10 @@ const subscribeLinkValue = (listener: Listener) => {
 	return () => void linkValueReaders.delete(listener);
 };
 
-function linkValueNow(name: OneTimeLinkName): string | null {
+let spent: { readonly name: OneTimeLinkName; readonly value: string } | null = null;
+
+export function currentOneTimeLinkValue(name: OneTimeLinkName): string | null {
+	if (spent?.name === name && window.location.pathname === ONE_TIME_LINK_VALUES[name].path) return spent.value;
 	const at = oneTimeLinkValue(ONE_TIME_LINK_VALUES, storeWindow, false);
 	if (at?.name !== name) return null;
 	if (at.value !== null || at.key === null) return at.value;
@@ -249,7 +254,7 @@ function linkValueNow(name: OneTimeLinkName): string | null {
 export function useOneTimeLinkValue(name: OneTimeLinkName): string | null | undefined {
 	return useSyncExternalStore(
 		subscribeLinkValue,
-		() => linkValueNow(name),
+		() => currentOneTimeLinkValue(name),
 		() => undefined,
 	);
 }
@@ -270,4 +275,10 @@ export function forgetOneTimeLinkValue(name: OneTimeLinkName): void {
 	if (at.key !== null) removeStored(at.key);
 	readLinkValues();
 	if (at.value !== null) for (const listener of changes) listener();
+}
+
+export function spendOneTimeLinkValue(name: OneTimeLinkName): void {
+	const value = currentOneTimeLinkValue(name);
+	forgetOneTimeLinkValue(name);
+	spent = value === null ? null : { name, value };
 }

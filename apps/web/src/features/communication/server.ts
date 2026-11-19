@@ -1,6 +1,5 @@
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
-import type { Transaction } from "@everyfield/db/client";
 import {
 	communicationWriter,
 	withCommunicationWrite,
@@ -12,6 +11,8 @@ import type { Outcome, PageData } from "./model.ts";
 import { appOrigin, mailReady, type MailReady } from "../../server/mail/transport.ts";
 import { canWrite } from "../../components/seat-role.ts";
 import { logFailure } from "@everyfield/domain/log";
+import type { WriteTx } from "@everyfield/domain/access";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
 type Peopled = NonNullable<Awaited<ReturnType<typeof getViewer>>["people"]>;
 export type Viewer = Peopled;
@@ -36,11 +37,11 @@ const outcome = <T>(reply: CommunicationReply<T>): Outcome<T> =>
 
 export async function read<T>(
 	viewer: Viewer,
-	run: (tx: Transaction) => Promise<CommunicationReply<T>>,
+	run: (tx: WriteTx) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	try {
-		return outcome(await db.transaction((tx) => run(tx)));
+		return outcome(await gatedTransaction(db, (tx) => run(tx)));
 	} catch (error) {
 		logFailure({ component: "communication", outcome: "read_failed" }, error);
 		return { status: "lost" };
@@ -49,7 +50,7 @@ export async function read<T>(
 
 export async function write<T>(
 	viewer: Viewer,
-	run: (tx: Transaction, context: CommunicationContext) => Promise<CommunicationReply<T>>,
+	run: (tx: WriteTx, context: CommunicationContext) => Promise<CommunicationReply<T>>,
 ): Promise<Outcome<T>> {
 	const db = requestDatabase();
 	try {
