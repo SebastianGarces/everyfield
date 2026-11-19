@@ -23,7 +23,8 @@ import { cn, EvryBot, Icon, type IconSvgElement } from "@everyfield/ui/foundatio
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useId, useState, useTransition, type ReactNode } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
-import { loadSendContext, sendFeedback, type DialogContext } from "./actions.ts";
+import { sendFeedback, type DialogContext } from "./actions.ts";
+import { loadSendContext } from "./fetch.ts";
 import { CATEGORIES, counter, pageDetails, PROMPT, timeLabel, type PageDetails } from "./model.ts";
 
 const ICON: Record<FeedbackCategory, IconSvgElement> = {

@@ -832,7 +832,7 @@ try {
 	]);
 	assert.equal(corrected.status, "ok", JSON.stringify(corrected));
 	careRevision = corrected.value.revision;
-	const olderWeeks = await act("POST intelligence.readCheckInHistory", "/me/check-in", care, "readCheckInHistory", [2]);
+	const olderWeeks = await read("GET /me/check-in/read?what=history", "/me/check-in/read", "history", { page: 2 });
 	assert.equal(olderWeeks.status, "ok", JSON.stringify(olderWeeks));
 
 	const sigs = "apps/web/src/features/intelligence/signals-actions.ts";
@@ -1063,13 +1063,9 @@ try {
 		writtenDocument.revision,
 	);
 	for (const [name, path, cookie, status, headers] of pages) await get(name, path, cookie, status, headers);
-	const composed = await act(
-		"POST communication.readMeetingContext",
-		"/communication",
-		"apps/web/src/features/communication/actions.ts",
-		"readMeetingContext",
-		[visionMeeting],
-	);
+	const composed = await read("GET /communication/read?what=context", "/communication/read", "context", {
+		meetingId: visionMeeting,
+	});
 	assert.equal(composed.status, "ok", JSON.stringify(composed));
 	assert.equal(composed.value.guests.length, 103);
 
