@@ -10,7 +10,7 @@ const feedQuery = z.strictObject({ unread: z.boolean(), category: notificationCa
 export const GET = defineReads(notificationActor, "access_denied", (get) => ({
 	count: get(z.strictObject({ account: z.string().optional() }), async (actor, v): Promise<Outcome<UnreadCount>> =>
 		v.account === undefined || v.account === actor.actor.accountId
-			? stamped(await call(({ db, producer }) => producer.readUnreadCount(db, actor, {})))
+			? stamped(await call(({ db, producer }) => producer.readUnreadCount(db, actor, {})), Date.now())
 			: { status: "refused", code: "access_denied" },
 	),
 	revision: get(z.undefined(), (actor) =>
