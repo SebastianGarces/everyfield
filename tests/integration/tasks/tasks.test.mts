@@ -5,7 +5,12 @@ import { sql } from "../../../packages/db/src/query.ts";
 import { fixture } from "../identity/invitations-support.mts";
 import { ok, refused } from "../../support/fixture.mts";
 import { requestIdentity } from "../../../packages/contracts/src/common/index.ts";
-import { auditTransaction, finishAudit, prepareWrite } from "../../../packages/domain/src/operations/writes.ts";
+import {
+	auditTransaction,
+	finishAudit,
+	prepareWrite,
+	gatedTransaction,
+} from "../../../packages/domain/src/operations/writes.ts";
 import {
 	applyManagedStatus,
 	authorizeTaskReminders,
@@ -23,7 +28,7 @@ import { claimDue } from "../../../apps/web/src/server/jobs/queue.ts";
 
 let f, writer, reminders, mail, sent, plant, other, owner, member, admin2, foreign;
 const write = (who, op, input) => withTaskWrite(f.db, who.actor, (tx, ctx) => writer[op](tx, ctx, input));
-const read = (who, op, input) => f.db.transaction((tx) => taskReader[op](tx, who.actor, input));
+const read = (who, op, input) => gatedTransaction(f.db, (tx) => taskReader[op](tx, who.actor, input));
 const create = async (who, input) =>
 	ok(await write(who, "create", { requestKey: randomUUID(), input: { title: "Task", ...input } })).task;
 async function recurring(input, rule = { frequency: "weekly", until: null }) {
@@ -47,7 +52,7 @@ const subtask = async (who, parent, title) =>
 const rows = async (q) => (await f.admin.execute(q)).rows;
 async function person(name, who = owner) {
 	const ctx = { session: who.actor.session, selected: who.actor.actor.context.owner };
-	const r = await f.db.transaction((tx) =>
+	const r = await gatedTransaction(f.db, (tx) =>
 		peopleWriter.createPerson(tx, ctx, { requestKey: randomUUID(), input: { displayName: name } }),
 	);
 	return ok(r).person.id;
@@ -564,9 +569,9 @@ test("AC:TARGET-TSK-017 AC:PERSONREF-TASK-PERSON-FOLLOW-UP-RETIRE generated foll
 	);
 
 	const ctx = { session: owner.actor.session, selected: plant };
-	const review = ok(await f.db.transaction((tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: p1 })));
+	const review = ok(await gatedTransaction(f.db, (tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: p1 })));
 	ok(
-		await f.db.transaction((tx) =>
+		await gatedTransaction(f.db, (tx) =>
 			peopleWriter.retirePerson(
 				tx,
 				ctx,
@@ -637,7 +642,7 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 	const mailRows = await rows(
 		sql`SELECT id, recipient_account_id recipient, notice_id notice FROM mail WHERE notice_id IN (SELECT id FROM notice WHERE source_record_id=${t.id})`,
 	);
-	const allowed = await f.db.transaction((tx) => authorizeTaskReminders(tx, mailRows));
+	const allowed = await gatedTransaction(f.db, (tx) => authorizeTaskReminders(tx, mailRows));
 	assert.deepEqual(
 		mailRows.filter((m) => allowed.has(m.id)).map((m) => m.recipient),
 		[admin2.id, admin2.id],
@@ -665,7 +670,7 @@ test("AC:TARGET-TSK-014 due and overdue reminders follow the current assignee an
 		sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m JOIN notice n ON n.id=m.notice_id
 			WHERE n.source_record_id=${t.id} AND n.cancelled_at IS NULL`,
 	);
-	const sendable = await f.db.transaction((tx) => authorizeTaskReminders(tx, replanned));
+	const sendable = await gatedTransaction(f.db, (tx) => authorizeTaskReminders(tx, replanned));
 	assert.deepEqual(
 		replanned.filter((m) => sendable.has(m.id)).map((m) => m.recipient),
 		[admin2.id, admin2.id],
@@ -846,7 +851,7 @@ test("AC:TARGET-TSK-014 a duty handed off when its person leaves reminds its new
 	];
 	await f.admin.execute(sql`UPDATE person SET stage='leader' WHERE id=${moving.person}`);
 	const ctx = { session: owner.actor.session, selected: plant };
-	const warnings = (id) => f.db.transaction((tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: id }));
+	const warnings = (id) => gatedTransaction(f.db, (tx) => peopleReader.getStatusWarnings(tx, ctx, { personId: id }));
 	const handTo = (duties, to) =>
 		duties.map((d) => ({ kind: "assign", dutyId: d.id, expectedRevision: d.revision, toPersonId: to }));
 	const due = (await dbNow()) + 86_400_000;
@@ -1737,7 +1742,7 @@ test("AC:TARGET-TSK-014 each assignee gets their own reminders, and removing one
 		sql`SELECT m.id, m.recipient_account_id recipient, m.notice_id notice FROM mail m JOIN notice n ON n.id=m.notice_id
 			WHERE n.source_record_id=${t.id}`,
 	);
-	const allowed = await f.db.transaction((tx) => authorizeTaskReminders(tx, stale));
+	const allowed = await gatedTransaction(f.db, (tx) => authorizeTaskReminders(tx, stale));
 	assert.deepEqual([...new Set(stale.filter((m) => allowed.has(m.id)).map((m) => m.recipient))], [admin2.id]);
 	ok(
 		await write(owner, "edit", {
@@ -1759,14 +1764,14 @@ test("AC:TARGET-TSK-014 a seat that has not accepted yet gets no task-reminder m
 		sql`SELECT id, recipient_account_id recipient, notice_id notice FROM mail WHERE notice_id IN (SELECT id FROM notice WHERE source_record_id=${t.id})`,
 	);
 	assert.equal(mailRows.length, 2);
-	const allowed = () => f.db.transaction((tx) => authorizeTaskReminders(tx, mailRows));
+	const allowed = () => gatedTransaction(f.db, (tx) => authorizeTaskReminders(tx, mailRows));
 	assert.equal((await allowed()).size, 2);
 	const [seat] = await rows(sql`SELECT id, accepted_at FROM seat WHERE account_id=${member.id} AND plant_id=${plant.id}
 		AND ended_at IS NULL`);
 	await f.admin.execute(sql`UPDATE seat SET accepted_at=clock_timestamp()+interval '1 day' WHERE id=${seat.id}`);
 	try {
 		assert.equal((await allowed()).size, 0, "the seat is not accepted yet");
-		const recipients = await f.db.transaction((tx) => reminderRecipients(tx, plant.id, [member.id]));
+		const recipients = await gatedTransaction(f.db, (tx) => reminderRecipients(tx, plant.id, [member.id]));
 		assert.equal(recipients.size, 0);
 	} finally {
 		await f.admin.execute(sql`UPDATE seat SET accepted_at=${seat.accepted_at} WHERE id=${seat.id}`);

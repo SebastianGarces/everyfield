@@ -2,14 +2,14 @@
 
 import { getViewer } from "@/server/request-context";
 import { teamsWriter } from "@everyfield/domain/teams";
-import type { Transaction } from "@everyfield/db/client";
 import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Outcome } from "./model.ts";
 import { write } from "./server.ts";
+import type { WriteTx } from "@everyfield/domain/access";
 
 const noSeat = { status: "refused", code: "unavailable" } as const;
 type Context = Parameters<typeof teamsWriter.create>[1];
-type Run<T> = (tx: Transaction, ctx: Context) => Promise<TeamsReply<T>>;
+type Run<T> = (tx: WriteTx, ctx: Context) => Promise<TeamsReply<T>>;
 
 async function seat() {
 	return (await getViewer())?.people ?? null;
