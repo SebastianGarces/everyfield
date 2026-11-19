@@ -55,7 +55,7 @@ export async function readFlags<R extends Registry = typeof registry>(
 }
 
 export type FlagScope = { kind: "global" } | { kind: "workspace"; id: string } | { kind: "account"; id: string };
-export type FlagOperator = string | { cause: string };
+type FlagOperator = string | { cause: string };
 
 const scopeTenants: Record<ScopeKind, readonly string[]> = {
 	global: ["global"],

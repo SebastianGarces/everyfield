@@ -26,7 +26,7 @@ Every command prints the database it targets first.
         refuses unless the state is approved. Ask with evf flip request <name> --task T-<n> --note "<why>".
         kill and ops flags, turning a flag off and clearing a value need no flip. Each change writes one
         flags.changed audit row; setting the value a flag already holds writes nothing.
-  flag stale [--days <n>] [--file]  release flags on for everyone, unchanged for 14 or more days (dated from their
+  flag stale [--file]               release flags on for everyone, unchanged for 14 or more days (dated from their
         last flags.changed audit row), with the evf task new command that files each removal. --file files them
         when evf is reachable on this Mac and skips a flag with an open removal task (label flag:<name>), so a
         rerun files nothing twice. Never files under CI; with no flag database configured under CI it skips
@@ -72,7 +72,7 @@ const onOff = (value: boolean | null | undefined) => (value === true ? "on" : va
 const shellQuote = (text: string) => `'${text.replaceAll("'", "'\\''")}'`;
 const day = (date: Date) => date.toISOString().slice(0, 10);
 
-function take(args: string[], name: string): string | undefined {
+export function take(args: string[], name: string): string | undefined {
 	const at = args.indexOf(name);
 	if (at < 0) return undefined;
 	const value = args[at + 1];
@@ -231,18 +231,15 @@ function parseTasks(stdout: string): OpenTask[] {
 }
 
 async function stale(deps: FlagDeps, declared: Registry, args: string[]) {
-	const options = [...args];
-	const days = Number(take(options, "--days") ?? STALE_DAYS);
-	const file = options.includes("--file");
-	if (options.some((o) => o !== "--file")) throw new FlagError(`Unexpected: ${options.join(" ")}`, 2);
-	if (!Number.isInteger(days) || days < 1) throw new FlagError("--days takes a whole number of days.", 2);
+	const file = args.includes("--file");
+	if (args.some((o) => o !== "--file")) throw new FlagError(`Unexpected: ${args.join(" ")}`, 2);
 	if (file && deps.ci) throw new FlagError("bin/flag stale --file never files from CI. Nothing filed.");
-	const found = await readStaleReleaseFlags(deps.db, days, declared);
+	const found = await readStaleReleaseFlags(deps.db, STALE_DAYS, declared);
 	if (!found.length) {
-		deps.out(`No release flag has been on for everyone for ${days} or more days.`);
+		deps.out(`No release flag has been on for everyone for ${STALE_DAYS} or more days.`);
 		return;
 	}
-	deps.out(`Release flags on for everyone for ${days} or more days: ${found.length}`);
+	deps.out(`Release flags on for everyone for ${STALE_DAYS} or more days: ${found.length}`);
 	for (const s of found) {
 		const f = declared[s.name]!;
 		deps.out(`${s.name}  on since ${day(s.since)} (${s.days} days), owner ${f.owner}, task ${f.task}`);

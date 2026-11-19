@@ -27,7 +27,7 @@ const overrideRow = z.object({
 	kind: z.enum(["plant", "organization", "account"]),
 	value: z.boolean(),
 });
-export type FlagOverride = z.infer<typeof overrideRow>;
+type FlagOverride = z.infer<typeof overrideRow>;
 
 export async function readOverrides(db: Db, name: string): Promise<readonly FlagOverride[]> {
 	const { rows } = await db.execute(sql`SELECT f.tenant_id::text AS tenant, t.kind, f.value
@@ -38,7 +38,7 @@ export async function readOverrides(db: Db, name: string): Promise<readonly Flag
 }
 
 const staleRow = z.object({ name: z.string(), since: z.coerce.date(), days: z.coerce.number().int() });
-export type StaleFlag = z.infer<typeof staleRow>;
+type StaleFlag = z.infer<typeof staleRow>;
 
 export async function readStaleReleaseFlags<R extends Registry = typeof registry>(
 	db: Db,

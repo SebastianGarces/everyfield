@@ -1,6 +1,6 @@
 import { assertDevelopmentDatabase, developmentHosts } from "../../packages/db/src/development.ts";
 import { DEV_ENDPOINT, NEON_PROJECT, PROD_ENDPOINT } from "../qa/qa-guard.ts";
-import { FlagError } from "./flag.ts";
+import { FlagError, take } from "./flag.ts";
 
 const PRODUCTION_ENV = "FLAG_PRODUCTION_DATABASE_URL";
 
@@ -9,15 +9,6 @@ export type Target = { label: string; url: string } | { label: string; missing: 
 export type Neon = (args: readonly string[]) => { status: number | null; stdout: string };
 
 const endpointOf = (url: URL) => url.hostname.split(".")[0]!.replace(/-pooler$/, "");
-
-function take(args: string[], name: string): string | undefined {
-	const at = args.indexOf(name);
-	if (at < 0) return undefined;
-	const value = args[at + 1];
-	if (value === undefined || value.startsWith("--")) throw new FlagError(`${name} needs a value.`, 2);
-	args.splice(at, 2);
-	return value;
-}
 
 export function resolveTarget(argv: readonly string[], env: Env, neon: Neon): { args: string[]; target: Target } {
 	const args = [...argv];

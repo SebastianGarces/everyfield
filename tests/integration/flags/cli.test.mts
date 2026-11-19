@@ -331,8 +331,6 @@ test("stale lists release flags on for everyone and unchanged for 14 or more day
 		removalAsk("cli-stale-15", declared["cli-stale-15"], since),
 		`Remove the release flag cli-stale-15 (owner Nora, from T-471). It has been on for everyone since ${day}. Delete its entry in packages/domain/src/flags/registry.ts, the off branch at every readFlag("cli-stale-15") and the tests of the off path; typecheck then names any read that is left (docs/architecture/patterns.md, Feature flags).`,
 	);
-	const fewer = await cli(["stale", "--days", "16"]);
-	assert.deepEqual(fewer.out, ["No release flag has been on for everyone for 16 or more days."]);
 });
 
 test("stale --file files each removal once through evf and skips a flag whose removal task is already open", async () => {

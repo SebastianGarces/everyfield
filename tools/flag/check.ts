@@ -1,5 +1,5 @@
 import { globSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { registry, type Registry } from "../../packages/domain/src/flags/registry.ts";
 
 const SOURCE_GLOBS = ["apps/*/src/**/*.{ts,tsx}", "packages/*/src/**/*.{ts,tsx}"];
@@ -51,5 +51,3 @@ export function checkCommand(root: string, out = console.log, err = console.erro
 	out(`flag check: ${count} flag${count === 1 ? "" : "s"}, no release flag past expires, every flag has a reader.`);
 	return 0;
 }
-
-if (import.meta.main) process.exitCode = checkCommand(resolve(import.meta.dirname, "../.."));
