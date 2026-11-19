@@ -767,31 +767,26 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
 });
 
-test("INV-mail: only the two mail modules that read or store the mail_request row make a ProviderKey, in product code", () => {
-	const source = `import type { ProviderKey } from "@everyfield/contracts/common";
+test("INV-mail: only the two mail modules that read or store the mail_request row name ProviderKey, in product code", () => {
+	const source = `import type { ProviderKey as PK } from "@everyfield/contracts/common";
 import type * as common from "@everyfield/contracts/common";
-export const a = "x" as ProviderKey;
-export const b = (k: string) => k as unknown as ProviderKey;
-export const c = "x" as common.ProviderKey;
-export const d = (k: ProviderKey): string => k;
+import { type ProviderKey } from "@everyfield/contracts/common";
+export type { ProviderKey } from "@everyfield/contracts/common";
+type Local = PK;
+export const a = "x" as Local;
+export const b = "x" as unknown as common.ProviderKey[];
+export const c = (k: string): k is import("@everyfield/contracts/common").ProviderKey => k.length > 0;
+export const d = (k: unknown) => k as ProviderKey | undefined;
+export const e: string = "x";
 `;
-	assert.deepEqual(
-		lint({
-			"packages/domain/src/notifications/x.ts": source,
-			"apps/web/src/features/x/mail.ts": source,
-			"packages/domain/src/communication/delivery.ts": source,
-			"apps/web/src/server/jobs/mail.ts": source,
-			"tests/integration/x.test.mts": source,
-		}).filter((hit) => hit.endsWith("provider-key-mint")),
-		[
-			"apps/web/src/features/x/mail.ts:3 provider-key-mint",
-			"apps/web/src/features/x/mail.ts:4 provider-key-mint",
-			"apps/web/src/features/x/mail.ts:5 provider-key-mint",
-			"packages/domain/src/notifications/x.ts:3 provider-key-mint",
-			"packages/domain/src/notifications/x.ts:4 provider-key-mint",
-			"packages/domain/src/notifications/x.ts:5 provider-key-mint",
-		],
-	);
+	const hits = (path) =>
+		lint({ [path]: source, "tests/integration/x.test.mts": source })
+			.filter((hit) => hit.endsWith("provider-key-mint"))
+			.map((hit) => Number.parseInt(hit.split(":")[1], 10));
+	assert.deepEqual(hits("packages/domain/src/notifications/x.ts"), [1, 3, 4, 7, 8]);
+	assert.deepEqual(hits("apps/web/src/features/x/mail.ts"), [1, 3, 4, 7, 8]);
+	assert.deepEqual(hits("packages/domain/src/communication/delivery.ts"), []);
+	assert.deepEqual(hits("apps/web/src/server/jobs/mail.ts"), []);
 });
 
 test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {

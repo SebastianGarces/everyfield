@@ -217,21 +217,23 @@ const PROVIDER_KEY_MINTS = new Set([
 	"packages/domain/src/communication/delivery.ts",
 	"apps/web/src/server/jobs/mail.ts",
 ]);
-const namesProviderKey = (type) =>
-	type?.type === "TSTypeReference" &&
-	((type.typeName.type === "Identifier" && type.typeName.name === "ProviderKey") ||
-		(type.typeName.type === "TSQualifiedName" && type.typeName.right.name === "ProviderKey"));
+const PROVIDER_KEY = "ProviderKey";
+const PROVIDER_KEY_HOME = "packages/contracts/src/common/values.ts";
 
 const providerKeyMint = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		if (PROVIDER_KEY_MINTS.has(path) || !PRODUCT_SOURCE.test(path)) return {};
-		const message = `A ProviderKey is the key stored on its mail_request row: only ${[...PROVIDER_KEY_MINTS].join(" and ")} make one, where they read or store that row, so a retry never reaches the provider with a fresh key.`;
-		const cast = (node) => {
-			if (namesProviderKey(node.typeAnnotation)) context.report({ node, message });
+		if (PROVIDER_KEY_MINTS.has(path) || path === PROVIDER_KEY_HOME || !PRODUCT_SOURCE.test(path)) return {};
+		const message = `A ProviderKey is the key stored on its mail_request row: only ${[...PROVIDER_KEY_MINTS].join(" and ")} name the type, where they read or store that row, so a retry never reaches the provider with a fresh key.`;
+		const named = (node) => node?.type === "Identifier" && node.name === PROVIDER_KEY;
+		const report = (node) => context.report({ node, message });
+		return {
+			ImportSpecifier: (node) => named(node.imported) && report(node),
+			ExportSpecifier: (node) => (named(node.local) || named(node.exported)) && report(node),
+			TSQualifiedName: (node) => named(node.right) && report(node),
+			TSImportType: (node) => (named(node.qualifier) || named(node.qualifier?.right)) && report(node),
 		};
-		return { TSAsExpression: cast, TSTypeAssertion: cast };
 	},
 };
 
