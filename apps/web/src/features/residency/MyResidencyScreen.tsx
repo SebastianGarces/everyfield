@@ -39,9 +39,9 @@ type Linked = Extract<MyResidency, { status: "linked" }>;
 type Enrollment = Linked["enrollments"][number];
 type Milestone = Enrollment["milestones"][number];
 
-export function MyResidencyScreen({ initial }: { initial: MyResidency }) {
+export function MyResidencyScreen({ initial }: { initial: Exclude<MyResidency, { status: "not_linked" }> }) {
 	const frame = useResidency();
-	if (initial.status === "not_linked" || frame.ended) return <NotLinked />;
+	if (initial.status === "ended" || frame.ended) return <NotLinked />;
 	return <LinkedResidency residency={initial} />;
 }
 
