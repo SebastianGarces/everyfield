@@ -52,7 +52,7 @@ export function VenuesSheet({
 					? "Where your meetings happen. A meeting keeps the place details it was saved with."
 					: undefined
 			}
-			className="w-[480px]"
+			size="lg"
 		>
 			{!open ? null : screen.kind === "list" ? (
 				<Places

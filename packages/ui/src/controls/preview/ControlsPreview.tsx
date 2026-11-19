@@ -812,7 +812,7 @@ function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark })
 		<Section
 			index={6}
 			title="Overlays"
-			code="<Dialog> <ConfirmDialog> <Sheet> <Menu> <Popover> <Tooltip> <Toast> <CommandPalette>"
+			code="<Dialog> <ConfirmDialog> <Sheet> <Menu> <Popover> <Tooltip> <Toaster> <CommandPalette>"
 			note="Each overlay closes with Esc and returns focus to the control that opened it. Dialogs make the page behind them inert."
 		>
 			<div className="grid items-start gap-5 app-md:grid-cols-2">

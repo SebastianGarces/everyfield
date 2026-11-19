@@ -233,6 +233,17 @@
 	}
 }
 
+[data-product-root] .ef-grip {
+	background: var(--ef-line-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-product-root] :is([data-vaul-drawer], [data-vaul-overlay]) {
+		animation: none !important;
+		transition: none !important;
+	}
+}
+
 [data-product-root] [data-sonner-toast] {
 	transition-timing-function: var(--ef-slide-ease);
 }

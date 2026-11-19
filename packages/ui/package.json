@@ -29,7 +29,8 @@
 		"motion": "14.2.0",
 		"radix-ui": "1.8.1",
 		"sonner": "2.0.8",
-		"tailwind-merge": "3.7.0"
+		"tailwind-merge": "3.7.0",
+		"vaul": "1.1.2"
 	},
 	"peerDependencies": {
 		"next": "16.4.1",

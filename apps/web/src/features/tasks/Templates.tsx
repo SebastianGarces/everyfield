@@ -108,7 +108,7 @@ export function Templates({ year, onImported }: { year: number; onImported: (tas
 					? `${phaseName(shown.checklist.phase)} · ${CATEGORY_LABEL[shown.checklist.category]}`
 					: "Ready-made task lists for each phase. Preview one, then add its tasks to your list."
 			}
-			className="w-[560px]"
+			size="xl"
 			footer={
 				chosen ? (
 					<>
