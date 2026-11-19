@@ -17,7 +17,6 @@ async function handle(request: Request, step: "preview" | "save") {
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return reply({ status: "refused", refusal: { code: "unavailable" } });
 	const db = requestDatabase();
-	if (!db) return reply({ status: "lost" });
 	let input: Record<string, unknown>;
 	try {
 		const bytes = await readBoundedBody(request, BODY_MAX);

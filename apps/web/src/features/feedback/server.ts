@@ -28,9 +28,8 @@ export async function runAs<T>(
 	viewer: Awaited<ReturnType<typeof getViewer>>,
 	operation: Operation<T>,
 ): Promise<Run<T>> {
+	if (!viewer.authority) return { status: "signed_out" };
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	if (!viewer?.authority) return { status: "signed_out" };
 	try {
 		const reply = await operation(db, viewer.authority);
 		return reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };

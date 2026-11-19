@@ -30,7 +30,7 @@ const column = z.strictObject({ query: z.record(z.string(), z.unknown()), column
 const pair = z.strictObject({ person: personId, with: personId, keep: personId.nullable() });
 
 export const GET = defineReads(
-	async () => (await getViewer())?.people ?? null,
+	async () => (await getViewer()).people ?? null,
 	"access_denied",
 	(get) => ({
 		view: get(z.strictObject({ search: z.string().max(QUERY_MAX) }), (viewer, v) =>

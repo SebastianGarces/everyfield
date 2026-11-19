@@ -57,7 +57,7 @@ const linkInvite = z.looseObject({ input: z.looseObject({}) });
 export async function runLinkInvitation(operation: unknown, command: unknown): Promise<Reply> {
 	const who = await pipelineActor();
 	const service = invitationService();
-	if (who.kind !== "seat" || !service) return refused("unavailable");
+	if (who.kind !== "seat") return refused("unavailable");
 	const organization = who.authority.actor.context.owner;
 	if (operation === "invite") {
 		const invite = linkInvite.safeParse(command);

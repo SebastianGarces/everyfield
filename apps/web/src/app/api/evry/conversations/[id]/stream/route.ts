@@ -1,6 +1,7 @@
 import { flushTraces, observeRun, projectError, readConversation } from "@everyfield/evry";
 import { after as afterResponse } from "next/server";
-import { errorResponse, evryDatabase, requestActor } from "@/server/evry";
+import { errorResponse, requestActor } from "@/server/evry";
+import { requestDatabase } from "@/server/database";
 
 export const maxDuration = 300;
 
@@ -10,7 +11,7 @@ export const GET = async (request: Request, { params }: { params: Promise<{ id: 
 	const after = Number.isInteger(given) && given >= 0 ? given : 0;
 	let db, actor, first;
 	try {
-		db = evryDatabase();
+		db = requestDatabase();
 		actor = await requestActor();
 		first = await readConversation(db, actor, id, after);
 	} catch (error) {

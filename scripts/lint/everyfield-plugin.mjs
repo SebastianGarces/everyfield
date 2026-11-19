@@ -1232,6 +1232,90 @@ const deploymentEnv = {
 	},
 };
 
+export const SERVER_CONFIG = "apps/web/src/server/config.ts";
+const WEB_CODE = /^apps\/web\/src\//;
+const ENV_PARSERS = new Set(["parse", "safeParse", "parseAsync", "safeParseAsync"]);
+
+const isProcess = (node, context) =>
+	(node?.type === "Identifier" && node.name === "process" && !declared(context, node)) ||
+	(memberName(node) === "process" && isHost(node.object, context, GLOBAL_HOSTS));
+
+const envMessage = `Read the server environment through ${SERVER_CONFIG}: serverConfig() for the values every deployment has (parsed once at start-up), serverEnv() for optional integrations.`;
+const parseMessage = `Do not parse the whole server environment per call: add the value to ${SERVER_CONFIG}, which parses it once at start-up.`;
+const isServerEnvCall = (node) =>
+	node?.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "serverEnv";
+
+const serverConfig = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === SERVER_CONFIG || !WEB_CODE.test(path)) return {};
+		const copies = new Set();
+		const pending = [];
+		const wholeEnv = (node) =>
+			isServerEnvCall(node) ||
+			(node?.type === "Identifier" && copies.has(node.name)) ||
+			(node?.type === "ObjectExpression" &&
+				node.properties.some((p) => p.type === "SpreadElement" && wholeEnv(p.argument)));
+		const bind = (id, init) => {
+			if (id?.type === "Identifier" && isServerEnvCall(init)) copies.add(id.name);
+		};
+		return {
+			ImportDeclaration(node) {
+				if (
+					PROCESS_MODULES.has(node.source.value) &&
+					node.specifiers.some((spec) => spec.type !== "ImportSpecifier" || nameOf(spec.imported) === "env")
+				)
+					context.report({ node, message: envMessage });
+			},
+			ImportExpression(node) {
+				if (PROCESS_MODULES.has(literalArgument(node.source) ?? "")) context.report({ node, message: envMessage });
+			},
+			Identifier(node) {
+				if (node.name !== "process" || declared(context, node)) return;
+				let target = node;
+				const parent = node.parent;
+				if (parent?.key === node && parent.value !== node && !parent.computed) return;
+				if (parent?.type === "MemberExpression" && parent.property === node) {
+					if (parent.computed || !isHost(parent.object, context, GLOBAL_HOSTS)) return;
+					target = parent;
+				}
+				const use = target.parent;
+				if (use?.type === "MemberExpression" && use.object === target) {
+					const name = memberName(use);
+					if (name !== null && name !== "env") return;
+					if (name === "env" && use.parent?.type === "MemberExpression" && memberName(use.parent) === "NEXT_RUNTIME")
+						return;
+					context.report({ node: use, message: envMessage });
+					return;
+				}
+				if (
+					use?.type === "VariableDeclarator" &&
+					use.init === target &&
+					use.id.type === "ObjectPattern" &&
+					use.id.properties.every((p) => p.type === "Property" && !p.computed && keyName(p.key, false) !== "env")
+				)
+					return;
+				context.report({ node: target, message: envMessage });
+			},
+			CallExpression(node) {
+				if (isRequire(node) && PROCESS_MODULES.has(literalArgument(node.arguments[0]) ?? ""))
+					context.report({ node, message: envMessage });
+				if (ENV_PARSERS.has(memberName(node.callee)) && node.arguments.length > 0) pending.push(node);
+			},
+			VariableDeclarator(node) {
+				bind(node.id, node.init);
+			},
+			AssignmentPattern(node) {
+				bind(node.left, node.right);
+			},
+			"Program:exit"() {
+				for (const node of pending) if (wholeEnv(node.arguments[0])) context.report({ node, message: parseMessage });
+			},
+		};
+	},
+};
+
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
@@ -2419,6 +2503,7 @@ export default {
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
 		"deployment-env": deploymentEnv,
+		"server-config": serverConfig,
 		"no-cursor-utility": noCursorUtility,
 		"mint-callers": mintCallers,
 		"no-raw-history": noRawHistory,

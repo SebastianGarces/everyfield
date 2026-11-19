@@ -12,8 +12,7 @@ export async function JourneyPage() {
 	const viewer = await phaseViewer();
 	if (!viewer) {
 		const v = await getViewer();
-		if (!v || v.status === "unauthenticated")
-			redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/journey")}`);
+		if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/intelligence/journey")}`);
 		return <NoChurchPlantSeat />;
 	}
 	if (!administers(viewer))

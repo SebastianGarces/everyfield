@@ -30,7 +30,7 @@ export async function workspaceViewer() {
 
 export async function loadSeats(w: Workspace | null): Promise<SeatsRead> {
 	const service = invitationService();
-	if (!w || !service) return { status: "unavailable" };
+	if (!w) return { status: "unavailable" };
 	const { viewer, mount, selected, authority } = w;
 	const [roster, invitations, facts, names] = await Promise.all([
 		answer(() => mount.seats.list(authority, { workspace: selected })),
