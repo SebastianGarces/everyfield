@@ -192,6 +192,7 @@ agent-browser wait --text "Answer saved."
 My weekly check-in: four private answers each week, only the author sees them, with a twelve-week strip to correct.
 
 - Routes: `/me/check-in`
+- Endpoints: `/me/check-in/read`
 - Personas: `owner` write, `admin` write, `member` none
 - Catalog: PI-038, PI-039, PI-040, PI-041
 

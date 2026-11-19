@@ -343,6 +343,7 @@ Accepting activates one seat and Person even when two tabs accept at once, and n
 Seats and invitations: who can sign in to the church, pending invitations, roles and removal.
 
 - Routes: `/settings/seats`
+- Endpoints: `/settings/seats/read`
 - Personas: `owner` write, `admin` write, `member` read
 - Catalog: IDN-017, IDN-019
 

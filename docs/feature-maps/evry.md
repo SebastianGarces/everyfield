@@ -28,7 +28,7 @@ flowchart LR
 The Evry panel the Ask Evry button opens beside any page: ask in words and see what Evry read as cards of linked rows. Each person has their own conversations. The catalog endpoint is listed for completeness: nothing in the app calls it, so no step reaches it.
 
 - Routes: none
-- Endpoints: `/api/evry/catalog`, `/api/evry/open`, `/api/evry/conversations`, `/api/evry/conversations/[id]`, `/api/evry/conversations/[id]/turns`, `/api/evry/conversations/[id]/stream`, `/api/evry/conversations/[id]/cancel`, `/api/evry/conversations/[id]/retry`
+- Endpoints: `/api/evry/catalog`, `/api/evry/open`, `/api/evry/conversations`, `/api/evry/conversations/[id]`, `/api/evry/conversations/[id]/turns`, `/api/evry/conversations/[id]/stream`, `/api/evry/conversations/[id]/cancel`, `/api/evry/conversations/[id]/retry`, `/api/evry/photos`
 - Personas: `owner` write, `member` write, `network` write, `visitor` none
 - Catalog: EVR-003, EVR-005, EVR-008, EVR-021, EVR-029
 

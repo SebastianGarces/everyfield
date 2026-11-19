@@ -54,6 +54,7 @@ flowchart LR
 Settings: a dialog over the page underneath, one address per section, offering the sections this seat may change.
 
 - Routes: `/settings`, `/settings/[section]`
+- Endpoints: `/settings/read`
 - Personas: `owner` write, `admin` write, `member` write, `resident` write, `visitor` none
 - Catalog: IDN-010, IDN-011
 

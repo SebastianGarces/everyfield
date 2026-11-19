@@ -61,7 +61,7 @@ flowchart LR
 Documents: fill a template and download or save it, and open what was written for the church or for you.
 
 - Routes: `/documents`
-- Endpoints: `/documents/preview`
+- Endpoints: `/documents/preview`, `/documents/read`
 - Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` write, `triage` write, `visitor` none
 - Catalog: DOC-001, DOC-002, DOC-003, DOC-016
 - Polls: the template list keeps fetching PDF page previews, so the page never goes network-idle. No network-idle wait here: each step waits on the check after it.
