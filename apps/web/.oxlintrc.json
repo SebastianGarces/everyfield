@@ -1321,6 +1321,7 @@
 				"everyfield/route-reads": "error",
 				"everyfield/route-segment-defaults": "error",
 				"everyfield/render-reads": "error",
+				"everyfield/no-read-actions": "error",
 				"everyfield/failure-not-empty": "error"
 			}
 		},
