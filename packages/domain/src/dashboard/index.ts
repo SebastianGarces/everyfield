@@ -1,7 +1,7 @@
 import * as c from "@everyfield/contracts/dashboard";
 import type { PlantSetup } from "@everyfield/contracts/identity";
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
@@ -44,7 +44,7 @@ function scopeOf(authority: RequestActor): Scope {
 }
 const iso = (value: SQL) => sql`to_char(${value} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
-const seatPerson = (x: string) => {
+const seatPerson = <XName extends string>(x: SqlLiteral<XName>) => {
 	const p = sql.raw(x);
 	return sql`(${p}.linked_account_id IS NOT NULL AND EXISTS(SELECT FROM seat s WHERE s.plant_id=${p}.plant_id
 		AND s.account_id=${p}.linked_account_id AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp()))`;

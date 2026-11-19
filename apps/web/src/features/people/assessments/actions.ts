@@ -6,25 +6,16 @@ import {
 	assessments,
 	commitments,
 	interviews,
-	peopleReader,
 	saveCommitmentDocument,
 	signCommitmentDocument,
 } from "@everyfield/domain/people";
 import { z } from "zod";
 import { boundary, invalid, outcome, receipt, type Receipt } from "../boundary.ts";
 import type { Outcome } from "../../../components/save/model.ts";
-import { read, write } from "../server.ts";
+import { write } from "../server.ts";
 import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "../fields/server.ts";
-import type {
-	Assessment,
-	Assessments,
-	Commitment,
-	Commitments,
-	CommitmentStatus,
-	Interview,
-	Interviews,
-} from "./model.ts";
+import type { Assessment, Commitment, Commitments, CommitmentStatus, Interview } from "./model.ts";
 import { HISTORY_PAGE } from "./server.ts";
 
 type RecordedPerson = z.infer<typeof c.recordedPerson>;
@@ -149,30 +140,6 @@ export async function correctCommitment(
 					: now;
 			}),
 			(r) => r,
-		),
-	);
-}
-
-export async function loadAssessments(personId: string, page: number): Promise<Outcome<Assessments>> {
-	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => assessments.getAssessments(tx, ctx, request)), (r) => r),
-	);
-}
-export async function loadInterviews(personId: string, page: number): Promise<Outcome<Interviews>> {
-	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => interviews.getInterviews(tx, ctx, request)), (r) => r),
-	);
-}
-export async function loadCommitments(personId: string, page: number): Promise<Outcome<Commitments>> {
-	return boundary(c.personRecordsRequest, { personId, page, limit: HISTORY_PAGE }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => commitments.getCommitments(tx, ctx, request)), (r) => r),
-	);
-}
-
-export async function findWitnesses(search: string): Promise<Outcome<{ id: string; name: string; detail: string }[]>> {
-	return boundary(c.listPeopleRequest, { search, limit: 8 }, async (v, request) =>
-		outcome(await read(v, (tx, ctx) => peopleReader.listPeople(tx, ctx, request)), (r) =>
-			r.items.map((p) => ({ id: p.id, name: p.displayName, detail: p.email ?? p.phone ?? "" })),
 		),
 	);
 }

@@ -11,21 +11,16 @@ import {
 	guestsWriter,
 	meetingsReader,
 	meetingsWriter,
-	venuesReader,
 	venuesWriter,
 	type AttendanceWriter,
 	type MeetingsContext,
 	previewMeetingsWrite,
-	rosterReader,
 	rosterWriter,
 } from "@everyfield/domain/meetings";
 import { tasksMount } from "../tasks/mount.ts";
-import { searchPeople as findPeople } from "@everyfield/domain/people";
 import type { MeetingsReply, rsvpTokenView } from "@everyfield/contracts/meetings";
 import { z } from "zod";
 import type { Transaction } from "@everyfield/db/client";
-import { read as readPeople } from "../people/server.ts";
-import { readMinistries } from "../teams/server.ts";
 import type { Finalization, Outcome } from "./model.ts";
 import { loadCheckIn, loadMeeting, loadReport, outcome, read, readAnalytics, write, type Viewer } from "./server.ts";
 
@@ -101,12 +96,6 @@ export async function replaceAgenda(
 	);
 }
 
-export async function listMinistries() {
-	return look(readMinistries);
-}
-export async function previewRoster(meetingId: string) {
-	return look((v) => read(v, (db, a) => rosterReader.previewRosterImport(db, a, { meetingId })).then(outcome));
-}
 export async function updateRoster(requestKey: string, meetingId: string, add: string[], remove: string[]) {
 	return act((tx, ctx) => rosterWriter.copyTeamRoster(tx, ctx, { requestKey, input: { meetingId, add, remove } }));
 }
@@ -191,17 +180,6 @@ export async function clearCard(
 	return act((tx, ctx) =>
 		guestsWriter.clearCard(tx, ctx, command(requestKey, expectedRevision, { meetingId, personId, reason })),
 	);
-}
-
-export async function searchPeople(search: unknown): Promise<Outcome<{ id: string; name: string; detail: string }[]>> {
-	const v = await getViewer();
-	if (!v?.people) return noSeat;
-	const query = z.string().trim().max(255).safeParse(search);
-	if (!query.success) return { status: "refused", code: "invalid_input" };
-	const r = await readPeople(v.people, (tx, ctx) => findPeople(tx, ctx, query.data, 8));
-	if (r.status === "failed") return { status: "lost" };
-	if (r.status === "refused") return { status: "refused", code: r.error.code };
-	return { status: "ok", value: r.value };
 }
 
 let attendanceWriter: AttendanceWriter | undefined;
@@ -290,12 +268,6 @@ export async function addAttendeeNote(requestKey: string, meetingId: string, per
 	return settle((w) => (tx, ctx) => w.addAttendeeNote(tx, ctx, { requestKey, input: { meetingId, personId, text } }));
 }
 
-export async function listVenues(request: unknown) {
-	return look(async (v) => outcome(await read(v, (db, a) => venuesReader.list(db, a, request))));
-}
-export async function getVenue(venueId: string) {
-	return look(async (v) => outcome(await read(v, (db, a) => venuesReader.get(db, a, { venueId }))));
-}
 export async function createVenue(requestKey: string, input: unknown) {
 	return act((tx, ctx) => venuesWriter.create(tx, ctx, { requestKey, input }));
 }

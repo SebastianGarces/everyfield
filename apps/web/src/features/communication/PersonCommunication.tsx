@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
-import { readPreviewContext } from "./actions.ts";
+import { readPreviewContext } from "./fetch.ts";
 import { History } from "./HistoryPanel.tsx";
 import type { Outcome } from "./model.ts";
 

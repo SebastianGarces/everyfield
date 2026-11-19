@@ -19,7 +19,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRead } from "../../../components/read.tsx";
 import type { Locality, RegionRead, RegionSuggestion } from "../port";
 import { newRequestKey } from "../port";
-import { SaveError } from "../SettingsDialog";
+import { SaveError } from "../SaveError";
 import { useReads, useSettings } from "../store";
 
 type Ready = Extract<RegionRead, { status: "ok" }>;

@@ -15,24 +15,6 @@ export class Refusal extends Error {
 		this.status = status;
 	}
 }
-export async function boundedBytes(request: Request, limit: number): Promise<Uint8Array> {
-	const reader = request.body?.getReader();
-	if (!reader) return new Uint8Array();
-	const chunks: Uint8Array[] = [];
-	let length = 0;
-	try {
-		for (;;) {
-			const item = await reader.read();
-			if (item.done) break;
-			length += item.value.byteLength;
-			if (length > limit) throw new Refusal("invalid_input", 413);
-			chunks.push(item.value);
-		}
-	} finally {
-		await reader.cancel();
-	}
-	return Buffer.concat(chunks);
-}
 export function safeResponse(body: unknown, status = 200) {
 	return Response.json(body, { status, headers: privateHeaders });
 }
@@ -51,3 +33,33 @@ export async function safeBoundary(body: () => Promise<Response>): Promise<Respo
 		return response;
 	}
 }
+
+export const ROUTE_KIND = Symbol.for("everyfield.route-kind");
+export type RouteKind = "session" | "token" | "signed";
+type Handler<A extends unknown[]> = (request: Request, ...rest: A) => Response | Promise<Response>;
+export type Route<A extends unknown[]> = Handler<A> & { readonly [ROUTE_KIND]: RouteKind };
+
+const appOrigin = (request: Request) => {
+	const configured = process.env.IDENTITY_ORIGIN;
+	return configured ? new URL(configured).origin : new URL(request.url).origin;
+};
+
+export function sameOriginRequest(request: Request): boolean {
+	const site = request.headers.get("sec-fetch-site");
+	if (site !== null) return site === "same-origin";
+	return request.headers.get("origin") === appOrigin(request);
+}
+
+const marked = <A extends unknown[]>(kind: RouteKind, handler: Handler<A>): Route<A> =>
+	Object.defineProperty(handler, ROUTE_KIND, { value: kind }) as Route<A>;
+
+export const mutatingRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> =>
+	marked("session", (request: Request, ...rest: A) =>
+		sameOriginRequest(request)
+			? handler(request, ...rest)
+			: safeResponse({ code: "origin_denied" satisfies Refusal["code"] }, 403),
+	);
+
+export const tokenRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> => marked("token", handler);
+
+export const signedRoute = <A extends unknown[]>(handler: Handler<A>): Route<A> => marked("signed", handler);

@@ -7,7 +7,6 @@ import type {
 	AssessmentReply,
 	CitationView,
 	FeedbackReceipt,
-	RefreshReceipt,
 	SeenReceipt,
 } from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
@@ -39,10 +38,6 @@ async function run<T>(
 		);
 		return { status: "lost" };
 	}
-}
-
-export async function requestAssessmentRefresh(requestId: unknown): Promise<ActionOutcome<RefreshReceipt>> {
-	return run("refresh", (a, db, actor) => a.requestRefresh(db, actor, { requestId }));
 }
 
 export async function markAssessmentSeen(runId: unknown): Promise<ActionOutcome<SeenReceipt>> {

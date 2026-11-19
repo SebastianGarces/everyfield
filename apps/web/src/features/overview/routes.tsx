@@ -19,12 +19,13 @@ export async function OverviewPage() {
 	if (!viewer || viewer.status === "unauthenticated")
 		redirect(`/signin?returnTo=${encodeURIComponent(DASHBOARD_HOME)}`);
 	const db = requestDatabase();
+	const framing = loadFrame();
 	const plant =
 		viewer.status === "active" && db ? await dashboardReader.resolveHome(db, viewer.authority ?? null) : "none";
 	const home = landingFor({ status: viewer.status, plant });
 	if (home !== DASHBOARD_HOME) redirect(home);
 
-	const frame = await loadFrame();
+	const frame = await framing;
 	if (frame.status === "denied")
 		return (
 			<StatePanel tone="lock" title="You do not have access to this church">

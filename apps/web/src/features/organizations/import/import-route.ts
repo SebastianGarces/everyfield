@@ -1,9 +1,10 @@
 import "server-only";
 import { requestDatabase } from "@/server/database";
-import { boundedBytes, Refusal } from "@/server/platform/boundary";
 import { pipelineActor } from "../pipeline-mount";
 import { pipelineImportLimits } from "@everyfield/contracts/organizations";
+import { readBoundedBody } from "@everyfield/domain/operations";
 import { pipelineImportWriter, previewPipelineImport } from "@everyfield/domain/organizations";
+import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 const NO_STORE = { "Cache-Control": "private, no-store" };
 const reply = (body: unknown) => Response.json(body, { headers: NO_STORE });
@@ -11,8 +12,6 @@ const tooLarge = () => reply({ status: "refused", refusal: { code: "file_refused
 const BODY_MAX = pipelineImportLimits.bytes + 256 * 1024;
 
 async function handle(request: Request, step: "preview" | "save") {
-	const site = request.headers.get("sec-fetch-site");
-	if (site !== null && site !== "same-origin") return new Response(null, { status: 403, headers: NO_STORE });
 	if (Number(request.headers.get("content-length") ?? 0) > BODY_MAX) return tooLarge();
 	const who = await pipelineActor();
 	if (who.kind !== "seat") return reply({ status: "refused", refusal: { code: "unavailable" } });
@@ -20,12 +19,9 @@ async function handle(request: Request, step: "preview" | "save") {
 	if (!db) return reply({ status: "lost" });
 	let input: Record<string, unknown>;
 	try {
-		const bytes = await boundedBytes(request, BODY_MAX).catch((error: unknown) => {
-			if (error instanceof Refusal) return null;
-			throw error;
-		});
+		const bytes = await readBoundedBody(request, BODY_MAX);
 		if (!bytes) return tooLarge();
-		const form = await new Response(bytes as BodyInit, {
+		const form = await new Response(bytes, {
 			headers: { "Content-Type": request.headers.get("content-type") ?? "" },
 		}).formData();
 		const file = form.get("file");
@@ -48,5 +44,5 @@ async function handle(request: Request, step: "preview" | "save") {
 	}
 }
 
-export const previewRoute = (request: Request) => handle(request, "preview");
-export const saveRoute = (request: Request) => handle(request, "save");
+export const previewRoute = mutatingRoute((request: Request) => handle(request, "preview"));
+export const saveRoute = mutatingRoute((request: Request) => handle(request, "save"));

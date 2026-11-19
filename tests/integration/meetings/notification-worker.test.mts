@@ -100,7 +100,6 @@ function service(authorize = authorizeNotificationMail) {
 const secret = "cron-" + randomUUID();
 const request = () => new Request("http://localhost/api/cron/jobs", { headers: { authorization: `Bearer ${secret}` } });
 const tick = scheduledJobs({
-	secret,
 	db,
 	storage: null,
 	cleanup: null,
