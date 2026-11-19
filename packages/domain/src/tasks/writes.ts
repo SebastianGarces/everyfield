@@ -95,7 +95,7 @@ export function checkAssignees(
 }
 
 type ReferenceInput = { relation?: z.infer<typeof c.relation> | null; followUp?: boolean };
-export const referenceColumns = (
+const referenceColumns = (
 	plantId: string,
 	assigneeIds: readonly string[] | SQL,
 	relation: ReferenceInput["relation"],
@@ -112,14 +112,14 @@ const referenceRow = z.object({
 	meeting: z.string().nullable(),
 	team: z.string().nullable(),
 });
-export function checkReferences(facts: unknown, input: ReferenceInput) {
+function checkReferences(facts: unknown, input: ReferenceInput) {
 	const row = referenceRow.parse(facts);
 	const assignees = checkAssignees(row.assignees, input.followUp ?? false);
 	const label = input.relation ? row[input.relation.kind] : null;
 	if (input.relation && label === null) deny("invalid_subject");
 	return { assignees, relationLabel: label };
 }
-export async function references(tx: Tx, plantId: string, input: ReferenceInput & { assigneeIds?: readonly string[] }) {
+async function references(tx: Tx, plantId: string, input: ReferenceInput & { assigneeIds?: readonly string[] }) {
 	const r = await tx.execute(sql`SELECT ${referenceColumns(plantId, input.assigneeIds ?? [], input.relation)}`);
 	return checkReferences(r.rows[0], input);
 }
