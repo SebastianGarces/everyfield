@@ -1337,15 +1337,30 @@ const noRenderGetState = {
 	meta: { type: "problem" },
 	create(context) {
 		const jsx = /\.[jt]sx$/.test(context.filename);
+		const aliases = new Set();
+		const calls = [];
 		return {
+			VariableDeclarator(node) {
+				if (memberName(node.init) === "getState" && node.id.type === "Identifier") aliases.add(node.id.name);
+				if (node.id.type !== "ObjectPattern") return;
+				for (const p of node.id.properties)
+					if (p.type === "Property" && !p.computed && nameOf(p.key) === "getState" && p.value.type === "Identifier")
+						aliases.add(p.value.name);
+			},
 			CallExpression(node) {
-				if (memberName(node.callee) !== "getState" || node.arguments.length) return;
-				if (readsOnlyActions(node) || subscribedSnapshot(node) || !rendering(node, jsx)) return;
-				context.report({
-					node,
-					message:
-						"getState() reads the store once while rendering and does not subscribe, so this render keeps showing the old value when the store changes. Select the value with useStore or the store context's useSelect, or read getState() inside the event handler or callback that needs it.",
-				});
+				if (node.arguments.length) return;
+				if (memberName(node.callee) === "getState" || node.callee.type === "Identifier") calls.push(node);
+			},
+			"Program:exit"() {
+				for (const node of calls) {
+					if (node.callee.type === "Identifier" && !aliases.has(node.callee.name)) continue;
+					if (readsOnlyActions(node) || subscribedSnapshot(node) || !rendering(node, jsx)) continue;
+					context.report({
+						node,
+						message:
+							"getState() reads the store once while rendering and does not subscribe, so this render keeps showing the old value when the store changes. Select the value with useStore or the store context's useSelect, or read getState() inside the event handler or callback that needs it.",
+					});
+				}
 			},
 		};
 	},

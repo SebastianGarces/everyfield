@@ -1444,7 +1444,7 @@ export function Report() {
 	);
 });
 
-test("INV-lint: a store read with getState() while rendering is reported; a read in a handler, a callback, a subscription snapshot or of the store's actions is not", () => {
+test("INV-lint: a store read with getState() while rendering is reported, also through a destructured or assigned getState; a read in a handler, a callback, a subscription snapshot or of the store's actions is not", () => {
 	const source = `import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { useStore } from "@/components/store";
 export function Card({ store, ids }) {
@@ -1470,13 +1470,19 @@ export function useDraft(store) {
 export function draftOf(store) {
 	return store.getState().draft;
 }
+export function Aliased({ store }) {
+	const { getState } = store;
+	const read = store.getState;
+	const onClick = () => read().count;
+	return <button onClick={onClick}>{getState().count + read().count}</button>;
+}
 `;
 	assert.deepEqual(
 		lint({ "apps/web/src/features/x/Card.tsx": source, "packages/ui/src/Card.tsx": source }).filter((hit) =>
 			hit.endsWith("no-render-get-state"),
 		),
 		["apps/web/src/features/x/Card.tsx", "packages/ui/src/Card.tsx"]
-			.flatMap((path) => [4, 5, 6, 7, 15, 21].map((line) => `${path}:${line} no-render-get-state`))
+			.flatMap((path) => [4, 5, 6, 7, 15, 21, 30, 30].map((line) => `${path}:${line} no-render-get-state`))
 			.sort(),
 	);
 });
