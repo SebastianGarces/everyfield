@@ -358,10 +358,12 @@ surface sets `polls` to say what keeps fetching: its commands get no network-idl
 check after each open, click, press or upload to be one that waits (a URL, `noText` or text, printed as `wait --url`,
 `wait --fn` and `wait --text`).
 
-Text checks see only rendered text, as a reader does: text in the page but hidden (`display: none` or
-`visibility: hidden`, such as a message waiting for a press) does not count. A `contains` check waits for the
-visible text to include its words (`wait --text`). An exact check waits for a visible element whose whole rendered
-text is its words, or, on a bare JSON response, for a JSON value equal to them (`wait --fn`).
+Text checks refuse text that has no box or is not painted: text under `display: none` or `visibility: hidden`
+(such as a message waiting for a press) does not count. Text that is rendered but visually hidden still counts:
+screen-reader-only (`sr-only`), zero-size, off-screen, clipped, `opacity: 0` or `font-size: 0` text matches. A
+`contains` check waits for the page's rendered text to include its words (`wait --text`). An exact check waits for
+an element whose whole rendered text is its words, or, on a bare JSON response, for a JSON value equal to them
+(`wait --fn`).
 
 ## Changing a feature, and the review proof
 
