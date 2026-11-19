@@ -590,22 +590,30 @@ const LIFECYCLE_METHODS = new Set([
 ]);
 const EXISTENCE_TESTS = new Set(["IfStatement", "ConditionalExpression", "LogicalExpression", "UnaryExpression"]);
 
+const isUseCallback = (callee) => (callee.type === "Identifier" ? callee.name : memberName(callee)) === "useCallback";
+
 function refCallback(context, value) {
-	if (value?.type === "CallExpression" && value.callee.type === "Identifier" && value.callee.name === "useCallback")
-		return refCallback(context, value.arguments[0]);
+	if (value?.type === "CallExpression" && isUseCallback(value.callee)) return refCallback(context, value.arguments[0]);
 	if (value?.type === "ArrowFunctionExpression" || value?.type === "FunctionExpression") return value;
 	if (value?.type !== "Identifier") return null;
 	for (let scope = context.sourceCode.getScope(value); scope; scope = scope.upper) {
 		const def = scope.set?.get(value.name)?.defs?.[0];
-		if (def) return def.node.type === "VariableDeclarator" ? refCallback(context, def.node.init) : null;
+		if (!def) continue;
+		if (def.node.type === "FunctionDeclaration") return def.node;
+		return def.node.type === "VariableDeclarator" ? refCallback(context, def.node.init) : null;
 	}
 	return null;
 }
+
+const isNothing = (node) =>
+	(node?.type === "Literal" && node.value === null && node.raw === "null") ||
+	(node?.type === "Identifier" && node.name === "undefined");
 
 const onlyTested = (reference) => {
 	const id = reference.identifier;
 	const p = id.parent;
 	if (p?.type === "UnaryExpression") return p.operator === "!";
+	if (p?.type === "BinaryExpression" && EQUALITY.has(p.operator)) return isNothing(p.left === id ? p.right : p.left);
 	return EXISTENCE_TESTS.has(p?.type) && (p.test === id || (p.type === "LogicalExpression" && p.left === id));
 };
 
@@ -1186,12 +1194,38 @@ const RENDER_CALLBACKS = {
 	useSyncExternalStore: [1, 2],
 };
 
+const ITERATORS = new Set([
+	"forEach",
+	"map",
+	"flatMap",
+	"filter",
+	"find",
+	"findIndex",
+	"findLast",
+	"findLastIndex",
+	"some",
+	"every",
+	"reduce",
+	"reduceRight",
+]);
+const iterationCall = (fn) => {
+	const call = fn?.parent;
+	return call?.type === "CallExpression" && call.arguments.includes(fn) && ITERATORS.has(memberName(call.callee) ?? "")
+		? call
+		: null;
+};
+const callerOf = (node) => {
+	let fn = nearestFunction(node);
+	for (let call = iterationCall(fn); call; call = iterationCall(fn)) fn = nearestFunction(call);
+	return fn;
+};
+
 const ROUTE_HANDLERS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
 const renders = (name, jsx) =>
 	/^use[A-Z0-9]/.test(name) || (jsx && !ROUTE_HANDLERS.has(name) && (name === "default" || /^[A-Z]/.test(name)));
 
 function rendering(node, jsx) {
-	const fn = nearestFunction(node);
+	const fn = callerOf(node);
 	if (!fn) return false;
 	const name = functionName(fn);
 	if (name && renders(name, jsx)) return true;
@@ -1242,7 +1276,7 @@ const noRenderWrites = ratcheted("no-render-writes", (context, push) => {
 		"Program:exit"() {
 			const writers = new Map();
 			const owner = (node) => {
-				const fn = nearestFunction(node);
+				const fn = callerOf(node);
 				const named = fn?.parent?.type === "VariableDeclarator" ? fn.parent.id : fn?.id;
 				return named && moduleBinding(context, named) ? named.name : null;
 			};

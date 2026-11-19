@@ -253,6 +253,7 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/go.ts": source,
+			"packages/ui/src/foundations/go.ts": source,
 			"apps/web/src/components/location.ts": source,
 			"apps/web/src/components/one-time-link.ts": `export const take = () => (window.history.replaceState(null, "", "/"), location.hash);\n`,
 			"apps/web/src/server/mail/link.ts":
@@ -282,6 +283,10 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 			"apps/web/src/features/x/go.ts:13 no-raw-history",
 			"apps/web/src/features/x/go.ts:14 no-raw-history",
 			"apps/web/src/features/x/go.ts:14 no-raw-history",
+			...[2, 3, 4, 4, 4, 5, 6, 7, 8, 9, 10, 10, 11, 12, 12, 12, 13, 13, 13, 13, 14, 14].map(
+				(line) => `packages/ui/src/foundations/go.ts:${line} no-raw-history`,
+			),
+			"packages/ui/src/foundations/go.ts:6 no-global-listeners",
 		].sort(),
 	);
 });
@@ -1254,8 +1259,16 @@ export function Panel({ start, keep }) {
 			<span ref={(node) => node?.focus()} />
 			<span ref={sized} />
 			<span ref={useCallback((node) => keep(node), [keep])} />
+			<span ref={(node) => { if (node !== null) start(); }} />
+			<span ref={React.useCallback(() => start(), [start])} />
+			<span ref={attach} />
+			<span ref={React.useCallback((node) => keep(node), [keep])} />
+			<span ref={(node) => { if (node !== null) node.focus(); }} />
 		</div>
 	);
+}
+function attach(node) {
+	if (undefined != node) console.info("attached");
 }
 `;
 	assert.deepEqual(lint({ "apps/web/src/features/x/Old.tsx": source }), [
@@ -1263,6 +1276,9 @@ export function Panel({ start, keep }) {
 		"apps/web/src/features/x/Old.tsx:20 no-effects",
 		"apps/web/src/features/x/Old.tsx:21 no-effects",
 		"apps/web/src/features/x/Old.tsx:22 no-effects",
+		"apps/web/src/features/x/Old.tsx:26 no-effects",
+		"apps/web/src/features/x/Old.tsx:27 no-effects",
+		"apps/web/src/features/x/Old.tsx:28 no-effects",
 		"apps/web/src/features/x/Old.tsx:4 no-effects",
 		"apps/web/src/features/x/Old.tsx:6 no-effects",
 		"apps/web/src/features/x/Old.tsx:7 no-effects",
@@ -1365,12 +1381,20 @@ export function useCount() {
 	return firstShow(0);
 }
 markShown("boot");
+function seedAll(ids) {
+	ids.forEach((id) => shown.add(id));
+}
+export function List({ ids }) {
+	ids.map((id) => [id]).forEach(([id]) => shown.add(id));
+	useState(() => seedAll(ids));
+	return <button onClick={() => ids.forEach((id) => shown.delete(id))}>{ids.length}</button>;
+}
 `;
 	assert.deepEqual(
 		lint({ "apps/web/src/features/x/Card.tsx": source, "packages/ui/src/Card.tsx": source }),
 		[
 			...["apps/web/src/features/x/Card.tsx", "packages/ui/src/Card.tsx"].flatMap((path) =>
-				[13, 14, 15, 16, 27].map((line) => `${path}:${line} no-render-writes`),
+				[13, 14, 15, 16, 27, 34, 35].map((line) => `${path}:${line} no-render-writes`),
 			),
 		].sort(),
 	);
