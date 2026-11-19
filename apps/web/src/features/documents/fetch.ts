@@ -1,4 +1,4 @@
-import { getReads } from "../../components/get-reads.ts";
+import { getReads, refusalAs } from "../../components/get-reads.ts";
 import type { Format } from "./model.ts";
 import type { GET } from "./read.ts";
 
@@ -9,7 +9,6 @@ export const listSavedDocuments = () => get("saved");
 export const loadWrittenDocuments = () => get("written");
 export const loadCopySources = () => get("sources");
 export const listChurchTemplates = () => get("templates");
-export async function compareWithTemplate(documentId: string) {
-	const r = await get("compare", { documentId });
-	return r.status === "refused" && !("message" in r) ? ({ status: "lost" } as const) : r;
-}
+export const compareWithTemplate = (documentId: string) =>
+	refusalAs(get("compare", { documentId }), () => ({ status: "lost" }) as const);
+export const downloadSavedDocument = (documentId: string) => get("download", { documentId });

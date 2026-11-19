@@ -1,5 +1,5 @@
 import { getReads } from "../../components/get-reads.ts";
-import type { GuideResult, OrderRead, SearchResult } from "./actions.ts";
+import type { ExportResult, GuideResult, OrderRead, SearchResult } from "./actions.ts";
 import type { GET } from "./read.ts";
 
 const get = getReads<typeof GET>("/api/wiki/read");
@@ -23,3 +23,11 @@ export async function readSourceOrder(): Promise<OrderRead> {
 	const r = await get("order");
 	return r.status === "refused" ? { status: "lost" } : r;
 }
+
+async function exported(read: ReturnType<typeof get<"pdf" | "print">>): Promise<ExportResult> {
+	const r = await read;
+	return r.status === "refused" ? { status: "lost" } : r;
+}
+
+export const downloadPdf = (articleId: string, source: string | null) => exported(get("pdf", { articleId, source }));
+export const printCopy = (articleId: string, source: string | null) => exported(get("print", { articleId, source }));
