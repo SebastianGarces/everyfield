@@ -71,12 +71,12 @@ export const BY_HAND: Readonly<Record<string, string>> = {
 	LANGFUSE_BASE_URL: "optional Evry tracing",
 	LANGFUSE_TRACING_ENVIRONMENT: "optional Evry tracing",
 };
-export const SHAPES = {
+const SHAPES = {
 	IDENTITY_MAIL_FROM: { rule: mailEnv.IDENTITY_MAIL_FROM, shape: "a bare address such as mail@example.com" },
 } as const;
 export type Shape = { name: string; state: "right shape" | "cannot check" | `wrong shape: ${string}` };
 
-export function shapes(production: Set<string> | null, values: ReadonlyMap<string, string> | null): Shape[] {
+function shapes(production: Set<string> | null, values: ReadonlyMap<string, string> | null): Shape[] {
 	return Object.entries(SHAPES)
 		.filter(([name]) => production?.has(name))
 		.map(([name, { rule, shape }]) => {
@@ -111,7 +111,6 @@ export type Plan = {
 	keys: { name: KeyName | "IDENTITY_ORIGIN"; generate: boolean }[];
 	refusals: string[];
 	report: { name: string; state: string }[];
-	shapes: Shape[];
 };
 
 export function plan(seen: Observed, rotate: boolean): Plan {
@@ -163,7 +162,7 @@ export function plan(seen: Observed, rotate: boolean): Plan {
 			state: inProduction(name) ? "PRESENT, but production must leave it unset" : "leave unset in production",
 		})),
 	];
-	return { logins, keys, refusals, report, shapes: seen.shapes };
+	return { logins, keys, refusals, report };
 }
 
 const reportedByScript = (name: string) =>
@@ -413,9 +412,9 @@ export async function main(argv: string[], env: NodeJS.ProcessEnv = process.env)
 		say("\nEvery setting production needs:");
 		const width = Math.max(...p.report.map((r) => r.name.length));
 		for (const r of p.report) say(`  ${r.name.padEnd(width)}  ${r.state}`);
-		if (p.shapes.length) {
+		if (seen.shapes.length) {
 			say("\nShape of the hand-set settings Vercel Production has (values are never printed):");
-			for (const s of p.shapes) say(`  ${s.name.padEnd(width)}  ${s.state}`);
+			for (const s of seen.shapes) say(`  ${s.name.padEnd(width)}  ${s.state}`);
 		}
 		if (p.refusals.length)
 			say(`\n${opts.apply ? "Refused" : "Apply would refuse"}:\n${p.refusals.map((r) => `  - ${r}`).join("\n")}`);
