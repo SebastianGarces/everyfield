@@ -20,7 +20,6 @@ export async function programCall<T>(
 		actor = who.authority;
 	}
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
 	try {
 		return await run(db, actor);
 	} catch (error) {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { serverEnv, type ServerEnv } from "../config.ts";
 
 const GITHUB_TIMEOUT_MS = 10_000;
 const GITHUB_API = "https://api.github.com";
@@ -24,8 +25,13 @@ const env = z.object({
 	FEEDBACK_GITHUB_TOKEN: z.string().min(1),
 	FEEDBACK_GITHUB_API: z.url().optional(),
 });
-export function githubConfig(source: Readonly<Record<string, string | undefined>> = process.env): GitHubConfig | null {
-	const parsed = env.safeParse(source);
+export function githubConfig(source: ServerEnv = serverEnv()): GitHubConfig | null {
+	const parsed = env.safeParse({
+		FEEDBACK_GITHUB_REPOSITORY: source.FEEDBACK_GITHUB_REPOSITORY,
+		FEEDBACK_GITHUB_REPOSITORY_ID: source.FEEDBACK_GITHUB_REPOSITORY_ID,
+		FEEDBACK_GITHUB_TOKEN: source.FEEDBACK_GITHUB_TOKEN,
+		FEEDBACK_GITHUB_API: source.FEEDBACK_GITHUB_API,
+	});
 	if (!parsed.success) return null;
 	const v = parsed.data;
 	return {

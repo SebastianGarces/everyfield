@@ -5,7 +5,14 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const repo = fileURLToPath(new URL("../../", import.meta.url));
-const ROOTS = ["tests/integration", "tests/evry/runtime"];
+const ROOTS = [
+	"tests/integration",
+	"tests/evry/adapters",
+	"tests/evry/catalog",
+	"tests/evry/execution",
+	"tests/evry/runtime",
+	"tests/unit",
+];
 const SOURCE = /\.(mts|mjs|ts|js)$/;
 
 const EXEMPT = {
@@ -244,11 +251,19 @@ function scannedFiles() {
 	);
 }
 
-test("T-261: no file under tests/integration or tests/evry/runtime sleeps, polls the clock or asserts on wall-clock time", () => {
+test("T-261: no file under tests/integration, tests/unit or the Evry adapter, catalog, execution and runtime tests sleeps, polls the clock or asserts on wall-clock time", () => {
 	const files = scannedFiles();
 	assert.ok(
 		files.some((file) => file.path === "tests/evry/runtime/streaming.test.mts"),
 		"the scan reaches the Evry runtime tests",
+	);
+	assert.ok(
+		files.some((file) => file.path === "tests/evry/execution/proposals.test.mts"),
+		"the scan reaches the Evry execution tests",
+	);
+	assert.ok(
+		files.some((file) => file.path === "tests/unit/save/model.test.mjs"),
+		"the scan reaches the unit tests",
 	);
 	assert.ok(
 		files.some((file) => file.path === "tests/integration/writes/counter.mjs"),

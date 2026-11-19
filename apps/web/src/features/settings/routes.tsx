@@ -19,13 +19,13 @@ export async function SettingsSectionPage({ params }: { params: Promise<{ sectio
 	const section = dialogSection((await params).section);
 	if (!section) notFound();
 	const v = await getViewer();
-	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(`/settings/${section}`)}`);
+	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(`/settings/${section}`)}`);
 	return <h1 className="sr-only">Settings</h1>;
 }
 
 export async function SettingsIndexPage() {
 	const v = await getViewer();
-	if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/settings")}`);
+	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/settings")}`);
 	return <h1 className="sr-only">Settings</h1>;
 }
 
@@ -71,7 +71,7 @@ export const confirmEmailMetadata: Metadata = {
 
 export async function ConfirmEmailPage() {
 	const v = await getViewer();
-	if (!v || v.status === "unauthenticated") redirect("/signin?returnTo=%2Fconfirm-email");
+	if (v.status === "unauthenticated") redirect("/signin?returnTo=%2Fconfirm-email");
 	const proof = (await cookies()).get(EMAIL_CHANGE_PROOF_COOKIE)?.value ?? null;
 	return <ConfirmEmailScreen proof={proof} confirm={confirmEmailChange} accountHref="/settings/account" />;
 }

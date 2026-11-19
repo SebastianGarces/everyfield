@@ -9,7 +9,7 @@ import { refusedWith } from "./church/refusal.ts";
 import type { CopySource, OwnedView, Resolved, SavedFile } from "./model.ts";
 import { presentOwned, presentSaved, refused, runAs, storageMissing, type DocumentOutcome } from "./outcome.ts";
 import { documentActor } from "./server.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 export type CompareResult =
 	{ status: "ok"; compare: ChurchCompare } | { status: "refused"; code: string; message: string } | { status: "lost" };
@@ -75,16 +75,15 @@ export const GET = defineReads(
 			}),
 		),
 		templates: get(z.undefined(), async ({ actor }): Promise<ChurchTemplates> => {
-			const db = requestDatabase();
-			if (!actor || !db) return { status: "lost" };
-			try {
-				const reply = await documentsWriter.listChurch(db, actor, {});
-				if (reply.status !== "ok") return refusedWith(reply.error.code);
-				return { status: "ok", templates: reply.value.templates };
-			} catch (error) {
-				logFailure({ component: "church-documents", outcome: "template_list_failed" }, error);
-				return { status: "lost" };
-			}
+			if (!actor) return refusedWith("access_denied");
+			const reply = await transient(
+				{ component: "church-documents", outcome: "template_list_failed" },
+				() => documentsWriter.listChurch(requestDatabase(), actor, {}),
+				LOST,
+			);
+			if (reply.status === "lost") return reply;
+			if (reply.status !== "ok") return refusedWith(reply.error.code);
+			return { status: "ok", templates: reply.value.templates };
 		}),
 		download: get(
 			z.strictObject({ documentId: z.string() }),
@@ -99,17 +98,16 @@ export const GET = defineReads(
 			},
 		),
 		compare: get(z.strictObject({ documentId: z.string() }), async ({ actor }, input): Promise<CompareResult> => {
-			const db = requestDatabase();
-			if (!actor || !db) return { status: "lost" };
-			try {
-				const reply = await documentsWriter.readTemplateCompare(db, actor, input);
-				if (reply.status !== "ok")
-					return { status: "refused", code: reply.error.code, message: refusedWith(reply.error.code).message };
-				return { status: "ok", compare: reply.value };
-			} catch (error) {
-				logFailure({ component: "church-documents", outcome: "compare_failed" }, error);
-				return { status: "lost" };
-			}
+			if (!actor) return { ...refusedWith("access_denied"), code: "access_denied" };
+			const reply = await transient(
+				{ component: "church-documents", outcome: "compare_failed" },
+				() => documentsWriter.readTemplateCompare(requestDatabase(), actor, input),
+				LOST,
+			);
+			if (reply.status === "lost") return reply;
+			if (reply.status !== "ok")
+				return { status: "refused", code: reply.error.code, message: refusedWith(reply.error.code).message };
+			return { status: "ok", compare: reply.value };
 		}),
 	}),
 );

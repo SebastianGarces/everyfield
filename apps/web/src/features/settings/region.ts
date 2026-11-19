@@ -32,11 +32,11 @@ const regionSave = z.object({
 
 export async function saveRegion(raw: unknown): Promise<RegionSave> {
 	const seat = plantSeat(await getViewer());
-	const m = current();
 	const input = regionSave.safeParse(raw);
-	if (!seat || !m) return { status: "refused", code: "unavailable" };
+	if (!seat) return { status: "refused", code: "unavailable" };
 	if (!input.success) return { status: "refused", code: "invalid_input" };
 	const { locality: place, ...rest } = input.data;
+	const m = current();
 	const request = correctReportingLocationRequest.safeParse({
 		requestKey: rest.requestKey,
 		expectedRevision: rest.expectedRevision,

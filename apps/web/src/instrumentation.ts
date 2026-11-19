@@ -1,7 +1,10 @@
-import { logFailure, logInfo } from "@everyfield/domain/log";
+import { asLogNames, logFailure, logInfo, logLine } from "@everyfield/domain/log";
 export async function register() {
 	if (process.env.NEXT_RUNTIME !== "nodejs") return;
-	(await import("./server/mail-env.ts")).refuseMissingIdentitySettings();
+	const config = await import("./server/config.ts");
+	config.refuseMissingServerConfig();
+	const problem = config.serverConfigProblem();
+	if (problem) logLine({ component: "server", event: "config_missing", missing: asLogNames(problem.names) });
 	const { privateStorage, assertPrivateBucket } = await import("@everyfield/db/schema");
 	const storage = privateStorage();
 	if (storage)
@@ -13,6 +16,7 @@ export async function register() {
 	} catch (error) {
 		logFailure({ component: "server", event: "tracing_failed" }, error);
 	}
+	if (problem) return;
 	const started = performance.now();
 	const ms = () => Math.round(performance.now() - started);
 	try {

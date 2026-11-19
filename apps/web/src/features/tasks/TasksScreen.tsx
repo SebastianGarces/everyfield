@@ -57,11 +57,12 @@ import {
 	type StatusAction,
 } from "./actions.ts";
 import { BulkBar, BulkReport, type Report } from "./bulk.tsx";
-import { loadBlocking, loadRows, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
+import { loadRows, loadTask, relationOptions, type Loaded as TaskLoad } from "./fetch.ts";
 import {
 	blocks,
 	withBlockers,
 	type Blocker,
+	type Recount,
 	dueText,
 	previewOverdue,
 	matches,
@@ -116,7 +117,7 @@ import { Assignee, DoneBox, intentHandlers, MetaLine, StatusItems } from "./part
 import type { StepAssignee } from "./structure.tsx";
 import { warmAssignees } from "./AssigneePicker.tsx";
 import { TaskDialog, type Commit, type EditForm } from "./TaskDialog.tsx";
-import { TaskSheet, type DetailState } from "./TaskSheet.tsx";
+import { TaskSheet } from "./TaskSheet.tsx";
 import {
 	BULK,
 	createTasksPageStore,
@@ -162,13 +163,12 @@ const doneOf = (a: StatusAction): string =>
 				? "closed as no longer needed"
 				: `moved to ${STATUS_LABEL[a.status]}`;
 const STALE = new Set(["conflict", "open_successor"]);
-const pageFields = ({ items, counts, total, selected, report, badgesStale }: TasksPageState) => ({
+const pageFields = ({ items, counts, total, selected, report }: TasksPageState) => ({
 	items,
 	counts,
 	total,
 	selected,
 	report,
-	badgesStale,
 });
 
 const noticeOf = (lane: SaveLane<TaskForm> | null) => ({
@@ -191,7 +191,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 	const [list, setList] = useState(() => ({ answer: loaded, store: createTasksPageStore(loaded) }));
 	if (list.answer !== loaded) setList({ answer: loaded, store: createTasksPageStore(loaded) });
 	const pageStore = list.store;
-	const { items, counts, total, selected, report, badgesStale } = useStore(pageStore, useShallow(pageFields));
+	const { items, counts, total, selected, report } = useStore(pageStore, useShallow(pageFields));
 	const changePage = pageStore.getState().actions.change;
 	const setItems = (change: (rows: TaskItem[]) => TaskItem[]) => changePage((p) => ({ items: change(p.items) }));
 	const setCounts = (change: (c: TaskCounts) => TaskCounts) => changePage((p) => ({ counts: change(p.counts) }));
@@ -323,75 +323,32 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 					: cur.history;
 			return { ...d, [task.id]: { ...cur, task, history, occurrence } };
 		});
-		if (before && (task.deleted || isSettled(before.status) !== isSettled(task.status)))
-			blockersChanged([{ id: task.id, status: task.status, deleted: task.deleted }]);
+		if (saved.recounted.length || (before && (task.deleted || isSettled(before.status) !== isSettled(task.status))))
+			blockersChanged([{ id: task.id, status: task.status, deleted: task.deleted }], saved.recounted);
 	};
 
-	const blockersChanged = (changed: Blocker[]) => {
-		const by = new Set(changed.map((c) => c.id));
-		const recount = (st: DetailState) =>
-			st.status === "ok" && st.prerequisites ? withBlockers(st.prerequisites.items, changed) : null;
-		const counts = new Map<string, number>();
-		for (const [id, st] of Object.entries(known())) {
-			const r = recount(st);
-			if (r) counts.set(id, r.open);
-		}
+	const blockersChanged = (changed: Blocker[], recounted: readonly Recount[]) => {
+		const fresh = new Map<string, number>(recounted.map((r) => [r.taskId, r.openPrerequisites]));
 		setDetails((d) =>
 			Object.fromEntries(
 				Object.entries(d).map(([id, st]) => {
-					const r = recount(st);
-					if (!r || st.status !== "ok") return [id, st];
+					if (st.status !== "ok") return [id, st];
+					const r = st.prerequisites ? withBlockers(st.prerequisites.items, changed) : null;
+					const open = fresh.get(id) ?? r?.open;
+					if (open === undefined) return [id, st];
 					return [
 						id,
 						{
 							...st,
-							task: { ...st.task, openPrerequisites: r.open },
-							prerequisites: { taskId: st.task.id, items: r.items, blocked: r.open > 0 },
+							task: { ...st.task, openPrerequisites: open },
+							prerequisites: r ? { taskId: st.task.id, items: r.items, blocked: open > 0 } : st.prerequisites,
 						},
 					];
 				}),
 			),
 		);
-		if (counts.size)
-			setItems((rows) => rows.map((r) => (counts.has(r.id) ? { ...r, openPrerequisites: counts.get(r.id)! } : r)));
-		const reopened = changed.some((c) => !c.deleted && !isSettled(c.status));
-		const unknown = listed().some((r) => {
-			const st = known()[r.id];
-			const held = st?.status === "ok" && st.prerequisites !== null;
-			return !held && !by.has(r.id) && !isSettled(r.status) && (reopened || r.openPrerequisites > 0);
-		});
-		if (unknown || pageStore.getState().readingBadges) readBadges();
-	};
-	const readBadges = (retry = true) => {
-		const { badgeReads } = pageStore.getState();
-		const read = badgeReads.start(window.location.search);
-		const current = () => badgeReads.applies(read, window.location.search);
-		const held = (id: string) => {
-			const st = known()[id];
-			return st?.status === "ok" && st.prerequisites !== null;
-		};
-		const ids = listed()
-			.filter((row) => !held(row.id))
-			.map((row) => row.id);
-		if (!ids.length) {
-			changePage(() => ({ readingBadges: false }));
-			return badgeReads.end();
-		}
-		changePage(() => ({ readingBadges: true, badgesStale: false }));
-		loadBlocking(ids).then((r) => {
-			if (!current()) return;
-			if (r.status !== "ok" && retry) return readBadges(false);
-			if (r.status !== "ok") return changePage(() => ({ readingBadges: false, badgesStale: true }));
-			changePage(() => ({ readingBadges: false }));
-			const fresh = new Map(r.value.map((t) => [t.id, t.openPrerequisites]));
-			setItems((rows) =>
-				rows.map((row) =>
-					fresh.has(row.id) && !held(row.id) && fresh.get(row.id) !== row.openPrerequisites
-						? { ...row, openPrerequisites: fresh.get(row.id)! }
-						: row,
-				),
-			);
-		});
+		if (fresh.size)
+			setItems((rows) => rows.map((r) => (fresh.has(r.id) ? { ...r, openPrerequisites: fresh.get(r.id)! } : r)));
 	};
 
 	const addSuccessor = (pred: Pick<TaskItem, "id">, next: TaskDetail) => {
@@ -659,7 +616,10 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 							for (const i of result.items) if (i.successor) addSuccessor({ id: i.taskId }, i.successor);
 							const changed = new Set<string>(result.items.filter((i) => i.outcome === "changed").map((i) => i.taskId));
 							if (kind === "complete" && changed.size)
-								blockersChanged([...changed].map((id) => ({ id, status: "complete" as const, deleted: false })));
+								blockersChanged(
+									[...changed].map((id) => ({ id, status: "complete" as const, deleted: false })),
+									result.recounted,
+								);
 							const shownTask = store.getState().openId;
 							setDetails((d) =>
 								Object.fromEntries(Object.entries(d).filter(([id]) => !changed.has(id) || id === shownTask)),
@@ -828,16 +788,6 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 					<Toolbar query={query} go={go} admin={admin} rows={items} />
 					{report ? <BulkReport report={report} onOpen={open} onClose={() => setReport(null)} /> : null}
 					<Notices lanes={listNotices} />
-					<div role="status" className="empty:hidden">
-						{badgesStale ? (
-							<p className="mx-1.5 mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-surface px-4 py-2 text-sm text-text-2">
-								Some “Blocked by” notes on this page may be out of date. We could not check them.
-								<Button variant="ghost" size="sm" onClick={() => readBadges()}>
-									Check again
-								</Button>
-							</p>
-						) : null}
-					</div>
 					<div aria-busy={navigating || undefined} className="transition-opacity duration-150 aria-busy:opacity-60">
 						{shown.length === 0 ? (
 							<Empty

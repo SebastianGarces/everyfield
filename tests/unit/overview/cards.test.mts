@@ -11,7 +11,7 @@ const { AppRouterContext } = web("next/dist/shared/lib/app-router-context.shared
 const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {} };
 const { ActivityCard, LaunchCard, MetricsCards } = await import("../../../apps/web/src/features/overview/cards.tsx");
 
-const text = (element) =>
+const text = (element: unknown) =>
 	renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router }, element))
 		.replace(/<[^>]+>/g, " ")
 		.replace(/\s+/g, " ")
@@ -43,7 +43,7 @@ test("AC:CASE-ADM-005 a card whose read failed says so, with no zero or empty fe
 	);
 });
 
-const milestone = (id, done) => ({
+const milestone = (id: number, done: boolean) => ({
 	id: `00000000-0000-4000-8000-00000000000${id}`,
 	templateKey: `m${id}`,
 	area: "operations",
@@ -55,7 +55,7 @@ const milestone = (id, done) => ({
 	tasks: [],
 	practices: null,
 });
-const plan = (launch, outcome = null) => ({
+const plan = (launch: { status: string; targetDate: string | null } | null, outcome: object | null = null) => ({
 	today: "2026-10-13",
 	timeZone: "America/Chicago",
 	launch: launch && { revision: "2", ...launch },
@@ -68,7 +68,8 @@ const plan = (launch, outcome = null) => ({
 	debrief: null,
 	summary: null,
 });
-const card = (p, admin = true) => text(createElement(LaunchCard, { loaded: { status: "ok", value: p }, admin }));
+const card = (p: ReturnType<typeof plan>, admin = true) =>
+	text(createElement(LaunchCard, { loaded: { status: "ok", value: p }, admin }));
 
 test("AC:CASE-ADM-005 the launch card counts church-local days and shows the Launch plan's readiness", () => {
 	const ahead = card(plan({ status: "scheduled", targetDate: "2026-11-10" }));

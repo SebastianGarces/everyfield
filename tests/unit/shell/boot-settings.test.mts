@@ -38,7 +38,7 @@ function assertRefused(result: ReturnType<typeof boot>, missing: readonly string
 	assert.deepEqual(JSON.parse(lines[0]!), {
 		component: "server",
 		event: "settings_missing",
-		...Object.fromEntries(missing.map((key) => [key, true])),
+		missing: [...missing].sort().join(","),
 	});
 	for (const value of Object.values(values))
 		assert.ok(!result.stderr.includes(value), "a setting value reached the output");
