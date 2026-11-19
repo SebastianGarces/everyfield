@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { join } from "node:path";
 import { test } from "node:test";
+import { setServerEnv } from "../../support/server-env.mts";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { respondInvitationRequest } from "../../../packages/contracts/src/organizations/index.ts";
 
@@ -10,7 +11,7 @@ const FEATURE = fileURLToPath(new URL("../../../apps/web/src/features/organizati
 const ORIGIN = "https://everyfield.test";
 const PROOF = "Synthetic-relationship-proof-4Kd!";
 const INVITATION = "8d0f5f0e-3f43-4c43-9f0b-4d3f6c2f6a11";
-process.env.IDENTITY_ORIGIN = ORIGIN;
+setServerEnv({ IDENTITY_ORIGIN: ORIGIN });
 
 type Viewer = { kind: "signed_out" } | { kind: "unavailable" } | { kind: "viewer"; [k: string]: unknown };
 type State = {

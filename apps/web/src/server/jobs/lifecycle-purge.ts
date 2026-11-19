@@ -14,6 +14,7 @@ import {
 	type Claim,
 	type JobResult,
 } from "./queue.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 const LEASE_MARGIN_MS = 60_000;
 
@@ -68,7 +69,10 @@ async function removeFiles(cleanup: Database, storage: PrivateStorage, input: De
 				return w ? { kind: "system", cause: "object_cleanup" } : null;
 			},
 			file.id,
-		).catch(() => ({ status: "unknown" as const }));
+		).catch((error: unknown) => {
+			logFailure({ component: "lifecycle-purge", outcome: "object_unconfirmed" }, error);
+			return { status: "unknown" as const };
+		});
 		if (outcome.status !== "inaccessible") confirmed = false;
 	}
 	return confirmed;
@@ -88,6 +92,7 @@ async function purge(db: Database, cleanup: Database, storage: PrivateStorage, c
 	} catch (error) {
 		if (error instanceof Refusal && (error.code === "conflict" || error.code === "deadline_passed"))
 			return { state: "superseded", code: error.code };
+		logFailure({ component: "lifecycle-purge", outcome: "purge_unavailable" }, error);
 		return { state: "retry_wait", code: "purge_unavailable" };
 	}
 }

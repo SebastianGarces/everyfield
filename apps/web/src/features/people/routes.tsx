@@ -18,8 +18,8 @@ import { params } from "../../components/search-params.ts";
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function gate(returnTo: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const v = await getViewer();
-	if (v?.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
-	if (v?.people) return { viewer: v.people };
+	if (v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (v.people) return { viewer: v.people };
 	return {
 		blocked: (
 			<>

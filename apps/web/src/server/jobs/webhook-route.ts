@@ -4,11 +4,12 @@ import { applyMailCallback } from "./webhook";
 import { readBoundedBody } from "@everyfield/domain/operations";
 import { Refusal, safeBoundary, safeResponse, signedRoute } from "../platform/boundary";
 import { verifyCallback } from "../platform/webhook";
+import { serverEnv } from "../config.ts";
 
 export async function resendWebhook(
 	request: Request,
-	resolveDb: () => Database | null,
-	secret = process.env.RESEND_WEBHOOK_SECRET ?? "",
+	resolveDb: () => Database,
+	secret = serverEnv().RESEND_WEBHOOK_SECRET ?? "",
 ) {
 	if (request.method !== "POST") return safeResponse({ code: "method_not_allowed" }, 405);
 	if (secret.length < 32) return safeResponse({ code: "unavailable" }, 404);
@@ -18,12 +19,11 @@ export async function resendWebhook(
 		let key: string;
 		try {
 			key = verifyCallback(bytes, request.headers, secret);
-		} catch {
+		} catch (error) {
+			if (!(error instanceof Refusal)) throw error;
 			return safeResponse({ code: "invalid_signature" }, 401);
 		}
-		const db = resolveDb();
-		if (!db) return safeResponse({ code: "unavailable" }, 404);
-		const result = await applyMailCallback(db, bytes, key);
+		const result = await applyMailCallback(resolveDb(), bytes, key);
 		return safeResponse(result, result.result === "pending" ? 202 : 200);
 	});
 }
@@ -33,5 +33,5 @@ export function resendWebhookGet() {
 }
 
 export const resendWebhookPost = signedRoute(function resendWebhookPost(request: Request) {
-	return resendWebhook(request, () => jobDatabase());
+	return resendWebhook(request, jobDatabase);
 });

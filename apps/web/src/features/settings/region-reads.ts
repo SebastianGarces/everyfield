@@ -4,12 +4,12 @@ import { readReportingLocation, suggestRegions } from "@everyfield/domain/organi
 import "server-only";
 import { z } from "zod";
 import type { RegionRead, RegionSuggestion } from "./region";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 type Session = Awaited<ReturnType<typeof getViewer>>;
 
 export function plantSeat(v: Session) {
-	const authority = v?.status === "active" ? v.authority : null;
+	const authority = v.status === "active" ? v.authority : null;
 	const context = authority?.actor.context;
 	if (!authority || context?.kind !== "seat" || context.owner.kind !== "plant") return null;
 	return { authority, plant: context.owner };
@@ -17,16 +17,16 @@ export function plantSeat(v: Session) {
 
 export async function readRegion(session: Session): Promise<RegionRead> {
 	const seat = plantSeat(session);
-	const db = requestDatabase();
 	if (!seat) return { status: "denied" };
-	if (!db) return { status: "lost" };
-	try {
-		const r = await readReportingLocation(db, seat.authority);
-		return r ? { status: "ok", ...r } : { status: "denied" };
-	} catch (error) {
-		logFailure({ component: "settings", outcome: "region_read_failed" }, error);
-		return { status: "lost" };
-	}
+	const db = requestDatabase();
+	return transient(
+		{ component: "settings", outcome: "region_read_failed" },
+		async () => {
+			const r = await readReportingLocation(db, seat.authority);
+			return r ? { status: "ok", ...r } : { status: "denied" };
+		},
+		LOST,
+	);
 }
 
 const text = z
@@ -39,13 +39,12 @@ export const locality = z.strictObject({ city: text, stateProvince: text, countr
 
 export async function suggestRegion(session: Session, raw: unknown): Promise<RegionSuggestion[] | null> {
 	const seat = plantSeat(session);
-	const db = requestDatabase();
 	const place = locality.safeParse(raw);
-	if (!seat || !db || !place.success) return null;
-	try {
-		return await suggestRegions(db, seat.authority, place.data);
-	} catch (error) {
-		logFailure({ component: "settings", outcome: "region_suggest_failed" }, error);
-		return null;
-	}
+	if (!seat || !place.success) return null;
+	const db = requestDatabase();
+	return transient(
+		{ component: "settings", outcome: "region_suggest_failed" },
+		() => suggestRegions(db, seat.authority, place.data),
+		null,
+	);
 }

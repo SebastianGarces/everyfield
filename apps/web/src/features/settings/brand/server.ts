@@ -8,10 +8,11 @@ import { randomUUID } from "node:crypto";
 import { requestDatabase } from "@/server/database";
 import { getViewer } from "@/server/request-context";
 import type { BrandView } from "../port";
-import { logFailure, type LogWord } from "@everyfield/domain/log";
+import { type LogWord } from "@everyfield/domain/log";
+import { transient } from "../../../server/platform/transient.ts";
 
 type Db = NonNullable<ReturnType<typeof requestDatabase>>;
-type Actor = NonNullable<Awaited<ReturnType<typeof getViewer>>>["authority"];
+type Actor = Awaited<ReturnType<typeof getViewer>>["authority"];
 
 const unavailable = (): BrandReply<never> => ({
 	status: "refused",
@@ -24,14 +25,10 @@ type Call<T> = (db: Db, actor: NonNullable<Actor>) => Promise<BrandReply<T>>;
 const run = async <T, O extends string>(outcome: LogWord<O>, call: Call<T>) => runAs(await getViewer(), outcome, call);
 
 async function runAs<T, O extends string>(viewer: Session, outcome: LogWord<O>, call: Call<T>) {
+	const authority = viewer.status === "active" ? viewer.authority : null;
+	if (!authority) return unavailable();
 	const db = requestDatabase();
-	if (!db || viewer?.status !== "active" || !viewer.authority) return unavailable();
-	try {
-		return await call(db, viewer.authority);
-	} catch (error) {
-		logFailure({ component: "brand", outcome }, error);
-		return unavailable();
-	}
+	return transient({ component: "brand", outcome }, () => call(db, authority), unavailable());
 }
 
 export function readBrand(viewer: Session): Promise<BrandReply<BrandView>> {

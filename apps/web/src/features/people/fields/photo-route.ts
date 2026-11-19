@@ -6,6 +6,7 @@ import { z } from "zod";
 import { read } from "../server.ts";
 import { privateStorage } from "@everyfield/db/schema";
 import { peopleContext } from "./server.ts";
+import { transient } from "../../../server/platform/transient.ts";
 
 const params = z.object({ personId: z.uuid(), versionId: z.uuid() });
 const gone = () => new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
@@ -16,18 +17,23 @@ export async function GET(
 ) {
 	const p = params.safeParse(await raw);
 	const v = await getViewer();
-	if (!p.success || !v?.people) return gone();
+	const people = v.people;
+	if (!p.success || !people) return gone();
 	const etag = `"${p.data.versionId}"`;
 	const headers = { "Cache-Control": "private, no-cache", ETag: etag, "X-Content-Type-Options": "nosniff" };
 	if (request.headers.get("if-none-match") === etag) {
-		const now = await read(v.people, (tx, ctx) => personFields.getPersonPhoto(tx, ctx, { personId: p.data.personId }));
+		const now = await read(people, (tx, ctx) => personFields.getPersonPhoto(tx, ctx, { personId: p.data.personId }));
 		const same = now.status === "ok" && now.value.status === "available" && now.value.versionId === p.data.versionId;
 		return same ? new Response(null, { status: 304, headers }) : gone();
 	}
 	const storage = privateStorage();
+	if (!storage) return gone();
 	const db = requestDatabase();
-	if (!storage || !db) return gone();
-	const photo = await readPersonPhoto(db, storage, peopleContext(v.people), p.data).catch(() => null);
+	const photo = await transient(
+		{ component: "people", outcome: "photo_read_failed" },
+		() => readPersonPhoto(db, storage, peopleContext(people), p.data),
+		null,
+	);
 	if (photo?.status !== "ok") return gone();
 	return new Response(Buffer.from(photo.value.bytes), {
 		headers: { ...headers, "Content-Type": photo.value.mediaType, "Content-Length": String(photo.value.bytes.length) },

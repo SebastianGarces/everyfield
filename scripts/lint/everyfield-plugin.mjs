@@ -1232,6 +1232,190 @@ const deploymentEnv = {
 	},
 };
 
+export const SERVER_CONFIG = "apps/web/src/server/config.ts";
+const WEB_CODE = /^apps\/web\/src\//;
+const ENV_PARSERS = new Set(["parse", "safeParse", "parseAsync", "safeParseAsync"]);
+
+const isProcess = (node, context) =>
+	(node?.type === "Identifier" && node.name === "process" && !declared(context, node)) ||
+	(memberName(node) === "process" && isHost(node.object, context, GLOBAL_HOSTS));
+
+const envMessage = `Read the server environment through ${SERVER_CONFIG}: serverConfig() for the values every deployment has (parsed once at start-up), serverEnv() for optional integrations.`;
+const parseMessage = `Do not parse the whole server environment per call: add the value to ${SERVER_CONFIG}, which parses it once at start-up.`;
+const isServerEnvCall = (node) =>
+	node?.type === "CallExpression" && node.callee.type === "Identifier" && node.callee.name === "serverEnv";
+
+const serverConfig = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === SERVER_CONFIG || !WEB_CODE.test(path)) return {};
+		const copies = new Set();
+		const pending = [];
+		const wholeEnv = (node) =>
+			isServerEnvCall(node) ||
+			(node?.type === "Identifier" && copies.has(node.name)) ||
+			(node?.type === "ObjectExpression" &&
+				node.properties.some((p) => p.type === "SpreadElement" && wholeEnv(p.argument)));
+		const bind = (id, init) => {
+			if (id?.type === "Identifier" && isServerEnvCall(init)) copies.add(id.name);
+		};
+		return {
+			ImportDeclaration(node) {
+				if (
+					PROCESS_MODULES.has(node.source.value) &&
+					node.specifiers.some((spec) => spec.type !== "ImportSpecifier" || nameOf(spec.imported) === "env")
+				)
+					context.report({ node, message: envMessage });
+			},
+			ImportExpression(node) {
+				if (PROCESS_MODULES.has(literalArgument(node.source) ?? "")) context.report({ node, message: envMessage });
+			},
+			Identifier(node) {
+				if (node.name !== "process" || declared(context, node)) return;
+				let target = node;
+				const parent = node.parent;
+				if (parent?.key === node && parent.value !== node && !parent.computed) return;
+				if (parent?.type === "MemberExpression" && parent.property === node) {
+					if (parent.computed || !isHost(parent.object, context, GLOBAL_HOSTS)) return;
+					target = parent;
+				}
+				const use = target.parent;
+				if (use?.type === "MemberExpression" && use.object === target) {
+					const name = memberName(use);
+					if (name !== null && name !== "env") return;
+					if (name === "env" && use.parent?.type === "MemberExpression" && memberName(use.parent) === "NEXT_RUNTIME")
+						return;
+					context.report({ node: use, message: envMessage });
+					return;
+				}
+				if (
+					use?.type === "VariableDeclarator" &&
+					use.init === target &&
+					use.id.type === "ObjectPattern" &&
+					use.id.properties.every((p) => p.type === "Property" && !p.computed && keyName(p.key, false) !== "env")
+				)
+					return;
+				context.report({ node: target, message: envMessage });
+			},
+			CallExpression(node) {
+				if (isRequire(node) && PROCESS_MODULES.has(literalArgument(node.arguments[0]) ?? ""))
+					context.report({ node, message: envMessage });
+				if (ENV_PARSERS.has(memberName(node.callee)) && node.arguments.length > 0) pending.push(node);
+			},
+			VariableDeclarator(node) {
+				bind(node.id, node.init);
+			},
+			AssignmentPattern(node) {
+				bind(node.left, node.right);
+			},
+			"Program:exit"() {
+				for (const node of pending) if (wholeEnv(node.arguments[0])) context.report({ node, message: parseMessage });
+			},
+		};
+	},
+};
+
+const SERVER_CODE = /^apps\/web\/src\/(?:server\/|app\/.*\/route\.tsx?$)/;
+const LOG_CALLS = new Set(["logFailure", "logLine", "logInfo"]);
+
+function walkOwn(node, visit) {
+	if (!node || typeof node.type !== "string") return false;
+	if (visit(node)) return true;
+	for (const key of Object.keys(node)) {
+		if (key === "parent") continue;
+		const value = node[key];
+		const children = Array.isArray(value) ? value : [value];
+		for (const child of children) {
+			if (!child || typeof child.type !== "string") continue;
+			if (FUNCTIONS.has(child.type)) continue;
+			if (walkOwn(child, visit)) return true;
+		}
+	}
+	return false;
+}
+
+const TERMINAL = new Set(["ReturnStatement", "ThrowStatement"]);
+const reachable = (node) => {
+	const block = node.parent;
+	if (block?.type !== "BlockStatement") return true;
+	const at = block.body.indexOf(node);
+	return !block.body.slice(0, at).some((s) => TERMINAL.has(s.type));
+};
+const isLostValue = (node) =>
+	(node?.type === "Identifier" && node.name === "LOST") ||
+	(node?.type === "ObjectExpression" &&
+		node.properties.some(
+			(p) =>
+				p.type === "Property" &&
+				keyName(p.key, p.computed) === "status" &&
+				p.value.type === "Literal" &&
+				p.value.value === "lost",
+		));
+const returned = (node) => {
+	const parent = node.parent?.type === "AwaitExpression" ? node.parent.parent : node.parent;
+	return (
+		parent?.type === "ReturnStatement" ||
+		(FUNCTIONS.has(parent?.type) && parent.body === (node.parent?.type === "AwaitExpression" ? node.parent : node))
+	);
+};
+
+function handles(handler, body, param) {
+	let thrown = false;
+	let handed = false;
+	let logged = false;
+	let lost = handler && handler.body.type !== "BlockStatement" && isLostValue(handler.body);
+	walkOwn(body, (node) => {
+		if (node.type === "ThrowStatement" && reachable(node)) thrown = true;
+		if (node.type === "ReturnStatement" && isLostValue(node.argument)) lost = true;
+		if (node.type !== "CallExpression") return false;
+		if (node.callee.type === "Identifier" && LOG_CALLS.has(node.callee.name)) logged = true;
+		else if (param && node.arguments.some((a) => a.type === "Identifier" && a.name === param) && returned(node))
+			handed = true;
+		return false;
+	});
+	return thrown || handed || (logged && !lost);
+}
+
+const noSilentCatch = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path) || path === "apps/web/src/server/platform/transient.ts") return {};
+		let server = SERVER_CODE.test(path);
+		const message =
+			"A server catch must rethrow, return the error handed to a handler, or log it through @everyfield/domain/log without answering lost: use transient() for a failure that may be retried, and catch only the error class you answer.";
+		const pending = [];
+		return {
+			Program(node) {
+				server ||= node.body.some(
+					(s) =>
+						(s.type === "ExpressionStatement" && s.directive === "use server") ||
+						(s.type === "ImportDeclaration" && s.source.value === "server-only"),
+				);
+			},
+			CatchClause(node) {
+				const param = node.param?.type === "Identifier" ? node.param.name : null;
+				if (!handles(null, node.body, param)) pending.push(node);
+			},
+			CallExpression(node) {
+				const name = memberName(node.callee);
+				const handler = name === "catch" ? node.arguments[0] : name === "then" ? node.arguments[1] : undefined;
+				if (!handler) return;
+				if (!FUNCTIONS.has(handler.type)) {
+					if (handler.type === "Identifier" || handler.type === "MemberExpression") pending.push(node);
+					return;
+				}
+				const param = handler.params[0]?.type === "Identifier" ? handler.params[0].name : null;
+				if (!handles(handler, handler.body, param)) pending.push(node);
+			},
+			"Program:exit"() {
+				if (server) for (const node of pending) context.report({ node, message });
+			},
+		};
+	},
+};
+
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
 export const PAGE_EVENTS = "apps/web/src/components/save/leave.ts";
@@ -2419,6 +2603,8 @@ export default {
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,
 		"deployment-env": deploymentEnv,
+		"server-config": serverConfig,
+		"no-silent-catch": noSilentCatch,
 		"no-cursor-utility": noCursorUtility,
 		"mint-callers": mintCallers,
 		"no-raw-history": noRawHistory,

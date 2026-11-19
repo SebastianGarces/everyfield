@@ -8,6 +8,7 @@ import { readBoundedBody } from "@everyfield/domain/operations";
 import { Refusal, safeBoundary, safeResponse } from "../platform/boundary.ts";
 import { transaction } from "../platform/database.ts";
 import { verifyCallback } from "../platform/webhook.ts";
+import { logFailure } from "@everyfield/domain/log";
 const provider_event_e = alias(tables.provider_event, "e");
 
 const kinds = [
@@ -150,7 +151,8 @@ export async function applyMailCallback(db: Database, raw: Uint8Array, key: stri
 	});
 	try {
 		return { stored: true, result: await transaction(db, (tx) => apply(tx, id)) };
-	} catch {
+	} catch (error) {
+		logFailure({ component: "mail-callback", outcome: "apply_failed" }, error);
 		return { stored: true, result: "pending" as const };
 	}
 }
@@ -170,7 +172,9 @@ export async function replayStoredCallbacks(db: Database) {
 	for (const row of rows) {
 		try {
 			if ((await applyStoredCallback(db, z.uuid().parse(row.id))) === "applied") applied++;
-		} catch {}
+		} catch (error) {
+			logFailure({ component: "mail-callback", outcome: "replay_failed" }, error);
+		}
 	}
 	return applied;
 }
