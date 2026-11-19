@@ -1,7 +1,7 @@
 "use client";
 
-import { Field, Input, Textarea } from "@everyfield/ui/controls";
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Command, Field, Input, keepKeyInField, Textarea } from "@everyfield/ui/controls";
+import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { fieldToken, fieldsFor, type MergeField } from "./fields.ts";
 
 type Open = { from: number; query: string; top: number; left: number };
@@ -43,11 +43,12 @@ export function MessageEditor({
 	children?: ReactNode;
 }) {
 	const area = useRef<HTMLTextAreaElement>(null);
-	const listId = useId();
+	const list = useRef<HTMLDivElement>(null);
 	const [open, setOpen] = useState<Open | null>(null);
-	const [active, setActive] = useState(0);
 	const fields = fieldsFor(hasMeeting);
 	const shown = open ? fields.filter((field) => field.key.startsWith(open.query)) : [];
+	const listed = open !== null && shown.length > 0;
+	const reopen = (el: HTMLTextAreaElement) => setOpen(openAt(el));
 
 	const insert = (field: MergeField, from?: number) => {
 		const el = area.current;
@@ -61,18 +62,11 @@ export function MessageEditor({
 	};
 
 	const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-		if (!open || shown.length === 0) return;
-		if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+		if (!listed) return keepKeyInField(event);
+		if (event.key === "Tab") {
 			event.preventDefault();
-			const step = event.key === "ArrowDown" ? 1 : -1;
-			setActive((current) => (current + step + shown.length) % shown.length);
-		} else if (event.key === "Enter" || event.key === "Tab") {
-			event.preventDefault();
-			const el = event.currentTarget;
-			const field = shown[active] ?? shown[0]!;
-			el.setRangeText(fieldToken(field.key), open.from, el.selectionStart, "end");
-			onText(el.value);
-			setOpen(null);
+			const active = list.current?.querySelector('[cmdk-item][aria-selected="true"]')?.getAttribute("data-value");
+			insert(shown.find((field) => field.key === active) ?? shown[0]!, open.from);
 		} else if (event.key === "Escape") {
 			event.preventDefault();
 			setOpen(null);
@@ -91,54 +85,52 @@ export function MessageEditor({
 				/>
 			</Field>
 			<Field label="Message" error={bodyError}>
-				<div className="relative">
-					<Textarea
-						ref={area}
-						value={text}
-						disabled={disabled}
-						rows={11}
-						placeholder={"Hello {{name}},\n\nWe would love to see you."}
-						role="combobox"
-						aria-expanded={open !== null && shown.length > 0}
-						aria-controls={listId}
-						aria-autocomplete="list"
-						aria-activedescendant={open && shown.length > 0 ? `${listId}-${active}` : undefined}
-						onKeyDown={onKey}
-						onBlur={() => setOpen(null)}
-						onChange={(event) => {
-							onText(event.target.value);
-							setOpen(openAt(event.target));
-							setActive(0);
-						}}
-						onClick={(event) => setOpen(openAt(event.currentTarget))}
-					/>
-					{open && shown.length > 0 ? (
-						<ul
-							id={listId}
-							role="listbox"
-							aria-label="Fields"
-							style={{ top: open.top, left: open.left }}
-							className="absolute z-10 w-[220px] rounded-md bg-surface-raised p-1 shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
-						>
-							{shown.map((field, index) => (
-								<li
-									key={field.key}
-									id={`${listId}-${index}`}
-									role="option"
-									aria-selected={index === active}
-									onMouseDown={(event) => {
-										event.preventDefault();
-										insert(field, open.from);
-									}}
-									className="flex flex-col rounded-sm px-2.5 py-1.5 text-md text-ink aria-selected:bg-surface-2"
-								>
-									<span>{field.label}</span>
-									<span className="text-xs text-text-3">{fieldToken(field.key)}</span>
-								</li>
-							))}
-						</ul>
-					) : null}
-				</div>
+				<Command shouldFilter={false} vimBindings={false} label="Fields" className="relative">
+					<Command.Input asChild value={shown.map((field) => field.key).join(" ")}>
+						<Textarea
+							ref={area}
+							id={undefined}
+							cmdk-input={undefined}
+							value={text}
+							disabled={disabled}
+							rows={11}
+							placeholder={"Hello {{name}},\n\nWe would love to see you."}
+							aria-expanded={listed}
+							autoComplete={undefined}
+							autoCorrect={undefined}
+							spellCheck={undefined}
+							onKeyDown={onKey}
+							onBlur={() => setOpen(null)}
+							onChange={(event) => {
+								onText(event.target.value);
+								reopen(event.target);
+							}}
+							onClick={(event) => reopen(event.currentTarget)}
+						/>
+					</Command.Input>
+					<Command.List
+						ref={list}
+						label="Fields"
+						hidden={!listed}
+						style={open ? { top: open.top, left: open.left } : undefined}
+						className="absolute z-10 w-[220px] rounded-md bg-surface-raised p-1 shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
+					>
+						{listed
+							? shown.map((field) => (
+									<Command.Item
+										key={field.key}
+										value={field.key}
+										onMouseDown={(event) => event.preventDefault()}
+										onSelect={() => insert(field, open.from)}
+										className="flex flex-col rounded-sm px-2.5 py-1.5 text-md text-ink aria-selected:bg-surface-2"
+									>
+										<span>{field.label}</span>
+										<span className="text-xs text-text-3">{fieldToken(field.key)}</span>
+									</Command.Item>
+								))
+							: null}
+					</Command.List>
+				</Command>
 			</Field>
 			<p className="text-xs text-text-3">
 				A blank line starts a new paragraph. Write **bold**, *italic* or [a link](https://example.org). Start a line
