@@ -27,10 +27,11 @@ const state = ((globalThis as { [key: symbol]: unknown })[Symbol.for("everyfield
 type DiagLevel = "error" | "warn" | "info" | "debug" | "verbose";
 const otelDiag =
 	(level: DiagLevel) =>
-	(_message: string, ...args: unknown[]) =>
+	(message: string, ...args: unknown[]) =>
 		quietly(() => {
 			const error = args.find((arg) => arg instanceof Error);
-			const fields = { component: "evry", event: "otel_diag", level } as const;
+			const template = asLogWord(`m${createHash("sha256").update(String(message)).digest("hex").slice(0, 12)}`);
+			const fields = { component: "evry", event: "otel_diag", level, template } as const;
 			if (error) logFailure(fields, error);
 			else logLine(fields);
 		});
@@ -120,7 +121,8 @@ export async function flushTraces() {
 		const ms = Math.round(performance.now() - started);
 		quietly(() => logInfo({ component: "evry", event: "traces_flushed", spans, ms }));
 	} catch (error) {
-		quietly(() => logFailure({ component: "evry", event: "traces_flush_failed" }, error));
+		const first = Array.isArray(error) ? (error.find((e) => e instanceof Error) ?? error) : error;
+		quietly(() => logFailure({ component: "evry", event: "traces_flush_failed" }, first));
 	}
 }
 

@@ -1,6 +1,6 @@
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createRequire } from "node:module";
 import type { AddressInfo } from "node:net";
@@ -80,15 +80,22 @@ test("INV-tracing: a valid configuration registers and writes one tracing_regist
 	]);
 });
 
-test("INV-tracing: OpenTelemetry's own messages at WARN and above go to console.error as otel_diag lines with their level and error class only", async () => {
+test("INV-tracing: OpenTelemetry's own messages at WARN and above go to console.error as otel_diag lines with their level, a template fingerprint and the error class only", async () => {
 	const { lines } = await logged(() => {
 		diag.info("below the level");
 		diag.warn("export slow", { attempt: 2 });
 		diag.error("export broke", new Error("socket hang up"));
 	});
+	const template = (text: string) => `m${createHash("sha256").update(text).digest("hex").slice(0, 12)}`;
 	assert.deepEqual(lines, [
-		{ component: "evry", event: "otel_diag", level: "warn" },
-		{ component: "evry", event: "otel_diag", level: "error", error: { name: "Error", code: null } },
+		{ component: "evry", event: "otel_diag", level: "warn", template: template("export slow") },
+		{
+			component: "evry",
+			event: "otel_diag",
+			level: "error",
+			template: template("export broke"),
+			error: { name: "Error", code: null },
+		},
 	]);
 });
 
@@ -110,7 +117,7 @@ test("INV-tracing: a refused export writes trace_export_failed with the HTTP sta
 		},
 	]);
 	assert.deepEqual(events(lines, "traces_flush_failed"), [
-		{ component: "evry", event: "traces_flush_failed", error: { name: "object", code: null } },
+		{ component: "evry", event: "traces_flush_failed", error: { name: "OTLPExporterError", code: null } },
 	]);
 	assert.ok(authorization.length > 0, "the export reached the stand-in with its auth header");
 });
