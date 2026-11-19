@@ -102,12 +102,11 @@ test("AC:SEC-02 INV-tenancy: the photo read, duplicate hints and the reference c
 			assert.equal((await getPersonPhoto.invoke(tx, owner, { personId: people.alexRivera }, null)).status, "available");
 			assert.equal((await verifyPeople(tx, owner, [people.alexRivera])).length, 1);
 			assert.equal((await checkForDuplicates.invoke(tx, owner, { displayName: "Alex Rivera" }, null)).rows.length, 1);
-			const started = performance.now();
 			await admin.transaction(async (signOut) => {
 				await signOut.execute(sql`SET LOCAL lock_timeout='2s'`);
+				await signOut.execute(sql`SELECT 1 FROM auth_session WHERE id=${accounts.owner.session} FOR UPDATE NOWAIT`);
 				await signOut.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`);
 			});
-			assert.ok(performance.now() - started < 2_000, "sign-out does not wait for the read");
 			assert.deepEqual(await getPersonPhoto.invoke(tx, owner, { personId: people.alexRivera }, null), nothing);
 			assert.deepEqual(await verifyPeople(tx, owner, [people.alexRivera]), []);
 			await assert.rejects(
