@@ -82,6 +82,64 @@ const privateCareScope = {
 	},
 };
 
+export const TABLE_WRITERS = {
+	phase_transition: {
+		owner: "packages/domain/src/phases/",
+		why: "the phases domain records every phase transition, including the one initial declaration a plant may make",
+	},
+};
+const INSERT_INTO = /\binsert\s+into\s+(?:"?public"?\.)?"?([a-z_][a-z0-9_]*)"?/gi;
+
+const tableWriters = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		const report = (node, table) => {
+			const { owner, why } = TABLE_WRITERS[table];
+			if (!path.startsWith(owner))
+				context.report({
+					node,
+					message: `Only ${owner} inserts into ${table}: ${why}. Call its operation instead of writing the row here.`,
+				});
+		};
+		const check = (value, node) => {
+			for (const [, table] of value?.matchAll(INSERT_INTO) ?? [])
+				if (Object.hasOwn(TABLE_WRITERS, table.toLowerCase())) report(node, table.toLowerCase());
+		};
+		const aliases = new Map();
+		const tableOf = (node) =>
+			node?.type === "Identifier"
+				? aliases.get(node.name)
+				: node?.type === "MemberExpression" && Object.hasOwn(TABLE_WRITERS, memberName(node))
+					? memberName(node)
+					: undefined;
+		const bind = (id, table) => {
+			if (id?.type === "Identifier" && table) aliases.set(id.name, table);
+		};
+		return {
+			Literal: (node) => check(text(node), node),
+			TemplateElement: (node) => check(text(node), node),
+			ImportSpecifier: (node) => {
+				const imported = nameOf(node.imported);
+				if (Object.hasOwn(TABLE_WRITERS, imported)) bind(node.local, imported);
+			},
+			VariableDeclarator: (node) => {
+				if (node.id.type === "Identifier") bind(node.id, tableOf(node.init));
+				if (node.id.type !== "ObjectPattern") return;
+				for (const p of node.id.properties) {
+					const key = p.type === "Property" ? keyName(p.key, p.computed) : null;
+					if (Object.hasOwn(TABLE_WRITERS, key))
+						bind(p.value.type === "AssignmentPattern" ? p.value.left : p.value, key);
+				}
+			},
+			CallExpression: (node) => {
+				const table = tableOf(node.arguments[0]);
+				if (memberName(node.callee) === "insert" && table) report(node, table);
+			},
+		};
+	},
+};
+
 const noInnerHtml = {
 	meta: { type: "problem" },
 	create(context) {
@@ -93,6 +151,114 @@ const noInnerHtml = {
 			Identifier: (node) => check(node.name, node),
 			JSXIdentifier: (node) => check(node.name, node),
 			Literal: (node) => check(node.value, node),
+		};
+	},
+};
+
+const paramNamed = (fn, name) => fn.params?.[0]?.type === "Identifier" && fn.params[0].name === name;
+const narrowsToError = (test, name) =>
+	test?.type === "BinaryExpression" &&
+	test.operator === "instanceof" &&
+	test.left.type === "Identifier" &&
+	test.left.name === name;
+const knownError = (node, name) => {
+	for (let at = node, child = null; at; child = at, at = at.parent) {
+		if (at.type === "CatchClause" && at.param?.type === "Identifier" && at.param.name === name) return true;
+		if (at.type === "LogicalExpression" && at.operator === "&&" && at.right === child && narrowsToError(at.left, name))
+			return true;
+		if (
+			(at.type === "ArrowFunctionExpression" || at.type === "FunctionExpression") &&
+			paramNamed(at, name) &&
+			at.parent?.type === "CallExpression" &&
+			at.parent.callee.type === "MemberExpression" &&
+			at.parent.callee.property.name === "catch"
+		)
+			return true;
+	}
+	return false;
+};
+const errorMessage = (node) =>
+	node?.type === "MemberExpression" &&
+	!node.computed &&
+	node.property.name === "message" &&
+	node.object.type === "Identifier" &&
+	knownError(node, node.object.name);
+const EQUALITY = new Set(["==", "===", "!=", "!=="]);
+const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith"]);
+
+const noErrorMessageMatch = {
+	meta: { type: "problem" },
+	create(context) {
+		const message =
+			"Never recognise an error by its message text: throw an error class with a typed code and test it with instanceof and .code.";
+		return {
+			BinaryExpression: (node) => {
+				if (EQUALITY.has(node.operator) && (errorMessage(node.left) || errorMessage(node.right)))
+					context.report({ node, message });
+			},
+			CallExpression: (node) => {
+				const callee = node.callee;
+				if (callee.type !== "MemberExpression" || callee.computed || !TEXT_MATCH.has(callee.property.name)) return;
+				if (errorMessage(callee.object) || node.arguments.some(errorMessage)) context.report({ node, message });
+			},
+		};
+	},
+};
+
+export const SESSION_MODULE = "packages/domain/src/access/session.ts";
+const PRODUCT_SOURCE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
+
+const ACTOR_CLASS = "RequestActor";
+const ACTOR_STATICS = new Set(["resolve", "claimWrite"]);
+const staticKey = (node) =>
+	keyName(node.property, node.computed) ?? (node.computed ? literalArgument(node.property) : null);
+
+const requestActor = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === SESSION_MODULE || !PRODUCT_SOURCE.test(path)) return {};
+		const built = `Only ${SESSION_MODULE} builds a RequestActor from a session and an actor: resolve it with RequestActor.resolve or claim a write, so authority always comes from the server session.`;
+		const passed = `Reach RequestActor only through a named static member (RequestActor.resolve, RequestActor.claimWrite), so only ${SESSION_MODULE} builds one from a session and an actor.`;
+		const locals = new Set([ACTOR_CLASS]);
+		const isClass = (node) =>
+			(node.type === "Identifier" && locals.has(node.name)) ||
+			(node.type === "MemberExpression" && staticKey(node) === ACTOR_CLASS);
+		const throughMember = (node) => node.parent?.type === "MemberExpression" && node.parent.object === node;
+		return {
+			Program(program) {
+				for (const s of program.body)
+					if (s.type === "ImportDeclaration" && s.importKind !== "type")
+						for (const spec of s.specifiers)
+							if (
+								spec.type === "ImportSpecifier" &&
+								spec.importKind !== "type" &&
+								nameOf(spec.imported) === ACTOR_CLASS
+							)
+								locals.add(spec.local.name);
+			},
+			MemberExpression(node) {
+				if (isClass(node.object)) {
+					const key = staticKey(node);
+					if (key === null || key === "of") context.report({ node, message: built });
+					else if (!ACTOR_STATICS.has(key)) context.report({ node, message: passed });
+				}
+				if (staticKey(node) === ACTOR_CLASS && !throughMember(node)) context.report({ node, message: passed });
+			},
+			Identifier(node) {
+				if (locals.has(node.name) && isValueReference(node) && !throughMember(node))
+					context.report({ node, message: passed });
+			},
+			ExportSpecifier(node) {
+				const local = nameOf(node.local);
+				if ((local === ACTOR_CLASS || locals.has(local)) && nameOf(node.exported) !== ACTOR_CLASS)
+					context.report({ node, message: passed });
+			},
+			Property(node) {
+				const renamed = node.value.type !== "Identifier" || node.value.name !== ACTOR_CLASS;
+				if (node.parent.type === "ObjectPattern" && keyName(node.key, node.computed) === ACTOR_CLASS && renamed)
+					context.report({ node, message: passed });
+			},
 		};
 	},
 };
@@ -424,22 +590,30 @@ const LIFECYCLE_METHODS = new Set([
 ]);
 const EXISTENCE_TESTS = new Set(["IfStatement", "ConditionalExpression", "LogicalExpression", "UnaryExpression"]);
 
+const isUseCallback = (callee) => (callee.type === "Identifier" ? callee.name : memberName(callee)) === "useCallback";
+
 function refCallback(context, value) {
-	if (value?.type === "CallExpression" && value.callee.type === "Identifier" && value.callee.name === "useCallback")
-		return refCallback(context, value.arguments[0]);
+	if (value?.type === "CallExpression" && isUseCallback(value.callee)) return refCallback(context, value.arguments[0]);
 	if (value?.type === "ArrowFunctionExpression" || value?.type === "FunctionExpression") return value;
 	if (value?.type !== "Identifier") return null;
 	for (let scope = context.sourceCode.getScope(value); scope; scope = scope.upper) {
 		const def = scope.set?.get(value.name)?.defs?.[0];
-		if (def) return def.node.type === "VariableDeclarator" ? refCallback(context, def.node.init) : null;
+		if (!def) continue;
+		if (def.node.type === "FunctionDeclaration") return def.node;
+		return def.node.type === "VariableDeclarator" ? refCallback(context, def.node.init) : null;
 	}
 	return null;
 }
+
+const isNothing = (node) =>
+	(node?.type === "Literal" && node.value === null && node.raw === "null") ||
+	(node?.type === "Identifier" && node.name === "undefined");
 
 const onlyTested = (reference) => {
 	const id = reference.identifier;
 	const p = id.parent;
 	if (p?.type === "UnaryExpression") return p.operator === "!";
+	if (p?.type === "BinaryExpression" && EQUALITY.has(p.operator)) return isNothing(p.left === id ? p.right : p.left);
 	return EXISTENCE_TESTS.has(p?.type) && (p.test === id || (p.type === "LogicalExpression" && p.left === id));
 };
 
@@ -624,6 +798,22 @@ const noTimers = ratcheted("no-timers", (context, push) => {
 		own,
 	);
 });
+
+export const STORAGE_MODULE = "packages/db/src/schema/storage.ts";
+const OBJECT_STORE_PACKAGE = /^@aws-sdk(?:\/|$)/;
+const PRODUCT_CODE = /^(?:packages\/[^/]+\/src|apps\/web\/src)\//;
+
+const storageClient = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === STORAGE_MODULE || !PRODUCT_CODE.test(path)) return {};
+		const message = `Only ${STORAGE_MODULE} reaches the object store and signs its URLs: the browser gets the app's own authenticated routes, never a storage key or a signed URL.`;
+		return moduleSources((node, name) => {
+			if (OBJECT_STORE_PACKAGE.test(name)) context.report({ node, message });
+		});
+	},
+};
 
 export const LOCATION_STORE = "apps/web/src/components/location.ts";
 export const ONE_TIME_LINK = "apps/web/src/components/one-time-link.ts";
@@ -1004,12 +1194,38 @@ const RENDER_CALLBACKS = {
 	useSyncExternalStore: [1, 2],
 };
 
+const ITERATORS = new Set([
+	"forEach",
+	"map",
+	"flatMap",
+	"filter",
+	"find",
+	"findIndex",
+	"findLast",
+	"findLastIndex",
+	"some",
+	"every",
+	"reduce",
+	"reduceRight",
+]);
+const iterationCall = (fn) => {
+	const call = fn?.parent;
+	return call?.type === "CallExpression" && call.arguments.includes(fn) && ITERATORS.has(memberName(call.callee) ?? "")
+		? call
+		: null;
+};
+const callerOf = (node) => {
+	let fn = nearestFunction(node);
+	for (let call = iterationCall(fn); call; call = iterationCall(fn)) fn = nearestFunction(call);
+	return fn;
+};
+
 const ROUTE_HANDLERS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
 const renders = (name, jsx) =>
 	/^use[A-Z0-9]/.test(name) || (jsx && !ROUTE_HANDLERS.has(name) && (name === "default" || /^[A-Z]/.test(name)));
 
 function rendering(node, jsx) {
-	const fn = nearestFunction(node);
+	const fn = callerOf(node);
 	if (!fn) return false;
 	const name = functionName(fn);
 	if (name && renders(name, jsx)) return true;
@@ -1060,7 +1276,7 @@ const noRenderWrites = ratcheted("no-render-writes", (context, push) => {
 		"Program:exit"() {
 			const writers = new Map();
 			const owner = (node) => {
-				const fn = nearestFunction(node);
+				const fn = callerOf(node);
 				const named = fn?.parent?.type === "VariableDeclarator" ? fn.parent.id : fn?.id;
 				return named && moduleBinding(context, named) ? named.name : null;
 			};
@@ -1346,6 +1562,80 @@ const routeReads = {
 	},
 };
 
+const PER_REQUEST_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
+
+const segmentDefault = (path, program, name, value) => {
+	if (name === "runtime") return value === "nodejs";
+	if (name !== "dynamic") return false;
+	if (value === "auto") return true;
+	if (value !== "force-dynamic") return false;
+	if (/\/(?:page|layout)\.tsx$/.test(path)) return path.startsWith("apps/web/src/app/(product)/");
+	return (
+		path.includes("/[") ||
+		program.body.some((s) => exportedNames(s).some((exported) => PER_REQUEST_METHODS.has(exported)))
+	);
+};
+
+const routeSegmentDefaults = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!path.startsWith("apps/web/src/app/")) return {};
+		return {
+			"Program:exit"(program) {
+				for (const statement of program.body) {
+					if (statement.type !== "ExportNamedDeclaration" || statement.declaration?.type !== "VariableDeclaration")
+						continue;
+					for (const d of statement.declaration.declarations) {
+						if (d.id.type !== "Identifier" || d.init?.type !== "Literal") continue;
+						if (!segmentDefault(path, program, d.id.name, d.init.value)) continue;
+						context.report({
+							node: d,
+							message: `export const ${d.id.name} = ${JSON.stringify(d.init.value)} repeats Next's default here: nodejs is the default runtime, every page under (product) is dynamic because the product layout reads cookies, and a route handler with a dynamic segment or a non-GET method runs per request. Delete it.`,
+						});
+					}
+				}
+			},
+		};
+	},
+};
+
+const MODULE_DIRECTIVE = /^\s*["']use (?:server|client)["']/;
+const ROUTE_MODULE = /^apps\/web\/src\/(?:app\/.+\/(?:page|layout|route)\.tsx?|features\/.+\/routes\.tsx?)$/;
+
+const renderReads = {
+	meta: { type: "problem" },
+	create(context) {
+		const from = repoPath(context.filename);
+		if (!from.startsWith("apps/web/src/") || MODULE_DIRECTIVE.test(context.sourceCode.text)) return {};
+		let server = ROUTE_MODULE.test(from);
+		const actions = new Set();
+		const calls = [];
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value === "server-only") server = true;
+				if (node.importKind === "type") return;
+				const to = resolveImport(from, node.source.value).to;
+				if (!to || !isServerActions(to)) return;
+				for (const s of node.specifiers) if (s.importKind !== "type") actions.add(s.local.name);
+			},
+			CallExpression(node) {
+				const callee = node.callee.type === "MemberExpression" ? node.callee.object : node.callee;
+				if (callee.type === "Identifier") calls.push([node, callee.name]);
+			},
+			"Program:exit"() {
+				if (!server) return;
+				for (const [node, name] of calls)
+					if (actions.has(name))
+						context.report({
+							node,
+							message: `Server code calls ${name}, a server action. Actions are the client's mutation endpoint and Next runs them one at a time; call the server function the action wraps instead.`,
+						});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -1355,10 +1645,13 @@ export default {
 		"model-module": modelModule,
 		"no-inner-html": noInnerHtml,
 		"no-effects": noEffects,
+		"table-writers": tableWriters,
 		"max-state": maxState,
 		"no-timers": noTimers,
+		"request-actor": requestActor,
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
+		"storage-client": storageClient,
 		"no-cursor-utility": noCursorUtility,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
@@ -1367,6 +1660,9 @@ export default {
 		"no-render-writes": noRenderWrites,
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
+		"no-error-message-match": noErrorMessageMatch,
 		"route-reads": routeReads,
+		"route-segment-defaults": routeSegmentDefaults,
+		"render-reads": renderReads,
 	},
 };

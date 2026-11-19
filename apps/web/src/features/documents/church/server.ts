@@ -13,6 +13,7 @@ import {
 import { privateStorage } from "@everyfield/db/schema";
 import type { RequestActor } from "@everyfield/domain/access";
 import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary } from "@everyfield/domain/documents";
+import { readBoundedBody } from "@everyfield/domain/operations";
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES } from "./refusal.ts";
@@ -235,10 +236,11 @@ const answer = (result: ExportResult) => Response.json(result, { headers: NO_STO
 export async function saveExportRoute(request: Request, { params }: { params: Promise<{ documentId: string }> }) {
 	const site = request.headers.get("sec-fetch-site");
 	if (site !== null && site !== "same-origin") return gone(403);
-	if (Number(request.headers.get("content-length") ?? 0) > BODY_MAX) return answer(refused("invalid_input"));
+	const bytes = await readBoundedBody(request, BODY_MAX).catch(() => null);
+	if (!bytes) return answer(refused("invalid_input"));
 	const documentId = recordId.safeParse((await params).documentId);
 	if (!documentId.success) return answer(refused("unavailable"));
-	const body = (await request.json().catch(() => null)) as {
+	const body = (await new Response(bytes).json().catch(() => null)) as {
 		revision?: unknown;
 		format?: unknown;
 		requestKey?: unknown;

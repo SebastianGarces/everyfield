@@ -5,7 +5,7 @@ import * as N from "@everyfield/contracts/settings/native";
 import type { SettingsReply } from "@everyfield/contracts/settings/server";
 import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull } from "@everyfield/db/query";
-import { privateStorage } from "@everyfield/db/schema";
+import { privateStorage, StorageError } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
 import type { RequestActor } from "@everyfield/domain/access";
 import { personalCalendar } from "@everyfield/domain/intelligence";
@@ -15,6 +15,7 @@ import {
 	createAccountCredentials,
 	deletionOperations,
 	readAvatar,
+	Refusal,
 	sectionOperations,
 	timezoneOperations,
 	uploadAvatar,
@@ -291,8 +292,11 @@ export async function storeAvatarBytes(accountId: string, uploadId: string, byte
 		await uploadAvatar(ops.db, ops.storage, context, { uploadId, bytes });
 		return "stored" as const;
 	} catch (error) {
-		const code = error instanceof Error ? error.message : "";
-		if (code === "invalid_input" || code === "invalid_avatar") return "invalid" as const;
+		if (
+			(error instanceof Refusal && error.code === "invalid_input") ||
+			(error instanceof StorageError && error.code === "invalid_avatar")
+		)
+			return "invalid" as const;
 		console.error(JSON.stringify({ component: "settings", outcome: "avatar_upload_failed", error: String(error) }));
 		return "unavailable" as const;
 	}
@@ -308,8 +312,9 @@ export async function avatarBytes(accountId: string, versionId: string) {
 	};
 	try {
 		return await readAvatar(ops.db, ops.storage, context, { accountId, versionId });
-	} catch {
-		return null;
+	} catch (error) {
+		if (error instanceof Refusal || error instanceof StorageError) return null;
+		throw error;
 	}
 }
 

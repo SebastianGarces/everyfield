@@ -118,8 +118,7 @@ export function Steps({
 								<span
 									className={cn(
 										"min-w-0 flex-1 text-ink [overflow-wrap:anywhere]",
-										isSettled(s.status) && "text-text-3 line-through",
-										pending && "text-text-2",
+										isSettled(s.status) ? "text-text-3 line-through" : pending && "text-text-2",
 									)}
 								>
 									{s.title}

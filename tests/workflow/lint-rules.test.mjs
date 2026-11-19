@@ -253,6 +253,7 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 	assert.deepEqual(
 		lint({
 			"apps/web/src/features/x/go.ts": source,
+			"packages/ui/src/foundations/go.ts": source,
 			"apps/web/src/components/location.ts": source,
 			"apps/web/src/components/one-time-link.ts": `export const take = () => (window.history.replaceState(null, "", "/"), location.hash);\n`,
 			"apps/web/src/server/mail/link.ts":
@@ -282,6 +283,10 @@ test("INV-lint: history writes, popstate, the Navigation API, the address fragme
 			"apps/web/src/features/x/go.ts:13 no-raw-history",
 			"apps/web/src/features/x/go.ts:14 no-raw-history",
 			"apps/web/src/features/x/go.ts:14 no-raw-history",
+			...[2, 3, 4, 4, 4, 5, 6, 7, 8, 9, 10, 10, 11, 12, 12, 12, 13, 13, 13, 13, 14, 14].map(
+				(line) => `packages/ui/src/foundations/go.ts:${line} no-raw-history`,
+			),
+			"packages/ui/src/foundations/go.ts:6 no-global-listeners",
 		].sort(),
 	);
 });
@@ -762,6 +767,46 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
 });
 
+test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {
+	const forge = `import { RequestActor, RequestActor as RA } from "@everyfield/domain/access";
+import * as access from "@everyfield/domain/access";
+import type { RequestActor as Typed } from "@everyfield/domain/access";
+export const a = (s: string, x: never) => RequestActor.of(s, x);
+export const b = (s: string, x: never) => RequestActor["of"](s, x);
+export const c = (s: string, x: never) => RA.of(s, x);
+export const d = (s: string, x: never) => access.RequestActor.of(s, x);
+export const e = (s: string, x: never) => RequestActor[\`of\`](s, x);
+export const f = (k: "of") => RequestActor[k];
+export const g = () => Reflect.get(RequestActor, "of");
+export const { of } = RequestActor;
+export const h = RA;
+export const i = access.RequestActor;
+export const j = (s: string) => RequestActor.resolve({} as never, s);
+export const k = (s: string) => access.RequestActor.claimWrite({} as never, s, {} as never);
+export type Held = Typed | RequestActor;
+export { RequestActor as Authority } from "@everyfield/domain/access";
+export { RA as Authority2, RequestActor };
+export const l = async () => (await import("@everyfield/domain/access")).RequestActor.claimWrite;
+export const m = async () => {
+	const { RequestActor: R } = await import("@everyfield/domain/access");
+	return R;
+};
+export const n = () => Reflect.construct(RequestActor.prototype.constructor, []);
+`;
+	const reported = [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 17, 18, 21, 24];
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/wiki/forge.ts": forge,
+			"apps/web/src/features/x/forge.ts": forge,
+			"packages/domain/src/access/session.ts": forge,
+			"tests/integration/x/forge.test.mts": forge,
+		}),
+		["apps/web/src/features/x/forge.ts", "packages/domain/src/wiki/forge.ts"]
+			.flatMap((file) => reported.map((line) => `${file}:${line} request-actor`))
+			.sort(),
+	);
+});
+
 test("INV-lint: a survivor whose reason marks it temporary must name the evf task that removes it", () => {
 	const path = "packages/ui/src/Panel.tsx";
 	const run = (reason) => {
@@ -792,6 +837,33 @@ function history() {
 	const base = commitAll(dir, "base");
 	return { dir, path, renamed, write, base };
 }
+
+test("INV-storage: only the storage module reaches the object store client and its URL signer, in product code", () => {
+	const reach = `import { S3Client } from "@aws-sdk/client-s3";
+export { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+export const later = () => import("@aws-sdk/client-s3");
+export type Client = import("@aws-sdk/client-s3").S3Client;
+export const client = S3Client;
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/documents/reach.ts": reach,
+			"apps/web/src/features/x/reach.ts": reach,
+			"packages/db/src/schema/storage.ts": reach,
+			"tests/integration/x/reach.test.mts": reach,
+		}),
+		[
+			"apps/web/src/features/x/reach.ts:1 storage-client",
+			"apps/web/src/features/x/reach.ts:2 storage-client",
+			"apps/web/src/features/x/reach.ts:3 storage-client",
+			"apps/web/src/features/x/reach.ts:4 storage-client",
+			"packages/domain/src/documents/reach.ts:1 storage-client",
+			"packages/domain/src/documents/reach.ts:2 storage-client",
+			"packages/domain/src/documents/reach.ts:3 storage-client",
+			"packages/domain/src/documents/reach.ts:4 storage-client",
+		],
+	);
+});
 
 test("INV-lint: a baseline entry new to the base or larger than at the base fails, and a rename carries its entry", () => {
 	const { dir, path, renamed, write, base } = history();
@@ -1088,6 +1160,26 @@ test("INV-lint: the base tree is linted at its real path, so path exemptions hol
 	);
 });
 
+test("INV-lint: product code that recognises a caught error by its message text is reported", () => {
+	const source = `export function f(error: unknown, p: Promise<void>) {
+	if (error instanceof Error && error.message === "unavailable") return 1;
+	try {
+		return 2;
+	} catch (e) {
+		if (["invalid_file"].includes(e.message)) return 3;
+	}
+	p.catch((err) => err.message.startsWith("stale"));
+	const parsed = { message: "x" };
+	return parsed.message === "x" && error instanceof Error && error.message;
+}
+`;
+	assert.deepEqual(lint({ "packages/domain/src/m.ts": source, "tests/unit/m.test.mts": source }), [
+		"packages/domain/src/m.ts:2 no-error-message-match",
+		"packages/domain/src/m.ts:6 no-error-message-match",
+		"packages/domain/src/m.ts:8 no-error-message-match",
+	]);
+});
+
 test("INV-lint: comments inside SQL templates and query strings are reported, a listed marker is not", () => {
 	const source = `import { sql as q } from "drizzle-orm";
 export const sql = (s: TemplateStringsArray, ...v: unknown[]) => [s, v];
@@ -1106,6 +1198,39 @@ export const run = (client: { query(text: string): void }) => {
 		"packages/domain/src/q.ts:5 no-sql-comments",
 		"packages/domain/src/q.ts:8 no-sql-comments",
 	]);
+});
+
+test("INV-lint: an insert into a single-writer table is reported outside its owning module, in SQL text or through the query builder", () => {
+	const source = `import { sql } from "drizzle-orm";
+export const a = sql\`INSERT INTO phase_transition(plant_id) VALUES (1)\`;
+export const b = (db, t) => db.insert(t.phase_transition).values({});
+export const c = sql\`insert into "public"."phase_transition" (plant_id) select 1\`;
+export const d = sql\`SELECT kind FROM phase_transition\`;
+export const e = sql\`UPDATE phase_transition SET offer_answer = 'yes'\`;
+`;
+	const named = `import { phase_transition, plant } from "@everyfield/db/schema";
+import * as t from "@everyfield/db/schema";
+export const f = (db) => db.insert(phase_transition).values({});
+const pt = t.phase_transition;
+const { phase_transition: other } = t;
+export const g = (db) => [db.insert(pt).values({}), db.insert(other).values({}), db.insert(plant).values({})];
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/tasks/x.ts": source,
+			"packages/domain/src/phases/x.ts": source,
+			"packages/domain/src/tasks/named.ts": named,
+			"packages/domain/src/phases/named.ts": named,
+		}).filter((hit) => hit.endsWith("table-writers")),
+		[
+			"packages/domain/src/tasks/named.ts:3 table-writers",
+			"packages/domain/src/tasks/named.ts:6 table-writers",
+			"packages/domain/src/tasks/named.ts:6 table-writers",
+			"packages/domain/src/tasks/x.ts:2 table-writers",
+			"packages/domain/src/tasks/x.ts:3 table-writers",
+			"packages/domain/src/tasks/x.ts:4 table-writers",
+		],
+	);
 });
 
 test("INV-lint: a React namespace alias, a class lifecycle method and a ref callback that never uses its node are effects", () => {
@@ -1134,8 +1259,16 @@ export function Panel({ start, keep }) {
 			<span ref={(node) => node?.focus()} />
 			<span ref={sized} />
 			<span ref={useCallback((node) => keep(node), [keep])} />
+			<span ref={(node) => { if (node !== null) start(); }} />
+			<span ref={React.useCallback(() => start(), [start])} />
+			<span ref={attach} />
+			<span ref={React.useCallback((node) => keep(node), [keep])} />
+			<span ref={(node) => { if (node !== null) node.focus(); }} />
 		</div>
 	);
+}
+function attach(node) {
+	if (undefined != node) console.info("attached");
 }
 `;
 	assert.deepEqual(lint({ "apps/web/src/features/x/Old.tsx": source }), [
@@ -1143,6 +1276,9 @@ export function Panel({ start, keep }) {
 		"apps/web/src/features/x/Old.tsx:20 no-effects",
 		"apps/web/src/features/x/Old.tsx:21 no-effects",
 		"apps/web/src/features/x/Old.tsx:22 no-effects",
+		"apps/web/src/features/x/Old.tsx:26 no-effects",
+		"apps/web/src/features/x/Old.tsx:27 no-effects",
+		"apps/web/src/features/x/Old.tsx:28 no-effects",
 		"apps/web/src/features/x/Old.tsx:4 no-effects",
 		"apps/web/src/features/x/Old.tsx:6 no-effects",
 		"apps/web/src/features/x/Old.tsx:7 no-effects",
@@ -1245,12 +1381,20 @@ export function useCount() {
 	return firstShow(0);
 }
 markShown("boot");
+function seedAll(ids) {
+	ids.forEach((id) => shown.add(id));
+}
+export function List({ ids }) {
+	ids.map((id) => [id]).forEach(([id]) => shown.add(id));
+	useState(() => seedAll(ids));
+	return <button onClick={() => ids.forEach((id) => shown.delete(id))}>{ids.length}</button>;
+}
 `;
 	assert.deepEqual(
 		lint({ "apps/web/src/features/x/Card.tsx": source, "packages/ui/src/Card.tsx": source }),
 		[
 			...["apps/web/src/features/x/Card.tsx", "packages/ui/src/Card.tsx"].flatMap((path) =>
-				[13, 14, 15, 16, 27].map((line) => `${path}:${line} no-render-writes`),
+				[13, 14, 15, 16, 27, 34, 35].map((line) => `${path}:${line} no-render-writes`),
 			),
 		].sort(),
 	);
@@ -1313,5 +1457,40 @@ test("INV-lint: a page, a layout or a GET route handler that imports a server ac
 			"apps/web/src/app/x/write/route.ts": `export { save as GET, save as POST } from "@/features/x/actions";\n`,
 		}).filter((hit) => hit.endsWith("route-reads")),
 		["apps/web/src/app/x/page.tsx:1 route-reads", "apps/web/src/app/x/read/route.ts:1 route-reads"],
+	);
+});
+
+test("INV-lint: a runtime or dynamic segment export that repeats Next's default is reported, one that changes behavior is not", () => {
+	const get = `export async function GET() {\n\treturn new Response("ok");\n}\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/app/(product)/x/page.tsx": `export const dynamic = "force-dynamic";\nexport default function Page() {\n\treturn null;\n}\n`,
+			"apps/web/src/app/(product)/x/[id]/route.ts": `export const runtime = "nodejs";\nexport const dynamic = "force-dynamic";\n${get}`,
+			"apps/web/src/app/api/x/route.ts": `export const dynamic = "force-dynamic";\n${get}export const POST = GET;\n`,
+			"apps/web/src/app/api/auto/route.ts": `export const dynamic = "auto";\n${get}`,
+			"apps/web/src/app/api/fixed/route.ts": `export const dynamic = "force-dynamic";\nexport const maxDuration = 60;\n${get}`,
+			"apps/web/src/app/api/static/route.ts": `export const dynamic = "force-static";\n${get}`,
+			"apps/web/src/app/(marketing)/y/page.tsx": `export const dynamic = "force-dynamic";\nexport default function Page() {\n\treturn null;\n}\n`,
+		}).filter((hit) => hit.endsWith("route-segment-defaults")),
+		[
+			"apps/web/src/app/(product)/x/[id]/route.ts:1 route-segment-defaults",
+			"apps/web/src/app/(product)/x/[id]/route.ts:2 route-segment-defaults",
+			"apps/web/src/app/(product)/x/page.tsx:1 route-segment-defaults",
+			"apps/web/src/app/api/auto/route.ts:1 route-segment-defaults",
+			"apps/web/src/app/api/x/route.ts:1 route-segment-defaults",
+		],
+	);
+});
+
+test("INV-lint: a route module or server-only module that calls a server action is reported, one that passes it on or a client store that calls it is not", () => {
+	const actions = `"use server";\nexport async function read() {}\nexport async function save() {}\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": actions,
+			"apps/web/src/features/x/routes.tsx": `import { read, save } from "./actions";\nexport async function Page() {\n\tawait read();\n\treturn save;\n}\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nimport * as A from "./actions";\nexport const load = () => A.read();\n`,
+			"apps/web/src/features/x/store.ts": `import { read } from "./actions";\nexport const load = () => read();\n`,
+		}).filter((hit) => hit.endsWith("render-reads")),
+		["apps/web/src/features/x/routes.tsx:3 render-reads", "apps/web/src/features/x/server.ts:3 render-reads"],
 	);
 });

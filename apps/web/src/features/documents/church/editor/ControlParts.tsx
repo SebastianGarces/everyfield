@@ -106,7 +106,7 @@ export function Swatches({
 						tabIndex={on ? 0 : -1}
 						data-token={token}
 						data-active-state={on ? "on" : "off"}
-						className={cn("size-8 min-w-8 justify-center p-0 !rounded-full", on && "shadow-[0_0_0_2px_var(--ef-ink)]")}
+						className={cn("size-8 min-w-8 justify-center p-0 rounded-full", on && "shadow-[0_0_0_2px_var(--ef-ink)]")}
 						onMouseDown={keepSelection}
 						onKeyDown={(event) => rove(event, index, TOKENS, onChange)}
 						onClick={() => onChange(token)}

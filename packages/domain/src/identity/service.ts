@@ -25,6 +25,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 import "server-only";
 import { z } from "zod";
+import { readBoundedBody } from "../operations/body.ts";
 import { identityAuth } from "./auth.ts";
 import { attemptBudget, IdentityRefusal, RateLimited, transaction } from "./budget.ts";
 import { InvitationRefusal } from "./invitation-core.ts";
@@ -138,26 +139,16 @@ export function createIdentityService(config: IdentityConfig) {
 		return result;
 	}
 	async function boundedBody(request: Request): Promise<unknown> {
-		if (request.headers.get("content-type")?.split(";")[0] !== "application/json")
+		if (request.headers.get("content-type")?.split(";")[0] !== "application/json" || !request.body)
 			throw new IdentityRefusal("invalid_input", 422);
-		const reader = request.body?.getReader();
-		if (!reader) throw new IdentityRefusal("invalid_input", 422);
-		const chunks: Uint8Array[] = [];
-		let size = 0;
+		const bytes = await readBoundedBody(request, 24576).catch(() => {
+			throw new IdentityRefusal("invalid_input", 422);
+		});
+		if (!bytes) throw new IdentityRefusal("invalid_input", 413);
 		try {
-			for (;;) {
-				const part = await reader.read();
-				if (part.done) break;
-				size += part.value.length;
-				if (size > 24576) throw new IdentityRefusal("invalid_input", 413);
-				chunks.push(part.value);
-			}
-			return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-		} catch (e) {
-			if (e instanceof IdentityRefusal) throw e;
+			return JSON.parse(Buffer.from(bytes).toString("utf8"));
+		} catch {
 			throw new IdentityRefusal("invalid_input", 422);
-		} finally {
-			await reader.cancel();
 		}
 	}
 	async function handle(request: Request): Promise<Response> {

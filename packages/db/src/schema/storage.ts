@@ -12,6 +12,7 @@ import { and, eq, gt, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { Database, Transaction } from "../client.ts";
 import { file_object, audit_event } from "./tables.ts";
+import { StorageError } from "./storage-error.ts";
 import { validateCommitment } from "./validate-file.ts";
 type FileObjectRow = typeof file_object.$inferSelect;
 
@@ -60,7 +61,7 @@ export type ResourceAuthorizer = (
 	file: FileIdentity,
 	intent: "put" | "read" | "cleanup",
 ) => Promise<FileAuthorization | null>;
-const unavailable = () => new Error("unavailable");
+const unavailable = () => new StorageError("unavailable");
 function providerFailure(): never {
 	throw unavailable();
 }
@@ -88,9 +89,9 @@ export async function putPrivateObject(
 	authorize: ResourceAuthorizer,
 	input: { tenantId: string; purpose: FilePurpose; mediaType: string; bytes: Uint8Array; uploadKey: string },
 ) {
-	if (!input.uploadKey.trim() || input.uploadKey.length > 200) throw new Error("invalid_upload_key");
+	if (!input.uploadKey.trim() || input.uploadKey.length > 200) throw new StorageError("invalid_upload_key");
 	await assertPrivateBucket(storage);
-	if (!input.bytes.length || input.bytes.length > 10 * 1024 * 1024) throw new Error("invalid_file");
+	if (!input.bytes.length || input.bytes.length > 10 * 1024 * 1024) throw new StorageError("invalid_file");
 	if (input.purpose === "commitment") await validateCommitment(input.bytes, input.mediaType);
 	const sha256 = hash(input.bytes);
 	const file = await db.transaction(async (tx) => {
@@ -211,7 +212,7 @@ export function assertPrivateBucket(storage: PrivateStorage): Promise<void> {
 		.catch(providerFailure)
 		.then((acl) => {
 			if (!acl.Grants?.length || acl.Grants.some((g) => /AllUsers|AuthenticatedUsers/.test(g.Grantee?.URI ?? "")))
-				throw new Error("private_bucket_required");
+				throw new StorageError("private_bucket_required");
 		});
 	privateChecks.set(storage, check);
 	check.catch(() => privateChecks.delete(storage));

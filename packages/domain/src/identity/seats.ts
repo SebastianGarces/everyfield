@@ -33,7 +33,7 @@ async function requiredWrites<T>(change: Promise<T>): Promise<T> {
 }
 const inWorkspace = (selected: Owner) =>
 	selected.kind === "plant" ? eq(t.seat.plant_id, selected.id) : eq(t.seat.organization_id, selected.id);
-export function createSeatService(db: Database) {
+export function createSeatService(db: Database | Transaction) {
 	async function list(authority: RequestActor, raw: unknown) {
 		const v = c.listSeatsRequest.parse(raw),
 			a = authority.actor,

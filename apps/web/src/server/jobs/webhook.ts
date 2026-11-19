@@ -4,7 +4,8 @@ import * as tables from "@everyfield/db/tables";
 import { createHash } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { boundedBytes, safeBoundary, safeResponse } from "../platform/boundary.ts";
+import { readBoundedBody } from "@everyfield/domain/operations";
+import { Refusal, safeBoundary, safeResponse } from "../platform/boundary.ts";
 import { transaction } from "../platform/database.ts";
 import { verifyCallback } from "../platform/webhook.ts";
 const provider_event_e = alias(tables.provider_event, "e");
@@ -114,7 +115,8 @@ async function apply(tx: Transaction, eventId: string) {
 	return "applied" as const;
 }
 export async function receiveMailCallback(db: Database, request: Request, secret: string) {
-	const raw = await boundedBytes(request, 16_384);
+	const raw = await readBoundedBody(request, 16_384);
+	if (!raw) throw new Refusal("invalid_input", 413);
 	return applyMailCallback(db, raw, verifyCallback(raw, request.headers, secret));
 }
 export async function applyMailCallback(db: Database, raw: Uint8Array, key: string) {

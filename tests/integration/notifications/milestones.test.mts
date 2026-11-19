@@ -36,7 +36,6 @@ function service(authorize = authorizeNotificationMail) {
 }
 const secret = "cron-" + randomUUID();
 const tick = scheduledJobs({
-	secret,
 	db,
 	storage: null,
 	cleanup: null,

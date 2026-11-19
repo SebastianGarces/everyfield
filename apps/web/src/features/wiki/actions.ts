@@ -223,7 +223,7 @@ export async function readSourceOrder(): Promise<OrderRead> {
 	try {
 		const reply = await ready.mount.producer.listArticles(ready.mount.db, ready.actor, { page: 1 });
 		if (reply.status !== "ok") return { status: "denied" };
-		const names = await organizationNames([...reply.value.churches, ...reply.value.networks]);
+		const names = await organizationNames(ready.mount, [...reply.value.churches, ...reply.value.networks]);
 		const row = (id: string, kind: "church" | "network"): OrderRow => ({
 			id,
 			name: names.get(id) ?? `${kind === "church" ? "Church" : "Network"} ${id.slice(0, 4)}`,
