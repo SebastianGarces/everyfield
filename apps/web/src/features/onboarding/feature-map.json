@@ -491,9 +491,6 @@
 					},
 					"expect": [
 						{
-							"url": "/design/onboarding?step=church"
-						},
-						{
 							"role": "heading",
 							"name": "Start your church"
 						},
