@@ -17,14 +17,15 @@ export function readTools(actor: EvryActor, run: ToolHandlers["read"], offered: 
 		);
 		if (!allowed.length) continue;
 		const options = allowed.map((a) => z.strictObject({ operation: z.literal(a.operation), input: a.input }));
+		const [only] = options;
 		tools[`${domain}_read`] = tool({
 			description: `Bounded ${domain} reads: ${allowed.map((a) => `${a.operation} (${a.description})`).join("; ")}`,
-			inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),
-			execute: async (call: { operation: string; input: unknown }) =>
-				run(
-					allowed.find((a) => a.operation === call.operation)!,
-					call.input,
-				),
+			inputSchema: only && options.length === 1 ? only : z.discriminatedUnion("operation", options as never),
+			execute: async (call: { operation: string; input: unknown }) => {
+				const adapter = allowed.find((a) => a.operation === call.operation);
+				if (!adapter) throw new Error(`${call.operation} is not an offered read`);
+				return run(adapter, call.input);
+			},
 		});
 	}
 	return tools;
@@ -51,9 +52,10 @@ export function modelTools(actor: EvryActor, handlers: ToolHandlers, offered: Of
 	const writes = allowedWrites(actor, offered);
 	if (writes.length) {
 		const options = writes.map((w) => z.strictObject({ operation: z.literal(w.operation), input: w.input }));
+		const [only] = options;
 		tools.propose_change = tool({
 			description: `Prepare an exact review of one change for the user to approve: ${writes.map((w) => `${w.operation} (${w.description})`).join("; ")}. Use ids from earlier results. Nothing changes until the user approves.`,
-			inputSchema: options.length === 1 ? options[0]! : z.discriminatedUnion("operation", options as never),
+			inputSchema: only && options.length === 1 ? only : z.discriminatedUnion("operation", options as never),
 			execute: async (call: { operation: string; input: unknown }) => handlers.propose(call),
 		});
 	}
