@@ -4,7 +4,8 @@ import { organizationBodyFits } from "@everyfield/contracts/wiki";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { editorContext, plantContext, mountFor, wikiActor } from "./server.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { isTransient, logFailure } from "@everyfield/domain/log";
+import { LOST, transient, unexpected } from "../../server/platform/transient.ts";
 
 type WriteOk = {
 	status: "ok";
@@ -47,17 +48,18 @@ export async function recordArticleView(raw: unknown): Promise<WriteResult> {
 	const envelope = key.data;
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
-	try {
-		const reply = await ready.mount.producer.recordView(ready.mount.db, ready.actor, {
-			requestKey: envelope.requestKey,
-			input: { articleId: envelope.articleId, ...(envelope.plantId ? { plantId: envelope.plantId } : {}) },
-		});
-		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
-		return mapReading(reply.value);
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "view-failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "wiki", outcome: "view-failed" },
+		async () => {
+			const reply = await ready.mount.producer.recordView(ready.mount.db, ready.actor, {
+				requestKey: envelope.requestKey,
+				input: { articleId: envelope.articleId, ...(envelope.plantId ? { plantId: envelope.plantId } : {}) },
+			});
+			if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
+			return mapReading(reply.value);
+		},
+		LOST,
+	);
 }
 
 export async function saveProgress(raw: unknown, fraction: unknown): Promise<WriteResult> {
@@ -66,21 +68,22 @@ export async function saveProgress(raw: unknown, fraction: unknown): Promise<Wri
 	const envelope = key.data;
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
-	try {
-		const reply = await ready.mount.producer.updateProgress(ready.mount.db, ready.actor, {
-			requestKey: envelope.requestKey,
-			input: {
-				articleId: envelope.articleId,
-				fraction,
-				...(envelope.plantId ? { plantId: envelope.plantId } : {}),
-			},
-		});
-		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
-		return mapReading(reply.value);
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "progress-failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "wiki", outcome: "progress-failed" },
+		async () => {
+			const reply = await ready.mount.producer.updateProgress(ready.mount.db, ready.actor, {
+				requestKey: envelope.requestKey,
+				input: {
+					articleId: envelope.articleId,
+					fraction,
+					...(envelope.plantId ? { plantId: envelope.plantId } : {}),
+				},
+			});
+			if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
+			return mapReading(reply.value);
+		},
+		LOST,
+	);
 }
 
 export async function saveBookmark(raw: unknown, desired: unknown): Promise<WriteResult> {
@@ -89,18 +92,19 @@ export async function saveBookmark(raw: unknown, desired: unknown): Promise<Writ
 	const envelope = key.data;
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
-	try {
-		const reply = await ready.mount.producer.setBookmark(ready.mount.db, ready.actor, {
-			requestKey: envelope.requestKey,
-			expectedRevision: envelope.expectedRevision,
-			input: { articleId: envelope.articleId, desired },
-		});
-		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
-		return mapReading(reply.value);
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "bookmark-failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "wiki", outcome: "bookmark-failed" },
+		async () => {
+			const reply = await ready.mount.producer.setBookmark(ready.mount.db, ready.actor, {
+				requestKey: envelope.requestKey,
+				expectedRevision: envelope.expectedRevision,
+				input: { articleId: envelope.articleId, desired },
+			});
+			if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
+			return mapReading(reply.value);
+		},
+		LOST,
+	);
 }
 
 export type SearchResult =
@@ -156,23 +160,26 @@ export async function saveSourceOrder(
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
 	if (!plantContext(ready.actor).canOrder) return { status: "denied" };
-	try {
-		const reply = await ready.mount.producer.setSourceOrder(ready.mount.db, ready.actor, {
-			requestKey,
-			expectedRevision,
-			input: { churches, networks },
-		});
-		if (reply.status !== "ok")
-			return reply.error.code === "conflict" ? { status: "conflict", revision: expectedRevision } : { status: "lost" };
-		if (reply.value.errorCode === "revision_conflict") return { status: "conflict", revision: reply.value.revision };
-		if (reply.value.errorCode === "source_order_required") return { status: "required" };
-		if (reply.value.errorCode === "invalid_source_order") return { status: "invalid" };
-		if (reply.value.errorCode) return { status: "denied" };
-		return { status: "ok", revision: reply.value.revision };
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "order-save-failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "wiki", outcome: "order-save-failed" },
+		async () => {
+			const reply = await ready.mount.producer.setSourceOrder(ready.mount.db, ready.actor, {
+				requestKey,
+				expectedRevision,
+				input: { churches, networks },
+			});
+			if (reply.status !== "ok")
+				return reply.error.code === "conflict"
+					? { status: "conflict", revision: expectedRevision }
+					: { status: "lost" };
+			if (reply.value.errorCode === "revision_conflict") return { status: "conflict", revision: reply.value.revision };
+			if (reply.value.errorCode === "source_order_required") return { status: "required" };
+			if (reply.value.errorCode === "invalid_source_order") return { status: "invalid" };
+			if (reply.value.errorCode) return { status: "denied" };
+			return { status: "ok", revision: reply.value.revision };
+		},
+		LOST,
+	);
 }
 
 export type FeedbackResult =
@@ -187,20 +194,21 @@ export async function setFeedback(raw: unknown): Promise<FeedbackResult> {
 	const ready = await actorMount();
 	if (ready.status !== "ready") return ready;
 	if (!plantContext(ready.actor).plantId) return { status: "denied" };
-	try {
-		const reply = await ready.mount.producer.setMine(ready.mount.db, ready.actor, {
-			requestKey: input.requestKey,
-			expectedRevision: "0",
-			input: { articleId: input.articleId, vote: input.vote },
-		});
-		if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
-		const vote = reply.value.currentVote;
-		if (vote !== "helpful" && vote !== "unhelpful") return { status: "lost" };
-		return { status: "ok", vote };
-	} catch (error) {
-		logFailure({ component: "wiki", outcome: "feedback-failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "wiki", outcome: "feedback-failed" },
+		async () => {
+			const reply = await ready.mount.producer.setMine(ready.mount.db, ready.actor, {
+				requestKey: input.requestKey,
+				expectedRevision: "0",
+				input: { articleId: input.articleId, vote: input.vote },
+			});
+			if (reply.status !== "ok") return reply.error.code === "conflict" ? { status: "conflict" } : { status: "denied" };
+			const vote = reply.value.currentVote;
+			if (vote !== "helpful" && vote !== "unhelpful") return { status: "lost" };
+			return { status: "ok", vote };
+		},
+		LOST,
+	);
 }
 
 export type OrgResult =
@@ -277,6 +285,7 @@ async function orgWrite(mode: "add" | "edit" | "publish" | "hide", command: OrgC
 		}
 		return { status: "ok", revision: nextRevision(command.expectedRevision), state: reply.value.state };
 	} catch (error) {
+		if (!isTransient(error)) throw unexpected({ component: "wiki", outcome: "organization-write-failed" }, error);
 		logFailure({ component: "wiki", outcome: "organization-write-failed" }, error);
 		return { status: "lost" };
 	}
