@@ -35,7 +35,7 @@ import {
 import { useOpenSettings, useSettingsLink } from "../settings/opener.tsx";
 import { ARTICLE_FIXED, BELOW_WIDE_ONLY, GRID, GRID_FIXED, RAIL_FIXED, RAIL_STICKY, RAIL_TOC_PAD } from "./layout.ts";
 import { type ArticleVersion, preferredOrder, type SourceOrder, type SourceRow } from "./model.ts";
-import { useWikiChrome } from "./chrome.tsx";
+import { preloadOverlays, useWikiChrome } from "./chrome.tsx";
 
 export function WikiSearchButton() {
 	const wiki = useWikiChrome();
@@ -49,6 +49,8 @@ export function WikiSearchButton() {
 					shortcut="/"
 					{...shortcutMark("/")}
 					aria-label="Search the wiki"
+					onPointerEnter={preloadOverlays}
+					onFocus={preloadOverlays}
 					onClick={open}
 					onKeyDown={(event) => {
 						if (event.key !== "Enter" && event.key !== " " && event.key !== "/") return;
@@ -61,6 +63,8 @@ export function WikiSearchButton() {
 				className="app-sm:hidden"
 				icon={Search01Icon}
 				label="Search the wiki"
+				onPointerEnter={preloadOverlays}
+				onFocus={preloadOverlays}
 				onClick={open}
 				{...shortcutMark("/")}
 			/>
