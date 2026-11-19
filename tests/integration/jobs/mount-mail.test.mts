@@ -253,6 +253,47 @@ test("INV-mount-mail: one tick sends the identity, relationship, settings and on
 	assert.equal(quiet.status, 200);
 });
 
+test("INV-mount-mail: the relationship mount sends only relationship invitations to a typed address, nothing else under its keys", async () => {
+	const reader = await seed.actor(null);
+	const permissive = createMailService({
+		db,
+		encryptionKey: Buffer.from(process.env.IDENTITY_MAIL_KEY!, "hex"),
+		addressKey: Buffer.from(process.env.IDENTITY_ADDRESS_KEY!, "hex"),
+		from: "other@example.test",
+		authorize: async (_tx, list) => new Set(list.map((m) => m.id)),
+	});
+	const queued = [
+		{ purpose: "relationship_invitation", recipient: reader.id },
+		{ purpose: "discovery_receipt", recipient: null },
+	] as const;
+	const keys: string[] = [];
+	for (const mail of queued) {
+		const logicalKey = `relationship/${randomUUID()}/1`;
+		keys.push(logicalKey);
+		await db.transaction((tx) =>
+			permissive.enqueue(tx, {
+				owner: { kind: "account", id: reader.id },
+				purpose: mail.purpose,
+				logicalKey,
+				recipient: mail.recipient,
+				address: reader.email,
+				content: { subject: "Other", text: "Other" },
+				operation: null,
+				notice: null,
+				eligibleAt: new Date().toISOString(),
+			}),
+		);
+	}
+	resend.take();
+	const { body } = await tick({ organization: organizationMailPass(transport()) });
+	assert.equal(body.steps["organization-mail"]?.status, "ok");
+	assert.deepEqual(
+		resend.take().filter((c) => (c.body as { to: string }).to === reader.email),
+		[],
+	);
+	for (const key of keys) assert.notDeepEqual(await mailState(key), ["accepted"], key);
+});
+
 test("INV-mount-mail: a relationship invitation resent on day 29 keeps its original expiry in the result and the mail", async () => {
 	const invitee = `${randomUUID()}@example.test`;
 	const c = await connection();
