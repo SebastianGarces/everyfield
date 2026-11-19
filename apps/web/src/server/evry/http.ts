@@ -19,8 +19,10 @@ import {
 	submitTurn,
 } from "@everyfield/evry";
 import { mutatingRoute, privateHeaders } from "../platform/boundary";
-import { drainEffects, drainTurns, errorResponse, evryDatabase, evryMail, evryResponse, requestActor } from "./index";
+import { drainEffects, drainTurns, errorResponse, evryMail, evryResponse, requestActor } from "./index";
+import { requestDatabase } from "../database";
 import { evryNative } from "./native";
+import { parseJson } from "../platform/json.ts";
 
 type IdParams = { params: Promise<{ id: string }> };
 
@@ -36,7 +38,7 @@ export const conversationsGet = (request: Request) =>
 	});
 
 export const conversationsPost = mutatingRoute((request: Request) =>
-	evryResponse(async (db, actor) => createConversation(db, actor, await request.json().catch(() => null))),
+	evryResponse(async (db, actor) => createConversation(db, actor, parseJson(await request.text()) ?? null)),
 );
 
 export const conversationGet = async (request: Request, { params }: IdParams) => {
@@ -54,7 +56,7 @@ export const conversationCancelPost = mutatingRoute(async (_request: Request, { 
 export const conversationRetryPost = mutatingRoute(async (request: Request, { params }: IdParams) => {
 	const { id } = await params;
 	return evryResponse(async (db, actor) => {
-		const submitted = await retryTurn(db, actor, id, await request.json().catch(() => null));
+		const submitted = await retryTurn(db, actor, id, parseJson(await request.text()) ?? null);
 		if (!submitted.replayed) drainTurns();
 		return submitted;
 	});
@@ -63,7 +65,7 @@ export const conversationRetryPost = mutatingRoute(async (request: Request, { pa
 export const conversationTurnsPost = mutatingRoute(async (request: Request, { params }: IdParams) => {
 	const { id } = await params;
 	return evryResponse(async (db, actor) => {
-		const submitted = await submitTurn(db, actor, id, await request.json().catch(() => null));
+		const submitted = await submitTurn(db, actor, id, parseJson(await request.text()) ?? null);
 		if (!submitted.replayed) drainTurns();
 		return submitted;
 	});
@@ -83,7 +85,7 @@ export const proposalGet = async (_request: Request, { params }: IdParams) => {
 export const proposalApprovePost = mutatingRoute(async (request: Request, { params }: IdParams) => {
 	const { id } = await params;
 	return evryResponse(async (db, actor) => {
-		const approved = await approveProposal(db, actor, id, await request.json().catch(() => null), privateStorage());
+		const approved = await approveProposal(db, actor, id, parseJson(await request.text()) ?? null, privateStorage());
 		if (!approved.replayed || approved.proposal.executing) drainEffects();
 		return approved;
 	});
@@ -102,7 +104,7 @@ export const proposalCheckPost = mutatingRoute(async (_request: Request, { param
 export const proposalPhotoGet = async (_request: Request, { params }: IdParams) => {
 	const { id } = await params;
 	try {
-		const photo = await readStagedPhoto(evryDatabase(), privateStorage(), await requestActor(), id);
+		const photo = await readStagedPhoto(requestDatabase(), privateStorage(), await requestActor(), id);
 		return new Response(Buffer.from(photo.bytes), {
 			headers: { ...privateHeaders, "Content-Type": photo.mediaType, "Content-Length": String(photo.bytes.length) },
 		});
@@ -123,6 +125,6 @@ export const proposalRetryPost = mutatingRoute(async (_request: Request, { param
 export const proposalRevisePost = mutatingRoute(async (request: Request, { params }: IdParams) => {
 	const { id } = await params;
 	return evryResponse(async (db, actor) =>
-		reviseProposal(db, actor, id, await request.json().catch(() => null), evryMail(), evryNative()),
+		reviseProposal(db, actor, id, parseJson(await request.text()) ?? null, evryMail(), evryNative()),
 	);
 });

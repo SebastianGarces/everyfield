@@ -81,10 +81,10 @@
 		"limit": 2
 	},
 	"GET /overview": {
-		"limit": 7
+		"limit": 8
 	},
 	"GET /overview (member)": {
-		"limit": 6
+		"limit": 7
 	},
 	"GET /people": {
 		"limit": 6
@@ -1469,6 +1469,12 @@
 	},
 	"people/duplicates.restoreDuplicatePair": {
 		"limit": 3
+	},
+	"flags/values.readFlags": {
+		"limit": 1
+	},
+	"flags/values.setFlag": {
+		"limit": 1
 	},
 	"people/csv/index.signPeopleImport": {
 		"limit": 1

@@ -5,19 +5,15 @@ import { trainingReader } from "@everyfield/domain/teams";
 import "server-only";
 import { outcome, type Viewer as Seat } from "../server.ts";
 import type { Outcome, PersonLoad, TrainingLoad } from "./model.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { transient } from "../../../server/platform/transient.ts";
 
 type Authority = Seat["authority"];
 
 async function read<T>(viewer: Seat, run: (db: Database, authority: Authority) => Promise<TeamsReply<T>>) {
 	const db = requestDatabase();
-	if (!db) return { status: "failed" } as const;
-	try {
-		return await run(db, viewer.authority);
-	} catch (error) {
-		logFailure({ component: "training", outcome: "read_failed" }, error);
-		return { status: "failed" } as const;
-	}
+	return transient({ component: "training", outcome: "read_failed" }, () => run(db, viewer.authority), {
+		status: "failed",
+	} as const);
 }
 
 export async function loadTraining(viewer: Seat, teamId: string): Promise<Outcome<TrainingLoad>> {

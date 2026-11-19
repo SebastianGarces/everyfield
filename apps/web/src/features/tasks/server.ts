@@ -14,7 +14,7 @@ import "server-only";
 import { HISTORY_PAGE, outcomeOf } from "../followups/model.ts";
 import { countRequest, listRequest, pageCount, type Outcome, type TaskQuery } from "./model.ts";
 import { tasksMount } from "./mount.ts";
-import { logFailure } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
 
 export type TaskViewer = { authority: RequestActor; accountId: string; role: "owner" | "admin" | "member" };
@@ -22,7 +22,7 @@ const administers = (v: Pick<TaskViewer, "role">) => v.role !== "member";
 
 export async function taskViewer(): Promise<TaskViewer | null> {
 	const v = await getViewer();
-	const authority = v?.authority;
+	const authority = v.authority;
 	if (!authority) return null;
 	const ctx = authority.actor.context;
 	if (ctx.kind !== "seat" || ctx.owner.kind !== "plant") return null;
@@ -36,13 +36,7 @@ const outcome = <T>(reply: TaskReply<T>): Outcome<T> =>
 
 export async function read<T>(run: (tx: WriteTx) => Promise<Outcome<T>>): Promise<Outcome<T>> {
 	const db = requestDatabase();
-	if (!db) return { status: "lost" };
-	try {
-		return await gatedTransaction(db, run);
-	} catch (error) {
-		logFailure({ component: "tasks", outcome: "read_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient({ component: "tasks", outcome: "read_failed" }, () => gatedTransaction(db, run), LOST);
 }
 
 export async function write<T>(
@@ -50,13 +44,13 @@ export async function write<T>(
 	run: (writer: TaskWriter, tx: WriteTx, context: TaskContext) => Promise<TaskReply<T>>,
 ): Promise<Outcome<T>> {
 	const mount = tasksMount();
-	if (!mount) return { status: "lost" };
-	try {
-		return outcome(await withTaskWrite(mount.db, viewer.authority, (tx, ctx) => run(mount.writer, tx, ctx)));
-	} catch (error) {
-		logFailure({ component: "tasks", outcome: "write_failed" }, error);
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "tasks", outcome: "write_failed" },
+		async () => {
+			return outcome(await withTaskWrite(mount.db, viewer.authority, (tx, ctx) => run(mount.writer, tx, ctx)));
+		},
+		LOST,
+	);
 }
 
 export const templates = createTemplateReader();

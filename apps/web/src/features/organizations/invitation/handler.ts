@@ -2,6 +2,7 @@ import "server-only";
 import { command, invitationFor, namesFor, subjectFacts, viewerOf, type Reply } from "../mount";
 import { z } from "zod";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
+import { parseJson } from "../../../server/platform/json.ts";
 
 export type RelationshipInvitationRead =
 	| { kind: "signed_out" }
@@ -46,12 +47,8 @@ export const relationshipInvitationRoute = mutatingRoute(async function relation
 		return json(refused("invalid_input"), 415);
 	const text = await incoming.text();
 	if (text.length > LIMIT) return json(refused("invalid_input"), 413);
-	let raw: unknown;
-	try {
-		raw = JSON.parse(text);
-	} catch {
-		return json(refused("invalid_input"), 400);
-	}
+	const raw = parseJson(text);
+	if (raw === undefined) return json(refused("invalid_input"), 400);
 	const body = request.safeParse(raw);
 	if (!body.success) return json(refused("invalid_input"), 400);
 	const v = body.data;

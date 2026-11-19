@@ -30,7 +30,7 @@ const column = z.strictObject({ query: z.record(z.string(), z.unknown()), column
 const pair = z.strictObject({ person: personId, with: personId, keep: personId.nullable() });
 
 export const GET = defineReads(
-	async () => (await getViewer())?.people ?? null,
+	async () => (await getViewer()).people ?? null,
 	"access_denied",
 	(get) => ({
 		view: get(z.strictObject({ search: z.string().max(QUERY_MAX) }), (viewer, v) =>
@@ -110,7 +110,7 @@ export const GET = defineReads(
 			),
 		),
 		page: get(c.personRequest, async (viewer, v): Promise<Outcome<PersonPage>> => {
-			const page = await readPersonPageNow(viewer, v.personId).catch(() => null);
+			const page = await readPersonPageNow(viewer, v.personId);
 			return page ? { status: "ok", value: page } : { status: "lost" };
 		}),
 		records: get(c.personRequest, async (viewer, v) =>

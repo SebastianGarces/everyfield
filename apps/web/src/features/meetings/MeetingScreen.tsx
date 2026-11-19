@@ -36,7 +36,7 @@ import {
 	Tabs,
 	TabsList,
 	TabsPanel,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
@@ -131,7 +131,6 @@ type MeetingForm = ({ kind: "held"; at: string } | { kind: "reason"; reason: Rea
 
 export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageData; canWrite: boolean }) {
 	const router = useRouter();
-	const toast = useToast();
 	const [server, setServer] = useState(loaded);
 	const [data, setData] = useState(loaded);
 	if (server !== loaded) {
@@ -868,7 +867,7 @@ export function MeetingScreen({ data: loaded, canWrite }: { data: MeetingPageDat
 							onClose={closeDialog}
 							onSubmit={(why) => {
 								const { id, displayTitle, revision } = m;
-								deleteFromList({ id, title: displayTitle, revision }, why, toast);
+								deleteFromList({ id, title: displayTitle, revision }, why);
 								router.push("/meetings");
 							}}
 						/>
