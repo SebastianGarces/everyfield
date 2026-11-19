@@ -13,18 +13,14 @@ import {
 	type EvryActor,
 	type Observed,
 } from "../../../packages/evry/src/index.ts";
-import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
-import { actor, admin, db, people, setup, sql, teardown, work } from "./support.mts";
+import type { ObserveOptions } from "../../../packages/evry/src/runtime/observe.ts";
+import { liveRoom } from "../../../packages/evry/src/runtime/live.ts";
+import { actor, admin, db, gatedWriter, people, setup, sql, teardown, usage, work } from "./support.mts";
 
 before(setup);
 after(teardown);
 
 const qualified = (model: LanguageModelV4) => ({ status: "qualified" as const, id: "test", model });
-const usage = {
-	inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 },
-	outputTokens: { total: 1, text: 1, reasoning: 0 },
-};
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const DELTAS = [
 	"There ",
 	"are ",
@@ -37,35 +33,7 @@ const DELTAS = [
 	"up to date.",
 ];
 const TEXT = DELTAS.join("");
-
-function writer(deltas: string[], emitted: number[] = [], opts: { error?: Error; gap?: () => number } = {}) {
-	const base = scriptedModel();
-	const gap = opts.gap ?? (() => 30 + Math.random() * 30);
-	const model: LanguageModelV4 = {
-		...base,
-		async doStream(options) {
-			if (options.responseFormat?.type === "json") return base.doStream(options);
-			return {
-				stream: new ReadableStream({
-					async start(c) {
-						c.enqueue({ type: "text-start", id: "t" });
-						for (const delta of deltas) {
-							if (options.abortSignal?.aborted) return c.error(options.abortSignal.reason);
-							c.enqueue({ type: "text-delta", id: "t", delta });
-							emitted.push(Date.now());
-							await sleep(gap());
-						}
-						if (opts.error) return (c.enqueue({ type: "error", error: opts.error }), c.close());
-						c.enqueue({ type: "text-end", id: "t" });
-						c.enqueue({ type: "finish", finishReason: { unified: "stop", raw: undefined }, usage });
-						c.close();
-					},
-				}),
-			};
-		},
-	};
-	return qualified(model);
-}
+const words = (n: number, word = "w") => Array.from({ length: n }, (_, i) => `${word}${i} `);
 
 async function ask(who: EvryActor, text = "Write a short overview of the people list.") {
 	const c = await createConversation(db, who, { requestKey: randomUUID() });
@@ -73,12 +41,66 @@ async function ask(who: EvryActor, text = "Write a short overview of the people 
 	return c.id;
 }
 type Seen = { at: number; item: Observed };
-async function follow(who: EvryActor, id: string, after = 0, ms = 15_000, seen: Seen[] = []) {
-	for await (const item of observeRun(db, who, id, after, AbortSignal.timeout(ms))) seen.push({ at: Date.now(), item });
-	return seen;
+type WatchOptions = { after?: number; ms?: number } & Pick<ObserveOptions, "pause" | "now">;
+function watch(who: EvryActor, id: string, { after = 0, ms = 15_000, ...options }: WatchOptions = {}) {
+	const seen: Seen[] = [];
+	const stopped = new AbortController();
+	let changed = Promise.withResolvers<void>();
+	let ended = false;
+	const done = (async () => {
+		try {
+			const signal = AbortSignal.any([stopped.signal, AbortSignal.timeout(ms)]);
+			for await (const item of observeRun(db, who, id, after, signal, options)) {
+				seen.push({ at: Date.now(), item });
+				changed.resolve();
+				changed = Promise.withResolvers();
+			}
+		} finally {
+			ended = true;
+			changed.resolve();
+		}
+	})();
+	done.catch(() => {});
+	const until = async (ok: (seen: Seen[]) => boolean, what: string) => {
+		while (!ok(seen)) {
+			assert.ok(!ended, "the stream ended before " + what);
+			await changed.promise;
+		}
+	};
+	return { seen, done, until, stop: () => stopped.abort() };
+}
+function heldPolls() {
+	const held = new Set<() => void>();
+	let pausedAgain = Promise.withResolvers<void>();
+	const polls = {
+		count: 0,
+		pause: (_ms: number, signal: AbortSignal) =>
+			new Promise<void>((resolve) => {
+				polls.count++;
+				held.add(resolve);
+				signal.addEventListener("abort", () => resolve(), { once: true });
+				pausedAgain.resolve();
+				pausedAgain = Promise.withResolvers();
+			}),
+		async once(stream: Promise<unknown>) {
+			const next = pausedAgain.promise;
+			for (const resolve of [...held]) resolve();
+			held.clear();
+			await Promise.race([next, stream.catch(() => {})]);
+		},
+	};
+	return polls;
+}
+async function roomHas(id: string, text: string) {
+	const room = liveRoom(id);
+	while (!room.text.includes(text)) await room.next(AbortSignal.timeout(5_000));
 }
 const lives = (seen: Seen[]) =>
 	seen.filter((s) => "live" in s.item).map((s) => ({ at: s.at, ...(s.item as any).live }));
+const liveText = (seen: Seen[]) =>
+	lives(seen)
+		.map((p) => p.text)
+		.join("");
 const saved = (seen: Seen[]) =>
 	seen.filter((s) => "event" in s.item).map((s) => (s.item as any).event as ConversationEvent);
 const savedText = (events: ConversationEvent[]) =>
@@ -94,13 +116,20 @@ test("INV-stream-paint INV-stream-progressive: a short answer arrives as 3+ orde
 	const owner = await actor("owner");
 	const id = await ask(owner);
 	const emitted: number[] = [];
-	const seen: Seen[] = [];
-	const watching = follow(owner, id, 0, 15_000, seen);
-	for (let n = 0; n < 100 && !seen.length; n++) await sleep(20);
-	assert.equal(await work(writer(DELTAS, emitted)), "succeeded");
-	await watching;
+	const watching = watch(owner, id);
+	await watching.until((seen) => seen.length > 0, "the first page");
+	const writer = gatedWriter(DELTAS, { emitted });
+	const running = work(writer.model);
+	let end = 0;
+	for (const delta of DELTAS) {
+		end += delta.length;
+		writer.release();
+		await watching.until((seen) => liveText(seen).length >= end, "the live text of " + JSON.stringify(delta));
+	}
+	assert.equal(await running, "succeeded");
+	await watching.done;
 
-	const pieces = lives(seen);
+	const pieces = lives(watching.seen);
 	assert.ok(pieces.length >= 3, `${pieces.length} live updates`);
 	assert.ok(pieces.length >= DELTAS.length / 2);
 	let offset = 0;
@@ -110,7 +139,7 @@ test("INV-stream-paint INV-stream-progressive: a short answer arrives as 3+ orde
 	}
 	assert.equal(pieces.map((p) => p.text).join(""), TEXT);
 
-	let end = 0;
+	end = 0;
 	const worst = DELTAS.map((delta, n) => {
 		end += delta.length;
 		const covering = pieces.find((p) => p.offset + p.text.length >= end)!;
@@ -126,24 +155,23 @@ test("INV-stream-paint INV-stream-progressive: a short answer arrives as 3+ orde
 test("INV-stream-durable: reconnect mid-stream, a second tab and a reload agree; no gap, no duplicate", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
-	const first: Seen[] = [];
-	const tab: Seen[] = [];
-	const a = follow(owner, id, 0, 15_000, first);
-	const b = follow(owner, id, 0, 15_000, tab);
-	for (let n = 0; n < 100 && (!first.length || !tab.length); n++) await sleep(20);
-	const running = work(writer(DELTAS, [], { gap: () => 60 }));
-	let cursor = 0;
-	for (let n = 0; n < 200 && !cursor; n++) {
-		cursor = saved(first).find((e) => e.kind === "assistant_text")?.sequence ?? 0;
-		await sleep(20);
-	}
-	assert.ok(cursor > 0);
-	const again = await follow(owner, id, cursor);
-	await running;
-	await Promise.all([a, b]);
+	const first = watch(owner, id);
+	const tab = watch(owner, id);
+	await first.until((seen) => seen.length > 0, "the first page");
+	await tab.until((seen) => seen.length > 0, "the first page");
+	const writer = gatedWriter(DELTAS);
+	const running = work(writer.model);
+	writer.release();
+	const firstSaved = (seen: Seen[]) => saved(seen).find((e) => e.kind === "assistant_text")?.sequence ?? 0;
+	await first.until((seen) => firstSaved(seen) > 0, "the first saved text");
+	const cursor = firstSaved(first.seen);
+	const again = watch(owner, id, { after: cursor });
+	writer.release(Infinity);
+	assert.equal(await running, "succeeded");
+	await Promise.all([first.done, tab.done, again.done]);
 
-	const before = saved(first).filter((e) => e.sequence <= cursor);
-	const after = saved(again);
+	const before = saved(first.seen).filter((e) => e.sequence <= cursor);
+	const after = saved(again.seen);
 	const sequences = [...before, ...after].map((e) => e.sequence);
 	assert.deepEqual(
 		sequences,
@@ -157,10 +185,10 @@ test("INV-stream-durable: reconnect mid-stream, a second tab and a reload agree;
 		"no gap",
 	);
 	assert.equal(savedText([...before, ...after]), TEXT);
-	assert.equal(savedText(saved(tab)), TEXT, "a second observer sees the same text");
+	assert.equal(savedText(saved(tab.seen)), TEXT, "a second observer sees the same text");
 	assert.equal(savedText(everything), TEXT, "a reload after the end shows the same text");
 	assert.equal(everything.filter((e) => e.kind === "status").length, 1);
-	for (const p of lives(again)) assert.equal(TEXT.slice(p.offset, p.offset + p.text.length), p.text);
+	for (const p of lives(again.seen)) assert.equal(TEXT.slice(p.offset, p.offset + p.text.length), p.text);
 });
 
 test("INV-statements: the stream route's access check is its first page, so an idle conversation streams with no second read", async () => {
@@ -183,46 +211,49 @@ test("INV-statements: the stream route's access check is its first page, so an i
 test("INV-stream-durable: a lost run's interrupted end is saved exactly once", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
-	const seen: Seen[] = [];
-	const watching = follow(owner, id, 0, 15_000, seen);
-	for (let n = 0; n < 100 && !seen.length; n++) await sleep(20);
-	const running = work(writer(DELTAS, [], { gap: () => 80 }));
-	for (let n = 0; n < 100 && !lives(seen).length; n++) await sleep(20);
+	const watching = watch(owner, id);
+	await watching.until((seen) => seen.length > 0, "the first page");
+	const writer = gatedWriter(DELTAS);
+	const running = work(writer.model);
+	writer.release();
+	await watching.until((seen) => lives(seen).length > 0, "the first live text");
 	await admin.execute(
 		sql`UPDATE job SET lease_until=clock_timestamp()-interval '1 second' WHERE kind='assistant_turn' AND subject_record_id=${id}`,
 	);
+	writer.release(Infinity);
 	assert.equal(await running, "lost");
-	await watching;
+	await watching.done;
 	const statuses = (await readAll(owner, id)).filter((e) => e.kind === "status");
 	assert.equal(statuses.length, 1);
 	assert.equal((statuses[0]!.body.error as { code: string }).code, "interrupted");
-	assert.equal(saved(seen).filter((e) => e.kind === "status").length, 1);
+	assert.equal(saved(watching.seen).filter((e) => e.kind === "status").length, 1);
 });
 
 test("INV-stream-access: an observer whose seat ends mid-stream gets no more text within 1 s", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
-	const seen: Seen[] = [];
-	const watching = follow(owner, id, 0, 15_000, seen);
-	for (let n = 0; n < 100 && !seen.length; n++) await sleep(20);
-	const running = work(
-		writer(
-			Array.from({ length: 40 }, (_, n) => `w${n} `),
-			[],
-			{ gap: () => 50 },
-		),
-	);
-	for (let n = 0; n < 100 && lives(seen).length < 2; n++) await sleep(20);
-	const endedAt = Date.now();
+	let clock = 1_000_000;
+	const polls = heldPolls();
+	const watching = watch(owner, id, { pause: polls.pause, now: () => clock });
+	await watching.until((seen) => seen.length > 0, "the first page");
+	const writer = gatedWriter(words(40));
+	const running = work(writer.model);
+	writer.release(2);
+	await watching.until((seen) => liveText(seen) === "w0 w1 ", "two live words");
 	await admin.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${owner.accountId}`);
 	try {
-		await assert.rejects(watching, (e: { code?: string }) => e.code === "not_found");
-		const after = lives(seen).filter((p) => p.at > endedAt + 1_000);
-		assert.equal(after.length, 0, "no text more than 1 s after the seat ended");
-		assert.ok(Date.now() - endedAt < 3_000);
+		writer.release();
+		await watching.until((seen) => liveText(seen) === "w0 w1 w2 ", "a word within the checked second");
+		clock += 1_001;
+		writer.release(3);
+		await roomHas(id, "w5 ");
+		await polls.once(watching.done);
+		await assert.rejects(watching.done, (e: { code?: string }) => e.code === "not_found");
+		assert.equal(liveText(watching.seen), "w0 w1 w2 ", "no text once the last access check is over 1 s old");
 	} finally {
 		await admin.execute(sql`UPDATE seat SET ended_at=NULL WHERE account_id=${owner.accountId}`);
 		await cancelTurn(db, owner, id);
+		writer.release(Infinity);
 		await running;
 	}
 });
@@ -230,23 +261,22 @@ test("INV-stream-access: an observer whose seat ends mid-stream gets no more tex
 test("INV-stream-stop INV-stream-end: Stop keeps the partial text and ends the stream promptly", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
-	const seen: Seen[] = [];
-	const watching = follow(owner, id, 0, 15_000, seen);
-	for (let n = 0; n < 100 && !seen.length; n++) await sleep(20);
-	const running = work(
-		writer(
-			Array.from({ length: 60 }, (_, n) => `w${n} `),
-			[],
-			{ gap: () => 50 },
-		),
-	);
-	for (let n = 0; n < 200 && !savedText(saved(seen)).startsWith("w0 w1 "); n++) await sleep(20);
-	assert.ok(savedText(saved(seen)).startsWith("w0 w1 "), "the partial text was saved before Stop");
-	const stoppedAt = Date.now();
+	const polls = heldPolls();
+	const watching = watch(owner, id, { pause: polls.pause });
+	await watching.until((seen) => seen.length > 0, "the first page");
+	const writer = gatedWriter(words(60));
+	const running = work(writer.model);
+	writer.release(2);
+	for (let n = 0; n < 100 && !savedText(saved(watching.seen)).startsWith("w0 w1 "); n++)
+		await polls.once(watching.done);
+	assert.ok(savedText(saved(watching.seen)).startsWith("w0 w1 "), "the partial text was saved before Stop");
 	assert.equal((await cancelTurn(db, owner, id)).cancelled, true);
+	writer.release(Infinity);
 	assert.equal(await running, "lost");
-	await watching;
-	assert.ok(Date.now() - stoppedAt < 1_500, "the stream ended promptly");
+	const pausedBeforeStop = polls.count;
+	await polls.once(watching.done);
+	await watching.done;
+	assert.equal(polls.count, pausedBeforeStop, "the stream ended at the first poll after Stop");
 	const events = await readAll(owner, id);
 	assert.equal(events.at(-1)!.body.reason, "cancelled");
 	assert.equal(events.filter((e) => e.kind === "status").length, 1);
@@ -263,7 +293,9 @@ test("INV-stream-end: a provider error mid-stream keeps the text, projects the e
 		requestBodyValues: {},
 		statusCode: 500,
 	});
-	assert.equal(await work(writer(DELTAS.slice(0, 4), [], { error, gap: () => 30 })), "failed");
+	const writer = gatedWriter(DELTAS.slice(0, 4), { error });
+	writer.release(Infinity);
+	assert.equal(await work(writer.model), "failed");
 	const events = await readAll(owner, id);
 	const status = events.findLast((e) => e.kind === "status")!;
 	assert.equal(status.body.state, "failed");
@@ -276,14 +308,10 @@ test("INV-stream-end: a provider error mid-stream keeps the text, projects the e
 test("INV-stream-withheld: a source removed mid-turn withholds the turn's live text from a new observer", async () => {
 	const owner = await actor("owner");
 	const id = await ask(owner);
-	const slow = writer(
-		Array.from({ length: 40 }, (_, n) => `secret${n} `),
-		[],
-		{ gap: () => 50 },
-	);
-	const streaming = slow.model.doStream.bind(slow.model);
+	const slow = gatedWriter(words(40, "secret"));
+	const streaming = slow.model.model.doStream.bind(slow.model.model);
 	const model = qualified({
-		...slow.model,
+		...slow.model.model,
 		async doStream(options) {
 			const last = options.prompt.at(-1);
 			if (options.responseFormat?.type !== "json" && last?.role !== "tool")
@@ -306,25 +334,27 @@ test("INV-stream-withheld: a source removed mid-turn withholds the turn's live t
 	});
 	const running = work(model);
 	try {
-		let some = false;
-		for (let n = 0; n < 150 && !some; n++) {
-			await sleep(20);
-			some = (await readAll(owner, id)).some((e) => e.kind === "assistant_text");
-		}
-		assert.ok(some, "the turn saved some text");
+		const earlier = watch(owner, id);
+		slow.release();
+		await earlier.until((seen) => saved(seen).some((e) => e.kind === "assistant_text"), "the first saved text");
+		earlier.stop();
+		await earlier.done;
 		await admin.execute(sql`UPDATE person SET state='retired',retired_at=clock_timestamp() WHERE id=${people.casey}`);
-		const seen: Seen[] = [];
-		const watching = follow(owner, id, 0, 2_500, seen);
-		await sleep(1_200);
-		const texts = saved(seen).filter((e) => e.kind === "assistant_text");
-		assert.ok(texts.length > 0 && texts.every((e) => e.body.withheld === true && e.body.text === ""));
-		assert.equal(lives(seen).length, 0, "no live text of a withheld turn");
-		assert.ok(!JSON.stringify(seen).includes("secret"), "no withheld word reaches the observer");
+		const watching = watch(owner, id);
+		await watching.until((seen) => saved(seen).some((e) => e.kind === "assistant_text"), "the withheld text");
+		slow.release(5);
+		await roomHas(id, "secret5 ");
 		await cancelTurn(db, owner, id);
-		await watching;
+		slow.release(Infinity);
+		await watching.done;
+		const texts = saved(watching.seen).filter((e) => e.kind === "assistant_text");
+		assert.ok(texts.length > 0 && texts.every((e) => e.body.withheld === true && e.body.text === ""));
+		assert.equal(lives(watching.seen).length, 0, "no live text of a withheld turn");
+		assert.ok(!JSON.stringify(watching.seen).includes("secret"), "no withheld word reaches the observer");
 	} finally {
 		await admin.execute(sql`UPDATE person SET state='live',retired_at=NULL WHERE id=${people.casey}`);
 		await cancelTurn(db, owner, id);
+		slow.release(Infinity);
 		await running;
 	}
 });
