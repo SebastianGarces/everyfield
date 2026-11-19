@@ -227,6 +227,6 @@ Launch history lists every date change, milestone and outcome with who made it a
 ```bash
 agent-browser find role button click --name "Show history" --exact
 agent-browser wait --load networkidle
-agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Launch Sunday set\")"
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Launch Sunday set\")"
 agent-browser find role button text --name "Refresh" --exact
 ```

@@ -94,7 +94,7 @@ agent-browser find label "Email" fill "nobody@example.test"
 agent-browser find label "Password" fill "not-the-password-1"
 agent-browser find role button click --name "Sign in" --exact
 agent-browser wait --load networkidle
-agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"Email or password is incorrect.\")"
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"Email or password is incorrect.\")"
 ```
 
 #### identity.signin#landing
@@ -396,7 +396,7 @@ agent-browser find label "Email address" fill "map-proof@example.test"
 agent-browser find role button click --name "Send invitation" --exact
 agent-browser wait --load networkidle
 agent-browser wait --text "Invitation sent to"
-agent-browser wait --fn "((x, leaves = []) => /json/.test(document.contentType) ? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) : [...document.querySelectorAll(\"body *\")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(\"map-proof@example.test\")"
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"map-proof@example.test\")"
 ```
 
 #### identity.seats#roles-and-removal

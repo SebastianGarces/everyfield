@@ -885,9 +885,9 @@ function command(step: Step | Observable): string {
 }
 
 const visibleTextIs = (text: string) =>
-	`((x, leaves = []) => /json/.test(document.contentType) ` +
-	`? (JSON.parse(document.body.firstChild.textContent, (k, v) => (v === Object(v) || leaves.push(String(v)), v)), leaves.includes(x)) ` +
-	`: [...document.querySelectorAll("body *")].some((e) => e.checkVisibility() && e.innerText?.trim() === x))(${q(text)})`;
+	"((x,l=[])=>/json/.test(document.contentType)" +
+	"?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x))" +
+	`:[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(${q(text)})`;
 
 function commands(steps: Step[], expect: Observable[] = [], polls = false): string[] {
 	return [
