@@ -92,10 +92,20 @@ function toolsProject(root: string): { script: string; include: string[] } | und
 	return { script, include: config.include ?? [] };
 }
 
+function workspaceParents(yaml: string): string[] {
+	const block = /^packages:[ \t]*\n((?:[ \t]+.*(?:\n|$))*)/m.exec(yaml)?.[1] ?? "";
+	const globs = [...block.matchAll(/^\s*-\s*["']?([^"'\s]+)["']?\s*$/gm)].map(([, glob]) => glob!);
+	const refused = globs.filter((glob) => !/^[^!*]+\/\*$/.test(glob));
+	if (refused.length)
+		throw new Error(
+			`pnpm-workspace.yaml lists ${refused.join(", ")}: every packages entry is a folder followed by /*, with no ! exclusion, so the lint and typecheck checks cover every package pnpm -r runs.`,
+		);
+	return globs.map((glob) => glob.slice(0, -2));
+}
+
 function workspacePackages(root: string): Pkg[] {
-	const yaml = readFileSync(join(root, "pnpm-workspace.yaml"), "utf8");
-	const dirs = [...yaml.matchAll(/^\s*-\s*["']?([^"'\s]+)\/\*["']?\s*$/gm)].flatMap(([, parent]) =>
-		readdirSync(join(root, parent!)).map((name) => join(root, parent!, name)),
+	const dirs = workspaceParents(readFileSync(join(root, "pnpm-workspace.yaml"), "utf8")).flatMap((parent) =>
+		readdirSync(join(root, parent)).map((name) => join(root, parent, name)),
 	);
 	return dirs
 		.filter((dir) => existsSync(join(dir, "package.json")))
