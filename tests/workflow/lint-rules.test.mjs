@@ -767,6 +767,33 @@ test("INV-lint: an oxlint override that turns a rule off needs its reason, and t
 	assert.match(out, /everyfield\/max-state must be "error" in the top-level rules/);
 });
 
+test("INV-mail: only the two mail modules that read or store the mail_request row make a ProviderKey, in product code", () => {
+	const source = `import type { ProviderKey } from "@everyfield/contracts/common";
+import type * as common from "@everyfield/contracts/common";
+export const a = "x" as ProviderKey;
+export const b = (k: string) => k as unknown as ProviderKey;
+export const c = "x" as common.ProviderKey;
+export const d = (k: ProviderKey): string => k;
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/notifications/x.ts": source,
+			"apps/web/src/features/x/mail.ts": source,
+			"packages/domain/src/communication/delivery.ts": source,
+			"apps/web/src/server/jobs/mail.ts": source,
+			"tests/integration/x.test.mts": source,
+		}).filter((hit) => hit.endsWith("provider-key-mint")),
+		[
+			"apps/web/src/features/x/mail.ts:3 provider-key-mint",
+			"apps/web/src/features/x/mail.ts:4 provider-key-mint",
+			"apps/web/src/features/x/mail.ts:5 provider-key-mint",
+			"packages/domain/src/notifications/x.ts:3 provider-key-mint",
+			"packages/domain/src/notifications/x.ts:4 provider-key-mint",
+			"packages/domain/src/notifications/x.ts:5 provider-key-mint",
+		],
+	);
+});
+
 test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {
 	const forge = `import { RequestActor, RequestActor as RA } from "@everyfield/domain/access";
 import * as access from "@everyfield/domain/access";

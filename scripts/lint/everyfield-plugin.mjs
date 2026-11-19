@@ -213,6 +213,28 @@ const ACTOR_STATICS = new Set(["resolve", "claimWrite"]);
 const staticKey = (node) =>
 	keyName(node.property, node.computed) ?? (node.computed ? literalArgument(node.property) : null);
 
+const PROVIDER_KEY_MINTS = new Set([
+	"packages/domain/src/communication/delivery.ts",
+	"apps/web/src/server/jobs/mail.ts",
+]);
+const namesProviderKey = (type) =>
+	type?.type === "TSTypeReference" &&
+	((type.typeName.type === "Identifier" && type.typeName.name === "ProviderKey") ||
+		(type.typeName.type === "TSQualifiedName" && type.typeName.right.name === "ProviderKey"));
+
+const providerKeyMint = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (PROVIDER_KEY_MINTS.has(path) || !PRODUCT_SOURCE.test(path)) return {};
+		const message = `A ProviderKey is the key stored on its mail_request row: only ${[...PROVIDER_KEY_MINTS].join(" and ")} make one, where they read or store that row, so a retry never reaches the provider with a fresh key.`;
+		const cast = (node) => {
+			if (namesProviderKey(node.typeAnnotation)) context.report({ node, message });
+		};
+		return { TSAsExpression: cast, TSTypeAssertion: cast };
+	},
+};
+
 const requestActor = {
 	meta: { type: "problem" },
 	create(context) {
@@ -1649,6 +1671,7 @@ export default {
 		"max-state": maxState,
 		"no-timers": noTimers,
 		"request-actor": requestActor,
+		"provider-key-mint": providerKeyMint,
 		"no-comments": noComments,
 		"clickable-host": clickableHost,
 		"storage-client": storageClient,

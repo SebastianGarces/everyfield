@@ -6,7 +6,7 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
 import type { Database, Transaction } from "@everyfield/db/client";
 import { z } from "zod";
 import { executeWrites } from "@everyfield/domain/operations";
-import { providerKey, type ProviderKey } from "@everyfield/contracts/common";
+import type { ProviderKey } from "@everyfield/contracts/common";
 import { IDENTITY_LINK_SECONDS } from "@everyfield/contracts/identity";
 import { issueMailOptOutToken, parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
 import { transaction } from "../platform/database.ts";
@@ -77,6 +77,7 @@ export type MailPayload = Readonly<{
 	html: string;
 	headers?: Readonly<Record<string, string>>;
 }>;
+const providerKey = z.string().transform((key) => key as ProviderKey);
 export interface MailTransport {
 	send(payload: MailPayload, key: ProviderKey, signal: AbortSignal): Promise<TransportOutcome>;
 	lookup(id: string, signal: AbortSignal): Promise<TransportOutcome>;

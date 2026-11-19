@@ -8,8 +8,8 @@ export const operationId = z.uuid().brand<"OperationId">();
 export const eventId = z.uuid().brand<"EventId">();
 export const sessionId = z.string().min(1).max(256).brand<"SessionId">();
 export const requestKey = z.string().min(1).max(200).brand<"RequestKey">();
-export const providerKey = z.string().brand<"ProviderKey">();
-export type ProviderKey = z.infer<typeof providerKey>;
+declare const storedProviderKey: unique symbol;
+export type ProviderKey = string & { readonly [storedProviderKey]: true };
 export const sha256Text = z.string().regex(/^[a-f0-9]{64}$/);
 export const digest = sha256Text.brand<"Digest">();
 export const revision = z

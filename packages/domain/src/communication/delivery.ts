@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "@everyfield/db/query";
 import type { Database } from "@everyfield/db/client";
-import { providerKey, type ProviderKey } from "@everyfield/contracts/common";
+import type { ProviderKey } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/communication";
 import {
 	plainText,
@@ -258,6 +258,7 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 	return loadedSchema.parse(raw ?? { allowed: false });
 }
 
+const providerKey = z.string().transform((key) => key as ProviderKey);
 const sealedPayload = z.object({ v: z.literal(1), sealed: z.string() });
 const storedBatches = z.array(
 	z.object({

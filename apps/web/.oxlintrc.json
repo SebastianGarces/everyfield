@@ -65,6 +65,7 @@
 		"typescript/triple-slash-reference": "error",
 		"everyfield/resend-senders": "error",
 		"everyfield/request-actor": "error",
+		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
 		"everyfield/no-effects": "error",
 		"everyfield/storage-client": "error",
