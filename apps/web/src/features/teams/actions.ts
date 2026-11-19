@@ -19,6 +19,8 @@ async function change<T>(run: Run<T>): Promise<Outcome<T>> {
 	if (!v) return noSeat;
 	return write(v, run);
 }
+const withIds = (fields: unknown, ids: Record<string, string>) =>
+	fields && typeof fields === "object" && !Array.isArray(fields) ? { ...fields, ...ids } : fields;
 const command = (requestKey: string, expectedRevision: string, input: unknown) => ({
 	requestKey,
 	expectedRevision,
@@ -32,14 +34,17 @@ export async function createTeam(requestKey: string, input: unknown) {
 }
 
 export async function changeTeam(
-	op: "edit" | "archive" | "restore",
+	op: unknown,
 	requestKey: string,
 	expectedRevision: string,
 	teamId: string,
-	patch: Record<string, unknown> = {},
+	patch: unknown = {},
 ) {
-	if (!["edit", "archive", "restore"].includes(op)) return { status: "refused", code: "invalid_input" } as const;
-	return change((tx, ctx) => teamsWriter[op](tx, ctx, command(requestKey, expectedRevision, { ...patch, teamId })));
+	if (op !== "edit" && op !== "archive" && op !== "restore")
+		return { status: "refused", code: "invalid_input" } as const;
+	return change((tx, ctx) =>
+		teamsWriter[op](tx, ctx, command(requestKey, expectedRevision, withIds(patch, { teamId }))),
+	);
 }
 
 export async function appointLeader(requestKey: string, expectedRevision: string, teamId: string, personId: string) {
@@ -48,17 +53,12 @@ export async function appointLeader(requestKey: string, expectedRevision: string
 	);
 }
 
-export async function createRole(requestKey: string, teamId: string, input: Record<string, unknown>) {
-	return change((tx, ctx) => teamsWriter.createRole(tx, ctx, { requestKey, input: { ...input, teamId } }));
+export async function createRole(requestKey: string, teamId: string, input: unknown) {
+	return change((tx, ctx) => teamsWriter.createRole(tx, ctx, { requestKey, input: withIds(input, { teamId }) }));
 }
-export async function editRole(
-	requestKey: string,
-	expectedRevision: string,
-	roleId: string,
-	patch: Record<string, unknown>,
-) {
+export async function editRole(requestKey: string, expectedRevision: string, roleId: string, patch: unknown) {
 	return change((tx, ctx) =>
-		teamsWriter.editRole(tx, ctx, command(requestKey, expectedRevision, { ...patch, roleId })),
+		teamsWriter.editRole(tx, ctx, command(requestKey, expectedRevision, withIds(patch, { roleId }))),
 	);
 }
 export async function retireRole(requestKey: string, expectedRevision: string, roleId: string) {
@@ -91,15 +91,14 @@ export async function reactivateMembership(
 	);
 }
 
-export async function correctTenure(requestKey: string, expectedRevision: string, input: Record<string, unknown>) {
+export async function correctTenure(requestKey: string, expectedRevision: string, input: unknown) {
 	return change((tx, ctx) => teamsWriter.correctTenure(tx, ctx, command(requestKey, expectedRevision, input)));
 }
 
-type Selection = { teamKey: string; roleKeys: string[]; destinationTeamId?: string };
 export async function importTemplates(
 	requestKey: string,
 	version: string,
-	selections: Selection[],
+	selections: unknown,
 ): Promise<Outcome<{ newTeams: number; newRoles: number }>> {
 	const v = await seat();
 	if (!v) return noSeat;

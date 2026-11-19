@@ -17,17 +17,7 @@ const command = (requestKey: string, expectedRevision: string, input: unknown) =
 	input,
 });
 
-export async function offerResponsibilities(
-	requestKey: string,
-	expectedRevision: string,
-	input: {
-		teamId: string;
-		decision: "accept" | "decline";
-		selected: string[];
-		expectedVersion: string;
-		reviewDigest: string;
-	},
-) {
+export async function offerResponsibilities(requestKey: string, expectedRevision: string, input: unknown) {
 	const v = await seat();
 	if (!v) return noSeat;
 	return write(v, (tx, ctx) =>

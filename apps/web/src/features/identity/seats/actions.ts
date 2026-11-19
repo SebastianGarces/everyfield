@@ -9,7 +9,7 @@ import { workspaceViewer } from "./server";
 const operation = z.enum(["invite", "resend", "revoke", "appointAdmin", "demote", "remove"]);
 export type SeatOperation = z.infer<typeof operation>;
 
-export async function runSeatCommand(name: SeatOperation, command: unknown): Promise<Reply> {
+export async function runSeatCommand(name: unknown, command: unknown): Promise<Reply> {
 	const op = operation.safeParse(name);
 	const w = await workspaceViewer();
 	const service = invitationService();
