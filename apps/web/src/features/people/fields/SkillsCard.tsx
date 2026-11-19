@@ -24,7 +24,8 @@ import type { Wait } from "../../../components/save/model.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import type { Receipt } from "../boundary.ts";
 import { fresh, problemText } from "../parts.tsx";
-import { addSkill, readSkills, removeSkill, updateSkill } from "./actions.ts";
+import { addSkill, removeSkill, updateSkill } from "./actions.ts";
+import { readSkills } from "../fetch.ts";
 import {
 	CATEGORY_LABEL,
 	PROFICIENCIES,

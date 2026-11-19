@@ -46,7 +46,8 @@ function fakeDeps(dir: string, over: Partial<ScheduleDeps> = {}) {
 				return loaded ? ((unloading = true), { status: 0, output: "" }) : { status: 3, output: "" };
 			if (args[0] === "bootstrap") {
 				if (loaded) return { status: 5, output: "Bootstrap failed: 5: Input/output error" };
-				assert.ok(existsSync(args[2]), "bootstrap reads a plist that exists");
+				const plist = args[2];
+				assert.ok(plist && existsSync(plist), "bootstrap reads a plist that exists");
 				loaded = true;
 				return { status: 0, output: "" };
 			}
