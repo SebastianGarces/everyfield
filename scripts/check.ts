@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { basename, join, relative, resolve } from "node:path";
@@ -170,6 +171,15 @@ function gather(root: string, home: string, full: boolean, gh: Gh) {
 }
 
 export const CENSUS_PACKAGE = "@everyfield/domain";
+export const NODE_TEST_FLAGS = "--test-concurrency=3";
+export const UNIT_WORKSPACE_CONCURRENCY = "--workspace-concurrency=2";
+export const OXLINT_THREADS = "--threads=3";
+
+export const checkTmp = (root: string, home: string) =>
+	join(home, "tmp", createHash("sha256").update(resolve(root)).digest("hex").slice(0, 12));
+
+const oxlintThreads = `if(/[\\/]oxlint[\\/]bin[\\/]oxlint$/.test(process.argv[1]??"")&&!process.argv.some((a)=>a.startsWith("--threads")))process.argv.push(${JSON.stringify(OXLINT_THREADS)})`;
+export const OXLINT_PRELOAD = `--import=data:text/javascript,${encodeURIComponent(oxlintThreads)}`;
 
 export type CheckOptions = {
 	root: string;
@@ -198,7 +208,14 @@ export function check({
 	const selection = full
 		? everything(["verifier run (--full) ignores selection"], context)
 		: selectChecks(input.changed, input.map, context);
-	const env = { PATH: `${process.execPath.replace(/\/[^/]+$/, "")}:${process.env.PATH ?? ""}` };
+	const tmp = checkTmp(root, home);
+	rmSync(tmp, { recursive: true, force: true });
+	mkdirSync(tmp, { recursive: true });
+	const env = {
+		PATH: `${process.execPath.replace(/\/[^/]+$/, "")}:${process.env.PATH ?? ""}`,
+		TMPDIR: tmp,
+		EVF_NODE_TEST_FLAGS: process.env.EVF_NODE_TEST_FLAGS ?? NODE_TEST_FLAGS,
+	};
 	const failures: string[] = [];
 	const testRecords: CheckRecord["tests"] = Object.entries(selection.tests).map(([file, d]) => ({
 		file,
@@ -263,7 +280,12 @@ export function check({
 				entry.durationMs = Date.now() - t0;
 				continue;
 			}
-			const r = exec("corepack", ["pnpm", ...filters, "--if-present", "run", definition.script]);
+			const concurrency = id === "test:unit" ? [UNIT_WORKSPACE_CONCURRENCY] : [];
+			const extra =
+				id === "lint"
+					? { NODE_OPTIONS: [process.env.NODE_OPTIONS, OXLINT_PRELOAD].filter(Boolean).join(" ") }
+					: undefined;
+			const r = exec("corepack", ["pnpm", ...filters, ...concurrency, "--if-present", "run", definition.script], extra);
 			entry.result = r.status === 0 ? "passed" : "failed";
 			if (id === "test:unit") {
 				entry.tests = testCount(r.output);
