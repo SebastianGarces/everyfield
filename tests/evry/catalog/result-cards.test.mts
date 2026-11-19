@@ -186,7 +186,7 @@ const PROBES: Record<string, Record<string, unknown> | (() => Promise<SourceResu
 	},
 };
 
-const catalogTools = Object.values(catalog).filter((v): v is string => typeof v === "string" && v.startsWith("evry."));
+const catalogTools = Object.values(catalog).flatMap((v) => (typeof v === "string" && v.startsWith("evry.") ? [v] : []));
 const installed = [
 	...Object.values(catalog.READ_DOMAINS).flatMap((adapters) => adapters.map((a) => a.operation)),
 	...catalogTools,

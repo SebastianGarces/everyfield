@@ -116,10 +116,13 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	assert.equal(await work(), "succeeded");
 	const since = (kind: string, pick: "min" | "max") =>
 		sql`extract(epoch FROM (SELECT ${sql.raw(pick)}(created_at) FROM conversation_event WHERE conversation_id=${id} AND kind=${kind}) - (SELECT created_at FROM conversation_event WHERE conversation_id=${id} AND kind='user_message'))::float`;
-	const timing = await admin.execute(sql`SELECT ${since("tool_result", "min")} card, ${since("status", "max")} turn`);
+	const timing = await admin.execute<{ card: number; turn: number }>(
+		sql`SELECT ${since("tool_result", "min")} card, ${since("status", "max")} turn`,
+	);
 	const { cards, text, status } = await events(owner, id);
-	const total = (await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant} AND state='live'`))
-		.rows[0]!.n;
+	const total = (
+		await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM person WHERE plant_id=${plant} AND state='live'`)
+	).rows[0]!.n;
 	assert.equal(cards.length, 1);
 	assert.deepEqual(
 		[
@@ -141,7 +144,8 @@ test("AC:INH-CROSS-06 AC:INH-REGRESSION-BUDGET AC:EVRY-RETRY-CANCEL bounded page
 	);
 
 	const foreign = await actor("foreign");
-	const all = (await admin.execute(sql`SELECT count(*)::int n FROM person WHERE plant_id=${otherPlant}`)).rows[0]!.n;
+	const all = (await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM person WHERE plant_id=${otherPlant}`))
+		.rows[0]!.n;
 	const wide = await ask(foreign, "Read every detail for all people.");
 	assert.equal(await work(), "succeeded");
 	const input = await events(foreign, wide);
@@ -531,7 +535,7 @@ test("AC:INH-EDGES-01 AC:INH-REGRESSION-CLARIFICATION-NAME AC:SEC-11 two people 
 		sql`UPDATE person SET email='alex@example.test', phone='555-0100', notes='Bearer abcdefghijklmnopqrstuvwxyz0123456789' WHERE id=${people.alexRivera}`,
 	);
 	await admin.execute(sql`UPDATE person SET city='sk-live-abcdefghijklmnopqrstuvwx' WHERE id=${people.casey}`);
-	const before = (await admin.execute(sql`SELECT count(*)::int n FROM audit_event`)).rows[0]!.n;
+	const before = (await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM audit_event`)).rows[0]!.n;
 	const { calls, model } = recorded();
 	const id = await ask(owner, "Find Alex. There are two people named Alex.");
 	assert.equal(await work(model), "succeeded");
@@ -547,7 +551,7 @@ test("AC:INH-EDGES-01 AC:INH-REGRESSION-CLARIFICATION-NAME AC:SEC-11 two people 
 	const prompts = JSON.stringify(calls.map((c) => c.prompt));
 	for (const secret of ["alex@example.test", "555-0100", "Bearer abcdef"]) assert.ok(!prompts.includes(secret), secret);
 	assert.equal(
-		(await admin.execute(sql`SELECT count(*)::int n FROM audit_event`)).rows[0]!.n,
+		(await admin.execute<{ n: number }>(sql`SELECT count(*)::int n FROM audit_event`)).rows[0]!.n,
 		before + 2,
 		"create and submit only",
 	);
@@ -742,7 +746,7 @@ test("AC:EVRY-CONTEXT-BOUNDS AC:UI45-006 a source retired after its turn is with
 
 test("AC:GAP-EVR-400 selection reuses only rows the conversation returned and checks access again", async () => {
 	const owner = await actor("owner");
-	const outputs: Record<string, any>[] = [];
+	const outputs: unknown[] = [];
 	const call = (toolName: string, input: unknown) => ({
 		type: "tool-call" as const,
 		toolCallId: randomUUID(),
@@ -758,16 +762,18 @@ test("AC:GAP-EVR-400 selection reuses only rows the conversation returned and ch
 		...base,
 		async doStream(options) {
 			if (options.responseFormat?.type === "json") return base.doStream(options);
-			const part = options.prompt.at(-1)?.role === "tool" ? (options.prompt.at(-1)!.content.at(-1) as any) : null;
-			if (part?.output?.type === "json") outputs.push(part.output.value);
-			const listed = outputs[0];
+			const last = options.prompt.at(-1);
+			const part = last?.role === "tool" ? last.content.at(-1) : undefined;
+			if (part?.type === "tool-result" && part.output.type === "json") outputs.push(part.output.value);
+			const [listed] = outputs;
+			const resultId = listed && typeof listed === "object" && "resultId" in listed ? listed.resultId : undefined;
 			const parts =
 				outputs.length === 0
 					? [call("people_read", { operation: "people.listPeople", input: { search: "Alex" } })]
 					: outputs.length === 1
-						? [call("select_returned_rows", { resultId: listed!.resultId, ids: [people.alexRivera, people.casey] })]
+						? [call("select_returned_rows", { resultId, ids: [people.alexRivera, people.casey] })]
 						: outputs.length === 2
-							? [call("select_returned_rows", { resultId: listed!.resultId, ids: [people.alexRivera] })]
+							? [call("select_returned_rows", { resultId, ids: [people.alexRivera] })]
 							: [
 									{ type: "text-start" as const, id: "t" },
 									{ type: "text-delta" as const, id: "t", delta: "Selected Alex Rivera." },
@@ -1046,12 +1052,17 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 
 	const racing = {
 		...listPeople,
-		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
+		async invoke(
+			tx: Parameters<typeof listPeople.invoke>[0],
+			who: EvryActor,
+			input: typeof find,
+			native: Parameters<typeof listPeople.invoke>[3],
+		) {
 			await admin.transaction(async (t) => {
 				await t.execute(sql`SELECT 1 FROM seat WHERE account_id=${who.accountId} FOR NO KEY UPDATE NOWAIT`);
 				await t.execute(sql`UPDATE seat SET ended_at=clock_timestamp() WHERE account_id=${who.accountId}`);
 			});
-			return listPeople.invoke(tx, who, input);
+			return listPeople.invoke(tx, who, input, native);
 		},
 	};
 	try {
@@ -1068,12 +1079,17 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	}
 	const signOut = {
 		...listPeople,
-		async invoke(tx: Parameters<typeof listPeople.invoke>[0], who: EvryActor, input: typeof find) {
+		async invoke(
+			tx: Parameters<typeof listPeople.invoke>[0],
+			who: EvryActor,
+			input: typeof find,
+			native: Parameters<typeof listPeople.invoke>[3],
+		) {
 			await admin.transaction(async (t) => {
 				await t.execute(sql`SELECT 1 FROM auth_session WHERE id=${accounts.owner.session} FOR UPDATE NOWAIT`);
 				await t.execute(sql`DELETE FROM auth_session WHERE id=${accounts.owner.session}`);
 			});
-			return listPeople.invoke(tx, who, input);
+			return listPeople.invoke(tx, who, input, native);
 		},
 	};
 	try {
@@ -1091,7 +1107,7 @@ test("AC:SEC-02 AC:TEN-002 INV-tenancy: native reads behind Evry check the live 
 	await invokeRead(db, owner, listPeople, find);
 	const sent = queries.slice(start).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim()));
 	const plain = queries.length;
-	await db.transaction((tx) => listPeople.invoke(tx, owner, find));
+	await db.transaction((tx) => listPeople.invoke(tx, owner, find, null));
 	assert.equal(sent.length, queries.slice(plain).filter((q) => !/^(BEGIN|COMMIT)/i.test(q.trim())).length + 1);
 });
 

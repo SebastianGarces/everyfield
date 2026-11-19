@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import type { Database } from "../../../packages/db/src/client.ts";
+import { createPersonRequest, updatePersonRequest } from "../../../packages/contracts/src/people/requests.ts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
 import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
 import { withMeetingsWrite, meetingsWriter } from "../../../packages/domain/src/meetings/index.ts";
@@ -98,10 +99,11 @@ const peopleCtx = (who: SetupName, plant: string) => ({
 async function addPerson(admin: Database, runtime: Database, plant: string, name: string, daysAgo = 0) {
 	const person = await runtime.transaction(async (tx) =>
 		ok<{ person: { id: string } }>(
-			(await peopleWriter.createPerson(tx as never, peopleCtx("setupOwner", plant) as never, {
-				requestKey: randomUUID(),
-				input: { displayName: name },
-			})) as never,
+			(await peopleWriter.createPerson(
+				tx as never,
+				peopleCtx("setupOwner", plant) as never,
+				createPersonRequest.parse({ requestKey: randomUUID(), input: { displayName: name } }),
+			)) as never,
 		),
 	);
 	const id = person.person.id;
@@ -132,9 +134,11 @@ async function schedule(admin: Database, runtime: Database, plant: string, input
 
 export async function seedOverview(admin: Database, runtime: Database, native: NativePorts, plant: string) {
 	const owner = peopleCtx("setupOwner", plant);
-	const [{ revision }] = (await admin.execute(sql`SELECT revision::text FROM plant WHERE id=${plant}`)).rows as {
-		revision: string;
-	}[];
+	const [plantRow] = (
+		await admin.execute<{ revision: string }>(sql`SELECT revision::text FROM plant WHERE id=${plant}`)
+	).rows;
+	if (!plantRow) throw Error(`no plant ${plant}`);
+	const { revision } = plantRow;
 	await runtime.transaction(async (tx) =>
 		ok(await native.onboarding.complete(tx, owner as never, command({}, revision) as never)),
 	);
@@ -149,11 +153,15 @@ export async function seedOverview(admin: Database, runtime: Database, native: N
 		if (active)
 			await runtime.transaction(async (tx) =>
 				ok(
-					(await peopleWriter.updatePerson(tx as never, owner as never, {
-						requestKey: randomUUID(),
-						expectedRevision: "1",
-						input: { personId: ids[name], patch: { city: "Austin" } },
-					})) as never,
+					(await peopleWriter.updatePerson(
+						tx as never,
+						owner as never,
+						updatePersonRequest.parse({
+							requestKey: randomUUID(),
+							expectedRevision: "1",
+							input: { personId: ids[name], patch: { city: "Austin" } },
+						}),
+					)) as never,
 				),
 			);
 	}

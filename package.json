@@ -15,7 +15,7 @@
 		"lint:test-names": "node tools/ci/test-names.ts",
 		"typecheck": "node tools/ci/typecheck.ts",
 		"typecheck:bun": "node tools/ci/typecheck.ts typecheck:bun",
-		"typecheck:tools": "node_modules/typescript-7/bin/tsc -b tsconfig.tools.json tests/unit/tsconfig.json tests/ui/tsconfig.json",
+		"typecheck:tools": "node_modules/typescript-7/bin/tsc -b tsconfig.tools.json tests/unit/tsconfig.json tests/ui/tsconfig.json tests/evry/tsconfig.json",
 		"access:export": "pnpm --filter @everyfield/db export",
 		"db:migrate": "pnpm --filter @everyfield/domain migrate",
 		"test:early-access": "pnpm --filter @everyfield/domain test",
