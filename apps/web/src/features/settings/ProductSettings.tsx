@@ -68,7 +68,7 @@ const hrefFor = (key: SectionKey) => `/settings/${key}`;
 
 const dialog = lazyModule(() => import("./SettingsDialog"));
 
-function LazySettingsDialog(props: SettingsDialogProps) {
+export function LazySettingsDialog(props: SettingsDialogProps) {
 	return (
 		<Opened open={props.section !== null}>
 			<Suspense fallback={null}>

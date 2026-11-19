@@ -17,7 +17,7 @@ import { preferenceRows } from "../model";
 import type { NotificationChoice, NotificationPatch, SectionResult } from "../port";
 import { newRequestKey } from "../port";
 import { OFFLINE_REFERENCE, refusalOf, type Refusal } from "../save";
-import { AutoSaveFooter, SectionBody } from "../SettingsDialog";
+import { AutoSaveFooter, SectionBody } from "../SectionParts";
 import { SaveError } from "../SaveError";
 import { useSection, useSettings } from "../store";
 
