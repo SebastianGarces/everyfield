@@ -21,7 +21,6 @@ import type {
 	NamedRecipient,
 	Outcome,
 	PersonHistory,
-	Recipient,
 	ReplaceReport,
 	RescheduleReport,
 	ResendReview,
@@ -254,10 +253,6 @@ export async function restoreOwnSuppression(requestKey: string, reason: string):
 
 export async function resolveAudience(input: unknown): Promise<Outcome<AudienceSummary>> {
 	return look((tx, viewer) => communicationWriter.readAudience(tx, viewer.authority, input));
-}
-
-export async function searchRecipients(query: string): Promise<Outcome<{ people: Recipient[] }>> {
-	return look((tx, viewer) => communicationWriter.readRecipients(tx, viewer.authority, { query }));
 }
 
 export async function readMeetingTemplate(meetingType: string): Promise<Outcome<Template>> {

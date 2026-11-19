@@ -21,7 +21,7 @@ import {
 	backfill,
 } from "../../../packages/db/src/schema/migrate.ts";
 import { pdf } from "../platform/fixtures.mjs";
-import { validateCommitment } from "../../../packages/db/src/schema/validate-file.ts";
+import { commitmentValidator, validateCommitment } from "../../../packages/db/src/schema/validate-file.ts";
 import { auth_user, auth_account, auth_session, auth_verification } from "../../../packages/db/src/schema/tables.ts";
 import { authStorage } from "../../../packages/db/src/schema/auth-storage.ts";
 import { canonicalTimeZone } from "../../../packages/db/src/schema/time.ts";
@@ -106,19 +106,17 @@ export * from ${JSON.stringify(parser)};`;
 	};
 	mock.timers.enable({ apis: ["setTimeout"] });
 	try {
-		await validateCommitment(pdf(), "application/pdf", {
-			entry: "data:text/javascript," + encodeURIComponent(slowStart),
-		});
+		await commitmentValidator("data:text/javascript," + encodeURIComponent(slowStart)).validate(
+			pdf(),
+			"application/pdf",
+		);
 	} finally {
 		mock.timers.reset();
 		channel.close();
 	}
 	const endless = `export const getDocument = () => ({ promise: new Promise(() => {}), destroy: async () => {} });`;
 	await assert.rejects(
-		validateCommitment(pdf(), "application/pdf", {
-			entry: "data:text/javascript," + encodeURIComponent(endless),
-			parseMs: 200,
-		}),
+		commitmentValidator("data:text/javascript," + encodeURIComponent(endless), 200).validate(pdf(), "application/pdf"),
 		/invalid_file/,
 	);
 	await validateCommitment(pdf(), "application/pdf");

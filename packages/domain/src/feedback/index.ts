@@ -131,7 +131,7 @@ const TRIAGE_COLUMNS = sql`f.id, f.category, f.description, f.status, f.revision
  f.held_reason, f.issue_url, (SELECT m.state FROM mail m WHERE m.tenant_id=f.account_id
   AND m.logical_key='feedback/'||f.id::text) AS mail_state`;
 
-async function replay(db: Database, authority: RequestActor, requestKey: string) {
+async function replay(db: Pick<Database, "execute">, authority: RequestActor, requestKey: string) {
 	const [row] = await rows(
 		db,
 		sql`SELECT f.id, f.category, f.page_label, ${AT} AS at,
@@ -151,7 +151,12 @@ const submitted = (row: Record<string, unknown>) =>
 	});
 
 export const feedbackWriter = {
-	async submit(db: Database, authority: RequestActor, raw: unknown, server: { appVersion: string | null }) {
+	async submit(
+		db: Pick<Database, "execute">,
+		authority: RequestActor,
+		raw: unknown,
+		server: { appVersion: string | null },
+	) {
 		return settle(async () => {
 			const input = parse(c.submitFeedbackRequest, raw);
 			const account = authority.actor.accountId;
