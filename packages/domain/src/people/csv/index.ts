@@ -8,7 +8,7 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import "server-only";
 import { z } from "zod";
 import { liveRead, writeVisibility, type RequestActor } from "../../access/session.ts";
-import { declareWrite, finishAudit, prepareWrite } from "../../operations/writes.ts";
+import { declareWrite, finishAudit, prepareWrite, gatedTransaction } from "../../operations/writes.ts";
 import {
 	authorize,
 	authorizeCachedWrite,
@@ -574,7 +574,7 @@ export async function previewStoredImport(
 		return storedFile(db, storage, ctx, input.uploadId);
 	});
 	if (loaded.status !== "ok") return loaded;
-	return db.transaction((tx) => peopleCsv.previewImport(tx, ctx, { file: loaded.value }));
+	return gatedTransaction(db, (tx) => peopleCsv.previewImport(tx, ctx, { file: loaded.value }));
 }
 export async function executeStoredImport(
 	db: Database,

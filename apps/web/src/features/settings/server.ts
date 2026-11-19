@@ -4,11 +4,10 @@ import { owner, sessionId, type Owner } from "@everyfield/contracts/common";
 import { sectionResult, settingsError, type SettingsError } from "@everyfield/contracts/settings";
 import * as N from "@everyfield/contracts/settings/native";
 import type { SettingsReply } from "@everyfield/contracts/settings/server";
-import type { Transaction } from "@everyfield/db/client";
 import { and, eq, isNull } from "@everyfield/db/query";
 import { privateStorage, StorageError } from "@everyfield/db/schema";
 import * as t from "@everyfield/db/tables";
-import type { RequestActor } from "@everyfield/domain/access";
+import type { RequestActor, WriteTx } from "@everyfield/domain/access";
 import { personalCalendar } from "@everyfield/domain/intelligence";
 import { trustedIdentityIp } from "@everyfield/domain/identity";
 import {
@@ -37,6 +36,7 @@ import type { SettingsViewer } from "./port.ts";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
 import { transient, unexpected } from "../../server/platform/transient.ts";
 import { parseJson } from "../../server/platform/json.ts";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
 type Viewer = Awaited<ReturnType<typeof getViewer>>;
 type Signed = SectionViewer & { accountId: string };
@@ -53,7 +53,7 @@ function create(v: ServerConfig) {
 	const addressHash = (address: string) =>
 		createHmac("sha256", addressKey).update(address.trim().toLowerCase()).digest("hex");
 	const effects = {
-		replan: (tx: Transaction, i: { owner: Owner; revision: string; operationId: string; kind: string }) =>
+		replan: (tx: WriteTx, i: { owner: Owner; revision: string; operationId: string; kind: string }) =>
 			enqueueJob(tx, {
 				tenant: i.owner.id,
 				kind: "digest",
@@ -240,7 +240,7 @@ export async function run<S extends z.ZodType, T>(
 	schema: S,
 	raw: unknown,
 	section: (input: z.output<S>) => string,
-	operation: (ops: Mount, tx: Transaction, context: Context, input: z.output<S>) => Promise<SettingsReply<T>>,
+	operation: (ops: Mount, tx: WriteTx, context: Context, input: z.output<S>) => Promise<SettingsReply<T>>,
 ): Promise<SettingsReply<T>> {
 	const viewer = await signedIn();
 	if (!viewer) return refusal("access_denied");
@@ -371,7 +371,7 @@ export async function restrictedStatus(kind: "account" | "plant") {
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const { request } = session;
 	return logged("restricted_status_failed", () =>
-		ops.db.transaction((tx) =>
+		gatedTransaction(ops.db, (tx) =>
 			kind === "account"
 				? ops.deletion.getAccountDeletionStatus(tx, context, N.getAccountDeletionStatusRequest.parse(request))
 				: ops.deletion.getWorkspaceDeletionStatus(tx, context, N.getWorkspaceDeletionStatusRequest.parse(request)),
@@ -386,7 +386,7 @@ export async function cancelRestrictedDeletion(kind: "account" | "plant", expect
 	const command = { requestKey: randomUUID(), expectedRevision, input: session.request };
 	const context = { kind: "restricted_deletion" as const, handle: session.handle };
 	const reply = await logged("restricted_cancel_failed", () =>
-		ops.db.transaction((tx) => {
+		gatedTransaction(ops.db, (tx) => {
 			if (kind === "account") {
 				const v = N.cancelAccountDeletionRequest.safeParse(command);
 				return v.success ? ops.deletion.cancelAccountDeletion(tx, context, v.data) : refused("invalid_input");

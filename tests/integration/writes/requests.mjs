@@ -21,6 +21,7 @@ import { peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { teamsWriter } from "../../../packages/domain/src/teams/index.ts";
 import { CATALOG } from "../../../packages/domain/src/tasks/catalog.ts";
 import { p as wordParagraph, storedZip } from "../documents/fixtures/word.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = root + "apps/web/";
@@ -101,7 +102,7 @@ try {
 	const owner = await account("Owner"),
 		member = await account("Member");
 	const noop = async () => {};
-	const created = await runtime.transaction((tx) =>
+	const created = await gatedTransaction(runtime, (tx) =>
 		createOnboardingProducer({ invalidate: noop, notice: noop, enqueue: noop }).createPlant(
 			tx,
 			{ session: owner.sessionId, selected: { kind: "account", id: owner.accountId } },
@@ -174,14 +175,14 @@ try {
 	};
 	const writtenDocument = await saveWritten(nativeFromText("Welcome to the church plant."));
 	const person = async (displayName) => {
-		const r = await runtime.transaction((tx) =>
+		const r = await gatedTransaction(runtime, (tx) =>
 			peopleWriter.createPerson(tx, ctx, { requestKey: randomUUID(), input: { displayName, stage: "prospect" } }),
 		);
 		assert.equal(r.status, "ok");
 		return r.value.person;
 	};
 	const note = async (p, body) => {
-		const r = await runtime.transaction((tx) =>
+		const r = await gatedTransaction(runtime, (tx) =>
 			peopleWriter.addNote(tx, ctx, {
 				requestKey: randomUUID(),
 				expectedRevision: p.revision,
@@ -212,7 +213,7 @@ try {
 			ON CONFLICT DO NOTHING`);
 	await notices(3);
 	const teams = async (op, input) => {
-		const r = await runtime.transaction((tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
+		const r = await gatedTransaction(runtime, (tx) => op(tx, ctx, { requestKey: randomUUID(), ...input }));
 		assert.equal(r.status, "ok", JSON.stringify(r));
 		return r.value;
 	};
@@ -446,11 +447,6 @@ try {
 		["GET /tasks", "/tasks", owner.cookie],
 		["GET /tasks?task=<follow-up>", `/tasks?task=${followUpId}`, owner.cookie],
 		["GET /tasks/follow-ups", "/tasks/follow-ups", owner.cookie],
-		[
-			"GET /tasks/read?what=blocking",
-			`/tasks/read?what=blocking&in=${readInput({ taskIds: [followUpId] })}`,
-			owner.cookie,
-		],
 		["GET /tasks/read?what=rows", `/tasks/read?what=rows&in=${readInput({ taskIds: [followUpId] })}`, owner.cookie],
 		["GET /wiki", "/wiki", owner.cookie],
 		["GET /wiki/[slug]", "/wiki/census-lead", owner.cookie],

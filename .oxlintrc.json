@@ -112,7 +112,7 @@
 			}
 		},
 		{
-			"files": ["tests/workflow/**/*.ts"],
+			"files": ["tests/workflow/**/*.ts", "tests/unit/**/*.mts", "tests/ui/**/*.mts"],
 			"rules": {
 				"typescript/no-explicit-any": "error"
 			}
@@ -134,7 +134,7 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**"],
+			"files": ["packages/contracts/src/**", "packages/reference/src/**"],
 			"rules": {
 				"typescript/no-non-null-assertion": "error"
 			}

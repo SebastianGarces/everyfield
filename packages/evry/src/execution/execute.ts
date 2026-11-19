@@ -13,6 +13,7 @@ import { EvryRefusal } from "../context/errors.ts";
 import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
 import { refusalCode } from "../proposals/review.ts";
 import type { EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
 
@@ -80,7 +81,7 @@ export async function executeProposal(
 	native: NativePorts | null = null,
 ): Promise<EffectOutcome> {
 	try {
-		const first = await db.transaction(async (tx): Promise<EffectOutcome | Reach> => {
+		const first = await gatedTransaction(db, async (tx): Promise<EffectOutcome | Reach> => {
 			const r = await tx.execute(sql`
 				SELECT p.id,p.account_id,p.tenant_id,c.context_kind,p.operation,p.revision,p.input,p.state,p.outcome,p.approved_session_id,
 					p.expires_at<=clock_timestamp() AS expired,${fence(lease)} AS fenced,

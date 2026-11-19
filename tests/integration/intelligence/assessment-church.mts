@@ -5,6 +5,7 @@ import { createPrivateCare } from "../../../packages/domain/src/intelligence/ind
 import { requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/intelligence.ts";
 import { commitments, peopleWriter } from "../../../packages/domain/src/people/index.ts";
 import { fixture, ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 export const GLOBAL = "00000000-0000-0000-0000-000000000000";
 export const ZONE = "America/Chicago";
@@ -131,7 +132,7 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 		input: Record<string, unknown> = { adultClassification: "adult" },
 	) {
 		return ok(
-			await db.transaction((t) =>
+			await gatedTransaction(db, (t) =>
 				peopleWriter.createPerson(
 					t as never,
 					p.ctx as never,
@@ -146,7 +147,7 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 	async function committed(p: Plant, name: string, daysAgo = 60, input?: Record<string, unknown>) {
 		const who = await person(p, name, input);
 		ok(
-			await db.transaction((t) =>
+			await gatedTransaction(db, (t) =>
 				commitments.createCommitment(
 					t as never,
 					p.ctx as never,

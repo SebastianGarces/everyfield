@@ -13,6 +13,7 @@ import {
 import { alias } from "@everyfield/db/query";
 import "server-only";
 import type { Transaction } from "@everyfield/db/client";
+import type { NativeRun } from "../operations/writes.ts";
 import { z } from "zod";
 import {
 	accountId,
@@ -205,12 +206,12 @@ export async function readRequestViewer(db: Executor, token: string) {
 	};
 }
 
-export async function currentActor(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, lock = true) {
+export async function currentActor(tx: WriteTx, session: z.infer<typeof sessionId>, selected: Owner, lock = true) {
 	const bound = boundWrite(tx);
 	if (bound && bound.authority.session === session && sameOwner(bound.selected, selected)) return bound.actor;
 	const parsed = owner.safeParse(selected);
 	if (!parsed.success) return currentActorResult.parse({ status: "unavailable" });
-	const observed = requestReads.get(tx);
+	const observed = tx.write.observed;
 	if (observed && observed.session === session) {
 		const actor = observed.actor;
 		if (sameOwner(actor.context.owner, parsed.data)) return actor;
@@ -223,9 +224,8 @@ export async function currentActor(tx: Transaction, session: z.infer<typeof sess
 	}
 	return resolveActor(tx, session, parsed.data, lock);
 }
-const requestReads = new WeakMap<Transaction, RequestActor>();
-export function observedActor(tx: Transaction, session: z.infer<typeof sessionId>) {
-	const observed = requestReads.get(tx);
+export function observedActor(tx: WriteTx, session: z.infer<typeof sessionId>) {
+	const observed = tx.write.observed;
 	return observed && observed.session === session ? observed.actor : null;
 }
 
@@ -247,17 +247,28 @@ type RequestWrite = {
 	organization: typeof tables.organization.$inferSelect | null;
 	setup: typeof tables.onboarding_setup.$inferSelect | null;
 };
-const requestWrites = new WeakMap<Transaction, RequestWrite>();
-export const requestWrite = (tx: Transaction) => requestWrites.get(tx);
 type DeferredWrite = Pick<RequestWrite, "authority" | "selected" | "actor">;
-const deferredWrites = new WeakMap<Transaction, DeferredWrite>();
-export const boundWrite = (tx: Transaction): DeferredWrite | undefined =>
-	requestWrites.get(tx) ?? deferredWrites.get(tx);
-export const clearRequestWrite = (tx: Transaction) => {
-	requestWrites.delete(tx);
-	deferredWrites.delete(tx);
+export class WriteState {
+	deferred: DeferredWrite | undefined;
+	locked: RequestWrite | undefined;
+	observed: RequestActor | undefined;
+	readonly native: NativeRun | undefined;
+	constructor(native?: NativeRun) {
+		this.native = native;
+	}
+}
+export type WriteTx = Transaction & { readonly write: WriteState };
+export function writeTx(tx: Transaction, native?: NativeRun): WriteTx {
+	const gated: Transaction = Object.create(tx);
+	return Object.assign(gated, { write: new WriteState(native) });
+}
+export const requestWrite = (tx: WriteTx) => tx.write.locked;
+export const boundWrite = (tx: WriteTx): DeferredWrite | undefined => tx.write.locked ?? tx.write.deferred;
+export const clearRequestWrite = (tx: WriteTx) => {
+	tx.write.locked = undefined;
+	tx.write.deferred = undefined;
 };
-export function deferWrite(tx: Transaction, authority: RequestActor, selected: Owner): DeferredWrite | null {
+export function deferWrite(tx: WriteTx, authority: RequestActor, selected: Owner): DeferredWrite | null {
 	const actor = authority.actor;
 	const own =
 		actor.context.kind === "seat" && sameOwner(actor.context.owner, selected)
@@ -267,7 +278,7 @@ export function deferWrite(tx: Transaction, authority: RequestActor, selected: O
 				: null;
 	if (!own) return null;
 	const write = { authority, selected, actor: own };
-	deferredWrites.set(tx, write);
+	tx.write.deferred = write;
 	return write;
 }
 export function writeAuthority(write: DeferredWrite): SQL {
@@ -323,7 +334,7 @@ export class RequestActor {
 		this.actor = actor;
 	}
 
-	async bind(tx: Transaction, selected: Owner): Promise<RequestWrite | null> {
+	async bind(tx: WriteTx, selected: Owner): Promise<RequestWrite | null> {
 		const locked = await lockWriteAuthority(tx, this.session, selected, this);
 		if (!locked || locked.identity.status !== "active") return null;
 		const write: RequestWrite = {
@@ -336,11 +347,11 @@ export class RequestActor {
 			organization: locked.organization,
 			setup: locked.setup,
 		};
-		requestWrites.set(tx, write);
+		tx.write.locked = write;
 		return write;
 	}
 
-	static async claimWrite(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner) {
+	static async claimWrite(tx: WriteTx, session: z.infer<typeof sessionId>, selected: Owner) {
 		const locked = await lockWriteAuthority(tx, session, selected);
 		if (!locked || locked.identity.status !== "active") return null;
 		const authority = new RequestActor(session, locked.identity);
@@ -354,12 +365,12 @@ export class RequestActor {
 			organization: locked.organization,
 			setup: locked.setup,
 		};
-		requestWrites.set(tx, write);
+		tx.write.locked = write;
 		return write;
 	}
 
-	observe(tx: Transaction) {
-		requestReads.set(tx, this);
+	observe(tx: WriteTx) {
+		tx.write.observed = this;
 	}
 
 	static of(session: z.infer<typeof sessionId>, actor: ActiveActor) {
