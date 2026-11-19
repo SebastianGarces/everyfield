@@ -379,12 +379,15 @@ try {
 	};
 	const get = async (name, path, cookie, status = 200, headers = {}) => {
 		const r = await fetch(origin + path, {
-			headers: { ...headers, "x-evf-request": name, cookie },
+			headers: { ...headers, ...(name ? { "x-evf-request": name } : {}), cookie },
 			redirect: "manual",
 		});
-		await r.text();
+		const body = await r.text();
 		assert.equal(r.status, status, `${name}: HTTP ${r.status}`);
+		return body;
 	};
+	const read = async (name, path, what, input, cookie = owner.cookie) =>
+		JSON.parse(await get(name, `${path}?what=${what}&in=${readInput(input)}`, cookie));
 	const act = async (name, page, file, action, args, cookie = owner.cookie) => {
 		const r = await fetch(origin + page, {
 			method: "POST",
@@ -759,20 +762,21 @@ try {
 	assert.equal(missed.status, 200);
 	assert.equal((await missed.arrayBuffer()).byteLength > 0, true);
 	assert.equal(objectReads(), readsBefore + 1);
-	const suggested = await act("POST settings.brand.suggestColors", "/settings/brand", brandActions, "suggestColors", [
-		{ assetKind: "full_logo" },
-	]);
+	const { value: suggested } = await read("GET /settings/read?what=colors", "/settings/read", "colors", {
+		assetKind: "full_logo",
+	});
 	assert.equal(suggested.status, "ok", JSON.stringify(suggested));
 	assert.equal(suggested.value.suggestedPrimary, "#2E7D32");
 	for (const [action, args] of [
 		["requestAssetUpload", [{ slot: "mark", mediaType: "image/png", byteLength: logo.length, altText: "x" }]],
 		["finalizeAssetUpload", [{ uploadId: ticket.value.uploadId, slot: "mark", altText: "x", expectedRevision: "2" }]],
-		["suggestColors", [{ assetKind: "full_logo" }]],
 		["saveBrand", [{ expectedRevision: "2", patch: { assets: { full_logo: null } } }]],
 	]) {
 		const denial = await act(null, "/settings/brand", brandActions, action, args, member.cookie);
 		assert.deepEqual([denial.status, denial.error?.code], ["refused", "access_denied"], action);
 	}
+	const colorDenial = await read(null, "/settings/read", "colors", { assetKind: "full_logo" }, member.cookie);
+	assert.deepEqual([colorDenial.value.status, colorDenial.value.error?.code], ["refused", "access_denied"]);
 	assert.equal((await asset(null, "PUT", ticket.value.uploadId, member.cookie, logo)).status, 403);
 	for (const cookie of [member.cookie, ""]) {
 		assert.equal((await asset(null, "GET", fileId, cookie)).status, 404);

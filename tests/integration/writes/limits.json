@@ -219,7 +219,7 @@
 	"POST settings.brand.removeAsset": {
 		"limit": 2
 	},
-	"POST settings.brand.suggestColors": {
+	"GET /settings/read?what=colors": {
 		"limit": 10,
 		"reason": "The action only reads, but budgets.mjs counts every POST as a write. The session lookup, then suggestColors (9) in the domain: the kit and file select and the statements of readAuthorizedObject. The action adds only the session lookup."
 	},
