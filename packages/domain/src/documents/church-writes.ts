@@ -362,7 +362,9 @@ export const churchWriter = {
 				db,
 				{ ...scope, plantId: scope.tenantId },
 				{ personId: null, meetingId: null, teamId: null },
-				churchTemplate ? sql`(SELECT ${churchTemplateOf(scope, churchTemplate)} WHERE ${gateSql(scope, true)})` : undefined,
+				churchTemplate
+					? sql`(SELECT ${churchTemplateOf(scope, churchTemplate)} WHERE ${gateSql(scope, true)})`
+					: undefined,
 			);
 			const sources = mergeSources(plant);
 			const stored = plant.extra as { title: string; body: string } | null;

@@ -148,7 +148,8 @@ const generatedWriter = {
 			const done = forSubject(loaded, template, input.format, cleaned.values, scope.tenantId, plant, input.meetingId);
 			const resolved = done.merge;
 			const inputs = resolved.fields.map((field) => ({ key: field.key, value: field.value, source: field.source }));
-			const prior = plant.extra as (Parameters<typeof generatedFrom>[0] & { template_id: string; inputs: unknown }) | null;
+			const prior = plant.extra as
+				(Parameters<typeof generatedFrom>[0] & { template_id: string; inputs: unknown }) | null;
 			if (prior) {
 				const same =
 					prior.template_id === template.id &&
