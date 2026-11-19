@@ -18,7 +18,7 @@ export type Viewer = PlantSeat;
 type Reply<T> = MeetingsReply<T> | Lost;
 
 export async function read<T>(
-	viewer: Viewer,
+	viewer: Pick<Viewer, "authority">,
 	run: (db: Database, authority: Viewer["authority"]) => Promise<MeetingsReply<T>>,
 ): Promise<Reply<T>> {
 	return readDb("meetings", (db) => run(db, viewer.authority));
