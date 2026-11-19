@@ -1457,3 +1457,16 @@ test("INV-lint: a runtime or dynamic segment export that repeats Next's default 
 		],
 	);
 });
+
+test("INV-lint: a route module or server-only module that calls a server action is reported, one that passes it on or a client store that calls it is not", () => {
+	const actions = `"use server";\nexport async function read() {}\nexport async function save() {}\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": actions,
+			"apps/web/src/features/x/routes.tsx": `import { read, save } from "./actions";\nexport async function Page() {\n\tawait read();\n\treturn save;\n}\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nimport * as A from "./actions";\nexport const load = () => A.read();\n`,
+			"apps/web/src/features/x/store.ts": `import { read } from "./actions";\nexport const load = () => read();\n`,
+		}).filter((hit) => hit.endsWith("render-reads")),
+		["apps/web/src/features/x/routes.tsx:3 render-reads", "apps/web/src/features/x/server.ts:3 render-reads"],
+	);
+});

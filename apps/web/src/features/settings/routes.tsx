@@ -4,12 +4,12 @@ import { notFound, redirect } from "next/navigation";
 import { PATH_HEADER } from "@/proxy";
 import { getViewer } from "@/server/request-context";
 import { instant } from "@everyfield/contracts/common";
-import { confirmEmailChange, getSection } from "./actions";
-import { getBrand } from "./brand/actions";
+import { confirmEmailChange } from "./actions";
+import { readBrand } from "./brand/server";
 import { ConfirmEmailScreen } from "./restricted/ConfirmEmailScreen";
 import { AccountDeletionScreen } from "./restricted/AccountDeletionScreen";
 import { WorkspaceDeletionScreen } from "./restricted/WorkspaceDeletionScreen";
-import { restrictedStatus } from "./server";
+import { readSection, restrictedStatus } from "./server";
 import { dialogSection, offeredSections, sectionAt, sectionRequest } from "./model";
 import type { SectionSeed, SettingsViewer } from "./port";
 
@@ -31,10 +31,10 @@ export async function SettingsIndexPage() {
 
 export async function sectionSeed(viewer: SettingsViewer | null): Promise<SectionSeed | null> {
 	const section = sectionAt((await headers()).get(PATH_HEADER) ?? "", viewer);
-	if (viewer && section === "brand" && offeredSections(viewer, []).includes("brand")) return { brand: getBrand() };
+	if (viewer && section === "brand" && offeredSections(viewer, []).includes("brand")) return { brand: readBrand() };
 	const request = viewer && section ? sectionRequest(viewer, section) : null;
 	if (!request) return null;
-	return { request, value: getSection(request) };
+	return { request, value: readSection(request) };
 }
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
