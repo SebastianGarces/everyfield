@@ -22,6 +22,7 @@ import {
 	type TreeModel,
 } from "./model.ts";
 import { logFailure, logLine, type LogWord } from "@everyfield/domain/log";
+import { mutatingRoute } from "../../server/platform/boundary.ts";
 
 type Producer = ReturnType<typeof createWikiProducer>;
 type Mount = { db: Database; producer: Producer };
@@ -508,8 +509,7 @@ export async function runSearch(
 	}
 }
 
-export async function progressRoute(request: Request): Promise<Response> {
-	if (request.headers.get("sec-fetch-site") !== "same-origin") return new Response(null, { status: 403 });
+export const progressRoute = mutatingRoute(async function progressRoute(request: Request): Promise<Response> {
 	const text = await request.text();
 	if (text.length > 1000) return new Response(null, { status: 413 });
 	let body: { requestKey?: unknown; articleId?: unknown; fraction?: unknown; plantId?: unknown };
@@ -536,7 +536,7 @@ export async function progressRoute(request: Request): Promise<Response> {
 		logFailure({ component: "wiki", outcome: "progress-beacon-failed" }, error);
 		return new Response(null, { status: 400 });
 	}
-}
+});
 
 export function mountFor(actor: Awaited<ReturnType<typeof wikiActor>>) {
 	const mount = wikiMount();

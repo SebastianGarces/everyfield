@@ -1754,3 +1754,25 @@ test("INV-lint: a route module or server-only module that calls a server action 
 		["apps/web/src/features/x/routes.tsx:3 render-reads", "apps/web/src/features/x/server.ts:3 render-reads"],
 	);
 });
+
+test("INV-lint: a read exported from a server action module or declared as an inline server action is reported, a write or a server-only read is not", () => {
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/actions.ts": `"use server";\nexport async function readThing() {}\nexport const listThings = async () => [];\nexport async function saveThing() {}\nexport async function reader() {}\nasync function loadInner() {}\nexport { loadInner as loadAlias };\nexport const { findOne, saveOne } = { findOne: async () => 1, saveOne: async () => 2 };\n`,
+			"apps/web/src/features/x/default.ts": `"use server";\nexport default async function readDefault() {}\n`,
+			"apps/web/src/features/x/all.ts": `"use server";\nexport * from "./reads.ts";\n`,
+			"apps/web/src/features/x/reads.ts": `export async function readFromAll() {}\n`,
+			"apps/web/src/features/x/Card.tsx": `export function Card() {\n\tasync function readInline() {\n\t\t"use server";\n\t}\n\tasync function saveInline() {\n\t\t"use server";\n\t}\n\treturn [readInline, saveInline];\n}\n`,
+			"apps/web/src/features/x/server.ts": `import "server-only";\nexport async function readThing() {}\n`,
+		}).filter((hit) => hit.endsWith("no-read-actions")),
+		[
+			"apps/web/src/features/x/Card.tsx:2 no-read-actions",
+			"apps/web/src/features/x/actions.ts:2 no-read-actions",
+			"apps/web/src/features/x/actions.ts:3 no-read-actions",
+			"apps/web/src/features/x/actions.ts:7 no-read-actions",
+			"apps/web/src/features/x/actions.ts:8 no-read-actions",
+			"apps/web/src/features/x/all.ts:2 no-read-actions",
+			"apps/web/src/features/x/default.ts:2 no-read-actions",
+		],
+	);
+});

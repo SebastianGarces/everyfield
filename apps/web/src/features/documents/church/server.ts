@@ -18,6 +18,7 @@ import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
 import { EXPORT_MESSAGES } from "./refusal.ts";
 import { logFailure } from "@everyfield/domain/log";
+import { mutatingRoute } from "../../../server/platform/boundary.ts";
 
 export type ChurchView = {
 	id: string;
@@ -232,9 +233,10 @@ export type ExportResult =
 const BODY_MAX = 4 * 1024;
 const answer = (result: ExportResult) => Response.json(result, { headers: NO_STORE });
 
-export async function saveExportRoute(request: Request, { params }: { params: Promise<{ documentId: string }> }) {
-	const site = request.headers.get("sec-fetch-site");
-	if (site !== null && site !== "same-origin") return gone(403);
+export const saveExportRoute = mutatingRoute(async function saveExportRoute(
+	request: Request,
+	{ params }: { params: Promise<{ documentId: string }> },
+) {
 	const bytes = await readBoundedBody(request, BODY_MAX).catch(() => null);
 	if (!bytes) return answer(refused("invalid_input"));
 	const documentId = recordId.safeParse((await params).documentId);
@@ -281,7 +283,7 @@ export async function saveExportRoute(request: Request, { params }: { params: Pr
 		logFailure({ component: "church-documents", outcome: "export_failed" }, error);
 		return answer({ status: "lost" });
 	}
-}
+});
 
 function refused(code: string): ExportResult {
 	return { status: "refused", message: EXPORT_MESSAGES[code] ?? EXPORT_MESSAGES.unavailable! };
