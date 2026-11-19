@@ -63,12 +63,13 @@ const fakeDocument = Object.assign(new EventTarget(), {
 	documentElement: null,
 });
 
+let frameAt = 0;
 Object.assign(globalThis, {
 	window: globalThis,
 	document: fakeDocument,
 	HTMLIFrameElement: class {},
 	IS_REACT_ACT_ENVIRONMENT: true,
-	requestAnimationFrame: (paint: (at: number) => void) => setImmediate(() => paint(performance.now())),
+	requestAnimationFrame: (paint: (at: number) => void) => setImmediate(() => paint((frameAt += 16))),
 });
 
 const { createRoot } = web("react-dom/client");
