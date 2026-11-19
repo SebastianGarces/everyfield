@@ -83,6 +83,9 @@ async function authorized(
 		return file;
 	});
 }
+const UPLOAD_KEY_PART = /^[A-Za-z0-9_:.-]+$/;
+const isUploadKey = (key: string) =>
+	key.length <= 200 && key.split("/").every((part) => UPLOAD_KEY_PART.test(part) && part !== "." && part !== "..");
 const hash = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 export async function putPrivateObject(
 	db: Database,
@@ -90,7 +93,7 @@ export async function putPrivateObject(
 	authorize: ResourceAuthorizer,
 	input: { tenantId: string; purpose: FilePurpose; mediaType: string; bytes: Uint8Array; uploadKey: string },
 ) {
-	if (!input.uploadKey.trim() || input.uploadKey.length > 200) throw new StorageError("invalid_upload_key");
+	if (!isUploadKey(input.uploadKey)) throw new StorageError("invalid_upload_key");
 	await assertPrivateBucket(storage);
 	if (!input.bytes.length || input.bytes.length > 10 * 1024 * 1024) throw new StorageError("invalid_file");
 	if (input.purpose === "commitment") await validateCommitment(input.bytes, input.mediaType);

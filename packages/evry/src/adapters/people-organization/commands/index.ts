@@ -1,4 +1,3 @@
-import type { Transaction } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { PeopleReadContext, peopleCsv, peopleWriter, personFields } from "@everyfield/domain/people";
 import {
@@ -23,9 +22,11 @@ import { EvryRefusal } from "../../../context/errors.ts";
 import type { EffectResult, ReviewedWrite } from "../../../proposals/types.ts";
 import { ownerOrAdmin } from "../../people/commands/index.ts";
 import { failure, problemText } from "../reads/index.ts";
+import type { WriteTx } from "@everyfield/domain/access";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
 type Reply<T> = { status: "ok"; value: T } | { status: "refused"; error: { code: string } };
-type Run<A> = (tx: Transaction, context: PeopleContext, args: A, key: string) => Promise<EffectResult>;
+type Run<A> = (tx: WriteTx, context: PeopleContext, args: A, key: string) => Promise<EffectResult>;
 
 function reviewed<I, A>(spec: {
 	operation: string;
@@ -366,7 +367,7 @@ function tagReview(actor: EvryActor, ids: string[], tag: SQL, assign: boolean, t
 		WHERE (SELECT count(*) FROM ps)=${ids.length} AND (EXISTS(SELECT FROM t) OR ${assign && tagName !== null}::boolean)`;
 }
 async function eachPerson(
-	tx: Transaction,
+	tx: WriteTx,
 	context: PeopleContext,
 	args: Tagging,
 	tagId: string,
@@ -612,7 +613,7 @@ export const executeBulkImport = reviewed({
 	}),
 	async review(actor, value, context) {
 		const bytes = new TextEncoder().encode(value.file);
-		const preview = (await context.db.transaction((tx) =>
+		const preview = (await gatedTransaction(context.db, (tx) =>
 			peopleCsv.previewImport(tx, new PeopleReadContext(actor.authority), { file: bytes }),
 		)) as Reply<Preview>;
 		if (preview.status !== "ok") {

@@ -1,4 +1,4 @@
-import { requestWrite } from "../access/session.ts";
+import { requestWrite, type WriteTx } from "../access/session.ts";
 import { writeActor } from "./core.ts";
 import { and, eq, inArray, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
@@ -8,7 +8,6 @@ import { accountId, recordId, revision, tenantId, type Owner, type sessionId } f
 import { allows, fromStates, invitationMachine, invitationPurposes, permits } from "@everyfield/contracts/machines";
 import type { OrganizationAdapter, RelationshipPair } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import type { Transaction } from "@everyfield/db/client";
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import {
@@ -77,7 +76,7 @@ const pairFor = (i: Invite) =>
 				}),
 		organization: { kind: "organization", id: i.organization_id, organizationKind: i.organization_kind },
 	});
-async function loadInvitation(tx: Transaction, id: string, session: z.infer<typeof sessionId>, lock: boolean) {
+async function loadInvitation(tx: WriteTx, id: string, session: z.infer<typeof sessionId>, lock: boolean) {
 	const account = sql`r.account_id`;
 	const subjectLive = sql`CASE WHEN r.plant_id IS NOT NULL THEN EXISTS(SELECT FROM plant p WHERE p.id=r.plant_id) AND NOT ${witnessHides("plant", sql`r.plant_id`)}
 		WHEN r.account_id IS NOT NULL THEN EXISTS(SELECT FROM account a WHERE a.id=r.account_id) AND NOT ${witnessHides("account", account)} AND ${discoveryOpen(account)}
@@ -127,7 +126,7 @@ const inviteFacts = z.object({
 export function relationshipCommands(
 	effects: OrganizationEffects,
 ): Pick<
-	OrganizationAdapter<Transaction>,
+	OrganizationAdapter<WriteTx>,
 	| "associations.invite"
 	| "associations.acceptInvitation"
 	| "associations.respondInvitation"
@@ -136,7 +135,7 @@ export function relationshipCommands(
 	| "associations.revokeInvitation"
 	| "associations.end"
 > {
-	async function invite(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
+	async function invite(tx: WriteTx, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
 		return auditSavepoint(tx, async () => {
 			const q = Q.inviteRelationshipRequest.parse(raw),
 				pair = q.input.pair,
@@ -248,7 +247,7 @@ export function relationshipCommands(
 		});
 	}
 	async function decide(
-		tx: Transaction,
+		tx: WriteTx,
 		session: z.infer<typeof sessionId>,
 		selected: Owner,
 		raw: unknown,
@@ -386,7 +385,7 @@ export function relationshipCommands(
 		});
 	}
 	async function manage(
-		tx: Transaction,
+		tx: WriteTx,
 		session: z.infer<typeof sessionId>,
 		selected: Owner,
 		raw: unknown,
@@ -465,7 +464,7 @@ export function relationshipCommands(
 			);
 		});
 	}
-	async function end(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
+	async function end(tx: WriteTx, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
 		return auditSavepoint(tx, async () => {
 			const q = Q.endRelationshipRequest.parse(raw),
 				pair = q.input.pair;
@@ -516,7 +515,7 @@ export function relationshipCommands(
 const invitationDetailRequest = z.strictObject({ invitationId: recordId, proof: z.string().min(1).max(4096) });
 
 export async function readAnswerableInvitation(
-	tx: Transaction,
+	tx: WriteTx,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	raw: unknown,
