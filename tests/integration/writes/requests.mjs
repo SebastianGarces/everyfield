@@ -670,7 +670,7 @@ try {
 	const all = await marking("POST notifications.markAllVisibleRead", "markAllVisibleRead", new Date().toISOString());
 	assert.deepEqual(all, { status: "ok", value: { markedIds: [owned[2]] } });
 	const settings = "apps/web/src/features/settings/actions.ts";
-	const section = await act(null, "/settings", settings, "getSection", [{ section: "account" }]);
+	const { value: section } = await read(null, "/settings/read", "section", { section: "account" });
 	assert.equal(section.status, "ok", JSON.stringify(section));
 	const saved = await act("POST settings.saveSection (account)", "/settings", settings, "saveSection", [
 		{
