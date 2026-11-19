@@ -30,12 +30,49 @@ export function budgetName(limits, name) {
 	return Object.hasOwn(limits, name) ? name : name.split(":")[0];
 }
 
+const isRead = (step) => !step.skip && (step.kind === "read" || step.kind === "locked read");
+const related = (a, b) => b.linked || a.tables.some((t) => b.tables.includes(t));
+
+export function readRuns(steps = []) {
+	const runs = [];
+	let run = [];
+	for (const step of steps) {
+		if (isRead(step) && run.length && related(run.at(-1), step)) run.push(step);
+		else {
+			if (run.length > 1) runs.push(run);
+			run = isRead(step) ? [step] : [];
+		}
+	}
+	if (run.length > 1) runs.push(run);
+	return runs;
+}
+
+const runText = (run) =>
+	`${run.length} reads in a row on related rows (${run.map((s) => `${s.kind} of ${s.tables.join("+") || "no table"}`).join(", then ")})`;
+
+function flaggedReads(samples, limits) {
+	const holders = new Map();
+	for (const sample of samples)
+		for (const step of sample.steps ?? []) holders.set(step.id, [...(holders.get(step.id) ?? []), sample]);
+	const flagged = new Map();
+	for (const sample of samples)
+		for (const run of readRuns(sample.steps)) {
+			const inner = (holders.get(run[0].id) ?? []).some(
+				(other) => other.steps.length < sample.steps.length && run.every((s) => other.steps.some((o) => o.id === s.id)),
+			);
+			const name = budgetName(limits, sample.name);
+			if (!inner && !flagged.has(name)) flagged.set(name, runText(run));
+		}
+	return flagged;
+}
+
 export function checkSamples(rows, limits) {
 	return measure(rows, limits).problems;
 }
 
 export function checkBudgets(rows, limits) {
-	const { problems, measured } = measure(rows, limits);
+	const { problems, measured, samples } = measure(rows, limits);
+	const reads = flaggedReads(samples, limits);
 	for (const [name, budget] of Object.entries(limits)) {
 		const entry = measured.get(name);
 		if (!entry) {
@@ -64,6 +101,8 @@ export function checkBudgets(rows, limits) {
 						: `${name}: its reason states a largest first run of ${stated}, but it sent ${measured.join(" or ")}`,
 				);
 		}
+		const run = reads.get(name);
+		if (run && !budget.reads?.trim()) problems.push(`${name}: ${run}; make them one statement or give a reads reason`);
 		if (name.startsWith("GET ")) {
 			const counts = [...new Set(entry.limit.map((s) => s.count))];
 			if (counts.length > 1)
@@ -77,7 +116,8 @@ export function tighten(rows, limits, units) {
 	const ran = rows.filter((row) => row.kind === "part").flatMap((row) => row.ran);
 	if (ran.length !== units.length || new Set(ran).size !== ran.length || !units.every((unit) => ran.includes(unit)))
 		return null;
-	const { measured } = measure(rows, limits);
+	const { measured, samples } = measure(rows, limits);
+	const reads = flaggedReads(samples, limits);
 	const changes = [];
 	const tightened = {};
 	for (const [name, budget] of Object.entries(limits)) {
@@ -99,6 +139,10 @@ export function tighten(rows, limits, units) {
 		if (entry && next.repeats !== undefined && !entry.repeated) {
 			delete next.repeats;
 			why.push("no statement repeats per row any more, so its repeats reason is stale");
+		}
+		if (entry && next.reads !== undefined && !reads.has(name)) {
+			delete next.reads;
+			why.push("no related reads in a row any more, so its reads reason is stale");
 		}
 		if (why.length) changes.push(`${name}: ${why.join("; ")}; tightened to ${JSON.stringify(next)}`);
 		tightened[name] = next;
@@ -144,5 +188,5 @@ function measure(rows, limits) {
 			`${name}: N+1, sends the same statement ${count} times in one run: ${shape.slice(0, 200)}; batch it into one set-based statement, or give limits.json a repeats reason`,
 		);
 	}
-	return { problems, measured };
+	return { problems, measured, samples };
 }
