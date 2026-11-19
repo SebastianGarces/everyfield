@@ -1,3 +1,4 @@
+import { asLogNames, logLine } from "@everyfield/domain/log";
 import { z } from "zod";
 
 const hexKey = z.string().regex(/^[a-f0-9]{64}$/);
@@ -49,6 +50,15 @@ export function serverConfig(): ServerConfig {
 	const result = parse();
 	if ("problem" in result) throw result.problem;
 	return result.config;
+}
+
+export function refuseMissingServerConfig() {
+	const missing = Object.keys(required.shape)
+		.filter((key) => !process.env[key])
+		.sort();
+	if (!missing.length) return;
+	logLine({ component: "server", event: "settings_missing", missing: asLogNames(missing) });
+	process.exit(1);
 }
 
 export const serverEnv = (): ServerEnv => process.env;

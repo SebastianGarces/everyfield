@@ -100,7 +100,17 @@ test("INV-workflow: repeated starts and stops stay confined to the selected work
 	}
 });
 
-test("OPS-76: each preview resolves IDENTITY_ORIGIN to its own URL, whatever its id, mode or stale env file", () => {
+const IDENTITY_KEYS = [
+	"IDENTITY_DATABASE_URL",
+	"IDENTITY_AUTH_DATABASE_URL",
+	"IDENTITY_ORIGIN",
+	"IDENTITY_SECRET",
+	"IDENTITY_MAIL_KEY",
+	"IDENTITY_ADDRESS_KEY",
+	"IDENTITY_MAIL_FROM",
+];
+
+test("OPS-76: each preview resolves IDENTITY_ORIGIN to its own URL, whatever its id, mode or stale env file, and gets every identity setting its env file lacks", () => {
 	const dir = realpathSync(mkdtempSync(join(tmpdir(), "evf-stack-origin-")));
 	try {
 		const bin = join(dir, "bin");
@@ -112,8 +122,9 @@ test("OPS-76: each preview resolves IDENTITY_ORIGIN to its own URL, whatever its
 			PATH: `${bin}:${process.env.PATH}`,
 			FAKE_REGISTRY: join(dir, "registry.json"),
 		};
+		for (const name of Object.keys(env)) if (name.startsWith("IDENTITY_")) delete env[name];
 		const realConfig = fileURLToPath(new URL("../../scripts/preview.json", import.meta.url));
-		const stale = "IDENTITY_ORIGIN=https://stale.localhost\n";
+		const stale = "IDENTITY_ORIGIN=https://stale.localhost\nIDENTITY_SECRET=seed-secret\n";
 		let staleFile = "";
 		const urls = new Set();
 		for (const mode of ["development", "production"]) {
@@ -135,6 +146,9 @@ test("OPS-76: each preview resolves IDENTITY_ORIGIN to its own URL, whatever its
 				const resolved = JSON.parse(readFileSync(join(dir, `env-${preview.id}.json`), "utf8"));
 				assert.equal(resolved.IDENTITY_ORIGIN, preview.url, `${mode} ${name}`);
 				assert.equal(resolved.NEXT_TELEMETRY_DISABLED, "1");
+				const seeded = mode === "development" && name === "one";
+				for (const key of IDENTITY_KEYS)
+					assert.equal(Boolean(resolved[key]), !(seeded && key === "IDENTITY_SECRET"), `${mode} ${name} ${key}`);
 				urls.add(preview.url);
 			}
 		}

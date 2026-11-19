@@ -101,3 +101,22 @@ test("OPS-76: the composed preview env trusts the preview's own URL whatever the
 		f.done();
 	}
 });
+
+test("a preview env lacking identity settings gets throwaway ones beneath the env files' values, so it boots", () => {
+	const f = files(null);
+	try {
+		const env = composeEnv(f.main, f.wt);
+		const composed = composePreviewEnv(env, { CI: "true" });
+		assert.equal(composed.IDENTITY_SECRET, "main-secret");
+		assert.equal(composed.IDENTITY_ORIGIN, "${PREVIEW_URL}");
+		assert.equal(composed.IDENTITY_MAIL_FROM, "preview@example.test");
+		assert.match(composed.IDENTITY_MAIL_KEY, /^[a-f0-9]{64}$/);
+		assert.match(composed.IDENTITY_ADDRESS_KEY, /^[a-f0-9]{64}$/);
+		assert.notEqual(composed.IDENTITY_MAIL_KEY, composed.IDENTITY_ADDRESS_KEY);
+		assert.equal(new URL(composed.IDENTITY_DATABASE_URL).port, "1");
+		assert.equal(new URL(composed.IDENTITY_AUTH_DATABASE_URL).port, "1");
+		assert.equal(composed.DATABASE_URL, env.DATABASE_URL);
+	} finally {
+		f.done();
+	}
+});
