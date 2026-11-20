@@ -3,7 +3,12 @@ import { readAccountContacts } from "@everyfield/domain/identity";
 import { reminderRecipients } from "@everyfield/domain/tasks";
 import "server-only";
 import type { MailKeys } from "../config.ts";
-import { createMailService, type AuthorizeMail, type MailTransport, type MailUnsubscribe } from "./mail.ts";
+import {
+	createMailService,
+	type AuthorizeMail,
+	type MailTransport,
+	type MailUnsubscribe,
+} from "@everyfield/domain/jobs";
 import { createNotificationService } from "./notifications.ts";
 
 export function mountMailService(config: {

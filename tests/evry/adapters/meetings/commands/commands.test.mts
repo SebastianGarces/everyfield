@@ -12,8 +12,8 @@ import {
 	type Proposal,
 } from "../../../../../packages/evry/src/index.ts";
 import { allowedWrites } from "../../../../../packages/evry/src/proposals/store.ts";
-import { transaction } from "../../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../../packages/domain/src/jobs/queue.ts";
 import { meetingsWriter } from "../../../../../packages/domain/src/meetings/index.ts";
 import { accounts, actor, admin, db, plant, setup, sql, teardown } from "../../../runtime/support.mts";
 import { localDate, native, seedMeetings, type Seeded } from "../support.mts";

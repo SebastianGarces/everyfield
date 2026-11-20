@@ -8,7 +8,7 @@ import { reminderSeats } from "@everyfield/domain/tasks";
 import "server-only";
 import { z } from "zod";
 import { taskReminderTimes } from "./calendar.ts";
-import { createMailService, type MailIntent } from "./mail.ts";
+import { createMailService, type MailIntent } from "@everyfield/domain/jobs";
 const sourceSchema = z.strictObject({
 	kind: z.enum([
 		"task",

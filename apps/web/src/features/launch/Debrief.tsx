@@ -14,7 +14,7 @@ import {
 	Radio,
 	RadioGroup,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useState } from "react";
@@ -164,7 +164,6 @@ function DebriefForm({
 	onSubmitted: () => void;
 	onCancel: (() => void) | null;
 }) {
-	const toast = useToast();
 	const d = plan.debrief!;
 	const store = useLocalStore(() =>
 		createDebriefStore({
@@ -269,7 +268,6 @@ function DebriefForm({
 }
 
 export function SummaryCard({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Plan) => void }) {
-	const toast = useToast();
 	const s = plan.summary!;
 	const [body, setBody] = useState(s.draft?.body ?? "");
 	const [preview, setPreview] = useState(false);
