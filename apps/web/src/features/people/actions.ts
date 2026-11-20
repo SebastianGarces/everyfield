@@ -1,5 +1,6 @@
 "use server";
 
+import { seated } from "@/server/request-context";
 import { tasksMount } from "../tasks/mount.ts";
 
 import { recordId, revision } from "@everyfield/contracts/common";
@@ -8,7 +9,7 @@ import { peopleWriter, readColumnOrders } from "@everyfield/domain/people";
 import { z } from "zod";
 import { columnOf } from "./model.ts";
 import type { Outcome } from "../../components/save/model.ts";
-import { boundary, outcome, parsed, receipt, type Receipt } from "./boundary.ts";
+import { outcome, parsed, receipt, type Receipt } from "./boundary.ts";
 import { write } from "./server.ts";
 
 type PlantPerson = z.infer<typeof c.plantPerson>;
@@ -21,7 +22,7 @@ type NoteSaved = {
 export type { Receipt };
 
 export async function createPerson(requestKey: string, input: unknown): Promise<Outcome<{ personId: string }>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(await write(v, (tx, ctx) => peopleWriter.createPerson(tx, ctx, { requestKey, input })), (r) => ({
 			personId: r.person.id,
 		})),
@@ -34,7 +35,7 @@ export async function updatePerson(
 	personId: string,
 	patch: unknown,
 ): Promise<Outcome<Saved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(
 			await write(v, (tx, ctx) =>
 				peopleWriter.updatePerson(tx, ctx, { requestKey, expectedRevision, input: { personId, patch } }),
@@ -56,7 +57,7 @@ export async function changeStatus(
 	from?: unknown,
 ): Promise<Outcome<Saved & { columns: ColumnOrder[] }>> {
 	const left = c.pipelineColumn.safeParse(from);
-	return boundary(async (v) => {
+	return seated("access_denied", async (v) => {
 		const { reminders } = tasksMount();
 		return outcome(
 			await write(v, async (tx, ctx) => {
@@ -83,7 +84,7 @@ export async function retirePerson(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<Saved>> {
-	return boundary(async (v) => {
+	return seated("access_denied", async (v) => {
 		const { reminders } = tasksMount();
 		return outcome(
 			await write(v, (tx, ctx) =>
@@ -102,7 +103,7 @@ export async function restorePerson(
 	expectedRevision: string,
 	personId: string,
 ): Promise<Outcome<Saved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(
 			await write(v, (tx, ctx) =>
 				peopleWriter.restorePerson(tx, ctx, { requestKey, expectedRevision, input: { personId } }),
@@ -121,7 +122,7 @@ export async function classifyAdult(
 	correction: boolean,
 	input: unknown,
 ): Promise<Outcome<Saved>> {
-	return boundary(async (v) => {
+	return seated("access_denied", async (v) => {
 		const method = correction ? peopleWriter.correctAdultClassification : peopleWriter.recordAdultClassification;
 		return outcome(await write(v, (tx, ctx) => method(tx, ctx, { requestKey, expectedRevision, input })), (r) => ({
 			person: r.person,
@@ -140,7 +141,7 @@ export async function addNote(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<NoteSaved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(
 			await write(v, (tx, ctx) => peopleWriter.addNote(tx, ctx, { requestKey, expectedRevision, input })),
 			noteSaved,
@@ -152,7 +153,7 @@ export async function editNote(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<NoteSaved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(
 			await write(v, (tx, ctx) => peopleWriter.editNote(tx, ctx, { requestKey, expectedRevision, input })),
 			noteSaved,
@@ -164,7 +165,7 @@ export async function deleteNote(
 	expectedRevision: string,
 	input: unknown,
 ): Promise<Outcome<NoteSaved>> {
-	return boundary(async (v) =>
+	return seated("access_denied", async (v) =>
 		outcome(
 			await write(v, (tx, ctx) => peopleWriter.deleteNote(tx, ctx, { requestKey, expectedRevision, input })),
 			noteSaved,

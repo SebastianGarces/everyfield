@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import {
 	Button,
@@ -14,7 +15,7 @@ import { useRef, useState, useTransition } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { restoreOwnSuppression } from "./actions.ts";
 import { readOwnSuppression } from "./fetch.ts";
-import { outcomeText, restoreText, type Outcome, type RestoreReport, type SuppressionReport } from "./model.ts";
+import { outcomeText, restoreText, type RestoreReport, type SuppressionReport } from "./model.ts";
 
 const lost = <T,>(): Outcome<T> => ({ status: "lost" });
 import { useKeys } from "./useKeys.ts";

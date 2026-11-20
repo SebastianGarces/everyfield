@@ -6,14 +6,17 @@ import { readFlags } from "../../../packages/domain/src/flags/index.ts";
 import { dashboardReader } from "../../../packages/domain/src/dashboard/index.ts";
 import { overviewSubtitle } from "../../../apps/web/src/features/overview/model.ts";
 import { withFlag } from "../../support/flags.mts";
+import type { Workspace } from "../../support/fixture.mts";
 
-let f, plantA, plantB, ownerA, ownerB;
+type Fixture = Awaited<ReturnType<typeof fixture>>;
+type Owner = Awaited<ReturnType<Fixture["account"]>> & { actor: Awaited<ReturnType<Fixture["actor"]>> };
+let f: Fixture, plantA: Workspace, plantB: Workspace, ownerA: Owner, ownerB: Owner;
 
 before(async () => {
 	f = await fixture();
 	plantA = await f.workspace();
 	plantB = await f.workspace();
-	const seated = async (w) => {
+	const seated = async (w: Workspace) => {
 		const account = await f.account();
 		await f.seat(account, w, "owner");
 		return { ...account, actor: await f.actor(account.session) };
@@ -23,7 +26,7 @@ before(async () => {
 });
 after(() => f?.close());
 
-const subtitle = async (who) => {
+const subtitle = async (who: Owner) => {
 	const frame = await dashboardReader.readAvailableActions(f.db, who.actor);
 	assert.equal(frame.status, "ok", JSON.stringify(frame));
 	const flags = await readFlags(f.db, who.actor);

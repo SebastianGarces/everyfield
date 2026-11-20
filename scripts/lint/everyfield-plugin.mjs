@@ -2,6 +2,19 @@ import { fileProblems, importProblem, resolveImport, routeFeatures } from "./bou
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { area, commentsExempt, ratchet, repoPath, root, sqlMarkers } from "./ratchet.mjs";
+import {
+	COUNTER_TEXT,
+	MARKETING_STEP,
+	SCOPE,
+	TIME_NAME,
+	classProblems,
+	isMarketing,
+	headingLike,
+	labelLike,
+	marketingMessage,
+	message as slopMessage,
+	styleProblems,
+} from "./slop-styling.mjs";
 
 const RESEND_PACKAGE = /^resend(?:\/|$)/;
 const RESEND_HOST = "api.resend.com";
@@ -308,7 +321,7 @@ const staticKey = (node) =>
 
 const PROVIDER_KEY_MINTS = new Set([
 	"packages/domain/src/communication/delivery.ts",
-	"apps/web/src/server/jobs/mail.ts",
+	"packages/domain/src/jobs/mail.ts",
 ]);
 const PROVIDER_KEY = "ProviderKey";
 const PROVIDER_KEY_HOME = "packages/contracts/src/common/values.ts";
@@ -1377,12 +1390,83 @@ function handles(handler, body, param) {
 	return thrown || handed || (logged && !lost);
 }
 
+const MAIL_AUTHORIZERS = "the mail-authorizer move into @everyfield/domain (R-12 slice 20 follow-up, AP-S-17)";
+export const WEB_SQL_HOLDERS = {
+	"apps/web/src/features/feedback/mail.ts": {
+		why: "the operator-mail authorizer reads the feedback rows its queued mail names, inside the mail service's transaction",
+		movedBy: MAIL_AUTHORIZERS,
+	},
+	"apps/web/src/features/notifications/worker.ts": {
+		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
+		movedBy: MAIL_AUTHORIZERS,
+	},
+	"apps/web/src/features/organizations/mount.ts": {
+		why: "an organization effect supersedes a plant's pending digest jobs with its own UPDATE of the job table",
+		movedBy: "a supersede operation in @everyfield/domain/jobs's queue (R-12 slice 20 follow-up, AP-S-17)",
+	},
+	"apps/web/src/features/settings/brand/server.ts": {
+		why: "the brand read looks up the church name beside the brand kit with its own plant select",
+		movedBy: "brandReader.get answering the church name (R-12 slice 8 rest, settings/brand group)",
+	},
+	"apps/web/src/features/settings/mail.ts": {
+		why: "the settings mail authorizer reads notice addresses and pending email-change proofs for queued account mail",
+		movedBy: MAIL_AUTHORIZERS,
+	},
+	"apps/web/src/features/settings/server.ts": {
+		why: "the settings sections ask whether an address is suppressed with their own suppression select",
+		movedBy: "a suppression read in @everyfield/domain/jobs beside the mail outbox (R-12 slice 20 follow-up, AP-S-17)",
+	},
+	"apps/web/src/features/wiki/server.ts": {
+		why: "the organization wiki editor reads its stored draft and current revision with its own select",
+		movedBy: "a wiki domain read of the editor state (R-12 slice 8 rest, wiki group)",
+	},
+	"apps/web/src/server/identity/index.ts": {
+		why: "the identity mail authorizer locks the accounts its queued mail names and reads their contact address",
+		movedBy: MAIL_AUTHORIZERS,
+	},
+	"apps/web/src/server/invitations/index.ts": {
+		why: "the invitation service's suppression check is an SQL fragment built in the app",
+		movedBy: MAIL_AUTHORIZERS,
+	},
+};
+const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
+
+const webDatabaseImports = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path)) return {};
+		const holder = Object.hasOwn(WEB_SQL_HOLDERS, path);
+		let imports = 0;
+		return {
+			...moduleSources((node, name) => {
+				if (!DATABASE_MODULES.test(name)) return;
+				imports++;
+				if (!holder)
+					context.report({
+						node,
+						message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
+					});
+			}),
+			"Program:exit"(node) {
+				if (holder && imports === 0)
+					context.report({
+						node,
+						message: `${path} no longer imports a database module: delete its WEB_SQL_HOLDERS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+			},
+		};
+	},
+};
+
+const DOMAIN_JOBS = /^packages\/domain\/src\/jobs\//;
 const noSilentCatch = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		if (!WEB_CODE.test(path) || path === "apps/web/src/server/platform/transient.ts") return {};
-		let server = SERVER_CODE.test(path);
+		if (!(WEB_CODE.test(path) || DOMAIN_JOBS.test(path)) || path === "apps/web/src/server/platform/transient.ts")
+			return {};
+		let server = SERVER_CODE.test(path) || DOMAIN_JOBS.test(path);
 		const message =
 			"A server catch must rethrow, return the error handed to a handler, or log it through @everyfield/domain/log without answering lost: use transient() for a failure that may be retried, and catch only the error class you answer.";
 		const pending = [];
@@ -2275,6 +2359,157 @@ const noCursorUtility = ratcheted("no-cursor-utility", (context, push) => {
 	};
 });
 
+const jsxName = (name) =>
+	name?.type === "JSXIdentifier" ? name.name : name?.type === "JSXMemberExpression" ? jsxName(name.property) : null;
+
+const childNodes = (node) =>
+	Object.entries(node)
+		.filter(([key]) => key !== "parent" && key !== "loc" && key !== "range")
+		.flatMap(([, v]) => (Array.isArray(v) ? v : [v]))
+		.filter((v) => v && typeof v.type === "string");
+
+function stringsIn(node, out = []) {
+	if (!node || typeof node !== "object") return out;
+	if (node.type === "Literal" && typeof node.value === "string") out.push(node.value);
+	else if (node.type === "TemplateElement") out.push(node.value.cooked ?? node.value.raw);
+	for (const child of childNodes(node)) stringsIn(child, out);
+	return out;
+}
+
+const classesOf = (element) => {
+	const attr = element.openingElement.attributes.find(
+		(a) => a.type === "JSXAttribute" && (a.name?.name === "className" || a.name?.name === "class"),
+	);
+	return attr ? stringsIn(attr.value).flatMap((s) => s.split(/\s+/).filter(Boolean)) : [];
+};
+
+const elementName = (element) => {
+	const as = element.openingElement.attributes.find((a) => a.type === "JSXAttribute" && a.name?.name === "as");
+	return as?.value?.type === "Literal" && typeof as.value.value === "string"
+		? as.value.value
+		: (jsxName(element.openingElement.name) ?? "");
+};
+
+const staticValue = (node) =>
+	node?.type === "Literal"
+		? node.value
+		: node?.type === "TemplateLiteral" && node.expressions.length === 0
+			? node.quasis[0].value.cooked
+			: undefined;
+
+function identifiersIn(node, out = []) {
+	if (!node || typeof node !== "object") return out;
+	if (node.type === "Identifier") out.push(node.name);
+	if (node.type === "MemberExpression") {
+		identifiersIn(node.object, out);
+		if (!node.computed && node.property.type === "Identifier") out.push(`.${node.property.name}`);
+		return out;
+	}
+	for (const child of childNodes(node)) identifiersIn(child, out);
+	return out;
+}
+
+const timeContext = (call) => {
+	for (let p = call.parent, child = call; p; child = p, p = p.parent) {
+		if (p.type === "TemplateLiteral") {
+			const i = p.expressions.indexOf(child);
+			const before = p.quasis[i]?.value.cooked ?? "";
+			const after = p.quasis[i + 1]?.value.cooked ?? "";
+			return /[:\-T./]$/.test(before) || /^[:\-T./]/.test(after);
+		}
+		if (p.type === "VariableDeclarator") return p.id.type === "Identifier" && TIME_NAME.test(p.id.name);
+		if (p.type === "ArrowFunctionExpression" || p.type === "FunctionExpression" || p.type === "FunctionDeclaration") {
+			const name =
+				p.type === "FunctionDeclaration"
+					? p.id?.name
+					: p.parent?.type === "VariableDeclarator"
+						? p.parent.id.name
+						: null;
+			return Boolean(name && (TIME_NAME.test(name) || /^(?:p|pad|two)$/.test(name)));
+		}
+		if (p.type === "JSXExpressionContainer" || p.type === "ExpressionStatement") return false;
+	}
+	return false;
+};
+
+const insideFunction = (node, name) => {
+	for (let p = node.parent; p; p = p.parent) {
+		if (p.type === "FunctionDeclaration") return p.id?.name === name;
+		if (p.type === "ArrowFunctionExpression" || p.type === "FunctionExpression")
+			return p.parent?.type === "VariableDeclarator" && p.parent.id.name === name;
+	}
+	return false;
+};
+
+const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
+	const path = repoPath(context.filename);
+	if (!SCOPE.test(path)) return {};
+	const marketing = isMarketing(path);
+	const seen = new Set();
+	const report = (node, kind, token, approvedFor) => {
+		const key = `${node.range?.[0] ?? node.start}:${kind}:${token}`;
+		if (seen.has(key)) return;
+		seen.add(key);
+		const message = approvedFor === "marketing" ? marketingMessage(kind, token) : slopMessage(kind, token);
+		push({ node, fn: enclosingName(node), message });
+	};
+	const strings = (value, node) => {
+		if (typeof value !== "string") return;
+		for (const [kind, token, approvedFor] of classProblems(value, path)) report(node, kind, token, approvedFor);
+	};
+	const counterString = (node) =>
+		node?.type === "Literal" && typeof node.value === "string" && COUNTER_TEXT.test(node.value);
+	return {
+		Literal: (node) => strings(node.value, node),
+		TemplateElement: (node) => strings(node.value.cooked ?? node.value.raw, node),
+		ObjectExpression(node) {
+			const props = new Map();
+			for (const p of node.properties) {
+				if (p.type !== "Property" || p.computed) continue;
+				const key = p.key.type === "Identifier" ? p.key.name : p.key.value;
+				const value = staticValue(p.value);
+				if (value !== undefined) props.set(key, value);
+				if (/^(?:n|num|number|step|index|label|counter|count)$/i.test(String(key)) && counterString(p.value))
+					report(p.value, "counter", JSON.stringify(p.value.value));
+			}
+			for (const [kind, token] of styleProblems(props)) report(node, kind, token);
+		},
+		JSXText(node) {
+			if (COUNTER_TEXT.test(node.value)) report(node, "counter", JSON.stringify(node.value.trim()));
+		},
+		JSXExpressionContainer(node) {
+			if (counterString(node.expression) && node.parent?.type !== "JSXAttribute")
+				report(node, "counter", JSON.stringify(node.expression.value));
+		},
+		ArrayExpression(node) {
+			const counters = node.elements.filter(counterString);
+			if (counters.length >= 2 && counters.length === node.elements.length)
+				report(node, "counter", counters.map((c) => JSON.stringify(c.value)).join(", "));
+		},
+		CallExpression(node) {
+			if (!marketing && node.callee.type === "Identifier" && node.callee.name === MARKETING_STEP.name)
+				report(node, "counter", `${MARKETING_STEP.name}()`, "marketing");
+			if (memberName(node.callee) !== "padStart") return;
+			if (path === MARKETING_STEP.path && insideFunction(node, MARKETING_STEP.name)) return;
+			const [width, fill] = node.arguments;
+			if (staticValue(width) !== 2 || staticValue(fill) !== "0") return;
+			const timeValue = identifiersIn(node.callee.object).some((n) => TIME_NAME.test(n.replace(/^\./, "")));
+			if (!timeValue && !timeContext(node)) report(node, "counter", 'padStart(2, "0")');
+		},
+		JSXElement(node) {
+			const kids = node.children.filter((c) => !(c.type === "JSXText" && !c.value.trim()));
+			for (let i = 0; i < kids.length - 1; i++) {
+				const [label, next] = [kids[i], kids[i + 1]];
+				if (label.type !== "JSXElement" || next.type !== "JSXElement") continue;
+				if (headingLike(elementName(label), classesOf(label))) continue;
+				if (!labelLike(classesOf(label))) continue;
+				if (headingLike(elementName(next), classesOf(next)))
+					report(label, "eyebrow", `<${jsxName(label.openingElement.name)}> label`);
+			}
+		},
+	};
+});
+
 const featureBoundaries = ratcheted("feature-boundaries", (context, push) => {
 	const from = repoPath(context.filename);
 	const imports = [];
@@ -2583,6 +2818,73 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 	};
 });
 
+export const SIGN_IN_MODULE = "apps/web/src/server/sign-in.ts";
+const REDIRECTS = ["redirect", "permanentRedirect"];
+function leadingText(context, node, seen = new Set()) {
+	if (node?.type === "Literal" && typeof node.value === "string") return node.value;
+	if (node?.type === "TemplateLiteral") {
+		let text = node.quasis[0].value.cooked;
+		for (const [n, expression] of node.expressions.entries()) {
+			const part = leadingText(context, expression, seen);
+			if (part === null) return text;
+			text += part + node.quasis[n + 1].value.cooked;
+		}
+		return text;
+	}
+	if (node?.type === "BinaryExpression" && node.operator === "+") {
+		const left = leadingText(context, node.left, seen);
+		if (left === null) return null;
+		const right = leadingText(context, node.right, seen);
+		return right === null ? left : left + right;
+	}
+	if (node?.type === "TSAsExpression" || node?.type === "TSSatisfiesExpression")
+		return leadingText(context, node.expression, seen);
+	if (node?.type !== "Identifier" || seen.has(node.name)) return null;
+	seen.add(node.name);
+	for (let scope = context.sourceCode.getScope(node); scope; scope = scope.upper) {
+		const def = scope.set?.get(node.name)?.defs?.[0];
+		if (!def) continue;
+		return def.node.type === "VariableDeclarator" && def.parent?.kind === "const"
+			? leadingText(context, def.node.init, seen)
+			: null;
+	}
+	return null;
+}
+const signInRedirect = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === SIGN_IN_MODULE || !WEB_CODE.test(path)) return {};
+		const redirects = new Set();
+		const namespaces = new Set();
+		const isRedirect = (callee) =>
+			(callee.type === "Identifier" && redirects.has(callee.name)) ||
+			(callee.type === "MemberExpression" &&
+				callee.object.type === "Identifier" &&
+				namespaces.has(callee.object.name) &&
+				REDIRECTS.includes(callee.computed ? literalArgument(callee.property) : callee.property.name));
+		return {
+			ImportDeclaration(node) {
+				if (node.source.value !== "next/navigation") return;
+				for (const spec of node.specifiers) {
+					if (spec.type === "ImportSpecifier" && REDIRECTS.includes(nameOf(spec.imported)))
+						redirects.add(spec.local.name);
+					if (spec.type === "ImportNamespaceSpecifier" || spec.type === "ImportDefaultSpecifier")
+						namespaces.add(spec.local.name);
+				}
+			},
+			CallExpression(node) {
+				if (!isRedirect(node.callee)) return;
+				if (!(leadingText(context, node.arguments[0]) ?? "").startsWith("/signin?")) return;
+				context.report({
+					node,
+					message: "Send a signed-out visitor to sign in with signIn(returnTo) from server/sign-in.",
+				});
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -2605,7 +2907,9 @@ export default {
 		"deployment-env": deploymentEnv,
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
+		"web-database-imports": webDatabaseImports,
 		"no-cursor-utility": noCursorUtility,
+		"no-slop-styling": noSlopStyling,
 		"mint-callers": mintCallers,
 		"no-raw-history": noRawHistory,
 		"no-global-listeners": noGlobalListeners,
@@ -2623,5 +2927,6 @@ export default {
 		"no-read-actions": noReadActions,
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
+		"sign-in-redirect": signInRedirect,
 	},
 };

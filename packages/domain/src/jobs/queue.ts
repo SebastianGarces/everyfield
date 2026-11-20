@@ -1,10 +1,10 @@
 import type { Database, Transaction } from "@everyfield/db/client";
-import { eq, sql } from "@everyfield/db/query";
+import { eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { transaction } from "../platform/database.ts";
+import { transaction } from "./transaction.ts";
 
 const jobKind = z.enum([
 	"mail",
@@ -68,6 +68,17 @@ export function queueJobs(tx: Transaction, inputs: readonly JobInput[]) {
 			})),
 		)
 		.onConflictDoNothing();
+}
+const subjectJobSchema = enqueueSchema
+	.pick({ tenant: true, kind: true, maxAttempts: true })
+	.extend({ keyPrefix: z.string().min(1).max(256) });
+
+export function queueJobsFor(subjects: SQL, input: z.input<typeof subjectJobSchema>) {
+	const v = subjectJobSchema.parse(input);
+	return sql`INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts,
+  claim_generation)
+ SELECT ${v.tenant}::uuid, ${v.kind}::text, id, ${v.keyPrefix}::text || id::text, 'ready', clock_timestamp(), 0,
+  ${v.maxAttempts}::int, 0 FROM ${subjects} ON CONFLICT DO NOTHING`;
 }
 export async function enqueueJobs(tx: Transaction, inputs: readonly JobInput[]): Promise<string[]> {
 	const values = inputs.map((input) => enqueueSchema.parse(input));
