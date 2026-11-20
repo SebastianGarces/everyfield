@@ -3,7 +3,8 @@ import "server-only";
 import type { z } from "zod";
 import type { PersonRecords } from "../assessments/model.ts";
 import type { PersonFields } from "../fields/model.ts";
-import { readPersonView, type Viewer } from "../server.ts";
+import type { PlantSeat } from "@/server/request-context";
+import { readPersonView } from "../server.ts";
 import type { DuplicateHints } from "./server.ts";
 
 type PersonId = z.infer<typeof c.personRequest>["personId"];
@@ -15,7 +16,7 @@ export type PersonPage = {
 	records: PersonRecords | null;
 	duplicates: DuplicateHints | null;
 };
-export async function readPersonPageNow(v: Viewer, personId: PersonId): Promise<PersonPage | null> {
+export async function readPersonPageNow(v: PlantSeat, personId: PersonId): Promise<PersonPage | null> {
 	const r = await readPersonView(v, personId);
 	if (r.status !== "ok") return null;
 	const { found, activities, fields, records, duplicates } = r.value;

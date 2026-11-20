@@ -30,6 +30,8 @@ import { LocalDay } from "../parts.tsx";
 import { findWitnesses } from "../fetch.ts";
 import { KIND_LABEL, type Commitment, type Kind } from "./model.ts";
 import { ChoiceField, recordProblem } from "./parts.tsx";
+import { loadProblem } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 const DOCUMENT_TYPES = commitmentMime.options;
 const KINDS = (["core_group", "launch_team"] as const).map((k) => ({ value: k, label: KIND_LABEL[k] }));
@@ -277,7 +279,8 @@ function WitnessField({
 
 const WITNESS_PAUSE_MS = 250;
 const witnesses = createRead(
-	(query: string): Promise<Outcome<{ id: string; name: string; detail: string }[]>> => findWitnesses(query),
+	(query: string): Promise<Outcome<{ id: string; name: string; detail: string }[]> | ReadFailure> =>
+		findWitnesses(query),
 	{ failed: () => ({ status: "lost" }) as const },
 );
 
@@ -330,7 +333,7 @@ function WitnessPicker({
 					</p>
 				) : result !== null && result.status !== "ok" ? (
 					<p role="alert" className="px-2 py-3 text-sm text-magenta-600">
-						People did not load. Change the search to try again.
+						{loadProblem(result, "People did not load. Change the search to try again.")}
 					</p>
 				) : options.length === 0 ? (
 					<p className="px-2 py-3 text-sm text-text-3" aria-live="polite">

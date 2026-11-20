@@ -258,7 +258,6 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 			"CRON_SECRET",
 			"DATABASE_URL",
 			"DATABASE_URL_UNPOOLED",
-			"FLAGS_SECRET",
 			"IDENTITY_ADDRESS_KEY",
 			"IDENTITY_AUTH_DATABASE_URL",
 			"IDENTITY_DATABASE_URL",
@@ -269,7 +268,7 @@ test("INV-qa-secrets: qa up, list and down keep every secret out of output, the 
 			"NOTIFICATION_OPT_OUT_KEYS",
 		]);
 		assert.equal(env.IDENTITY_ORIGIN, url);
-		assert.equal(Buffer.from(env.FLAGS_SECRET!, "base64url").length, 32, "FLAGS_SECRET is a 256-bit base64url key");
+		assert.equal(env.FLAGS_SECRET, undefined, "Flags Explorer needs a project FLAGS_SECRET, so a QA preview sets none");
 		assert.equal(new URL(env.IDENTITY_DATABASE_URL!).username, "evf_qa_runtime");
 		assert.match(new URL(env.IDENTITY_DATABASE_URL!).hostname, /^ep-qa-branch-a1\./);
 		const seedKeys = s.stubState<Record<string, string>>("seed-keys.json");
