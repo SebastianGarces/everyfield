@@ -125,6 +125,14 @@ export const invitationMachine = machine({
 			when: "organization",
 			unless: "withinThirtyDays",
 		},
+		{
+			event: "associations.invite",
+			from: "pending",
+			to: "expired",
+			sweep: true,
+			when: "relationship",
+			unless: "withinThirtyDays",
+		},
 		{ event: "pipeline.removePerson", from: "pending", to: "revoked", sweep: true, when: "residency" },
 	],
 	stays: [
@@ -133,7 +141,7 @@ export const invitationMachine = machine({
 	],
 	unchangedIsNoop: [],
 	notes: [
-		"`withinThirtyDays`: created less than 720 hours before the database clock. Nothing expires an invitation on a timer: an invite to the same address in the same tenant sweeps the older stale ones.",
+		"`withinThirtyDays`: a seat or residency invitation was created, and a relationship invitation was last sent, less than 720 hours before the database clock. Resending a relationship invitation restarts its 30 days. Nothing expires an invitation on a timer: an invite to the same address in the same tenant sweeps the older stale ones.",
 	],
 	proof: "tests/integration/identity/invitation-machine.test.mts",
 });

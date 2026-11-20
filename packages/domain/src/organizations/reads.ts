@@ -68,12 +68,12 @@ export async function pendingFor(db: Database, viewer: Viewer) {
 		organization_id: string;
 		organization_kind: "sending_church" | "sending_network";
 		revision: string;
-		created_at: string;
+		sent_at: string;
 		inviter_description: string;
 	}>(
-		sql`SELECT r.invitation_id, r.organization_id, o.kind AS organization_kind, i.revision::text AS revision, to_char(i.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS created_at, r.inviter_description
+		sql`SELECT r.invitation_id, r.organization_id, o.kind AS organization_kind, i.revision::text AS revision, to_char(coalesce(i.resent_at,i.created_at) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') AS sent_at, r.inviter_description
 		FROM relationship_invitation r JOIN invitation i ON i.id = r.invitation_id JOIN organization o ON o.id = r.organization_id
-		WHERE r.${sql.raw(column)} = ${subject} AND i.state = 'pending' AND i.created_at > clock_timestamp() - interval '30 days'
+		WHERE r.${sql.raw(column)} = ${subject} AND i.state = 'pending' AND coalesce(i.resent_at,i.created_at) > clock_timestamp() - interval '720 hours'
 		AND ${live(viewer)}
 		ORDER BY i.created_at DESC LIMIT 50`,
 	);
@@ -83,7 +83,7 @@ export async function pendingFor(db: Database, viewer: Viewer) {
 			invitationId: r.invitation_id,
 			pair: pairOf(viewer, { kind: "organization", id: r.organization_id, organizationKind: r.organization_kind }),
 			revision: r.revision,
-			expiresAt: new Date(new Date(r.created_at).getTime() + 30 * 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z"),
+			expiresAt: new Date(new Date(r.sent_at).getTime() + 30 * 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z"),
 			inviterDescription: r.inviter_description,
 		}),
 	);

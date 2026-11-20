@@ -413,7 +413,7 @@ function PendingList({
 							<div className="min-w-0 flex-1 basis-48">
 								<p className="font-semibold text-ink">{name}</p>
 								<p className="text-sm text-text-3">
-									Invitation sent · expires{" "}
+									Pending, expires{" "}
 									<time dateTime={invitation.expiresAt}>{formatDay(invitation.expiresAt, zone)}</time>
 								</p>
 							</div>

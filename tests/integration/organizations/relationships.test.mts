@@ -4,8 +4,9 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import * as S from "./support.mts";
 import * as Q from "../../../packages/contracts/src/organizations/index.ts";
-import { readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
+import { pendingFor, readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
+import { liveAccess } from "../../../packages/domain/src/access/session.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
 import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 after(S.teardown);
@@ -347,6 +348,75 @@ test("INV-invitation-detail: only the addressed receiving Owner or Admin can rea
 		S.command({ invitationId: i.invitationId, proof, decision: "decline" }),
 	);
 	assert.deepEqual(await read(oa), { status: "unavailable" });
+});
+
+test("discovery invitations expire after 30 days: the receiver sees who to ask, a new request goes through, and a resend restarts the 30 days", async () => {
+	const o = await S.tenant("sending_church"),
+		oa = await S.identity(o),
+		d = await S.identity();
+	await S.db.execute(sql`INSERT INTO discovery(account_id) VALUES(${sql.param(d.account)})`);
+	const DAY = 86_400_000,
+		clock = async () =>
+			new Date(String((await S.db.execute(sql`SELECT clock_timestamp()::text AS now`)).rows[0]!.now)).getTime(),
+		near = (iso: string, at: number) => assert.ok(Math.abs(new Date(iso).getTime() - at) < 60_000, `${iso} is near ${new Date(at).toISOString()}`),
+		set = (id: string, created: string, resent: string | null) =>
+			S.db.execute(
+				sql`UPDATE invitation SET created_at=clock_timestamp()-${created}::interval, resent_at=${resent === null ? null : sql`clock_timestamp()-${resent}::interval`} WHERE id=${sql.param(id)}`,
+			),
+		state = async (id: string) =>
+			(await S.db.execute(sql`SELECT state FROM invitation WHERE id=${sql.param(id)}`)).rows[0]!.state,
+		read = (invitationId: string) =>
+			S.tx((c) =>
+				readAnswerableInvitation(c, oa.session, oa.selected, { invitationId, proof: S.proofs.get(invitationId) }),
+			),
+		sender = async () => {
+			const authority = await S.tx((c) => RequestActor.resolve(c, d.session));
+			if (!(authority instanceof RequestActor)) throw Error();
+			const viewer = {
+				kind: "discovery" as const,
+				session: authority.session,
+				accountId: d.account,
+				selected: d.selected,
+				canManage: true,
+				access: liveAccess(authority),
+			};
+			return pendingFor(S.runtime as never, viewer);
+		};
+
+	const first = await invite(d, o, oa.email);
+	await set(first.invitationId, "29 days", null);
+	const resent = pending(
+		await S.call("associations.resendInvitation", d, S.command({ invitationId: first.invitationId })),
+	);
+	near(resent.expiresAt, (await clock()) + 30 * DAY);
+	const [listed] = await sender();
+	assert.equal(listed?.invitationId, first.invitationId);
+	assert.equal(listed?.expiresAt.slice(0, 16), resent.expiresAt.slice(0, 16));
+	await set(first.invitationId, "31 days", "1 day");
+	const shown = await read(first.invitationId);
+	assert.equal(shown.status, "pending");
+	if (shown.status === "pending") near(shown.expiresAt, (await clock()) + 29 * DAY);
+
+	await set(first.invitationId, "62 days", "31 days");
+	assert.deepEqual(await sender(), []);
+	const expired = await read(first.invitationId);
+	assert.equal(expired.status, "expired");
+	if (expired.status !== "expired") throw Error();
+	assert.deepEqual(expired.pair, first.pair);
+	assert.equal(expired.inviterDescription, first.inviterDescription);
+	near(expired.expiredAt, (await clock()) - DAY);
+	const old = S.command(
+		{ invitationId: first.invitationId, proof: S.proofs.get(first.invitationId), decision: "accept" },
+		"2",
+	);
+	await assert.rejects(S.call("associations.acceptInvitation", oa, old), /unavailable/);
+	assert.equal(await state(first.invitationId), "pending");
+
+	const second = await invite(d, o, oa.email);
+	assert.equal(await state(first.invitationId), "expired");
+	assert.equal((await read(first.invitationId)).status, "expired");
+	await assert.rejects(S.call("associations.acceptInvitation", oa, { ...old, expectedRevision: "3" }), /unavailable/);
+	assert.equal((await approve(second, oa)).relationship.pair.kind, "discovery");
 });
 
 test("AC:TARGET-IDN-021 a Discovery conversion and an organization ending that link at the same time both finish", async () => {

@@ -77,7 +77,7 @@ async function stored(id) {
 }
 const age = (id, fresh) =>
 	f.admin.execute(
-		sql`UPDATE invitation SET created_at = clock_timestamp() - ${fresh ? "2 minutes" : "721 hours"}::interval WHERE id = ${id}`,
+		sql`UPDATE invitation SET created_at = clock_timestamp() - ${fresh ? "2 minutes" : "721 hours"}::interval, resent_at = NULL WHERE id = ${id}`,
 	);
 async function rootRevision(tenant) {
 	const table = tenant.kind === "plant" ? sql`plant` : sql`organization`;
@@ -111,7 +111,7 @@ async function relationshipWorld(kind) {
 			? { kind, accountId: sender.id, organization }
 			: { kind, subject: subjectTenant, organization };
 	const sent = await relate("associations.invite", sender, command({ pair, recipientEmail: receiver.email }, "1"));
-	return { tenant: subjectTenant, sender, receiver, email: receiver.email, id: sent.invitationId };
+	return { tenant: subjectTenant, sender, receiver, email: receiver.email, pair, id: sent.invitationId };
 }
 
 const worlds = {
@@ -190,6 +190,16 @@ function fire(world, row, event, to) {
 						expectedRevision: r.rows[0].revision,
 					}),
 				);
+		case "associations.invite":
+			return (
+				world.tenant
+					? rootRevision(world.tenant)
+					: f.admin
+							.execute(sql`SELECT revision::text AS revision FROM account WHERE id = ${world.sender.id}`)
+							.then((r) => r.rows[0].revision)
+			).then((revision) =>
+				relate(event, world.sender, command({ pair: world.pair, recipientEmail: world.email }, revision)),
+			);
 		case "associations.resendInvitation":
 		case "associations.revokeInvitation":
 			return relate(event, world.sender, command({ invitationId }, at));

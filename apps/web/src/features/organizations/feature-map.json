@@ -1540,6 +1540,18 @@
 							"match": "contains"
 						}
 					]
+				},
+				{
+					"id": "expired",
+					"reach": {
+						"manual": "an invitation whose last send is more than 30 days old; the QA seed keeps none, so one persona invites, the send time is moved back on a disposable database, and the addressed persona opens the link"
+					},
+					"expect": [
+						{
+							"role": "heading",
+							"name": "This request has expired"
+						}
+					]
 				}
 			],
 			"behaviors": [
@@ -1564,7 +1576,11 @@
 							},
 							{
 								"file": "tests/unit/organizations/invitation-proof.test.mts",
-								"name": "the route answers the read as the page did: signed out, unavailable or the request"
+								"name": "the route answers the read as the page did: signed out, unavailable, expired or the request"
+							},
+							{
+								"file": "tests/integration/organizations/relationships.test.mts",
+								"name": "discovery invitations expire after 30 days: the receiver sees who to ask, a new request goes through, and a resend restarts the 30 days"
 							}
 						],
 						"cases": ["TARGET-IDN-020"]

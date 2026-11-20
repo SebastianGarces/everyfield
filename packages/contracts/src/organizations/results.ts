@@ -24,6 +24,12 @@ export const invitationResult = z.strictObject({
 	expiresAt: instant,
 	inviterDescription: z.string().trim().min(1).max(500),
 });
+export const expiredInvitationResult = z.strictObject({
+	status: z.literal("expired"),
+	pair: relationshipPair,
+	expiredAt: instant,
+	inviterDescription: z.string().trim().min(1).max(500),
+});
 export const mutationResult = z.union([unavailableResult, z.strictObject({ status: z.literal("committed") })]);
 const acceptedInvitation = z.strictObject({
 	status: z.literal("accepted"),

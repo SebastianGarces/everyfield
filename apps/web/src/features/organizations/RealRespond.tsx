@@ -8,15 +8,16 @@ import { createRead, useRead } from "../../components/read.tsx";
 import { AuthFrame, AuthHeading } from "../identity/AuthFrame";
 import { readRelationshipInvitation } from "./invitation/client.ts";
 import type { RelationshipInvitationRead } from "./invitation/handler.ts";
-import { InvitationResponse } from "./InvitationResponse";
-import type { Invitation, Run } from "./port";
+import { InvitationExpired, InvitationResponse } from "./InvitationResponse";
+import type { ExpiredInvitation, Invitation, Run } from "./port";
 import { createNames, realRun } from "./real";
 
 type State =
 	| { kind: "loading" }
 	| { kind: "signed_out"; returnTo: string }
 	| { kind: "unavailable" }
-	| { kind: "invitation"; invitation: Invitation; names: Record<string, string>; zone: string };
+	| { kind: "invitation"; invitation: Invitation; names: Record<string, string>; zone: string }
+	| { kind: "expired"; invitation: ExpiredInvitation; names: Record<string, string>; zone: string };
 
 const LOADING: State = { kind: "loading" };
 const UNAVAILABLE: State = { kind: "unavailable" };
@@ -24,6 +25,13 @@ const UNAVAILABLE: State = { kind: "unavailable" };
 function stateOf(read: RelationshipInvitationRead, invitationId: string): State {
 	if (read.kind === "signed_out")
 		return { kind: "signed_out", returnTo: `/connections/respond?invitation=${encodeURIComponent(invitationId)}` };
+	if (read.kind === "expired")
+		return {
+			kind: "expired",
+			invitation: C.expiredInvitationResult.parse(read.invitation),
+			names: read.names,
+			zone: read.zone,
+		};
 	if (read.kind !== "invitation") return UNAVAILABLE;
 	return {
 		kind: "invitation",
@@ -54,7 +62,10 @@ export function RealRespond({ invitationId }: { invitationId: string | null }) {
 	const read = useRead(usable ? invitations : null, invitationId ?? "");
 	const state = linked === undefined ? LOADING : !usable ? UNAVAILABLE : (read.value ?? LOADING);
 
-	const names = useMemo(() => createNames(state.kind === "invitation" ? state.names : {}), [state]);
+	const names = useMemo(
+		() => createNames(state.kind === "invitation" || state.kind === "expired" ? state.names : {}),
+		[state],
+	);
 
 	if (state.kind === "signed_out")
 		return (
@@ -78,6 +89,13 @@ export function RealRespond({ invitationId }: { invitationId: string | null }) {
 						</span>
 						<Skeleton shape="block" height={220} />
 					</Card>
+				) : state.kind === "expired" ? (
+					<InvitationExpired
+						invitation={state.invitation}
+						nameOf={names.nameOf}
+						zone={state.zone}
+						connectionsHref="/settings/sharing"
+					/>
 				) : (
 					<InvitationResponse
 						invitation={state.kind === "invitation" ? state.invitation : null}
