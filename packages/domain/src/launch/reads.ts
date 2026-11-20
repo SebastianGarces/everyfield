@@ -252,7 +252,7 @@ export function createLaunchReader(clock: Clock = systemClock) {
 					.object({ ok: z.boolean(), timezone: z.string().nullable(), entries: z.array(z.unknown()).nullable() })
 					.parse(rows[0]);
 				if (!r.ok || !r.timezone) deny("access_denied");
-				return c.history.parse({ timeZone: r.timezone, entries: historyOf(r.entries ?? []) });
+				return { timeZone: r.timezone, entries: historyOf(r.entries ?? []) } satisfies z.output<typeof c.history>;
 			});
 		},
 		async readGatheringOffers(db: Pick<Database, "execute">, authority: RequestActor) {
