@@ -1118,20 +1118,17 @@ export const later = () => import("@everyfield/db/query");
 export const used = [sql, t, eq, privateStorage, pgTable] as unknown as Database;
 import { pgTable } from "@everyfield/db/columns";
 `;
-	const [holder, emptied] = Object.keys(WEB_SQL_HOLDERS);
-	const hits = lint({
-		"apps/web/src/features/x/server.ts": code,
-		[holder]: code,
-		[emptied]: "export const none = 1;\n",
-		"packages/domain/src/x/index.ts": code,
-	}).filter((hit) => hit.endsWith(" web-database-imports"));
+	const [holder] = Object.keys(WEB_SQL_HOLDERS);
+	const reported = (files) => lint(files).filter((hit) => hit.endsWith(" web-database-imports"));
 	assert.deepEqual(
-		hits,
-		[
-			`${emptied}:1 web-database-imports`,
-			...[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`),
-		].sort(),
+		reported({
+			"apps/web/src/features/x/server.ts": code,
+			[holder]: code,
+			"packages/domain/src/x/index.ts": code,
+		}),
+		[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`).sort(),
 	);
+	assert.deepEqual(reported({ [holder]: "export const none = 1;\n" }), [`${holder}:1 web-database-imports`]);
 	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 8, "WEB_SQL_HOLDERS only shrinks");
 });
 
