@@ -113,13 +113,13 @@ export function runScript(
 	});
 }
 
-export const TOOLS_SCRIPT = /^node tools\/ci\/typecheck\.ts typecheck:tools -p ((?:\S+\.json ?)+)$/;
+const TOOLS_SCRIPT = /^node tools\/ci\/typecheck\.ts typecheck:tools -p ((?:\S+\.json ?)+)$/;
 
-export function toolsProjects(script: string): string[] | undefined {
+function toolsProjects(script: string): string[] | undefined {
 	return TOOLS_SCRIPT.exec(script.trim())?.[1]!.trim().split(" ");
 }
 
-export async function runTools(root: string, projects: string[], prefix = ""): Promise<number> {
+async function runTools(root: string, projects: string[], prefix = ""): Promise<number> {
 	const budgetMs = Number(process.env.TYPECHECK_TOOLS_TIMEOUT_MS) || 300_000;
 	const deadline = performance.now() + budgetMs;
 	let exit = 0;
