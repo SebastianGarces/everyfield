@@ -678,14 +678,14 @@ async function visibleBody(db: Database, authority: RequestActor, raw: unknown) 
 	);
 	const article = page.articles[0];
 	if (!article || article.hidden || article.body == null) return null;
-	return article;
+	return { ...article, body: article.body };
 }
 export function exportPdf(db: Database, authority: RequestActor, raw: unknown, render: PdfRenderer) {
 	return runRead(async () => {
 		const article = await visibleBody(db, authority, raw);
 		if (!article) return deniedExport();
 		const meta = exportMeta(article);
-		const blocks = wikiBlocks(article.contentType, article.body!);
+		const blocks = wikiBlocks(article.contentType, article.body);
 		try {
 			const bytes = Buffer.from(render(article.title, blocks, meta)).toString("base64");
 			return {
@@ -711,7 +711,7 @@ export function printArticle(db: Database, authority: RequestActor, raw: unknown
 		const meta = exportMeta(article);
 		return {
 			bytes: null,
-			html: printHtml(article.title, wikiBlocks(article.contentType, article.body!), meta),
+			html: printHtml(article.title, wikiBlocks(article.contentType, article.body), meta),
 			errorCode: null,
 			fontFailureOffersPrintFallback: false,
 		} satisfies z.output<typeof exportResult>;

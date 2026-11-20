@@ -46,7 +46,7 @@ export async function ImportPage({
 	if (key) {
 		const reply = await readReceipt(viewer, key);
 		if (!reply || reply.status === "refused") initial = { kind: "missing", key };
-		else if (reply.status === "failed") initial = { kind: "lost", key };
+		else if (reply.status === "lost") initial = { kind: "lost", key };
 		else {
 			if (reply.value.status === "in_progress") drainPeopleImports();
 			initial = { kind: "receipt", key, receipt: reply.value };
