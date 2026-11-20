@@ -159,23 +159,18 @@ export const personColumns = {
 	plant_today: sql<string | null>`${plantTodaySql(sql`${tables.person.plant_id}`)}`.as("plant_today"),
 };
 export type Person = z.infer<typeof personRow>;
+export const personQuery = (tx: Tx, context: Pick<Context, "selected">, id: string, where?: SQL) =>
+	tx
+		.select(personColumns)
+		.from(tables.person)
+		.where(and(eq(tables.person.id, id), eq(tables.person.tenant_id, context.selected.id), where, unremoved(tx)));
 export async function person(
 	tx: Tx,
 	context: Pick<Context, "selected">,
 	id: string,
 	lock: true | SQL,
 ): Promise<Person> {
-	const query = tx
-		.select(personColumns)
-		.from(tables.person)
-		.where(
-			and(
-				eq(tables.person.id, id),
-				eq(tables.person.tenant_id, context.selected.id),
-				lock === true ? undefined : lock,
-				unremoved(tx),
-			),
-		);
+	const query = personQuery(tx, context, id, lock === true ? undefined : lock);
 	const checked = lock === true ? await checkedRead(tx, query.getSQL(), sql`FOR UPDATE OF ${tables.person}`) : null;
 	if (checked) {
 		if (!checked[0]) deny("unavailable");
@@ -184,6 +179,12 @@ export async function person(
 	const rows = await (lock === true ? query.for("update", { of: tables.person }) : query);
 	if (!rows[0]!) deny("unavailable");
 	return personRow.parse(rows[0]!);
+}
+export async function lockPersonWith(tx: Tx, context: Pick<Context, "selected">, id: string, columns: SQL) {
+	const subject = sql`subject AS MATERIALIZED (${personQuery(tx, context, id).getSQL()} FOR UPDATE OF ${tables.person})`;
+	const r = await tx.execute(sql`WITH ${subject} SELECT subject.*, ${columns} FROM subject`);
+	const row = r.rows[0] ?? deny("unavailable");
+	return { person: personRow.parse(row), row };
 }
 const unremoved = (tx: Tx) =>
 	notExists(
@@ -256,6 +257,20 @@ export type Evidence = {
 	signed_on: string;
 	revision: string;
 };
+export const evidenceOf = (raw: unknown): Evidence[] =>
+	raw
+		? [
+				z
+					.object({
+						person_id: z.uuid(),
+						id: z.uuid(),
+						kind: z.enum(["core_group", "launch_team"]),
+						signed_on: z.string(),
+						revision: z.string(),
+					})
+					.parse(raw),
+			]
+		: [];
 export const evidenceJson = (plant: string, person: SQL) =>
 	sql`(SELECT jsonb_build_object('person_id',k.person_id,'id',k.id,'kind',k.kind,'signed_on',k.signed_on::text,'revision',k.revision::text)
  FROM commitment k WHERE k.plant_id=${plant}::uuid AND k.person_id=${person} AND k.voided_at IS NULL ORDER BY k.signed_on DESC,k.id DESC LIMIT 1)`;
