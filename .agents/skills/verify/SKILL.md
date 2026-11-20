@@ -17,8 +17,7 @@ selected packages' database tests (`test:db`) on a throwaway local Postgres: CI'
 head's own `pnpm db:migrate` and removed when the run ends, never the shared development database. So it needs Docker,
 and without it `test:db` fails. The statement census (`@everyfield/domain` `test:db`) is not part of `bin/dev check`
 or `--full`: it is `bin/dev census`, the evf `census` check with its own 20-minute timeout. It runs for a diff that
-touches backend or database code (`packages/domain`, `packages/db`, `packages/reference`, `apps/web/src/server`, a
-feature's server, action and route files, `tests/integration`), or always with `--all`, on a production build and its
+touches backend or database code (the "backend or database code" rule in `tools/ci/select.ts`), or always with `--all`, on a production build and its
 own throwaway Postgres, and writes a census.json record next to checks.json. An over-budget write or request, an N+1 or a missing budget fails it;
 slack only tightens `tests/integration/writes/limits.json` in the worktree, so commit that file (T-479).
 

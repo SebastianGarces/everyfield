@@ -329,15 +329,14 @@ test("INV-census: a statement sent once per row fails as N+1 inside its budget u
 test("INV-census: a shape strips values but keeps the whole text, so reads behind one long access wrapper differ", () => {
 	const wrapper =
 		"SELECT g.live, q.* FROM (SELECT EXISTS(SELECT FROM live_session($1::uuid) i WHERE " + "x=1 AND ".repeat(60);
-	const shape = (text: string) => statementShape(text);
 	assert.equal(
-		shape("SELECT * FROM t WHERE id IN ($1, $2, $3) AND n = 'a''b' AND k > 10"),
+		statementShape("SELECT * FROM t WHERE id IN ($1, $2, $3) AND n = 'a''b' AND k > 10"),
 		"SELECT * FROM t WHERE id IN (?) AND n = ? AND k > ?",
 	);
 	const repeats = repeatedShapes(
 		new Map([
-			[shape(wrapper + "true) q FROM person"), 2],
-			[shape(wrapper + "true) q FROM task"), 2],
+			[statementShape(wrapper + "true) q FROM person"), 2],
+			[statementShape(wrapper + "true) q FROM task"), 2],
 		]),
 	);
 	assert.equal(Object.keys(repeats).length, 2);
