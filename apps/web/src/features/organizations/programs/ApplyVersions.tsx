@@ -80,6 +80,7 @@ function ApplyVersionsReview({
 				? "We couldn’t load the review. Someone may have changed these enrollments. Close this, reload the page and select them again."
 				: programProblem(answer);
 	const shown = reviews?.filter((r) => listed.includes(r.enrollmentId)) ?? [];
+	const [firstShown] = shown;
 	const number = reviews?.[0]?.toNumber ?? toNumber;
 	const stageOf = (r: VersionReview) => {
 		const kept = picked[r.enrollmentId];
@@ -88,12 +89,12 @@ function ApplyVersionsReview({
 
 	const submit = (event: FormEvent) => {
 		event.preventDefault();
-		if (!shown.length) return;
+		if (!firstShown) return;
 		startSaving(async () => {
 			setProblem(null);
 			const answer = await applyVersions({
 				programId,
-				versionId: shown[0]!.versionId,
+				versionId: firstShown.versionId,
 				enrollments: shown.map((r) => ({ enrollmentId: r.enrollmentId, stageId: stageOf(r), basis: r.basis })),
 			}).catch(lost);
 			if (answer.status === "ok") return onApplied();
@@ -118,7 +119,7 @@ function ApplyVersionsReview({
 		});
 	};
 
-	const people = shown.length === 1 ? shown[0]!.name : `${shown.length} people`;
+	const people = firstShown && shown.length === 1 ? firstShown.name : `${shown.length} people`;
 	return (
 		<form onSubmit={submit} noValidate className="contents">
 			<DialogHeader

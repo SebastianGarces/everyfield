@@ -1354,6 +1354,12 @@
 			}
 		},
 		{
+			"files": ["src/features/onboarding/**", "src/features/organizations/**", "src/features/people/**"],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
 			"files": ["src/features/followups/fields.tsx"],
 			"rules": {
 				"react/purity": "off"
