@@ -1,7 +1,7 @@
-import { getReads } from "../../components/get-reads.ts";
+import { readsFrom } from "../../components/get-reads.ts";
 import type { GET } from "./read.ts";
 
-const get = getReads<typeof GET>("/ministries/read");
+const get = readsFrom<typeof GET>("/ministries/read");
 
 export const reloadTeam = (teamId: string) => get("team", { teamId });
 export const teamHistory = (teamId: string) => get("history", { teamId });
