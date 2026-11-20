@@ -1,5 +1,6 @@
 "use client";
 
+import { READ_FAILED } from "../../components/read-failed.ts";
 import { InboxIcon } from "@hugeicons/core-free-icons";
 import type {
 	FeedbackCategory,
@@ -60,7 +61,7 @@ export function TriageList({
 	const pathname = usePathname();
 	const [items, setItems] = useState(initial.items);
 	const [next, setNext] = useState(initial.next);
-	const [failed, setFailed] = useState(false);
+	const [failed, setFailed] = useState<"lost" | "failed" | null>(null);
 	const [pending, start] = useTransition();
 
 	function go(change: Partial<Filter>) {
@@ -72,10 +73,10 @@ export function TriageList({
 	}
 	function more() {
 		if (!next) return;
-		setFailed(false);
+		setFailed(null);
 		start(async () => {
 			const r = await loadTriage({ ...filter, cursor: next });
-			if (r.status !== "ok") return setFailed(true);
+			if (r.status !== "ok") return setFailed(r.status === "failed" ? "failed" : "lost");
 			setItems((shown) => [...shown, ...r.value.items]);
 			setNext(r.value.next);
 		});
@@ -140,7 +141,7 @@ export function TriageList({
 					<div className="flex items-center justify-center gap-3 pt-4">
 						{failed ? (
 							<span role="alert" className="text-sm text-magenta-600">
-								The next feedback did not load. Try again.
+								{failed === "failed" ? READ_FAILED : "The next feedback did not load. Try again."}
 							</span>
 						) : null}
 						{next ? (

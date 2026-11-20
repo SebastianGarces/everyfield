@@ -61,5 +61,6 @@ export async function readAccountIdByEmail(db: Db, email: string): Promise<strin
 	const { rows } = await db.execute(sql`SELECT a.id::text AS id FROM account a JOIN auth_user u ON u.id=a.auth_user_id
  WHERE lower(u.email)=lower(${email})`);
 	const found = z.array(z.object({ id: z.string() })).parse(rows);
-	return found.length === 1 ? found[0]!.id : null;
+	const [only] = found;
+	return found.length === 1 && only ? only.id : null;
 }

@@ -4,15 +4,18 @@ import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
 import { liveAccess, type RequestActor, type WriteTx } from "@everyfield/domain/access";
 import { createSeatService } from "@everyfield/domain/identity";
-import { auditTransaction, gatedTransaction } from "@everyfield/domain/operations";
+import { auditTransaction, gatedTransaction, WriteUnavailable } from "@everyfield/domain/operations";
 import {
 	createOrganizationAdapter,
 	geographyReference,
+	OrganizationRefusal,
 	readAnswerableInvitation,
+	refuse,
 	residencyLinks,
 	readSharingDisclosure,
 	type Kind,
 	type OrganizationEffects,
+	type OrganizationRefusalCode,
 	type Viewer,
 } from "@everyfield/domain/organizations";
 import { cache } from "react";
@@ -24,9 +27,9 @@ import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTra
 import { getViewer } from "../../server/request-context";
 import { invitationLink } from "../../server/invitations";
 
-export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: string };
+export type RefusalCode = OrganizationRefusalCode | "invalid_input";
+export type Reply<T = unknown> = { status: "ok"; value: T } | { status: "refused"; code: RefusalCode };
 export type Mount = ReturnType<typeof current>;
-const REFUSAL_CODE = /^[a-z_]{3,40}$/;
 
 const expiryDay = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
 
@@ -55,7 +58,7 @@ function create(v: ServerConfig) {
 	const mail = organizationMail(v);
 	const effects: OrganizationEffects = {
 		async invitation(tx, input, writes) {
-			if (input.owner.kind === "global") throw new Error("unavailable");
+			if (input.owner.kind === "global") refuse();
 			const link = invitationLink(v.IDENTITY_ORIGIN, "/connections/respond", input.invitationId, input.proof);
 			await mail.append(
 				tx,
@@ -135,8 +138,8 @@ export const residentOwner = (viewer: Viewer) => owner.parse({ kind: "account", 
 
 function refusalOf(e: unknown): Reply<never> {
 	if (e instanceof z.ZodError) return { status: "refused", code: "invalid_input" };
-	const code = e instanceof Error && REFUSAL_CODE.test(e.message) ? e.message : null;
-	if (code) return { status: "refused", code };
+	if (e instanceof OrganizationRefusal) return { status: "refused", code: e.code };
+	if (e instanceof WriteUnavailable) return { status: "refused", code: "unavailable" };
 	throw e;
 }
 
@@ -148,7 +151,7 @@ export async function command<T>(
 ): Promise<Reply<T>> {
 	try {
 		const value = await auditTransaction(m.db, async (tx) => {
-			if (!(await authority.bind(tx, selected))) throw new Error("unavailable");
+			if (!(await authority.bind(tx, selected))) refuse();
 			return body(tx, authority.session, selected);
 		});
 		return { status: "ok", value };

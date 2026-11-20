@@ -4,11 +4,14 @@ import { join } from "node:path";
 import { area, commentsExempt, ratchet, repoPath, root, sqlMarkers } from "./ratchet.mjs";
 import {
 	COUNTER_TEXT,
+	MARKETING_STEP,
 	SCOPE,
 	TIME_NAME,
 	classProblems,
+	isMarketing,
 	headingLike,
 	labelLike,
+	marketingMessage,
 	message as slopMessage,
 	styleProblems,
 } from "./slop-styling.mjs";
@@ -194,7 +197,7 @@ const errorMessage = (node) =>
 	node.object.type === "Identifier" &&
 	knownError(node, node.object.name);
 const EQUALITY = new Set(["==", "===", "!=", "!=="]);
-const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith"]);
+const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith", "test", "match", "exec", "search"]);
 
 const noErrorMessageMatch = {
 	meta: { type: "problem" },
@@ -2380,6 +2383,13 @@ const classesOf = (element) => {
 	return attr ? stringsIn(attr.value).flatMap((s) => s.split(/\s+/).filter(Boolean)) : [];
 };
 
+const elementName = (element) => {
+	const as = element.openingElement.attributes.find((a) => a.type === "JSXAttribute" && a.name?.name === "as");
+	return as?.value?.type === "Literal" && typeof as.value.value === "string"
+		? as.value.value
+		: (jsxName(element.openingElement.name) ?? "");
+};
+
 const staticValue = (node) =>
 	node?.type === "Literal"
 		? node.value
@@ -2422,18 +2432,30 @@ const timeContext = (call) => {
 	return false;
 };
 
+const insideFunction = (node, name) => {
+	for (let p = node.parent; p; p = p.parent) {
+		if (p.type === "FunctionDeclaration") return p.id?.name === name;
+		if (p.type === "ArrowFunctionExpression" || p.type === "FunctionExpression")
+			return p.parent?.type === "VariableDeclarator" && p.parent.id.name === name;
+	}
+	return false;
+};
+
 const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
-	if (!SCOPE.test(repoPath(context.filename))) return {};
+	const path = repoPath(context.filename);
+	if (!SCOPE.test(path)) return {};
+	const marketing = isMarketing(path);
 	const seen = new Set();
-	const report = (node, kind, token) => {
+	const report = (node, kind, token, approvedFor) => {
 		const key = `${node.range?.[0] ?? node.start}:${kind}:${token}`;
 		if (seen.has(key)) return;
 		seen.add(key);
-		push({ node, fn: enclosingName(node), message: slopMessage(kind, token) });
+		const message = approvedFor === "marketing" ? marketingMessage(kind, token) : slopMessage(kind, token);
+		push({ node, fn: enclosingName(node), message });
 	};
 	const strings = (value, node) => {
 		if (typeof value !== "string") return;
-		for (const [kind, token] of classProblems(value)) report(node, kind, token);
+		for (const [kind, token, approvedFor] of classProblems(value, path)) report(node, kind, token, approvedFor);
 	};
 	const counterString = (node) =>
 		node?.type === "Literal" && typeof node.value === "string" && COUNTER_TEXT.test(node.value);
@@ -2465,7 +2487,10 @@ const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
 				report(node, "counter", counters.map((c) => JSON.stringify(c.value)).join(", "));
 		},
 		CallExpression(node) {
+			if (!marketing && node.callee.type === "Identifier" && node.callee.name === MARKETING_STEP.name)
+				report(node, "counter", `${MARKETING_STEP.name}()`, "marketing");
 			if (memberName(node.callee) !== "padStart") return;
+			if (path === MARKETING_STEP.path && insideFunction(node, MARKETING_STEP.name)) return;
 			const [width, fill] = node.arguments;
 			if (staticValue(width) !== 2 || staticValue(fill) !== "0") return;
 			const timeValue = identifiersIn(node.callee.object).some((n) => TIME_NAME.test(n.replace(/^\./, "")));
@@ -2476,9 +2501,9 @@ const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
 			for (let i = 0; i < kids.length - 1; i++) {
 				const [label, next] = [kids[i], kids[i + 1]];
 				if (label.type !== "JSXElement" || next.type !== "JSXElement") continue;
-				if (headingLike(jsxName(label.openingElement.name) ?? "", classesOf(label))) continue;
+				if (headingLike(elementName(label), classesOf(label))) continue;
 				if (!labelLike(classesOf(label))) continue;
-				if (headingLike(jsxName(next.openingElement.name) ?? "", classesOf(next)))
+				if (headingLike(elementName(next), classesOf(next)))
 					report(label, "eyebrow", `<${jsxName(label.openingElement.name)}> label`);
 			}
 		},
@@ -2627,7 +2652,7 @@ const READ_NAME =
 	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print)(?:[A-Z]|$)/;
 
 const READ_HOME =
-	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through getReads in the feature's fetch.ts.";
+	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through readsFrom in the feature's fetch.ts.";
 
 const boundNames = (pattern) => {
 	if (!pattern) return [];
@@ -2793,6 +2818,33 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 	};
 });
 
+export const OUTCOME_MODULE = "packages/contracts/src/common/values.ts";
+const OUTCOME_SOURCE = "@everyfield/contracts/common";
+const OUTCOME_SCOPE = /^(apps\/web\/src|packages\/[^/]+\/src)\//;
+const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
+	const path = repoPath(context.filename);
+	if (path === OUTCOME_MODULE || !OUTCOME_SCOPE.test(path)) return {};
+	const shared = new Set();
+	return {
+		ImportDeclaration(node) {
+			if (node.source.value !== OUTCOME_SOURCE) return;
+			for (const spec of node.specifiers)
+				if (spec.type === "ImportSpecifier" && nameOf(spec.imported) === "Outcome") shared.add(spec.local.name);
+		},
+		TSTypeAliasDeclaration(node) {
+			if (node.id.name !== "Outcome" || !node.typeParameters) return;
+			const body = node.typeAnnotation;
+			if (body.type === "TSTypeReference" && body.typeName.type === "Identifier" && shared.has(body.typeName.name))
+				return;
+			push({
+				node: node.id,
+				fn: "Outcome",
+				message: `A local Outcome<T> type copies the request boundary's reply shape. Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Outcome<T> = Shared<T, Code, Extra>), so every feature answers the same ok / refused / lost union.`,
+			});
+		},
+	};
+});
+
 export const SIGN_IN_MODULE = "apps/web/src/server/sign-in.ts";
 const REDIRECTS = ["redirect", "permanentRedirect"];
 function leadingText(context, node, seen = new Set()) {
@@ -2825,6 +2877,91 @@ function leadingText(context, node, seen = new Set()) {
 	}
 	return null;
 }
+const RETRY_ELIGIBILITY = new Set(["never", "refresh", "same_request", "reconcile"]);
+const literalOutcomes = (node) => {
+	const at = unwrapped(node);
+	if (!at) return [];
+	if (at.type === "ConditionalExpression") return [...literalOutcomes(at.consequent), ...literalOutcomes(at.alternate)];
+	if (at.type === "LogicalExpression") return [...literalOutcomes(at.left), ...literalOutcomes(at.right)];
+	const text = literalArgument(at);
+	return text === null ? [] : [text];
+};
+const DEFINE_REFUSALS = "packages/domain/src/operations/refusals.ts";
+const BARE_CODE =
+	"defineRefusals adds details, correlationId and retry to a bare { code } refusal, which would change what Evry and the readers see";
+export const REFUSAL_MECHANISMS = {
+	"packages/domain/src/feedback/index.ts": { why: `Feedback refusals are a bare { code }: ${BARE_CODE}` },
+	"packages/domain/src/dashboard/index.ts": { why: `Dashboard refusals are a bare { code }: ${BARE_CODE}` },
+	"packages/domain/src/people/pipeline-metrics.ts": {
+		why: "Pipeline metrics answers a bare { code } refusal that its contract test pins; defineRefusals adds details, correlationId and retry",
+	},
+	"packages/domain/src/identity/budget.ts": {
+		why: "An identity refusal carries its HTTP status, and identity's handler answers it as HTTP JSON",
+	},
+	"packages/domain/src/identity/service.ts": {
+		why: "Identity's handler builds the identity safe error with its HTTP status from an identity refusal",
+	},
+	"packages/domain/src/identity/invitation-core.ts": {
+		why: "An invitation refusal carries a parsed safe error with retryAt details, the identity invitation mechanism",
+	},
+	"packages/domain/src/settings/credentials.ts": {
+		why: "Credential changes answer identity's credential outcome (a status with a correlationId and no retry)",
+	},
+	"packages/domain/src/organizations/seat.ts": {
+		why: "Pipeline, program and import refusals are a { status, refusal } reply whose refusal carries a field or file problem beside its code",
+	},
+	"packages/domain/src/organizations/core.ts": {
+		why: "Organization commands refuse with a typed code (OrganizationRefusal) that the web mount and Evry each turn into their own reply; organizations has no safe-error contract",
+	},
+	"packages/domain/src/people/csv/sheet.ts": {
+		why: "SheetRefused carries a file problem that People CSV import and the organizations pipeline import each turn into their own refusal",
+	},
+};
+const domainRefusals = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (path === DEFINE_REFUSALS) return {};
+		const listed = Object.hasOwn(REFUSAL_MECHANISMS, path);
+		let found = 0;
+		const report = (node, what) => {
+			found++;
+			if (!listed)
+				context.report({
+					node,
+					message: `${what} is hand-built. A domain module defines its refusals once with defineRefusals(errorSchema) from operations/refusals.ts and answers through its deny, refused and settle; retry comes from the contract.`,
+				});
+		};
+		const refusalClass = (node) => {
+			if (node.superClass && /Refus/.test(node.id?.name ?? "")) report(node, `The refusal class ${node.id.name}`);
+		};
+		return {
+			ClassDeclaration: refusalClass,
+			ClassExpression: refusalClass,
+			Property(node) {
+				if (node.parent?.type !== "ObjectExpression") return;
+				const key = keyName(node.key, node.computed);
+				if (key === "status" && literalOutcomes(node.value).includes("refused")) report(node, "A refusal reply");
+				if (key === "retry" && literalOutcomes(node.value).some((v) => RETRY_ELIGIBILITY.has(v)))
+					report(node, "A refusal's retry");
+			},
+			VariableDeclarator(node) {
+				const init = unwrapped(node.init);
+				if (node.id.type !== "Identifier" || !/retr(y|ies)/i.test(node.id.name)) return;
+				if (init?.type === "ObjectExpression" || (init?.type === "NewExpression" && init.callee.name === "Map"))
+					report(node, `The retry table ${node.id.name}`);
+			},
+			"Program:exit"(node) {
+				if (listed && found === 0)
+					context.report({
+						node,
+						message: `${path} no longer builds its own refusals: delete its REFUSAL_MECHANISMS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+			},
+		};
+	},
+};
+
 const signInRedirect = {
 	meta: { type: "problem" },
 	create(context) {
@@ -2855,6 +2992,104 @@ const signInRedirect = {
 					node,
 					message: "Send a signed-out visitor to sign in with signIn(returnTo) from server/sign-in.",
 				});
+			},
+		};
+	},
+};
+
+const CONSTRUCTED = new Set([
+	"ObjectExpression",
+	"ArrayExpression",
+	"ArrowFunctionExpression",
+	"FunctionExpression",
+	"NewExpression",
+]);
+const WRAPPERS = new Set([
+	"TSAsExpression",
+	"TSSatisfiesExpression",
+	"TSNonNullExpression",
+	"TSTypeAssertion",
+	"ParenthesizedExpression",
+]);
+const unwrapValue = (node) => {
+	let at = node;
+	while (at && WRAPPERS.has(at.type)) at = at.expression;
+	return at;
+};
+const providerName = (name) =>
+	(name.type === "JSXIdentifier" && name.name.endsWith("Context")) ||
+	(name.type === "JSXMemberExpression" && name.property.name === "Provider");
+const enclosingFunction = (node) => {
+	for (let at = node.parent; at; at = at.parent) if (FUNCTIONS.has(at.type)) return at;
+	return null;
+};
+const restNamed = (pattern, name) => {
+	if (!pattern) return false;
+	if (pattern.type === "RestElement") return pattern.argument.type === "Identifier" && pattern.argument.name === name;
+	if (pattern.type === "ObjectPattern") return pattern.properties.some((p) => restNamed(p, name));
+	if (pattern.type === "ArrayPattern") return pattern.elements.some((p) => restNamed(p, name));
+	if (pattern.type === "AssignmentPattern") return restNamed(pattern.left, name);
+	return false;
+};
+function bindingOf(fn, name) {
+	if (!fn) return null;
+	if (fn.params.some((param) => restNamed(param, name))) return { rest: true };
+	let found = null;
+	walkOwn(fn.body, (node) => {
+		if (node.type !== "VariableDeclarator") return false;
+		if (node.id.type === "Identifier" && node.id.name === name) found = { init: node.init };
+		else if (restNamed(node.id, name)) found = { rest: true };
+		return found !== null;
+	});
+	return found;
+}
+function builtInline(node, fn, seen = new Set()) {
+	const value = unwrapValue(node);
+	if (!value) return false;
+	if (CONSTRUCTED.has(value.type)) return true;
+	if (value.type === "ConditionalExpression")
+		return builtInline(value.consequent, fn, seen) || builtInline(value.alternate, fn, seen);
+	if (value.type === "LogicalExpression")
+		return builtInline(value.left, fn, seen) || builtInline(value.right, fn, seen);
+	if (value.type !== "Identifier" || seen.has(value.name)) return false;
+	seen.add(value.name);
+	const binding = bindingOf(fn, value.name);
+	return binding?.rest === true || (binding?.init ? builtInline(binding.init, fn, seen) : false);
+}
+const isCreateContext = (node) => {
+	const call = unwrapValue(node);
+	if (call?.type !== "CallExpression") return false;
+	const callee = call.callee;
+	return (
+		(callee.type === "Identifier" && callee.name === "createContext") ||
+		(callee.type === "MemberExpression" && !callee.computed && callee.property.name === "createContext")
+	);
+};
+
+const stableContextValue = {
+	meta: { type: "problem" },
+	create(context) {
+		return {
+			VariableDeclarator(node) {
+				if (!isCreateContext(node.init)) return;
+				if (node.id.type === "Identifier" && node.id.name.endsWith("Context")) return;
+				context.report({
+					node: node.id,
+					message: "Name a createContext result *Context, so the stable-value check sees every provider of it.",
+				});
+			},
+			JSXOpeningElement(node) {
+				if (!providerName(node.name)) return;
+				for (const attribute of node.attributes) {
+					if (attribute.type !== "JSXAttribute" || attribute.name.name !== "value") continue;
+					const expression = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : null;
+					if (!expression || !builtInline(expression, enclosingFunction(node))) continue;
+					context.report({
+						node: attribute,
+						message:
+							"A context value built during render is new on every render, so every consumer renders again. Build it with useMemo or useCallback, or keep it in a store, and pass the stable value.",
+					});
+				}
 			},
 		};
 	},
@@ -2903,5 +3138,8 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"shared-outcome": sharedOutcome,
+		"domain-refusals": domainRefusals,
+		"stable-context-value": stableContextValue,
 	},
 };

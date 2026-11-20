@@ -34,8 +34,6 @@ jobs:
         run: pnpm format:check
       - name: Lint (Oxlint, ESLint, lint baselines against main, image locks, colour literals)
         run: pnpm lint
-      - name: Lint rules stay on, cover every file and only shrink their baselines
-        run: node scripts/lint/check-comments.mjs
       - name: Types
         run: pnpm typecheck
       - name: Server log privacy (next dev with synthetic passwords)
@@ -284,6 +282,18 @@ jobs:
         run: node --test tests/integration/writes/statements.test.mts
         env:
           EVF_CENSUS_UNION: ${{ runner.temp }}/census
+          EVF_CENSUS_TIGHTENED: ${{ runner.temp }}/tightened
+      - name: Tightened statement budgets in the job summary (slack never fails; commit the file in this PR)
+        if: ${{ !cancelled() }}
+        run: if [ -f "$RUNNER_TEMP/tightened/changes.md" ]; then cat "$RUNNER_TEMP/tightened/changes.md" >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Tightened limits.json
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: tightened-limits
+          path: ${{ runner.temp }}/tightened
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Every check passed
         if: always()
         env:

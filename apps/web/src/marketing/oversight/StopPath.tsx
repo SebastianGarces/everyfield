@@ -3,6 +3,7 @@
 import { observeSize } from "@everyfield/ui/foundations";
 import type { ReactNode } from "react";
 import { stopCurve, stopLeft } from "../sections/stop-curve";
+import { stepNumber } from "../step-number";
 
 const drawPath = observeSize<HTMLDivElement>(
 	(band) => {
@@ -33,8 +34,8 @@ export function StopPath({ icons }: { icons: ReactNode[] }) {
 				{icons.map((icon, i) => (
 					<li key={i} className="absolute top-(--lo) -translate-1/2 even:top-(--hi)" style={{ left: stopLeft(i, n) }}>
 						<span className="relative grid size-(--ic) place-items-center bg-green-500 text-ink shadow-mk-stop">
-							<span className="absolute top-1 left-1.5 type-mk-pic-xs font-semibold tracking-[.06em] text-ink">
-								{String(i + 1).padStart(2, "0")}
+							<span className="absolute top-1 left-1.5 type-mk-pic-xs mk-counter font-semibold text-ink">
+								{stepNumber(i)}
 							</span>
 							{icon}
 						</span>

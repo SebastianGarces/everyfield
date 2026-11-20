@@ -62,7 +62,7 @@ export async function writeActor(tx: WriteTx, session: string, selected: Owner) 
 	return bound.actor;
 }
 export const subjectOwner = (pair: RelationshipPair): Owner =>
-	pair.kind === "discovery" ? owner.parse({ kind: "account", id: pair.accountId }) : pair.subject;
+	pair.kind === "discovery" ? ({ kind: "account", id: pair.accountId } satisfies z.output<typeof owner>) : pair.subject;
 export const endpointValues = (pair: RelationshipPair) => [
 	pair.kind === "plant" ? pair.subject.id : null,
 	pair.kind === "discovery" ? pair.accountId : null,
@@ -150,7 +150,7 @@ export const projection = (a: Affiliation) =>
 		endedAt: a.ended_at?.toISOString() ?? null,
 	});
 export const choices = (a: Affiliation) =>
-	sharingChoices.parse({
+	({
 		people: a.share_people,
 		meetings: a.share_meetings,
 		tasks: a.share_tasks,
@@ -158,7 +158,7 @@ export const choices = (a: Affiliation) =>
 		wiki: a.share_wiki,
 		activity: a.share_activity,
 		shared_findings: a.shared_findings,
-	});
+	}) satisfies z.output<typeof sharingChoices>;
 export const active = (a: Affiliation) => a.active;
 export interface OrganizationEffects {
 	invitation(

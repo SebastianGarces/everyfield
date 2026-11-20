@@ -42,9 +42,9 @@ Targets:
                             role, which reads only the flag_rollout view. The nightly flag-cleanup job sets it from the
                             repo secret and skips while it is unset. Runbook: docs/runbooks/release.md (D98).
 
-Flags Explorer: on a deployment with FLAGS_SECRET set that is not production (the local bin/dev stack preview; bin/qa
-previews set none), the Vercel Toolbar can force a flag for one browser through the vercel-flag-overrides cookie; that changes no feature_flag row and is
-ignored in production. Runbook: docs/runbooks/qa-preview.md.`;
+Flags Explorer: on a Vercel preview (bin/qa previews, with tokens Vercel signs) and on a deployment with FLAGS_SECRET
+set that is not production (the local bin/dev stack preview), the Vercel Toolbar can force a flag for one browser
+through the vercel-flag-overrides cookie; that changes no feature_flag row and is ignored in production. Runbook: docs/runbooks/qa-preview.md.`;
 
 type Db = Pick<Transaction, "execute">;
 export type EvfResult = { status: number | null; stdout: string; stderr: string };

@@ -6,6 +6,7 @@ import { useCallback, useRef, useState, type KeyboardEvent, type ReactNode } fro
 import { EvryBot } from "@/components/kit/EvryBot";
 import { createAutoplay, joinRefs } from "../playback";
 import { stopCurve, stopLeft, type Pt } from "../sections/stop-curve";
+import { stepNumber } from "../step-number";
 
 const STEP = 4200;
 const BOT = 40;
@@ -13,7 +14,6 @@ const BOT = 40;
 export type JourneyStep = { title: string; body: string; say: string; icon: ReactNode };
 type Geo = { c: (Pt & { s: number })[]; at: number[]; len: number; L: number; wx: number; k: number };
 
-const num = (i: number) => String(i + 1).padStart(2, "0");
 const ease = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);
 
 export function JourneyPath({
@@ -235,9 +235,9 @@ export function JourneyPath({
 								<div className="group relative size-(--ic) transition-[translate,scale] duration-400 ease-[cubic-bezier(.3,1.4,.5,1)] hover:not-has-aria-pressed:-translate-y-[3px] has-aria-pressed:scale-[1.08]">
 									<span
 										aria-hidden="true"
-										className="pointer-events-none absolute top-1 left-1.5 z-1 type-mk-pic-xs font-semibold tracking-[.06em] text-mk-ink-62 group-has-aria-pressed:text-ink"
+										className="pointer-events-none absolute top-1 left-1.5 z-1 type-mk-pic-xs mk-counter font-semibold text-mk-ink-62 group-has-aria-pressed:text-ink"
 									>
-										{num(i)}
+										{stepNumber(i)}
 									</span>
 									<button
 										ref={(el) => {
@@ -284,9 +284,9 @@ export function JourneyPath({
 							<div className="px-6 pt-[22px] pb-[26px] max-mk-cx:px-5 max-mk-cx:pt-[18px] max-mk-cx:pb-5">
 								<span
 									aria-hidden="true"
-									className="mb-2.5 block type-xs font-semibold tracking-[.06em] text-text-3 group-data-on:text-green-600"
+									className="mb-2.5 block type-xs mk-counter font-semibold text-text-3 group-data-on:text-green-600"
 								>
-									{num(i)}
+									{stepNumber(i)}
 								</span>
 								<h3 className="mk-display font-title type-title-sm leading-[1.15] mk-cx:type-title-md">{s.title}</h3>
 								<p className="mt-2 type-lg leading-[1.5] text-text-2">{s.body}</p>
