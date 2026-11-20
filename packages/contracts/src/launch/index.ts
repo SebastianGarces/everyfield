@@ -66,6 +66,13 @@ export function countdown(launch: { status: LaunchStatus; targetDate: LocalDate 
 	if (days < 0) return { kind: "overdue", days: -days } satisfies Countdown;
 	return { kind: "ahead", days, window: days <= LAUNCH_WINDOW_DAYS } satisfies Countdown;
 }
+export function launchSundayArrived(
+	launch: { status: LaunchStatus; targetDate: LocalDate | null } | null,
+	today: LocalDate,
+): boolean {
+	const kind = countdown(launch, today).kind;
+	return launch?.status === "scheduled" && (kind === "today" || kind === "overdue");
+}
 
 export const reviewedOf = (tasks: readonly { id: string; revision: string }[]) =>
 	tasks
@@ -143,7 +150,7 @@ export const launchError = z.discriminatedUnion("code", [
 	defineSafeError("invalid_outcome", { problem: outcomeProblem }, "never"),
 	defineSafeError("invalid_debrief", { problem: debriefProblem }, "never"),
 	defineSafeError("invalid_summary", { problem: summaryProblem }, "never"),
-	defineSafeError("not_ready", { needs: z.enum(["outcome", "debrief"]) }, "refresh"),
+	defineSafeError("not_ready", { needs: z.enum(["launch_sunday", "outcome", "debrief"]) }, "refresh"),
 	defineSafeError("derived_evidence_only", {}, "never"),
 	defineSafeError("invalid_gathering", { problem: gatheringProblem }, "never"),
 	defineSafeError("gathering_unavailable", {}, "refresh"),
