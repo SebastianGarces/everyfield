@@ -10,7 +10,7 @@ import {
 	issueEmailOptOutToken,
 } from "../../../packages/domain/src/notifications/index.ts";
 import { defaultTitle } from "../../../packages/contracts/src/common/index.ts";
-import { authorizeDigestMail, createDigestWorker, planDigests } from "../../../apps/web/src/server/jobs/digest.ts";
+import { authorizeDigestMail, createDigestWorker, planDigests } from "../../../packages/domain/src/jobs/digest.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
