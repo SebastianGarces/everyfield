@@ -9,6 +9,7 @@ import {
 	type ResourceAuthorizer,
 } from "@everyfield/db/schema";
 import { createHash, randomUUID } from "node:crypto";
+import { isDeepStrictEqual } from "node:util";
 import "server-only";
 import type { z } from "zod";
 import { type RequestActor } from "../access/session.ts";
@@ -133,38 +134,31 @@ const generatedWriter = {
 					meetingId: input.meetingId ?? null,
 					teamId: input.teamId ?? null,
 				},
+				sql`(SELECT json_build_object('id', gd.id, 'template_id', gd.template_id, 'template_version', gd.template_version,
+					'saved_template_name', gd.saved_template_name, 'format', gd.format, 'download_name', gd.download_name,
+					'generated_at', gd.generated_at, 'creator_account_id', gd.creator_account_id, 'revision', gd.revision::text,
+					'sha256', f.sha256, 'byte_count', f.byte_count, 'inputs', gd.inputs)
+				FROM generated_document gd
+				JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
+				WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}
+					AND ${gateSql(scope, false)})`,
 			);
 			if (!plant.open) deny("unavailable");
 			if (!plant.subjectOk) deny("invalid_subject");
 			const done = forSubject(loaded, template, input.format, cleaned.values, scope.tenantId, plant, input.meetingId);
 			const resolved = done.merge;
 			const inputs = resolved.fields.map((field) => ({ key: field.key, value: field.value, source: field.source }));
-			const stored = await rowsOf<{
-				id: string;
-				template_version: string;
-				saved_template_name: string;
-				format: "pdf" | "docx" | "xlsx";
-				download_name: string;
-				generated_at: Date | string;
-				creator_account_id: string | null;
-				revision: string;
-				sha256: string;
-				byte_count: string | number;
-				same: boolean;
-			}>(
-				db,
-				sql`SELECT gd.id, gd.template_version, gd.saved_template_name, gd.format, gd.download_name, gd.generated_at,
-					gd.creator_account_id, gd.revision::text AS revision, f.sha256, f.byte_count,
-					(gd.template_id = ${template.id} AND gd.template_version = ${loaded.version} AND gd.format = ${input.format}
-						AND gd.inputs = ${JSON.stringify(inputs)}::jsonb) AS same
-				FROM generated_document gd
-				JOIN file_object f ON f.id = gd.object_id AND f.tenant_id = gd.tenant_id AND f.state = 'ready'
-				WHERE gd.tenant_id = ${scope.tenantId}::uuid AND gd.request_key = ${input.requestKey}
-					AND ${gateSql(scope, false)}`,
-			);
-			const prior = stored[0];
-			if (prior?.same) return generatedFrom(prior, scope.tenantId, template.id);
-			if (prior) deny("conflict");
+			const prior = plant.extra as
+				(Parameters<typeof generatedFrom>[0] & { template_id: string; inputs: unknown }) | null;
+			if (prior) {
+				const same =
+					prior.template_id === template.id &&
+					prior.template_version === loaded.version &&
+					prior.format === input.format &&
+					isDeepStrictEqual(prior.inputs, JSON.parse(JSON.stringify(inputs)));
+				if (!same) deny("conflict");
+				return generatedFrom(prior, scope.tenantId, template.id);
+			}
 			if (!resolved.complete) rejectInput("overrides", "A required merge field is empty.");
 			const bytes = await done.render(db, storage, authority);
 			if (!bytes) rejectInput("overrides", "A required merge field is empty.");

@@ -3,6 +3,7 @@ import { pipelineActor } from "../pipeline-mount";
 import { loadEnrollment, loadProgram, loadPrograms } from "./mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
+import { LANDING_ROUTE } from "@everyfield/contracts/identity";
 import { NotAvailable } from "../../access/AccessStates";
 import { EnrollmentScreen } from "./EnrollmentScreen";
 import { enrollmentHref, programHref, PROGRAMS_PATH } from "./model";
@@ -15,7 +16,7 @@ export const programsMetadata: Metadata = { title: "Programs", robots: { index: 
 const refused = (
 	<div className="py-12">
 		<Card className="mx-auto max-w-[560px]">
-			<NotAvailable scope="page" homeHref={PROGRAMS_PATH} />
+			<NotAvailable scope="page" homeHref={LANDING_ROUTE} />
 		</Card>
 	</div>
 );
