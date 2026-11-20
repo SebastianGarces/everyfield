@@ -23,8 +23,9 @@ import {
 	type MailPass,
 	type MailPassName,
 	replayStoredCallbacks,
+	planDigests,
+	type DigestWorker,
 } from "@everyfield/domain/jobs";
-import { planDigests, type DigestWorker } from "./digest.ts";
 import type { NotificationWorker } from "../../features/notifications/worker.ts";
 import { asLogWord, logLine } from "@everyfield/domain/log";
 
