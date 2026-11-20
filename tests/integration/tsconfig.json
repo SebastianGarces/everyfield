@@ -21,6 +21,8 @@
 		"./feedback/**/*.mts",
 		"./flags/**/*.ts",
 		"./flags/**/*.mts",
+		"./followups/**/*.ts",
+		"./followups/**/*.mts",
 		"./notifications/**/*.ts",
 		"./notifications/**/*.mts",
 		"./oversight/**/*.ts",
