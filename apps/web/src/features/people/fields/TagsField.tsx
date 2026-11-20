@@ -14,6 +14,8 @@ import { listChurchTags } from "../fetch.ts";
 import { ManageTagsDialog } from "./ManageTagsDialog.tsx";
 import { tagLook, type ChurchTag, type PersonTag } from "./model.ts";
 import { churchTags, tagProblem } from "./ManageTagsDialog.tsx";
+import { loadProblem } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type Change = { add: PersonTag } | { remove: string };
 const byName = (a: { name: string }, b: { name: string }) =>
@@ -39,7 +41,7 @@ export function TagsField({
 			: current.filter((t) => t.id !== change.remove),
 	);
 	const [, start] = useTransition();
-	const [church, setChurch] = useState<Outcome<ChurchTag[]> | null>(null);
+	const [church, setChurch] = useState<Outcome<ChurchTag[]> | ReadFailure | null>(null);
 	const [open, setOpen] = useState(false);
 	const [managing, setManaging] = useState(false);
 	const loading = useRef(false);
@@ -210,7 +212,7 @@ function TagPicker({
 	onManage,
 	onRetry,
 }: {
-	church: Outcome<ChurchTag[]> | null;
+	church: Outcome<ChurchTag[]> | ReadFailure | null;
 	chosen: PersonTag[];
 	wait: Wait;
 	onToggle: (tag: PersonTag) => void;
@@ -267,7 +269,7 @@ function TagPicker({
 					</li>
 				) : church.status !== "ok" ? (
 					<li role="alert" className="flex flex-col items-start gap-2 px-2.5 py-3 text-sm text-text-2">
-						<span>The church&apos;s tags did not load.</span>
+						<span>{loadProblem(church, "The church's tags did not load.")}</span>
 						<button type="button" onClick={onRetry} className="font-medium text-ink underline underline-offset-[3px]">
 							Try again
 						</button>

@@ -128,6 +128,8 @@ import {
 } from "./TasksScreen.store.ts";
 import { PhaseOffer } from "./PhaseOffer.tsx";
 import { Templates } from "./Templates.tsx";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export type TasksAnswer = {
 	query: TaskQuery;
@@ -240,14 +242,14 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 		setDetails((d) => ({ ...d, [id]: { status: "loading" } }));
 		loadTask(id)
 			.catch(() => lost)
-			.then((r: Outcome<TaskLoad>) => {
+			.then((r: Outcome<TaskLoad> | ReadFailure) => {
 				actions.stopLoading(id);
 				setDetails((d) => ({
 					...d,
 					[id]:
 						r.status === "ok"
 							? { status: "ok", ...r.value }
-							: { status: "failed", code: r.status === "lost" ? "lost" : r.code },
+							: { status: "failed", code: r.status === "refused" ? r.code : r.status },
 				}));
 			});
 	};
@@ -712,7 +714,7 @@ export function TasksScreen({ loaded, viewer, year }: { loaded: TasksAnswer; vie
 					? openForm(task.id, { kind: "edit", task: r.value.task })
 					: toast({
 							tone: "error",
-							message: `“${task.title}” did not open. ${r.status === "lost" ? "Check your connection and try again." : problemText(r.code)}`,
+							message: `“${task.title}” did not open. ${r.status === "lost" ? "Check your connection and try again." : problemText(r.status === "refused" ? r.code : r.status)}`,
 						}),
 			);
 	};
@@ -1093,10 +1095,12 @@ function Toolbar({
 	rows: readonly TaskItem[];
 }) {
 	const single = <T extends string>(list: readonly T[], v: string[]) => list.find((x) => x === v.at(-1));
-	const [teams, setTeams] = useState<{ id: string; label: string }[] | "loading" | "failed" | null>(null);
+	const [teams, setTeams] = useState<{ id: string; label: string }[] | "loading" | "lost" | "failed" | null>(null);
 	const loadTeams = () => {
 		setTeams("loading");
-		relationOptions("team", "").then((r) => setTeams(r.status === "ok" ? r.value.items : "failed"));
+		relationOptions("team", "").then((r) =>
+			setTeams(r.status === "ok" ? r.value.items : r.status === "failed" ? "failed" : "lost"),
+		);
 	};
 	const warmTeams = () => void (admin && teams === null && loadTeams());
 	const seen = rows.flatMap((r) =>
@@ -1151,7 +1155,11 @@ function Toolbar({
 					searchLabel="Search teams"
 					multiple={false}
 					loading={teams === "loading"}
-					error={teams === "failed" ? { message: "The teams did not load.", onRetry: loadTeams } : undefined}
+					error={
+						teams === "lost" || teams === "failed"
+							? { message: teams === "failed" ? READ_FAILED : "The teams did not load.", onRetry: loadTeams }
+							: undefined
+					}
 					emptyText={admin ? "No active teams" : "No team is named on this page"}
 					options={teamOptions}
 					value={query.teamId ? [query.teamId] : []}

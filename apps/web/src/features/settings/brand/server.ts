@@ -6,32 +6,30 @@ import { privateStorage } from "@everyfield/db/schema";
 import { brandReader, brandWriter, readBrandAssetIfChanged, uploadBrandAsset } from "@everyfield/domain/branding";
 import { randomUUID } from "node:crypto";
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import type { Database } from "@everyfield/db/client";
+import type { RequestActor } from "@everyfield/domain/access";
+import { getViewer, type Viewer } from "@/server/request-context";
 import type { BrandView } from "../port";
 import { type LogWord } from "@everyfield/domain/log";
 import { transient } from "../../../server/platform/transient.ts";
-
-type Db = NonNullable<ReturnType<typeof requestDatabase>>;
-type Actor = Awaited<ReturnType<typeof getViewer>>["authority"];
 
 const unavailable = (): BrandReply<never> => ({
 	status: "refused",
 	error: brandError.parse({ code: "unavailable", details: {}, correlationId: randomUUID(), retry: "never" }),
 });
 
-type Session = Awaited<ReturnType<typeof getViewer>>;
-type Call<T> = (db: Db, actor: NonNullable<Actor>) => Promise<BrandReply<T>>;
+type Call<T> = (db: Database, actor: RequestActor) => Promise<BrandReply<T>>;
 
 const run = async <T, O extends string>(outcome: LogWord<O>, call: Call<T>) => runAs(await getViewer(), outcome, call);
 
-async function runAs<T, O extends string>(viewer: Session, outcome: LogWord<O>, call: Call<T>) {
-	const authority = viewer.status === "active" ? viewer.authority : null;
+async function runAs<T, O extends string>(viewer: Viewer, outcome: LogWord<O>, call: Call<T>) {
+	const authority = viewer.authority;
 	if (!authority) return unavailable();
 	const db = requestDatabase();
 	return transient({ component: "brand", outcome }, () => call(db, authority), unavailable());
 }
 
-export function readBrand(viewer: Session): Promise<BrandReply<BrandView>> {
+export function readBrand(viewer: Viewer): Promise<BrandReply<BrandView>> {
 	return runAs(viewer, "read_failed", async (db, actor) => {
 		const context = actor.actor.context;
 		const plantId = context.kind === "seat" && context.owner.kind === "plant" ? context.owner.id : null;
@@ -63,7 +61,7 @@ export function finalizeBrandUpload(raw: unknown) {
 	return run("finalize_upload_failed", (db, actor) => brandWriter.finalizeUpload(db, actor, raw));
 }
 
-export function suggestBrandColors(viewer: Session, raw: unknown) {
+export function suggestBrandColors(viewer: Viewer, raw: unknown) {
 	return runAs(viewer, "suggest_failed", (db, actor) => brandReader.suggestColors(db, actor, raw, privateStorage()));
 }
 

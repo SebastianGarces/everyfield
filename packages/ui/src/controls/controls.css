@@ -195,6 +195,18 @@
 		scrollbar-color: var(--ef-line-2) transparent;
 	}
 
+	[data-product-root] .ef-top-fade {
+		background: linear-gradient(var(--ef-frame) 78%, transparent);
+	}
+
+	[data-product-root] .ef-ring {
+		background: conic-gradient(var(--ef-blue-500) var(--ring), var(--ef-surface-2) 0);
+	}
+
+	[data-product-root] .ef-none-swatch {
+		background: linear-gradient(135deg, transparent 45%, var(--ef-magenta-500) 45% 55%, transparent 55%);
+	}
+
 	[data-product-root] .ef-skel {
 		background: linear-gradient(90deg, var(--ef-surface-2), var(--ef-surface-3), var(--ef-surface-2));
 		background-size: 200% 100%;
