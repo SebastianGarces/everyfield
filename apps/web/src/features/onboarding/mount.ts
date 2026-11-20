@@ -1,4 +1,11 @@
-import { sendOnboardingRelationships } from "../../server/jobs/notifications";
+import {
+	sendOnboardingRelationships,
+	createMailService,
+	MAIL_PASSES,
+	runDueMail,
+	type MailPass,
+	type MailTransport,
+} from "@everyfield/domain/jobs";
 import "server-only";
 import { z } from "zod";
 import { serverConfig, type ServerConfig } from "../../server/config.ts";
@@ -8,7 +15,6 @@ import * as c from "@everyfield/contracts/onboarding";
 import type { OnboardingWriteContext } from "@everyfield/contracts/onboarding/server";
 import { createOnboardingProducer, withOnboardingWrite, readOnboardingEntry } from "@everyfield/domain/onboarding";
 import { getViewer } from "../../server/request-context";
-import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "@everyfield/domain/jobs";
 import type { WriteTx } from "@everyfield/domain/access";
 
 export type Op = "createPlant" | "createDiscovery" | "convertDiscovery" | "declareJourney" | "answerLead" | "complete";

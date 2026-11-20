@@ -1,5 +1,5 @@
 import "../platform/setup.mts";
-import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes, createHash } from "node:crypto";
@@ -1521,8 +1521,8 @@ test("AC:TARGET-TSK-018 frozen schedule previews disclose fold/gap policy and ig
 });
 
 test("AC:TARGET-IDN-012 exact task preference reaches enqueue and dispatch; church digest OFF stops owed delivery", async () => {
-	const { createNotificationService } = await import("../../../apps/web/src/server/jobs/notifications.ts");
-	const { createDigestWorker, planDigests } = await import("../../../apps/web/src/server/jobs/digest.ts");
+	const { createNotificationService } = await import("../../../packages/domain/src/jobs/notifications.ts");
+	const { createDigestWorker, planDigests } = await import("../../../packages/domain/src/jobs/digest.ts");
 	const { claimDue } = await import("../../../packages/domain/src/jobs/queue.ts");
 	const f = await plant(),
 		task = randomUUID();

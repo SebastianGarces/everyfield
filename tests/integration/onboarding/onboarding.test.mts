@@ -1,7 +1,7 @@
 import "../platform/setup.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { sessionId as writeSessionId } from "../../../packages/contracts/src/common/index.ts";
-import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
