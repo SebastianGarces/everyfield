@@ -3,6 +3,7 @@
 import type { Loadable } from "@everyfield/ui/display";
 import { useRef, useState } from "react";
 import { useLocalRead } from "./read.tsx";
+import { READ_FAILED, thrownRead } from "./read-failed.ts";
 
 export type Problem = "refused" | "unknown";
 
@@ -69,11 +70,11 @@ export function useIntent<C>(intent: string) {
 	return { run, pending, problem, code, held, release };
 }
 
-type Loaded<T> = { data: T } | { failed: true };
+type Loaded<T> = { data: T } | { failed: "lost" | "failed" };
 
 export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string, initial?: T) {
 	const loaded = useLocalRead((): Promise<Loaded<T>> => fetch().then((data) => ({ data })), {
-		failed: (): Loaded<T> => ({ failed: true }),
+		failed: (error): Loaded<T> => ({ failed: thrownRead(error).status }),
 		fresh: Infinity,
 		keep: (value) => "data" in value,
 		initial: initial === undefined ? undefined : { data: initial },
@@ -81,7 +82,12 @@ export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string, initial?
 	const state: Loadable<T> = !loaded.value
 		? { status: "loading" }
 		: "failed" in loaded.value
-			? { status: "error", title: errorTitle, onRetry: loaded.retry }
+			? {
+					status: "error",
+					title: errorTitle,
+					...(loaded.value.failed === "failed" ? { text: READ_FAILED } : {}),
+					onRetry: loaded.retry,
+				}
 			: { status: "ready", data: loaded.value.data };
 	const update = (change: (data: T) => T) =>
 		loaded.patch((current) => ("data" in current ? { data: change(current.data) } : current));

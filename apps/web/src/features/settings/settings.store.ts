@@ -3,6 +3,7 @@ import { createRead, type Read } from "../../components/read.tsx";
 import { ASSET_FLOW, EMPTY_FLOW, hasPicks, releaseAll } from "./brand/picks";
 import { begin, discard, edit, emptyBook, finish, isDirty, rebase, same, type Book } from "./drafts";
 import { OFFLINE_REFERENCE, type Refusal } from "./save";
+import { thrownRead } from "../../components/read-failed.ts";
 import type {
 	BrandReply,
 	BrandView,
@@ -17,6 +18,7 @@ import type {
 	SectionSeed,
 	SettingsPort,
 } from "./port";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export type SaveOutcome<T> = { ok: true; server: T } | { ok: false; refusal: Refusal; server?: T };
 
@@ -25,10 +27,10 @@ export type SectionReply = Reply<SectionResult> | Lost;
 export type BrandRead = BrandReply<BrandView> | Lost;
 
 export type SettingsReads = {
-	section: Read<[GetSectionRequest], SectionReply>;
-	brand: Read<[], BrandRead>;
-	wiki: Read<[], OrderRead>;
-	region: Read<[], RegionRead>;
+	section: Read<[GetSectionRequest], SectionReply | ReadFailure>;
+	brand: Read<[], BrandRead | ReadFailure>;
+	wiki: Read<[], OrderRead | ReadFailure>;
+	region: Read<[], RegionRead | ReadFailure>;
 	regionMatches: Read<[Locality], RegionSuggestion[] | null>;
 };
 
@@ -84,13 +86,16 @@ export function selectDirtyKeys(state: Pick<SettingsState, "book" | "servers" | 
 
 export function createSettingsStore({ port, seed }: { port: SettingsPort; seed: SectionSeed | null }): SettingsStore {
 	const reads: SettingsReads = {
-		section: createRead((request: GetSectionRequest): Promise<SectionReply> => port.getSection(request), {
-			failed: () => LOST,
+		section: createRead((request: GetSectionRequest): Promise<SectionReply | ReadFailure> => port.getSection(request), {
+			failed: thrownRead,
 			fresh: Infinity,
 		}),
-		brand: createRead((): Promise<BrandRead> => port.brand.get(), { failed: () => LOST, fresh: Infinity }),
-		wiki: createRead(() => port.wiki.read(), { failed: (): OrderRead => LOST, fresh: Infinity }),
-		region: createRead(() => port.region.read(), { failed: (): RegionRead => LOST }),
+		brand: createRead((): Promise<BrandRead | ReadFailure> => port.brand.get(), {
+			failed: thrownRead,
+			fresh: Infinity,
+		}),
+		wiki: createRead((): Promise<OrderRead | ReadFailure> => port.wiki.read(), { failed: thrownRead, fresh: Infinity }),
+		region: createRead((): Promise<RegionRead | ReadFailure> => port.region.read(), { failed: thrownRead }),
 		regionMatches: createRead((locality: Locality) => port.region.suggest(locality), {
 			failed: () => null,
 			keep: (found) => found !== null,

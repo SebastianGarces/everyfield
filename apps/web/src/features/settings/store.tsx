@@ -16,6 +16,7 @@ import {
 	type SettingsReads,
 	type SettingsState,
 } from "./settings.store";
+import { READ_FAILED } from "../../components/read-failed.ts";
 
 const Settings = storeContext<SettingsState>("Settings");
 const Viewer = createContext<SettingsViewer | null>(null);
@@ -133,10 +134,13 @@ export function useSection<S extends SectionResult["section"], F = unknown>(
 				: {
 						status: "error",
 						title: "This section did not load",
+						...(reply.status === "failed" ? { text: READ_FAILED } : {}),
 						meta:
-							reply.status === "refused"
-								? `${errorText(reply.error)} Reference ${errorReference(reply.error)}.`
-								: "Everyfield could not be reached. Check your connection.",
+							reply.status === "failed"
+								? undefined
+								: reply.status === "refused"
+									? `${errorText(reply.error)} Reference ${errorReference(reply.error)}.`
+									: "Everyfield could not be reached. Check your connection.",
 						onRetry: read.retry,
 					};
 	return {
