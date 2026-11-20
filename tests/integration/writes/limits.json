@@ -175,8 +175,8 @@
 		"reason": "A new tag name creates the church tag and puts it on the person in one transaction: two producer writes (people.createTag, people.assignTag), each with its own gate and locked read, behind the session lookup. Its largest first run: 2 transaction, 1 locked read, 3 read, 2 write."
 	},
 	"POST people.fields.addPersonTag (replay)": {
-		"limit": 9,
-		"reason": "A replay of the same request key after a lost answer: the first attempt runs the gate and its reads and meets the stored key at its write; one read per stored key (people.createTag, people.assignTag) then answers the stored result (RT-6b). Its largest first run: 2 transaction, 1 locked read, 5 read, 1 write."
+		"limit": 8,
+		"reason": "A replay of the same request key after a lost answer: the first attempt runs the gate and its reads and meets the stored key at its write; one read per stored key (people.createTag, people.assignTag) then answers the stored result (RT-6b). Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write."
 	},
 	"POST people.fields.addSkill": {
 		"limit": 6
