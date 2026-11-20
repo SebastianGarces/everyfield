@@ -6,7 +6,7 @@ import { errorReference } from "../model";
 import type { BrandKit, BrandView } from "../port";
 import { useReads } from "../store";
 import { BRAND_ERROR_TEXT } from "./model";
-import { READ_FAILED } from "../../../components/read-failed.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../../components/read-failed.ts";
 
 export function useBrand(): {
 	state: Loadable<BrandView>;
@@ -24,7 +24,7 @@ export function useBrand(): {
 				: {
 						status: "error",
 						title: "The brand kit did not load",
-						...(reply.status === "failed" ? { text: READ_FAILED } : {}),
+						...(reply.status === "failed" ? { text: READ_FAILED, icon: READ_FAILED_ICON } : {}),
 						meta:
 							reply.status === "failed"
 								? undefined

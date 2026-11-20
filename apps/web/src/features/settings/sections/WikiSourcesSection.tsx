@@ -22,7 +22,7 @@ import {
 	type WikiOrder,
 	type WikiOrderView,
 } from "./wikiOrder";
-import { READ_FAILED } from "../../../components/read-failed.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../../components/read-failed.ts";
 
 const LIST: Record<OrderKind, { title: string; description: string; empty: string }> = {
 	churches: {
@@ -51,7 +51,7 @@ export function WikiSourcesSection() {
 				: {
 						status: "error",
 						title: "The Wiki sources did not load",
-						...(reply.status === "failed" ? { text: READ_FAILED } : {}),
+						...(reply.status === "failed" ? { text: READ_FAILED, icon: READ_FAILED_ICON } : {}),
 						meta: "Everyfield could not read your church's source order.",
 						onRetry: read.retry,
 					};

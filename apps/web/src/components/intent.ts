@@ -3,7 +3,7 @@
 import type { Loadable } from "@everyfield/ui/display";
 import { useRef, useState } from "react";
 import { useLocalRead } from "./read.tsx";
-import { READ_FAILED, thrownRead } from "./read-failed.ts";
+import { READ_FAILED, READ_FAILED_ICON, thrownRead } from "./read-failed.ts";
 
 export type Problem = "refused" | "unknown";
 
@@ -85,7 +85,7 @@ export function useLoad<T>(fetch: () => Promise<T>, errorTitle: string, initial?
 			? {
 					status: "error",
 					title: errorTitle,
-					...(loaded.value.failed === "failed" ? { text: READ_FAILED } : {}),
+					...(loaded.value.failed === "failed" ? { text: READ_FAILED, icon: READ_FAILED_ICON } : {}),
 					onRetry: loaded.retry,
 				}
 			: { status: "ready", data: loaded.value.data };

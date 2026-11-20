@@ -16,7 +16,7 @@ import {
 	type SettingsReads,
 	type SettingsState,
 } from "./settings.store";
-import { READ_FAILED } from "../../components/read-failed.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
 
 const Settings = storeContext<SettingsState>("Settings");
 const Viewer = createContext<SettingsViewer | null>(null);
@@ -134,7 +134,7 @@ export function useSection<S extends SectionResult["section"], F = unknown>(
 				: {
 						status: "error",
 						title: "This section did not load",
-						...(reply.status === "failed" ? { text: READ_FAILED } : {}),
+						...(reply.status === "failed" ? { text: READ_FAILED, icon: READ_FAILED_ICON } : {}),
 						meta:
 							reply.status === "failed"
 								? undefined
