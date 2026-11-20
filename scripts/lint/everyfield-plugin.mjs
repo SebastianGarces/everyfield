@@ -1416,10 +1416,6 @@ export const WEB_SQL_HOLDERS = {
 		why: "the settings sections ask whether an address is suppressed with their own suppression select",
 		movedBy: "a suppression read in @everyfield/domain/jobs beside the mail outbox (R-12 slice 20 follow-up, AP-S-17)",
 	},
-	"apps/web/src/features/wiki/server.ts": {
-		why: "the organization wiki editor reads its stored draft and current revision with its own select",
-		movedBy: "a wiki domain read of the editor state (R-12 slice 8 rest, wiki group)",
-	},
 	"apps/web/src/server/identity/index.ts": {
 		why: "the identity mail authorizer locks the accounts its queued mail names and reads their contact address",
 		movedBy: MAIL_AUTHORIZERS,
