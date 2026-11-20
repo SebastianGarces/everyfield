@@ -1,5 +1,15 @@
 export { taskReminderTimes } from "./calendar.ts";
 export { authorizeDigestMail, createDigestWorker, planDigests, type DigestWorker } from "./digest.ts";
+export {
+	runDueFeedbackPublication,
+	type CreateOutcome,
+	type IssueClient,
+	type IssueLink,
+	type OperatorMail,
+	type OperatorNotice,
+	type PublicationConfig,
+	type SearchOutcome,
+} from "./feedback-publication.ts";
 export { runDuePurges } from "./lifecycle-purge.ts";
 export {
 	claimUnknownMail,
