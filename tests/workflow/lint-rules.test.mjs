@@ -138,9 +138,12 @@ export const u = () => { const z = \`\${COLS[0]}.id\`; return sql.raw(z); };
 			"apps/web/src/features/x/reach.ts": reach,
 			"tests/integration/x/reach.test.mts": reach,
 		}),
-		["apps/web/src/features/x/reach.ts", "packages/domain/src/people/reach.ts"]
-			.flatMap((file) => reported.map((line) => `${file}:${line} raw-sql-literal`))
-			.sort(),
+		[
+			"apps/web/src/features/x/reach.ts:1 web-database-imports",
+			...["apps/web/src/features/x/reach.ts", "packages/domain/src/people/reach.ts"].flatMap((file) =>
+				reported.map((line) => `${file}:${line} raw-sql-literal`),
+			),
+		].sort(),
 	);
 });
 
