@@ -180,6 +180,7 @@ export function createMailService(config: {
 		logicalKey: m.logical_key,
 	});
 	const aad = (id: string, tenant: string, purpose: string) => `${tenant}/${id}/${purpose}`;
+	const barrierCountReadingEveryLockedRow = sql`(SELECT count(*) FROM barriers)`;
 	async function lockMail(tx: Transaction, mail: SQLWrapper, live: SQLWrapper) {
 		const row = await tx.execute(sql`WITH m AS MATERIALIZED (SELECT * FROM mail WHERE ${mail} FOR UPDATE),
    checked AS MATERIALIZED (SELECT * FROM m WHERE ${live}),
@@ -187,8 +188,8 @@ export function createMailService(config: {
     WHERE w.opaque_subject_id IN (SELECT tenant_id FROM checked UNION SELECT recipient_account_id FROM checked)
     AND w.state IN ('pending_deletion','purging','purged','revoked') FOR SHARE OF w),
    notices AS MATERIALIZED (SELECT n.category,n.logical_key FROM notice n JOIN checked c ON n.id=c.notice_id AND n.tenant_id=c.tenant_id
-    WHERE n.cancelled_at IS NULL AND NOT EXISTS(SELECT FROM barriers) FOR SHARE OF n)
-   SELECT m.*,EXISTS(SELECT FROM barriers) AS blocked,(SELECT to_json(n) FROM notices n) AS notice,
+    WHERE n.cancelled_at IS NULL AND ${barrierCountReadingEveryLockedRow}=0 FOR SHARE OF n)
+   SELECT m.*,${barrierCountReadingEveryLockedRow}>0 AS blocked,(SELECT to_json(n) FROM notices n) AS notice,
     (SELECT json_build_object('enabled',p.enabled,'revision',p.unsubscribe_revision::text) FROM notification_preference p
      JOIN checked c ON p.account_id=c.recipient_account_id JOIN notices n ON p.category=split_part(n.logical_key,'/',2)
      WHERE p.channel='email' LIMIT 1) AS preference
