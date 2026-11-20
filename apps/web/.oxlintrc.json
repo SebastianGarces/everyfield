@@ -1361,6 +1361,12 @@
 			"plugins": ["react"]
 		},
 		{
+			"files": ["src/features/documents/**", "src/features/evry/**", "src/features/settings/**"],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
 			"files": ["src/features/intelligence/**"],
 			"rules": {
 				"everyfield/private-care-scope": "off"
