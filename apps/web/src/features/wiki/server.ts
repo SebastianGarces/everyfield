@@ -308,8 +308,8 @@ export async function loadWiki(
 		let draft: WikiDraft | null = null;
 		let draftLost = false;
 		let feedback: WikiPageData["feedback"] = null;
-		if (hit) {
-			const current = currentRead!;
+		if (currentRead) {
+			const current = currentRead;
 			if (current.status !== "ok") return "lost";
 			const preferred = current.value.article;
 			const viewedReply = sourceRead ?? current;

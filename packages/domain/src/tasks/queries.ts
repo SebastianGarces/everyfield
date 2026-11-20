@@ -159,8 +159,9 @@ async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
 export function dueOf(row: Pick<TaskRow, "due_kind" | "due_date" | "due_time" | "timezone" | "due_at">): c.Due {
 	if (row.due_kind === "undated") return { kind: "undated" };
 	if (row.due_kind === "date_only") return c.due.parse({ kind: "local_date", date: row.due_date });
-	const local = localDateTime.parse(`${row.due_date}T${row.due_time!.slice(0, 8)}`),
-		at = row.due_at!;
+	const at = row.due_at;
+	if (row.due_time === null || at === null) throw Error("A timed task stores no due time");
+	const local = localDateTime.parse(`${row.due_date}T${row.due_time.slice(0, 8)}`);
 	return c.due.parse({
 		kind: "resolved_instant",
 		local,

@@ -214,6 +214,7 @@ export function EnrollmentScreen({ initial }: { initial: EnrollmentDetail }) {
 				<ApplyDialog
 					open={reviewing}
 					enrollment={enrollment}
+					newerNumber={enrollment.newerVersion.number}
 					onClose={() => setReviewing(false)}
 					onApplied={async () => {
 						setReviewing(false);
@@ -280,11 +281,11 @@ function MilestoneRow({
 								{c.recorder ?? enrollment.person.name} marked it done {formatPlainDate(c.completedOn)}
 							</span>
 						</>
-					) : c ? (
+					) : c && c.confirmedOn !== null ? (
 						<>
 							<span className="text-ink">
 								{recordedOn ? `Finished on Version ${recordedOn} · ` : ""}Completed {formatPlainDate(c.completedOn)} ·
-								Confirmed {formatPlainDate(c.confirmedOn!)}
+								Confirmed {formatPlainDate(c.confirmedOn)}
 							</span>
 							<span className="text-text-2">
 								{c.source === "resident"
@@ -488,21 +489,27 @@ function RecordForm({
 	);
 }
 
+type NewerNumber = NonNullable<EnrollmentDetail["newerVersion"]>["number"];
+
 function ApplyDialog({
 	open,
 	enrollment,
+	newerNumber,
 	onClose,
 	onApplied,
 }: {
 	open: boolean;
 	enrollment: EnrollmentDetail;
+	newerNumber: NewerNumber;
 	onClose: () => void;
 	onApplied: () => Promise<void>;
 }) {
 	return (
 		<Dialog open={open} onOpenChange={(next) => (next ? null : onClose())}>
 			<DialogContent size="lg">
-				{open ? <ApplyReview enrollment={enrollment} onClose={onClose} onApplied={onApplied} /> : null}
+				{open ? (
+					<ApplyReview enrollment={enrollment} newerNumber={newerNumber} onClose={onClose} onApplied={onApplied} />
+				) : null}
 			</DialogContent>
 		</Dialog>
 	);
@@ -510,10 +517,12 @@ function ApplyDialog({
 
 function ApplyReview({
 	enrollment,
+	newerNumber,
 	onClose,
 	onApplied,
 }: {
 	enrollment: EnrollmentDetail;
+	newerNumber: NewerNumber;
 	onClose: () => void;
 	onApplied: () => Promise<void>;
 }) {
@@ -525,7 +534,7 @@ function ApplyReview({
 	const loadProblem = answer && answer.status !== "ok" ? programProblem(answer) : null;
 	const stageId = review && picked?.review === review ? picked.stageId : (review?.stageId ?? "");
 	const name = enrollment.person.name;
-	const number = review?.toNumber ?? enrollment.newerVersion!.number;
+	const number = review?.toNumber ?? newerNumber;
 
 	const submit = (event: FormEvent) => {
 		event.preventDefault();
