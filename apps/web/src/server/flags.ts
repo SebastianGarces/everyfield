@@ -1,5 +1,5 @@
 import "server-only";
-import { isTestDeployment } from "@everyfield/db/deployment";
+import { deploymentKind, isTestDeployment } from "@everyfield/db/deployment";
 import type { RequestActor } from "@everyfield/domain/access";
 import { readFlags, registry, type FlagName } from "@everyfield/domain/flags";
 import { createFlagsDiscoveryEndpoint, flag, getProviderData } from "flags/next";
@@ -46,7 +46,7 @@ const flags = Object.fromEntries(Object.keys(registry).map((key) => [key, declar
 
 const overridesAllowed = (): boolean => {
 	const env = serverEnv();
-	return Boolean(env.FLAGS_SECRET) && isTestDeployment(env);
+	return isTestDeployment(env) && (Boolean(env.FLAGS_SECRET) || deploymentKind(env) === "preview");
 };
 
 const requestWithoutOverrideCookie = cache(() => new Request("http://flags.invalid/"));

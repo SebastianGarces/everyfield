@@ -26,6 +26,11 @@ export const LEVEL_LABEL: Record<CareLevel, string> = {
 	struggling: "Struggling",
 };
 
+export function thisWeekOf(page: CarePage): CareWeek {
+	const [thisWeek] = page.weeks;
+	if (!thisWeek) throw new Error("The check-in page has no weeks");
+	return thisWeek;
+}
 export type Draft = { answers: Partial<CareAnswers>; note: string };
 export const draftOf = (week: CareWeek | null): Draft =>
 	week?.answer ? { answers: { ...week.answer.answers }, note: week.answer.note ?? "" } : { answers: {}, note: "" };
@@ -52,13 +57,19 @@ const LONG_MONTH = [
 	"November",
 	"December",
 ];
-export function shortDate(day: string) {
+function monthDay(day: string) {
 	const [, m, d] = day.split("-").map(Number);
-	return `${LONG_MONTH[m! - 1]!.slice(0, 3)} ${d}`;
+	const month = m === undefined ? undefined : LONG_MONTH[m - 1];
+	if (month === undefined || d === undefined) throw new RangeError(`Not a local date: ${day}`);
+	return { month, d };
+}
+export function shortDate(day: string) {
+	const { month, d } = monthDay(day);
+	return `${month.slice(0, 3)} ${d}`;
 }
 export function mondayDate(day: string) {
-	const [, m, d] = day.split("-").map(Number);
-	return `Monday, ${LONG_MONTH[m! - 1]} ${d}`;
+	const { month, d } = monthDay(day);
+	return `Monday, ${month} ${d}`;
 }
 export const weekStartIn = (asOf: string, zone: string) =>
 	new Date(Date.parse(nextMonday(asOf, zone)) - 7 * 86_400_000).toISOString().slice(0, 10);

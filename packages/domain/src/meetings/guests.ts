@@ -62,19 +62,21 @@ export const guest = (g: GuestRow) =>
 		presence: g.presence,
 		hasCard: g.card_response !== null,
 	});
-export const card = (g: GuestRow, notes: boolean) =>
-	g.card_response === null
-		? null
-		: c.card.parse({
-				guestId: g.id,
-				personId: g.person_id,
-				response: g.card_response,
-				notes: notes ? g.card_notes : null,
-				occurredAt: (g.card_occurred_at ?? g.card_recorded_at)!.toISOString(),
-				recordedAt: g.card_recorded_at!.toISOString(),
-				attended: g.presence === "attended",
-				revision: g.revision,
-			});
+export const card = (g: GuestRow, notes: boolean) => {
+	if (g.card_response === null) return null;
+	const recordedAt = g.card_recorded_at;
+	if (!recordedAt) throw Error(`Guest ${g.id} has a card response without a recorded time`);
+	return c.card.parse({
+		guestId: g.id,
+		personId: g.person_id,
+		response: g.card_response,
+		notes: notes ? g.card_notes : null,
+		occurredAt: (g.card_occurred_at ?? recordedAt).toISOString(),
+		recordedAt: recordedAt.toISOString(),
+		attended: g.presence === "attended",
+		revision: g.revision,
+	});
+};
 
 async function lockGuest(tx: Tx, w: Writer, meetingId: string, person: SQL, extra: SQL = sql`NULL::json`) {
 	const r = await tx.execute(sql`SELECT ${meetingColumns},
@@ -283,7 +285,8 @@ export const guestsWriter = {
 						now,
 					),
 				);
-				const fresh = made.map((p) => newGuest(randomUUID(), p.id, p.display_name, "absent"));
+				const created = made.map((p) => ({ person: p, guest: newGuest(randomUUID(), p.id, p.display_name, "absent") }));
+				const fresh = created.map((x) => x.guest);
 				const attendanceRevision = restored.some((g) => g.presence === "attended")
 					? changeAttended(audit, m.id, f.finalized, f.attendance)
 					: f.attendance;
@@ -300,7 +303,7 @@ export const guestsWriter = {
 						FROM unnest(${sql.param(inserted.map((g) => g.id))}::uuid[],
 							${sql.param(inserted.map((g) => g.person_id))}::uuid[],
 							${sql.param(inserted.map((g) => g.presence))}::text[]) AS v(id, person_id, presence)`);
-				for (const [n, p] of made.entries())
+				for (const { person: p, guest } of created)
 					audit.events.push({
 						id: randomUUID(),
 						tenant_id: w.plant.id,
@@ -313,7 +316,7 @@ export const guestsWriter = {
 						after_revision: p.revision,
 						before_value: null,
 						after_value: delta(null, personChanges(undefined, p).after).after,
-						metadata: { meetingId: m.id, guestId: fresh[n]!.id, attended: false },
+						metadata: { meetingId: m.id, guestId: guest.id, attended: false },
 					});
 				const byPerson = new Map([...current, ...restored, ...invited].map((g) => [g.person_id, g]));
 				const guests = [...people.flatMap((id) => byPerson.get(id) ?? []), ...fresh];

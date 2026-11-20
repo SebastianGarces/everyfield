@@ -1296,6 +1296,19 @@
 		},
 		{
 			"files": [
+				"src/access/**",
+				"src/components/**",
+				"src/server/**",
+				"src/features/access/**",
+				"src/features/identity/**",
+				"src/features/wiki/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
+			"files": [
 				"**/*.test.*",
 				"**/test/**",
 				"**/tests/**",
@@ -1307,10 +1320,32 @@
 			}
 		},
 		{
+			"files": [
+				"src/features/communication/**",
+				"src/features/followups/**",
+				"src/features/notifications/**",
+				"src/features/tasks/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
 			"files": ["src/**"],
 			"rules": {
 				"everyfield/private-care-scope": "error",
 				"everyfield/table-writers": "error"
+			}
+		},
+		{
+			"files": [
+				"src/features/intelligence/**",
+				"src/features/oversight/**",
+				"src/features/phases/**",
+				"src/features/residency/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
 			}
 		},
 		{
@@ -1345,6 +1380,12 @@
 			],
 			"rules": {
 				"everyfield/model-module": "error"
+			}
+		},
+		{
+			"files": ["src/features/launch/**", "src/features/meetings/**", "src/features/teams/**"],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
 			}
 		},
 		{
