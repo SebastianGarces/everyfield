@@ -1416,7 +1416,7 @@ export const WEB_SQL_HOLDERS = {
 		movedBy: MAIL_AUTHORIZERS,
 	},
 };
-const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables)|drizzle-orm(?:\/.*)?)$/;
+const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
 
 const webDatabaseImports = {
 	meta: { type: "problem" },

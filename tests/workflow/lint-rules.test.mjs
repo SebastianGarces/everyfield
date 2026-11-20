@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -1114,7 +1115,8 @@ export type Q = import("@everyfield/db/query").SQL;
 import type { Database } from "@everyfield/db/client";
 import { privateStorage } from "@everyfield/db/schema";
 export const later = () => import("@everyfield/db/query");
-export const used = [sql, t, eq, privateStorage] as unknown as Database;
+export const used = [sql, t, eq, privateStorage, pgTable] as unknown as Database;
+import { pgTable } from "@everyfield/db/columns";
 `;
 	const hits = lint({
 		"apps/web/src/features/x/server.ts": code,
@@ -1122,10 +1124,14 @@ export const used = [sql, t, eq, privateStorage] as unknown as Database;
 		"apps/web/src/features/settings/mail.ts": "export const none = 1;\n",
 		"packages/domain/src/x/index.ts": code,
 	}).filter((hit) => hit.endsWith(" web-database-imports"));
-	assert.deepEqual(hits, [
-		"apps/web/src/features/settings/mail.ts:1 web-database-imports",
-		...[1, 2, 3, 4, 5, 8].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`),
-	]);
+	assert.deepEqual(
+		hits,
+		[
+			"apps/web/src/features/settings/mail.ts:1 web-database-imports",
+			...[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`),
+		].sort(),
+	);
+	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 9, "WEB_SQL_HOLDERS only shrinks");
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
