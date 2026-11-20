@@ -102,13 +102,13 @@ import {
 	TabsList,
 	TabsPanel,
 	Textarea,
-	ToastProvider,
+	toast,
+	Toaster,
 	Tooltip,
 	TooltipSep,
-	useToast,
 	type DateRange,
 } from "..";
-import { ACTIVITY, COMMANDS, PRESETS, STAGES, TAGS, TONES_PREVIEW } from "./fixtures";
+import { ACTIVITY, COMMANDS, DEFAULT_RANGE, PRESETS, STAGES, TAGS, TONES_PREVIEW } from "./fixtures";
 
 type Group = "all" | "surfaces" | "actions" | "inputs" | "overlays" | "feedback";
 
@@ -127,7 +127,8 @@ export function ControlsPreview({ paletteShortcut }: { paletteShortcut: Shortcut
 	const [group, setGroup] = useState<Group>("all");
 	const show = (g: Group) => group === "all" || group === g;
 	return (
-		<ToastProvider>
+		<>
+			<Toaster />
 			<PageHeader
 				size="xl"
 				breadcrumb={[{ label: "Design system", href: "/design/foundations" }, { label: "Controls" }]}
@@ -148,7 +149,7 @@ export function ControlsPreview({ paletteShortcut }: { paletteShortcut: Shortcut
 				{show("surfaces") ? <StickyFooterSection /> : null}
 				{group === "all" ? <CompositionMap /> : null}
 			</div>
-		</ToastProvider>
+		</>
 	);
 }
 
@@ -386,7 +387,7 @@ function InsightSection() {
 }
 
 function ButtonsSection() {
-	const [range, setRange] = useState<DateRange>(PRESETS[1]!.range);
+	const [range, setRange] = useState<DateRange>(DEFAULT_RANGE);
 	const [saving, setSaving] = useState(false);
 	return (
 		<Section index={3} title="Buttons" code="<Button variant size icon loading> · <IconButton variant size label>">
@@ -743,7 +744,6 @@ function SelectionSection() {
 }
 
 function RowMenu({ name }: { name: string }) {
-	const toast = useToast();
 	return (
 		<Menu>
 			<Tooltip content="More actions">
@@ -768,7 +768,7 @@ function RowMenu({ name }: { name: string }) {
 					onSelect={() =>
 						toast({
 							message: "Follow-up created for Tom.",
-							action: { label: "View task", altText: "Open Tasks to view the follow-up", onSelect: () => {} },
+							action: { label: "View task", onSelect: () => {} },
 						})
 					}
 				>
@@ -791,7 +791,6 @@ function RowMenu({ name }: { name: string }) {
 }
 
 function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark }) {
-	const toast = useToast();
 	const [palette, setPalette] = useState(false);
 	const [guide, setGuide] = useState(false);
 	const [answer, setAnswer] = useState<((hidden: boolean) => void) | null>(null);
@@ -813,7 +812,7 @@ function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark })
 		<Section
 			index={6}
 			title="Overlays"
-			code="<Dialog> <ConfirmDialog> <Sheet> <Menu> <Popover> <Tooltip> <Toast> <CommandPalette>"
+			code="<Dialog> <ConfirmDialog> <Sheet> <Menu> <Popover> <Tooltip> <Toaster> <CommandPalette>"
 			note="Each overlay closes with Esc and returns focus to the control that opened it. Dialogs make the page behind them inert."
 		>
 			<div className="grid items-start gap-5 app-md:grid-cols-2">
@@ -869,7 +868,7 @@ function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark })
 											onClick={() =>
 												toast({
 													message: "Maria moved to core group.",
-													action: { label: "View Maria", altText: "Open People to view Maria", onSelect: () => {} },
+													action: { label: "View Maria", onSelect: () => {} },
 												})
 											}
 										>
@@ -977,7 +976,7 @@ function OverlaysSection({ paletteShortcut }: { paletteShortcut: ShortcutMark })
 							onClick={() =>
 								toast({
 									message: "Maria moved to core group.",
-									action: { label: "View Maria", altText: "Open People to view Maria", onSelect: () => {} },
+									action: { label: "View Maria", onSelect: () => {} },
 								})
 							}
 						>

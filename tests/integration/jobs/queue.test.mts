@@ -1,7 +1,7 @@
 import { sql as querySql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import {
 	enqueueJob,
 	claimDue,
@@ -9,7 +9,7 @@ import {
 	finishJob,
 	recoverLease,
 	checkpoint,
-} from "../../../apps/web/src/server/jobs/queue.ts";
+} from "../../../packages/domain/src/jobs/queue.ts";
 import { db, runtime, tenant, setup, teardown, subject, due } from "./support.mts";
 before(setup);
 after(teardown);
@@ -169,7 +169,7 @@ test("INV-jobs: intent and producer fact roll back together, replay retains orig
 });
 
 test("INV-scan: committed pages retain the owed tail beyond both page and retry limits", async () => {
-	const { scanPage } = await import("../../../apps/web/src/server/jobs/queue.ts");
+	const { scanPage } = await import("../../../packages/domain/src/jobs/queue.ts");
 	const id = await transaction(runtime, (tx) =>
 		enqueueJob(tx, {
 			tenant,

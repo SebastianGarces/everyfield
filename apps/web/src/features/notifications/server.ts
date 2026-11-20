@@ -1,3 +1,4 @@
+import { outcomeOf } from "@everyfield/contracts/common";
 import { requestDatabase } from "@/server/database";
 import { serverEnv } from "@/server/config";
 import { getViewer } from "@/server/request-context";
@@ -29,18 +30,9 @@ export async function notificationActor(): Promise<RequestActor | null> {
 	return (await getViewer()).authority ?? null;
 }
 
-const outcome = <T>(reply: Reply<T>): Outcome<T> =>
-	reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
-
 export async function call<T>(run: (m: Mount) => Promise<Reply<T>>): Promise<Outcome<T>> {
 	const mount = notificationsMount();
-	return transient(
-		{ component: "notifications", outcome: "failed" },
-		async () => {
-			return outcome(await run(mount));
-		},
-		LOST,
-	);
+	return transient({ component: "notifications", outcome: "failed" }, async () => outcomeOf(await run(mount)), LOST);
 }
 
 export async function loadFeedPage(actor: RequestActor, query: FeedQuery): Promise<Outcome<FeedPage>> {

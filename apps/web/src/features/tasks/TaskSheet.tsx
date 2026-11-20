@@ -21,7 +21,8 @@ import type { StatusAction } from "./actions.ts";
 import { loadHistory, type Loaded } from "./fetch.ts";
 import { loadHistory as loadContacts } from "../followups/fetch.ts";
 import { ContactEntries } from "../followups/parts.tsx";
-import type { ContactHistory, Outcome as ReadOutcome } from "../followups/model.ts";
+import type { Outcome as ReadOutcome } from "@everyfield/contracts/common";
+import type { ContactHistory } from "../followups/model.ts";
 import {
 	blockedText,
 	CATEGORY_LABEL,
