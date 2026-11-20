@@ -1,6 +1,6 @@
-import { fixture, ok, refused } from "../../support/fixture.mts";
-import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
-import { S3Client } from "../../../packages/db/node_modules/@aws-sdk/client-s3/dist-es/index.js";
+import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
+import { sql, type SQL } from "../../../packages/db/node_modules/drizzle-orm/index.js";
+import { S3Client } from "../../support/client-s3.mts";
 import sharp from "../../../packages/db/node_modules/sharp/dist/index.mjs";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import {
@@ -20,7 +20,7 @@ const { admin } = database;
 const db = database.pools.runtime;
 const P = database.tenant.id;
 const Q = (await database.plant({ name: "Other Plant", timezone: "America/New_York" })).id;
-const actors = [
+const actors: [Actor, Actor, Actor, Actor, Actor] = [
 	database.actors.owner,
 	database.actors.member,
 	database.actors.admin,
@@ -29,7 +29,7 @@ const actors = [
 ];
 
 class MemoryClient extends S3Client {
-	objects = new Map();
+	objects = new Map<string, Buffer>();
 	reads = 0;
 	constructor() {
 		super({
@@ -39,22 +39,23 @@ class MemoryClient extends S3Client {
 			credentials: { accessKeyId: "test", secretAccessKey: "test" },
 		});
 	}
-	async send(command) {
+	override async send(command: { input?: { Key?: string; Body?: Uint8Array } }) {
 		const input = command.input ?? {};
+		const key = String(input.Key);
 		switch (command.constructor.name) {
 			case "GetBucketAclCommand":
 				return { Grants: [{ Grantee: { ID: "private-owner" }, Permission: "FULL_CONTROL" }] };
 			case "PutObjectCommand":
-				this.objects.set(input.Key, Buffer.from(input.Body));
+				this.objects.set(key, Buffer.from(input.Body ?? []));
 				return {};
 			case "GetObjectCommand": {
 				this.reads += 1;
-				const body = this.objects.get(input.Key);
+				const body = this.objects.get(key);
 				if (!body) throw Object.assign(new Error("missing"), { name: "NoSuchKey" });
 				return { ContentLength: body.length, Body: { transformToByteArray: async () => body } };
 			}
 			case "DeleteObjectCommand":
-				this.objects.delete(input.Key);
+				this.objects.delete(key);
 				return {};
 			default:
 				throw new Error(`unexpected provider operation ${command.constructor.name}`);
@@ -64,21 +65,35 @@ class MemoryClient extends S3Client {
 const client = new MemoryClient();
 const storage = { bucket: "synthetic-only", client };
 
-const authority = async (who) => {
+const authority = async (who: 0 | 1 | 2 | 3 | 4) => {
 	const actor = await RequestActor.resolve(db, actors[who].session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
 	return actor;
 };
-const rowsOf = async (query) => (await admin.execute(query)).rows;
-const countOf = async (table, where = "") =>
-	Number((await admin.execute(sql.raw(`SELECT count(*)::int AS n FROM ${table} ${where}`))).rows[0].n);
-const endSeat = (accountId) =>
+const rowsOf = async (query: SQL) => (await admin.execute(query)).rows;
+const rowOf = async (query: SQL) => {
+	const [row] = await rowsOf(query);
+	if (!row) throw Error("the query returned no row");
+	return row;
+};
+const text = (value: unknown) => {
+	assert.ok(typeof value === "string", `expected text, got ${JSON.stringify(value)}`);
+	return value;
+};
+const objectAt = (key: unknown) => {
+	const bytes = client.objects.get(text(key));
+	if (!bytes) throw Error("no stored object at " + String(key));
+	return bytes;
+};
+const countOf = async (table: string, where = "") =>
+	Number((await rowOf(sql.raw(`SELECT count(*)::int AS n FROM ${table} ${where}`))).n);
+const endSeat = (accountId: string) =>
 	admin.execute(
 		sql`UPDATE seat SET ended_at = clock_timestamp() WHERE account_id = ${accountId}::uuid AND ended_at IS NULL`,
 	);
-const restoreSeat = (accountId) =>
+const restoreSeat = (accountId: string) =>
 	admin.execute(sql`UPDATE seat SET ended_at = NULL WHERE account_id = ${accountId}::uuid`);
-const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
+const sha = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
 
 const svg960 = Buffer.from(
 	'<svg xmlns="http://www.w3.org/2000/svg" width="960" height="380" viewBox="0 0 960 380"><rect x="30" y="40" width="900" height="300" fill="#1F4E79"/></svg>',
@@ -93,7 +108,14 @@ const photoWebp = await sharp({ create: { width: 3000, height: 1200, channels: 3
 	.webp()
 	.toBuffer();
 
-async function attach(who, slot, mediaType, bytes, altText, expectedRevision) {
+async function attach(
+	who: 0 | 1 | 2 | 3 | 4,
+	slot: string,
+	mediaType: string,
+	bytes: Buffer,
+	altText: string,
+	expectedRevision: string,
+) {
 	const ticket = ok(
 		await brandWriter.requestUpload(db, await authority(who), { slot, mediaType, byteLength: bytes.length, altText }),
 	);
@@ -107,7 +129,7 @@ async function attach(who, slot, mediaType, bytes, altText, expectedRevision) {
 		}),
 	);
 }
-const kitRow = async (plant = P) =>
+const kitRow = async (plant: string = P) =>
 	(await rowsOf(sql`SELECT * FROM church_brand_kit WHERE tenant_id = ${plant}::uuid`))[0];
 
 after(async () => {
@@ -210,15 +232,15 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			await brandWriter.saveSettings(db, owner, { expectedRevision: "2", patch: { primaryColor: null } }),
 			"primary_required",
 		);
-		assert.equal((await kitRow()).revision, "2");
+		assert.equal((await kitRow())?.revision, "2");
 		const audits = await rowsOf(
 			sql`SELECT before_value, after_value, actor_id, before_revision::text AS before_revision, after_revision::text AS after_revision FROM audit_event WHERE action = 'branding.changed' AND tenant_id = ${P}::uuid ORDER BY recorded_at`,
 		);
 		assert.equal(audits.length, 2);
-		assert.deepEqual(audits[1].before_value, { primary_color: "#F2D74A", accent_color: null });
-		assert.deepEqual(audits[1].after_value, { primary_color: "#1F4E79", accent_color: "#C9A227" });
-		assert.equal(audits[1].actor_id, actors[2].id);
-		assert.deepEqual([audits[1].before_revision, audits[1].after_revision], ["1", "2"]);
+		assert.deepEqual(audits[1]?.before_value, { primary_color: "#F2D74A", accent_color: null });
+		assert.deepEqual(audits[1]?.after_value, { primary_color: "#1F4E79", accent_color: "#C9A227" });
+		assert.equal(audits[1]?.actor_id, actors[2].id);
+		assert.deepEqual([audits[1]?.before_revision, audits[1]?.after_revision], ["1", "2"]);
 	});
 
 	test("AC:CASE-BRD-004 fonts come from the curated list", async () => {
@@ -231,7 +253,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			await brandWriter.saveSettings(db, owner, { expectedRevision: "2", patch: { bodyFont: "Comic Sans" } }),
 			"unsupported_font",
 		);
-		assert.equal((await kitRow()).revision, "2");
+		assert.equal((await kitRow())?.revision, "2");
 		const kit = ok(
 			await brandWriter.saveSettings(db, owner, {
 				expectedRevision: "2",
@@ -268,7 +290,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			await brandWriter.saveSettings(db, owner, { expectedRevision: "4", patch: { tagline: "x".repeat(201) } }),
 			"invalid_input",
 		);
-		assert.equal((await kitRow()).revision, "4");
+		assert.equal((await kitRow())?.revision, "4");
 		const kit = ok(
 			await brandWriter.saveSettings(db, owner, {
 				expectedRevision: "4",
@@ -327,13 +349,13 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 				altText: "Harvest Point logo",
 			}),
 		);
-		const staged = (await rowsOf(sql`SELECT * FROM file_object WHERE id = ${ticket.uploadId}::uuid`))[0];
+		const staged = await rowOf(sql`SELECT * FROM file_object WHERE id = ${ticket.uploadId}::uuid`);
 		assert.equal(staged.state, "pending");
 		assert.equal(staged.purpose, "brand_asset");
-		assert.match(staged.opaque_key, new RegExp(`^private/${P}/[0-9a-f-]{36}$`));
+		assert.match(text(staged.opaque_key), new RegExp(`^private/${P}/[0-9a-f-]{36}$`));
 		assert.equal(await countOf("job", `WHERE kind = 'object_cleanup' AND subject_record_id = '${ticket.uploadId}'`), 1);
 		const stored = ok(await uploadBrandAsset(db, storage, owner, { uploadId: ticket.uploadId, bytes: svg960 }));
-		const bytes = client.objects.get(staged.opaque_key);
+		const bytes = objectAt(staged.opaque_key);
 		const meta = await sharp(bytes).metadata();
 		assert.equal(meta.format, "png");
 		assert.equal(meta.width / meta.height, 3);
@@ -369,7 +391,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 
 	test("AC:CASE-BRD-002 invalid bytes get invalid_file and leave no ready file", async () => {
 		const owner = await authority(0);
-		const attempts = [
+		const attempts: [string, Buffer][] = [
 			["image/png", Buffer.from("this is not a png at all, just text")],
 			["image/webp", greenPng],
 			["image/svg+xml", Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>')],
@@ -400,7 +422,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			);
 			refused(await uploadBrandAsset(db, storage, owner, { uploadId: ticket.uploadId, bytes }), "invalid_file");
 			assert.equal(
-				(await rowsOf(sql`SELECT state FROM file_object WHERE id = ${ticket.uploadId}::uuid`))[0].state,
+				(await rowOf(sql`SELECT state FROM file_object WHERE id = ${ticket.uploadId}::uuid`)).state,
 				"pending",
 			);
 		}
@@ -501,7 +523,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			"conflict",
 		);
 		assert.equal(conflict.retry, "refresh");
-		assert.equal((await kitRow()).revision, "7");
+		assert.equal((await kitRow())?.revision, "7");
 	});
 
 	test("AC:CASE-BRD-002 suggest-from-logo returns the dominant opaque color", async () => {
@@ -520,16 +542,16 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		const audits = await rowsOf(
 			sql`SELECT after_value FROM audit_event WHERE action = 'branding.changed' ORDER BY recorded_at DESC LIMIT 1`,
 		);
-		assert.deepEqual(Object.keys(audits[0].after_value).sort(), ["full_logo_alt", "full_logo_object_id"]);
+		assert.deepEqual(Object.keys(Object(audits[0]?.after_value)).sort(), ["full_logo_alt", "full_logo_object_id"]);
 	});
 
 	test("AC:CASE-BRD-006 a cover photo is resized, not trimmed, and a removed slot queues its cleanup", async () => {
 		const owner = await authority(0);
 		const kit = await attach(0, "cover_photo", "image/webp", photoWebp, "Sunday gathering", "8");
 		const fileId = kit.assets.cover_photo.fileId;
-		const key = (await rowsOf(sql`SELECT opaque_key, media_type FROM file_object WHERE id = ${fileId}::uuid`))[0];
+		const key = await rowOf(sql`SELECT opaque_key, media_type FROM file_object WHERE id = ${fileId}::uuid`);
 		assert.equal(key.media_type, "image/jpeg");
-		const meta = await sharp(client.objects.get(key.opaque_key)).metadata();
+		const meta = await sharp(objectAt(key.opaque_key)).metadata();
 		assert.deepEqual([meta.format, meta.width, meta.height], ["jpeg", 2400, 960]);
 		const jobsBefore = await countOf(
 			"job",
@@ -539,7 +561,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			await brandWriter.saveSettings(db, owner, { expectedRevision: "9", patch: { assets: { cover_photo: null } } }),
 		);
 		assert.equal(removed.assets.cover_photo, null);
-		assert.equal((await kitRow()).cover_photo_alt, null);
+		assert.equal((await kitRow())?.cover_photo_alt, null);
 		assert.equal(
 			await countOf("job", "WHERE kind = 'object_cleanup' AND producer_key LIKE 'brand-asset-release/%'"),
 			jobsBefore + 1,
@@ -584,11 +606,9 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			),
 		);
 		const fileOf = async () =>
-			(
-				await rowsOf(
-					sql`SELECT f.id, f.opaque_key, f.sha256, f.revision::text AS revision FROM generated_document g JOIN file_object f ON f.id = g.object_id WHERE g.id = ${made.id}::uuid`,
-				)
-			)[0];
+			rowOf(
+				sql`SELECT f.id, f.opaque_key, f.sha256, f.revision::text AS revision FROM generated_document g JOIN file_object f ON f.id = g.object_id WHERE g.id = ${made.id}::uuid`,
+			);
 		const before = await fileOf();
 		const generatedBefore = await rowsOf(
 			sql`SELECT id, sha256, revision::text AS revision FROM file_object WHERE purpose = 'generated' ORDER BY id`,
@@ -600,8 +620,8 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		assert.equal(kit.revision, "12");
 		const after = await fileOf();
 		assert.deepEqual(after, before);
-		assert.equal(sha(client.objects.get(after.opaque_key)), before.sha256);
-		assert.equal(sha(client.objects.get(after.opaque_key)), made.digest);
+		assert.equal(sha(objectAt(after.opaque_key)), before.sha256);
+		assert.equal(sha(objectAt(after.opaque_key)), made.digest);
 		assert.deepEqual(
 			await rowsOf(
 				sql`SELECT id, sha256, revision::text AS revision FROM file_object WHERE purpose = 'generated' ORDER BY id`,
@@ -620,10 +640,9 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 
 	test("AC:CASE-BRD-001 reset deletes the kit, queues cleanup of every asset file and changes no generated file", async () => {
 		const owner = await authority(0);
-		const kitBefore = ok(await brandReader.get(db, owner, {}));
-		const heldFiles = Object.values(kitBefore.assets)
-			.filter(Boolean)
-			.map((asset) => asset.fileId);
+		const read = await brandReader.get(db, owner, {});
+		if (read.status !== "ok") assert.fail(JSON.stringify(read));
+		const heldFiles = Object.values(read.value.assets).flatMap((asset) => (asset ? [asset.fileId] : []));
 		assert.equal(heldFiles.length, 1);
 		const generated = async () =>
 			rowsOf(sql`SELECT id, sha256 FROM file_object WHERE purpose = 'generated' ORDER BY id`);
@@ -631,7 +650,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		assert.ok(before.length >= 1);
 		const conflict = refused(await brandWriter.reset(db, owner, { expectedRevision: "5" }), "conflict");
 		assert.equal(conflict.retry, "refresh");
-		assert.equal((await kitRow()).revision, "12");
+		assert.equal((await kitRow())?.revision, "12");
 		const audits = await countOf("audit_event", "WHERE action = 'branding.changed'");
 		const reset = ok(await brandWriter.reset(db, await authority(2), { expectedRevision: "12" }));
 		assert.deepEqual([reset.kitState, reset.revision], ["default", "0"]);
@@ -681,8 +700,8 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 		const owner = await authority(0);
 		const kit = ok(await brandReader.get(db, owner, {}));
 		const fileId = kit.assets.mark.fileId;
-		const { sha256 } = (await rowsOf(sql`SELECT sha256 FROM file_object WHERE id = ${fileId}::uuid`))[0];
-		const held = (stored) => stored === sha256;
+		const sha256 = text((await rowOf(sql`SELECT sha256 FROM file_object WHERE id = ${fileId}::uuid`)).sha256);
+		const held = (stored: string) => stored === sha256;
 		const readsBefore = client.reads;
 		assert.deepEqual(ok(await readBrandAssetIfChanged(db, storage, owner, fileId, held)), {
 			sha256,
@@ -697,7 +716,7 @@ describe("AC:CASE-BRD-001 church brand kit", { concurrency: 1 }, () => {
 			[1, "unavailable"],
 			[3, "unavailable"],
 			[4, "access_denied"],
-		])
+		] as const)
 			refused(await readBrandAssetIfChanged(db, storage, await authority(who), fileId, held), code);
 		const ending = await authority(0);
 		await endSeat(actors[0].id);

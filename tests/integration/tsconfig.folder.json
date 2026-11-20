@@ -7,6 +7,9 @@
 		"jsx": "react-jsx",
 		"typeRoots": ["../../apps/web/node_modules/@types"],
 		"types": ["node"],
-		"paths": { "@/*": ["../../apps/web/src/*"] }
+		"paths": {
+			"@/*": ["../../apps/web/src/*"],
+			"@aws-sdk/client-s3": ["../../packages/db/node_modules/@aws-sdk/client-s3"]
+		}
 	}
 }
