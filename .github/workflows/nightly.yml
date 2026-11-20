@@ -45,6 +45,21 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  logs:
+    name: server log privacy (BUG-PR199, until it runs offline)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Server log privacy (next dev with synthetic passwords)
+        run: pnpm test:logs
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
   bun-shadow:
     name: bun typecheck shadow (T-53)
     runs-on: ubuntu-24.04
