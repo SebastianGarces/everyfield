@@ -1,12 +1,13 @@
 "use client";
 
 import { Download04Icon, HierarchyIcon } from "@hugeicons/core-free-icons";
-import { Button, EmptyState, IntentLink, Switch, useToast } from "@everyfield/ui/controls";
+import { Button, EmptyState, IntentLink, Switch, toast } from "@everyfield/ui/controls";
 import { cn } from "@everyfield/ui/foundations";
 import { useState } from "react";
-import { exportChart } from "./actions.ts";
+import { exportChart } from "./fetch.ts";
 import type { ChartNode } from "./model.ts";
 import { LeaderLine, TeamIcon } from "./parts.tsx";
+import { loadProblem } from "../../components/read-failed.ts";
 
 type Tree = { root: ChartNode | null; children: ChartNode[] };
 function tree(nodes: readonly ChartNode[]): Tree {
@@ -172,14 +173,16 @@ export function OrgChart({ nodes, onAdd }: { nodes: readonly ChartNode[]; onAdd?
 }
 
 function Exports({ archived, disabled }: { archived: boolean; disabled: boolean }) {
-	const toast = useToast();
 	const [busy, setBusy] = useState<"svg" | "pdf" | null>(null);
 	async function download(kind: "svg" | "pdf") {
 		setBusy(kind);
 		const r = await exportChart(archived).catch(() => ({ status: "lost" }) as const);
 		setBusy(null);
 		if (r.status !== "ok") {
-			toast({ message: "The chart did not download. Nothing changed. Try again in a moment.", tone: "error" });
+			toast({
+				message: loadProblem(r, "The chart did not download. Nothing changed. Try again in a moment."),
+				tone: "error",
+			});
 			return;
 		}
 		const blob = new Blob([kind === "svg" ? r.value.svg : r.value.pdf], {

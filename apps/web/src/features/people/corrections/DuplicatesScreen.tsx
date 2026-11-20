@@ -35,7 +35,8 @@ import { keyFor, STAGE_KEY, STAGE_LABEL, type KeyedPayload, type StageValue } fr
 import { writeAddress } from "../../../components/location.ts";
 import type { Outcome } from "../../../components/save/model.ts";
 import { fresh, LocalDay, When } from "../parts.tsx";
-import { dismissPair, mergeDestination, mergePair, reviewPair, type Merged } from "./actions.ts";
+import { dismissPair, mergePair, type Merged } from "./actions.ts";
+import { mergeDestination, reviewPair } from "../fetch.ts";
 import { leaveConfirmation } from "./DuplicatePairs.tsx";
 import {
 	blockerText,
@@ -57,6 +58,8 @@ import {
 } from "./model.ts";
 import { Problem } from "./parts.tsx";
 import type { PairView } from "./server.ts";
+import { READ_FAILED } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type Ready = Extract<PairView, { kind: "ready" }>;
 type Review = Ready["review"];
@@ -94,7 +97,9 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 	function load(keep: string | null, then?: string) {
 		const n = ++seq.current;
 		startLoad(async () => {
-			const r: Outcome<PairView> = await reviewPair({ ...query, keep }).catch(() => ({ status: "lost" }) as const);
+			const r: Outcome<PairView> | ReadFailure = await reviewPair({ ...query, keep }).catch(
+				() => ({ status: "lost" }) as const,
+			);
 			if (n !== seq.current) return;
 			startLoad(() => {
 				if (r.status === "ok") {
@@ -106,9 +111,11 @@ export function DuplicatesScreen({ initial, query }: { initial: PairView; query:
 					setNotice({
 						n,
 						text:
-							r.status === "lost"
-								? "The review did not load. Try again in a moment."
-								: "You cannot review these people. Your seat may have changed; reload the page.",
+							r.status === "failed"
+								? READ_FAILED
+								: r.status === "lost"
+									? "The review did not load. Try again in a moment."
+									: "You cannot review these people. Your seat may have changed; reload the page.",
 					});
 			});
 		});

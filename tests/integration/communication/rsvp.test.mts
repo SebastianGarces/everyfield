@@ -8,6 +8,7 @@ import { answerRsvpToken, describeRsvpToken } from "../../../packages/domain/src
 import { renderEmailHtml } from "../../../packages/contracts/src/communication/email.ts";
 import { renderBody } from "../../../packages/contracts/src/communication/html.ts";
 import { ok, refused } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING, MAILING_LINE } from "./church-address.mts";
 
 let f, plant, owner;
@@ -20,7 +21,7 @@ const sha = (token) => createHash("sha256").update(token).digest("hex");
 const rows = async (query) => (await f.admin.execute(query)).rows;
 const write = (op, input) =>
 	withCommunicationWrite(f.db, owner.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
-const read = (op, input) => f.db.transaction((tx) => communicationWriter[op](tx, owner.actor, input));
+const read = (op, input) => gatedTransaction(f.db, (tx) => communicationWriter[op](tx, owner.actor, input));
 
 async function person(name, email = `${randomUUID()}@example.test`) {
 	const id = randomUUID();

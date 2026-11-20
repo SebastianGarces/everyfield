@@ -1,5 +1,8 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
 import { audienceGroups } from "@everyfield/contracts/communication/values";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type ContractHubState = (typeof contractHubStates)[number];
 
@@ -82,8 +85,6 @@ export type PageData = {
 	origin: string;
 };
 
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
-
 function refusalText(code: string): string {
 	switch (code) {
 		case "access_denied":
@@ -126,8 +127,9 @@ export function originLabel(template: Template): string {
 	return "Church template";
 }
 
-export function outcomeText<T>(result: Outcome<T>): string | null {
+export function outcomeText<T>(result: Outcome<T> | ReadFailure): string | null {
 	if (result.status === "ok") return null;
+	if (result.status === "failed") return READ_FAILED;
 	if (result.status === "lost") return "Unable to reach the church records. Try again in a moment.";
 	return refusalText(result.code);
 }

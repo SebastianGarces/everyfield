@@ -13,7 +13,6 @@ import { receiveAccessRequest } from "../../../packages/domain/src/early-access/
 import { withPeopleWrite } from "../../../packages/domain/src/people/core.ts";
 import { peopleWriter } from "../../../packages/domain/src/people/people.ts";
 import { GET as outboxRoute } from "../../../apps/web/src/app/api/dev/outbox/route.ts";
-import { NO_ANSWER_FILE } from "../../../apps/web/src/server/mail/capture.ts";
 import {
 	anticipateProvider,
 	deliveryTransport,
@@ -175,7 +174,8 @@ async function transactional(address, transport) {
 }
 async function providerIds(id) {
 	const { f } = await database();
-	const { rows } = await f.admin.execute(sql`SELECT m.provider_message_id AS id, r.provider_key AS key FROM mail m
+	const { rows } = await f.admin
+		.execute(sql`SELECT m.provider_message_id AS id, r.provider_key AS key, m.state FROM mail m
 		JOIN mail_request_member mem ON mem.mail_id = m.id JOIN mail_request r ON r.id = mem.request_id
 		WHERE m.logical_key LIKE ${"communication/" + id + "/%"} ORDER BY mem.position`);
 	return rows;
@@ -192,6 +192,7 @@ async function queuedInvitation(address, env, request) {
 	const mailed = await withProcessEnv(
 		{
 			IDENTITY_DATABASE_URL: f.runtimeUrl,
+			IDENTITY_AUTH_DATABASE_URL: f.runtimeUrl,
 			IDENTITY_ORIGIN: "https://app.example.test",
 			IDENTITY_SECRET: "s".repeat(32),
 			IDENTITY_MAIL_KEY: mailKeys.encryptionKey.toString("hex"),
@@ -297,24 +298,29 @@ test("INV-email-safety: a restricted environment approves Resend test addresses 
 test("INV-email-safety: on a preview with a key a typed address is captured on Send now, scheduled hand-off and transactional mail", async () => {
 	const typed = await person(TYPED);
 	const settled = [];
-	const resend = resendRecorder(PREVIEW, (ids) => settled.push(...ids));
+	const recorded = resendRecorder(PREVIEW, { settle: async (_db, ids) => void settled.push(...ids) });
 
-	const now = await sendNow([typed], resend.transport);
+	const now = await sendNow([typed], recorded.transport);
 	assert.equal(now.acceptedCount, 1);
-	assert.equal(settled.length, 1);
+	assert.deepEqual(
+		settled,
+		(await providerIds(now.communicationId)).map((row) => row.id),
+	);
 	assert.deepEqual(await outboxTo(), [TYPED]);
 
+	const resend = resendRecorder(PREVIEW, {});
 	const scheduled = await handOff([typed], resend.transport);
 	assert.equal(scheduled.report.acceptedCount, 1);
-	assert.match((await providerIds(scheduled.message.id))[0].id, /^capture-/);
-	assert.equal(settled.length, 2, "at the send time the capture goes out at once");
+	const [held] = await providerIds(scheduled.message.id);
+	assert.match(held.id, /^capture-/);
+	assert.equal(held.state, "sent", "at the send time the capture goes out and reads sent at once");
 	assert.deepEqual(await outboxTo(), [TYPED, TYPED]);
 
 	const reset = await transactional("real.reset@example.com", resend.transport);
 	assert.equal(reset.deliveryStatus, "accepted");
 	assert.equal((await outboxTo()).includes("real.reset@example.com"), true);
 
-	assert.deepEqual(resend.take(), [], "no request at all");
+	assert.deepEqual([...recorded.take(), ...resend.take()], [], "no request at all");
 
 	const response = await withProcessEnv(PREVIEW, () => outboxRoute(new Request("https://preview.test/api/dev/outbox")));
 	assert.equal(response.status, 200);
@@ -327,7 +333,7 @@ test("INV-email-safety: a mixed batch splits, whatever the position of the appro
 	const typed = await person("real.mixed@example.com");
 	const maria = await person(APPROVED);
 	const settled = [];
-	const resend = resendRecorder(PREVIEW, (ids) => settled.push(...ids));
+	const resend = resendRecorder(PREVIEW, { settle: async (_db, ids) => void settled.push(...ids) });
 	const report = await sendNow([typed, maria], resend.transport);
 	assert.equal(report.acceptedCount, 2);
 	const [call, ...others] = resend.take();
@@ -348,7 +354,7 @@ test("INV-email-safety: a mixed batch splits, whatever the position of the appro
 	]) {
 		for (const nullId of [false, true]) {
 			const seen = [];
-			const split = resendRecorder(PREVIEW, (ids) => seen.push(...ids));
+			const split = resendRecorder(PREVIEW, { settle: async (_db, ids) => void seen.push(...ids) });
 			if (nullId) split.batch(() => false);
 			const messages = ["one@example.com", "two@example.com"].map((to) => message(to));
 			messages.splice(position, 0, message(APPROVED));
@@ -360,6 +366,8 @@ test("INV-email-safety: a mixed batch splits, whatever the position of the appro
 			const captured = answer.ids.filter((_, index) => index !== position);
 			assert.equal(captured.length, 2);
 			for (const id of captured) assert.match(id, /^capture-/, name);
+			assert.deepEqual(seen, [], "nothing settles before the ids are recorded");
+			await answer.afterRecord(null);
 			assert.deepEqual(seen, captured, "settle receives capture ids only");
 			const outbox = await readOutbox();
 			for (const [index, id] of answer.ids.entries()) {
@@ -380,7 +388,7 @@ test("INV-email-safety: cancel and time change pick capture or Resend from the m
 	const at = new Date(Date.now() + 3 * DAY).toISOString();
 	const later = new Date(Date.now() + 4 * DAY).toISOString();
 	const entry = async (id) => (await readOutbox()).find((row) => row.id === id);
-	const resend = resendRecorder(PREVIEW, () => {});
+	const resend = resendRecorder(PREVIEW, { settle: async () => {} });
 	const sent = await resend.transport.send(
 		{ key: key(), messages: [message(TYPED), message("second@example.com"), message(APPROVED)], scheduledAt: at },
 		signal(),
@@ -401,7 +409,7 @@ test("INV-email-safety: cancel and time change pick capture or Resend from the m
 		[`PATCH /emails/${provider}`, `POST /emails/${provider}/cancel`],
 	);
 
-	const noKey = deliveryTransport({ keys, apiKey: null }, resend.fetch, () => {}, PREVIEW);
+	const noKey = deliveryTransport({ keys, apiKey: null }, resend.fetch, {}, PREVIEW);
 	assert.deepEqual(await noKey.reschedule([first], later, signal()), [{ outcome: "done" }]);
 	assert.deepEqual(await noKey.cancel(["re-unknown"], signal()), [{ outcome: "unknown" }]);
 	assert.deepEqual(resend.take(), []);
@@ -452,11 +460,17 @@ test("INV-email-safety: refusals and capture faults never reach the provider", a
 	]) {
 		const resend = resendRecorder();
 		const settled = [];
-		const transport = deliveryTransport(sender, resend.fetch, (ids) => settled.push(...ids), PREVIEW);
+		const transport = deliveryTransport(
+			sender,
+			resend.fetch,
+			{ settle: async (_db, ids) => void settled.push(...ids) },
+			PREVIEW,
+		);
 		const before = (await readOutbox()).length;
 		const captured = await transport.send({ key: key(), messages: [message(TYPED)], scheduledAt: null }, signal());
 		assert.equal(captured.outcome, "ids", name);
 		assert.match(captured.ids[0], /^capture-/);
+		await captured.afterRecord(null);
 		assert.deepEqual(settled, captured.ids);
 		assert.equal((await readOutbox()).length, before + 1);
 		const mixed = await transport.send(
@@ -471,7 +485,7 @@ test("INV-email-safety: refusals and capture faults never reach the provider", a
 	const blocked = join(process.env.EVERYFIELD_DEV_OUTBOX, "a-file");
 	writeFileSync(blocked, "");
 	await withProcessEnv({ EVERYFIELD_DEV_OUTBOX: blocked }, async () => {
-		const resend = resendRecorder(PREVIEW, () => assert.fail("no capture to settle"));
+		const resend = resendRecorder(PREVIEW, { settle: async () => assert.fail("no capture to settle") });
 		assert.deepEqual(
 			await resend.transport.send({ key: key(), messages: [message(TYPED)], scheduledAt: null }, signal()),
 			{ outcome: "unknown" },
@@ -491,8 +505,7 @@ test("INV-email-safety: refusals and capture faults never reach the provider", a
 		assert.deepEqual(resend.take(), []);
 	});
 
-	writeFileSync(join(process.env.EVERYFIELD_DEV_OUTBOX, NO_ANSWER_FILE), "");
-	const quiet = resendRecorder(PREVIEW, () => {});
+	const quiet = resendRecorder(PREVIEW, { silent: true });
 	assert.deepEqual(
 		await quiet.transport.send(
 			{ key: key(), messages: [message(TYPED), message(APPROVED)], scheduledAt: null },
@@ -669,7 +682,7 @@ test("INV-email-safety: production sends the typed address on all four paths, wi
 
 test("INV-email-safety: unknown, development and absent environments stay restricted, and the outbox stays closed elsewhere", async () => {
 	for (const [name, env] of RESTRICTED) {
-		const resend = resendRecorder(env, () => {});
+		const resend = resendRecorder(env, { settle: async () => {} });
 		const batch = await resend.transport.send({ key: key(), messages: [message(TYPED)], scheduledAt: null }, signal());
 		assert.equal(batch.outcome, "ids", name);
 		assert.match(batch.ids[0], /^capture-/, name);
@@ -721,7 +734,7 @@ test("INV-email-safety: no variable other than VERCEL_ENV turns the guard off", 
 		["outbox folder", { EVERYFIELD_DEV_OUTBOX: outbox }],
 	]) {
 		const env = { ...PREVIEW, ...extra };
-		const resend = resendRecorder(env, () => {});
+		const resend = resendRecorder(env, { settle: async () => {} });
 		const batch = await resend.transport.send({ key: key(), messages: [message(TYPED)], scheduledAt: null }, signal());
 		assert.match(batch.ids[0], /^capture-/, name);
 		const queued = await queuedMailTransport(ready, resend.fetch, env).send(
@@ -733,7 +746,7 @@ test("INV-email-safety: no variable other than VERCEL_ENV turns the guard off", 
 		assert.deepEqual(resend.take(), [], name);
 	}
 	const env = { ...PREVIEW, EMAIL_TEST_RECIPIENTS: "tester@example.org" };
-	const resend = resendRecorder(env, () => {});
+	const resend = resendRecorder(env, { settle: async () => {} });
 	const answer = await resend.transport.send(
 		{ key: key(), messages: [message("tester@example.org"), message("different@example.org")], scheduledAt: null },
 		signal(),
@@ -788,7 +801,6 @@ test("a password-reset request reaches the capture outbox within one runner tick
 
 			const cron = "cron-" + randomUUID();
 			const tick = await scheduledJobs({
-				secret: cron,
 				db: f.db,
 				storage: null,
 				cleanup: null,

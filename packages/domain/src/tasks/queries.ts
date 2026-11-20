@@ -1,6 +1,6 @@
 import { instant, localDateTime, revision, timeZone, type Instant } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/tasks";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
@@ -74,6 +74,7 @@ const taskRow = z.object({
 });
 export type TaskRow = z.infer<typeof taskRow>;
 const lockedTask = taskRow.extend({
+	waiting: z.array(z.strictObject({ id: z.uuid(), open: z.int() })),
 	checklist: taskRow.shape.checklist
 		.unwrap()
 		.nullable()
@@ -84,12 +85,16 @@ const lockedTask = taskRow.extend({
 });
 export type LockedTask = z.infer<typeof lockedTask>;
 
+const openPrerequisites = <TaskName extends string>(task: SqlLiteral<TaskName>) => {
+	const t = sql.raw(task);
+	return sql`(SELECT count(*)::int FROM task q WHERE q.id=ANY(${t}.prerequisite_ids) AND q.plant_id=${t}.plant_id
+		AND q.deleted_at IS NULL AND q.status NOT IN ('complete','no_longer_needed'))`;
+};
 const columns = sql`t.id, t.revision::text AS revision, t.title, t.description, t.category, t.priority, t.status,
 	t.created_at, t.completed_at, t.deleted_at, ${assigneesOf("t")} AS assignees, t.due_kind, t.due_date::text AS due_date,
 	t.due_time::text AS due_time, t.timezone, t.due_at, t.person_id, t.meeting_id, t.team_id, t.parent_id, t.series_id,
 	t.predecessor_id, t.prerequisite_ids::text[] AS prerequisite_ids,
-	(SELECT count(*)::int FROM task q WHERE q.id=ANY(t.prerequisite_ids) AND q.plant_id=t.plant_id AND q.deleted_at IS NULL
-		AND q.status NOT IN ('complete','no_longer_needed')) AS open_prerequisites,
+	${openPrerequisites("t")} AS open_prerequisites,
 	t.occurrence_key, t.obligation_id, o.kind AS obligation_kind,
 	coalesce(p.display_name, m.title, tm.name) AS relation_label, pl.timezone AS plant_zone,
 	(SELECT count(*)::int FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS child_total,
@@ -108,6 +113,8 @@ const checklist = sql`(SELECT jsonb_agg(jsonb_build_object('id',k.id,'revision',
 	FROM task k WHERE k.parent_id=t.id AND k.plant_id=t.plant_id AND k.deleted_at IS NULL) AS checklist,
 	(SELECT jsonb_build_object('id',r.id,'frequency',r.interval,'until',r.end_date,'local_time',to_char(r.local_time,'HH24:MI'),
 		'stopped',r.stopped_at IS NOT NULL) FROM recurrence r WHERE r.id=t.series_id AND r.plant_id=t.plant_id) AS rule,
+	(SELECT coalesce(jsonb_agg(jsonb_build_object('id',d.id,'open',${openPrerequisites("d")}) ORDER BY d.id),'[]'::jsonb)
+		FROM task d WHERE t.id=ANY(d.prerequisite_ids) AND d.plant_id=t.plant_id AND d.deleted_at IS NULL) AS waiting,
 	EXISTS(SELECT FROM task n WHERE n.predecessor_id=t.id AND n.series_id=t.series_id AND n.plant_id=t.plant_id
 		AND n.deleted_at IS NULL) AS has_successor,
 	(t.person_id IS NULL OR p.state='live') AND (t.team_id IS NULL OR tm.archived_at IS NULL) AS relation_live`;
@@ -125,8 +132,10 @@ export async function loadTask(tx: Tx, plantId: string, task: string | { obligat
 	const r = await tx.execute(sql`${taskQuery(plantId, which)} ${lock ? sql`FOR UPDATE OF t` : sql``}`);
 	return r.rows[0] ? lockedTask.parse(r.rows[0]) : null;
 }
+export const lockingTasks = (plantId: string, which: SQL) =>
+	sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`;
 export async function lockTasks(tx: Tx, plantId: string, which: SQL) {
-	const r = await tx.execute(sql`${taskQuery(plantId, which)} ORDER BY t.id FOR UPDATE OF t`);
+	const r = await tx.execute(lockingTasks(plantId, which));
 	return z.array(lockedTask).parse(r.rows);
 }
 export async function loadTasks(tx: Tx, plantId: string, ids: readonly string[]) {
@@ -143,7 +152,7 @@ async function gated(tx: Tx, viewer: Reader, query: SQL, admin = false) {
 	const live = liveRead({ session: viewer.session, owner: viewer.owner, seatId: viewer.seatId }, admin);
 	const r = await tx.execute(sql`SELECT g.live, q.* FROM (SELECT ${live} AS live) g
 		LEFT JOIN LATERAL (${query}) q ON g.live ORDER BY q.ord`);
-	if (r.rows[0]?.live !== true) deny();
+	if (r.rows[0]?.live !== true) deny("unavailable");
 	return r.rows.filter((row) => row.ord !== null);
 }
 
@@ -275,7 +284,7 @@ const sortKey = {
 
 function reader(authority: RequestActor, admin = false) {
 	const viewer = readerOf(authority);
-	if (admin && !administers(viewer)) deny();
+	if (admin && !administers(viewer)) deny("unavailable");
 	return viewer;
 }
 export const taskReader = {
@@ -368,8 +377,8 @@ export const taskReader = {
 				v = parse(c.getTaskRequest, raw);
 			const [found] = await gated(tx, viewer, taskQuery(viewer.plantId, sql`t.id=${v.taskId}::uuid`, true));
 			const row = found && lockedTask.parse(found);
-			if (!row || row.deleted_at) return c.taskResult.parse({ status: "unavailable" });
-			return c.taskResult.parse({ status: "available", task: detailOf(row, v.asOf ?? now()) });
+			if (!row || row.deleted_at) return { status: "unavailable" } satisfies z.output<typeof c.taskResult>;
+			return { status: "available", task: detailOf(row, v.asOf ?? now()) } satisfies z.output<typeof c.taskResult>;
 		});
 	},
 	async statusHistory(tx: Tx, authority: RequestActor, raw: unknown) {
@@ -404,7 +413,7 @@ export const taskReader = {
 					}),
 				)
 				.parse(found.filter((a) => a.id !== null));
-			if (!found.length && v.page === 1) deny();
+			if (!found.length && v.page === 1) deny("unavailable");
 			const total = rows[0]?.total ?? 0;
 			return c.statusHistory.parse({
 				taskId: v.taskId,
@@ -492,7 +501,7 @@ export const taskReader = {
 				ORDER BY k.created_at, k.id LIMIT ${v.limit} OFFSET ${(v.page - 1) * v.limit})`,
 			);
 			const [head, ...items] = found;
-			if (!head || Number(head.ord) !== 0) deny();
+			if (!head || Number(head.ord) !== 0) deny("unavailable");
 			const total = z.int().parse(head.total);
 			const rows = z
 				.array(
@@ -535,7 +544,7 @@ export const taskReader = {
 					JOIN task q ON q.id=u.id AND q.plant_id=t.plant_id),'[]') AS items
 				FROM task t WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid AND t.deleted_at IS NULL`,
 			);
-			if (!found) deny();
+			if (!found) deny("unavailable");
 			const items = z
 				.array(z.object({ id: z.uuid(), title: z.string(), status: c.taskStatus, deleted: z.boolean() }))
 				.parse(found.items)
@@ -586,7 +595,7 @@ export const taskReader = {
 					AND o.status NOT IN ('complete','no_longer_needed')
 				WHERE t.id=${v.taskId}::uuid AND t.plant_id=${viewer.plantId}::uuid`,
 			);
-			if (!found) deny();
+			if (!found) deny("unavailable");
 			const row = z
 				.object({
 					series_id: z.uuid().nullable(),
@@ -596,7 +605,7 @@ export const taskReader = {
 					revision: revision.nullable(),
 				})
 				.parse(found);
-			if (!row.series_id) return c.openOccurrence.parse({ status: "not_recurring" });
+			if (!row.series_id) return { status: "not_recurring" } satisfies z.output<typeof c.openOccurrence>;
 			return c.openOccurrence.parse({
 				status: "series",
 				seriesId: row.series_id,

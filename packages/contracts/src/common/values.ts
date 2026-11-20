@@ -8,6 +8,8 @@ export const operationId = z.uuid().brand<"OperationId">();
 export const eventId = z.uuid().brand<"EventId">();
 export const sessionId = z.string().min(1).max(256).brand<"SessionId">();
 export const requestKey = z.string().min(1).max(200).brand<"RequestKey">();
+declare const storedProviderKey: unique symbol;
+export type ProviderKey = string & { readonly [storedProviderKey]: true };
 export const sha256Text = z.string().regex(/^[a-f0-9]{64}$/);
 export const digest = sha256Text.brand<"Digest">();
 export const revision = z
@@ -40,6 +42,16 @@ export function sameOwner(a: Owner, b: Owner): boolean {
 
 export const correlationId = z.uuid().brand<"CorrelationId">();
 export type Reply<T, E> = { status: "ok"; value: T } | { status: "refused"; error: E };
+export type Lost = { status: "lost" };
+export type Refused<Code extends string, Extra extends object = object> = { status: "refused"; code: Code } & Extra;
+export type Outcome<T, Code extends string = string, Extra extends object = object> =
+	{ status: "ok"; value: T } | Refused<Code, Extra> | Lost;
+export const outcomeOf = <T, E extends { code: string }>(reply: Reply<T, E> | Lost): Outcome<T, E["code"]> =>
+	reply.status === "refused"
+		? { status: "refused", code: reply.error.code }
+		: reply.status === "ok"
+			? { status: "ok", value: reply.value }
+			: reply;
 export type RetryEligibility = "never" | "refresh" | "same_request" | "reconcile";
 export function defineSafeError<
 	const Code extends string,

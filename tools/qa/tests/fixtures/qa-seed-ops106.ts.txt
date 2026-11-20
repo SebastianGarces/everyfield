@@ -18,6 +18,7 @@ import { readFileSync } from "node:fs";
 import { sql } from "../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase, createDatabase, type Database } from "../../packages/db/src/client.ts";
 import { RequestActor } from "../../packages/domain/src/access/session.ts";
+import { gatedTransaction } from "../../packages/domain/src/operations/writes.ts";
 import { communicationWriter } from "../../packages/domain/src/communication/index.ts";
 import { documentsWriter } from "../../packages/domain/src/documents/index.ts";
 import { createFollowUpWriter } from "../../packages/domain/src/followups/index.ts";
@@ -183,7 +184,7 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 		const s = await ownerSession();
 		const created = ok(
 			"createPlant",
-			await runtime.transaction((tx) =>
+			await gatedTransaction(runtime, (tx) =>
 				onboarding.createPlant(
 					tx,
 					{ session: s, selected: { kind: "account", id: owner } } as never,
@@ -200,7 +201,7 @@ async function fill(admin: Database, runtime: Database, authDb: Database): Promi
 	}
 	const plant = { kind: "plant", id: plantId } as const;
 	const ctx = async (): Promise<Ctx> => ({ session: await ownerSession(), selected: plant });
-	const write = <T>(run: (tx: never) => Promise<T>) => runtime.transaction((tx) => run(tx as never));
+	const write = <T>(run: (tx: never) => Promise<T>) => gatedTransaction(runtime, (tx) => run(tx as never));
 
 	const completed = await rows(admin, sql`SELECT onboarding_completed_at FROM plant WHERE id=${plantId}`);
 	if (!completed[0]!.onboarding_completed_at) {

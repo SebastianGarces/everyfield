@@ -136,10 +136,14 @@ function fakeGh() {
 	const issues: { number: number; body: string; comments: { body: string }[] }[] = [];
 	const gh: Gh = (args) => {
 		calls.push([...args]);
-		const body = args[args.indexOf("--body") + 1];
+		const body = args[args.indexOf("--body") + 1] ?? "";
 		if (args[1] === "list") return { status: 0, stdout: JSON.stringify(issues) };
 		if (args[1] === "create") issues.push({ number: issues.length + 1, body, comments: [] });
-		if (args[1] === "comment") issues.find((i) => i.number === Number(args[2]))!.comments.push({ body });
+		if (args[1] === "comment") {
+			const issue = issues.find((i) => i.number === Number(args[2]));
+			assert.ok(issue, "gh comments on an issue it created");
+			issue.comments.push({ body });
+		}
 		return { status: 0, stdout: "" };
 	};
 	return { gh, calls, issues };
@@ -155,14 +159,16 @@ test("T-41 a failed nightly reports once per head and suite", async (t) => {
 		["issue list", "issue create", "issue list", "issue comment"],
 	);
 	assert.equal(issues.length, 1);
+	const [issue] = issues;
+	assert.ok(issue);
 	assert.match(
-		issues[0].body,
+		issue.body,
 		/^<!-- everyfield-nightly -->\n<!-- nightly:f{40}:tests\/ui chromium -->\nNightly `tests\/ui chromium` failed on main at f{40}: 2 failed, 8 passed/,
 	);
-	assert.match(issues[0].comments[0].body, /^<!-- nightly:f{40}:tests\/ui webkit -->/);
+	assert.match(issue.comments[0]?.body ?? "", /^<!-- nightly:f{40}:tests\/ui webkit -->/);
 	await nightly(failing({ passed: 8, failed: 2 }));
 	assert.equal(calls.length, 4);
-	assert.equal(issues[0].comments.length, 1);
+	assert.equal(issue.comments.length, 1);
 	rmSync(join(dir, "nightly-reported.json"));
 	const entry = {
 		type: "nightly_result",
@@ -174,10 +180,10 @@ test("T-41 a failed nightly reports once per head and suite", async (t) => {
 		durationMs: 1,
 	} as const;
 	assert.equal(reportFailure(dir, gh, entry), "known");
-	assert.equal(issues[0].comments.length, 1);
+	assert.equal(issue.comments.length, 1);
 	assert.equal(reportFailure(dir, gh, { ...entry, head: "e".repeat(40) }), "commented");
 	assert.equal(reportFailure(dir, gh, { ...entry, head: "e".repeat(40) }), "known");
-	assert.equal(issues[0].comments.length, 2);
+	assert.equal(issue.comments.length, 2);
 });
 
 function coverageRepo(t: { after(fn: () => void): void }, files: Record<string, string>) {

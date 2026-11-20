@@ -5,6 +5,7 @@ import { sql } from "@everyfield/db/query";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
+import { logFailure } from "../log.ts";
 import { pgCode } from "../wiki/core.ts";
 import {
 	draftWithin,
@@ -142,14 +143,14 @@ ${finish(state, code)} SELECT 1`);
 				}
 				const input =
 					retrieved.status === "ok"
-						? c.modelInput.parse({
+						? ({
 								phase: retrieved.phase,
 								asOf: f.asOf,
 								today: f.today,
 								rubric: c.ACTIVE_PLANT_RUBRIC,
 								facts: c.factCatalog(f),
 								passages: retrieved.passages,
-							})
+							} satisfies z.output<typeof c.modelInput>)
 						: null;
 				const degraded = !input;
 				const reason = retrieved.status === "unavailable" ? "guidance_unavailable" : "reference_missing";
@@ -302,7 +303,7 @@ SELECT EXISTS(SELECT FROM r) AS published,EXISTS(SELECT FROM lk) AS claimed,(SEL
 		try {
 			outcome = await publish(db, j, run, p, drafted.published!);
 		} catch (error) {
-			console.error(JSON.stringify({ component: "assessment", outcome: "persistence", code: pgCode(error) ?? null }));
+			logFailure({ component: "assessment", outcome: "persistence" }, error);
 			return settleRun(db, j, run, p, "failed", "persistence");
 		}
 		if (!outcome.published && outcome.claimed)
@@ -351,7 +352,7 @@ SELECT count(*)::int AS n FROM ins`);
 			try {
 				await execute(db, drafter, j);
 			} catch (error) {
-				console.error(JSON.stringify({ component: "assessment", outcome: "error", code: pgCode(error) ?? null }));
+				logFailure({ component: "assessment", outcome: "error" }, error);
 			}
 			return true;
 		},

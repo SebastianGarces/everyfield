@@ -22,7 +22,8 @@ import {
 	Textarea,
 } from "@everyfield/ui/controls";
 import { useActionState, useState } from "react";
-import { readGoals, saveGoal } from "./actions";
+import { saveGoal } from "./actions";
+import { readGoals } from "./fetch.ts";
 import { formatPlainDate } from "../../../components/dates.ts";
 import { goalHeadline, KIND_LABEL, monthLabel, plural, refusalText } from "./model";
 import { Problem } from "../../../components/Problem.tsx";

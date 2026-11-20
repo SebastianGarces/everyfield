@@ -1,21 +1,23 @@
 import "server-only";
+import { readBoundedBody } from "@everyfield/domain/operations";
 import { avatarBytes, storeAvatarBytes } from "./server";
+import { mutatingRoute } from "../../server/platform/boundary.ts";
 
 const PRIVATE = { "Cache-Control": "private, no-store" };
 const MAX_BYTES = 3 * 1024 * 1024;
 
 type Params = { params: Promise<{ accountId: string; versionId: string }> };
 
-export async function avatarPut(request: Request, { params }: Params) {
+export const avatarPut = mutatingRoute(async function avatarPut(request: Request, { params }: Params) {
 	const { accountId, versionId } = await params;
 	const declared = Number(request.headers.get("content-length") ?? NaN);
-	if (!(declared > 0 && declared <= MAX_BYTES)) return new Response(null, { status: 413, headers: PRIVATE });
-	const bytes = new Uint8Array(await request.arrayBuffer());
+	const bytes = declared > 0 ? await readBoundedBody(request, MAX_BYTES) : null;
+	if (!bytes) return new Response(null, { status: 413, headers: PRIVATE });
 	if (bytes.length !== declared) return new Response(null, { status: 400, headers: PRIVATE });
 	const stored = await storeAvatarBytes(accountId, versionId, bytes);
 	const status = stored === "stored" ? 204 : stored === "invalid" ? 422 : 404;
 	return new Response(null, { status, headers: PRIVATE });
-}
+});
 
 export async function avatarGet(_request: Request, { params }: Params) {
 	const { accountId, versionId } = await params;

@@ -7,6 +7,7 @@ import { communicationWriter, withCommunicationWrite } from "../../../packages/d
 import { attendanceReader, meetingsReader } from "../../../packages/domain/src/meetings/index.ts";
 import { resendWebhook } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING } from "./church-address.mts";
 
 let f, plant, owner, member;
@@ -42,7 +43,7 @@ function opened(messageId, at) {
 	});
 }
 const guests = async (who, meetingId) =>
-	ok(await f.db.transaction((tx) => meetingsReader.listGuests(tx, who.actor, { meetingId })));
+	ok(await gatedTransaction(f.db, (tx) => meetingsReader.listGuests(tx, who.actor, { meetingId })));
 async function untouched(meetingId) {
 	const list = await guests(owner, meetingId);
 	const counts = { yes: 0, no: 0, pending: 0 };
@@ -52,9 +53,9 @@ async function untouched(meetingId) {
 		rsvpCounts: counts,
 		attendedCount: list.guests.filter((g) => g.presence === "attended").length,
 		attendance: ok(
-			await f.db.transaction((tx) => attendanceReader.listAttendance(tx, owner.actor, { meetingId, limit: 500 })),
+			await gatedTransaction(f.db, (tx) => attendanceReader.listAttendance(tx, owner.actor, { meetingId, limit: 500 })),
 		),
-		analytics: ok(await f.db.transaction((tx) => attendanceReader.readAnalytics(tx, owner.actor, { meetingId }))),
+		analytics: ok(await gatedTransaction(f.db, (tx) => attendanceReader.readAnalytics(tx, owner.actor, { meetingId }))),
 		participation: await rows(sql`SELECT person_id, rsvp, rsvp_source, presence, revision FROM participation
 			WHERE meeting_id = ${meetingId} ORDER BY person_id`),
 		meeting: await rows(sql`SELECT attendance_revision, revision FROM meeting WHERE id = ${meetingId}`),

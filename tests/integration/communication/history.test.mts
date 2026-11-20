@@ -7,6 +7,7 @@ import { communicationWriter, withCommunicationWrite } from "../../../packages/d
 import { addressAad, mailAddressHash } from "../../../packages/domain/src/communication/delivery.ts";
 import { sealAddress } from "./sealed-address.mts";
 import { ok, refused } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING } from "./church-address.mts";
 
 let f, plant, other, owner, member, stranger, foreign;
@@ -21,7 +22,7 @@ const rows = async (query) => (await f.admin.execute(query)).rows;
 const write = (who, op, input) =>
 	withCommunicationWrite(f.db, who.actor, (tx, ctx) => communicationWriter[op](tx, ctx, input));
 const read = (who, op, input, deliveryKeys) =>
-	f.db.transaction((tx) => communicationWriter[op](tx, who.actor, input, deliveryKeys));
+	gatedTransaction(f.db, (tx) => communicationWriter[op](tx, who.actor, input, deliveryKeys));
 const countOf = async (query) => Number((await rows(query))[0].n);
 const hidden = (value, ...needles) => {
 	const text = JSON.stringify(value);

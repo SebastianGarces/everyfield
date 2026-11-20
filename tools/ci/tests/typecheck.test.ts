@@ -5,6 +5,7 @@ import {
 	accessSync,
 	constants,
 	existsSync,
+	globSync,
 	mkdirSync,
 	mkdtempSync,
 	readdirSync,
@@ -89,10 +90,11 @@ function env(extra: Record<string, string | undefined> = {}): NodeJS.ProcessEnv 
 	return out;
 }
 
-function typecheck(f: Fixture, extra: Record<string, string | undefined> = {}, script = "typecheck") {
+function typecheck(f: Fixture, extra: Record<string, string | undefined> = {}, script = "typecheck", timeout?: number) {
 	return spawnSync(process.execPath, [tool, script], {
 		cwd: f.root,
 		encoding: "utf8",
+		timeout,
 		env: env({ CI: undefined, XDG_STATE_HOME: f.state, ...extra }),
 	});
 }
@@ -114,14 +116,12 @@ test("INV-typecheck: pnpm typecheck exits 1 when any package's tsc finds errors,
 			"packages/b": { scripts: { typecheck: PASS } },
 		});
 		t.after(f.close);
-		const started = Date.now();
-		const run = typecheck(f, { TYPECHECK_TIMEOUT_MS: "1000" });
-		assert.equal(run.status, 1, `tsc ${name}: ${run.stdout}${run.stderr}`);
+		const run = typecheck(f, { TYPECHECK_TIMEOUT_MS: "1000" }, "typecheck", 20_000);
+		assert.equal(run.status, 1, `tsc ${name}, a hung checker is stopped by the timeout: ${run.stdout}${run.stderr}`);
 		assert.match(run.stderr, why, name);
 		assert.match(run.stderr, /typecheck failed in 1 of 2 packages/);
 		if (script.includes("TS2322"))
 			assert.match(run.stdout, /^packages\/a typecheck: src\/a\.ts\(3,5\): error TS2322: Type mismatch\.$/m);
-		assert.ok(Date.now() - started < 20_000, "a hung checker is stopped by the timeout");
 	}
 	const clean = workspace({
 		"packages/a": { scripts: { typecheck: PASS } },
@@ -200,18 +200,34 @@ test("INV-typecheck: a failing typecheck:tools fails the run after every package
 	}
 });
 
-test("INV-typecheck: pnpm typecheck runs tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch", () => {
-	assert.equal(rootPkg.scripts["typecheck:tools"], "node_modules/typescript-7/bin/tsc -p tsconfig.tools.json");
-	const listed = spawnSync(
-		join(repo, "node_modules/typescript-7/bin/tsc"),
-		["-p", "tsconfig.tools.json", "--listFilesOnly"],
-		{
+test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch, the own tsconfig.json of each typechecked tests folder, and one program for every typechecked integration folder", () => {
+	const projects = [
+		"tsconfig.tools.json",
+		"tests/unit/tsconfig.json",
+		"tests/ui/tsconfig.json",
+		"tests/evry/tsconfig.json",
+		"tests/integration/tsconfig.json",
+	];
+	assert.equal(
+		rootPkg.scripts["typecheck:tools"],
+		`node_modules/typescript-7/bin/tsc -b ${projects.join(" ")} --builders 2 --checkers 2`,
+	);
+	assert.deepEqual(
+		globSync("tests/integration/*/tsconfig.json", { cwd: repo }),
+		[],
+		"an integration folder joins tests/integration/tsconfig.json's include, not a program of its own",
+	);
+	const included: string[] = JSON.parse(readFileSync(join(repo, "tests/integration/tsconfig.json"), "utf8")).include;
+	const folders = [...new Set(included.map((glob) => glob.split("/")[1]))];
+	assert.ok(folders.length > 0, "the integration program lists a folder");
+	const files = projects.flatMap((project) => {
+		const listed = spawnSync(join(repo, "node_modules/typescript-7/bin/tsc"), ["-p", project, "--listFilesOnly"], {
 			cwd: repo,
 			encoding: "utf8",
-		},
-	);
-	assert.equal(listed.status, 0, listed.stderr);
-	const files = listed.stdout.split("\n").map((file) => file.trim().slice(repo.length + 1));
+		});
+		assert.equal(listed.status, 0, listed.stderr);
+		return listed.stdout.split("\n").map((file) => file.trim().slice(repo.length + 1));
+	});
 	for (const file of [
 		"scripts/fast-check.ts",
 		"tools/ci/typecheck.ts",
@@ -220,8 +236,33 @@ test("INV-typecheck: pnpm typecheck runs tsconfig.tools.json over scripts, tools
 		"tools/qa/tests/qa.test.ts",
 		"ops/actionable-watch/run.mts",
 		"ops/actionable-watch/test/run.test.mts",
+		"tests/unit/client/read.test.mts",
+		"tests/ui/people/seed.mts",
+		"tests/evry/runtime/runs.test.mts",
 	])
 		assert.ok(files.includes(file), `${file} is in the tools program`);
+	for (const folder of folders)
+		assert.ok(
+			files.some((file) => file.startsWith(`tests/integration/${folder}/`) && /\.m?ts$/.test(file)),
+			`tests/integration/${folder}/ is in the tools program`,
+		);
+});
+
+test("INV-typecheck: no tests/integration file declares a global, augments a module, references a declaration file or is one, so one folder's types never satisfy another folder in the shared integration program", () => {
+	const files = globSync("tests/integration/**/*.{ts,mts,cts}", { cwd: repo });
+	assert.ok(files.length > 0);
+	assert.deepEqual(
+		files.filter((file) => /\.d\.[mc]?ts$/.test(file)),
+		[],
+		"declaration files under tests/integration",
+	);
+	assert.deepEqual(
+		files.filter((file) =>
+			/\bdeclare\s+(?:global|module)\b|^\s*\/\/\/\s*<reference\b/m.test(readFileSync(join(repo, file), "utf8")),
+		),
+		[],
+		"declare global, declare module or a triple-slash reference under tests/integration",
+	);
 });
 
 test("INV-typecheck: every package's typecheck runs tsc, and its typecheck:bun the pinned bun 1.4.4, never a global bun", (t) => {

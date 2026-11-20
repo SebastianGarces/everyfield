@@ -7,9 +7,10 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const web = createRequire(root + "apps/web/package.json");
 const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement } = web("react");
+import type { DeliveryTotals } from "../../../apps/web/src/features/communication/model.ts";
 const { deliveryName, Totals } = await import("../../../apps/web/src/features/communication/SentTotals.tsx");
 
-const zero = {
+const zero: DeliveryTotals = {
 	communicationId: "6a1f2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
 	state: "sending",
 	selected: 0,
@@ -32,7 +33,7 @@ const zero = {
 	outcomes: [],
 	sentForAll: false,
 };
-const anaSkipped = {
+const anaSkipped: DeliveryTotals = {
 	...zero,
 	selected: 3,
 	reachable: 2,
@@ -49,7 +50,7 @@ const text = (html: string) =>
 		.replace(/\s+/g, " ")
 		.trim();
 
-function summary(totals: typeof zero) {
+function summary(totals: DeliveryTotals) {
 	const html = renderToStaticMarkup(createElement(Totals, { totals }));
 	const tiles: Record<string, number> = {};
 	for (const [, value, label] of html.matchAll(/<span[^>]*>(\d+)<\/span><span[^>]*>([^<]+)<\/span>/g))

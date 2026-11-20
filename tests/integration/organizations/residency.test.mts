@@ -22,6 +22,7 @@ import {
 	residencyLinks,
 	residentWriter,
 } from "../../../packages/domain/src/organizations/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const GLOBAL = "00000000-0000-0000-0000-000000000000";
 let f: Awaited<ReturnType<typeof fixture>>;
@@ -74,7 +75,7 @@ const adapter = createOrganizationAdapter(
 );
 async function asResident(name: "residency.setSharing" | "residency.leave", input: unknown) {
 	const owner = { kind: "account" as const, id: casey.id };
-	return f.db.transaction(async (tx) => {
+	return gatedTransaction(f.db, async (tx) => {
 		if (!(await RequestActor.claimWrite(tx, sessionId.parse(casey.session), owner))) throw Error("unavailable");
 		return adapter[name](tx, sessionId.parse(casey.session), owner, input as never);
 	});
@@ -658,7 +659,7 @@ test("AC:ADR1-003 AC:ADR1-013 Casey leaves: My residency is gone at once and Gra
 		expectedRevision: l.revision,
 		input: { linkId: l.id, expectedConsentRevision: l.consent },
 	});
-	assert.deepEqual(await mine(), { status: "not_linked" });
+	assert.deepEqual(await mine(), { status: "ended" });
 	assert.equal(await navLink(casey), null);
 	assert.deepEqual((await record(luis)).residency, { status: "not_linked" });
 	const shown = await enrollment(ana);

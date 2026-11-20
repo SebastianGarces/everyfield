@@ -14,17 +14,19 @@ import {
 	Radio,
 	RadioGroup,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import { startTransition, useId, useOptimistic, useState, useTransition } from "react";
 import type { Wait } from "../../../components/save/model.ts";
+import { localToday } from "../../../components/clock.ts";
 import { NoticeInDialog, RecordDialog, SaveNotice, useSaveIntent } from "../../../components/save/parts.tsx";
 import { STAGE_LABEL } from "../model.ts";
 import { throughStore } from "../person.store.ts";
 import { LocalDay, usePersonState } from "../parts.tsx";
-import { loadInterviews, recordInterview } from "./actions.ts";
+import { recordInterview } from "./actions.ts";
+import { loadInterviews } from "../fetch.ts";
 import {
 	advancedStage,
 	CRITERIA,
@@ -35,7 +37,6 @@ import {
 	RESULT_LABEL,
 	RESULT_STATUS,
 	RESULTS,
-	today,
 	withRecord,
 	type CriterionKey,
 	type Interview,
@@ -54,7 +55,7 @@ type Draft = {
 type Editing = { draft: Draft; problem?: string };
 const RATING_OPTIONS = RATINGS.map((r) => ({ value: r, label: RATING_LABEL[r] }));
 const blank = (): Draft => ({
-	occurredOn: today(),
+	occurredOn: localToday(),
 	result: "",
 	nextSteps: "",
 	maturity: { rating: "", notes: "" },
@@ -82,7 +83,6 @@ export function InterviewCard({
 	onSaved,
 	corrected,
 }: RecordProps<Interviews>) {
-	const toast = useToast();
 	const history = useHistory(
 		initial,
 		(page) => loadInterviews(personId, page),
@@ -361,7 +361,7 @@ function InterviewDialog({
 				<Input
 					type="date"
 					value={draft.occurredOn}
-					max={today()}
+					max={localToday()}
 					onChange={(e) => setDraft((d) => ({ ...d, occurredOn: e.target.value }))}
 				/>
 			</Field>

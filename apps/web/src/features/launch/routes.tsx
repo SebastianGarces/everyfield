@@ -1,23 +1,19 @@
-import { getViewer } from "@/server/request-context";
+import { requireSeat } from "@/server/sign-in";
 import { Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { LaunchScreen } from "./LaunchScreen.tsx";
-import { administers, launchViewer, loadOffers, loadPlan } from "./server.ts";
+import { administers, loadOffers, loadPlan } from "./server.ts";
 
 export const launchMetadata: Metadata = { title: "Launch plan", robots: { index: false, follow: false } };
 
 export async function LaunchPage() {
-	const viewer = await launchViewer();
-	if (!viewer) {
-		const v = await getViewer();
-		if (!v || v.status === "unauthenticated") redirect(`/signin?returnTo=${encodeURIComponent("/launch")}`);
+	const viewer = await requireSeat("/launch");
+	if (!viewer)
 		return (
 			<StatePanel tone="lock" title="The Launch plan belongs to a church">
 				Choose a church plant seat to see its Launch plan.
 			</StatePanel>
 		);
-	}
 	const [loaded, offers] = await Promise.all([loadPlan(viewer), loadOffers(viewer)]);
 	if (loaded.status !== "ok")
 		return (

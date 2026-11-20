@@ -4,8 +4,9 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds, waitingOnLock as sharedWaitingOnLock } from "../../support/fixture.mts";
 import { createOrganizationAdapter } from "../../../packages/domain/src/organizations/index.ts";
-import { RequestActor } from "../../../packages/domain/src/access/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { RequestActor, type WriteTx } from "../../../packages/domain/src/access/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { owner, sessionId } from "../../../packages/contracts/src/common/index.ts";
 
 const database = await testDatabase({ prefix: "wp007", max: 8 });
@@ -13,10 +14,8 @@ export const { schema, admin: db } = database;
 export const runtime = database.pools.runtime;
 export const teardown = database.close;
 const seed = seeds(db);
-export async function tx<T>(
-	body: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<T>,
-): Promise<T> {
-	return runtime.transaction(async (c) => {
+export async function tx<T>(body: (c: WriteTx) => Promise<T>): Promise<T> {
+	return gatedTransaction(runtime, async (c) => {
 		await c.execute(sql`SET LOCAL statement_timeout='10s'`);
 		return body(c);
 	});
@@ -58,7 +57,7 @@ export const mail = createMailService({
 });
 export const effects = {
 	async invitation(
-		c: import("../../../packages/db/src/client.ts").Transaction,
+		c: WriteTx,
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["invitation"]>[1],
 		writes: SQLWrapper[],
 	) {
@@ -85,7 +84,7 @@ export const effects = {
 		);
 	},
 	invalidate(
-		_c: import("../../../packages/db/src/client.ts").Transaction,
+		_c: WriteTx,
 		v: Parameters<import("../../../packages/domain/src/organizations/index.ts").OrganizationEffects["invalidate"]>[1],
 	) {
 		return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${sql.param(v.sourceId)} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
@@ -106,18 +105,14 @@ const reads = new Set<keyof typeof api>([
 	"pipelineSharing.checkAggregateAccess",
 ]);
 export type Actor = Pick<Awaited<ReturnType<typeof identity>>, "session" | "selected">;
-export async function write<T>(
-	actor: Actor,
-	body: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<T>,
-): Promise<T> {
+export async function write<T>(actor: Actor, body: (c: WriteTx) => Promise<T>): Promise<T> {
 	return tx(async (c) => {
 		if (!(await RequestActor.claimWrite(c, actor.session, actor.selected))) throw Error("unavailable");
 		return body(c);
 	});
 }
 export async function call(name: keyof typeof api, actor: Actor, input: unknown) {
-	const run = (c: import("../../../packages/db/src/client.ts").Transaction) =>
-		api[name](c, actor.session, actor.selected, input as never);
+	const run = (c: WriteTx): Promise<unknown> => api[name](c, actor.session, actor.selected, input as never);
 	return reads.has(name) ? tx(run) : write(actor, run);
 }
 export const waitingOnLock = () => sharedWaitingOnLock(runtime);
@@ -129,13 +124,11 @@ export async function affiliation(
 	const r =
 		await db.execute(sql`INSERT INTO affiliation(plant_id,account_id,sending_church_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
  VALUES(${sql.param(plant.kind === "plant" ? plant.id : null)},${sql.param(plant.kind === "account" ? plant.id : null)},${sql.param(plant.kind === "organization" ? plant.id : null)},${sql.param(org.id)},clock_timestamp(),${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)},${sql.param(share)}) RETURNING id`);
-	return r.rows[0].id;
+	const [row] = r.rows;
+	if (!row) throw Error("The affiliation insert returned no row");
+	return row.id;
 }
-export async function race<A, B>(
-	holder: Actor,
-	held: (c: import("../../../packages/db/src/client.ts").Transaction) => Promise<A>,
-	rival: () => Promise<B>,
-) {
+export async function race<A, B>(holder: Actor, held: (c: WriteTx) => Promise<A>, rival: () => Promise<B>) {
 	let bound!: () => void;
 	const gate = new Promise<void>((resolve) => (bound = resolve));
 	const first = write(holder, async (c) => {

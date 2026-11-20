@@ -322,6 +322,9 @@
       "YouTube": "Publisher brand in the unchanged Wiki backlog.",
       "PlanterPlan": "Source product name in the unchanged Wiki backlog.",
       "i1023ez": "IRS instructions URL path in the unchanged Wiki backlog."
+    },
+    "docs/reliability-checklist.json": {
+      "RequestActor": "type name matched by a trigger regex, which cannot hold backticks"
     }
   },
   "brand_kept_paths": {

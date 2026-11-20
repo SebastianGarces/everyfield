@@ -712,6 +712,47 @@ test("AC:CASE-NTF-010 AC:SEC-09 AC:SEC-06 AC:NOTIFY47-008 callbacks record one o
 	assert.equal(await active(), 1);
 });
 
+test("INV-webhook: a callback whose message id matches no mail, or more than one, stays pending and never routes by request id", async () => {
+	const twin = `prov-twin-${key().slice(0, 8)}`;
+	const sent = [];
+	for (const name of ["Twin A", "Twin B"]) {
+		const made = await scheduled(name, `${name.replace(" ", "-").toLowerCase()}-${key().slice(0, 8)}@example.test`, AT);
+		const carrier = port({
+			async send() {
+				return { outcome: "ids", ids: [twin] };
+			},
+		});
+		ok(await handoff(owner, made.saved.communicationId, made.accepted.value.revision, carrier));
+		sent.push(made.saved.communicationId);
+	}
+	const settled = async () =>
+		(await Promise.all(sent.map(mailFor))).flat().map((m) => ({ state: m.state, id: m.provider_message_id }));
+	const beforeMail = await settled();
+	assert.deepEqual(
+		beforeMail.map((m) => m.id),
+		[twin, twin],
+	);
+	const pendingEvents = async (messageId) =>
+		(
+			await rows(
+				sql`SELECT count(*)::int AS n FROM provider_event WHERE message_id = ${messageId} AND processed_at IS NULL`,
+			)
+		)[0].n;
+	const ambiguous = await resendWebhook(signed(twin, "delivered"), () => f.db, secret);
+	assert.equal(ambiguous.status, 200);
+	assert.deepEqual(await ambiguous.json(), { stored: true, result: "unmatched" });
+	assert.equal(await pendingEvents(twin), 1);
+	const [first] = await mailFor(sent[0]);
+	const byRequest = await resendWebhook(signed(first.provider_key, "delivered"), () => f.db, secret);
+	assert.deepEqual(await byRequest.json(), { stored: true, result: "unmatched" });
+	assert.equal(await pendingEvents(first.provider_key), 1);
+	assert.deepEqual(await settled(), beforeMail);
+	const delivered = await rows(
+		sql`SELECT count(*)::int AS n FROM mail WHERE provider_message_id = ${twin} AND delivered_at IS NOT NULL`,
+	);
+	assert.equal(delivered[0].n, 0);
+});
+
 test("AC:CASE-NTF-011 a person clears only their own suppressed address", async () => {
 	const made = await scheduled("Self", owner.email, AT);
 	assert.equal(made.accepted.status, "ok");

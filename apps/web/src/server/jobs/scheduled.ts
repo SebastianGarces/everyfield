@@ -12,17 +12,22 @@ import {
 	type DeliveryKeys,
 	type DeliveryTransport,
 } from "@everyfield/domain/communication";
-import { timingSafeEqual } from "node:crypto";
 import "server-only";
 import { runEffects, runTurns } from "../evry/worker.ts";
 import { runDueImports } from "../../features/people/import-export/run-imports.ts";
-import { transaction } from "../platform/database.ts";
-import { planDigests, type DigestWorker } from "./digest.ts";
-import { runDuePurges } from "./lifecycle-purge.ts";
-import { expireStaleMail, type MailPass, type MailPassName } from "./mail.ts";
+import {
+	transaction,
+	runDuePurges,
+	runDueObjectCleanup,
+	expireStaleMail,
+	type MailPass,
+	type MailPassName,
+	replayStoredCallbacks,
+	planDigests,
+	type DigestWorker,
+} from "@everyfield/domain/jobs";
 import type { NotificationWorker } from "../../features/notifications/worker.ts";
-import { runDueObjectCleanup } from "./object-cleanup.ts";
-import { replayStoredCallbacks } from "./webhook.ts";
+import { asLogWord, logLine } from "@everyfield/domain/log";
 
 const START_MS = 60_000;
 
@@ -41,8 +46,7 @@ export function scheduledMessages(db: Database, transport: DeliveryTransport, ke
 }
 
 export function scheduledJobs(config: {
-	secret: string | undefined;
-	db: Database | null;
+	db: Database;
 	storage: PrivateStorage | null;
 	cleanup: Database | null;
 	reminders: TaskReminders | null;
@@ -55,14 +59,8 @@ export function scheduledJobs(config: {
 	assessments?: { drafter: Drafter } | null;
 	now?: () => Date;
 }) {
-	return async (request: Request): Promise<Response> => {
-		if (!config.secret) return Response.json({ status: "unavailable" }, { status: 503 });
-		const expected = Buffer.from(`Bearer ${config.secret}`);
-		const actual = Buffer.from(request.headers.get("authorization") ?? "");
-		if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
-			return Response.json({ status: "unauthorized" }, { status: 401 });
+	return async (): Promise<Response> => {
 		const db = config.db;
-		if (!db) return Response.json({ status: "unavailable" }, { status: 503 });
 		const until = Date.now() + START_MS;
 		const asOf = (config.now?.() ?? new Date()).toISOString();
 		const { storage, cleanup, reminders, digests, mail } = config;
@@ -126,7 +124,7 @@ export function scheduledJobs(config: {
 				report[component] = { status: "ok", count: count ?? null };
 				if (key) counts[key] = count;
 			} catch {
-				console.error(JSON.stringify({ component, runner: "scheduled-jobs", outcome: "error" }));
+				logLine({ component: asLogWord(component), runner: "scheduled-jobs", outcome: "error" });
 				report[component] = { status: "failed" };
 			}
 		}

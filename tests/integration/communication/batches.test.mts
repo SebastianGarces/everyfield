@@ -15,6 +15,7 @@ import {
 } from "../../../packages/domain/src/communication/delivery.ts";
 import { atSendTime } from "./scheduled-support.mts";
 import { ok } from "../../support/fixture.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { MAILING } from "./church-address.mts";
 
 let f, plant, owner;
@@ -288,7 +289,9 @@ test("INV-message-batches: a lost second batch leaves only its 100 recipients un
 		assert.equal(result.status, lose === "throw" ? "accepted_unknown" : "partial");
 		assert.equal(result.failed, false);
 		const totals = ok(
-			await f.db.transaction((tx) => communicationWriter.getDeliveryTotals(tx, owner.actor, { communicationId: m.id })),
+			await gatedTransaction(f.db, (tx) =>
+				communicationWriter.getDeliveryTotals(tx, owner.actor, { communicationId: m.id }),
+			),
 		);
 		assert.deepEqual(
 			{ selected: totals.selected, accepted: totals.accepted, unknown: totals.unknown },

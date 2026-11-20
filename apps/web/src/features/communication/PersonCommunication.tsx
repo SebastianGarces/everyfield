@@ -1,13 +1,17 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { useState } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
-import { readPreviewContext } from "./actions.ts";
+import { readPreviewContext } from "./fetch.ts";
 import { History } from "./HistoryPanel.tsx";
-import type { Outcome } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 const previewContexts = createRead(() => readPreviewContext(), {
-	failed: (): Outcome<{ churchName: string; mailingAddress: string | null; origin: string }> => ({ status: "lost" }),
+	failed: (): Outcome<{ churchName: string; mailingAddress: string | null; origin: string }> | ReadFailure => ({
+		status: "lost",
+	}),
 });
 
 export function PersonCommunication({ personId, canWrite }: { personId: string; canWrite: boolean }) {
@@ -18,7 +22,7 @@ export function PersonCommunication({ personId, canWrite }: { personId: string; 
 			{(preview) =>
 				preview.status !== "ok" ? (
 					<p role="alert" className="text-sm font-medium text-magenta-600">
-						Messages did not load. Reload the page in a moment.
+						{loadProblem(preview, "Messages did not load. Reload the page in a moment.")}
 					</p>
 				) : (
 					<div className="flex flex-col gap-4">

@@ -138,10 +138,10 @@ export function Prose({
 				"mx-auto w-full text-ink-2",
 				size === "md" ? "max-w-[700px] text-base leading-[1.7]" : "text-[15px] leading-[1.65]",
 				size === "excerpt"
-					? "[&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h2]:font-body [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-ink [&_h2]:scroll-mt-28 [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:font-body [&_h3]:text-[15px] [&_h3]:font-medium [&_h3]:text-ink [&_h3]:scroll-mt-28"
+					? "[&>:first-child]:mt-0 [&>:last-child:not(h2,h3)]:mb-0 [&_h2]:mt-5 [&_h2]:mb-1.5 [&_h2]:font-body [&_h2]:text-[16px] [&_h2]:font-semibold [&_h2]:text-ink [&_h2]:scroll-mt-28 [&_h3]:mt-4 [&_h3]:mb-1 [&_h3]:font-body [&_h3]:text-[15px] [&_h3]:font-medium [&_h3]:text-ink [&_h3]:scroll-mt-28"
 					: "[&_h2]:mt-[34px] [&_h2]:mb-2.5 [&_h2]:text-[26px] [&_h2]:text-ink [&_h2]:scroll-mt-28 [&_h3]:mt-[26px] [&_h3]:mb-2 [&_h3]:text-[19px] [&_h3]:text-ink [&_h3]:scroll-mt-28",
 				size === "sm" && "[&_h2]:font-title",
-				"[&_p]:mb-3.5 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-[22px] [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-[22px] [&_li]:my-1.5",
+				"[&_p:not(figure_*)]:mb-3.5 [&_ol:not(figure_*)]:mb-4 [&_ol:not(figure_*)]:list-decimal [&_ol:not(figure_*)]:pl-[22px] [&_ul:not(figure_*)]:mb-4 [&_ul:not(figure_*)]:list-disc [&_ul:not(figure_*)]:pl-[22px] [&_li:not(figure_*)]:my-1.5",
 				"[&_blockquote]:my-5 [&_blockquote]:rounded-card [&_blockquote]:bg-surface-2 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:font-title [&_blockquote]:tracking-[-0.02em] [&_blockquote]:text-[19px] [&_blockquote]:leading-[1.45] [&_blockquote]:text-ink",
 				"[&_cite]:mt-2 [&_cite]:block [&_cite]:font-body [&_cite]:tracking-normal [&_cite]:text-[13px] [&_cite]:text-text-3 [&_cite]:not-italic",
 				"[&_a]:text-ink [&_a]:underline [&_a]:decoration-green-500 [&_a]:decoration-2 [&_a]:underline-offset-[3px]",

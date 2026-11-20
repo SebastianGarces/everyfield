@@ -54,6 +54,7 @@ flowchart LR
 Settings: a dialog over the page underneath, one address per section, offering the sections this seat may change.
 
 - Routes: `/settings`, `/settings/[section]`
+- Endpoints: `/settings/read`
 - Personas: `owner` write, `admin` write, `member` write, `resident` write, `visitor` none
 - Catalog: IDN-010, IDN-011
 
@@ -146,7 +147,7 @@ An Owner saves the church profile, and the new church name shows across the app.
 agent-browser find label "Church name" fill "Harvest Point (QA) Map"
 agent-browser find role button click --name "Save" --exact
 agent-browser wait --load networkidle
-agent-browser find text "No unsaved changes." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"No unsaved changes.\")"
 agent-browser open "$ORIGIN/overview"
 agent-browser wait --load networkidle
 agent-browser wait --text "Harvest Point (QA) Map"
@@ -197,7 +198,7 @@ Saving Your name changes the name the app shows for you, starting with the accou
 agent-browser find label "Your name" fill "Ruth Map Allen"
 agent-browser find role button click --name "Save" --exact
 agent-browser wait --load networkidle
-agent-browser find text "No unsaved changes." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"No unsaved changes.\")"
 agent-browser open "$ORIGIN/overview"
 agent-browser wait --load networkidle
 agent-browser find role button text --name "Ruth Map Allen"
@@ -263,7 +264,7 @@ A saved primary color stays with its contrast reading when the kit opens again.
 agent-browser find label "Primary color" fill "#2F6F4E"
 agent-browser find role button click --name "Save" --exact
 agent-browser wait --load networkidle
-agent-browser find text "No unsaved changes." text --exact
+agent-browser wait --fn "((x,l=[])=>/json/.test(document.contentType)?(JSON.parse(document.body.firstChild.textContent,(k,v)=>(v===Object(v)||l.push(String(v)),v)),l.includes(x)):[...document.querySelectorAll('body *')].some(e=>e.checkVisibility()&&e.innerText?.trim()===x))(\"No unsaved changes.\")"
 agent-browser open "$ORIGIN/settings/brand"
 agent-browser wait --load networkidle
 agent-browser wait --text "passes text"

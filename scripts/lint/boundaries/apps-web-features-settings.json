@@ -2,7 +2,7 @@
 	"public": {
 		"AccountMenu.tsx": "the account menu the shell composes into the frame",
 		"ProductSettings.tsx": "useProductSettings, the settings dialog state the shell owns",
-		"SettingsDialog.tsx": "SaveError is imported by the intelligence check-in until it moves to settings/save.ts",
+		"SaveError.tsx": "SaveError, the save failure line the intelligence check-in reuses",
 		"actions.ts": "settings server actions that Evry photo upload and the intelligence check-in call",
 		"flows/ZonePicker.tsx": "the time zone picker the intelligence check-in reuses",
 		"flows/avatarBytes.ts": "the avatar upload bytes step Evry photo attach reuses",

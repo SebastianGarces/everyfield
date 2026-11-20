@@ -46,7 +46,12 @@
 		"nextjs/no-duplicate-head": "error",
 		"nextjs/no-head-import-in-document": "error",
 		"nextjs/no-script-component-in-head": "error",
-		"typescript/ban-ts-comment": ["error", { "ts-expect-error": true }],
+		"typescript/ban-ts-comment": [
+			"error",
+			{
+				"ts-expect-error": true
+			}
+		],
 		"typescript/no-duplicate-enum-values": "error",
 		"typescript/no-empty-object-type": "error",
 		"typescript/no-explicit-any": "error",
@@ -64,12 +69,42 @@
 		"typescript/prefer-namespace-keyword": "error",
 		"typescript/triple-slash-reference": "error",
 		"everyfield/resend-senders": "error",
+		"everyfield/raw-sql-literal": "error",
 		"everyfield/request-actor": "error",
+		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
+		"everyfield/server-log": "error",
 		"everyfield/no-effects": "error",
+		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",
+		"everyfield/deployment-env": "error",
+		"everyfield/server-config": "error",
+		"everyfield/no-silent-catch": "error",
 		"everyfield/max-state": "error",
-		"everyfield/no-sql-comments": "error"
+		"everyfield/mint-callers": "error",
+		"everyfield/no-sql-comments": "error",
+		"everyfield/no-error-message-match": "error",
+		"everyfield/no-slop-styling": "error",
+		"everyfield/sign-in-redirect": "error",
+		"everyfield/web-database-imports": "error",
+		"no-restricted-imports": [
+			"error",
+			{
+				"patterns": [
+					{
+						"group": [
+							"**/EvryPanel.tsx",
+							"**/SettingsDialog",
+							"**/SettingsDialog.tsx",
+							"**/FeedbackDialog.tsx",
+							"**/overlays.tsx"
+						],
+						"allowTypeImports": true,
+						"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+					}
+				]
+			}
+		]
 	},
 	"overrides": [
 		{
@@ -1287,47 +1322,25 @@
 				"everyfield/no-global-listeners": "error",
 				"everyfield/zustand-shape": "error",
 				"everyfield/read-loader": "error",
+				"everyfield/link-value-key": "error",
 				"everyfield/no-render-writes": "error",
+				"everyfield/no-render-get-state": "error",
 				"everyfield/feature-boundaries": "error",
-				"everyfield/route-reads": "error"
+				"everyfield/route-reads": "error",
+				"everyfield/route-segment-defaults": "error",
+				"everyfield/render-reads": "error",
+				"everyfield/no-read-actions": "error",
+				"everyfield/action-params-unknown": "error",
+				"everyfield/failure-not-empty": "error"
 			}
 		},
 		{
 			"files": [
-				"src/components/save/model.ts",
-				"src/features/assessment-review/model.ts",
+				"src/**/model.ts",
+				"src/**/*-model.ts",
+				"src/**/page-state.ts",
 				"src/features/communication/body.ts",
-				"src/features/communication/model.ts",
-				"src/features/documents/church/editor/table-model.ts",
-				"src/features/documents/model.ts",
-				"src/features/evry/conversation/model.ts",
-				"src/features/evry/review/model.ts",
-				"src/features/identity/seats/model.ts",
-				"src/features/intelligence/assessment-model.ts",
-				"src/features/intelligence/facts-model.ts",
-				"src/features/launch/model.ts",
-				"src/features/meetings/model.ts",
-				"src/features/meetings/page-state.ts",
-				"src/features/onboarding/model.ts",
-				"src/features/organizations/board/model.ts",
-				"src/features/organizations/data/model.ts",
-				"src/features/organizations/import/model.ts",
-				"src/features/organizations/model.ts",
-				"src/features/organizations/programs/model.ts",
-				"src/features/organizations/reviews/model.ts",
-				"src/features/oversight/model.ts",
-				"src/features/overview/model.ts",
-				"src/features/people/corrections/model.ts",
-				"src/features/people/fields/model.ts",
-				"src/features/people/import-export/model.ts",
-				"src/features/people/model.ts",
-				"src/features/phases/model.ts",
-				"src/features/residency/model.ts",
-				"src/features/settings/brand/model.ts",
-				"src/features/settings/model.ts",
-				"src/features/settings/time.ts",
-				"src/features/teams/model.ts",
-				"src/features/wiki/model.ts"
+				"src/features/settings/time.ts"
 			],
 			"rules": {
 				"everyfield/model-module": "error"
@@ -1350,6 +1363,80 @@
 			"files": ["src/features/intelligence/**"],
 			"rules": {
 				"everyfield/private-care-scope": "off"
+			}
+		},
+		{
+			"files": ["src/features/settings/ProductSettings.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/EvryPanel.tsx", "**/FeedbackDialog.tsx", "**/overlays.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/features/evry/conversation/panel.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/SettingsDialog", "**/SettingsDialog.tsx", "**/FeedbackDialog.tsx", "**/overlays.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/features/feedback/FeedbackOverlay.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/EvryPanel.tsx", "**/SettingsDialog", "**/SettingsDialog.tsx", "**/overlays.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/features/wiki/chrome.tsx"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["**/EvryPanel.tsx", "**/SettingsDialog", "**/SettingsDialog.tsx", "**/FeedbackDialog.tsx"],
+								"allowTypeImports": true,
+								"message": "This overlay loads on first open through its feature's lazy entry (evry/conversation/panel, feedback/FeedbackOverlay, settings/ProductSettings, wiki/chrome); a static import from anywhere else puts it in every product page's first load."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["src/server/flags.types.ts"],
+			"rules": {
+				"typescript/ban-ts-comment": "off"
 			}
 		}
 	]

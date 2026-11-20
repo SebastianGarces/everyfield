@@ -10,27 +10,30 @@ import { createLaunchReader } from "@everyfield/domain/launch";
 import { cache } from "react";
 import "server-only";
 import type { Loaded } from "./model.ts";
+import { type LogWord } from "@everyfield/domain/log";
+import { LOST, transient } from "../../server/platform/transient.ts";
 
 const launch = createLaunchReader();
 const assessments = createAssessments();
 
-async function load<T>(
-	card: string,
+async function load<T, C extends string>(
+	card: LogWord<C>,
 	run: (
 		db: NonNullable<ReturnType<typeof requestDatabase>>,
 		authority: RequestActor,
 	) => Promise<DashboardReply<T> | LaunchReply<T> | AssessmentReply<T>>,
 ): Promise<Loaded<T>> {
-	const authority = (await getViewer())?.authority;
+	const authority = (await getViewer()).authority;
+	if (!authority) return { status: "lost" };
 	const db = requestDatabase();
-	if (!authority || !db) return { status: "lost" };
-	try {
-		const reply = await run(db, authority);
-		return reply.status === "ok" ? { status: "ok", value: reply.value } : { status: "denied" };
-	} catch (error) {
-		console.error(JSON.stringify({ component: "overview", card, outcome: "read_failed", error: String(error) }));
-		return { status: "lost" };
-	}
+	return transient(
+		{ component: "overview", card, outcome: "read_failed" },
+		async () => {
+			const reply = await run(db, authority);
+			return reply.status === "ok" ? { status: "ok", value: reply.value } : { status: "denied" };
+		},
+		LOST,
+	);
 }
 
 export const loadFrame = cache((): Promise<Loaded<OverviewFrame>> =>

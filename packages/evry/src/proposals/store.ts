@@ -1,5 +1,5 @@
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import { readAuthorizedObject, type PrivateStorage, type ResourceAuthorizer } from "@everyfield/db/schema";
 import { photoMediaType } from "@everyfield/domain/people";
 import { fromStates, proposalMachine, type ProposalSubject } from "@everyfield/contracts/machines";
@@ -47,10 +47,10 @@ const owned = (actor: EvryActor) => sql`${mine(actor)} AND ${currentAuthority(ac
 const digest = (revision: SQL) =>
 	sql`encode(sha256(convert_to(jsonb_build_object('operation',p.operation,'revision',${revision},'args',r.args,'review',r.review)::text,'UTF8')),'hex')`;
 const expiry = sql`clock_timestamp()+make_interval(mins=>${REVIEW_MINUTES})`;
-const effectJob = (job: string, alias: string) =>
+const effectJob = <AliasName extends string>(job: string, alias: SqlLiteral<AliasName>) =>
 	sql`INSERT INTO job(id,tenant_id,kind,subject_record_id,producer_key,state,eligible_at,attempt_count,max_attempts,claim_generation)
 		SELECT ${job}::uuid,tenant_id,'evry_effect',conversation_id,id||':'||revision||':'||${job},'ready',clock_timestamp(),0,1,0 FROM ${sql.raw(alias)}`;
-const audit = (action: string, kind: string, alias: string) =>
+const audit = <AliasName extends string>(action: string, kind: string, alias: SqlLiteral<AliasName>) =>
 	sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
 		SELECT tenant_id,account_id,${action},${kind},'conversation',conversation_id,
 			jsonb_build_object('proposalId',id,'revision',revision,'digest',digest) FROM ${sql.raw(alias)}`;
@@ -58,8 +58,9 @@ const audit = (action: string, kind: string, alias: string) =>
 export async function readReview(db: Database, actor: EvryActor, id: string): Promise<Proposal> {
 	const proposalId = parse(z.uuid(), id);
 	const r = await db.execute(currentReview(actor, sql`${proposalId}::uuid`));
-	if (!r.rows.length) throw new EvryRefusal("not_found");
-	return proposalRow.parse(r.rows[0]!.proposal);
+	const [row] = r.rows;
+	if (!row) throw new EvryRefusal("not_found");
+	return proposalRow.parse(row.proposal);
 }
 
 const proposeInput = z.strictObject({ operation, input: z.unknown() });
@@ -91,7 +92,8 @@ export async function prepareProposal(
 			RETURNING *
 		), audit AS (${audit("evry.proposal_prepared", "create", "p")})
 		SELECT ${projection("p")} AS proposal FROM p`);
-	return r.rows.length ? proposalRow.parse(r.rows[0]!.proposal) : null;
+	const [row] = r.rows;
+	return row ? proposalRow.parse(row.proposal) : null;
 }
 
 const reviseInput = z.strictObject({ operation, revision: z.int().min(1), input: z.unknown() });
@@ -122,7 +124,8 @@ export async function reviseProposal(
 			WHERE j.kind='evry_effect' AND j.subject_record_id=x.conversation_id AND j.producer_key LIKE x.id||':%' AND j.state='ready'
 		), audit AS (${audit("evry.proposal_revised", "edit", "x")})
 		SELECT ${projection("x")} AS proposal FROM x`);
-	if (r.rows.length) return proposalRow.parse(r.rows[0]!.proposal);
+	const [row] = r.rows;
+	if (row) return proposalRow.parse(row.proposal);
 	const current = await readReview(db, actor, proposalId);
 	if (current.revision === change.revision && current.stale) throw new EvryRefusal("not_found");
 	throw new EvryRefusal(current.revision !== change.revision ? "review_changed" : "review_closed");
@@ -207,9 +210,10 @@ export async function approveProposal(
 			run AS (${effectJob(job, "queued")}),
 			audit AS (${audit("evry.proposal_approved", "accept", "a")})
 			SELECT ${projection("a")} AS proposal,a.input AS args FROM a`);
-		if (!r.rows.length) return null;
-		const proposal = proposalRow.parse(r.rows[0]!.proposal);
-		if (NOW_WRITES.includes(proposal.operation)) return runNow(db, actor, proposal, r.rows[0]!.args, reason);
+		const [row] = r.rows;
+		if (!row) return null;
+		const proposal = proposalRow.parse(row.proposal);
+		if (NOW_WRITES.includes(proposal.operation)) return runNow(db, actor, proposal, row.args, reason);
 		return { proposal, replayed: false };
 	};
 	const settled = (current: Proposal) => {
@@ -234,7 +238,8 @@ export async function approveProposal(
 
 async function runNow(db: Database, actor: EvryActor, proposal: Proposal, args: unknown, reason: string | null) {
 	const write = REVIEWED_WRITES[proposal.operation] as ReviewedWrite<unknown>;
-	const result = await write.approveNow!.run(db, actor.authority, args, reason);
+	if (!write.approveNow) throw new Error(`${proposal.operation} is an approve-now write without an approveNow step`);
+	const result = await write.approveNow.run(db, actor.authority, args, reason);
 	const refused = "refused" in result ? refusalCode(result.refused) : null;
 	const current = write.current?.(sql`p`) ?? sql`NULL::jsonb`;
 	await db.execute(sql`
@@ -259,7 +264,8 @@ export async function cancelProposal(db: Database, actor: EvryActor, id: string)
 			FROM x WHERE j.id=x.job_id AND j.state='ready'
 		), audit AS (${audit("evry.proposal_cancelled", "revoke", "x")})
 		SELECT ${projection("x")} AS proposal FROM x`);
-	if (r.rows.length) return { proposal: proposalRow.parse(r.rows[0]!.proposal), cancelled: true };
+	const [row] = r.rows;
+	if (row) return { proposal: proposalRow.parse(row.proposal), cancelled: true };
 	return { proposal: await readReview(db, actor, proposalId), cancelled: false };
 }
 
@@ -282,7 +288,8 @@ export async function retryUnresolvedEffects(db: Database, actor: EvryActor, id:
 		),
 		audit AS (${audit("evry.proposal_retried", "reopen", "x")})
 		SELECT ${projection("x")} AS proposal FROM x`);
-	if (r.rows.length) return { proposal: proposalRow.parse(r.rows[0]!.proposal), retried: true };
+	const [row] = r.rows;
+	if (row) return { proposal: proposalRow.parse(row.proposal), retried: true };
 	const current = await readReview(db, actor, proposalId);
 	if (current.outcome === "completed" || current.executing) return { proposal: current, retried: false };
 	throw new EvryRefusal(
@@ -300,15 +307,18 @@ export async function checkProposal(db: Database, actor: EvryActor, id: string, 
 	const stored = await db.execute(
 		sql`SELECT p.input FROM proposal p WHERE p.id=${proposalId}::uuid AND ${readable(actor)} AND p.outcome='completed'`,
 	);
-	if (!stored.rows.length) throw new EvryRefusal("not_found");
+	const [row] = stored.rows;
+	if (!row) throw new EvryRefusal("not_found");
+	const revision = current.receipt?.revision;
+	if (revision === undefined) throw new Error("A completed mail receipt carries no revision");
 	const result = await write.check(
 		db,
 		actor.authority,
-		stored.rows[0]!.input,
+		row.input,
 		{
 			effectKey: `evry:${proposalId}:${current.revision}`,
 			checkKey: `evry:${proposalId}:check:${randomUUID()}`,
-			revision: current.receipt!.revision!,
+			revision,
 		},
 		mail,
 	);
