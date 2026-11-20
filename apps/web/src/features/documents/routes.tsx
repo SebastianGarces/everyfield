@@ -1,5 +1,4 @@
-import { getViewer } from "@/server/request-context";
-import { signIn } from "@/server/sign-in";
+import { requireActor } from "@/server/sign-in";
 import { TEXT_TEMPLATE_IDS } from "@everyfield/domain/documents";
 import { Card, PageHeader, Skeleton, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
@@ -13,10 +12,9 @@ export const documentsMetadata: Metadata = { title: "Documents", robots: { index
 
 export async function DocumentsPage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
-	const viewer = await getViewer();
-	if (viewer.status === "unauthenticated") signIn("/documents");
-	if (viewer.status !== "active" || !viewer.authority) return <Unavailable />;
-	const loaded = await loadDocuments(viewer.authority, query);
+	const authority = await requireActor("/documents");
+	if (!authority) return <Unavailable />;
+	const loaded = await loadDocuments(authority, query);
 	if (loaded.status === "lost") return <Failed />;
 	if (loaded.status === "refused") return <Unavailable />;
 	return (
@@ -25,10 +23,10 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 			version={loaded.version}
 			context={loaded.context}
 			canPreview={loaded.canPreview}
-			canEdit={canEditDocuments(viewer.authority)}
+			canEdit={canEditDocuments(authority)}
 			canStore={canStoreDocuments()}
 			textTemplates={TEXT_TEMPLATE_IDS}
-			written={writtenScope(viewer.authority)}
+			written={writtenScope(authority)}
 		/>
 	);
 }

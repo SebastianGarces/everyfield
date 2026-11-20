@@ -3,11 +3,12 @@ import "server-only";
 import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
 import { stamped, type Outcome, type UnreadCount } from "./model.ts";
-import { call, loadFeedPage, notificationActor } from "./server.ts";
+import { viewerActor } from "@/server/request-context";
+import { call, loadFeedPage } from "./server.ts";
 
 const feedQuery = z.strictObject({ unread: z.boolean(), category: notificationCategory.nullable() });
 
-export const GET = defineReads(notificationActor, "access_denied", (get) => ({
+export const GET = defineReads(viewerActor, "access_denied", (get) => ({
 	count: get(z.strictObject({ account: z.string().optional() }), async (actor, v): Promise<Outcome<UnreadCount>> =>
 		v.account === undefined || v.account === actor.actor.accountId
 			? stamped(await call(({ db, producer }) => producer.readUnreadCount(db, actor, {})), Date.now())

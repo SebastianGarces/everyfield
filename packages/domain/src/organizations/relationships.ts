@@ -197,7 +197,11 @@ export function relationshipCommands(
 				discovery: pair.organization.organizationKind === "sending_church" ? "discovery_church" : "discovery_network",
 			};
 			const description =
-				subject.kind === "account" ? z.string().trim().min(1).max(500).parse(facts.inviter_name) : root!.name;
+				subject.kind === "account"
+					? z.string().trim().min(1).max(500).parse(facts.inviter_name)
+					: root
+						? root.name
+						: refuse();
 			const [plant, account, church] = endpointValues(pair);
 			c.writes.push(
 				tx.insert(tables.invitation).values({

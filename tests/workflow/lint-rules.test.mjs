@@ -1129,7 +1129,7 @@ import { pgTable } from "@everyfield/db/columns";
 		[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`).sort(),
 	);
 	assert.deepEqual(reported({ [holder]: "export const none = 1;\n" }), [`${holder}:1 web-database-imports`]);
-	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 8, "WEB_SQL_HOLDERS only shrinks");
+	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 4, "WEB_SQL_HOLDERS only shrinks");
 });
 
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {

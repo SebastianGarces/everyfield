@@ -15,22 +15,11 @@ import {
 import { PeopleReadContext, peopleMerge, withPeopleWrite } from "@everyfield/domain/people";
 import "server-only";
 import { requestDatabase } from "../../server/database";
-import { getViewer } from "../../server/request-context";
+import { organizationSeat } from "../../server/request-context";
 import { LOST, transient } from "../../server/platform/transient.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
 
 export type PipelineAnswer<T> = PipelineReply<T> | Lost;
-
-export async function pipelineActor(): Promise<
-	{ kind: "signed_out" } | { kind: "unavailable" } | { kind: "seat"; authority: RequestActor }
-> {
-	const v = await getViewer();
-	if (v.status === "unauthenticated") return { kind: "signed_out" };
-	const authority = v.authority;
-	const context = authority?.actor.context;
-	if (!authority || context?.kind !== "seat" || context.owner.kind !== "organization") return { kind: "unavailable" };
-	return { kind: "seat", authority };
-}
 
 async function guarded<R>(run: () => Promise<R>): Promise<R | Lost> {
 	return transient({ component: "pipeline", outcome: "failed" }, () => run(), LOST);
@@ -68,10 +57,10 @@ export async function loadAnswerReview(authority: RequestActor, reviewId: string
 export async function pipelineWrite<T>(
 	run: (db: Database, authority: RequestActor) => Promise<PipelineReply<T>>,
 ): Promise<PipelineAnswer<T>> {
-	const who = await pipelineActor();
-	if (who.kind !== "seat") return { status: "refused", refusal: { code: "unavailable" } };
+	const seat = await organizationSeat();
+	if (!seat) return { status: "refused", refusal: { code: "unavailable" } };
 	const db = requestDatabase();
-	return guarded(() => run(db, who.authority));
+	return guarded(() => run(db, seat.authority));
 }
 
 export async function loadPipelineExport(authority: RequestActor) {
@@ -83,9 +72,9 @@ type PeopleAnswer<T> = PeopleReply<T> | Lost;
 async function asSeat<T>(
 	run: (db: Database, authority: RequestActor) => Promise<PeopleReply<T>>,
 ): Promise<PeopleAnswer<T>> {
-	const who = await pipelineActor();
-	if (who.kind !== "seat") return { status: "refused", error: { code: "unavailable" } } as PeopleReply<T>;
-	return asAuthority(who.authority, run);
+	const seat = await organizationSeat();
+	if (!seat) return { status: "refused", error: { code: "unavailable" } } as PeopleReply<T>;
+	return asAuthority(seat.authority, run);
 }
 async function asAuthority<T>(
 	authority: RequestActor,
