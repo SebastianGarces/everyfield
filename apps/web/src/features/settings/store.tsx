@@ -19,7 +19,7 @@ import {
 import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
 
 const Settings = storeContext<SettingsState>("Settings");
-const Viewer = createContext<SettingsViewer | null>(null);
+const ViewerContext = createContext<SettingsViewer | null>(null);
 
 export function SettingsProvider({
 	port,
@@ -35,13 +35,13 @@ export function SettingsProvider({
 	const store = useLocalStore(() => createSettingsStore({ port, seed }));
 	return (
 		<Settings.Provider value={store}>
-			<Viewer value={viewer}>{children}</Viewer>
+			<ViewerContext value={viewer}>{children}</ViewerContext>
 		</Settings.Provider>
 	);
 }
 
 export function useSettings(): { port: SettingsPort; viewer: SettingsViewer } {
-	const viewer = use(Viewer);
+	const viewer = use(ViewerContext);
 	const port = Settings.useSelect((state) => state.port);
 	if (!viewer) throw new Error("Settings screens need a SettingsProvider above them.");
 	return { port, viewer };
