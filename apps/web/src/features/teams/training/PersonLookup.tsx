@@ -29,8 +29,11 @@ import {
 	type PersonLoad,
 	type ShownProgram,
 } from "./model.ts";
+import { loadProblem } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
-type PersonRead = { status: "ok"; value: PersonLoad } | { status: "lost" };
+type Loaded = { [K in keyof PersonLoad]: PersonLoad[K] | ReadFailure };
+type PersonRead = { status: "ok"; value: Loaded } | { status: "lost" };
 
 const personTraining = createRead(
 	({ personId }: { personId: string; tick: number }): Promise<PersonRead> =>
@@ -128,7 +131,7 @@ function PersonResult({
 	onRetry,
 }: {
 	person: { id: string; name: string };
-	load: PersonLoad;
+	load: Loaded;
 	programs: readonly ShownProgram[];
 	canRecordService: boolean;
 	canWrite: (program: ShownProgram) => boolean;
@@ -153,7 +156,9 @@ function PersonResult({
 						</Button>
 					}
 				>
-					{summary.status === "refused" ? problemText(summary.code) : "Nothing was changed. Try again in a moment."}
+					{summary.status === "refused"
+						? problemText(summary.code)
+						: loadProblem(summary, "Nothing was changed. Try again in a moment.")}
 				</StatePanel>
 			)}
 			{credits.status === "ok" ? (
@@ -177,7 +182,9 @@ function PersonResult({
 						</Button>
 					}
 				>
-					{credits.status === "refused" ? problemText(credits.code) : "Nothing was changed. Try again in a moment."}
+					{credits.status === "refused"
+						? problemText(credits.code)
+						: loadProblem(credits, "Nothing was changed. Try again in a moment.")}
 				</StatePanel>
 			)}
 		</div>

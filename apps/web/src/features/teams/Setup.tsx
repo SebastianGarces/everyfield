@@ -21,6 +21,8 @@ import { DialogNotice, SaveButton, type SaveIntent } from "../../components/save
 import { importTemplates } from "./actions.ts";
 import { templateCatalog } from "./fetch.ts";
 import { plural, type Catalog, type SetupForm } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type SetupInto = {
 	id: string;
@@ -32,7 +34,7 @@ type SetupInto = {
 const NONE: ReadonlySet<string> = new Set();
 
 const catalogs = createRead(() => templateCatalog(), {
-	failed: (): Outcome<Catalog> => ({ status: "lost" }),
+	failed: (): Outcome<Catalog> | ReadFailure => ({ status: "lost" }),
 	fresh: Infinity,
 });
 
@@ -142,7 +144,7 @@ function SetupBody({ lane, present = NONE, into, onDone, form }: SetupProps & { 
 					</p>
 				) : catalog.status !== "ok" ? (
 					<StatePanel tone="error" title="The templates did not load" headingLevel="h3">
-						Nothing was changed. Close this and try again in a moment.
+						{loadProblem(catalog, "Nothing was changed. Close this and try again in a moment.")}
 					</StatePanel>
 				) : f.step === "choose" ? (
 					<ul className="flex flex-col divide-y divide-line">

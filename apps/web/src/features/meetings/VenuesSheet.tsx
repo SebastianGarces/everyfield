@@ -24,6 +24,8 @@ import { getVenue, listVenues } from "./fetch.ts";
 import { problemText, type Outcome, type Venue } from "./model.ts";
 import { SaveButton, SaveNotice, useSaveIntent } from "../../components/save/parts.tsx";
 import { MONTHS } from "../../components/dates.ts";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type History = Extract<Awaited<ReturnType<typeof getVenue>>, { status: "ok" }>["value"];
 type Screen =
@@ -160,7 +162,7 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 								</Button>
 							}
 						>
-							Nothing was changed. Try again in a moment.
+							{loadProblem(result, "Nothing was changed. Try again in a moment.")}
 						</StatePanel>
 					) : result.value.items.length === 0 ? (
 						<EmptyState icon={Location01Icon} title={query ? "No places match" : "No places yet"} headingLevel="h3">
@@ -192,7 +194,7 @@ function Places({ canWrite, onOpen, onAdd }: { canWrite: boolean; onOpen: (id: s
 }
 
 const placeDetails = createRead((id: string) => getVenue(id), {
-	failed: (): Outcome<History> => ({ status: "lost" }),
+	failed: (): Outcome<History> | ReadFailure => ({ status: "lost" }),
 });
 
 function Place({
@@ -240,7 +242,9 @@ function Place({
 			<div className="flex flex-col gap-3">
 				{back}
 				<StatePanel tone="error" title="This place did not load" headingLevel="h3">
-					{got.status === "ok" ? "It may have been removed." : "Nothing was changed. Try again in a moment."}
+					{got.status === "ok"
+						? "It may have been removed."
+						: loadProblem(got, "Nothing was changed. Try again in a moment.")}
 				</StatePanel>
 			</div>
 		);
