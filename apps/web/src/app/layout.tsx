@@ -29,7 +29,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 			<body>
 				<ServerInsertedScript>
 					<script
-						dangerouslySetInnerHTML={{ __html: READER_INPUT_SCRIPT + ";" + JS_FLAG_SCRIPT + ";" + ONE_TIME_LINK_SCRIPT }}
+						dangerouslySetInnerHTML={{
+							__html: READER_INPUT_SCRIPT + ";" + JS_FLAG_SCRIPT + ";" + ONE_TIME_LINK_SCRIPT,
+						}}
 					/>
 				</ServerInsertedScript>
 				{children}
