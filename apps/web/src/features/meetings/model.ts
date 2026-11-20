@@ -1,3 +1,4 @@
+import type { Outcome as Shared } from "@everyfield/contracts/common";
 import { dateText, timeText } from "@everyfield/contracts/common";
 import { meetingStatusMachine, targets } from "@everyfield/contracts/machines";
 import type * as c from "@everyfield/contracts/meetings";
@@ -25,10 +26,11 @@ export type Factor = keyof Scores;
 export type Classification = z.infer<typeof c.classification>;
 export type Finalization = z.infer<typeof c.finalizationResult>;
 
-export type Outcome<T> =
-	| { status: "ok"; value: T }
-	| { status: "refused"; code: string; choices?: { instant: string; offsetSeconds: number }[]; issues?: Issue[] }
-	| { status: "lost" };
+export type Outcome<T> = Shared<
+	T,
+	string,
+	{ choices?: { instant: string; offsetSeconds: number }[]; issues?: Issue[] }
+>;
 
 export type Issue = { path: string; problem: string };
 
