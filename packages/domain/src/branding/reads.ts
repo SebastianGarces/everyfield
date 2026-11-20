@@ -11,6 +11,7 @@ import { brandAssetReader } from "./files.ts";
 import { resolveDocumentTheme } from "./theme.ts";
 
 const row = z.object({ ok: z.boolean().nullable(), row: z.record(z.string(), z.unknown()).nullable() });
+const namedRow = row.extend({ name: z.string().nullable() });
 
 export const brandReader = {
 	async get(db: Database, authority: RequestActor, raw: unknown) {
@@ -23,6 +24,21 @@ export const brandReader = {
 			const found = row.parse(rows[0]);
 			if (found.ok !== true) deny("access_denied");
 			return kitFromRow(found.row);
+		});
+	},
+
+	async getSettings(db: Database, authority: RequestActor, raw: unknown) {
+		return settle(async () => {
+			const scope = scopeOf(authority);
+			parse(c.getRequest, raw);
+			const { rows } = await db.execute(sql`SELECT g.ok, p.name, to_jsonb(k) AS row
+				FROM (SELECT ${scope.admin} AS ok) g
+				LEFT JOIN plant p ON g.ok AND p.id = ${scope.plantId}::uuid
+				LEFT JOIN church_brand_kit k ON g.ok AND k.tenant_id = ${scope.plantId}::uuid`);
+			const found = namedRow.parse(rows[0]);
+			if (found.ok !== true) deny("access_denied");
+			if (!found.name) deny("unavailable");
+			return { kit: kitFromRow(found.row), churchName: found.name };
 		});
 	},
 
