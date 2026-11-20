@@ -1171,12 +1171,15 @@ export async function m(run, refusalOf) {
 		lint({
 			"apps/web/src/features/x/server.ts": code,
 			"apps/web/src/server/jobs/x.ts": code.replace('import "server-only";\n', ""),
+			"packages/domain/src/jobs/x.ts": code.replace('import "server-only";\n', ""),
+			"packages/domain/src/people/x.ts": code.replace('import "server-only";\n', ""),
 			"apps/web/src/features/x/Client.tsx": `"use client";\n${code.replace('import "server-only";\n', "")}`,
 			"apps/web/src/server/platform/transient.ts": code,
 		}),
 		[
 			...hits.map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
 			...hits.map((line) => `apps/web/src/server/jobs/x.ts:${line - 1} no-silent-catch`),
+			...hits.map((line) => `packages/domain/src/jobs/x.ts:${line - 1} no-silent-catch`),
 		].sort(),
 	);
 });

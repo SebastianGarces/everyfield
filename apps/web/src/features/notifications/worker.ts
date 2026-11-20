@@ -39,12 +39,10 @@ import {
 	recoverLease,
 	type Claim,
 	type JobResult,
-} from "@everyfield/domain/jobs";
-import {
 	accountNotificationService,
 	mountMailService,
 	seatedNotificationService,
-} from "../../server/jobs/seated-notifications.ts";
+} from "@everyfield/domain/jobs";
 import { logLine } from "@everyfield/domain/log";
 
 const NOTICES_PER_RUN = 20;
