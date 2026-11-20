@@ -1574,7 +1574,7 @@ export const p = (read: () => Promise<string[] | null>) => read().catch(() => nu
 	);
 });
 
-test("INV-lint: product code that recognises a caught error by its message text is reported", () => {
+test("INV-lint: product code that recognises a caught error by its message text, by comparison or pattern, is reported", () => {
 	const source = `export function f(error: unknown, p: Promise<void>) {
 	if (error instanceof Error && error.message === "unavailable") return 1;
 	try {
@@ -1584,10 +1584,14 @@ test("INV-lint: product code that recognises a caught error by its message text 
 	}
 	p.catch((err) => err.message.startsWith("stale"));
 	const parsed = { message: "x" };
-	return parsed.message === "x" && error instanceof Error && error.message;
+	if (error instanceof Error && /^[a-z_]+$/.test(error.message)) return 4;
+	if (error instanceof Error && error.message.match(/stale/)) return 5;
+	return /x/.test(parsed.message) && error instanceof Error && error.message;
 }
 `;
 	assert.deepEqual(lint({ "packages/domain/src/m.ts": source, "tests/unit/m.test.mts": source }), [
+		"packages/domain/src/m.ts:10 no-error-message-match",
+		"packages/domain/src/m.ts:11 no-error-message-match",
 		"packages/domain/src/m.ts:2 no-error-message-match",
 		"packages/domain/src/m.ts:6 no-error-message-match",
 		"packages/domain/src/m.ts:8 no-error-message-match",
