@@ -8,6 +8,7 @@ import {
 	mkdirSync,
 	mkdtempSync,
 	readFileSync,
+	readdirSync,
 	realpathSync,
 	rmSync,
 	statSync,
@@ -43,6 +44,11 @@ if (a[0] === "env" && a[1] === "ls") {
   for (const n of names) console.log(" " + n + "    Encrypted    " + env + "    1d ago");
   process.exit(0);
 }
+if (a[0] === "env" && a[1] === "pull") {
+  const values = JSON.parse(fs.readFileSync(path.join(S, "store", env + "-values.json"), "utf8"));
+  fs.writeFileSync(a[2], Object.entries(values).map(([n, v]) => n + "=" + JSON.stringify(v)).join("\\n") + "\\n");
+  process.exit(0);
+}
 if (a[0] === "env" && a[1] === "add") {
   const value = fs.readFileSync(0, "utf8");
   if (names.includes(a[2]) && !a.includes("--force")) { console.error("already exists"); process.exit(1); }
@@ -54,6 +60,8 @@ process.exit(2);
 `,
 	);
 	chmodSync(join(dir, "bin/vercel"), 0o755);
+	mkdirSync(join(dir, "store"));
+	mkdirSync(join(dir, "tmp"));
 	writeFileSync(join(dir, "production.json"), JSON.stringify(["DATABASE_URL", "DATABASE_URL_UNPOOLED"]));
 	writeFileSync(
 		join(dir, "preview.json"),
@@ -75,7 +83,7 @@ function run(args: string[], admin = db.adminUrl) {
 		{
 			encoding: "utf8",
 			stdio: ["ignore", "pipe", "pipe"],
-			env: { ...process.env, PATH: PATH(), PROD_IDENTITY_ADMIN_URL: admin },
+			env: { ...process.env, PATH: PATH(), TMPDIR: join(dir, "tmp"), PROD_IDENTITY_ADMIN_URL: admin },
 		},
 	);
 	printed.push(r.stdout, r.stderr);
@@ -163,6 +171,34 @@ test("a dry run prints the plan and every setting by name, and changes no role a
 	assert.match(r.out, /Dry run: nothing changed/);
 });
 
+test("a dry run checks the shape of IDENTITY_MAIL_FROM in Vercel Production by the app's rule and prints no value", async () => {
+	const names = readFileSync(join(dir, "production.json"), "utf8");
+	writeFileSync(join(dir, "production.json"), JSON.stringify([...JSON.parse(names), "IDENTITY_MAIL_FROM"]));
+	const shape = (value: string) => {
+		writeFileSync(join(dir, "store/production-values.json"), JSON.stringify({ IDENTITY_MAIL_FROM: value }));
+		const r = run(["--out", OUT()]);
+		assert.equal(r.code, 0, r.out);
+		assert.deepEqual(readdirSync(join(dir, "tmp")), []);
+		return r.out;
+	};
+	try {
+		const wrong = shape("Everyfield <mail-sentinel-7731@everyfield.example>");
+		assert.match(wrong, /IDENTITY_MAIL_FROM\s+wrong shape: a bare address such as mail@example\.com/);
+		assert.match(
+			wrong,
+			/Apply would refuse:\n(?:.*\n)*\s+- IDENTITY_MAIL_FROM in Vercel Production is the wrong shape/,
+		);
+		assert.match(shape("mail-sentinel-7731@everyfield.example"), /IDENTITY_MAIL_FROM\s+right shape/);
+		assert.match(shape(""), /IDENTITY_MAIL_FROM\s+cannot check/);
+		for (const out of printed) assert.ok(!out.includes("mail-sentinel-7731"), "a value reached the terminal");
+		assert.ok(vercelCalls().every((a) => a[0] === "env" && (a[1] === "ls" || a[1] === "pull")));
+		assert.deepEqual(await roles(), []);
+		assert.ok(!existsSync(OUT()));
+	} finally {
+		writeFileSync(join(dir, "production.json"), names);
+	}
+});
+
 test("--apply without the confirmed endpoint refuses and changes nothing", async () => {
 	for (const args of [["--apply"], ["--apply", "--confirm", "ep-some-other-endpoint"]]) {
 		const r = run([...args, "--out", OUT()]);
@@ -171,7 +207,7 @@ test("--apply without the confirmed endpoint refuses and changes nothing", async
 	}
 	assert.deepEqual(await roles(), []);
 	assert.ok(!existsSync(OUT()));
-	assert.ok(vercelCalls().every((a) => a[1] === "ls"));
+	assert.ok(vercelCalls().every((a) => a[1] === "ls" || a[1] === "pull"));
 });
 
 test("apply creates the three logins, writes the commands file, and a second apply keeps them; rotate replaces passwords", async () => {

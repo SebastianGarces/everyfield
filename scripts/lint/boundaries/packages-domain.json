@@ -5,6 +5,7 @@
 		"branding/kit.ts",
 		"branding/theme.ts",
 		"documents/access.ts",
+		"feedback/public.ts",
 		"followups/queries.ts",
 		"identity/auth.ts",
 		"identity/budget.ts",

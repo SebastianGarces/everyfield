@@ -10,6 +10,7 @@ import {
 	NAMES,
 	near,
 	newEdges,
+	num,
 	reach,
 	SHAPES,
 	specs,
@@ -132,7 +133,7 @@ type Bot = {
 	due: { blink: number; unblink: number; dbl: boolean; act: number; spin: number; morph: number };
 	w: Record<string, string>;
 	drawn: Drawn;
-	B: number[];
+	B: [number, number, number];
 	bmoves: Move[] | null;
 	moved: boolean;
 	acting: boolean;
@@ -152,6 +153,7 @@ const REACH = 0.92;
 const DEG = Math.PI / 180;
 const PIVOT = 84;
 const LEAN = 3;
+const oneOf = <T>(list: readonly T[], otherwise: T): T => list[Math.floor(Math.random() * list.length)] ?? otherwise;
 const think = (now: number, g0: [number, number]): Look => ({ u: [0.55, -0.835], m: 0.45, t0: now, g0, rigid: true });
 
 let shapeEdges: Record<EvryShape, Edges> | null = null;
@@ -200,7 +202,7 @@ const refresh = () => {
 	live = bots.filter(visible);
 };
 
-function start() {
+function start(): NonNullable<typeof page> {
 	const mq = matchMedia("(prefers-reduced-motion: reduce)");
 	reduced = mq.matches;
 	const io = new IntersectionObserver(
@@ -242,10 +244,11 @@ function start() {
 			io.disconnect();
 		},
 	};
+	return page;
 }
 
 export function mountEvry(nodes: EvryNodes): EvryHandle {
-	if (!page) start();
+	const shared = page ?? start();
 	const options = optionsOf(nodes.root);
 	const host = nodes.root.parentElement?.closest<HTMLElement>("[data-open]") ?? null;
 	const st: Bot = {
@@ -297,10 +300,10 @@ export function mountEvry(nodes: EvryNodes): EvryHandle {
 		});
 		st.hostObserver.observe(host, { attributes: true, attributeFilter: ["data-open"] });
 	}
-	setShape(st, options.shape ?? NAMES[Math.floor(Math.random() * NAMES.length)]!);
+	setShape(st, options.shape ?? oneOf(NAMES, "circle"));
 	nodes.root.setAttribute("data-eb", "");
 	applyPref(st);
-	page!.io.observe(nodes.root);
+	shared.io.observe(nodes.root);
 	const update = (next: EvryLifeOptions) => {
 		const prev = st.o;
 		st.o = next;
@@ -385,7 +388,7 @@ function startMorph(st: Bot, name: EvryShape, ms: number, now: number) {
 	showShape(st, name);
 }
 function move(from: number[], to: number[], t0: number, rfrom: number, rto: number): Move {
-	const dist = Math.hypot(to[0]! - from[0]!, to[1]! - from[1]!) || 1;
+	const dist = Math.hypot(num(to, 0) - num(from, 0), num(to, 1) - num(from, 1)) || 1;
 	const room = (r: number) => (r ? ((1.04 - REACH) * r) / dist : 1);
 	return {
 		from,
@@ -428,7 +431,8 @@ function glancePlan(st: Bot, now: number, one?: boolean) {
 	moves.push(move(from, [0, 0], t, rf, 0));
 	return moves;
 }
-const ACTS: Record<"first" | "later", [ActKind, number][]> = {
+type Weights = readonly [readonly [ActKind, number], ...(readonly [ActKind, number])[]];
+const ACTS: Record<"first" | "later", Weights> = {
 	first: [
 		["look", 0.8],
 		["tilt", 0.12],
@@ -440,10 +444,10 @@ const ACTS: Record<"first" | "later", [ActKind, number][]> = {
 		["sway", 0.13],
 	],
 };
-const pick = (w: [ActKind, number][]) => {
+const pick = (w: Weights) => {
 	let r = Math.random();
 	for (const [k, p] of w) if ((r -= p) < 0) return k;
-	return w[0]![0];
+	return w[0][0];
 };
 const bmove = (from: number[], to: number[], t0: number): Move => ({
 	from,
@@ -470,8 +474,8 @@ function actPlan(st: Bot, now: number, kind: ActKind, one?: boolean): Act {
 	if (kind === "look") {
 		eyes = glancePlan(st, now, one);
 		for (const mv of eyes) {
-			const s = Math.abs(mv.to[0]!) > 2 ? Math.sign(mv.to[0]!) : 0;
-			to([s * rand(2.5, 5), 0, mv.to[1]! < -4 ? -rand(0.6, 1.4) : 0], mv.t0 + rand(50, 110));
+			const s = Math.abs(num(mv.to, 0)) > 2 ? Math.sign(num(mv.to, 0)) : 0;
+			to([s * rand(2.5, 5), 0, num(mv.to, 1) < -4 ? -rand(0.6, 1.4) : 0], mv.t0 + rand(50, 110));
 		}
 	} else if (kind === "tilt") {
 		to([side * rand(4.5, 8.5), 0, 0], now);
@@ -490,13 +494,16 @@ function actPlan(st: Bot, now: number, kind: ActKind, one?: boolean): Act {
 		}
 		to([0, 0, 0], t);
 	}
-	return { kind, eyes, body, end: Math.max(t, eyes ? moveEnd(eyes[eyes.length - 1]!) : 0) };
+	const last = eyes?.at(-1);
+	return { kind, eyes, body, end: Math.max(t, last ? moveEnd(last) : 0) };
 }
-function fitAct(st: Bot, now: number, kind: ActKind, force: boolean) {
-	const room = st.due.morph - 250;
-	let a = actPlan(st, now, kind);
-	if (a.end > room) a = actPlan(st, now, kind, true);
-	return a.end <= room || force ? a : null;
+function shortAct(st: Bot, now: number, kind: ActKind) {
+	const a = actPlan(st, now, kind);
+	return a.end > st.due.morph - 250 ? actPlan(st, now, kind, true) : a;
+}
+function fitAct(st: Bot, now: number, kind: ActKind) {
+	const a = shortAct(st, now, kind);
+	return a.end <= st.due.morph - 250 ? a : null;
 }
 function startAct(st: Bot, a: Act) {
 	st.moves = a.eyes;
@@ -567,7 +574,7 @@ function plan(st: Bot, now: number) {
 		const others = NAMES.filter((n) => n !== st.shape);
 		const thinking = st.mood === "thinking";
 		const ms = thinking ? rand(450, 600) : rand(600, 1000);
-		startMorph(st, others[Math.floor(Math.random() * others.length)]!, ms, now);
+		startMorph(st, oneOf(others, st.shape), ms, now);
 		d.morph = now + ms + (thinking ? rand(1000, 1900) : rand(2600, 7700));
 		d.act = now + ms + rand(200, 700);
 		st.moved = false;
@@ -584,14 +591,14 @@ function plan(st: Bot, now: number) {
 		d.spin = d.morph + rand(1500, 4000);
 	}
 	if (!st.moved && (now >= d.act || now >= d.morph)) {
-		const a = fitAct(st, now, pick(ACTS.first), true)!;
+		const a = shortAct(st, now, pick(ACTS.first));
 		startAct(st, a);
 		d.morph = Math.max(d.morph, a.end + 250);
 		d.act = a.end + rand(300, 1200);
 		return;
 	}
 	if (now >= d.act) {
-		const a = fitAct(st, now, pick(ACTS.later), false);
+		const a = fitAct(st, now, pick(ACTS.later));
 		if (a && a.end < d.spin) {
 			startAct(st, a);
 			d.act = a.end + rand(300, 1200);
@@ -599,7 +606,7 @@ function plan(st: Bot, now: number) {
 	}
 }
 
-const GV = [0, 0];
+const GV: [number, number] = [0, 0];
 function step(st: Bot, now: number) {
 	let body = false;
 	const m = st.morph;
@@ -644,8 +651,8 @@ function step(st: Bot, now: number) {
 			Math.abs(tx - st.gx) < 0.02 && Math.abs(ty - st.gy) < 0.02 && Math.abs(f.vx) < 0.05 && Math.abs(f.vy) < 0.05;
 	} else if (st.moves) {
 		st.moves = advance(st.moves, now, GV);
-		st.gx = GV[0]!;
-		st.gy = GV[1]!;
+		st.gx = GV[0];
+		st.gy = GV[1];
 	} else if (st.look) {
 		const L = st.look;
 		const t = Math.min(1, (now - L.t0) / 450);
@@ -662,7 +669,10 @@ function step(st: Bot, now: number) {
 		st.n.root.removeAttribute("data-act");
 	}
 	draw(st, body);
-	const busy = (l: Move[] | null) => !!l && (now < moveEnd(l[0]!) || (l.length > 1 && now >= l[1]!.t0));
+	const busy = (l: Move[] | null) => {
+		const [head, next] = l ?? [];
+		return !!head && (now < moveEnd(head) || (!!next && now >= next.t0));
+	};
 	return !!(
 		st.morph ||
 		st.spin ||
@@ -673,16 +683,18 @@ function step(st: Bot, now: number) {
 	);
 }
 function advance(list: Move[], now: number, out: number[]) {
-	let mv = list[0]!;
-	while (list.length > 1 && now >= list[1]!.t0) {
+	let [mv, next] = list;
+	while (mv && next && now >= next.t0) {
 		list.shift();
-		mv = list[0]!;
+		[mv, next] = list;
 	}
+	if (!mv) return null;
 	const k = now < mv.t0 ? 0 : prof(mv, now - mv.t0);
-	for (let i = 0; i < out.length; i++) out[i] = mv.from[i]! + (mv.to[i]! - mv.from[i]!) * k;
+	for (let i = 0; i < out.length; i++) out[i] = num(mv.from, i) + (num(mv.to, i) - num(mv.from, i)) * k;
 	return list.length === 1 && now >= moveEnd(mv) ? null : list;
 }
 
+const EYES = [0, 1] as const;
 function set(st: Bot, node: Element, key: string, name: string, v: string) {
 	if (st.w[key] !== v) {
 		st.w[key] = v;
@@ -704,10 +716,10 @@ function draw(st: Bot, body: boolean) {
 		D.tx = still ? 0 : gxn;
 		D.ty = still ? 0 : gyn;
 	}
-	const tilt = Math.round(((still ? 0 : LEAN * gxn) + B[0]!) * 5) / 5;
+	const tilt = Math.round(((still ? 0 : LEAN * gxn) + B[0]) * 5) / 5;
 	const ver = tilt ? st.ver : 0;
-	const bx = Math.round(B[1]! * 20) / 20;
-	const by = Math.round(B[2]! * 20) / 20;
+	const bx = Math.round(B[1] * 20) / 20;
+	const by = Math.round(B[2] * 20) / 20;
 	if (D.tilt !== tilt || D.bx !== bx || D.by !== by || D.ptx !== D.tx || D.pty !== D.ty || D.ver !== ver) {
 		D.tilt = tilt;
 		D.bx = bx;
@@ -752,19 +764,19 @@ function draw(st: Bot, body: boolean) {
 	D.ang = st.ang;
 	const sp = specs(st.fy, st.fk, st.mood);
 	if (st.mood === "happy") {
-		for (let j = 0; j < 2; j++) set(st, n.eyes[j]!, "e" + j, "d", happyEyeD(sp[j]!, j, st.fk, st.ang, oy));
+		for (const j of EYES) set(st, n.eyes[j], "e" + j, "d", happyEyeD(sp[j], j, st.fk, st.ang, oy));
 		return;
 	}
 	const E = (st.gx || st.gy) && !st.look?.rigid ? edgesNow(st) : null;
 	if (E && st.d0ver !== st.ver) {
 		st.d0ver = st.ver;
-		for (let j = 0; j < 2; j++) st.d0[j] = near(E, sp[j]![0], sp[j]![1]).d;
+		for (const j of EYES) st.d0[j] = near(E, sp[j][0], sp[j][1]).d;
 	}
-	for (let j = 0; j < 2; j++) {
-		const [cx, cy, w, l] = sp[j]!;
+	for (const j of EYES) {
+		const [cx, cy, w, l] = sp[j];
 		set(
 			st,
-			n.eyes[j]!,
+			n.eyes[j],
 			"e" + j,
 			"d",
 			eyeD(eye(E, cx, cy, w, l, st.gx, st.gy, st.C, null, E ? st.d0[j] : 0), st.ang, ox, oy),
@@ -780,10 +792,12 @@ function bbox(st: Bot) {
 		let x1 = -Infinity;
 		let y1 = -Infinity;
 		for (let i = 0; i < P.length; i += 2) {
-			if (P[i]! < x0) x0 = P[i]!;
-			if (P[i]! > x1) x1 = P[i]!;
-			if (P[i + 1]! < y0) y0 = P[i + 1]!;
-			if (P[i + 1]! > y1) y1 = P[i + 1]!;
+			const x = num(P, i);
+			const y = num(P, i + 1);
+			if (x < x0) x0 = x;
+			if (x > x1) x1 = x;
+			if (y < y0) y0 = y;
+			if (y > y1) y1 = y;
 		}
 		b[0] = x0;
 		b[1] = y0;
@@ -802,8 +816,8 @@ function dueOf(st: Bot) {
 		d.morph,
 		st.o.hold || st.mood !== "idle" ? Infinity : Math.min(d.act, d.spin),
 		st.follow ? st.follow.until : Infinity,
-		st.moves && st.moves.length > 1 ? st.moves[1]!.t0 : Infinity,
-		st.bmoves && st.bmoves.length > 1 ? st.bmoves[1]!.t0 : Infinity,
+		st.moves?.[1]?.t0 ?? Infinity,
+		st.bmoves?.[1]?.t0 ?? Infinity,
 	);
 }
 function tick() {

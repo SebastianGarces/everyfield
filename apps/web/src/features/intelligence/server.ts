@@ -1,46 +1,25 @@
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import { plantSeat, type PlantSeat } from "@/server/request-context";
 import { careError, type CarePage, type CareReply } from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createPrivateCare, type PrivateCare } from "@everyfield/domain/intelligence";
 import "server-only";
 import type { Outcome } from "./model.ts";
-import { isTransient, logFailure, type LogWord } from "@everyfield/domain/log";
-import { unexpected } from "../../server/platform/transient.ts";
+import { LOST, transient } from "../../server/platform/transient.ts";
+import { readDb } from "../../server/platform/tx.ts";
 
 const care = createPrivateCare();
 
-export type CareViewer = { authority: RequestActor; displayName: string; role: "owner" | "admin" | "member" };
-
-export async function careViewer(): Promise<CareViewer | null> {
-	const v = await getViewer();
-	const authority = v.authority;
-	if (!authority) return null;
-	const ctx = authority.actor.context;
-	if (ctx.kind !== "seat" || ctx.owner.kind !== "plant") return null;
-	return { authority, displayName: v.displayName ?? "", role: ctx.role };
-}
-
-const report = <O extends string>(outcome: LogWord<O>, error: unknown) =>
-	logFailure({ component: "private-care", outcome }, error);
-
-export async function loadCheckIn(viewer: CareViewer): Promise<Outcome<CarePage>> {
-	const db = requestDatabase();
-	try {
-		return await care.readTrends(db, viewer.authority, {});
-	} catch (error) {
-		if (!isTransient(error)) throw unexpected({ component: "private-care", outcome: "read_failed" }, error);
-		report("read_failed", error);
-		return { status: "lost" };
-	}
+export async function loadCheckIn(viewer: PlantSeat): Promise<Outcome<CarePage>> {
+	return readDb("private-care", (db) => care.readTrends(db, viewer.authority, {}));
 }
 
 type Body<T> = (care: PrivateCare, db: Database, authority: RequestActor) => Promise<CareReply<T>>;
 
-export const run = async <T>(body: Body<T>) => runAs(await careViewer(), body);
+export const run = async <T>(body: Body<T>) => runAs(await plantSeat(), body);
 
-export async function runAs<T>(viewer: CareViewer | null, body: Body<T>): Promise<Outcome<T>> {
+export async function runAs<T>(viewer: PlantSeat | null, body: Body<T>): Promise<Outcome<T>> {
 	if (!viewer)
 		return {
 			status: "refused",
@@ -52,11 +31,5 @@ export async function runAs<T>(viewer: CareViewer | null, body: Body<T>): Promis
 			}),
 		};
 	const db = requestDatabase();
-	try {
-		return await body(care, db, viewer.authority);
-	} catch (error) {
-		if (!isTransient(error)) throw unexpected({ component: "private-care", outcome: "call_failed" }, error);
-		report("call_failed", error);
-		return { status: "lost" };
-	}
+	return transient({ component: "private-care", outcome: "call_failed" }, () => body(care, db, viewer.authority), LOST);
 }

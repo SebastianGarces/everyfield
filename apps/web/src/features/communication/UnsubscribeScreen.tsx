@@ -1,10 +1,11 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Alert02Icon, MailRemove01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { Button } from "@everyfield/ui/controls";
 import { Icon, LogoMark, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useState, useTransition, type ReactNode } from "react";
-import type { Outcome } from "./model.ts";
+
 import { applyUnsubscribe, undoUnsubscribe } from "./unsubscribeActions.ts";
 
 export type UnsubscribeView =

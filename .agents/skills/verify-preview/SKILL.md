@@ -174,8 +174,9 @@ unknown surface id. Never approve while it fails. A changed surface with no map 
 `node tools/ci/feature-maps.ts --check` refuses a branch that changes a pending route or a feature with no map, and the
 author maps it. When it passes it prints one row per proved surface with its feature, how users reach it and what
 proves it, next to the files it found. Paste that table as the report's Proof section, with the file links pointed at
-the published evidence. When the diff touches a state machine, the output also has a Machines table (step 5): paste it
-too.
+the published evidence. For a UI diff it also needs each proved surface's design-match scores and side-by-side images
+and prints a Design match table (step 4, "Design match"). When the diff touches a state machine, the output also has a
+Machines table (step 5): paste each table too.
 
 ## 4. UI changes
 
@@ -226,10 +227,82 @@ Keep each video under 30 seconds. Use synthetic data or data from the shared dev
 database only. `publish.mjs` adds every video in `$E` to the evidence page.
 
 The script cannot judge quality. Open every after screenshot and compare it with the before
-screenshot and the design (`design/everyfield-ui.html` or `design/everyfield-marketing.html`).
-Check layout, spacing, type, color, focus states, copy and the phone width with the `better-*`
-skills. A visual problem is a failure even when the script passes. A pixel difference on a PR
-that claims no visual change is a failure.
+screenshot. Check focus states and the phone width with the `better-*` skills. A visual problem is a failure even
+when the script passes. A pixel difference on a PR that claims no visual change is a failure.
+
+### Design match
+
+A UI diff (product code under `apps/web/` or `packages/ui/src/`) is a gate on the design, scored by you. For each
+surface you prove in step 3, put the built screen at 390 and 1440 px next to its reference and score it. Only the
+reviewer scores: the author's own scores, notes or images do not count, and you never copy them.
+
+Pick the reference in this order and name it in the scores file:
+
+1. The matching section of the prototype: a `data-page` section of `design/everyfield-ui.html` (`people`, `ministries`,
+   `signin`, ...) or a page of `design/everyfield-marketing.html` (`home`, `planters`, `oversight`, `trust`, `access`,
+   `privacy`, `terms`). Compare the same state: a list against the prototype's list, an empty state against an empty
+   state where the prototype has one, and judge the design language, not the seed's data.
+2. When the prototype has no such screen, the approved references for it (a link or path the task or Sebastian
+   approved): `"reference": { "approved": "<link or path>" }`.
+3. With neither, the prototype's `foundations` or `components` section, named as such in the reasons (D-1719).
+
+Score each of the five dimensions from 0 to 10, with one line of reason that names what you saw:
+
+| Dimension | What it judges |
+|---|---|
+| hierarchy | What reads first, second and third; the primary action; the grouping and order of the sections. |
+| spacing | Gutters, gaps, padding, alignment and density against the design's rhythm. |
+| color | Surfaces, ink, accents, status colors and contrast, all from the design tokens. |
+| type | Font family, size, weight, line height and wrapping of titles, body, labels and numbers. |
+| copy | The words: titles, labels, buttons, empty and error text, voice, against the design and the requirement. |
+
+The pass bar is 8.5 on every dimension at both widths. Any score below 8.5 fails the review: ask for changes
+(`--verdict changes`) and name the defect from its reason. A score of 8.5 or more still needs its reason.
+
+Capture the built screen as step 3 does (true 390 and 1440 px viewport shots), then let the helper capture the
+reference and compose the side by side, built on the left and reference on the right:
+
+```bash
+bin/dev browser run --timeout 300 -- node $S/design-match.mjs --surface <surface-id> --out "$E" \
+  --built-390 "$E/proof/<surface-id>/<state>-390.png" --built-1440 "$E/proof/<surface-id>/<state>-1440.png" \
+  --section <data-page or marketing page> [--prototype design/everyfield-marketing.html] [--reference-390 <png>]
+# approved references instead of the prototype:
+#   --approved <link or path> --reference-390 <png> --reference-1440 <png>
+```
+
+It opens the prototype from the head checkout, shows the section, hides the prototype's design-system dock, and
+captures it at 1440 px. `design/everyfield-ui.html` is a desktop prototype with no phone layout, so its 1440 px capture
+is the 390 px reference too (the image says so): judge whether the phone build keeps the section's hierarchy, color,
+type and copy in a sound phone layout. When the prototype's `mobile` section or an approved reference shows that screen
+on a phone, pass it as `--reference-390`. The marketing prototype is responsive and is captured at both widths.
+
+The evidence for each surface, in one folder:
+
+```text
+$E/design-match/<surface-id>/scores.json   the reference and the five scores and reasons per width
+$E/design-match/<surface-id>/390.png       built and reference side by side, at least 780 px wide
+$E/design-match/<surface-id>/1440.png      built and reference side by side, at least 2880 px wide
+```
+
+The helper writes a `scores.json` with empty scores. Fill in every score and reason:
+
+```json
+{
+  "reference": { "prototype": "design/everyfield-ui.html", "section": "signin" },
+  "widths": {
+    "390": { "hierarchy": { "score": 9, "reason": "..." }, "spacing": { "score": 9, "reason": "..." },
+             "color": { "score": 9.5, "reason": "..." }, "type": { "score": 8.5, "reason": "..." },
+             "copy": { "score": 9.5, "reason": "..." } },
+    "1440": { "...": "the same five dimensions" }
+  }
+}
+```
+
+`pnpm review-proof` (step 3) reads these files for every proved surface of a UI diff. It fails naming the surface when
+the scores file is missing or not JSON, the reference names a prototype section that does not exist, a width or a
+dimension is missing, a score is outside 0-10 or below 8.5, a reason is empty, or a side-by-side PNG is missing or too
+narrow to hold both screens. When it passes it prints the Design match table; paste it into the report. A diff that
+changes no UI code needs none of this.
 
 ## 5. Backend changes
 
@@ -343,6 +416,12 @@ is a blocking finding: ask for changes.
 it and links to its 390 and 1440 px screenshots or recording. For a tooling-only review: "No app proof needed", with
 the check's output. For a diff touching a machine or a 4+ state value set: the Machines table it printed, linking each
 machine's table and `docs/machines/<id>.md` chart, and its `<id>-coverage.txt`.>
+
+## Design match
+
+<The Design match table `pnpm review-proof` printed for a UI diff: one row per surface and width with the reference,
+the hierarchy, spacing, color, type and copy scores with their reasons, and links to the side-by-side images. Pass bar:
+8.5 on every score; any lower score means `--verdict changes`. For a diff with no UI change: "Not a UI change".>
 
 ## Checks
 
