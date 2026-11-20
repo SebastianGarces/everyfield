@@ -25,6 +25,8 @@ import { editorExtensions, type FieldValues } from "./extensions.ts";
 import { paletteVars } from "./paper.ts";
 import { blocksToEditor } from "./table-json.ts";
 import { WORD_MARK, wordMarks } from "./word-marks.ts";
+import { loadProblem } from "../../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../../components/get-reads.ts";
 
 type Props = {
 	docId: string;
@@ -35,18 +37,21 @@ type Props = {
 };
 
 export const templateCompares = createRead(
-	(docId: string) => compareWithTemplate(docId).catch((): CompareResult => ({ status: "lost" })),
-	{ failed: (): CompareResult => ({ status: "lost" }) },
+	(docId: string) => compareWithTemplate(docId).catch((): CompareResult | ReadFailure => ({ status: "lost" })),
+	{ failed: (): CompareResult | ReadFailure => ({ status: "lost" }) },
 );
 
 type Load = { kind: "loading" } | { kind: "ready"; compare: ChurchCompare } | { kind: "failed"; message: string };
 
-function loadOf(result: CompareResult | undefined): Load {
+function loadOf(result: CompareResult | ReadFailure | undefined): Load {
 	if (!result) return { kind: "loading" };
 	if (result.status === "ok") return { kind: "ready", compare: result.compare };
 	return {
 		kind: "failed",
-		message: result.status === "refused" ? result.message : "The connection dropped. Nothing was changed.",
+		message:
+			result.status === "refused"
+				? result.message
+				: loadProblem(result, "The connection dropped. Nothing was changed."),
 	};
 }
 
