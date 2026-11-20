@@ -1,7 +1,7 @@
-import { getReads, refusalAs } from "../../../components/get-reads.ts";
+import { readsFrom, refusalAs } from "../../../components/get-reads.ts";
 import type { GET } from "./read.ts";
 
-const get = getReads<typeof GET>("/organization/pipeline/read");
+const get = readsFrom<typeof GET>("/organization/pipeline/read");
 
 export const readGoals = () => get("goals");
 export const readBoard = (query: unknown) => get("board", query);
