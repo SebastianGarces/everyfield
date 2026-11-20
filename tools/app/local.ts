@@ -50,6 +50,7 @@ export const PERSONAS: Record<Persona, string> = {
 	graceStaff: "Dee Walker, Member at Grace Austin (QA) responsible for one pipeline person",
 	graceMember: "Ben Carter, Member at Grace Austin (QA) with no pipeline duty",
 	resident: "Casey Lee, linked resident with no seat: /my-residency",
+	endedResident: "Riley Hart, seatless account who left the Grace Austin (QA) residency: /my-residency ended message",
 	hillOwner: "Ruth Calder, Owner of Hill Country Network (QA): network side of the multiplication example",
 };
 
