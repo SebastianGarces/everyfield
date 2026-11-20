@@ -2,6 +2,7 @@ import { signIn } from "@/server/sign-in";
 import { loadAnswerReview, loadAnswerReviews, pipelineActor } from "../pipeline-mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
+import { LANDING_ROUTE } from "@everyfield/contracts/identity";
 import { NotAvailable } from "../../access/AccessStates";
 import { REVIEWS_PATH, reviewPath } from "./model";
 import { ReviewScreen, ReviewsScreen } from "./ReviewScreens";
@@ -11,7 +12,7 @@ export const reviewsMetadata: Metadata = { title: "Sent for review", robots: { i
 const refused = (
 	<div className="py-12">
 		<Card className="mx-auto max-w-[560px]">
-			<NotAvailable scope="page" homeHref={REVIEWS_PATH} />
+			<NotAvailable scope="page" homeHref={LANDING_ROUTE} />
 		</Card>
 	</div>
 );

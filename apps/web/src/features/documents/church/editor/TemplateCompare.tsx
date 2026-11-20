@@ -427,13 +427,13 @@ function DifferenceCard({
 			<div className={sides.length === 2 || goneFromTemplate ? "grid gap-3 app-md:grid-cols-2" : "grid gap-3"}>
 				{sides.map((side) => (
 					<div key={side.who} className="flex min-w-0 flex-col gap-1.5">
-						<p className="text-xs font-semibold tracking-wide text-text-3 uppercase">{side.who}</p>
+						<p className="section-label text-text-3">{side.who}</p>
 						<Side difference={d} value={side.value} lines={side.lines} values={values} brand={brand} />
 					</div>
 				))}
 				{goneFromTemplate ? (
 					<div className="flex min-w-0 flex-col gap-1.5">
-						<p className="text-xs font-semibold tracking-wide text-text-3 uppercase">Template, new version</p>
+						<p className="section-label text-text-3">Template, new version</p>
 						<p className="text-[15px] text-text-2">The template removed this.</p>
 					</div>
 				) : null}
