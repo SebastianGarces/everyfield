@@ -40,7 +40,6 @@ function matcher(source) {
 
 export function weighPart({ log, ran, concurrency = PRE_T463_CONCURRENCY }, sources) {
 	const files = ran.filter((file) => !proofs.includes(file)).sort(compare);
-	if (!files.length) return {};
 	const matches = files.map((file) => matcher(sources(file)));
 	const tests = files.map(() => 0);
 	let at = 0;
