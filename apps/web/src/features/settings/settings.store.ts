@@ -54,8 +54,6 @@ export type SettingsState = {
 
 export type SettingsStore = StoreApi<SettingsState>;
 
-const LOST: Lost = { status: "lost" };
-
 const OFFLINE_SAVE: Refusal = {
 	message: "Everyfield could not be reached, so this may not have saved. Load the latest version to check.",
 	reference: OFFLINE_REFERENCE,
