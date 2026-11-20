@@ -1,6 +1,18 @@
-import { setFlag } from "../../packages/domain/src/flags/index.ts";
+import { setFlag, type FlagScope, type Registry } from "../../packages/domain/src/flags/index.ts";
 
-export async function withFlag(db, { flag, scope, operator, value = true, declared = undefined }, body) {
+type Change<R extends Registry> = Parameters<typeof setFlag<R>>[1];
+
+export async function withFlag<R extends Registry, T>(
+	db: Parameters<typeof setFlag<R>>[0],
+	{
+		flag,
+		scope,
+		operator,
+		value = true,
+		declared = undefined,
+	}: { flag: Change<R>["flag"]; scope: FlagScope; operator: Change<R>["operator"]; value?: boolean; declared?: R },
+	body: () => Promise<T>,
+) {
 	if (scope.kind !== "workspace" && scope.kind !== "account")
 		throw Error("withFlag sets a flag for one workspace or account, never globally");
 	await setFlag(db, { flag, scope, value, operator }, declared);

@@ -35,8 +35,7 @@ Run this on Sebastian's Mac, from the home checkout. `neonctl` and `vercel` must
       branch with them. The seed seals and hashes the seeded mail addresses under these keys, so the preview must use
       the same two. No key is printed.
    5. Deploys the branch head with `vercel deploy --target preview`. Only the database and identity settings and a
-      fresh `FLAGS_SECRET` (for Flags Explorer, see "Testing a flagged feature") are set for this deployment, with the
-      same mail keys the seed got. Everything else comes from the Vercel Preview environment. No key is printed, and no
+      cron secret are set for this deployment, with the same mail keys the seed got. Everything else comes from the Vercel Preview environment. No key is printed, and no
       project setting changes.
    6. Points the alias `everyfield-<id>.vercel.app` at the deployment. The app trusts only this origin, so always give
       Nora the alias URL, not the deployment URL.
@@ -347,8 +346,8 @@ time with `bin/qa up` before you test mail on it.
 ### Testing a flagged feature (T-471)
 
 New work can land hidden behind a feature flag (`docs/architecture/patterns.md`, "Feature flags"). The flag is off
-unless someone turns it on, so Nora sees the old screen until one of these two routes turns it on for her. Neither
-changes what any other account sees, and neither turns the flag on for everyone. `bin/flag list` names every flag.
+unless someone turns it on, so Nora sees the old screen until route 1 below turns it on for her. It changes
+nothing that other accounts see, and it does not turn the flag on for everyone. `bin/flag list` names every flag.
 
 **Route 1: an account override on her QA login.** The lead runs, on Sebastian's Mac, against the preview's own Neon
 branch:
@@ -364,17 +363,11 @@ is then on for that one login in every browser, and off for the other QA logins.
 delivered+qa-owner@resend.dev --qa <preview id>`. `bin/qa down` also removes it, with the branch. An override on the
 shared development database works the same way without `--qa`.
 
-**Route 2: a Flags Explorer override on the preview.** `bin/qa up` gives each QA preview its own `FLAGS_SECRET`, so
-the Vercel Toolbar's Flags Explorer can read the flags (`/.well-known/vercel/flags`) and force one for one browser:
-
-1. Open the preview signed in to Vercel, so the Toolbar shows. Open Flags Explorer from the Toolbar.
-2. Find the flag, set it to On, and apply. Explorer stores the choice in an encrypted `vercel-flag-overrides`
-   cookie, and the page reloads with the flag on.
-3. To clear it, reset the override in Flags Explorer, or clear the preview's cookies.
-
-The override lives only in that browser's cookie. It changes no `feature_flag` row, so other browsers and logins
-still see the stored value. Production ignores the cookie, and so does any deployment without `FLAGS_SECRET`. A
-remote-browser bot without the Toolbar uses route 1.
+**No Flags Explorer on QA previews.** The Vercel Toolbar's Flags Explorer cannot work on a `bin/qa` preview without
+two project settings Sebastian has not made: the Toolbar shows on a custom alias (`everyfield-<id>.vercel.app`) only
+when the project opts in, and Flags Explorer reads `FLAGS_SECRET` only from the project's environment variables, never
+from one deployment's. So `bin/qa up` sets no `FLAGS_SECRET`, the preview's `/.well-known/vercel/flags` answers 404,
+and the preview ignores any `vercel-flag-overrides` cookie (T-531). Use route 1.
 
 Nora tests both states: the flag on, then off again. When she signs off, the flag goes on for everyone through
 `bin/flag set <flag> on --all`, which needs an approved `evf flip` (`bin/flag help`).
