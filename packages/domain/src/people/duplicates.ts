@@ -51,7 +51,7 @@ export async function matchPeople(
 		sql`SELECT g.allowed,${matchJson(owner, { email: sql`${email}::text`, phone: sql`${phone}::text`, name: sql`${name}::text` }, sql`${exclude ?? null}::uuid`)} AS people FROM (SELECT ${gate} AS allowed) g`,
 	);
 	const row = found.parse(r.rows[0]);
-	if (!row.allowed) deny();
+	if (!row.allowed) deny("unavailable");
 	return duplicateHints(row.people);
 }
 function matchJson(owner: string, signal: { email: SQL; phone: SQL; name: SQL }, exclude: SQL) {
@@ -92,7 +92,7 @@ export const personDuplicatesJson = (owner: string) => {
 export const personDuplicates = (raw: unknown) => duplicateHints(found.shape.people.parse(raw));
 export async function checkForDuplicates(tx: Tx, ctx: Context, raw: unknown) {
 	return readReply(async () => {
-		if (ctx.selected.kind !== "plant") deny();
+		if (ctx.selected.kind !== "plant") deny("unavailable");
 		const plant = ctx.selected.id;
 		const input = parse(c.duplicateCheckRequest, raw);
 		const { gate } = await authorizeRead(tx, ctx);
@@ -117,7 +117,7 @@ const dismissed = sql`EXISTS(SELECT FROM person_duplicate_dismissal d WHERE d.pl
  AND d.with_person_id=m.id)`;
 export async function listDuplicatePairs(tx: Tx, ctx: Context) {
 	return readReply(async () => {
-		if (ctx.selected.kind !== "plant") deny();
+		if (ctx.selected.kind !== "plant") deny("unavailable");
 		const plant = ctx.selected.id;
 		const r = await tx.execute(sql`SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object(
   'person',jsonb_build_object('id',x.id,'displayName',x.display_name),
@@ -131,7 +131,7 @@ export async function listDuplicatePairs(tx: Tx, ctx: Context) {
   ORDER BY p.created_at,p.id LIMIT ${PAIRS + 1}) x),'[]'::jsonb) AS pairs
  FROM (SELECT ${adminRead(ctx)} AS allowed) g`);
 		const row = pairRows.parse(r.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("unavailable");
 		return c.duplicatePairs.parse({
 			items: row.pairs.slice(0, PAIRS),
 			completeness: row.pairs.length > PAIRS ? "partial" : "complete",
@@ -144,7 +144,7 @@ const organizationPairRows = pairRows.extend({
 });
 export async function listOrganizationDuplicatePairs(tx: Tx, ctx: Context) {
 	return readReply(async () => {
-		if (ctx.selected.kind !== "organization") deny();
+		if (ctx.selected.kind !== "organization") deny("unavailable");
 		const org = ctx.selected.id;
 		const r = await tx.execute(sql`WITH g AS (SELECT ${adminRead(ctx)} AS allowed),
 live AS (SELECT p.id,p.display_name,p.created_at,
@@ -163,7 +163,7 @@ SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object(
   'with',jsonb_build_object('id',x.with_id,'displayName',x.with_name),'shared',to_jsonb(x.shared))
   ORDER BY x.at,x.id,x.with_id) FROM x),'[]'::jsonb) AS pairs FROM g`);
 		const row = organizationPairRows.parse(r.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("unavailable");
 		return c.organizationDuplicatePairs.parse({
 			items: row.pairs.slice(0, PAIRS),
 			completeness: row.pairs.length > PAIRS ? "partial" : "complete",
@@ -177,7 +177,7 @@ const listedRow = z.object({
 });
 export async function listedDuplicatePair(tx: Tx, ctx: Context, pair: { a: string; b: string }) {
 	return readReply(async () => {
-		if (ctx.selected.kind !== "plant") deny();
+		if (ctx.selected.kind !== "plant") deny("unavailable");
 		const plant = ctx.selected.id;
 		const r = await tx.execute(sql`SELECT g.allowed,(SELECT jsonb_build_object('personId',p.id,'withPersonId',m.id)
   FROM person p JOIN person m ON m.tenant_id=p.tenant_id AND m.state='live'
@@ -187,7 +187,7 @@ export async function listedDuplicatePair(tx: Tx, ctx: Context, pair: { a: strin
   ORDER BY p.created_at,p.id LIMIT 1) AS listed
  FROM (SELECT ${adminRead(ctx)} AS allowed) g`);
 		const row = listedRow.parse(r.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("unavailable");
 		return row.listed;
 	});
 }
@@ -206,7 +206,7 @@ const dismissedRows = z.object({
 });
 export async function listDismissedDuplicatePairs(tx: Tx, ctx: Context) {
 	return readReply(async () => {
-		if (ctx.selected.kind !== "plant") deny();
+		if (ctx.selected.kind !== "plant") deny("unavailable");
 		const plant = ctx.selected.id;
 		const r = await tx.execute(sql`SELECT g.allowed,coalesce((SELECT jsonb_agg(jsonb_build_object(
   'person',jsonb_build_object('id',x.person_id,'displayName',x.person_name),
@@ -224,7 +224,7 @@ export async function listDismissedDuplicatePairs(tx: Tx, ctx: Context) {
  (SELECT pl.timezone FROM plant pl WHERE g.allowed AND pl.id=${plant}::uuid) AS zone
  FROM (SELECT ${adminRead(ctx)} AS allowed) g`);
 		const row = dismissedRows.parse(r.rows[0]);
-		if (!row.allowed || !row.zone) deny();
+		if (!row.allowed || !row.zone) deny("unavailable");
 		return c.dismissedDuplicatePairs.parse({
 			zone: row.zone,
 			items: row.pairs.slice(0, PAIRS),
@@ -236,7 +236,7 @@ export async function listDismissedDuplicatePairs(tx: Tx, ctx: Context) {
 const changeRow = z.object({ found: z.boolean(), changed: z.boolean() });
 function pairWrite(change: "dismiss" | "restore", tx: Tx, ctx: WriteContext, raw: unknown) {
 	return reply(tx, async () => {
-		if (ctx.selected.kind !== "plant") deny();
+		if (ctx.selected.kind !== "plant") deny("unavailable");
 		const plant = ctx.selected.id;
 		const input = parse(c.duplicatePairRequest, raw);
 		await declareWrite(tx, "established");

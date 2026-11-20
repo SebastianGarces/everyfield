@@ -67,7 +67,7 @@ async function lockTeam(tx: Tx, w: Writer, teamId: string): Promise<TeamLock> {
 			WHERE t.id = ${teamId}::uuid AND t.plant_id = ${w.plant.id}::uuid
 			FOR UPDATE OF t`,
 	);
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return teamLock.parse(row);
 }
 async function lockRow(tx: Tx, w: Writer, responsibilityId: string): Promise<RowLock> {
@@ -83,7 +83,7 @@ async function lockRow(tx: Tx, w: Writer, responsibilityId: string): Promise<Row
 			WHERE r.id = ${responsibilityId}::uuid AND r.plant_id = ${w.plant.id}::uuid
 			FOR UPDATE OF r, t`,
 	);
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return rowLock.parse(row);
 }
 function teamOf(responsibilityId: string): TeamOwned {
@@ -132,7 +132,7 @@ export const responsibilityWriter = {
 			const input = parse(c.offerRequest, raw);
 			return command(tx, ctx, "teams.offerResponsibilities", input, async (w, audit) => {
 				const team = await lockTeam(tx, w, input.input.teamId);
-				if (team.archived) deny();
+				if (team.archived) deny("unavailable");
 				expectRevision(team.revision, input.expectedRevision);
 				const stored = team.lines.map((line) => ({
 					sourceLine: line.line,
@@ -190,7 +190,7 @@ export const responsibilityWriter = {
 				input,
 				async (w, audit) => {
 					const team = await lockTeam(tx, w, input.input.teamId);
-					if (team.archived) deny();
+					if (team.archived) deny("unavailable");
 					expectRevision(team.revision, input.expectedRevision);
 					if (!team.versionId) deny("unavailable");
 					const responsibilityId = randomUUID();
@@ -237,7 +237,7 @@ export const responsibilityWriter = {
 				input,
 				async (w, audit) => {
 					const row = await lockRow(tx, w, input.input.responsibilityId);
-					if (row.archived) deny();
+					if (row.archived) deny("unavailable");
 					if (row.removed) deny("conflict");
 					expectRevision(row.revision, input.expectedRevision);
 					const same = row.text === input.input.text;
@@ -274,7 +274,7 @@ export const responsibilityWriter = {
 				input,
 				async (w, audit) => {
 					const row = await lockRow(tx, w, input.input.responsibilityId);
-					if (row.archived) deny();
+					if (row.archived) deny("unavailable");
 					if (row.removed) deny("conflict");
 					expectRevision(row.revision, input.expectedRevision);
 					const done = input.input.done;
@@ -313,7 +313,7 @@ export const responsibilityWriter = {
 				input,
 				async (w, audit) => {
 					const row = await lockRow(tx, w, input.input.responsibilityId);
-					if (row.archived) deny();
+					if (row.archived) deny("unavailable");
 					if (row.removed) deny("conflict");
 					expectRevision(row.revision, input.expectedRevision);
 					audit.writes.push(markRemoved(w.plant.id, row.id));

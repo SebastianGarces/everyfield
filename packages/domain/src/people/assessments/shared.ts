@@ -36,9 +36,9 @@ export async function subject(
  ${churchToday} AS today,clock_timestamp() AS now,${extra ?? sql`NULL`} AS extra
  FROM person p JOIN plant pl ON pl.id=p.plant_id WHERE p.id=${typeof person === "string" ? sql`${person}::uuid` : person} AND p.tenant_id=${plant}::uuid AND p.plant_id=${plant}::uuid
  FOR UPDATE OF p`);
-	if (!result.rows[0]) deny();
+	if (!result.rows[0]) deny("unavailable");
 	const p = subjectRow.parse(result.rows[0]);
-	if (p.state !== "live") deny();
+	if (p.state !== "live") deny("unavailable");
 	return p;
 }
 export function notFuture(p: Pick<Subject, "today">, date: string) {
@@ -123,7 +123,7 @@ export async function readHistory(
 	const result = await tx.execute(sql`SELECT ${json(plant)} AS h
  FROM person p WHERE ${adminRead(ctx)} AND p.id=${input.personId}::uuid AND p.tenant_id=${plant}::uuid
  AND p.plant_id=${plant}::uuid`);
-	if (!result.rows[0]) deny();
+	if (!result.rows[0]) deny("unavailable");
 	return history(plant, input, result.rows[0].h);
 }
 
@@ -143,6 +143,6 @@ export async function replayed(
 	const result = await tx.execute(
 		sql`SELECT ${row} AS j FROM ${from} r WHERE r.id=${recordId}::uuid AND r.plant_id=${plant}::uuid`,
 	);
-	if (!result.rows[0]) deny();
+	if (!result.rows[0]) deny("unavailable");
 	return { ...rest, [field]: view(plant, result.rows[0].j) };
 }

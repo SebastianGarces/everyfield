@@ -97,7 +97,11 @@ function fieldChanges<AName extends string>(
 ) {
 	const rows = Object.entries(patch)
 		.filter(([, after]) => after !== undefined)
-		.map(([field, after], n) => ({ n, field, col: keys[field]!, after }));
+		.map(([field, after], n) => {
+			const col = keys[field];
+			if (col === undefined) throw new Error(`The patch field ${field} has no column`);
+			return { n, field, col, after };
+		});
 	return sql`(SELECT coalesce(jsonb_agg(jsonb_build_object('field',k.field,'before',to_jsonb(${sql.raw(a)})->k.col,'after',k.after) ORDER BY k.n)
 		FILTER (WHERE (to_jsonb(${sql.raw(a)})->k.col) IS DISTINCT FROM k.after),'[]'::jsonb)
 		FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) k(n int,field text,col text,after jsonb))`;
@@ -393,7 +397,8 @@ async function eachPerson(
 				: { outcome: "unchanged" as const, reason: unchanged }),
 		});
 	}
-	return { receiptId: receiptId!, revision: "1", people };
+	if (receiptId === null) throw new Error("A tag change ran for no person");
+	return { receiptId, revision: "1", people };
 }
 export const assignTag = reviewed({
 	operation: "people.assignTag",
@@ -403,9 +408,10 @@ export const assignTag = reviewed({
 		.strictObject({ personIds, tagId: z.uuid().optional(), tagName: tagName.optional() })
 		.refine((v) => (v.tagId === undefined) !== (v.tagName === undefined), "name the tag by id or by name"),
 	review(actor, value) {
-		const tag = value.tagId
-			? sql`t.id=${value.tagId}::uuid`
-			: sql`t.normalized_name=lower(btrim(${value.tagName!}::text))`;
+		const tag =
+			value.tagName === undefined
+				? sql`t.id=${value.tagId}::uuid`
+				: sql`t.normalized_name=lower(btrim(${value.tagName}::text))`;
 		return tagReview(actor, value.personIds, tag, true, value.tagName ?? null);
 	},
 	async run(tx, context, args: Tagging, key) {

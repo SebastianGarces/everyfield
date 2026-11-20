@@ -147,11 +147,12 @@ export function scriptedDraft(input: c.ModelInput): c.DraftOutput {
 	};
 	const ordered = (["concern", "neutral", "good"] as const).flatMap((state) => all.filter((l) => l.state === state));
 	const [focus, a, b] = ordered;
+	if (!focus || !a || !b) throw new Error("A launch assessment needs at least three lines");
 	const positives = all.filter((l) => l.state === "good" && l !== focus && l !== a && l !== b).slice(0, 3);
 	return {
-		summary: `This looks at your launch progress in Phase ${input.phase}. The main thing to look at now: ${focus!.title.toLowerCase()}.`,
-		focus: point(focus!),
-		supporting: [point(a!), point(b!)],
+		summary: `This looks at your launch progress in Phase ${input.phase}. The main thing to look at now: ${focus.title.toLowerCase()}.`,
+		focus: point(focus),
+		supporting: [point(a), point(b)],
 		positives: positives.map(point),
 	};
 }

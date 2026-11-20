@@ -83,7 +83,7 @@ function teamLock(w: Writer, teamId: string) {
 }
 async function lockTeam(tx: Tx, w: Writer, teamId: string): Promise<TeamRow> {
 	const row = await oneRow(tx, teamLock(w, teamId));
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return teamRow.parse(row);
 }
 const appointee = z.object({
@@ -92,6 +92,24 @@ const appointee = z.object({
 	revision: z.string(),
 	pipelinePosition: z.string().nullable(),
 });
+async function lockTeamAndOpen(tx: Tx, w: Writer, teamId: string, personId: string) {
+	const row = await oneRow(
+		tx,
+		sql`WITH t AS MATERIALIZED (${teamLock(w, teamId)})
+			SELECT t.*, open.n AS "openCount", open.stage AS "openStage"
+			FROM t
+			CROSS JOIN LATERAL (
+				SELECT count(*)::int AS n, min(p.stage) AS stage FROM team_tenure tn
+				JOIN team_role r ON r.id = tn.role_id
+				JOIN person p ON p.id = tn.person_id
+				WHERE r.team_id = t.id AND tn.person_id = ${personId}::uuid
+					AND tn.ended_on IS NULL AND tn.plant_id = t."plantId"
+			) open`,
+	);
+	if (!row) deny("unavailable");
+	const open = z.object({ n: z.coerce.number().int(), stage: z.string().nullable() });
+	return { team: teamRow.parse(row), open: open.parse({ n: row.openCount, stage: row.openStage }) };
+}
 async function lockTeamAndPerson(tx: Tx, w: Writer, teamId: string, personId: string) {
 	const row = await oneRow(
 		tx,
@@ -104,7 +122,7 @@ async function lockTeamAndPerson(tx: Tx, w: Writer, teamId: string, personId: st
 				FOR UPDATE
 			) who ON true`,
 	);
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return { team: teamRow.parse(row), person: row.person };
 }
 async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | null): Promise<RoleRow> {
@@ -147,7 +165,7 @@ async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | nu
 			WHERE r.id = ${roleId}::uuid AND r.plant_id = ${w.plant.id}::uuid
 			FOR UPDATE OF r, t`,
 	);
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return roleRow.parse(row);
 }
 function teamValue(row: TeamRow, revision = row.revision) {
@@ -470,7 +488,7 @@ export const teamsWriter = {
 				input,
 				async (w, audit) => {
 					const team = await lockTeam(tx, w, input.input.teamId);
-					if (team.archived) deny();
+					if (team.archived) deny("unavailable");
 					const id = randomUUID();
 					const row = roleRow.parse({
 						id,
@@ -526,7 +544,7 @@ export const teamsWriter = {
 				async (w, audit) => {
 					const before = await lockRole(tx, w, input.input.roleId, null);
 					expectRevision(before.revision, input.expectedRevision);
-					if (before.retired || before.teamArchived) deny();
+					if (before.retired || before.teamArchived) deny("unavailable");
 					const after = roleRow.parse({
 						...before,
 						name: keep(input.input.name, before.name),
@@ -630,7 +648,7 @@ export const teamsWriter = {
 					const before = await lockRole(tx, w, input.input.roleId, input.input.personId);
 					expectRevision(before.revision, input.expectedRevision);
 					if (before.teamId !== input.input.teamId) deny("invalid_subject");
-					if (before.retired || before.teamArchived) deny();
+					if (before.retired || before.teamArchived) deny("unavailable");
 					if (!before.personState) deny("invalid_subject");
 					if (before.personState !== "live") deny("invalid_subject");
 					if (before.occupantPersonId && before.occupantPersonId !== input.input.personId)
@@ -688,17 +706,8 @@ export const teamsWriter = {
 				"teams.endMembership",
 				input,
 				async (w, audit) => {
-					const team = await lockTeam(tx, w, input.input.teamId);
+					const { team, open: count } = await lockTeamAndOpen(tx, w, input.input.teamId, input.input.personId);
 					expectRevision(team.revision, input.expectedRevision);
-					const open = await oneRow(
-						tx,
-						sql`SELECT count(*)::int AS n, min(p.stage) AS stage FROM team_tenure tn
-							JOIN team_role r ON r.id = tn.role_id
-							JOIN person p ON p.id = tn.person_id
-							WHERE r.team_id = ${team.id}::uuid AND tn.person_id = ${input.input.personId}::uuid
-								AND tn.ended_on IS NULL AND tn.plant_id = ${w.plant.id}::uuid`,
-					);
-					const count = z.object({ n: z.coerce.number().int(), stage: z.string().nullable() }).parse(open);
 					if (!count.n) {
 						return membershipNoop(audit, input.input.personId, count.stage ?? "prospect", team.id);
 					}
@@ -786,7 +795,7 @@ export const teamsWriter = {
 				async (w, audit) => {
 					const before = await lockRole(tx, w, input.input.roleId, input.input.personId);
 					expectRevision(before.revision, input.expectedRevision);
-					if (before.retired || before.teamArchived) deny();
+					if (before.retired || before.teamArchived) deny("unavailable");
 					if (before.personState !== "live") deny("invalid_subject");
 					if (!before.previousTenureId) deny("invalid_subject");
 					if (before.occupantPersonId && before.occupantPersonId !== input.input.personId)
@@ -837,7 +846,7 @@ export const teamsWriter = {
 			return command(tx, ctx, "teams.appointLeader", input, async (w, audit) => {
 				const { team: before, person } = await lockTeamAndPerson(tx, w, input.input.teamId, input.input.personId);
 				expectRevision(before.revision, input.expectedRevision);
-				if (before.archived) deny();
+				if (before.archived) deny("unavailable");
 				const who = appointee.safeParse(person);
 				if (!who.success) deny("invalid_subject");
 				const noop = before.leaderPersonId === input.input.personId && before.leaderSource === "explicit";
@@ -890,7 +899,7 @@ export const teamsWriter = {
 						JOIN team t ON t.id = r.team_id AND t.plant_id = r.plant_id
 						WHERE tn.id = ${i.tenureId}::uuid AND tn.plant_id = ${w.plant.id}::uuid FOR UPDATE OF tn`,
 				);
-				if (!found) deny();
+				if (!found) deny("unavailable");
 				const before = z
 					.object({
 						tenureId: id,

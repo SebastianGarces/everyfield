@@ -7,7 +7,7 @@ import * as Q from "../../../packages/contracts/src/organizations/index.ts";
 import { readAnswerableInvitation } from "../../../packages/domain/src/organizations/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 after(S.teardown);
 const accepted = (v: unknown) => {

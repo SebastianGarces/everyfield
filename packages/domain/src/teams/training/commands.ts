@@ -37,7 +37,7 @@ async function lockProgram(tx: Tx, w: Writer, programId: string): Promise<Progra
 			(archived_at IS NOT NULL) AS archived
 			FROM training_program WHERE id = ${programId}::uuid AND plant_id = ${w.plant.id}::uuid FOR UPDATE`,
 	);
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return programRow.parse(row);
 }
 async function teamGate(tx: Tx, w: Writer, teamId: string | null | undefined) {
@@ -47,7 +47,7 @@ async function teamGate(tx: Tx, w: Writer, teamId: string | null | undefined) {
 		sql`SELECT (archived_at IS NOT NULL) AS archived FROM team
 			WHERE id = ${teamId}::uuid AND plant_id = ${w.plant.id}::uuid FOR SHARE`,
 	);
-	if (!row || row.archived === true) deny();
+	if (!row || row.archived === true) deny("unavailable");
 }
 async function programTeam(tx: Tx, w: Writer, programId: string) {
 	const row = await oneRow(
@@ -79,45 +79,49 @@ const creditFacts = z.object({
 	assigned: z.boolean(),
 	member: z.boolean(),
 });
-async function creditContext(tx: Tx, w: Writer, program: Program, personId: string) {
+async function lockCredit(tx: Tx, w: Writer, programId: string, personId: string, expectedRevision: string) {
 	const row = await oneRow(
 		tx,
-		sql`SELECT p.state, p.tenant_id AS "tenantId",
-			latest.kind, latest.version::int AS version, latest.earned_on::text AS "earnedOn",
-			latest.verifier_account_id AS "verifierAccountId",
-			EXISTS (SELECT 1 FROM training_assignment a
-				WHERE a.program_id = ${program.id}::uuid AND a.person_id = p.id AND a.state = 'active') AS assigned,
-			EXISTS (SELECT 1 FROM team_tenure tn
-				JOIN team_role r ON r.id = tn.role_id AND r.retired_at IS NULL AND r.plant_id = p.tenant_id
-				WHERE tn.person_id = p.id AND tn.ended_on IS NULL AND tn.plant_id = p.tenant_id
-					AND r.team_id IS NOT DISTINCT FROM ${program.teamId}::uuid) AS member
-			FROM person p
+		sql`WITH program AS MATERIALIZED (
+				SELECT id, plant_id, team_id, name, required, version, revision, archived_at FROM training_program
+				WHERE id = ${programId}::uuid AND plant_id = ${w.plant.id}::uuid FOR UPDATE
+			)
+			SELECT program.id, program.team_id AS "teamId", program.name, program.required, program.version::int AS version,
+				program.revision::text AS revision, (program.archived_at IS NOT NULL) AS archived,
+				to_jsonb(facts) AS facts,
+				EXISTS (SELECT 1 FROM person o WHERE o.id = ${personId}::uuid) AS "personExists"
+			FROM program
 			LEFT JOIN LATERAL (
-				SELECT c.kind, c.version, c.earned_on, c.verifier_account_id
-				FROM training_credit c
-				WHERE c.plant_id = ${w.plant.id}::uuid AND c.person_id = p.id AND c.program_id = ${program.id}::uuid
-				ORDER BY c.recorded_at DESC, c.id DESC
-				LIMIT 1
-			) latest ON true
-			WHERE p.id = ${personId}::uuid AND p.tenant_id = ${w.plant.id}::uuid
-			FOR UPDATE OF p`,
+				SELECT p.state, latest.kind, latest.version::int AS version, latest.earned_on::text AS "earnedOn",
+					latest.verifier_account_id AS "verifierAccountId",
+					EXISTS (SELECT 1 FROM training_assignment a
+						WHERE a.program_id = program.id AND a.person_id = p.id AND a.state = 'active') AS assigned,
+					EXISTS (SELECT 1 FROM team_tenure tn
+						JOIN team_role r ON r.id = tn.role_id AND r.retired_at IS NULL AND r.plant_id = p.tenant_id
+						WHERE tn.person_id = p.id AND tn.ended_on IS NULL AND tn.plant_id = p.tenant_id
+							AND r.team_id IS NOT DISTINCT FROM program.team_id) AS member
+				FROM person p
+				LEFT JOIN LATERAL (
+					SELECT c.kind, c.version, c.earned_on, c.verifier_account_id
+					FROM training_credit c
+					WHERE c.plant_id = program.plant_id AND c.person_id = p.id AND c.program_id = program.id
+					ORDER BY c.recorded_at DESC, c.id DESC
+					LIMIT 1
+				) latest ON true
+				WHERE p.id = ${personId}::uuid AND p.tenant_id = program.plant_id
+				FOR UPDATE OF p
+			) facts ON true`,
 	);
-	if (!row) {
-		const other = await oneRow(tx, sql`SELECT 1 AS n FROM person WHERE id = ${personId}::uuid`);
-		if (other) deny("access_denied");
-		deny("invalid_subject");
-	}
-	if (row.state !== "live") deny("invalid_subject");
-	return creditFacts.parse({
-		...row,
-		kind: row.kind ?? null,
-		version: row.version ?? null,
-		earnedOn: row.earnedOn ?? null,
-		verifierAccountId: row.verifierAccountId ?? null,
-	});
+	if (!row) deny("unavailable");
+	const program = programRow.parse(row);
+	if (program.revision !== expectedRevision) deny("conflict");
+	const facts = z.object({ state: z.string() }).passthrough().nullable().parse(row.facts);
+	if (!facts) deny(row.personExists === true ? "access_denied" : "invalid_subject");
+	if (facts.state !== "live") deny("invalid_subject");
+	return { program, facts: creditFacts.parse(facts) };
 }
 function eligible(program: Program, facts: z.infer<typeof creditFacts>) {
-	if (program.archived) deny();
+	if (program.archived) deny("unavailable");
 	if (program.required && !facts.assigned) deny("invalid_subject");
 	if (!program.required && program.teamId && !facts.member && !facts.assigned) deny("invalid_subject");
 }
@@ -218,7 +222,7 @@ async function setRoster(
 ): Promise<Change<z.infer<typeof c.rosterResult>>> {
 	const before = await lockProgram(tx, w, input.input.programId);
 	if (before.revision !== input.expectedRevision) deny("conflict");
-	if (before.archived) deny();
+	if (before.archived) deny("unavailable");
 	const wanted = unique(input.input.personIds);
 	const people = await livePeople(tx, w, wanted);
 	const digest = rosterDigest({ programId: before.id, revision: before.revision, people });
@@ -275,9 +279,7 @@ async function attestProgram(
 	input: z.infer<typeof c.attestProgramRequest>,
 ): Promise<Change<z.infer<typeof c.creditResult>>> {
 	const body = input.input;
-	const program = await lockProgram(tx, w, body.programId);
-	if (program.revision !== input.expectedRevision) deny("conflict");
-	const facts = await creditContext(tx, w, program, body.personId);
+	const { program, facts } = await lockCredit(tx, w, body.programId, body.personId, input.expectedRevision);
 	eligible(program, facts);
 	if (compatible(program, facts))
 		return {
@@ -360,9 +362,13 @@ async function revoke(
 	audit: AuditWrite,
 	input: z.infer<typeof c.revokeCompletionRequest>,
 ): Promise<Change<z.infer<typeof c.creditResult>>> {
-	const program = await lockProgram(tx, w, input.input.programId);
-	if (program.revision !== input.expectedRevision) deny("conflict");
-	const facts = await creditContext(tx, w, program, input.input.personId);
+	const { program, facts } = await lockCredit(
+		tx,
+		w,
+		input.input.programId,
+		input.input.personId,
+		input.expectedRevision,
+	);
 	if (facts.kind !== "earned" || facts.version === null)
 		return {
 			value: creditValue(audit.id, "noop", input.input.personId, program.id, "revoked", false, w.accountId, null),
@@ -397,9 +403,13 @@ async function recomplete(
 	audit: AuditWrite,
 	input: z.infer<typeof c.recompleteTrainingRequest>,
 ): Promise<Change<z.infer<typeof c.creditResult>>> {
-	const program = await lockProgram(tx, w, input.input.programId);
-	if (program.revision !== input.expectedRevision) deny("conflict");
-	const facts = await creditContext(tx, w, program, input.input.personId);
+	const { program, facts } = await lockCredit(
+		tx,
+		w,
+		input.input.programId,
+		input.input.personId,
+		input.expectedRevision,
+	);
 	eligible(program, facts);
 	if (compatible(program, facts))
 		return {

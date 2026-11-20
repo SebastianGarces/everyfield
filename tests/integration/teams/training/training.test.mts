@@ -1155,3 +1155,28 @@ test("AC:REQ-IDN-005 an unknown or another church's program or team is unavailab
 		"access_denied",
 	);
 });
+
+test("INV-concurrency two leaders recording the same credit at once add one credit row, and two revokes add one revoke", async () => {
+	const course = await program("Race course", { required: false });
+	const sam = await person("Sam Race");
+	const credits = (kind) =>
+		count(sql`SELECT count(*)::int AS n FROM training_credit
+			WHERE program_id=${course.id} AND person_id=${sam} AND kind=${kind}`);
+	const revision = await rev("training_program", course.id);
+	const both = (op, input) =>
+		Promise.all([0, 2].map((who) => run(op, { requestKey: key(), expectedRevision: revision, input }, who)));
+	const attests = await both(trainingWriter.attestCompletion, {
+		kind: "program",
+		personId: sam,
+		programId: course.id,
+		earnedOn: "2026-10-05",
+	});
+	assert.deepEqual(attests.map((reply) => ok(reply).outcome).sort(), ["changed", "noop"]);
+	assert.equal(await credits("earned"), 1);
+	const revokes = await both(trainingWriter.revokeCompletion, {
+		personId: sam,
+		programId: course.id,
+	});
+	assert.deepEqual(revokes.map((reply) => ok(reply).outcome).sort(), ["changed", "noop"]);
+	assert.equal(await credits("revoked"), 1);
+});

@@ -1,58 +1,16 @@
 import { requestIdentity, type RequestIdentity } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/launch";
 import { sql, type SQL } from "@everyfield/db/query";
-import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer, type PlantViewer } from "../documents/access.ts";
 import { hash } from "../operations/canonical.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
-type Code = c.LaunchError["code"];
-class Refusal extends Error {
-	readonly code: Code;
-	readonly details: object;
-	constructor(code: Code, details: object = {}) {
-		super(code);
-		this.code = code;
-		this.details = details;
-	}
-}
-export function deny(code: Code, details: object = {}): never {
-	throw new Refusal(code, details);
-}
-const RETRY: Record<Code, c.LaunchError["retry"]> = {
-	invalid_input: "never",
-	invalid_reason: "never",
-	access_denied: "never",
-	idempotency_conflict: "never",
-	conflict: "refresh",
-	stale_review: "refresh",
-	invalid_outcome: "never",
-	invalid_debrief: "never",
-	invalid_summary: "never",
-	not_ready: "refresh",
-	derived_evidence_only: "never",
-	invalid_gathering: "never",
-	gathering_unavailable: "refresh",
-	gathering_reached: "refresh",
-};
-export async function settle<T>(body: () => Promise<T>): Promise<c.LaunchReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (!(error instanceof Refusal)) throw error;
-		return {
-			status: "refused",
-			error: c.launchError.parse({
-				code: error.code,
-				details: error.details,
-				correlationId: randomUUID(),
-				retry: RETRY[error.code],
-			}),
-		};
-	}
-}
+const refusals = defineRefusals(c.launchError);
+export const deny: Deny<typeof c.launchError> = refusals.deny;
+export const { settle } = refusals;
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const found = schema.safeParse(raw);
 	if (!found.success) deny("invalid_input");
