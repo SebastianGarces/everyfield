@@ -1,7 +1,7 @@
 "use client";
 
 import { MotionConfig } from "motion/react";
-import { createContext, use, useCallback, useRef, useState, type ReactNode, type AnimationEvent } from "react";
+import { createContext, use, useCallback, useMemo, useRef, useState, type ReactNode, type AnimationEvent } from "react";
 import { prefersReducedMotion, useHydrated } from "./browser";
 import { notePress } from "./focus";
 import { THEME_COOKIE, type ProductTheme } from "./theme";
@@ -45,8 +45,10 @@ export function ProductRoot({ initialTheme, children }: { initialTheme: ProductT
 		setThemeState(next);
 	}, []);
 
+	const themed = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+
 	return (
-		<ThemeContext value={{ theme, setTheme }}>
+		<ThemeContext value={themed}>
 			<MotionConfig reducedMotion="user">
 				<div
 					ref={root}

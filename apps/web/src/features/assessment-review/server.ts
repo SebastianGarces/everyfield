@@ -1,5 +1,6 @@
 import "server-only";
-import type { AssessmentReply } from "@everyfield/contracts/intelligence";
+import { outcomeOf, type Outcome } from "@everyfield/contracts/common";
+import type { AssessmentError, AssessmentReply } from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
 import type { RequestActor } from "@everyfield/domain/access";
 import { createAssessments } from "@everyfield/domain/intelligence";
@@ -9,8 +10,7 @@ import { LOST, transient } from "../../server/platform/transient.ts";
 
 export const assessments = createAssessments();
 
-export type Run<T> =
-	{ status: "ok"; value: T } | { status: "refused"; code: string } | { status: "signed_out" | "lost" };
+export type Run<T> = Outcome<T, AssessmentError["code"]> | { status: "signed_out" };
 
 export async function run<T>(
 	operation: (db: Database, authority: RequestActor) => Promise<AssessmentReply<T>>,
@@ -20,10 +20,7 @@ export async function run<T>(
 	const db = requestDatabase();
 	return transient(
 		{ component: "assessment-review", outcome: "failed" },
-		async () => {
-			const reply = await operation(db, authority);
-			return reply.status === "ok" ? reply : { status: "refused", code: reply.error.code };
-		},
+		async () => outcomeOf(await operation(db, authority)),
 		LOST,
 	);
 }

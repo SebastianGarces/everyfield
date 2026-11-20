@@ -98,7 +98,14 @@ async function summary(p: Owner, version: number, body: string, published: boole
 }
 
 let N: Owner, GA: Owner, HP: Owner, EC: Owner, MF: Owner, OC: Owner;
-let networkOwner, networkAdmin, networkMember, graceOwner, hpOwner, hpAdmin, hpMember;
+type Identity = Awaited<ReturnType<typeof S.identity>>;
+let networkOwner: Identity,
+	networkAdmin: Identity,
+	networkMember: Identity,
+	graceOwner: Identity,
+	hpOwner: Identity,
+	hpAdmin: Identity,
+	hpMember: Identity;
 let hpToN: string, mfToN: string;
 const sharing = ["people", "meetings", "tasks", "ministry_teams", "findings"] as const;
 
