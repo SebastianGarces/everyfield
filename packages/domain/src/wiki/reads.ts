@@ -129,7 +129,7 @@ function sourceOf(source: SourceView | undefined): SourceView {
 async function readPage(db: Database, access: CorpusAccess, source: SourceView, page: number, where: SQL = sql`true`) {
 	const result = await db.execute(pageQuery(access, source, page, where));
 	const row = loaded.parse(result.rows[0]);
-	if (!row.allowed) deny();
+	if (!row.allowed) deny("access_denied");
 	const articles = (row.articles ?? []).map(present);
 	const nextCursor = page * PAGE < row.total ? String(page + 1) : null;
 	return { row, articles, nextCursor };
@@ -218,7 +218,7 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 			const gate = await db.execute(
 				sql`WITH ${meSql(authority, access.owner)} SELECT EXISTS (SELECT FROM me) AS allowed`,
 			);
-			if (!z.object({ allowed: z.boolean() }).parse(gate.rows[0]).allowed) deny();
+			if (!z.object({ allowed: z.boolean() }).parse(gate.rows[0]).allowed) deny("access_denied");
 			return searchResult.parse({ status: "empty", results: [], nextCursor: null });
 		}
 		const page = input.page ?? 1;
@@ -264,7 +264,7 @@ export async function search(db: Database, authority: RequestActor, raw: unknown
 					articles: z.array(z.record(z.string(), z.unknown())).nullable(),
 				})
 				.parse(result.rows[0]);
-			if (!row.allowed) deny();
+			if (!row.allowed) deny("access_denied");
 			const results = (row.articles ?? []).map(present);
 			if (!results.length) return searchResult.parse({ status: "empty", results: [], nextCursor: null });
 			return searchResult.parse({
@@ -300,7 +300,7 @@ export function navigation(db: Database, authority: RequestActor, raw: unknown) 
 		const access = accessFor(authority);
 		const result = await db.execute(navigationQuery(access, sourceOf(input.source)));
 		const row = z.object({ allowed: z.boolean(), articles: z.array(navRow).nullable() }).parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		const articles = row.articles ?? [];
 		const groups = new Map<string, typeof articles>();
 		for (const article of articles) {
@@ -347,7 +347,7 @@ export function articleNeighbors(db: Database, authority: RequestActor, raw: unk
 				articles: z.array(z.object({ articleId: z.uuid(), title: z.string(), slug: z.string(), position: z.number() })),
 			})
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		return neighborsResult.parse({
 			articles: row.entitled ? row.articles : [],
 			errorCode: row.entitled ? null : "content_access_denied",
@@ -388,7 +388,7 @@ export function contextGuide(db: Database, authority: RequestActor, raw: unknown
 			const result = await db.execute(
 				sql`WITH ${meSql(authority, access.owner)} SELECT EXISTS (SELECT FROM me) AS allowed`,
 			);
-			if (!z.object({ allowed: z.boolean() }).parse(result.rows[0]).allowed) deny();
+			if (!z.object({ allowed: z.boolean() }).parse(result.rows[0]).allowed) deny("access_denied");
 			return guideResult.parse(noGuide);
 		}
 		const result = await db.execute(sql`WITH ${corpusCtes(access, { kind: "current" })}
@@ -406,7 +406,7 @@ export function contextGuide(db: Database, authority: RequestActor, raw: unknown
 					WHERE p.article_id = (SELECT g.article_id FROM global_rev g WHERE g.slug = ${entry.slug} LIMIT 1)
 				) AS article`);
 		const row = z.object({ allowed: z.boolean(), article: guideRow.nullable() }).parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		const article = row.article;
 		if (!article?.body) return guideResult.parse(noGuide);
 		return guideResult.parse({
@@ -471,7 +471,7 @@ export function readingRecent(db: Database, authority: RequestActor, raw: unknow
 		const row = z
 			.object({ allowed: z.boolean(), articles: z.array(z.record(z.string(), z.unknown())).nullable() })
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		return recentResult.parse({ articles: (row.articles ?? []).map(present) });
 	});
 }
@@ -549,7 +549,7 @@ export function readingStats(db: Database, authority: RequestActor, raw: unknown
 				seated_lead: z.boolean(),
 			})
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		return statsResult.parse({
 			discoveryComplete: row.caller_complete,
 			ownerRereadRequired: row.owner_reread,
@@ -576,7 +576,7 @@ export function recommendForPhase(db: Database, authority: RequestActor, raw: un
 				articles: z.array(z.record(z.string(), z.unknown())).nullable(),
 			})
 			.parse(result.rows[0]);
-		if (!row.allowed) deny();
+		if (!row.allowed) deny("access_denied");
 		const articles = (row.articles ?? []).map(present);
 		return recommendResult.parse({
 			phase: input.phase ?? row.plant_phase,

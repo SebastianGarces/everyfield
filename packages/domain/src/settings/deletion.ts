@@ -83,7 +83,7 @@ async function seated(
 	);
 	const rows = read.rows.map((r) => audience.parse(r));
 	const first = rows[0];
-	if (!first || !w.request_id || !w.requester_id || !w.cancel_until) deny();
+	if (!first || !w.request_id || !w.requester_id || !w.cancel_until) deny("unavailable");
 	return {
 		kind,
 		plant: { name: first.plant_name, timeZone: first.plant_timezone },
@@ -94,7 +94,7 @@ async function seated(
 	};
 }
 function status(w: typeof t.lifecycle_witness.$inferSelect): n.DeletionStatus {
-	if (w.kind !== "account" && w.kind !== "plant") deny();
+	if (w.kind !== "account" && w.kind !== "plant") deny("unavailable");
 	if (w.state === "active") return { status: "active" };
 	return n.deletionStatus.parse({
 		status: w.state,
@@ -112,10 +112,10 @@ function status(w: typeof t.lifecycle_witness.$inferSelect): n.DeletionStatus {
 async function root(tx: Tx, subject: DeletionSubject) {
 	if (subject.kind === "account") {
 		const [a] = await tx.select().from(t.account).where(eq(t.account.id, subject.id)).for("update");
-		if (!a) deny();
+		if (!a) deny("unavailable");
 	} else {
 		const [p] = await tx.select().from(t.plant).where(eq(t.plant.id, subject.id)).for("update");
-		if (!p) deny();
+		if (!p) deny("unavailable");
 	}
 }
 async function lockedWitness(tx: Tx, subject: DeletionSubject) {
@@ -146,7 +146,7 @@ async function lockedWitness(tx: Tx, subject: DeletionSubject) {
 		.select({ witness: w })
 		.from(root)
 		.leftJoin(witness, sql`true`);
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return row.witness ?? undefined;
 }
 async function proven(tx: Tx, handle: string, subject: DeletionSubject) {
@@ -196,7 +196,7 @@ async function proven(tx: Tx, handle: string, subject: DeletionSubject) {
 	return row;
 }
 async function restricted(tx: Tx, ctx: n.RestrictedDeletionContext, subject: DeletionSubject, requestId: string) {
-	if (ctx.kind !== "restricted_deletion") deny();
+	if (ctx.kind !== "restricted_deletion") deny("unavailable");
 	if (subject.kind === "plant") await lockSeats(tx, "workspace-seats/" + subject.id);
 	const row = await proven(tx, ctx.handle, subject);
 	if (!row) deny("proof_invalid");
@@ -212,9 +212,9 @@ async function restricted(tx: Tx, ctx: n.RestrictedDeletionContext, subject: Del
 	)
 		deny("proof_invalid");
 	if (subject.kind === "account") {
-		if (proof.account_id !== subject.id) deny();
+		if (proof.account_id !== subject.id) deny("unavailable");
 	} else {
-		if (w.requester_opaque_id !== proof.account_id) deny();
+		if (w.requester_opaque_id !== proof.account_id) deny("unavailable");
 		const [s] = await tx
 			.select()
 			.from(t.seat)
@@ -227,12 +227,12 @@ async function restricted(tx: Tx, ctx: n.RestrictedDeletionContext, subject: Del
 				),
 			)
 			.for("share");
-		if (!s) deny();
+		if (!s) deny("unavailable");
 		const revoked = await tx
 			.select({ id: t.lifecycle_witness.id })
 			.from(t.lifecycle_witness)
 			.where(and(eq(t.lifecycle_witness.seat_id, s.id), eq(t.lifecycle_witness.state, "revoked")));
-		if (revoked.length) deny();
+		if (revoked.length) deny("unavailable");
 	}
 	return { w, clock };
 }
@@ -243,7 +243,8 @@ export function deletionOperations(effects: DeletionEffects): DeletionProducer<T
 		const workspace = plantRequest?.input.plant ?? null;
 		const a = workspace ? await plantAdmin(tx, ctx, workspace, "command") : await self(tx, ctx);
 		const subject: DeletionSubject = workspace ?? { kind: "account", id: accountId.parse(a.account.id) };
-		if (subject.kind === "plant" && (a.identity.context.kind !== "seat" || a.identity.context.role !== "owner")) deny();
+		if (subject.kind === "plant" && (a.identity.context.kind !== "seat" || a.identity.context.role !== "owner"))
+			deny("unavailable");
 		const event = subject.kind === "account" ? "account.requestDeletion" : "churches.requestWorkspaceDeletion";
 		const c = await begin(tx, ctx, a.account.id, event, v);
 		if (c.kind === "replay") return requestRecord.parse(c.value).deletion;
@@ -436,7 +437,7 @@ export function createLifecycleCleanup(
 ) {
 	return async (input: DeletionRequest) => {
 		const claimed = await gatedTransaction(db, async (tx) => {
-			if (!(await config.authorize(tx, input))) deny();
+			if (!(await config.authorize(tx, input))) deny("unavailable");
 			const w = await lockedWitness(tx, input.subject);
 			if (!w || w.request_id !== input.requestId || w.request_revision !== input.revision) deny("conflict");
 			if (holds(deletionMachine, "lifecycle.purge", w.state, { kind: input.subject.kind }))
@@ -463,7 +464,7 @@ export function createLifecycleCleanup(
 		});
 		if (claimed.complete) return claimed.value;
 		await gatedTransaction(db, async (tx) => {
-			if (!(await config.authorize(tx, input))) deny();
+			if (!(await config.authorize(tx, input))) deny("unavailable");
 			const w = await lockedWitness(tx, input.subject);
 			if (!w || w.request_id !== input.requestId || w.request_revision !== input.revision || w.state !== "purging")
 				deny("conflict");
@@ -473,7 +474,7 @@ export function createLifecycleCleanup(
 		});
 		if (!(await config.removeOwnedResources(input))) return { status: "purging" as const };
 		return gatedTransaction(db, async (tx) => {
-			if (!(await config.authorize(tx, input))) deny();
+			if (!(await config.authorize(tx, input))) deny("unavailable");
 			const w = await lockedWitness(tx, input.subject);
 			if (
 				!w ||
