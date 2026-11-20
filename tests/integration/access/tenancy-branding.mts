@@ -75,22 +75,28 @@ export function brandingCases(t, who) {
 	const { a, MARK, storage } = t;
 	const db = t.f.db;
 	const r = (name, run, expected) => [`branding:brandReader.${name}`, { run, expected }];
+	const defaultKit = {
+		primaryColor: null,
+		accentColor: null,
+		headingFont: "DM Serif Display",
+		bodyFont: "DM Sans",
+		...noLetterhead,
+		assets: noAssets,
+		kitState: "default",
+		revision: "0",
+		colors: { primary: null, accent: null },
+	};
+	const savedKit = (value) => {
+		assert.deepEqual([value.kitState, value.primaryColor, value.tagline], ["saved", PRIMARY, `${MARK} tagline`]);
+		assert.deepEqual(value.assets.full_logo, { fileId: a.brandAsset, alt: `${MARK} logo` });
+	};
 	return [
-		r("get", () => brandReader.get(db, who.actor, {}), {
-			value: {
-				primaryColor: null,
-				accentColor: null,
-				headingFont: "DM Serif Display",
-				bodyFont: "DM Sans",
-				...noLetterhead,
-				assets: noAssets,
-				kitState: "default",
-				revision: "0",
-				colors: { primary: null, accent: null },
-			},
+		r("get", () => brandReader.get(db, who.actor, {}), { value: defaultKit, control: savedKit }),
+		r("settings", () => brandReader.settings(db, who.actor, {}), {
+			value: { kit: defaultKit, churchName: "Synthetic plant" },
 			control: (value) => {
-				assert.deepEqual([value.kitState, value.primaryColor, value.tagline], ["saved", PRIMARY, `${MARK} tagline`]);
-				assert.deepEqual(value.assets.full_logo, { fileId: a.brandAsset, alt: `${MARK} logo` });
+				assert.equal(value.churchName, `${MARK} Church`);
+				savedKit(value.kit);
 			},
 		}),
 		r("resolveTheme", () => brandReader.resolveTheme(db, who.actor, { documentClass: "formal/legal" }), {
