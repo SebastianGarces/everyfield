@@ -22,7 +22,7 @@ function gated<S extends z.ZodType, T>(
 	return read(authority, async (v) => {
 		const input = parse(schema, raw);
 		const { row, admin: live } = await one(db, v, query(sql`${v.plantId}::uuid`, input), admin);
-		if (!row) deny();
+		if (!row) deny("unavailable");
 		return body(row, input, { admin: live });
 	});
 }

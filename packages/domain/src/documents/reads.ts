@@ -72,7 +72,7 @@ export const documentsReader = {
 	async "templates.list"(db: Reader, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.listTemplatesRequest, raw);
-			if (!(await accountOpen(db, authority))) deny();
+			if (!(await accountOpen(db, authority))) deny("unavailable");
 			const loaded = await library();
 			return pageOf(loaded.version, listed(loaded.templates, input));
 		});
@@ -80,10 +80,10 @@ export const documentsReader = {
 	async "templates.get"(db: Reader, authority: RequestActor, raw: unknown) {
 		return settle(async () => {
 			const input = parse(c.getTemplateRequest, raw);
-			if (!(await accountOpen(db, authority))) deny();
+			if (!(await accountOpen(db, authority))) deny("unavailable");
 			const loaded = await library();
 			const template = loaded.templates.find((item) => item.id === input.templateId);
-			if (!template) deny();
+			if (!template) deny("unavailable");
 			return c.templateView.parse(templateView(template));
 		});
 	},
@@ -93,11 +93,11 @@ export const documentsReader = {
 			const viewer = input.meetingId && !input.teamId ? plantViewer(authority) : null;
 			if (viewer && input.meetingId) {
 				const found = await readAgendaKind(db, viewer, input.meetingId);
-				if (!found.open) deny();
+				if (!found.open) deny("unavailable");
 				const loaded = await library();
 				return pageOf(loaded.version, matched(loaded.templates, input, found.kind));
 			}
-			if (!(await accountOpen(db, authority))) deny();
+			if (!(await accountOpen(db, authority))) deny("unavailable");
 			const loaded = await library();
 			return pageOf(loaded.version, matched(loaded.templates, input, null));
 		});
@@ -134,17 +134,17 @@ async function contextOf(db: Reader, authority: RequestActor, raw: unknown, arti
 	const cleaned = cleanOverrides(input.overrides);
 	if (!cleaned.ok) rejectInput(cleaned.path, cleaned.problem);
 	const viewer = plantViewer(authority);
-	if (!viewer) deny();
+	if (!viewer) deny("unavailable");
 	const row = await readPlant(db, viewer, {
 		personId: input.personId ?? null,
 		meetingId: input.meetingId ?? null,
 		teamId: input.teamId ?? null,
 	});
-	if (!row.open) deny();
+	if (!row.open) deny("unavailable");
 	if (!row.subjectOk) deny("invalid_subject");
 	const loaded = await library();
 	const template = loaded.templates.find((item) => item.id === input.templateId);
-	if (!template) deny();
+	if (!template) deny("unavailable");
 	if (!template.formats.includes(input.format)) rejectInput("format", "Format is not on this template.");
 	const done = forSubject(loaded, template, input.format, cleaned.values, viewer.plantId, row, input.meetingId);
 	if (!artifact) return c.contextResult.parse(done.value);
@@ -236,15 +236,15 @@ async function rendered(
 async function printAgenda(db: Reader, authority: RequestActor, raw: unknown) {
 	const input = parse(c.printAgendaRequest, raw);
 	const viewer = plantViewer(authority);
-	if (!viewer) deny();
+	if (!viewer) deny("unavailable");
 	const row = await readPlant(db, viewer, { personId: null, meetingId: input.meetingId, teamId: null });
-	if (!row.open) deny();
+	if (!row.open) deny("unavailable");
 	if (!row.subjectOk) deny("invalid_subject");
 	const kind = row.meeting ? agendaKindOf(row.meeting) : null;
 	if (!row.meeting || !kind) deny("invalid_subject");
 	const loaded = await library();
 	const template = loaded.templates.find((item) => item.id === AGENDA_TEMPLATE[kind]);
-	if (!template) deny();
+	if (!template) deny("unavailable");
 	const done = resolved(loaded, template, "pdf", {}, viewer.plantId, row);
 	const bytes = await rendered(template, "pdf", done.merge, row.meeting);
 	if (!bytes) deny("render_failed");

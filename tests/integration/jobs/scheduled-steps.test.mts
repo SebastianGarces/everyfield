@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { sql } from "../../../packages/db/src/query.ts";
 import * as t from "../../../packages/db/src/schema/tables.ts";
-import { authorizeDigestMail, createDigestWorker } from "../../../apps/web/src/server/jobs/digest.ts";
+import { authorizeDigestMail, createDigestWorker } from "../../../packages/domain/src/jobs/digest.ts";
 import { createMailService, runDueMail } from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { INVITATION_MAIL } from "../../../apps/web/src/server/invitations/index.ts";

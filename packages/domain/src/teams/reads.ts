@@ -62,7 +62,7 @@ export const teamsReader = {
 		return read(authority, async (viewer) => {
 			parse(z.object({}).strict(), raw ?? {});
 			await one(db, viewer, sql`SELECT 1 AS ok`);
-			return c.catalogPage.parse({
+			return {
 				version: c.TEMPLATE_VERSION,
 				teams: TEMPLATES.map((team) => ({
 					key: team.key,
@@ -70,7 +70,7 @@ export const teamsReader = {
 					roles: team.roles.map((role) => ({ key: role.key, name: role.name, leadership: role.leadership })),
 				})),
 				newTenantRows: 0,
-			});
+			} satisfies z.output<typeof c.catalogPage>;
 		});
 	},
 	async get(db: Reader, authority: RequestActor, raw: unknown) {
@@ -200,11 +200,11 @@ export const teamsReader = {
 					existingRoles: chosen.filter((role) => have?.roles.includes(role.key)),
 				};
 			});
-			return c.templatePreview.parse({
+			return {
 				teams,
 				newTeams: teams.filter((t) => !t.exists).length,
 				newRoles: teams.reduce((n, t) => n + t.newRoles.length, 0),
-			});
+			} satisfies z.output<typeof c.templatePreview>;
 		});
 	},
 	async list(db: Reader, authority: RequestActor, raw: unknown) {
@@ -219,11 +219,11 @@ export const teamsReader = {
 			);
 			const all = z.array(c.listedTeam).parse(found.items).slice(0, 200);
 			const include = input.includeArchived === true;
-			return c.teamPage.parse({
+			return {
 				items: all.filter((team) => include || !team.archived),
 				ordinaryIds: all.filter((team) => !team.archived).map((team) => team.id),
 				archivedIds: all.filter((team) => team.archived).map((team) => team.id),
-			});
+			} satisfies z.output<typeof c.teamPage>;
 		});
 	},
 	async listHistory(db: Reader, authority: RequestActor, raw: unknown) {
@@ -303,10 +303,10 @@ export const teamsReader = {
 					WHERE r.team_id = ${input.teamId}::uuid AND r.plant_id = ${viewer.plantId}::uuid), '[]'::json) AS roles`,
 			);
 			owner(viewer.plantId, found.owner);
-			return c.rolePage.parse({
+			return {
 				teamId: input.teamId,
 				roles: z.array(c.teamRole).parse(found.roles).slice(0, 100),
-			});
+			} satisfies z.output<typeof c.rolePage>;
 		});
 	},
 	async readRevision(db: Reader, authority: RequestActor, raw: unknown) {
@@ -343,7 +343,9 @@ export const teamsReader = {
 					FROM person p WHERE p.id = ${input.personId}::uuid`,
 			);
 			owner(viewer.plantId, found.owner);
-			return c.personAssignments.parse({ personId: input.personId, assignments: personTenures(found.assignments) });
+			return { personId: input.personId, assignments: personTenures(found.assignments) } satisfies z.output<
+				typeof c.personAssignments
+			>;
 		});
 	},
 	async listLeaderCandidates(db: Reader, authority: RequestActor, raw: unknown) {
@@ -361,9 +363,9 @@ export const teamsReader = {
 							AND (${q} = '' OR display_name ILIKE ${"%" + needle + "%"} ESCAPE '\\')
 						ORDER BY display_name, id LIMIT 50) p), '[]'::json) AS people`,
 			);
-			return c.leaderCandidates.parse({
+			return {
 				people: z.array(c.leaderCandidate).parse(found.people),
-			});
+			} satisfies z.output<typeof c.leaderCandidates>;
 		});
 	},
 	async readOrgChart(db: Reader, authority: RequestActor, raw: unknown) {
