@@ -47,6 +47,7 @@
 		"everyfield/no-comments": "error",
 		"everyfield/server-log": "error",
 		"everyfield/no-effects": "error",
+		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",
 		"everyfield/server-config": "error",

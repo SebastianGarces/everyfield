@@ -1595,6 +1595,31 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
+test("INV-lint: a context value built inline is reported, a stable value is not", () => {
+	const source = `import { createContext, useMemo } from "react";
+const ThemeContext = createContext<object | null>(null);
+const Store = createContext<object | null>(null);
+export function A({ theme, children }: { theme: string; children: unknown }) {
+	const stable = useMemo(() => ({ theme }), [theme]);
+	return (
+		<>
+			<ThemeContext value={{ theme }}>{children}</ThemeContext>
+			<Store.Provider value={[theme]}>{children}</Store.Provider>
+			<ThemeContext value={() => theme}>{children}</ThemeContext>
+			<ThemeContext value={stable}>{children}</ThemeContext>
+			<Store.Provider value={stable}>{children}</Store.Provider>
+			<div title={theme} />
+		</>
+	);
+}
+`;
+	assert.deepEqual(lint({ "packages/ui/src/x.tsx": source }), [
+		"packages/ui/src/x.tsx:10 stable-context-value",
+		"packages/ui/src/x.tsx:8 stable-context-value",
+		"packages/ui/src/x.tsx:9 stable-context-value",
+	]);
+});
+
 test("INV-lint: comments inside SQL templates and query strings are reported, a listed marker is not", () => {
 	const source = `import { sql as q } from "drizzle-orm";
 export const sql = (s: TemplateStringsArray, ...v: unknown[]) => [s, v];

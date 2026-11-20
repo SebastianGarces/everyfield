@@ -2791,6 +2791,38 @@ const signInRedirect = {
 	},
 };
 
+const CONSTRUCTED = new Set([
+	"ObjectExpression",
+	"ArrayExpression",
+	"ArrowFunctionExpression",
+	"FunctionExpression",
+	"NewExpression",
+]);
+const providerName = (name) =>
+	(name.type === "JSXIdentifier" && name.name.endsWith("Context")) ||
+	(name.type === "JSXMemberExpression" && name.property.name === "Provider");
+
+const stableContextValue = {
+	meta: { type: "problem" },
+	create(context) {
+		return {
+			JSXOpeningElement(node) {
+				if (!providerName(node.name)) return;
+				for (const attribute of node.attributes) {
+					if (attribute.type !== "JSXAttribute" || attribute.name.name !== "value") continue;
+					const expression = attribute.value?.type === "JSXExpressionContainer" ? attribute.value.expression : null;
+					if (!expression || !CONSTRUCTED.has(expression.type)) continue;
+					context.report({
+						node: attribute,
+						message:
+							"A context value built inline is new on every render, so every consumer renders again. Build it with useMemo, or keep it in a store, and pass the stable value.",
+					});
+				}
+			},
+		};
+	},
+};
+
 export default {
 	meta: { name: "everyfield" },
 	rules: {
@@ -2833,5 +2865,6 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"stable-context-value": stableContextValue,
 	},
 };
