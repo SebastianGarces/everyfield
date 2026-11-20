@@ -416,6 +416,26 @@ test("fast-check typechecks a changed tool file with the root typecheck:tools sc
 	assert.deepEqual(unit.files, ["tests/unit/wrong.test.mts"]);
 });
 
+test("fast-check typechecks a changed tool file through the root's own typecheck:tools script and its project list", () => {
+	const fx = fixture();
+	const script = JSON.parse(readFileSync(join(repo, "package.json"), "utf8")).scripts["typecheck:tools"];
+	const projects = / -p ((?:\S+\.json ?)+)$/.exec(script)?.[1].trim().split(" ") ?? [];
+	assert.ok(projects.includes("tsconfig.tools.json"), `the root script lists its projects after -p: ${script}`);
+	const options = '"compilerOptions": { "strict": true, "noEmit": true, "module": "nodenext", "types": [] }';
+	const files = { "tools/ci/typecheck.ts": readFileSync(join(repo, "tools/ci/typecheck.ts"), "utf8") };
+	for (const project of projects) {
+		const tools = project === "tsconfig.tools.json";
+		files[project] = `{ ${options}, "include": [${tools ? '"tools/qa/**/*.ts"' : '"./**/*.mts"'}] }\n`;
+		files[tools ? "tools/qa/ok.ts" : join(dirname(project), "ok.mts")] = "export const ok = 1;\n";
+	}
+	fx.commit(files);
+	fx.commit({ "tools/qa/zz-planted.ts": 'export const planted: number = "s";\n' });
+	const typecheck = fx.check().step("typecheck");
+	assert.equal(typecheck.status, "failed", "a type error in a tool file fails the pre-push typecheck");
+	assert.deepEqual(typecheck.files, ["tools/qa/zz-planted.ts"]);
+	assert.equal(typecheck.fix, "pnpm run typecheck:tools");
+});
+
 test("fast-check typechecks a changed integration test through the typecheck:tools folder glob", () => {
 	const fx = fixture();
 	const manifest = JSON.parse(readFileSync(join(repo, "package.json"), "utf8"));
