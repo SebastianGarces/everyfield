@@ -197,7 +197,7 @@ const errorMessage = (node) =>
 	node.object.type === "Identifier" &&
 	knownError(node, node.object.name);
 const EQUALITY = new Set(["==", "===", "!=", "!=="]);
-const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith"]);
+const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith", "test", "match", "exec", "search"]);
 
 const noErrorMessageMatch = {
 	meta: { type: "problem" },
