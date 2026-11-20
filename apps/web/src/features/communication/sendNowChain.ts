@@ -1,4 +1,5 @@
-import type { DeliveryReport, HandoffResult, Outcome } from "./model.ts";
+import type { Outcome } from "@everyfield/contracts/common";
+import type { DeliveryReport, HandoffResult } from "./model.ts";
 
 const EARLIEST_SEND_MS = 60_000;
 

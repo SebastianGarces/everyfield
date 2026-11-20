@@ -11,8 +11,8 @@ import {
 	runDueMail,
 	type MailPass,
 	type MailTransport,
-} from "../../server/jobs/mail.ts";
-import { protectedTemplate } from "../../server/jobs/templates.ts";
+	protectedTemplate,
+} from "@everyfield/domain/jobs";
 import { serverConfig, type ServerConfig } from "../../server/config.ts";
 import { workspaceDeletionContent } from "./deletion-mail.ts";
 

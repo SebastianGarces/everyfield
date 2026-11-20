@@ -9,7 +9,7 @@ import { z } from "zod";
 import { serverConfig, serverEnv, type ServerConfig } from "../config.ts";
 import { createIdentityService, trustedIdentityIp, type IdentityConfig } from "@everyfield/domain/identity";
 import { invitationService } from "../invitations";
-import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../jobs/mail";
+import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "@everyfield/domain/jobs";
 import { trustsVercelForwardedFor } from "@everyfield/db/deployment";
 import { configured, mutatingRoute } from "../platform/boundary.ts";
 

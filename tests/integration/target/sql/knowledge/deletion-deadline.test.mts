@@ -7,7 +7,7 @@ import * as t from "../../../../../packages/db/src/schema/tables.ts";
 import { deletionOperations } from "../../../../../packages/domain/src/settings/index.ts";
 import { issueRestrictedDeletionSession } from "../../../../../packages/domain/src/settings/deletion.ts";
 import { readViewer } from "../../../../../packages/domain/src/access/session.ts";
-import { queueJobs } from "../../../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../../../packages/domain/src/jobs/queue.ts";
 import { testDatabase } from "../../../../support/test-database.mts";
 import { ok, refusedWith, seeds } from "../../../../support/fixture.mts";
 import { freezeClock } from "./support.mts";

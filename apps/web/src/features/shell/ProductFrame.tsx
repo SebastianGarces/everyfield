@@ -2,7 +2,7 @@
 
 import { BookOpen02Icon, MessageEdit01Icon, Settings02Icon } from "@hugeicons/core-free-icons";
 import { DASHBOARD_HOME, LANDING_ROUTE, ORGANIZATION_HOME } from "@everyfield/contracts/identity";
-import { ToastProvider, useToast } from "@everyfield/ui/controls";
+import { toast, Toaster } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { usePathname } from "next/navigation";
@@ -55,7 +55,8 @@ export function ProductFrame({ settings: initial, seed, residency = null, ...pro
 						: { ...settings, role },
 		}));
 	return (
-		<ToastProvider>
+		<>
+			<Toaster />
 			<OwnSeat value={change}>
 				<Residency value={residencyState}>
 					<NotificationsProvider account={initial?.accountId ?? ""}>
@@ -65,12 +66,11 @@ export function ProductFrame({ settings: initial, seed, residency = null, ...pro
 					</NotificationsProvider>
 				</Residency>
 			</OwnSeat>
-		</ToastProvider>
+		</>
 	);
 }
 
 function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
-	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
 	const pathname = usePathname();
 	const privatePage = evryOff(pathname);
