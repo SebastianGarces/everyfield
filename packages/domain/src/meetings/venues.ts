@@ -85,7 +85,7 @@ async function lockVenue(tx: Tx, w: Writer, id: string) {
 	const r = await tx.execute(
 		sql`SELECT ${columns} FROM venue v WHERE v.id = ${id}::uuid AND v.plant_id = ${w.plant.id}::uuid FOR UPDATE`,
 	);
-	if (!r.rows[0]) deny();
+	if (!r.rows[0]) deny("unavailable");
 	return venue(venueRow.parse(r.rows[0]));
 }
 type Venue = z.infer<typeof c.venue>;
