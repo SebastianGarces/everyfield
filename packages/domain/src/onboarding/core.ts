@@ -23,7 +23,8 @@ import {
 	requestWrite,
 	type WriteTx,
 } from "../access/session.ts";
-import { WriteUnavailable, auditSavepoint, auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
+import { auditSavepoint, auditTransaction, finishAudit, prepareWrite } from "../operations/writes.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export type Tx = WriteTx;
 export class OnboardingReadContext {
@@ -31,7 +32,7 @@ export class OnboardingReadContext {
 	readonly selected: OnboardingContext["selected"];
 	constructor(authority: RequestActor) {
 		const owner = authority.actor.context.owner;
-		if (owner.kind !== "plant" && owner.kind !== "account") deny();
+		if (owner.kind !== "plant" && owner.kind !== "account") deny("unavailable");
 		this.authority = authority;
 		this.selected = owner;
 	}
@@ -41,16 +42,9 @@ export class OnboardingReadContext {
 }
 export type Context = OnboardingContext | OnboardingReadContext;
 export type WriteContext = OnboardingWriteContext;
-export class Refusal extends Error {
-	readonly code: z.infer<typeof onboardingError>["code"];
-	constructor(code: z.infer<typeof onboardingError>["code"] = "unavailable") {
-		super(code);
-		this.code = code;
-	}
-}
-export function deny(code?: Refusal["code"]): never {
-	throw new Refusal(code);
-}
+const refusals = defineRefusals(onboardingError, { writeUnavailable: "unavailable" });
+const { Refusal } = refusals;
+export const deny: Deny<typeof onboardingError> = refusals.deny;
 export const now = sql<Date>`clock_timestamp()`.mapWith((value: string) => new Date(value));
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<OnboardingReply<T>> {
 	if (requestWrite(tx)) return { status: "ok", value: await body() };
@@ -66,34 +60,7 @@ function momentary(error: unknown): boolean {
 	return false;
 }
 async function recover<T>(body: () => Promise<OnboardingReply<T>>): Promise<OnboardingReply<T>> {
-	return body().catch((error) => {
-		if (error instanceof WriteUnavailable) error = new Refusal("unavailable");
-		else if (momentary(error)) error = new Refusal("temporary");
-		if (!(error instanceof Refusal)) throw error;
-		return {
-			status: "refused" as const,
-			error: onboardingError.parse({
-				code: error.code,
-				details: {},
-				correlationId: randomUUID(),
-				retry: (
-					{
-						invalid_input: "never",
-						access_denied: "never",
-						unavailable: "never",
-						invalid_subject: "never",
-						conflict: "refresh",
-						temporary: "same_request",
-						unknown: "reconcile",
-						active_seat_conflict: "refresh",
-						association_resolution_required: "refresh",
-						already_declared: "refresh",
-						idempotency_conflict: "never",
-					} as const
-				)[error.code],
-			}),
-		};
-	});
+	return body().catch((error) => refusals.refusalOf(momentary(error) ? new Refusal("temporary") : error));
 }
 export async function actor(tx: Tx, ctx: Context, allowPending = false, write = false) {
 	const bound = requestWrite(tx);
@@ -114,12 +81,12 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false, write = 
 
 	if (write) {
 		const locked = await lockWriteAuthority(tx, ctx.session, ctx.selected);
-		if (!locked || (locked.identity.status === "pending_domain" && !allowPending)) deny();
+		if (!locked || (locked.identity.status === "pending_domain" && !allowPending)) deny("unavailable");
 		return locked;
 	}
 	if (ctx instanceof OnboardingReadContext) {
 		const a = ctx.authority.actor;
-		if (ctx.selected.kind === "account" && ctx.selected.id !== a.accountId) deny();
+		if (ctx.selected.kind === "account" && ctx.selected.id !== a.accountId) deny("unavailable");
 		const plantId = ctx.selected.kind === "plant" ? ctx.selected.id : null;
 		const [row] = await tx
 			.select({ account: t.account, plant: t.plant, setup: t.onboarding_setup })
@@ -127,7 +94,7 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false, write = 
 			.leftJoin(t.plant, sql`${t.plant.id}=${plantId}::uuid`)
 			.leftJoin(t.onboarding_setup, eq(t.onboarding_setup.plant_id, t.plant.id))
 			.where(and(eq(t.account.id, a.accountId), liveRead(liveAccess(ctx.authority))));
-		if (!row) deny();
+		if (!row) deny("unavailable");
 		return {
 			account: row.account,
 			identity: a,
@@ -141,14 +108,14 @@ export async function actor(tx: Tx, ctx: Context, allowPending = false, write = 
 	const row = z
 		.object({ account_id: accountId, email: z.string(), display_name: z.string(), verified: z.boolean() })
 		.safeParse(raw.rows[0]);
-	if (!row.success) deny();
+	if (!row.success) deny("unavailable");
 	const [account] = await tx.select().from(t.account).where(eq(t.account.id, row.data.account_id)).for("update");
-	if (!account) deny();
+	if (!account) deny("unavailable");
 	const a = await currentActor(tx, ctx.session, ctx.selected);
-	if (a.status === "unavailable" || (a.status === "pending_domain" && !allowPending)) deny();
-	if (ctx.selected.kind === "account" && ctx.selected.id !== a.accountId) deny();
+	if (a.status === "unavailable" || (a.status === "pending_domain" && !allowPending)) deny("unavailable");
+	if (ctx.selected.kind === "account" && ctx.selected.id !== a.accountId) deny("unavailable");
 	if (a.status === "pending_domain" && (ctx.selected.kind !== "account" || !(await liveOwner(tx, ctx.selected))))
-		deny();
+		deny("unavailable");
 	return { account, identity: a, principal: row.data, plant: null, organization: null, setup: null };
 }
 export async function seatless(tx: Tx, id: string, lock = true) {
@@ -167,11 +134,11 @@ export async function plantOwner(tx: Tx, ctx: Context, write = true) {
 		a.identity.context.role !== "owner" ||
 		ctx.selected.kind !== "plant"
 	)
-		deny();
+		deny("unavailable");
 	const plant = a.plant ?? (await tx.select().from(t.plant).where(eq(t.plant.id, ctx.selected.id)))[0];
 	const setup =
 		a.setup ?? (await tx.select().from(t.onboarding_setup).where(eq(t.onboarding_setup.plant_id, ctx.selected.id)))[0];
-	if (!plant || !setup || setup.account_id !== a.account.id) deny();
+	if (!plant || !setup || setup.account_id !== a.account.id) deny("unavailable");
 	return { ...a, plant, setup };
 }
 export function revision(expected: string, actual: string) {
@@ -200,7 +167,7 @@ export async function begin(
 	});
 
 	const claim = await prepareWrite(tx, identity);
-	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "unavailable") deny("unavailable");
 	if (claim.kind === "conflict") deny("idempotency_conflict");
 	if (claim.kind === "replay") {
 		return { kind: "replay" as const, value: claim.value };
@@ -273,7 +240,7 @@ export async function withOnboardingWrite<T>(
 ): Promise<OnboardingReply<T>> {
 	return recover(() =>
 		auditTransaction(db, async (tx) => {
-			if (authority && !(await authority.bind(tx, context.selected))) deny();
+			if (authority && !(await authority.bind(tx, context.selected))) deny("unavailable");
 			const result = await body(tx);
 			if (result.status === "refused") throw new Refusal(result.error.code);
 			return result;

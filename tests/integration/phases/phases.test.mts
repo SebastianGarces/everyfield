@@ -13,8 +13,8 @@ import {
 	readReadiness,
 } from "../../../packages/domain/src/phases/index.ts";
 import { createOnboardingProducer } from "../../../packages/domain/src/onboarding/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { phaseNotices } from "../../../apps/web/src/features/phases/notices.ts";
 import { ok, refused } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
