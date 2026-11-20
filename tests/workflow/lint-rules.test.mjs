@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
+import { REFUSAL_MECHANISMS, WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -232,7 +232,7 @@ export const d = mint;
 			"packages/domain/src/settings/credentials.ts": reach,
 			"packages/domain/src/settings/deletion.ts": "export async function issueRestrictedDeletionSession() {}\n",
 			"tests/integration/x/reach.test.mts": reach,
-		}),
+		}).filter((hit) => hit.endsWith(" mint-callers")),
 		[1, 2, 4, 5, 6]
 			.flatMap((line) => [
 				`apps/web/src/features/x/reach.ts:${line} mint-callers`,
@@ -1592,6 +1592,39 @@ test("INV-lint: product code that recognises a caught error by its message text 
 		"packages/domain/src/m.ts:6 no-error-message-match",
 		"packages/domain/src/m.ts:8 no-error-message-match",
 	]);
+});
+
+test("INV-lint: a domain module that hand-builds a refusal class, retry or refusal reply is reported; defineRefusals and the listed mechanisms are not, and a listed file that no longer needs its entry is reported too", () => {
+	const source = `import { defineRefusals } from "./operations/refusals.ts";
+class Refusal extends Error {}
+export const Other = class TaskRefused extends Error {};
+const RETRY = { stale: "same_request", gone: "never" };
+const retries = new Map([["stale", "refresh"]]);
+export function reply(code: string, late: boolean) {
+	if (late) return { status: "refused" as const, error: { code, retry: "never" } };
+	return { status: late ? "ok" : "refused", error: { code, retry: late ? "refresh" : "never" } };
+}
+const refusals = defineRefusals(schema);
+export const { deny, refused, settle } = refusals;
+class RenderFailed extends Error {}
+export const ok = { status: "ok", retry: refusals, retryAt: "never" };
+export { Refusal, RETRY, retries, RenderFailed };
+`;
+	assert.deepEqual(
+		lint({
+			"packages/domain/src/m.ts": source,
+			"packages/domain/src/operations/refusals.ts": source,
+			"packages/domain/src/feedback/index.ts": source,
+			"packages/domain/src/dashboard/index.ts": "export const none = 1;\n",
+			"packages/evry/src/m.ts": source,
+			"apps/web/src/features/x/server.ts": source,
+		}).filter((hit) => hit.endsWith("domain-refusals")),
+		[
+			"packages/domain/src/dashboard/index.ts:1 domain-refusals",
+			...[2, 3, 4, 5, 7, 7, 8, 8].map((line) => `packages/domain/src/m.ts:${line} domain-refusals`),
+		],
+	);
+	assert.ok(Object.keys(REFUSAL_MECHANISMS).length <= 10, "REFUSAL_MECHANISMS only shrinks");
 });
 
 test("INV-lint: a hand-written sign-in redirect in web code is reported, signIn and other redirects are not", () => {
