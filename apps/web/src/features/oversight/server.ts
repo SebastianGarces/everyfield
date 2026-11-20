@@ -9,10 +9,9 @@ import {
 	readIntelligence,
 } from "@everyfield/domain/oversight";
 import "server-only";
-import { requestDatabase } from "../../server/database";
 import { getViewer } from "../../server/request-context";
 import { logFailure } from "@everyfield/domain/log";
-import { LOST, transient } from "../../server/platform/transient.ts";
+import { readDb } from "../../server/platform/tx.ts";
 
 export type OversightViewer = {
 	authority: RequestActor;
@@ -34,16 +33,11 @@ export async function oversightViewer(): Promise<
 
 export type Loaded<T> = { status: "ok"; value: T } | { status: "missing" } | { status: "lost" };
 
-async function load<T>(read: (db: Database) => Promise<T | null>): Promise<Loaded<T>> {
-	const db = requestDatabase();
-	return transient(
-		{ component: "oversight", outcome: "read_failed" },
-		async () => {
-			const value = await read(db);
-			return value === null ? { status: "missing" } : { status: "ok", value };
-		},
-		LOST,
-	);
+function load<T>(read: (db: Database) => Promise<T | null>): Promise<Loaded<T>> {
+	return readDb("oversight", async (db) => {
+		const value = await read(db);
+		return value === null ? { status: "missing" } : { status: "ok", value };
+	});
 }
 
 export const loadDirectory = (v: OversightViewer) => load((db) => listPlants(db, v.authority));
