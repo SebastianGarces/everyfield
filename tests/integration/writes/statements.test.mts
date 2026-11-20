@@ -13,13 +13,18 @@ import { statementStep } from "./kinds.cjs";
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
 type Census = { kind: "whole" } | { kind: "part"; index: number; total: number } | { kind: "union"; folder: string };
-type Row = { kind: string; [key: string]: any };
+type Sample = { kind: "sample"; name: string; status: string; count: number; writes: number; [key: string]: unknown };
+type Declaration = { kind: "declaration"; name: string; write: boolean };
+type Part = { kind: "part"; index: number; total: number; ran: string[] };
+type Row = Sample | Declaration | Part;
 
 function censusMode(part = process.env.EVF_CENSUS_PART, union = process.env.EVF_CENSUS_UNION): Census {
 	if (part && union) throw Error("Set EVF_CENSUS_PART or EVF_CENSUS_UNION, not both");
 	if (union) return { kind: "union", folder: union };
 	if (!part) return { kind: "whole" };
-	const [index, total] = (/^(\d+)\/(\d+)$/.exec(part) ?? []).slice(1).map(Number);
+	const match = /^(\d+)\/(\d+)$/.exec(part);
+	const index = Number(match?.[1]),
+		total = Number(match?.[2]);
 	if (!(index >= 1 && index <= total)) throw Error(`EVF_CENSUS_PART must be i/N with 1 <= i <= N, not "${part}"`);
 	return { kind: "part", index, total };
 }
@@ -35,7 +40,10 @@ function partSuites(files: string[], index: number, total: number): string[] {
 		lightest.bytes += bytes;
 		lightest.files.push(file);
 	}
-	return index === 1 ? [] : parts[index - 2].files;
+	if (index === 1) return [];
+	const chosen = parts[index - 2];
+	if (!chosen) throw Error(`Census part ${index}/${total} has no suites to run`);
+	return chosen.files;
 }
 
 const parseRows = (text: string): Row[] =>
@@ -45,13 +53,16 @@ const parseRows = (text: string): Row[] =>
 		.filter(Boolean)
 		.map((line) => JSON.parse(line));
 
-async function censusUnits(): Promise<string[]> {
+const REQUESTS = "tests/integration/writes/requests.mjs";
+const NATIVE = "tests/integration/writes/native.mjs";
+
+async function censusSuites(): Promise<string[]> {
 	const patterns = JSON.parse(await readFile(new URL("./suites.json", import.meta.url), "utf8"));
-	return [
-		"tests/integration/writes/requests.mjs",
-		"tests/integration/writes/native.mjs",
-		...globSync(patterns, { cwd: root }),
-	];
+	return globSync(patterns, { cwd: root });
+}
+
+async function censusUnits(): Promise<string[]> {
+	return [REQUESTS, NATIVE, ...(await censusSuites())];
 }
 
 async function unionRows(folder: string, units: string[]): Promise<Row[]> {
@@ -77,9 +88,9 @@ async function unionRows(folder: string, units: string[]): Promise<Row[]> {
 }
 
 function checkPart(rows: Row[], limits: object) {
-	const reserves = rows.filter(
-		(row) => row.kind === "sample" && row.status !== "threw" && row.name === "identity.budget.reserve",
-	);
+	const reserves = rows
+		.filter((row) => row.kind === "sample")
+		.filter((row) => row.status !== "threw" && row.name === "identity.budget.reserve");
 	for (const sample of reserves) assert.ok(sample.count > 0, "identity.budget.reserve counted 0 statements");
 	assert.deepEqual(checkSamples(rows, limits), []);
 }
@@ -93,12 +104,11 @@ function checkWhole(rows: Row[], limits: object) {
 	assert.deepEqual(checkBudgets(rows, limits), []);
 	const covered = new Set(
 		rows
-			.filter(
-				(row) => row.kind === "sample" && row.status !== "threw" && (row.writes > 0 || Object.hasOwn(limits, row.name)),
-			)
+			.filter((row) => row.kind === "sample")
+			.filter((row) => row.status !== "threw" && (row.writes > 0 || Object.hasOwn(limits, row.name)))
 			.map((row) => row.name.split(":")[0]),
 	);
-	for (const row of rows.filter((row) => row.kind === "declaration" && row.write))
+	for (const row of rows.filter((row) => row.kind === "declaration").filter((row) => row.write))
 		assert.ok(covered.has(row.name), "A declared write has no successful real-database exercise: " + row.name);
 }
 
@@ -128,16 +138,16 @@ test(
 	{ skip: census.kind === "union" },
 	async () => {
 		const { instrument } = await import("./counter.mjs");
-		const path = join(root, "apps/web/src/server/jobs/mail.ts");
+		const path = join(root, "packages/domain/src/jobs/mail.ts");
 		const source = await readFile(path, "utf8");
-		const listed = (names: string[]) => ({ "/apps/web/src/server/jobs/mail.ts": names });
+		const listed = (names: string[]) => ({ "/packages/domain/src/jobs/mail.ts": names });
 		assert.match(
 			instrument(path, source, listed(["claimUnknownMail"])),
 			/measureWrapper\("jobs\/mail\.claimUnknownMail"/,
 		);
 		assert.throws(() => instrument(path, source, listed(["claimUnknownMail", "claimUnknownMailX"])), {
 			message:
-				"Statement counter lists claimUnknownMailX for apps/web/src/server/jobs/mail.ts, which declares no such function",
+				"Statement counter lists claimUnknownMailX for packages/domain/src/jobs/mail.ts, which declares no such function",
 		});
 	},
 );
@@ -396,7 +406,9 @@ test("INV-census: every request and write stays within its statement budget", { 
 	const directory = await mkdtemp(join(parent, "evf-write-counts-")),
 		output = join(directory, "counts.jsonl");
 	await writeFile(output, "");
-	const [requestsScript, nativeScript, ...suites] = (await censusUnits()).map((file) => join(root, file));
+	const requestsScript = join(root, REQUESTS),
+		nativeScript = join(root, NATIVE);
+	const suites = (await censusSuites()).map((file) => join(root, file));
 	const part = census.kind === "part" ? census : { index: 1, total: 1 };
 	const files = partSuites(suites, part.index, part.total);
 	const ran: string[] = [];

@@ -22,15 +22,26 @@ const orgs = createOrganizationAdapter(
 		invitation: async () => {},
 		invalidate: () => sql`UPDATE account SET id = id WHERE false`,
 	},
-	{ candidates: async () => [] },
+	{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 );
-const command = (input, expectedRevision = "1") => ({ requestKey: randomUUID(), expectedRevision, input });
-async function actor(session) {
+type Value<F extends (...args: never[]) => unknown> = Extract<
+	Awaited<ReturnType<F>>,
+	{ status: "ok"; value: unknown }
+>["value"];
+type Feed = Value<typeof api.readFeed>;
+type Preferences = Value<typeof api.getPreferences>;
+type Selected = ReturnType<typeof owner.parse>;
+const command = (input: Record<string, unknown>, expectedRevision = "1") => ({
+	requestKey: randomUUID(),
+	expectedRevision,
+	input,
+});
+async function actor(session: string) {
 	const resolved = await RequestActor.resolve(db, sessionId.parse(session));
 	if (!(resolved instanceof RequestActor)) throw new Error("session unavailable");
 	return resolved;
 }
-async function identity(selected, seatRole = "owner") {
+async function identity(selected?: Selected, seatRole = "owner") {
 	const user = randomUUID(),
 		account = randomUUID(),
 		handle = randomUUID();
@@ -61,21 +72,35 @@ async function plant(name = "Harvest") {
 	const { id } = await seeds(admin).plant({ name, digest_weekday: 0, digest_hour: 16 });
 	return owner.parse({ kind: "plant", id });
 }
-async function organization(kind, name) {
+async function organization(kind: "sending_church" | "sending_network", name: string) {
 	const id = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO organization(id,kind,name,timezone,material_revision) VALUES(${id},${kind},${name},'America/Chicago',1)`,
 	);
 	return owner.parse({ kind: "organization", id, organizationKind: kind });
 }
-async function task(plantId) {
+async function task(plantId: string) {
 	const id = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO task(id,plant_id,title,category,priority,status,created_at,due_kind,due_date) VALUES(${id},${plantId},'Call','general','medium','not_started',clock_timestamp(),'date_only','2026-10-13')`,
 	);
 	return id;
 }
-async function notice(row) {
+async function notice(row: {
+	tenant: string;
+	recipient: string;
+	category: string;
+	purpose: string;
+	key: string;
+	source: string;
+	revision?: number;
+	title: string;
+	body?: string;
+	eligible: string;
+	created?: string;
+	due?: string;
+	zone?: string;
+}) {
 	const id = randomUUID();
 	await admin.execute(
 		sql`INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,safe_body,eligible_at,created_at,schedule_date,timezone)
@@ -83,8 +108,12 @@ async function notice(row) {
 	);
 	return id;
 }
-const count = async (q) => Number((await admin.execute(q)).rows[0].n);
-async function orgCall(name, person, input) {
+const count = async (q: ReturnType<typeof sql>) => Number((await admin.execute(q)).rows[0]?.n);
+async function orgCall(
+	name: "privacy.setSharing" | "associations.end",
+	person: Awaited<ReturnType<typeof identity>>,
+	input: unknown,
+) {
 	return gatedTransaction(db, async (tx) => {
 		if (!(await RequestActor.claimWrite(tx, sessionId.parse(person.session), person.selected)))
 			throw new Error("unavailable");
@@ -133,7 +162,7 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 	const reader = await actor(a.session);
 	const clockBefore = clock.at;
 	clock.at = new Date("2026-10-14T03:00:00Z");
-	const feed = ok(await api.readFeed(db, reader, {}));
+	const feed: Feed = ok(await api.readFeed(db, reader, {}));
 	clock.at = clockBefore;
 	const item = feed.items.find((row) => row.id === due);
 	assert.ok(item);
@@ -170,21 +199,21 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 	await admin.execute(sql`INSERT INTO notice(tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,timezone)
 		SELECT ${church.id},${a.id},'task','task_due',${church.id} || '/task_due/' || ${work} || '/' || g::text || '/bulk',${work},g,'Bulk',clock_timestamp()-(g || ' minutes')::interval,clock_timestamp(),'America/Chicago'
 		FROM generate_series(1,60) g`);
-	const first = ok(await api.readFeed(db, reader, {}));
-	const second = ok(await api.readFeed(db, reader, { cursor: first.nextCursor }));
+	const first: Feed = ok(await api.readFeed(db, reader, {}));
+	const second: Feed = ok(await api.readFeed(db, reader, { cursor: first.nextCursor }));
 	assert.equal(first.items.length, 50);
 	assert.equal(second.items.length, 11);
 	assert.equal(
-		second.items.some((row) => row.id === first.items.at(-1).id),
+		second.items.some((row) => row.id === first.items.at(-1)?.id),
 		false,
 	);
 	assert.equal(ok(await api.readUnreadCount(db, reader, {})).count, 60);
 	const page = ok(await api.readFeedPage(db, reader, {}));
 	assert.deepEqual(page.feed, first);
 	assert.equal(page.unread, 60);
-	assert.equal(page.revision, ok(await api.getPreferences(db, reader, {})).revision);
+	assert.equal(page.revision, ok(await api.getPreferences(db, reader)).revision);
 	assert.equal(ok(await api.readFeedPage(db, reader, { category: "task_overdue" })).unread, 0);
-	const unread = ok(await api.readFeed(db, reader, { unread: true }));
+	const unread: Feed = ok(await api.readFeed(db, reader, { unread: true }));
 	assert.equal(
 		unread.items.some((row) => row.id === due),
 		false,
@@ -193,15 +222,15 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		SELECT ${church.id},${a.id},'task','task_due',${church.id} || '/task_due/' || ${work} || '/' || g::text || '/arrived-late',${work},g,'Arrived late ' || g,
 			clock_timestamp(),clock_timestamp(),'America/Chicago'
 		FROM generate_series(1,5) g`);
-	const held = ok(await api.readFeed(db, reader, { cursor: first.nextCursor }));
+	const held: Feed = ok(await api.readFeed(db, reader, { cursor: first.nextCursor }));
 	assert.deepEqual(
 		held.items.map((row) => row.id),
 		second.items.map((row) => row.id),
 	);
-	const unreadNow = ok(await api.readFeed(db, reader, { unread: true }));
+	const unreadNow: Feed = ok(await api.readFeed(db, reader, { unread: true }));
 	assert.equal(unreadNow.items.length, 50);
 	ok(await api.markSelectedRead(db, reader, command({ noticeIds: unreadNow.items.map((row) => row.id) }, "1")));
-	const unreadRest = ok(await api.readFeed(db, reader, { unread: true, cursor: unreadNow.nextCursor }));
+	const unreadRest: Feed = ok(await api.readFeed(db, reader, { unread: true, cursor: unreadNow.nextCursor }));
 	assert.equal(unreadRest.items.length, 15);
 	assert.equal(
 		unreadRest.items.some((row) => unreadNow.items.some((seen) => seen.id === row.id)),
@@ -216,8 +245,8 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 			timestamptz '2026-10-23 15:00:00.123456+00','America/Chicago'
 		FROM generate_series(1,60) g`);
 	const burstReader = await actor(burst.session);
-	const sameFirst = ok(await api.readFeed(db, burstReader, {}));
-	const sameSecond = ok(await api.readFeed(db, burstReader, { cursor: sameFirst.nextCursor }));
+	const sameFirst: Feed = ok(await api.readFeed(db, burstReader, {}));
+	const sameSecond: Feed = ok(await api.readFeed(db, burstReader, { cursor: sameFirst.nextCursor }));
 	refused(await api.readFeed(db, burstReader, { page: 2 }), "invalid_input");
 	const sameIds = new Set([...sameFirst.items, ...sameSecond.items].map((row) => row.id));
 	assert.equal(sameFirst.items.length, 50);
@@ -234,8 +263,8 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 	await admin.execute(sql`INSERT INTO notice(id,tenant_id,recipient_id,category,purpose,logical_key,source_record_id,source_revision,title,eligible_at,created_at,timezone)
 		VALUES(${justDue},${dueChurch.id},${duePerson.id},'task','task_due',${dueChurch.id + "/task_due/" + dueTask + "/1/just"},${dueTask},1,'Just due',
 			clock_timestamp() - interval '1 minute', clock_timestamp() - interval '30 days', 'America/Chicago')`);
-	const dueFeed = ok(await api.readFeed(db, await actor(duePerson.session), {}));
-	assert.equal(dueFeed.items[0].id, justDue);
+	const dueFeed: Feed = ok(await api.readFeed(db, await actor(duePerson.session), {}));
+	assert.equal(dueFeed.items[0]?.id, justDue);
 	assert.equal(dueFeed.items.length, 50);
 	const preciseChurch = await plant("Precise");
 	const precise = await identity(preciseChurch);
@@ -247,8 +276,9 @@ test("AC:CASE-NTF-003 AC:NOTIFY47-001 AC:NOTIFY47-010 the feed and mark stay ins
 		(${shown},${preciseChurch.id},${precise.id},'task','task_due',${preciseChurch.id + "/task_due/" + preciseTask + "/1/shown"},${preciseTask},1,'Shown',timestamptz '2026-10-20 12:00:00.123456+00',clock_timestamp(),'America/Chicago'),
 		(${laterMs},${preciseChurch.id},${precise.id},'task','task_due',${preciseChurch.id + "/task_due/" + preciseTask + "/1/later"},${preciseTask},1,'Next millisecond',timestamptz '2026-10-20 12:00:00.124000+00',clock_timestamp(),'America/Chicago')`);
 	const preciseReader = await actor(precise.session);
-	const preciseFeed = ok(await api.readFeed(db, preciseReader, {}));
+	const preciseFeed: Feed = ok(await api.readFeed(db, preciseReader, {}));
 	const shownItem = preciseFeed.items.find((row) => row.id === shown);
+	assert.ok(shownItem);
 	assert.equal(shownItem.eligibleAt, "2026-10-20T12:00:00.123Z");
 	const preciseMarked = ok(await api.markAllVisibleRead(db, preciseReader, command({ cutoff: shownItem.eligibleAt })));
 	assert.deepEqual(preciseMarked.markedIds, [shown]);
@@ -284,7 +314,7 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 	const b = await identity();
 	const reader = await actor(a.session);
 	const other = await actor(b.session);
-	const prefs = ok(await api.getPreferences(db, reader, {}));
+	const prefs: Preferences = ok(await api.getPreferences(db, reader));
 	assert.equal(prefs.suppression, "unavailable");
 	assert.equal(prefs.explicitEmail.includes("wiki_upstream_review"), false);
 	assert.deepEqual(
@@ -292,11 +322,11 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		{ category: "wiki_upstream_review", channel: "in_app", enabled: true },
 	);
 	assert.equal(
-		prefs.choices.find((choice) => choice.category === "task_due" && choice.channel === "email").enabled,
+		prefs.choices.find((choice) => choice.category === "task_due" && choice.channel === "email")?.enabled,
 		true,
 	);
 	assert.equal(
-		prefs.choices.find((choice) => choice.category === "planter_digest" && choice.channel === "in_app").enabled,
+		prefs.choices.find((choice) => choice.category === "planter_digest" && choice.channel === "in_app")?.enabled,
 		false,
 	);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notification_preference WHERE account_id=${a.id}`), 0);
@@ -309,7 +339,7 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 		),
 	);
 	assert.equal(saved.changed, true);
-	assert.equal(ok(await api.getPreferences(db, other, {})).revision, "1");
+	assert.equal(ok(await api.getPreferences(db, other)).revision, "1");
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM notification_preference WHERE account_id=${b.id}`), 0);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM mail`), beforeMail);
 	const again = ok(
@@ -343,10 +373,10 @@ test("AC:CASE-NTF-004 AC:CASE-NTF-012 AC:NOTIFY47-002 AC:NOTIFY47-004 AC:TARGET-
 	);
 	const cadence = ok(await api.setDigestCadence(db, reader, command({ plantId: church.id, cadence: "weekly" }, "3")));
 	assert.equal(cadence.cadence, "weekly");
-	const after = ok(await api.getPreferences(db, reader, {}));
+	const after: Preferences = ok(await api.getPreferences(db, reader));
 	assert.equal(after.planterCadence, "weekly");
 	assert.equal(
-		after.choices.find((choice) => choice.category === "planter_digest" && choice.channel === "in_app").enabled,
+		after.choices.find((choice) => choice.category === "planter_digest" && choice.channel === "in_app")?.enabled,
 		false,
 	);
 	assert.equal(await count(sql`SELECT count(*)::int AS n FROM mail`), beforeMail);
@@ -443,7 +473,7 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 	const north = await organization("sending_network", "North");
 	const southOwner = await identity(south);
 	const northOwner = await identity(north);
-	const link = async (org, activity) => {
+	const link = async (org: Selected, activity: boolean) => {
 		const id = randomUUID();
 		await admin.execute(sql`INSERT INTO affiliation(id,plant_id,organization_id,accepted_at,share_people,share_meetings,share_tasks,share_ministry_teams,share_wiki,share_activity,shared_findings)
 			VALUES(${id},${church.id},${org.id},clock_timestamp(),false,false,false,false,false,${activity},false)`);
@@ -518,7 +548,8 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 		"access_denied",
 	);
 	const revision = (await admin.execute(sql`SELECT revision::text AS revision FROM affiliation WHERE id=${southLink}`))
-		.rows[0].revision;
+		.rows[0]?.revision;
+	assert.ok(typeof revision === "string");
 	const ended = await orgCall(
 		"associations.end",
 		southOwner,
@@ -560,7 +591,7 @@ test("AC:AF-030 AC:AF-032 AC:AF-033 AC:CASE-NTF-008 AC:NOTIFY47-005 AC:TARGET-ID
 			command({ organizationId: north.id, organizationKind: "sending_network", cadence: "daily" }),
 		),
 	);
-	assert.equal(ok(await api.getPreferences(db, northReader, {})).oversightCadence, "daily");
+	assert.equal(ok(await api.getPreferences(db, northReader)).oversightCadence, "daily");
 });
 
 test("AC:CASE-NTF-003 each feed entry names its subject page's record, digests and phases name none, and the entries are the same", async () => {
@@ -578,8 +609,8 @@ test("AC:CASE-NTF-003 each feed entry names its subject page's record, digests a
 		["meeting", "meeting_reminder", "meeting_reminder", meeting, "Vision night tomorrow"],
 		["digest", "oversight_digest", "oversight_digest", church.id, "Your plants this week"],
 		["phase", "phase_transition", "phase_milestone", church.id, "Moved to Launch Team Formation"],
-	];
-	const ids = {};
+	] as const;
+	const ids: Record<string, string> = {};
 	for (const [i, [category, purpose, feedCategory, source, title]] of rows.entries())
 		ids[feedCategory] = await notice({
 			tenant: church.id,
@@ -592,7 +623,7 @@ test("AC:CASE-NTF-003 each feed entry names its subject page's record, digests a
 			eligible: `2026-10-13T1${i}:00:00Z`,
 		});
 	const reader = await actor(sam.session);
-	const feed = ok(await api.readFeed(db, reader, {}));
+	const feed: Feed = ok(await api.readFeed(db, reader, {}));
 	assert.deepEqual(Object.fromEntries(feed.items.map((item) => [item.category, item.subject])), {
 		task_due: { kind: "task", id: work },
 		task_overdue: { kind: "task", id: work },
@@ -607,12 +638,12 @@ test("AC:CASE-NTF-003 each feed entry names its subject page's record, digests a
 	);
 	assert.equal(ok(await api.readUnreadCount(db, reader, {})).count, rows.length);
 	assert.deepEqual(ok(await api.markRead(db, reader, command({ noticeId: ids.task_due }))).markedIds, [ids.task_due]);
-	const later = ok(await api.readFeed(db, reader, {}));
+	const later: Feed = ok(await api.readFeed(db, reader, {}));
 	assert.deepEqual(
 		later.items.filter((item) => item.read).map((item) => item.id),
 		[ids.task_due],
 	);
-	assert.deepEqual(later.items.find((item) => item.id === ids.task_due).subject, { kind: "task", id: work });
+	assert.deepEqual(later.items.find((item) => item.id === ids.task_due)?.subject, { kind: "task", id: work });
 });
 
 test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app for current editors", async () => {
@@ -640,7 +671,7 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 		sql`INSERT INTO article_editor_state(id,organization_id,article_id,state,based_on_upstream_id,revision) VALUES(${state},${network.id},${article},'published',${updateId},1)`,
 	);
 	const reader = await actor(editor.session);
-	const publish = (sourceId, revision) =>
+	const publish = (sourceId: string, revision: string) =>
 		api.publishWikiUpstream(
 			db,
 			reader,
@@ -677,13 +708,13 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 			.rows[0],
 		{ state: "published", revision: "1" },
 	);
-	const feed = ok(await api.readFeed(db, reader, {}));
+	const feed: Feed = ok(await api.readFeed(db, reader, {}));
 	assert.deepEqual(feed.items.map((item) => item.title).sort(), ["Meaningful update", "Typo"]);
 	assert.deepEqual(Object.fromEntries(feed.items.map((item) => [item.title, item.subject])), {
 		Typo: { kind: "article", id: article, slug: "typo" },
 		"Meaningful update": { kind: "article", id: article, slug: "update" },
 	});
-	const hidden = ok(await api.readFeed(db, await actor(revoked.session), {}));
+	const hidden: Feed = ok(await api.readFeed(db, await actor(revoked.session), {}));
 	assert.deepEqual(hidden.items, []);
 	const field = await plant("Field");
 	const planter = await identity(field);
@@ -738,7 +769,7 @@ test("AC:CASE-NTF-014 AC:NOTIFY47-009 AC:WIKI52-002 wiki notices stay in the app
 });
 
 test("AC:RECOVERY-DELETE-001 a lifecycle witness hides the audience, receipt and digest reads, as it hides the feed", async () => {
-	const witness = async (kind, subject) => {
+	const witness = async (kind: "plant" | "account", subject: string) => {
 		const id = randomUUID();
 		await admin.execute(sql`INSERT INTO lifecycle_witness(id,kind,opaque_subject_id,plant_id,request_revision,state,
 			witness_checkpoint,cleanup_state,request_id,requested_at,cancel_until) VALUES(${id},${kind},${subject},
@@ -778,7 +809,7 @@ test("AC:RECOVERY-DELETE-001 a lifecycle witness hides the audience, receipt and
 
 	let clear = await witness("plant", church.id);
 	try {
-		for (const [name, read] of Object.entries(plantReads)) refused(await read(), "access_denied", name);
+		for (const read of Object.values(plantReads)) refused(await read(), "access_denied");
 		await admin.execute(sql`INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subject_id,metadata)
 			VALUES(${church.id},${planter.id},'tasks.changed','edit','record',${church.id},'{}'::jsonb)`);
 		assert.deepEqual(ok(await networkReads.oversightDigest()).plants, []);
@@ -789,7 +820,7 @@ test("AC:RECOVERY-DELETE-001 a lifecycle witness hides the audience, receipt and
 
 	clear = await witness("account", overseer.id);
 	try {
-		for (const [name, read] of Object.entries(networkReads)) refused(await read(), "access_denied", name);
+		for (const read of Object.values(networkReads)) refused(await read(), "access_denied");
 	} finally {
 		await clear();
 	}

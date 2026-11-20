@@ -78,7 +78,7 @@ const photo = {
 						const value = { photo: available, personRevision: p.revision, outcome: "noop", receiptId };
 						return { value, subject: p.id, action: "people.updated", outcome: "noop" };
 					}
-					if (p.extra !== true) deny();
+					if (p.extra !== true) deny("unavailable");
 					audit.writes.push(
 						tx
 							.update(tables.person)
@@ -201,7 +201,7 @@ export async function uploadPersonPhoto(db: Database, storage: PrivateStorage, c
 					),
 				)
 				.for("update");
-			if (!current) deny();
+			if (!current) deny("unavailable");
 			if (current.state === "ready") {
 				if (current.sha256 !== sha256 || Number(current.byte_count) !== input.bytes.length) deny("conflict");
 				return null;
@@ -221,7 +221,7 @@ export async function uploadPersonPhoto(db: Database, storage: PrivateStorage, c
 				mediaType: file.media_type,
 				bytes: input.bytes,
 				uploadKey: file.upload_key,
-			}).catch(() => deny());
+			}).catch(() => deny("unavailable"));
 		return { uploadId: input.uploadId };
 	});
 }
@@ -238,10 +238,10 @@ export async function readPersonPhoto(db: Database, storage: PrivateStorage, ctx
 		plantId(ctx);
 		const input = parse(z.object({ personId: z.uuid(), versionId: z.uuid() }), raw);
 		const bytes = await readAuthorizedObject(db, storage, photoAuthority(ctx, input), input.versionId).catch(() =>
-			deny(),
+			deny("unavailable"),
 		);
 		const mediaType = photoMediaType(bytes);
-		if (!mediaType) deny();
+		if (!mediaType) deny("unavailable");
 		return { bytes, mediaType };
 	});
 }

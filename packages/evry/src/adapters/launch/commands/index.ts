@@ -520,7 +520,8 @@ export const correctOutcome = launchWrite({
 		const changed = named.filter((k) => now[k] !== was[k]);
 		const shown = (k: OutcomeField, v: string | number | null) =>
 			k === "actualDate" ? (v === null ? null : launchDay(String(v))) : countShown(v as number | null);
-		const checked = o && c.checkOutcome({ ...now, actualDate: now.actualDate!, note: o.note }, plan.today);
+		const notInFuture = now.actualDate ?? plan.today;
+		const checked = o && c.checkOutcome({ ...now, actualDate: notInFuture, note: o.note }, plan.today);
 		const note = c.checkNote(input.reason, true);
 		const recordedAs = named.map((k) => `${FIELD_WORDS[k]} ${shown(k, was[k])}`).join(" and ");
 		const refusal = !o

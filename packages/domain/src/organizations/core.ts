@@ -31,14 +31,25 @@ export { currentActor, sameOwner };
 export type Actor = Extract<Awaited<ReturnType<typeof currentActor>>, { status: "active" }>;
 export const administrator = (a: Actor) => a.context.kind === "seat" && a.context.role !== "member";
 export const unavailable = () => ({ status: "unavailable" }) as const;
+export type OrganizationRefusalCode =
+	| "unavailable"
+	| "address_pending"
+	| "already_active"
+	| "invitation_limit"
+	| "pending_invitation"
+	| "reference_unavailable"
+	| "region_unavailable"
+	| "request_conflict"
+	| "resend_cooldown"
+	| "stale_revision";
 export class OrganizationRefusal extends Error {
-	readonly code: string;
-	constructor(code: string) {
+	readonly code: OrganizationRefusalCode;
+	constructor(code: OrganizationRefusalCode) {
 		super(code);
 		this.code = code;
 	}
 }
-export function refuse(code = "unavailable"): never {
+export function refuse(code: OrganizationRefusalCode = "unavailable"): never {
 	throw new OrganizationRefusal(code);
 }
 export function checkRevision(expected: string, actual: string) {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { sql } from "../../../packages/db/src/query.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import {
 	createOrganizationAdapter,
 	readHistory,

@@ -13,7 +13,7 @@ import {
 	timezoneOperations,
 } from "../../../packages/domain/src/settings/index.ts";
 import type { NativePorts } from "../../../packages/evry/src/index.ts";
-import { enqueueJob, queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { enqueueJob, queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 
 export function nativePorts(mail: { to: string; purpose: string }[] = []): NativePorts {
 	const organizationEffects = {

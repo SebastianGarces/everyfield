@@ -2,7 +2,6 @@ import { instant, type Clock } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
-import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import type { Catalog } from "@everyfield/contracts/phases";
@@ -21,6 +20,7 @@ import {
 	trendCellsSql,
 	trendOf,
 } from "./views.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export type DraftCall = { input: c.ModelInput; feedback: c.Violation[]; ordinal: number; maxOutputTokens: number };
 export type DraftReply = { output: unknown; usage: { inputTokens: number; outputTokens: number } };
@@ -44,28 +44,9 @@ export class ModelUnavailable extends Error {
 	}
 }
 
-type Code = c.AssessmentError["code"];
-class Refusal extends Error {
-	readonly code: Code;
-	constructor(code: Code) {
-		super(code);
-		this.code = code;
-	}
-}
-function deny(code: Code): never {
-	throw new Refusal(code);
-}
-async function settle<T>(body: () => Promise<T>): Promise<c.AssessmentReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (!(error instanceof Refusal)) throw error;
-		return {
-			status: "refused",
-			error: c.assessmentError.parse({ code: error.code, details: {}, correlationId: randomUUID(), retry: "never" }),
-		};
-	}
-}
+const refusals = defineRefusals(c.assessmentError);
+const deny: Deny<typeof c.assessmentError> = refusals.deny;
+const { settle } = refusals;
 function scopeOf(authority: RequestActor) {
 	const viewer = plantViewer(authority);
 	if (!viewer || viewer.access.role === "member") deny("access_denied");
