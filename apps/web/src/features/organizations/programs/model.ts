@@ -1,6 +1,8 @@
 import type { Lost } from "@everyfield/contracts/common";
 import type { ProgramKind, ProgramRefusal, ProgramRhythm } from "@everyfield/contracts/organizations";
 import { PIPELINE_PATH } from "../board/model";
+import { READ_FAILED } from "../../../components/read-failed.ts";
+import type { ReadFailure } from "../../../components/get-reads.ts";
 
 export const PROGRAMS_PATH = `${PIPELINE_PATH}/programs`;
 export const programHref = (id: string) => `${PROGRAMS_PATH}/${id}`;
@@ -38,7 +40,8 @@ export function formatMeeting(at: string, day: (value: string) => string) {
 	return `${day(at.slice(0, 10))} at ${time.format(new Date(`${at}Z`))}`;
 }
 
-export function programProblem(answer: { status: "refused"; refusal: ProgramRefusal } | Lost) {
+export function programProblem(answer: { status: "refused"; refusal: ProgramRefusal } | Lost | ReadFailure) {
+	if (answer.status === "failed") return READ_FAILED;
 	if (answer.status === "lost") return "We couldn’t reach Everyfield. Nothing was saved. Try again.";
 	const r = answer.refusal;
 	switch (r.code) {
