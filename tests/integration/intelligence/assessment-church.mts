@@ -4,7 +4,7 @@ import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createPrivateCare } from "../../../packages/domain/src/intelligence/index.ts";
 import { requestIntelligenceRefresh } from "../../../packages/domain/src/oversight/intelligence.ts";
 import { commitments, peopleWriter } from "../../../packages/domain/src/people/index.ts";
-import { fixture, ok } from "../../support/fixture.mts";
+import { fixture, ok, type Actor } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 export const GLOBAL = "00000000-0000-0000-0000-000000000000";
@@ -240,10 +240,10 @@ export async function church(prefix: string, { cleanup = false } = {}) {
 			await admin.execute(sql`UPDATE affiliation SET share_people=true,share_meetings=true,share_tasks=true,
 				share_ministry_teams=true WHERE id=${x.affiliation}`);
 
-		const seated = async (w: { id: string }, account: { id: string; session: string }) => ({
+		const seated = async (w: { id: string }, account: Actor) => ({
 			...account,
 			seatId: (await one(sql`SELECT id FROM seat WHERE account_id=${account.id} AND plant_id=${w.id}`)).id as string,
-			actor: (await RequestActor.resolve(db, account.session as never)) as RequestActor,
+			actor: (await RequestActor.resolve(db, account.session)) as RequestActor,
 			ctx: { session: account.session, selected: { kind: "plant", id: w.id } },
 		});
 		const a = await seated(p, await database.actor(p, "admin", { account: { personal_timezone: ZONE } }));
