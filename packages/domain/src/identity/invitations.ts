@@ -270,7 +270,11 @@ export function createInvitationService(config: InvitationConfig) {
 		if (selected.kind !== "plant" && selected.kind !== "organization") d.refuse();
 		return d.writeAsAdministrator(config.db, session, selected, async (tx, bound) => {
 			const a = bound.actor;
-			const { invitation: i, tenant, now } = await d.lockInvitation(
+			const {
+					invitation: i,
+					tenant,
+					now,
+				} = await d.lockInvitation(
 					tx,
 					(row) => sql`${row}.id=${v.input.invitationId}::uuid AND ${row}.tenant_id=${selected.id}::uuid`,
 				),
