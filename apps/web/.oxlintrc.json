@@ -1296,6 +1296,19 @@
 		},
 		{
 			"files": [
+				"src/access/**",
+				"src/components/**",
+				"src/server/**",
+				"src/features/access/**",
+				"src/features/identity/**",
+				"src/features/wiki/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
+			"files": [
 				"**/*.test.*",
 				"**/test/**",
 				"**/tests/**",
@@ -1304,6 +1317,17 @@
 			],
 			"rules": {
 				"everyfield/resend-senders": "off"
+			}
+		},
+		{
+			"files": [
+				"src/features/communication/**",
+				"src/features/followups/**",
+				"src/features/notifications/**",
+				"src/features/tasks/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
 			}
 		},
 		{
