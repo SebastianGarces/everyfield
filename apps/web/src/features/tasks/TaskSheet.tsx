@@ -45,7 +45,7 @@ import {
 import { DescriptionView } from "./description.ts";
 import { DueLine, STATUS_TONE, StatusItems } from "./parts.tsx";
 import { BlockedBy, closeInlineFormOnEscape, Repeats, Section, Steps, type StepAssignee } from "./structure.tsx";
-import { READ_FAILED } from "../../components/read-failed.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
 export type DetailState = { status: "loading" } | { status: "failed"; code: string } | ({ status: "ok" } & Loaded);
@@ -181,6 +181,7 @@ export function TaskSheet({
 				<StatePanel
 					tone="error"
 					title="This task did not load"
+					icon={state.code === "failed" ? READ_FAILED_ICON : undefined}
 					headingLevel="h3"
 					actions={
 						<Button variant="primary" size="sm" onClick={onRetry}>
@@ -387,6 +388,7 @@ export function TaskSheet({
 						<StatePanel
 							tone="error"
 							title="The rest of this task did not load"
+							icon={state.code === "failed" ? READ_FAILED_ICON : undefined}
 							headingLevel="h3"
 							actions={
 								<Button variant="secondary" size="sm" onClick={onRetry}>

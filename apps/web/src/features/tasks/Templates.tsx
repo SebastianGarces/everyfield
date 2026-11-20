@@ -3,7 +3,7 @@
 import { ArrowLeft01Icon, CheckListIcon } from "@hugeicons/core-free-icons";
 import { Button, Sheet, Skeleton, StatePanel, toast } from "@everyfield/ui/controls";
 import { StatusBadge } from "@everyfield/ui/display";
-import { Icon } from "@everyfield/ui/foundations";
+import { Icon, type IconSvgElement } from "@everyfield/ui/foundations";
 import { useId, useRef, useState, useTransition } from "react";
 import { createRead, useRead } from "../../components/read.tsx";
 import { SHORT_NAME } from "../phases/model.ts";
@@ -23,10 +23,15 @@ import {
 	type TemplatePreview,
 } from "./model.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
+import { failedIcon } from "../../components/read-failed.ts";
 
-type Load<T> = { status: "loading" } | { status: "failed"; message: string } | { status: "ok"; value: T };
+type Load<T> =
+	| { status: "loading" }
+	| { status: "failed"; message: string; icon: IconSvgElement | undefined }
+	| { status: "ok"; value: T };
 const loadFailed = (r: Exclude<Outcome<unknown> | ReadFailure, { status: "ok" }>) => ({
 	status: "failed" as const,
+	icon: failedIcon(r),
 	message:
 		r.status === "lost"
 			? "Check your connection and try again."
@@ -158,7 +163,7 @@ function CatalogBody({
 		);
 	if (state.status === "failed")
 		return (
-			<StatePanel tone="error" title="The checklists did not load" headingLevel="h3">
+			<StatePanel tone="error" title="The checklists did not load" icon={state.icon} headingLevel="h3">
 				{state.message}{" "}
 				<Button variant="secondary" size="sm" onClick={onRetry}>
 					Try again
@@ -228,7 +233,7 @@ function PreviewBody({
 	const headingId = useId();
 	if (state.status === "failed")
 		return (
-			<StatePanel tone="error" title="This checklist did not load" headingLevel="h3">
+			<StatePanel tone="error" title="This checklist did not load" icon={state.icon} headingLevel="h3">
 				{state.message}{" "}
 				<Button variant="secondary" size="sm" onClick={onRetry}>
 					Try again
