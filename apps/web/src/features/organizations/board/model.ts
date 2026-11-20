@@ -1,3 +1,4 @@
+import type { Lost } from "@everyfield/contracts/common";
 import { STARTER_STAGES, type PipelineBoardQuery, type PipelineRefusal } from "@everyfield/contracts/organizations";
 
 export const PIPELINE_PATH = "/organization/pipeline";
@@ -40,7 +41,7 @@ const FIELD_PROBLEM: Record<string, string> = {
 	responsibleSeatId: "That staff member no longer has a seat here. Choose someone else.",
 };
 
-export function refusalText(answer: { status: "refused"; refusal: PipelineRefusal } | { status: "lost" }) {
+export function refusalText(answer: { status: "refused"; refusal: PipelineRefusal } | Lost) {
 	if (answer.status === "lost") return "We couldn’t reach Everyfield. Nothing was saved. Try again.";
 	const r = answer.refusal;
 	switch (r.code) {

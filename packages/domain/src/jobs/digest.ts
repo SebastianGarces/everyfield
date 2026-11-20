@@ -154,14 +154,14 @@ export function createDigestWorker(config: { mail: ReturnType<typeof createMailS
 		const key = digestKey(tenant, category, row.coverage, period.start, period.end);
 		const notice = randomUUID();
 		const mail = config.mail.queued(
-			send && email
+			send && email && row.address !== null
 				? [
 						{
 							owner: plant
 								? { kind: "plant", id: tenant }
 								: { kind: "organization", id: tenant, organizationKind: organizationKind.parse(row.organization_kind) },
 							recipient,
-							address: row.address!,
+							address: row.address,
 							purpose: category,
 							logicalKey: MAIL_KEY + key,
 							notice,

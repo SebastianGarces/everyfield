@@ -143,14 +143,14 @@ ${finish(state, code)} SELECT 1`);
 				}
 				const input =
 					retrieved.status === "ok"
-						? c.modelInput.parse({
+						? ({
 								phase: retrieved.phase,
 								asOf: f.asOf,
 								today: f.today,
 								rubric: c.ACTIVE_PLANT_RUBRIC,
 								facts: c.factCatalog(f),
 								passages: retrieved.passages,
-							})
+							} satisfies z.output<typeof c.modelInput>)
 						: null;
 				const degraded = !input;
 				const reason = retrieved.status === "unavailable" ? "guidance_unavailable" : "reference_missing";

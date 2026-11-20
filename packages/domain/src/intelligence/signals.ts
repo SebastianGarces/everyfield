@@ -236,13 +236,15 @@ export function createSignals(config: { clock?: Clock } = {}) {
 	function signalSaved(r: WriteRow, print: string, key: c.SignalKey) {
 		const replay = replayOf(r, print);
 		if (replay)
-			return c.signalWriteResult.parse({ outcome: "saved", signal: signalFrom(key, replay.state, replay.today) });
+			return { outcome: "saved", signal: signalFrom(key, replay.state, replay.today) } satisfies z.output<
+				typeof c.signalWriteResult
+			>;
 		if (!r.ok) deny("access_denied");
 		if (!r.written) return null;
-		return c.signalWriteResult.parse({
+		return {
 			outcome: "saved",
 			signal: signalFrom(key, stateRow.parse(r.written), r.today!),
-		});
+		} satisfies z.output<typeof c.signalWriteResult>;
 	}
 
 	function candidateOutcome(
@@ -282,14 +284,15 @@ export function createSignals(config: { clock?: Clock } = {}) {
 			if (!c.listDefinitionsRequest.safeParse(raw).success) return refused("invalid_input");
 			return {
 				status: "ok",
-				value: c.SIGNAL_DEFINITIONS.map((d) =>
-					c.signalDefinition.parse({
-						key: d.key,
-						label: d.label,
-						description: d.description,
-						reaffirms: d.reaffirms,
-						windowDays: d.reaffirms ? c.REAFFIRM_WINDOW_DAYS : null,
-					}),
+				value: c.SIGNAL_DEFINITIONS.map(
+					(d) =>
+						({
+							key: d.key,
+							label: d.label,
+							description: d.description,
+							reaffirms: d.reaffirms,
+							windowDays: d.reaffirms ? c.REAFFIRM_WINDOW_DAYS : null,
+						}) satisfies z.output<typeof c.signalDefinition>,
 				),
 			};
 		},
@@ -349,7 +352,7 @@ export function createSignals(config: { clock?: Clock } = {}) {
  coalesce((SELECT jsonb_agg(${historyJson(sql`h`, s)} ORDER BY h.recorded_at DESC,h.revision DESC,h.id) FROM hist h),'[]'::jsonb) AS history`);
 				const r = z.object({ ok: z.boolean().nullable(), history: z.array(historyRow) }).parse(rows[0]);
 				if (!r.ok) deny("access_denied");
-				return c.historyResult.parse({ revisions: r.history.map(revisionOf) });
+				return { revisions: r.history.map(revisionOf) } satisfies z.output<typeof c.historyResult>;
 			});
 		},
 
