@@ -87,9 +87,9 @@ export function useReadElsewhere(): (ids: readonly string[]) => void {
 
 const lost = () => ({ status: "lost" }) as const;
 
-export function useClock(): Clock | null {
-	const zone = useBrowserZone();
-	const now = useMinuteClock();
+export function useClock(served: Clock | null = null): Clock | null {
+	const zone = useBrowserZone() ?? served?.zone ?? null;
+	const now = useMinuteClock() ?? served?.now ?? null;
 	return useMemo(() => (zone === null || now === null ? null : { zone, now }), [zone, now]);
 }
 
