@@ -82,8 +82,8 @@ const standalone = {
 		"checkpoint",
 		"scanPage",
 	],
-	"/apps/web/src/server/jobs/mail.ts": ["claimUnknownMail"],
-	"/apps/web/src/server/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
+	"/packages/domain/src/jobs/mail.ts": ["claimUnknownMail"],
+	"/packages/domain/src/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
 	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
 

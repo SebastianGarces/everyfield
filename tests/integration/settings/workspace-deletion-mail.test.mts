@@ -10,7 +10,7 @@ import { issueRestrictedDeletionSession } from "../../../packages/domain/src/set
 import { notificationCategory } from "../../../packages/contracts/src/settings/values.ts";
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { deadline } from "../../../apps/web/src/features/settings/deletion-mail.ts";
-import { createMailService, type MailPayload } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService, type MailPayload } from "../../../packages/domain/src/jobs/mail.ts";
 import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { executeWrites, gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 import { testDatabase } from "../../support/test-database.mts";

@@ -1,13 +1,20 @@
 import type { Database, Transaction } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { issueHash, publicIssue, type PublicIssue } from "@everyfield/domain/feedback/public";
+import { issueHash, publicIssue, type PublicIssue } from "../feedback/public.ts";
 import "server-only";
 import { z } from "zod";
-import { transaction, claimDue, finishClaim, lockClaim, recoverLease, type Claim } from "@everyfield/domain/jobs";
+import { claimDue, finishClaim, lockClaim, recoverLease, type Claim } from "./queue.ts";
+import { transaction } from "./transaction.ts";
 import type { HeldReason } from "@everyfield/contracts/feedback";
-import type { IssueClient, IssueLink } from "./github.ts";
-import { logLine } from "@everyfield/domain/log";
+import { logLine } from "../log.ts";
 
+export type IssueLink = { number: number; url: string };
+export type CreateOutcome = { kind: "created"; issue: IssueLink } | { kind: "refused" } | { kind: "unknown" };
+export type SearchOutcome = { kind: "found"; issues: IssueLink[] } | { kind: "failed" };
+export interface IssueClient {
+	create(repository: string, issue: { title: string; body: string }): Promise<CreateOutcome>;
+	search(repository: string, reference: string): Promise<SearchOutcome>;
+}
 export type OperatorMail = (notice: OperatorNotice) => SQL;
 export type OperatorNotice = {
 	tenant: string;

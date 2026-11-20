@@ -12,7 +12,7 @@ import { resendRecorder } from "../communication/resend-recorder.mts";
 import { queuedMailTransport } from "../../../apps/web/src/server/mail/transport.ts";
 import { settingsMail, settingsMailPass } from "../../../apps/web/src/features/settings/mail.ts";
 import { identityMailEnqueue, identityMailPass } from "../../../apps/web/src/server/identity/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { onboardingMailPass, onboardingMount } from "../../../apps/web/src/features/onboarding/mount.ts";
 import {

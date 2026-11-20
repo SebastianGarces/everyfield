@@ -1,20 +1,15 @@
-import { getViewer } from "@/server/request-context";
-import { signIn } from "@/server/sign-in";
+import { requireSeat } from "@/server/sign-in";
 import { Skeleton } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
 import { JourneyScreen } from "./JourneyScreen.tsx";
 import { NoChurchPlantSeat, PlantIntelligenceBlocked } from "./PlantIntelligenceBlocked.tsx";
-import { administers, loadJourney, phaseViewer } from "./server.ts";
+import { administers, loadJourney } from "./server.ts";
 
 export const journeyMetadata: Metadata = { title: "Journey", robots: { index: false, follow: false } };
 
 export async function JourneyPage() {
-	const viewer = await phaseViewer();
-	if (!viewer) {
-		const v = await getViewer();
-		if (v.status === "unauthenticated") signIn("/intelligence/journey");
-		return <NoChurchPlantSeat />;
-	}
+	const viewer = await requireSeat("/intelligence/journey");
+	if (!viewer) return <NoChurchPlantSeat />;
 	if (!administers(viewer))
 		return (
 			<PlantIntelligenceBlocked title="The journey is for Owners and Admins">
@@ -28,7 +23,7 @@ export async function JourneyPage() {
 				This is a loading problem. The journey is safe. Reload the page in a moment.
 			</PlantIntelligenceBlocked>
 		);
-	return <JourneyScreen {...loaded.value} viewer={{ accountId: viewer.accountId, name: viewer.displayName }} />;
+	return <JourneyScreen {...loaded.value} viewer={{ accountId: viewer.accountId, name: viewer.accountName }} />;
 }
 
 export function IntelligenceLoading() {
