@@ -161,7 +161,7 @@ const SECTIONS = {
 		},
 		parse: (raw: unknown) => {
 			const r = z.object({ recorded: z.int(), open: z.int(), overdue: z.int() }).parse(raw);
-			return r.recorded ? C.taskCounts.parse({ open: r.open, overdue: r.overdue }) : null;
+			return r.recorded ? ({ open: r.open, overdue: r.overdue } satisfies z.output<typeof C.taskCounts>) : null;
 		},
 	},
 	meetings: {
