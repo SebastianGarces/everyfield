@@ -6,6 +6,7 @@ import { useId } from "react";
 import {
 	CHANNEL_LABEL,
 	CHANNELS,
+	contactRange,
 	localInputOf,
 	NOTES_MAX,
 	OUTCOME_HINT,
@@ -181,6 +182,7 @@ function WhenField({
 					<Input
 						type="datetime-local"
 						value={draft.at}
+						min={localInputOf(contactRange(new Date()).from)}
 						max={localInputOf(new Date())}
 						onChange={(e) => onDraft({ ...draft, at: e.target.value })}
 					/>
