@@ -13,6 +13,7 @@ import {
 	reviseProposal,
 	submitTurn,
 } from "../../../packages/evry/src/index.ts";
+import type { EvryActor } from "../../../packages/evry/src/context/actor.ts";
 import {
 	allows,
 	coverage,
@@ -20,9 +21,11 @@ import {
 	proposalMachine as machine,
 	reachable,
 	refusals,
+	type Observation,
+	type ProposalSubject,
 } from "../../../packages/contracts/src/machines/index.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, organization, people, setup, sql, teardown, work } from "../runtime/support.mts";
 
 const APPROVE = "evry.approveProposal";
@@ -31,6 +34,18 @@ const stages = { Prospect: randomUUID(), Core: randomUUID() };
 const jordan = randomUUID();
 const pipelinePerson = randomUUID();
 let city = 0;
+
+type Claim = Awaited<ReturnType<typeof claimDue>>[number];
+type Walk = {
+	id: string;
+	who: EvryActor;
+	subject: string;
+	input: { operation: string; input: Record<string, unknown> };
+	claim: Claim | null;
+};
+type Stored = { state: string; outcome: string | null; revision: string; updated_at: string; job_id: string };
+type Fired = { value: unknown; code?: undefined } | { code: string; value?: undefined };
+type Rule = { readonly when?: string | readonly string[]; readonly unless?: string | readonly string[] };
 
 before(async () => {
 	await setup();
@@ -49,27 +64,33 @@ after(teardown);
 const noReminders = async () => {
 	throw Error("unexpected task reminder replan");
 };
-const lease = (claim) => ({
+const lease = (claim: Claim) => ({
 	jobId: claim.id,
 	tenantId: claim.tenant_id,
 	leaseOwner: claim.lease_owner,
 	generation: claim.claim_generation,
 });
-const keyOf = (row) => [row.state, row.outcome].filter(Boolean).join("_");
+const keyOf = (row: Stored) => [row.state, row.outcome].filter(Boolean).join("_");
 
-async function stored(id) {
-	const r = await admin.execute(
+async function stored(id: string) {
+	const r = await admin.execute<Stored>(
 		sql`SELECT state,outcome,revision::text AS revision,updated_at::text AS updated_at,job_id FROM proposal WHERE id=${id}`,
 	);
-	return r.rows[0];
+	const [row] = r.rows;
+	assert.ok(row, `proposal ${id} is stored`);
+	return row;
 }
 
 async function stageOf() {
-	const r = await admin.execute(sql`SELECT stage_id FROM pipeline_person WHERE id=${pipelinePerson}`);
-	return r.rows[0].stage_id;
+	const r = await admin.execute<{ stage_id: string }>(
+		sql`SELECT stage_id FROM pipeline_person WHERE id=${pipelinePerson}`,
+	);
+	const [row] = r.rows;
+	assert.ok(row, "the pipeline person is stored");
+	return row.stage_id;
 }
 
-async function propose(subject) {
+async function propose(subject: string): Promise<Walk> {
 	const who = await actor(subject === "now" ? "orgOwner" : "owner");
 	const current = subject === "now" ? await stageOf() : null;
 	const target = current === stages.Prospect ? "Core" : "Prospect";
@@ -80,7 +101,9 @@ async function propose(subject) {
 	const page = await readConversation(db, who, c.id);
 	const card = page.events.find((e) => e.kind === "tool_result" && e.body.operation === "evry.prepareProposal");
 	assert.ok(card, `${subject}: no review card for "${text}"`);
-	const id = card.body.result.proposalId;
+	const result = card.body.result;
+	assert.ok(result && typeof result === "object" && "proposalId" in result && typeof result.proposalId === "string");
+	const id = result.proposalId;
 	const input =
 		subject === "now"
 			? { operation: "pipeline.proposeStageMove", input: { personId: jordan, stageId: stages[target] } }
@@ -88,12 +111,12 @@ async function propose(subject) {
 	return { id, who, subject, input, claim: null };
 }
 
-const witness = async (p) => {
+const witness = async (p: Walk) => {
 	const r = await readReview(db, p.who, p.id);
 	return { revision: r.revision, digest: r.digest, ...(p.subject === "now" ? { reason: "Model-based walk" } : {}) };
 };
 
-async function claimFor(p) {
+async function claimFor(p: Walk) {
 	const { job_id } = await stored(p.id);
 	await admin.execute(
 		sql`UPDATE job SET eligible_at=clock_timestamp()+interval '1 day' WHERE kind='evry_effect' AND state='ready' AND id<>${job_id}`,
@@ -107,7 +130,7 @@ async function claimFor(p) {
 	p.claim = claim;
 }
 
-async function approveFailingMove(p) {
+async function approveFailingMove(p: Walk) {
 	await admin.execute(
 		sql.raw(
 			`CREATE FUNCTION sm3_fail() RETURNS trigger LANGUAGE plpgsql AS $$BEGIN RAISE EXCEPTION 'synthetic'; END$$`,
@@ -120,7 +143,8 @@ async function approveFailingMove(p) {
 	);
 	try {
 		await assert.rejects(approveProposal(db, p.who, p.id, await witness(p), null), (error) => {
-			assert.equal(error.cause?.message, "synthetic");
+			assert.ok(error instanceof Error && error.cause instanceof Error);
+			assert.equal(error.cause.message, "synthetic");
 			return true;
 		});
 	} finally {
@@ -128,16 +152,17 @@ async function approveFailingMove(p) {
 	}
 }
 
-const outcomeOf = (promise) =>
+const outcomeOf = (promise: Promise<unknown>): Promise<Fired> =>
 	promise.then(
 		(value) => ({ value }),
 		(error) => {
-			if (typeof error?.code !== "string") throw error;
-			return { code: error.code };
+			const code: unknown = error?.code;
+			if (typeof code !== "string") throw error;
+			return { code };
 		},
 	);
 
-function fire(p, event) {
+function fire(p: Walk, event: string): Promise<Fired> {
 	switch (event) {
 		case "evry.reviseProposal":
 			return outcomeOf(
@@ -150,15 +175,16 @@ function fire(p, event) {
 		case "evry.retryUnresolvedEffects":
 			return outcomeOf(retryUnresolvedEffects(db, p.who, p.id));
 		case EXECUTE:
+			assert.ok(p.claim, `${p.subject}: ${EXECUTE} runs on a claimed effect job`);
 			return executeProposal(db, lease(p.claim), noReminders).then((outcome) => ({ value: outcome }));
 	}
 	throw Error(`no public operation for ${event}`);
 }
 
-const lapse = (p) =>
+const lapse = (p: Walk) =>
 	admin.execute(sql`UPDATE proposal SET expires_at=clock_timestamp()-interval '1 second' WHERE id=${p.id}`);
-const markFailed = (p) => admin.execute(sql`UPDATE proposal SET outcome='failed' WHERE id=${p.id}`);
-const staleEffect = async (p) => {
+const markFailed = (p: Walk) => admin.execute(sql`UPDATE proposal SET outcome='failed' WHERE id=${p.id}`);
+const staleEffect = async (p: Walk) => {
 	await admin.execute(
 		sql`UPDATE job SET eligible_at=clock_timestamp()-interval '61 seconds' WHERE id=(SELECT job_id FROM proposal WHERE id=${p.id})`,
 	);
@@ -166,14 +192,14 @@ const staleEffect = async (p) => {
 const stalePerson = () => admin.execute(sql`UPDATE person SET revision=revision+1 WHERE id=${people.casey}`);
 const staleMove = () => admin.execute(sql`UPDATE pipeline_person SET revision=revision+1 WHERE id=${pipelinePerson}`);
 
-async function expect(p, event, value) {
+async function expect(p: Walk, event: string, value?: unknown) {
 	const r = await fire(p, event);
 	assert.ok(!("code" in r), `${p.subject} ${event} answered ${r.code}`);
 	if (value !== undefined) assert.equal(r.value, value);
 	return r.value;
 }
 
-async function reach(subject, state, { claimed = false } = {}) {
+async function reach(subject: string, state: string, { claimed = false } = {}): Promise<Walk> {
 	const p = await propose(subject);
 	const approve = () => expect(p, APPROVE);
 	const queued = subject === "queued";
@@ -234,31 +260,41 @@ async function reach(subject, state, { claimed = false } = {}) {
 	return p;
 }
 
-async function done(p) {
-	if (p.claim) await transaction(db, (tx) => finishClaim(tx, p.claim, { state: "succeeded" }));
+async function done(p: Walk) {
+	const claim = p.claim;
+	if (claim) await transaction(db, (tx) => finishClaim(tx, claim, { state: "succeeded" }));
 }
 
-const withFacts = (sample, rule) => {
-	const facts = { ...sample };
-	for (const g of [rule.when ?? []].flat()) if (machine.facts.includes(g)) facts[g] = true;
-	for (const g of [rule.unless ?? []].flat()) if (machine.facts.includes(g)) facts[g] = false;
-	return facts;
+const factNames: readonly string[] = machine.facts ?? [];
+const withFacts = (sample: ProposalSubject, rule: Rule): ProposalSubject => {
+	const set = (names: Rule["when"], value: boolean) =>
+		[names ?? []]
+			.flat()
+			.filter((g) => factNames.includes(g))
+			.map((g) => [g, value]);
+	return { ...sample, ...Object.fromEntries([...set(rule.when, true), ...set(rule.unless, false)]) };
+};
+const field = (value: unknown, name: string): unknown => {
+	assert.ok(value && typeof value === "object", `an answer with ${name}`);
+	return Object.entries(value).find(([key]) => key === name)?.[1];
 };
 
 test("INV-machine: an Evry proposal's state and outcome follow their declared transitions and refuse every other move", async (t) => {
-	const observations = [];
-	const observe = (o) => observations.push({ machine: machine.id, ...o });
-	const subjects = Object.keys(machine.subjects);
+	const observations: Observation[] = [];
+	const observe = (o: Omit<Observation, "machine">) => observations.push({ machine: machine.id, ...o });
+	const subjects = Object.entries(machine.subjects);
+	const [entry] = machine.entries;
+	assert.ok(entry);
 
-	for (const subject of subjects) {
+	for (const [subject] of subjects) {
 		const p = await propose(subject);
-		observe({ kind: "edge", subject, event: machine.entries[0].event, from: null, to: keyOf(await stored(p.id)) });
+		observe({ kind: "edge", subject, event: entry.event, from: null, to: keyOf(await stored(p.id)) });
 	}
 
 	for (const edge of machine.transitions)
-		for (const subject of subjects) {
-			const facts = withFacts(machine.subjects[subject], edge);
-			if (!reachable(machine, machine.subjects[subject]).includes(edge.from)) continue;
+		for (const [subject, sample] of subjects) {
+			const facts = withFacts(sample, edge);
+			if (!reachable(machine, sample).includes(edge.from)) continue;
 			if (!allows(machine, edge.event, edge.from, edge.to, facts)) continue;
 			const label = `${subject} ${edge.event} ${edge.from} -> ${edge.to}`;
 			if (edge.event === APPROVE && edge.from === "approved") {
@@ -283,16 +319,16 @@ test("INV-machine: an Evry proposal's state and outcome follow their declared tr
 
 	for (const stay of machine.stays)
 		for (const state of stay.in)
-			for (const subject of subjects) {
-				const facts = withFacts(machine.subjects[subject], stay);
-				if (!reachable(machine, machine.subjects[subject]).includes(state)) continue;
+			for (const [subject, sample] of subjects) {
+				const facts = withFacts(sample, stay);
+				if (!reachable(machine, sample).includes(state)) continue;
 				if (!holds(machine, stay.event, state, facts)) continue;
 				const p = await reach(subject, state);
 				const before = await stored(p.id);
 				const answer = await expect(p, stay.event);
-				if (stay.event === APPROVE) assert.equal(answer.replayed, true);
-				if (stay.event === "evry.cancelProposal") assert.equal(answer.cancelled, false);
-				if (stay.event === "evry.retryUnresolvedEffects") assert.equal(answer.retried, false);
+				if (stay.event === APPROVE) assert.equal(field(answer, "replayed"), true);
+				if (stay.event === "evry.cancelProposal") assert.equal(field(answer, "cancelled"), false);
+				if (stay.event === "evry.retryUnresolvedEffects") assert.equal(field(answer, "retried"), false);
 				assert.deepEqual(await stored(p.id), before, `${subject} ${stay.event} in ${state} wrote nothing`);
 				observe({ kind: "stay", subject, event: stay.event, from: state, to: state });
 				await done(p);

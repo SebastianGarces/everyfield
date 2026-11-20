@@ -1,6 +1,7 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { sql, type SQL } from "@everyfield/db/query";
 import type { Database } from "@everyfield/db/client";
+import type { ProviderKey } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/communication";
 import {
 	plainText,
@@ -43,7 +44,7 @@ export type DeliveryBatch =
 export type ProviderAnswer = { outcome: "done" | "sent" | "unknown" };
 export type DeliveryTransport = {
 	send(
-		batch: { key: string; messages: readonly DeliveryMessage[]; scheduledAt: string | null },
+		batch: { key: ProviderKey; messages: readonly DeliveryMessage[]; scheduledAt: string | null },
 		signal: AbortSignal,
 	): Promise<DeliveryBatch>;
 	cancel(providerIds: readonly string[], signal: AbortSignal): Promise<ProviderAnswer[]>;
@@ -67,7 +68,7 @@ type Mode = "now" | "scheduled" | "lookup";
 type Batch = {
 	requestId: string;
 	attemptId: string;
-	providerKey: string;
+	providerKey: ProviderKey;
 	expired: boolean;
 	members: Member[];
 	messages: ReadonlyMap<number, DeliveryMessage | null>;
@@ -261,11 +262,12 @@ async function loadAudience(db: Database, actor: Actor, communicationId: string)
 	return loadedSchema.parse(raw ?? { allowed: false });
 }
 
+const providerKey = z.string().transform((key) => key as ProviderKey);
 const sealedPayload = z.object({ v: z.literal(1), sealed: z.string() });
 const storedBatches = z.array(
 	z.object({
 		requestId: z.uuid(),
-		providerKey: z.string(),
+		providerKey,
 		attemptId: z.uuid(),
 		expired: z.boolean(),
 		members: z.array(
@@ -430,7 +432,7 @@ async function prepare(
 			batch,
 			id: randomUUID(),
 			attempt: randomUUID(),
-			provider_key: `communication/${found.id}/${requestHash}`,
+			provider_key: providerKey.parse(`communication/${found.id}/${requestHash}`),
 			request_hash: requestHash,
 		};
 	});
@@ -853,7 +855,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 		}
 		const held = local.length > 0 || next.some((row) => row.provider !== null || holding(row));
 		const openCount = next.filter(holding).length;
-		return c.cancelScheduledResult.parse({
+		return {
 			newHandoffs: 0,
 			scheduledCancel: !held ? "none" : openCount > 0 ? "reconcile" : "confirmed",
 			sentRecalled: false,
@@ -864,7 +866,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 			confirmedCount: next.filter((row) => row.state === "cancelled").length,
 			sentCount: next.filter((row) => row.state === "sent").length,
 			openCount,
-		});
+		} satisfies z.output<typeof c.cancelScheduledResult>;
 	});
 }
 
@@ -879,7 +881,9 @@ export function replaceScheduled(db: Database, authority: RequestActor, raw: unk
 		const replacementAllowed =
 			members.some((row) => row.state === "cancelled") &&
 			members.every((row) => row.state === "cancelled" || row.state === "refused" || row.state === "failed");
-		return c.replaceScheduledResult.parse({ replacementAllowed, replacementIntents: 0, blindResends: 0 });
+		return { replacementAllowed, replacementIntents: 0, blindResends: 0 } satisfies z.output<
+			typeof c.replaceScheduledResult
+		>;
 	});
 }
 
@@ -1023,7 +1027,9 @@ export function restoreOwnSuppression(db: Database, authority: RequestActor, raw
 				)
 				SELECT count(*)::int AS clears FROM updated`),
 		) as { clears?: number };
-		return c.restoreSuppressionResult.parse({ suppressionClears: updated?.clears ?? 0, newSends: 0 });
+		return { suppressionClears: updated?.clears ?? 0, newSends: 0 } satisfies z.output<
+			typeof c.restoreSuppressionResult
+		>;
 	});
 }
 
@@ -1045,7 +1051,7 @@ export function sendTransactionalMail(
 		const attemptId = randomUUID();
 		const logical = `password_reset/${actor.accountId}/${input.requestKey}`;
 		const payloadHash = hash({ purpose: "password_reset", accountId: actor.accountId, address, from: ready.from });
-		const providerKey = `password_reset/${payloadHash}/${input.requestKey}`;
+		const resetKey = providerKey.parse(`password_reset/${payloadHash}/${input.requestKey}`);
 		const sealed = seal(
 			ready.encryptionKey,
 			JSON.stringify({ subject: rendered.subject, text: rendered.text, html: rendered.html, from: ready.from }),
@@ -1065,7 +1071,7 @@ export function sendTransactionalMail(
 					RETURNING id
 				), req AS (
 					INSERT INTO mail_request (id, tenant_id, provider_key, request_hash, first_dispatched_at)
-					SELECT ${requestId}::uuid, ${actor.plantId}::uuid, ${providerKey}, ${payloadHash}, clock_timestamp()
+					SELECT ${requestId}::uuid, ${actor.plantId}::uuid, ${resetKey}, ${payloadHash}, clock_timestamp()
 					FROM ins RETURNING id
 				), mem AS (
 					INSERT INTO mail_request_member (request_id, tenant_id, mail_id, position)
@@ -1090,7 +1096,7 @@ export function sendTransactionalMail(
 			try {
 				const batch = await transport.send(
 					{
-						key: providerKey,
+						key: resetKey,
 						messages: [{ to: address, subject: rendered.subject, html: rendered.html, text: rendered.text }],
 						scheduledAt: null,
 					},
@@ -1109,7 +1115,9 @@ export function sendTransactionalMail(
 			await db.execute(sql`UPDATE mail_attempt SET outcome = ${deliveryStatus === "accepted" ? "accepted" : deliveryStatus === "refused" ? "refused" : "unknown"},
 				completed_at = clock_timestamp() WHERE id = ${attemptId}::uuid`);
 		}
-		return c.transactionalResult.parse({ purposeMailAttempted: true, deliveryStatus, sentAt: null });
+		return { purposeMailAttempted: true, deliveryStatus, sentAt: null } satisfies z.output<
+			typeof c.transactionalResult
+		>;
 	});
 }
 
@@ -1119,7 +1127,7 @@ const churchClosing = (tenant: SQL) => sql`EXISTS (SELECT 1 FROM lifecycle_witne
 const claimedSchema = z.object({
 	request_id: z.uuid(),
 	tenant_id: z.uuid(),
-	provider_key: z.string(),
+	provider_key: providerKey,
 	attempt_id: z.uuid(),
 	communication_id: z.uuid(),
 	members: z.array(

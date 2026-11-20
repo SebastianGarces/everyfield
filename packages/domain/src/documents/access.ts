@@ -1,7 +1,6 @@
-import { documentsError, type DocumentsError, type DocumentsReply } from "@everyfield/contracts/documents";
+import { documentsError } from "@everyfield/contracts/documents";
 import type { Database } from "@everyfield/db/client";
-import { sql } from "@everyfield/db/query";
-import { randomUUID } from "node:crypto";
+import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, writeVisibility, type RequestActor } from "../access/session.ts";
@@ -10,41 +9,12 @@ import { meetingFactsSql, parseMeeting } from "./meeting-read.ts";
 import { networkStatementSql } from "./network-statement.ts";
 import { dataFromRow } from "../branding/kit.ts";
 import type { BrandKitData } from "@everyfield/contracts/branding";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export type Reader = Pick<Database, "execute">;
-type Code = DocumentsError["code"];
-
-class Refusal extends Error {
-	readonly code: Code;
-	readonly details: object;
-	constructor(code: Code, details: object = {}) {
-		super(code);
-		this.code = code;
-		this.details = details;
-	}
-}
-export function deny(code: Code = "unavailable", details: object = {}): never {
-	throw new Refusal(code, details);
-}
-function refused(error: Refusal): DocumentsReply<never> {
-	return {
-		status: "refused",
-		error: documentsError.parse({
-			code: error.code,
-			details: error.details,
-			correlationId: randomUUID(),
-			retry: error.code === "conflict" ? "refresh" : "never",
-		}),
-	};
-}
-export async function settle<T>(body: () => Promise<T>): Promise<DocumentsReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (error instanceof Refusal) return refused(error);
-		throw error;
-	}
-}
+const refusals = defineRefusals(documentsError);
+export const deny: Deny<typeof documentsError> = refusals.deny;
+export const { settle } = refusals;
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const found = schema.safeParse(raw);
 	if (found.success) return found.data;
@@ -116,9 +86,11 @@ export async function readPlant(
 	db: Reader,
 	viewer: PlantViewer,
 	subject: { personId: string | null; meetingId: string | null; teamId: string | null },
-): Promise<PlantRead> {
+	extra: SQL = sql`NULL`,
+): Promise<PlantRead & { extra: unknown }> {
 	const found =
-		await db.execute(sql`SELECT a.access_live, q.subject_ok, q.church_name, q.pastor_name, q.launch_date, q.meeting, q.statement, q.kit
+		await db.execute(sql`SELECT a.access_live, q.subject_ok, q.church_name, q.pastor_name, q.launch_date, q.meeting, q.statement, q.kit,
+			${extra} AS extra
 		FROM (SELECT ${liveRead(viewer.access, false)} AND EXISTS(SELECT FROM live_session(${viewer.access.session}::uuid) s
 			WHERE s.registration_state='active' AND s.account_id=${viewer.accountId}::uuid) AS access_live) a
 		LEFT JOIN LATERAL (
@@ -156,11 +128,14 @@ export async function readPlant(
 				meeting?: unknown;
 				statement?: unknown;
 				kit?: Record<string, unknown> | null;
+				extra?: unknown;
 		  }
 		| undefined;
-	if (!row || row.access_live !== true) return { open: false };
-	if (row.subject_ok !== true) return { open: true, subjectOk: false };
+	const read = { extra: row?.extra ?? null };
+	if (!row || row.access_live !== true) return { ...read, open: false };
+	if (row.subject_ok !== true) return { ...read, open: true, subjectOk: false };
 	return {
+		...read,
 		open: true,
 		subjectOk: true,
 		churchName: asText(row.church_name),

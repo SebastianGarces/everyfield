@@ -23,6 +23,7 @@ import { z } from "zod";
 import type { EvryActor } from "../../../context/actor.ts";
 import type { EffectResult, MailPort, ReviewContext, ReviewedWrite } from "../../../proposals/types.ts";
 import { held, unanswered, untouchedMail } from "../reads/index.ts";
+import { gatedTransaction } from "@everyfield/domain/operations";
 
 const ownerOrAdmin = (actor: EvryActor) =>
 	actor.owner.kind === "plant" && (actor.role === "owner" || actor.role === "admin");
@@ -136,7 +137,9 @@ const SAMPLE_NAME = "RECIPIENT_NAME_TOKEN_7F3A";
 async function audienceFacts(context: ReviewContext, plantId: string, audience: AudienceValue) {
 	const { mail } = context;
 	if (!mail) return null;
-	const raw = (await context.db.execute(sql`SELECT ${audiencePeople(plantId, audience)} AS people`)).rows[0]!.people;
+	const [row] = (await context.db.execute(sql`SELECT ${audiencePeople(plantId, audience)} AS people`)).rows;
+	if (!row) throw new Error("The audience query returned no row");
+	const raw = row.people;
 	const hashes = Object.fromEntries(
 		z
 			.array(z.object({ email: z.string().nullable() }))
@@ -458,7 +461,7 @@ async function replaceStep(
 	if (!gate.value.replacementAllowed) return stopped(counts.open > 0 ? "not_confirmed" : "blocked");
 	const session = authority.session;
 	const owner = authority.actor.context.owner;
-	const scheduled = await db.transaction(async (tx) => {
+	const scheduled = await gatedTransaction(db, async (tx) => {
 		if (!(await RequestActor.claimWrite(tx, session, owner))) return null;
 		const context: CommunicationContext = { session, selected: owner };
 		const draft = await communicationWriter.saveDraft(tx, context, {
@@ -574,7 +577,9 @@ export const replace: ReviewedWrite<z.infer<typeof replaceInput>> = {
 	async recheck(tx, context, args) {
 		const saved = savedReplace.parse(args);
 		const now = await tx.execute(sql`SELECT ${audiencePeople(context.selected.id, saved.input.audience)} AS people`);
-		return recipientsDigest(now.rows[0]!.people) === saved.recipientsDigest ? null : "stale_review";
+		const [row] = now.rows;
+		if (!row) throw new Error("The audience query returned no row");
+		return recipientsDigest(row.people) === saved.recipientsDigest ? null : "stale_review";
 	},
 	execute: checkedOnly,
 	reach: (db, authority, args, effectKey, _first, mail) =>

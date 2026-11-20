@@ -6,31 +6,31 @@ import { privateStorage } from "@everyfield/db/schema";
 import { brandReader, brandWriter, readBrandAssetIfChanged, uploadBrandAsset } from "@everyfield/domain/branding";
 import { randomUUID } from "node:crypto";
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import type { Database } from "@everyfield/db/client";
+import type { RequestActor } from "@everyfield/domain/access";
+import { getViewer, type Viewer } from "@/server/request-context";
 import type { BrandView } from "../port";
-
-type Db = NonNullable<ReturnType<typeof requestDatabase>>;
-type Actor = NonNullable<Awaited<ReturnType<typeof getViewer>>>["authority"];
+import { type LogWord } from "@everyfield/domain/log";
+import { transient } from "../../../server/platform/transient.ts";
 
 const unavailable = (): BrandReply<never> => ({
 	status: "refused",
 	error: brandError.parse({ code: "unavailable", details: {}, correlationId: randomUUID(), retry: "never" }),
 });
 
-async function run<T>(outcome: string, call: (db: Db, actor: NonNullable<Actor>) => Promise<BrandReply<T>>) {
-	const viewer = await getViewer();
+type Call<T> = (db: Database, actor: RequestActor) => Promise<BrandReply<T>>;
+
+const run = async <T, O extends string>(outcome: LogWord<O>, call: Call<T>) => runAs(await getViewer(), outcome, call);
+
+async function runAs<T, O extends string>(viewer: Viewer, outcome: LogWord<O>, call: Call<T>) {
+	const authority = viewer.authority;
+	if (!authority) return unavailable();
 	const db = requestDatabase();
-	if (!db || viewer?.status !== "active" || !viewer.authority) return unavailable();
-	try {
-		return await call(db, viewer.authority);
-	} catch (error) {
-		console.error(JSON.stringify({ component: "brand", outcome, error: String(error) }));
-		return unavailable();
-	}
+	return transient({ component: "brand", outcome }, () => call(db, authority), unavailable());
 }
 
-export function readBrand(): Promise<BrandReply<BrandView>> {
-	return run("read_failed", async (db, actor) => {
+export function readBrand(viewer: Viewer): Promise<BrandReply<BrandView>> {
+	return runAs(viewer, "read_failed", async (db, actor) => {
 		const context = actor.actor.context;
 		const plantId = context.kind === "seat" && context.owner.kind === "plant" ? context.owner.id : null;
 		const [reply, named] = await Promise.all([
@@ -61,8 +61,8 @@ export function finalizeBrandUpload(raw: unknown) {
 	return run("finalize_upload_failed", (db, actor) => brandWriter.finalizeUpload(db, actor, raw));
 }
 
-export function suggestBrandColors(raw: unknown) {
-	return run("suggest_failed", (db, actor) => brandReader.suggestColors(db, actor, raw, privateStorage()));
+export function suggestBrandColors(viewer: Viewer, raw: unknown) {
+	return runAs(viewer, "suggest_failed", (db, actor) => brandReader.suggestColors(db, actor, raw, privateStorage()));
 }
 
 export function storeBrandBytes(uploadId: string, bytes: Uint8Array) {

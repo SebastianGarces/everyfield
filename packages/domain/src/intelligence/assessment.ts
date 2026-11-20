@@ -1,8 +1,7 @@
 import { instant, type Clock } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
-import { sql, type SQL } from "@everyfield/db/query";
-import { randomUUID } from "node:crypto";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { Catalog } from "@everyfield/contracts/phases";
@@ -21,6 +20,7 @@ import {
 	trendCellsSql,
 	trendOf,
 } from "./views.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export type DraftCall = { input: c.ModelInput; feedback: c.Violation[]; ordinal: number; maxOutputTokens: number };
 export type DraftReply = { output: unknown; usage: { inputTokens: number; outputTokens: number } };
@@ -44,34 +44,16 @@ export class ModelUnavailable extends Error {
 	}
 }
 
-type Code = c.AssessmentError["code"];
-class Refusal extends Error {
-	readonly code: Code;
-	constructor(code: Code) {
-		super(code);
-		this.code = code;
-	}
-}
-function deny(code: Code): never {
-	throw new Refusal(code);
-}
-async function settle<T>(body: () => Promise<T>): Promise<c.AssessmentReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (!(error instanceof Refusal)) throw error;
-		return {
-			status: "refused",
-			error: c.assessmentError.parse({ code: error.code, details: {}, correlationId: randomUUID(), retry: "never" }),
-		};
-	}
-}
+const refusals = defineRefusals(c.assessmentError);
+const deny: Deny<typeof c.assessmentError> = refusals.deny;
+const { settle } = refusals;
 function scopeOf(authority: RequestActor) {
 	const viewer = plantViewer(authority);
 	if (!viewer || viewer.access.role === "member") deny("access_denied");
 	return { me: viewer.accountId, plant: viewer.plantId, ok: liveRead(viewer.access, true) };
 }
-export const iso = (v: string) => sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
+export const iso = <VName extends string>(v: SqlLiteral<VName>) =>
+	sql`to_char(${sql.raw(v)} AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
 
 const inputBound = (call: Omit<DraftCall, "maxOutputTokens">) =>
 	Buffer.byteLength(JSON.stringify({ input: call.input, feedback: call.feedback })) + 512;
@@ -224,7 +206,7 @@ a AS (INSERT INTO audit_event(tenant_id,actor_id,action,kind,subject_type,subjec
 		${"assessment-refresh:" + id},${id},jsonb_build_object('requestId',${id}::text) FROM j RETURNING 1)
 SELECT (SELECT ok FROM gate) AS ok`);
 				if (!z.object({ ok: z.boolean() }).parse(rows[0]).ok) deny("access_denied");
-				return c.refreshReceipt.parse({ requestId: id, state: "preparing" });
+				return { requestId: id, state: "preparing" } satisfies z.output<typeof c.refreshReceipt>;
 			});
 		},
 
@@ -260,13 +242,13 @@ SELECT (SELECT ok FROM gate) AS ok,
 				const r = readRow.parse(rows[0]);
 				if (!r.ok || r.current_phase === null) deny("access_denied");
 				const catalog = r.current ? await readCatalog() : null;
-				return c.assessmentView.parse({
+				return {
 					current: r.current && present(r.current, catalog!),
 					newest: newestOf(r),
 					currentPhase: r.current_phase,
 					seen: r.seen,
 					feedback: r.feedback,
-				});
+				} satisfies z.output<typeof c.assessmentView>;
 			});
 		},
 
@@ -288,7 +270,7 @@ SELECT (SELECT ok FROM gate) AS ok,EXISTS(SELECT FROM r) AS found,EXISTS(SELECT 
 				const r = z.object({ ok: z.boolean(), found: z.boolean(), recorded: z.boolean() }).parse(rows[0]);
 				if (!r.ok) deny("access_denied");
 				if (!r.found) deny("not_found");
-				return c.seenReceipt.parse({ outcome: r.recorded ? "recorded" : "already_seen" });
+				return { outcome: r.recorded ? "recorded" : "already_seen" } satisfies z.output<typeof c.seenReceipt>;
 			});
 		},
 

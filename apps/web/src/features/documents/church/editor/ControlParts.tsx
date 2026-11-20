@@ -113,15 +113,11 @@ export function Swatches({
 					>
 						<span
 							aria-hidden="true"
-							className="block size-5 rounded-full shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-ink)_30%,transparent)]"
-							style={
-								color
-									? { background: color }
-									: {
-											background:
-												"linear-gradient(135deg, transparent 45%, var(--ef-magenta-500) 45% 55%, transparent 55%)",
-										}
-							}
+							className={cn(
+								"block size-5 rounded-full shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ef-ink)_30%,transparent)]",
+								!color && "ef-none-swatch",
+							)}
+							style={color ? { background: color } : undefined}
 						/>
 					</Button>
 				);

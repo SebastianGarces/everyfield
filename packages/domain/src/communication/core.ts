@@ -1,10 +1,9 @@
 import { owner, requestIdentity, sameOwner, type Owner } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/communication";
-import type { Database, Transaction } from "@everyfield/db/client";
-import { randomUUID } from "node:crypto";
+import type { Database } from "@everyfield/db/client";
 import "server-only";
 import { z } from "zod";
-import { boundWrite, RequestActor } from "../access/session.ts";
+import { boundWrite, RequestActor, type WriteTx } from "../access/session.ts";
 import { hash } from "../operations/canonical.ts";
 import {
 	auditSavepoint,
@@ -13,66 +12,18 @@ import {
 	lockedWrite,
 	nativeWrite,
 	prepareWrite,
-	WriteUnavailable,
 	type AuditWrite,
 } from "../operations/writes.ts";
 import { writeAction } from "../operations/actions.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
-export type Tx = Transaction;
+export type Tx = WriteTx;
 export type CommunicationContext = { session: RequestActor["session"]; selected: Owner };
 export type CommunicationReply<T> = { status: "ok"; value: T } | { status: "refused"; error: c.CommunicationError };
-type Code = c.CommunicationError["code"];
-
-export class CommunicationRefusal extends Error {
-	readonly code: Code;
-	readonly details: Record<string, unknown>;
-	constructor(code: Code, details: Record<string, unknown> = {}) {
-		super(code);
-		this.code = code;
-		this.details = details;
-	}
-}
-export function deny(code: Code = "unavailable", details: Record<string, unknown> = {}): never {
-	throw new CommunicationRefusal(code, details);
-}
-const retry: Record<Code, string> = {
-	invalid_input: "never",
-	access_denied: "never",
-	unavailable: "never",
-	invalid_subject: "never",
-	conflict: "refresh",
-	temporary: "same_request",
-	unknown: "reconcile",
-	stale_review: "never",
-	schedule_window_exceeded: "never",
-	protected_source: "never",
-	referenced: "never",
-	not_found: "never",
-	rsvp_needs_meeting: "never",
-	children_only: "never",
-	missing_merge_variable: "never",
-	cancel_unconfirmed: "never",
-};
-function refused(error: CommunicationRefusal): CommunicationReply<never> {
-	return {
-		status: "refused",
-		error: c.communicationError.parse({
-			code: error.code,
-			details: error.details,
-			correlationId: randomUUID(),
-			retry: retry[error.code],
-		}),
-	};
-}
-export async function readReply<T>(body: () => Promise<T>): Promise<CommunicationReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (error instanceof WriteUnavailable) return refused(new CommunicationRefusal("unavailable"));
-		if (!(error instanceof CommunicationRefusal)) throw error;
-		return refused(error);
-	}
-}
+const refusals = defineRefusals(c.communicationError, { writeUnavailable: "unavailable" });
+export const CommunicationRefusal = refusals.Refusal;
+export const deny: Deny<typeof c.communicationError> = refusals.deny;
+export const { settle: readReply } = refusals;
 export async function reply<T>(tx: Tx, body: () => Promise<T>): Promise<CommunicationReply<T>> {
 	if (boundWrite(tx)) return { status: "ok", value: await body() };
 	return readReply(() => auditSavepoint(tx, body));
@@ -102,7 +53,7 @@ export async function withCommunicationWrite<T>(
 export type Viewer = { accountId: string; plantId: string; role: "owner" | "admin" | "member" };
 export function readerOf(authority: RequestActor): Viewer & { session: string; seatId: string; owner: Owner } {
 	const actor = authority.actor;
-	if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") deny();
+	if (actor.context.kind !== "seat" || actor.context.owner.kind !== "plant") deny("unavailable");
 	return {
 		accountId: actor.accountId,
 		plantId: actor.context.owner.id,
@@ -118,7 +69,8 @@ async function writerOf(tx: Tx, context: CommunicationContext) {
 		bound && sameOwner(bound.selected, context.selected)
 			? bound
 			: await RequestActor.claimWrite(tx, context.session, owner.parse(context.selected));
-	if (!write || write.actor.context.kind !== "seat" || !write.plant || context.selected.kind !== "plant") deny();
+	if (!write || write.actor.context.kind !== "seat" || !write.plant || context.selected.kind !== "plant")
+		deny("unavailable");
 	return {
 		accountId: write.actor.accountId,
 		plantId: write.plant.id,
@@ -148,7 +100,7 @@ export async function command<T>(
 	});
 	const claim = await prepareWrite(tx, identity);
 	if (claim.kind === "conflict") deny("conflict");
-	if (claim.kind === "unavailable") deny();
+	if (claim.kind === "unavailable") deny("unavailable");
 	if (claim.kind === "replay") return claim.value as T;
 	const value = await body({ ...claim, actor });
 	await finishAudit(tx, claim, identity, value);

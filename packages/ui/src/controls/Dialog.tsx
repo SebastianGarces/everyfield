@@ -3,7 +3,8 @@
 import { Alert02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { AlertDialog, Dialog as DialogPrimitive } from "radix-ui";
 import { useState, type ComponentPropsWithRef, type ReactNode, type Ref } from "react";
-import { cn, type IconSvgElement } from "../foundations";
+import { Drawer } from "vaul";
+import { cn, useMediaQuery, type IconSvgElement } from "../foundations";
 import { InlineAlert } from "./Alert";
 import { Button, IconButton } from "./Button";
 import { CardIcon, type Tone } from "./Card";
@@ -199,11 +200,18 @@ type SheetProps = {
 	actions?: ReactNode;
 	footer?: ReactNode;
 	children: ReactNode;
-	className?: string;
+	size?: keyof typeof SHEET_WIDTH;
 	onOpenAutoFocus?: (event: Event) => void;
+	onCloseAutoFocus?: (event: Event) => void;
 	onEscapeKeyDown?: (event: KeyboardEvent) => void;
 	bodyRef?: Ref<HTMLDivElement>;
 };
+
+const SHEET_WIDTH = { md: "w-[420px]", lg: "w-[480px]", xl: "w-[560px]" } as const;
+const SHEET_SIDE =
+	"ef-sheet fixed top-3 right-3 bottom-3 z-50 flex max-w-[calc(100vw-24px)] flex-col rounded-card bg-surface-raised text-md text-ink shadow-pop outline-none";
+const SHEET_DRAWER =
+	"fixed inset-x-0 bottom-0 z-50 flex h-[calc(100dvh-40px)] flex-col rounded-t-card bg-surface-raised text-md text-ink shadow-pop outline-none";
 
 export function Sheet({
 	open,
@@ -215,52 +223,69 @@ export function Sheet({
 	actions,
 	footer,
 	children,
-	className,
+	size = "md",
 	onOpenAutoFocus,
+	onCloseAutoFocus,
 	onEscapeKeyDown,
 	bodyRef,
 }: SheetProps) {
 	const container = usePortalContainer();
-	const focus = useReturnFocus({ onOpenAutoFocus });
+	const focus = useReturnFocus({ onOpenAutoFocus, onCloseAutoFocus });
+	const phone = useMediaQuery("(width < 640px)");
+	const content = {
+		"aria-modal": modal ? ("true" as const) : undefined,
+		...focus,
+		onEscapeKeyDown,
+		onInteractOutside: modal ? undefined : (e: Event) => e.preventDefault(),
+	};
+	const parts = (
+		<>
+			<div className="flex flex-none items-start gap-3 border-b border-line px-6 pt-5 pb-4 max-app-sm:pt-4">
+				<div className="min-w-0 flex-1">
+					<DialogPrimitive.Title className="font-title text-title-sm leading-[1.2] tracking-[-0.02em] text-ink">
+						{title}
+					</DialogPrimitive.Title>
+					{description ? (
+						<DialogPrimitive.Description className="mt-1 text-sm text-text-3">
+							{description}
+						</DialogPrimitive.Description>
+					) : null}
+				</div>
+				{actions}
+				<DialogPrimitive.Close asChild>
+					<IconButton icon={Cancel01Icon} label="Close" size="sm" />
+				</DialogPrimitive.Close>
+			</div>
+			<div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-5 text-text-2">
+				{children}
+			</div>
+			{footer ? (
+				<div className="flex flex-none flex-wrap items-center gap-2.5 border-t border-line bg-surface px-6 py-3.5 max-app-sm:pb-[max(14px,env(safe-area-inset-bottom))] max-app-sm:rounded-none rounded-b-card">
+					{footer}
+				</div>
+			) : null}
+		</>
+	);
+	if (phone)
+		return (
+			<Drawer.Root open={open} onOpenChange={onOpenChange} modal={modal} autoFocus>
+				{trigger ? <Drawer.Trigger asChild>{trigger}</Drawer.Trigger> : null}
+				<Drawer.Portal container={container}>
+					<Drawer.Overlay className="fixed inset-0 z-50 bg-ink-fixed/28" />
+					<Drawer.Content {...content} className={SHEET_DRAWER}>
+						<span aria-hidden="true" className="ef-grip mx-auto mt-2 h-1 w-9 flex-none rounded-pill" />
+						{parts}
+					</Drawer.Content>
+				</Drawer.Portal>
+			</Drawer.Root>
+		);
 	return (
 		<DialogPrimitive.Root open={open} onOpenChange={onOpenChange} modal={modal}>
 			{trigger ? <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger> : null}
 			<DialogPrimitive.Portal container={container}>
 				{modal ? <DialogPrimitive.Overlay className={cn(SCRIM, "backdrop-blur-none")} /> : null}
-				<DialogPrimitive.Content
-					aria-modal={modal ? "true" : undefined}
-					{...focus}
-					onEscapeKeyDown={onEscapeKeyDown}
-					onInteractOutside={modal ? undefined : (e) => e.preventDefault()}
-					className={cn(
-						"ef-sheet fixed top-3 right-3 bottom-3 z-50 flex w-[420px] max-w-[calc(100vw-24px)] flex-col rounded-card bg-surface-raised text-md text-ink shadow-pop outline-none max-app-sm:top-0 max-app-sm:right-0 max-app-sm:bottom-0 max-app-sm:w-full max-app-sm:max-w-none max-app-sm:rounded-none",
-						className,
-					)}
-				>
-					<div className="flex flex-none items-start gap-3 border-b border-line px-6 pt-5 pb-4">
-						<div className="min-w-0 flex-1">
-							<DialogPrimitive.Title className="font-title text-title-sm leading-[1.2] tracking-[-0.02em] text-ink">
-								{title}
-							</DialogPrimitive.Title>
-							{description ? (
-								<DialogPrimitive.Description className="mt-1 text-sm text-text-3">
-									{description}
-								</DialogPrimitive.Description>
-							) : null}
-						</div>
-						{actions}
-						<DialogPrimitive.Close asChild>
-							<IconButton icon={Cancel01Icon} label="Close" size="sm" />
-						</DialogPrimitive.Close>
-					</div>
-					<div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-5 text-text-2">
-						{children}
-					</div>
-					{footer ? (
-						<div className="flex flex-none flex-wrap items-center gap-2.5 border-t border-line bg-surface px-6 py-3.5 max-app-sm:rounded-none rounded-b-card">
-							{footer}
-						</div>
-					) : null}
+				<DialogPrimitive.Content {...content} className={cn(SHEET_SIDE, SHEET_WIDTH[size])}>
+					{parts}
 				</DialogPrimitive.Content>
 			</DialogPrimitive.Portal>
 		</DialogPrimitive.Root>

@@ -4,6 +4,7 @@ export { safeReturn } from "./security.ts";
 export {
 	RequestActor,
 	currentActor,
+	type WriteTx,
 	liveAccess,
 	liveOwner,
 	liveRead,

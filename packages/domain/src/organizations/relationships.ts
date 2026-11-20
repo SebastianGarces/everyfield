@@ -1,4 +1,4 @@
-import { requestWrite } from "../access/session.ts";
+import { requestWrite, type WriteTx } from "../access/session.ts";
 import { writeActor } from "./core.ts";
 import { and, eq, inArray, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
@@ -8,7 +8,6 @@ import { accountId, recordId, revision, tenantId, type Owner, type sessionId } f
 import { allows, fromStates, invitationMachine, invitationPurposes, permits } from "@everyfield/contracts/machines";
 import type { OrganizationAdapter, RelationshipPair } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import type { Transaction } from "@everyfield/db/client";
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import {
@@ -77,7 +76,7 @@ const pairFor = (i: Invite) =>
 				}),
 		organization: { kind: "organization", id: i.organization_id, organizationKind: i.organization_kind },
 	});
-async function loadInvitation(tx: Transaction, id: string, session: z.infer<typeof sessionId>, lock: boolean) {
+async function loadInvitation(tx: WriteTx, id: string, session: z.infer<typeof sessionId>, lock: boolean) {
 	const account = sql`r.account_id`;
 	const subjectLive = sql`CASE WHEN r.plant_id IS NOT NULL THEN EXISTS(SELECT FROM plant p WHERE p.id=r.plant_id) AND NOT ${witnessHides("plant", sql`r.plant_id`)}
 		WHEN r.account_id IS NOT NULL THEN EXISTS(SELECT FROM account a WHERE a.id=r.account_id) AND NOT ${witnessHides("account", account)} AND ${discoveryOpen(account)}
@@ -127,7 +126,7 @@ const inviteFacts = z.object({
 export function relationshipCommands(
 	effects: OrganizationEffects,
 ): Pick<
-	OrganizationAdapter<Transaction>,
+	OrganizationAdapter<WriteTx>,
 	| "associations.invite"
 	| "associations.acceptInvitation"
 	| "associations.respondInvitation"
@@ -136,7 +135,7 @@ export function relationshipCommands(
 	| "associations.revokeInvitation"
 	| "associations.end"
 > {
-	async function invite(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
+	async function invite(tx: WriteTx, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
 		return auditSavepoint(tx, async () => {
 			const q = Q.inviteRelationshipRequest.parse(raw),
 				pair = q.input.pair,
@@ -248,7 +247,7 @@ export function relationshipCommands(
 		});
 	}
 	async function decide(
-		tx: Transaction,
+		tx: WriteTx,
 		session: z.infer<typeof sessionId>,
 		selected: Owner,
 		raw: unknown,
@@ -299,7 +298,11 @@ export function relationshipCommands(
 			);
 			if (!accept) {
 				await appendEvent(tx, c, i.id, "remove", null, i.revision, next);
-				return finishCommand(tx, c, () => Q.invitationDecisionResult.parse({ status: "declined", invitationId: i.id }));
+				return finishCommand(
+					tx,
+					c,
+					() => ({ status: "declined", invitationId: i.id }) satisfies z.output<typeof Q.invitationDecisionResult>,
+				);
 			}
 			const [prior] = await loadAffiliations(tx, pairMatch(tables.affiliation, pair), true);
 			if (prior?.ended_at === null) refuse("already_active");
@@ -386,7 +389,7 @@ export function relationshipCommands(
 		});
 	}
 	async function manage(
-		tx: Transaction,
+		tx: WriteTx,
 		session: z.infer<typeof sessionId>,
 		selected: Owner,
 		raw: unknown,
@@ -428,7 +431,7 @@ export function relationshipCommands(
 						),
 				);
 				await appendEvent(tx, c, i.id, "revoke", "invitation.revoked", i.revision, next);
-				return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+				return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 			}
 			if (i.now.getTime() - (i.resent_at ?? i.created_at).getTime() < 60000) refuse("resend_cooldown");
 			const proof = randomBytes(32).toString("base64url"),
@@ -465,7 +468,7 @@ export function relationshipCommands(
 			);
 		});
 	}
-	async function end(tx: Transaction, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
+	async function end(tx: WriteTx, session: z.infer<typeof sessionId>, selected: Owner, raw: unknown) {
 		return auditSavepoint(tx, async () => {
 			const q = Q.endRelationshipRequest.parse(raw),
 				pair = q.input.pair;
@@ -481,7 +484,8 @@ export function relationshipCommands(
 				refuse();
 			const c = await beginCommand(tx, actor, selected, "associations.end", q);
 			if (c.kind === "replay") return Q.mutationResult.parse(c.result);
-			if (a.ended_at !== null) return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+			if (a.ended_at !== null)
+				return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 			checkRevision(q.expectedRevision, a.revision);
 			const next = String(BigInt(a.revision) + 1n);
 			c.writes.push(
@@ -497,7 +501,7 @@ export function relationshipCommands(
 				c.writes.push(
 					queueMilestoneJob({ plantId: a.plant_id, affiliationId: a.id, occurrence: "ended", revision: next }),
 				);
-			return finishCommand(tx, c, () => Q.mutationResult.parse({ status: "committed" }));
+			return finishCommand(tx, c, () => ({ status: "committed" }) satisfies z.output<typeof Q.mutationResult>);
 		});
 	}
 	return {
@@ -516,7 +520,7 @@ export function relationshipCommands(
 const invitationDetailRequest = z.strictObject({ invitationId: recordId, proof: z.string().min(1).max(4096) });
 
 export async function readAnswerableInvitation(
-	tx: Transaction,
+	tx: WriteTx,
 	session: z.infer<typeof sessionId>,
 	selected: Owner,
 	raw: unknown,

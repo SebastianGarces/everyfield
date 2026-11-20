@@ -13,6 +13,7 @@ import {
 	CardInset,
 	CardTitle,
 	Checkbox,
+	Count,
 	Dialog,
 	DialogBody,
 	DialogContent,
@@ -23,7 +24,7 @@ import {
 	SegmentedControl,
 	Spinner,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { DeltaChip, StatusBadge } from "@everyfield/ui/display";
 import { useCallback, useRef, useState } from "react";
@@ -33,7 +34,8 @@ import { loadMeetingFollowUps } from "../followups/fetch.ts";
 import { preferredOwners } from "../followups/model.ts";
 import { ownerText } from "../tasks/model.ts";
 import { AssigneePicker, warmAssignees } from "../tasks/AssigneePicker.tsx";
-import { evaluationHistory, previewSettlement, setPresence } from "./actions.ts";
+import { previewSettlement, setPresence } from "./actions.ts";
+import { evaluationHistory } from "./fetch.ts";
 import {
 	CLASSIFICATION_LABEL,
 	deltaText,
@@ -58,6 +60,8 @@ import {
 } from "./model.ts";
 import { Problem } from "./parts.tsx";
 import { choiceOf, chosenOf, createSettleStore, selectUnchanged } from "./SettleForm.store.ts";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Who = { personId: string; displayName: string };
 type PresenceAnswer = Extract<Awaited<ReturnType<typeof setPresence>>, { status: "ok" }>["value"];
@@ -73,7 +77,6 @@ export function usePresence({
 	onSaved: (answer: PresenceAnswer) => void;
 	onStale: () => void;
 }) {
-	const toast = useToast();
 	const lanes = useRowLanes(problemText);
 	const [asked] = useState(() => new Map<string, Presence>());
 	function set(who: Who, presence: Presence) {
@@ -919,7 +922,13 @@ function EvaluationForm({
 					<p className="flex items-center justify-between gap-3 rounded-md bg-surface-2 px-4 py-3" aria-live="polite">
 						<span className="text-text-2">Average</span>
 						<span className="font-semibold text-ink tabular-nums">
-							{complete ? scoreText(averageOf(scores as Scores)) : `${8 - missing.length} of 8 scored`}
+							{complete ? (
+								scoreText(averageOf(scores as Scores))
+							) : (
+								<>
+									<Count value={8 - missing.length} /> of 8 scored
+								</>
+							)}
 						</span>
 					</p>
 					<Field
@@ -969,7 +978,7 @@ function EvaluationForm({
 type History = Extract<Awaited<ReturnType<typeof evaluationHistory>>, { status: "ok" }>["value"];
 
 export function useEvaluationHistory(meetingId: string) {
-	const [got, setGot] = useState<{ revision: string; value: Outcome<History> } | null>(null);
+	const [got, setGot] = useState<{ revision: string; value: Outcome<History> | ReadFailure } | null>(null);
 	const asked = useRef<string | null>(null);
 	function load(revision: string) {
 		if (asked.current === revision) return;
@@ -993,7 +1002,7 @@ export function HistoryDialog({
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	history: { revision: string; value: Outcome<History> } | null;
+	history: { revision: string; value: Outcome<History> | ReadFailure } | null;
 	revision: string;
 	onRetry: () => void;
 }) {
@@ -1009,7 +1018,7 @@ export function HistoryDialog({
 						</p>
 					) : r.status !== "ok" ? (
 						<div role="alert" className="flex flex-col items-start gap-3 py-2">
-							<p className="text-md text-text-2">The history did not load. Nothing was changed.</p>
+							<p className="text-md text-text-2">{loadProblem(r, "The history did not load. Nothing was changed.")}</p>
 							<Button variant="secondary" size="sm" onClick={onRetry}>
 								Try again
 							</Button>

@@ -1,5 +1,5 @@
 import * as c from "@everyfield/contracts/meetings";
-import { sql, type SQL } from "@everyfield/db/query";
+import { sql, type SQL, type SqlLiteral } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import type { RequestActor } from "../access/session.ts";
@@ -22,16 +22,17 @@ function gated<S extends z.ZodType, T>(
 	return read(authority, async (v) => {
 		const input = parse(schema, raw);
 		const { row, admin: live } = await one(db, v, query(sql`${v.plantId}::uuid`, input), admin);
-		if (!row) deny();
+		if (!row) deny("unavailable");
 		return body(row, input, { admin: live });
 	});
 }
 const meeting = (plant: SQL, meetingId: string) =>
 	sql`m.plant_id = ${plant} AND m.id = ${meetingId}::uuid AND m.retired_at IS NULL`;
 const here = sql`coalesce(m.actual_occurrence_at, m.starts_at)`;
-const counted = (alias: string) =>
+const counted = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
 	sql.raw(`${alias}.retired_at IS NULL AND ${alias}.occurrence_voided_at IS NULL AND ${alias}.status <> 'cancelled'`);
-const at = (alias: string) => sql.raw(`coalesce(${alias}.actual_occurrence_at, ${alias}.starts_at)`);
+const at = <AliasName extends string>(alias: SqlLiteral<AliasName>) =>
+	sql.raw(`coalesce(${alias}.actual_occurrence_at, ${alias}.starts_at)`);
 const tally = sql`(SELECT json_build_object('attended', count(DISTINCT g.person_id),
 	'first_time', count(DISTINCT g.person_id) FILTER (WHERE g.classification = 'first_time'),
 	'returning', count(DISTINCT g.person_id) FILTER (WHERE g.classification = 'returning'),
@@ -381,7 +382,7 @@ export const attendanceReader = {
 					})
 					.parse(row);
 				const evaluated = f.evaluations.map(tenths);
-				return c.summaryStats.parse({
+				return {
 					window: windowOf(i),
 					held: f.held,
 					finalized: f.finalized,
@@ -398,7 +399,7 @@ export const attendanceReader = {
 								value: Math.round(evaluated.reduce((a, b) => a + b, 0) / evaluated.length) / 10,
 							}
 						: { status: "unknown" },
-				});
+				} satisfies z.output<typeof c.summaryStats>;
 			},
 		);
 	},

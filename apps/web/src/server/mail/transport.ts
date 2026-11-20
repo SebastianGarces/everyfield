@@ -2,22 +2,20 @@ import "server-only";
 
 import { z } from "zod";
 import { MAIL_BATCH_LIMIT } from "@everyfield/contracts/communication";
-import { mailEnv } from "../mail-env.ts";
+import { serverConfig, serverEnv } from "../config.ts";
+import { asLogNames, logLine } from "@everyfield/domain/log";
 
 import type { DeliveryTransport } from "@everyfield/domain/communication";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
 import { parseKeyRing, type OptOutKeyRing } from "@everyfield/domain/notifications";
-import type { MailTransport } from "../jobs/mail.ts";
+import type { MailTransport } from "@everyfield/domain/jobs";
 import { createResendTransport } from "../jobs/resend.ts";
 import type { Database } from "@everyfield/db/client";
-import { capture, captureAllowed, captured, changeCaptured, isCaptureId } from "./capture.ts";
+import { isTestDeployment } from "@everyfield/db/deployment";
+import { capture, captured, changeCaptured, isCaptureId } from "./capture.ts";
 import { settleCaptured } from "./settle.ts";
-
-const env = z.object({
-	...mailEnv,
-	IDENTITY_ORIGIN: z.url(),
-	RESEND_API_KEY: z.string().trim().min(1).optional(),
-});
+import { parseJson } from "../platform/json.ts";
+import { logFailure } from "@everyfield/domain/log";
 
 const batchBody = z.object({
 	data: z.array(z.object({ id: z.string().min(1).max(128).optional() })).max(MAIL_BATCH_LIMIT),
@@ -72,7 +70,8 @@ async function loadDomains(apiKey: string): Promise<DomainList> {
 				parsed.data.data.filter((row) => row.status === "verified").map((row) => row.name.toLowerCase()),
 			),
 		};
-	} catch {
+	} catch (error) {
+		logFailure({ component: "resend", outcome: "domains_failed" }, error);
 		return { failed: true };
 	}
 }
@@ -132,32 +131,34 @@ export type CaptureOptions = {
 	silent?: boolean;
 };
 
-export function appOrigin(): string | null {
-	const parsed = z.url().safeParse(process.env.IDENTITY_ORIGIN);
-	return parsed.success ? new URL(parsed.data).origin : null;
+export const appOrigin = (): string => new URL(serverConfig().IDENTITY_ORIGIN).origin;
+
+const refused = new Set<string>();
+
+function mailRefused(names: readonly string[]): null {
+	const key = names.join(",");
+	if (!refused.has(key)) {
+		refused.add(key);
+		logLine({ component: "mail", event: "settings_refused", settings: asLogNames(names) });
+	}
+	return null;
 }
 
 export function mailReady(): MailReady | null {
-	const parsed = env.safeParse({
-		IDENTITY_MAIL_KEY: process.env.IDENTITY_MAIL_KEY,
-		IDENTITY_ADDRESS_KEY: process.env.IDENTITY_ADDRESS_KEY,
-		IDENTITY_MAIL_FROM: process.env.IDENTITY_MAIL_FROM,
-		IDENTITY_ORIGIN: process.env.IDENTITY_ORIGIN,
-		RESEND_API_KEY: process.env.RESEND_API_KEY?.trim() || undefined,
-	});
-	if (!parsed.success) return null;
-	const apiKey = parsed.data.RESEND_API_KEY ?? null;
-	if (apiKey === null && !captureAllowed(process.env)) return null;
-	const encryptionKey = Buffer.from(parsed.data.IDENTITY_MAIL_KEY, "hex");
-	const addressKey = Buffer.from(parsed.data.IDENTITY_ADDRESS_KEY, "hex");
-	if (encryptionKey.equals(addressKey)) return null;
+	const config = serverConfig(),
+		env = serverEnv();
+	const apiKey = env.RESEND_API_KEY?.trim() || null;
+	if (apiKey === null && !isTestDeployment(env)) return mailRefused(["RESEND_API_KEY"]);
+	const encryptionKey = Buffer.from(config.IDENTITY_MAIL_KEY, "hex");
+	const addressKey = Buffer.from(config.IDENTITY_ADDRESS_KEY, "hex");
+	if (encryptionKey.equals(addressKey)) return mailRefused(["IDENTITY_ADDRESS_KEY", "IDENTITY_MAIL_KEY"]);
 	return {
 		keys: {
 			encryptionKey,
 			addressKey,
-			from: parsed.data.IDENTITY_MAIL_FROM,
-			origin: parsed.data.IDENTITY_ORIGIN,
-			optOutKeys: parseKeyRing(process.env.NOTIFICATION_OPT_OUT_KEYS),
+			from: config.IDENTITY_MAIL_FROM,
+			origin: config.IDENTITY_ORIGIN,
+			optOutKeys: parseKeyRing(env.NOTIFICATION_OPT_OUT_KEYS),
 		},
 		apiKey,
 	};
@@ -166,7 +167,7 @@ export function mailReady(): MailReady | null {
 export function queuedMailTransport(
 	ready: MailReady,
 	request: typeof fetch = fetch,
-	environment: MailEnv = process.env,
+	environment: MailEnv = serverEnv(),
 ): MailTransport {
 	if (ready.apiKey) return createResendTransport(ready.apiKey, request, environment);
 	return {
@@ -208,7 +209,7 @@ export function deliveryTransport(
 	ready: MailReady,
 	request: typeof fetch = fetch,
 	{ settle = settleCaptured, silent = false }: CaptureOptions = {},
-	environment: MailEnv = process.env,
+	environment: MailEnv = serverEnv(),
 ): DeliveryTransport {
 	const call = (path: string, init: RequestInit & { signal: AbortSignal }) =>
 		request(`https://api.resend.com${path}`, {
@@ -251,11 +252,12 @@ export function deliveryTransport(
 					: { method: "PATCH", signal, body: JSON.stringify({ scheduled_at: movedTo }) },
 			);
 			if (response.ok) {
-				const parsed = emailBody.pick({ id: true }).safeParse(await response.json().catch(() => null));
+				const parsed = emailBody.pick({ id: true }).safeParse(parseJson(await response.text()));
 				if (parsed.success && parsed.data.id === id) return "done";
 			} else await response.body?.cancel();
 			return await inspect(id, movedTo, signal);
-		} catch {
+		} catch (error) {
+			logFailure({ component: "resend", outcome: "change_failed" }, error);
 			return "unknown";
 		}
 	}
@@ -281,7 +283,8 @@ export function deliveryTransport(
 					capture({ from: ready.keys.from, ...message }, scheduledAt, `${key}/${JSON.stringify(message)}`),
 				),
 			);
-		} catch {
+		} catch (error) {
+			logFailure({ component: "mail", outcome: "capture_failed" }, error);
 			return { outcome: "unknown" };
 		}
 		const captureIds = captures.map((c) => c.id);
@@ -324,7 +327,8 @@ export function deliveryTransport(
 			let body: unknown;
 			try {
 				body = await response.json();
-			} catch {
+			} catch (error) {
+				logFailure({ component: "resend", outcome: "batch_body_failed" }, error);
 				return { outcome: "unknown" };
 			}
 			const parsed = batchBody.safeParse(body);

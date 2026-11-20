@@ -2,11 +2,15 @@ import { localDate } from "@everyfield/contracts/common";
 import type {
 	AssessedCriterion,
 	Assessment,
+	AssessmentError,
 	LensTile,
 	NewestRun,
 	PlantFacts,
 	TrendValue,
 } from "@everyfield/contracts/intelligence";
+
+export type ActionOutcome<T> =
+	{ status: "ok"; value: T } | { status: "refused"; error: AssessmentError } | { status: "signed_out" | "lost" };
 
 type Status = "positive" | "measured" | "attention" | "risk" | "unknown";
 

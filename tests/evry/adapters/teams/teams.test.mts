@@ -21,8 +21,8 @@ import {
 	trainingWriter,
 	withTeamsWrite,
 } from "../../../../packages/domain/src/teams/index.ts";
-import { transaction } from "../../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../../packages/domain/src/jobs/queue.ts";
 import { accounts, actor, admin, db, people, plant, setup, sql, teardown } from "../../runtime/support.mts";
 
 before(setup);
@@ -104,7 +104,7 @@ test("setup: Worship with Alex Rivera on vocals; Hospitality with an open greete
 	vocals = await role(worship, "Vocals");
 	greeter = await role(hospitality, "Greeter");
 	coffee = await role(hospitality, "Coffee host");
-	await assign(worship, vocals, people.alexRivera!);
+	await assign(worship, vocals, people.alexRivera);
 });
 
 test("AC:INH-ROLES-05 the review places Casey in the open greeter role and nothing else; approval adds one tenure and no seat", async () => {
@@ -112,13 +112,13 @@ test("AC:INH-ROLES-05 the review places Casey in the open greeter role and nothi
 	const proposal = (await propose(owner, "teams.assignRole", { roleId: greeter, personId: people.casey }))!;
 	assert.deepEqual(proposal.review.target, { kind: "role", id: greeter, label: "Greeter · Hospitality" });
 	assert.deepEqual(proposal.review.changes, [{ field: "filledBy", before: null, after: "Casey Reed" }]);
-	assert.deepEqual(await tenures(people.casey!), [], "nothing changes before approval");
+	assert.deepEqual(await tenures(people.casey), [], "nothing changes before approval");
 	const seatsBefore = await seats();
 	const { outcome, review } = await approveAndRun(owner, proposal);
 	assert.equal(outcome, "completed");
 	assert.equal(review.outcome, "completed");
 	assert.deepEqual(
-		(await tenures(people.casey!)).map((t) => [t.team, t.role, t.current]),
+		(await tenures(people.casey)).map((t) => [t.team, t.role, t.current]),
 		[["Hospitality", "Greeter", true]],
 	);
 	assert.equal(await seats(), seatsBefore, "an assignment grants no account or seat");
@@ -126,7 +126,7 @@ test("AC:INH-ROLES-05 the review places Casey in the open greeter role and nothi
 
 test("AC:INH-TEAMS-06 adding Alex to Hospitality adds one assignment and leaves Worship untouched", async () => {
 	const owner = await actor("owner");
-	const before = await tenures(people.alexRivera!);
+	const before = await tenures(people.alexRivera);
 	const proposal = (await propose(owner, "teams.assignMember", {
 		teamId: hospitality,
 		roleId: coffee,
@@ -134,7 +134,7 @@ test("AC:INH-TEAMS-06 adding Alex to Hospitality adds one assignment and leaves 
 	}))!;
 	assert.deepEqual(proposal.review.changes, [{ field: "member", before: null, after: "Alex Rivera as Coffee host" }]);
 	assert.equal((await approveAndRun(owner, proposal)).outcome, "completed");
-	const after = await tenures(people.alexRivera!);
+	const after = await tenures(people.alexRivera);
 	assert.deepEqual(
 		after.filter((t) => t.team === "Worship"),
 		before,
@@ -199,7 +199,7 @@ test("AC:SME53-009 INV-stale-review: approving after the role or the person chan
 	const { outcome, review } = await approveAndRun(owner, proposal);
 	assert.equal(outcome, "refused");
 	assert.deepEqual([review.outcome, review.receipt?.code], ["refused", "revision_conflict"]);
-	assert.deepEqual(await tenures(people.alexChen!), [], "nothing was assigned");
+	assert.deepEqual(await tenures(people.alexChen), [], "nothing was assigned");
 
 	const parker = randomUUID();
 	await admin.execute(sql`INSERT INTO person(id,tenant_id,plant_id,display_name,source,created_at,stage,adult_classification,commitment_state,pipeline_position,state)

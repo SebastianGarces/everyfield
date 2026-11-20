@@ -25,7 +25,8 @@ import { Tag } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useId, useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../../components/read.tsx";
-import { listChurchTemplates, saveChurchTemplate, updateChurchTemplate } from "../actions.ts";
+import { saveChurchTemplate, updateChurchTemplate } from "../actions.ts";
+import { listChurchTemplates } from "../../fetch.ts";
 
 export const churchTemplates = createRead(
 	() => listChurchTemplates().then((result) => (result.status === "ok" ? result.templates : [])),
