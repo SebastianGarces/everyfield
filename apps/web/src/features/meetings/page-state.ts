@@ -88,8 +88,9 @@ export function applyChange(v: PageView, change: Change): PageView {
 			};
 		case "guest": {
 			const g = change.guest;
-			const known = v.guests?.some((x) => x.id === g.id);
-			return { ...v, guests: known ? v.guests!.map((x) => (x.id === g.id ? g : x)) : [...(v.guests ?? []), g] };
+			const guests = v.guests ?? [];
+			const known = guests.some((x) => x.id === g.id);
+			return { ...v, guests: known ? guests.map((x) => (x.id === g.id ? g : x)) : [...guests, g] };
 		}
 		case "removeGuest":
 			return { ...v, guests: v.guests?.filter((g) => g.id !== change.guestId) ?? null };

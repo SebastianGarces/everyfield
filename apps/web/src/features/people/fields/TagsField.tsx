@@ -241,7 +241,8 @@ function TagPicker({
 		if (e.key !== "Enter") return;
 		e.preventDefault();
 		if (wait) return;
-		if (matches.length === 1) onToggle(matches[0]!);
+		const [only] = matches;
+		if (only && matches.length === 1) onToggle(only);
 		else if (canCreate) {
 			onCreate(term);
 			setQuery("");

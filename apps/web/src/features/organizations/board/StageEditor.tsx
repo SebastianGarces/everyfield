@@ -57,7 +57,8 @@ function Editor({ stages, onSaved }: { stages: Stage[]; onSaved: () => void }) {
 		setRows((all) => {
 			const next = [...all];
 			const [row] = next.splice(index, 1);
-			next.splice(index + by, 0, row!);
+			if (row === undefined) return all;
+			next.splice(index + by, 0, row);
 			return next;
 		});
 	const remove = (row: Row) => {
