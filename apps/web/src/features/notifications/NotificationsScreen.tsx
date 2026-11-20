@@ -21,6 +21,7 @@ import {
 	parseQuery,
 	querySearch,
 	type Category,
+	type Clock,
 	type FeedPage,
 	type FeedQuery,
 } from "./model.ts";
@@ -29,10 +30,10 @@ import { READ_FAILED } from "../../components/read-failed.ts";
 
 const ANY = "any";
 
-export function NotificationsScreen({ initial }: { initial: FeedPage }) {
+export function NotificationsScreen({ initial, served }: { initial: FeedPage; served: Clock | null }) {
 	const query = parseQuery(useAddress().params);
 	const feed = useFeed(query, initial);
-	const clock = useClock();
+	const clock = useClock(served);
 
 	const go = (next: FeedQuery) => {
 		writeAddress(`/notifications${querySearch(next)}`, { replace: true });
