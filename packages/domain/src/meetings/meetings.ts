@@ -38,7 +38,7 @@ function location(
 	if (choice.kind === "existing") {
 		if (current && current.venue_id === choice.venueId)
 			return { venue_id: current.venue_id, venue_name: current.venue_name, venue_address: current.venue_address };
-		if (!found) deny();
+		if (!found) deny("unavailable");
 		if (found.archived) deny("venue_archived");
 		return { venue_id: found.id, venue_name: found.name, venue_address: found.address };
 	}
@@ -55,7 +55,7 @@ async function lockMeeting(tx: Tx, w: Writer, meetingId: string, extra = sql`NUL
 		sql`SELECT ${meetingColumns}, ${extra} AS extra, clock_timestamp() AS now FROM meeting m
 			WHERE ${plantMeeting(w.plant.id, meetingId)} AND m.retired_at IS NULL FOR UPDATE OF m`,
 	);
-	if (!r.rows[0]) deny();
+	if (!r.rows[0]) deny("unavailable");
 	const row = r.rows[0] as Record<string, unknown>;
 	return { m: meetingRow.parse(row), extra: row.extra, now: z.coerce.date().parse(row.now) };
 }
@@ -107,7 +107,7 @@ export const meetingsWriter = {
 						zone = w.plant.timezone,
 						startsAt = resolve(i.date, i.time, zone, i.offsetSeconds);
 					const plant = sql`${w.plant.id}::uuid`;
-					if (!w.admin && (i.type !== "team_meeting" || i.venue.kind === "new" || i.guests.length)) deny();
+					if (!w.admin && (i.type !== "team_meeting" || i.venue.kind === "new" || i.guests.length)) deny("unavailable");
 					const team = i.teamId
 						? sql`(SELECT json_build_object('name', t.name, 'archived', t.archived_at IS NOT NULL,
 						'leads', EXISTS (SELECT FROM person lp WHERE lp.id = t.leader_person_id AND lp.tenant_id = t.plant_id
@@ -133,7 +133,7 @@ export const meetingsWriter = {
 							now: z.coerce.date(),
 						})
 						.parse(r.rows[0]);
-					if (!w.admin && (!f.team?.leads || f.team.archived)) deny();
+					if (!w.admin && (!f.team?.leads || f.team.archived)) deny("unavailable");
 					if (f.guests.length !== i.guests.length) deny("invalid_subject");
 					if (i.teamId && (!f.team || f.team.archived)) deny("team_unavailable");
 					const chosen = new Set<string>(i.guests);
@@ -469,7 +469,7 @@ export const meetingsWriter = {
 						items: z.array(kitRow).nullable(),
 					})
 					.parse(extra);
-				if (!f.item) deny();
+				if (!f.item) deny("unavailable");
 				if (f.item.revision !== input.expectedRevision) deny("conflict");
 				const before = { checked: f.item.checked, assigneePersonId: f.item.assignee_person_id, notes: f.item.notes };
 				const after = {

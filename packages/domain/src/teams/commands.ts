@@ -83,7 +83,7 @@ async function lockTeam(tx: Tx, w: Writer, teamId: string): Promise<TeamRow> {
 				WHERE r.team_id = t.id AND tn.ended_on IS NULL AND r.retired_at IS NULL) AS "activeCount"
 			FROM team t WHERE t.id = ${teamId}::uuid AND t.plant_id = ${w.plant.id}::uuid FOR UPDATE`,
 	);
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return teamRow.parse(row);
 }
 async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | null): Promise<RoleRow> {
@@ -126,7 +126,7 @@ async function lockRole(tx: Tx, w: Writer, roleId: string, personId: string | nu
 			WHERE r.id = ${roleId}::uuid AND r.plant_id = ${w.plant.id}::uuid
 			FOR UPDATE OF r, t`,
 	);
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return roleRow.parse(row);
 }
 function teamValue(row: TeamRow, revision = row.revision) {
@@ -449,7 +449,7 @@ export const teamsWriter = {
 				input,
 				async (w, audit) => {
 					const team = await lockTeam(tx, w, input.input.teamId);
-					if (team.archived) deny();
+					if (team.archived) deny("unavailable");
 					const id = randomUUID();
 					const row = roleRow.parse({
 						id,
@@ -505,7 +505,7 @@ export const teamsWriter = {
 				async (w, audit) => {
 					const before = await lockRole(tx, w, input.input.roleId, null);
 					expectRevision(before.revision, input.expectedRevision);
-					if (before.retired || before.teamArchived) deny();
+					if (before.retired || before.teamArchived) deny("unavailable");
 					const after = roleRow.parse({
 						...before,
 						name: keep(input.input.name, before.name),
@@ -609,7 +609,7 @@ export const teamsWriter = {
 					const before = await lockRole(tx, w, input.input.roleId, input.input.personId);
 					expectRevision(before.revision, input.expectedRevision);
 					if (before.teamId !== input.input.teamId) deny("invalid_subject");
-					if (before.retired || before.teamArchived) deny();
+					if (before.retired || before.teamArchived) deny("unavailable");
 					if (!before.personState) deny("invalid_subject");
 					if (before.personState !== "live") deny("invalid_subject");
 					if (before.occupantPersonId && before.occupantPersonId !== input.input.personId)
@@ -765,7 +765,7 @@ export const teamsWriter = {
 				async (w, audit) => {
 					const before = await lockRole(tx, w, input.input.roleId, input.input.personId);
 					expectRevision(before.revision, input.expectedRevision);
-					if (before.retired || before.teamArchived) deny();
+					if (before.retired || before.teamArchived) deny("unavailable");
 					if (before.personState !== "live") deny("invalid_subject");
 					if (!before.previousTenureId) deny("invalid_subject");
 					if (before.occupantPersonId && before.occupantPersonId !== input.input.personId)
@@ -816,7 +816,7 @@ export const teamsWriter = {
 			return command(tx, ctx, "teams.appointLeader", input, async (w, audit) => {
 				const before = await lockTeam(tx, w, input.input.teamId);
 				expectRevision(before.revision, input.expectedRevision);
-				if (before.archived) deny();
+				if (before.archived) deny("unavailable");
 				const person = await oneRow(
 					tx,
 					sql`SELECT stage, state, revision::text AS revision, pipeline_position::text AS "pipelinePosition"
@@ -881,7 +881,7 @@ export const teamsWriter = {
 						JOIN team t ON t.id = r.team_id AND t.plant_id = r.plant_id
 						WHERE tn.id = ${i.tenureId}::uuid AND tn.plant_id = ${w.plant.id}::uuid FOR UPDATE OF tn`,
 				);
-				if (!found) deny();
+				if (!found) deny("unavailable");
 				const before = z
 					.object({
 						tenureId: id,

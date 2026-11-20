@@ -13,7 +13,7 @@ import {
 } from "../../../packages/domain/src/meetings/index.ts";
 import { authorizeTaskReminders, reminderRecipients } from "../../../packages/domain/src/tasks/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
-import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { ok, refused } from "../../support/fixture.mts";
 

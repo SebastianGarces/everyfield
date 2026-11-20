@@ -1377,12 +1377,14 @@ function handles(handler, body, param) {
 	return thrown || handed || (logged && !lost);
 }
 
+const DOMAIN_JOBS = /^packages\/domain\/src\/jobs\//;
 const noSilentCatch = {
 	meta: { type: "problem" },
 	create(context) {
 		const path = repoPath(context.filename);
-		if (!WEB_CODE.test(path) || path === "apps/web/src/server/platform/transient.ts") return {};
-		let server = SERVER_CODE.test(path);
+		if (!(WEB_CODE.test(path) || DOMAIN_JOBS.test(path)) || path === "apps/web/src/server/platform/transient.ts")
+			return {};
+		let server = SERVER_CODE.test(path) || DOMAIN_JOBS.test(path);
 		const message =
 			"A server catch must rethrow, return the error handed to a handler, or log it through @everyfield/domain/log without answering lost: use transient() for a failure that may be retried, and catch only the error class you answer.";
 		const pending = [];

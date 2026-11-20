@@ -2,41 +2,16 @@ import type { Clock } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/intelligence";
 import type { Database } from "@everyfield/db/client";
 import { sql, type SQL } from "@everyfield/db/query";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer } from "../documents/access.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
-type Code = c.SignalError["code"];
-class Refusal extends Error {
-	readonly code: Code;
-	constructor(code: Code) {
-		super(code);
-		this.code = code;
-	}
-}
-function deny(code: Code): never {
-	throw new Refusal(code);
-}
-const refused = (code: Code) =>
-	({
-		status: "refused",
-		error: c.signalError.parse({
-			code,
-			details: {},
-			correlationId: randomUUID(),
-			retry: code === "revision_conflict" || code === "not_current" ? "refresh" : "never",
-		}),
-	}) as const;
-async function settle<T>(body: () => Promise<T>): Promise<c.SignalReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (!(error instanceof Refusal)) throw error;
-		return refused(error.code);
-	}
-}
+const refusals = defineRefusals(c.signalError);
+const deny: Deny<typeof c.signalError> = refusals.deny;
+const { settle, refused } = refusals;
 function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const found = schema.safeParse(raw);
 	if (!found.success) deny("invalid_input");
