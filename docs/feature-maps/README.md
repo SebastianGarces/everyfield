@@ -312,7 +312,7 @@ defect shows a bug that is not fixed yet: it passes while the bug is there, and 
 | `graceDirector` | organization | Ana Ruiz, the residency director at Grace Austin (QA), a Member seat | `QA_LOGINS.graceDirector` and `QA_PASSWORD` |
 | `hillOwner` | organization | Ruth Calder, Owner of Hill Country Network (QA), which Grace Austin (QA) is linked to | `QA_LOGINS.hillOwner` and `QA_PASSWORD` |
 | `resident` | account, residency linked | Casey Lee, a seatless account linked to a sending church's residency | `QA_LOGINS.resident` and `QA_PASSWORD` |
-| `signup` | account | Hannah Cole, a verified sign-up with no church yet | `QA_LOGINS.signup` and `QA_PASSWORD` |
+| `signup` | pending | Hannah Cole, a verified sign-up with no church yet | `QA_LOGINS.signup` and `QA_PASSWORD` |
 | `triage` | account | Tess Morgan, a seatless account that triages feedback | `QA_LOGINS.triage` and `QA_PASSWORD` |
 | `visitor` | signed-out | Nobody signed in | none |
 

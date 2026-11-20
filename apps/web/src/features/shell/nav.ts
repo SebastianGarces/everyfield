@@ -112,13 +112,15 @@ const MY_RESIDENCY = {
 export type NavViewer =
 	| { context: "plant"; role: "owner" | "admin" | "member" }
 	| { context: "organization" }
-	| { context: "account"; residencyLinked: boolean };
+	| { context: "account"; residencyLinked: boolean }
+	| { context: "pending" };
 
 export type RailNav = { main: readonly ShellLink[]; pages: readonly ShellLink[]; guide: boolean };
 
 export function shellNav(viewer: NavViewer): RailNav {
 	if (viewer.context === "organization")
 		return { main: [PLANTS, PIPELINE, REVIEWS], pages: ORGANIZATION_PAGES, guide: false };
+	if (viewer.context === "pending") return { main: [DOCUMENTS], pages: [], guide: false };
 	if (viewer.context === "account")
 		return { main: viewer.residencyLinked ? [MY_RESIDENCY, WIKI] : [WIKI], pages: [DOCUMENTS], guide: true };
 	return {

@@ -15,7 +15,7 @@ flowchart LR
   s0 -.- s0_st2(("account"))
   s0 -.- s0_st3(("signed-out"))
   s0 -.- s0_st4(("load-failed (manual)"))
-  s0 -.- s0_st5(("signup-dead-end (known defect)"))
+  s0 -.- s0_st5(("no-church"))
   s0 --- s0_b0["search<br/>tests + cases + browser behavior"]
   s0 --- s0_b1["progress<br/>tests"]
   s1["wiki.article<br/>no page"]
@@ -35,12 +35,12 @@ The Playbook wiki: a home with what to read next, search, and every article's ad
 
 - Routes: `/wiki/[[...slug]]`
 - Endpoints: `/api/wiki/progress`, `/api/wiki/read`
-- Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` write, `triage` write, `visitor` none
+- Personas: `owner` write, `admin` write, `member` write, `resident` write, `signup` none, `triage` write, `visitor` none
 - Catalog: WIKI-001, WIKI-002, WIKI-003, WIKI-004, WIKI-011
 
 Reach:
 
-- Rail "Wiki" for `owner`, `admin`, `member`, `resident`, `signup`, `triage`
+- Rail "Wiki" for `owner`, `admin`, `member`, `resident`, `triage`
 - Link `/wiki/{slug}` where `{slug}` is an article's path, as in its link in the wiki's navigation
 
 States:
@@ -80,7 +80,7 @@ agent-browser wait --url "**/signin?returnTo=%2Fwiki"
 ```
 
 - **load-failed**: heading "We could not load the wiki". Not scripted: renders only when the wiki read fails on the server.
-- **signup-dead-end**: URL `/signin?returnTo=%2Fwiki`. Known defect, so this state shows what is wrong: a signed-in account with no church sees Wiki in the rail, but apps/web/src/features/wiki/server.ts:46 gives it no reader, so routes.tsx:57 sends it to sign-in, which says it is signed in. As `signup`, on the QA seed:
+- **no-church**: URL `/signin?returnTo=%2Fwiki`. As `signup`, on the QA seed:
 
 ```bash
 agent-browser open "$ORIGIN/wiki"

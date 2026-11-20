@@ -62,7 +62,7 @@ type Surface = {
 export type FeatureMap = { feature: string; catalog: string[]; surfaces: Surface[] };
 type Persona = {
 	says: string;
-	context: "plant" | "organization" | "account" | "signed-out";
+	context: "plant" | "organization" | "account" | "pending" | "signed-out";
 	role?: "owner" | "admin" | "member";
 	residencyLinked?: boolean;
 	seed?: "qa";
@@ -294,6 +294,8 @@ export function personasFromSeed(source: string): Map<string, SeedPersona> {
 	const byName = new Map([...names].map(([login, name]) => [name, login] as const));
 	const out = new Map<string, SeedPersona>();
 	for (const [login, name] of names) out.set(login, { name, context: "account" });
+	for (const m of source.matchAll(/account\("[^"]+",\s*QA_LOGINS\.(\w+),\s*[\w.]+,\s*false\)/g))
+		out.set(m[1]!, { name: names.get(m[1]!) ?? m[1]!, context: "pending" });
 	const organization = /login:\s*QA_LOGINS\.(\w+),(?:\s*person:\s*"[^"]+",)?\s*role:\s*"(?:owner|admin|member)"/g;
 	for (const m of source.matchAll(organization))
 		out.set(m[1]!, { name: names.get(m[1]!) ?? m[1]!, context: "organization" });
@@ -423,6 +425,7 @@ const typedIn = (steps: Step[]) => new Set(steps.flatMap((s) => ("type" in s ? [
 export function viewerOf(persona: Persona): unknown {
 	if (persona.context === "plant") return { context: "plant", role: persona.role };
 	if (persona.context === "organization") return { context: "organization" };
+	if (persona.context === "pending") return { context: "pending" };
 	return { context: "account", residencyLinked: persona.residencyLinked === true };
 }
 

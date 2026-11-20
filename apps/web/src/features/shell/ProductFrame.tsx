@@ -127,7 +127,9 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 			? { context: "organization" }
 			: settings?.context === "plant"
 				? { context: "plant", role: settings.role }
-				: { context: "account", residencyLinked: linked },
+				: settings
+					? { context: "account", residencyLinked: linked }
+					: { context: "pending" },
 	);
 	const guide = {
 		kind: "action",
