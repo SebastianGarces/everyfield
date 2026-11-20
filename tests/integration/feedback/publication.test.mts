@@ -1,5 +1,5 @@
 import "../platform/setup.mts";
-import { fixture, ok, refused } from "../../support/fixture.mts";
+import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
 import { fakeGitHub } from "../../support/fake-github.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { closeDatabase } from "../../../packages/db/src/client.ts";
@@ -8,9 +8,9 @@ import { feedbackWriter } from "../../../packages/domain/src/feedback/index.ts";
 import { publicIssue } from "../../../packages/domain/src/feedback/public.ts";
 import { feedbackMailPass } from "../../../apps/web/src/features/feedback/mail.ts";
 import { feedbackPublicationMount } from "../../../apps/web/src/features/feedback/publication.ts";
-import { runDueFeedbackPublication } from "../../../apps/web/src/server/jobs/feedback-publication.ts";
+import { runDueFeedbackPublication } from "../../../packages/domain/src/jobs/feedback-publication.ts";
 import { githubIssues } from "../../../apps/web/src/server/jobs/github.ts";
-import type { MailPayload, MailTransport } from "../../../apps/web/src/server/jobs/mail.ts";
+import type { MailPayload, MailTransport } from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
@@ -55,7 +55,7 @@ after(async () => {
 	await database.close();
 });
 
-const authority = async (who: { session: string }) => {
+const authority = async (who: Actor) => {
 	const actor = await RequestActor.resolve(db, who.session);
 	assert.ok(actor instanceof RequestActor, JSON.stringify(actor));
 	return actor;
@@ -126,7 +126,7 @@ const cron = (feedbackPublication: ReturnType<typeof feedbackPublicationMount>) 
 		mail: null,
 		digests: null,
 		feedbackPublication,
-	})(new Request("https://app.example.test/api/cron/jobs", { headers: { authorization: "Bearer s" } }));
+	})();
 
 test("AC:CASE-ADM-003 with no repository configured nothing reaches GitHub or the inbox, and configuring it later publishes the waiting feedback", async () => {
 	const sent = await send();

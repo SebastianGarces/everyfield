@@ -1,41 +1,15 @@
 import { accountId as accountIdSchema } from "@everyfield/contracts/common";
 import * as c from "@everyfield/contracts/phases";
 import { sql, type SQL } from "@everyfield/db/query";
-import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
 import { plantViewer, type PlantViewer } from "../documents/access.ts";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
-type Code = c.PhasesError["code"];
-class Refusal extends Error {
-	readonly code: Code;
-	readonly details: object;
-	constructor(code: Code, details: object = {}) {
-		super(code);
-		this.code = code;
-		this.details = details;
-	}
-}
-export function deny(code: Code, details: object = {}): never {
-	throw new Refusal(code, details);
-}
-export async function settle<T>(body: () => Promise<T>): Promise<c.PhasesReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (!(error instanceof Refusal)) throw error;
-		return {
-			status: "refused",
-			error: c.phasesError.parse({
-				code: error.code,
-				details: error.details,
-				correlationId: randomUUID(),
-				retry: error.code === "already_declared" || error.code === "revision_conflict" ? "refresh" : "never",
-			}),
-		};
-	}
-}
+const refusals = defineRefusals(c.phasesError);
+export const deny: Deny<typeof c.phasesError> = refusals.deny;
+export const { settle } = refusals;
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const found = schema.safeParse(raw);
 	if (!found.success) deny("invalid_input");

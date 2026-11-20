@@ -62,8 +62,8 @@ export function structureWriter(reminders: TaskReminders) {
 						() => sql`${assigneeFacts(cmd.actor.plantId, admin ? (v.assigneeIds ?? []) : [])} AS owners`,
 					);
 					const parent = locked.task;
-					if (!parent || parent.deleted_at) deny();
-					if (!admin && !parent.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny();
+					if (!parent || parent.deleted_at) deny("unavailable");
+					if (!admin && !parent.assignees.some((a) => a.accountId === cmd.actor.accountId)) deny("unavailable");
 					if (!admin && v.assigneeIds !== undefined) deny("access_denied");
 					if (parent.parent_id) deny("invalid_subject");
 					if (parent.child_total >= 500) deny("invalid_input");
@@ -91,7 +91,7 @@ export function structureWriter(reminders: TaskReminders) {
 				const input = parse(c.setSubtaskCompletionRequest, raw);
 				return command(tx, context, "tasks.setSubtaskCompletion", input, async (cmd) => {
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, true);
-					if (row.parent_id !== input.input.parentId) deny();
+					if (row.parent_id !== input.input.parentId) deny("unavailable");
 					return changeTo(tx, cmd, reminders, row, { status: input.input.complete ? "complete" : "not_started" });
 				});
 			});
@@ -100,9 +100,9 @@ export function structureWriter(reminders: TaskReminders) {
 			return reply(tx, async () => {
 				const input = parse(c.removeSubtaskRequest, raw);
 				return command(tx, context, "tasks.removeSubtask", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, false);
-					if (row.parent_id !== input.input.parentId) deny();
+					if (row.parent_id !== input.input.parentId) deny("unavailable");
 					const next: TaskRow = { ...row, deleted_at: new Date(), revision: bump(row.revision) };
 					cmd.writes.push(...update(cmd.actor.plantId, row, next));
 					auditRow(cmd, {
@@ -121,7 +121,7 @@ export function structureWriter(reminders: TaskReminders) {
 			return reply(tx, async () => {
 				const input = parse(c.replacePrerequisitesRequest, raw);
 				return command(tx, context, "tasks.replacePrerequisites", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input;
 					const ids = v.prerequisiteIds as string[];
 					const plant = cmd.actor.plantId;
@@ -174,7 +174,7 @@ export function structureWriter(reminders: TaskReminders) {
 			return reply(tx, async () => {
 				const input = parse(c.configureRecurrenceRequest, raw);
 				return command(tx, context, "tasks.configureRecurrence", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input;
 					const row = await current(tx, cmd, v.taskId, input.expectedRevision, false);
 					if (row.parent_id) deny("invalid_subject");
@@ -261,7 +261,7 @@ export function structureWriter(reminders: TaskReminders) {
 			return reply(tx, async () => {
 				const input = parse(c.bulkRescheduleRequest, raw);
 				return command(tx, context, "tasks.bulkReschedule", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const due = dueColumns(input.due, cmd.actor.zone);
 					return bulk(tx, cmd, input.items, (row) => {
 						if (!OPEN(row.status)) return "closed";

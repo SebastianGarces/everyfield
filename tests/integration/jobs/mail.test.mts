@@ -10,22 +10,19 @@ import { sessionId } from "../../../packages/contracts/src/common/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { createNotificationProducer, issueMailOptOutToken } from "../../../packages/domain/src/notifications/index.ts";
 import { ok, seeds } from "../../support/fixture.mts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import {
 	createMailService,
 	claimUnknownMail,
 	MAIL_PASSES,
 	runDueMail,
-} from "../../../apps/web/src/server/jobs/mail.ts";
+} from "../../../packages/domain/src/jobs/mail.ts";
 import { scheduledJobs } from "../../../apps/web/src/server/jobs/scheduled.ts";
 import { createResendTransport } from "../../../apps/web/src/server/jobs/resend.ts";
-import { protectedTemplate } from "../../../apps/web/src/server/jobs/templates.ts";
-import { claimDue, recoverLease } from "../../../apps/web/src/server/jobs/queue.ts";
-import {
-	receiveMailCallback,
-	mailCallbackHandler,
-	callbackVisibility,
-} from "../../../apps/web/src/server/jobs/webhook.ts";
+import { protectedTemplate } from "../../../packages/domain/src/jobs/templates.ts";
+import { claimDue, recoverLease } from "../../../packages/domain/src/jobs/queue.ts";
+import { callbackVisibility } from "../../../packages/domain/src/jobs/webhook.ts";
+import { mailCallbackHandler, receiveMailCallback } from "../../../apps/web/src/server/jobs/webhook-route.ts";
 import { db, runtime, runtimeSettings, tenant, setup, teardown, due } from "./support.mts";
 const account = randomUUID(),
 	key = randomBytes(32),

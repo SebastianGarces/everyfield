@@ -48,7 +48,7 @@ export function dueColumns(due: z.infer<typeof c.dueInput>, zone: TimeZone): Due
 		return { due_kind: "date_only", due_date: due.date, due_time: null, timezone: null, due_at: null };
 	const r = resolveCalendar(due.local, zone, "entered", due.offsetSeconds);
 	if (r.kind === "gap") deny("nonexistent_local_time", { local: due.local });
-	if (r.kind === "fold") deny("ambiguous_local_time", { local: due.local, choices: r.choices });
+	if (r.kind === "fold") deny("ambiguous_local_time", { local: due.local, choices: [...r.choices] });
 	if (r.kind === "invalid_offset") deny("invalid_input");
 	return {
 		due_kind: "timed",
@@ -264,8 +264,9 @@ export async function current(tx: Tx, cmd: Command, taskId: string, expectedRevi
 	return checkCurrent(cmd, await loadTask(tx, cmd.actor.plantId, taskId, true), expectedRevision, ownDuty);
 }
 export function checkCurrent(cmd: Command, row: LockedTask | null, expectedRevision: string, ownDuty: boolean) {
-	if (!row || row.deleted_at) deny();
-	if (!administers(cmd.actor) && !(ownDuty && row.assignees.some((a) => a.accountId === cmd.actor.accountId))) deny();
+	if (!row || row.deleted_at) deny("unavailable");
+	if (!administers(cmd.actor) && !(ownDuty && row.assignees.some((a) => a.accountId === cmd.actor.accountId)))
+		deny("unavailable");
 	if (row.revision !== expectedRevision) deny("conflict");
 	return row;
 }
@@ -437,7 +438,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.createTaskRequest, raw);
 				return command(tx, context, "tasks.create", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input;
 					const due = dueColumns(v.due, cmd.actor.zone);
 					const refs =
@@ -471,7 +472,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.editTaskRequest, raw);
 				return command(tx, context, "tasks.edit", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const p = input.input.patch;
 					const locked = await lockTaskWith(tx, cmd.actor.plantId, input.input.taskId, (k) =>
 						referenceColumns(cmd.actor.plantId, joiningOf(k, p.assigneeIds ?? []), p.relation),
@@ -531,7 +532,7 @@ export function createTaskWriter(deps: { reminders: TaskReminders; catalog?: Cat
 			return reply(tx, async () => {
 				const input = parse(c.taskCommandRequest, raw);
 				return command(tx, context, "tasks.delete", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const row = await current(tx, cmd, input.input.taskId, input.expectedRevision, false);
 					const at = new Date();
 					cmd.writes.push(

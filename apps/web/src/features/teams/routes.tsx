@@ -1,3 +1,4 @@
+import { requireSeat } from "@/server/sign-in";
 import { LockKeyIcon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { recordId } from "@everyfield/contracts/common";
 import {
@@ -10,17 +11,15 @@ import {
 	StatePanel,
 } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { plantViewer } from "../meetings/server.ts";
 import { isAdmin, loadTeam, loadTeams, type Viewer } from "./server.ts";
 import { TeamScreen } from "./TeamScreen.tsx";
 import { TeamsScreen } from "./TeamsScreen.tsx";
 
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
-	const v = await plantViewer();
-	if (v.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
-	if (v.viewer) return { viewer: v.viewer };
+	const viewer = await requireSeat(returnTo);
+	if (viewer) return { viewer };
 	return {
 		blocked: (
 			<>

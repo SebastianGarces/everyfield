@@ -22,8 +22,8 @@ import { deletionOperations } from "../../../packages/domain/src/settings/index.
 import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
 import { eligibleOwner } from "../../../packages/domain/src/tasks/owner.ts";
 import { scriptedAssessmentDrafter } from "../../../packages/evry/src/runtime/scripted-assessment.ts";
-import { runDuePurges } from "../../../apps/web/src/server/jobs/lifecycle-purge.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { runDuePurges } from "../../../packages/domain/src/jobs/lifecycle-purge.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { ok, refused } from "../../support/fixture.mts";
 import { CANARY, church, type Church } from "./assessment-church.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";

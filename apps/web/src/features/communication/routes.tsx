@@ -1,3 +1,4 @@
+import { signIn } from "@/server/sign-in";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { Card, PageHeader, StatePanel } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
@@ -11,7 +12,7 @@ import { communicationViewer, isReviewedFollowUp, loadCommunicationPage, type Vi
 
 async function gate(returnTo: string, title: string): Promise<{ viewer: Viewer } | { blocked: ReactNode }> {
 	const seat = await communicationViewer();
-	if (seat.signedOut) redirect(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
+	if (seat.signedOut) signIn(returnTo);
 	if (seat.viewer) return { viewer: seat.viewer };
 	return {
 		blocked: (

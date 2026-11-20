@@ -41,7 +41,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 			return answer(tx, async () => {
 				const input = parse(c.createFollowUpRequest, raw);
 				return command(tx, context, "tasks.createFollowUp", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input,
 						plant = cmd.actor.plantId;
 					const due = dueColumns(v.due, cmd.actor.zone);
@@ -75,7 +75,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 			return answer(tx, async () => {
 				const input = parse(c.assignFollowUpRequest, raw);
 				return command(tx, context, "tasks.assignFollowUp", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input,
 						plant = cmd.actor.plantId;
 					const locked = await lockTaskWith(
@@ -85,7 +85,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 						(k) => sql`${assigneeFacts(plant, joiningOf(k, v.assigneeIds))} AS owners`,
 					);
 					const row = locked.task;
-					if (!row || !isFollowUp(row)) deny();
+					if (!row || !isFollowUp(row)) deny("unavailable");
 					if (row.revision !== input.expectedRevision) deny("conflict");
 					if (!isOpen(row)) deny("invalid_subject");
 					const added = checkAssignees(locked.facts.owners, true, "owner_ineligible");
@@ -121,7 +121,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 			return answer(tx, async () => {
 				const input = parse(c.executeHandoffRequest, raw);
 				return command(tx, context, "tasks.executeHandoff", input, async (cmd) => {
-					if (!administers(cmd.actor)) deny();
+					if (!administers(cmd.actor)) deny("unavailable");
 					const v = input.input,
 						plant = cmd.actor.plantId;
 					const items = sql.param(v.items.map((i) => i.taskId));
@@ -151,7 +151,7 @@ export function assignmentWriter(reminders: TaskReminders) {
 						reminderChanges = [];
 					for (const item of v.items) {
 						const row = rows.get(item.taskId);
-						if (!row || !isFollowUp(row)) deny();
+						if (!row || !isFollowUp(row)) deny("unavailable");
 						if (
 							row.revision !== item.expectedRevision ||
 							!isOpen(row) ||
