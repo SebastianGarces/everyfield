@@ -14,7 +14,7 @@ import {
 } from "../../../packages/domain/src/launch/index.ts";
 import { createTaskWriter, withTaskWrite } from "../../../packages/domain/src/tasks/index.ts";
 import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
-import { seatedNotificationService } from "../../../apps/web/src/server/jobs/seated-notifications.ts";
+import { seatedNotificationService } from "../../../packages/domain/src/jobs/seated-notifications.ts";
 import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
 
 const inventory = JSON.parse(
