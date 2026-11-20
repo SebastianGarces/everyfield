@@ -1,5 +1,5 @@
 import { requestDatabase } from "@/server/database";
-import { getViewer } from "@/server/request-context";
+import { viewerActor } from "@/server/request-context";
 import type {
 	AssessmentHistory,
 	AssessmentReply,
@@ -23,7 +23,7 @@ export async function runAssessment<T>(
 	component: "refresh" | "seen" | "feedback" | "citation",
 	body: (a: Assessments, db: Database, authority: RequestActor) => Promise<AssessmentReply<T>>,
 ): Promise<ActionOutcome<T>> {
-	const { authority } = await getViewer();
+	const authority = await viewerActor();
 	if (!authority) return { status: "signed_out" };
 	const db = requestDatabase();
 	return transient(

@@ -5,7 +5,8 @@ import { cookies } from "next/headers";
 import { parseQuery, querySearch } from "./model.ts";
 import { NotificationsScreen } from "./NotificationsScreen.tsx";
 import { OptOutScreen, type OptOutView } from "./OptOutScreen.tsx";
-import { call, loadFeedPage, notificationActor, optOutReady } from "./server.ts";
+import { viewerActor } from "@/server/request-context";
+import { call, loadFeedPage, optOutReady } from "./server.ts";
 import { params } from "../../components/search-params.ts";
 import { viewerZone, ZONE_COOKIE } from "../../components/viewer-zone.ts";
 
@@ -14,7 +15,7 @@ export const notificationsMetadata: Metadata = { title: "Notifications", robots:
 
 export async function NotificationsPage({ searchParams }: { searchParams: Search }) {
 	const query = parseQuery(params(await searchParams));
-	const actor = await notificationActor();
+	const actor = await viewerActor();
 	if (!actor) signIn(`/notifications${querySearch(query)}`);
 	const loaded = await loadFeedPage(actor, query);
 	if (loaded.status !== "ok")
