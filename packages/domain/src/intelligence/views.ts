@@ -43,7 +43,7 @@ export function lensesOf(facts: unknown, draft: c.DraftOutput): c.LensTile[] {
 			.filter(({ p }) => p.citations.some((k) => c.lensOfKey(k) === lens.key))
 			.sort((a, b) => RANK[a.p.urgency] - RANK[b.p.urgency] || a.ordinal - b.ordinal);
 		const top = citing[0];
-		return c.lensTile.parse({
+		return {
 			key: lens.key,
 			label: lens.label,
 			quality,
@@ -51,7 +51,7 @@ export function lensesOf(facts: unknown, draft: c.DraftOutput): c.LensTile[] {
 			evidence: evidenceOf(entries, lens.headline),
 			attestations,
 			points: citing.map((x) => x.ordinal),
-		});
+		} satisfies z.output<typeof c.lensTile>;
 	});
 }
 
@@ -86,13 +86,13 @@ export const storedConcern = z.object({
 });
 export type StoredConcern = z.infer<typeof storedConcern>;
 export const concernOf = (runId: string, s: StoredConcern): c.Concern =>
-	c.concern.parse({
+	({
 		id: c.concernId(runId, s.ordinal),
 		ordinal: s.ordinal,
 		severity: c.SEVERITY[s.urgency],
 		lens: s.keys.map(c.lensOfKey).find((l) => l !== null) ?? null,
 		evidence: s.evidence,
-	});
+	}) satisfies z.output<typeof c.concern>;
 
 export const RELEASE_HOURS = 72;
 export const releasedRun = (plant: SQL, now: SQL) => sql`(SELECT r.* FROM assessment_run r WHERE r.plant_id=${plant}

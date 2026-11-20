@@ -203,7 +203,7 @@ export const venuesReader = {
 						WHERE a.tenant_id = v.plant_id AND a.subject_id = v.id ORDER BY a.occurred_at DESC, a.id DESC LIMIT 100) h) AS history
 				FROM venue v WHERE v.id = ${input.venueId}::uuid AND v.plant_id = ${viewer.plantId}::uuid`,
 			);
-			if (!found) return c.venueResult.parse({ status: "unavailable" });
+			if (!found) return { status: "unavailable" } satisfies z.output<typeof c.venueResult>;
 			const row = venueRow.extend({ history: z.array(historyRow).nullable() }).parse(found);
 			return c.venueResult.parse({ status: "available", venue: venue(row), history: (row.history ?? []).map(entry) });
 		});

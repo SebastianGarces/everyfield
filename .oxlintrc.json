@@ -47,6 +47,7 @@
 		"everyfield/no-comments": "error",
 		"everyfield/server-log": "error",
 		"everyfield/no-effects": "error",
+		"everyfield/stable-context-value": "error",
 		"everyfield/storage-client": "error",
 		"everyfield/deployment-env": "error",
 		"everyfield/server-config": "error",
@@ -114,7 +115,20 @@
 			}
 		},
 		{
-			"files": ["tests/workflow/**/*.ts", "tests/unit/**/*.mts", "tests/ui/**/*.mts"],
+			"files": [
+				"tests/workflow/**/*.ts",
+				"tests/unit/**/*.mts",
+				"tests/ui/**/*.mts",
+				"tests/integration/dashboard/**",
+				"tests/integration/feedback/**",
+				"tests/integration/notifications/**",
+				"tests/integration/platform/**",
+				"tests/integration/writes/**",
+				"tests/integration/branding/**",
+				"tests/integration/flags/**",
+				"tests/integration/oversight/**",
+				"tests/integration/phases/**"
+			],
 			"rules": {
 				"typescript/no-explicit-any": "error"
 			}
@@ -136,7 +150,25 @@
 			}
 		},
 		{
-			"files": ["packages/contracts/src/**", "packages/reference/src/**", "packages/ui/src/**", "packages/evry/src/**"],
+			"files": [
+				"packages/contracts/src/**",
+				"packages/reference/src/**",
+				"packages/ui/src/**",
+				"packages/evry/src/**",
+				"packages/domain/src/access/**",
+				"packages/domain/src/feedback/**",
+				"packages/domain/src/flags/**",
+				"packages/domain/src/followups/**",
+				"packages/domain/src/identity/**",
+				"packages/domain/src/jobs/**",
+				"packages/domain/src/launch/**",
+				"packages/domain/src/operations/**",
+				"packages/domain/src/oversight/**",
+				"packages/domain/src/phases/**",
+				"packages/domain/src/settings/**",
+				"packages/domain/src/teams/**",
+				"packages/domain/src/wiki/**"
+			],
 			"rules": {
 				"typescript/no-non-null-assertion": "error"
 			}

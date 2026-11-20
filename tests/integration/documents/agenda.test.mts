@@ -159,6 +159,21 @@ describe("AC:DOC-007 AC:DOC-011 agendas from the meeting", () => {
 		}
 	});
 
+	test("AC:DOC-007 section heads print plain numbers (1, 2, 3), never zero-padded", async () => {
+		for (const id of IDS) {
+			for (const m of [meetingOf(), undefined]) {
+				const all = lines(await render(id, m));
+				const heads = ["Run of show", "Attendees", "Follow-up actions"].map((t) => all[all.indexOf(t) - 1]);
+				assert.deepEqual(heads, ["1", "2", "3"], `${id}${m ? "" : " (blank)"}`);
+				assert.equal(
+					all.some((l) => /^0\d$/.test(l)),
+					false,
+					`${id}: a zero-padded number`,
+				);
+			}
+		}
+	});
+
 	test("AC:DOC-007 a meeting with no venue prints a blank Place field", async () => {
 		const r = await render("vision-meeting-agenda", meetingOf({ venueName: null, venueAddress: null }));
 		assert.ok(names(r).includes("meeting_place"));

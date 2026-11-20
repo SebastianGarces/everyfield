@@ -98,9 +98,11 @@ import { SetupDialog } from "./Setup.tsx";
 import { apply, type Change } from "./page-state.ts";
 import { ResponsibilitiesPanel } from "./responsibilities/Responsibilities.tsx";
 import type { TeamView } from "./server.ts";
+import { loadProblem, failedIcon } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 const histories = createRead(({ teamId }: { teamId: string; revision: string }) => teamHistory(teamId), {
-	failed: (): Outcome<{ entries: HistoryEntry[] }> => ({ status: "lost" }),
+	failed: (): Outcome<{ entries: HistoryEntry[] }> | ReadFailure => ({ status: "lost" }),
 });
 
 const TABS = ["roles", "responsibilities", "people", "training", "history"] as const;
@@ -1092,7 +1094,7 @@ function HistoryCard({ teamId, revision }: { teamId: string; revision: string })
 	return <HistoryList state={history.value ?? null} />;
 }
 
-function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | null }): ReactNode {
+function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | ReadFailure | null }): ReactNode {
 	return (
 		<Card as="section" aria-labelledby="history-title">
 			<CardHeader>
@@ -1106,8 +1108,8 @@ function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | 
 					<Spinner size={16} /> Loading the history…
 				</p>
 			) : state.status !== "ok" ? (
-				<StatePanel tone="error" title="The history did not load" headingLevel="h3">
-					Nothing was changed. Open the tab again in a moment.
+				<StatePanel tone="error" title="The history did not load" icon={failedIcon(state)} headingLevel="h3">
+					{loadProblem(state, "Nothing was changed. Open the tab again in a moment.")}
 				</StatePanel>
 			) : state.value.entries.length === 0 ? (
 				<p className="py-4 text-sm text-text-3">No changes are recorded yet.</p>
