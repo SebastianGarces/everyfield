@@ -14,6 +14,7 @@
 		"intelligence/assessment.ts",
 		"intelligence/facts.ts",
 		"intelligence/views.ts",
+		"jobs/queue.ts",
 		"launch/reads.ts",
 		"meetings/rows.ts",
 		"meetings/tokens.ts",
