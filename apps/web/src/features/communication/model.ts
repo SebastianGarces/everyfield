@@ -82,9 +82,10 @@ export const CHILD_RULE = "Messages are not sent to people marked as a child.";
 
 export function noRecipientReason(summary: AudienceSummary | null, fallback: string): string {
 	const children = summary?.childExclusions ?? [];
-	if (summary && summary.eligibleRecipients === 0 && children.length > 0)
+	const [only] = children;
+	if (summary && summary.eligibleRecipients === 0 && only)
 		return children.length === 1 && summary.resolvedDistinctPeople === 1
-			? `${children[0]!.displayName} is marked as a child. ${CHILD_RULE}`
+			? `${only.displayName} is marked as a child. ${CHILD_RULE}`
 			: `No one here can get this email. ${CHILD_RULE}`;
 	return fallback;
 }

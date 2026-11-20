@@ -6,13 +6,18 @@ type Symbol = { id: "ef-symbol" | "ef-wordmark"; viewBox: string; paths: Path[] 
 
 function parse(src: string): Symbol[] {
 	const out: Symbol[] = [];
-	for (const m of src.matchAll(/<symbol id="(ef-symbol|ef-wordmark)" viewBox="([^"]+)">([\s\S]*?)<\/symbol>/g)) {
-		const paths = [...m[3]!.matchAll(/<path([^>]*)\/>/g)].map((p) => {
-			const d = p[1]!.match(/\sd="([^"]+)"/)?.[1];
-			if (!d) throw new Error(`logo-symbols.ts: a path in ${m[1]} has no d`);
-			return { d, evenOdd: /fill-rule="evenodd"/.test(p[1]!) };
+	for (const [, id, viewBox, body] of src.matchAll(
+		/<symbol id="(ef-symbol|ef-wordmark)" viewBox="([^"]+)">([\s\S]*?)<\/symbol>/g,
+	)) {
+		if ((id !== "ef-symbol" && id !== "ef-wordmark") || viewBox === undefined || body === undefined)
+			throw new Error("logo-symbols.ts: a symbol has no id, viewBox or body");
+		const paths = [...body.matchAll(/<path([^>]*)\/>/g)].map(([, attributes]) => {
+			if (attributes === undefined) throw new Error(`logo-symbols.ts: a path in ${id} has no attributes`);
+			const d = attributes.match(/\sd="([^"]+)"/)?.[1];
+			if (!d) throw new Error(`logo-symbols.ts: a path in ${id} has no d`);
+			return { d, evenOdd: /fill-rule="evenodd"/.test(attributes) };
 		});
-		out.push({ id: m[1] as Symbol["id"], viewBox: m[2]!, paths });
+		out.push({ id, viewBox, paths });
 	}
 	if (out.length !== 2) throw new Error("logo-symbols.ts: expected the ef-symbol and ef-wordmark symbols");
 	return out;

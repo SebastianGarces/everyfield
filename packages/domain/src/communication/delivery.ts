@@ -337,7 +337,12 @@ async function openLoaded(db: Database, actor: Actor, communicationId: string, e
 	const digest = hash({ subject: found.subject, body: found.body_html, people: parts.people, emails: parts.emails });
 	if (found.review_digest !== digest)
 		deny("stale_review", { previewBody: found.body_html, scriptExecution: false, providerCalls: 0 });
-	return { found: { ...found, people }, audience, parts, digest };
+	return {
+		found: { ...found, id: found.id, subject: found.subject, body_html: found.body_html, people },
+		audience,
+		parts,
+		digest,
+	};
 }
 
 async function prepare(
@@ -368,12 +373,15 @@ async function prepare(
 			}),
 		)
 		.parse(asJson(found.people) ?? [])
-		.filter((row) => row.email?.trim())
+		.flatMap((row) => {
+			const email = row.email?.trim();
+			return email ? [{ ...row, email }] : [];
+		})
 		.sort((a, b) => a.id.localeCompare(b.id));
 	const seen = new Set<string>();
 	const unique = people.filter((row) => (seen.has(row.id) ? false : (seen.add(row.id), true)));
 	const rows = unique.map((person, index) => {
-		const address = person.email!.trim().toLowerCase();
+		const address = person.email.toLowerCase();
 		const id = randomUUID();
 		const token = canLink && guests.has(person.id) ? newRsvpToken() : null;
 		const merge: Record<MergeKey, string> = {
@@ -383,11 +391,11 @@ async function prepare(
 		const unsubscribe = keys.optOutKeys
 			? `${keys.origin}/unsubscribe/${messagesOptOutToken(keys.optOutKeys, { plantId: actor.plantId, personId: person.id })}`
 			: null;
-		const html = renderEmailHtml(found.body_html!, merge, {
+		const html = renderEmailHtml(found.body_html, merge, {
 			churchName: found.church_name ?? "",
 			...(unsubscribe ? { unsubscribeUrl: unsubscribe } : {}),
 		});
-		const body = plainText(renderBody(found.body_html!, merge)) || found.subject!;
+		const body = plainText(renderBody(found.body_html, merge)) || found.subject;
 		const text = unsubscribe ? `${body}\n\n--\nUnsubscribe: ${unsubscribe}` : body;
 		const headers = unsubscribe
 			? { "List-Unsubscribe": `<${unsubscribe}/one-click>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
@@ -436,18 +444,21 @@ async function prepare(
 			request_hash: requestHash,
 		};
 	});
-	const minted = found.meeting_id !== null && rows.some((row) => row.token_hash !== null);
+	const meetingId = found.meeting_id;
+	const minted = meetingId !== null && rows.some((row) => row.token_hash !== null);
 	const waiting = mode === "scheduled" ? "scheduled" : "dispatched";
 	const tokens = minted
 		? sql`,
 			ins_tok AS (${rsvpTokenUpdate(
 				actor.plantId,
-				found.meeting_id!,
+				meetingId,
 				sql`(SELECT i.person AS person_id, i.token_hash FROM input i JOIN ins_mail m ON m.id = i.id AND m.state IN ('dispatched', 'scheduled')
 					WHERE i.token_hash IS NOT NULL)`,
 			)})`
 		: sql``;
 	const issued = minted ? sql`(SELECT count(*) FROM ins_tok)` : sql`0`;
+	const firstGroup = groups[0];
+	if (!firstGroup) throw Error(`Communication ${found.id} reached dispatch with no recipient`);
 	const stored = one(
 		await db.execute(sql`WITH gate AS (SELECT ${adminGate(actor)} AS allowed),
 			input AS (
@@ -513,7 +524,7 @@ async function prepare(
 			ins_audit AS (
 				INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_type, subject_id, event_key, metadata, after_value)
 				SELECT ${actor.plantId}::uuid, ${actor.accountId}::uuid, 'communication.send_intended', 'outcome', 'record',
-					${found.id}::uuid, ${"dispatch/" + groups[0]!.provider_key}, '{}'::jsonb,
+					${found.id}::uuid, ${"dispatch/" + firstGroup.provider_key}, '{}'::jsonb,
 					jsonb_build_object('recipients', (SELECT count(*) FROM ins_mail), 'rsvpLinks', ${issued})
 				WHERE EXISTS (SELECT 1 FROM ins_mail)
 				ON CONFLICT (subject_id, event_key) DO NOTHING
@@ -536,7 +547,12 @@ async function prepare(
 	if (written.size !== rows.length || stored.attempts !== groups.length) deny("conflict");
 	return groups.map((group) => {
 		const members = rows.filter((row) => row.batch === group.batch);
-		const state = (id: string) => written.get(id)!.state;
+		const writtenOf = (id: string) => {
+			const row = written.get(id);
+			if (!row) throw Error(`Mail ${id} was counted as written but not returned`);
+			return row;
+		};
+		const state = (id: string) => writtenOf(id).state;
 		return {
 			requestId: group.id,
 			attemptId: group.attempt,
@@ -550,7 +566,7 @@ async function prepare(
 				provider: null,
 				scheduledAt: heldUntil,
 				cancelRequested: false,
-				leftOut: written.get(row.id)!.refusal ?? (state(row.id) === "scheduled" && row.child ? "child" : null),
+				leftOut: writtenOf(row.id).refusal ?? (state(row.id) === "scheduled" && row.child ? "child" : null),
 			})),
 			messages: new Map(
 				members
@@ -559,7 +575,7 @@ async function prepare(
 						row.position,
 						{
 							to: row.to,
-							subject: found.subject!,
+							subject: found.subject,
 							html: row.html,
 							text: row.text,
 							...(row.headers ? { headers: row.headers } : {}),
@@ -644,11 +660,15 @@ async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 	const open = batch.members.filter((row) => row.state === "dispatched" || row.state === "unknown");
 	if (!open.length) return null;
 	if (batch.expired) return { sent: false, lost: false, updates: applyIds({ outcome: "unknown" }, open) };
-	const ready = open.filter((row) => batch.messages.get(row.position));
+	const ready = open.flatMap((row) => {
+		const message = batch.messages.get(row.position);
+		return message ? [{ ...row, message }] : [];
+	});
 	const updates: Update[] = open
 		.filter((row) => !batch.messages.get(row.position))
 		.map((row) => ({ id: row.id, outcome: row.state === "unknown" ? "unknown" : "refused", providerId: null }));
-	if (!ready.length) return { sent: false, lost: false, updates };
+	const [first] = ready;
+	if (!first) return { sent: false, lost: false, updates };
 	const sent = !open.some((row) => row.state === "unknown");
 	let answer: DeliveryBatch;
 	let lost = false;
@@ -656,8 +676,8 @@ async function handOffBatch(transport: DeliveryTransport, batch: Batch) {
 		answer = await transport.send(
 			{
 				key: batch.providerKey,
-				messages: ready.map((row) => batch.messages.get(row.position)!),
-				scheduledAt: ready[0]!.scheduledAt,
+				messages: ready.map((row) => row.message),
+				scheduledAt: first.scheduledAt,
 			},
 			signal(),
 		);
@@ -744,18 +764,21 @@ async function loadHandoff(db: Database, actor: Actor, communicationId: string, 
 	if (found.allowed !== true) deny("access_denied");
 	if (!found.id) deny("not_found");
 	if (found.revision !== expectedRevision) deny("conflict");
-	return { found, members: batchesOf(found.batches, actor.plantId).flatMap((batch) => batch.members) };
+	return {
+		found: { ...found, id: found.id },
+		members: batchesOf(found.batches, actor.plantId).flatMap((batch) => batch.members),
+	};
 }
 
 async function askEach(
 	open: readonly Member[],
 	ask: (providerIds: readonly string[]) => Promise<readonly ProviderAnswer[]>,
 ): Promise<Answer[]> {
-	const asked = open.filter((row) => row.provider !== null);
+	const asked = open.flatMap((row) => (row.provider === null ? [] : [{ id: row.id, provider: row.provider }]));
 	if (!asked.length) return [];
 	let replies: readonly ProviderAnswer[];
 	try {
-		replies = await ask(asked.map((row) => row.provider!));
+		replies = await ask(asked.map((row) => row.provider));
 	} catch {
 		return [];
 	}
@@ -843,7 +866,7 @@ export function cancelScheduled(db: Database, authority: RequestActor, raw: unkn
 			next = answered(next, answers, (row) => ({ ...row, state: "cancelled" }));
 			if (answers.length) {
 				const openCount = next.filter(holding).length;
-				await recordAnswers(db, actor, found.id!, answers, null, {
+				await recordAnswers(db, actor, found.id, answers, null, {
 					eventKey: openCount === 0 ? `cancel-confirmed/${found.id}` : `cancel-check/${input.requestKey}`,
 					after: {
 						cancelled: answers.filter((answer) => answer.outcome === "done").length,
@@ -930,7 +953,7 @@ export function rescheduleDispatched(
 			next = answered(members, answers, (row) => ({ ...row, scheduledAt: requested }));
 			if (answers.length) {
 				const left = open.length - answers.length;
-				await recordAnswers(db, actor, found.id!, answers, requested, {
+				await recordAnswers(db, actor, found.id, answers, requested, {
 					eventKey: left === 0 ? `time-confirmed/${found.id}/${requested}` : `time-check/${input.requestKey}`,
 					after: {
 						scheduled_at: requested,
@@ -947,7 +970,7 @@ export function rescheduleDispatched(
 			rescheduleStatus: still.length ? "unknown" : "accepted",
 			newCommunications: 0,
 			scheduledAt: requested,
-			heldAt: still.map((row) => row.scheduledAt!).sort()[0] ?? null,
+			heldAt: still.flatMap((row) => (row.scheduledAt === null ? [] : [row.scheduledAt])).sort()[0] ?? null,
 			confirmedCount: next.filter((row) => waiting(row) || (row.state === "accepted" && row.scheduledAt === requested))
 				.length,
 			sentCount: next.filter((row) => row.state === "sent").length,

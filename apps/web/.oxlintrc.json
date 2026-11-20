@@ -86,6 +86,7 @@
 		"everyfield/no-error-message-match": "error",
 		"everyfield/no-slop-styling": "error",
 		"everyfield/sign-in-redirect": "error",
+		"everyfield/shared-outcome": "error",
 		"everyfield/web-database-imports": "error",
 		"no-restricted-imports": [
 			"error",
@@ -1292,6 +1293,19 @@
 				"react/immutability": "off"
 			},
 			"plugins": ["react"]
+		},
+		{
+			"files": [
+				"src/access/**",
+				"src/components/**",
+				"src/server/**",
+				"src/features/access/**",
+				"src/features/identity/**",
+				"src/features/wiki/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
 		},
 		{
 			"files": [

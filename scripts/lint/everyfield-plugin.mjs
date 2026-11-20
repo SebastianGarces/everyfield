@@ -197,7 +197,7 @@ const errorMessage = (node) =>
 	node.object.type === "Identifier" &&
 	knownError(node, node.object.name);
 const EQUALITY = new Set(["==", "===", "!=", "!=="]);
-const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith"]);
+const TEXT_MATCH = new Set(["includes", "startsWith", "endsWith", "test", "match", "exec", "search"]);
 
 const noErrorMessageMatch = {
 	meta: { type: "problem" },
@@ -2818,6 +2818,33 @@ const actionParamsUnknown = ratcheted("action-params-unknown", (context, push) =
 	};
 });
 
+export const OUTCOME_MODULE = "packages/contracts/src/common/values.ts";
+const OUTCOME_SOURCE = "@everyfield/contracts/common";
+const OUTCOME_SCOPE = /^(apps\/web\/src|packages\/[^/]+\/src)\//;
+const sharedOutcome = ratcheted("shared-outcome", (context, push) => {
+	const path = repoPath(context.filename);
+	if (path === OUTCOME_MODULE || !OUTCOME_SCOPE.test(path)) return {};
+	const shared = new Set();
+	return {
+		ImportDeclaration(node) {
+			if (node.source.value !== OUTCOME_SOURCE) return;
+			for (const spec of node.specifiers)
+				if (spec.type === "ImportSpecifier" && nameOf(spec.imported) === "Outcome") shared.add(spec.local.name);
+		},
+		TSTypeAliasDeclaration(node) {
+			if (node.id.name !== "Outcome" || !node.typeParameters) return;
+			const body = node.typeAnnotation;
+			if (body.type === "TSTypeReference" && body.typeName.type === "Identifier" && shared.has(body.typeName.name))
+				return;
+			push({
+				node: node.id,
+				fn: "Outcome",
+				message: `A local Outcome<T> type copies the request boundary's reply shape. Import Outcome from ${OUTCOME_SOURCE} and specialize it (type Outcome<T> = Shared<T, Code, Extra>), so every feature answers the same ok / refused / lost union.`,
+			});
+		},
+	};
+});
+
 export const SIGN_IN_MODULE = "apps/web/src/server/sign-in.ts";
 const REDIRECTS = ["redirect", "permanentRedirect"];
 function leadingText(context, node, seen = new Set()) {
@@ -3004,17 +3031,36 @@ const restNamed = (pattern, name) => {
 	if (pattern.type === "AssignmentPattern") return restNamed(pattern.left, name);
 	return false;
 };
-function bindingOf(fn, name) {
-	if (!fn) return null;
+const declares = (pattern, name) => {
+	if (!pattern) return false;
+	if (pattern.type === "Identifier") return pattern.name === name;
+	if (pattern.type === "RestElement") return declares(pattern.argument, name);
+	if (pattern.type === "AssignmentPattern") return declares(pattern.left, name);
+	if (pattern.type === "Property") return declares(pattern.value, name);
+	if (pattern.type === "ObjectPattern") return pattern.properties.some((p) => declares(p, name));
+	if (pattern.type === "ArrayPattern") return pattern.elements.some((p) => declares(p, name));
+	if (pattern.type === "TSParameterProperty") return declares(pattern.parameter, name);
+	return false;
+};
+function ownBinding(fn, name) {
 	if (fn.params.some((param) => restNamed(param, name))) return { rest: true };
+	if (fn.params.some((param) => declares(param, name))) return { param: true };
 	let found = null;
 	walkOwn(fn.body, (node) => {
 		if (node.type !== "VariableDeclarator") return false;
-		if (node.id.type === "Identifier" && node.id.name === name) found = { init: node.init };
+		if (node.id.type === "Identifier" && node.id.name === name) found = { init: node.init, fn };
 		else if (restNamed(node.id, name)) found = { rest: true };
+		else if (declares(node.id, name)) found = { param: true };
 		return found !== null;
 	});
 	return found;
+}
+function bindingOf(fn, name) {
+	for (let at = fn; at; at = enclosingFunction(at)) {
+		const found = ownBinding(at, name);
+		if (found) return found;
+	}
+	return null;
 }
 function builtInline(node, fn, seen = new Set()) {
 	const value = unwrapValue(node);
@@ -3027,7 +3073,7 @@ function builtInline(node, fn, seen = new Set()) {
 	if (value.type !== "Identifier" || seen.has(value.name)) return false;
 	seen.add(value.name);
 	const binding = bindingOf(fn, value.name);
-	return binding?.rest === true || (binding?.init ? builtInline(binding.init, fn, seen) : false);
+	return binding?.rest === true || (binding?.init ? builtInline(binding.init, binding.fn, seen) : false);
 }
 const isCreateContext = (node) => {
 	const call = unwrapValue(node);
@@ -3039,16 +3085,31 @@ const isCreateContext = (node) => {
 	);
 };
 
+const contextNamed = (id) => id.type === "Identifier" && id.name.endsWith("Context");
+
 const stableContextValue = {
 	meta: { type: "problem" },
 	create(context) {
 		return {
+			CallExpression(node) {
+				if (!isCreateContext(node)) return;
+				let at = node;
+				while (WRAPPERS.has(at.parent?.type)) at = at.parent;
+				const named =
+					at.parent?.type === "VariableDeclarator" && at.parent.init === at ? contextNamed(at.parent.id) : false;
+				if (named) return;
+				context.report({
+					node,
+					message:
+						"Bind a createContext result to a const named *Context, so the stable-value check sees every provider of it.",
+				});
+			},
 			VariableDeclarator(node) {
-				if (!isCreateContext(node.init)) return;
-				if (node.id.type === "Identifier" && node.id.name.endsWith("Context")) return;
+				const init = unwrapValue(node.init);
+				if (init?.type !== "Identifier" || !init.name.endsWith("Context") || contextNamed(node.id)) return;
 				context.report({
 					node: node.id,
-					message: "Name a createContext result *Context, so the stable-value check sees every provider of it.",
+					message: "Name an alias of a context *Context, so the stable-value check sees every provider of it.",
 				});
 			},
 			JSXOpeningElement(node) {
@@ -3111,6 +3172,7 @@ export default {
 		"action-params-unknown": actionParamsUnknown,
 		"failure-not-empty": failureNotEmpty,
 		"sign-in-redirect": signInRedirect,
+		"shared-outcome": sharedOutcome,
 		"domain-refusals": domainRefusals,
 		"stable-context-value": stableContextValue,
 	},
