@@ -45,8 +45,8 @@ async function apply(tx: Transaction, eventId: string) {
    ) SELECT e.*,(SELECT coalesce(json_agg(matches),'[]') FROM matches) AS matches FROM e`);
 	const e = lockedSchema.parse(locked.rows[0]);
 	if (e.processed_at) return "duplicate" as const;
-	if (e.matches.length !== 1) return "unmatched" as const;
-	const m = e.matches[0]!;
+	const [m, ...rest] = e.matches;
+	if (!m || rest.length) return "unmatched" as const;
 	const columns = {
 		accepted: "accepted_at",
 		scheduled: "accepted_at",
