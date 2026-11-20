@@ -13,7 +13,10 @@ import { repeatedShapes, statementShape, statementStep } from "./kinds.cjs";
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
 type Census = { kind: "whole" } | { kind: "part"; index: number; total: number } | { kind: "union"; folder: string };
-type Row = { kind: string; [key: string]: any };
+type Sample = { kind: "sample"; name: string; status: string; count: number; writes: number; [key: string]: unknown };
+type Declaration = { kind: "declaration"; name: string; write: boolean };
+type Part = { kind: "part"; index: number; total: number; ran: string[] };
+type Row = Sample | Declaration | Part;
 
 function censusMode(part = process.env.EVF_CENSUS_PART, union = process.env.EVF_CENSUS_UNION): Census {
 	if (part && union) throw Error("Set EVF_CENSUS_PART or EVF_CENSUS_UNION, not both");
@@ -85,9 +88,9 @@ async function unionRows(folder: string, units: string[]): Promise<Row[]> {
 }
 
 function checkPart(rows: Row[], limits: object) {
-	const reserves = rows.filter(
-		(row) => row.kind === "sample" && row.status !== "threw" && row.name === "identity.budget.reserve",
-	);
+	const reserves = rows
+		.filter((row) => row.kind === "sample")
+		.filter((row) => row.status !== "threw" && row.name === "identity.budget.reserve");
 	for (const sample of reserves) assert.ok(sample.count > 0, "identity.budget.reserve counted 0 statements");
 	assert.deepEqual(checkSamples(rows, limits), []);
 }
@@ -101,12 +104,11 @@ function checkWhole(rows: Row[], limits: object) {
 	assert.deepEqual(checkBudgets(rows, limits), []);
 	const covered = new Set(
 		rows
-			.filter(
-				(row) => row.kind === "sample" && row.status !== "threw" && (row.writes > 0 || Object.hasOwn(limits, row.name)),
-			)
+			.filter((row) => row.kind === "sample")
+			.filter((row) => row.status !== "threw" && (row.writes > 0 || Object.hasOwn(limits, row.name)))
 			.map((row) => row.name.split(":")[0]),
 	);
-	for (const row of rows.filter((row) => row.kind === "declaration" && row.write))
+	for (const row of rows.filter((row) => row.kind === "declaration").filter((row) => row.write))
 		assert.ok(covered.has(row.name), "A declared write has no successful real-database exercise: " + row.name);
 }
 
