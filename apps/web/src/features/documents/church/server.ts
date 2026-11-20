@@ -16,7 +16,7 @@ import { documentsWriter, docTemplateSummaries, sheetOf, type DocTemplateSummary
 import { readBoundedBody } from "@everyfield/domain/operations";
 import "server-only";
 import { canEditDocuments, documentActor, hasPlantSeat } from "../server.ts";
-import { EXPORT_MESSAGES } from "./refusal.ts";
+import { EXPORT_MESSAGES, EXPORT_UNAVAILABLE } from "./refusal.ts";
 import { mutatingRoute } from "../../../server/platform/boundary.ts";
 import { parseJson } from "../../../server/platform/json.ts";
 import { transient } from "../../../server/platform/transient.ts";
@@ -277,5 +277,5 @@ export const saveExportRoute = mutatingRoute(async function saveExportRoute(
 });
 
 function refused(code: string): ExportResult {
-	return { status: "refused", message: EXPORT_MESSAGES[code] ?? EXPORT_MESSAGES.unavailable! };
+	return { status: "refused", message: EXPORT_MESSAGES[code] ?? EXPORT_UNAVAILABLE };
 }
