@@ -1400,10 +1400,6 @@ export const WEB_SQL_HOLDERS = {
 		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
 		movedBy: MAIL_AUTHORIZERS,
 	},
-	"apps/web/src/features/wiki/server.ts": {
-		why: "the organization wiki editor reads its stored draft and current revision with its own select",
-		movedBy: "a wiki domain read of the editor state (R-12 slice 8 rest, wiki group)",
-	},
 	"apps/web/src/server/identity/index.ts": {
 		why: "the identity mail authorizer locks the accounts its queued mail names and reads their contact address",
 		movedBy: MAIL_AUTHORIZERS,
