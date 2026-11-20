@@ -346,20 +346,26 @@ export function createInvitationService(config: InvitationConfig) {
 	) {
 		const parse = (value: unknown) =>
 			resident ? c.respondResidentInvitationRequest.parse(value) : c.acceptSeatInvitationRequest.parse(value);
-		const given = resume ? null : parse(raw);
+		const entry:
+			| { kind: "resume"; resume: { proof: string; requestKey: string } }
+			| { kind: "given"; given: ReturnType<typeof parse> } = resume
+			? { kind: "resume", resume }
+			: { kind: "given", given: parse(raw) };
 		return timedTransaction(config.db, async (tx) => {
 			const found = await tx.execute(sql`SELECT ${timeouts} AS timeouts, id, tenant_id, purpose, resident_person_id,
  revision::text AS revision, state, pg_advisory_xact_lock(hashtextextended(concat('workspace-seats/',tenant_id),8008))
- FROM invitation WHERE ${resume ? sql`token_hash=${d.hash(resume.proof)} AND purpose='seat'` : sql`id=${given?.input.invitationId}::uuid`}`);
+ FROM invitation WHERE ${entry.kind === "resume" ? sql`token_hash=${d.hash(entry.resume.proof)} AND purpose='seat'` : sql`id=${entry.given.input.invitationId}::uuid`}`);
 			const [source] = sourceRow.array().parse(found.rows);
 			if (!source) d.refuse();
 			const v =
-				given ??
-				parse({
-					requestKey: resume?.requestKey,
-					expectedRevision: source.state === "accepted" ? (BigInt(source.revision) - 1n).toString() : source.revision,
-					input: { invitationId: source.id, proof: resume?.proof },
-				});
+				entry.kind === "given"
+					? entry.given
+					: parse({
+							requestKey: entry.resume.requestKey,
+							expectedRevision:
+								source.state === "accepted" ? (BigInt(source.revision) - 1n).toString() : source.revision,
+							input: { invitationId: source.id, proof: entry.resume.proof },
+						});
 			const a = await d.identity(tx, session);
 			if (!a.verified) d.refuse();
 			await lockSourcePerson(tx, source);
