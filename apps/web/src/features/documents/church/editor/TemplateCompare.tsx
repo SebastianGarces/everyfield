@@ -458,6 +458,12 @@ function DifferenceCard({
 	);
 }
 
+function titleLine(lines: WordRun[][]) {
+	const [line] = lines;
+	if (!line) throw new Error("A title comparison has no line");
+	return line;
+}
+
 function Side({
 	difference: d,
 	value,
@@ -475,7 +481,7 @@ function Side({
 		return (
 			<p className="text-[15px] text-ink">
 				{lines
-					? lines[0]!.map((run) => {
+					? titleLine(lines).map((run) => {
 							if (run.op === "kept") return run.text;
 							const Mark = WORD_MARK[run.op].nodeName;
 							return (
