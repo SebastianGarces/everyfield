@@ -1,4 +1,3 @@
--- The nightly release-flag lister reads global flag rollout state through this view only (T-532).
 DO $$ BEGIN
   IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='everyfield_flag_reader') THEN
     CREATE ROLE everyfield_flag_reader NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS;
