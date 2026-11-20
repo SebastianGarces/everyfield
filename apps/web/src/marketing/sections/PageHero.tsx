@@ -9,7 +9,7 @@ export function PageHero({ eyebrow, title, children }: { eyebrow?: string; title
 		>
 			<div className="mx-auto max-w-mk px-page">
 				{eyebrow ? (
-					<span className="mb-[26px] inline-block type-sm leading-[1.3] font-semibold tracking-[0.09em] text-text-2 uppercase max-mk-sm:mb-[18px]">
+					<span className="mb-[26px] inline-block mk-eyebrow type-sm leading-[1.3] font-semibold text-text-2 max-mk-sm:mb-[18px]">
 						{eyebrow}
 					</span>
 				) : null}

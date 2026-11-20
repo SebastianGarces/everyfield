@@ -386,7 +386,9 @@ test("a plant that does not share findings reads Not shared at every level and L
 	await link(p, net, false);
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	await runAssessmentBatch(job, c0.db, scriptedAssessmentDrafter(), 20);
-	const own = ok(await assessments.readAssessment(c0.db, p.actor, {})).current!;
+	const assessment = await assessments.readAssessment(c0.db, p.actor, {});
+	if (assessment.status !== "ok" || !assessment.value.current) assert.fail(JSON.stringify(assessment));
+	const own = assessment.value.current;
 	ok(await assessments.markAssessmentSeen(c0.db, p.actor, { runId: own.runId }));
 	await refresh(net);
 	for (const level of LEVELS) {
@@ -435,7 +437,9 @@ test("AC:GEO-011 AC:ORG55-005 the directory, the plant view and every Network In
 
 	ok(await assessments.requestRefresh(c0.db, p.actor, { requestId: randomUUID() }));
 	await runAssessmentBatch(job, c0.db, scriptedAssessmentDrafter(), 20);
-	const own = ok(await assessments.readAssessment(c0.db, p.actor, {})).current!;
+	const assessment = await assessments.readAssessment(c0.db, p.actor, {});
+	if (assessment.status !== "ok" || !assessment.value.current) assert.fail(JSON.stringify(assessment));
+	const own = assessment.value.current;
 	ok(await assessments.markAssessmentSeen(c0.db, p.actor, { runId: own.runId }));
 	await refresh(net);
 

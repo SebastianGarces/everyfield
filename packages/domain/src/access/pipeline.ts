@@ -126,12 +126,13 @@ export async function readOwnResidency(
 		)
 	).rows;
 
-	if (links.length !== 1) return null;
+	const [link] = links;
+	if (links.length !== 1 || !link) return null;
 	return ownResidencyProjection.parse({
 		organization,
 		personId: input.data.personId,
-		linkId: links[0]!.id,
-		revision: links[0]!.revision,
+		linkId: link.id,
+		revision: link.revision,
 	});
 }
 

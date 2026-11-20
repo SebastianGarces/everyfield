@@ -233,6 +233,10 @@ test("a kept Launch Sunday date on the milestone path is never Launch readiness,
 test("a renamed milestone keeps the name it was reached under; one turned off or unlinked reads as no longer offered", async () => {
 	await offer(N, true, "Church constituted");
 	const path = async (who: Who, name: string) => (await rows(who))[name]!.path;
+	const progressOf = async (who: Who, name: string) => {
+		const p = await path(who, name);
+		return p.kind === "milestone" && p.progress;
+	};
 	assert.deepEqual(await path(networkOwner, "Harvest Point"), {
 		kind: "milestone",
 		name: CONSTITUTED,
@@ -255,18 +259,10 @@ test("a renamed milestone keeps the name it was reached under; one turned off or
 	};
 	assert.deepEqual(await path(networkOwner, "Oak Cliff Church"), withdrawn);
 	assert.deepEqual((await getPlant(S.runtime, await as(networkOwner), OC.id))!.plant.path, withdrawn);
-	assert.deepEqual(
-		(await path(networkOwner, "Harvest Point")).kind === "milestone" &&
-			(await path(networkOwner, "Harvest Point")).progress,
-		reached("2026-10-11"),
-	);
+	assert.deepEqual(await progressOf(networkOwner, "Harvest Point"), reached("2026-10-11"));
 
 	await offer(N, true, "Church constituted");
-	assert.deepEqual(
-		(await path(graceOwner, "Oak Cliff Church")).kind === "milestone" &&
-			(await path(graceOwner, "Oak Cliff Church")).progress,
-		{ status: "not_reached" },
-	);
+	assert.deepEqual(await progressOf(graceOwner, "Oak Cliff Church"), { status: "not_reached" });
 	await S.db.execute(sql`UPDATE affiliation SET ended_at=clock_timestamp() WHERE id=${ocToN}`);
 	assert.equal((await rows(networkOwner))["Oak Cliff Church"], undefined);
 	assert.deepEqual(await path(graceOwner, "Oak Cliff Church"), {
