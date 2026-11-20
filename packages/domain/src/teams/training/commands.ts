@@ -37,7 +37,7 @@ async function lockProgram(tx: Tx, w: Writer, programId: string): Promise<Progra
 			(archived_at IS NOT NULL) AS archived
 			FROM training_program WHERE id = ${programId}::uuid AND plant_id = ${w.plant.id}::uuid FOR UPDATE`,
 	);
-	if (!row) deny();
+	if (!row) deny("unavailable");
 	return programRow.parse(row);
 }
 async function teamGate(tx: Tx, w: Writer, teamId: string | null | undefined) {
@@ -47,7 +47,7 @@ async function teamGate(tx: Tx, w: Writer, teamId: string | null | undefined) {
 		sql`SELECT (archived_at IS NOT NULL) AS archived FROM team
 			WHERE id = ${teamId}::uuid AND plant_id = ${w.plant.id}::uuid FOR SHARE`,
 	);
-	if (!row || row.archived === true) deny();
+	if (!row || row.archived === true) deny("unavailable");
 }
 async function programTeam(tx: Tx, w: Writer, programId: string) {
 	const row = await oneRow(
@@ -117,7 +117,7 @@ async function creditContext(tx: Tx, w: Writer, program: Program, personId: stri
 	});
 }
 function eligible(program: Program, facts: z.infer<typeof creditFacts>) {
-	if (program.archived) deny();
+	if (program.archived) deny("unavailable");
 	if (program.required && !facts.assigned) deny("invalid_subject");
 	if (!program.required && program.teamId && !facts.member && !facts.assigned) deny("invalid_subject");
 }
@@ -218,7 +218,7 @@ async function setRoster(
 ): Promise<Change<z.infer<typeof c.rosterResult>>> {
 	const before = await lockProgram(tx, w, input.input.programId);
 	if (before.revision !== input.expectedRevision) deny("conflict");
-	if (before.archived) deny();
+	if (before.archived) deny("unavailable");
 	const wanted = unique(input.input.personIds);
 	const people = await livePeople(tx, w, wanted);
 	const digest = rosterDigest({ programId: before.id, revision: before.revision, people });
