@@ -1,7 +1,7 @@
-import { getReads, refusalAs, type ReadRefusal } from "../../../components/get-reads.ts";
+import { readsFrom, refusalAs, type ReadRefusal } from "../../../components/get-reads.ts";
 import type { GET } from "./read.ts";
 
-const get = getReads<typeof GET>("/organization/pipeline/programs/read");
+const get = readsFrom<typeof GET>("/organization/pipeline/programs/read");
 const unavailable = () => ({ status: "refused", refusal: { code: "unavailable" } }) as const;
 const answer = <T extends object>(read: Promise<T | ReadRefusal<string>>) => refusalAs(read, unavailable);
 
