@@ -25,7 +25,7 @@ import { editorExtensions, type FieldValues } from "./extensions.ts";
 import { paletteVars } from "./paper.ts";
 import { blocksToEditor } from "./table-json.ts";
 import { WORD_MARK, wordMarks } from "./word-marks.ts";
-import { loadProblem } from "../../../../components/read-failed.ts";
+import { loadProblem, READ_FAILED, READ_FAILED_ICON } from "../../../../components/read-failed.ts";
 import type { ReadFailure } from "../../../../components/get-reads.ts";
 
 type Props = {
@@ -213,7 +213,12 @@ export function TemplateCompare({ docId, brand, onBack, onAccepted, revision }: 
 				</div>
 			) : load.kind === "failed" ? (
 				<div className="rounded-card bg-surface-raised p-6 shadow-[0_0_0_1px_var(--ef-line)]">
-					<StatePanel tone="error" title="We could not compare this document" headingLevel="h3">
+					<StatePanel
+						tone="error"
+						title="We could not compare this document"
+						icon={load.message === READ_FAILED ? READ_FAILED_ICON : undefined}
+						headingLevel="h3"
+					>
 						{load.message}
 					</StatePanel>
 					<div className="mt-4 flex justify-center">

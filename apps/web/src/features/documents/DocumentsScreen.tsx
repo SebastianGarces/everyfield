@@ -61,7 +61,7 @@ import {
 } from "./model.ts";
 import { NativeDocuments } from "./native.tsx";
 import { SavedHistory, savedDocuments } from "./saved.tsx";
-import { READ_FAILED } from "../../components/read-failed.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
 type PreviewState =
@@ -646,7 +646,12 @@ function TemplatePanel({
 					{preview.kind === "pdf" ? (
 						<PdfPreview key={preview.key} title={template.name} pageSize={template.pageSize} bytes={preview.bytes} />
 					) : preview.kind === "message" ? (
-						<StatePanel tone="error" title="Preview unavailable" headingLevel="h3">
+						<StatePanel
+							tone="error"
+							title="Preview unavailable"
+							icon={preview.text === READ_FAILED ? READ_FAILED_ICON : undefined}
+							headingLevel="h3"
+						>
 							{preview.text}
 						</StatePanel>
 					) : canPreview ? (
