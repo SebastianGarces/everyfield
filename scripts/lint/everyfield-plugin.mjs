@@ -4,11 +4,14 @@ import { join } from "node:path";
 import { area, commentsExempt, ratchet, repoPath, root, sqlMarkers } from "./ratchet.mjs";
 import {
 	COUNTER_TEXT,
+	MARKETING_STEP,
 	SCOPE,
 	TIME_NAME,
 	classProblems,
+	isMarketing,
 	headingLike,
 	labelLike,
+	marketingMessage,
 	message as slopMessage,
 	styleProblems,
 } from "./slop-styling.mjs";
@@ -1387,6 +1390,75 @@ function handles(handler, body, param) {
 	return thrown || handed || (logged && !lost);
 }
 
+const MAIL_AUTHORIZERS = "the mail-authorizer move into @everyfield/domain (R-12 slice 20 follow-up, AP-S-17)";
+export const WEB_SQL_HOLDERS = {
+	"apps/web/src/features/feedback/mail.ts": {
+		why: "the operator-mail authorizer reads the feedback rows its queued mail names, inside the mail service's transaction",
+		movedBy: MAIL_AUTHORIZERS,
+	},
+	"apps/web/src/features/notifications/worker.ts": {
+		why: "the notification worker's mail authorizer reads which recipients still hold a grant for each queued notice mail",
+		movedBy: MAIL_AUTHORIZERS,
+	},
+	"apps/web/src/features/organizations/mount.ts": {
+		why: "an organization effect supersedes a plant's pending digest jobs with its own UPDATE of the job table",
+		movedBy: "a supersede operation in @everyfield/domain/jobs's queue (R-12 slice 20 follow-up, AP-S-17)",
+	},
+	"apps/web/src/features/settings/brand/server.ts": {
+		why: "the brand read looks up the church name beside the brand kit with its own plant select",
+		movedBy: "brandReader.get answering the church name (R-12 slice 8 rest, settings/brand group)",
+	},
+	"apps/web/src/features/settings/mail.ts": {
+		why: "the settings mail authorizer reads notice addresses and pending email-change proofs for queued account mail",
+		movedBy: MAIL_AUTHORIZERS,
+	},
+	"apps/web/src/features/settings/server.ts": {
+		why: "the settings sections ask whether an address is suppressed with their own suppression select",
+		movedBy: "a suppression read in @everyfield/domain/jobs beside the mail outbox (R-12 slice 20 follow-up, AP-S-17)",
+	},
+	"apps/web/src/features/wiki/server.ts": {
+		why: "the organization wiki editor reads its stored draft and current revision with its own select",
+		movedBy: "a wiki domain read of the editor state (R-12 slice 8 rest, wiki group)",
+	},
+	"apps/web/src/server/identity/index.ts": {
+		why: "the identity mail authorizer locks the accounts its queued mail names and reads their contact address",
+		movedBy: MAIL_AUTHORIZERS,
+	},
+	"apps/web/src/server/invitations/index.ts": {
+		why: "the invitation service's suppression check is an SQL fragment built in the app",
+		movedBy: MAIL_AUTHORIZERS,
+	},
+};
+const DATABASE_MODULES = /^(?:@everyfield\/db\/(?:query|tables|columns)|drizzle-orm(?:\/.*)?)$/;
+
+const webDatabaseImports = {
+	meta: { type: "problem" },
+	create(context) {
+		const path = repoPath(context.filename);
+		if (!WEB_CODE.test(path)) return {};
+		const holder = Object.hasOwn(WEB_SQL_HOLDERS, path);
+		let imports = 0;
+		return {
+			...moduleSources((node, name) => {
+				if (!DATABASE_MODULES.test(name)) return;
+				imports++;
+				if (!holder)
+					context.report({
+						node,
+						message: `apps/web does not build SQL: ${name} belongs in @everyfield/domain. Call a domain operation, or move the statement into the domain module that owns its tables.`,
+					});
+			}),
+			"Program:exit"(node) {
+				if (holder && imports === 0)
+					context.report({
+						node,
+						message: `${path} no longer imports a database module: delete its WEB_SQL_HOLDERS entry in scripts/lint/everyfield-plugin.mjs.`,
+					});
+			},
+		};
+	},
+};
+
 const DOMAIN_JOBS = /^packages\/domain\/src\/jobs\//;
 const noSilentCatch = {
 	meta: { type: "problem" },
@@ -2311,6 +2383,13 @@ const classesOf = (element) => {
 	return attr ? stringsIn(attr.value).flatMap((s) => s.split(/\s+/).filter(Boolean)) : [];
 };
 
+const elementName = (element) => {
+	const as = element.openingElement.attributes.find((a) => a.type === "JSXAttribute" && a.name?.name === "as");
+	return as?.value?.type === "Literal" && typeof as.value.value === "string"
+		? as.value.value
+		: (jsxName(element.openingElement.name) ?? "");
+};
+
 const staticValue = (node) =>
 	node?.type === "Literal"
 		? node.value
@@ -2353,18 +2432,30 @@ const timeContext = (call) => {
 	return false;
 };
 
+const insideFunction = (node, name) => {
+	for (let p = node.parent; p; p = p.parent) {
+		if (p.type === "FunctionDeclaration") return p.id?.name === name;
+		if (p.type === "ArrowFunctionExpression" || p.type === "FunctionExpression")
+			return p.parent?.type === "VariableDeclarator" && p.parent.id.name === name;
+	}
+	return false;
+};
+
 const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
-	if (!SCOPE.test(repoPath(context.filename))) return {};
+	const path = repoPath(context.filename);
+	if (!SCOPE.test(path)) return {};
+	const marketing = isMarketing(path);
 	const seen = new Set();
-	const report = (node, kind, token) => {
+	const report = (node, kind, token, approvedFor) => {
 		const key = `${node.range?.[0] ?? node.start}:${kind}:${token}`;
 		if (seen.has(key)) return;
 		seen.add(key);
-		push({ node, fn: enclosingName(node), message: slopMessage(kind, token) });
+		const message = approvedFor === "marketing" ? marketingMessage(kind, token) : slopMessage(kind, token);
+		push({ node, fn: enclosingName(node), message });
 	};
 	const strings = (value, node) => {
 		if (typeof value !== "string") return;
-		for (const [kind, token] of classProblems(value)) report(node, kind, token);
+		for (const [kind, token, approvedFor] of classProblems(value, path)) report(node, kind, token, approvedFor);
 	};
 	const counterString = (node) =>
 		node?.type === "Literal" && typeof node.value === "string" && COUNTER_TEXT.test(node.value);
@@ -2396,7 +2487,10 @@ const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
 				report(node, "counter", counters.map((c) => JSON.stringify(c.value)).join(", "));
 		},
 		CallExpression(node) {
+			if (!marketing && node.callee.type === "Identifier" && node.callee.name === MARKETING_STEP.name)
+				report(node, "counter", `${MARKETING_STEP.name}()`, "marketing");
 			if (memberName(node.callee) !== "padStart") return;
+			if (path === MARKETING_STEP.path && insideFunction(node, MARKETING_STEP.name)) return;
 			const [width, fill] = node.arguments;
 			if (staticValue(width) !== 2 || staticValue(fill) !== "0") return;
 			const timeValue = identifiersIn(node.callee.object).some((n) => TIME_NAME.test(n.replace(/^\./, "")));
@@ -2407,9 +2501,9 @@ const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
 			for (let i = 0; i < kids.length - 1; i++) {
 				const [label, next] = [kids[i], kids[i + 1]];
 				if (label.type !== "JSXElement" || next.type !== "JSXElement") continue;
-				if (headingLike(jsxName(label.openingElement.name) ?? "", classesOf(label))) continue;
+				if (headingLike(elementName(label), classesOf(label))) continue;
 				if (!labelLike(classesOf(label))) continue;
-				if (headingLike(jsxName(next.openingElement.name) ?? "", classesOf(next)))
+				if (headingLike(elementName(next), classesOf(next)))
 					report(label, "eyebrow", `<${jsxName(label.openingElement.name)}> label`);
 			}
 		},
@@ -2558,7 +2652,7 @@ const READ_NAME =
 	/^(?:load|read|get|list|find|search|suggest|preview|compare|reload|fetch|query|count|download|print)(?:[A-Z]|$)/;
 
 const READ_HOME =
-	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through getReads in the feature's fetch.ts.";
+	"Next queues server actions one at a time, so a read here waits behind every save and a save behind every read. Serve it from the feature's read.ts with defineReads, mount that GET handler under app/, and call it through readsFrom in the feature's fetch.ts.";
 
 const boundNames = (pattern) => {
 	if (!pattern) return [];
@@ -2813,6 +2907,7 @@ export default {
 		"deployment-env": deploymentEnv,
 		"server-config": serverConfig,
 		"no-silent-catch": noSilentCatch,
+		"web-database-imports": webDatabaseImports,
 		"no-cursor-utility": noCursorUtility,
 		"no-slop-styling": noSlopStyling,
 		"mint-callers": mintCallers,

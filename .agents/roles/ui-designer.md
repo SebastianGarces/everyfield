@@ -50,6 +50,18 @@ and `packages/ui/src/**`:
   gradient card), `ef-scroll-fade`, `ef-top-fade`, `ef-skel`, `ef-ring`, `ef-none-swatch`, `hatch` and the
   document spacer (`[data-ef-node="spacer"]`).
 
+The same rule covers the landing: `apps/web/src/marketing/**` and `apps/web/src/styles/marketing.css`. Sebastian
+approved the looks the landing uses (D-1818). On those marketing paths only, each one is allowed only in its named
+form, and every free-form version still fails:
+
+- the uppercase eyebrow above the hero and page-hero `h1`: `mk-eyebrow`
+- the uppercase group and phase labels: `mk-label`. The tracked step numbers: `mk-counter`
+- zero-padded step numbers: `stepNumber()` from `apps/web/src/marketing/step-number.ts`
+- gradients: `mk-corner-shade`, `mk-leaders-shade`, `mk-hatch`, `skeleton`, `hero-fade` and `mk-caret-fill`
+- the canvas: the `mk-canvas` token (`--color-mk-canvas`) and the `mk-canvas-*` and `mk-cream-*` tints
+
+These names fail in `apps/web/src/features/**` and `packages/ui/src/**`.
+
 Where better-typography differs, this file wins. Use no em dashes in UI copy: use a period, comma or colon.
 Uppercase comes only through `section-label`, and a section label never sits above a heading as an eyebrow.
 
