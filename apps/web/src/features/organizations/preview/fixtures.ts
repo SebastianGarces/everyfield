@@ -73,6 +73,11 @@ const NAMES: Record<string, string> = {
 	[PRIYA]: "Priya Natarajan",
 	[MARCUS]: "Marcus Hale",
 };
+const knownName = (id: string) => {
+	const name = NAMES[id];
+	if (name === undefined) throw new Error(`No preview name for ${id}`);
+	return name;
+};
 export const nameOf: NameOf = (endpoint) => NAMES[endpoint.id] ?? "Unnamed";
 
 const pair = (
@@ -101,8 +106,8 @@ const item = (
 ) => ({ id: nextId(), pair: p, event, at, actor, reason, recordedAt });
 
 export const PLANT_TARGETS: InviteTarget[] = [
-	{ pair: pair(PLANT, CEDAR), name: NAMES[CEDAR.id]! },
-	{ pair: pair(PLANT, HILL), name: NAMES[HILL.id]! },
+	{ pair: pair(PLANT, CEDAR), name: knownName(CEDAR.id) },
+	{ pair: pair(PLANT, HILL), name: knownName(HILL.id) },
 ];
 const DISCLOSURES: Record<string, unknown> = {
 	[CEDAR.id]: {
@@ -163,7 +168,10 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				acceptedAt: "2026-06-14T16:30:00Z",
 				endedAt: null,
 			});
-			active.push({ relationship: grace, name: NAMES[GRACE.id]! }, { relationship: austin, name: NAMES[AUSTIN.id]! });
+			active.push(
+				{ relationship: grace, name: knownName(GRACE.id) },
+				{ relationship: austin, name: knownName(AUSTIN.id) },
+			);
 			events.push(
 				item(grace.pair, "approved", grace.acceptedAt, PRIYA, null),
 				item(
@@ -202,9 +210,9 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				endedAt: null,
 			});
 			active.push(
-				{ relationship: eastside, name: NAMES[EASTSIDE.id]! },
-				{ relationship: harvest, name: NAMES[PLANT.id]! },
-				{ relationship: grace, name: NAMES[GRACE.id]! },
+				{ relationship: eastside, name: knownName(EASTSIDE.id) },
+				{ relationship: harvest, name: knownName(PLANT.id) },
+				{ relationship: grace, name: knownName(GRACE.id) },
 			);
 			events.push(
 				item(eastside.pair, "approved", eastside.acceptedAt, PRIYA, null),
@@ -231,12 +239,13 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		const start = after === null ? 0 : events.findIndex((e) => e.id === after) + 1;
 		const page = events.slice(start, start + PAGE);
 		const more = start + PAGE < events.length;
+		const last = page.at(-1);
 		return C.relationshipHistoryResult.parse({
 			status: "available",
 			scope,
 			activeRelationships: active.map((r) => r.relationship),
 			items: page.map((e) => historyItem(e)),
-			next: more ? page[page.length - 1]!.id : null,
+			next: more && last ? last.id : null,
 			completeness: side === "subject" && !more && events.length > 0 ? "partial" : "complete",
 		}) as History;
 	}
@@ -255,22 +264,25 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 				]
 			: [];
 
-	const consent = new Map<string, { revision: number; choices: Record<string, boolean> }>();
+	type Consent = { revision: number; choices: Record<string, boolean> };
+	const consent = new Map<string, Consent>();
 	const consentOf = (id: string) => {
-		if (!consent.has(id))
-			consent.set(id, {
-				revision: 4,
-				choices: {
-					people: true,
-					meetings: true,
-					tasks: false,
-					ministry_teams: true,
-					wiki: false,
-					activity: false,
-					shared_findings: true,
-				},
-			});
-		return consent.get(id)!;
+		const known = consent.get(id);
+		if (known) return known;
+		const fresh: Consent = {
+			revision: 4,
+			choices: {
+				people: true,
+				meetings: true,
+				tasks: false,
+				ministry_teams: true,
+				wiki: false,
+				activity: false,
+				shared_findings: true,
+			},
+		};
+		consent.set(id, fresh);
+		return fresh;
 	};
 	let residency = {
 		status: "active" as "active" | "ended",
@@ -287,12 +299,13 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 		const body = JSON.stringify(input);
 		const seen = replies.get(key);
 		if (seen && seen.body !== body) throw new Refusal("request_conflict");
-		if (!seen) replies.set(key, { body, reply: answer(operation, input) });
+		const reply = seen ?? { body, reply: answer(operation, input) };
+		if (!seen) replies.set(key, reply);
 		if (scenario === "offline-once" && !dropped.has(operation)) {
 			dropped.add(operation);
 			throw new TypeError("Failed to fetch");
 		}
-		return replies.get(key)!.reply;
+		return reply.reply;
 	}) as Run;
 
 	function answer(operation: OperationName, input: unknown) {
@@ -336,11 +349,12 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 			}
 			case "associations.end": {
 				const index = active.findIndex((r) => r.relationship.id === command.input.relationshipId);
-				if (refuse || index < 0) return C.mutationResult.parse({ status: "unavailable" });
-				const [row] = active.splice(index, 1);
+				const row = active[index];
+				if (refuse || !row) return C.mutationResult.parse({ status: "unavailable" });
+				active.splice(index, 1);
 				events.unshift(
 					item(
-						row!.relationship.pair,
+						row.relationship.pair,
 						"ended",
 						new Date().toISOString(),
 						DANIEL,
@@ -391,8 +405,8 @@ export function createBackend(side: "subject" | "organization", viewer: Viewer, 
 			}
 			case "privacy.setSharing": {
 				const index = active.findIndex((r) => r.relationship.id === command.input.relationshipId);
-				if (refuse || index < 0) throw new Refusal(refuse ? "stale_revision" : "unavailable");
-				const row = active[index]!;
+				const row = active[index];
+				if (refuse || !row) throw new Refusal(refuse ? "stale_revision" : "unavailable");
 				const c = consentOf(row.relationship.id);
 				if (String(command.input.expectedConsentRevision) !== String(c.revision)) throw new Refusal("stale_revision");
 				c.choices = { ...c.choices, [command.input.category as string]: command.input.enabled as boolean };
@@ -527,7 +541,11 @@ export const NOTICES = [
 	{ kind: "relationship_ended", organization: "Hill Country Network", at: "2026-10-12T19:30:00Z" },
 ] as const;
 
-export const NAMES_FOR_PREVIEW = { plant: NAMES[PLANT.id]!, network: NAMES[AUSTIN.id]!, church: NAMES[GRACE.id]! };
+export const NAMES_FOR_PREVIEW = {
+	plant: knownName(PLANT.id),
+	network: knownName(AUSTIN.id),
+	church: knownName(GRACE.id),
+};
 export const AGGREGATE = {
 	allowed: C.pipelineAggregateAccessResult.parse({ allowed: true, minimumContributors: 2 }),
 	withheld: C.pipelineAggregateAccessResult.parse({ allowed: false, minimumContributors: 2 }),

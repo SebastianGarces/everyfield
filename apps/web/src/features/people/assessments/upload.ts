@@ -40,15 +40,16 @@ export async function saveWithDocument(
 	onProgress: (share: number | null) => void,
 ): Promise<Outcome<CommitmentSaved>> {
 	const { file } = upload;
-	if (!upload.signed || (upload.put === "none" && Date.parse(upload.signed.expiresAt) - Date.now() < 30_000)) {
-		const signed = await sendTwice(() =>
+	let signed = upload.signed;
+	if (!signed || (upload.put === "none" && Date.parse(signed.expiresAt) - Date.now() < 30_000)) {
+		const issued = await sendTwice(() =>
 			signCommitmentUpload({ personId: input.personId, mime: file.type, byteLength: file.size }),
 		);
-		if (signed.status === "lost") return refusal("upload_lost");
-		if (signed.status === "refused") return refusal(signProblem(signed.code));
-		Object.assign(upload, { signed: signed.value, signedAt: Date.now(), put: "none" });
+		if (issued.status === "lost") return refusal("upload_lost");
+		if (issued.status === "refused") return refusal(signProblem(issued.code));
+		signed = issued.value;
+		Object.assign(upload, { signed, signedAt: Date.now(), put: "none" });
 	}
-	const signed = upload.signed!;
 	const put = async () => {
 		upload.put = "sent";
 		onProgress(0);
