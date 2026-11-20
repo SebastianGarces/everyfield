@@ -1,7 +1,6 @@
 import * as c from "@everyfield/contracts/branding";
 import type { Database } from "@everyfield/db/client";
-import { eq, sql } from "@everyfield/db/query";
-import * as t from "@everyfield/db/tables";
+import { sql } from "@everyfield/db/query";
 import { dominantColors, readAuthorizedObject, type PrivateStorage } from "@everyfield/db/schema";
 import "server-only";
 import { z } from "zod";
@@ -12,6 +11,7 @@ import { brandAssetReader } from "./files.ts";
 import { resolveDocumentTheme } from "./theme.ts";
 
 const row = z.object({ ok: z.boolean().nullable(), row: z.record(z.string(), z.unknown()).nullable() });
+const namedRow = row.extend({ name: z.string().nullable() });
 
 export const brandReader = {
 	async get(db: Database, authority: RequestActor, raw: unknown) {
@@ -28,17 +28,18 @@ export const brandReader = {
 	},
 
 	async settings(db: Database, authority: RequestActor, raw: unknown) {
-		const context = authority.actor.context;
-		const plantId = context.kind === "seat" && context.owner.kind === "plant" ? context.owner.id : null;
-		const [reply, named] = await Promise.all([
-			brandReader.get(db, authority, raw),
-			plantId
-				? db.select({ name: t.plant.name }).from(t.plant).where(eq(t.plant.id, plantId)).limit(1)
-				: Promise.resolve([]),
-		]);
-		if (reply.status === "refused") return reply;
-		const churchName = named[0]?.name;
-		return settle(async () => (churchName ? { kit: reply.value, churchName } : deny("unavailable")));
+		return settle(async () => {
+			const scope = scopeOf(authority);
+			parse(c.getRequest, raw);
+			const { rows } = await db.execute(sql`SELECT g.ok, p.name, to_jsonb(k) AS row
+				FROM (SELECT ${scope.admin} AS ok) g
+				LEFT JOIN plant p ON g.ok AND p.id = ${scope.plantId}::uuid
+				LEFT JOIN church_brand_kit k ON g.ok AND k.tenant_id = ${scope.plantId}::uuid`);
+			const found = namedRow.parse(rows[0]);
+			if (found.ok !== true) deny("access_denied");
+			if (!found.name) deny("unavailable");
+			return { kit: kitFromRow(found.row), churchName: found.name };
+		});
 	},
 
 	async suggestColors(db: Database, authority: RequestActor, raw: unknown, storage: PrivateStorage | null) {
