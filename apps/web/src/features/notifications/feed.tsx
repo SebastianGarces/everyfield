@@ -23,6 +23,8 @@ import {
 	type Outcome,
 	type UnreadCount,
 } from "./model.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 const STALE_MS = 60_000;
 
@@ -33,7 +35,7 @@ export function NotificationsProvider({ account, children }: { account: string; 
 	return <Account.Provider value={store}>{children}</Account.Provider>;
 }
 
-type Counted = Outcome<UnreadCount>;
+type Counted = Outcome<UnreadCount> | ReadFailure;
 
 const unreadCount = createRead((account: string) => readUnreadCount(account), {
 	failed: (): Counted => ({ status: "lost" }),
@@ -96,9 +98,9 @@ type Ready = {
 	nextCursor: string | null;
 	unread: number;
 	at: number;
-	more: "idle" | "loading" | "failed";
+	more: "idle" | "loading" | "lost" | "failed";
 };
-type FeedState = { status: "loading" } | { status: "failed" } | ({ status: "ready" } & Ready);
+type FeedState = { status: "loading" } | { status: "lost" | "failed" } | ({ status: "ready" } & Ready);
 type Marked = Outcome<{ markedIds: string[] }>;
 type Envelope = { requestKey: string; expectedRevision: string };
 
@@ -144,7 +146,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		const r = await readFirstPage(q);
 		if (ticket !== latest.current) return;
 		setRefreshing(false);
-		if (r.status !== "ok") return setState({ status: "failed" });
+		if (r.status !== "ok") return setState({ status: r.status === "failed" ? "failed" : "lost" });
 		setState({ status: "ready", ...fromPage(r.value) });
 		revision.current = r.value.revision;
 		if (!q.category) setCount(account, r.value.unread, r.value.at);
@@ -158,7 +160,7 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		if (ticket !== latest.current) return;
 		setState((s) => {
 			if (s.status !== "ready") return s;
-			if (r.status !== "ok") return { ...s, more: "failed" };
+			if (r.status !== "ok") return { ...s, more: r.status === "failed" ? "failed" : "lost" };
 			const known = new Set(s.items.map((i) => i.id));
 			return {
 				...s,
@@ -252,6 +254,11 @@ export function useFeed(query: FeedQuery, initial: FeedPage | null) {
 		? { status: "ready", data: shown }
 		: state.status === "loading"
 			? { status: "loading" }
-			: { status: "error", title: "Notifications did not load", onRetry: () => void load(query) };
+			: {
+					status: "error",
+					title: "Notifications did not load",
+					...(state.status === "failed" ? { text: READ_FAILED, icon: READ_FAILED_ICON } : {}),
+					onRetry: () => void load(query),
+				};
 	return { state: loadable, count: count?.count ?? null, refreshing, load, more, markOne, markAll };
 }
