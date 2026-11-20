@@ -369,6 +369,10 @@ class WriteSession {
 		if (this.own) Object.defineProperty(this.client, "query", this.own);
 		else delete (this.client as { query?: unknown }).query;
 	}
+	private get transaction(): WriteTx {
+		if (!this.tx) throw new WriteOrderError("The native write ran a statement before its transaction began");
+		return this.tx;
+	}
 
 	private async route(text: string, run: () => Promise<unknown>) {
 		const control = /^\s*(begin|commit|rollback)\s*$/i.exec(text)?.[1]?.toUpperCase();
@@ -393,14 +397,14 @@ class WriteSession {
 		this.locking ??= gating.run(true, async () => {
 			await this.sent(() => (this.send as (c: string) => Promise<unknown>)("BEGIN"));
 			this.begun = true;
-			if (!(await this.authority.bind(this.tx!, this.selected))) throw new WriteUnavailable();
+			if (!(await this.authority.bind(this.transaction, this.selected))) throw new WriteUnavailable();
 		});
 		return this.locking;
 	}
 
 	async check(read: SQL, lock: SQL): Promise<Record<string, unknown>[] | null> {
 		if (this.begun || this.path !== "single") return null;
-		const result = await this.tx!.execute(
+		const result = await this.transaction.execute(
 			sql`${sql.raw(READ)}SELECT d.evf_digest, q.* FROM (SELECT ${digestOf(read)} AS evf_digest) d
  LEFT JOIN LATERAL (SELECT x.*, row_number() OVER () AS evf_row FROM (${read}) x) q ON true ORDER BY q.evf_row`,
 		);
@@ -417,7 +421,7 @@ class WriteSession {
 
 	async finish(writes: readonly SQLWrapper[], request: RequestIdentity | undefined) {
 		if (this.path !== "single") await this.lock();
-		const authority = this.begun ? null : boundWrite(this.tx!);
+		const authority = this.begun ? null : boundWrite(this.transaction);
 		const allowed = authority
 			? sql`(SELECT allowed FROM evf_auth)`
 			: request
@@ -430,7 +434,7 @@ class WriteSession {
 				)
 			: sql`true`;
 		const entries = [...(authority ? [writeAuthority(authority)] : []), writeEntries(writes)];
-		await this.tx!.execute(
+		await this.transaction.execute(
 			sql`${sql.raw(FINAL)}WITH ${sql.join(entries, sql`, `)} SELECT (CASE WHEN ${allowed} IS NOT TRUE THEN 'evf_refused'
  WHEN ${current} THEN 'true' ELSE 'evf_stale' END)::boolean AS allowed`,
 		);

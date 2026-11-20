@@ -78,7 +78,7 @@ export function createSeatService(db: Database | Transaction) {
 		return c.seatListResult.parse({
 			workspace: v.workspace,
 			items,
-			next: rows.length > 100 ? items.at(-1)!.seatId : null,
+			next: rows.length > 100 ? (items.at(-1)?.seatId ?? null) : null,
 			completeness: rows.length > 100 ? "partial" : "complete",
 		});
 	}
@@ -95,9 +95,11 @@ export function createSeatService(db: Database | Transaction) {
 				.from(t.seat)
 				.where(and(eq(t.seat.account_id, a.account_id), isNull(t.seat.ended_at)));
 			if (!seats.length) return c.currentMembershipResult.parse({ status: "seatless" });
-			if (seats.length !== 1) d.refuse();
-			const s = seats[0]!,
-				w = await d.workspace(tx, s.plant_id ?? s.organization_id!),
+			const [s] = seats;
+			if (seats.length !== 1 || !s) d.refuse();
+			const workspaceId = s.plant_id ?? s.organization_id;
+			if (workspaceId === null) d.refuse();
+			const w = await d.workspace(tx, workspaceId),
 				actor = await d.currentActor(tx, sessionId.parse(session), w.selected);
 			return c.currentMembershipResult.parse(
 				actor.status === "active"
@@ -311,9 +313,10 @@ export function createSeatService(db: Database | Transaction) {
 						recipientSeat: string | null = null;
 					if (h.kind === "assign") {
 						if (h.recipientAccountId === s.account_id) d.refuse();
-						if (!recipients.has(h.recipientAccountId)) d.refuse();
+						const seat = recipients.get(h.recipientAccountId);
+						if (seat === undefined) d.refuse();
 						recipient = h.recipientAccountId;
-						recipientSeat = recipients.get(recipient)!;
+						recipientSeat = seat;
 						duties.push({ status: "moved", dutyId: h.dutyId, recipientAccountId: recipient });
 					} else duties.push({ status: "needs_owner", dutyId: h.dutyId });
 					const task = tasks.find((x) => x.id === h.dutyId),
@@ -459,7 +462,9 @@ export function createSeatService(db: Database | Transaction) {
 					duties,
 				}),
 			);
-			await syncAll(reminders!, tx, replan)?.();
+			if (reminders) await syncAll(reminders, tx, replan)?.();
+			else if (replan.some((change) => change !== undefined))
+				throw Error("A seat change moved task reminders without a reminder planner");
 			return result;
 		});
 	}
