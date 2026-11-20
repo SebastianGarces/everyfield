@@ -131,7 +131,7 @@ export function KitCard({
 			>
 				{groups.map((g) => (
 					<fieldset key={g.label} className="mt-3 first:mt-0">
-						<legend className="mb-0.5 text-xs font-semibold tracking-[0.04em] text-text-3 uppercase">{g.label}</legend>
+						<legend className="section-label mb-0.5 text-text-3">{g.label}</legend>
 						{g.items.map((k) => (
 							<Checkbox
 								key={k.id}
