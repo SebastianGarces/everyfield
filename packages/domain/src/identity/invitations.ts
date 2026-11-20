@@ -110,6 +110,10 @@ export function createInvitationService(config: InvitationConfig) {
 					: `${i.inviter_description} invited you to link your account to ${name}. You can accept or decline. This link does not add a workspace seat.\n\nReview the invitation: ${url.href}\n\nExpires ${d.expires(i).toISOString()}.`,
 		});
 	}
+	function residentOf(i: { resident_person_id: string | null }) {
+		if (i.resident_person_id === null) d.refuse();
+		return i.resident_person_id;
+	}
 	async function activePerson(tx: WriteTx, organization: string, id: string) {
 		const [p] = await tx
 			.select()
@@ -228,7 +232,7 @@ export function createInvitationService(config: InvitationConfig) {
 		return c.invitationListResult.parse({
 			workspace: v.workspace,
 			items,
-			next: rows.length > 100 ? items.at(-1)!.invitationId : null,
+			next: rows.length > 100 ? (items.at(-1)?.invitationId ?? null) : null,
 			completeness: rows.length > 100 ? "partial" : "complete",
 		});
 	}
@@ -257,7 +261,7 @@ export function createInvitationService(config: InvitationConfig) {
 				"accepted",
 			);
 			if (i.token_hash !== d.hash(v.proof) || i.resident_person_id !== observed.resident_person_id) d.refuse();
-			if (i.purpose === "residency_link") await activePerson(tx, i.tenant_id, i.resident_person_id!);
+			if (i.purpose === "residency_link") await activePerson(tx, i.tenant_id, residentOf(i));
 			const p = await description(tx, i);
 			return c.invitationDescriptionResult.parse({
 				status: p.status,
@@ -291,7 +295,7 @@ export function createInvitationService(config: InvitationConfig) {
 			if (cmd.kind === "replay")
 				return resend ? c.invitationSentResult.parse(cmd.result) : c.invitationRevokedResult.parse(cmd.result);
 			const subject = await d.pending(tx, i, tenant, event, resend ? "pending" : "revoked", v.expectedRevision);
-			if (resend && i.purpose === "residency_link") await activePerson(tx, i.tenant_id, i.resident_person_id!);
+			if (resend && i.purpose === "residency_link") await activePerson(tx, i.tenant_id, residentOf(i));
 			const after = d.bump(i.revision);
 			let updated = i;
 
@@ -342,20 +346,26 @@ export function createInvitationService(config: InvitationConfig) {
 	) {
 		const parse = (value: unknown) =>
 			resident ? c.respondResidentInvitationRequest.parse(value) : c.acceptSeatInvitationRequest.parse(value);
-		const given = resume ? null : parse(raw);
+		const entry:
+			| { kind: "resume"; resume: { proof: string; requestKey: string } }
+			| { kind: "given"; given: ReturnType<typeof parse> } = resume
+			? { kind: "resume", resume }
+			: { kind: "given", given: parse(raw) };
 		return timedTransaction(config.db, async (tx) => {
 			const found = await tx.execute(sql`SELECT ${timeouts} AS timeouts, id, tenant_id, purpose, resident_person_id,
  revision::text AS revision, state, pg_advisory_xact_lock(hashtextextended(concat('workspace-seats/',tenant_id),8008))
- FROM invitation WHERE ${resume ? sql`token_hash=${d.hash(resume.proof)} AND purpose='seat'` : sql`id=${given!.input.invitationId}::uuid`}`);
+ FROM invitation WHERE ${entry.kind === "resume" ? sql`token_hash=${d.hash(entry.resume.proof)} AND purpose='seat'` : sql`id=${entry.given.input.invitationId}::uuid`}`);
 			const [source] = sourceRow.array().parse(found.rows);
 			if (!source) d.refuse();
 			const v =
-				given ??
-				parse({
-					requestKey: resume!.requestKey,
-					expectedRevision: source.state === "accepted" ? (BigInt(source.revision) - 1n).toString() : source.revision,
-					input: { invitationId: source.id, proof: resume!.proof },
-				});
+				entry.kind === "given"
+					? entry.given
+					: parse({
+							requestKey: entry.resume.requestKey,
+							expectedRevision:
+								source.state === "accepted" ? (BigInt(source.revision) - 1n).toString() : source.revision,
+							input: { invitationId: source.id, proof: entry.resume.proof },
+						});
 			const a = await d.identity(tx, session);
 			if (!a.verified) d.refuse();
 			await lockSourcePerson(tx, source);
@@ -387,7 +397,7 @@ export function createInvitationService(config: InvitationConfig) {
 						and(
 							eq(t.residency_link.organization_id, selected.id),
 							eq(t.residency_link.account_id, a.account_id),
-							eq(t.residency_link.person_id, i.resident_person_id!),
+							eq(t.residency_link.person_id, residentOf(i)),
 							isNull(t.residency_link.ended_at),
 						),
 					);
@@ -411,7 +421,7 @@ export function createInvitationService(config: InvitationConfig) {
 					);
 			let result: () => unknown;
 			if (resident) {
-				const p = await activePerson(tx, selected.id, i.resident_person_id!);
+				const p = await activePerson(tx, selected.id, residentOf(i));
 				if (p.linked_account_id !== null && p.linked_account_id !== a.account_id) d.refuse();
 				const decision = c.respondResidentInvitationRequest.parse(raw).input;
 				if (decision.decision === "decline") {

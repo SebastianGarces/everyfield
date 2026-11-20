@@ -40,6 +40,7 @@ import {
 	type TaskItem,
 	type Viewer,
 } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 type RelationKind = "person" | "meeting" | "team";
 type Relation = { kind: RelationKind; id: string; label: string } | null;
@@ -490,7 +491,7 @@ function RelationField({
 						</p>
 					) : found === "failed" ? (
 						<p className="px-1 py-2 text-sm text-magenta-600" role="alert">
-							The {RELATION_PLURAL[kind]} did not load. Change the search to try again.
+							{loadProblem(read.value, `The ${RELATION_PLURAL[kind]} did not load. Change the search to try again.`)}
 						</p>
 					) : listed.length === 0 ? (
 						<p className="px-1 py-2 text-sm text-text-3">No {RELATION_PLURAL[kind]} match.</p>

@@ -354,8 +354,9 @@ export function createIdentityService(config: IdentityConfig) {
 							),
 						),
 					);
-				if (!proof.length) throw new IdentityRefusal("invalid_proof", 400);
-				const authUser = z.uuid().parse(proof[0]!.value),
+				const [found] = proof;
+				if (!found) throw new IdentityRefusal("invalid_proof", 400);
+				const authUser = z.uuid().parse(found.value),
 					a = await account(authUser);
 				if (!a) throw new IdentityRefusal("invalid_proof", 400);
 				const credential = await config.authDb

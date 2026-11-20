@@ -6,6 +6,7 @@ import { Button, Checkbox, Field, IconButton, Input, SearchInput, Select, Textar
 import { useId, useState, type ReactNode } from "react";
 import { findReadings } from "./fetch.ts";
 import { RHYTHM } from "./model";
+import { loadProblem } from "../../../components/read-failed.ts";
 
 export type PlanDraft = {
 	rhythm: ProgramRhythm;
@@ -289,7 +290,7 @@ function Readings({
 		const answer = await findReadings(q.trim()).catch(() => ({ status: "lost" as const }));
 		setSearching(false);
 		if (answer.status === "ok") setFound(answer.value);
-		else setProblem("We couldn’t search the Wiki. Try again.");
+		else setProblem(loadProblem(answer, "We couldn’t search the Wiki. Try again."));
 	}
 	const chosen = new Set(value.map((r) => r.revisionId));
 	return (
