@@ -41,7 +41,7 @@ export type NativeEditorPort = {
 	}) => Promise<DocumentOutcome<Written>>;
 	importFile: (file: File, params: Record<string, string>) => Promise<DocumentOutcome<WrittenView>>;
 	designate: (documentId: string, revision: string) => Promise<DocumentOutcome<Pick<Written, "revision" | "kind">>>;
-	created: (id: string) => void;
+	created: (id: string, editor: Editor) => void;
 };
 
 export type Saved = {
@@ -90,8 +90,8 @@ export function createNativeEditorStore({
 		const savedNow = (editor: Editor) =>
 			sameDoc(get().saved.doc, editor.state.doc) && get().title.trim() === get().saved.title;
 
-		const created = (id: string) => {
-			if (!get().saved.id) port.created(id);
+		const created = (id: string, editor: Editor) => {
+			if (!get().saved.id) port.created(id, editor);
 		};
 
 		const saveNow = (editor: Editor): Promise<boolean> => {
@@ -130,7 +130,7 @@ export function createNativeEditorStore({
 					});
 					return false;
 				}
-				created(result.value.id);
+				created(result.value.id, editor);
 				set((state) => ({
 					saved: {
 						id: result.value.id,
@@ -210,7 +210,7 @@ export function createNativeEditorStore({
 							}
 							importKey = null;
 							const value = result.value;
-							created(value.id);
+							created(value.id, editor);
 							editor.chain().setMeta("addToHistory", false).setContent(toEditor(value.body)).run();
 							set({
 								saved: {
@@ -257,4 +257,32 @@ export function createNativeEditorStore({
 			},
 		};
 	});
+}
+
+export type MovedEditor = {
+	readonly store: StoreApi<NativeEditorState>;
+	readonly body: ReturnType<Editor["getJSON"]>;
+	readonly caret: number | null;
+	readonly titleFocused: boolean;
+};
+
+const moving = new Map<string, { store: StoreApi<NativeEditorState>; editor: Editor }>();
+
+export function keepForMove(id: string, store: StoreApi<NativeEditorState>, editor: Editor): void {
+	moving.set(id, { store, editor });
+}
+
+export function takeMoved(id: string | undefined): MovedEditor | null {
+	const kept = id === undefined ? undefined : moving.get(id);
+	if (!kept) return null;
+	if (kept.editor.isDestroyed) {
+		moving.delete(id!);
+		return null;
+	}
+	return {
+		store: kept.store,
+		body: kept.editor.getJSON(),
+		caret: kept.editor.isFocused ? kept.editor.state.selection.to : null,
+		titleFocused: document.activeElement instanceof HTMLInputElement,
+	};
 }

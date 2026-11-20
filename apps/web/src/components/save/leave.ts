@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { currentAddress, fullAddress, onNavigation, onTraversal, writeAddress } from "../location.ts";
+import { currentAddress, fullAddress, leaveEntryBehind, onNavigation, onTraversal, writeAddress } from "../location.ts";
 
 export type LeaveRequest = { readonly leave: () => void; readonly stay: () => void };
 export type LeaveBeacon = { readonly url: string; readonly body: unknown };
@@ -10,6 +10,7 @@ let followed: HTMLAnchorElement | null = null;
 let armed = false;
 let leaving = false;
 let home: string | null = null;
+let movingTo: string | null = null;
 const requestReaders = new Set<() => void>();
 const sentBeacons = new WeakMap<Element, string>();
 
@@ -93,8 +94,19 @@ function pushGuardEntry() {
 }
 
 export function armLeaveHold(): void {
+	if (movingTo !== null && here() !== movingTo) return;
+	movingTo = null;
 	home = here();
 	if (!onGuardEntry()) pushGuardEntry();
+}
+
+export function movePage(to: string, go: () => void): void {
+	if (!onGuardEntry()) return go();
+	movingTo = to;
+	leaveEntryBehind(() => {
+		armed = onGuardEntry();
+		go();
+	});
 }
 
 function traversed() {
@@ -108,6 +120,7 @@ function traversed() {
 	if (!left || armed || here() !== home) return;
 	const back = () => {
 		leaving = true;
+		released = true;
 		window.history.back();
 	};
 	if (holding()) ask(back, pushGuardEntry);
@@ -116,6 +129,7 @@ function traversed() {
 
 function navigated(to: string) {
 	released = false;
+	if (to.split("#")[0] !== movingTo) movingTo = null;
 	if (to.split("#")[0] !== home) dropRequest();
 }
 
