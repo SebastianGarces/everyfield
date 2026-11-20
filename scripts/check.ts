@@ -64,7 +64,6 @@ export type CheckRecord = {
 	startedAt: string;
 	durationMs: number;
 	result: "passed" | "failed";
-	/** false while the run is still going: a run killed mid-check leaves this record, naming the check it was on. */
 	complete: boolean;
 	running: CheckId | null;
 	failures: string[];
