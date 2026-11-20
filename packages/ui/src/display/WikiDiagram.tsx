@@ -252,8 +252,10 @@ const RING: Record<number, readonly (readonly [number, number])[]> = {
 
 function Cycle({ nodes }: { nodes: readonly WikiDiagramNode[] }) {
 	const ring = RING[nodes.length];
-	const place = (index: number) =>
-		ring ? ({ "--row": ring[index]![0], "--col": ring[index]![1] } as CSSProperties) : undefined;
+	const place = (index: number) => {
+		const cell = ring?.[index];
+		return cell ? ({ "--row": cell[0], "--col": cell[1] } as CSSProperties) : undefined;
+	};
 	return (
 		<div className="relative">
 			{ring ? (

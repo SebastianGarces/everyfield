@@ -4,7 +4,7 @@ import * as tables from "@everyfield/db/tables";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { transaction } from "../platform/database.ts";
+import { transaction } from "./transaction.ts";
 
 const jobKind = z.enum([
 	"mail",
