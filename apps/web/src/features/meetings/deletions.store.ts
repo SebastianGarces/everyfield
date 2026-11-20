@@ -1,4 +1,4 @@
-import type { ToastInput } from "@everyfield/ui/controls";
+import { toast } from "@everyfield/ui/controls";
 import { createStore } from "zustand/vanilla";
 import { deleteMeeting } from "./actions.ts";
 import { reloadMeeting } from "./fetch.ts";
@@ -31,11 +31,7 @@ export const deletions = createDeletionsStore();
 
 const lost = () => ({ status: "lost" }) as const;
 
-export function deleteFromList(
-	m: { id: string; title: string; revision: string },
-	reason: string,
-	toast: (t: ToastInput) => void,
-) {
+export function deleteFromList(m: { id: string; title: string; revision: string }, reason: string) {
 	const key = crypto.randomUUID();
 	const { hide, show } = deletions.getState().actions;
 	const deleted = () => toast({ message: `${m.title} was deleted.`, tone: "success" });
@@ -54,7 +50,7 @@ export function deleteFromList(
 		toast({
 			message: `We could not confirm that ${m.title} was deleted. It stays hidden until we know.`,
 			tone: "error",
-			action: { label: "Try again", altText: "Reload the meetings list to check", onSelect: () => void attempt() },
+			action: { label: "Try again", onSelect: () => void attempt() },
 		});
 	};
 	hide(m.id);

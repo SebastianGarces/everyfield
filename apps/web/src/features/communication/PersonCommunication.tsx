@@ -1,10 +1,10 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { useState } from "react";
 import { Await, createRead, useRead } from "../../components/read.tsx";
 import { readPreviewContext } from "./fetch.ts";
 import { History } from "./HistoryPanel.tsx";
-import type { Outcome } from "./model.ts";
 
 const previewContexts = createRead(() => readPreviewContext(), {
 	failed: (): Outcome<{ churchName: string; origin: string }> => ({ status: "lost" }),

@@ -6,7 +6,7 @@ import { database } from "../database";
 import type { Database, Transaction } from "@everyfield/db/client";
 import { authorizeInvitationMail, createInvitationService, type InvitationConfig } from "@everyfield/domain/identity";
 import { accountPersonProducer } from "@everyfield/domain/people";
-import { createMailService, MAIL_PASSES, runDueMail, type MailTransport } from "../jobs/mail";
+import { createMailService, MAIL_PASSES, runDueMail, type MailTransport } from "@everyfield/domain/jobs";
 
 export const INVITATION_MAIL = MAIL_PASSES.mail;
 

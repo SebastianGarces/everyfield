@@ -26,7 +26,7 @@ import { RESIDENCY_TEMPLATE } from "../../packages/contracts/src/organizations/p
 import { accountPersonProducer, peopleWriter, personFields } from "../../packages/domain/src/people/index.ts";
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
-import { receiveMailCallback } from "../../apps/web/src/server/jobs/webhook.ts";
+import { receiveMailCallback } from "../../apps/web/src/server/jobs/webhook-route.ts";
 import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 import { gatedTransaction } from "../../packages/domain/src/operations/writes.ts";
 

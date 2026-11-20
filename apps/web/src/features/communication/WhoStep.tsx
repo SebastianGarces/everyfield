@@ -1,7 +1,8 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Cancel01Icon } from "@hugeicons/core-free-icons";
-import { Combobox, Field, Spinner } from "@everyfield/ui/controls";
+import { Combobox, Command, Field, keepKeyInField, Spinner } from "@everyfield/ui/controls";
 import { cn, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
 import { useId, useState, type ElementType, type KeyboardEvent } from "react";
@@ -10,15 +11,7 @@ import { useStore } from "../../components/store.ts";
 import { resolveAudience } from "./actions.ts";
 import { recipientSearches, type ComposeStore } from "./Compose.store.ts";
 import { audienceSize, plural } from "./composeModel.ts";
-import {
-	audienceGroups,
-	groupLabel,
-	type Audience,
-	type AudienceSummary,
-	type Outcome,
-	type Recipient,
-	type Team,
-} from "./model.ts";
+import { audienceGroups, groupLabel, type Audience, type AudienceSummary, type Recipient, type Team } from "./model.ts";
 
 const MAX_CHIPS = 8;
 
@@ -230,7 +223,7 @@ function ToField({
 }) {
 	const id = useId();
 	const form = useStore(store, (state) => state.form);
-	const { query, searched, open, active } = useStore(store, (state) => state.search);
+	const { query, searched, open } = useStore(store, (state) => state.search);
 	const actions = useStore(store, (state) => state.actions);
 	const [expanded, setExpanded] = useState(false);
 	const [card, setCard] = useState<string | null>(null);
@@ -265,18 +258,13 @@ function ToField({
 			audience: { ...current.audience, personIds: current.audience.personIds.filter((p) => p !== personId) },
 		}));
 
+	const listed = open && shown.length > 0;
 	const onKey = (event: KeyboardEvent<HTMLInputElement>) => {
-		if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-			if (shown.length === 0) return;
-			event.preventDefault();
-			actions.move(event.key === "ArrowDown" ? 1 : -1, shown.length);
-		} else if (event.key === "Enter") {
-			const person = shown[active];
-			if (open && person) {
-				event.preventDefault();
-				add(person);
-			}
-		} else if (event.key === "Escape") {
+		if (!listed) {
+			if ((event.key === "ArrowDown" || event.key === "ArrowUp") && shown.length > 0) actions.openList(true);
+			else keepKeyInField(event);
+		}
+		if (event.key === "Escape") {
 			if (open) {
 				event.preventDefault();
 				actions.openList(false);
@@ -286,12 +274,12 @@ function ToField({
 		}
 	};
 
-	const listId = `${id}-list`;
 	const inputId = `${id}-input`;
+	const listState = { "aria-expanded": listed };
 	const Box: ElementType = locked ? "div" : "label";
 	return (
 		<Field label="To" hint="Search by name or by the start of an email name. Pick people to add them.">
-			<div className="relative">
+			<Command shouldFilter={false} loop={false} vimBindings={false} label="People" className="relative">
 				<Box
 					htmlFor={locked ? undefined : inputId}
 					className={cn(
@@ -359,67 +347,62 @@ function ToField({
 						</button>
 					) : null}
 					{locked ? null : (
-						<input
-							id={inputId}
-							role="combobox"
-							aria-label="Add a person"
-							aria-expanded={open && shown.length > 0}
-							aria-controls={listId}
-							aria-autocomplete="list"
-							aria-activedescendant={open && shown[active] ? `${id}-opt-${active}` : undefined}
-							value={query}
-							placeholder={people.length === 0 ? "Type a name" : ""}
-							onChange={(event) => actions.type(event.target.value)}
-							onFocus={() => actions.openList(true)}
-							onBlur={() => actions.openList(false)}
-							onKeyDown={onKey}
-							className="min-w-[160px] flex-1 bg-transparent text-md text-ink outline-none placeholder:text-text-3"
-						/>
+						<Command.Input asChild value={shown.map((person) => person.id).join(" ")}>
+							<input
+								id={inputId}
+								aria-label="Add a person"
+								aria-labelledby={undefined}
+								cmdk-input={undefined}
+								{...listState}
+								value={query}
+								placeholder={people.length === 0 ? "Type a name" : ""}
+								onChange={(event) => actions.type(event.target.value)}
+								onFocus={() => actions.openList(true)}
+								onBlur={() => actions.openList(false)}
+								onKeyDown={onKey}
+								className="min-w-[160px] flex-1 bg-transparent text-md text-ink outline-none placeholder:text-text-3"
+							/>
+						</Command.Input>
 					)}
 				</Box>
-				{open && shown.length > 0 ? (
-					<ul
-						id={listId}
-						role="listbox"
-						aria-label="People"
-						className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md bg-surface-raised p-1 shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
-					>
-						{shown.map((person, index) => {
-							const disabled = !person.email || Boolean(person.unsubscribedAt) || picked.has(person.id);
-							return (
-								<li
-									key={person.id}
-									id={`${id}-opt-${index}`}
-									role="option"
-									aria-selected={index === active}
-									aria-disabled={disabled}
-									onMouseDown={(event) => {
-										event.preventDefault();
-										if (!disabled) add(person);
-									}}
-									className="flex min-h-[40px] flex-wrap items-center justify-between gap-x-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:text-text-3 aria-selected:bg-surface-2"
-								>
-									<span className="min-w-0 truncate">{person.displayName}</span>
-									<span className={`min-w-0 text-sm text-text-3 ${person.unsubscribedAt ? "" : "truncate"}`}>
-										{!person.email
-											? "No email address"
-											: person.unsubscribedAt
-												? unsubscribedReason(person.unsubscribedAt)
-												: picked.has(person.id)
-													? "Added"
-													: person.email}
-									</span>
-								</li>
-							);
-						})}
-					</ul>
-				) : null}
+				<Command.List
+					label="People"
+					hidden={!listed}
+					className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md bg-surface-raised p-1 shadow-[var(--ef-shadow-pop),0_0_0_1px_var(--ef-line)]"
+				>
+					{listed
+						? shown.map((person) => {
+								const disabled = !person.email || Boolean(person.unsubscribedAt) || picked.has(person.id);
+								return (
+									<Command.Item
+										key={person.id}
+										value={person.id}
+										disabled={disabled}
+										onMouseDown={(event) => event.preventDefault()}
+										onSelect={() => add(person)}
+										className="flex min-h-[40px] flex-wrap items-center justify-between gap-x-3 rounded-sm px-3 py-1.5 text-md text-ink aria-disabled:text-text-3 aria-selected:bg-surface-2"
+									>
+										<span className="min-w-0 truncate">{person.displayName}</span>
+										<span className={`min-w-0 text-sm text-text-3 ${person.unsubscribedAt ? "" : "truncate"}`}>
+											{!person.email
+												? "No email address"
+												: person.unsubscribedAt
+													? unsubscribedReason(person.unsubscribedAt)
+													: picked.has(person.id)
+														? "Added"
+														: person.email}
+										</span>
+									</Command.Item>
+								);
+							})
+						: null}
+				</Command.List>
 				{open && query.trim() && shown.length === 0 && !status && !searching ? (
 					<p className="absolute z-20 mt-1 w-full rounded-md bg-surface-raised p-3 text-sm text-text-3 shadow-[0_0_0_1px_var(--ef-line-2)]">
 						No people match.
 					</p>
 				) : null}
-			</div>
+			</Command>
 			{status ? (
 				<p role="alert" className="mt-1 text-sm font-medium text-magenta-600">
 					{status}
