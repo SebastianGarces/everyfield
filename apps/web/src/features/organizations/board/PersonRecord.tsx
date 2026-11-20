@@ -517,7 +517,8 @@ function NoteItem({
 }) {
 	const [editing, setEditing] = useState(false);
 	const [sending, setSending] = useState(false);
-	const sendable = review !== null && note.questions !== null;
+	const { questions } = note;
+	const sendable = review !== null && questions !== null;
 	const [text, setText] = useState(note.body);
 	const [problem, setProblem] = useState<string | null>(null);
 	const [saving, startSaving] = useTransition();
@@ -603,7 +604,7 @@ function NoteItem({
 					onOpenChange={setSending}
 					noteId={note.id}
 					person={review.person}
-					questions={note.questions!}
+					questions={questions}
 					staff={review.staff}
 					onSent={async () => {
 						setSending(false);

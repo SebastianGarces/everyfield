@@ -111,7 +111,8 @@ function MergeReview({ pair }: { pair: Pair }) {
 	const [problem, setProblem] = useState<string | null>(null);
 	const [merged, setMerged] = useState<Merged | null>(null);
 	const [busy, startMerge] = useTransition();
-	const sourceId = keep ? people.find((p) => p.id !== keep)!.id : "";
+	const otherThan = (id: string) => (pair.person.id !== id ? pair.person : pair.with);
+	const sourceId = keep ? otherThan(keep).id : "";
 	const answer = useRead(keep ? mergeReviews : null, sourceId, keep ?? "").value;
 	const review = answer?.status === "ok" ? answer.value : null;
 	const shownProblem = answer && answer.status !== "ok" ? problemText(answer) : problem;
@@ -119,7 +120,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 
 	const choose = (survivorId: string) => {
 		setProblem(null);
-		mergeReviews.prefetch(people.find((p) => p.id !== survivorId)!.id, survivorId);
+		mergeReviews.prefetch(otherThan(survivorId).id, survivorId);
 		setKeep(survivorId);
 	};
 
@@ -129,7 +130,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 	const blocked = review ? review.blockers.causes.length > 0 : false;
 	const ready = review !== null && !blocked && review.fields.every((f) => choices[f.field]);
 	const merge = () => {
-		if (!review) return;
+		if (!review || keep === null) return;
 		startMerge(async () => {
 			setProblem(null);
 			const answer = await mergePeople({
@@ -143,7 +144,7 @@ function MergeReview({ pair }: { pair: Pair }) {
 			}).catch(() => ({ status: "lost" }) as const);
 			if (answer.status === "ok") setMerged(answer.value);
 			else if (answer.status === "refused" && answer.error.code === "merge_blocked")
-				void mergeReviews.retry(sourceId, keep!);
+				void mergeReviews.retry(sourceId, keep);
 			else setProblem(problemText(answer));
 		});
 	};
@@ -228,8 +229,13 @@ function MergeDone({ merged, people }: { merged: Merged; people: Pair["person"][
 	const [problem, setProblem] = useState<string | null>(null);
 	const [undone, setUndone] = useState(false);
 	const [busy, startUndo] = useTransition();
-	const survivor = people.find((p) => p.id === merged.survivorId)!.displayName;
-	const source = people.find((p) => p.id === merged.sourceId)!.displayName;
+	const nameOf = (id: string) => {
+		const person = people.find((p) => p.id === id);
+		if (!person) throw new Error(`The merged pair has no person ${id}`);
+		return person.displayName;
+	};
+	const survivor = nameOf(merged.survivorId);
+	const source = nameOf(merged.sourceId);
 	if (undone)
 		return (
 			<Card variant="callout" tone="green">
