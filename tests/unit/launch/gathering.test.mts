@@ -9,16 +9,13 @@ const { renderToStaticMarkup } = web("react-dom/server");
 const { createElement } = web("react");
 const { AppRouterContext } = web("next/dist/shared/lib/app-router-context.shared-runtime");
 const router = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {} };
-const { ToastProvider } = await import("../../../packages/ui/src/controls/index.ts");
 import { recordId } from "../../../packages/contracts/src/common/values.ts";
 import { plan as launchPlan, type Plan } from "../../../packages/contracts/src/launch/index.ts";
 import type { Offers } from "../../../apps/web/src/features/launch/Gathering.tsx";
 const { GatheringCard, GatheringChoice } = await import("../../../apps/web/src/features/launch/Gathering.tsx");
 
 const text = (element: unknown) =>
-	renderToStaticMarkup(
-		createElement(AppRouterContext.Provider, { value: router }, createElement(ToastProvider, null, element)),
-	)
+	renderToStaticMarkup(createElement(AppRouterContext.Provider, { value: router }, element))
 		.replace(/<[^>]+>/g, " ")
 		.replace(/&#x27;/g, "'")
 		.replace(/\s+/g, " ")

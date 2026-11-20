@@ -413,7 +413,7 @@ describe("AC:DOC-022 Church Documents on everyfield.doc/1", { concurrency: 1 }, 
 		]) {
 			assert.doesNotMatch(text, /statement of faith/i, `the ${name} has no section label`);
 			assert.ok(!text.includes(STATEMENT) && !text.includes(BLANK), `the ${name} has no section and no blank`);
-			assert.match(text, /left the room\. (08 )?Yearly statement/, `the ${name} runs straight on to the next heading`);
+			assert.match(text, /left the room\. (8 )?Yearly statement/, `the ${name} runs straight on to the next heading`);
 		}
 		assert.ok((await texts(filled.revision)).word.includes(STATEMENT), "the earlier revision still prints it");
 

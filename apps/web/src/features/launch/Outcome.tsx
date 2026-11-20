@@ -18,7 +18,7 @@ import {
 	Field,
 	Input,
 	Textarea,
-	useToast,
+	toast,
 } from "@everyfield/ui/controls";
 import { createDebouncer, Icon } from "@everyfield/ui/foundations";
 import Link from "next/link";
@@ -265,7 +265,6 @@ function OutcomeDialog({
 const GUEST_SEARCH_PAUSE_MS = 200;
 
 function Guests({ plan, keys, onPlan }: { plan: Plan; keys: Keys; onPlan: (p: Plan) => void }) {
-	const toast = useToast();
 	const [name, setName] = useState("");
 	const [matches, setMatches] = useState<GuestMatch[]>([]);
 	const [busy, setBusy] = useState(false);

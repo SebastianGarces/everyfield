@@ -416,6 +416,24 @@ test("fast-check typechecks a changed tool file with the root typecheck:tools sc
 	assert.deepEqual(unit.files, ["tests/unit/wrong.test.mts"]);
 });
 
+test("fast-check typechecks a changed integration test through the typecheck:tools folder glob", () => {
+	const fx = fixture();
+	const manifest = JSON.parse(readFileSync(join(repo, "package.json"), "utf8"));
+	manifest.scripts["typecheck:tools"] = "node_modules/typescript-7/bin/tsc -b tests/integration/*/tsconfig.json";
+	fx.commit({
+		"package.json": JSON.stringify(manifest, null, "\t") + "\n",
+		"tests/integration/demo/tsconfig.json": `{
+	"compilerOptions": { "strict": true, "noEmit": true, "module": "nodenext", "types": [] },
+	"include": ["./**/*.mts"]
+}
+`,
+		"tests/integration/demo/wrong.test.mts": 'export const w: number = "s";\n',
+	});
+	const typecheck = fx.check().step("typecheck");
+	assert.equal(typecheck.status, "failed");
+	assert.deepEqual(typecheck.files, ["tests/integration/demo/wrong.test.mts"]);
+});
+
 test("fast-check runs both linters of an Oxlint-first lint script and reports what each one finds (T-43)", () => {
 	const fx = fixture();
 	fx.commit({

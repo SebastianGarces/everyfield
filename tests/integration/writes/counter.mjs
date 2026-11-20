@@ -3,12 +3,15 @@ import { AsyncLocalStorage, AsyncResource } from "node:async_hooks";
 import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
-import { statementKind } from "./kinds.cjs";
+import { randomUUID } from "node:crypto";
+import { captureResult, statementStep } from "./kinds.cjs";
 
 const root = resolve(fileURLToPath(new URL("../../../", import.meta.url)));
 const require = createRequire(root + "/packages/domain/package.json");
 const ts = require("typescript");
 const frames = new AsyncLocalStorage();
+const proc = randomUUID().slice(0, 8);
+let issued = 0;
 const output = process.env.EVF_WRITE_COUNTS;
 const emit = (row) => {
 	if (output) appendFileSync(output, JSON.stringify(row) + "\n");
@@ -70,7 +73,7 @@ const standalone = {
 	],
 	"/packages/domain/src/settings/deletion.ts": ["issueRestrictedDeletionSession"],
 	"/packages/domain/src/oversight/intelligence.ts": ["requestIntelligenceRefresh", "submitIntelligenceFeedback"],
-	"/apps/web/src/server/jobs/queue.ts": [
+	"/packages/domain/src/jobs/queue.ts": [
 		"enqueueJob",
 		"enqueueJobs",
 		"claimDue",
@@ -79,13 +82,20 @@ const standalone = {
 		"checkpoint",
 		"scanPage",
 	],
-	"/apps/web/src/server/jobs/mail.ts": ["claimUnknownMail"],
-	"/apps/web/src/server/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
+	"/packages/domain/src/jobs/mail.ts": ["claimUnknownMail"],
+	"/packages/domain/src/jobs/webhook.ts": ["applyMailCallback", "applyStoredCallback"],
 	"/apps/web/src/server/jobs/notifications.ts": ["sendDiscoveryAssociationReceipt", "sendOnboardingRelationships"],
 };
 
+function outcomeVariant(input) {
+	if (input?.target?.kind === "person") return ":person";
+	if (input?.outcome === "no_longer_needed") return ":no_longer_needed";
+	if (!input?.completeTask) return ":task";
+	return input.outcome === "contacted" ? ":contacted_complete" : ":complete";
+}
+
 export async function measure(name, body, options = {}) {
-	const frame = { name, count: 0, writes: 0, rollbacks: 0, kinds: {} };
+	const frame = { name, count: 0, writes: 0, rollbacks: 0, kinds: {}, steps: [] };
 	const parent = frames.getStore()?.at(-1);
 	if (parent && parent.first === undefined) parent.first = name;
 	return frames.run([...(frames.getStore() ?? []), frame], async () => {
@@ -96,7 +106,8 @@ export async function measure(name, body, options = {}) {
 			status = result?.status ?? "returned";
 			return result;
 		} finally {
-			const { first, ...counts } = frame;
+			const { first, last, steps, ...measured } = frame;
+			const counts = measured.writes > 0 ? { ...measured, steps } : measured;
 			const label = options.byFirst && first ? frame.name + ":" + first : frame.name;
 			emit({ kind: "sample", ...counts, name: label, status, ms: Math.round(performance.now() - started) });
 		}
@@ -118,7 +129,9 @@ function decorate(prefix, value) {
 					? ":" + args[2]?.input?.section
 					: prefix === "identity" && key === "handle"
 						? ":" + new URL(args[0].url).pathname.replace(/^\/api\/auth\//, "")
-						: "";
+						: prefix === "followups" && key === "recordOutcome"
+							? outcomeVariant(args[2]?.input)
+							: "";
 			return measure(name + variant, () => Reflect.apply(fn, this, args));
 		};
 	}
@@ -133,14 +146,25 @@ export function observeDatabase(db) {
 		const query = client.query;
 		client.query = function (...args) {
 			const text = typeof args[0] === "string" ? args[0] : (args[0]?.text ?? "");
-			const kind = statementKind(text);
-			for (const frame of frames.getStore() ?? []) {
+			const values = (typeof args[0] === "string" ? undefined : args[0]?.values) ?? args[1];
+			const id = proc + ":" + issued++;
+			const store = frames.getStore() ?? [];
+			for (const frame of store) {
+				const step = statementStep(text, values, frame.last);
 				frame.count++;
-				frame.kinds[kind] = (frame.kinds[kind] ?? 0) + 1;
-				if (kind === "write") frame.writes++;
+				frame.kinds[step.kind] = (frame.kinds[step.kind] ?? 0) + 1;
+				if (step.kind === "write") frame.writes++;
 				if (/^\s*ROLLBACK|^BEGIN \/\* evf:retry \*\//i.test(text)) frame.rollbacks++;
+				frame.steps.push({ id, ...step });
+				frame.last = undefined;
 			}
-			return Reflect.apply(query, this, args);
+			return captureResult(
+				args,
+				(a) => Reflect.apply(query, this, a),
+				(seen) => {
+					for (const frame of store) frame.last = seen;
+				},
+			);
 		};
 	});
 	return db;
