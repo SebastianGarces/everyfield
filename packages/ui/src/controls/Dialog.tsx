@@ -23,7 +23,7 @@ export const DialogClose = DialogPrimitive.Close;
 export const DialogTitle = DialogPrimitive.Title;
 
 const PHONE = "(width < 640px)";
-const InDrawer = createContext(false);
+const DrawerContext = createContext(false);
 
 export function usePhone() {
 	return useMediaQuery(PHONE);
@@ -35,9 +35,9 @@ export function Dialog({ drawer = false, dismissible, ...props }: DialogProps) {
 	const phone = usePhone();
 	if (!drawer || !phone) return <DialogPrimitive.Root {...props} />;
 	return (
-		<InDrawer value>
+		<DrawerContext value>
 			<Drawer.Root autoFocus dismissible={dismissible} {...props} />
-		</InDrawer>
+		</DrawerContext>
 	);
 }
 
@@ -74,7 +74,7 @@ type DialogContentProps = ComponentPropsWithRef<typeof DialogPrimitive.Content> 
 };
 
 export function DialogContent({ size, ...props }: DialogContentProps) {
-	return use(InDrawer) ? <DrawerContent {...props} /> : <CenteredContent size={size} {...props} />;
+	return use(DrawerContext) ? <DrawerContent {...props} /> : <CenteredContent size={size} {...props} />;
 }
 
 function CenteredContent({
@@ -111,7 +111,7 @@ const headTop = (drawer: boolean) => (drawer ? "pt-3" : "pt-[26px] max-app-sm:pt
 
 export function DialogHeader({ title, description, icon, tone = "ink", closable = true, actions }: DialogHeaderProps) {
 	return (
-		<div className={cn(HEAD, headTop(use(InDrawer)))}>
+		<div className={cn(HEAD, headTop(use(DrawerContext)))}>
 			{icon ? <CardIcon icon={icon} tone={tone} /> : null}
 			<div className="min-w-0 flex-1">
 				<DialogPrimitive.Title className="font-title text-title-md leading-[1.2] tracking-[-0.02em] text-ink text-balance">
@@ -142,7 +142,7 @@ export function DialogFooter({ className, ...props }: ComponentPropsWithRef<"div
 		<div
 			className={cn(
 				"flex flex-none flex-wrap items-center justify-end gap-2.5 px-7 pt-6 max-app-sm:px-5 max-app-sm:*:flex-1",
-				use(InDrawer) ? "pb-[max(20px,env(safe-area-inset-bottom))]" : "pb-[26px] max-app-sm:pb-5",
+				use(DrawerContext) ? "pb-[max(20px,env(safe-area-inset-bottom))]" : "pb-[26px] max-app-sm:pb-5",
 				className,
 			)}
 			{...props}
