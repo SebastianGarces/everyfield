@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { setTimeout as delay } from "node:timers/promises";
 import {
 	accessSync,
 	constants,
@@ -200,6 +201,51 @@ test("INV-typecheck: a failing typecheck:tools fails the run after every package
 	}
 });
 
+test("INV-typecheck: a hung typecheck:tools is killed with its process group and the run fails naming it", (t) => {
+	const hang = "echo 'tsc -p tests/slow/tsconfig.json'; (sleep 3; touch late) & sleep 30";
+	const f = workspace({ "packages/a": { scripts: { typecheck: PASS } } }, { "typecheck:tools": hang });
+	t.after(f.close);
+	const started = performance.now();
+	const run = typecheck(f, { TYPECHECK_TOOLS_TIMEOUT_MS: "1000" }, "typecheck", 20_000);
+	assert.ok(performance.now() - started < 10_000, "the run ends at the timeout, not when the script would");
+	assert.equal(run.status, 1, run.stdout + run.stderr);
+	assert.match(run.stderr, /^typecheck:tools timed out after 1000 ms; its process group was killed\.$/m);
+	assert.match(run.stdout, /^typecheck:tools: tsc -p tests\/slow\/tsconfig\.json$/m);
+	spawnSync("sleep", ["3"]);
+	assert.equal(existsSync(join(f.root, "late")), false, "the script's background child died with it");
+});
+
+test("INV-typecheck: each checker's start line and output reach the log while it is still running", async (t) => {
+	const stall = "echo 'tsc -p tests/stuck/tsconfig.json'; sleep 30";
+	const f = workspace(
+		{ "packages/a": { scripts: { typecheck: "echo checking-a; sleep 30" } } },
+		{ "typecheck:tools": stall },
+	);
+	t.after(f.close);
+	const seen = async (timeoutMs: string, wanted: RegExp[]) => {
+		const child = spawn(process.execPath, [tool], {
+			cwd: f.root,
+			env: env({ CI: undefined, XDG_STATE_HOME: f.state, TYPECHECK_TIMEOUT_MS: timeoutMs }),
+		});
+		let out = "";
+		child.stdout.on("data", (chunk: Buffer) => (out += chunk));
+		const exited = new Promise((done) => child.on("close", done));
+		const deadline = Date.now() + 15_000;
+		while (!wanted.every((re) => re.test(out)) && Date.now() < deadline) await delay(50);
+		const running = wanted.every((re) => re.test(out)) && child.exitCode === null && child.signalCode === null;
+		child.kill("SIGKILL");
+		await exited;
+		return { out, running };
+	};
+	const pkg = await seen("20000", [/^packages\/a typecheck: started$/m, /^packages\/a typecheck: checking-a$/m]);
+	assert.ok(pkg.running, `the package lines were printed before its checker ended: ${pkg.out}`);
+	const tools = await seen("500", [
+		/^typecheck:tools: started$/m,
+		/^typecheck:tools: tsc -p tests\/stuck\/tsconfig\.json$/m,
+	]);
+	assert.ok(tools.running, `the tools lines were printed before typecheck:tools ended: ${tools.out}`);
+});
+
 test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, tools/ci, tools/qa and ops/actionable-watch, and the own tsconfig.json of each typechecked tests folder", () => {
 	const projects = [
 		"tsconfig.tools.json",
@@ -208,7 +254,11 @@ test("INV-typecheck: pnpm typecheck builds tsconfig.tools.json over scripts, too
 		"tests/evry/tsconfig.json",
 		"tests/integration/*/tsconfig.json",
 	];
-	assert.equal(rootPkg.scripts["typecheck:tools"], `node_modules/typescript-7/bin/tsc -b ${projects.join(" ")}`);
+	assert.equal(
+		rootPkg.scripts["typecheck:tools"],
+		`s=0; for p in ${projects.join(" ")}; do echo "tsc -p $p"; node_modules/typescript-7/bin/tsc --noEmit -p "$p" || s=1; done; exit $s`,
+		"one tsc process per project in turn: tsc -b over all of them held every program at once, near 16 GB",
+	);
 	const integration = globSync("tests/integration/*/tsconfig.json", { cwd: repo }).sort();
 	assert.ok(integration.length > 0, "the integration glob finds a folder project");
 	const files = projects
