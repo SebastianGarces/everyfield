@@ -1,3 +1,4 @@
+import type { Lost } from "@everyfield/contracts/common";
 import type { ProgramReply } from "@everyfield/contracts/organizations";
 import type { RequestActor } from "@everyfield/domain/access";
 import type { Database } from "@everyfield/db/client";
@@ -7,7 +8,7 @@ import { requestDatabase } from "../../../server/database";
 import { pipelineActor } from "../pipeline-mount";
 import { LOST, transient } from "../../../server/platform/transient.ts";
 
-export type ProgramAnswer<T> = ProgramReply<T> | { status: "lost" };
+export type ProgramAnswer<T> = ProgramReply<T> | Lost;
 
 export async function programCall<T>(
 	run: (db: Database, authority: RequestActor) => Promise<ProgramReply<T>>,
