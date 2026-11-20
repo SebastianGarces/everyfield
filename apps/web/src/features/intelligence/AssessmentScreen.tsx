@@ -68,6 +68,8 @@ import {
 	STANDING,
 } from "./assessment-model.ts";
 import { IntelligenceTabs } from "./IntelligenceTabs.tsx";
+import { loadProblem, failedIcon } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Props = { view: AssessmentView; facts: PlantFacts; catalog: Catalog };
 type Point = Assessment["focus"];
@@ -108,7 +110,7 @@ export function AssessmentScreen({ view, facts, catalog }: Props) {
 }
 
 const citations = createRead((runId: string, key: string) => resolveAssessmentCitation(runId, key), {
-	failed: (): ActionOutcome<CitationView> => ({ status: "lost" }),
+	failed: (): ActionOutcome<CitationView> | ReadFailure => ({ status: "lost" }),
 });
 
 function Current({ view, assessment: a, catalog }: { view: AssessmentView; assessment: Assessment; catalog: Catalog }) {
@@ -610,8 +612,8 @@ function CitationDialog({
 							<Spinner size={16} /> Opening the evidence
 						</p>
 					) : result.status !== "ok" ? (
-						<StatePanel tone="error" title="We couldn't open this evidence" headingLevel="h3">
-							Nothing was changed. Close this and try again in a moment.
+						<StatePanel tone="error" title="We couldn't open this evidence" icon={failedIcon(result)} headingLevel="h3">
+							{loadProblem(result, "Nothing was changed. Close this and try again in a moment.")}
 						</StatePanel>
 					) : (
 						<CitationBody view={result.value} />

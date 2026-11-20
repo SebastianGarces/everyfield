@@ -115,7 +115,20 @@
 			}
 		},
 		{
-			"files": ["tests/workflow/**/*.ts", "tests/unit/**/*.mts", "tests/ui/**/*.mts"],
+			"files": [
+				"tests/workflow/**/*.ts",
+				"tests/unit/**/*.mts",
+				"tests/ui/**/*.mts",
+				"tests/integration/dashboard/**",
+				"tests/integration/feedback/**",
+				"tests/integration/notifications/**",
+				"tests/integration/platform/**",
+				"tests/integration/writes/**",
+				"tests/integration/branding/**",
+				"tests/integration/flags/**",
+				"tests/integration/oversight/**",
+				"tests/integration/phases/**"
+			],
 			"rules": {
 				"typescript/no-explicit-any": "error"
 			}
