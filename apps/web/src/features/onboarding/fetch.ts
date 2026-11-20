@@ -1,7 +1,7 @@
-import { getReads } from "../../components/get-reads.ts";
+import { readsFrom } from "../../components/get-reads.ts";
 import type { GET } from "./read.ts";
 
-const get = getReads<typeof GET>("/onboarding/read");
+const get = readsFrom<typeof GET>("/onboarding/read");
 
 export async function loadOnboardingEntry() {
 	const r = await get("entry");

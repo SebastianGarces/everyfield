@@ -57,12 +57,12 @@ export const meetingsReader = {
 						JOIN meeting m ON m.id = page.id) x) AS items`,
 			);
 			const page = z.object({ total: z.number().int(), items: z.array(meetingRow) }).parse(row);
-			return c.meetingPage.parse({
+			return {
 				items: page.items.map(summary),
 				page: i.page,
 				total: page.total,
 				next: i.page * i.limit < page.total ? i.page + 1 : null,
-			});
+			} satisfies z.output<typeof c.meetingPage>;
 		});
 	},
 	async get(db: Reader, authority: RequestActor, raw: unknown) {
@@ -88,7 +88,7 @@ export const meetingsReader = {
 				sql`SELECT EXISTS (SELECT FROM meeting m WHERE m.plant_id = ${v.plantId}::uuid AND m.retired_at IS NULL
 					AND (cardinality(${sql.param(types)}::text[]) = 0 OR m.type = ANY(${sql.param(types)}::text[]))) AS found`,
 			);
-			return c.historyResult.parse({ hasHistory: z.boolean().parse(row?.found), types });
+			return { hasHistory: z.boolean().parse(row?.found), types } satisfies z.output<typeof c.historyResult>;
 		});
 	},
 	async readAgenda(db: Reader, authority: RequestActor, raw: unknown) {

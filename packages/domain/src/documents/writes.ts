@@ -290,9 +290,9 @@ const generatedWriter = {
 			const scope = generateScope(authority);
 			if (!scope) deny("unavailable");
 			const found = await historyRows(db, scope, null);
-			return c.generatedHistory.parse({
+			return {
 				entries: found.map((row) => generatedFrom(row, scope.tenantId, row.template_id)),
-			});
+			} satisfies z.output<typeof c.generatedHistory>;
 		});
 	},
 
@@ -387,7 +387,8 @@ const generatedWriter = {
 			);
 			if (!found[0] || found[0].ok !== true) deny("unavailable");
 			const text = found[0].body ? c.nativeText(c.readNative(found[0].body).body) : "";
-			if (!found[0].id || !text) return c.coreValuesEvidence.parse({ documentId: null, text: null });
+			if (!found[0].id || !text)
+				return { documentId: null, text: null } satisfies z.output<typeof c.coreValuesEvidence>;
 			return c.coreValuesEvidence.parse({ documentId: found[0].id, text });
 		});
 	},

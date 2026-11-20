@@ -107,7 +107,9 @@ WITH expired AS (DELETE FROM admission_attempt WHERE expires_at<=clock_timestamp
 	}
 	async function locked(statement: SQL) {
 		const results = (await db.execute(statement)) as unknown as { rows: unknown[] }[];
-		return results[1]!.rows;
+		const [, reserved] = results;
+		if (!reserved) throw Error("The budget batch returned no locked rows result");
+		return reserved.rows;
 	}
 	async function finish(reservation: Awaited<ReturnType<typeof reserve>>, success: boolean) {
 		const r = reservation,

@@ -3,9 +3,9 @@
 import { command, current } from "../organizations/mount";
 import { correctReportingLocationRequest } from "@everyfield/contracts/organizations";
 import type { RegionArea } from "@everyfield/contracts/oversight";
-import { getViewer } from "@/server/request-context";
+import { plantSeat } from "@/server/request-context";
 import { z } from "zod";
-import { locality, plantSeat } from "./region-reads";
+import { locality } from "./region-reads";
 
 export type Locality = { city: string | null; stateProvince: string | null; country: string | null };
 export type RegionRead =
@@ -31,7 +31,7 @@ const regionSave = z.object({
 });
 
 export async function saveRegion(raw: unknown): Promise<RegionSave> {
-	const seat = plantSeat(await getViewer());
+	const seat = await plantSeat();
 	const input = regionSave.safeParse(raw);
 	if (!seat) return { status: "refused", code: "unavailable" };
 	if (!input.success) return { status: "refused", code: "invalid_input" };
@@ -41,14 +41,14 @@ export async function saveRegion(raw: unknown): Promise<RegionSave> {
 		requestKey: rest.requestKey,
 		expectedRevision: rest.expectedRevision,
 		input: {
-			plant: seat.plant,
+			plant: seat.selected,
 			locality: place,
 			referenceVersionId: rest.referenceVersionId,
 			regionItemId: rest.regionItemId,
 		},
 	});
 	if (!request.success) return { status: "refused", code: "invalid_input" };
-	const reply = await command(m, seat.authority, seat.plant, (tx, session, selected) =>
+	const reply = await command(m, seat.authority, seat.selected, (tx, session, selected) =>
 		m.adapter["organizations.correctReportingLocation"](tx, session, selected, request.data),
 	);
 	if (reply.status === "ok") return { status: "ok" };

@@ -1,9 +1,9 @@
 import type { historyQuery } from "@everyfield/contracts/communication";
 import type { z } from "zod";
-import { getReads } from "../../components/get-reads.ts";
+import { readsFrom } from "../../components/get-reads.ts";
 import type { GET } from "./read.ts";
 
-const get = getReads<typeof GET>("/communication/read");
+const get = readsFrom<typeof GET>("/communication/read");
 
 export const searchRecipients = (query: string) => get("recipients", query);
 export const readDraft = (communicationId: string) => get("draft", { communicationId });

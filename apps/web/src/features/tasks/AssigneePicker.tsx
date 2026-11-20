@@ -5,6 +5,7 @@ import { Combobox } from "@everyfield/ui/controls";
 import { createRead, useRead } from "../../components/read.tsx";
 import { assigneeOptions } from "./fetch.ts";
 import { assigneeName } from "./model.ts";
+import { loadProblem } from "../../components/read-failed.ts";
 
 type Purpose = "any" | "committed_follow_up";
 export type Held = { accountId: string; displayName: string; warning?: string | null };
@@ -75,7 +76,7 @@ export function AssigneePicker({
 				error={
 					failed
 						? {
-								message: "The list of people did not load.",
+								message: loadProblem(read.value, "The list of people did not load."),
 								onRetry: read.retry,
 							}
 						: undefined
