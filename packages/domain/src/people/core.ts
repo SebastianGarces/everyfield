@@ -180,12 +180,12 @@ export async function person(
 	if (!rows[0]!) deny("unavailable");
 	return personRow.parse(rows[0]!);
 }
-export type LockedReads = { with?: SQL; columns: SQL };
+// Locks the person and reads the columns with it in one statement. Each column may read only rows it locks itself, or rows
+// no writer that holds the person adds or changes, because the statement's snapshot predates the person lock (C88).
+export type LockedReads = { columns: SQL };
 export async function lockPersonWith(tx: Tx, context: Pick<Context, "selected">, id: string, reads: LockedReads) {
 	const subject = sql`subject AS MATERIALIZED (${personQuery(tx, context, id).getSQL()} FOR UPDATE OF ${tables.person})`;
-	const r = await tx.execute(
-		sql`WITH ${subject}${reads.with ? sql`, ${reads.with}` : sql``} SELECT subject.*, ${reads.columns} FROM subject`,
-	);
+	const r = await tx.execute(sql`WITH ${subject} SELECT subject.*, ${reads.columns} FROM subject`);
 	const row = r.rows[0] ?? deny("unavailable");
 	return { person: personRow.parse(row), row };
 }

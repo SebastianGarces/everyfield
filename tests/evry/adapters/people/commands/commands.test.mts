@@ -196,7 +196,7 @@ test("INV-budget: a stage change hands the person's open tasks back as reviewed,
 		);
 	}
 	console.log(JSON.stringify({ effect: "people.changeStatus", statements }));
-	assert.deepEqual(statements, [7, 7], "the effect does not grow with the number of open tasks");
+	assert.deepEqual(statements, [8, 8], "the effect does not grow with the number of open tasks");
 
 	const proposal = await t.propose("people.changeStatus", {
 		personId: people.casey,
@@ -236,7 +236,7 @@ test("AC:PERSONREF-ASSISTANT-VERIFIED-CONTEXT-PROPOSAL-RETIRE a retirement runs 
 	const { outcome, statements, review } = await approveAndRun(owner, proposal);
 	assert.equal(outcome, "completed");
 	console.log(JSON.stringify({ effect: "people.deletePerson", statements }));
-	assert.equal(statements, 8);
+	assert.equal(statements, 9);
 	assert.deepEqual([(await personRow(p2)).state, await personRow(p1)], ["retired", p1Before]);
 	assert.deepEqual(await effectAudits(proposal.id), [
 		{ actor_id: owner.accountId, action: "people.retired", subject_id: p2 },

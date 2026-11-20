@@ -290,7 +290,8 @@
 		"limit": 2
 	},
 	"accountPerson.ensureAccountPerson": {
-		"limit": 2
+		"limit": 3,
+		"reads": "C88: the account and plant lock is its own statement, then one statement locks the Person already linked, the verified-email candidates and the reviewed Person. A second call for the same account waits on the account lock while the first links or creates its Person, and only a statement that starts after the lock sees that Person: read in the lock's statement it is missed and the second call fails on person_uq_1 instead of answering linked (INV-person-lock test)."
 	},
 	"communication.archiveTemplate": {
 		"limit": 2
@@ -645,9 +646,9 @@
 		"reads": "T-504: 2 reads in a row (read of account, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"identity.handle:resume-registration": {
-		"limit": 15,
+		"limit": 16,
 		"retry": 13,
-		"reason": "RT-6a: the session read (4, Better Auth adapter and readIdentitySession) and invitations.resume (11, see that entry). Its largest first run: 2 transaction, 5 locked read, 6 read, 2 write.",
+		"reason": "RT-6a: the session read (4, Better Auth adapter and readIdentitySession) and invitations.resume (12, see that entry). Its largest first run: 2 transaction, 6 locked read, 6 read, 2 write.",
 		"reads": "T-504: 2 reads in a row (read of account, then read of lifecycle_witness); the follow-up merges them or says why they cannot be one statement."
 	},
 	"identity.handle:revoke-other-sessions": {
@@ -670,8 +671,8 @@
 		"limit": 2
 	},
 	"invitations.accept": {
-		"limit": 11,
-		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the account's seats and links locked together; the account's Person (ensureAccountPerson: one locked read of its account, plant and linked Person, then the write); one final statement with every change and audit row; COMMIT. Each lock is its own statement because a statement's snapshot predates its locks (C88). RT-6a brought it from 28 to 12, and folding ensureAccountPerson's locks into one read to 11. Its largest first run: 2 transaction, 5 locked read, 2 read, 2 write.",
+		"limit": 12,
+		"reason": "Established path (C88), RT-6a: BEGIN; the timeouts, source invitation and workspace seat lock; the session's account (invitation_identity locks it); the invitation with its workspace and clock; the workspace root lock; the request-key and lifecycle read (prepareWrite); the account's seats and links locked together; the account's Person (ensureAccountPerson: its account and plant lock, the linked Person read and the write); one final statement with every change and audit row; COMMIT. Each lock is its own statement because a statement's snapshot predates its locks (C88). RT-6a brought it from 28 to 12. Its largest first run: 2 transaction, 6 locked read, 2 read, 2 write.",
 		"reads": "T-504: 3 reads in a row (read of tenant, then locked read of invitation+organization+tenant, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.invite": {
@@ -692,8 +693,8 @@
 		"reads": "T-504: 3 reads in a row (locked read of organization+person, then locked read of invitation+organization+tenant, then locked read of organization+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.resume": {
-		"limit": 11,
-		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 11 statements (was 29). Its largest first run: 2 transaction, 5 locked read, 2 read, 2 write.",
+		"limit": 12,
+		"reason": "RT-6a: invitations.accept found by its proof in the same first statement; the same 12 statements (was 29). Its largest first run: 2 transaction, 6 locked read, 2 read, 2 write.",
 		"reads": "T-504: 3 reads in a row (read of tenant, then locked read of invitation+organization+tenant, then locked read of organization+plant+tenant); the follow-up merges them or says why they cannot be one statement."
 	},
 	"invitations.revoke": {
@@ -1330,8 +1331,9 @@
 		"retry": 5
 	},
 	"people.changeStatus": {
-		"limit": 7,
-		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014): the write gate, one locked read of the person with its open duties, the members they move to and those members' seats, the assignee change, then the shared reminder sync (notifications.syncTaskReminders) sends 2 statements for it (F10), and one statement with the stage change and its audit. Its largest first run: 1 transaction, 3 locked read, 3 write."
+		"limit": 8,
+		"reason": "Leaving the core stages hands a dated, assigned duty to another member and replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014): the write gate, the person locked, one locked read of its open duties, the members they move to and those members' seats, the assignee change, the shared reminder sync (notifications.syncTaskReminders) with its 2 statements (F10), and one statement with the stage change and its audit. Its largest first run: 1 transaction, 4 locked read, 3 write.",
+		"reads": "C88: the person lock is its own statement and the duty read comes after it. tasks.references locks the person FOR SHARE while it adds a task, and a statement whose snapshot predates the person lock misses that task and hands off a stale set of duties. The open duties, the members they move to and those members' seats are one statement after the lock."
 	},
 	"people.correctAdultClassification": {
 		"limit": 6,
@@ -1440,9 +1442,10 @@
 		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, the person locked, the person's state and pipeline position restored, then one statement that bumps the revision of each pipeline column the person returns to, with the audit. Its largest first run: 2 transaction, 2 locked read, 1 read, 2 write."
 	},
 	"people.retirePerson": {
-		"limit": 8,
-		"retry": 5,
-		"reason": "Handing a dated, assigned duty to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014): the write gate, one locked read of the person with the church's review revision, its open duties, the members they move to and those members' seats, the assignee change, the shared reminder sync (notifications.syncTaskReminders) with its 2 statements (F10), the person retired (its row comes back for the reply), then one statement with the tenure, team and column changes and the audit. Its largest first run: 1 transaction, 3 locked read, 4 write."
+		"limit": 9,
+		"retry": 6,
+		"reason": "Handing a dated, assigned duty to another member replans its due and overdue reminders (the R4-1 fault, REQ-TSK-014): the write gate, the person locked with the church's review revision (the plant row it reads is locked FOR SHARE in the same statement), one locked read of the person's open duties, the members they move to and those members' seats, the assignee change, the shared reminder sync (notifications.syncTaskReminders) with its 2 statements (F10), the person retired (its row comes back for the reply), then one statement with the tenure, team and column changes and the audit. Its largest first run: 1 transaction, 4 locked read, 4 write.",
+		"reads": "C88: the person lock is its own statement and the duty read comes after it. tasks.references locks the person FOR SHARE while it adds a task, and a statement whose snapshot predates the person lock misses that task and hands off a stale set of duties. The open duties, the members they move to and those members' seats are one statement after the lock."
 	},
 	"people.setHouseholdRole": {
 		"limit": 4
@@ -1496,8 +1499,8 @@
 		"retry": 6
 	},
 	"people/core.withPeopleWrite:people.changeStatus": {
-		"limit": 8,
-		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 3 locked read, 3 write."
+		"limit": 9,
+		"reason": "people.changeStatus in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 4 locked read, 3 write."
 	},
 	"people/core.withPeopleWrite:people.removeFromHousehold": {
 		"limit": 7,
@@ -1505,8 +1508,8 @@
 		"reason": "Leave-and-delete: the last member leaves and the empty household is deleted in one transaction, two producer writes (people.removeFromHousehold, people.deleteHousehold) at the revision the leave answers. Its largest first run: 2 transaction, 1 locked read, 2 read, 2 write. A plain leave stays within the pattern."
 	},
 	"people/core.withPeopleWrite:people.retirePerson": {
-		"limit": 9,
-		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 3 locked read, 4 write."
+		"limit": 10,
+		"reason": "people.retirePerson in its native write: BEGIN and COMMIT around the same work and the same reminder replan. Its largest first run: 2 transaction, 4 locked read, 4 write."
 	},
 	"people/core.withPeopleWrite:people/csv/index.executeBulkImport": {
 		"limit": 5,

@@ -497,7 +497,7 @@ test("AC:TARGET-PPL-006 assigning a duty to someone already on it keeps them on 
 	);
 });
 
-test("INV-person-lock: retiring locks the person, the review, the duty and the member it moves to in one read and refuses as before", async () => {
+test("INV-person-lock: retiring locks the person and the review, then the duty and the member it moves to, and refuses as before", async () => {
 	const leaving = await create("Hands off"),
 		takes = await create("Takes over"),
 		member = (await database.actor({ kind: "plant", id: plants[0] }, "member")).id;
@@ -566,6 +566,26 @@ test("INV-person-lock: a reviewed contact that changed, is linked elsewhere or i
 	refused(await review({ id: randomUUID(), revision: "1" }));
 	assert.equal(ok(await review(contact)).personId, contact.id);
 	assert.deepEqual(ok(await review(other)), { status: "linked", personId: contact.id });
+});
+
+test("INV-person-lock: a second account link that waits on the account returns the Person the first one created", async () => {
+	const account = (await database.actor({ kind: "plant", id: plants[0] }, "member")).id;
+	const input = { accountId: account, owner: ctx().selected, selection: { kind: "create", displayName: "Linked once" } };
+	let release, created;
+	const held = new Promise((resolve) => (release = resolve)),
+		holding = new Promise((resolve) => (created = resolve));
+	const first = tx(async (t) => {
+		const r = await accounts.ensureAccountPerson(t, input);
+		created();
+		await held;
+		return r;
+	});
+	await holding;
+	const second = tx((t) => accounts.ensureAccountPerson(t, input));
+	assert.ok(await waitingOnLock(db), "the second call waits for the account");
+	release();
+	const linked = ok(await first).personId;
+	assert.deepEqual(ok(await second), { status: "linked", personId: linked });
 });
 
 test("AC:TARGET-PPL-006 AC:TARGET-PPL-007 AC:TARGET-PPL-003 stage skip, no-op, complete handoffs, retirement and guarded restore", async () => {

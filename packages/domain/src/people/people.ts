@@ -29,8 +29,8 @@ import {
 	reply,
 	replyWithoutSavepoint,
 } from "./core.ts";
-import type { Context, LockedReads, WriteContext, Tx, Person } from "./core.ts";
-import { columnStages, committedStagesSql, isCommitted, openDutiesOf } from "./pipeline.ts";
+import type { Context, Evidence, LockedReads, WriteContext, Tx, Person } from "./core.ts";
+import { columnStages, isCommitted, openDutiesOf } from "./pipeline.ts";
 import { lockingTasks, managedTaskRows } from "../tasks/queries.ts";
 import { reminderChange, syncAll, type TaskReminders } from "../tasks/writes.ts";
 
@@ -117,9 +117,17 @@ export function columnsChanged(plantId: string, stages: readonly (string | null)
 	return sql`INSERT INTO people_column(plant_id, column_name, revision) SELECT ${plantId}::uuid, c, 2 FROM unnest(${sql.param(columns)}::text[]) c ON CONFLICT (plant_id, column_name) DO UPDATE SET revision = people_column.revision + 1`;
 }
 
-async function output(tx: Tx, ctx: Context, p: Person, id: string, needsOwner: string[] = [], outcome = "changed") {
+async function output(
+	tx: Tx,
+	ctx: Context,
+	p: Person,
+	id: string,
+	needsOwner: string[] = [],
+	outcome = "changed",
+	evidence?: Evidence[],
+) {
 	return {
-		person: await project(tx, ctx, p, lockedWrite),
+		person: evidence ? projectWith(ctx, [p], evidence)[0]! : await project(tx, ctx, p, lockedWrite),
 		receiptId: id,
 		outcome,
 		needsOwner,
@@ -130,25 +138,27 @@ const handoffRows = z.object({
 	targets: z.array(z.object({ id: z.uuid(), state: personRow.shape.state, linked_account_id: z.uuid().nullable() })),
 	seats: z.array(z.uuid()),
 });
-type HandoffRows = z.infer<typeof handoffRows>;
-function handoffReads(ctx: Context, choices: z.infer<typeof c.handoffChoice>[], reaches: SQL, also?: LockedReads) {
+// The person's open duties, the members they move to and those members' seats, in one statement after the person lock and
+// never in it: tasks.references holds the person FOR SHARE while it adds a task, and only a statement that starts after the
+// lock sees that task (C88). The members are locked only when the duties match the choices one for one, because handoff
+// refuses a mismatch as a conflict before it looks at them, as it did when each read was its own statement.
+async function handoffReads(tx: Tx, ctx: Context, p: Person, choices: z.infer<typeof c.handoffChoice>[]) {
+	if (ctx.selected.kind !== "plant") return { duties: [], targets: [], seats: [] };
 	const plant = ctx.selected.id,
 		duties = choices.map((choice) => choice.dutyId),
 		matched = new Set(duties).size === duties.length,
 		targets = matched ? choices.flatMap((choice) => (choice.kind === "assign" ? [choice.toPersonId] : [])) : [];
-	const open = openDutiesOf(sql`(SELECT id FROM subject)`, sql`(SELECT linked_account_id FROM subject)`);
-	return {
-		with: sql`${also?.with ? sql`${also.with}, ` : sql``}duties AS MATERIALIZED (${lockingTasks(plant, sql`${open} AND ${reaches}`)}),
+	const r = await tx.execute(sql`WITH duties AS MATERIALIZED (${lockingTasks(plant, openDutiesOf(p.id, p.linked_account_id))}),
 		targets AS MATERIALIZED (SELECT x.id, x.state, x.linked_account_id FROM person x
 			WHERE x.id=ANY(${sql.param(targets)}::uuid[]) AND x.tenant_id=${plant}::uuid
 			AND (SELECT count(*) FROM duties)=${duties.length} AND NOT EXISTS (SELECT FROM duties d WHERE d.id<>ALL(${sql.param(duties)}::uuid[]))
 			ORDER BY x.id FOR UPDATE OF x),
 		seats AS MATERIALIZED (SELECT s.account_id FROM seat s WHERE s.account_id IN (SELECT linked_account_id FROM targets)
-			AND s.plant_id=${plant}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() FOR SHARE OF s)`,
-		columns: sql`${also ? sql`${also.columns}, ` : sql``}(SELECT coalesce(json_agg(d ORDER BY d.id),'[]') FROM duties d) AS duties,
+			AND s.plant_id=${plant}::uuid AND s.ended_at IS NULL AND s.accepted_at<=clock_timestamp() FOR SHARE OF s)
+		SELECT (SELECT coalesce(json_agg(d ORDER BY d.id),'[]') FROM duties d) AS duties,
 			(SELECT coalesce(json_agg(x ORDER BY x.id),'[]') FROM targets x) AS targets,
-			(SELECT coalesce(json_agg(s.account_id),'[]') FROM seats s) AS seats`,
-	};
+			(SELECT coalesce(json_agg(s.account_id),'[]') FROM seats s) AS seats`);
+	return handoffRows.parse(r.rows[0]);
 }
 async function handoff(
 	tx: Tx,
@@ -156,9 +166,9 @@ async function handoff(
 	p: Person,
 	choices: z.infer<typeof c.handoffChoice>[],
 	reminders: TaskReminders,
-	{ duties, targets, seats }: HandoffRows,
 ) {
-	const byId = new Map(choices.map((c) => [c.dutyId, c]));
+	const { duties, targets, seats } = await handoffReads(tx, ctx, p, choices),
+		byId = new Map(choices.map((c) => [c.dutyId, c]));
 	if (
 		byId.size !== choices.length ||
 		duties.length !== choices.length ||
@@ -255,23 +265,12 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 			const input = parse(c.changeStatusRequest, raw);
 			return c.plantPersonMutationResult.parse(
 				await mutation(tx, ctx, "people.changeStatus", input, async (_a, id, audit) => {
-					const reaches = sql`EXISTS (SELECT FROM subject WHERE subject.state='live'
-						AND subject.revision=${input.expectedRevision}::bigint AND subject.stage=ANY(${committedStagesSql()})
-						AND NOT ${input.input.stage}::text=ANY(${committedStagesSql()}))`;
-					const { person: before, row } = await lockPersonWith(
-						tx,
-						ctx,
-						input.input.personId,
-						handoffReads(ctx, input.input.handoffs, reaches),
-					);
+					const before = await person(tx, ctx, input.input.personId, true);
 					live(before);
 					expected(before, input.expectedRevision);
 					const noop = before.stage === input.input.stage;
 					const leaving = isCommitted(before.stage) && !isCommitted(input.input.stage);
-					const needsOwner =
-						!noop && leaving
-							? await handoff(tx, ctx, before, input.input.handoffs, reminders, handoffRows.parse(row))
-							: [];
+					const needsOwner = !noop && leaving ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
 					if (!leaving && input.input.handoffs.length) deny("invalid_input");
 					const position = sameColumn(before.stage!, input.input.stage)
 						? before.pipeline_position
@@ -361,28 +360,16 @@ async function retire(
 	reminders: TaskReminders,
 ) {
 	return mutation(tx, ctx, "people.deletePerson", input, async (_a, id, audit) => {
-		const reviewed = sql`review AS MATERIALIZED (SELECT material_revision::text AS material_revision FROM plant
-			WHERE id=${ctx.selected.id}::uuid AND EXISTS (SELECT FROM subject WHERE subject.revision=${input.expectedRevision}::bigint
-			AND subject.state<>'merged') FOR SHARE)`;
-		const reaches = sql`EXISTS (SELECT FROM subject WHERE subject.state='live' AND subject.revision=${input.expectedRevision}::bigint)
-			AND (SELECT material_revision FROM review)=${input.input.reviewRevision}::text`;
-		const { person: before, row } = await lockPersonWith(
-			tx,
-			ctx,
-			input.input.personId,
-			handoffReads(ctx, input.input.handoffs, reaches, {
-				with: reviewed,
-				columns: sql`(SELECT material_revision FROM review) AS review`,
-			}),
-		);
+		// The church's review revision is locked in the person's statement: the lock refreshes the plant row it reads (C88).
+		const { person: before, row } = await lockPersonWith(tx, ctx, input.input.personId, {
+			columns: sql`(SELECT material_revision::text FROM plant WHERE id=${ctx.selected.id}::uuid
+				AND subject.revision=${input.expectedRevision}::bigint AND subject.state<>'merged' FOR SHARE) AS review`,
+		});
 		expected(before, input.expectedRevision);
 		if (before.state === "merged") deny("use_reviewed_unmerge");
 		if (input.input.reviewRevision !== row.review) deny("conflict");
 		let after = before;
-		const needsOwner =
-			before.state === "live"
-				? await handoff(tx, ctx, before, input.input.handoffs, reminders, handoffRows.parse(row))
-				: [];
+		const needsOwner = before.state === "live" ? await handoff(tx, ctx, before, input.input.handoffs, reminders) : [];
 		if (before.state === "live") {
 			const [updated] = await tx
 				.update(tables.person)
@@ -624,12 +611,7 @@ async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boo
 						revision: String(BigInt(before.revision) + 1n),
 					});
 					return {
-						value: {
-							person: projectWith(ctx, [after], evidenceOf(row.evidence))[0]!,
-							receiptId: id,
-							outcome: "changed",
-							needsOwner: [],
-						},
+						value: await output(tx, ctx, after, id, [], "changed", evidenceOf(row.evidence)),
 						subject: before.id,
 						action: correction ? "people.corrected" : "people.recorded",
 						before,
@@ -700,6 +682,13 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 				candidates: string[] = [],
 				row: Record<string, unknown> = {};
 			if (input.selection.kind !== "first") {
+				// The account and plant lock is its own statement: a call that waits on the account must then see the Person the
+				// call before it linked or created, and only a statement that starts after the lock sees it (C88).
+				const locked =
+					await tx.execute(sql`WITH a AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE)
+	 SELECT (SELECT count(*) FROM a)::int AS accounts, (SELECT count(*) FROM (SELECT id FROM plant WHERE id=${selected.id}::uuid
+	 AND EXISTS(SELECT FROM a) FOR UPDATE) p)::int AS plants`);
+				if (!z.object({ accounts: z.number() }).parse(locked.rows[0]).accounts) deny("unavailable");
 				const selection = input.selection,
 					looks = selection.kind === "resolve" || selection.kind === "reviewed_contact";
 				reviewed =
@@ -708,24 +697,23 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 					selection.person.owner.kind === "plant"
 						? selection.person.personId
 						: null;
+				// Then one statement locks, in the old order, the Person already linked, the unlinked Persons whose email the
+				// account verified, and the reviewed Person. The later two lock nothing once a linked Person is found, and the
+				// reviewed Person waits on the candidates through the count, which only orders the locks.
 				const found = looks
 					? sql`, found AS MATERIALIZED (SELECT p.id FROM person p JOIN access_account_contact(${sql.param(input.accountId)}) a
-						ON lower(p.email)=lower(a.email) WHERE EXISTS (SELECT FROM acct) AND NOT EXISTS (SELECT FROM exact) AND p.plant_id=${sql.param(selected.id)}
+						ON lower(p.email)=lower(a.email) WHERE NOT EXISTS (SELECT FROM exact) AND p.plant_id=${sql.param(selected.id)}
 						AND p.state='live' AND p.linked_account_id IS NULL AND a.verified ORDER BY p.id LIMIT 100 FOR UPDATE OF p)`
 					: sql``;
 				const subject = reviewed
-					? sql`, subject AS MATERIALIZED (${personQuery(tx, ctx, reviewed, sql`EXISTS (SELECT FROM acct) AND NOT EXISTS (SELECT FROM exact) AND (SELECT count(*) FROM found)>=0`).getSQL()} FOR UPDATE OF ${tables.person})`
+					? sql`, subject AS MATERIALIZED (${personQuery(tx, ctx, reviewed, sql`NOT EXISTS (SELECT FROM exact) AND (SELECT count(*) FROM found)>=0`).getSQL()} FOR UPDATE OF ${tables.person})`
 					: sql``;
-				const r =
-					await tx.execute(sql`WITH acct AS MATERIALIZED (SELECT id FROM account WHERE id=${input.accountId}::uuid FOR UPDATE),
-					pl AS MATERIALIZED (SELECT id FROM plant WHERE id=${selected.id}::uuid AND EXISTS(SELECT FROM acct) FOR UPDATE),
-					exact AS MATERIALIZED (SELECT id FROM person WHERE plant_id IN (SELECT id FROM pl)
+				const r = await tx.execute(sql`WITH exact AS MATERIALIZED (SELECT id FROM person WHERE plant_id=${selected.id}::uuid
 					AND linked_account_id=${input.accountId}::uuid AND state='live' FOR UPDATE)${found}${subject}
-					SELECT (SELECT count(*) FROM acct)::int AS accounts, (SELECT coalesce(json_agg(e.id),'[]') FROM exact e) AS exact,
+					SELECT (SELECT coalesce(json_agg(e.id),'[]') FROM exact e) AS exact,
 					${looks ? sql`(SELECT coalesce(json_agg(f.id ORDER BY f.id),'[]') FROM found f)` : sql`'[]'::json`} AS found
 					${reviewed ? sql`, s.*` : sql``} FROM (SELECT 1) seed ${reviewed ? sql`LEFT JOIN subject s ON true` : sql``}`);
 				row = r.rows[0]!;
-				if (!z.object({ accounts: z.number() }).parse(row).accounts) deny("unavailable");
 				const exact = z.array(z.uuid()).parse(row.exact);
 				if (exact.length)
 					return c.accountPersonResolution.parse({
