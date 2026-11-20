@@ -38,6 +38,7 @@ export function LoadableView<T>({
 			<StatePanel
 				tone="error"
 				title={state.title ?? "This did not load"}
+				icon={state.icon}
 				headingLevel="h3"
 				meta={state.meta}
 				actions={
