@@ -1,10 +1,11 @@
 import "server-only";
 import { z } from "zod";
 import { defineReads } from "../../server/platform/reads.ts";
-import { launchViewer, read } from "./server.ts";
+import { plantSeat } from "@/server/request-context";
+import { read } from "./server.ts";
 
 export const GET = defineReads(
-	async () => ({ viewer: await launchViewer() }),
+	async () => ({ viewer: await plantSeat() }),
 	"access_denied",
 	(get) => ({
 		offers: get(z.undefined(), ({ viewer }) =>
