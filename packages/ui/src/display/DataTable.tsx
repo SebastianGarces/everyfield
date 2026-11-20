@@ -242,7 +242,8 @@ function pageItems(current: number, total: number): (number | "gap")[] {
 	const pages = [...near].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
 	const out: (number | "gap")[] = [];
 	pages.forEach((p, i) => {
-		if (i > 0 && p - pages[i - 1]! > 1) out.push("gap");
+		const previous = pages[i - 1];
+		if (previous !== undefined && p - previous > 1) out.push("gap");
 		out.push(p);
 	});
 	return out;

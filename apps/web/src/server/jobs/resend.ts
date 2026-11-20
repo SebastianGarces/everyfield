@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
 import { capture, captured, isCaptureId } from "../mail/capture.ts";
-import type { MailTransport, TransportOutcome } from "./mail.ts";
+import type { MailTransport, TransportOutcome } from "@everyfield/domain/jobs";
 import { serverEnv } from "../config.ts";
 import { logFailure } from "@everyfield/domain/log";
 const accepted = z.object({ id: z.string().min(1).max(128) });
