@@ -700,6 +700,59 @@ test("AC:TARGET-TEAM-007 a custom team and administration have no Playbook lines
 	}
 });
 
+test("AC:TARGET-TEAM-007 a custom team adds, ticks, edits and deletes its own responsibility", async () => {
+	const team = await makeTemplateTeam("Hospitality", null);
+	const added = ok(
+		await run(responsibilityWriter.addResponsibility, {
+			requestKey: key(),
+			expectedRevision: team.revision,
+			input: { teamId: team.id, text: "Greet first-time guests" },
+		}),
+	);
+	assert.equal(added.outcome, "changed");
+	assert.equal(added.sourceLine, `custom:${added.id}`);
+	const listed = ok(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId: team.id }));
+	assert.deepEqual(
+		listed.items.map((item) => [item.id, item.text, item.completedOn]),
+		[[added.id, "Greet first-time guests", null]],
+	);
+	const ticked = ok(
+		await run(responsibilityWriter.completeResponsibility, {
+			requestKey: key(),
+			expectedRevision: added.revision,
+			input: { responsibilityId: added.id, done: true },
+		}),
+	);
+	assert.equal(ticked.outcome, "changed");
+	assert.notEqual(ticked.completedOn, null);
+	const edited = ok(
+		await run(responsibilityWriter.editResponsibility, {
+			requestKey: key(),
+			expectedRevision: ticked.revision,
+			input: { responsibilityId: added.id, text: "Greet every guest" },
+		}),
+	);
+	assert.equal(edited.text, "Greet every guest");
+	assert.deepEqual(
+		ok(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId: team.id })).items.map(
+			(item) => [item.text, item.completedOn],
+		),
+		[["Greet every guest", ticked.completedOn]],
+	);
+	const removed = ok(
+		await run(responsibilityWriter.deleteResponsibility, {
+			requestKey: key(),
+			expectedRevision: edited.revision,
+			input: { responsibilityId: added.id },
+		}),
+	);
+	assert.equal(removed.outcome, "changed");
+	assert.deepEqual(
+		ok(await responsibilityReader.listResponsibilities(db, await viewer(), { teamId: team.id })).items,
+		[],
+	);
+});
+
 test("AC:TARGET-TEAM-007 every template key maps to a frozen catalog team or the no-lines key", async () => {
 	const templateKeys = new Set(TEMPLATES.map((team) => team.key));
 	for (const key of Object.keys(REFERENCE_TEAM_KEY)) assert.equal(templateKeys.has(key), true);

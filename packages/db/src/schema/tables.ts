@@ -4975,7 +4975,7 @@ export const responsibility = pgTable(
 			.default(sql`gen_random_uuid()`),
 		plant_id: uuid("plant_id").notNull(),
 		team_id: uuid("team_id").notNull(),
-		source_version_id: uuid("source_version_id").notNull(),
+		source_version_id: uuid("source_version_id"),
 		source_line: text("source_line").notNull(),
 		text: text("text").notNull(),
 		sort_order: integer("sort_order").notNull(),

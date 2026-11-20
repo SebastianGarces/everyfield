@@ -199,19 +199,10 @@ export const responsibilityWriter = {
 					const team = await lockTeam(tx, w, input.input.teamId);
 					if (team.archived) deny("unavailable");
 					expectRevision(team.revision, input.expectedRevision);
-					if (!team.versionId) deny("unavailable");
 					const responsibilityId = randomUUID();
 					const sourceLine = `custom:${responsibilityId}`;
 					audit.writes.push(
-						insertCustom(
-							w.plant.id,
-							team.id,
-							team.versionId,
-							responsibilityId,
-							sourceLine,
-							input.input.text,
-							team.nextSort,
-						),
+						insertCustom(w.plant.id, team.id, responsibilityId, sourceLine, input.input.text, team.nextSort),
 					);
 					return {
 						value: c.addResult.parse({

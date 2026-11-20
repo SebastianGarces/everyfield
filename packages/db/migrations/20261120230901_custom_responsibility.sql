@@ -1,0 +1,1 @@
+ALTER TABLE "responsibility" ALTER COLUMN "source_version_id" DROP NOT NULL;

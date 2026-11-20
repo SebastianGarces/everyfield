@@ -41541,7 +41541,7 @@
           "note": "Real FK; enforce the serialized owner/context and target-kind rule in README where a compound tenant FK does not apply.",
           "name": "source_version_id",
           "type": "uuid",
-          "nullable": false
+          "nullable": true
         },
         {
           "note": "",
