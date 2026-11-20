@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Certificate01Icon, FileEditIcon, Undo02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { Button, Checkbox, Field, Input, Spinner, Textarea } from "@everyfield/ui/controls";
@@ -14,7 +15,6 @@ import {
 	problemText,
 	reasonError,
 	type AssignForm,
-	type Outcome,
 	type CorrectForm,
 	type CreateForm,
 	type PersonForm,
