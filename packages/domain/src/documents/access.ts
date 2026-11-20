@@ -1,7 +1,6 @@
-import { documentsError, type DocumentsError, type DocumentsReply } from "@everyfield/contracts/documents";
+import { documentsError } from "@everyfield/contracts/documents";
 import type { Database } from "@everyfield/db/client";
 import { sql } from "@everyfield/db/query";
-import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
 import { liveRead, writeVisibility, type RequestActor } from "../access/session.ts";
@@ -10,41 +9,12 @@ import { meetingFactsSql, parseMeeting } from "./meeting-read.ts";
 import { networkStatementSql } from "./network-statement.ts";
 import { dataFromRow } from "../branding/kit.ts";
 import type { BrandKitData } from "@everyfield/contracts/branding";
+import { defineRefusals, type Deny } from "../operations/refusals.ts";
 
 export type Reader = Pick<Database, "execute">;
-type Code = DocumentsError["code"];
-
-class Refusal extends Error {
-	readonly code: Code;
-	readonly details: object;
-	constructor(code: Code, details: object = {}) {
-		super(code);
-		this.code = code;
-		this.details = details;
-	}
-}
-export function deny(code: Code = "unavailable", details: object = {}): never {
-	throw new Refusal(code, details);
-}
-function refused(error: Refusal): DocumentsReply<never> {
-	return {
-		status: "refused",
-		error: documentsError.parse({
-			code: error.code,
-			details: error.details,
-			correlationId: randomUUID(),
-			retry: error.code === "conflict" ? "refresh" : "never",
-		}),
-	};
-}
-export async function settle<T>(body: () => Promise<T>): Promise<DocumentsReply<T>> {
-	try {
-		return { status: "ok", value: await body() };
-	} catch (error) {
-		if (error instanceof Refusal) return refused(error);
-		throw error;
-	}
-}
+const refusals = defineRefusals(documentsError);
+export const deny: Deny<typeof documentsError> = refusals.deny;
+export const { settle } = refusals;
 export function parse<S extends z.ZodType>(schema: S, raw: unknown): z.output<S> {
 	const found = schema.safeParse(raw);
 	if (found.success) return found.data;
