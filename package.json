@@ -15,7 +15,7 @@
 		"lint:test-names": "node tools/ci/test-names.ts",
 		"typecheck": "node tools/ci/typecheck.ts",
 		"typecheck:bun": "node tools/ci/typecheck.ts typecheck:bun",
-		"typecheck:tools": "s=0; for p in tsconfig.tools.json tests/unit/tsconfig.json tests/ui/tsconfig.json tests/evry/tsconfig.json tests/integration/*/tsconfig.json; do echo \"tsc -p $p\"; node_modules/typescript-7/bin/tsc --noEmit -p \"$p\" || s=1; done; exit $s",
+		"typecheck:tools": "s=0; for p in tsconfig.tools.json tests/unit/tsconfig.json tests/ui/tsconfig.json tests/evry/tsconfig.json tests/integration/tsconfig.json; do echo \"tsc -p $p\"; node_modules/typescript-7/bin/tsc --noEmit -p \"$p\" --checkers 2 || s=1; done; exit $s",
 		"access:export": "pnpm --filter @everyfield/db export",
 		"db:migrate": "pnpm --filter @everyfield/domain migrate",
 		"test:early-access": "pnpm --filter @everyfield/domain test",
