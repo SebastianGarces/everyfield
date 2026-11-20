@@ -1857,9 +1857,9 @@
 		"limit": 2
 	},
 	"tasks/core.withTaskWrite": {
-		"limit": 8,
+		"limit": 7,
 		"retry": 11,
-		"reason": "BEGIN and COMMIT around a task write that replans reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements (F10). Its largest first run: 2 transaction, 4 locked read, 2 write."
+		"reason": "BEGIN and COMMIT around a task write that replans reminders; the shared reminder sync (notifications.syncTaskReminders) sends 2 statements (F10). Its largest first run: 2 transaction, 3 locked read, 2 write."
 	},
 	"teams.addResponsibility": {
 		"limit": 7,
