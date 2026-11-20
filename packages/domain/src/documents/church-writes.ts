@@ -778,7 +778,7 @@ export const churchWriter = {
 					});
 			} catch (error) {
 				if (postgresCode(error) !== "23505") {
-					if (postgresCode(error) === "42501" || postgresCode(error) === "23514") deny();
+					if (postgresCode(error) === "42501" || postgresCode(error) === "23514") deny("unavailable");
 					throw error;
 				}
 			}
