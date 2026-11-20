@@ -1595,6 +1595,33 @@ export function gate(path: string, out: boolean) {
 	]);
 });
 
+test("INV-lint: a local generic Outcome type is reported unless it specializes the shared Outcome", () => {
+	const specialized = `import type { Outcome as Shared } from "@everyfield/contracts/common";
+export type Outcome<T> = Shared<T, "access_denied", { reason?: string }>;
+`;
+	const copy = `export type Outcome<T> = { status: "ok"; value: T } | { status: "lost" };\n`;
+	const foreign = `import type { Outcome as Other } from "./other.ts";
+export type Outcome<T> = Other<T>;
+`;
+	const plain = `export type Outcome = "lost" | "passed";\n`;
+	assert.deepEqual(
+		lint({
+			"apps/web/src/features/x/types.ts": specialized,
+			"apps/web/src/features/x/copy.ts": copy,
+			"apps/web/src/features/x/foreign.ts": foreign,
+			"apps/web/src/features/x/other.ts": copy.replace("Outcome", "Other"),
+			"apps/web/src/features/x/plain.ts": plain,
+			"packages/domain/src/m.ts": copy,
+			"packages/contracts/src/common/values.ts": copy,
+		}),
+		[
+			"apps/web/src/features/x/copy.ts:1 shared-outcome",
+			"apps/web/src/features/x/foreign.ts:2 shared-outcome",
+			"packages/domain/src/m.ts:1 shared-outcome",
+		],
+	);
+});
+
 test("INV-lint: comments inside SQL templates and query strings are reported, a listed marker is not", () => {
 	const source = `import { sql as q } from "drizzle-orm";
 export const sql = (s: TemplateStringsArray, ...v: unknown[]) => [s, v];
