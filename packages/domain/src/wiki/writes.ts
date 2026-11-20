@@ -206,7 +206,7 @@ async function saveReading(
 		return readingValue({
 			errorCode: null,
 			written: true,
-			revision: row.written_revision!,
+			revision: row.written_revision,
 			completed,
 			observedFraction: row.fraction ?? "0",
 			bookmarked: row.bookmarked === true,

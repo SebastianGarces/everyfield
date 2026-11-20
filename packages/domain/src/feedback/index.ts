@@ -4,6 +4,7 @@ import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
 import { liveRead, type RequestActor } from "../access/session.ts";
+import { queueJobsFor } from "../jobs/queue.ts";
 
 type Code = z.infer<typeof c.feedbackErrorCode>;
 class Refusal extends Error {
@@ -13,9 +14,9 @@ class Refusal extends Error {
 		this.code = code;
 	}
 }
-const deny = (code: Code): never => {
+function deny(code: Code): never {
 	throw new Refusal(code);
-};
+}
 async function settle<T>(body: () => Promise<T>): Promise<c.FeedbackReply<T>> {
 	try {
 		return { status: "ok", value: await body() };
@@ -62,7 +63,7 @@ function keyset(cursor: string | null): SQL {
 	if (!cursor) return sql`true`;
 	const found = after.safeParse(cursor);
 	if (!found.success) deny("invalid_input");
-	const [at, id] = found.data!;
+	const [at, id] = found.data;
 	return sql`(f.submitted_at, f.id) < (${at}::timestamptz, ${id}::uuid)`;
 }
 function page<T>(found: Record<string, unknown>[], item: (row: Record<string, unknown>) => T) {
@@ -139,7 +140,7 @@ async function replay(db: Pick<Database, "execute">, authority: RequestActor, re
  WHERE ${ownAccount(authority)} AND f.account_id=${authority.actor.accountId}::uuid AND f.request_key=${requestKey}::uuid`,
 	);
 	if (!row) deny("unavailable");
-	return submitted(row!);
+	return submitted(row);
 }
 const submitted = (row: Record<string, unknown>) =>
 	c.submittedFeedback.parse({
@@ -172,11 +173,7 @@ ins AS (
  FROM gate WHERE gate.ok
  ON CONFLICT (account_id, request_key) DO NOTHING
  RETURNING id, category, page_label, submitted_at
-), job AS (
- INSERT INTO job (tenant_id, kind, subject_record_id, producer_key, state, eligible_at, attempt_count, max_attempts,
-  claim_generation)
- SELECT ${account}::uuid, 'feedback_publication', id, 'feedback/' || id::text, 'ready', clock_timestamp(), 0, 4, 0 FROM ins
- RETURNING 1
+), job AS (${queueJobsFor(sql`ins`, { tenant: account, kind: "feedback_publication", keyPrefix: "feedback/" })}
 ), aud AS (
  INSERT INTO audit_event (tenant_id, actor_id, action, kind, subject_id)
  SELECT ${account}::uuid, ${account}::uuid, 'feedback.received', 'create', id FROM ins RETURNING 1
@@ -191,8 +188,8 @@ SELECT (SELECT ok FROM gate) AS ok, f.id, f.category, f.page_label, ${AT} AS at,
 FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
 			);
 			if (row?.ok !== true) deny("access_denied");
-			if (!row!.id) return replay(db, authority, input.requestKey);
-			return submitted(row!);
+			if (!row.id) return replay(db, authority, input.requestKey);
+			return submitted(row);
 		});
 	},
 
@@ -204,7 +201,7 @@ FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
  FROM (SELECT 1) one LEFT JOIN LATERAL (${seatLabels(authority)}) s ON true WHERE ${ownAccount(authority)}`,
 			);
 			if (!row) deny("access_denied");
-			return c.sendContext.parse({ church: row!.church ?? null, role: row!.role ?? null, replyTo: row!.email });
+			return c.sendContext.parse({ church: row.church ?? null, role: row.role ?? null, replyTo: row.email });
 		});
 	},
 
@@ -275,8 +272,8 @@ FROM (SELECT 1) one LEFT JOIN LATERAL (SELECT * FROM saved LIMIT 1) f ON true`,
  SELECT ${TRIAGE_COLUMNS}, f.account_id FROM feedback f WHERE g.ok AND f.id=${input.feedbackId}::uuid) f ON true`,
 			);
 			if (row?.ok !== true) deny("access_denied");
-			if (!row!.id) deny("unavailable");
-			return c.triageDetail.parse({ ...triageItem(row!), history: row!.history });
+			if (!row.id) deny("unavailable");
+			return c.triageDetail.parse({ ...triageItem(row), history: row.history });
 		});
 	},
 
@@ -304,13 +301,12 @@ SELECT (SELECT ok FROM gate) AS ok, cur.status, cur.revision::text AS revision, 
 FROM (SELECT 1) one LEFT JOIN cur ON true LEFT JOIN upd ON true`,
 			);
 			if (row?.ok !== true) deny("access_denied");
-			if (!row!.status) deny("unavailable");
-			if (row!.changed)
-				return c.statusChange.parse({ outcome: "changed", status: input.status, revision: row!.changed });
+			if (!row.status) deny("unavailable");
+			if (row.changed) return c.statusChange.parse({ outcome: "changed", status: input.status, revision: row.changed });
 			return c.statusChange.parse({
-				outcome: row!.status === input.status ? "unchanged" : "stale",
-				status: row!.status,
-				revision: row!.revision,
+				outcome: row.status === input.status ? "unchanged" : "stale",
+				status: row.status,
+				revision: row.revision,
 			});
 		});
 	},
