@@ -1348,6 +1348,12 @@
 			}
 		},
 		{
+			"files": ["src/features/launch/**", "src/features/meetings/**", "src/features/teams/**"],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
 			"files": ["src/app/layout.tsx"],
 			"rules": {
 				"everyfield/no-inner-html": "off"
