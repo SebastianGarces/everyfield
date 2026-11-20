@@ -168,12 +168,12 @@ FROM g`);
 				"Notes, stage move reasons, conversations, feedback, anything from a resident's own account, and progress a resident does not share.",
 			]) +
 			"\r\n";
-		return C.pipelineExport.parse({
+		return {
 			filename: `pipeline-${o.day}.csv`,
 			mediaType: "text/csv; charset=utf-8",
 			text: "﻿" + preamble + csvLine(COLUMNS) + programs + body,
 			people: row.people.length,
-		});
+		} satisfies z.output<typeof C.pipelineExport>;
 	});
 }
 

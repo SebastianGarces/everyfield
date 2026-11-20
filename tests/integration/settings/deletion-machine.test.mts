@@ -14,16 +14,14 @@ import {
 	reachable,
 	refusals,
 } from "../../../packages/contracts/src/machines/index.ts";
-import {
-	createLifecycleCleanup,
-	deletionOperations,
-	issueRestrictedDeletionSession,
-} from "../../../packages/domain/src/settings/index.ts";
-import { queueJobs } from "../../../apps/web/src/server/jobs/queue.ts";
+import { createLifecycleCleanup, deletionOperations } from "../../../packages/domain/src/settings/index.ts";
+import { issueRestrictedDeletionSession } from "../../../packages/domain/src/settings/deletion.ts";
+import { queueJobs } from "../../../packages/domain/src/jobs/queue.ts";
 import { readCurrentManifest, restoreWithCurrentManifest } from "../../../ops/maintenance/restore.mts";
 import { testDatabase } from "../../support/test-database.mts";
 import { seeds } from "../../support/fixture.mts";
 import { dropTarget, freezeClock, objectStore, operator, snapshot } from "../target/sql/knowledge/support.mts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const DAY = 86_400_000;
 const REQUESTED = new Date("2026-10-13T16:00:00.000Z");
@@ -113,7 +111,7 @@ async function request(w, pool = admin, executor = db) {
 	const table = w.subject.kind === "account" ? t.account : t.plant;
 	const [root] = await pool.select({ revision: table.revision }).from(table).where(eq(table.id, w.subject.id));
 	const session = await signIn(w.requester, pool);
-	return executor.transaction((tx) =>
+	return gatedTransaction(executor, (tx) =>
 		w.subject.kind === "account"
 			? api.requestAccountDeletion(tx, { session, selected: w.subject }, command({ confirmed: true }, root.revision))
 			: api.requestWorkspaceDeletion(
@@ -127,14 +125,14 @@ async function request(w, pool = admin, executor = db) {
 async function fire(w, row, event, facts) {
 	if (event === "account.requestDeletion" || event === "churches.requestWorkspaceDeletion") return request(w);
 	if (event === "account.cancelDeletion" || event === "churches.cancelWorkspaceDeletion") {
-		const proof = await admin.transaction((tx) =>
+		const proof = await gatedTransaction(admin, (tx) =>
 			issueRestrictedDeletionSession(tx, { subject: w.subject, requestId: row.request }, async () => ({
 				accountId: w.requester.id,
 				provenAt: new Date(),
 			})),
 		);
 		const input = command({ subject: w.subject, requestId: row.request }, row.revision);
-		return db.transaction((tx) =>
+		return gatedTransaction(db, (tx) =>
 			w.subject.kind === "account"
 				? api.cancelAccountDeletion(tx, proof, input)
 				: api.cancelWorkspaceDeletion(tx, proof, input),

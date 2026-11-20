@@ -13,6 +13,7 @@ import {
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { sessionId } from "../../../packages/contracts/src/common/index.ts";
+import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";
 
 const table = JSON.parse(readFileSync(new URL("../../../formal/permissions/outcomes.json", import.meta.url), "utf8"))
 	.rows as string[][];
@@ -49,7 +50,7 @@ after(async () => {
 });
 
 async function resolved(actor: Actor) {
-	const authority = await fx.pools.runtime.transaction((tx) =>
+	const authority = await gatedTransaction(fx.pools.runtime, (tx) =>
 		RequestActor.resolve(tx, sessionId.parse(actor.session)),
 	);
 	assert.ok(authority instanceof RequestActor, JSON.stringify(authority));

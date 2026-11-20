@@ -22,9 +22,9 @@ import "server-only";
 import { z } from "zod";
 import { reviewPath } from "../organizations/reviews/model.ts";
 import { milestonePath } from "../residency/model.ts";
-import { mailEnv } from "../../server/mail-env.ts";
-import { transaction } from "../../server/platform/database.ts";
+import { serverConfig, serverEnv } from "../../server/config.ts";
 import {
+	transaction,
 	MAIL_PASSES,
 	mailUnsubscribe,
 	runDueMail,
@@ -32,8 +32,6 @@ import {
 	type createMailService,
 	type MailPass,
 	type MailTransport,
-} from "../../server/jobs/mail.ts";
-import {
 	claimDue,
 	finishClaim,
 	finishJob,
@@ -41,12 +39,11 @@ import {
 	recoverLease,
 	type Claim,
 	type JobResult,
-} from "../../server/jobs/queue.ts";
-import {
 	accountNotificationService,
 	mountMailService,
 	seatedNotificationService,
-} from "../../server/jobs/seated-notifications.ts";
+} from "@everyfield/domain/jobs";
+import { logLine } from "@everyfield/domain/log";
 
 const NOTICES_PER_RUN = 20;
 const slotOf = (key: string) => reminderSlot.parse(key.split("/")[1]);
@@ -190,7 +187,7 @@ export function createNotificationWorker(config: {
 				});
 				if (outcome === "planned") sent++;
 			} catch {
-				console.error(JSON.stringify({ component: "notification", outcome: "error" }));
+				logLine({ component: "notification", outcome: "error" });
 				await finishJob(db, claim, { state: "retry_wait", code: "notification_failed" });
 			}
 		}
@@ -220,13 +217,16 @@ export async function authorizeNotificationMail(
 }
 
 let mounted: NotificationWorker | undefined;
-export function notificationsMount(db: Database | null): NotificationWorker | null {
-	const v = z.object(mailEnv).safeParse(process.env);
-	if (!db || !v.success) return null;
-	const origin = z.url().safeParse(process.env.IDENTITY_ORIGIN);
+export function notificationsMount(db: Database): NotificationWorker {
+	const config = serverConfig();
 	mounted ??= createNotificationWorker({
-		mail: mountMailService({ db, env: v.data, authorize: authorizeNotificationMail, unsubscribe: mailUnsubscribe() }),
-		origin: origin.success ? new URL(origin.data).origin : null,
+		mail: mountMailService({
+			db,
+			env: config,
+			authorize: authorizeNotificationMail,
+			unsubscribe: mailUnsubscribe(serverEnv()),
+		}),
+		origin: new URL(config.IDENTITY_ORIGIN).origin,
 	});
 	return mounted;
 }
@@ -238,14 +238,12 @@ const authorizeNoticeMail: AuthorizeMail = async (tx, mail) => {
 	return granted;
 };
 
-export function noticeMailPass(db: Database | null, transport: MailTransport): MailPass | null {
-	const v = z.object(mailEnv).safeParse(process.env);
-	if (!db || !v.success) return null;
+export function noticeMailPass(db: Database, transport: MailTransport): MailPass {
 	const mail = mountMailService({
 		db,
-		env: v.data,
+		env: serverConfig(),
 		authorize: authorizeNoticeMail,
-		unsubscribe: mailUnsubscribe(),
+		unsubscribe: mailUnsubscribe(serverEnv()),
 		transport,
 	});
 	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.notice, limit, until);

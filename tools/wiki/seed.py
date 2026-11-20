@@ -1,4 +1,3 @@
-"""Seed byte/hash boundary. No database access; call through bin/wiki."""
 import argparse
 import hashlib
 import json

@@ -2,26 +2,26 @@
 
 import { BookOpen02Icon, MessageEdit01Icon, Settings02Icon } from "@hugeicons/core-free-icons";
 import { DASHBOARD_HOME, LANDING_ROUTE, ORGANIZATION_HOME } from "@everyfield/contracts/identity";
-import { ToastProvider, useToast } from "@everyfield/ui/controls";
+import { toast, Toaster } from "@everyfield/ui/controls";
 import { initials } from "@everyfield/ui/display";
 import { AppShell, RoleBanner, type ShellNav } from "@everyfield/ui/shell";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
-import { useEvryPanel } from "../evry/conversation/EvryPanel.tsx";
-import { FeedbackDialog } from "../feedback/FeedbackDialog.tsx";
-import { OwnSeat } from "../identity/seat-context.ts";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useEvryPanel } from "../evry/conversation/panel.tsx";
+import { FeedbackOverlay, whenFeedbackLoaded } from "../feedback/FeedbackOverlay.tsx";
+import { OwnSeatContext } from "../identity/seat-context.ts";
 import { evryOff } from "../intelligence/path.ts";
 import { useNotificationBell } from "../notifications/Bell.tsx";
 import { NotificationsProvider } from "../notifications/feed.tsx";
 import { AccountMenu } from "../settings/AccountMenu";
 import { firstSection } from "../settings/model";
-import { SettingsOpener } from "../settings/opener";
+import { SettingsOpenerContext } from "../settings/opener";
 import { shellNav } from "./nav.ts";
-import { Residency, useResidency, type ResidencyState } from "../residency/context.ts";
+import { ResidencyContext, useResidency, type ResidencyState } from "../residency/context.ts";
 import type { SectionSeed, SettingsViewer } from "../settings/port";
 import { useProductSettings } from "../settings/ProductSettings";
 import type { Role } from "../people/server.ts";
-import { useWikiChrome, WikiChrome } from "../wiki/client.tsx";
+import { useWikiChrome, WikiChrome } from "../wiki/chrome.tsx";
 
 const ROLE: Record<Role, string> = { owner: "Owner", admin: "Admin", member: "Member" };
 
@@ -37,40 +37,42 @@ type FrameProps = {
 export function ProductFrame({ settings: initial, seed, residency = null, ...props }: FrameProps) {
 	const [left, setLeft] = useState<{ from: typeof residency } | null>(null);
 	const ended = left !== null && left.from === residency;
-	const residencyState: ResidencyState = {
-		linked: residency !== null && !ended,
-		ended,
-		left: () => setLeft({ from: residency }),
-	};
+	const residencyState = useMemo<ResidencyState>(
+		() => ({ linked: residency !== null && !ended, ended, left: () => setLeft({ from: residency }) }),
+		[residency, ended],
+	);
 	const [own, setOwn] = useState({ from: initial, settings: initial });
 	const settings = own.from === initial ? own.settings : initial;
-	const change = (role: Role | null) =>
-		setOwn(() => ({
-			from: initial,
-			settings:
-				!settings || settings.context === "account"
-					? settings
-					: role === null
-						? { context: "account", accountId: settings.accountId }
-						: { ...settings, role },
-		}));
+	const change = useCallback(
+		(role: Role | null) =>
+			setOwn(() => ({
+				from: initial,
+				settings:
+					!settings || settings.context === "account"
+						? settings
+						: role === null
+							? { context: "account", accountId: settings.accountId }
+							: { ...settings, role },
+			})),
+		[initial, settings],
+	);
 	return (
-		<ToastProvider>
-			<OwnSeat value={change}>
-				<Residency value={residencyState}>
+		<>
+			<Toaster />
+			<OwnSeatContext value={change}>
+				<ResidencyContext value={residencyState}>
 					<NotificationsProvider account={initial?.accountId ?? ""}>
 						<WikiChrome>
 							<Frame {...props} settings={settings} seed={settings === initial ? seed : null} />
 						</WikiChrome>
 					</NotificationsProvider>
-				</Residency>
-			</OwnSeat>
-		</ToastProvider>
+				</ResidencyContext>
+			</OwnSeatContext>
+		</>
 	);
 }
 
 function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
-	const toast = useToast();
 	const dialog = useProductSettings(settings, seed);
 	const pathname = usePathname();
 	const privatePage = evryOff(pathname);
@@ -115,7 +117,9 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 		key: "feedback",
 		label: "Send feedback",
 		icon: MessageEdit01Icon,
-		onSelect: () => setFeedback(true),
+		onSelect: () => {
+			whenFeedbackLoaded(() => setFeedback(true));
+		},
 	} as const;
 	const organization = settings?.context === "organization";
 	const rail = shellNav(
@@ -173,11 +177,11 @@ function Frame({ name, photo, settings, seed = null, children }: FrameProps) {
 			askEvryShortcut="Meta+J Control+J"
 			banner={banner}
 		>
-			<SettingsOpener value={dialog.open}>{children}</SettingsOpener>
+			<SettingsOpenerContext value={dialog.open}>{children}</SettingsOpenerContext>
 			{dialog.element}
 			{evry.element}
 			{bell.element}
-			<FeedbackDialog open={feedback} onOpenChange={setFeedback} name={name} />
+			<FeedbackOverlay open={feedback} onOpenChange={setFeedback} name={name} />
 		</AppShell>
 	);
 }

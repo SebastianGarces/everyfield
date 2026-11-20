@@ -11,15 +11,17 @@ Before, one step after another: Shared setup; Prettier; lint; `check-comments.mj
 `LibreOffice` cache restore; apt install; cache save (only when the package set changed); fonts and
 `soffice --version`; package unit tests.
 
-After:
+After (main dropped the separate `check-comments.mjs` step before this landed, since `pnpm lint` runs it, and moved
+the apt install into `tools/ci/libreoffice.ts`):
 
-1. `LibreOffice` cache restore, then `tools/ci/libreoffice.sh` (apt install, fonts, `soffice --version`) starts in the
-   background.
-2. Shared setup, while the install runs.
-3. One step: `node tools/ci/parallel.ts` runs Prettier, lint, `check-comments.mjs`, types and server log privacy at
-   once. Each output line carries its command's label (`[prettier]`, `[lint]`, `[lint-rules]`, `[types]`, `[logs]`),
-   each command ends with its exit code and time, and the last line names any failed command and its exit code.
-4. A step waits for the background install, prints its log and fails if the install failed.
+1. Shared setup. The installer is TypeScript and needs the job's Node, so it cannot start before setup.
+2. `LibreOffice` cache restore, then `tools/ci/libreoffice.sh` starts in the background: `tools/ci/libreoffice.ts`
+   (apt install with retries, bounded at 8 min by `timeout`), fonts and `soffice --version`.
+3. One step: `node tools/ci/parallel.ts` runs Prettier, lint, types and server log privacy at once. Each output line
+   carries its command's label (`[prettier]`, `[lint]`, `[types]`, `[logs]`), each command ends with its exit code
+   and time, and the last line names any failed command and its exit code.
+4. A step waits for the background install, prints its log, fails if the install failed and passes on the cache key
+   the installer wrote.
 5. The cache save, with the same key scheme, only when the package set changed.
 6. Package unit tests.
 
@@ -48,8 +50,8 @@ Median step times, successful jobs: checkout 4 s, Shared setup 16 s, Prettier 21
 Pending: the app job's run time on this change's own pull request CI runs (at least 2 green runs), read with
 `node tools/ci/ci-timing.ts`, with the per-step breakdown of the critical path.
 
-Locally (Apple silicon, many more cores than the runner), the five checks took 14.8 s together, against 13.5 s for
-the longest alone. On the 4 vCPU runner the five commands' CPU work is expected to saturate the cores, so the step
+Locally (Apple silicon, many more cores than the runner), the five checks of the first version (with `check-comments.mjs`) took 14.8 s together, against 13.5 s for
+the longest alone. On the 4 vCPU runner the four commands' CPU work is expected to saturate the cores, so the step
 should take longer than its longest command (types, 31 s).
 
 ## Re-measure after landing

@@ -2,12 +2,14 @@ import "server-only";
 import { z } from "zod";
 import { mailRecipientAllowed, type MailEnv } from "@everyfield/domain/mail-recipients";
 import { capture, captured, isCaptureId } from "../mail/capture.ts";
-import type { MailTransport, TransportOutcome } from "./mail.ts";
+import type { MailTransport, TransportOutcome } from "@everyfield/domain/jobs";
+import { serverEnv } from "../config.ts";
+import { logFailure } from "@everyfield/domain/log";
 const accepted = z.object({ id: z.string().min(1).max(128) });
 export function createResendTransport(
 	apiKey: string,
 	request: typeof fetch = fetch,
-	env: MailEnv = process.env,
+	env: MailEnv = serverEnv(),
 ): MailTransport {
 	if (!apiKey.trim()) throw Error("mail_provider_unconfigured");
 	async function call(path: string, init: RequestInit): Promise<Response> {
@@ -47,7 +49,8 @@ export function createResendTransport(
 				}
 				if ([400, 401, 403, 422].includes(response.status)) return { kind: "refused", retryable: false };
 				return { kind: "unknown" };
-			} catch {
+			} catch (error) {
+				logFailure({ component: "resend", outcome: "send_failed" }, error);
 				return { kind: "unknown" };
 			}
 		},
@@ -58,7 +61,8 @@ export function createResendTransport(
 				if (!response.ok) return { kind: "unknown" };
 				const parsed = accepted.safeParse(await response.json());
 				return parsed.success && parsed.data.id === id ? { kind: "accepted", id } : { kind: "unknown" };
-			} catch {
+			} catch (error) {
+				logFailure({ component: "resend", outcome: "lookup_failed" }, error);
 				return { kind: "unknown" };
 			}
 		},

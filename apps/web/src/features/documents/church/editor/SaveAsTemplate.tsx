@@ -25,7 +25,8 @@ import { Tag } from "@everyfield/ui/display";
 import { Icon } from "@everyfield/ui/foundations";
 import { useId, useState, useTransition, type FormEvent } from "react";
 import { createRead, useRead } from "../../../../components/read.tsx";
-import { listChurchTemplates, saveChurchTemplate, updateChurchTemplate } from "../actions.ts";
+import { saveChurchTemplate, updateChurchTemplate } from "../actions.ts";
+import { listChurchTemplates } from "../../fetch.ts";
 
 export const churchTemplates = createRead(
 	() => listChurchTemplates().then((result) => (result.status === "ok" ? result.templates : [])),
@@ -197,7 +198,7 @@ export function SaveAsTemplateDialog({
 										setChosen(next);
 										setError(null);
 									}}
-									className="max-h-72 gap-0 overflow-y-auto rounded-md px-3 shadow-[0_0_0_1px_var(--ef-line)]"
+									className="max-h-72 gap-y-0 overflow-y-auto rounded-md px-3 shadow-[0_0_0_1px_var(--ef-line)]"
 								>
 									{templates.map((t) => (
 										<Radio
@@ -207,7 +208,7 @@ export function SaveAsTemplateDialog({
 											label={
 												<span className="flex flex-wrap items-center gap-x-2 gap-y-1">
 													<span className="min-w-0 break-words">{t.title}</span>
-													<Tag className="h-[22px] px-2 text-xs">v{t.version}</Tag>
+													<Tag className="text-xs">v{t.version}</Tag>
 												</span>
 											}
 											description={t.description ?? undefined}

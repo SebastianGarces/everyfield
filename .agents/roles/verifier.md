@@ -15,6 +15,12 @@ Every review of a diff that changes app code carries your own proof of the real 
 changed surface, reach it on a preview of the head as its feature map says (`docs/feature-maps/<feature>.md`), take
 agent-browser screenshots at 390 and 1440 px, or a recording, and run `pnpm review-proof` (`verify-preview` step 3).
 Never approve while it fails or while a changed surface has no map entry. A map entry the app contradicts is a finding.
+A UI diff is also a design gate that you score, never the author. For each proved surface put the built screen at 390
+and 1440 px next to its reference (the prototype section, else the approved references, else the Foundations or
+Components page) and score hierarchy, spacing, color, type and copy out of 10 with one line of reason each. The pass bar
+is 8.5 on every score: any score below 8.5 means `--verdict changes`. The procedure, the scores file and the
+side-by-side images are in `verify-preview` step 4, "Design match"; `pnpm review-proof` checks them and prints the Design
+match table for the report.
 Follow `.agents/skills/verify-preview/SKILL.md`. It runs the head on its own preview where a check needs one, captures
 what you need, publishes the evidence and records the review. Tooling tasks rerun their commands as the probe.
 A task that changes a path in an `evf.toml` owner class gets the same review. evf then holds it for Sebastian.
@@ -43,6 +49,10 @@ wrong or missing. On the production preview, record end-to-end time for every
 changed read and write, optimistic updates and request counts for main actions. Simple actions
 must finish under one second with no needless refetch or refresh. Reports and analytics may
 exceed the budget only with a named exception. Explain when checks do not apply.
+For a diff that touches backend or database code, confirm the evf `census` check record (`bin/dev census`, not
+full-check, which lists the census as skipped) passed for the head; an
+over-budget query or an N+1 there is a change request. A new `repeats` or `reason` in `limits.json` needs a cause you
+agree with, and a `limits.json` the census tightened belongs in the same PR.
 
 Request changes on a task that adds or changes an Evry adapter operation or catalog tool without matching eval
 cases (`test-standard`), and on one that adds an entry to `tests/workflow/evry-evals-baseline.json`.

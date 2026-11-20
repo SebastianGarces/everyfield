@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Certificate01Icon, FileEditIcon, Undo02Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
 import { Button, Checkbox, Field, Input, Spinner, Textarea } from "@everyfield/ui/controls";
@@ -14,7 +15,6 @@ import {
 	problemText,
 	reasonError,
 	type AssignForm,
-	type Outcome,
 	type CorrectForm,
 	type CreateForm,
 	type PersonForm,
@@ -140,7 +140,6 @@ export function CorrectDialog({
 			/>
 			<Field label="Reason" hint="The reason stays in the history." error={touched ? reason : null}>
 				<Textarea
-					className={fieldText}
 					value={f.reason}
 					rows={3}
 					maxLength={REASON_MAX}

@@ -26,6 +26,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 2
+      - name: Shared setup (Node, pnpm, node_modules)
+        uses: ./.github/actions/setup
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - name: LibreOffice packages from the cache (the runner's Ubuntu mirror can be slow)
         id: libreoffice-debs
         uses: actions/cache/restore@v6
@@ -33,26 +37,22 @@ jobs:
           path: ~/libreoffice-debs
           key: libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2
           restore-keys: libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2-
-      - name: LibreOffice and the documents fonts start installing in the background, while setup and the static checks run
+      - name: LibreOffice (apt's archive cache in the restored directory) and the documents fonts start installing in the background, while the static checks run
         run: |
-          (set +e; bash tools/ci/libreoffice.sh > "$RUNNER_TEMP/libreoffice.log" 2>&1; echo $? > "$RUNNER_TEMP/libreoffice.status") < /dev/null > /dev/null 2>&1 &
+          (set +e; GITHUB_OUTPUT="$RUNNER_TEMP/libreoffice.out" bash tools/ci/libreoffice.sh "${{ runner.arch }}" > "$RUNNER_TEMP/libreoffice.log" 2>&1; echo $? > "$RUNNER_TEMP/libreoffice.status") < /dev/null > /dev/null 2>&1 &
           echo $! > "$RUNNER_TEMP/libreoffice.pid"
-      - name: Shared setup (Node, pnpm, node_modules)
-        uses: ./.github/actions/setup
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Prettier, lint, lint rule coverage, types and server log privacy at once (each line names its command)
+      - name: Prettier, lint, types and server log privacy at once (each line names its command)
         run: |
           node tools/ci/parallel.ts \
             "prettier=pnpm format:check" \
             "lint=pnpm lint" \
-            "lint-rules=node scripts/lint/check-comments.mjs" \
             "types=pnpm typecheck" \
             "logs=pnpm test:logs"
         env:
           NEXT_TELEMETRY_DISABLED: "1"
       - name: LibreOffice and the fonts installed (waits for the background install and prints its log)
         id: libreoffice
+        timeout-minutes: 8
         run: |
           tail --pid="$(cat "$RUNNER_TEMP/libreoffice.pid")" -f /dev/null
           cat "$RUNNER_TEMP/libreoffice.log"
@@ -61,8 +61,7 @@ jobs:
             echo "::error::The background LibreOffice install failed (exit $status); its log is above."
             exit 1
           fi
-          debs="$HOME/libreoffice-debs"
-          echo "key=libreoffice-debs-ubuntu-24.04-${{ runner.arch }}-writer-calc-v2-$(find "$debs" -maxdepth 1 -name '*.deb' -printf '%f\n' | sort | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/libreoffice.out" >> "$GITHUB_OUTPUT"
       - name: LibreOffice packages saved to the cache (only when this run's set differs from the restored one)
         if: ${{ steps.libreoffice.outputs.key != steps.libreoffice-debs.outputs.cache-matched-key }}
         uses: actions/cache/save@v6
@@ -288,6 +287,18 @@ jobs:
         run: node --test tests/integration/writes/statements.test.mts
         env:
           EVF_CENSUS_UNION: ${{ runner.temp }}/census
+          EVF_CENSUS_TIGHTENED: ${{ runner.temp }}/tightened
+      - name: Tightened statement budgets in the job summary (slack never fails; commit the file in this PR)
+        if: ${{ !cancelled() }}
+        run: if [ -f "$RUNNER_TEMP/tightened/changes.md" ]; then cat "$RUNNER_TEMP/tightened/changes.md" >> "$GITHUB_STEP_SUMMARY"; fi
+      - name: Tightened limits.json
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: tightened-limits
+          path: ${{ runner.temp }}/tightened
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Every check passed
         if: always()
         env:

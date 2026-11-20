@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { onboardingEntry } from "./mount";
-import { ownResidencyLinks } from "@/server/organizations";
+import { ownResidencyLinks } from "../organizations/mount";
 import { getViewer } from "@/server/request-context";
+import { signIn } from "@/server/sign-in";
 import { ORGANIZATION_HOME } from "@everyfield/contracts/identity";
 import { FOUNDATION_ARTICLES } from "./foundations";
 import { addressStep, initialState, parseStep } from "./model";
@@ -14,10 +15,10 @@ export const onboardingMetadata: Metadata = { title: "Set up your church", robot
 type Search = Promise<Record<string, string | string[] | undefined>>;
 export async function OnboardingPage({ searchParams }: { searchParams: Search }) {
 	const viewer = await getViewer();
-	const context = viewer?.authority?.actor.context;
+	const context = viewer.authority?.actor.context;
 	if (context?.kind === "seat" && context.owner.kind === "organization") redirect(ORGANIZATION_HOME);
-	const load = parseEntry(await onboardingEntry());
-	if (load.kind === "signed_out") redirect("/signin?returnTo=%2Fonboarding");
+	const load = parseEntry(await onboardingEntry(await getViewer()));
+	if (load.kind === "signed_out") signIn("/onboarding");
 	const raw = (await searchParams).step;
 	const requested = parseStep(typeof raw === "string" ? raw : null);
 	const step = addressStep(initialState(load.entry, requested));

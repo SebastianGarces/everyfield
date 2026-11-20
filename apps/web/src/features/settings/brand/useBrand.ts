@@ -6,6 +6,7 @@ import { errorReference } from "../model";
 import type { BrandKit, BrandView } from "../port";
 import { useReads } from "../store";
 import { BRAND_ERROR_TEXT } from "./model";
+import { READ_FAILED, READ_FAILED_ICON } from "../../../components/read-failed.ts";
 
 export function useBrand(): {
 	state: Loadable<BrandView>;
@@ -23,10 +24,13 @@ export function useBrand(): {
 				: {
 						status: "error",
 						title: "The brand kit did not load",
+						...(reply.status === "failed" ? { text: READ_FAILED, icon: READ_FAILED_ICON } : {}),
 						meta:
-							reply.status === "refused"
-								? `${BRAND_ERROR_TEXT[reply.error.code]} Reference ${errorReference(reply.error)}.`
-								: "Everyfield could not be reached. Check your connection.",
+							reply.status === "failed"
+								? undefined
+								: reply.status === "refused"
+									? `${BRAND_ERROR_TEXT[reply.error.code]} Reference ${errorReference(reply.error)}.`
+									: "Everyfield could not be reached. Check your connection.",
 						onRetry: read.retry,
 					};
 	return {

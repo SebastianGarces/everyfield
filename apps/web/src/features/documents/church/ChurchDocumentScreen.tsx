@@ -30,7 +30,7 @@ const ChurchEditor = dynamic(() => import("./editor/ChurchEditor.tsx"), {
 			<span className="sr-only" role="status">
 				Loading the editor
 			</span>
-			<Skeleton className="h-12 w-full rounded-card" />
+			<Skeleton className="h-12 w-full" />
 			<Skeleton className="mx-auto aspect-[612/792] w-full max-w-[816px] rounded-none" />
 		</div>
 	),

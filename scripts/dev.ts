@@ -11,19 +11,29 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
   dev stack status|check|down [--project <path>]
   dev logs [--project <path>] [args...]    portless preview logs of this worktree's preview
   dev check [--full]    the local checks this change needs (authors), or every check (--full, verifiers); writes a
-        checks.json record outside the repo and prints its path. Selection reads the coverage map of the latest
+        checks.json record outside the repo and prints its path. It rewrites the record as each check starts
+        ("complete": false, "running": <check>), so a run killed by a timeout names its check. Selection reads the coverage map of the latest
         green GitHub nightly (.github/workflows/nightly.yml), downloaded with gh; without one it runs everything
-        checks: lint, typecheck, test:unit, test:db, docs, ci-coverage, workflow, tools-ci, tools-qa, tools-app, github-scripts, ops-watch
+        --full takes about 9 minutes alone and about 15 minutes each with six evf check slots side by side, test:db
+        on Docker Postgres included. Neither form runs the statement census: it runs as the census check
+        (bin/dev census), and the record lists it as skipped with that reason
+        checks: lint, typecheck, test:unit, test:db, census, docs, ci-coverage, workflow, tools-ci, tools-qa, tools-app, github-scripts, ops-watch
         test:db runs the selected packages' database tests on a throwaway local Postgres (CI's image in Docker,
         removed when the run ends), so it needs Docker; it never uses the shared development database
         check first removes orphaned qa-test-* containers: older than EVERYFIELD_QA_SWEEP_MINUTES (default 120)
         and owned by no live run
-        GitHub CI also runs: format:check, test:logs, the statement census with the one build then server-trace,
-        schema generate --check, wiki
+        GitHub CI also runs: format:check, the statement census in parts with the one build then server-trace,
+        schema generate --check, wiki; the GitHub nightly runs test:logs
         The GitHub nightly also runs: every selectable test under coverage, typecheck:bun (bun check, until T-53),
         the tests/ui set in chromium and webkit on a seeded build over its own Postgres (scripts/nightly-ui.ts), and
         the formal replay: permissions behaviors from a fresh random seed replayed on its own Postgres; a disagreement
         files the seed (scripts/nightly-formal.ts [--seed <n>], .agents/skills/formal-permissions/SKILL.md)
+  dev census [--all]    the statement census, the evf census check (evf.toml, its own 20-minute timeout): a
+        production build, then the whole statement census (HTTP request budgets included) on its own throwaway
+        Postgres, when the diff since the merge base of origin/main touches backend or database code; else it exits 0
+        and says why it skipped. --all runs it regardless of the diff. Over budget, N+1 and a missing budget fail it;
+        slack, stale reasons and a retry with no retry budget only tighten tests/integration/writes/limits.json in the
+        worktree, so commit that file. Writes a census.json record next to checks.json and prints its path
   dev nightly           runs tests/ui on a preview of origin/main, one engine at a time; skips when the machine is
         loaded or no preview slot is free. The GitHub nightly runs the same set too; this stays the local run until
         it is retired. The coverage map comes from the GitHub nightly, not from this
@@ -36,6 +46,9 @@ const HELP = `Browser runs, the local preview stack, its logs and the fast pre-p
         of origin/main (else main), in seconds, with no database, stack or network. Prints each fix command. Its
         formal step fails a branch that changes a file in a .agents/skills/formal-*/map.json without that map or its
         model, unless a branch commit has the trailer "Formal-model: unchanged"
+  dev checklist [--base <ref>]   prints each docs/reliability-checklist.json item whose trigger matches the diff since
+        the merge base of origin/main (else main): path globs match changed paths, the regex matches added lines.
+        Verifiers answer each printed item in the review report; it never blocks landing
   app help                                 interactive browser checks of this worktree's app (bin/app: agent-browser
         underneath, one line per result, one session, a local seeded app with app up)
   dev hooks install                        points this repo's core.hooksPath at tools/git-hooks (pnpm install does it)
@@ -116,6 +129,14 @@ async function fastCheckCommand(args: string[]): Promise<number> {
 	return report.ok ? 0 : 1;
 }
 
+async function checklistCommand(args: string[]): Promise<number> {
+	const options = [...args],
+		base = take(options, "--base");
+	if (options.length) return usage();
+	console.log((await import("./checklist.ts")).checklist(root, base));
+	return 0;
+}
+
 const HOOKS = "tools/git-hooks";
 
 function hooks(args: string[]): number {
@@ -144,10 +165,14 @@ async function main([command, ...args]: string[]): Promise<number> {
 			return logs(args);
 		case "check":
 			return (await import("./check.ts")).checkCommand(args, root);
+		case "census":
+			return (await import("./check.ts")).censusCommand(args, root);
 		case "nightly":
 			return (await import("./nightly.ts")).nightlyCommand(args);
 		case "fast-check":
 			return fastCheckCommand(args);
+		case "checklist":
+			return checklistCommand(args);
 		case "formal":
 			return (await import("../tools/formal/formal.ts")).formalCommand(args, root);
 		case "hooks":

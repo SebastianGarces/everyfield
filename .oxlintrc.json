@@ -41,12 +41,29 @@
 		"typescript/prefer-namespace-keyword": "error",
 		"typescript/triple-slash-reference": "error",
 		"everyfield/resend-senders": "error",
+		"everyfield/raw-sql-literal": "error",
+		"everyfield/request-actor": "error",
+		"everyfield/provider-key-mint": "error",
 		"everyfield/no-comments": "error",
+		"everyfield/server-log": "error",
 		"everyfield/no-effects": "error",
+		"everyfield/stable-context-value": "error",
+		"everyfield/storage-client": "error",
+		"everyfield/deployment-env": "error",
+		"everyfield/server-config": "error",
+		"everyfield/no-silent-catch": "error",
 		"everyfield/max-state": "error",
-		"everyfield/no-sql-comments": "error"
+		"everyfield/mint-callers": "error",
+		"everyfield/no-sql-comments": "error",
+		"everyfield/no-slop-styling": "error"
 	},
 	"overrides": [
+		{
+			"files": ["packages/*/src/**"],
+			"rules": {
+				"everyfield/no-error-message-match": "error"
+			}
+		},
 		{
 			"files": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
 			"rules": {
@@ -98,6 +115,25 @@
 			}
 		},
 		{
+			"files": [
+				"tests/workflow/**/*.ts",
+				"tests/unit/**/*.mts",
+				"tests/ui/**/*.mts",
+				"tests/integration/dashboard/**",
+				"tests/integration/feedback/**",
+				"tests/integration/notifications/**",
+				"tests/integration/platform/**",
+				"tests/integration/writes/**",
+				"tests/integration/branding/**",
+				"tests/integration/flags/**",
+				"tests/integration/oversight/**",
+				"tests/integration/phases/**"
+			],
+			"rules": {
+				"typescript/no-explicit-any": "error"
+			}
+		},
+		{
 			"files": ["tests/**/*.cjs"],
 			"rules": {
 				"typescript/no-require-imports": "off"
@@ -108,7 +144,33 @@
 			"rules": {
 				"everyfield/no-timers": "error",
 				"everyfield/no-render-writes": "error",
-				"everyfield/feature-boundaries": "error"
+				"everyfield/no-render-get-state": "error",
+				"everyfield/feature-boundaries": "error",
+				"everyfield/table-writers": "error"
+			}
+		},
+		{
+			"files": [
+				"packages/contracts/src/**",
+				"packages/reference/src/**",
+				"packages/ui/src/**",
+				"packages/evry/src/**",
+				"packages/domain/src/access/**",
+				"packages/domain/src/feedback/**",
+				"packages/domain/src/flags/**",
+				"packages/domain/src/followups/**",
+				"packages/domain/src/identity/**",
+				"packages/domain/src/jobs/**",
+				"packages/domain/src/launch/**",
+				"packages/domain/src/operations/**",
+				"packages/domain/src/oversight/**",
+				"packages/domain/src/phases/**",
+				"packages/domain/src/settings/**",
+				"packages/domain/src/teams/**",
+				"packages/domain/src/wiki/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
 			}
 		},
 		{
@@ -124,7 +186,7 @@
 			}
 		},
 		{
-			"files": ["packages/domain/src/mail-recipients.ts"],
+			"files": ["packages/domain/src/mail-recipients.ts", "packages/db/src/deployment.ts"],
 			"rules": {
 				"everyfield/pure-module": "error"
 			}
@@ -171,6 +233,7 @@
 				"everyfield/no-inner-html": "error",
 				"everyfield/no-cursor-utility": "error",
 				"everyfield/no-global-listeners": "error",
+				"everyfield/no-raw-history": "error",
 				"jsx-a11y/no-static-element-interactions": "error",
 				"jsx-a11y/click-events-have-key-events": "error"
 			}
