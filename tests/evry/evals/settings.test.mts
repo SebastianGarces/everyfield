@@ -19,8 +19,8 @@ import {
 	type NativePorts,
 	type Proposal,
 } from "../../../packages/evry/src/index.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { createSeatService } from "../../../packages/domain/src/identity/index.ts";
 import { readPlantSharing } from "../../../packages/domain/src/organizations/index.ts";
 import { nativePorts } from "./settings-ports.mts";

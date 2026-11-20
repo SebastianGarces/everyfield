@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import {
 	Add01Icon,
@@ -57,7 +58,6 @@ import {
 	type ObligationItem,
 	type OutcomeItem,
 	type OutcomeMutation,
-	type Outcome,
 } from "./model.ts";
 import { actorName, EntryFacts, LastContact, OutcomeBadge } from "./parts.tsx";
 import {
@@ -70,6 +70,8 @@ import {
 	type SaveIntent,
 } from "../../components/save/parts.tsx";
 import type { PersonFollowUps } from "./server.ts";
+import { READ_FAILED } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 export function PersonFollowUps({
 	initial,
@@ -279,7 +281,7 @@ function ContactLogCard({
 }) {
 	const [log, setLog] = useState(initial);
 	const [editing, setEditing] = useState<Editing | null>(null);
-	const [more, setMore] = useState<"idle" | "loading" | "failed">("idle");
+	const [more, setMore] = useState<"idle" | "loading" | "lost" | "failed">("idle");
 	const lane = useSaveIntent({ explain: problemText });
 	const first = person.label.split(" ")[0] || person.label;
 	const saved = (m: OutcomeMutation) =>
@@ -307,7 +309,7 @@ function ContactLogCard({
 		if (!next || more === "loading") return;
 		setMore("loading");
 		const r = await loadHistory(person.id, next);
-		if (r.status !== "ok") return setMore("failed");
+		if (r.status !== "ok") return setMore(r.status === "failed" ? "failed" : "lost");
 		setMore("idle");
 		setLog((l) =>
 			l
@@ -418,7 +420,7 @@ function ContactLogCard({
 								Show earlier
 							</Button>
 							<span aria-live="polite" className="text-xs text-text-3 empty:hidden">
-								{more === "failed" ? "Earlier entries did not load. Try again." : ""}
+								{more === "failed" ? READ_FAILED : more === "lost" ? "Earlier entries did not load. Try again." : ""}
 							</span>
 						</div>
 					) : null}
@@ -594,25 +596,25 @@ function OutcomeDialog({
 type More = {
 	next: number | null;
 	loading: boolean;
-	failed: boolean;
+	missed: "lost" | "failed" | null;
 	more: () => void;
 	reset: (next: number | null) => void;
 };
 function useMore<T>(
 	first: number | null,
-	load: (page: number) => Promise<Outcome<{ items: T[]; next: number | null }>>,
+	load: (page: number) => Promise<Outcome<{ items: T[]; next: number | null }> | ReadFailure>,
 	add: (items: T[]) => void,
 ): More {
 	const [next, setNext] = useState(first);
 	const generation = useRef(0);
-	const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
+	const [state, setState] = useState<"idle" | "loading" | "lost" | "failed">("idle");
 	async function more() {
 		if (next === null || state === "loading") return;
 		setState("loading");
 		const started = generation.current;
 		const r = await load(next);
 		if (started !== generation.current) return;
-		if (r.status !== "ok") return setState("failed");
+		if (r.status !== "ok") return setState(r.status === "failed" ? "failed" : "lost");
 		add(r.value.items);
 		setNext(r.value.next);
 		setState("idle");
@@ -622,7 +624,13 @@ function useMore<T>(
 		setNext(first);
 		setState("idle");
 	}
-	return { next, loading: state === "loading", failed: state === "failed", more, reset };
+	return {
+		next,
+		loading: state === "loading",
+		missed: state === "lost" || state === "failed" ? state : null,
+		more,
+		reset,
+	};
 }
 function ShowMore({ more, what }: { more: More; what: string }) {
 	if (more.next === null) return null;
@@ -632,7 +640,7 @@ function ShowMore({ more, what }: { more: More; what: string }) {
 				Show more {what}
 			</Button>
 			<span aria-live="polite" className="text-xs text-text-3 empty:hidden">
-				{more.failed ? `More ${what} did not load. Try again.` : ""}
+				{more.missed === "failed" ? READ_FAILED : more.missed ? `More ${what} did not load. Try again.` : ""}
 			</span>
 		</div>
 	);

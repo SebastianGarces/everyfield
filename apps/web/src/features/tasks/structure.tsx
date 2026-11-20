@@ -27,6 +27,7 @@ import {
 } from "./model.ts";
 import { DoneBox } from "./parts.tsx";
 import { warmAssignees } from "./AssigneePicker.tsx";
+import { READ_FAILED, loadProblem } from "../../components/read-failed.ts";
 
 export function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
 	return (
@@ -177,10 +178,10 @@ function AddStep({
 	const [title, setTitle] = useState("");
 	const [who, setWho] = useState(INHERIT);
 	const [touched, setTouched] = useState(false);
-	const [seats, setSeats] = useState<{ value: string; label: string }[] | "loading" | "failed" | null>(null);
+	const [seats, setSeats] = useState<{ value: string; label: string }[] | "loading" | "lost" | "failed" | null>(null);
 	const input = useRef<HTMLInputElement>(null);
 	const warm = () => {
-		if (seats !== null && seats !== "failed") return;
+		if (seats !== null && seats !== "lost" && seats !== "failed") return;
 		setSeats("loading");
 		warmAssignees().then((r) =>
 			setSeats(
@@ -189,7 +190,9 @@ function AddStep({
 							value: s.accountId,
 							label: s.accountId === you ? `${s.displayName} (you)` : s.displayName,
 						}))
-					: "failed",
+					: r.status === "failed"
+						? "failed"
+						: "lost",
 			),
 		);
 	};
@@ -240,7 +243,13 @@ function AddStep({
 				<span className="contents" onPointerOver={warm} onFocusCapture={warm}>
 					<Field
 						label="Assigned to"
-						hint={seats === "failed" ? "The list of people did not load. Open the list again to retry." : undefined}
+						hint={
+							seats === "failed"
+								? READ_FAILED
+								: seats === "lost"
+									? "The list of people did not load. Open the list again to retry."
+									: undefined
+						}
 					>
 						<Select
 							value={who}
@@ -457,7 +466,9 @@ function PrerequisiteEditor({
 						<Spinner size={14} /> Looking for tasks…
 					</p>
 				) : found === "failed" ? (
-					<p className="px-1 py-2 text-sm text-magenta-600">The tasks did not load. Change the search to try again.</p>
+					<p className="px-1 py-2 text-sm text-magenta-600">
+						{loadProblem(read.value, "The tasks did not load. Change the search to try again.")}
+					</p>
 				) : offered.length === 0 ? (
 					<p className="px-1 py-2 text-sm text-text-3">
 						{search ? "No other task matches." : "No other task can be added."}

@@ -87,6 +87,20 @@
 	font-size: --value(--text-*);
 }
 
+@utility mk-eyebrow {
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+}
+
+@utility mk-label {
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+}
+
+@utility mk-counter {
+	letter-spacing: 0.06em;
+}
+
 @utility mk-display {
 	font-weight: 400;
 	letter-spacing: -0.02em;
@@ -440,6 +454,10 @@
 			rgb(from var(--ld) r g b / 0.82)
 		);
 	}
+}
+
+@utility mk-caret-fill {
+	background-image: linear-gradient(var(--color-ink), var(--color-ink));
 }
 
 @utility mk-hatch {

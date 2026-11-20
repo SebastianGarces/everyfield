@@ -20,7 +20,7 @@ import "server-only";
 import { z } from "zod";
 import { serverConfig, type ServerConfig } from "../../server/config.ts";
 import { database } from "../../server/database";
-import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "../../server/jobs/mail";
+import { createMailService, MAIL_PASSES, runDueMail, type MailPass, type MailTransport } from "@everyfield/domain/jobs";
 import { getViewer } from "../../server/request-context";
 import { invitationLink } from "../../server/invitations";
 

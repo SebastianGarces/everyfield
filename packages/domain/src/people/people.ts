@@ -175,9 +175,9 @@ async function handoff(
 			return { id: duty.id, account: null };
 		}
 		const target = targets.find((target) => target.id === choice.toPersonId);
-		if (!target || target.state !== "live") deny();
+		if (!target || target.state !== "live") deny("unavailable");
 		if (target.id === p.id) deny("invalid_subject");
-		if (!seats.some((seat) => seat === target.linked_account_id)) deny();
+		if (!seats.some((seat) => seat === target.linked_account_id)) deny("unavailable");
 		return { id: duty.id, account: target.linked_account_id };
 	});
 	if (changes.length) {
@@ -209,7 +209,7 @@ async function handoff(
 export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 	async createPerson(tx, ctx, raw) {
 		return reply(tx, async () => {
-			if (ctx.selected.kind !== "plant") deny();
+			if (ctx.selected.kind !== "plant") deny("unavailable");
 			const input = parse(c.createPersonRequest, raw);
 			return c.plantPersonMutationResult.parse(
 				await mutation(tx, ctx, "people.createPerson", input, async (_a, id, audit) => {
@@ -226,7 +226,7 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 	},
 	async updatePerson(tx, ctx, raw) {
 		return reply(tx, async () => {
-			if (ctx.selected.kind !== "plant") deny();
+			if (ctx.selected.kind !== "plant") deny("unavailable");
 			const input = parse(c.updatePersonRequest, raw);
 			return c.plantPersonMutationResult.parse(
 				await mutation(tx, ctx, "people.updatePerson", input, async (_a, id, audit) => {
@@ -251,7 +251,7 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 	},
 	async changeStatus(tx, ctx, raw, reminders) {
 		return reply(tx, async () => {
-			if (ctx.selected.kind !== "plant") deny();
+			if (ctx.selected.kind !== "plant") deny("unavailable");
 			const input = parse(c.changeStatusRequest, raw);
 			return c.plantPersonMutationResult.parse(
 				await mutation(tx, ctx, "people.changeStatus", input, async (_a, id, audit) => {
@@ -310,14 +310,14 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 	},
 	async retirePerson(tx, ctx, raw, reminders) {
 		return reply(tx, async () => {
-			if (ctx.selected.kind !== "plant") deny();
+			if (ctx.selected.kind !== "plant") deny("unavailable");
 			const input = parse(c.retirePersonRequest, raw);
 			return c.plantPersonMutationResult.parse(await retire(tx, ctx, input, reminders));
 		});
 	},
 	async restorePerson(tx, ctx, raw) {
 		return reply(tx, async () => {
-			if (ctx.selected.kind !== "plant") deny();
+			if (ctx.selected.kind !== "plant") deny("unavailable");
 			const input = parse(c.restorePersonRequest, raw);
 			return c.plantPersonMutationResult.parse(await restore(tx, ctx, input));
 		});
@@ -348,7 +348,7 @@ export const peopleWriter: PeopleWriter<Tx, TaskReminders> = {
 	},
 	async reorderPipeline(tx, ctx, raw) {
 		return reply(tx, async () => {
-			if (ctx.selected.kind !== "plant") deny();
+			if (ctx.selected.kind !== "plant") deny("unavailable");
 			const input = parse(c.reorderPipelineRequest, raw);
 			return pipelineOrder(tx, ctx, input);
 		});
@@ -518,7 +518,7 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 				let participation: string | null = null;
 				if (meetingId) {
 					const r = z.array(z.uuid()).parse(row.participations);
-					if (r.length !== 1) deny();
+					if (r.length !== 1) deny("unavailable");
 					participation = r[0]!;
 				}
 				if (!("body" in input.input)) deny("invalid_input");
@@ -537,7 +537,7 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 				);
 			} else {
 				const found = lockedNote.nullable().parse(row.note);
-				if (!found || found.author_id !== actor) deny();
+				if (!found || found.author_id !== actor) deny("unavailable");
 				if (found.revision !== input.expectedRevision) deny("conflict");
 				const body = kind === "delete" ? "" : "body" in input.input ? input.input.body : deny("invalid_input");
 				audit.events.push({
@@ -592,7 +592,7 @@ async function note(tx: Tx, ctx: WriteContext, input: NoteInput, kind: "add" | "
 }
 async function classify(tx: Tx, ctx: WriteContext, raw: unknown, correction: boolean) {
 	return reply(tx, async () => {
-		if (ctx.selected.kind !== "plant") deny();
+		if (ctx.selected.kind !== "plant") deny("unavailable");
 		const input = parse(c.classifyAdultRequest, raw);
 		return c.plantPersonMutationResult.parse(
 			await mutation(
@@ -694,7 +694,7 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 		return replyWithoutSavepoint(tx, async () => {
 			const input = raw,
 				selected = owner.parse(input.owner);
-			if (selected.kind !== "plant") deny();
+			if (selected.kind !== "plant") deny("unavailable");
 			const ctx = { selected };
 			let reviewed: string | null = null,
 				candidates: string[] = [],
@@ -725,7 +725,7 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 					${looks ? sql`(SELECT coalesce(json_agg(f.id ORDER BY f.id),'[]') FROM found f)` : sql`'[]'::json`} AS found
 					${reviewed ? sql`, s.*` : sql``} FROM (SELECT 1) seed ${reviewed ? sql`LEFT JOIN subject s ON true` : sql``}`);
 				row = r.rows[0]!;
-				if (!z.object({ accounts: z.number() }).parse(row).accounts) deny();
+				if (!z.object({ accounts: z.number() }).parse(row).accounts) deny("unavailable");
 				const exact = z.array(z.uuid()).parse(row.exact);
 				if (exact.length)
 					return c.accountPersonResolution.parse({
@@ -744,11 +744,11 @@ export const accountPersonProducer: AccountPersonProducer<Tx> = {
 			const writes: SQLWrapper[] = [];
 			let before: Person | undefined, linked: Person;
 			if (input.selection.kind === "reviewed_contact") {
-				if (!reviewed || row.id === null) deny();
+				if (!reviewed || row.id === null) deny("unavailable");
 				before = personRow.parse(row);
 				live(before);
 				expected(before, input.selection.person.revision);
-				if (before.linked_account_id || !candidates.includes(before.id)) deny();
+				if (before.linked_account_id || !candidates.includes(before.id)) deny("unavailable");
 				linked = personRow.parse({
 					...before,
 					linked_account_id: input.accountId,

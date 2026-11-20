@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Add01Icon } from "@hugeicons/core-free-icons";
 import { accountId, personId } from "@everyfield/contracts/common";
@@ -30,15 +31,7 @@ import { AssigneePicker, forgetAssignees } from "../tasks/AssigneePicker.tsx";
 import { dueText, ownerText, ownerWarning } from "../tasks/model.ts";
 import { assignFollowUp, createFollowUp } from "./actions.ts";
 import { forgetOwners, ownerList, prefetchOwners, warmOn } from "./fetch.ts";
-import {
-	needsOwner,
-	OUTCOME_LABEL,
-	originText,
-	type Account,
-	type DutyItem,
-	type Outcome,
-	type Owner,
-} from "./model.ts";
+import { needsOwner, OUTCOME_LABEL, originText, type Account, type DutyItem, type Owner } from "./model.ts";
 import {
 	DialogNotice,
 	NoticeInDialog,
@@ -46,6 +39,8 @@ import {
 	useProblemFocus,
 	type SaveIntent,
 } from "../../components/save/parts.tsx";
+import { loadProblem } from "../../components/read-failed.ts";
+import type { ReadFailure } from "../../components/get-reads.ts";
 
 type TaskDetail = z.infer<typeof tc.taskDetail>;
 
@@ -71,7 +66,7 @@ export function dutyFrom(task: TaskDetail, previous?: DutyItem): DutyItem {
 	};
 }
 
-function useOwners(active: boolean): Outcome<Account[]> | null {
+function useOwners(active: boolean): Outcome<Account[]> | ReadFailure | null {
 	return useRead(active ? ownerList : null).value ?? null;
 }
 
@@ -134,7 +129,7 @@ function OwnerLines({
 										</div>
 									) : owners.status !== "ok" ? (
 										<p className="px-3 py-2 text-sm text-text-2" role="status">
-											The owners did not load. Close this menu and try again.
+											{loadProblem(owners, "The owners did not load. Close this menu and try again.")}
 										</p>
 									) : (
 										<MenuRadioGroup

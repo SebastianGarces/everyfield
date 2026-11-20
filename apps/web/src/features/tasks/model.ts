@@ -1,7 +1,9 @@
+import type { Outcome as Shared } from "@everyfield/contracts/common";
 import { recordId } from "@everyfield/contracts/common";
 import type * as c from "@everyfield/contracts/tasks";
 import type { z } from "zod";
 import { MONTHS } from "../../components/dates.ts";
+import { READ_FAILED } from "../../components/read-failed.ts";
 
 export type Status = z.infer<typeof c.taskStatus>;
 export type Priority = z.infer<typeof c.priority>;
@@ -38,10 +40,7 @@ export type Saved = {
 	successor?: TaskDetail | null;
 };
 
-export type Outcome<T> =
-	| { status: "ok"; value: T }
-	| { status: "refused"; code: TaskError["code"] | "access_denied"; error?: TaskError }
-	| { status: "lost" };
+export type Outcome<T> = Shared<T, TaskError["code"] | "access_denied", { error?: TaskError }>;
 
 export const STATUSES = ["not_started", "in_progress", "blocked", "complete", "no_longer_needed"] as const;
 export const OPEN_STATUSES = ["not_started", "in_progress", "blocked"] as const satisfies readonly Status[];
@@ -456,7 +455,7 @@ export function groupsOf(items: TaskItem[], sort: TaskQuery["sort"]): Group[] {
 }
 
 export function problemText(
-	code: Outcome<unknown>["status"] | TaskError["code"] | "access_denied",
+	code: Outcome<unknown>["status"] | "failed" | TaskError["code"] | "access_denied",
 	name?: string | null,
 ): string {
 	switch (code) {
@@ -464,6 +463,8 @@ export function problemText(
 			return `${name?.trim() || "Someone you assigned"} cannot own follow-ups now. Remove them from Assigned to or choose someone else, then save again.`;
 		case "conflict":
 			return "This task changed while you were working. We loaded the latest version; check it and try again.";
+		case "failed":
+			return READ_FAILED;
 		case "lost":
 			return "We did not hear back from the server. Try again; it will not save twice.";
 		case "invalid_input":

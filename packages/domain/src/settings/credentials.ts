@@ -50,7 +50,7 @@ type OpenDeletion = (
 				requestId: string;
 			};
 	  }
-	| { status: "refused"; code: Refusal["code"] }
+	| { status: "refused"; code: InstanceType<typeof Refusal>["code"] }
 >;
 export function createAccountCredentials(config: CredentialConfig): CredentialProducer & {
 	openAccountDeletion: OpenDeletion;
@@ -70,7 +70,7 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 					.from(t.account)
 					.where(eq(t.account.auth_user_id, user.id))
 					.for("update");
-				if (!account) deny();
+				if (!account) deny("unavailable");
 				await tx
 					.update(t.identity_proof)
 					.set({ superseded_at: now })
@@ -102,9 +102,10 @@ export function createAccountCredentials(config: CredentialConfig): CredentialPr
 			new URL(ingress.request.url).origin !== config.origin ||
 			ingress.request.headers.get("origin") !== config.origin
 		)
-			deny();
+			deny("unavailable");
 		const viewer = ingress.viewer;
-		if (!viewer?.verified || ctx.selected.kind !== "account" || ctx.selected.id !== viewer.accountId) deny();
+		if (!viewer?.verified || ctx.selected.kind !== "account" || ctx.selected.id !== viewer.accountId)
+			deny("unavailable");
 		return { account: { id: viewer.accountId }, principal: { email: viewer.email }, ingress };
 	}
 	function settle(reservation: Awaited<ReturnType<typeof budget.reserve>>, success: boolean) {
