@@ -1,8 +1,8 @@
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { testDatabase } from "../../support/test-database.mts";
 import { readViewer } from "../../../packages/domain/src/access/session.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { evryActor, runTurn, selectQualifiedModel } from "../../../packages/evry/src/index.ts";
 import { scriptedModel } from "../../../packages/evry/src/runtime/scripted.ts";
 import type { LanguageModelV4 } from "../../../packages/evry/node_modules/@ai-sdk/provider/dist/index.js";

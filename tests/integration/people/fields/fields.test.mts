@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { createRequire } from "node:module";
 
-import { runDueObjectCleanup } from "../../../../apps/web/src/server/jobs/object-cleanup.ts";
+import { runDueObjectCleanup } from "../../../../packages/domain/src/jobs/object-cleanup.ts";
 import { RequestActor } from "../../../../packages/domain/src/access/session.ts";
 import { PeopleReadContext } from "../../../../packages/domain/src/people/core.ts";
 import {

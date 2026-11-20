@@ -1,3 +1,4 @@
+import { signIn } from "@/server/sign-in";
 import {
 	loadPipelineBoard,
 	loadPipelineChoices,
@@ -7,7 +8,7 @@ import {
 } from "../pipeline-mount";
 import { Card } from "@everyfield/ui/controls";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { LANDING_ROUTE } from "@everyfield/contracts/identity";
 import { NotAvailable } from "../../access/AccessStates";
 import { PIPELINE_PATH, queryFromSearch } from "./model";
 import { PersonRecord } from "./PersonRecord";
@@ -20,14 +21,14 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 const refused = (
 	<div className="py-12">
 		<Card className="mx-auto max-w-[560px]">
-			<NotAvailable scope="page" homeHref={PIPELINE_PATH} />
+			<NotAvailable scope="page" homeHref={LANDING_ROUTE} />
 		</Card>
 	</div>
 );
 
 export async function PipelinePage({ searchParams }: { searchParams: Search }) {
 	const who = await pipelineActor();
-	if (who.kind === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(PIPELINE_PATH)}`);
+	if (who.kind === "signed_out") signIn(PIPELINE_PATH);
 	if (who.kind !== "seat") return refused;
 	const [board, goals] = await Promise.all([
 		loadPipelineBoard(who.authority, queryFromSearch(await searchParams)),
@@ -40,7 +41,7 @@ export async function PipelinePage({ searchParams }: { searchParams: Search }) {
 export async function PipelinePersonPage({ params }: { params: Promise<{ personId: string }> }) {
 	const { personId } = await params;
 	const who = await pipelineActor();
-	if (who.kind === "signed_out") redirect(`/signin?returnTo=${encodeURIComponent(`${PIPELINE_PATH}/${personId}`)}`);
+	if (who.kind === "signed_out") signIn(`${PIPELINE_PATH}/${personId}`);
 	if (who.kind !== "seat") return refused;
 	const [record, choices] = await Promise.all([
 		loadPipelinePerson(who.authority, personId),

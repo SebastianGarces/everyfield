@@ -18,7 +18,7 @@ import {
 import { matchPeople } from "../duplicates.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
 import {
-	lockPair,
+	lockedPair,
 	parseReferences,
 	referencesOf,
 	registrationOf,
@@ -172,18 +172,27 @@ function plan(
 	};
 }
 
-async function readPair(tx: Tx, owner: string, input: { sourceId: string; survivorId: string }, gate: SQL) {
+async function readPair(
+	tx: Tx,
+	owner: string,
+	input: { sourceId: string; survivorId: string },
+	gate: SQL,
+	lock = false,
+) {
+	const locked = lock
+		? sql`${lockedPair(owner, sql`${input.sourceId}::uuid,${input.survivorId}::uuid`)} AS locked,`
+		: sql``;
 	const result =
-		await tx.execute(sql`SELECT ${gate} AS allowed,${factsOf(sql`${input.sourceId}::uuid`, owner)} AS source,
+		await tx.execute(sql`SELECT ${locked}${gate} AS allowed,${factsOf(sql`${input.sourceId}::uuid`, owner)} AS source,
  ${factsOf(sql`${input.survivorId}::uuid`, owner)} AS survivor`);
 	const row = z.object({ allowed: z.boolean(), source: z.unknown(), survivor: z.unknown() }).parse(result.rows[0]);
 	const source = parseFacts(row.source),
 		survivor = parseFacts(row.survivor);
-	if (!row.allowed || !source || !survivor || source.state !== "live" || survivor.state !== "live") deny();
+	if (!row.allowed || !source || !survivor || source.state !== "live" || survivor.state !== "live") deny("unavailable");
 	return { source, survivor };
 }
 const ownerKind = (ctx: Pick<Context, "selected">) => {
-	if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny();
+	if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny("unavailable");
 	return ctx.selected.kind;
 };
 
@@ -250,8 +259,7 @@ export const peopleMerge = {
 			return c.mergeResult.parse(
 				await mutation<unknown>(tx, ctx, name, input, async (_actor, receiptId, audit) => {
 					const m = input.input;
-					await lockPair(tx, owner, sql`${m.sourceId}::uuid,${m.survivorId}::uuid`);
-					const { source, survivor } = await readPair(tx, owner, m, sql`true`);
+					const { source, survivor } = await readPair(tx, owner, m, sql`true`, true);
 					const p = plan(kind, source, survivor, m.fieldChoices);
 					if (p.reviewDigest !== m.reviewDigest) deny("conflict");
 					if (p.blockers.causes.length) deny("merge_blocked", p.blockers);
@@ -351,7 +359,7 @@ export const peopleMerge = {
 			const row = z
 				.object({ state: z.enum(["live", "retired", "merged"]), destination: z.uuid(), merge_id: z.uuid().nullable() })
 				.safeParse(result.rows[0]);
-			if (!row.success) deny();
+			if (!row.success) deny("unavailable");
 			return c.mergedPersonDestination.parse({
 				personId: input.personId,
 				status: row.data.state,
@@ -362,7 +370,7 @@ export const peopleMerge = {
 	},
 	async findDuplicates(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
-			if (ctx.selected.kind !== "organization") deny();
+			if (ctx.selected.kind !== "organization") deny("unavailable");
 			const input = parse(c.organizationDuplicatesRequest, raw);
 			const gate = adminRead(ctx);
 			const result = await tx.execute(sql`SELECT p.display_name,p.email,p.phone FROM person p WHERE ${gate}
@@ -371,7 +379,7 @@ export const peopleMerge = {
 			const p = z
 				.object({ display_name: z.string(), email: z.string().nullable(), phone: z.string().nullable() })
 				.safeParse(result.rows[0]);
-			if (!p.success) deny();
+			if (!p.success) deny("unavailable");
 			return matchPeople(
 				tx,
 				ctx.selected.id,

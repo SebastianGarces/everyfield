@@ -2,7 +2,6 @@ import type { referenceKind, referenceTreatment } from "@everyfield/contracts/pe
 import { sql, type SQL } from "@everyfield/db/query";
 import "server-only";
 import { z } from "zod";
-import type { Tx } from "../core.ts";
 
 type Kind = z.infer<typeof referenceKind>;
 type Treatment = z.infer<typeof referenceTreatment>;
@@ -84,7 +83,6 @@ export function parseReferences(raw: unknown): Reference[] {
 export const treatmentOf = (kind: Kind) => registry.find((e) => e.kind === kind)!.treatment;
 export const registrationOf = (kind: Kind) => registry.find((e) => e.kind === kind)!;
 
-export async function lockPair(tx: Tx, owner: string, ids: SQL) {
-	await tx.execute(sql`SELECT p.id FROM person p WHERE p.tenant_id=${owner}::uuid AND p.id IN (${ids})
- ORDER BY p.id FOR UPDATE OF p`);
-}
+export const lockedPair = (owner: string, ids: SQL) =>
+	sql`(SELECT count(*) FROM (SELECT p.id FROM person p WHERE p.tenant_id=${owner}::uuid AND p.id IN (${ids})
+ ORDER BY p.id FOR UPDATE OF p) locked)`;

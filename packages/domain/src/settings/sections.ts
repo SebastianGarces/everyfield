@@ -84,7 +84,8 @@ function live(v: Viewer, owner: Owner) {
 const own = (v: Viewer): Owner => ({ kind: "account", id: v.actor.accountId });
 function administeredPlant(v: Viewer, plant: Owner) {
 	const c = v.actor.context;
-	if (c.kind !== "seat" || c.role === "member" || c.owner.kind !== "plant" || !sameOwner(c.owner, plant)) deny();
+	if (c.kind !== "seat" || c.role === "member" || c.owner.kind !== "plant" || !sameOwner(c.owner, plant))
+		deny("unavailable");
 	return live(v, plant);
 }
 function plantValue(r: typeof t.plant.$inferSelect, p: Extract<q.GetSectionRequest, { section: "plant" }>["plant"]) {
@@ -114,7 +115,7 @@ function plantValue(r: typeof t.plant.$inferSelect, p: Extract<q.GetSectionReque
 }
 async function notifications(db: Reader, deps: SectionDependencies, v: Viewer) {
 	const read = await readPreferences(db, v);
-	if (!read) deny();
+	if (!read) deny("unavailable");
 	const suppression = await deps.suppression(db, v.principal.email);
 	return {
 		stored: read.stored,
@@ -135,7 +136,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 					.select()
 					.from(t.account)
 					.where(and(eq(t.account.id, v.actor.accountId), live(v, own(v))));
-				if (!account) deny();
+				if (!account) deny("unavailable");
 				return accountValue({ account, principal: v.principal });
 			}
 			case "notifications":
@@ -145,7 +146,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 					.select()
 					.from(t.plant)
 					.where(and(eq(t.plant.id, r.plant.id), administeredPlant(v, r.plant)));
-				if (!row) deny();
+				if (!row) deny("unavailable");
 				return plantValue(row, r.plant);
 			}
 			case "teams": {
@@ -153,7 +154,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 					.select()
 					.from(t.team)
 					.where(and(eq(t.team.id, r.teamId), eq(t.team.plant_id, r.plant.id), administeredPlant(v, r.plant)));
-				if (!team) deny();
+				if (!team) deny("unavailable");
 				return q.sectionResult.parse({
 					section: "teams",
 					plant: r.plant,
@@ -163,19 +164,23 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 				});
 			}
 			case "organization": {
-				if (!sameOwner(owner, r.organization)) deny();
+				if (!sameOwner(owner, r.organization)) deny("unavailable");
 				const [row] = await db
 					.select()
 					.from(t.organization)
 					.where(and(eq(t.organization.id, r.organization.id), live(v, owner)));
-				if (!row) deny();
+				if (!row) deny("unavailable");
 				return {
 					section: "organization",
 					values: profileValue({ ...row, revision: revisionValue.parse(row.revision) }, r.organization),
 				};
 			}
 			case "affiliations": {
-				const side = sameOwner(owner, r.organization) ? "organization" : sameOwner(owner, r.plant) ? "plant" : deny();
+				const side = sameOwner(owner, r.organization)
+					? "organization"
+					: sameOwner(owner, r.plant)
+						? "plant"
+						: deny("unavailable");
 				const [a] = await loadAffiliations(
 					db,
 					and(
@@ -184,7 +189,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 						live(v, owner),
 					)!,
 				);
-				if (!a || !active(a) || !sameOwner(pairOf(a).organization, r.organization)) deny();
+				if (!a || !active(a) || !sameOwner(pairOf(a).organization, r.organization)) deny("unavailable");
 				const base = {
 					plant: r.plant,
 					organization: r.organization,
@@ -221,14 +226,14 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 		const viewer = { actor: a.identity, principal: a.principal, session: ctx.session };
 		const i = v.input;
 		if (i.section === "account" || i.section === "notifications") {
-			if (ctx.selected.kind !== "account" || ctx.selected.id !== a.account.id) deny();
+			if (ctx.selected.kind !== "account" || ctx.selected.id !== a.account.id) deny("unavailable");
 		} else if (i.section === "organization") {
 			if (
 				!sameOwner(ctx.selected, i.organization) ||
 				a.identity.context.kind !== "seat" ||
 				a.identity.context.role === "member"
 			)
-				deny();
+				deny("unavailable");
 		} else if (
 			!sameOwner(ctx.selected, i.plant) ||
 			ctx.selected.kind !== "plant" ||
@@ -236,7 +241,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 			a.identity.context.role === "member" ||
 			!a.plant
 		)
-			deny();
+			deny("unavailable");
 		const c = await begin(tx, ctx, a.account.id, name, church ?? v);
 		if (c.kind === "replay") {
 			const old = q.savedSectionResult.parse(c.value);
@@ -268,7 +273,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 				revision(v.expectedRevision, a.account.revision);
 				const loaded = await notifications(tx, deps, viewer);
 				current = loaded.result;
-				if (current.section !== "notifications") deny();
+				if (current.section !== "notifications") deny("unavailable");
 				const patch = i.patch;
 				const values = current.values;
 				const category =
@@ -277,7 +282,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 						: patch.kind === "planter_cadence"
 							? "planter_digest"
 							: "oversight_digest";
-				if (!current.values.choices.some((c) => c.category === category)) deny();
+				if (!current.values.choices.some((c) => c.category === category)) deny("unavailable");
 				if (patch.kind === "channel") {
 					const choice = patch.choice;
 					const existing = loaded.stored.find((r) => r.category === category && r.channel === choice.channel);
@@ -338,11 +343,11 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 				break;
 			}
 			case "plant": {
-				if (!a.plant) deny();
+				if (!a.plant) deny("unavailable");
 				const p = { plant: a.plant };
 				revision(v.expectedRevision, p.plant.revision);
 				const old = plantValue(p.plant, i.plant);
-				if (old.section !== "plant") deny();
+				if (old.section !== "plant") deny("unavailable");
 				const patch: Partial<typeof t.plant.$inferInsert> = Object.assign(
 					{},
 					...(church ? church.input.changes : [i.change]).map(plantPatch),
@@ -356,7 +361,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 					},
 					i.plant,
 				);
-				if (next.section !== "plant") deny();
+				if (next.section !== "plant") deny("unavailable");
 				diff = { before: plantFields(old), after: plantFields(next) };
 				changed = canonical(diff.before) !== canonical(diff.after);
 				if (changed) {
@@ -387,7 +392,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 					.from(t.team)
 					.where(and(eq(t.team.id, i.teamId), eq(t.team.plant_id, i.plant.id)))
 					.for("update");
-				if (!team) deny();
+				if (!team) deny("unavailable");
 				revision(v.expectedRevision, team.revision);
 				changed = team.name !== i.name;
 				diff = { before: { name: team.name }, after: { name: i.name } };
@@ -429,7 +434,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 			case "affiliations": {
 				const row = await loadAffiliation(tx, i.relationshipId, true);
 				if (!row || row.plant_id !== i.plant.id || !sameOwner(pairOf(row).organization, i.organization) || !active(row))
-					deny();
+					deny("unavailable");
 				revision(v.expectedRevision, row.revision);
 				revision(i.expectedConsentRevision, row.consent_revision);
 				const effect = await applySharingMutation(
@@ -474,7 +479,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 	const operations: Operations = {
 		getSection: (db, viewer, raw) =>
 			recover(async () => {
-				if (!viewer.principal.verified) deny();
+				if (!viewer.principal.verified) deny("unavailable");
 				const value = await read(
 					db,
 					{ actor: viewer.authority.actor, principal: viewer.principal, session: viewer.authority.session },

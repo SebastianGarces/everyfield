@@ -448,11 +448,10 @@
 	"branding/files.uploadBrandAsset": {
 		"limit": 13,
 		"reason": "One statement finds the staged upload and one records the processed bytes, then putPrivateObject claims the file and finalizes it in two transactions so the provider call holds no lock. Its largest first run: 4 read, 3 write, 4 transaction, 2 locked read.",
-		"reads": "T-502: 2 reads in a row (locked read of file_object, then read of seat); the follow-up merges them or says why they cannot be one statement."
+		"reads": "putPrivateObject locks the file row, then calls the caller's authorizer again so access that ended while it waited for that lock is refused. A locking SELECT reads every other table as of its start, before that wait, so the check cannot join the locking read."
 	},
 	"documents.acceptTemplateChanges": {
-		"limit": 3,
-		"reads": "T-502: 2 reads in a row (read of church_brand_kit+document+document_revision+seat, then read of affiliation+church_brand_kit+launch+organization+person+plant+seat+team+team_role+team_tenure); the follow-up merges them or says why they cannot be one statement."
+		"limit": 2
 	},
 	"documents.archive": {
 		"limit": 1
@@ -464,8 +463,7 @@
 		"limit": 1
 	},
 	"documents.createFromTemplate": {
-		"limit": 4,
-		"reads": "T-502: 2 reads in a row (read of affiliation+church_brand_kit+launch+organization+person+plant+seat+team+team_role+team_tenure, then read of church_brand_kit+seat); the follow-up merges them or says why they cannot be one statement."
+		"limit": 3
 	},
 	"documents.deleteChurch": {
 		"limit": 1
@@ -489,12 +487,12 @@
 		"limit": 22,
 		"retry": 26,
 		"reason": "A saved export reads the church theme's logo and stores the bytes before the generated row. readBrandAsset reads the logo in 8 statements whatever the timing. putPrivateObject claims the file in one transaction (inserting it unless a rival already did) and, unless the file is already ready, finalizes it in a second, so the provider call holds no lock; an update that finds the rival already finalized adds one replay read. Then one statement inserts the generated row and its audit. Its largest first run: 6 read, 8 transaction, 4 locked read, 4 write. A race winner whose rival claimed the file: 6 read, 8 transaction, 4 locked read, 3 write. A caller that finds the rival's row in its first read: 2 read. The loser of a same-request-key race finds the winner's row, then reads the winner's saved export in a rerun of one statement: begin, the row with its file and gate, commit. Its runs: it finds the file ready, 6 read, 8 transaction, 4 locked read, 1 write; it finalizes the rival's claim first, 7 read, 10 transaction, 4 locked read, 3 write; the rival finalized first, 8 read, 10 transaction, 4 locked read, 3 write; it claimed and finalized first, 7 read, 10 transaction, 4 locked read, 4 write; it claimed first and the rival finalized first (issue #758), 8 read, 10 transaction, 4 locked read, 4 write, the most: each step above runs at most once, and the INV-idempotency double-export test in documents/church.test.mts forces this order on every census.",
-		"reads": "T-502: 2 reads in a row (locked read of file_object, then read of seat); the follow-up merges them or says why they cannot be one statement."
+		"reads": "putPrivateObject locks the file row, then calls the caller's authorizer again so access that ended while it waited for that lock is refused. A locking SELECT reads every other table as of its start, before that wait, so the check cannot join the locking read."
 	},
 	"documents.generate": {
-		"limit": 31,
-		"reason": "The saved file is stored before the generated row. With a brand kit the render first reads the church theme's images (T-190): readBrandAsset claims and finalizes each file in its own transactions, 8 statements an image, and an outward-facing card reads the logo and the cover photo. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run, a card with both images: 9 read, 12 transaction, 6 locked read, 4 write. With no kit: 5 read, 4 transaction, 2 locked read, 4 write.",
-		"reads": "T-502: 2 reads in a row (read of affiliation+church_brand_kit+launch+organization+person+plant+seat+team+team_role+team_tenure, then read of file_object+generated_document+seat); the follow-up merges them or says why they cannot be one statement."
+		"limit": 30,
+		"reason": "The saved file is stored before the generated row. With a brand kit the render first reads the church theme's images (T-190): readBrandAsset claims and finalizes each file in its own transactions, 8 statements an image, and an outward-facing card reads the logo and the cover photo. putPrivateObject claims the object and finalizes it in two transactions so the provider call holds no lock, then one statement inserts the generated row and its audit. Its largest first run, a card with both images: 8 read, 12 transaction, 6 locked read, 4 write. With no kit: 4 read, 4 transaction, 2 locked read, 4 write.",
+		"reads": "putPrivateObject locks the file row, then calls the caller's authorizer again so access that ended while it waited for that lock is refused. A locking SELECT reads every other table as of its start, before that wait, so the check cannot join the locking read."
 	},
 	"documents.history.get": {
 		"limit": 1
@@ -521,7 +519,7 @@
 	"documents.reconcileOrphans": {
 		"limit": 13,
 		"reason": "Each unreferenced object is claimed and purged in its own transactions around the provider delete, and this run purged two. Its largest first run: 3 read, 4 transaction, 2 locked read, 4 write.",
-		"reads": "T-502: 2 reads in a row (locked read of file_object, then read of no table); the follow-up merges them or says why they cannot be one statement."
+		"reads": "deleteUnreferencedObject locks the file row, then asks file_is_referenced, so a reference committed by a transaction that held the lock is seen. A locking SELECT reads the reference tables as of its start, before that wait, so one statement could purge a file that just became referenced."
 	},
 	"documents.resolveContext": {
 		"limit": 1
@@ -1403,10 +1401,8 @@
 		"limit": 1
 	},
 	"people.mergePeople": {
-		"limit": 7,
-		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people locked in id order, one read of both full rows with the merge check, then one statement that moves every reference and writes the merge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
-		"reads": "Both people are locked in id order as a statement of their own before their full rows are read: a statement's snapshot predates its locks and a lock refreshes only the rows it locks (C88), so a read of the references joined to the lock would miss what a people write that held either person committed while this write waited, and the merge would leave those rows on the merged person."
+		"limit": 6,
+		"retry": 6
 	},
 	"people.mergedPersonDestination": {
 		"limit": 2
@@ -1466,10 +1462,8 @@
 		"retry": 5
 	},
 	"people.unmergePeople": {
-		"limit": 7,
-		"retry": 6,
-		"reason": "The producer's savepoint and its release around the shared people write: the write gate (seat and session in one locked statement), the lifecycle read, both people of the merge locked, one read of the merge record with the unmerge check, then one statement that moves the references back and writes the unmerge and its audit. Its largest first run: 2 transaction, 2 locked read, 2 read, 1 write.",
-		"reads": "Both people of the merge are locked as a statement of their own before the merge record and their full rows are read: a statement's snapshot predates its locks and a lock refreshes only the rows it locks (C88), so a read of the references joined to the lock would miss what a people write that held either person committed while this write waited, and the unmerge check would compare stale references."
+		"limit": 6,
+		"retry": 6
 	},
 	"people.updateHousehold": {
 		"limit": 4
@@ -1782,7 +1776,7 @@
 	"settings/avatar.uploadAvatar": {
 		"limit": 12,
 		"reason": "The avatar bytes go to private storage between transactions, so the provider call holds no lock: the staged file's size and hash recorded; BEGIN, the session check, the file-key advisory lock, the file locked and the session checked again before the upload, COMMIT; then BEGIN, the session check, the file marked ready and its audit, COMMIT. Its largest first run: 4 transaction, 2 locked read, 3 read, 3 write.",
-		"reads": "T-502: 2 reads in a row (locked read of file_object, then read of account+seat); the follow-up merges them or says why they cannot be one statement."
+		"reads": "putPrivateObject locks the file row, then calls the caller's authorizer again so access that ended while it waited for that lock is refused. A locking SELECT reads every other table as of its start, before that wait, so the check cannot join the locking read."
 	},
 	"settings/core.withSettingsWrite": {
 		"limit": 9,

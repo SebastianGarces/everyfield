@@ -6,7 +6,7 @@ import { adminRead } from "../assessments/shared.ts";
 import { deny, mutation, parse, readReply, reply, type Context, type Tx, type WriteContext } from "../core.ts";
 import { factsOf, moveRefs, parseFacts, referencesDigest, updatePerson, type Facts } from "../merge/index.ts";
 import { columnsChanged, freshPosition, sameColumn } from "../people.ts";
-import { lockPair } from "../person-reference-registry/index.ts";
+import { lockedPair } from "../person-reference-registry/index.ts";
 import { commitmentOf, type CommitmentInputs } from "../commitments/lifecycle.ts";
 
 type Kind = z.infer<typeof c.referenceKind>;
@@ -25,8 +25,15 @@ const mergeRow = z.object({
 });
 type Merge = z.infer<typeof mergeRow>;
 
-async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL) {
-	const result = await tx.execute(sql`SELECT ${gate} AS allowed,(SELECT to_jsonb(m)||jsonb_build_object(
+const mergedPair = (owner: string, mergeId: string) =>
+	lockedPair(
+		owner,
+		sql`SELECT source_id FROM person_merge WHERE id=${mergeId}::uuid AND tenant_id=${owner}::uuid
+ UNION ALL SELECT survivor_id FROM person_merge WHERE id=${mergeId}::uuid AND tenant_id=${owner}::uuid`,
+	);
+async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL, lock = false) {
+	const locked = lock ? sql`${mergedPair(owner, mergeId)} AS locked,` : sql``;
+	const result = await tx.execute(sql`SELECT ${locked}${gate} AS allowed,(SELECT to_jsonb(m)||jsonb_build_object(
  'source_revision',m.source_revision::text,'survivor_revision',m.survivor_revision::text,
  'household_exists',EXISTS(SELECT FROM household h WHERE h.id=(m.prior->'source'->>'household_id')::uuid AND h.plant_id=m.tenant_id)
  OR NOT (m.prior->'source' ? 'household_id')) FROM person_merge m WHERE m.id=${mergeId}::uuid AND m.tenant_id=${owner}::uuid) AS merge,
@@ -37,7 +44,7 @@ async function readMerge(tx: Tx, owner: string, mergeId: string, gate: SQL) {
 		.parse(result.rows[0]);
 	const source = parseFacts(row.source),
 		survivor = parseFacts(row.survivor);
-	if (!row.allowed || row.merge === null || !source || !survivor) deny();
+	if (!row.allowed || row.merge === null || !source || !survivor) deny("unavailable");
 	return { merge: mergeRow.parse(row.merge), source, survivor };
 }
 
@@ -106,7 +113,7 @@ const fieldOf = (col: string) => fieldColumns[col];
 export const peopleUnmerge = {
 	async previewUnmerge(tx: Tx, ctx: Context, raw: unknown) {
 		return readReply(async () => {
-			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny();
+			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny("unavailable");
 			const input = parse(c.unmergePreviewRequest, raw);
 			const { merge, source, survivor } = await readMerge(tx, ctx.selected.id, input.mergeId, adminRead(ctx));
 			const i = inverse(merge, source, survivor);
@@ -125,7 +132,7 @@ export const peopleUnmerge = {
 	},
 	async unmergePeople(tx: Tx, ctx: WriteContext, raw: unknown) {
 		return reply(tx, async () => {
-			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny();
+			if (ctx.selected.kind !== "plant" && ctx.selected.kind !== "organization") deny("unavailable");
 			const kind = ctx.selected.kind;
 			const owner = ctx.selected.id;
 			const input = parse(c.unmergePeopleRequest, raw);
@@ -133,13 +140,7 @@ export const peopleUnmerge = {
 			return c.unmergeResult.parse(
 				await mutation<unknown>(tx, ctx, name, input, async (_actor, receiptId, audit) => {
 					const id = input.input.mergeId;
-					await lockPair(
-						tx,
-						owner,
-						sql`SELECT source_id FROM person_merge WHERE id=${id}::uuid AND tenant_id=${owner}::uuid
- UNION ALL SELECT survivor_id FROM person_merge WHERE id=${id}::uuid AND tenant_id=${owner}::uuid`,
-					);
-					const { merge, source, survivor } = await readMerge(tx, owner, id, sql`true`);
+					const { merge, source, survivor } = await readMerge(tx, owner, id, sql`true`, true);
 					const i = inverse(merge, source, survivor);
 					const value = (outcome: "changed" | "noop", sourceRevision: string, survivorRevision: string) => ({
 						mergeId: merge.id,

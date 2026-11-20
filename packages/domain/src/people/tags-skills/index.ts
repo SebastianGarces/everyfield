@@ -47,7 +47,7 @@ async function readTags(tx: Tx, plant: string, filter?: TagFilter, visible: SQL 
  FROM (SELECT ${visible} AS allowed) g
  LEFT JOIN tag t ON g.allowed AND t.plant_id=${plant}::uuid ${tagWhere(filter)}
  ORDER BY t.normalized_name,t.id`);
-	if (result.rows[0]?.allowed !== true) deny();
+	if (result.rows[0]?.allowed !== true) deny("unavailable");
 	return result.rows
 		.filter((row) => row.id !== null)
 		.map((row) => {
@@ -58,7 +58,7 @@ async function readTags(tx: Tx, plant: string, filter?: TagFilter, visible: SQL 
 }
 async function oneTag(tx: Tx, plant: string, id: string, renamedTo?: string) {
 	const [found] = await readTags(tx, plant, { id, renamedTo });
-	if (!found) deny();
+	if (!found) deny("unavailable");
 	return found;
 }
 export const personTagsJson = (plant: string) =>
@@ -347,7 +347,7 @@ async function currentSkill(tx: Tx, plant: string, skillId: string) {
 	const p = await personFacts(tx, plant, owner, personSkillsJson(plant));
 	const skills = personSkills(p.extra);
 	const before = skills.find((s) => s.id === skillId);
-	if (!before) deny();
+	if (!before) deny("unavailable");
 	livePerson(p);
 	return { skills, before, p };
 }
@@ -368,7 +368,7 @@ async function changeTagLink(tx: Tx, ctx: WriteContext, raw: unknown, name: "peo
 				);
 				livePerson(p);
 				const facts = z.object({ tags: z.unknown(), tag: f.personTag.nullable() }).parse(p.extra);
-				if (!facts.tag) deny();
+				if (!facts.tag) deny("unavailable");
 				const tag = facts.tag,
 					before = personTags(facts.tags);
 				const linked = before.some((t) => t.id === tagId);
