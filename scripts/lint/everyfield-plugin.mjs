@@ -4,11 +4,14 @@ import { join } from "node:path";
 import { area, commentsExempt, ratchet, repoPath, root, sqlMarkers } from "./ratchet.mjs";
 import {
 	COUNTER_TEXT,
+	MARKETING_STEP,
 	SCOPE,
 	TIME_NAME,
 	classProblems,
+	isMarketing,
 	headingLike,
 	labelLike,
+	marketingMessage,
 	message as slopMessage,
 	styleProblems,
 } from "./slop-styling.mjs";
@@ -2353,18 +2356,30 @@ const timeContext = (call) => {
 	return false;
 };
 
+const insideFunction = (node, name) => {
+	for (let p = node.parent; p; p = p.parent) {
+		if (p.type === "FunctionDeclaration") return p.id?.name === name;
+		if (p.type === "ArrowFunctionExpression" || p.type === "FunctionExpression")
+			return p.parent?.type === "VariableDeclarator" && p.parent.id.name === name;
+	}
+	return false;
+};
+
 const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
-	if (!SCOPE.test(repoPath(context.filename))) return {};
+	const path = repoPath(context.filename);
+	if (!SCOPE.test(path)) return {};
+	const marketing = isMarketing(path);
 	const seen = new Set();
-	const report = (node, kind, token) => {
+	const report = (node, kind, token, approvedFor) => {
 		const key = `${node.range?.[0] ?? node.start}:${kind}:${token}`;
 		if (seen.has(key)) return;
 		seen.add(key);
-		push({ node, fn: enclosingName(node), message: slopMessage(kind, token) });
+		const message = approvedFor === "marketing" ? marketingMessage(kind, token) : slopMessage(kind, token);
+		push({ node, fn: enclosingName(node), message });
 	};
 	const strings = (value, node) => {
 		if (typeof value !== "string") return;
-		for (const [kind, token] of classProblems(value)) report(node, kind, token);
+		for (const [kind, token, approvedFor] of classProblems(value, path)) report(node, kind, token, approvedFor);
 	};
 	const counterString = (node) =>
 		node?.type === "Literal" && typeof node.value === "string" && COUNTER_TEXT.test(node.value);
@@ -2396,7 +2411,10 @@ const noSlopStyling = ratcheted("no-slop-styling", (context, push) => {
 				report(node, "counter", counters.map((c) => JSON.stringify(c.value)).join(", "));
 		},
 		CallExpression(node) {
+			if (!marketing && node.callee.type === "Identifier" && node.callee.name === MARKETING_STEP.name)
+				report(node, "counter", `${MARKETING_STEP.name}()`, "marketing");
 			if (memberName(node.callee) !== "padStart") return;
+			if (path === MARKETING_STEP.path && insideFunction(node, MARKETING_STEP.name)) return;
 			const [width, fill] = node.arguments;
 			if (staticValue(width) !== 2 || staticValue(fill) !== "0") return;
 			const timeValue = identifiersIn(node.callee.object).some((n) => TIME_NAME.test(n.replace(/^\./, "")));

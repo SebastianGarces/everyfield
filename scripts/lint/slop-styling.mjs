@@ -1,4 +1,6 @@
-export const SCOPE = /^(?:apps\/web\/src\/features\/|packages\/ui\/src\/)/;
+export const SCOPE =
+	/^(?:apps\/web\/src\/features\/|packages\/ui\/src\/|apps\/web\/src\/marketing\/|apps\/web\/src\/styles\/marketing\.css$)/;
+export const MARKETING = /^apps\/web\/src\/(?:marketing\/|styles\/marketing\.css$)/;
 
 const LABEL_UTILITY = "section-label";
 const LABEL_TRACKING = "var(--ef-label-tracking)";
@@ -13,6 +15,30 @@ const APPROVED_SURFACES = {
 	hatch: "the hatched fill for planned or empty ranges",
 	'[data-ef-node="spacer"]': "the hatched fill that marks an empty spacer block in the document editor",
 };
+
+const MARKETING_LOOKS = {
+	"mk-eyebrow": ["eyebrow", "the uppercase label above the hero and page-hero h1"],
+	"mk-label": ["tracking", "the uppercase group and phase labels"],
+	"mk-counter": ["tracking", "the tracked step numbers on the journey and the stop path"],
+	"mk-corner-shade": ["gradient", "the dark corner shade over a photo"],
+	"mk-leaders-shade": ["gradient", "the shade behind the leaders photo section"],
+	"mk-hatch": ["gradient", "the hatched fill in the landing dashboards"],
+	skeleton: ["gradient", "the loading shimmer in the hero animation"],
+	"hero-fade": ["gradient", "the fade mask over the hero photo"],
+	"mk-caret-fill": ["gradient", "the ink fill that types the hero headline"],
+};
+const MARKETING_TOKENS = {
+	"mk-canvas": "the landing canvas (--color-mk-canvas) and its mk-canvas-* tints",
+	"mk-cream": "the mk-cream-* tints of the cream token",
+};
+export const MARKETING_STEP = {
+	name: "stepNumber",
+	path: "apps/web/src/marketing/step-number.ts",
+	what: "the zero-padded 01, 02 step numbers",
+};
+const MARKETING_TOKEN = new RegExp(`(?:^|-)(?:${Object.keys(MARKETING_TOKENS).join("|")})(?:-\\d+)?(?:\\/\\d+)?$`);
+const MARKETING_CANVAS = "--color-mk-canvas";
+export const isMarketing = (path) => MARKETING.test(path ?? "");
 
 const BEIGE_HEX = new Set([
 	"f5f5dc",
@@ -59,6 +85,8 @@ const MESSAGES = {
 };
 export const message = (kind, token) =>
 	`${MESSAGES[kind](token)} (everyfield/no-slop-styling ${kind}, scripts/lint/slop-styling.mjs)`;
+export const marketingMessage = (kind, token) =>
+	`${token} is a marketing look, approved only under apps/web/src/marketing/ and apps/web/src/styles/marketing.css. ${message(kind, token)}`;
 
 const positiveLength = (value) => {
 	const v = value.trim().replace(/_/g, " ");
@@ -117,16 +145,19 @@ const bareToken = (token) =>
 		.split(/:(?![^[]*\])/)
 		.pop();
 
-export function classProblems(str) {
+export function classProblems(str, path) {
 	const tokens = str
 		.split(/\s+/)
 		.filter(Boolean)
 		.map((raw) => ({ raw, bare: bareToken(raw) }));
 	const out = [];
 	const has = (name) => tokens.some((t) => t.bare === name);
+	const marketing = isMarketing(path);
 	if (has("font-mono") && has("uppercase")) out.push(["mono-uppercase", "font-mono with uppercase"]);
 	for (const { raw, bare } of tokens) {
 		let m;
+		if (!marketing && Object.hasOwn(MARKETING_LOOKS, bare)) out.push([MARKETING_LOOKS[bare][0], raw, "marketing"]);
+		if (!marketing && MARKETING_TOKEN.test(bare)) out.push(["beige", raw, "marketing"]);
 		if (/^tracking-(?:wide|wider|widest)$/.test(bare)) out.push(["tracking", raw]);
 		else if ((m = bare.match(/^tracking-\[([^\]]+)\]$/)) && positiveLength(m[1])) out.push(["tracking", raw]);
 		if (bare === "font-serif" || ((m = bare.match(/^font-\[([^\]]+)\]$/)) && isSerifFamily(m[1].replace(/_/g, " "))))
@@ -171,6 +202,13 @@ const approvedSelector = (selector) =>
 	Object.keys(APPROVED_SURFACES).some((name) =>
 		name.startsWith("[") ? selector.includes(name) : new RegExp(`\\.${name}(?![\\w-])`).test(selector),
 	);
+const marketingLook = (selectors) => {
+	for (const selector of selectors) {
+		const name = selector.match(/^@utility\s+(\S+)$/)?.[1];
+		if (name && Object.hasOwn(MARKETING_LOOKS, name)) return MARKETING_LOOKS[name][0];
+	}
+	return null;
+};
 
 function cssBlocks(text) {
 	const blocks = [];
@@ -202,13 +240,17 @@ function cssBlocks(text) {
 	return blocks;
 }
 
-export function cssProblems(text) {
+export function cssProblems(text, path) {
 	const out = [];
+	const marketing = isMarketing(path);
 	for (const block of cssBlocks(text)) {
+		const selectors = [block.selector, ...block.context];
+		const look = marketing ? marketingLook(selectors) : null;
 		const approved =
-			approvedSelector(block.selector) ||
-			block.context.some(approvedSelector) ||
+			selectors.some(approvedSelector) ||
+			look === "gradient" ||
 			(block.utility && (block.utility in APPROVED_SURFACES || block.utility === LABEL_UTILITY));
+		const trackedLabel = look === "tracking" || look === "eyebrow";
 		const decls = block.decls
 			.map((d) => {
 				const i = d.text.indexOf(":");
@@ -224,13 +266,15 @@ export function cssProblems(text) {
 		const mono = decls.find((d) => (d.prop === "font-family" || d.prop === "font") && isMonoFamily(d.value));
 		if (upper && mono) push("mono-uppercase", upper, "monospace font-family with text-transform: uppercase");
 		for (const d of decls) {
-			if (d.prop === "letter-spacing" && d.value !== LABEL_TRACKING && positiveLength(d.value)) push("tracking", d);
+			if (d.prop === "letter-spacing" && d.value !== LABEL_TRACKING && !trackedLabel && positiveLength(d.value))
+				push("tracking", d);
 			if ((d.prop === "font-family" || d.prop === "font") && isSerifFamily(d.value)) push("serif", d);
 			if (/^(?:background|background-color|background-image|border-color|outline-color|fill)$/.test(d.prop)) {
 				if (BEIGE_NAMES.test(d.value)) push("beige", d);
 			}
-			for (const hex of d.value.matchAll(/#([0-9a-f]{6}|[0-9a-f]{3})\b/gi))
-				if (BEIGE_HEX.has(hex[1].toLowerCase())) push("beige", d);
+			if (!(marketing && d.prop === MARKETING_CANVAS))
+				for (const hex of d.value.matchAll(/#([0-9a-f]{6}|[0-9a-f]{3})\b/gi))
+					if (BEIGE_HEX.has(hex[1].toLowerCase())) push("beige", d);
 			if (approved) continue;
 			if (/(?:linear|radial|conic)-gradient\(/.test(d.value)) push("gradient", d);
 			if (d.prop === "filter" && blurPx(d.value) >= 16) push("orb", d);
