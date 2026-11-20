@@ -270,8 +270,9 @@ function ToField({
 				event.preventDefault();
 				actions.openList(false);
 			}
-		} else if (event.key === "Backspace" && query === "" && people.length > 0) {
-			remove(people.at(-1)!.id);
+		} else if (event.key === "Backspace" && query === "") {
+			const last = people.at(-1);
+			if (last) remove(last.id);
 		}
 	};
 

@@ -1,3 +1,5 @@
+import { deploymentKind } from "@everyfield/db/deployment";
+import { VercelToolbar } from "@vercel/toolbar/next";
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "../styles/marketing.css";
@@ -8,6 +10,7 @@ import { PAGES, SITE_NAME, fullTitle } from "../marketing/meta";
 import { SITE_URL } from "../site";
 import { FONT_VARIABLES } from "../components/fonts";
 import { THEME_VIEWPORT } from "../components/viewport";
+import { serverEnv } from "../server/config";
 
 export const metadata: Metadata = {
 	metadataBase: new URL(SITE_URL),
@@ -28,6 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 				/>
 				{children}
 				<PageScroll />
+				{deploymentKind(serverEnv()) === "preview" ? <VercelToolbar /> : null}
 			</body>
 		</html>
 	);
