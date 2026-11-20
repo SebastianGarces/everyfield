@@ -1,4 +1,5 @@
 "use client";
+import type { Outcome } from "@everyfield/contracts/common";
 
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { Button, ConfirmDialog, EmptyState, Field, Input, Select } from "@everyfield/ui/controls";
@@ -47,7 +48,6 @@ import {
 	type HistoryPage,
 	type HubState,
 	type MessageView,
-	type Outcome,
 	type PersonHistory,
 	type ResendReview,
 	type TrackingRow,

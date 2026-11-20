@@ -24,7 +24,7 @@ import {
 	MAIL_PASSES,
 	runDueMail,
 	type MailPayload,
-} from "../../../apps/web/src/server/jobs/mail.ts";
+} from "../../../packages/domain/src/jobs/mail.ts";
 import {
 	authorizeNotificationMail,
 	createNotificationWorker,

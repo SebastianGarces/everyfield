@@ -1,6 +1,7 @@
 import type * as c from "@everyfield/contracts/followups";
 import type { z } from "zod";
-import type { Account, ContactHistory, Coverage, HandoffPlan, ObligationPage, Outcome, Owners } from "./model.ts";
+import type { Outcome } from "@everyfield/contracts/common";
+import type { Account, ContactHistory, Coverage, HandoffPlan, ObligationPage, Owners } from "./model.ts";
 import type { CallRead, PersonFollowUps } from "./server.ts";
 import { getReads } from "../../components/get-reads.ts";
 import { createRead } from "../../components/read.tsx";

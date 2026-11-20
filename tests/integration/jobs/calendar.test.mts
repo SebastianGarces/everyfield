@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { taskReminderTimes } from "../../../apps/web/src/server/jobs/calendar.ts";
+import { taskReminderTimes } from "../../../packages/domain/src/jobs/calendar.ts";
 import { owedPeriod } from "../../../packages/domain/src/notifications/digest.ts";
 test("INV-calendar: reminders use civil offsets and timed overdue uses elapsed hours", () => {
 	assert.deepEqual(taskReminderTimes({ kind: "date_only", date: "2026-03-08", zone: "America/Chicago" }), [

@@ -204,16 +204,16 @@ test(
 	{ skip: census.kind === "union" },
 	async () => {
 		const { instrument } = await import("./counter.mjs");
-		const path = join(root, "apps/web/src/server/jobs/mail.ts");
+		const path = join(root, "packages/domain/src/jobs/mail.ts");
 		const source = await readFile(path, "utf8");
-		const listed = (names: string[]) => ({ "/apps/web/src/server/jobs/mail.ts": names });
+		const listed = (names: string[]) => ({ "/packages/domain/src/jobs/mail.ts": names });
 		assert.match(
 			instrument(path, source, listed(["claimUnknownMail"])),
 			/measureWrapper\("jobs\/mail\.claimUnknownMail"/,
 		);
 		assert.throws(() => instrument(path, source, listed(["claimUnknownMail", "claimUnknownMailX"])), {
 			message:
-				"Statement counter lists claimUnknownMailX for apps/web/src/server/jobs/mail.ts, which declares no such function",
+				"Statement counter lists claimUnknownMailX for packages/domain/src/jobs/mail.ts, which declares no such function",
 		});
 	},
 );

@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { Database } from "@everyfield/db/client";
-import { applyMailCallback } from "../jobs/webhook.ts";
+import { applyMailCallback } from "@everyfield/domain/jobs";
 
 export async function settleCaptured(db: Database, ids: readonly string[]): Promise<void> {
 	for (const id of ids) {
