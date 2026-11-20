@@ -1296,6 +1296,19 @@
 		},
 		{
 			"files": [
+				"src/access/**",
+				"src/components/**",
+				"src/server/**",
+				"src/features/access/**",
+				"src/features/identity/**",
+				"src/features/wiki/**"
+			],
+			"rules": {
+				"typescript/no-non-null-assertion": "error"
+			}
+		},
+		{
+			"files": [
 				"**/*.test.*",
 				"**/test/**",
 				"**/tests/**",
