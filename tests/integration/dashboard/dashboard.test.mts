@@ -16,6 +16,7 @@ const { admin, tenant, actors } = database;
 const db = database.pools.runtime;
 after(() => database.close());
 
+type Activity = Extract<Awaited<ReturnType<typeof dashboardReader.readActivity>>, { status: "ok" }>["value"];
 const authority = async (a: Actor) => {
 	const r = await RequestActor.resolve(db, a.session as never);
 	assert.ok(r instanceof RequestActor, JSON.stringify(r));
@@ -245,7 +246,7 @@ test("AC:CASE-ADM-005 the activity feed: 20 newest, who and when, corrections as
 	await audit({ actor: owner, action: "people.created", kind: "noop", subjectType: "person", subject: maria, ago: 2 });
 	await audit({ actor: owner, action: "settings.changed", kind: "edit", subjectType: "plant", subject: P, ago: 1 });
 
-	const feed = ok(await dashboardReader.readActivity(db, await authority(actors.owner)));
+	const feed: Activity = ok(await dashboardReader.readActivity(db, await authority(actors.owner)));
 	assert.equal(feed.timeZone, "America/Chicago");
 	assert.equal(feed.entries.length, 20);
 	assert.equal(feed.more, true);
@@ -260,14 +261,14 @@ test("AC:CASE-ADM-005 the activity feed: 20 newest, who and when, corrections as
 			{ kind: "person_added", personId: maria, name: "Maria Santos" },
 		],
 	);
-	assert.deepEqual(feed.entries[0].actor, { accountId: actors.admin.id, displayName: "Synthetic" });
+	assert.deepEqual(feed.entries[0]?.actor, { accountId: actors.admin.id, displayName: "Synthetic" });
 	const times = feed.entries.map((e) => Date.parse(e.at));
 	assert.deepEqual(
 		times,
 		[...times].sort((a, b) => b - a),
 	);
 
-	const members = ok(await dashboardReader.readActivity(db, await authority(actors.member)));
+	const members: Activity = ok(await dashboardReader.readActivity(db, await authority(actors.member)));
 	assert.deepEqual(
 		members.entries.slice(0, 5).map((e) => e.change.kind),
 		["attendance_corrected", "launch_date", "task_completed", "meeting_held", "person_added"],

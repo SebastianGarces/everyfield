@@ -37,8 +37,8 @@ import {
 } from "../../../packages/evry/src/adapters/pipeline/reads/index.ts";
 import { readCatalog } from "../../../packages/evry/src/catalog/catalog.ts";
 import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
-import { transaction } from "../../../apps/web/src/server/platform/database.ts";
-import { claimDue, finishClaim } from "../../../apps/web/src/server/jobs/queue.ts";
+import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
+import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
 import { evalDatabase, seedHope } from "./golden-church.mts";
 import { ANA_NOTE, PEOPLE, RESIDENCY_READING, seedPipeline, sessionOf, type PipelineName } from "./pipeline-church.mts";
 

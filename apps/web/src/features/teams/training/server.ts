@@ -1,19 +1,17 @@
-import { requestDatabase } from "@/server/database";
+import type { Outcome } from "@everyfield/contracts/common";
 import type { TeamsReply } from "@everyfield/contracts/teams";
 import type { Database } from "@everyfield/db/client";
 import { trainingReader } from "@everyfield/domain/teams";
 import "server-only";
-import { outcome, type Viewer as Seat } from "../server.ts";
-import type { Outcome, PersonLoad, TrainingLoad } from "./model.ts";
-import { transient } from "../../../server/platform/transient.ts";
+import { outcomeOf } from "@everyfield/contracts/common";
+import type { Viewer as Seat } from "../server.ts";
+import type { PersonLoad, TrainingLoad } from "./model.ts";
+import { readDb } from "../../../server/platform/tx.ts";
 
 type Authority = Seat["authority"];
 
 async function read<T>(viewer: Seat, run: (db: Database, authority: Authority) => Promise<TeamsReply<T>>) {
-	const db = requestDatabase();
-	return transient({ component: "training", outcome: "read_failed" }, () => run(db, viewer.authority), {
-		status: "failed",
-	} as const);
+	return readDb("training", (db) => run(db, viewer.authority));
 }
 
 export async function loadTraining(viewer: Seat, teamId: string): Promise<Outcome<TrainingLoad>> {
@@ -21,9 +19,9 @@ export async function loadTraining(viewer: Seat, teamId: string): Promise<Outcom
 		read(viewer, (db, authority) => trainingReader.listTraining(db, authority, { teamId })),
 		read(viewer, (db, authority) => trainingReader.readTrainingMatrix(db, authority, { teamId })),
 	]);
-	const programs = outcome(list);
+	const programs = outcomeOf(list);
 	if (programs.status !== "ok") return programs;
-	const assigned = outcome(matrix);
+	const assigned = outcomeOf(matrix);
 	return {
 		status: "ok",
 		value: { programs: programs.value.programs, assigned: assigned.status === "ok" ? assigned.value.programs : null },
@@ -35,15 +33,15 @@ export async function loadPersonTraining(viewer: Seat, personId: string): Promis
 		read(viewer, (db, authority) => trainingReader.readPersonTraining(db, authority, { personId })),
 		read(viewer, (db, authority) => trainingReader.readTrainingHistory(db, authority, { personId })),
 	]);
-	const credits = outcome(history);
+	const credits = outcomeOf(history);
 	return {
-		summary: outcome(summary),
+		summary: outcomeOf(summary),
 		credits: credits.status === "ok" ? { status: "ok", value: credits.value.credits } : credits,
 	};
 }
 
 export async function readRosterPreview(viewer: Seat, programId: string, personIds: unknown) {
-	return outcome(
+	return outcomeOf(
 		await read(viewer, (db, authority) =>
 			trainingReader.readRequiredTrainingPreview(db, authority, { programId, personIds }),
 		),

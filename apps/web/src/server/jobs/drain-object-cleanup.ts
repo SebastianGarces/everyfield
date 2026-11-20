@@ -2,7 +2,7 @@ import "server-only";
 import { privateStorage } from "@everyfield/db/schema";
 import { after } from "next/server";
 import { requestDatabase } from "../database.ts";
-import { runDueObjectCleanup } from "./object-cleanup.ts";
+import { runDueObjectCleanup } from "@everyfield/domain/jobs";
 
 export function drainObjectCleanup() {
 	after(async () => {
