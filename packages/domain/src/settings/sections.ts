@@ -445,7 +445,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 					deps.organizationEffects,
 				);
 				changed = effect.changed;
-				current = q.sectionResult.parse({
+				current = {
 					section: "affiliations",
 					values: {
 						view: "plant_administration",
@@ -456,7 +456,7 @@ export function sectionOperations(deps: SectionDependencies): Operations {
 						consentRevision: effect.current.consent_revision,
 						choices: choices(effect.current),
 					},
-				});
+				} satisfies z.output<typeof q.sectionResult>;
 				events.push(...effect.events);
 				break;
 			}
