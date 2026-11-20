@@ -1090,7 +1090,7 @@
 		"limit": 3
 	},
 	"native.people.mergePeople": {
-		"limit": 6
+		"limit": 5
 	},
 	"native.people.mergedPersonDestination": {
 		"limit": 3
@@ -1138,7 +1138,7 @@
 		"limit": 6
 	},
 	"native.people.unmergePeople": {
-		"limit": 6
+		"limit": 5
 	},
 	"native.people.unmergeView": {
 		"limit": 5
