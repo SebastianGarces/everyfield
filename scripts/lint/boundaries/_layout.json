@@ -27,7 +27,7 @@
 		"evry": "the Evry runtime composition: HTTP wiring, native port and worker",
 		"identity": "Better Auth, which every request reads",
 		"invitations": "invitation tokens identity, organizations and Evry share",
-		"jobs": "the notification, digest, feedback publication and scheduler jobs, the Resend transport and the mail webhook route",
+		"jobs": "the notification, digest and scheduler jobs, the Resend and GitHub clients and the mail webhook route",
 		"mail": "mail transport and capture every sender goes through",
 		"platform": "the HTTP boundary and webhook helpers every route uses"
 	},
