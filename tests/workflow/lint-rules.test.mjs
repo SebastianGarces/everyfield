@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -138,9 +139,12 @@ export const u = () => { const z = \`\${COLS[0]}.id\`; return sql.raw(z); };
 			"apps/web/src/features/x/reach.ts": reach,
 			"tests/integration/x/reach.test.mts": reach,
 		}),
-		["apps/web/src/features/x/reach.ts", "packages/domain/src/people/reach.ts"]
-			.flatMap((file) => reported.map((line) => `${file}:${line} raw-sql-literal`))
-			.sort(),
+		[
+			"apps/web/src/features/x/reach.ts:1 web-database-imports",
+			...["apps/web/src/features/x/reach.ts", "packages/domain/src/people/reach.ts"].flatMap((file) =>
+				reported.map((line) => `${file}:${line} raw-sql-literal`),
+			),
+		].sort(),
 	);
 });
 
@@ -1102,6 +1106,34 @@ export const p = require("node:process").env;
 	);
 });
 
+test("INV-web-sql: apps/web imports no database module outside the files that still hold SQL", () => {
+	const code = `import { sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { eq } from "drizzle-orm";
+export { and } from "drizzle-orm/sql";
+export type Q = import("@everyfield/db/query").SQL;
+import type { Database } from "@everyfield/db/client";
+import { privateStorage } from "@everyfield/db/schema";
+export const later = () => import("@everyfield/db/query");
+export const used = [sql, t, eq, privateStorage, pgTable] as unknown as Database;
+import { pgTable } from "@everyfield/db/columns";
+`;
+	const hits = lint({
+		"apps/web/src/features/x/server.ts": code,
+		"apps/web/src/features/wiki/server.ts": code,
+		"apps/web/src/features/settings/mail.ts": "export const none = 1;\n",
+		"packages/domain/src/x/index.ts": code,
+	}).filter((hit) => hit.endsWith(" web-database-imports"));
+	assert.deepEqual(
+		hits,
+		[
+			"apps/web/src/features/settings/mail.ts:1 web-database-imports",
+			...[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`),
+		].sort(),
+	);
+	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 9, "WEB_SQL_HOLDERS only shrinks");
+});
+
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
 	const code = `import "server-only";
 import { logFailure, logLine } from "@everyfield/domain/log";
@@ -1592,6 +1624,54 @@ export function gate(path: string, out: boolean) {
 		"apps/web/src/features/x/routes.tsx:14 sign-in-redirect",
 		"apps/web/src/features/x/routes.tsx:8 sign-in-redirect",
 		"apps/web/src/features/x/routes.tsx:9 sign-in-redirect",
+	]);
+});
+
+test("INV-lint: a context value built during render is reported through aliases, casts and conditionals; stable values are not", () => {
+	const source = `import React, { createContext, useCallback, useMemo } from "react";
+type T = { theme: string };
+const ThemeContext = createContext<object | null>(null);
+const Store = { Provider: ThemeContext };
+export function A({ theme, on, children }: { theme: string; on: boolean; children: unknown }) {
+	const stable = useMemo(() => ({ theme }), [theme]);
+	const change = useCallback(() => theme, [theme]);
+	const alias = { theme };
+	const twice = alias;
+	const pick = on ? stable : null;
+	return (
+		<>
+			<ThemeContext value={{ theme }}>{children}</ThemeContext>
+			<Store.Provider value={[theme]}>{children}</Store.Provider>
+			<ThemeContext value={() => theme}>{children}</ThemeContext>
+			<ThemeContext value={twice}>{children}</ThemeContext>
+			<ThemeContext value={{ theme } as T}>{children}</ThemeContext>
+			<ThemeContext value={on ? { theme } : null}>{children}</ThemeContext>
+			<ThemeContext value={(on && [theme]) || null}>{children}</ThemeContext>
+			<ThemeContext value={stable}>{children}</ThemeContext>
+			<ThemeContext value={change}>{children}</ThemeContext>
+			<ThemeContext value={pick}>{children}</ThemeContext>
+			<Store.Provider value={theme}>{children}</Store.Provider>
+		</>
+	);
+}
+export function B({ children, ...rest }: { children: unknown; a: string }) {
+	return <ThemeContext value={rest}>{children}</ThemeContext>;
+}
+export const Seat = createContext(null);
+export const Flag = React.createContext(false);
+export const SeatContext = createContext(null);
+`;
+	assert.deepEqual(lint({ "packages/ui/src/x.tsx": source }), [
+		"packages/ui/src/x.tsx:13 stable-context-value",
+		"packages/ui/src/x.tsx:14 stable-context-value",
+		"packages/ui/src/x.tsx:15 stable-context-value",
+		"packages/ui/src/x.tsx:16 stable-context-value",
+		"packages/ui/src/x.tsx:17 stable-context-value",
+		"packages/ui/src/x.tsx:18 stable-context-value",
+		"packages/ui/src/x.tsx:19 stable-context-value",
+		"packages/ui/src/x.tsx:28 stable-context-value",
+		"packages/ui/src/x.tsx:30 stable-context-value",
+		"packages/ui/src/x.tsx:31 stable-context-value",
 	]);
 });
 
