@@ -72,7 +72,6 @@ export type ScriptRun = {
 	outcome: Outcome;
 };
 
-// Streams each complete output line to onLine as it arrives, so a stalled child has already said what it is doing.
 export function runScript(
 	script: string,
 	cwd: string,
@@ -114,8 +113,6 @@ export function runScript(
 	});
 }
 
-// typecheck:tools checks one project per tsc process in turn: `tsc -b` over all of them kept every program in one
-// process and peaked near the CI runner's 16 GB.
 async function typecheckTools(root: string): Promise<number> {
 	const script: unknown = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).scripts?.["typecheck:tools"];
 	if (typeof script !== "string") return 0;
