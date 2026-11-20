@@ -10,7 +10,6 @@ class FakeNode extends EventTarget {
 	parentNode: FakeNode | null = null;
 	attributes = new Map<string, string>();
 	style: Record<string, string> = {};
-	namespaceURI = "http://www.w3.org/1999/xhtml";
 	nodeValue: string | null = null;
 	constructor(
 		public nodeName: string,
@@ -24,9 +23,6 @@ class FakeNode extends EventTarget {
 	get ownerDocument() {
 		return fakeDocument;
 	}
-	get firstChild(): FakeNode | null {
-		return this.childNodes[0] ?? null;
-	}
 	get textContent(): string {
 		return this.nodeType === 3 ? (this.nodeValue ?? "") : this.childNodes.map((c) => c.textContent).join("");
 	}
@@ -36,13 +32,6 @@ class FakeNode extends EventTarget {
 	appendChild(child: FakeNode) {
 		child.parentNode = this;
 		this.childNodes.push(child);
-		return child;
-	}
-	insertBefore(child: FakeNode, before: FakeNode | null) {
-		child.parentNode = this;
-		const at = before ? this.childNodes.indexOf(before) : -1;
-		if (at < 0) this.childNodes.push(child);
-		else this.childNodes.splice(at, 0, child);
 		return child;
 	}
 	removeChild(child: FakeNode) {
@@ -56,19 +45,12 @@ class FakeNode extends EventTarget {
 	getAttribute(name: string) {
 		return this.attributes.get(name) ?? null;
 	}
-	hasAttribute(name: string) {
-		return this.attributes.has(name);
-	}
 	removeAttribute(name: string) {
 		this.attributes.delete(name);
 	}
 	closest() {
 		return null;
 	}
-	getRootNode() {
-		return fakeDocument;
-	}
-	focus() {}
 	all(): FakeNode[] {
 		return this.childNodes.flatMap((c) => [c, ...c.all()]);
 	}
@@ -76,20 +58,16 @@ class FakeNode extends EventTarget {
 
 const fakeDocument = Object.assign(new EventTarget(), {
 	nodeType: 9,
-	activeElement: null,
 	createElement: (tag: string) => new FakeNode(tag.toUpperCase()),
 	createElementNS: (_ns: string, tag: string) => new FakeNode(tag),
 	createTextNode: (text: string) => Object.assign(new FakeNode("#text", 3), { nodeValue: text }),
-	documentElement: null,
 	head: new FakeNode("HEAD"),
-	getElementsByTagName: () => [],
 });
 
 Object.assign(globalThis, {
 	window: globalThis,
 	document: fakeDocument,
 	HTMLIFrameElement: class {},
-	HTMLInputElement: class {},
 	HTMLFormElement: class {},
 	IS_REACT_ACT_ENVIRONMENT: true,
 });
