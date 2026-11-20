@@ -45,33 +45,6 @@
 				},
 				"packages/domain/src/intelligence/**": {
 					"everyfield/private-care-scope": "The intelligence domain owns the private-care tables and operations"
-				},
-				"packages/domain/src/operations/refusals.ts": {
-					"everyfield/domain-refusals": "defineRefusals lives here: it builds the one refusal class, the retry table read from the contract and the refusal reply every domain module uses"
-				},
-				"packages/domain/src/feedback/index.ts": {
-					"everyfield/domain-refusals": "Feedback refusals are a bare { code } that Evry and the feedback screens read; defineRefusals adds details, correlationId and retry, which would change what Evry sees"
-				},
-				"packages/domain/src/dashboard/index.ts": {
-					"everyfield/domain-refusals": "Dashboard refusals are a bare { code } that Evry and the dashboard read; defineRefusals adds details, correlationId and retry, which would change what Evry sees"
-				},
-				"packages/domain/src/people/pipeline-metrics.ts": {
-					"everyfield/domain-refusals": "Pipeline metrics answers a bare { code } refusal that its contract test pins; defineRefusals adds details, correlationId and retry to that reply"
-				},
-				"packages/domain/src/identity/**": {
-					"everyfield/domain-refusals": "Identity uses another mechanism: an identity refusal carries its HTTP status and identity's handler answers it as HTTP JSON; an invitation refusal carries a parsed safe error with retryAt details"
-				},
-				"packages/domain/src/settings/credentials.ts": {
-					"everyfield/domain-refusals": "Credential changes answer identity's credential outcome (a status with a correlationId and no retry), the same mechanism as identity's password and email flows"
-				},
-				"packages/domain/src/organizations/seat.ts": {
-					"everyfield/domain-refusals": "Organization pipeline, program and import refusals use another mechanism: a { status, refusal } reply whose refusal carries a field or file problem beside its code"
-				},
-				"packages/domain/src/organizations/core.ts": {
-					"everyfield/domain-refusals": "Organization commands refuse with a typed code (OrganizationRefusal) that the web mount and Evry each turn into their own reply; organizations has no safe-error contract to define refusals from"
-				},
-				"packages/domain/src/people/csv/sheet.ts": {
-					"everyfield/domain-refusals": "SheetRefused carries a file problem that People CSV import and the organizations pipeline import each turn into their own module's refusal; it never reaches a reply itself"
 				}
 			}
 		},
