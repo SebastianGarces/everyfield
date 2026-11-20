@@ -8,6 +8,7 @@ import { z } from "zod";
 import type { EvryActor } from "../context/actor.ts";
 import { currentAuthority } from "../context/authority.ts";
 import { EvryRefusal } from "../context/errors.ts";
+import { logRefusal } from "@everyfield/domain/flags";
 import { liveJob } from "../runtime/job.ts";
 import { fence, type RunLease } from "../runtime/run-store.ts";
 import type { MailPort, NativePorts, ReviewedWrite } from "./types.ts";
@@ -63,6 +64,16 @@ export async function readReview(db: Database, actor: EvryActor, id: string): Pr
 	return proposalRow.parse(row.proposal);
 }
 
+function refuseWhileMailPaused(
+	write: Pick<ReviewedWrite<unknown>, "sendsMail">,
+	mail: MailPort | null,
+	action: "evry.prepareProposal" | "evry.approveProposal",
+) {
+	if (!write.sendsMail || !mail?.transport.paused) return;
+	logRefusal("outbound-mail", action);
+	throw new EvryRefusal("mail_paused");
+}
+
 const proposeInput = z.strictObject({ operation, input: z.unknown() });
 export async function prepareProposal(
 	db: Database,
@@ -76,6 +87,7 @@ export async function prepareProposal(
 	const call = parse(proposeInput, raw);
 	const write = adapter(actor, call.operation);
 	const input = parse(write.input, call.input);
+	refuseWhileMailPaused(write, mail, "evry.prepareProposal");
 	const reviewSql = await write.review(actor, input, { db, mail, native });
 	if (!reviewSql) return null;
 	const r = await db.execute(sql`
@@ -190,9 +202,15 @@ export async function approveProposal(
 	id: string,
 	raw: unknown,
 	storage: PrivateStorage | null,
+	mail: MailPort | null = null,
 ) {
 	const proposalId = parse(z.uuid(), id);
 	const witness = parse(approval, raw);
+	if (mail?.transport.paused) {
+		const shown = await readReview(db, actor, proposalId);
+		if (shown.status === "pending")
+			refuseWhileMailPaused(REVIEWED_WRITES[shown.operation as Operation], mail, "evry.approveProposal");
+	}
 	const reason = witness.reason?.trim() || null;
 	const approve = async (shownUpload: string | null) => {
 		const job = randomUUID();

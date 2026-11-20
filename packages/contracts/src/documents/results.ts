@@ -15,6 +15,7 @@ export const documentsError = z.discriminatedUnion("code", [
 	defineSafeError("render_failed", {}, "never"),
 	defineSafeError("conflict", {}, "refresh"),
 	defineSafeError("access_denied", {}, "never"),
+	defineSafeError("exports_paused", {}, "never"),
 ]);
 export type DocumentsError = z.infer<typeof documentsError>;
 export type DocumentsReply<T> = Reply<T, DocumentsError>;

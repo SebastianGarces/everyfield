@@ -31,7 +31,8 @@ Every command prints the database it targets first.
         when evf is reachable on this Mac and skips a flag with an open removal task (label flag:<name>), so a
         rerun files nothing twice. Never files under CI; with no flag database configured under CI it skips
   flag check                        fails when a release flag is past its expires date or a registry entry has no
-        readFlag("<name>") left outside the registry and flag declarations (apps/web test:unit runs it: bin/dev check and CI)
+        readFlag("<name>") or switchedOff(…, "<name>", …) left outside the registry and flag declarations
+        (apps/web test:unit runs it: bin/dev check and CI)
 
 Targets:
   (default)                 the shared development database

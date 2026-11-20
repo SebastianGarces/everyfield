@@ -21,7 +21,7 @@ import type { MailPort, NativePorts } from "../proposals/types.ts";
 import type { QualifiedModel } from "./model.ts";
 import { appendEvent, loadHistory, loadTurn, savedResult, type RunLease, type Turn } from "./run-store.ts";
 import { liveRoom } from "./live.ts";
-import { modelTools, proposalForModel, resultForModel } from "./tools.ts";
+import { modelTools, proposalForModel, refusalForModel, resultForModel } from "./tools.ts";
 import { meteredModel } from "./spend.ts";
 import { traced, traceTurn, type Claimed } from "./trace.ts";
 import { isTransient } from "@everyfield/domain/log";
@@ -142,6 +142,7 @@ async function run(
 	};
 
 	try {
+		if (deps.model.status === "paused") throw new EvryRefusal("model_paused");
 		const session = turn.session_id;
 		const checked = session ? await traced("access check", () => deps.freshActor(session)) : null;
 		if (!session || !checked || checked.accountId !== turn.account_id || checked.owner.id !== turn.tenant_id)
@@ -307,7 +308,7 @@ async function run(
 					deps.mail,
 					deps.native ?? null,
 				).catch((error) => (error instanceof EvryRefusal ? error.code : "unknown"));
-				if (typeof proposal === "string") return { error: proposal };
+				if (typeof proposal === "string") return refusalForModel(proposal);
 				if (!proposal) return { error: "source_unavailable" };
 				const target = proposal.review.target;
 				const sequence = await save("tool_result", {

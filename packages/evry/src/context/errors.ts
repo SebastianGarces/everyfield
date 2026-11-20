@@ -6,6 +6,8 @@ export type EvryErrorCode =
 	| "invalid_input"
 	| "run_active"
 	| "model_unavailable"
+	| "model_paused"
+	| "mail_paused"
 	| "source_unavailable"
 	| "interrupted"
 	| "review_changed"
@@ -28,6 +30,8 @@ const retry: Record<EvryErrorCode, "never" | "same_request" | "new_turn"> = {
 	invalid_input: "never",
 	run_active: "same_request",
 	model_unavailable: "new_turn",
+	model_paused: "new_turn",
+	mail_paused: "same_request",
 	source_unavailable: "new_turn",
 	interrupted: "new_turn",
 	review_changed: "never",

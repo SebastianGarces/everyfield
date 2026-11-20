@@ -21,6 +21,30 @@ export const registry = {
 		created: "2026-11-18",
 		expires: "2027-02-18",
 	},
+	"evry-model-calls": {
+		owner: "Sebastian",
+		task: "T-472",
+		kind: "kill",
+		default: true,
+		created: "2026-11-19",
+		expires: "2027-11-19",
+	},
+	"outbound-mail": {
+		owner: "Sebastian",
+		task: "T-472",
+		kind: "kill",
+		default: true,
+		created: "2026-11-19",
+		expires: "2027-11-19",
+	},
+	"document-exports": {
+		owner: "Sebastian",
+		task: "T-472",
+		kind: "kill",
+		default: true,
+		created: "2026-11-19",
+		expires: "2027-11-19",
+	},
 } as const satisfies Registry;
 
 export type FlagName = keyof typeof registry;

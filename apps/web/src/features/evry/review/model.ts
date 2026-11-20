@@ -1123,6 +1123,8 @@ export function mailRefusalText(code: string | undefined): string {
 			return "Your seat no longer allows email changes, so nothing was done.";
 		case "mail_unavailable":
 			return "This server cannot reach the email service, so nothing was done.";
+		case "mail_paused":
+			return "Sending email was paused before this went out, so nothing was sent. Ask Evry to prepare it again later.";
 		case "not_found":
 			return "This message is no longer in Messages, so nothing was done.";
 		case "rsvp_needs_meeting":
@@ -1161,6 +1163,8 @@ export function actionNotice(error: ProjectedError | "lost", mail: boolean): str
 			return "This review is already closed.";
 		case "photo_unavailable":
 			return "The uploaded photo is no longer available, so nothing was saved.";
+		case "mail_paused":
+			return "Sending email is paused for now, so nothing was sent. This change is still waiting. Approve it again later.";
 		case "invalid_input":
 			return "Some values are not valid. Check them, then update the review.";
 		case "not_found":

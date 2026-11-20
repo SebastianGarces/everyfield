@@ -12,8 +12,10 @@ const NOT_READERS = [
 export type Source = { path: string; text: string };
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const reads = (name: string) =>
+const flagRead = (name: string) =>
 	new RegExp(`(?:\\breadFlag\\s*\\(|\\.value\\s*\\()\\s*(["'\`])${escape(name)}\\1\\s*\\)`);
+const killSwitchRead = (name: string) => new RegExp(`\\bswitchedOff\\s*\\([^;]*?,\\s*(["'\`])${escape(name)}\\1\\s*,`);
+const reads = (name: string, text: string) => flagRead(name).test(text) || killSwitchRead(name).test(text);
 
 export function flagProblems(declared: Registry, sources: readonly Source[], today: string): string[] {
 	const readers = sources.filter(
@@ -25,9 +27,9 @@ export function flagProblems(declared: Registry, sources: readonly Source[], tod
 			problems.push(
 				`release flag ${name} expired on ${flag.expires} (owner ${flag.owner}, ${flag.task}): remove it, or move expires in packages/domain/src/flags/registry.ts with the owner's word`,
 			);
-		if (!readers.some((s) => reads(name).test(s.text)))
+		if (!readers.some((s) => reads(name, s.text)))
 			problems.push(
-				`flag ${name} has no reader left: no readFlag("${name}") outside the registry and flag declarations, so delete its registry entry`,
+				`flag ${name} has no reader left: no readFlag("${name}") or switchedOff(…, "${name}", …) outside the registry and flag declarations, so delete its registry entry`,
 			);
 	}
 	return problems;

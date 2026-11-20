@@ -24,7 +24,12 @@ import { EvryRefusal } from "../../../packages/evry/src/context/errors.ts";
 import { LIMITS } from "../../../packages/evry/src/context/limits.ts";
 import { selectQualifiedModel, type Price } from "../../../packages/evry/src/runtime/model.ts";
 import { callCostMicroUsd } from "../../../packages/evry/src/runtime/spend.ts";
-import { modelTools, proposalForModel, resultForModel } from "../../../packages/evry/src/runtime/tools.ts";
+import {
+	modelTools,
+	proposalForModel,
+	refusalForModel,
+	resultForModel,
+} from "../../../packages/evry/src/runtime/tools.ts";
 import {
 	prepareProposal,
 	REVIEW_MINUTES,
@@ -262,14 +267,14 @@ export type Conversation = {
 const refuse = async (): Promise<never> => {
 	throw Error("a review never calls the email service");
 };
-const MAIL: MailPort = {
+export const MAIL: MailPort = {
 	keys: {
 		encryptionKey: Buffer.alloc(32, 7),
 		addressKey: Buffer.alloc(32, 9),
 		from: "church@example.test",
 		origin: "https://app.example.test",
 	},
-	transport: { send: refuse, cancel: refuse, reschedule: refuse },
+	transport: { paused: false, send: refuse, cancel: refuse, reschedule: refuse },
 };
 
 const MAX_STEPS = LIMITS.toolCalls + 1;
@@ -298,11 +303,12 @@ export async function converse(
 	as: ActorName,
 	text: string,
 	history: Turn[] = [],
+	{ recorded = golden, mail = MAIL }: { recorded?: ReturnType<typeof recorder>; mail?: MailPort } = {},
 ): Promise<Conversation> {
 	const { db } = church;
 	const actor = church.actors[as];
 	const keys: string[] = [];
-	const model = golden.model(keys);
+	const model = recorded.model(keys);
 	const catalog = readCatalog(actor, RECORDED);
 	const calls: ToolCall[] = [];
 	const proposals: Proposal[] = [];
@@ -398,12 +404,12 @@ export async function converse(
 				proposals.push(card);
 				const number = proposals.length;
 				const open = await (conversation ??= openConversation(db, actor));
-				const proposal = await prepareProposal(db, actor, open.lease, open.id, call, MAIL).catch((error) =>
+				const proposal = await prepareProposal(db, actor, open.lease, open.id, call, mail).catch((error) =>
 					error instanceof EvryRefusal ? error.code : "unknown",
 				);
 				if (typeof proposal === "string" || !proposal) {
 					card.error = proposal || "source_unavailable";
-					return { error: card.error };
+					return refusalForModel(card.error);
 				}
 				card.prepared = true;
 				card.review = proposal.review;

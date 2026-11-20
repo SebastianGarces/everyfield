@@ -14,6 +14,7 @@ import { REVIEWED_WRITES, staleMessage } from "../proposals/store.ts";
 import { refusalCode } from "../proposals/review.ts";
 import type { EffectResult, MailPort, NativePorts, ReviewedWrite } from "../proposals/types.ts";
 import { gatedTransaction } from "@everyfield/domain/operations";
+import { logRefusal } from "@everyfield/domain/flags";
 
 export type EffectLease = { jobId: string; tenantId: string; leaseOwner: string; generation: string };
 
@@ -107,6 +108,10 @@ export async function executeProposal(
 			const write = REVIEWED_WRITES[p.operation] as ReviewedWrite<unknown>;
 			const { reach } = write;
 			if (reach && !mail) throw new Refused("mail_unavailable");
+			if (write.sendsMail && mail?.transport.paused) {
+				logRefusal("outbound-mail", "evry.executeProposal");
+				throw new Refused("mail_paused");
+			}
 			const effectKey = `evry:${p.id}:${p.revision}`;
 			const context = { session: session.data, selected };
 			if (!p.reached) {

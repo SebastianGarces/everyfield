@@ -13,6 +13,8 @@ const declared = {
 	"unread-ops": flag("ops", "2027-06-30"),
 	"read-by-value": flag("ops", "2027-06-30"),
 	"read-only-by-declarations": flag("release", "2027-06-30"),
+	"read-by-switch": flag("kill", "2027-06-30"),
+	"named-in-switch-action": flag("kill", "2027-06-30"),
 } as const;
 
 const sources = [
@@ -22,6 +24,10 @@ const sources = [
 	},
 	{ path: "apps/web/src/features/b/server.ts", text: "await readFlag(`expired-kill`)" },
 	{ path: "packages/domain/src/people/x.ts", text: `(await readFlags(db, actor)).value("read-by-value")` },
+	{
+		path: "apps/web/src/server/jobs/x.ts",
+		text: `switchedOff(await readSwitches(db), "read-by-switch", "jobs.run"); switchedOff(s, "a", "named-in-switch-action");`,
+	},
 	{
 		path: "packages/domain/src/flags/registry.ts",
 		text: `readFlag("unread-ops"); readFlag("read-only-by-declarations")`,
@@ -34,8 +40,9 @@ const sources = [
 test("the flag check fails on a release flag past its expires date and on a registry entry with no reader, naming each flag", () => {
 	assert.deepEqual(flagProblems(declared, sources, "2027-01-01"), [
 		"release flag expired-release expired on 2026-12-31 (owner Tests, T-471): remove it, or move expires in packages/domain/src/flags/registry.ts with the owner's word",
-		'flag unread-ops has no reader left: no readFlag("unread-ops") outside the registry and flag declarations, so delete its registry entry',
-		'flag read-only-by-declarations has no reader left: no readFlag("read-only-by-declarations") outside the registry and flag declarations, so delete its registry entry',
+		'flag unread-ops has no reader left: no readFlag("unread-ops") or switchedOff(…, "unread-ops", …) outside the registry and flag declarations, so delete its registry entry',
+		'flag read-only-by-declarations has no reader left: no readFlag("read-only-by-declarations") or switchedOff(…, "read-only-by-declarations", …) outside the registry and flag declarations, so delete its registry entry',
+		'flag named-in-switch-action has no reader left: no readFlag("named-in-switch-action") or switchedOff(…, "named-in-switch-action", …) outside the registry and flag declarations, so delete its registry entry',
 	]);
 });
 

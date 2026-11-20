@@ -129,6 +129,7 @@ type Batch =
 export type CaptureOptions = {
 	settle?: (db: Database, ids: readonly string[]) => Promise<void>;
 	silent?: boolean;
+	paused?: boolean;
 };
 
 export const appOrigin = (): string => new URL(serverConfig().IDENTITY_ORIGIN).origin;
@@ -208,7 +209,7 @@ const instantOf = (text: string) => Date.parse(text.replace(" ", "T").replace(/(
 export function deliveryTransport(
 	ready: MailReady,
 	request: typeof fetch = fetch,
-	{ settle = settleCaptured, silent = false }: CaptureOptions = {},
+	{ settle = settleCaptured, silent = false, paused = false }: CaptureOptions = {},
 	environment: MailEnv = serverEnv(),
 ): DeliveryTransport {
 	const call = (path: string, init: RequestInit & { signal: AbortSignal }) =>
@@ -341,6 +342,7 @@ export function deliveryTransport(
 	}
 
 	return {
+		paused,
 		send(batch, signal) {
 			return post(batch.key, batch.messages, batch.scheduledAt, signal);
 		},
