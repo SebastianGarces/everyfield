@@ -199,7 +199,7 @@ export function PersonPicker({
 						return (
 							<RadioGroup
 								aria-label={label}
-								value={value?.id ?? (none ? "" : undefined)}
+								value={value?.id ?? ""}
 								onValueChange={(id) => {
 									if (id === "") return onChange(null);
 									const p = options.find((o) => o.id === id);
