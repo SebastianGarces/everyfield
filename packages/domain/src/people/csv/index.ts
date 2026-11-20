@@ -68,6 +68,7 @@ function problemOf(issue: z.core.$ZodIssue): Problem {
 	return { column, code: "too_long" };
 }
 
+const rowInput = c.createPersonRequest.shape.input.omit({ stage: true, adultClassification: true, birthDate: true });
 function readRow(row: number, header: string[], fields: string[]): FileRow {
 	if (fields.length !== header.length)
 		return { row, status: "invalid", problems: [{ column: null, code: "column_count" }] };
@@ -79,7 +80,7 @@ function readRow(row: number, header: string[], fields: string[]): FileRow {
 	const firstName = cell("first_name"),
 		lastName = cell("last_name"),
 		source = cell("source");
-	const parsed = c.createPersonRequest.shape.input.safeParse({
+	const parsed = rowInput.safeParse({
 		displayName: [firstName, lastName].filter((v) => v !== null).join(" "),
 		firstName,
 		lastName,

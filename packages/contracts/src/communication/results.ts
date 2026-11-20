@@ -351,7 +351,7 @@ export const contactCorrectionResult = z.strictObject({
 export const recipientOutcome = z.enum(["cancelled", "sent", "open"]);
 export type RecipientOutcome = z.infer<typeof recipientOutcome>;
 export const mailReport = z.discriminatedUnion("kind", [
-	z.object({
+	z.strictObject({
 		kind: z.literal("schedule"),
 		confirmation: z.enum(["confirmed", "not_confirmed", "refused"]),
 		scheduledAt: z.string(),
@@ -362,22 +362,22 @@ export const mailReport = z.discriminatedUnion("kind", [
 		leftOut: count.optional(),
 		code: z.string().optional(),
 	}),
-	z.object({
+	z.strictObject({
 		kind: z.literal("reschedule"),
 		confirmation: z.enum(["confirmed", "not_confirmed", "none"]),
 		scheduledAt: z.string(),
 		open: count,
 		sent: count,
 	}),
-	z.object({
+	z.strictObject({
 		kind: z.literal("cancel"),
 		confirmation: z.enum(["confirmed", "not_confirmed", "none"]),
 		cancelled: count,
 		sent: count,
 		open: count,
-		people: z.array(z.object({ name: z.string(), outcome: recipientOutcome })).optional(),
+		people: z.array(z.strictObject({ name: z.string(), outcome: recipientOutcome })).optional(),
 	}),
-	z.object({
+	z.strictObject({
 		kind: z.literal("replace"),
 		confirmation: z.enum(["confirmed", "not_confirmed"]),
 		scheduledAt: z.string(),
@@ -387,13 +387,13 @@ export const mailReport = z.discriminatedUnion("kind", [
 		waiting: count.optional(),
 		leftOut: count.optional(),
 	}),
-	z.object({
+	z.strictObject({
 		kind: z.literal("replace_stopped"),
 		confirmation: z.enum(["not_confirmed", "blocked", "refused"]),
 		cancelled: count,
 		sent: count,
 		open: count,
-		people: z.array(z.object({ name: z.string(), outcome: recipientOutcome })),
+		people: z.array(z.strictObject({ name: z.string(), outcome: recipientOutcome })),
 		code: z.string().optional(),
 	}),
 ]);

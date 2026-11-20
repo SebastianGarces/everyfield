@@ -66,6 +66,12 @@
 			}
 		},
 		{
+			"files": ["packages/contracts/src/**"],
+			"rules": {
+				"everyfield/strict-contract-objects": "error"
+			}
+		},
+		{
 			"files": ["**/*.ts", "**/*.tsx", "**/*.mts", "**/*.cts"],
 			"rules": {
 				"constructor-super": "off",

@@ -2214,3 +2214,50 @@ test("INV-lint: a server action parameter typed as a trusted shape is reported, 
 		],
 	);
 });
+
+test("INV-strict-contracts: a contract schema that accepts unknown keys is reported, naming z.strictObject; only the listed historyQuery keeps its explicit .strip()", () => {
+	const source = `import { z } from "zod";
+export const a = z.object({ x: z.string() });
+export const b = z.strictObject({ x: z.string() }).passthrough();
+export const c = z.strictObject({ x: z.string() }).loose();
+export const d = z.looseObject({ x: z.string() });
+export const e = z.strictObject({ x: z.string() }).strip();
+export const historyQuery = z.object({ x: z.string() }).strip();
+export const f = z.strictObject({ x: z.string() });
+`;
+	const listed = `import { z } from "zod";
+export const historyQuery = z
+	.object({ limit: z.unknown().optional() })
+	.strip();
+export const other = z.object({ x: z.string() }).strip();
+`;
+	const dir = sandbox({
+		"packages/contracts/src/m.ts": source,
+		"packages/contracts/src/communication/requests.ts": listed,
+		"packages/domain/src/m.ts": source,
+	});
+	assert.deepEqual(
+		lintIn(dir, [
+			"packages/contracts/src/m.ts",
+			"packages/contracts/src/communication/requests.ts",
+			"packages/domain/src/m.ts",
+		]),
+		[
+			"packages/contracts/src/communication/requests.ts:5 strict-contract-objects",
+			"packages/contracts/src/communication/requests.ts:5 strict-contract-objects",
+			"packages/contracts/src/m.ts:2 strict-contract-objects",
+			"packages/contracts/src/m.ts:3 strict-contract-objects",
+			"packages/contracts/src/m.ts:4 strict-contract-objects",
+			"packages/contracts/src/m.ts:5 strict-contract-objects",
+			"packages/contracts/src/m.ts:6 strict-contract-objects",
+			"packages/contracts/src/m.ts:7 strict-contract-objects",
+			"packages/contracts/src/m.ts:7 strict-contract-objects",
+		],
+	);
+	const ran = spawnSync(OXLINT, ["-c", ".oxlintrc.json", "packages/contracts/src/m.ts"], {
+		cwd: dir,
+		encoding: "utf8",
+		env: env(dir),
+	});
+	assert.match(ran.stdout, /use z\.strictObject, not z\.object\./);
+});

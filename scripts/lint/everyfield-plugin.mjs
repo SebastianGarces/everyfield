@@ -218,6 +218,47 @@ const noErrorMessageMatch = {
 	},
 };
 
+const LOOSE_SCHEMA = new Set(["object", "looseObject"]);
+const LOOSE_METHOD = new Set(["passthrough", "loose", "strip"]);
+export const STRIP_SCHEMAS = { "packages/contracts/src/communication/requests.ts": "historyQuery" };
+const declaredName = (node) => {
+	let at = node.parent;
+	while (at && at.type !== "VariableDeclarator") at = at.parent;
+	return at?.id.type === "Identifier" ? at.id.name : null;
+};
+const strictContractObjects = {
+	meta: { type: "problem" },
+	create(context) {
+		const kept = STRIP_SCHEMAS[repoPath(context.filename)];
+		const excepted = (node) => kept !== undefined && declaredName(node) === kept;
+		const stripped = (node) =>
+			node.parent?.type === "MemberExpression" &&
+			node.parent.object === node &&
+			node.parent.property.name === "strip" &&
+			excepted(node);
+		return {
+			MemberExpression: (node) => {
+				if (node.computed || node.property.type !== "Identifier") return;
+				const name = node.property.name;
+				if (node.object.type === "Identifier" && node.object.name === "z" && LOOSE_SCHEMA.has(name)) {
+					if (name === "object" && node.parent.type === "CallExpression" && stripped(node.parent)) return;
+					context.report({
+						node,
+						message: `A contract schema refuses unknown keys: use z.strictObject, not z.${name}.`,
+					});
+					return;
+				}
+				if (!LOOSE_METHOD.has(name) || node.parent.type !== "CallExpression" || node.parent.callee !== node) return;
+				if (name === "strip" && node.object.type === "CallExpression" && stripped(node.object)) return;
+				context.report({
+					node,
+					message: `A contract schema refuses unknown keys: use z.strictObject, not .${name}().`,
+				});
+			},
+		};
+	},
+};
+
 const unwrapped = (node) => {
 	let at = node;
 	while (
@@ -3149,6 +3190,7 @@ export default {
 		"feature-boundaries": featureBoundaries,
 		"no-sql-comments": noSqlComments,
 		"no-error-message-match": noErrorMessageMatch,
+		"strict-contract-objects": strictContractObjects,
 		"route-reads": routeReads,
 		"route-segment-defaults": routeSegmentDefaults,
 		"render-reads": renderReads,

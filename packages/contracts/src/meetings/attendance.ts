@@ -72,7 +72,7 @@ export const reconcileAttendanceRequest = z.strictObject({
 });
 export const recordEvaluationRequest = z.strictObject({
 	requestKey,
-	input: z.object({
+	input: z.strictObject({
 		meetingId,
 		scores,
 		notes: z.string().trim().min(1).max(5000).nullable().default(null),
