@@ -48,7 +48,7 @@ export function LoadableView<T>({
 					) : undefined
 				}
 			>
-				Nothing was changed. Try again in a moment.
+				{state.text ?? "Nothing was changed. Try again in a moment."}
 			</StatePanel>
 		);
 	}

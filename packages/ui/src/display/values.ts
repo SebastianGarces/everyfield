@@ -11,6 +11,7 @@ export type Loadable<T> =
 	| {
 			status: "error";
 			title?: string;
+			text?: string;
 			onRetry?: () => void;
 			meta?: string;
 	  }
