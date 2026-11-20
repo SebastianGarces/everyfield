@@ -3,8 +3,7 @@ import { writeActor } from "./core.ts";
 import { revision } from "@everyfield/contracts/common";
 import type { OrganizationAdapter } from "@everyfield/contracts/organizations";
 import * as Q from "@everyfield/contracts/organizations";
-import { alias } from "@everyfield/db/columns";
-import { and, desc, eq, isNotNull, sql } from "@everyfield/db/query";
+import { desc, eq, sql, type SQL } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { z } from "zod";
 import { auditSavepoint } from "../operations/writes.ts";
@@ -20,9 +19,7 @@ import {
 	unavailable,
 	type OrganizationEffects,
 } from "./core.ts";
-const reference_version_v = alias(tables.reference_version, "v");
-const reference_item_i = alias(tables.reference_item, "i");
-const reference_release_r = alias(tables.reference_release, "r");
+import { GLOBAL } from "../wiki/core.ts";
 const profileRow = z.object({
 	name: z.string(),
 	city: z.string().nullable(),
@@ -39,14 +36,12 @@ const profileRow = z.object({
 	revision,
 });
 export interface GeographyReference {
-	candidates(
-		tx: WriteTx,
-		input: {
-			referenceVersionId: string;
-			locality: { city: string | null; stateProvince: string | null; country: string | null };
-		},
-	): Promise<readonly string[]>;
+	candidates(input: {
+		referenceVersionId: string;
+		locality: { city: string | null; stateProvince: string | null; country: string | null };
+	}): SQL;
 }
+const referenceHeld = z.object({ official: z.number().int(), region: z.number().int() });
 export function profileOperations(
 	effects: OrganizationEffects,
 	geography: GeographyReference,
@@ -88,48 +83,24 @@ export function profileOperations(
 					.where(eq(tables.plant.id, selected.id))
 					.for("update");
 				checkRevision(q.expectedRevision, revision.parse(plant[0]?.revision));
-				const official = await tx
-					.select({ id: reference_version_v.id })
-					.from(reference_version_v)
-					.innerJoin(reference_item_i, eq(reference_item_i.id, reference_version_v.item_id))
-					.innerJoin(reference_release_r, eq(reference_release_r.id, reference_version_v.release_id))
-					.where(
-						and(
-							and(
-								and(
-									and(
-										eq(reference_version_v.id, q.input.referenceVersionId),
-										eq(reference_item_i.kind, "geography_dataset"),
-									),
-									eq(reference_item_i.tenant_id, "00000000-0000-0000-0000-000000000000"),
-								),
-								eq(reference_release_r.state, "validated"),
-							),
-							isNotNull(reference_release_r.validated_at),
-						),
-					)
-					.for("share", { of: [reference_version_v, reference_item_i, reference_release_r] });
-				if (official.length !== 1) refuse("reference_unavailable");
-				if (q.input.regionItemId !== null) {
-					const candidates = await geography.candidates(tx, {
-						referenceVersionId: q.input.referenceVersionId,
-						locality: q.input.locality,
-					});
-					const region = await tx
-						.select({ id: tables.reference_item.id })
-						.from(tables.reference_item)
-						.where(
-							and(
-								and(
-									eq(tables.reference_item.id, q.input.regionItemId),
-									eq(tables.reference_item.kind, "geography_region"),
-								),
-								eq(tables.reference_item.tenant_id, "00000000-0000-0000-0000-000000000000"),
-							),
-						)
-						.for("share");
-					if (region.length !== 1 || !candidates.includes(q.input.regionItemId)) refuse("region_unavailable");
-				}
+				const official = sql`SELECT v.id FROM reference_version v JOIN reference_item i ON i.id=v.item_id
+ JOIN reference_release r ON r.id=v.release_id WHERE v.id=${q.input.referenceVersionId}::uuid AND i.kind='geography_dataset'
+ AND i.tenant_id=${GLOBAL}::uuid AND r.state='validated' AND r.validated_at IS NOT NULL FOR SHARE OF v, i, r`;
+				const candidates = geography.candidates({
+					referenceVersionId: q.input.referenceVersionId,
+					locality: q.input.locality,
+				});
+				const held = referenceHeld.parse(
+					(
+						await tx.execute(sql`WITH official AS MATERIALIZED (${official}),
+ region AS MATERIALIZED (SELECT x.id FROM reference_item x WHERE x.id=${q.input.regionItemId}::uuid
+  AND x.kind='geography_region' AND x.tenant_id=${GLOBAL}::uuid AND EXISTS(SELECT FROM official)
+  AND x.id IN (${candidates}) FOR SHARE)
+ SELECT (SELECT count(*) FROM official)::int AS official, (SELECT count(*) FROM region)::int AS region`)
+					).rows[0],
+				);
+				if (held.official !== 1) refuse("reference_unavailable");
+				if (q.input.regionItemId !== null && held.region !== 1) refuse("region_unavailable");
 				const prior = await tx
 					.select({ id: tables.plant_geography.id })
 					.from(tables.plant_geography)

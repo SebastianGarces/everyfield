@@ -554,10 +554,9 @@
 		"retry": 4
 	},
 	"early-access/index.receiveAccessRequest": {
-		"limit": 10,
+		"limit": 9,
 		"retry": 5,
-		"reason": "A public request with no session or seat to gate it. BEGIN; two advisory locks, one for the email and one for the network key, so concurrent requests from either count each other; the two attempt counts inside the rate window; the attempt insert; the open-request read for the email; the request insert with its mail payload; COMMIT; then the provider's mail id is recorded in its own statement after the send, so the provider call holds no lock. A rate-limited request rolls back after its first count: 5 statements. Its largest first run: 2 transaction, 2 locked read, 3 read, 3 write.",
-		"reads": "T-506: 2 reads in a row (read of early_access_attempt, then read of early_access_attempt); the follow-up merges them or says why they cannot be one statement."
+		"reason": "A public request with no session or seat to gate it. BEGIN; two advisory locks, one for the email and one for the network key, so concurrent requests from either count each other; one statement counts the email's and the network key's attempts inside their rate windows; the attempt insert; the open-request read for the email; the request insert with its mail payload; COMMIT; then the provider's mail id is recorded in its own statement after the send, so the provider call holds no lock. A rate-limited request rolls back after the count: 5 statements. Its largest first run: 2 transaction, 2 locked read, 2 read, 3 write."
 	},
 	"feedback.admin.changeStatus": {
 		"limit": 1
@@ -972,8 +971,8 @@
 		"limit": 5
 	},
 	"native.onboarding.createDiscovery": {
-		"limit": 8,
-		"reason": "BEGIN; the write gate; the lifecycle read; the setup check (seated, open discovery); the account's affiliations and its wiki readings, which the discovery copies; the discovery insert; COMMIT. Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write."
+		"limit": 7,
+		"reason": "BEGIN; the write gate; the lifecycle read; the setup check (seated, open discovery); the account's wiki readings, which the discovery copies; the discovery insert; COMMIT. Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
 	},
 	"native.organizations.accept": {
 		"limit": 7,
@@ -1247,16 +1246,14 @@
 		"reason": "Above the pattern: the claim, setup and audit writes run beside one plant UPDATE that sets the completion time and both revisions. Its largest first run: 2 transaction, 1 locked read, 1 read, 3 write."
 	},
 	"onboarding.convertDiscovery": {
-		"limit": 16,
-		"retry": 7,
-		"reason": "Provisions a church from a discovery profile: gate, request-key read, seat lock, discovery lock with the linked organizations, links read, one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (owner and contact reads, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27; per HTTP request without relationships it is 12 (was 16), and the screen's entry reload after it is one statement. Its largest first run: 2 transaction, 5 locked read, 3 read, 6 write.",
-		"reads": "T-506: 3 reads in a row (locked read of seat, then locked read of account+affiliation+discovery+organization+seat, then locked read of affiliation+organization); the follow-up merges them or says why they cannot be one statement."
+		"limit": 14,
+		"retry": 5,
+		"reason": "Provisions a church from a discovery profile: gate, request-key read, one locked statement for the seat lock, then the linked organizations with their owners and the discovery, then the links, in that order; one statement for the plant with its owner seat and creation entry, the account's first Person (one write), new links, the shared relationship notices (owner and contact reads, mail authorization and insert), the discovery retirement (its time is in the reply) and one final statement. RT-6a brought it from 27 and one locked read for its seat, discovery and links from 16; without relationships it sends 9, and the screen's entry reload after it is one statement. Its largest first run: 2 transaction, 3 locked read, 3 read, 6 write."
 	},
 	"onboarding.createDiscovery": {
-		"limit": 8,
+		"limit": 7,
 		"retry": 5,
-		"reason": "The producer's savepoint and its release; the write gate; the lifecycle read; the setup check (seated, open discovery); the account's affiliations and its wiki readings, which the discovery copies; the discovery insert. A replay of a stored request key answers after the gate and one read: 5 statements. Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write.",
-		"reads": "T-506: 2 reads in a row (read of affiliation+organization, then read of article_revision+organization+reading+tenant); the follow-up merges them or says why they cannot be one statement."
+		"reason": "The producer's savepoint and its release; the write gate; the lifecycle read; the setup check (seated, open discovery); the account's wiki readings, which the discovery copies (a new discovery has no live relationship yet, so it reads none); the discovery insert. A replay of a stored request key answers after the gate and one read: 5 statements. Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
 	},
 	"onboarding.createPlant": {
 		"limit": 8,
@@ -1269,8 +1266,8 @@
 		"reason": "Above the pattern: the declaration and launch writes run beside one plant UPDATE that sets both answers, both revisions and the saved time. Its largest first run: 2 transaction, 2 locked read, 1 read, 5 write."
 	},
 	"onboarding/core.withOnboardingWrite": {
-		"limit": 8,
-		"reason": "BEGIN and COMMIT around onboarding.createDiscovery: the write gate, the lifecycle read, the setup check, the account's affiliations and wiki readings, which the discovery copies, and the discovery insert. Its largest first run: 2 transaction, 1 locked read, 4 read, 1 write."
+		"limit": 7,
+		"reason": "BEGIN and COMMIT around onboarding.createDiscovery: the write gate, the lifecycle read, the setup check, the account's wiki readings, which the discovery copies, and the discovery insert. Its largest first run: 2 transaction, 1 locked read, 3 read, 1 write."
 	},
 	"organizations.associations.acceptInvitation": {
 		"limit": 4
@@ -1294,9 +1291,8 @@
 		"limit": 3
 	},
 	"organizations.organizations.correctReportingLocation": {
-		"limit": 10,
-		"reason": "The lifecycle read; the plant locked; the official Region's current reference version locked, the official-list candidate read and the Region item locked (WP-047b); the plant's current geography row locked; then the new geography row, the plant revision, the affiliated organizations' revisions and the superseded digest jobs, one statement each because each table's change is its own invalidation. Its largest first run, with an official Region chosen: 2 read, 4 locked read, 4 write.",
-		"reads": "T-506: 3 reads in a row (locked read of reference_item+reference_release+reference_version, then read of reference_item+reference_release+reference_version, then locked read of reference_item); the follow-up merges them or says why they cannot be one statement."
+		"limit": 8,
+		"reason": "The request-key read; the plant locked; one statement that locks the official Region's current reference version and then, when a Region is chosen, the Region item among the official-list candidates (WP-047b); the plant's current geography row locked; then the new geography row, the plant revision, the affiliated organizations' revisions and the superseded digest jobs, one statement each because each table's change is its own invalidation. Its largest first run: 1 read, 3 locked read, 4 write."
 	},
 	"organizations.organizations.updateProfile": {
 		"limit": 2
@@ -1308,12 +1304,10 @@
 		"limit": 3
 	},
 	"organizations.residency.leave": {
-		"limit": 6,
-		"reads": "T-506: 2 reads in a row (locked read of organization+residency_link, then read of lifecycle_witness+organization+tenant); the follow-up merges them or says why they cannot be one statement."
+		"limit": 3
 	},
 	"organizations.residency.setSharing": {
-		"limit": 6,
-		"reads": "T-506: 2 reads in a row (locked read of organization+residency_link, then read of lifecycle_witness+organization+tenant); the follow-up merges them or says why they cannot be one statement."
+		"limit": 3
 	},
 	"people.addNote": {
 		"limit": 7,
@@ -1633,9 +1627,9 @@
 		"limit": 1
 	},
 	"reference.installApprovedWiki": {
-		"limit": 24,
-		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write.",
-		"reads": "T-506: 2 reads in a row (read of account+auth_session, then locked read of account+platform_grant); the follow-up merges them or says why they cannot be one statement."
+		"limit": 22,
+		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 7 read, 7 write.",
+		"reads": "On a release already saved, the release lock returns its id and verifyStored's re-read of what is stored under it (versions, then articles, then passages) passes that id. That re-read is the one check both paths share; on a new release it follows install's writes, so folding it into the lock would mean a second copy of it, or cutting the install path's statements as well."
 	},
 	"reference.installMessageTemplates": {
 		"limit": 2
@@ -1644,14 +1638,13 @@
 		"limit": 1
 	},
 	"reference.promote": {
-		"limit": 24,
-		"reason": "Platform operator publication, not a user request (RT-6a reviewed, kept). A preflight transaction checks the operator's grant before the protected artifact is read (4); then one transaction: the global publication lock, the grant again at the commit boundary, the request-key read, the current activation, the release lock, a set-based install (one statement per table), a re-read of every stored derivative before activation and one activation statement with its audit. Its largest first run: 4 transaction, 6 locked read, 7 read, 7 write.",
-		"reads": "T-506: 2 reads in a row (locked read of reference_release, then read of reference_release); the follow-up merges them or says why they cannot be one statement."
+		"limit": 22,
+		"reason": "Platform operator publication, not a user request (RT-6a reviewed, kept). A preflight transaction checks the operator's grant and live session in one locked statement before the protected artifact is read (3); then one transaction: the global publication lock, the grant and session again at the commit boundary, the request-key read, the current activation, the release lock (with the columns the stored check compares and whether the release was ever activated), a set-based install (one statement per table), a re-read of every stored derivative before activation and one activation statement with its audit. Its largest first run: 4 transaction, 4 locked read, 7 read, 7 write.",
+		"reads": "On a release already saved, the release lock returns its id and verifyStored's re-read of what is stored under it (versions, then articles, then passages) passes that id. That re-read is the one check both paths share; on a new release it follows install's writes, so folding it into the lock would mean a second copy of it, or cutting the install path's statements as well."
 	},
 	"reference.rebuildEmbeddings": {
-		"limit": 24,
-		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 9 read, 7 write.",
-		"reads": "T-506: 2 reads in a row (read of account+auth_session, then locked read of account+platform_grant); the follow-up merges them or says why they cannot be one statement."
+		"limit": 22,
+		"reason": "Activates through reference.promote. Its largest first run: 4 transaction, 4 locked read, 7 read, 7 write."
 	},
 	"seats.appointAdmin": {
 		"limit": 7,

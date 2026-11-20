@@ -90,7 +90,7 @@ export const effects = {
 		return sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${sql.param(v.sourceId)} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`;
 	},
 };
-export const api = createOrganizationAdapter(effects, { candidates: async () => [] });
+export const api = createOrganizationAdapter(effects, { candidates: () => sql`SELECT NULL::uuid WHERE false` });
 export const command = (input: unknown, expectedRevision = "1", requestKey = randomUUID()) => ({
 	requestKey,
 	expectedRevision,

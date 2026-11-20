@@ -7,7 +7,14 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { currentActor, liveOwner } from "../access/session.ts";
 import { setAuditDetails, type AuditWrite } from "../operations/writes.ts";
-import { choices, loadAffiliations, pairOf, type RelationshipNotice } from "../organizations/core.ts";
+import {
+	affiliationJson,
+	choices,
+	loadAffiliations,
+	lockingAffiliations,
+	pairOf,
+	type RelationshipNotice,
+} from "../organizations/core.ts";
 import { accountPersonProducer } from "../people/index.ts";
 import { creationEntry } from "../phases/creation-entry/index.ts";
 import {
@@ -53,6 +60,11 @@ const off = sharingChoices.parse({
 });
 export const pending = { status: "pending" } as const;
 const startRow = z.object({ seats: z.number().int(), setup: z.boolean(), discovery: z.boolean() });
+const conversionStart = z.object({
+	seats: z.number().int(),
+	discovery: z.object({ id: z.uuid(), revision: revisionId, converted: z.boolean() }).nullable(),
+	links: z.array(affiliationJson),
+});
 export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$inferSelect) {
 	const links = await loadAffiliations(
 		tx,
@@ -251,7 +263,13 @@ export function creation(effects: OnboardingEffects) {
 					},
 					cx,
 				);
-				const savedProfile = await profile(tx, a.account.id, d!);
+				const savedProfile = {
+					discoveryId: d.id,
+					revision: d.revision,
+					relationships: [],
+					reading: await ownReading(tx, a.account.id),
+					documentProposals: [],
+				};
 				return finish(tx, cx, c.createDiscoveryResult, () => ({
 					status: "active",
 					profile: savedProfile,
@@ -267,24 +285,27 @@ export function creation(effects: OnboardingEffects) {
 					return c.convertDiscoveryResult.parse(
 						await currentCreation(tx, ctx, c.convertDiscoveryResult.parse(cx.value)),
 					);
-				await seatless(tx, a.account.id);
 				const linked = sql`SELECT organization_id FROM affiliation WHERE account_id=${a.account.id}::uuid AND ended_at IS NULL`;
 				const organizationsLocked = sql`(SELECT count(*) FROM (WITH owners AS MATERIALIZED (SELECT o.id FROM account o WHERE o.id IN (SELECT account_id FROM seat WHERE organization_id IN (${linked}) AND role='owner' AND ended_at IS NULL) ORDER BY o.id FOR SHARE)
 	SELECT o.id FROM organization o WHERE o.id IN (${linked}) AND (SELECT count(*) FROM owners)>=0 ORDER BY o.id FOR NO KEY UPDATE) locked)>=0`;
-				const [d] = await tx
-					.select()
-					.from(t.discovery)
-					.where(
-						and(eq(t.discovery.id, q.input.discoveryId), eq(t.discovery.account_id, a.account.id), organizationsLocked),
-					)
-					.for("update");
-				if (!d || d.converted_at) deny("unavailable");
-				revision(q.expectedRevision, d.revision);
-				const links = await loadAffiliations(
-					tx,
-					and(eq(t.affiliation.account_id, a.account.id), isNull(t.affiliation.ended_at))!,
-					true,
+				const held = conversionStart.parse(
+					(
+						await tx.execute(sql`WITH held_seats AS MATERIALIZED (SELECT id FROM seat WHERE account_id=${a.account.id}::uuid
+ AND ended_at IS NULL FOR UPDATE),
+ held_discovery AS MATERIALIZED (SELECT x.id, x.revision::text AS revision, x.converted_at IS NOT NULL AS converted
+  FROM discovery x WHERE x.id=${q.input.discoveryId}::uuid AND x.account_id=${a.account.id}::uuid
+  AND CASE WHEN EXISTS(SELECT FROM held_seats) THEN false ELSE ${organizationsLocked} END FOR UPDATE),
+ held_links AS MATERIALIZED (${lockingAffiliations(sql`l.account_id=${a.account.id}::uuid AND l.ended_at IS NULL
+  AND EXISTS(SELECT FROM held_discovery WHERE NOT converted AND revision=${q.expectedRevision})`)})
+ SELECT (SELECT count(*) FROM held_seats)::int AS seats, (SELECT row_to_json(held_discovery) FROM held_discovery) AS discovery,
+  (SELECT coalesce(json_agg(held_links ORDER BY held_links.id),'[]') FROM held_links) AS links`)
+					).rows[0],
 				);
+				if (held.seats) deny("active_seat_conflict");
+				const d = held.discovery;
+				if (!d || d.converted) deny("unavailable");
+				revision(q.expectedRevision, d.revision);
+				const links = held.links;
 				const selected = [];
 				for (const selection of [...q.input.relationships].sort((a, b) =>
 					a.relationshipId.localeCompare(b.relationshipId),

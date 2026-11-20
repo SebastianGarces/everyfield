@@ -253,7 +253,7 @@ try {
 	};
 	const adapter = createOrganizationAdapter(
 		{ invitation: async () => {}, invalidate: () => sql`SELECT 1` },
-		{ candidates: async () => [] },
+		{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 	);
 	const ruth = await signIn(QA_LOGINS.hillOwner);
 	const hill = ruth.authority.actor.context.owner;

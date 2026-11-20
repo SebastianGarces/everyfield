@@ -136,7 +136,9 @@ before(async () => {
 			return sql`UPDATE job SET state='superseded' WHERE subject_record_id=${sql.param(i.sourceId)} AND kind='digest' AND state='ready'`;
 		},
 	};
-	const organizations = createOrganizationAdapter(organizationEffects, { candidates: async () => [] });
+	const organizations = createOrganizationAdapter(organizationEffects, {
+		candidates: () => sql`SELECT NULL::uuid WHERE false`,
+	});
 	const credentials = createAccountCredentials({
 		db,
 		authDb,

@@ -189,6 +189,32 @@ test("AC:ADR1-003 resident category withdrawal and leave preserve the current sa
 		/unavailable/,
 	);
 });
+test("INV-residency: a resident cannot change sharing or leave once the residency is no longer live", async () => {
+	const { r, link, person } = await resident();
+	await S.db.execute(sql`UPDATE person SET state='retired' WHERE id=${sql.param(person)}`);
+	await assert.rejects(
+		S.call(
+			"residency.setSharing",
+			r,
+			S.command({
+				linkId: link,
+				expectedConsentRevision: "1",
+				choices: { shareFoundations: false, shareMilestones: false },
+			}),
+		),
+		/unavailable/,
+	);
+	await assert.rejects(
+		S.call("residency.leave", r, S.command({ linkId: link, expectedConsentRevision: "1" })),
+		/unavailable/,
+	);
+	const [stored] = (
+		await S.db.execute(
+			sql`SELECT ended_at IS NULL AS open, revision::text AS revision, share_foundations FROM residency_link WHERE id=${sql.param(link)}`,
+		)
+	).rows;
+	assert.deepEqual(stored, { open: true, revision: "1", share_foundations: true });
+});
 test("INV-atomicity: required outbox failure rolls back sharing, revision, audit, receipt and invalidation", async () => {
 	const p = await S.tenant("plant"),
 		pa = await S.identity(p),
@@ -202,7 +228,7 @@ test("INV-atomicity: required outbox failure rolls back sharing, revision, audit
 				throw Error("synthetic_outbox_failure");
 			},
 		},
-		{ candidates: async () => [] },
+		{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 	);
 	await assert.rejects(
 		S.write(pa, (c) =>

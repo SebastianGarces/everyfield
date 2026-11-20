@@ -475,7 +475,7 @@ async function fill(
 		invalidate: (_tx, input) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
 	};
-	const organizations = createOrganizationAdapter(effects, { candidates: async () => [] });
+	const organizations = createOrganizationAdapter(effects, { candidates: () => sql`SELECT NULL::uuid WHERE false` });
 	async function organizationRow(kind: OrgKind, name: string, city = "Austin"): Promise<OrgOwner> {
 		let id = (
 			await rows(admin, sql`SELECT id FROM organization WHERE name=${name} AND kind=${kind} ORDER BY id LIMIT 1`)

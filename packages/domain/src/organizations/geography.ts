@@ -126,13 +126,11 @@ const datasetVersion = sql`(SELECT v.id FROM reference_version v JOIN reference_
 	ORDER BY r.validated_at DESC, v.version_number DESC LIMIT 1)`;
 
 export const geographyReference: GeographyReference = {
-	async candidates(tx: Transaction, input) {
+	candidates(input) {
 		const keys = matchAreas(input.locality).map((a) => regionKey(a.code));
-		if (!keys.length) return [];
-		const { rows } = await tx.execute<{ id: string }>(sql`SELECT i.id FROM reference_item i
+		return sql`SELECT i.id FROM reference_item i
 			WHERE i.kind='geography_region' AND i.tenant_id=${GLOBAL}::uuid AND i.canonical_key = ANY(${sql.param(keys)}::text[])
-			AND ${input.referenceVersionId}::uuid = ${datasetVersion}`);
-		return rows.map((r) => r.id);
+			AND ${input.referenceVersionId}::uuid = ${datasetVersion}`;
 	},
 };
 

@@ -6,6 +6,7 @@ import { alias } from "@everyfield/db/columns";
 import { and, eq, getTableColumns, inArray, isNotNull, isNull, lte, sql } from "@everyfield/db/query";
 import * as tables from "@everyfield/db/tables";
 import { readOwnResidency } from "@everyfield/domain/access";
+import { ownResidency } from "../access/pipeline.ts";
 import { liveRead, type RequestActor, type WriteTx } from "../access/session.ts";
 import { z } from "zod";
 import { auditSavepoint } from "../operations/writes.ts";
@@ -42,14 +43,24 @@ const residentRow = z.object({
 	share_milestones: z.boolean(),
 	organization_kind: z.enum(["sending_church", "sending_network"]),
 });
-async function loadResident(tx: WriteTx, id: string, write = false) {
-	const query = tx
+async function loadResident(tx: WriteTx, id: string) {
+	const rows = await tx
 		.select({ ...getTableColumns(tables.residency_link), organization_kind: tables.organization.kind })
 		.from(tables.residency_link)
 		.innerJoin(tables.organization, eq(tables.organization.id, tables.residency_link.organization_id))
 		.where(eq(tables.residency_link.id, id));
-	const rows = await (write ? query.for("update", { of: tables.residency_link }) : query);
 	return rows[0] ? residentRow.parse(rows[0]) : null;
+}
+async function lockResident(tx: WriteTx, id: string, session: z.infer<typeof sessionId>, selected: Owner) {
+	const own =
+		selected.kind === "account"
+			? ownResidency(session, selected, { organizationId: sql`r.organization_id`, personId: sql`r.person_id` })
+			: sql`false`;
+	const { rows } = await tx.execute(sql`SELECT r.id, r.organization_id, r.person_id, r.account_id, r.affiliation_id,
+ r.consent_revision::text AS consent_revision, r.revision::text AS revision, r.ended_at, r.share_foundations,
+ r.share_milestones, o.kind AS organization_kind, ${own} AS own
+ FROM residency_link r JOIN organization o ON o.id=r.organization_id WHERE r.id=${id}::uuid FOR UPDATE OF r`);
+	return rows[0] ? residentRow.extend({ own: z.boolean() }).parse(rows[0]) : null;
 }
 export async function readPipelineConsents(db: Reader, authority: RequestActor, relationshipId?: string) {
 	const actor = authority.actor,
@@ -283,7 +294,7 @@ export function consentOperations(
 		leave: boolean,
 	) {
 		const q = leave ? Q.leaveResidencyRequest.parse(raw) : Q.setResidencySharingRequest.parse(raw),
-			l = await loadResident(tx, q.input.linkId, true),
+			l = await lockResident(tx, q.input.linkId, session, selected),
 			actor = await writeActor(tx, session, selected);
 		if (!l || actor.status !== "active" || selected.kind !== "account" || selected.id !== l.account_id) refuse();
 		const organization = Q.organizationOwner.parse({
@@ -291,8 +302,7 @@ export function consentOperations(
 			id: l.organization_id,
 			organizationKind: l.organization_kind,
 		});
-		if (l.ended_at === null && !(await readOwnResidency(tx, session, organization, { personId: l.person_id })))
-			refuse();
+		if (l.ended_at === null && !l.own) refuse();
 		const c = await beginCommand(tx, actor, selected, leave ? "residency.leave" : "residency.setSharing", q);
 		if (c.kind === "replay") return Q.mutationResult.parse(c.result);
 		if (l.ended_at !== null) {

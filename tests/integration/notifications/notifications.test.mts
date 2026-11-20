@@ -22,7 +22,7 @@ const orgs = createOrganizationAdapter(
 		invitation: async () => {},
 		invalidate: () => sql`UPDATE account SET id = id WHERE false`,
 	},
-	{ candidates: async () => [] },
+	{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 );
 type Value<F extends (...args: never[]) => unknown> = Extract<
 	Awaited<ReturnType<F>>,

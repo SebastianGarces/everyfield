@@ -40,7 +40,7 @@ const api = createOrganizationAdapter(
 				revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${v.sourceId}
 				AND kind IN ('assessment','digest') AND state IN ('ready','retry_wait','claimed')`,
 	},
-	{ candidates: async () => [] },
+	{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 );
 
 export async function seedOrganizations(t) {

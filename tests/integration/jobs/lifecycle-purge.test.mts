@@ -77,7 +77,9 @@ before(async () => {
 		securityNotice: async () => {},
 	});
 	api = settingsApi({
-		organizations: createOrganizationAdapter(organizationEffects, { candidates: async () => [] }),
+		organizations: createOrganizationAdapter(organizationEffects, {
+			candidates: () => sql`SELECT NULL::uuid WHERE false`,
+		}),
 		organizationEffects,
 		effects: { replan: async () => {} },
 		suppression: async () => "unavailable",

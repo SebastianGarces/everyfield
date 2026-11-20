@@ -23,7 +23,9 @@ export function nativePorts(mail: { to: string; purpose: string }[] = []): Nativ
 		invalidate: (_tx: unknown, input: { sourceId: string }) =>
 			sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${input.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`,
 	};
-	const organizations = createOrganizationAdapter(organizationEffects as never, { candidates: async () => [] });
+	const organizations = createOrganizationAdapter(organizationEffects as never, {
+		candidates: () => sql`SELECT NULL::uuid WHERE false`,
+	});
 	const effects = {
 		replan: (tx: never, i: { owner: { id: string }; revision: string; operationId: string; kind: string }) =>
 			enqueueJob(tx, {

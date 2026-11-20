@@ -50,7 +50,7 @@ before(async () => {
 			invalidate: (_tx, v) =>
 				sql`UPDATE job SET state='superseded',claim_generation=claim_generation+1,lease_owner=NULL,lease_until=NULL,revision=revision+1,finished_at=clock_timestamp() WHERE subject_record_id=${v.sourceId} AND kind='digest' AND state IN ('ready','retry_wait','claimed')`,
 		},
-		{ candidates: async () => [] },
+		{ candidates: () => sql`SELECT NULL::uuid WHERE false` },
 	);
 });
 after(() => f?.close());
