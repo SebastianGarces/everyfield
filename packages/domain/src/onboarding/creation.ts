@@ -42,7 +42,7 @@ export interface OnboardingEffects {
 	): Promise<void>;
 }
 
-const off = sharingChoices.parse({
+const off = {
 	people: false,
 	meetings: false,
 	tasks: false,
@@ -50,7 +50,7 @@ const off = sharingChoices.parse({
 	wiki: false,
 	activity: false,
 	shared_findings: false,
-});
+} satisfies z.output<typeof sharingChoices>;
 export const pending = { status: "pending" } as const;
 const startRow = z.object({ seats: z.number().int(), setup: z.boolean(), discovery: z.boolean() });
 export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$inferSelect) {
@@ -60,14 +60,15 @@ export async function profile(tx: Tx, accountId: string, d: typeof t.discovery.$
 	);
 	const relationships = links
 		.filter((a) => a.active)
-		.map((a) =>
-			c.conversionRelationship.parse({
-				relationshipId: a.id,
-				organization: organizationOwner.parse(pairOf(a).organization),
-				revision: a.revision,
-				consentRevision: a.consent_revision,
-				choices: choices(a),
-			}),
+		.map(
+			(a) =>
+				({
+					relationshipId: a.id,
+					organization: organizationOwner.parse(pairOf(a).organization),
+					revision: a.revision,
+					consentRevision: a.consent_revision,
+					choices: choices(a),
+				}) satisfies z.output<typeof c.conversionRelationship>,
 		);
 	return {
 		discoveryId: d.id,
