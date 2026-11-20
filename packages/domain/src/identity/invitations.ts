@@ -246,7 +246,7 @@ export function createInvitationService(config: InvitationConfig) {
 						gt(t.invitation.created_at, sql`clock_timestamp()-interval '720 hours'`),
 					),
 				);
-			if (!observed) return c.invitationDescriptionResult.parse({ status: "unavailable" });
+			if (!observed) return { status: "unavailable" } satisfies z.output<typeof c.invitationDescriptionResult>;
 			await lockSourcePerson(tx, observed);
 			const { invitation: i, tenant } = await d.load(tx, observed.id);
 			await d.pending(

@@ -128,7 +128,12 @@ export function createIdentityService(config: IdentityConfig) {
 		const response = await call(request, "get-session");
 		if (!response.ok) throw new IdentityRefusal("unavailable", 503);
 		const raw: unknown = await response.json();
-		if (!raw) return { response, authUser: null, value: sessionResult.parse({ status: "unauthenticated" }) };
+		if (!raw)
+			return {
+				response,
+				authUser: null,
+				value: { status: "unauthenticated" } satisfies z.output<typeof sessionResult>,
+			};
 		const s = z
 			.object({ user: z.object({ id: z.uuid() }), session: z.object({ id: z.uuid(), expiresAt: z.coerce.date() }) })
 			.parse(raw);
@@ -184,19 +189,17 @@ export function createIdentityService(config: IdentityConfig) {
 									? "sending_network"
 									: "sending_church"
 							: "discovery";
-					return json(
-						registrationOptions.parse({
-							mode: config.registrationMode ?? "open",
-							kinds:
-								invitation?.status === "pending"
-									? [kind]
-									: ["plant_precreation", "discovery", "sending_church", "sending_network"],
-							invitation:
-								invitation?.status === "pending"
-									? { status: "invitation", kind, organizationName: invitation.workspaceName }
-									: { status: "unavailable" },
-						}),
-					);
+					return json({
+						mode: config.registrationMode ?? "open",
+						kinds:
+							invitation?.status === "pending"
+								? [kind]
+								: ["plant_precreation", "discovery", "sending_church", "sending_network"],
+						invitation:
+							invitation?.status === "pending"
+								? { status: "invitation", kind, organizationName: invitation.workspaceName }
+								: { status: "unavailable" },
+					} satisfies z.output<typeof registrationOptions>);
 				}
 				if (path === "recover-invalid-session")
 					return json({ next: invalidSessionReturn(url.searchParams.get("returnTo")) });
@@ -204,7 +207,9 @@ export function createIdentityService(config: IdentityConfig) {
 				if (path === "registration-status") {
 					if (s.value.status === "unauthenticated") throw new IdentityRefusal("unauthenticated", 401);
 					return cookies(
-						json(registrationStatus.parse({ status: s.value.status, accountId: s.value.accountId })),
+						json({ status: s.value.status, accountId: s.value.accountId } satisfies z.output<
+							typeof registrationStatus
+						>),
 						s.response,
 					);
 				}
@@ -422,17 +427,15 @@ export function createIdentityService(config: IdentityConfig) {
 					await config.invitations.resume(s.value.sessionId, v.invitationProof, v.requestKey),
 				);
 				return cookies(
-					json(
-						registrationResult.parse({
-							status: "active",
-							accountId: accepted.accountId,
-						}),
-					),
+					json({
+						status: "active",
+						accountId: accepted.accountId,
+					} satisfies z.output<typeof registrationResult>),
 					s.response,
 				);
 			}
 			return cookies(
-				json(registrationStatus.parse({ status: s.value.status, accountId: s.value.accountId })),
+				json({ status: s.value.status, accountId: s.value.accountId } satisfies z.output<typeof registrationStatus>),
 				s.response,
 			);
 		} catch (error) {
