@@ -2,6 +2,7 @@ import { fixture, ok, refused, type Actor } from "../../support/fixture.mts";
 import { sql } from "../../../packages/db/node_modules/drizzle-orm/index.js";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { feedbackWriter, authorizeTriage } from "../../../packages/domain/src/feedback/index.ts";
+import { queueJobsFor } from "../../../packages/domain/src/jobs/queue.ts";
 import test, { after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
@@ -93,6 +94,45 @@ test("AC:CASE-ADM-001 the dialog saves its details, takes church and role from t
 	);
 	assert.equal(JSON.stringify(row).includes("secret"), false);
 	assert.equal(JSON.stringify(row).includes("draft"), false);
+	const jobs = await rowsOf(
+		sql`SELECT to_jsonb(j) - 'id' - 'eligible_at' AS job, j.eligible_at <= clock_timestamp() AS due FROM job j WHERE j.subject_record_id=${sent.id}::uuid`,
+	);
+	assert.deepEqual(jobs, [
+		{
+			job: {
+				tenant_id: daniel.id,
+				kind: "feedback_publication",
+				subject_record_id: sent.id,
+				producer_key: `feedback/${sent.id}`,
+				source_revision: null,
+				state: "ready",
+				attempt_count: 0,
+				max_attempts: 4,
+				lease_owner: null,
+				lease_until: null,
+				claim_generation: 0,
+				checkpoint_key: null,
+				next_attempt_at: null,
+				error_code: null,
+				finished_at: null,
+				revision: 1,
+			},
+			due: true,
+		},
+	]);
+	await admin.execute(
+		queueJobsFor(sql`(SELECT ${sent.id}::uuid AS id) s`, {
+			tenant: daniel.id,
+			kind: "feedback_publication",
+			keyPrefix: "feedback/",
+		}),
+	);
+	assert.deepEqual(
+		await rowsOf(
+			sql`SELECT to_jsonb(j) - 'id' - 'eligible_at' AS job, j.eligible_at <= clock_timestamp() AS due FROM job j WHERE j.subject_record_id=${sent.id}::uuid`,
+		),
+		jobs,
+	);
 	const audits = await rowsOf(sql`SELECT action FROM audit_event WHERE subject_id=${sent.id}::uuid`);
 	assert.deepEqual(
 		audits.map((a) => a.action),

@@ -53,7 +53,8 @@
 		"everyfield/no-silent-catch": "error",
 		"everyfield/max-state": "error",
 		"everyfield/mint-callers": "error",
-		"everyfield/no-sql-comments": "error"
+		"everyfield/no-sql-comments": "error",
+		"everyfield/no-slop-styling": "error"
 	},
 	"overrides": [
 		{
