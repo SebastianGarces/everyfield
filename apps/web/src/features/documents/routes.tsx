@@ -17,7 +17,7 @@ export async function DocumentsPage({ searchParams }: { searchParams: Search }) 
 	if (viewer.status === "unauthenticated") signIn("/documents");
 	if (viewer.status !== "active" || !viewer.authority) return <Unavailable />;
 	const loaded = await loadDocuments(viewer.authority, query);
-	if (loaded.status === "failed") return <Failed />;
+	if (loaded.status === "lost") return <Failed />;
 	if (loaded.status === "refused") return <Unavailable />;
 	return (
 		<DocumentsScreen
