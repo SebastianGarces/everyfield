@@ -26,7 +26,7 @@ import { RESIDENCY_TEMPLATE } from "../../packages/contracts/src/organizations/p
 import { accountPersonProducer, peopleWriter, personFields } from "../../packages/domain/src/people/index.ts";
 import { createTaskWriter } from "../../packages/domain/src/tasks/index.ts";
 import { teamsWriter } from "../../packages/domain/src/teams/index.ts";
-import { receiveMailCallback } from "../../apps/web/src/server/jobs/webhook.ts";
+import { resendWebhook } from "../../apps/web/src/server/jobs/webhook-route.ts";
 import { FULL_ADDRESS, QA_LOGINS, QA_PASSWORD, QA_ROLES as ROLES, roleUrl, seedRefusal } from "./qa-guard.ts";
 import { gatedTransaction } from "../../packages/domain/src/operations/writes.ts";
 
@@ -1180,16 +1180,17 @@ async function mailCases(
 			const signature = createHmac("sha256", Buffer.from(secret.slice(6), "base64"))
 				.update(`${id}.${stamp}.${raw}`)
 				.digest("base64");
-			const received = await receiveMailCallback(
-				runtime,
-				new Request(`${ORIGIN}/api/webhooks/mail`, {
+			const response = await resendWebhook(
+				new Request(`${ORIGIN}/api/webhooks/resend`, {
 					method: "POST",
 					headers: { "svix-id": id, "svix-timestamp": stamp, "svix-signature": `v1,${signature}` },
 					body: raw,
 				}),
+				() => runtime,
 				secret,
 			);
-			if (received.result !== "applied") throw Error(`delivered callback: ${JSON.stringify(received)}`);
+			const received = await response.text();
+			if (JSON.parse(received).result !== "applied") throw Error(`delivered callback: ${received}`);
 		}
 		done.push(`message ${DELIVERY}`);
 	}

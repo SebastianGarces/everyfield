@@ -27,8 +27,8 @@ import { modelTools } from "../../../packages/evry/src/runtime/tools.ts";
 import { LAUNCH_RULES } from "../../../packages/evry/src/context/compile.ts";
 import { transaction } from "../../../packages/domain/src/jobs/transaction.ts";
 import { claimDue, finishClaim } from "../../../packages/domain/src/jobs/queue.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { seatedNotificationService } from "../../../apps/web/src/server/jobs/seated-notifications.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { seatedNotificationService } from "../../../packages/domain/src/jobs/seated-notifications.ts";
 import { launchNotices } from "../../../apps/web/src/features/launch/notices.ts";
 import { ACTOR_SPECS, evalDatabase, PLANT, seedHope } from "./golden-church.mts";
 import {

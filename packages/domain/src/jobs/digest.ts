@@ -10,23 +10,14 @@ import {
 	owedPeriod,
 	renderOversightDigest,
 	renderPlanterDigest,
-} from "@everyfield/domain/notifications";
+} from "../notifications/index.ts";
 import { randomUUID } from "node:crypto";
 import "server-only";
 import { z } from "zod";
-import { serverConfig } from "../config.ts";
-import { transaction, claimDue, finishClaim, finishJob, lockClaim, type Claim } from "@everyfield/domain/jobs";
-import {
-	MAIL_PASSES,
-	mailUnsubscribe,
-	runDueMail,
-	type AuthorizeMail,
-	type createMailService,
-	type MailPass,
-	type MailTransport,
-} from "./mail.ts";
-import { mountMailService } from "./seated-notifications.ts";
-import { logLine } from "@everyfield/domain/log";
+import { claimDue, finishClaim, finishJob, lockClaim, type Claim } from "./queue.ts";
+import { MAIL_PASSES, type AuthorizeMail, type createMailService } from "./mail.ts";
+import { transaction } from "./transaction.ts";
+import { logLine } from "../log.ts";
 
 const PLAN_LIMIT = 500;
 const DIGESTS_PER_RUN = 20;
@@ -253,24 +244,3 @@ export const authorizeDigestMail: AuthorizeMail = async (tx, list) => {
 	}
 	return allowed;
 };
-
-let mounted: DigestWorker | undefined;
-export function digestsMount(db: Database): DigestWorker {
-	const config = serverConfig();
-	mounted ??= createDigestWorker({
-		origin: config.IDENTITY_ORIGIN,
-		mail: mountMailService({ db, env: config, authorize: authorizeDigestMail, unsubscribe: mailUnsubscribe() }),
-	});
-	return mounted;
-}
-
-export function digestMailPass(db: Database, transport: MailTransport): MailPass {
-	const mail = mountMailService({
-		db,
-		env: serverConfig(),
-		authorize: authorizeDigestMail,
-		unsubscribe: mailUnsubscribe(),
-		transport,
-	});
-	return (limit, until) => runDueMail(db, mail, MAIL_PASSES.digest, limit, until);
-}

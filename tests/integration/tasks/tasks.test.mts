@@ -21,8 +21,8 @@ import {
 	withTaskWrite,
 } from "../../../packages/domain/src/tasks/index.ts";
 import { peopleReader, peopleWriter, withPeopleWrite } from "../../../packages/domain/src/people/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
-import { createNotificationService } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
+import { createNotificationService } from "../../../packages/domain/src/jobs/notifications.ts";
 import { taskReminders } from "../../../apps/web/src/features/tasks/reminders.ts";
 import { claimDue } from "../../../packages/domain/src/jobs/queue.ts";
 

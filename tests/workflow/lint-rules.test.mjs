@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { WEB_SQL_HOLDERS } from "../../scripts/lint/everyfield-plugin.mjs";
 
 const repo = fileURLToPath(new URL("../..", import.meta.url));
 const OXLINT = join(repo, "packages/evry/node_modules/.bin/oxlint");
@@ -138,9 +139,12 @@ export const u = () => { const z = \`\${COLS[0]}.id\`; return sql.raw(z); };
 			"apps/web/src/features/x/reach.ts": reach,
 			"tests/integration/x/reach.test.mts": reach,
 		}),
-		["apps/web/src/features/x/reach.ts", "packages/domain/src/people/reach.ts"]
-			.flatMap((file) => reported.map((line) => `${file}:${line} raw-sql-literal`))
-			.sort(),
+		[
+			"apps/web/src/features/x/reach.ts:1 web-database-imports",
+			...["apps/web/src/features/x/reach.ts", "packages/domain/src/people/reach.ts"].flatMap((file) =>
+				reported.map((line) => `${file}:${line} raw-sql-literal`),
+			),
+		].sort(),
 	);
 });
 
@@ -934,7 +938,7 @@ export const e: string = "x";
 	assert.deepEqual(hits("packages/domain/src/notifications/x.ts"), [1, 3, 4, 7, 8]);
 	assert.deepEqual(hits("apps/web/src/features/x/mail.ts"), [1, 3, 4, 7, 8]);
 	assert.deepEqual(hits("packages/domain/src/communication/delivery.ts"), []);
-	assert.deepEqual(hits("apps/web/src/server/jobs/mail.ts"), []);
+	assert.deepEqual(hits("packages/domain/src/jobs/mail.ts"), []);
 });
 
 test("INV-actor: only the session module builds a RequestActor from a session, in product code; tests may forge one", () => {
@@ -1102,6 +1106,34 @@ export const p = require("node:process").env;
 	);
 });
 
+test("INV-web-sql: apps/web imports no database module outside the files that still hold SQL", () => {
+	const code = `import { sql } from "@everyfield/db/query";
+import * as t from "@everyfield/db/tables";
+import { eq } from "drizzle-orm";
+export { and } from "drizzle-orm/sql";
+export type Q = import("@everyfield/db/query").SQL;
+import type { Database } from "@everyfield/db/client";
+import { privateStorage } from "@everyfield/db/schema";
+export const later = () => import("@everyfield/db/query");
+export const used = [sql, t, eq, privateStorage, pgTable] as unknown as Database;
+import { pgTable } from "@everyfield/db/columns";
+`;
+	const hits = lint({
+		"apps/web/src/features/x/server.ts": code,
+		"apps/web/src/features/wiki/server.ts": code,
+		"apps/web/src/features/settings/mail.ts": "export const none = 1;\n",
+		"packages/domain/src/x/index.ts": code,
+	}).filter((hit) => hit.endsWith(" web-database-imports"));
+	assert.deepEqual(
+		hits,
+		[
+			"apps/web/src/features/settings/mail.ts:1 web-database-imports",
+			...[1, 2, 3, 4, 5, 8, 10].map((line) => `apps/web/src/features/x/server.ts:${line} web-database-imports`),
+		].sort(),
+	);
+	assert.ok(Object.keys(WEB_SQL_HOLDERS).length <= 9, "WEB_SQL_HOLDERS only shrinks");
+});
+
 test("INV-failures: a server catch rethrows, returns the error handed on, or logs without answering lost", () => {
 	const code = `import "server-only";
 import { logFailure, logLine } from "@everyfield/domain/log";
@@ -1171,12 +1203,15 @@ export async function m(run, refusalOf) {
 		lint({
 			"apps/web/src/features/x/server.ts": code,
 			"apps/web/src/server/jobs/x.ts": code.replace('import "server-only";\n', ""),
+			"packages/domain/src/jobs/x.ts": code.replace('import "server-only";\n', ""),
+			"packages/domain/src/people/x.ts": code.replace('import "server-only";\n', ""),
 			"apps/web/src/features/x/Client.tsx": `"use client";\n${code.replace('import "server-only";\n', "")}`,
 			"apps/web/src/server/platform/transient.ts": code,
 		}),
 		[
 			...hits.map((line) => `apps/web/src/features/x/server.ts:${line} no-silent-catch`),
 			...hits.map((line) => `apps/web/src/server/jobs/x.ts:${line - 1} no-silent-catch`),
+			...hits.map((line) => `packages/domain/src/jobs/x.ts:${line - 1} no-silent-catch`),
 		].sort(),
 	);
 });

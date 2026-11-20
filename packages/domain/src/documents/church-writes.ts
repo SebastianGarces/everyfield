@@ -249,11 +249,10 @@ function templateSummary(row: TemplateRow) {
 	});
 }
 
-type Kit = ReturnType<typeof dataFromRow> | null;
-
-function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>, kit: Kit): MergeSources {
+function mergeSources(plant: Awaited<ReturnType<typeof readPlant>>): MergeSources {
 	if (!plant.open) deny("access_denied");
 	if (!plant.subjectOk) deny("unavailable");
+	const { kit } = plant;
 	return {
 		churchName: plant.churchName ?? "",
 		pastorName: plant.pastorName,
@@ -317,22 +316,17 @@ export async function templateStatus(body: c.DocDocument, templates: TemplateSou
 	return statusAgainst(body, await followedTemplate(body, null, null, templates));
 }
 
-async function addedValues(db: Database, scope: Scope, body: c.DocDocument, template: c.DocTemplate, kit: Kit) {
+function addedValues(body: c.DocDocument, template: c.DocTemplate, sources: MergeSources) {
 	const missing = c.missingFields(body, template);
 	const data: Record<string, string> = {};
 	if (!missing.length) return data;
-	const plant = await readPlant(
-		db,
-		{ ...scope, plantId: scope.tenantId },
-		{ personId: null, meetingId: null, teamId: null },
-	);
-	const frozen = frozenData(template.fields, mergeSources(plant, kit)).data;
+	const frozen = frozenData(template.fields, sources).data;
 	for (const field of missing) if (frozen[field.key] !== undefined) data[field.key] = frozen[field.key]!;
 	return data;
 }
 
 async function compareSubject(db: Database, scope: Scope, documentId: string, templates: TemplateSource) {
-	const found = await readChurchWithKit(db, scope, documentId, { admin: true, template: true });
+	const found = await readChurchWithKit(db, scope, documentId, { admin: true, sources: true, template: true });
 	if (!found) deny("unavailable");
 	const { body } = found.doc;
 	const followed = await followedTemplate(body, found.doc.templateId, found.churchTemplate, templates);
@@ -369,18 +363,12 @@ export const churchWriter = {
 				db,
 				{ ...scope, plantId: scope.tenantId },
 				{ personId: null, meetingId: null, teamId: null },
+				churchTemplate
+					? sql`(SELECT ${churchTemplateOf(scope, churchTemplate)} WHERE ${gateSql(scope, true)})`
+					: undefined,
 			);
-			const kitRows = await rowsOf<{
-				kit: Record<string, unknown> | null;
-				church_template: { title: string; body: string } | null;
-			}>(
-				db,
-				sql`SELECT (SELECT to_jsonb(k) FROM church_brand_kit k WHERE k.tenant_id = ${scope.tenantId}::uuid) AS kit,
-					${churchTemplate ? churchTemplateOf(scope, churchTemplate) : sql`NULL::json`} AS church_template
-				FROM (SELECT ${gateSql(scope, true)} AS ok) g WHERE g.ok`,
-			);
-			const sources = mergeSources(plant, kitRows[0]?.kit ? dataFromRow(kitRows[0].kit) : null);
-			const stored = kitRows[0]?.church_template ?? null;
+			const sources = mergeSources(plant);
+			const stored = plant.extra as { title: string; body: string } | null;
 			const template = builtIn ?? storedTemplate(stored?.body ?? null) ?? deny("unavailable");
 			const title = stored?.title ?? template.title;
 			if (!builtIn) knownFields(template, cleaned.values);
@@ -576,13 +564,13 @@ export const churchWriter = {
 		return settle(async () => {
 			const input = parse(c.churchCompareRequest, raw);
 			const scope = adminScope(authority);
-			const { doc, body, origin, followed, template, hash, kit, lists, keys } = await compareSubject(
+			const { doc, body, origin, followed, template, hash, sources, lists, keys } = await compareSubject(
 				db,
 				scope,
 				input.documentId,
 				templates,
 			);
-			const added = await addedValues(db, scope, body, template, kit);
+			const added = addedValues(body, template, sources);
 			const missing = c.missingFields(body, template);
 			return c.churchCompare.parse({
 				documentId: doc.id,
@@ -610,7 +598,7 @@ export const churchWriter = {
 		return settle(async () => {
 			const input = parse(c.acceptTemplateRequest, raw);
 			const scope = adminScope(authority);
-			const { doc, body, template, hash, kit, followed, lists, keys } = await compareSubject(
+			const { doc, body, template, hash, sources, followed, lists, keys } = await compareSubject(
 				db,
 				scope,
 				input.documentId,
@@ -621,7 +609,7 @@ export const churchWriter = {
 			const count = (lists[input.view] ?? []).length;
 			if (input.accept !== "all" && input.accept.some((id) => id >= count))
 				rejectInput("accept", "That change is not in the compare.");
-			const added = await addedValues(db, scope, body, template, kit);
+			const added = addedValues(body, template, sources);
 			const options = { origin: { template: template.id, version: template.version, hash }, values: added };
 			const next = c.docDocument.safeParse(
 				input.view === "changes" && followed.base
@@ -792,7 +780,7 @@ export const churchWriter = {
 					});
 			} catch (error) {
 				if (postgresCode(error) !== "23505") {
-					if (postgresCode(error) === "42501" || postgresCode(error) === "23514") deny();
+					if (postgresCode(error) === "42501" || postgresCode(error) === "23514") deny("unavailable");
 					throw error;
 				}
 			}

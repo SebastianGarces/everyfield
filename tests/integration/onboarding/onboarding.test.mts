@@ -1,7 +1,7 @@
 import "../platform/setup.mts";
 import { RequestActor } from "../../../packages/domain/src/access/session.ts";
 import { sessionId as writeSessionId } from "../../../packages/contracts/src/common/index.ts";
-import { sendOnboardingRelationships } from "../../../apps/web/src/server/jobs/notifications.ts";
+import { sendOnboardingRelationships } from "../../../packages/domain/src/jobs/notifications.ts";
 import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID, randomBytes } from "node:crypto";
@@ -16,7 +16,7 @@ import {
 import { readViewer } from "../../../packages/domain/src/access/index.ts";
 import { createInvitationService } from "../../../packages/domain/src/identity/index.ts";
 import { accountPersonProducer } from "../../../packages/domain/src/people/index.ts";
-import { createMailService } from "../../../apps/web/src/server/jobs/mail.ts";
+import { createMailService } from "../../../packages/domain/src/jobs/mail.ts";
 import foundations from "../../../docs/reference/discovery-foundations.json" with { type: "json" };
 import { ok, refusedWith, waitingOnLock } from "../../support/fixture.mts";
 import { gatedTransaction } from "../../../packages/domain/src/operations/writes.ts";

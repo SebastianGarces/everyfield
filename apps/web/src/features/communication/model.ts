@@ -1,3 +1,4 @@
+import type { Outcome } from "@everyfield/contracts/common";
 import type { hubStates as contractHubStates } from "@everyfield/contracts/communication";
 import { audienceGroups } from "@everyfield/contracts/communication/values";
 
@@ -80,8 +81,6 @@ export type PageData = {
 	churchName: string;
 	origin: string;
 };
-
-export type Outcome<T> = { status: "ok"; value: T } | { status: "refused"; code: string } | { status: "lost" };
 
 function refusalText(code: string): string {
 	switch (code) {

@@ -1,5 +1,6 @@
 "use server";
 
+import type { Outcome } from "@everyfield/contracts/common";
 import {
 	communicationWriter,
 	type CommunicationContext,
@@ -11,7 +12,6 @@ import type {
 	CancelReport,
 	DeliveryReport,
 	Draft,
-	Outcome,
 	ReplaceReport,
 	RescheduleReport,
 	RestoreReport,
