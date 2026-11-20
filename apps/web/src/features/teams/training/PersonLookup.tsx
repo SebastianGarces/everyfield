@@ -29,7 +29,7 @@ import {
 	type PersonLoad,
 	type ShownProgram,
 } from "./model.ts";
-import { loadProblem } from "../../../components/read-failed.ts";
+import { loadProblem, failedIcon } from "../../../components/read-failed.ts";
 import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type Loaded = { [K in keyof PersonLoad]: PersonLoad[K] | ReadFailure };
@@ -149,6 +149,7 @@ function PersonResult({
 				<StatePanel
 					tone="error"
 					title="The summary did not load"
+					icon={failedIcon(summary)}
 					headingLevel="h3"
 					actions={
 						<Button variant="secondary" onClick={onRetry}>
@@ -175,6 +176,7 @@ function PersonResult({
 				<StatePanel
 					tone="error"
 					title="The history did not load"
+					icon={failedIcon(credits)}
 					headingLevel="h3"
 					actions={
 						<Button variant="secondary" onClick={onRetry}>

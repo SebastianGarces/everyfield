@@ -23,7 +23,7 @@ import { updateRoster } from "./actions.ts";
 import { previewRoster } from "./fetch.ts";
 import { problemText, type Detail, type Guest, type Outcome } from "./model.ts";
 import { PENDING, type Change, type PendingGuest } from "./page-state.ts";
-import { loadProblem } from "../../components/read-failed.ts";
+import { loadProblem, failedIcon } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
 type Preview = z.infer<typeof c.rosterPreview>;
@@ -151,7 +151,7 @@ function RosterDialog({
 						<Spinner size={16} /> Comparing with {teamName}…
 					</p>
 				) : preview.status !== "ok" ? (
-					<StatePanel tone="error" title="The comparison did not load" headingLevel="h3">
+					<StatePanel tone="error" title="The comparison did not load" icon={failedIcon(preview)} headingLevel="h3">
 						{preview.status === "refused"
 							? rosterProblem(preview.code)
 							: loadProblem(preview, "Nothing was changed. Try again.")}

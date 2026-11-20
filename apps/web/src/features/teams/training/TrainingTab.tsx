@@ -60,7 +60,7 @@ import {
 	type Flow,
 	type ShownProgram,
 } from "./model.ts";
-import { loadProblem } from "../../../components/read-failed.ts";
+import { loadProblem, failedIcon } from "../../../components/read-failed.ts";
 import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type ShownRead = Outcome<ShownProgram[]> | ReadFailure;
@@ -297,6 +297,7 @@ export function TrainingTab({
 					<StatePanel
 						tone="error"
 						title="Training did not load"
+						icon={failedIcon(loaded)}
 						headingLevel="h3"
 						actions={
 							<Button variant="secondary" onClick={reload} disabled={pending}>

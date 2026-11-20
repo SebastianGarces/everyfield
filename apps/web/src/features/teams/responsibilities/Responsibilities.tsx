@@ -40,7 +40,7 @@ import {
 	offerResponsibilities,
 } from "./actions.ts";
 import { listResponsibilities, previewResponsibilities, readTeamRevision } from "../fetch.ts";
-import { READ_FAILED } from "../../../components/read-failed.ts";
+import { READ_FAILED, READ_FAILED_ICON } from "../../../components/read-failed.ts";
 import type { ReadFailure } from "../../../components/get-reads.ts";
 
 type Page = z.infer<typeof c.responsibilityPage>;
@@ -349,7 +349,12 @@ export function ResponsibilitiesPanel({
 					{addButton}
 				</CardHeader>
 				{listPhase !== null ? (
-					<StatePanel tone="error" title="Responsibilities did not load" headingLevel="h3">
+					<StatePanel
+						tone="error"
+						title="Responsibilities did not load"
+						icon={listPhase === "failed" ? READ_FAILED_ICON : undefined}
+						headingLevel="h3"
+					>
 						{listPhase === "refused"
 							? "You cannot see these responsibilities. Your seat may have changed."
 							: listPhase === "failed"

@@ -98,7 +98,7 @@ import { SetupDialog } from "./Setup.tsx";
 import { apply, type Change } from "./page-state.ts";
 import { ResponsibilitiesPanel } from "./responsibilities/Responsibilities.tsx";
 import type { TeamView } from "./server.ts";
-import { loadProblem } from "../../components/read-failed.ts";
+import { loadProblem, failedIcon } from "../../components/read-failed.ts";
 import type { ReadFailure } from "../../components/get-reads.ts";
 
 const histories = createRead(({ teamId }: { teamId: string; revision: string }) => teamHistory(teamId), {
@@ -1108,7 +1108,7 @@ function HistoryList({ state }: { state: Outcome<{ entries: HistoryEntry[] }> | 
 					<Spinner size={16} /> Loading the history…
 				</p>
 			) : state.status !== "ok" ? (
-				<StatePanel tone="error" title="The history did not load" headingLevel="h3">
+				<StatePanel tone="error" title="The history did not load" icon={failedIcon(state)} headingLevel="h3">
 					{loadProblem(state, "Nothing was changed. Open the tab again in a moment.")}
 				</StatePanel>
 			) : state.value.entries.length === 0 ? (
